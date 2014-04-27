@@ -39,6 +39,7 @@ qboolean gDuelExit = qfalse;
 vmCvar_t	g_trueJedi;
 
 vmCvar_t	g_wasRestarted;
+vmCvar_t	g_warmupAnnouncingPeriod;
 
 vmCvar_t	g_gametype;
 vmCvar_t	g_MaxHolocronCarry;
@@ -596,7 +597,8 @@ static cvarTable_t		gameCvarTable[] = {
 	// *CHANGE 10* anti q3fill
 	{ &g_cleverFakeDetection,	"g_cleverFakeDetection"	, "forcepowers"	, CVAR_ARCHIVE, 0, qtrue },
 
-
+	{ &g_warmupAnnouncingPeriod, "g_warmupAnnouncingPeriod", "30", CVAR_ARCHIVE, 0, qtrue },
+		
 	
 	{ &bot_minping,	"bot_minping"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &bot_maxping,	"bot_maxping"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
@@ -4138,10 +4140,10 @@ void CheckReady(void)
 	}
 
 	// announce instructions
-	if ( !g_wasRestarted.integer )
+	if (!g_wasRestarted.integer && g_warmupAnnouncingPeriod.integer)
 	{
 		static int lastPrint = 0;
-		if (lastPrint < level.time - 10000)
+		if (lastPrint < level.time - g_warmupAnnouncingPeriod.integer*1000)
 		{
 			char msg[MAX_STRING_CHARS / 2] = { 0 };
 			Com_sprintf(msg, sizeof(msg), "Waiting for players to ready up!\nType /ready");
@@ -4171,7 +4173,7 @@ void CheckReady(void)
 		counts[TEAM_RED] = TeamCount(-1, TEAM_RED);
 
 		// eat least 1 player in each team
-		if (counts[TEAM_RED] < 1 || counts[TEAM_BLUE] < 1) 
+		if (counts[TEAM_RED] < 1 || counts[TEAM_BLUE] < 1 || counts[TEAM_RED] != counts[TEAM_BLUE])
 		{
 			conditionsMet = qfalse;
 		}

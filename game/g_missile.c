@@ -480,122 +480,6 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 				AngleVectors(other->r.currentAngles, fwd, NULL, NULL);
 			}
 
-            //SABER DEFLECT BUG LOGS
-
-            {
-                int m, min_client = -1;
-                float dist, min_dist = 99999.0f, projDist;
-                char specbuffer[128];
-                int size = 0;
-
-                // find closest player to the projectile
-                for(m = 0; m < level.maxclients; ++m)
-                {
-                    if (g_entities[m].inuse && g_entities[m].client)
-                    {
-                        dist = Distance(g_entities[m].r.currentOrigin,ent->r.currentOrigin);
-                        if (dist < min_dist)
-                        {
-                            min_dist = dist;
-                            min_client = m;
-                        }                  
-                    }
-                }
-
-                projDist = Distance(ent->r.currentOrigin,g_entities[other->r.ownerNum].r.currentOrigin);
-
-                // shooter and target
-                G_LogPrintf("BLOCK_DBG[1a] shooter=(%i) projectile=(%i;%.1f;%.1f;%.1f) nearest_victim=(%i;%.1f;%.1f;%.1f)\n",
-                    // shooter
-                    ent->r.ownerNum, 
-
-                    // projectile
-                    ent - g_entities,
-                    ent->r.currentOrigin[0], 
-                    ent->r.currentOrigin[1], 
-                    ent->r.currentOrigin[2],
-
-                     // victim
-                    min_client,
-                    g_entities[min_client].r.currentOrigin[0],
-                    g_entities[min_client].r.currentOrigin[1],
-                    g_entities[min_client].r.currentOrigin[2]
-                    );
-
-                // deflecting saber
-                G_LogPrintf("BLOCK_DBG[1b] saber=(%i;%.1f;%.1f;%.1f;%i) saber_owner=(%i;%i;%.1f;%.1f;%.1f) proj_dist=(%.1f) %s\n",
-                    // saber
-                    other - g_entities,
-                    other->r.currentOrigin[0],
-                    other->r.currentOrigin[1],
-                    other->r.currentOrigin[2],
-                    other->inuse,
-  
-                    // saber owner
-                    other->r.ownerNum, 
-                    g_entities[other->r.ownerNum].s.saberEntityNum,
-                    g_entities[other->r.ownerNum].r.currentOrigin[0], 
-                    g_entities[other->r.ownerNum].r.currentOrigin[1], 
-                    g_entities[other->r.ownerNum].r.currentOrigin[2],
-
-                    // distance between projectile and saber_owner
-                    projDist,
-
-                    // bug detector
-                    (projDist > 1000) ? "BINGO" : ""
-                    );
-
-                // deflecting saber muzzle points
-                G_LogPrintf("BLOCK_DBG[1c] muzzle_blade1=(%.1f;%.1f;%.1f) muzzle_blade2=(%.1f;%.1f;%.1f)\n",
-                    // blade 1 muzzle point
-                    g_entities[other->r.ownerNum].client->saber[0].blade[0].muzzlePoint[0],
-                    g_entities[other->r.ownerNum].client->saber[0].blade[0].muzzlePoint[1],
-                    g_entities[other->r.ownerNum].client->saber[0].blade[0].muzzlePoint[2],
-
-                    // blade 2 muzzle point
-                    g_entities[other->r.ownerNum].client->saber[0].blade[1].muzzlePoint[0],
-                    g_entities[other->r.ownerNum].client->saber[0].blade[1].muzzlePoint[1],
-                    g_entities[other->r.ownerNum].client->saber[0].blade[1].muzzlePoint[2]                
-                    );
-
-                    /*
-                G_LogPrintf("G_DeflectMissile()[3] (%i;%i;%i;%i;%i:%i) %s\n",
-                    ent-g_entities,
-                    other-g_entities,
-                    other->flags,
-                    ent->s.weapon,
-                    ent->methodOfDeath,
-                    (other->client)?other->client->ps.weapon:99,
-                    (other->client&&other->client->ps.weapon!=WP_SABER)?"BINGO":"");
-                    */
-
-                // free specs
-                size += Com_sprintf(specbuffer+size,sizeof(specbuffer)-size,"BLOCK_DBG[1d] Free specs: ");
-                for(m = 0; m < level.maxclients; ++m)
-                {
-                    if (g_entities[m].inuse && g_entities[m].client && !(g_entities[m].r.svFlags & SVF_BOT) && g_entities[m].client->sess.spectatorState == SPECTATOR_FREE)
-                    {
-                        size += Com_sprintf(specbuffer+size,sizeof(specbuffer)-size,"%i,",m);
-                    }
-                }
-                size += Com_sprintf(specbuffer+size,sizeof(specbuffer)-size,"\n");
-                Com_Printf(specbuffer);
-
-                size = 0;
-
-                // free specs
-                size += Com_sprintf(specbuffer+size,sizeof(specbuffer)-size,"BLOCK_DBG[1e] Follow specs: ");
-                for(m = 0; m < level.maxclients; ++m)
-                {
-                    if (g_entities[m].inuse && g_entities[m].client && g_entities[m].client->sess.spectatorState == SPECTATOR_FOLLOW)
-                    {
-                        size += Com_sprintf(specbuffer+size,sizeof(specbuffer)-size,"(%i %i),",m,g_entities[m].client->sess.spectatorClient);
-                    }
-                }
-                size += Com_sprintf(specbuffer+size,sizeof(specbuffer)-size,"\n");
-                Com_Printf(specbuffer);
-            }
-
 			G_DeflectMissile(other, ent, fwd);
 			G_MissileBounceEffect(ent, ent->r.currentOrigin, fwd);
 			return;
@@ -627,110 +511,6 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 		{
 			AngleVectors(other->r.currentAngles, fwd, NULL, NULL);
 		}
-
-        {        
-            int m, min_client = -1;
-            float dist, min_dist = 99999.0f, projDist;
-            char specbuffer[128];
-            int size = 0;
-
-            // find closest player to the projectile
-            for(m = 0; m < level.maxclients; ++m)
-            {
-                if (g_entities[m].inuse && g_entities[m].client)
-                {
-                    dist = Distance(g_entities[m].r.currentOrigin,ent->r.currentOrigin);
-                    if (dist < min_dist)
-                    {
-                        min_dist = dist;
-                        min_client = m;
-                    }                  
-                }
-            }
-
-             // shooter and target
-            G_LogPrintf("BLOCK_DBG[2a] shooter=(%i) projectile=(%i;%.1f;%.1f;%.1f) nearest_victim=(%i;%.1f;%.1f;%.1f)\n",
-                // shooter
-                ent->r.ownerNum, 
-
-                // projectile
-                ent - g_entities,
-                ent->r.currentOrigin[0], 
-                ent->r.currentOrigin[1], 
-                ent->r.currentOrigin[2],
-
-                    // victim
-                min_client,
-                g_entities[min_client].r.currentOrigin[0],
-                g_entities[min_client].r.currentOrigin[1],
-                g_entities[min_client].r.currentOrigin[2]
-                );
-
-            projDist = Distance(ent->r.currentOrigin,g_entities[other->r.ownerNum].r.currentOrigin);
-
-            // deflecting saber
-            G_LogPrintf("BLOCK_DBG[2b] saber=(%i;%.1f;%.1f;%.1f;%i) saber_owner=(%i;%i;%.1f;%.1f;%.1f) proj_dist=(%.1f) %s\n",
-                // saber
-                other - g_entities,
-                other->r.currentOrigin[0],
-                other->r.currentOrigin[1],
-                other->r.currentOrigin[2],
-                other->inuse,
-  
-                // saber owner
-                other->r.ownerNum, 
-                g_entities[other->r.ownerNum].s.saberEntityNum,
-                g_entities[other->r.ownerNum].r.currentOrigin[0], 
-                g_entities[other->r.ownerNum].r.currentOrigin[1], 
-                g_entities[other->r.ownerNum].r.currentOrigin[2],
-
-                // distance between projectile and saber_owner
-                projDist,
-
-                // bug detector
-                (projDist > 1000) ? "BINGO" : ""
-                );
-
-            // deflecting saber muzzle points
-            G_LogPrintf("BLOCK_DBG[2c] muzzle_blade1=(%.1f;%.1f;%.1f) muzzle_blade2=(%.1f;%.1f;%.1f)\n",
-                // blade 1 muzzle point
-                g_entities[other->r.ownerNum].client->saber[0].blade[0].muzzlePoint[0],
-                g_entities[other->r.ownerNum].client->saber[0].blade[0].muzzlePoint[1],
-                g_entities[other->r.ownerNum].client->saber[0].blade[0].muzzlePoint[2],
-
-                // blade 2 muzzle point
-                g_entities[other->r.ownerNum].client->saber[0].blade[1].muzzlePoint[0],
-                g_entities[other->r.ownerNum].client->saber[0].blade[1].muzzlePoint[1],
-                g_entities[other->r.ownerNum].client->saber[0].blade[1].muzzlePoint[2]                
-                );
-
-            // free specs
-            size += Com_sprintf(specbuffer+size,sizeof(specbuffer)-size,"BLOCK_DBG[2d] Free specs: ");
-            for(m = 0; m < level.maxclients; ++m)
-            {
-                if (g_entities[m].inuse && g_entities[m].client && !(g_entities[m].r.svFlags & SVF_BOT) && g_entities[m].client->sess.spectatorState == SPECTATOR_FREE)
-                {
-                    size += Com_sprintf(specbuffer+size,sizeof(specbuffer)-size,"%i,",m);
-                }
-            }
-            size += Com_sprintf(specbuffer+size,sizeof(specbuffer)-size,"\n");
-            G_LogPrintf(specbuffer);
-
-            size = 0;
-
-            // free specs
-            size += Com_sprintf(specbuffer+size,sizeof(specbuffer)-size,"BLOCK_DBG[2e] Follow specs: ");
-            for(m = 0; m < level.maxclients; ++m)
-            {
-                if (g_entities[m].inuse && g_entities[m].client && g_entities[m].client->sess.spectatorState == SPECTATOR_FOLLOW)
-                {
-                    size += Com_sprintf(specbuffer+size,sizeof(specbuffer)-size,"(%i %i),",m,g_entities[m].client->sess.spectatorClient);
-                }
-            }
-            size += Com_sprintf(specbuffer+size,sizeof(specbuffer)-size,"\n");
-            G_LogPrintf(specbuffer);
-            
-        }
 
 		G_DeflectMissile(other, ent, fwd);
 		G_MissileBounceEffect(ent, ent->r.currentOrigin, fwd);
@@ -783,28 +563,10 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 		}
 		else if (otherDefLevel == FORCE_LEVEL_2)
 		{
-            //G_LogPrintf("G_DeflectMissile()[1] (%i;%i;%i;%i;%i;%i;%i) %s\n",
-            //    ent-g_entities,
-            //    other-g_entities,
-            //    ent->s.weapon,
-            //    ent->methodOfDeath,
-            //    other->client->ps.saberBlockTime,
-            //    level.time,
-            //    other->client->ps.weapon,
-            //    (other->client->ps.weapon!=WP_SABER)?"BINGO":"");
 			G_DeflectMissile(other, ent, fwd);
 		}
 		else
 		{
- /*           G_LogPrintf("G_ReflectMissile()[1] (%i;%i;%i;%i;%i;%i;%i) %s\n",
-                ent-g_entities,
-                other-g_entities,
-                ent->s.weapon,
-                ent->methodOfDeath,
-                other->client->ps.saberBlockTime,
-                level.time,
-                other->client->ps.weapon,
-                (other->client->ps.weapon!=WP_SABER)?"BINGO":"");*/
 			G_ReflectMissile(other, ent, fwd);
 		}
 		other->client->ps.saberBlockTime = level.time + (350 - (otherDefLevel*100)); //200;
@@ -857,110 +619,6 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 			te->s.weapon = 0;//saberNum
 			te->s.legsAnim = 0;//bladeNum
 
-            {        
-                int m, min_client = -1;
-                float dist, min_dist = 99999.0f, projDist;
-                char specbuffer[128];
-                int size = 0;
-
-                // find closest player to the projectile
-                for(m = 0; m < level.maxclients; ++m)
-                {
-                    if (g_entities[m].inuse && g_entities[m].client)
-                    {
-                        dist = Distance(g_entities[m].r.currentOrigin,ent->r.currentOrigin);
-                        if (dist < min_dist)
-                        {
-                            min_dist = dist;
-                            min_client = m;
-                        }                  
-                    }
-                }
-
-                // shooter and target
-                G_LogPrintf("BLOCK_DBG[3a] shooter=(%i) projectile=(%i;%.1f;%.1f;%.1f) nearest_victim=(%i;%.1f;%.1f;%.1f)\n",
-                    // shooter
-                    ent->r.ownerNum, 
-
-                    // projectile
-                    ent - g_entities,
-                    ent->r.currentOrigin[0], 
-                    ent->r.currentOrigin[1], 
-                    ent->r.currentOrigin[2],
-
-                     // victim
-                    min_client,
-                    g_entities[min_client].r.currentOrigin[0],
-                    g_entities[min_client].r.currentOrigin[1],
-                    g_entities[min_client].r.currentOrigin[2]
-                    );
-
-                projDist = Distance(ent->r.currentOrigin,g_entities[other->r.ownerNum].r.currentOrigin);
-
-                // deflecting saber
-                G_LogPrintf("BLOCK_DBG[3b] saber=(%i;%.1f;%.1f;%.1f;%i) saber_owner=(%i;%i;%.1f;%.1f;%.1f) proj_dist=(%.1f) %s\n",
-                    // saber
-                    other - g_entities,
-                    other->r.currentOrigin[0],
-                    other->r.currentOrigin[1],
-                    other->r.currentOrigin[2],
-                    other->inuse,
-  
-                    // saber owner
-                    other->r.ownerNum, 
-                    g_entities[other->r.ownerNum].s.saberEntityNum,
-                    g_entities[other->r.ownerNum].r.currentOrigin[0], 
-                    g_entities[other->r.ownerNum].r.currentOrigin[1], 
-                    g_entities[other->r.ownerNum].r.currentOrigin[2],
-
-                    // distance between projectile and saber_owner
-                    projDist,
-
-                    // bug detector
-                    (projDist > 1000) ? "BINGO" : ""
-                    );
-
-                // deflecting saber muzzle points
-                G_LogPrintf("BLOCK_DBG[3c] muzzle_blade1=(%.1f;%.1f;%.1f) muzzle_blade2=(%.1f;%.1f;%.1f)\n",
-                    // blade 1 muzzle point
-                    g_entities[other->r.ownerNum].client->saber[0].blade[0].muzzlePoint[0],
-                    g_entities[other->r.ownerNum].client->saber[0].blade[0].muzzlePoint[1],
-                    g_entities[other->r.ownerNum].client->saber[0].blade[0].muzzlePoint[2],
-
-                    // blade 2 muzzle point
-                    g_entities[other->r.ownerNum].client->saber[0].blade[1].muzzlePoint[0],
-                    g_entities[other->r.ownerNum].client->saber[0].blade[1].muzzlePoint[1],
-                    g_entities[other->r.ownerNum].client->saber[0].blade[1].muzzlePoint[2]                
-                    );
-
-                // free specs
-                size += Com_sprintf(specbuffer+size,sizeof(specbuffer)-size,"BLOCK_DBG[3d] Free specs: ");
-                for(m = 0; m < level.maxclients; ++m)
-                {
-                    if (g_entities[m].inuse && g_entities[m].client && !(g_entities[m].r.svFlags & SVF_BOT) && g_entities[m].client->sess.spectatorState == SPECTATOR_FREE)
-                    {
-                        size += Com_sprintf(specbuffer+size,sizeof(specbuffer)-size,"%i,",m);
-                    }
-                }
-                size += Com_sprintf(specbuffer+size,sizeof(specbuffer)-size,"\n");
-                G_LogPrintf(specbuffer);
-
-                size = 0;
-
-                // free specs
-                size += Com_sprintf(specbuffer+size,sizeof(specbuffer)-size,"BLOCK_DBG[3e] Follow specs: ");
-                for(m = 0; m < level.maxclients; ++m)
-                {
-                    if (g_entities[m].inuse && g_entities[m].client && g_entities[m].client->sess.spectatorState == SPECTATOR_FOLLOW)
-                    {
-                        size += Com_sprintf(specbuffer+size,sizeof(specbuffer)-size,"(%i %i),",m,g_entities[m].client->sess.spectatorClient);
-                    }
-                }
-                size += Com_sprintf(specbuffer+size,sizeof(specbuffer)-size,"\n");
-                G_LogPrintf(specbuffer);
-            
-            }
-
 			/*if (otherOwner->client->ps.velocity[2] > 0 ||
 				otherOwner->client->pers.cmd.forwardmove ||
 				otherOwner->client->pers.cmd.rightmove)*/
@@ -982,25 +640,10 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 			}
 			else if (otherDefLevel == FORCE_LEVEL_2)
 			{
-                //G_LogPrintf("G_DeflectMissile()[2] (%i;%i;%i;%i;%i) %s\n",
-                //    ent-g_entities,
-                //    otherOwner-g_entities,
-                //    ent->s.weapon,
-                //    ent->methodOfDeath,
-                //    otherOwner->client->ps.weapon,
-                //    (otherOwner->client->ps.weapon!=WP_SABER)?"BINGO":""
-                //    );
 				G_DeflectMissile(otherOwner, ent, fwd);
 			}
 			else
 			{
-                //G_LogPrintf("G_ReflectMissile()[2] (%i;%i;%i;%i;%i) %s\n",
-                //    ent-g_entities,
-                //    otherOwner-g_entities,
-                //    ent->s.weapon,
-                //    ent->methodOfDeath,
-                //    otherOwner->client->ps.weapon,
-                //    (otherOwner->client->ps.weapon!=WP_SABER)?"BINGO":"");
 				G_ReflectMissile(otherOwner, ent, fwd);
 			}
 			otherOwner->client->ps.saberBlockTime = level.time + (350 - (otherDefLevel*100));//200;
@@ -1239,7 +882,7 @@ void G_RunMissile( gentity_t *ent ) {
 	// trace a line from the previous position to the current position
 	if (d_projectileGhoul2Collision.integer)
 	{
-		trap_G2Trace( &tr, ent->r.currentOrigin, ent->r.mins, ent->r.maxs, origin, passent, ent->clipmask, G2TRFLAG_DOGHOULTRACE|G2TRFLAG_GETSURFINDEX|G2TRFLAG_THICK|G2TRFLAG_HITCORPSES, g_g2TraceLod.integer );
+		trap_G2Trace(&tr, ent->r.currentOrigin, ent->r.mins, ent->r.maxs, origin, passent, ent->clipmask, G2TRFLAG_DOGHOULTRACE | G2TRFLAG_GETSURFINDEX | G2TRFLAG_THICK | G2TRFLAG_HITCORPSES, g_g2TraceLod.integer);
 
 		if (tr.fraction != 1.0 && tr.entityNum < ENTITYNUM_WORLD)
 		{

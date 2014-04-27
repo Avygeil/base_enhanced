@@ -500,51 +500,54 @@ static GAME_INLINE void SetSaberBoxSize(gentity_t *saberent)
 			return;
 		}
 	}
+
 	//Start out at the saber origin, then go through all the blades and push out the extents
 	//for each blade, then set the box relative to the origin.
 	VectorCopy(saberent->r.currentOrigin, saberent->r.mins);
 	VectorCopy(saberent->r.currentOrigin, saberent->r.maxs);
 
-	for (i = 0; i < 3; i++)
+	for (j = 0; j < MAX_SABERS; j++)
 	{
-		for (j = 0; j < MAX_SABERS; j++)
+		if (!owner->client->saber[j].model[0])
 		{
-			if (!owner->client->saber[j].model[0])
-			{
-				break;
-			}
-			if ( dualSabers
-				&& owner->client->ps.saberHolstered == 1 
-				&& j == 1 )
-			{ //this mother is holstered, get outta here.
-				j++;
-				continue;
-			}
-			for (k = 0; k < owner->client->saber[j].numBlades; k++)
-			{
-				if ( k > 0 )
-				{//not the first blade
-					if ( !dualSabers )
-					{//using a single saber
-						if ( owner->client->saber[j].numBlades > 1 )
-						{//with multiple blades
-							if( owner->client->ps.saberHolstered == 1 )
-							{//all blades after the first one are off
-								break;
-							}
+			break;
+		}
+		if ( dualSabers
+			&& owner->client->ps.saberHolstered == 1 
+			&& j == 1 )
+		{ //this mother is holstered, get outta here.
+			j++;
+			continue;
+		}
+		for (k = 0; k < owner->client->saber[j].numBlades; k++)
+		{
+			if ( k > 0 )
+			{//not the first blade
+				if ( !dualSabers )
+				{//using a single saber
+					if ( owner->client->saber[j].numBlades > 1 )
+					{//with multiple blades
+						if( owner->client->ps.saberHolstered == 1 )
+						{//all blades after the first one are off
+							break;
 						}
 					}
 				}
-				if ( forceBlock )
-				{//only do blocking with blades that are marked to block
-					if ( !alwaysBlock[j][k] )
-					{//this blade shouldn't be blocking
-						continue;
-					}
+			}
+			if ( forceBlock )
+			{//only do blocking with blades that are marked to block
+				if ( !alwaysBlock[j][k] )
+				{//this blade shouldn't be blocking
+					continue;
 				}
-				//VectorMA(owner->client->saber[j].blade[k].muzzlePoint, owner->client->saber[j].blade[k].lengthMax*0.5f, owner->client->saber[j].blade[k].muzzleDir, saberOrg);
-				VectorCopy(owner->client->saber[j].blade[k].muzzlePoint, saberOrg);
-				VectorMA(owner->client->saber[j].blade[k].muzzlePoint, owner->client->saber[j].blade[k].lengthMax, owner->client->saber[j].blade[k].muzzleDir, saberTip);
+			}
+
+			//VectorMA(owner->client->saber[j].blade[k].muzzlePoint, owner->client->saber[j].blade[k].lengthMax*0.5f, owner->client->saber[j].blade[k].muzzleDir, saberOrg);
+			VectorCopy(owner->client->saber[j].blade[k].muzzlePoint, saberOrg);
+			VectorMA(owner->client->saber[j].blade[k].muzzlePoint, owner->client->saber[j].blade[k].lengthMax, owner->client->saber[j].blade[k].muzzleDir, saberTip);
+
+			for (i = 0; i < 3; i++)
+			{
 
 				if (saberOrg[i] < saberent->r.mins[i])
 				{
@@ -571,6 +574,7 @@ static GAME_INLINE void SetSaberBoxSize(gentity_t *saberent)
 
 	VectorSubtract(saberent->r.mins, saberent->r.currentOrigin, saberent->r.mins);
 	VectorSubtract(saberent->r.maxs, saberent->r.currentOrigin, saberent->r.maxs);
+
 }
 
 void WP_SaberInitBladeData( gentity_t *ent )
@@ -6396,6 +6400,7 @@ void DownedSaberThink(gentity_t *saberent)
 
 			saberent->think = G_FreeEntity;
 			saberent->nextthink = level.time;
+
 			return;
 		}
 	}
@@ -6617,6 +6622,7 @@ void WP_SaberAddG2Model( gentity_t *saberent, const char *saberModel, qhandle_t 
 	{
 		saberent->s.modelindex = G_ModelIndex( "models/weapons2/saber/saber_w.glm" );
 	}
+
 	//FIXME: use customSkin?
 	trap_G2API_InitGhoul2Model( &saberent->ghoul2, saberModel, saberent->s.modelindex, saberSkin, 0, 0, 0 );
 }
@@ -8721,6 +8727,7 @@ nextStep:
 					self->client->ps.saberEntityState = 0;
 					self->client->ps.saberThrowDelay = level.time + 500;
 					self->client->ps.saberCanThrow = qfalse;
+
 				}
 			}
 		}
@@ -8825,13 +8832,16 @@ nextStep:
 			{ //don't to saber 1 if the left arm is broken
 				break;
 			}
-			if (rSaberNum > 0 
-				&& self->client->saber[1].model
-				&& self->client->saber[1].model[0]
-				&& self->client->ps.saberHolstered == 1 )
-			{ //don't to saber 2 if it's off
-				break;
-			}
+
+			// Sil - updating position also for holstered blades to avoid incorrect collisions
+
+			//if (rSaberNum > 0 
+			//	&& self->client->saber[1].model
+			//	&& self->client->saber[1].model[0]
+			//	&& self->client->ps.saberHolstered == 1 )
+			//{ //don't to saber 2 if it's off
+			//	break;
+			//}
 			rBladeNum = 0;
 			while (rBladeNum < self->client->saber[rSaberNum].numBlades)
 			{
@@ -8839,13 +8849,16 @@ nextStep:
 				VectorCopy(self->client->saber[rSaberNum].blade[rBladeNum].muzzlePoint, self->client->saber[rSaberNum].blade[rBladeNum].muzzlePointOld);
 				VectorCopy(self->client->saber[rSaberNum].blade[rBladeNum].muzzleDir, self->client->saber[rSaberNum].blade[rBladeNum].muzzleDirOld);
 
-				if ( rBladeNum > 0 //more than one blade
-					&& (!self->client->saber[1].model||!self->client->saber[1].model[0])//not using dual blades
-					&& self->client->saber[rSaberNum].numBlades > 1//using a multi-bladed saber
-					&& self->client->ps.saberHolstered == 1 )//
-				{ //don't to extra blades if they're off
-					break;
-				}
+				// Sil - updating position also for holstered blades to avoid incorrect collisions
+
+				//if ( rBladeNum > 0 //more than one blade
+				//	&& (!self->client->saber[1].model||!self->client->saber[1].model[0])//not using dual blades
+				//	&& self->client->saber[rSaberNum].numBlades > 1//using a multi-bladed saber
+				//	&& self->client->ps.saberHolstered == 1 )//
+				//{ //don't to extra blades if they're off
+				//	break;
+				//}
+
 				//get the new data
 				//then update the bolt pos/dir. rBladeNum corresponds to the bolt index because blade bolts are added in order.
 				if ( rSaberNum == 0 && self->client->ps.saberInFlight )
@@ -8887,12 +8900,13 @@ nextStep:
 						BG_GiveMeVectorFromMatrix(&boltMatrix, NEGATIVE_Y, self->client->saber[rSaberNum].blade[rBladeNum].muzzleDir);
 						VectorCopy( self->client->saber[rSaberNum].blade[rBladeNum].muzzlePoint, boltOrigin );
 						VectorMA( boltOrigin, self->client->saber[rSaberNum].blade[rBladeNum].lengthMax, self->client->saber[rSaberNum].blade[rBladeNum].muzzleDir, end );
+
 					}
 
 				}
 				else
 				{
-					trap_G2API_GetBoltMatrix(self->ghoul2, rSaberNum+1, rBladeNum, &boltMatrix, properAngles, properOrigin, level.time, NULL, self->modelScale);
+					trap_G2API_GetBoltMatrix(self->ghoul2, rSaberNum + 1, rBladeNum, &boltMatrix, properAngles, properOrigin, level.time, NULL, self->modelScale);
 					BG_GiveMeVectorFromMatrix(&boltMatrix, ORIGIN, self->client->saber[rSaberNum].blade[rBladeNum].muzzlePoint);
 					BG_GiveMeVectorFromMatrix(&boltMatrix, NEGATIVE_Y, self->client->saber[rSaberNum].blade[rBladeNum].muzzleDir);
 					VectorCopy( self->client->saber[rSaberNum].blade[rBladeNum].muzzlePoint, boltOrigin );

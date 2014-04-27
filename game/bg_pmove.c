@@ -3728,6 +3728,10 @@ static void PM_CrashLand( void ) {
 			}
 		}
 	}
+	else
+	{
+		// fix animation stuck somewhere here
+	}
 
 	if (pm->ps->weapon != WP_SABER && pm->ps->weapon != WP_MELEE && !PM_IsRocketTrooper())
 	{ //saber handles its own anims
@@ -5229,8 +5233,8 @@ static void PM_Footsteps( void ) {
 		return;
 	}
 	// if not trying to move
-	else if ( !pm->cmd.forwardmove && !pm->cmd.rightmove ) {
-		if (  pm->xyspeed < 5 ) {
+	else if ( !pm->cmd.forwardmove && !pm->cmd.rightmove ) {		
+		if (  pm->xyspeed < 5 ) {	
 			pm->ps->bobCycle = 0;	// start at beginning of cycle again
 			if ( pm->ps->clientNum >= MAX_CLIENTS &&
 				pm_entSelf &&
@@ -5294,7 +5298,7 @@ static void PM_Footsteps( void ) {
 						}
 					}
 					else
-					{
+					{						
 						if (pm->ps->weapon != WP_SABER || !PM_AdjustStandAnimForSlope())
 						{
 							if (pm->ps->weapon == WP_SABER)

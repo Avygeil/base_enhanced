@@ -2478,6 +2478,13 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 			return;
 		}
 
+		/*
+		if (g_doWarmup.integer){
+			trap_SendServerCommand(ent - g_entities, "print \"Vote map_restart is disabled during warmup.\n\"");
+			return;
+		}
+		*/
+
 		if (n < 0) n = 0;
 		else if (n > 60) n = 60;
 
@@ -2615,13 +2622,13 @@ void Cmd_Vote_f( gentity_t *ent ) {
 
 static void Cmd_Ready_f(gentity_t *ent) {
 	const char *publicMsg = NULL;
-	gentity_t *e = NULL;
-	int i = 0;
+	//gentity_t *e = NULL;
+	//int i = 0;
 
 	if (!g_doWarmup.integer /*|| level.warmupTime == 0*/ || level.restarted /*|| level.allReady*/ )
 		return;
 
-	if (ent->client->pers.readyTime > level.time - 10000)
+	if (ent->client->pers.readyTime > level.time - 2000)
 		return;
 
 	if (ent->client->sess.sessionTeam == TEAM_SPECTATOR)
@@ -2640,10 +2647,10 @@ static void Cmd_Ready_f(gentity_t *ent) {
 		trap_SendServerCommand(ent - g_entities, va("cp \""S_COLOR_YELLOW"You are NOT ready\""));
 	}
 
-	if (!g_wasRestarted.integer)
-	{
-		trap_SendServerCommand(-1, publicMsg);
-	}
+	//if (!g_wasRestarted.integer)
+	//{
+	//	trap_SendServerCommand(-1, publicMsg);
+	//}
 	
 	// send public message to everyone BUT this client, so they see their own message
 	//for (i = 0, e = g_entities; i < level.maxclients; i++, e++) {
