@@ -6,7 +6,7 @@
 #include "g_nav.h"
 #include "bg_saga.h"
 
-#include "accounts.h"
+//#include "accounts.h"
 #include "jp_engine.h"
 
 level_locals_t	level;
@@ -152,11 +152,11 @@ vmCvar_t	g_dlURL;
 
 vmCvar_t	g_logrcon;
 
-//DB
-extern vmCvar_t	db_url;
-extern vmCvar_t	db_serverid;
-extern vmCvar_t	db_debug;
-extern vmCvar_t	db_log;
+//DB - accounts system
+//extern vmCvar_t	db_url;
+//extern vmCvar_t	db_serverid;
+//extern vmCvar_t	db_debug;
+//extern vmCvar_t	db_log;
 
 #ifndef FINAL_BUILD
 vmCvar_t	g_debugDamage;
@@ -643,11 +643,11 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_accounts,	"g_accounts"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_accountsFile,	"g_accountsFile"	, "accounts.txt"	, CVAR_ARCHIVE, 0, qtrue },
 	
-	//database info
-	{ &db_url,	"db_url"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
-	{ &db_serverid,	"db_username"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
-	{ &db_debug,	"db_debug"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
-	{ &db_log,	"db_log"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
+	//database info - accounts system
+	//{ &db_url,	"db_url"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
+	//{ &db_serverid,	"db_username"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
+	//{ &db_debug,	"db_debug"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
+	//{ &db_log,	"db_log"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
 	
 
 	{ &g_dlURL,	"g_dlURL"	, ""	, CVAR_SYSTEMINFO, 0, qtrue },
@@ -1246,24 +1246,25 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 			}
 		}
 
-		if (g_accounts.integer && db_log.integer){
-			trap_FS_FOpenFile( "db.log", &level.DBLogFile, FS_APPEND_SYNC ); //remove SYNC in release
+		// accounts system
+		//if (g_accounts.integer && db_log.integer){
+		//	trap_FS_FOpenFile( "db.log", &level.DBLogFile, FS_APPEND_SYNC ); //remove SYNC in release
 
-			if (!level.DBLogFile){
-				G_Printf( "WARNING: Couldn't open dbfile: %s\n", "db.log" );
-			} else {
-				int	min, tens, sec;
-				sec = level.time / 1000;
+		//	if (!level.DBLogFile){
+		//		G_Printf( "WARNING: Couldn't open dbfile: %s\n", "db.log" );
+		//	} else {
+		//		int	min, tens, sec;
+		//		sec = level.time / 1000;
 
-				min = sec / 60;
-				sec -= min * 60;
-				tens = sec / 10;
-				sec -= tens * 10;
+		//		min = sec / 60;
+		//		sec -= min * 60;
+		//		tens = sec / 10;
+		//		sec -= tens * 10;
 
-				G_DBLog("------------------------------------------------------------\n" );
-				G_DBLog("InitGame: %3i:%i%i %s\n", min, tens, sec, serverinfo );
-			}
-		}
+		//		G_DBLog("------------------------------------------------------------\n" );
+		//		G_DBLog("InitGame: %3i:%i%i %s\n", min, tens, sec, serverinfo );
+		//	}
+		//}
 
 	} else {
 		G_Printf( "Not logging to disk.\n" );
@@ -1271,9 +1272,12 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 #endif
 
 	if (!restart)
+	{
 		trap_Cvar_Set("g_wasRestarted", "0");
+	}
 
-	initDB();
+	// accounts system
+	//initDB();
 
 	////load accounts
 	//if (g_accounts.integer){
@@ -1546,7 +1550,8 @@ void G_ShutdownGame( int restart ) {
 
 	B_CleanupAlloc(); //clean up all allocations made with B_Alloc
 
-	cleanDB();
+	// accounts system
+	//cleanDB();
 
 //#if 0
 	UnpatchEngine();
@@ -2162,10 +2167,12 @@ void CalculateRanks( void ) {
 	}
 
 	//if (!g_warmup.integer)
+	/*
 	if (1)
 	{
 		level.warmupTime = 0;
 	}
+	*/
 
 	/*
 	if (level.numNonSpectatorClients == 2 && preNumSpec < 2 && nonSpecIndex != -1 && g_gametype.integer == GT_DUEL && !level.warmupTime)
@@ -3199,157 +3206,157 @@ int findClient(const char* username){
 }
 
 //match report, for db accounts system
-void reportMatch(){
-	int playersLeft;
-	int reported;
-	static char buffer[1024];
-	char mapname[128];
-	gclient_t*	client;
-	char* str;
-	char* dest;
-	int i;
-	int len;
-
-	//G_LogPrintf("reportMatch()\n");
-
-	if (!level.initialConditionsMatch)
-		return;
-
-	//conditions match, lets send roster to database
-	//format: 
-    // red1:red2:...:redm blue1:blue2:...:bluen redscore bluescore map wasOvertime
-	//example:
-	// sil:sal:ramses:norb jax:lando:fp:rst 11 8 mp/ctf4 0
-
-	//report players from original roster list, dont count newly joined
-	//red players roster report
-
-	dest = buffer;
-
-	//report REDs
-	strncpy(dest,"reds=",5);
-	dest += 5;
-
-	reported = 0;
-	playersLeft = 0;
-	for(i=0;i<level.initialRedCount;++i){
-		client = &g_clients[level.initialRedRoster[i].clientNum];
-
-		if (strncmp(client->sess.username,level.initialRedRoster[i].username,MAX_USERNAME_SIZE)){
-			//username doesnt match, try to find this player somewhere else,
-			//he might possibly reconnect with another number
-			int num = findClient(level.initialRedRoster[i].username);	
-
-			if (num == -1) //not found
-				continue; //TODO: include for check of how long time before end did player left
-
-			//ok user found
-			client = &g_clients[num];			
-		}
-
-		if ((client->sess.sessionTeam != TEAM_RED)
-			|| (client->pers.connected == CON_DISCONNECTED)){
-			//this guy left his team
-			++playersLeft;
-			continue; //TODO: include for check of how long time before end did player left
-		}
-
-		if (reported){
-			*dest = ':';
-			++dest;
-		}
-
-		len = strlen(client->sess.username);
-		strncpy(dest,client->sess.username,len);
-		dest += len;
-		++reported;
-	}
-
-	strncpy(dest,"&blues=",7);
-	dest += 7;
-
-	//report BLUEs
-	reported = 0;
-	//playersLeft = 0;
-	for(i=0;i<level.initialBlueCount;++i){
-		client = &g_clients[level.initialBlueRoster[i].clientNum];
-
-		if (strncmp(client->sess.username,level.initialBlueRoster[i].username,MAX_USERNAME_SIZE)){
-			//username doesnt match, try to find this player somewhere else,
-			//he might possibly reconnect with another number
-			int num = findClient(level.initialBlueRoster[i].username);	
-
-			if (num == -1) //not found in present players
-				continue; //TODO: include for check of how long time before end did player left
-
-			//ok user found
-			client = &g_clients[num];	
-		}
-
-		if ((client->sess.sessionTeam != TEAM_BLUE)
-			|| (client->pers.connected == CON_DISCONNECTED)){
-			//this guy left his team
-			++playersLeft;
-			continue; //TODO: include for check of how long time before end did player left
-		}
-
-		if (reported){
-			*dest = ':';
-			++dest;
-		}
-
-		len = strlen(client->sess.username);
-		strncpy(dest,client->sess.username,len);
-		dest += len;
-		++reported;
-	}
-
-	//more than 2 players left original teams, dont report...
-	if (playersLeft > 2)
-		return;
-
-	//report scores
-	strncpy(dest,"&redscore=",10);
-	dest += 10;
-
-	str = va("%i",level.teamScores[TEAM_RED]); //reds
-	len = strlen(str);
-	strncpy(dest,str,len); 
-	dest += len;
-
-	strncpy(dest,"&bluescore=",11);
-	dest += 11;
-
-	str = va("%i",level.teamScores[TEAM_BLUE]); //blues
-	len = strlen(str);
-	strncpy(dest,str,len); 
-	dest += len;
-
-	strncpy(dest,"&map=",5);
-	dest += 5;
-
-	//report map name
-	trap_Cvar_VariableStringBuffer("mapname",mapname,sizeof(mapname));
-	len = strlen(mapname);
-	strncpy(dest,mapname,len);
-	dest += len;
-
-	strncpy(dest,"&ot=",4);
-	dest += 4;
-
-	//report whether this game went overtime
-	if (level.overtime){
-		*dest = '1';
-	} else {
-		*dest = '0';
-	}
-	++dest;
-
-	*dest = '\0';
-
-	sendMatchResult(buffer);
-
-}
+//void reportMatch(){
+//	int playersLeft;
+//	int reported;
+//	static char buffer[1024];
+//	char mapname[128];
+//	gclient_t*	client;
+//	char* str;
+//	char* dest;
+//	int i;
+//	int len;
+//
+//	//G_LogPrintf("reportMatch()\n");
+//
+//	if (!level.initialConditionsMatch)
+//		return;
+//
+//	//conditions match, lets send roster to database
+//	//format: 
+//    // red1:red2:...:redm blue1:blue2:...:bluen redscore bluescore map wasOvertime
+//	//example:
+//	// sil:sal:ramses:norb jax:lando:fp:rst 11 8 mp/ctf4 0
+//
+//	//report players from original roster list, dont count newly joined
+//	//red players roster report
+//
+//	dest = buffer;
+//
+//	//report REDs
+//	strncpy(dest,"reds=",5);
+//	dest += 5;
+//
+//	reported = 0;
+//	playersLeft = 0;
+//	for(i=0;i<level.initialRedCount;++i){
+//		client = &g_clients[level.initialRedRoster[i].clientNum];
+//
+//		if (strncmp(client->sess.username,level.initialRedRoster[i].username,MAX_USERNAME_SIZE)){
+//			//username doesnt match, try to find this player somewhere else,
+//			//he might possibly reconnect with another number
+//			int num = findClient(level.initialRedRoster[i].username);	
+//
+//			if (num == -1) //not found
+//				continue; //TODO: include for check of how long time before end did player left
+//
+//			//ok user found
+//			client = &g_clients[num];			
+//		}
+//
+//		if ((client->sess.sessionTeam != TEAM_RED)
+//			|| (client->pers.connected == CON_DISCONNECTED)){
+//			//this guy left his team
+//			++playersLeft;
+//			continue; //TODO: include for check of how long time before end did player left
+//		}
+//
+//		if (reported){
+//			*dest = ':';
+//			++dest;
+//		}
+//
+//		len = strlen(client->sess.username);
+//		strncpy(dest,client->sess.username,len);
+//		dest += len;
+//		++reported;
+//	}
+//
+//	strncpy(dest,"&blues=",7);
+//	dest += 7;
+//
+//	//report BLUEs
+//	reported = 0;
+//	//playersLeft = 0;
+//	for(i=0;i<level.initialBlueCount;++i){
+//		client = &g_clients[level.initialBlueRoster[i].clientNum];
+//
+//		if (strncmp(client->sess.username,level.initialBlueRoster[i].username,MAX_USERNAME_SIZE)){
+//			//username doesnt match, try to find this player somewhere else,
+//			//he might possibly reconnect with another number
+//			int num = findClient(level.initialBlueRoster[i].username);	
+//
+//			if (num == -1) //not found in present players
+//				continue; //TODO: include for check of how long time before end did player left
+//
+//			//ok user found
+//			client = &g_clients[num];	
+//		}
+//
+//		if ((client->sess.sessionTeam != TEAM_BLUE)
+//			|| (client->pers.connected == CON_DISCONNECTED)){
+//			//this guy left his team
+//			++playersLeft;
+//			continue; //TODO: include for check of how long time before end did player left
+//		}
+//
+//		if (reported){
+//			*dest = ':';
+//			++dest;
+//		}
+//
+//		len = strlen(client->sess.username);
+//		strncpy(dest,client->sess.username,len);
+//		dest += len;
+//		++reported;
+//	}
+//
+//	//more than 2 players left original teams, dont report...
+//	if (playersLeft > 2)
+//		return;
+//
+//	//report scores
+//	strncpy(dest,"&redscore=",10);
+//	dest += 10;
+//
+//	str = va("%i",level.teamScores[TEAM_RED]); //reds
+//	len = strlen(str);
+//	strncpy(dest,str,len); 
+//	dest += len;
+//
+//	strncpy(dest,"&bluescore=",11);
+//	dest += 11;
+//
+//	str = va("%i",level.teamScores[TEAM_BLUE]); //blues
+//	len = strlen(str);
+//	strncpy(dest,str,len); 
+//	dest += len;
+//
+//	strncpy(dest,"&map=",5);
+//	dest += 5;
+//
+//	//report map name
+//	trap_Cvar_VariableStringBuffer("mapname",mapname,sizeof(mapname));
+//	len = strlen(mapname);
+//	strncpy(dest,mapname,len);
+//	dest += len;
+//
+//	strncpy(dest,"&ot=",4);
+//	dest += 4;
+//
+//	//report whether this game went overtime
+//	if (level.overtime){
+//		*dest = '1';
+//	} else {
+//		*dest = '0';
+//	}
+//	++dest;
+//
+//	*dest = '\0';
+//
+//	sendMatchResult(buffer);
+//
+//}
 
 /*
 =================
@@ -3475,8 +3482,8 @@ void CheckExitRules( void ) {
 				LogExit( "Timelimit hit." );
 
 				if (g_gametype.integer == GT_CTF && g_accounts.integer){
-					//accounts match log
-					reportMatch();
+					// match log - accounts system
+					//reportMatch();
 				}
 
 				return;
@@ -3952,59 +3959,7 @@ void CheckTournament( void ) {
 		level.warmupTime = 0;
 		return;
 	}
-	else if ( level.warmupTime != 0 ) {
-		int		counts[TEAM_NUM_TEAMS];
-		qboolean	notEnough = qfalse;
 
-		if ( g_gametype.integer > GT_TEAM ) {
-			counts[TEAM_BLUE] = TeamCount( -1, TEAM_BLUE );
-			counts[TEAM_RED] = TeamCount( -1, TEAM_RED );
-
-			if (counts[TEAM_RED] < 1 || counts[TEAM_BLUE] < 1) {
-				notEnough = qtrue;
-			}
-		} else if ( level.numPlayingClients < 2 ) {
-			notEnough = qtrue;
-		}
-
-		if ( notEnough ) {
-			if ( level.warmupTime != -1 ) {
-				level.warmupTime = -1;
-				trap_SetConfigstring( CS_WARMUP, va("%i", level.warmupTime) );
-				G_LogPrintf( "Warmup:\n" );
-			}
-			return; // still waiting for team members
-		}
-
-		if ( level.warmupTime == 0 ) {
-			return;
-		}
-
-		// if the warmup is changed at the console, restart it
-		/*
-		if ( g_warmup.modificationCount != level.warmupModificationCount ) {
-			level.warmupModificationCount = g_warmup.modificationCount;
-			level.warmupTime = -1;
-		}
-		*/
-
-		// if all players have arrived, start the countdown
-		if ( level.warmupTime < 0 ) {
-			// fudge by -1 to account for extra delays
-			level.warmupTime = level.time + ( g_warmup.integer - 1 ) * 1000;
-			trap_SetConfigstring( CS_WARMUP, va("%i", level.warmupTime) );
-			return;
-		}
-
-		// if the warmup time has counted down, restart
-		if ( level.time > level.warmupTime ) {
-			level.warmupTime += 10000;
-			trap_Cvar_Set( "g_restarted", "1" );
-			trap_SendConsoleCommand( EXEC_APPEND, "map_restart 0\n" );
-			level.restarted = qtrue;
-			return;
-		}
-	}
 }
 
 void G_KickAllBots(void)
@@ -4139,6 +4094,173 @@ void CheckVote( void ) {
 	g_entities[level.lastVotingClient].client->lastCallvoteTime = level.time;
 	
 	trap_SetConfigstring( CS_VOTE_TIME, "" );
+
+}
+
+void CheckReady(void) 
+{
+	int i = 0, readyCount = 0;// , playerCount;
+	int botsCount = 0;
+	gentity_t *ent = NULL;
+	unsigned readyMask = 0;
+	static qboolean restarting = qfalse;
+
+	if ((g_gametype.integer == GT_POWERDUEL) || (g_gametype.integer == GT_DUEL) || (g_gametype.integer == GT_SIEGE))
+		return;
+
+	if (!g_doWarmup.integer || !level.numPlayingClients || restarting || level.intermissiontime)
+		return;
+
+	for (i = 0, ent = g_entities; i < level.maxclients; i++, ent++) 
+	{
+		if (!ent->inuse || ent->client->pers.connected == CON_DISCONNECTED || ent->client->sess.sessionTeam == TEAM_SPECTATOR)
+			continue;
+
+		if (ent->client->pers.ready) 
+		{
+			readyCount++;
+			if (i < 16)
+				readyMask |= (1 << i);
+		}
+
+		if (ent->r.svFlags & SVF_BOT)
+			++botsCount;
+	}
+
+	// update ready flags for clients' scoreboards
+	for (i = 0, ent = g_entities; i < level.maxclients; i++, ent++) 
+	{
+		if (!ent->inuse || ent->client->pers.connected == CON_DISCONNECTED)
+			continue;
+
+
+		ent->client->ps.stats[STAT_CLIENTS_READY] = readyMask;
+	}
+
+	// announce instructions
+	if ( !g_wasRestarted.integer )
+	{
+		static int lastPrint = 0;
+		if (lastPrint < level.time - 10000)
+		{
+			char msg[MAX_STRING_CHARS / 2] = { 0 };
+			Com_sprintf(msg, sizeof(msg), "Waiting for players to ready up!\nType /ready");
+
+			// cycle through non spec and not-ready players and show them instructions
+			for (i = 0, ent = g_entities; i < level.maxclients; i++, ent++)
+			{
+				if (!ent->inuse || ent->client->pers.connected == CON_DISCONNECTED || ent->client->sess.sessionTeam == TEAM_SPECTATOR)
+					continue;
+
+				if ( !ent->client->pers.ready )
+					trap_SendServerCommand(i, va("cp \"%s\"", msg));
+			}			
+
+			//Com_Printf("%s\n", msg);
+
+			lastPrint = level.time;
+		}
+	}
+
+	// check if all conditions to start the match have been met
+	{
+		int		counts[TEAM_NUM_TEAMS];
+		qboolean	conditionsMet = qtrue;
+
+		counts[TEAM_BLUE] = TeamCount(-1, TEAM_BLUE);
+		counts[TEAM_RED] = TeamCount(-1, TEAM_RED);
+
+		// eat least 1 player in each team
+		if (counts[TEAM_RED] < 1 || counts[TEAM_BLUE] < 1) 
+		{
+			conditionsMet = qfalse;
+		}
+
+		// all players are ready
+		if (readyCount < counts[TEAM_BLUE] + counts[TEAM_RED] - botsCount)
+		{
+			conditionsMet = qfalse;
+		}
+
+		if (conditionsMet)
+		{
+			//level.warmupTime += level.time+5000;
+			trap_Cvar_Set("g_restarted", "1");
+			trap_Cvar_Set("g_wasRestarted", "1");
+			trap_SendConsoleCommand(EXEC_APPEND, "map_restart 5\n");
+			restarting = qtrue;
+			//level.restarted = qtrue;
+			return;
+		}
+		else
+		{
+
+
+		}
+
+	}
+
+	//if (level.warmupTime != 0)
+	//{
+	//	int		counts[TEAM_NUM_TEAMS];
+	//	qboolean	notEnough = qfalse;
+
+	//	if (g_gametype.integer > GT_TEAM) {
+	//		counts[TEAM_BLUE] = TeamCount(-1, TEAM_BLUE);
+	//		counts[TEAM_RED] = TeamCount(-1, TEAM_RED);
+
+	//		if (counts[TEAM_RED] < 1 || counts[TEAM_BLUE] < 1) {
+	//			notEnough = qtrue;
+	//		}
+	//	}
+	//	else if (level.numPlayingClients < 2) {
+	//		notEnough = qtrue;
+	//	}
+
+	//	if (notEnough)
+	//	{
+	//		level.allReady = qfalse;
+	//		if (level.warmupTime != -1)
+	//		{
+	//			level.warmupTime = -1;
+	//			trap_SetConfigstring(CS_WARMUP, va("%i", level.warmupTime));
+	//			//G_LogPrintf( "Warmup:\n" );
+	//		}
+	//		return; // still waiting for team members
+	//	}
+
+	//	if (level.warmupTime == 0 || level.warmupTime == -1)
+	//	{
+	//		return;
+	//	}
+
+	//	// if the warmup is changed at the console, restart it
+	//	/*
+	//	if ( g_warmup.modificationCount != level.warmupModificationCount ) {
+	//	level.warmupModificationCount = g_warmup.modificationCount;
+	//	level.warmupTime = -1;
+	//	}
+	//	*/
+
+	//	// if all players have arrived, start the countdown
+	//	if (level.warmupTime < 0)
+	//	{
+	//		// fudge by -1 to account for extra delays
+	//		level.warmupTime = level.time + (g_warmup.integer - 1) * 1000;
+	//		trap_SetConfigstring(CS_WARMUP, va("%i", level.warmupTime));
+	//		return;
+	//	}
+
+	//	// if the warmup time has counted down, restart
+	//	if (level.time > level.warmupTime)
+	//	{
+	//		level.warmupTime += 10000;
+	//		trap_Cvar_Set("g_restarted", "1");
+	//		trap_SendConsoleCommand(EXEC_APPEND, "map_restart 5\n");
+	//		level.restarted = qtrue;
+	//		return;
+	//	}
+	//}
 
 }
 
@@ -4289,7 +4411,9 @@ void CheckCvars( void ) {
 		trap_Cvar_Set("g_password", password );
 
 		if ( (*g_password.string && Q_stricmp( g_password.string, "none" ))
-			|| isDBLoaded ) {
+			/*|| isDBLoaded */ // accounts system
+			) 
+		{
 			trap_Cvar_Set( "g_needpass", "1" );
 		} else {
 			trap_Cvar_Set( "g_needpass", "0" );
@@ -4950,6 +5074,9 @@ void G_RunFrame( int levelTime ) {
 	// cancel vote if timed out
 	CheckVote();
 
+	// check for allready during warmup
+	CheckReady();
+
 	// check team votes
 	CheckTeamVote( TEAM_RED );
 	CheckTeamVote( TEAM_BLUE );
@@ -4957,8 +5084,8 @@ void G_RunFrame( int levelTime ) {
 	// for tracking changes
 	CheckCvars();
 
-	//account processing
-	processDatabase();	
+	//account processing - accounts system
+	//processDatabase();	
 
 #ifdef HOOK_GETSTATUS_FIX
 	//check getstatus flood report timers

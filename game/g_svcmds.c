@@ -887,6 +887,23 @@ void Svcmd_ResetFlags_f(){
 	Team_ResetFlags();
 }
 
+void Svcmd_AllReady_f(void) {
+	if (!level.warmupTime) {
+		G_Printf("allready is only available during warmup\n");
+		return;
+	}
+
+	level.warmupTime = level.time;
+}
+
+void Svcmd_Cointoss_f(void) 
+{
+	int cointoss = rand() % 2;
+
+	trap_SendServerCommand(-1, va("cp \""S_COLOR_YELLOW"%s"S_COLOR_WHITE"!\"", cointoss ? "Head" : "Tail"));
+	trap_SendServerCommand(-1, va("print \"Coin Toss result: "S_COLOR_YELLOW"%s\n\"", cointoss ? "Head" : "Tail"));
+}
+
 #ifdef _WIN32
 #define FS_RESTART_ADDR 0x416800
 #else
@@ -1252,6 +1269,20 @@ qboolean	ConsoleCommand( void ) {
 		LogExit( "Match forced to end." );
         return qtrue;
     } 
+
+	if (!Q_stricmp(cmd, "allready"))
+	{
+		Svcmd_AllReady_f();
+		return qtrue;
+	}
+
+	if (!Q_stricmp(cmd, "cointoss"))
+	{
+		Svcmd_Cointoss_f();
+		return qtrue;
+	}
+	
+
 
 	//if (Q_stricmp (cmd, "accountlistall") == 0) {
 	//	Svcmd_AccountPrintAll_f();

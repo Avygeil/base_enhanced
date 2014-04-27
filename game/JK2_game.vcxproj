@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
@@ -67,7 +67,6 @@
     <ClInclude Include="w_saber.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="accounts.c" />
     <ClCompile Include="ai_main.c" />
     <ClCompile Include="ai_util.c" />
     <ClCompile Include="ai_wpnav.c" />
@@ -169,10 +168,12 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseOfMfc>false</UseOfMfc>
+    <PlatformToolset>v120</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Final|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseOfMfc>false</UseOfMfc>
+    <PlatformToolset>v120</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Final (static)|Win32'">
     <PlatformToolset>Intel Parallel Composer 2011</PlatformToolset>
@@ -227,7 +228,7 @@
       <InterproceduralOptimization>SingleFile</InterproceduralOptimization>
       <OptimizeForWindowsApplication>true</OptimizeForWindowsApplication>
       <EnableMatrixMultiplyLibraryCall>Yes</EnableMatrixMultiplyLibraryCall>
-      <AdditionalIncludeDirectories>E:\Users\dan\Documents\Visual Studio 2010\Projects\libcurl-7.19.3-win32-ssl-msvc\include;C:\Program Files (x86)\libcurl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Program Files (x86)\libcurl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <UseIntelOptimizedHeaders>false</UseIntelOptimizedHeaders>
       <AssemblerOutput>All</AssemblerOutput>
     </ClCompile>
@@ -237,7 +238,7 @@
     </ResourceCompile>
     <Link>
       <AdditionalOptions>/MACHINE:I386 %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalDependencies>Dbghelp.lib;Psapi.lib;curllib.lib;Ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Dbghelp.lib;Psapi.lib;Ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>../Final/jampgamex86.dll</OutputFile>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <ModuleDefinitionFile>.\JK2_game.def</ModuleDefinitionFile>
@@ -254,7 +255,7 @@
       <DataExecutionPrevention>
       </DataExecutionPrevention>
       <ImportLibrary>.\../Final/jampgamex86.lib</ImportLibrary>
-      <AdditionalLibraryDirectories>E:\Users\dan\Documents\Visual Studio 2010\Projects\libcurl-7.19.3-win32-ssl-msvc\lib\Release;E:\DEV\LIBCURL\7.19.3\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <ProjectReference>
       <LinkLibraryDependencies>true</LinkLibraryDependencies>
@@ -293,7 +294,7 @@
     </ResourceCompile>
     <Link>
       <AdditionalOptions>/MACHINE:I386 %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalDependencies>Dbghelp.lib;Psapi.lib;libcurl.lib;Ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Dbghelp.lib;Psapi.lib;Ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>..\Debug\jampgamex86.dll</OutputFile>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <ModuleDefinitionFile>.\JK2_game.def</ModuleDefinitionFile>
@@ -307,7 +308,7 @@
       <DataExecutionPrevention>
       </DataExecutionPrevention>
       <ImportLibrary>.\../Debug/jampgamex86.lib</ImportLibrary>
-      <AdditionalLibraryDirectories>E:\DEV\LIBCURL\7.19.3\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

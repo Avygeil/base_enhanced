@@ -2,7 +2,7 @@
 //
 #include "g_local.h"
 
-#include "accounts.h"
+//#include "accounts.h"
 
 
 /*
@@ -199,9 +199,9 @@ Called on a first-time connect
 void G_InitSessionData( gclient_t *client, char *userinfo, qboolean isBot, qboolean firstTime ) {
 	clientSession_t	*sess;
 	const char		*value;
-	char* username;
+//	char* username;
 	//char		*ipPtr;
-	char* delimitator;
+	//char* delimitator;
 
 	sess = &client->sess;
 
@@ -292,16 +292,18 @@ void G_InitSessionData( gclient_t *client, char *userinfo, qboolean isBot, qbool
 
 	sess->ip = getIpFromString(sess->ipString);
 
-	if (isDBLoaded && !isBot){
-		username = Info_ValueForKey(userinfo, "password");
-		delimitator = strchr(username,':');
-		if (delimitator){
-			*delimitator = '\0'; //seperate username and password
-			Q_strncpyz(client->sess.username,username,sizeof(client->sess.username));
-		} else {
-			client->sess.username[0] = '\0';
-		}
-	} else {
+	// accounts system
+	//if (isDBLoaded && !isBot){
+	//	username = Info_ValueForKey(userinfo, "password");
+	//	delimitator = strchr(username,':');
+	//	if (delimitator){
+	//		*delimitator = '\0'; //seperate username and password
+	//		Q_strncpyz(client->sess.username,username,sizeof(client->sess.username));
+	//	} else {
+	//		client->sess.username[0] = '\0';
+	//	}
+	//} else 
+	{
 		client->sess.username[0] = '\0';
 	}
 

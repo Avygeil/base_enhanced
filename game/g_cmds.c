@@ -2263,6 +2263,7 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 	} else if ( !Q_stricmp( arg1, "pause" ) ) {
 	} else if ( !Q_stricmp( arg1, "unpause" ) ) { 
 	} else if ( !Q_stricmp( arg1, "endmatch" ) ) { 
+	} else if ( !Q_stricmp( arg1, "cointoss")) {
 	} else {
 		trap_SendServerCommand( ent-g_entities, "print \"Invalid vote string.\n\"" );
 		trap_SendServerCommand( ent-g_entities, "print \"Vote commands are: map_restart, nextmap, map <mapname>, g_gametype <n>, "
@@ -2484,6 +2485,21 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 		Com_sprintf( level.voteDisplayString, sizeof( level.voteDisplayString ), "%s", level.voteString );
 
 	} 
+	else if (!Q_stricmp(arg1, "allready"))
+	{
+		if (!level.warmupTime) {
+			trap_SendServerCommand(ent - g_entities, "print \"allready is only available during warmup.\n\"");
+			return;
+		}
+
+		Com_sprintf(level.voteString, sizeof(level.voteString), "%s", arg1);
+		Com_sprintf(level.voteDisplayString, sizeof(level.voteDisplayString), "%s", level.voteString);
+	}
+	else if (!Q_stricmp(arg1, "cointoss"))
+	{
+		Com_sprintf(level.voteString, sizeof(level.voteString), "%s", arg1);
+		Com_sprintf(level.voteDisplayString, sizeof(level.voteDisplayString), "Coin Toss");
+	}
 	else if ( !Q_stricmp( arg1, "resetflags" )) 
 	{
 		Com_sprintf( level.voteString, sizeof( level.voteString ), "%s", arg1 );
@@ -2492,22 +2508,11 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 	else if ( !Q_stricmp( arg1, "q" )) 
 	{
 		Com_sprintf( level.voteString, sizeof( level.voteString ), ";" );
-		Com_sprintf( level.voteDisplayString, sizeof( level.voteDisplayString ), "Question: %s", arg2 );
+		Com_sprintf( level.voteDisplayString, sizeof( level.voteDisplayString ), "Poll: %s", arg2 );
 
 	} 
 	else if ( !Q_stricmp( arg1, "pause" )) 
 	{
-		/*
-		int duration = atoi(arg2);
-
-		if (duration == 0) // 2 minutes default
-			duration = 2*60;
-		else if (duration < 0) // second minimum
-			duration = 1;
-		else if ( duration > 5*60) // 5 minutes max
-			duration = 5*60;
-		*/
-
 		Com_sprintf( level.voteString, sizeof( level.voteString ), "%s 150", arg1);
 		Com_sprintf( level.voteDisplayString, sizeof( level.voteDisplayString ), "Pause Game" );
 
@@ -2521,6 +2526,12 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 	{
 		Com_sprintf( level.voteString, sizeof( level.voteString ), "%s", arg1 );
 		Com_sprintf( level.voteDisplayString, sizeof( level.voteDisplayString ), "End Match" );
+	}
+	else if (!Q_stricmp(arg1, "g_doWarmup"))
+	{
+		int n = atoi(arg2);
+		Com_sprintf(level.voteString, sizeof(level.voteString), "%s %s", arg1, arg2);
+		Com_sprintf(level.voteDisplayString, sizeof(level.voteDisplayString), n ? "Enable Warmup" : "Disable Warmup");
 	}
 	else
 	{
@@ -2601,6 +2612,46 @@ void Cmd_Vote_f( gentity_t *ent ) {
 	// a majority will be determined in CheckVote, which will also account
 	// for players entering or leaving
 }
+
+static void Cmd_Ready_f(gentity_t *ent) {
+	const char *publicMsg = NULL;
+	gentity_t *e = NULL;
+	int i = 0;
+
+	if (!g_doWarmup.integer /*|| level.warmupTime == 0*/ || level.restarted /*|| level.allReady*/ )
+		return;
+
+	if (ent->client->pers.readyTime > level.time - 10000)
+		return;
+
+	if (ent->client->sess.sessionTeam == TEAM_SPECTATOR)
+		return;
+
+	ent->client->pers.ready = !ent->client->pers.ready;
+	ent->client->pers.readyTime = level.time;
+
+	if (ent->client->pers.ready) {
+		publicMsg = va("print \"%s "S_COLOR_WHITE"is ready\n\"", ent->client->pers.netname);
+		trap_SendServerCommand(ent - g_entities, va("cp \""S_COLOR_GREEN"You are ready\""));
+	}
+	else 
+	{
+		publicMsg = va("print \"%s "S_COLOR_YELLOW"is NOT ready\n\"", ent->client->pers.netname);
+		trap_SendServerCommand(ent - g_entities, va("cp \""S_COLOR_YELLOW"You are NOT ready\""));
+	}
+
+	if (!g_wasRestarted.integer)
+	{
+		trap_SendServerCommand(-1, publicMsg);
+	}
+	
+	// send public message to everyone BUT this client, so they see their own message
+	//for (i = 0, e = g_entities; i < level.maxclients; i++, e++) {
+	//	if (e != ent)
+	//		trap_SendServerCommand(e - g_entities, publicMsg);
+	//}
+}
+
 
 /*
 ==================
@@ -4023,6 +4074,9 @@ void ClientCommand( int clientNum ) {
 		Cmd_CallVote_f (ent);
 	else if (Q_stricmp (cmd, "vote") == 0)
 		Cmd_Vote_f (ent);
+	else if (Q_stricmp(cmd, "ready") == 0)
+		Cmd_Ready_f(ent);
+
 	//else if (Q_stricmp (cmd, "callteamvote") == 0)
 	//	Cmd_CallTeamVote_f (ent);
 	//else if (Q_stricmp (cmd, "teamvote") == 0)

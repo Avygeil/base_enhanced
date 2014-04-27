@@ -4,7 +4,7 @@
 #include "G2.h"
 #include "bg_saga.h"
 
-#include "accounts.h"
+//#include "accounts.h"
 
 
 // g_client.c -- client functions that don't happen every frame
@@ -2031,11 +2031,11 @@ void ClientUserinfoChanged( int clientNum ) {
 				Info_SetValueForKey( userinfo, "name", client->pers.netname );
 				trap_SetUserinfo( clientNum, userinfo );
 
-				//make heartbeat soon
-				if (nextHeartBeatTime > level.time + 5000){
-					nextHeartBeatTime = level.time + 5000;
-					//G_DBLog("D1: nextHeartBeatTime: %i\n",nextHeartBeatTime);
-				}
+				//make heartbeat soon - accounts system
+				//if (nextHeartBeatTime > level.time + 5000){
+				//	nextHeartBeatTime = level.time + 5000;
+				//	//G_DBLog("D1: nextHeartBeatTime: %i\n",nextHeartBeatTime);
+				//}
 			}
 		}
 	}
@@ -2337,60 +2337,62 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
     		ip = getIpFromString(ipString);
 		}
 
-		if (isDBLoaded){ //account system
 
-			if (firstTime){
-				char* delimitator;
-				char* reason;
-				int status;
+		//if (isDBLoaded){ //accounts system
 
-				value = Info_ValueForKey (userinfo, "password");
+		//	if (firstTime){
+		//		char* delimitator;
+		//		char* reason;
+		//		int status;
 
-				delimitator = strchr(value,':');
-				if (!delimitator){
-					return "Invalid format. Use username:password.";
-				}
+		//		value = Info_ValueForKey (userinfo, "password");
 
-				*delimitator = '\0'; //seperate username and password
-				++delimitator;
-				//value now points to username
-				//delimitator now points to password
+		//		delimitator = strchr(value,':');
+		//		if (!delimitator){
+		//			return "Invalid format. Use username:password.";
+		//		}
 
-				status = getAuthorizationStatus(value, delimitator, ip, &reason);
-				if (status == STATUS_WAITING){
-					//Com_Printf("%s is NOT YET authorized.\n",value);
-					//not yet authorized
-					//enqueue
-					enqueueAuthorization(value,delimitator);
+		//		*delimitator = '\0'; //seperate username and password
+		//		++delimitator;
+		//		//value now points to username
+		//		//delimitator now points to password
 
-					return "Authorization in progress...";
-				} else if (status == STATUS_DENIED) {
-					if (!reason){
-						G_LogPrintf("DB_ERROR: no reason for denial.\n");
-					}
+		//		status = getAuthorizationStatus(value, delimitator, ip, &reason);
+		//		if (status == STATUS_WAITING){
+		//			//Com_Printf("%s is NOT YET authorized.\n",value);
+		//			//not yet authorized
+		//			//enqueue
+		//			enqueueAuthorization(value,delimitator);
 
-					G_DBLog("Authorization denied for %s (%s). Reason:%s.\n",
-						value,ipString,reason);
-					//Com_Printf("%s is DENIED.\n",value);
-					return va("Denied: %s",reason);				
-				}
+		//			return "Authorization in progress...";
+		//		} else if (status == STATUS_DENIED) {
+		//			if (!reason){
+		//				G_LogPrintf("DB_ERROR: no reason for denial.\n");
+		//			}
 
-				G_DBLog("Authorization approved for %s (%s).\n",value,ipString);
+		//			G_DBLog("Authorization denied for %s (%s). Reason:%s.\n",
+		//				value,ipString,reason);
+		//			//Com_Printf("%s is DENIED.\n",value);
+		//			return va("Denied: %s",reason);				
+		//		}
 
-				//authorized
-				//Q_strncpyz(username,value,sizeof(username));
-				//init session data should do that for us now
+		//		G_DBLog("Authorization approved for %s (%s).\n",value,ipString);
 
-				//send heartbeat soon
-				if (nextHeartBeatTime > level.time + 2000){
-					nextHeartBeatTime = level.time + 2000;
-					//G_DBLog("D2: nextHeartBeatTime: %i\n",nextHeartBeatTime);
-				}
+		//		//authorized
+		//		//Q_strncpyz(username,value,sizeof(username));
+		//		//init session data should do that for us now
 
-			}
+		//		//send heartbeat soon
+		//		if (nextHeartBeatTime > level.time + 2000){
+		//			nextHeartBeatTime = level.time + 2000;
+		//			//G_DBLog("D2: nextHeartBeatTime: %i\n",nextHeartBeatTime);
+		//		}
+
+		//	}
 
 
-		} else if (g_needpass.integer){// check for standard password
+		//} else 
+		if (g_needpass.integer){// check for standard password
 			static char sTemp[1024];
 
 			value = Info_ValueForKey (userinfo, "password");
@@ -4199,24 +4201,26 @@ void ClientDisconnect( int clientNum ) {
 
 	if ( ent->r.svFlags & SVF_BOT ) {
 		BotAIShutdownClient( clientNum, qfalse );
-	} else {
-		int freeSlot;
-		//send heartbeat soon
-		nextHeartBeatTime = level.time;// + 2000; //+1000
-		//G_DBLog("D3: nextHeartBeatTime: %i\n",nextHeartBeatTime);
-		isNextHeartBeatForced = qtrue;
+	} 
+	// // accounts system
+	//else {
+	//	int freeSlot;
+	//	//send heartbeat soon
+	//	nextHeartBeatTime = level.time;// + 2000; //+1000
+	//	//G_DBLog("D3: nextHeartBeatTime: %i\n",nextHeartBeatTime);
+	//	isNextHeartBeatForced = qtrue;
 
-		//we should add this client to authorized for shord
-		//period of time, so reconnecting is easy
-		freeSlot = getFreeSlotIndex();
-		strncpy(authorized[freeSlot].username,ent->client->sess.username,MAX_USERNAME_SIZE);
-		authorized[freeSlot].password[0] = '\0';
-		authorized[freeSlot].status = STATUS_AUTHORIZED;
-		authorized[freeSlot].expire = level.time + 2*1000; //2 seconds should be enough
-		//authorized[freeSlot].isRecconect = qtrue;
-		authorized[freeSlot].reconnectIp = ent->client->sess.ip;
-		
-	}
+	//	//we should add this client to authorized for shord
+	//	//period of time, so reconnecting is easy
+	//	freeSlot = getFreeSlotIndex();
+	//	strncpy(authorized[freeSlot].username,ent->client->sess.username,MAX_USERNAME_SIZE);
+	//	authorized[freeSlot].password[0] = '\0';
+	//	authorized[freeSlot].status = STATUS_AUTHORIZED;
+	//	authorized[freeSlot].expire = level.time + 2*1000; //2 seconds should be enough
+	//	//authorized[freeSlot].isRecconect = qtrue;
+	//	authorized[freeSlot].reconnectIp = ent->client->sess.ip;
+	//	
+	//}
 
 	G_ClearClientLog(clientNum);
 

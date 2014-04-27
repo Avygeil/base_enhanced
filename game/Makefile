@@ -11,6 +11,7 @@
 
 # Compiler - GCC
 CC = gcc
+#CC = /opt/intel/composer_xe_2013_sp1.0.080/bin/ia32/icc
 
 # Compiler Flags
 # I***          		include paths
@@ -23,20 +24,25 @@ CC = gcc
 
 
 # Compiler Flags - swap CONFIG for release/debug builds
-CONFIG = -O2 -DFINAL_BUILD -DNDEBUG -g
+CONFIG = -O2 -DFINAL_BUILD -DNDEBUG -fno-stack-protector -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0 -D_GNU_SOURCE
+#CONFIG = -O0 -g -DFINAL_BUILD -DNDEBUG
 #CONFIG = -g3 -D_DEBUG
 INCLUDES = -I../ -I./ -I../shared/
 DEFINES = -DMISSION_PACK -DQAGAME -D_JK2 -D__linux__ -D__GCC__
 OPTIONS = -Wall -fno-strict-aliasing -m32 -masm=intel
 FLAGS = $(INCLUDES) $(DEFINES) $(OPTIONS) $(CONFIG)
-LIBS = /usr/local/lib/libcurl.a -lrt  
+LIBS = 
+#LIBS = -fno-stack-protector -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0 -D_GNU_SOURCE /usr/local/lib/libcurl.a -lrt -Wl,-Bstatic -lz -Wl,-Bdynamic 
+#LIBS = -fno-stack-protector -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0 -D_GNU_SOURCE /usr/local/lib/libcurl.a -lrt -Wl,-Bstatic -lz -Wl,-Bdynamic 
+#LIBS = -U_FORTIFY_SOURCE /usr/local/lib/libcurl.a -lrt -lz
+#LIBS = -static /usr/local/lib/libcurl.a -lrt -lz 
 
 
 # Target file
 TARGET =    ../Final/jampgamei386.so
 
 # Object Files
-FILES =    accounts.o              ai_main.o               ai_util.o               ai_wpnav.o              AnimalNPC.o             bg_g2_utils.o  \
+FILES =     ai_main.o               ai_util.o               ai_wpnav.o              AnimalNPC.o             bg_g2_utils.o  \
             bg_misc.o               bg_panimate.o           bg_pmove.o              bg_saber.o              bg_saberLoad.o          bg_saga.o  \
             bg_slidemove.o          bg_vehicleLoad.o        bg_weapons.o            FighterNPC.o            g_active.o              g_arenas.o \
             g_bot.o                 g_client.o              g_cmds.o                g_combat.o              g_exphysics.o           g_ICARUScb.o \

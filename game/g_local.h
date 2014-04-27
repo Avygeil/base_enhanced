@@ -479,6 +479,8 @@ typedef struct {
 	int			voteCount;			// to prevent people from constantly calling votes
 	int			teamVoteCount;		// to prevent people from constantly calling votes
 	qboolean	teamInfo;			// send team overlay updates?
+	qboolean	ready;
+	int			readyTime;
 
 	// *CHANGE 8a* added clientNum to persistant data
 
@@ -957,6 +959,8 @@ typedef struct {
 	//thus we need these
 	int			redFlagStealTime;
 	int			blueFlagStealTime;
+
+	qboolean			allReady;       // all ready flag
 
 	char		*changemap;
 	qboolean	readyToExit;			// at least one client wants to exit
@@ -1813,6 +1817,8 @@ extern vmCvar_t	   g_rconpassword;
 
 extern vmCvar_t	   g_callvotedelay;
 extern vmCvar_t	   g_callvotemaplimit;
+
+extern vmCvar_t	   g_wasRestarted;
 
 int validateAccount(const char* username, const char* password, int num);
 void unregisterUser(const char* username);
