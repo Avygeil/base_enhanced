@@ -1107,7 +1107,45 @@ void Svcmd_AccountPrintAll_f(){
 }
 */
 
+extern MapPool pools[64];
+extern int poolNum;
 
+void Svcmd_MapRandom_f()
+{
+	char pool[MAX_MAP_POOL_ID];
+	int  i;
+
+	if (trap_Argc() < 1)
+	{
+		return;
+	}
+
+	trap_Argv(1, pool, sizeof(pool));
+
+	// find corresponding pool
+	for (i = 0; i < poolNum; ++i)
+	{
+		if (!Q_stricmpn(pools[i].id, pool, MAX_MAP_POOL_ID))
+		{ // found pool
+			static char mapname[MAX_MAP_NAME];
+			int  map = rand() % pools[i].mapsCount;
+
+			// check if this is not the current map
+			trap_Cvar_VariableStringBuffer("mapname", mapname, sizeof(mapname));
+
+			if (!Q_stricmpn(mapname, pools[i].maplist[map], MAX_MAP_NAME) && pools[i].mapsCount > 1)
+			{
+				// dont change to current map, shift
+				map = (map + (rand() % (pools[i].mapsCount - 1))) % pools[i].mapsCount;
+			}		
+
+			trap_SendConsoleCommand(EXEC_APPEND, va("map %s\n", pools[i].maplist[map]));
+			return;
+		}
+	}
+
+	G_Printf("Map pool %s not found\n", pool);
+}
 
 char	*ConcatArgs( int start );
 
@@ -1198,6 +1236,11 @@ qboolean	ConsoleCommand( void ) {
 
 	if (Q_stricmp (cmd, "clientban") == 0) {
 		Svcmd_ClientBan_f();
+		return qtrue;
+	}
+
+	if (Q_stricmp(cmd, "map_random") == 0) {
+		Svcmd_MapRandom_f();
 		return qtrue;
 	}
 

@@ -2113,6 +2113,105 @@ int G_ClientNumberFromStrippedName ( const char* name )
 	return -1;
 }
 
+MapPool pools[64];
+int poolNum = 0;
+
+void G_LoadMapPool(const char* filename)
+{
+	int				len;
+	fileHandle_t	f;
+	int             map;
+	static char		buf[MAX_POOLS_TEXT];
+	char			*line;
+	//int             i;
+
+	if (poolNum == MAX_MAPS_IN_POOL)
+		return;
+
+	if (strlen(filename) > MAX_MAP_POOL_ID)
+		return;
+
+	// open map pool file
+	len = trap_FS_FOpenFile(filename, &f, FS_READ);
+	if (!f) {
+		trap_Printf(va(S_COLOR_RED "file not found: %s\n", filename));
+		return;
+	}
+
+	if (len >= MAX_POOLS_TEXT) {
+		trap_Printf(va(S_COLOR_RED "file too large: %s is %i, max allowed is %i", filename, len, MAX_ARENAS_TEXT));
+		trap_FS_FCloseFile(f);
+		return;
+	}
+
+	trap_FS_Read(buf, len, f);
+	buf[len] = 0;
+	trap_FS_FCloseFile(f);
+
+	// store file name as an id
+	COM_StripExtension(filename, pools[poolNum].id);
+
+	line = strtok(buf, "\r\n");
+	if (!line)
+	{
+		Com_Printf("Pool %s is corrupted\n", filename);
+		return;
+	}
+
+	// long name for votes	
+	Q_strncpyz(pools[poolNum].longname, line, MAX_MAP_POOL_LONGNAME);
+
+	// cycle through all arenas
+	map = 0;
+	while ( (line = strtok(0, "\r\n")) )
+	{
+		const char* error;
+		Q_strncpyz(pools[poolNum].maplist[map], line, MAX_MAP_NAME);
+
+		// check the arena validity (exists and supports current gametype)
+		// TBD optimize arena search, hash map perhaps
+		error = G_DoesMapSupportGametype(pools[poolNum].maplist[map], g_gametype.integer);
+		if (!error)
+		{
+			++map;
+		}
+		else
+		{
+			//Com_Printf("Map %s could not be loaded in pool, %s.\n", 
+			//	pools[poolNum].maplist[map], error);
+		}
+	}
+
+	pools[poolNum].mapsCount = map;
+
+	Com_Printf("Loaded map pool %s, maps %i\n", filename, pools[poolNum].mapsCount);
+
+	++poolNum;
+}
+
+void G_LoadVoteMapsPools()
+{
+	int			numdirs;
+	char		filename[128];
+	char		dirlist[4096];
+	char*		dirptr;
+	int			dirlen;
+	int         i;
+
+	// load all .pool files
+	numdirs = trap_FS_GetFileList("", ".pool", dirlist, sizeof(dirlist));
+	dirptr = dirlist;
+
+	//Com_Printf("Found %i map pools\n", numdirs);
+	for (i = 0; i < numdirs; i++, dirptr += dirlen + 1)
+	{
+		dirlen = strlen(dirptr);
+		strcpy(filename, dirptr);
+		G_LoadMapPool(filename);
+	}
+
+}
+
 void fixVoters(){
 	int i;
 
@@ -2252,6 +2351,7 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 	if ( !Q_stricmp( arg1, "map_restart" ) ) {
 	} else if ( !Q_stricmp( arg1, "nextmap" ) ) {
 	} else if ( !Q_stricmp( arg1, "map" ) ) {
+	} else if ( !Q_stricmp( arg1, "map_random" ) ) {
 	} else if ( !Q_stricmp( arg1, "g_gametype" ) ) {
 	} else if ( !Q_stricmp( arg1, "kick" ) ) {
 	} else if ( !Q_stricmp( arg1, "clientkick" ) ) {
@@ -2368,6 +2468,31 @@ void Cmd_CallVote_f( gentity_t *ent ) {
         }    
        
 		Com_sprintf( level.voteDisplayString, sizeof( level.voteDisplayString ), "map %s", mapName);
+	}
+	else if (!Q_stricmp(arg1, "map_random"))
+	{
+		// TBD - add cvar for allowing/disabling random map vote
+		int i;
+		qboolean found = qfalse;
+
+		// find the pool
+		for (i = 0; i < poolNum; ++i)
+		{
+			if (!Q_stricmpn(pools[i].id, arg2, MAX_MAP_POOL_ID))
+			{
+				found = qtrue;
+				break;
+			}
+		}
+
+		if (!found)
+		{
+			trap_SendServerCommand(ent - g_entities, "print \"Pool not found.\n\"");
+			return;
+		}
+
+		Com_sprintf(level.voteDisplayString, sizeof(level.voteDisplayString), "Random Map: %s", pools[i].longname);
+		Com_sprintf(level.voteString, sizeof(level.voteString), "%s %s", arg1, arg2);
 	}
 	else if ( !Q_stricmp ( arg1, "clientkick" ) )
 	{
@@ -3414,6 +3539,50 @@ qboolean G_OtherPlayersDueling(void)
 	return qfalse;
 }
 
+
+static void Cmd_MapPool_f(gentity_t* ent)
+{
+	int i;
+
+	if (trap_Argc() > 1)
+	{
+		char pool[MAX_MAP_POOL_ID];
+		trap_Argv(1, pool, sizeof(pool));
+
+		if (!pool[0])
+		{
+			return;
+		}
+
+		// find the pool
+		for (i = 0; i < poolNum; ++i)
+		{
+			if (!Q_stricmpn(pools[i].id, pool, MAX_MAP_POOL_ID))
+			{
+				// found, list the maps in pool
+				int j;
+				trap_SendServerCommand(ent - g_entities, va("print \"Maps for pool %s (%s):\n\"", pools[i].id, pools[i].longname));
+				for (j = 0; j < pools[i].mapsCount; ++j)
+				{
+					trap_SendServerCommand(ent - g_entities, va("print \" %s\n\"", pools[i].maplist[j]));
+				}
+
+				return;
+			}
+		}
+	}
+	else
+	{
+		// list pools
+		trap_SendServerCommand(ent - g_entities, "print \"Map pools:\n\"");
+
+		for (i = 0; i < poolNum; ++i)
+		{
+			trap_SendServerCommand(ent - g_entities, va("print \"%s (%s)\n\"", pools[i].id, pools[i].longname));
+		}
+	}
+}
+
 void Cmd_EngageDuel_f(gentity_t *ent)
 {
 	trace_t tr;
@@ -4083,7 +4252,8 @@ void ClientCommand( int clientNum ) {
 		Cmd_Vote_f (ent);
 	else if (Q_stricmp(cmd, "ready") == 0)
 		Cmd_Ready_f(ent);
-
+	else if (Q_stricmp(cmd, "mappool") == 0)
+		Cmd_MapPool_f(ent);
 	//else if (Q_stricmp (cmd, "callteamvote") == 0)
 	//	Cmd_CallTeamVote_f (ent);
 	//else if (Q_stricmp (cmd, "teamvote") == 0)
@@ -4752,3 +4922,4 @@ void G_InitVoteMapsLimit()
 {
     memset(g_votedCounts, 0, sizeof(g_votedCounts));
 }
+

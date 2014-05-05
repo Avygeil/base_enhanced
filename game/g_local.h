@@ -462,6 +462,20 @@ typedef struct {
 #define MAX_NETNAME			36
 #define	MAX_VOTE_COUNT		3
 
+#define MAX_MAP_POOL_ID 20
+#define MAX_MAP_POOL_LONGNAME 64
+#define MAX_MAP_NAME 32
+#define MAX_MAPS_IN_POOL 64
+#define MAX_POOLS_TEXT 8192
+
+typedef struct
+{
+	char id[MAX_MAP_POOL_ID];
+	char longname[MAX_MAP_POOL_LONGNAME];
+	char maplist[MAX_MAPS_IN_POOL][MAX_MAP_NAME];
+	int  mapsCount;
+} MapPool;
+
 // client data that stays across multiple respawns, but is cleared
 // on each level change or team change at ClientBegin()
 typedef struct {

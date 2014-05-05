@@ -1149,6 +1149,7 @@ G_InitGame
 extern void RemoveAllWP(void);
 extern void BG_ClearVehicleParseParms(void);
 extern void G_LoadArenas( void );
+extern void G_LoadVoteMapsPools(void);
 extern void InitUnhandledExceptionFilter();
 
 void G_InitGame( int levelTime, int randomSeed, int restart ) {
@@ -1386,6 +1387,7 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 
 	G_LoadArenas(); //*CHANGE 93* loading map list not dependant on bot_enable cvar
     G_InitVoteMapsLimit();
+	G_LoadVoteMapsPools();
 
 	if ( trap_Cvar_VariableIntegerValue( "bot_enable" ) ) {
 		BotAISetup( restart );
