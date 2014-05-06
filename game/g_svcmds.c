@@ -1136,7 +1136,7 @@ void Svcmd_MapRandom_f()
 			if (!Q_stricmpn(mapname, pools[i].maplist[map], MAX_MAP_NAME) && pools[i].mapsCount > 1)
 			{
 				// dont change to current map, shift
-				map = (map + (rand() % (pools[i].mapsCount - 1))) % pools[i].mapsCount;
+				map = (map + 1 + (rand() % (pools[i].mapsCount - 1))) % pools[i].mapsCount;
 			}		
 
 			trap_SendConsoleCommand(EXEC_APPEND, va("map %s\n", pools[i].maplist[map]));

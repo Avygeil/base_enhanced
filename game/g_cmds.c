@@ -3561,7 +3561,8 @@ static void Cmd_MapPool_f(gentity_t* ent)
 			{
 				// found, list the maps in pool
 				int j;
-				trap_SendServerCommand(ent - g_entities, va("print \"Maps for pool %s (%s):\n\"", pools[i].id, pools[i].longname));
+				trap_SendServerCommand(ent - g_entities, va("print \"Found %i maps for pool %s (%s):\n\"", 
+					pools[i].mapsCount, pools[i].id, pools[i].longname));
 				for (j = 0; j < pools[i].mapsCount; ++j)
 				{
 					trap_SendServerCommand(ent - g_entities, va("print \" %s\n\"", pools[i].maplist[j]));
@@ -3574,7 +3575,7 @@ static void Cmd_MapPool_f(gentity_t* ent)
 	else
 	{
 		// list pools
-		trap_SendServerCommand(ent - g_entities, "print \"Map pools:\n\"");
+		trap_SendServerCommand(ent - g_entities, va("print \"Found %i map pools:\n\"", poolNum));
 
 		for (i = 0; i < poolNum; ++i)
 		{
