@@ -2666,6 +2666,12 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 	else if (!Q_stricmp(arg1, "g_doWarmup"))
 	{
 		int n = atoi(arg2);
+
+        if (!g_allow_vote_warmup.integer){
+            trap_SendServerCommand(ent - g_entities, "print \"Vote warmup is disabled.\n\"");
+            return;
+        }                
+
 		Com_sprintf(level.voteString, sizeof(level.voteString), "%s %s", arg1, arg2);
 		Com_sprintf(level.voteDisplayString, sizeof(level.voteDisplayString), n ? "Enable Warmup" : "Disable Warmup");
 	}
