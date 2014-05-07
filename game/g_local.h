@@ -1826,6 +1826,7 @@ extern vmCvar_t    g_fixboon;
 extern vmCvar_t    g_maxstatusrequests;
 extern vmCvar_t	   g_logrcon;
 extern vmCvar_t	   g_testdeflection;
+extern vmCvar_t	   g_disable_flags_nodrop;
 
 //extern vmCvar_t	   g_cmdtimelimit;
 

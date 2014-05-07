@@ -3254,7 +3254,9 @@ void G_RunItem( gentity_t *ent ) {
 	contents = trap_PointContents( ent->r.currentOrigin, -1 );
 	if ( contents & CONTENTS_NODROP ) {
 		if (ent->item && ent->item->giType == IT_TEAM) {
-			Team_FreeEntity(ent);
+            if (!g_disable_flags_nodrop.integer) {
+                Team_FreeEntity(ent);
+            }                  			
 		} else {
 			G_FreeEntity( ent );
 		}
