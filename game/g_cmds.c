@@ -2471,9 +2471,13 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 	}
 	else if (!Q_stricmp(arg1, "map_random"))
 	{
-		// TBD - add cvar for allowing/disabling random map vote
 		int i;
 		qboolean found = qfalse;
+				
+		if (!g_allow_vote_maprandom.integer){
+			trap_SendServerCommand(ent - g_entities, "print \"Vote map_random is disabled.\n\"");
+			return;
+		}
 
 		// find the pool
 		for (i = 0; i < poolNum; ++i)
