@@ -3193,7 +3193,7 @@ void G_BounceItem(gentity_t *ent, trace_t *trace) {
                     ent->r.ownerNum, CONTENTS_TRIGGER);
 
                 if ( (tr.startsolid || tr.fraction != 1) && 
-                     g_entities[trace->entityNum].damage == -1 )
+                     g_entities[tr.entityNum].damage == -1 )
                 {
                     ent->nextthink = level.time;
                 }    
