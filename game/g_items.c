@@ -2699,6 +2699,13 @@ gentity_t *LaunchItem( gitem_t *item, vec3_t origin, vec3_t velocity ) {
 	if ((g_gametype.integer == GT_CTF || g_gametype.integer == GT_CTY) && item->giType == IT_TEAM) { // Special case for CTF flags
 		dropped->think = Team_DroppedFlagThink;
 		dropped->nextthink = level.time + 30000;
+        dropped->clipmask = MASK_DEADSOLID;
+
+        if ( !g_flags_overboarding.integer )
+        {
+            dropped->clipmask |= CONTENTS_TRIGGER;
+        }
+
 		Team_CheckDroppedItem( dropped );
 
 		//rww - so bots know
@@ -3150,35 +3157,46 @@ G_BounceItem
 
 ================
 */
-void G_BounceItem( gentity_t *ent, trace_t *trace ) {
-	vec3_t	velocity;
-	float	dot;
-	int		hitTime;
+void G_BounceItem(gentity_t *ent, trace_t *trace) {
+    vec3_t	velocity;
+    float	dot;
+    int		hitTime;
 
-	// reflect the velocity on the trace plane
-	hitTime = level.previousTime + ( level.time - level.previousTime ) * trace->fraction;
-	BG_EvaluateTrajectoryDelta( &ent->s.pos, hitTime, velocity );
-	dot = DotProduct( velocity, trace->plane.normal );
-	VectorMA( velocity, -2*dot, trace->plane.normal, ent->s.pos.trDelta );
+    // reflect the velocity on the trace plane
+    hitTime = level.previousTime + (level.time - level.previousTime) * trace->fraction;
+    BG_EvaluateTrajectoryDelta(&ent->s.pos, hitTime, velocity);
+    dot = DotProduct(velocity, trace->plane.normal);
+    VectorMA(velocity, -2 * dot, trace->plane.normal, ent->s.pos.trDelta);
 
-	// cut the velocity to keep from bouncing forever
-	VectorScale( ent->s.pos.trDelta, ent->physicsBounce, ent->s.pos.trDelta );
+    // cut the velocity to keep from bouncing forever
+    VectorScale(ent->s.pos.trDelta, ent->physicsBounce, ent->s.pos.trDelta);
 
-	if ((ent->s.weapon == WP_DET_PACK && ent->s.eType == ET_GENERAL && ent->physicsObject))
-	{ //detpacks only
-		if (ent->touch)
-		{
-			ent->touch(ent, &g_entities[trace->entityNum], trace);
-			return;
-		}
-	}
+    if ((ent->s.weapon == WP_DET_PACK && ent->s.eType == ET_GENERAL && ent->physicsObject))
+    { //detpacks only
+        if (ent->touch)
+        {
+            ent->touch(ent, &g_entities[trace->entityNum], trace);
+            return;
+        }
+    }
 
 	// check for stop
-	if ( trace->plane.normal[2] > 0 && ent->s.pos.trDelta[2] < 40 ) {
+	if ( trace->plane.normal[2] > 0 && ent->s.pos.trDelta[2] < 40) {
 		trace->endpos[2] += 1.0;	// make sure it is off ground
 		SnapVector( trace->endpos );
 		G_SetOrigin( ent, trace->endpos );
-		ent->s.groundEntityNum = trace->entityNum;
+		ent->s.groundEntityNum = trace->entityNum;   
+
+        // check for flag going into void
+        if (ent->item &&
+            ent->item->giType == IT_TEAM &&
+            !g_flags_overboarding.integer &&
+            (trace->contents & CONTENTS_TRIGGER) &&
+            g_entities[trace->entityNum].damage == -1 &&
+            ent->s.pos.trDelta[2] < 40)
+        {
+            ent->nextthink = level.time + 1500;
+        }
 		return;
 	}
 
@@ -3254,11 +3272,13 @@ void G_RunItem( gentity_t *ent ) {
 	contents = trap_PointContents( ent->r.currentOrigin, -1 );
 	if ( contents & CONTENTS_NODROP ) {
 		if (ent->item && ent->item->giType == IT_TEAM) {
-			Team_FreeEntity(ent);
+            if (!g_flags_overboarding.integer) {
+                Team_FreeEntity(ent);
+            }                  			
 		} else {
 			G_FreeEntity( ent );
-		}
-		return;
+		}   
+        return;
 	}
 
 	G_BounceItem( ent, &tr );
