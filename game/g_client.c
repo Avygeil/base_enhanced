@@ -2394,11 +2394,16 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 		//} else 
 		if (g_needpass.integer){// check for standard password
 			static char sTemp[1024];
+            qboolean classicPasswordMatches;
+            qboolean privatePasswordMatches;
 
-			value = Info_ValueForKey (userinfo, "password");
-			if ( g_password.string[0] && Q_stricmp( g_password.string, "none" ) &&
-				strcmp( g_password.string, value) != 0) {
-				
+            value = Info_ValueForKey(userinfo, "password");
+
+            classicPasswordMatches = !strcmp(g_password.string, value);
+            privatePasswordMatches = sv_privatepassword.string[0] && !strcmp(sv_privatepassword.string, value);
+
+            if (!classicPasswordMatches && !privatePasswordMatches) 
+            {				
 				Q_strncpyz(sTemp, G_GetStringEdString("MP_SVGAME","INVALID_ESCAPE_TO_MAIN"), sizeof (sTemp) );
 				return sTemp;// return "Invalid password";
 			}

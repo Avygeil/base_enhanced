@@ -1705,6 +1705,7 @@ extern	vmCvar_t	d_saberInterpolate;
 extern	vmCvar_t	g_friendlyFire;
 extern	vmCvar_t	g_friendlySaber;
 extern	vmCvar_t	g_password;
+extern	vmCvar_t	sv_privatepassword;
 extern	vmCvar_t	g_needpass;
 extern	vmCvar_t	g_gravity;
 extern	vmCvar_t	g_speed;

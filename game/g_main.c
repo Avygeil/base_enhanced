@@ -125,6 +125,7 @@ vmCvar_t	d_saberInterpolate;
 vmCvar_t	g_friendlyFire;
 vmCvar_t	g_friendlySaber;
 vmCvar_t	g_password;
+vmCvar_t	sv_privatepassword;
 vmCvar_t	g_needpass;
 vmCvar_t	g_maxclients;
 vmCvar_t	g_maxGameClients;
@@ -461,6 +462,8 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_statLogFile, "g_statLogFile", "statlog.log", CVAR_ARCHIVE, 0, qfalse },
 
 	{ &g_password, "g_password", "", CVAR_USERINFO, 0, qfalse  },
+    { &sv_privatepassword, "sv_privatepassword", "", CVAR_TEMP, 0, qfalse },
+    
 
 	{ &g_banIPs, "g_banIPs", "", CVAR_ARCHIVE, 0, qfalse  },
 	{ &g_getstatusbanIPs, "g_getstatusbanIPs", "", CVAR_ARCHIVE, 0, qfalse  },
