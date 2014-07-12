@@ -301,6 +301,8 @@ vmCvar_t    g_npc_spawn_limit;
 vmCvar_t	g_hackLog;
 //vmCvar_t	g_bouncelimit;
 
+vmCvar_t    g_default_restart_countdown;
+
 vmCvar_t	jp_DlBaseURL;
 
 //vmCvar_t	g_followSpectator;
@@ -622,7 +624,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_strafejump_mod,	"g_strafejump_mod"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_disableStrafejump,	"g_disableStrafejump"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
-	
+    { &g_default_restart_countdown, "g_default_restart_countdown", "0", CVAR_ARCHIVE, 0, qtrue }, 
 
 	{ &g_allow_vote_gametype,	"g_allow_vote_gametype"	, "1023"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_allow_vote_kick,	"g_allow_vote_kick"	, "1"	, CVAR_ARCHIVE, 0, qtrue },

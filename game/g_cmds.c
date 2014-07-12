@@ -2266,6 +2266,7 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 //	char*	type = NULL;
 	char*		mapName = 0;
 	const char*	arenaInfo;
+    int argc;
 
 	if ( !g_allowVote.integer ) {
 		trap_SendServerCommand( ent-g_entities, va("print \"%s\n\"", G_GetStringEdString("MP_SVGAME", "NOVOTE")) );
@@ -2317,6 +2318,7 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 	// make sure it is a valid command to vote on
 	trap_Argv( 1, arg1, sizeof( arg1 ) );
 	trap_Argv( 2, arg2, sizeof( arg2 ) );
+    argc = trap_Argc();
 
 	// *CHANGE 8a* anti callvote bug
 	if ((g_protectCallvoteHack.integer && (strchr( arg1, '\n' ) || strchr( arg2, '\n' ) ||	strchr( arg1, '\r' ) || strchr( arg2, '\r' ))) ) {
@@ -2613,6 +2615,12 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 			return;
 		}
 		*/
+
+        // set default map_restart 3 when there is no time provided
+        if (argc < 3)
+        {
+            n = g_default_restart_countdown.integer;
+        }
 
 		if (n < 0) n = 0;
 		else if (n > 60) n = 60;
