@@ -4025,7 +4025,8 @@ void CheckVote( void ) {
 		{
 			if (trap_Cvar_VariableIntegerValue("g_gametype") != level.votingGametypeTo)
 			{ //If we're voting to a different game type, be sure to refresh all the map stuff
-				const char *nextMap = G_RefreshNextMap(level.votingGametypeTo, qtrue);
+                const char *nextMap = G_GetDefaultMap(level.votingGametypeTo);
+                //const char *nextMap = G_RefreshNextMap(level.votingGametypeTo, qtrue);             
 
 				if (level.votingGametypeTo == GT_SIEGE)
 				{ //ok, kick all the bots, cause the aren't supported!

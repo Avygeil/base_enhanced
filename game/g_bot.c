@@ -317,6 +317,37 @@ const char *G_RefreshNextMap(int gametype, qboolean forced)
 	return Info_ValueForKey( g_arenaInfos[desiredMap], "map" );
 }
 
+//rww - auto-obtain nextmap. I could've sworn Q3 had something like this, but I guess not.
+const char *G_GetDefaultMap(int gametype)
+{
+    const char* mapName = 0;
+
+    switch (gametype)
+    {
+    case GT_FFA:
+       mapName = "mp/ffa1";
+       break;
+    case GT_DUEL:
+    case GT_POWERDUEL:
+        mapName = "mp/duel1";
+        break;
+    case GT_TEAM:
+        mapName = "mp/ffa1";
+        break;
+    case GT_SIEGE:
+        mapName = "mp/siege_hoth";
+        break;
+    case GT_CTF:
+       mapName = "mp/ctf1";            
+       break;
+    default:
+        break;
+    }
+
+    return mapName;
+}
+
+
 
 /*
 ===============

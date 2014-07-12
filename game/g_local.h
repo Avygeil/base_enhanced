@@ -1511,6 +1511,7 @@ void Svcmd_BotList_f( void );
 void BotInterbreedEndMatch( void );
 const char* G_DoesMapSupportGametype(const char *mapname, int gametype);
 const char *G_RefreshNextMap(int gametype, qboolean forced);
+const char *G_GetDefaultMap(int gametype);
 void G_InitVoteMapsLimit();
 
 // w_force.c / w_saber.c
