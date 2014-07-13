@@ -449,6 +449,7 @@ typedef struct {
 	unsigned int ip;
 	qboolean    isInkognito;
 	unsigned	ignoreFlags;
+    int			inactivityTime;
 
 	char        username[MAX_USERNAME_SIZE];
 } clientSession_t;
@@ -495,6 +496,9 @@ typedef struct {
 	qboolean	teamInfo;			// send team overlay updates?
 	qboolean	ready;
 	int			readyTime;
+
+    // info maintained for inactivity detection
+    usercmd_t	lastCmd;
 
 	// *CHANGE 8a* added clientNum to persistant data
 
@@ -647,7 +651,7 @@ struct gclient_s {
 
 	// timers
 	int			respawnTime;		// can respawn when time > this, force after g_forcerespwan
-	int			inactivityTime;		// kick players when time > this
+	//int			inactivityTime;		// kick players when time > this
 	qboolean	inactivityWarning;	// qtrue if the five seoond warning has been given
 	int			rewardTime;			// clear the EF_AWARD_IMPRESSIVE, etc when time > this
 
@@ -1716,6 +1720,7 @@ extern	vmCvar_t	g_forcerespawn;
 extern	vmCvar_t	g_siegeRespawn;
 extern	vmCvar_t	g_inactivity;
 extern	vmCvar_t	g_inactivityKick;
+extern	vmCvar_t	g_spectatorInactivity;
 extern	vmCvar_t	g_debugMove;
 
 extern	vmCvar_t	g_debugAlloc;

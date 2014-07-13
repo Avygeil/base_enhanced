@@ -760,62 +760,124 @@ void SpectatorThink( gentity_t *ent, usercmd_t *ucmd ) {
 	}
 }
 
+/*
+=================
+ClientInactivityTimer
 
+Returns qfalse if the spectator is dropped
+=================
+*/
+qboolean CheckSpectatorInactivityTimer(gclient_t *client)
+{
+    qboolean active = qtrue;
+
+    if (!g_spectatorInactivity.integer)
+    {
+        // give everyone some time, so if the operator sets g_inactivity during
+        // gameplay, everyone isn't kicked
+        client->sess.inactivityTime = level.time + 60 * 1000;
+        client->inactivityWarning = qfalse;
+    }
+    else if (client->pers.cmd.forwardmove ||
+        client->pers.cmd.rightmove ||
+        client->pers.cmd.upmove ||
+        (client->pers.cmd.buttons & (BUTTON_ATTACK | BUTTON_ALT_ATTACK)) ||
+        client->pers.cmd.generic_cmd ||
+        (short)client->pers.cmd.angles[0] != (short)client->pers.lastCmd.angles[0] ||
+        (short)client->pers.cmd.angles[1] != (short)client->pers.lastCmd.angles[1] ||
+        (short)client->pers.cmd.angles[2] != (short)client->pers.lastCmd.angles[2] ||
+        ((client->pers.cmd.buttons ^ client->pers.lastCmd.buttons) & BUTTON_TALK) ||
+        client->sess.spectatorState == SPECTATOR_FOLLOW
+        )
+    {
+        client->sess.inactivityTime = level.time + g_spectatorInactivity.integer * 1000;
+        client->inactivityWarning = qfalse;
+    }
+    else if (!client->pers.localClient)
+    {
+        if (level.time > client->sess.inactivityTime)
+        {
+            // kick them..
+            trap_DropClient(client - level.clients, "Dropped due to inactivity");
+
+            active = qfalse;
+        }
+
+        if (level.time > client->sess.inactivityTime - 10000 && !client->inactivityWarning)
+        {
+            client->inactivityWarning = qtrue;
+            trap_SendServerCommand(client - level.clients, "cp \"Ten seconds until inactivity drop!\n\"");
+        }
+    }
+
+    // remember current commands for next cycle diff
+    client->pers.lastCmd = client->pers.cmd;
+
+    return qtrue;
+}
 
 /*
 =================
 ClientInactivityTimer
 
-Returns qfalse if the client is dropped
+Returns qfalse if the client is dropped/force specced
 =================
 */
-qboolean ClientInactivityTimer( gclient_t *client ) {
-	if ( ! g_inactivity.integer ) 
-    {
-		// give everyone some time, so if the operator sets g_inactivity during
-		// gameplay, everyone isn't kicked
-		client->inactivityTime = level.time + 60 * 1000;
-		client->inactivityWarning = qfalse;
-	} 
-    else if ( client->pers.cmd.forwardmove || 
-		client->pers.cmd.rightmove || 
-		client->pers.cmd.upmove ||
-        (client->pers.cmd.buttons & BUTTON_ANY/*(BUTTON_ATTACK|BUTTON_ALT_ATTACK)*/) ||
-        client->pers.cmd.generic_cmd ) 
-    {
-		client->inactivityTime = level.time + g_inactivity.integer * 1000;
-		client->inactivityWarning = qfalse;
-	} 
-    else if ( !client->pers.localClient ) 
-    {
-		if ( level.time > client->inactivityTime ) 
-        {
-            // add some time to avoid command spam, shouldnt happen though
-            client->inactivityTime = level.time + g_inactivity.integer * 1000;
+qboolean CheckPlayerInactivityTimer(gclient_t *client)
+{
+    qboolean active = qtrue;
 
+    if (!g_inactivity.integer)
+    {
+        // give everyone some time, so if the operator sets g_inactivity during
+        // gameplay, everyone isn't kicked
+        client->sess.inactivityTime = level.time + 60 * 1000;
+        client->inactivityWarning = qfalse;
+    } 
+    else if (client->pers.cmd.forwardmove ||
+        client->pers.cmd.rightmove ||
+        client->pers.cmd.upmove ||
+        (client->pers.cmd.buttons & (BUTTON_ATTACK|BUTTON_ALT_ATTACK)) ||
+        client->pers.cmd.generic_cmd ||
+        (short)client->pers.cmd.angles[0] != (short)client->pers.lastCmd.angles[0] ||
+        (short)client->pers.cmd.angles[1] != (short)client->pers.lastCmd.angles[1] ||
+        (short)client->pers.cmd.angles[2] != (short)client->pers.lastCmd.angles[2] ||
+        ((client->pers.cmd.buttons ^ client->pers.lastCmd.buttons) & BUTTON_TALK)
+        )
+    {
+        client->sess.inactivityTime = level.time + g_inactivity.integer * 1000;
+        client->inactivityWarning = qfalse;
+    }
+    else if (!client->pers.localClient)
+    {
+        if (level.time > client->sess.inactivityTime)
+        {
             if (g_inactivityKick.integer)
             {
                 // kick them..
-                trap_SendServerCommand(-1, va("print \"%s dropped due to inactivity\n\"", client->pers.netname));
-                trap_DropClient( client - level.clients, "Dropped due to inactivity" );
+                trap_DropClient(client - level.clients, "Dropped due to inactivity");
             }
             else
             {
                 // just force them to spec
-                trap_SendServerCommand(-1, va("print \"%s forced to spec due to inactivity\n\"", client->pers.netname));
+                trap_SendServerCommand(-1, va("print \"%s forced to spectators due to inactivity\n\"", client->pers.netname));
                 trap_SendConsoleCommand(EXEC_APPEND, va("forceteam %i spectator\n", client - level.clients));
+                client->sess.inactivityTime = level.time + 1000 + g_spectatorInactivity.integer * 1000;
             }
 
-    	    return qfalse;
-		}
-
-		if ( level.time > client->inactivityTime - 10000 && !client->inactivityWarning ) 
+            active = qfalse;
+        } 
+        else if (level.time > client->sess.inactivityTime - 10000 && !client->inactivityWarning)
         {
-			client->inactivityWarning = qtrue;
-			trap_SendServerCommand( client - level.clients, "cp \"Ten seconds until inactivity drop!\n\"" );
-		}
-	}
-	return qtrue;
+            client->inactivityWarning = qtrue;
+            trap_SendServerCommand(client - level.clients, "cp \"Ten seconds until inactivity drop!\n\"");
+        }
+    }
+
+    // remember current commands for next cycle diff
+    client->pers.lastCmd = client->pers.cmd;
+
+    return active;
 }
 
 /*
@@ -2188,6 +2250,7 @@ void ClientThink_real( gentity_t *ent ) {
 
 	// spectators don't do much
 	if ( client->sess.sessionTeam == TEAM_SPECTATOR || client->tempSpectate > level.time ) {
+        CheckSpectatorInactivityTimer(client);
 		if ( client->sess.spectatorState == SPECTATOR_SCOREBOARD ) {
 			return;
 		}
@@ -2195,19 +2258,19 @@ void ClientThink_real( gentity_t *ent ) {
 		return;
 	}
 
+    if (ent->s.eType != ET_NPC)
+    {
+        // check for inactivity timer, but never drop the local client of a non-dedicated server
+        if (!CheckPlayerInactivityTimer(client)) {
+            return;
+        }
+    }
+
 	if (ent && ent->client && (ent->client->ps.eFlags & EF_INVULNERABLE))
 	{
 		if (ent->client->invulnerableTimer <= level.time)
 		{
 			ent->client->ps.eFlags &= ~EF_INVULNERABLE;
-		}
-	}
-
-	if (ent->s.eType != ET_NPC)
-	{
-		// check for inactivity timer, but never drop the local client of a non-dedicated server
-		if ( !ClientInactivityTimer( client ) ) {
-			return;
 		}
 	}
 
@@ -3923,7 +3986,7 @@ void ClientEndFrame( gentity_t *ent ) {
             int i, time_delta = level.time - level.previousTime;
 
             ent->client->airOutTime += time_delta;
-            ent->client->inactivityTime += time_delta;
+            ent->client->sess.inactivityTime += time_delta;
             //ent->client->pers.connectTime += time_delta;
             ent->client->pers.enterTime += time_delta;
             ent->client->pers.teamState.lastreturnedflag += time_delta;

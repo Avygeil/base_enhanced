@@ -1080,7 +1080,7 @@ void NPC_Begin (gentity_t *ent)
 	client->ps.pm_time = 100;
 
 	client->respawnTime = level.time;
-	client->inactivityTime = level.time + g_inactivity.value * 1000;
+	//client->inactivityTime = level.time + g_inactivity.value * 1000;
 	client->latched_buttons = 0;
 	if ( ent->s.m_iVehicleNum )
 	{//I'm an NPC in a vehicle (or a vehicle), I already have owner set

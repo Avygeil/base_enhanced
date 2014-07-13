@@ -140,6 +140,7 @@ vmCvar_t	g_forcerespawn;
 vmCvar_t	g_siegeRespawn;
 vmCvar_t	g_inactivity;
 vmCvar_t	g_inactivityKick;
+vmCvar_t	g_spectatorInactivity;
 vmCvar_t	g_debugMove;
 
 //vmCvar_t	g_debugGhost;
@@ -391,105 +392,106 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &d_saberKickTweak, "d_saberKickTweak", "1", 0, 0, qtrue  },
 
-	{ &d_powerDuelPrint, "d_powerDuelPrint", "0", 0, qtrue },
+    { &d_powerDuelPrint, "d_powerDuelPrint", "0", 0, qtrue },
 
-	{ &d_saberGhoul2Collision, "d_saberGhoul2Collision", "1", CVAR_CHEAT, 0, qtrue  },
-	{ &g_saberBladeFaces, "g_saberBladeFaces", "1", 0, 0, qtrue  },
+    { &d_saberGhoul2Collision, "d_saberGhoul2Collision", "1", CVAR_CHEAT, 0, qtrue },
+    { &g_saberBladeFaces, "g_saberBladeFaces", "1", 0, 0, qtrue },
 
-	{ &d_saberAlwaysBoxTrace, "d_saberAlwaysBoxTrace", "0", CVAR_CHEAT, 0, qtrue  },
-	{ &d_saberBoxTraceSize, "d_saberBoxTraceSize", "0", CVAR_CHEAT, 0, qtrue  },
+    { &d_saberAlwaysBoxTrace, "d_saberAlwaysBoxTrace", "0", CVAR_CHEAT, 0, qtrue },
+    { &d_saberBoxTraceSize, "d_saberBoxTraceSize", "0", CVAR_CHEAT, 0, qtrue },
 
-	{ &d_siegeSeekerNPC, "d_siegeSeekerNPC", "0", CVAR_CHEAT, 0, qtrue },
+    { &d_siegeSeekerNPC, "d_siegeSeekerNPC", "0", CVAR_CHEAT, 0, qtrue },
 
 #ifdef _DEBUG
-	{ &g_disableServerG2, "g_disableServerG2", "0", 0, 0, qtrue },
+    { &g_disableServerG2, "g_disableServerG2", "0", 0, 0, qtrue },
 #endif
 
-	{ &d_perPlayerGhoul2, "d_perPlayerGhoul2", "0", CVAR_CHEAT, 0, qtrue },
+    { &d_perPlayerGhoul2, "d_perPlayerGhoul2", "0", CVAR_CHEAT, 0, qtrue },
 
-	{ &d_projectileGhoul2Collision, "d_projectileGhoul2Collision", "1", CVAR_CHEAT, 0, qtrue  },
+    { &d_projectileGhoul2Collision, "d_projectileGhoul2Collision", "1", CVAR_CHEAT, 0, qtrue },
 
-	{ &g_g2TraceLod, "g_g2TraceLod", "3", 0, 0, qtrue  },
+    { &g_g2TraceLod, "g_g2TraceLod", "3", 0, 0, qtrue },
 
-	{ &g_optvehtrace, "com_optvehtrace", "0", 0, 0, qtrue  },
+    { &g_optvehtrace, "com_optvehtrace", "0", 0, 0, qtrue },
 
-	{ &g_locationBasedDamage, "g_locationBasedDamage", "1", 0, 0, qtrue },
+    { &g_locationBasedDamage, "g_locationBasedDamage", "1", 0, 0, qtrue },
 
-	{ &g_allowHighPingDuelist, "g_allowHighPingDuelist", "1", 0, 0, qtrue },
+    { &g_allowHighPingDuelist, "g_allowHighPingDuelist", "1", 0, 0, qtrue },
 
-	{ &g_logClientInfo, "g_logClientInfo", "0", CVAR_ARCHIVE, 0, qtrue  },
+    { &g_logClientInfo, "g_logClientInfo", "0", CVAR_ARCHIVE, 0, qtrue },
 
-	{ &g_slowmoDuelEnd, "g_slowmoDuelEnd", "0", CVAR_ARCHIVE, 0, qtrue  },
+    { &g_slowmoDuelEnd, "g_slowmoDuelEnd", "0", CVAR_ARCHIVE, 0, qtrue },
 
-	{ &g_saberDamageScale, "g_saberDamageScale", "1", CVAR_ARCHIVE, 0, qtrue  },
+    { &g_saberDamageScale, "g_saberDamageScale", "1", CVAR_ARCHIVE, 0, qtrue },
 
-	{ &g_useWhileThrowing, "g_useWhileThrowing", "1", 0, 0, qtrue  },
+    { &g_useWhileThrowing, "g_useWhileThrowing", "1", 0, 0, qtrue },
 
-	{ &g_RMG, "RMG", "0", 0, 0, qtrue  },
+    { &g_RMG, "RMG", "0", 0, 0, qtrue },
 
-	{ &g_svfps, "sv_fps", "20", CVAR_SERVERINFO, 0, qtrue },
+    { &g_svfps, "sv_fps", "20", CVAR_SERVERINFO, 0, qtrue },
 
-	{ &g_forceRegenTime, "g_forceRegenTime", "200", CVAR_SERVERINFO | CVAR_ARCHIVE, 0, qtrue  },
+    { &g_forceRegenTime, "g_forceRegenTime", "200", CVAR_SERVERINFO | CVAR_ARCHIVE, 0, qtrue },
 
-	{ &g_spawnInvulnerability, "g_spawnInvulnerability", "3000", CVAR_ARCHIVE, 0, qtrue  },
+    { &g_spawnInvulnerability, "g_spawnInvulnerability", "3000", CVAR_ARCHIVE, 0, qtrue },
 
-	{ &g_forcePowerDisable, "g_forcePowerDisable", "0", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue  },
-	{ &g_weaponDisable, "g_weaponDisable", "0", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue  },
-	{ &g_duelWeaponDisable, "g_duelWeaponDisable", "1", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue  },
+    { &g_forcePowerDisable, "g_forcePowerDisable", "0", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
+    { &g_weaponDisable, "g_weaponDisable", "0", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
+    { &g_duelWeaponDisable, "g_duelWeaponDisable", "1", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 
-	{ &g_allowDuelSuicide, "g_allowDuelSuicide", "1", CVAR_ARCHIVE, 0, qtrue },
+    { &g_allowDuelSuicide, "g_allowDuelSuicide", "1", CVAR_ARCHIVE, 0, qtrue },
 
-	{ &g_fraglimitVoteCorrection, "g_fraglimitVoteCorrection", "1", CVAR_ARCHIVE, 0, qtrue },
+    { &g_fraglimitVoteCorrection, "g_fraglimitVoteCorrection", "1", CVAR_ARCHIVE, 0, qtrue },
 
-	{ &g_fraglimit, "fraglimit", "20", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_NORESTART, 0, qtrue },
-	{ &g_duel_fraglimit, "duel_fraglimit", "10", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_NORESTART, 0, qtrue },
-	{ &g_timelimit, "timelimit", "0", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_NORESTART, 0, qtrue },
-	{ &g_capturelimit, "capturelimit", "8", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_NORESTART, 0, qtrue },
+    { &g_fraglimit, "fraglimit", "20", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_NORESTART, 0, qtrue },
+    { &g_duel_fraglimit, "duel_fraglimit", "10", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_NORESTART, 0, qtrue },
+    { &g_timelimit, "timelimit", "0", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_NORESTART, 0, qtrue },
+    { &g_capturelimit, "capturelimit", "8", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_NORESTART, 0, qtrue },
 
-	{ &g_synchronousClients, "g_synchronousClients", "0", CVAR_SYSTEMINFO, 0, qfalse  },
+    { &g_synchronousClients, "g_synchronousClients", "0", CVAR_SYSTEMINFO, 0, qfalse },
 
-	{ &d_saberInterpolate, "d_saberInterpolate", "0", CVAR_CHEAT, 0, qtrue },
+    { &d_saberInterpolate, "d_saberInterpolate", "0", CVAR_CHEAT, 0, qtrue },
 
-	{ &g_friendlyFire, "g_friendlyFire", "0", CVAR_ARCHIVE, 0, qtrue  },
-	{ &g_friendlySaber, "g_friendlySaber", "0", CVAR_ARCHIVE, 0, qtrue  },
+    { &g_friendlyFire, "g_friendlyFire", "0", CVAR_ARCHIVE, 0, qtrue },
+    { &g_friendlySaber, "g_friendlySaber", "0", CVAR_ARCHIVE, 0, qtrue },
 
-	{ &g_teamAutoJoin, "g_teamAutoJoin", "0", CVAR_ARCHIVE  },
-	{ &g_teamForceBalance, "g_teamForceBalance", "0", CVAR_ARCHIVE  },
+    { &g_teamAutoJoin, "g_teamAutoJoin", "0", CVAR_ARCHIVE },
+    { &g_teamForceBalance, "g_teamForceBalance", "0", CVAR_ARCHIVE },
 
-	{ &g_warmup, "g_warmup", "20", CVAR_ARCHIVE, 0, qtrue  },
-	{ &g_doWarmup, "g_doWarmup", "0", 0, 0, qtrue  },
-	{ &g_log, "g_log", "games.log", CVAR_ARCHIVE, 0, qfalse  },
-	{ &g_logSync, "g_logSync", "0", CVAR_ARCHIVE, 0, qfalse  },
+    { &g_warmup, "g_warmup", "20", CVAR_ARCHIVE, 0, qtrue },
+    { &g_doWarmup, "g_doWarmup", "0", 0, 0, qtrue },
+    { &g_log, "g_log", "games.log", CVAR_ARCHIVE, 0, qfalse },
+    { &g_logSync, "g_logSync", "0", CVAR_ARCHIVE, 0, qfalse },
 
-	{ &g_statLog, "g_statLog", "0", CVAR_ARCHIVE, 0, qfalse },
-	{ &g_statLogFile, "g_statLogFile", "statlog.log", CVAR_ARCHIVE, 0, qfalse },
+    { &g_statLog, "g_statLog", "0", CVAR_ARCHIVE, 0, qfalse },
+    { &g_statLogFile, "g_statLogFile", "statlog.log", CVAR_ARCHIVE, 0, qfalse },
 
-	{ &g_password, "g_password", "", CVAR_USERINFO, 0, qfalse  },
+    { &g_password, "g_password", "", CVAR_USERINFO, 0, qfalse },
     { &sv_privatepassword, "sv_privatepassword", "", CVAR_TEMP, 0, qfalse },
-    
 
-	{ &g_banIPs, "g_banIPs", "", CVAR_ARCHIVE, 0, qfalse  },
-	{ &g_getstatusbanIPs, "g_getstatusbanIPs", "", CVAR_ARCHIVE, 0, qfalse  },
-	
-	{ &g_filterBan, "g_filterBan", "1", CVAR_ARCHIVE, 0, qfalse  },
 
-	{ &g_needpass, "g_needpass", "0", CVAR_SERVERINFO | CVAR_ROM, 0, qfalse },
+    { &g_banIPs, "g_banIPs", "", CVAR_ARCHIVE, 0, qfalse },
+    { &g_getstatusbanIPs, "g_getstatusbanIPs", "", CVAR_ARCHIVE, 0, qfalse },
 
-	{ &g_dedicated, "dedicated", "0", 0, 0, qfalse  },
+    { &g_filterBan, "g_filterBan", "1", CVAR_ARCHIVE, 0, qfalse },
 
-	{ &g_developer, "developer", "0", 0, 0, qfalse },
+    { &g_needpass, "g_needpass", "0", CVAR_SERVERINFO | CVAR_ROM, 0, qfalse },
 
-	{ &g_speed, "g_speed", "250", CVAR_SERVERINFO, 0, qtrue  },
-	{ &g_gravity, "g_gravity", "800", CVAR_SERVERINFO, 0, qtrue  },
-	{ &g_knockback, "g_knockback", "1000", 0, 0, qtrue  },
-	//{ &g_quadfactor, "g_quadfactor", "3", 0, 0, qtrue  },
-	{ &g_weaponRespawn, "g_weaponrespawn", "5", 0, 0, qtrue  },
-	{ &g_weaponTeamRespawn, "g_weaponTeamRespawn", "5", 0, 0, qtrue },
-	{ &g_adaptRespawn, "g_adaptrespawn", "1", 0, 0, qtrue  },		// Make weapons respawn faster with a lot of players.
-	{ &g_forcerespawn, "g_forcerespawn", "60", 0, 0, qtrue },		// One minute force respawn.  Give a player enough time to reallocate force.
-	{ &g_siegeRespawn, "g_siegeRespawn", "20", CVAR_SERVERINFO | CVAR_ARCHIVE, 0, qtrue }, //siege respawn wave time
-	{ &g_inactivity, "g_inactivity", "0", 0, 0, qtrue },
-    { &g_inactivityKick, "g_inactivityKick", "1", 0, 0, qtrue },    
+    { &g_dedicated, "dedicated", "0", 0, 0, qfalse },
+
+    { &g_developer, "developer", "0", 0, 0, qfalse },
+
+    { &g_speed, "g_speed", "250", CVAR_SERVERINFO, 0, qtrue },
+    { &g_gravity, "g_gravity", "800", CVAR_SERVERINFO, 0, qtrue },
+    { &g_knockback, "g_knockback", "1000", 0, 0, qtrue },
+    //{ &g_quadfactor, "g_quadfactor", "3", 0, 0, qtrue  },
+    { &g_weaponRespawn, "g_weaponrespawn", "5", 0, 0, qtrue },
+    { &g_weaponTeamRespawn, "g_weaponTeamRespawn", "5", 0, 0, qtrue },
+    { &g_adaptRespawn, "g_adaptrespawn", "1", 0, 0, qtrue },		// Make weapons respawn faster with a lot of players.
+    { &g_forcerespawn, "g_forcerespawn", "60", 0, 0, qtrue },		// One minute force respawn.  Give a player enough time to reallocate force.
+    { &g_siegeRespawn, "g_siegeRespawn", "20", CVAR_SERVERINFO | CVAR_ARCHIVE, 0, qtrue }, //siege respawn wave time
+    { &g_inactivity, "g_inactivity", "0", 0, 0, qtrue },
+    { &g_inactivityKick, "g_inactivityKick", "1", 0, 0, qtrue },
+    { &g_spectatorInactivity, "g_spectatorInactivity", "0", 0, 0, qtrue },
 	{ &g_debugMove, "g_debugMove", "0", 0, 0, qfalse },
 
 	
