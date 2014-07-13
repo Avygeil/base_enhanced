@@ -139,6 +139,7 @@ vmCvar_t	g_knockback;
 vmCvar_t	g_forcerespawn;
 vmCvar_t	g_siegeRespawn;
 vmCvar_t	g_inactivity;
+vmCvar_t	g_inactivityKick;
 vmCvar_t	g_debugMove;
 
 //vmCvar_t	g_debugGhost;
@@ -488,6 +489,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_forcerespawn, "g_forcerespawn", "60", 0, 0, qtrue },		// One minute force respawn.  Give a player enough time to reallocate force.
 	{ &g_siegeRespawn, "g_siegeRespawn", "20", CVAR_SERVERINFO | CVAR_ARCHIVE, 0, qtrue }, //siege respawn wave time
 	{ &g_inactivity, "g_inactivity", "0", 0, 0, qtrue },
+    { &g_inactivityKick, "g_inactivityKick", "1", 0, 0, qtrue },    
 	{ &g_debugMove, "g_debugMove", "0", 0, 0, qfalse },
 
 	

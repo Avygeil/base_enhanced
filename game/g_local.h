@@ -1715,6 +1715,7 @@ extern	vmCvar_t	g_knockback;
 extern	vmCvar_t	g_forcerespawn;
 extern	vmCvar_t	g_siegeRespawn;
 extern	vmCvar_t	g_inactivity;
+extern	vmCvar_t	g_inactivityKick;
 extern	vmCvar_t	g_debugMove;
 
 extern	vmCvar_t	g_debugAlloc;

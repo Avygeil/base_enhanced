@@ -770,23 +770,47 @@ Returns qfalse if the client is dropped
 =================
 */
 qboolean ClientInactivityTimer( gclient_t *client ) {
-	if ( ! g_inactivity.integer ) {
+	if ( ! g_inactivity.integer ) 
+    {
 		// give everyone some time, so if the operator sets g_inactivity during
 		// gameplay, everyone isn't kicked
 		client->inactivityTime = level.time + 60 * 1000;
 		client->inactivityWarning = qfalse;
-	} else if ( client->pers.cmd.forwardmove || 
+	} 
+    else if ( client->pers.cmd.forwardmove || 
 		client->pers.cmd.rightmove || 
 		client->pers.cmd.upmove ||
-		(client->pers.cmd.buttons & (BUTTON_ATTACK|BUTTON_ALT_ATTACK)) ) {
+        (client->pers.cmd.buttons & BUTTON_ANY/*(BUTTON_ATTACK|BUTTON_ALT_ATTACK)*/) ||
+        client->pers.cmd.generic_cmd ) 
+    {
 		client->inactivityTime = level.time + g_inactivity.integer * 1000;
 		client->inactivityWarning = qfalse;
-	} else if ( !client->pers.localClient ) {
-		if ( level.time > client->inactivityTime ) {
-			trap_DropClient( client - level.clients, "Dropped due to inactivity" );
-			return qfalse;
+	} 
+    else if ( !client->pers.localClient ) 
+    {
+		if ( level.time > client->inactivityTime ) 
+        {
+            // add some time to avoid command spam, shouldnt happen though
+            client->inactivityTime = level.time + g_inactivity.integer * 1000;
+
+            if (g_inactivityKick.integer)
+            {
+                // kick them..
+                trap_SendServerCommand(-1, va("print \"%s dropped due to inactivity\n\"", client->pers.netname));
+                trap_DropClient( client - level.clients, "Dropped due to inactivity" );
+            }
+            else
+            {
+                // just force them to spec
+                trap_SendServerCommand(-1, va("print \"%s forced to spec due to inactivity\n\"", client->pers.netname));
+                trap_SendConsoleCommand(EXEC_APPEND, va("forceteam %i spectator\n", client - level.clients));
+            }
+
+    	    return qfalse;
 		}
-		if ( level.time > client->inactivityTime - 10000 && !client->inactivityWarning ) {
+
+		if ( level.time > client->inactivityTime - 10000 && !client->inactivityWarning ) 
+        {
 			client->inactivityWarning = qtrue;
 			trap_SendServerCommand( client - level.clients, "cp \"Ten seconds until inactivity drop!\n\"" );
 		}
