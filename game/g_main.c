@@ -3151,6 +3151,13 @@ void CheckIntermissionExit( void ) {
 		return;
 	}
 
+    // always exit at most after fifteen seconds
+    if ( level.time > level.intermissiontime + 15000 )
+    {
+        ExitLevel();
+        return;
+    }
+
 	if (d_noIntermissionWait.integer)
 	{ //don't care who wants to go, just go.
 		ExitLevel();

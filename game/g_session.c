@@ -198,6 +198,7 @@ G_InitSessionData
 Called on a first-time connect
 ================
 */
+extern int getGlobalTime();
 void G_InitSessionData( gclient_t *client, char *userinfo, qboolean isBot, qboolean firstTime ) {
 	clientSession_t	*sess;
 	const char		*value;
@@ -314,7 +315,8 @@ void G_InitSessionData( gclient_t *client, char *userinfo, qboolean isBot, qbool
 
 	sess->spectatorState = SPECTATOR_FREE;
 	sess->spectatorTime = level.time;
-    sess->inactivityTime = level.time + 1000 * g_spectatorInactivity.integer;
+    //sess->inactivityTime = level.time + 1000 * g_spectatorInactivity.integer;
+    sess->inactivityTime = getGlobalTime() + 1000 * g_spectatorInactivity.integer;
 
 	sess->siegeClass[0] = 0;
 	sess->saberType[0] = 0;
