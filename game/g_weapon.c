@@ -1620,12 +1620,14 @@ static void WP_FlechetteAltFire( gentity_t *self )
 //---------------------------------------------------------
 {
 	vec3_t 	dir, fwd, start, angs;
+	vec3_t  mins = { -6.0f, -6.0f, -6.0f };
+	vec3_t  maxs = { 6.0f, 6.0f, 6.0f };
 	int i;
 
 	vectoangles( forward, angs );
 	VectorCopy( muzzle, start );
 
-	WP_TraceSetStart( self, start, vec3_origin, vec3_origin );//make sure our start point isn't on the other side of a wall
+	WP_TraceSetStart( self, start, mins, maxs );//make sure our start point isn't on the other side of a wall
 
 	for ( i = 0; i < 2; i++ )
 	{
