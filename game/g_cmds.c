@@ -1039,9 +1039,11 @@ to free floating spectator mode
 void StopFollowing( gentity_t *ent ) {
 	vec3_t origin, viewangles;
 	int commandTime;
+	int ping;
 
 	// save necessary values
 	commandTime = ent->client->ps.commandTime;
+	ping = ent->client->ps.ping;
 	VectorCopy(ent->client->ps.origin,origin);
 	VectorCopy(ent->client->ps.viewangles,viewangles);
 
@@ -1050,6 +1052,7 @@ void StopFollowing( gentity_t *ent ) {
 
 	// set necessary values
 	ent->client->ps.commandTime = commandTime;
+	ent->client->ps.ping = ping;
 	VectorCopy(origin,ent->client->ps.origin);
 	VectorCopy(viewangles,ent->client->ps.viewangles);
 
