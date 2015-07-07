@@ -1025,7 +1025,6 @@ void SetTeam( gentity_t *ent, char *s ) {
 	if (team != oldTeam && oldTeam == TEAM_SPECTATOR){
 		client->lastJoinedTime = level.time;
 	}
-
 }
 
 /*

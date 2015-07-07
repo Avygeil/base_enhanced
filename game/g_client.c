@@ -2809,6 +2809,14 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 			}
 		}
 
+        // update inactivity timer for proper team, must be done before client spawn
+        if (client->sess.sessionTeam == TEAM_SPECTATOR){
+            client->sess.inactivityTime = getGlobalTime() + 1000 + g_spectatorInactivity.integer * 1000;
+        }
+        else {
+            client->sess.inactivityTime = getGlobalTime() + 1000 + g_inactivity.integer * 1000;
+        }
+
 		// locate ent at a spawn point
 		ClientSpawn( ent );
 	}
@@ -2829,6 +2837,7 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 	CalculateRanks();
 
 	G_ClearClientLog(clientNum);
+
 }
 
 static qboolean AllForceDisabled(int force)
@@ -3958,7 +3967,6 @@ void ClientSpawn(gentity_t *ent) {
 	client->ps.pm_time = 100;
 
 	client->respawnTime = level.time;
-    //client->sess.inactivityTime = level.time + g_inactivity.integer * 1000;
 	client->latched_buttons = 0;
 
 	if ( level.intermissiontime ) {
