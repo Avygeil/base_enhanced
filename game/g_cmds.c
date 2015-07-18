@@ -2,6 +2,7 @@
 //
 #include "g_local.h"
 #include "bg_saga.h"
+#include "g_database.h"
 
 #include "menudef.h"			// for the voice chats
 
@@ -998,6 +999,23 @@ void SetTeam( gentity_t *ent, char *s ) {
 	}
 
 	BroadcastTeamChange( client, oldTeam );
+    const char* teamName = "";
+    switch ( team )
+    {
+        case TEAM_FREE:
+            teamName = "free";
+            break;
+        case TEAM_RED:
+            teamName = "red";
+            break;
+        case TEAM_BLUE:
+            teamName = "blue";
+            break;
+        case TEAM_SPECTATOR:
+            teamName = "spec";
+            break;
+    }  
+    G_DbLogSessionEvent( client->sess.sessionId, sessionEventTeam, teamName );
 
 	//make a disappearing effect where they were before teleporting them to the appropriate spawn point,
 	//if we were not on the spec team

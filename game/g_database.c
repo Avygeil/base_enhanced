@@ -121,6 +121,14 @@ const char* const sqlLogLevel =
 "INSERT INTO levels (started_at, mapname) "
 "VALUES (?,?)                             ";
 
+const char* const sqlAddSession =
+"INSERT INTO sessions (session_start, ip_text)     "
+"VALUES (?,?)                                      ";
+
+const char* const sqlAddSessionEvent =
+"INSERT INTO session_events (session_id, event_time, event_id, event_context)     "
+"VALUES (?,?,?,?)                                                                 ";
+
 //
 //  G_DbLoad
 // 
@@ -141,6 +149,20 @@ void G_DbLoad()
 
         sqlite3_exec( db, sqlCreateDatabase, 0, 0, 0 );          
     }
+}
+
+
+//
+//  G_DbUnload
+// 
+//  Unloads the database from memory, includes flushing it 
+//  to the file.
+//
+void G_DbUnload()
+{
+    int rc = -1;
+
+    rc = sqlite3_close( db );
 }
 
 //
@@ -394,15 +416,55 @@ void G_DbRemoveFromWhitelist( const char* ip,
     }
 }
 
-//
-//  G_DbUnload
-// 
-//  Unloads the database from memory, includes flushing it 
-//  to the file.
-//
-void G_DbUnload()
+int G_DbLogSession( const char* ip )
 {
-    int rc = -1;
+    sqlite3_stmt* statement;
+    // prepare insert statement
+    int rc = sqlite3_prepare( db, sqlAddSession, -1, &statement, 0 );
 
-    rc = sqlite3_close( db );
+    // load current date time
+    char dateTime[24];
+    time_t rawtime;
+    time( &rawtime );
+    struct tm* timeinfo = localtime( &rawtime );
+    strftime( dateTime, sizeof( dateTime ), "%Y-%m-%d %H:%M:%S.000", timeinfo );
+
+    sqlite3_bind_text( statement, 1, dateTime, -1, 0 );
+    sqlite3_bind_text( statement, 2, ip, -1, 0 );
+
+    rc = sqlite3_step( statement );
+
+    int sessionId = sqlite3_last_insert_rowid( db );
+
+    sqlite3_finalize( statement );
+    
+    return sessionId;
+}
+
+void G_DbLogSessionEvent( int sessionId,
+    int eventId,
+    const char* eventContext )  
+{
+    sqlite3_stmt* statement;
+    // prepare insert statement
+    int rc = sqlite3_prepare( db, sqlAddSessionEvent, -1, &statement, 0 );
+
+    // load current date time
+    char dateTime[24];
+    time_t rawtime;
+    time( &rawtime );
+    struct tm* timeinfo = localtime( &rawtime );
+    strftime( dateTime, sizeof( dateTime ), "%Y-%m-%d %H:%M:%S.000", timeinfo );
+
+    sqlite3_bind_int( statement, 1, sessionId);
+    sqlite3_bind_text( statement, 2, dateTime, -1, 0 );
+    sqlite3_bind_int( statement, 3, eventId );
+    sqlite3_bind_text( statement, 4, eventContext, -1, 0 );
+
+    rc = sqlite3_step( statement );
+
+    sqlite3_finalize( statement );
+
+    return sessionId;
+    
 }

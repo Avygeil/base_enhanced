@@ -450,6 +450,7 @@ typedef struct {
 	qboolean    isInkognito;
 	unsigned	ignoreFlags;
     int			inactivityTime;
+    int         sessionId;
 
 	char        username[MAX_USERNAME_SIZE];
 } clientSession_t;

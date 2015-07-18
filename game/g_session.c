@@ -74,7 +74,7 @@ void G_WriteClientSessionData( gclient_t *client ) {
 		i++;
 	}
 
-	s = va("%i %i %i %i %i %i %i %i %i %i %i %i %i %i %u %u %s %s %s %s %s", 
+	s = va("%i %i %i %i %i %i %i %i %i %i %i %i %i %i %i %u %u %s %s %s %s %s", 
 		client->sess.sessionTeam,
 		client->sess.spectatorTime,
 		client->sess.spectatorState,
@@ -87,6 +87,7 @@ void G_WriteClientSessionData( gclient_t *client ) {
 		client->sess.selectedFP,
 		client->sess.duelTeam,
 		client->sess.siegeDesiredTeam,
+        client->sess.sessionId,
 		client->sess.isInkognito, //added
         client->sess.inactivityTime, //added
 		client->sess.ignoreFlags,//added
@@ -123,7 +124,7 @@ void G_ReadSessionData( gclient_t *client ) {
 	var = va( "session%i", client - level.clients );
 	trap_Cvar_VariableStringBuffer( var, s, sizeof(s) );
 
-	sscanf( s, "%i %i %i %i %i %i %i %i %i %i %i %i %i %i %u %u %s %s %s %s %s",
+	sscanf( s, "%i %i %i %i %i %i %i %i %i %i %i %i %i %i %i %u %u %s %s %s %s %s",
 		&sessionTeam,                 // bk010221 - format
 		&client->sess.spectatorTime,
 		&spectatorState,              // bk010221 - format
@@ -136,6 +137,7 @@ void G_ReadSessionData( gclient_t *client ) {
 		&client->sess.selectedFP,
 		&client->sess.duelTeam,
 		&client->sess.siegeDesiredTeam,
+        &client->sess.sessionId,
 		(int *)&client->sess.isInkognito,//added
         &client->sess.inactivityTime,//added
 		&client->sess.ignoreFlags,//added

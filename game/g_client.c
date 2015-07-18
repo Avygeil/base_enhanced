@@ -3,6 +3,7 @@
 #include "g_local.h"
 #include "G2.h"
 #include "bg_saga.h"
+#include "G_Database.h"
 
 //#include "accounts.h"
 
@@ -2032,6 +2033,8 @@ void ClientUserinfoChanged( int clientNum ) {
 				Info_SetValueForKey( userinfo, "name", client->pers.netname );
 				trap_SetUserinfo( clientNum, userinfo );
 
+                G_DbLogSessionEvent( client->sess.sessionId, sessionEventName, client->pers.netname );
+
 				//make heartbeat soon - accounts system
 				//if (nextHeartBeatTime > level.time + 5000){
 				//	nextHeartBeatTime = level.time + 5000;
@@ -2568,6 +2571,15 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 	if ( firstTime ) {
 		trap_SendServerCommand( -1, va("print \"%s" S_COLOR_WHITE " %s\n\"", client->pers.netname, G_GetStringEdString("MP_SVGAME", "PLCONNECT")) );
 	}
+
+    if ( firstTime )
+    {
+        int sessionId = G_DbLogSession( client->sess.ipString );
+        ent->client->sess.sessionId = sessionId;
+
+        G_DbLogSessionEvent( ent->client->sess.sessionId, sessionEventConnected, "connected" );
+        G_DbLogSessionEvent( ent->client->sess.sessionId, sessionEventName, client->pers.netname );
+    }
 
 	if ( g_gametype.integer >= GT_TEAM &&
 		client->sess.sessionTeam != TEAM_SPECTATOR ) {
@@ -4083,7 +4095,9 @@ void ClientDisconnect( int clientNum ) {
 		return;
 	}
 
-	i = 0;
+    G_DbLogSessionEvent( ent->client->sess.sessionId, sessionEventDisconnected, "disconnected" );     
+
+	i = 0;   
 
 	while (i < NUM_FORCE_POWERS)
 	{
