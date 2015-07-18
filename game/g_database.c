@@ -71,7 +71,7 @@ const char* const sqlCreateDatabase =
 "CREATE TABLE[session_events](                                                  "
 "    [session_event_id] INTEGER PRIMARY KEY AUTOINCREMENT,                      "
 "    [session_id] INTEGER REFERENCES[sessions]( [session_id] ),                 "
-"    [event_time] TIME,                                                         "
+"    [event_time] DATETIME,                                                     "
 "    [event_id] INTEGER REFERENCES[session_events_enum]( [event_id] ),          "
 "    [event_context] TEXT );                                                    "
 "                                                                               "
