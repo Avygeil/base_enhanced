@@ -158,7 +158,6 @@ void BotSelectWeapon(int client, int weapon)
 {
 	if (weapon <= WP_NONE)
 	{
-//		assert(0);
 		return;
 	}
 	trap_EA_SelectWeapon(client, weapon);
@@ -508,7 +507,6 @@ void BotChangeViewAngles(bot_state_t *bs, float thinktime) {
 
 	maxchange = bs->skills.maxturn;
 
-	//if (maxchange < 240) maxchange = 240;
 	maxchange *= thinktime;
 	for (i = 0; i < 2; i++) {
 		bs->viewangles[i] = AngleMod(bs->viewangles[i]);
@@ -542,7 +540,6 @@ void BotInputToUserCommand(bot_input_t *bi, usercmd_t *ucmd, int delta_angles[3]
 	//clear the whole structure
 	memset(ucmd, 0, sizeof(usercmd_t));
 	//
-	//Com_Printf("dir = %f %f %f speed = %f\n", bi->dir[0], bi->dir[1], bi->dir[2], bi->speed);
 	//the duration for the user command in milli seconds
 	ucmd->serverTime = time;
 	//
@@ -554,7 +551,6 @@ void BotInputToUserCommand(bot_input_t *bi, usercmd_t *ucmd, int delta_angles[3]
 	if (bi->actionflags & ACTION_RESPAWN) ucmd->buttons = BUTTON_ATTACK;
 	if (bi->actionflags & ACTION_ATTACK) ucmd->buttons |= BUTTON_ATTACK;
 	if (bi->actionflags & ACTION_ALT_ATTACK) ucmd->buttons |= BUTTON_ALT_ATTACK;
-//	if (bi->actionflags & ACTION_TALK) ucmd->buttons |= BUTTON_TALK;
 	if (bi->actionflags & ACTION_GESTURE) ucmd->buttons |= BUTTON_GESTURE;
 	if (bi->actionflags & ACTION_USE) ucmd->buttons |= BUTTON_USE_HOLDABLE;
 	if (bi->actionflags & ACTION_WALK) ucmd->buttons |= BUTTON_WALKING;
@@ -580,7 +576,6 @@ void BotInputToUserCommand(bot_input_t *bi, usercmd_t *ucmd, int delta_angles[3]
 	if (bi->weapon == WP_NONE)
 	{
 #ifdef _DEBUG
-//		Com_Printf("WARNING: Bot tried to use WP_NONE!\n");
 #endif
 		bi->weapon = WP_BRYAR_PISTOL;
 	}
@@ -621,8 +616,6 @@ void BotInputToUserCommand(bot_input_t *bi, usercmd_t *ucmd, int delta_angles[3]
 	//crouch/movedown
 	if (bi->actionflags & ACTION_CROUCH) ucmd->upmove -= 127;
 	//
-	//Com_Printf("forward = %d right = %d up = %d\n", ucmd.forwardmove, ucmd.rightmove, ucmd.upmove);
-	//Com_Printf("ucmd->serverTime = %d\n", ucmd->serverTime);
 }
 
 /*
@@ -819,7 +812,7 @@ BotAISetupClient
 int BotAISetupClient(int client, struct bot_settings_s *settings, qboolean restart) {
 	bot_state_t *bs;
 
-	if (!botstates[client]) botstates[client] = (bot_state_t *) B_Alloc(sizeof(bot_state_t)); //G_Alloc(sizeof(bot_state_t));
+	if (!botstates[client]) botstates[client] = (bot_state_t *) B_Alloc(sizeof(bot_state_t)); 
 																			  //rww - G_Alloc bad! B_Alloc good.
 
 	memset(botstates[client], 0, sizeof(bot_state_t));
@@ -893,7 +886,6 @@ int BotAIShutdownClient(int client, qboolean restart) {
 
 	bs = botstates[client];
 	if (!bs || !bs->inuse) {
-		//BotAI_Print(PRT_ERROR, "BotAIShutdownClient: client %d already shutdown\n", client);
 		return qfalse;
 	}
 
@@ -1116,7 +1108,7 @@ int GetNearestVisibleWP(vec3_t org, int ignore)
 	}
 	else
 	{
-		bestdist = 800;//99999;
+		bestdist = 800;
 				   //don't trace over 800 units away to avoid GIANT HORRIBLE SPEED HITS ^_^
 	}
 	bestindex = -1;
@@ -1413,11 +1405,9 @@ void WPConstantRoutine(bot_state_t *bs)
 			bs->jumpTime = level.time + 100;
 		}
 #else
-		//float heightDif = (bs->wpCurrent->origin[2] - bs->origin[2]+16);
 
 		if (bs->origin[2]+16 >= bs->wpCurrent->origin[2])
 		{ //then why exactly would we be force jumping?
-			//heightDif = 0;
 		}
 
 		if (bs->cur_ps.fd.forceJumpCharge < (forceJumpStrength[bs->cur_ps.fd.forcePowerLevel[FP_LEVITATION]]-100))
@@ -1729,8 +1719,8 @@ int BotTrace_Duck(bot_state_t *bs, vec3_t traceto)
 
 	VectorCopy(bs->origin, tracefrom_mod);
 
-	tracefrom_mod[2] += 31;//33;
-	traceto_mod[2] += 31;//33;
+	tracefrom_mod[2] += 31;
+	traceto_mod[2] += 31;
 
 	mins[0] = -15;
 	mins[1] = -15;
@@ -2434,7 +2424,6 @@ gentity_t *GetNearestBadThing(bot_state_t *bs)
 				if (ent->s.weapon && glen <= 256 && bs->settings.skill > 2)
 				{ //it's a projectile so push it away
 					bs->doForcePush = level.time + 700;
-					//G_Printf("PUSH PROJECTILE\n");
 				}
 			}
 			else
@@ -2807,7 +2796,6 @@ int CTFTakesPriority(bot_state_t *bs)
 	int enemyFlag = 0;
 	int myFlag = 0;
 	int enemyHasOurFlag = 0;
-	//int weHaveEnemyFlag = 0;
 	int numOnMyTeam = 0;
 	int numOnEnemyTeam = 0;
 	int numAttackers = 0;
@@ -2917,7 +2905,6 @@ int CTFTakesPriority(bot_state_t *bs)
 		{
 			if (ent->client->ps.powerups[enemyFlag] && OnSameTeam(&g_entities[bs->client], ent))
 			{
-				//weHaveEnemyFlag = 1;
 			}
 			else if (ent->client->ps.powerups[myFlag] && !OnSameTeam(&g_entities[bs->client], ent))
 			{
@@ -3144,7 +3131,6 @@ hasPoint:
 
 	if (bs->touchGoal)
 	{
-		//G_Printf("Please, master, let me touch it!\n");
 		VectorCopy(dif, bs->goalPosition);
 	}
 
@@ -3256,7 +3242,6 @@ int Siege_CountTeammates(bot_state_t *bs)
 int SiegeTakesPriority(bot_state_t *bs)
 {
 	int attacker;
-	//int flagForDefendableObjective;
 	int flagForAttackableObjective;
 	int defenders, teammates;
 	int idleWP;
@@ -3303,13 +3288,11 @@ int SiegeTakesPriority(bot_state_t *bs)
 	if (bcl->sess.sessionTeam == SIEGETEAM_TEAM1)
 	{
 		attacker = imperial_attackers;
-		//flagForDefendableObjective = WPFLAG_SIEGE_REBELOBJ;
 		flagForAttackableObjective = WPFLAG_SIEGE_IMPERIALOBJ;
 	}
 	else
 	{
 		attacker = rebel_attackers;
-		//flagForDefendableObjective = WPFLAG_SIEGE_IMPERIALOBJ;
 		flagForAttackableObjective = WPFLAG_SIEGE_REBELOBJ;
 	}
 
@@ -3475,18 +3458,6 @@ int JMTakesPriority(bot_state_t *bs)
 
 		if (wpClose != -1 && gWPArray[wpClose] && gWPArray[wpClose]->inuse)
 		{
-			/*
-			Com_Printf("BOT GRABBED IDEAL JM LOCATION\n");
-			if (bs->wpDestination != gWPArray[wpClose])
-			{
-				Com_Printf("IDEAL WAS NOT ALREADY IDEAL\n");
-
-				if (!bs->wpDestination)
-				{
-					Com_Printf("IDEAL WAS NULL\n");
-				}
-			}
-			*/
 			bs->wpDestination = gWPArray[wpClose];
 			bs->destinationGrabTime = level.time + 4000;
 		}
@@ -3753,12 +3724,9 @@ void GetIdealDestination(bot_state_t *bs)
 
 				bs->wpCurrent = gWPArray[tempInt];
 
-				bs->escapeDirTime = level.time + Q_irand(500, 1000);//Q_irand(1000, 1400);
-
-				//G_Printf("Escaping from scary bad thing [%s]\n", badthing->classname);
+				bs->escapeDirTime = level.time + Q_irand(500, 1000);
 			}
 		}
-		//G_Printf("Run away run away run away!\n");
 		return;
 	}
 
@@ -3896,7 +3864,6 @@ void GetIdealDestination(bot_state_t *bs)
 
 	if (!bs->wpDestination && bs->wpDestSwitchTime < level.time)
 	{
-		//G_Printf("I need something to do\n");
 		idleWP = GetBestIdleGoal(bs);
 
 		if (idleWP != -1 && gWPArray[idleWP] && gWPArray[idleWP]->inuse)
@@ -4543,20 +4510,6 @@ void SaberCombatHandling(bot_state_t *bs)
 			}
 		}
 
-		/*AngleVectors(bs->viewangles, NULL, fwd, NULL);
-
-		if (bs->meleeStrafeDir)
-		{
-			bs->goalPosition[0] += fwd[0]*16;
-			bs->goalPosition[1] += fwd[1]*16;
-			bs->goalPosition[2] += fwd[2]*16;
-		}
-		else
-		{
-			bs->goalPosition[0] -= fwd[0]*16;
-			bs->goalPosition[1] -= fwd[1]*16;
-			bs->goalPosition[2] -= fwd[2]*16;
-		}*/
 	}
 	else if (bs->frame_Enemy_Len <= 56)
 	{
@@ -4651,8 +4604,6 @@ void BotAimLeading(bot_state_t *bs, vec3_t headlevel, float leadAmount)
 	{
 		vtotal += bs->currentEnemy->client->ps.velocity[2];
 	}
-
-	//G_Printf("Leadin target with a velocity total of %f\n", vtotal);
 
 	VectorCopy(bs->currentEnemy->client->ps.velocity, movementVector);
 
@@ -4962,12 +4913,10 @@ int CombatBotAI(bot_state_t *bs, float thinktime)
 						if (bs->frame_Enemy_Len > 512 && bs->frame_Enemy_Len < 800)
 						{
 							bs->doAltAttack = 1;
-							//bs->doAttack = 1;
 						}
 						else
 						{
 							bs->doAttack = 1;
-							//bs->doAltAttack = 1;
 						}
 					}
 
@@ -5082,8 +5031,6 @@ int BotTryAnotherWeapon(bot_state_t *bs)
 		{
 			bs->virtualWeapon = i;
 			BotSelectWeapon(bs->client, i);
-			//bs->cur_ps.weapon = i;
-			//level.clients[bs->client].ps.weapon = i;
 			return 1;
 		}
 
@@ -5094,8 +5041,6 @@ int BotTryAnotherWeapon(bot_state_t *bs)
 	{ //should always have this.. shouldn't we?
 		bs->virtualWeapon = 1;
 		BotSelectWeapon(bs->client, 1);
-		//bs->cur_ps.weapon = 1;
-		//level.clients[bs->client].ps.weapon = 1;
 		return 1;
 	}
 
@@ -5196,18 +5141,12 @@ int BotSelectIdealWeapon(bot_state_t *bs)
 		}
 	}
 
-	//assert(bs->cur_ps.weapon > 0 && bestweapon > 0);
-
 	if (bestweight != -1 && bs->cur_ps.weapon != bestweapon && bs->virtualWeapon != bestweapon)
 	{
 		bs->virtualWeapon = bestweapon;
 		BotSelectWeapon(bs->client, bestweapon);
-		//bs->cur_ps.weapon = bestweapon;
-		//level.clients[bs->client].ps.weapon = bestweapon;
 		return 1;
 	}
-
-	//assert(bs->cur_ps.weapon > 0);
 
 	return 0;
 }
@@ -5237,8 +5176,6 @@ int BotSelectChoiceWeapon(bot_state_t *bs, int weapon, int doselection)
 	{
 		bs->virtualWeapon = weapon;
 		BotSelectWeapon(bs->client, weapon);
-		//bs->cur_ps.weapon = weapon;
-		//level.clients[bs->client].ps.weapon = weapon;
 		return 2;
 	}
 
@@ -5257,8 +5194,6 @@ int BotSelectMelee(bot_state_t *bs)
 	{
 		bs->virtualWeapon = 1;
 		BotSelectWeapon(bs->client, 1);
-		//bs->cur_ps.weapon = 1;
-		//level.clients[bs->client].ps.weapon = 1;
 		return 1;
 	}
 
@@ -5422,7 +5357,6 @@ void StrafeTracing(bot_state_t *bs)
 
 	mins[0] = -15;
 	mins[1] = -15;
-	//mins[2] = -24;
 	mins[2] = -22;
 	maxs[0] = 15;
 	maxs[1] = 15;
@@ -5941,7 +5875,6 @@ void StandardBotAI(bot_state_t *bs, float thinktime)
 	int meleestrafe = 0;
 	int useTheForce = 0;
 	int forceHostile = 0;
-	//int cBAI = 0;
 	gentity_t *friendInLOF = 0;
 	float mLen;
 	int visResult = 0;
@@ -6379,10 +6312,6 @@ void StandardBotAI(bot_state_t *bs, float thinktime)
 			return;
 		}
 	}
-	/*if (BotSelectMelee(bs))
-	{
-		return;
-	}*/
 
 	reaction = bs->skills.reflex/bs->settings.skill;
 
@@ -6607,7 +6536,6 @@ void StandardBotAI(bot_state_t *bs, float thinktime)
 			VectorCopy(eorg, bs->lastEnemySpotted);
 			VectorCopy(bs->origin, bs->hereWhenSpotted);
 			bs->lastVisibleEnemyIndex = bs->currentEnemy->s.number;
-			//VectorCopy(bs->eye, bs->lastEnemySpotted);
 			bs->hitSpotted = 0;
 		}
 		else
@@ -6771,14 +6699,7 @@ void StandardBotAI(bot_state_t *bs, float thinktime)
 	}
 	else //We can't find a waypoint, going to need a fallback routine.
 	{
-		/*if (g_gametype.integer == GT_DUEL)*/
 		{ //helps them get out of messy situations
-			/*if ((level.time - bs->forceJumpChargeTime) > 3500)
-			{
-				bs->forceJumpChargeTime = level.time + 2000;
-				trap_EA_MoveForward(bs->client);
-			}
-			*/
 			bs->jumpTime = level.time + 1500;
 			bs->jumpHoldTime = level.time + 1500;
 			bs->jDelay = 0;
@@ -6883,7 +6804,6 @@ void StandardBotAI(bot_state_t *bs, float thinktime)
 	{
 		if (bs->frame_Enemy_Vis)
 		{
-			//cBAI = CombatBotAI(bs, thinktime);
 			CombatBotAI(bs, thinktime);
 		}
 		else if (bs->cur_ps.weaponstate == WEAPON_CHARGING_ALT)
@@ -7078,7 +6998,6 @@ void StandardBotAI(bot_state_t *bs, float thinktime)
 	}
 	else if (bs->doChat && bs->currentEnemy && bs->frame_Enemy_Vis)
 	{
-		//bs->chatTime = level.time + bs->chatTime_stored;
 		bs->doChat = 0; //do we want to keep the bot waiting to chat until after the enemy is gone?
 		bs->chatTeam = 0;
 	}
@@ -7211,7 +7130,6 @@ void StandardBotAI(bot_state_t *bs, float thinktime)
 		if (bs->jumpTime > level.time && bs->jDelay < level.time &&
 			level.clients[bs->client].pers.cmd.upmove > 0)
 		{
-		//	trap_EA_Move(bs->client, bs->origin, 5000);
 			bs->beStill = level.time + 200;
 		}
 		else
@@ -7494,7 +7412,6 @@ int BotAIStartFrame(int time) {
 	int i;
 	int elapsed_time, thinktime;
 	static int local_time;
-	//static int botlib_residual;
 	static int lastbotthink_time;
 
 	if (gUpdateVars < level.time)

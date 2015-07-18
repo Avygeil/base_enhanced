@@ -129,36 +129,7 @@ void COM_DefaultExtension (char *path, int maxSize, const char *extension ) {
 	Q_strncpyz( oldPath, path, sizeof( oldPath ) );
 	Com_sprintf( path, maxSize, "%s%s", oldPath, extension );
 }
-
-/*
-============================================================================
-
-					BYTE ORDER FUNCTIONS
-
-============================================================================
-*/
-/*
-// can't just use function pointers, or dll linkage can
-// mess up when qcommon is included in multiple places
-static short	(*_BigShort) (short l);
-static short	(*_LittleShort) (short l);
-static int		(*_BigLong) (int l);
-static int		(*_LittleLong) (int l);
-static qint64	(*_BigLong64) (qint64 l);
-static qint64	(*_LittleLong64) (qint64 l);
-static float	(*_BigFloat) (const float *l);
-static float	(*_LittleFloat) (const float *l);
-
-short	BigShort(short l){return _BigShort(l);}
-short	LittleShort(short l) {return _LittleShort(l);}
-int		BigLong (int l) {return _BigLong(l);}
-int		LittleLong (int l) {return _LittleLong(l);}
-qint64 	BigLong64 (qint64 l) {return _BigLong64(l);}
-qint64 	LittleLong64 (qint64 l) {return _LittleLong64(l);}
-float	BigFloat (const float *l) {return _BigFloat(l);}
-float	LittleFloat (const float *l) {return _LittleFloat(l);}
-*/
-
+ 
 short   ShortSwap (short l)
 {
 	byte    b1,b2;
@@ -231,44 +202,7 @@ float FloatNoSwap (const float *f)
 {
 	return *f;
 }
-
-/*
-================
-Swap_Init
-================
-*/
-/*
-void Swap_Init (void)
-{
-	byte	swaptest[2] = {1,0};
-
-// set the byte swapping variables in a portable manner	
-	if ( *(short *)swaptest == 1)
-	{
-		_BigShort = ShortSwap;
-		_LittleShort = ShortNoSwap;
-		_BigLong = LongSwap;
-		_LittleLong = LongNoSwap;
-		_BigLong64 = Long64Swap;
-		_LittleLong64 = Long64NoSwap;
-		_BigFloat = FloatSwap;
-		_LittleFloat = FloatNoSwap;
-	}
-	else
-	{
-		_BigShort = ShortNoSwap;
-		_LittleShort = ShortSwap;
-		_BigLong = LongNoSwap;
-		_LittleLong = LongSwap;
-		_BigLong64 = Long64NoSwap;
-		_LittleLong64 = Long64Swap;
-		_BigFloat = FloatNoSwap;
-		_LittleFloat = FloatSwap;
-	}
-
-}
-*/
-
+   
 /*
 ============================================================================
 
@@ -516,7 +450,6 @@ char *COM_ParseExt( const char **data_p, qboolean allowLineBreaks )
 
 	if (len == MAX_TOKEN_CHARS)
 	{
-//		Com_Printf ("Token exceeded %i chars, discarded.\n", MAX_TOKEN_CHARS);
 		len = 0;
 	}
 	com_token[len] = 0;
@@ -587,7 +520,6 @@ COM_ParseString
 */
 qboolean COM_ParseString( const char **data, const char **s ) 
 {
-//	*s = COM_ParseExt( data, qtrue );
 	*s = COM_ParseExt( data, qfalse );
 	if ( s[0] == 0 ) 
 	{
@@ -839,8 +771,6 @@ void Q_strncpyz( char *dest, const char *src, int destsize ) {
   dest[destsize-1] = 0;
 }
 
-//int strnicmp(const char *s1, const char *s2, int n);
-   
 int Q_stricmpn (const char *s1, const char *s2, int n) {
 	int		c1, c2;
 
@@ -855,8 +785,6 @@ int Q_stricmpn (const char *s1, const char *s2, int n) {
         return 1;
 
 
-	//return strnicmp(s1,s2,n);
- 
     do {
 		c1 = *s1++;
 		c2 = *s2++;
@@ -866,37 +794,8 @@ int Q_stricmpn (const char *s1, const char *s2, int n) {
 			c2 += 'a'-'A';
     } while ((--n > 0) && c1 == c2 && c1 != 0);
     return c1 - c2;
-
-
-
+ 
 	
-	//do {
-	//	c1 = *s1++;
-	//	c2 = *s2++;
-
-	//	//if (!n--) {
-	//	//	return 0;		// strings are equal until end point
-	//	//}
-
-	//	if (!n){
-	//		return 0;
-	//	}
-	//	--n;
-	//	
-	//	if (c1 != c2) {
-	//		if (c1 >= 'a' && c1 <= 'z') {
-	//			c1 -= ('a' - 'A');
-	//		}
-	//		if (c2 >= 'a' && c2 <= 'z') {
-	//			c2 -= ('a' - 'A');
-	//		}
-	//		if (c1 != c2) {
-	//			return c1 < c2 ? -1 : 1;
-	//		}
-	//	}
-	//} while (c1);
-	//
-	//return 0;		// strings are equal
 }
 
 int Q_strncmp (const char *s1, const char *s2, int n) {

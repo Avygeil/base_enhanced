@@ -489,7 +489,6 @@ typedef struct Vehicle_s
 	qboolean m_bHasHadPilot; //qtrue once the vehicle gets its first pilot
 
 	// The passengers of this vehicle.
-	//bgEntity_t **m_ppPassengers;
 	bgEntity_t *m_ppPassengers[VEH_MAX_PASSENGERS];
 
 	//the droid unit NPC for this vehicle, if any
@@ -515,7 +514,6 @@ typedef struct Vehicle_s
 	float m_fTimeModifier;
 
 	// Ghoul2 Animation info.
-	//int m_iDriverTag;
 	int m_iLeftExhaustTag;
 	int m_iRightExhaustTag;
 	int m_iGun1Tag;
@@ -552,7 +550,6 @@ typedef struct Vehicle_s
 	int m_iVehicleTypeID;
 
 	// Current angles of this vehicle.
-	//vec3_t		m_vOrientation;
 	float		*m_vOrientation;
 	//Yeah, since we use the SP code for vehicles, I want to use this value, but I'm going
 	//to make it a pointer to a vec3_t in the playerstate for prediction's sake. -rww

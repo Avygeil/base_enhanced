@@ -237,53 +237,6 @@ extern qboolean BG_ParseLiteral( const char **data, const char *string );
 char	NPCParms[MAX_NPC_DATA_SIZE];
 char	NPCFile[MAX_QPATH];
 
-/*
-team_t TranslateTeamName( const char *name ) 
-{
-	int n;
-
-	for ( n = (NPCTEAM_FREE + 1); n < NPCTEAM_NUM_TEAMS; n++ )
-	{
-		if ( Q_stricmp( TeamNames[n], name ) == 0 )
-		{
-			return ((team_t) n);
-		}
-	}
-	
-	return NPCTEAM_FREE;
-}
-
-class_t TranslateClassName( const char *name ) 
-{
-	int n;
-
-	for ( n = (CLASS_NONE + 1); n < CLASS_NUM_CLASSES; n++ )
-	{
-		if ( Q_stricmp( ClassNames[n], name ) == 0 )
-		{
-			return ((class_t) n);
-		}
-	}
-	
-	return CLASS_NONE;  // I hope this never happens, maybe print a warning
-}
-*/
-
-/*
-static race_t TranslateRaceName( const char *name ) 
-{
-	if ( !Q_stricmp( name, "human" ) ) 
-	{
-		return RACE_HUMAN;
-	}
-	return RACE_NONE;
-}
-*/
-/*
-static rank_t TranslateRankName( const char *name ) 
-
-  Should be used to determine pip bolt-ons
-*/
 static rank_t TranslateRankName( const char *name ) 
 {
 	if ( !Q_stricmp( name, "civilian" ) ) 
@@ -332,68 +285,7 @@ static rank_t TranslateRankName( const char *name )
 #include "namespace_begin.h"
 extern saber_colors_t TranslateSaberColor( const char *name );
 #include "namespace_end.h"
-
-/* static int MethodNameToNumber( const char *name ) {
-	if ( !Q_stricmp( name, "EXPONENTIAL" ) ) {
-		return METHOD_EXPONENTIAL;
-	}
-	if ( !Q_stricmp( name, "LINEAR" ) ) {
-		return METHOD_LINEAR;
-	}
-	if ( !Q_stricmp( name, "LOGRITHMIC" ) ) {
-		return METHOD_LOGRITHMIC;
-	}
-	if ( !Q_stricmp( name, "ALWAYS" ) ) {
-		return METHOD_ALWAYS;
-	}
-	if ( !Q_stricmp( name, "NEVER" ) ) {
-		return METHOD_NEVER;
-	}
-	return -1;
-}
-
-static int ItemNameToNumber( const char *name, int itemType ) {
-//	int		n;
-
-	for ( n = 0; n < bg_numItems; n++ ) {
-		if ( bg_itemlist[n].type != itemType ) {
-			continue;
-		}
-		if ( Q_stricmp( bg_itemlist[n].classname, name ) == 0 ) {
-			return bg_itemlist[n].tag;
-		}
-	}
-	return -1;
-}
-*/
-
-//rwwFIXMEFIXME: movetypes
-/*
-static int MoveTypeNameToEnum( const char *name ) 
-{
-	if(!Q_stricmp("runjump", name))
-	{
-		return MT_RUNJUMP;
-	}
-	else if(!Q_stricmp("walk", name))
-	{
-		return MT_WALK;
-	}
-	else if(!Q_stricmp("flyswim", name))
-	{
-		return MT_FLYSWIM;
-	}
-	else if(!Q_stricmp("static", name))
-	{
-		return MT_STATIC;
-	}
-
-	return MT_STATIC;
-}
-*/
-
-//#define CONVENIENT_ANIMATION_FILE_DEBUG_THING
-
+     
 #ifdef CONVENIENT_ANIMATION_FILE_DEBUG_THING
 void SpewDebugStuffToFile(animation_t *anims)
 {
@@ -432,7 +324,6 @@ qboolean G_ParseAnimFileSet( const char *filename, const char *animCFG, int *ani
 	}
 
 	//I guess this isn't really even needed game-side.
-	//BG_ParseAnimationSndFile(filename, *animFileIndex);
 	return qtrue;
 }
 
@@ -512,36 +403,7 @@ void NPC_PrecacheAnimationCFG( const char *NPC_type )
 			if ( COM_ParseString( &p, &value ) ) 
 			{
 				continue;
-			}
-			/*
-			char	animName[MAX_QPATH];
-			char	*GLAName;
-			char	*slash = NULL;
-			char	*strippedName;
-			
-			int handle = gi.G2API_PrecacheGhoul2Model( va( "models/players/%s/model.glm", value ) );
-			if ( handle > 0 )//FIXME: isn't 0 a valid handle?
-			{
-				GLAName = gi.G2API_GetAnimFileNameIndex( handle );
-				if ( GLAName )
-				{
-					Q_strncpyz( animName, GLAName, sizeof( animName ), qtrue );
-					slash = strrchr( animName, '/' );
-					if ( slash )
-					{
-						*slash = 0;
-					}
-					strippedName = COM_SkipPath( animName );
-
-					//must copy data out of this pointer into a different part of memory because the funcs we're about to call will call COM_ParseExt
-					Q_strncpyz( filename, value, sizeof( filename ), qtrue );
-					G_ParseAnimFileSet( value, strippedName, &junk );//qfalse );
-					//FIXME: still not precaching the animsounds.cfg?
-					return;
-				}
-			}
-			*/
-			//rwwFIXMEFIXME: Do this properly.
+			} 	
 		}
 	}
 #endif
@@ -670,7 +532,6 @@ void NPC_Precache ( gentity_t *spawner )
 			}
 			else
 			{
-				//Q_strncpyz( ri.headModelName, value, sizeof(ri.headModelName), qtrue);
 			}
 			md3Model = qtrue;
 			continue;
@@ -689,7 +550,6 @@ void NPC_Precache ( gentity_t *spawner )
 			}
 			else
 			{
-				//Q_strncpyz( ri.torsoModelName, value, sizeof(ri.torsoModelName), qtrue);
 			}
 			md3Model = qtrue;
 			continue;
@@ -702,7 +562,6 @@ void NPC_Precache ( gentity_t *spawner )
 			{
 				continue;
 			}
-			//Q_strncpyz( ri.legsModelName, value, sizeof(ri.legsModelName), qtrue);			
 			md3Model = qtrue;
 			continue;
 		}
@@ -739,7 +598,6 @@ void NPC_Precache ( gentity_t *spawner )
 			{
 				continue;
 			}
-			//playerTeam = TranslateTeamName(value);
 			Com_sprintf(tk, sizeof(tk), "NPC%s", token);
 			playerTeam = (team_t)GetIDForString( TeamTable, tk );
 			continue;
@@ -866,8 +724,6 @@ void NPC_Precache ( gentity_t *spawner )
 	//precache this NPC's possible weapons
 	NPC_PrecacheWeapons( playerTeam, spawner->spawnflags, spawner->NPC_type );
 
-//	CG_RegisterNPCCustomSounds( &ci );
-//	CG_RegisterNPCEffects( playerTeam );
 	//rwwFIXMEFIXME: same
 	//FIXME: Look for a "sounds" directory and precache death, pain, alert sounds
 }
@@ -963,7 +819,6 @@ void NPC_BuildRandom( gentity_t *NPC )
 	}
 
 	NPC->s.modelScale[0] = NPC->s.modelScale[1] = NPC->s.modelScale[2] = Q_irand(87, 102)/100.0f;
-//	NPC->client->race = RACE_HUMAN;
 	NPC->NPC->rank = RANK_CREWMAN;
 	NPC->client->playerTeam = NPC->s.teamowner = TEAM_PLAYER;
 	NPC->client->clientInfo.customBasicSoundDir = "kyle";//FIXME: generic default?
@@ -1010,16 +865,6 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 	if ( NPC->NPC )
 	{
 		stats = &NPC->NPC->stats;
-/*
-	NPC->NPC->allWeaponOrder[0]	= WP_BRYAR_PISTOL;
-	NPC->NPC->allWeaponOrder[1]	= WP_SABER;
-	NPC->NPC->allWeaponOrder[2]	= WP_IMOD;
-	NPC->NPC->allWeaponOrder[3]	= WP_SCAVENGER_RIFLE;
-	NPC->NPC->allWeaponOrder[4]	= WP_TRICORDER;
-	NPC->NPC->allWeaponOrder[6]	= WP_NONE;
-	NPC->NPC->allWeaponOrder[6]	= WP_NONE;
-	NPC->NPC->allWeaponOrder[7]	= WP_NONE;
-*/
 		// fill in defaults
 		stats->aggression	= 3;
 		stats->aim			= 3;
@@ -1048,23 +893,11 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 	//Set defaults
 	//FIXME: should probably put default torso and head models, but what about enemies
 	//that don't have any- like Stasis?
-	//Q_strncpyz( ri->headModelName,	DEFAULT_HEADMODEL,  sizeof(ri->headModelName),	qtrue);
-	//Q_strncpyz( ri->torsoModelName, DEFAULT_TORSOMODEL, sizeof(ri->torsoModelName),	qtrue);
-	//Q_strncpyz( ri->legsModelName,	DEFAULT_LEGSMODEL,  sizeof(ri->legsModelName),	qtrue);
 	//FIXME: should we have one for weapon too?
 	memset( (char *)surfOff, 0, sizeof(surfOff) );
 	memset( (char *)surfOn, 0, sizeof(surfOn) );
 	
-	/*
-	ri->headYawRangeLeft = 50;
-	ri->headYawRangeRight = 50;
-	ri->headPitchRangeUp = 40;
-	ri->headPitchRangeDown = 50;
-	ri->torsoYawRangeLeft = 60;
-	ri->torsoYawRangeRight = 60;
-	ri->torsoPitchRangeUp = 30;
-	ri->torsoPitchRangeDown = 70;
-	*/
+
 
 	ri->headYawRangeLeft = 80;
 	ri->headYawRangeRight = 80;
@@ -1080,19 +913,6 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 	NPC->client->ps.crouchheight = CROUCH_MAXS_2;
 	NPC->client->ps.standheight = DEFAULT_MAXS_2;
 
-	//rwwFIXMEFIXME: ...
-	/*
-	NPC->client->moveType		= MT_RUNJUMP;
-
-	NPC->client->dismemberProbHead = 100;
-	NPC->client->dismemberProbArms = 100;
-	NPC->client->dismemberProbHands = 100;
-	NPC->client->dismemberProbWaist = 100;
-	NPC->client->dismemberProbLegs = 100;
-
-	NPC->s.modelScale[0] = NPC->s.modelScale[1] = NPC->s.modelScale[2] = 1.0f;
-	*/
-
 	NPC->client->ps.customRGBA[0]=255;
 	NPC->client->ps.customRGBA[1]=255;
 	NPC->client->ps.customRGBA[2]=255;
@@ -1100,7 +920,6 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 
 	if ( !Q_stricmp( "random", NPCName ) )
 	{//Randomly assemble a starfleet guy
-		//NPC_BuildRandom( NPC );
 		Com_Printf("RANDOM NPC NOT SUPPORTED IN MP\n");
 		return qfalse;
 	}
@@ -1236,11 +1055,6 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 				{
 					continue;
 				}
-				/*
-				Q_strncpyz( ri->legsModelName, value, sizeof(ri->legsModelName), qtrue);			
-				//Need to do this here to get the right index
-				G_ParseAnimFileSet( ri->legsModelName, ri->legsModelName, &ci->animFileIndex );
-				*/
 				continue;
 			}
 
@@ -1484,7 +1298,6 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 				if (n != 100)
 				{
 					Com_Printf("MP doesn't support xyz scaling, use 'scale'.\n");
-					//NPC->s.modelScale[0] = n/100.0f;
 				}
 				continue;
 			}
@@ -1505,7 +1318,6 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 				if (n != 100)
 				{
 					Com_Printf("MP doesn't support xyz scaling, use 'scale'.\n");
-					//NPC->s.modelScale[1] = n/100.0f;
 				}
 				continue;
 			}
@@ -1526,7 +1338,6 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 				if (n != 100)
 				{
 					Com_Printf("MP doesn't support xyz scaling, use 'scale'.\n");
-				//	NPC->s.modelScale[2] = n/100.0f;
 				}
 				continue;
 			}
@@ -1618,7 +1429,7 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 					}
 					if ( NPC->NPC )
 					{
-						stats->hfov = n;// / 2;	//FIXME: Why was this being done?!
+						stats->hfov = n;
 					}
 					continue;
 				}
@@ -1745,17 +1556,6 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 					continue;
 				}
 
-				// race
-		//		if ( !Q_stricmp( token, "race" ) ) 
-		//		{
-		//			if ( COM_ParseString( &p, &value ) ) 
-		//			{
-		//				continue;
-		//			}
-		//			NPC->client->race = TranslateRaceName(value);
-		//			continue;
-		//		}
-
 				// rank
 				if ( !Q_stricmp( token, "rank" ) ) 
 				{
@@ -1816,7 +1616,7 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 					continue;
 				}
 				Com_sprintf(tk, sizeof(tk), "NPC%s", token);
-				NPC->client->playerTeam = NPC->s.teamowner = (team_t)GetIDForString( TeamTable, tk );//TranslateTeamName(value);
+				NPC->client->playerTeam = NPC->s.teamowner = (team_t)GetIDForString( TeamTable, tk );
 				continue;
 			}
 
@@ -1830,7 +1630,7 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 					continue;
 				}
 				Com_sprintf(tk, sizeof(tk), "NPC%s", token);
-				NPC->client->enemyTeam = (team_t)GetIDForString( TeamTable, tk );//TranslateTeamName(value);
+				NPC->client->enemyTeam = (team_t)GetIDForString( TeamTable, tk );
 				continue;
 			}
 
@@ -1871,7 +1671,6 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 				}
 				if ( NPC->NPC )
 				{
-				//	NPC->client->dismemberProbHead = n;
 					//rwwFIXMEFIXME: support for this?
 				}
 				continue;
@@ -1890,7 +1689,6 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 				}
 				if ( NPC->NPC )
 				{
-				//	NPC->client->dismemberProbArms = n;
 				}
 				continue;
 			}
@@ -1908,7 +1706,6 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 				}
 				if ( NPC->NPC )
 				{
-				//	NPC->client->dismemberProbHands = n;
 				}
 				continue;
 			}
@@ -1926,7 +1723,6 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 				}
 				if ( NPC->NPC )
 				{
-				//	NPC->client->dismemberProbWaist = n;
 				}
 				continue;
 			}
@@ -1944,7 +1740,6 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 				}
 				if ( NPC->NPC )
 				{
-				//	NPC->client->dismemberProbLegs = n;
 				}
 				continue;
 			}
@@ -1974,9 +1769,6 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 					&& NPC->m_pVehicle->m_pVehicleInfo
 					&& NPC->m_pVehicle->m_pVehicleInfo->type == VH_FIGHTER )
 				{//a flying vehicle's origin must be centered in bbox and it should spawn on the ground
-					//trace_t		tr;
-					//vec3_t		bottom;
-					//float		adjust = 32.0f;
 					NPC->r.maxs[2] = NPC->client->ps.standheight = (n/2.0f);
 					NPC->r.mins[2] = -NPC->r.maxs[2];
 					NPC->s.origin[2] += (DEFAULT_MINS_2-NPC->r.mins[2])+0.125f;
@@ -1985,16 +1777,6 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 					G_SetOrigin( NPC, NPC->s.origin );
 					trap_LinkEntity(NPC);
 					//now trace down
-					/*
-					VectorCopy( NPC->s.origin, bottom );
-					bottom[2] -= adjust;
-					trap_Trace( &tr, NPC->s.origin, NPC->r.mins, NPC->r.maxs, bottom, NPC->s.number, MASK_NPCSOLID );
-					if ( !tr.allsolid && !tr.startsolid )
-					{
-						G_SetOrigin( NPC, tr.endpos );
-						trap_LinkEntity(NPC);
-					}
-					*/
 				}
 				else
 				{
@@ -2028,7 +1810,6 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 					{
 						NPC->client->ps.eFlags2 |= EF2_FLYING;
 					}
-					//NPC->client->moveType = (movetype_t)MoveTypeNameToEnum(value);
 					//rwwFIXMEFIXME: support for movetypes
 					continue;
 				}
@@ -2153,7 +1934,6 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 					{
 						*patch = 0;
 					}
-				//	ci->customBasicSoundDir = G_NewString( sound );
 					//rwwFIXMEFIXME: Hooray for violating client server rules
 				}
 				continue;
@@ -2175,7 +1955,6 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 					{
 						*patch = 0;
 					}
-				//	ci->customCombatSoundDir = G_NewString( sound );
 				}
 				continue;
 			}
@@ -2196,7 +1975,6 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 					{
 						*patch = 0;
 					}
-				//	ci->customExtraSoundDir = G_NewString( sound );
 				}
 				continue;
 			}
@@ -2217,7 +1995,6 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 					{
 						*patch = 0;
 					}
-					//ci->customJediSoundDir = G_NewString( sound );
 				}
 				continue;
 			}
@@ -2240,7 +2017,6 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 					NPC->client->ps.stats[STAT_WEAPONS] |= ( 1 << NPC->client->ps.weapon );
 					if ( weap > WP_NONE )
 					{
-					//	RegisterItem( FindItemForWeapon( (weapon_t)(NPC->client->ps.weapon) ) );	//precache the weapon
 						NPC->client->ps.ammo[weaponData[NPC->client->ps.weapon].ammoIndex] = 100;//FIXME: max ammo!
 					}
 				}
@@ -2320,7 +2096,6 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 					SkipRestOfLine( &p );
 					continue;
 				}
-				//NPC->client->ps.forcePowerRegenRate = n;
 				//rwwFIXMEFIXME: support this?
 				continue;
 			}
@@ -2333,7 +2108,6 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 					SkipRestOfLine( &p );
 					continue;
 				}
-				//NPC->client->ps.forcePowerRegenAmount = n;
 				//rwwFIXMEFIXME: support this?
 				continue;
 			}
@@ -2349,7 +2123,7 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 					continue;
 				}
 
-				saberName = (char *)BG_TempAlloc(4096);//G_NewString( value );
+				saberName = (char *)BG_TempAlloc(4096);
 				strcpy(saberName, value);
 
 				WP_SaberParseParms( saberName, &NPC->client->saber[0] );
@@ -2369,7 +2143,7 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 
 				if ( !(NPC->client->saber[0].saberFlags&SFL_TWO_HANDED) )
 				{//can't use a second saber if first one is a two-handed saber...?
-					char *saberName = (char *)BG_TempAlloc(4096);//G_NewString( value );
+					char *saberName = (char *)BG_TempAlloc(4096);
 					strcpy(saberName, value);
 
 					WP_SaberParseParms( saberName, &NPC->client->saber[1] );
@@ -2379,7 +2153,6 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 					}
 					else
 					{
-						//NPC->client->ps.dualSabers = qtrue;
 						npcSaber2 = G_ModelIndex(va("@%s", saberName));
 					}
 					BG_TempFree(4096);
@@ -3153,12 +2926,6 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 					n = 5;
 				}
 				NPC->client->ps.fd.saberAnimLevel = n;
-				/*
-				if ( parsingPlayer )
-				{
-					cg.saberAnimLevelPending = n;
-				}
-				*/
 				continue;
 			}
 
@@ -3219,14 +2986,6 @@ Ghoul2 Insert Start
 /*
 Ghoul2 Insert End
 */
-	/*
-	if(	NPCsPrecached )
-	{//Spawning in after initial precache, our models are precached, we just need to set our clientInfo
-		CG_RegisterClientModels( NPC->s.number );
-		CG_RegisterNPCCustomSounds( ci );
-		CG_RegisterNPCEffects( NPC->client->playerTeam );
-	}
-	*/
 	//rwwFIXMEFIXME: Do something here I guess to properly precache stuff.
 
 	return qtrue;
@@ -3241,8 +3000,7 @@ char npcParseBuffer[MAX_NPC_DATA_SIZE];
 void NPC_LoadParms( void ) 
 {
 	int			len, totallen, npcExtFNLen, mainBlockLen, fileCnt, i;
-//	const char	*filename = "ext_data/NPC2.cfg";
-	char		/**buffer,*/ *holdChar, *marker;
+	char		*holdChar, *marker;
 	char		npcExtensionListBuf[2048];			//	The list of file names read in
 	fileHandle_t f;
 	len = 0;
@@ -3263,8 +3021,6 @@ void NPC_LoadParms( void )
 	for ( i = 0; i < fileCnt; i++, holdChar += npcExtFNLen + 1 ) 
 	{
 		npcExtFNLen = strlen( holdChar );
-
-//		Com_Printf( "Parsing %s\n", holdChar );
 
 		len = trap_FS_FOpenFile(va( "ext_data/NPCs/%s", holdChar), &f, FS_READ);
 

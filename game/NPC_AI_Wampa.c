@@ -19,17 +19,10 @@ void Wampa_SetBolts( gentity_t *self )
 	{
 		renderInfo_t *ri = &self->client->renderInfo;
 		ri->headBolt = trap_G2API_AddBolt(self->ghoul2, 0, "*head_eyes");
-		//ri->cervicalBolt = trap_G2API_AddBolt(self->ghoul2, 0, "neck_bone" );
-		//ri->chestBolt = trap_G2API_AddBolt(self->ghoul2, 0, "upper_spine");
-		//ri->gutBolt = trap_G2API_AddBolt(self->ghoul2, 0, "mid_spine");
 		ri->torsoBolt = trap_G2API_AddBolt(self->ghoul2, 0, "lower_spine");
 		ri->crotchBolt = trap_G2API_AddBolt(self->ghoul2, 0, "rear_bone");
-		//ri->elbowLBolt = trap_G2API_AddBolt(self->ghoul2, 0, "*l_arm_elbow");
-		//ri->elbowRBolt = trap_G2API_AddBolt(self->ghoul2, 0, "*r_arm_elbow");
 		ri->handLBolt = trap_G2API_AddBolt(self->ghoul2, 0, "*l_hand");
 		ri->handRBolt = trap_G2API_AddBolt(self->ghoul2, 0, "*r_hand");
-		//ri->kneeLBolt = trap_G2API_AddBolt(self->ghoul2, 0, "*hips_l_knee");
-		//ri->kneeRBolt = trap_G2API_AddBolt(self->ghoul2, 0, "*hips_r_knee");
 		ri->footLBolt = trap_G2API_AddBolt(self->ghoul2, 0, "*l_leg_foot");
 		ri->footRBolt = trap_G2API_AddBolt(self->ghoul2, 0, "*r_leg_foot");
 	}
@@ -42,19 +35,7 @@ NPC_Wampa_Precache
 */
 void NPC_Wampa_Precache( void )
 {
-	/*
-	int i;
-	for ( i = 1; i < 4; i ++ )
-	{
-		G_SoundIndex( va("sound/chars/wampa/growl%d.wav", i) );
-	}
-	for ( i = 1; i < 3; i ++ )
-	{
-		G_SoundIndex( va("sound/chars/wampa/snort%d.wav", i) );
-	}
-	*/
 	G_SoundIndex( "sound/chars/rancor/swipehit.wav" );
-	//G_SoundIndex( "sound/chars/wampa/chomp.wav" );
 }
 
 
@@ -169,7 +150,6 @@ void Wampa_Move( qboolean visible )
 }
 
 //---------------------------------------------------------
-//extern void G_Knockdown( gentity_t *self, gentity_t *attacker, const vec3_t pushDir, float strength, qboolean breakSaberLock );
 extern void G_Knockdown( gentity_t *victim );
 extern void G_Dismember( gentity_t *ent, gentity_t *enemy, vec3_t point, int limbType, float limbRollBase, float limbPitchBase, int deathAnim, qboolean postDeath );
 extern int NPC_GetEntsNearBolt( int *radiusEnts, float radius, int boltIndex, vec3_t boltOrg );

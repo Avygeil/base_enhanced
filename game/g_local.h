@@ -543,8 +543,6 @@ typedef struct renderInfo_s
 	vec3_t		muzzleDir;
 	vec3_t		muzzlePointOld;
 	vec3_t		muzzleDirOld;
-	//vec3_t		muzzlePointNext;	// Muzzle point one server frame in the future!
-	//vec3_t		muzzleDirNext;
 	int			mPCalcTime;//Last time muzzle point was calced
 
 	//
@@ -820,8 +818,6 @@ typedef struct
 {
 	vec3_t		origin;
 	int			flags;
-//	char		*NPC_targetname;
-//	team_t		team;
 	qboolean	occupied;
 	int			waypoint;
 	int			dangerTime;
@@ -892,7 +888,6 @@ typedef struct {
 	fileHandle_t	hackLogFile;
 	fileHandle_t	DBLogFile;
 	fileHandle_t	rconLogFile;
-	//fileHandle_t	CallStackLogFile;
 
 	//match log
 	qboolean    initialChecked;
@@ -905,7 +900,6 @@ typedef struct {
 	qboolean    overtime;
 
 	//special handle for libcurl debug
-	//FILE*			curlLogFile;
 
 	// store latched cvars here that we want to get at often
 	int			maxclients;
@@ -1431,7 +1425,6 @@ void CheckTeamLeader( int team );
 void G_RunThink (gentity_t *ent);
 void QDECL G_LogPrintf( const char *fmt, ... );
 void QDECL G_HackLog(const char *fmt, ...);
-//void QDECL G_CallStackLog(const char *fmt, ...);
 void QDECL G_DBLog( const char *fmt, ... );
 void QDECL G_RconLog( const char *fmt, ... );
 void SendScoreboardMessageToAllClients( void );
@@ -1498,8 +1491,6 @@ extern qboolean G_ClearLOS5( gentity_t *self, const vec3_t end );
 // g_arenas.c
 //
 void UpdateTournamentInfo( void );
-//void SpawnModelsOnVictoryPads( void );
-//void Svcmd_AbortPodium_f( void );
 
 //
 // g_bot.c
@@ -1715,7 +1706,6 @@ extern	vmCvar_t	g_needpass;
 extern	vmCvar_t	g_gravity;
 extern	vmCvar_t	g_speed;
 extern	vmCvar_t	g_knockback;
-//extern	vmCvar_t	g_quadfactor;
 extern	vmCvar_t	g_forcerespawn;
 extern	vmCvar_t	g_siegeRespawn;
 extern	vmCvar_t	g_inactivity;
@@ -1745,8 +1735,6 @@ extern	vmCvar_t	g_filterBan;
 extern	vmCvar_t	g_debugForward;
 extern	vmCvar_t	g_debugRight;
 extern	vmCvar_t	g_debugUp;
-//extern	vmCvar_t	g_redteam;
-//extern	vmCvar_t	g_blueteam;
 extern	vmCvar_t	g_smoothClients;
 
 #include "namespace_begin.h"
@@ -1796,16 +1784,12 @@ extern vmCvar_t		g_protectQ3Fill;
 extern vmCvar_t		g_protectQ3FillIPLimit;
 extern vmCvar_t		g_protectHPhack;
 extern vmCvar_t		g_protectCallvoteHack;
-//extern vmCvar_t		g_maxIPConnecting;
 extern vmCvar_t		g_maxIPConnected;
 extern vmCvar_t		g_fixLateCapture;
-//extern vmCvar_t		g_fixCaptureCondition;
-//extern vmCvar_t     g_fixDetPackBug;
 
 extern vmCvar_t     g_strafejump_mod;
 
 extern vmCvar_t     g_quietrcon;
-//extern vmCvar_t     g_followSpectator;
 
 extern vmCvar_t     g_hackLog;
 
@@ -1839,8 +1823,6 @@ extern vmCvar_t	   g_logrcon;
 extern vmCvar_t	   g_testdeflection;
 extern vmCvar_t	   g_flags_overboarding;
 
-//extern vmCvar_t	   g_cmdtimelimit;
-
 extern vmCvar_t	   g_rconpassword;
 
 extern vmCvar_t	   g_callvotedelay;
@@ -1851,7 +1833,6 @@ extern vmCvar_t	   g_wasRestarted;
 int validateAccount(const char* username, const char* password, int num);
 void unregisterUser(const char* username);
 void loadAccounts();
-//void PrintCallStack(int maxframes);
 
 #include "namespace_begin.h"
 

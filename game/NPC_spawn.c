@@ -16,15 +16,9 @@ extern void Jedi_Cloak( gentity_t *self );
 
 extern vmCvar_t     g_npc_spawn_limit;
 
-//extern void FX_BorgTeleport( vec3_t org );
-
 extern void Q3_SetParm (int entID, int parmNum, const char *parmValue);
 extern team_t TranslateTeamName( const char *name );
 extern char	*TeamNames[TEAM_NUM_TEAMS];
-
-//extern void CG_ShimmeryThing_Spawner( vec3_t start, vec3_t end, float radius, qboolean taper, int duration );
-
-//extern void NPC_StasisSpawnEffect( gentity_t *ent );
 
 extern void PM_SetTorsoAnimTimer( gentity_t *ent, int *torsoAnimTimer, int time );
 extern void PM_SetLegsAnimTimer( gentity_t *ent, int *legsAnimTimer, int time );
@@ -87,8 +81,6 @@ extern void NPC_Wampa_Pain				(gentity_t *self, gentity_t *attacker, int damage)
 extern void NPC_Rancor_Pain				(gentity_t *self, gentity_t *attacker, int damage);
 
 
-//void HirogenAlpha_Precache( void );
-
 int WP_SetSaberModel( gclient_t *client, class_t npcClass )
 {
 	//rwwFIXMEFIXME: Do something here, need to let the client know.
@@ -113,14 +105,6 @@ PAIN_FUNC *NPC_PainFunc( gentity_t *ent )
 	else
 	{
 		// team no longer indicates race/species, use NPC_class to determine different npc types
-		/*
-		switch ( ent->client->playerTeam )
-		{
-		default:
-			func = painF_NPC_Pain;
-			break;
-		}
-		*/
 		switch( ent->client->NPC_class )
 		{
 		// troopers get special pain
@@ -268,18 +252,10 @@ void NPC_SetMiscDefaultData( gentity_t *ent )
 		ent->NPC->scriptFlags |= SCF_DONT_FIRE;//so he uses only force powers
 	}
 	//==================
-//	if ( ent->client->ps.saber[0].type != SABER_NONE )
 	if (ent->client->ps.weapon == WP_SABER) //rwwFIXMEFIXME: is this going to work?
 	{//if I'm equipped with a saber, initialize it (them)
-	//	ent->client->ps.SaberDeactivate();
-	//	ent->client->ps.SetSaberLength( 0 );
 		WP_SaberInitBladeData( ent );
 		ent->client->ps.saberHolstered = 2;
-	//	G_CreateG2AttachedWeaponModel( ent, ent->client->ps.saber[0].model, ent->handRBolt, 0 );
-	//	if ( ent->client->ps.dualSabers )
-	//	{
-	//		G_CreateG2AttachedWeaponModel( ent, ent->client->ps.saber[1].model, ent->handLBolt, 1 );
-	//	}
 		Jedi_ClearTimers( ent );
 	}
 	if ( ent->client->ps.fd.forcePowersKnown != 0 )
@@ -299,7 +275,6 @@ void NPC_SetMiscDefaultData( gentity_t *ent )
 	switch(ent->client->playerTeam)
 	{
 	case NPCTEAM_PLAYER:
-		//ent->flags |= FL_NO_KNOCKBACK;
 		if ( ent->client->NPC_class == CLASS_JEDI || ent->client->NPC_class == CLASS_LUKE 
 			|| ent->client->NPC_class == CLASS_KYLE)
 		{//good jedi
@@ -312,16 +287,9 @@ void NPC_SetMiscDefaultData( gentity_t *ent )
 		}
 		else
 		{
-			/*
-			if (ent->client->ps.weapon != WP_NONE)
-			{
-				G_CreateG2AttachedWeaponModel( ent, weaponData[ent->client->ps.weapon].weaponMdl, ent->handRBolt, 0 );
-			}
-			*/
 			switch ( ent->client->ps.weapon )
 			{
 			case WP_BRYAR_PISTOL://FIXME: new weapon: imp blaster pistol
-	//		case WP_BLASTER_PISTOL:
 			case WP_DISRUPTOR:
 			case WP_BOWCASTER:
 			case WP_REPEATER:
@@ -333,27 +301,20 @@ void NPC_SetMiscDefaultData( gentity_t *ent )
 			case WP_THERMAL:
 			case WP_BLASTER:
 				//FIXME: health in NPCs.cfg, and not all blaster users are stormtroopers
-				//ent->health = 25;
 				//FIXME: not necc. a ST
 				ST_ClearTimers( ent );
 				if ( ent->NPC->rank >= RANK_LT || ent->client->ps.weapon == WP_THERMAL )
 				{//officers, grenade-throwers use alt-fire
-					//ent->health = 50;
-					//ent->NPC->scriptFlags |= SCF_ALT_FIRE;
 				}
 				break;
 			}
 		}
-		if ( /*ent->client->NPC_class == CLASS_KYLE ||*/ ent->client->NPC_class == CLASS_VEHICLE || (ent->spawnflags & SFB_CINEMATIC) )
+		if ( ent->client->NPC_class == CLASS_VEHICLE || (ent->spawnflags & SFB_CINEMATIC) )
 		{
 			ent->NPC->defaultBehavior = BS_CINEMATIC;
 		}
 		else
 		{
-			/*
-			ent->NPC->defaultBehavior = BS_FOLLOW_LEADER;
-			ent->client->leader = &g_entities[0];
-			*/
 		}
 		break;
 
@@ -363,23 +324,6 @@ void NPC_SetMiscDefaultData( gentity_t *ent )
 		{
 			// I guess we generically make them player usable
 			ent->r.svFlags |= SVF_PLAYER_USABLE;
-
-			// Not even sure if we want to give different levels of batteries?  ...Or even that these are the values we'd want to use.
-			/*
-			switch ( g_spskill.integer )
-			{
-			case 0:	//	EASY
-				ent->client->ps.batteryCharge = MAX_BATTERIES * 0.8f; 
-				break;
-			case 1:	//	MEDIUM
-				ent->client->ps.batteryCharge = MAX_BATTERIES * 0.75f; 
-				break;
-			default :
-			case 2:	//	HARD
-				ent->client->ps.batteryCharge = MAX_BATTERIES * 0.5f; 
-				break;
-			}*/
-			//rwwFIXMEFIXME: Make use of this.
 		}
 		break;
 
@@ -412,16 +356,12 @@ void NPC_SetMiscDefaultData( gentity_t *ent )
 			}
 			else 
 			{
-		//		G_CreateG2AttachedWeaponModel( ent, weaponData[ent->client->ps.weapon].weaponMdl, ent->handRBolt, 0 );
 				switch ( ent->client->ps.weapon )
 				{
 				case WP_BRYAR_PISTOL:
 					break;
-		//		case WP_BLASTER_PISTOL:
-		//			break;
 				case WP_DISRUPTOR:
 					//Sniper
-					//ent->NPC->scriptFlags |= SCF_ALT_FIRE;//FIXME: use primary fire sometimes?  Up close?  Different class of NPC?
 					break;
 				case WP_BOWCASTER:
 					break;
@@ -434,14 +374,12 @@ void NPC_SetMiscDefaultData( gentity_t *ent )
 					//shotgunner
 					if ( !Q_stricmp( "stofficeralt", ent->NPC_type ) )
 					{
-						//ent->NPC->scriptFlags |= SCF_ALT_FIRE;
 					}
 					break;
 				case WP_ROCKET_LAUNCHER:
 					break;
 				case WP_THERMAL:
 					//Gran, use main, bouncy fire
-//					ent->NPC->scriptFlags |= SCF_ALT_FIRE;
 					break;
 				case WP_STUN_BATON:
 					break;
@@ -452,11 +390,9 @@ void NPC_SetMiscDefaultData( gentity_t *ent )
 					ST_ClearTimers( ent );
 					if ( ent->NPC->rank >= RANK_COMMANDER )
 					{//commanders use alt-fire
-						//ent->NPC->scriptFlags |= SCF_ALT_FIRE;
 					}
 					if ( !Q_stricmp( "rodian2", ent->NPC_type ) )
 					{
-						//ent->NPC->scriptFlags |= SCF_ALT_FIRE;
 					}
 					break;
 				}
@@ -515,31 +451,12 @@ int NPC_WeaponsForTeam( team_t team, int spawnflags, const char *NPC_type )
 	switch(team)
 	{
 	// no longer exists
-//	case TEAM_BORG:
-//		break;
-
-//	case TEAM_HIROGEN:
-//		if( Q_stricmp( "hirogenalpha", NPC_type ) == 0 )
-//			return ( 1 << WP_BLASTER);
-		//Falls through
-
-//	case TEAM_KLINGON:
-
-		//NOTENOTE: Falls through
-
-//	case TEAM_IMPERIAL:
 	case NPCTEAM_ENEMY:
 		if ( Q_stricmp( "tavion", NPC_type ) == 0 || 
 			Q_strncmp( "reborn", NPC_type, 6 ) == 0 || 
 			Q_stricmp( "desann", NPC_type ) == 0 || 
 			Q_strncmp( "shadowtrooper", NPC_type, 13 ) == 0 )
 			return ( 1 << WP_SABER);
-//			return ( 1 << WP_IMPERIAL_BLADE);
-		//NOTENOTE: Falls through if not a knife user
-
-//	case TEAM_SCAVENGERS:
-//	case TEAM_MALON:
-		//FIXME: default weapon in npc config?
 		if ( Q_strncmp( "stofficer", NPC_type, 9 ) == 0 )
 		{
 			return ( 1 << WP_FLECHETTE);
@@ -619,7 +536,7 @@ int NPC_WeaponsForTeam( team_t team, int spawnflags, const char *NPC_type )
 
 		if ( Q_strncmp( "weequay", NPC_type, 7 ) == 0 )
 		{
-			return ( 1 << WP_BOWCASTER);//|( 1 << WP_STAFF )(FIXME: new weap?)
+			return ( 1 << WP_BOWCASTER);
 		}
 		if ( Q_stricmp( "impofficer", NPC_type ) == 0 )
 		{
@@ -631,12 +548,10 @@ int NPC_WeaponsForTeam( team_t team, int spawnflags, const char *NPC_type )
 		}
 		if (( Q_stricmp( "probe", NPC_type ) == 0 ) || ( Q_stricmp( "seeker", NPC_type ) == 0 ))
 		{
-			//return ( 1 << WP_BOT_LASER);
 			return 0;
 		}	
 		if ( Q_stricmp( "remote", NPC_type ) == 0 )
 		{
-			//return ( 1 << WP_BOT_LASER );
 			return 0;
 		}	
 		if ( Q_stricmp( "trandoshan", NPC_type ) == 0 )
@@ -645,17 +560,14 @@ int NPC_WeaponsForTeam( team_t team, int spawnflags, const char *NPC_type )
 		}
 		if ( Q_stricmp( "atst", NPC_type ) == 0 )
 		{
-			//return (( 1 << WP_ATST_MAIN)|( 1 << WP_ATST_SIDE));
 			return 0;
 		}
 		if ( Q_stricmp( "mark1", NPC_type ) == 0 )
 		{
-			//return ( 1 << WP_BOT_LASER);
 			return 0;
 		}
 		if ( Q_stricmp( "mark2", NPC_type ) == 0 )
 		{
-			//return ( 1 << WP_BOT_LASER);
 			return 0;
 		}
 		if ( Q_stricmp( "minemonster", NPC_type ) == 0 )
@@ -672,14 +584,11 @@ int NPC_WeaponsForTeam( team_t team, int spawnflags, const char *NPC_type )
 
 	case NPCTEAM_PLAYER:
 		
-//		if(spawnflags & SFB_TRICORDER)
-//			return ( 1 << WP_TRICORDER);
 		
 		if(spawnflags & SFB_RIFLEMAN)
 			return ( 1 << WP_REPEATER);
 		
 		if(spawnflags & SFB_PHASER)
-			//return ( 1 << WP_BLASTER_PISTOL);
 			return ( 1 << WP_BLASTER);
 
 		if ( Q_strncmp( "jedi", NPC_type, 4 ) == 0 || Q_stricmp( "luke", NPC_type ) == 0 )
@@ -729,21 +638,6 @@ int NPC_WeaponsForTeam( team_t team, int spawnflags, const char *NPC_type )
 	
 		break;
 
-	// these no longer exist
-//	case TEAM_FORGE:
-//		return ( 1 << WP_STUN_BATON);
-//		break;
-
-//	case TEAM_STASIS:
-//		return ( 1 << WP_STUN_BATON);
-//		break;
-
-//	case TEAM_PARASITE:
-//		break;
-
-//	case TEAM_8472:
-//		break;
-
 	default:
 		break;
 	}
@@ -771,7 +665,6 @@ void NPC_SetWeapons( gentity_t *ent )
 		if ( (weapons & ( 1 << curWeap )) )
 		{
 			ent->client->ps.stats[STAT_WEAPONS] |= ( 1 << curWeap );
-//			RegisterItem( FindItemForWeapon( (weapon_t)(curWeap) ) );	//precache the weapon
 			//rwwFIXMEFIXME: Precache
 			ent->NPC->currentAmmo = ent->client->ps.ammo[weaponData[curWeap].ammoIndex] = 100;//FIXME: max ammo
 
@@ -999,11 +892,7 @@ void NPC_Begin (gentity_t *ent)
 	ent->takedamage = qtrue;
 	ent->inuse = qtrue;
 	ent->classname = "NPC";
-//	if ( ent->client->race == RACE_HOLOGRAM )
-//	{//can shoot through holograms, but not walk through them
-//		ent->contents = CONTENTS_PLAYERCLIP|CONTENTS_MONSTERCLIP|CONTENTS_ITEM;//contents_corspe to make them show up in ID and use traces
-//		ent->clipmask = MASK_NPCSOLID;
-//	} else
+
 	if(!(ent->spawnflags & SFB_NOTSOLID))
 	{
 		ent->r.contents = CONTENTS_BODY;
@@ -1014,13 +903,6 @@ void NPC_Begin (gentity_t *ent)
 		ent->r.contents = 0;
 		ent->clipmask = MASK_NPCSOLID&~CONTENTS_BODY;
 	}
-	/*
-	if(!ent->client->moveType)//Static?
-	{
-		ent->client->moveType = MT_RUNJUMP;
-	}
-	*/
-	//rwwFIXMEFIXME: movetype support
 
 	ent->die = player_die;
 	ent->waterlevel = 0;
@@ -1041,7 +923,6 @@ void NPC_Begin (gentity_t *ent)
 
 	NPC_SetFX_SpawnStates( ent );
 	
-	//client->ps.friction = 6;
 	//rwwFIXMEFIXME: per ent friction?
 
 	if ( ent->client->ps.weapon == WP_NONE )
@@ -1059,12 +940,9 @@ void NPC_Begin (gentity_t *ent)
 	client->ps.pm_flags |= PMF_RESPAWNED;
 
 	// clear entity state values
-	//ent->s.eType = ET_PLAYER;
 	ent->s.eType = ET_NPC;
-//	ent->s.skinNum = ent - g_entities - 1;	// used as index to get custom models
 
 	VectorCopy (spawn_origin, ent->s.origin);
-//	ent->s.origin[2] += 1;	// make sure off ground
 
 	SetClientViewAngle( ent, spawn_angles );
 	client->renderInfo.lookTarget = ENTITYNUM_NONE;
@@ -1080,7 +958,6 @@ void NPC_Begin (gentity_t *ent)
 	client->ps.pm_time = 100;
 
 	client->respawnTime = level.time;
-	//client->inactivityTime = level.time + g_inactivity.value * 1000;
 	client->latched_buttons = 0;
 	if ( ent->s.m_iVehicleNum )
 	{//I'm an NPC in a vehicle (or a vehicle), I already have owner set
@@ -1121,7 +998,6 @@ void NPC_Begin (gentity_t *ent)
 //==Final NPC initialization
 	ent->pain  = NPC_PainFunc( ent ); //painF_NPC_Pain;
 	ent->touch = NPC_TouchFunc( ent ); //touchF_NPC_Touch;
-//	ent->NPC->side = 1;
 
 	ent->client->ps.ping = ent->NPC->stats.reactions * 50;
 
@@ -1172,15 +1048,12 @@ void NPC_Begin (gentity_t *ent)
 	// run a client frame to drop exactly to the floor,
 	// initialize animations and other things
 	memset( &ucmd, 0, sizeof( ucmd ) );
-	//_VectorCopy( client->pers.cmd_angles, ucmd.angles );
 	VectorCopy(client->pers.cmd.angles, ucmd.angles);
 	
 	ent->client->ps.groundEntityNum = ENTITYNUM_NONE;
 
 	if ( ent->NPC->aiFlags & NPCAI_MATCHPLAYERWEAPON )
 	{
-		//G_MatchPlayerWeapon( ent );
-		//rwwFIXMEFIXME: Use this? Probably doesn't really matter for MP.
 	}
 
 	ClientThink( ent->s.number, &ucmd );
@@ -1193,7 +1066,6 @@ void NPC_Begin (gentity_t *ent)
 		{//not a cinematic enemy
 			if ( g_entities[0].client )
 			{
-				//g_entities[0].client->sess.missionStats.enemiesSpawned++;
 				//rwwFIXMEFIXME: Do something here? And this is a rather strange place to be storing
 				//this sort of data.
 			}
@@ -1245,8 +1117,6 @@ void NPC_Begin (gentity_t *ent)
 							droidEnt->r.ownerNum = ent->s.number;
 						ent->m_pVehicle->m_pDroidUnit = (bgEntity_t *)droidEnt;
 						//SP way:
-						//droidEnt->s.m_iVehicleNum = ent->s.number;
-						//droidEnt->owner = ent;
 						VectorCopy( ent->r.currentOrigin, droidEnt->s.origin );
 						VectorCopy( ent->r.currentOrigin, droidEnt->client->ps.origin );
 						G_SetOrigin( droidEnt, droidEnt->s.origin );
@@ -1302,54 +1172,6 @@ void NPC_NPCPtrsClear(void)
 }
 #endif
 
-/*
--------------------------
-NPC_StasisSpawn_Go
--------------------------
-*/
-/*	
-qboolean NPC_StasisSpawn_Go( gentity_t *ent )
-{
-	//Setup an owner pointer if we need it
-	if VALIDSTRING( ent->ownername )
-	{
-		ent->parent = G_Find( NULL, FOFS( targetname ), ent->ownername );
-		
-		if ( ( ent->parent ) && ( ent->parent->health <= 0 ) )
-		{//our spawner thing is broken
-			if ( ent->target2 && ent->target2[0] )
-			{
-				//Fire off our target2
-				G_UseTargets2( ent, ent, ent->target2 );
-
-				//Kill us
-				ent->e_ThinkFunc = thinkF_G_FreeEntity;
-				ent->nextthink = level.time + 100;
-			}
-			else
-			{
-				//Try to spawn again in one second
-				ent->e_ThinkFunc = thinkF_NPC_Spawn_Go;
-				ent->nextthink = level.time + 1000;
-			}
-			return qfalse;
-		}
-	}
-
-	//Test for an entity blocking the spawn
-	trace_t	tr;
-	trap_Trace( &tr, ent->r.currentOrigin, ent->r.mins, ent->r.maxs, ent->r.currentOrigin, ent->s.number, MASK_NPCSOLID );
-
-	//Can't have anything in the way
-	if ( tr.allsolid || tr.startsolid )
-	{
-		ent->nextthink = level.time + 1000;
-		return qfalse;
-	}
-
-	return qtrue;
-}
-*/
 void NPC_DefaultScriptFlags( gentity_t *ent )
 {
 	if ( !ent || !ent->NPC )
@@ -1376,15 +1198,6 @@ gentity_t *NPC_Spawn_Do( gentity_t *client_ent, gentity_t *ent )
 	gentity_t	*newent = NULL;
 	int			index;
 	vec3_t		saveOrg;
-
-
-/*	//Do extra code for stasis spawners
-	if ( Q_stricmp( ent->classname, "NPC_Stasis" ) == 0 )
-	{
-		if ( NPC_StasisSpawn_Go( ent ) == qfalse )
-			return;
-	}
-*/
 
 	//Test for drop to floor
 	if ( ent->spawnflags & NSF_DROP_TO_FLOOR )
@@ -1434,7 +1247,6 @@ gentity_t *NPC_Spawn_Do( gentity_t *client_ent, gentity_t *ent )
 		return NULL;
 	}	
 
-	//newent->client = (gclient_s *)G_Alloc (sizeof(gclient_s));
 	G_CreateFakeClient(newent->s.number, &newent->client);
 
 	newent->NPC->tempGoal = G_Spawn();
@@ -1463,7 +1275,6 @@ gentity_t *NPC_Spawn_Do( gentity_t *client_ent, gentity_t *ent )
 	//Assign the pointer for bg entity access
 	newent->playerState = &newent->client->ps;
 
-//==NPC_Connect( newent, net_name );===================================
 
 	if ( ent->NPC_type == NULL ) 
 	{
@@ -1564,7 +1375,6 @@ gentity_t *NPC_Spawn_Do( gentity_t *client_ent, gentity_t *ent )
 		G_SetAngles( newent, newent->m_pVehicle->m_vOrientation );
 		SetClientViewAngle( newent, newent->m_pVehicle->m_vOrientation );
 
-		//newent->m_pVehicle->m_ulFlags |= VEH_GEARSOPEN;
 		//why? this would just make it so the initial anim never got played... -rww
 		//There was no initial anim, it would just open the gear even though it's already on the ground (fixed now, made an initial anim)
 		
@@ -1623,7 +1433,6 @@ gentity_t *NPC_Spawn_Do( gentity_t *client_ent, gentity_t *ent )
 			}
 			newent->NPC->defaultBehavior = newent->NPC->behaviorState = BS_WAIT;
 			newent->classname = "NPC";
-	//		newent->r.svFlags |= SVF_NOPUSH;
 		}
 	}
 //=====================================================================
@@ -1680,7 +1489,7 @@ gentity_t *NPC_Spawn_Do( gentity_t *client_ent, gentity_t *ent )
 	}
 
 //==New stuff=====================================================================
-	newent->s.eType	= ET_NPC;//ET_PLAYER;
+	newent->s.eType	= ET_NPC;
 	
 	//FIXME: Call CopyParms
 	if ( ent->parms )
@@ -1706,7 +1515,6 @@ gentity_t *NPC_Spawn_Do( gentity_t *client_ent, gentity_t *ent )
 	//set angles
 	newent->s.apos.trType = TR_INTERPOLATE;
 	newent->s.apos.trTime = level.time;
-	//VectorCopy( newent->r.currentOrigin, newent->s.apos.trBase );
 	//Why was the origin being used as angles? Typo I'm assuming -rww
 	VectorCopy( newent->s.angles, newent->s.apos.trBase );
 
@@ -1779,41 +1587,7 @@ void NPC_Spawn_Go(gentity_t *ent)
 {
 	NPC_Spawn_Do( NULL , ent);
 }
-
-/*
--------------------------
-NPC_StasisSpawnEffect
--------------------------
-*/
-/*
-void NPC_StasisSpawnEffect( gentity_t *ent )
-{
-	vec3_t		start, end, forward;
-	qboolean	taper;
-
-	//Floor or wall?
-	if ( ent->spawnflags & 1 )
-	{
-		AngleVectors( ent->s.angles, forward, NULL, NULL );
-		VectorMA( ent->r.currentOrigin,  24, forward, end );
-		VectorMA( ent->r.currentOrigin, -20, forward, start );
-		
-		start[2] += 64;
-		
-		taper = qtrue;
-	}
-	else
-	{
-		VectorCopy( ent->r.currentOrigin, start );
-		VectorCopy( start, end );
-		end[2] += 48;
-		taper = qfalse;
-	}
-
-	//Add the effect
-//	CG_ShimmeryThing_Spawner( start, end, 32, qtrue, 1000 );
-}
-*/
+  
 /*
 -------------------------
 NPC_ShySpawn
@@ -1854,13 +1628,6 @@ void NPC_Spawn ( gentity_t *ent, gentity_t *other, gentity_t *activator )
 	//delay before spawning NPC
 	if( ent->delay )
 	{
-/*		//Stasis does an extra step
-		if ( Q_stricmp( ent->classname, "NPC_Stasis" ) == 0 )
-		{
-			if ( NPC_StasisSpawn_Go( ent ) == qfalse )
-				return;
-		}
-*/
 		if ( ent->spawnflags & 2048 )  // SHY
 		{
 			ent->think = NPC_ShySpawn;
@@ -1968,7 +1735,6 @@ teamnodmg - team that NPC does not take damage from (turrets and other auto-defe
 "noCombatSounds" - set to 1 to prevent loading and usage of combat sounds (anger, victory, etc.)
 "noExtraSounds" - set to 1 to prevent loading and usage of "extra" sounds (chasing the enemy - detecting them, flanking them... also jedi combat sounds)
 */
-//void NPC_PrecacheModels ( char *NPCName );
 extern void NPC_PrecacheAnimationCFG( const char *NPC_type );
 void NPC_Precache ( gentity_t *spawner );
 void NPC_PrecacheType( char *NPC_type )
@@ -2000,7 +1766,6 @@ void SP_NPC_spawner( gentity_t *self)
 	}
 
 	//register/precache the models needed for this NPC, not anymore
-	//self->classname = "NPC_spawner";
 
 	if(!self->count)
 	{
@@ -2040,15 +1805,8 @@ void SP_NPC_spawner( gentity_t *self)
 	{
 		self->s.shouldtarget = qtrue;
 	}
-	/*
-	if ( self->delay > 0 )
-	{
-		self->r.svFlags |= SVF_NPC_PRECACHE;
-	}
-	*/
-	//rwwFIXMEFIXME: support for this flag?
 
-	//We have to load the animation.cfg now because spawnscripts are going to want to set anims and we need to know their length and if they're valid
+    //We have to load the animation.cfg now because spawnscripts are going to want to set anims and we need to know their length and if they're valid
 	NPC_PrecacheAnimationCFG( self->NPC_type );
 
 	//rww - can't cheat and do this on the client like in SP, so I'm doing this.
@@ -2057,9 +1815,7 @@ void SP_NPC_spawner( gentity_t *self)
 	if ( self->targetname )
 	{//Wait for triggering
 		self->use = NPC_Spawn;
-	//	self->r.svFlags |= SVF_NPC_PRECACHE;//FIXME: precache my weapons somehow?
 
-		//NPC_PrecacheModels( self->NPC_type );
 	}
 	else
 	{
@@ -2767,7 +2523,7 @@ SHY - Spawner is shy
 */
 void SP_NPC_Cultist_Destroyer( gentity_t *self)
 {
-	self->NPC_type = "cultist";//"cultist_explode";
+	self->NPC_type = "cultist";
 	SP_NPC_spawner( self );
 }
 
@@ -2877,13 +2633,7 @@ void SP_NPC_Jedi( gentity_t *self)
 		}
 		else 
 		{
-			/*
-			if ( !Q_irand( 0, 2 ) )
-			{
-				self->NPC_type = "JediF";
-			}
-			else 
-			*/if ( Q_irand( 0, 1 ) )
+			if ( Q_irand( 0, 1 ) )
 			{
 				self->NPC_type = "Jedi";
 			}
@@ -3295,20 +3045,6 @@ void SP_NPC_Imperial( gentity_t *self)
 		}
 	}
 
-	/*
-	if ( self->message )
-	{//may drop a key, precache the key model and pickup sound
-		G_SoundIndex( "sound/weapons/key_pkup.wav" );
-		if ( !Q_stricmp( "goodie", self->message ) )
-		{
-			RegisterItem( FindItemForInventory( INV_GOODIE_KEY ) );
-		}
-		else
-		{
-			RegisterItem( FindItemForInventory( INV_SECURITY_KEY ) );
-		}
-	}
-	*/
 	//rwwFIXMEFIXME: Allow goodie keys
 	SP_NPC_spawner( self );
 }
@@ -3895,8 +3631,6 @@ gentity_t *NPC_SpawnType( gentity_t *ent, char *npc_type, char *targetname, qboo
 		return NULL;
 	}
 
-	//G_Printf("found empty spot for spawn: %i\n", NPCspawner - g_entities);
-
 	NPCspawner->think = G_FreeEntity;
 	NPCspawner->nextthink = level.time + FRAMETIME;
 	
@@ -3908,7 +3642,6 @@ gentity_t *NPC_SpawnType( gentity_t *ent, char *npc_type, char *targetname, qboo
 	if (!npc_type[0])
 	{
 		trap_SendServerCommand( ent-g_entities, "print \""S_COLOR_RED"Error, expected one of:\n"S_COLOR_WHITE" NPC spawn [NPC type (from ext_data/NPCs)]\n NPC spawn vehicle [VEH type (from ext_data/vehicles)]\n\"");
-		//Com_Printf( S_COLOR_RED"Error, expected one of:\n"S_COLOR_WHITE" NPC spawn [NPC type (from ext_data/NPCs)]\n NPC spawn vehicle [VEH type (from ext_data/vehicles)]\n" );
 		return NULL;
 	}
 
@@ -3947,11 +3680,6 @@ gentity_t *NPC_SpawnType( gentity_t *ent, char *npc_type, char *targetname, qboo
 
 	NPCspawner->delay = 0;
 
-	//NPCspawner->spawnflags |= SFB_NOTSOLID;
-
-	//NPCspawner->playerTeam = TEAM_FREE;
-	//NPCspawner->behaviorSet[BSET_SPAWN] = "common/guard";
-	
 	if ( isVehicle )
 	{
 		NPCspawner->classname = "NPC_Vehicle";
@@ -4168,7 +3896,6 @@ void NPC_Kill_f( gentity_t *ent )
 				{//A spawner, remove it
 					Com_Printf( S_COLOR_GREEN"Removing NPC spawner %s with NPC named %s\n", player->NPC_type, player->NPC_targetname );
 					G_FreeEntity( player );
-					//FIXME: G_UseTargets2(player, player, player->NPC_target & player->target);?
 				}
 			}
 		}
@@ -4198,14 +3925,6 @@ void NPC_Kill_f( gentity_t *ent )
 				}
 			}
 		}
-		/*
-		else if ( player && (player->r.svFlags&SVF_NPC_PRECACHE) )
-		{//a spawner
-			Com_Printf( S_COLOR_GREEN"Removing NPC spawner %s named %s\n", player->NPC_type, player->targetname );
-			G_FreeEntity( player );
-		}
-		*/
-		//rwwFIXMEFIXME: should really do something here.
 	}
 }
 
@@ -4243,11 +3962,7 @@ void Cmd_NPC_f( gentity_t *ent )
 	else if ( Q_stricmp( cmd, "kill" ) == 0 ) 
 	{
 		NPC_Kill_f( ent );
-	}/*
-	else if ( Q_stricmp( cmd, "showbounds" ) == 0 )
-	{//Toggle on and off
-		showBBoxes = showBBoxes ? qfalse : qtrue;
-	}*/
+	}
 	else if ( Q_stricmp ( cmd, "list" ) == 0 )
 	{
 		char		cmd2[1024];

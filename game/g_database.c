@@ -441,7 +441,7 @@ int G_DbLogSession( const char* ip )
     return sessionId;
 }
 
-void G_DbLogSessionEvent( int sessionId,
+int G_DbLogSessionEvent( int sessionId,
     int eventId,
     const char* eventContext )  
 {

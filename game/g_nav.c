@@ -87,18 +87,6 @@ void NPC_Blocked( gentity_t *self, gentity_t *blocker )
 		return;
 	}
 
-	//Debug_Printf( debugNPCAI, DEBUG_LEVEL_WARNING, "%s: Excuse me, %s %s!\n", self->targetname, blocker->classname, blocker->targetname );
-	
-	////If we're being blocked by the player, say something to them
-	//if ( ( blocker->s.number == 0 ) && ( ( blocker->client->playerTeam == self->client->playerTeam ) ) )
-	//{
-	//	//guys in formation are not trying to get to a critical point, 
-	//	//don't make them yell at the player (unless they have an enemy and
-	//	//are in combat because BP thinks it sounds cool during battle)
-	//	//NOTE: only imperials, misc crewmen and hazard team have these wav files now
-	//	//G_AddVoiceEvent( self, Q_irand(EV_BLOCKED1, EV_BLOCKED3), 0 );
-	//}
-
 	self->NPC->blockedSpeechDebounceTime = level.time + MIN_BLOCKED_SPEECH_TIME + ( random() * 4000 );
 	self->NPC->blockingEntNum = blocker->s.number;
 }
@@ -123,7 +111,6 @@ void NPC_SetMoveGoal( gentity_t *ent, vec3_t point, int radius, qboolean isNavGo
 	}
 
 	//Copy the origin
-	//VectorCopy( point, ent->NPC->goalPoint );	//FIXME: Make it use this, and this alone!
 	VectorCopy( point, ent->NPC->tempGoal->r.currentOrigin );
 	
 	//Copy the mins and maxs to the tempGoal
@@ -225,8 +212,6 @@ NAV_ClearPathToPoint
 
 qboolean NAV_ClearPathToPoint( gentity_t *self, vec3_t pmins, vec3_t pmaxs, vec3_t point, int clipmask, int okToHitEntNum )
 {
-//	trace_t	trace;
-//	return NAV_CheckAhead( self, point, trace, clipmask|CONTENTS_BOTCLIP );
 
 	vec3_t	mins, maxs;
 	trace_t	trace;
@@ -686,8 +671,6 @@ qboolean NAV_MoveBlocker( gentity_t *self, vec3_t shove_dir )
 	VectorScale( forward, SHOVE_SPEED, self->client->ps.velocity );
 	self->client->ps.velocity[2] += SHOVE_LIFT;
 
-	//self->NPC->shoveDebounce = level.time + 100;
-
 	return qtrue;
 }
 
@@ -841,10 +824,6 @@ qboolean NAV_ResolveEntityCollision( gentity_t *self, gentity_t *blocker, vec3_t
 	VectorSubtract( blocker->r.currentOrigin, self->r.currentOrigin, blocked_dir );
 	blocked_dist = VectorNormalize( blocked_dir );
 
-	//Make sure an actual collision is going to happen
-//	if ( NAV_PredictCollision( self, blocker, movedir, blocked_dir ) == qfalse )
-//		return qtrue;
-	
 	//See if we can get around the blocker at all (only for player!)
 	if ( blocker->s.number < MAX_CLIENTS )
 	{
@@ -935,10 +914,6 @@ qboolean NAV_AvoidCollision( gentity_t *self, gentity_t *goal, navInfo_t *info )
 		//Ok to hit our goal entity
 		if ( goal == info->blocker )
 			return qtrue;
-
-		//See if we're moving along with them
-		//if ( NAV_TrueCollision( self, info.blocker, movedir, info.direction ) == qfalse )
-		//	return qtrue;
 
 		//Test for blocking by standing on goal
 		if ( NAV_TestForBlocked( self, goal, info->blocker, info->distance, &info->flags ) == qtrue )
@@ -1165,15 +1140,9 @@ int	NAV_MoveToGoal( gentity_t *self, navInfo_t *info )
 	//Check this node
 	bestNode = NAV_TestBestNode( self, bestNode, self->NPC->goalEntity->waypoint, qfalse );
 
-	//trace_t	trace;
-
 	//Get this position
 	trap_Nav_GetNodePosition( bestNode, origin );
 	trap_Nav_GetNodePosition( self->waypoint, end );
-
-	//Basically, see if the path we have isn't helping
-	//if ( NAV_MicroError( origin, end ) )
-	//	return WAYPOINT_NONE;
 
 	//Test the path connection from our current position to the best node
 	if ( NAV_CheckAhead( self, origin, &info->trace, (self->clipmask&~CONTENTS_BODY)|CONTENTS_BOTCLIP ) == qfalse )
@@ -1237,12 +1206,10 @@ unsigned int waypoint_testDirection( vec3_t origin, float yaw, unsigned int minD
 	AngleVectors( angles, trace_dir, NULL, NULL );
 
 	//Move ahead
-//	VectorMA( origin, MAX_RADIUS_CHECK, trace_dir, test_pos );
 	VectorMA( origin, minDist, trace_dir, test_pos );
 
 	trap_Trace( &tr, origin, mins, maxs, test_pos, ENTITYNUM_NONE, ( CONTENTS_SOLID | CONTENTS_MONSTERCLIP | CONTENTS_BOTCLIP ) );
 
-	//return (unsigned int) ( (float) MAX_RADIUS_CHECK * tr.fraction );
 	return (unsigned int) ( (float) minDist * tr.fraction );
 }
 
@@ -1254,7 +1221,7 @@ waypoint_getRadius
 
 unsigned int waypoint_getRadius( gentity_t *ent )
 {
-	unsigned int	minDist = MAX_RADIUS_CHECK + 1; // (unsigned int) -1;
+	unsigned int	minDist = MAX_RADIUS_CHECK + 1; 
 	unsigned int	dist;
 	int				i;
 
@@ -1660,7 +1627,6 @@ qboolean NAV_WaypointsTooFar( gentity_t *wp1, gentity_t *wp2 )
 #endif
 
 static int numStoredWaypoints = 0;
-//static waypointData_t *tempWaypointList=0;
 static waypointData_t tempWaypointList[MAX_STORED_WAYPOINTS]; //rwwFIXMEFIXME: Need.. dynamic.. memory
 
 
@@ -1672,21 +1638,8 @@ void NAV_ClearStoredWaypoints(void)
 
 void NAV_StoreWaypoint( gentity_t *ent )
 {
-	/*
-	if ( !tempWaypointList )
-	{
-		//tempWaypointList = (waypointData_t *) gi.Malloc(sizeof(waypointData_t)*MAX_STORED_WAYPOINTS, TAG_TEMP_WORKSPACE, qtrue);
-
-		int size = sizeof(waypointData_t)*MAX_STORED_WAYPOINTS;
-		trap_TrueMalloc((void **)&tempWaypointList, size);
-		memset(tempWaypointList, 0, size);
-	}
-	*/
-
 	if ( numStoredWaypoints >= MAX_STORED_WAYPOINTS )
 	{
-		//G_Error( "Too many waypoints!  (%d > %d)\n", numStoredWaypoints, MAX_STORED_WAYPOINTS );
-		//rwwFIXMEFIXME: commented this out so I can load some of the SP levels.
 		return;
 	}
 	if ( ent->targetname )
@@ -1740,10 +1693,6 @@ void NAV_CalculatePaths( const char *filename, int checksum )
 	int target = -1;
 	int i;
 
-	/*if ( !tempWaypointList )
-	{
-		return;
-	}*/
 #ifndef FINAL_BUILD
 	fatalErrors = 0;
 	memset( fatalErrorString, 0, sizeof( fatalErrorString ) );
@@ -1809,33 +1758,14 @@ void NAV_CalculatePaths( const char *filename, int checksum )
 
 #endif
 
-	//Remove all waypoints now that they're done
-	//gi.Free(tempWaypointList);
-	/*
-	trap_TrueFree((void **)&tempWaypointList);
-	tempWaypointList=0;
-	*/
-
 	//Now check all blocked edges, mark failed ones
 	trap_Nav_CheckBlockedEdges();
 
 	trap_Nav_SetPathsCalculated(qfalse);
-	//navigator.pathsCalculated = qfalse;
 
-	//Calculate the paths based on the supplied waypoints
-	//trap_Nav_CalculatePaths();
-
-	//Save the resulting information
-	/*
-	if ( trap_Nav_Save( filename, checksum ) == qfalse )
-	{
-		Com_Printf("Unable to save navigations data for map \"%s\" (checksum:%d)\n", filename, checksum );
-	}
-	*/
 #ifndef FINAL_BUILD
 	if ( fatalErrors )
 	{
-		//Com_Error( ERR_DROP, "%s%d FATAL NAV ERRORS\n", fatalErrorString, fatalErrors );
 		Com_Printf( "%s%d FATAL NAV ERRORS\n", fatalErrorString, fatalErrors );
 	}
 #endif

@@ -146,22 +146,18 @@ qboolean VEH_TurretAim( Vehicle_t *pVeh,
 	//Now cap the addAngles for our fTurnSpeed
 	if ( addAngles[PITCH] > turretStats->fTurnSpeed )
 	{
-		//aimCorrect = qfalse;//???
 		addAngles[PITCH] = turretStats->fTurnSpeed;
 	}
 	else if ( addAngles[PITCH] < -turretStats->fTurnSpeed )
 	{
-		//aimCorrect = qfalse;//???
 		addAngles[PITCH] = -turretStats->fTurnSpeed;
 	}
 	if ( addAngles[YAW] > turretStats->fTurnSpeed )
 	{
-		//aimCorrect = qfalse;//???
 		addAngles[YAW] = turretStats->fTurnSpeed;
 	}
 	else if ( addAngles[YAW] < -turretStats->fTurnSpeed )
 	{
-		//aimCorrect = qfalse;//???
 		addAngles[YAW] = -turretStats->fTurnSpeed;
 	}
 	//Now add the additional angles back in to our current relative angles

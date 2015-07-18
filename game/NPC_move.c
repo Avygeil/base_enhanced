@@ -29,14 +29,9 @@ qboolean NPC_ClearPathToGoal( vec3_t dir, gentity_t *goal )
 	trace_t	trace;
 	float radius, dist, tFrac;
 
-	//FIXME: What does do about area portals?  THIS IS BROKEN
-	//if ( gi.inPVS( NPC->r.currentOrigin, goal->r.currentOrigin ) == qfalse )
-	//	return qfalse;
-
 	//Look ahead and see if we're clear to move to our goal position
 	if ( NAV_CheckAhead( NPC, goal->r.currentOrigin, &trace, ( NPC->clipmask & ~CONTENTS_BODY )|CONTENTS_BOTCLIP ) )
 	{
-		//VectorSubtract( goal->r.currentOrigin, NPC->r.currentOrigin, dir );
 		return qtrue;
 	}
 
@@ -61,7 +56,6 @@ qboolean NPC_ClearPathToGoal( vec3_t dir, gentity_t *goal )
 		//Okay, didn't get all the way there, let's see if we got close enough:
 		if ( NAV_HitNavGoal( trace.endpos, NPC->r.mins, NPC->r.maxs, goal->r.currentOrigin, NPCInfo->goalRadius, FlyingCreature( NPC ) ) )
 		{
-			//VectorSubtract(goal->r.currentOrigin, NPC->r.currentOrigin, dir);
 			return qtrue;
 		}
 	}
@@ -77,7 +71,6 @@ NPC_CheckCombatMove
 
 ID_INLINE qboolean NPC_CheckCombatMove( void )
 {
-	//return NPCInfo->combatMove;
 	if ( ( NPCInfo->goalEntity && NPC->enemy && NPCInfo->goalEntity == NPC->enemy ) || ( NPCInfo->combatMove ) )
 	{
 		return qtrue;
@@ -354,19 +347,6 @@ void G_UcmdMoveForDir( gentity_t *self, usercmd_t *cmd, vec3_t dir )
 	}
 	cmd->forwardmove = floor(fDot);
 	cmd->rightmove = floor(rDot);
-
-	/*
-	vec3_t	wishvel;
-	for ( int i = 0 ; i < 3 ; i++ ) 
-	{
-		wishvel[i] = forward[i]*cmd->forwardmove + right[i]*cmd->rightmove;
-	}
-	VectorNormalize( wishvel );
-	if ( !VectorCompare( wishvel, dir ) )
-	{
-		Com_Printf( "PRECISION LOSS: %s != %s\n", vtos(wishvel), vtos(dir) );
-	}
-	*/
 }
 
 /*
@@ -393,12 +373,6 @@ qboolean NPC_MoveToGoal( qboolean tryStraight )
 		return qtrue;
 	}
 
-	/*
-	if( NPC->s.eFlags & EF_LOCKED_TO_WEAPON )
-	{//If in an emplaced gun, never try to navigate!
-		return qtrue;
-	}
-	*/
 	//rwwFIXMEFIXME: emplaced support
 
 	//FIXME: if can't get to goal & goal is a target (enemy), try to find a waypoint that has line of sight to target, at least?
@@ -452,7 +426,6 @@ qboolean NPC_MoveToGoal( qboolean tryStraight )
 					scale = -64;
 				}
 				NPC->client->ps.velocity[2] = scale;
-				//NPC->client->ps.velocity[2] = (dir[2] > 0) ? 64 : -64;
 			}
 		}
 
@@ -497,7 +470,6 @@ NPC_ApplyRoff
 void NPC_ApplyRoff(void)
 {
 	BG_PlayerStateToEntityState( &NPC->client->ps, &NPC->s, qfalse );
-	//VectorCopy ( NPC->r.currentOrigin, NPC->lastOrigin );
 	//rwwFIXMEFIXME: Any significance to this?
 
 	// use the precise origin for linking

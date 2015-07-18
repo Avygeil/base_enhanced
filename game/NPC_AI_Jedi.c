@@ -59,7 +59,6 @@ extern qboolean WP_ForcePowerAvailable( gentity_t *self, forcePowers_t forcePowe
 extern void WP_ForcePowerStop( gentity_t *self, forcePowers_t forcePower );
 extern void WP_DeactivateSaber( gentity_t *self, qboolean clearLength ); //clearLength = qfalse
 extern void WP_ActivateSaber( gentity_t *self );
-//extern void WP_SaberBlock(gentity_t *saber, vec3_t hitloc);
 
 #include "namespace_begin.h"
 extern qboolean PM_SaberInStart( int move );
@@ -251,7 +250,6 @@ void WP_ResistForcePush( gentity_t *self, gentity_t *pusher, qboolean noPenalty 
 			self->client->ps.pm_time = self->client->ps.weaponTime;
 			self->client->ps.pm_flags |= PMF_TIME_KNOCKBACK;
 			//play the full body push effect on me
-			//self->forcePushTime = level.time + 600; // let the push effect last for 600 ms
 			//rwwFIXMEFIXME: Do this?
 		}
 		else
@@ -351,7 +349,7 @@ void Boba_FlyStart( gentity_t *self )
 		{
 			self->NPC->aiFlags |= NPCAI_CUSTOM_GRAVITY;
 		}
-		self->client->ps.eFlags2 |= EF2_FLYING;//moveType = MT_FLYSWIM;
+		self->client->ps.eFlags2 |= EF2_FLYING;
 		self->client->jetPackTime = level.time + Q_irand( 3000, 10000 );
 		//take-off sound
 		G_SoundOnEnt( self, CHAN_ITEM, "sound/boba/jeton.wav" );
@@ -385,7 +383,7 @@ void Boba_FlyStop( gentity_t *self )
 
 qboolean Boba_Flying( gentity_t *self )
 {
-	return ((qboolean)(self->client->ps.eFlags2&EF2_FLYING));//moveType==MT_FLYSWIM));
+	return ((qboolean)(self->client->ps.eFlags2&EF2_FLYING));
 }
 
 void Boba_FireFlameThrower( gentity_t *self )
@@ -402,7 +400,6 @@ void Boba_FireFlameThrower( gentity_t *self )
 
 	BG_GiveMeVectorFromMatrix( &boltMatrix, ORIGIN, start );
 	BG_GiveMeVectorFromMatrix( &boltMatrix, NEGATIVE_Y, dir );
-	//G_PlayEffect( "boba/fthrw", start, dir );
 	VectorMA( start, 128, dir, end );
 
 	trap_Trace( &tr, start, traceMins, traceMaxs, end, self->s.number, MASK_SHOT );
@@ -410,53 +407,25 @@ void Boba_FireFlameThrower( gentity_t *self )
 	traceEnt = &g_entities[tr.entityNum];
 	if ( tr.entityNum < ENTITYNUM_WORLD && traceEnt->takedamage )
 	{
-		G_Damage( traceEnt, self, self, dir, tr.endpos, damage, DAMAGE_NO_ARMOR|DAMAGE_NO_KNOCKBACK|/*DAMAGE_NO_HIT_LOC|*/DAMAGE_IGNORE_TEAM, MOD_LAVA );
+		G_Damage( traceEnt, self, self, dir, tr.endpos, damage, DAMAGE_NO_ARMOR|DAMAGE_NO_KNOCKBACK|DAMAGE_IGNORE_TEAM, MOD_LAVA );
 		//rwwFIXMEFIXME: add DAMAGE_NO_HIT_LOC?
 	}
 }
 
-//extern void SP_fx_explosion_trail( gentity_t *ent );
 void Boba_StartFlameThrower( gentity_t *self )
 {
-	int	flameTime = 4000;//Q_irand( 1000, 3000 );
+	int	flameTime = 4000;
 	mdxaBone_t	boltMatrix;
 	vec3_t		org, dir;
 
-	self->client->ps.torsoTimer = flameTime;//+1000;
+	self->client->ps.torsoTimer = flameTime;
 	if ( self->NPC )
 	{
 		TIMER_Set( self, "nextAttackDelay", flameTime );
 		TIMER_Set( self, "walking", 0 );
 	}
 	TIMER_Set( self, "flameTime", flameTime );
-	/*
-	gentity_t *fire = G_Spawn();
-	if ( fire != NULL )
-	{
-		mdxaBone_t	boltMatrix;
-		vec3_t		org, dir, ang;
-		gi.G2API_GetBoltMatrix( NPC->ghoul2, NPC->playerModel, NPC->handRBolt,
-				&boltMatrix, NPC->r.currentAngles, NPC->r.currentOrigin, (cg.time?cg.time:level.time),
-				NULL, NPC->s.modelScale );
 
-		gi.G2API_GiveMeVectorFromMatrix( boltMatrix, ORIGIN, org );
-		gi.G2API_GiveMeVectorFromMatrix( boltMatrix, NEGATIVE_Y, dir );
-		vectoangles( dir, ang );
-
-		VectorCopy( org, fire->s.origin );
-		VectorCopy( ang, fire->s.angles );
-
-		fire->targetname = "bobafire";
-		SP_fx_explosion_trail( fire );
-		fire->damage = 1;
-		fire->radius = 10;
-		fire->speed = 200;
-		fire->fxID = G_EffectIndex( "boba/fthrw" );//"env/exp_fire_trail" );//"env/small_fire"
-		fx_explosion_trail_link( fire );
-		fx_explosion_trail_use( fire, NPC, NPC );
-
-	}
-	*/
 	G_SoundOnEnt( self, CHAN_WEAPON, "sound/effects/combustfire.mp3" );
 
 	trap_G2API_GetBoltMatrix(NPC->ghoul2, 0, NPC->client->renderInfo.handRBolt, &boltMatrix, NPC->r.currentAngles,
@@ -483,8 +452,6 @@ void Boba_FireDecide( void )
 	qboolean enemyLOS = qfalse;
 	qboolean enemyCS = qfalse;
 	qboolean enemyInFOV = qfalse;
-	//qboolean move = qtrue;
-	//qboolean faceEnemy = qfalse;
 	qboolean shoot = qfalse;
 	qboolean hitAlly = qfalse;
 	vec3_t	impactPos;
@@ -505,13 +472,7 @@ void Boba_FireDecide( void )
 		return;
 	}
 
-	/*
-	if ( NPC->enemy->enemy != NPC && NPC->health == NPC->client->pers.maxHealth )
-	{
-		NPCInfo->scriptFlags |= SCF_ALT_FIRE;
-		Boba_ChangeWeapon( WP_DISRUPTOR );
-	}
-	else */if ( NPC->enemy->s.weapon == WP_SABER )
+    if ( NPC->enemy->s.weapon == WP_SABER )
 	{
 		NPCInfo->scriptFlags &= ~SCF_ALT_FIRE;
 		Boba_ChangeWeapon( WP_ROCKET_LAUNCHER );
@@ -552,7 +513,6 @@ void Boba_FireDecide( void )
 		enemyCS = qfalse;
 		shoot = qfalse;
 		NPCInfo->enemyLastSeenTime = level.time;
-		//faceEnemy = qtrue;
 		ucmd.buttons &= ~(BUTTON_ATTACK|BUTTON_ALT_ATTACK);
 	}
 	else if ( enemyDist < MIN_ROCKET_DIST_SQUARED )//128
@@ -609,12 +569,10 @@ void Boba_FireDecide( void )
 						|| ( hitEnt && hitEnt->takedamage && ((hitEnt->r.svFlags&SVF_GLASS_BRUSH)||hitEnt->health < 40||NPC->s.weapon == WP_EMPLACED_GUN) ) )
 					{//can hit enemy or enemy ally or will hit glass or other minor breakable (or in emplaced gun), so shoot anyway
 						enemyCS = qtrue;
-						//NPC_AimAdjust( 2 );//adjust aim better longer we have clear shot at enemy
 						VectorCopy( NPC->enemy->r.currentOrigin, NPCInfo->enemyLastSeenLocation );
 					}
 					else
 					{//Hmm, have to get around this bastard
-						//NPC_AimAdjust( 1 );//adjust aim better longer we can see enemy
 						if ( hitEnt && hitEnt->client && hitEnt->client->playerTeam == NPC->client->playerTeam )
 						{//would hit an ally, don't fire!!!
 							hitAlly = qtrue;
@@ -633,20 +591,16 @@ void Boba_FireDecide( void )
 		else if ( trap_InPVS( NPC->enemy->r.currentOrigin, NPC->r.currentOrigin ) )
 		{
 			NPCInfo->enemyLastSeenTime = level.time;
-			//faceEnemy = qtrue;
-			//NPC_AimAdjust( -1 );//adjust aim worse longer we cannot see enemy
 		}
 
 		if ( NPC->client->ps.weapon == WP_NONE )
 		{
-			//faceEnemy = qfalse;
 			shoot = qfalse;
 		}
 		else
 		{
 			if ( enemyLOS )
 			{//FIXME: no need to face enemy if we're moving to some other goal and he's too far away to shoot?
-				//faceEnemy = qtrue;
 			}
 			if ( enemyCS )
 			{
@@ -677,7 +631,6 @@ void Boba_FireDecide( void )
 						if ( VectorCompare( impactPos, vec3_origin ) )
 						{//never checked ShotEntity this frame, so must do a trace...
 							trace_t tr;
-							//vec3_t	mins = {-2,-2,-2}, maxs = {2,2,2};
 							vec3_t	forward, end;
 							AngleVectors( NPC->client->ps.viewangles, forward, NULL, NULL );
 							VectorMA( muzzle, 8192, forward, end );
@@ -752,7 +705,6 @@ void Boba_FireDecide( void )
 							NPCInfo->desiredPitch	= angles[PITCH];
 
 							shoot = qtrue;
-							//faceEnemy = qfalse;
 						}
 					}
 				}
@@ -894,7 +846,6 @@ static void Jedi_Aggression( gentity_t *self, int change )
 	{
 		self->NPC->stats.aggression = lower_threshold;
 	}
-	//Com_Printf( "(%d) %s agg %d change: %d\n", level.time, self->NPC_type, self->NPC->stats.aggression, change );
 }
 
 static void Jedi_AggressionErosion( int amt )
@@ -942,7 +893,6 @@ void NPC_Jedi_RateNewEnemy( gentity_t *self, gentity_t *enemy )
 	}
 	//Average these with current aggression
 	newAggression = ceil( (healthAggression + weaponAggression + (float)self->NPC->stats.aggression )/3.0f);
-	//Com_Printf( "(%d) new agg %d - new enemy\n", level.time, newAggression );
 	Jedi_Aggression( self, newAggression - self->NPC->stats.aggression );
 
 	//don't taunt right away
@@ -1085,33 +1035,19 @@ qboolean NPC_MoveDirClear( int forwardmove, int rightmove, qboolean reset )
 
 	if ( !forwardmove && !rightmove )
 	{//not even moving
-		//Com_Printf( "%d skipping walk-cliff check (not moving)\n", level.time );
 		return qtrue;
 	}
 
 	if ( ucmd.upmove > 0 || NPC->client->ps.fd.forceJumpCharge )
 	{//Going to jump
-		//Com_Printf( "%d skipping walk-cliff check (going to jump)\n", level.time );
 		return qtrue;
 	}
 
 	if ( NPC->client->ps.groundEntityNum == ENTITYNUM_NONE )
 	{//in the air
-		//Com_Printf( "%d skipping walk-cliff check (in air)\n", level.time );
 		return qtrue;
 	}
-	/*
-	if ( fabs( AngleDelta( NPC->r.currentAngles[YAW], NPCInfo->desiredYaw ) ) < 5.0 )//!ucmd.angles[YAW] )
-	{//Not turning much, don't do this
-		//NOTE: Should this not happen only if you're not turning AT ALL?
-		//	You could be turning slowly but moving fast, so that would
-		//	still let you walk right off a cliff...
-		//NOTE: Or maybe it is a good idea to ALWAYS do this, regardless
-		//	of whether ot not we're turning?  But why would we be walking
-		//  straight into a wall or off	a cliff unless we really wanted to?
-		return;
-	}
-	*/
+
 
 	//FIXME: to really do this right, we'd have to actually do a pmove to predict where we're
 	//going to be... maybe this should be a flag and pmove handles it and sets a flag so AI knows
@@ -1134,18 +1070,15 @@ qboolean NPC_MoveDirClear( int forwardmove, int rightmove, qboolean reset )
 			trace.fraction = 1.0f;
 		}
 		VectorCopy( testPos, trace.endpos );
-		//return qtrue;
 	}
 	if ( trace.fraction < 0.6 )
 	{//Going to bump into something very close, don't move, just turn
 		if ( (NPC->enemy && trace.entityNum == NPC->enemy->s.number) || (NPCInfo->goalEntity && trace.entityNum == NPCInfo->goalEntity->s.number) )
 		{//okay to bump into enemy or goal
-			//Com_Printf( "%d bump into enemy/goal okay\n", level.time );
 			return qtrue;
 		}
 		else if ( reset )
 		{//actually want to screw with the ucmd
-			//Com_Printf( "%d avoiding walk into wall (entnum %d)\n", level.time, trace.entityNum );
 			ucmd.forwardmove = 0;
 			ucmd.rightmove = 0;
 			VectorClear( NPC->client->ps.moveDir );
@@ -1170,23 +1103,20 @@ qboolean NPC_MoveDirClear( int forwardmove, int rightmove, qboolean reset )
 
 	if ( trace.allsolid || trace.startsolid )
 	{//Not going off a cliff
-		//Com_Printf( "%d walk off cliff okay (droptrace in solid)\n", level.time );
 		return qtrue;
 	}
 
 	if ( trace.fraction < 1.0 )
 	{//Not going off a cliff
 		//FIXME: what if plane.normal is sloped?  We'll slide off, not land... plus this doesn't account for slide-movement... 
-		//Com_Printf( "%d walk off cliff okay will hit entnum %d at dropdist of %4.2f\n", level.time, trace.entityNum, (trace.fraction*bottom_max) );
 		return qtrue;
 	}
 
 	//going to fall at least bottom_max, don't move, just turn... is this bad, though?  What if we want them to drop off?
 	if ( reset )
 	{//actually want to screw with the ucmd
-		//Com_Printf( "%d avoiding walk off cliff\n", level.time );
-		ucmd.forwardmove *= -1.0;//= 0;
-		ucmd.rightmove *= -1.0;//= 0;
+		ucmd.forwardmove *= -1.0;
+		ucmd.rightmove *= -1.0;
 		VectorScale( NPC->client->ps.moveDir, -1, NPC->client->ps.moveDir );
 	}
 	return qfalse;
@@ -1199,15 +1129,7 @@ Jedi_HoldPosition
 
 static void Jedi_HoldPosition( void )
 {
-	//NPCInfo->squadState = SQUAD_STAND_AND_SHOOT;
-	NPCInfo->goalEntity = NULL;
-	
-	/*
-	if ( TIMER_Done( NPC, "stand" ) )
-	{
-		TIMER_Set( NPC, "duck", Q_irand( 2000, 4000 ) );
-	}
-	*/
+	NPCInfo->goalEntity = NULL;	
 }
 
 /*
@@ -1252,7 +1174,6 @@ static void Jedi_Move( gentity_t *goal, qboolean retreat )
 
 static qboolean Jedi_Hunt( void )
 {
-	//Com_Printf( "Hunting\n" );
 	//if we're at all interested in fighting, go after him
 	if ( NPCInfo->stats.aggression > 1 )
 	{//approach enemy
@@ -1268,7 +1189,6 @@ static qboolean Jedi_Hunt( void )
 			{//hunt
 				NPCInfo->goalEntity = NPC->enemy;
 			}
-			//Jedi_Move( NPC->enemy, qfalse );
 			if ( NPC_MoveToGoal( qfalse ) )
 			{
 				NPC_UpdateAngles( qtrue, qtrue );
@@ -1278,25 +1198,7 @@ static qboolean Jedi_Hunt( void )
 	}
 	return qfalse;
 }
-
-/*
-static qboolean Jedi_Track( void )
-{
-	//if we're at all interested in fighting, go after him
-	if ( NPCInfo->stats.aggression > 1 )
-	{//approach enemy
-		NPCInfo->combatMove = qtrue;
-		NPC_SetMoveGoal( NPC, NPCInfo->enemyLastSeenLocation, 16, qtrue );
-		if ( NPC_MoveToGoal( qfalse ) )
-		{
-			NPC_UpdateAngles( qtrue, qtrue );
-			return qtrue;
-		}
-	}
-	return qfalse;
-}
-*/
-
+ 
 static void Jedi_Retreat( void )
 {
 	if ( !TIMER_Done( NPC, "noRetreat" ) )
@@ -1305,7 +1207,6 @@ static void Jedi_Retreat( void )
 	}
 	//FIXME: when retreating, we should probably see if we can retreat 
 	//in the direction we want.  If not...?  Evade?
-	//Com_Printf( "Retreating\n" );
 	Jedi_Move( NPC->enemy, qtrue );
 }
 
@@ -1313,15 +1214,10 @@ static void Jedi_Advance( void )
 {
 	if ( !NPC->client->ps.saberInFlight )
 	{
-		//NPC->client->ps.SaberActivate();
 		WP_ActivateSaber(NPC);
 	}
-	//Com_Printf( "Advancing\n" );
 	Jedi_Move( NPC->enemy, qfalse );
 		
-	//TIMER_Set( NPC, "roamTime", Q_irand( 2000, 4000 ) );
-	//TIMER_Set( NPC, "attackDelay", Q_irand( 250, 500 ) );
-	//TIMER_Set( NPC, "duck", 0 );
 }
 
 static void Jedi_AdjustSaberAnimLevel( gentity_t *self, int newLevel )
@@ -1354,13 +1250,6 @@ static void Jedi_AdjustSaberAnimLevel( gentity_t *self, int newLevel )
 			self->client->ps.fd.saberAnimLevel = FORCE_LEVEL_2;
 			return;
 		}
-		/*
-		if ( self->NPC->rank == RANK_LT ) 
-		{//boss always uses strong attacks
-			self->client->ps.fd.saberAnimLevel = FORCE_LEVEL_3;
-			return;
-		}
-		*/
 	}
 	//use the different attacks, how often they switch and under what circumstances
 	if ( newLevel > self->client->ps.fd.forcePowerLevel[FP_SABER_OFFENSE] )
@@ -1399,7 +1288,6 @@ static void Jedi_CheckDecreaseSaberAnimLevel( void )
 	{//not attacking
 		if ( TIMER_Done( NPC, "saberLevelDebounce" ) && !Q_irand( 0, 10 ) )
 		{
-			//Jedi_AdjustSaberAnimLevel( NPC, (NPC->client->ps.fd.saberAnimLevel-1) );//drop
 			Jedi_AdjustSaberAnimLevel( NPC, Q_irand( FORCE_LEVEL_1, FORCE_LEVEL_3 ));//random
 			TIMER_Set( NPC, "saberLevelDebounce", Q_irand( 3000, 10000 ) );
 		}
@@ -1527,35 +1415,7 @@ static void Jedi_CombatDistance( int enemy_dist )
 			Jedi_Retreat();
 		}
 	}
-	/*
-	else if ( NPC->enemy->s.weapon == WP_TURRET 
-		&& !Q_stricmp( "PAS", NPC->enemy->classname ) 
-		&& NPC->enemy->s.apos.trType == TR_STATIONARY )
-	{
-		int	testlevel;
-		if ( enemy_dist > forcePushPullRadius[FORCE_LEVEL_1] - 16 )
-		{
-			Jedi_Advance();
-		}
-		if ( NPC->client->ps.fd.forcePowerLevel[FP_PUSH] < FORCE_LEVEL_1 )
-		{//
-			testlevel = FORCE_LEVEL_1;
-		}
-		else
-		{
-			testlevel = NPC->client->ps.fd.forcePowerLevel[FP_PUSH];
-		}
-		if ( enemy_dist < forcePushPullRadius[testlevel] - 16 )
-		{//close enough to push
-			if ( InFront( NPC->enemy->r.currentOrigin, NPC->client->renderInfo.eyePoint, NPC->client->renderInfo.eyeAngles, 0.6f ) )
-			{//knock it down
-				WP_KnockdownTurret( NPC, NPC->enemy );
-				//do the forcethrow call just for effect
-				ForceThrow( NPC, qfalse );
-			}
-		}
-	}
-	*/
+
 	//rwwFIXMEFIXME: Give them the ability to do this again (turret needs to be fixed up to allow it)
 	else if ( enemy_dist <= 64 
 		&& ((NPCInfo->scriptFlags&SCF_DONT_FIRE)||(!Q_stricmp("Yoda",NPC->NPC_type)&&!Q_irand(0,10))) )
@@ -1661,12 +1521,7 @@ static void Jedi_CombatDistance( int enemy_dist )
 			}
 		}
 	}
-	/*
-	else if ( enemy_dist < 96 && NPC->enemy && NPC->enemy->client && NPC->enemy->client->ps.groundEntityNum == ENTITYNUM_NONE )
-	{//too close and in air, so retreat
-		Jedi_Retreat();
-	}
-	*/
+
 	//FIXME: enemy_dist calc needs to include all blade lengths, and include distance from hand to start of blade....
 	else if ( enemy_dist > 50 )//FIXME: not hardcoded- base on our reach (modelScale?) and saberLengthMax
 	{//we're out of striking range and we are allowed to attack
@@ -1770,16 +1625,6 @@ static void Jedi_CombatDistance( int enemy_dist )
 						}
 						TIMER_Set( NPC, "attackDelay", NPC->client->ps.weaponTime );
 					}
-					/*else if ( NPC->health < NPC->client->pers.maxHealth * 0.75f
-						&& Q_irand( FORCE_LEVEL_0, NPC->client->ps.fd.forcePowerLevel[FP_DRAIN] ) > FORCE_LEVEL_1
-						&& WP_ForcePowerAvailable( NPC, FP_DRAIN, 0 ) 
-						&& Q_irand( 0, 1 ) )
-					{
-						ForceDrain2( NPC );
-						NPC->client->ps.weaponTime = Q_irand( 1000, 3000+(g_spskill.integer*500) );
-						TIMER_Set( NPC, "draining", NPC->client->ps.weaponTime );
-						TIMER_Set( NPC, "attackDelay", NPC->client->ps.weaponTime );
-					}*/
 					//rwwFIXMEFIXME: After new drain stuff from SP is in re-enable this.
 					else if ( WP_ForcePowerAvailable( NPC, FP_GRIP, 0 ) )
 					{
@@ -1927,42 +1772,7 @@ static qboolean Jedi_Strafe( int strafeTimeMin, int strafeTimeMax, int nextStraf
 	}
 	return qfalse;
 }
-
-/*
-static void Jedi_FaceEntity( gentity_t *self, gentity_t *other, qboolean doPitch )
-{
-	vec3_t		entPos;
-	vec3_t		muzzle;
-
-	//Get the positions
-	CalcEntitySpot( other, SPOT_ORIGIN, entPos );
-
-	//Get the positions
-	CalcEntitySpot( self, SPOT_HEAD_LEAN, muzzle );//SPOT_HEAD
-
-	//Find the desired angles
-	vec3_t	angles;
-
-	GetAnglesForDirection( muzzle, entPos, angles );
-
-	self->NPC->desiredYaw		= AngleNormalize360( angles[YAW] );
-	if ( doPitch )
-	{
-		self->NPC->desiredPitch	= AngleNormalize360( angles[PITCH] );
-	}
-}
-*/
-
-/*
-qboolean Jedi_DodgeEvasion( gentity_t *self, gentity_t *shooter, trace_t *tr, int hitLoc )
-
-Jedi will play a dodge anim, blur, and make the force speed noise.
-
-Right now used to dodge instant-hit weapons.
-
-FIXME: possibly call this for saber melee evasion and/or missile evasion?
-FIXME: possibly let player do this too?
-*/
+  
 //rwwFIXMEFIXME: Going to use qboolean Jedi_DodgeEvasion( gentity_t *self, gentity_t *shooter, trace_t *tr, int hitLoc ) from
 //w_saber.c.. maybe use seperate one for NPCs or add cases to that one?
 
@@ -2032,7 +1842,6 @@ evasionType_t Jedi_CheckFlipEvasions( gentity_t *self, float rightdot, float zdi
 				parts = SETANIM_BOTH;
 			}
 			NPC_SetAnim( self, parts, anim, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
-			//self->client->ps.pm_flags |= (PMF_JUMPING|PMF_SLOW_MO_FALL);
 			//rwwFIXMEFIXME: Add these pm flags?
 			G_AddEvent( self, EV_JUMP, 0 );
 			return EVASION_OTHER;
@@ -2137,7 +1946,6 @@ evasionType_t Jedi_CheckFlipEvasions( gentity_t *self, float rightdot, float zdi
 			self->client->ps.fd.forceJumpCharge = 0;//so we don't play the force flip anim
 			self->client->ps.velocity[2] = 200;
 			self->client->ps.fd.forceJumpZStart = self->r.currentOrigin[2];//so we don't take damage if we land at same height
-			//self->client->ps.pm_flags |= PMF_JUMPING;
 			if ( self->client->NPC_class == CLASS_BOBAFETT )
 			{
 				G_AddEvent( self, EV_JUMP, 0 );
@@ -2146,7 +1954,6 @@ evasionType_t Jedi_CheckFlipEvasions( gentity_t *self, float rightdot, float zdi
 			{
 				G_SoundOnEnt( self, CHAN_BODY, "sound/weapons/force/jump.wav" );
 			}
-			//ucmd.upmove = 0;
 			return EVASION_CARTWHEEL;
 		}
 		else if ( !(trace.contents&CONTENTS_BOTCLIP) )
@@ -2202,7 +2009,6 @@ evasionType_t Jedi_CheckFlipEvasions( gentity_t *self, float rightdot, float zdi
 								}
 								NPC_SetAnim( self, parts, anim, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
 								self->client->ps.fd.forceJumpZStart = self->r.currentOrigin[2];//so we don't take damage if we land at same height
-								//self->client->ps.pm_flags |= (PMF_JUMPING|PMF_SLOW_MO_FALL);
 								if ( self->client->NPC_class == CLASS_BOBAFETT )
 								{
 									G_AddEvent( self, EV_JUMP, 0 );
@@ -2283,7 +2089,6 @@ evasionType_t Jedi_CheckFlipEvasions( gentity_t *self, float rightdot, float zdi
 						}
 						NPC_SetAnim( self, parts, anim, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
 						self->client->ps.fd.forceJumpZStart = self->r.currentOrigin[2];//so we don't take damage if we land at same height
-						//self->client->ps.pm_flags |= (PMF_JUMPING|PMF_SLOW_MO_FALL);
 						if ( self->client->NPC_class == CLASS_BOBAFETT )
 						{
 							G_AddEvent( self, EV_JUMP, 0 );
@@ -2363,19 +2168,19 @@ int Jedi_ReCalcParryTime( gentity_t *self, evasionType_t evasionType )
 				}
 				else
 				{
-					baseTime = 150;//500;
+					baseTime = 150;
 
 					switch ( g_spskill.integer )
 					{
 					case 0:
-						baseTime = 200;//500;
+						baseTime = 200;
 						break;
 					case 1:
-						baseTime = 100;//300;
+						baseTime = 100;
 						break;
 					case 2:
 					default:
-						baseTime = 50;//100;
+						baseTime = 50;
 						break;
 					}
 				}
@@ -2409,7 +2214,6 @@ int Jedi_ReCalcParryTime( gentity_t *self, evasionType_t evasionType )
 					}
 					else
 					{//faster with acrobatics
-						//baseTime = baseTime;
 					}
 				}
 				else
@@ -2517,7 +2321,6 @@ evasionType_t Jedi_SaberBlockGo( gentity_t *self, usercmd_t *cmd, vec3_t pHitloc
 		if ( incoming->s.weapon == WP_SABER )
 		{//flying lightsaber, face it!
 			//FIXME: for this to actually work, we'd need to call update angles too?
-			//Jedi_FaceEntity( self, incoming, qtrue );
 		}
 		VectorCopy( incoming->r.currentOrigin, hitloc );
 		VectorNormalize2( incoming->s.pos.trDelta, hitdir );
@@ -2529,14 +2332,12 @@ evasionType_t Jedi_SaberBlockGo( gentity_t *self, usercmd_t *cmd, vec3_t pHitloc
 
 	VectorSubtract( hitloc, self->client->renderInfo.eyePoint, diff );
 	diff[2] = 0;
-	//VectorNormalize( diff );
 	fwdangles[1] = self->client->ps.viewangles[1];
 	// Ultimately we might care if the shot was ahead or behind, but for now, just quadrant is fine.
 	AngleVectors( fwdangles, NULL, right, NULL );
 
-	rightdot = DotProduct(right, diff);// + flrand(-0.10f,0.10f);
-	//totalHeight = self->client->renderInfo.eyePoint[2] - self->r.absmin[2];
-	zdiff = hitloc[2] - self->client->renderInfo.eyePoint[2];// + Q_irand(-6,6);
+	rightdot = DotProduct(right, diff);
+	zdiff = hitloc[2] - self->client->renderInfo.eyePoint[2];
 	
 	//see if we can dodge if need-be
 	if ( (dist>16&&(Q_irand( 0, 2 )||saberBusy)) 
@@ -2589,7 +2390,6 @@ evasionType_t Jedi_SaberBlockGo( gentity_t *self, usercmd_t *cmd, vec3_t pHitloc
 						TIMER_Start( self, "strafeLeft", Q_irand( 500, 1500 ) );
 						TIMER_Set( self, "strafeRight", 0 );
 						evasionType = EVASION_DUCK;
-						//evaded = qtrue;
 					}
 					else if ( Q_irand( 0, 1 ) )
 					{
@@ -2610,7 +2410,6 @@ evasionType_t Jedi_SaberBlockGo( gentity_t *self, usercmd_t *cmd, vec3_t pHitloc
 						{
 							TIMER_Start( self, "duck", Q_irand( 500, 1500 ) );
 							evasionType = EVASION_DUCK_PARRY;
-							//evaded = qtrue;
 							if ( d_JediAI.integer )
 							{
 								Com_Printf( "duck " );
@@ -2639,7 +2438,6 @@ evasionType_t Jedi_SaberBlockGo( gentity_t *self, usercmd_t *cmd, vec3_t pHitloc
 						TIMER_Start( self, "strafeRight", Q_irand( 500, 1500 ) );
 						TIMER_Set( self, "strafeLeft", 0 );
 						evasionType = EVASION_DUCK;
-						//evaded = qtrue;
 					}
 					else if ( Q_irand( 0, 1 ) )
 					{
@@ -2660,7 +2458,6 @@ evasionType_t Jedi_SaberBlockGo( gentity_t *self, usercmd_t *cmd, vec3_t pHitloc
 						{
 							TIMER_Start( self, "duck", Q_irand( 500, 1500 ) );
 							evasionType = EVASION_DUCK_PARRY;
-							//evaded = qtrue;
 							if ( d_JediAI.integer )
 							{
 								Com_Printf( "duck " );
@@ -2690,16 +2487,13 @@ evasionType_t Jedi_SaberBlockGo( gentity_t *self, usercmd_t *cmd, vec3_t pHitloc
 					Com_Printf( "TOP block\n" );
 				}
 			}
-			//evaded = qtrue;
 		}
 		else
 		{
 			if ( self->client->ps.groundEntityNum != ENTITYNUM_NONE )
 			{
-				//duckChance = 2;
 				TIMER_Start( self, "duck", Q_irand( 500, 1500 ) );
 				evasionType = EVASION_DUCK;
-				//evaded = qtrue;
 				if ( d_JediAI.integer )
 				{
 					Com_Printf( "duck " );
@@ -2715,10 +2509,8 @@ evasionType_t Jedi_SaberBlockGo( gentity_t *self, usercmd_t *cmd, vec3_t pHitloc
 		{//hmm, pretty low, but not low enough to use the low block, so we need to duck
 			if ( self->client->ps.groundEntityNum != ENTITYNUM_NONE )
 			{
-				//duckChance = 2;
 				TIMER_Start( self, "duck", Q_irand( 500, 1500 ) );
 				evasionType = EVASION_DUCK;
-				//evaded = qtrue;
 				if ( d_JediAI.integer )
 				{
 					Com_Printf( "duck " );
@@ -2808,7 +2600,6 @@ evasionType_t Jedi_SaberBlockGo( gentity_t *self, usercmd_t *cmd, vec3_t pHitloc
 					Com_Printf( "mid-TOP block\n" );
 				}
 			}
-			//evaded = qtrue;
 		}
 	}
 	else if ( saberBusy || (zdiff < -36 && ( zdiff < -44 || !Q_irand( 0, 2 ) ) ) )//was -30 and -40//2nd one was -46
@@ -2817,7 +2608,6 @@ evasionType_t Jedi_SaberBlockGo( gentity_t *self, usercmd_t *cmd, vec3_t pHitloc
 		{//already in air, duck to pull up legs
 			TIMER_Start( self, "duck", Q_irand( 500, 1500 ) );
 			evasionType = EVASION_DUCK;
-			//evaded = qtrue;
 			if ( d_JediAI.integer )
 			{
 				Com_Printf( "legs up\n" );
@@ -2843,7 +2633,6 @@ evasionType_t Jedi_SaberBlockGo( gentity_t *self, usercmd_t *cmd, vec3_t pHitloc
 						Com_Printf( "LL block\n" );
 					}
 				}
-				//evaded = qtrue;
 			}
 		}
 		else 
@@ -2860,7 +2649,6 @@ evasionType_t Jedi_SaberBlockGo( gentity_t *self, usercmd_t *cmd, vec3_t pHitloc
 				{
 					self->client->ps.fd.forceJumpCharge = 320;//FIXME: calc this intelligently
 					evasionType = EVASION_FJUMP;
-					//evaded = qtrue;
 					if ( d_JediAI.integer )
 					{
 						Com_Printf( "force jump + " );
@@ -2902,7 +2690,6 @@ evasionType_t Jedi_SaberBlockGo( gentity_t *self, usercmd_t *cmd, vec3_t pHitloc
 						}
 					}
 					evasionType = EVASION_JUMP;
-					//evaded = qtrue;
 					if ( d_JediAI.integer )
 					{
 						Com_Printf( "jump + " );
@@ -2933,8 +2720,6 @@ evasionType_t Jedi_SaberBlockGo( gentity_t *self, usercmd_t *cmd, vec3_t pHitloc
 							NPC_SetAnim( self, SETANIM_BOTH, butterflyAnim, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
 							self->client->ps.velocity[2] = 225;
 							self->client->ps.fd.forceJumpZStart = self->r.currentOrigin[2];//so we don't take damage if we land at same height
-						//	self->client->ps.pm_flags |= PMF_JUMPING|PMF_SLOW_MO_FALL;
-						//	self->client->ps.SaberActivateTrail( 300 );//FIXME: reset this when done!
 							//Ah well. No hacking from the server for now.
 							if ( self->client->NPC_class == CLASS_BOBAFETT )
 							{
@@ -2946,7 +2731,6 @@ evasionType_t Jedi_SaberBlockGo( gentity_t *self, usercmd_t *cmd, vec3_t pHitloc
 							}
 							cmd->upmove = 0;
 							saberBusy = qtrue;
-							//evaded = qtrue;
 						}
 					}
 				}
@@ -2958,7 +2742,6 @@ evasionType_t Jedi_SaberBlockGo( gentity_t *self, usercmd_t *cmd, vec3_t pHitloc
 					G_StartMatrixEffect( self );
 				}
 				saberBusy = qtrue;
-				//evaded = qtrue;
 			}
 			else if ( incoming || !saberBusy )
 			{
@@ -2995,7 +2778,6 @@ evasionType_t Jedi_SaberBlockGo( gentity_t *self, usercmd_t *cmd, vec3_t pHitloc
 						Com_Printf( "LL block\n" );
 					}
 				}
-				//evaded = qtrue;
 			}
 		}
 	}
@@ -3065,7 +2847,6 @@ evasionType_t Jedi_SaberBlockGo( gentity_t *self, usercmd_t *cmd, vec3_t pHitloc
 					}
 				}
 			}
-			//evaded = qtrue;
 		}
 	}
 
@@ -3112,12 +2893,6 @@ evasionType_t Jedi_SaberBlockGo( gentity_t *self, usercmd_t *cmd, vec3_t pHitloc
 				{
 					evasionType = EVASION_DUCK;
 				}
-				/*
-				if ( d_JediAI.integer )
-				{
-					Com_Printf( "duck " );
-				}
-				*/
 			}
 		}
 
@@ -3127,8 +2902,8 @@ evasionType_t Jedi_SaberBlockGo( gentity_t *self, usercmd_t *cmd, vec3_t pHitloc
 		}
 
 	}
-	//if ( self->client->ps.saberBlocked != BLOCKED_NONE )
-	{
+
+    {
 		int parryReCalcTime = Jedi_ReCalcParryTime( self, evasionType );
 		if ( self->client->ps.fd.forcePowerDebounce[FP_SABER_DEFENSE] < level.time + parryReCalcTime )
 		{
@@ -3149,15 +2924,6 @@ static qboolean Jedi_SaberBlock( int saberNum, int bladeNum ) //saberNum = 0, bl
 	trace_t	tr;
 	evasionType_t	evasionType;
 
-	//FIXME: reborn don't block enough anymore
-	/*
-	//maybe do this on easy only... or only on grunt-level reborn
-	if ( NPC->client->ps.weaponTime )
-	{//i'm attacking right now
-		return qfalse;
-	}
-	*/
-
 	if ( !TIMER_Done( NPC, "parryReCalcTime" ) )
 	{//can't do our own re-think of which parry to use yet
 		return qfalse;
@@ -3168,68 +2934,16 @@ static qboolean Jedi_SaberBlock( int saberNum, int bladeNum ) //saberNum = 0, bl
 		return qfalse;
 	}
 	
-	/*
-	if ( NPCInfo->rank < RANK_LT_JG && Q_irand( 0, (2 - g_spskill.integer) ) )
-	{//lower rank reborn have a random chance of not doing it at all
-		NPC->client->ps.fd.forcePowerDebounce[FP_SABER_DEFENSE] = level.time + 300;
-		return qfalse;
-	}
-	*/
-
 	if ( NPC->enemy->health <= 0 || !NPC->enemy->client )
 	{//don't keep blocking him once he's dead (or if not a client)
 		return qfalse;
 	}
-	/*
-	//VectorMA( NPC->enemy->client->renderInfo.muzzlePoint, NPC->enemy->client->ps.saberLength, NPC->enemy->client->renderInfo.muzzleDir, saberTip );
-	//VectorMA( NPC->enemy->client->renderInfo.muzzlePointNext, NPC->enemy->client->ps.saberLength, NPC->enemy->client->renderInfo.muzzleDirNext, saberTipNext );
-	VectorMA( NPC->enemy->client->renderInfo.muzzlePointOld, NPC->enemy->client->ps.saberLength, NPC->enemy->client->renderInfo.muzzleDirOld, saberTipOld );
-	VectorMA( NPC->enemy->client->renderInfo.muzzlePoint, NPC->enemy->client->ps.saberLength, NPC->enemy->client->renderInfo.muzzleDir, saberTip );
 
-	VectorSubtract( NPC->enemy->client->renderInfo.muzzlePoint, NPC->enemy->client->renderInfo.muzzlePointOld, dir );//get the dir
-	VectorAdd( dir, NPC->enemy->client->renderInfo.muzzlePoint, saberBase );//extrapolate
-
-	VectorSubtract( saberTip, saberTipOld, dir );//get the dir
-	VectorAdd( dir, saberTip, saberTipOld );//extrapolate
-
-	VectorCopy( NPC->r.currentOrigin, top );
-	top[2] = NPC->r.absmax[2];
-	VectorCopy( NPC->r.currentOrigin, bottom );
-	bottom[2] = NPC->r.absmin[2];
-
-	float dist = ShortestLineSegBewteen2LineSegs( saberBase, saberTipOld, bottom, top, saberPoint, axisPoint );
-	if ( 0 )//dist > NPC->r.maxs[0]*4 )//was *3
-	{//FIXME: sometimes he reacts when you're too far away to actually hit him
-		if ( d_JediAI.integer )
-		{
-			Com_Printf( "enemy saber dist: %4.2f\n", dist );
-		}
-		TIMER_Set( NPC, "parryTime", -1 );
-		return qfalse;
-	}
-
-	//get the actual point of impact
-	trace_t	tr;
-	trap_Trace( &tr, saberPoint, vec3_origin, vec3_origin, axisPoint, NPC->enemy->s.number, MASK_SHOT, G2_RETURNONHIT, 10 );
-	if ( tr.allsolid || tr.startsolid )
-	{//estimate
-		VectorSubtract( saberPoint, axisPoint, dir );
-		VectorNormalize( dir );
-		VectorMA( axisPoint, NPC->r.maxs[0]*1.22, dir, hitloc );
-	}
-	else
-	{
-		VectorCopy( tr.endpos, hitloc );
-	}
-	*/
 	VectorSet(saberMins,-4,-4,-4);
 	VectorSet(saberMaxs,4,4,4);
 
 	VectorMA( NPC->enemy->client->saber[saberNum].blade[bladeNum].muzzlePointOld, NPC->enemy->client->saber[saberNum].blade[bladeNum].length, NPC->enemy->client->saber[saberNum].blade[bladeNum].muzzleDirOld, saberTipOld );
 	VectorMA( NPC->enemy->client->saber[saberNum].blade[bladeNum].muzzlePoint, NPC->enemy->client->saber[saberNum].blade[bladeNum].length, NPC->enemy->client->saber[saberNum].blade[bladeNum].muzzleDir, saberTip );
-//	VectorCopy(NPC->enemy->client->lastSaberBase_Always, muzzlePoint);
-//	VectorMA(muzzlePoint, GAME_SABER_LENGTH, NPC->enemy->client->lastSaberDir_Always, saberTip);
-//	VectorCopy(saberTip, saberTipOld);
 
 	VectorCopy( NPC->r.currentOrigin, top );
 	top[2] = NPC->r.absmax[2];
@@ -3243,15 +2957,7 @@ static qboolean Jedi_SaberBlock( int saberNum, int bladeNum ) //saberNum = 0, bl
 		{
 			Com_Printf( S_COLOR_RED"enemy saber dist: %4.2f\n", dist );
 		}
-		/*
-		if ( dist < 300 //close
-			&& !Jedi_QuickReactions( NPC )//quick reaction people can interrupt themselves
-			&& (PM_SaberInStart( NPC->enemy->client->ps.saberMove ) || BG_SaberInAttack( NPC->enemy->client->ps.saberMove )) )//enemy is swinging at me
-		{//he's swinging at me and close enough to be a threat, don't start an attack right now
-			TIMER_Set( NPC, "parryTime", 100 );
-		}
-		else
-		*/
+	
 		{
 			TIMER_Set( NPC, "parryTime", -1 );
 		}
@@ -3282,7 +2988,7 @@ static qboolean Jedi_SaberBlock( int saberNum, int bladeNum ) //saberNum = 0, bl
 	VectorMA( saberPoint, 200, dir, hitloc );
 
 	//get the actual point of impact
-	trap_Trace( &tr, saberPoint, saberMins, saberMaxs, hitloc, NPC->enemy->s.number, CONTENTS_BODY );//, G2_RETURNONHIT, 10 );
+	trap_Trace( &tr, saberPoint, saberMins, saberMaxs, hitloc, NPC->enemy->s.number, CONTENTS_BODY );
 	if ( tr.allsolid || tr.startsolid || tr.fraction >= 1.0f )
 	{//estimate
 		vec3_t	dir2Me;
@@ -3290,26 +2996,12 @@ static qboolean Jedi_SaberBlock( int saberNum, int bladeNum ) //saberNum = 0, bl
 		dist = VectorNormalize( dir2Me );
 		if ( DotProduct( dir, dir2Me ) < 0.2f )
 		{//saber is not swinging in my direction
-			/*
-			if ( dist < 300 //close
-				&& !Jedi_QuickReactions( NPC )//quick reaction people can interrupt themselves
-				&& (PM_SaberInStart( NPC->enemy->client->ps.saberMove ) || BG_SaberInAttack( NPC->enemy->client->ps.saberMove )) )//enemy is swinging at me
-			{//he's swinging at me and close enough to be a threat, don't start an attack right now
-				TIMER_Set( NPC, "parryTime", 100 );
-			}
-			else
-			*/
 			{
 				TIMER_Set( NPC, "parryTime", -1 );
 			}
 			return qfalse;
 		}
 		ShortestLineSegBewteen2LineSegs( saberPoint, hitloc, bottom, top, saberHitPoint, hitloc );
-		/*
-		VectorSubtract( saberPoint, axisPoint, dir );
-		VectorNormalize( dir );
-		VectorMA( axisPoint, NPC->r.maxs[0]*1.22, dir, hitloc );
-		*/
 	}
 	else
 	{
@@ -3318,7 +3010,6 @@ static qboolean Jedi_SaberBlock( int saberNum, int bladeNum ) //saberNum = 0, bl
 	
 	if ( d_JediAI.integer )
 	{
-		//G_DebugLine( saberPoint, hitloc, FRAMETIME, WPDEBUG_SaberColor( NPC->enemy->client->ps.saber[saberNum].blade[bladeNum].color ), qtrue );
 		G_TestLine(saberPoint, hitloc, 0x0000ff, FRAMETIME);
 	}
 
@@ -3493,7 +3184,6 @@ static void Jedi_EvasionSaber( vec3_t enemy_movedir, float enemy_dist, vec3_t en
 					VectorNormalize( saberMoveDir );
 					if ( !Q_irand( 0, 3 ) )
 					{
-						//Com_Printf( "(%d) raise agg - enemy threw saber\n", level.time );
 						Jedi_Aggression( NPC, 1 );
 					}
 					if ( DotProduct( saberMoveDir, saberDir2Me ) > 0.5 )
@@ -3574,7 +3264,6 @@ static void Jedi_EvasionSaber( vec3_t enemy_movedir, float enemy_dist, vec3_t en
 			case 11:
 			case 12:
 				//try to parry the blow
-				//Com_Printf( "blocking\n" );
 				Jedi_SaberBlock(0, 0);
 				break;
 			default:
@@ -3664,19 +3353,6 @@ static void Jedi_EvasionSaber( vec3_t enemy_movedir, float enemy_dist, vec3_t en
 		}
 	}
 }
-/*
--------------------------
-Jedi_Flee
--------------------------
-*/
-/*
-
-static qboolean Jedi_Flee( void )
-{
-	return qfalse;
-}
-*/
-
 
 /*
 ==========================================================================================
@@ -3774,7 +3450,7 @@ static void Jedi_SetEnemyInfo( vec3_t enemy_dest, vec3_t enemy_dir, float *enemy
 		enemy_dest[2] += NPC->enemy->r.mins[2] + 24;//get it's origin to a height I can work with
 		VectorSubtract( enemy_dest, NPC->r.currentOrigin, enemy_dir );
 		//FIXME: enemy_dist calc needs to include all blade lengths, and include distance from hand to start of blade....
-		*enemy_dist = VectorNormalize( enemy_dir );// - (NPC->client->ps.saberLengthMax + NPC->r.maxs[0]*1.5 + 16);
+		*enemy_dist = VectorNormalize( enemy_dir );
 	}
 	else
 	{//see where enemy is headed
@@ -3855,12 +3531,6 @@ static void Jedi_FaceEnemy( qboolean doPitch )
 	}
 
 	NPCInfo->desiredYaw	= AngleNormalize360( angles[YAW] );
-	/*
-	if ( NPC->client->ps.saberBlocked == BLOCKED_UPPER_LEFT )
-	{//temp hack- to make up for poor coverage on left side
-		NPCInfo->desiredYaw += 30;
-	}
-	*/
 
 	if ( doPitch )
 	{
@@ -4086,12 +3756,10 @@ static void Jedi_CombatTimersUpdate( int enemy_dist )
 				//If enemy has a lightsaber, always close in
 				if ( BG_SabersOff( &NPC->enemy->client->ps ) )
 				{//fool!  Standing around unarmed, charge!
-					//Com_Printf( "(%d) raise agg - enemy saber off\n", level.time );
 					Jedi_Aggression( NPC, 2 );
 				}
 				else
 				{
-					//Com_Printf( "(%d) raise agg - enemy saber\n", level.time );
 					Jedi_Aggression( NPC, 1 );
 				}
 				break;
@@ -4107,13 +3775,11 @@ static void Jedi_CombatTimersUpdate( int enemy_dist )
 				//They're not shooting at me
 				if ( NPC->enemy->attackDebounceTime < level.time )
 				{//does this apply to players?
-					//Com_Printf( "(%d) raise agg - enemy not shooting ranged weap\n", level.time );
 					Jedi_Aggression( NPC, 1 );
 				}
 				//He's closer than a dist that gives us time to deflect
 				if ( enemy_dist < 256 )
 				{
-					//Com_Printf( "(%d) raise agg - enemy ranged weap- too close\n", level.time );
 					Jedi_Aggression( NPC, 1 );
 				}
 				break;
@@ -4148,16 +3814,6 @@ static void Jedi_CombatTimersUpdate( int enemy_dist )
 		if ( NPC->client->ps.saberEventFlags&SEF_PARRIED )
 		{//parried
 			TIMER_Set( NPC, "parryTime", -1 );
-			/*
-			if ( NPCInfo->rank >= RANK_LT_JG )
-			{
-				NPC->client->ps.fd.forcePowerDebounce[FP_SABER_DEFENSE] = level.time + 100;
-			}
-			else
-			{
-				NPC->client->ps.fd.forcePowerDebounce[FP_SABER_DEFENSE] = level.time + 500;
-			}
-			*/
 			if ( NPC->enemy && PM_SaberInKnockaway( NPC->enemy->client->ps.saberMove ) )
 			{//advance!
 				Jedi_Aggression( NPC, 1 );//get closer
@@ -4167,7 +3823,6 @@ static void Jedi_CombatTimersUpdate( int enemy_dist )
 			{
 				if ( !Q_irand( 0, 1 ) )//FIXME: dependant on rank/diff?
 				{
-					//Com_Printf( "(%d) drop agg - we parried\n", level.time );
 					Jedi_Aggression( NPC, -1 );
 				}
 				if ( !Q_irand( 0, 1 ) )
@@ -4185,7 +3840,6 @@ static void Jedi_CombatTimersUpdate( int enemy_dist )
 		{//we hit our enemy last time we swung, drop our aggression
 			if ( !Q_irand( 0, 1 ) )//FIXME: dependant on rank/diff?
 			{
-				//Com_Printf( "(%d) drop agg - we hit enemy\n", level.time );
 				Jedi_Aggression( NPC, -1 );
 				if ( d_JediAI.integer )
 				{
@@ -4211,7 +3865,6 @@ static void Jedi_CombatTimersUpdate( int enemy_dist )
 			if ( PM_SaberInBrokenParry( NPC->client->ps.saberMove )
 				|| NPC->client->ps.saberBlocked == BLOCKED_PARRY_BROKEN )
 			{
-				//Com_Printf( "(%d) drop agg - we were knock-blocked\n", level.time );
 				if ( NPC->client->ps.saberInFlight )
 				{//lost our saber, too!!!
 					Jedi_Aggression( NPC, -5 );//really really really should back off!!!
@@ -4230,7 +3883,6 @@ static void Jedi_CombatTimersUpdate( int enemy_dist )
 			{
 				if ( !Q_irand( 0, 2 ) )//FIXME: dependant on rank/diff?
 				{
-					//Com_Printf( "(%d) drop agg - we were blocked\n", level.time );
 					Jedi_Aggression( NPC, -1 );
 					if ( d_JediAI.integer )
 					{
@@ -4315,7 +3967,6 @@ static void Jedi_CombatIdle( int enemy_dist )
 					//debounce this
 					if ( NPC->client->playerTeam != NPCTEAM_PLAYER && !Q_irand( 0, 1 ))
 					{
-						//NPC->client->ps.taunting = level.time + 100;
 						NPC->client->ps.forceHandExtend = HANDEXTEND_JEDITAUNT;
 						NPC->client->ps.forceHandExtendTime = level.time + 5000;
 
@@ -4372,7 +4023,6 @@ static qboolean Jedi_AttackDecide( int enemy_dist )
 			TIMER_Set( NPC, "noRetreat", Q_irand( 500, 2000 ) );
 			//FIXME: check enemy_dist?
 			NPC->client->ps.weaponTime = NPCInfo->shotTime = NPC->attackDebounceTime = 0;
-			//NPC->client->ps.fd.forcePowerDebounce[FP_SABER_DEFENSE] = level.time + 500;
 			NPC->client->ps.saberBlocked = BLOCKED_NONE;
 			WeaponThink( qtrue );
 			return qtrue;
@@ -4387,7 +4037,6 @@ static qboolean Jedi_AttackDecide( int enemy_dist )
 			&& NPC->client->ps.saberBlocked != BLOCKED_PARRY_BROKEN )
 		{//try to attack straight from a parry
 			NPC->client->ps.weaponTime = NPCInfo->shotTime = NPC->attackDebounceTime = 0;
-			//NPC->client->ps.fd.forcePowerDebounce[FP_SABER_DEFENSE] = level.time + 500;
 			NPC->client->ps.saberBlocked = BLOCKED_NONE;
 			Jedi_AdjustSaberAnimLevel( NPC, FORCE_LEVEL_1 );//try to follow-up with a quick attack
 			WeaponThink( qtrue );
@@ -4426,16 +4075,7 @@ static qboolean Jedi_AttackDecide( int enemy_dist )
 
 	if ( ucmd.buttons&BUTTON_ATTACK )
 	{//attacking
-		/*
-		if ( enemy_dist > 32 && NPCInfo->stats.aggression >= 4 )
-		{//move forward if we're too far away and we're chasing him
-			ucmd.forwardmove = 127;
-		}
-		else if ( enemy_dist < 0 )
-		{//move back if we're too close
-			ucmd.forwardmove = -127;
-		}
-		*/
+
 		//FIXME: based on the type of parry/attack the enemy is doing and my skill,
 		//		choose an attack that is likely to get around the parry?
 		//		right now that's generic in the saber animation code, auto-picks
@@ -4473,31 +4113,9 @@ static qboolean Jedi_AttackDecide( int enemy_dist )
 
 static qboolean Jedi_Jump( vec3_t dest, int goalEntNum )
 {//FIXME: if land on enemy, knock him down & jump off again
-	/*
-	if ( dest[2] - NPC->r.currentOrigin[2] < 64 && DistanceHorizontal( NPC->r.currentOrigin, dest ) > 256 )
-	{//a pretty horizontal jump, easy to fake:
-		vec3_t enemy_diff;
-
-		VectorSubtract( dest, NPC->r.currentOrigin, enemy_diff );
-		float enemy_z_diff = enemy_diff[2];
-		enemy_diff[2] = 0;
-		float enemy_xy_diff = VectorNormalize( enemy_diff );
-
-		VectorScale( enemy_diff, enemy_xy_diff*0.8, NPC->client->ps.velocity );
-		if ( enemy_z_diff < 64 )
-		{
-			NPC->client->ps.velocity[2] = enemy_xy_diff;
-		}
-		else
-		{
-			NPC->client->ps.velocity[2] = enemy_z_diff*2+enemy_xy_diff/2;
-		}
-	}
-	else
-	*/
 	if ( 1 )
 	{
-		float	targetDist, shotSpeed = 300, travelTime, impactDist, bestImpactDist = Q3_INFINITE;//fireSpeed, 
+		float	targetDist, shotSpeed = 300, travelTime, impactDist, bestImpactDist = Q3_INFINITE;
 		vec3_t	targetDir, shotVel, failCase; 
 		trace_t	trace;
 		trajectory_t	tr;
@@ -4664,26 +4282,9 @@ static qboolean Jedi_Jump( vec3_t dest, int goalEntNum )
 
 		apexHeight = APEX_HEIGHT/2;
 
-		//Determine most desirable apex height
-		//FIXME: length of xy will change curve of parabola, need to account for this
-		//somewhere... PARA_WIDTH
-		/*
-		apexHeight = (APEX_HEIGHT * PARA_WIDTH/xy) + (APEX_HEIGHT * z/128);
-		if ( apexHeight < APEX_HEIGHT * 0.5 )
-		{
-			apexHeight = APEX_HEIGHT*0.5;
-		}
-		else if ( apexHeight > APEX_HEIGHT * 2 )
-		{
-			apexHeight = APEX_HEIGHT*2;
-		}
-		*/
-
 		z = (sqrt(apexHeight + z) - sqrt(apexHeight));
 
 		assert(z >= 0);
-
-//		Com_Printf("apex is %4.2f percent from p1: ", (xy-z)*0.5/xy*100.0f);
 
 		xy -= z;
 		xy *= 0.5;
@@ -4700,7 +4301,6 @@ static qboolean Jedi_Jump( vec3_t dest, int goalEntNum )
 		time = sqrt( height / ( .5 * NPC->client->ps.gravity ) );//was 0.5, but didn't work well for very long jumps
 		if ( !time ) 
 		{
-			//Com_Printf( S_COLOR_RED"ERROR: no time in jump\n" );
 			return qfalse;
 		}
 
@@ -4714,7 +4314,6 @@ static qboolean Jedi_Jump( vec3_t dest, int goalEntNum )
 		//FIXME:  Uh.... should we trace/EvaluateTrajectory this to make sure we have clearance and we land where we want?
 		NPC->client->ps.velocity[2] = time * NPC->client->ps.gravity;
 
-		//Com_Printf("Jump Velocity: %4.2f, %4.2f, %4.2f\n", NPC->client->ps.velocity[0], NPC->client->ps.velocity[1], NPC->client->ps.velocity[2] );
 	}
 	return qtrue;
 }
@@ -4753,13 +4352,6 @@ static qboolean Jedi_TryJump( gentity_t *goal )
 					}
 					else
 					{
-						/*
-						//NO!  All Jedi can jump-navigate now...
-						if ( NPCInfo->rank != RANK_CREWMAN && NPCInfo->rank <= RANK_LT_JG )
-						{//can't do acrobatics
-							return qfalse;
-						}
-						*/
 						if ( goal_z_diff > 0 || goal_xy_dist > 128 )
 						{//Fake a force-jump
 							//Screw it, just do my own calc & throw
@@ -4805,17 +4397,6 @@ static qboolean Jedi_TryJump( gentity_t *goal )
 							}
 							if ( Jedi_Jump( dest, goal->s.number ) )
 							{
-								//Com_Printf( "(%d) pre-checked force jump\n", level.time );
-
-								//FIXME: store the dir we;re going in in case something gets in the way of the jump?
-								//? = vectoyaw( NPC->client->ps.velocity );
-								/*
-								if ( NPC->client->ps.velocity[2] < 320 )
-								{
-									NPC->client->ps.velocity[2] = 320;
-								}
-								else
-								*/
 								{//FIXME: make this a function call
 									int jumpAnim;
 									//FIXME: this should be more intelligent, like the normal force jump anim logic
@@ -4832,7 +4413,6 @@ static qboolean Jedi_TryJump( gentity_t *goal )
 								}
 
 								NPC->client->ps.fd.forceJumpZStart = NPC->r.currentOrigin[2];
-								//NPC->client->ps.pm_flags |= PMF_JUMPING;
 
 								NPC->client->ps.weaponTime = NPC->client->ps.torsoTimer;
 								NPC->client->ps.fd.forcePowersActive |= ( 1 << FP_LEVITATION );
@@ -4882,34 +4462,6 @@ static qboolean Jedi_Jumping( gentity_t *goal )
 			NPC_FaceEntity( goal, qtrue );
 			//FIXME: push me torward where I was heading
 			//FIXME: if hit a ledge as soon as we jumped, we need to push toward our goal... must remember original jump dir and/or original jump dest
-			/*
-			vec3_t	viewangles_xy={0,0,0}, goal_dir, goal_xy_dir, forward, right;
-			float	goal_dist;
-			
-			//gert horz dir to goal
-			VectorSubtract( goal->r.currentOrigin, NPC->r.currentOrigin, goal_dir );
-			VectorCopy( goal_dir, goal_xy_dir );
-			goal_dist = VectorNormalize( goal_dir );
-			goal_xy_dir[2] = 0;
-			VectorNormalize( goal_xy_dir );
-
-			//get horz facing
-			viewangles_xy[1] = NPC->client->ps.viewangles[1];
-			AngleVectors( viewangles_xy, forward, right, NULL );
-
-			//get movement commands to push me toward enemy
-			float fDot = DotProduct( forward, goal_dir ) * 127;
-			float rDot = DotProduct( right, goal_dir ) * 127;
-		
-			ucmd.forwardmove = floor(fDot);
-			ucmd.rightmove = floor(rDot);
-			ucmd.upmove = 0;//don't duck
-			//Cheat:
-			if ( goal_dist < 128 && goal->r.currentOrigin[2] > NPC->r.currentOrigin[2] && NPC->client->ps.velocity[2] <= 0 )
-			{
-				NPC->client->ps.velocity[2] += 320;
-			}
-			*/
 			return qtrue;
 		}
 	}
@@ -4959,19 +4511,8 @@ static void Jedi_CheckEnemyMovement( float enemy_dist )
 					{//close
 						if ( Q_irand( 0, NPCInfo->rank ) < RANK_LT )
 						{//be nice and stand still for him...
-							vec3_t enemyFwd, dest, dir;
-
-							/*
-							ucmd.forwardmove = ucmd.rightmove = ucmd.upmove = 0;
-							VectorClear( NPC->client->ps.moveDir );
-							NPC->client->ps.fd.forceJumpCharge = 0;
-							TIMER_Set( NPC, "strafeLeft", -1 );
-							TIMER_Set( NPC, "strafeRight", -1 );
-							TIMER_Set( NPC, "noStrafe", Q_irand( 500, 1000 ) );
-							TIMER_Set( NPC, "movenone", Q_irand( 500, 1000 ) );
-							TIMER_Set( NPC, "movecenter", Q_irand( 500, 1000 ) );
-							TIMER_Set( NPC, "noturn", Q_irand( 200, 500 ) );
-							*/
+							vec3_t enemyFwd, dest, dir;  
+		
 							//stop current movement
 							ucmd.forwardmove = ucmd.rightmove = ucmd.upmove = 0;
 							VectorClear( NPC->client->ps.moveDir );
@@ -5059,12 +4600,10 @@ static void Jedi_CheckJumps( void )
 
 	if ( NPC->client->ps.fd.forceJumpCharge )
 	{
-		//Com_Printf( "(%d) force jump\n", level.time );
 		WP_GetVelocityForForceJump( NPC, jumpVel, &ucmd );
 	}
 	else if ( ucmd.upmove > 0 )
 	{
-		//Com_Printf( "(%d) regular jump\n", level.time );
 		VectorCopy( NPC->client->ps.velocity, jumpVel );
 		jumpVel[2] = JUMP_VELOCITY;
 	}
@@ -5076,7 +4615,6 @@ static void Jedi_CheckJumps( void )
 	//NOTE: for now, we clear ucmd.forwardmove & ucmd.rightmove while in air to avoid jumps going awry...
 	if ( !jumpVel[0] && !jumpVel[1] )//FIXME: && !ucmd.forwardmove && !ucmd.rightmove?
 	{//we assume a jump straight up is safe
-		//Com_Printf( "(%d) jump straight up is safe\n", level.time );
 		return;
 	}
 	//Now predict where this is going
@@ -5107,14 +4645,12 @@ static void Jedi_CheckJumps( void )
 		{//WTF?
 			//FIXME: what do we do when we start INSIDE the CONTENTS_BOTCLIP?  Do the trace again without that clipmask?
 			goto jump_unsafe;
-			//return;
 		}
 		if ( trace.fraction < 1.0f )
 		{//hit something
 			if ( trace.contents & CONTENTS_BOTCLIP )
 			{//hit a do-not-enter brush
 				goto jump_unsafe;
-				//return;
 			}
 			//FIXME: trace through func_glass?
 			break;
@@ -5131,7 +4667,6 @@ static void Jedi_CheckJumps( void )
 	{//whoa, long drop, don't do it!
 		//probably no floor at end of jump, so don't jump
 		goto jump_unsafe;
-		//return;
 	}
 	bottom[2] -= 128;
 	trap_Trace( &trace, trace.endpos, NPC->r.mins, NPC->r.maxs, bottom, NPC->s.number, NPC->clipmask );
@@ -5143,15 +4678,12 @@ static void Jedi_CheckJumps( void )
 			if ( groundEnt->r.svFlags&SVF_GLASS_BRUSH )
 			{//don't land on breakable glass!
 				goto jump_unsafe;
-				//return;
 			}
 		}
-		//Com_Printf( "(%d) jump is safe\n", level.time );
 		return;
 	}
 jump_unsafe:
 	//probably no floor at end of jump, so don't jump
-	//Com_Printf( "(%d) unsafe jump cleared\n", level.time );
 	NPC->client->ps.fd.forceJumpCharge = 0;
 	ucmd.upmove = 0;
 }
@@ -5160,7 +4692,6 @@ static void Jedi_Combat( void )
 {
 	vec3_t	enemy_dir, enemy_movedir, enemy_dest;
 	float	enemy_dist, enemy_movespeed;
-	//qboolean	enemy_lost = qfalse;
 
 	//See where enemy will be 300 ms from now
 	Jedi_SetEnemyInfo( enemy_dest, enemy_dir, &enemy_dist, enemy_movedir, &enemy_movespeed, 300 );
@@ -5176,39 +4707,12 @@ static void Jedi_Combat( void )
 		//If we can't get straight at him
 		if ( !Jedi_ClearPathToSpot( enemy_dest, NPC->enemy->s.number ) )
 		{//hunt him down
-			//Com_Printf( "No Clear Path\n" );
-			if ( (NPC_ClearLOS4( NPC->enemy )||NPCInfo->enemyLastSeenTime>level.time-500) && NPC_FaceEnemy( qtrue ) )//( NPCInfo->rank == RANK_CREWMAN || NPCInfo->rank > RANK_LT_JG ) && 
-			{
-				//try to jump to him?
-				/*
-				vec3_t end;
-				VectorCopy( NPC->r.currentOrigin, end );
-				end[2] += 36;
-				trap_Trace( &trace, NPC->r.currentOrigin, NPC->r.mins, NPC->r.maxs, end, NPC->s.number, NPC->clipmask|CONTENTS_BOTCLIP );
-				if ( !trace.allsolid && !trace.startsolid && trace.fraction >= 1.0 )
-				{
-					vec3_t angles, forward;
-					VectorCopy( NPC->client->ps.viewangles, angles );
-					angles[0] = 0;
-					AngleVectors( angles, forward, NULL, NULL );
-					VectorMA( end, 64, forward, end );
-					trap_Trace( &trace, NPC->r.currentOrigin, NPC->r.mins, NPC->r.maxs, end, NPC->s.number, NPC->clipmask|CONTENTS_BOTCLIP );
-					if ( !trace.allsolid && !trace.startsolid )
-					{
-						if ( trace.fraction >= 1.0 || trace.plane.normal[2] > 0 )
-						{
-							ucmd.upmove = 127;
-							ucmd.forwardmove = 127;
-							return;
-						}
-					}
-				}
-				*/
+			if ( (NPC_ClearLOS4( NPC->enemy )||NPCInfo->enemyLastSeenTime>level.time-500) && NPC_FaceEnemy( qtrue ) )
+			{    	
 				//FIXME: about every 1 second calc a velocity, 
 				//run a loop of traces with evaluate trajectory 
 				//for gravity with my size, see if it makes it...
 				//this will also catch misacalculations that send you off ledges!
-				//Com_Printf( "Considering Jump\n" );
 				if ( Jedi_TryJump( NPC->enemy ) )
 				{//FIXME: what about jumping to his enemyLastSeenLocation?
 					return;
@@ -5235,12 +4739,7 @@ static void Jedi_Combat( void )
 				return;
 			}
 			//well, try to head for his last seen location
-	/*
-			else if ( Jedi_Track() )
-			{
-				return;
-			}
-	*/		else
+    		else
 			{//FIXME: try to find a waypoint that can see enemy, jump from there
 				if ( NPCInfo->aiFlags & NPCAI_BLOCKED )
 				{//try to jump to the blockedDest
@@ -5255,7 +4754,6 @@ static void Jedi_Combat( void )
 					G_FreeEntity( tempGoal );
 				}
 
-				//enemy_lost = qtrue;
 			}
 		}
 	}
@@ -5390,7 +4888,6 @@ void NPC_Jedi_Pain(gentity_t *self, gentity_t *attacker, int damage)
 		}
 		if ( !Q_irand( 0, 1 ) )//damage > 20 || self->health < 40 || 
 		{
-			//Com_Printf( "(%d) drop agg - hit by saber\n", level.time );
 			Jedi_Aggression( self, -1 );
 		}
 		if ( d_JediAI.integer )
@@ -5416,7 +4913,6 @@ void NPC_Jedi_Pain(gentity_t *self, gentity_t *attacker, int damage)
 	}
 	else
 	{//attack
-		//Com_Printf( "(%d) raise agg - hit by ranged\n", level.time );
 		Jedi_Aggression( self, 1 );
 	}
 
@@ -5424,7 +4920,6 @@ void NPC_Jedi_Pain(gentity_t *self, gentity_t *attacker, int damage)
 
 	WP_ForcePowerStop( self, FP_GRIP );
 
-	//NPC_Pain( self, inflictor, other, point, damage, mod );
 	NPC_Pain(self, attacker, damage);
 
 	if ( !damage && self->health > 0 )
@@ -5537,7 +5032,6 @@ qboolean Jedi_CheckAmbushPlayer( void )
 			}
 		}
 
-		//Got him, return true;
 		G_SetEnemy( NPC, player );
 		NPCInfo->enemyLastSeenTime = level.time;
 		TIMER_Set( NPC, "attackDelay", Q_irand( 500, 2500 ) );
@@ -5551,9 +5045,8 @@ qboolean Jedi_CheckAmbushPlayer( void )
 void Jedi_Ambush( gentity_t *self )
 {
 	self->client->noclip = qfalse;
-//	self->client->ps.pm_flags |= PMF_JUMPING|PMF_SLOW_MO_FALL;
 	NPC_SetAnim( self, SETANIM_BOTH, BOTH_CEILING_DROP, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
-	self->client->ps.weaponTime = self->client->ps.torsoTimer; //NPC->client->ps.torsoTimer; //what the?
+	self->client->ps.weaponTime = self->client->ps.torsoTimer; 
 	if ( self->client->NPC_class != CLASS_BOBAFETT )
 	{
 		WP_ActivateSaber(self);
@@ -5614,7 +5107,6 @@ static void Jedi_Patrol( void )
 						if ( enemy_dist < (220*220) || ( NPCInfo->investigateCount>= 3 && !NPC->client->ps.saberHolstered ) )
 						{
 							G_SetEnemy( NPC, enemy );
-							//NPCInfo->behaviorState = BS_HUNT_AND_KILL;//should be auto now
 							NPCInfo->stats.aggression = 3;
 							break;
 						}
@@ -5633,7 +5125,6 @@ static void Jedi_Patrol( void )
 								if ( saberDist < 200 )
 								{//incoming!
 									G_SetEnemy( NPC, enemy );
-									//NPCInfo->behaviorState = BS_HUNT_AND_KILL;//should be auto now
 									NPCInfo->stats.aggression = 3;
 									break;
 								}
@@ -5649,7 +5140,6 @@ static void Jedi_Patrol( void )
 		{//still not mad
 			if ( !best_enemy )
 			{
-				//Com_Printf( "(%d) drop agg - no enemy (patrol)\n", level.time );
 				Jedi_AggressionErosion(-1);
 				//FIXME: what about alerts?  But not if ignore alerts
 			}
@@ -5719,7 +5209,6 @@ finish:
 	if ( UpdateGoal() )
 	{
 		ucmd.buttons |= BUTTON_WALKING;
-		//Jedi_Move( NPCInfo->goalEntity );
 		NPC_MoveToGoal( qtrue );
 	}
 
@@ -5765,7 +5254,6 @@ void NPC_BSJedi_FollowLeader( void )
 	NPC->client->ps.saberBlocked = BLOCKED_NONE;
 	if ( !NPC->enemy )
 	{
-		//Com_Printf( "(%d) drop agg - no enemy (follow)\n", level.time );
 		Jedi_AggressionErosion(-1);
 	}
 	
@@ -5787,7 +5275,7 @@ void NPC_BSJedi_FollowLeader( void )
 					ucmd.buttons |= BUTTON_ATTACK;
 					if ( NPC->enemy && NPC->enemy->health > 0 )
 					{//get our saber back NOW!
-						if ( !NPC_MoveToGoal( qtrue ) )//Jedi_Move( NPCInfo->goalEntity, qfalse );
+						if ( !NPC_MoveToGoal( qtrue ) )
 						{//can't nav to it, try jumping to it
 							NPC_FaceEntity( NPCInfo->goalEntity, qtrue );
 							Jedi_TryJump( NPCInfo->goalEntity );
@@ -5905,10 +5393,6 @@ static void Jedi_Attack( void )
 					chance = maxChance;
 				}
 			}
-		//	if ( flrand( -4.0f, chance ) >= 0.0f && !(NPC->client->ps.pm_flags&PMF_ATTACK_HELD) )
-		//	{
-		//		ucmd.buttons |= BUTTON_ATTACK;
-		//	}
 			if ( flrand( -4.0f, chance ) >= 0.0f )
 			{
 				ucmd.buttons |= BUTTON_ATTACK;
@@ -6002,7 +5486,6 @@ static void Jedi_Attack( void )
 				{//saber is still on (or we're trying to pull it back), count down erosion and keep facing the enemy
 					//FIXME: need to stop this from happening over and over again when they're blocking their victim's saber
 					//FIXME: turn off saber sooner so we get cool walk anim?
-					//Com_Printf( "(%d) drop agg - enemy dead\n", level.time );
 					Jedi_AggressionErosion(-3);
 					if ( BG_SabersOff( &NPC->client->ps ) && !NPC->client->ps.saberInFlight )
 					{//turned off saber (in hand), gloat

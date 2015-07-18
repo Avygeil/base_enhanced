@@ -1189,7 +1189,6 @@ qboolean WP_SaberParseParms( const char *SaberName, saberInfo_t *saber )
 			{
 				continue;
 			}
-			//saber->brokenSaber1 = G_NewString( value );
 			continue;
 		}
 		
@@ -1200,7 +1199,6 @@ qboolean WP_SaberParseParms( const char *SaberName, saberInfo_t *saber )
 			{
 				continue;
 			}
-			//saber->brokenSaber2 = G_NewString( value );
 			continue;
 		}
 
@@ -2673,18 +2671,8 @@ void WP_RemoveSaber( saberInfo_t *sabers, int saberNum )
 	strcpy(sabers[saberNum].name, "none");
 	sabers[saberNum].model[0] = 0;
 
-	//ent->client->ps.dualSabers = qfalse;
 	BG_SI_Deactivate(&sabers[saberNum]);
 	BG_SI_SetLength(&sabers[saberNum], 0.0f);
-//	if ( ent->weaponModel[saberNum] > 0 )
-//	{
-//		gi.G2API_RemoveGhoul2Model( ent->ghoul2, ent->weaponModel[saberNum] );
-//		ent->weaponModel[saberNum] = -1;
-//	}
-//	if ( saberNum == 1 )
-//	{
-//		ent->client->ps.dualSabers = qfalse;
-//	}
 }
 
 void WP_SetSaber( int entNum, saberInfo_t *sabers, int saberNum, const char *saberName )
@@ -2738,7 +2726,6 @@ static char bgSaberParseTBuffer[MAX_SABER_DATA_SIZE];
 void WP_SaberLoadParms( void ) 
 {
 	int			len, totallen, saberExtFNLen, mainBlockLen, fileCnt, i;
-	//const char	*filename = "ext_data/sabers.cfg";
 	char		*holdChar, *marker;
 	char		saberExtensionListBuf[2048];			//	The list of file names read in
 	fileHandle_t	f;
@@ -2992,7 +2979,6 @@ void BG_SI_ActivateTrail ( saberInfo_t *saber, float duration )
 
 	for ( i = 0; i < saber->numBlades; i++ )
 	{
-		//saber->blade[i].ActivateTrail( duration );
 		BG_BLADE_ActivateTrail(&saber->blade[i], duration);
 	}
 }
@@ -3003,7 +2989,6 @@ void BG_SI_DeactivateTrail ( saberInfo_t *saber, float duration )
 
 	for ( i = 0; i < saber->numBlades; i++ )
 	{
-		//saber->blade[i].DeactivateTrail( duration );
 		BG_BLADE_DeactivateTrail(&saber->blade[i], duration);
 	}
 }

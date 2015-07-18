@@ -135,18 +135,6 @@ void turretG2_set_models( gentity_t *self, qboolean dying )
 		trap_G2API_RemoveGhoul2Model( &self->ghoul2, 0 );
 		G_KillG2Queue( self->s.number );
 		self->s.modelGhoul2 = 0;
-		/*
-		trap_G2API_InitGhoul2Model( &self->ghoul2,
-									name2,
-									0, //base->s.modelindex,
-									//note, this is not the same kind of index - this one's referring to the actual
-									//index of the model in the g2 instance, whereas modelindex is the index of a
-									//configstring -rww
-									0,
-									0,
-									0,
-									0);
-		*/
 	}
 	else
 	{
@@ -228,7 +216,6 @@ void TurretG2Pain( gentity_t *self, gentity_t *attacker, int damage )
 	{//react to being hit
 		G_SetEnemy( self, attacker );
 	}
-	//self->s.health = self->health;
 	//mmm..yes..bad.
 }
 
@@ -239,7 +226,6 @@ void turretG2_die ( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, 
 	vec3_t	forward = { 0,0,-1 }, pos;
 
 	// Turn off the thinking of the base & use it's targets
-	//self->think = NULL;
 	self->use = NULL;
 
 	// clear my data
@@ -249,15 +235,12 @@ void turretG2_die ( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, 
 	self->s.health = self->health = 0;
 	self->s.loopSound = 0;
 	self->s.shouldtarget = qfalse;
-	//self->s.owner = MAX_CLIENTS; //not owned by any client
 
 	// hack the effect angle so that explode death can orient the effect properly
 	if ( self->spawnflags & 2 )
 	{
 		VectorSet( forward, 0, 0, 1 );
 	}
-
-//	VectorCopy( self->r.currentOrigin, self->s.pos.trBase );
 
 	VectorMA( self->r.currentOrigin, 12, forward, pos );
 	G_PlayEffect( EFFECT_EXPLOSION_TURRET, pos, forward );
@@ -387,10 +370,9 @@ static void turretG2_fire ( gentity_t *ent, vec3_t start, vec3_t dir )
 		bolt->dflags = (DAMAGE_NO_KNOCKBACK|DAMAGE_HEAVY_WEAP_CLASS);		// Don't push them around, or else we are constantly re-aiming
 		bolt->splashDamage = ent->splashDamage;
 		bolt->splashRadius = ent->splashDamage;
-		bolt->methodOfDeath = MOD_TARGET_LASER;//MOD_ENERGY;
-		bolt->splashMethodOfDeath = MOD_TARGET_LASER;//MOD_ENERGY;
+		bolt->methodOfDeath = MOD_TARGET_LASER;
+		bolt->splashMethodOfDeath = MOD_TARGET_LASER;
 		bolt->clipmask = MASK_SHOT | CONTENTS_LIGHTSABER;
-		//bolt->trigger_formation = qfalse;		// don't draw tail on first frame	
 
 		VectorSet( bolt->r.maxs, 1.5, 1.5, 1.5 );
 		VectorScale( bolt->r.maxs, -1, bolt->r.mins );
@@ -410,7 +392,6 @@ void turretG2_respawn( gentity_t *self )
 	self->die  = turretG2_die;
 	self->takedamage = qtrue;
 	self->s.shouldtarget = qtrue;
-	//self->s.owner = MAX_CLIENTS; //not owned by any client
 	if ( self->s.eFlags & EF_SHADER_ANIM )
 	{
 		self->s.frame = 0; // normal
@@ -456,7 +437,6 @@ void turretG2_head_think( gentity_t *self )
 		}
 
 		BG_GiveMeVectorFromMatrix( &boltMatrix, ORIGIN, org );
-		//BG_GiveMeVectorFromMatrix( &boltMatrix, POSITIVE_Y, fwd );
 		if ( (self->spawnflags&SPF_TURRETG2_TURBO) )
 		{
 			BG_GiveMeVectorFromMatrix( &boltMatrix, POSITIVE_X, fwd );
@@ -549,7 +529,6 @@ static void turretG2_aim( gentity_t *self )
 	else
 	{
 		// no enemy, so make us slowly sweep back and forth as if searching for a new one
-//		diffYaw = sin( level.time * 0.0001f + self->count ) * 5.0f;	// don't do this for now since it can make it go into walls.
 	}
 
 	if ( diffYaw )
@@ -579,7 +558,7 @@ static void turretG2_aim( gentity_t *self )
 		else
 		{
 			// small enough, so just add half the diff so we smooth out the stopping
-			self->speed -= ( diffPitch );//desiredAngles[PITCH];
+			self->speed -= ( diffPitch );
 		}
 
 		// Note that this is NOT interpolated, so it will be less smooth...On the other hand, it does use Ghoul2 to blend, so it may smooth it out a bit?
@@ -607,19 +586,6 @@ static void turretG2_aim( gentity_t *self )
 			}
 			G2Tur_SetBoneAngles(self, "Bone_body", desiredAngles);
 		}
-		/*
-		trap_G2API_SetBoneAngles( self->ghoul2,
-						0,
-						"Bone_body",
-						desiredAngles, 
-						BONE_ANGLES_POSTMULT,
-						POSITIVE_Y,
-						POSITIVE_Z,
-						POSITIVE_X,
-						NULL,
-						100,
-						level.time ); 
-						*/
 	}
 
 	if ( diffYaw || diffPitch )
@@ -800,13 +766,6 @@ static qboolean turretG2_find_enemies( gentity_t *self )
 
 	if ( found )
 	{
-		/*
-		if ( !self->enemy )
-		{//just aquired one
-			AddSoundEvent( bestTarget, self->r.currentOrigin, 256, AEL_DISCOVERED );
-			AddSightEvent( bestTarget, self->r.currentOrigin, 512, AEL_DISCOVERED, 20 );
-		}
-		*/
 		G_SetEnemy( self, bestTarget );
 		if ( VALIDSTRING( self->target2 ))
 		{
@@ -1145,7 +1104,7 @@ void finish_spawning_turretG2( gentity_t *base )
 		// How quickly to fire
 		if ( !base->wait )
 		{
-			base->wait = 1000;// + random() * 500;
+			base->wait = 1000;
 		}
 
 		if ( !base->splashDamage )
@@ -1243,7 +1202,6 @@ void finish_spawning_turretG2( gentity_t *base )
 		base->maxHealth = base->health;
 		G_ScaleNetHealth(base);
 		base->s.shouldtarget = qtrue;
-		//base->s.owner = MAX_CLIENTS; //not owned by any client
 	}
 
 	if (base->s.iModelScale)
@@ -1272,12 +1230,10 @@ void finish_spawning_turretG2( gentity_t *base )
 
 	base->r.contents = CONTENTS_BODY|CONTENTS_PLAYERCLIP|CONTENTS_MONSTERCLIP|CONTENTS_SHOTCLIP;
 
-	//base->max_health = base->health;
 	base->takedamage = qtrue;
 	base->die  = turretG2_die;
 
 	base->material = MAT_METAL;
-	//base->r.svFlags |= SVF_NO_TELEPORT|SVF_NONNPC_ENEMY|SVF_SELF_ANIMATING;
 
 	// Register this so that we can use it for the missile effect
 	RegisterItem( BG_FindItemForWeapon( WP_BLASTER ));

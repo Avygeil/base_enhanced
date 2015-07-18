@@ -371,11 +371,6 @@ qboolean AI_ValidateGroupMember( AIGroupInfo_t *group, gentity_t *member )
 	if ( member->health <= 0 )
 		return qfalse;
 
-	//can't be in an emplaced gun
-//	if( member->s.eFlags & EF_LOCKED_TO_WEAPON )
-//		return qfalse;
-	//rwwFIXMEFIXME: support this flag
-
 	//Must be on the same team
 	if ( member->client->playerTeam != group->team )
 		return qfalse;
@@ -443,8 +438,7 @@ AI_GetGroup
 void AI_GetGroup( gentity_t *self )
 {
 	int	i;
-	gentity_t	*member;//, *waiter;
-	//int	waiters[MAX_WAITERS];
+	gentity_t	*member;
 
 	if ( !self || !self->NPC )
 	{
@@ -497,7 +491,6 @@ void AI_GetGroup( gentity_t *self )
 		VectorCopy( self->NPC->group->enemy->r.currentOrigin, self->NPC->group->enemyLastSeenPos );
 	}
 
-//	for ( i = 0, member = &g_entities[0]; i < globals.num_entities ; i++, member++)
 	for ( i = 0; i < level.num_entities ; i++)
 	{
 		member = &g_entities[i];
@@ -520,25 +513,6 @@ void AI_GetGroup( gentity_t *self )
 			break;
 		}
 	}
-
-	/*
-	//now go through waiters and see if any should join the group
-	//NOTE:  Some should hang back and probably not attack, so we can ambush
-	//NOTE: only do this if calling for reinforcements?
-	for ( i = 0; i < numWaiters; i++ )
-	{
-		waiter = &g_entities[waiters[i]];
-	
-		for ( j = 0; j < self->NPC->group->numGroup; j++ )
-		{
-			member = &g_entities[self->NPC->group->member[j];
-
-			if ( trap_InPVS( waiter->r.currentOrigin, member->r.currentOrigin ) )
-			{//this waiter is within PVS of a current member
-			}
-		}
-	}
-	*/
 
 	if ( self->NPC->group->numGroup <= 0 )
 	{//none in group
@@ -649,7 +623,7 @@ void AI_GroupMemberKilled( gentity_t *self )
 		else
 		{
 			ST_AggressionAdjust( member, -1 );
-			member->NPC->currentAim -= Q_irand( 0, 10 );//Q_irand( 0, 2);//drop their aim accuracy
+			member->NPC->currentAim -= Q_irand( 0, 10 );
 		}
 	}
 	//okay, if I'm the group commander, make everyone else flee
@@ -689,9 +663,9 @@ void AI_GroupMemberKilled( gentity_t *self )
 						ST_MarkToCover( member );
 					}
 				}
-				member->NPC->currentAim -= Q_irand( 1, 15 ); //Q_irand( 1, 3 );//drop their aim accuracy even more
+				member->NPC->currentAim -= Q_irand( 1, 15 ); 
 			}
-			member->NPC->currentAim -= Q_irand( 1, 15 ); //Q_irand( 1, 3 );//drop their aim accuracy even more
+			member->NPC->currentAim -= Q_irand( 1, 15 ); 
 		}
 	}
 }
@@ -740,7 +714,7 @@ void AI_GroupUpdateSquadstates( AIGroupInfo_t *group, gentity_t *member, int new
 qboolean AI_RefreshGroup( AIGroupInfo_t *group )
 {
 	gentity_t	*member;
-	int			i;//, j;
+	int			i;
 
 	//see if we should merge with another group
 	for ( i = 0; i < MAX_FRAME_GROUPS; i++ ) 
@@ -796,26 +770,6 @@ qboolean AI_RefreshGroup( AIGroupInfo_t *group )
 	group->commander = NULL;
 	for ( i = 0; i < group->numGroup; i++ )
 	{
-		/*
-		//this checks for duplicate copies of one member in a group
-		for ( j = 0; j < group->numGroup; j++ )
-		{
-			if ( i != j )
-			{
-				if ( group->member[i].number == group->member[j].number )
-				{
-					break;
-				}
-			}
-		}
-		if ( j < group->numGroup )
-		{//found a dupe!
-			gi.Printf( S_COLOR_RED"ERROR: member %s(%d) a duplicate group member!!!\n", g_entities[group->member[i].number].targetname, group->member[i].number );
-			AI_DeleteGroupMember( group, i );
-			i--;
-			continue;
-		}
-		*/
 		member = &g_entities[group->member[i].number];
 
 		//Must be alive
@@ -847,22 +801,6 @@ qboolean AI_RefreshGroup( AIGroupInfo_t *group )
 		group->memberValidateTime = level.time + Q_irand( 500, 2500 );
 	}
 	//Now add any new guys as long as we're not full
-	/*
-	for ( i = 0, member = &g_entities[0]; i < globals.num_entities && group->numGroup < (MAX_GROUP_MEMBERS - 1); i++, member++)
-	{
-		if ( !AI_ValidateGroupMember( group, member ) )
-		{//FIXME: keep track of those who aren't angry yet and see if we should wake them after we assemble the core group
-			continue;
-		}
-		if ( member->NPC->group == group )
-		{//DOH, already in our group
-			continue;
-		}
-
-		//store it
-		AI_InsertGroupMember( group, member );
-	}
-	*/
 
 	//calc the morale of this group
 	group->morale = group->moraleAdjust;
@@ -879,7 +817,6 @@ qboolean AI_RefreshGroup( AIGroupInfo_t *group )
 		}
 		if ( group->commander && debugNPCAI.integer )
 		{
-			//G_DebugLine( group->commander->r.currentOrigin, member->r.currentOrigin, FRAMETIME, 0x00ff00ff, qtrue );
 			G_TestLine(group->commander->r.currentOrigin, member->r.currentOrigin, 0x00000ff, FRAMETIME);
 		}
 	}
@@ -926,21 +863,12 @@ qboolean AI_RefreshGroup( AIGroupInfo_t *group )
 		case WP_DET_PACK:
 			group->morale -= 10;
 			break;
-//		case WP_MELEE:			// Any ol' melee attack
-//			group->morale += 20;
-//			break;
 		case WP_STUN_BATON:
 			group->morale += 10;
 			break;
 		case WP_EMPLACED_GUN:
 			group->morale -= 8;
 			break;
-//		case WP_ATST_MAIN:
-//			group->morale -= 8;
-//			break;
-//		case WP_ATST_SIDE:
-//			group->morale -= 20;
-//			break;
 		}
 	}
 	if ( group->moraleDebounce < level.time )
@@ -999,29 +927,6 @@ qboolean AI_GroupContainsEntNum( AIGroupInfo_t *group, int entNum )
 //Overload 
 
 /*
-void AI_GetGroup( AIGroupInfo_t &group, gentity_t *ent, int radius )
-{
-	if ( ent->client == NULL )
-		return;
-
-	vec3_t	temp, angles;
-
-	//FIXME: This is specialized code.. move?
-	if ( ent->enemy )
-	{
-		VectorSubtract( ent->enemy->r.currentOrigin, ent->r.currentOrigin, temp );
-		VectorNormalize( temp );	//FIXME: Needed?
-		vectoangles( temp, angles );
-	}
-	else
-	{
-		VectorCopy( ent->currentAngles, angles );
-	}
-
-	AI_GetGroup( group, ent->r.currentOrigin, ent->currentAngles, DEFAULT_RADIUS, radius, ent->client->playerTeam, ent, ent->enemy );
-}
-*/
-/*
 -------------------------
 AI_CheckEnemyCollision
 -------------------------
@@ -1033,9 +938,6 @@ qboolean AI_CheckEnemyCollision( gentity_t *ent, qboolean takeEnemy )
 
 	if ( ent == NULL )
 		return qfalse;
-
-//	if ( ent->svFlags & SVF_LOCKEDENEMY )
-//		return qfalse;
 
 	NAV_GetLastMove( &info );
 
@@ -1071,10 +973,6 @@ gentity_t *AI_DistributeAttack( gentity_t *attacker, gentity_t *enemy, team_t te
 	int			i;
 	int			j;
 	vec3_t		mins, maxs;
-
-	//Don't take new targets
-//	if ( NPC->svFlags & SVF_LOCKEDENEMY )
-//		return enemy;
 
 	numSurrounding = AI_GetGroupSize( enemy->r.currentOrigin, 48, team, attacker );
 

@@ -44,7 +44,7 @@ typedef enum
 // session stuff
 int G_DbLogSession(const char* ip);
 
-void G_DbLogSessionEvent(int sessionId, 
+int G_DbLogSessionEvent(int sessionId, 
     int eventId, 
     const char* eventContext);
 

@@ -888,7 +888,6 @@ void BG_SiegeParseClassFile(const char *filename, siegeClassDesc_t *descBuffer)
 		bgSiegeClasses[bgNumSiegeClasses].weapons |= (1 << WP_MELEE);
 
 		//always give them this too if they are not a saber user
-		//bgSiegeClasses[bgNumSiegeClasses].weapons |= (1 << WP_BRYAR_PISTOL);
 	}
 
 	//Parse forcepowers
@@ -1000,7 +999,6 @@ void BG_SiegeParseClassFile(const char *filename, siegeClassDesc_t *descBuffer)
 		assert( bgSiegeClasses[bgNumSiegeClasses].classShader );
 		if ( !bgSiegeClasses[bgNumSiegeClasses].classShader )
 		{
-			//Com_Error( ERR_DROP, "ERROR: could not find class_shader %s for class %s\n", parseBuf, bgSiegeClasses[bgNumSiegeClasses].name );
 			Com_Printf( "ERROR: could not find class_shader %s for class %s\n", parseBuf, bgSiegeClasses[bgNumSiegeClasses].name );
 		}
 		// A very hacky way to determine class . . . 
@@ -1038,7 +1036,6 @@ void BG_SiegeParseClassFile(const char *filename, siegeClassDesc_t *descBuffer)
 	}
 	else
 	{ //No entry!  Bad bad bad
-		//Com_Error( ERR_DROP, "ERROR: no class_shader defined for class %s\n", bgSiegeClasses[bgNumSiegeClasses].name );
 		Com_Printf( "ERROR: no class_shader defined for class %s\n", bgSiegeClasses[bgNumSiegeClasses].name );
 	}
 

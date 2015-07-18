@@ -759,8 +759,6 @@ typedef struct
 	int			disarmBonus;				//added to disarm chance when win saberlock or have a good parry (knockaway)
 	int			disarmBonus2;				//for bladeStyle2 (see bladeStyle2Start below)
 	saber_styles_t	singleBladeStyle;		//makes it so that you use a different style if you only have the first blade active
-//	char		*brokenSaber1;				//if saber is actually hit by another saber, it can be cut in half/broken and will be replaced with this saber in your right hand
-//	char		*brokenSaber2;				//if saber is actually hit by another saber, it can be cut in half/broken and will be replaced with this saber in your left hand
 //===NEW========================================================================================
 	//these values are global to the saber, like all of the ones above
 	int			saberFlags;					//from SFL_ list above
@@ -801,8 +799,6 @@ typedef struct
 	int			trailStyle;					//0 - default (0) is normal, 1 is a motion blur and 2 is no trail at all (good for real-sword type mods)
 	int			g2MarksShader;				//none - if set, the game will use this shader for marks on enemies instead of the default "gfx/damage/saberglowmark"
 	int			g2WeaponMarkShader;			//none - if set, the game will ry to project this shader onto the weapon when it damages a person (good for a blood splatter on the weapon)
-	//int		bladeShader;				//none - if set, overrides the shader used for the saber blade?
-	//int		trailShader;				//none - if set, overrides the shader used for the saber trail?
 	qhandle_t	hitSound[3];				//none - if set, plays one of these 3 sounds when saber hits a person - NOTE: must provide all 3!!!
 	qhandle_t	blockSound[3];				//none - if set, plays one of these 3 sounds when saber/sword hits another saber/sword - NOTE: must provide all 3!!!
 	qhandle_t	bounceSound[3];				//none - if set, plays one of these 3 sounds when saber/sword hits a wall and bounces off (must set bounceOnWall to 1 to use these sounds) - NOTE: must provide all 3!!!
@@ -823,8 +819,6 @@ typedef struct
 	int			trailStyle2;				//0 - default (0) is normal, 1 is a motion blur and 2 is no trail at all (good for real-sword type mods)
 	int			g2MarksShader2;				//none - if set, the game will use this shader for marks on enemies instead of the default "gfx/damage/saberglowmark"
 	int			g2WeaponMarkShader2;		//none - if set, the game will ry to project this shader onto the weapon when it damages a person (good for a blood splatter on the weapon)
-	//int		bladeShader2;				//none - if set, overrides the shader used for the saber blade?
-	//int		trailShader2;				//none - if set, overrides the shader used for the saber trail?
 	qhandle_t	hit2Sound[3];				//none - if set, plays one of these 3 sounds when saber hits a person - NOTE: must provide all 3!!!
 	qhandle_t	block2Sound[3];				//none - if set, plays one of these 3 sounds when saber/sword hits another saber/sword - NOTE: must provide all 3!!!
 	qhandle_t	bounce2Sound[3];			//none - if set, plays one of these 3 sounds when saber/sword hits a wall and bounces off (must set bounceOnWall to 1 to use these sounds) - NOTE: must provide all 3!!!
@@ -1621,8 +1615,6 @@ void RotateAroundDirection( vec3_t axis[3], float yaw );
 void MakeNormalVectors( const vec3_t forward, vec3_t right, vec3_t up );
 // perpendicular vector could be replaced by this
 
-//int	PlaneTypeForNormal (vec3_t normal);
-
 void MatrixMultiply(float in1[3][3], float in2[3][3], float out[3][3]);
 void AngleVectors( const vec3_t angles, vec3_t forward, vec3_t right, vec3_t up);
 void PerpendicularVector( vec3_t dst, const vec3_t src );
@@ -1649,7 +1641,6 @@ qboolean COM_ParseString( const char **data, const char **s );
 qboolean COM_ParseInt( const char **data, int *i );
 qboolean COM_ParseFloat( const char **data, float *f );
 qboolean COM_ParseVec4( const char **buffer, vec4_t *c);
-//int		COM_ParseInfos( char *buf, int max, char infos[][MAX_INFO_STRING] );
 
 #define MAX_TOKENLENGTH		1024
 
@@ -1740,19 +1731,6 @@ typedef struct
 	byte	b7;
 } qint64;
 
-//=============================================
-/*
-short	BigShort(short l);
-short	LittleShort(short l);
-int		BigLong (int l);
-int		LittleLong (int l);
-qint64  BigLong64 (qint64 l);
-qint64  LittleLong64 (qint64 l);
-float	BigFloat (const float *l);
-float	LittleFloat (const float *l);
-
-void	Swap_Init (void);
-*/
 char	* QDECL va(const char *format, ...);
 
 //=============================================
@@ -1910,7 +1888,6 @@ typedef struct {
 Ghoul2 Insert Start
 */
 	//rww - removed this for now, it's just wasting space in the trace structure.
-//	CollisionRecord_t G2CollisionMap[MAX_G2_COLLISIONS];	// map that describes all of the parts of ghoul2 models that got hit
 /*
 Ghoul2 Insert End
 */

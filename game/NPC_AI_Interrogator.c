@@ -34,25 +34,14 @@ Interrogator_die
 void Interrogator_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int damage, int mod,int dFlags,int hitLoc )
 {
 	self->client->ps.velocity[2] = -100;
-	/*
-	self->locationDamage[HL_NONE] += damage;
-	if (self->locationDamage[HL_NONE] > 40)
+
 	{
-		DeathFX(self);
-		self->client->ps.eFlags |= EF_NODRAW;
-		self->contents = CONTENTS_CORPSE;
-	}
-	else
-	*/
-	{
-		self->client->ps.eFlags2 &= ~EF2_FLYING;//moveType = MT_WALK;
+		self->client->ps.eFlags2 &= ~EF2_FLYING;
 		self->client->ps.velocity[0] = Q_irand( -10, -20 );
 		self->client->ps.velocity[1] = Q_irand( -10, -20 );
 		self->client->ps.velocity[2] = -100;
 	}
-	//self->takedamage = qfalse;
-	//self->client->ps.eFlags |= EF_NODRAW;
-	//self->contents = 0;
+
 	return;
 }
 
@@ -81,7 +70,6 @@ void Interrogator_PartsMove(void)
 			NPC->pos1[1]=Q_irand( 0, 60 );	// Pitch	
 		}
 
-	//	gi.G2API_SetBoneAnglesIndex( &NPC->ghoul2[NPC->playerModel], NPC->genericBone1, NPC->pos1, BONE_ANGLES_POSTMULT, POSITIVE_X, NEGATIVE_Y, NEGATIVE_Z, NULL ); 
 		NPC_SetBoneAngles(NPC, "left_arm", NPC->pos1);
 
 		TIMER_Set( NPC, "syringeDelay", Q_irand( 100, 1000 ) );
@@ -112,7 +100,6 @@ void Interrogator_PartsMove(void)
 		}
 
 		NPC->pos2[0] = AngleNormalize360( NPC->pos2[0]);
-	//	gi.G2API_SetBoneAnglesIndex( &NPC->ghoul2[NPC->playerModel], NPC->genericBone2, NPC->pos2, BONE_ANGLES_POSTMULT, POSITIVE_X, NEGATIVE_Y, NEGATIVE_Z, NULL ); 
 
 		NPC_SetBoneAngles(NPC, "right_arm", NPC->pos2);
 	}
@@ -120,7 +107,6 @@ void Interrogator_PartsMove(void)
 	// Claw
 	NPC->pos3[1] += Q_irand( 10, 30 );
 	NPC->pos3[1] = AngleNormalize360( NPC->pos3[1]);
-	//gi.G2API_SetBoneAnglesIndex( &NPC->ghoul2[NPC->playerModel], NPC->genericBone3, NPC->pos3, BONE_ANGLES_POSTMULT, POSITIVE_X, NEGATIVE_Y, NEGATIVE_Z, NULL ); 
 
 	NPC_SetBoneAngles(NPC, "claw", NPC->pos3);
 
@@ -137,8 +123,6 @@ Interrogator_MaintainHeight
 void Interrogator_MaintainHeight( void )
 {	
 	float	dif;
-//	vec3_t	endPos;
-//	trace_t	trace;
 
 	NPC->s.loopSound = G_SoundIndex( "sound/chars/interrogator/misc/torture_droid_lp" );
 	// Update our angles regardless
@@ -349,19 +333,9 @@ void Interrogator_Melee( qboolean visible, qboolean advance )
 		// Make sure that we are within the height range before we allow any damage to happen
 		if ( NPC->r.currentOrigin[2] >= NPC->enemy->r.currentOrigin[2]+NPC->enemy->r.mins[2] && NPC->r.currentOrigin[2]+NPC->r.mins[2]+8 < NPC->enemy->r.currentOrigin[2]+NPC->enemy->r.maxs[2] )
 		{
-			//gentity_t *tent;
 
 			TIMER_Set( NPC, "attackDelay", Q_irand( 500, 3000 ) );
 			G_Damage( NPC->enemy, NPC, NPC, 0, 0, 2, DAMAGE_NO_KNOCKBACK, MOD_MELEE );
-
-		//	NPC->enemy->client->poisonDamage = 18;
-		//	NPC->enemy->client->poisonTime = level.time + 1000;
-
-			// Drug our enemy up and do the wonky vision thing
-//			tent = G_TempEntity( NPC->enemy->r.currentOrigin, EV_DRUGGED );
-//			tent->owner = NPC->enemy;
-
-			//rwwFIXMEFIXME: poison damage
 
 			G_Sound( NPC, CHAN_AUTO, G_SoundIndex( "sound/chars/interrogator/misc/torture_droid_inject.mp3" ));
 		}
@@ -453,8 +427,6 @@ NPC_BSInterrogator_Default
 */
 void NPC_BSInterrogator_Default( void )
 {
-	//NPC->e_DieFunc = dieF_Interrogator_die;
-
 	if ( NPC->enemy )
 	{
 		Interrogator_Attack();

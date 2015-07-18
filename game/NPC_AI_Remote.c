@@ -76,7 +76,6 @@ void Remote_MaintainHeight( void )
 				}
 				dif *= 10;
 				NPC->client->ps.velocity[2] = (NPC->client->ps.velocity[2]+dif)/2;
-			//	NPC->fx_time = level.time;
 				G_Sound( NPC, CHAN_AUTO, G_SoundIndex("sound/chars/remote/misc/hiss.wav"));
 			}
 		}
@@ -162,7 +161,6 @@ void Remote_Strafe( void )
 		NPC->client->ps.velocity[2] += REMOTE_UPWARD_PUSH;
 
 		// Set the strafe start time so we can do a controlled roll
-	//	NPC->fx_time = level.time;
 		NPCInfo->standTime = level.time + 3000 + random() * 500;
 	}
 }
@@ -231,7 +229,6 @@ void Remote_Fire (void)
 	vec3_t	delta1, enemy_org1, muzzle1;
 	vec3_t	angleToEnemy1;
 	static	vec3_t	forward, vright, up;
-	//static	vec3_t	muzzle;
 	gentity_t	*missile;
 
 	CalcEntitySpot( NPC->enemy, SPOT_HEAD, enemy_org1 );

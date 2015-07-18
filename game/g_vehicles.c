@@ -207,7 +207,7 @@ void G_VehicleSpawn( gentity_t *self )
 	
 	if ( !vehEnt )
 	{
-		return;//return NULL;
+		return;
 	}
 	
 	vehEnt->s.angles[YAW] = yaw;
@@ -235,7 +235,6 @@ void G_VehicleSpawn( gentity_t *self )
 		vehEnt->m_pVehicle->m_iPilotTime = level.time + vehEnt->endFrame;
 	}
 #endif
-	//return vehEnt;
 }
 
 // Attachs an entity to the vehicle it's riding (it's owner).
@@ -383,7 +382,6 @@ void G_DriveATST( gentity_t *pEnt, gentity_t *atst )
 		pEnt->client->crouchheight = CROUCH_MAXS_2;
 		pEnt->client->standheight = DEFAULT_MAXS_2;
 		G_ChangePlayerModel( pEnt, pEnt->NPC_type );
-		//G_SetG2PlayerModel( pEnt, pEnt->NPC_type, NULL, NULL, NULL );
 
 		//FIXME: reset/4 their weapon
 		pEnt->client->ps.stats[STAT_WEAPONS] &= ~(( 1 << WP_ATST_MAIN )|( 1 << WP_ATST_SIDE ));
@@ -399,7 +397,6 @@ void G_DriveATST( gentity_t *pEnt, gentity_t *atst )
 		cg.overrides.thirdPersonRange = cg.overrides.thirdPersonVertOffset = cg.overrides.thirdPersonPitchOffset = 0;
 		cg.overrides.thirdPersonAlpha = cg_thirdPersonAlpha.value;
 		pEnt->client->ps.viewheight = pEnt->maxs[2] + STANDARD_VIEWHEIGHT_OFFSET;
-		//pEnt->mass = 10;
 	}
 	else
 	{//become an atst
@@ -415,7 +412,6 @@ void G_DriveATST( gentity_t *pEnt, gentity_t *atst )
 		if ( !atst )
 		{//no pEnt to copy from
 			G_ChangePlayerModel( pEnt, "atst" );
-			//G_SetG2PlayerModel( pEnt, "atst", NULL, NULL, NULL );
 			NPC_SetAnim( pEnt, SETANIM_BOTH, BOTH_STAND1, SETANIM_FLAG_OVERRIDE, 200 );
 		}
 		else
@@ -457,17 +453,7 @@ void G_DriveATST( gentity_t *pEnt, gentity_t *atst )
 		gi.cvar_set( "cg_thirdperson", "1" );
 		cg.overrides.active |= CG_OVERRIDE_3RD_PERSON_RNG;
 		cg.overrides.thirdPersonRange = 240;
-		//cg.overrides.thirdPersonVertOffset = 100;
-		//cg.overrides.thirdPersonPitchOffset = -30;
-		//FIXME: this gets stomped in pmove?
 		pEnt->client->ps.viewheight = 120;
-		//FIXME: setting these broke things very badly...?
-		//pEnt->client->standheight = 200;
-		//pEnt->client->crouchheight = 200;
-		//pEnt->mass = 300;
-		//movement
-		//pEnt->client->ps.speed = 0;//FIXME: override speed?
-		//FIXME: slow turn turning/can't turn if not moving?
 	}
 }
 #endif //_JK2MP
@@ -567,11 +553,8 @@ bool ValidateBoard( Vehicle_t *pVeh, bgEntity_t *pEnt )
 	else
 	{
 		// The forward vector of the vehicle.
-	//	AngleVectors( vVehAngles, vVehDir, NULL, NULL ); 
-	//	VectorNormalize( vVehDir );
 
 		// Find the angle between the vehicle forward and the vehicle to entity vector.
-	//	fDot = DotProduct( vVehToEnt, vVehDir );
 
 		// If the entity is within a certain angle behind the vehicle...
 		//if ( fDot <= -0.85f )
@@ -596,7 +579,7 @@ void FighterStorePilotViewAngles( Vehicle_t *pVeh, bgEntity_t *parent )
 	bgEntity_t *rider = NULL;
 	if (parent->s.owner != ENTITYNUM_NONE)
 	{
-		rider = PM_BGEntForNum(parent->s.owner); //&g_entities[parent->r.ownerNum];
+		rider = PM_BGEntForNum(parent->s.owner); 
 	}
 #else
 	gentity_t *rider = parent->owner;
@@ -711,7 +694,6 @@ bool Board( Vehicle_t *pVeh, bgEntity_t *pEnt )
 			if ( (gParent->spawnflags&2) )
 			{//was being suspended
 				gParent->spawnflags &= ~2;//SUSPENDED - clear this spawnflag, no longer docked, okay to free-fall if not in space
-				//gParent->client->ps.eFlags &= ~EF_RADAROBJECT;
 				G_Sound( gParent, CHAN_AUTO, G_SoundIndex( "sound/vehicles/common/release.wav" ) );
 				if ( gParent->fly_sound_debounce_time )
 				{//we should drop like a rock for a few seconds
@@ -725,14 +707,6 @@ bool Board( Vehicle_t *pVeh, bgEntity_t *pEnt )
 		gi.cvar_set( "cg_thirdperson", "1" );								//go to third person
 		CG_CenterPrint( "@SP_INGAME_EXIT_VIEW", SCREEN_HEIGHT * 0.95 );		//tell them how to get out!
 #endif
-
-		//FIXME: rider needs to look in vehicle's direction when he gets in
-		// Clear these since they're used to turn the vehicle now.
-		/*SetClientViewAngle( ent, pVeh->m_vOrientation );
-		memset( &parent->client->usercmd, 0, sizeof( usercmd_t ) );
-		memset( &pVeh->m_ucmd, 0, sizeof( usercmd_t ) );
-		VectorClear( parent->client->ps.viewangles );
-		VectorClear( parent->client->ps.delta_angles );*/
 
 		// Set the looping sound only when there is a pilot (when the vehicle is "on").
 		if ( pVeh->m_pVehicleInfo->soundLoop )
@@ -819,8 +793,6 @@ bool Board( Vehicle_t *pVeh, bgEntity_t *pEnt )
 	ent->owner = parent;
 	parent->s.m_iVehicleNum = ent->s.number+1;
 #endif
-
-	//memset( &ent->client->usercmd, 0, sizeof( usercmd_t ) );
 
 	//FIXME: no saber or weapons if numHands = 2, should switch to speeder weapon, no attack anim on player
 	if ( pVeh->m_pVehicleInfo->numHands == 2 )
@@ -916,7 +888,6 @@ bool VEH_TryEject( Vehicle_t *pVeh,
 	}
 	VectorNormalize( vVehLeaveDir );
 	//NOTE: not sure why following line was needed - MCG
-	//pVeh->m_EjectDir = VEH_EJECT_LEFT;
 
 	// Since (as of this time) the collidable geometry of the entity is just an axis 
 	// aligned box, we need to get the diagonal length of it in case we come out on that side.
@@ -989,7 +960,6 @@ void G_EjectDroidUnit( Vehicle_t *pVeh, qboolean kill )
 #else
 	pVeh->m_pDroidUnit->owner = NULL;
 #endif
-//	pVeh->m_pDroidUnit->s.otherEntityNum2 = ENTITYNUM_NONE;
 #ifdef QAGAME
 	{
 		gentity_t *droidEnt = (gentity_t *)pVeh->m_pDroidUnit;
@@ -1149,13 +1119,11 @@ getItOutOfMe:
 		parent->s.owner = parent->r.ownerNum; //for prediction
 
 		//keep these current angles
-		//SetClientViewAngle( parent, pVeh->m_vOrientation );
 		memset( &parent->client->pers.cmd, 0, sizeof( usercmd_t ) );
 #else
 		parent->owner = NULL;
 
 		//keep these current angles
-		//SetClientViewAngle( parent, pVeh->m_vOrientation );
 		memset( &parent->client->usercmd, 0, sizeof( usercmd_t ) );
 #endif
 		memset( &pVeh->m_ucmd, 0, sizeof( usercmd_t ) );
@@ -1659,14 +1627,6 @@ bool Initialize( Vehicle_t *pVeh )
 	}
 
 	pVeh->m_iNumPassengers = 0; 
-	/*
-	if ( pVeh->m_iVehicleTypeID == VH_FIGHTER )
-	{
-		pVeh->m_ulFlags = VEH_GEARSOPEN;
-	}
-	else
-	*/
-	//why?! -rww
 	{
 		pVeh->m_ulFlags = 0;
 	}
@@ -1680,13 +1640,6 @@ bool Initialize( Vehicle_t *pVeh )
 	pVeh->m_iDieTime = 0;
 	pVeh->m_EjectDir = VEH_EJECT_LEFT;
 
-	//pVeh->m_iDriverTag = -1;
-	//pVeh->m_iLeftExhaustTag = -1;
-	//pVeh->m_iRightExhaustTag = -1;
-	//pVeh->m_iGun1Tag = -1;
-	//pVeh->m_iGun1Bone = -1;
-	//pVeh->m_iLeftWingBone = -1;
-	//pVeh->m_iRightWingBone = -1;
 	memset( pVeh->m_iExhaustTag, -1, sizeof( int ) * MAX_VEHICLE_EXHAUSTS );
 	memset( pVeh->m_iMuzzleTag, -1, sizeof( int ) * MAX_VEHICLE_MUZZLES );
 	// FIXME! Use external values read from the vehicle data file!
@@ -1724,7 +1677,6 @@ static bool Update( Vehicle_t *pVeh, const usercmd_t *pUmcd )
 {
 	gentity_t *parent = (gentity_t *)pVeh->m_pParentEntity;
 	gentity_t *pilotEnt;
-	//static float fMod = 1000.0f / 60.0f;
 	vec3_t vVehAngles;
 	int i;
 	int	prevSpeed;
@@ -1836,15 +1788,6 @@ static bool Update( Vehicle_t *pVeh, const usercmd_t *pUmcd )
 		{
 			SetClientViewAngle( (gentity_t *)pVeh->m_pPilot, pVeh->m_vOrientation );
 		}
-		/*
-		for ( i = 0; i < pVeh->m_pVehicleInfo->maxPassengers; i++ )
-		{
-			if ( pVeh->m_ppPassengers[i] )
-			{
-				SetClientViewAngle( (gentity_t *)pVeh->m_ppPassengers[i], pVeh->m_vOrientation );
-			}
-		}
-		*/
 
 		// Process the move commands.
 		pVeh->m_pVehicleInfo->ProcessMoveCommands( pVeh );
@@ -2060,29 +2003,13 @@ static bool Update( Vehicle_t *pVeh, const usercmd_t *pUmcd )
 #ifdef _JK2MP
 	// Copy over the commands for local storage.
 	memcpy( &parent->client->pers.cmd, &pVeh->m_ucmd, sizeof( usercmd_t ) );
-	pVeh->m_ucmd.buttons &= ~(BUTTON_TALK);//|BUTTON_GESTURE); //don't want some of these buttons
+	pVeh->m_ucmd.buttons &= ~(BUTTON_TALK);
 #else
 	// Copy over the commands for local storage.
 	memcpy( &pVeh->m_ucmd, pUmcd, sizeof( usercmd_t ) );
 	memcpy( &parent->client->pers.lastCommand, pUmcd, sizeof( usercmd_t ) );
 #endif
 
-	/*
-	// Update time modifier.
-	pVeh->m_fTimeModifier = pVeh->m_ucmd.serverTime - parent->client->ps.commandTime;
-	//sanity check
-	if ( pVeh->m_fTimeModifier < 1 ) 
-	{
-		pVeh->m_fTimeModifier = 1;
-	} 
-	else if ( pVeh->m_fTimeModifier > 200 ) 
-	{
-		pVeh->m_fTimeModifier = 200;
-	}
-	//normalize to 1.0f at 20fps
-	pVeh->m_fTimeModifier = pVeh->m_fTimeModifier / fMod;
-	*/
-	
 	//check for weapon linking/unlinking command
 	for ( i = 0; i < MAX_VEHICLE_WEAPONS; i++ )
 	{//HMM... can't get a seperate command for each weapon, so do them all...?
@@ -2101,17 +2028,11 @@ static bool Update( Vehicle_t *pVeh, const usercmd_t *pUmcd )
 		else if ( 0 )
 #endif	
 		{//pilot pressed the "weapon link" toggle button
-			//playerState_t *pilotPS;
 #ifdef _JK2MP
-			//bgEntity_t *rider = NULL;
 			if (parent->s.owner != ENTITYNUM_NONE)
 			{
-				//rider = PM_BGEntForNum(parent->s.owner); //&g_entities[parent->r.ownerNum];
 			}
-			//pilotPS = rider->playerState;
 #else
-			//gentity_t *rider = parent->owner;
-			//pilotPS = &rider->client->ps;
 #endif
 			if ( !pVeh->linkWeaponToggleHeld )//so we don't hold it down and toggle it back and forth
 			{//okay to toggle
@@ -2191,15 +2112,6 @@ maintainSelfDuringBoarding:
 		}
 #endif
 	}
-	/*
-	for ( i = 0; i < pVeh->m_pVehicleInfo->maxPassengers; i++ )
-	{
-		if ( pVeh->m_ppPassengers[i] )
-		{
-			SetClientViewAngle( (gentity_t *)pVeh->m_ppPassengers[i], pVeh->m_vOrientation );
-		}
-	}
-	*/
 
 	// Process the move commands.
 	prevSpeed = parentPS->speed;
@@ -2360,8 +2272,7 @@ static bool UpdateRider( Vehicle_t *pVeh, bgEntity_t *pRider, usercmd_t *pUmcd )
 #else
 
 #endif
-					//PM_SetAnim(pm,SETANIM_BOTH,anim,SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD|SETANIM_FLAG_HOLDLESS);
-					rider->client->ps.weaponTime = rider->client->ps.torsoAnimTimer - 200;//just to make sure it's cleared when roll is done
+					rider->client->ps.weaponTime = rider->client->ps.torsoAnimTimer - 200;
 					G_AddEvent( rider, EV_ROLL, 0 );
 					return false;
 				}
@@ -2545,8 +2456,7 @@ static bool UpdateRider( Vehicle_t *pVeh, bgEntity_t *pRider, usercmd_t *pUmcd )
 #else
 
 #endif
-					//PM_SetAnim(pm,SETANIM_BOTH,anim,SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD|SETANIM_FLAG_HOLDLESS);
-					rider->client->ps.weaponTime = rider->client->ps.torsoAnimTimer - 200;//just to make sure it's cleared when roll is done
+					rider->client->ps.weaponTime = rider->client->ps.torsoAnimTimer - 200;
 					G_AddEvent( rider, EV_ROLL, 0 );
 				}
 				return false;
@@ -2636,7 +2546,6 @@ static void AttachRiders( Vehicle_t *pVeh )
 
 		assert(parent->ghoul2);
 		assert(parent->client);
-		//assert(droid->client);
 
 		if ( droid->client )
 		{
@@ -2979,7 +2888,7 @@ void G_SetVehDamageFlags( gentity_t *veh, int shipSurf, int damageLevel )
 				gentity_t *droidEnt = (gentity_t *)veh->m_pVehicle->m_pDroidUnit;
 				if ( droidEnt 
 					&& (droidEnt->flags&FL_UNDYING) )
-				{//make it vulnerab;e
+                {
 					droidEnt->flags &= ~FL_UNDYING;
 				}
 			}
@@ -3260,8 +3169,6 @@ GAME_INLINE bool Inhabited( Vehicle_t *pVeh ) { return ( pVeh->m_pPilot || pVeh-
 // Setup the shared functions (one's that all vehicles would generally use).
 void G_SetSharedVehicleFunctions( vehicleInfo_t *pVehInfo )
 {
-//	pVehInfo->AnimateVehicle				=		AnimateVehicle;
-//	pVehInfo->AnimateRiders					=		AnimateRiders;
 	pVehInfo->ValidateBoard					=		ValidateBoard;
 	pVehInfo->SetParent						=		SetParent;
 	pVehInfo->SetPilot						=		SetPilot;
@@ -3276,8 +3183,6 @@ void G_SetSharedVehicleFunctions( vehicleInfo_t *pVehInfo )
 	pVehInfo->Initialize					=		Initialize;
 	pVehInfo->Update						=		Update;
 	pVehInfo->UpdateRider					=		UpdateRider;
-//	pVehInfo->ProcessMoveCommands			=		ProcessMoveCommands;
-//	pVehInfo->ProcessOrientCommands			=		ProcessOrientCommands;
 	pVehInfo->AttachRiders					=		AttachRiders;
 	pVehInfo->Ghost							=		Ghost;
 	pVehInfo->UnGhost						=		UnGhost;

@@ -93,14 +93,6 @@ static void RegisterAssets( Vehicle_t *pVeh )
 	g_vehicleInfo[VEHICLE_BASE].RegisterAssets( pVeh );
 }
 
-// Like a think or move command, this updates various vehicle properties.
-/*
-static bool Update( Vehicle_t *pVeh, const usercmd_t *pUcmd )
-{
-	return g_vehicleInfo[VEHICLE_BASE].Update( pVeh, pUcmd );
-}
-*/
-
 // Board this Vehicle (get on). The first entity to board an empty vehicle becomes the Pilot.
 static bool Board( Vehicle_t *pVeh, bgEntity_t *pEnt )
 {
@@ -145,7 +137,6 @@ static void ProcessMoveCommands( Vehicle_t *pVeh )
 	speedMax = pVeh->m_pVehicleInfo->speedMax;
 
 	speedIdle = pVeh->m_pVehicleInfo->speedIdle;
-	//speedIdleAccel = pVeh->m_pVehicleInfo->accelIdle * pVeh->m_fTimeModifier;
 	speedMin = pVeh->m_pVehicleInfo->speedMin;
 
 #ifdef _JK2MP
@@ -156,7 +147,6 @@ static void ProcessMoveCommands( Vehicle_t *pVeh )
 	{//drifts to a stop
 		speedInc = speedIdle * pVeh->m_fTimeModifier;
 		VectorClear( parentPS->moveDir );
-		//m_ucmd.forwardmove = 127;
 		parentPS->speed = 0;
 	}
 	else
@@ -213,11 +203,6 @@ static void ProcessMoveCommands( Vehicle_t *pVeh )
 
 		pVeh->m_ucmd.rightmove = 0;
 
-		/*if ( !pVeh->m_pVehicleInfo->strafePerc 
-			|| (!g_speederControlScheme->value && !parent->s.number) )
-		{//if in a strafe-capable vehicle, clear strafing unless using alternate control scheme
-			pVeh->m_ucmd.rightmove = 0;
-		}*/
 	}
 
 	if (parentPS && parentPS->electrifyTime > pm->cmd.serverTime)
@@ -276,33 +261,6 @@ void WalkerYawAdjust(Vehicle_t *pVeh, playerState_t *riderPS, playerState_t *par
 	}
 }
 
-/*
-void WalkerPitchAdjust(Vehicle_t *pVeh, playerState_t *riderPS, playerState_t *parentPS)
-{
-	float angDif = AngleSubtract(pVeh->m_vOrientation[PITCH], riderPS->viewangles[PITCH]);
-
-	if (parentPS && parentPS->speed)
-	{
-		float s = parentPS->speed;
-		float maxDif = pVeh->m_pVehicleInfo->turningSpeed*0.8f; //magic number hackery
-
-		if (s < 0.0f)
-		{
-			s = -s;
-		}
-		angDif *= s/pVeh->m_pVehicleInfo->speedMax;
-		if (angDif > maxDif)
-		{
-			angDif = maxDif;
-		}
-		else if (angDif < -maxDif)
-		{
-			angDif = -maxDif;
-		}
-		pVeh->m_vOrientation[PITCH] = AngleNormalize360(pVeh->m_vOrientation[PITCH] - angDif*(pVeh->m_fTimeModifier*0.2f));
-	}
-}
-*/
 #endif
 
 //MP RULE - ALL PROCESSORIENTCOMMANDS FUNCTIONS MUST BE BG-COMPATIBLE!!!
@@ -317,7 +275,6 @@ static void ProcessOrientCommands( Vehicle_t *pVeh )
 	/********************************************************************************/
 	/*	BEGIN	Here is where make sure the vehicle is properly oriented.	BEGIN	*/
 	/********************************************************************************/
-	//float speed;
 	bgEntity_t *parent = pVeh->m_pParentEntity;
 	playerState_t *parentPS, *riderPS;
 
@@ -325,7 +282,7 @@ static void ProcessOrientCommands( Vehicle_t *pVeh )
 	bgEntity_t *rider = NULL;
 	if (parent->s.owner != ENTITYNUM_NONE)
 	{
-		rider = PM_BGEntForNum(parent->s.owner); //&g_entities[parent->r.ownerNum];
+		rider = PM_BGEntForNum(parent->s.owner); 
 	}
 #else
 	gentity_t *rider = parent->owner;
@@ -348,14 +305,12 @@ static void ProcessOrientCommands( Vehicle_t *pVeh )
 	riderPS = &rider->client->ps;
 #endif
 
-	//speed = VectorLength( parentPS->velocity );
 
 	// If the player is the rider...
 	if ( rider->s.number < MAX_CLIENTS )
 	{//FIXME: use the vehicle's turning stat in this calc
 #ifdef _JK2MP
 		WalkerYawAdjust(pVeh, riderPS, parentPS);
-		//FighterPitchAdjust(pVeh, riderPS, parentPS);
 		pVeh->m_vOrientation[PITCH] = riderPS->viewangles[PITCH];
 #else
 		pVeh->m_vOrientation[YAW] = riderPS->viewangles[YAW];
@@ -421,45 +376,17 @@ static void AnimateVehicle( Vehicle_t *pVeh )
 	// We're dead (boarding is reused here so I don't have to make another variable :-).
 	if ( parent->health <= 0 ) 
 	{
-		/*
-		if ( pVeh->m_iBoarding != -999 )	// Animate the death just once!
-		{
-			pVeh->m_iBoarding = -999;
-			iFlags = SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD; 
-
-			// FIXME! Why do you keep repeating over and over!!?!?!? Bastard!
-			//Vehicle_SetAnim( parent, SETANIM_LEGS, BOTH_VT_DEATH1, iFlags, iBlend );
-		}
-		*/
 		return;
 	}
-
-// Following is redundant to g_vehicles.c
-//	if ( pVeh->m_iBoarding )
-//	{
-//		//we have no boarding anim
-//		if (pVeh->m_iBoarding < level.time)
-//		{ //we are on now
-//			pVeh->m_iBoarding = 0;
-//		}
-//		else
-//		{
-//			return;
-//		}
-//	}
-
+ 
 	// Percentage of maximum speed relative to current speed.
-	//float fSpeed = VectorLength( client->ps.velocity );
 	fSpeedPercToMax = parent->client->ps.speed / pVeh->m_pVehicleInfo->speedMax; 
 
 	// If we're moving...
-	if ( fSpeedPercToMax > 0.0f ) //fSpeedPercToMax >= 0.85f )
+	if ( fSpeedPercToMax > 0.0f )
 	{  
-		//float fYawDelta;
-
 		iBlend = 300;
 		iFlags = SETANIM_FLAG_OVERRIDE;
-		//fYawDelta = pVeh->m_vPrevOrientation[YAW] - pVeh->m_vOrientation[YAW];
 
 		// NOTE: Mikes suggestion for fixing the stuttering walk (left/right) is to maintain the
 		// current frame between animations. I have no clue how to do this and have to work on other
@@ -469,15 +396,6 @@ static void AnimateVehicle( Vehicle_t *pVeh )
 		if ( ( pVeh->m_ucmd.buttons & BUTTON_WALKING ) || fSpeedPercToMax < 0.275f )
 		{ 
 			// Make them lean if we're turning.
-			/*if ( fYawDelta < -0.0001f )
-			{
-				Anim = BOTH_VT_WALK_FWD_L;
-			}
-			else if ( fYawDelta > 0.0001 )
-			{
-				Anim = BOTH_VT_WALK_FWD_R;
-			}
-			else*/
 			{
 				Anim = BOTH_WALK1;
 			}
@@ -485,17 +403,7 @@ static void AnimateVehicle( Vehicle_t *pVeh )
 		// otherwise we're running.
 		else
 		{
-			// Make them lean if we're turning.
-			/*if ( fYawDelta < -0.0001f )
-			{
-				Anim = BOTH_VT_RUN_FWD_L;
-			}
-			else if ( fYawDelta > 0.0001 )
-			{
-				Anim = BOTH_VT_RUN_FWD_R;
-			}
-			else*/
-			{
+				{
 				Anim = BOTH_RUN1;
 			}
 		}
@@ -511,8 +419,6 @@ static void AnimateVehicle( Vehicle_t *pVeh )
 		}
 		else
 		{
-			//int iChance = Q_irand( 0, 20000 ); 
-
 			// Every once in a while buck or do a different idle...
 			iFlags = SETANIM_FLAG_NORMAL | SETANIM_FLAG_RESTART | SETANIM_FLAG_HOLD; 
 			iBlend = 600;
@@ -547,21 +453,8 @@ void G_SetWalkerVehicleFunctions( vehicleInfo_t *pVehInfo )
 {
 #ifdef QAGAME
 	pVehInfo->AnimateVehicle			=		AnimateVehicle;
-//	pVehInfo->AnimateRiders				=		AnimateRiders;
-//	pVehInfo->ValidateBoard				=		ValidateBoard;
-//	pVehInfo->SetParent					=		SetParent;
-//	pVehInfo->SetPilot					=		SetPilot;
-//	pVehInfo->AddPassenger				=		AddPassenger;
-//	pVehInfo->Animate					=		Animate;
 	pVehInfo->Board						=		Board;
-//	pVehInfo->Eject						=		Eject;
-//	pVehInfo->EjectAll					=		EjectAll;
-//	pVehInfo->StartDeathDelay			=		StartDeathDelay;
-//	pVehInfo->DeathUpdate				=		DeathUpdate;
 	pVehInfo->RegisterAssets			=		RegisterAssets;
-//	pVehInfo->Initialize				=		Initialize;
-//	pVehInfo->Update					=		Update;
-//	pVehInfo->UpdateRider				=		UpdateRider;
 #endif //QAGAME
 	pVehInfo->ProcessMoveCommands		=		ProcessMoveCommands;
 	pVehInfo->ProcessOrientCommands		=		ProcessOrientCommands;
@@ -569,10 +462,6 @@ void G_SetWalkerVehicleFunctions( vehicleInfo_t *pVehInfo )
 #ifndef QAGAME //cgame prediction attachment func
 	pVehInfo->AttachRiders				=		AttachRidersGeneric;
 #endif
-//	pVehInfo->AttachRiders				=		AttachRiders;
-//	pVehInfo->Ghost						=		Ghost;
-//	pVehInfo->UnGhost					=		UnGhost;
-//	pVehInfo->Inhabited					=		Inhabited;
 }
 
 // Following is only in game, not in namespace

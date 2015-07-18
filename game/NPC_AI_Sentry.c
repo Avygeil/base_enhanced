@@ -67,7 +67,6 @@ void sentry_use( gentity_t *self, gentity_t *other, gentity_t *activator)
 
 	self->flags &= ~FL_SHIELDED;
 	NPC_SetAnim( self, SETANIM_BOTH, BOTH_POWERUP1, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
-//	self->NPC->localState = LSTATE_WAKEUP;
 	self->NPC->localState = LSTATE_ACTIVE;
 }
 
@@ -92,16 +91,6 @@ void NPC_Sentry_Pain(gentity_t *self, gentity_t *attacker, int damage)
 
 		self->NPC->localState = LSTATE_ACTIVE;
 	}
-
-	// You got hit, go after the enemy
-//	if (self->NPC->localState == LSTATE_ASLEEP)
-//	{
-//		G_Sound( self, G_SoundIndex("sound/chars/sentry/misc/shieldsopen.wav"));
-//
-//		self->flags &= ~FL_SHIELDED;
-//		NPC_SetAnim( self, SETANIM_BOTH, BOTH_POWERUP1, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
-//		self->NPC->localState = LSTATE_WAKEUP;
-//	}
 }
 
 /*
@@ -172,7 +161,6 @@ void Sentry_Fire (void)
 	BG_GiveMeVectorFromMatrix( &boltMatrix, ORIGIN, muzzle );
 
 	AngleVectors( NPC->r.currentAngles, forward, vright, up );
-//	G_Sound( NPC, G_SoundIndex("sound/chars/sentry/misc/shoot.wav"));
 
 	G_PlayEffectID( G_EffectIndex("bryar/muzzle_flash"), muzzle, forward );
 
@@ -359,7 +347,6 @@ void Sentry_Strafe( void )
 		NPC->client->ps.velocity[2] += SENTRY_UPWARD_PUSH;
 
 		// Set the strafe start time so we can do a controlled roll
-	//	NPC->fx_time = level.time;
 		NPCInfo->standTime = level.time + 3000 + random() * 500;
 	}
 }
@@ -525,7 +512,6 @@ void NPC_Sentry_Patrol( void )
 	{
 		if ( NPC_CheckPlayerTeamStealth() )
 		{
-			//NPC_AngerSound();
 			NPC_UpdateAngles( qtrue, qtrue );
 			return;
 		}

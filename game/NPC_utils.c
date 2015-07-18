@@ -56,12 +56,6 @@ void CalcEntitySpot ( const gentity_t *ent, const spot_t spot, vec3_t point )
 				point[0] = ent->r.currentOrigin[0];
 				point[1] = ent->r.currentOrigin[1];
 			}
-			/*
-			else if (ent->s.eType == ET_PLAYER )
-			{
-				SubtractLeanOfs( ent, point );
-			}
-			*/
 		}
 		else
 		{
@@ -94,12 +88,6 @@ void CalcEntitySpot ( const gentity_t *ent, const spot_t spot, vec3_t point )
 				point[0] = ent->r.currentOrigin[0];
 				point[1] = ent->r.currentOrigin[1];
 			}
-			/*
-			else if ( ent->s.eType == ET_PLAYER )
-			{
-				SubtractLeanOfs( ent, point );
-			}
-			*/
 			//NOTE: automatically takes leaning into account!
 		}
 		else
@@ -109,14 +97,8 @@ void CalcEntitySpot ( const gentity_t *ent, const spot_t spot, vec3_t point )
 			{
 				point[2] += ent->client->ps.viewheight;
 			}
-			//AddLeanOfs ( ent, point );
 		}
 		break;
-
-	//FIXME: implement...
-	//case SPOT_CHEST:
-		//Returns point 3/4 from tag_torso to tag_head?
-		//break;
 
 	case SPOT_LEGS:
 		VectorCopy ( ent->r.currentOrigin, point );
@@ -326,7 +308,6 @@ qboolean NPC_UpdateAngles ( qboolean doPitch, qboolean doYaw )
 	float		targetPitch = 0;
 	float		targetYaw = 0;
 	float		yawSpeed;
-	//float		runningMod = NPCInfo->currentSpeed/100.0f;
 	qboolean	exact = qtrue;
 	qboolean	doSound = qfalse;
 
@@ -345,7 +326,6 @@ qboolean NPC_UpdateAngles ( qboolean doPitch, qboolean doYaw )
 		if(doYaw)
 			targetYaw = NPCInfo->desiredYaw;
 
-//		NPCInfo->aimTime = level.time + 250;
 		if(doPitch)
 			NPCInfo->lockedDesiredPitch = NPCInfo->desiredPitch;
 		if(doYaw)
@@ -359,46 +339,7 @@ qboolean NPC_UpdateAngles ( qboolean doPitch, qboolean doYaw )
 		// decay yaw error
 		error = AngleDelta ( NPC->client->ps.viewangles[YAW], targetYaw );
 		if( fabs(error) > MIN_ANGLE_ERROR )
-		{
-			/*
-			if(NPC->client->playerTeam == TEAM_BORG&&
-				NPCInfo->behaviorState != BS_FACE&&NPCInfo->tempBehavior!= BS_FACE)
-			{//HACK - borg turn more jittery
-				if ( error ) 
-				{
-					exact = qfalse;
-
-					decay = 60.0 + yawSpeed * 3;
-					decay *= 50.0 / 1000.0;//msec
-					//Snap to
-					if(fabs(error) > 10)
-					{
-						if(random() > 0.6)
-						{
-							doSound = qtrue;
-						}
-					}
-
-					if ( error < 0.0)//-10.0 ) 
-					{
-						error += decay;
-						if ( error > 0.0 ) 
-						{
-							error = 0.0;
-						}
-					}
-					else if ( error > 0.0)//10.0 ) 
-					{
-						error -= decay;
-						if ( error < 0.0 ) 
-						{
-							error = 0.0;
-						}
-					}
-				}
-			}
-			else*/
-			
+		{  			
 			if ( error ) 
 			{
 				exact = qfalse;
@@ -434,45 +375,7 @@ qboolean NPC_UpdateAngles ( qboolean doPitch, qboolean doYaw )
 		error = AngleDelta ( NPC->client->ps.viewangles[PITCH], targetPitch );
 		if ( fabs(error) > MIN_ANGLE_ERROR )
 		{
-			/*
-			if(NPC->client->playerTeam == TEAM_BORG&&
-				NPCInfo->behaviorState != BS_FACE&&NPCInfo->tempBehavior!= BS_FACE)
-			{//HACK - borg turn more jittery
-				if ( error ) 
-				{
-					exact = qfalse;
-
-					decay = 60.0 + yawSpeed * 3;
-					decay *= 50.0 / 1000.0;//msec
-					//Snap to
-					if(fabs(error) > 10)
-					{
-						if(random() > 0.6)
-						{
-							doSound = qtrue;
-						}
-					}
-
-					if ( error < 0.0)//-10.0 ) 
-					{
-						error += decay;
-						if ( error > 0.0 ) 
-						{
-							error = 0.0;
-						}
-					}
-					else if ( error > 0.0)//10.0 ) 
-					{
-						error -= decay;
-						if ( error < 0.0 ) 
-						{
-							error = 0.0;
-						}
-					}
-				}
-			}
-			else*/
-			
+		
 			if ( error ) 
 			{
 				exact = qfalse;
@@ -502,13 +405,6 @@ qboolean NPC_UpdateAngles ( qboolean doPitch, qboolean doYaw )
 	}
 
 	ucmd.angles[ROLL] = ANGLE2SHORT ( NPC->client->ps.viewangles[ROLL] ) - client->ps.delta_angles[ROLL];
-
-	/*
-	if(doSound)
-	{
-		G_Sound(NPC, G_SoundIndex(va("sound/enemies/borg/borgservo%d.wav", Q_irand(1, 8))));
-	}
-	*/
 
 	return exact;
 
@@ -627,7 +523,6 @@ qboolean NPC_UpdateFiringAngles ( qboolean doPitch, qboolean doYaw )
 		if(doYaw)
 			targetYaw = NPCInfo->desiredYaw;
 
-//		NPCInfo->aimTime = level.time + 250;
 		if(doPitch)
 			NPCInfo->lockedDesiredPitch = NPCInfo->desiredPitch;
 		if(doYaw)
@@ -678,13 +573,6 @@ qboolean NPC_UpdateFiringAngles ( qboolean doPitch, qboolean doYaw )
 				
 		// add yaw error based on NPCInfo->aim value
 		error = NPCInfo->lastAimErrorYaw;
-
-		/*
-		if(Q_irand(0, 1))
-		{
-			error *= -1;
-		}
-		*/
 
 		ucmd.angles[YAW] = ANGLE2SHORT( targetYaw + diff + error ) - client->ps.delta_angles[YAW];
 	}
@@ -877,13 +765,8 @@ qboolean G_ActivateBehavior (gentity_t *self, int bset )
 	}
 	else
 	{
-		/*
-		char			newname[MAX_FILENAME_LENGTH];		
-		sprintf((char *) &newname, "%s/%s", Q3_SCRIPT_DIR, bs_name );
-		*/
 		
 		//FIXME: between here and actually getting into the ICARUS_RunScript function, the stack gets blown!
-		//if ( ( ICARUS_entFilter == -1 ) || ( ICARUS_entFilter == self->s.number ) )
 		if (0)
 		{
 			G_DebugPrint( WL_VERBOSE, "%s attempting to run bSet %s (%s)\n", self->targetname, GetStringForID( BSETTable, bset ), bs_name );
@@ -1172,7 +1055,6 @@ qboolean NPC_ValidEnemy( gentity_t *ent )
 
 	//if haven't seen him in a while, give up
 	//if ( NPCInfo->enemyLastSeenTime != 0 && level.time - NPCInfo->enemyLastSeenTime > 7000 )//FIXME: make a stat?
-	//	return qfalse;
 	if ( entTeam == NPC->client->enemyTeam //simplest case: they're on my enemy team
 		|| (NPC->client->enemyTeam == NPCTEAM_FREE && ent->client->NPC_class != NPC->client->NPC_class )//I get mad at anyone and this guy isn't the same class as me
 		|| (ent->client->NPC_class == CLASS_WAMPA && ent->enemy )//a rampaging wampa
@@ -1302,14 +1184,6 @@ NPC_PickEnemyExt
 gentity_t *NPC_PickEnemyExt( qboolean checkAlerts )
 {
 	//Check for Hazard Team status and remove this check
-	/*
-	if ( NPC->client->playerTeam != TEAM_STARFLEET )
-	{
-		//If we've found the player, return it
-		if ( NPC_FindPlayer() )
-			return &g_entities[0];
-	}
-	*/
 
 	//If we've asked for the closest enemy
 	int entID = NPC_FindNearestEnemy( NPC );
@@ -1366,36 +1240,7 @@ NPC_CheckPlayerDistance
 
 static qboolean NPC_CheckPlayerDistance( void )
 {
-	return qfalse;//MOOT in MP
-	/*
-	float distance;
-
-	//Make sure we have an enemy
-	if ( NPC->enemy == NULL )
-		return qfalse;
-
-	//Only do this for non-players
-	if ( NPC->enemy->s.number == 0 )
-		return qfalse;
-
-	//must be set up to get mad at player
-	if ( !NPC->client || NPC->client->enemyTeam != NPCTEAM_PLAYER )
-		return qfalse;
-
-	//Must be within our FOV
-	if ( InFOV( &g_entities[0], NPC, NPCInfo->stats.hfov, NPCInfo->stats.vfov ) == qfalse )
-		return qfalse;
-
-	distance = DistanceSquared( NPC->r.currentOrigin, NPC->enemy->r.currentOrigin );
-
-	if ( distance > DistanceSquared( NPC->r.currentOrigin, g_entities[0].r.currentOrigin ) )
-	{ //rwwFIXMEFIXME: care about all clients not just client 0
-		G_SetEnemy( NPC, &g_entities[0] );
-		return qtrue;
-	}
-
-	return qfalse;
-	*/
+	return qfalse;//MOOT in MP 
 }
 
 /*
@@ -1422,11 +1267,6 @@ qboolean NPC_FindEnemy( qboolean checkAlerts )
 		return qfalse;
 	}
 
-	//Don't want a new enemy
-	//rwwFIXMEFIXME: support for locked enemy
-	//if ( ( ValidEnemy( NPC->enemy ) ) && ( NPC->svFlags & SVF_LOCKEDENEMY ) )
-	//	return qtrue;
-
 	//See if the player is closer than our current enemy
 	if ( NPC_CheckPlayerDistance() )
 	{
@@ -1434,7 +1274,6 @@ qboolean NPC_FindEnemy( qboolean checkAlerts )
 	}
 
 	//Otherwise, turn off the flag
-//	NPC->svFlags &= ~SVF_LOCKEDENEMY;
 	//See if the player is closer than our current enemy
 	if ( NPC->client->NPC_class != CLASS_RANCOR 
 		&& NPC->client->NPC_class != CLASS_WAMPA
@@ -1468,17 +1307,6 @@ NPC_CheckEnemyExt
 
 qboolean NPC_CheckEnemyExt( qboolean checkAlerts )
 {
-	//Make sure we're ready to think again
-/*
-	if ( NPCInfo->enemyCheckDebounceTime > level.time )
-		return qfalse;
-
-	//Get our next think time
-	NPCInfo->enemyCheckDebounceTime = level.time + NPC_GetCheckDelta();
-
-	//Attempt to find an enemy
-	return NPC_FindEnemy();
-*/
 	return NPC_FindEnemy( checkAlerts );
 }
 
@@ -1620,7 +1448,7 @@ void NPC_ClearLookTarget( gentity_t *self )
 		return;
 	}
 
-	self->client->renderInfo.lookTarget = ENTITYNUM_NONE;//ENTITYNUM_WORLD;
+	self->client->renderInfo.lookTarget = ENTITYNUM_NONE;
 	self->client->renderInfo.lookTargetClearTime = 0;
 }
 

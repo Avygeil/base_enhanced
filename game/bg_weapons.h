@@ -60,8 +60,6 @@ typedef enum //# ammo_e
 
 typedef struct weaponData_s
 {
-//	char	classname[32];		// Spawning name
-
 	int		ammoIndex;			// Index to proper ammo slot
 	int		ammoLow;			// Count when ammo is low
 
@@ -86,7 +84,6 @@ typedef struct weaponData_s
 
 typedef struct  ammoData_s
 {
-//	char	icon[32];	// Name of ammo icon file
 	int		max;		// Max amount player can hold of ammo
 } ammoData_t;
 

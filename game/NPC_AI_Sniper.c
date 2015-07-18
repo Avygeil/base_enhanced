@@ -69,7 +69,6 @@ void NPC_Sniper_PlayConfusionSound( gentity_t *self )
 	self->NPC->squadState = SQUAD_IDLE;
 	self->NPC->tempBehavior = BS_DEFAULT;
 
-	//self->NPC->behaviorState = BS_PATROL;
 	G_ClearEnemy( self );//FIXME: or just self->enemy = NULL;?
 
 	self->NPC->investigateCount = 0;
@@ -107,12 +106,6 @@ static void Sniper_HoldPosition( void )
 {
 	NPC_FreeCombatPoint( NPCInfo->combatPoint, qtrue );
 	NPCInfo->goalEntity = NULL;
-	
-	/*if ( TIMER_Done( NPC, "stand" ) )
-	{//FIXME: what if can't shoot from this pos?
-		TIMER_Set( NPC, "duck", Q_irand( 2000, 4000 ) );
-	}
-	*/
 }
 
 /*
@@ -193,8 +186,6 @@ void NPC_BSSniper_Patrol( void )
 		{
 			if ( NPC_CheckPlayerTeamStealth() )
 			{
-				//NPCInfo->behaviorState = BS_HUNT_AND_KILL;//Should be auto now
-				//NPC_AngerSound();
 				NPC_UpdateAngles( qtrue, qtrue );
 				return;
 			}
@@ -223,7 +214,6 @@ void NPC_BSSniper_Patrol( void )
 							level.alertEvents[alertEvent].owner->client->playerTeam == NPC->client->enemyTeam )
 						{//an enemy
 							G_SetEnemy( NPC, level.alertEvents[alertEvent].owner );
-							//NPCInfo->enemyLastSeenTime = level.time;
 							TIMER_Set( NPC, "attackDelay", Q_irand( (6-NPCInfo->stats.aim)*100, (6-NPCInfo->stats.aim)*500 ) );
 						}
 					}
@@ -276,31 +266,6 @@ void NPC_BSSniper_Patrol( void )
 
 /*
 -------------------------
-NPC_BSSniper_Idle
--------------------------
-*/
-/*
-void NPC_BSSniper_Idle( void )
-{
-	//reset our shotcount
-	NPC->count = 0;
-
-	//FIXME: check for other alert events?
-
-	//Is there danger nearby?
-	if ( NPC_CheckForDanger( NPC_CheckAlertEvents( qtrue, qtrue ) ) )
-	{
-		NPC_UpdateAngles( qtrue, qtrue );
-		return;
-	}
-
-	TIMER_Set( NPC, "roamTime", 2000 + Q_irand( 1000, 2000 ) );
-
-	NPC_UpdateAngles( qtrue, qtrue );
-}
-*/
-/*
--------------------------
 ST_CheckMoveState
 -------------------------
 */
@@ -308,7 +273,7 @@ ST_CheckMoveState
 static void Sniper_CheckMoveState( void )
 {
 	//See if we're a scout
-	if ( !(NPCInfo->scriptFlags & SCF_CHASE_ENEMIES) )//NPCInfo->behaviorState == BS_STAND_AND_SHOOT )
+	if ( !(NPCInfo->scriptFlags & SCF_CHASE_ENEMIES) )
 	{
 		if ( NPCInfo->goalEntity == NPC->enemy )
 		{
@@ -344,14 +309,12 @@ static void Sniper_CheckMoveState( void )
 		if ( NAV_HitNavGoal( NPC->r.currentOrigin, NPC->r.mins, NPC->r.maxs, NPCInfo->goalEntity->r.currentOrigin, 16, FlyingCreature( NPC ) ) || 
 			( NPCInfo->squadState == SQUAD_SCOUT && enemyLOS2 && enemyDist2 <= 10000 ) )
 		{
-			//int	newSquadState = SQUAD_STAND_AND_SHOOT;
 			//we got where we wanted to go, set timers based on why we were running
 			switch ( NPCInfo->squadState )
 			{
 			case SQUAD_RETREAT://was running away
 				TIMER_Set( NPC, "duck", (NPC->client->pers.maxHealth - NPC->health) * 100 );
 				TIMER_Set( NPC, "hideTime", Q_irand( 3000, 7000 ) );
-				//newSquadState = SQUAD_COVER;
 				break;
 			case SQUAD_TRANSITION://was heading for a combat point
 				TIMER_Set( NPC, "hideTime", Q_irand( 2000, 4000 ) );
@@ -415,22 +378,6 @@ static void Sniper_ResolveBlockedShot( void )
 			}
 		}
 	}
-	/*
-	else
-	{//maybe we should stand
-		if ( TIMER_Done( NPC, "stand" ) )
-		{//stand for as long as we'll be here
-			TIMER_Set( NPC, "stand", Q_irand( 500, 2000 ) );
-			return;
-		}
-	}
-	//Hmm, can't resolve this by telling them to duck or telling me to stand
-	//We need to move!
-	TIMER_Set( NPC, "roamTime", -1 );
-	TIMER_Set( NPC, "stick", -1 );
-	TIMER_Set( NPC, "duck", -1 );
-	TIMER_Set( NPC, "attackDelay", Q_irand( 1000, 3000 ) );
-	*/
 }
 
 /*
@@ -475,7 +422,6 @@ static void Sniper_CheckFireState( void )
 			NPCInfo->desiredPitch	= angles[PITCH];
 
 			shoot2 = qtrue;
-			//faceEnemy2 = qfalse;
 		}
 		return;
 	}
@@ -516,7 +462,6 @@ void Sniper_FaceEnemy( void )
 		//Get the positions
 		AngleVectors( NPC->client->ps.viewangles, forward, right, up );
 		CalcMuzzlePoint( NPC, forward, right, up, muzzle );
-		//CalcEntitySpot( NPC, SPOT_WEAPON, muzzle );
 		CalcEntitySpot( NPC->enemy, SPOT_ORIGIN, target );
 
 		if ( enemyDist2 > 65536 && NPCInfo->stats.aim < 5 )//is 256 squared, was 16384 (128*128)
@@ -592,7 +537,6 @@ void Sniper_FaceEnemy( void )
 		else
 		{
 			target[2] += flrand( 0, NPC->enemy->r.maxs[2] );
-			//CalcEntitySpot( NPC->enemy, SPOT_HEAD_LEAN, target );
 			GetAnglesForDirection( muzzle, target, angles );
 		}
 
@@ -646,7 +590,6 @@ void NPC_BSSniper_Attack( void )
 		return;
 	}
 
-	//NPC_CheckEnemy( qtrue, qfalse );
 	//If we don't have an enemy, just idle
 	if ( NPC_CheckEnemyExt(qfalse) == qfalse )//!NPC->enemy )//
 	{
@@ -736,13 +679,6 @@ void NPC_BSSniper_Attack( void )
 			}
 		}
 	}
-	/*
-	else if ( gi.inPVS( NPC->enemy->currentOrigin, NPC->currentOrigin ) )
-	{
-		NPCInfo->enemyLastSeenTime = level.time;
-		faceEnemy2 = qtrue;
-	}
-	*/
 
 	if ( enemyLOS2 )
 	{//FIXME: no need to face enemy if we're moving to some other goal and he's too far away to shoot?

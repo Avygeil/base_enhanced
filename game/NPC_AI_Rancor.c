@@ -130,10 +130,8 @@ void Rancor_Move( qboolean visible )
 }
 
 //---------------------------------------------------------
-//extern void G_Knockdown( gentity_t *self, gentity_t *attacker, const vec3_t pushDir, float strength, qboolean breakSaberLock );
 extern void G_Knockdown( gentity_t *victim );
 extern void G_Dismember( gentity_t *ent, gentity_t *enemy, vec3_t point, int limbType, float limbRollBase, float limbPitchBase, int deathAnim, qboolean postDeath );
-//extern qboolean G_DoDismemberment( gentity_t *self, vec3_t point, int mod, int damage, int hitLoc, qboolean force );
 extern float NPC_EntRangeFromBolt( gentity_t *targEnt, int boltIndex );
 extern int NPC_GetEntsNearBolt( int *radiusEnts, float radius, int boltIndex, vec3_t boltOrg );
 
@@ -171,7 +169,6 @@ void Rancor_DropVictim( gentity_t *self )
 					{
 						self->activator->client->ps.eFlags |= EF_NODRAW;//so his corpse doesn't drop out of me...
 					}
-					//G_FreeEntity( self->activator );
 				}
 			}
 		}
@@ -264,7 +261,6 @@ void Rancor_Swing( qboolean tryGrab )
 				if ( radiusEnt->health > 0 && radiusEnt->pain )
 				{//do pain on enemy
 					radiusEnt->pain( radiusEnt, NPC, 100 );
-					//GEntity_PainFunc( radiusEnt, NPC, NPC, radiusEnt->r.currentOrigin, 0, MOD_CRUSH );
 				}
 				else if ( radiusEnt->client )
 				{
@@ -280,12 +276,6 @@ void Rancor_Swing( qboolean tryGrab )
 
 				G_Sound( radiusEnt, CHAN_AUTO, G_SoundIndex( "sound/chars/rancor/swipehit.wav" ) );
 				//actually push the enemy
-				/*
-				//VectorSubtract( radiusEnt->r.currentOrigin, boltOrg, pushDir );
-				VectorSubtract( radiusEnt->r.currentOrigin, NPC->r.currentOrigin, pushDir );
-				pushDir[2] = Q_flrand( 100, 200 );
-				VectorNormalize( pushDir );
-				*/
 				VectorCopy( NPC->client->ps.viewangles, angs );
 				angs[YAW] += flrand( 25, 50 );
 				angs[PITCH] = flrand( -25, -15 );
@@ -297,7 +287,7 @@ void Rancor_Swing( qboolean tryGrab )
 					G_Throw( radiusEnt, pushDir, 250 );
 					if ( radiusEnt->health > 0 )
 					{//do pain on enemy
-						G_Knockdown( radiusEnt );//, NPC, pushDir, 100, qtrue );
+						G_Knockdown( radiusEnt );
 					}
 				}
 			}
@@ -316,7 +306,7 @@ void Rancor_Smash( void )
 	int			i;
 	vec3_t		boltOrg;
 
-	AddSoundEvent( NPC, NPC->r.currentOrigin, 512, AEL_DANGER, qfalse );//, qtrue );
+	AddSoundEvent( NPC, NPC->r.currentOrigin, 512, AEL_DANGER, qfalse );
 
 	numEnts = NPC_GetEntsNearBolt( radiusEntNums, radius, NPC->client->renderInfo.handLBolt, boltOrg );
 
@@ -359,7 +349,7 @@ void Rancor_Smash( void )
 				if ( distSq < halfRadSquared 
 					|| radiusEnt->client->ps.groundEntityNum != ENTITYNUM_NONE )
 				{//within range of my fist or withing ground-shaking range and not in the air
-					G_Knockdown( radiusEnt );//, NPC, vec3_origin, 100, qtrue );
+					G_Knockdown( radiusEnt );
 				}
 			}
 		}
@@ -416,10 +406,8 @@ void Rancor_Bite( void )
 					{
 						NPC_SetAnim( radiusEnt, SETANIM_BOTH, BOTH_DEATHBACKWARD2, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD );
 					}
-					//radiusEnt->client->dismembered = qfalse;
 					//FIXME: the limb should just disappear, cuz I ate it
 					G_Dismember( radiusEnt, NPC, radiusEnt->r.currentOrigin, hitLoc, 90, 0, radiusEnt->client->ps.torsoAnim, qtrue);
-					//G_DoDismemberment( radiusEnt, radiusEnt->r.currentOrigin, MOD_SABER, 1000, hitLoc, qtrue );
 				}
 			}
 			G_Sound( radiusEnt, CHAN_AUTO, G_SoundIndex( "sound/chars/rancor/chomp.wav" ) );
@@ -496,7 +484,6 @@ void Rancor_Attack( float distance, qboolean doCharge )
 			Rancor_Smash();
 			G_GetBoltPosition( NPC, NPC->client->renderInfo.handLBolt, shakePos, 0 );
 			G_ScreenShake( shakePos, NULL, 4.0f, 1000, qfalse );
-			//CGCam_Shake( 1.0f*playerDist/128.0f, 1000 );
 			break;
 		case BOTH_MELEE2:
 			Rancor_Bite();
@@ -509,9 +496,7 @@ void Rancor_Attack( float distance, qboolean doCharge )
 				if ( NPC->activator->health <= 0 )
 				{//killed him
 					//make it look like we bit his head off
-					//NPC->activator->client->dismembered = qfalse;
 					G_Dismember( NPC->activator, NPC, NPC->activator->r.currentOrigin, G2_MODELPART_HEAD, 90, 0, NPC->activator->client->ps.torsoAnim, qtrue);
-					//G_DoDismemberment( NPC->activator, NPC->activator->r.currentOrigin, MOD_SABER, 1000, HL_HEAD, qtrue );
 					NPC->activator->client->ps.forceHandExtend = HANDEXTEND_NONE;
 					NPC->activator->client->ps.forceHandExtendTime = 0;
 					NPC_SetAnim( NPC->activator, SETANIM_BOTH, BOTH_SWIM_IDLE1, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD );
@@ -529,9 +514,7 @@ void Rancor_Attack( float distance, qboolean doCharge )
 				//cut in half
 				if ( NPC->activator->client )
 				{
-					//NPC->activator->client->dismembered = qfalse;
 					G_Dismember( NPC->activator, NPC, NPC->activator->r.currentOrigin, G2_MODELPART_WAIST, 90, 0, NPC->activator->client->ps.torsoAnim, qtrue);
-					//G_DoDismemberment( NPC->activator, NPC->enemy->r.currentOrigin, MOD_SABER, 1000, HL_WAIST, qtrue );
 				}
 				//KILL
 				G_Damage( NPC->activator, NPC, NPC, vec3_origin, NPC->activator->r.currentOrigin, NPC->enemy->health+10, DAMAGE_NO_PROTECTION|DAMAGE_NO_ARMOR|DAMAGE_NO_KNOCKBACK|DAMAGE_NO_HIT_LOC, MOD_MELEE );//, HL_NONE );//
@@ -570,9 +553,7 @@ void Rancor_Attack( float distance, qboolean doCharge )
 				if ( NPC->activator->health > 0 )
 				{
 					//cut in half
-					//NPC->activator->client->dismembered = qfalse;
 					G_Dismember( NPC->activator, NPC, NPC->activator->r.currentOrigin, G2_MODELPART_WAIST, 90, 0, NPC->activator->client->ps.torsoAnim, qtrue);
-					//G_DoDismemberment( NPC->activator, NPC->enemy->r.currentOrigin, MOD_SABER, 1000, HL_WAIST, qtrue );
 					//KILL
 					G_Damage( NPC->activator, NPC, NPC, vec3_origin, NPC->activator->r.currentOrigin, NPC->enemy->health+10, DAMAGE_NO_PROTECTION|DAMAGE_NO_ARMOR|DAMAGE_NO_KNOCKBACK|DAMAGE_NO_HIT_LOC, MOD_MELEE );//, HL_NONE );
 					NPC->activator->client->ps.forceHandExtend = HANDEXTEND_NONE;
@@ -634,7 +615,7 @@ void Rancor_Combat( void )
 	{
 		NPCInfo->combatMove = qtrue;
 		NPCInfo->goalEntity = NPC->enemy;
-		NPCInfo->goalRadius = MIN_DISTANCE;//MAX_DISTANCE;	// just get us within combat range
+		NPCInfo->goalRadius = MIN_DISTANCE;
 
 		if ( !NPC_MoveToGoal( qtrue ) )
 		{//couldn't go after him?  Look for a new one
@@ -771,13 +752,6 @@ void NPC_Rancor_Pain( gentity_t *self, gentity_t *attacker, int damage )
 				}
 			}
 		}
-		//let go
-		/*
-		if ( !Q_irand( 0, 3 ) && self->count == 1 )
-		{
-			Rancor_DropVictim( self );
-		}
-		*/
 	}
 }
 
@@ -860,21 +834,12 @@ void NPC_BSRancor_Default( void )
 	}
 	if ( !TIMER_Done( NPC, "rageTime" ) )
 	{//do nothing but roar first time we see an enemy
-		AddSoundEvent( NPC, NPC->r.currentOrigin, 1024, AEL_DANGER_GREAT, qfalse );//, qfalse );
+		AddSoundEvent( NPC, NPC->r.currentOrigin, 1024, AEL_DANGER_GREAT, qfalse );
 		NPC_FaceEnemy( qtrue );
 		return;
 	}
 	if ( NPC->enemy )
 	{
-		/*
-		if ( NPC->enemy->client //enemy is a client
-			&& (NPC->enemy->client->NPC_class == CLASS_UGNAUGHT || NPC->enemy->client->NPC_class == CLASS_JAWA )//enemy is a lowly jawa or ugnaught
-			&& NPC->enemy->enemy != NPC//enemy's enemy is not me
-			&& (!NPC->enemy->enemy || !NPC->enemy->enemy->client || NPC->enemy->enemy->client->NPC_class!=CLASS_RANCOR) )//enemy's enemy is not a client or is not a rancor (which is as scary as me anyway)
-		{//they should be scared of ME and no-one else
-			G_SetEnemy( NPC->enemy, NPC );
-		}
-		*/
 		if ( TIMER_Done(NPC,"angrynoise") )
 		{
 			G_Sound( NPC, CHAN_AUTO, G_SoundIndex( va("sound/chars/rancor/misc/anger%d.wav", Q_irand(1, 3))) );
@@ -883,7 +848,7 @@ void NPC_BSRancor_Default( void )
 		}
 		else
 		{
-			AddSoundEvent( NPC, NPC->r.currentOrigin, 512, AEL_DANGER_GREAT, qfalse );//, qfalse );
+			AddSoundEvent( NPC, NPC->r.currentOrigin, 512, AEL_DANGER_GREAT, qfalse );
 		}
 		if ( NPC->count == 2 && NPC->client->ps.legsAnim == BOTH_ATTACK3 )
 		{//we're still chewing our enemy up
@@ -939,7 +904,7 @@ void NPC_BSRancor_Default( void )
 			G_Sound( NPC, CHAN_AUTO, G_SoundIndex( va("sound/chars/rancor/snort_%d.wav", Q_irand(1, 2))) );
 
 			TIMER_Set( NPC, "idlenoise", Q_irand( 2000, 4000 ) );
-			AddSoundEvent( NPC, NPC->r.currentOrigin, 384, AEL_DANGER, qfalse );//, qfalse );
+			AddSoundEvent( NPC, NPC->r.currentOrigin, 384, AEL_DANGER, qfalse );
 		}
 		if ( NPCInfo->scriptFlags & SCF_LOOK_FOR_ENEMIES )
 		{

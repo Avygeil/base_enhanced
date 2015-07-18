@@ -22,13 +22,11 @@ void NPC_ATST_Precache(void)
 	G_SoundIndex( "sound/chars/atst/atst_damaged1" );
 	G_SoundIndex( "sound/chars/atst/atst_damaged2" );
 
-//	RegisterItem( BG_FindItemForWeapon( WP_ATST_MAIN ));	//precache the weapon
 	//rwwFIXMEFIXME: add this weapon
 	RegisterItem( BG_FindItemForWeapon( WP_BOWCASTER ));	//precache the weapon
 	RegisterItem( BG_FindItemForWeapon( WP_ROCKET_LAUNCHER ));	//precache the weapon
 
 	G_EffectIndex( "env/med_explode2" );
-//	G_EffectIndex( "smaller_chunks" );
 	G_EffectIndex( "blaster/smoke_bolton" );
 	G_EffectIndex( "explosions/droidexplosion1" );
 }
@@ -65,9 +63,6 @@ Called by NPC's and player in an ATST
 
 void G_ATSTCheckPain( gentity_t *self, gentity_t *other, int damage )
 {
-	//int newBolt;
-	//int hitLoc = gPainHitLoc;
-	
 	if ( rand() & 1 )
 	{
 		G_SoundOnEnt( self, CHAN_LESS_ATTEN, "sound/chars/atst/atst_damaged1" );
@@ -76,40 +71,6 @@ void G_ATSTCheckPain( gentity_t *self, gentity_t *other, int damage )
 	{
 		G_SoundOnEnt( self, CHAN_LESS_ATTEN, "sound/chars/atst/atst_damaged2" );
 	}
-
-	/*
-	if ((hitLoc==HL_ARM_LT) && (self->locationDamage[HL_ARM_LT] > LEFT_ARM_HEALTH))
-	{
-		if (self->locationDamage[hitLoc] >= LEFT_ARM_HEALTH)	// Blow it up?
-		{
-			newBolt = trap_G2API_AddBolt( self->ghoul2, 0, "*flash3" );
-			if ( newBolt != -1 )
-			{
-//				G_PlayEffect( "small_chunks", self->playerModel, self->genericBolt1, self->s.number);
-				ATST_PlayEffect( self, trap_G2API_AddBolt(self->ghoul2, 0, "*flash3"), "env/med_explode2" );
-				//G_PlayEffectID( G_EffectIndex("blaster/smoke_bolton"), self->playerModel, newBolt, self->s.number);
-				//Maybe bother with this some other time.
-			}
-
-			NPC_SetSurfaceOnOff( self, "head_light_blaster_cann", TURN_OFF );
-		}
-	}
-	else if ((hitLoc==HL_ARM_RT) && (self->locationDamage[HL_ARM_RT] > RIGHT_ARM_HEALTH))	// Blow it up?
-	{
-		if (self->locationDamage[hitLoc] >= RIGHT_ARM_HEALTH)
-		{			
-			newBolt = trap_G2API_AddBolt( self->ghoul2, 0, "*flash4" );
-			if ( newBolt != -1 )
-			{
-//				G_PlayEffect( "small_chunks", self->playerModel, self->genericBolt2, self->s.number);
-				ATST_PlayEffect( self, trap_G2API_AddBolt(self->ghoul2, 0, "*flash4"), "env/med_explode2" );
-				//G_PlayEffect( "blaster/smoke_bolton", self->playerModel, newBolt, self->s.number);
-			}
-
-			NPC_SetSurfaceOnOff( self, "head_concussion_charger", TURN_OFF );
-		}
-	}
-	*/
 }
 /*
 -------------------------
@@ -211,12 +172,10 @@ void ATST_Attack( void )
 	switch ( distRate )
 	{
 	case DIST_MELEE:
-//		NPC_ChangeWeapon( WP_ATST_MAIN );
 		break;
 
 	case DIST_LONG:
 
-//		NPC_ChangeWeapon( WP_ATST_SIDE );
 		//rwwFIXMEFIXME: make atst weaps work.
 
 		// See if the side weapons are there

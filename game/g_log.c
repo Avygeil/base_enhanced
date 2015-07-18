@@ -833,8 +833,8 @@ qboolean CalculateEfficiency(gentity_t *ent, int *efficiency)
 		player = g_entities + i;
 		if (!player->inuse)
 			continue;
-		nShotsFired = player->client->accuracy_shots; //player->client->ps.persistant[PERS_ACCURACY_SHOTS];
-		nShotsHit = player->client->accuracy_hits; //player->client->ps.persistant[PERS_ACCURACY_HITS];
+		nShotsFired = player->client->accuracy_shots; 
+		nShotsHit = player->client->accuracy_hits; 
 		fAccuracyRatio = ( ((float)nShotsHit)/((float)nShotsFired) );
 		if (fAccuracyRatio > fBestRatio)
 		{
@@ -1193,20 +1193,6 @@ qboolean CalculateTeamMVPByRank(gentity_t *ent)
 	qboolean	bTied = (team == 3);
 	gentity_t	*player = NULL;
 
-	/*
-	if ( team == ent->client->ps.persistant[PERS_TEAM] && ent->client->ps.persistant[PERS_CLASS] == PC_BORG )
-	{//only the queen can be the MVP
-		if ( borgQueenClientNum == ent->s.number )
-		{
-			return qtrue;
-		}
-		else
-		{
-			return qfalse;
-		}
-	}
-	*/
-
 	for (i = 0; i < g_maxclients.integer; i++)
 	{
 		nScore = 0;
@@ -1244,12 +1230,6 @@ qboolean CalculateTeamDefender(gentity_t *ent)
 				team = ent->client->ps.persistant[PERS_TEAM];
 	gentity_t	*player = NULL;
 
-	/*
-	if (CalculateTeamMVP(ent))
-	{
-		return qfalse;
-	}
-	*/
 	for (i = 0; i < g_maxclients.integer; i++)
 	{
 		nScore = 0;
@@ -1280,12 +1260,6 @@ qboolean CalculateTeamWarrior(gentity_t *ent)
 				team = ent->client->ps.persistant[PERS_TEAM];
 	gentity_t	*player = NULL;
 
-	/*
-	if (CalculateTeamMVP(ent) || CalculateTeamDefender(ent))
-	{
-		return qfalse;
-	}
-	*/
 	for (i = 0; i < g_maxclients.integer; i++)
 	{
 		nScore = 0;
@@ -1316,12 +1290,6 @@ qboolean CalculateTeamCarrier(gentity_t *ent)
 				team = ent->client->ps.persistant[PERS_TEAM];
 	gentity_t	*player = NULL;
 
-	/*
-	if (CalculateTeamMVP(ent) || CalculateTeamDefender(ent) || CalculateTeamWarrior(ent))
-	{
-		return qfalse;
-	}
-	*/
 	for (i = 0; i < g_maxclients.integer; i++)
 	{
 		nScore = 0;
@@ -1352,13 +1320,6 @@ qboolean CalculateTeamInterceptor(gentity_t *ent)
 				team = ent->client->ps.persistant[PERS_TEAM];
 	gentity_t	*player = NULL;
 
-	/*
-	if (CalculateTeamMVP(ent) || CalculateTeamDefender(ent) || CalculateTeamWarrior(ent) ||
-		CalculateTeamCarrier(ent))
-	{
-		return qfalse;
-	}
-	*/
 	for (i = 0; i < g_maxclients.integer; i++)
 	{
 		nScore = 0;
@@ -1390,13 +1351,6 @@ qboolean CalculateTeamRedShirt(gentity_t *ent)
 				team = ent->client->ps.persistant[PERS_TEAM];
 	gentity_t	*player = NULL;
 
-	/*
-	if (CalculateTeamMVP(ent) || CalculateTeamDefender(ent) || CalculateTeamWarrior(ent) ||
-		CalculateTeamCarrier(ent) || CalculateTeamInterceptor(ent))
-	{
-		return qfalse;
-	}
-	*/
 	for (i = 0; i < g_maxclients.integer; i++)
 	{
 		nScore = 0;
@@ -1492,17 +1446,10 @@ qboolean CalculateSection31Award(gentity_t *ent)
 		player = g_entities + i;
 		if (!player->inuse)
 			continue;
-//
-//	kef -- heh.
-//
-//		if (strcmp("JaxxonPhred", ent->client->pers.netname))
-//		{
-//			continue;
-//		}
+
 		CalculateEfficiency(ent, &efficiency);
 		if (!CalculateSharpshooter(ent, &frags) ||
 			!CalculateUntouchable(ent) ||
-			/*(CalculateStreak(ent) < STREAK_CHAMPION) ||*/
 			(efficiency < 75))
 		{
 			continue;

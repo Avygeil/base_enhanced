@@ -71,7 +71,6 @@ void multi_trigger_run( gentity_t *ent )
 	{
 		if ( ent->painDebounceTime != level.time )
 		{//first ent to touch it this frame
-			//ent->e_ThinkFunc = thinkF_multi_wait;
 			ent->nextthink = level.time + ( ent->wait + ent->random * crandom() ) * 1000;
 			ent->painDebounceTime = level.time;
 		}
@@ -84,8 +83,6 @@ void multi_trigger_run( gentity_t *ent )
 		ent->think = 0;
 		ent->use = 0;
 		//Don't remove, Icarus may barf?
-		//ent->nextthink = level.time + FRAMETIME;
-		//ent->think = G_FreeEntity;
 	}
 	if( ent->activator && ent->activator->client )
 	{	// mark the trigger as being touched by the player
@@ -367,14 +364,6 @@ void Touch_Multi( gentity_t *self, gentity_t *other, trace_t *trace )
 		}
 	}
 
-// moved to just above multi_trigger because up here it just checks if the trigger is not being touched
-// we want it to check any conditions set on the trigger, if one of those isn't met, the trigger is considered to be "cleared"
-//	if ( self->e_ThinkFunc == thinkF_trigger_cleared_fire )
-//	{//We're waiting to fire our target2 first
-//		self->nextthink = level.time + self->speed;
-//		return;
-//	}
-
 	if ( self->spawnflags & 1 )
 	{
 		if ( other->s.eType == ET_NPC )
@@ -505,20 +494,6 @@ void Touch_Multi( gentity_t *self, gentity_t *other, trace_t *trace )
 			if( !( other->client->pers.cmd.buttons & BUTTON_ATTACK ) &&
 				!( other->client->pers.cmd.buttons & BUTTON_ALT_ATTACK ) )
 			{//not attacking, so hiding bonus
-				/*
-				//FIXME:  should really have sound events clear the hiddenDist
-				other->client->hiddenDist = self->radius;
-				//NOTE: movedir HAS to be normalized!
-				if ( VectorLength( self->movedir ) )
-				{//They can only be hidden from enemies looking in this direction
-					VectorCopy( self->movedir, other->client->hiddenDir );
-				}
-				else
-				{
-					VectorClear( other->client->hiddenDir );
-				}
-				*/
-				//Not using this, at least not yet.
 			}
 		}
 	}
@@ -929,45 +904,6 @@ void trigger_push_touch (gentity_t *self, gentity_t *other, trace_t *trace ) {
 		}
 	}
 
-	/*
-	//???
-	// if the player has already activated this trigger this frame
-	if( other && !other->s.number && self->aimDebounceTime == level.time )
-	{
-		return;		
-	}
-	*/
-	
-	/*
-	if( self->spawnflags & PUSH_CONVEYOR )
-	{   // only push player if he's on the ground
-		if( other->s.groundEntityNum == ENTITYNUM_NONE )
-		{
-			return;
-		}
-	}
-	*/
-
-	/*
-	if ( self->spawnflags & 1 )
-	{//PLAYERONLY
-		if ( other->s.number >= MAX_CLIENTS )
-		{
-			return;
-		}
-	}
-	else
-	{
-		if ( self->spawnflags & 8 )
-		{//NPCONLY
-			if ( other->NPC == NULL )
-			{
-				return;
-			}
-		}
-	}
-	*/
-
 	if ( !other->client ) {
 		if ( other->s.pos.trType != TR_STATIONARY && other->s.pos.trType != TR_LINEAR_STOP && other->s.pos.trType != TR_NONLINEAR_STOP && VectorLengthSquared( other->s.pos.trDelta ) )
 		{//already moving
@@ -1004,12 +940,6 @@ void trigger_push_touch (gentity_t *self, gentity_t *other, trace_t *trace ) {
 	{
 		VectorCopy( self->s.origin2, other->client->ps.velocity );
 	}
-	//so we don't take damage unless we land lower than we start here...
-	/*
-	other->client->ps.forceJumpZStart = 0;
-	other->client->ps.pm_flags |= PMF_TRIGGER_PUSHED;//pushed by a trigger
-	other->client->ps.jumpZStart = other->client->ps.origin[2];
-	*/
 
 	if ( self->wait == -1 )
 	{
@@ -1020,12 +950,6 @@ void trigger_push_touch (gentity_t *self, gentity_t *other, trace_t *trace ) {
 		self->painDebounceTime = level.time;
 		
 	}
-	/*
-	if( other && !other->s.number )
-	{	// mark that the player has activated this trigger this frame
-		self->aimDebounceTime =level.time;
-	}
-	*/
 }
 
 
@@ -1175,7 +1099,7 @@ void SP_target_push( gentity_t *self ) {
 	if ( self->spawnflags & 1 ) {
 		self->noise_index = G_SoundIndex("sound/weapons/force/jump.wav");
 	} else {
-		self->noise_index = 0;	//G_SoundIndex("sound/misc/windfly.wav");
+		self->noise_index = 0;	
 	}
 	if ( self->target ) {
 		VectorCopy( self->s.origin, self->r.absmin );
@@ -1345,13 +1269,6 @@ void hurt_touch( gentity_t *self, gentity_t *other, trace_t *trace ) {
 	} else {
 		self->timestamp = level.time + FRAMETIME;
 	}
-
-	// play sound
-	/*
-	if ( !(self->spawnflags & 4) && self->damage != -1 ) {
-		G_Sound( other, CHAN_AUTO, self->noise_index );
-	}
-	*/
 
 	if (self->spawnflags & 8)
 		dflags = DAMAGE_NO_PROTECTION;
@@ -1638,7 +1555,6 @@ void hyperspace_touch( gentity_t *self, gentity_t *other, trace_t *trace )
 				VectorMA( newOrg, fDiff, fwd, newOrg );
 				VectorMA( newOrg, rDiff, right, newOrg );
 				VectorMA( newOrg, uDiff, up, newOrg );
-				//G_Printf("hyperspace from %s to %s\n", vtos(other->client->ps.origin), vtos(newOrg) );
 				//now put them in the offset position, facing the angles that position wants them to be facing
 				TeleportPlayer( other, newOrg, ent->s.angles );
 				if ( other->m_pVehicle && other->m_pVehicle->m_pPilot )
@@ -1647,7 +1563,6 @@ void hyperspace_touch( gentity_t *self, gentity_t *other, trace_t *trace )
 					//FIXME: and the passengers?
 				}
 				//make them face the new angle
-				//other->client->ps.hyperSpaceIndex = ent->s.number;
 				VectorCopy( ent->s.angles, other->client->ps.hyperSpaceAngles );
 				//sound
 				G_Sound( other, CHAN_LOCAL, G_SoundIndex( "sound/vehicles/common/hyperend.wav" ) );
@@ -1675,26 +1590,6 @@ void hyperspace_touch( gentity_t *self, gentity_t *other, trace_t *trace )
 	}
 }
 
-/*
-void trigger_hyperspace_find_targets( gentity_t *self )
-{
-	gentity_t *targEnt = NULL;
-	targEnt = G_Find (NULL, FOFS(targetname), self->target);
-	if (!targEnt || !targEnt->inuse)
-	{ //this is bad
-		G_Error("trigger_hyperspace has invalid target '%s'\n", self->target);
-		return;
-	}
-	targEnt->r.svFlags |= SVF_BROADCAST;//crap, need to tell the cgame about the target_position
-	targEnt = G_Find (NULL, FOFS(targetname), self->target2);
-	if (!targEnt || !targEnt->inuse)
-	{ //this is bad
-		G_Error("trigger_hyperspace has invalid target2 '%s'\n", self->target2);
-		return;
-	}
-	targEnt->r.svFlags |= SVF_BROADCAST;//crap, need to tell the cgame about the target_position
-}
-*/
 /*QUAKED trigger_hyperspace (.5 .5 .5) ? 
 Ship will turn to face the angles of the first target_position then fly forward, playing the hyperspace effect, then pop out at a relative point around the target
 
@@ -1724,8 +1619,6 @@ void SP_trigger_hyperspace(gentity_t *self)
 
     trap_LinkEntity(self);
 
-	//self->think = trigger_hyperspace_find_targets;
-	//self->nextthink = level.time + FRAMETIME;
 }
 /*
 ==============================================================================
@@ -1891,7 +1784,6 @@ void asteroid_field_think(gentity_t *self)
 				G_ScaleNetHealth(newAsteroid);
 				newAsteroid->radius = copyAsteroid->radius;
 				newAsteroid->material = copyAsteroid->material;
-				//CacheChunkEffects( self->material );
 
 				//keep track of it
 				newAsteroid->r.ownerNum = self->s.number;

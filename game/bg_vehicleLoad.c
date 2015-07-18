@@ -193,7 +193,7 @@ static qboolean BG_ParseVehWeaponParm( vehWeaponInfo_t *vehWeapon, char *parmNam
 				if (!*(char **)(b+vehWeaponFields[i].ofs))
 				{ //just use 1024 bytes in case we want to write over the string
 #ifdef _JK2MP
-					*(char **)(b+vehWeaponFields[i].ofs) = (char *)BG_Alloc(1024);//(char *)BG_Alloc(strlen(value));
+					*(char **)(b+vehWeaponFields[i].ofs) = (char *)BG_Alloc(1024);
 					strcpy(*(char **)(b+vehWeaponFields[i].ofs), value);
 #else
 					(*(char **)(b+vehWeaponFields[i].ofs)) = G_NewString( value );
@@ -226,7 +226,6 @@ static qboolean BG_ParseVehWeaponParm( vehWeaponInfo_t *vehWeapon, char *parmNam
 				}
 				break;
 			case VF_WEAPON:	// take string, resolve into index into VehWeaponParms
-				//*(int *)(b+vehWeaponFields[i].ofs) = VEH_VehWeaponIndexForName( value );
 				break;
 			case VF_MODEL:// take the string, get the G_ModelIndex
 #ifdef QAGAME
@@ -239,7 +238,6 @@ static qboolean BG_ParseVehWeaponParm( vehWeaponInfo_t *vehWeapon, char *parmNam
 #ifndef _JK2MP
 				*(int *)(b+vehWeaponFields[i].ofs) = G_ModelIndex( value );
 #elif QAGAME
-				//*(int *)(b+vehWeaponFields[i].ofs) = G_ModelIndex( value );
 #else
 				*(int *)(b+vehWeaponFields[i].ofs) = trap_R_RegisterModel( value );
 #endif
@@ -255,7 +253,6 @@ static qboolean BG_ParseVehWeaponParm( vehWeaponInfo_t *vehWeapon, char *parmNam
 #ifndef _JK2MP
 				*(int *)(b+vehWeaponFields[i].ofs) = G_EffectIndex( value );
 #elif QAGAME
-				//*(int *)(b+vehWeaponFields[i].ofs) = G_EffectIndex( value );
 #elif CGAME
 				*(int *)(b+vehWeaponFields[i].ofs) = trap_FX_RegisterEffect( value );
 #endif
@@ -283,7 +280,6 @@ static qboolean BG_ParseVehWeaponParm( vehWeaponInfo_t *vehWeapon, char *parmNam
 #ifndef _JK2MP
 				*(int *)(b+vehWeaponFields[i].ofs) = G_SoundIndex( value );
 #elif QAGAME
-				//*(int *)(b+vehWeaponFields[i].ofs) = G_SoundIndex( value );
 #else
 				*(int *)(b+vehWeaponFields[i].ofs) = trap_S_RegisterSound( value );
 #endif
@@ -313,8 +309,6 @@ int VEH_LoadVehWeapon( const char *vehWeaponName )
 	char		*value;
 	const char	*p;
 	vehWeaponInfo_t	*vehWeapon = NULL;
-
-	//BG_VehWeaponSetDefaults( &g_vehWeaponInfo[0] );//set the first vehicle to default data
 
 	//try to parse data out
 	p = VehWeaponParms;
@@ -391,8 +385,6 @@ int VEH_LoadVehWeapon( const char *vehWeaponName )
 	{//all lock-on weapons use these 2 sounds
 #ifdef QAGAME
 		//Hmm, no need fo have server register this, is there?
-		//G_SoundIndex( "sound/weapons/torpedo/tick.wav" );
-		//G_SoundIndex( "sound/weapons/torpedo/lock.wav" );
 #elif CGAME
 		trap_S_RegisterSound( "sound/vehicles/weapons/common/tick.wav" );
 		trap_S_RegisterSound( "sound/vehicles/weapons/common/lock.wav" );
@@ -711,104 +703,6 @@ void BG_SetSharedVehicleFunctions( vehicleInfo_t *pVehInfo )
 void BG_VehicleSetDefaults( vehicleInfo_t *vehicle )
 {
 	memset(vehicle, 0, sizeof(vehicleInfo_t));
-/*
-#if _JK2MP
-	if (!vehicle->name)
-	{
-		vehicle->name = (char *)BG_Alloc(1024);
-	}
-	strcpy(vehicle->name, "default");
-#else
-	vehicle->name = G_NewString( "default" );
-#endif
-
-	//general data
-	vehicle->type = VH_SPEEDER;				//what kind of vehicle
-	//FIXME: no saber or weapons if numHands = 2, should switch to speeder weapon, no attack anim on player
-	vehicle->numHands = 0;					//if 2 hands, no weapons, if 1 hand, can use 1-handed weapons, if 0 hands, can use 2-handed weapons
-	vehicle->lookPitch = 0;				//How far you can look up and down off the forward of the vehicle
-	vehicle->lookYaw = 5;					//How far you can look left and right off the forward of the vehicle
-	vehicle->length = 0;					//how long it is - used for body length traces when turning/moving?
-	vehicle->width = 0;						//how wide it is - used for body length traces when turning/moving?
-	vehicle->height = 0;					//how tall it is - used for body length traces when turning/moving?
-	VectorClear( vehicle->centerOfGravity );//offset from origin: {forward, right, up} as a modifier on that dimension (-1.0f is all the way back, 1.0f is all the way forward)
-
-	//speed stats - note: these are DESIRED speed, not actual current speed/velocity
-	vehicle->speedMax = VEH_DEFAULT_SPEED_MAX;	//top speed
-	vehicle->turboSpeed = 0;					//turboBoost
-	vehicle->speedMin = 0;						//if < 0, can go in reverse
-	vehicle->speedIdle = 0;						//what speed it drifts to when no accel/decel input is given
-	vehicle->accelIdle = 0;						//if speedIdle > 0, how quickly it goes up to that speed
-	vehicle->acceleration = VEH_DEFAULT_ACCEL;	//when pressing on accelerator (1/2 this when going in reverse)
-	vehicle->decelIdle = VEH_DEFAULT_DECEL;		//when giving no input, how quickly it desired speed drops to speedIdle
-	vehicle->strafePerc = VEH_DEFAULT_STRAFE_PERC;//multiplier on current speed for strafing.  If 1.0f, you can strafe at the same speed as you're going forward, 0.5 is half, 0 is no strafing
-
-	//handling stats
-	vehicle->bankingSpeed = VEH_DEFAULT_BANKING_SPEED;	//how quickly it pitches and rolls (not under player control)
-	vehicle->rollLimit = VEH_DEFAULT_ROLL_LIMIT;		//how far it can roll to either side
-	vehicle->pitchLimit = VEH_DEFAULT_PITCH_LIMIT;		//how far it can pitch forward or backward
-	vehicle->braking = VEH_DEFAULT_BRAKING;				//when pressing on decelerator (backwards)
-	vehicle->turningSpeed = VEH_DEFAULT_TURNING_SPEED;	//how quickly you can turn
-	vehicle->turnWhenStopped = qfalse;					//whether or not you can turn when not moving	
-	vehicle->traction = VEH_DEFAULT_TRACTION;			//how much your command input affects velocity
-	vehicle->friction = VEH_DEFAULT_FRICTION;			//how much velocity is cut on its own
-	vehicle->maxSlope = VEH_DEFAULT_MAX_SLOPE;			//the max slope that it can go up with control
-
-	//durability stats
-	vehicle->mass = VEH_DEFAULT_MASS;			//for momentum and impact force (player mass is 10)
-	vehicle->armor = VEH_DEFAULT_MAX_ARMOR;		//total points of damage it can take
-	vehicle->toughness = VEH_DEFAULT_TOUGHNESS;	//modifies incoming damage, 1.0 is normal, 0.5 is half, etc.  Simulates being made of tougher materials/construction
-	vehicle->malfunctionArmorLevel = 0;			//when armor drops to or below this point, start malfunctioning
-
-	//visuals & sounds
-	//vehicle->model = "models/map_objects/ships/swoop.md3";	//what model to use - if make it an NPC's primary model, don't need this?
-	if (!vehicle->model)
-	{
-		vehicle->model = (char *)BG_Alloc(1024);
-	}
-	strcpy(vehicle->model, "models/map_objects/ships/swoop.md3");
-
-	vehicle->modelIndex = 0;							//set internally, not until this vehicle is spawned into the level
-	vehicle->skin = NULL;								//what skin to use - if make it an NPC's primary model, don't need this?
-	vehicle->riderAnim = BOTH_GUNSIT1;					//what animation the rider uses
-
-	vehicle->soundOn = NULL;							//sound to play when get on it
-	vehicle->soundLoop = NULL;							//sound to loop while riding it
-	vehicle->soundOff = NULL;							//sound to play when get off
-	vehicle->exhaustFX = NULL;							//exhaust effect, played from "*exhaust" bolt(s)
-	vehicle->trailFX = NULL;							//trail effect, played from "*trail" bolt(s)
-	vehicle->impactFX = NULL;							//explosion effect, for when it blows up (should have the sound built into explosion effect)
-	vehicle->explodeFX = NULL;							//explosion effect, for when it blows up (should have the sound built into explosion effect)
-	vehicle->wakeFX = NULL;								//effect itmakes when going across water
-
-	//other misc stats
-	vehicle->gravity = VEH_DEFAULT_GRAVITY;				//normal is 800
-	vehicle->hoverHeight = 0;//VEH_DEFAULT_HOVER_HEIGHT;	//if 0, it's a ground vehicle
-	vehicle->hoverStrength = 0;//VEH_DEFAULT_HOVER_STRENGTH;//how hard it pushes off ground when less than hover height... causes "bounce", like shocks
-	vehicle->waterProof = qtrue;						//can drive underwater if it has to
-	vehicle->bouyancy = 1.0f;							//when in water, how high it floats (1 is neutral bouyancy)
-	vehicle->fuelMax = 1000;							//how much fuel it can hold (capacity)
-	vehicle->fuelRate = 1;								//how quickly is uses up fuel
-	vehicle->visibility = VEH_DEFAULT_VISIBILITY;		//radius for sight alerts
-	vehicle->loudness = VEH_DEFAULT_LOUDNESS;			//radius for sound alerts
-	vehicle->explosionRadius = VEH_DEFAULT_EXP_RAD;
-	vehicle->explosionDamage = VEH_DEFAULT_EXP_DMG;
-	vehicle->maxPassengers = 0;
-
-	//new stuff
-	vehicle->hideRider = qfalse;						// rider (and passengers?) should not be drawn
-	vehicle->killRiderOnDeath = qfalse;					//if rider is on vehicle when it dies, they should die
-	vehicle->flammable = qfalse;						//whether or not the vehicle should catch on fire before it explodes
-	vehicle->explosionDelay = 0;						//how long the vehicle should be on fire/dying before it explodes
-	//camera stuff
-	vehicle->cameraOverride = qfalse;					//whether or not to use all of the following 3rd person camera override values
-	vehicle->cameraRange = 0.0f;						//how far back the camera should be - normal is 80
-	vehicle->cameraVertOffset = 0.0f;					//how high over the vehicle origin the camera should be - normal is 16
-	vehicle->cameraHorzOffset = 0.0f;					//how far to left/right (negative/positive) of of the vehicle origin the camera should be - normal is 0
-	vehicle->cameraPitchOffset = 0.0f;					//a modifier on the camera's pitch (up/down angle) to the vehicle - normal is 0
-	vehicle->cameraFOV = 0.0f;							//third person camera FOV, default is 80
-	vehicle->cameraAlpha = qfalse;						//fade out the vehicle if it's in the way of the crosshair
-*/
 }
 
 void BG_VehicleClampData( vehicleInfo_t *vehicle )
@@ -869,7 +763,7 @@ static qboolean BG_ParseVehicleParm( vehicleInfo_t *vehicle, char *parmName, cha
 				if (!*(char **)(b+vehicleFields[i].ofs))
 				{ //just use 128 bytes in case we want to write over the string
 #ifdef _JK2MP
-					*(char **)(b+vehicleFields[i].ofs) = (char *)BG_Alloc(128);//(char *)BG_Alloc(strlen(value));
+					*(char **)(b+vehicleFields[i].ofs) = (char *)BG_Alloc(128);
 					strcpy(*(char **)(b+vehicleFields[i].ofs), value);
 #else
 					(*(char **)(b+vehicleFields[i].ofs)) = G_NewString( value );
@@ -915,7 +809,6 @@ static qboolean BG_ParseVehicleParm( vehicleInfo_t *vehicle, char *parmName, cha
 #ifndef _JK2MP
 				*(int *)(b+vehicleFields[i].ofs) = G_ModelIndex( value );
 #elif QAGAME
-				//*(int *)(b+vehicleFields[i].ofs) = G_ModelIndex( value );
 #else
 				*(int *)(b+vehicleFields[i].ofs) = trap_R_RegisterModel( value );
 #endif
@@ -931,7 +824,6 @@ static qboolean BG_ParseVehicleParm( vehicleInfo_t *vehicle, char *parmName, cha
 #ifndef _JK2MP
 				*(int *)(b+vehicleFields[i].ofs) = G_EffectIndex( value );
 #elif QAGAME
-				//*(int *)(b+vehicleFields[i].ofs) = G_EffectIndex( value );
 #elif CGAME
 				*(int *)(b+vehicleFields[i].ofs) = trap_FX_RegisterEffect( value );
 #endif
@@ -959,7 +851,6 @@ static qboolean BG_ParseVehicleParm( vehicleInfo_t *vehicle, char *parmName, cha
 #ifndef _JK2MP
 				*(int *)(b+vehicleFields[i].ofs) = G_SoundIndex( value );
 #elif QAGAME
-				//*(int *)(b+vehicleFields[i].ofs) = G_SoundIndex( value );
 #else
 				*(int *)(b+vehicleFields[i].ofs) = trap_S_RegisterSound( value );
 #endif
@@ -1433,12 +1324,9 @@ void BG_VehWeaponLoadParms( void )
 	{
 		vehExtFNLen = strlen( holdChar );
 
-//		Com_Printf( "Parsing %s\n", holdChar );
-
 #ifdef _JK2MP
 		len = trap_FS_FOpenFile(va( "ext_data/vehicles/weapons/%s", holdChar), &f, FS_READ);
 #else
-//		len = gi.FS_ReadFile( va( "ext_data/vehicles/weapons/%s", holdChar), (void **) &buffer );
 		len = gi.FS_FOpenFile(va( "ext_data/vehicles/weapons/%s", holdChar), &f, FS_READ);
 #endif
 
@@ -1489,7 +1377,6 @@ void BG_VehWeaponLoadParms( void )
 void BG_VehicleLoadParms( void ) 
 {//HMM... only do this if there's a vehicle on the level?
 	int			len, totallen, vehExtFNLen, mainBlockLen, fileCnt, i;
-//	const char	*filename = "ext_data/vehicles.dat";
 	char		*holdChar, *marker;
 	char		vehExtensionListBuf[2048];			//	The list of file names read in
 	fileHandle_t	f;
@@ -1525,12 +1412,9 @@ void BG_VehicleLoadParms( void )
 	{
 		vehExtFNLen = strlen( holdChar );
 
-//		Com_Printf( "Parsing %s\n", holdChar );
-
 #ifdef _JK2MP
 		len = trap_FS_FOpenFile(va( "ext_data/vehicles/%s", holdChar), &f, FS_READ);
 #else
-//		len = gi.FS_ReadFile( va( "ext_data/vehicles/%s", holdChar), (void **) &buffer );
 		len = gi.FS_FOpenFile(va( "ext_data/vehicles/%s", holdChar), &f, FS_READ);
 #endif
 

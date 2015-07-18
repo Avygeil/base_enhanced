@@ -27,12 +27,10 @@ void G_ReflectMissile( gentity_t *ent, gentity_t *missile, vec3_t forward )
 	vec3_t	bounce_dir;
 	int		i;
 	float	speed;
-	//gentity_t	*owner = ent;
 	int		isowner = 0;
 
 	if ( ent->r.ownerNum )
 	{
-		//owner = &g_entities[ent->r.ownerNum];
 	}
 
 	if (missile->r.ownerNum == ent->s.number)
@@ -102,23 +100,15 @@ void G_DeflectMissile( gentity_t *ent, gentity_t *missile, vec3_t forward )
 	vec3_t	bounce_dir;
 	int		i;
 	float	speed;
-	//int		isowner = 0;
 	vec3_t missile_dir;
-
-	//if (missile->r.ownerNum == ent->s.number)
-	//{ //the original owner is bouncing the missile, so don't try to bounce it back at him
-	//	isowner = 1;
-	//}
 
 	//save the original speed
 	speed = VectorNormalize( missile->s.pos.trDelta );
 
 	if (ent->client)
 	{
-		//VectorSubtract( ent->r.currentOrigin, missile->r.currentOrigin, missile_dir );
 		AngleVectors(ent->client->ps.viewangles, missile_dir, 0, 0);
 		VectorCopy(missile_dir, bounce_dir);
-		//VectorCopy( missile->s.pos.trDelta, bounce_dir );
 		VectorScale( bounce_dir, DotProduct( forward, missile_dir ), bounce_dir );
 		VectorNormalize( bounce_dir );
 	}
@@ -160,7 +150,6 @@ void G_BounceMissile( gentity_t *ent, trace_t *trace ) {
 	float	dot;
 	int		hitTime;
 	gentity_t		*other;
-	//int k;
 	float coeff;
 
 	other = &g_entities[trace->entityNum];
@@ -337,7 +326,7 @@ gentity_t *CreateMissile( vec3_t org, vec3_t dir, float vel, int life,
 	}
 
 	missile->s.pos.trType = TR_LINEAR;
-	missile->s.pos.trTime = level.time;// - MISSILE_PRESTEP_TIME;	// NOTENOTE This is a Quake 3 addition over JK2
+	missile->s.pos.trTime = level.time;
 	missile->target_ent = NULL;
 
 	SnapVector(org);
@@ -419,19 +408,6 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 		}
 		return;
 	}
-
-	/*
-	if ( !other->takedamage && ent->s.weapon == WP_THERMAL && !ent->alt_fire )
-	{//rolling thermal det - FIXME: make this an eFlag like bounce & stick!!!
-		//G_BounceRollMissile( ent, trace );
-		if ( ent->owner && ent->owner->s.number == 0 ) 
-		{
-			G_MissileAddAlerts( ent );
-		}
-		//gi.linkentity( ent );
-		return;
-	}
-	*/
 
 	if ((other->r.contents & CONTENTS_LIGHTSABER) && !isKnockedSaber)
 	{ //hit this person's saber, so..
@@ -569,7 +545,7 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 		{
 			G_ReflectMissile(other, ent, fwd);
 		}
-		other->client->ps.saberBlockTime = level.time + (350 - (otherDefLevel*100)); //200;
+		other->client->ps.saberBlockTime = level.time + (350 - (otherDefLevel*100)); 
 
 		//For jedi AI
 		other->client->ps.saberEventFlags |= SEF_DEFLECTED;
@@ -598,15 +574,13 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 			ent->methodOfDeath != MOD_REPEATER_ALT &&
 			ent->methodOfDeath != MOD_FLECHETTE_ALT_SPLASH &&
 			ent->methodOfDeath != MOD_CONC &&
-			ent->methodOfDeath != MOD_CONC_ALT /*&&
-			otherOwner->client->ps.saberBlockTime < level.time*/)
+			ent->methodOfDeath != MOD_CONC_ALT )
 		{ //for now still deflect even if saberBlockTime >= level.time because it hit the actual saber
 			vec3_t fwd;
 			gentity_t *te;
 			int otherDefLevel = otherOwner->client->ps.fd.forcePowerLevel[FP_SABER_DEFENSE];
 
 			//in this case, deflect it even if we can't actually block it because it hit our saber
-			//WP_SaberCanBlock(otherOwner, ent->r.currentOrigin, 0, 0, qtrue, 0);
 			if (otherOwner->client && otherOwner->client->ps.weaponTime <= 0)
 			{
 				WP_SaberBlockNonRandom(otherOwner, ent->r.currentOrigin, qtrue);
@@ -619,9 +593,6 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 			te->s.weapon = 0;//saberNum
 			te->s.legsAnim = 0;//bladeNum
 
-			/*if (otherOwner->client->ps.velocity[2] > 0 ||
-				otherOwner->client->pers.cmd.forwardmove ||
-				otherOwner->client->pers.cmd.rightmove)*/
 			if (otherOwner->client->ps.velocity[2] > 0 ||
 				otherOwner->client->pers.cmd.forwardmove < 0) //now we only do it if jumping or running backward. Should be able to full-on charge.
 			{
@@ -646,7 +617,7 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 			{
 				G_ReflectMissile(otherOwner, ent, fwd);
 			}
-			otherOwner->client->ps.saberBlockTime = level.time + (350 - (otherDefLevel*100));//200;
+			otherOwner->client->ps.saberBlockTime = level.time + (350 - (otherDefLevel*100));
 
 			//For jedi AI
 			otherOwner->client->ps.saberEventFlags |= SEF_DEFLECTED;
@@ -847,9 +818,7 @@ void G_RunMissile( gentity_t *ent ) {
 	vec3_t		origin, groundSpot;
 	trace_t		tr;
 	int			passent = ENTITYNUM_NONE;
-	//int			ownerent = ENTITYNUM_NONE;
 	qboolean	isKnockedSaber = qfalse;
-	//qboolean	hitItself;
 
 	VectorSet(groundSpot, 0, 0, 0);
 
@@ -914,66 +883,6 @@ void G_RunMissile( gentity_t *ent ) {
 		VectorCopy( tr.endpos, ent->r.currentOrigin );
 	}
 
-	/*
-	hitItself = qfalse;
-	do{
-		if ( hitItself ) {
-			// hit itself on first pass, ignore for next attempt,
-			// but at least we gave a chance to hit ourselves body
-			passent = ownerent;
-			hitItself = qfalse;
-		}
-
-		// trace a line from the previous position to the current position
-		if (d_projectileGhoul2Collision.integer)
-		{
-			trap_G2Trace( &tr, ent->r.currentOrigin, ent->r.mins, ent->r.maxs, origin, passent, ent->clipmask, G2TRFLAG_DOGHOULTRACE|G2TRFLAG_GETSURFINDEX|G2TRFLAG_THICK|G2TRFLAG_HITCORPSES, g_g2TraceLod.integer );
-		}
-		else
-		{
-			trap_Trace( &tr, ent->r.currentOrigin, ent->r.mins, ent->r.maxs, origin, passent, ent->clipmask );
-		}
-
-		if ( ownerent < ENTITYNUM_WORLD && tr.entityNum < ENTITYNUM_WORLD &&
-			(ownerent == tr.entityNum || ownerent == g_entities[tr.entityNum].r.ownerNum) ) 
-		{
-			// allow hit ourselves 500ms after firing the missile, or when hiting the corpse
-			if ( (g_entities[tr.entityNum].s.eType != ET_BODY) &&
-				 (level.time - ent->s.pos.trTime < 500 || ownerent != tr.entityNum) ){ 
-				hitItself = qtrue;
-			}
-		}
-		
-		if (d_projectileGhoul2Collision.integer && !hitItself)
-		{
-			if (tr.fraction != 1.0 && tr.entityNum < ENTITYNUM_WORLD) {
-				gentity_t *g2Hit = &g_entities[tr.entityNum];
-
-				if (g2Hit->inuse && g2Hit->client && g2Hit->ghoul2)
-				{ //since we used G2TRFLAG_GETSURFINDEX, tr.surfaceFlags will actually contain the index of the surface on the ghoul2 model we collided with.
-					g2Hit->client->g2LastSurfaceHit = tr.surfaceFlags;
-					g2Hit->client->g2LastSurfaceTime = level.time;
-				}
-
-				if (g2Hit->ghoul2)
-				{
-					tr.surfaceFlags = 0; //clear the surface flags after, since we actually care about them in here.
-				}
-			}
-		}
-
-	} while( hitItself );
-
-	if ( tr.startsolid || tr.allsolid ) {
-		// make sure the tr.entityNum is set to the entity we're stuck in
-		trap_Trace( &tr, ent->r.currentOrigin, ent->r.mins, ent->r.maxs, ent->r.currentOrigin, passent, ent->clipmask );
-		tr.fraction = 0;
-	}
-	else {
-		VectorCopy( tr.endpos, ent->r.currentOrigin );
-	}
-	*/
-
 	if (ent->passThroughNum && tr.entityNum == (ent->passThroughNum-1))
 	{
 		VectorCopy( origin, ent->r.currentOrigin );
@@ -1028,22 +937,7 @@ void G_RunMissile( gentity_t *ent ) {
 		if (ent->s.weapon > WP_NONE && ent->s.weapon < WP_NUM_WEAPONS &&
 			(tr.entityNum < MAX_CLIENTS || g_entities[tr.entityNum].s.eType == ET_NPC))
 		{ //player or NPC, try making a mark on him
-			/*
-			gentity_t *evEnt = G_TempEntity(ent->r.currentOrigin, EV_GHOUL2_MARK);
-
-			evEnt->s.owner = tr.entityNum; //the entity the mark should be placed on
-			evEnt->s.weapon = ent->s.weapon; //the weapon used (to determine mark type)
-			VectorCopy(ent->r.currentOrigin, evEnt->s.origin); //the point of impact
-
-			//origin2 gets the predicted trajectory-based position.
-			BG_EvaluateTrajectory( &ent->s.pos, level.time, evEnt->s.origin2 );
-
-			//If they are the same, there will be problems.
-			if (VectorCompare(evEnt->s.origin, evEnt->s.origin2))
-			{
-				evEnt->s.origin2[2] += 2; //whatever, at least it won't mess up.
-			}
-			*/
+			
 			//ok, let's try adding it to the missile ent instead (tempents bad!)
 			G_AddEvent(ent, EV_GHOUL2_MARK, 0);
 

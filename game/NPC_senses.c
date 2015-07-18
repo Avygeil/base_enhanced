@@ -220,28 +220,6 @@ qboolean InVisrange ( gentity_t *ent )
 	CalcEntitySpot( ent, SPOT_ORIGIN, spot );
 	VectorSubtract ( spot, eyes, deltaVector);
 
-	/*if(ent->client)
-	{
-		float	vel, avel;
-		if(ent->client->ps.velocity[0] || ent->client->ps.velocity[1] || ent->client->ps.velocity[2])
-		{
-			vel = VectorLength(ent->client->ps.velocity);
-			if(vel > 128)
-			{
-				visrange += visrange * (vel/256);
-			}
-		}
-
-		if(ent->avelocity[0] || ent->avelocity[1] || ent->avelocity[2])
-		{//FIXME: shouldn't they need to have line of sight to you to detect this?
-			avel = VectorLength(ent->avelocity);
-			if(avel > 15)
-			{
-				visrange += visrange * (avel/60);
-			}
-		}
-	}*/
-
 	if(VectorLengthSquared(deltaVector) > visrange)
 	{
 		return qfalse;
@@ -387,12 +365,6 @@ static int G_CheckSoundEvents( gentity_t *self, float maxHearDist, int ignoreAle
 
 float G_GetLightLevel( vec3_t pos, vec3_t fromDir )
 {
-	/*
-	vec3_t	ambient={0}, directed, lightDir;
-
-	cgi_R_GetLighting( pos, ambient, directed, lightDir );
-	lightLevel = VectorLength( ambient ) + (VectorLength( directed )*DotProduct( lightDir, fromDir ));
-	*/
 	float	lightLevel;
 	//rwwFIXMEFIXME: ...this is evil. We can possibly read from the server BSP data, or load the lightmap along
 	//with collision data and whatnot, but is it worth it?
@@ -742,7 +714,7 @@ qboolean G_ClearLOS( gentity_t *self, const vec3_t start, const vec3_t end )
 	int			traceCount = 0;
 	
 	//FIXME: ENTITYNUM_NONE ok?
-	trap_Trace ( &tr, start, NULL, NULL, end, ENTITYNUM_NONE, CONTENTS_OPAQUE/*CONTENTS_SOLID*//*(CONTENTS_SOLID|CONTENTS_MONSTERCLIP)*/ );
+	trap_Trace ( &tr, start, NULL, NULL, end, ENTITYNUM_NONE, CONTENTS_OPAQUE );
 	while ( tr.fraction < 1.0 && traceCount < 3 )
 	{//can see through 3 panes of glass
 		if ( tr.entityNum < ENTITYNUM_WORLD )
@@ -888,7 +860,6 @@ int G_FindLocalInterestPoint( gentity_t *self )
 			}
 			dist = VectorLengthSquared( diffVec );
 			//Some priority to more interesting points
-			//dist -= ((int)level.interestPoints[i].lookMode * 5) * ((int)level.interestPoints[i].lookMode * 5);
 			if ( dist < MAX_INTEREST_DIST && dist < bestDist )
 			{
 				if ( G_ClearLineOfSight( eyes, level.interestPoints[i].origin, self->s.number, MASK_OPAQUE ) )

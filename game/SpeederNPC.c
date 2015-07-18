@@ -282,21 +282,12 @@ static void ProcessMoveCommands( Vehicle_t *pVeh )
 	//Client sets ucmds and such for speed alterations
 	float speedInc, speedIdleDec, speedIdle, /*speedIdleAccel,*/ speedMin, speedMax;
 	playerState_t *parentPS;
-	//playerState_t *pilotPS = NULL;
 	int	curTime;
 
 #ifdef _JK2MP
 	parentPS = pVeh->m_pParentEntity->playerState;
-	//if (pVeh->m_pPilot)
-	//{
-	//	pilotPS = pVeh->m_pPilot->playerState;
-	//}
 #else
 	parentPS = &pVeh->m_pParentEntity->client->ps;
-	//if (pVeh->m_pPilot)
-	//{
-	//	pilotPS = &pVeh->m_pPilot->client->ps;
-	//}
 #endif
 
 
@@ -416,7 +407,6 @@ static void ProcessMoveCommands( Vehicle_t *pVeh )
 
 
 	speedIdle = pVeh->m_pVehicleInfo->speedIdle;
-	//speedIdleAccel = pVeh->m_pVehicleInfo->accelIdle * pVeh->m_fTimeModifier;
 	speedMin = pVeh->m_pVehicleInfo->speedMin;
 
 	if ( parentPS->speed || parentPS->groundEntityNum == ENTITYNUM_NONE  ||
@@ -464,7 +454,6 @@ static void ProcessMoveCommands( Vehicle_t *pVeh )
 			|| (!g_speederControlScheme->value && !pVeh->m_pParentEntity->s.number) )
 #endif
 		{//if in a strafe-capable vehicle, clear strafing unless using alternate control scheme
-			//pVeh->m_ucmd.rightmove = 0;
 		}
 	}
 
@@ -522,7 +511,6 @@ void ProcessOrientCommands( Vehicle_t *pVeh )
 	}
 	parentPS = pVeh->m_pParentEntity->playerState;
 
-	//pVeh->m_vOrientation[YAW] = 0.0f;//riderPS->viewangles[YAW];
 	angDif = AngleSubtract(pVeh->m_vOrientation[YAW], riderPS->viewangles[YAW]);
 	if (parentPS && parentPS->speed)
 	{
@@ -629,10 +617,8 @@ extern void G_StartMatrixEffect( gentity_t *ent, int meFlags = 0, int length = 1
 void AnimateRiders( Vehicle_t *pVeh )
 {
 	animNumber_t Anim = BOTH_VS_IDLE;
-	//float fSpeedPercToMax;
 	int iFlags = SETANIM_FLAG_NORMAL, iBlend = 300;
 	playerState_t *pilotPS;
-	//playerState_t *parentPS;
 	int curTime;
 
 
@@ -674,7 +660,7 @@ void AnimateRiders( Vehicle_t *pVeh )
 			iAnimLen = BG_AnimLength( pVeh->m_pPilot->localAnimIndex, Anim ) * 0.4f;
 			pVeh->m_iBoarding = BG_GetTime() + iAnimLen;
 #else
- 			iAnimLen = PM_AnimLength( pVeh->m_pPilot->client->clientInfo.animFileIndex, Anim );// * 0.4f;
+ 			iAnimLen = PM_AnimLength( pVeh->m_pPilot->client->clientInfo.animFileIndex, Anim );
 			if (pVeh->m_iBoarding!=VEH_MOUNT_THROW_LEFT && pVeh->m_iBoarding!=VEH_MOUNT_THROW_RIGHT)
 			{
 				pVeh->m_iBoarding = level.time + (iAnimLen*0.4f);
@@ -742,10 +728,8 @@ void AnimateRiders( Vehicle_t *pVeh )
 
 #ifdef _JK2MP
 	pilotPS = pVeh->m_pPilot->playerState;
-	//parentPS = pVeh->m_pPilot->playerState;
 #else
 	pilotPS = &pVeh->m_pPilot->client->ps;
-	//parentPS = &pVeh->m_pParentEntity->client->ps;
 #endif
 
 #ifndef _JK2MP//SP
@@ -758,7 +742,6 @@ void AnimateRiders( Vehicle_t *pVeh )
 #endif
 
 	// Percentage of maximum speed relative to current speed.
-	//fSpeedPercToMax = parentPS->speed / pVeh->m_pVehicleInfo->speedMax;
 
 	// Going in reverse...
 #ifdef _JK2MP
@@ -1045,20 +1028,7 @@ void G_SetSpeederVehicleFunctions( vehicleInfo_t *pVehInfo )
 #ifdef QAGAME
 	pVehInfo->AnimateVehicle			=		AnimateVehicle;
 	pVehInfo->AnimateRiders				=		AnimateRiders;
-//	pVehInfo->ValidateBoard				=		ValidateBoard;
-//	pVehInfo->SetParent					=		SetParent;
-//	pVehInfo->SetPilot					=		SetPilot;
-//	pVehInfo->AddPassenger				=		AddPassenger;
-//	pVehInfo->Animate					=		Animate;
-//	pVehInfo->Board						=		Board;
-//	pVehInfo->Eject						=		Eject;
-//	pVehInfo->EjectAll					=		EjectAll;
-//	pVehInfo->StartDeathDelay			=		StartDeathDelay;
-//	pVehInfo->DeathUpdate				=		DeathUpdate;
-//	pVehInfo->RegisterAssets			=		RegisterAssets;
-//	pVehInfo->Initialize				=		Initialize;
 	pVehInfo->Update					=		Update;
-//	pVehInfo->UpdateRider				=		UpdateRider;
 #endif
 
 	//shared
@@ -1068,10 +1038,6 @@ void G_SetSpeederVehicleFunctions( vehicleInfo_t *pVehInfo )
 #ifndef QAGAME //cgame prediction attachment func
 	pVehInfo->AttachRiders				=		AttachRidersGeneric;
 #endif
-//	pVehInfo->AttachRiders				=		AttachRiders;
-//	pVehInfo->Ghost						=		Ghost;
-//	pVehInfo->UnGhost					=		UnGhost;
-//	pVehInfo->Inhabited					=		Inhabited;
 }
 
 // Following is only in game, not in namespace

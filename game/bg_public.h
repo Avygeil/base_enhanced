@@ -327,9 +327,6 @@ typedef struct
 {
 	char			filename[MAX_QPATH];
 	animation_t		*anims;
-//	animsounds_t	torsoAnimSnds[MAX_ANIM_SOUNDS];
-//	animsounds_t	legsAnimSnds[MAX_ANIM_SOUNDS];
-//	qboolean		soundsCached;
 } bgLoadedAnim_t;
 
 typedef struct
@@ -1140,7 +1137,6 @@ typedef struct gitem_s {
 	char		*world_model[MAX_ITEM_MODELS];
 	char		*view_model;
 	char		*icon;
-//	char		*pickup_name;	// for printing on pickup
 
 	int			quantity;		// for ammo how much, or duration of powerup
 	itemType_t  giType;			// IT_* flags

@@ -2,23 +2,6 @@
 #include "b_local.h"
 #include "Q3_Interface.h"
 
-/*
-void NPC_AngerSound (void)
-{
-	if(NPCInfo->investigateSoundDebounceTime)
-		return;
-
-	NPCInfo->investigateSoundDebounceTime = 1;
-
-//	switch((int)NPC->client->race)
-//	{
-//	case RACE_KLINGON:
-		//G_Sound(NPC, G_SoundIndex(va("sound/mgtest/klingon/talk%d.wav",	Q_irand(1, 4))));
-//		break;
-//	}
-}
-*/
-
 extern void G_SpeechEvent( gentity_t *self, int event );
 void G_AddVoiceEvent( gentity_t *self, int event, int speakDebounceTime )
 {
@@ -56,7 +39,6 @@ void G_AddVoiceEvent( gentity_t *self, int event, int speakDebounceTime )
 	//		everyone babbling at once
 
 	//NOTE: was losing too many speech events, so we do it directly now, screw networking!
-	//G_AddEvent( self, event, 0 );
 	G_SpeechEvent( self, event );
 
 	//won't speak again for 5 seconds (unless otherwise specified)
@@ -80,13 +62,11 @@ void NPC_PlayConfusionSound( gentity_t *self )
 			self->NPC->blockedSpeechDebounceTime = 0;//make sure we say this
 			G_AddVoiceEvent( self, EV_CONFUSE1, 2000 );
 		}
-		//G_AddVoiceEvent( self, Q_irand(EV_CONFUSE1, EV_CONFUSE3), 2000 );
 	}
 	//reset him to be totally unaware again
 	TIMER_Set( self, "enemyLastVisible", 0 );
 	self->NPC->tempBehavior = BS_DEFAULT;
 	
-	//self->NPC->behaviorState = BS_PATROL;
 	G_ClearEnemy( self );//FIXME: or just self->enemy = NULL;?
 
 	self->NPC->investigateCount = 0;

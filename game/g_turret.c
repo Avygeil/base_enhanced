@@ -63,7 +63,6 @@ void auto_turret_die ( gentity_t *self, gentity_t *inflictor, gentity_t *attacke
 	self->s.health = self->health = 0;
 	self->s.loopSound = 0;
 	self->s.shouldtarget = qfalse;
-	//self->s.owner = MAX_CLIENTS; //not owned by any client
 
 	VectorCopy( self->r.currentOrigin, pos );
 	pos[2] += self->r.maxs[2]*0.5f;
@@ -156,12 +155,10 @@ static void turret_fire ( gentity_t *ent, vec3_t start, vec3_t dir )
 	bolt->damage = ent->damage;
 	bolt->alliedTeam = ent->alliedTeam;
 	bolt->teamnodmg = ent->teamnodmg;
-	//bolt->dflags = DAMAGE_NO_KNOCKBACK;// | DAMAGE_HEAVY_WEAP_CLASS;		// Don't push them around, or else we are constantly re-aiming
 	bolt->splashDamage = ent->damage;
 	bolt->splashRadius = 100;
 	bolt->methodOfDeath = MOD_TARGET_LASER;
 	bolt->clipmask = MASK_SHOT | CONTENTS_LIGHTSABER;
-	//bolt->trigger_formation = qfalse;		// don't draw tail on first frame	
 
 	VectorSet( bolt->r.maxs, 1.5, 1.5, 1.5 );
 	VectorScale( bolt->r.maxs, -1, bolt->r.mins );
@@ -201,18 +198,6 @@ void turret_head_think( gentity_t *self )
 		// set up our next fire time
 		self->setTime = level.time + self->wait;
 
-		/*
-		mdxaBone_t	boltMatrix;
-
-		// Getting the flash bolt here
-		gi.G2API_GetBoltMatrix( self->ghoul2, self->playerModel, 
-					self->torsoBolt,
-					&boltMatrix, self->r.currentAngles, self->r.currentOrigin, (cg.time?cg.time:level.time),
-					NULL, self->s.modelScale );
-
-		gi.G2API_GiveMeVectorFromMatrix( boltMatrix, ORIGIN, org );
-		gi.G2API_GiveMeVectorFromMatrix( boltMatrix, POSITIVE_Y, fwd );
-		*/
 		VectorCopy( top->r.currentOrigin, org );
 		org[2] += top->r.maxs[2]-8;
 		AngleVectors( top->r.currentAngles, fwd, NULL, NULL );
@@ -275,17 +260,7 @@ static void turret_aim( gentity_t *self )
 		{ //hack!
 			org[2] += 32.0f;
 		}
-		/*
-		mdxaBone_t	boltMatrix;
 
-		// Getting the "eye" here
-		gi.G2API_GetBoltMatrix( self->ghoul2, self->playerModel, 
-					self->torsoBolt,
-					&boltMatrix, self->r.currentAngles, self->s.origin, (cg.time?cg.time:level.time),
-					NULL, self->s.modelScale );
-
-		gi.G2API_GiveMeVectorFromMatrix( boltMatrix, ORIGIN, org2 );
-		*/
 		VectorCopy( top->r.currentOrigin, org2 );
 
 		VectorSubtract( org, org2, enemyDir );
@@ -367,7 +342,6 @@ static void turret_turnoff( gentity_t *self )
 
 	self->s.loopSound = 0;
 	// shut-down sound
-	//G_Sound( self, CHAN_BODY, G_SoundIndex( "sound/chars/turret/shutdown.wav" ));
 
 	// Clear enemy
 	self->enemy = NULL;
@@ -412,7 +386,6 @@ static qboolean turret_find_enemies( gentity_t *self )
 		// We were active and alert, i.e. had an enemy in the last 3 secs
 		if ( self->timestamp < level.time )
 		{
-			//G_Sound(self, CHAN_BODY, G_SoundIndex( "sound/chars/turret/ping.wav" ));
 			self->timestamp = level.time + 1000;
 		}
 	}
@@ -476,7 +449,6 @@ static qboolean turret_find_enemies( gentity_t *self )
 				if ( self->attackDebounceTime < level.time )
 				{
 					// We haven't fired or acquired an enemy in the last 2 seconds-start-up sound
-					//G_Sound( self, CHAN_BODY, G_SoundIndex( "sound/chars/turret/startup.wav" ));
 
 					// Wind up turrets for a bit
 					self->attackDebounceTime = level.time + 1400;
@@ -607,16 +579,6 @@ void turret_base_use( gentity_t *self, gentity_t *other, gentity_t *activator )
 	// Toggle on and off
 	self->spawnflags = (self->spawnflags ^ 1);
 
-	/*
-	if (( self->s.eFlags & EF_SHADER_ANIM ) && ( self->spawnflags & 1 )) // Start_Off
-	{
-		self->s.frame = 1; // black
-	}
-	else
-	{
-		self->s.frame = 0; // glow
-	}
-	*/
 }
 
 
@@ -667,11 +629,6 @@ void SP_misc_turret( gentity_t *base )
 
 	base->s.modelindex2 = G_ModelIndex( "models/map_objects/hoth/turret_bottom.md3" );
 	base->s.modelindex = G_ModelIndex( "models/map_objects/hoth/turret_base.md3" );
-	//base->playerModel = gi.G2API_InitGhoul2Model( base->ghoul2, "models/map_objects/imp_mine/turret_canon.glm", base->s.modelindex );
-	//base->s.radius = 80.0f;
-
-	//gi.G2API_SetBoneAngles( &base->ghoul2[base->playerModel], "Bone_body", vec3_origin, BONE_ANGLES_POSTMULT, POSITIVE_Y, POSITIVE_Z, POSITIVE_X, NULL ); 
-	//base->torsoBolt = gi.G2API_AddBolt( &base->ghoul2[base->playerModel], "*flash03" );
 
 	G_SpawnString( "icon", "", &s );
 	if (s && s[0])
@@ -787,8 +744,6 @@ qboolean turret_base_spawn_top( gentity_t *base )
 	base->target_ent = top;
 	top->target_ent = base;
 
-	//top->s.owner = MAX_CLIENTS; //not owned by any client
-
 	// search radius
 	if ( !base->radius )
 	{
@@ -832,9 +787,6 @@ qboolean turret_base_spawn_top( gentity_t *base )
 	VectorSet( top->r.maxs, 48.0f, 48.0f, 16.0f );
 	VectorSet( top->r.mins, -48.0f, -48.0f, 0.0f );
 	// Precache moving sounds
-	//G_SoundIndex( "sound/chars/turret/startup.wav" );
-	//G_SoundIndex( "sound/chars/turret/shutdown.wav" );
-	//G_SoundIndex( "sound/chars/turret/ping.wav" );
 	G_SoundIndex( "sound/vehicles/weapons/hoth_turret/turn.wav" );
 	top->genericValue13 = G_EffectIndex( "turret/hoth_muzzle_flash" );
 	top->genericValue14 = G_EffectIndex( "turret/hoth_shot" );
@@ -842,13 +794,11 @@ qboolean turret_base_spawn_top( gentity_t *base )
 
 	top->r.contents = CONTENTS_BODY;
 
-	//base->max_health = base->health;
 	top->takedamage = qtrue;
 	top->pain = TurretPain;
 	top->die  = auto_turret_die;
 
 	top->material = MAT_METAL;
-	//base->r.svFlags |= SVF_NO_TELEPORT|SVF_NONNPC_ENEMY|SVF_SELF_ANIMATING;
 
 	// Register this so that we can use it for the missile effect
 	RegisterItem( BG_FindItemForWeapon( WP_EMPLACED_GUN ));

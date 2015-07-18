@@ -392,7 +392,6 @@ void JMSaberThink(gentity_t *ent)
 void JMSaberTouch(gentity_t *self, gentity_t *other, trace_t *trace)
 {
 	int i = 0;
-//	gentity_t *te;
 
 	if (!other || !other->client || other->health < 1)
 	{
@@ -465,11 +464,6 @@ void JMSaberTouch(gentity_t *self, gentity_t *other, trace_t *trace)
 	self->s.modelGhoul2 = 0;
 	self->s.eType = ET_GENERAL;
 
-	/*
-	te = G_TempEntity( vec3_origin, EV_DESTROY_GHOUL2_INSTANCE );
-	te->r.svFlags |= SVF_BROADCAST;
-	te->s.eventParm = self->s.number;
-	*/
 	G_KillG2Queue(self->s.number);
 
 	return;
@@ -496,7 +490,6 @@ void SP_info_jedimaster_start(gentity_t *ent)
 	ent->s.modelindex = G_ModelIndex("models/weapons2/saber/saber_w.glm");
 	ent->s.modelGhoul2 = 1;
 	ent->s.g2radius = 20;
-	//ent->s.eType = ET_GENERAL;
 	ent->s.eType = ET_MISSILE;
 	ent->s.weapon = WP_SABER;
 	ent->s.pos.trType = TR_GRAVITY;
@@ -860,34 +853,6 @@ Chooses a player start, deathmatch start, etc
 */
 gentity_t *SelectSpawnPoint ( vec3_t avoidPoint, vec3_t origin, vec3_t angles, team_t team ) {
 	return SelectRandomFurthestSpawnPoint( avoidPoint, origin, angles, team );
-
-	/*
-	gentity_t	*spot;
-	gentity_t	*nearestSpot;
-
-	nearestSpot = SelectNearestDeathmatchSpawnPoint( avoidPoint );
-
-	spot = SelectRandomDeathmatchSpawnPoint ( );
-	if ( spot == nearestSpot ) {
-		// roll again if it would be real close to point of death
-		spot = SelectRandomDeathmatchSpawnPoint ( );
-		if ( spot == nearestSpot ) {
-			// last try
-			spot = SelectRandomDeathmatchSpawnPoint ( );
-		}		
-	}
-
-	// find a single player start spot
-	if (!spot) {
-		G_Error( "Couldn't find a spawn point" );
-	}
-
-	VectorCopy (spot->s.origin, origin);
-	origin[2] += 9;
-	VectorCopy (spot->s.angles, angles);
-
-	return spot;
-	*/
 }
 
 /*
@@ -984,8 +949,6 @@ void BodySink( gentity_t *ent ) {
 		ent->physicsObject = qfalse;
 		return;	
 	}
-//	ent->nextthink = level.time + 100;
-//	ent->s.pos.trBase[2] -= 1;
 
 	G_AddEvent(ent, EV_BODYFADE, 0);
 	ent->nextthink = level.time + 18000;
@@ -1068,7 +1031,6 @@ static qboolean CopyToBodyQue( gentity_t *ent ) {
 		body->s.weapon = WP_BLASTER; //lie to keep from putting a saber on the corpse, because it was thrown at death
 	}
 
-	//G_AddEvent(body, EV_BODY_QUEUE_COPY, ent->s.clientNum);
 	//Now doing this through a modified version of the rcg reliable command.
 	if (ent->client && ent->client->ps.fd.forceSide == FORCE_LIGHTSIDE)
 	{
@@ -1226,7 +1188,6 @@ void respawn( gentity_t *ent ) {
 	{
 		gentity_t	*tent;
 
-		//trap_SendServerCommand( -1, va("print \"ClientSpawn() for %i\n\"", ent-g_entities ) );
 		ClientSpawn(ent);
 
 		// add a teleportation effect
@@ -1315,34 +1276,11 @@ team_t PickTeam( int ignoreClientNum ) {
 	return TEAM_BLUE;
 }
 
-/*
-===========
-ForceClientSkin
-
-Forces a client's skin (for teamplay)
-===========
-*/
-/*
-static void ForceClientSkin( gclient_t *client, char *model, const char *skin ) {
-	char *p;
-
-	if ((p = Q_strrchr(model, '/')) != 0) {
-		*p = 0;
-	}
-
-	Q_strcat(model, MAX_QPATH, "/");
-	Q_strcat(model, MAX_QPATH, skin);
-}
-*/
-
-
 static qboolean IsEmpty(const char* name){
 	const char* ptr;
 	char        ch, nextch;
-	//qboolean isEmpty;
 
 	ptr = name;
-	//isEmpty = qtrue;
 
 	while(*ptr){
 		ch = *(ptr++);
@@ -1381,7 +1319,6 @@ static qboolean ClientCleanName( const char *in, char *out, int outSize ) {
 	char	ch;
 	char	*p;
 	int		spaces;
-	//qboolean     isLeadingSpace;
 
 	//save room for trailing null byte
 	outSize--;
@@ -1391,7 +1328,6 @@ static qboolean ClientCleanName( const char *in, char *out, int outSize ) {
 	p = out;
 	*p = 0;
 	spaces = 0;
-	//isLeadingSpace = qtrue;
 
 	while( 1 ) {
 		ch = *in++;
@@ -1815,7 +1751,6 @@ void SetupGameGhoul2Model(gentity_t *ent, char *modelname, char *skinName)
 
 		if (strstr(GLAName, "players/rockettrooper/"))
 		{
-			//assert(!"Should not have gotten in here with rockettrooper skel");
 			ent->localAnimIndex = 1;
 		}
 		else
@@ -1938,14 +1873,11 @@ void ClientUserinfoChanged( int clientNum ) {
 	int		teamTask, teamLeader, team, health;
 	char	*s;
 	char	model[MAX_QPATH];
-	//char	headModel[MAX_QPATH];
 	char	forcePowers[MAX_QPATH];
 	char	oldname[MAX_STRING_CHARS];
 	gclient_t	*client;
 	char	c1[MAX_INFO_STRING];
 	char	c2[MAX_INFO_STRING];
-//	char	redTeam[MAX_INFO_STRING];
-//	char	blueTeam[MAX_INFO_STRING];
 	char	userinfo[MAX_INFO_STRING];
 	char	className[MAX_QPATH]; //name of class type to use in siege
 	char	saberName[MAX_QPATH];
@@ -1953,7 +1885,6 @@ void ClientUserinfoChanged( int clientNum ) {
 	char	*value;
 	int		maxHealth;
 	qboolean	modelChanged = qfalse;
-	//qboolean    emptyName;
 
 
 	ent = g_entities + clientNum;
@@ -2119,12 +2050,6 @@ void ClientUserinfoChanged( int clientNum ) {
 
 		//This function will see if the given class is legal for the given team.
 		//If not className will be filled in with the first legal class for this team.
-/*		if (!BG_SiegeCheckClassLegality(team, className) &&
-			Q_stricmp(client->sess.siegeClass, "none"))
-		{ //if it isn't legal pop up the class menu
-			trap_SendServerCommand(ent-g_entities, "scl");
-		}
-*/
 		//Now that the team is legal for sure, we'll go ahead and get an index for it.
 		client->siegeClass = BG_SiegeFindClassIndexByName(className);
 		if (client->siegeClass == -1)
@@ -2213,7 +2138,7 @@ void ClientUserinfoChanged( int clientNum ) {
 	else
 	{
 		maxHealth = 100;
-		health = 100; //atoi( Info_ValueForKey( userinfo, "handicap" ) );
+		health = 100; 
 	}
 	client->pers.maxHealth = health;
 	if ( client->pers.maxHealth < 1 || client->pers.maxHealth > maxHealth ) {
@@ -2308,7 +2233,6 @@ restarts.
 */
 char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 	char		*value;
-//	char		*areabits;
 	gclient_t	*client;
 	char		userinfo[MAX_INFO_STRING];
 	gentity_t	*ent;
@@ -2329,10 +2253,6 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 		G_LogPrintf("Banned client (%s) attempts to connect.\n",value);
 		return "Banned.";
 	}
-
-	/*
-	G_LogPrintf("DEBUG: connecting client userinfo:%s \n",userinfo);
-	*/
 
 	*username = '\0';
 	if ( !( ent->r.svFlags & SVF_BOT ) && !isBot ) {
@@ -2409,7 +2329,7 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
             if (!classicPasswordMatches && !privatePasswordMatches) 
             {				
 				Q_strncpyz(sTemp, G_GetStringEdString("MP_SVGAME","INVALID_ESCAPE_TO_MAIN"), sizeof (sTemp) );
-				return sTemp;// return "Invalid password";
+				return sTemp;
 			}
 		}
 	}
@@ -2494,8 +2414,6 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 	//assign the pointer for bg entity access
 	ent->playerState = &ent->client->ps;
 
-//	areabits = client->areabits;
-
 	memset( client, 0, sizeof(*client) );
 
 	client->pers.connected = CON_CONNECTING;
@@ -2533,10 +2451,7 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 	if (g_gametype.integer == GT_SIEGE &&
 		(firstTime || level.newSession))
 	{ //if this is the first time then auto-assign a desired siege team and show briefing for that team
-		client->sess.siegeDesiredTeam = 0;//PickTeam(ent->s.number);
-		/*
-		trap_SendServerCommand(ent->s.number, va("sb %i", client->sess.siegeDesiredTeam));
-		*/
+		client->sess.siegeDesiredTeam = 0;
 		//don't just show it - they'll see it if they switch to a team on purpose.
 	}
 
@@ -2593,11 +2508,6 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 	te->r.svFlags |= SVF_BROADCAST;
 	te->s.eventParm = clientNum;
 
-	// for statistics
-//	client->areabits = areabits;
-//	if ( !client->areabits )
-//		client->areabits = G_Alloc( (trap_AAS_PointReachabilityAreaIndex( NULL ) + 7) / 8 );
-
 	return NULL;
 }
 
@@ -2620,6 +2530,7 @@ extern qboolean	gSiegeRoundBegun;
 extern qboolean	gSiegeRoundEnded;
 extern qboolean g_dontPenalizeTeam; //g_cmds.c
 extern vmCvar_t g_testdebug;
+extern int getGlobalTime();
 void SetTeamQuick(gentity_t *ent, int team, qboolean doBegin);
 void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 	gentity_t	*ent;
@@ -2637,7 +2548,6 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 			const char *team = "Red";
 			int preSess;
 
-			//SetTeam(ent, "");
 			ent->client->sess.sessionTeam = PickTeam(-1);
 			trap_GetUserinfo(clientNum, userinfo, MAX_INFO_STRING);
 
@@ -2683,18 +2593,6 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 
 	//assign the pointer for bg entity access
 	ent->playerState = &ent->client->ps;
-
-	////fix for donedl command bug, that could cause powerup dissapearing
-	////(flag, boon, etc)
-	//if ( ent->health && ent->ghoul2 && ent->client && ent->client->ps.pm_type != PM_SPECTATOR
-	//	&& clientNum == ent->client->ps.clientNum) {
-	//	// Kill him (makes sure he loses flags, etc)
-	//	ent->flags &= ~FL_GODMODE;
-	//	ent->client->ps.stats[STAT_HEALTH] = ent->health = 0;
-	//	g_dontPenalizeTeam = qtrue;
-	//	player_die (ent, ent, ent, 100000, MOD_TEAM_CHANGE);
-	//	g_dontPenalizeTeam = qfalse;
-	//}
 
 	client->pers.connected = CON_CONNECTED;
 	client->pers.enterTime = level.time;
@@ -3114,7 +3012,6 @@ tryTorso:
 				{ //don't affect this arm if holding a gun, just make the other arm support it
 					armAnim = &bgAllAnims[self->localAnimIndex].anims[ BOTH_ATTACK2 ];
 
-					//armFirstFrame = armAnim->firstFrame;
 					armFirstFrame = armAnim->firstFrame+armAnim->numFrames;
 					armLastFrame = armAnim->firstFrame+armAnim->numFrames;
 					armAnimSpeed = 50.0f / armAnim->frameLerp;
@@ -3435,7 +3332,6 @@ void ClientSpawn(gentity_t *ent) {
 	saved = client->pers;
 	savedSess = client->sess;
 	savedPing = client->ps.ping;
-//	savedAreaBits = client->areabits;
 	accuracy_hits = client->accuracy_hits;
 	accuracy_shots = client->accuracy_shots;
 	for ( i = 0 ; i < MAX_PERSISTANT ; i++ ) {
@@ -3530,7 +3426,6 @@ void ClientSpawn(gentity_t *ent) {
 	client->pers = saved;
 	client->sess = savedSess;
 	client->ps.ping = savedPing;
-//	client->areabits = savedAreaBits;
 	client->accuracy_hits = accuracy_hits;
 	client->accuracy_shots = accuracy_shots;
 	client->lastkilled_client = -1;
@@ -3560,7 +3455,7 @@ void ClientSpawn(gentity_t *ent) {
 	{
 		maxHealth = 100;
 	}
-	client->pers.maxHealth = maxHealth;//atoi( Info_ValueForKey( userinfo, "handicap" ) );
+	client->pers.maxHealth = maxHealth;
 	if ( client->pers.maxHealth < 1 || client->pers.maxHealth > maxHealth ) {
 		client->pers.maxHealth = 100;
 	}
@@ -3640,7 +3535,6 @@ void ClientSpawn(gentity_t *ent) {
 				if ( WP_HasForcePowers( &client->ps ) && client->sess.sessionTeam != forceTeam )
 				{//using force but not on right team, switch him over
 					const char *teamName = TeamName( forceTeam );
-					//client->sess.sessionTeam = forceTeam;
 					SetTeam( ent, (char *)teamName );
 					return;
 				}
@@ -3728,11 +3622,6 @@ void ClientSpawn(gentity_t *ent) {
 			client->ps.weapon = WP_MELEE;
 		}
 	}
-
-	/*
-	client->ps.stats[STAT_HOLDABLE_ITEMS] |= ( 1 << HI_BINOCULARS );
-	client->ps.stats[STAT_HOLDABLE_ITEM] = BG_GetItemIndexByTag(HI_BINOCULARS, IT_HOLDABLE);
-	*/
 
 	if (g_gametype.integer == GT_SIEGE && client->siegeClass != -1 &&
 		client->sess.sessionTeam != TEAM_SPECTATOR)
@@ -3842,20 +3731,9 @@ void ClientSpawn(gentity_t *ent) {
 // nmckenzie: DESERT_SIEGE... or well, siege generally.  This was over-writing the max value, which was NOT good for siege.
 	if ( inSiegeWithClass == qfalse )
 	{
-		client->ps.ammo[AMMO_BLASTER] = 100; //ammoData[AMMO_BLASTER].max; //100 seems fair.
+		client->ps.ammo[AMMO_BLASTER] = 100; 
 	}
-//	client->ps.ammo[AMMO_POWERCELL] = ammoData[AMMO_POWERCELL].max;
-//	client->ps.ammo[AMMO_FORCE] = ammoData[AMMO_FORCE].max;
-//	client->ps.ammo[AMMO_METAL_BOLTS] = ammoData[AMMO_METAL_BOLTS].max;
-//	client->ps.ammo[AMMO_ROCKETS] = ammoData[AMMO_ROCKETS].max;
-/*
-	client->ps.stats[STAT_WEAPONS] = ( 1 << WP_BRYAR_PISTOL);
-	if ( g_gametype.integer == GT_TEAM ) {
-		client->ps.ammo[WP_BRYAR_PISTOL] = 50;
-	} else {
-		client->ps.ammo[WP_BRYAR_PISTOL] = 100;
-	}
-*/
+
 	client->ps.rocketLockIndex = ENTITYNUM_NONE;
 	client->ps.rocketLockTime = 0;
 
@@ -3953,8 +3831,6 @@ void ClientSpawn(gentity_t *ent) {
 		trap_LinkEntity (ent);
 
 		// force the base weapon up
-		//client->ps.weapon = WP_BRYAR_PISTOL;
-		//client->ps.weaponstate = FIRST_WEAPON;
 		if (client->ps.weapon <= WP_NONE)
 		{
 			client->ps.weapon = WP_BRYAR_PISTOL;
@@ -3990,15 +3866,6 @@ void ClientSpawn(gentity_t *ent) {
 
 		// select the highest weapon number available, after any
 		// spawn given items have fired
-		/*
-		client->ps.weapon = 1;
-		for ( i = WP_NUM_WEAPONS - 1 ; i > 0 ; i-- ) {
-			if ( client->ps.stats[STAT_WEAPONS] & ( 1 << i ) ) {
-				client->ps.weapon = i;
-				break;
-			}
-		}
-		*/
 	}
 
 	//set teams for NPCs to recognize
@@ -4021,15 +3888,6 @@ void ClientSpawn(gentity_t *ent) {
 		client->enemyTeam = NPCTEAM_ENEMY;
 	}
 
-	/*
-	//scaling for the power duel opponent
-	if (g_gametype.integer == GT_POWERDUEL &&
-		client->sess.duelTeam == DUELTEAM_LONE)
-	{
-		client->ps.iModelScale = 125;
-		VectorSet(ent->modelScale, 1.25f, 1.25f, 1.25f);
-	}
-	*/
 	//Disabled. At least for now. Not sure if I'll want to do it or not eventually.
 
 	// run a client frame to drop exactly to the floor,
@@ -4153,34 +4011,6 @@ void ClientDisconnect( int clientNum ) {
 		// Especially important for stuff like CTF flags
 		TossClientItems( ent );
 	}
-
-	//eweb fix
-	//uncomment in release
-	//if (ent->client->ewebIndex > 0 
-	//	&& ent->client->ewebIndex < sizeof(g_entities)){
-	//	EWebDisattach(ent, &g_entities[ent->client->ewebIndex]);
-	//	return;
-	//}
-
-	//clean in use in account list
-	//if (*ent->client->pers.username){
-	//	unregisterUser(ent->client->pers.username);
-	//}
-
-	//if (level.initialConditionsMatch){ //rememeber the time
-	//	int j;
-	//	if (ent->client->sess.sessionTeam == TEAM_RED){
-	//		for(j=0;j<level.initialRedCount;++j){
-	//			if ((level.initialRedRoster[j].clientNum == clientNum) &&
-	//				(level.initialRedRoster[j].clientNum))
-
-	//		}
-
-	//	} else if (ent->client->sess.sessionTeam == TEAM_BLUE){
-
-	//	} 
-
-	//}
 
 	G_LogPrintf( "ClientDisconnect: %i (%s) from %s\n", clientNum, ent->client->pers.netname, ent->client->sess.ipString);
 

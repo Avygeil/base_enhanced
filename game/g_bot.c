@@ -22,7 +22,6 @@ typedef struct {
 	int		spawnTime;
 } botSpawnQueue_t;
 
-//static int			botBeginDelay = 0;  // bk001206 - unused, init
 static botSpawnQueue_t	botSpawnQueue[BOT_SPAWN_QUEUE_DEPTH];
 
 vmCvar_t bot_minplayers;
@@ -205,7 +204,6 @@ const char* G_DoesMapSupportGametype(const char *mapname, int gametype)
 		return 0;
 	}
 
-	//G_LogPrintf("FAIL: bits dont match (typeBits:%i gametype:%i\n",typeBits,gametype);
 	return va("Map is not supported by the current gametype. (this map needs one of '%s')",type);
 }
 
@@ -233,7 +231,6 @@ void G_LoadArenas( void ) {
 		strcat(filename, dirptr);
 		G_LoadArenasFromFile(filename);
 	}
-//	trap_Printf( va( "%i arenas parsed\n", g_numArenas ) );
 	
 	for( n = 0; n < g_numArenas; n++ ) {
 		Info_SetValueForKey( g_arenaInfos[n], "num", va( "%i", n ) );
@@ -515,7 +512,6 @@ G_RemoveRandomBot
 */
 int G_RemoveRandomBot( int team ) {
 	int i;
-	//char netname[36];
 	gclient_t	*cl;
 
 	for ( i=0 ; i< g_maxclients.integer ; i++ ) {
@@ -686,13 +682,6 @@ void G_CheckBotSpawn( void ) {
 		}
 		ClientBegin( botSpawnQueue[n].clientNum, qfalse );
 		botSpawnQueue[n].spawnTime = 0;
-
-		/*
-		if( g_gametype.integer == GT_SINGLE_PLAYER ) {
-			trap_GetUserinfo( botSpawnQueue[n].clientNum, userinfo, sizeof(userinfo) );
-			PlayerIntroSound( Info_ValueForKey (userinfo, "model") );
-		}
-		*/
 	}
 }
 
@@ -775,7 +764,6 @@ static void G_AddBot( const char *name, float skill, const char *team, int delay
 	char			*s;
 	char			*botname;
 	char			*model;
-//	char			*headmodel;
 	char			userinfo[MAX_INFO_STRING];
 	int				preTeam = 0;
 
@@ -819,15 +807,6 @@ static void G_AddBot( const char *name, float skill, const char *team, int delay
 	}
 	Info_SetValueForKey( userinfo, key, model );
 
-/*	key = "headmodel";
-	headmodel = Info_ValueForKey( botinfo, key );
-	if ( !*headmodel ) {
-		headmodel = model;
-	}
-	Info_SetValueForKey( userinfo, key, headmodel );
-	key = "team_headmodel";
-	Info_SetValueForKey( userinfo, key, headmodel );
-*/
 	key = "gender";
 	s = Info_ValueForKey( botinfo, key );
 	if ( !*s ) {
@@ -876,8 +855,6 @@ static void G_AddBot( const char *name, float skill, const char *team, int delay
 	// have the server allocate a client slot
 	clientNum = trap_BotAllocateClient();
 	if ( clientNum == -1 ) {
-//		G_Printf( S_COLOR_RED "Unable to add bot.  All player slots are in use.\n" );
-//		G_Printf( S_COLOR_RED "Start server with more 'open' slots.\n" );
 		trap_SendServerCommand( -1, va("print \"%s\n\"", G_GetStringEdString("MP_SVGAME", "UNABLE_TO_ADD_BOT")));
 		return;
 	}
@@ -896,7 +873,6 @@ static void G_AddBot( const char *name, float skill, const char *team, int delay
 			team = "red";
 		}
 	}
-//	Info_SetValueForKey( userinfo, "characterfile", Info_ValueForKey( botinfo, "aifile" ) );
 	Info_SetValueForKey( userinfo, "skill", va( "%5.2f", skill ) );
 	Info_SetValueForKey( userinfo, "team", team );
 
@@ -1217,7 +1193,6 @@ static void G_LoadBots( void ) {
 		G_LoadBotsFromFile(botsFile.string);
 	}
 	else {
-		//G_LoadBotsFromFile("scripts/bots.txt");
 		G_LoadBotsFromFile("botfiles/bots.txt");
 	}
 
@@ -1230,7 +1205,6 @@ static void G_LoadBots( void ) {
 		strcat(filename, dirptr);
 		G_LoadBotsFromFile(filename);
 	}
-//	trap_Printf( va( "%i bots parsed\n", g_numBots ) );
 }
 
 
@@ -1279,7 +1253,6 @@ G_InitBots
 */
 void G_InitBots( qboolean restart ) {
 	G_LoadBots();
-	//G_LoadArenas(); //*CHANGE 93* loading map list not dependant on bot_enable cvar
 
 	trap_Cvar_Register( &bot_minplayers, "bot_minplayers", "0", CVAR_SERVERINFO );
 

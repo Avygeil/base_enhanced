@@ -1,6 +1,5 @@
 #include "b_local.h"
 
-//static void R5D2_LookAround( void );
 float NPC_GetPainChance( gentity_t *self, int damage );
 extern void G_SoundOnEnt( gentity_t *ent, soundChannel_t channel, const char *soundPath );
 
@@ -32,12 +31,6 @@ void R2D2_PartsMove(void)
 		NPC->pos1[1]=Q_irand( -20, 20 );	
 		NPC->pos1[2]=Q_irand( -20, 20 );	
 
-		/*
-		if (NPC->genericBone1)
-		{
-			gi.G2API_SetBoneAnglesIndex( &NPC->ghoul2[NPC->playerModel], NPC->genericBone1, NPC->pos1, BONE_ANGLES_POSTMULT, POSITIVE_X, NEGATIVE_Y, NEGATIVE_Z, NULL ); 
-		}
-		*/
 		NPC_SetBoneAngles(NPC, "f_eye", NPC->pos1);
 		
 
@@ -52,9 +45,6 @@ NPC_BSDroid_Idle
 */
 void Droid_Idle( void )
 {
-//	VectorCopy( NPCInfo->investigateGoal, lookPos );
-
-//	NPC_FacePosition( lookPos );
 }
 
 /*
@@ -157,10 +147,6 @@ void Droid_Patrol( void )
 				TIMER_Set( NPC, "patrolNoise", Q_irand( 2000, 4000 ) );
 			}
 		}
-//		else
-//		{
-//			R5D2_LookAround();
-//		}
 	}
 
 	NPC_UpdateAngles( qtrue, qtrue );
@@ -309,8 +295,6 @@ void NPC_Droid_Pain(gentity_t *self, gentity_t *attacker, int damage)
 							G_PlayEffectID( G_EffectIndex("chunks/r5d2head"), self->r.currentOrigin, vec3_origin );
 						}
 
-						//self->s.powerups |= ( 1 << PW_SHOCKED );
-						//self->client->ps.powerups[PW_SHOCKED] = level.time + 3000;
 						self->client->ps.electrifyTime = level.time + 3000;
 
 						TIMER_Set( self, "droidsmoketotal", 5000);
@@ -346,8 +330,6 @@ void NPC_Droid_Pain(gentity_t *self, gentity_t *attacker, int damage)
 		if ( mod == MOD_DEMP2 || mod == MOD_DEMP2_ALT )
 		{
 			self->NPC->localState = LSTATE_SPINNING;
-			//self->s.powerups |= ( 1 << PW_SHOCKED );
-			//self->client->ps.powerups[PW_SHOCKED] = level.time + 3000;
 			self->client->ps.electrifyTime = level.time + 3000;
 		}
 		else
@@ -387,8 +369,6 @@ void NPC_Droid_Pain(gentity_t *self, gentity_t *attacker, int damage)
 							G_PlayEffectID( G_EffectIndex("chunks/r2d2head"), self->r.currentOrigin, vec3_origin );
 						}
 
-						//self->s.powerups |= ( 1 << PW_SHOCKED );
-						//self->client->ps.powerups[PW_SHOCKED] = level.time + 3000;
 						self->client->ps.electrifyTime = level.time + 3000;
 
 						TIMER_Set( self, "droidsmoketotal", 5000);
@@ -479,7 +459,6 @@ void NPC_R5D2_Precache(void)
 	{
 		G_SoundIndex( va( "sound/chars/r5d2/misc/r5talk%d.wav", i ) );
 	}
-	//G_SoundIndex( "sound/chars/r5d2/misc/falling1.wav" );
 	G_SoundIndex( "sound/chars/mark2/misc/mark2_explo" ); // ??
 	G_SoundIndex( "sound/chars/r2d2/misc/r2_move_lp2.wav" );
 	G_EffectIndex( "env/med_explode");
@@ -502,7 +481,6 @@ void NPC_R2D2_Precache(void)
 	{
 		G_SoundIndex( va( "sound/chars/r2d2/misc/r2d2talk0%d.wav", i ) );
 	}
-	//G_SoundIndex( "sound/chars/r2d2/misc/falling1.wav" );
 	G_SoundIndex( "sound/chars/mark2/misc/mark2_explo" ); // ??
 	G_SoundIndex( "sound/chars/r2d2/misc/r2_move_lp.wav" );
 	G_EffectIndex( "env/med_explode");
@@ -539,56 +517,7 @@ void NPC_Protocol_Precache( void )
 	G_SoundIndex( "sound/chars/mark2/misc/mark2_explo" );
 	G_EffectIndex( "env/med_explode");
 }
-
-/*
-static void R5D2_OffsetLook( float offset, vec3_t out )
-{
-	vec3_t	angles, forward, temp;
-
-	GetAnglesForDirection( NPC->r.currentOrigin, NPCInfo->investigateGoal, angles );
-	angles[YAW] += offset;
-	AngleVectors( angles, forward, NULL, NULL );
-	VectorMA( NPC->r.currentOrigin, 64, forward, out );
-	
-	CalcEntitySpot( NPC, SPOT_HEAD, temp );
-	out[2] = temp[2];
-}
-*/
-
-/*
--------------------------
-R5D2_LookAround
--------------------------
-*/
-/*
-static void R5D2_LookAround( void )
-{
-	vec3_t	lookPos;
-	float	perc = (float) ( level.time - NPCInfo->pauseTime ) / (float) NPCInfo->investigateDebounceTime;
-
-	//Keep looking at the spot
-	if ( perc < 0.25 )
-	{
-		VectorCopy( NPCInfo->investigateGoal, lookPos );
-	}
-	else if ( perc < 0.5f )		//Look up but straight ahead
-	{
-		R5D2_OffsetLook( 0.0f, lookPos );
-	}
-	else if ( perc < 0.75f )	//Look right
-	{
-		R5D2_OffsetLook( 45.0f, lookPos );
-	}
-	else	//Look left
-	{
-		R5D2_OffsetLook( -45.0f, lookPos );
-	}
-
-	NPC_FacePosition( lookPos );
-}
-
-*/
-
+    
 /*
 -------------------------
 NPC_BSDroid_Default

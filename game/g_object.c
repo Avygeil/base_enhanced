@@ -21,7 +21,6 @@ void G_BounceObject( gentity_t *ent, trace_t *trace )
 	hitTime = level.previousTime + ( level.time - level.previousTime ) * trace->fraction;
 	BG_EvaluateTrajectoryDelta( &ent->s.pos, hitTime, velocity );
 	dot = DotProduct( velocity, trace->plane.normal );
-//	bounceFactor = 60/ent->mass;		// NOTENOTE Mass is not yet implemented
 	bounceFactor = 1.0f;
 	if ( bounceFactor > 1.0f )
 	{
@@ -37,8 +36,6 @@ void G_BounceObject( gentity_t *ent, trace_t *trace )
 		// check for stop
 		if ( ((trace->plane.normal[2] > 0.7&&g_gravity.value>0) || (trace->plane.normal[2]<-0.7&&g_gravity.value<0)) && ((ent->s.pos.trDelta[2]<40&&g_gravity.value>0)||(ent->s.pos.trDelta[2]>-40&&g_gravity.value<0)) ) //this can happen even on very slightly sloped walls, so changed it from > 0 to > 0.7
 		{
-			//G_SetOrigin( ent, trace->endpos );
-			//ent->nextthink = level.time + 500;
 			ent->s.apos.trType = TR_STATIONARY;
 			VectorCopy( ent->r.currentAngles, ent->s.apos.trBase );
 			VectorCopy( trace->endpos, ent->r.currentOrigin );
@@ -110,26 +107,11 @@ void G_RunObject( gentity_t *ent )
 		trap_LinkEntity( ent );
 	}
 	else
-	//if ( tr.startsolid ) 
 	{
 		tr.fraction = 0;
 	}
 
 	G_MoverTouchPushTriggers( ent, oldOrg );
-	/*
-	if ( !(ent->s.eFlags & EF_TELEPORT_BIT) && !(ent->svFlags & SVF_NO_TELEPORT) )
-	{
-		G_MoverTouchTeleportTriggers( ent, oldOrg );
-		if ( ent->s.eFlags & EF_TELEPORT_BIT )
-		{//was teleported
-			return;
-		}
-	}
-	else
-	{
-		ent->s.eFlags &= ~EF_TELEPORT_BIT;
-	}
-	*/
 
 	if ( tr.fraction == 1 ) 
 	{
@@ -149,7 +131,6 @@ void G_RunObject( gentity_t *ent )
 		if ( !g_gravity.value )
 		{
 			float friction = 0.975f;
-			//friction -= ent->mass/1000.0f;
 			if ( friction < 0.1 )
 			{
 				friction = 0.1f;
@@ -172,9 +153,7 @@ void G_RunObject( gentity_t *ent )
 		{//moved and impacted
 			if ( (traceEnt && traceEnt->takedamage) )
 			{//hurt someone
-//				G_Sound( ent, G_SoundIndex( "sound/movers/objects/objectHurt.wav" ) );
 			}
-//			G_Sound( ent, G_SoundIndex( "sound/movers/objects/objectHit.wav" ) );
 		}
 
 		if (ent->s.weapon != WP_SABER)
@@ -186,7 +165,6 @@ void G_RunObject( gentity_t *ent )
 	if ( !ent || (ent->takedamage&&ent->health <= 0) )
 	{//been destroyed by impact
 		//chunks?
-//		G_Sound( ent, G_SoundIndex( "sound/movers/objects/objectBreak.wav" ) );
 		return;
 	}
 
@@ -218,8 +196,6 @@ void G_RunObject( gentity_t *ent )
 		{
 			ent->s.apos.trType = TR_STATIONARY;
 			pitch_roll_for_slope( ent, tr.plane.normal );
-			//ent->r.currentAngles[0] = 0;//FIXME: match to slope
-			//ent->r.currentAngles[2] = 0;//FIXME: match to slope
 			VectorCopy( ent->r.currentAngles, ent->s.apos.trBase );
 			//okay, we hit the floor, might as well stop or prediction will
 			//make us go through the floor!
@@ -231,8 +207,6 @@ void G_RunObject( gentity_t *ent )
 	{
 		ent->s.apos.trType = TR_STATIONARY;
 		pitch_roll_for_slope( ent, tr.plane.normal );
-		//ent->r.currentAngles[0] = 0;//FIXME: match to slope
-		//ent->r.currentAngles[2] = 0;//FIXME: match to slope
 		VectorCopy( ent->r.currentAngles, ent->s.apos.trBase );
 	}
 
@@ -248,32 +222,16 @@ void G_StopObjectMoving( gentity_t *object )
 	VectorCopy( object->r.currentOrigin, object->s.pos.trBase );
 	VectorClear( object->s.pos.trDelta );
 
-	/*
-	//Stop spinning
-	VectorClear( self->s.apos.trDelta );
-	vectoangles(trace->plane.normal, self->s.angles);
-	VectorCopy(self->s.angles, self->r.currentAngles );
-	VectorCopy(self->s.angles, self->s.apos.trBase);
-	*/
 }
 
 void G_StartObjectMoving( gentity_t *object, vec3_t dir, float speed, trType_t trType )
 {
 	VectorNormalize (dir);
 
-	//object->s.eType = ET_GENERAL;
 	object->s.pos.trType = trType;
 	VectorCopy( object->r.currentOrigin, object->s.pos.trBase );
 	VectorScale(dir, speed, object->s.pos.trDelta );
 	object->s.pos.trTime = level.time;
-
-	/*
-	//FIXME: incorporate spin?
-	vectoangles(dir, object->s.angles);
-	VectorCopy(object->s.angles, object->s.apos.trBase);
-	VectorSet(object->s.apos.trDelta, 300, 0, 0 );
-	object->s.apos.trTime = level.time;
-	*/
 
 	//FIXME: make these objects go through G_RunObject automatically, like missiles do
 	if ( object->think == NULL )

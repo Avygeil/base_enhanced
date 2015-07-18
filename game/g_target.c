@@ -545,10 +545,6 @@ Used as a positional target for in-game calculation, like jumppad targets.
 */
 void SP_target_position( gentity_t *self ){
 	G_SetOrigin( self, self->s.origin );
-	/*
-	G_SetAngles( self, self->s.angles );
-	self->s.eType = ET_INVISIBLE;
-	*/
 }
 
 static void target_location_linkup(gentity_t *ent)
@@ -615,7 +611,6 @@ void target_counter_use( gentity_t *self, gentity_t *other, gentity_t *activator
 		return;
 	}
 	
-	//gi.Printf("target_counter %s used by %s, entnum %d\n", self->targetname, activator->targetname, activator->s.number );
 	self->count--;
 
 	if ( activator )
@@ -627,7 +622,6 @@ void target_counter_use( gentity_t *self, gentity_t *other, gentity_t *activator
 	{
 		if ( self->target2 )
 		{
-			//gi.Printf("target_counter %s firing target2 from %s, entnum %d\n", self->targetname, activator->targetname, activator->s.number );
 			G_UseTargets2( self, activator, self->target2 );
 		}
 		return;
@@ -683,7 +677,6 @@ void target_random_use(gentity_t *self, gentity_t *other, gentity_t *activator)
 	int			t_count = 0, pick;
 	gentity_t	*t = NULL;
 
-	//gi.Printf("target_random %s used by %s (entnum %d)\n", self->targetname, activator->targetname, activator->s.number );
 	G_ActivateBehavior(self,BSET_USE);
 
 	if(self->spawnflags & 1)
@@ -726,7 +719,6 @@ void target_random_use(gentity_t *self, gentity_t *other, gentity_t *activator)
 		
 		if (t == self)
 		{
-//				gi.Printf ("WARNING: Entity used itself.\n");
 		}
 		else if(t_count == pick)
 		{
@@ -753,17 +745,6 @@ void SP_target_random (gentity_t *self)
 int	numNewICARUSEnts = 0;
 void scriptrunner_run (gentity_t *self)
 {
-	/*
-	if (self->behaviorSet[BSET_USE])
-	{	
-		char	newname[MAX_FILENAME_LENGTH];
-
-		sprintf((char *) &newname, "%s/%s", Q3_SCRIPT_DIR, self->behaviorSet[BSET_USE] );
-
-		ICARUS_RunScript( self, newname );
-	}
-	*/
-
 	if ( self->count != -1 )
 	{
 		if ( self->count <= 0 )
@@ -880,12 +861,7 @@ void SP_target_scriptrunner( gentity_t *self )
 	{
 		self->count = 1;//default 1 use only
 	}
-	/*
-	else if ( !self->wait )
-	{
-		self->wait = 1;//default wait of 1 sec
-	}
-	*/
+
 	// FIXME: this is a hack... because delay is read in as an int, so I'm bypassing that because it's too late in the project to change it and I want to be able to set less than a second delays
 	// no one should be setting a radius on a scriptrunner, if they are this would be bad, take this out for the next project
 	v = 0.0f;

@@ -493,7 +493,6 @@ qboolean BG_LegalizedForcePowers(char *powerOut, int maxRank, qboolean freeSaber
 		if (final_Side != teamForce)
 		{
 			final_Side = teamForce;
-			//maintainsValidity = qfalse;
 			//Not doing this, for now. Let them join the team with their filtered powers.
 		}
 	}
@@ -2400,8 +2399,6 @@ void BG_EvaluateTrajectory( const trajectory_t *tr, int atTime, vec3_t result ) 
 			deltaTime = tr->trDuration*0.001f*((float)cos( DEG2RAD(90.0f - (90.0f*(float)(atTime-tr->trTime)/(float)tr->trDuration)) ));
 		}
 
-		//Com_Printf("deltaTime:%.3f deltaInt:%i\n",deltaTime,atTime-tr->trTime);
-
 		VectorMA( tr->trBase, deltaTime, tr->trDelta, result );
 
 		break;
@@ -2641,8 +2638,6 @@ Handles the sequence numbers
 ===============
 */
 
-//void	trap_Cvar_VariableStringBuffer( const char *var_name, char *buffer, int bufsize );
-
 void BG_AddPredictableEventToPlayerstate( int newEvent, int eventParm, playerState_t *ps ) {
 
 #ifdef _DEBUG
@@ -2677,8 +2672,6 @@ BG_TouchJumpPad
 */
 void BG_TouchJumpPad( playerState_t *ps, entityState_t *jumppad ) {
 	vec3_t	angles;
-	//float p;
-	//int effectNum;
 
 	// spectators don't use jump pads
 	if ( ps->pm_type != PM_NORMAL && ps->pm_type != PM_JETPACK && ps->pm_type != PM_FLOAT ) {
@@ -2690,12 +2683,6 @@ void BG_TouchJumpPad( playerState_t *ps, entityState_t *jumppad ) {
 	if ( ps->jumppad_ent != jumppad->number ) {
 
 		vectoangles( jumppad->origin2, angles);
-		//p = fabs( AngleNormalize180( angles[PITCH] ) );
-		//if( p < 45 ) {
-		//	effectNum = 0;
-		//} else {
-		//	effectNum = 1;
-		//}
 	}
 	// remember hitting this jumppad this frame
 	ps->jumppad_ent = jumppad->number;

@@ -160,15 +160,12 @@ void B_CleanupAlloc(void)
 int GetValueGroup(char *buf, char *group, char *outbuf)
 {
 	char *place, *placesecond;
-	//int iplace;
 	int failure;
 	int i;
 	int startpoint, startletter;
 	int subg = 0;
 
 	i = 0;
-
-	//iplace = 0;
 
 	place = strstr(buf, group);
 
@@ -447,7 +444,6 @@ int BotDoChat(bot_state_t *bs, char *section, int always)
 	}
 	chatgroup[inc_2] = '\0';
 
-	//trap_EA_Say(bs->client, chatgroup);
 	inc_1 = 0;
 	inc_2 = 0;
 
@@ -617,7 +613,6 @@ void BotUtilizePersonality(bot_state_t *bs)
 	int len, rlen;
 	int failed;
 	int i;
-	//char buf[131072];
 	char *buf = (char *)B_TempAlloc(131072);
 	char *readbuf, *group;
 

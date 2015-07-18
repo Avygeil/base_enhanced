@@ -66,8 +66,6 @@ void NPC_Mark2_Part_Explode( gentity_t *self, int bolt )
 		G_PlayEffectID( G_EffectIndex("blaster/smoke_bolton"), org, dir );
 	}
 
-	//G_PlayEffectID( G_EffectIndex("blaster/smoke_bolton"), self->playerModel, bolt, self->s.number);
-
 	self->count++;	// Count of pods blown off
 }
 
@@ -138,7 +136,6 @@ void Mark2_FireBlaster(qboolean advance)
 {
 	vec3_t	muzzle1,enemy_org1,delta1,angleToEnemy1;
 	static	vec3_t	forward, vright, up;
-	//static	vec3_t	muzzle;
 	gentity_t	*missile;
 	mdxaBone_t	boltMatrix;
 	int bolt = trap_G2API_AddBolt(NPC->ghoul2, 0, "*flash");
@@ -304,7 +301,6 @@ void Mark2_Patrol( void )
 {
 	if ( NPC_CheckPlayerTeamStealth() )
 	{
-//		G_Sound( NPC, G_SoundIndex("sound/chars/mark1/misc/anger.wav"));
 		NPC_UpdateAngles( qtrue, qtrue );
 		return;
 	}
@@ -322,8 +318,6 @@ void Mark2_Patrol( void )
 		//randomly talk
 		if (TIMER_Done(NPC,"patrolNoise"))
 		{
-//			G_Sound( NPC, G_SoundIndex(va("sound/chars/mark1/misc/talk%d.wav",	Q_irand(1, 4))));
-
 			TIMER_Set( NPC, "patrolNoise", Q_irand( 2000, 4000 ) );
 		}
 	}

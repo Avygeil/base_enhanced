@@ -36,7 +36,6 @@ void NPC_ClearBlocked( gentity_t *self )
 	if ( self->NPC == NULL )
 		return;
 
-	//self->NPC->aiFlags &= ~NPCAI_BLOCKED;
 	self->NPC->blockingEntNum = ENTITYNUM_NONE;
 }
 
@@ -45,7 +44,6 @@ void NPC_SetBlocked( gentity_t *self, gentity_t *blocker )
 	if ( self->NPC == NULL )
 		return;
 
-	//self->NPC->aiFlags |= NPCAI_BLOCKED;
 	self->NPC->blockedSpeechDebounceTime = level.time + MIN_BLOCKED_SPEECH_TIME + ( random() * 4000 );
 	self->NPC->blockingEntNum = blocker->s.number;
 }
@@ -67,13 +65,8 @@ int NAVNEW_ClearPathBetweenPoints(vec3_t start, vec3_t end, vec3_t mins, vec3_t 
 
 	trap_Trace( &trace, start, mins, maxs, end, ignore, clipmask );
 
-	//if( ( ( trace.startsolid == false ) && ( trace.allsolid == false ) ) && ( trace.fraction < 1.0f ) )
-	//{//FIXME: check for drops?
-	//FIXME: if startsolid or allsolid, then the path isn't clear... but returning ENTITYNUM_NONE indicates to CheckFailedEdge that is is clear...?
 		return trace.entityNum;
-	//}
 
-	//return ENTITYNUM_NONE;
 }
 
 /*
@@ -199,17 +192,6 @@ qboolean NAVNEW_DanceWithBlocker( gentity_t *self, gentity_t *blocker, vec3_t mo
 			VectorNormalize( movedir );
 			return qtrue;
 		}
-		/*
-		vec3_t	block_pos;
-		trace_t	tr;
-		VectorScale( blocker_movedir, -1, blocker_movedir );
-		VectorMA( self->r.currentOrigin, blocked_dist, blocker_movedir, block_pos );
-		if ( NAVNEW_CheckAhead( self, block_pos, tr, ( self->clipmask & ~CONTENTS_BODY )|CONTENTS_BOTCLIP ) )
-		{
-			VectorCopy( blocker_movedir, movedir );
-			return qtrue;
-		}
-		*/
 	}
 	return qfalse;
 }
@@ -238,14 +220,6 @@ qboolean NAVNEW_SidestepBlocker( gentity_t *self, gentity_t *blocker, vec3_t blo
 
 	//See if we're inside our avoidance radius
 	arcAngle = ( blocked_dist <= avoidRadius ) ? 135 : ( ( avoidRadius / blocked_dist ) * 90 );
-
-	/*
-	float dot = DotProduct( blocked_dir, right );
-
-	//Go right on the first try if that works better
-	if ( dot < 0.0f )
-		arcAngle *= -1;
-	*/
 
 	VectorClear( avoidAngles );
 
@@ -413,10 +387,6 @@ qboolean NAVNEW_ResolveEntityCollision( gentity_t *self, gentity_t *blocker, vec
 	VectorSubtract( blocker->r.currentOrigin, self->r.currentOrigin, blocked_dir );
 	blocked_dist = VectorNormalize( blocked_dir );
 
-	//Make sure an actual collision is going to happen
-//	if ( NAVNEW_PredictCollision( self, blocker, movedir, blocked_dir ) == qfalse )
-//		return qtrue;
-	
 	//First, attempt to walk around the blocker or shove him out of the way
 	if ( NAVNEW_Bypass( self, blocker, blocked_dir, blocked_dist, movedir, setBlockedInfo ) )
 		return qtrue;
@@ -478,19 +448,12 @@ qboolean NAVNEW_AvoidCollision( gentity_t *self, gentity_t *goal, navInfo_t *inf
 			}
 			self->NPC->consecutiveBlockedMoves++;
 		}
-		//See if we're moving along with them
-		//if ( NAVNEW_TrueCollision( self, info->blocker, movedir, info->direction ) == qfalse )
-		//	return qtrue;
 
 		//Test for blocking by standing on goal
 		if ( NAV_TestForBlocked( self, goal, info->blocker, info->distance, &info->flags ) == qtrue )
 			return qfalse;
 
 		//If the above function said we're blocked, don't do the extra checks
-		/*
-		if ( info->flags & NIF_BLOCKED )
-			return qtrue;
-		*/
 
 		//See if we can get that entity to move out of our way
 		if ( NAVNEW_ResolveEntityCollision( self, info->blocker, movedir, info->pathDirection, setBlockedInfo ) == qfalse )
@@ -582,7 +545,7 @@ int	NAVNEW_MoveToGoal( gentity_t *self, navInfo_t *info )
 	vec3_t		origin;
 	navInfo_t	tempInfo;
 	qboolean	setBlockedInfo = qtrue;
-	qboolean	/*inBestWP,*/ inGoalWP;//, goalWPFailed = qfalse;
+	qboolean	inGoalWP;
 	int			numTries = 0;
 
 	memcpy( &tempInfo, info, sizeof( tempInfo ) );
@@ -627,61 +590,18 @@ int	NAVNEW_MoveToGoal( gentity_t *self, navInfo_t *info )
 
 	while( !foundClearPath )
 	{
-		//inBestWP = inGoalWP = qfalse;
 		inGoalWP = qfalse;
-		/*
-		bestNode = trap_Nav_GetBestNodeAltRoute( self->waypoint, self->NPC->goalEntity->waypoint, bestNode );
-		*/
 
 		if ( bestNode == WAYPOINT_NONE )
 		{
 			goto failed;
 		}
 
-		//see if we can get directly to the next node off bestNode en route to goal's node...
-		//NOTE: shouldn't be necc. now
-		/*
-		int oldBestNode = bestNode;
-		bestNode = NAV_TestBestNode( self, self->waypoint, bestNode, qtrue );//, self->NPC->goalEntity->waypoint );// 
-		//NOTE: Guaranteed to return something
-		if ( bestNode != oldBestNode )
-		{//we were blocked somehow
-			if ( setBlockedInfo )
-			{
-				self->NPC->aiFlags |= NPCAI_BLOCKED;
-				trap_Nav_GetNodePosition( oldBestNode, NPCInfo->blockedDest );
-			}
-		}
-		*/
 		trap_Nav_GetNodePosition( bestNode, origin );
-		/*
-		if ( !goalWPFailed )
-		{//we haven't already tried to go straight to goal or goal's wp
-			if ( bestNode == self->NPC->goalEntity->waypoint )
-			{//our bestNode is the goal's wp
-				if ( NAV_HitNavGoal( self->r.currentOrigin, self->r.mins, self->r.maxs, origin, trap_Nav_GetNodeRadius( bestNode ), FlyingCreature( self ) ) )
-				{//we're in the goal's wp
-					inGoalWP = qtrue;
-					//we're in the goalEntity's waypoint already
-					//so head for the goalEntity since we know it's clear of architecture
-					//FIXME: this is pretty stupid because the NPCs try to go straight
-					//		towards their goal before then even try macro_nav...
-					VectorCopy( self->NPC->goalEntity->r.currentOrigin, origin );
-				}
-			}
-		}
-		*/
 		if ( !inGoalWP )
 		{//not heading straight for goal
 			if ( bestNode == self->waypoint )
 			{//we know it's clear or architecture
-				//trap_Nav_GetNodePosition( self->waypoint, origin );
-				/*
-				if ( NAV_HitNavGoal( self->r.currentOrigin, self->r.mins, self->r.maxs, origin, trap_Nav_GetNodeRadius( bestNode ), FlyingCreature( self ) ) )
-				{//we're in the wp we're heading for already
-					inBestWP = qtrue;
-				}
-				*/
 			}
 			else
 			{//heading to an edge off our confirmed clear waypoint... make sure it's clear
@@ -696,7 +616,6 @@ int	NAVNEW_MoveToGoal( gentity_t *self, navInfo_t *info )
 				}
 			}
 		}
-		//Com_Printf( "goalwp = %d, mywp = %d, node = %d, origin = %s\n", self->NPC->goalEntity->waypoint, self->waypoint, bestNode, vtos(origin) );
 
 		memcpy( &tempInfo, info, sizeof( tempInfo ) );
 		VectorSubtract( origin, self->r.currentOrigin, tempInfo.direction );
@@ -752,7 +671,6 @@ int	NAVNEW_MoveToGoal( gentity_t *self, navInfo_t *info )
 				}
 				else
 				{//try going for our waypoint this time
-					//goalWPFailed = qtrue;
 					inGoalWP = qfalse;
 				}
 			}
@@ -846,21 +764,4 @@ failed:
 
 	//do this to avoid ping-ponging?
 	return WAYPOINT_NONE;
-	/*
-	//this was causing ping-ponging
-	if ( DistanceSquared( origin, self->r.currentOrigin ) < 16 )//woo, magic number
-	{//We're right up on our waypoint, so that won't help, return none
-		//Or maybe find the nextbest here?
-		return WAYPOINT_NONE;
-	}
-	else
-	{//Try going to our waypoint
-		bestNode = self->waypoint;
-
-		VectorSubtract( origin, self->r.currentOrigin, info.direction );
-		VectorNormalize( info.direction );
-	}
-	
-	goto finish;
-	*/
 }

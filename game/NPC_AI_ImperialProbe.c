@@ -49,8 +49,6 @@ Hunter_MaintainHeight
 void ImperialProbe_MaintainHeight( void )
 {	
 	float	dif;
-//	vec3_t	endPos;
-//	trace_t	trace;
 
 	// Update our angles regardless
 	NPC_UpdateAngles( qtrue, qtrue );
@@ -117,34 +115,6 @@ void ImperialProbe_MaintainHeight( void )
 		}
 
 		// Stay at a given height until we take on an enemy
-/*		VectorSet( endPos, NPC->r.currentOrigin[0], NPC->r.currentOrigin[1], NPC->r.currentOrigin[2] - 512 );
-		trap_Trace( &trace, NPC->r.currentOrigin, NULL, NULL, endPos, NPC->s.number, MASK_SOLID );
-
-		if ( trace.fraction != 1.0f )
-		{
-			float	length = ( trace.fraction * 512 );
-
-			if ( length < 80 )
-			{
-				ucmd.upmove = 32;
-			}
-			else if ( length > 120 )
-			{
-				ucmd.upmove = -32;
-			}
-			else
-			{ 
-				if ( NPC->client->ps.velocity[2] )
-				{
-					NPC->client->ps.velocity[2] *= VELOCITY_DECAY;
-
-					if ( fabs( NPC->client->ps.velocity[2] ) < 1 )
-					{
-						NPC->client->ps.velocity[2] = 0;
-					}
-				}
-			}
-		} */
 	}
 
 	// Apply friction
@@ -203,7 +173,6 @@ void ImperialProbe_Strafe( void )
 		NPC->client->ps.velocity[2] += HUNTER_UPWARD_PUSH;
 
 		// Set the strafe start time so we can do a controlled roll
-		//NPC->fx_time = level.time;
 		NPCInfo->standTime = level.time + 3000 + random() * 500;
 	}
 }
@@ -269,7 +238,6 @@ void ImperialProbe_FireBlaster(void)
 {
 	vec3_t	muzzle1,enemy_org1,delta1,angleToEnemy1;
 	static	vec3_t	forward, vright, up;
-	//static	vec3_t	muzzle;
 	int genBolt1;
 	gentity_t	*missile;
 	mdxaBone_t	boltMatrix;
@@ -330,30 +298,10 @@ ImperialProbe_Ranged
 */
 void ImperialProbe_Ranged( qboolean visible, qboolean advance )
 {
-	//int	delay_min,delay_max;
-
 	if ( TIMER_Done( NPC, "attackDelay" ) )	// Attack?
 	{
-
-		//if ( g_spskill.integer == 0 )
-		//{
-		//	delay_min = 500;
-		//	delay_max = 3000;
-		//}
-		//else if ( g_spskill.integer > 1 )
-		//{
-		//	delay_min = 500;
-		//	delay_max = 2000;
-		//}
-		//else
-		//{
-		//	delay_min = 300;
-		//	delay_max = 1500;
-		//}
-
-		TIMER_Set( NPC, "attackDelay", Q_irand( 500, 3000 ) );
+  		TIMER_Set( NPC, "attackDelay", Q_irand( 500, 3000 ) );
 		ImperialProbe_FireBlaster();
-//		ucmd.buttons |= BUTTON_ATTACK;
 	}
 
 	if ( NPCInfo->scriptFlags & SCF_CHASE_ENEMIES )
@@ -447,23 +395,7 @@ void NPC_Probe_Pain(gentity_t *self, gentity_t *attacker, int damage)
 		trap_Trace( &trace, self->r.currentOrigin, NULL, NULL, endPos, self->s.number, MASK_SOLID );
 
 		if ( trace.fraction == 1.0f || mod == MOD_DEMP2 ) // demp2 always does this
-		{
-			/*
-			if (self->client->clientInfo.headModel != 0)
-			{
-				vec3_t origin;
-
-				VectorCopy(self->r.currentOrigin,origin);
-				origin[2] +=50;
-//				G_PlayEffect( "small_chunks", origin );
-				G_PlayEffect( "chunks/probehead", origin );
-				G_PlayEffect( "env/med_explode2", origin );
-				self->client->clientInfo.headModel = 0;
-				self->client->moveType = MT_RUNJUMP;
-				self->client->ps.gravity = g_gravity->value*.1;
-			}
-			*/
-			
+		{      			
 			if ( (mod == MOD_DEMP2 || mod == MOD_DEMP2_ALT) && other )
 			{
 				vec3_t dir;
@@ -477,8 +409,6 @@ void NPC_Probe_Pain(gentity_t *self, gentity_t *attacker, int damage)
 				self->client->ps.velocity[2] -= 127;
 			}
 
-			//self->s.powerups |= ( 1 << PW_SHOCKED );
-			//self->client->ps.powerups[PW_SHOCKED] = level.time + 3000;
 			self->client->ps.electrifyTime = level.time + 3000;
 
 			self->NPC->localState = LSTATE_DROP;
@@ -549,7 +479,6 @@ void ImperialProbe_Patrol( void )
 	{
 		G_SoundOnEnt( NPC, CHAN_AUTO, "sound/chars/probe/misc/anger1" );
 		TIMER_Set( NPC, "angerNoise", Q_irand( 2000, 4000 ) );
-		//NPCInfo->behaviorState = BS_HUNT_AND_KILL;
 	}
 
 	NPC_UpdateAngles( qtrue, qtrue );

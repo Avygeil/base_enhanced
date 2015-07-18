@@ -46,7 +46,6 @@ char* GetExceptionName(DWORD code)
 	case EXCEPTION_INVALID_DISPOSITION:      return "Invalid Disposition";
 	case EXCEPTION_GUARD_PAGE:               return "Guard Page";
 	case EXCEPTION_INVALID_HANDLE:           return "Invalid Handle";
-	//case EXCEPTION_POSSIBLE_DEADLOCK:        return "Possible Deadlock";
 	case 0xE06D7363:  return "C++ Exception (using throw)";
 
 	default:
@@ -191,7 +190,6 @@ void Linux_PrintCallStack(FILE* output, ucontext_t* context, int maxframes){
 	void* buffer[MAX_CALLSTACK_BUFFER];
 	char** strings;
 	size_t num_backtrace_frames;
-	//void *backtrace[CRASH_MAX_BACKTRACE_DEPTH];
 
 	if (maxframes > MAX_CALLSTACK_BUFFER){
 		maxframes = MAX_CALLSTACK_BUFFER;
@@ -203,7 +201,6 @@ void Linux_PrintCallStack(FILE* output, ucontext_t* context, int maxframes){
 
 	num_backtrace_frames = signal_backtrace(buffer,
 		maxframes, context, 0);
-	//size = backtrace(buffer, maxframes);
 	strings = backtrace_symbols(buffer, num_backtrace_frames);
     if (strings == NULL) {
 		fprintf(output, "Failed to retrieve callstack.\n");
@@ -439,7 +436,6 @@ void Linux_Handler (int signo, siginfo_t * siginfo, void *context)
 	fprintf(CrashLogFile, "Process File Name: %s\n", __progname	);
 	fprintf(CrashLogFile, "Process ID: %d\n", getpid()	);
 	fprintf(CrashLogFile, "Signal Code: 0x%08X \n", signo);
-	//fprintf(CrashLogFile, "Signal Code: 0x%08X (%s)\n", signo, strsignal(signo));
 	fprintf(CrashLogFile, "Signal Reason: %s\n", code2str(siginfo->si_code, signo));  
 	
 	fprintf(CrashLogFile, "Exception Address: 0x%08X \n", (unsigned int)(siginfo->si_addr));  
@@ -460,17 +456,6 @@ void Linux_Handler (int signo, siginfo_t * siginfo, void *context)
 		ucontext->uc_mcontext.gregs[REG_EIP], 
 		ucontext->uc_mcontext.gregs[REG_ESI], 
 		ucontext->uc_mcontext.gregs[REG_ESP] ); 
-	/*
-	fprintf(CrashLogFile, "\nSegment Registers:\n");
-	fprintf(CrashLogFile, "CS: 0x%08X, DS: 0x%08X, ES: 0x%08X\n", 
-		ucontext->uc_mcontext.cs, 
-		ucontext->uc_mcontext.ds, 
-		ucontext->uc_mcontext.es ); 
-	fprintf(CrashLogFile, "FS: 0x%08X, GS: 0x%08X, SS: 0x%08X\n", 
-		ucontext->uc_mcontext.fs, 
-		ucontext->uc_mcontext.gs, 
-		ucontext->uc_mcontext.ss  );
-	*/
 
 	Linux_PrintCallStack(CrashLogFile, context, 100);
 

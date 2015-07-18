@@ -78,10 +78,6 @@ bool ReplaceMemory(replaceEntry_t *replace){
 		Com_Printf( "^1Warning: Failed to replace memory: %s\n", replace->name);
 	}
 	return success;
-//#ifdef _DEBUG
-//	Com_Printf( success ? va( "  %s\n", replace->name )
-//						: va( "^1Warning: Failed to replace memory: %s\n", replace->name ) );
-//#endif
 }
 
 bool RestoreMemory(const replaceEntry_t *replace){

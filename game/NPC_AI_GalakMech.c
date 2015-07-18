@@ -14,8 +14,6 @@ extern void G_SoundOnEnt (gentity_t *ent, soundChannel_t channel, const char *so
 extern qboolean BG_CrouchAnim( int anim );
 #include "namespace_end.h"
 
-//extern void NPC_Mark1_Part_Explode(gentity_t *self,int bolt);
-
 #define MELEE_DIST_SQUARED 6400//80*80
 #define MIN_LOB_DIST_SQUARED 65536//256*256
 #define MAX_LOB_DIST_SQUARED 200704//448*448
@@ -48,12 +46,10 @@ void NPC_GalakMech_Precache( void )
 
 	G_EffectIndex( "galak/trace_beam" );
 	G_EffectIndex( "galak/beam_warmup" );
-//	G_EffectIndex( "small_chunks");
 	G_EffectIndex( "env/med_explode2");
 	G_EffectIndex( "env/small_explode2");
 	G_EffectIndex( "galak/explode");
 	G_EffectIndex( "blaster/smoke_bolton");
-//	G_EffectIndex( "env/exp_trail_comp");
 }
 
 void NPC_GalakMech_Init( gentity_t *ent )
@@ -64,8 +60,6 @@ void NPC_GalakMech_Init( gentity_t *ent )
 		ent->NPC->investigateCount = ent->NPC->investigateDebounceTime = 0;
 		ent->flags |= FL_SHIELDED;//reflect normal shots
 		//rwwFIXMEFIXME: Support PW_GALAK_SHIELD
-		//ent->client->ps.powerups[PW_GALAK_SHIELD] = Q3_INFINITE;//temp, for effect
-		//ent->fx_time = level.time;
 		VectorSet( ent->r.mins, -60, -60, -24 );
 		VectorSet( ent->r.maxs, 60, 60, 80 );
 		ent->flags |= FL_NO_KNOCKBACK;//don't get pushed
@@ -86,7 +80,6 @@ void NPC_GalakMech_Init( gentity_t *ent )
 	}
 	else
 	{
-//		NPC_SetSurfaceOnOff( ent, "helmet", TURN_OFF );
 		NPC_SetSurfaceOnOff( ent, "torso_shield", TURN_OFF );
 		NPC_SetSurfaceOnOff( ent, "torso_galakface", TURN_ON );
 		NPC_SetSurfaceOnOff( ent, "torso_galakhead", TURN_ON );
@@ -134,8 +127,6 @@ void GM_Dying( gentity_t *self )
 {
 	if ( level.time - self->s.time < 4000 )
 	{//FIXME: need a real effect
-		//self->s.powerups |= ( 1 << PW_SHOCKED );
-		//self->client->ps.powerups[PW_SHOCKED] = level.time + 1000;
 		self->client->ps.electrifyTime = level.time + 1000;
 		if ( TIMER_Done( self, "dyingExplosion" ) )
 		{
@@ -221,8 +212,6 @@ void GM_Dying( gentity_t *self )
 	else
 	{//one final, huge explosion
 		G_PlayEffectID( G_EffectIndex("galak/explode"), self->r.currentOrigin, vec3_origin );
-//		G_PlayEffect( "small_chunks", self->r.currentOrigin );
-//		G_PlayEffect( "env/exp_trail_comp", self->r.currentOrigin, self->currentAngles );
 		self->nextthink = level.time + FRAMETIME;
 		self->think = G_FreeEntity;
 	}
@@ -241,44 +230,6 @@ void NPC_GM_Pain(gentity_t *self, gentity_t *attacker, int damage)
 	gentity_t *inflictor = attacker;
 	int hitLoc = 1;
 	int mod = gPainMOD;
-
-	//VectorCopy(gPainPoint, point);
-
-	//if ( self->client->ps.powerups[PW_GALAK_SHIELD] == 0 )
-	if (0) //rwwFIXMEFIXME: do all of this
-	{//shield is currently down
-		//FIXME: allow for radius damage?
-		/*
-		if ( (hitLoc==HL_GENERIC1) && (self->locationDamage[HL_GENERIC1] > GENERATOR_HEALTH) )
-		{
-			int newBolt = gi.G2API_AddBolt( &self->ghoul2[self->playerModel], "*antenna_base" );
-			if ( newBolt != -1 )
-			{
-				GM_CreateExplosion( self, newBolt, qfalse );
-			}
-
-			NPC_SetSurfaceOnOff( self, "torso_shield", TURN_OFF );
-			NPC_SetSurfaceOnOff( self, "torso_antenna", TURN_OFF );
-			NPC_SetSurfaceOnOff( self, "torso_antenna_base_cap", TURN_ON );
-			self->client->ps.powerups[PW_GALAK_SHIELD] = 0;//temp, for effect
-			self->client->ps.stats[STAT_ARMOR] = 0;//no more armor
-			self->NPC->investigateDebounceTime = 0;//stop recharging
-
-			NPC_SetAnim( self, SETANIM_BOTH, BOTH_ALERT1, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
-			TIMER_Set( self, "attackDelay", self->client->ps.torsoTimer );
-			G_AddEvent( self, Q_irand( EV_DEATH1, EV_DEATH3 ), self->health );
-		}
-		*/
-	}/*
-	else
-	{//store the point for shield impact
-		if ( point )
-		{
-		//	VectorCopy( point, self->pos4 );
-		//	self->client->poisonTime = level.time;
-			//rwwFIXMEFIXME: ..do this is as well.
-		}
-	}*/
 
 	if ( !self->lockCount && self->client->ps.torsoTimer <= 0 )
 	{//don't interrupt laser sweep attack or other special attacks/moves
@@ -317,8 +268,6 @@ void NPC_GM_Pain(gentity_t *self, gentity_t *attacker, int damage)
 	else if ( hitLoc == HL_GENERIC1 )
 	{
 		NPC_SetPainEvent( self );
-		//self->s.powerups |= ( 1 << PW_SHOCKED );
-		//self->client->ps.powerups[PW_SHOCKED] = level.time + Q_irand( 500, 2500 );
 		self->client->ps.electrifyTime = level.time + Q_irand(500, 2500);
 	}
 
@@ -495,7 +444,6 @@ static void GM_CheckFireState( void )
 				if ( VectorCompare( impactPos4, vec3_origin ) )
 				{//never checked ShotEntity this frame, so must do a trace...
 					trace_t tr;
-					//vec3_t	mins = {-2,-2,-2}, maxs = {2,2,2};
 					vec3_t	forward, end;
 					AngleVectors( NPC->client->ps.viewangles, forward, NULL, NULL );
 					VectorMA( muzzle, 8192, forward, end );
@@ -730,17 +678,10 @@ void NPC_BSGM_Attack( void )
 			if ( TIMER_Done( NPC, "beamDelay" ) )
 			{//time to start the beam
 				int laserAnim;
-				//if ( Q_irand( 0, 1 ) )
 				if (1)
 				{
 					laserAnim = BOTH_ATTACK2;
 				}
-				/*
-				else
-				{
-					laserAnim = BOTH_ATTACK7;
-				}
-				*/
 				NPC_SetAnim( NPC, SETANIM_BOTH, laserAnim, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
 				TIMER_Set( NPC, "attackDelay", NPC->client->ps.torsoTimer + Q_irand( 1000, 3000 ) );
 				//turn on beam effect
@@ -809,24 +750,8 @@ void NPC_BSGM_Attack( void )
 		}
 	}
 	else 
-	{//Okay, we're not in a special attack, see if we should switch weapons or start a special attack
-		/*
-		if ( NPC->s.weapon == WP_REPEATER 
-			&& !(NPCInfo->scriptFlags & SCF_ALT_FIRE)//using rapid-fire
-			&& NPC->enemy->s.weapon == WP_SABER //enemy using saber
-			&& NPC->client && (NPC->client->ps.saberEventFlags&SEF_DEFLECTED)
-			&& !Q_irand( 0, 50 ) )
-		{//he's deflecting my shots, switch to the laser or the lob fire for a while
-			TIMER_Set( NPC, "noRapid", Q_irand( 2000, 6000 ) );
-			NPCInfo->scriptFlags |= SCF_ALT_FIRE;
-			NPC->alt_fire = qtrue;
-			if ( NPC->locationDamage[HL_GENERIC1] > GENERATOR_HEALTH && (Q_irand( 0, 1 )||enemyDist4 < MAX_LOB_DIST_SQUARED) )
-			{//shield down, use laser
-				NPC_GM_StartLaser();
-			}
-		}
-		else*/
-		if (// !NPC->client->ps.powerups[PW_GALAK_SHIELD] 
+	{
+		if (
 			1 //rwwFIXMEFIXME: just act like the shield is down til the effects and stuff are done
 			&& enemyDist4 < MELEE_DIST_SQUARED 
 			&& InFront( NPC->enemy->r.currentOrigin, NPC->r.currentOrigin, NPC->client->ps.viewangles, 0.3f ) 
@@ -1006,7 +931,6 @@ void NPC_BSGM_Attack( void )
 	if ( enemyCS4 )
 	{
 		shoot4 = qtrue;
-		//NPCInfo->enemyCheckDebounceTime = level.time;//actually used here as a last actual LOS
 	}
 	else
 	{
@@ -1194,10 +1118,8 @@ void NPC_BSGM_Attack( void )
 			G_Damage( NPC->enemy, NPC, NPC, smackDir, NPC->r.currentOrigin, (g_spskill.integer+1)*Q_irand( 5, 10), DAMAGE_NO_KNOCKBACK, MOD_UNKNOWN ); 
 			//throw them
 			G_Throw( NPC->enemy, smackDir, 100 );
-			//NPC->enemy->s.powerups |= ( 1 << PW_SHOCKED );
 			if ( NPC->enemy->client )
 			{
-			//	NPC->enemy->client->ps.powerups[PW_SHOCKED] = level.time + 1000;
 				NPC->enemy->client->ps.electrifyTime = level.time + 1000;
 			}
 			//stop any attacks
@@ -1267,22 +1189,11 @@ void NPC_BSGM_Default( void )
 				NPC->client->ps.stats[STAT_ARMOR] = GALAK_SHIELD_HEALTH;
 				NPCInfo->investigateDebounceTime = 0;
 				NPC->flags |= FL_SHIELDED;//reflect normal shots
-			//	NPC->fx_time = level.time;
 				NPC_SetSurfaceOnOff( NPC, "torso_shield", TURN_ON );
 			}
 		}
 	}
-	/*
-	if ( NPC->client->ps.stats[STAT_ARMOR] > 0 )
-	{//armor present
-		NPC->client->ps.powerups[PW_GALAK_SHIELD] = Q3_INFINITE;//temp, for effect
-		NPC_SetSurfaceOnOff( NPC, "torso_shield", TURN_ON );
-	}
-	else
-	{
-		NPC_SetSurfaceOnOff( NPC, "torso_shield", TURN_OFF );
-	}
-	*/
+
 	//rwwFIXMEFIXME: Allow this stuff, and again, going to have to let the client know about it.
 	//Maybe a surface-off bitflag of some sort in the entity state?
 

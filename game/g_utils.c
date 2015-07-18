@@ -77,7 +77,6 @@ static int G_FindConfigstringIndex( const char *name, int start, int max, qboole
 			break;
 		}
 		if ( !strcmp( s, name ) ) {
-			//Com_Printf("DEBUG: Sound index found: %i %s \n",i,name);
 			return i;
 		}
 	}
@@ -90,7 +89,6 @@ static int G_FindConfigstringIndex( const char *name, int start, int max, qboole
 		G_Error( "G_FindConfigstringIndex: overflow" );
 	}
 
-	//Com_Printf("DEBUG: Sound index not found, creating: %i %s \n",i,name);
 	trap_SetConfigstring( start + i, name );
 
 	return i;
@@ -163,29 +161,6 @@ int G_BSPIndex( const char *name )
 //see if we can or should allow this guy to use a custom skeleton -rww
 qboolean G_PlayerHasCustomSkeleton(gentity_t *ent)
 {
-	/*
-	siegeClass_t *scl;
-
-	if (g_gametype.integer != GT_SIEGE)
-	{ //only in siege
-		return qfalse;
-	}
-
-	if (ent->s.number >= MAX_CLIENTS ||
-		!ent->client ||
-		ent->client->siegeClass == -1)
-	{ //invalid class
-		return qfalse;
-	}
-
-	scl = &bgSiegeClasses[ent->client->siegeClass];
-	if (!(scl->classflags & (1<<CFL_CUSTOMSKEL)))
-	{ //class is not flagged for this
-		return qfalse;
-	}
-
-	return qtrue;
-	*/
 	return qfalse;
 }
 
@@ -379,7 +354,6 @@ void G_FreeFakeClient(gclient_t **cl)
 { //or not, the dynamic stuff is busted somehow at the moment. Yet it still works in the test.
   //I think something is messed up in being able to cast the memory to stuff to modify it,
   //while modifying it directly seems to work fine.
-	//trap_TrueFree((void **)cl);
 }
 
 //allocate a veh object
@@ -431,7 +405,6 @@ gclient_t *gClPtrs[MAX_GENTITIES];
 
 void G_CreateFakeClient(int entNum, gclient_t **cl)
 {
-	//trap_TrueMalloc((void **)cl, sizeof(gclient_t));
 	if (!gClPtrs[entNum])
 	{
 		gClPtrs[entNum] = (gclient_t *) BG_Alloc(sizeof(gclient_t));
@@ -862,11 +835,6 @@ gentity_t *G_Spawn( void ) {
 
 
 	if ( i == ENTITYNUM_MAX_NORMAL ) {
-		/*
-		for (i = 0; i < MAX_GENTITIES; i++) {
-			G_Printf("%4i: %s\n", i, g_entities[i].classname);
-		}
-		*/
 		G_SpewEntList();
 		G_Error( "G_Spawn: no free entities" );
 	}
@@ -960,7 +928,6 @@ Marks the entity as free
 =================
 */
 void G_FreeEntity( gentity_t *ed ) {
-	//gentity_t *te;
 
 	if (ed->isSaberEntity)
 	{
@@ -984,11 +951,6 @@ void G_FreeEntity( gentity_t *ed ) {
 	//now-removed entity
 	if (ed->s.modelGhoul2)
 	{ //force all clients to accept an event to destroy this instance, right now
-		/*
-		te = G_TempEntity( vec3_origin, EV_DESTROY_GHOUL2_INSTANCE );
-		te->r.svFlags |= SVF_BROADCAST;
-		te->s.eventParm = ed->s.number;
-		*/
 		//Or not. Events can be dropped, so that would be a bad thing.
 		G_KillG2Queue(ed->s.number);
 	}
@@ -1098,7 +1060,6 @@ gentity_t *G_TempEntity( vec3_t origin, int event ) {
 	//WTF?  Why aren't we setting the s.origin? (like below)
 	//cg_events.c code checks origin all over the place!!!
 	//Trying to save bandwidth...?
-	//VectorCopy( snapped, e->s.origin );
 
 	// find cluster for PVS
 	trap_LinkEntity( e );
@@ -1406,7 +1367,6 @@ void G_Sound( gentity_t *ent, int channel, int soundIndex ) {
 		//this guy can still hear looping sound when they finally meet him
 		te->r.svFlags |= SVF_BROADCAST;
 
-		//te->freeAfterEvent = qfalse;
 	}
 }
 
@@ -1732,8 +1692,6 @@ void TryUse( gentity_t *ent )
 	//Trace ahead to find a valid target
 	trap_Trace( &trace, src, vec3_origin, vec3_origin, dest, ent->s.number, MASK_OPAQUE|CONTENTS_SOLID|CONTENTS_BODY|CONTENTS_ITEM|CONTENTS_CORPSE );
 	
-	//Com_Printf("trace.entityNum=%i\n",trace.entityNum);
-
 	//fixed bug when using client with slot 0, it skips needed part
 	if ( trace.fraction == 1.0f || trace.entityNum == ENTITYNUM_NONE)
 	{
@@ -1861,13 +1819,6 @@ void TryUse( gentity_t *ent )
 			G_SetAnim( ent, NULL, SETANIM_TORSO, BOTH_BUTTON_HOLD, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD, 0 );
 		}
 		ent->client->ps.weaponTime = ent->client->ps.torsoTimer;
-		/*
-		NPC_SetAnim( ent, SETANIM_TORSO, BOTH_FORCEPUSH, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
-		if ( !VectorLengthSquared( ent->client->ps.velocity ) )
-		{
-			NPC_SetAnim( ent, SETANIM_LEGS, BOTH_FORCEPUSH, SETANIM_FLAG_NORMAL|SETANIM_FLAG_HOLD );
-		}
-		*/
 		if ( target->touch == Touch_Button )
 		{//pretend we touched it
 			target->touch(target, ent, NULL);
@@ -2056,9 +2007,7 @@ int DebugLine(vec3_t start, vec3_t end, int color) {
 
 	VectorCopy(start, points[0]);
 	VectorCopy(start, points[1]);
-	//points[1][2] -= 2;
 	VectorCopy(end, points[2]);
-	//points[2][2] -= 2;
 	VectorCopy(end, points[3]);
 
 
@@ -2254,26 +2203,6 @@ float ShortestLineSegBewteen2LineSegs( vec3_t start1, vec3_t end1, vec3_t start2
 		current_dist = Q3_INFINITE;
 	}
 
-	//test 2 close_pnts first
-	/*
-	G_FindClosestPointOnLineSegment( start1, end1, close_pnt2, new_pnt );
-	new_dist = Distance( close_pnt2, new_pnt );
-	if ( new_dist < current_dist )
-	{//then update close_pnt1 close_pnt2 and current_dist
-		VectorCopy( new_pnt, close_pnt1 );
-		VectorCopy( close_pnt2, close_pnt2 );
-		current_dist = new_dist;
-	}
-
-	G_FindClosestPointOnLineSegment( start2, end2, close_pnt1, new_pnt );
-	new_dist = Distance( close_pnt1, new_pnt );
-	if ( new_dist < current_dist )
-	{//then update close_pnt1 close_pnt2 and current_dist
-		VectorCopy( close_pnt1, close_pnt1 );
-		VectorCopy( new_pnt, close_pnt2 );
-		current_dist = new_dist;
-	}
-	*/
 	//test all the endpoints
 	new_dist = Distance( start1, start2 );
 	if ( new_dist < current_dist )

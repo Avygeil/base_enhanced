@@ -60,7 +60,6 @@ void NPC_Mark1_Precache(void)
 	G_SoundIndex( "sound/chars/mark1/misc/mark1_pain");
 	G_SoundIndex( "sound/chars/mark1/misc/mark1_explo");
 
-//	G_EffectIndex( "small_chunks");
 	G_EffectIndex( "env/med_explode2");
 	G_EffectIndex( "explosions/probeexplosion1");
 	G_EffectIndex( "blaster/smoke_bolton");
@@ -98,7 +97,6 @@ void NPC_Mark1_Part_Explode( gentity_t *self, int bolt )
 		G_PlayEffectID( G_EffectIndex("blaster/smoke_bolton"), org, dir );
 	}
 
-	//G_PlayEffectID( G_EffectIndex("blaster/smoke_bolton"), self->playerModel, bolt, self->s.number );
 }
 
 /*
@@ -151,7 +149,6 @@ void Mark1Dead_FireRocket (void)
 
 	missile->damage = damage;
 	missile->dflags = DAMAGE_DEATH_KNOCKBACK;
-	//missile->methodOfDeath = MOD_ENERGY;
 	missile->methodOfDeath = MOD_ROCKET;
 	missile->clipmask = MASK_SHOT | CONTENTS_LIGHTSABER;
 	missile->splashDamage = BOWCASTER_SPLASH_DAMAGE;
@@ -208,27 +205,6 @@ Mark1_die
 */
 void Mark1_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int damage, int mod,int dFlags,int hitLoc )
 {
-	/*
-	int	anim;
-
-	// Is he dead already?
-	anim = self->client->ps.legsAnim;
-	if (((anim==BOTH_DEATH1) || (anim==BOTH_DEATH2)) && (self->client->ps.torsoTimer<=0)) 
-	{	// This is because self->health keeps getting zeroed out. HL_NONE acts as health in this case.
-		self->locationDamage[HL_NONE] += damage;
-		if (self->locationDamage[HL_NONE] > 50)
-		{
-			DeathFX(self);
-			self->client->ps.eFlags |= EF_NODRAW;
-			self->contents = CONTENTS_CORPSE;
-			// G_FreeEntity( self ); // Is this safe?  I can't see why we'd mark it nodraw and then just leave it around??
-			self->e_ThinkFunc = thinkF_G_FreeEntity;
-			self->nextthink = level.time + FRAMETIME;
-		}
-		return;
-	}
-	*/
-
 	G_Sound( self, CHAN_AUTO, G_SoundIndex(va("sound/chars/mark1/misc/death%d.wav",Q_irand( 1, 2))));
 
 	// Choose a death anim
@@ -275,13 +251,6 @@ void Mark1_dying( gentity_t *self )
 			TIMER_Set( self, "dyingExplosion", Q_irand( 300, 1000 ) );
 		}
 
-
-//		int		dir;
-//		vec3_t	right;
-
-		// Shove to the side
-//		AngleVectors( self->client->renderInfo.eyeAngles, NULL, right, NULL );
-//		VectorMA( self->client->ps.velocity, -80, right, self->client->ps.velocity );
 
 		// See which weapons are there
 		// Randomly fire blaster
@@ -358,7 +327,6 @@ void NPC_Mark1_Pain(gentity_t *self, gentity_t *attacker, int damage)
 			newBolt = trap_G2API_AddBolt( self->ghoul2, 0, "*flash4" );
 			if ( newBolt != -1 )
 			{
-//				G_PlayEffect( "small_chunks", self->playerModel, self->genericBolt2, self->s.number);
 				NPC_Mark1_Part_Explode( self, newBolt );
 			}
 
@@ -425,7 +393,6 @@ void Mark1_FireBlaster(void)
 {
 	vec3_t	muzzle1,enemy_org1,delta1,angleToEnemy1;
 	static	vec3_t	forward, vright, up;
-	//static	vec3_t	muzzle;
 	gentity_t	*missile;
 	mdxaBone_t	boltMatrix;
 	int			bolt;
@@ -569,8 +536,6 @@ void Mark1_FireRocket(void)
 
 	BG_GiveMeVectorFromMatrix( &boltMatrix, ORIGIN, muzzle1 );
 
-//	G_PlayEffect( "blaster/muzzle_flash", muzzle1 );
-
 	CalcEntitySpot( NPC->enemy, SPOT_HEAD, enemy_org1 );
 	VectorSubtract (enemy_org1, muzzle1, delta1);
 	vectoangles ( delta1, angleToEnemy1 );
@@ -635,7 +600,6 @@ void Mark1_AttackDecision( void )
 	{
 		if (TIMER_Done(NPC,"angerNoise"))
 		{
-//			G_Sound( NPC, G_SoundIndex(va("sound/chars/mark1/misc/talk%d.wav",	Q_irand(1, 4))));
 			TIMER_Set( NPC, "patrolNoise", Q_irand( 4000, 10000 ) );
 		}
 	}
@@ -683,7 +647,6 @@ void Mark1_AttackDecision( void )
 	{ 
 		NPC->health = 0;
 		NPC->client->ps.stats[STAT_HEALTH] = 0;
-		//GEntity_DieFunc(NPC, NPC, NPC, 100, MOD_UNKNOWN);
 		if (NPC->die)
 		{
 			NPC->die(NPC, NPC, NPC, 100, MOD_UNKNOWN);
@@ -727,13 +690,6 @@ void Mark1_Patrol( void )
 			NPC_UpdateAngles( qtrue, qtrue );
 		}
 
-		//randomly talk
-//		if (TIMER_Done(NPC,"patrolNoise"))
-//		{
-//			G_Sound( NPC, G_SoundIndex(va("sound/chars/mark1/misc/talk%d.wav",	Q_irand(1, 4))));
-//
-//			TIMER_Set( NPC, "patrolNoise", Q_irand( 2000, 4000 ) );
-//		}
 	}
 
 }
@@ -746,8 +702,6 @@ NPC_BSMark1_Default
 */
 void NPC_BSMark1_Default( void )
 {
-	//NPC->e_DieFunc = dieF_Mark1_die;
-
 	if ( NPC->enemy )
 	{
 		NPCInfo->goalEntity = NPC->enemy;

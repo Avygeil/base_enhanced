@@ -135,18 +135,6 @@ void PM_VehicleImpact(bgEntity_t *pEnt, trace_t *trace)
 		&& fabs(pSelfVeh->m_vOrientation[PITCH]) < 0.2f
 		&& fabs(pSelfVeh->m_vOrientation[ROLL]) < 0.2f )*/
 	{//we're landing, we're cool
-		//FIXME: some sort of landing "thump", not the impactFX
-		/*
-		if ( pSelfVeh->m_pVehicleInfo->iImpactFX )
-		{
-			vec3_t up = {0,0,1};
-#ifdef QAGAME
-			G_PlayEffectID( pSelfVeh->m_pVehicleInfo->iImpactFX, pm->ps->origin, up );
-#else
-			trap_FX_PlayEffectID( pSelfVeh->m_pVehicleInfo->iImpactFX, pm->ps->origin, up, -1, -1 );
-#endif
-		}
-		*/
 		//this was annoying me -rww
 		//FIXME: this shouldn't even be getting called when the vehicle is at rest!
 #ifdef QAGAME
@@ -298,7 +286,6 @@ void PM_VehicleImpact(bgEntity_t *pEnt, trace_t *trace)
 						{
 							pitchTurnStrength = -MAX_IMPACT_TURN_ANGLE;
 						}
-						//pSelfVeh->m_vOrientation[PITCH] = AngleNormalize180(pSelfVeh->m_vOrientation[PITCH]+pitchTurnStrength/turnDivider*pSelfVeh->m_fTimeModifier);
 						pSelfVeh->m_vFullAngleVelocity[PITCH] = AngleNormalize180(pSelfVeh->m_vOrientation[PITCH]+pitchTurnStrength/turnDivider*pSelfVeh->m_fTimeModifier);
 					}
 					//now do yaw
@@ -317,21 +304,8 @@ void PM_VehicleImpact(bgEntity_t *pEnt, trace_t *trace)
 						{
 							yawTurnStrength = -MAX_IMPACT_TURN_ANGLE;
 						}
-						//pSelfVeh->m_vOrientation[ROLL] = AngleNormalize180(pSelfVeh->m_vOrientation[ROLL]-yawTurnStrength/turnDivider*pSelfVeh->m_fTimeModifier);
 						pSelfVeh->m_vFullAngleVelocity[ROLL] = AngleNormalize180(pSelfVeh->m_vOrientation[ROLL]-yawTurnStrength/turnDivider*pSelfVeh->m_fTimeModifier);
 					}
-					/*
-					PM_SetPMViewAngle(pm->ps, pSelfVeh->m_vOrientation, &pSelfVeh->m_ucmd);
-					if ( pm_entVeh )
-					{//I'm a vehicle, so pm_entVeh is actually my pilot
-						bgEntity_t *pilot = pm_entVeh;
-						if ( !BG_UnrestrainedPitchRoll( pilot->playerState, pSelfVeh ) )
-						{
-							//set the rider's viewangles to the vehicle's viewangles
-							PM_SetPMViewAngle(pilot->playerState, pSelfVeh->m_vOrientation, &pSelfVeh->m_ucmd);
-						}
-					}
-					*/
 #ifdef QAGAME//server-side, turn the guy we hit away from us, too
 					if ( turnHitEnt//make the other guy turn and get pushed
 						&& hitEnt->client //must be a valid client
@@ -382,7 +356,6 @@ void PM_VehicleImpact(bgEntity_t *pEnt, trace_t *trace)
 							{
 								pitchTurnStrength = -MAX_IMPACT_TURN_ANGLE;
 							}
-							//hitEnt->m_pVehicle->m_vOrientation[PITCH] = AngleNormalize180(hitEnt->m_pVehicle->m_vOrientation[PITCH]+pitchTurnStrength/turnDivider*pSelfVeh->m_fTimeModifier);
 							hitEnt->m_pVehicle->m_vFullAngleVelocity[PITCH] = AngleNormalize180(hitEnt->m_pVehicle->m_vOrientation[PITCH]+pitchTurnStrength/turnDivider*pSelfVeh->m_fTimeModifier);
 						}
 						//now do yaw
@@ -401,21 +374,12 @@ void PM_VehicleImpact(bgEntity_t *pEnt, trace_t *trace)
 							{
 								yawTurnStrength = -MAX_IMPACT_TURN_ANGLE;
 							}
-							//hitEnt->m_pVehicle->m_vOrientation[ROLL] = AngleNormalize180(hitEnt->m_pVehicle->m_vOrientation[ROLL]-yawTurnStrength/turnDivider*pSelfVeh->m_fTimeModifier);
 							hitEnt->m_pVehicle->m_vFullAngleVelocity[ROLL] = AngleNormalize180(hitEnt->m_pVehicle->m_vOrientation[ROLL]-yawTurnStrength/turnDivider*pSelfVeh->m_fTimeModifier);
 						}
 						//NOTE: will these angle changes stick or will they be stomped 
 						//		when the vehicle goes through its own update and re-grabs 
 						//		its angles from its pilot...?  Should we do a 
 						//		SetClientViewAngles on the pilot?
-						/*
-						SetClientViewAngle( hitEnt, hitEnt->m_pVehicle->m_vOrientation );
-						if ( hitEnt->m_pVehicle->m_pPilot 
-							&& ((gentity_t *)hitEnt->m_pVehicle->m_pPilot)->client )
-						{
-							SetClientViewAngle( (gentity_t *)hitEnt->m_pVehicle->m_pPilot, hitEnt->m_pVehicle->m_vOrientation );
-						}
-						*/
 					}
 #endif
 				}
@@ -430,7 +394,6 @@ void PM_VehicleImpact(bgEntity_t *pEnt, trace_t *trace)
 			AngleVectors( pSelfVeh->m_vOrientation, NULL, NULL, vehUp );
 			if ( pSelfVeh->m_pVehicleInfo->iImpactFX )
 			{
-				//G_PlayEffectID( pSelfVeh->m_pVehicleInfo->iImpactFX, pm->ps->origin, vehUp );
 				//tempent use bad!
 				G_AddEvent((gentity_t *)pEnt, EV_PLAY_EFFECT_ID, pSelfVeh->m_pVehicleInfo->iImpactFX);
 			}
@@ -655,7 +618,6 @@ qboolean	PM_SlideMove( qboolean gravity ) {
 	float		into;
 	vec3_t		endVelocity;
 	vec3_t		endClipVelocity;
-	//qboolean	damageSelf = qtrue;
 	
 	numbumps = 4;
 
@@ -883,8 +845,6 @@ void PM_StepSlideMove( qboolean gravity ) {
 	vec3_t		start_o, start_v;
 	vec3_t		down_o, down_v;
 	trace_t		trace;
-//	float		down_dist, up_dist;
-//	vec3_t		delta, delta2;
 	vec3_t		up, down;
 	float		stepSize;
 	qboolean	isGiant = qfalse;
@@ -1018,18 +978,6 @@ void PM_StepSlideMove( qboolean gravity ) {
 				VectorCopy (start_v, pm->ps->velocity);
 			}
 		}
-		/*
-		else if ( pm->ps->clientNum >= MAX_CLIENTS//NPC
-			&& isGiant 
-			&& trace.entityNum < MAX_CLIENTS
-			&& pEnt 
-			&& pEnt->s.NPC_class == CLASS_ATST 
-			&& OnSameTeam( pEnt, traceEnt) )
-		{//NPC AT-ST's don't step up on allies
-			VectorCopy (start_o, pm->ps->origin);
-			VectorCopy (start_v, pm->ps->velocity);
-		}
-		*/
 		else
 		{
 			VectorCopy (trace.endpos, pm->ps->origin);

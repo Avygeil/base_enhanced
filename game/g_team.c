@@ -74,26 +74,6 @@ const char *TeamColorString(int team) {
 	return S_COLOR_WHITE;
 }
 
-// NULL for everyone
-/*
-void QDECL PrintMsg( gentity_t *ent, const char *fmt, ... ) {
-	char		msg[1024];
-	va_list		argptr;
-	char		*p;
-	
-	va_start (argptr,fmt);
-	if (vsprintf (msg, fmt, argptr) > sizeof(msg)) {
-		G_Error ( "PrintMsg overrun" );
-	}
-	va_end (argptr);
-
-	// double quotes are bad
-	while ((p = strchr(msg, '"')) != NULL)
-		*p = '\'';
-
-	trap_SendServerCommand ( ( (ent == NULL) ? -1 : ent-g_entities ), va("print \"%s\"", msg ));
-}
-*/
 //Printing messages to players via this method is no longer done, StringEd stuff is client only.
 
 
@@ -391,8 +371,6 @@ void Team_FragBonuses(gentity_t *targ, gentity_t *inflictor, gentity_t *attacker
 
 		attacker->client->ps.persistant[PERS_FC_KILL_COUNT]++;
 		attacker->client->pers.teamState.fragcarrier++;
-		//PrintMsg(NULL, "%s" S_COLOR_WHITE " fragged %s's flag carrier!\n",
-		//	attacker->client->pers.netname, TeamName(team));
 		PrintCTFMessage(attacker->s.number, team, CTFMESSAGE_FRAGGED_FLAG_CARRIER);
 
 		// the target had the flag, clear the hurt carrier
@@ -412,14 +390,9 @@ void Team_FragBonuses(gentity_t *targ, gentity_t *inflictor, gentity_t *attacker
 
 		//*CHANGE 31* longest flag holding time keeping track
 		targ->client->ps.persistant[PERS_LONGEST_FLAG_HOLD] += (level.time - targ->client->pers.teamState.flagsince);
-		//if ((level.time - targ->client->pers.teamState.flagsince) > targ->client->ps.persistant[PERS_LONGEST_FLAG_HOLD]) {
-		//	targ->client->ps.persistant[PERS_LONGEST_FLAG_HOLD] = (level.time - targ->client->pers.teamState.flagsince);
-		//}
 
 		attacker->client->ps.persistant[PERS_FC_KILL_COUNT]++;
 		attacker->client->pers.teamState.fragcarrier++;
-		//PrintMsg(NULL, "%s" S_COLOR_WHITE " fragged %s's skull carrier!\n",
-		//	attacker->client->pers.netname, TeamName(team));
 
 		// the target had the flag, clear the hurt carrier
 		// field on the other team
@@ -690,10 +663,8 @@ void Team_CaptureFlagSound( gentity_t *ent, int team ) {
 void Team_ReturnFlag( int team ) {
 	Team_ReturnFlagSound(Team_ResetFlag(team), team);
 	if( team == TEAM_FREE ) {
-		//PrintMsg(NULL, "The flag has returned!\n" );
 	}
 	else { //flag should always have team in normal CTF
-		//PrintMsg(NULL, "The %s flag has returned!\n", TeamName(team));
 		PrintCTFMessage(-1, team, CTFMESSAGE_FLAG_RETURNED);
 	}
 }
@@ -767,27 +738,13 @@ int Team_TouchOurFlag( gentity_t *ent, gentity_t *other, int team ) {
 
 	if ( ent->flags & FL_DROPPED_ITEM ) {
 		// hey, its not home.  return it by teleporting it back
-		//PrintMsg( NULL, "%s" S_COLOR_WHITE " returned the %s flag!\n", 
-		//	cl->pers.netname, TeamName(team));
 		PrintCTFMessage(other->s.number, team, CTFMESSAGE_PLAYER_RETURNED_FLAG);
 
 		AddScore(other, ent->r.currentOrigin, CTF_RECOVERY_BONUS);
 		other->client->ps.persistant[PERS_FLAG_RETURN_COUNT]++;
 		other->client->pers.teamState.flagrecovery++;
 		other->client->pers.teamState.lastreturnedflag = level.time;
-
-		////add avg return statistics
-		//if (team == TEAM_RED ){
-		//	other->client->ps.persistant[PERS_RETURN_TIMES_SUM] += (level.time - level.redFlagStealTime)/1000 ;
-		//	//G_Printf("DEBUG: (%i) Adding sum:%i time:%i stealtime:%i",other->s.number,
-		//	//	(level.time - level.redFlagStealTime)/1000,level.time,level.redFlagStealTime);
-		//} else {
-		//	other->client->ps.persistant[PERS_RETURN_TIMES_SUM] += (level.time - level.blueFlagStealTime)/1000 ;
-		//	//G_Printf("DEBUG: (%i) Adding sum:%i time:%i stealtime:%i",other->s.number,
-		//	//	(level.time - level.blueFlagStealTime)/1000,level.time,level.blueFlagStealTime);
-		//}
-
-
+        
 		//ResetFlag will remove this entity!  We must return zero
 		Team_ReturnFlagSound(Team_ResetFlag(team), team);
 
@@ -851,74 +808,10 @@ int Team_TouchOurFlag( gentity_t *ent, gentity_t *other, int team ) {
 		}
 	}
 
-	//}
-
-	/*
-	// *CHANGE 16* if capturing, make sure there is no enemy closer to the flag
-	if (g_fixCaptureCondition.integer) {
-		int i;
-		gentity_t*	enemy;
-		float	dist, enemyDist;
-		int     enemyTeam;
-		
-		dist = Distance(ent->s.pos.trBase, other->client->ps.origin);
-
-		if (other->client->sess.sessionTeam == TEAM_RED){
-			enemyTeam = TEAM_BLUE;
-		} else {
-			enemyTeam = TEAM_RED;
-		}		
-
-		for(i = 0; i < MAX_CLIENTS; ++i){
-			enemy = (g_entities + i);
-
-			if (!enemy || !enemy->inuse || !enemy->client){
-				continue;
-			}
-
-			//check if its alive
-			if (enemy->health < 1)
-				continue;		// dead people can't pickup
-
-			//ignore specs
-			if (enemy->client->sess.sessionTeam == TEAM_SPECTATOR)
-				continue;
-
-			//check if this is enemy
-			if ((enemy->client->sess.sessionTeam != TEAM_RED && enemy->client->sess.sessionTeam != TEAM_BLUE) ||
-				enemy->client->sess.sessionTeam != enemyTeam){
-				continue;
-			}
-			
-			//check if enemy is in item use zone
-			if ( enemy->client->ps.origin[0] - ent->s.pos.trBase[0] > 44
-				|| enemy->client->ps.origin[0] - ent->s.pos.trBase[0] < -50
-				|| enemy->client->ps.origin[1] - ent->s.pos.trBase[1] > 36
-				|| enemy->client->ps.origin[1] - ent->s.pos.trBase[1] < -36
-				|| enemy->client->ps.origin[2] - ent->s.pos.trBase[2] > 36
-				|| enemy->client->ps.origin[2] - ent->s.pos.trBase[2] < -36 ) {
-				continue;
-			}
-
-			//check if enemy is closer to our flag than us
-			enemyDist = Distance(ent->s.pos.trBase,enemy->client->ps.origin);
-			if (enemyDist < dist){
-				return Team_TouchEnemyFlag( ent, enemy, team );
-			}
-
-		}
-	}
-
-	*/
-
-	//PrintMsg( NULL, "%s" S_COLOR_WHITE " captured the %s flag!\n", cl->pers.netname, TeamName(OtherTeam(team)));
 	PrintCTFMessage(other->s.number, team, CTFMESSAGE_PLAYER_CAPTURED_FLAG);
 
 	//*CHANGE 31* longest flag holding time keeping track
 	other->client->ps.persistant[PERS_LONGEST_FLAG_HOLD] += (level.time - other->client->pers.teamState.flagsince);
-	//if ((level.time - other->client->pers.teamState.flagsince) > other->client->ps.persistant[PERS_LONGEST_FLAG_HOLD]) {
-	//	other->client->ps.persistant[PERS_LONGEST_FLAG_HOLD] = (level.time - other->client->pers.teamState.flagsince);
-	//}
 
 	cl->ps.powerups[enemy_flag] = 0;
 	
@@ -927,7 +820,6 @@ int Team_TouchOurFlag( gentity_t *ent, gentity_t *other, int team ) {
 
 	// Increase the team's score
 	AddTeamScore(ent->s.pos.trBase, other->client->sess.sessionTeam, 1);
-//	Team_ForceGesture(other->client->sess.sessionTeam);
 	//rww - don't really want to do this now. Mainly because performing a gesture disables your upper torso animations until it's done and you can't fire
 
 	other->client->pers.teamState.captures++;
@@ -1024,66 +916,6 @@ int Team_TouchEnemyFlag( gentity_t *ent, gentity_t *other, int team ) {
 		}
 	}
 
-	/*
-	// *CHANGE 16* if touching enemy flag, make sure there is no enemy fc closer to flag
-	if (g_fixCaptureCondition.integer) {
-		int i;
-		gentity_t*	enemy;
-		float	dist, enemyDist;
-		//int     enemyTeam;
-		int     ourFlag;
-
-		dist = Distance(ent->s.pos.trBase, other->client->ps.origin);
-
-		if (other->client->sess.sessionTeam == TEAM_RED){
-			ourFlag   = PW_REDFLAG;
-			//enemyTeam = TEAM_BLUE;			
-		} else {
-			ourFlag   = PW_BLUEFLAG;
-			//enemyTeam = TEAM_RED;
-		}		
-
-		for(i = 0; i < MAX_CLIENTS; ++i){
-			enemy = (g_entities + i);
-
-			if (!enemy || !enemy->inuse || !enemy->client){
-				continue;
-			}
-
-			//ignore specs
-			if (enemy->client->sess.sessionTeam == TEAM_SPECTATOR)
-				continue;
-
-			//check if its alive
-			if (enemy->health < 1)
-				continue;		// dead people can't pick up items
-
-			//lets check if he has our flag
-			if (!enemy->client->ps.powerups[ourFlag])
-				continue;
-
-			//check if enemy is in item use zone
-			if ( enemy->client->ps.origin[0] - ent->s.pos.trBase[0] > 44
-				|| enemy->client->ps.origin[0] - ent->s.pos.trBase[0] < -50
-				|| enemy->client->ps.origin[1] - ent->s.pos.trBase[1] > 36
-				|| enemy->client->ps.origin[1] - ent->s.pos.trBase[1] < -36
-				|| enemy->client->ps.origin[2] - ent->s.pos.trBase[2] > 36
-				|| enemy->client->ps.origin[2] - ent->s.pos.trBase[2] < -36 ) {
-				continue;
-			}
-			
-			//check if enemy is closer to our flag than us
-			enemyDist = Distance(ent->s.pos.trBase,enemy->client->ps.origin);
-			if (enemyDist < dist){
-				return Team_TouchOurFlag( ent, enemy, team );
-			}
-
-		}
-	}
-	*/
-
-	//PrintMsg (NULL, "%s" S_COLOR_WHITE " got the %s flag!\n",
-	//	other->client->pers.netname, TeamName(team));
 	PrintCTFMessage(other->s.number, team, CTFMESSAGE_PLAYER_GOT_FLAG);
 
 	if (team == TEAM_RED)
@@ -1097,13 +929,9 @@ int Team_TouchEnemyFlag( gentity_t *ent, gentity_t *other, int team ) {
 			level.redFlagStealTime = level.time;
 		else
 			level.blueFlagStealTime = level.time;
-
-		//G_Printf("Flag of team %i stolen at %i.\n",team,level.time);
 	}
 
 	Team_SetFlagStatus( team, FLAG_TAKEN );
-	//++other->client->pers.teamState.gets;
-	//++other->client->ps.persistant[PERS_FLAG_GET_COUNT];	
 
 	AddScore(other, ent->r.currentOrigin, CTF_FLAG_BONUS);
 	cl->pers.teamState.flagsince = level.time;
@@ -1280,7 +1108,6 @@ gentity_t *SelectRandomTeamSpawnPoint( int teamstate, team_t team, int siegeClas
 	if (g_gametype.integer == GT_SIEGE && siegeClass >= 0 &&
 		bgSiegeClasses[siegeClass].name[0])
 	{ //out of the spots found, see if any have an idealclass to match our class name
-		//gentity_t *classSpots[MAX_TEAM_SPAWN_POINTS];
 		int classCount = 0;
 		int i = 0;
 
@@ -1289,7 +1116,6 @@ gentity_t *SelectRandomTeamSpawnPoint( int teamstate, team_t team, int siegeClas
 			if (spots[i] && spots[i]->idealclass && spots[i]->idealclass[0] &&
 				!Q_stricmp(spots[i]->idealclass, bgSiegeClasses[siegeClass].name))
 			{ //this spot's idealclass matches the class name
-                //classSpots[classCount] = spots[i];
 				classCount++;
 			}
 			i++;

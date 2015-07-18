@@ -104,7 +104,6 @@ void InitSiegeMode(void)
 	char			objecStr[8192];
 	int				len = 0;
 	int				i = 0;
-//	int				j = 0;
 	int				objectiveNumTeam1 = 0;
 	int				objectiveNumTeam2 = 0;
 	fileHandle_t	f;
@@ -270,29 +269,6 @@ void InitSiegeMode(void)
 		G_Error("Couldn't find any player classes for Siege");
 	}
 
-	/*
-	//We could probably just see what teams are used on this level,
-	//then see what classes are used by those teams, and then precache
-	//all weapons for said classes. However, I'm just going to do them
-	//all for now.
-	while (i < bgNumSiegeClasses)
-	{
-		cl = &bgSiegeClasses[i];
-		j = 0;
-
-		while (j < WP_NUM_WEAPONS)
-		{
-			if (cl->weapons & (1 << j))
-			{ //we use this weapon so register it.
-				RegisterItem(BG_FindItemForWeapon(j));
-			}
-
-			j++;
-		}
-
-		i++;
-	}
-	*/
 	//Ok, I'm adding inventory item precaching now, so I'm finally going to optimize this
 	//to only do weapons/items for the current teams used on the level.
 
@@ -560,7 +536,6 @@ void BroadcastObjectiveCompletion(int team, int objective, int final, int client
 	}
 
 	SiegeBroadcast_OBJECTIVECOMPLETE(team, client, objective);
-	//G_Printf("Broadcast goal completion team %i objective %i final %i\n", team, objective, final);
 }
 
 void AddSiegeWinningTeamPoints(int team, int winner)
@@ -656,8 +631,6 @@ void SiegeRoundComplete(int winningteam, int winningclient)
 	vec3_t nomatter;
 	char teamstr[1024];
 	int originalWinningClient = winningclient;
-
-	//G_Printf("Team %i won\n", winningteam);
 
 	if (winningclient != ENTITYNUM_NONE && g_entities[winningclient].client &&
 		g_entities[winningclient].client->sess.sessionTeam != winningteam)

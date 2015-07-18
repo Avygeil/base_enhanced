@@ -289,8 +289,6 @@ void SP_misc_G2model( gentity_t *ent ) {
 	trap_G2API_InitGhoul2Model(&ent->s, name1, G_ModelIndex( name1 ), 0, 0, 0, 0);
 	trap_G2API_SetBoneAnim(ent->s.ghoul2, 0, "model_root", 0, 12, BONE_ANIM_OVERRIDE_LOOP, 1.0f, level.time, -1, -1);
 	ent->s.radius = 150;
-//	VectorSet (ent->r.mins, -16, -16, -16);
-//	VectorSet (ent->r.maxs, 16, 16, 16);
 	trap_LinkEntity (ent);
 
 	G_SetOrigin( ent, ent->s.origin );
@@ -422,12 +420,7 @@ void SP_misc_bsp(gentity_t *ent)
 	VectorCopy(ent->s.origin, level.mOriginAdjust);
 	level.mRotationAdjust = ent->s.angles[1];
 	level.mTargetAdjust = temp;
-	//level.hasBspInstances = qtrue; //rww - also not referenced anywhere.
 	level.mBSPInstanceDepth++;
-	/*
-	G_SpawnString("filter", "", &out);
-	strcpy(level.mFilter, out);
-	*/
 	G_SpawnString("teamfilter", "", &out);
 	strcpy(level.mTeamFilter, out);
 
@@ -445,20 +438,7 @@ void SP_misc_bsp(gentity_t *ent)
 	trap_SetActiveSubBSP(-1);
 
 	level.mBSPInstanceDepth--;
-	//level.mFilter[0] = level.mTeamFilter[0] = 0;
 	level.mTeamFilter[0] = 0;
-
-	/*
-	if ( g_debugRMG.integer )
-	{
-		G_SpawnDebugCylinder ( ent->s.origin, ent->s.time2, &g_entities[0], 2000, COLOR_WHITE );
-
-		if ( ent->s.time )
-		{
-			G_SpawnDebugCylinder ( ent->s.origin, ent->s.time, &g_entities[0], 2000, COLOR_RED );
-		}
-	}
-	*/
 }
 
 /*QUAKED terrain (1.0 1.0 1.0) ? NOVEHDMG
@@ -487,7 +467,6 @@ void SP_terrain(gentity_t *ent)
 	char				final[MAX_QPATH];
 	char				seed[MAX_QPATH];
 	char				missionType[MAX_QPATH];
-	//char				soundSet[MAX_QPATH];
 	int					shaderNum, i;
 	char				*value;
 	int					terrainID;
@@ -500,33 +479,12 @@ void SP_terrain(gentity_t *ent)
 	trap_SetBrushModel( ent, ent->model );
 
 	// Get the shader from the top of the brush
-//	shaderNum = gi.CM_GetShaderNum(s.modelindex);
 	shaderNum = 0;
 
 	if (g_RMG.integer)
 	{
-		/*
-		// Grab the default terrain file from the RMG cvar
-		trap_Cvar_VariableStringBuffer("RMG_terrain", temp, MAX_QPATH);
-		Com_sprintf(final, MAX_QPATH, "%s", temp);
-		AddSpawnField("terrainDef", temp);
- 
-		trap_Cvar_VariableStringBuffer("RMG_instances", temp, MAX_QPATH);
-		Com_sprintf(final, MAX_QPATH, "%s", temp);
-		AddSpawnField("instanceDef", temp);
-
-		trap_Cvar_VariableStringBuffer("RMG_miscents", temp, MAX_QPATH);
-		Com_sprintf(final, MAX_QPATH, "%s", temp);
-		AddSpawnField("miscentDef", temp);
-		*/
-		//rww - disabled for now, don't want cvar overrides.
-
 		trap_Cvar_VariableStringBuffer("RMG_seed", seed, MAX_QPATH);
 		trap_Cvar_VariableStringBuffer("RMG_mission", missionType, MAX_QPATH);
-
-		//rww - May want to implement these at some point.
-		//trap_Cvar_VariableStringBuffer("RMG_soundset", soundSet, MAX_QPATH);
-		//trap_SetConfigstring(CS_AMBIENT_SOUNDSETS, soundSet );
 	}
 
 	// Get info required for the common init
@@ -580,15 +538,12 @@ void SP_terrain(gentity_t *ent)
 
 	// Initialise the common aspects of the terrain
 	terrainID = trap_CM_RegisterTerrain(temp);
-//	SetCommon(common);
 
 	Info_SetValueForKey(temp, "terrainId", va("%d", terrainID));
 
 	// Let the entity know if it is random generated or not
-//	SetIsRandom(common->GetIsRandom());
 
 	// Let the game remember everything
-	//level.landScapes[terrainID] = ent; //rww - also not referenced
 
 	// Send all the data down to the client
 	trap_SetConfigstring(CS_TERRAINS + terrainID, temp);
@@ -605,28 +560,7 @@ void SP_terrain(gentity_t *ent)
 	// If running RMG then initialize the terrain and handle team skins
 	if ( g_RMG.integer ) 
 	{
-		trap_RMG_Init(terrainID);
-
-		/*
-		if ( level.gametypeData->teams )
-		{
-			char temp[MAX_QPATH];
-
-			// Red team change from RMG ?
-			trap_GetConfigstring ( CS_GAMETYPE_REDTEAM, temp, MAX_QPATH );
-			if ( Q_stricmp ( temp, level.gametypeTeam[TEAM_RED] ) )
-			{
-				level.gametypeTeam[TEAM_RED] = trap_VM_LocalStringAlloc ( temp );
-			}
-
-			// Blue team change from RMG ?
-			trap_GetConfigstring ( CS_GAMETYPE_BLUETEAM, temp, MAX_QPATH );
-			if ( Q_stricmp ( temp, level.gametypeTeam[TEAM_BLUE] ) )
-			{
-				level.gametypeTeam[TEAM_BLUE] = trap_VM_LocalStringAlloc ( temp );
-			}
-		}
-		*/
+		trap_RMG_Init(terrainID); 
 	}
 }
 
@@ -714,49 +648,6 @@ void SP_misc_skyportal (gentity_t *ent)
 	ent->nextthink = level.time + 1050; //give it some time first so that all other entities are spawned.
 }
 
-/*QUAKED misc_holocron (0 0 1) (-8 -8 -8) (8 8 8)
-count	Set to type of holocron (based on force power value)
-	HEAL = 0
-	JUMP = 1
-	SPEED = 2
-	PUSH = 3
-	PULL = 4
-	TELEPATHY = 5
-	GRIP = 6
-	LIGHTNING = 7
-	RAGE = 8
-	PROTECT = 9
-	ABSORB = 10
-	TEAM HEAL = 11
-	TEAM FORCE = 12
-	DRAIN = 13
-	SEE = 14
-	SABERATTACK = 15
-	SABERDEFEND = 16
-	SABERTHROW = 17
-*/
-
-/*char *holocronTypeModels[] = {
-	"models/chunks/rock/rock_big.md3",//FP_HEAL,
-	"models/chunks/rock/rock_big.md3",//FP_LEVITATION,
-	"models/chunks/rock/rock_big.md3",//FP_SPEED,
-	"models/chunks/rock/rock_big.md3",//FP_PUSH,
-	"models/chunks/rock/rock_big.md3",//FP_PULL,
-	"models/chunks/rock/rock_big.md3",//FP_TELEPATHY,
-	"models/chunks/rock/rock_big.md3",//FP_GRIP,
-	"models/chunks/rock/rock_big.md3",//FP_LIGHTNING,
-	"models/chunks/rock/rock_big.md3",//FP_RAGE,
-	"models/chunks/rock/rock_big.md3",//FP_PROTECT,
-	"models/chunks/rock/rock_big.md3",//FP_ABSORB,
-	"models/chunks/rock/rock_big.md3",//FP_TEAM_HEAL,
-	"models/chunks/rock/rock_big.md3",//FP_TEAM_FORCE,
-	"models/chunks/rock/rock_big.md3",//FP_DRAIN,
-	"models/chunks/rock/rock_big.md3",//FP_SEE
-	"models/chunks/rock/rock_big.md3",//FP_SABER_OFFENSE
-	"models/chunks/rock/rock_big.md3",//FP_SABER_DEFENSE
-	"models/chunks/rock/rock_big.md3"//FP_SABERTHROW
-};*/
-
 void HolocronRespawn(gentity_t *self)
 {
 	self->s.modelindex = (self->count - 128);
@@ -843,7 +734,6 @@ void HolocronTouch(gentity_t *self, gentity_t *other, trace_t *trace)
 
 	if (hasall)
 	{ //once we pick up this holocron we'll have all of them, so give us super special best prize!
-		//G_Printf("You deserve a pat on the back.\n");
 	}
 
 	if (!(other->client->ps.fd.forcePowersActive & (1 << other->client->ps.fd.forcePowerSelected)))
@@ -857,23 +747,9 @@ void HolocronTouch(gentity_t *self, gentity_t *other, trace_t *trace)
 	if (g_MaxHolocronCarry.integer && othercarrying >= g_MaxHolocronCarry.integer)
 	{ //make the oldest holocron carried by the player pop out to make room for this one
 		other->client->ps.holocronsCarried[index_lowest] = 0;
-
-		/*
-		if (index_lowest == FP_SABER_OFFENSE && !HasSetSaberOnly())
-		{ //you lost your saberattack holocron, so no more saber for you
-			other->client->ps.stats[STAT_WEAPONS] |= (1 << WP_STUN_BATON);
-			other->client->ps.stats[STAT_WEAPONS] &= ~(1 << WP_SABER);
-
-			if (other->client->ps.weapon == WP_SABER)
-			{
-				forceReselect = WP_SABER;
-			}
-		}
-		*/
 		//NOTE: No longer valid as we are now always giving a force level 1 saber attack level in holocron
 	}
 
-	//G_Sound(other, CHAN_AUTO, G_SoundIndex("sound/weapons/w_pkup.wav"));
 	G_AddEvent( other, EV_ITEM_PICKUP, self->s.number );
 
 	other->client->ps.holocronsCarried[self->count] = level.time;
@@ -883,25 +759,10 @@ void HolocronTouch(gentity_t *self, gentity_t *other, trace_t *trace)
 	self->pos2[0] = 1;
 	self->pos2[1] = level.time + HOLOCRON_RESPAWN_TIME;
 
-	/*
-	if (self->count == FP_SABER_OFFENSE && !HasSetSaberOnly())
-	{ //player gets a saber
-		other->client->ps.stats[STAT_WEAPONS] |= (1 << WP_SABER);
-		other->client->ps.stats[STAT_WEAPONS] &= ~(1 << WP_STUN_BATON);
-
-		if (other->client->ps.weapon == WP_STUN_BATON)
-		{
-			forceReselect = WP_STUN_BATON;
-		}
-	}
-	*/
-
 	if (forceReselect != WP_NONE)
 	{
 		G_AddEvent(other, EV_NOAMMO, forceReselect);
 	}
-
-	//G_Printf("DON'T TOUCH ME\n");
 }
 
 void HolocronThink(gentity_t *ent)
@@ -1033,7 +894,6 @@ void SP_misc_holocron(gentity_t *ent)
 	ent->r.maxs[2] += 0.1;
 
 	// allow to ride movers
-//	ent->s.groundEntityNum = tr.entityNum;
 
 	G_SetOrigin( ent, tr.endpos );
 
@@ -1046,14 +906,7 @@ void SP_misc_holocron(gentity_t *ent)
 	{
 		ent->count = NUM_FORCE_POWERS-1;
 	}
-/*
-	if (g_forcePowerDisable.integer &&
-		(g_forcePowerDisable.integer & (1 << ent->count)))
-	{
-		G_FreeEntity(ent);
-		return;
-	}
-*/
+
 	//No longer doing this, causing too many complaints about accidentally setting no force powers at all
 	//and starting a holocron game (making it basically just FFA)
 
@@ -1061,7 +914,7 @@ void SP_misc_holocron(gentity_t *ent)
 
 	ent->flags = FL_BOUNCE_HALF;
 
-	ent->s.modelindex = (ent->count - 128);//G_ModelIndex(holocronTypeModels[ent->count]);
+	ent->s.modelindex = (ent->count - 128);
 	ent->s.eType = ET_HOLOCRON;
 	ent->s.pos.trType = TR_GRAVITY;
 	ent->s.pos.trTime = level.time;
@@ -1330,8 +1183,7 @@ void shield_power_converter_use( gentity_t *self, gentity_t *other, gentity_t *a
 //dispense generic ammo
 void ammo_generic_power_converter_use( gentity_t *self, gentity_t *other, gentity_t *activator)
 {
-	int /*dif,*/ add;
-	//int ammoType;
+	int add;
 	int stop = 1;
 
 	if (!activator || !activator->client)
@@ -1342,82 +1194,12 @@ void ammo_generic_power_converter_use( gentity_t *self, gentity_t *other, gentit
 	if (self->setTime < level.time)
 	{
 		qboolean gaveSome = qfalse;
-		/*
-		while (i < 3)
-		{
-			if (!self->s.loopSound)
-			{
-				self->s.loopSound = G_SoundIndex("sound/interface/ammocon_run");
-				self->s.loopIsSoundset = qfalse;
-			}
-			self->setTime = level.time + 100;
-
-			//dif = activator->client->ps.stats[STAT_MAX_HEALTH] - activator->client->ps.stats[STAT_ARMOR];
-			switch (i)
-			{ //don't give rockets I guess
-			case 0:
-				ammoType = AMMO_BLASTER;
-				break;
-			case 1:
-				ammoType = AMMO_POWERCELL;
-				break;
-			case 2:
-				ammoType = AMMO_METAL_BOLTS;
-				break;
-			default:
-				ammoType = -1;
-				break;
-			}
-
-			if (ammoType != -1)
-			{
-				dif = ammoData[ammoType].max - activator->client->ps.ammo[ammoType];
-			}
-			else
-			{
-				dif = 0;
-			}
-
-			if (dif > 0)
-			{ //only give if not full
-				if (dif > MAX_AMMO_GIVE)
-				{
-					add = MAX_AMMO_GIVE;
-				}
-				else
-				{
-					add = dif;
-				}
-
-				if (self->count<add)
-				{
-					add = self->count;
-				}
-
-				self->count -= add;
-				if (self->count <= 0)
-				{
-					self->setTime = 0;
-					break;
-				}
-				stop = 0;
-
-				self->fly_sound_debounce_time = level.time + 500;
-				self->activator = activator;
-
-				activator->client->ps.ammo[ammoType] += add;
-			}
-
-			i++;
-		}
-		*/
 		int i = AMMO_BLASTER;
 		if (!self->s.loopSound)
 		{
 			self->s.loopSound = G_SoundIndex("sound/interface/ammocon_run");
 			self->s.loopIsSoundset = qfalse;
 		}
-		//self->setTime = level.time + 100;
 		self->fly_sound_debounce_time = level.time + 500;
 		self->activator = activator;
 		while (i < AMMO_MAX)
@@ -1572,7 +1354,7 @@ void SP_misc_ammo_floor_unit(gentity_t *ent)
 	ent->s.teamowner = 0;
 	ent->s.owner = ENTITYNUM_NONE;
 
-	ent->nextthink = level.time + 200;// + STATION_RECHARGE_TIME;
+	ent->nextthink = level.time + 200;
 
 	ent->use = ammo_generic_power_converter_use;
 
@@ -1667,7 +1449,7 @@ void SP_misc_shield_floor_unit( gentity_t *ent )
 	ent->s.teamowner = 0;
 	ent->s.owner = ENTITYNUM_NONE;
 
-	ent->nextthink = level.time + 200;// + STATION_RECHARGE_TIME;
+	ent->nextthink = level.time + 200;
 
 	ent->use = shield_power_converter_use;
 
@@ -1721,15 +1503,13 @@ void SP_misc_model_shield_power_converter( gentity_t *ent )
 	ent->s.teamowner = 0;
 	ent->s.owner = ENTITYNUM_NONE;
 
-	ent->nextthink = level.time + 200;// + STATION_RECHARGE_TIME;
+	ent->nextthink = level.time + 200;
 
 	ent->use = shield_power_converter_use;
 
 	G_SetOrigin( ent, ent->s.origin );
 	VectorCopy( ent->s.angles, ent->s.apos.trBase );
 	trap_LinkEntity (ent);
-
-	//G_SoundIndex("sound/movers/objects/useshieldstation.wav");
 
 	ent->s.modelindex2 = G_ModelIndex("/models/items/psd_big.md3");	// Precache model
 }
@@ -1752,9 +1532,7 @@ ammo_power_converter_use
 */
 void ammo_power_converter_use( gentity_t *self, gentity_t *other, gentity_t *activator)
 {
-	int			add = 0.0f;//,highest;
-	//qboolean	overcharge;
-//	int			difBlaster,difPowerCell,difMetalBolts;
+	int			add = 0.0f;
 	int			stop = 1;
 
 	if (!activator || !activator->client)
@@ -1764,8 +1542,6 @@ void ammo_power_converter_use( gentity_t *self, gentity_t *other, gentity_t *act
 
 	if (self->setTime < level.time)
 	{
-		//overcharge = qfalse;
-
 		if (!self->s.loopSound)
 		{
 			self->s.loopSound = G_SoundIndex("sound/player/pickupshield.wav");
@@ -1800,48 +1576,7 @@ void ammo_power_converter_use( gentity_t *self, gentity_t *other, gentity_t *act
 			stop = 0;
 
 			self->fly_sound_debounce_time = level.time + 500;
-			self->activator = activator;
-
-			/*
-			if (self->count > MAX_AMMO_GIVE)
-			{
-				add = MAX_AMMO_GIVE;
-			}
-			else if (self->count<0)
-			{
-				add = 0;
-			}
-			else
-			{
-				add = self->count;
-			}
-
-			activator->client->ps.ammo[AMMO_BLASTER] += add;
-			activator->client->ps.ammo[AMMO_POWERCELL] += add;
-			activator->client->ps.ammo[AMMO_METAL_BOLTS] += add;
-
-			self->count -= add;
-			stop = 0;
-
-			self->fly_sound_debounce_time = level.time + 500;
-			self->activator = activator;
-
-			difBlaster = activator->client->ps.ammo[AMMO_BLASTER] - ammoData[AMMO_BLASTER].max;
-			difPowerCell = activator->client->ps.ammo[AMMO_POWERCELL] - ammoData[AMMO_POWERCELL].max;
-			difMetalBolts = activator->client->ps.ammo[AMMO_METAL_BOLTS] - ammoData[AMMO_METAL_BOLTS].max;
-
-			// Find the highest one
-			highest = difBlaster;
-			if (difPowerCell>difBlaster)
-			{
-				highest = difPowerCell;
-			}
-
-			if (difMetalBolts > highest)
-			{
-				highest = difMetalBolts;
-			}
-			*/
+			self->activator = activator;	
 		}
 	}
 
@@ -1894,13 +1629,12 @@ void SP_misc_model_ammo_power_converter( gentity_t *ent )
 	ent->s.teamowner = 0;
 	ent->s.owner = ENTITYNUM_NONE;
 
-	ent->nextthink = level.time + 200;// + STATION_RECHARGE_TIME;
+	ent->nextthink = level.time + 200;
 
 	G_SetOrigin( ent, ent->s.origin );
 	VectorCopy( ent->s.angles, ent->s.apos.trBase );
 	trap_LinkEntity (ent);
 
-	//G_SoundIndex("sound/movers/objects/useshieldstation.wav");
 }
 
 /*
@@ -1940,9 +1674,9 @@ void health_power_converter_use( gentity_t *self, gentity_t *other, gentity_t *a
 
 		if (dif > 0)					// Already at full armor?
 		{
-			if (dif >/*MAX_AMMO_GIVE*/5)
+			if (dif >5)
 			{
-				add = 5;//MAX_AMMO_GIVE;
+				add = 5;
 			}
 			else
 			{
@@ -2003,12 +1737,11 @@ void SP_misc_model_health_power_converter( gentity_t *ent )
 	ent->genericValue4 = ent->count; //initial value
 	ent->think = check_recharge;
 
-	//ent->s.maxhealth = ent->s.health = ent->count;
 	ent->s.shouldtarget = qtrue;
 	ent->s.teamowner = 0;
 	ent->s.owner = ENTITYNUM_NONE;
 
-	ent->nextthink = level.time + 200;// + STATION_RECHARGE_TIME;
+	ent->nextthink = level.time + 200;
 
 	G_SetOrigin( ent, ent->s.origin );
 	VectorCopy( ent->s.angles, ent->s.apos.trBase );
@@ -2063,8 +1796,6 @@ void DmgBoxUpdateSelf(gentity_t *self)
 	{
 		goto killMe;
 	}
-
-	//G_TestLine(self->r.currentOrigin, owner->client->ps.origin, 0x0000ff, 100);
 
 	trap_LinkEntity(self);
 
@@ -2271,11 +2002,9 @@ void fx_runner_think( gentity_t *ent )
 	// call the effect with the desired position and orientation
 	if (ent->s.isPortalEnt)
 	{
-//		G_AddEvent( ent, EV_PLAY_PORTAL_EFFECT_ID, ent->genericValue5 );
 	}
 	else
 	{
-//		G_AddEvent( ent, EV_PLAY_EFFECT_ID, ent->genericValue5 );
 	}
 
 	// start the fx on the client (continuous)
@@ -2509,7 +2238,6 @@ This world effect will spawn space dust globally into the level.
 void SP_CreateSpaceDust( gentity_t *ent )
 { 
 	G_EffectIndex(va("*spacedust %i", ent->count));
-	//G_EffectIndex("*constantwind ( 10 -10 0 )");
 }
 
 
@@ -2636,7 +2364,6 @@ void maglock_die(gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 	G_UseTargets( self, attacker );
 	//die
 	//rwwFIXMEFIXME - weap expl func
-//	WP_Explode( self );
 }
 
 void maglock_link( gentity_t *self );
@@ -2654,7 +2381,7 @@ void SP_misc_maglock ( gentity_t *self )
 
 	self->think = maglock_link;
 	//FIXME: for some reason, when you re-load a level, these fail to find their doors...?  Random?  Testing an additional 200ms after the START_TIME_FIND_LINKS
-	self->nextthink = level.time + START_TIME_FIND_LINKS+200;//START_TIME_FIND_LINKS;//because we need to let the doors link up and spawn their triggers first!
+	self->nextthink = level.time + START_TIME_FIND_LINKS+200;
 }
 void maglock_link( gentity_t *self )
 {
@@ -2679,10 +2406,6 @@ void maglock_link( gentity_t *self )
 	{
 		self->think = maglock_link;
 		self->nextthink = level.time + 100;
-		/*
-		Com_Error( ERR_DROP,"misc_maglock at %s pointed at no surface\n", vtos(self->s.origin) );
-		G_FreeEntity( self );
-		*/
 		return;
 	}
 	traceEnt = &g_entities[trace.entityNum];
@@ -2690,8 +2413,6 @@ void maglock_link( gentity_t *self )
 	{
 		self->think = maglock_link;
 		self->nextthink = level.time + 100;
-		//Com_Error( ERR_DROP,"misc_maglock at %s not pointed at a door\n", vtos(self->s.origin) );
-		//G_FreeEntity( self );
 		return;
 	}
 
@@ -2712,7 +2433,6 @@ void maglock_link( gentity_t *self )
 
 	//make it hittable
 	//FIXME: if rotated/inclined this bbox may be off... but okay if we're a ghoul model?
-	//self->s.modelindex = G_ModelIndex( "models/map_objects/imp_detention/door_lock.md3" );
 	VectorSet( self->r.mins, -8, -8, -8 );
 	VectorSet( self->r.maxs, 8, 8, 8 );
 	self->r.contents = CONTENTS_CORPSE;
@@ -2722,7 +2442,6 @@ void maglock_link( gentity_t *self )
 	self->takedamage = qtrue;
 	self->health = 10;
 	self->die = maglock_die;
-	//self->fxID = G_EffectIndex( "maglock/explosion" );
 
 	trap_LinkEntity( self );
 }
@@ -3057,7 +2776,7 @@ reference_tag_t	*TAG_Add( const char *name, const char *owner, vec3_t origin, ve
 	if (!tagOwner)
 	{
 		//Create a new owner list
-		tagOwner = FirstFreeTagOwner();//new	tagOwner_t;
+		tagOwner = FirstFreeTagOwner();
 
 		if (!tagOwner)
 		{
@@ -3266,8 +2985,6 @@ target		- use to point the tag at something for angles
 
 void ref_link ( gentity_t *ent )
 {
-	//reference_tag_t	*tag;
-
 	if ( ent->target )
 	{
 		//TODO: Find the target and set our angles to that direction
@@ -3290,7 +3007,6 @@ void ref_link ( gentity_t *ent )
 	}
 	
 	//Add the tag
-	//tag = TAG_Add( ent->targetname, ent->ownername, ent->s.origin, ent->s.angles, 16, 0 );
 	TAG_Add( ent->targetname, ent->ownername, ent->s.origin, ent->s.angles, 16, 0 );
 
 	//Delete immediately, cannot be refered to as an entity again
@@ -3403,11 +3119,6 @@ void misc_weapon_shooter_use ( gentity_t *self, gentity_t *other, gentity_t *act
 {
 	if ( self->think == misc_weapon_shooter_fire )
 	{//repeating fire, stop
-		/*
-		G_FreeClientForShooter(self->client);
-		self->think = G_FreeEntity;
-		self->nextthink = level.time;
-		*/
 		self->nextthink = 0;
 		return;
 	}
@@ -3447,7 +3158,7 @@ void SP_misc_weapon_shooter( gentity_t *self )
 	char *s;
 
 	//alloc a client just for the weapon code to use
-	self->client = G_ClientForShooter();//(gclient_s *)gi.Malloc(sizeof(gclient_s), TAG_G_ALLOC, qtrue);
+	self->client = G_ClientForShooter();
 
 	G_SpawnString("weapon", "", &s);
 
@@ -3463,7 +3174,6 @@ void SP_misc_weapon_shooter( gentity_t *self )
 	//set where our muzzle is
 	VectorCopy( self->s.origin, self->client->renderInfo.muzzlePoint );
 	//permanently updated (don't need for MP)
-	//self->client->renderInfo.mPCalcTime = Q3_INFINITE;
 
 	//set up to link
 	if ( self->target )

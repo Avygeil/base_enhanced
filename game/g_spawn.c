@@ -8,7 +8,6 @@ qboolean	G_SpawnString( const char *key, const char *defaultString, char **out )
 
 	if ( !level.spawning ) {
 		*out = (char *)defaultString;
-//		G_Error( "G_SpawnString() called while not spawning" );
 	}
 
 	for ( i = 0 ; i < level.numSpawnVars ; i++ ) {
@@ -1348,13 +1347,6 @@ void SP_worldspawn( void )
 		trap_Cvar_Set( "g_restarted", "0" );
 		level.warmupTime = 0;
 	} 
-
-	//else if (g_doWarmup.integer && g_gametype.integer != GT_DUEL && g_gametype.integer != GT_POWERDUEL && g_gametype.integer != GT_SIEGE ) { // Turn it on
-	//	level.warmupTime = -1;
-	//	level.allReady = -1;
-	//	trap_SetConfigstring( CS_WARMUP, va("%i", level.warmupTime) );
-	//	G_LogPrintf( "Warmup:\n" );
-	//}
 
 	trap_SetConfigstring(CS_LIGHT_STYLES+(LS_STYLES_START*3)+0, defaultStyles[0][0]);
 	trap_SetConfigstring(CS_LIGHT_STYLES+(LS_STYLES_START*3)+1, defaultStyles[0][1]);

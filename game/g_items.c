@@ -254,11 +254,10 @@ void ShieldTouch(gentity_t *self, gentity_t *other, trace_t *trace)
 void CreateShield(gentity_t *ent)
 {
 	trace_t		tr;
-	vec3_t		/*mins, maxs,*/ end, posTraceEnd, negTraceEnd, start;
+	vec3_t		end, posTraceEnd, negTraceEnd, start;
 	int			height, posWidth, negWidth, halfWidth = 0;
 	qboolean	xaxis;
 	int			paramData = 0;
-	//static int	shieldID;
 
 	// trace upward to find height of shield
 	VectorCopy(ent->r.currentOrigin, end);
@@ -267,8 +266,6 @@ void CreateShield(gentity_t *ent)
 	height = (int)(MAX_SHIELD_HEIGHT * tr.fraction);
 
 	// use angles to find the proper axis along which to align the shield
-	//VectorSet(mins, -SHIELD_HALFTHICKNESS, -SHIELD_HALFTHICKNESS, 0);
-	//VectorSet(maxs, SHIELD_HALFTHICKNESS, SHIELD_HALFTHICKNESS, height);
 	VectorCopy(ent->r.currentOrigin, posTraceEnd);
 	VectorCopy(ent->r.currentOrigin, negTraceEnd);
 
@@ -436,7 +433,7 @@ qboolean PlaceShield(gentity_t *playerent)
 
 			shield->touch = 0;
 			// using an item causes it to respawn
-			shield->use = 0; //Use_Item;
+			shield->use = 0; 
 
 			// allow to ride movers
 			shield->s.groundEntityNum = tr.entityNum;
@@ -480,13 +477,6 @@ void ItemUse_Binoculars(gentity_t *ent)
 	{ //So we can't fool it and reactivate while switching to the saber or something.
 		return;
 	}
-
-	/*
-	if (ent->client->ps.weapon == WP_SABER)
-	{ //No.
-		return;
-	}
-	*/
 
 	if (ent->client->ps.zoomMode == 0) // not zoomed or currently zoomed with the disruptor
 	{
@@ -679,7 +669,6 @@ void pas_adjust_enemy( gentity_t *ent )
 
 	if ( keep )
 	{
-		//ent->bounceCount = level.time + 500 + random() * 150;
 	}
 	else if ( ent->bounceCount < level.time && ent->enemy ) // don't ping pong on and off
 	{
@@ -711,7 +700,6 @@ void pas_think( gentity_t *ent )
 	qboolean	moved;
 	float		diffYaw, diffPitch;
 	vec3_t		enemyDir, org;
-	//vec3_t		frontAngles, backAngles;
 	vec3_t		desiredAngles;
 	int			iEntityList[MAX_GENTITIES];
 	int			numListedEntities;
@@ -772,8 +760,6 @@ void pas_think( gentity_t *ent )
 		ent->nextthink = level.time;
 		return;
 	}
-
-//	G_RunObject(ent);
 
 	if ( !ent->damage )
 	{
@@ -896,12 +882,9 @@ void pas_think( gentity_t *ent )
 	}
 
 	// the bone axes are messed up, so hence some dumbness here
-	//VectorSet( frontAngles, -ent->random, 0.0f, 0.0f );
-	//VectorSet( backAngles, 0.0f, 0.0f, ent->speed );
 
 	if ( moved )
 	{
-	//ent->s.loopSound = G_SoundIndex( "sound/chars/turret/move.wav" );
 	}
 	else
 	{
@@ -921,7 +904,6 @@ void pas_think( gentity_t *ent )
 		}
 		else
 		{
-			//ent->nextthink = 0;
 			G_Sound( ent, CHAN_BODY, G_SoundIndex( "sound/chars/turret/shutdown.wav" ));
 			ent->s.bolt2 = ENTITYNUM_NONE;
 			ent->s.fireflag = 2;
@@ -941,8 +923,8 @@ void turret_die(gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int 
 //------------------------------------------------------------------------------------------------------------
 {
 	// Turn off the thinking of the base & use it's targets
-	self->think = 0;//NULL;
-	self->use = 0;//NULL;
+	self->think = 0;
+	self->use = 0;
 
 	if ( self->target )
 	{
@@ -956,7 +938,7 @@ void turret_die(gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int 
 	}
 
 	// clear my data
-	self->die  = 0;//NULL;
+	self->die  = 0;
 	self->takedamage = qfalse;
 	self->health = 0;
 
@@ -968,7 +950,6 @@ void turret_die(gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int 
 
 	g_entities[self->genericValue3].client->ps.fd.sentryDeployed = qfalse;
 
-	//ExplodeDeath( self );
 	G_FreeEntity( self );
 }
 
@@ -1062,7 +1043,7 @@ void ItemUse_Sentry( gentity_t *ent )
 	sentry->r.absmax[1] = sentry->s.pos.trBase[1] + sentry->r.maxs[1];
 	sentry->r.absmax[2] = sentry->s.pos.trBase[2] + sentry->r.maxs[2];
 	sentry->s.eType = ET_GENERAL;
-	sentry->s.pos.trType = TR_GRAVITY;//STATIONARY;
+	sentry->s.pos.trType = TR_GRAVITY;
 	sentry->s.pos.trTime = level.time;
 	sentry->touch = SentryTouch;
 	sentry->nextthink = level.time;
@@ -1399,8 +1380,6 @@ void ItemUse_UseDisp(gentity_t *ent, int type)
 		AngleVectors(ent->client->ps.viewangles, fwd, NULL, NULL);
 		VectorScale(fwd, 128.0f, eItem->epVelocity);
 		eItem->epVelocity[2] = 16.0f;
-
-	//	G_SetAnim( ent, NULL, SETANIM_TORSO, BOTH_THERMAL_THROW, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD, 0 );
 
 		te = G_TempEntity( ent->client->ps.origin, EV_LOCALTIMER );
 		te->s.time = level.time;
@@ -2213,22 +2192,12 @@ int Pickup_Weapon (gentity_t *ent, gentity_t *other) {
 				quantity = quantity*0.5;		// only add half the value.
 			}
 
-			// Old method:  If the player has less than the minimum, give them the minimum, else just add 1.
-/*
-			// drop the quantity if the already have over the minimum
-			if ( other->client->ps.ammo[ ent->item->giTag ] < quantity ) {
-				quantity = quantity - other->client->ps.ammo[ ent->item->giTag ];
-			} else {
-				quantity = 1;		// only add a single shot
-			}
-			*/
 		}
 	}
 
 	// add the weapon
 	other->client->ps.stats[STAT_WEAPONS] |= ( 1 << ent->item->giTag );
 
-	//Add_Ammo( other, ent->item->giTag, quantity );
 	Add_Ammo( other, weaponData[ent->item->giTag].ammoIndex, quantity );
 
 	G_LogWeaponPickup(other->s.number, ent->item->giTag);
@@ -2318,7 +2287,6 @@ void RespawnItem( gentity_t *ent ) {
 	}
 
 	ent->r.contents = CONTENTS_TRIGGER;
-	//ent->s.eFlags &= ~EF_NODRAW;
 	ent->s.eFlags &= ~(EF_NODRAW | EF_ITEMPLACEHOLDER);
 	ent->r.svFlags &= ~SVF_NOCLIENT;
 	trap_LinkEntity (ent);
@@ -2497,7 +2465,6 @@ void Touch_Item (gentity_t *ent, gentity_t *other, trace_t *trace) {
 	switch( ent->item->giType ) {
 	case IT_WEAPON:
 		respawn = Pickup_Weapon(ent, other);
-//		predict = qfalse;
 		predict = qtrue;
 		break;
 	case IT_AMMO:
@@ -2524,23 +2491,19 @@ void Touch_Item (gentity_t *ent, gentity_t *other, trace_t *trace) {
 				other->client->ps.stats[STAT_WEAPONS] |= (1 << weapForAmmo);
 			}
 		}
-//		predict = qfalse;
 		predict = qtrue;
 		break;
 	case IT_ARMOR:
 		respawn = Pickup_Armor(ent, other);
-//		predict = qfalse;
 		predict = qtrue;
 		break;
 	case IT_HEALTH:
 		respawn = Pickup_Health(ent, other);
-//		predict = qfalse;
 		predict = qtrue;
 		break;
 	case IT_POWERUP:
 		respawn = Pickup_Powerup(ent, other);
 		predict = qfalse;
-//		predict = qtrue;
 		break;
 	case IT_TEAM:
 		respawn = Pickup_Team(ent, other);
@@ -2668,7 +2631,6 @@ Spawns an item and tosses it forward
 */
 gentity_t *LaunchItem( gitem_t *item, vec3_t origin, vec3_t velocity ) {
 	gentity_t	*dropped;
-	//qboolean	debugLinked;
 
 	dropped = G_Spawn();
 
@@ -2708,17 +2670,6 @@ gentity_t *LaunchItem( gitem_t *item, vec3_t origin, vec3_t velocity ) {
 		} else if (dropped->item->giTag == PW_BLUEFLAG)	{
 			droppedBlueFlag = dropped;
 		}
-		/*
-		//rww - so bots know
-		if (strcmp(dropped->classname, "team_CTF_redflag") == 0)
-		{
-			droppedRedFlag = dropped;
-		}
-		else if (strcmp(dropped->classname, "team_CTF_blueflag") == 0)
-		{
-			droppedBlueFlag = dropped;
-		}
-		*/
 
 	} else { // auto-remove after 30 seconds
 		dropped->think = G_FreeEntity;
@@ -2803,10 +2754,6 @@ free fall from their spawn points
 void FinishSpawningItem( gentity_t *ent ) {
 	trace_t		tr;
 	vec3_t		dest;
-//	gitem_t		*item;
-
-//	VectorSet( ent->r.mins, -ITEM_RADIUS, -ITEM_RADIUS, -ITEM_RADIUS );
-//	VectorSet( ent->r.maxs, ITEM_RADIUS, ITEM_RADIUS, ITEM_RADIUS );
 
 	if (g_gametype.integer == GT_SIEGE)
 	{ //in siege remove all powerups
@@ -2927,13 +2874,6 @@ void FinishSpawningItem( gentity_t *ent ) {
 	ent->use = Use_Item;
 
 	// create a Ghoul2 model if the world model is a glm
-/*	item = &bg_itemlist[ ent->s.modelindex ];
-	if (!stricmp(&item->world_model[0][strlen(item->world_model[0]) - 4], ".glm"))
-	{
-		trap_G2API_InitGhoul2Model(&ent->s, item->world_model[0], G_ModelIndex(item->world_model[0] ), 0, 0, 0, 0);
-		ent->s.radius = 60;
-	}
-*/
 	if ( ent->spawnflags & ITMSF_SUSPEND ) {
 		// suspended
 		G_SetOrigin( ent, ent->s.origin );
@@ -2968,20 +2908,6 @@ void FinishSpawningItem( gentity_t *ent ) {
 		ent->r.contents = 0;
 		return;
 	}
-
-	// powerups don't spawn in for a while
-	/*
-	if ( ent->item->giType == IT_POWERUP ) {
-		float	respawn;
-
-		respawn = 45 + crandom() * 15;
-		ent->s.eFlags |= EF_NODRAW;
-		ent->r.contents = 0;
-		ent->nextthink = level.time + respawn * 1000;
-		ent->think = RespawnItem;
-		return;
-	}
-	*/
 
 	trap_LinkEntity (ent);
 }
@@ -3073,7 +2999,6 @@ void SaveRegisteredItems( void ) {
 	}
 	string[ bg_numItems ] = 0;
 
-//	G_Printf( "%i items registered\n", count );
 	trap_SetConfigstring(CS_ITEMS, string);
 }
 
@@ -3249,7 +3174,7 @@ void G_RunItem( gentity_t *ent ) {
 	if ( ent->clipmask ) {
 		mask = ent->clipmask;
 	} else {
-		mask = MASK_PLAYERSOLID & ~CONTENTS_BODY;//MASK_SOLID;
+		mask = MASK_PLAYERSOLID & ~CONTENTS_BODY;
 	}
 	trap_Trace( &tr, ent->r.currentOrigin, ent->r.mins, ent->r.maxs, origin, 
 		ent->r.ownerNum, mask );

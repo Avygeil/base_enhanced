@@ -35,10 +35,6 @@ If 0, then only addresses matching the list will be allowed.  This lets you easi
 ==============================================================================
 */
 
-// extern	vmCvar_t	g_banIPs;
-// extern	vmCvar_t	g_filterBan;
-
-
 typedef struct ipFilter_s
 {
 	unsigned	mask;
@@ -1020,10 +1016,8 @@ void Svcmd_Cointoss_f(void)
 //#ifdef _WIN32
 	void (*FS_Restart)( int checksumFeed ) = (void (*)( int  ))FS_RESTART_ADDR;
 //#else
-//	void (*FS_Restart)( int checksumFeed, int dummy ) = (void (*)( int , int  ))FS_RESTART_ADDR;
 //#endif
 
-//void (*FS_Restart)( int checksumFeed ) = (void (*)( int checksumFeed ))FS_RESTART_ADDR;
 extern void G_LoadArenas( void );
 void Svcmd_FSReload_f(){
 
@@ -1035,15 +1029,6 @@ void Svcmd_FSReload_f(){
 	int feed = rand();
 	FS_Restart(feed);
 
-	//__asm__( ".intel_syntax noprefix\n" ); 
-	//__asm2__(mov eax, feed);
-	//__asm2__(mov [esp], eax);
-	//__asm2__(mov ecx, FS_RESTART_ADDR);
-	//__asm1__(call ecx);	
-	//__asm__(".att_syntax\n"); 
-	//__asm__(".intel_syntax noprefix\n");
-	////FS_Restart(feed,feed);
-	////__asm1__(push feed);	
 #endif
 
 	G_LoadArenas();
@@ -1292,11 +1277,6 @@ qboolean	ConsoleCommand( void ) {
 		return qtrue;
 	}
 
-/*	if (Q_stricmp (cmd, "abort_podium") == 0) {
-		Svcmd_AbortPodium_f();
-		return qtrue;
-	}
-*/
 	if (Q_stricmp (cmd, "addip") == 0) {
 		Svcmd_AddIP_f();
 		return qtrue;
@@ -1343,13 +1323,6 @@ qboolean	ConsoleCommand( void ) {
 		Svcmd_Osinfo_f();
 		return qtrue;
 	}	
-
-	/*
-	if (Q_stricmp (cmd, "debugslots") == 0) {
-		Svcmd_DebugSlots_f();
-		return qtrue;
-	}
-	*/
 
 	if (Q_stricmp (cmd, "clientban") == 0) {
 		Svcmd_ClientBan_f();
@@ -1404,7 +1377,6 @@ qboolean	ConsoleCommand( void ) {
 				duration = 5*60;
 
             level.pause.state = PAUSE_PAUSED;
-            //level.pause.time = level.time + japp_pauseTime.integer*1000;
 			level.pause.time = level.time + duration*1000; // 5 seconds
 		//}
 

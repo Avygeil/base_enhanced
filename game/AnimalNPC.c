@@ -106,43 +106,6 @@ static void DeathUpdate( Vehicle_t *pVeh )
 		{
 			// Waste this sucker.
 		}
-
-		// Die now...
-/*		else
-		{
-			vec3_t	mins, maxs, bottom;
-			trace_t	trace;
-
-			if ( pVeh->m_pVehicleInfo->explodeFX )
-			{
-				G_PlayEffect( pVeh->m_pVehicleInfo->explodeFX, parent->currentOrigin );
-				//trace down and place mark
-				VectorCopy( parent->currentOrigin, bottom );
-				bottom[2] -= 80;
-				gi.trace( &trace, parent->currentOrigin, vec3_origin, vec3_origin, bottom, parent->s.number, CONTENTS_SOLID );
-				if ( trace.fraction < 1.0f )
-				{
-					VectorCopy( trace.endpos, bottom );
-					bottom[2] += 2;
-					G_PlayEffect( "ships/ship_explosion_mark", trace.endpos );
-				}
-			}
-
-			parent->takedamage = qfalse;//so we don't recursively damage ourselves
-			if ( pVeh->m_pVehicleInfo->explosionRadius > 0 && pVeh->m_pVehicleInfo->explosionDamage > 0 )
-			{
-				VectorCopy( parent->mins, mins );
-				mins[2] = -4;//to keep it off the ground a *little*
-				VectorCopy( parent->maxs, maxs );
-				VectorCopy( parent->currentOrigin, bottom );
-				bottom[2] += parent->mins[2] - 32;
-				gi.trace( &trace, parent->currentOrigin, mins, maxs, bottom, parent->s.number, CONTENTS_SOLID );
-				G_RadiusDamage( trace.endpos, NULL, pVeh->m_pVehicleInfo->explosionDamage, pVeh->m_pVehicleInfo->explosionRadius, NULL, MOD_EXPLOSIVE );//FIXME: extern damage and radius or base on fuel
-			}
-
-			parent->e_ThinkFunc = thinkF_G_FreeEntity;
-			parent->nextthink = level.time + FRAMETIME;
-		}*/
 	}
 }
 
@@ -195,9 +158,6 @@ static void ProcessMoveCommands( Vehicle_t *pVeh )
 	// Bucking so we can't do anything.
 	if ( pVeh->m_ulFlags & VEH_BUCKING || pVeh->m_ulFlags & VEH_FLYING || pVeh->m_ulFlags & VEH_CRASHING )
 	{
-//#ifdef QAGAME //this was in Update above
-//		((gentity_t *)parent)->client->ps.speed = 0;
-//#endif
 		parentPS->speed = 0;
 		return;
 	}
@@ -206,12 +166,11 @@ static void ProcessMoveCommands( Vehicle_t *pVeh )
 	speedMax = pVeh->m_pVehicleInfo->speedMax;
 
 	speedIdle = pVeh->m_pVehicleInfo->speedIdle;
-	//speedIdleAccel = pVeh->m_pVehicleInfo->accelIdle * pVeh->m_fTimeModifier;
 	speedMin = pVeh->m_pVehicleInfo->speedMin;
 
 
 
-	if ( pVeh->m_pPilot /*&& (pilotPS->weapon == WP_NONE || pilotPS->weapon == WP_MELEE )*/ &&
+	if ( pVeh->m_pPilot &&
 		(pVeh->m_ucmd.buttons & BUTTON_ALT_ATTACK) && pVeh->m_pVehicleInfo->turboSpeed )
 	{
 		if ((curTime - pVeh->m_iTurboTime)>pVeh->m_pVehicleInfo->turboRecharge)
@@ -244,7 +203,6 @@ static void ProcessMoveCommands( Vehicle_t *pVeh )
 	{//drifts to a stop
 		speedInc = speedIdle * pVeh->m_fTimeModifier;
 		VectorClear( parentPS->moveDir );
-		//m_ucmd.forwardmove = 127;
 		parentPS->speed = 0;
 	}
 	else
@@ -298,14 +256,6 @@ static void ProcessMoveCommands( Vehicle_t *pVeh )
 		{
 			pVeh->m_ucmd.upmove = 0;
 		}
-
-		//pVeh->m_ucmd.rightmove = 0;
-
-		/*if ( !pVeh->m_pVehicleInfo->strafePerc 
-			|| (!g_speederControlScheme->value && !parent->s.number) )
-		{//if in a strafe-capable vehicle, clear strafing unless using alternate control scheme
-			pVeh->m_ucmd.rightmove = 0;
-		}*/
 	}
 
 	fWalkSpeedMax = speedMax * 0.275f;
@@ -346,7 +296,7 @@ static void ProcessOrientCommands( Vehicle_t *pVeh )
 	bgEntity_t *rider = NULL;
 	if (parent->s.owner != ENTITYNUM_NONE)
 	{
-		rider = PM_BGEntForNum(parent->s.owner); //&g_entities[parent->r.ownerNum];
+		rider = PM_BGEntForNum(parent->s.owner); 
 	}
 #else
 	gentity_t *rider = parent->owner;
@@ -406,60 +356,6 @@ static void ProcessOrientCommands( Vehicle_t *pVeh )
 		pVeh->m_vOrientation[YAW] = riderPS->viewangles[YAW];
 #endif
 	}
-
-
-/*	speed = VectorLength( parentPS->velocity );
-
-	// If the player is the rider...
-	if ( rider->s.number < MAX_CLIENTS )
-	{//FIXME: use the vehicle's turning stat in this calc
-		pVeh->m_vOrientation[YAW] = riderPS->viewangles[YAW];
-	}
-	else
-	{
-		float turnSpeed = pVeh->m_pVehicleInfo->turningSpeed;
-		if ( !pVeh->m_pVehicleInfo->turnWhenStopped 
-			&& !parentPS->speed )//FIXME: or !pVeh->m_ucmd.forwardmove?
-		{//can't turn when not moving
-			//FIXME: or ramp up to max turnSpeed?
-			turnSpeed = 0.0f;
-		}
-#ifdef _JK2MP
-		if (rider->s.eType == ET_NPC)
-#else
-		if ( !rider || rider->NPC )
-#endif
-		{//help NPCs out some
-			turnSpeed *= 2.0f;
-#ifdef _JK2MP
-			if (parentPS->speed > 200.0f)
-#else
-			if ( parent->client->ps.speed > 200.0f )
-#endif
-			{
-				turnSpeed += turnSpeed * parentPS->speed/200.0f*0.05f;
-			}
-		}
-		turnSpeed *= pVeh->m_fTimeModifier;
-
-		//default control scheme: strafing turns, mouselook aims
-		if ( pVeh->m_ucmd.rightmove < 0 )
-		{
-			pVeh->m_vOrientation[YAW] += turnSpeed;
-		}
-		else if ( pVeh->m_ucmd.rightmove > 0 )
-		{
-			pVeh->m_vOrientation[YAW] -= turnSpeed;
-		}
-
-		if ( pVeh->m_pVehicleInfo->malfunctionArmorLevel && pVeh->m_iArmor <= pVeh->m_pVehicleInfo->malfunctionArmorLevel )
-		{//damaged badly
-		}
-	}*/
-
-	/********************************************************************************/
-	/*	END	Here is where make sure the vehicle is properly oriented.	END			*/
-	/********************************************************************************/
 }
 
 #ifdef _JK2MP //temp hack til mp speeder controls are sorted -rww
@@ -476,31 +372,11 @@ static void AnimateVehicle( Vehicle_t *pVeh )
 	int				iFlags = SETANIM_FLAG_NORMAL, iBlend = 300;
 	gentity_t *		pilot = (gentity_t *)pVeh->m_pPilot;
 	gentity_t *		parent = (gentity_t *)pVeh->m_pParentEntity;
-	//playerState_t *	pilotPS;
-	//playerState_t *	parentPS;
 	float			fSpeedPercToMax;
-
-//#ifdef _JK2MP
-//	pilotPS = (pilot)?(pilot->playerState):(0);
-//	parentPS = parent->playerState;
-//#else
-//	pilotPS = (pilot)?(&pilot->client->ps):(0);
-//	parentPS = &parent->client->ps;
-//#endif
 
 	// We're dead (boarding is reused here so I don't have to make another variable :-).
 	if ( parent->health <= 0 ) 
 	{
-		/*
-		if ( pVeh->m_iBoarding != -999 )	// Animate the death just once!
-		{
-			pVeh->m_iBoarding = -999;
-			iFlags = SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD; 
-
-			// FIXME! Why do you keep repeating over and over!!?!?!? Bastard!
-			//Vehicle_SetAnim( parent, SETANIM_LEGS, BOTH_VT_DEATH1, iFlags, iBlend );
-		}
-		*/
 		return;
 	}
 
@@ -576,7 +452,6 @@ static void AnimateVehicle( Vehicle_t *pVeh )
 	}
 
 	// Percentage of maximum speed relative to current speed.
-	//float fSpeed = VectorLength( client->ps.velocity );
 	fSpeedPercToMax = parent->client->ps.speed / pVeh->m_pVehicleInfo->speedMax; 
 
 
@@ -623,15 +498,12 @@ static void AnimateRiders( Vehicle_t *pVeh )
 	gentity_t *pilot = (gentity_t *)pVeh->m_pPilot;
 	gentity_t *parent = (gentity_t *)pVeh->m_pParentEntity;
 	playerState_t *pilotPS;
-	//playerState_t *parentPS;
 	float fSpeedPercToMax;
 
 #ifdef _JK2MP
 	pilotPS = pVeh->m_pPilot->playerState;
-	//parentPS = pVeh->m_pPilot->playerState;
 #else
 	pilotPS = &pVeh->m_pPilot->client->ps;
-	//parentPS = &pVeh->m_pParentEntity->client->ps;
 #endif
 
 	// Boarding animation.
@@ -828,7 +700,7 @@ static void AnimateRiders( Vehicle_t *pVeh )
 				}
 				else
 				{
-					Anim = BOTH_VT_IDLE1;//(Q_irand(0,1)==0)?(BOTH_VT_IDLE):(BOTH_VT_IDLE1);
+					Anim = BOTH_VT_IDLE1;
 				}
 			}
 			else
@@ -858,20 +730,8 @@ void G_SetAnimalVehicleFunctions( vehicleInfo_t *pVehInfo )
 #ifdef QAGAME
 	pVehInfo->AnimateVehicle			=		AnimateVehicle;
 	pVehInfo->AnimateRiders				=		AnimateRiders;
-//	pVehInfo->ValidateBoard				=		ValidateBoard;
-//	pVehInfo->SetParent					=		SetParent;
-//	pVehInfo->SetPilot					=		SetPilot;
-//	pVehInfo->AddPassenger				=		AddPassenger;
-//	pVehInfo->Animate					=		Animate;
-//	pVehInfo->Board						=		Board;
-//	pVehInfo->Eject						=		Eject;
-//	pVehInfo->EjectAll					=		EjectAll;
-//	pVehInfo->StartDeathDelay			=		StartDeathDelay;
 	pVehInfo->DeathUpdate				=		DeathUpdate;
-//	pVehInfo->RegisterAssets			=		RegisterAssets;
-//	pVehInfo->Initialize				=		Initialize;
 	pVehInfo->Update					=		Update;
-//	pVehInfo->UpdateRider				=		UpdateRider;
 #endif //QAGAME
 	pVehInfo->ProcessMoveCommands		=		ProcessMoveCommands;
 	pVehInfo->ProcessOrientCommands		=		ProcessOrientCommands;
@@ -879,10 +739,6 @@ void G_SetAnimalVehicleFunctions( vehicleInfo_t *pVehInfo )
 #ifndef QAGAME //cgame prediction attachment func
 	pVehInfo->AttachRiders				=		AttachRidersGeneric;
 #endif
-//	pVehInfo->AttachRiders				=		AttachRiders;
-//	pVehInfo->Ghost						=		Ghost;
-//	pVehInfo->UnGhost					=		UnGhost;
-//	pVehInfo->Inhabited					=		Inhabited;
 }
 
 // Following is only in game, not in namespace

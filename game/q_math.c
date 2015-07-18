@@ -625,7 +625,6 @@ float Q_rsqrt( float number )
 	i  = 0x5f3759df - ( i >> 1 );               // what the fuck?
 	y  = * ( float * ) &i;
 	y  = y * ( threehalfs - ( x2 * y * y ) );   // 1st iteration
-//	y  = y * ( threehalfs - ( x2 * y * y ) );   // 2nd iteration, this can be removed
 
 #ifndef Q3_VM
 #ifdef __linux__
@@ -760,48 +759,7 @@ void SetPlaneSignbits (cplane_t *out) {
 	}
 	out->signbits = bits;
 }
-
-
-/*
-==================
-BoxOnPlaneSide
-
-Returns 1, 2, or 1 + 2
-
-// this is the slow, general version
-int BoxOnPlaneSide2 (vec3_t emins, vec3_t emaxs, struct cplane_s *p)
-{
-	int		i;
-	float	dist1, dist2;
-	int		sides;
-	vec3_t	corners[2];
-
-	for (i=0 ; i<3 ; i++)
-	{
-		if (p->normal[i] < 0)
-		{
-			corners[0][i] = emins[i];
-			corners[1][i] = emaxs[i];
-		}
-		else
-		{
-			corners[1][i] = emins[i];
-			corners[0][i] = emaxs[i];
-		}
-	}
-	dist1 = DotProduct (p->normal, corners[0]) - p->dist;
-	dist2 = DotProduct (p->normal, corners[1]) - p->dist;
-	sides = 0;
-	if (dist1 >= 0)
-		sides = 1;
-	if (dist2 < 0)
-		sides |= 2;
-
-	return sides;
-}
-
-==================
-*/
+   
 #if !( (defined __linux__ || __FreeBSD__) && (defined __i386__) && (!defined C_ONLY)) // rb010123
 
 #if defined __LCC__ || defined C_ONLY || !id386
@@ -1194,7 +1152,6 @@ vec_t VectorNormalize2( const vec3_t v, vec3_t out) {
 	if (length)
 	{
 #ifndef Q3_VM // bk0101022 - FPE related
-//	  assert( ((Q_fabs(v[0])!=0.0f) || (Q_fabs(v[1])!=0.0f) || (Q_fabs(v[2])!=0.0f)) );
 #endif
 		ilength = 1/length;
 		out[0] = v[0]*ilength;
@@ -1202,7 +1159,6 @@ vec_t VectorNormalize2( const vec3_t v, vec3_t out) {
 		out[2] = v[2]*ilength;
 	} else {
 #ifndef Q3_VM // bk0101022 - FPE related
-//	  assert( ((Q_fabs(v[0])==0.0f) && (Q_fabs(v[1])==0.0f) && (Q_fabs(v[2])==0.0f)) );
 #endif
 		VectorClear( out );
 	}
@@ -1263,28 +1219,7 @@ int Q_log2( int val ) {
 	}
 	return answer;
 }
-
-
-
-/*
-=================
-PlaneTypeForNormal
-=================
-*/
-/*
-int	PlaneTypeForNormal (vec3_t normal) {
-	if ( normal[0] == 1.0 )
-		return PLANE_X;
-	if ( normal[1] == 1.0 )
-		return PLANE_Y;
-	if ( normal[2] == 1.0 )
-		return PLANE_Z;
-	
-	return PLANE_NON_AXIAL;
-}
-*/
-
-
+  
 /*
 ================
 MatrixMultiply

@@ -267,26 +267,16 @@ void DoImpact( gentity_t *self, gentity_t *other, qboolean damageSelf )
 		}
 		else
 		{
-			my_mass = self->mass;///10;
+			my_mass = self->mass;
 		}
 	}
 
 	magnitude = VectorLength( velocity ) * my_mass / 10;
 
-	/*
-	if(pointcontents(self.absmax)==CONTENT_WATER)//FIXME: or other watertypes
-		magnitude/=3;							//water absorbs 2/3 velocity
-
-	if(self.classname=="barrel"&&self.aflag)//rolling barrels are made for impacts!
-		magnitude*=3;
-
-	if(self.frozen>0&&magnitude<300&&self.flags&FL_ONGROUND&&loser==world&&self.velocity_z<-20&&self.last_onground+0.3<time)
-		magnitude=300;
-	*/
 	if ( other->material == MAT_GLASS 
 		|| other->material == MAT_GLASS_METAL 
 		|| other->material == MAT_GRATE1
-		|| ((other->flags&FL_BBRUSH)&&(other->spawnflags&8/*THIN*/))
+		|| ((other->flags&FL_BBRUSH)&&(other->spawnflags&8))
 		|| (other->r.svFlags&SVF_GLASS_BRUSH) )
 	{
 		easyBreakBrush = qtrue;
@@ -374,43 +364,15 @@ void DoImpact( gentity_t *self, gentity_t *other, qboolean damageSelf )
 					{//players and jedi take less impact damage
 						//allow for some lenience on high falls
 						magnitude /= 2;
-						/*
-						if ( self.absorb_time >= time )//crouching on impact absorbs 1/2 the damage
-						{
-							magnitude/=2;
-						}
-						*/
 					}
 					magnitude /= 40;
 					magnitude = magnitude - force/2;//If damage other, subtract half of that damage off of own injury
 					if ( magnitude >= 1 )
-					{
-		//FIXME: Put in a thingtype impact sound function
-		/*					
-						dprint("Damage self (");
-						dprint(self.classname);
-						dprint("): ");
-						dprint(ftos(magnitude));
-						dprint("\n");
-		*/
-						/*
-						if ( self.classname=="player_sheep "&& self.flags&FL_ONGROUND && self.velocity_z > -50 )
-							return;
-						*/
+					{     	
 						G_Damage( self, NULL, NULL, NULL, self->r.currentOrigin, magnitude/2, DAMAGE_NO_ARMOR, MOD_FALLING );//FIXME: MOD_IMPACT
 					}
 				}
 		}
-
-		//FIXME: slow my velocity some?
-
-		// NOTENOTE We don't use lastimpact as of yet
-//		self->lastImpact = level.time;
-
-		/*
-		if(self.flags&FL_ONGROUND)
-			self.last_onground=time;
-		*/
 	}
 }
 
@@ -426,13 +388,6 @@ void Client_CheckImpactBBrush( gentity_t *self, gentity_t *other )
 	{ //hmm.. let's not let spectators ram into breakables.
 		return;
 	}
-
-	/*
-	if (BG_InSpecialJump(self->client->ps.legsAnim))
-	{ //don't do this either, qa says it creates "balance issues"
-		return;
-	}
-	*/
 
 	if ( (other->material == MAT_GLASS 
 		|| other->material == MAT_GLASS_METAL 
@@ -696,10 +651,6 @@ void SpectatorThink( gentity_t *ent, usercmd_t *ucmd ) {
 		client->ps.pm_type = PM_SPECTATOR;
 		client->ps.speed = 400;	// faster than normal
 		client->ps.basespeed = 400;
-
-        //OSP: pause
-        //if ( level.pause.state != PAUSE_NONE )
-        //        client->ps.pm_type = PM_FREEZE;
 
 		//hmm, shouldn't have an anim if you're a spectator, make sure
 		//it gets cleared.
@@ -1022,15 +973,10 @@ qboolean BG_InKnockDownOnly( int anim );
 #include "namespace_end.h"
 
 void ClientEvents( gentity_t *ent, int oldEventSequence ) {
-	int		i;//, j;
+	int		i;
 	int		event;
 	gclient_t *client;
 	int		damage;
-	//vec3_t	dir;
-//	vec3_t	origin, angles;
-//	qboolean	fired;
-//	gitem_t *item;
-//	gentity_t *drop;
 
 	client = ent->client;
 
@@ -1148,10 +1094,8 @@ void ClientEvents( gentity_t *ent, int oldEventSequence ) {
 			ItemUse_Jetpack(ent);
 			break;
 		case EV_USE_ITEM8: //health disp
-			//ItemUse_UseDisp(ent, HI_HEALTHDISP);
 			break;
 		case EV_USE_ITEM9: //ammo disp
-			//ItemUse_UseDisp(ent, HI_AMMODISP);
 			break;
 		case EV_USE_ITEM10: //eweb
 			ItemUse_UseEWeb(ent);
@@ -1321,15 +1265,6 @@ void G_UpdateClientBroadcasts ( gentity_t *self )
 
 	// Anyone with force sight on should see this client
 	G_UpdateForceSightBroadcasts ( self );
-
-	//test
-	//self->r.svFlags = SVF_NOCLIENT; 
-
-	//test2
-	//dont wanna see anyone maybe?
-	//self->r.svFlags |= SVF_PLAYER_USABLE;
-	//self->r.singleClient = 0;
-	
 }
 
 void G_AddPushVecToUcmd( gentity_t *self, usercmd_t *ucmd )
@@ -1527,7 +1462,7 @@ void G_CheckClientIdle( gentity_t *ent, usercmd_t *ucmd )
 			idleAnim = BOTH_STAND1IDLE1;
 			break;
 		case BOTH_STAND2:
-			idleAnim = BOTH_STAND2IDLE1;//Q_irand(BOTH_STAND2IDLE1,BOTH_STAND2IDLE2);
+			idleAnim = BOTH_STAND2IDLE1;
 			break;
 		case BOTH_STAND3:
 			idleAnim = BOTH_STAND3IDLE1;
@@ -1542,12 +1477,11 @@ void G_CheckClientIdle( gentity_t *ent, usercmd_t *ucmd )
 			idleAnim = BOTH_STAND2IDLE2;
 		}
 
-		if ( idleAnim != -1 && /*PM_HasAnimation( ent, idleAnim )*/idleAnim > 0 && idleAnim < MAX_ANIMATIONS )
+		if ( idleAnim != -1 && idleAnim > 0 && idleAnim < MAX_ANIMATIONS )
 		{
 			G_SetAnim(ent, ucmd, SETANIM_BOTH, idleAnim, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD, 0);
 
 			//don't idle again after this anim for a while
-			//ent->client->idleTime = level.time + PM_AnimLength( ent->client->clientInfo.animFileIndex, (animNumber_t)idleAnim ) + Q_irand( 0, 2000 );
 			ent->client->idleTime = level.time + ent->client->ps.legsTimer + Q_irand( 0, 2000 );
 		}
 	}
@@ -1569,12 +1503,10 @@ void NPC_Accelerate( gentity_t *ent, qboolean fullWalkAcc, qboolean fullRunAcc )
 	{//Only accelerate if at walkSpeeds
 		if ( ent->NPC->desiredSpeed > ent->NPC->currentSpeed + ent->NPC->stats.acceleration )
 		{
-			//ent->client->ps.friction = 0;
 			ent->NPC->currentSpeed += ent->NPC->stats.acceleration;
 		}
 		else if ( ent->NPC->desiredSpeed > ent->NPC->currentSpeed )
 		{
-			//ent->client->ps.friction = 0;
 			ent->NPC->currentSpeed = ent->NPC->desiredSpeed;
 		}
 		else if ( fullWalkAcc && ent->NPC->desiredSpeed < ent->NPC->currentSpeed - ent->NPC->stats.acceleration )
@@ -1590,12 +1522,10 @@ void NPC_Accelerate( gentity_t *ent, qboolean fullWalkAcc, qboolean fullRunAcc )
 	{//Only decelerate if at runSpeeds
 		if ( fullRunAcc && ent->NPC->desiredSpeed > ent->NPC->currentSpeed + ent->NPC->stats.acceleration )
 		{//Accelerate to runspeed
-			//ent->client->ps.friction = 0;
 			ent->NPC->currentSpeed += ent->NPC->stats.acceleration;
 		}
 		else if ( ent->NPC->desiredSpeed > ent->NPC->currentSpeed )
 		{//accelerate instantly
-			//ent->client->ps.friction = 0;
 			ent->NPC->currentSpeed = ent->NPC->desiredSpeed;
 		}
 		else if ( fullRunAcc && ent->NPC->desiredSpeed < ent->NPC->currentSpeed - ent->NPC->stats.acceleration )
@@ -1644,33 +1574,7 @@ static int NPC_GetRunSpeed( gentity_t *ent )
 
 	if ( ( ent->client == NULL ) || ( ent->NPC == NULL ) )
 		return 0;
-/*
-	switch ( ent->client->playerTeam )
-	{
-	case TEAM_BORG:
-		runSpeed = ent->NPC->stats.runSpeed;
-		runSpeed += BORG_RUN_INCR * (g_spskill->integer%3);
-		break;
 
-	case TEAM_8472:
-		runSpeed = ent->NPC->stats.runSpeed;
-		runSpeed += SPECIES_RUN_INCR * (g_spskill->integer%3);
-		break;
-
-	case TEAM_STASIS:
-		runSpeed = ent->NPC->stats.runSpeed;
-		runSpeed += STASIS_RUN_INCR * (g_spskill->integer%3);
-		break;
-
-	case TEAM_BOTS:
-		runSpeed = ent->NPC->stats.runSpeed;
-		break;
-
-	default:
-		runSpeed = ent->NPC->stats.runSpeed;
-		break;
-	}
-*/
 	// team no longer indicates species/race.  Use NPC_class to adjust speed for specific npc types
 	switch( ent->client->NPC_class)
 	{
@@ -2207,11 +2111,9 @@ void ClientThink_real( gentity_t *ent ) {
 	// sanity check the command time to prevent speedup cheating
 	if ( ucmd->serverTime > level.time + 200 ) {
 		ucmd->serverTime = level.time + 200;
-//		G_Printf("serverTime <<<<<\n" );
 	}
 	if ( ucmd->serverTime < level.time - 1000 ) {
 		ucmd->serverTime = level.time - 1000;
-//		G_Printf("serverTime >>>>>\n" );
 	} 
 
 	if (isNPC && (ucmd->serverTime - client->ps.commandTime) < 1)
@@ -2239,8 +2141,6 @@ void ClientThink_real( gentity_t *ent ) {
 
 	if ( pmove_fixed.integer || client->pers.pmoveFixed ) {
 		ucmd->serverTime = ((ucmd->serverTime + pmove_msec.integer-1) / pmove_msec.integer) * pmove_msec.integer;
-		//if (ucmd->serverTime - client->ps.commandTime <= 0)
-		//	return;
 	}
 
 	//
@@ -2389,7 +2289,6 @@ void ClientThink_real( gentity_t *ent ) {
 			else if (bodyDist > 24.0f)
 			{
 				bodyDir[2] = 0; //don't want it floating
-				//VectorScale(bodyDir, 0.1f, bodyDir);
 				VectorAdd(grabbed->epVelocity, bodyDir, grabbed->epVelocity);
 				G_Sound(grabbed, CHAN_AUTO, G_SoundIndex("sound/player/roll1.wav"));
 			}
@@ -2408,22 +2307,19 @@ void ClientThink_real( gentity_t *ent ) {
 			//if ( !(ucmd->buttons & BUTTON_USE) )
 			if (1)
 			{//Not leaning
-				qboolean Flying = (ucmd->upmove && (ent->client->ps.eFlags2&EF2_FLYING));//ent->client->moveType == MT_FLYSWIM);
+				qboolean Flying = (ucmd->upmove && (ent->client->ps.eFlags2&EF2_FLYING));
 				qboolean Climbing = (ucmd->upmove && ent->watertype&CONTENTS_LADDER );
-
-				//client->ps.friction = 6;
 
 				if ( ucmd->forwardmove || ucmd->rightmove || Flying )
 				{
-					//if ( ent->NPC->behaviorState != BS_FORMATION )
 					{//In - Formation NPCs set thier desiredSpeed themselves
 						if ( ucmd->buttons & BUTTON_WALKING )
 						{
-							ent->NPC->desiredSpeed = NPC_GetWalkSpeed( ent );//ent->NPC->stats.walkSpeed;
+							ent->NPC->desiredSpeed = NPC_GetWalkSpeed( ent );
 						}
 						else//running
 						{
-							ent->NPC->desiredSpeed = NPC_GetRunSpeed( ent );//ent->NPC->stats.runSpeed;
+							ent->NPC->desiredSpeed = NPC_GetRunSpeed( ent );
 						}
 
 						if ( ent->NPC->currentSpeed >= 80 && !controlledByPlayer )
@@ -2480,21 +2376,17 @@ void ClientThink_real( gentity_t *ent ) {
 						{
 							if ( !ucmd->upmove )
 							{//We need to force them to take a couple more steps until stopped
-								ucmd->upmove = ent->NPC->last_ucmd.upmove;//was last_upmove;
+								ucmd->upmove = ent->NPC->last_ucmd.upmove;
 							}
 						}
 						else if ( !ucmd->forwardmove && !ucmd->rightmove )
 						{//We need to force them to take a couple more steps until stopped
-							ucmd->forwardmove = ent->NPC->last_ucmd.forwardmove;//was last_forwardmove;
-							ucmd->rightmove = ent->NPC->last_ucmd.rightmove;//was last_rightmove;
+							ucmd->forwardmove = ent->NPC->last_ucmd.forwardmove;
+							ucmd->rightmove = ent->NPC->last_ucmd.rightmove;
 						}
 					}
 
 					client->ps.speed = ent->NPC->currentSpeed;
-				//	if ( player && player->client && player->client->ps.viewEntity == ent->s.number )
-				//	{
-				//	}
-				//	else
 					//rwwFIXMEFIXME: do this and also check for all real client
 					if (1)
 					{
@@ -2532,13 +2424,6 @@ void ClientThink_real( gentity_t *ent ) {
 
 		if (ucmd->buttons & BUTTON_WALKING)
 		{ //sort of a hack I guess since MP handles walking differently from SP (has some proxy cheat prevention methods)
-			/*
-			if (ent->client->ps.speed > 64)
-			{
-				ent->client->ps.speed = 64;
-			}
-			*/
-
 			if (ucmd->forwardmove > 64)
 			{
 				ucmd->forwardmove = 64;	
@@ -2557,7 +2442,6 @@ void ClientThink_real( gentity_t *ent ) {
 				ucmd->rightmove = -64;
 			}
 
-			//ent->client->ps.speed = ent->client->ps.basespeed = NPC_GetRunSpeed( ent );
 		}
 		client->ps.basespeed = client->ps.speed;
 	}
@@ -2712,10 +2596,6 @@ void ClientThink_real( gentity_t *ent ) {
 				}
 			}
 
-			/*
-			trap_SendServerCommand( ent-g_entities, va("print \"%s %s\n\"", ent->client->pers.netname, G_GetStringEdString("MP_SVGAME", "PLDUELWINNER")) );
-			trap_SendServerCommand( duelAgainst-g_entities, va("print \"%s %s\n\"", ent->client->pers.netname, G_GetStringEdString("MP_SVGAME", "PLDUELWINNER")) );
-			*/
 			//Private duel announcements are now made globally because we only want one duel at a time.
 			if (ent->health > 0 && ent->client->ps.stats[STAT_HEALTH] > 0)
 			{
@@ -2854,8 +2734,6 @@ void ClientThink_real( gentity_t *ent ) {
 				boltOrg[1] = pBoltOrg[1] + fwd[1]*8 + right[1]*pDif;
 				boltOrg[2] = pBoltOrg[2];
 #endif
-				//G_TestLine(boltOrg, pBoltOrg, 0x0000ff, 50);
-
 				VectorSubtract(ent->client->ps.origin, boltOrg, vDif);
 				if (VectorLength(vDif) > 32.0f && (thrower->client->doingThrow - level.time) < 4500)
 				{ //the hand is too far away, and can no longer hold onto us, so escape.
@@ -2950,33 +2828,7 @@ void ClientThink_real( gentity_t *ent ) {
 	{
 		ent->client->ps.heldByClient = 0;
 	}
-
-	/*
-	if ( client->ps.powerups[PW_HASTE] ) {
-		client->ps.speed *= 1.3;
-	}
-	*/
-
-	//Will probably never need this again, since we have g2 properly serverside now.
-	//But just in case.
-	/*
-	if (client->ps.usingATST && ent->health > 0)
-	{ //we have special shot clip boxes as an ATST
-		ent->r.contents |= CONTENTS_NOSHOT;
-		ATST_ManageDamageBoxes(ent);
-	}
-	else
-	{
-		ent->r.contents &= ~CONTENTS_NOSHOT;
-		client->damageBoxHandle_Head = 0;
-		client->damageBoxHandle_RLeg = 0;
-		client->damageBoxHandle_LLeg = 0;
-	}
-	*/
-
-	//rww - moved this stuff into the pmove code so that it's predicted properly
-	//BG_AdjustClientSpeed(&client->ps, &client->pers.cmd, level.time);
-
+  
 	// set up for pmove
 	oldEventSequence = client->ps.eventSequence;
 
@@ -3005,12 +2857,6 @@ void ClientThink_real( gentity_t *ent ) {
 				}
 			}
 			G_Damage(ent, otherKiller, otherKiller, NULL, ent->client->ps.origin, 9999, DAMAGE_NO_PROTECTION, MOD_FALLING);
-			//player_die(ent, ent, ent, 100000, MOD_FALLING);
-	//		if (!ent->NPC)
-	//		{
-	//			respawn(ent);
-	//		}
-	//		ent->client->ps.fallingToDeath = 0;
 
 			G_MuteSound(ent->s.number, CHAN_VOICE); //stop screaming, because you are dead!
 		}
@@ -3031,9 +2877,6 @@ void ClientThink_real( gentity_t *ent ) {
 			ent->client->ps.otherKillerDebounceTime = level.time + 100;
 		}
 	}
-
-//	WP_ForcePowersUpdate( ent, msec, ucmd); //update any active force powers
-//	WP_SaberPositionUpdate(ent, ucmd); //check the server-side saber point, do apprioriate server-side actions (effects are cs-only)
 
 	//NOTE: can't put USE here *before* PMove!!
 	if ( ent->client->ps.useDelay > level.time 
@@ -3067,7 +2910,7 @@ void ClientThink_real( gentity_t *ent ) {
 	pm.pmove_fixed = pmove_fixed.integer | client->pers.pmoveFixed;
 	pm.pmove_msec = pmove_msec.integer;
 
-	pm.animations = bgAllAnims[ent->localAnimIndex].anims;//NULL;
+	pm.animations = bgAllAnims[ent->localAnimIndex].anims;
 
 	//rww - bgghoul2
 	pm.ghoul2 = NULL;
@@ -3124,21 +2967,6 @@ void ClientThink_real( gentity_t *ent ) {
 
 	VectorCopy( client->ps.origin, client->oldOrigin );
 
-	/*
-	if (level.intermissionQueued != 0 && g_singlePlayer.integer) {
-		if ( level.time - level.intermissionQueued >= 1000  ) {
-			pm.cmd.buttons = 0;
-			pm.cmd.forwardmove = 0;
-			pm.cmd.rightmove = 0;
-			pm.cmd.upmove = 0;
-			if ( level.time - level.intermissionQueued >= 2000 && level.time - level.intermissionQueued <= 2500 ) {
-				trap_SendConsoleCommand( EXEC_APPEND, "centerview\n");
-			}
-			ent->client->ps.pm_type = PM_SPINTERMISSION;
-		}
-	}
-	*/
-
 	//Set up bg entity data
 	pm.baseEnt = (bgEntity_t *)g_entities;
 	pm.entSize = sizeof(gentity_t);
@@ -3151,9 +2979,7 @@ void ClientThink_real( gentity_t *ent ) {
 		{
 			vec3_t lockDir, lockAng;
 
-			//VectorClear( ent->client->ps.velocity );
 			VectorSubtract( blockOpp->r.currentOrigin, ent->r.currentOrigin, lockDir );
-			//lockAng[YAW] = vectoyaw( defDir );
 			vectoangles(lockDir, lockAng);
 			SetClientViewAngle( ent, lockAng );
 		}
@@ -3480,23 +3306,12 @@ void ClientThink_real( gentity_t *ent ) {
 			{
 				ItemUse_Jetpack(ent);
 				G_AddEvent(ent, EV_USE_ITEM0+HI_JETPACK, 0);
-				/*
-				if (ent->client->ps.zoomMode == 0)
-				{
-					G_AddEvent(ent, EV_USE_ITEM0+HI_BINOCULARS, 1);
-				}
-				else
-				{
-					G_AddEvent(ent, EV_USE_ITEM0+HI_BINOCULARS, 2);
-				}
-				*/
 			}
 			break;
 		case GENCMD_USE_HEALTHDISP:
 			if ( (ent->client->ps.stats[STAT_HOLDABLE_ITEMS] & (1 << HI_HEALTHDISP)) &&
 				G_ItemUsable(&ent->client->ps, HI_HEALTHDISP) )
 			{
-				//ItemUse_UseDisp(ent, HI_HEALTHDISP);
 				G_AddEvent(ent, EV_USE_ITEM0+HI_HEALTHDISP, 0);
 			}
 			break;
@@ -3504,7 +3319,6 @@ void ClientThink_real( gentity_t *ent ) {
 			if ( (ent->client->ps.stats[STAT_HOLDABLE_ITEMS] & (1 << HI_AMMODISP)) &&
 				G_ItemUsable(&ent->client->ps, HI_AMMODISP) )
 			{
-				//ItemUse_UseDisp(ent, HI_AMMODISP);
 				G_AddEvent(ent, EV_USE_ITEM0+HI_AMMODISP, 0);
 			}
 			break;
@@ -3599,7 +3413,6 @@ void ClientThink_real( gentity_t *ent ) {
 	if ( pm.useEvent )
 	{
 		//TODO: Use
-//		TryUse( ent );
 	}
 	if ((ent->client->pers.cmd.buttons & BUTTON_USE) && ent->client->ps.useDelay < level.time)
 	{
@@ -3618,7 +3431,6 @@ void ClientThink_real( gentity_t *ent ) {
 	VectorCopy( ent->client->ps.origin, ent->r.currentOrigin );
 
 	//test for solid areas in the AAS file
-//	BotTestAAS(ent->r.currentOrigin);
 
 	// touch other objects
 	ClientImpacts( ent, &pm );
@@ -3632,8 +3444,6 @@ void ClientThink_real( gentity_t *ent ) {
 	client->oldbuttons = client->buttons;
 	client->buttons = ucmd->buttons;
 	client->latched_buttons |= client->buttons & ~client->oldbuttons;
-
-//	G_VehicleAttachDroidUnit( ent );
 
 	// Did we kick someone in our pmove sequence?
 	if (client->ps.forceKickFlip)
@@ -3793,13 +3603,7 @@ void ClientThink( int clientNum,usercmd_t *ucmd ) {
 	ent = g_entities + clientNum;
 	if (clientNum < MAX_CLIENTS)
 	{
-		trap_GetUsercmd( clientNum, &ent->client->pers.cmd );
-
-		// Sil - test fix for too old server time messages
-		/*
-		if ( level.time - ent->client->pers.cmd.serverTime > g_cmdtimelimit.integer )
-			return;
-			*/
+		trap_GetUsercmd( clientNum, &ent->client->pers.cmd );  
 	}
 
 	// mark the time we got info, so we can display the
@@ -3811,32 +3615,6 @@ void ClientThink( int clientNum,usercmd_t *ucmd ) {
 		ent->client->pers.cmd = *ucmd;
 	}
 
-/* 	This was moved to clientthink_real, but since its sort of a risky change i left it here for 
-    now as a more concrete reference - BSD
-  
-	if ( clientNum < MAX_CLIENTS
-		&& ent->client->ps.m_iVehicleNum )
-	{//driving a vehicle
-		if (g_entities[ent->client->ps.m_iVehicleNum].client)
-		{
-			gentity_t *veh = &g_entities[ent->client->ps.m_iVehicleNum];
-
-			if (veh->m_pVehicle &&
-				veh->m_pVehicle->m_pPilot == (bgEntity_t *)ent)
-			{ //only take input from the pilot...
-				veh->client->ps.commandTime = ent->client->ps.commandTime;
-				memcpy(&veh->m_pVehicle->m_ucmd, &ent->client->pers.cmd, sizeof(usercmd_t));
-				if ( veh->m_pVehicle->m_ucmd.buttons & BUTTON_TALK )
-				{ //forced input if "chat bubble" is up
-					veh->m_pVehicle->m_ucmd.buttons = BUTTON_TALK;
-					veh->m_pVehicle->m_ucmd.forwardmove = 0;
-					veh->m_pVehicle->m_ucmd.rightmove = 0;
-					veh->m_pVehicle->m_ucmd.upmove = 0;
-				}
-			}
-		}
-	}
-*/
 	if ( !(ent->r.svFlags & SVF_BOT) && !g_synchronousClients.integer ) {
 		ClientThink_real( ent );
 	}
@@ -3845,25 +3623,6 @@ void ClientThink( int clientNum,usercmd_t *ucmd ) {
 	else if ( clientNum >= MAX_CLIENTS ) {
 		ClientThink_real( ent );
 	}
-
-/*	This was moved to clientthink_real, but since its sort of a risky change i left it here for 
-    now as a more concrete reference - BSD
-    
-	if ( clientNum < MAX_CLIENTS
-		&& ent->client->ps.m_iVehicleNum )
-	{//driving a vehicle
-		//run it
-		if (g_entities[ent->client->ps.m_iVehicleNum].inuse &&
-			g_entities[ent->client->ps.m_iVehicleNum].client)
-		{
-			ClientThink(ent->client->ps.m_iVehicleNum, &g_entities[ent->client->ps.m_iVehicleNum].m_pVehicle->m_ucmd);
-		}
-		else
-		{ //vehicle no longer valid?
-			ent->client->ps.m_iVehicleNum = 0;
-		}
-	}
-*/
 }
 
 
@@ -3893,15 +3652,9 @@ void SpectatorClientEndFrame( gentity_t *ent ) {
 
 	// if we are doing a chase cam or a remote view, grab the latest info
 	if ( ent->client->sess.spectatorState == SPECTATOR_FOLLOW ) {
-		int		clientNum;//, flags;
+		int		clientNum;
 
 		clientNum = ent->client->sess.spectatorClient;
-
-		////in case that we follow some spectator who started following someone else, free this following
-		//if (level.clients[ clientNum ].sess.spectatorState == SPECTATOR_FOLLOW){
-		//	StopFollowing( ent );
-		//	return;
-		//}
 
 		// team follow1 and team follow2 go to whatever clients are playing
 		if ( clientNum == -1 ) {
@@ -3912,8 +3665,7 @@ void SpectatorClientEndFrame( gentity_t *ent ) {
 		if ( clientNum >= 0 ) {
 			cl = &level.clients[ clientNum ];
 			if ( cl->pers.connected == CON_CONNECTED && 
-				cl->sess.sessionTeam != TEAM_SPECTATOR ) {//original
-				//cl->sess.spectatorClient != SPECTATOR_FOLLOW ) {//testing
+				cl->sess.sessionTeam != TEAM_SPECTATOR ) {
 				int originalPing = ent->client->ps.ping;
 
 				ent->client->ps.eFlags = cl->ps.eFlags;
@@ -3940,7 +3692,7 @@ void SpectatorClientEndFrame( gentity_t *ent ) {
     else
     {
         if (level.pause.state != PAUSE_NONE) {
-            int i, time_delta = level.time - level.previousTime;
+            int time_delta = level.time - level.previousTime;
 
             ent->client->sess.inactivityTime += time_delta;
         }
@@ -3964,7 +3716,6 @@ while a slow client may have multiple ClientEndFrame between ClientThink.
 */
 void ClientEndFrame( gentity_t *ent ) {
 	int			i;
-	//clientPersistant_t	*pers;
 	qboolean isNPC = qfalse;
 
 	if (ent->s.eType == ET_NPC)
@@ -3976,8 +3727,6 @@ void ClientEndFrame( gentity_t *ent ) {
 		SpectatorClientEndFrame( ent );
 		return;
 	}
-
-	//pers = &ent->client->pers;
 
 	// turn off any expired powerups
     for ( i=0; i<MAX_POWERUPS; i++ )
@@ -4003,7 +3752,6 @@ void ClientEndFrame( gentity_t *ent ) {
 
             ent->client->airOutTime += time_delta;
             ent->client->sess.inactivityTime += time_delta;
-            //ent->client->pers.connectTime += time_delta;
             ent->client->pers.enterTime += time_delta;
             ent->client->pers.teamState.lastreturnedflag += time_delta;
             ent->client->pers.teamState.lasthurtcarrier += time_delta;
@@ -4011,8 +3759,6 @@ void ClientEndFrame( gentity_t *ent ) {
 			ent->client->pers.teamState.flagsince += time_delta; // base_enhanced
             ent->client->respawnTime += time_delta;
             ent->pain_debounce_time += time_delta;
-            //ent->client->force.drainDebounce += time_delta;
-            //ent->client->force.lightningDebounce += time_delta;
             ent->client->ps.fd.forcePowerRegenDebounceTime += time_delta;
 
 			// update force powers durations
@@ -4077,9 +3823,6 @@ void ClientEndFrame( gentity_t *ent ) {
 
 	SendPendingPredictableEvents( &ent->client->ps );
 
-	// set the bit for the reachability area the client is currently in
-//	i = trap_AAS_PointReachabilityAreaIndex( ent->client->ps.origin );
-//	ent->client->areabits[i >> 3] |= 1 << (i & 7);
 }
 
 

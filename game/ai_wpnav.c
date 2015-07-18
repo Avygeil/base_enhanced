@@ -467,13 +467,10 @@ void RemoveWP(void)
 		return;
 	}
 
-	//B_Free((wpobject_t *)gWPArray[gWPNum]);
 	if (gWPArray[gWPNum])
 	{
 		memset( gWPArray[gWPNum], 0, sizeof(gWPArray[gWPNum]) );
 	}
-
-	//gWPArray[gWPNum] = NULL;
 
 	if (gWPArray[gWPNum])
 	{
@@ -530,24 +527,19 @@ void RemoveWP_InTrail(int afterindex)
 	{
 		if (gWPArray[i] && gWPArray[i]->index == foundindex)
 		{
-			//B_Free(gWPArray[i]);
-
 			//Keep reusing the memory
 			memset( gWPArray[i], 0, sizeof(gWPArray[i]) );
 
-			//gWPArray[i] = NULL;
 			gWPArray[i]->inuse = 0;
 			didchange = 1;
 		}
 		else if (gWPArray[i] && didchange)
 		{
 			TransferWPData(i, i-1);
-			//B_Free(gWPArray[i]);
 
 			//Keep reusing the memory
 			memset( gWPArray[i], 0, sizeof(gWPArray[i]) );
 
-			//gWPArray[i] = NULL;
 			gWPArray[i]->inuse = 0;
 		}
 
@@ -687,7 +679,6 @@ int CreateNewWP_InsertUnder(vec3_t origin, int flags, int afterindex)
 		}
 		else if (gWPArray[i] && gWPArray[i]->inuse && gWPArray[i]->index == foundindex)
 		{
-			//i++;
 			TransferWPData(i, i+1);
 
 			if (!gWPArray[i])
@@ -927,7 +918,6 @@ int CanGetToVectorTravel(vec3_t org1, vec3_t moveTo, vec3_t mins, vec3_t maxs)
 			{
 				workingOrg[0] = tr.endpos[0];
 				workingOrg[1] = tr.endpos[1];
-				//trap_LinkEntity(self);
 				didMove = 1;
 			}
 		}
@@ -958,8 +948,6 @@ int CanGetToVectorTravel(vec3_t org1, vec3_t moveTo, vec3_t mins, vec3_t maxs)
 				if (!tr.startsolid && !tr.allsolid && tr.fraction == 1)
 				{ //clear trace here, probably up a step
 					vec3_t trDown;
-					//vec3_t trUp;
-					//VectorCopy(tr.endpos, trUp);
 					VectorCopy(tr.endpos, trDown);
 					trDown[2] -= 16;
 
@@ -968,7 +956,6 @@ int CanGetToVectorTravel(vec3_t org1, vec3_t moveTo, vec3_t mins, vec3_t maxs)
 					if (!tr.startsolid && !tr.allsolid)
 					{ //plop us down on the step after moving up
 						VectorCopy(tr.endpos, workingOrg);
-						//trap_LinkEntity(self);
 						didMove = 1;
 					}
 				}
@@ -1060,7 +1047,6 @@ int ConnectTrail(int startindex, int endindex, qboolean behindTheScenes)
 	while (i < MAX_NODETABLE_SIZE) //clear it out before using it
 	{
 		nodetable[i].flags = 0;
-//		nodetable[i].index = 0;
 		nodetable[i].inuse = 0;
 		nodetable[i].neighbornum = 0;
 		nodetable[i].origin[0] = 0;
@@ -1095,7 +1081,6 @@ int ConnectTrail(int startindex, int endindex, qboolean behindTheScenes)
 	VectorCopy(startplace, nodetable[nodenum].origin);
 	nodetable[nodenum].weight = 1;
 	nodetable[nodenum].inuse = 1;
-//	nodetable[nodenum].index = nodenum;
 	nodenum++;
 
 	while (nodenum < MAX_NODETABLE_SIZE && !foundit && cancontinue)
@@ -1167,7 +1152,6 @@ int ConnectTrail(int startindex, int endindex, qboolean behindTheScenes)
 				{
 					VectorCopy(testspot, nodetable[nodenum].origin);
 					nodetable[nodenum].inuse = 1;
-//					nodetable[nodenum].index = nodenum;
 					nodetable[nodenum].weight = nodetable[i].weight+1;
 					nodetable[nodenum].neighbornum = i;
 					if ((nodetable[i].origin[2] - nodetable[nodenum].origin[2]) > 50)
@@ -1198,7 +1182,6 @@ int ConnectTrail(int startindex, int endindex, qboolean behindTheScenes)
 				{
 					VectorCopy(testspot, nodetable[nodenum].origin);
 					nodetable[nodenum].inuse = 1;
-//					nodetable[nodenum].index = nodenum;
 					nodetable[nodenum].weight = nodetable[i].weight+1;
 					nodetable[nodenum].neighbornum = i;
 					if ((nodetable[i].origin[2] - nodetable[nodenum].origin[2]) > 50)
@@ -1229,7 +1212,6 @@ int ConnectTrail(int startindex, int endindex, qboolean behindTheScenes)
 				{
 					VectorCopy(testspot, nodetable[nodenum].origin);
 					nodetable[nodenum].inuse = 1;
-//					nodetable[nodenum].index = nodenum;
 					nodetable[nodenum].weight = nodetable[i].weight+1;
 					nodetable[nodenum].neighbornum = i;
 					if ((nodetable[i].origin[2] - nodetable[nodenum].origin[2]) > 50)
@@ -1260,7 +1242,6 @@ int ConnectTrail(int startindex, int endindex, qboolean behindTheScenes)
 				{
 					VectorCopy(testspot, nodetable[nodenum].origin);
 					nodetable[nodenum].inuse = 1;
-//					nodetable[nodenum].index = nodenum;
 					nodetable[nodenum].weight = nodetable[i].weight+1;
 					nodetable[nodenum].neighbornum = i;
 					if ((nodetable[i].origin[2] - nodetable[nodenum].origin[2]) > 50)
@@ -1298,15 +1279,6 @@ int ConnectTrail(int startindex, int endindex, qboolean behindTheScenes)
 			G_Printf(S_COLOR_YELLOW "Since points cannot be connected, point %i has been flagged as only-forward and point %i has been flagged as only-backward.\n", startindex, endindex);
 		}
 
-		/*while (nodenum >= 0)
-		{
-			if (nodetable[nodenum].origin[0] || nodetable[nodenum].origin[1] || nodetable[nodenum].origin[2])
-			{
-				CreateNewWP(nodetable[nodenum].origin, nodetable[nodenum].flags);
-			}
-
-			nodenum--;
-		}*/
 		//The above code transfers nodes into the "rendered" waypoint array. Strictly for debugging.
 
 		if (!behindTheScenes)
@@ -1466,8 +1438,6 @@ int DoorBlockingSection(int start, int end)
 int RepairPaths(qboolean behindTheScenes)
 {
 	int i;
-	//int preAmount = 0;
-	//int ctRet;
 	vec3_t a;
 	float maxDistFactor = 400;
 
@@ -1483,7 +1453,6 @@ int RepairPaths(qboolean behindTheScenes)
 
 	i = 0;
 
-	//preAmount = gWPNum;
 
 	trap_Cvar_Update(&bot_wp_distconnect);
 	trap_Cvar_Update(&bot_wp_visconnect);
@@ -1501,7 +1470,6 @@ int RepairPaths(qboolean behindTheScenes)
 				((bot_wp_distconnect.value && VectorLength(a) > maxDistFactor) || (!OrgVisible(gWPArray[i]->origin, gWPArray[i+1]->origin, ENTITYNUM_NONE) && bot_wp_visconnect.value) ) &&
 				!DoorBlockingSection(i, i+1))
 			{
-				//ctRet = ConnectTrail(i, i+1, behindTheScenes);
 				ConnectTrail(i, i+1, behindTheScenes);
 
 				if (gWPNum >= MAX_WPARRAY_SIZE)
@@ -1509,11 +1477,6 @@ int RepairPaths(qboolean behindTheScenes)
 					gWPNum = MAX_WPARRAY_SIZE;
 					break;
 				}
-
-				/*if (!ctRet)
-				{
-					return 0;
-				}*/ //we still want to write it..
 			}
 		}
 
@@ -1692,7 +1655,7 @@ void CalculatePaths(void)
 						gWPArray[i]->neighbors[gWPArray[i]->neighbornum].num = c;
 						if (forceJumpable && ((int)gWPArray[i]->origin[2] != (int)gWPArray[c]->origin[2] || nLDist < maxNeighborDist))
 						{
-							gWPArray[i]->neighbors[gWPArray[i]->neighbornum].forceJumpTo = 999;//forceJumpable; //FJSR
+							gWPArray[i]->neighbors[gWPArray[i]->neighbornum].forceJumpTo = 999;
 						}
 						else
 						{
@@ -1987,15 +1950,15 @@ void CalculateJumpRoutes(void)
 				{
 					if (pheightdif > 500)
 					{
-						gWPArray[i]->forceJumpTo = 999; //FORCE_LEVEL_3; //FJSR
+						gWPArray[i]->forceJumpTo = 999; 
 					}
 					else if (pheightdif > 256)
 					{
-						gWPArray[i]->forceJumpTo = 999; //FORCE_LEVEL_2; //FJSR
+						gWPArray[i]->forceJumpTo = 999; 
 					}
 					else if (pheightdif > 128)
 					{
-						gWPArray[i]->forceJumpTo = 999; //FORCE_LEVEL_1; //FJSR
+						gWPArray[i]->forceJumpTo = 999; 
 					}
 				}
 			}
@@ -2199,7 +2162,7 @@ int LoadPathData(const char *filename)
 				}
 				currentVar[i_cv] = '\0';
 
-				thiswp.neighbors[thiswp.neighbornum].forceJumpTo = 999; //atoi(currentVar); //FJSR
+				thiswp.neighbors[thiswp.neighbornum].forceJumpTo = 999;
 			}
 			else
 			{
@@ -2382,7 +2345,6 @@ int SavePathData(const char *filename)
 
 	fileString = NULL;
 	i = 0;
-	//s = 0;
 
 	if (!gWPNum)
 	{
@@ -2451,7 +2413,6 @@ int SavePathData(const char *filename)
 
 	while (i < gWPNum)
 	{
-		//sprintf(fileString, "%s%i %i %f (%f %f %f) { ", fileString, gWPArray[i]->index, gWPArray[i]->flags, gWPArray[i]->weight, gWPArray[i]->origin[0], gWPArray[i]->origin[1], gWPArray[i]->origin[2]);
 		Com_sprintf(storeString, 4096, "%i %i %f (%f %f %f) { ", gWPArray[i]->index, gWPArray[i]->flags, gWPArray[i]->weight, gWPArray[i]->origin[0], gWPArray[i]->origin[1], gWPArray[i]->origin[2]);
 
 		n = 0;
@@ -3297,7 +3258,6 @@ void BeginAutoPathRoutine(void)
 	//rww - Using a faster in-engine version because we're having to wait for this stuff to get done as opposed to just saving it once.
 	trap_Bot_UpdateWaypoints(gWPNum, gWPArray);
 	trap_Bot_CalculatePaths(g_RMG.integer);
-	//CalculatePaths(); //make everything nice and connected
 
 #ifdef PAINFULLY_DEBUGGING_THROUGH_VM
 	Com_Printf("FINISHED LINKING PATHS.\n");

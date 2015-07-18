@@ -115,7 +115,6 @@ typedef struct botattachment_s
 typedef struct nodeobject_s
 {
 	vec3_t origin;
-//	int index;
 	float weight;
 	int flags;
 #ifdef _XBOX
@@ -282,10 +281,6 @@ typedef struct bot_state_s
 
 	int					runningLikeASissy;
 	int					runningToEscapeThreat;
-
-	//char				chatBuffer[MAX_CHAT_BUFFER_SIZE];
-	//Since we're once again not allocating bot structs dynamically,
-	//shoving a 64k chat buffer into one is a bad thing.
 
 	botskills_t			skills;
 

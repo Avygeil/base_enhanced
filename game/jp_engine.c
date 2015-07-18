@@ -116,10 +116,6 @@
 	{//getstatuf flood fix
 		__StartHook( GetStatusFix )
 		{
-			//unsigned ip = 0;
-
-		//	__asm2__( lea esi, [esp+28h+4]);
-		//	__asm2__( mov ip, esi);
 #ifdef _WIN32
 			__asm2__( mov eax, [esp+28h+4]);
 			__asm2__( mov testip, eax);
@@ -142,7 +138,6 @@
 	{//getinfo flood fix
 		__StartHook( GetInfoFix )
 		{
-			//unsigned ip = 0;
 
 #ifdef _WIN32
 			__asm2__( mov eax, [esp+28h+4]);
@@ -340,24 +335,13 @@
 	} IPLog;
 
 	static IPLog connectingIPLog[MAX_CONNECTING_PEOPLE_LOG];
-	//static int nextIPIndex = 0;
 	void LogFullserverConnect(const char* userinfo){
 		int i;
 		int freeslot = -1;
-		//char* name;
-		//int k;
-
-		//for(i=0;i<255;++i){
-		//	Com_Printf("%i,%c ",i,userinfo[i]);
-		//}
-
-		//return;
-		
 
 		unsigned ip = getIpFromString(Info_ValueForKey(userinfo, "ip"));
 
 		for(i=0;i<MAX_CONNECTING_PEOPLE_LOG;++i){
-			//k = (nextIPIndex + i)%MAX_CONNECTING_PEOPLE_LOG;
 			if (connectingIPLog[i].ip == ip){
 				//we are logging this one already
 				if (connectingIPLog[i].lastAttemptTime + 10000 < level.time){
@@ -393,13 +377,9 @@
 	{//full server connect report
 		__StartHook( FullServerConnect )
 		{
-			//char* userinfo;
-
-			//Com_DPrintf("connection rejected")
 			__asm2__( mov  ecx, FS_COMDPRINTF); 
 			__asm1__( call ecx);
 
-			//LogFullserverConnect(userinfo)
 			__asm2__( lea  ecx, [esp+FS_ESPOFFSET]); 
 			__asm1__( push  ecx); 
 			__asm1__( call  LogFullserverConnect); 

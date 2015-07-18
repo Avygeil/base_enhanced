@@ -204,9 +204,6 @@ extern int getGlobalTime();
 void G_InitSessionData( gclient_t *client, char *userinfo, qboolean isBot, qboolean firstTime ) {
 	clientSession_t	*sess;
 	const char		*value;
-//	char* username;
-	//char		*ipPtr;
-	//char* delimitator;
 
 	sess = &client->sess;
 
@@ -269,7 +266,6 @@ void G_InitSessionData( gclient_t *client, char *userinfo, qboolean isBot, qbool
 				}
 				break;
 			case GT_POWERDUEL:
-				//sess->duelTeam = DUELTEAM_LONE; //default
 				{
 					int loners = 0;
 					int doubles = 0;

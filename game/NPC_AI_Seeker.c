@@ -34,7 +34,7 @@ void NPC_Seeker_Precache(void)
 void NPC_Seeker_Pain(gentity_t *self, gentity_t *attacker, int damage)
 {
 	if ( !(self->NPC->aiFlags&NPCAI_CUSTOM_GRAVITY ))
-	{//void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, vec3_t dir, vec3_t point, int damage, int dflags, int mod, int hitLoc=HL_NONE );
+	{
 		G_Damage( self, NULL, NULL, (float*)vec3_origin, (float*)vec3_origin, 999, 0, MOD_FALLING );
 	}
 
@@ -333,9 +333,6 @@ void Seeker_Ranged( qboolean visible, qboolean advance )
 		else
 		{
 			// out of ammo, so let it die...give it a push up so it can fall more and blow up on impact
-	//		NPC->client->ps.gravity = 900;
-	//		NPC->svFlags &= ~SVF_CUSTOM_GRAVITY;
-	//		NPC->client->ps.velocity[2] += 16;
 			G_Damage( NPC, NPC, NPC, NULL, NULL, 999, 0, MOD_UNKNOWN );
 		}
 	}
@@ -522,16 +519,6 @@ void Seeker_FollowOwner( void )
 //------------------------------------
 void NPC_BSSeeker_Default( void )
 {
-	/*
-	if ( in_camera )
-	{
-		if ( NPC->client->NPC_class != CLASS_BOBAFETT )
-		{
-			// cameras make me commit suicide....
-			G_Damage( NPC, NPC, NPC, NULL, NULL, 999, 0, MOD_UNKNOWN );
-		}
-	}
-	*/
 	//N/A for MP.
 	if ( NPC->r.ownerNum < ENTITYNUM_NONE )
 	{

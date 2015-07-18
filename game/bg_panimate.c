@@ -783,7 +783,6 @@ int BG_KnockawayForParry( int move )
 		return LS_K1_BL;//push down and to right
 		break;
 	}
-	//return LS_NONE;
 }
 
 qboolean BG_InRoll( playerState_t *ps, int anim )
@@ -988,7 +987,6 @@ qboolean BG_InSaberLock( int anim )
 		return BG_InSaberLockOld( anim );
 		break;
 	}
-	//return qfalse;
 }
 
 //Called only where pm is valid (not all require pm, but some do):
@@ -1337,14 +1335,6 @@ qboolean PM_LandingAnim( int anim )
 
 qboolean PM_SpinningAnim( int anim )
 {
-	/*
-	switch ( anim )
-	{
-	//FIXME: list any other spinning anims
-	default:
-		break;
-	}
-	*/
 	return BG_SpinningSaberAnim( anim );
 }
 
@@ -1712,18 +1702,6 @@ void BG_InitAnimsets(void)
 //ALWAYS call on game/cgame shutdown
 void BG_ClearAnimsets(void)
 {
-	/*
-	int i = 1;
-
-	while (i < bgNumAllAnims)
-	{
-		if (bgAllAnims[i].anims)
-		{
-			strap_TrueFree((void **)&bgAllAnims[i].anims);
-		}
-		i++;
-	}
-	*/
 }
 
 animation_t *BG_AnimsetAlloc(void)
@@ -1736,21 +1714,6 @@ animation_t *BG_AnimsetAlloc(void)
 
 void BG_AnimsetFree(animation_t *animset)
 {
-	/*
-	if (!animset)
-	{
-		return;
-	}
-
-	strap_TrueFree((void **)&animset);
-
-#ifdef _DEBUG
-	if (animset)
-	{
-		assert(!"Failed to free anim set");
-	}
-#endif
-	*/
 }
 
 #ifndef QAGAME //none of this is actually needed serverside. Could just be moved to cgame code but it's here since it
@@ -1866,7 +1829,6 @@ void ParseAnimationEvtBlock(const char *aeb_filename, animevent_t *animEvents, a
 		eventType = (animEventType_t)GetIDForString(animEventTypeTable, token);
 		if ( eventType == AEV_NONE || eventType == -1 )
 		{//Unrecognized ANIM EVENT TYOE, or we're skipping this line, keep going till you get a good one
-			//Com_Printf(S_COLOR_YELLOW"WARNING: Unknown token %s in animEvent file %s\n", token, aeb_filename );
 			continue;
 		}
 
@@ -1957,7 +1919,6 @@ void ParseAnimationEvtBlock(const char *aeb_filename, animevent_t *animEvents, a
 			//		registered, we cannot be guaranteed sequential indices.  Thus an array
 			if(lowestVal && highestVal)
 			{
-				//assert(highestVal - lowestVal < MAX_RANDOM_ANIM_SOUNDS);
 				if ((highestVal-lowestVal) >= MAX_RANDOM_ANIM_SOUNDS)
 				{
 					highestVal = lowestVal + (MAX_RANDOM_ANIM_SOUNDS-1);
@@ -2010,15 +1971,15 @@ void ParseAnimationEvtBlock(const char *aeb_filename, animevent_t *animEvents, a
 				animEvents[curAnimEvent].eventData[AED_SABER_SWING_PROBABILITY] = animEvents[curAnimEvent].eventData[AED_SOUND_PROBABILITY];
 				if ( lowestVal < 4 )
 				{//fast swing
-					animEvents[curAnimEvent].eventData[AED_SABER_SWING_TYPE] = 0;//SWING_FAST;
+					animEvents[curAnimEvent].eventData[AED_SABER_SWING_TYPE] = 0;
 				}
 				else if ( lowestVal < 7 )
 				{//medium swing
-					animEvents[curAnimEvent].eventData[AED_SABER_SWING_TYPE] = 1;//SWING_MEDIUM;
+					animEvents[curAnimEvent].eventData[AED_SABER_SWING_TYPE] = 1;
 				}
 				else
 				{//strong swing
-					animEvents[curAnimEvent].eventData[AED_SABER_SWING_TYPE] = 2;//SWING_STRONG;
+					animEvents[curAnimEvent].eventData[AED_SABER_SWING_TYPE] = 2;;
 				}
 			}
 			else if ( !Q_stricmpn( "sound/weapons/saber/saberspin", stringData, 29 ) )
@@ -2091,7 +2052,6 @@ void ParseAnimationEvtBlock(const char *aeb_filename, animevent_t *animEvents, a
 				strcpy(animEvents[curAnimEvent].stringData, token);
 			}
 			//NOTE: this string will later be used to add a bolt and store the index, as below:
-			//animEvent->eventData[AED_BOLTINDEX] = gi.G2API_AddBolt( &cent->gent->ghoul2[cent->gent->playerModel], animEvent->stringData );
 			//get probability
 			token = COM_Parse( text_p );
 			if ( !token ) 
@@ -2338,11 +2298,9 @@ int BG_ParseAnimationFile(const char *filename, animation_t *animset, qboolean i
 	int			i;
 	char		*token;
 	float		fps;
-	//int			skip;
 	int			usedIndex = -1;
 	int			nextIndex = bgNumAllAnims;
 	qboolean	dynAlloc = qfalse;
-	//qboolean	wasLoaded = qfalse;
 #ifndef Q3_VM
 	char		BGPAFtext[60000];
 #endif
@@ -2436,7 +2394,6 @@ int BG_ParseAnimationFile(const char *filename, animation_t *animset, qboolean i
 
 	// parse the text
 	text_p = BGPAFtext;
-	//skip = 0;	// quiet the compiler warning
 
 	//FIXME: have some way of playing anims backwards... negative numFrames?
 
@@ -2513,26 +2470,10 @@ int BG_ParseAnimationFile(const char *filename, animation_t *animset, qboolean i
 			animset[animNum].frameLerp = ceil(1000.0f / fps);
 		}
 	}
-/*
-#ifdef _DEBUG
-	//Check the array, and print the ones that have nothing in them.
-	for(i = 0; i < MAX_ANIMATIONS; i++)
-	{	
-		if (animTable[i].name != NULL)		// This animation reference exists.
-		{
-			if (animset[i].firstFrame <= 0 && animset[i].numFrames <=0)
-			{	// This is an empty animation reference.
-				Com_Printf("***ANIMTABLE reference #%d (%s) is empty!\n", i, animTable[i].name);
-			}
-		}
-	}
-#endif // _DEBUG
-*/
+
 #ifdef CONVENIENT_ANIMATION_FILE_DEBUG_THING
 	SpewDebugStuffToFile();
 #endif
-
-	//wasLoaded = BGPAFtextLoaded;
 
 	if (isHumanoid)
 	{
@@ -2560,17 +2501,6 @@ int BG_ParseAnimationFile(const char *filename, animation_t *animset, qboolean i
 		}
 	}
 
-	/*
-	if (!wasLoaded && BGPAFtextLoaded)
-	{ //just loaded humanoid skel - we always want the rockettrooper to be after it, in slot 1
-#ifdef _DEBUG
-		assert(BG_ParseAnimationFile("models/players/rockettrooper/animation.cfg", NULL, qfalse) == 1);
-#else
-		BG_ParseAnimationFile("models/players/rockettrooper/animation.cfg", NULL, qfalse);
-#endif
-	}
-	*/
-
 	return usedIndex;
 }
 
@@ -2584,7 +2514,6 @@ static void BG_StartLegsAnim( playerState_t *ps, int anim )
 {
 	if ( ps->pm_type >= PM_DEAD )
 	{
-		//assert(!BG_InDeathAnim(anim));
 		//please let me know if this assert fires on you (ideally before you close/ignore it) -rww
 
 		//vehicles are allowed to do this.. IF it's a vehicle death anim
@@ -2610,12 +2539,6 @@ static void BG_StartLegsAnim( playerState_t *ps, int anim )
 	}
 #endif
 	ps->legsAnim = anim;
-
-	/*
-	if ( pm->debugLevel ) {
-		Com_Printf("%d:  StartLegsAnim %d, on client#%d\n", pm->cmd.serverTime, anim, pm->ps->clientNum);
-	}
-	*/
 }
 
 void PM_ContinueLegsAnim( int anim ) {
@@ -2994,19 +2917,6 @@ void BG_SetAnim(playerState_t *ps, animation_t *animations, int setAnimParts,int
 			return;
 		}
 	}
-
-	/*
-	if (BG_InSpecialJump(anim))
-	{
-		setAnimFlags |= SETANIM_FLAG_RESTART;
-	}
-	*/
-	//Don't know why I put this here originally but it's messing stuff up now and it isn't needed.
-
-//	if (BG_InRoll(ps, ps->legsAnim))
-//	{ //never interrupt a roll
-//		return;
-//	}
 
 	if (setAnimFlags&SETANIM_FLAG_OVERRIDE)
 	{

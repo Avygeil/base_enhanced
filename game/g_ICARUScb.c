@@ -305,9 +305,6 @@ void G_DebugPrint( int level, const char *format, ... )
 
 				sscanf( text, "%d", &entNum );
 
-				//if ( ( ICARUS_entFilter >= 0 ) && ( ICARUS_entFilter != entNum ) )
-				//	return;
-
 				buffer = (char *) text;
 				buffer += 5;
 
@@ -409,7 +406,6 @@ int Q3_PlaySound( int taskID, int entID, const char *name, const char *channel )
 
 	Q_strncpyz( finalName, name, MAX_QPATH );
 	Q_strupr(finalName);
-	//G_AddSexToMunroString( finalName, qtrue );
 
 	COM_StripExtension( (const char *)finalName, finalName );
 
@@ -430,12 +426,12 @@ int Q3_PlaySound( int taskID, int entID, const char *name, const char *channel )
 	}
 	else if ( Q_stricmp( channel, "CHAN_VOICE_ATTEN" ) == 0 )
 	{
-		voice_chan = CHAN_AUTO;//CHAN_VOICE_ATTEN;
+		voice_chan = CHAN_AUTO;
 		type_voice = qtrue;
 	}
 	else if ( Q_stricmp( channel, "CHAN_VOICE_GLOBAL" ) == 0 ) // this should broadcast to everyone, put only casue animation on G_SoundOnEnt...
 	{
-		voice_chan = CHAN_AUTO;//CHAN_VOICE_GLOBAL;
+		voice_chan = CHAN_AUTO;
 		type_voice = qtrue;
 		bBroadcast = qtrue;
 	}
@@ -443,42 +439,6 @@ int Q3_PlaySound( int taskID, int entID, const char *name, const char *channel )
 	// if we're in-camera, check for skipping cinematic and ifso, no subtitle print (since screen is not being
 	//	updated anyway during skipping). This stops leftover subtitles being left onscreen after unskipping.
 	//
-	/*
-	if (!in_camera ||
-		(!g_skippingcin || !g_skippingcin->integer)
-		)	// paranoia towards project end <g>
-	{
-		// Text on
-		// certain NPC's we always want to use subtitles regardless of subtitle setting
-		if (g_subtitles->integer == 1 || (ent->NPC && (ent->NPC->scriptFlags & SCF_USE_SUBTITLES) ) ) // Show all text
-		{
-			if ( in_camera)	// Cinematic
-			{					
-				trap_SendServerCommand( -1, va("ct \"%s\" %i", finalName, soundHandle) );
-			}
-			else //if (precacheWav[i].speaker==SP_NONE)	//  lower screen text
-			{
-				sharedEntity_t		*ent2 = SV_GentityNum(0);
-				// the numbers in here were either the original ones Bob entered (350), or one arrived at from checking the distance Chell stands at in stasis2 by the computer core that was submitted as a bug report...
-				//
-				if (bBroadcast || (DistanceSquared(ent->currentOrigin, ent2->currentOrigin) < ((voice_chan == CHAN_VOICE_ATTEN)?(350 * 350):(1200 * 1200)) ) )
-				{
-					trap_SendServerCommand( -1, va("ct \"%s\" %i", finalName, soundHandle) );
-				}
-			}
-		}
-		// Cinematic only
-		else if (g_subtitles->integer == 2) // Show only talking head text and CINEMATIC
-		{
-			if ( in_camera)	// Cinematic text
-			{							
-				trap_SendServerCommand( -1, va("ct \"%s\" %i", finalName, soundHandle));
-			}
-		}
-
-	}
-	*/
-
 	if ( type_voice )
 	{
 		char buf[128];
@@ -538,7 +498,6 @@ void Q3_Play( int taskID, int entID, const char *type, const char *name )
 			ent->roffname = G_NewString( name );
 
 			// Start the roff from the beginning
-			//ent->roff_ctr = 0;
 
 			//Save this off for later
 			trap_ICARUS_TaskIDSet( ent, TID_MOVE_NAV, taskID );
@@ -548,8 +507,6 @@ void Q3_Play( int taskID, int entID, const char *type, const char *name )
 
 			//rww - Maybe use pos1 and pos2? I don't think we need to care if these values are sent across the net.
 			// These need to be initialised up front...
-			//VectorCopy( ent->r.currentOrigin, ent->pos1 );
-			//VectorCopy( ent->r.currentAngles, ent->pos2 );
 			VectorCopy( ent->r.currentOrigin, ent->s.origin2 );
 			VectorCopy( ent->r.currentAngles, ent->s.angles2 );
 			
@@ -614,12 +571,10 @@ void moverCallback( gentity_t *ent )
 	{//reached open
 		// reached pos2
 		MatchTeam( ent, MOVER_POS2, level.time );
-		//SetMoverState( ent, MOVER_POS2, level.time );
 	} 
 	else if ( ent->moverState == MOVER_2TO1 ) 
 	{//reached closed
 		MatchTeam( ent, MOVER_POS1, level.time );
-		//SetMoverState( ent, MOVER_POS1, level.time );
 	}
 
 	if ( ent->blocked == Blocked_Mover )
@@ -627,10 +582,6 @@ void moverCallback( gentity_t *ent )
 		ent->blocked = 0;
 	}
 
-//	if ( !Q_stricmp( "misc_model_breakable", ent->classname ) && ent->physicsBounce )
-//	{//a gravity-affected model
-//		misc_model_breakable_gravity_init( ent, qfalse );
-//	}
 }
 
 void Blocked_Mover( gentity_t *ent, gentity_t *other )
@@ -932,7 +883,6 @@ void Q3_Lerp2Angles( int taskID, int entID, vec3_t angles, float duration )
 	
 	trap_ICARUS_TaskIDSet( ent, TID_ANGLE_FACE, taskID );
 
-	//ent->e_ReachedFunc = reachedF_NULL;
 	ent->think = anglerCallback;
 	ent->nextthink = level.time + duration;
 
@@ -1032,22 +982,14 @@ void Q3_Kill( int entID, const char *name )
 		return;
 	}
 
-	//rww - I guess this would only apply to NPCs anyway. I'm not going to bother.
-	//if ( victim == ent )
-	//{//don't ICARUS_FreeEnt me, I'm in the middle of a script!  (FIXME: shouldn't ICARUS handle this internally?)
-	//	victim->svFlags |= SVF_KILLED_SELF;
-	//}
-
 	o_health = victim->health;
 	victim->health = 0;
 	if ( victim->client )
 	{
 		victim->flags |= FL_NO_KNOCKBACK;
 	}
-	//G_SetEnemy(victim, ent);
 	if( victim->die != NULL )	// check can be omitted
 	{
-		//GEntity_DieFunc( victim, NULL, NULL, o_health, MOD_UNKNOWN );
 		victim->die(victim, victim, victim, o_health, MOD_UNKNOWN);
 	}
 }
@@ -1081,33 +1023,7 @@ void Q3_RemoveEnt( gentity_t *victim )
 			}
 			victim->think = G_FreeEntity;
 			victim->nextthink = level.time + 100;
-		}
-		/*
-		//ClientDisconnect(ent);
-		victim->s.eFlags |= EF_NODRAW;
-		victim->s.eType = ET_INVISIBLE;
-		victim->contents = 0;
-		victim->health = 0;
-		victim->targetname = NULL;
-
-		if ( victim->NPC && victim->NPC->tempGoal != NULL )
-		{
-			G_FreeEntity( victim->NPC->tempGoal );
-			victim->NPC->tempGoal = NULL;
-		}
-		if ( victim->client->ps.saberEntityNum != ENTITYNUM_NONE && victim->client->ps.saberEntityNum > 0 )
-		{
-			if ( g_entities[victim->client->ps.saberEntityNum].inuse )
-			{
-				G_FreeEntity( &g_entities[victim->client->ps.saberEntityNum] );
-			}
-			victim->client->ps.saberEntityNum = ENTITYNUM_NONE;
-		}
-		//Disappear in half a second
-		victim->e_ThinkFunc = thinkF_G_FreeEntity;
-		victim->nextthink = level.time + 500;
-		return;
-		*/
+		}    	
 	}
 	else
 	{
@@ -1951,7 +1867,6 @@ static void Q3_SetOrigin( int entID, vec3_t origin )
 		
 		ent->client->ps.eFlags ^= EF_TELEPORT_BIT;
 
-//		G_KillBox (ent);
 	}
 	else
 	{
@@ -2094,7 +2009,6 @@ void Q3_Lerp2Origin( int taskID, int entID, vec3_t origin, float duration )
 
 	// start it going
 	MatchTeam( ent, moverState, level.time );
-	//SetMoverState( ent, moverState, level.time );
 
 	ent->reached = moverCallback;
 	if ( ent->damage )
@@ -2177,11 +2091,6 @@ static void Q3_SetEnemy( int entID, const char *name )
 			G_DebugPrint( WL_ERROR, "Q3_SetEnemy: no such enemy: '%s'\n", name );
 			return;
 		}
-		/*else if(enemy->health <= 0)
-		{
-			//G_DebugPrint( WL_ERROR, "Q3_SetEnemy: ERROR - desired enemy has health %d\n", enemy->health );
-			return;
-		}*/
 		else
 		{
 			if(ent->NPC)
@@ -2231,12 +2140,10 @@ static void Q3_SetLeader( int entID, const char *name )
 
 		if(leader == NULL)
 		{
-			//G_DebugPrint( WL_ERROR,"Q3_SetEnemy: unable to locate enemy: '%s'\n", name );
 			return;
 		}
 		else if(leader->health <= 0)
 		{
-			//G_DebugPrint( WL_ERROR,"Q3_SetEnemy: ERROR - desired enemy has health %d\n", enemy->health );
 			return;
 		}
 		else
@@ -2394,13 +2301,6 @@ static qboolean Q3_SetAnimUpper( int entID, const char *anim_name )
 		return qfalse;
 	}
 
-	/*
-	if ( !PM_HasAnimation( SV_GentityNum(entID), animID ) )
-	{
-		return qfalse;
-	}
-	*/
-
 	SetUpperAnim( entID, animID );
 	return qtrue;
 }
@@ -2426,13 +2326,6 @@ static qboolean Q3_SetAnimLower( int entID, const char *anim_name )
 		return qfalse;
 	}
 	
-	/*
-	if ( !PM_HasAnimation( SV_GentityNum(entID), animID ) )
-	{
-		return qfalse;
-	}
-	*/
-
 	SetLowerAnim( entID, animID );
 	return qtrue;
 }
@@ -2450,30 +2343,6 @@ Q3_SetAnimHoldTime
 static void Q3_SetAnimHoldTime( int entID, int int_data, qboolean lower )
 {
 	G_DebugPrint( WL_WARNING, "Q3_SetAnimHoldTime is not currently supported in MP\n");
-	/*
-	gentity_t	*ent  = &g_entities[entID];
-
-	if ( !ent )
-	{
-		G_DebugPrint( WL_WARNING, "Q3_SetAnimHoldTime: invalid entID %d\n", entID);
-		return;
-	}
-
-	if ( !ent->client )
-	{
-		G_DebugPrint( WL_ERROR, "Q3_SetAnimHoldTime: ent %d is NOT a player or NPC!\n", entID);
-		return;
-	}
-	
-	if(lower)
-	{
-		PM_SetLegsAnimTimer( ent, &ent->client->ps.legsAnimTimer, int_data );
-	}
-	else
-	{
-		PM_SetTorsoAnimTimer( ent, &ent->client->ps.torsoAnimTimer, int_data );
-	}
-	*/
 }
 
 /*
@@ -2607,14 +2476,6 @@ static qboolean Q3_SetBState( int entID, const char *bs_name )
 				{
 					NPC_BSSearchStart( ent->waypoint, bSID );
 				}
-				/*else if( ent->lastWaypoint >=0 && ent->lastWaypoint < num_waypoints )
-				{
-					NPC_BSSearchStart( ent->lastWaypoint, bSID );
-				}
-				else if( ent->lastValidWaypoint >=0 && ent->lastValidWaypoint < num_waypoints )
-				{
-					NPC_BSSearchStart( ent->lastValidWaypoint, bSID );
-				}*/
 				else
 				{
 					G_DebugPrint( WL_ERROR, "Q3_SetBState: '%s' is not in a valid waypoint to search from!\n", ent->targetname );
@@ -2638,18 +2499,7 @@ static qboolean Q3_SetBState( int entID, const char *bs_name )
 	}
 
 	ent->NPC->aiFlags &= ~NPCAI_TOUCHED_GOAL;
-
-//	if ( bSID == BS_FLY )
-//	{//FIXME: need a set bState wrapper
-//		ent->client->moveType = MT_FLYSWIM;
-//	}
-//	else
-	{
-		//FIXME: these are presumptions!
-		//Q3_SetGravity( entID, g_gravity->value );
-		//ent->client->moveType = MT_RUNJUMP;
-	}
-
+ 
 	if ( bSID == BS_NOCLIP )
 	{
 		ent->client->noclip = qtrue;
@@ -2659,26 +2509,11 @@ static qboolean Q3_SetBState( int entID, const char *bs_name )
 		ent->client->noclip = qfalse;
 	}
 
-/*
-	if ( bSID == BS_FACE || bSID == BS_POINT_AND_SHOOT || bSID == BS_FACE_ENEMY )
-	{
-		ent->NPC->aimTime = level.time + 5 * 1000;//try for 5 seconds
-		return qfalse;//need to wait for task complete message
-	}
-*/
-
-//	if ( bSID == BS_SNIPER || bSID == BS_ADVANCE_FIGHT )
 	if ( bSID == BS_ADVANCE_FIGHT )
 	{
 		return qfalse;//need to wait for task complete message
 	}
 
-/*
-	if ( bSID == BS_SHOOT || bSID == BS_POINT_AND_SHOOT )
-	{//Let them shoot right NOW
-		ent->NPC->shotTime = ent->attackDebounceTime = level.time;
-	}
-*/
 	if ( bSID == BS_JUMP )
 	{
 		ent->NPC->jumpState = JS_FACING;
@@ -2720,20 +2555,6 @@ static qboolean Q3_SetTempBState( int entID, const char *bs_name )
 		ent->NPC->tempBehavior = bSID;
 	}
 
-/*
-	if ( bSID == BS_FACE || bSID == BS_POINT_AND_SHOOT || bSID == BS_FACE_ENEMY )
-	{
-		ent->NPC->aimTime = level.time + 5 * 1000;//try for 5 seconds
-		return qfalse;//need to wait for task complete message
-	}
-*/
-
-/*
-	if ( bSID == BS_SHOOT || bSID == BS_POINT_AND_SHOOT )
-	{//Let them shoot right NOW
-		ent->NPC->shotTime = ent->attackDebounceTime = level.time;
-	}
-*/
 	return qtrue;//ok to complete
 }
 
@@ -3270,7 +3091,6 @@ static void Q3_SetFriction(int entID, int int_data)
 	}
 
 	G_DebugPrint( WL_WARNING, "Q3_SetFriction currently unsupported in MP\n");
-//	self->client->ps.friction = int_data;
 }
 
 
@@ -3517,25 +3337,7 @@ Q3_SetTarget2
 */
 static void Q3_SetTarget2 (int entID, const char *target2)
 {
-	G_DebugPrint( WL_WARNING, "Q3_SetTarget2 does not exist in MP\n");
-	/*
-	sharedEntity_t	*self  = SV_GentityNum(entID);
-
-	if ( !self )
-	{
-		G_DebugPrint( WL_WARNING, "Q3_SetTarget2: invalid entID %d\n", entID);
-		return;
-	}
-
-	if(!Q_stricmp("NULL", ((char *)target2)))
-	{
-		self->target2 = NULL;
-	}
-	else
-	{
-		self->target2 = G_NewString( target2 );
-	}
-	*/
+	G_DebugPrint( WL_WARNING, "Q3_SetTarget2 does not exist in MP\n");    	
 }
 /*
 ============
@@ -3565,24 +3367,6 @@ Q3_SetPainTarget
 static void Q3_SetPainTarget (int entID, const char *targetname)
 {
 	G_DebugPrint( WL_WARNING, "Q3_SetPainTarget: NOT SUPPORTED IN MP\n");
-	/*
-	sharedEntity_t	*self  = SV_GentityNum(entID);
-
-	if ( !self )
-	{
-		G_DebugPrint( WL_WARNING, "Q3_SetPainTarget: invalid entID %d\n", entID);
-		return;
-	}
-
-	if(Q_stricmp("NULL", ((char *)targetname)) == 0)
-	{
-		self->paintarget = NULL;
-	}
-	else
-	{
-		self->paintarget = G_NewString((char *)targetname);
-	}
-	*/
 }
 
 /*
@@ -4355,7 +4139,6 @@ static void Q3_SetForwardMove( int entID, int fmoveVal)
 	}
 
 	G_DebugPrint( WL_WARNING, "Q3_SetForwardMove: NOT SUPPORTED IN MP\n");
-	//ent->client->forced_forwardmove = fmoveVal;
 }
 
 /*
@@ -4382,7 +4165,6 @@ static void Q3_SetRightMove( int entID, int rmoveVal)
 	}
 
 	G_DebugPrint( WL_WARNING, "Q3_SetRightMove: NOT SUPPORTED IN MP\n");
-	//ent->client->forced_rightmove = rmoveVal;
 }
 
 /*
@@ -4409,26 +4191,6 @@ static void Q3_SetLockAngle( int entID, const char *lockAngle)
 	}
 
 	G_DebugPrint( WL_WARNING, "Q3_SetLockAngle is not currently available. Ask if you really need it.\n");
-	/*
-	if(Q_stricmp("off", lockAngle) == 0)
-	{//free it
-		ent->client->renderInfo.renderFlags &= ~RF_LOCKEDANGLE;
-	}
-	else
-	{
-		ent->client->renderInfo.renderFlags |= RF_LOCKEDANGLE;
-
-		
-		if(Q_stricmp("auto", lockAngle) == 0)
-		{//use current yaw
-			ent->client->renderInfo.lockYaw = ent->client->ps.viewangles[YAW];
-		}
-		else
-		{//specified yaw
-			ent->client->renderInfo.lockYaw = atof((char *)lockAngle);
-		}
-	}
-	*/
 }
 
 
@@ -4670,11 +4432,9 @@ static qboolean Q3_SetBehaviorSet( int entID, int toSet, const char *scriptname)
 	{
 		if ( ent->behaviorSet[bSet] != NULL )
 		{
-//			gi.TagFree( ent->behaviorSet[bSet] );
 		}
 
 		ent->behaviorSet[bSet] = NULL;
-		//memset( &ent->behaviorSet[bSet], 0, sizeof(ent->behaviorSet[bSet]) );
 	}
 	else
 	{
@@ -4682,14 +4442,11 @@ static qboolean Q3_SetBehaviorSet( int entID, int toSet, const char *scriptname)
 		{
 			if ( ent->behaviorSet[bSet] != NULL )
 			{
-//				gi.TagFree( ent->behaviorSet[bSet] );
 			}
 			
 			ent->behaviorSet[bSet] = G_NewString( (char *) scriptname );	//FIXME: This really isn't good...
 		}
 
-		//ent->behaviorSet[bSet] = scriptname;
-		//strncpy( (char *) &ent->behaviorSet[bSet], scriptname, MAX_BSET_LENGTH );
 	}
 	return qtrue;
 }
@@ -4978,7 +4735,6 @@ Prints a message in the center of the screen
 static void Q3_ScrollText ( const char *id)
 {
 	G_DebugPrint( WL_WARNING, "Q3_ScrollText: NOT SUPPORTED IN MP\n");
-	//trap_SendServerCommand( -1, va("st \"%s\"", id));
 
 	return;
 }
@@ -5040,7 +4796,6 @@ qboolean Q3_Set( int taskID, int entID, const char *type_name, const char *data 
 		break;
 
 	case SET_ANGLES:
-		//Q3_SetAngles( entID, *(vec3_t *) data);
 		sscanf( data, "%f %f %f", &vector_data[0], &vector_data[1], &vector_data[2] );
 		Q3_SetAngles( entID, vector_data);
 		break;
@@ -5426,7 +5181,6 @@ qboolean Q3_Set( int taskID, int entID, const char *type_name, const char *data 
 
 	case SET_DEFEND_TARGET:
 		G_DebugPrint( WL_WARNING, "Q3_SetDefendTarget unimplemented\n", entID );
-		//Q3_SetEnemy( entID, (char *) data);
 		break;
 
 	case SET_PARM1:
@@ -5619,10 +5373,6 @@ qboolean Q3_Set( int taskID, int entID, const char *type_name, const char *data 
 
 	case SET_TREASONED:
 		G_DebugPrint( WL_VERBOSE, "SET_TREASONED is disabled, do not use\n" );
-		/*
-		G_TeamRetaliation( NULL, SV_GentityNum(0), qfalse );
-		ffireLevel = FFIRE_LEVEL_RETALIATION;
-		*/
 		break;
 
 	case SET_UNDYING:
@@ -5903,7 +5653,6 @@ qboolean Q3_Set( int taskID, int entID, const char *type_name, const char *data 
 		break;
 
 	case SET_MISSION_STATUS_SCREEN:
-		//Cvar_Set("cg_missionstatusscreen", "1");
 		G_DebugPrint( WL_WARNING, "SET_MISSION_STATUS_SCREEN: NOT SUPPORTED IN MP\n");
 		break;
 
@@ -5934,10 +5683,8 @@ qboolean Q3_Set( int taskID, int entID, const char *type_name, const char *data 
 		//	the "timescale" and "skippingCinematic" cvars will be set back to normal in the Video code, so doing a
 		//	skip will now only skip one section of a multiple-part story (eg VOY1 bridge sequence)
 		//
-//		if ( g_timescale->value <= 1.0f )
 		{
 			G_DebugPrint( WL_WARNING, "SET_VIDEO_PLAY: NOT SUPPORTED IN MP\n");
-			//SV_SendConsoleCommand( va("inGameCinematic %s\n", (char *)data) );
 		}
 		break;
 
@@ -5953,12 +5700,10 @@ qboolean Q3_Set( int taskID, int entID, const char *type_name, const char *data 
 		break;
 
 	case SET_LOADGAME:
-		//gi.SendConsoleCommand( va("load %s\n", (const char *) data ) );
 		G_DebugPrint( WL_WARNING, "SET_LOADGAME: NOT SUPPORTED IN MP\n");
 		break;
 
 	case SET_MENU_SCREEN:
-		//UI_SetActiveMenu( (const char *) data );
 		break;
 
 	case SET_OBJECTIVE_SHOW:
@@ -6052,7 +5797,6 @@ qboolean Q3_Set( int taskID, int entID, const char *type_name, const char *data 
 		break;
 	
 	default:
-		//G_DebugPrint( WL_ERROR, "Q3_Set: '%s' is not a valid set field\n", type_name );
 		trap_ICARUS_SetVar( taskID, entID, type_name, data );
 		break;
 	}

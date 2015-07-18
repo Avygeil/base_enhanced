@@ -52,11 +52,6 @@ void G_PlayDoorLoopSound( gentity_t *ent )
 	ent->s.soundSetIndex = G_SoundSetIndex(ent->soundSet);
 	ent->s.loopIsSoundset = qtrue;
 	ent->s.loopSound = BMS_MID;
-	/*
-	ent->s.soundSetIndex = G_SoundSetIndex(ent->soundSet);
-	ent->loopingOnClient = qtrue;
-	G_AddEvent(ent, EV_PLAYDOORLOOPSOUND, 0);
-	*/
 }
 
 /*
@@ -161,14 +156,6 @@ qboolean	G_TryPushingEntity( gentity_t *check, gentity_t *pusher, vec3_t move, v
 	gentity_t	*block;
 
 	//This was only serverside not to mention it was never set.
-	/*
-	// EF_MOVER_STOP will just stop when contacting another entity
-	// instead of pushing it, but entities can still ride on top of it
-	if ( ( pusher->s.eFlags & EF_MOVER_STOP ) && 
-		check->s.groundEntityNum != pusher->s.number ) {
-		return qfalse;
-	}
-	*/
 	if ( pusher->s.apos.trType != TR_STATIONARY//rotating
 		&& (pusher->spawnflags&16) //IMPACT
 		&& Q_stricmp( "func_rotating", pusher->classname ) == 0 )
@@ -215,7 +202,7 @@ qboolean	G_TryPushingEntity( gentity_t *check, gentity_t *pusher, vec3_t move, v
 
 	// may have pushed them off an edge
 	if ( check->s.groundEntityNum != pusher->s.number ) {
-		check->s.groundEntityNum = ENTITYNUM_NONE;//-1;
+		check->s.groundEntityNum = ENTITYNUM_NONE;
 	}
 
 	block = G_TestEntityPosition( check );
@@ -587,7 +574,6 @@ void SetMoverState( gentity_t *ent, moverState_t moverState, int time ) {
 		{
 			ent->s.pos.trType = TR_NONLINEAR_STOP;
 		}
-		//ent->s.eFlags &= ~EF_BLOCKED_MOVER;
 		break;
 	case MOVER_2TO1:
 		VectorCopy( ent->pos2, ent->s.pos.trBase );
@@ -602,7 +588,6 @@ void SetMoverState( gentity_t *ent, moverState_t moverState, int time ) {
 		{
 			ent->s.pos.trType = TR_NONLINEAR_STOP;
 		}
-		//ent->s.eFlags &= ~EF_BLOCKED_MOVER;
 		break;
 	}
 	BG_EvaluateTrajectory( &ent->s.pos, level.time, ent->r.currentOrigin );	
@@ -731,7 +716,6 @@ void Use_BinaryMover_Go( gentity_t *ent )
 {
 	int		total;
 	int		partial;
-//	gentity_t	*other = ent->enemy;
 	gentity_t	*activator = ent->activator; 
 
 	ent->activator = activator;
@@ -802,7 +786,7 @@ void Use_BinaryMover_Go( gentity_t *ent )
 		if ( partial > total ) {
 			partial = total;
 		}
-		ent->s.pos.trTime = level.time - ( total - partial );//ent->s.time;
+		ent->s.pos.trTime = level.time - ( total - partial );
 
 		MatchTeam( ent, MOVER_1TO2, ent->s.pos.trTime );
 
@@ -838,7 +822,7 @@ void Use_BinaryMover_Go( gentity_t *ent )
 			partial = total;
 		}
 
-		ent->s.pos.trTime = level.time - ( total - partial );//ent->s.time;
+		ent->s.pos.trTime = level.time - ( total - partial );
 		MatchTeam( ent, MOVER_2TO1, ent->s.pos.trTime );
 
 		G_PlayDoorSound( ent, BMS_START );
@@ -1179,13 +1163,6 @@ void Touch_DoorTrigger( gentity_t *ent, gentity_t *other, trace_t *trace )
 	{//re-lock us
 		relockEnt->spawnflags |= MOVER_LOCKED;
 	}
-
-	/*
-	//Old style
-	if ( ent->parent->moverState != MOVER_1TO2 ) {
-		Use_BinaryMover( ent->parent, ent, other );
-	}
-	*/
 }
 
 /*
@@ -1607,9 +1584,6 @@ Plats are always drawn in the extended position so they will light correctly.
 void SP_func_plat (gentity_t *ent) {
 	float		lip, height;
 
-//	ent->sound1to2 = ent->sound2to1 = G_SoundIndex("sound/movers/plats/pt1_strt.wav");
-//	ent->soundPos1 = ent->soundPos2 = G_SoundIndex("sound/movers/plats/pt1_end.wav");
-
 	VectorClear (ent->s.angles);
 
 	G_SpawnFloat( "speed", "200", &ent->speed );
@@ -1694,8 +1668,6 @@ void SP_func_button( gentity_t *ent ) {
 	vec3_t		size;
 	float		lip;
 
-//	ent->sound1to2 = G_SoundIndex("sound/movers/switches/butn2.wav");
-	
 	if ( !ent->speed ) {
 		ent->speed = 40;
 	}
@@ -1866,8 +1838,6 @@ void Think_SetupTrainTargets( gentity_t *ent ) {
 		do {
 			next = G_Find( next, FOFS(targetname), path->target );
 			if ( !next ) {
-//				gi.Printf( "Train corner at %s without a target path_corner\n",
-//					vtos(path->s.origin) );
 				//end of path
 				break;
 			}
@@ -2382,7 +2352,6 @@ static void CacheChunkEffects( material_t material )
 		break;
 	case MAT_ROPE:
 		G_EffectIndex( "chunks/ropebreak" );
-//		G_SoundIndex(); // FIXME: give it a sound
 		break;
 	}
 }
@@ -2521,7 +2490,6 @@ void funcBBrushDieGo (gentity_t *self)
 	trap_AdjustAreaPortalState( self, qtrue );
 	self->think = G_FreeEntity;
 	self->nextthink = level.time + 50;
-	//G_FreeEntity( self );
 }
 
 void funcBBrushDie (gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int damage, int mod)
@@ -2639,8 +2607,6 @@ static void InitBBrush ( gentity_t *ent )
 
 	//This doesn't have to be an svFlag, can just be a flag.
 	//And it might not be needed anyway.
-	//ent->r.svFlags |= SVF_BBRUSH;
-
 
 	// if the "model2" key is set, use a seperate model
 	// for drawing, but clip against the brushes
@@ -2788,8 +2754,6 @@ void SP_func_breakable( gentity_t *self )
 	}
 
 	//NOTE: g_spawn.c does this automatically now
-	//G_SpawnInt( "teamowner", "0", &t );
-	//self->s.teamowner = t;
 
 	if ( self->spawnflags & 16 ) // saber only
 	{
@@ -2823,16 +2787,6 @@ void SP_func_breakable( gentity_t *self )
 
 	self->touch = funcBBrushTouch;
 
-	/*
-	if ( self->team && self->team[0] )
-	{
-		self->alliedTeam = TranslateTeamName( self->team );
-		if(self->alliedTeam == TEAM_FREE)
-		{
-			G_Error("team name %s not recognized\n", self->team);
-		}
-	}
-	*/
 	if ( self->team && self->team[0] && g_gametype.integer == GT_SIEGE &&
 		!self->teamnodmg)
 	{
@@ -2869,12 +2823,6 @@ qboolean G_EntIsBreakable( int entityNum )
 	{
 		return qtrue;
 	}
-	/*
-	if ( (ent->svFlags&SVF_BBRUSH) )
-	{
-		return qtrue;
-	}
-	*/
 	if ( !Q_stricmp( "func_breakable", ent->classname ) )
 	{
 		return qtrue;
@@ -2950,7 +2898,6 @@ void GlassDie_Old(gentity_t *self, gentity_t *inflictor, gentity_t *attacker, in
 
 void GlassPain(gentity_t *self, gentity_t *attacker, int damage)
 {
-	//G_Printf("Mr. Glass says: PLZ NO IT HURTS\n");
 	//Make "cracking" sound?
 }
 
@@ -3037,11 +2984,6 @@ void func_wait_return_solid( gentity_t *self )
 		{
 			G_UseTargets2( self, self->activator, self->target2 );
 		}
-		//FIXME: Animations?
-		/*if ( self->s.eFlags & EF_ANIM_ONCE )
-		{//Start our anim
-			self->s.frame = 0;
-		}*/
 	}
 	else
 	{
@@ -3196,19 +3138,6 @@ void SP_func_usable( gentity_t *self )
 		self->s.eFlags |= EF_NODRAW;
 		self->count = 0;
 	}
-
-	//FIXME: Animation?
-	/*
-	if (self->spawnflags & 2)
-	{
-		self->s.eFlags |= EF_ANIM_ALLFAST;
-	}
-
-	if (self->spawnflags & 4)
-	{//FIXME: need to be able to do change to something when it's done?  Or not be usable until it's done?
-		self->s.eFlags |= EF_ANIM_ONCE;
-	}
-	*/
 
 	self->use = func_usable_use;
 

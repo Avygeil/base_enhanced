@@ -49,11 +49,6 @@ void Debug_NPCPrintf (gentity_t *printNPC, vmCvar_t *cv, int debugLevel, char *f
 		return;
 	}
 
-//	if ( debugNPCName.string[0] && Q_stricmp( debugNPCName.string, printNPC->targetname) != 0 ) 
-//	{
-//		return;
-//	}
-
 	if (debugLevel == DEBUG_LEVEL_DETAIL)
 		color = COLOR_WHITE;
 	else if (debugLevel == DEBUG_LEVEL_INFO)
