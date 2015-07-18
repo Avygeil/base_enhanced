@@ -4,6 +4,7 @@
 // this file holds commands that can be executed by the server console, but not remote clients
 
 #include "g_local.h"
+#include "g_database.h"
 
 void Team_ResetFlags( void );
 /*
@@ -378,36 +379,38 @@ G_FilterPacket
 */
 qboolean G_FilterPacket (char *from)
 {
-	byte			m[4];// = {'\0','\0','\0','\0'};
-	int				i = 0;
-	unsigned int	in;
-	char			*p;
+    return G_DbIsIpForbidden( from );
 
-	while (i < 4)
-	{
-		m[i] = 0;
-		i++;
-	}
+	//byte			m[4];// = {'\0','\0','\0','\0'};
+	//int				i = 0;
+	//unsigned int	in;
+	//char			*p;
 
-	i = 0;
-	p = from;
-	while (*p && i < 4) {
-		while (*p >= '0' && *p <= '9') {
-			m[i] = m[i]*10 + (*p - '0');
-			p++;
-		}
-		if (!*p || *p == ':')
-			break;
-		i++, p++;
-	}
-	
-	in = *(unsigned int *)m;
+	//while (i < 4)
+	//{
+	//	m[i] = 0;
+	//	i++;
+	//}
 
-	for (i=0 ; i<numIPFilters ; i++)
-		if ( (in & ipFilters[i].mask) == ipFilters[i].compare)
-			return g_filterBan.integer != 0;
+	//i = 0;
+	//p = from;
+	//while (*p && i < 4) {
+	//	while (*p >= '0' && *p <= '9') {
+	//		m[i] = m[i]*10 + (*p - '0');
+	//		p++;
+	//	}
+	//	if (!*p || *p == ':')
+	//		break;
+	//	i++, p++;
+	//}
+	//
+	//in = *(unsigned int *)m;
 
-	return g_filterBan.integer == 0;
+	//for (i=0 ; i<numIPFilters ; i++)
+	//	if ( (in & ipFilters[i].mask) == ipFilters[i].compare)
+	//		return g_filterBan.integer != 0;
+
+	//return g_filterBan.integer == 0;
 }
 
 /*
@@ -479,25 +482,26 @@ AddIP
 */
 static void AddIP( char *str, char* comment )
 {
-	int		i;
 
-	for (i = 0 ; i < numIPFilters ; i++)
-		if (ipFilters[i].compare == 0xffffffff)
-			break;		// free spot
-	if (i == numIPFilters)
-	{
-		if (numIPFilters == MAX_IPFILTERS)
-		{
-			G_Printf ("IP filter list is full\n");
-			return;
-		}
-		numIPFilters++;
-	}
-	
-	if (!StringToFilter (str, comment, &ipFilters[i]))
-		ipFilters[i].compare = 0xffffffffu;
+	//int		i;
 
-	UpdateIPBans();
+	//for (i = 0 ; i < numIPFilters ; i++)
+	//	if (ipFilters[i].compare == 0xffffffff)
+	//		break;		// free spot
+	//if (i == numIPFilters)
+	//{
+	//	if (numIPFilters == MAX_IPFILTERS)
+	//	{
+	//		G_Printf ("IP filter list is full\n");
+	//		return;
+	//	}
+	//	numIPFilters++;
+	//}
+	//
+	//if (!StringToFilter (str, comment, &ipFilters[i]))
+	//	ipFilters[i].compare = 0xffffffffu;
+
+	//UpdateIPBans();
 }
 
 /*
@@ -675,22 +679,39 @@ Svcmd_AddIP_f
 */
 void Svcmd_AddIP_f (void)
 {
-	char		str[MAX_TOKEN_CHARS];
-    char comment[32];
+    char ip[32];
+    char mask[32];
+    char notes[32];
 
 	if ( trap_Argc() < 2 ) {
 		G_Printf("Usage:  addip <ip-mask>\n");
 		return;
 	}
 
-	trap_Argv( 1, str, sizeof( str ) );
+    trap_Argv( 1, ip, sizeof( ip ) );
 
-    if (trap_Argc() >= 2)
-        trap_Argv( 2, comment, sizeof( comment ) );
+    if ( trap_Argc() > 2 )
+    {
+        trap_Argv( 2, mask, sizeof( mask ) );
+    }
     else
-        Q_strncpyz(comment, "none", sizeof(comment));
+    {
+        Q_strncpyz( mask, "255.255.255.255", sizeof( mask ) );
+    }
 
-	AddIP( str, comment );  
+    if ( trap_Argc() > 3 )
+    {
+        trap_Argv( 3, notes, sizeof( notes ) );
+    }
+    else
+    {
+        Q_strncpyz( notes, "", sizeof( notes ) );
+    }
+
+    G_DbAddToBlacklist( ip, mask, notes );
+        
+
+	//( str, comment );  
 }
 
 /*
@@ -700,33 +721,117 @@ Svcmd_RemoveIP_f
 */
 void Svcmd_RemoveIP_f (void)
 {
-	ipFilter_t	f;
-	int			i;
-	char		str[MAX_TOKEN_CHARS];
+    char ip[32];
+    char mask[32];
 
-	if ( trap_Argc() < 2 ) {
-		G_Printf("Usage:  sv removeip <ip-mask>\n");
-		return;
-	}
+    if ( trap_Argc() < 2 )
+    {
+        G_Printf( "Usage:  removewhiteip <ip-mask>\n" );
+        return;
+    }
 
-	trap_Argv( 1, str, sizeof( str ) );
+    trap_Argv( 1, ip, sizeof( ip ) );
 
-	if (!StringToFilter (str, 0 ,&f))
-		return;
+    if ( trap_Argc() > 2 )
+    {
+        trap_Argv( 2, mask, sizeof( mask ) );
+    }
+    else
+    {
+        Q_strncpyz( mask, "255.255.255.255", sizeof( mask ) );
+    }
 
-	for (i=0 ; i<numIPFilters ; i++) {
-		if (ipFilters[i].mask == f.mask	&&
-			ipFilters[i].compare == f.compare) {
-			ipFilters[i].compare = 0xffffffffu;
-			G_Printf ("Removed.\n");
+    G_DbRemoveFromBlacklist( ip, mask );
 
-			UpdateIPBans();
-			return;
-		}
-	}
+	//ipFilter_t	f;
+	//int			i;
+	//char		str[MAX_TOKEN_CHARS];
 
-	G_Printf ( "Didn't find %s.\n", str );
+	//if ( trap_Argc() < 2 ) {
+	//	G_Printf("Usage:  sv removeip <ip-mask>\n");
+	//	return;
+	//}
+
+	//trap_Argv( 1, str, sizeof( str ) );
+
+	//if (!StringToFilter (str, 0 ,&f))
+	//	return;
+
+	//for (i=0 ; i<numIPFilters ; i++) {
+	//	if (ipFilters[i].mask == f.mask	&&
+	//		ipFilters[i].compare == f.compare) {
+	//		ipFilters[i].compare = 0xffffffffu;
+	//		G_Printf ("Removed.\n");
+
+	//		UpdateIPBans();
+	//		return;
+	//	}
+	//}
+
+	//G_Printf ( "Didn't find %s.\n", str );
 }
+
+
+/*
+=================
+Svcmd_AddWhiteIP_f
+=================
+*/
+void Svcmd_AddWhiteIP_f( void )
+{
+    char ip[32];
+    char mask[32];
+
+    if ( trap_Argc() < 2 )
+    {
+        G_Printf( "Usage:  addwhiteip <ip-mask>\n" );
+        return;
+    }
+
+    trap_Argv( 1, ip, sizeof( ip ) );
+
+    if ( trap_Argc() > 2 )
+    {
+        trap_Argv( 2, mask, sizeof( mask ) );
+    }
+    else
+    {
+        Q_strncpyz( mask, "255.255.255.255", sizeof( mask ) );
+    }
+
+    G_DbAddToWhitelist( ip, mask );
+}
+
+/*
+=================
+Svcmd_RemoveWhiteIP_f
+=================
+*/
+void Svcmd_RemoveWhiteIP_f( void )
+{
+    char ip[32];
+    char mask[32];
+
+    if ( trap_Argc() < 2 )
+    {
+        G_Printf( "Usage:  removewhiteip <ip-mask>\n" );
+        return;
+    }
+
+    trap_Argv( 1, ip, sizeof( ip ) );
+
+    if ( trap_Argc() > 2 )
+    {
+        trap_Argv( 2, mask, sizeof( mask ) );
+    }
+    else
+    {
+        Q_strncpyz( mask, "255.255.255.255", sizeof( mask ) );
+    }
+
+    G_DbRemoveFromWhitelist( ip, mask );
+}
+
 
 /*
 =================
@@ -1201,6 +1306,18 @@ qboolean	ConsoleCommand( void ) {
 		Svcmd_RemoveIP_f();
 		return qtrue;
 	}
+
+    if ( Q_stricmp( cmd, "addwhiteip" ) == 0 )
+    {
+        Svcmd_AddWhiteIP_f();
+        return qtrue;
+    }
+
+    if ( Q_stricmp( cmd, "removewhiteip" ) == 0 )
+    {
+        Svcmd_RemoveWhiteIP_f();
+        return qtrue;
+    }    
 
 	if (Q_stricmp (cmd, "listip") == 0) {
         Svcmd_Listip_f();

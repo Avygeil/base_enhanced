@@ -1954,6 +1954,7 @@ void ClientUserinfoChanged( int clientNum ) {
 	qboolean	modelChanged = qfalse;
 	//qboolean    emptyName;
 
+
 	ent = g_entities + clientNum;
 	client = ent->client;
 

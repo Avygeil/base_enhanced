@@ -8,6 +8,7 @@
 
 //#include "accounts.h"
 #include "jp_engine.h"
+#include "g_database.h"
 
 level_locals_t	level;
 
@@ -148,6 +149,8 @@ vmCvar_t	g_debugMove;
 //ACCOUNTS 
 vmCvar_t	g_accounts;
 vmCvar_t	g_accountsFile;
+
+vmCvar_t	g_whitelist;
 
 
 //URL FOR DOWNLOAD
@@ -659,6 +662,7 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_accounts,	"g_accounts"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_accountsFile,	"g_accountsFile"	, "accounts.txt"	, CVAR_ARCHIVE, 0, qtrue },
+    { &g_whitelist, "g_whitelist", "0", CVAR_ARCHIVE, 0, qtrue },
 	
 	//database info - accounts system
 	//{ &db_url,	"db_url"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
@@ -1462,6 +1466,9 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 		PatchEngine();
 	}
 //#endif
+
+    G_DbLoad();
+    G_DbLogLevel();
 }
 
 
@@ -1572,6 +1579,8 @@ void G_ShutdownGame( int restart ) {
 
 	// accounts system
 	//cleanDB();
+
+    G_DbUnload();
 
 //#if 0
 	UnpatchEngine();

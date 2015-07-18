@@ -1830,6 +1830,8 @@ extern vmCvar_t     g_default_restart_countdown;
 extern vmCvar_t	g_accounts;
 extern vmCvar_t	g_accountsFile;
 
+extern vmCvar_t	g_whitelist;
+
 extern vmCvar_t    g_fixboon;
 extern vmCvar_t    g_maxstatusrequests;
 extern vmCvar_t	   g_logrcon;
