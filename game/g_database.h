@@ -10,11 +10,11 @@ void G_DbUnload();
 qboolean G_DbIsFiltered( const char* ip, char* reasonBuffer, int reasonBufferSize );
 
 // whitelist stuff
-void G_DbAddToWhitelist( const char* ip, 
+qboolean G_DbAddToWhitelist( const char* ip,
     const char* mask,
     const char* notes );
 
-void G_DbRemoveFromWhitelist( const char* ip,
+qboolean G_DbRemoveFromWhitelist( const char* ip,
     const char* mask );
 
 qboolean G_DbIsFilteredByWhitelist( int ipA, 
@@ -26,13 +26,13 @@ qboolean G_DbIsFilteredByWhitelist( int ipA,
 
 // blacklist stuff
 
-void G_DbAddToBlacklist( const char* ip, 
+qboolean G_DbAddToBlacklist( const char* ip,
     const char* mask, 
     const char* notes,
     const char* reason,
     int hours );
 
-void G_DbRemoveFromBlacklist( const char* ip,
+qboolean G_DbRemoveFromBlacklist( const char* ip,
     const char* mask );                          
 
 qboolean G_DbIsFilteredByBlacklist( int ipA, int ipB, int ipC, int ipD, char* reasonBuffer, int reasonBufferSize );

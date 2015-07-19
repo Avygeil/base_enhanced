@@ -692,7 +692,14 @@ void Svcmd_AddIP_f (void)
         hours = atoi( hoursStr );        
     }
 
-    G_DbAddToBlacklist( ip, mask, notes, reason, hours );
+    if (G_DbAddToBlacklist( ip, mask, notes, reason, hours ))
+    {
+        G_Printf( "Added %s to blacklist successfuly.\n", ip );
+    }
+    else
+    {
+        G_Printf( "Failed to add %s to blacklist.\n", ip );
+    }
 }
 
 /*
@@ -724,7 +731,14 @@ void Svcmd_RemoveIP_f (void)
         trap_Argv( 2, mask, sizeof( mask ) );
     }
 
-    G_DbRemoveFromBlacklist( ip, mask );
+    if (G_DbRemoveFromBlacklist( ip, mask ))
+    {
+        G_Printf( "Removed %s from blacklist successfuly.\n", ip );
+    }
+    else
+    {
+        G_Printf( "Failed to remove %s from blacklist.\n", ip );
+    }
 }
 
 
@@ -763,10 +777,16 @@ void Svcmd_AddWhiteIP_f( void )
     if ( trap_Argc() > 3 )
     {
         trap_Argv( 3, notes, sizeof( notes ) );
+    }  
+
+    if ( G_DbAddToWhitelist( ip, mask, notes ) )
+    {
+        G_Printf( "Added %s to whitelist successfuly.\n", ip );
     }
-
-
-    G_DbAddToWhitelist( ip, mask, notes );
+    else
+    {
+        G_Printf( "Failed to add %s to whitelist.\n", ip );
+    }
 }
 
 /*
@@ -799,7 +819,14 @@ void Svcmd_RemoveWhiteIP_f( void )
         trap_Argv( 2, mask, sizeof( mask ) );
     }
 
-    G_DbRemoveFromWhitelist( ip, mask );
+    if (G_DbRemoveFromWhitelist( ip, mask ))
+    {
+        G_Printf( "Removed %s from whitelist successfuly.\n", ip );
+    }
+    else
+    {
+        G_Printf( "Failed to remove %s to whitelist.\n", ip );
+    }
 }
 
 

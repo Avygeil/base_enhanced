@@ -1380,7 +1380,7 @@ extern gentity_t *gJMSaberEnt;
 // g_svcmds.c
 //
 qboolean	ConsoleCommand( void );
-void G_ProcessIPBans(void);
+//void G_ProcessIPBans(void);
 void G_ProcessGetstatusIPBans(void);
 qboolean G_FilterPacket( char *from, char* reasonBuffer, int reasonBufferSize);
 qboolean G_FilterGetstatusPacket (unsigned int ip);

@@ -298,12 +298,13 @@ qboolean G_DbIsFilteredByBlacklist( int ipA, int ipB, int ipC, int ipD, char* re
 // 
 //  Adds ip address to whitelist
 //
-void G_DbAddToWhitelist( const char* ip, 
+qboolean G_DbAddToWhitelist( const char* ip,
     const char* mask, 
     const char* notes )
 {
     int ipA = 0, ipB = 0, ipC = 0, ipD = 0;
     int maskA = 0, maskB = 0, maskC = 0, maskD = 0;
+    qboolean success = qfalse;
 
     // parse ip address and mask
     if ( (sscanf( ip, "%d.%d.%d.%d", &ipA, &ipB, &ipC, &ipD ) >= 4)
@@ -325,10 +326,16 @@ void G_DbAddToWhitelist( const char* ip,
 
         sqlite3_bind_text( statement, 9, notes, -1, 0 );
 
-        rc = sqlite3_step( statement );
+        rc = sqlite3_step( statement ); 
+        if ( rc == SQLITE_DONE )
+        {
+            success = qtrue;
+        }
 
         sqlite3_finalize( statement );
     }  
+
+    return success;
 }
 
 //
@@ -336,7 +343,7 @@ void G_DbAddToWhitelist( const char* ip,
 // 
 //  Adds ip address to blacklist
 //
-void G_DbAddToBlacklist( const char* ip, 
+qboolean G_DbAddToBlacklist( const char* ip, 
     const char* mask, 
     const char* notes, 
     const char* reason,
@@ -344,6 +351,7 @@ void G_DbAddToBlacklist( const char* ip,
 {
     int ipA = 0, ipB = 0, ipC = 0, ipD = 0;
     int maskA = 0, maskB = 0, maskC = 0, maskD = 0;
+    qboolean success = qfalse;
 
     // parse ip address and mask
     if ( (sscanf( ip, "%d.%d.%d.%d", &ipA, &ipB, &ipC, &ipD ) >= 4)
@@ -368,10 +376,16 @@ void G_DbAddToBlacklist( const char* ip,
 
         sqlite3_bind_int( statement, 11, hours ); 
 
-        rc = sqlite3_step( statement );
+        rc = sqlite3_step( statement ); 
+        if ( rc == SQLITE_DONE )
+        {
+            success = qtrue;
+        }
 
         sqlite3_finalize( statement );
     }
+
+    return success;
 }
 
 //
@@ -379,11 +393,12 @@ void G_DbAddToBlacklist( const char* ip,
 // 
 //  Removes ip address from blacklist
 //
-void G_DbRemoveFromBlacklist( const char* ip,
+qboolean G_DbRemoveFromBlacklist( const char* ip,
     const char* mask )
 {
     int ipA = 0, ipB = 0, ipC = 0, ipD = 0;
     int maskA = 0, maskB = 0, maskC = 0, maskD = 0;
+    qboolean success = qfalse;
 
     // parse ip address and mask
     if ( (sscanf( ip, "%d.%d.%d.%d", &ipA, &ipB, &ipC, &ipD ) >= 4)
@@ -404,10 +419,16 @@ void G_DbRemoveFromBlacklist( const char* ip,
         sqlite3_bind_int( statement, 8, maskD );
 
         rc = sqlite3_step( statement );
+        if ( rc == SQLITE_DONE )
+        {
+            success = qtrue;
+        }
 
         sqlite3_finalize( statement );
 
     }
+
+    return success;
 }
 
 //
@@ -415,11 +436,12 @@ void G_DbRemoveFromBlacklist( const char* ip,
 // 
 //  Removes ip address from whitelist
 //
-void G_DbRemoveFromWhitelist( const char* ip,
+qboolean G_DbRemoveFromWhitelist( const char* ip,
     const char* mask )
 {
     int ipA = 0, ipB = 0, ipC = 0, ipD = 0;
     int maskA = 0, maskB = 0, maskC = 0, maskD = 0;
+    qboolean success = qfalse;
 
     // parse ip address and mask
     if ( (sscanf( ip, "%d.%d.%d.%d", &ipA, &ipB, &ipC, &ipD ) >= 4)
@@ -440,10 +462,16 @@ void G_DbRemoveFromWhitelist( const char* ip,
         sqlite3_bind_int( statement, 8, maskD );
 
         rc = sqlite3_step( statement );
+        if ( rc == SQLITE_DONE )
+        {
+            success = qtrue;
+        }
 
         sqlite3_finalize( statement );
 
     }
+
+    return success;
 }
 
 //
