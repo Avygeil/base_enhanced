@@ -648,45 +648,51 @@ void Svcmd_AddIP_f (void)
     char mask[32];
     char notes[32];
     char reason[32];
+    int hours = 0;
 
 	if ( trap_Argc() < 2 ) {
-		G_Printf("Usage:  addip <ip-mask>\n");
+		G_Printf("Usage:  addip <ip> (mask) (notes) (reason) (hours)\n");
+        G_Printf( " ip - ip address in format X.X.X.X, do not use 0s!\n" );
+        G_Printf( " mask - mask format X.X.X.X, defaults to 255.255.255.255\n" );
+        G_Printf( " notes - notes only for admins, defaults to \"\"\n" );
+        G_Printf( " reason - reason to be shown to banned player, defaults to \"\"\n" );
+        G_Printf( " hours - duration in hours, defaults to g_defaultBanHoursDuration\n" );
+
 		return;
 	}
 
+    // set defaults
+    Q_strncpyz( mask, "255.255.255.255", sizeof( mask ) );
+    Q_strncpyz( notes, "", sizeof( notes ) );
+    Q_strncpyz( reason, "Unknown", sizeof( reason ) );
+    hours = g_defaultBanHoursDuration.integer;
+
+    // set actuals
     trap_Argv( 1, ip, sizeof( ip ) );
 
     if ( trap_Argc() > 2 )
     {
         trap_Argv( 2, mask, sizeof( mask ) );
     }
-    else
-    {
-        Q_strncpyz( mask, "255.255.255.255", sizeof( mask ) );
-    }
 
     if ( trap_Argc() > 3 )
     {
         trap_Argv( 3, notes, sizeof( notes ) );
-    }
-    else
-    {
-        Q_strncpyz( notes, "", sizeof( notes ) );
     }
 
     if ( trap_Argc() > 4 )
     {
         trap_Argv( 4, reason, sizeof( reason ) );
     }
-    else
+
+    if ( trap_Argc() > 5 )
     {
-        Q_strncpyz( reason, "Unknown", sizeof( reason ) );
+        char hoursStr[16];
+        trap_Argv( 5, hoursStr, sizeof( hoursStr ) );
+        hours = atoi( hoursStr );        
     }
 
-    G_DbAddToBlacklist( ip, mask, notes, reason );
-        
-
-	//( str, comment );  
+    G_DbAddToBlacklist( ip, mask, notes, reason, hours );
 }
 
 /*

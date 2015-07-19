@@ -87,7 +87,8 @@ const char* const sqlIsIpBlacklisted =
 "WHERE( ip_A & mask_A ) = (? & mask_A)   "
 "AND( ip_B & mask_B ) = (? & mask_B)     "
 "AND( ip_C & mask_C ) = (? & mask_C)     "
-"AND( ip_D & mask_D ) = (? & mask_D)     ";
+"AND( ip_D & mask_D ) = (? & mask_D)     "
+"AND banned_until >= datetime('now')     ";
 
 const char* const sqlIsIpWhitelisted =
 "SELECT COUNT(*)                         "
@@ -98,9 +99,9 @@ const char* const sqlIsIpWhitelisted =
 "AND( ip_D & mask_D ) = (? & mask_D)     ";
 
 const char* const sqlAddToBlacklist =
-"INSERT INTO ip_blacklist (ip_A, ip_B, ip_C, ip_D,                           "
-"mask_A, mask_B, mask_C, mask_D, notes, reason, banned_since, banned_until)  "
-"VALUES (?,?,?,?,?,?,?,?,?,?,datetime('now'),?)                              ";
+"INSERT INTO ip_blacklist (ip_A, ip_B, ip_C, ip_D,                              "
+"mask_A, mask_B, mask_C, mask_D, notes, reason, banned_since, banned_until)     "
+"VALUES (?,?,?,?,?,?,?,?,?,?,datetime('now'),datetime('now','+'||?||' hours'))  ";
 
 const char* const sqlAddToWhitelist =
 "INSERT INTO ip_whitelist (ip_A, ip_B, ip_C, ip_D, " 
@@ -333,7 +334,8 @@ void G_DbAddToWhitelist( const char* ip, const char* mask )
 void G_DbAddToBlacklist( const char* ip, 
     const char* mask, 
     const char* notes, 
-    const char* reason )
+    const char* reason,
+    int hours)
 {
     int ipA = 0, ipB = 0, ipC = 0, ipD = 0;
     int maskA = 0, maskB = 0, maskC = 0, maskD = 0;
@@ -359,7 +361,7 @@ void G_DbAddToBlacklist( const char* ip,
         sqlite3_bind_text( statement, 9, notes, -1, 0 );
         sqlite3_bind_text( statement, 10, reason, -1, 0 );
 
-        sqlite3_bind_text( statement, 11, "", -1, 0 ); // banend until not yet supported
+        sqlite3_bind_int( statement, 11, hours ); 
 
         rc = sqlite3_step( statement );
 
