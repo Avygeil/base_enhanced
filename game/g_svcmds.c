@@ -496,121 +496,7 @@ static void GetstatusAddIP( char *str )
 
 	//GetstatusUpdateIPBans();
 }
-
-/*
-=================
-G_ProcessIPBans
-=================
-*/
-void G_ProcessIPBans(void) 
-{
-	//char *s, *t;
-	//char		str[MAX_TOKEN_CHARS];
-
-	//Q_strncpyz( str, g_banIPs.string, sizeof(str) );
-
-	//for (t = s = g_banIPs.string; *t; /* */ ) {
-	//	s = strchr(s, ' ');
-	//	if (!s)
-	//		break;
-	//	while (*s == ' ')
-	//		*s++ = 0;
-	//	if (*t)
-	//		AddIP( t );
-	//	t = s;
-	//}
-
-    // load ip bans from bans.txt
-    FILE* bansFile = fopen("bans.txt", "r");
-
-    if (!bansFile)
-    {
- 	    char *s, *t;
-	    char		str[MAX_TOKEN_CHARS];
-
-        // create new - move all bans from g_banips into it
-        bansFile = fopen("bans.txt", "w");
-
-	    Q_strncpyz( str, g_banIPs.string, sizeof(str) ); 
-
-	    for (t = s = g_banIPs.string; *t; ) 
-        {
-		    s = strchr(s, ' ');
-		    if (!s)
-            {
-			    break;
-            }
-
-		    while (*s == ' ')
-            {
-			    *s++ = 0;
-            }
-
-		    if (*t)
-            {
-			    fprintf(bansFile, "%s none\n", t );
-            }
-
-		    t = s;
-	    }      
-
-        fclose(bansFile);
-    }
-    else
-    {
-        char* ip, *comment;
-        char line[128];
-        int i;
-        //int test;  
-
-        numIPFilters = 0;
-
-        // load bans from file only
-        while ( fgets(line, sizeof(line), bansFile) )
-        {
-            ip = line;
-            comment = 0;
-
-            // parse ip and comment out
-            i = 0;
-            while (line[i] && line[i] != ' ')
-                i++;
-
-            if (line[i])
-            {
-                line[i] = '\0';
-                comment = &line[i+1];
-            }   
-
-            i++;
-
-            // strip line feeds
-            while(line[i])
-            {
-                if (line[i] == '\n')
-                {
-                    line[i] = '\0';
-                    break;
-                }
-
-                i++;
-            }
-
-            if (numIPFilters == MAX_IPFILTERS)
-		    {
-			    G_Printf ("IP filter list is full\n");
-                fclose(bansFile);
-			    return;
-		    }  	
-
-            if (StringToFilter (ip, comment, &ipFilters[numIPFilters]))
-		        numIPFilters++;
-        }
-
-        fclose(bansFile);
-    }         
-}
-
+  
 /*
 =================
 G_ProcessGetstatusIPBans
@@ -838,14 +724,6 @@ Svcmd_Listip_f
 void Svcmd_Listip_f (void)
 {
     G_DbListBlacklist();
-    //int i;      
-
-	//for (i=0 ; i<numIPFilters ; i++) 
- //   {
- //       G_Printf ("%s %s\n",getStringFromIp(ipFilters[i].compare),ipFilters[i].comment);
-	//}
-
-	//trap_SendConsoleCommand( EXEC_NOW, "g_banIPs\n" );
 }
 
 		
