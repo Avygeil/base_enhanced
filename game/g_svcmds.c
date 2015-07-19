@@ -647,6 +647,7 @@ void Svcmd_AddIP_f (void)
     char ip[32];
     char mask[32];
     char notes[32];
+    char reason[32];
 
 	if ( trap_Argc() < 2 ) {
 		G_Printf("Usage:  addip <ip-mask>\n");
@@ -673,7 +674,16 @@ void Svcmd_AddIP_f (void)
         Q_strncpyz( notes, "", sizeof( notes ) );
     }
 
-    G_DbAddToBlacklist( ip, mask, notes );
+    if ( trap_Argc() > 4 )
+    {
+        trap_Argv( 4, reason, sizeof( reason ) );
+    }
+    else
+    {
+        Q_strncpyz( reason, "Unknown", sizeof( reason ) );
+    }
+
+    G_DbAddToBlacklist( ip, mask, notes, reason );
         
 
 	//( str, comment );  

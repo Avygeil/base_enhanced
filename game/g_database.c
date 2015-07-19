@@ -98,9 +98,9 @@ const char* const sqlIsIpWhitelisted =
 "AND( ip_D & mask_D ) = (? & mask_D)     ";
 
 const char* const sqlAddToBlacklist =
-"INSERT INTO ip_blacklist (ip_A, ip_B, ip_C, ip_D,        "
-"mask_A, mask_B, mask_C, mask_D, notes)                   "
-"VALUES (?,?,?,?,?,?,?,?,?)                               ";
+"INSERT INTO ip_blacklist (ip_A, ip_B, ip_C, ip_D,                           "
+"mask_A, mask_B, mask_C, mask_D, notes, reason, banned_since, banned_until)  "
+"VALUES (?,?,?,?,?,?,?,?,?,?,datetime('now'),?)                              ";
 
 const char* const sqlAddToWhitelist =
 "INSERT INTO ip_whitelist (ip_A, ip_B, ip_C, ip_D, " 
@@ -119,15 +119,15 @@ const char* const sqlremoveFromWhitelist =
 
 const char* const sqlLogLevel =
 "INSERT INTO levels (started_at, mapname) "
-"VALUES (?,?)                             ";
+"VALUES (datetime('now'),?)               ";
 
 const char* const sqlAddSession =
 "INSERT INTO sessions (session_start, ip_text)     "
-"VALUES (?,?)                                      ";
+"VALUES (datetime('now'),?)                        ";
 
 const char* const sqlAddSessionEvent =
 "INSERT INTO session_events (session_id, event_time, event_id, event_context)     "
-"VALUES (?,?,?,?)                                                                 ";
+"VALUES (?,datetime('now'),?,?)                                                  ";
 
 //
 //  G_DbLoad
@@ -179,22 +179,13 @@ void G_DbLogLevel()
     char mapname[128];
     trap_Cvar_VariableStringBuffer( "mapname", mapname, sizeof( mapname ) );
 
-    // load current date time
-    char dateTime[24];
-    time_t rawtime;
-    time( &rawtime );
-    struct tm* timeinfo = localtime( &rawtime );
-    strftime( dateTime, sizeof( dateTime ), "%Y-%m-%d %H:%M:%S.000", timeinfo );
-
     // prepare insert statement
     rc = sqlite3_prepare( db, sqlLogLevel, -1, &statement, 0 );
-    sqlite3_bind_text( statement, 1, dateTime, -1, 0 );
-    sqlite3_bind_text( statement, 2, mapname, -1, 0 );
+    sqlite3_bind_text( statement, 1, mapname, -1, 0 );
 
     rc = sqlite3_step( statement );
 
-    sqlite3_finalize( statement );
-
+    sqlite3_finalize( statement );   
 }
 
 //
@@ -339,7 +330,10 @@ void G_DbAddToWhitelist( const char* ip, const char* mask )
 // 
 //  Adds ip address to blacklist
 //
-void G_DbAddToBlacklist( const char* ip, const char* mask, const char* notes )
+void G_DbAddToBlacklist( const char* ip, 
+    const char* mask, 
+    const char* notes, 
+    const char* reason )
 {
     int ipA = 0, ipB = 0, ipC = 0, ipD = 0;
     int maskA = 0, maskB = 0, maskC = 0, maskD = 0;
@@ -363,6 +357,9 @@ void G_DbAddToBlacklist( const char* ip, const char* mask, const char* notes )
         sqlite3_bind_int( statement, 8, maskD );
 
         sqlite3_bind_text( statement, 9, notes, -1, 0 );
+        sqlite3_bind_text( statement, 10, reason, -1, 0 );
+
+        sqlite3_bind_text( statement, 11, "", -1, 0 ); // banend until not yet supported
 
         rc = sqlite3_step( statement );
 
@@ -453,15 +450,7 @@ int G_DbLogSession( const char* ip )
     // prepare insert statement
     int rc = sqlite3_prepare( db, sqlAddSession, -1, &statement, 0 );
 
-    // load current date time
-    char dateTime[24];
-    time_t rawtime;
-    time( &rawtime );
-    struct tm* timeinfo = localtime( &rawtime );
-    strftime( dateTime, sizeof( dateTime ), "%Y-%m-%d %H:%M:%S.000", timeinfo );
-
-    sqlite3_bind_text( statement, 1, dateTime, -1, 0 );
-    sqlite3_bind_text( statement, 2, ip, -1, 0 );
+    sqlite3_bind_text( statement, 1, ip, -1, 0 );
 
     rc = sqlite3_step( statement );
 
@@ -485,17 +474,9 @@ int G_DbLogSessionEvent( int sessionId,
     // prepare insert statement
     int rc = sqlite3_prepare( db, sqlAddSessionEvent, -1, &statement, 0 );
 
-    // load current date time
-    char dateTime[24];
-    time_t rawtime;
-    time( &rawtime );
-    struct tm* timeinfo = localtime( &rawtime );
-    strftime( dateTime, sizeof( dateTime ), "%Y-%m-%d %H:%M:%S.000", timeinfo );
-
     sqlite3_bind_int( statement, 1, sessionId);
-    sqlite3_bind_text( statement, 2, dateTime, -1, 0 );
-    sqlite3_bind_int( statement, 3, eventId );
-    sqlite3_bind_text( statement, 4, eventContext, -1, 0 );
+    sqlite3_bind_int( statement, 2, eventId );
+    sqlite3_bind_text( statement, 3, eventContext, -1, 0 );
 
     rc = sqlite3_step( statement );
 

@@ -22,7 +22,8 @@ qboolean G_DbIsFilteredByWhitelist( int ipA, int ipB, int ipC, int ipD, char* re
 
 void G_DbAddToBlacklist( const char* ip, 
     const char* mask, 
-    const char* notes );
+    const char* notes,
+    const char* reason );
 
 void G_DbRemoveFromBlacklist( const char* ip,
     const char* mask );                          
