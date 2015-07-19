@@ -655,7 +655,7 @@ void Svcmd_AddIP_f (void)
         G_Printf( " ip - ip address in format X.X.X.X, do not use 0s!\n" );
         G_Printf( " mask - mask format X.X.X.X, defaults to 255.255.255.255\n" );
         G_Printf( " notes - notes only for admins, defaults to \"\"\n" );
-        G_Printf( " reason - reason to be shown to banned player, defaults to \"\"\n" );
+        G_Printf( " reason - reason to be shown to banned player, defaults to \"Unknown\"\n" );
         G_Printf( " hours - duration in hours, defaults to g_defaultBanHoursDuration\n" );
 
 		return;
