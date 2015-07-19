@@ -25,6 +25,7 @@ qboolean G_DbIsFilteredByWhitelist( int ipA,
     int reasonBufferSize );
 
 // blacklist stuff
+void G_DbListBlacklist();
 
 qboolean G_DbAddToBlacklist( const char* ip,
     const char* mask, 

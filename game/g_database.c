@@ -99,6 +99,12 @@ const char* const sqlIsIpWhitelisted =
 "AND( ip_C & mask_C ) = (? & mask_C)     "
 "AND( ip_D & mask_D ) = (? & mask_D)     ";
 
+const char* const sqlListBlacklist =
+"SELECT( ip_A || '.' || ip_B || '.' || ip_C || '.' || ip_D ) AS ip,   "
+"(mask_A || '.' || mask_B || '.' || mask_C || '.' || mask_D) AS mask, "
+"notes, reason, banned_since, banned_until                            "
+"FROM ip_blacklist                                                    ";
+
 const char* const sqlAddToBlacklist =
 "INSERT INTO ip_blacklist (ip_A, ip_B, ip_C, ip_D,                              "
 "mask_A, mask_B, mask_C, mask_D, notes, reason, banned_since, banned_until)     "
@@ -338,6 +344,37 @@ qboolean G_DbAddToWhitelist( const char* ip,
     return success;
 }
 
+//
+//  G_DbListBlacklist
+// 
+//  Lists contents of blacklist
+//
+void G_DbListBlacklist()
+{
+    sqlite3_stmt* statement;
+    // prepare insert statement
+    int rc = sqlite3_prepare( db, sqlListBlacklist, -1, &statement, 0 );
+
+    G_Printf( "ip mask notes reason banned_since banned_until\n" );
+
+    rc = sqlite3_step( statement );
+    while ( rc == SQLITE_ROW )
+    {
+        const char* ip = sqlite3_column_text( statement, 0 );
+        const char* mask = sqlite3_column_text( statement, 1 );
+        const char* notes = sqlite3_column_text( statement, 2 );
+        const char* reason = sqlite3_column_text( statement, 3 );
+        const char* banned_since = sqlite3_column_text( statement, 4 );
+        const char* banned_until = sqlite3_column_text( statement, 5 );
+
+        G_Printf("%s %s \"%s\" \"%s\" %s %s\n",
+            ip, mask, notes, reason, banned_since, banned_until );
+
+        rc = sqlite3_step( statement );
+    }
+
+    sqlite3_finalize( statement ); 
+}
 //
 //  G_DbAddToBlacklist
 // 

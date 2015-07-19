@@ -837,12 +837,13 @@ Svcmd_Listip_f
 */
 void Svcmd_Listip_f (void)
 {
-    int i;      
+    G_DbListBlacklist();
+    //int i;      
 
-	for (i=0 ; i<numIPFilters ; i++) 
-    {
-        G_Printf ("%s %s\n",getStringFromIp(ipFilters[i].compare),ipFilters[i].comment);
-	}
+	//for (i=0 ; i<numIPFilters ; i++) 
+ //   {
+ //       G_Printf ("%s %s\n",getStringFromIp(ipFilters[i].compare),ipFilters[i].comment);
+	//}
 
 	//trap_SendConsoleCommand( EXEC_NOW, "g_banIPs\n" );
 }
