@@ -82,7 +82,7 @@ const char* const sqlCreateDatabase =
 "    [accuracy_shots] INTEGER );                                                "; 
 
 const char* const sqlIsIpBlacklisted =
-"SELECT COUNT(*)                         "
+"SELECT reason                           "
 "FROM ip_blacklist                       "
 "WHERE( ip_A & mask_A ) = (? & mask_A)   "
 "AND( ip_B & mask_B ) = (? & mask_B)     "
@@ -198,43 +198,43 @@ void G_DbLogLevel()
 }
 
 //
-//  G_DbIsIpForbidden
+//  G_DbIsFiltered
 // 
 //  Checks if given ip is forbidden to join the game based
 //  on blacklist/whitelist mechanisms.
 //
-qboolean G_DbIsIpForbidden( const char* ip )
+qboolean G_DbIsFiltered( const char* ip, char* reasonBuffer, int reasonBufferSize )
 {
     int ipA = 0, ipB = 0, ipC = 0, ipD = 0;
     int port = 0;
     int rc = -1;
-    qboolean forbidden = qfalse;
+    qboolean filtered = qfalse;
 
     // parse ip address
     if ( sscanf( ip, "%d.%d.%d.%d:%d", &ipA, &ipB, &ipC, &ipD, &port ) >= 4 )
     {
         if ( g_whitelist.integer )
         {
-            forbidden = !G_DbIsWhiteListed( ipA, ipB, ipC, ipD );
+            filtered = G_DbIsFilteredByWhitelist( ipA, ipB, ipC, ipD, reasonBuffer, reasonBufferSize );
         }
         else
         {
-            forbidden = G_DbIsBlackListed( ipA, ipB, ipC, ipD );
+            filtered = G_DbIsFilteredByBlacklist( ipA, ipB, ipC, ipD, reasonBuffer, reasonBufferSize );
         }
     }
 
-    return forbidden;
+    return filtered;
 }
 
 //
-//  G_DbIsBlackListed
+//  G_DbIsFilteredByWhitelist
 // 
 //  Helper method to check if given ip address is white listed
 //  according to database.
 //
-qboolean G_DbIsWhiteListed(int ipA, int ipB, int ipC, int ipD)
+qboolean G_DbIsFilteredByWhitelist( int ipA, int ipB, int ipC, int ipD, char* reasonBuffer, int reasonBufferSize )
 {
-    qboolean whiteListed = qfalse;
+    qboolean filtered = qfalse;
 
     // check if ip is on white list
     sqlite3_stmt* statement;
@@ -250,25 +250,26 @@ qboolean G_DbIsWhiteListed(int ipA, int ipB, int ipC, int ipD)
     rc = sqlite3_step( statement );
     int count = sqlite3_column_int( statement, 0 );
 
-    if ( count > 0 )
+    if ( count == 0 )
     {
-        whiteListed = qtrue;
+        Q_strncpyz( reasonBuffer, "IP address not on whitelist", reasonBufferSize );
+        filtered = qtrue;
     }
 
     sqlite3_finalize( statement );
 
-    return whiteListed;
+    return filtered;
 }
 
 //
-//  G_DbIsBlackListed
+//  G_DbIsFilteredByBlacklist
 // 
 //  Helper method to check if given ip address is black listed
 //  according to database.
 //
-qboolean G_DbIsBlackListed( int ipA, int ipB, int ipC, int ipD )
+qboolean G_DbIsFilteredByBlacklist( int ipA, int ipB, int ipC, int ipD, char* reasonBuffer, int reasonBufferSize )
 {
-    qboolean blackListed = qfalse;
+    qboolean filtered = qfalse;
 
     sqlite3_stmt* statement;
 
@@ -281,19 +282,29 @@ qboolean G_DbIsBlackListed( int ipA, int ipB, int ipC, int ipD )
     sqlite3_bind_int( statement, 4, ipD );
 
     rc = sqlite3_step( statement );
-    int count = sqlite3_column_int( statement, 0 );
 
     // blacklisted => we forbid it
-    if ( count > 0 )
+    if ( rc == SQLITE_ROW )
     {
-        blackListed = qtrue;
+        const char* reason = sqlite3_column_text( statement, 0 ); 
+        const char* prefix = "Banned: ";
+        int prefixSize = strlen( prefix );
+
+        Q_strncpyz( reasonBuffer, prefix, reasonBufferSize );
+        Q_strncpyz( &reasonBuffer[prefixSize], reason, reasonBufferSize - prefixSize );
+        filtered = qtrue;
     }
 
     sqlite3_finalize( statement );
 
-    return blackListed;
+    return filtered;
 }
 
+//
+//  G_DbAddToWhitelist
+// 
+//  Adds ip address to whitelist
+//
 void G_DbAddToWhitelist( const char* ip, const char* mask )
 {
     int ipA = 0, ipB = 0, ipC = 0, ipD = 0;
@@ -323,6 +334,11 @@ void G_DbAddToWhitelist( const char* ip, const char* mask )
     }  
 }
 
+//
+//  G_DbAddToBlacklist
+// 
+//  Adds ip address to blacklist
+//
 void G_DbAddToBlacklist( const char* ip, const char* mask, const char* notes )
 {
     int ipA = 0, ipB = 0, ipC = 0, ipD = 0;
@@ -354,6 +370,11 @@ void G_DbAddToBlacklist( const char* ip, const char* mask, const char* notes )
     }
 }
 
+//
+//  G_DbRemoveFromBlacklist
+// 
+//  Removes ip address from blacklist
+//
 void G_DbRemoveFromBlacklist( const char* ip,
     const char* mask )
 {
@@ -385,6 +406,11 @@ void G_DbRemoveFromBlacklist( const char* ip,
     }
 }
 
+//
+//  G_DbRemoveFromWhitelist
+// 
+//  Removes ip address from whitelist
+//
 void G_DbRemoveFromWhitelist( const char* ip,
     const char* mask )
 {
@@ -416,6 +442,11 @@ void G_DbRemoveFromWhitelist( const char* ip,
     }
 }
 
+//
+//  G_DbLogSession
+// 
+//  Logs players connection session
+//
 int G_DbLogSession( const char* ip )
 {
     sqlite3_stmt* statement;
@@ -441,6 +472,11 @@ int G_DbLogSession( const char* ip )
     return sessionId;
 }
 
+//
+//  G_DbLogSessionEvent
+// 
+//  Logs players connection session event
+//
 int G_DbLogSessionEvent( int sessionId,
     int eventId,
     const char* eventContext )  

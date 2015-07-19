@@ -7,7 +7,7 @@
 void G_DbLoad();
 void G_DbUnload();   
 
-qboolean G_DbIsIpForbidden( const char* ip );
+qboolean G_DbIsFiltered( const char* ip, char* reasonBuffer, int reasonBufferSize );
 
 // whitelist stuff
 void G_DbAddToWhitelist( const char* ip, 
@@ -16,7 +16,7 @@ void G_DbAddToWhitelist( const char* ip,
 void G_DbRemoveFromWhitelist( const char* ip,
     const char* mask );
 
-qboolean G_DbIsWhiteListed( int ipA, int ipB, int ipC, int ipD );
+qboolean G_DbIsFilteredByWhitelist( int ipA, int ipB, int ipC, int ipD, char* reasonBuffer, int reasonBufferSize );
 
 // blacklist stuff
 
@@ -27,7 +27,7 @@ void G_DbAddToBlacklist( const char* ip,
 void G_DbRemoveFromBlacklist( const char* ip,
     const char* mask );                          
 
-qboolean G_DbIsBlackListed( int ipA, int ipB, int ipC, int ipD );
+qboolean G_DbIsFilteredByBlacklist( int ipA, int ipB, int ipC, int ipD, char* reasonBuffer, int reasonBufferSize );
 
 // level stuff   
 void G_DbLogLevel();

@@ -2241,6 +2241,7 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 	char        ipString[24];
 	unsigned int ip = 0; //optimalization
 	char		username[MAX_USERNAME_SIZE];
+    static char reason[64];
 
 	trap_Cvar_VariableStringBuffer("g_cleverFakeDetection",	cleverFakeDetection, 24);
 	ent = &g_entities[ clientNum ];
@@ -2248,10 +2249,11 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 	trap_GetUserinfo( clientNum, userinfo, sizeof( userinfo ) );
 
 	// check to see if they are on the banned IP list
-	value = Info_ValueForKey (userinfo, "ip");
-	if ( G_FilterPacket( value ) ) {
-		G_LogPrintf("Banned client (%s) attempts to connect.\n",value);
-		return "Banned.";
+	value = Info_ValueForKey (userinfo, "ip");        
+    if ( G_FilterPacket( value, reason, sizeof(reason) ) )
+    {
+		G_LogPrintf("Filtered client (%s) attempts to connect.\n",value);
+        return reason;
 	}
 
 	*username = '\0';

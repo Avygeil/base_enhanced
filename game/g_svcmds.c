@@ -373,40 +373,9 @@ static void GetstatusUpdateIPBans (void)
 G_FilterPacket
 =================
 */
-qboolean G_FilterPacket (char *from)
+qboolean G_FilterPacket( char *from, char* reasonBuffer, int reasonBufferSize )
 {
-    return G_DbIsIpForbidden( from );
-
-	//byte			m[4];// = {'\0','\0','\0','\0'};
-	//int				i = 0;
-	//unsigned int	in;
-	//char			*p;
-
-	//while (i < 4)
-	//{
-	//	m[i] = 0;
-	//	i++;
-	//}
-
-	//i = 0;
-	//p = from;
-	//while (*p && i < 4) {
-	//	while (*p >= '0' && *p <= '9') {
-	//		m[i] = m[i]*10 + (*p - '0');
-	//		p++;
-	//	}
-	//	if (!*p || *p == ':')
-	//		break;
-	//	i++, p++;
-	//}
-	//
-	//in = *(unsigned int *)m;
-
-	//for (i=0 ; i<numIPFilters ; i++)
-	//	if ( (in & ipFilters[i].mask) == ipFilters[i].compare)
-	//		return g_filterBan.integer != 0;
-
-	//return g_filterBan.integer == 0;
+    return G_DbIsFiltered( from, reasonBuffer, reasonBufferSize );
 }
 
 /*
