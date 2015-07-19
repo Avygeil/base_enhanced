@@ -707,9 +707,15 @@ void Svcmd_RemoveIP_f (void)
 
     if ( trap_Argc() < 2 )
     {
-        G_Printf( "Usage:  removewhiteip <ip-mask>\n" );
+        G_Printf( "Usage:  removeip <ip> (mask)\n" );
+        G_Printf( " ip - ip address in format X.X.X.X, do not use 0s!\n" );
+        G_Printf( " mask - mask format X.X.X.X, defaults to 255.255.255.255\n" );
+
         return;
     }
+
+    // set defaults
+    Q_strncpyz( mask, "255.255.255.255", sizeof( mask ) );
 
     trap_Argv( 1, ip, sizeof( ip ) );
 
@@ -717,39 +723,8 @@ void Svcmd_RemoveIP_f (void)
     {
         trap_Argv( 2, mask, sizeof( mask ) );
     }
-    else
-    {
-        Q_strncpyz( mask, "255.255.255.255", sizeof( mask ) );
-    }
 
     G_DbRemoveFromBlacklist( ip, mask );
-
-	//ipFilter_t	f;
-	//int			i;
-	//char		str[MAX_TOKEN_CHARS];
-
-	//if ( trap_Argc() < 2 ) {
-	//	G_Printf("Usage:  sv removeip <ip-mask>\n");
-	//	return;
-	//}
-
-	//trap_Argv( 1, str, sizeof( str ) );
-
-	//if (!StringToFilter (str, 0 ,&f))
-	//	return;
-
-	//for (i=0 ; i<numIPFilters ; i++) {
-	//	if (ipFilters[i].mask == f.mask	&&
-	//		ipFilters[i].compare == f.compare) {
-	//		ipFilters[i].compare = 0xffffffffu;
-	//		G_Printf ("Removed.\n");
-
-	//		UpdateIPBans();
-	//		return;
-	//	}
-	//}
-
-	//G_Printf ( "Didn't find %s.\n", str );
 }
 
 
@@ -762,12 +737,21 @@ void Svcmd_AddWhiteIP_f( void )
 {
     char ip[32];
     char mask[32];
+    char notes[32];
 
     if ( trap_Argc() < 2 )
     {
-        G_Printf( "Usage:  addwhiteip <ip-mask>\n" );
+        G_Printf( "Usage:  addwhiteip <ip> (mask) (notes)\n" );
+        G_Printf( " ip - ip address in format X.X.X.X, do not use 0s!\n" );
+        G_Printf( " mask - mask format X.X.X.X, defaults to 255.255.255.255\n" );
+        G_Printf( " notes - notes only for admins, defaults to \"\"\n" );
+
         return;
     }
+
+    // set defaults
+    Q_strncpyz( mask, "255.255.255.255", sizeof( mask ) );
+    Q_strncpyz( notes, "", sizeof( notes ) );
 
     trap_Argv( 1, ip, sizeof( ip ) );
 
@@ -775,12 +759,14 @@ void Svcmd_AddWhiteIP_f( void )
     {
         trap_Argv( 2, mask, sizeof( mask ) );
     }
-    else
+
+    if ( trap_Argc() > 3 )
     {
-        Q_strncpyz( mask, "255.255.255.255", sizeof( mask ) );
+        trap_Argv( 3, notes, sizeof( notes ) );
     }
 
-    G_DbAddToWhitelist( ip, mask );
+
+    G_DbAddToWhitelist( ip, mask, notes );
 }
 
 /*
@@ -795,19 +781,22 @@ void Svcmd_RemoveWhiteIP_f( void )
 
     if ( trap_Argc() < 2 )
     {
-        G_Printf( "Usage:  removewhiteip <ip-mask>\n" );
+        G_Printf( "Usage:  removewhiteip <ip> (mask)\n" );
+        G_Printf( " ip - ip address in format X.X.X.X, do not use 0s!\n" );
+        G_Printf( " mask - mask format X.X.X.X, defaults to 255.255.255.255\n" );
+
         return;
     }
+
+    // set defaults
+    Q_strncpyz( mask, "255.255.255.255", sizeof( mask ) );
+
 
     trap_Argv( 1, ip, sizeof( ip ) );
 
     if ( trap_Argc() > 2 )
     {
         trap_Argv( 2, mask, sizeof( mask ) );
-    }
-    else
-    {
-        Q_strncpyz( mask, "255.255.255.255", sizeof( mask ) );
     }
 
     G_DbRemoveFromWhitelist( ip, mask );

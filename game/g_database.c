@@ -54,7 +54,8 @@ const char* const sqlCreateDatabase =
 "    [mask_A] INTEGER( 255 ),                                                   "
 "    [mask_B] INTEGER( 255 ),                                                   "
 "    [mask_C] INTEGER( 255 ),                                                   "
-"    [mask_D] INTEGER( 255 ) );                                                 "
+"    [mask_D] INTEGER( 255 ),                                                   "
+"    [notes] TEXT);                                                             "
 "                                                                               "
 "                                                                               "
 "CREATE TABLE[levels](                                                          "
@@ -105,8 +106,8 @@ const char* const sqlAddToBlacklist =
 
 const char* const sqlAddToWhitelist =
 "INSERT INTO ip_whitelist (ip_A, ip_B, ip_C, ip_D, " 
-"mask_A, mask_B, mask_C, mask_D)                   "
-"VALUES (?,?,?,?,?,?,?,?)                          ";
+"mask_A, mask_B, mask_C, mask_D, notes)            "
+"VALUES (?,?,?,?,?,?,?,?,?)                        ";
 
 const char* const sqlRemoveFromBlacklist =
 "DELETE FROM ip_blacklist                                   "
@@ -297,7 +298,9 @@ qboolean G_DbIsFilteredByBlacklist( int ipA, int ipB, int ipC, int ipD, char* re
 // 
 //  Adds ip address to whitelist
 //
-void G_DbAddToWhitelist( const char* ip, const char* mask )
+void G_DbAddToWhitelist( const char* ip, 
+    const char* mask, 
+    const char* notes )
 {
     int ipA = 0, ipB = 0, ipC = 0, ipD = 0;
     int maskA = 0, maskB = 0, maskC = 0, maskD = 0;
@@ -319,6 +322,8 @@ void G_DbAddToWhitelist( const char* ip, const char* mask )
         sqlite3_bind_int( statement, 6, maskB );
         sqlite3_bind_int( statement, 7, maskC );
         sqlite3_bind_int( statement, 8, maskD );
+
+        sqlite3_bind_text( statement, 9, notes, -1, 0 );
 
         rc = sqlite3_step( statement );
 

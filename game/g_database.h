@@ -11,12 +11,18 @@ qboolean G_DbIsFiltered( const char* ip, char* reasonBuffer, int reasonBufferSiz
 
 // whitelist stuff
 void G_DbAddToWhitelist( const char* ip, 
-    const char* mask );
+    const char* mask,
+    const char* notes );
 
 void G_DbRemoveFromWhitelist( const char* ip,
     const char* mask );
 
-qboolean G_DbIsFilteredByWhitelist( int ipA, int ipB, int ipC, int ipD, char* reasonBuffer, int reasonBufferSize );
+qboolean G_DbIsFilteredByWhitelist( int ipA, 
+    int ipB,
+    int ipC, 
+    int ipD, 
+    char* reasonBuffer, 
+    int reasonBufferSize );
 
 // blacklist stuff
 
