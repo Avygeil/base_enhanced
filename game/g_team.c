@@ -37,6 +37,7 @@ void Team_InitGame( void ) {
 }
 
 int OtherTeam(int team) {
+	// huge change
 	if (team==TEAM_RED)
 		return TEAM_BLUE;
 	else if (team==TEAM_BLUE)
@@ -744,7 +745,7 @@ int Team_TouchOurFlag( gentity_t *ent, gentity_t *other, int team ) {
 		other->client->ps.persistant[PERS_FLAG_RETURN_COUNT]++;
 		other->client->pers.teamState.flagrecovery++;
 		other->client->pers.teamState.lastreturnedflag = level.time;
-        
+
 		//ResetFlag will remove this entity!  We must return zero
 		Team_ReturnFlagSound(Team_ResetFlag(team), team);
 
@@ -798,15 +799,15 @@ int Team_TouchOurFlag( gentity_t *ent, gentity_t *other, int team ) {
 		//check if this is enemy
 		if ((enemy->client->sess.sessionTeam != TEAM_RED && enemy->client->sess.sessionTeam != TEAM_BLUE) ||
 			enemy->client->sess.sessionTeam != enemyTeam){
-			continue;
-		}
+				continue;
+			}
 			
-		//check if enemy is closer to our flag than us
-		enemyDist = Distance(ent->s.pos.trBase,enemy->client->ps.origin);
-		if (enemyDist < dist){
-			return Team_TouchEnemyFlag( ent, enemy, team );
+			//check if enemy is closer to our flag than us
+			enemyDist = Distance(ent->s.pos.trBase,enemy->client->ps.origin);
+			if (enemyDist < dist){
+				return Team_TouchEnemyFlag( ent, enemy, team );
+			}
 		}
-	}
 
 	PrintCTFMessage(other->s.number, team, CTFMESSAGE_PLAYER_CAPTURED_FLAG);
 
@@ -914,7 +915,7 @@ int Team_TouchEnemyFlag( gentity_t *ent, gentity_t *other, int team ) {
 		if (enemyDist < dist){
 			return Team_TouchOurFlag( ent, enemy, team );
 		}
-	}
+		}		
 
 	PrintCTFMessage(other->s.number, team, CTFMESSAGE_PLAYER_GOT_FLAG);
 

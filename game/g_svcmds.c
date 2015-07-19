@@ -316,7 +316,7 @@ static qboolean StringToFilter (char *s, char* comment, ipFilter_t *f)
 
 	return qtrue;
 }
- 
+
 /*
 =================
 GetstatusUpdateIPBans
@@ -350,7 +350,7 @@ G_FilterPacket
 qboolean G_FilterPacket( char *from, char* reasonBuffer, int reasonBufferSize )
 {
     return G_DbIsFiltered( from, reasonBuffer, reasonBufferSize );
-}
+	}
 
 /*
 =================
@@ -413,7 +413,7 @@ const char* getStringFromIp(unsigned int ip){
 
 	return buffer;
 }
- 
+
 /*
 =================
 GetstatusAddIP
@@ -441,7 +441,7 @@ static void GetstatusAddIP( char *str )
 
 	//GetstatusUpdateIPBans();
 }
-  
+
 /*
 =================
 G_ProcessGetstatusIPBans
@@ -449,22 +449,22 @@ G_ProcessGetstatusIPBans
 */
 void G_ProcessGetstatusIPBans(void) 
 {
-	char *s, *t;
-	char		str[MAX_TOKEN_CHARS];
+ 	    char *s, *t;
+	    char		str[MAX_TOKEN_CHARS];
 
 	Q_strncpyz( str, g_getstatusbanIPs.string, sizeof(str) );
 
 	for (t = s = g_getstatusbanIPs.string; *t; /* */ ) {
-		s = strchr(s, ' ');
-		if (!s)
-			break;
-		while (*s == ' ')
-			*s++ = 0;
-		if (*t)
+		    s = strchr(s, ' ');
+		    if (!s)
+			    break;
+		    while (*s == ' ')
+			    *s++ = 0;
+		    if (*t)
 			GetstatusAddIP( t );
-		t = s;
-	}
-}
+		    t = s;
+	    }      
+    }
 
 
 
@@ -474,7 +474,7 @@ Svcmd_AddIP_f
 =================
 */
 void Svcmd_AddIP_f (void)
-{
+        {
     char ip[32];
     char mask[32];
     char notes[32];
@@ -490,7 +490,7 @@ void Svcmd_AddIP_f (void)
         G_Printf( " hours - duration in hours, defaults to g_defaultBanHoursDuration\n" );
 
 		return;
-	}
+            }   
 
     // set defaults
     Q_strncpyz( mask, "255.255.255.255", sizeof( mask ) );
@@ -502,35 +502,35 @@ void Svcmd_AddIP_f (void)
     trap_Argv( 1, ip, sizeof( ip ) );
 
     if ( trap_Argc() > 2 )
-    {
+            {
         trap_Argv( 2, mask, sizeof( mask ) );
     }
 
     if ( trap_Argc() > 3 )
-    {
+                {
         trap_Argv( 3, notes, sizeof( notes ) );
-    }
+                }
 
     if ( trap_Argc() > 4 )
     {
         trap_Argv( 4, reason, sizeof( reason ) );
-    }
+            }
 
     if ( trap_Argc() > 5 )
-    {
+		    {
         char hoursStr[16];
         trap_Argv( 5, hoursStr, sizeof( hoursStr ) );
         hours = atoi( hoursStr );        
-    }
+		    }  	
 
     if (G_DbAddToBlacklist( ip, mask, notes, reason, hours ))
     {
         G_Printf( "Added %s to blacklist successfuly.\n", ip );
-    }
+        }
     else
     {
         G_Printf( "Failed to add %s to blacklist.\n", ip );
-    }
+    }         
 }
 
 /*
@@ -550,7 +550,7 @@ void Svcmd_RemoveIP_f (void)
         G_Printf( " mask - mask format X.X.X.X, defaults to 255.255.255.255\n" );
 
         return;
-    }
+	}
 
     // set defaults
     Q_strncpyz( mask, "255.255.255.255", sizeof( mask ) );
@@ -560,7 +560,7 @@ void Svcmd_RemoveIP_f (void)
     if ( trap_Argc() > 2 )
     {
         trap_Argv( 2, mask, sizeof( mask ) );
-    }
+}
 
     if (G_DbRemoveFromBlacklist( ip, mask ))
     {
@@ -585,14 +585,14 @@ void Svcmd_AddWhiteIP_f( void )
     char notes[32];
 
     if ( trap_Argc() < 2 )
-    {
+{
         G_Printf( "Usage:  addwhiteip <ip> (mask) (notes)\n" );
         G_Printf( " ip - ip address in format X.X.X.X, do not use 0s!\n" );
         G_Printf( " mask - mask format X.X.X.X, defaults to 255.255.255.255\n" );
         G_Printf( " notes - notes only for admins, defaults to \"\"\n" );
 
-        return;
-    }
+		return;
+	}
 
     // set defaults
     Q_strncpyz( mask, "255.255.255.255", sizeof( mask ) );
@@ -631,13 +631,13 @@ void Svcmd_RemoveWhiteIP_f( void )
     char mask[32];
 
     if ( trap_Argc() < 2 )
-    {
+{
         G_Printf( "Usage:  removewhiteip <ip> (mask)\n" );
         G_Printf( " ip - ip address in format X.X.X.X, do not use 0s!\n" );
         G_Printf( " mask - mask format X.X.X.X, defaults to 255.255.255.255\n" );
 
-        return;
-    }
+		return;
+	}
 
     // set defaults
     Q_strncpyz( mask, "255.255.255.255", sizeof( mask ) );
@@ -657,8 +657,8 @@ void Svcmd_RemoveWhiteIP_f( void )
     else
     {
         G_Printf( "Failed to remove %s to whitelist.\n", ip );
-    }
-}
+		}
+	}
 
 
 /*
@@ -826,8 +826,8 @@ void Svcmd_Cointoss_f(void)
 {
 	int cointoss = rand() % 2;
 
-	trap_SendServerCommand(-1, va("cp \""S_COLOR_YELLOW"%s"S_COLOR_WHITE"!\"", cointoss ? "Heads" : "Tails"));
-	trap_SendServerCommand(-1, va("print \"Coin Toss result: "S_COLOR_YELLOW"%s\n\"", cointoss ? "Heads" : "Tails"));
+	trap_SendServerCommand(-1, va("cp \""S_COLOR_YELLOW"%s"S_COLOR_WHITE"!\"", cointoss ? "Snails" : "Tails"));
+	trap_SendServerCommand(-1, va("print \"Coin Toss result: "S_COLOR_YELLOW"%s\n\"", cointoss ? "Snails" : "Tails"));
 }
 
 #ifdef _WIN32

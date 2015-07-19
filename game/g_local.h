@@ -1696,6 +1696,7 @@ extern	vmCvar_t	g_fraglimit;
 extern	vmCvar_t	g_duel_fraglimit;
 extern	vmCvar_t	g_timelimit;
 extern	vmCvar_t	g_capturelimit;
+extern	vmCvar_t	g_capturedifflimit;
 extern	vmCvar_t	d_saberInterpolate;
 extern	vmCvar_t	g_friendlyFire;
 extern	vmCvar_t	g_friendlySaber;
@@ -1786,6 +1787,8 @@ extern vmCvar_t		g_protectHPhack;
 extern vmCvar_t		g_protectCallvoteHack;
 extern vmCvar_t		g_maxIPConnected;
 extern vmCvar_t		g_fixLateCapture;
+extern vmCvar_t		g_minimumVotesCount;
+
 
 extern vmCvar_t     g_strafejump_mod;
 
@@ -1827,6 +1830,8 @@ extern vmCvar_t	   g_rconpassword;
 
 extern vmCvar_t	   g_callvotedelay;
 extern vmCvar_t	   g_callvotemaplimit;
+
+extern vmCvar_t	   sv_privateclients;
 
 extern vmCvar_t	   g_wasRestarted;
 

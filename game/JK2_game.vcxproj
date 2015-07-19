@@ -275,7 +275,7 @@
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>FP_SPEED_IMPROVED;_DEBUG;BUILDING_REF_GL;Debug;WIN32;_WINDOWS;MISSIONPACK;QAGAME;_JK2;JK2AWARDS;%(PreprocessorDefinitions);CURL_STATICLIB;</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;BUILDING_REF_GL;Debug;WIN32;_WINDOWS;MISSIONPACK;QAGAME;_JK2;JK2AWARDS;%(PreprocessorDefinitions);CURL_STATICLIB;</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <PrecompiledHeader>

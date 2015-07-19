@@ -121,6 +121,7 @@ vmCvar_t	g_fraglimit;
 vmCvar_t	g_duel_fraglimit;
 vmCvar_t	g_timelimit;
 vmCvar_t	g_capturelimit;
+vmCvar_t	g_capturedifflimit;
 vmCvar_t	d_saberInterpolate;
 vmCvar_t	g_friendlyFire;
 vmCvar_t	g_friendlySaber;
@@ -273,6 +274,7 @@ vmCvar_t	g_protectHPhack;
 vmCvar_t	g_maxIPConnected;
 vmCvar_t	g_protectCallvoteHack;
 vmCvar_t    g_fixLateCapture;
+vmCvar_t    g_minimumVotesCount;
 vmCvar_t    g_fixPitKills;
 vmCvar_t    g_fixRocketGlitch;
 
@@ -322,6 +324,8 @@ vmCvar_t	g_testdeflection;
 vmCvar_t	g_callvotedelay;
 vmCvar_t	g_callvotemaplimit;
 
+vmCvar_t	sv_privateclients;
+
 // nmckenzie: temporary way to show player healths in duels - some iface gfx in game would be better, of course.
 // DUEL_HEALTH
 vmCvar_t		g_showDuelHealths;
@@ -348,7 +352,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_gametype, "g_gametype", "0", CVAR_SERVERINFO | CVAR_LATCH, 0, qfalse  },
 	{ &g_MaxHolocronCarry, "g_MaxHolocronCarry", "3", CVAR_SERVERINFO | CVAR_LATCH, 0, qfalse  },
 
-	{ &g_maxclients, "sv_maxclients", "8", CVAR_SERVERINFO | CVAR_LATCH | CVAR_ARCHIVE, 0, qfalse  },
+    { &g_maxclients, "sv_maxclients", "8", CVAR_SERVERINFO | CVAR_LATCH | CVAR_ARCHIVE, 0, qfalse },
 	{ &g_maxGameClients, "g_maxGameClients", "0", CVAR_SERVERINFO | CVAR_LATCH | CVAR_ARCHIVE, 0, qfalse  },
 
 	{ &g_trueJedi, "g_jediVmerc", "0", CVAR_SERVERINFO | CVAR_LATCH | CVAR_ARCHIVE, 0, qtrue },
@@ -435,6 +439,7 @@ static cvarTable_t		gameCvarTable[] = {
     { &g_duel_fraglimit, "duel_fraglimit", "10", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_NORESTART, 0, qtrue },
     { &g_timelimit, "timelimit", "0", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_NORESTART, 0, qtrue },
     { &g_capturelimit, "capturelimit", "8", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_NORESTART, 0, qtrue },
+    { &g_capturedifflimit, "capturedifflimit", "0", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_NORESTART, 0, qtrue },
 
     { &g_synchronousClients, "g_synchronousClients", "0", CVAR_SYSTEMINFO, 0, qfalse },
 
@@ -610,6 +615,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_fixPitKills,	"g_fixPitKills"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_fixLateCapture,	"g_fixLateCapture"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
+    { &g_minimumVotesCount, "g_minimumVotesCount", "0", CVAR_ARCHIVE, 0, qtrue },
 	//{ &g_fixCaptureCondition,	"g_fixCaptureCondition"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
 	//{ &g_fixDetPackBug,	"g_fixDetPackBug"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_fixRocketGlitch,	"g_fixRocketGlitch"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
@@ -678,10 +684,11 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_callvotedelay,	"g_callvotedelay"	, "0"	, CVAR_ARCHIVE | CVAR_INTERNAL },
     { &g_callvotemaplimit,	"g_callvotemaplimit"	, "0"	, CVAR_ARCHIVE | CVAR_INTERNAL },
-
+    
     { &g_defaultBanHoursDuration, "g_defaultBanHoursDuration", "24", CVAR_ARCHIVE | CVAR_INTERNAL },      
     
 
+    { &sv_privateclients, "sv_privateclients", "0", CVAR_ARCHIVE | CVAR_SERVERINFO },
 };
 
 // bk001129 - made static to avoid aliasing
@@ -2226,7 +2233,7 @@ int getOrder(int* topArray, int value, qboolean biggerIsBetter){
 
 	return 3;
 }
-    
+
 /*
 ========================================================================
 
@@ -2606,7 +2613,7 @@ void QDECL G_HackLog( const char *fmt, ... ) {
 	}
 
 }
-   
+
 //DB-ACCOUNTS log
 void QDECL G_DBLog( const char *fmt, ... ) {
 	va_list		argptr;
@@ -2644,7 +2651,7 @@ void QDECL G_RconLog( const char *fmt, ... ) {
 
 	trap_FS_Write( string, strlen( string ), level.rconLogFile );
 }
-        
+
 /*
 ================
 LogExit
@@ -3354,6 +3361,24 @@ void CheckExitRules( void ) {
 		}
 	}
 
+    if (g_gametype.integer >= GT_CTF && g_capturedifflimit.integer) {
+
+        if (level.teamScores[TEAM_RED] - level.teamScores[TEAM_BLUE] >= g_capturedifflimit.integer)
+        {
+            trap_SendServerCommand(-1, va("print \"%s \"", G_GetStringEdString("MP_SVGAME", "PRINTREDTEAM")));
+            trap_SendServerCommand(-1, va("print \"%s ^7- Team ^1RED ^7leads by ^2%i^7.\n\"", G_GetStringEdString("MP_SVGAME", "HIT_CAPTURE_LIMIT"), g_capturedifflimit.integer));
+            LogExit("Capture difference limit hit.");
+				return;
+			}
+
+        if (level.teamScores[TEAM_BLUE] - level.teamScores[TEAM_RED] >= g_capturedifflimit.integer) {
+            trap_SendServerCommand(-1, va("print \"%s \"", G_GetStringEdString("MP_SVGAME", "PRINTBLUETEAM")));
+            trap_SendServerCommand(-1, va("print \"%s ^7- Team ^4BLUE ^7leads by ^2%i^7.\n\"", G_GetStringEdString("MP_SVGAME", "HIT_CAPTURE_LIMIT"), g_capturedifflimit.integer));
+            LogExit("Capture difference limit hit.");
+            return;
+		}
+	}
+
 	if ( g_gametype.integer >= GT_CTF && g_capturelimit.integer ) {
 
 		if ( level.teamScores[TEAM_RED] >= g_capturelimit.integer ) 
@@ -3666,6 +3691,21 @@ void CheckVote( void ) {
 			trap_Cvar_Set("g_wasRestarted", "1");
 		}
 
+        if (!Q_stricmpn(level.voteString, "clientkick", 10)){
+            int id = atoi(&level.voteString[11]);
+
+            if ((id < sv_privateclients.integer) && !(g_entities[id].r.svFlags & SVF_BOT))
+            {
+                if (g_entities[id].client->sess.sessionTeam != TEAM_SPECTATOR)
+                {       
+                    trap_SendConsoleCommand(EXEC_APPEND, va("forceteam %i s\n", id));
+                }
+
+                trap_SendServerCommand(-1, va("print \"%s^1 may not be kicked.\n\"", g_entities[id].client->pers.netname));
+                return;
+            }
+        }
+
 		trap_SendConsoleCommand( EXEC_APPEND, va("%s\n", level.voteString ) );
 
 		if (level.votingGametype)
@@ -3726,10 +3766,20 @@ void CheckVote( void ) {
 		return;
 	}
 	if ( level.time - level.voteTime >= VOTE_TIME ) {
-		trap_SendServerCommand( -1, va("print \"%s\n\"", G_GetStringEdString("MP_SVGAME", "VOTEFAILED")) );
+        if (g_minimumVotesCount.integer && (level.voteYes > level.voteNo) && ((level.voteYes + level.voteNo) >= g_minimumVotesCount.integer)) {
+            trap_SendServerCommand(-1, va("print \"%s\n\"",
+                G_GetStringEdString("MP_SVGAME", "VOTEPASSED")));
+
+            // log the vote
+            G_LogPrintf("Vote passed. (Yes:%i No:%i All:%i g_minimumVotesCount:%i)\n", level.voteYes, level.voteNo, level.numVotingClients, g_minimumVotesCount.integer);
+
+            level.voteExecuteTime = level.time + 3000;
+        } else {
+            trap_SendServerCommand(-1, va("print \"%s\n\"", G_GetStringEdString("MP_SVGAME", "VOTEFAILED")));
 
 		// log the vote
 		G_LogPrintf("Vote timed out. (Yes:%i No:%i All:%i)\n", level.voteYes, level.voteNo, level.numVotingClients);
+        }
 	} else {
 		if ( level.voteYes > level.numVotingClients/2 ) {
 			trap_SendServerCommand( -1, va("print \"%s\n\"", 
@@ -3855,7 +3905,7 @@ void CheckReady(void)
 
 		}
 
-	}      
+	}
 }
 
 /*
