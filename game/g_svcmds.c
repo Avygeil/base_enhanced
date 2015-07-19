@@ -316,36 +316,10 @@ static qboolean StringToFilter (char *s, char* comment, ipFilter_t *f)
 
 	return qtrue;
 }
-
+ 
 /*
 =================
-UpdateIPBans
-=================
-*/
-static void UpdateIPBans (void)
-{
-	byte	b[4];
-	int		i;
-	char	iplist[MAX_INFO_STRING];
-    FILE*   bansFile = fopen("bans.txt", "w");
-
-	*iplist = 0;
-	for (i = 0 ; i < numIPFilters ; i++)
-	{
-		if (ipFilters[i].compare == 0xffffffff)
-			continue;
-
-		*(unsigned *)b = ipFilters[i].compare;
-        fprintf(bansFile, "%i.%i.%i.%i %s\n", 
-            b[0], b[1], b[2], b[3], ipFilters[i].comment);
-	}
-
-    fclose(bansFile); 
-}
-
-/*
-=================
-UpdateIPBans
+GetstatusUpdateIPBans
 =================
 */
 static void GetstatusUpdateIPBans (void)
@@ -439,39 +413,10 @@ const char* getStringFromIp(unsigned int ip){
 
 	return buffer;
 }
-
+ 
 /*
 =================
-AddIP
-=================
-*/
-static void AddIP( char *str, char* comment )
-{
-
-	//int		i;
-
-	//for (i = 0 ; i < numIPFilters ; i++)
-	//	if (ipFilters[i].compare == 0xffffffff)
-	//		break;		// free spot
-	//if (i == numIPFilters)
-	//{
-	//	if (numIPFilters == MAX_IPFILTERS)
-	//	{
-	//		G_Printf ("IP filter list is full\n");
-	//		return;
-	//	}
-	//	numIPFilters++;
-	//}
-	//
-	//if (!StringToFilter (str, comment, &ipFilters[i]))
-	//	ipFilters[i].compare = 0xffffffffu;
-
-	//UpdateIPBans();
-}
-
-/*
-=================
-AddIP
+GetstatusAddIP
 =================
 */
 static void GetstatusAddIP( char *str )
