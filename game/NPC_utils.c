@@ -56,7 +56,7 @@ void CalcEntitySpot ( const gentity_t *ent, const spot_t spot, vec3_t point )
 				point[0] = ent->r.currentOrigin[0];
 				point[1] = ent->r.currentOrigin[1];
 			}
-		}
+			}
 		else
 		{
 			VectorCopy ( ent->r.currentOrigin, point );
@@ -339,16 +339,16 @@ qboolean NPC_UpdateAngles ( qboolean doPitch, qboolean doYaw )
 		// decay yaw error
 		error = AngleDelta ( NPC->client->ps.viewangles[YAW], targetYaw );
 		if( fabs(error) > MIN_ANGLE_ERROR )
-		{  			
-			if ( error ) 
-			{
-				exact = qfalse;
-
-				decay = 60.0 + yawSpeed * 3;
-				decay *= 50.0 / 1000.0;//msec
-
-				if ( error < 0.0 ) 
+		{
+				if ( error ) 
 				{
+					exact = qfalse;
+
+					decay = 60.0 + yawSpeed * 3;
+					decay *= 50.0 / 1000.0;//msec
+
+						if ( error < 0.0 ) 
+						{
 					error += decay;
 					if ( error > 0.0 ) 
 					{
@@ -375,7 +375,7 @@ qboolean NPC_UpdateAngles ( qboolean doPitch, qboolean doYaw )
 		error = AngleDelta ( NPC->client->ps.viewangles[PITCH], targetPitch );
 		if ( fabs(error) > MIN_ANGLE_ERROR )
 		{
-		
+			
 			if ( error ) 
 			{
 				exact = qfalse;
@@ -1240,7 +1240,7 @@ NPC_CheckPlayerDistance
 
 static qboolean NPC_CheckPlayerDistance( void )
 {
-	return qfalse;//MOOT in MP 
+	return qfalse;//MOOT in MP
 }
 
 /*

@@ -682,8 +682,8 @@ void G_CheckBotSpawn( void ) {
 		}
 		ClientBegin( botSpawnQueue[n].clientNum, qfalse );
 		botSpawnQueue[n].spawnTime = 0;
+		}
 	}
-}
 
 
 /*

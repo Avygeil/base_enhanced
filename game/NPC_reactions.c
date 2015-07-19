@@ -494,8 +494,8 @@ void NPC_Touch(gentity_t *self, gentity_t *other, trace_t *trace)
 		//if ( other && player && player->health > 0 && other == player )
 		if (other && other->client && other->s.number < MAX_CLIENTS)
 		{//player touched me
-		}
-	}
+			}
+			}
 
 	if ( other->client ) 
 	{//FIXME:  if pushing against another bot, both ucmd.rightmove = 127???
@@ -528,7 +528,7 @@ void NPC_Touch(gentity_t *self, gentity_t *other, trace_t *trace)
 			}
 		}
 
-	}
+		}
 	else 
 	{//FIXME: check for SVF_NONNPC_ENEMY flag here?
 		if ( other->health > 0 ) 

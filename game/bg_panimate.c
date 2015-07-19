@@ -1702,7 +1702,7 @@ void BG_InitAnimsets(void)
 //ALWAYS call on game/cgame shutdown
 void BG_ClearAnimsets(void)
 {
-}
+	}
 
 animation_t *BG_AnimsetAlloc(void)
 {
@@ -1714,7 +1714,7 @@ animation_t *BG_AnimsetAlloc(void)
 
 void BG_AnimsetFree(animation_t *animset)
 {
-}
+	}
 
 #ifndef QAGAME //none of this is actually needed serverside. Could just be moved to cgame code but it's here since it
 			   //used to tie in a lot with the anim loading stuff.

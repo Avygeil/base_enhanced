@@ -364,11 +364,11 @@ void DoImpact( gentity_t *self, gentity_t *other, qboolean damageSelf )
 					{//players and jedi take less impact damage
 						//allow for some lenience on high falls
 						magnitude /= 2;
-					}
+						}
 					magnitude /= 40;
 					magnitude = magnitude - force/2;//If damage other, subtract half of that damage off of own injury
 					if ( magnitude >= 1 )
-					{     	
+					{
 						G_Damage( self, NULL, NULL, NULL, self->r.currentOrigin, magnitude/2, DAMAGE_NO_ARMOR, MOD_FALLING );//FIXME: MOD_IMPACT
 					}
 				}
@@ -2828,7 +2828,7 @@ void ClientThink_real( gentity_t *ent ) {
 	{
 		ent->client->ps.heldByClient = 0;
 	}
-  
+
 	// set up for pmove
 	oldEventSequence = client->ps.eventSequence;
 
@@ -3603,7 +3603,7 @@ void ClientThink( int clientNum,usercmd_t *ucmd ) {
 	ent = g_entities + clientNum;
 	if (clientNum < MAX_CLIENTS)
 	{
-		trap_GetUsercmd( clientNum, &ent->client->pers.cmd );  
+		trap_GetUsercmd( clientNum, &ent->client->pers.cmd );
 	}
 
 	// mark the time we got info, so we can display the

@@ -75,7 +75,7 @@ typedef struct aas_trace_s
 	int			area;		// area blocking the trace (zero if none)
 	int			planenum;	// number of the plane that was hit
 } aas_trace_t;
-  
+
 //entity info
 typedef struct aas_entityinfo_s
 {

@@ -36,8 +36,8 @@ NPC_StandIdle
 
 void NPC_StandIdle( void )
 {
-}
-
+	}
+	
 qboolean NPC_StandTrackAndShoot (gentity_t *NPC, qboolean canDuck)
 {
 	qboolean	attack_ok = qfalse;
@@ -432,8 +432,8 @@ void NPC_BSPointShoot (qboolean shoot)
 	}
 	if (0)
 	{//shooting them till their dead, not aiming right at them yet...
-	
-		{
+
+			{
 			float	dist = VectorLength( dir );
 			float	yawMiss, yawMissAllow = NPC->enemy->r.maxs[0];
 			float	pitchMiss, pitchMissAllow = (NPC->enemy->r.maxs[2] - NPC->enemy->r.mins[2])/2;

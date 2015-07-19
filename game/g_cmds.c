@@ -779,7 +779,7 @@ void SetTeam( gentity_t *ent, char *s ) {
 
 		client->sess.siegeDesiredTeam = team;
 
-        if (client->sess.sessionTeam != TEAM_SPECTATOR &&
+		if (client->sess.sessionTeam != TEAM_SPECTATOR &&
 			team != TEAM_SPECTATOR)
 		{ //not a spectator now, and not switching to spec, so you have to wait til you die.
 			//trap_SendServerCommand( ent-g_entities, va("print \"You will be on the selected team the next time you respawn.\n\"") );
@@ -2933,7 +2933,7 @@ Cmd_Stats_f
 */
 void Cmd_Stats_f( gentity_t *ent ) {
 
-}
+	}
 
 int G_ItemUsable(playerState_t *ps, int forcedUse)
 {
@@ -3840,7 +3840,7 @@ void ClientCommand( int clientNum ) {
 			return;
 		}
 
-		trap_SendServerCommand( clientNum, va("print \"%s (%s) \n\"", G_GetStringEdString("MP_SVGAME", "CANNOT_TASK_INTERMISSION"), cmd ) );
+			trap_SendServerCommand( clientNum, va("print \"%s (%s) \n\"", G_GetStringEdString("MP_SVGAME", "CANNOT_TASK_INTERMISSION"), cmd ) );
 		return;
 	}
 
@@ -3920,7 +3920,7 @@ void ClientCommand( int clientNum ) {
 		Cmd_Ignore_f( ent );
 	else if (Q_stricmp (cmd, "testcmd") == 0)
 		Cmd_TestCmd_f( ent );
-
+		
 	//for convenient powerduel testing in release
 	else if (Q_stricmp(cmd, "killother") == 0 && CheatsOk( ent ))
 	{

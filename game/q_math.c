@@ -759,7 +759,7 @@ void SetPlaneSignbits (cplane_t *out) {
 	}
 	out->signbits = bits;
 }
-   
+
 #if !( (defined __linux__ || __FreeBSD__) && (defined __i386__) && (!defined C_ONLY)) // rb010123
 
 #if defined __LCC__ || defined C_ONLY || !id386
@@ -1219,7 +1219,7 @@ int Q_log2( int val ) {
 	}
 	return answer;
 }
-  
+
 /*
 ================
 MatrixMultiply

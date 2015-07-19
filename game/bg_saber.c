@@ -987,7 +987,7 @@ int PM_SaberLockWinAnim( qboolean victory, qboolean superBreak )
 		pm->ps->weaponTime = pm->ps->torsoTimer;
 		pm->ps->saberBlocked = BLOCKED_NONE;
 		pm->ps->weaponstate = WEAPON_FIRING;
-	}
+		}
 	return winAnim;
 }
 
@@ -1201,7 +1201,7 @@ int PM_SaberLockResultAnim( playerState_t *duelist, qboolean superBreak, qboolea
 		//no attacking during this anim
 		duelist->weaponTime = duelist->torsoTimer;
 		duelist->saberBlocked = BLOCKED_NONE;
-	}
+		}
 	return baseAnim;
 }
 
@@ -2812,7 +2812,7 @@ void PM_WeaponLightsaber(void)
 	if (!pm->ps->saberEntityNum && pm->ps->saberInFlight)
 	{ //this means our saber has been knocked away
 
-        //Old method, don't want to do this now because we want to finish up reflected attacks and things
+		//Old method, don't want to do this now because we want to finish up reflected attacks and things
 		//if our saber is pried out of our hands from one.
 		if ( pm->ps->fd.saberAnimLevel == SS_DUAL )
 		{
@@ -2914,8 +2914,8 @@ void PM_WeaponLightsaber(void)
 	if ( pm->ps->stats[STAT_HEALTH] <= 0 ) {
 		return;
 	}
- 
-    // make weapon function
+
+	// make weapon function
 	if ( pm->ps->weaponTime > 0 )
 	{
 		//check for special pull move while busy
@@ -3458,7 +3458,7 @@ weapChecks:
 						newmove = saberMoveData[curmove].chain_idle;
 					}
 				}
-                if ( newmove != LS_NONE )
+				if ( newmove != LS_NONE )
 				{
 					//Now get the proper transition move
 					newmove = PM_SaberAnimTransitionAnim( curmove, newmove );

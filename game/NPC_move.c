@@ -347,7 +347,7 @@ void G_UcmdMoveForDir( gentity_t *self, usercmd_t *cmd, vec3_t dir )
 	}
 	cmd->forwardmove = floor(fDot);
 	cmd->rightmove = floor(rDot);
-}
+	}
 
 /*
 -------------------------

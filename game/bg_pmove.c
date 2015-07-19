@@ -417,7 +417,7 @@ void PM_pitch_roll_for_slope( bgEntity_t *forwhom, vec3_t pass_slope, vec3_t sto
 			pm->ps->origin[2] += (oldmins2 - pm->mins[2]);
 		}
 	}
-}
+	}
 
 #define		FLY_NONE	0
 #define		FLY_NORMAL	1
@@ -584,7 +584,7 @@ static void PM_SetVehicleAngles( vec3_t normal )
 			continue;
 		}
 
-        {
+		{
 			if ( pVeh->m_vOrientation[i] >= vAngles[i] + vehicleBankingSpeed )
 			{
 				pVeh->m_vOrientation[i] -= vehicleBankingSpeed;
@@ -606,8 +606,8 @@ extern vmCvar_t cg_paused;
 #endif
 
 void BG_ExternThisSoICanRecompileInDebug( Vehicle_t *pVeh, playerState_t *riderPS )
-{    
-}
+{
+	}
 
 void BG_VehicleTurnRateForSpeed( Vehicle_t *pVeh, float speed, float *mPitchOverride, float *mYawOverride )
 {
@@ -965,8 +965,8 @@ static void PM_Friction( void ) {
 		{
 			control = speed < pm_stopspeed ? pm_stopspeed : speed;
 			drop += control*friction*pml.frametime;
-		}
-	}
+				}
+				}
 	else if ( pm_flying != FLY_NORMAL && pm_flying != FLY_VEHICLE )
 	{
 		// apply ground friction
@@ -995,7 +995,7 @@ static void PM_Friction( void ) {
 		drop += speed*pm_waterfriction*pm->waterlevel*pml.frametime;
 	}
 
-    if ( pm->ps->pm_type == PM_SPECTATOR || pm->ps->pm_type == PM_FLOAT )
+	if ( pm->ps->pm_type == PM_SPECTATOR || pm->ps->pm_type == PM_FLOAT )
 	{
 		if (pm->ps->pm_type == PM_FLOAT)
 		{ //almost no friction while floating
@@ -2873,7 +2873,7 @@ static void PM_AirMove( void ) {
 				if ( speed < 0 )
 				{//speed is negative, but since our command is reverse, make speed positive
 					speed = fabs( speed );
-				}
+					}
 				else if ( speed > 0 )
 				{//trying to move back but speed is still positive, so keep moving forward (we'll slow down eventually)
 					speed = 0;
@@ -3822,7 +3822,7 @@ static void PM_GroundTraceMissed( void ) {
 	pm->ps->groundEntityNum = ENTITYNUM_NONE;
 	pml.groundPlane = qfalse;
 	pml.walking = qfalse;
-}  
+}
 
 /*
 =============
@@ -3915,7 +3915,7 @@ static void PM_GroundTrace( void ) {
 	}
 
 	if ( pm->ps->groundEntityNum == ENTITYNUM_NONE ) { //MAYBE HERE ADD CHECK IF WE JUST DIDNT LAND ON JUMPER
-		
+
 		// just hit the ground
 		if ( pm->debugLevel ) {
 			Com_Printf("%i:Land\n", c_pmove);
@@ -7509,7 +7509,7 @@ void PM_UpdateViewAngles( playerState_t *ps, const usercmd_t *cmd ) {
 #else //VEH_CONTROL_SCHEME_4
 		if ( pm_entVeh && BG_UnrestrainedPitchRoll( ps, pm_entVeh->m_pVehicle ) )
 		{//in a fighter
-		}
+			}
 #endif // VEH_CONTROL_SCHEME_4
 		else
 		{
@@ -7526,8 +7526,8 @@ void PM_UpdateViewAngles( playerState_t *ps, const usercmd_t *cmd ) {
 		}
 		ps->viewangles[i] = SHORT2ANGLE(temp);
 	}
-}
-  
+	}
+
 //-------------------------------------------
 void PM_AdjustAttackStates( pmove_t *pm )
 //-------------------------------------------
@@ -7603,7 +7603,7 @@ void PM_AdjustAttackStates( pmove_t *pm )
 				pm->ps->zoomLocked = qtrue;
 			}
 		}
-	
+
 		if ( pm->cmd.buttons & BUTTON_ATTACK )
 		{
 			// If we are zoomed, we should switch the ammo usage to the alt-fire, otherwise, we'll
@@ -9123,7 +9123,7 @@ void PM_VehicleViewAngles(playerState_t *ps, bgEntity_t *veh, usercmd_t *ucmd)
 
 		PM_SetPMViewAngle(ps, ps->viewangles, ucmd);
 	}
-}
+		}
 
 //see if a weapon is ok to use on a vehicle
 qboolean PM_WeaponOkOnVehicle( int weapon )

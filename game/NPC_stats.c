@@ -285,7 +285,7 @@ static rank_t TranslateRankName( const char *name )
 #include "namespace_begin.h"
 extern saber_colors_t TranslateSaberColor( const char *name );
 #include "namespace_end.h"
-     
+
 #ifdef CONVENIENT_ANIMATION_FILE_DEBUG_THING
 void SpewDebugStuffToFile(animation_t *anims)
 {
@@ -403,9 +403,9 @@ void NPC_PrecacheAnimationCFG( const char *NPC_type )
 			if ( COM_ParseString( &p, &value ) ) 
 			{
 				continue;
-			} 	
+			}
+			}
 		}
-	}
 #endif
 }
 
@@ -1777,7 +1777,7 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 					G_SetOrigin( NPC, NPC->s.origin );
 					trap_LinkEntity(NPC);
 					//now trace down
-				}
+					}
 				else
 				{
 					NPC->r.mins[2] = DEFAULT_MINS_2;//Cannot change

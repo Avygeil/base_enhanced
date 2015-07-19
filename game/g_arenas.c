@@ -99,4 +99,4 @@ void UpdateTournamentInfo( void ) {
 	}
 	trap_SendConsoleCommand( EXEC_APPEND, msg );
 }
- 
+

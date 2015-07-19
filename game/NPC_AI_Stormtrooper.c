@@ -136,7 +136,7 @@ static void ST_Speech( gentity_t *self, int speechType, float failChance )
 			{
 				return;
 			}
-		}
+				}
 		else if ( !TIMER_Done( self, "chatter" ) )
 		{//personal timer
 			return;
@@ -284,7 +284,7 @@ static void ST_HoldPosition( void )
 		NPCInfo->goalEntity = NULL;
 	}
 	
-}
+	}
 
 void NPC_ST_SayMovementSpeech( void )
 {
@@ -1704,7 +1704,7 @@ void ST_Commander( void )
 		RestoreNPCGlobals();
 		return;
 	}
- 
+
 	//Okay, everyone is mad
 
 	//see if anyone is running

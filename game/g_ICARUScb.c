@@ -1023,8 +1023,8 @@ void Q3_RemoveEnt( gentity_t *victim )
 			}
 			victim->think = G_FreeEntity;
 			victim->nextthink = level.time + 100;
-		}    	
-	}
+		}
+		}
 	else
 	{
 		victim->think = G_FreeEntity;
@@ -2343,7 +2343,7 @@ Q3_SetAnimHoldTime
 static void Q3_SetAnimHoldTime( int entID, int int_data, qboolean lower )
 {
 	G_DebugPrint( WL_WARNING, "Q3_SetAnimHoldTime is not currently supported in MP\n");
-}
+	}
 
 /*
 ============
@@ -2499,7 +2499,7 @@ static qboolean Q3_SetBState( int entID, const char *bs_name )
 	}
 
 	ent->NPC->aiFlags &= ~NPCAI_TOUCHED_GOAL;
- 
+
 	if ( bSID == BS_NOCLIP )
 	{
 		ent->client->noclip = qtrue;
@@ -3337,8 +3337,8 @@ Q3_SetTarget2
 */
 static void Q3_SetTarget2 (int entID, const char *target2)
 {
-	G_DebugPrint( WL_WARNING, "Q3_SetTarget2 does not exist in MP\n");    	
-}
+	G_DebugPrint( WL_WARNING, "Q3_SetTarget2 does not exist in MP\n");
+	}
 /*
 ============
 Q3_SetRemoveTarget 
@@ -3367,7 +3367,7 @@ Q3_SetPainTarget
 static void Q3_SetPainTarget (int entID, const char *targetname)
 {
 	G_DebugPrint( WL_WARNING, "Q3_SetPainTarget: NOT SUPPORTED IN MP\n");
-}
+	}
 
 /*
 ============
@@ -4191,9 +4191,9 @@ static void Q3_SetLockAngle( int entID, const char *lockAngle)
 	}
 
 	G_DebugPrint( WL_WARNING, "Q3_SetLockAngle is not currently available. Ask if you really need it.\n");
-}
+	}
 
-
+		
 /*
 ============
 Q3_CameraGroup

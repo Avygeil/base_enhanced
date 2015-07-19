@@ -242,7 +242,7 @@ int G_GetHitLocation(gentity_t *target, vec3_t ppoint)
 	}
 	return HL_NONE;
 }
-  
+
 void ExplodeDeath( gentity_t *self ) 
 {
 	vec3_t		forward;
@@ -255,7 +255,7 @@ void ExplodeDeath( gentity_t *self )
 	VectorCopy( self->r.currentOrigin, self->s.pos.trBase );
 
 	AngleVectors(self->s.angles, forward, NULL, NULL);
-   
+
 	if(self->splashDamage > 0 && self->splashRadius > 0)
 	{
 		gentity_t *attacker = self;
@@ -3024,7 +3024,7 @@ void G_GetDismemberBolt(gentity_t *self, vec3_t boltPoint, int limbType)
 	boltPoint[2] = boltMatrix.matrix[2][3];
 
 	trap_G2API_GetBoltMatrix(self->ghoul2, 1, 0, &boltMatrix, properAngles, properOrigin, level.time, NULL, self->modelScale);
- }
+		}
 
 void LimbTouch( gentity_t *self, gentity_t *other, trace_t *trace )
 {
@@ -4997,7 +4997,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 			evEnt = G_TempEntity(targ->r.currentOrigin, EV_SHIELD_HIT);
 			evEnt->s.otherEntityNum = targ->s.number;
 			evEnt->s.eventParm = DirToByte(dir);
-			evEnt->s.time2=shieldAbsorbed;       
+			evEnt->s.time2=shieldAbsorbed;
 		}
 	}
 
@@ -5265,7 +5265,7 @@ qboolean G_RadiusDamage ( vec3_t origin, gentity_t *attacker, float damage, floa
 	int			i, e;
 	qboolean	hitClient = qfalse;
 	qboolean	roastPeople = qfalse;
-  
+
 	if ( radius < 1 ) {
 		radius = 1;
 	}

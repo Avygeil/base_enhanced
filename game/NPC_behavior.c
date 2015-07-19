@@ -231,7 +231,7 @@ void NPC_BSWait( void )
 
 void NPC_BSInvestigate (void)
 {
-}
+			}
 
 qboolean NPC_CheckInvestigate( int alertEventNum )
 {
@@ -326,7 +326,7 @@ void NPC_BSSleep( void )
 		G_ActivateBehavior(NPC, BSET_AWAKE);
 		return;
 	}
-}
+		}
 
 extern qboolean NPC_MoveDirClear( int forwardmove, int rightmove, qboolean reset );
 void NPC_BSFollowLeader (void)
@@ -760,7 +760,7 @@ void NPC_BSSearch (void)
 		if ( NPCInfo->tempGoal->waypoint != WAYPOINT_NONE )
 		{
 			minGoalReachedDistSquared = 32*32;
-		}
+			}
 
 		if ( VectorLengthSquared( vec ) < minGoalReachedDistSquared )
 		{
@@ -851,8 +851,8 @@ void NPC_BSSearch (void)
 					int nextWp = trap_Nav_GetNodeEdge( NPCInfo->homeWp, branchNum );
 					trap_Nav_GetNodePosition( nextWp, NPCInfo->tempGoal->r.currentOrigin );
 					NPCInfo->tempGoal->waypoint = nextWp;
-				}   
-		    }
+				}
+			}
 			else
 			{//At a branch, so return home
 				trap_Nav_GetNodePosition( NPCInfo->homeWp, NPCInfo->tempGoal->r.currentOrigin );
@@ -1102,9 +1102,9 @@ qboolean NPC_CheckSurrender( void )
 					}
 				}
 			}
-			//fixme: this logic keeps making npc's randomly surrender	
-		}
-	}
+			//fixme: this logic keeps making npc's randomly surrender
+						}
+								}
 	return qfalse;
 }
 

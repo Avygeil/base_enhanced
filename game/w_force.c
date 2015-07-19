@@ -2165,7 +2165,7 @@ void ForceDrainDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, vec3_t 
 				}
 
 				traceEnt->client->ps.fd.forcePowerRegenDebounceTime = level.time + 800; //don't let the client being drained get force power back right away
-    
+
 				if (traceEnt->client->forcePowerSoundDebounce < level.time)
 				{
 					tent = G_TempEntity( impactPoint, EV_FORCE_DRAINED);
@@ -2698,7 +2698,7 @@ qboolean ForceTelepathyCheckDirectNPCTarget( gentity_t *self, trace_t *tr, qbool
 			WP_ForcePowerStart( self, FP_TELEPATHY, 0 );
 			*tookPower = qtrue;
 		}
-	}         	
+	}
 	self->client->ps.saberBlocked = BLOCKED_NONE;
 	self->client->ps.weaponTime = 1000;
 

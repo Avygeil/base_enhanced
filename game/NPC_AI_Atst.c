@@ -71,7 +71,7 @@ void G_ATSTCheckPain( gentity_t *self, gentity_t *other, int damage )
 	{
 		G_SoundOnEnt( self, CHAN_LESS_ATTEN, "sound/chars/atst/atst_damaged2" );
 	}
-}
+		}
 /*
 -------------------------
 NPC_ATST_Pain

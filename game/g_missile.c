@@ -868,11 +868,11 @@ void G_RunMissile( gentity_t *ent ) {
 				tr.surfaceFlags = 0; //clear the surface flags after, since we actually care about them in here.
 			}
 		}
-	}
-	else
-	{
-		trap_Trace( &tr, ent->r.currentOrigin, ent->r.mins, ent->r.maxs, origin, passent, ent->clipmask );
-	}
+		}
+		else
+		{
+			trap_Trace( &tr, ent->r.currentOrigin, ent->r.mins, ent->r.maxs, origin, passent, ent->clipmask );
+		}
 
 	if ( tr.startsolid || tr.allsolid ) {
 		// make sure the tr.entityNum is set to the entity we're stuck in
@@ -937,7 +937,7 @@ void G_RunMissile( gentity_t *ent ) {
 		if (ent->s.weapon > WP_NONE && ent->s.weapon < WP_NUM_WEAPONS &&
 			(tr.entityNum < MAX_CLIENTS || g_entities[tr.entityNum].s.eType == ET_NPC))
 		{ //player or NPC, try making a mark on him
-			
+
 			//ok, let's try adding it to the missile ent instead (tempents bad!)
 			G_AddEvent(ent, EV_GHOUL2_MARK, 0);
 

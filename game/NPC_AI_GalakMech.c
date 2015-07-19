@@ -1191,7 +1191,7 @@ void NPC_BSGM_Default( void )
 				NPC->flags |= FL_SHIELDED;//reflect normal shots
 				NPC_SetSurfaceOnOff( NPC, "torso_shield", TURN_ON );
 			}
-		}
+	}
 	}
 
 	//rwwFIXMEFIXME: Allow this stuff, and again, going to have to let the client know about it.

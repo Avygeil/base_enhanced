@@ -1587,7 +1587,7 @@ void NPC_Spawn_Go(gentity_t *ent)
 {
 	NPC_Spawn_Do( NULL , ent);
 }
-  
+
 /*
 -------------------------
 NPC_ShySpawn
@@ -1806,7 +1806,7 @@ void SP_NPC_spawner( gentity_t *self)
 		self->s.shouldtarget = qtrue;
 	}
 
-    //We have to load the animation.cfg now because spawnscripts are going to want to set anims and we need to know their length and if they're valid
+	//We have to load the animation.cfg now because spawnscripts are going to want to set anims and we need to know their length and if they're valid
 	NPC_PrecacheAnimationCFG( self->NPC_type );
 
 	//rww - can't cheat and do this on the client like in SP, so I'm doing this.

@@ -161,8 +161,8 @@ int G_BSPIndex( const char *name )
 //see if we can or should allow this guy to use a custom skeleton -rww
 qboolean G_PlayerHasCustomSkeleton(gentity_t *ent)
 {
-	return qfalse;
-}
+		return qfalse;
+	}
 
 /*
 ================

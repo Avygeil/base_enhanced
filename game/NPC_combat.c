@@ -359,7 +359,7 @@ void G_SetEnemy( gentity_t *self, gentity_t *enemy )
 		//when get new enemy, set a base aggression based on what that enemy is using, how far they are, etc.
 		NPC_Jedi_RateNewEnemy( self, enemy );
 	}
- 
+
 	if ( self->enemy == NULL )
 	{
 		//TEMP HACK: turn on our saber
@@ -456,7 +456,7 @@ void G_SetEnemy( gentity_t *self, gentity_t *enemy )
 	G_ClearEnemy(self);
 	self->enemy = enemy;
 }
- 
+
 void ChangeWeapon( gentity_t *ent, int newWeapon ) 
 {
 	if ( !ent || !ent->client || !ent->NPC )
@@ -477,7 +477,7 @@ void ChangeWeapon( gentity_t *ent, int newWeapon )
 		ent->NPC->aiFlags &= ~NPCAI_BURST_WEAPON;
 		ent->NPC->burstSpacing = 1000;//attackdebounce
 		break;
-  
+
 	case WP_SABER:
 		ent->NPC->aiFlags &= ~NPCAI_BURST_WEAPON;
 		ent->NPC->burstSpacing = 0;//attackdebounce
@@ -573,7 +573,7 @@ void ChangeWeapon( gentity_t *ent, int newWeapon )
 		else 
 			ent->NPC->burstSpacing = 2000;//attack debounce
 		break;
-     
+
 	case WP_BLASTER:
 		if ( ent->NPC->scriptFlags & SCF_ALT_FIRE )
 		{
@@ -604,7 +604,7 @@ void ChangeWeapon( gentity_t *ent, int newWeapon )
 		ent->NPC->aiFlags &= ~NPCAI_BURST_WEAPON;
 		ent->NPC->burstSpacing = 1000;//attackdebounce
 		break;
-    	
+
 
 	case WP_EMPLACED_GUN:
 		//FIXME: give some designer-control over this?
@@ -678,7 +678,7 @@ void NPC_ApplyWeaponFireDelay(void)
 	
 	switch(client->ps.weapon)
 	{
-	
+
 	case WP_THERMAL:
 		if ( client->ps.clientNum )
 		{//NPCs delay... 
@@ -819,7 +819,7 @@ void WeaponThink( qboolean inCombat )
 	if(NPC->client->ps.ammo[ weaponData[client->ps.weapon].ammoIndex ] < 10)	// checkme	
 	{
 		Add_Ammo (NPC, client->ps.weapon, 100);
-	}      
+	}
 
 	ucmd.weapon = client->ps.weapon;
 	ShootThink();
@@ -1051,7 +1051,7 @@ float NPC_MaxDistSquaredForWeapon (void)
 			return 1024 * 1024;
 		}
 		break;
-
+	
 	case WP_SABER:
 		if ( NPC->client && NPC->client->saber[0].blade[0].lengthMax )
 		{//FIXME: account for whether enemy and I are heading towards each other!
@@ -1576,8 +1576,8 @@ gentity_t *NPC_CheckEnemy( qboolean findNew, qboolean tooFarOk, qboolean setEnem
 			{
 				G_ClearEnemy( NPC );
 			}
+			}
 		}
-	}
 
 	if ( NPC->enemy )
 	{
@@ -1609,9 +1609,9 @@ gentity_t *NPC_CheckEnemy( qboolean findNew, qboolean tooFarOk, qboolean setEnem
 			else
 			{//If we're not chasing him, we need to lose him
 				//NOTE: since we no longer have bStates, really, this logic doesn't work, so never give him up
-   			}
-		}
-	}
+					}
+				}
+			}
 
 	if ( NPC->enemy )
 	{

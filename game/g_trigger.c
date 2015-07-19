@@ -494,9 +494,9 @@ void Touch_Multi( gentity_t *self, gentity_t *other, trace_t *trace )
 			if( !( other->client->pers.cmd.buttons & BUTTON_ATTACK ) &&
 				!( other->client->pers.cmd.buttons & BUTTON_ALT_ATTACK ) )
 			{//not attacking, so hiding bonus
+				}
+				}
 			}
-		}
-	}
 
 	if ( self->spawnflags & 4 )
 	{//USE_BUTTON
@@ -900,9 +900,9 @@ void trigger_push_touch (gentity_t *self, gentity_t *other, trace_t *trace ) {
 		}
 		else // only allowing one ent per frame to touch trigger
 		{
-			return;
+				return;
+			}
 		}
-	}
 
 	if ( !other->client ) {
 		if ( other->s.pos.trType != TR_STATIONARY && other->s.pos.trType != TR_LINEAR_STOP && other->s.pos.trType != TR_NONLINEAR_STOP && VectorLengthSquared( other->s.pos.trDelta ) )

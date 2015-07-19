@@ -129,9 +129,9 @@ qboolean ReachedGoal( gentity_t *goal )
 	{
 		NPCInfo->aiFlags &= ~NPCAI_TOUCHED_GOAL;
 		return qtrue;
-	}
+		}
 
-    return NAV_HitNavGoal( NPC->r.currentOrigin, NPC->r.mins, NPC->r.maxs, goal->r.currentOrigin, NPCInfo->goalRadius, FlyingCreature( NPC ) );
+	return NAV_HitNavGoal( NPC->r.currentOrigin, NPC->r.mins, NPC->r.maxs, goal->r.currentOrigin, NPCInfo->goalRadius, FlyingCreature( NPC ) );
 }
 
 /*

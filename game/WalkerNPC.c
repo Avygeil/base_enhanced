@@ -378,7 +378,7 @@ static void AnimateVehicle( Vehicle_t *pVeh )
 	{
 		return;
 	}
- 
+
 	// Percentage of maximum speed relative to current speed.
 	fSpeedPercToMax = parent->client->ps.speed / pVeh->m_pVehicleInfo->speedMax; 
 
@@ -403,7 +403,7 @@ static void AnimateVehicle( Vehicle_t *pVeh )
 		// otherwise we're running.
 		else
 		{
-				{
+			{
 				Anim = BOTH_RUN1;
 			}
 		}

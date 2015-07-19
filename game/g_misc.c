@@ -439,7 +439,7 @@ void SP_misc_bsp(gentity_t *ent)
 
 	level.mBSPInstanceDepth--;
 	level.mTeamFilter[0] = 0;
-}
+		}
 
 /*QUAKED terrain (1.0 1.0 1.0) ? NOVEHDMG
 
@@ -560,9 +560,9 @@ void SP_terrain(gentity_t *ent)
 	// If running RMG then initialize the terrain and handle team skins
 	if ( g_RMG.integer ) 
 	{
-		trap_RMG_Init(terrainID); 
-	}
-}
+		trap_RMG_Init(terrainID);
+			}
+			}
 
 //rww - Called by skyportal entities. This will check through entities and flag them
 //as portal ents if they are in the same pvs as a skyportal entity and pass
@@ -1576,7 +1576,7 @@ void ammo_power_converter_use( gentity_t *self, gentity_t *other, gentity_t *act
 			stop = 0;
 
 			self->fly_sound_debounce_time = level.time + 500;
-			self->activator = activator;	
+			self->activator = activator;
 		}
 	}
 

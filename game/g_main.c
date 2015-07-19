@@ -685,10 +685,9 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_callvotedelay,	"g_callvotedelay"	, "0"	, CVAR_ARCHIVE | CVAR_INTERNAL },
     { &g_callvotemaplimit,	"g_callvotemaplimit"	, "0"	, CVAR_ARCHIVE | CVAR_INTERNAL },
     
-    { &g_defaultBanHoursDuration, "g_defaultBanHoursDuration", "24", CVAR_ARCHIVE | CVAR_INTERNAL },      
-    
-
     { &sv_privateclients, "sv_privateclients", "0", CVAR_ARCHIVE | CVAR_SERVERINFO },
+    { &g_defaultBanHoursDuration, "g_defaultBanHoursDuration", "24", CVAR_ARCHIVE | CVAR_INTERNAL },      
+
 };
 
 // bk001129 - made static to avoid aliasing
@@ -3220,8 +3219,8 @@ void CheckExitRules( void ) {
 			level.intermissionQueued = 0;
 			BeginIntermission();
 		}
-		return;
-	}
+				return;
+			}
 
 	// check for sudden death
 	if (g_gametype.integer != GT_SIEGE)
@@ -3706,6 +3705,21 @@ void CheckVote( void ) {
             }
         }
 
+        if (!Q_stricmpn(level.voteString, "clientkick", 10)){
+            int id = atoi(&level.voteString[11]);
+
+            if ((id < sv_privateclients.integer) && !(g_entities[id].r.svFlags & SVF_BOT))
+            {
+                if (g_entities[id].client->sess.sessionTeam != TEAM_SPECTATOR)
+                {       
+                    trap_SendConsoleCommand(EXEC_APPEND, va("forceteam %i s\n", id));
+                }
+
+                trap_SendServerCommand(-1, va("print \"%s^1 may not be kicked.\n\"", g_entities[id].client->pers.netname));
+                return;
+            }
+        }
+
 		trap_SendConsoleCommand( EXEC_APPEND, va("%s\n", level.voteString ) );
 
 		if (level.votingGametype)
@@ -3770,7 +3784,7 @@ void CheckVote( void ) {
             trap_SendServerCommand(-1, va("print \"%s\n\"",
                 G_GetStringEdString("MP_SVGAME", "VOTEPASSED")));
 
-            // log the vote
+		// log the vote
             G_LogPrintf("Vote passed. (Yes:%i No:%i All:%i g_minimumVotesCount:%i)\n", level.voteYes, level.voteNo, level.numVotingClients, g_minimumVotesCount.integer);
 
             level.voteExecuteTime = level.time + 3000;

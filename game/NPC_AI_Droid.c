@@ -517,7 +517,7 @@ void NPC_Protocol_Precache( void )
 	G_SoundIndex( "sound/chars/mark2/misc/mark2_explo" );
 	G_EffectIndex( "env/med_explode");
 }
-    
+
 /*
 -------------------------
 NPC_BSDroid_Default

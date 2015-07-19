@@ -235,7 +235,7 @@ void WP_DeactivateSaber( gentity_t *self, qboolean clearLength )
 	{
 		self->client->ps.saberHolstered = 2;
 
-        //Doens't matter ATM
+		//Doens't matter ATM
 		if (self->client->saber[0].soundOff)
 		{
 			G_Sound(self, CHAN_WEAPON, self->client->saber[0].soundOff);
@@ -767,7 +767,7 @@ static GAME_INLINE void G_G2NPCAngles(gentity_t *ent, vec3_t legs[3], vec3_t ang
 
 			if ( ent->client->NPC_class == CLASS_ATST )
 			{//body pitch
-				NPC_SetBoneAngles(ent, thoracicBone, lookAngles);  				
+				NPC_SetBoneAngles(ent, thoracicBone, lookAngles);
 			}
 
 			VectorCopy( viewAngles, lookAngles );
@@ -778,8 +778,8 @@ static GAME_INLINE void G_G2NPCAngles(gentity_t *ent, vec3_t legs[3], vec3_t ang
 			}
 			else
 			{
-	
-			}
+
+				}
 
 			{	//look at lookTarget!
 				//FIXME: snaps to side when lets go of lookTarget... ?
@@ -5274,8 +5274,8 @@ void G_SPSaberDamageTraceLerped( gentity_t *self, int saberNum, int bladeNum, ve
 				}
 			}
 		}
-	}
-}
+		}
+		}
 
 #include "namespace_begin.h"
 qboolean BG_SaberInTransitionAny( int move );
@@ -8535,8 +8535,8 @@ nextStep:
 			if (rSaberNum == 1 && (self->client->ps.brokenLimbs & (1 << BROKENLIMB_LARM)))
 			{ //don't to saber 1 if the left arm is broken
 				break;
-			}   
-	
+			}
+
 			rBladeNum = 0;
 			while (rBladeNum < self->client->saber[rSaberNum].numBlades)
 			{

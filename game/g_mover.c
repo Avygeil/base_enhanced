@@ -1163,7 +1163,7 @@ void Touch_DoorTrigger( gentity_t *ent, gentity_t *other, trace_t *trace )
 	{//re-lock us
 		relockEnt->spawnflags |= MOVER_LOCKED;
 	}
-}
+	}
 
 /*
 ======================

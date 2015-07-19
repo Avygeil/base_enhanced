@@ -111,7 +111,7 @@ static void Grenadier_HoldPosition( void )
 {
 	NPC_FreeCombatPoint( NPCInfo->combatPoint, qtrue );
 	NPCInfo->goalEntity = NULL;
-}
+	}
 
 /*
 -------------------------
@@ -263,8 +263,8 @@ void NPC_BSGrenadier_Patrol( void )
 		NPC_MoveToGoal( qtrue );
 	}
 
-	NPC_UpdateAngles( qtrue, qtrue );
-}
+		NPC_UpdateAngles( qtrue, qtrue );
+	}
 
 /*
 -------------------------

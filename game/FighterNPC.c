@@ -1539,7 +1539,7 @@ static void ProcessOrientCommands( Vehicle_t *pVeh )
 		}
 		else
 		{
-				//Actal YAW
+			//Actal YAW
 #ifdef _JK2MP
 			FighterYawAdjust(pVeh, riderPS, parentPS);
 #else
@@ -1628,7 +1628,7 @@ static void ProcessOrientCommands( Vehicle_t *pVeh )
 			}
 		}
 	}
-   
+
 	// If no one is in this vehicle and it's up in the sky, pitch it forward as it comes tumbling down.
 #ifdef QAGAME //never gonna happen on client anyway, we can't be getting predicted unless the predicting client is boarded
  	if ( !pVeh->m_pVehicleInfo->Inhabited( pVeh ) 

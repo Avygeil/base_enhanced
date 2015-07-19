@@ -1129,8 +1129,8 @@ Jedi_HoldPosition
 
 static void Jedi_HoldPosition( void )
 {
-	NPCInfo->goalEntity = NULL;	
-}
+	NPCInfo->goalEntity = NULL;
+	}
 
 /*
 -------------------------
@@ -1198,7 +1198,7 @@ static qboolean Jedi_Hunt( void )
 	}
 	return qfalse;
 }
- 
+
 static void Jedi_Retreat( void )
 {
 	if ( !TIMER_Done( NPC, "noRetreat" ) )
@@ -1250,7 +1250,7 @@ static void Jedi_AdjustSaberAnimLevel( gentity_t *self, int newLevel )
 			self->client->ps.fd.saberAnimLevel = FORCE_LEVEL_2;
 			return;
 		}
-	}
+		}
 	//use the different attacks, how often they switch and under what circumstances
 	if ( newLevel > self->client->ps.fd.forcePowerLevel[FP_SABER_OFFENSE] )
 	{//cap it
@@ -1772,7 +1772,7 @@ static qboolean Jedi_Strafe( int strafeTimeMin, int strafeTimeMax, int nextStraf
 	}
 	return qfalse;
 }
-  
+
 //rwwFIXMEFIXME: Going to use qboolean Jedi_DodgeEvasion( gentity_t *self, gentity_t *shooter, trace_t *tr, int hitLoc ) from
 //w_saber.c.. maybe use seperate one for NPCs or add cases to that one?
 
@@ -2903,7 +2903,7 @@ evasionType_t Jedi_SaberBlockGo( gentity_t *self, usercmd_t *cmd, vec3_t pHitloc
 
 	}
 
-    {
+	{
 		int parryReCalcTime = Jedi_ReCalcParryTime( self, evasionType );
 		if ( self->client->ps.fd.forcePowerDebounce[FP_SABER_DEFENSE] < level.time + parryReCalcTime )
 		{
@@ -2933,7 +2933,7 @@ static qboolean Jedi_SaberBlock( int saberNum, int bladeNum ) //saberNum = 0, bl
 	{//can't move the saber to another position yet
 		return qfalse;
 	}
-	
+
 	if ( NPC->enemy->health <= 0 || !NPC->enemy->client )
 	{//don't keep blocking him once he's dead (or if not a client)
 		return qfalse;
@@ -4511,8 +4511,8 @@ static void Jedi_CheckEnemyMovement( float enemy_dist )
 					{//close
 						if ( Q_irand( 0, NPCInfo->rank ) < RANK_LT )
 						{//be nice and stand still for him...
-							vec3_t enemyFwd, dest, dir;  
-		
+							vec3_t enemyFwd, dest, dir;
+
 							//stop current movement
 							ucmd.forwardmove = ucmd.rightmove = ucmd.upmove = 0;
 							VectorClear( NPC->client->ps.moveDir );
@@ -4708,7 +4708,7 @@ static void Jedi_Combat( void )
 		if ( !Jedi_ClearPathToSpot( enemy_dest, NPC->enemy->s.number ) )
 		{//hunt him down
 			if ( (NPC_ClearLOS4( NPC->enemy )||NPCInfo->enemyLastSeenTime>level.time-500) && NPC_FaceEnemy( qtrue ) )
-			{    	
+						{
 				//FIXME: about every 1 second calc a velocity, 
 				//run a loop of traces with evaluate trajectory 
 				//for gravity with my size, see if it makes it...

@@ -2192,8 +2192,8 @@ int Pickup_Weapon (gentity_t *ent, gentity_t *other) {
 				quantity = quantity*0.5;		// only add half the value.
 			}
 
+			}
 		}
-	}
 
 	// add the weapon
 	other->client->ps.stats[STAT_WEAPONS] |= ( 1 << ent->item->giTag );

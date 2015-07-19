@@ -169,7 +169,7 @@ void NPC_RemoveBody( gentity_t *self )
 		if( self->client->playerTeam == NPCTEAM_ENEMY || self->client->NPC_class == CLASS_PROTOCOL )
 		{
 			self->nextthink = level.time + FRAMETIME; // try back in a second
-		}
+			}
 
 		//FIXME: there are some conditions - such as heavy combat - in which we want
 		//			to remove the bodies... but in other cases it's just weird, like
@@ -618,8 +618,8 @@ void NPC_HandleAIFlags (void)
 			//Drop enemy and see if we should search for him
 			NPC_LostEnemyDecideChase();
 		}
-	}
-    	
+				}
+
 	//been told to play a victory sound after a delay
 	if ( NPCInfo->greetingDebounceTime && NPCInfo->greetingDebounceTime < level.time )
 	{
@@ -670,7 +670,7 @@ void NPC_CheckAttackHold(void)
 		NPCInfo->attackHoldTime = 0;
 		return;
 	}
-  	{//everyone else...?  FIXME: need to tie this into AI somehow?
+	{//everyone else...?  FIXME: need to tie this into AI somehow?
 		VectorSubtract(NPC->enemy->r.currentOrigin, NPC->r.currentOrigin, vec);
 		if( VectorLengthSquared(vec) > NPC_MaxDistSquaredForWeapon() )
 		{
@@ -1383,7 +1383,7 @@ void NPC_ExecuteBState ( gentity_t *self)//, int msec )
 	//Pick the proper bstate for us and run it
 	NPC_RunBehavior( self->client->playerTeam, bState );
 	
-  	if ( NPC->enemy )
+	if ( NPC->enemy )
 	{
 		if ( !NPC->enemy->inuse )
 		{//just in case bState doesn't catch this
@@ -1439,7 +1439,7 @@ void NPC_ExecuteBState ( gentity_t *self)//, int msec )
 		{//Sniper pose
 			NPC_SetAnim(NPC,SETANIM_TORSO,TORSO_WEAPONREADY3,SETANIM_FLAG_NORMAL);
 		}
-	}
+		}
 	else if ( !NPC->enemy )//HACK!
 	{
 		{
@@ -1482,7 +1482,7 @@ void NPC_ExecuteBState ( gentity_t *self)//, int msec )
 
 	NPC_CheckPlayerAim();
 	NPC_CheckAllClear();
-}
+		}
 
 void NPC_CheckInSolid(void)
 {
@@ -1708,7 +1708,7 @@ void NPC_InitGame( void )
 
 	NPC_InitAI();
 
-}
+	}
 
 void NPC_SetAnim(gentity_t *ent, int setAnimParts, int anim, int setAnimFlags)
 {	// FIXME : once torsoAnim and legsAnim are in the same structure for NCP and Players

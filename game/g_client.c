@@ -853,7 +853,7 @@ Chooses a player start, deathmatch start, etc
 */
 gentity_t *SelectSpawnPoint ( vec3_t avoidPoint, vec3_t origin, vec3_t angles, team_t team ) {
 	return SelectRandomFurthestSpawnPoint( avoidPoint, origin, angles, team );
-}
+	}
 
 /*
 ===========
@@ -2249,7 +2249,7 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 	trap_GetUserinfo( clientNum, userinfo, sizeof( userinfo ) );
 
 	// check to see if they are on the banned IP list
-	value = Info_ValueForKey (userinfo, "ip");        
+	value = Info_ValueForKey (userinfo, "ip");
     if ( G_FilterPacket( value, reason, sizeof(reason) ) )
     {
 		G_LogPrintf("Filtered client (%s) attempts to connect.\n",value);
@@ -3957,7 +3957,7 @@ void ClientDisconnect( int clientNum ) {
 
     G_DbLogSessionEvent( ent->client->sess.sessionId, sessionEventDisconnected, "disconnected" );     
 
-	i = 0;   
+	i = 0;
 
 	while (i < NUM_FORCE_POWERS)
 	{

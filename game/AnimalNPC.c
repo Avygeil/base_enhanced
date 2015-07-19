@@ -106,8 +106,8 @@ static void DeathUpdate( Vehicle_t *pVeh )
 		{
 			// Waste this sucker.
 		}
-	}
-}
+				}
+			}
 
 // Like a think or move command, this updates various vehicle properties.
 static bool Update( Vehicle_t *pVeh, const usercmd_t *pUcmd )
@@ -355,8 +355,8 @@ static void ProcessOrientCommands( Vehicle_t *pVeh )
 #else
 		pVeh->m_vOrientation[YAW] = riderPS->viewangles[YAW];
 #endif
-	}
-}
+		}
+		}
 
 #ifdef _JK2MP //temp hack til mp speeder controls are sorted -rww
 void AnimalProcessOri(Vehicle_t *pVeh)

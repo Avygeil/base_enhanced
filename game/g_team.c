@@ -799,15 +799,15 @@ int Team_TouchOurFlag( gentity_t *ent, gentity_t *other, int team ) {
 		//check if this is enemy
 		if ((enemy->client->sess.sessionTeam != TEAM_RED && enemy->client->sess.sessionTeam != TEAM_BLUE) ||
 			enemy->client->sess.sessionTeam != enemyTeam){
-				continue;
-			}
-			
-			//check if enemy is closer to our flag than us
-			enemyDist = Distance(ent->s.pos.trBase,enemy->client->ps.origin);
-			if (enemyDist < dist){
-				return Team_TouchEnemyFlag( ent, enemy, team );
-			}
+			continue;
 		}
+			
+		//check if enemy is closer to our flag than us
+		enemyDist = Distance(ent->s.pos.trBase,enemy->client->ps.origin);
+		if (enemyDist < dist){
+			return Team_TouchEnemyFlag( ent, enemy, team );
+		}
+	}
 
 	PrintCTFMessage(other->s.number, team, CTFMESSAGE_PLAYER_CAPTURED_FLAG);
 

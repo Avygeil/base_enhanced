@@ -192,7 +192,7 @@ qboolean NAVNEW_DanceWithBlocker( gentity_t *self, gentity_t *blocker, vec3_t mo
 			VectorNormalize( movedir );
 			return qtrue;
 		}
-	}
+		}
 	return qfalse;
 }
 
@@ -764,4 +764,4 @@ failed:
 
 	//do this to avoid ping-ponging?
 	return WAYPOINT_NONE;
-}
+	}

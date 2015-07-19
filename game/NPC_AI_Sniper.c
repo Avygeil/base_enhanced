@@ -106,7 +106,7 @@ static void Sniper_HoldPosition( void )
 {
 	NPC_FreeCombatPoint( NPCInfo->combatPoint, qtrue );
 	NPCInfo->goalEntity = NULL;
-}
+	}
 
 /*
 -------------------------
@@ -378,7 +378,7 @@ static void Sniper_ResolveBlockedShot( void )
 			}
 		}
 	}
-}
+		}
 
 /*
 -------------------------

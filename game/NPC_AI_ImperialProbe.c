@@ -115,7 +115,7 @@ void ImperialProbe_MaintainHeight( void )
 		}
 
 		// Stay at a given height until we take on an enemy
-	}
+			}
 
 	// Apply friction
 	if ( NPC->client->ps.velocity[0] )
@@ -300,7 +300,7 @@ void ImperialProbe_Ranged( qboolean visible, qboolean advance )
 {
 	if ( TIMER_Done( NPC, "attackDelay" ) )	// Attack?
 	{
-  		TIMER_Set( NPC, "attackDelay", Q_irand( 500, 3000 ) );
+		TIMER_Set( NPC, "attackDelay", Q_irand( 500, 3000 ) );
 		ImperialProbe_FireBlaster();
 	}
 
@@ -395,7 +395,7 @@ void NPC_Probe_Pain(gentity_t *self, gentity_t *attacker, int damage)
 		trap_Trace( &trace, self->r.currentOrigin, NULL, NULL, endPos, self->s.number, MASK_SOLID );
 
 		if ( trace.fraction == 1.0f || mod == MOD_DEMP2 ) // demp2 always does this
-		{      			
+		{
 			if ( (mod == MOD_DEMP2 || mod == MOD_DEMP2_ALT) && other )
 			{
 				vec3_t dir;

@@ -129,7 +129,7 @@ void COM_DefaultExtension (char *path, int maxSize, const char *extension ) {
 	Q_strncpyz( oldPath, path, sizeof( oldPath ) );
 	Com_sprintf( path, maxSize, "%s%s", oldPath, extension );
 }
- 
+
 short   ShortSwap (short l)
 {
 	byte    b1,b2;
@@ -202,7 +202,7 @@ float FloatNoSwap (const float *f)
 {
 	return *f;
 }
-   
+
 /*
 ============================================================================
 
@@ -784,7 +784,7 @@ int Q_stricmpn (const char *s1, const char *s2, int n) {
     else if ( s2==NULL )
         return 1;
 
-
+ 
     do {
 		c1 = *s1++;
 		c2 = *s2++;
@@ -794,8 +794,8 @@ int Q_stricmpn (const char *s1, const char *s2, int n) {
 			c2 += 'a'-'A';
     } while ((--n > 0) && c1 == c2 && c1 != 0);
     return c1 - c2;
- 
-	
+
+
 }
 
 int Q_strncmp (const char *s1, const char *s2, int n) {
