@@ -661,6 +661,17 @@ void Svcmd_RemoveWhiteIP_f( void )
 	}
 
 
+void (listCallback)( const char* ip,
+    const char* mask,
+    const char* notes,
+    const char* reason,
+    const char* banned_since,
+    const char* banned_until )
+{
+    G_Printf( "%s %s \"%s\" \"%s\" %s %s\n",
+        ip, mask, notes, reason, banned_since, banned_until );
+}
+
 /*
 =================
 Svcmd_Listip_f
@@ -668,7 +679,9 @@ Svcmd_Listip_f
 */
 void Svcmd_Listip_f (void)
 {
-    G_DbListBlacklist();
+    G_Printf( "ip mask notes reason banned_since banned_until\n" );   
+
+    G_DbListBlacklist( listCallback );
 }
 
 		

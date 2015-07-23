@@ -8,21 +8,21 @@ const char* const databaseFileName = "enhanced.db";
 
 const char* const sqlCreateDatabase =
 "CREATE TABLE[accounts](                                                        "
-"[account_id] INTEGER PRIMARY KEY AUTOINCREMENT,                                "
-"[username] TEXT,                                                               "
-"[public_name] TEXT,                                                            "
-"[guid] TEXT );                                                                 "
+"    [account_id] INTEGER PRIMARY KEY AUTOINCREMENT,                            "
+"    [username] TEXT,                                                           "
+"    [public_name] TEXT,                                                        "
+"    [guid] TEXT );                                                             "
 "                                                                               "
 "                                                                               "
 "CREATE TABLE[sessions](                                                        "
-"[session_id] INTEGER PRIMARY KEY AUTOINCREMENT,                                "
-"[session_start] DATETIME,                                                      "
-"[session_end] DATETIME,                                                        "
-"[ip_A] INTEGER,                                                                "
-"[ip_B] INTEGER,                                                                "
-"[ip_C] INTEGER,                                                                "
-"[ip_D] INTEGER,                                                                "
-"[ip_port] INTEGER );                                                           "
+"    [session_id] INTEGER PRIMARY KEY AUTOINCREMENT,                            "
+"    [session_start] DATETIME,                                                  "
+"    [session_end] DATETIME,                                                    "
+"    [ip_A] INTEGER,                                                            "
+"    [ip_B] INTEGER,                                                            "
+"    [ip_C] INTEGER,                                                            "
+"    [ip_D] INTEGER,                                                            "
+"    [ip_port] INTEGER );                                                       "
 "                                                                               "
 "                                                                               "
 "CREATE TABLE[account_sessions](                                                "
@@ -71,10 +71,10 @@ const char* const sqlCreateDatabase =
 "                                                                               "
 "                                                                               "
 "CREATE TABLE[levels](                                                          "
-"[level_id] INTEGER PRIMARY KEY AUTOINCREMENT,                                  "
-"[level_start] DATETIME,                                                        "
-"[level_end] DATETIME,                                                          "
-"[mapname] TEXT );                                                              "
+"    [level_id] INTEGER PRIMARY KEY AUTOINCREMENT,                              "
+"    [level_start] DATETIME,                                                    "
+"    [level_end] DATETIME,                                                      "
+"    [mapname] TEXT );                                                          "
 "                                                                               "
 "                                                                               "
 "CREATE TABLE[session_events_enum](                                             "
@@ -93,7 +93,19 @@ const char* const sqlCreateDatabase =
 "CREATE TABLE[session_stats](                                                   "
 "    [session_id] INTEGER REFERENCES[sessions]( [session_id] ),                 "
 "    [accuracy_hits] INTEGER,                                                   "
-"    [accuracy_shots] INTEGER );                                                "; 
+"    [accuracy_shots] INTEGER );                                                "
+"                                                                               "
+"                                                                               "
+"CREATE TABLE[pools](                                                           "
+"    [pool_id] INTEGER PRIMARY KEY AUTOINCREMENT,                               "
+"    [short_name] TEXT,                                                         "
+"    [long_name] TEXT );                                                        " 
+"                                                                               "
+"                                                                               "
+"CREATE TABLE[pool_has_map](                                                    "
+"    [pool_id] INTEGER REFERENCES[pools]( [pool_id] ),                          "
+"    [mapname] TEXT,                                                            "
+"    [weight] INTEGER );                                                        "; 
 
 const char* const sqlIsIpBlacklisted =
 "SELECT reason                           "
@@ -158,7 +170,18 @@ const char* const sqllogSessionEnd =
 
 const char* const sqlAddSessionEvent =
 "INSERT INTO session_events (session_id, event_time, event_id, event_context)     "
-"VALUES (?,datetime('now'),?,?)                                                  ";
+"VALUES (?,datetime('now'),?,?)                                                   ";
+
+const char* const sqlListPools =
+"SELECT sums.pool_id, mapname, weight, (weight*100.0 / sum)   "
+"FROM                                                         "
+"( SELECT maps1.pool_id, SUM( maps1.weight ) AS sum           "
+"FROM pools                                                   "
+"JOIN pool_has_map AS maps1                                   "
+"ON pools.pool_id = maps1.pool_id                             "
+"GROUP BY maps1.pool_id ) AS sums                             "
+"JOIN pool_has_map AS maps2                                   "
+"ON sums.pool_id = maps2.pool_id                              ";
 
 //
 //  G_DbLoad
@@ -395,13 +418,11 @@ qboolean G_DbAddToWhitelist( const char* ip,
 // 
 //  Lists contents of blacklist
 //
-void G_DbListBlacklist()
+void G_DbListBlacklist( BlackListCallback  callback)
 {
     sqlite3_stmt* statement;
     // prepare insert statement
     int rc = sqlite3_prepare( db, sqlListBlacklist, -1, &statement, 0 );
-
-    G_Printf( "ip mask notes reason banned_since banned_until\n" );
 
     rc = sqlite3_step( statement );
     while ( rc == SQLITE_ROW )
@@ -413,8 +434,7 @@ void G_DbListBlacklist()
         const char* banned_since = sqlite3_column_text( statement, 4 );
         const char* banned_until = sqlite3_column_text( statement, 5 );
 
-        G_Printf("%s %s \"%s\" \"%s\" %s %s\n",
-            ip, mask, notes, reason, banned_since, banned_until );
+        callback( ip, mask, notes, reason, banned_since, banned_until );
 
         rc = sqlite3_step( statement );
     }
@@ -628,6 +648,32 @@ int G_DbLogSessionEvent( int sessionId,
 
     sqlite3_finalize( statement );
 
-    return sessionId;
-    
+    return sessionId;         
+}
+
+//
+//  G_DbListPools
+// 
+//  List all map pools
+//
+void G_DbListPools( ListPoolCallback callback)
+{
+    sqlite3_stmt* statement;
+    // prepare insert statement
+    int rc = sqlite3_prepare( db, sqlListPools, -1, &statement, 0 );
+
+    rc = sqlite3_step( statement );
+    while ( rc == SQLITE_ROW )
+    {
+        int pool_id = sqlite3_column_int( statement, 0 );
+        const char* mapname = sqlite3_column_text( statement, 1 );
+        int weight = sqlite3_column_int( statement, 2 );
+        double weight_perc = sqlite3_column_double( statement, 3 );
+
+        callback( pool_id, mapname, weight, weight_perc );
+
+        rc = sqlite3_step( statement );
+    }
+
+    sqlite3_finalize( statement );       
 }

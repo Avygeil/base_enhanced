@@ -25,6 +25,13 @@ qboolean G_DbIsFilteredByWhitelist( int ipA,
     int reasonBufferSize );
 
 // blacklist stuff
+typedef void( *BlackListCallback )(const char* ip,
+    const char* mask,
+    const char* notes,
+    const char* reason,
+    const char* banned_since,
+    const char* banned_until);
+
 void G_DbListBlacklist();
 
 qboolean G_DbAddToBlacklist( const char* ip,
@@ -59,6 +66,14 @@ int G_DbLogSessionEvent(int sessionId,
     int eventId, 
     const char* eventContext);
 
+
+// pools stuff
+typedef void( *ListPoolCallback )(int pool_id,
+    const char* mapname, 
+    int weight, 
+    double weight_perc);
+
+void G_DbListPools();
 
 
 #endif //G_DATABASE_H
