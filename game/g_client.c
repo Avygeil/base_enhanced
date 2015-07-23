@@ -2491,10 +2491,9 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 
     if ( firstTime )
     {
-        int sessionId = G_DbLogSession( client->sess.ipString );
+        int sessionId = G_DbLogSessionStart( client->sess.ipString );
         ent->client->sess.sessionId = sessionId;
 
-        G_DbLogSessionEvent( ent->client->sess.sessionId, sessionEventConnected, "connected" );
         G_DbLogSessionEvent( ent->client->sess.sessionId, sessionEventName, client->pers.netname );
     }
 
@@ -3955,7 +3954,7 @@ void ClientDisconnect( int clientNum ) {
 		return;
 	}
 
-    G_DbLogSessionEvent( ent->client->sess.sessionId, sessionEventDisconnected, "disconnected" );     
+    G_DbLogSessionEnd( ent->client->sess.sessionId );
 
 	i = 0;
 

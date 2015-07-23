@@ -1014,6 +1014,12 @@ typedef struct {
             int time;
     } pause;
 
+    struct
+    {
+        int levelId;
+
+    } db;
+
 } level_locals_t;
 
 

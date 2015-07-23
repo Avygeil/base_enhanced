@@ -39,7 +39,8 @@ qboolean G_DbRemoveFromBlacklist( const char* ip,
 qboolean G_DbIsFilteredByBlacklist( int ipA, int ipB, int ipC, int ipD, char* reasonBuffer, int reasonBufferSize );
 
 // level stuff   
-void G_DbLogLevel();
+int G_DbLogLevelStart();
+void G_DbLogLevelEnd( int levelId );
 
 typedef enum
 {
@@ -51,7 +52,8 @@ typedef enum
 } SessionEvent;
 
 // session stuff
-int G_DbLogSession(const char* ip);
+int G_DbLogSessionStart(const char* ip);
+void G_DbLogSessionEnd( int sessionId );
 
 int G_DbLogSessionEvent(int sessionId, 
     int eventId, 

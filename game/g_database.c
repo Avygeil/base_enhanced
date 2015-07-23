@@ -15,9 +15,14 @@ const char* const sqlCreateDatabase =
 "                                                                               "
 "                                                                               "
 "CREATE TABLE[sessions](                                                        "
-"    [session_id] INTEGER PRIMARY KEY AUTOINCREMENT,                            "
-"    [session_start] DATETIME,                                                  "
-"    [ip_text] TEXT );                                                          "
+"[session_id] INTEGER PRIMARY KEY AUTOINCREMENT,                                "
+"[session_start] DATETIME,                                                      "
+"[session_end] DATETIME,                                                        "
+"[ip_A] INTEGER,                                                                "
+"[ip_B] INTEGER,                                                                "
+"[ip_C] INTEGER,                                                                "
+"[ip_D] INTEGER,                                                                "
+"[ip_port] INTEGER );                                                           "
 "                                                                               "
 "                                                                               "
 "CREATE TABLE[account_sessions](                                                "
@@ -66,9 +71,10 @@ const char* const sqlCreateDatabase =
 "                                                                               "
 "                                                                               "
 "CREATE TABLE[levels](                                                          "
-"    [level_id] INTEGER PRIMARY KEY AUTOINCREMENT,                              "
-"    [started_at] DATETIME,                                                     "
-"    [mapname] TEXT );                                                          "
+"[level_id] INTEGER PRIMARY KEY AUTOINCREMENT,                                  "
+"[level_start] DATETIME,                                                        "
+"[level_end] DATETIME,                                                          "
+"[mapname] TEXT );                                                              "
 "                                                                               "
 "                                                                               "
 "CREATE TABLE[session_events_enum](                                             "
@@ -132,13 +138,23 @@ const char* const sqlremoveFromWhitelist =
 "WHERE ip_A = ? AND ip_B = ? AND ip_C = ? AND ip_D = ?      "
 "AND mask_A = ? AND mask_B = ? AND mask_C = ? AND mask_D = ?";
 
-const char* const sqlLogLevel =
-"INSERT INTO levels (started_at, mapname) "
-"VALUES (datetime('now'),?)               ";
+const char* const sqlLogLevelStart =
+"INSERT INTO levels (level_start, mapname) "
+"VALUES (datetime('now'),?)                ";
+         
+const char* const sqlLogLevelEnd =
+"UPDATE levels                      "
+"SET level_end = datetime( 'now' )  "
+"WHERE level_id = ? ;               ";       
 
-const char* const sqlAddSession =
-"INSERT INTO sessions (session_start, ip_text)     "
-"VALUES (datetime('now'),?)                        ";
+const char* const sqllogSessionStart =
+"INSERT INTO sessions (session_start, ip_A, ip_B, ip_C, ip_D, ip_port)     "
+"VALUES (datetime('now'),?,?,?,?,?)                                        ";
+
+const char* const sqllogSessionEnd =
+"UPDATE sessions                      "
+"SET session_end = datetime( 'now' )  "
+"WHERE session_id = ? ;               ";
 
 const char* const sqlAddSessionEvent =
 "INSERT INTO session_events (session_id, event_time, event_id, event_context)     "
@@ -181,11 +197,11 @@ void G_DbUnload()
 }
 
 //
-//  G_DbLogLevel
+//  G_DbLogLevelStart
 // 
 //  Logs current level (map) to the database
 //
-void G_DbLogLevel()
+int G_DbLogLevelStart()
 {
     int rc = -1;
     sqlite3_stmt* statement;
@@ -195,12 +211,35 @@ void G_DbLogLevel()
     trap_Cvar_VariableStringBuffer( "mapname", mapname, sizeof( mapname ) );
 
     // prepare insert statement
-    rc = sqlite3_prepare( db, sqlLogLevel, -1, &statement, 0 );
+    rc = sqlite3_prepare( db, sqlLogLevelStart, -1, &statement, 0 );
     sqlite3_bind_text( statement, 1, mapname, -1, 0 );
 
     rc = sqlite3_step( statement );
 
+    int levelId = sqlite3_last_insert_rowid( db );
+
     sqlite3_finalize( statement );   
+
+    return levelId;
+}
+
+//
+//  G_DbLogLevelEnd
+// 
+//  Logs current level (map) to the database
+//
+void G_DbLogLevelEnd(int levelId)
+{
+    int rc = -1;
+    sqlite3_stmt* statement;
+
+    // prepare update statement
+    rc = sqlite3_prepare( db, sqlLogLevelEnd, -1, &statement, 0 );
+    sqlite3_bind_int( statement, 1, levelId );
+
+    rc = sqlite3_step( statement );
+
+    sqlite3_finalize( statement );
 }
 
 //
@@ -519,17 +558,27 @@ qboolean G_DbRemoveFromWhitelist( const char* ip,
 }
 
 //
-//  G_DbLogSession
+//  G_DbLogSessionStart
 // 
-//  Logs players connection session
+//  Logs players connection session start
 //
-int G_DbLogSession( const char* ip )
+int G_DbLogSessionStart( const char* ip )
 {
     sqlite3_stmt* statement;
     // prepare insert statement
-    int rc = sqlite3_prepare( db, sqlAddSession, -1, &statement, 0 );
+    int rc = sqlite3_prepare( db, sqllogSessionStart, -1, &statement, 0 );
 
-    sqlite3_bind_text( statement, 1, ip, -1, 0 );
+    int ipA = 0, ipB = 0, ipC = 0, ipD = 0, ipPort = 0;
+    qboolean success = qfalse;
+
+    // parse ip address and mask
+    sscanf( ip, "%d.%d.%d.%d:%d", &ipA, &ipB, &ipC, &ipD, &ipPort );
+
+    sqlite3_bind_int( statement, 1, ipA );
+    sqlite3_bind_int( statement, 2, ipB );
+    sqlite3_bind_int( statement, 3, ipC );
+    sqlite3_bind_int( statement, 4, ipD );
+    sqlite3_bind_int( statement, 5, ipPort );
 
     rc = sqlite3_step( statement );
 
@@ -538,6 +587,24 @@ int G_DbLogSession( const char* ip )
     sqlite3_finalize( statement );
     
     return sessionId;
+}
+
+//
+//  G_DbLogSessionEnd
+// 
+//  Logs players connection session end
+//
+void G_DbLogSessionEnd( int sessionId )
+{
+    sqlite3_stmt* statement;
+    // prepare insert statement
+    int rc = sqlite3_prepare( db, sqllogSessionEnd, -1, &statement, 0 );
+
+    sqlite3_bind_int( statement, 1, sessionId );
+
+    rc = sqlite3_step( statement );
+
+    sqlite3_finalize( statement );
 }
 
 //

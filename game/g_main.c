@@ -1439,7 +1439,7 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 //#endif
 
     G_DbLoad();
-    G_DbLogLevel();
+    level.db.levelId = G_DbLogLevelStart();
 }
 
 
@@ -1532,6 +1532,7 @@ void G_ShutdownGame( int restart ) {
 	// accounts system
 	//cleanDB();
 
+    G_DbLogLevelEnd(level.db.levelId);
     G_DbUnload();
 
 //#if 0
