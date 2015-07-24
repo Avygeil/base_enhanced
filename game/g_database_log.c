@@ -81,7 +81,7 @@ const char* const sqlAddSessionEvent =
 "VALUES (?,datetime('now'),?,?)                                                   ";
 
 //
-//  G_DbLoad
+//  G_LogDbLoad
 // 
 //  Loads the database from disk, including creating of not exists
 //  or if it is corrupted
@@ -104,7 +104,7 @@ void G_LogDbLoad()
 
 
 //
-//  G_DbUnload
+//  G_LogDbUnload
 // 
 //  Unloads the database from memory, includes flushing it 
 //  to the file.
@@ -117,7 +117,7 @@ void G_LogDbUnload()
 }
 
 //
-//  G_DbLogLevelStart
+//  G_LogDbLogLevelStart
 // 
 //  Logs current level (map) to the database
 //
@@ -145,7 +145,7 @@ int G_LogDbLogLevelStart(qboolean isRestart)
 }
 
 //
-//  G_DbLogLevelEnd
+//  G_LogDbLogLevelEnd
 // 
 //  Logs current level (map) to the database
 //
@@ -164,7 +164,7 @@ void G_LogDbLogLevelEnd( int levelId )
 }
  
 //
-//  G_DbLogSessionStart
+//  G_LogDbLogSessionStart
 // 
 //  Logs players connection session start
 //
@@ -196,7 +196,7 @@ int G_LogDbLogSessionStart( const char* ip )
 }
 
 //
-//  G_DbLogSessionEnd
+//  G_LogDbLogSessionEnd
 // 
 //  Logs players connection session end
 //
@@ -214,7 +214,7 @@ void G_LogDbLogSessionEnd( int sessionId )
 }
 
 //
-//  G_DbLogSessionEvent
+//  G_LogDbLogSessionEvent
 // 
 //  Logs players connection session event
 //

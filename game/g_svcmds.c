@@ -1091,7 +1091,7 @@ void Svcmd_PoolDelete_f()
 
     if ( !G_CfgDbPoolDelete( short_name ))
     {
-        G_Printf( "Failed delete pool '%s'.\n", short_name );
+        G_Printf( "Failed to delete pool '%s'.\n", short_name );
     }
 
 

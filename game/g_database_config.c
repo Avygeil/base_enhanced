@@ -150,7 +150,7 @@ const char* const sqlRemoveMapToPool =
 
 
 //
-//  G_DbLoad
+//  G_CfgDbLoad
 // 
 //  Loads the database from disk, including creating of not exists
 //  or if it is corrupted
@@ -172,7 +172,7 @@ void G_CfgDbLoad()
 }
     
 //
-//  G_DbUnload
+//  G_CfgDbUnload
 // 
 //  Unloads the database from memory, includes flushing it 
 //  to the file.
@@ -185,12 +185,14 @@ void G_CfgDbUnload()
 }
 
 //
-//  G_DbIsFiltered
+//  G_CfgDbIsFiltered
 // 
 //  Checks if given ip is forbidden to join the game based
 //  on blacklist/whitelist mechanisms.
 //
-qboolean G_CfgDbIsFiltered( const char* ip, char* reasonBuffer, int reasonBufferSize )
+qboolean G_CfgDbIsFiltered( const char* ip, 
+    char* reasonBuffer, 
+    int reasonBufferSize )
 {
     int ipA = 0, ipB = 0, ipC = 0, ipD = 0;
     int port = 0;
@@ -214,12 +216,17 @@ qboolean G_CfgDbIsFiltered( const char* ip, char* reasonBuffer, int reasonBuffer
 }
 
 //
-//  G_DbIsFilteredByWhitelist
+//  G_CfgDbIsFilteredByWhitelist
 // 
 //  Helper method to check if given ip address is white listed
 //  according to database.
 //
-qboolean G_CfgDbIsFilteredByWhitelist( int ipA, int ipB, int ipC, int ipD, char* reasonBuffer, int reasonBufferSize )
+qboolean G_CfgDbIsFilteredByWhitelist( int ipA, 
+    int ipB, 
+    int ipC,
+    int ipD, 
+    char* reasonBuffer, 
+    int reasonBufferSize )
 {
     qboolean filtered = qfalse;
 
@@ -249,7 +256,7 @@ qboolean G_CfgDbIsFilteredByWhitelist( int ipA, int ipB, int ipC, int ipD, char*
 }
 
 //
-//  G_DbIsFilteredByBlacklist
+//  G_CfgDbIsFilteredByBlacklist
 // 
 //  Helper method to check if given ip address is black listed
 //  according to database.
@@ -288,7 +295,7 @@ qboolean G_CfgDbIsFilteredByBlacklist( int ipA, int ipB, int ipC, int ipD, char*
 }
 
 //
-//  G_DbAddToWhitelist
+//  G_CfgDbAddToWhitelist
 // 
 //  Adds ip address to whitelist
 //
@@ -333,7 +340,7 @@ qboolean G_CfgDbAddToWhitelist( const char* ip,
 }
 
 //
-//  G_DbListBlacklist
+//  G_CfgDbListBlacklist
 // 
 //  Lists contents of blacklist
 //
@@ -361,7 +368,7 @@ void G_CfgDbListBlacklist( BlackListCallback  callback )
     sqlite3_finalize( statement ); 
 }
 //
-//  G_DbAddToBlacklist
+//  G_CfgDbAddToBlacklist
 // 
 //  Adds ip address to blacklist
 //
@@ -411,7 +418,7 @@ qboolean G_CfgDbAddToBlacklist( const char* ip,
 }
 
 //
-//  G_DbRemoveFromBlacklist
+//  G_CfgDbRemoveFromBlacklist
 // 
 //  Removes ip address from blacklist
 //
@@ -454,7 +461,7 @@ qboolean G_CfgDbRemoveFromBlacklist( const char* ip,
 }
 
 //
-//  G_DbRemoveFromWhitelist
+//  G_CfgDbRemoveFromWhitelist
 // 
 //  Removes ip address from whitelist
 //
@@ -497,7 +504,7 @@ qboolean G_CfgDbRemoveFromWhitelist( const char* ip,
 }
    
 //
-//  G_DbListPools
+//  G_CfgDbListPools
 // 
 //  List all map pools
 //
@@ -523,7 +530,7 @@ void G_CfgDbListPools( ListPoolCallback callback, void* context )
 }
 
 //
-//  G_DbListPools
+//  G_CfgDbListMapsInPool
 // 
 //  List maps in pool
 //
@@ -556,7 +563,7 @@ void G_CfgDbListMapsInPool( const char* short_name,
 }
 
 //
-//  G_DbFindPool
+//  G_CfgDbFindPool
 // 
 //  Finds pool
 //
@@ -626,7 +633,7 @@ void selectMapCallback( void* context,
 }
 
 //
-//  G_DbGetPoolWeight
+//  G_CfgDbGetPoolWeight
 // 
 //  Gets sum of weights of maps in pool
 //
@@ -653,7 +660,7 @@ int G_CfgDbGetPoolWeight( const char* short_name,
 }
 
 //
-//  G_DbSelectMapFromPool
+//  G_CfgDbSelectMapFromPool
 // 
 //  Selects map from pool
 //
@@ -691,6 +698,11 @@ qboolean G_CfgDbSelectMapFromPool( const char* short_name,
     return qfalse;   
 }
    
+//
+//  G_CfgDbPoolCreate
+// 
+//  Creates pool
+//
 qboolean G_CfgDbPoolCreate( const char* short_name, const char* long_name )
 {
     qboolean success = qfalse;
@@ -713,6 +725,11 @@ qboolean G_CfgDbPoolCreate( const char* short_name, const char* long_name )
     return success;
 }
 
+//
+//  G_CfgDbPoolDelete
+// 
+//  Deletes pool
+//
 qboolean G_CfgDbPoolDelete( const char* short_name )
 {         
     qboolean success = qfalse;
@@ -734,6 +751,11 @@ qboolean G_CfgDbPoolDelete( const char* short_name )
     return success;
 }
 
+//
+//  G_CfgDbPoolMapAdd
+// 
+//  Adds map into pool
+//
 qboolean G_CfgDbPoolMapAdd( const char* short_name, const char* mapname, int weight )
 {    
     qboolean success = qfalse;
@@ -757,6 +779,11 @@ qboolean G_CfgDbPoolMapAdd( const char* short_name, const char* mapname, int wei
     return success;
 }
 
+//
+//  G_CfgDbPoolMapRemove
+// 
+//  Removes map from pool
+//
 qboolean G_CfgDbPoolMapRemove( const char* short_name, const char* mapname )
 {
     qboolean success = qfalse;
