@@ -8,7 +8,7 @@
 
 //#include "accounts.h"
 #include "jp_engine.h"
-#include "g_database.h"
+#include "g_database_log.h"
 
 level_locals_t	level;
 
@@ -1385,7 +1385,6 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 
 	G_LoadArenas(); //*CHANGE 93* loading map list not dependant on bot_enable cvar
     G_InitVoteMapsLimit();
-    G_LoadVoteMapsPools();
 
 	if ( trap_Cvar_VariableIntegerValue( "bot_enable" ) ) {
 		BotAISetup( restart );
@@ -1438,8 +1437,9 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 	}
 //#endif
 
-    G_DbLoad();
-    level.db.levelId = G_DbLogLevelStart();
+    G_CfgDbLoad();
+    G_LogDbLoad();
+    level.db.levelId = G_LogDbLogLevelStart();
 }
 
 
@@ -1532,8 +1532,10 @@ void G_ShutdownGame( int restart ) {
 	// accounts system
 	//cleanDB();
 
-    G_DbLogLevelEnd(level.db.levelId);
-    G_DbUnload();
+    G_LogDbLogLevelEnd(level.db.levelId);
+
+    G_CfgDbUnload();
+    G_LogDbUnload();
 
 //#if 0
 	UnpatchEngine();

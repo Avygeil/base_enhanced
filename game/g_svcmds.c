@@ -4,7 +4,8 @@
 // this file holds commands that can be executed by the server console, but not remote clients
 
 #include "g_local.h"
-#include "g_database.h"
+#include "g_database_log.h"
+#include "g_database_config.h"
 
 void Team_ResetFlags( void );
 /*
@@ -349,7 +350,7 @@ G_FilterPacket
 */
 qboolean G_FilterPacket( char *from, char* reasonBuffer, int reasonBufferSize )
 {
-    return G_DbIsFiltered( from, reasonBuffer, reasonBufferSize );
+    return G_CfgDbIsFiltered( from, reasonBuffer, reasonBufferSize );
 	}
 
 /*
@@ -523,7 +524,7 @@ void Svcmd_AddIP_f (void)
         hours = atoi( hoursStr );        
 		    }  	
 
-    if (G_DbAddToBlacklist( ip, mask, notes, reason, hours ))
+    if ( G_CfgDbAddToBlacklist( ip, mask, notes, reason, hours ) )
     {
         G_Printf( "Added %s to blacklist successfuly.\n", ip );
         }
@@ -562,7 +563,7 @@ void Svcmd_RemoveIP_f (void)
         trap_Argv( 2, mask, sizeof( mask ) );
 }
 
-    if (G_DbRemoveFromBlacklist( ip, mask ))
+    if ( G_CfgDbRemoveFromBlacklist( ip, mask ) )
     {
         G_Printf( "Removed %s from blacklist successfuly.\n", ip );
     }
@@ -610,7 +611,7 @@ void Svcmd_AddWhiteIP_f( void )
         trap_Argv( 3, notes, sizeof( notes ) );
     }  
 
-    if ( G_DbAddToWhitelist( ip, mask, notes ) )
+    if ( G_CfgDbAddToWhitelist( ip, mask, notes ) )
     {
         G_Printf( "Added %s to whitelist successfuly.\n", ip );
     }
@@ -650,7 +651,7 @@ void Svcmd_RemoveWhiteIP_f( void )
         trap_Argv( 2, mask, sizeof( mask ) );
     }
 
-    if (G_DbRemoveFromWhitelist( ip, mask ))
+    if ( G_CfgDbRemoveFromWhitelist( ip, mask ) )
     {
         G_Printf( "Removed %s from whitelist successfuly.\n", ip );
     }
@@ -681,7 +682,7 @@ void Svcmd_Listip_f (void)
 {
     G_Printf( "ip mask notes reason banned_since banned_until\n" );   
 
-    G_DbListBlacklist( listCallback );
+    G_CfgDbListBlacklist( listCallback );
 }
 
 		
@@ -1035,44 +1036,27 @@ void Svcmd_AccountPrintAll_f(){
 }
 */
 
-extern MapPool pools[64];
-extern int poolNum;
-
 void Svcmd_MapRandom_f()
 {
-	char pool[MAX_MAP_POOL_ID];
-	int  i;
+	char pool[64];
 
 	if (trap_Argc() < 1)
 	{
 		return;
-	}
+	}       
 
-	trap_Argv(1, pool, sizeof(pool));
+    trap_Argv( 1, pool, sizeof( pool ) );
+    static char currentMap[MAX_MAP_NAME];
+    trap_Cvar_VariableStringBuffer( "mapname", currentMap, sizeof( currentMap ) );
+    MapInfo mapInfo;
 
-	// find corresponding pool
-	for (i = 0; i < poolNum; ++i)
-	{
-		if (!Q_stricmpn(pools[i].id, pool, MAX_MAP_POOL_ID))
-		{ // found pool
-			static char mapname[MAX_MAP_NAME];
-			int  map = rand() % pools[i].mapsCount;
+    if ( G_CfgDbSelectMapFromPool( pool, currentMap, &mapInfo ) )
+    {
+        trap_SendConsoleCommand( EXEC_APPEND, va( "map %s\n", mapInfo.mapname ) );
+        return;
+    }
 
-			// check if this is not the current map
-			trap_Cvar_VariableStringBuffer("mapname", mapname, sizeof(mapname));
-
-			if (!Q_stricmpn(mapname, pools[i].maplist[map], MAX_MAP_NAME) && pools[i].mapsCount > 1)
-			{
-				// dont change to current map, shift
-				map = (map + 1 + (rand() % (pools[i].mapsCount - 1))) % pools[i].mapsCount;
-			}		
-
-			trap_SendConsoleCommand(EXEC_APPEND, va("map %s\n", pools[i].maplist[map]));
-			return;
-		}
-	}
-
-	G_Printf("Map pool %s not found\n", pool);
+    G_Printf( "Map pool %s not found\n", pool );
 }
 
 char	*ConcatArgs( int start );

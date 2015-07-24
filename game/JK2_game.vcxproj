@@ -39,7 +39,8 @@
     <ClInclude Include="chars.h" />
     <ClInclude Include="disablewarnings.h" />
     <ClInclude Include="G2.h" />
-    <ClInclude Include="g_database.h" />
+    <ClInclude Include="g_database_config.h" />
+    <ClInclude Include="g_database_log.h" />
     <ClInclude Include="g_headers.h" />
     <ClInclude Include="g_ICARUScb.h" />
     <ClInclude Include="g_local.h" />
@@ -91,7 +92,8 @@
     <ClCompile Include="g_cmds.c" />
     <ClCompile Include="g_combat.c" />
     <ClCompile Include="g_crash.c" />
-    <ClCompile Include="g_database.c" />
+    <ClCompile Include="g_database_config.c" />
+    <ClCompile Include="g_database_log.c" />
     <ClCompile Include="g_exphysics.c" />
     <ClCompile Include="g_ICARUScb.c" />
     <ClCompile Include="g_items.c" />

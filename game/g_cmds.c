@@ -2,7 +2,8 @@
 //
 #include "g_local.h"
 #include "bg_saga.h"
-#include "g_database.h"
+#include "g_database_log.h"
+#include "g_database_config.h"
 
 #include "menudef.h"			// for the voice chats
 
@@ -904,7 +905,7 @@ void SetTeam( gentity_t *ent, char *s ) {
             teamName = "spec";
             break;
     }  
-    G_DbLogSessionEvent( client->sess.sessionId, sessionEventTeam, teamName );
+    G_LogDbLogSessionEvent( client->sess.sessionId, sessionEventTeam, teamName );
 
 	//make a disappearing effect where they were before teleporting them to the appropriate spawn point,
 	//if we were not on the spec team
@@ -1975,100 +1976,100 @@ int G_ClientNumberFromStrippedName ( const char* name )
 	return -1;
 }
 
-MapPool pools[64];
-int poolNum = 0;
+//MapPool pools[64];
+//int poolNum = 0;
+//
+//void G_LoadMapPool(const char* filename)
+//{
+//	int				len;
+//	fileHandle_t	f;
+//	int             map;
+//	static char		buf[MAX_POOLS_TEXT];
+//	char			*line;
+//
+//	if (poolNum == MAX_MAPS_IN_POOL)
+//		return;
+//
+//	if (strlen(filename) > MAX_MAP_POOL_ID)
+//		return;
+//
+//	// open map pool file
+//	len = trap_FS_FOpenFile(filename, &f, FS_READ);
+//	if (!f) {
+//		trap_Printf(va(S_COLOR_RED "file not found: %s\n", filename));
+//		return;
+//	}
+//
+//	if (len >= MAX_POOLS_TEXT) {
+//		trap_Printf(va(S_COLOR_RED "file too large: %s is %i, max allowed is %i", filename, len, MAX_ARENAS_TEXT));
+//		trap_FS_FCloseFile(f);
+//		return;
+//	}
+//
+//	trap_FS_Read(buf, len, f);
+//	buf[len] = 0;
+//	trap_FS_FCloseFile(f);
+//
+//	// store file name as an id
+//	COM_StripExtension(filename, pools[poolNum].id);
+//
+//	line = strtok(buf, "\r\n");
+//	if (!line)
+//	{
+//		Com_Printf("Pool %s is corrupted\n", filename);
+//		return;
+//	}
+//
+//	// long name for votes	
+//	Q_strncpyz(pools[poolNum].longname, line, MAX_MAP_POOL_LONGNAME);
+//
+//	// cycle through all arenas
+//	map = 0;
+//	while ( (line = strtok(0, "\r\n")) )
+//	{
+//		const char* error;
+//		Q_strncpyz(pools[poolNum].maplist[map], line, MAX_MAP_NAME);
+//
+//		// check the arena validity (exists and supports current gametype)
+//		// TBD optimize arena search, hash map perhaps
+//		error = G_DoesMapSupportGametype(pools[poolNum].maplist[map], g_gametype.integer);
+//		if (!error)
+//		{
+//			++map;
+//		}
+//		else
+//		{
+//		}
+//	}
+//
+//	pools[poolNum].mapsCount = map;
+//
+//	Com_Printf("Loaded map pool %s, maps %i\n", filename, pools[poolNum].mapsCount);
+//
+//	++poolNum;
+//}
 
-void G_LoadMapPool(const char* filename)
-{
-	int				len;
-	fileHandle_t	f;
-	int             map;
-	static char		buf[MAX_POOLS_TEXT];
-	char			*line;
-
-	if (poolNum == MAX_MAPS_IN_POOL)
-		return;
-
-	if (strlen(filename) > MAX_MAP_POOL_ID)
-		return;
-
-	// open map pool file
-	len = trap_FS_FOpenFile(filename, &f, FS_READ);
-	if (!f) {
-		trap_Printf(va(S_COLOR_RED "file not found: %s\n", filename));
-		return;
-	}
-
-	if (len >= MAX_POOLS_TEXT) {
-		trap_Printf(va(S_COLOR_RED "file too large: %s is %i, max allowed is %i", filename, len, MAX_ARENAS_TEXT));
-		trap_FS_FCloseFile(f);
-		return;
-	}
-
-	trap_FS_Read(buf, len, f);
-	buf[len] = 0;
-	trap_FS_FCloseFile(f);
-
-	// store file name as an id
-	COM_StripExtension(filename, pools[poolNum].id);
-
-	line = strtok(buf, "\r\n");
-	if (!line)
-	{
-		Com_Printf("Pool %s is corrupted\n", filename);
-		return;
-	}
-
-	// long name for votes	
-	Q_strncpyz(pools[poolNum].longname, line, MAX_MAP_POOL_LONGNAME);
-
-	// cycle through all arenas
-	map = 0;
-	while ( (line = strtok(0, "\r\n")) )
-	{
-		const char* error;
-		Q_strncpyz(pools[poolNum].maplist[map], line, MAX_MAP_NAME);
-
-		// check the arena validity (exists and supports current gametype)
-		// TBD optimize arena search, hash map perhaps
-		error = G_DoesMapSupportGametype(pools[poolNum].maplist[map], g_gametype.integer);
-		if (!error)
-		{
-			++map;
-		}
-		else
-		{
-		}
-	}
-
-	pools[poolNum].mapsCount = map;
-
-	Com_Printf("Loaded map pool %s, maps %i\n", filename, pools[poolNum].mapsCount);
-
-	++poolNum;
-}
-
-void G_LoadVoteMapsPools()
-{
-	int			numdirs;
-	char		filename[128];
-	char		dirlist[4096];
-	char*		dirptr;
-	int			dirlen;
-	int         i;
-
-	// load all .pool files
-	numdirs = trap_FS_GetFileList("", ".pool", dirlist, sizeof(dirlist));
-	dirptr = dirlist;
-
-	for (i = 0; i < numdirs; i++, dirptr += dirlen + 1)
-	{
-		dirlen = strlen(dirptr);
-		strcpy(filename, dirptr);
-		G_LoadMapPool(filename);
-	}
-
-}
+//void G_LoadVoteMapsPools()
+//{
+//	int			numdirs;
+//	char		filename[128];
+//	char		dirlist[4096];
+//	char*		dirptr;
+//	int			dirlen;
+//	int         i;
+//
+//	// load all .pool files
+//	numdirs = trap_FS_GetFileList("", ".pool", dirlist, sizeof(dirlist));
+//	dirptr = dirlist;
+//
+//	for (i = 0; i < numdirs; i++, dirptr += dirlen + 1)
+//	{
+//		dirlen = strlen(dirptr);
+//		strcpy(filename, dirptr);
+//		G_LoadMapPool(filename);
+//	}
+//
+//}
 
 void fixVoters(){
 	int i;
@@ -2318,32 +2319,39 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 	}
 	else if (!Q_stricmp(arg1, "map_random"))
 	{
-		int i;
-		qboolean found = qfalse;
-				
 		if (!g_allow_vote_maprandom.integer){
 			trap_SendServerCommand(ent - g_entities, "print \"Vote map_random is disabled.\n\"");
 			return;
 		}
 
-		// find the pool
-		for (i = 0; i < poolNum; ++i)
-		{
-			if (!Q_stricmpn(pools[i].id, arg2, MAX_MAP_POOL_ID))
-			{
-				found = qtrue;
-				break;
-			}
-		}
+        PoolInfo poolInfo;
+        if ( !G_CfgDbFindPool( arg2, &poolInfo ) )
+        {
+            trap_SendServerCommand( ent - g_entities, "print \"Pool not found.\n\"" );
+            return;
+        }
+        
+        Com_sprintf( level.voteDisplayString, sizeof( level.voteDisplayString ), "Random Map: %s", poolInfo.long_name );
+        Com_sprintf( level.voteString, sizeof( level.voteString ), "%s %s", arg1, arg2 );
 
-		if (!found)
-		{
-			trap_SendServerCommand(ent - g_entities, "print \"Pool not found.\n\"");
-			return;
-		}
+		//// find the pool
+		//for (i = 0; i < poolNum; ++i)
+		//{
+		//	if (!Q_stricmpn(pools[i].id, arg2, MAX_MAP_POOL_ID))
+		//	{
+		//		found = qtrue;
+		//		break;
+		//	}
+		//}
 
-		Com_sprintf(level.voteDisplayString, sizeof(level.voteDisplayString), "Random Map: %s", pools[i].longname);
-		Com_sprintf(level.voteString, sizeof(level.voteString), "%s %s", arg1, arg2);
+		//if (!found)
+		//{
+		//	trap_SendServerCommand(ent - g_entities, "print \"Pool not found.\n\"");
+		//	return;
+		//}
+
+		//Com_sprintf(level.voteDisplayString, sizeof(level.voteDisplayString), "Random Map: %s", pools[i].longname);
+		//Com_sprintf(level.voteString, sizeof(level.voteString), "%s %s", arg1, arg2);
 	}
 	else if ( !Q_stricmp ( arg1, "clientkick" ) )
 	{
@@ -3339,48 +3347,72 @@ qboolean G_OtherPlayersDueling(void)
 	return qfalse;
 }
 
+typedef struct 
+{
+    int entity;
+    int count;
+
+    char poolName[64];
+} ListPoolsContext;
+
+void listPools( void* context,
+    int pool_id,
+    const char* short_name,
+    const char* long_name )
+{
+    ListPoolsContext* thisContext = (ListPoolsContext*)context;
+    trap_SendServerCommand( thisContext->entity, va( "print \"%s (%s)\n\"", pool_id, long_name ) );
+    ++(thisContext->count);
+}
+
+typedef struct
+{
+    int entity;
+    int count;
+    int pool_id;
+
+    char long_name[64];
+
+} ListMapsInPoolContext;
+
+void listMapsInPools( void* context,
+    const char* long_name,
+    int pool_id,
+    const char* mapname,
+    int weight )
+{
+    ListMapsInPoolContext* thisContext = (ListMapsInPoolContext*)context;
+    thisContext->pool_id = pool_id;
+    Q_strncpyz( thisContext->long_name, long_name, sizeof( thisContext->long_name ) );
+    trap_SendServerCommand( thisContext->entity, va( "print \" %s\n\"", mapname ) );
+}
+
 
 static void Cmd_MapPool_f(gentity_t* ent)
 {
-	int i;
-
 	if (trap_Argc() > 1)
 	{
-		char pool[MAX_MAP_POOL_ID];
-		trap_Argv(1, pool, sizeof(pool));
+        ListMapsInPoolContext context;
+        context.entity = ent - g_entities;
+        context.count = 0;
 
-		if (!pool[0])
-		{
-			return;
-		}
+        char short_name[64];
+        trap_Argv( 1, short_name, sizeof( short_name ) );
 
-		// find the pool
-		for (i = 0; i < poolNum; ++i)
-		{
-			if (!Q_stricmpn(pools[i].id, pool, MAX_MAP_POOL_ID))
-			{
-				// found, list the maps in pool
-				int j;
-				trap_SendServerCommand(ent - g_entities, va("print \"Found %i maps for pool %s (%s):\n\"", 
-					pools[i].mapsCount, pools[i].id, pools[i].longname));
-				for (j = 0; j < pools[i].mapsCount; ++j)
-				{
-					trap_SendServerCommand(ent - g_entities, va("print \" %s\n\"", pools[i].maplist[j]));
-				}
+        G_CfgDbListMapsInPool( short_name, listMapsInPools, &context );
 
-				return;
-			}
-		}
+        trap_SendServerCommand( context.entity, va( "print \"Found %i maps for pool %s (%s):\n\"",
+            context.count, context.pool_id, context.long_name) );  	
 	}
 	else
 	{
-		// list pools
-		trap_SendServerCommand(ent - g_entities, va("print \"Found %i map pools:\n\"", poolNum));
+        ListPoolsContext context;
+        context.entity = ent - g_entities;
+        context.count = 0;
 
-		for (i = 0; i < poolNum; ++i)
-		{
-			trap_SendServerCommand(ent - g_entities, va("print \"%s (%s)\n\"", pools[i].id, pools[i].longname));
-		}
+        G_CfgDbListPools( listPools, &context );
+
+        trap_SendServerCommand( context.entity, va( "print \"Found %i map pools:\n\"", context.count ) );
 	}
 }
 

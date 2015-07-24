@@ -1,39 +1,17 @@
-#include "g_database.h"
+#include "g_database_config.h"
 #include "sqlite3.h"
 #include "time.h"
 
 static sqlite3* db = 0;
 
-const char* const databaseFileName = "enhanced.db";
+const char* const cfgDbFileName = "jka_config.db";
 
-const char* const sqlCreateDatabase =
+const char* const sqlCreateCfgDb =
 "CREATE TABLE[accounts](                                                        "
 "    [account_id] INTEGER PRIMARY KEY AUTOINCREMENT,                            "
 "    [username] TEXT,                                                           "
 "    [public_name] TEXT,                                                        "
 "    [guid] TEXT );                                                             "
-"                                                                               "
-"                                                                               "
-"CREATE TABLE[sessions](                                                        "
-"    [session_id] INTEGER PRIMARY KEY AUTOINCREMENT,                            "
-"    [session_start] DATETIME,                                                  "
-"    [session_end] DATETIME,                                                    "
-"    [ip_A] INTEGER,                                                            "
-"    [ip_B] INTEGER,                                                            "
-"    [ip_C] INTEGER,                                                            "
-"    [ip_D] INTEGER,                                                            "
-"    [ip_port] INTEGER );                                                       "
-"                                                                               "
-"                                                                               "
-"CREATE TABLE[account_sessions](                                                "
-"    [account_id] INTEGER REFERENCES[accounts]( [account_id] ),                 "
-"    [session_id] INTEGER REFERENCES[sessions]( [session_id] ) );               "
-"                                                                               "
-"                                                                               "
-"CREATE TABLE[hack_attempts](                                                   "
-"    [session_id] INTEGER REFERENCES[sessions]( [session_id] ),                 "
-"    [ip_text] TEXT,                                                            "
-"    [description] TEXT );                                                      "
 "                                                                               "
 "                                                                               "
 "CREATE TABLE[ip_blacklist](                                                    "
@@ -61,39 +39,6 @@ const char* const sqlCreateDatabase =
 "    [mask_C] INTEGER( 255 ),                                                   "
 "    [mask_D] INTEGER( 255 ),                                                   "
 "    [notes] TEXT);                                                             "
-"                                                                               "
-"                                                                               "
-"CREATE TABLE[level_events](                                                    "
-"    [level_event_id] INTEGER PRIMARY KEY AUTOINCREMENT,                        "
-"    [event_time] DATETIME,                                                     "
-"    [event_id] INTEGER,                                                        "
-"    [event_context] TEXT );                                                    "
-"                                                                               "
-"                                                                               "
-"CREATE TABLE[levels](                                                          "
-"    [level_id] INTEGER PRIMARY KEY AUTOINCREMENT,                              "
-"    [level_start] DATETIME,                                                    "
-"    [level_end] DATETIME,                                                      "
-"    [mapname] TEXT );                                                          "
-"                                                                               "
-"                                                                               "
-"CREATE TABLE[session_events_enum](                                             "
-"    [event_id] INTEGER PRIMARY KEY AUTOINCREMENT,                              "
-"    [event_name] TEXT );                                                       "
-"                                                                               "
-"                                                                               "
-"CREATE TABLE[session_events](                                                  "
-"    [session_event_id] INTEGER PRIMARY KEY AUTOINCREMENT,                      "
-"    [session_id] INTEGER REFERENCES[sessions]( [session_id] ),                 "
-"    [event_time] DATETIME,                                                     "
-"    [event_id] INTEGER REFERENCES[session_events_enum]( [event_id] ),          "
-"    [event_context] TEXT );                                                    "
-"                                                                               "
-"                                                                               "
-"CREATE TABLE[session_stats](                                                   "
-"    [session_id] INTEGER REFERENCES[sessions]( [session_id] ),                 "
-"    [accuracy_hits] INTEGER,                                                   "
-"    [accuracy_shots] INTEGER );                                                "
 "                                                                               "
 "                                                                               "
 "CREATE TABLE[pools](                                                           "
@@ -150,38 +95,33 @@ const char* const sqlremoveFromWhitelist =
 "WHERE ip_A = ? AND ip_B = ? AND ip_C = ? AND ip_D = ?      "
 "AND mask_A = ? AND mask_B = ? AND mask_C = ? AND mask_D = ?";
 
-const char* const sqlLogLevelStart =
-"INSERT INTO levels (level_start, mapname) "
-"VALUES (datetime('now'),?)                ";
-         
-const char* const sqlLogLevelEnd =
-"UPDATE levels                      "
-"SET level_end = datetime( 'now' )  "
-"WHERE level_id = ? ;               ";       
-
-const char* const sqllogSessionStart =
-"INSERT INTO sessions (session_start, ip_A, ip_B, ip_C, ip_D, ip_port)     "
-"VALUES (datetime('now'),?,?,?,?,?)                                        ";
-
-const char* const sqllogSessionEnd =
-"UPDATE sessions                      "
-"SET session_end = datetime( 'now' )  "
-"WHERE session_id = ? ;               ";
-
-const char* const sqlAddSessionEvent =
-"INSERT INTO session_events (session_id, event_time, event_id, event_context)     "
-"VALUES (?,datetime('now'),?,?)                                                   ";
-
 const char* const sqlListPools =
-"SELECT sums.pool_id, mapname, weight, (weight*100.0 / sum)   "
-"FROM                                                         "
-"( SELECT maps1.pool_id, SUM( maps1.weight ) AS sum           "
-"FROM pools                                                   "
-"JOIN pool_has_map AS maps1                                   "
-"ON pools.pool_id = maps1.pool_id                             "
-"GROUP BY maps1.pool_id ) AS sums                             "
-"JOIN pool_has_map AS maps2                                   "
-"ON sums.pool_id = maps2.pool_id                              ";
+"SELECT pool_id, short_name, long_name   "
+"FROM pools                              ";
+
+const char* const sqlListMapsInPool =
+"SELECT long_name, pools.pool_id, mapname, weight    "
+"FROM pools                                          "
+"JOIN pool_has_map                                   "
+"ON pools.pool_id = pool_has_map.pool_id             "
+"WHERE short_name = ?                                ";
+
+const char* const sqlFindPool =
+"SELECT pools.pool_id, long_name                                            "
+"FROM pools                                                                 "
+"JOIN                                                                       "
+"pool_has_map                                                               "
+"ON pools.pool_id = pool_has_map.pool_id                                    "
+"WHERE short_name = ?                                                       ";
+
+const char* const sqlGetPoolWeight =
+"SELECT SUM( weight ) AS sum                                                "
+"FROM pools                                                                 "
+"JOIN                                                                       "
+"pool_has_map                                                               "
+"ON pools.pool_id = pool_has_map.pool_id                                    "
+"WHERE short_name = ?                                                       ";
+
 
 //
 //  G_DbLoad
@@ -189,80 +129,33 @@ const char* const sqlListPools =
 //  Loads the database from disk, including creating of not exists
 //  or if it is corrupted
 //
-void G_DbLoad()
+void G_CfgDbLoad()
 {    
     int rc = -1;    
 
     rc = sqlite3_initialize();
-    rc = sqlite3_open_v2( databaseFileName, &db, SQLITE_OPEN_READWRITE, 0 );
+    rc = sqlite3_open_v2( cfgDbFileName, &db, SQLITE_OPEN_READWRITE, 0 );
 
     if ( rc != SQLITE_OK )
     {
         // create new database
-        rc = sqlite3_open_v2( databaseFileName, &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, 0 );
+        rc = sqlite3_open_v2( cfgDbFileName, &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, 0 );
 
-        sqlite3_exec( db, sqlCreateDatabase, 0, 0, 0 );          
+        sqlite3_exec( db, sqlCreateCfgDb, 0, 0, 0 );
     }
 }
-
-
+    
 //
 //  G_DbUnload
 // 
 //  Unloads the database from memory, includes flushing it 
 //  to the file.
 //
-void G_DbUnload()
+void G_CfgDbUnload()
 {
     int rc = -1;
 
     rc = sqlite3_close( db );
-}
-
-//
-//  G_DbLogLevelStart
-// 
-//  Logs current level (map) to the database
-//
-int G_DbLogLevelStart()
-{
-    int rc = -1;
-    sqlite3_stmt* statement;
-
-    // load current map name
-    char mapname[128];
-    trap_Cvar_VariableStringBuffer( "mapname", mapname, sizeof( mapname ) );
-
-    // prepare insert statement
-    rc = sqlite3_prepare( db, sqlLogLevelStart, -1, &statement, 0 );
-    sqlite3_bind_text( statement, 1, mapname, -1, 0 );
-
-    rc = sqlite3_step( statement );
-
-    int levelId = sqlite3_last_insert_rowid( db );
-
-    sqlite3_finalize( statement );   
-
-    return levelId;
-}
-
-//
-//  G_DbLogLevelEnd
-// 
-//  Logs current level (map) to the database
-//
-void G_DbLogLevelEnd(int levelId)
-{
-    int rc = -1;
-    sqlite3_stmt* statement;
-
-    // prepare update statement
-    rc = sqlite3_prepare( db, sqlLogLevelEnd, -1, &statement, 0 );
-    sqlite3_bind_int( statement, 1, levelId );
-
-    rc = sqlite3_step( statement );
-
-    sqlite3_finalize( statement );
 }
 
 //
@@ -271,7 +164,7 @@ void G_DbLogLevelEnd(int levelId)
 //  Checks if given ip is forbidden to join the game based
 //  on blacklist/whitelist mechanisms.
 //
-qboolean G_DbIsFiltered( const char* ip, char* reasonBuffer, int reasonBufferSize )
+qboolean G_CfgDbIsFiltered( const char* ip, char* reasonBuffer, int reasonBufferSize )
 {
     int ipA = 0, ipB = 0, ipC = 0, ipD = 0;
     int port = 0;
@@ -283,11 +176,11 @@ qboolean G_DbIsFiltered( const char* ip, char* reasonBuffer, int reasonBufferSiz
     {
         if ( g_whitelist.integer )
         {
-            filtered = G_DbIsFilteredByWhitelist( ipA, ipB, ipC, ipD, reasonBuffer, reasonBufferSize );
+            filtered = G_CfgDbIsFilteredByWhitelist( ipA, ipB, ipC, ipD, reasonBuffer, reasonBufferSize );
         }
         else
         {
-            filtered = G_DbIsFilteredByBlacklist( ipA, ipB, ipC, ipD, reasonBuffer, reasonBufferSize );
+            filtered = G_CfgDbIsFilteredByBlacklist( ipA, ipB, ipC, ipD, reasonBuffer, reasonBufferSize );
         }
     }
 
@@ -300,7 +193,7 @@ qboolean G_DbIsFiltered( const char* ip, char* reasonBuffer, int reasonBufferSiz
 //  Helper method to check if given ip address is white listed
 //  according to database.
 //
-qboolean G_DbIsFilteredByWhitelist( int ipA, int ipB, int ipC, int ipD, char* reasonBuffer, int reasonBufferSize )
+qboolean G_CfgDbIsFilteredByWhitelist( int ipA, int ipB, int ipC, int ipD, char* reasonBuffer, int reasonBufferSize )
 {
     qboolean filtered = qfalse;
 
@@ -335,7 +228,7 @@ qboolean G_DbIsFilteredByWhitelist( int ipA, int ipB, int ipC, int ipD, char* re
 //  Helper method to check if given ip address is black listed
 //  according to database.
 //
-qboolean G_DbIsFilteredByBlacklist( int ipA, int ipB, int ipC, int ipD, char* reasonBuffer, int reasonBufferSize )
+qboolean G_CfgDbIsFilteredByBlacklist( int ipA, int ipB, int ipC, int ipD, char* reasonBuffer, int reasonBufferSize )
 {
     qboolean filtered = qfalse;
 
@@ -373,7 +266,7 @@ qboolean G_DbIsFilteredByBlacklist( int ipA, int ipB, int ipC, int ipD, char* re
 // 
 //  Adds ip address to whitelist
 //
-qboolean G_DbAddToWhitelist( const char* ip,
+qboolean G_CfgDbAddToWhitelist( const char* ip,
     const char* mask, 
     const char* notes )
 {
@@ -418,7 +311,7 @@ qboolean G_DbAddToWhitelist( const char* ip,
 // 
 //  Lists contents of blacklist
 //
-void G_DbListBlacklist( BlackListCallback  callback)
+void G_CfgDbListBlacklist( BlackListCallback  callback )
 {
     sqlite3_stmt* statement;
     // prepare insert statement
@@ -446,7 +339,7 @@ void G_DbListBlacklist( BlackListCallback  callback)
 // 
 //  Adds ip address to blacklist
 //
-qboolean G_DbAddToBlacklist( const char* ip, 
+qboolean G_CfgDbAddToBlacklist( const char* ip,
     const char* mask, 
     const char* notes, 
     const char* reason,
@@ -496,7 +389,7 @@ qboolean G_DbAddToBlacklist( const char* ip,
 // 
 //  Removes ip address from blacklist
 //
-qboolean G_DbRemoveFromBlacklist( const char* ip,
+qboolean G_CfgDbRemoveFromBlacklist( const char* ip,
     const char* mask )
 {
     int ipA = 0, ipB = 0, ipC = 0, ipD = 0;
@@ -539,7 +432,7 @@ qboolean G_DbRemoveFromBlacklist( const char* ip,
 // 
 //  Removes ip address from whitelist
 //
-qboolean G_DbRemoveFromWhitelist( const char* ip,
+qboolean G_CfgDbRemoveFromWhitelist( const char* ip,
     const char* mask )
 {
     int ipA = 0, ipB = 0, ipC = 0, ipD = 0;
@@ -576,87 +469,13 @@ qboolean G_DbRemoveFromWhitelist( const char* ip,
 
     return success;
 }
-
-//
-//  G_DbLogSessionStart
-// 
-//  Logs players connection session start
-//
-int G_DbLogSessionStart( const char* ip )
-{
-    sqlite3_stmt* statement;
-    // prepare insert statement
-    int rc = sqlite3_prepare( db, sqllogSessionStart, -1, &statement, 0 );
-
-    int ipA = 0, ipB = 0, ipC = 0, ipD = 0, ipPort = 0;
-    qboolean success = qfalse;
-
-    // parse ip address and mask
-    sscanf( ip, "%d.%d.%d.%d:%d", &ipA, &ipB, &ipC, &ipD, &ipPort );
-
-    sqlite3_bind_int( statement, 1, ipA );
-    sqlite3_bind_int( statement, 2, ipB );
-    sqlite3_bind_int( statement, 3, ipC );
-    sqlite3_bind_int( statement, 4, ipD );
-    sqlite3_bind_int( statement, 5, ipPort );
-
-    rc = sqlite3_step( statement );
-
-    int sessionId = sqlite3_last_insert_rowid( db );
-
-    sqlite3_finalize( statement );
-    
-    return sessionId;
-}
-
-//
-//  G_DbLogSessionEnd
-// 
-//  Logs players connection session end
-//
-void G_DbLogSessionEnd( int sessionId )
-{
-    sqlite3_stmt* statement;
-    // prepare insert statement
-    int rc = sqlite3_prepare( db, sqllogSessionEnd, -1, &statement, 0 );
-
-    sqlite3_bind_int( statement, 1, sessionId );
-
-    rc = sqlite3_step( statement );
-
-    sqlite3_finalize( statement );
-}
-
-//
-//  G_DbLogSessionEvent
-// 
-//  Logs players connection session event
-//
-int G_DbLogSessionEvent( int sessionId,
-    int eventId,
-    const char* eventContext )  
-{
-    sqlite3_stmt* statement;
-    // prepare insert statement
-    int rc = sqlite3_prepare( db, sqlAddSessionEvent, -1, &statement, 0 );
-
-    sqlite3_bind_int( statement, 1, sessionId);
-    sqlite3_bind_int( statement, 2, eventId );
-    sqlite3_bind_text( statement, 3, eventContext, -1, 0 );
-
-    rc = sqlite3_step( statement );
-
-    sqlite3_finalize( statement );
-
-    return sessionId;         
-}
-
+   
 //
 //  G_DbListPools
 // 
 //  List all map pools
 //
-void G_DbListPools( ListPoolCallback callback)
+void G_CfgDbListPools( ListPoolCallback callback, void* context )
 {
     sqlite3_stmt* statement;
     // prepare insert statement
@@ -666,14 +485,174 @@ void G_DbListPools( ListPoolCallback callback)
     while ( rc == SQLITE_ROW )
     {
         int pool_id = sqlite3_column_int( statement, 0 );
-        const char* mapname = sqlite3_column_text( statement, 1 );
-        int weight = sqlite3_column_int( statement, 2 );
-        double weight_perc = sqlite3_column_double( statement, 3 );
+        const char* short_name = sqlite3_column_text( statement, 1 );
+        const char* long_name = sqlite3_column_text( statement, 2 );
 
-        callback( pool_id, mapname, weight, weight_perc );
+        callback( context, pool_id, short_name, long_name );
 
         rc = sqlite3_step( statement );
     }
 
     sqlite3_finalize( statement );       
+}
+
+//
+//  G_DbListPools
+// 
+//  List maps in pool
+//
+void G_CfgDbListMapsInPool( const char* short_name, ListMapsPoolCallback callback, void* context )
+{
+    sqlite3_stmt* statement;
+    // prepare insert statement
+    int rc = sqlite3_prepare( db, sqlListMapsInPool, -1, &statement, 0 );
+
+    sqlite3_bind_text( statement, 1, short_name, -1, 0 );
+
+    rc = sqlite3_step( statement );
+    while ( rc == SQLITE_ROW )
+    {
+        const char* long_name = sqlite3_column_text( statement, 0 );
+        int pool_id = sqlite3_column_int( statement, 1 );
+        const char* mapname = sqlite3_column_text( statement, 2 );
+        int weight = sqlite3_column_int( statement, 3 );
+
+        callback( context, long_name, pool_id, mapname, weight );
+
+        rc = sqlite3_step( statement );
+    }
+
+    sqlite3_finalize( statement );
+}
+
+//
+//  G_DbFindPool
+// 
+//  Finds pool
+//
+qboolean G_CfgDbFindPool( const char* short_name, PoolInfo* poolInfo )
+{  
+    qboolean found = qfalse;
+
+    sqlite3_stmt* statement;
+
+    // prepare blacklist check statement
+    int rc = sqlite3_prepare( db, sqlFindPool, -1, &statement, 0 );
+
+    sqlite3_bind_text( statement, 1, short_name, -1, 0 );
+
+    rc = sqlite3_step( statement );
+
+    // blacklisted => we forbid it
+    if ( rc == SQLITE_ROW )
+    {
+        int pool_id = sqlite3_column_int( statement, 0 );
+        const char* long_name = sqlite3_column_text( statement, 1 );
+
+        Q_strncpyz( poolInfo->long_name, long_name, sizeof( poolInfo->long_name) );
+        poolInfo->pool_id = pool_id;
+
+        found = qtrue;
+    }
+
+    sqlite3_finalize( statement );
+
+    return found;
+}
+
+typedef  struct
+{
+    int acc;
+    int random;
+    char selectedMap[64];
+    char ignore[MAX_MAP_NAME];
+    qboolean selected;
+} 
+SelectMapInfo;
+
+void selectMapCallback( void* context,
+    const char* long_name,
+    int pool_id,
+    const char* mapname,
+    int weight )
+{
+    SelectMapInfo* selectMapInfo = (SelectMapInfo*)context;
+
+    if ( (selectMapInfo->acc  <= selectMapInfo->random) 
+        && (selectMapInfo->random < selectMapInfo->acc + weight) )
+    {
+        if ( Q_strncmp( mapname, selectMapInfo->ignore, sizeof( selectMapInfo->ignore ) ) == 0 )
+        {
+            selectMapInfo->random += weight;
+        }
+        else
+        {
+            Q_strncpyz( selectMapInfo->selectedMap, mapname, sizeof( selectMapInfo->selectedMap ) );
+            selectMapInfo->selected = qtrue;
+        }   
+    }
+
+    selectMapInfo->acc += weight;
+}
+
+//
+//  G_DbGetPoolWeight
+// 
+//  Gets sum of weights of maps in pool
+//
+int G_CfgDbGetPoolWeight( const char* short_name )
+{
+    sqlite3_stmt* statement;
+    int weight = 0;
+    // prepare insert statement
+    int rc = sqlite3_prepare( db, sqlGetPoolWeight, -1, &statement, 0 );
+
+    sqlite3_bind_text( statement, 1, short_name, -1, 0 );
+
+    rc = sqlite3_step( statement );
+    if ( rc == SQLITE_ROW )
+    {
+        weight = sqlite3_column_int( statement, 0 );
+    }
+
+    sqlite3_finalize( statement ); 
+
+    return weight;
+}
+
+//
+//  G_DbSelectMapFromPool
+// 
+//  Selects map from pool
+//
+qboolean G_CfgDbSelectMapFromPool( const char* short_name,
+    const char* ignoreMap,
+    MapInfo* mapInfo )
+{
+    // TBD this function should make sure that current map will not be selected
+    PoolInfo poolInfo;
+    if ( G_CfgDbFindPool( short_name, &poolInfo ) )
+    {
+        int weight = G_CfgDbGetPoolWeight( short_name );
+
+        if ( weight )
+        {
+            SelectMapInfo selectMapInfo;
+            selectMapInfo.acc = 0;
+            selectMapInfo.selectedMap[0] = '\0';
+            selectMapInfo.selected = qfalse;
+            selectMapInfo.random = rand() % weight;
+            Q_strncpyz( selectMapInfo.ignore, ignoreMap, sizeof( selectMapInfo.ignore ) );
+
+            G_CfgDbListMapsInPool( short_name, selectMapCallback, &selectMapInfo );
+
+            if ( selectMapInfo.selected )
+            {
+                Q_strncpyz( mapInfo->mapname, selectMapInfo.selectedMap, sizeof( mapInfo->mapname ) );
+                return qtrue;
+            }
+        }    
+    }
+
+    return qfalse;   
 }

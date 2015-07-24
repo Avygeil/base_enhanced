@@ -3,7 +3,7 @@
 #include "g_local.h"
 #include "G2.h"
 #include "bg_saga.h"
-#include "G_Database.h"
+#include "g_database_log.h"
 
 //#include "accounts.h"
 
@@ -1964,7 +1964,7 @@ void ClientUserinfoChanged( int clientNum ) {
 				Info_SetValueForKey( userinfo, "name", client->pers.netname );
 				trap_SetUserinfo( clientNum, userinfo );
 
-                G_DbLogSessionEvent( client->sess.sessionId, sessionEventName, client->pers.netname );
+                G_LogDbLogSessionEvent( client->sess.sessionId, sessionEventName, client->pers.netname );
 
 				//make heartbeat soon - accounts system
 				//if (nextHeartBeatTime > level.time + 5000){
@@ -2491,10 +2491,10 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 
     if ( firstTime )
     {
-        int sessionId = G_DbLogSessionStart( client->sess.ipString );
+        int sessionId = G_LogDbLogSessionStart( client->sess.ipString );
         ent->client->sess.sessionId = sessionId;
 
-        G_DbLogSessionEvent( ent->client->sess.sessionId, sessionEventName, client->pers.netname );
+        G_LogDbLogSessionEvent( ent->client->sess.sessionId, sessionEventName, client->pers.netname );
     }
 
 	if ( g_gametype.integer >= GT_TEAM &&
@@ -3954,7 +3954,7 @@ void ClientDisconnect( int clientNum ) {
 		return;
 	}
 
-    G_DbLogSessionEnd( ent->client->sess.sessionId );
+    G_LogDbLogSessionEnd( ent->client->sess.sessionId );
 
 	i = 0;
 
