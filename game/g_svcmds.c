@@ -1059,6 +1059,26 @@ void Svcmd_MapRandom_f()
     G_Printf( "Map pool '%s' not found\n", pool );
 }
 
+void Svcmd_PoolCreate_f()
+{
+
+}
+
+void Svcmd_PoolDelete_f()
+{
+
+}
+
+void Svcmd_PoolMapAdd_f()
+{
+
+}
+
+void Svcmd_PoolMapRemove_f()
+{
+
+}
+
 char	*ConcatArgs( int start );
 
 /*
@@ -1155,6 +1175,30 @@ qboolean	ConsoleCommand( void ) {
 		Svcmd_MapRandom_f();
 		return qtrue;
 	}
+
+    if ( Q_stricmp( cmd, "pool_create" ) == 0 )
+    {
+        Svcmd_PoolCreate_f();
+        return qtrue;
+    }
+
+    if ( Q_stricmp( cmd, "pool_delete" ) == 0 )
+    {
+        Svcmd_PoolDelete_f();
+        return qtrue;
+    }
+
+    if ( Q_stricmp( cmd, "pool_map_add" ) == 0 )
+    {
+        Svcmd_PoolMapAdd_f();
+        return qtrue;
+    }
+
+    if ( Q_stricmp( cmd, "pool_map_remove" ) == 0 )
+    {
+        Svcmd_PoolMapRemove_f();
+        return qtrue;
+    }
 
 	//if (Q_stricmp (cmd, "accountadd") == 0) {
 	//	Svcmd_AddAccount_f();
