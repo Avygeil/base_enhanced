@@ -3399,7 +3399,7 @@ static void Cmd_MapPool_f(gentity_t* ent)
         char short_name[64];
         trap_Argv( 1, short_name, sizeof( short_name ) );
 
-        G_CfgDbListMapsInPool( short_name, listMapsInPools, &context );
+        G_CfgDbListMapsInPool( short_name, 0, listMapsInPools, &context );
 
         trap_SendServerCommand( context.entity, va( "print \"Found %i maps for pool %s (%s):\n\"",
             context.count, context.pool_id, context.long_name) );  	

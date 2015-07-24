@@ -104,7 +104,7 @@ const char* const sqlListMapsInPool =
 "FROM pools                                          "
 "JOIN pool_has_map                                   "
 "ON pools.pool_id = pool_has_map.pool_id             "
-"WHERE short_name = ?                                ";
+"WHERE short_name = ? AND mapname <> ?               ";
 
 const char* const sqlFindPool =
 "SELECT pools.pool_id, long_name                                            "
@@ -120,7 +120,7 @@ const char* const sqlGetPoolWeight =
 "JOIN                                                                       "
 "pool_has_map                                                               "
 "ON pools.pool_id = pool_has_map.pool_id                                    "
-"WHERE short_name = ?                                                       ";
+"WHERE short_name = ? AND mapname <> ?                                      ";
 
 
 //
@@ -501,13 +501,17 @@ void G_CfgDbListPools( ListPoolCallback callback, void* context )
 // 
 //  List maps in pool
 //
-void G_CfgDbListMapsInPool( const char* short_name, ListMapsPoolCallback callback, void* context )
+void G_CfgDbListMapsInPool( const char* short_name, 
+    const char* ignore, 
+    ListMapsPoolCallback callback, 
+    void* context )
 {
     sqlite3_stmt* statement;
     // prepare insert statement
     int rc = sqlite3_prepare( db, sqlListMapsInPool, -1, &statement, 0 );
 
     sqlite3_bind_text( statement, 1, short_name, -1, 0 );
+    sqlite3_bind_text( statement, 2, ignore, -1, 0 ); // ignore map, we 
 
     rc = sqlite3_step( statement );
     while ( rc == SQLITE_ROW )
@@ -600,7 +604,8 @@ void selectMapCallback( void* context,
 // 
 //  Gets sum of weights of maps in pool
 //
-int G_CfgDbGetPoolWeight( const char* short_name )
+int G_CfgDbGetPoolWeight( const char* short_name,
+    const char* ignoreMap)
 {
     sqlite3_stmt* statement;
     int weight = 0;
@@ -608,6 +613,7 @@ int G_CfgDbGetPoolWeight( const char* short_name )
     int rc = sqlite3_prepare( db, sqlGetPoolWeight, -1, &statement, 0 );
 
     sqlite3_bind_text( statement, 1, short_name, -1, 0 );
+    sqlite3_bind_text( statement, 2, ignoreMap, -1, 0 );
 
     rc = sqlite3_step( statement );
     if ( rc == SQLITE_ROW )
@@ -633,18 +639,20 @@ qboolean G_CfgDbSelectMapFromPool( const char* short_name,
     PoolInfo poolInfo;
     if ( G_CfgDbFindPool( short_name, &poolInfo ) )
     {
-        int weight = G_CfgDbGetPoolWeight( short_name );
+        SelectMapInfo selectMapInfo;
+        selectMapInfo.acc = 0;
+        selectMapInfo.selectedMap[0] = '\0';
+        selectMapInfo.selected = qfalse;
+        
+        Q_strncpyz( selectMapInfo.ignore, ignoreMap, sizeof( selectMapInfo.ignore ) );     
+
+        int weight = G_CfgDbGetPoolWeight( short_name, ignoreMap );
 
         if ( weight )
         {
-            SelectMapInfo selectMapInfo;
-            selectMapInfo.acc = 0;
-            selectMapInfo.selectedMap[0] = '\0';
-            selectMapInfo.selected = qfalse;
             selectMapInfo.random = rand() % weight;
-            Q_strncpyz( selectMapInfo.ignore, ignoreMap, sizeof( selectMapInfo.ignore ) );
 
-            G_CfgDbListMapsInPool( short_name, selectMapCallback, &selectMapInfo );
+            G_CfgDbListMapsInPool( short_name, ignoreMap, selectMapCallback, &selectMapInfo );
 
             if ( selectMapInfo.selected )
             {

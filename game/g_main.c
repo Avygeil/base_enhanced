@@ -9,6 +9,7 @@
 //#include "accounts.h"
 #include "jp_engine.h"
 #include "g_database_log.h"
+#include "g_database_config.h"
 
 level_locals_t	level;
 
