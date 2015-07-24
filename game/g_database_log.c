@@ -31,11 +31,12 @@ const char* const sqlCreateLogDb =
 "    [event_context] TEXT );                                                    "
 "                                                                               "
 "                                                                               "
-"CREATE TABLE[levels](                                                          "
-"    [level_id] INTEGER PRIMARY KEY AUTOINCREMENT,                              "
-"    [level_start] DATETIME,                                                    "
-"    [level_end] DATETIME,                                                      "
-"    [mapname] TEXT );                                                          "
+"CREATE TABLE [levels] (                                                        "
+"  [level_id] INTEGER PRIMARY KEY AUTOINCREMENT,                                "
+"  [level_start] DATETIME,                                                      "
+"  [level_end] DATETIME,                                                        "
+"  [mapname] TEXT,                                                              "
+"  [restart] BOOL);                                                             "
 "                                                                               "
 "                                                                               "
 "CREATE TABLE[session_events_enum](                                             "
@@ -58,8 +59,8 @@ const char* const sqlCreateLogDb =
 
 
 const char* const sqlLogLevelStart =
-"INSERT INTO levels (level_start, mapname) "
-"VALUES (datetime('now'),?)                ";
+"INSERT INTO levels (level_start, mapname, restart) "
+"VALUES (datetime('now'),?, ?)                      ";
          
 const char* const sqlLogLevelEnd =
 "UPDATE levels                      "
@@ -120,7 +121,7 @@ void G_LogDbUnload()
 // 
 //  Logs current level (map) to the database
 //
-int G_LogDbLogLevelStart()
+int G_LogDbLogLevelStart(qboolean isRestart)
 {
     int rc = -1;
     sqlite3_stmt* statement;
@@ -132,6 +133,7 @@ int G_LogDbLogLevelStart()
     // prepare insert statement
     rc = sqlite3_prepare( db, sqlLogLevelStart, -1, &statement, 0 );
     sqlite3_bind_text( statement, 1, mapname, -1, 0 );
+    sqlite3_bind_int( statement, 2, isRestart ? 1 : 0 );
 
     rc = sqlite3_step( statement );
 

@@ -1439,7 +1439,7 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 
     G_CfgDbLoad();
     G_LogDbLoad();
-    level.db.levelId = G_LogDbLogLevelStart();
+    level.db.levelId = G_LogDbLogLevelStart(restart);
 }
 
 
