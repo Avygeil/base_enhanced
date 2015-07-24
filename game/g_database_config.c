@@ -664,3 +664,23 @@ qboolean G_CfgDbSelectMapFromPool( const char* short_name,
 
     return qfalse;   
 }
+   
+void G_CfgDbPoolCreate( const char* short_name, const char* long_name )
+{
+
+}
+
+void G_CfgDbPoolDelete( const char* short_name )
+{
+
+}
+
+void G_CfgDbPoolMapAdd( const char* short_name, const char* mapname, int weight )
+{
+
+}
+
+void G_CfgDbPoolMapRemove( const char* short_name, const char* mapname )
+{
+
+}
