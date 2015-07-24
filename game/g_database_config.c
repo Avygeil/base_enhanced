@@ -665,22 +665,22 @@ qboolean G_CfgDbSelectMapFromPool( const char* short_name,
     return qfalse;   
 }
    
-void G_CfgDbPoolCreate( const char* short_name, const char* long_name )
+qboolean G_CfgDbPoolCreate( const char* short_name, const char* long_name )
 {
-
+    return qfalse;
 }
 
-void G_CfgDbPoolDelete( const char* short_name )
+qboolean G_CfgDbPoolDelete( const char* short_name )
 {
-
+    return qfalse;
 }
 
-void G_CfgDbPoolMapAdd( const char* short_name, const char* mapname, int weight )
+qboolean G_CfgDbPoolMapAdd( const char* short_name, const char* mapname, int weight )
 {
-
+    return qfalse;
 }
 
-void G_CfgDbPoolMapRemove( const char* short_name, const char* mapname )
+qboolean G_CfgDbPoolMapRemove( const char* short_name, const char* mapname )
 {
-
+    return qfalse;
 }

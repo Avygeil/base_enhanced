@@ -1061,21 +1061,91 @@ void Svcmd_MapRandom_f()
 
 void Svcmd_PoolCreate_f()
 {
+    char short_name[64];
+    char long_name[64];      
 
+    if ( trap_Argc() < 2 )
+    {
+        return;
+    }
+
+    trap_Argv( 1, short_name, sizeof( short_name ) );
+    trap_Argv( 2, long_name, sizeof( long_name ) );
+
+    if ( !G_CfgDbPoolCreate( short_name, long_name ) )
+    {
+        G_Printf( "Could not create pool '%s'.\n", short_name );
+    }
 }
 
 void Svcmd_PoolDelete_f()
 {
+    char short_name[64];
+
+    if ( trap_Argc() < 1 )
+    {
+        return;
+    }
+
+    trap_Argv( 1, short_name, sizeof( short_name ) );
+
+    if ( !G_CfgDbPoolDelete( short_name ))
+    {
+        G_Printf( "Failed delete pool '%s'.\n", short_name );
+    }
+
 
 }
 
 void Svcmd_PoolMapAdd_f()
 {
+    char short_name[64];
+    char mapname[64];
+    int  weight;
 
+    if ( trap_Argc() < 2 )
+    {
+        return;
+    }
+
+    trap_Argv( 1, short_name, sizeof( short_name ) );
+    trap_Argv( 2, mapname, sizeof( mapname ) );
+
+    if ( trap_Argc() >= 3 )
+    {
+        char weightStr[16];
+        trap_Argv( 3, weightStr, sizeof( weightStr ) );
+
+        weight = atoi( weightStr );
+    }
+    else
+    {
+        weight = 1;
+    } 
+
+    if ( !G_CfgDbPoolMapAdd( short_name, mapname, weight ) )
+    {
+        G_Printf( "Could not add map to pool '%s'.\n", short_name );
+    }  
 }
 
 void Svcmd_PoolMapRemove_f()
 {
+    char short_name[64];
+    char mapname[64];
+
+    if ( trap_Argc() < 2 )
+    {
+        return;
+    } 
+
+    trap_Argv( 1, short_name, sizeof( short_name ) );
+    trap_Argv( 2, mapname, sizeof( mapname ) );
+
+    if ( !G_CfgDbPoolMapRemove( short_name, mapname ) )
+    {
+        G_Printf( "Could not remove map from pool '%s'.\n", short_name );
+    }
 
 }
 
