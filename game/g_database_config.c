@@ -206,7 +206,7 @@ qboolean G_CfgDbIsFiltered( const char* ip,
 {
     int ipA = 0, ipB = 0, ipC = 0, ipD = 0;
     int port = 0;
-    int rc = -1;
+
     qboolean filtered = qfalse;
 
     // parse ip address
@@ -290,7 +290,7 @@ qboolean G_CfgDbIsFilteredByBlacklist( int ipA, int ipB, int ipC, int ipD, char*
     // blacklisted => we forbid it
     if ( rc == SQLITE_ROW )
     {
-        const char* reason = sqlite3_column_text( statement, 0 ); 
+        const char* reason = (const char*)sqlite3_column_text( statement, 0 );
         const char* prefix = "Banned: ";
         int prefixSize = strlen( prefix );
 
@@ -363,12 +363,12 @@ void G_CfgDbListBlacklist( BlackListCallback  callback )
     rc = sqlite3_step( statement );
     while ( rc == SQLITE_ROW )
     {
-        const char* ip = sqlite3_column_text( statement, 0 );
-        const char* mask = sqlite3_column_text( statement, 1 );
-        const char* notes = sqlite3_column_text( statement, 2 );
-        const char* reason = sqlite3_column_text( statement, 3 );
-        const char* banned_since = sqlite3_column_text( statement, 4 );
-        const char* banned_until = sqlite3_column_text( statement, 5 );
+        const char* ip = (const char*)sqlite3_column_text( statement, 0 );
+        const char* mask = (const char*)sqlite3_column_text( statement, 1 );
+        const char* notes = (const char*)sqlite3_column_text( statement, 2 );
+        const char* reason = (const char*)sqlite3_column_text( statement, 3 );
+        const char* banned_since = (const char*)sqlite3_column_text( statement, 4 );
+        const char* banned_until = (const char*)sqlite3_column_text( statement, 5 );
 
         callback( ip, mask, notes, reason, banned_since, banned_until );
 
@@ -528,8 +528,8 @@ void G_CfgDbListPools( ListPoolCallback callback, void* context )
     while ( rc == SQLITE_ROW )
     {
         int pool_id = sqlite3_column_int( statement, 0 );
-        const char* short_name = sqlite3_column_text( statement, 1 );
-        const char* long_name = sqlite3_column_text( statement, 2 );
+        const char* short_name = (const char*)sqlite3_column_text( statement, 1 );
+        const char* long_name = (const char*)sqlite3_column_text( statement, 2 );
 
         callback( context, pool_id, short_name, long_name );
 
@@ -559,9 +559,9 @@ void G_CfgDbListMapsInPool( const char* short_name,
     rc = sqlite3_step( statement );
     while ( rc == SQLITE_ROW )
     {
-        const char* long_name = sqlite3_column_text( statement, 0 );
+        const char* long_name = (const char*)sqlite3_column_text( statement, 0 );
         int pool_id = sqlite3_column_int( statement, 1 );
-        const char* mapname = sqlite3_column_text( statement, 2 );
+        const char* mapname = (const char*)sqlite3_column_text( statement, 2 );
         int weight = sqlite3_column_int( statement, 3 );
 
         callback( context, long_name, pool_id, mapname, weight );
@@ -594,7 +594,7 @@ qboolean G_CfgDbFindPool( const char* short_name, PoolInfo* poolInfo )
     if ( rc == SQLITE_ROW )
     {
         int pool_id = sqlite3_column_int( statement, 0 );
-        const char* long_name = sqlite3_column_text( statement, 1 );
+        const char* long_name = (const char*)sqlite3_column_text( statement, 1 );
 
         Q_strncpyz( poolInfo->long_name, long_name, sizeof( poolInfo->long_name) );
         poolInfo->pool_id = pool_id;
