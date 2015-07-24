@@ -47,10 +47,10 @@ const char* const sqlCreateCfgDb =
 "    [long_name] TEXT );                                                        " 
 "                                                                               "
 "                                                                               "
-"CREATE TABLE[pool_has_map](                                                    "
-"    [pool_id] INTEGER REFERENCES[pools]( [pool_id] ),                          "
+"CREATE TABLE [pool_has_map] (                                                  "
+"    [pool_id] INTEGER REFERENCES [pools]([pool_id]) ON DELETE RESTRICT,        "
 "    [mapname] TEXT,                                                            "
-"    [weight] INTEGER );                                                        "; 
+"    [weight] INTEGER);                                                         "; 
 
 const char* const sqlIsIpBlacklisted =
 "SELECT reason                           "
@@ -125,6 +125,16 @@ const char* const sqlGetPoolWeight =
 const char* const sqlCreatePool =
 "INSERT INTO pools (short_name, long_name) "
 "VALUES (?,?)                              ";
+
+const char* const sqlDeleteAllMapsInPool =
+"DELETE FROM pool_has_map                "
+"WHERE pool_id                           "
+"IN                                      "
+"( SELECT pools.pool_id                  "
+"FROM pools                              "
+"JOIN pool_has_map                       "
+"ON pools.pool_id = pool_has_map.pool_id "
+"WHERE short_name = ? )                  ";
 
 const char* const sqlDeletePool =
 "DELETE FROM pools          "
@@ -726,17 +736,17 @@ qboolean G_CfgDbPoolCreate( const char* short_name, const char* long_name )
 }
 
 //
-//  G_CfgDbPoolDelete
+//  G_CfgDbPoolDeleteAllMaps
 // 
-//  Deletes pool
+//  Deletes all maps in pool
 //
-qboolean G_CfgDbPoolDelete( const char* short_name )
-{         
+qboolean G_CfgDbPoolDeleteAllMaps( const char* short_name )
+{
     qboolean success = qfalse;
 
     sqlite3_stmt* statement;
     // prepare insert statement
-    int rc = sqlite3_prepare( db, sqlDeletePool, -1, &statement, 0 );
+    int rc = sqlite3_prepare( db, sqlDeleteAllMapsInPool, -1, &statement, 0 );
 
     sqlite3_bind_text( statement, 1, short_name, -1, 0 );
 
@@ -747,6 +757,35 @@ qboolean G_CfgDbPoolDelete( const char* short_name )
     }
 
     sqlite3_finalize( statement );
+
+    return success;
+}
+
+//
+//  G_CfgDbPoolDelete
+// 
+//  Deletes pool
+//
+qboolean G_CfgDbPoolDelete( const char* short_name )
+{         
+    qboolean success = qfalse;
+
+    if ( G_CfgDbPoolDeleteAllMaps( short_name ) )
+    {
+        sqlite3_stmt* statement;
+        // prepare insert statement
+        int rc = sqlite3_prepare( db, sqlDeletePool, -1, &statement, 0 );
+
+        sqlite3_bind_text( statement, 1, short_name, -1, 0 );
+
+        rc = sqlite3_step( statement );
+        if ( rc == SQLITE_DONE )
+        {
+            success = qtrue;
+        }
+
+        sqlite3_finalize( statement );
+    } 
 
     return success;
 }
