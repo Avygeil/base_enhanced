@@ -1056,7 +1056,7 @@ void Svcmd_MapRandom_f()
         return;
     }
 
-    G_Printf( "Map pool %s not found\n", pool );
+    G_Printf( "Map pool '%s' not found\n", pool );
 }
 
 char	*ConcatArgs( int start );

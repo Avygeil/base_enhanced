@@ -3361,7 +3361,7 @@ void listPools( void* context,
     const char* long_name )
 {
     ListPoolsContext* thisContext = (ListPoolsContext*)context;
-    trap_SendServerCommand( thisContext->entity, va( "print \"%s (%s)\n\"", pool_id, long_name ) );
+    trap_SendServerCommand( thisContext->entity, va( "print \"%s (%s)\n\"", short_name, long_name ) );
     ++(thisContext->count);
 }
 
@@ -3383,6 +3383,7 @@ void listMapsInPools( void* context,
 {
     ListMapsInPoolContext* thisContext = (ListMapsInPoolContext*)context;
     thisContext->pool_id = pool_id;
+    thisContext->count++;
     Q_strncpyz( thisContext->long_name, long_name, sizeof( thisContext->long_name ) );
     trap_SendServerCommand( thisContext->entity, va( "print \" %s\n\"", mapname ) );
 }
@@ -3399,10 +3400,10 @@ static void Cmd_MapPool_f(gentity_t* ent)
         char short_name[64];
         trap_Argv( 1, short_name, sizeof( short_name ) );
 
-        G_CfgDbListMapsInPool( short_name, 0, listMapsInPools, &context );
+        G_CfgDbListMapsInPool( short_name, "", listMapsInPools, &context );
 
-        trap_SendServerCommand( context.entity, va( "print \"Found %i maps for pool %s (%s):\n\"",
-            context.count, context.pool_id, context.long_name) );  	
+        trap_SendServerCommand( context.entity, va( "print \"Found %i maps for pool %s.\n\"",
+            context.count, short_name, context.long_name ) );
 	}
 	else
 	{
@@ -3412,7 +3413,7 @@ static void Cmd_MapPool_f(gentity_t* ent)
 
         G_CfgDbListPools( listPools, &context );
 
-        trap_SendServerCommand( context.entity, va( "print \"Found %i map pools:\n\"", context.count ) );
+        trap_SendServerCommand( context.entity, va( "print \"Found %i map pools.\n\"", context.count ) );
 	}
 }
 
