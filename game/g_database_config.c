@@ -122,6 +122,13 @@ const char* const sqlGetPoolWeight =
 "ON pools.pool_id = pool_has_map.pool_id                                    "
 "WHERE short_name = ? AND mapname <> ?                                      ";
 
+const char* const sqlCreatePool =
+"INSERT INTO pools (short_name, long_name) "
+"VALUES (?,?)                              ";
+
+const char* const sqlDeletePool =
+"DELETE FROM pools          "
+"WHERE short_name = ?;      ";
 
 //
 //  G_DbLoad
@@ -667,12 +674,45 @@ qboolean G_CfgDbSelectMapFromPool( const char* short_name,
    
 qboolean G_CfgDbPoolCreate( const char* short_name, const char* long_name )
 {
-    return qfalse;
+    qboolean success = qfalse;
+
+    sqlite3_stmt* statement;
+    // prepare insert statement
+    int rc = sqlite3_prepare( db, sqlCreatePool, -1, &statement, 0 );
+
+    sqlite3_bind_text( statement, 1, short_name, -1, 0 );
+    sqlite3_bind_text( statement, 2, long_name, -1, 0 );
+
+    rc = sqlite3_step( statement );
+    if ( rc == SQLITE_DONE )
+    {
+        success = qtrue;
+    }
+
+    sqlite3_finalize( statement );    
+
+    return success;
 }
 
 qboolean G_CfgDbPoolDelete( const char* short_name )
-{
-    return qfalse;
+{         
+    qboolean success = qfalse;
+
+    sqlite3_stmt* statement;
+    // prepare insert statement
+    int rc = sqlite3_prepare( db, sqlDeletePool, -1, &statement, 0 );
+
+    sqlite3_bind_text( statement, 1, short_name, -1, 0 );
+
+    rc = sqlite3_step( statement );
+    if ( rc == SQLITE_DONE )
+    {
+        success = qtrue;
+    }
+
+    sqlite3_finalize( statement );
+
+    return success;
 }
 
 qboolean G_CfgDbPoolMapAdd( const char* short_name, const char* mapname, int weight )
