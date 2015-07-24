@@ -1064,7 +1064,7 @@ void Svcmd_PoolCreate_f()
     char short_name[64];
     char long_name[64];      
 
-    if ( trap_Argc() < 2 )
+    if ( trap_Argc() < 3 )
     {
         return;
     }
@@ -1082,7 +1082,7 @@ void Svcmd_PoolDelete_f()
 {
     char short_name[64];
 
-    if ( trap_Argc() < 1 )
+    if ( trap_Argc() < 2 )
     {
         return;
     }
@@ -1103,7 +1103,7 @@ void Svcmd_PoolMapAdd_f()
     char mapname[64];
     int  weight;
 
-    if ( trap_Argc() < 2 )
+    if ( trap_Argc() < 3 )
     {
         return;
     }
@@ -1111,7 +1111,7 @@ void Svcmd_PoolMapAdd_f()
     trap_Argv( 1, short_name, sizeof( short_name ) );
     trap_Argv( 2, mapname, sizeof( mapname ) );
 
-    if ( trap_Argc() >= 3 )
+    if ( trap_Argc() > 3 )
     {
         char weightStr[16];
         trap_Argv( 3, weightStr, sizeof( weightStr ) );
@@ -1134,7 +1134,7 @@ void Svcmd_PoolMapRemove_f()
     char short_name[64];
     char mapname[64];
 
-    if ( trap_Argc() < 2 )
+    if ( trap_Argc() < 3 )
     {
         return;
     } 

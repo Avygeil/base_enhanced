@@ -130,6 +130,25 @@ const char* const sqlDeletePool =
 "DELETE FROM pools          "
 "WHERE short_name = ?;      ";
 
+const char* const sqlAddMapToPool =
+"INSERT INTO pool_has_map (pool_id, mapname, weight)   "
+"SELECT pools.pool_id, ?, ?                            "
+"FROM pools                                            "
+"WHERE short_name = ?                                  ";
+
+const char* const sqlRemoveMapToPool =
+"DELETE FROM pool_has_map                "
+"WHERE pool_id                           "
+"IN                                      "
+"( SELECT pools.pool_id                  "
+"FROM pools                              "
+"JOIN pool_has_map                       "
+"ON pools.pool_id = pool_has_map.pool_id "
+"WHERE short_name = ? )                  "
+"AND mapname = ? ;                       ";
+
+
+
 //
 //  G_DbLoad
 // 
@@ -716,11 +735,46 @@ qboolean G_CfgDbPoolDelete( const char* short_name )
 }
 
 qboolean G_CfgDbPoolMapAdd( const char* short_name, const char* mapname, int weight )
-{
-    return qfalse;
+{    
+    qboolean success = qfalse;
+
+    sqlite3_stmt* statement;
+    // prepare insert statement
+    int rc = sqlite3_prepare( db, sqlAddMapToPool, -1, &statement, 0 );
+                  
+    sqlite3_bind_text( statement, 1, mapname, -1, 0 );
+    sqlite3_bind_int( statement, 2, weight );
+    sqlite3_bind_text( statement, 3, short_name, -1, 0 );
+
+    rc = sqlite3_step( statement );
+    if ( rc == SQLITE_DONE )
+    {
+        success = qtrue;
+    }
+
+    sqlite3_finalize( statement );
+
+    return success;
 }
 
 qboolean G_CfgDbPoolMapRemove( const char* short_name, const char* mapname )
 {
-    return qfalse;
+    qboolean success = qfalse;
+
+    sqlite3_stmt* statement;
+    // prepare insert statement
+    int rc = sqlite3_prepare( db, sqlRemoveMapToPool, -1, &statement, 0 );
+
+    sqlite3_bind_text( statement, 1, short_name, -1, 0 );
+    sqlite3_bind_text( statement, 2, mapname, -1, 0 );
+
+    rc = sqlite3_step( statement );
+    if ( rc == SQLITE_DONE )
+    {
+        success = qtrue;
+    }
+
+    sqlite3_finalize( statement );
+
+    return success;
 }
