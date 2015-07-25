@@ -451,6 +451,7 @@ typedef struct {
 	unsigned	ignoreFlags;
     int			inactivityTime;
     int         sessionId;
+    int         nameChangeTime;
 
 	char        username[MAX_USERNAME_SIZE];
 } clientSession_t;

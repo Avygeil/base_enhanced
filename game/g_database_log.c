@@ -42,12 +42,6 @@ const char* const sqlCreateLogDb =
 "  [restart] BOOL);                                                             "
 "                                                                               "
 "                                                                               "
-"CREATE TABLE[session_stats](                                                   "
-"    [session_id] INTEGER REFERENCES[sessions]( [session_id] ),                 "
-"    [accuracy_hits] INTEGER,                                                   "
-"    [accuracy_shots] INTEGER );                                                "
-"                                                                               "
-"                                                                               "
 "CREATE TABLE[ip_address](                                                      "
 "    [ip_address_id] INTEGER PRIMARY KEY AUTOINCREMENT,                         "
 "    [ip_A] INTEGER,                                                            "
@@ -56,10 +50,11 @@ const char* const sqlCreateLogDb =
 "    [ip_D] INTEGER );                                                          "
 "                                                                               "
 "                                                                               "
-"CREATE TABLE [nicknames] (                                                     "
-"    [ip_address_id] INTEGER REFERENCES [ip_address]([ip_address_id]),          "
+"CREATE TABLE[nicknames](                                                       "
+"    [ip_address_id] INTEGER REFERENCES[ip_address]( [ip_address_id] ),         "
 "    [name] TEXT,                                                               "
-"    [duration] TIME);                                                          ";
+"    [duration] INTEGER );                                                      ";
+                                                                               
 
 const char* const sqlLogLevelStart =
 "INSERT INTO levels (level_start, mapname, restart) "
