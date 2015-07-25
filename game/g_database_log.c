@@ -93,6 +93,16 @@ const char* const sqlAddIpAddress =
 "INSERT INTO ip_address (ip_A, ip_B, ip_C, ip_D)            "
 "VALUES (?,?,?, ?)                                          ";
 
+const char* const sqlGetAliases =
+"SELECT name, SUM( duration ) AS time                           "
+"FROM nicknames                                                 "
+"JOIN ip_address                                                "
+"ON nicknames.ip_address_id = ip_address.ip_address_id          "
+"WHERE ip_A = ? AND ip_B = ? AND ip_C = ?  AND ip_D = ?         "
+"GROUP BY name                                                  "
+"ORDER BY time DESC                                             "
+"LIMIT ?                                                        ";
+
 //
 //  G_LogDbLoad
 // 
@@ -363,4 +373,39 @@ void G_LogDbLogNickname( const char* ip,
 
     sqlite3_finalize( statement );
 
+}
+
+
+void G_CfgDbListAliases( const char* ip,
+    int limit,
+    ListAliasesCallback callback,
+    void* context )
+{
+    int ipA = 0, ipB = 0, ipC = 0, ipD = 0;
+
+    // parse ip address and mask
+    sscanf( ip, "%d.%d.%d.%d", &ipA, &ipB, &ipC, &ipD);
+
+    sqlite3_stmt* statement;
+    // prepare insert statement
+    int rc = sqlite3_prepare( db, sqlGetAliases, -1, &statement, 0 );
+
+    sqlite3_bind_int( statement, 1, ipA );
+    sqlite3_bind_int( statement, 2, ipB );
+    sqlite3_bind_int( statement, 3, ipC );
+    sqlite3_bind_int( statement, 4, ipD );
+    sqlite3_bind_int( statement, 5, limit );
+
+    rc = sqlite3_step( statement );
+    while ( rc == SQLITE_ROW )
+    {
+        const char* name = (const char*)sqlite3_column_text( statement, 0 );
+        int duration = sqlite3_column_int( statement, 1 );
+
+        callback( context, name, duration );
+
+        rc = sqlite3_step( statement );
+    }
+
+    sqlite3_finalize( statement );
 }

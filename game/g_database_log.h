@@ -32,10 +32,20 @@ int G_LogDbLogSessionStart( const char* ip,
 
 void G_LogDbLogSessionEnd( int sessionId );
 
+int G_LogDbGetIpAddressId( int ipA, int ipB, int ipC, int ipD );
+
 void G_LogDbLogNickname(const char* ip,
     const char* name,
     int duration );
 
+typedef void( *ListAliasesCallback )(void* context,
+    const char* name,
+    int duration);
+
+void G_CfgDbListAliases( const char* ip,
+    int limit,
+    ListAliasesCallback callback,
+    void* context );
 
 
 #endif //G_DATABASE_H

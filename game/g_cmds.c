@@ -3418,6 +3418,76 @@ static void Cmd_MapPool_f(gentity_t* ent)
 	}
 }
 
+typedef struct
+{
+    int entNum;
+
+} AliasesContext;
+
+void listAliasesCallback( void* context,
+    const char* name,
+    int duration )
+{
+    AliasesContext* thisContext = (AliasesContext*)context;
+    trap_SendServerCommand( thisContext->entNum, va( "print \"  %s (%i).\n\"", name, duration ) );
+}
+
+static void Cmd_WhoIs_f( gentity_t* ent )
+{
+    if ( trap_Argc() > 1 )
+    {  
+        char buffer[64];
+        int id, i;
+        int foundid;  
+
+        trap_Argv( 1, buffer, sizeof( buffer ) );
+
+        id = atoi( buffer );
+
+        if ( !id && (buffer[0] < '0' || buffer[0] > '9') )
+        {
+            //argument isnt number
+            //lets go through player list
+            foundid = -1;
+            for ( i = 0; i < level.maxclients; ++i )
+            {
+                if ( !g_entities[i].inuse || !g_entities[i].client )
+                    continue;
+
+                if ( Q_stristrclean( g_entities[i].client->pers.netname, buffer ) )
+                {
+                    if ( foundid != -1 )
+                    {//we already have one, ambigious then
+                        trap_SendServerCommand( ent - g_entities,
+                            va( "print \"Too many players with name including '%s^7'. Please be more specific.\n\"", buffer ) );
+                        return;
+                    }
+                    foundid = i;
+                }
+            }
+            if ( foundid == -1 )
+            {
+                trap_SendServerCommand( ent - g_entities, va( "print \"Player with '%s^7' not found.\n\"", buffer ) );
+                return;
+            }
+            id = foundid;
+        }
+
+        if ( id < -1 || id > 31 ||
+            (id >= 0 && (!g_entities[id].inuse || !g_entities[id].client)) )
+        {
+            trap_SendServerCommand( ent - g_entities, va( "print \"Wrong client number %i.\n\"", id ) );
+            return;
+        }
+
+        trap_SendServerCommand( ent - g_entities, va( "print \"Aliases for client %i.\n\"", id ) );  
+
+        AliasesContext context;
+        context.entNum = ent - g_entities;
+        G_CfgDbListAliases( g_entities[id].client->sess.ipString, 3, listAliasesCallback, &context );
+    }
+}  
+
 void Cmd_EngageDuel_f(gentity_t *ent)
 {
 	trace_t tr;
@@ -3946,6 +4016,8 @@ void ClientCommand( int clientNum ) {
 		Cmd_Ready_f(ent);
 	else if (Q_stricmp(cmd, "mappool") == 0)
 		Cmd_MapPool_f(ent);
+    else if ( Q_stricmp( cmd, "whois" ) == 0 )
+        Cmd_WhoIs_f( ent );
 	else if (Q_stricmp (cmd, "gc") == 0)
 		Cmd_GameCommand_f( ent );
 	else if (Q_stricmp (cmd, "setviewpos") == 0)
