@@ -3429,7 +3429,7 @@ void listAliasesCallback( void* context,
     int duration )
 {
     AliasesContext* thisContext = (AliasesContext*)context;
-    trap_SendServerCommand( thisContext->entNum, va( "print \"  %s (%i).\n\"", name, duration ) );
+    trap_SendServerCommand( thisContext->entNum, va( "print \"  %s"S_COLOR_WHITE" (%i).\n\"", name, duration ) );
 }
 
 static void Cmd_WhoIs_f( gentity_t* ent )

@@ -31,7 +31,7 @@ INCLUDES = -I../ -I./ -I../shared/
 DEFINES = -DMISSION_PACK -DQAGAME -D_JK2 -D__linux__ -D__GCC__
 OPTIONS = -Wall -fno-strict-aliasing -m32 -masm=intel
 FLAGS = $(INCLUDES) $(DEFINES) $(OPTIONS) $(CONFIG)
-LIBS = 
+LIBS =  -pthread
 #LIBS = -fno-stack-protector -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0 -D_GNU_SOURCE /usr/local/lib/libcurl.a -lrt -Wl,-Bstatic -lz -Wl,-Bdynamic 
 #LIBS = -fno-stack-protector -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0 -D_GNU_SOURCE /usr/local/lib/libcurl.a -lrt -Wl,-Bstatic -lz -Wl,-Bdynamic 
 #LIBS = -U_FORTIFY_SOURCE /usr/local/lib/libcurl.a -lrt -lz
