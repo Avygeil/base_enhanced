@@ -27,7 +27,9 @@ typedef enum
 } LevelEvent;
 
 // session stuff
-int G_LogDbLogSessionStart( const char* ip );
+int G_LogDbLogSessionStart( const char* ip,
+    int id);
+
 void G_LogDbLogSessionEnd( int sessionId );
 
 void G_LogDbLogNickname(const char* ip,

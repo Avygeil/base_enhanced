@@ -2491,7 +2491,7 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 
     if ( firstTime )
     {
-        int sessionId = G_LogDbLogSessionStart( client->sess.ipString );
+        int sessionId = G_LogDbLogSessionStart( client->sess.ipString, clientNum );
         client->sess.sessionId = sessionId;
 
         G_LogDbLogNickname( client->sess.ipString, client->pers.netname, 0 );

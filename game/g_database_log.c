@@ -71,8 +71,8 @@ const char* const sqlLogLevelEnd =
 "WHERE level_id = ? ;               ";       
 
 const char* const sqllogSessionStart =
-"INSERT INTO sessions (session_start, ip_address_id, ip_port)    "
-"VALUES (datetime('now'),?,?)                                    ";
+"INSERT INTO sessions (session_start, ip_address_id, ip_port, client_id)    "
+"VALUES (datetime('now'),?,?, ?)                                            ";
 
 const char* const sqllogSessionEnd =
 "UPDATE sessions                      "
@@ -218,7 +218,8 @@ void G_LogDbLogLevelEvent( int levelId,
 // 
 //  Logs players connection session start
 //
-int G_LogDbLogSessionStart( const char* ip )
+int G_LogDbLogSessionStart( const char* ip,
+    int id )
 {
     sqlite3_stmt* statement;
     // prepare insert statement
@@ -234,6 +235,7 @@ int G_LogDbLogSessionStart( const char* ip )
 
     sqlite3_bind_int( statement, 1, ipAddressId );
     sqlite3_bind_int( statement, 2, ipPort );
+    sqlite3_bind_int( statement, 3, id );
 
     rc = sqlite3_step( statement );
 
