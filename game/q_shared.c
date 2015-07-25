@@ -728,6 +728,22 @@ int Q_isalpha( int c )
 	return ( 0 );
 }
 
+qboolean Q_isanumber( const char *s )
+{
+	char *p;
+	long ret;
+
+	if( *s == '\0' )
+		return qfalse;
+
+	ret = strtol( s, &p, 10 );
+
+	if ( errno == ERANGE )
+		return qfalse;
+
+	return (qboolean)(*p == '\0');
+}
+
 char* Q_strrchr( const char* string, int c )
 {
 	char cc = c;

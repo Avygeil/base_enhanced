@@ -6,7 +6,7 @@
 #include "g_database_log.h"
 
 //#include "accounts.h"
-
+#include "sha1.h"
 
 // g_client.c -- client functions that don't happen every frame
 
@@ -2176,17 +2176,59 @@ void ClientUserinfoChanged( int clientNum ) {
 			client->pers.maxHealth, client->sess.wins, client->sess.losses,
 			Info_ValueForKey( userinfo, "skill" ), teamTask, teamLeader, className, saberName, saber2Name, client->sess.duelTeam, client->sess.siegeDesiredTeam );
 	} else {
+		// compute and send a uniqueid
+		int ipHash = 0, guidHash = 0;
+		unsigned long long int totalHash;
+		SHA1Context ctx;
+		SHA1Reset( &ctx );
+		value = Info_ValueForKey( userinfo, "ip" );
+		if ( value && *value ) {
+			int ip = getIpFromString( value );
+			SHA1Input( &ctx, (unsigned char *)&ip, sizeof( ip ) );
+		} else {
+			// no ip? ....
+		}
+		if ( SHA1Result( &ctx ) == 1 ) {
+			ipHash = ctx.Message_Digest[0];
+		}
+		guidHash = 0;
+		// openjk clients send over a (theoretically) consistent guid so we can track them across ip changes
+		value = Info_ValueForKey( userinfo, "ja_guid" );
+		if ( value && *value ) {
+			// cool, use it, but also use ip in case this devious person reset their guid
+			SHA1Reset( &ctx );
+			SHA1Input( &ctx, (unsigned char *)value, (unsigned int)strlen(value) );
+			if ( SHA1Result( &ctx ) == 1 ) {
+				guidHash = ctx.Message_Digest[0];
+			}
+		} else {
+			// not an openjk client, so we should be able to force their cvars
+			value = Info_ValueForKey( userinfo, "sex" );
+			if ( value && *value && Q_isanumber( value ) ) {
+				guidHash = atoi( value );
+			} else {
+				char systeminfo[16384];
+				guidHash = rand();
+				trap_GetConfigstring( CS_SYSTEMINFO, systeminfo, sizeof( systeminfo ) );
+				// they only need to see it once for it to be set
+				trap_SendServerCommand( clientNum, va( "cs %i \"%s\\sex\\%d\"", CS_SYSTEMINFO, systeminfo, guidHash ) );
+				trap_SendServerCommand( clientNum, va( "cs %i \"%s\"", CS_SYSTEMINFO, systeminfo ) );
+			}
+		}
+		totalHash = ((unsigned long long int) ipHash) << 32 | guidHash;
+		Com_Printf( "Client %d (%s) has unique id %llu", clientNum, client->pers.netname, totalHash );
 		if (g_gametype.integer == GT_SIEGE)
 		{ //more crap to send
-			s = va("n\\%s\\t\\%i\\model\\%s\\c1\\%s\\c2\\%s\\hc\\%i\\w\\%i\\l\\%i\\tt\\%d\\tl\\%d\\siegeclass\\%s\\st\\%s\\st2\\%s\\dt\\%i\\sdt\\%i",
+			s = va("n\\%s\\t\\%i\\model\\%s\\c1\\%s\\c2\\%s\\hc\\%i\\w\\%i\\l\\%i\\tt\\%d\\tl\\%d\\siegeclass\\%s\\st\\%s\\st2\\%s\\dt\\%i\\sdt\\%i\\id\\%llu",
 				client->pers.netname, client->sess.sessionTeam, model, c1, c2, 
-				client->pers.maxHealth, client->sess.wins, client->sess.losses, teamTask, teamLeader, className, saberName, saber2Name, client->sess.duelTeam, client->sess.siegeDesiredTeam);
+				client->pers.maxHealth, client->sess.wins, client->sess.losses, teamTask, teamLeader, className, saberName, saber2Name, client->sess.duelTeam,
+				client->sess.siegeDesiredTeam, totalHash);
 		}
 		else
 		{
-			s = va("n\\%s\\t\\%i\\model\\%s\\c1\\%s\\c2\\%s\\hc\\%i\\w\\%i\\l\\%i\\tt\\%d\\tl\\%d\\st\\%s\\st2\\%s\\dt\\%i",
+			s = va("n\\%s\\t\\%i\\model\\%s\\c1\\%s\\c2\\%s\\hc\\%i\\w\\%i\\l\\%i\\tt\\%d\\tl\\%d\\st\\%s\\st2\\%s\\dt\\%i\\id\\%llu",
 				client->pers.netname, client->sess.sessionTeam, model, c1, c2, 
-				client->pers.maxHealth, client->sess.wins, client->sess.losses, teamTask, teamLeader, saberName, saber2Name, client->sess.duelTeam);
+				client->pers.maxHealth, client->sess.wins, client->sess.losses, teamTask, teamLeader, saberName, saber2Name, client->sess.duelTeam, totalHash);
 		}
 	}
 
