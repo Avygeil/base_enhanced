@@ -1964,7 +1964,7 @@ void ClientUserinfoChanged( int clientNum ) {
 				Info_SetValueForKey( userinfo, "name", client->pers.netname );
 				trap_SetUserinfo( clientNum, userinfo );
 
-                G_LogDbLogNickname( client->sess.ipString, client->pers.netname );
+                G_LogDbLogNickname( client->sess.ipString, client->pers.netname, 0 );
 
 				//make heartbeat soon - accounts system
 				//if (nextHeartBeatTime > level.time + 5000){
@@ -2494,7 +2494,7 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
         int sessionId = G_LogDbLogSessionStart( client->sess.ipString );
         client->sess.sessionId = sessionId;
 
-        G_LogDbLogNickname( client->sess.ipString, client->pers.netname );
+        G_LogDbLogNickname( client->sess.ipString, client->pers.netname, 0 );
     }
 
 	if ( g_gametype.integer >= GT_TEAM &&

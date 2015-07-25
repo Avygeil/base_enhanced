@@ -31,7 +31,8 @@ int G_LogDbLogSessionStart( const char* ip );
 void G_LogDbLogSessionEnd( int sessionId );
 
 void G_LogDbLogNickname(const char* ip,
-    const char* name);
+    const char* name,
+    int duration );
 
 
 
