@@ -43,6 +43,7 @@ typedef void( *ListAliasesCallback )(void* context,
     int duration);
 
 void G_CfgDbListAliases( const char* ip,
+    const char* mask,
     int limit,
     ListAliasesCallback callback,
     void* context );

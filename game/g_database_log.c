@@ -98,10 +98,11 @@ const char* const sqlGetAliases =
 "FROM nicknames                                                 "
 "JOIN ip_address                                                "
 "ON nicknames.ip_address_id = ip_address.ip_address_id          "
-"WHERE ip_A = ? AND ip_B = ? AND ip_C = ?  AND ip_D = ?         "
+"WHERE ip_A & ?5 = ?1 & ?5  AND ip_B& ?6 = ?2 & ?6              "
+"AND ip_C& ?7 = ?3 & ?7  AND ip_D & ?8 = ?4 & ?8                "
 "GROUP BY name                                                  "
 "ORDER BY time DESC                                             "
-"LIMIT ?                                                        ";
+"LIMIT ?9                                                       ";
 
 //
 //  G_LogDbLoad
@@ -377,14 +378,17 @@ void G_LogDbLogNickname( const char* ip,
 
 
 void G_CfgDbListAliases( const char* ip,
+    const char* mask,
     int limit,
     ListAliasesCallback callback,
     void* context )
 {
     int ipA = 0, ipB = 0, ipC = 0, ipD = 0;
+    int maskA = 0, maskB = 0, maskC = 0, maskD = 0;
 
     // parse ip address and mask
     sscanf( ip, "%d.%d.%d.%d", &ipA, &ipB, &ipC, &ipD);
+    sscanf( mask, "%d.%d.%d.%d", &maskA, &maskB, &maskC, &maskD );
 
     sqlite3_stmt* statement;
     // prepare insert statement
@@ -394,7 +398,11 @@ void G_CfgDbListAliases( const char* ip,
     sqlite3_bind_int( statement, 2, ipB );
     sqlite3_bind_int( statement, 3, ipC );
     sqlite3_bind_int( statement, 4, ipD );
-    sqlite3_bind_int( statement, 5, limit );
+    sqlite3_bind_int( statement, 5, maskA );
+    sqlite3_bind_int( statement, 6, maskB );
+    sqlite3_bind_int( statement, 7, maskC );
+    sqlite3_bind_int( statement, 8, maskD );
+    sqlite3_bind_int( statement, 9, limit );
 
     rc = sqlite3_step( statement );
     while ( rc == SQLITE_ROW )
