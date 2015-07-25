@@ -24,11 +24,16 @@ const char* const sqlCreateLogDb =
 "    [description] TEXT );                                                      "
 "                                                                               "
 "                                                                               "
-"CREATE TABLE[level_events](                                                    "
+"CREATE TABLE [level_events] (                                                  "
 "    [level_event_id] INTEGER PRIMARY KEY AUTOINCREMENT,                        "
-"    [event_time] DATETIME,                                                     "
+"    [level_id] INTEGER REFERENCES [levels]([level_id]),                        "
+"    [event_level_time] INTEGER,                                                "
 "    [event_id] INTEGER,                                                        "
-"    [event_context] TEXT );                                                    "
+"    [event_context_i1] INTEGER,                                                "
+"    [event_context_i2] INTEGER,                                                "
+"    [event_context_i3] INTEGER,                                                "
+"    [event_context_i4] INTEGER,                                                "
+"    [event_context] TEXT);                                                     "
 "                                                                               "
 "                                                                               "
 "CREATE TABLE [levels] (                                                        "
@@ -37,19 +42,6 @@ const char* const sqlCreateLogDb =
 "  [level_end] DATETIME,                                                        "
 "  [mapname] TEXT,                                                              "
 "  [restart] BOOL);                                                             "
-"                                                                               "
-"                                                                               "
-"CREATE TABLE[session_events_enum](                                             "
-"    [event_id] INTEGER PRIMARY KEY AUTOINCREMENT,                              "
-"    [event_name] TEXT );                                                       "
-"                                                                               "
-"                                                                               "
-"CREATE TABLE[session_events](                                                  "
-"    [session_event_id] INTEGER PRIMARY KEY AUTOINCREMENT,                      "
-"    [session_id] INTEGER REFERENCES[sessions]( [session_id] ),                 "
-"    [event_time] DATETIME,                                                     "
-"    [event_id] INTEGER REFERENCES[session_events_enum]( [event_id] ),          "
-"    [event_context] TEXT );                                                    "
 "                                                                               "
 "                                                                               "
 "CREATE TABLE[session_stats](                                                   "
@@ -76,9 +68,11 @@ const char* const sqllogSessionEnd =
 "SET session_end = datetime( 'now' )  "
 "WHERE session_id = ? ;               ";
 
-const char* const sqlAddSessionEvent =
-"INSERT INTO session_events (session_id, event_time, event_id, event_context)     "
-"VALUES (?,datetime('now'),?,?)                                                   ";
+const char* const sqlAddLevelEvent =
+"INSERT INTO level_events (level_id, event_level_time, event_id,           "
+"event_context_i1, event_context_i2, event_context_i3, event_context_i4,   "
+"event_context)                                                            "
+"VALUES (?,?,?,?,?,?,?,?)                                                  ";
 
 //
 //  G_LogDbLoad
@@ -162,6 +156,38 @@ void G_LogDbLogLevelEnd( int levelId )
 
     sqlite3_finalize( statement );
 }
+
+//
+//  G_LogDbLogLevelEvent
+// 
+//  Logs level event
+//
+void G_LogDbLogLevelEvent( int levelId,
+    int levelTime,
+    int eventId,
+    int context1,
+    int context2,
+    int context3,
+    int context4,
+    const char* contextText )
+{
+    sqlite3_stmt* statement;
+    // prepare insert statement
+    int rc = sqlite3_prepare( db, sqlAddLevelEvent, -1, &statement, 0 );
+
+    sqlite3_bind_int( statement, 1, levelId );
+    sqlite3_bind_int( statement, 2, levelTime );
+    sqlite3_bind_int( statement, 3, eventId );
+    sqlite3_bind_int( statement, 4, context1 );
+    sqlite3_bind_int( statement, 5, context2 );
+    sqlite3_bind_int( statement, 6, context3 );
+    sqlite3_bind_int( statement, 7, context4 );
+    sqlite3_bind_text( statement, 8, contextText, -1, 0 );
+
+    rc = sqlite3_step( statement );
+
+    sqlite3_finalize( statement );
+}
  
 //
 //  G_LogDbLogSessionStart
@@ -214,25 +240,13 @@ void G_LogDbLogSessionEnd( int sessionId )
 }
 
 //
-//  G_LogDbLogSessionEvent
+//  G_LogDbLogNickname
 // 
-//  Logs players connection session event
+//  Logs players nickname
 //
-int G_LogDbLogSessionEvent( int sessionId,
-    int eventId,
-    const char* eventContext )  
+void G_LogDbLogNickname( const char* ip,
+    const char* name )
 {
-    sqlite3_stmt* statement;
-    // prepare insert statement
-    int rc = sqlite3_prepare( db, sqlAddSessionEvent, -1, &statement, 0 );
 
-    sqlite3_bind_int( statement, 1, sessionId);
-    sqlite3_bind_int( statement, 2, eventId );
-    sqlite3_bind_text( statement, 3, eventContext, -1, 0 );
 
-    rc = sqlite3_step( statement );
-
-    sqlite3_finalize( statement );
-
-    return sessionId;         
 }

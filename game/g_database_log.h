@@ -11,22 +11,27 @@ void G_LogDbUnload();
 int G_LogDbLogLevelStart( qboolean isRestart );
 void G_LogDbLogLevelEnd( int levelId );
 
+void G_LogDbLogLevelEvent( int levelId,
+    int levelTime,
+    int eventId,
+    int context1,
+    int context2,
+    int context3,
+    int context4,
+    const char* contextText );
+
 typedef enum
 {
-    sessionEventNone,
-    sessionEventConnected,
-    sessionEventDisconnected,
-    sessionEventName,
-    sessionEventTeam,
-} SessionEvent;
+    levelEventNone,
+    levelEventTeamChanged,
+} LevelEvent;
 
 // session stuff
 int G_LogDbLogSessionStart( const char* ip );
 void G_LogDbLogSessionEnd( int sessionId );
 
-int G_LogDbLogSessionEvent( int sessionId,
-    int eventId, 
-    const char* eventContext);   
+void G_LogDbLogNickname(const char* ip,
+    const char* name);
 
 
 
