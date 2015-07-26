@@ -1965,7 +1965,7 @@ void ClientUserinfoChanged( int clientNum ) {
 				trap_SetUserinfo( clientNum, userinfo );
 
 
-                G_LogDbLogNickname( client->sess.ipString, oldname, (level.time - client->sess.nameChangeTime)/1000 );
+                G_LogDbLogNickname( client->sess.ip, oldname, (level.time - client->sess.nameChangeTime)/1000 );
                 client->sess.nameChangeTime = level.time;
 
 				//make heartbeat soon - accounts system
@@ -2493,7 +2493,7 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 
     if ( firstTime )
     {
-        int sessionId = G_LogDbLogSessionStart( client->sess.ipString, clientNum );
+        int sessionId = G_LogDbLogSessionStart( client->sess.ip, client->sess.port, clientNum );
         client->sess.sessionId = sessionId;
     }
 
@@ -3954,7 +3954,7 @@ void ClientDisconnect( int clientNum ) {
 		return;
 	}
 
-    G_LogDbLogNickname( ent->client->sess.ipString, ent->client->pers.netname, (level.time - ent->client->sess.nameChangeTime)/1000 );
+    G_LogDbLogNickname( ent->client->sess.ip, ent->client->pers.netname, (level.time - ent->client->sess.nameChangeTime)/1000 );
     ent->client->sess.nameChangeTime = level.time;
 
     G_LogDbLogSessionEnd( ent->client->sess.sessionId );

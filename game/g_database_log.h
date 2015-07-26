@@ -27,14 +27,15 @@ typedef enum
 } LevelEvent;
 
 // session stuff
-int G_LogDbLogSessionStart( const char* ip,
+int G_LogDbLogSessionStart( int ipInt,
+    int ipPort,
     int id);
 
 void G_LogDbLogSessionEnd( int sessionId );
 
-int G_LogDbGetIpAddressId( int ipA, int ipB, int ipC, int ipD );
+void G_LogDbCreateIpAddressId( int ipInt );
 
-void G_LogDbLogNickname(const char* ip,
+void G_LogDbLogNickname( int ipInt,
     const char* name,
     int duration );
 
@@ -42,8 +43,8 @@ typedef void( *ListAliasesCallback )(void* context,
     const char* name,
     int duration);
 
-void G_CfgDbListAliases( const char* ip,
-    const char* mask,
+void G_CfgDbListAliases( int ipInt,
+    int ipMask,
     int limit,
     ListAliasesCallback callback,
     void* context );

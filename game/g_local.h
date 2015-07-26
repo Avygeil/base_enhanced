@@ -447,6 +447,7 @@ typedef struct {
 	*/
 	char		ipString[24];
 	unsigned int ip;
+    int         port;
 	qboolean    isInkognito;
 	unsigned	ignoreFlags;
     int			inactivityTime;

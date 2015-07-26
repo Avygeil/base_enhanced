@@ -395,7 +395,10 @@ unsigned int getIpFromString(const char* from){
 		i++, p++;
 	}
 	
-	return *(unsigned int *)m;
+    return ((m[0] << 24) & 0xFF000000) | 
+        ((m[1] << 16) & 0x00FF0000) |
+        ((m[2] << 8) & 0x0000FF00) |
+        (m[3] & 0x000000FF);
 }
 
 const char* getStringFromIp(unsigned int ip){

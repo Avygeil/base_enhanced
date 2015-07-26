@@ -7,11 +7,11 @@ static sqlite3* db = 0;
 const char* const logDbFileName = "jka_log.db";
 
 const char* const sqlCreateLogDb =
-"CREATE TABLE [sessions] (                                                      "
+"CREATE TABLE sessions (                                                        "
 "    [session_id] INTEGER PRIMARY KEY AUTOINCREMENT,                            "
 "    [session_start] DATETIME,                                                  "
 "    [session_end] DATETIME,                                                    "
-"    [ip_address_id] INTEGER REFERENCES [ip_address]([ip_address_id]),          "
+"    [ip_int] INTEGER REFERENCES ip_address([ip_int]),                          "
 "    [ip_port] INTEGER,                                                         "
 "    [client_id] INTEGER);                                                      "
 "                                                                               "
@@ -42,18 +42,14 @@ const char* const sqlCreateLogDb =
 "  [restart] BOOL);                                                             "
 "                                                                               "
 "                                                                               "
-"CREATE TABLE[ip_address](                                                      "
-"    [ip_address_id] INTEGER PRIMARY KEY AUTOINCREMENT,                         "
-"    [ip_A] INTEGER,                                                            "
-"    [ip_B] INTEGER,                                                            "
-"    [ip_C] INTEGER,                                                            "
-"    [ip_D] INTEGER );                                                          "
+"CREATE TABLE ip_address(                                                       "
+"  [ip_int] INTEGER PRIMARY KEY );                                              "
 "                                                                               "
 "                                                                               "
-"CREATE TABLE[nicknames](                                                       "
-"    [ip_address_id] INTEGER REFERENCES[ip_address]( [ip_address_id] ),         "
-"    [name] TEXT,                                                               "
-"    [duration] INTEGER );                                                      ";
+"CREATE TABLE nicknames(                                                        "
+"  [ip_int] INTEGER REFERENCES ip_address([ip_int]),                            "
+"  [name] TEXT,                                                                 "
+"  [duration] INTEGER );                                                        ";
                                                                                
 
 const char* const sqlLogLevelStart =
@@ -66,7 +62,7 @@ const char* const sqlLogLevelEnd =
 "WHERE level_id = ? ;               ";       
 
 const char* const sqllogSessionStart =
-"INSERT INTO sessions (session_start, ip_address_id, ip_port, client_id)    "
+"INSERT INTO sessions (session_start, ip_int, ip_port, client_id)    "
 "VALUES (datetime('now'),?,?, ?)                                            ";
 
 const char* const sqllogSessionEnd =
@@ -81,28 +77,27 @@ const char* const sqlAddLevelEvent =
 "VALUES (?,?,?,?,?,?,?,?)                                                  ";
 
 const char* const sqlAddName =
-"INSERT INTO nicknames (ip_address_id, name, duration)            "
+"INSERT INTO nicknames (ip_int, name, duration)                   "
 "VALUES (?,?,?)                                                   ";
 
 const char* const sqlFindIpAddress =
-"SELECT ip_address_id                                  "
+"SELECT ip_int                                         "
 "FROM ip_address                                       "
-"WHERE ip_A = ? AND ip_B = ? AND ip_C = ? AND ip_D = ? ";
+"WHERE ip_int = ?                                      ";
 
 const char* const sqlAddIpAddress =
-"INSERT INTO ip_address (ip_A, ip_B, ip_C, ip_D)            "
-"VALUES (?,?,?, ?)                                          ";
+"INSERT INTO ip_address (ip_int)            "
+"VALUES (?)                                 ";
 
 const char* const sqlGetAliases =
 "SELECT name, SUM( duration ) AS time                           "
 "FROM nicknames                                                 "
 "JOIN ip_address                                                "
-"ON nicknames.ip_address_id = ip_address.ip_address_id          "
-"WHERE ip_A & ?5 = ?1 & ?5  AND ip_B& ?6 = ?2 & ?6              "
-"AND ip_C& ?7 = ?3 & ?7  AND ip_D & ?8 = ?4 & ?8                "
+"ON nicknames.ip_int = ip_address.ip_int                        "
+"WHERE ip_int & ?2 = ?1 & ?2                                    "
 "GROUP BY name                                                  "
 "ORDER BY time DESC                                             "
-"LIMIT ?9                                                       ";
+"LIMIT ?3                                                       ";
 
 //
 //  G_LogDbLoad
@@ -224,22 +219,19 @@ void G_LogDbLogLevelEvent( int levelId,
 // 
 //  Logs players connection session start
 //
-int G_LogDbLogSessionStart( const char* ip,
+int G_LogDbLogSessionStart( int ipInt,
+    int ipPort,
     int id )
-{
+{     
+    G_LogDbCreateIpAddressId( ipInt );
+
+    qboolean success = qfalse;
+
     sqlite3_stmt* statement;
     // prepare insert statement
     int rc = sqlite3_prepare( db, sqllogSessionStart, -1, &statement, 0 );
 
-    int ipA = 0, ipB = 0, ipC = 0, ipD = 0, ipPort = 0;
-    qboolean success = qfalse;
-
-    // parse ip address and mask
-    sscanf( ip, "%d.%d.%d.%d:%d", &ipA, &ipB, &ipC, &ipD, &ipPort );
-
-    int ipAddressId = G_LogDbGetIpAddressId( ipA, ipB, ipC, ipD );     
-
-    sqlite3_bind_int( statement, 1, ipAddressId );
+    sqlite3_bind_int( statement, 1, ipInt );
     sqlite3_bind_int( statement, 2, ipPort );
     sqlite3_bind_int( statement, 3, id );
 
@@ -275,7 +267,7 @@ void G_LogDbLogSessionEnd( int sessionId )
 // 
 //  Checks if IP address' exists in ip adresses table
 //
-int G_LogDbFindIpAddressId( int ipA, int ipB, int ipC, int ipD )
+int G_LogDbFindIpAddressId( int ipInt )
 {
     int ip_address_id = -1;
     sqlite3_stmt* statement;
@@ -283,10 +275,7 @@ int G_LogDbFindIpAddressId( int ipA, int ipB, int ipC, int ipD )
     // prepare blacklist check statement
     int rc = sqlite3_prepare( db, sqlFindIpAddress, -1, &statement, 0 );
 
-    sqlite3_bind_int( statement, 1, ipA );
-    sqlite3_bind_int( statement, 2, ipB );
-    sqlite3_bind_int( statement, 3, ipC );
-    sqlite3_bind_int( statement, 4, ipD );
+    sqlite3_bind_int( statement, 1, ipInt );
 
     rc = sqlite3_step( statement );
 
@@ -306,17 +295,14 @@ int G_LogDbFindIpAddressId( int ipA, int ipB, int ipC, int ipD )
 // 
 //  Adds IP address' id in global ip adresses table
 //
-int G_LogDbAddIpAddress( int ipA, int ipB, int ipC, int ipD )
+int G_LogDbAddIpAddress( int ipInt )
 {
     sqlite3_stmt* statement;
 
     // prepare blacklist check statement
     int rc = sqlite3_prepare( db, sqlAddIpAddress, -1, &statement, 0 );
 
-    sqlite3_bind_int( statement, 1, ipA );
-    sqlite3_bind_int( statement, 2, ipB );
-    sqlite3_bind_int( statement, 3, ipC );
-    sqlite3_bind_int( statement, 4, ipD );
+    sqlite3_bind_int( statement, 1, ipInt );
 
     rc = sqlite3_step( statement );
 
@@ -332,16 +318,14 @@ int G_LogDbAddIpAddress( int ipA, int ipB, int ipC, int ipD )
 // 
 //  Gets IP address' id in global ip adresses table (creates if necessary)
 //
-int G_LogDbGetIpAddressId( int ipA, int ipB, int ipC, int ipD )
+void G_LogDbCreateIpAddressId( int ipInt )
 {
-    int ip_address_id = G_LogDbFindIpAddressId( ipA, ipB, ipC, ipD );
+    int ip_address_id = G_LogDbFindIpAddressId( ipInt );
     
     if ( ip_address_id == -1 )
     {
-        ip_address_id = G_LogDbAddIpAddress( ipA, ipB, ipC, ipD );
+        ip_address_id = G_LogDbAddIpAddress( ipInt );
     }
-
-    return ip_address_id;    
 }
 
 //
@@ -349,24 +333,20 @@ int G_LogDbGetIpAddressId( int ipA, int ipB, int ipC, int ipD )
 // 
 //  Logs players nickname
 //
-void G_LogDbLogNickname( const char* ip,
+void G_LogDbLogNickname( int ipInt,
     const char* name,
     int duration)
 {
-    int ipA = 0, ipB = 0, ipC = 0, ipD = 0, ipPort = 0;
-    qboolean success = qfalse;
+    qboolean success = qfalse;    
 
-    // parse ip address and mask
-    sscanf( ip, "%d.%d.%d.%d:%d", &ipA, &ipB, &ipC, &ipD, &ipPort );
-
-    int ipAddressId = G_LogDbGetIpAddressId( ipA, ipB, ipC, ipD );
+    G_LogDbCreateIpAddressId( ipInt );
      
     sqlite3_stmt* statement;
 
     // prepare insert statement
     int rc = sqlite3_prepare( db, sqlAddName, -1, &statement, 0 );
 
-    sqlite3_bind_int( statement, 1, ipAddressId );
+    sqlite3_bind_int( statement, 1, ipInt );
     sqlite3_bind_text( statement, 2, name, -1, 0 );
     sqlite3_bind_int( statement, 3, duration );
 
@@ -377,32 +357,19 @@ void G_LogDbLogNickname( const char* ip,
 }
 
 
-void G_CfgDbListAliases( const char* ip,
-    const char* mask,
+void G_CfgDbListAliases( int ipInt,
+    int ipMask,
     int limit,
     ListAliasesCallback callback,
     void* context )
 {
-    int ipA = 0, ipB = 0, ipC = 0, ipD = 0;
-    int maskA = 0, maskB = 0, maskC = 0, maskD = 0;
-
-    // parse ip address and mask
-    sscanf( ip, "%d.%d.%d.%d", &ipA, &ipB, &ipC, &ipD);
-    sscanf( mask, "%d.%d.%d.%d", &maskA, &maskB, &maskC, &maskD );
-
     sqlite3_stmt* statement;
     // prepare insert statement
     int rc = sqlite3_prepare( db, sqlGetAliases, -1, &statement, 0 );
 
-    sqlite3_bind_int( statement, 1, ipA );
-    sqlite3_bind_int( statement, 2, ipB );
-    sqlite3_bind_int( statement, 3, ipC );
-    sqlite3_bind_int( statement, 4, ipD );
-    sqlite3_bind_int( statement, 5, maskA );
-    sqlite3_bind_int( statement, 6, maskB );
-    sqlite3_bind_int( statement, 7, maskC );
-    sqlite3_bind_int( statement, 8, maskD );
-    sqlite3_bind_int( statement, 9, limit );
+    sqlite3_bind_int( statement, 1, ipInt );
+    sqlite3_bind_int( statement, 2, ipMask );
+    sqlite3_bind_int( statement, 3, limit );
 
     rc = sqlite3_step( statement );
     while ( rc == SQLITE_ROW )
