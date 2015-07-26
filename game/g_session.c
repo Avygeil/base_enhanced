@@ -295,7 +295,11 @@ void G_InitSessionData( gclient_t *client, char *userinfo, qboolean isBot, qbool
 		Q_strncpyz(sess->ipString, Info_ValueForKey( userinfo, "ip" ) , sizeof(sess->ipString));
 	}
 
-	sess->ip = getIpFromString(sess->ipString);
+    if ( !getIpPortFromString( sess->ipString, &(sess->ip), &(sess->port) ) )
+    {
+        sess->ip = 0;
+        sess->port = 0;
+    }
 
 	// accounts system
 	//if (isDBLoaded && !isBot){

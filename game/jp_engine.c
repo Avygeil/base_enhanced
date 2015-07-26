@@ -339,7 +339,8 @@
 		int i;
 		int freeslot = -1;
 
-		unsigned ip = getIpFromString(Info_ValueForKey(userinfo, "ip"));
+        unsigned ip = 0;
+        getIpFromString( Info_ValueForKey( userinfo, "ip" ), &ip );
 
 		for(i=0;i<MAX_CONNECTING_PEOPLE_LOG;++i){
 			if (connectingIPLog[i].ip == ip){

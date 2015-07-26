@@ -369,36 +369,53 @@ qboolean G_FilterGetstatusPacket (unsigned int ip)
 	return qfalse;
 }
 
-unsigned int getIpFromString(const char* from){
-	byte			m[4];
-	int				i = 0;
-	const char		*p;
+qboolean getIpFromString( const char* from, unsigned int* ip )
+{    
+    if ( !(*from) || !(ip) )
+    {
+        return qfalse;
+    }
 
-	if (!(*from))
-		return 0;
+    qboolean success = qfalse;
+    int ipA = 0, ipB = 0, ipC = 0, ipD = 0;
 
-	while (i < 4)
-	{
-		m[i] = 0;
-		i++;
-	}
+    // parse ip address and mask
+    if ( sscanf( from, "%d.%d.%d.%d", &ipA, &ipB, &ipC, &ipD ) == 4  )
+    {
+        *ip = ((ipA << 24) & 0xFF000000) |
+            ((ipB << 16) & 0x00FF0000) |
+            ((ipC << 8) & 0x0000FF00) |
+            (ipD & 0x000000FF);
 
-	i = 0;
-	p = from;
-	while (*p && i < 4) {
-		while (*p >= '0' && *p <= '9') {
-			m[i] = m[i]*10 + (*p - '0');
-			p++;
-		}
-		if (!*p || *p == ':')
-			break;
-		i++, p++;
-	}
-	
-    return ((m[0] << 24) & 0xFF000000) | 
-        ((m[1] << 16) & 0x00FF0000) |
-        ((m[2] << 8) & 0x0000FF00) |
-        (m[3] & 0x000000FF);
+        success = qtrue;
+    }
+
+    return success;
+}
+
+qboolean getIpPortFromString( const char* from, unsigned int* ip, int* port )
+{
+    if ( !(*from) || !(ip) || !(port) )
+    {
+        return qfalse;
+    }
+
+    qboolean success = qfalse;
+    int ipA = 0, ipB = 0, ipC = 0, ipD = 0, ipPort = 0;
+
+    // parse ip address and mask
+    if ( sscanf( from, "%d.%d.%d.%d:%d", &ipA, &ipB, &ipC, &ipD, &ipPort ) == 5 )
+    {
+        *ip = ((ipA << 24) & 0xFF000000) |
+            ((ipB << 16) & 0x00FF0000) |
+            ((ipC << 8) & 0x0000FF00) |
+            (ipD & 0x000000FF);
+
+        *port = ipPort;
+        success = qtrue;
+    }
+
+    return success;
 }
 
 const char* getStringFromIp(unsigned int ip){

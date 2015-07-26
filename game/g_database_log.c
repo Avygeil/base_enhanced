@@ -94,7 +94,7 @@ const char* const sqlGetAliases =
 "FROM nicknames                                                 "
 "JOIN ip_address                                                "
 "ON nicknames.ip_int = ip_address.ip_int                        "
-"WHERE ip_int & ?2 = ?1 & ?2                                    "
+"WHERE nicknames.ip_int & ?2 = ?1 & ?2                          "
 "GROUP BY name                                                  "
 "ORDER BY time DESC                                             "
 "LIMIT ?3                                                       ";

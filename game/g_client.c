@@ -2183,7 +2183,8 @@ void ClientUserinfoChanged( int clientNum ) {
 		SHA1Reset( &ctx );
 		value = Info_ValueForKey( userinfo, "ip" );
 		if ( value && *value ) {
-			int ip = getIpFromString( value );
+            int ip = 0;
+            getIpFromString( value , &ip);
 			SHA1Input( &ctx, (unsigned char *)&ip, sizeof( ip ) );
 		} else {
 			// no ip? ....
@@ -2283,7 +2284,8 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 	gentity_t	*te;
 	char		cleverFakeDetection[24]; 
 	char        ipString[24];
-	unsigned int ip = 0; //optimalization
+	unsigned int ip = 0; 
+    int         port = 0;
 	char		username[MAX_USERNAME_SIZE];
     static char reason[64];
 
@@ -2304,7 +2306,8 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 	if ( !( ent->r.svFlags & SVF_BOT ) && !isBot ) {
 		if (firstTime){
 			Q_strncpyz(ipString, Info_ValueForKey( userinfo, "ip" ) , sizeof(ipString));
-    		ip = getIpFromString(ipString);
+            ip = 0;
+            getIpPortFromString( ipString, &ip, &port );
 		}
 
 

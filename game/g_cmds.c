@@ -3483,17 +3483,20 @@ static void Cmd_WhoIs_f( gentity_t* ent )
         trap_SendServerCommand( ent - g_entities, va( "print \"Aliases for client %i (%s"S_COLOR_WHITE").\n\"", 
             id, g_entities[id].client->pers.netname ) );
 
-        char mask[20];
-        Q_strncpyz(mask, "255.255.255.255", sizeof(mask));
+        
+        int maskInt = 0xFFFFFFFF;
+
         if ( trap_Argc() > 2 )
         {
+            char mask[20];
             trap_Argv( 2, mask, sizeof( mask ) );
-        }
-
+            maskInt = 0; 
+            getIpFromString( mask, &maskInt );
+        }     
 
         AliasesContext context;
         context.entNum = ent - g_entities;
-        G_CfgDbListAliases( g_entities[id].client->sess.ipString, mask, 3, listAliasesCallback, &context );
+        G_CfgDbListAliases( g_entities[id].client->sess.ip, maskInt, 3, listAliasesCallback, &context );
     }
 }  
 
