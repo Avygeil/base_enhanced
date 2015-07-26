@@ -91,6 +91,7 @@ extern int g_G2AllocServer;
 #include <time.h>
 #include <ctype.h>
 #include <limits.h>
+#include <errno.h>
 
 // Special min treatment for Xbox C++ version
 
@@ -1696,6 +1697,7 @@ int Q_isprint( int c );
 int Q_islower( int c );
 int Q_isupper( int c );
 int Q_isalpha( int c );
+qboolean Q_isanumber( const char *s );
 
 // portable case insensitive compare
 int		Q_stricmp (const char *s1, const char *s2);
