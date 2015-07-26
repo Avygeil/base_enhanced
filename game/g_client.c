@@ -1965,8 +1965,8 @@ void ClientUserinfoChanged( int clientNum ) {
 				trap_SetUserinfo( clientNum, userinfo );
 
 
-                G_LogDbLogNickname( client->sess.ip, oldname, (level.time - client->sess.nameChangeTime)/1000 );
-                client->sess.nameChangeTime = level.time;
+                G_LogDbLogNickname( client->sess.ip, oldname, (getGlobalTime() - client->sess.nameChangeTime ) / 1000);
+                client->sess.nameChangeTime = getGlobalTime();
 
 				//make heartbeat soon - accounts system
 				//if (nextHeartBeatTime > level.time + 5000){
@@ -3999,8 +3999,8 @@ void ClientDisconnect( int clientNum ) {
 		return;
 	}
 
-    G_LogDbLogNickname( ent->client->sess.ip, ent->client->pers.netname, (level.time - ent->client->sess.nameChangeTime)/1000 );
-    ent->client->sess.nameChangeTime = level.time;
+    G_LogDbLogNickname( ent->client->sess.ip, ent->client->pers.netname, (getGlobalTime() - ent->client->sess.nameChangeTime ) / 1000);
+    ent->client->sess.nameChangeTime = getGlobalTime();
 
     G_LogDbLogSessionEnd( ent->client->sess.sessionId );
 
@@ -4131,6 +4131,6 @@ void ClientDisconnect( int clientNum ) {
 
 	G_ClearClientLog(clientNum);
 
-}
+}   
 
 

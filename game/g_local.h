@@ -1558,6 +1558,8 @@ void QDECL G_LogWeaponOutput(void);
 void QDECL G_LogExit( const char *string );
 void QDECL G_ClearClientLog(int client);
 
+int getGlobalTime();
+
 // g_siege.c
 void InitSiegeMode(void);
 void G_SiegeClientExData(gentity_t *msgTarg);
