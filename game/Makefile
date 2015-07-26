@@ -29,7 +29,7 @@ CONFIG = -O2 -DFINAL_BUILD -DNDEBUG -fno-stack-protector -U_FORTIFY_SOURCE -D_FO
 #CONFIG = -g3 -D_DEBUG
 INCLUDES = -I../ -I./ -I../shared/
 DEFINES = -DMISSION_PACK -DQAGAME -D_JK2 -D__linux__ -D__GCC__
-OPTIONS = -Wall -fno-strict-aliasing -m32 -masm=intel
+OPTIONS = -Wall -fno-strict-aliasing -m32 #-masm=intel
 FLAGS = $(INCLUDES) $(DEFINES) $(OPTIONS) $(CONFIG)
 LIBS =  -pthread
 #LIBS = -fno-stack-protector -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0 -D_GNU_SOURCE /usr/local/lib/libcurl.a -lrt -Wl,-Bstatic -lz -Wl,-Bdynamic 
@@ -72,3 +72,5 @@ $(TARGET):  $(FILES)
 # "make clean"
 clean:
 	rm -f $(FILES) $(TARGET)
+
+jp_engine.o: OPTIONS += -masm=intel
