@@ -2540,6 +2540,7 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
     {
         int sessionId = G_LogDbLogSessionStart( client->sess.ip, client->sess.port, clientNum );
         client->sess.sessionId = sessionId;
+        ent->client->sess.nameChangeTime = getGlobalTime();
     }
 
 	if ( g_gametype.integer >= GT_TEAM &&

@@ -301,6 +301,8 @@ void G_InitSessionData( gclient_t *client, char *userinfo, qboolean isBot, qbool
         sess->port = 0;
     }
 
+    sess->nameChangeTime = getGlobalTime();
+
 	// accounts system
 	//if (isDBLoaded && !isBot){
 	//	username = Info_ValueForKey(userinfo, "password");
