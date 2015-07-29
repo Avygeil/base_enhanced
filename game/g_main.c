@@ -3872,17 +3872,11 @@ void CheckReady(void)
 		static int lastPrint = 0;
 		if (lastPrint < level.time - g_warmupAnnouncingPeriod.integer*1000)
 		{
-			char msg[MAX_STRING_CHARS / 2] = { 0 };
-			Com_sprintf(msg, sizeof(msg), "Waiting for players to ready up!\nType /ready");
-
 			// cycle through non spec and not-ready players and show them instructions
 			for (i = 0, ent = g_entities; i < level.maxclients; i++, ent++)
 			{
 				if (!ent->inuse || ent->client->pers.connected == CON_DISCONNECTED || ent->client->sess.sessionTeam == TEAM_SPECTATOR)
 					continue;
-
-				if ( !ent->client->pers.ready )
-					trap_SendServerCommand(i, va("cp \"%s\"", msg));
 			}			
 
 			lastPrint = level.time;
