@@ -40,7 +40,6 @@ qboolean gDuelExit = qfalse;
 vmCvar_t	g_trueJedi;
 
 vmCvar_t	g_wasRestarted;
-vmCvar_t	g_warmupAnnouncingPeriod;
 
 vmCvar_t	g_gametype;
 vmCvar_t	g_MaxHolocronCarry;
@@ -605,9 +604,6 @@ static cvarTable_t		gameCvarTable[] = {
 	// *CHANGE 10* anti q3fill
 	{ &g_cleverFakeDetection,	"g_cleverFakeDetection"	, "forcepowers"	, CVAR_ARCHIVE, 0, qtrue },
 
-	{ &g_warmupAnnouncingPeriod, "g_warmupAnnouncingPeriod", "30", CVAR_ARCHIVE, 0, qtrue },
-		
-	
 	{ &bot_minping,	"bot_minping"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &bot_maxping,	"bot_maxping"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &bot_ping_sparsity,	"bot_ping_sparsity"	, "20"	, CVAR_ARCHIVE, 0, qtrue },
@@ -3864,23 +3860,6 @@ void CheckReady(void)
 
 
 		ent->client->ps.stats[STAT_CLIENTS_READY] = readyMask;
-	}
-
-	// announce instructions
-	if (!g_wasRestarted.integer && g_warmupAnnouncingPeriod.integer)
-	{
-		static int lastPrint = 0;
-		if (lastPrint < level.time - g_warmupAnnouncingPeriod.integer*1000)
-		{
-			// cycle through non spec and not-ready players and show them instructions
-			for (i = 0, ent = g_entities; i < level.maxclients; i++, ent++)
-			{
-				if (!ent->inuse || ent->client->pers.connected == CON_DISCONNECTED || ent->client->sess.sessionTeam == TEAM_SPECTATOR)
-					continue;
-			}			
-
-			lastPrint = level.time;
-		}
 	}
 
 	// check if all conditions to start the match have been met
