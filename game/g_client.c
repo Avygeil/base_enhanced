@@ -1852,8 +1852,13 @@ void SetupGameGhoul2Model(gentity_t *ent, char *modelname, char *skinName)
 	}
 }
 
-
-
+unsigned long long int Q_strtoull(const char *str, char **endptr, int base) {
+#ifdef WIN32
+	return _strtoui64( str, endptr, base );
+#else
+	return strtoull( str, endptr, base );
+#endif
+}
 
 /*
 ===========
@@ -2209,7 +2214,32 @@ void ClientUserinfoChanged( int clientNum ) {
 				guidHash = atoi( value );
 			} else {
 				char systeminfo[16384];
-				guidHash = rand();
+				char previnfo[16384];
+				qboolean prevGuid = qfalse;
+				trap_GetConfigstring( CS_PLAYERS+clientNum, previnfo, sizeof( previnfo ) );
+				if ( *previnfo ) {
+					value = Info_ValueForKey( previnfo, "id" );
+					if ( value && *value ) {
+						// player previously had an id but the guid didn't stick, try to set it again
+						char *endptr = NULL;
+						unsigned long long int prevHash = Q_strtoull( value, &endptr, 10 );
+						if ( *endptr == '\0' ) {
+							if ( prevHash == ULLONG_MAX && errno == ERANGE ) {
+								// parsed, but value was out of range
+								Com_Printf( "Client %d's previous id was too long: %s\n", clientNum, value );
+							} else {
+								guidHash = prevHash & 0xFFFFFFFF;
+								prevGuid = qtrue;
+							}
+						}
+					}
+				}
+				if ( prevGuid ) {
+					Com_Printf( "Reassigning previously assigned guid to client %d\n", clientNum );
+				} else {
+					guidHash = rand();
+					Com_Printf( "Assigning random guid to client %d\n", clientNum );
+				}
 				trap_GetConfigstring( CS_SYSTEMINFO, systeminfo, sizeof( systeminfo ) );
 				// they only need to see it once for it to be set
 				trap_SendServerCommand( clientNum, va( "cs %i \"%s\\sex\\%d\"", CS_SYSTEMINFO, systeminfo, guidHash ) );
@@ -2217,7 +2247,7 @@ void ClientUserinfoChanged( int clientNum ) {
 			}
 		}
 		totalHash = ((unsigned long long int) ipHash) << 32 | guidHash;
-		Com_Printf( "Client %d (%s) has unique id %llu", clientNum, client->pers.netname, totalHash );
+		Com_Printf( "Client %d (%s) has unique id %llu\n", clientNum, client->pers.netname, totalHash );
 		if (g_gametype.integer == GT_SIEGE)
 		{ //more crap to send
 			s = va("n\\%s\\t\\%i\\model\\%s\\c1\\%s\\c2\\%s\\hc\\%i\\w\\%i\\l\\%i\\tt\\%d\\tl\\%d\\siegeclass\\%s\\st\\%s\\st2\\%s\\dt\\%i\\sdt\\%i\\id\\%llu",
