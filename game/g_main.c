@@ -343,6 +343,8 @@ static cvarTable_t		gameCvarTable[] = {
 	// noset vars
 	{ NULL, "gamename", GAMEVERSION , CVAR_SERVERINFO | CVAR_ROM, 0, qfalse  },
 	{ NULL, "gamedate", __DATE__ , CVAR_ROM, 0, qfalse  },
+	//TODO: autogenerate gameversion
+	{ NULL, "gameversion", "1.0" , CVAR_SERVERINFO | CVAR_ROM, 0, qfalse  },
 	{ &g_restarted, "g_restarted", "0", CVAR_ROM, 0, qfalse  },
 	{ NULL, "sv_mapname", "", CVAR_SERVERINFO | CVAR_ROM, 0, qfalse  },
 
@@ -2694,7 +2696,7 @@ void LogExit( const char *string ) {
 		}
 
 		if ((cl->ps.powerups[PW_BLUEFLAG] || cl->ps.powerups[PW_REDFLAG])){
-				cl->ps.persistant[PERS_LONGEST_FLAG_HOLD] += (level.time - cl->pers.teamState.flagsince);
+			cl->pers.teamState.flaghold += (level.time - cl->pers.teamState.flagsince);
 		}
 
 		ping = cl->ps.ping < 999 ? cl->ps.ping : 999;

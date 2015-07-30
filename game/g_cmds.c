@@ -88,7 +88,7 @@ void DeathmatchScoreboardMessage( gentity_t *ent ) {
 			cl->ps.persistant[PERS_SCORE], ping, (level.time - cl->pers.enterTime)/60000,
 			scoreFlags, g_entities[level.sortedClients[i]].s.powerups, accuracy, 
 			
-			cl->ps.persistant[PERS_FC_KILL_COUNT], //this can be replaced
+			cl->pers.teamState.fragcarrier, //this can be replaced
 			                                       //but only here!
 												   //server uses this value
 			/*
@@ -99,8 +99,8 @@ void DeathmatchScoreboardMessage( gentity_t *ent ) {
 			statsMix,
 			*/
 
-			cl->ps.persistant[PERS_LONGEST_FLAG_HOLD],
-			cl->ps.persistant[PERS_FLAG_RETURN_COUNT], 
+			cl->pers.teamState.flaghold,
+			cl->pers.teamState.flagrecovery, 
 			cl->ps.persistant[PERS_DEFEND_COUNT], 
 			cl->ps.persistant[PERS_ASSIST_COUNT], 
 

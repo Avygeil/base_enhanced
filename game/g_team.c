@@ -370,7 +370,6 @@ void Team_FragBonuses(gentity_t *targ, gentity_t *inflictor, gentity_t *attacker
 		attacker->client->pers.teamState.lastfraggedcarrier = level.time;
 		AddScore(attacker, targ->r.currentOrigin, CTF_FRAG_CARRIER_BONUS);
 
-		attacker->client->ps.persistant[PERS_FC_KILL_COUNT]++;
 		attacker->client->pers.teamState.fragcarrier++;
 		PrintCTFMessage(attacker->s.number, team, CTFMESSAGE_FRAGGED_FLAG_CARRIER);
 
@@ -390,9 +389,8 @@ void Team_FragBonuses(gentity_t *targ, gentity_t *inflictor, gentity_t *attacker
 		AddScore(attacker, targ->r.currentOrigin, CTF_FRAG_CARRIER_BONUS * tokens * tokens);
 
 		//*CHANGE 31* longest flag holding time keeping track
-		targ->client->ps.persistant[PERS_LONGEST_FLAG_HOLD] += (level.time - targ->client->pers.teamState.flagsince);
+		targ->client->pers.teamState.flaghold += (level.time - targ->client->pers.teamState.flagsince);
 
-		attacker->client->ps.persistant[PERS_FC_KILL_COUNT]++;
 		attacker->client->pers.teamState.fragcarrier++;
 
 		// the target had the flag, clear the hurt carrier
@@ -742,7 +740,6 @@ int Team_TouchOurFlag( gentity_t *ent, gentity_t *other, int team ) {
 		PrintCTFMessage(other->s.number, team, CTFMESSAGE_PLAYER_RETURNED_FLAG);
 
 		AddScore(other, ent->r.currentOrigin, CTF_RECOVERY_BONUS);
-		other->client->ps.persistant[PERS_FLAG_RETURN_COUNT]++;
 		other->client->pers.teamState.flagrecovery++;
 		other->client->pers.teamState.lastreturnedflag = level.time;
 
@@ -812,7 +809,7 @@ int Team_TouchOurFlag( gentity_t *ent, gentity_t *other, int team ) {
 	PrintCTFMessage(other->s.number, team, CTFMESSAGE_PLAYER_CAPTURED_FLAG);
 
 	//*CHANGE 31* longest flag holding time keeping track
-	other->client->ps.persistant[PERS_LONGEST_FLAG_HOLD] += (level.time - other->client->pers.teamState.flagsince);
+	other->client->pers.teamState.flaghold += (level.time - other->client->pers.teamState.flagsince);
 
 	cl->ps.powerups[enemy_flag] = 0;
 	

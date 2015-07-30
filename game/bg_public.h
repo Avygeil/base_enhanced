@@ -553,20 +553,13 @@ typedef enum {
 	//PERS_FLAG_GET_COUNT,
 	PERS_KILLED,					// count of the number of times you died
 	// player awards tracking
-	
-	PERS_FC_KILL_COUNT,			    // *CHANGE 30a* NOT USED, SO WE STORE
-									// FC KILL COUNT IN HERE
-	PERS_LONGEST_FLAG_HOLD,			// *CHANGE 30b* NOT USED, SO WE STORE
-									// LONGEST FLAG HOLD
+	PERS_IMPRESSIVE_COUNT,			// two railgun hits in a row
+	PERS_EXCELLENT_COUNT,			// two successive kills in a short amount of time
 	PERS_DEFEND_COUNT,				// defend awards
 	PERS_ASSIST_COUNT,				// assist awards
-	PERS_FLAG_RETURN_COUNT,		    // *CHANGE 30c* NOT USED, SO WE STORE
-									// FLAG RETURN COUNT IN HERE
-
+	PERS_GAUNTLET_FRAG_COUNT,		// kills with the guantlet
 	PERS_CAPTURES,					// captures
-
-	PERS_UNUSED          //currently unused
-
+	PERS_UNUSED						//currently unused
 } persEnum_t;
 
 

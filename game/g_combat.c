@@ -2313,7 +2313,7 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 		if (level.time < self->client->pers.teamState.flagsince)
 			G_LogPrintf("ERROR: flagsince bugged, level.time:%i flagsince:%i\n",level.time,self->client->pers.teamState.flagsince);
 
-		self->client->ps.persistant[PERS_LONGEST_FLAG_HOLD] +=  (level.time - self->client->pers.teamState.flagsince);
+		self->client->pers.teamState.flaghold += (level.time - self->client->pers.teamState.flagsince);
 
 	}
 
@@ -2397,14 +2397,21 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 			if( meansOfDeath == MOD_STUN_BATON ) {
 				
 				// play humiliation on player
-				//attacker->client->ps.persistant[PERS_FLAG_RETURN_COUNT]++;
+				attacker->client->ps.persistant[PERS_GAUNTLET_FRAG_COUNT]++;
 
 				attacker->client->rewardTime = level.time + REWARD_SPRITE_TIME;
 
 				// also play humiliation on target
 				self->client->ps.persistant[PERS_PLAYEREVENTS] ^= PLAYEREVENT_GAUNTLETREWARD;
 			}
+			// check for two kills in a short amount of time
+			// if this is close enough to the last kill, give a reward sound
+			if ( level.time - attacker->client->lastKillTime < CARNAGE_REWARD_TIME ) {
+				// play excellent on player
+				attacker->client->ps.persistant[PERS_EXCELLENT_COUNT]++;
 
+				attacker->client->rewardTime = level.time + REWARD_SPRITE_TIME;
+			}
 			attacker->client->lastKillTime = level.time;
 
 		}
