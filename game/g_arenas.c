@@ -82,8 +82,8 @@ void UpdateTournamentInfo( void ) {
 			perfect = 0;
 		}
 		Com_sprintf( msg, sizeof(msg), "postgame %i %i %i %i %i %i %i %i %i %i %i %i %i %i", level.numNonSpectatorClients, playerClientNum, accuracy,
-			player->client->ps.persistant[PERS_FC_KILL_COUNT], player->client->ps.persistant[PERS_LONGEST_FLAG_HOLD],player->client->ps.persistant[PERS_DEFEND_COUNT],
-			player->client->ps.persistant[PERS_ASSIST_COUNT], player->client->ps.persistant[PERS_FLAG_RETURN_COUNT], player->client->ps.persistant[PERS_SCORE],
+			player->client->pers.teamState.fragcarrier, player->client->pers.teamState.flaghold,player->client->ps.persistant[PERS_DEFEND_COUNT],
+			player->client->ps.persistant[PERS_ASSIST_COUNT], player->client->pers.teamState.flagrecovery, player->client->ps.persistant[PERS_SCORE],
 			perfect, score1, score2, level.time, player->client->ps.persistant[PERS_CAPTURES] );
 	}
 

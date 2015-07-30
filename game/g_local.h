@@ -407,6 +407,7 @@ typedef struct {
 	//special stats
 	int			th;
 	int			te;
+	int			flaghold;
 
 	int			lasthurtcarrier;
 	int			lastreturnedflag;

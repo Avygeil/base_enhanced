@@ -487,6 +487,7 @@ static void WP_DisruptorMainFire( gentity_t *ent )
 	gentity_t	*traceEnt, *tent;
 	float		shotRange = 8192;
 	int			ignore, traces;
+	int			hits = 0;
 
 	if ( g_gametype.integer == GT_SIEGE )
 	{
@@ -607,6 +608,10 @@ static void WP_DisruptorMainFire( gentity_t *ent )
 				ent->client->accuracy_hits++;
 			} 
 
+			if( LogAccuracyHit( traceEnt, ent ) ) {
+				hits++;
+			}
+
 			G_Damage( traceEnt, ent, ent, forward, tr.endpos, damage, DAMAGE_NORMAL, MOD_DISRUPTOR );
 			
 			tent = G_TempEntity( tr.endpos, EV_DISRUPTOR_HIT );
@@ -623,6 +628,23 @@ static void WP_DisruptorMainFire( gentity_t *ent )
 			tent->s.eventParm = DirToByte( tr.plane.normal );
 			tent->s.weapon = 1;
 		}
+	}
+	// give the shooter a reward sound if they have made two railgun hits in a row
+	if ( hits == 0 ) {
+		// complete miss
+		ent->client->accurateCount = 0;
+	} else {
+		// check for "impressive" reward sound
+		ent->client->accurateCount += hits;
+		if ( ent->client->accurateCount >= 2 ) {
+			ent->client->accurateCount -= 2;
+			ent->client->ps.persistant[PERS_IMPRESSIVE_COUNT]++;
+			// add the sprite over the player's head
+			//ent->client->ps.eFlags &= ~(EF_AWARD_IMPRESSIVE | EF_AWARD_EXCELLENT | EF_AWARD_GAUNTLET | EF_AWARD_ASSIST | EF_AWARD_DEFEND | EF_AWARD_CAP );
+			//ent->client->ps.eFlags |= EF_AWARD_IMPRESSIVE;
+			//ent->client->rewardTime = level.time + REWARD_SPRITE_TIME;
+		}
+		ent->client->accuracy_hits++;
 	}
 }
 
@@ -658,6 +680,7 @@ void WP_DisruptorAltFire( gentity_t *ent )
 	int			count, maxCount = 60;
 	int			traces = DISRUPTOR_ALT_TRACES;
 	qboolean	fullCharge = qfalse;
+	int			hits = 0, disintegrations = 0;
 
 	damage = DISRUPTOR_ALT_DAMAGE-30;
 
@@ -806,12 +829,11 @@ void WP_DisruptorAltFire( gentity_t *ent )
 				tent->s.eventParm = DirToByte(tr.plane.normal);
 				tent->s.eFlags |= EF_ALT_FIRING;
 	
-				if ( LogAccuracyHit( traceEnt, ent )) 
-				{
-					if (ent->client)
-					{
+				if ( LogAccuracyHit( traceEnt, ent )) {
+					if (ent->client) {
 						ent->client->accuracy_hits++;
 					}
+					hits++;
 				}
 			} 
 			else 
@@ -860,7 +882,6 @@ void WP_DisruptorAltFire( gentity_t *ent )
 				}
 
 				G_Damage( traceEnt, ent, ent, forward, tr.endpos, damage, DAMAGE_NO_KNOCKBACK, MOD_DISRUPTOR_SNIPER );
-
 				if (traceEnt->client && preHealth > 0 && traceEnt->health <= 0 && fullCharge &&
 					G_CanDisruptify(traceEnt))
 				{ //was killed by a fully charged sniper shot, so disintegrate
@@ -875,6 +896,7 @@ void WP_DisruptorAltFire( gentity_t *ent )
 					traceEnt->r.contents = 0;
 
 					VectorClear(traceEnt->client->ps.velocity);
+					disintegrations++;
 				}
 
 				tent = G_TempEntity( tr.endpos, EV_DISRUPTOR_HIT );
@@ -894,6 +916,30 @@ void WP_DisruptorAltFire( gentity_t *ent )
 		VectorCopy( tr.endpos, muzzle );
 		VectorCopy( tr.endpos, start );
 		skip = tr.entityNum;
+	}
+	// give the shooter a reward sound if they have made two railgun hits in a row
+	// or if they killed with disintegration
+	if ( hits == 0 ) {
+		// complete miss
+		ent->client->accurateCount = 0;
+	} else {
+		// check for "impressive" reward sound
+		ent->client->accurateCount += hits;
+		if ( disintegrations > 0 ) {
+			ent->client->accurateCount = 0;
+			while (disintegrations) {
+				ent->client->ps.persistant[PERS_IMPRESSIVE_COUNT]++;
+				disintegrations--;
+			}
+		} else if ( ent->client->accurateCount >= 2 ) {
+			ent->client->accurateCount -= 2;
+			ent->client->ps.persistant[PERS_IMPRESSIVE_COUNT]++;
+			// add the sprite over the player's head
+			//ent->client->ps.eFlags &= ~(EF_AWARD_IMPRESSIVE | EF_AWARD_EXCELLENT | EF_AWARD_GAUNTLET | EF_AWARD_ASSIST | EF_AWARD_DEFEND | EF_AWARD_CAP );
+			//ent->client->ps.eFlags |= EF_AWARD_IMPRESSIVE;
+			//ent->client->rewardTime = level.time + REWARD_SPRITE_TIME;
+		}
+		ent->client->accuracy_hits++;
 	}
 }
 
