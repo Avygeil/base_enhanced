@@ -2217,7 +2217,7 @@ void ClientUserinfoChanged( int clientNum ) {
 			}
 		}
 		totalHash = ((unsigned long long int) ipHash) << 32 | guidHash;
-		Com_Printf( "Client %d (%s) has unique id %llu", clientNum, client->pers.netname, totalHash );
+		Com_Printf( "Client %d (%s) has unique id %llu\n", clientNum, client->pers.netname, totalHash );
 		if (g_gametype.integer == GT_SIEGE)
 		{ //more crap to send
 			s = va("n\\%s\\t\\%i\\model\\%s\\c1\\%s\\c2\\%s\\hc\\%i\\w\\%i\\l\\%i\\tt\\%d\\tl\\%d\\siegeclass\\%s\\st\\%s\\st2\\%s\\dt\\%i\\sdt\\%i\\id\\%llu",
