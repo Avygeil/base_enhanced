@@ -822,6 +822,7 @@ qboolean CheckPlayerInactivityTimer(gclient_t *client)
                 // just force them to spec
                 trap_SendServerCommand(-1, va("print \"%s "S_COLOR_WHITE"forced to spectators due to inactivity\n\"", client->pers.netname));
                 trap_SendConsoleCommand(EXEC_APPEND, va("forceteam %i spectator\n", client - level.clients));
+                client->sess.inactivityTime = getGlobalTime() + 1000;
             }
 
             active = qfalse;
