@@ -2469,7 +2469,7 @@ void Cmd_CallVote_f( gentity_t *ent ) {
         }
 
 		if (n < 0) n = 0;
-		else if (n > 60) n = 60;
+		else if (n > 10) n = 10;
 
 		Com_sprintf( level.voteString, sizeof( level.voteString ), "%s \"%i\"", arg1, n );
 		Com_sprintf( level.voteDisplayString, sizeof( level.voteDisplayString ), "%s", level.voteString );
