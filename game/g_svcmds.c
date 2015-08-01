@@ -1079,6 +1079,20 @@ void Svcmd_MapRandom_f()
     G_Printf( "Map pool '%s' not found\n", pool );
 }
 
+void Svcmd_SpecAll_f() {
+    int i;
+
+    for (i = 0; i < level.maxclients; i++) {
+        if (!g_entities[i].inuse || !g_entities[i].client) {
+            continue;
+        }
+
+        if ((g_entities[i].client->sess.sessionTeam == TEAM_BLUE) || (g_entities[i].client->sess.sessionTeam == TEAM_RED)) {
+            trap_SendConsoleCommand(EXEC_APPEND, va("forceteam %i s\n", i));
+        }
+    }
+}
+
 void Svcmd_PoolCreate_f()
 {
     char short_name[64];
@@ -1369,6 +1383,11 @@ qboolean	ConsoleCommand( void ) {
 		Svcmd_Cointoss_f();
 		return qtrue;
 	}
+
+    if (!Q_stricmp(cmd, "specall")) {
+        Svcmd_SpecAll_f();
+        return qtrue;
+    }
 	
 
 
