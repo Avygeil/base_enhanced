@@ -225,8 +225,6 @@ int G_LogDbLogSessionStart( int ipInt,
 {     
     G_LogDbCreateIpAddressId( ipInt );
 
-    qboolean success = qfalse;
-
     sqlite3_stmt* statement;
     // prepare insert statement
     int rc = sqlite3_prepare( db, sqllogSessionStart, -1, &statement, 0 );
@@ -337,8 +335,6 @@ void G_LogDbLogNickname( int ipInt,
     const char* name,
     int duration)
 {
-    qboolean success = qfalse;    
-
     G_LogDbCreateIpAddressId( ipInt );
      
     sqlite3_stmt* statement;

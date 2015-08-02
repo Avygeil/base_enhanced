@@ -2188,7 +2188,7 @@ void ClientUserinfoChanged( int clientNum ) {
 		SHA1Reset( &ctx );
 		value = Info_ValueForKey( userinfo, "ip" );
 		if ( value && *value ) {
-            int ip = 0;
+            unsigned int ip = 0;
             getIpFromString( value , &ip);
 			SHA1Input( &ctx, (unsigned char *)&ip, sizeof( ip ) );
 		} else {

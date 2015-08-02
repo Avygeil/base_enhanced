@@ -2682,9 +2682,9 @@ void Cmd_CallTeamVote_f( gentity_t *ent ) {
 	if ((g_protectCallvoteHack.integer && (strchr( arg1, '\n' ) || strchr( arg2, '\n' ) ||	strchr( arg1, '\r' ) || strchr( arg2, '\r' ))) ) {
 		//lets replace line breaks with ; for better readability
 		int len;
-		for(len = 0; len < strlen(arg1); ++len)
+		for(len = 0; len < (int)strlen(arg1); ++len)
 			if(arg1[len]=='\n' || arg1[len]=='\r') arg1[len] = ';';
-		for(len = 0; len < strlen(arg2); ++len)
+		for(len = 0; len < (int)strlen(arg2); ++len)
 			if(arg2[len]=='\n' || arg2[len]=='\r') arg2[len] = ';';
 
 		G_HackLog("Callvote hack: Client num %d (%s) from %s tries to hack via callvote (callvote %s \"%s\").\n",
@@ -3484,7 +3484,7 @@ static void Cmd_WhoIs_f( gentity_t* ent )
             id, g_entities[id].client->pers.netname ) );
 
         
-        int maskInt = 0xFFFFFFFF;
+        unsigned int maskInt = 0xFFFFFFFF;
 
         if ( trap_Argc() > 2 )
         {

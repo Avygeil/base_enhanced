@@ -50,9 +50,6 @@ typedef struct ipFilter_s
 #define	MAX_IPFILTERS	1024
 #endif
 
-static ipFilter_t	ipFilters[MAX_IPFILTERS];
-static int			numIPFilters;
-
 // getstatus/getinfo bans
 static ipFilter_t	getstatusIpFilters[MAX_IPFILTERS];
 static int			getstatusNumIPFilters;
@@ -460,7 +457,7 @@ static void GetstatusAddIP( char *str )
 	if (!StringToFilter (str, 0, &getstatusIpFilters[i]))
 		getstatusIpFilters[i].compare = 0xffffffffu;
 
-	//GetstatusUpdateIPBans();
+	GetstatusUpdateIPBans();
 }
 
 /*

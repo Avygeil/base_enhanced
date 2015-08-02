@@ -246,7 +246,7 @@ void PrintJKAInfo(FILE* file)
 
 	for(i=0;i<level.maxclients;++i)
 	{
-		char* teamname;
+		char* teamname = "";
 		if ( level.clients[i].pers.connected != CON_DISCONNECTED ) {
 			switch(level.clients[i].sess.sessionTeam){
 				case TEAM_RED:			teamname = "RED";    break;				
