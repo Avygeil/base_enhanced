@@ -347,8 +347,10 @@ G_FilterPacket
 */
 qboolean G_FilterPacket( char *from, char* reasonBuffer, int reasonBufferSize )
 {
-    return G_CfgDbIsFiltered( from, reasonBuffer, reasonBufferSize );
-	}
+    unsigned int ip = 0;
+    getIpFromString( from, &ip );
+    return G_CfgDbIsFiltered( ip, reasonBuffer, reasonBufferSize );
+}
 
 /*
 =================
@@ -415,21 +417,10 @@ qboolean getIpPortFromString( const char* from, unsigned int* ip, int* port )
     return success;
 }
 
-const char* getStringFromIp(unsigned int ip){
-	byte a,b,c,d;
-	static char buffer[16];
-
-	if (!ip)
-		return "";
-
-	a = ip;
-	b = ip >> 8;
-	c = ip >> 16;
-	d = ip >> 24;
-
-	Q_strncpyz(buffer,va("%i.%i.%i.%i", a,b,c,d),sizeof(buffer));
-
-	return buffer;
+void getStringFromIp( unsigned int ip, char* buffer, int size )
+{
+    Com_sprintf( buffer, size, "%d.%d.%d.%d",
+        (ip >> 24) & 0xFF, (ip >> 16) & 0xFF, (ip >> 8) & 0xFF, (ip) & 0xFF );
 }
 
 /*
@@ -492,56 +483,61 @@ Svcmd_AddIP_f
 =================
 */
 void Svcmd_AddIP_f (void)
-        {
-    char ip[32];
-    char mask[32];
+{
+    char ip[32];      
     char notes[32];
     char reason[32];
     int hours = 0;
+    unsigned int ipInt;
+    unsigned int maskInt;
 
-	if ( trap_Argc() < 2 ) {
-		G_Printf("Usage:  addip <ip> (mask) (notes) (reason) (hours)\n");
+    if ( trap_Argc() < 2 ) 
+    {
+        G_Printf( "Usage:  addip <ip> (mask) (notes) (reason) (hours)\n" );
         G_Printf( " ip - ip address in format X.X.X.X, do not use 0s!\n" );
         G_Printf( " mask - mask format X.X.X.X, defaults to 255.255.255.255\n" );
         G_Printf( " notes - notes only for admins, defaults to \"\"\n" );
         G_Printf( " reason - reason to be shown to banned player, defaults to \"Unknown\"\n" );
         G_Printf( " hours - duration in hours, defaults to g_defaultBanHoursDuration\n" );
 
-		return;
-            }   
+        return;
+    }   
 
     // set defaults
-    Q_strncpyz( mask, "255.255.255.255", sizeof( mask ) );
+    maskInt = 0xFFFFFFFF;
     Q_strncpyz( notes, "", sizeof( notes ) );
     Q_strncpyz( reason, "Unknown", sizeof( reason ) );
     hours = g_defaultBanHoursDuration.integer;
 
     // set actuals
     trap_Argv( 1, ip, sizeof( ip ) );
+    getIpFromString( ip, &ipInt );
 
     if ( trap_Argc() > 2 )
-            {
+    {
+        char mask[32];
         trap_Argv( 2, mask, sizeof( mask ) );
+        getIpFromString( mask, &maskInt );
     }
 
     if ( trap_Argc() > 3 )
-                {
+    {
         trap_Argv( 3, notes, sizeof( notes ) );
-                }
+    }
 
     if ( trap_Argc() > 4 )
     {
         trap_Argv( 4, reason, sizeof( reason ) );
-            }
+    }
 
     if ( trap_Argc() > 5 )
-		    {
+    {
         char hoursStr[16];
         trap_Argv( 5, hoursStr, sizeof( hoursStr ) );
         hours = atoi( hoursStr );        
-		    }  	
+    }                       
 
-    if ( G_CfgDbAddToBlacklist( ip, mask, notes, reason, hours ) )
+    if ( G_CfgDbAddToBlacklist( ipInt, maskInt, notes, reason, hours ) )
     {
         G_Printf( "Added %s to blacklist successfuly.\n", ip );
         }
@@ -559,7 +555,8 @@ Svcmd_RemoveIP_f
 void Svcmd_RemoveIP_f (void)
 {
     char ip[32];
-    char mask[32];
+    unsigned int ipInt;
+    unsigned int maskInt;
 
     if ( trap_Argc() < 2 )
     {
@@ -568,19 +565,22 @@ void Svcmd_RemoveIP_f (void)
         G_Printf( " mask - mask format X.X.X.X, defaults to 255.255.255.255\n" );
 
         return;
-	}
+    }
 
     // set defaults
-    Q_strncpyz( mask, "255.255.255.255", sizeof( mask ) );
+    maskInt = 0xFFFFFFFF;
 
     trap_Argv( 1, ip, sizeof( ip ) );
+    getIpFromString( ip, &ipInt );
 
     if ( trap_Argc() > 2 )
     {
+        char mask[32];
         trap_Argv( 2, mask, sizeof( mask ) );
-}
+        getIpFromString( mask, &maskInt );
+    }   
 
-    if ( G_CfgDbRemoveFromBlacklist( ip, mask ) )
+    if ( G_CfgDbRemoveFromBlacklist( ipInt, maskInt ) )
     {
         G_Printf( "Removed %s from blacklist successfuly.\n", ip );
     }
@@ -599,36 +599,40 @@ Svcmd_AddWhiteIP_f
 void Svcmd_AddWhiteIP_f( void )
 {
     char ip[32];
-    char mask[32];
     char notes[32];
+    unsigned int ipInt;
+    unsigned int maskInt;
 
     if ( trap_Argc() < 2 )
-{
+    {
         G_Printf( "Usage:  addwhiteip <ip> (mask) (notes)\n" );
         G_Printf( " ip - ip address in format X.X.X.X, do not use 0s!\n" );
         G_Printf( " mask - mask format X.X.X.X, defaults to 255.255.255.255\n" );
         G_Printf( " notes - notes only for admins, defaults to \"\"\n" );
 
-		return;
-	}
+        return;
+    }
 
     // set defaults
-    Q_strncpyz( mask, "255.255.255.255", sizeof( mask ) );
+    maskInt = 0xFFFFFFFF;
     Q_strncpyz( notes, "", sizeof( notes ) );
 
     trap_Argv( 1, ip, sizeof( ip ) );
+    getIpFromString( ip, &ipInt );
 
     if ( trap_Argc() > 2 )
     {
+        char mask[32];
         trap_Argv( 2, mask, sizeof( mask ) );
+        getIpFromString( mask, &maskInt );
     }
 
     if ( trap_Argc() > 3 )
     {
         trap_Argv( 3, notes, sizeof( notes ) );
-    }  
+    }          
 
-    if ( G_CfgDbAddToWhitelist( ip, mask, notes ) )
+    if ( G_CfgDbAddToWhitelist( ipInt, maskInt, notes ) )
     {
         G_Printf( "Added %s to whitelist successfuly.\n", ip );
     }
@@ -646,48 +650,61 @@ Svcmd_RemoveWhiteIP_f
 void Svcmd_RemoveWhiteIP_f( void )
 {
     char ip[32];
-    char mask[32];
+    
+    unsigned int ipInt;
+    unsigned int maskInt;
 
     if ( trap_Argc() < 2 )
-{
+    {
         G_Printf( "Usage:  removewhiteip <ip> (mask)\n" );
         G_Printf( " ip - ip address in format X.X.X.X, do not use 0s!\n" );
         G_Printf( " mask - mask format X.X.X.X, defaults to 255.255.255.255\n" );
 
-		return;
-	}
+        return;
+    }
 
     // set defaults
-    Q_strncpyz( mask, "255.255.255.255", sizeof( mask ) );
-
+    maskInt = 0xFFFFFFFF;
 
     trap_Argv( 1, ip, sizeof( ip ) );
+    getIpFromString( ip, &ipInt );
 
     if ( trap_Argc() > 2 )
     {
+        char mask[32];    
         trap_Argv( 2, mask, sizeof( mask ) );
-    }
 
-    if ( G_CfgDbRemoveFromWhitelist( ip, mask ) )
+        getIpFromString( mask, &maskInt );
+    }         
+
+    if ( G_CfgDbRemoveFromWhitelist( ipInt, maskInt ) )
     {
         G_Printf( "Removed %s from whitelist successfuly.\n", ip );
     }
     else
     {
         G_Printf( "Failed to remove %s to whitelist.\n", ip );
-		}
-	}
+    }
+}
 
 
-void (listCallback)( const char* ip,
-    const char* mask,
+void (listCallback)( unsigned int ip,
+    unsigned int mask,
     const char* notes,
     const char* reason,
     const char* banned_since,
     const char* banned_until )
 {
-    G_Printf( "%s %s \"%s\" \"%s\" %s %s\n",
-        ip, mask, notes, reason, banned_since, banned_until );
+    G_Printf( "%d.%d.%d.%d %d.%d.%d.%d \"%s\" \"%s\" %s %s\n",
+        (ip >> 24) & 0xFF,
+        (ip >> 16) & 0xFF,
+        (ip >> 8) & 0xFF,
+        (ip) & 0xFF,
+        (mask >> 24) & 0xFF,
+        (mask >> 16) & 0xFF,
+        (mask >> 8) & 0xFF,
+        (mask) & 0xFF,
+        notes, reason, banned_since, banned_until );
 }
 
 /*
@@ -917,6 +934,7 @@ void Svcmd_Osinfo_f(){
 
 void Svcmd_ClientBan_f(){
 	char clientId[4];
+    char ip[16];
 	int id;
 
 	trap_Argv(1,clientId,sizeof(clientId));
@@ -931,7 +949,10 @@ void Svcmd_ClientBan_f(){
 	if (g_entities[id].r.svFlags & SVF_BOT)
 		return;
 
-	trap_SendConsoleCommand(EXEC_APPEND, va("addip %s\n",getStringFromIp(g_entities[id].client->sess.ip)));
+
+    getStringFromIp( g_entities[id].client->sess.ip, ip, sizeof( ip ) );
+
+    trap_SendConsoleCommand( EXEC_APPEND, va( "addip %s\n", ip ) );
 	trap_SendConsoleCommand(EXEC_APPEND, va("clientkick %i\n",id));
 
 }

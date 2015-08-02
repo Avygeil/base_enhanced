@@ -15,14 +15,8 @@ const char* const sqlCreateCfgDb =
 "                                                                               "
 "                                                                               "
 "CREATE TABLE[ip_blacklist](                                                    "
-"    [ip_A] INTEGER( 255 ),                                                     "
-"    [ip_B] INTEGER( 255 ),                                                     "
-"    [ip_C] INTEGER( 255 ),                                                     "
-"    [ip_D] INTEGER( 255 ),                                                     "
-"    [mask_A] INTEGER( 255 ),                                                   "
-"    [mask_B] INTEGER( 255 ),                                                   "
-"    [mask_C] INTEGER( 255 ),                                                   "
-"    [mask_D] INTEGER( 255 ),                                                   "
+"    [ip_int] INTEGER PRIMARY KEY,                                              "
+"    [mask_int] INTEGER,                                                        "
 "    [notes] TEXT,                                                              "
 "    [reason] TEXT,                                                             "
 "    [banned_since] DATETIME,                                                   "
@@ -30,14 +24,8 @@ const char* const sqlCreateCfgDb =
 "                                                                               "
 "                                                                               "
 "CREATE TABLE[ip_whitelist](                                                    "
-"    [ip_A] INTEGER( 255 ),                                                     "
-"    [ip_B] INTEGER( 255 ),                                                     "
-"    [ip_C] INTEGER( 255 ),                                                     "
-"    [ip_D] INTEGER( 255 ),                                                     "
-"    [mask_A] INTEGER( 255 ),                                                   "
-"    [mask_B] INTEGER( 255 ),                                                   "
-"    [mask_C] INTEGER( 255 ),                                                   "
-"    [mask_D] INTEGER( 255 ),                                                   "
+"    [ip_int] INTEGER PRIMARY KEY,                                              "
+"    [mask_int] INTEGER,                                                        "
 "    [notes] TEXT);                                                             "
 "                                                                               "
 "                                                                               "
@@ -53,47 +41,38 @@ const char* const sqlCreateCfgDb =
 "    [weight] INTEGER);                                                         "; 
 
 const char* const sqlIsIpBlacklisted =
-"SELECT reason                           "
-"FROM ip_blacklist                       "
-"WHERE( ip_A & mask_A ) = (? & mask_A)   "
-"AND( ip_B & mask_B ) = (? & mask_B)     "
-"AND( ip_C & mask_C ) = (? & mask_C)     "
-"AND( ip_D & mask_D ) = (? & mask_D)     "
-"AND banned_until >= datetime('now')     ";
+"SELECT reason                                 "
+"FROM ip_blacklist                             "
+"WHERE( ip_int & mask_int ) = (? & mask_int)   "
+"AND banned_until >= datetime('now')           ";
 
 const char* const sqlIsIpWhitelisted =
-"SELECT COUNT(*)                         "
-"FROM ip_whitelist                       "
-"WHERE( ip_A & mask_A ) = (? & mask_A)   "
-"AND( ip_B & mask_B ) = (? & mask_B)     "
-"AND( ip_C & mask_C ) = (? & mask_C)     "
-"AND( ip_D & mask_D ) = (? & mask_D)     ";
+"SELECT COUNT(*)                               "
+"FROM ip_whitelist                             "
+"WHERE( ip_int & mask_int ) = (? & mask_int)   ";
 
 const char* const sqlListBlacklist =
-"SELECT( ip_A || '.' || ip_B || '.' || ip_C || '.' || ip_D ) AS ip,   "
-"(mask_A || '.' || mask_B || '.' || mask_C || '.' || mask_D) AS mask, "
-"notes, reason, banned_since, banned_until                            "
+"SELECT ip_int, mask_int, notes, reason, banned_since, banned_until   "
 "FROM ip_blacklist                                                    ";
 
 const char* const sqlAddToBlacklist =
-"INSERT INTO ip_blacklist (ip_A, ip_B, ip_C, ip_D,                              "
-"mask_A, mask_B, mask_C, mask_D, notes, reason, banned_since, banned_until)     "
-"VALUES (?,?,?,?,?,?,?,?,?,?,datetime('now'),datetime('now','+'||?||' hours'))  ";
+"INSERT INTO ip_blacklist (ip_int,                                  "
+"mask_int, notes, reason, banned_since, banned_until)               "
+"VALUES (?,?,?,?,datetime('now'),datetime('now','+'||?||' hours'))  ";
 
 const char* const sqlAddToWhitelist =
-"INSERT INTO ip_whitelist (ip_A, ip_B, ip_C, ip_D, " 
-"mask_A, mask_B, mask_C, mask_D, notes)            "
-"VALUES (?,?,?,?,?,?,?,?,?)                        ";
+"INSERT INTO ip_whitelist (ip_int, mask_int, notes)  "
+"VALUES (?,?,?)                                      ";
 
 const char* const sqlRemoveFromBlacklist =
-"DELETE FROM ip_blacklist                                   "
-"WHERE ip_A = ? AND ip_B = ? AND ip_C = ? AND ip_D = ?      "
-"AND mask_A = ? AND mask_B = ? AND mask_C = ? AND mask_D = ?";
+"DELETE FROM ip_blacklist   "
+"WHERE ip_int = ?           "
+"AND mask_int = ?           ";
 
 const char* const sqlremoveFromWhitelist =
-"DELETE FROM ip_whitelist                                   "
-"WHERE ip_A = ? AND ip_B = ? AND ip_C = ? AND ip_D = ?      "
-"AND mask_A = ? AND mask_B = ? AND mask_C = ? AND mask_D = ?";
+"DELETE FROM ip_whitelist   "
+"WHERE ip_int = ?           "
+"AND mask_int = ?           ";
 
 const char* const sqlListPools =
 "SELECT pool_id, short_name, long_name   "
@@ -200,26 +179,19 @@ void G_CfgDbUnload()
 //  Checks if given ip is forbidden to join the game based
 //  on blacklist/whitelist mechanisms.
 //
-qboolean G_CfgDbIsFiltered( const char* ip, 
+qboolean G_CfgDbIsFiltered( unsigned int ip,
     char* reasonBuffer, 
     int reasonBufferSize )
 {
-    int ipA = 0, ipB = 0, ipC = 0, ipD = 0;
-    int port = 0;
-
     qboolean filtered = qfalse;
 
-    // parse ip address
-    if ( sscanf( ip, "%d.%d.%d.%d:%d", &ipA, &ipB, &ipC, &ipD, &port ) >= 4 )
+    if ( g_whitelist.integer )
     {
-        if ( g_whitelist.integer )
-        {
-            filtered = G_CfgDbIsFilteredByWhitelist( ipA, ipB, ipC, ipD, reasonBuffer, reasonBufferSize );
-        }
-        else
-        {
-            filtered = G_CfgDbIsFilteredByBlacklist( ipA, ipB, ipC, ipD, reasonBuffer, reasonBufferSize );
-        }
+        filtered = G_CfgDbIsFilteredByWhitelist( ip, reasonBuffer, reasonBufferSize );
+    }
+    else
+    {
+        filtered = G_CfgDbIsFilteredByBlacklist( ip, reasonBuffer, reasonBufferSize );
     }
 
     return filtered;
@@ -231,10 +203,7 @@ qboolean G_CfgDbIsFiltered( const char* ip,
 //  Helper method to check if given ip address is white listed
 //  according to database.
 //
-qboolean G_CfgDbIsFilteredByWhitelist( int ipA, 
-    int ipB, 
-    int ipC,
-    int ipD, 
+qboolean G_CfgDbIsFilteredByWhitelist( unsigned int ip,
     char* reasonBuffer, 
     int reasonBufferSize )
 {
@@ -246,10 +215,7 @@ qboolean G_CfgDbIsFilteredByWhitelist( int ipA,
     // prepare whitelist check statement
     int rc = sqlite3_prepare( db, sqlIsIpWhitelisted, -1, &statement, 0 );
 
-    sqlite3_bind_int( statement, 1, ipA );
-    sqlite3_bind_int( statement, 2, ipB );
-    sqlite3_bind_int( statement, 3, ipC );
-    sqlite3_bind_int( statement, 4, ipD );
+    sqlite3_bind_int( statement, 1, ip );
 
     rc = sqlite3_step( statement );
     int count = sqlite3_column_int( statement, 0 );
@@ -271,7 +237,7 @@ qboolean G_CfgDbIsFilteredByWhitelist( int ipA,
 //  Helper method to check if given ip address is black listed
 //  according to database.
 //
-qboolean G_CfgDbIsFilteredByBlacklist( int ipA, int ipB, int ipC, int ipD, char* reasonBuffer, int reasonBufferSize )
+qboolean G_CfgDbIsFilteredByBlacklist( unsigned int ip, char* reasonBuffer, int reasonBufferSize )
 {
     qboolean filtered = qfalse;
 
@@ -280,10 +246,7 @@ qboolean G_CfgDbIsFilteredByBlacklist( int ipA, int ipB, int ipC, int ipD, char*
     // prepare blacklist check statement
     int rc = sqlite3_prepare( db, sqlIsIpBlacklisted, -1, &statement, 0 );
 
-    sqlite3_bind_int( statement, 1, ipA );
-    sqlite3_bind_int( statement, 2, ipB );
-    sqlite3_bind_int( statement, 3, ipC );
-    sqlite3_bind_int( statement, 4, ipD );
+    sqlite3_bind_int( statement, 1, ip );
 
     rc = sqlite3_step( statement );
 
@@ -309,42 +272,28 @@ qboolean G_CfgDbIsFilteredByBlacklist( int ipA, int ipB, int ipC, int ipD, char*
 // 
 //  Adds ip address to whitelist
 //
-qboolean G_CfgDbAddToWhitelist( const char* ip,
-    const char* mask, 
+qboolean G_CfgDbAddToWhitelist( unsigned int ip,
+    unsigned int mask,
     const char* notes )
 {
-    int ipA = 0, ipB = 0, ipC = 0, ipD = 0;
-    int maskA = 0, maskB = 0, maskC = 0, maskD = 0;
     qboolean success = qfalse;
 
-    // parse ip address and mask
-    if ( (sscanf( ip, "%d.%d.%d.%d", &ipA, &ipB, &ipC, &ipD ) >= 4)
-        && (sscanf( mask, "%d.%d.%d.%d", &maskA, &maskB, &maskC, &maskD ) >= 4) )
+    sqlite3_stmt* statement;
+    // prepare insert statement
+    int rc = sqlite3_prepare( db, sqlAddToWhitelist, -1, &statement, 0 );
+
+    sqlite3_bind_int( statement, 1, ip );
+    sqlite3_bind_int( statement, 2, mask );
+
+    sqlite3_bind_text( statement, 3, notes, -1, 0 );
+
+    rc = sqlite3_step( statement ); 
+    if ( rc == SQLITE_DONE )
     {
-        sqlite3_stmt* statement;
-        // prepare insert statement
-        int rc = sqlite3_prepare( db, sqlAddToWhitelist, -1, &statement, 0 );
+        success = qtrue;
+    }
 
-        sqlite3_bind_int( statement, 1, ipA );
-        sqlite3_bind_int( statement, 2, ipB );
-        sqlite3_bind_int( statement, 3, ipC );
-        sqlite3_bind_int( statement, 4, ipD );
-
-        sqlite3_bind_int( statement, 5, maskA );
-        sqlite3_bind_int( statement, 6, maskB );
-        sqlite3_bind_int( statement, 7, maskC );
-        sqlite3_bind_int( statement, 8, maskD );
-
-        sqlite3_bind_text( statement, 9, notes, -1, 0 );
-
-        rc = sqlite3_step( statement ); 
-        if ( rc == SQLITE_DONE )
-        {
-            success = qtrue;
-        }
-
-        sqlite3_finalize( statement );
-    }  
+    sqlite3_finalize( statement );
 
     return success;
 }
@@ -363,8 +312,8 @@ void G_CfgDbListBlacklist( BlackListCallback  callback )
     rc = sqlite3_step( statement );
     while ( rc == SQLITE_ROW )
     {
-        const char* ip = (const char*)sqlite3_column_text( statement, 0 );
-        const char* mask = (const char*)sqlite3_column_text( statement, 1 );
+        unsigned int ip = sqlite3_column_int( statement, 0 );
+        unsigned int mask = sqlite3_column_int( statement, 1 );
         const char* notes = (const char*)sqlite3_column_text( statement, 2 );
         const char* reason = (const char*)sqlite3_column_text( statement, 3 );
         const char* banned_since = (const char*)sqlite3_column_text( statement, 4 );
@@ -382,47 +331,33 @@ void G_CfgDbListBlacklist( BlackListCallback  callback )
 // 
 //  Adds ip address to blacklist
 //
-qboolean G_CfgDbAddToBlacklist( const char* ip,
-    const char* mask, 
+qboolean G_CfgDbAddToBlacklist( unsigned int ip,
+    unsigned int mask,
     const char* notes, 
     const char* reason,
     int hours)
 {
-    int ipA = 0, ipB = 0, ipC = 0, ipD = 0;
-    int maskA = 0, maskB = 0, maskC = 0, maskD = 0;
     qboolean success = qfalse;
 
-    // parse ip address and mask
-    if ( (sscanf( ip, "%d.%d.%d.%d", &ipA, &ipB, &ipC, &ipD ) >= 4)
-        && (sscanf( mask, "%d.%d.%d.%d", &maskA, &maskB, &maskC, &maskD ) >= 4) )
+    sqlite3_stmt* statement;
+    // prepare insert statement
+    int rc = sqlite3_prepare( db, sqlAddToBlacklist, -1, &statement, 0 );
+
+    sqlite3_bind_int( statement, 1, ip );
+    sqlite3_bind_int( statement, 2, mask );
+
+    sqlite3_bind_text( statement, 3, notes, -1, 0 );
+    sqlite3_bind_text( statement, 4, reason, -1, 0 );
+
+    sqlite3_bind_int( statement, 5, hours ); 
+
+    rc = sqlite3_step( statement ); 
+    if ( rc == SQLITE_DONE )
     {
-        sqlite3_stmt* statement;
-        // prepare insert statement
-        int rc = sqlite3_prepare( db, sqlAddToBlacklist, -1, &statement, 0 );
-
-        sqlite3_bind_int( statement, 1, ipA );
-        sqlite3_bind_int( statement, 2, ipB );
-        sqlite3_bind_int( statement, 3, ipC );
-        sqlite3_bind_int( statement, 4, ipD );
-
-        sqlite3_bind_int( statement, 5, maskA );
-        sqlite3_bind_int( statement, 6, maskB );
-        sqlite3_bind_int( statement, 7, maskC );
-        sqlite3_bind_int( statement, 8, maskD );
-
-        sqlite3_bind_text( statement, 9, notes, -1, 0 );
-        sqlite3_bind_text( statement, 10, reason, -1, 0 );
-
-        sqlite3_bind_int( statement, 11, hours ); 
-
-        rc = sqlite3_step( statement ); 
-        if ( rc == SQLITE_DONE )
-        {
-            success = qtrue;
-        }
-
-        sqlite3_finalize( statement );
+        success = qtrue;
     }
+
+    sqlite3_finalize( statement );
 
     return success;
 }
@@ -432,40 +367,25 @@ qboolean G_CfgDbAddToBlacklist( const char* ip,
 // 
 //  Removes ip address from blacklist
 //
-qboolean G_CfgDbRemoveFromBlacklist( const char* ip,
-    const char* mask )
+qboolean G_CfgDbRemoveFromBlacklist( unsigned int ip,
+    unsigned int mask )
 {
-    int ipA = 0, ipB = 0, ipC = 0, ipD = 0;
-    int maskA = 0, maskB = 0, maskC = 0, maskD = 0;
     qboolean success = qfalse;
 
-    // parse ip address and mask
-    if ( (sscanf( ip, "%d.%d.%d.%d", &ipA, &ipB, &ipC, &ipD ) >= 4)
-        && (sscanf( mask, "%d.%d.%d.%d", &maskA, &maskB, &maskC, &maskD ) >= 4) )
+    sqlite3_stmt* statement;
+    // prepare insert statement
+    int rc = sqlite3_prepare( db, sqlRemoveFromBlacklist, -1, &statement, 0 );
+
+    sqlite3_bind_int( statement, 1, ip );
+    sqlite3_bind_int( statement, 2, mask );
+
+    rc = sqlite3_step( statement );
+    if ( rc == SQLITE_DONE )
     {
-        sqlite3_stmt* statement;
-        // prepare insert statement
-        int rc = sqlite3_prepare( db, sqlRemoveFromBlacklist, -1, &statement, 0 );
-
-        sqlite3_bind_int( statement, 1, ipA );
-        sqlite3_bind_int( statement, 2, ipB );
-        sqlite3_bind_int( statement, 3, ipC );
-        sqlite3_bind_int( statement, 4, ipD );
-
-        sqlite3_bind_int( statement, 5, maskA );
-        sqlite3_bind_int( statement, 6, maskB );
-        sqlite3_bind_int( statement, 7, maskC );
-        sqlite3_bind_int( statement, 8, maskD );
-
-        rc = sqlite3_step( statement );
-        if ( rc == SQLITE_DONE )
-        {
-            success = qtrue;
-        }
-
-        sqlite3_finalize( statement );
-
+        success = qtrue;
     }
+
+    sqlite3_finalize( statement );
 
     return success;
 }
@@ -475,40 +395,25 @@ qboolean G_CfgDbRemoveFromBlacklist( const char* ip,
 // 
 //  Removes ip address from whitelist
 //
-qboolean G_CfgDbRemoveFromWhitelist( const char* ip,
-    const char* mask )
+qboolean G_CfgDbRemoveFromWhitelist( unsigned int ip,
+    unsigned int mask )
 {
-    int ipA = 0, ipB = 0, ipC = 0, ipD = 0;
-    int maskA = 0, maskB = 0, maskC = 0, maskD = 0;
     qboolean success = qfalse;
 
-    // parse ip address and mask
-    if ( (sscanf( ip, "%d.%d.%d.%d", &ipA, &ipB, &ipC, &ipD ) >= 4)
-        && (sscanf( mask, "%d.%d.%d.%d", &maskA, &maskB, &maskC, &maskD ) >= 4) )
+    sqlite3_stmt* statement;
+    // prepare insert statement
+    int rc = sqlite3_prepare( db, sqlremoveFromWhitelist, -1, &statement, 0 );
+
+    sqlite3_bind_int( statement, 1, ip );
+    sqlite3_bind_int( statement, 2, mask );
+
+    rc = sqlite3_step( statement );
+    if ( rc == SQLITE_DONE )
     {
-        sqlite3_stmt* statement;
-        // prepare insert statement
-        int rc = sqlite3_prepare( db, sqlremoveFromWhitelist, -1, &statement, 0 );
-
-        sqlite3_bind_int( statement, 1, ipA );
-        sqlite3_bind_int( statement, 2, ipB );
-        sqlite3_bind_int( statement, 3, ipC );
-        sqlite3_bind_int( statement, 4, ipD );
-
-        sqlite3_bind_int( statement, 5, maskA );
-        sqlite3_bind_int( statement, 6, maskB );
-        sqlite3_bind_int( statement, 7, maskC );
-        sqlite3_bind_int( statement, 8, maskD );
-
-        rc = sqlite3_step( statement );
-        if ( rc == SQLITE_DONE )
-        {
-            success = qtrue;
-        }
-
-        sqlite3_finalize( statement );
-
+        success = qtrue;
     }
+
+    sqlite3_finalize( statement );
 
     return success;
 }

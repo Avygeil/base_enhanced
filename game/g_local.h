@@ -1394,7 +1394,7 @@ qboolean G_FilterPacket( char *from, char* reasonBuffer, int reasonBufferSize);
 qboolean G_FilterGetstatusPacket (unsigned int ip);
 qboolean getIpFromString( const char* from, unsigned int* ip );
 qboolean getIpPortFromString( const char* from, unsigned int* ip, int* port );
-const char* getStringFromIp(unsigned int ip);
+void getStringFromIp( unsigned int ip, char* buffer, int size );
 
 
 //

@@ -7,43 +7,40 @@
 void G_CfgDbLoad();
 void G_CfgDbUnload();
 
-qboolean G_CfgDbIsFiltered( const char* ip, char* reasonBuffer, int reasonBufferSize );
+qboolean G_CfgDbIsFiltered( unsigned int ip, char* reasonBuffer, int reasonBufferSize );
 
 // whitelist stuff
-qboolean G_CfgDbAddToWhitelist( const char* ip,
-    const char* mask,
+qboolean G_CfgDbAddToWhitelist( unsigned int ip,
+    unsigned int mask,
     const char* notes );
 
-qboolean G_CfgDbRemoveFromWhitelist( const char* ip,
-    const char* mask );
+qboolean G_CfgDbRemoveFromWhitelist( unsigned int ip,
+    unsigned int mask );
 
-qboolean G_CfgDbIsFilteredByWhitelist( int ipA,
-    int ipB,
-    int ipC, 
-    int ipD, 
+qboolean G_CfgDbIsFilteredByWhitelist( unsigned int ip,
     char* reasonBuffer, 
     int reasonBufferSize );
 
 // blacklist stuff
-typedef void( *BlackListCallback )(const char* ip,
-    const char* mask,
+typedef void( *BlackListCallback )(unsigned int ip,
+    unsigned int mask,
     const char* notes,
     const char* reason,
     const char* banned_since,
     const char* banned_until);
 
-void G_CfgDbListBlacklist();
+void G_CfgDbListBlacklist( BlackListCallback  callback );
 
-qboolean G_CfgDbAddToBlacklist( const char* ip,
-    const char* mask, 
+qboolean G_CfgDbAddToBlacklist( unsigned int ip,
+    unsigned int mask,
     const char* notes,
     const char* reason,
     int hours );
 
-qboolean G_CfgDbRemoveFromBlacklist( const char* ip,
-    const char* mask );                          
+qboolean G_CfgDbRemoveFromBlacklist( unsigned int ip,
+    unsigned int mask );
 
-qboolean G_CfgDbIsFilteredByBlacklist( int ipA, int ipB, int ipC, int ipD, char* reasonBuffer, int reasonBufferSize );
+qboolean G_CfgDbIsFilteredByBlacklist( unsigned int ip, char* reasonBuffer, int reasonBufferSize );
             
 // pools stuff
 typedef void( *ListPoolCallback )(void* context,
