@@ -2213,12 +2213,13 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 	} else if ( !Q_stricmp( arg1, "unpause" ) ) { 
 	} else if ( !Q_stricmp( arg1, "endmatch" ) ) { 
 	} else if ( !Q_stricmp( arg1, "cointoss")) {
-    } else if (!Q_stricmp(arg1, "randomcapts")) {
+    } else if ( !Q_stricmp( arg1, "randomcapts")) {
+    } else if ( !Q_stricmp( arg1, "randomteams")) {
 	} else {
 		trap_SendServerCommand( ent-g_entities, "print \"Invalid vote string.\n\"" );
 		trap_SendServerCommand( ent-g_entities, "print \"Vote commands are: map_restart, nextmap, map <mapname>, g_gametype <n>, "
 			"kick <player>, clientkick <clientnum>, g_doWarmup, timelimit <time>, fraglimit <frags>, "
-			"resetflags, q <question>, pause, unpause, endmatch, randomcapts.\n\"" );
+			"resetflags, q <question>, pause, unpause, endmatch, randomcapts, randomteams <numRedPlayers> <numBluePlayers>.\n\"" );
 		return;
 	}
 
@@ -2501,6 +2502,20 @@ void Cmd_CallVote_f( gentity_t *ent ) {
     {
         Com_sprintf(level.voteString, sizeof(level.voteString), "%s", arg1);
         Com_sprintf(level.voteDisplayString, sizeof(level.voteDisplayString), "Random capts");
+    }
+    else if (!Q_stricmp(arg1, "randomteams"))
+    {
+        int team1Count, team2Count;
+        char count[2];
+
+        trap_Argv(2, count, sizeof(count));
+        team1Count = atoi(count);
+
+        trap_Argv(3, count, sizeof(count));
+        team2Count = atoi(count);
+
+        Com_sprintf(level.voteString, sizeof(level.voteString), "%s %i %i", arg1, team1Count, team2Count);
+        Com_sprintf(level.voteDisplayString, sizeof(level.voteDisplayString), "Random Teams - %i vs %i", team1Count, team2Count);
     }
 	else if ( !Q_stricmp( arg1, "resetflags" )) 
 	{

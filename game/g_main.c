@@ -3811,79 +3811,82 @@ void CheckVote( void ) {
 
 void CheckReady(void) 
 {
-	int i = 0, readyCount = 0;
-	int botsCount = 0;
-	gentity_t *ent = NULL;
-	unsigned readyMask = 0;
-	static qboolean restarting = qfalse;
+    int i = 0, readyCount = 0;
+    int botsCount = 0;
+    gentity_t *ent = NULL;
+    unsigned readyMask = 0;
+    static qboolean restarting = qfalse;
 
-	if ((g_gametype.integer == GT_POWERDUEL) || (g_gametype.integer == GT_DUEL) || (g_gametype.integer == GT_SIEGE))
-		return;
+    if ((g_gametype.integer == GT_POWERDUEL) || (g_gametype.integer == GT_DUEL) || (g_gametype.integer == GT_SIEGE))
+        return;
 
-	if (!g_doWarmup.integer || !level.numPlayingClients || restarting || level.intermissiontime)
-		return;
+    // for original functionality of /ready
+    // if (!g_doWarmup.integer || !level.numPlayingClients || restarting || level.intermissiontime)
+    if (!g_doWarmup.integer || restarting || level.intermissiontime)
+        return;
 
-	for (i = 0, ent = g_entities; i < level.maxclients; i++, ent++) 
-	{
-		if (!ent->inuse || ent->client->pers.connected == CON_DISCONNECTED || ent->client->sess.sessionTeam == TEAM_SPECTATOR)
-			continue;
+    for (i = 0, ent = g_entities; i < level.maxclients; i++, ent++)
+    {
+        // for original functionality of /ready
+        // if (!ent->inuse || ent->client->pers.connected == CON_DISCONNECTED || ent->client->sess.sessionTeam == TEAM_SPECTATOR)
+        if (!ent->inuse || ent->client->pers.connected == CON_DISCONNECTED)
+            continue;
 
-		if (ent->client->pers.ready) 
-		{
-			readyCount++;
-			if (i < 16)
-				readyMask |= (1 << i);
-		}
+        if (ent->client->pers.ready)
+        {
+            readyCount++;
+            if (i < 16)
+                readyMask |= (1 << i);
+        }
 
-		if (ent->r.svFlags & SVF_BOT)
-			++botsCount;
-	}
+        if (ent->r.svFlags & SVF_BOT)
+            ++botsCount;
+    }
 
-	// update ready flags for clients' scoreboards
-	for (i = 0, ent = g_entities; i < level.maxclients; i++, ent++) 
-	{
-		if (!ent->inuse || ent->client->pers.connected == CON_DISCONNECTED)
-			continue;
-
-
-		ent->client->ps.stats[STAT_CLIENTS_READY] = readyMask;
-	}
-
-	// check if all conditions to start the match have been met
-	{
-		int		counts[TEAM_NUM_TEAMS];
-		qboolean	conditionsMet = qtrue;
-
-		counts[TEAM_BLUE] = TeamCount(-1, TEAM_BLUE);
-		counts[TEAM_RED] = TeamCount(-1, TEAM_RED);
-
-		// eat least 1 player in each team
-		if (counts[TEAM_RED] < 1 || counts[TEAM_BLUE] < 1 || counts[TEAM_RED] != counts[TEAM_BLUE])
-		{
-			conditionsMet = qfalse;
-		}
-
-		// all players are ready
-		if (readyCount < counts[TEAM_BLUE] + counts[TEAM_RED] - botsCount)
-		{
-			conditionsMet = qfalse;
-		}
-
-		if (conditionsMet)
-		{
-			trap_Cvar_Set("g_restarted", "1");
-			trap_Cvar_Set("g_wasRestarted", "1");
-			trap_SendConsoleCommand(EXEC_APPEND, "map_restart 5\n");
-			restarting = qtrue;
-			return;
-		}
-		else
-		{
+    // update ready flags for clients' scoreboards
+    for (i = 0, ent = g_entities; i < level.maxclients; i++, ent++)
+    {
+        if (!ent->inuse || ent->client->pers.connected == CON_DISCONNECTED)
+            continue;
 
 
-		}
+        ent->client->ps.stats[STAT_CLIENTS_READY] = readyMask;
+    }
 
-	}
+    // allow this for original functionality of /ready
+    // check if all conditions to start the match have been met
+    // {
+    //    int		counts[TEAM_NUM_TEAMS];
+    //    qboolean	conditionsMet = qtrue;
+    //
+    //    counts[TEAM_BLUE] = TeamCount(-1, TEAM_BLUE);
+    //    counts[TEAM_RED] = TeamCount(-1, TEAM_RED);
+    //
+    //    // eat least 1 player in each team
+    //    if (counts[TEAM_RED] < 1 || counts[TEAM_BLUE] < 1 || counts[TEAM_RED] != counts[TEAM_BLUE])
+    //    {
+    //        conditionsMet = qfalse;
+    //    }
+    //
+    //    // all players are ready
+    //    if (readyCount < counts[TEAM_BLUE] + counts[TEAM_RED] - botsCount)
+    //    {
+    //        conditionsMet = qfalse;
+    //    }
+    //
+    //    if (conditionsMet)
+    //    {
+    //        trap_Cvar_Set("g_restarted", "1");
+    //        trap_Cvar_Set("g_wasRestarted", "1");
+    //        trap_SendConsoleCommand(EXEC_APPEND, "map_restart 5\n");
+    //        restarting = qtrue;
+    //        return;
+    //    }
+    //    else
+    //    {
+    //
+    //    }
+    // }
 }
 
 /*

@@ -1185,6 +1185,83 @@ void Svcmd_RandomCapts_f() {
     }
 }
 
+void Svcmd_RandomTeams_f() {
+    int i, j, temp, numberOfReadyPlayers = 0, numberOfOtherPlayers = 0;
+    int otherPlayers[32], readyPlayers[32];
+    int team1Count, team2Count;
+    char count[2];
+
+    if (trap_Argc() < 3) {
+        return;
+    }
+
+    trap_Argv(1, count, sizeof(count));
+    team1Count = atoi(count);
+
+    trap_Argv(2, count, sizeof(count));
+    team2Count = atoi(count);
+
+    if ((team1Count <= 0) || (team2Count <= 0)) {
+        return;
+    }
+
+    for (i = 0; i < level.maxclients; i++) {
+        if (!g_entities[i].inuse || !g_entities[i].client) {
+            continue;
+        }
+
+        if (!g_entities[i].client->pers.ready) {
+            otherPlayers[numberOfOtherPlayers] = i;
+            numberOfOtherPlayers++;
+            continue;
+        }
+
+        readyPlayers[numberOfReadyPlayers] = i;
+        numberOfReadyPlayers++;
+    }
+
+    if (numberOfReadyPlayers < team1Count + team2Count) {
+        trap_SendServerCommand(-1, va("print \"^1Not enough ready players on the server: %i\n\"", numberOfReadyPlayers));
+        return;
+    }
+
+    // fisher-yates shuffle algorithm
+    for (i = numberOfReadyPlayers - 1; i >= 1; i--) {
+        j = rand() % (i + 1);
+        temp = readyPlayers[i];
+        readyPlayers[i] = readyPlayers[j];
+        readyPlayers[j] = temp;
+    }
+
+    for (i = 0; i < team1Count; i++) {
+        if (g_entities[readyPlayers[i]].client->sess.sessionTeam != TEAM_RED) {
+            //trap_SendConsoleCommand(EXEC_APPEND, va("forceteam %i r\n", readyPlayers[i]));
+            SetTeam(&g_entities[readyPlayers[i]], "red");
+        }
+    }
+    for (i = team1Count; i < team1Count + team2Count; i++) {
+        if (g_entities[readyPlayers[i]].client->sess.sessionTeam != TEAM_BLUE) {
+            //trap_SendConsoleCommand(EXEC_APPEND, va("forceteam %i b\n", readyPlayers[i]));
+            SetTeam(&g_entities[readyPlayers[i]], "blue");
+        }
+    }
+    for (i = team1Count + team2Count; i < numberOfReadyPlayers; i++) {
+        if (g_entities[readyPlayers[i]].client->sess.sessionTeam != TEAM_SPECTATOR) {
+            //trap_SendConsoleCommand(EXEC_APPEND, va("forceteam %i s\n", readyPlayers[i]));
+            SetTeam(&g_entities[readyPlayers[i]], "spectator");
+        }
+    }
+    for (i = 0; i < numberOfOtherPlayers; i++) {
+        if (g_entities[otherPlayers[i]].client->sess.sessionTeam != TEAM_SPECTATOR) {
+            //trap_SendConsoleCommand(EXEC_APPEND, va("forceteam %i s\n", otherPlayers[i]));
+            SetTeam(&g_entities[otherPlayers[i]], "spectator");
+        }
+    }
+
+    trap_SendServerCommand(-1, va("print \"^2The captain in team ^1RED ^2is^7: %s\n\"", g_entities[readyPlayers[0]].client->pers.netname));
+    trap_SendServerCommand(-1, va("print \"^2The captain in team ^4BLUE ^2is^7: %s\n\"", g_entities[readyPlayers[team1Count]].client->pers.netname));
+}
+
 void Svcmd_PoolCreate_f()
 {
     char short_name[64];
@@ -1483,6 +1560,11 @@ qboolean	ConsoleCommand( void ) {
 
     if (!Q_stricmp(cmd, "randomcapts")) {
         Svcmd_RandomCapts_f();
+        return qtrue;
+    }
+
+    if (!Q_stricmp(cmd, "randomteams")) {
+        Svcmd_RandomTeams_f();
         return qtrue;
     }
 	
