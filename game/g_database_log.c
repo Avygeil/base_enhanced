@@ -11,7 +11,7 @@ const char* const sqlCreateLogDb =
 "    [session_id] INTEGER PRIMARY KEY AUTOINCREMENT,                            "
 "    [session_start] DATETIME,                                                  "
 "    [session_end] DATETIME,                                                    "
-"    [ip_int] INTEGER REFERENCES ip_address([ip_int]),                          "
+"    [ip_int] INTEGER,                                                          "
 "    [ip_port] INTEGER,                                                         "
 "    [client_id] INTEGER);                                                      "
 "                                                                               "
@@ -42,12 +42,8 @@ const char* const sqlCreateLogDb =
 "  [restart] BOOL);                                                             "
 "                                                                               "
 "                                                                               "
-"CREATE TABLE ip_address(                                                       "
-"  [ip_int] INTEGER PRIMARY KEY );                                              "
-"                                                                               "
-"                                                                               "
 "CREATE TABLE nicknames(                                                        "
-"  [ip_int] INTEGER REFERENCES ip_address([ip_int]),                            "
+"  [ip_int] INTEGER,                                                            "
 "  [name] TEXT,                                                                 "
 "  [duration] INTEGER );                                                        ";
                                                                                
@@ -80,20 +76,9 @@ const char* const sqlAddName =
 "INSERT INTO nicknames (ip_int, name, duration)                   "
 "VALUES (?,?,?)                                                   ";
 
-const char* const sqlFindIpAddress =
-"SELECT ip_int                                         "
-"FROM ip_address                                       "
-"WHERE ip_int = ?                                      ";
-
-const char* const sqlAddIpAddress =
-"INSERT INTO ip_address (ip_int)            "
-"VALUES (?)                                 ";
-
 const char* const sqlGetAliases =
 "SELECT name, SUM( duration ) AS time                           "
 "FROM nicknames                                                 "
-"JOIN ip_address                                                "
-"ON nicknames.ip_int = ip_address.ip_int                        "
 "WHERE nicknames.ip_int & ?2 = ?1 & ?2                          "
 "GROUP BY name                                                  "
 "ORDER BY time DESC                                             "
@@ -219,12 +204,10 @@ void G_LogDbLogLevelEvent( int levelId,
 // 
 //  Logs players connection session start
 //
-int G_LogDbLogSessionStart( int ipInt,
+int G_LogDbLogSessionStart( unsigned int ipInt,
     int ipPort,
     int id )
 {     
-    G_LogDbCreateIpAddressId( ipInt );
-
     sqlite3_stmt* statement;
     // prepare insert statement
     int rc = sqlite3_prepare( db, sqllogSessionStart, -1, &statement, 0 );
@@ -261,82 +244,14 @@ void G_LogDbLogSessionEnd( int sessionId )
 }
 
 //
-//  G_LogDbFindIpAddressId
-// 
-//  Checks if IP address' exists in ip adresses table
-//
-int G_LogDbFindIpAddressId( int ipInt )
-{
-    int ip_address_id = -1;
-    sqlite3_stmt* statement;
-
-    // prepare blacklist check statement
-    int rc = sqlite3_prepare( db, sqlFindIpAddress, -1, &statement, 0 );
-
-    sqlite3_bind_int( statement, 1, ipInt );
-
-    rc = sqlite3_step( statement );
-
-    // blacklisted => we forbid it
-    if ( rc == SQLITE_ROW )
-    {
-        ip_address_id = sqlite3_column_int( statement, 0 );
-    }
-
-    sqlite3_finalize( statement );
-
-    return ip_address_id;
-}
-
-//
-//  G_LogDbAddIpAddress
-// 
-//  Adds IP address' id in global ip adresses table
-//
-int G_LogDbAddIpAddress( int ipInt )
-{
-    sqlite3_stmt* statement;
-
-    // prepare blacklist check statement
-    int rc = sqlite3_prepare( db, sqlAddIpAddress, -1, &statement, 0 );
-
-    sqlite3_bind_int( statement, 1, ipInt );
-
-    rc = sqlite3_step( statement );
-
-    int ip_address_id = sqlite3_last_insert_rowid( db );
-
-    sqlite3_finalize( statement );
-
-    return ip_address_id;
-}
-
-//
-//  G_LogDbGetIpAddressId
-// 
-//  Gets IP address' id in global ip adresses table (creates if necessary)
-//
-void G_LogDbCreateIpAddressId( int ipInt )
-{
-    int ip_address_id = G_LogDbFindIpAddressId( ipInt );
-    
-    if ( ip_address_id == -1 )
-    {
-        ip_address_id = G_LogDbAddIpAddress( ipInt );
-    }
-}
-
-//
 //  G_LogDbLogNickname
 // 
 //  Logs players nickname
 //
-void G_LogDbLogNickname( int ipInt,
+void G_LogDbLogNickname( unsigned int ipInt,
     const char* name,
     int duration)
 {
-    G_LogDbCreateIpAddressId( ipInt );
-     
     sqlite3_stmt* statement;
 
     // prepare insert statement
@@ -348,13 +263,12 @@ void G_LogDbLogNickname( int ipInt,
 
     rc = sqlite3_step( statement );
 
-    sqlite3_finalize( statement );
-
+    sqlite3_finalize( statement ); 
 }
 
 
-void G_CfgDbListAliases( int ipInt,
-    int ipMask,
+void G_CfgDbListAliases( unsigned int ipInt,
+    unsigned int ipMask,
     int limit,
     ListAliasesCallback callback,
     void* context )
