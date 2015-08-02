@@ -3760,7 +3760,7 @@ void CheckVote( void ) {
 		return;
 	}
 	if ( level.time - level.voteTime >= VOTE_TIME ) {
-        if (g_minimumVotesCount.integer && (level.voteYes > level.voteNo) && ((level.voteYes + level.voteNo) >= g_minimumVotesCount.integer)) {
+        if ((g_minimumVotesCount.integer) && (level.numVotingClients % 2 == 0) && (level.voteYes > level.voteNo) && (level.voteYes + level.voteNo >= g_minimumVotesCount.integer)) {
             trap_SendServerCommand(-1, va("print \"%s\n\"",
                 G_GetStringEdString("MP_SVGAME", "VOTEPASSED")));
 
@@ -3775,6 +3775,13 @@ void CheckVote( void ) {
 		G_LogPrintf("Vote timed out. (Yes:%i No:%i All:%i)\n", level.voteYes, level.voteNo, level.numVotingClients);
         }
 	} else {
+        if ((level.numVotingClients == 7) && (level.voteYes < 5)) {
+            return;
+        }
+        if ((level.numVotingClients == 9) && (level.voteYes < 6)) {
+            return;
+        }
+
 		if ( level.voteYes > level.numVotingClients/2 ) {
 			trap_SendServerCommand( -1, va("print \"%s\n\"", 
 				G_GetStringEdString("MP_SVGAME", "VOTEPASSED")) );
