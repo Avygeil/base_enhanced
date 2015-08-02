@@ -380,9 +380,14 @@ qboolean G_CfgDbRemoveFromBlacklist( unsigned int ip,
     sqlite3_bind_int( statement, 2, mask );
 
     rc = sqlite3_step( statement );
+    
     if ( rc == SQLITE_DONE )
     {
-        success = qtrue;
+        int changes = sqlite3_changes( db );    
+        if ( changes != 0 )
+        {
+            success = qtrue;
+        }          
     }
 
     sqlite3_finalize( statement );
@@ -410,7 +415,11 @@ qboolean G_CfgDbRemoveFromWhitelist( unsigned int ip,
     rc = sqlite3_step( statement );
     if ( rc == SQLITE_DONE )
     {
-        success = qtrue;
+        int changes = sqlite3_changes( db );
+        if ( changes != 0 )
+        {
+            success = qtrue;
+        }
     }
 
     sqlite3_finalize( statement );
@@ -658,7 +667,11 @@ qboolean G_CfgDbPoolDeleteAllMaps( const char* short_name )
     rc = sqlite3_step( statement );
     if ( rc == SQLITE_DONE )
     {
-        success = qtrue;
+        int changes = sqlite3_changes( db );
+        if ( changes != 0 )
+        {
+            success = qtrue;
+        }
     }
 
     sqlite3_finalize( statement );
@@ -686,7 +699,11 @@ qboolean G_CfgDbPoolDelete( const char* short_name )
         rc = sqlite3_step( statement );
         if ( rc == SQLITE_DONE )
         {
-            success = qtrue;
+            int changes = sqlite3_changes( db );
+            if ( changes != 0 )
+            {
+                success = qtrue;
+            }
         }
 
         sqlite3_finalize( statement );
@@ -742,7 +759,11 @@ qboolean G_CfgDbPoolMapRemove( const char* short_name, const char* mapname )
     rc = sqlite3_step( statement );
     if ( rc == SQLITE_DONE )
     {
-        success = qtrue;
+        int changes = sqlite3_changes( db );
+        if ( changes != 0 )
+        {
+            success = qtrue;
+        }
     }
 
     sqlite3_finalize( statement );

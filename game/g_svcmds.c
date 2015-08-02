@@ -683,7 +683,7 @@ void Svcmd_RemoveWhiteIP_f( void )
     }
     else
     {
-        G_Printf( "Failed to remove %s to whitelist.\n", ip );
+        G_Printf( "Failed to remove %s from whitelist.\n", ip );
     }
 }
 
