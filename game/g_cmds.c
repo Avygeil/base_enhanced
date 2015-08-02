@@ -2641,8 +2641,8 @@ static void Cmd_Ready_f(gentity_t *ent) {
 	if (ent->client->pers.readyTime > level.time - 2000)
 		return;
 
-	if (ent->client->sess.sessionTeam == TEAM_SPECTATOR)
-		return;
+	// if (ent->client->sess.sessionTeam == TEAM_SPECTATOR)
+    //     return;
 
 	ent->client->pers.ready = !ent->client->pers.ready;
 	ent->client->pers.readyTime = level.time;
