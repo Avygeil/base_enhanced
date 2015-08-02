@@ -2213,11 +2213,12 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 	} else if ( !Q_stricmp( arg1, "unpause" ) ) { 
 	} else if ( !Q_stricmp( arg1, "endmatch" ) ) { 
 	} else if ( !Q_stricmp( arg1, "cointoss")) {
+    } else if (!Q_stricmp(arg1, "randomcapts")) {
 	} else {
 		trap_SendServerCommand( ent-g_entities, "print \"Invalid vote string.\n\"" );
 		trap_SendServerCommand( ent-g_entities, "print \"Vote commands are: map_restart, nextmap, map <mapname>, g_gametype <n>, "
 			"kick <player>, clientkick <clientnum>, g_doWarmup, timelimit <time>, fraglimit <frags>, "
-			"resetflags, q <question>, pause, unpause, endmatch.\n\"" );
+			"resetflags, q <question>, pause, unpause, endmatch, randomcapts.\n\"" );
 		return;
 	}
 
@@ -2496,6 +2497,11 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 		Com_sprintf(level.voteString, sizeof(level.voteString), "%s", arg1);
 		Com_sprintf(level.voteDisplayString, sizeof(level.voteDisplayString), "Coin Toss");
 	}
+    else if (!Q_stricmp(arg1, "randomcapts"))
+    {
+        Com_sprintf(level.voteString, sizeof(level.voteString), "%s", arg1);
+        Com_sprintf(level.voteDisplayString, sizeof(level.voteDisplayString), "Random capts");
+    }
 	else if ( !Q_stricmp( arg1, "resetflags" )) 
 	{
 		Com_sprintf( level.voteString, sizeof( level.voteString ), "%s", arg1 );
