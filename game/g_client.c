@@ -2186,14 +2186,13 @@ void ClientUserinfoChanged( int clientNum ) {
 		unsigned long long int totalHash;
 		SHA1Context ctx;
 		SHA1Reset( &ctx );
-		value = Info_ValueForKey( userinfo, "ip" );
-		if ( value && *value ) {
+
+		{
             unsigned int ip = 0;
-            getIpFromString( value , &ip);
+			getIpFromString( client->sess.ipString, &ip );
 			SHA1Input( &ctx, (unsigned char *)&ip, sizeof( ip ) );
-		} else {
-			// no ip? ....
 		}
+
 		if ( SHA1Result( &ctx ) == 1 ) {
 			ipHash = ctx.Message_Digest[0];
 		}
