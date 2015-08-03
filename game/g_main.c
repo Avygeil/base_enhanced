@@ -268,6 +268,9 @@ vmCvar_t    g_minimumVotesCount;
 vmCvar_t    g_fixPitKills;
 vmCvar_t    g_fixRocketGlitch;
 
+vmCvar_t    g_enforceEvenVotersCount;
+vmCvar_t    g_minVotersForEvenVotersCount;
+
 vmCvar_t    bot_minping;
 vmCvar_t    bot_maxping;
 vmCvar_t    bot_ping_sparsity;
@@ -607,6 +610,9 @@ static cvarTable_t		gameCvarTable[] = {
 	//{ &g_fixCaptureCondition,	"g_fixCaptureCondition"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
 	//{ &g_fixDetPackBug,	"g_fixDetPackBug"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_fixRocketGlitch,	"g_fixRocketGlitch"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
+
+    { &g_enforceEvenVotersCount, "g_enforceEvenVotersCount", "0", CVAR_ARCHIVE, 0, qtrue },
+    { &g_minVotersForEvenVotersCount, "g_minVotersForEvenVotersCount", "7", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_strafejump_mod,	"g_strafejump_mod"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
 
@@ -3775,11 +3781,12 @@ void CheckVote( void ) {
 		G_LogPrintf("Vote timed out. (Yes:%i No:%i All:%i)\n", level.voteYes, level.voteNo, level.numVotingClients);
         }
 	} else {
-        if ((level.numVotingClients == 7) && (level.voteYes < 5)) {
-            return;
-        }
-        if ((level.numVotingClients == 9) && (level.voteYes < 6)) {
-            return;
+        if ((g_enforceEvenVotersCount.integer) && (level.numVotingClients % 2 == 1)) {
+            if ((g_minVotersForEvenVotersCount.integer > 4) && (level.numVotingClients >= g_minVotersForEvenVotersCount.integer)) {
+                if (level.voteYes < level.numVotingClients/2 + 2) {
+                    return;
+                }
+            }
         }
 
 		if ( level.voteYes > level.numVotingClients/2 ) {
