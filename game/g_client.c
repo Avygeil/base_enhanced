@@ -2186,14 +2186,13 @@ void ClientUserinfoChanged( int clientNum ) {
 		unsigned long long int totalHash;
 		SHA1Context ctx;
 		SHA1Reset( &ctx );
-		value = Info_ValueForKey( userinfo, "ip" );
-		if ( value && *value ) {
+
+		{
             unsigned int ip = 0;
-            getIpFromString( value , &ip);
+			getIpFromString( client->sess.ipString, &ip );
 			SHA1Input( &ctx, (unsigned char *)&ip, sizeof( ip ) );
-		} else {
-			// no ip? ....
 		}
+
 		if ( SHA1Result( &ctx ) == 1 ) {
 			ipHash = ctx.Message_Digest[0];
 		}
@@ -2212,6 +2211,7 @@ void ClientUserinfoChanged( int clientNum ) {
 			value = Info_ValueForKey( userinfo, "sex" );
 			if ( value && *value && Q_isanumber( value ) ) {
 				guidHash = atoi( value );
+				Com_Printf( "Client %d reports guid %d (userinfo %s)\n", clientNum, guidHash, userinfo );
 			} else {
 				char systeminfo[16384];
 				char previnfo[16384];
@@ -2235,10 +2235,10 @@ void ClientUserinfoChanged( int clientNum ) {
 					}
 				}
 				if ( prevGuid ) {
-					Com_Printf( "Reassigning previously assigned guid to client %d\n", clientNum );
+					Com_Printf( "Reassigning previously assigned guid %d to client %d (userinfo %s)\n", guidHash, clientNum, userinfo );
 				} else {
 					guidHash = rand();
-					Com_Printf( "Assigning random guid to client %d\n", clientNum );
+					Com_Printf( "Assigning random guid %d to client %d (userinfo %s)\n", guidHash, clientNum, userinfo );
 				}
 				trap_GetConfigstring( CS_SYSTEMINFO, systeminfo, sizeof( systeminfo ) );
 				// they only need to see it once for it to be set
