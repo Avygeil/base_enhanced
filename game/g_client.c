@@ -2493,7 +2493,9 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 	//assign the pointer for bg entity access
 	ent->playerState = &ent->client->ps;
 
+    clientSession_t	sessOld = client->sess;
 	memset( client, 0, sizeof(*client) );
+    client->sess = sessOld;
 
 	client->pers.connected = CON_CONNECTING;
 
@@ -2504,13 +2506,10 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 		client->pers.botAvgPing = (bot_maxping.integer-bot_minping.integer)*random()+bot_minping.integer;;
 
 	// read or initialize the session data
-	if ( firstTime || level.newSession ) {
-		if (!firstTime && level.newSession) //just for ip, bit hacky i know
-			G_ReadSessionData( client );
-
+	if ( firstTime || level.newSession ) 
+    {
 		G_InitSessionData( client, userinfo, isBot, firstTime );
 	}
-	G_ReadSessionData( client );
 
 	//clean all players ignore flags for connecting guy
 	if (firstTime){
@@ -2588,8 +2587,6 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 	return NULL;
 }
 
-void G_WriteClientSessionData( gclient_t *client );
-
 #include "namespace_begin.h"
 void WP_SetSaber( int entNum, saberInfo_t *sabers, int saberNum, const char *saberName );
 #include "namespace_end.h"
@@ -2623,7 +2620,6 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 		if (allowTeamReset)
 		{
 			const char *team = "Red";
-			int preSess;
 
 			ent->client->sess.sessionTeam = PickTeam(-1);
 			trap_GetUserinfo(clientNum, userinfo, MAX_INFO_STRING);
@@ -2648,10 +2644,6 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 
 			ent->client->ps.persistant[ PERS_TEAM ] = ent->client->sess.sessionTeam;
 
-			preSess = ent->client->sess.sessionTeam;
-			G_ReadSessionData( ent->client );
-			ent->client->sess.sessionTeam = preSess;
-			G_WriteClientSessionData(ent->client);
 			ClientUserinfoChanged( clientNum );
 			ClientBegin(clientNum, qfalse);
 			return;

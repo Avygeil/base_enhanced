@@ -424,6 +424,10 @@ typedef struct {
 // this is achieved by writing all the data to cvar strings at game shutdown
 // time and reading them back at connection time.  Anything added here
 // MUST be dealt with in G_InitSessionData() / G_ReadSessionData() / G_WriteSessionData()
+// Sil - This structure no longer needs to be maintained in G_InitSessionData(), G_ReadSessionData(), 
+// G_WriteSessionData(), because whole content is stored in binary file as it is, and then restored.
+// Make sure that content stored in this structure has to be serializable, in other words do not
+// store pointers here.
 typedef struct {
 	team_t		sessionTeam;
 	int			spectatorTime;		// for determining next-in-line to play
@@ -1477,11 +1481,11 @@ void Svcmd_GameMem_f( void );
 //
 // g_session.c
 //
-void G_ReadSessionData( gclient_t *client );
 void G_InitSessionData( gclient_t *client, char *userinfo, qboolean isBot, qboolean firstTime );
 
 void G_InitWorldSession( void );
 void G_WriteSessionData( void );
+void G_ReadSessionData( void );
 
 //
 // NPC_senses.cpp
