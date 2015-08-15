@@ -142,23 +142,13 @@ vmCvar_t	g_inactivity;
 vmCvar_t	g_inactivityKick;
 vmCvar_t	g_spectatorInactivity;
 vmCvar_t	g_debugMove;
-
-//vmCvar_t	g_debugGhost;
-
-//ACCOUNTS 
 vmCvar_t	g_accounts;
-vmCvar_t	g_accountsFile;
-
+vmCvar_t	g_accountsFile; 
 vmCvar_t	g_whitelist;
-
-
-//URL FOR DOWNLOAD
-vmCvar_t	g_dlURL;
-
-
-vmCvar_t	g_logrcon;
-
+vmCvar_t	g_dlURL;   
+vmCvar_t	g_logrcon;   
 vmCvar_t	g_flags_overboarding;
+vmCvar_t	g_selfkill_penalty;
 
 //DB - accounts system
 //extern vmCvar_t	db_url;
@@ -666,6 +656,8 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_fixboon,	"g_fixboon"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_testdeflection,	"g_testdeflection"	, "0"	, CVAR_ARCHIVE, 0, qtrue },	
     { &g_flags_overboarding, "g_flags_overboarding", "1", CVAR_ARCHIVE, 0, qtrue },
+    { &g_selfkill_penalty, "g_selfkill_penalty", "1", CVAR_ARCHIVE, 0, qtrue },
+    
 
 	//{ &g_cmdtimelimit,	"g_cmdtimelimit"	, "500"	, CVAR_INTERNAL, 0, qtrue },	
 	
