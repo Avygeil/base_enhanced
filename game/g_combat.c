@@ -2496,7 +2496,7 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 	if ( MOD_TEAM_CHANGE == meansOfDeath )
 	{
 		// Give them back a point since they didn't really die.
-		AddScore( self, self->r.currentOrigin, 1 );
+		AddScore( self, self->r.currentOrigin, g_selfkill_penalty.integer );
 	}
 	else
 	{

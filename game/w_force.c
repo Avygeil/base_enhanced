@@ -4674,7 +4674,14 @@ void FindGenericEnemyIndex(gentity_t *self)
 	{
 		ent = &g_entities[i];
 
-		if (ent && ent->client && ent->s.number != self->s.number && ent->health > 0 && !OnSameTeam(self, ent) && ent->client->ps.pm_type != PM_INTERMISSION && ent->client->ps.pm_type != PM_SPECTATOR)
+        if ( ent && 
+            ent->client && 
+            (ent->s.number != self->s.number) && 
+            (ent->health > 0) && 
+            !OnSameTeam( self, ent ) && 
+            (ent->client->ps.pm_type != PM_INTERMISSION) && 
+            (ent->client->ps.pm_type != PM_SPECTATOR) && 
+            !(ent->client->ps.pm_flags & PMF_FOLLOW) )
 		{
 			VectorSubtract(ent->client->ps.origin, self->client->ps.origin, a);
 			tlen = VectorLength(a);

@@ -398,8 +398,7 @@ void Seeker_FindEnemy( void )
 		if ( ent->s.number == NPC->s.number 
 			|| !ent->client //&& || !ent->NPC 
 			|| ent->health <= 0 
-			|| !ent->inuse
-            || ent->client->sess.sessionTeam == TEAM_SPECTATOR)
+			|| !ent->inuse)
 		{
 			continue;
 		}
