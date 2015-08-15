@@ -1155,7 +1155,7 @@ void respawn( gentity_t *ent ) {
 	{
 		if (g_siegeRespawn.integer)
 		{
-			if (ent->client->tempSpectate <= level.time)
+            if ( (ent->client->tempSpectate <= level.time) && (g_siegeRespawnCheck >= level.time) )
 			{
 				int minDel = g_siegeRespawn.integer* 2000;
 				if (minDel < 20000)

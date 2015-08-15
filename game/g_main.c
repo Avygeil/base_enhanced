@@ -4182,7 +4182,7 @@ void G_RunFrame( int levelTime ) {
 			clEnt = &g_entities[i];
 
 			if (clEnt->inuse && clEnt->client &&
-				clEnt->client->tempSpectate > level.time &&
+                ((clEnt->client->tempSpectate > level.time) || (clEnt->health <= 0)) &&
 				clEnt->client->sess.sessionTeam != TEAM_SPECTATOR)
 			{
 				respawn(clEnt);
