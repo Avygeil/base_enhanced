@@ -2353,7 +2353,7 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 			}
 			else
 			{
-				AddScore( attacker, self->r.currentOrigin, -1 );
+                AddScore( attacker, self->r.currentOrigin, -g_selfkill_penalty.integer );
 			}
 			if (g_gametype.integer == GT_JEDIMASTER)
 			{
