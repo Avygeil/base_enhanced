@@ -3202,7 +3202,14 @@ void G_RunItem( gentity_t *ent ) {
                 Team_FreeEntity(ent);
             }                  			
 		} else {
-			G_FreeEntity( ent );
+            if ( ent->die )
+            {
+                ent->die( ent, ent, ent, 100, MOD_UNKNOWN );
+            }
+            else
+            {
+                G_FreeEntity( ent );
+            } 			
 		}   
         return;
 	}
