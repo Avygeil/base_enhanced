@@ -4296,6 +4296,14 @@ void G_RunFrame( int levelTime ) {
                     if ( level.warmupTime > 0 )
                             trap_SetConfigstring( CS_WARMUP, va("%i", level.warmupTime ) );
             }
+
+            // siege timer adjustment
+            char siegeState[128];
+            int round, startTime;
+            trap_GetConfigstring( CS_SIEGE_STATE, siegeState, sizeof( siegeState ) );
+            sscanf( siegeState, "%i|%i", &round, &startTime );
+            startTime += dt;
+            trap_SetConfigstring( CS_SIEGE_STATE, va( "%i|%i", round, startTime ) );
     }
     if ( level.pause.state == PAUSE_PAUSED )
     {
