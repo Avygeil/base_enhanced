@@ -374,8 +374,7 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_chatLimit, "g_chatLimit", "0", CVAR_SERVERINFO | CVAR_ARCHIVE, 0, qtrue  },
 
-	//  *CHANGE 90* - g_allowNPC should be turned off by default, it causes huge .nav files, and its useless
-	{ &g_allowNPC, "g_allowNPC", "0", CVAR_SERVERINFO | CVAR_ARCHIVE, 0, qtrue  },
+	{ &g_allowNPC, "g_allowNPC", "1", CVAR_SERVERINFO | CVAR_ARCHIVE, 0, qtrue  },
 
 	{ &g_key, "g_flags", "0", CVAR_SERVERINFO, 0, qtrue  },
 
