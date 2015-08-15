@@ -964,7 +964,7 @@ void SiegeCheckTimers(void)
 
 	if (!gSiegeRoundBegun)
 	{
-		if (!numTeam1 || !numTeam2)
+		if (!numTeam1 && !numTeam2)
 		{ //don't have people on both teams yet.
 			gSiegeBeginTime = level.time + SIEGE_ROUND_BEGIN_TIME;
 			trap_SetConfigstring(CS_SIEGE_STATE, "1"); //"waiting for players on both teams"
