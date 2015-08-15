@@ -2464,7 +2464,14 @@ void Cmd_CallVote_f( gentity_t *ent ) {
         // set default map_restart 3 when there is no time provided
         if (argc < 3)
         {
-            n = g_default_restart_countdown.integer;
+            if ( g_gametype.integer == GT_SIEGE )
+            {
+                n = 0;
+            }
+            else
+            {  
+                n = g_default_restart_countdown.integer;
+            }
         }
 
 		if (n < 0) n = 0;
