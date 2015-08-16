@@ -268,6 +268,9 @@ vmCvar_t    g_minimumVotesCount;
 vmCvar_t    g_fixPitKills;
 vmCvar_t    g_fixRocketGlitch;
 
+vmCvar_t    g_enforceEvenVotersCount;
+vmCvar_t    g_minVotersForEvenVotersCount;
+
 vmCvar_t    bot_minping;
 vmCvar_t    bot_maxping;
 vmCvar_t    bot_ping_sparsity;
@@ -607,6 +610,9 @@ static cvarTable_t		gameCvarTable[] = {
 	//{ &g_fixCaptureCondition,	"g_fixCaptureCondition"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
 	//{ &g_fixDetPackBug,	"g_fixDetPackBug"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_fixRocketGlitch,	"g_fixRocketGlitch"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
+
+    { &g_enforceEvenVotersCount, "g_enforceEvenVotersCount", "0", CVAR_ARCHIVE, 0, qtrue },
+    { &g_minVotersForEvenVotersCount, "g_minVotersForEvenVotersCount", "7", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_strafejump_mod,	"g_strafejump_mod"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
 
@@ -3760,7 +3766,7 @@ void CheckVote( void ) {
 		return;
 	}
 	if ( level.time - level.voteTime >= VOTE_TIME ) {
-        if (g_minimumVotesCount.integer && (level.voteYes > level.voteNo) && ((level.voteYes + level.voteNo) >= g_minimumVotesCount.integer)) {
+        if ((g_minimumVotesCount.integer) && (level.numVotingClients % 2 == 0) && (level.voteYes > level.voteNo) && (level.voteYes + level.voteNo >= g_minimumVotesCount.integer)) {
             trap_SendServerCommand(-1, va("print \"%s\n\"",
                 G_GetStringEdString("MP_SVGAME", "VOTEPASSED")));
 
@@ -3775,6 +3781,14 @@ void CheckVote( void ) {
 		G_LogPrintf("Vote timed out. (Yes:%i No:%i All:%i)\n", level.voteYes, level.voteNo, level.numVotingClients);
         }
 	} else {
+        if ((g_enforceEvenVotersCount.integer) && (level.numVotingClients % 2 == 1)) {
+            if ((g_minVotersForEvenVotersCount.integer > 4) && (level.numVotingClients >= g_minVotersForEvenVotersCount.integer)) {
+                if (level.voteYes < level.numVotingClients/2 + 2) {
+                    return;
+                }
+            }
+        }
+
 		if ( level.voteYes > level.numVotingClients/2 ) {
 			trap_SendServerCommand( -1, va("print \"%s\n\"", 
 				G_GetStringEdString("MP_SVGAME", "VOTEPASSED")) );
@@ -3804,79 +3818,82 @@ void CheckVote( void ) {
 
 void CheckReady(void) 
 {
-	int i = 0, readyCount = 0;
-	int botsCount = 0;
-	gentity_t *ent = NULL;
-	unsigned readyMask = 0;
-	static qboolean restarting = qfalse;
+    int i = 0, readyCount = 0;
+    int botsCount = 0;
+    gentity_t *ent = NULL;
+    unsigned readyMask = 0;
+    static qboolean restarting = qfalse;
 
-	if ((g_gametype.integer == GT_POWERDUEL) || (g_gametype.integer == GT_DUEL) || (g_gametype.integer == GT_SIEGE))
-		return;
+    if ((g_gametype.integer == GT_POWERDUEL) || (g_gametype.integer == GT_DUEL) || (g_gametype.integer == GT_SIEGE))
+        return;
 
-	if (!g_doWarmup.integer || !level.numPlayingClients || restarting || level.intermissiontime)
-		return;
+    // for original functionality of /ready
+    // if (!g_doWarmup.integer || !level.numPlayingClients || restarting || level.intermissiontime)
+    if (!g_doWarmup.integer || restarting || level.intermissiontime)
+        return;
 
-	for (i = 0, ent = g_entities; i < level.maxclients; i++, ent++) 
-	{
-		if (!ent->inuse || ent->client->pers.connected == CON_DISCONNECTED || ent->client->sess.sessionTeam == TEAM_SPECTATOR)
-			continue;
+    for (i = 0, ent = g_entities; i < level.maxclients; i++, ent++)
+    {
+        // for original functionality of /ready
+        // if (!ent->inuse || ent->client->pers.connected == CON_DISCONNECTED || ent->client->sess.sessionTeam == TEAM_SPECTATOR)
+        if (!ent->inuse || ent->client->pers.connected == CON_DISCONNECTED)
+            continue;
 
-		if (ent->client->pers.ready) 
-		{
-			readyCount++;
-			if (i < 16)
-				readyMask |= (1 << i);
-		}
+        if (ent->client->pers.ready)
+        {
+            readyCount++;
+            if (i < 16)
+                readyMask |= (1 << i);
+        }
 
-		if (ent->r.svFlags & SVF_BOT)
-			++botsCount;
-	}
+        if (ent->r.svFlags & SVF_BOT)
+            ++botsCount;
+    }
 
-	// update ready flags for clients' scoreboards
-	for (i = 0, ent = g_entities; i < level.maxclients; i++, ent++) 
-	{
-		if (!ent->inuse || ent->client->pers.connected == CON_DISCONNECTED)
-			continue;
-
-
-		ent->client->ps.stats[STAT_CLIENTS_READY] = readyMask;
-	}
-
-	// check if all conditions to start the match have been met
-	{
-		int		counts[TEAM_NUM_TEAMS];
-		qboolean	conditionsMet = qtrue;
-
-		counts[TEAM_BLUE] = TeamCount(-1, TEAM_BLUE);
-		counts[TEAM_RED] = TeamCount(-1, TEAM_RED);
-
-		// eat least 1 player in each team
-		if (counts[TEAM_RED] < 1 || counts[TEAM_BLUE] < 1 || counts[TEAM_RED] != counts[TEAM_BLUE])
-		{
-			conditionsMet = qfalse;
-		}
-
-		// all players are ready
-		if (readyCount < counts[TEAM_BLUE] + counts[TEAM_RED] - botsCount)
-		{
-			conditionsMet = qfalse;
-		}
-
-		if (conditionsMet)
-		{
-			trap_Cvar_Set("g_restarted", "1");
-			trap_Cvar_Set("g_wasRestarted", "1");
-			trap_SendConsoleCommand(EXEC_APPEND, "map_restart 5\n");
-			restarting = qtrue;
-			return;
-		}
-		else
-		{
+    // update ready flags for clients' scoreboards
+    for (i = 0, ent = g_entities; i < level.maxclients; i++, ent++)
+    {
+        if (!ent->inuse || ent->client->pers.connected == CON_DISCONNECTED)
+            continue;
 
 
-		}
+        ent->client->ps.stats[STAT_CLIENTS_READY] = readyMask;
+    }
 
-	}
+    // allow this for original functionality of /ready
+    // check if all conditions to start the match have been met
+    // {
+    //    int		counts[TEAM_NUM_TEAMS];
+    //    qboolean	conditionsMet = qtrue;
+    //
+    //    counts[TEAM_BLUE] = TeamCount(-1, TEAM_BLUE);
+    //    counts[TEAM_RED] = TeamCount(-1, TEAM_RED);
+    //
+    //    // eat least 1 player in each team
+    //    if (counts[TEAM_RED] < 1 || counts[TEAM_BLUE] < 1 || counts[TEAM_RED] != counts[TEAM_BLUE])
+    //    {
+    //        conditionsMet = qfalse;
+    //    }
+    //
+    //    // all players are ready
+    //    if (readyCount < counts[TEAM_BLUE] + counts[TEAM_RED] - botsCount)
+    //    {
+    //        conditionsMet = qfalse;
+    //    }
+    //
+    //    if (conditionsMet)
+    //    {
+    //        trap_Cvar_Set("g_restarted", "1");
+    //        trap_Cvar_Set("g_wasRestarted", "1");
+    //        trap_SendConsoleCommand(EXEC_APPEND, "map_restart 5\n");
+    //        restarting = qtrue;
+    //        return;
+    //    }
+    //    else
+    //    {
+    //
+    //    }
+    // }
 }
 
 /*
