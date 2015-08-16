@@ -193,56 +193,6 @@ void G_WriteSessionData( void )
     for ( i = 0; i < level.maxclients; ++i )
     {
         gclient_t *client = g_entities[i].client;
-
-        int			j = 0;
-        char		siegeClass[64];
-        char		saberType[64];
-        char		saber2Type[64];
-
-        strcpy( siegeClass, client->sess.siegeClass );
-
-        while ( siegeClass[j] )
-        { //sort of a hack.. we don't want spaces by siege class names have spaces so convert them all to unused chars
-            if ( siegeClass[j] == ' ' )
-            {
-                siegeClass[j] = 1;
-            }
-
-            j++;
-        }
-
-        if ( !siegeClass[0] )
-        { //make sure there's at least something
-            strcpy( siegeClass, "none" );
-        }
-
-        //Do the same for the saber
-        strcpy( saberType, client->sess.saberType );
-
-        j = 0;
-        while ( saberType[j] )
-        {
-            if ( saberType[j] == ' ' )
-            {
-                saberType[j] = 1;
-            }
-
-            j++;
-        }
-
-        strcpy( saber2Type, client->sess.saber2Type );
-
-        j = 0;
-        while ( saber2Type[j] )
-        {
-            if ( saber2Type[j] == ' ' )
-            {
-                saber2Type[j] = 1;
-            }
-
-            j++;
-        }
-
         fwrite( &client->sess, 1, sizeof( client->sess ), sessionFile );
     }
 
@@ -275,43 +225,8 @@ void G_ReadSessionData()
 
         if ( client )
         {
-            int			j = 0;
-
             memcpy( &client->sess, &buffer[i * sizeof( clientSession_t )], sizeof( client->sess ) );
-
-            while ( client->sess.siegeClass[j] )
-            { //convert back to spaces from unused chars, as session data is written that way.
-                if ( client->sess.siegeClass[j] == 1 )
-                {
-                    client->sess.siegeClass[j] = ' ';
-                }
-
-                j++;
-            }
-
-            j = 0;
-            //And do the same for the saber type
-            while ( client->sess.saberType[j] )
-            {
-                if ( client->sess.saberType[j] == 1 )
-                {
-                    client->sess.saberType[j] = ' ';
-                }
-
-                j++;
-            }
-
-            j = 0;
-            while ( client->sess.saber2Type[j] )
-            {
-                if ( client->sess.saber2Type[j] == 1 )
-                {
-                    client->sess.saber2Type[j] = ' ';
-                }
-
-                j++;
-            }
-
+  
             client->ps.fd.saberAnimLevel = client->sess.saberLevel;
             client->ps.fd.saberDrawAnimLevel = client->sess.saberLevel;
             client->ps.fd.forcePowerSelected = client->sess.selectedFP;
