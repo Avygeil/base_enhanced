@@ -1805,7 +1805,8 @@ extern vmCvar_t		g_protectCallvoteHack;
 extern vmCvar_t		g_maxIPConnected;
 extern vmCvar_t		g_fixLateCapture;
 extern vmCvar_t		g_minimumVotesCount;
-
+extern vmCvar_t		g_enforceEvenVotersCount;
+extern vmCvar_t		g_minVotersForEvenVotersCount;
 
 extern vmCvar_t     g_strafejump_mod;
 

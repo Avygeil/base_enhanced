@@ -2213,11 +2213,13 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 	} else if ( !Q_stricmp( arg1, "unpause" ) ) { 
 	} else if ( !Q_stricmp( arg1, "endmatch" ) ) { 
 	} else if ( !Q_stricmp( arg1, "cointoss")) {
+    } else if ( !Q_stricmp( arg1, "randomcapts")) {
+    } else if ( !Q_stricmp( arg1, "randomteams")) {
 	} else {
 		trap_SendServerCommand( ent-g_entities, "print \"Invalid vote string.\n\"" );
 		trap_SendServerCommand( ent-g_entities, "print \"Vote commands are: map_restart, nextmap, map <mapname>, g_gametype <n>, "
 			"kick <player>, clientkick <clientnum>, g_doWarmup, timelimit <time>, fraglimit <frags>, "
-			"resetflags, q <question>, pause, unpause, endmatch.\n\"" );
+			"resetflags, q <question>, pause, unpause, endmatch, randomcapts, randomteams <numRedPlayers> <numBluePlayers>.\n\"" );
 		return;
 	}
 
@@ -2496,6 +2498,25 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 		Com_sprintf(level.voteString, sizeof(level.voteString), "%s", arg1);
 		Com_sprintf(level.voteDisplayString, sizeof(level.voteDisplayString), "Coin Toss");
 	}
+    else if (!Q_stricmp(arg1, "randomcapts"))
+    {
+        Com_sprintf(level.voteString, sizeof(level.voteString), "%s", arg1);
+        Com_sprintf(level.voteDisplayString, sizeof(level.voteDisplayString), "Random capts");
+    }
+    else if (!Q_stricmp(arg1, "randomteams"))
+    {
+        int team1Count, team2Count;
+        char count[2];
+
+        trap_Argv(2, count, sizeof(count));
+        team1Count = atoi(count);
+
+        trap_Argv(3, count, sizeof(count));
+        team2Count = atoi(count);
+
+        Com_sprintf(level.voteString, sizeof(level.voteString), "%s %i %i", arg1, team1Count, team2Count);
+        Com_sprintf(level.voteDisplayString, sizeof(level.voteDisplayString), "Random Teams - %i vs %i", team1Count, team2Count);
+    }
 	else if ( !Q_stricmp( arg1, "resetflags" )) 
 	{
 		Com_sprintf( level.voteString, sizeof( level.voteString ), "%s", arg1 );
@@ -2620,8 +2641,8 @@ static void Cmd_Ready_f(gentity_t *ent) {
 	if (ent->client->pers.readyTime > level.time - 2000)
 		return;
 
-	if (ent->client->sess.sessionTeam == TEAM_SPECTATOR)
-		return;
+	// if (ent->client->sess.sessionTeam == TEAM_SPECTATOR)
+    //     return;
 
 	ent->client->pers.ready = !ent->client->pers.ready;
 	ent->client->pers.readyTime = level.time;
