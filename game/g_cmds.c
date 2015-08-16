@@ -552,6 +552,11 @@ void Cmd_Kill_f( gentity_t *ent ) {
 		return;
 	}
 
+    if ( ent->client->tempSpectate > level.time )
+    {
+        return;
+    }
+
     //OSP: pause
     if ( level.pause.state != PAUSE_NONE )
             return;
