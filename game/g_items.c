@@ -210,6 +210,8 @@ void ShieldGoSolid(gentity_t *self)
 // Turn the shield off to allow a friend to pass through.
 void ShieldGoNotSolid(gentity_t *self)
 {
+    qboolean wasSolid = (self->r.contents & CONTENTS_SOLID);
+
 	// make the shield non-solid very briefly
 	self->r.contents = 0;
 	self->s.eFlags |= EF_NODRAW;
@@ -219,10 +221,13 @@ void ShieldGoNotSolid(gentity_t *self)
 	self->takedamage = qfalse;
 	trap_LinkEntity(self);
 
-	// Play kill sound...
-	G_AddEvent(self, EV_GENERAL_SOUND, shieldDeactivateSound);
-	self->s.loopSound = 0;
-	self->s.loopIsSoundset = qfalse;
+    if ( wasSolid )
+    {
+        // Play kill sound...
+        G_AddEvent( self, EV_GENERAL_SOUND, shieldDeactivateSound );
+        self->s.loopSound = 0;
+        self->s.loopIsSoundset = qfalse;
+    } 
 }
 
 
