@@ -182,7 +182,8 @@ void G_WriteSessionData( void )
 {
     trap_Cvar_Set( "session", va( "%i", g_gametype.integer ) );
 
-    FILE* sessionFile = fopen( "session.dat", "wb" );
+    fileHandle_t sessionFile;
+    trap_FS_FOpenFile( "session.dat", &sessionFile, FS_WRITE );
 
     if ( !sessionFile )
     {
@@ -193,16 +194,16 @@ void G_WriteSessionData( void )
     for ( i = 0; i < level.maxclients; ++i )
     {
         gclient_t *client = g_entities[i].client;
-        fwrite( &client->sess, 1, sizeof( client->sess ), sessionFile );
+        trap_FS_Write( &client->sess, sizeof( client->sess), sessionFile );
     }
 
-    fclose( sessionFile );
+    trap_FS_FCloseFile( sessionFile );
 }  
 
 void G_ReadSessionData()
 {
-    static char buffer[8192];
-    FILE* sessionFile = fopen( "session.dat", "rb" );
+    fileHandle_t sessionFile;
+    int fileSize = trap_FS_FOpenFile( "session.dat", &sessionFile, FS_READ );
 
     if ( !sessionFile )
     {
@@ -210,13 +211,11 @@ void G_ReadSessionData()
         return;
     }
 
-    int fileSize = fread( buffer, 1, sizeof( buffer ), sessionFile );
-
     if ( fileSize != level.maxclients*sizeof( clientSession_t ) )
     {
         level.newSession = qtrue;
         return;
-    }
+    }           
 
     int i;
     for ( i = 0; i < level.maxclients; ++i )
@@ -225,7 +224,7 @@ void G_ReadSessionData()
 
         if ( client )
         {
-            memcpy( &client->sess, &buffer[i * sizeof( clientSession_t )], sizeof( client->sess ) );
+            trap_FS_Read( &client->sess, sizeof( clientSession_t ), sessionFile );
   
             client->ps.fd.saberAnimLevel = client->sess.saberLevel;
             client->ps.fd.saberDrawAnimLevel = client->sess.saberLevel;
@@ -233,5 +232,5 @@ void G_ReadSessionData()
         }
     }
 
-    fclose( sessionFile );
+    trap_FS_FCloseFile( sessionFile );
 }
