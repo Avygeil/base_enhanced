@@ -608,11 +608,6 @@ void BroadcastTeamChange( gclient_t *client, int oldTeam )
 
 	*buffer = '\0';
 
-	if (g_gametype.integer == GT_SIEGE)
-	{ //don't announce these things in siege
-		return;
-	}
-
 	if ( client->sess.sessionTeam == TEAM_RED ) {
 		Q_strncpyz(buffer, 
 			va("%s" S_COLOR_WHITE " %s",
@@ -813,6 +808,7 @@ void SetTeam( gentity_t *ent, char *s ) {
 			if (ent->client->sess.sessionTeam != ent->client->sess.siegeDesiredTeam)
 			{
 				SetTeamQuick(ent, ent->client->sess.siegeDesiredTeam, qfalse);
+                BroadcastTeamChange( client, client->sess.sessionTeam );
 			}
 
 			return;
