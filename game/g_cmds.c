@@ -3509,7 +3509,7 @@ static void Cmd_WhoIs_f( gentity_t* ent )
         }
 
         if ( id < -1 || id > 31 ||
-            (id >= 0 && (!g_entities[id].inuse || !g_entities[id].client)) )
+            (id >= 0 && (!g_entities[id].client || g_entities[id].client->pers.connected == CON_DISCONNECTED)) )
         {
             trap_SendServerCommand( ent - g_entities, va( "print \"Wrong client number %i.\n\"", id ) );
             return;
