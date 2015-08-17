@@ -4060,6 +4060,7 @@ Runs thinking code for this frame if necessary
 =============
 */
 extern void proxMineThink(gentity_t *ent);
+extern void SiegeItemThink( gentity_t *ent );
 
 void G_RunThink (gentity_t *ent) {
 	int	thinktime;
@@ -4073,6 +4074,11 @@ void G_RunThink (gentity_t *ent) {
 		// special case, mines need update here
 		if ( ent->think == proxMineThink && ent->genericValue15 > level.time)
 			ent->genericValue15 += level.time - level.previousTime;
+
+        // another special case, siege items need respawn timer update
+        if ( ent->think == SiegeItemThink && ent->genericValue9 > level.time )
+            ent->genericValue9 += level.time - level.previousTime;
+
 	}
 
 	thinktime = ent->nextthink;
