@@ -4055,12 +4055,8 @@ void ClientDisconnect( int clientNum ) {
 		gentity_t *veh = &g_entities[ent->client->ps.m_iVehicleNum];
 
 		if (veh->inuse && veh->client && veh->m_pVehicle)
-		{
-			int pCon = ent->client->pers.connected;
-
-			ent->client->pers.connected = 0;
+		{ 
 			veh->m_pVehicle->m_pVehicleInfo->Eject(veh->m_pVehicle, (bgEntity_t *)ent, qtrue);
-			ent->client->pers.connected = pCon;
 		}
 	}
 
