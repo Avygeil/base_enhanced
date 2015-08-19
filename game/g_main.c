@@ -306,7 +306,6 @@ vmCvar_t    g_info_irc;
 
 vmCvar_t    g_fixboon;
 vmCvar_t    g_maxstatusrequests;
-vmCvar_t    g_enginefix;
 vmCvar_t	g_testdebug; //for tmp debug
 vmCvar_t	g_callstackcounter; //debug
 vmCvar_t	g_rconpassword;
@@ -671,7 +670,6 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_maxstatusrequests,	"g_maxstatusrequests"	, "50"	, CVAR_ARCHIVE, 0, qtrue },
 	//{ &g_followSpectator,	"g_followSpectator"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
 	//{ &g_connectionsInChat,	"g_connectionsInChat"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
-	{ &g_enginefix,	"g_enginefix"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_testdebug,	"g_testdebug"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
 	
 	{ &g_logrcon,	"g_logrcon"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
@@ -1428,12 +1426,10 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 		}
 	}
 
-//#if 0
-	if (g_enginefix.integer){
-		Com_Printf("Applying engine fix.\n");
+    if ( BG_IsLegacyEngine() )
+    {
 		PatchEngine();
 	}
-//#endif
 
     G_CfgDbLoad();
     G_LogDbLoad();
@@ -1535,9 +1531,7 @@ void G_ShutdownGame( int restart ) {
     G_CfgDbUnload();
     G_LogDbUnload();
 
-//#if 0
 	UnpatchEngine();
-//#endif
 }
 
 

@@ -3395,6 +3395,20 @@ qboolean BG_OutOfMemory ( void )
 	return bg_poolSize >= MAX_POOL_SIZE;
 }
 
+qboolean BG_IsLegacyEngine()
+{
+    qboolean result = qfalse;
+    char buffer[64];
+    trap_Cvar_VariableStringBuffer( "version", buffer, sizeof( buffer ) );
+
+    if ( strstr( buffer, "2003" ) )
+    {
+        result = qtrue;
+    }
+
+    return result;
+}
+
 #endif // _XBOX && QAGAME
 
 #include "namespace_end.h"
