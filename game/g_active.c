@@ -3096,11 +3096,19 @@ void ClientThink_real( gentity_t *ent ) {
 				if ( ent->client->ps.groundEntityNum != ENTITYNUM_NONE )
 				{//ATST crushes anything underneath it
 					gentity_t	*under = &g_entities[ent->client->ps.groundEntityNum];
+
 					if ( under && under->health && under->takedamage )
 					{
 						vec3_t	down = {0,0,-1};
+						gentity_t	*attacker = ent;
+
+						if ( ent->m_pVehicle->m_pPilot )
+						{
+							attacker = &g_entities[ent->m_pVehicle->m_pPilot->s.number];
+						}
+
 						//FIXME: we'll be doing traces down from each foot, so we'll have a real impact origin
-						G_Damage( under, ent, ent, down, under->r.currentOrigin, 100, 0, MOD_CRUSH );
+						G_Damage( under, attacker, attacker, down, under->r.currentOrigin, 100, 0, MOD_CRUSH );
 					}
 				}
 			}
