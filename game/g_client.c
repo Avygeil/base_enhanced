@@ -1134,6 +1134,12 @@ respawn
 */
 void SiegeRespawn(gentity_t *ent);
 void respawn( gentity_t *ent ) {
+
+	if ( ent->client->ps.eFlags2&EF2_HELD_BY_MONSTER )
+	{
+		return;
+	}
+
 	MaintainBodyQueue(ent);
 
 	if (gEscaping || g_gametype.integer == GT_POWERDUEL)
