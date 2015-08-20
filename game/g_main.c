@@ -4170,6 +4170,8 @@ extern int getstatus_TimeToReset;
 extern int getstatus_Counter;
 extern int getstatus_LastReportTime;
 extern int getstatus_UniqueIPCount;
+extern int gImperialCountdown;
+extern int gRebelCountdown;
 
 void G_RunFrame( int levelTime ) {
 	int			i;
@@ -4315,6 +4317,17 @@ void G_RunFrame( int levelTime ) {
                 startTime += dt;
                 trap_SetConfigstring( CS_SIEGE_STATE, va( "%i|%i", round, startTime ) );
                 g_siegeRespawnCheck += dt;
+
+				// siege objectives timers adjustments
+				if ( gImperialCountdown )
+				{ 
+					gImperialCountdown += dt;
+				}
+
+				if ( gRebelCountdown )
+				{
+					gRebelCountdown += dt;
+				}
 
             }
     }
