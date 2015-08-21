@@ -158,6 +158,7 @@ static void turret_fire ( gentity_t *ent, vec3_t start, vec3_t dir )
 	bolt->splashDamage = ent->damage;
 	bolt->splashRadius = 100;
 	bolt->methodOfDeath = MOD_TARGET_LASER;
+	bolt->splashMethodOfDeath = MOD_TARGET_LASER;
 	bolt->clipmask = MASK_SHOT | CONTENTS_LIGHTSABER;
 
 	VectorSet( bolt->r.maxs, 1.5, 1.5, 1.5 );
