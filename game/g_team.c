@@ -242,14 +242,15 @@ qboolean OnSameTeam( gentity_t *ent1, gentity_t *ent2 ) {
 		return qfalse;
 	}
 
-	if ( ent1->client->sess.sessionTeam == ent2->client->sess.sessionTeam ) {
-		return qtrue;
-	}
-
-	if ( g_gametype.integer == GT_SIEGE && (ent1->client->sess.siegeDesiredTeam != ent2->client->sess.siegeDesiredTeam) )
+	if ( (g_gametype.integer == GT_SIEGE) && (ent1->client->sess.siegeDesiredTeam != ent2->client->sess.siegeDesiredTeam) )
 	{
 		return qfalse;
 	}
+
+	if ( ent1->client->sess.sessionTeam == ent2->client->sess.sessionTeam ) 
+	{
+		return qtrue;
+	}	
 
 	return qfalse;
 }
