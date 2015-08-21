@@ -1755,6 +1755,7 @@ extern	vmCvar_t	g_debugRight;
 extern	vmCvar_t	g_debugUp;
 extern	vmCvar_t	g_smoothClients;
 extern	vmCvar_t	g_defaultBanHoursDuration;
+extern	vmCvar_t	g_floating_items;
 
 #include "namespace_begin.h"
 extern	vmCvar_t	pmove_fixed;

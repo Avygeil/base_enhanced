@@ -187,6 +187,7 @@ vmCvar_t	g_debugRight;
 vmCvar_t	g_debugUp;
 vmCvar_t	g_smoothClients;
 vmCvar_t	g_defaultBanHoursDuration;
+vmCvar_t	g_floating_items;
 
 #include "namespace_begin.h"
 vmCvar_t	pmove_fixed;
@@ -680,7 +681,9 @@ static cvarTable_t		gameCvarTable[] = {
     { &g_callvotemaplimit,	"g_callvotemaplimit"	, "0"	, CVAR_ARCHIVE | CVAR_INTERNAL },
     
     { &sv_privateclients, "sv_privateclients", "0", CVAR_ARCHIVE | CVAR_SERVERINFO },
-    { &g_defaultBanHoursDuration, "g_defaultBanHoursDuration", "24", CVAR_ARCHIVE | CVAR_INTERNAL },      
+    { &g_defaultBanHoursDuration, "g_defaultBanHoursDuration", "24", CVAR_ARCHIVE | CVAR_INTERNAL },  
+
+	{ &g_floating_items, "g_floating_items", "0", CVAR_ARCHIVE, 0, qtrue },
 
 };
 
