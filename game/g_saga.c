@@ -1051,8 +1051,17 @@ void siegeTriggerUse(gentity_t *ent, gentity_t *other, gentity_t *activator)
 	}
 
 	if (activator && activator->client)
-	{ //activator will hopefully be the person who triggered this event
-		clUser = activator->s.number;
+	{ //activator will hopefully be the person who triggered this event		  
+		if ( activator->client->NPC_class == CLASS_VEHICLE
+			&& activator->m_pVehicle
+			&& activator->m_pVehicle->m_pPilot )
+		{
+			clUser = activator->m_pVehicle->m_pPilot->s.number;
+		}
+		else
+		{
+			clUser = activator->s.number;
+		}
 	}
 
 	if (ent->side == SIEGETEAM_TEAM1)
