@@ -1860,3 +1860,19 @@ void G_SiegeClientExData(gentity_t *msgTarg)
 	//send the string to him
 	trap_SendServerCommand(msgTarg-g_entities, str);
 }
+
+char* G_SiegeTeamName( int team )
+{
+    char* teamStr;
+    if ( team == SIEGETEAM_TEAM1 )
+    {
+        teamStr = team1;
+    }
+    else
+    {
+        teamStr = team2;
+    }
+
+    return teamStr;
+}
+

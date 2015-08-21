@@ -1568,6 +1568,7 @@ int getGlobalTime();
 // g_siege.c
 void InitSiegeMode(void);
 void G_SiegeClientExData(gentity_t *msgTarg);
+char* G_SiegeTeamName( int team );
 
 // g_timer
 //Timing information
