@@ -239,8 +239,8 @@ void ShieldTouch(gentity_t *self, gentity_t *other, trace_t *trace)
 		// compare the parent's team to the "other's" team
 		if (self->parent && ( self->parent->client) && (other->client))
 		{
-			trap_Trace( trace, other->r.currentOrigin, other->r.mins, other->r.maxs, self->s.origin, other->s.number, other->clipmask );
-			if ( OnSameTeam( self->parent, other ) || (trace->startsolid && trace->entityNum == self->s.number) )
+			trap_Trace( trace, self->r.currentOrigin, self->r.mins, self->r.maxs, self->r.currentOrigin, self->s.number, other->clipmask );
+			if ( OnSameTeam( self->parent, other ) || (trace->startsolid) )
 			{
 				ShieldGoNotSolid(self);
 			}
