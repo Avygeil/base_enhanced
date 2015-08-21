@@ -4675,6 +4675,7 @@ void FindGenericEnemyIndex(gentity_t *self)
 		ent = &g_entities[i];
 
         if ( ent && 
+            ent->inuse &&
             ent->client && 
             (ent->s.number != self->s.number) && 
             (ent->health > 0) && 
@@ -4804,7 +4805,7 @@ void SeekerDroneUpdate(gentity_t *self)
 	{
 		en = &g_entities[self->client->ps.genericEnemyIndex];
 
-		if (!en || !en->client)
+		if (!en || !en->client || !en->inuse)
 		{
 			self->client->ps.genericEnemyIndex = ENTITYNUM_NONE;
 		}
