@@ -1942,7 +1942,7 @@ static void WP_FireRocket( gentity_t *ent, qboolean altFire )
 	missile->splashDamage = ROCKET_SPLASH_DAMAGE;
 	missile->splashRadius = ROCKET_SPLASH_RADIUS;
 
-	if ( !g_rocket_surfing.integer )
+	if ( !g_rocketSurfing.integer )
 	{
 		missile->touch = WP_TouchRocket;
 	}

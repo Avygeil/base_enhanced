@@ -1461,7 +1461,7 @@ void SiegeItemTouch( gentity_t *self, gentity_t *other, trace_t *trace )
 	if (!other || !other->inuse ||
 		!other->client || other->s.eType == ET_NPC)
 	{
-		if (g_floating_items.integer && trace && trace->startsolid)
+		if (g_floatingItems.integer && trace && trace->startsolid)
 		{ //let me out! (ideally this should not happen, but such is life)
 			vec3_t escapePos;
 			VectorCopy(self->r.currentOrigin, escapePos);

@@ -762,15 +762,11 @@ int Team_TouchOurFlag( gentity_t *ent, gentity_t *other, int team ) {
 	if (!cl->ps.powerups[enemy_flag])
 		return 0; // We don't have the flag
 
-	// *CHANGE 15* if g_fixLateCapture is set, you cant capture the flag after timelimit hit
-	if ( g_fixLateCapture.integer && level.intermissionQueued ) {
+	// *CHANGE 15* if intermission occurred, you cant capture the flag after timelimit hit
+	if ( level.intermissionQueued ) {
 		return 0;
 	}
 
-	/*
-	capture fix v2 
-	*/
-	//if (g_fixCaptureCondition.integer) {
 	VectorSubtract( ent->s.pos.trBase, minFlagRange, mins );
 	VectorAdd( ent->s.pos.trBase, maxFlagRange, maxs );
 

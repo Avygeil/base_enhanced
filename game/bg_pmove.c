@@ -1029,7 +1029,7 @@ Handles user intended acceleration
 */
 static void PM_Accelerate( vec3_t wishdir, float wishspeed, float accel )
 {
-	if ((pm->gametype != GT_SIEGE && !g_disableStrafejump.integer)
+	if ((pm->gametype != GT_SIEGE)
 		|| pm->ps->m_iVehicleNum 
 		|| pm->ps->clientNum >= MAX_CLIENTS 
 		|| pm->ps->pm_type != PM_NORMAL)

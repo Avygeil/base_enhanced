@@ -14,7 +14,6 @@ extern void NPC_UseResponse( gentity_t *self, gentity_t *user, qboolean useWhenD
 extern void Jedi_Decloak( gentity_t *self );
 
 extern vmCvar_t		g_saberRestrictForce;
-extern vmCvar_t     g_fixRocketGlitch;
 
 #include "namespace_begin.h"
 extern qboolean BG_FullBodyTauntAnim( int anim );
@@ -1828,10 +1827,7 @@ void ForceLightning( gentity_t *self )
 	}
 
 	// *CHANGE 65* fix - release rocket lock, old bug
-	if (g_fixRocketGlitch.integer){
-		BG_ClearRocketLock(&self->client->ps);
-	}
-
+	BG_ClearRocketLock(&self->client->ps);
 
 	//Shoot lightning from hand
 	//using grip anim now, to extend the burst time
@@ -2749,9 +2745,7 @@ void ForceTelepathy(gentity_t *self)
 	}
 
 	// *CHANGE 65* fix - release rocket lock, old bug
-	if (g_fixRocketGlitch.integer){
-		BG_ClearRocketLock(&self->client->ps);
-	}
+	BG_ClearRocketLock(&self->client->ps);
 
 	if ( ForceTelepathyCheckDirectNPCTarget( self, &tr, &tookPower ) )
 	{//hit an NPC directly
@@ -3107,9 +3101,7 @@ void ForceThrow( gentity_t *self, qboolean pull )
 	}
 
 	// *CHANGE 65* fix - release rocket lock, old bug
-	if (g_fixRocketGlitch.integer){
-		BG_ClearRocketLock(&self->client->ps);
-	}
+	BG_ClearRocketLock(&self->client->ps);
 
 	if (!pull && self->client->ps.saberLockTime > level.time && self->client->ps.saberLockFrame)
 	{

@@ -16,7 +16,6 @@ qboolean WP_SaberStyleValidForSaber( saberInfo_t *saber1, saberInfo_t *saber2, i
 qboolean saberCheckKnockdown_DuelLoss(gentity_t *saberent, gentity_t *saberOwner, gentity_t *other);
 
 extern vmCvar_t g_saberLockRandomNess;
-extern vmCvar_t     g_fixRocketGlitch;
 
 void P_SetTwitchInfo(gclient_t	*client)
 {
@@ -1711,9 +1710,7 @@ void G_SetTauntAnim( gentity_t *ent, int taunt )
 	}
 
 	// *CHANGE 65* fix - release rocket lock, old bug
-	if (g_fixRocketGlitch.integer){
-		BG_ClearRocketLock(&ent->client->ps);
-	}
+	BG_ClearRocketLock(&ent->client->ps);
 
 	if ( ent->client->ps.torsoTimer < 1 
 		&& ent->client->ps.forceHandExtend == HANDEXTEND_NONE 

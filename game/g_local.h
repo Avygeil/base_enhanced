@@ -1755,8 +1755,8 @@ extern	vmCvar_t	g_debugRight;
 extern	vmCvar_t	g_debugUp;
 extern	vmCvar_t	g_smoothClients;
 extern	vmCvar_t	g_defaultBanHoursDuration;
-extern	vmCvar_t	g_floating_items;
-extern	vmCvar_t	g_rocket_surfing;
+extern	vmCvar_t	g_floatingItems;
+extern	vmCvar_t	g_rocketSurfing;
 
 #include "namespace_begin.h"
 extern	vmCvar_t	pmove_fixed;
@@ -1806,7 +1806,6 @@ extern vmCvar_t		g_protectQ3FillIPLimit;
 extern vmCvar_t		g_protectHPhack;
 extern vmCvar_t		g_protectCallvoteHack;
 extern vmCvar_t		g_maxIPConnected;
-extern vmCvar_t		g_fixLateCapture;
 extern vmCvar_t		g_minimumVotesCount;
 extern vmCvar_t		g_enforceEvenVotersCount;
 extern vmCvar_t		g_minVotersForEvenVotersCount;
@@ -1822,8 +1821,6 @@ extern vmCvar_t     g_fixPitKills;
 extern vmCvar_t    bot_minping;
 extern vmCvar_t    bot_maxping;
 extern vmCvar_t    bot_ping_sparsity;
-
-//extern vmCvar_t     g_bouncelimit;
 
 extern vmCvar_t     g_allow_vote_gametype;
 extern vmCvar_t     g_allow_vote_kick;
@@ -1844,7 +1841,6 @@ extern vmCvar_t	g_whitelist;
 extern vmCvar_t    g_fixboon;
 extern vmCvar_t    g_maxstatusrequests;
 extern vmCvar_t	   g_logrcon;
-extern vmCvar_t	   g_testdeflection;
 extern vmCvar_t	   g_flags_overboarding;
 extern vmCvar_t	   g_selfkill_penalty;
 
