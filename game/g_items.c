@@ -795,7 +795,7 @@ void pas_think( gentity_t *ent )
 
 	if (ent->enemy)
 	{
-		if (!ent->enemy->client)
+		if ( !ent->enemy->client || !ent->enemy->inuse)
 		{
 			ent->enemy = NULL;
 		}
