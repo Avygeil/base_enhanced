@@ -691,10 +691,6 @@ void WP_DisruptorAltFire( gentity_t *ent )
 		start[2] += ent->client->ps.viewheight;//By eyes
 
 		count = ( level.time - ent->client->ps.weaponChargeTime ) / DISRUPTOR_CHARGE_UNIT;
-		if ( g_gametype.integer == GT_SIEGE )
-		{//maybe a full alt-charge should be a *bit* more dangerous in Siege mode?
-			maxCount = 200;//the previous line ALWAYS evaluated to 135 - was that on purpose?
-		}
 	}
 	else
 	{
