@@ -159,6 +159,7 @@ extern qboolean G_HeavyMelee( gentity_t *attacker );
 extern void Jedi_Decloak( gentity_t *self );
 
 static void WP_FireEmplaced( gentity_t *ent, qboolean altFire );
+static void WP_TouchRocket( gentity_t *ent, gentity_t *other, trace_t *trace );
 
 void laserTrapStick( gentity_t *ent, vec3_t endpos, vec3_t normal );
 
@@ -1941,6 +1942,11 @@ static void WP_FireRocket( gentity_t *ent, qboolean altFire )
 	missile->splashDamage = ROCKET_SPLASH_DAMAGE;
 	missile->splashRadius = ROCKET_SPLASH_RADIUS;
 
+	if ( !g_rocket_surfing.integer )
+	{
+		missile->touch = WP_TouchRocket;
+	}
+
 	// we don't want it to ever bounce
 	missile->bounceCount = 0;
 }
@@ -3577,6 +3583,14 @@ void WP_TouchVehMissile( gentity_t *ent, gentity_t *other, trace_t *trace )
 	}
 	G_MissileImpact( ent, &myTrace );
 }
+
+void WP_TouchRocket( gentity_t *ent, gentity_t *other, trace_t *trace )
+{
+	if ( ent )
+	{
+		ent->die( ent, NULL, NULL, ROCKET_DAMAGE, MOD_ROCKET_HOMING );
+	}
+}	 
 
 void WP_CalcVehMuzzle(gentity_t *ent, int muzzleNum)
 {

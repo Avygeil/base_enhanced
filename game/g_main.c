@@ -188,6 +188,7 @@ vmCvar_t	g_debugUp;
 vmCvar_t	g_smoothClients;
 vmCvar_t	g_defaultBanHoursDuration;
 vmCvar_t	g_floating_items;
+vmCvar_t	g_rocket_surfing;
 
 #include "namespace_begin.h"
 vmCvar_t	pmove_fixed;
@@ -684,6 +685,7 @@ static cvarTable_t		gameCvarTable[] = {
     { &g_defaultBanHoursDuration, "g_defaultBanHoursDuration", "24", CVAR_ARCHIVE | CVAR_INTERNAL },  
 
 	{ &g_floating_items, "g_floating_items", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_rocket_surfing, "g_rocket_surfing", "1", CVAR_ARCHIVE, 0, qtrue },
 
 };
 
