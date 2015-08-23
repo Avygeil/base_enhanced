@@ -1174,7 +1174,8 @@ void Svcmd_RandomCapts_f() {
             SetTeam(&g_entities[ingame[randNum2]], "blue");
         }
 
-        for (int i = 0; i < numberOfIngamePlayers; i++) {
+        int i;
+        for ( i = 0; i < numberOfIngamePlayers; i++) {
             if ((i == randNum1) || (i == randNum2)) {
                 continue;
             }
