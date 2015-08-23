@@ -175,7 +175,7 @@ void Use_Target_Print (gentity_t *ent, gentity_t *other, gentity_t *activator)
 		{
 			Com_Printf("print targetname: %s\n", ent->targetname);
 		}
-		Com_Error(ERR_DROP, "target_print used in quick succession, fix it! See the console for details.");
+		Com_Printf( "target_print used in quick succession, fix it! See the console for details." );
 	}
 	ent->genericValue15 = level.time + 5000;
 #endif
