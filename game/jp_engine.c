@@ -527,6 +527,12 @@
 
 #endif //HOOK_TIMEWARPPING_FIX
 
+#ifdef _WIN32
+#define PILOT_NETWORK_REPLACEPOS 0x41952B
+#else
+#define PILOT_NETWORK_REPLACEPOS 0x807A545
+#endif
+
 static hookEntry_t hooks[] =
 {//List of hooks to be placed
 	#ifdef HOOK_GETSTATUS_FIX
@@ -565,7 +571,7 @@ static replaceEntry_t replaces[] =
 		REPLACEDEF( PF_REPLACEPOS, {'h'SEP'u'}, 2, "unsigned port fix" ),
 	#endif
 
-        REPLACEDEF( 0x41952B, { 0x8C }, 1, "pilot network bandwidth fix" ),
+		REPLACEDEF( PILOT_NETWORK_REPLACEPOS, { 0x8C }, 1, "pilot network bandwidth fix" ),
     // time wrap 2 mins test - LINUX
     //REPLACEDEF( 0x805792C, {0xC0 SEP 0xD4 SEP 0x01 SEP 0x00}, 4, "time wrap test" ) 
     // time wrap 2 mins test - WINDOWS
