@@ -35,7 +35,6 @@ void G_InitSessionData( gclient_t *client, char *userinfo, qboolean isBot, qbool
 	if ( g_gametype.integer >= GT_TEAM ) {
 		if ( g_teamAutoJoin.integer ) {
 			sess->sessionTeam = PickTeam( -1 );
-			BroadcastTeamChange( client, -1 );
 		} else {
 			// always spawn as spectator in team games
 			if (!isBot)
@@ -57,7 +56,6 @@ void G_InitSessionData( gclient_t *client, char *userinfo, qboolean isBot, qbool
 				{
 					sess->sessionTeam = PickTeam( -1 );
 				}
-				BroadcastTeamChange( client, -1 );
 			}
 		}
 	} else {
