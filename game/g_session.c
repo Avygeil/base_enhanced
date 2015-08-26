@@ -142,8 +142,9 @@ void G_InitSessionData( gclient_t *client, char *userinfo, qboolean isBot, qbool
     sess->inactivityTime = getGlobalTime() + 1000 * g_spectatorInactivity.integer;
 
 	sess->siegeClass[0] = 0;
-	sess->saberType[0] = 0;
-	sess->saber2Type[0] = 0;
+
+	Q_strncpyz( sess->saberType, Info_ValueForKey( userinfo, "saber1" ), sizeof( sess->saberType ) );
+	Q_strncpyz( sess->saber2Type, Info_ValueForKey( userinfo, "saber2" ), sizeof( sess->saber2Type ) );
 }
 
 
