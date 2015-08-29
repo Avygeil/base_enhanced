@@ -1852,6 +1852,7 @@ extern vmCvar_t	   g_callvotemaplimit;
 extern vmCvar_t	   sv_privateclients;
 
 extern vmCvar_t	   g_wasRestarted;
+extern vmCvar_t	   g_fixNodropDetpacks;
 
 int validateAccount(const char* username, const char* password, int num);
 void unregisterUser(const char* username);
