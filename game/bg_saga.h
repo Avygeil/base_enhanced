@@ -105,6 +105,7 @@ void BG_SiegeLoadTeams(void);
 siegeTeam_t *BG_SiegeFindThemeForTeam(int team);
 void BG_PrecacheSabersForSiegeTeam(int team);
 siegeClass_t *BG_SiegeFindClassByName(const char *classname);
+siegeClass_t *BG_SiegeGetClass( int team, int classNumber );
 qboolean BG_SiegeCheckClassLegality(int team, char *classname);
 void BG_SiegeSetTeamTheme(int team, char *themeName);
 int BG_SiegeFindClassIndexByName(const char *classname);

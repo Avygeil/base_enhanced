@@ -1228,6 +1228,31 @@ siegeClass_t *BG_SiegeFindClassByName(const char *classname)
 	return NULL;
 }
 
+siegeClass_t* BG_SiegeGetClass( int team, int classNumber )
+{
+	siegeTeam_t* siegeTeam = 0;
+	if ( team == SIEGETEAM_TEAM1 )
+	{
+		siegeTeam = team1Theme;
+	}
+	else if ( team == SIEGETEAM_TEAM2 )
+	{
+		siegeTeam = team2Theme;
+	}
+	else
+	{	
+		// spec, ignore
+		return 0;
+	}
+
+	if ( (classNumber < 1) || (classNumber > siegeTeam->numClasses) )
+	{
+		return 0;
+	}
+
+	return siegeTeam->classes[classNumber-1];
+}
+
 void BG_SiegeParseTeamFile(const char *filename)
 {
 	fileHandle_t f;
