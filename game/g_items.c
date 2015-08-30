@@ -135,6 +135,8 @@ void ShieldThink(gentity_t *self)
 	self->nextthink = level.time + 1000;
 	if (self->health <= 0)
 	{
+		G_LogPrintf( "ShieldThink() Removing shield %i by decay\n",
+			self - g_entities );
 		ShieldRemove(self);
 	}
 	return;
@@ -146,6 +148,12 @@ void ShieldDie(gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int d
 {
 	// Play damaging sound...
 	G_AddEvent(self, EV_GENERAL_SOUND, shieldDamageSound);
+
+	if ( !inflictor ) inflictor = self;
+	if ( !attacker ) attacker = self;
+	G_LogPrintf( "ShieldDie() Killing shield %i by inflictor %i (%s), attacker %i (%s), dmg %i, mod %i\n",
+		self - g_entities, inflictor - g_entities, inflictor->classname,
+		attacker - g_entities, attacker->classname, damage, mod );
 
 	ShieldRemove(self);
 }
@@ -163,6 +171,10 @@ void ShieldPain(gentity_t *self, gentity_t *attacker, int damage)
 
 	self->s.trickedentindex = 1;
 
+	if ( !attacker ) attacker = self;
+	G_LogPrintf( "ShieldPain() Damaging (dmg %i) shield %i by entity %i (%s)\n",
+		damage, self - g_entities, attacker - g_entities, attacker->classname );
+
 	return;
 }
 
@@ -176,6 +188,8 @@ void ShieldGoSolid(gentity_t *self)
 	self->health--;
 	if (self->health <= 0)
 	{
+		G_LogPrintf( "ShieldGoSolid() Removing shield %i\n",
+			self - g_entities );
 		ShieldRemove(self);
 		return;
 	}
@@ -189,6 +203,12 @@ void ShieldGoSolid(gentity_t *self)
 	}
 	else
 	{ // get hard... huh-huh...
+		if ( (self->s.eFlags & EF_NODRAW) )
+		{
+			G_LogPrintf( "ShieldGoSolid() Enabling shield %i\n",
+				self - g_entities );
+		}
+
 		self->s.eFlags &= ~EF_NODRAW;
 
 		self->r.contents = CONTENTS_SOLID;
@@ -200,7 +220,7 @@ void ShieldGoSolid(gentity_t *self)
 		// Play raising sound...
 		G_AddEvent(self, EV_GENERAL_SOUND, shieldActivateSound);
 		self->s.loopSound = shieldLoopSound;
-		self->s.loopIsSoundset = qfalse;
+		self->s.loopIsSoundset = qfalse;	
 	}
 
 	return;
@@ -242,6 +262,11 @@ void ShieldTouch(gentity_t *self, gentity_t *other, trace_t *trace)
 			trap_Trace( trace, self->r.currentOrigin, self->r.mins, self->r.maxs, self->r.currentOrigin, self->s.number, other->clipmask );
 			if ( OnSameTeam( self->parent, other ) || (trace->startsolid && trace->entityNum == other->s.number) )
 			{
+				if ( !(self->s.eFlags & EF_NODRAW) )
+				{
+					G_LogPrintf( "ShieldTouch() Disabling shield %i for ally entity %i\n",
+						self - g_entities, other - g_entities );
+				}
 				ShieldGoNotSolid(self);
 			}
 		}
@@ -250,6 +275,8 @@ void ShieldTouch(gentity_t *self, gentity_t *other, trace_t *trace)
 	{//let the person who dropped the shield through
 		if (self->parent && self->parent->s.number == other->s.number)
 		{
+			G_LogPrintf( "ShieldTouch() Disabling shield %i for owner (non-team gametypes)\n",
+				self - g_entities);
 			ShieldGoNotSolid(self);
 		}
 	}
@@ -360,6 +387,10 @@ void CreateShield(gentity_t *ent)
 		ent->think = ShieldGoSolid;
 		ent->takedamage = qfalse;
 		trap_LinkEntity(ent);
+
+		if ( tr.entityNum < 0 || tr.entityNum >= MAX_GENTITIES ) tr.entityNum = ent - g_entities;
+		G_LogPrintf("CreateShield() Creating shield %i, entity %i in way (%s)\n", 
+			ent - g_entities, tr.entityNum, g_entities[tr.entityNum].classname );
 	}
 	else
 	{	// Get solid.
@@ -375,6 +406,9 @@ void CreateShield(gentity_t *ent)
 		G_AddEvent(ent, EV_GENERAL_SOUND, shieldActivateSound);
 		ent->s.loopSound = shieldLoopSound;
 		ent->s.loopIsSoundset = qfalse;
+
+		G_LogPrintf( "CreateShield() Creating shield %i, free space\n",
+			ent - g_entities );
 	}
 
 	ShieldGoSolid(ent);
