@@ -2359,6 +2359,7 @@ void BeginIntermission( void ) {
 
 	// send the current scoring to all clients
 	SendScoreboardMessageToAllClients();
+	Cmd_PrintStats_f(NULL);
 
 }
 
@@ -2643,7 +2644,8 @@ void LogExit( const char *string ) {
 
 		G_LogPrintf( "score: %i  ping: %i  client: %i %s\n", cl->ps.persistant[PERS_SCORE], ping, level.sortedClients[i],	cl->pers.netname );
 	}
-
+	
+//	Cmd_PrintStats_f(NULL);
 }
 
 qboolean gDidDuelStuff = qfalse; //gets reset on game reinit

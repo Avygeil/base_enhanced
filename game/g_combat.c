@@ -4882,13 +4882,21 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 		}
 	}
 
+	//we count only from client to client damage
+	if (attacker && attacker->client && targ && targ->client
+		&& attacker->client->sess.sessionTeam != targ->client->sess.sessionTeam
+		&& mod > MOD_UNKNOWN && mod <= MOD_FORCE_DARK) {
+		targ->client->pers.damageTaken += (take + asave);
+		attacker->client->pers.damageCaused += (take + asave);
+	}
+
 #ifndef FINAL_BUILD
 	if ( g_debugDamage.integer ) {
-		G_Printf( "%i: client:%i health:%i damage:%i armor:%i\n", level.time, targ->s.number,
-			targ->health, take, asave );
+		G_Printf( "%i: client:%i health:%i damage:%i armor:%i mod:%i\n", level.time, targ->s.number,
+			targ->health, take, asave, mod );
 	}
 #endif
-
+	
 	// add to the damage inflicted on a player this frame
 	// the total will be turned into screen blends and view angle kicks
 	// at the end of the frame

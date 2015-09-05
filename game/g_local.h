@@ -517,6 +517,10 @@ typedef struct {
 	int         chatSentCount;
 	int         chatSentTime;
 
+	//damage calculating
+	int			damageCaused;
+	int			damageTaken;
+
 } clientPersistant_t;
 
 typedef struct renderInfo_s
@@ -1053,6 +1057,7 @@ void Cmd_SaberAttackCycle_f(gentity_t *ent);
 int G_ItemUsable(playerState_t *ps, int forcedUse);
 void Cmd_ToggleSaber_f(gentity_t *ent);
 void Cmd_EngageDuel_f(gentity_t *ent);
+void Cmd_PrintStats_f(gentity_t *ent);
 
 gentity_t *G_GetDuelWinner(gclient_t *client);
 
