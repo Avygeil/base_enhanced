@@ -3679,9 +3679,9 @@ void PrintTeamStats(team_t team, int id) {
 	for (i = 0; i < nameLenMax - 4; i++)
 		Q_strcat(s, sizeof(s), " ");
 
-	Q_strcat(s, sizeof(s), " SCORE CAPS ASSIST DEF ACC TIME ");
-	Q_strcat(s, sizeof(s), "FCKILLS FLAGRETS FLAGHOLD  TH/TE ");
-	Q_strcat(s, sizeof(s), S_COLOR_RED "  DMGCSD DMGTKN");
+	Q_strcat(s, sizeof(s), " SCORE CAPS ASS DEF ACC TIME ");
+	Q_strcat(s, sizeof(s), "FCKILLS FRETS FLAGHOLD  TH/TE ");
+	Q_strcat(s, sizeof(s), S_COLOR_RED " DMGCSD DMGTKN");
 
 	trap_SendServerCommand(id, va("print \"%s\n", s));
 
@@ -3690,8 +3690,8 @@ void PrintTeamStats(team_t team, int id) {
 	for (i = 0; i < nameLenMax; i++)
 		Q_strcat(s, sizeof(s), "-");
 
-	Q_strcat(s, sizeof(s), " ----- ---- ------ --- --- ---- ");
-	Q_strcat(s, sizeof(s), "------- -------- -------- ------- ");
+	Q_strcat(s, sizeof(s), " ----- ---- --- --- --- ---- ");
+	Q_strcat(s, sizeof(s), "------- ----- -------- -------");
 	Q_strcat(s, sizeof(s), S_COLOR_RED" ------ ------");
 
 	trap_SendServerCommand(id, va("print \"%s\n", s));
@@ -3726,12 +3726,12 @@ void PrintTeamStats(team_t team, int id) {
 		Q_strcat(s, sizeof(s), S_COLOR_WHITE);
 		Q_strcat(s, sizeof(s), va(" %s%5d ", IsTheBest(stat++, cl->ps.persistant[PERS_SCORE]), cl->ps.persistant[PERS_SCORE]));
 		Q_strcat(s, sizeof(s), va("%s%4d ", IsTheBest(stat++, cl->ps.persistant[PERS_CAPTURES]), cl->ps.persistant[PERS_CAPTURES]));
-		Q_strcat(s, sizeof(s), va("%s%6d ", IsTheBest(stat++, cl->ps.persistant[PERS_ASSIST_COUNT]), cl->ps.persistant[PERS_ASSIST_COUNT]));
+		Q_strcat(s, sizeof(s), va("%s%3d ", IsTheBest(stat++, cl->ps.persistant[PERS_ASSIST_COUNT]), cl->ps.persistant[PERS_ASSIST_COUNT]));
 		Q_strcat(s, sizeof(s), va("%s%3d ", IsTheBest(stat++, cl->ps.persistant[PERS_DEFEND_COUNT]), cl->ps.persistant[PERS_DEFEND_COUNT]));
 		Q_strcat(s, sizeof(s), va("%s%3d ", IsTheBest(stat++, cl->accuracy_shots ? cl->accuracy_hits * 100 / cl->accuracy_shots : 0), cl->accuracy_shots ? cl->accuracy_hits * 100 / cl->accuracy_shots : 0));
 		Q_strcat(s, sizeof(s), va("%s%4d ", S_COLOR_WHITE, (level.time - cl->pers.enterTime) / 60000));
 		Q_strcat(s, sizeof(s), va("%s%7d ", IsTheBest(stat++, cl->pers.teamState.fragcarrier), cl->pers.teamState.fragcarrier));
-		Q_strcat(s, sizeof(s), va("%s%8d ", IsTheBest(stat++, cl->pers.teamState.flagrecovery), cl->pers.teamState.flagrecovery));
+		Q_strcat(s, sizeof(s), va("%s%5d ", IsTheBest(stat++, cl->pers.teamState.flagrecovery), cl->pers.teamState.flagrecovery));
 
 		int secs = (cl->pers.teamState.flaghold / 1000);
 		int mins = (secs / 60);
@@ -3755,7 +3755,7 @@ void PrintTeamStats(team_t team, int id) {
 
 		Q_strcat(s, sizeof(s), va(S_COLOR_WHITE"/%s%*d", IsTheBest(stat++, cl->pers.teamState.te), teAmount, cl->pers.teamState.te));
 
-		for (int j = 0; j < 5-teAmount; j++)
+		for (int j = 0; j < 4-teAmount; j++)
 			Q_strcat(s, sizeof(s), " ");
 
 		Q_strcat(s, sizeof(s), va("%s%6d ", IsTheBest(stat++, cl->pers.damageCaused), cl->pers.damageCaused));
