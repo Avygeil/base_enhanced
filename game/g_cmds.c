@@ -3600,8 +3600,8 @@ static void Cmd_WhoIs_f( gentity_t* ent )
 }
 
 //:))
-char* IsTheBest(int *max, int stat) {
-	if (*max == stat && *max != 0) {
+char* GetStatColor(int max, int stat) {
+	if (max == stat && max != 0) {
 		return S_COLOR_GREEN;
 	}
 	else {
@@ -3609,20 +3609,119 @@ char* IsTheBest(int *max, int stat) {
 	}
 }
 
+void FindBestStats(int clientNum, int *stat) {
+	gclient_t *cl = g_entities[clientNum].client;
+
+	if (*stat < cl->ps.persistant[PERS_SCORE])
+		*stat = cl->ps.persistant[PERS_SCORE];
+	stat++;
+	if (*stat < cl->ps.persistant[PERS_CAPTURES])
+		*stat = cl->ps.persistant[PERS_CAPTURES];
+	stat++;
+	if (*stat < cl->ps.persistant[PERS_ASSIST_COUNT])
+		*stat = cl->ps.persistant[PERS_ASSIST_COUNT];
+	stat++;
+	if (*stat < cl->ps.persistant[PERS_DEFEND_COUNT])
+		*stat = cl->ps.persistant[PERS_DEFEND_COUNT];
+	stat++;
+	if (cl->accuracy_shots
+		&& *stat < cl->accuracy_hits * 100 / cl->accuracy_shots)
+		*stat = cl->accuracy_shots ? cl->accuracy_hits * 100 / cl->accuracy_shots : 0;
+	stat++;
+	if (*stat < cl->pers.teamState.fragcarrier)
+		*stat = cl->pers.teamState.fragcarrier;
+	stat++;
+	if (*stat < cl->pers.teamState.flagrecovery)
+		*stat = cl->pers.teamState.flagrecovery;
+	stat++;
+	if (*stat < cl->pers.teamState.flaghold)
+		*stat = cl->pers.teamState.flaghold;
+	stat++;
+	if (*stat < cl->pers.teamState.th)
+		*stat = cl->pers.teamState.th;
+	stat++;
+	if (*stat < cl->pers.teamState.te)
+		*stat = cl->pers.teamState.te;
+	stat++;
+	if (*stat < cl->pers.damageCaused)
+		*stat = cl->pers.damageCaused;
+	stat++;
+	if (*stat < cl->pers.damageTaken)
+		*stat = cl->pers.damageTaken;
+}
+
+char* GetPlayerStatsLine(team_t team, int nameLenMax, int *stat, gclient_t *cl) {
+	int nameLen;
+	int teAmount = 3;
+	static char line[1022];
+
+	if (team == TEAM_RED)
+		Com_sprintf(line, sizeof(line), S_COLOR_RED"RED  "S_COLOR_WHITE);
+	else if (team == TEAM_BLUE)
+		Com_sprintf(line, sizeof(line), S_COLOR_BLUE"BLUE "S_COLOR_WHITE);
+
+	nameLen = Q_PrintStrlen(cl->pers.netname);
+
+	Q_strcat(line, sizeof(line), cl->pers.netname);
+
+	if (nameLen < nameLenMax) {
+		int j, d = nameLenMax - nameLen;
+		for (j = 0; j < d; j++)
+			Q_strcat(line, sizeof(line), " ");
+	}
+
+	Q_strcat(line, sizeof(line), S_COLOR_WHITE);
+	Q_strcat(line, sizeof(line), va(" %s%5d ", GetStatColor(*(stat++), cl->ps.persistant[PERS_SCORE]), cl->ps.persistant[PERS_SCORE]));
+	Q_strcat(line, sizeof(line), va("%s%4d ", GetStatColor(*(stat++), cl->ps.persistant[PERS_CAPTURES]), cl->ps.persistant[PERS_CAPTURES]));
+	Q_strcat(line, sizeof(line), va("%s%3d ", GetStatColor(*(stat++), cl->ps.persistant[PERS_ASSIST_COUNT]), cl->ps.persistant[PERS_ASSIST_COUNT]));
+	Q_strcat(line, sizeof(line), va("%s%3d ", GetStatColor(*(stat++), cl->ps.persistant[PERS_DEFEND_COUNT]), cl->ps.persistant[PERS_DEFEND_COUNT]));
+	Q_strcat(line, sizeof(line), va("%s%3d ", GetStatColor(*(stat++), cl->accuracy_shots ? cl->accuracy_hits * 100 / cl->accuracy_shots : 0), cl->accuracy_shots ? cl->accuracy_hits * 100 / cl->accuracy_shots : 0));
+	Q_strcat(line, sizeof(line), va("%s%4d ", S_COLOR_WHITE, (level.time - cl->pers.enterTime) / 60000));
+	Q_strcat(line, sizeof(line), va("%s%7d ", GetStatColor(*(stat++), cl->pers.teamState.fragcarrier), cl->pers.teamState.fragcarrier));
+	Q_strcat(line, sizeof(line), va("%s%5d ", GetStatColor(*(stat++), cl->pers.teamState.flagrecovery), cl->pers.teamState.flagrecovery));
+
+	int secs = (cl->pers.teamState.flaghold / 1000);
+	int mins = (secs / 60);
+
+	if (cl->pers.teamState.flaghold >= 60000) {
+		secs %= 60;
+		Q_strcat(line, sizeof(line), va("%s%3dm %02ds", GetStatColor(*(stat++), cl->pers.teamState.flaghold), mins, secs));
+	}
+	else {
+		Q_strcat(line, sizeof(line), va("%s%7ds", GetStatColor(*(stat++), cl->pers.teamState.flaghold), secs));
+	}
+
+	Q_strcat(line, sizeof(line), va(" %s%3d", GetStatColor(*(stat++), cl->pers.teamState.th), cl->pers.teamState.th));
+
+	if (cl->pers.teamState.te - 100 >= 0)
+		teAmount = 3;
+	else if (cl->pers.teamState.te - 10 >= 0)
+		teAmount = 2;
+	else
+		teAmount = 1;
+
+	Q_strcat(line, sizeof(line), va(S_COLOR_WHITE"/%s%*d", GetStatColor(*(stat++), cl->pers.teamState.te), teAmount, cl->pers.teamState.te));
+
+	for (int j = 0; j < 4 - teAmount; j++)
+		Q_strcat(line, sizeof(line), " ");
+
+	Q_strcat(line, sizeof(line), va("%s%6d ", GetStatColor(*(stat++), cl->pers.damageCaused), cl->pers.damageCaused));
+	Q_strcat(line, sizeof(line), va("%s%6d", GetStatColor(*stat, cl->pers.damageTaken), cl->pers.damageTaken));
+
+	return line;
+}
+
 void PrintTeamStats(team_t team, int id) {
 	int i, nameLenMax = 0;
-	gclient_t	*cl;
 	char s[1022];
-	int stats[12] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-	int *stat = NULL;
-	int teAmount = 3;
-
-	Com_sprintf(s, sizeof(s), S_COLOR_CYAN"TEAM NAME");
+	int best[12] = {0};
+	gclient_t *cl;
 
 	for (i = 0; i < level.maxclients; i++) {
-		if (!(!g_entities[i].client || !g_entities[i].inuse 
-			|| g_entities[i].client->sess.sessionTeam == TEAM_RED 
-			|| g_entities[i].client->sess.sessionTeam == TEAM_BLUE))
+		if (!g_entities[i].client || !g_entities[i].inuse)
+			continue;
+		if (g_entities[i].client->sess.sessionTeam != TEAM_RED
+			&& g_entities[i].client->sess.sessionTeam != TEAM_BLUE)
 			continue;
 
 		int nameLen = Q_PrintStrlen(g_entities[i].client->pers.netname);
@@ -3633,59 +3732,21 @@ void PrintTeamStats(team_t team, int id) {
 		if (g_entities[i].client->sess.sessionTeam != team)
 			continue;
 
-		int j = 0;
-		if (stats[j] < g_entities[i].client->ps.persistant[PERS_SCORE])
-			stats[j] = g_entities[i].client->ps.persistant[PERS_SCORE];
-		j++;
-		if (stats[j] < g_entities[i].client->ps.persistant[PERS_CAPTURES])
-			stats[j] = g_entities[i].client->ps.persistant[PERS_CAPTURES];
-		j++;
-		if (stats[j] < g_entities[i].client->ps.persistant[PERS_ASSIST_COUNT])
-			stats[j] = g_entities[i].client->ps.persistant[PERS_ASSIST_COUNT];
-		j++;
-		if (stats[j] < g_entities[i].client->ps.persistant[PERS_DEFEND_COUNT])
-			stats[j] = g_entities[i].client->ps.persistant[PERS_DEFEND_COUNT];
-		j++;
-		if (g_entities[i].client->accuracy_shots 
-			&& stats[j] < g_entities[i].client->accuracy_hits * 100 / g_entities[i].client->accuracy_shots)
-			stats[j] = g_entities[i].client->accuracy_shots ? g_entities[i].client->accuracy_hits * 100 / g_entities[i].client->accuracy_shots : 0;
-		j++;
-		if (stats[j] < g_entities[i].client->pers.teamState.fragcarrier)
-			stats[j] = g_entities[i].client->pers.teamState.fragcarrier;
-		j++;
-		if (stats[j] < g_entities[i].client->pers.teamState.flagrecovery)
-			stats[j] = g_entities[i].client->pers.teamState.flagrecovery;
-		j++;
-		if (stats[j] < g_entities[i].client->pers.teamState.flaghold)
-			stats[j] = g_entities[i].client->pers.teamState.flaghold;
-		j++;
-		if (stats[j] < g_entities[i].client->pers.teamState.th)
-			stats[j] = g_entities[i].client->pers.teamState.th;
-		j++;
-		if (stats[j] < g_entities[i].client->pers.teamState.te)
-			stats[j] = g_entities[i].client->pers.teamState.te;
-		j++;
-		if (stats[j] < g_entities[i].client->pers.damageCaused)
-			stats[j] = g_entities[i].client->pers.damageCaused;
-		j++;
-		if (stats[j] < g_entities[i].client->pers.damageTaken)
-			stats[j] = g_entities[i].client->pers.damageTaken;
+		FindBestStats(i, &best[0]);
 	}
-
 
 	if (nameLenMax < 4)
 		nameLenMax = 4;
+
+	Com_sprintf(s, sizeof(s), S_COLOR_CYAN"TEAM NAME");
 
 	for (i = 0; i < nameLenMax - 4; i++)
 		Q_strcat(s, sizeof(s), " ");
 
 	Q_strcat(s, sizeof(s), " SCORE CAPS ASS DEF ACC TIME ");
 	Q_strcat(s, sizeof(s), "FCKILLS FRETS FLAGHOLD  TH/TE ");
-	Q_strcat(s, sizeof(s), S_COLOR_RED " DMGCSD DMGTKN");
-
-	trap_SendServerCommand(id, va("print \"%s\n", s));
-
-	Com_sprintf(s, sizeof(s), S_COLOR_CYAN"---- ");
+	Q_strcat(s, sizeof(s), S_COLOR_RED " DMGCSD DMGTKN\n");
+	Q_strcat(s, sizeof(s), S_COLOR_CYAN"---- ");
 
 	for (i = 0; i < nameLenMax; i++)
 		Q_strcat(s, sizeof(s), "-");
@@ -3697,73 +3758,18 @@ void PrintTeamStats(team_t team, int id) {
 	trap_SendServerCommand(id, va("print \"%s\n", s));
 
 	for (i = 0; i < level.numConnectedClients; i++) {
-		int nameLen;
 
 		cl = &level.clients[level.sortedClients[i]];
-		stat = &stats[0];
 
 		if (!cl)
-			break;
+			continue;
 
 		if (cl->sess.sessionTeam != team)
 			continue;
 
-		if (team == TEAM_RED)
-			Com_sprintf(s, sizeof(s), S_COLOR_RED"RED  "S_COLOR_WHITE);
-		else if (team == TEAM_BLUE)
-			Com_sprintf(s, sizeof(s), S_COLOR_BLUE"BLUE "S_COLOR_WHITE);
-
-		nameLen = Q_PrintStrlen(cl->pers.netname);
-
-		Q_strcat(s, sizeof(s), cl->pers.netname);
-
-		if (nameLen < nameLenMax) {
-			int j, d = nameLenMax - nameLen;
-			for (j = 0; j < d; j++)
-				Q_strcat(s, sizeof(s), " ");
-		}
-
-		Q_strcat(s, sizeof(s), S_COLOR_WHITE);
-		Q_strcat(s, sizeof(s), va(" %s%5d ", IsTheBest(stat++, cl->ps.persistant[PERS_SCORE]), cl->ps.persistant[PERS_SCORE]));
-		Q_strcat(s, sizeof(s), va("%s%4d ", IsTheBest(stat++, cl->ps.persistant[PERS_CAPTURES]), cl->ps.persistant[PERS_CAPTURES]));
-		Q_strcat(s, sizeof(s), va("%s%3d ", IsTheBest(stat++, cl->ps.persistant[PERS_ASSIST_COUNT]), cl->ps.persistant[PERS_ASSIST_COUNT]));
-		Q_strcat(s, sizeof(s), va("%s%3d ", IsTheBest(stat++, cl->ps.persistant[PERS_DEFEND_COUNT]), cl->ps.persistant[PERS_DEFEND_COUNT]));
-		Q_strcat(s, sizeof(s), va("%s%3d ", IsTheBest(stat++, cl->accuracy_shots ? cl->accuracy_hits * 100 / cl->accuracy_shots : 0), cl->accuracy_shots ? cl->accuracy_hits * 100 / cl->accuracy_shots : 0));
-		Q_strcat(s, sizeof(s), va("%s%4d ", S_COLOR_WHITE, (level.time - cl->pers.enterTime) / 60000));
-		Q_strcat(s, sizeof(s), va("%s%7d ", IsTheBest(stat++, cl->pers.teamState.fragcarrier), cl->pers.teamState.fragcarrier));
-		Q_strcat(s, sizeof(s), va("%s%5d ", IsTheBest(stat++, cl->pers.teamState.flagrecovery), cl->pers.teamState.flagrecovery));
-
-		int secs = (cl->pers.teamState.flaghold / 1000);
-		int mins = (secs / 60);
-
-		if (cl->pers.teamState.flaghold >= 60000) {
-			secs %= 60;
-			Q_strcat(s, sizeof(s), va("%s%3dm %02ds", IsTheBest(stat++, cl->pers.teamState.flaghold), mins, secs));
-		}
-		else {
-			Q_strcat(s, sizeof(s), va("%s%7ds", IsTheBest(stat++, cl->pers.teamState.flaghold), secs));
-		}
-
-		Q_strcat(s, sizeof(s), va(" %s%3d", IsTheBest(stat++, cl->pers.teamState.th), cl->pers.teamState.th));
-
-		if (cl->pers.teamState.te - 100 >= 0)
-			teAmount = 3;
-		else if (cl->pers.teamState.te - 10 >= 0)
-				teAmount = 2;
-			else
-				teAmount = 1;
-
-		Q_strcat(s, sizeof(s), va(S_COLOR_WHITE"/%s%*d", IsTheBest(stat++, cl->pers.teamState.te), teAmount, cl->pers.teamState.te));
-
-		for (int j = 0; j < 4-teAmount; j++)
-			Q_strcat(s, sizeof(s), " ");
-
-		Q_strcat(s, sizeof(s), va("%s%6d ", IsTheBest(stat++, cl->pers.damageCaused), cl->pers.damageCaused));
-		Q_strcat(s, sizeof(s), va("%s%6d", IsTheBest(stat, cl->pers.damageTaken), cl->pers.damageTaken));
-
-		trap_SendServerCommand(id, va("print \"%s\n", s));
+		trap_SendServerCommand(id, va("print \"%s\n", GetPlayerStatsLine(team, nameLenMax, &best[0], cl)));
 	}
-	trap_SendServerCommand(id, va("print \"\n"));
+	trap_SendServerCommand(id, "print \"\n");
 }
 
 void Cmd_PrintStats_f(gentity_t *ent) {
@@ -3783,14 +3789,14 @@ void Cmd_PrintStats_f(gentity_t *ent) {
 	}
 
 	if (!ingame) {
-		if (ent != NULL)
-			trap_SendServerCommand(id, va("print \""S_COLOR_RED"Noone is playing at the moment. Statistics aren't generated.\n"));
+		if (id != -1)
+			trap_SendServerCommand(id, "print \""S_COLOR_RED"Noone is playing at the moment. Statistics aren't generated.\n");
 		return;
 	}
 
 	if (g_gametype.integer != GT_CTF) {
-		if (ent != NULL)
-			trap_SendServerCommand(id, va("print \""S_COLOR_RED"Gametype is not CTF. Statistics aren't generated.\n"));
+		if (id != -1)
+			trap_SendServerCommand(id, "print \""S_COLOR_RED"Gametype is not CTF. Statistics aren't generated.\n");
 		return;
 	}
 
@@ -3799,7 +3805,7 @@ void Cmd_PrintStats_f(gentity_t *ent) {
 	PrintTeamStats(TEAM_RED, id);
 	PrintTeamStats(TEAM_BLUE, id);
 
-	trap_SendServerCommand(id, va("print \""S_COLOR_CYAN"Statistics are generated.\n"));
+	trap_SendServerCommand(id, "print \""S_COLOR_CYAN"Statistics are generated.\n");
 }
 
 void Cmd_EngageDuel_f(gentity_t *ent)
