@@ -45,6 +45,7 @@ vmCvar_t	g_gametype;
 vmCvar_t	g_MaxHolocronCarry;
 vmCvar_t	g_ff_objectives;
 vmCvar_t	g_autoMapCycle;
+vmCvar_t	g_autoStats;
 vmCvar_t	g_dmflags;
 vmCvar_t	g_maxForceRank;
 vmCvar_t	g_forceBasedTeams;
@@ -333,6 +334,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_ff_objectives, "g_ff_objectives", "0", /*CVAR_SERVERINFO |*/ CVAR_CHEAT | CVAR_NORESTART, 0, qtrue },
 
 	{ &g_autoMapCycle, "g_autoMapCycle", "0", CVAR_ARCHIVE | CVAR_NORESTART, 0, qtrue },
+	{ &g_autoStats, "g_autoStats", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_dmflags, "dmflags", "0", CVAR_SERVERINFO | CVAR_ARCHIVE, 0, qtrue  },
 	
 	{ &g_maxForceRank, "g_maxForceRank", "6", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse  },
@@ -2359,7 +2361,9 @@ void BeginIntermission( void ) {
 
 	// send the current scoring to all clients
 	SendScoreboardMessageToAllClients();
-	Cmd_PrintStats_f(NULL);
+
+	if (g_autoStats.integer)
+		Cmd_PrintStats_f(NULL);
 
 }
 
@@ -2644,8 +2648,6 @@ void LogExit( const char *string ) {
 
 		G_LogPrintf( "score: %i  ping: %i  client: %i %s\n", cl->ps.persistant[PERS_SCORE], ping, level.sortedClients[i],	cl->pers.netname );
 	}
-	
-//	Cmd_PrintStats_f(NULL);
 }
 
 qboolean gDidDuelStuff = qfalse; //gets reset on game reinit

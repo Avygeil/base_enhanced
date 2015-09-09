@@ -1644,6 +1644,7 @@ extern	vmCvar_t	g_restarted;
 extern	vmCvar_t	g_trueJedi;
 
 extern	vmCvar_t	g_autoMapCycle;
+extern	vmCvar_t	g_autoStats;
 extern	vmCvar_t	g_dmflags;
 extern	vmCvar_t	g_maxForceRank;
 extern	vmCvar_t	g_forceBasedTeams;
