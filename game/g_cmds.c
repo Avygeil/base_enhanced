@@ -2010,24 +2010,27 @@ Cmd_Tell_f
 ==================
 */
 static void Cmd_Tell_f( gentity_t *ent ) {
-	int			targetNum;
-	gentity_t	*target;
+	char buffer[64];
+	gentity_t* found = NULL;
 	char		*p;
-	static char		arg[MAX_TOKEN_CHARS];
 	int			len;
 
-	if ( trap_Argc () < 2 ) {
+	if (trap_Argc() < 3)
+	{
+		trap_SendServerCommand(ent - g_entities,
+			"print \"usage: tell [id/name] [message] (name can be just part of name, colors dont count))  \n\"");
 		return;
 	}
 
-	trap_Argv( 1, arg, sizeof( arg ) );
-	targetNum = atoi( arg );
-	if ( targetNum < 0 || targetNum >= level.maxclients ) {
-		return;
-	}
+	trap_Argv(1, buffer, sizeof(buffer));
+	found = G_FindClient(buffer);
 
-	target = &g_entities[targetNum];
-	if ( !target || !target->inuse || !target->client ) {
+	if (!found || !found->client)
+	{
+		trap_SendServerCommand(
+			ent - g_entities,
+			va("print \"Client %s"S_COLOR_WHITE" not found or ambiguous. Use client number or be more specific.\n\"",
+				buffer));
 		return;
 	}
 
@@ -2045,11 +2048,11 @@ static void Cmd_Tell_f( gentity_t *ent ) {
 		}
 	}
 
-	G_Say( ent, target, SAY_TELL, p );
+	G_Say( ent, found, SAY_TELL, p );
 	// don't tell to the player self if it was already directed to this player
 	// also don't send the chat back to a bot
-	if ( ent != target && !(ent->r.svFlags & SVF_BOT) /*UNCOMMENT, JUST FOR DEBUG NOW*/) {
-		G_SayTo( ent, ent, SAY_TELL, COLOR_MAGENTA, va("--> "EC"[%s%c%c"EC"]"EC": ", target->client->pers.netname, Q_COLOR_ESCAPE, COLOR_WHITE), p, NULL);
+	if ( ent != found && !(ent->r.svFlags & SVF_BOT) /*UNCOMMENT, JUST FOR DEBUG NOW*/) {
+		G_SayTo( ent, ent, SAY_TELL, COLOR_MAGENTA, va("--> "EC"[%s%c%c"EC"]"EC": ", found->client->pers.netname, Q_COLOR_ESCAPE, COLOR_WHITE), p, NULL);
 	}
 }
 
