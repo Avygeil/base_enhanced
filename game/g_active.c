@@ -1708,7 +1708,27 @@ void G_SetTauntAnim( gentity_t *ent, int taunt )
 			return;
 		}
 	}
-
+	if (g_moreTaunts.integer && taunt == TAUNT_TAUNT && g_gametype.integer != GT_DUEL && g_gametype.integer != GT_POWERDUEL)
+	{
+		if (ent->client->ps.weapon == WP_SABER) //add flourish and gloat for saber
+		{
+			if (!Q_irand(0,2))
+			{
+				taunt = TAUNT_GLOAT;
+			}
+			else if (!Q_irand(0, 1))
+			{
+				taunt = TAUNT_FLOURISH;
+			}
+		}
+		else //only add gloat for non-saber
+		{
+			if (!Q_irand(0, 1))
+			{
+				taunt = TAUNT_GLOAT;
+			}
+		}
+	}
 	// *CHANGE 65* fix - release rocket lock, old bug
 	BG_ClearRocketLock(&ent->client->ps);
 

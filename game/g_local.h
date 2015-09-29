@@ -1856,6 +1856,7 @@ extern vmCvar_t    g_maxstatusrequests;
 extern vmCvar_t	   g_logrcon;
 extern vmCvar_t	   g_flags_overboarding;
 extern vmCvar_t	   g_selfkill_penalty;
+extern vmCvar_t	   g_moreTaunts;
 
 extern vmCvar_t	   g_rconpassword;
 
