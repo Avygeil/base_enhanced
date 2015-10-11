@@ -1700,7 +1700,7 @@ void G_SetTauntAnim( gentity_t *ent, int taunt )
 	{ //hack, don't do while moving
 		return;
 	}
-	if ( taunt != TAUNT_TAUNT )
+	if ( taunt != TAUNT_TAUNT && !(g_moreTaunts.integer && g_moreTaunts.integer == 2))
 	{//normal taunt always allowed
 		if ( g_gametype.integer != GT_DUEL
 			&& g_gametype.integer != GT_POWERDUEL )
@@ -1708,26 +1708,20 @@ void G_SetTauntAnim( gentity_t *ent, int taunt )
 			return;
 		}
 	}
-	if (g_moreTaunts.integer && taunt == TAUNT_TAUNT && g_gametype.integer != GT_DUEL && g_gametype.integer != GT_POWERDUEL)
+	if (g_moreTaunts.integer && g_moreTaunts.integer == 1 && taunt == TAUNT_TAUNT && g_gametype.integer != GT_DUEL && g_gametype.integer != GT_POWERDUEL)
 	{
-		if (ent->client->ps.weapon == WP_SABER) //add flourish and gloat for saber
+		if (!Q_irand(0,2))
 		{
-			if (!Q_irand(0,2))
-			{
-				taunt = TAUNT_GLOAT;
-			}
-			else if (!Q_irand(0, 1))
-			{
-				taunt = TAUNT_FLOURISH;
-			}
+			taunt = TAUNT_GLOAT;
 		}
-		else //only add gloat for non-saber
+		else if (!Q_irand(0, 1))
 		{
-			if (!Q_irand(0, 1))
-			{
-				taunt = TAUNT_GLOAT;
-			}
+			taunt = TAUNT_FLOURISH;
 		}
+	}
+	if (g_gametype.integer != GT_DUEL && g_gametype.integer != GT_POWERDUEL && taunt == TAUNT_MEDITATE)
+	{
+		return; //no meditating; could be cheesy with hiding behind boxes with really small animation
 	}
 	// *CHANGE 65* fix - release rocket lock, old bug
 	BG_ClearRocketLock(&ent->client->ps);
@@ -1764,11 +1758,11 @@ void G_SetTauntAnim( gentity_t *ent, int taunt )
 				case SS_TAVION:
 					if ( ent->client->ps.saberHolstered == 1 
 						&& ent->client->saber[1].model 
-						&& ent->client->saber[1].model[0] )
+						&& ent->client->saber[1].model[0] && ent->client->ps.weapon == WP_SABER)
 					{//turn off second saber
 						G_Sound( ent, CHAN_WEAPON, ent->client->saber[1].soundOff );
 					}
-					else if ( ent->client->ps.saberHolstered == 0 )
+					else if ( ent->client->ps.saberHolstered == 0 && ent->client->ps.weapon == WP_SABER)
 					{//turn off first
 						G_Sound( ent, CHAN_WEAPON, ent->client->saber[0].soundOff );
 					}
@@ -1783,11 +1777,11 @@ void G_SetTauntAnim( gentity_t *ent, int taunt )
 				case SS_DUAL:
 					if ( ent->client->ps.saberHolstered == 1 
 						&& ent->client->saber[1].model 
-						&& ent->client->saber[1].model[0] )
+						&& ent->client->saber[1].model[0] && ent->client->ps.weapon == WP_SABER)
 					{//turn on second saber
 						G_Sound( ent, CHAN_WEAPON, ent->client->saber[1].soundOn );
 					}
-					else if ( ent->client->ps.saberHolstered == 2 )
+					else if ( ent->client->ps.saberHolstered == 2 && ent->client->ps.weapon == WP_SABER)
 					{//turn on first
 						G_Sound( ent, CHAN_WEAPON, ent->client->saber[0].soundOn );
 					}
@@ -1795,7 +1789,7 @@ void G_SetTauntAnim( gentity_t *ent, int taunt )
 					anim = BOTH_DUAL_TAUNT;
 					break;
 				case SS_STAFF:
-					if ( ent->client->ps.saberHolstered > 0 )
+					if ( ent->client->ps.saberHolstered > 0 && ent->client->ps.weapon == WP_SABER)
 					{//turn on all blades
 						G_Sound( ent, CHAN_WEAPON, ent->client->saber[0].soundOn );
 					}
@@ -1822,11 +1816,11 @@ void G_SetTauntAnim( gentity_t *ent, int taunt )
 			}
 			if ( ent->client->ps.saberHolstered == 1 
 				&& ent->client->saber[1].model 
-				&& ent->client->saber[1].model[0] )
+				&& ent->client->saber[1].model[0] && ent->client->ps.weapon == WP_SABER)
 			{//turn off second saber
 				G_Sound( ent, CHAN_WEAPON, ent->client->saber[1].soundOff );
 			}
-			else if ( ent->client->ps.saberHolstered == 0 )
+			else if ( ent->client->ps.saberHolstered == 0 && ent->client->ps.weapon == WP_SABER)
 			{//turn off first
 				G_Sound( ent, CHAN_WEAPON, ent->client->saber[0].soundOff );
 			}
@@ -1849,26 +1843,24 @@ void G_SetTauntAnim( gentity_t *ent, int taunt )
 			}
 			if ( ent->client->ps.saberHolstered == 1 
 				&& ent->client->saber[1].model 
-				&& ent->client->saber[1].model[0] )
+				&& ent->client->saber[1].model[0] && ent->client->ps.weapon == WP_SABER)
 			{//turn off second saber
 				G_Sound( ent, CHAN_WEAPON, ent->client->saber[1].soundOff );
 			}
-			else if ( ent->client->ps.saberHolstered == 0 )
+			else if ( ent->client->ps.saberHolstered == 0 && ent->client->ps.weapon == WP_SABER)
 			{//turn off first
 				G_Sound( ent, CHAN_WEAPON, ent->client->saber[0].soundOff );
 			}
 			ent->client->ps.saberHolstered = 2;
 			break;
 		case TAUNT_FLOURISH:
-			if ( ent->client->ps.weapon == WP_SABER )
-			{
 				if ( ent->client->ps.saberHolstered == 1 
 					&& ent->client->saber[1].model 
 					&& ent->client->saber[1].model[0] )
 				{//turn on second saber
-					G_Sound( ent, CHAN_WEAPON, ent->client->saber[1].soundOn );
+					G_Sound( ent, CHAN_WEAPON, ent->client->saber[1].soundOn && ent->client->ps.weapon == WP_SABER);
 				}
-				else if ( ent->client->ps.saberHolstered == 2 )
+				else if ( ent->client->ps.saberHolstered == 2 && ent->client->ps.weapon == WP_SABER)
 				{//turn on first
 					G_Sound( ent, CHAN_WEAPON, ent->client->saber[0].soundOn );
 				}
@@ -1906,7 +1898,6 @@ void G_SetTauntAnim( gentity_t *ent, int taunt )
 						break;
 					}
 				}
-			}
 			break;
 		case TAUNT_GLOAT:
 			if ( ent->client->saber[0].gloatAnim != -1 )
@@ -1932,7 +1923,7 @@ void G_SetTauntAnim( gentity_t *ent, int taunt )
 					break;
 				case SS_STRONG:
 				case SS_DESANN:
-					if ( ent->client->ps.saberHolstered )
+					if ( ent->client->ps.saberHolstered && ent->client->ps.weapon == WP_SABER)
 					{//turn on first
 						G_Sound( ent, CHAN_WEAPON, ent->client->saber[0].soundOn );
 					}
@@ -1942,11 +1933,11 @@ void G_SetTauntAnim( gentity_t *ent, int taunt )
 				case SS_DUAL:
 					if ( ent->client->ps.saberHolstered == 1 
 						&& ent->client->saber[1].model 
-						&& ent->client->saber[1].model[0] )
+						&& ent->client->saber[1].model[0] && ent->client->ps.weapon == WP_SABER)
 					{//turn on second saber
 						G_Sound( ent, CHAN_WEAPON, ent->client->saber[1].soundOn );
 					}
-					else if ( ent->client->ps.saberHolstered == 2 )
+					else if ( ent->client->ps.saberHolstered == 2 && ent->client->ps.weapon == WP_SABER)
 					{//turn on first
 						G_Sound( ent, CHAN_WEAPON, ent->client->saber[0].soundOn );
 					}
@@ -1954,7 +1945,7 @@ void G_SetTauntAnim( gentity_t *ent, int taunt )
 					anim = BOTH_VICTORY_DUAL;
 					break;
 				case SS_STAFF:
-					if ( ent->client->ps.saberHolstered )
+					if ( ent->client->ps.saberHolstered && ent->client->ps.weapon == WP_SABER)
 					{//turn on first
 						G_Sound( ent, CHAN_WEAPON, ent->client->saber[0].soundOn );
 					}
