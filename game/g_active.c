@@ -1694,7 +1694,7 @@ enum
 
 void G_SetTauntAnim( gentity_t *ent, int taunt )
 {
-	if ((!g_tauntWhileMoving.integer || taunt == TAUNT_MEDITATE) &&
+	if ((!g_tauntWhileMoving.integer || taunt == TAUNT_MEDITATE || ent->client->ps.m_iVehicleNum) && //taunting while moving in a vehicle seems to bug weapons
 		(ent->client->pers.cmd.upmove ||
 		ent->client->pers.cmd.forwardmove ||
 		ent->client->pers.cmd.rightmove))
