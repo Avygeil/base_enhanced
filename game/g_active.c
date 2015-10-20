@@ -1694,10 +1694,12 @@ enum
 
 void G_SetTauntAnim( gentity_t *ent, int taunt )
 {
-	if (ent->client->pers.cmd.upmove ||
+	if (taunt == TAUNT_MEDITATE &&
+		(ent->client->pers.cmd.upmove ||
 		ent->client->pers.cmd.forwardmove ||
-		ent->client->pers.cmd.rightmove)
+		ent->client->pers.cmd.rightmove))
 	{ //hack, don't do while moving
+		//just apply this annoying restriction to meditate
 		return;
 	}
 	if ( taunt != TAUNT_TAUNT && !(g_moreTaunts.integer && g_moreTaunts.integer == 2))
@@ -1726,9 +1728,9 @@ void G_SetTauntAnim( gentity_t *ent, int taunt )
 	// *CHANGE 65* fix - release rocket lock, old bug
 	BG_ClearRocketLock(&ent->client->ps);
 
-	if ( ent->client->ps.torsoTimer < 1 
+	if ( ent->client->ps.torsoTimer < 1
 		&& ent->client->ps.forceHandExtend == HANDEXTEND_NONE 
-		&& ent->client->ps.legsTimer < 1 
+		&& ent->client->ps.legsTimer < 1
 		&& ent->client->ps.weaponTime < 1 
 		&& ent->client->ps.saberLockTime < level.time )
 	{
