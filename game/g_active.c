@@ -1694,10 +1694,10 @@ enum
 
 void G_SetTauntAnim( gentity_t *ent, int taunt )
 {
-	if (!g_tauntWhileMoving.integer || (taunt == TAUNT_MEDITATE &&
+	if ((!g_tauntWhileMoving.integer || taunt == TAUNT_MEDITATE) &&
 		(ent->client->pers.cmd.upmove ||
 		ent->client->pers.cmd.forwardmove ||
-		ent->client->pers.cmd.rightmove)))
+		ent->client->pers.cmd.rightmove))
 	{ //hack, don't do while moving
 		//just apply this annoying restriction to meditate
 		return;
