@@ -403,7 +403,6 @@ typedef struct {
 	int			flagrecovery;
 	int			fragcarrier;
 	int			assists;
-	int			holyshit;
 
 	//special stats
 	int			th;
@@ -1492,17 +1491,6 @@ void G_InitSessionData( gclient_t *client, char *userinfo, qboolean isBot, qbool
 void G_InitWorldSession( void );
 void G_WriteSessionData( void );
 void G_ReadSessionData( void );
-
-//
-// g_stats.c
-//
-
-#define STATS_SCOREBOARD	0x01
-#define STATS_GAMETYPE		0x02
-#define STATS_REWARDS		0x04
-#define STATS_FULL			STATS_SCOREBOARD | STATS_GAMETYPE | STATS_REWARDS
-
-void G_StatsPrintTeam(team_t team, int id, int flags);
 
 //
 // NPC_senses.cpp

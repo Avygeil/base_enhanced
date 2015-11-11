@@ -656,13 +656,14 @@ char	*modNames[MOD_MAX] = {
 	"MOD_TRIGGER_HURT"
 };
 
-#define ALMOST_CAPTURE_RADIUS 300
+
 /*
 ==================
 CheckAlmostCapture
 ==================
 */
 void CheckAlmostCapture( gentity_t *self, gentity_t *attacker ) {
+#if 0
 	gentity_t	*ent;
 	vec3_t		dir;
 	char		*classname;
@@ -697,15 +698,15 @@ void CheckAlmostCapture( gentity_t *self, gentity_t *attacker ) {
 		if (ent && !(ent->r.svFlags & SVF_NOCLIENT) ) {
 			// if the player was *very* close
 			VectorSubtract( self->client->ps.origin, ent->s.origin, dir );
-			if ( VectorLengthSquared(dir) < ALMOST_CAPTURE_RADIUS*ALMOST_CAPTURE_RADIUS ) {
-//				self->client->ps.persistant[PERS_PLAYEREVENTS] ^= PLAYEREVENT_HOLYSHIT;
+			if ( VectorLength(dir) < 200 ) {
+				self->client->ps.persistant[PERS_PLAYEREVENTS] ^= PLAYEREVENT_HOLYSHIT;
 				if ( attacker->client ) {
-//					attacker->client->ps.persistant[PERS_PLAYEREVENTS] ^= PLAYEREVENT_HOLYSHIT;
-					attacker->client->pers.teamState.holyshit++;
+					attacker->client->ps.persistant[PERS_PLAYEREVENTS] ^= PLAYEREVENT_HOLYSHIT;
 				}
 			}
 		}
 	}
+#endif
 }
 
 qboolean G_InKnockDown( playerState_t *ps )
