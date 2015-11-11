@@ -871,6 +871,14 @@ void Use_BinaryMover( gentity_t *ent, gentity_t *other, gentity_t *activator )
 		return;
 	}
 
+	if (ent->moverState != MOVER_POS1 && ent->moverState != MOVER_POS2)
+	{//dont activate movers when they are not in end position
+		if ( !(activator && activator->item && activator->item->giType == IT_TEAM) ){
+			// unless blocked by flags...
+			return;
+		}
+	}
+
 	// only the master should be used
 	if ( ent->flags & FL_TEAMSLAVE ) 
 	{
