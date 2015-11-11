@@ -143,11 +143,6 @@ void G_RotatePoint(vec3_t point, vec3_t matrix[3]) {
 	point[2] = DotProduct(matrix[2], tvec);
 }
 
-qboolean G_CanEntityBeMoved( gentity_t *ent )
-{
-	return (ent->s.eType == ET_PLAYER) || (ent->s.eType == ET_NPC) || (ent->physicsObject);
-}
-
 /*
 ==================
 G_TryPushingEntity
@@ -155,15 +150,10 @@ G_TryPushingEntity
 Returns qfalse if the move is blocked
 ==================
 */
-qboolean	G_TryPushingEntity( gentity_t *check, gentity_t *pusher, vec3_t move, vec3_t amove, int level ) {
+qboolean	G_TryPushingEntity( gentity_t *check, gentity_t *pusher, vec3_t move, vec3_t amove ) {
 	vec3_t		matrix[3], transpose[3];
 	vec3_t		org, org2, move2;
 	gentity_t	*block;
-
-	if ( level <= 0 )
-	{
-		return qfalse;
-	}
 
 	//This was only serverside not to mention it was never set.
 	if ( pusher->s.apos.trType != TR_STATIONARY//rotating
@@ -216,8 +206,7 @@ qboolean	G_TryPushingEntity( gentity_t *check, gentity_t *pusher, vec3_t move, v
 	}
 
 	block = G_TestEntityPosition( check );
-	if ( !block || (block->s.number == pusher->s.number))
-	{
+	if (!block) {
 		// pushed ok
 		if ( check->client ) {
 			VectorCopy( check->client->ps.origin, check->r.currentOrigin );
@@ -226,14 +215,6 @@ qboolean	G_TryPushingEntity( gentity_t *check, gentity_t *pusher, vec3_t move, v
 		}
 		trap_LinkEntity (check);
 		return qtrue;
-	}
-	else
-	{
-		// chain pushing, try to push the blocking entity if possible
-		if ( G_CanEntityBeMoved( block ) )
-		{
-			return G_TryPushingEntity( block, check, move, amove, level - 1 );
-		}
 	}
 
 	if (check->takedamage && !check->client && check->s.weapon && check->r.ownerNum < MAX_CLIENTS &&
@@ -335,8 +316,7 @@ qboolean G_MoverPush( gentity_t *pusher, vec3_t move, vec3_t amove, gentity_t **
 		check = &g_entities[ entityList[ e ] ];
 
 		// only push items and players
-		if ( !G_CanEntityBeMoved(check) )
-		{
+		if ( /*check->s.eType != ET_ITEM &&*/ check->s.eType != ET_PLAYER && check->s.eType != ET_NPC && !check->physicsObject ) {
 			continue;
 		}
 
@@ -359,11 +339,11 @@ qboolean G_MoverPush( gentity_t *pusher, vec3_t move, vec3_t amove, gentity_t **
 		}
 
 		// the entity needs to be pushed
-		if ( G_TryPushingEntity( check, pusher, move, amove, 8 ) ) {
+		if ( G_TryPushingEntity( check, pusher, move, amove ) ) {
 			continue;
 		}
 
-		if ( pusher->damage && check->client && (pusher->spawnflags & 32))
+		if (pusher->damage && check->client && (pusher->spawnflags & 32))
 		{
 			G_Damage( check, pusher, pusher, NULL, NULL, pusher->damage, 0, MOD_CRUSH );
 			continue;

@@ -148,7 +148,6 @@ vmCvar_t	g_dlURL;
 vmCvar_t	g_logrcon;   
 vmCvar_t	g_flags_overboarding;
 vmCvar_t	g_selfkill_penalty;
-vmCvar_t	g_fixNodropDetpacks;
 
 #ifndef FINAL_BUILD
 vmCvar_t	g_debugDamage;
@@ -627,9 +626,6 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_floatingItems, "g_floatingItems", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_rocketSurfing, "g_rocketSurfing", "1", CVAR_ARCHIVE, 0, qtrue },
-
-	{ &g_fixNodropDetpacks, "g_fixNodropDetpacks", "1", CVAR_ARCHIVE, 0, qtrue },
-	
 
 };
 
