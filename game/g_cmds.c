@@ -3653,6 +3653,7 @@ void FindBestStats(int clientNum, int *stat) {
 char* GetPlayerStatsLine(team_t team, int nameLenMax, int *stat, gclient_t *cl) {
 	int nameLen;
 	int teAmount = 3;
+	int j;
 	static char line[1022];
 
 	if (team == TEAM_RED)
@@ -3665,7 +3666,7 @@ char* GetPlayerStatsLine(team_t team, int nameLenMax, int *stat, gclient_t *cl) 
 	Q_strcat(line, sizeof(line), cl->pers.netname);
 
 	if (nameLen < nameLenMax) {
-		int j, d = nameLenMax - nameLen;
+		int d = nameLenMax - nameLen;
 		for (j = 0; j < d; j++)
 			Q_strcat(line, sizeof(line), " ");
 	}
@@ -3702,7 +3703,7 @@ char* GetPlayerStatsLine(team_t team, int nameLenMax, int *stat, gclient_t *cl) 
 
 	Q_strcat(line, sizeof(line), va(S_COLOR_WHITE"/%s%*d", GetStatColor(*(stat++), cl->pers.teamState.te), teAmount, cl->pers.teamState.te));
 
-	for (int j = 0; j < 4 - teAmount; j++)
+	for (j = 0; j < 4 - teAmount; j++)
 		Q_strcat(line, sizeof(line), " ");
 
 	Q_strcat(line, sizeof(line), va("%s%6d ", GetStatColor(*(stat++), cl->pers.damageCaused), cl->pers.damageCaused));
@@ -3775,8 +3776,9 @@ void PrintTeamStats(team_t team, int id) {
 void Cmd_PrintStats_f(gentity_t *ent) {
 	int ingame = qfalse;
 	int id = ent ? (ent - g_entities) : -1;
+	int i;
 
-	for (int i = 0; i < level.maxclients; i++) {
+	for (i = 0; i < level.maxclients; i++) {
 		if (!g_entities[i].inuse || !g_entities[i].client) {
 			continue;
 		}
