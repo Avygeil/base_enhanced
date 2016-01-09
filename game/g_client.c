@@ -3223,16 +3223,16 @@ void ClientSpawn(gentity_t *ent) {
 		value = Info_ValueForKey (userinfo, va("saber%i", l+1));
 		if (saber &&
 			value &&
-			(Q_stricmp(value, saber) || !saber[0] || !ent->client->saber[0].model[0]))
+			(Q_stricmp(value, saber) || !saber[l] || !ent->client->saber[l].model[0]))
 		{ //doesn't match up (or our session saber is BS), we want to try setting it
 			if (G_SetSaber(ent, l, value, qfalse))
 			{
-				if ( Q_stricmp( value, saber ) )
+				//if ( Q_stricmp( value, saber ) )
 				{
 					changedSaber = qtrue;
 				}
 			}
-			else if (!saber[0] || !ent->client->saber[0].model[0])
+			else if (!saber[l] || !ent->client->saber[l].model[0])
 			{ //Well, we still want to say they changed then (it means this is siege and we have some overrides)
 				changedSaber = qtrue;
 			}
