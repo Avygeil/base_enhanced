@@ -878,6 +878,29 @@ void Svcmd_Cointoss_f(void)
 	trap_SendServerCommand(-1, va("print \"Coin Toss result: "S_COLOR_YELLOW"%s\n\"", cointoss ? "Heads" : "Tails"));
 }
 
+void Svcmd_ForceName_f(void) {
+	gclient_t	*cl;
+	char		str[MAX_TOKEN_CHARS];
+	char		durationStr[4];
+	int			duration = 700;
+
+	// find the player
+	trap_Argv( 1, str, sizeof( str ) );
+	cl = ClientForString( str );
+	if ( !cl ) {
+		return;
+	}
+
+	trap_Argv( 2, str, sizeof( str ) );
+
+	if ( trap_Argc() > 2 ) {
+		trap_Argv( 3, durationStr, sizeof( durationStr ) );
+		duration = atoi( durationStr ) * 1000;
+	}
+
+	SetNameQuick( &g_entities[cl - level.clients], str, duration );
+}
+
 #ifdef _WIN32
 #define FS_RESTART_ADDR 0x416800
 #else
@@ -1551,6 +1574,12 @@ qboolean	ConsoleCommand( void ) {
 	if (!Q_stricmp(cmd, "cointoss"))
 	{
 		Svcmd_Cointoss_f();
+		return qtrue;
+	}
+
+	if (!Q_stricmp(cmd, "forcename"))
+	{
+		Svcmd_ForceName_f();
 		return qtrue;
 	}
 

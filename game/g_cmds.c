@@ -936,6 +936,19 @@ void SetTeam( gentity_t *ent, char *s ) {
 	}
 }
 
+void SetNameQuick( gentity_t *ent, char *s, int renameDelay ) {
+	char	userinfo[MAX_INFO_STRING];
+
+	trap_GetUserinfo( ent->s.number, userinfo, sizeof( userinfo ) );
+	Info_SetValueForKey(userinfo, "name", s);
+	trap_SetUserinfo( ent->s.number, userinfo );
+
+	ent->client->pers.netnameTime = level.time - 1; // bypass delay
+	ClientUserinfoChanged( ent->s.number );
+	// TODO: display something else than "5 seconds" to the player
+	ent->client->pers.netnameTime = level.time + ( renameDelay < 0 ? 0 : renameDelay );
+}
+
 /*
 =================
 StopFollowing
