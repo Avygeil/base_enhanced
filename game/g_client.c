@@ -1337,6 +1337,10 @@ static qboolean ClientCleanName( const char *in, char *out, int outSize ) {
 	spaces = 0;
 
 	while( 1 ) {
+		if (colorlessLen >= g_maxNameLength.integer) {
+			break;
+		}
+
 		ch = *in++;
 		if( !ch ) {
 			break;

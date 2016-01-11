@@ -264,6 +264,8 @@ vmCvar_t    g_fixPitKills;
 vmCvar_t    g_enforceEvenVotersCount;
 vmCvar_t    g_minVotersForEvenVotersCount;
 
+vmCvar_t	g_maxNameLength;
+
 vmCvar_t    bot_minping;
 vmCvar_t    bot_maxping;
 vmCvar_t    bot_ping_sparsity;
@@ -581,6 +583,8 @@ static cvarTable_t		gameCvarTable[] = {
 
     { &g_enforceEvenVotersCount, "g_enforceEvenVotersCount", "0", CVAR_ARCHIVE, 0, qtrue },
     { &g_minVotersForEvenVotersCount, "g_minVotersForEvenVotersCount", "7", CVAR_ARCHIVE, 0, qtrue },
+
+	{ &g_maxNameLength, "g_maxNameLength", "35", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_strafejump_mod,	"g_strafejump_mod"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
 
