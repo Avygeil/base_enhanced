@@ -1245,6 +1245,11 @@ siegeClass_t* BG_SiegeGetClass( int team, int classNumber )
 		return 0;
 	}
 
+	if (!siegeTeam)
+	{
+		return 0;
+	}
+
 	if ( (classNumber < 1) || (classNumber > siegeTeam->numClasses) )
 	{
 		return 0;
