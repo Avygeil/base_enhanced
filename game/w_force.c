@@ -2533,6 +2533,7 @@ qboolean ForceTelepathyCheckDirectNPCTarget( gentity_t *self, trace_t *tr, qbool
 	trap_Trace( tr, tfrom, NULL, NULL, tto, self->s.number, MASK_PLAYERSOLID );
 	
 	if ( tr->entityNum == ENTITYNUM_NONE 
+		|| tr->entityNum == ENTITYNUM_WORLD
 		|| tr->fraction == 1.0f
 		|| tr->allsolid 
 		|| tr->startsolid )
