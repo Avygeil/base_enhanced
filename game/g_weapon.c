@@ -2284,7 +2284,7 @@ void laserTrapExplode( gentity_t *self )
 
 	if (self->activator)
 	{
-		G_RadiusDamage( self->r.currentOrigin, self->activator, self->splashDamage, self->splashRadius, self, self, MOD_TRIP_MINE_SPLASH/*MOD_LT_SPLASH*/ );
+		G_RadiusDamage( self->r.currentOrigin, self->activator, self->splashDamage, self->splashRadius, self, self, self->methodOfDeath/*MOD_LT_SPLASH*/ );
 	}
 
 	if (self->s.weapon != WP_FLECHETTE)
