@@ -2503,7 +2503,7 @@ void TrapThink(gentity_t *ent)
 	G_RunObject(ent);
 }
 
-void CreateLaserTrap( gentity_t *laserTrap, vec3_t start, gentity_t *owner )
+void CreateLaserTrap( gentity_t *laserTrap, vec3_t start, gentity_t *owner, qboolean tripwire )
 { //create a laser trap entity
 	laserTrap->classname = "laserTrap";
 	laserTrap->flags |= FL_BOUNCE_HALF;
@@ -2511,8 +2511,18 @@ void CreateLaserTrap( gentity_t *laserTrap, vec3_t start, gentity_t *owner )
 	laserTrap->splashDamage = LT_SPLASH_DAM;
 	laserTrap->splashRadius = LT_SPLASH_RAD;
 	laserTrap->damage = LT_DAMAGE;
-	laserTrap->methodOfDeath = MOD_TRIP_MINE_SPLASH;
-	laserTrap->splashMethodOfDeath = MOD_TRIP_MINE_SPLASH;
+
+	if ( tripwire )
+	{
+		laserTrap->methodOfDeath = MOD_TRIP_MINE_SPLASH;
+		laserTrap->splashMethodOfDeath = MOD_TRIP_MINE_SPLASH;
+	}
+	else
+	{
+		laserTrap->methodOfDeath = MOD_TIMED_MINE_SPLASH;
+		laserTrap->splashMethodOfDeath = MOD_TIMED_MINE_SPLASH;
+	}
+
 	laserTrap->s.eType = ET_GENERAL;
 	laserTrap->r.svFlags = SVF_USE_CURRENT_ORIGIN;
 	laserTrap->s.weapon = WP_TRIP_MINE;
@@ -2629,7 +2639,7 @@ void WP_PlaceLaserTrap( gentity_t *ent, qboolean alt_fire )
 	}
 
 	//now make the new one
-	CreateLaserTrap( laserTrap, start, ent );
+	CreateLaserTrap( laserTrap, start, ent, !alt_fire );
 
 	//set player-created-specific fields
 	laserTrap->setTime = level.time;//remember when we placed it
