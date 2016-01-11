@@ -219,7 +219,56 @@ gentity_t *G_Find (gentity_t *from, int fieldofs, const char *match)
 	return NULL;
 }
 
+/*
+=============
+G_FindClient
 
+Find client that either matches client id or string pattern
+after removing color code from the name.
+
+=============
+*/
+gentity_t* G_FindClient( const char* pattern )
+{
+	int id = atoi( pattern );
+
+	if ( !id && (pattern[0] < '0' || pattern[0] > '9') )
+	{
+		int i = 0;
+		int foundid = 0;
+
+		//argument isnt number
+		//lets go through player list
+		foundid = -1;
+		for ( i = 0; i < level.maxclients; ++i )
+		{
+			if ( !g_entities[i].inuse || !g_entities[i].client )
+				continue;
+
+			if ( Q_stristrclean( g_entities[i].client->pers.netname, pattern ) )
+			{
+				if ( foundid != -1 )
+				{//we already have one, ambigious then
+					return NULL;
+				}
+				foundid = i;
+			}
+		}
+		if ( foundid == -1 )
+		{
+			return NULL;
+		}
+		id = foundid;
+	}
+
+	if ( id < 0 || id > 31 ||
+		(id >= 0 && (!g_entities[id].client || g_entities[id].client->pers.connected == CON_DISCONNECTED)) )
+	{
+		return NULL;
+	}
+
+	return &g_entities[id];
+}	 
 
 /*
 ============

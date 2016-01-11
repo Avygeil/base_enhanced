@@ -2957,71 +2957,68 @@ void Cmd_SetViewpos_f( gentity_t *ent ) {
 	TeleportPlayer( ent, origin, angles );
 }
 
-void Cmd_Ignore_f( gentity_t *ent ){
+void Cmd_Ignore_f( gentity_t *ent )
+{			   
 	char buffer[32];
-	int id, i;
-	int foundid;
+	gentity_t* found = NULL;
+	int id = 0;
 
-	if (!ent->client)
-		return;
-
-	if (trap_Argc() < 2){
-		trap_SendServerCommand( ent-g_entities, "print \"usage: ignore [id/name]  (name can be just part of name, colors dont count))  \n\"");
+	if ( !ent->client )
+	{
 		return;
 	}
 
-	trap_Argv(1,buffer,sizeof(buffer));
-
-	id = atoi(buffer);
-
-	if (!id && (buffer[0] < '0' || buffer[0] > '9')){
-		//argument isnt number
-		//lets go through player list
-		foundid = -1;
-		for(i=0;i<level.maxclients;++i){
-			if (!g_entities[i].inuse || &g_entities[i]==ent || !g_entities[i].client)
-				continue;
-
-			if (Q_stristrclean(g_entities[i].client->pers.netname, buffer)){
-				if (foundid != -1){//we already have one, ambigious then
-					trap_SendServerCommand( ent-g_entities, 
-						va("print \"Too many players with name including '%s^7'. Please be more specific.\n\"",buffer));
-					return;				
-				}
-				foundid = i;
-			}
-		}
-		if (foundid == -1){
-			trap_SendServerCommand( ent-g_entities, va("print \"Player with '%s^7' not found.\n\"",buffer));
-			return;	
-		}
-		id = foundid;
-	}
-
-	if (id < -1 || id > 31 || id==ent-g_entities ||
-		(id >=0 && (!g_entities[id].inuse || !g_entities[id].client))){
-		trap_SendServerCommand( ent-g_entities, va("print \"Wrong client number %i.\n\"",id));
+	if (trap_Argc() < 2)
+	{
+		trap_SendServerCommand( ent-g_entities, 
+			"print \"usage: ignore [id/name]  (name can be just part of name, colors dont count))  \n\"");
 		return;
 	}
 
-	if (id == -1){
-		if (ent->client->sess.ignoreFlags == 0xFFFFFFFF){
-			trap_SendServerCommand( ent-g_entities, va("print \"All Clients messages are now ^2allowed^7.\n\""));
+	trap_Argv(1,buffer,sizeof(buffer));		
+
+	if ( atoi(buffer) == -1)
+	{
+		if (ent->client->sess.ignoreFlags == 0xFFFFFFFF)
+		{
+			trap_SendServerCommand( ent-g_entities, 
+				va("print \"All Clients messages are now "S_COLOR_GREEN"allowed"S_COLOR_WHITE".\n\""));
 			ent->client->sess.ignoreFlags = 0;
-		} else {
-			trap_SendServerCommand( ent-g_entities, va("print \"All Clients messages are now ^1ignored^7.\n\""));
+		} 
+		else 
+		{
+			trap_SendServerCommand( ent - g_entities, 
+				va( "print \"All Clients messages are now "S_COLOR_RED"ignored"S_COLOR_WHITE".\n\"" ) );
 			ent->client->sess.ignoreFlags = 0xFFFFFFFF;
 		}
-	} else {
-		if (ent->client->sess.ignoreFlags & (1 << id)){
-			trap_SendServerCommand( ent-g_entities, va("print \"Client '%s^7' messages are now ^2allowed^7.\n\"",
-				g_entities[id].client->pers.netname));
-		} else {
-			trap_SendServerCommand( ent-g_entities, va("print \"Client '%s^7' messages are now ^1ignored^7.\n\"",
-				g_entities[id].client->pers.netname));
-		}
-		ent->client->sess.ignoreFlags ^= (1 << id);
+
+		return;
+	} 
+
+	found = G_FindClient( buffer );	  
+	if ( !found || !found->client )
+	{
+		trap_SendServerCommand(
+			ent - g_entities,
+			va( "print \"Client %s"S_COLOR_WHITE" not found or ambiguous. Use client number or be more specific.\n\"",
+			buffer ) );
+		return;
 	}
+
+	id = found - g_entities;  
+	if ( ent->client->sess.ignoreFlags & (1 << id) )
+	{
+		trap_SendServerCommand( ent - g_entities,
+			va( "print \"Client '%s"S_COLOR_WHITE"' messages are now "S_COLOR_GREEN"allowed"S_COLOR_WHITE".\n\"",
+			found->client->pers.netname ) );
+	}
+	else
+	{
+		trap_SendServerCommand( ent - g_entities,
+			va( "print \"Client '%s"S_COLOR_WHITE"' messages are now "S_COLOR_RED"ignored"S_COLOR_WHITE".\n\"",
+			found->client->pers.netname ) );
+	}
+	ent->client->sess.ignoreFlags ^= (1 << id);
 
 }
 
@@ -3533,70 +3530,46 @@ void listAliasesCallback( void* context,
 
 static void Cmd_WhoIs_f( gentity_t* ent )
 {
-    if ( trap_Argc() > 1 )
-    {  
-        char buffer[64];
-        int id, i;
-        int foundid;  
+	char buffer[64];
+	gentity_t* found = NULL;
 
-        trap_Argv( 1, buffer, sizeof( buffer ) );
+	if ( trap_Argc() < 2 )
+	{
+		trap_SendServerCommand( ent - g_entities,
+			"print \"usage: whois [id/name]  (name can be just part of name, colors dont count))  \n\"" );
+		return;
+	}
 
-        id = atoi( buffer );
+	trap_Argv( 1, buffer, sizeof( buffer ) );  
+	found = G_FindClient( buffer );
 
-        if ( !id && (buffer[0] < '0' || buffer[0] > '9') )
-        {
-            //argument isnt number
-            //lets go through player list
-            foundid = -1;
-            for ( i = 0; i < level.maxclients; ++i )
-            {
-                if ( !g_entities[i].inuse || !g_entities[i].client )
-                    continue;
+	if ( !found || !found->client )
+	{
+		trap_SendServerCommand( 
+			ent - g_entities, 
+			va( "print \"Client %s"S_COLOR_WHITE" not found or ambiguous. Use client number or be more specific.\n\"",
+			buffer) );
+		return;
+	}	 
+	
+	trap_SendServerCommand( ent - g_entities, va( "print \"Aliases for client %i (%s"S_COLOR_WHITE").\n\"", 
+		found - g_entities, found->client->pers.netname ) );
 
-                if ( Q_stristrclean( g_entities[i].client->pers.netname, buffer ) )
-                {
-                    if ( foundid != -1 )
-                    {//we already have one, ambigious then
-                        trap_SendServerCommand( ent - g_entities,
-                            va( "print \"Too many players with name including '%s^7'. Please be more specific.\n\"", buffer ) );
-                        return;
-                    }
-                    foundid = i;
-                }
-            }
-            if ( foundid == -1 )
-            {
-                trap_SendServerCommand( ent - g_entities, va( "print \"Player with '%s^7' not found.\n\"", buffer ) );
-                return;
-            }
-            id = foundid;
-        }
+	
+	unsigned int maskInt = 0xFFFFFFFF;
 
-        if ( id < 0 || id > 31 ||
-            (id >= 0 && (!g_entities[id].client || g_entities[id].client->pers.connected == CON_DISCONNECTED)) )
-        {
-            trap_SendServerCommand( ent - g_entities, va( "print \"Wrong client number %i.\n\"", id ) );
-            return;
-        }
+	if ( trap_Argc() > 2 )
+	{
+		char mask[20];
+		trap_Argv( 2, mask, sizeof( mask ) );
+		maskInt = 0; 
+		getIpFromString( mask, &maskInt );
+	}     
 
-        trap_SendServerCommand( ent - g_entities, va( "print \"Aliases for client %i (%s"S_COLOR_WHITE").\n\"", 
-            id, g_entities[id].client->pers.netname ) );
+	AliasesContext context;
+	context.entNum = ent - g_entities;
+	G_CfgDbListAliases( found->client->sess.ip, maskInt, 3, listAliasesCallback, &context );
 
-        
-        unsigned int maskInt = 0xFFFFFFFF;
-
-        if ( trap_Argc() > 2 )
-        {
-            char mask[20];
-            trap_Argv( 2, mask, sizeof( mask ) );
-            maskInt = 0; 
-            getIpFromString( mask, &maskInt );
-        }     
-
-        AliasesContext context;
-        context.entNum = ent - g_entities;
-        G_CfgDbListAliases( g_entities[id].client->sess.ip, maskInt, 3, listAliasesCallback, &context );
-    }
 }
 
 //:))
