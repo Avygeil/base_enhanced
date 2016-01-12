@@ -843,12 +843,12 @@ void	Svcmd_ForceTeam_f( void ) {
 	// set the team
 	trap_Argv( 2, str, sizeof( str ) );
 
-	if (cl->pers.canJoin) {
+	if (cl->sess.canJoin) {
 		SetTeam(&g_entities[cl - level.clients], str);
 	} else {
-		cl->pers.canJoin = qtrue; // Admins can force passwordless spectators on a team
+		cl->sess.canJoin = qtrue; // Admins can force passwordless spectators on a team
 		SetTeam(&g_entities[cl - level.clients], str);
-		cl->pers.canJoin = qfalse;
+		cl->sess.canJoin = qfalse;
 	}
 }
 

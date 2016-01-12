@@ -1942,9 +1942,9 @@ void ClientUserinfoChanged( int clientNum ) {
 
 	// passwordless spectators - check for password change
 	s = Info_ValueForKey( userinfo, "password" );
-	if (!client->pers.canJoin) {
+	if (!client->sess.canJoin) {
 		if (PasswordMatches(s)) {
-			client->pers.canJoin = qtrue;
+			client->sess.canJoin = qtrue;
 
 			trap_SendServerCommand(ent->client->ps.clientNum,
 				va("print \"^2You can now join the game.\n\""));
@@ -2531,8 +2531,8 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 	// *CHANGE 8b* added clientNum to persistant data
 	client->pers.clientNum = clientNum;
 
-	// passwordless client is persistant data, so they have to reconnect with password
-	client->pers.canJoin = canJoinLater;
+	// passwordless clients
+	client->sess.canJoin = canJoinLater;
 
 	if (isBot && bot_maxping.integer)
 		client->pers.botAvgPing = (bot_maxping.integer-bot_minping.integer)*random()+bot_minping.integer;;
