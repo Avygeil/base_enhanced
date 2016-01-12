@@ -908,6 +908,21 @@ void Svcmd_ForceName_f(void) {
 	SetNameQuick( &g_entities[cl - level.clients], str, duration );
 }
 
+void Svcmd_VoteForce_f( qboolean pass ) {
+	if ( !level.voteTime ) {
+		G_Printf("No vote in progress.\n");
+		return;
+	}
+
+	trap_SendServerCommand( -1,
+		va( "print \"^1Vote forced to %s.\n\"", pass ? "pass" : "fail" ) );
+
+	level.voteExecuteTime = level.time + 3000;
+	level.voteTime = 0;
+	g_entities[level.lastVotingClient].client->lastCallvoteTime = level.time;
+	trap_SetConfigstring( CS_VOTE_TIME, "" );
+}
+
 #ifdef _WIN32
 #define FS_RESTART_ADDR 0x416800
 #else
@@ -1589,6 +1604,16 @@ qboolean	ConsoleCommand( void ) {
 	if (!Q_stricmp(cmd, "forcename"))
 	{
 		Svcmd_ForceName_f();
+		return qtrue;
+	}
+
+	if ( !Q_stricmp( cmd, "votepass" ) ) {
+		Svcmd_VoteForce_f( qtrue );
+		return qtrue;
+	}
+
+	if ( !Q_stricmp( cmd, "votefail" ) ) {
+		Svcmd_VoteForce_f( qfalse );
 		return qtrue;
 	}
 
