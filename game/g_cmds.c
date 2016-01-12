@@ -3809,6 +3809,24 @@ void Cmd_Help_f( gentity_t *ent ) {
 	trap_SendServerCommand(ent - g_entities,
 		"print \"^5base_enhanced version: 16w02a\n\"");
 }
+void Cmd_ClientList_f( gentity_t *ent ) {
+	int i;
+
+	if ( !ent->client ) {
+		return;
+	}
+
+	trap_SendServerCommand( ent - g_entities,
+		"print \"id: name:\n\"" );
+
+	for (i = 0 ; i < level.maxclients ; ++i) {
+		if ( level.clients[i].pers.connected != CON_DISCONNECTED ) {
+			trap_SendServerCommand( ent - g_entities,
+				va( "print \"%-2d %s %s\n\"",
+					i, &g_entities[i] && g_entities[i].r.svFlags & SVF_BOT ? "^9[BOT] ^7" : "", level.clients[i].pers.netname ) );
+		}
+	}
+}
 
 void Cmd_EngageDuel_f(gentity_t *ent)
 {
@@ -4346,6 +4364,8 @@ void ClientCommand( int clientNum ) {
 		Cmd_PrintStats_f(ent);
 	else if ( Q_stricmp( cmd, "help" ) == 0 )
 		Cmd_Help_f( ent );
+	else if ( Q_stricmp( cmd, "clientlist" ) == 0 )
+		Cmd_ClientList_f( ent );
 	else if (Q_stricmp (cmd, "gc") == 0)
 		Cmd_GameCommand_f( ent );
 	else if (Q_stricmp (cmd, "setviewpos") == 0)
