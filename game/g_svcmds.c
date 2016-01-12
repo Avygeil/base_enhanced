@@ -917,7 +917,10 @@ void Svcmd_VoteForce_f( qboolean pass ) {
 	trap_SendServerCommand( -1,
 		va( "print \"^1Vote forced to %s.\n\"", pass ? "pass" : "fail" ) );
 
-	level.voteExecuteTime = level.time + 3000;
+	if ( pass ) {
+		level.voteExecuteTime = level.time + 3000;
+	}
+	
 	level.voteTime = 0;
 	g_entities[level.lastVotingClient].client->lastCallvoteTime = level.time;
 	trap_SetConfigstring( CS_VOTE_TIME, "" );
