@@ -842,7 +842,14 @@ void	Svcmd_ForceTeam_f( void ) {
 
 	// set the team
 	trap_Argv( 2, str, sizeof( str ) );
-	SetTeam( &g_entities[cl - level.clients], str );
+
+	if (cl->pers.canJoin) {
+		SetTeam(&g_entities[cl - level.clients], str);
+	} else {
+		cl->pers.canJoin = qtrue; // Admins can force passwordless spectators on a team
+		SetTeam(&g_entities[cl - level.clients], str);
+		cl->pers.canJoin = qfalse;
+	}
 }
 
 void Svcmd_ResetFlags_f(){
@@ -1137,6 +1144,7 @@ void Svcmd_SpecAll_f() {
 void Svcmd_RandomCapts_f() {
     int ingame[32], spectator[32], i, numberOfIngamePlayers = 0, numberOfSpectators = 0, randNum1, randNum2;
 
+	// TODO: ignore passwordless specs
     for (i = 0; i < level.maxclients; i++) {
         if (!g_entities[i].inuse || !g_entities[i].client) {
             continue;
@@ -1215,6 +1223,7 @@ void Svcmd_RandomTeams_f() {
     int team1Count, team2Count;
     char count[2];
 
+	// TODO: ignore passwordless specs
     if (trap_Argc() < 3) {
         return;
     }

@@ -297,6 +297,7 @@ vmCvar_t	g_callvotedelay;
 vmCvar_t	g_callvotemaplimit;
 
 vmCvar_t	sv_privateclients;
+vmCvar_t	sv_passwordlessSpectators;
 
 // nmckenzie: temporary way to show player healths in duels - some iface gfx in game would be better, of course.
 // DUEL_HEALTH
@@ -626,6 +627,7 @@ static cvarTable_t		gameCvarTable[] = {
     { &g_callvotemaplimit,	"g_callvotemaplimit"	, "0"	, CVAR_ARCHIVE | CVAR_INTERNAL },
     
     { &sv_privateclients, "sv_privateclients", "0", CVAR_ARCHIVE | CVAR_SERVERINFO },
+	{ &sv_passwordlessSpectators, "sv_passwordlessSpectators", "0", CVAR_ARCHIVE | CVAR_SERVERINFO },
     { &g_defaultBanHoursDuration, "g_defaultBanHoursDuration", "24", CVAR_ARCHIVE | CVAR_INTERNAL },  
 
 	{ &g_floatingItems, "g_floatingItems", "0", CVAR_ARCHIVE, 0, qtrue },
@@ -3990,9 +3992,12 @@ void CheckCvars( void ) {
 			/*|| isDBLoaded */ // accounts system
 			) 
 		{
-			trap_Cvar_Set( "g_needpass", "1" );
+			trap_Cvar_Set( "g_needpass", !sv_passwordlessSpectators.integer ? "1" : "0" );
 		} else {
 			trap_Cvar_Set( "g_needpass", "0" );
+			// Disabled since no password is set
+			// TODO: auto update of g_needpass
+			trap_Cvar_Set( "sv_passwordlessSpectators", "0" );
 		}
 	}
 }

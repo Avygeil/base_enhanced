@@ -1871,6 +1871,11 @@ unsigned long long int Q_strtoull(const char *str, char **endptr, int base) {
 #endif
 }
 
+static qboolean PasswordMatches(const char *s) {
+	return !strcmp(g_password.string, s) ||
+		(sv_privatepassword.string[0] && !strcmp(sv_privatepassword.string, s));
+}
+
 /*
 ===========
 ClientUserInfoChanged
@@ -1933,6 +1938,17 @@ void ClientUserinfoChanged( int clientNum ) {
 		client->pers.predictItemPickup = qfalse;
 	} else {
 		client->pers.predictItemPickup = qtrue;
+	}
+
+	// passwordless spectators - check for password change
+	s = Info_ValueForKey( userinfo, "password" );
+	if (!client->pers.canJoin) {
+		if (PasswordMatches(s)) {
+			client->pers.canJoin = qtrue;
+
+			trap_SendServerCommand(ent->client->ps.clientNum,
+				va("print \"^2You can now join the game.\n\""));
+		}
 	}
 
 	// set name
@@ -2329,6 +2345,7 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
     int         port = 0;
 	char		username[MAX_USERNAME_SIZE];
     static char reason[64];
+	qboolean	canJoinLater = qtrue;
 
 	trap_Cvar_VariableStringBuffer("g_cleverFakeDetection",	cleverFakeDetection, 24);
 	ent = &g_entities[ clientNum ];
@@ -2405,21 +2422,22 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 		//	}
 
 
-		//} else 
-		if (g_needpass.integer){// check for standard password
+		//} else
+
+		if (g_needpass.integer || sv_passwordlessSpectators.integer){// check for standard password
 			static char sTemp[1024];
-            qboolean classicPasswordMatches;
-            qboolean privatePasswordMatches;
 
             value = Info_ValueForKey(userinfo, "password");
 
-            classicPasswordMatches = !strcmp(g_password.string, value);
-            privatePasswordMatches = sv_privatepassword.string[0] && !strcmp(sv_privatepassword.string, value);
-
-            if (!classicPasswordMatches && !privatePasswordMatches) 
-            {				
-				Q_strncpyz(sTemp, G_GetStringEdString("MP_SVGAME","INVALID_ESCAPE_TO_MAIN"), sizeof (sTemp) );
-				return sTemp;
+            if (!PasswordMatches(value)) 
+            {
+				if ( !sv_passwordlessSpectators.integer ) {
+					Q_strncpyz(sTemp, G_GetStringEdString("MP_SVGAME", "INVALID_ESCAPE_TO_MAIN"), sizeof(sTemp));
+					return sTemp;
+				} else {
+					// We allow passwordless clients, but don't let them join teams later
+					canJoinLater = qfalse;
+				}
 			}
 		}
 	}
@@ -2512,6 +2530,9 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 
 	// *CHANGE 8b* added clientNum to persistant data
 	client->pers.clientNum = clientNum;
+
+	// passwordless client is persistant data, so they have to reconnect with password
+	client->pers.canJoin = canJoinLater;
 
 	if (isBot && bot_maxping.integer)
 		client->pers.botAvgPing = (bot_maxping.integer-bot_minping.integer)*random()+bot_minping.integer;;
