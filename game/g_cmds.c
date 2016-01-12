@@ -3822,7 +3822,7 @@ void Cmd_ClientList_f( gentity_t *ent ) {
 	for (i = 0 ; i < level.maxclients ; ++i) {
 		if ( level.clients[i].pers.connected != CON_DISCONNECTED ) {
 			trap_SendServerCommand( ent - g_entities,
-				va( "print \"%-2d %s %s\n\"",
+				va( "print \"%-2d  %s%s\n\"",
 					i, &g_entities[i] && g_entities[i].r.svFlags & SVF_BOT ? "^9[BOT] ^7" : "", level.clients[i].pers.netname ) );
 		}
 	}
