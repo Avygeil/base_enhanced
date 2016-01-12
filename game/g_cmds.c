@@ -3804,6 +3804,12 @@ void Cmd_PrintStats_f(gentity_t *ent) {
 	trap_SendServerCommand(id, "print \""S_COLOR_CYAN"Statistics are generated.\n");
 }
 
+void Cmd_Help_f( gentity_t *ent ) {
+	// TODO: auto version change, commit hash?
+	trap_SendServerCommand(ent - g_entities,
+		"print \"^5base_enhanced version: 16w02a\n\"");
+}
+
 void Cmd_EngageDuel_f(gentity_t *ent)
 {
 	trace_t tr;
@@ -4338,6 +4344,8 @@ void ClientCommand( int clientNum ) {
         Cmd_WhoIs_f( ent );
 	else if (Q_stricmp(cmd, "ctfstats") == 0)
 		Cmd_PrintStats_f(ent);
+	else if ( Q_stricmp( cmd, "help" ) == 0 )
+		Cmd_Help_f( ent );
 	else if (Q_stricmp (cmd, "gc") == 0)
 		Cmd_GameCommand_f( ent );
 	else if (Q_stricmp (cmd, "setviewpos") == 0)
