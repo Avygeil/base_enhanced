@@ -3817,7 +3817,7 @@ void Cmd_PrintStats_f(gentity_t *ent) {
 void Cmd_Help_f( gentity_t *ent ) {
 	// TODO: auto version change, commit hash?
 	trap_SendServerCommand(ent - g_entities,
-		"print \"^5base_enhanced version: 16w02a\n\"");
+		"print \"^5base_enhanced version: 16w02b\n\"");
 }
 void Cmd_ClientList_f( gentity_t *ent ) {
 	int i;
