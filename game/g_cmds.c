@@ -1700,7 +1700,7 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText ) 
 
 	// Check chat limit regardless of g_chatLimit since it now encapsulates
 	// passwordless specs chat limit
-	if ( !chatLimitCheck( ent ) ){
+	if ( mode != SAY_TEAM && !chatLimitCheck( ent ) ){
 		return;
 	}
 
