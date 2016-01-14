@@ -144,7 +144,8 @@ vmCvar_t	g_debugMove;
 vmCvar_t	g_accounts;
 vmCvar_t	g_accountsFile; 
 vmCvar_t	g_whitelist;
-vmCvar_t	g_dlURL;   
+vmCvar_t	g_dlURL;  
+vmCvar_t	cl_allowDownload;
 vmCvar_t	g_logrcon;   
 vmCvar_t	g_flags_overboarding;
 vmCvar_t	g_selfkill_penalty;
@@ -612,6 +613,7 @@ static cvarTable_t		gameCvarTable[] = {
 
 
 	{ &g_dlURL,	"g_dlURL"	, ""	, CVAR_SYSTEMINFO, 0, qtrue },
+	{ &cl_allowDownload,	"cl_allowDownload"	, "0"	, CVAR_SYSTEMINFO, 0, qtrue },
 
 	{ &g_fixboon,	"g_fixboon"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
     { &g_flags_overboarding, "g_flags_overboarding", "1", CVAR_ARCHIVE, 0, qtrue },
