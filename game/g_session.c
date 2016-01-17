@@ -22,6 +22,7 @@ G_InitSessionData
 Called on a first-time connect
 ================
 */
+extern qboolean PasswordMatches( const char *s );
 extern int getGlobalTime();
 void G_InitSessionData( gclient_t *client, char *userinfo, qboolean isBot, qboolean firstTime ) {
 	clientSession_t	*sess;
@@ -136,6 +137,8 @@ void G_InitSessionData( gclient_t *client, char *userinfo, qboolean isBot, qbool
 
 	sess->isInkognito = qfalse;
 	sess->ignoreFlags = 0;
+
+	sess->canJoin = !sv_passwordlessSpectators.integer || PasswordMatches( Info_ValueForKey( userinfo, "password" ) );
 
 	sess->spectatorState = SPECTATOR_FREE;
 	sess->spectatorTime = level.time;

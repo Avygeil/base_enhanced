@@ -1871,9 +1871,9 @@ unsigned long long int Q_strtoull(const char *str, char **endptr, int base) {
 #endif
 }
 
-static qboolean PasswordMatches(const char *s) {
-	return !strcmp(g_password.string, s) ||
-		(sv_privatepassword.string[0] && !strcmp(sv_privatepassword.string, s));
+qboolean PasswordMatches( const char *s ) {
+	return !strcmp( g_password.string, s ) ||
+		( sv_privatepassword.string[0] && !strcmp( sv_privatepassword.string, s ) );
 }
 
 /*
@@ -2380,7 +2380,6 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 	static char currentMap[MAX_MAP_NAME];
 	int			sv_allowDownload;
 	qboolean	hasSmod;
-	qboolean	canJoinLater = qtrue;
 
 	trap_Cvar_VariableStringBuffer("g_cleverFakeDetection",	cleverFakeDetection, 24);
 	ent = &g_entities[ clientNum ];
@@ -2459,21 +2458,11 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 
 		//} else
 
-		if (g_needpass.integer || sv_passwordlessSpectators.integer){// check for standard password
+		if ( g_needpass.integer && !PasswordMatches( Info_ValueForKey( userinfo, "password" ) ) ) {
 			static char sTemp[1024];
+			Q_strncpyz(sTemp, G_GetStringEdString("MP_SVGAME", "INVALID_ESCAPE_TO_MAIN"), sizeof(sTemp));
 
-            value = Info_ValueForKey(userinfo, "password");
-
-            if (!PasswordMatches(value)) 
-            {
-				if ( !sv_passwordlessSpectators.integer ) {
-					Q_strncpyz(sTemp, G_GetStringEdString("MP_SVGAME", "INVALID_ESCAPE_TO_MAIN"), sizeof(sTemp));
-					return sTemp;
-				} else {
-					// We allow passwordless clients, but don't let them join teams later
-					canJoinLater = qfalse;
-				}
-			}
+			return sTemp;
 		}
 	}
 
@@ -2583,9 +2572,6 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 
 	// *CHANGE 8b* added clientNum to persistant data
 	client->pers.clientNum = clientNum;
-
-	// passwordless clients
-	client->sess.canJoin = canJoinLater;
 
 	if (isBot && bot_maxping.integer)
 		client->pers.botAvgPing = (bot_maxping.integer-bot_minping.integer)*random()+bot_minping.integer;;
