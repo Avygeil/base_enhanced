@@ -843,7 +843,9 @@ void SetTeam( gentity_t *ent, char *s ) {
 	// Only check one way, so you can join spec back if you were forced as a passwordless spectator
 	if (team != TEAM_SPECTATOR && !client->sess.canJoin) {
 		trap_SendServerCommand( ent - g_entities,
-			"cp \"^1You cannot join the game because your password is empty or incorrect\n^1If you know the password, just use /password\n\"");
+			"cp \"^1You may not join due to incorrect/missing password\n^1If you know the password, just use /password\n\"" );
+		trap_SendServerCommand( ent - g_entities,
+			"print \"^1You may not join due to incorrect/missing password\n^1If you know the password, just use /password\n\"" );
 
 		return;
 	}
@@ -3817,7 +3819,7 @@ void Cmd_PrintStats_f(gentity_t *ent) {
 void Cmd_Help_f( gentity_t *ent ) {
 	// TODO: auto version change, commit hash?
 	trap_SendServerCommand(ent - g_entities,
-		"print \"^5base_enhanced version: 16w02b\n\"");
+		"print \"^5base_enhanced version: 16w03a\n\"");
 }
 void Cmd_ClientList_f( gentity_t *ent ) {
 	int i;

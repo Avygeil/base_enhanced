@@ -1946,8 +1946,8 @@ void ClientUserinfoChanged( int clientNum ) {
 		if (PasswordMatches(s)) {
 			client->sess.canJoin = qtrue;
 
-			trap_SendServerCommand(ent->client->ps.clientNum,
-				va("print \"^2You can now join the game.\n\""));
+			trap_SendServerCommand(ent - g_entities,
+				"print \"^2You can now join the game.\n\"");
 		}
 	}
 
