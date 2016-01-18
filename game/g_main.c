@@ -615,7 +615,7 @@ static cvarTable_t		gameCvarTable[] = {
 
 
 	{ &g_dlURL,	"g_dlURL"	, ""	, CVAR_SYSTEMINFO, 0, qtrue },
-	{ &cl_allowDownload,	"cl_allowDownload"	, "0"	, CVAR_SYSTEMINFO, 0, qtrue },
+	{ &cl_allowDownload,	"cl_allowDownload"	, "0"	, CVAR_SYSTEMINFO, 0, qfalse },
 
 	{ &g_fixboon,	"g_fixboon"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
     { &g_flags_overboarding, "g_flags_overboarding", "1", CVAR_ARCHIVE, 0, qtrue },
