@@ -3565,11 +3565,21 @@ static void Cmd_WhoIs_f( gentity_t* ent )
 {
 	char buffer[64];
 	gentity_t* found = NULL;
+	AliasesContext context;
+	int i;
+
+	context.entNum = ent - g_entities;
 
 	if ( trap_Argc() < 2 )
 	{
-		trap_SendServerCommand( ent - g_entities,
-			"print \"usage: whois [id/name]  (name can be just part of name, colors dont count))  \n\"" );
+		for ( i = 0 ; i < level.maxclients ; ++i ) {
+			if ( level.clients[i].pers.connected != CON_DISCONNECTED && !( &g_entities[i] && g_entities[i].r.svFlags & SVF_BOT ) ) {
+				trap_SendServerCommand( ent - g_entities, va( "print \"Client %i (%s"S_COLOR_WHITE"):\"",
+					i, level.clients[i].pers.netname ) );
+				G_CfgDbListAliases( level.clients[i].sess.ip, ( unsigned int )0xFFFFFFFF, 1, listAliasesCallback, &context );
+			}
+		}
+
 		return;
 	}
 
@@ -3599,8 +3609,6 @@ static void Cmd_WhoIs_f( gentity_t* ent )
 		getIpFromString( mask, &maskInt );
 	}     
 
-	AliasesContext context;
-	context.entNum = ent - g_entities;
 	G_CfgDbListAliases( found->client->sess.ip, maskInt, 3, listAliasesCallback, &context );
 
 }
