@@ -1906,6 +1906,7 @@ void ClientUserinfoChanged( int clientNum ) {
 	char	*value;
 	int		maxHealth;
 	qboolean	modelChanged = qfalse;
+	int		netflags;
 
 
 	ent = g_entities + clientNum;
@@ -2188,6 +2189,43 @@ void ClientUserinfoChanged( int clientNum ) {
 			client->pers.teamInfo = qtrue;
 		} else {
 			client->pers.teamInfo = qfalse;
+		}
+	}
+
+	// enforce net settings
+	if ( g_enforceNetSettings.integer ) {
+		netflags = 0;
+
+		if ( g_enforceNetSettings.integer & NF_SNAPS ) {
+			value = Info_ValueForKey( userinfo, "snaps" );
+
+			if ( value && atoi( value ) != trap_Cvar_VariableIntegerValue( "sv_fps" ) ) {
+				netflags |= NF_SNAPS;
+			}
+		}
+
+		if ( g_enforceNetSettings.integer & NF_RATE ) {
+			value = Info_ValueForKey( userinfo, "rate" );
+
+			if ( value && atoi( value ) < 25000 ) {
+				netflags |= NF_RATE;
+			}
+		}
+
+		if ( g_enforceNetSettings.integer & NF_MAXPACKETS ) {
+			netflags |= NF_MAXPACKETS;
+		}
+
+		// write any settings that should be changed
+		if ( netflags ) {
+			char systeminfo[16384];
+			trap_GetConfigstring( CS_SYSTEMINFO, systeminfo, sizeof( systeminfo ) );
+			trap_SendServerCommand( clientNum, va( "cs %i \"%s%s%s%s%s\"", CS_SYSTEMINFO, systeminfo,
+				netflags & NF_SNAPS ? "\\snaps" : "",
+				netflags & NF_SNAPS ? va( "\\%d", trap_Cvar_VariableIntegerValue( "sv_fps" ) ) : "",
+				netflags & NF_RATE ? "\\rate\\25000" : "",
+				netflags & NF_MAXPACKETS ? "\\cl_maxpackets\\100" : "" ) );
+			trap_SendServerCommand( clientNum, va( "cs %i \"%s\"", CS_SYSTEMINFO, systeminfo ) );
 		}
 	}
 

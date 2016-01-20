@@ -151,6 +151,7 @@ vmCvar_t	g_flags_overboarding;
 vmCvar_t	g_selfkill_penalty;
 vmCvar_t    g_moreTaunts;
 vmCvar_t    g_tauntWhileMoving;
+vmCvar_t	g_enforceNetSettings;
 
 #ifndef FINAL_BUILD
 vmCvar_t	g_debugDamage;
@@ -622,6 +623,7 @@ static cvarTable_t		gameCvarTable[] = {
     { &g_selfkill_penalty, "g_selfkill_penalty", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_moreTaunts, "g_moreTaunts", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_tauntWhileMoving, "g_tauntWhileMoving", "1", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_enforceNetSettings, "g_enforceNetSettings", "0", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_maxstatusrequests,	"g_maxstatusrequests"	, "50"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_testdebug,	"g_testdebug"	, "0"	, CVAR_ARCHIVE, 0, qtrue },

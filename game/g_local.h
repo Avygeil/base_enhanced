@@ -1459,6 +1459,10 @@ const char *G_GetStringEdString(char *refSection, char *refName);
 //
 // g_client.c
 //
+#define NF_SNAPS		(1<<0)
+#define NF_RATE			(1<<1)
+#define NF_MAXPACKETS	(1<<2)
+
 char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot );
 void ClientUserinfoChanged( int clientNum );
 void ClientDisconnect( int clientNum );
@@ -1858,6 +1862,7 @@ extern vmCvar_t	   g_flags_overboarding;
 extern vmCvar_t	   g_selfkill_penalty;
 extern vmCvar_t	   g_moreTaunts;
 extern vmCvar_t    g_tauntWhileMoving;
+extern vmCvar_t    g_enforceNetSettings;
 
 extern vmCvar_t	   g_rconpassword;
 
