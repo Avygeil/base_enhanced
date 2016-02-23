@@ -1966,10 +1966,28 @@ void G_SetTauntAnim( gentity_t *ent, int taunt )
 				ent->client->ps.forceDodgeAnim = anim;
 				ent->client->ps.forceHandExtendTime = level.time + BG_AnimLength(ent->localAnimIndex, (animNumber_t)anim);
 			}
-			if ( taunt != TAUNT_MEDITATE 
-				&& taunt != TAUNT_BOW )
-			{//no sound for meditate or bow
+			if ( taunt == TAUNT_TAUNT || g_gametype.integer == GT_DUEL || g_gametype.integer == GT_POWERDUEL)
+			{
+				//just use classic sound
 				G_AddEvent( ent, EV_TAUNT, taunt );
+			}
+			else if (taunt == TAUNT_GLOAT || taunt == TAUNT_FLOURISH)
+			{
+				//generate dank taunt sounds for clients that support them
+
+				//determine the cool taunt sound randomly
+				int rng;
+				if (taunt == TAUNT_GLOAT)
+				{
+					rng = Q_irand(NMTAUNT_ANGER1, NMTAUNT_GLOAT3);
+				}
+				else
+				{
+					rng = Q_irand(NMTAUNT_DEFLECT1, NMTAUNT_VICTORY3);
+				}
+				G_AddEvent(ent, EV_TAUNT, rng);
+				//non-supporting clients will just use the normal taunt sound anyway;
+				//no need to differentiate between users of different mods here.
 			}
 		}
 	}

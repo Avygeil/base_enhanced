@@ -1481,6 +1481,21 @@ void ClientThink			( int clientNum, usercmd_t *ucmd );
 void ClientEndFrame			( gentity_t *ent );
 void G_RunClient			( gentity_t *ent );
 
+typedef enum {
+	NMTAUNT_ANGER1 = 100, //gloat
+	NMTAUNT_ANGER2,
+	NMTAUNT_ANGER3,
+	NMTAUNT_GLOAT1,
+	NMTAUNT_GLOAT2,
+	NMTAUNT_GLOAT3,
+	NMTAUNT_DEFLECT1, //flourish
+	NMTAUNT_DEFLECT2,
+	NMTAUNT_DEFLECT3,
+	NMTAUNT_VICTORY1,
+	NMTAUNT_VICTORY2,
+	NMTAUNT_VICTORY3
+} nmTaunt_t;
+
 //
 // g_team.c
 //
