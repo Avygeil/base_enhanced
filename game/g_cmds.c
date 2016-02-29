@@ -3824,10 +3824,41 @@ void Cmd_PrintStats_f(gentity_t *ent) {
 	trap_SendServerCommand(id, "print \""S_COLOR_CYAN"Statistics are generated.\n");
 }
 
+#define MAX_HELP_LINE_LEN	97
+#define MAX_HELP_LINES		16
+#define MAX_HELP_LEN		MAX_HELP_LINE_LEN * MAX_HELP_LINES
+
+qboolean helpEnabled = qfalse;
+char help[MAX_HELP_LEN];
+
+void G_LoadHelpFile(const char *filename) {
+	int len;
+	fileHandle_t f;
+
+	len = trap_FS_FOpenFile( filename, &f, FS_READ );
+
+	if ( !f ) {
+		trap_Printf( va( S_COLOR_YELLOW "Help file %s not found, disabling /help\n", filename ) );
+		return;
+	}
+
+	if ( len >= MAX_HELP_LEN ) {
+		trap_Printf( va( S_COLOR_YELLOW "Help file %s is too large (%i chars, max is %i), disabling /help\n", filename, len, MAX_HELP_LEN ) );
+		trap_FS_FCloseFile( f );
+		return;
+	}
+
+	trap_FS_Read( help, len, f );
+	help[len] = '\0';
+	trap_FS_FCloseFile( f );
+
+	Com_Printf( "Loaded help file %s sucessfully\n", filename );
+	helpEnabled = qtrue;
+}
+
 void Cmd_Help_f( gentity_t *ent ) {
-	// TODO: auto version change, commit hash?
 	trap_SendServerCommand(ent - g_entities,
-		"print \"^5base_enhanced version: 16w03a\n\"");
+		va("print \"%s\n\"", help));
 }
 void Cmd_ClientList_f( gentity_t *ent ) {
 	int i;
@@ -4382,7 +4413,7 @@ void ClientCommand( int clientNum ) {
         Cmd_WhoIs_f( ent );
 	else if (Q_stricmp(cmd, "ctfstats") == 0)
 		Cmd_PrintStats_f(ent);
-	else if ( Q_stricmp( cmd, "help" ) == 0 )
+	else if ( helpEnabled && Q_stricmp( cmd, "help" ) == 0 )
 		Cmd_Help_f( ent );
 	else if ( Q_stricmp( cmd, "clientlist" ) == 0 )
 		Cmd_ClientList_f( ent );

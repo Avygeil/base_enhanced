@@ -1117,6 +1117,7 @@ extern void BG_ClearVehicleParseParms(void);
 extern void G_LoadArenas( void );
 extern void G_LoadVoteMapsPools(void);
 extern void InitUnhandledExceptionFilter();
+extern void G_LoadHelpFile( const char *filename );
 
 void G_InitGame( int levelTime, int randomSeed, int restart ) {
 	int					i;
@@ -1389,6 +1390,8 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
     {
 		PatchEngine();
 	}
+
+	G_LoadHelpFile( "help.txt" );
 
     G_CfgDbLoad();
     G_LogDbLoad();
