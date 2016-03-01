@@ -2350,38 +2350,6 @@ void ClientUserinfoChanged( int clientNum ) {
 	}
 }
 
-static int connectingClients = 0;
-
-static qboolean isBaseMap( const char *s ) {
-	       if ( !Q_stricmp( s, "mp/ctf1" ) ) {
-	} else if ( !Q_stricmp( s, "mp/ctf2" ) ) {
-	} else if ( !Q_stricmp( s, "mp/ctf3" ) ) {
-	} else if ( !Q_stricmp( s, "mp/ctf4" ) ) {
-	} else if ( !Q_stricmp( s, "mp/ctf5" ) ) {
-	} else if ( !Q_stricmp( s, "mp/ffa1" ) ) {
-	} else if ( !Q_stricmp( s, "mp/ffa2" ) ) {
-	} else if ( !Q_stricmp( s, "mp/ffa3" ) ) {
-	} else if ( !Q_stricmp( s, "mp/ffa4" ) ) {
-	} else if ( !Q_stricmp( s, "mp/ffa5" ) ) {
-	} else if ( !Q_stricmp( s, "mp/duel1" ) ) {
-	} else if ( !Q_stricmp( s, "mp/duel2" ) ) {
-	} else if ( !Q_stricmp( s, "mp/duel3" ) ) {
-	} else if ( !Q_stricmp( s, "mp/duel4" ) ) {
-	} else if ( !Q_stricmp( s, "mp/duel5" ) ) {
-	} else if ( !Q_stricmp( s, "mp/duel6" ) ) {
-	} else if ( !Q_stricmp( s, "mp/duel7" ) ) {
-	} else if ( !Q_stricmp( s, "mp/duel8" ) ) {
-	} else if ( !Q_stricmp( s, "mp/duel9" ) ) {
-	} else if ( !Q_stricmp( s, "mp/duel10" ) ) {
-	} else if ( !Q_stricmp( s, "mp/siege_desert" ) ) {
-	} else if ( !Q_stricmp( s, "mp/siege_hoth" ) ) {
-	} else if ( !Q_stricmp( s, "mp/siege_korriban" ) ) {
-	} else {
-		return qfalse;
-	}
-
-	return qtrue;
-}
 
 /*
 ===========
@@ -2415,9 +2383,7 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
     int         port = 0;
 	char		username[MAX_USERNAME_SIZE];
     static char reason[64];
-	static char currentMap[MAX_MAP_NAME];
-	int			sv_allowDownload;
-	qboolean	hasSmod;
+	qboolean	canJoinLater = qtrue;
 
 	trap_Cvar_VariableStringBuffer("g_cleverFakeDetection",	cleverFakeDetection, 24);
 	ent = &g_entities[ clientNum ];
@@ -2575,24 +2541,6 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 			}
 		}
 
-	}
-
-	// force auto dl on non-openjk clients
-	trap_Cvar_VariableStringBuffer( "mapname", currentMap, sizeof( currentMap ) );
-	sv_allowDownload = trap_Cvar_VariableIntegerValue( "sv_allowDownload" );
-	hasSmod = Info_ValueForKey( userinfo, "smod_ver" )[0] != '\0'; // TODO: move to session data if we need it somewhere else
-
-	// fixme: default sv_allowdownload 1 is actually broken with this, since cl_allowDownload will always
-	// be forced to 0. maybe remove SYSTEMINFO flags at runtime?
-	if ( sv_allowDownload >= 2 && !isBaseMap( currentMap ) ) {
-		// If the client doesn't have SMod, download in all cases. With SMod, enabling basejka auto dl
-		// disables fast autodl, so unless there is already someone connecting, don't enable it for them.
-		// Ideally the check should be done client side, g_dlURL should override cl_allowDownload
-		// SMod clients can still set cl_allowDownload 1 themselves if map is missing on g_dlURL
-		if ( !hasSmod || ( hasSmod && connectingClients ) ) {
-			trap_Cvar_Set( "cl_allowDownload", "1" );
-			++connectingClients;
-		}
 	}
 
 	// they can connect
@@ -2928,12 +2876,6 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 
 	// count current clients and rank for scoreboard
 	CalculateRanks();
-
-	// client connected, update auto dl if he was the last one
-	if ( connectingClients > 0 ) {
-		--connectingClients;
-		trap_Cvar_Set( "cl_allowDownload", connectingClients ? "1" : "0" );
-	}
 
 	G_ClearClientLog(clientNum);
 
@@ -4148,12 +4090,6 @@ void ClientDisconnect( int clientNum ) {
     ent->client->sess.nameChangeTime = getGlobalTime();
 
     G_LogDbLogSessionEnd( ent->client->sess.sessionId );
-
-	// client disconnected, update auto dl if he was the last one
-	if (connectingClients > 0) {
-		--connectingClients;
-		trap_Cvar_Set("cl_allowDownload", connectingClients ? "1" : "0");
-	}
 
 	i = 0;
 
