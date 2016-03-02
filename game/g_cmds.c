@@ -2316,7 +2316,8 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 	} else if ( !Q_stricmp( arg1, "q" ) ) { //general question vote :)
 	} else if ( !Q_stricmp( arg1, "pause" ) ) {
 	} else if ( !Q_stricmp( arg1, "unpause" ) ) { 
-	} else if ( !Q_stricmp( arg1, "endmatch" ) ) { 
+	} else if ( !Q_stricmp( arg1, "endmatch" ) ) {
+	} else if ( !Q_stricmp ( arg1, "lockteams") ) {
 	} else if ( !Q_stricmp( arg1, "cointoss")) {
     } else if ( !Q_stricmp( arg1, "randomcapts")) {
     } else if ( !Q_stricmp( arg1, "randomteams")) {
@@ -2324,7 +2325,7 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 		trap_SendServerCommand( ent-g_entities, "print \"Invalid vote string.\n\"" );
 		trap_SendServerCommand( ent-g_entities, "print \"Vote commands are: map_restart, nextmap, map <mapname>, g_gametype <n>, "
 			"kick <player>, clientkick <clientnum>, g_doWarmup, timelimit <time>, fraglimit <frags>, "
-			"resetflags, q <question>, pause, unpause, endmatch, randomcapts, randomteams <numRedPlayers> <numBluePlayers>.\n\"" );
+			"resetflags, q <question>, pause, unpause, endmatch, randomcapts, randomteams <numRedPlayers> <numBluePlayers>, lockteams <numPlayers>.\n\"" );
 		return;
 	}
 
@@ -2648,6 +2649,18 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 	{
 		Com_sprintf( level.voteString, sizeof( level.voteString ), "%s", arg1 );
 		Com_sprintf( level.voteDisplayString, sizeof( level.voteDisplayString ), "End Match" );
+	}
+	else if ( !Q_stricmp( arg1, "lockteams" ) )
+	{
+		// hacky param whitelist but we aren't going to do any parsing anyway
+		if ( argc >= 3 && ( !Q_stricmp( arg2, "0" ) || !Q_stricmp( arg2, "reset" )
+			|| !Q_stricmp( arg2, "4s" ) || !Q_stricmp( arg2, "5s" ) ) ) {
+			Com_sprintf( level.voteString, sizeof( level.voteString ), "%s %s", arg1, arg2 );
+			Com_sprintf( level.voteDisplayString, sizeof( level.voteDisplayString ), "Lock Teams - %s", arg2 );
+		} else {
+			trap_SendServerCommand( ent - g_entities, "print \"usage: /callvote lockteams 4s/5s/reset\n\"" );
+			return;
+		}
 	}
 	else if (!Q_stricmp(arg1, "g_doWarmup"))
 	{

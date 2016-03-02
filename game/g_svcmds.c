@@ -877,6 +877,38 @@ void Svcmd_AllReady_f(void) {
 	level.warmupTime = level.time;
 }
 
+void Svcmd_LockTeams_f( void ) {
+	char	str[MAX_TOKEN_CHARS];
+	int		n = -1;
+
+	if ( trap_Argc() < 2 ) {
+		return;
+	}
+
+	trap_Argv( 1, str, sizeof( str ) );
+
+	// could do some advanced parsing, but since we only have to handle a few cases...
+	if ( !Q_stricmp( str, "0" ) || !Q_stricmp( str, "reset" ) ) {
+		n = 0;
+	} else if ( !Q_stricmp( str, "4s" ) ) {
+		n = 8;
+	} else if ( !Q_stricmp( str, "5s" ) ) {
+		n = 10;
+	}
+
+	if ( n < 0 ) {
+		return;
+	}
+
+	trap_Cvar_Set( "g_maxgameclients", va( "%i", n ) );
+
+	if ( !n ) {
+		trap_SendServerCommand( -1, "print \""S_COLOR_GREEN"Teams were unlocked.\n\"");
+	} else {
+		trap_SendServerCommand( -1, va( "print \""S_COLOR_RED"Teams were locked to %i vs %i.\n\"", n / 2, n / 2 ) );
+	}
+}
+
 void Svcmd_Cointoss_f(void) 
 {
 	int cointoss = rand() % 2;
@@ -915,7 +947,7 @@ void Svcmd_VoteForce_f( qboolean pass ) {
 	}
 
 	trap_SendServerCommand( -1,
-		va( "print \"^1Vote forced to %s.\n\"", pass ? "pass" : "fail" ) );
+		va( "print \""S_COLOR_RED"Vote forced to %s.\n\"", pass ? "pass" : "fail" ) );
 
 	if ( pass ) {
 		level.voteExecuteTime = level.time + 3000;
@@ -1591,6 +1623,12 @@ qboolean	ConsoleCommand( void ) {
 		LogExit( "Match forced to end." );
         return qtrue;
     } 
+
+	if ( !Q_stricmp( cmd, "lockteams" ) )
+	{
+		Svcmd_LockTeams_f();
+		return qtrue;
+	}
 
 	if (!Q_stricmp(cmd, "allready"))
 	{
