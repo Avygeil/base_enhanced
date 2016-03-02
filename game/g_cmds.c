@@ -3561,6 +3561,14 @@ void listAliasesCallback( void* context,
     trap_SendServerCommand( thisContext->entNum, va( "print \"  %s"S_COLOR_WHITE" (%i).\n\"", name, duration ) );
 }
 
+void singleAliasCallback( void* context,
+	const char* name,
+	int duration )
+{
+	AliasesContext* thisContext = ( AliasesContext* )context;
+	trap_SendServerCommand( thisContext->entNum, va( "print \"%s"S_COLOR_WHITE"\"", name ) );
+}
+
 static void Cmd_WhoIs_f( gentity_t* ent )
 {
 	char buffer[64];
@@ -3574,9 +3582,10 @@ static void Cmd_WhoIs_f( gentity_t* ent )
 	{
 		for ( i = 0 ; i < level.maxclients ; ++i ) {
 			if ( level.clients[i].pers.connected != CON_DISCONNECTED && !( &g_entities[i] && g_entities[i].r.svFlags & SVF_BOT ) ) {
-				trap_SendServerCommand( ent - g_entities, va( "print \"Client %i (%s"S_COLOR_WHITE"):\"",
+				trap_SendServerCommand( ent - g_entities, va( "print \"Client %i (%s"S_COLOR_WHITE"): \"",
 					i, level.clients[i].pers.netname ) );
-				G_CfgDbListAliases( level.clients[i].sess.ip, ( unsigned int )0xFFFFFFFF, 1, listAliasesCallback, &context );
+				G_CfgDbListAliases( level.clients[i].sess.ip, ( unsigned int )0xFFFFFFFF, 1, singleAliasCallback, &context );
+				trap_SendServerCommand( ent - g_entities, "print \"\n\"" );
 			}
 		}
 
