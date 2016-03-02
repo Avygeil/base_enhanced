@@ -2192,8 +2192,8 @@ void ClientUserinfoChanged( int clientNum ) {
 		}
 	}
 
-	// enforce net settings
-	if ( g_enforceNetSettings.integer ) {
+	// enforce net settings except on openjk clients which show an annoying warning
+	if ( g_enforceNetSettings.integer && Info_ValueForKey( userinfo, "ja_guid" )[0] == '\0' ) {
 		netflags = 0;
 
 		if ( g_enforceNetSettings.integer & NF_SNAPS ) {
