@@ -843,9 +843,9 @@ void SetTeam( gentity_t *ent, char *s ) {
 	// Only check one way, so you can join spec back if you were forced as a passwordless spectator
 	if (team != TEAM_SPECTATOR && !client->sess.canJoin) {
 		trap_SendServerCommand( ent - g_entities,
-			"cp \"^7You may not join due to incorrect/missing password\n^7If you know the password, just use /password\n\"" );
+			"cp \"You may not join due to incorrect/missing password\nIf you know the password, just use /password\n\"" );
 		trap_SendServerCommand( ent - g_entities,
-			"print \"^1You may not join due to incorrect/missing password\n^1If you know the password, just use /password\n\"" );
+			"print \"You may not join due to incorrect/missing password\nIf you know the password, just use /password\n\"" );
 
 		return;
 	}
@@ -3890,7 +3890,7 @@ void Cmd_ClientList_f( gentity_t *ent ) {
 	for (i = 0 ; i < level.maxclients ; ++i) {
 		if ( level.clients[i].pers.connected != CON_DISCONNECTED ) {
 			trap_SendServerCommand( ent - g_entities,
-				va( "print \"%-2d  %s%s\n\"",
+				va( "print \"%s%-2d  "S_COLOR_WHITE"%s%s\n\"", level.clients[i].sess.sessionTeam == TEAM_RED ? S_COLOR_RED : ( level.clients[i].sess.sessionTeam == TEAM_BLUE ? S_COLOR_BLUE : S_COLOR_WHITE ),
 					i, &g_entities[i] && g_entities[i].r.svFlags & SVF_BOT ? "^9[BOT] ^7" : "", level.clients[i].pers.netname ) );
 		}
 	}
