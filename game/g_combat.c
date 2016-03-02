@@ -2314,8 +2314,9 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 		if (level.time < self->client->pers.teamState.flagsince)
 			G_LogPrintf("ERROR: flagsince bugged, level.time:%i flagsince:%i\n",level.time,self->client->pers.teamState.flagsince);
 
-		self->client->pers.teamState.flaghold += (level.time - self->client->pers.teamState.flagsince);
-
+		self->client->pers.teamState.flaghold += level.time - self->client->pers.teamState.flagsince;
+		if ( level.time - self->client->pers.teamState.flagsince > self->client->pers.teamState.longestFlaghold )
+			self->client->pers.teamState.longestFlaghold = level.time - self->client->pers.teamState.flagsince;
 	}
 
 	if (self == attacker)

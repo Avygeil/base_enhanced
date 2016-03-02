@@ -2055,6 +2055,11 @@ int Pickup_Powerup( gentity_t *ent, gentity_t *other ) {
 		other->client->ps.powerups[ent->item->giTag] = 
 			level.time - ( level.time % 1000 );
 
+		// Only add non dropped boons
+		if ( ent->item->giTag == PW_FORCE_BOON && !ent->s.modelindex2 ) {
+			++other->client->pers.teamState.boonPickups;
+		}
+
 		G_LogWeaponPowerup(other->s.number, ent->item->giTag);
 	}
 

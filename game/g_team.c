@@ -396,6 +396,8 @@ void Team_FragBonuses(gentity_t *targ, gentity_t *inflictor, gentity_t *attacker
 
 		//*CHANGE 31* longest flag holding time keeping track
 		targ->client->pers.teamState.flaghold += (level.time - targ->client->pers.teamState.flagsince);
+		if ( level.time - targ->client->pers.teamState.flagsince > targ->client->pers.teamState.longestFlaghold )
+			targ->client->pers.teamState.longestFlaghold = level.time - targ->client->pers.teamState.flagsince;
 
 		attacker->client->pers.teamState.fragcarrier++;
 
@@ -812,6 +814,8 @@ int Team_TouchOurFlag( gentity_t *ent, gentity_t *other, int team ) {
 
 	//*CHANGE 31* longest flag holding time keeping track
 	other->client->pers.teamState.flaghold += (level.time - other->client->pers.teamState.flagsince);
+	if ( level.time - other->client->pers.teamState.flagsince > other->client->pers.teamState.longestFlaghold )
+		other->client->pers.teamState.longestFlaghold = level.time - other->client->pers.teamState.flagsince;
 
 	cl->ps.powerups[enemy_flag] = 0;
 	

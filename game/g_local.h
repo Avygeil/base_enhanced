@@ -408,6 +408,8 @@ typedef struct {
 	int			th;
 	int			te;
 	int			flaghold;
+	int			longestFlaghold;
+	int			boonPickups;
 
 	int			lasthurtcarrier;
 	int			lastreturnedflag;

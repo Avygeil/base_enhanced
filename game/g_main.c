@@ -2653,6 +2653,8 @@ void LogExit( const char *string ) {
 
 		if ((cl->ps.powerups[PW_BLUEFLAG] || cl->ps.powerups[PW_REDFLAG])){
 			cl->pers.teamState.flaghold += (level.time - cl->pers.teamState.flagsince);
+			if ( level.time - cl->pers.teamState.flagsince > cl->pers.teamState.longestFlaghold )
+				cl->pers.teamState.longestFlaghold = level.time - cl->pers.teamState.flagsince;
 		}
 
 		ping = cl->ps.ping < 999 ? cl->ps.ping : 999;
