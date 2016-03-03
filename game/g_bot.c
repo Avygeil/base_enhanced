@@ -1061,7 +1061,7 @@ void Svcmd_BotList_f( void ) {
 	for (i = 0; i < g_numBots; i++) {
 		strcpy(name, Info_ValueForKey( g_botInfos[i], "name" ));
 		if ( !*name ) {
-			strcpy(name, "Padawan");
+			strcpy(name, S_COLOR_WHITE"Padawan");
 		}
 		strcpy(funname, Info_ValueForKey( g_botInfos[i], "funname" ));
 		if ( !*funname ) {

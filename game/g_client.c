@@ -1316,6 +1316,84 @@ static qboolean IsEmpty(const char* name){
 	return qtrue;
 }
 
+#define DEFAULT_NAME		S_COLOR_WHITE"Padawan"
+#define IsControlChar( c )	( c && *c && ( *c < 32 || *c == 127 ) ) // control and DEL
+#define IsWhitespace( c )	( c && *c && ( *c == 32 || *c == 255 ) ) // whitespace and nbsp
+#define IsVisibleChar( c )	( !IsControlChar( c ) && !IsWhitespace( c ) && !Q_IsColorString( c ) )
+
+// Name normalizing and cleaning function that aims at making unique name representations so that
+// you can just compare two strings to compare two names
+// -----------------------------------------------------------------------------------------------------------
+// "*player" -> "^7*player": appending ^7 fixes the * bug in console by itself
+// "longplayername" && colorlessSize = 4 -> "^7long"
+// "     player     " -> "^7player": all enclosing spaces are stripped
+// "pla     yer" -> "^7pla   yer": max 3 consecutive spaces
+// "^1pla^2   yer" -> "^1pla   ^2yer": reports color codes before visible chars
+// "^1^2play^3er^4" -> "^2play^3er": invisible color chars are stripped
+// "^1    player    ^2" -> "^1player": strips colored invisible whitespaces
+// "   ^7" -> "^7Padawan": empty names default to Padawan
+// "play\ner" -> "^7player": filters control chars
+// -----------------------------------------------------------------------------------------------------------
+static void NormalizeName( const char *in, char *out, int outSize, int colorlessSize ) {
+	int i = 0, spaces = 0;
+	char *p, pendingColorCode;
+	qboolean metVisibleChar = qfalse;
+
+	--outSize; // room for null byte
+
+	for ( p = va( S_COLOR_WHITE"%s", in ); p && *p && i < outSize && colorlessSize > 0; ++p ) {
+		// always ignore control chars
+		if ( IsControlChar( p ) ) {
+			continue;
+		}
+
+		// there could be spaces after the color, store it to write it later
+		// this also makes colors override each other
+		if ( Q_IsColorString( p ) ) {
+			pendingColorCode = *++p;
+			continue;
+		}
+
+		spaces += IsWhitespace( p ) ? 1 : -spaces;
+
+		// basejka behaviour: no more than 3 consecutive spaces
+		if ( spaces > 3 ) {
+			continue;
+		}
+
+		if ( !metVisibleChar && IsVisibleChar( p ) ) {
+			metVisibleChar = qtrue;
+		}
+
+		// everything after this will be actual writing: don't do it unless we have met the first visible char
+		if ( !metVisibleChar ) {
+			continue;
+		}
+
+		// only write pending colors before a char to prevent ambiguous spreading of color codes
+		if ( pendingColorCode && IsVisibleChar( p ) && i < outSize - 3 ) { // 3 because we need an actual char after it
+			*out++ = Q_COLOR_ESCAPE;
+			*out++ = pendingColorCode;
+			pendingColorCode = 0;
+			i += 2;
+		}
+
+		// write the current char
+		*out++ = *p;
+		++i; --colorlessSize;
+	}
+
+	// write null bytes after the last non whitespace
+	spaces = Com_Clampi( 0, 3, spaces ); // no more than 3 chars are written
+	*( out - spaces ) = '\0';
+
+	// no char was written, use the default name
+	if ( !i ) {
+		Com_sprintf( out, outSize, DEFAULT_NAME );
+	}
+}
+
+#if 0
 /*
 ===========
 ClientCheckName
@@ -1403,6 +1481,7 @@ static qboolean ClientCleanName( const char *in, char *out, int outSize ) {
 
 	return qfalse;
 }
+#endif
 
 #ifdef _DEBUG
 void G_DebugWrite(const char *path, const char *text)
@@ -1956,6 +2035,7 @@ void ClientUserinfoChanged( int clientNum ) {
 	Q_strncpyz ( oldname, client->pers.netname, sizeof( oldname ) );
 	s = Info_ValueForKey (userinfo, "name");
 
+#if 0
 	if (IsEmpty(s)){ 
 		if (IsEmpty(oldname)){ //bastards connected with empty name probably
 			Q_strncpyz ( oldname, "Padawan", sizeof( oldname ) );
@@ -1966,7 +2046,9 @@ void ClientUserinfoChanged( int clientNum ) {
 	} else {
 		ClientCleanName( s, client->pers.netname, sizeof(client->pers.netname) );
 	}
+#endif
 
+	NormalizeName( s, client->pers.netname, sizeof( client->pers.netname ), g_maxNameLength.integer );
 
 	if ( client->sess.sessionTeam == TEAM_SPECTATOR ) {
 		if ( client->sess.spectatorState == SPECTATOR_SCOREBOARD ) {
