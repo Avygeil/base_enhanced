@@ -1694,6 +1694,10 @@ static char* GetPrefixId( gentity_t *ent ) {
 	int i;
 	gentity_t *other;
 
+	if ( !g_duplicateNamesId.integer ) {
+		return "";
+	}
+
 	for ( i = 0; i < level.maxclients; i++ ) {
 		other = &g_entities[i];
 
