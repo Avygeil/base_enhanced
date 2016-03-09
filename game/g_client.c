@@ -1316,10 +1316,11 @@ static qboolean IsEmpty(const char* name){
 	return qtrue;
 }
 
-#define DEFAULT_NAME		S_COLOR_WHITE"Padawan"
-#define IsControlChar( c )	( c && *c && ( ( *c > 0 && *c < 32 ) || *c == 127 ) ) // control and DEL
-#define IsWhitespace( c )	( c && *c && ( *c == 32 || *c == 255 ) ) // whitespace and nbsp
-#define IsVisibleChar( c )	( !IsControlChar( c ) && !IsWhitespace( c ) && !Q_IsColorString( c ) )
+#define DEFAULT_NAME			S_COLOR_WHITE"Padawan"
+#define IsControlChar( c )		( c && *c && ( ( *c > 0 && *c < 32 ) || *c == 127 ) ) // control and DEL
+#define IsWhitespace( c )		( c && *c && ( *c == 32 || *c == 255 ) ) // whitespace and nbsp
+#define IsForbiddenChar( c )	( c && *c && *c == -84 ) // box character
+#define IsVisibleChar( c )		( !IsControlChar( c ) && !IsWhitespace( c ) && !Q_IsColorString( c ) )
 
 // Name normalizing and cleaning function that aims at making unique name representations so that
 // you can just compare two strings to compare two names
@@ -1343,7 +1344,7 @@ static void NormalizeName( const char *in, char *out, int outSize, int colorless
 
 	for ( p = va( S_COLOR_WHITE"%s", in ); p && *p && i < outSize && colorlessSize > 0; ++p ) {
 		// always ignore control chars
-		if ( IsControlChar( p ) ) {
+		if ( IsControlChar( p ) || IsForbiddenChar( p ) ) {
 			continue;
 		}
 
