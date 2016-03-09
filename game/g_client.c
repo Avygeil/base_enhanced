@@ -1317,7 +1317,7 @@ static qboolean IsEmpty(const char* name){
 }
 
 #define DEFAULT_NAME		S_COLOR_WHITE"Padawan"
-#define IsControlChar( c )	( c && *c && ( *c < 32 || *c == 127 ) ) // control and DEL
+#define IsControlChar( c )	( c && *c && ( ( *c > 0 && *c < 32 ) || *c == 127 ) ) // control and DEL
 #define IsWhitespace( c )	( c && *c && ( *c == 32 || *c == 255 ) ) // whitespace and nbsp
 #define IsVisibleChar( c )	( !IsControlChar( c ) && !IsWhitespace( c ) && !Q_IsColorString( c ) )
 
