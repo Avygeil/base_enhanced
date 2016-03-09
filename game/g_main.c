@@ -2663,6 +2663,9 @@ void LogExit( const char *string ) {
 
 		G_LogPrintf( "score: %i  ping: %i  client: %i %s\n", cl->ps.persistant[PERS_SCORE], ping, level.sortedClients[i],	cl->pers.netname );
 	}
+
+	// reset the lock on teams if the game ended normally
+	trap_Cvar_Set( "g_maxgameclients", "0" );
 }
 
 qboolean gDidDuelStuff = qfalse; //gets reset on game reinit

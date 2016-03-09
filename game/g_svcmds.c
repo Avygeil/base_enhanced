@@ -888,7 +888,7 @@ void Svcmd_LockTeams_f( void ) {
 	trap_Argv( 1, str, sizeof( str ) );
 
 	// could do some advanced parsing, but since we only have to handle a few cases...
-	if ( !Q_stricmp( str, "0" ) || !Q_stricmp( str, "reset" ) ) {
+	if ( !Q_stricmp( str, "0" ) || !Q_stricmpn( str, "r", 1 ) ) {
 		n = 0;
 	} else if ( !Q_stricmp( str, "4s" ) ) {
 		n = 8;
