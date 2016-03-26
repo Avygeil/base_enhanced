@@ -1968,6 +1968,90 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText ) 
 	}
 }
 
+/*
+==================
+Cmd_Tell_f
+==================
+*/
+static void Cmd_Tell_f(gentity_t *ent, char *override) {
+	char buffer[MAX_TOKEN_CHARS] = { 0 };
+	char firstArg[MAX_TOKEN_CHARS] = { 0 };
+	char *space;
+	gentity_t* found = NULL;
+	char *p;
+	int len;
+
+	if (!override && trap_Argc() < 3)
+	{
+		trap_SendServerCommand(ent - g_entities,
+			"print \"usage: tell <id/name> <message> (name can be just part of name, colors don't count)\n\"");
+		return;
+	}
+
+	if (override && !override[0])
+	{
+		trap_SendServerCommand(ent - g_entities,
+			"print \"usage: tell <id/name> <message> (name can be just part of name, colors don't count)\n\"" );
+		return;
+	}
+
+	if (override && override[0])
+	{
+		space = strchr(override, ' ');
+		if (space == NULL || !space[1])
+		{
+			trap_SendServerCommand(ent - g_entities,
+				"print \"usage: tell <id/name> <message> (name can be just part of name, colors don't count)\n\"" );
+			return;
+		}
+		Q_strncpyz(firstArg, override, sizeof(firstArg));
+		firstArg[strlen(firstArg) - strlen(space)] = '\0';
+		found = G_FindClient(firstArg);
+	}
+	else
+	{
+		trap_Argv(1, buffer, sizeof(buffer));
+		found = G_FindClient(buffer);
+	}
+
+	if (!found || !found->client)
+	{
+		trap_SendServerCommand(
+			ent - g_entities,
+			va("print \"Client %s"S_COLOR_WHITE" not found or ambiguous. Use client number or be more specific.\n\"",
+				override && override[0] ? firstArg : buffer));
+		return;
+	}
+
+	if (override && override[0])
+	{
+		p = space + 1; //need to remove the space itself
+	}
+	else
+	{
+		p = ConcatArgs(2);
+	}
+
+	/* *CHANGE 4* anti say aaaaaa for whispering */
+	len = strlen(p);
+	if (len > 150)
+	{
+		p[149] = 0;
+
+		if (len > 255) { //report only real threats
+			G_HackLog("Too long message: Client num %d (%s) from %s tried to send too long (%i chars) message (truncated: %s).\n",
+				ent->client->pers.clientNum, ent->client->pers.netname, ent->client->sess.ipString, len, p);
+		}
+	}
+
+	G_Say(ent, found, SAY_TELL, p);
+	// don't tell to the player self if it was already directed to this player
+	// also don't send the chat back to a bot
+	if (ent != found && !(ent->r.svFlags & SVF_BOT) /*UNCOMMENT, JUST FOR DEBUG NOW*/) {
+		G_SayTo(ent, ent, SAY_TELL, COLOR_MAGENTA, va("--> "EC"[%s%c%c"EC"]"EC": ", found->client->pers.netname, Q_COLOR_ESCAPE, COLOR_WHITE), p, NULL);
+	}
+}
+
 
 /*
 ==================
@@ -1978,7 +2062,7 @@ static void Cmd_Say_f( gentity_t *ent, int mode, qboolean arg0 ) {
 	char		*p;
 	int len;
 
-	if ( trap_Argc () < 2 && !arg0 ) {
+	if ( trap_Argc() < 2 && !arg0 ) {
 		return;
 	}
 
@@ -1989,6 +2073,13 @@ static void Cmd_Say_f( gentity_t *ent, int mode, qboolean arg0 ) {
 	else
 	{
 		p = ConcatArgs( 1 );
+	}
+
+	if (p && p[0] == '@')
+	{
+		//redirect this as a private message
+		Cmd_Tell_f(ent, ++p);
+		return;
 	}
 
 	/* *CHANGE 3* Anti say aaaaaaaaaaa */
@@ -2004,58 +2095,6 @@ static void Cmd_Say_f( gentity_t *ent, int mode, qboolean arg0 ) {
 	}
 
 	G_Say( ent, NULL, mode, p );
-}
-
-/*
-==================
-Cmd_Tell_f
-==================
-*/
-static void Cmd_Tell_f( gentity_t *ent ) {
-	char buffer[MAX_TOKEN_CHARS];
-	gentity_t* found = NULL;
-	char		*p;
-	int			len;
-
-	if (trap_Argc() < 3)
-	{
-		trap_SendServerCommand(ent - g_entities,
-			"print \"usage: tell <id/name> <message> (name can be just part of name, colors don't count))  \n\"");
-		return;
-	}
-
-	trap_Argv(1, buffer, sizeof(buffer));
-	found = G_FindClient(buffer);
-
-	if (!found || !found->client)
-	{
-		trap_SendServerCommand(
-			ent - g_entities,
-			va("print \"Client %s"S_COLOR_WHITE" not found or ambiguous. Use client number or be more specific.\n\"",
-				buffer));
-		return;
-	}
-
-	p = ConcatArgs( 2 );
-
-	/* *CHANGE 4* anti say aaaaaa for whispering */
-	len = strlen(p);
-	if ( len > 150 )
-	{
-		p[149] = 0 ;
-
-		if (len > 255){ //report only real threats
-			G_HackLog("Too long message: Client num %d (%s) from %s tried to send too long (%i chars) message (truncated: %s).\n",
-						ent->client->pers.clientNum, ent->client->pers.netname,	ent->client->sess.ipString,	len, p);
-		}
-	}
-
-	G_Say( ent, found, SAY_TELL, p );
-	// don't tell to the player self if it was already directed to this player
-	// also don't send the chat back to a bot
-	if ( ent != found && !(ent->r.svFlags & SVF_BOT) /*UNCOMMENT, JUST FOR DEBUG NOW*/) {
-		G_SayTo( ent, ent, SAY_TELL, COLOR_MAGENTA, va("--> "EC"[%s%c%c"EC"]"EC": ", found->client->pers.netname, Q_COLOR_ESCAPE, COLOR_WHITE), p, NULL);
-	}
 }
 
 //siege voice command
@@ -4599,7 +4638,7 @@ void ClientCommand( int clientNum ) {
 		return;
 	}
 	if (Q_stricmp (cmd, "tell") == 0) {
-		Cmd_Tell_f ( ent );
+		Cmd_Tell_f ( ent, NULL );
 		return;
 	}
 
