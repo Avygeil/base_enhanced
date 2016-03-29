@@ -3855,6 +3855,24 @@ static void FillCtfStats( gclient_t *cl, int *values ) {
 	*values++ = cl->pers.damageTaken;
 }
 
+static const StatsDesc ForceStatsDesc = {
+	{
+		"PULL", "PUSH", "DRAINED", "ENRGSED", "PROT DMG", "RAGE DMG"
+	},
+	{
+		STAT_INT, STAT_INT, STAT_INT, STAT_INT, STAT_INT, STAT_INT
+	}
+};
+
+static void FillForceStats( gclient_t *cl, int *values ) {
+	*values++ = cl->pers.push;
+	*values++ = cl->pers.pull;
+	*values++ = cl->pers.drained;
+	*values++ = cl->pers.energized;
+	*values++ = cl->pers.protDmgAvoided;
+	*values++ = cl->pers.rageDmgAvoided;
+}
+
 #define PrintTeamScore( id, team ) \
 	do { \
 		trap_SendServerCommand( id, va( "print \"%s%s: "S_COLOR_WHITE"%i\n", \
@@ -3865,11 +3883,28 @@ static void FillCtfStats( gclient_t *cl, int *values ) {
 void Cmd_PrintStats_f( gentity_t *ent ) {
 	qboolean winningIngame = qfalse, losingIngame = qfalse;
 	int id = ent ? ( ent - g_entities ) : -1, i;
+	char subcmd[MAX_STRING_CHARS] = { 0 };
+	StatsDesc *desc;
+	void( *callback )( gclient_t*, int* );
 
 	if ( g_gametype.integer != GT_CTF ) {
 		if ( id != -1 )
 			trap_SendServerCommand( id, "print \""S_COLOR_WHITE"Gametype is not CTF. Statistics aren't generated.\n" );
 		return;
+	}
+
+	if ( trap_Argc() < 2 ) {
+		Q_strncpyz( subcmd, "ctf", sizeof( subcmd ) );
+	} else {
+		trap_Argv( 1, subcmd, sizeof( subcmd ) );
+	}
+
+	if ( !Q_stricmp( subcmd, "force" ) ) {
+		desc = &ForceStatsDesc;
+		callback = &FillForceStats;
+	} else { // use "ctf" as default
+		desc = &CtfStatsDesc;
+		callback = &FillCtfStats;
 	}
 
 	team_t winningTeam = level.teamScores[TEAM_RED] > level.teamScores[TEAM_BLUE] ? TEAM_RED : TEAM_BLUE;
@@ -3899,10 +3934,10 @@ void Cmd_PrintStats_f( gentity_t *ent ) {
 
 	// print the winning team first, and don't print stats of teams that have no players
 	PrintTeamScore( id, winningTeam );
-	if ( winningIngame ) PrintTeamStats( id, winningTeam, CtfStatsDesc, &FillCtfStats );
+	if ( winningIngame ) PrintTeamStats( id, winningTeam, *desc, callback );
 	if ( losingIngame ) trap_SendServerCommand( id, "print \"\n" );
 	PrintTeamScore( id, losingTeam );
-	PrintTeamStats( id, losingTeam, CtfStatsDesc, &FillCtfStats );
+	PrintTeamStats( id, losingTeam, *desc, callback );
 }
 
 #define MAX_HELP_LINE_LEN	97

@@ -524,6 +524,14 @@ typedef struct {
 	//damage calculating
 	int			damageCaused;
 	int			damageTaken;
+
+	// force stats
+	int			pull;
+	int			push;
+	int			drained;
+	int			energized;
+	int			protDmgAvoided;
+	int			rageDmgAvoided;
 } clientPersistant_t;
 
 typedef struct renderInfo_s

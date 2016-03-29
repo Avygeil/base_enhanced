@@ -1527,6 +1527,11 @@ void ForceTeamForceReplenish( gentity_t *self )
 
 	while (i < numpl)
 	{
+		// using TE on this ally
+		if ( self && self->client ) {
+			self->client->pers.energized += g_entities[pl[i]].client->ps.fd.forcePower + poweradd > 100 ? 100 - g_entities[pl[i]].client->ps.fd.forcePower : poweradd;
+		}
+
 		g_entities[pl[i]].client->ps.fd.forcePower += poweradd;
 		if (g_entities[pl[i]].client->ps.fd.forcePower > 100)
 		{
@@ -2138,6 +2143,11 @@ void ForceDrainDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, vec3_t 
 					{
 						dmg = 2;
 					}
+				}
+
+				// will definitely drain
+				if ( self && self->client ) {
+					self->client->pers.drained += traceEnt->client->ps.fd.forcePower - dmg >= 0 ? dmg : traceEnt->client->ps.fd.forcePower;
 				}
 
 				if (dmg)
@@ -3181,6 +3191,15 @@ void ForceThrow( gentity_t *self, qboolean pull )
 	if (!powerLevel)
 	{ //Shouldn't have made it here..
 		return;
+	}
+
+	// should definitely pull/push
+	if ( self && self->client ) {
+		if ( pull ) {
+			++self->client->pers.pull;
+		} else {
+			++self->client->pers.push;
+		}
 	}
 
 	if (powerLevel == FORCE_LEVEL_2)

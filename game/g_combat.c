@@ -4887,6 +4887,8 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 	if (attacker && attacker->client && targ && targ->client
 		&& attacker->client->sess.sessionTeam != targ->client->sess.sessionTeam
 		&& mod > MOD_UNKNOWN && mod <= MOD_FORCE_DARK) {
+		// TODO: do we want other kinds of damage?
+		// TODO: it does not count rage or protect reduction...
 		targ->client->pers.damageTaken += (take + asave);
 		attacker->client->pers.damageCaused += (take + asave);
 	}
@@ -4994,6 +4996,14 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 				}
 				if (subamt)
 				{
+					// protect saved you from this much damage
+					if ( attacker && attacker->client && targ && targ->client
+						&& attacker->client->sess.sessionTeam != targ->client->sess.sessionTeam
+						&& mod > MOD_UNKNOWN && mod <= MOD_FORCE_DARK ) {
+						// TODO: do we want other kinds of damage?
+						targ->client->pers.protDmgAvoided += subamt;
+					}
+
 					take -= subamt;
 
 					if (take < 0)
@@ -5043,7 +5053,16 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 		{//rage overridden by no_protection
 			if (targ->client && (targ->client->ps.fd.forcePowersActive & (1 << FP_RAGE)) && (inflictor->client || attacker->client))
 			{
+				int oldtake = take;
 				take /= (targ->client->ps.fd.forcePowerLevel[FP_RAGE]+1);
+
+				// rage saved you from this much damage
+				if ( attacker && attacker->client && targ && targ->client
+					&& attacker->client->sess.sessionTeam != targ->client->sess.sessionTeam
+					&& mod > MOD_UNKNOWN && mod <= MOD_FORCE_DARK ) {
+					// TODO: do we want other kinds of damage?
+					targ->client->pers.rageDmgAvoided += ( oldtake - take );
+				}
 			}
 		}
 		targ->health = targ->health - take;
