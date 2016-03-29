@@ -3884,7 +3884,7 @@ void Cmd_PrintStats_f( gentity_t *ent ) {
 	qboolean winningIngame = qfalse, losingIngame = qfalse;
 	int id = ent ? ( ent - g_entities ) : -1, i;
 	char subcmd[MAX_STRING_CHARS] = { 0 };
-	StatsDesc *desc;
+	const StatsDesc *desc;
 	void( *callback )( gclient_t*, int* );
 
 	if ( g_gametype.integer != GT_CTF ) {
