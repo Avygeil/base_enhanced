@@ -160,7 +160,9 @@
     <ClCompile Include="q_shared.c" />
     <ClCompile Include="sha1.c" />
     <ClCompile Include="SpeederNPC.c" />
-    <ClCompile Include="sqlite3.c" />
+    <ClCompile Include="sqlite3.c">
+      <BrowseInformation Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</BrowseInformation>
+    </ClCompile>
     <ClCompile Include="tri_coll_test.c" />
     <ClCompile Include="WalkerNPC.c" />
     <ClCompile Include="w_force.c" />
