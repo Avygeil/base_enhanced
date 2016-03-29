@@ -2301,14 +2301,17 @@ void ClientUserinfoChanged( int clientNum ) {
 
 		// write any settings that should be changed
 		if ( netflags ) {
-			char systeminfo[16384];
+			char systeminfo[16384] = { 0 };
 			trap_GetConfigstring( CS_SYSTEMINFO, systeminfo, sizeof( systeminfo ) );
-			trap_SendServerCommand( clientNum, va( "cs %i \"%s%s%s%s%s\"", CS_SYSTEMINFO, systeminfo,
-				netflags & NF_SNAPS ? "\\snaps" : "",
-				netflags & NF_SNAPS ? va( "\\%d", trap_Cvar_VariableIntegerValue( "sv_fps" ) ) : "",
-				netflags & NF_RATE ? "\\rate\\25000" : "",
-				netflags & NF_MAXPACKETS ? "\\cl_maxpackets\\100" : "" ) );
-			trap_SendServerCommand( clientNum, va( "cs %i \"%s\"", CS_SYSTEMINFO, systeminfo ) );
+
+			if ( systeminfo[0] ) {
+				trap_SendServerCommand( clientNum, va( "cs %i \"%s%s%s%s%s\"", CS_SYSTEMINFO, systeminfo,
+					netflags & NF_SNAPS ? "\\snaps" : "",
+					netflags & NF_SNAPS ? va( "\\%d", trap_Cvar_VariableIntegerValue( "sv_fps" ) ) : "",
+					netflags & NF_RATE ? "\\rate\\25000" : "",
+					netflags & NF_MAXPACKETS ? "\\cl_maxpackets\\100" : "" ) );
+				trap_SendServerCommand( clientNum, va( "cs %i \"%s\"", CS_SYSTEMINFO, systeminfo ) );
+			}
 		}
 	}
 
@@ -2361,8 +2364,8 @@ void ClientUserinfoChanged( int clientNum ) {
 				guidHash = atoi( value );
 				Com_Printf( "Client %d reports guid %d (userinfo %s)\n", clientNum, guidHash, userinfo );
 			} else {
-				char systeminfo[16384];
-				char previnfo[16384];
+				char systeminfo[16384] = { 0 };
+				char previnfo[16384] = { 0 };
 				qboolean prevGuid = qfalse;
 				trap_GetConfigstring( CS_PLAYERS+clientNum, previnfo, sizeof( previnfo ) );
 				if ( *previnfo ) {
@@ -2389,9 +2392,12 @@ void ClientUserinfoChanged( int clientNum ) {
 					Com_Printf( "Assigning random guid %d to client %d (userinfo %s)\n", guidHash, clientNum, userinfo );
 				}
 				trap_GetConfigstring( CS_SYSTEMINFO, systeminfo, sizeof( systeminfo ) );
-				// they only need to see it once for it to be set
-				trap_SendServerCommand( clientNum, va( "cs %i \"%s\\sex\\%d\"", CS_SYSTEMINFO, systeminfo, guidHash ) );
-				trap_SendServerCommand( clientNum, va( "cs %i \"%s\"", CS_SYSTEMINFO, systeminfo ) );
+
+				if ( systeminfo[0] ) {
+					// they only need to see it once for it to be set
+					trap_SendServerCommand( clientNum, va( "cs %i \"%s\\sex\\%d\"", CS_SYSTEMINFO, systeminfo, guidHash ) );
+					trap_SendServerCommand( clientNum, va( "cs %i \"%s\"", CS_SYSTEMINFO, systeminfo ) );
+				}
 			}
 		}
 		totalHash = ((unsigned long long int) ipHash) << 32 | guidHash;
