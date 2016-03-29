@@ -1690,7 +1690,7 @@ static void G_SayTo( gentity_t *ent, gentity_t *other, int mode, int color, cons
 	}
 }
 
-static char* GetSuffixId( gentity_t *ent ) {
+static char* GetPrefixId( gentity_t *ent ) {
 	int i;
 	gentity_t *other;
 
@@ -1706,7 +1706,7 @@ static char* GetSuffixId( gentity_t *ent ) {
 		}
 
 		if ( !strcmp( ent->client->pers.netname, other->client->pers.netname ) ) {
-			return va( " (%i)", ent - g_entities );
+			return va( "(%i) ", ent - g_entities );
 		}
 	}
 
@@ -1776,7 +1776,7 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText ) 
 
 
 	if ( target ) {
-		G_SayTo( ent, target, mode, color, va( "%s%s", name, GetSuffixId( ent ) ), text, locMsg );
+		G_SayTo( ent, target, mode, color, va( "%s%s", GetPrefixId( ent ), name ), text, locMsg );
 		return;
 	}
 
@@ -1786,7 +1786,7 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText ) 
 	// send it to all the apropriate clients
 	for (j = 0; j < level.maxclients; j++) {
 		other = &g_entities[j];
-		G_SayTo( ent, other, mode, color, va( "%s%s", name, GetSuffixId( ent ) ), text, locMsg );
+		G_SayTo( ent, other, mode, color, va( "%s%s", GetPrefixId( ent ), name ), text, locMsg );
 	}
 }
 
