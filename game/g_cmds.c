@@ -1690,7 +1690,7 @@ static void G_SayTo( gentity_t *ent, gentity_t *other, int mode, int color, cons
 	}
 }
 
-static char* GetPrefixId( gentity_t *ent ) {
+static char* GetSuffixId( gentity_t *ent ) {
 	int i;
 	gentity_t *other;
 
@@ -1706,7 +1706,7 @@ static char* GetPrefixId( gentity_t *ent ) {
 		}
 
 		if ( !strcmp( ent->client->pers.netname, other->client->pers.netname ) ) {
-			return va( "(%i) ", ent - g_entities );
+			return va( " (%i)", ent - g_entities );
 		}
 	}
 
@@ -1752,7 +1752,7 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText ) 
 	default:
 	case SAY_ALL:
 		G_LogPrintf( "say: %i %s: %s\n", ent-g_entities, ent->client->pers.netname, chatText );
-		Com_sprintf (name, sizeof(name), "%s%s%c%c"EC": ", NM_SerializeUIntToColor(ent-g_entities), ent->client->pers.netname, Q_COLOR_ESCAPE, COLOR_WHITE );
+		Com_sprintf (name, sizeof(name), "%s%s%s%c%c"EC": ", NM_SerializeUIntToColor(ent-g_entities), ent->client->pers.netname, GetSuffixId( ent ), Q_COLOR_ESCAPE, COLOR_WHITE );
 		color = COLOR_GREEN;
 		break;
 	case SAY_TEAM:
@@ -1765,15 +1765,15 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText ) 
 		}
 		else
 		{
-			Com_sprintf (name, sizeof(name), EC"(%s%c%c"EC")"EC": ", 
-				ent->client->pers.netname, Q_COLOR_ESCAPE, COLOR_WHITE );
+			Com_sprintf (name, sizeof(name), EC"(%s%s%s%c%c"EC")"EC": ", 
+				NM_SerializeUIntToColor( ent - g_entities ), ent->client->pers.netname, GetSuffixId( ent ), Q_COLOR_ESCAPE, COLOR_WHITE );
 		}
 		color = COLOR_CYAN;
 		break;
 	case SAY_TELL:
         G_LogPrintf( "tell: %i %i %s to %s: %s\n", ent-g_entities, target-g_entities, 
             ent->client->pers.netname, target->client->pers.netname, chatText );
-		Com_sprintf (name, sizeof(name), EC"[%s%c%c"EC"]"EC": ", ent->client->pers.netname, Q_COLOR_ESCAPE, COLOR_WHITE );
+		Com_sprintf (name, sizeof(name), EC"[%s%s%s%c%c"EC"]"EC": ", NM_SerializeUIntToColor( ent - g_entities ), ent->client->pers.netname, GetSuffixId( ent ), Q_COLOR_ESCAPE, COLOR_WHITE );
 
 		if (target && g_gametype.integer >= GT_TEAM &&
 			target->client->sess.sessionTeam == ent->client->sess.sessionTeam &&
@@ -1791,7 +1791,7 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText ) 
 
 
 	if ( target ) {
-		G_SayTo( ent, target, mode, color, va( "%s%s", GetPrefixId( ent ), name ), text, locMsg );
+		G_SayTo( ent, target, mode, color, name, text, locMsg );
 		return;
 	}
 
@@ -1801,7 +1801,7 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText ) 
 	// send it to all the apropriate clients
 	for (j = 0; j < level.maxclients; j++) {
 		other = &g_entities[j];
-		G_SayTo( ent, other, mode, color, va( "%s%s", GetPrefixId( ent ), name ), text, locMsg );
+		G_SayTo( ent, other, mode, color, name, text, locMsg );
 	}
 }
 
