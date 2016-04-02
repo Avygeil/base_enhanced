@@ -1759,8 +1759,8 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText ) 
 		G_LogPrintf( "sayteam: %i %s: %s\n", ent-g_entities, ent->client->pers.netname, chatText );
 		if (Team_GetLocationMsg(ent, location, sizeof(location)))
 		{
-			Com_sprintf (name, sizeof(name), EC"(%s%c%c"EC")"EC": ", 
-				ent->client->pers.netname, Q_COLOR_ESCAPE, COLOR_WHITE );
+			Com_sprintf (name, sizeof(name), EC"(%s%s%s%c%c"EC")"EC": ", 
+				NM_SerializeUIntToColor( ent - g_entities ), ent->client->pers.netname, GetSuffixId( ent ), Q_COLOR_ESCAPE, COLOR_WHITE );
 			locMsg = location;
 		}
 		else
