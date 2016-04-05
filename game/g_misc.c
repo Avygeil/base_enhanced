@@ -26,6 +26,12 @@ void SP_info_camp( gentity_t *self ) {
 	G_SetOrigin( self, self->s.origin );
 }
 
+/*QUAKED info_b_e_location
+The targetname of the closest entity of this type will be used for the $L team chat token.
+*/
+void SP_info_b_e_location( gentity_t *self ) {
+	G_SetOrigin( self, self->s.origin );
+}
 
 /*QUAKED info_null (0 0.5 0) (-4 -4 -4) (4 4 4)
 Used as a positional target for calculations in the utilities (spotlights, etc), but removed during gameplay.

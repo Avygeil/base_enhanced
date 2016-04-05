@@ -1748,7 +1748,7 @@ static char* GetWeaponShortName( int weapon ) {
 	}
 }
 
-static int GetClosestStaticWeapon( gclient_t *cl ) {
+static int FindClosestStaticWeapon( gclient_t *cl ) {
 	gentity_t *ent;
 	int i, weaponFound = -1;
 	vec_t lowestDistance = 0;
@@ -1775,12 +1775,43 @@ static int GetClosestStaticWeapon( gclient_t *cl ) {
 	return weaponFound;
 }
 
+static char* FindClosestInfoLocation( gclient_t *cl ) {
+	gentity_t *ent, *foundLocation = NULL;
+	int i;
+	vec_t lowestDistance = 0;
+
+	for ( i = 0, ent = &g_entities[0]; i < level.num_entities; ++i, ++ent ) {
+		if ( !ent || !ent->classname || Q_stricmp(ent->classname, "info_b_e_location") || !ent->message[0] ) {
+			continue;
+		}
+
+		vec_t distance = DistanceSquared( cl->ps.origin, ent->r.currentOrigin );
+
+		if ( !foundLocation || distance < lowestDistance ) {
+			lowestDistance = distance;
+			foundLocation = ent;
+		}
+	}
+
+	if ( foundLocation ) {
+		return foundLocation->message;
+	}
+
+	return NULL;
+}
+
+// attempts to find the closest info_b_e_location, otherwise return the closest weapon like SMod
+static char* GetLocation( gclient_t *cl ) {
+	char *location = FindClosestInfoLocation( cl );
+	return location != NULL ? location : GetWeaponShortName( FindClosestStaticWeapon( cl ) );
+}
+
 static char* GetToken( gclient_t *cl, const char token ) {
 	switch ( token ) {
 	case 'H': return va( "%d", Com_Clampi( 0, 999, cl->ps.stats[STAT_HEALTH] ) );
 	case 'A': return va( "%d", Com_Clampi( 0, 999, cl->ps.stats[STAT_ARMOR] ) );
 	case 'F': return va( "%d", Com_Clampi( 0, 999, cl->ps.fd.forcePower ) );
-	case 'L': return GetWeaponShortName( GetClosestStaticWeapon( cl ) );
+	case 'L': return GetLocation( cl );
 	default: return NULL;
 	}
 }
