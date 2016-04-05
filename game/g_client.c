@@ -2356,6 +2356,7 @@ void ClientUserinfoChanged( int clientNum ) {
 			SHA1Input( &ctx, (unsigned char *)value, (unsigned int)strlen(value) );
 			if ( SHA1Result( &ctx ) == 1 ) {
 				guidHash = ctx.Message_Digest[0];
+				Com_Printf( "Client %d (OpenJK) reports guid %d (userinfo %s)\n", clientNum, guidHash, userinfo );
 			}
 		} else {
 			// not an openjk client, so we should be able to force their cvars
