@@ -1728,13 +1728,92 @@ static char* NM_SerializeUIntToColor( const unsigned int n ) {
 	return &result[0];
 }
 
+static char* GetToken( gclient_t *cl, const char token ) {
+	switch ( token ) {
+	case 'H': return va( "%d", Com_Clampi( 0, 999, cl->ps.stats[STAT_HEALTH] ) );
+	case 'A': return va( "%d", Com_Clampi( 0, 999, cl->ps.stats[STAT_ARMOR] ) );
+	case 'F': return va( "%d", Com_Clampi( 0, 999, cl->ps.fd.forcePower ) );
+	case 'L': return "NOT IMPLEMENTED YET";
+	default: return NULL;
+	}
+}
+
+#define TOKEN_CHAR	'$'
+
+static void TokenizeTeamChat( gentity_t *ent, char *dest, const char *src, size_t destsize ) {
+	const char *p;
+	int i = 0;
+
+	if ( !ent || !ent->client ) {
+		return;
+	}
+
+	for ( p = src; p && *p && destsize > 1; ++p ) {
+		if ( *p == TOKEN_CHAR ) {
+			char *token = GetToken( ent->client, *++p );
+
+			if ( !token && *p == 'B' && *++p ) { // special case for boon: write text after if i have it
+				int len;
+				char *s = strchr( p, TOKEN_CHAR );
+
+				if ( s && *s ) {
+					len = s - p;
+				} else {
+					len = strlen( p );
+				}
+
+				if ( !len ) { // retard terminated it immediately
+					--p;
+					continue;
+				}
+
+				if ( !ent->client->ps.powerups[PW_FORCE_BOON] ) {
+					p += len;
+					continue;
+				}
+
+				destsize -= len;
+
+				if ( destsize > 0 ) {
+					Q_strcat( dest + i, len + 1, p );
+					i += len;
+					p += len;
+					continue;
+				} else {
+					break;
+				}
+			}
+
+			if ( token && *token ) {
+				int len = strlen( token );
+				destsize -= len;
+
+				if ( destsize > 0 ) {
+					Q_strcat( dest + i, len + 1, token );
+					i += len;
+					continue;
+				} else {
+					break; // don't write it at all if there is no room
+				}
+			}
+
+			--p; // this token is invalid, go back to write the $ sign
+		}
+
+		dest[i++] = *p;
+		--destsize;
+	}
+
+	dest[i] = '\0';
+}
+
 void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText ) {
 	int			j;
 	gentity_t	*other;
 	int			color;
 	char		name[64];
 	// don't let text be too long for malicious reasons
-	char		text[MAX_SAY_TEXT];
+	char		text[MAX_SAY_TEXT] = { 0 };
 	char		location[64];
 	char		*locMsg = NULL;
 
@@ -1787,7 +1866,11 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText ) 
 		break;
 	}
 
-	Q_strncpyz( text, chatText, sizeof(text) );
+	if ( mode == SAY_TEAM ) {
+		TokenizeTeamChat( ent, text, chatText, sizeof( text ) );
+	} else {
+		Q_strncpyz( text, chatText, sizeof( text ) );
+	}
 
 
 	if ( target ) {
