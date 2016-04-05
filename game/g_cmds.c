@@ -1728,12 +1728,59 @@ static char* NM_SerializeUIntToColor( const unsigned int n ) {
 	return &result[0];
 }
 
+static char* GetWeaponShortName( int weapon ) {
+	switch ( weapon ) {
+	case WP_STUN_BATON: return "Stun Baton";
+	case WP_BRYAR_PISTOL:
+	case WP_BRYAR_OLD: return "Pistol";
+	case WP_BLASTER: return "Blaster";
+	case WP_DISRUPTOR: return "Disruptor";
+	case WP_BOWCASTER: return "Bowcaster";
+	case WP_REPEATER: return "Repeater";
+	case WP_DEMP2: return "Demp";
+	case WP_FLECHETTE: return "Golan";
+	case WP_ROCKET_LAUNCHER: return "Rockets";
+	case WP_THERMAL: return "Thermals";
+	case WP_TRIP_MINE: return "Mines";
+	case WP_DET_PACK: return "Detpacks";
+	case WP_CONCUSSION: return "Concussion";
+	default: return "Unknown";
+	}
+}
+
+static int GetClosestStaticWeapon( gclient_t *cl ) {
+	gentity_t *ent;
+	int i, weaponFound = -1;
+	vec_t lowestDistance = 0;
+	
+	for ( i = 0, ent = &g_entities[0]; i < level.num_entities; ++i, ++ent ) {
+		if ( !ent || !ent->item || ent->item->giType != IT_WEAPON ) { // not a weapon
+			continue;
+		}
+
+		entityState_t *s = &ent->s;
+
+		if ( !s || s->eFlags & EF_DROPPEDWEAPON ) { // dropped weapon
+			continue;
+		}
+
+		vec_t distance = DistanceSquared( cl->ps.origin, ent->r.currentOrigin );
+
+		if ( weaponFound < 0 || distance < lowestDistance ) { // this one is closer
+			lowestDistance = distance;
+			weaponFound = ent->item->giTag;
+		}
+	}
+
+	return weaponFound;
+}
+
 static char* GetToken( gclient_t *cl, const char token ) {
 	switch ( token ) {
 	case 'H': return va( "%d", Com_Clampi( 0, 999, cl->ps.stats[STAT_HEALTH] ) );
 	case 'A': return va( "%d", Com_Clampi( 0, 999, cl->ps.stats[STAT_ARMOR] ) );
 	case 'F': return va( "%d", Com_Clampi( 0, 999, cl->ps.fd.forcePower ) );
-	case 'L': return "NOT IMPLEMENTED YET";
+	case 'L': return GetWeaponShortName( GetClosestStaticWeapon( cl ) );
 	default: return NULL;
 	}
 }
