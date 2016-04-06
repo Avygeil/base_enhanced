@@ -699,7 +699,7 @@ void CheckAlmostCapture( gentity_t *self, gentity_t *attacker ) {
 			VectorSubtract( self->client->ps.origin, ent->s.origin, dir );
 			if ( VectorLength(dir) < 200 ) {
 				//self->client->ps.persistant[PERS_PLAYEREVENTS] ^= PLAYEREVENT_HOLYSHIT;
-				if ( attacker->client ) {
+				if ( attacker->client && attacker != self ) { // we don't want this to trigger by our own sk's
 					self->client->ps.persistant[PERS_PLAYEREVENTS] ^= PLAYEREVENT_HOLYSHIT;
 					attacker->client->ps.persistant[PERS_PLAYEREVENTS] ^= PLAYEREVENT_HOLYSHIT;
 					++attacker->client->pers.teamState.saves;
