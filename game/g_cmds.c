@@ -2010,7 +2010,7 @@ Cmd_Tell_f
 ==================
 */
 static void Cmd_Tell_f( gentity_t *ent ) {
-	char buffer[64];
+	char buffer[MAX_TOKEN_CHARS];
 	gentity_t* found = NULL;
 	char		*p;
 	int			len;
@@ -2018,7 +2018,7 @@ static void Cmd_Tell_f( gentity_t *ent ) {
 	if (trap_Argc() < 3)
 	{
 		trap_SendServerCommand(ent - g_entities,
-			"print \"usage: tell [id/name] [message] (name can be just part of name, colors dont count))  \n\"");
+			"print \"usage: tell <id/name> <message> (name can be just part of name, colors don't count))  \n\"");
 		return;
 	}
 
