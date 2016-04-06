@@ -4005,12 +4005,12 @@ static void PrintTeamStats( const int id, const team_t team, StatsDesc desc, voi
 
 static const StatsDesc CtfStatsDesc = {
 	{
-		"SCORE", "CAP", "ASS", "DEF", "ACC", "KIL", "RET", "BOON",
-		"TTLHOLD", "MAXHOLD", " TH", "TE ", "DMGDLT", "DMGTKN"
+		"SCORE", "CAP", "ASS", "DEF", "ACC", "FCKIL", "RET",
+		"BOON", "TTLHOLD", "MAXHOLD", "SAVES", "DMGDLT", "DMGTKN"
 	},
 	{
-		STAT_INT, STAT_INT, STAT_INT, STAT_INT, STAT_INT, STAT_INT, STAT_INT, STAT_INT,
-		STAT_DURATION, STAT_DURATION, STAT_INT_PAIR1, STAT_INT_PAIR2, STAT_INT, STAT_INT
+		STAT_INT, STAT_INT, STAT_INT, STAT_INT, STAT_INT, STAT_INT, STAT_INT,
+		STAT_INT, STAT_DURATION, STAT_DURATION, STAT_INT, STAT_INT, STAT_INT
 	}
 };
 
@@ -4025,26 +4025,26 @@ static void FillCtfStats( gclient_t *cl, int *values ) {
 	*values++ = cl->pers.teamState.boonPickups;
 	*values++ = cl->pers.teamState.flaghold;
 	*values++ = cl->pers.teamState.longestFlaghold;
-	*values++ = cl->pers.teamState.th;
-	*values++ = cl->pers.teamState.te;
+	*values++ = cl->pers.teamState.saves;
 	*values++ = cl->pers.damageCaused;
 	*values++ = cl->pers.damageTaken;
 }
 
 static const StatsDesc ForceStatsDesc = {
 	{
-		"PULL", "PUSH", "DRAINED", "ENRGSED", "PROT DMG", "RAGE DMG"
+		"PULL", "PUSH", "HEALED", "NRGSED", "DRAINED", "PROTDMG", "RAGEDMG"
 	},
 	{
-		STAT_INT, STAT_INT, STAT_INT, STAT_INT, STAT_INT, STAT_INT
+		STAT_INT_PAIR1, STAT_INT_PAIR2, STAT_INT_PAIR1, STAT_INT_PAIR2, STAT_INT, STAT_INT, STAT_INT
 	}
 };
 
 static void FillForceStats( gclient_t *cl, int *values ) {
 	*values++ = cl->pers.push;
 	*values++ = cl->pers.pull;
-	*values++ = cl->pers.drained;
+	*values++ = cl->pers.healed;
 	*values++ = cl->pers.energized;
+	*values++ = cl->pers.drained;
 	*values++ = cl->pers.protDmgAvoided;
 	*values++ = cl->pers.rageDmgAvoided;
 }
@@ -4624,6 +4624,11 @@ void ClientCommand( int clientNum ) {
 		if (!Q_stricmp(cmd, "forcechanged"))
 		{ //special case: still update force change
 			Cmd_ForceChanged_f (ent);
+			return;
+		}
+		else if ( !Q_stricmp( cmd, "ctfstats" ) )
+		{ // special case: we want people to read their other stats as suggested
+			Cmd_PrintStats_f( ent );
 			return;
 		}
 

@@ -702,6 +702,7 @@ void CheckAlmostCapture( gentity_t *self, gentity_t *attacker ) {
 				if ( attacker->client ) {
 					self->client->ps.persistant[PERS_PLAYEREVENTS] ^= PLAYEREVENT_HOLYSHIT;
 					attacker->client->ps.persistant[PERS_PLAYEREVENTS] ^= PLAYEREVENT_HOLYSHIT;
+					++attacker->client->pers.teamState.saves;
 				}
 			}
 		}

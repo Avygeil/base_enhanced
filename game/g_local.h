@@ -410,6 +410,7 @@ typedef struct {
 	int			flaghold;
 	int			longestFlaghold;
 	int			boonPickups;
+	int			saves;
 
 	int			lasthurtcarrier;
 	int			lastreturnedflag;
@@ -530,6 +531,7 @@ typedef struct {
 	int			push;
 	int			drained;
 	int			energized;
+	int			healed;
 	int			protDmgAvoided;
 	int			rageDmgAvoided;
 } clientPersistant_t;

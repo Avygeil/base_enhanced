@@ -2375,9 +2375,10 @@ void BeginIntermission( void ) {
 	// send the current scoring to all clients
 	SendScoreboardMessageToAllClients();
 
-	if (g_autoStats.integer)
-		Cmd_PrintStats_f(NULL);
-
+	if ( g_autoStats.integer ) {
+		Cmd_PrintStats_f( NULL );
+		trap_SendServerCommand( -1, "print \""S_COLOR_WHITE"Use "S_COLOR_CYAN"/ctfstats <ctf | force> "S_COLOR_WHITE"for other types of stats.\n" );
+	}
 }
 
 qboolean DuelLimitHit(void)
