@@ -1831,13 +1831,14 @@ static void TokenizeTeamChat( gentity_t *ent, char *dest, const char *src, size_
 			char *token = GetToken( ent->client, *++p );
 
 			if ( !token && *p == 'B' && *++p ) { // special case for boon: write text after if i have it
-				int len;
+				int len, offset = 0;
 				char *s = strchr( p, TOKEN_CHAR );
 
 				if ( s && *s ) {
 					len = s - p;
 				} else {
 					len = strlen( p );
+					offset = 1; // not terminated by a $, so point back to the char before
 				}
 
 				if ( !len ) { // retard terminated it immediately
@@ -1846,7 +1847,7 @@ static void TokenizeTeamChat( gentity_t *ent, char *dest, const char *src, size_
 				}
 
 				if ( !ent->client->ps.powerups[PW_FORCE_BOON] ) {
-					p += len;
+					p += ( len - offset );
 					continue;
 				}
 
@@ -1855,7 +1856,7 @@ static void TokenizeTeamChat( gentity_t *ent, char *dest, const char *src, size_
 				if ( destsize > 0 ) {
 					Q_strcat( dest + i, len + 1, p );
 					i += len;
-					p += len;
+					p += ( len - offset );
 					continue;
 				} else {
 					break;
