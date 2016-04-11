@@ -4036,7 +4036,7 @@ static void FillCtfStats( gclient_t *cl, int *values ) {
 
 static const StatsDesc ForceStatsDesc = {
 	{
-		"PULL", "PUSH", "HEALED", "NRGSED", "DRAINED", "PROTDMG", "RAGEDMG"
+		"PUSH", "PULL", "HEALED", "NRGSED", "DRAINED", "PROTDMG", "RAGEDMG"
 	},
 	{
 		STAT_INT_PAIR1, STAT_INT_PAIR2, STAT_INT_PAIR1, STAT_INT_PAIR2, STAT_INT, STAT_INT, STAT_INT
