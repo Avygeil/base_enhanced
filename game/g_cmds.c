@@ -1811,6 +1811,7 @@ static char* GetToken( gclient_t *cl, const char token ) {
 	case 'H': return va( "%d", Com_Clampi( 0, 999, cl->ps.stats[STAT_HEALTH] ) );
 	case 'A': return va( "%d", Com_Clampi( 0, 999, cl->ps.stats[STAT_ARMOR] ) );
 	case 'F': return va( "%d", Com_Clampi( 0, 999, cl->ps.fd.forcePower ) );
+	case 'M': return va( "%d", Com_Clampi( 0, 999, !weaponData[cl->ps.weapon].energyPerShot && !weaponData[cl->ps.weapon].energyPerShot ? 0 : cl->ps.ammo[weaponData[cl->ps.weapon].ammoIndex]));
 	case 'L': return GetLocation( cl );
 	default: return NULL;
 	}
