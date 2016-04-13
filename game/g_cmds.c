@@ -1701,7 +1701,7 @@ static char* GetSuffixId( gentity_t *ent ) {
 	for ( i = 0; i < level.maxclients; i++ ) {
 		other = &g_entities[i];
 
-		if ( !other || other == ent || !other->inuse || !other->client || other->client->pers.connected != CON_CONNECTED ) {
+		if ( !other || other == ent || !other->inuse || !other->client ) {
 			continue;
 		}
 
@@ -3915,8 +3915,6 @@ static void PrintClientStats( const int id, const char *name, StatsDesc desc, in
 	trap_SendServerCommand( id, va( "print \"%s\n", s ) );
 }
 
-#define OtherTeam( t ) ( t == TEAM_RED ? TEAM_BLUE : TEAM_RED )
-
 static void PrintTeamStats( const int id, const team_t team, StatsDesc desc, void( *fillCallback )( gclient_t*, int* ) ) {
 	int i, j, nameLen = 0, maxNameLen = 0;
 	int stats[MAX_CLIENTS][MAX_STATS] = { { 0 } }, bestStats[MAX_STATS] = { 0 };
@@ -4036,10 +4034,12 @@ static void FillCtfStats( gclient_t *cl, int *values ) {
 
 static const StatsDesc ForceStatsDesc = {
 	{
-		"PUSH", "PULL", "HEALED", "NRGSED", "DRAINED", "PROTDMG", "RAGEDMG"
+		"PUSH", "PULL", "HEALED", "NRGSED ALLY", "ENEMY",
+		"ABSRBD", "PROTDMG", "PROTTIME"
 	},
 	{
-		STAT_INT_PAIR1, STAT_INT_PAIR2, STAT_INT_PAIR1, STAT_INT_PAIR2, STAT_INT, STAT_INT, STAT_INT
+		STAT_INT_PAIR1, STAT_INT_PAIR2, STAT_INT, STAT_INT_PAIR1, STAT_INT_PAIR2,
+		STAT_INT, STAT_INT, STAT_DURATION
 	}
 };
 
@@ -4047,10 +4047,11 @@ static void FillForceStats( gclient_t *cl, int *values ) {
 	*values++ = cl->pers.push;
 	*values++ = cl->pers.pull;
 	*values++ = cl->pers.healed;
-	*values++ = cl->pers.energized;
-	*values++ = cl->pers.drained;
+	*values++ = cl->pers.energizedAlly;
+	*values++ = cl->pers.energizedEnemy;
+	*values++ = cl->pers.absorbed;
 	*values++ = cl->pers.protDmgAvoided;
-	*values++ = cl->pers.rageDmgAvoided;
+	*values++ = cl->pers.protTimeUsed;
 }
 
 #define PrintTeamScore( id, team ) \

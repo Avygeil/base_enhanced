@@ -529,11 +529,13 @@ typedef struct {
 	// force stats
 	int			pull;
 	int			push;
-	int			drained;
-	int			energized;
 	int			healed;
+	int			energizedAlly;
+	int			energizedEnemy;
+	int			absorbed;
 	int			protDmgAvoided;
-	int			rageDmgAvoided;
+	int			protTimeUsed;
+	int			protsince;
 } clientPersistant_t;
 
 typedef struct renderInfo_s

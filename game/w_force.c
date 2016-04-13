@@ -1005,6 +1005,15 @@ int WP_AbsorbConversion(gentity_t *attacked, int atdAbsLevel, gentity_t *attacke
 	{
 		addTot = 1;
 	}
+
+	// we will definitely absorb, add to attacker and attacked stats if they are on different teams
+	if ( attacked && attacked->client && attacker && attacker->client
+		&& attacker->client->sess.sessionTeam != attacked->client->sess.sessionTeam ) {
+		int absorbed = attacked->client->ps.fd.forcePower + addTot > 100 ? 100 - attacked->client->ps.fd.forcePower : addTot;
+		attacked->client->pers.absorbed += absorbed;
+		attacker->client->pers.energizedEnemy += absorbed;
+	}
+
 	attacked->client->ps.fd.forcePower += addTot;
 	if (attacked->client->ps.fd.forcePower > 100)
 	{
@@ -1176,6 +1185,7 @@ void WP_ForcePowerStart( gentity_t *self, forcePowers_t forcePower, int override
 		hearDist = 256;
 		duration = 20000;
 		self->client->ps.fd.forcePowersActive |= ( 1 << forcePower );
+		self->client->pers.protsince = level.time; // force stats
 		break;
 	case FP_ABSORB:
 		hearable = qtrue;
@@ -1534,7 +1544,7 @@ void ForceTeamForceReplenish( gentity_t *self )
 	{
 		// using TE on this ally
 		if ( self && self->client ) {
-			self->client->pers.energized += ( ( g_entities[pl[i]].client->ps.fd.forcePower + poweradd > 100 ) ? ( 100 - g_entities[pl[i]].client->ps.fd.forcePower ) : poweradd );
+			self->client->pers.energizedAlly += ( ( g_entities[pl[i]].client->ps.fd.forcePower + poweradd > 100 ) ? ( 100 - g_entities[pl[i]].client->ps.fd.forcePower ) : poweradd );
 		}
 
 		g_entities[pl[i]].client->ps.fd.forcePower += poweradd;
@@ -2148,11 +2158,6 @@ void ForceDrainDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, vec3_t 
 					{
 						dmg = 2;
 					}
-				}
-
-				// will definitely drain
-				if ( self && self->client ) {
-					self->client->pers.drained += traceEnt->client->ps.fd.forcePower - dmg >= 0 ? dmg : traceEnt->client->ps.fd.forcePower;
 				}
 
 				if (dmg)
@@ -3928,6 +3933,10 @@ void WP_ForcePowerStop( gentity_t *self, forcePowers_t forcePower )
 		if (wasActive & (1 << FP_PROTECT))
 		{
 			G_MuteSound(self->client->ps.fd.killSoundEntIndex[TRACK_CHANNEL_3-50], CHAN_VOICE);
+
+			if ( self->client->pers.protsince && self->client->pers.protsince < level.time ) {
+				self->client->pers.protTimeUsed += level.time - self->client->pers.protsince;
+			}
 		}
 		break;
 	case FP_DRAIN:

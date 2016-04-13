@@ -3785,6 +3785,7 @@ void ClientEndFrame( gentity_t *ent ) {
             ent->client->pers.teamState.lasthurtcarrier += time_delta;
             ent->client->pers.teamState.lastfraggedcarrier += time_delta;
 			ent->client->pers.teamState.flagsince += time_delta; // base_enhanced
+			ent->client->pers.protsince += time_delta; // force stats
             ent->client->respawnTime += time_delta;
             ent->pain_debounce_time += time_delta;
             ent->client->ps.fd.forcePowerRegenDebounceTime += time_delta;

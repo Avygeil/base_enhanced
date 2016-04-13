@@ -2660,6 +2660,12 @@ void LogExit( const char *string ) {
 				cl->pers.teamState.longestFlaghold = level.time - cl->pers.teamState.flagsince;
 		}
 
+		if ( cl->ps.fd.forcePowersActive & ( 1 << FP_PROTECT ) ) {
+			if ( cl->pers.protsince && cl->pers.protsince < level.time ) {
+				cl->pers.protTimeUsed += level.time - cl->pers.protsince;
+			}
+		}
+
 		ping = cl->ps.ping < 999 ? cl->ps.ping : 999;
 
 		G_LogPrintf( "score: %i  ping: %i  client: %i %s\n", cl->ps.persistant[PERS_SCORE], ping, level.sortedClients[i],	cl->pers.netname );
