@@ -1898,6 +1898,9 @@ extern vmCvar_t	   g_rconpassword;
 extern vmCvar_t	   g_callvotedelay;
 extern vmCvar_t	   g_callvotemaplimit;
 
+extern vmCvar_t    g_mapVotePlayers;
+extern vmCvar_t    g_mapVoteThreshold;
+
 extern vmCvar_t	   sv_privateclients;
 extern vmCvar_t    sv_passwordlessSpectators;
 

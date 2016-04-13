@@ -2630,6 +2630,30 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 			return;
 		}
 
+		if ( g_mapVoteThreshold.integer ) { // anti force map protection when the server is populated
+			gentity_t *ent;
+			int i, count = 0, ingame = 0;
+
+			for ( i = 0; i < level.maxclients; i++ ) { // count clients that are connected and not bots
+				ent = &g_entities[i];
+
+				if ( !ent || !ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED || ent->r.svFlags & SVF_BOT ) {
+					continue;
+				}
+
+				++count;
+
+				if ( ent->client->sess.sessionTeam != TEAM_SPECTATOR ) {
+					++ingame;
+				}
+			}
+
+			if ( count >= g_mapVoteThreshold.integer && ingame < g_mapVotePlayers.integer ) {
+				trap_SendServerCommand( ent - g_entities, "print \"Not enough players in game to call this vote.\n\"" );
+				return;
+			}
+		}
+
 		result = G_DoesMapSupportGametype(arg2, trap_Cvar_VariableIntegerValue("g_gametype"));
 		if (result)
 		{

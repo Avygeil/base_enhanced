@@ -299,6 +299,9 @@ vmCvar_t	g_rconpassword;
 vmCvar_t	g_callvotedelay;
 vmCvar_t	g_callvotemaplimit;
 
+vmCvar_t	g_mapVotePlayers;
+vmCvar_t	g_mapVoteThreshold;
+
 vmCvar_t	sv_privateclients;
 vmCvar_t	sv_passwordlessSpectators;
 
@@ -633,6 +636,9 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_callvotedelay,	"g_callvotedelay"	, "0"	, CVAR_ARCHIVE | CVAR_INTERNAL },
     { &g_callvotemaplimit,	"g_callvotemaplimit"	, "0"	, CVAR_ARCHIVE | CVAR_INTERNAL },
+
+	{ &g_mapVotePlayers,	"g_mapVotePlayers"	, "4"	, CVAR_ARCHIVE, 0, qtrue },
+	{ &g_mapVoteThreshold,	"g_mapVoteThreshold", "10"	, CVAR_ARCHIVE, 0, qtrue },
     
     { &sv_privateclients, "sv_privateclients", "0", CVAR_ARCHIVE | CVAR_SERVERINFO },
 	{ &sv_passwordlessSpectators, "sv_passwordlessSpectators", "0", CVAR_ARCHIVE | CVAR_SERVERINFO },
