@@ -2356,14 +2356,14 @@ void ClientUserinfoChanged( int clientNum ) {
 			SHA1Input( &ctx, (unsigned char *)value, (unsigned int)strlen(value) );
 			if ( SHA1Result( &ctx ) == 1 ) {
 				guidHash = ctx.Message_Digest[0];
-				Com_Printf( "Client %d (OpenJK) reports guid %d (userinfo %s)\n", clientNum, guidHash, userinfo );
+				G_LogPrintf( "Client %d (OpenJK) reports guid %d (userinfo %s)\n", clientNum, guidHash, userinfo );
 			}
 		} else {
 			// not an openjk client, so we should be able to force their cvars
 			value = Info_ValueForKey( userinfo, "sex" );
 			if ( value && *value && Q_isanumber( value ) ) {
 				guidHash = atoi( value );
-				Com_Printf( "Client %d reports guid %d (userinfo %s)\n", clientNum, guidHash, userinfo );
+				G_LogPrintf( "Client %d reports guid %d (userinfo %s)\n", clientNum, guidHash, userinfo );
 			} else {
 				char systeminfo[16384] = { 0 };
 				char previnfo[16384] = { 0 };
@@ -2378,7 +2378,7 @@ void ClientUserinfoChanged( int clientNum ) {
 						if ( *endptr == '\0' ) {
 							if ( prevHash == ULLONG_MAX && errno == ERANGE ) {
 								// parsed, but value was out of range
-								Com_Printf( "Client %d's previous id was too long: %s\n", clientNum, value );
+								G_LogPrintf( "Client %d's previous id was too long: %s\n", clientNum, value );
 							} else {
 								guidHash = prevHash & 0xFFFFFFFF;
 								prevGuid = qtrue;
@@ -2387,10 +2387,10 @@ void ClientUserinfoChanged( int clientNum ) {
 					}
 				}
 				if ( prevGuid ) {
-					Com_Printf( "Reassigning previously assigned guid %d to client %d (userinfo %s)\n", guidHash, clientNum, userinfo );
+					G_LogPrintf( "Reassigning previously assigned guid %d to client %d (userinfo %s)\n", guidHash, clientNum, userinfo );
 				} else {
 					guidHash = rand();
-					Com_Printf( "Assigning random guid %d to client %d (userinfo %s)\n", guidHash, clientNum, userinfo );
+					G_LogPrintf( "Assigning random guid %d to client %d (userinfo %s)\n", guidHash, clientNum, userinfo );
 				}
 				trap_GetConfigstring( CS_SYSTEMINFO, systeminfo, sizeof( systeminfo ) );
 
@@ -2402,7 +2402,7 @@ void ClientUserinfoChanged( int clientNum ) {
 			}
 		}
 		totalHash = ((unsigned long long int) ipHash) << 32 | guidHash;
-		Com_Printf( "Client %d (%s) has unique id %llu\n", clientNum, client->pers.netname, totalHash );
+		G_LogPrintf( "Client %d (%s) has unique id %llu\n", clientNum, client->pers.netname, totalHash );
 		if (g_gametype.integer == GT_SIEGE)
 		{ //more crap to send
 			s = va("n\\%s\\t\\%i\\model\\%s\\c1\\%s\\c2\\%s\\hc\\%i\\w\\%i\\l\\%i\\tt\\%d\\tl\\%d\\siegeclass\\%s\\st\\%s\\st2\\%s\\dt\\%i\\sdt\\%i\\id\\%llu",
