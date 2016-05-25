@@ -3007,9 +3007,11 @@ void Cmd_Vote_f( gentity_t *ent ) {
 	trap_Argv( 1, msg, sizeof( msg ) );
 
 	if ( msg[0] == 'y' || msg[1] == 'Y' || msg[1] == '1' ) {
+		G_LogPrintf("Client %i (%s) voted YES\n", ent - g_entities, ent->client->pers.netname);
 		level.voteYes++;
 		trap_SetConfigstring( CS_VOTE_YES, va("%i", level.voteYes ) );
 	} else {
+		G_LogPrintf("Client %i (%s) voted NO\n", ent - g_entities, ent->client->pers.netname);
 		level.voteNo++;
 		trap_SetConfigstring( CS_VOTE_NO, va("%i", level.voteNo ) );	
 	}
@@ -3228,9 +3230,11 @@ void Cmd_TeamVote_f( gentity_t *ent ) {
 	trap_Argv( 1, msg, sizeof( msg ) );
 
 	if ( msg[0] == 'y' || msg[1] == 'Y' || msg[1] == '1' ) {
+		G_LogPrintf("Client %i (%s) teamvoted YES\n", ent - g_entities, ent->client->pers.netname);
 		level.teamVoteYes[cs_offset]++;
 		trap_SetConfigstring( CS_TEAMVOTE_YES + cs_offset, va("%i", level.teamVoteYes[cs_offset] ) );
 	} else {
+		G_LogPrintf("Client %i (%s) teamvoted NO\n", ent - g_entities, ent->client->pers.netname);
 		level.teamVoteNo[cs_offset]++;
 		trap_SetConfigstring( CS_TEAMVOTE_NO + cs_offset, va("%i", level.teamVoteNo[cs_offset] ) );	
 	}
