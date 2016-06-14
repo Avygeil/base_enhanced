@@ -269,10 +269,6 @@ vmCvar_t    g_minVotersForEvenVotersCount;
 vmCvar_t	g_maxNameLength;
 vmCvar_t	g_duplicateNamesId;
 
-vmCvar_t    bot_minping;
-vmCvar_t    bot_maxping;
-vmCvar_t    bot_ping_sparsity;
-
 vmCvar_t     g_strafejump_mod;
 
 //allowing/disabling vote types
@@ -578,11 +574,6 @@ static cvarTable_t		gameCvarTable[] = {
 
 	// *CHANGE 10* anti q3fill
 	{ &g_cleverFakeDetection,	"g_cleverFakeDetection"	, "forcepowers"	, CVAR_ARCHIVE, 0, qtrue },
-
-	{ &bot_minping,	"bot_minping"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
-	{ &bot_maxping,	"bot_maxping"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
-	{ &bot_ping_sparsity,	"bot_ping_sparsity"	, "20"	, CVAR_ARCHIVE, 0, qtrue },
-	
 
 	{ &g_fixPitKills,	"g_fixPitKills"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
 

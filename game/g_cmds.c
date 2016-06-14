@@ -61,14 +61,6 @@ void DeathmatchScoreboardMessage( gentity_t *ent ) {
 			if (ping == 0 && !(g_entities[cl->ps.clientNum].r.svFlags & SVF_BOT))
 				ping = 1;
 
-			if (g_entities[cl->ps.clientNum].r.svFlags & SVF_BOT && bot_maxping.integer){
-				ping = cl->pers.botAvgPing+bot_ping_sparsity.integer*(2.0f*random()-1.0f);
-				if (ping < 0)
-					ping = 0;
-				else if (ping > 999)
-					ping = 999;
-			}
-
 		}
 
 		if( cl->accuracy_shots ) {

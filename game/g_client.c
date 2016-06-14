@@ -2649,8 +2649,8 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 	// *CHANGE 8b* added clientNum to persistant data
 	client->pers.clientNum = clientNum;
 
-	if (isBot && bot_maxping.integer)
-		client->pers.botAvgPing = (bot_maxping.integer-bot_minping.integer)*random()+bot_minping.integer;;
+	// passwordless clients
+	client->sess.canJoin = canJoinLater;
 
 	// read or initialize the session data
 	if ( firstTime || level.newSession ) 
