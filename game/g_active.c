@@ -699,10 +699,12 @@ void SpectatorThink( gentity_t *ent, usercmd_t *ucmd ) {
 		// attack button cycles through spectators
 		if ( ( client->buttons & BUTTON_ATTACK ) && ! ( client->oldbuttons & BUTTON_ATTACK ) ) {
 			Cmd_FollowCycle_f( ent, 1 );
-		}
-		else if ( client->sess.spectatorState == SPECTATOR_FOLLOW && 
+		} else if ( client->sess.spectatorState == SPECTATOR_FOLLOW && 
 			(client->buttons & BUTTON_ALT_ATTACK) && !(client->oldbuttons & BUTTON_ALT_ATTACK) ) {
 			Cmd_FollowCycle_f( ent, -1 );
+		} else if ( ucmd->generic_cmd == GENCMD_SABERATTACKCYCLE ) {
+			// saberattackcycle cycles flag carriers
+			Cmd_FollowFlag_f( ent );
 		}
 
 		if (client->sess.spectatorState == SPECTATOR_FOLLOW && (ucmd->upmove > 0))
