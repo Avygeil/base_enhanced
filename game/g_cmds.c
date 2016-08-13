@@ -1693,9 +1693,12 @@ static void G_SayTo( gentity_t *ent, gentity_t *other, int mode, int color, cons
 static char* GetSuffixId( gentity_t *ent ) {
 	int i;
 	gentity_t *other;
+	static char buf[16];
+
+	memset( buf, 0, sizeof( buf ) );
 
 	if ( !g_duplicateNamesId.integer ) {
-		return "";
+		return buf;
 	}
 
 	for ( i = 0; i < level.maxclients; i++ ) {
@@ -1706,11 +1709,12 @@ static char* GetSuffixId( gentity_t *ent ) {
 		}
 
 		if ( !strcmp( ent->client->pers.netname, other->client->pers.netname ) ) {
-			return va( " (%i)", ent - g_entities );
+			Com_sprintf( buf, sizeof( buf ), " (%i)", ent - g_entities );
+			break;
 		}
 	}
 
-	return "";
+	return buf;
 }
 
 static char* NM_SerializeUIntToColor( const unsigned int n ) {
