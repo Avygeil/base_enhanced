@@ -2473,7 +2473,6 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
     int         port = 0;
 	char		username[MAX_USERNAME_SIZE];
     static char reason[64];
-	qboolean	canJoinLater = qtrue;
 
 	trap_Cvar_VariableStringBuffer("g_cleverFakeDetection",	cleverFakeDetection, 24);
 	ent = &g_entities[ clientNum ];
@@ -2648,9 +2647,6 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 
 	// *CHANGE 8b* added clientNum to persistant data
 	client->pers.clientNum = clientNum;
-
-	// passwordless clients
-	client->sess.canJoin = canJoinLater;
 
 	// read or initialize the session data
 	if ( firstTime || level.newSession ) 
