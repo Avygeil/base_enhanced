@@ -1866,6 +1866,7 @@ extern vmCvar_t     g_hackLog;
 extern vmCvar_t     g_fixPitKills;
 
 extern vmCvar_t		g_allSabersCanKick;
+extern vmCvar_t		g_allSabersCanBackflip;
 extern vmCvar_t		g_balanceSaberOffense;
 extern vmCvar_t		g_balanceSeeing;
 

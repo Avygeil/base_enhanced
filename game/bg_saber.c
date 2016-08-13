@@ -2357,7 +2357,7 @@ saberMoveName_t PM_SaberAttackForMovement(saberMoveName_t curmove)
 		else if ( pm->cmd.forwardmove < 0 )
 		{//backward= T2B slash//B2T uppercut?
 			if (!noSpecials&&
-				pm->ps->fd.saberAnimLevel == SS_STAFF &&
+				( pm->ps->fd.saberAnimLevel == SS_STAFF || g_allSabersCanBackflip.integer ) &&
 				pm->ps->fd.forceRageRecoveryTime < pm->cmd.serverTime &&
 				pm->ps->fd.forcePowerLevel[FP_LEVITATION] > FORCE_LEVEL_1 &&
 				(pm->ps->groundEntityNum != ENTITYNUM_NONE || PM_GroundDistance() <= 40) &&
@@ -2576,9 +2576,9 @@ static qboolean CanSaberAnimKick( void ) {
 	if ( !g_allSabersCanKick.integer ) {
 		return qfalse; // basejka behavior
 	}
-
-	// we can kick if crouching and moving in any direction
-	return ( pm->cmd.upmove < 0 || pm->ps->pm_flags & PMF_DUCKED ) && ( pm->cmd.forwardmove != 0 || pm->cmd.rightmove != 0 );
+	// we can kick if crouching/walking and moving in any direction
+	return ( pm->cmd.upmove < 0 || pm->ps->pm_flags & PMF_DUCKED || pm->cmd.buttons & BUTTON_WALKING )
+		&& ( pm->cmd.forwardmove != 0 || pm->cmd.rightmove != 0 );
 }
 
 qboolean PM_CheckAltKickAttack( void )
