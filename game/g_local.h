@@ -1866,6 +1866,8 @@ extern vmCvar_t     g_hackLog;
 extern vmCvar_t     g_fixPitKills;
 
 extern vmCvar_t		g_allSabersCanKick;
+extern vmCvar_t		g_balanceSaberOffense;
+extern vmCvar_t		g_balanceSeeing;
 
 extern vmCvar_t     g_allow_vote_gametype;
 extern vmCvar_t     g_allow_vote_kick;

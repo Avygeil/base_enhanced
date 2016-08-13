@@ -3716,8 +3716,16 @@ void Cmd_SaberAttackCycle_f(gentity_t *ent)
 	}
 	else
 	{
+		int maxLevel = ent->client->ps.fd.forcePowerLevel[FP_SABER_OFFENSE];
 		selectLevel++;
-		if ( selectLevel > ent->client->ps.fd.forcePowerLevel[FP_SABER_OFFENSE] )
+
+		if ( g_balanceSaberOffense.integer >= 2 ) {
+			maxLevel += 2; // level 2 gives SS_DESANN, level 3 gives SS_TAVION
+		} else if ( g_balanceSaberOffense.integer ) {
+			maxLevel = SS_STRONG; // all stances are available regardless of the level
+		}
+
+		if ( selectLevel > maxLevel )
 		{
 			selectLevel = FORCE_LEVEL_1;
 		}
