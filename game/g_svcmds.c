@@ -1355,7 +1355,7 @@ void Svcmd_ClientInfo_f( void ) {
 			char description[MAX_STRING_CHARS] = { 0 }, userinfo[MAX_INFO_STRING] = { 0 };
 			trap_GetUserinfo( i, userinfo, sizeof( userinfo ) );
 
-			if ( Info_ValueForKey( userinfo, "nm_ver" ) ) {
+			if ( *Info_ValueForKey( userinfo, "nm_ver" ) ) {
 				// running newmod
 				char *cuid = NULL;
 
@@ -1394,7 +1394,7 @@ void Svcmd_ClientInfo_f( void ) {
 				}
 
 				Q_strcat( description, sizeof( description ), ", " );
-			} else if ( Info_ValueForKey( userinfo, "sm_ver" ) ) {
+			} else if ( *Info_ValueForKey( userinfo, "sm_ver" ) ) {
 				// running smod
 				Q_strcat( description, sizeof( description ), "SMod " );
 				Q_strcat( description, sizeof( description ), Info_ValueForKey( userinfo, "sm_ver" ) );
@@ -1404,7 +1404,7 @@ void Svcmd_ClientInfo_f( void ) {
 				Q_strcat( description, sizeof( description ), "Unknown mod, " );
 			}
 
-			if ( Info_ValueForKey( userinfo, "ja_guid" ) ) {
+			if ( *Info_ValueForKey( userinfo, "ja_guid" ) ) {
 				// running an openjk engine or fork
 				Q_strcat( description, sizeof( description ), "OpenJK or derivate" );
 			} else {
