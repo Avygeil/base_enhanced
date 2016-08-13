@@ -5670,6 +5670,7 @@ powersetcheck:
 qboolean Jedi_DodgeEvasion( gentity_t *self, gentity_t *shooter, trace_t *tr, int hitLoc )
 {
 	int	dodgeAnim = -1;
+	qboolean noWeakPoints = qfalse;
 
 	if ( !self || !self->client || self->health <= 0 )
 	{
@@ -5731,18 +5732,35 @@ qboolean Jedi_DodgeEvasion( gentity_t *self, gentity_t *shooter, trace_t *tr, in
 		}
 	}
 
+	if ( g_balanceSeeing.integer && self->client->ps.weapon == WP_SABER && self->client->ps.pm_flags & PMF_DUCKED ) {
+		// if we have a saber and are crouching, don't have a single weak point
+		noWeakPoints = qtrue;
+	}
+
+	#define DodgeOrReturn( a )	\
+	do {						\
+		if ( noWeakPoints ) {	\
+			dodgeAnim = a;		\
+			break;				\
+		} else {				\
+			return qfalse;		\
+		}						\
+	} while ( 0 )
+
 	switch( hitLoc )
 	{
 	case HL_NONE:
-		return qfalse;
+		return noWeakPoints;
 		break;
 
 	case HL_FOOT_RT:
+		DodgeOrReturn( BOTH_DODGE_FL );
 	case HL_FOOT_LT:
+		DodgeOrReturn( BOTH_DODGE_FR );
 	case HL_LEG_RT:
+		DodgeOrReturn( BOTH_DODGE_FL );
 	case HL_LEG_LT:
-		return qfalse;
-
+		DodgeOrReturn( BOTH_DODGE_FR );
 	case HL_BACK_RT:
 		dodgeAnim = BOTH_DODGE_FL;
 		break;
@@ -5772,7 +5790,7 @@ qboolean Jedi_DodgeEvasion( gentity_t *self, gentity_t *shooter, trace_t *tr, in
 		dodgeAnim = BOTH_DODGE_FL;
 		break;
 	default:
-		return qfalse;
+		return noWeakPoints;
 	}
 
 	if ( dodgeAnim != -1 )
@@ -5794,5 +5812,5 @@ qboolean Jedi_DodgeEvasion( gentity_t *self, gentity_t *shooter, trace_t *tr, in
 		}
 		return qtrue;
 	}
-	return qfalse;
+	return noWeakPoints;
 }
