@@ -7,6 +7,8 @@
 #include "g_database_log.h"
 #include "g_database_config.h"
 
+#include "sha1.h"
+
 void Team_ResetFlags( void );
 /*
 ==============================================================================
@@ -1345,6 +1347,75 @@ void Svcmd_RandomTeams_f() {
     trap_SendServerCommand(-1, va("print \"^2The captain in team ^4BLUE ^2is^7: %s\n\"", g_entities[readyPlayers[team1Count]].client->pers.netname));
 }
 
+void Svcmd_ClientInfo_f( void ) {
+	int i;
+
+	for ( i = 0; i < level.maxclients; ++i ) {
+		if ( level.clients[i].pers.connected != CON_DISCONNECTED && !( &g_entities[i] && g_entities[i].r.svFlags & SVF_BOT ) ) {
+			char description[MAX_STRING_CHARS] = { 0 }, userinfo[MAX_INFO_STRING] = { 0 };
+			trap_GetUserinfo( i, userinfo, sizeof( userinfo ) );
+
+			if ( Info_ValueForKey( userinfo, "nm_ver" ) ) {
+				// running newmod
+				char *cuid = NULL;
+
+				Q_strcat( description, sizeof( description ), "Newmod " );
+				Q_strcat( description, sizeof( description ), Info_ValueForKey( userinfo, "nm_ver" ) );
+
+				cuid = Info_ValueForKey( userinfo, "cuid" );
+
+				if ( cuid && *cuid ) {
+					if ( !strcmp( cuid, "0-0" ) ) {
+						// default cuid
+						Q_strcat( description, sizeof( description ), S_COLOR_RED" (empty CUID!)"S_COLOR_WHITE );
+					} else {
+						SHA1Context ctx;
+						SHA1Reset( &ctx );
+						SHA1Input( &ctx, ( unsigned char * )cuid, ( unsigned int )strlen( cuid ) );
+
+						if ( SHA1Result( &ctx ) == 1 ) {
+							int j;
+
+							Q_strcat( description, sizeof( description ), " (cuid hash: "S_COLOR_CYAN );
+
+							for ( j = 0; j < 5 && ctx.Message_Digest[j] != 0; ++j ) {
+								Q_strcat( description, sizeof( description ), va( "%x", ctx.Message_Digest[j] ) );
+							}
+
+							Q_strcat( description, sizeof( description ), S_COLOR_WHITE")" );
+						} else {
+							// error
+							Q_strcat( description, sizeof( description ), S_COLOR_RED" (hash failed!)"S_COLOR_WHITE );
+						}
+					}
+				} else {
+					// no cuid, compromised client?
+					Q_strcat( description, sizeof( description ), S_COLOR_RED" (no CUID!)"S_COLOR_WHITE );
+				}
+
+				Q_strcat( description, sizeof( description ), ", " );
+			} else if ( Info_ValueForKey( userinfo, "sm_ver" ) ) {
+				// running smod
+				Q_strcat( description, sizeof( description ), "SMod " );
+				Q_strcat( description, sizeof( description ), Info_ValueForKey( userinfo, "sm_ver" ) );
+				Q_strcat( description, sizeof( description ), ", " );
+			} else {
+				// running another cgame mod
+				Q_strcat( description, sizeof( description ), "Unknown mod, " );
+			}
+
+			if ( Info_ValueForKey( userinfo, "ja_guid" ) ) {
+				// running an openjk engine or fork
+				Q_strcat( description, sizeof( description ), "OpenJK or derivate" );
+			} else {
+				Q_strcat( description, sizeof( description ), "Jamp or other" );
+			}
+
+			G_Printf( "Client %i (%s"S_COLOR_WHITE"): %s\n", i, level.clients[i].pers.netname, description );
+		}
+	}
+}
+
 void Svcmd_PoolCreate_f()
 {
     char short_name[64];
@@ -1673,7 +1744,10 @@ qboolean	ConsoleCommand( void ) {
         return qtrue;
     }
 	
-
+	if ( !Q_stricmp( cmd, "clientinfo" ) ) {
+		Svcmd_ClientInfo_f();
+		return qtrue;
+	}
 
 	//if (Q_stricmp (cmd, "accountlistall") == 0) {
 	//	Svcmd_AccountPrintAll_f();
