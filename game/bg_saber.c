@@ -2568,6 +2568,19 @@ qboolean PM_CanDoKata( void )
 	return qfalse;
 }
 
+static qboolean CanSaberAnimKick( void ) {
+	if ( pm->ps->fd.saberAnimLevel == SS_STAFF ) {
+		return qtrue; // always true for staff
+	}
+
+	if ( !g_allSabersCanKick.integer ) {
+		return qfalse; // basejka behavior
+	}
+
+	// we can kick if crouching and moving in any direction
+	return ( pm->cmd.upmove < 0 || pm->ps->pm_flags & PMF_DUCKED ) && ( pm->cmd.forwardmove != 0 || pm->cmd.rightmove != 0 );
+}
+
 qboolean PM_CheckAltKickAttack( void )
 {
 	if ( pm->ps->weapon == WP_SABER )
@@ -2588,7 +2601,7 @@ qboolean PM_CheckAltKickAttack( void )
 	if ( (pm->cmd.buttons&BUTTON_ALT_ATTACK) 
 		//&& (!(pm->ps->pm_flags&PMF_ALT_ATTACK_HELD)||PM_SaberInReturn(pm->ps->saberMove))
 		&& (!BG_FlippingAnim(pm->ps->legsAnim)||pm->ps->legsTimer<=250)
-		&& (pm->ps->fd.saberAnimLevel == SS_STAFF/*||!pm->ps->saber[0].throwable*/) && !pm->ps->saberHolstered )
+		&& ( CanSaberAnimKick()/*||!pm->ps->saber[0].throwable*/) && !pm->ps->saberHolstered )
 	{
 		return qtrue;
 	}
@@ -2830,7 +2843,7 @@ void PM_WeaponLightsaber(void)
 
 	if ( (pm->cmd.buttons & BUTTON_ALT_ATTACK) )
 	{ //might as well just check for a saber throw right here
-		if (pm->ps->fd.saberAnimLevel == SS_STAFF)
+		if ( CanSaberAnimKick() )
 		{ //kick instead of doing a throw 
 			//if in a saber attack return anim, can interrupt it with a kick
 			if ( pm->ps->weaponTime > 0//can't fire yet
@@ -3252,8 +3265,8 @@ weapChecks:
 	// *********************************************************
 	// Check for WEAPON ATTACK
 	// *********************************************************
-	if (pm->ps->fd.saberAnimLevel == SS_STAFF &&
-		(pm->cmd.buttons & BUTTON_ALT_ATTACK))
+	if ( CanSaberAnimKick() &&
+		( pm->cmd.buttons & BUTTON_ALT_ATTACK ) )
 	{ //ok, try a kick I guess.
 		int kickMove = -1;
 
@@ -3262,8 +3275,8 @@ weapChecks:
 			!BG_InRoll(pm->ps, pm->ps->legsAnim) &&
 //			!BG_KickMove( pm->ps->saberMove )//not already in a kick
 			pm->ps->saberMove == LS_READY
-			&& !(pm->ps->pm_flags&PMF_DUCKED)//not ducked
-			&& (pm->cmd.upmove >= 0 ) //not trying to duck
+//			&& !(pm->ps->pm_flags&PMF_DUCKED)//not ducked
+//			&& (pm->cmd.upmove >= 0 ) //not trying to duck
 			)//&& pm->ps->groundEntityNum != ENTITYNUM_NONE)
 		{//player kicks
 			kickMove = PM_KickMoveForConditions();
