@@ -180,6 +180,10 @@ void G_InitSessionData( gclient_t *client, char *userinfo, qboolean isBot, qbool
 		if ( *nm_ver ) {
 			sess->hasNewmod = qtrue;
 			sess->cuidHash = HashCuid( Info_ValueForKey( userinfo, "cuid" ) );
+
+			if ( sess->cuidHash ) {
+				G_LogPrintf( "Newmod Client %d reports cuid hash %llX\n", client - level.clients, sess->cuidHash );
+			}
 		}
 
 		sess->confirmedLegitClient = qfalse; // not a confirmed client until proven
