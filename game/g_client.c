@@ -2436,6 +2436,11 @@ void ClientUserinfoChanged( int clientNum ) {
 				client->pers.netname, client->sess.sessionTeam, model, c1, c2, 
 				client->pers.maxHealth, client->sess.wins, client->sess.losses, teamTask, teamLeader, saberName, saber2Name, client->sess.duelTeam, totalHash);
 		}
+#ifdef NEWMOD_SUPPORT
+		if ( client->sess.hasNewmod && client->sess.cuidHash ) {
+			s = va( "%s\\cid\\%llX", s, client->sess.cuidHash );
+		}
+#endif
 	}
 
 	trap_SetConfigstring( CS_PLAYERS+clientNum, s );
@@ -2650,6 +2655,30 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 			}
 		}
 
+#ifdef NEWMOD_SUPPORT
+		{
+			// first newmod verification
+			char *nm_ver = Info_ValueForKey( userinfo, "nm_ver" );
+
+			if ( *nm_ver ) {
+#if 0
+				// Version filtering should be done here
+				if ( !strcmp( nm_ver, "1.0.0" ) ) {
+					return va( "Newmod %s is banned, please update.", nm_ver );
+				}
+#endif
+				if ( !*Info_ValueForKey( userinfo, "cuid" ) ) {
+					// user declares nm_ver but no cuid?
+					return "Invalid Newmod client.";
+				}
+			} else {
+				if ( *Info_ValueForKey( userinfo, "cuid" ) ) {
+					// user declares cuid but no nm_ver?
+					return "Invalid Newmod client.";
+				}
+			}
+		}
+#endif
 	}
 
 	// they can connect

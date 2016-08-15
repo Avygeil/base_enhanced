@@ -7,8 +7,6 @@
 #include "g_database_log.h"
 #include "g_database_config.h"
 
-#include "sha1.h"
-
 void Team_ResetFlags( void );
 /*
 ==============================================================================
@@ -1355,45 +1353,28 @@ void Svcmd_ClientInfo_f( void ) {
 			char description[MAX_STRING_CHARS] = { 0 }, userinfo[MAX_INFO_STRING] = { 0 };
 			trap_GetUserinfo( i, userinfo, sizeof( userinfo ) );
 
-			if ( *Info_ValueForKey( userinfo, "nm_ver" ) ) {
+#ifdef NEWMOD_SUPPORT
+			if ( level.clients[i].sess.hasNewmod ) {
 				// running newmod
-				char *cuid = NULL;
-
 				Q_strcat( description, sizeof( description ), "Newmod " );
 				Q_strcat( description, sizeof( description ), Info_ValueForKey( userinfo, "nm_ver" ) );
 
-				cuid = Info_ValueForKey( userinfo, "cuid" );
-
-				if ( cuid && *cuid ) {
-					if ( !strcmp( cuid, "0-0" ) ) {
-						// default cuid
-						Q_strcat( description, sizeof( description ), S_COLOR_RED" (empty CUID!)"S_COLOR_WHITE );
-					} else {
-						SHA1Context ctx;
-						SHA1Reset( &ctx );
-						SHA1Input( &ctx, ( unsigned char * )cuid, ( unsigned int )strlen( cuid ) );
-
-						if ( SHA1Result( &ctx ) == 1 ) {
-							int j;
-
-							Q_strcat( description, sizeof( description ), " (cuid hash: "S_COLOR_CYAN );
-
-							for ( j = 0; j < 5 && ctx.Message_Digest[j] != 0; ++j ) {
-								Q_strcat( description, sizeof( description ), va( "%x", ctx.Message_Digest[j] ) );
-							}
-
-							Q_strcat( description, sizeof( description ), S_COLOR_WHITE")" );
-						} else {
-							// error
-							Q_strcat( description, sizeof( description ), S_COLOR_RED" (hash failed!)"S_COLOR_WHITE );
-						}
-					}
+				if ( level.clients[i].sess.cuidHash ) {
+					// valid cuid
+					Q_strcat( description, sizeof( description ), va( " (cuid hash: "S_COLOR_CYAN"%llX"S_COLOR_WHITE")", level.clients[i].sess.cuidHash ) );
 				} else {
-					// no cuid, compromised client?
-					Q_strcat( description, sizeof( description ), S_COLOR_RED" (no CUID!)"S_COLOR_WHITE );
+					// default cuid
+					Q_strcat( description, sizeof( description ), S_COLOR_RED" (default CUID!)"S_COLOR_WHITE );
 				}
 
 				Q_strcat( description, sizeof( description ), ", " );
+#else
+			if ( *Info_ValueForKey( userinfo, "nm_ver" ) ) {
+				// running newmod
+				Q_strcat( description, sizeof( description ), "Newmod " );
+				Q_strcat( description, sizeof( description ), Info_ValueForKey( userinfo, "nm_ver" ) );
+				Q_strcat( description, sizeof( description ), ", " );
+#endif
 			} else if ( *Info_ValueForKey( userinfo, "sm_ver" ) ) {
 				// running smod
 				Q_strcat( description, sizeof( description ), "SMod " );

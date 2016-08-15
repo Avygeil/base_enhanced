@@ -3,7 +3,7 @@
 #include "g_local.h"
 
 //#include "accounts.h"
-
+#include "sha1.h"
 
 /*
 =======================================================================
@@ -14,6 +14,30 @@ Session data is the only data that stays persistant across level loads
 and tournament restarts.
 =======================================================================
 */
+
+#ifdef NEWMOD_SUPPORT
+static cuid_t HashCuid( const char *cuid ) {
+	if ( !cuid || !*cuid || !strcmp( cuid, "0-0" ) ) {
+		return 0; // don't hash empty/default cuid's
+	}
+
+	SHA1Context ctx;
+	cuid_t hash = 0;
+	SHA1Reset( &ctx );
+	SHA1Input( &ctx, ( unsigned char * )cuid, ( unsigned int )strlen( cuid ) );
+
+	if ( SHA1Result( &ctx ) == 1 ) {
+		// the cuid itself is 2*32 bits long, it doesn't make sense to use more than 64 bits of the hash
+		hash = ( ( cuid_t ) ctx.Message_Digest[0] ) << 32 | ctx.Message_Digest[1];
+#if 0
+		// per server randomization can be done with a key here to invalidate all cuid's
+		hash ^= 0x11b9791e5718f00c;
+#endif
+	}
+
+	return hash;
+}
+#endif
 
 /*
 ================
@@ -148,6 +172,19 @@ void G_InitSessionData( gclient_t *client, char *userinfo, qboolean isBot, qbool
 
 	Q_strncpyz( sess->saberType, Info_ValueForKey( userinfo, "saber1" ), sizeof( sess->saberType ) );
 	Q_strncpyz( sess->saber2Type, Info_ValueForKey( userinfo, "saber2" ), sizeof( sess->saber2Type ) );
+
+#ifdef NEWMOD_SUPPORT
+	{
+		char *nm_ver = Info_ValueForKey( userinfo, "nm_ver" );
+
+		if ( *nm_ver ) {
+			sess->hasNewmod = qtrue;
+			sess->cuidHash = HashCuid( Info_ValueForKey( userinfo, "cuid" ) );
+		}
+
+		sess->confirmedLegitClient = qfalse; // not a confirmed client until proven
+	}
+#endif
 }
 
 
