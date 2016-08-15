@@ -178,15 +178,18 @@ void G_InitSessionData( gclient_t *client, char *userinfo, qboolean isBot, qbool
 		char *nm_ver = Info_ValueForKey( userinfo, "nm_ver" );
 
 		if ( *nm_ver ) {
-			sess->hasNewmod = qtrue;
 			sess->cuidHash = HashCuid( Info_ValueForKey( userinfo, "cuid" ) );
 
 			if ( sess->cuidHash ) {
 				G_LogPrintf( "Newmod Client %d reports cuid hash %llX\n", client - level.clients, sess->cuidHash );
+			} else {
+				G_LogPrintf( "Newmod Client %d reports default cuid\n", client - level.clients );
 			}
+
+			sess->confirmationKeys[0] = sess->confirmationKeys[1] = -1; // marks the key to be calculated in the first ClientBegin()
 		}
 
-		sess->confirmedLegitClient = qfalse; // not a confirmed client until proven
+		sess->confirmedNewmod = qfalse;
 	}
 #endif
 }

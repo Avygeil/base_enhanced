@@ -2437,7 +2437,7 @@ void ClientUserinfoChanged( int clientNum ) {
 				client->pers.maxHealth, client->sess.wins, client->sess.losses, teamTask, teamLeader, saberName, saber2Name, client->sess.duelTeam, totalHash);
 		}
 #ifdef NEWMOD_SUPPORT
-		if ( client->sess.hasNewmod && client->sess.cuidHash ) {
+		if ( client->sess.confirmedNewmod && client->sess.cuidHash ) {
 			s = va( "%s\\cid\\%llX", s, client->sess.cuidHash );
 		}
 #endif
@@ -2847,6 +2847,16 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 	}
 
 	client = level.clients + clientNum;
+
+#ifdef NEWMOD_SUPPORT
+#define RandomConfirmationKey()	( ( rand() << 16 ) ^ rand() ^ trap_Milliseconds() )
+	if ( !client->sess.confirmedNewmod && client->sess.confirmationKeys[0] < 0 && client->sess.confirmationKeys[1] < 0 ) {
+		// newmod client is not authenticated, calculate a key and send it to him
+		client->sess.confirmationKeys[0] = RandomConfirmationKey();
+		client->sess.confirmationKeys[1] = RandomConfirmationKey();
+		trap_SendServerCommand( ent - g_entities, va( "clauth %d %d", client->sess.confirmationKeys[0], client->sess.confirmationKeys[1] ) );
+	}
+#endif
 
 	if ( ent->r.linked ) {
 		trap_UnlinkEntity( ent );

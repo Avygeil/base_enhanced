@@ -1354,17 +1354,23 @@ void Svcmd_ClientInfo_f( void ) {
 			trap_GetUserinfo( i, userinfo, sizeof( userinfo ) );
 
 #ifdef NEWMOD_SUPPORT
-			if ( level.clients[i].sess.hasNewmod ) {
+			if ( *Info_ValueForKey( userinfo, "nm_ver" ) ) {
 				// running newmod
 				Q_strcat( description, sizeof( description ), "Newmod " );
 				Q_strcat( description, sizeof( description ), Info_ValueForKey( userinfo, "nm_ver" ) );
 
+				if ( level.clients[i].sess.confirmedNewmod ) {
+					Q_strcat( description, sizeof( description ), S_COLOR_GREEN" (confirmed) "S_COLOR_WHITE );
+				} else {
+					Q_strcat( description, sizeof( description ), S_COLOR_RED" (unconfirmed) "S_COLOR_WHITE );
+				}
+
 				if ( level.clients[i].sess.cuidHash ) {
 					// valid cuid
-					Q_strcat( description, sizeof( description ), va( " (cuid hash: "S_COLOR_CYAN"%llX"S_COLOR_WHITE")", level.clients[i].sess.cuidHash ) );
+					Q_strcat( description, sizeof( description ), va( "(cuid hash: "S_COLOR_CYAN"%llX"S_COLOR_WHITE")", level.clients[i].sess.cuidHash ) );
 				} else {
 					// default cuid
-					Q_strcat( description, sizeof( description ), S_COLOR_RED" (default CUID!)"S_COLOR_WHITE );
+					Q_strcat( description, sizeof( description ), S_COLOR_RED"(default CUID!)"S_COLOR_WHITE );
 				}
 
 				Q_strcat( description, sizeof( description ), ", " );
