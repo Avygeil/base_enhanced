@@ -4236,25 +4236,26 @@ void Cmd_SvAuth_f( gentity_t *ent ) {
 		return;
 	}
 
-	if ( trap_Argc() < 2 ) {
-		return;
+	if ( trap_Argc() == 2 ) {
+		char buffer[32];
+		int result;
+		trap_Argv( 1, buffer, sizeof( buffer ) );
+
+		result = atoi( buffer );
+
+		if ( result && ( result ^ ent->client->sess.confirmationKeys[1] ) == ent->client->sess.confirmationKeys[0] ) {
+			G_LogPrintf( "Newmod Client %d successfully authenticated\n", ent - g_entities );
+			ent->client->sess.confirmedNewmod = qtrue;
+			ClientUserinfoChanged( ent - g_entities ); // update userinfo so cuid hash can be appended
+		}
+		else {
+			G_LogPrintf( "Newmod Client %d failed authentication\n", ent - g_entities );
+		}
+	} else {
+		G_LogPrintf( "Newmod Client %d failed authentication\n", ent - g_entities );
 	}
 
-	char buffer[32];
-	int result;
-	trap_Argv( 1, buffer, sizeof( buffer ) );
-
-	result = atoi( buffer );
-
-	if ( result && ( result ^ ent->client->sess.confirmationKeys[1] ) == ent->client->sess.confirmationKeys[0] ) {
-		G_LogPrintf( "Newmod Client %d successfully authenticated\n", ent - g_entities );
-		ent->client->sess.confirmationKeys[0] = ent->client->sess.confirmationKeys[1] = 0;
-		ent->client->sess.confirmedNewmod = qtrue;
-
-		return;
-	}
-
-	G_LogPrintf( "Newmod Client %d failed authentication\n", ent - g_entities );
+	ent->client->sess.confirmationKeys[0] = ent->client->sess.confirmationKeys[1] = 0;
 }
 #endif
 
