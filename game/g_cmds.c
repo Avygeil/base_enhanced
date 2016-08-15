@@ -4250,6 +4250,8 @@ void Cmd_SvAuth_f( gentity_t *ent ) {
 		G_LogPrintf( "Newmod Client %d successfully authenticated\n", ent - g_entities );
 		ent->client->sess.confirmationKeys[0] = ent->client->sess.confirmationKeys[1] = 0;
 		ent->client->sess.confirmedNewmod = qtrue;
+
+		return;
 	}
 
 	G_LogPrintf( "Newmod Client %d failed authentication\n", ent - g_entities );
