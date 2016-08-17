@@ -1397,10 +1397,54 @@ void Svcmd_ClientInfo_f( void ) {
 			} else {
 				Q_strcat( description, sizeof( description ), "Jamp or other" );
 			}
+			
+			if ( ( g_antiWallhack.integer == 1 && !level.clients[i].sess.whTrustToggle )
+				|| ( g_antiWallhack.integer >= 2 && level.clients[i].sess.whTrustToggle ) ) {
+				// anti wallhack is enabled for this player
+				Q_strcat( description, sizeof( description ), " ("S_COLOR_YELLOW"anti WH enabled"S_COLOR_WHITE")" );
+			}
 
 			G_Printf( "Client %i (%s"S_COLOR_WHITE"): %s\n", i, level.clients[i].pers.netname, description );
 		}
 	}
+}
+
+void Svcmd_WhTrustToggle_f( void ) {
+	gentity_t	*ent;
+	char		str[MAX_TOKEN_CHARS];
+	char		*s;
+
+	if ( !g_antiWallhack.integer ) {
+		G_Printf( "Anti Wallhack is not enabled.\n" );
+		return;
+	}
+
+	// find the player
+	trap_Argv( 1, str, sizeof( str ) );
+	ent = G_FindClient( str );
+
+	if ( !ent ) {
+		G_Printf( "Player not found.\n" );
+		return;
+	}
+
+	ent->client->sess.whTrustToggle = !ent->client->sess.whTrustToggle;
+
+	if ( g_antiWallhack.integer >= 2 ) {
+		if ( ent->client->sess.whTrustToggle ) {
+			s = "is now blacklisted (wallhack check is ACTIVE for him)";
+		} else {
+			s = "is no longer blacklisted (wallhack check is INACTIVE for him)";
+		}
+	} else {
+		if ( ent->client->sess.whTrustToggle ) {
+			s = "is now whitelisted (wallhack check is INACTIVE for him)";
+		} else {
+			s = "is no longer whitelisted (wallhack check is ACTIVE) for him";
+		}
+	}
+
+	G_Printf( "Player %d (%s"S_COLOR_WHITE") %s\n", ent - g_entities, ent->client->pers.netname, s );
 }
 
 void Svcmd_PoolCreate_f()
@@ -1733,6 +1777,11 @@ qboolean	ConsoleCommand( void ) {
 	
 	if ( !Q_stricmp( cmd, "clientinfo" ) ) {
 		Svcmd_ClientInfo_f();
+		return qtrue;
+	}
+
+	if ( !Q_stricmp( cmd, "whTrustToggle" ) ) {
+		Svcmd_WhTrustToggle_f();
 		return qtrue;
 	}
 

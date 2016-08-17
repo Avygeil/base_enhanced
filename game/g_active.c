@@ -1157,118 +1157,302 @@ Determines whether this client should be broadcast to any other clients.
 A client is broadcast when another client is using force sight or is
 ==================
 */
-#define MAX_JEDIMASTER_DISTANCE	2500
-#define MAX_JEDIMASTER_FOV		100
 
-#define MAX_SIGHT_DISTANCE		1500
-#define MAX_SIGHT_FOV			100
+static qboolean SE_RenderIsVisible( const gentity_t *self, const vec3_t startPos, const vec3_t testOrigin, qboolean reversedCheck ) {
+	trace_t results;
 
-static void G_UpdateForceSightBroadcasts ( gentity_t *self )
-{
+	trap_Trace( &results, startPos, NULL, NULL, testOrigin, self - g_entities, MASK_SOLID );
+
+	if ( results.fraction < 1.0f ) {
+		if ( ( results.surfaceFlags & SURF_FORCEFIELD )
+			|| ( results.surfaceFlags & MATERIAL_MASK ) == MATERIAL_GLASS
+			|| ( results.surfaceFlags & MATERIAL_MASK ) == MATERIAL_SHATTERGLASS ) {
+			// FIXME: This is a quick hack to render people and things through glass and force fields, but will also take
+			// effect even if there is another wall between them (and double glass) - which is bad, of course, but
+			// nothing i can prevent right now.
+			if ( reversedCheck || SE_RenderIsVisible( self, testOrigin, startPos, qtrue ) ) {
+				return qtrue;
+			}
+		}
+
+		return qfalse;
+	}
+
+	return qtrue;
+}
+
+static qboolean SE_RenderPlayerChecks( const gentity_t *self, const vec3_t playerOrigin, vec3_t playerPoints[9] ) {
+	trace_t results;
 	int i;
 
-	// Any clients with force sight on should see this client
-	for ( i = 0; i < level.numConnectedClients; i ++ )
-	{
-		gentity_t *ent = &g_entities[level.sortedClients[i]];
-		float	  dist;
-		vec3_t	  angles;
-	
-		if ( ent == self )
-		{
-			continue;
+	for ( i = 0; i < 9; i++ ) {
+		if ( trap_PointContents( playerPoints[i], self - g_entities ) == CONTENTS_SOLID ) {
+			trap_Trace( &results, playerOrigin, NULL, NULL, playerPoints[i], self - g_entities, MASK_SOLID );
+			VectorCopy( results.endpos, playerPoints[i] );
 		}
+	}
 
-		// Not using force sight so we shouldnt broadcast to this one
-		if ( !(ent->client->ps.fd.forcePowersActive & (1<<FP_SEE) ) )
-		{
-			continue;
-		}
+	return qtrue;
+}
 
-		VectorSubtract( self->client->ps.origin, ent->client->ps.origin, angles );
-		dist = VectorLengthSquared ( angles );
-		vectoangles ( angles, angles );
 
-		// Too far away then just forget it
-		if ( dist > MAX_SIGHT_DISTANCE * MAX_SIGHT_DISTANCE )
-		{
-			continue;
-		}
-		
-		// If not within the field of view then forget it
-		if ( !InFieldOfVision ( ent->client->ps.viewangles, MAX_SIGHT_FOV, angles ) )
-		{
-			break;
-		}
+static qboolean SE_IsPlayerCrouching( const gentity_t *ent ) {
+	const playerState_t *ps = &ent->client->ps;
 
-		// Turn on the broadcast bit for the master and since there is only one
-		// master we are done
-		self->r.broadcastClients[ent->s.clientNum/32] |= (1 << (ent->s.clientNum%32));
-	
+	// FIXME: This is no proper way to determine if a client is actually in a crouch position, we want to do this in
+	// order to properly hide a client from the enemy when he is crouching behind an obstacle and could not possibly
+	// be seen.
+
+	if ( !ent->inuse || !ps ) {
+		return qfalse;
+	}
+
+	if ( ps->forceHandExtend == HANDEXTEND_KNOCKDOWN ) {
+		return qtrue;
+	}
+
+	if ( ps->pm_flags & PMF_DUCKED ) {
+		return qtrue;
+	}
+
+	switch ( ps->legsAnim ) {
+	case BOTH_GETUP1:
+	case BOTH_GETUP2:
+	case BOTH_GETUP3:
+	case BOTH_GETUP4:
+	case BOTH_GETUP5:
+	case BOTH_FORCE_GETUP_F1:
+	case BOTH_FORCE_GETUP_F2:
+	case BOTH_FORCE_GETUP_B1:
+	case BOTH_FORCE_GETUP_B2:
+	case BOTH_FORCE_GETUP_B3:
+	case BOTH_FORCE_GETUP_B4:
+	case BOTH_FORCE_GETUP_B5:
+	case BOTH_GETUP_BROLL_B:
+	case BOTH_GETUP_BROLL_F:
+	case BOTH_GETUP_BROLL_L:
+	case BOTH_GETUP_BROLL_R:
+	case BOTH_GETUP_FROLL_B:
+	case BOTH_GETUP_FROLL_F:
+	case BOTH_GETUP_FROLL_L:
+	case BOTH_GETUP_FROLL_R:
+		return qtrue;
+	default:
 		break;
 	}
+
+	switch ( ps->torsoAnim ) {
+	case BOTH_GETUP1:
+	case BOTH_GETUP2:
+	case BOTH_GETUP3:
+	case BOTH_GETUP4:
+	case BOTH_GETUP5:
+	case BOTH_FORCE_GETUP_F1:
+	case BOTH_FORCE_GETUP_F2:
+	case BOTH_FORCE_GETUP_B1:
+	case BOTH_FORCE_GETUP_B2:
+	case BOTH_FORCE_GETUP_B3:
+	case BOTH_FORCE_GETUP_B4:
+	case BOTH_FORCE_GETUP_B5:
+	case BOTH_GETUP_BROLL_B:
+	case BOTH_GETUP_BROLL_F:
+	case BOTH_GETUP_BROLL_L:
+	case BOTH_GETUP_BROLL_R:
+	case BOTH_GETUP_FROLL_B:
+	case BOTH_GETUP_FROLL_F:
+	case BOTH_GETUP_FROLL_L:
+	case BOTH_GETUP_FROLL_R:
+		return qtrue;
+	default:
+		break;
+	}
+
+	return qfalse;
 }
 
-static void G_UpdateJediMasterBroadcasts ( gentity_t *self )
-{
+static qboolean SE_RenderPlayerPoints( qboolean isCrouching, const vec3_t playerAngles, const vec3_t playerOrigin, vec3_t playerPoints[9] ) {
+	int isHeight = isCrouching ? 32 : 56;
+	vec3_t	forward, right, up;
+
+	AngleVectors( playerAngles, forward, right, up );
+
+	VectorMA( playerOrigin, 32.0f, up, playerPoints[0] );
+	VectorMA( playerOrigin, 64.0f, forward, playerPoints[1] );
+	VectorMA( playerPoints[1], 64.0f, right, playerPoints[1] );
+	VectorMA( playerOrigin, 64.0f, forward, playerPoints[2] );
+	VectorMA( playerPoints[2], -64.0f, right, playerPoints[2] );
+	VectorMA( playerOrigin, -64.0f, forward, playerPoints[3] );
+	VectorMA( playerPoints[3], 64.0f, right, playerPoints[3] );
+	VectorMA( playerOrigin, -64.0f, forward, playerPoints[4] );
+	VectorMA( playerPoints[4], -64.0f, right, playerPoints[4] );
+
+	VectorMA( playerPoints[1], isHeight, up, playerPoints[5] );
+	VectorMA( playerPoints[2], isHeight, up, playerPoints[6] );
+	VectorMA( playerPoints[3], isHeight, up, playerPoints[7] );
+	VectorMA( playerPoints[4], isHeight, up, playerPoints[8] );
+
+	return qtrue;
+}
+
+static void GetCameraPosition( const gentity_t *self, vec3_t cameraOrigin ) {
+	vec3_t forward;
+	int thirdPerson = 1, thirdPersonRange = 80, thirdPersonVertOffset = 16;
+
+	AngleVectors( self->client->ps.viewangles, forward, NULL, NULL );
+	VectorNormalize( forward );
+
+	//Get third person position.  
+	VectorCopy( self->client->ps.origin, cameraOrigin );
+	VectorMA( cameraOrigin, -thirdPersonRange, forward, cameraOrigin );
+	cameraOrigin[2] += 24 + thirdPersonVertOffset;
+
+	if ( SE_IsPlayerCrouching( self ) ) {
+		cameraOrigin[2] -= 32;
+	}
+}
+
+static qboolean SE_NetworkPlayer( const gentity_t *self, const gentity_t *other ) {
 	int i;
+	vec3_t firstPersonPos, thirdPersonPos, targPos[9];
+	unsigned int contents;
 
-	// Not jedi master mode then nothing to do
-	if ( g_gametype.integer != GT_JEDIMASTER )
-	{
-		return;
+	GetCameraPosition( self, thirdPersonPos );
+
+	VectorCopy( self->client->ps.origin, firstPersonPos );
+	firstPersonPos[2] += 24;
+
+	if ( SE_IsPlayerCrouching( self ) ) {
+		firstPersonPos[2] -= 32;
 	}
 
-	// This client isnt the jedi master so it shouldnt broadcast
-	if ( !self->client->ps.isJediMaster )
-	{
-		return;
+	contents = trap_PointContents( firstPersonPos, self - g_entities );
+
+	// translucent, we should probably just network them anyways
+	if ( contents & ( CONTENTS_WATER | CONTENTS_LAVA | CONTENTS_SLIME ) ) {
+		return qtrue;
 	}
 
-	// Broadcast ourself to all clients within range
-	for ( i = 0; i < level.numConnectedClients; i ++ )
-	{
-		gentity_t *ent = &g_entities[level.sortedClients[i]];
-		float	  dist;
-		vec3_t	  angles;
-
-		if ( ent == self )
-		{
-			continue;
-		}
-
-		VectorSubtract( self->client->ps.origin, ent->client->ps.origin, angles );
-		dist = VectorLengthSquared ( angles );
-		vectoangles ( angles, angles );
-
-		// Too far away then just forget it
-		if ( dist > MAX_JEDIMASTER_DISTANCE * MAX_JEDIMASTER_DISTANCE )
-		{
-			continue;
-		}
-		
-		// If not within the field of view then forget it
-		if ( !InFieldOfVision ( ent->client->ps.viewangles, MAX_JEDIMASTER_FOV, angles ) )
-		{
-			continue;
-		}
-
-		// Turn on the broadcast bit for the master and since there is only one
-		// master we are done
-		self->r.broadcastClients[ent->s.clientNum/32] |= (1 << (ent->s.clientNum%32));
+	// entirely in an opaque surface, no point networking them.
+	if ( contents & ( CONTENTS_SOLID | CONTENTS_TERRAIN | CONTENTS_OPAQUE ) ) {
+		return qfalse;
 	}
+
+	// plot their bbox pointer into targPos[]
+	SE_RenderPlayerPoints( SE_IsPlayerCrouching( other ), other->client->ps.viewangles, other->client->ps.origin, targPos );
+	SE_RenderPlayerChecks( self, other->client->ps.origin, targPos );
+
+	for ( i = 0; i < 9; i++ ) {
+		if ( SE_RenderIsVisible( self, thirdPersonPos, targPos[i], qfalse ) ) {
+			return qtrue;
+		}
+
+		if ( SE_RenderIsVisible( self, firstPersonPos, targPos[i], qfalse ) ) {
+			return qtrue;
+		}
+	}
+
+	return qfalse;
 }
 
-void G_UpdateClientBroadcasts ( gentity_t *self )
-{
-	// Clear all the broadcast bits for this client
-	memset ( self->r.broadcastClients, 0, sizeof ( self->r.broadcastClients ) );
+// Tracing non-players seems to have a bad effect, we know players are limited to 32 per frame, however other gentities
+// that are being added are not! It's stupid to actually add traces for it, even with a limited form i used before of 2
+// traces per object. There are to many too track and simply networking them takes less FPS either way
+static qboolean G_EntityOccluded( const gentity_t *self, const gentity_t *other ) {
+	// This is a non-player object, just send it (see above).
+	if ( !other->inuse || other->s.number >= level.maxclients ) {
+		return qtrue;
+	}
 
-	// The jedi master is broadcast to everyone in range
-	G_UpdateJediMasterBroadcasts ( self );
+	// If this player is me, or my spectee, we will always draw and don't trace.
+	if ( self == other ) {
+		return qtrue;
+	}
 
-	// Anyone with force sight on should see this client
-	G_UpdateForceSightBroadcasts ( self );
+	if ( self->client->ps.zoomMode ) { // 0.0
+		return qtrue;
+	}
+	
+	// Not rendering; this player's traces did not appear in my screen.
+	if ( !SE_NetworkPlayer( self, other ) ) {
+		return qtrue;
+	}
+
+	return qfalse;
+}
+
+#define MAX_JEDI_MASTER_DISTANCE	( ( float )( 2500 * 2500 ) )
+#define MAX_JEDI_MASTER_FOV			100.0f
+#define MAX_FORCE_SIGHT_DISTANCE	( ( float )( 1500 * 1500 ) )
+#define MAX_FORCE_SIGHT_FOV			100.0f
+
+void G_UpdateClientBroadcasts( gentity_t *self ) {
+	int i;
+	gentity_t *other;
+
+	// we are always sent to ourselves
+	// we are always sent to other clients if we are in their PVS
+	// if we are not in their PVS, we must set the broadcastClients bit field
+	// if we do not wish to be sent to any particular entity, we must set the broadcastClients bit field and the
+	//	SVF_BROADCASTCLIENTS bit flag
+	self->r.broadcastClients[0] = 0;
+	self->r.broadcastClients[1] = 0;
+
+	if ( g_antiWallhack.integer ) {
+		self->r.svFlags |= SVF_BROADCASTCLIENTS;
+	} else {
+		self->r.svFlags &= ~SVF_BROADCASTCLIENTS;
+	}
+
+	for ( i = 0, other = g_entities; i < MAX_CLIENTS; i++, other++ ) {
+		qboolean send = qfalse;
+		float dist;
+		vec3_t angles;
+
+		if ( !other->inuse || other->client->pers.connected != CON_CONNECTED ) {
+			// no need to compute visibility for non-connected clients
+			continue;
+		}
+
+		if ( other == self ) {
+			// we are always sent to ourselves anyway, this is purely an optimisation
+			continue;
+		}
+
+		VectorSubtract( self->client->ps.origin, other->client->ps.origin, angles );
+		dist = VectorLengthSquared( angles );
+		vectoangles( angles, angles );
+
+		// broadcast jedi master to everyone if we are in distance/field of view
+		if ( g_gametype.integer == GT_JEDIMASTER && self->client->ps.isJediMaster ) {
+			if ( dist < MAX_JEDI_MASTER_DISTANCE && InFieldOfVision( other->client->ps.viewangles, MAX_JEDI_MASTER_FOV, angles ) ) {
+				send = qtrue;
+			}
+		}
+
+		// broadcast this client to everyone using force sight if we are in distance/field of view
+		if ( ( other->client->ps.fd.forcePowersActive & ( 1 << FP_SEE ) ) ) {
+			if ( dist < MAX_FORCE_SIGHT_DISTANCE && InFieldOfVision( other->client->ps.viewangles, MAX_FORCE_SIGHT_FOV, angles ) ) {
+				send = qtrue;
+			}
+		}
+
+		if ( !send && g_antiWallhack.integer ) {
+			if ( other->client->ps.pm_type != PM_SPECTATOR // always send everyone to spectators
+				&& ( ( g_antiWallhack.integer == 1 && !other->client->sess.whTrustToggle ) // not whitelisted
+				|| ( g_antiWallhack.integer >= 2 && other->client->sess.whTrustToggle ) ) // blacklisted
+				&& G_EntityOccluded( self, other ) ) {
+				continue;
+			} else {
+				send = qtrue;
+			}
+		}
+
+		if ( send ) {
+			self->r.broadcastClients[i / 32] |= ( 1 << ( i % 32 ) );
+		}
+	}
+
+	trap_LinkEntity( self );
 }
 
 void G_AddPushVecToUcmd( gentity_t *self, usercmd_t *ucmd )

@@ -163,6 +163,7 @@ void G_InitSessionData( gclient_t *client, char *userinfo, qboolean isBot, qbool
 	sess->ignoreFlags = 0;
 
 	sess->canJoin = !sv_passwordlessSpectators.integer || PasswordMatches( Info_ValueForKey( userinfo, "password" ) );
+	sess->whTrustToggle = qfalse;
 
 	sess->spectatorState = SPECTATOR_FREE;
 	sess->spectatorTime = level.time;

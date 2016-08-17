@@ -276,6 +276,8 @@ vmCvar_t	g_duplicateNamesId;
 
 vmCvar_t     g_strafejump_mod;
 
+vmCvar_t	g_antiWallhack;
+
 //allowing/disabling vote types
 vmCvar_t    g_allow_vote_gametype;
 vmCvar_t    g_allow_vote_kick;
@@ -596,6 +598,8 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_duplicateNamesId, "g_duplicateNamesId", "1", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_strafejump_mod,	"g_strafejump_mod"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
+
+	{ &g_antiWallhack,	"g_antiWallhack"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
 
     { &g_default_restart_countdown, "g_default_restart_countdown", "0", CVAR_ARCHIVE, 0, qtrue }, 
 
