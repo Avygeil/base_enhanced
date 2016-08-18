@@ -277,6 +277,7 @@ vmCvar_t	g_duplicateNamesId;
 vmCvar_t     g_strafejump_mod;
 
 vmCvar_t	g_antiWallhack;
+vmCvar_t	g_wallhackMaxTraces;
 
 //allowing/disabling vote types
 vmCvar_t    g_allow_vote_gametype;
@@ -600,6 +601,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_strafejump_mod,	"g_strafejump_mod"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_antiWallhack,	"g_antiWallhack"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
+	{ &g_wallhackMaxTraces,	"g_wallhackMaxTraces"	, "1000"	, CVAR_ARCHIVE, 0, qtrue },
 
     { &g_default_restart_countdown, "g_default_restart_countdown", "0", CVAR_ARCHIVE, 0, qtrue }, 
 
@@ -4179,6 +4181,19 @@ void G_RunFrame( int levelTime ) {
 	void		*timer_Queues;
 #endif
 	static int lastMsgTime = 0;
+
+#ifdef _DEBUG
+	if ( g_antiWallhack.integer && g_wallhackMaxTraces.integer && level.wallhackTracesDone ) {
+#if 0
+		G_LogPrintf( "Last frame's WH check terminated with %d traces done\n", level.wallhackTracesDone );
+#endif
+		if ( level.wallhackTracesDone > g_wallhackMaxTraces.integer ) {
+			G_LogPrintf( "Last frame's WH check terminated prematurely with %d traces (limit: %d)\n", level.wallhackTracesDone, g_wallhackMaxTraces.integer );
+		}
+	}
+#endif
+
+	level.wallhackTracesDone = 0; // reset the traces for the next ClientThink wave
 
 	if (g_gametype.integer == GT_SIEGE &&
 		g_siegeRespawn.integer &&

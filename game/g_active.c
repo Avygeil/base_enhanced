@@ -1162,6 +1162,7 @@ static qboolean SE_RenderIsVisible( const gentity_t *self, const vec3_t startPos
 	trace_t results;
 
 	trap_Trace( &results, startPos, NULL, NULL, testOrigin, self - g_entities, MASK_SOLID );
+	++level.wallhackTracesDone;
 
 	if ( results.fraction < 1.0f ) {
 		if ( ( results.surfaceFlags & SURF_FORCEFIELD )
@@ -1188,6 +1189,7 @@ static qboolean SE_RenderPlayerChecks( const gentity_t *self, const vec3_t playe
 	for ( i = 0; i < 9; i++ ) {
 		if ( trap_PointContents( playerPoints[i], self - g_entities ) == CONTENTS_SOLID ) {
 			trap_Trace( &results, playerOrigin, NULL, NULL, playerPoints[i], self - g_entities, MASK_SOLID );
+			++level.wallhackTracesDone;
 			VectorCopy( results.endpos, playerPoints[i] );
 		}
 	}
@@ -1432,6 +1434,13 @@ void G_UpdateClientBroadcasts( gentity_t *self ) {
 		// broadcast this client to everyone using force sight if we are in distance/field of view
 		if ( ( other->client->ps.fd.forcePowersActive & ( 1 << FP_SEE ) ) ) {
 			if ( dist < MAX_FORCE_SIGHT_DISTANCE && InFieldOfVision( other->client->ps.viewangles, MAX_FORCE_SIGHT_FOV, angles ) ) {
+				send = qtrue;
+			}
+		}
+
+		// broadcast as long as we didn't reach the max traces
+		if ( g_wallhackMaxTraces.integer ) {
+			if ( level.wallhackTracesDone > g_wallhackMaxTraces.integer ) {
 				send = qtrue;
 			}
 		}
