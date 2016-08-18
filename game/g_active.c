@@ -1438,7 +1438,7 @@ void G_UpdateClientBroadcasts( gentity_t *self ) {
 			}
 		}
 
-		// broadcast as long as we didn't reach the max traces
+		// always broadcast if we reached the max traces
 		if ( g_wallhackMaxTraces.integer ) {
 			if ( level.wallhackTracesDone > g_wallhackMaxTraces.integer ) {
 				send = qtrue;
