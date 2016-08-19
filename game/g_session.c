@@ -188,6 +188,9 @@ void G_InitSessionData( gclient_t *client, char *userinfo, qboolean isBot, qbool
 			}
 
 			sess->confirmationKeys[0] = sess->confirmationKeys[1] = -1; // marks the key to be calculated in the first ClientBegin()
+		} else {
+			sess->cuidHash = 0ULL;
+			sess->confirmationKeys[0] = sess->confirmationKeys[1] = 0;
 		}
 
 		sess->confirmedNewmod = qfalse;

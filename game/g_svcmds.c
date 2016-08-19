@@ -1381,10 +1381,10 @@ void Svcmd_ClientInfo_f( void ) {
 				Q_strcat( description, sizeof( description ), Info_ValueForKey( userinfo, "nm_ver" ) );
 				Q_strcat( description, sizeof( description ), ", " );
 #endif
-			} else if ( *Info_ValueForKey( userinfo, "sm_ver" ) ) {
+			} else if ( *Info_ValueForKey( userinfo, "smod_ver" ) ) {
 				// running smod
 				Q_strcat( description, sizeof( description ), "SMod " );
-				Q_strcat( description, sizeof( description ), Info_ValueForKey( userinfo, "sm_ver" ) );
+				Q_strcat( description, sizeof( description ), Info_ValueForKey( userinfo, "smod_ver" ) );
 				Q_strcat( description, sizeof( description ), ", " );
 			} else {
 				// running another cgame mod

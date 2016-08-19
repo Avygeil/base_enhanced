@@ -2852,8 +2852,8 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 #define RandomConfirmationKey()	( ( rand() << 16 ) ^ rand() ^ trap_Milliseconds() )
 	if ( !client->sess.confirmedNewmod && client->sess.confirmationKeys[0] < 0 && client->sess.confirmationKeys[1] < 0 ) {
 		// newmod client is not authenticated, calculate a key and send it to him
-		client->sess.confirmationKeys[0] = RandomConfirmationKey();
-		client->sess.confirmationKeys[1] = RandomConfirmationKey();
+		client->sess.confirmationKeys[0] = abs( RandomConfirmationKey() );
+		client->sess.confirmationKeys[1] = abs( RandomConfirmationKey() );
 		trap_SendServerCommand( ent - g_entities, va( "clauth %d %d", client->sess.confirmationKeys[0], client->sess.confirmationKeys[1] ) );
 	}
 #endif
