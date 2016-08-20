@@ -2344,6 +2344,29 @@ void ClientUserinfoChanged( int clientNum ) {
 	strcpy(c1, Info_ValueForKey( userinfo, "color1" ));
 	strcpy(c2, Info_ValueForKey( userinfo, "color2" ));
 
+#ifdef NEWMOD_SUPPORT
+	if ( !ent->client->sess.confirmedNewmod && ent->client->sess.confirmationKeys[0] > 0 && ent->client->sess.confirmationKeys[1] > 0 ) {
+		// this client is awaiting for auth
+		s = Info_ValueForKey( userinfo, "svauth" );
+
+		if ( *s ) {
+			int result = atoi( s );
+
+			if ( result ) {
+				// svauth is not zero, only give them one chance to auth
+				if ( ( result ^ client->sess.confirmationKeys[1] ) == client->sess.confirmationKeys[0] ) {
+					G_LogPrintf( "Newmod Client %d successfully authenticated\n", clientNum );
+					ent->client->sess.confirmedNewmod = qtrue;
+				} else {
+					G_LogPrintf( "Newmod Client %d failed authentication\n", clientNum );
+				}
+
+				client->sess.confirmationKeys[0] = client->sess.confirmationKeys[1] = 0;
+			}
+		}
+	}
+#endif
+
 	// send over a subset of the userinfo keys so other clients can
 	// print scoreboards, display models, and play custom sounds
 	if ( ent->r.svFlags & SVF_BOT ) {
@@ -2848,16 +2871,6 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 
 	client = level.clients + clientNum;
 
-#ifdef NEWMOD_SUPPORT
-#define RandomConfirmationKey()	( ( rand() << 16 ) ^ rand() ^ trap_Milliseconds() )
-	if ( !client->sess.confirmedNewmod && client->sess.confirmationKeys[0] < 0 && client->sess.confirmationKeys[1] < 0 ) {
-		// newmod client is not authenticated, calculate a key and send it to him
-		client->sess.confirmationKeys[0] = abs( RandomConfirmationKey() );
-		client->sess.confirmationKeys[1] = abs( RandomConfirmationKey() );
-		trap_SendServerCommand( ent - g_entities, va( "clauth %d %d", client->sess.confirmationKeys[0], client->sess.confirmationKeys[1] ) );
-	}
-#endif
-
 	if ( ent->r.linked ) {
 		trap_UnlinkEntity( ent );
 	}
@@ -3024,6 +3037,18 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 
 	G_ClearClientLog(clientNum);
 
+#ifdef NEWMOD_SUPPORT
+#define RandomConfirmationKey()	( ( rand() << 16 ) ^ rand() ^ trap_Milliseconds() )
+	if ( !ent->client->sess.confirmedNewmod && ent->client->sess.confirmationKeys[0] < 0 && ent->client->sess.confirmationKeys[1] < 0 ) {
+		// newmod client is not authenticated, calculate a key and send it to him
+		ent->client->sess.confirmationKeys[0] = abs( RandomConfirmationKey() );
+		ent->client->sess.confirmationKeys[1] = abs( RandomConfirmationKey() );
+		trap_SendServerCommand( clientNum, va( "clauth %d %d", ent->client->sess.confirmationKeys[0], ent->client->sess.confirmationKeys[1] ) );
+#ifdef _DEBUG
+		G_LogPrintf( "Sent auth packet to client %d (%d, %d)\n", clientNum, ent->client->sess.confirmationKeys[0], ent->client->sess.confirmationKeys[1] );
+#endif
+	}
+#endif
 }
 
 static qboolean AllForceDisabled(int force)
