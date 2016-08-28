@@ -1323,9 +1323,16 @@ static qboolean IsEmpty(const char* name){
 #define IsVisibleChar( c )		( !IsControlChar( c ) && !IsWhitespace( c ) && !Q_IsColorString( c ) )
 
 // Name normalizing and cleaning function that aims at making unique name representations so that
-// you can just compare two strings to compare two names
+// you can just compare two strings to compare two names. The end goal is that if two names are VISUALLY
+// equivalent, then they are also strictly equivalent internally, unlike basejka where, for example,
+// ^1^7Padawan and Padawan display similarly while not being strictly equivalent. This makes it much
+// easier to find duplicate names (simple strcmp) and to store names in databases in general.
+// colorlessSize can be used as a smart way to limit the length of names, which is way too high in
+// basejka and breaks scoreboard, while not limiting its color potential (it is basically the max name
+// length when you don't count colors, so use MAX_NAME_LENGTH for basejka behavior, but 24 is recommended)
 // -----------------------------------------------------------------------------------------------------------
-// "*player" -> "^7*player": appending ^7 fixes the * bug in console by itself
+// "player" -> "^7player": all names are ALWAYS prefixed with a color
+// "*player" -> "^7*player": appending a color fixes the * problem for names in console by itself
 // "longplayername" && colorlessSize = 4 -> "^7long"
 // "     player     " -> "^7player": all enclosing spaces are stripped
 // "pla     yer" -> "^7pla   yer": max 3 consecutive spaces
