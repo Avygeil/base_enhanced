@@ -1262,8 +1262,8 @@ void CheckTeamStatus(void) {
     //OSP: pause
     if ( level.pause.state != PAUSE_NONE )
             return;
-	
-	if (level.time - level.lastTeamLocationTime > TEAM_LOCATION_UPDATE_TIME) {
+	int updateRate = Com_Clampi(1, 1000, g_teamOverlayUpdateRate.integer);
+	if (level.time - level.lastTeamLocationTime > updateRate) {
 
 		level.lastTeamLocationTime = level.time;
 

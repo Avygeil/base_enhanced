@@ -1032,9 +1032,6 @@ typedef enum {
 	DUELTEAM_SINGLE		// for regular duel matches (not power duel)
 } duelTeam_t;
 
-// Time between location updates
-#define TEAM_LOCATION_UPDATE_TIME		1000
-
 // How many players on the overlay
 #define TEAM_MAXOVERLAY		32
 
