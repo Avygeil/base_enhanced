@@ -1984,7 +1984,7 @@ static char* GetStrippedUserinfo( char *userinfo ) {
 }
 
 // replaces "@@@" in a string with "   "
-static void PurgeStringedTrolling(char *in, char *out, int outSize) {
+void PurgeStringedTrolling(char *in, char *out, int outSize) {
 	if (!in || !in[0])
 		return; // ???
 

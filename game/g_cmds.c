@@ -2894,6 +2894,7 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 	else if ( !Q_stricmp( arg1, "q" )) 
 	{
 		NormalizeName(arg2, arg2, sizeof(arg2), sizeof(arg2));
+		PurgeStringedTrolling(arg2, arg2, sizeof(arg2));
 		Com_sprintf( level.voteString, sizeof( level.voteString ), ";" );
 		Com_sprintf( level.voteDisplayString, sizeof( level.voteDisplayString ), "Poll: %s", arg2 );
 	} 
