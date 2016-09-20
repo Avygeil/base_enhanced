@@ -1426,6 +1426,7 @@ void player_die (gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 void AddScore( gentity_t *ent, vec3_t origin, int score );
 void CalculateRanks( void );
 qboolean SpotWouldTelefrag( gentity_t *spot );
+void NormalizeName(const char *in, char *out, int outSize, int colorlessSize);
 
 extern gentity_t *gJMSaberEnt;
 
@@ -1458,6 +1459,7 @@ void DeathmatchScoreboardMessage (gentity_t *client);
 //
 // g_cmds.c
 //
+char* NM_SerializeUIntToColor(const unsigned int n);
 
 //
 // g_pweapon.c

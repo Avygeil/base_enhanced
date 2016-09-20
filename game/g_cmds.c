@@ -602,19 +602,19 @@ void BroadcastTeamChange( gclient_t *client, int oldTeam )
 
 	if ( client->sess.sessionTeam == TEAM_RED ) {
 		Q_strncpyz(buffer, 
-			va("%s" S_COLOR_WHITE " %s",
+			va("%s%s" S_COLOR_WHITE " %s", NM_SerializeUIntToColor(client->ps.clientNum),
 			client->pers.netname, G_GetStringEdString("MP_SVGAME", "JOINEDTHEREDTEAM")),
 			sizeof(buffer));
 
 	} else if ( client->sess.sessionTeam == TEAM_BLUE ) {
 		Q_strncpyz(buffer, 
-			va("%s" S_COLOR_WHITE " %s",
+			va("%s%s" S_COLOR_WHITE " %s", NM_SerializeUIntToColor(client->ps.clientNum),
 			client->pers.netname, G_GetStringEdString("MP_SVGAME", "JOINEDTHEBLUETEAM")),
 			sizeof(buffer));
 
 	} else if ( client->sess.sessionTeam == TEAM_SPECTATOR && oldTeam != TEAM_SPECTATOR ) {
 		Q_strncpyz(buffer, 
-			va("%s" S_COLOR_WHITE " %s",
+			va("%s%s" S_COLOR_WHITE " %s", NM_SerializeUIntToColor(client->ps.clientNum),
 			client->pers.netname, G_GetStringEdString("MP_SVGAME", "JOINEDTHESPECTATORS")),
 			sizeof(buffer));
 
@@ -626,7 +626,7 @@ void BroadcastTeamChange( gclient_t *client, int oldTeam )
 		else
 		{
 			Q_strncpyz(buffer, 
-				va("%s" S_COLOR_WHITE " %s",
+				va("%s%s" S_COLOR_WHITE " %s", NM_SerializeUIntToColor(client->ps.clientNum),
 				client->pers.netname, G_GetStringEdString("MP_SVGAME", "JOINEDTHEBATTLE")),
 				sizeof(buffer));
 		}
@@ -1709,7 +1709,7 @@ static char* GetSuffixId( gentity_t *ent ) {
 	return buf;
 }
 
-static char* NM_SerializeUIntToColor( const unsigned int n ) {
+char* NM_SerializeUIntToColor( const unsigned int n ) {
 	static char result[32] = { 0 };
 	char buf[32] = { 0 };
 	int i;
@@ -2893,9 +2893,9 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 	}
 	else if ( !Q_stricmp( arg1, "q" )) 
 	{
+		NormalizeName(arg2, arg2, sizeof(arg2), sizeof(arg2));
 		Com_sprintf( level.voteString, sizeof( level.voteString ), ";" );
 		Com_sprintf( level.voteDisplayString, sizeof( level.voteDisplayString ), "Poll: %s", arg2 );
-
 	} 
 	else if ( !Q_stricmp( arg1, "pause" )) 
 	{
@@ -2948,7 +2948,7 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 		Com_sprintf( level.voteDisplayString, sizeof( level.voteDisplayString ), "%s", level.voteString );
 	}
 
-	trap_SendServerCommand( -1, va("print \"%s^7 %s\n\"", ent->client->pers.netname, G_GetStringEdString("MP_SVGAME", "PLCALLEDVOTE")) );
+	trap_SendServerCommand( -1, va("print \"%s%s^7 %s\n\"", NM_SerializeUIntToColor(ent->client->ps.clientNum), ent->client->pers.netname, G_GetStringEdString("MP_SVGAME", "PLCALLEDVOTE")) );
 
 	// log the vote
 	G_LogPrintf("Client %i (%s) called a vote: %s %s\n",
