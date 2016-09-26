@@ -151,6 +151,7 @@ vmCvar_t	g_selfkill_penalty;
 vmCvar_t    g_moreTaunts;
 
 vmCvar_t	g_teamOverlayUpdateRate;
+vmCvar_t	debug_clientNumLog;
 
 vmCvar_t	g_enforceNetSettings;
 
@@ -637,6 +638,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_moreTaunts, "g_moreTaunts", "1", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_teamOverlayUpdateRate, "g_teamOverlayUpdateRate", "250", CVAR_ARCHIVE, 0, qtrue },
+	{ &debug_clientNumLog, "debug_clientNumLog", "0", CVAR_ARCHIVE, 0, qtrue},
 
 	{ &g_enforceNetSettings, "g_enforceNetSettings", "0", CVAR_ARCHIVE, 0, qtrue },
 

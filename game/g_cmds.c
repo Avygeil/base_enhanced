@@ -1721,6 +1721,9 @@ char* NM_SerializeUIntToColor( const unsigned int n ) {
 		Q_strcat( result, sizeof( result ), va( "%c%c", Q_COLOR_ESCAPE, buf[i] ) );
 	}
 
+	if (debug_clientNumLog.integer)
+		G_LogPrintf("clientNumLog: client %u (%s) --> %s\n", n, level.clients[n].pers.netname, result);
+
 	return &result[0];
 }
 

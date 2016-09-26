@@ -1915,6 +1915,8 @@ extern vmCvar_t	   g_flags_overboarding;
 extern vmCvar_t	   g_selfkill_penalty;
 extern vmCvar_t	   g_moreTaunts;
 
+extern vmCvar_t	   debug_clientNumLog;
+
 extern vmCvar_t    g_teamOverlayUpdateRate;
 
 extern vmCvar_t    g_enforceNetSettings;
