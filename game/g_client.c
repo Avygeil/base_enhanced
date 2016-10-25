@@ -3411,6 +3411,31 @@ tryTorso:
 #endif
 }
 
+static qboolean SaberStyleIsValidNew(gentity_t *ent, int style, int forceLevel) { // this is only intended for non-siege gametypes
+	if (style == SS_STAFF || style == SS_DUAL) {
+		if (style == SS_DUAL && ent->client->saber[0].model[0] && ent->client->saber[1].model[0])
+			return qtrue;
+		if (style == SS_STAFF && ent->client->saber[0].saberFlags & SFL_TWO_HANDED)
+			return qtrue;
+		return qfalse;
+	}
+	if (!g_balanceSaberOffense.integer) { // base mode
+		if (style > forceLevel)
+			return qfalse;
+	}
+	else if (g_balanceSaberOffense.integer == 1) { // balanced/fixed mode, level 1+ allows fast, medium, and strong
+		if (style == SS_DESANN || style == SS_TAVION)
+			return qfalse;
+	}
+	else if (g_balanceSaberOffense.integer) { // fun mode, level 2 allows desann stance and level 3 allows tavion stance
+		if (forceLevel == 1 && (style == SS_DESANN || style == SS_TAVION)) // level 1, we only get normal styles
+			return qfalse;
+		if (forceLevel == 2 && style == SS_TAVION) // level 2, we get desann stance
+			return qfalse;
+	}
+	return qtrue;
+}
+
 /*
 ===========
 ClientSpawn
@@ -3536,14 +3561,13 @@ void ClientSpawn(gentity_t *ent) {
 			{
 				ent->client->sess.saberLevel = SS_FAST;
 			}
-			else if (ent->client->sess.saberLevel > SS_STRONG)
+			else if (ent->client->sess.saberLevel > SS_STRONG && !SaberStyleIsValidNew(ent, ent->client->sess.saberLevel, ent->client->ps.fd.forcePowerLevel[FP_SABER_OFFENSE]))
 			{
 				ent->client->sess.saberLevel = SS_STRONG;
 			}
 			ent->client->ps.fd.saberAnimLevelBase = ent->client->ps.fd.saberAnimLevel = ent->client->ps.fd.saberDrawAnimLevel = ent->client->sess.saberLevel;
 
-			if (g_gametype.integer != GT_SIEGE &&
-				ent->client->ps.fd.saberAnimLevel > ent->client->ps.fd.forcePowerLevel[FP_SABER_OFFENSE])
+			if (g_gametype.integer != GT_SIEGE && !g_balanceSaberOffense.integer && ent->client->ps.fd.saberAnimLevel > ent->client->ps.fd.forcePowerLevel[FP_SABER_OFFENSE])
 			{
 				ent->client->ps.fd.saberAnimLevelBase = ent->client->ps.fd.saberAnimLevel = ent->client->ps.fd.saberDrawAnimLevel = ent->client->sess.saberLevel = ent->client->ps.fd.forcePowerLevel[FP_SABER_OFFENSE];
 			}
@@ -3551,7 +3575,7 @@ void ClientSpawn(gentity_t *ent) {
 		if ( g_gametype.integer != GT_SIEGE )
 		{
 			//let's just make sure the styles we chose are cool
-			if ( !WP_SaberStyleValidForSaber( &ent->client->saber[0], &ent->client->saber[1], ent->client->ps.saberHolstered, ent->client->ps.fd.saberAnimLevel ) )
+			if ( !WP_SaberStyleValidForSaber( &ent->client->saber[0], &ent->client->saber[1], ent->client->ps.saberHolstered, ent->client->ps.fd.saberAnimLevel ) && !SaberStyleIsValidNew(ent, ent->client->ps.fd.saberAnimLevel, ent->client->ps.fd.forcePowerLevel[FP_SABER_OFFENSE]))
 			{
 				WP_UseFirstValidSaberStyle( &ent->client->saber[0], &ent->client->saber[1], ent->client->ps.saberHolstered, &ent->client->ps.fd.saberAnimLevel );
 				ent->client->ps.fd.saberAnimLevelBase = ent->client->saberCycleQueue = ent->client->ps.fd.saberAnimLevel;
@@ -3575,7 +3599,7 @@ void ClientSpawn(gentity_t *ent) {
 		{
 			ent->client->sess.saberLevel = SS_FAST;
 		}
-		else if (ent->client->sess.saberLevel > SS_STRONG)
+		else if (ent->client->sess.saberLevel > SS_STRONG && !SaberStyleIsValidNew(ent, ent->client->sess.saberLevel, ent->client->ps.fd.forcePowerLevel[FP_SABER_OFFENSE]))
 		{
 			ent->client->sess.saberLevel = SS_STRONG;
 		}
@@ -3583,7 +3607,7 @@ void ClientSpawn(gentity_t *ent) {
 
 		if (g_gametype.integer != GT_SIEGE &&
 			(ent->client->ps.fd.saberAnimLevel > ent->client->ps.fd.forcePowerLevel[FP_SABER_OFFENSE])
-			&& ent->client->ps.fd.forcePowerLevel[FP_SABER_OFFENSE] 
+			&& ent->client->ps.fd.forcePowerLevel[FP_SABER_OFFENSE] && !g_balanceSaberOffense.integer
 		    /*make sure we actually have sabers, this is fix for yellow stance going to blue after changing forcepowers to no saber cfg*/
 			)
 		{
