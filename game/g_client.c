@@ -3561,7 +3561,11 @@ void ClientSpawn(gentity_t *ent) {
 			{
 				ent->client->sess.saberLevel = SS_FAST;
 			}
-			else if (ent->client->sess.saberLevel > SS_STRONG && !SaberStyleIsValidNew(ent, ent->client->sess.saberLevel, ent->client->ps.fd.forcePowerLevel[FP_SABER_OFFENSE]))
+			else if (g_gametype.integer == GT_SIEGE && ent->client->sess.saberLevel > SS_STRONG)
+			{
+				ent->client->sess.saberLevel = SS_STRONG;
+			}
+			else if (g_gametype.integer != GT_SIEGE && ent->client->sess.saberLevel > SS_STRONG && !SaberStyleIsValidNew(ent, ent->client->sess.saberLevel, ent->client->ps.fd.forcePowerLevel[FP_SABER_OFFENSE]))
 			{
 				ent->client->sess.saberLevel = SS_STRONG;
 			}
@@ -3599,7 +3603,11 @@ void ClientSpawn(gentity_t *ent) {
 		{
 			ent->client->sess.saberLevel = SS_FAST;
 		}
-		else if (ent->client->sess.saberLevel > SS_STRONG && !SaberStyleIsValidNew(ent, ent->client->sess.saberLevel, ent->client->ps.fd.forcePowerLevel[FP_SABER_OFFENSE]))
+		else if (g_gametype.integer == GT_SIEGE && ent->client->sess.saberLevel > SS_STRONG)
+		{
+			ent->client->sess.saberLevel = SS_STRONG;
+		}
+		else if (g_gametype.integer != GT_SIEGE && ent->client->sess.saberLevel > SS_STRONG && !SaberStyleIsValidNew(ent, ent->client->sess.saberLevel, ent->client->ps.fd.forcePowerLevel[FP_SABER_OFFENSE]))
 		{
 			ent->client->sess.saberLevel = SS_STRONG;
 		}
