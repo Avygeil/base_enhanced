@@ -1721,6 +1721,9 @@ qboolean	ConsoleCommand( void ) {
 
     if ( !Q_stricmp( cmd, "endmatch" ) )
     {
+#ifdef NEWMOD_SUPPORT
+		trap_SendServerCommand(-1, "lchat \"em\"");
+#endif
 		trap_SendServerCommand( -1,  va("print \"Match forced to end.\n\""));
 		LogExit( "Match forced to end." );
         return qtrue;
