@@ -234,10 +234,10 @@ char *COM_Parse( const char **data_p )
 void COM_ParseError( char *format, ... )
 {
 	va_list argptr;
-	static char string[4096];
+	static char string[4096] = { 0 };
 
 	va_start (argptr, format);
-	vsprintf (string, format, argptr);
+	vsnprintf (string, sizeof(string), format, argptr);
 	va_end (argptr);
 
 	Com_Printf("ERROR: %s, line %d: %s\n", com_parsename, com_lines, string);
@@ -246,10 +246,10 @@ void COM_ParseError( char *format, ... )
 void COM_ParseWarning( char *format, ... )
 {
 	va_list argptr;
-	static char string[4096];
+	static char string[4096] = { 0 };
 
 	va_start (argptr, format);
-	vsprintf (string, format, argptr);
+	vsnprintf (string, sizeof(string), format, argptr);
 	va_end (argptr);
 
 	Com_Printf("WARNING: %s, line %d: %s\n", com_parsename, com_lines, string);
@@ -957,11 +957,11 @@ char *Q_CleanStr( char *string ) {
 int QDECL Com_sprintf( char *dest, int size, const char *fmt, ...) {
 	int		len;
 	va_list		argptr;
-	char	bigbuffer[32000];	// big, but small enough to fit in PPC stack
+	char	bigbuffer[32000] = { 0 };	// big, but small enough to fit in PPC stack
 	int retlen;
 
 	va_start (argptr,fmt);
-	len = vsprintf (bigbuffer,fmt,argptr);
+	len = vsnprintf (bigbuffer,sizeof(bigbuffer),fmt,argptr);
 	va_end (argptr);
 	retlen = len;
 	if ( len >= sizeof( bigbuffer ) ) {
@@ -986,18 +986,20 @@ varargs versions of all text functions.
 FIXME: make this buffer size safe someday
 ============
 */
-char	* QDECL va( const char *format, ... ) {
+#define	MAX_VA_STRING	32000
+#define MAX_VA_BUFFERS 4
+
+char * QDECL va(const char *format, ...)
+{
 	va_list		argptr;
-	static char		string[2][32000];	// in case va is called by nested functions
-	static int		index = 0;
-	char	*buf;
+	static char	string[MAX_VA_BUFFERS][MAX_VA_STRING];	// in case va is called by nested functions
+	static int	index = 0;
+	char		*buf;
 
-	buf = string[index & 1];
-	index++;
-
-	va_start (argptr, format);
-	vsprintf (buf, format,argptr);
-	va_end (argptr);
+	va_start(argptr, format);
+	buf = (char *)&string[index++ & 3];
+	vsnprintf(buf, sizeof(*string), format, argptr);
+	va_end(argptr);
 
 	return buf;
 }

@@ -276,7 +276,7 @@ void Q3_TaskIDClear( int *taskID )
 void G_DebugPrint( int level, const char *format, ... )
 {
 	va_list		argptr;
-	char		text[1024];
+	char		text[1024] = { 0 };
 
 	//Don't print messages they don't want to see
 	//if ( g_ICARUSDebug->integer < level )
@@ -284,7 +284,7 @@ void G_DebugPrint( int level, const char *format, ... )
 		return;
 
 	va_start (argptr, format);
-	vsprintf (text, format, argptr);
+	vsnprintf (text, sizeof(text), format, argptr);
 	va_end (argptr);
 
 	//Add the color formatting
