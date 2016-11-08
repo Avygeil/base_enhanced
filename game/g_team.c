@@ -1238,6 +1238,23 @@ void TeamplayInfoMessage( gentity_t *ent ) {
 			if (h < 0) h = 0;
 			if (a < 0) a = 0;
 
+#ifdef NEWMOD_SUPPORT
+			if (g_gametype.integer != GT_SIEGE && g_enhancedLocations.integer) {
+				char *enhancedLocation = GetLocation(player->client);
+				if (enhancedLocation && *enhancedLocation) {
+					// replace spaces with underscores (because location needs to fit into one word for lchat)
+					// you can filter these back to spaces clientside
+					char *p = NULL, trimmed[240] = { 0 };
+					while (p = strchr(enhancedLocation, ' '))
+						*p = '_';
+
+					// trim and send it
+					Q_strncpyz(trimmed, va("lchat bel:%i %s", i, enhancedLocation), sizeof(trimmed));
+					trap_SendServerCommand(ent - g_entities, trimmed);
+				}
+			}
+#endif
+
 			Com_sprintf (entry, sizeof(entry),
 				" %i %i %i %i %i %i", 
 //				level.sortedClients[i], player->client->pers.teamState.location, h, a, 

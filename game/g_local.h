@@ -1094,6 +1094,9 @@ void Cmd_ClientList_f( gentity_t *ent );
 void Cmd_FollowFlag_f( gentity_t *ent );
 
 gentity_t *G_GetDuelWinner(gclient_t *client);
+#ifdef NEWMOD_SUPPORT
+char* GetLocation(gclient_t *cl);
+#endif
 
 //
 // g_items.c
@@ -1907,7 +1910,7 @@ extern vmCvar_t	g_accounts;
 extern vmCvar_t	g_accountsFile;
 
 extern vmCvar_t	g_whitelist;
-
+extern vmCvar_t    g_enhancedLocations;
 extern vmCvar_t    g_fixboon;
 extern vmCvar_t    g_maxstatusrequests;
 extern vmCvar_t	   g_logrcon;

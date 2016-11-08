@@ -1727,6 +1727,7 @@ char* NM_SerializeUIntToColor( const unsigned int n ) {
 	return &result[0];
 }
 
+#ifdef NEWMOD_SUPPORT
 static char* GetWeaponShortName( int weapon ) {
 	switch ( weapon ) {
 	case WP_STUN_BATON: return "Stun Baton";
@@ -1745,6 +1746,77 @@ static char* GetWeaponShortName( int weapon ) {
 	case WP_CONCUSSION: return "Concussion";
 	default: return "Unknown";
 	}
+}
+
+static char* GetPowerupShortName(int pw) {
+	switch (pw) {
+	case PW_FORCE_ENLIGHTENED_LIGHT: return "Light Enlightenment";
+	case PW_FORCE_ENLIGHTENED_DARK: return "Dark Enlightenment";
+	case PW_FORCE_BOON: return "Boon";
+	case PW_YSALAMIRI: return "Ysalamiri";
+	default: return "Unknown";
+	}
+}
+
+typedef enum {
+	CTFLOC_UNKNOWN = 0,
+	CTFLOC_REDFLAGSTAND,
+	CTFLOC_BLUEFLAGSTAND,
+	CTFLOC_POWERUP,
+	CTFLOC_WEAPON,
+	MAX_CTFLOCS
+} ctfLocationType_t;
+
+static ctfLocationType_t GetCTFLocationType(gentity_t *ent) {
+	if (!ent || !ent->classname)
+		return CTFLOC_UNKNOWN;
+	if (!Q_stricmp(ent->classname, "team_ctf_redflag"))
+		return CTFLOC_REDFLAGSTAND;
+	if (!Q_stricmp(ent->classname, "team_ctf_blueflag"))
+		return CTFLOC_BLUEFLAGSTAND;
+	if (ent->item && ent->item->giType == IT_POWERUP && ent->item->giTag >= PW_FORCE_ENLIGHTENED_LIGHT && ent->item->giTag <= PW_YSALAMIRI)
+		return CTFLOC_POWERUP;
+	if (ent->item && ent->item->giType == IT_WEAPON)
+		return CTFLOC_WEAPON;
+	return CTFLOC_UNKNOWN;
+}
+
+static char *FindClosestCTFLocation(gclient_t *cl) {
+	gentity_t *ent, *foundEnt = NULL;
+	ctfLocationType_t type = CTFLOC_UNKNOWN;
+	int i;
+	vec_t lowestDistance = 0;
+
+	for (i = 0, ent = &g_entities[0]; i < level.num_entities; ++i, ++ent) {
+		type = GetCTFLocationType(ent);
+		if (!type)
+			continue;
+
+		vec_t distance = DistanceSquared(cl->ps.origin, ent->r.currentOrigin);
+
+		if (!foundEnt || distance < lowestDistance) {
+			lowestDistance = distance;
+			foundEnt = ent;
+		}
+	}
+
+	if (foundEnt) {
+		type = GetCTFLocationType(foundEnt);
+		switch (type) {
+		case CTFLOC_REDFLAGSTAND:
+			return "Red Flagstand";
+		case CTFLOC_BLUEFLAGSTAND:
+			return "Blue Flagstand";
+		case CTFLOC_POWERUP:
+			return GetPowerupShortName(foundEnt->item->giTag);
+		case CTFLOC_WEAPON:
+			return GetWeaponShortName(foundEnt->item->giTag);
+		default:
+			return "";
+		}
+	}
+
+	return "";
 }
 
 static int FindClosestStaticWeapon( gclient_t *cl ) {
@@ -1796,14 +1868,21 @@ static char* FindClosestInfoLocation( gclient_t *cl ) {
 		return foundLocation->message;
 	}
 
-	return NULL;
+	return "";
 }
 
-// attempts to find the closest info_b_e_location, otherwise return the closest weapon like SMod
-static char* GetLocation( gclient_t *cl ) {
-	char *location = FindClosestInfoLocation( cl );
-	return location != NULL ? location : GetWeaponShortName( FindClosestStaticWeapon( cl ) );
+// attempts to find the closest info_b_e_location, otherwise return the closest flagstand/powerup/weapon (just weapon in non-CTF modes)
+char* GetLocation( gclient_t *cl ) {
+	char *location = NULL;
+	static char ret[MAX_STRING_CHARS] = { 0 };
+	location = FindClosestInfoLocation(cl);
+	if (!location || !location[0])
+		location = g_gametype.integer == GT_CTF || g_gametype.integer == GT_CTY ? FindClosestCTFLocation(cl) : GetWeaponShortName(FindClosestStaticWeapon(cl));
+	if (location && location[0])
+		Q_strncpyz(ret, location, sizeof(ret));
+	return ret && ret[0] ? ret : "";
 }
+#endif
 
 static char* GetToken( gclient_t *cl, const char token ) {
 	switch ( token ) {

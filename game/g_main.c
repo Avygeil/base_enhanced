@@ -108,7 +108,7 @@ vmCvar_t	g_useWhileThrowing;
 vmCvar_t	g_RMG;
 
 vmCvar_t	g_svfps;
-
+vmCvar_t	g_enhancedLocations;
 vmCvar_t	g_forceRegenTime;
 vmCvar_t	g_spawnInvulnerability;
 vmCvar_t	g_forcePowerDisable;
@@ -630,6 +630,8 @@ static cvarTable_t		gameCvarTable[] = {
 
 
 	{ &g_dlURL,	"g_dlURL"	, ""	, CVAR_SYSTEMINFO, 0, qtrue },
+
+	{ &g_enhancedLocations, "g_enhancedLocations", "1", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_fixboon,	"g_fixboon"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
 
