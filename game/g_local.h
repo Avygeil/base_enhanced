@@ -33,6 +33,9 @@ extern vec3_t gPainPoint;
 //#define	GAMEVERSION	"basejka" //test
 
 #define NEWMOD_SUPPORT
+#ifdef NEWMOD_SUPPORT
+#define MAX_ENHANCED_LOCATION	240
+#endif
 
 #define MAX_USERNAME_SIZE 32 //username size	16
 #define MAX_PASSWORD	16
@@ -477,6 +480,7 @@ typedef struct {
 	qboolean	confirmedNewmod; // qtrue if the client is a confirmed and authenticated newmod client
 	cuid_t		cuidHash; // first 64 bits of the SHA-1 hash
 	int			confirmationKeys[2]; // randomly generated auth keys to confirm legit clients, -1 if waiting to be generated
+	char		enhancedLocation[MAX_ENHANCED_LOCATION];
 #endif
 } clientSession_t;
 
