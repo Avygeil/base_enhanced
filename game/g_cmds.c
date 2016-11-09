@@ -4,9 +4,8 @@
 #include "bg_saga.h"
 #include "g_database_log.h"
 #include "g_database_config.h"
-
-#include "menudef.h"			// for the voice chats
-
+#include <float.h>
+#include "menudef.h"			// for the voice 
 //rww - for getting bot commands...
 int AcceptBotCommand(char *cmd, gentity_t *pl);
 //end rww
@@ -1781,6 +1780,77 @@ static ctfLocationType_t GetCTFLocationType(gentity_t *ent) {
 	return CTFLOC_UNKNOWN;
 }
 
+static float GetXYDistance(gentity_t *ent1, gentity_t *ent2) {
+	if (!ent1 || !ent2)
+		return -1;
+
+	float diff[2];
+	diff[0] = fabs(ent1->s.origin[0] - ent2->s.origin[0]);
+	diff[1] = fabs(ent1->s.origin[1] - ent2->s.origin[1]);
+
+	return sqrt(diff[0] * diff[0] + diff[1] * diff[1]);
+}
+
+static char *GetOwnerOfLocation(gentity_t *locEnt) {
+	if (!locEnt || !locEnt->item || locEnt->item->giType != IT_POWERUP && locEnt->item->giType != IT_WEAPON)
+		return "";
+
+	// count the number of instances of this kind of entity on the map (not including locEnt itself)
+	int i, found = 0;
+	gentity_t *ent, *redFlagstand = 0, *blueFlagstand = 0, *closestWeapon = 0;
+	float lowestWeaponDistance = FLT_MAX;
+	for (i = MAX_CLIENTS; i < MAX_GENTITIES; i++) {
+		ent = &g_entities[i];
+		if (!ent)
+			continue;
+		if (ent != locEnt && ent->item && ent->item->giType == IT_WEAPON && !(locEnt->item->giType == IT_WEAPON && ent->item->giTag == locEnt->item->giTag)) {
+			float distance = GetXYDistance(ent, locEnt);
+			if (distance < lowestWeaponDistance) {
+				lowestWeaponDistance = distance;
+				closestWeapon = ent;
+			}
+		}
+		if (ent->classname && *ent->classname && !Q_stricmp(ent->classname, "team_ctf_redflag")) {
+			redFlagstand = ent;
+			continue;
+		}
+		else if (ent->classname && *ent->classname && !Q_stricmp(ent->classname, "team_ctf_blueflag")) {
+			blueFlagstand = ent;
+			continue;
+		}
+		else if (!ent->item || ent->item->giType != locEnt->item->giType || ent->item->giTag != locEnt->item->giTag || ent == locEnt)
+			continue;
+		found++;
+	}
+
+	if (!found)
+		return ""; // locEnt is the only instance of this kind of entity on the map; there is no owner (likely e.g. for boon)
+
+	// there are multiple of this kind of entity; let's see whose flagstand locEnt is closer to
+	if (!redFlagstand || !blueFlagstand)
+		return ""; // couldn't find either flag...?
+	float locEntRedDistance = GetXYDistance(locEnt, redFlagstand), locEntBlueDistance = GetXYDistance(locEnt, blueFlagstand);
+	if (locEntRedDistance < locEntBlueDistance)
+		return "$R";
+	else if (locEntBlueDistance < locEntRedDistance)
+		return "$B";
+
+	// if we got here, there are multiple of this kind of entity and locEnt is equidistant from the two flags
+	// take the closest weapon to locEnt and see which flagstand it's closer to
+	if (closestWeapon) {
+		float weaponRedDistance = GetXYDistance(closestWeapon, redFlagstand), weaponBlueDistance = GetXYDistance(closestWeapon, blueFlagstand);
+		if (weaponRedDistance < weaponBlueDistance)
+			return "$R";
+		else if (weaponBlueDistance < weaponRedDistance)
+			return "$B";
+	}
+
+	// both locEnt and closestWeapon are equidistant from both flagstands; crash the server to get off this shit map
+	//*((unsigned int*)0) = 0xDEAD;
+	return "";
+}
+
+// returns a (possibly) tokenized string such as "$RGolan" or "$BFlagstand" or "Boon"
 static char *FindClosestCTFLocation(gclient_t *cl) {
 	gentity_t *ent, *foundEnt = NULL;
 	ctfLocationType_t type = CTFLOC_UNKNOWN;
@@ -1804,15 +1874,15 @@ static char *FindClosestCTFLocation(gclient_t *cl) {
 		type = GetCTFLocationType(foundEnt);
 		switch (type) {
 		case CTFLOC_REDFLAGSTAND:
-			return "Red Flagstand";
+			return "$RFlagstand";
 		case CTFLOC_BLUEFLAGSTAND:
-			return "Blue Flagstand";
+			return "$BFlagstand";
 		case CTFLOC_POWERUP:
-			return GetPowerupShortName(foundEnt->item->giTag);
+			return va("%s%s", GetOwnerOfLocation(foundEnt), GetPowerupShortName(foundEnt->item->giTag));
 		case CTFLOC_WEAPON:
-			return GetWeaponShortName(foundEnt->item->giTag);
+			return va("%s%s", GetOwnerOfLocation(foundEnt), GetWeaponShortName(foundEnt->item->giTag));
 		default:
-			return "";
+			return ""; // invalid type
 		}
 	}
 
@@ -1871,15 +1941,63 @@ static char* FindClosestInfoLocation( gclient_t *cl ) {
 	return "";
 }
 
+static char *GetLocationToken(const char token, team_t team) {
+	switch (token) {
+	case 'r': case 'R': return team == TEAM_RED ? "" : "Enemy "; // with a trailing space
+	case 'b': case 'B': return team == TEAM_BLUE ? "" : "Enemy "; // with a trailing space
+	default: return "";
+	}
+}
+
+#define TOKEN_CHAR	'$'
+static void TokenizeLocation(gclient_t *cl, char *dest, char *src, size_t destsize) {
+	if (!src || !*src)
+		return;
+	const char *p;
+	int i = 0;
+
+	for (p = src; p && *p && destsize > 1; ++p) {
+		if (*p == TOKEN_CHAR) {
+			char *token = GetLocationToken(*++p, cl->ps.persistant[PERS_TEAM]);
+			if (token && *token) {
+				int len = strlen(token);
+				destsize -= len;
+				if (destsize > 0) {
+					Q_strcat(dest + i, len + 1, token);
+					i += len;
+					continue;
+				}
+				else
+					break; // don't write it at all if there is no room
+			};
+			p++; // GetLocationToken returned empty; move on to the next digit
+#if 0 // not going to bother supporting info_b_e_locations containing random $ symbols
+			--p; // this token is invalid, go back to write the $ sign
+#endif
+		}
+		dest[i++] = *p;
+		--destsize;
+	}
+
+	dest[i] = '\0';
+}
+
 // attempts to find the closest info_b_e_location, otherwise return the closest flagstand/powerup/weapon (just weapon in non-CTF modes)
 char* GetLocation( gclient_t *cl ) {
-	char *location = NULL;
+	char *location = NULL, tokenized[MAX_STRING_CHARS] = { 0 };
 	static char ret[MAX_STRING_CHARS] = { 0 };
+
 	location = FindClosestInfoLocation(cl);
+
 	if (!location || !location[0])
 		location = g_gametype.integer == GT_CTF || g_gametype.integer == GT_CTY ? FindClosestCTFLocation(cl) : GetWeaponShortName(FindClosestStaticWeapon(cl));
-	if (location && location[0])
-		Q_strncpyz(ret, location, sizeof(ret));
+
+	if (location && location[0]) {
+		TokenizeLocation(cl, tokenized, location, sizeof(ret));
+		if (tokenized && tokenized[0])
+			Q_strncpyz(ret, tokenized, sizeof(ret));
+	}
+
 	return ret && ret[0] ? ret : "";
 }
 #endif
@@ -1894,8 +2012,6 @@ static char* GetToken( gclient_t *cl, const char token ) {
 	default: return NULL;
 	}
 }
-
-#define TOKEN_CHAR	'$'
 
 static void TokenizeTeamChat( gentity_t *ent, char *dest, const char *src, size_t destsize ) {
 	const char *p;
