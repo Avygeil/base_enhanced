@@ -1297,7 +1297,6 @@ void TeamplayInfoMessage( gentity_t *ent ) {
 		// send the string
 		ctx->sentTime = level.time;
 		Q_strncpyz(ctx->sentString, newLocString, sizeof(ctx->sentString));
-		trap_SendServerCommand(ent - g_entities, va("print \"Server: sending string %s\n\"", newLocString)); // duodebug
 		trap_SendServerCommand(ent - g_entities, newLocString);
 	}
 #endif
