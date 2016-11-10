@@ -1795,7 +1795,7 @@ static float GetXYDistance(gentity_t *ent1, gentity_t *ent2) {
 // this is done by seeing whose flagstand it is closer to.
 // returns "$R" if red, "$B" if blue, or "" if none or unknown.
 static char *GetOwnerOfLocation(gentity_t *locEnt) {
-	if (!locEnt)
+	if (!locEnt || !locEnt->item || locEnt->item->giType != IT_POWERUP && locEnt->item->giType != IT_WEAPON)
 		return "";
 
 	switch (locEnt->owner) { // check to see if we have already determined that this entity has an owner earlier in the match
