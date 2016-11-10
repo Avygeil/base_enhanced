@@ -1197,6 +1197,16 @@ Format:
 
 ==================
 */
+#ifdef NEWMOD_SUPPORT
+// example:
+// 0=Golan`3=Enemy_Flagstand`17=Enemy_Mines`
+// translates to
+// client 0		location ==> "Golan"
+// client 3		location ==> "Enemy Flagstand"
+// client 17	location ==> "Enemy Mines"
+#define ENHANCED_LOCATION_SEPARATOR_CHAR	'@'
+#define ENHANCED_LOCATION_REDUNDANT_TIME	3000
+#endif
 void TeamplayInfoMessage( gentity_t *ent ) {
 	char		entry[1024];
 	char		string[8192];
@@ -1206,6 +1216,12 @@ void TeamplayInfoMessage( gentity_t *ent ) {
 	int			cnt;
 	int			h, a;
 	int			clients[TEAM_MAXOVERLAY];
+	qboolean	doEnhancedLocations = g_gametype.integer != GT_SIEGE && g_enhancedLocations.integer ? qtrue : qfalse;
+	char		newLocString[MAX_ENHANCED_LOCATION_STRING] = { 0 };
+	EnhancedLocationContext *ctx = NULL;
+
+	if (doEnhancedLocations)
+		Q_strncpyz(newLocString, "lchat el ", sizeof(newLocString));
 
 	if ( ! ent->client->pers.teamInfo )
 		return;
@@ -1239,18 +1255,17 @@ void TeamplayInfoMessage( gentity_t *ent ) {
 			if (a < 0) a = 0;
 
 #ifdef NEWMOD_SUPPORT
-			if (g_gametype.integer != GT_SIEGE && g_enhancedLocations.integer) {
-				char *enhancedLocation = player->client->sess.enhancedLocation;
-				if (enhancedLocation && *enhancedLocation) {
+			if (doEnhancedLocations) {
+				// get this guy's enhanced location and add it to newLocString so we can send them all out in one message later
+				ctx = &player->client->sess.enhancedLocation;
+				if (ctx && ctx->loc && *ctx->loc) {
 					// replace spaces with underscores (because location needs to fit into one word for lchat)
 					// you can filter these back to spaces clientside
-					char *p = NULL, trimmed[MAX_ENHANCED_LOCATION] = { 0 };
-					while (p = strchr(enhancedLocation, ' '))
+					char	loc[MAX_ENHANCED_LOCATION] = { 0 }, *p;
+					Q_strncpyz(loc, ctx->loc, sizeof(loc));
+					while (p = strchr(loc, ' '))
 						*p = '_';
-
-					// trim and send it
-					Q_strncpyz(trimmed, va("lchat bel:%i %s", i, enhancedLocation), sizeof(trimmed));
-					trap_SendServerCommand(ent - g_entities, trimmed);
+					Com_sprintf(newLocString, sizeof(newLocString), "%s%i=%s%c", newLocString, i, loc, ENHANCED_LOCATION_SEPARATOR_CHAR);
 				}
 			}
 #endif
@@ -1270,6 +1285,22 @@ void TeamplayInfoMessage( gentity_t *ent ) {
 	}
 
 	trap_SendServerCommand( ent-g_entities, va("tinfo %i %s", cnt, string) );
+
+#ifdef NEWMOD_SUPPORT
+	if (doEnhancedLocations && newLocString && newLocString[0]) {
+		ctx = &ent->client->sess.enhancedLocation;
+		if (!Q_stricmp(newLocString, ctx->sentString)) {
+			// we sent the exact same string to this guy last time
+			if (level.time && level.time - ctx->sentTime < ENHANCED_LOCATION_REDUNDANT_TIME)
+				return; // it's been less than 2 seconds; let's wait before possibly sending it again
+		}
+		// send the string
+		ctx->sentTime = level.time;
+		Q_strncpyz(ctx->sentString, newLocString, sizeof(ctx->sentString));
+		trap_SendServerCommand(ent - g_entities, va("print \"Server: sending string %s\n\"", newLocString)); // duodebug
+		trap_SendServerCommand(ent - g_entities, newLocString);
+	}
+#endif
 }
 
 void CheckTeamStatus(void) {
@@ -1306,9 +1337,9 @@ void CheckTeamStatus(void) {
 				// determine this player's enhanced location and store it
 				char *enhancedLocation = GetLocation(ent->client);
 				if (enhancedLocation && *enhancedLocation)
-					Q_strncpyz(ent->client->sess.enhancedLocation, enhancedLocation, sizeof(ent->client->sess.enhancedLocation));
+					Q_strncpyz(ent->client->sess.enhancedLocation.loc, enhancedLocation, sizeof(ent->client->sess.enhancedLocation.loc));
 				else
-					ent->client->sess.enhancedLocation[0] = 0;
+					memset(ent->client->sess.enhancedLocation.loc, 0, sizeof(ent->client->sess.enhancedLocation.loc));
 #endif
 			}
 		}

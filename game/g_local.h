@@ -34,7 +34,8 @@ extern vec3_t gPainPoint;
 
 #define NEWMOD_SUPPORT
 #ifdef NEWMOD_SUPPORT
-#define MAX_ENHANCED_LOCATION	240
+#define MAX_ENHANCED_LOCATION			31
+#define MAX_ENHANCED_LOCATION_STRING	1012
 #endif
 
 #define MAX_USERNAME_SIZE 32 //username size	16
@@ -444,6 +445,11 @@ typedef struct {
 
 #ifdef NEWMOD_SUPPORT
 typedef unsigned long long int cuid_t;
+typedef struct {
+	char		loc[MAX_ENHANCED_LOCATION];					// where this player is
+	char		sentString[MAX_ENHANCED_LOCATION_STRING];	// the data that was last sent to this player
+	int			sentTime;									// the time at which it was sent
+} EnhancedLocationContext;
 #endif
 
 // client data that stays across multiple levels or tournament restarts
@@ -494,7 +500,7 @@ typedef struct {
 	qboolean	confirmedNewmod; // qtrue if the client is a confirmed and authenticated newmod client
 	cuid_t		cuidHash; // first 64 bits of the SHA-1 hash
 	int			confirmationKeys[2]; // randomly generated auth keys to confirm legit clients, -1 if waiting to be generated
-	char		enhancedLocation[MAX_ENHANCED_LOCATION];
+	EnhancedLocationContext	enhancedLocation;
 #endif
 } clientSession_t;
 
