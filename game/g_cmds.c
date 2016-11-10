@@ -1791,9 +1791,18 @@ static float GetXYDistance(gentity_t *ent1, gentity_t *ent2) {
 	return sqrt(diff[0] * diff[0] + diff[1] * diff[1]);
 }
 
+// determines if a weapon or powerup is "owned" by a particular team, and returns a string to indicate this
+// this is done by seeing whose flagstand it is closer to.
+// returns "$R" if red, "$B" if blue, or "" if none or unknown.
 static char *GetOwnerOfLocation(gentity_t *locEnt) {
-	if (!locEnt || !locEnt->item || locEnt->item->giType != IT_POWERUP && locEnt->item->giType != IT_WEAPON)
+	if (!locEnt)
 		return "";
+
+	switch (locEnt->owner) { // check to see if we have already determined that this entity has an owner earlier in the match
+	case OWNER_RED: return "$R";
+	case OWNER_BLUE: return "$B";
+	case OWNER_NONE: return "";
+	}
 
 	// count the number of instances of this kind of entity on the map (not including locEnt itself)
 	int i, found = 0;
@@ -1823,26 +1832,36 @@ static char *GetOwnerOfLocation(gentity_t *locEnt) {
 		found++;
 	}
 
-	if (!found)
+	if (!found) {
+		locEnt->owner = OWNER_NONE;
 		return ""; // locEnt is the only instance of this kind of entity on the map; there is no owner (likely e.g. for boon)
+	}
 
 	// there are multiple of this kind of entity; let's see whose flagstand locEnt is closer to
 	if (!redFlagstand || !blueFlagstand)
 		return ""; // couldn't find either flag...?
 	float locEntRedDistance = GetXYDistance(locEnt, redFlagstand), locEntBlueDistance = GetXYDistance(locEnt, blueFlagstand);
-	if (locEntRedDistance < locEntBlueDistance)
+	if (locEntRedDistance < locEntBlueDistance) {
+		locEnt->owner = OWNER_RED;
 		return "$R";
-	else if (locEntBlueDistance < locEntRedDistance)
+	}
+	else if (locEntBlueDistance < locEntRedDistance) {
+		locEnt->owner = OWNER_BLUE;
 		return "$B";
+	}
 
 	// if we got here, there are multiple of this kind of entity and locEnt is equidistant from the two flags
 	// take the closest weapon to locEnt and see which flagstand it's closer to
 	if (closestWeapon) {
 		float weaponRedDistance = GetXYDistance(closestWeapon, redFlagstand), weaponBlueDistance = GetXYDistance(closestWeapon, blueFlagstand);
-		if (weaponRedDistance < weaponBlueDistance)
+		if (weaponRedDistance < weaponBlueDistance) {
+			locEnt->owner = OWNER_RED;
 			return "$R";
-		else if (weaponBlueDistance < weaponRedDistance)
+		}
+		else if (weaponBlueDistance < weaponRedDistance) {
+			locEnt->owner = OWNER_BLUE;
 			return "$B";
+		}
 	}
 
 	// both locEnt and closestWeapon are equidistant from both flagstands; crash the server to get off this shit map

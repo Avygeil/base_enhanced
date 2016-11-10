@@ -142,6 +142,16 @@ extern void *g2SaberInstance;
 extern qboolean gEscaping;
 extern int gEscapeTime;
 
+#ifdef NEWMOD_SUPPORT
+// for knowing which team "owns" a ctf enhanced location
+typedef enum {
+	OWNER_UNKNOWN = 0,
+	OWNER_RED,
+	OWNER_BLUE,
+	OWNER_NONE
+} locationOwner_t;
+#endif
+
 struct gentity_s {
 	//rww - entstate must be first, to correspond with the bg shared entity structure
 	entityState_t	s;				// communicated by server to clients
@@ -372,6 +382,10 @@ struct gentity_s {
 	qboolean    isReflected;
 
 	gitem_t		*item;			// for bonus items
+
+#ifdef NEWMOD_SUPPORT
+	locationOwner_t		owner;
+#endif
 };
 
 #define DAMAGEREDIRECT_HEAD		1
