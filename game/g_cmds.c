@@ -2676,9 +2676,7 @@ const char *G_GetArenaInfoByMap( const char *map );
 int G_GetArenaNumber( const char *map );
 
 static int      g_votedCounts[MAX_ARENAS];
-#ifdef NEWMOD_SUPPORT
-#define KICKVOTE_FAKEOWNER	1022
-#endif
+
 void Cmd_CallVote_f( gentity_t *ent ) {
 	int		i;
 	static char	arg1[MAX_STRING_TOKENS];
@@ -2965,11 +2963,6 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 			return;
 		}
 			
-#ifdef NEWMOD_SUPPORT
-		gentity_t *te = G_TempEntity(vec3_origin, EV_SIEGESPEC);
-		te->s.owner = KICKVOTE_FAKEOWNER;
-		te->s.eventParm = n;
-#endif
 		Com_sprintf ( level.voteString, sizeof(level.voteString ), "%s %i", arg1, n );
 		Com_sprintf ( level.voteDisplayString, sizeof(level.voteDisplayString), "kick %s", g_entities[n].client->pers.netname );
 	}
@@ -2993,11 +2986,7 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 				return;
 			}
 		}
-#ifdef NEWMOD_SUPPORT
-		gentity_t *te = G_TempEntity(vec3_origin, EV_SIEGESPEC);
-		te->s.owner = KICKVOTE_FAKEOWNER;
-		te->s.eventParm = clientid;
-#endif
+
 		Com_sprintf ( level.voteString, sizeof(level.voteString ), "clientkick %d", clientid );
 		Com_sprintf ( level.voteDisplayString, sizeof(level.voteDisplayString), "kick %s", g_entities[clientid].client->pers.netname );
 	}
