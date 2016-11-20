@@ -2964,7 +2964,7 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 		}
 			
 		Com_sprintf ( level.voteString, sizeof(level.voteString ), "%s %i", arg1, n );
-		Com_sprintf ( level.voteDisplayString, sizeof(level.voteDisplayString), "kick %s", g_entities[n].client->pers.netname );
+		Com_sprintf ( level.voteDisplayString, sizeof(level.voteDisplayString), "kick %s%s", NM_SerializeUIntToColor(n), g_entities[n].client->pers.netname );
 	}
 	else if ( !Q_stricmp ( arg1, "kick" ) )
 	{
@@ -2988,7 +2988,7 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 		}
 
 		Com_sprintf ( level.voteString, sizeof(level.voteString ), "clientkick %d", clientid );
-		Com_sprintf ( level.voteDisplayString, sizeof(level.voteDisplayString), "kick %s", g_entities[clientid].client->pers.netname );
+		Com_sprintf ( level.voteDisplayString, sizeof(level.voteDisplayString), "kick %s%s", NM_SerializeUIntToColor(clientid), g_entities[clientid].client->pers.netname );
 	}
 	else if ( !Q_stricmp( arg1, "nextmap" ) ) 
 	{
