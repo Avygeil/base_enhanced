@@ -153,8 +153,7 @@ void G_CfgDbLoad()
 
 	if (rc == SQLITE_OK)
 		G_LogPrintf("Successfully loaded config database %s\n", cfgDbFileName);
-    if ( rc != SQLITE_OK )
-    {
+	else {
 		G_LogPrintf("Couldn't find config database %s, creating a new one\n", cfgDbFileName);
         // create new database
         rc = sqlite3_open_v2( cfgDbFileName, &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, 0 );
