@@ -4129,8 +4129,7 @@ static void Cmd_WhoIs_f( gentity_t* ent )
 		getIpFromString( mask, &maskInt );
 	}     
 
-	G_CfgDbListAliases( found->client->sess.ip, maskInt, 3, listAliasesCallback, &context );
-
+	G_CfgDbListAliases( found->client->sess.ip, maskInt, 3, listAliasesCallback, &context, found->client->sess.confirmedNewmod && found->client->sess.cuidHash ? found->client->sess.cuidHash : 0);
 }
 
 #define MAX_STATS			16

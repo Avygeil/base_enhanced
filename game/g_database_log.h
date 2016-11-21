@@ -33,19 +33,21 @@ int G_LogDbLogSessionStart( unsigned int ipInt,
 
 void G_LogDbLogSessionEnd( int sessionId );
 
-void G_LogDbLogNickname( unsigned int ipInt,
-    const char* name,
-    int duration );
+void G_LogDbLogNickname(unsigned int ipInt,
+	const char* name,
+	int duration,
+	unsigned long long cuidHash);
 
 typedef void( *ListAliasesCallback )(void* context,
     const char* name,
     int duration);
 
-void G_CfgDbListAliases( unsigned int ipInt,
-    unsigned int ipMask,
-    int limit,
-    ListAliasesCallback callback,
-    void* context );
+void G_CfgDbListAliases(unsigned int ipInt,
+	unsigned int ipMask,
+	int limit,
+	ListAliasesCallback callback,
+	void* context,
+	unsigned long long cuidHash);
 
 
 #endif //G_DATABASE_H
