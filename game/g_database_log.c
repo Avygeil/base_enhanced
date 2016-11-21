@@ -98,7 +98,7 @@ const char* const sqlCountAliases =
 const char* const sqlGetNMAliases =
 "SELECT name, SUM( duration ) AS time                           "
 "FROM nicknames                                                 "
-"WHERE nicknames.cuid_hash & ?1                                 "
+"WHERE nicknames.cuid_hash = ?1                                 "
 "GROUP BY name                                                  "
 "ORDER BY time DESC                                             "
 "LIMIT ?2                                                       ";
@@ -107,7 +107,7 @@ const char* const sqlCountNMAliases =
 "SELECT COUNT(*) FROM ("
 "SELECT name, SUM( duration ) AS time                           "
 "FROM nicknames                                                 "
-"WHERE nicknames.cuid_hash & ?1                                 "
+"WHERE nicknames.cuid_hash = ?1                                 "
 "GROUP BY name                                                  "
 "ORDER BY time DESC                                             "
 "LIMIT ?2                                                       "
