@@ -2004,6 +2004,54 @@ void PurgeStringedTrolling(char *in, char *out, int outSize) {
 }
 
 /*
+===============
+G_SendConfigstring
+
+Creates and sends the server command necessary to update the CS index for the
+given client
+===============
+*/
+static void G_SendConfigstring(int clientNum, char *extra)
+{
+	if (clientNum < 0 || clientNum >= MAX_CLIENTS)
+		return;
+
+	int maxChunkSize = MAX_STRING_CHARS - 24, len;
+	char string[16384] = { 0 };
+
+	trap_GetConfigstring(CS_SYSTEMINFO, string, sizeof(string));
+	if (extra && *extra)
+		Q_strcat(string, sizeof(string), extra);
+
+	len = strlen(string);
+
+	if (len >= maxChunkSize) {
+		int		sent = 0;
+		int		remaining = len;
+		char	*cmd;
+		char	buf[MAX_STRING_CHARS];
+
+		while (remaining > 0) {
+			if (sent == 0)
+				cmd = "bcs0";
+			else if (remaining < maxChunkSize)
+				cmd = "bcs2";
+			else
+				cmd = "bcs1";
+			Q_strncpyz(buf, &string[sent], maxChunkSize);
+
+			trap_SendServerCommand(clientNum, va("%s %i \"%s\"\n", cmd,
+				CS_SYSTEMINFO, buf));
+
+			sent += (maxChunkSize - 1);
+			remaining -= (maxChunkSize - 1);
+		}
+	}
+	else // standard cs, just send it
+		trap_SendServerCommand(clientNum, va("cs %i \"%s\"\n", CS_SYSTEMINFO, string));
+}
+
+/*
 ===========
 ClientUserInfoChanged
 
@@ -2352,12 +2400,11 @@ void ClientUserinfoChanged( int clientNum ) {
 			trap_GetConfigstring( CS_SYSTEMINFO, systeminfo, sizeof( systeminfo ) );
 
 			if ( systeminfo[0] ) {
-				trap_SendServerCommand( clientNum, va( "cs %i \"%s%s%s%s%s\"", CS_SYSTEMINFO, systeminfo,
-					netflags & NF_SNAPS ? "\\snaps" : "",
-					netflags & NF_SNAPS ? va( "\\%d", trap_Cvar_VariableIntegerValue( "sv_fps" ) ) : "",
+				G_SendConfigstring(clientNum, va("%s%s%s%s", netflags & NF_SNAPS ? "\\snaps" : "",
+					netflags & NF_SNAPS ? va("\\%d", trap_Cvar_VariableIntegerValue("sv_fps")) : "",
 					netflags & NF_RATE ? "\\rate\\25000" : "",
-					netflags & NF_MAXPACKETS ? "\\cl_maxpackets\\100" : "" ) );
-				trap_SendServerCommand( clientNum, va( "cs %i \"%s\"", CS_SYSTEMINFO, systeminfo ) );
+					netflags & NF_MAXPACKETS ? "\\cl_maxpackets\\100" : ""));
+				G_SendConfigstring(clientNum, NULL);
 			}
 		}
 	}
@@ -2466,8 +2513,8 @@ void ClientUserinfoChanged( int clientNum ) {
 
 				if ( systeminfo[0] ) {
 					// they only need to see it once for it to be set
-					trap_SendServerCommand( clientNum, va( "cs %i \"%s\\sex\\%d\"", CS_SYSTEMINFO, systeminfo, guidHash ) );
-					trap_SendServerCommand( clientNum, va( "cs %i \"%s\"", CS_SYSTEMINFO, systeminfo ) );
+					G_SendConfigstring(clientNum, va("\\sex\\%d", guidHash));
+					G_SendConfigstring(clientNum, NULL);
 				}
 			}
 		}
