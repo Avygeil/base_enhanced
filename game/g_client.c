@@ -2880,6 +2880,16 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 	return NULL;
 }
 
+#ifdef NEWMOD_SUPPORT
+#define FEATURE_OCTALIDS	"oid"
+#define FEATURE_CLIENTLIST	"cl"
+void G_BroadcastServerFeatureList(int clientNum) {
+	char string[MAX_CVAR_VALUE_STRING] = { 0 };
+	Q_strncpyz(string, va("lchat \"sfl\" \""FEATURE_OCTALIDS","FEATURE_CLIENTLIST"\""), sizeof(string));
+	trap_SendServerCommand(clientNum, string);
+}
+#endif
+
 #include "namespace_begin.h"
 void WP_SetSaber( int entNum, saberInfo_t *sabers, int saberNum, const char *saberName );
 #include "namespace_end.h"
@@ -3112,6 +3122,7 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 	G_ClearClientLog(clientNum);
 
 #ifdef NEWMOD_SUPPORT
+	G_BroadcastServerFeatureList(clientNum);
 #define RandomConfirmationKey()	( ( rand() << 16 ) ^ rand() ^ trap_Milliseconds() )
 	if ( !ent->client->sess.confirmedNewmod && ent->client->sess.confirmationKeys[0] < 0 && ent->client->sess.confirmationKeys[1] < 0 ) {
 		// newmod client is not authenticated, calculate a key and send it to him

@@ -861,6 +861,10 @@ struct gclient_s {
 	int			lastGenCmdTime;
 
 	int			preduelWeaps;
+
+#ifdef NEWMOD_SUPPORT
+	qboolean	isLagging; // mark lagger without actually changing EF_CONNECTION
+#endif
 };
 
 //Interest points
@@ -1454,7 +1458,7 @@ void AddScore( gentity_t *ent, vec3_t origin, int score );
 void CalculateRanks( void );
 qboolean SpotWouldTelefrag( gentity_t *spot );
 void NormalizeName(const char *in, char *out, int outSize, int colorlessSize);
-
+void G_BroadcastServerFeatureList(int clientNum);
 extern gentity_t *gJMSaberEnt;
 
 //

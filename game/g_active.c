@@ -3946,6 +3946,21 @@ void ClientEndFrame( gentity_t *ent ) {
 		isNPC = qtrue;
 	}
 
+#ifdef NEWMOD_SUPPORT
+	// add the EF_CONNECTION flag for non-specs if we haven't gotten commands recently
+	if (level.time - ent->client->lastCmdTime > 1000) {
+		ent->client->isLagging = qtrue;
+		if (ent->client->sess.sessionTeam != TEAM_SPECTATOR)
+			ent->client->ps.eFlags |= EF_CONNECTION;
+	}
+	else {
+		if (ent->client->ps.eFlags & EF_CONNECTION || ent->client->isLagging)
+			G_BroadcastServerFeatureList(ent - g_entities); // he was lagging (or vid_restarted) but isn't anymore; send this again just to be sure
+		ent->client->isLagging = qfalse;
+		ent->client->ps.eFlags &= ~EF_CONNECTION;
+	}
+#endif
+
 	if ( ent->client->sess.sessionTeam == TEAM_SPECTATOR ) {
 		SpectatorClientEndFrame( ent );
 		return;
@@ -4019,13 +4034,6 @@ void ClientEndFrame( gentity_t *ent ) {
 
 	// apply all the damage taken this frame
 	P_DamageFeedback (ent);
-
-	// add the EF_CONNECTION flag if we haven't gotten commands recently
-	if ( level.time - ent->client->lastCmdTime > 1000 ) {
-		ent->client->ps.eFlags |= EF_CONNECTION;
-	} else {
-		ent->client->ps.eFlags &= ~EF_CONNECTION;
-	}
 
 	ent->client->ps.stats[STAT_HEALTH] = ent->health;	// FIXME: get rid of ent->health...
 
