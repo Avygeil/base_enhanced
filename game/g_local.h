@@ -1458,7 +1458,9 @@ void AddScore( gentity_t *ent, vec3_t origin, int score );
 void CalculateRanks( void );
 qboolean SpotWouldTelefrag( gentity_t *spot );
 void NormalizeName(const char *in, char *out, int outSize, int colorlessSize);
+#ifdef NEWMOD_SUPPORT
 void G_BroadcastServerFeatureList(int clientNum);
+#endif
 extern gentity_t *gJMSaberEnt;
 
 //
