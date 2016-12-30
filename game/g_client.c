@@ -2883,9 +2883,10 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 #ifdef NEWMOD_SUPPORT
 #define FEATURE_OCTALIDS	"oid"
 #define FEATURE_CLIENTLIST	"cl"
+#define FEATURE_CTFSTATS	"ctfs"
 void G_BroadcastServerFeatureList(int clientNum) {
 	char string[MAX_CVAR_VALUE_STRING] = { 0 };
-	Q_strncpyz(string, va("lchat \"sfl\" \""FEATURE_OCTALIDS","FEATURE_CLIENTLIST"\""), sizeof(string));
+	Q_strncpyz(string, va("lchat \"sfl\" \""FEATURE_OCTALIDS","FEATURE_CLIENTLIST","FEATURE_CTFSTATS"\""), sizeof(string));
 	trap_SendServerCommand(clientNum, string);
 }
 #endif
