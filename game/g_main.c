@@ -188,6 +188,7 @@ vmCvar_t	g_smoothClients;
 vmCvar_t	g_defaultBanHoursDuration;
 vmCvar_t	g_floatingItems;
 vmCvar_t	g_rocketSurfing;
+vmCvar_t	g_bouncePadDoubleJump;
 
 #include "namespace_begin.h"
 vmCvar_t	pmove_fixed;
@@ -662,7 +663,7 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_floatingItems, "g_floatingItems", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_rocketSurfing, "g_rocketSurfing", "1", CVAR_ARCHIVE, 0, qtrue },
-
+	{ &g_bouncePadDoubleJump, "g_bouncePadDoubleJump", "1", CVAR_ARCHIVE, 0, qtrue }
 };
 
 // bk001129 - made static to avoid aliasing

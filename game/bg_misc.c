@@ -2692,7 +2692,10 @@ void BG_TouchJumpPad( playerState_t *ps, entityState_t *jumppad ) {
 	VectorCopy( jumppad->origin2, ps->velocity );
 	// fix - no more jump draining force
 	ps->fd.forcePowersActive &= ~(1<<FP_LEVITATION);
-    ps->pm_flags &= ~PMF_JUMP_HELD;
+
+	if ( !g_bouncePadDoubleJump.integer ) {
+		ps->pm_flags &= ~PMF_JUMP_HELD;
+	}
 }
 
 /*
