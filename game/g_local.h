@@ -1100,7 +1100,7 @@ typedef struct {
 
 #ifdef NEWMOD_SUPPORT
 	qboolean nmAuthEnabled;
-	char pubKeyStr[RSA_MAX_PUB_B64_CHARS];
+	char pubKeyStr[RSA_MAX_PUB_B64U_CHARS];
 #endif
 
 } level_locals_t;

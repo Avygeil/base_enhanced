@@ -96,7 +96,7 @@ int Crypto_RSADumpKey( int pub, char *out, size_t outLen ) {
 	out[0] = '\0'; // in case of failure, empty result
 
 	try {
-		CryptoPP::Base64Encoder outTransform( new CryptoPP::StringSink( result ), false );
+		CryptoPP::Base64URLEncoder outTransform( new CryptoPP::StringSink( result ), false );
 
 		if ( pub ) {
 			( *rsaPub ).DEREncode( outTransform );
@@ -110,12 +110,12 @@ int Crypto_RSADumpKey( int pub, char *out, size_t outLen ) {
 	return LegacyStrcpySafe( result, out, outLen );
 }
 
-static void RSAEncryptBase64( const char *in, std::string &out ) {
-	CryptoPP::StringSource( in, true, new CryptoPP::PK_EncryptorFilter( prng, *rsaPub, new CryptoPP::Base64Encoder( new CryptoPP::StringSink( out ), false ) ) );
+static void RSAEncryptBase64Url( const char *in, std::string &out ) {
+	CryptoPP::StringSource( in, true, new CryptoPP::PK_EncryptorFilter( prng, *rsaPub, new CryptoPP::Base64URLEncoder( new CryptoPP::StringSink( out ), false ) ) );
 }
 
-static void RSADecryptBase64( const char *in, std::string &out ) {
-	CryptoPP::StringSource( in, true, new CryptoPP::Base64Decoder( new CryptoPP::PK_DecryptorFilter( prng, *rsaPriv, new CryptoPP::StringSink( out ) ) ) );
+static void RSADecryptBase64Url( const char *in, std::string &out ) {
+	CryptoPP::StringSource( in, true, new CryptoPP::Base64URLDecoder( new CryptoPP::PK_DecryptorFilter( prng, *rsaPriv, new CryptoPP::StringSink( out ) ) ) );
 }
 
 static size_t TransformLegacyBufferSafe( const char *in, char *out, size_t outLen, void( *Callback )( const char*, std::string& ) ) {
@@ -129,7 +129,7 @@ static size_t TransformLegacyBufferSafe( const char *in, char *out, size_t outLe
 
 int Crypto_RSAEncrypt( const char *in, char *out, size_t outLen ) {
 	try {
-		return TransformLegacyBufferSafe( in, out, outLen, RSAEncryptBase64 );
+		return TransformLegacyBufferSafe( in, out, outLen, RSAEncryptBase64Url );
 	} catch ( const std::exception &e ) {
 		return SetLastError( e, __FUNCTION__ );
 	}
@@ -137,7 +137,7 @@ int Crypto_RSAEncrypt( const char *in, char *out, size_t outLen ) {
 
 int Crypto_RSADecrypt( const char *in, char *out, size_t outLen ) {
 	try {
-		return TransformLegacyBufferSafe( in, out, outLen, RSADecryptBase64 );
+		return TransformLegacyBufferSafe( in, out, outLen, RSADecryptBase64Url );
 	} catch ( const std::exception &e ) {
 		return SetLastError( e, __FUNCTION__ );
 	}

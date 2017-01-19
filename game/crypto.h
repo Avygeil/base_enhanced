@@ -9,16 +9,17 @@
 #define RSA_KEY_SIZE			189						// this is the largest key size that generates base64 output <= 255 chars
 
 /* the values below must be computed according to RSA_KEY_SIZE */
-#define RSA_PUB_B64_BITS		292						// the fixed length of a base64 pub key
-#define RSA_MAX_PUB_B64_CHARS	RSA_PUB_B64_BITS + 1	// use this for base64 encoded pub keys
+#define RSA_PUB_B64U_BITS		292						// the fixed length of a base64url pub key
+#define RSA_MAX_PUB_B64U_CHARS	RSA_PUB_B64U_BITS + 1	// use this for base64url encoded pub keys buffers
 #define RSA_UNPADDED_BITS		147						// the max length of a string to encrypt
 #define RSA_MAX_DEC_CHARS		RSA_UNPADDED_BITS + 1	// use this for plain/decrypted buffers
-#define RSA_ENC_B64_BITS		252						// the fixed length of an encrypted base64 string
-#define RSA_MAX_ENC_B64_CHARS	RSA_ENC_B64_BITS + 1	// use this for base64 encoded encrypted buffers
+#define RSA_ENC_B64U_BITS		252						// the fixed length of an encrypted base64url string
+#define RSA_MAX_ENC_B64U_CHARS	RSA_ENC_B64U_BITS + 1	// use this for base64url encoded encrypted buffers
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+	/* most functions return CRYPTO_ERROR in case of error */
 	int Crypto_RSAInit( void );
 	void Crypto_RSAFree( void );
 	int Crypto_RSADumpKey( int pub, char *out, size_t outLen );
