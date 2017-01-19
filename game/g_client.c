@@ -2062,6 +2062,31 @@ The game can override any of the settings and call trap_SetUserinfo
 if desired.
 ============
 */
+
+#ifdef NEWMOD_SUPPORT
+static cuid_t HashCuid( const char *cuid ) {
+	if ( !cuid || !*cuid || !strcmp( cuid, "0-0" ) ) {
+		return 0; // don't hash empty/default cuid's
+	}
+
+	SHA1Context ctx;
+	cuid_t hash = 0;
+	SHA1Reset( &ctx );
+	SHA1Input( &ctx, ( unsigned char * )cuid, ( unsigned int )strlen( cuid ) );
+
+	if ( SHA1Result( &ctx ) == 1 ) {
+		// the cuid itself is 2*32 bits long, it doesn't make sense to use more than 64 bits of the hash
+		hash = ( ( cuid_t )ctx.Message_Digest[0] ) << 32 | ctx.Message_Digest[1];
+#if 0
+		// per server randomization can be done with a key here to invalidate all cuid's
+		hash ^= 0x11b9791e5718f00c;
+#endif
+	}
+
+	return hash;
+}
+#endif
+
 qboolean G_SetSaber(gentity_t *ent, int saberNum, char *saberName, qboolean siegeOverride);
 void G_ValidateSiegeClassForTeam(gentity_t *ent, int team);
 void ClientUserinfoChanged( int clientNum ) {
@@ -2176,7 +2201,7 @@ void ClientUserinfoChanged( int clientNum ) {
 				Info_SetValueForKey( userinfo, "name", client->pers.netname );
 				trap_SetUserinfo( clientNum, userinfo );
 
-                G_LogDbLogNickname( client->sess.ip, oldname, (getGlobalTime() - client->sess.nameChangeTime ) / 1000, client->sess.confirmedNewmod && client->sess.cuidHash ? client->sess.cuidHash : 0);
+                G_LogDbLogNickname( client->sess.ip, oldname, (getGlobalTime() - client->sess.nameChangeTime ) / 1000, client->sess.auth == AUTHENTICATED ? client->sess.cuidHash : 0);
                 client->sess.nameChangeTime = getGlobalTime();
 
 				//make heartbeat soon - accounts system
@@ -2419,24 +2444,85 @@ void ClientUserinfoChanged( int clientNum ) {
 	strcpy(c2, Info_ValueForKey( userinfo, "color2" ));
 
 #ifdef NEWMOD_SUPPORT
-	if ( !ent->client->sess.confirmedNewmod && ent->client->sess.confirmationKeys[0] > 0 && ent->client->sess.confirmationKeys[1] > 0 ) {
-		// this client is awaiting for auth
-		s = Info_ValueForKey( userinfo, "svauth" );
+#define RandomConfirmationKey()	( ( rand() << 16 ) ^ rand() ^ trap_Milliseconds() )
+	if ( ent->client->sess.auth > PENDING && ent->client->sess.auth < AUTHENTICATED ) {
+		// this client is currently getting authenticated
+		qboolean bumpStep = qfalse;
 
-		if ( *s ) {
-			int result = atoi( s );
+		if ( ent->client->sess.auth == CLANNOUNCE ) {
+			s = Info_ValueForKey( userinfo, "svauth" );
 
-			if ( result ) {
-				// svauth is not zero, only give them one chance to auth
-				if ( ( result ^ client->sess.confirmationKeys[1] ) == client->sess.confirmationKeys[0] ) {
-					G_LogPrintf( "Newmod Client %d successfully authenticated\n", clientNum );
-					ent->client->sess.confirmedNewmod = qtrue;
+			if ( *s ) {
+				char decryptedSvauth[RSA_MAX_DEC_CHARS];
+				int clientKeys[2];
+
+				if ( Crypto_RSADecrypt( s, decryptedSvauth, sizeof( decryptedSvauth ) ) != CRYPTO_ERROR ) {
+					char clauthContent[128] = { 0 };
+
+					s = Info_ValueForKey( decryptedSvauth, "clientKey1" );
+					clientKeys[0] = atoi( s );
+					s = Info_ValueForKey( decryptedSvauth, "clientKey2" );
+					clientKeys[1] = atoi( s );
+					Info_SetValueForKey( clauthContent, "clientKeysXor", va( "%d", clientKeys[0] ^ clientKeys[1] ) );
+
+					client->sess.serverKeys[0] = RandomConfirmationKey();
+					Info_SetValueForKey( clauthContent, "serverKey1", va( "%d", client->sess.serverKeys[0] ) );
+
+					client->sess.serverKeys[1] = RandomConfirmationKey();
+					Info_SetValueForKey( clauthContent, "serverKey2", va( "%d", client->sess.serverKeys[1] ) );
+
+					trap_SendServerCommand( clientNum, va( "lchat \"clauth\" %s", clauthContent ) );
+
+					bumpStep = qtrue;
+#ifdef _DEBUG
+					G_Printf( "Got keys %d^%d=%d from client, sent %d and %d\n",
+						clientKeys[0], clientKeys[1], clientKeys[0] ^ clientKeys[1], client->sess.serverKeys[0], client->sess.serverKeys[1]
+					);
+#endif
 				} else {
-					G_LogPrintf( "Newmod Client %d failed authentication\n", clientNum );
+					G_Printf( S_COLOR_RED"Failed to decrypt clientKeys for client %d\n", clientNum );
+					G_Printf( S_COLOR_RED"%s\n", Crypto_LastError() );
 				}
-
-				client->sess.confirmationKeys[0] = client->sess.confirmationKeys[1] = 0;
 			}
+		} else if ( ent->client->sess.auth == CLAUTH ) {
+			s = Info_ValueForKey( userinfo, "svauth" );
+
+			if ( *s ) {
+				char decryptedSvauth[RSA_MAX_DEC_CHARS];
+
+				if ( !Crypto_RSADecrypt( s, decryptedSvauth, sizeof( decryptedSvauth ) ) != CRYPTO_ERROR ) {
+					int serverKeysXor = atoi( decryptedSvauth );
+
+					if ( ( client->sess.serverKeys[0] ^ client->sess.serverKeys[1] ) == serverKeysXor ) {
+						s = Info_ValueForKey( userinfo, "cuid" );
+
+						if ( *s ) {
+							// legit client
+							char decryptedCuid[RSA_MAX_DEC_CHARS];
+
+							if ( !Crypto_RSADecrypt( s, decryptedCuid, sizeof( decryptedCuid ) ) != CRYPTO_ERROR ) {
+								client->sess.cuidHash = HashCuid( decryptedCuid );
+								bumpStep = qtrue;
+								G_Printf( "Newmod client %d authenticated successfully (cuid hash: %llX)\n", clientNum, client->sess.cuidHash );
+							} else {
+								G_Printf( S_COLOR_RED"Failed to decrypt cuid for client %d\n", clientNum );
+								G_Printf( S_COLOR_RED"%s\n", Crypto_LastError() );
+							}
+						}
+					}
+				} else {
+					G_Printf( S_COLOR_RED"Failed to decrypt serverKeysXor for client %d\n", clientNum );
+					G_Printf( S_COLOR_RED"%s\n", Crypto_LastError() );
+				}
+			}
+		}
+
+		if ( bumpStep ) {
+			++(ent->client->sess.auth);
+		} else {
+			// give only 1 chance/prevent error loops
+			client->sess.auth = INVALID;
+			G_Printf( "Client %d failed newmod authentication\n", clientNum );
 		}
 	}
 #endif
@@ -2534,7 +2620,7 @@ void ClientUserinfoChanged( int clientNum ) {
 				client->pers.maxHealth, client->sess.wins, client->sess.losses, teamTask, teamLeader, saberName, saber2Name, client->sess.duelTeam, totalHash);
 		}
 #ifdef NEWMOD_SUPPORT
-		if ( client->sess.confirmedNewmod && client->sess.cuidHash ) {
+		if ( client->sess.auth == AUTHENTICATED && client->sess.cuidHash ) {
 			s = va( "%s\\cid\\%llX", s, client->sess.cuidHash );
 		}
 #endif
@@ -2752,29 +2838,20 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 			}
 		}
 
+#if 0
 #ifdef NEWMOD_SUPPORT
 		{
 			// first newmod verification
 			char *nm_ver = Info_ValueForKey( userinfo, "nm_ver" );
 
 			if ( *nm_ver ) {
-#if 0
 				// Version filtering should be done here
 				if ( !strcmp( nm_ver, "1.0.0" ) ) {
 					return va( "Newmod %s is banned, please update.", nm_ver );
-				}
-#endif
-				if ( !*Info_ValueForKey( userinfo, "cuid" ) ) {
-					// user declares nm_ver but no cuid?
-					return "Invalid Newmod client.";
-				}
-			} else {
-				if ( *Info_ValueForKey( userinfo, "cuid" ) ) {
-					// user declares cuid but no nm_ver?
-					return "Invalid Newmod client.";
-				}
+				}	
 			}
 		}
+#endif
 #endif
 	}
 
@@ -3123,15 +3200,13 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 	G_ClearClientLog(clientNum);
 
 #ifdef NEWMOD_SUPPORT
-	G_BroadcastServerFeatureList(clientNum);
-#define RandomConfirmationKey()	( ( rand() << 16 ) ^ rand() ^ trap_Milliseconds() )
-	if ( !ent->client->sess.confirmedNewmod && ent->client->sess.confirmationKeys[0] < 0 && ent->client->sess.confirmationKeys[1] < 0 ) {
-		// newmod client is not authenticated, calculate a key and send it to him
-		ent->client->sess.confirmationKeys[0] = abs( RandomConfirmationKey() );
-		ent->client->sess.confirmationKeys[1] = abs( RandomConfirmationKey() );
-		trap_SendServerCommand( clientNum, va( "clauth %d %d", ent->client->sess.confirmationKeys[0], ent->client->sess.confirmationKeys[1] ) );
+	G_BroadcastServerFeatureList( clientNum );
+
+	if ( ent->client->sess.auth == PENDING ) {
+		trap_SendServerCommand( clientNum, va( "lchat \"clannounce\" %d %s", NM_AUTH_PROTOCOL, level.pubKeyStr ) );
+		ent->client->sess.auth = CLANNOUNCE;
 #ifdef _DEBUG
-		G_LogPrintf( "Sent auth packet to client %d (%d, %d)\n", clientNum, ent->client->sess.confirmationKeys[0], ent->client->sess.confirmationKeys[1] );
+		G_LogPrintf( "Sent clannounce packet to client %d\n", clientNum );
 #endif
 	}
 #endif
@@ -4374,7 +4449,7 @@ void ClientDisconnect( int clientNum ) {
 		return;
 	}
 
-    G_LogDbLogNickname( ent->client->sess.ip, ent->client->pers.netname, (getGlobalTime() - ent->client->sess.nameChangeTime ) / 1000, ent->client->sess.confirmedNewmod && ent->client->sess.cuidHash ? ent->client->sess.cuidHash : 0);
+    G_LogDbLogNickname( ent->client->sess.ip, ent->client->pers.netname, (getGlobalTime() - ent->client->sess.nameChangeTime ) / 1000, ent->client->sess.auth == AUTHENTICATED ? ent->client->sess.cuidHash : 0);
     ent->client->sess.nameChangeTime = getGlobalTime();
 
     G_LogDbLogSessionEnd( ent->client->sess.sessionId );

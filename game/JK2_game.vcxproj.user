@@ -3,13 +3,15 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LocalDebuggerAttach>false</LocalDebuggerAttach>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
-    <LocalDebuggerCommand>D:\Games\Jedi Academy - Server\GameData\jampDed.exe</LocalDebuggerCommand>
-    <LocalDebuggerWorkingDirectory>..\..\..\..\Games\Jedi Academy - Server\GameData</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerCommand>D:\JKADebug\openjkded.x86.exe</LocalDebuggerCommand>
+    <LocalDebuggerWorkingDirectory>D:\JKADebug</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerCommandArguments>+set dedicated 2 +set net_port 29070 +exec server.cfg</LocalDebuggerCommandArguments>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Final|Win32'">
-    <LocalDebuggerCommand>D:\Games\Jedi Academy - Server\GameData\jampDed.exe</LocalDebuggerCommand>
-    <LocalDebuggerWorkingDirectory>..\..\..\..\Games\Jedi Academy - Server\GameData</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerCommand>D:\JKADebug\openjkded.x86.exe</LocalDebuggerCommand>
+    <LocalDebuggerWorkingDirectory>D:\JKADebug</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerAttach>false</LocalDebuggerAttach>
+    <LocalDebuggerCommandArguments>+set dedicated 2 +set net_port 29070 +exec server.cfg</LocalDebuggerCommandArguments>
   </PropertyGroup>
 </Project>

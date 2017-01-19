@@ -1260,6 +1260,18 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 		trap_Cvar_Set("g_wasRestarted", "0");
 	}
 
+#ifdef NEWMOD_SUPPORT
+	level.nmAuthEnabled = Crypto_RSAInit() != CRYPTO_ERROR
+		&& Crypto_RSADumpKey( 1, level.pubKeyStr, sizeof( level.pubKeyStr ) ) != CRYPTO_ERROR;
+
+	if ( !level.nmAuthEnabled ) {
+		G_Printf( S_COLOR_RED"%s\n", Crypto_LastError() );
+		G_Printf( S_COLOR_RED"Newmod auth support was disabled\n" );
+	} else {
+		G_Printf( "Loaded RSA keys successfully\n" );
+	}
+#endif
+
 	// accounts system
 	//initDB();
 
@@ -1517,6 +1529,10 @@ void G_ShutdownGame( int restart ) {
     G_LogDbUnload();
 
 	UnpatchEngine();
+
+#ifdef NEWMOD_SUPPORT
+	Crypto_RSAFree();
+#endif
 }
 
 

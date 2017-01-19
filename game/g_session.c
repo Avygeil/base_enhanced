@@ -15,30 +15,6 @@ and tournament restarts.
 =======================================================================
 */
 
-#ifdef NEWMOD_SUPPORT
-static cuid_t HashCuid( const char *cuid ) {
-	if ( !cuid || !*cuid || !strcmp( cuid, "0-0" ) ) {
-		return 0; // don't hash empty/default cuid's
-	}
-
-	SHA1Context ctx;
-	cuid_t hash = 0;
-	SHA1Reset( &ctx );
-	SHA1Input( &ctx, ( unsigned char * )cuid, ( unsigned int )strlen( cuid ) );
-
-	if ( SHA1Result( &ctx ) == 1 ) {
-		// the cuid itself is 2*32 bits long, it doesn't make sense to use more than 64 bits of the hash
-		hash = ( ( cuid_t ) ctx.Message_Digest[0] ) << 32 | ctx.Message_Digest[1];
-#if 0
-		// per server randomization can be done with a key here to invalidate all cuid's
-		hash ^= 0x11b9791e5718f00c;
-#endif
-	}
-
-	return hash;
-}
-#endif
-
 /*
 ================
 G_InitSessionData
@@ -175,26 +151,7 @@ void G_InitSessionData( gclient_t *client, char *userinfo, qboolean isBot, qbool
 	Q_strncpyz( sess->saber2Type, Info_ValueForKey( userinfo, "saber2" ), sizeof( sess->saber2Type ) );
 
 #ifdef NEWMOD_SUPPORT
-	{
-		char *nm_ver = Info_ValueForKey( userinfo, "nm_ver" );
-
-		if ( *nm_ver ) {
-			sess->cuidHash = HashCuid( Info_ValueForKey( userinfo, "cuid" ) );
-
-			if ( sess->cuidHash ) {
-				G_LogPrintf( "Newmod Client %d reports cuid hash %llX\n", client - level.clients, sess->cuidHash );
-			} else {
-				G_LogPrintf( "Newmod Client %d reports default cuid\n", client - level.clients );
-			}
-
-			sess->confirmationKeys[0] = sess->confirmationKeys[1] = -1; // marks the key to be calculated in the first ClientBegin()
-		} else {
-			sess->cuidHash = 0ULL;
-			sess->confirmationKeys[0] = sess->confirmationKeys[1] = 0;
-		}
-
-		sess->confirmedNewmod = qfalse;
-	}
+	sess->auth = level.nmAuthEnabled && *Info_ValueForKey( userinfo, "nm_ver" ) ? PENDING : INVALID;
 #endif
 }
 

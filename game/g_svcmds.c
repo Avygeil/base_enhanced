@@ -1359,18 +1359,20 @@ void Svcmd_ClientInfo_f( void ) {
 				Q_strcat( description, sizeof( description ), "Newmod " );
 				Q_strcat( description, sizeof( description ), Info_ValueForKey( userinfo, "nm_ver" ) );
 
-				if ( level.clients[i].sess.confirmedNewmod ) {
+				if ( level.clients[i].sess.auth == AUTHENTICATED ) {
 					Q_strcat( description, sizeof( description ), S_COLOR_GREEN" (confirmed) "S_COLOR_WHITE );
-				} else {
-					Q_strcat( description, sizeof( description ), S_COLOR_RED" (unconfirmed) "S_COLOR_WHITE );
-				}
 
-				if ( level.clients[i].sess.cuidHash ) {
-					// valid cuid
-					Q_strcat( description, sizeof( description ), va( "(cuid hash: "S_COLOR_CYAN"%llX"S_COLOR_WHITE")", level.clients[i].sess.cuidHash ) );
+					if ( level.clients[i].sess.cuidHash ) {
+						// valid cuid
+						Q_strcat( description, sizeof( description ), va( "(cuid hash: "S_COLOR_CYAN"%llX"S_COLOR_WHITE")", level.clients[i].sess.cuidHash ) );
+					} else {
+						// invalid cuid, should not happen
+						Q_strcat( description, sizeof( description ), S_COLOR_RED"(invalid cuid!)"S_COLOR_WHITE );
+					}
+				} else if ( level.clients[i].sess.auth > INVALID ) {
+					Q_strcat( description, sizeof( description ), S_COLOR_YELLOW" (authing)"S_COLOR_WHITE );
 				} else {
-					// default cuid
-					Q_strcat( description, sizeof( description ), S_COLOR_RED"(default CUID!)"S_COLOR_WHITE );
+					Q_strcat( description, sizeof( description ), S_COLOR_RED" (auth failed)"S_COLOR_WHITE );
 				}
 
 				Q_strcat( description, sizeof( description ), ", " );
