@@ -501,11 +501,11 @@ typedef struct {
 
 #ifdef NEWMOD_SUPPORT
 	enum {
-		INVALID = 0,
-		PENDING,
+		PENDING = 0,
 		CLANNOUNCE,
 		CLAUTH,
-		AUTHENTICATED
+		AUTHENTICATED,
+		INVALID
 	} auth;
 	cuid_t		cuidHash; // first 64 bits of the SHA-1 hash
 	int			serverKeys[2]; // randomly generated auth keys to confirm legit clients

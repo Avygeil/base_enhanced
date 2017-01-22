@@ -2454,34 +2454,39 @@ void ClientUserinfoChanged( int clientNum ) {
 
 			if ( *s ) {
 				char decryptedSvauth[RSA_MAX_DEC_CHARS];
-				int clientKeys[2];
 
 				if ( Crypto_RSADecrypt( s, decryptedSvauth, sizeof( decryptedSvauth ) ) != CRYPTO_ERROR ) {
-					char clauthContent[128] = { 0 };
-
-					s = Info_ValueForKey( decryptedSvauth, "clientKey1" );
-					clientKeys[0] = atoi( s );
-					s = Info_ValueForKey( decryptedSvauth, "clientKey2" );
-					clientKeys[1] = atoi( s );
-					Info_SetValueForKey( clauthContent, "clientKeysXor", va( "%d", clientKeys[0] ^ clientKeys[1] ) );
-
-					client->sess.serverKeys[0] = RandomConfirmationKey();
-					Info_SetValueForKey( clauthContent, "serverKey1", va( "%d", client->sess.serverKeys[0] ) );
-
-					client->sess.serverKeys[1] = RandomConfirmationKey();
-					Info_SetValueForKey( clauthContent, "serverKey2", va( "%d", client->sess.serverKeys[1] ) );
-
-					trap_SendServerCommand( clientNum, va( "lchat \"clauth\" %s", clauthContent ) );
+					int clientKeys[2];
 
 					bumpStep = qtrue;
+
+					s = Info_ValueForKey( decryptedSvauth, "ck1" );
+					if ( !*s || !Q_isanumber( s ) ) bumpStep = qfalse;
+					clientKeys[0] = atoi( s );
+
+					s = Info_ValueForKey( decryptedSvauth, "ck2" );
+					if ( !*s || !Q_isanumber( s ) ) bumpStep = qfalse;
+					clientKeys[1] = atoi( s );
+
+					if ( bumpStep ) {
+						client->sess.serverKeys[0] = RandomConfirmationKey();
+						client->sess.serverKeys[1] = RandomConfirmationKey();
+
+						trap_SendServerCommand( clientNum, va( "lchat \"clauth\" \"ckx\\%d\\sk1\\%d\\sk2\\%d\"",
+							clientKeys[0] ^ clientKeys[1], client->sess.serverKeys[0], client->sess.serverKeys[1] ) );
+
+						bumpStep = qtrue;
 #ifdef _DEBUG
-					G_Printf( "Got keys %d^%d=%d from client, sent %d and %d\n",
-						clientKeys[0], clientKeys[1], clientKeys[0] ^ clientKeys[1], client->sess.serverKeys[0], client->sess.serverKeys[1]
-					);
+						G_Printf( "Got keys %d ^ %d = %d from client %d, sent %d and %d\n",
+							clientKeys[0], clientKeys[1], clientKeys[0] ^ clientKeys[1], ent - g_entities, client->sess.serverKeys[0], client->sess.serverKeys[1]
+						);
 #endif
+					} else {
+						G_HackLog( S_COLOR_RED"Malformed svauth response to clannounce for client %d\n", clientNum );
+					}
 				} else {
-					G_Printf( S_COLOR_RED"Failed to decrypt clientKeys for client %d\n", clientNum );
-					G_Printf( S_COLOR_RED"%s\n", Crypto_LastError() );
+					G_HackLog( S_COLOR_RED"Failed to decrypt clientKeys for client %d\n", clientNum );
+					G_HackLog( S_COLOR_RED"%s\n", Crypto_LastError() );
 				}
 			}
 		} else if ( ent->client->sess.auth == CLAUTH ) {
@@ -2490,35 +2495,39 @@ void ClientUserinfoChanged( int clientNum ) {
 			if ( *s ) {
 				char decryptedSvauth[RSA_MAX_DEC_CHARS];
 
-				if ( !Crypto_RSADecrypt( s, decryptedSvauth, sizeof( decryptedSvauth ) ) != CRYPTO_ERROR ) {
-					int serverKeysXor = atoi( decryptedSvauth );
+				if ( Crypto_RSADecrypt( s, decryptedSvauth, sizeof( decryptedSvauth ) ) != CRYPTO_ERROR ) {
+					int serverKeysXor;
 
-					if ( ( client->sess.serverKeys[0] ^ client->sess.serverKeys[1] ) == serverKeysXor ) {
-						s = Info_ValueForKey( userinfo, "cuid" );
+					bumpStep = qtrue;
 
-						if ( *s ) {
+					s = Info_ValueForKey( decryptedSvauth, "skx" );
+					if ( !*s || !Q_isanumber( s ) ) bumpStep = qfalse;
+					serverKeysXor = atoi( s );
+
+					s = Info_ValueForKey( decryptedSvauth, "cid" );
+					if ( !*s ) bumpStep = qfalse;
+
+					if ( bumpStep ) {
+						if ( ( client->sess.serverKeys[0] ^ client->sess.serverKeys[1] ) == serverKeysXor ) {
 							// legit client
-							char decryptedCuid[RSA_MAX_DEC_CHARS];
-
-							if ( !Crypto_RSADecrypt( s, decryptedCuid, sizeof( decryptedCuid ) ) != CRYPTO_ERROR ) {
-								client->sess.cuidHash = HashCuid( decryptedCuid );
-								bumpStep = qtrue;
-								G_Printf( "Newmod client %d authenticated successfully (cuid hash: %llX)\n", clientNum, client->sess.cuidHash );
-							} else {
-								G_Printf( S_COLOR_RED"Failed to decrypt cuid for client %d\n", clientNum );
-								G_Printf( S_COLOR_RED"%s\n", Crypto_LastError() );
-							}
+							client->sess.cuidHash = HashCuid( s );
+							G_Printf( "Newmod client %d authenticated successfully (cuid hash: %llX)\n", clientNum, client->sess.cuidHash );
+						} else {
+							G_HackLog( S_COLOR_RED"Client %d failed to the server keys check!\n", clientNum );
+							bumpStep = qfalse;
 						}
+					} else {
+						G_HackLog( S_COLOR_RED"Malformed svauth response to clauth for client %d\n", clientNum );
 					}
 				} else {
-					G_Printf( S_COLOR_RED"Failed to decrypt serverKeysXor for client %d\n", clientNum );
-					G_Printf( S_COLOR_RED"%s\n", Crypto_LastError() );
+					G_HackLog( S_COLOR_RED"Failed to decrypt serverKeysXor for client %d\n", clientNum );
+					G_HackLog( S_COLOR_RED"%s\n", Crypto_LastError() );
 				}
 			}
 		}
 
 		if ( bumpStep ) {
-			++(ent->client->sess.auth);
+			ent->client->sess.auth++;
 		} else {
 			// give only 1 chance/prevent error loops
 			client->sess.auth = INVALID;
@@ -3203,8 +3212,8 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 	G_BroadcastServerFeatureList( clientNum );
 
 	if ( ent->client->sess.auth == PENDING ) {
-		trap_SendServerCommand( clientNum, va( "lchat \"clannounce\" %d %s", NM_AUTH_PROTOCOL, level.pubKeyStr ) );
-		ent->client->sess.auth = CLANNOUNCE;
+		trap_SendServerCommand( clientNum, va( "lchat \"clannounce\" \"apv\\%d\\pk\\%s\"", NM_AUTH_PROTOCOL, level.pubKeyStr ) );
+		ent->client->sess.auth++;
 #ifdef _DEBUG
 		G_LogPrintf( "Sent clannounce packet to client %d\n", clientNum );
 #endif

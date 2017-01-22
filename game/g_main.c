@@ -1262,7 +1262,7 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 
 #ifdef NEWMOD_SUPPORT
 	level.nmAuthEnabled = Crypto_RSAInit() != CRYPTO_ERROR
-		&& Crypto_RSADumpKey( 1, level.pubKeyStr, sizeof( level.pubKeyStr ) ) != CRYPTO_ERROR;
+		&& Crypto_RSADumpKey( qtrue, level.pubKeyStr, sizeof( level.pubKeyStr ) ) != CRYPTO_ERROR;
 
 	if ( !level.nmAuthEnabled ) {
 		G_Printf( S_COLOR_RED"%s\n", Crypto_LastError() );

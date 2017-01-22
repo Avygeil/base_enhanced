@@ -1369,8 +1369,8 @@ void Svcmd_ClientInfo_f( void ) {
 						// invalid cuid, should not happen
 						Q_strcat( description, sizeof( description ), S_COLOR_RED"(invalid cuid!)"S_COLOR_WHITE );
 					}
-				} else if ( level.clients[i].sess.auth > INVALID ) {
-					Q_strcat( description, sizeof( description ), S_COLOR_YELLOW" (authing)"S_COLOR_WHITE );
+				} else if ( level.clients[i].sess.auth < AUTHENTICATED ) {
+					Q_strcat( description, sizeof( description ), va( S_COLOR_YELLOW" (authing: %d)"S_COLOR_WHITE, level.clients[i].sess.auth ) );
 				} else {
 					Q_strcat( description, sizeof( description ), S_COLOR_RED" (auth failed)"S_COLOR_WHITE );
 				}
