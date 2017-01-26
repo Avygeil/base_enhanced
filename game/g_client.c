@@ -2962,13 +2962,32 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 }
 
 #ifdef NEWMOD_SUPPORT
-#define FEATURE_OCTALIDS	"oid"
-#define FEATURE_CLIENTLIST	"cl"
-#define FEATURE_CTFSTATS	"ctfs"
+// features whose existences are not necessarily implicitly declared via their use
+static char *supportedFeatures[] = {
+	"oid",	// octal ids
+	"cl",	// clientlist and whois commands
+	"redy",	// ready command
+	"ctfs",	// ctfstats command
+	"csaa",	// custom siege ammo amounts
+	"esrw",	// extra siege rewards
+	"swpr",	// siege weapon preference
+	"tsgm",	// tie siege matches
+	"ubra",	// unlimited bryar ammo
+	NULL
+};
+
 void G_BroadcastServerFeatureList(int clientNum) {
 	char string[MAX_CVAR_VALUE_STRING] = { 0 };
-	Q_strncpyz(string, va("lchat \"sfl\" \""FEATURE_OCTALIDS","FEATURE_CLIENTLIST","FEATURE_CTFSTATS"\""), sizeof(string));
-	trap_SendServerCommand(clientNum, string);
+	Q_strncpyz(string, "lchat \"sfl\" ", sizeof(string)); // begin the string
+	int i = 0;
+	char *p = supportedFeatures[i];
+	while (p && *p) { // loop through supportedFeatures and add each one to the string
+		Q_strcat(string, sizeof(string), va("%c%s", i ? ',' : '\"', p));
+		i++;
+		p = supportedFeatures[i];
+	}
+	Q_strcat(string, sizeof(string), "\""); // add the final quotation mark
+	trap_SendServerCommand(clientNum, string); // send it
 }
 #endif
 
