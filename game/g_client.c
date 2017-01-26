@@ -2447,14 +2447,15 @@ void ClientUserinfoChanged( int clientNum ) {
 #define RandomConfirmationKey()	( ( rand() << 16 ) ^ rand() ^ trap_Milliseconds() )
 	if ( ent->client->sess.auth > PENDING && ent->client->sess.auth < AUTHENTICATED ) {
 		// this client is currently getting authenticated
-		qboolean bumpStep = qfalse;
+		s = Info_ValueForKey( userinfo, "svauth" );
 
-		if ( ent->client->sess.auth == CLANNOUNCE ) {
-			s = Info_ValueForKey( userinfo, "svauth" );
+		// the cvar can either contain 0 for no msg or a base64 string
+		if ( *s && !( *s == '0' && strlen( s ) == 1 ) ) {
+			// we have an encrypted message
+			qboolean bumpStep = qfalse;
+			char decryptedSvauth[RSA_MAX_DEC_CHARS];
 
-			if ( *s ) {
-				char decryptedSvauth[RSA_MAX_DEC_CHARS];
-
+			if ( ent->client->sess.auth == CLANNOUNCE ) {
 				if ( Crypto_RSADecrypt( s, decryptedSvauth, sizeof( decryptedSvauth ) ) != CRYPTO_ERROR ) {
 					int clientKeys[2];
 
@@ -2485,16 +2486,10 @@ void ClientUserinfoChanged( int clientNum ) {
 						G_HackLog( S_COLOR_RED"Malformed svauth response to clannounce for client %d\n", clientNum );
 					}
 				} else {
-					G_HackLog( S_COLOR_RED"Failed to decrypt clientKeys for client %d\n", clientNum );
+					G_HackLog( S_COLOR_RED"Failed to decrypt svauth response to clannounce for client %d\n", clientNum );
 					G_HackLog( S_COLOR_RED"%s\n", Crypto_LastError() );
 				}
-			}
-		} else if ( ent->client->sess.auth == CLAUTH ) {
-			s = Info_ValueForKey( userinfo, "svauth" );
-
-			if ( *s ) {
-				char decryptedSvauth[RSA_MAX_DEC_CHARS];
-
+			} else if ( ent->client->sess.auth == CLAUTH ) {
 				if ( Crypto_RSADecrypt( s, decryptedSvauth, sizeof( decryptedSvauth ) ) != CRYPTO_ERROR ) {
 					int serverKeysXor;
 
@@ -2513,25 +2508,25 @@ void ClientUserinfoChanged( int clientNum ) {
 							client->sess.cuidHash = HashCuid( s );
 							G_Printf( "Newmod client %d authenticated successfully (cuid hash: %llX)\n", clientNum, client->sess.cuidHash );
 						} else {
-							G_HackLog( S_COLOR_RED"Client %d failed to the server keys check!\n", clientNum );
+							G_HackLog( S_COLOR_RED"Client %d failed the server keys check!\n", clientNum );
 							bumpStep = qfalse;
 						}
 					} else {
 						G_HackLog( S_COLOR_RED"Malformed svauth response to clauth for client %d\n", clientNum );
 					}
 				} else {
-					G_HackLog( S_COLOR_RED"Failed to decrypt serverKeysXor for client %d\n", clientNum );
+					G_HackLog( S_COLOR_RED"Failed to decrypt svauth response to clauth for client %d\n", clientNum );
 					G_HackLog( S_COLOR_RED"%s\n", Crypto_LastError() );
 				}
 			}
-		}
 
-		if ( bumpStep ) {
-			ent->client->sess.auth++;
-		} else {
-			// give only 1 chance/prevent error loops
-			client->sess.auth = INVALID;
-			G_Printf( "Client %d failed newmod authentication\n", clientNum );
+			if ( bumpStep ) {
+				ent->client->sess.auth++;
+			} else {
+				// give only 1 chance/prevent error loops
+				client->sess.auth = INVALID;
+				G_Printf( "Client %d failed newmod authentication\n", clientNum );
+			}
 		}
 	}
 #endif
