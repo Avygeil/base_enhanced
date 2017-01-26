@@ -2968,11 +2968,6 @@ static char *supportedFeatures[] = {
 	"cl",	// clientlist and whois commands
 	"redy",	// ready command
 	"ctfs",	// ctfstats command
-	"csaa",	// custom siege ammo amounts
-	"esrw",	// extra siege rewards
-	"swpr",	// siege weapon preference
-	"tsgm",	// tie siege matches
-	"ubra",	// unlimited bryar ammo
 	NULL
 };
 
