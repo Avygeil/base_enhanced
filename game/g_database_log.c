@@ -60,7 +60,7 @@ const char* const sqlLogLevelEnd =
 
 const char* const sqllogSessionStart =
 "INSERT INTO sessions (session_start, ip_int, ip_port, client_id)    "
-"VALUES (datetime('now'),?,?, ?)                                            ";
+"VALUES (datetime('now'),?,?, ?)                                     ";
 
 const char* const sqllogSessionEnd =
 "UPDATE sessions                      "
@@ -74,8 +74,8 @@ const char* const sqlAddLevelEvent =
 "VALUES (?,?,?,?,?,?,?,?)                                                  ";
 
 const char* const sqlAddName =
-"INSERT INTO nicknames (ip_int, name, duration, cuid_hash2)                   "
-"VALUES (?,?,?,?)                                                            ";
+"INSERT INTO nicknames (ip_int, name, duration, cuid_hash2)      "
+"VALUES (?,?,?,?)                                                ";
 
 const char* const sqlGetAliases =
 "SELECT name, SUM( duration ) AS time                           "
@@ -107,7 +107,7 @@ const char* const sqlCountNMAliases =
 "SELECT COUNT(*) FROM ("
 "SELECT name, SUM( duration ) AS time                           "
 "FROM nicknames                                                 "
-"WHERE nicknames.cuid_hash2 = ?1                                 "
+"WHERE nicknames.cuid_hash2 = ?1                                "
 "GROUP BY name                                                  "
 "ORDER BY time DESC                                             "
 "LIMIT ?2                                                       "
@@ -117,15 +117,17 @@ const char* const sqlTestCuidSupport =
 "PRAGMA table_info(nicknames)                                   ";
 
 const char* const sqlUpgradeToCuid2FromNoCuid =
-"ALTER TABLE nicknames ADD cuid_hash2 BIGINT                     ";
+"ALTER TABLE nicknames ADD cuid_hash2 BIGINT                    ";
 
 const char* const sqlUpgradeToCuid2FromCuid1 =
+"BEGIN TRANSACTION                                                                                       "
 "CREATE TABLE nicknames_temp([ip_int] INTEGER, [name] TEXT, [duration] INTEGER);                         "
-"INSERT INTO nicknames_temp (ip_int, name, duration) SELECT ip_int, name, duration FROM nicknames; "
-"DROP TABLE nicknames;                                                                             "
-"CREATE TABLE nicknames([ip_int] INTEGER, [name] TEXT, [duration] INTEGER, [cuid_hash2] BIGINT);           "
-"INSERT INTO nicknames (ip_int, name, duration) SELECT ip_int, name, duration FROM nicknames_temp; "
-"DROP TABLE nicknames_temp;                                                                        ";
+"INSERT INTO nicknames_temp (ip_int, name, duration) SELECT ip_int, name, duration FROM nicknames;       "
+"DROP TABLE nicknames;                                                                                   "
+"CREATE TABLE nicknames([ip_int] INTEGER, [name] TEXT, [duration] INTEGER, [cuid_hash2] BIGINT);         "
+"INSERT INTO nicknames (ip_int, name, duration) SELECT ip_int, name, duration FROM nicknames_temp;       "
+"DROP TABLE nicknames_temp;                                                                              "
+"COMMIT                                                                                                  ";
 
 //
 //  G_LogDbLoad
