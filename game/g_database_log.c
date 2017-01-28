@@ -46,7 +46,7 @@ const char* const sqlCreateLogDb =
 "  [ip_int] INTEGER,                                                            "
 "  [name] TEXT,                                                                 "
 "  [duration] INTEGER,                                                          "
-"  [cuid_hash] BIGINT );                                                        ";
+"  [cuid_hash2] BIGINT );                                                       ";
                                                                                
 
 const char* const sqlLogLevelStart =
@@ -74,7 +74,7 @@ const char* const sqlAddLevelEvent =
 "VALUES (?,?,?,?,?,?,?,?)                                                  ";
 
 const char* const sqlAddName =
-"INSERT INTO nicknames (ip_int, name, duration, cuid_hash)                   "
+"INSERT INTO nicknames (ip_int, name, duration, cuid_hash2)                   "
 "VALUES (?,?,?,?)                                                            ";
 
 const char* const sqlGetAliases =
@@ -98,7 +98,7 @@ const char* const sqlCountAliases =
 const char* const sqlGetNMAliases =
 "SELECT name, SUM( duration ) AS time                           "
 "FROM nicknames                                                 "
-"WHERE nicknames.cuid_hash = ?1                                 "
+"WHERE nicknames.cuid_hash2 = ?1                                 "
 "GROUP BY name                                                  "
 "ORDER BY time DESC                                             "
 "LIMIT ?2                                                       ";
@@ -107,7 +107,7 @@ const char* const sqlCountNMAliases =
 "SELECT COUNT(*) FROM ("
 "SELECT name, SUM( duration ) AS time                           "
 "FROM nicknames                                                 "
-"WHERE nicknames.cuid_hash = ?1                                 "
+"WHERE nicknames.cuid_hash2 = ?1                                 "
 "GROUP BY name                                                  "
 "ORDER BY time DESC                                             "
 "LIMIT ?2                                                       "
@@ -116,8 +116,16 @@ const char* const sqlCountNMAliases =
 const char* const sqlTestCuidSupport =
 "PRAGMA table_info(nicknames)                                   ";
 
-const char* const sqlUpgradeCuidSupport =
-"ALTER TABLE nicknames ADD cuid_hash BIGINT                     ";
+const char* const sqlUpgradeToCuid2FromNoCuid =
+"ALTER TABLE nicknames ADD cuid_hash2 BIGINT                     ";
+
+const char* const sqlUpgradeToCuid2FromCuid1 =
+"CREATE TABLE nicknames_temp([ip_int] INTEGER, [name] TEXT, [duration] INTEGER);                         "
+"INSERT INTO nicknames_temp (ip_int, name, duration) SELECT ip_int, name, duration FROM nicknames; "
+"DROP TABLE nicknames;                                                                             "
+"CREATE TABLE nicknames([ip_int] INTEGER, [name] TEXT, [duration] INTEGER, [cuid_hash2] BIGINT);           "
+"INSERT INTO nicknames (ip_int, name, duration) SELECT ip_int, name, duration FROM nicknames_temp; "
+"DROP TABLE nicknames_temp;                                                                        ";
 
 //
 //  G_LogDbLoad
@@ -138,23 +146,27 @@ void G_LogDbLoad()
 		sqlite3_stmt* statement;
 		rc = sqlite3_prepare(db, sqlTestCuidSupport, -1, &statement, 0);
 		rc = sqlite3_step(statement);
-		qboolean foundCuid = qfalse;
+		qboolean foundCuid2 = qfalse, foundCuid1 = qfalse;
 		while (rc == SQLITE_ROW) {
 			const char *name = (const char*)sqlite3_column_text(statement, 1);
+			if (name && *name && !Q_stricmp(name, "cuid_hash2"))
+				foundCuid2 = qtrue;
 			if (name && *name && !Q_stricmp(name, "cuid_hash"))
-				foundCuid = qtrue;
-			rc = sqlite3_step(statement);
-		}
-		if (foundCuid) {
-			//G_LogPrintf("Log database supports cuid_hash, no upgrade needed.\n");
-		}
-		else {
-			G_LogPrintf("Automatically upgrading old log database to support cuid hashes.\n");
-			sqlite3_reset(statement);
-			rc = sqlite3_prepare(db, sqlUpgradeCuidSupport, -1, &statement, 0);
+				foundCuid1 = qtrue;
 			rc = sqlite3_step(statement);
 		}
 		sqlite3_finalize(statement);
+		if (foundCuid2) {
+			//G_LogPrintf("Log database supports cuid 2.0, no upgrade needed.\n");
+		}
+		else if (foundCuid1) {
+			G_LogPrintf("Automatically upgrading old log database: cuid 1.0 support ==> cuid 2.0 support.\n");
+			sqlite3_exec(db, sqlUpgradeToCuid2FromCuid1, 0, 0, 0);
+		}
+		else {
+			G_LogPrintf("Automatically upgrading old log database: no cuid support ==> cuid 2.0 support.\n");
+			sqlite3_exec(db, sqlUpgradeToCuid2FromNoCuid, 0, 0, 0);
+		}
 	}
 	else {
 		G_LogPrintf("Couldn't find log database %s, creating a new one\n", logDbFileName);
