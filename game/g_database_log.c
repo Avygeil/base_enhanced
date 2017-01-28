@@ -120,14 +120,14 @@ const char* const sqlUpgradeToCuid2FromNoCuid =
 "ALTER TABLE nicknames ADD cuid_hash2 BIGINT                    ";
 
 const char* const sqlUpgradeToCuid2FromCuid1 =
-"BEGIN TRANSACTION                                                                                       "
+"BEGIN TRANSACTION;                                                                                      "
 "CREATE TABLE nicknames_temp([ip_int] INTEGER, [name] TEXT, [duration] INTEGER);                         "
 "INSERT INTO nicknames_temp (ip_int, name, duration) SELECT ip_int, name, duration FROM nicknames;       "
 "DROP TABLE nicknames;                                                                                   "
 "CREATE TABLE nicknames([ip_int] INTEGER, [name] TEXT, [duration] INTEGER, [cuid_hash2] BIGINT);         "
 "INSERT INTO nicknames (ip_int, name, duration) SELECT ip_int, name, duration FROM nicknames_temp;       "
 "DROP TABLE nicknames_temp;                                                                              "
-"COMMIT                                                                                                  ";
+"COMMIT;                                                                                                 ";
 
 //
 //  G_LogDbLoad
