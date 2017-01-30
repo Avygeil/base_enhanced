@@ -1,9 +1,11 @@
 #include <sstream>
 
+#include "cryptopp/files.h"
 #include "cryptopp/rsa.h"
 #include "cryptopp/osrng.h"
 #include "cryptopp/base64.h"
-#include "cryptopp/files.h"
+#include "cryptopp/hex.h"
+#include "cryptopp/sha.h"
 
 #include "crypto.h"
 
@@ -178,6 +180,19 @@ static std::string DecryptStringBase64Url( const char *in ) {
 	return out;
 }
 
+static std::string HashStringHex( const char *in ) {
+	CryptoPP::SHA1 hash;
+	byte digest[CryptoPP::SHA1::DIGESTSIZE];
+	hash.CalculateDigest( digest, reinterpret_cast< const byte * >( in ), strlen( in ) );
+
+	std::string out;
+	CryptoPP::HexEncoder outEncoder( new CryptoPP::StringSink( out ), true );
+	outEncoder.Put( digest, sizeof( digest ) );
+	outEncoder.MessageEnd();
+
+	return out;
+}
+
 /* ------------------------------------------------------------------------ */
 
 static std::stringstream lastError;
@@ -262,6 +277,18 @@ int Crypto_RSADecrypt( const char *in, char *out, size_t outLen ) {
 
 	try {
 		return LegacyStrcpySafe( DecryptStringBase64Url( in ), out, outLen );
+	} catch ( const std::exception &e ) {
+		return SetLastError( e, __FUNCTION__ );
+	}
+}
+
+// SHA-1 hash of the provided buffer, written in hex to the output
+// returns the amount of chars written if successful
+int Crypto_Hash( const char *in, char *out, size_t outLen ) {
+	out[0] = '\0'; // in case of failure, empty result
+
+	try {
+		return LegacyStrcpySafe( HashStringHex( in ), out, outLen );
 	} catch ( const std::exception &e ) {
 		return SetLastError( e, __FUNCTION__ );
 	}

@@ -447,7 +447,6 @@ typedef struct {
 #define	FOLLOW_ACTIVE2	-2
 
 #ifdef NEWMOD_SUPPORT
-typedef unsigned long long int cuid_t;
 typedef struct {
 	char		loc[MAX_ENHANCED_LOCATION];					// where this player is
 	char		sentString[MAX_ENHANCED_LOCATION_STRING];	// the data that was last sent to this player
@@ -507,7 +506,7 @@ typedef struct {
 		AUTHENTICATED,
 		INVALID
 	} auth;
-	cuid_t		cuidHash; // first 64 bits of the SHA-1 hash
+	char		cuidHash[HASH_MAX_SHA1_HEX_CHARS]; // sha1 hash of the client cuid
 	int			serverKeys[2]; // randomly generated auth keys to confirm legit clients
 	EnhancedLocationContext	enhancedLocation;
 #endif

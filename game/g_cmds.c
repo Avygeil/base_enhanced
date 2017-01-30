@@ -4095,7 +4095,7 @@ static void Cmd_WhoIs_f( gentity_t* ent )
 			if ( level.clients[i].pers.connected != CON_DISCONNECTED && !( &g_entities[i] && g_entities[i].r.svFlags & SVF_BOT ) ) {
 				trap_SendServerCommand( ent - g_entities, va( "print \"Client %i (%s"S_COLOR_WHITE"): \"",
 					i, level.clients[i].pers.netname ) );
-				G_CfgDbListAliases( level.clients[i].sess.ip, ( unsigned int )0xFFFFFFFF, 1, singleAliasCallback, &context, level.clients[i].sess.auth == AUTHENTICATED ? level.clients[i].sess.cuidHash : 0);
+				G_CfgDbListAliases( level.clients[i].sess.ip, ( unsigned int )0xFFFFFFFF, 1, singleAliasCallback, &context, level.clients[i].sess.auth == AUTHENTICATED ? level.clients[i].sess.cuidHash : "");
 				trap_SendServerCommand( ent - g_entities, "print \"\n\"" );
 			}
 		}
@@ -4129,7 +4129,7 @@ static void Cmd_WhoIs_f( gentity_t* ent )
 		getIpFromString( mask, &maskInt );
 	}     
 
-	G_CfgDbListAliases( found->client->sess.ip, maskInt, 3, listAliasesCallback, &context, found->client->sess.auth == AUTHENTICATED ? found->client->sess.cuidHash : 0);
+	G_CfgDbListAliases( found->client->sess.ip, maskInt, 3, listAliasesCallback, &context, found->client->sess.auth == AUTHENTICATED ? found->client->sess.cuidHash : "");
 }
 
 #define MAX_STATS			16

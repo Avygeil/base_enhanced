@@ -2063,30 +2063,6 @@ if desired.
 ============
 */
 
-#ifdef NEWMOD_SUPPORT
-static cuid_t HashCuid( const char *cuid ) {
-	if ( !cuid || !*cuid || !strcmp( cuid, "0-0" ) ) {
-		return 0; // don't hash empty/default cuid's
-	}
-
-	SHA1Context ctx;
-	cuid_t hash = 0;
-	SHA1Reset( &ctx );
-	SHA1Input( &ctx, ( unsigned char * )cuid, ( unsigned int )strlen( cuid ) );
-
-	if ( SHA1Result( &ctx ) == 1 ) {
-		// the cuid itself is 2*32 bits long, it doesn't make sense to use more than 64 bits of the hash
-		hash = ( ( cuid_t )ctx.Message_Digest[0] ) << 32 | ctx.Message_Digest[1];
-#if 0
-		// per server randomization can be done with a key here to invalidate all cuid's
-		hash ^= 0x11b9791e5718f00c;
-#endif
-	}
-
-	return hash;
-}
-#endif
-
 qboolean G_SetSaber(gentity_t *ent, int saberNum, char *saberName, qboolean siegeOverride);
 void G_ValidateSiegeClassForTeam(gentity_t *ent, int team);
 void ClientUserinfoChanged( int clientNum ) {
@@ -2201,7 +2177,7 @@ void ClientUserinfoChanged( int clientNum ) {
 				Info_SetValueForKey( userinfo, "name", client->pers.netname );
 				trap_SetUserinfo( clientNum, userinfo );
 
-                G_LogDbLogNickname( client->sess.ip, oldname, (getGlobalTime() - client->sess.nameChangeTime ) / 1000, client->sess.auth == AUTHENTICATED ? client->sess.cuidHash : 0);
+                G_LogDbLogNickname( client->sess.ip, oldname, (getGlobalTime() - client->sess.nameChangeTime ) / 1000, client->sess.auth == AUTHENTICATED ? client->sess.cuidHash : "");
                 client->sess.nameChangeTime = getGlobalTime();
 
 				//make heartbeat soon - accounts system
@@ -2505,8 +2481,8 @@ void ClientUserinfoChanged( int clientNum ) {
 					if ( bumpStep ) {
 						if ( ( client->sess.serverKeys[0] ^ client->sess.serverKeys[1] ) == serverKeysXor ) {
 							// legit client
-							client->sess.cuidHash = HashCuid( s );
-							G_Printf( "Newmod client %d authenticated successfully (cuid hash: %llX)\n", clientNum, client->sess.cuidHash );
+							Crypto_Hash( s, client->sess.cuidHash, sizeof( client->sess.cuidHash ) );
+							G_Printf( "Newmod client %d authenticated successfully (cuid hash: %s)\n", clientNum, client->sess.cuidHash );
 						} else {
 							G_HackLog( S_COLOR_RED"Client %d failed the server keys check!\n", clientNum );
 							bumpStep = qfalse;
@@ -2624,8 +2600,8 @@ void ClientUserinfoChanged( int clientNum ) {
 				client->pers.maxHealth, client->sess.wins, client->sess.losses, teamTask, teamLeader, saberName, saber2Name, client->sess.duelTeam, totalHash);
 		}
 #ifdef NEWMOD_SUPPORT
-		if ( client->sess.auth == AUTHENTICATED && client->sess.cuidHash ) {
-			s = va( "%s\\cid\\%llX", s, client->sess.cuidHash );
+		if ( client->sess.auth == AUTHENTICATED && client->sess.cuidHash[0] ) {
+			s = va( "%s\\cid\\%s", s, client->sess.cuidHash );
 		}
 #endif
 	}
@@ -4467,7 +4443,7 @@ void ClientDisconnect( int clientNum ) {
 		return;
 	}
 
-    G_LogDbLogNickname( ent->client->sess.ip, ent->client->pers.netname, (getGlobalTime() - ent->client->sess.nameChangeTime ) / 1000, ent->client->sess.auth == AUTHENTICATED ? ent->client->sess.cuidHash : 0);
+    G_LogDbLogNickname( ent->client->sess.ip, ent->client->pers.netname, (getGlobalTime() - ent->client->sess.nameChangeTime ) / 1000, ent->client->sess.auth == AUTHENTICATED ? ent->client->sess.cuidHash : "");
     ent->client->sess.nameChangeTime = getGlobalTime();
 
     G_LogDbLogSessionEnd( ent->client->sess.sessionId );

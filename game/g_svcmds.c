@@ -1362,9 +1362,9 @@ void Svcmd_ClientInfo_f( void ) {
 				if ( level.clients[i].sess.auth == AUTHENTICATED ) {
 					Q_strcat( description, sizeof( description ), S_COLOR_GREEN" (confirmed) "S_COLOR_WHITE );
 
-					if ( level.clients[i].sess.cuidHash ) {
+					if ( level.clients[i].sess.cuidHash[0] ) {
 						// valid cuid
-						Q_strcat( description, sizeof( description ), va( "(cuid hash: "S_COLOR_CYAN"%llX"S_COLOR_WHITE")", level.clients[i].sess.cuidHash ) );
+						Q_strcat( description, sizeof( description ), va( "(cuid hash: "S_COLOR_CYAN"%s"S_COLOR_WHITE")", level.clients[i].sess.cuidHash ) );
 					} else {
 						// invalid cuid, should not happen
 						Q_strcat( description, sizeof( description ), S_COLOR_RED"(invalid cuid!)"S_COLOR_WHITE );

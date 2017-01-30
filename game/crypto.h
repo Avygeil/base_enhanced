@@ -21,6 +21,9 @@
 #define RSA_PUBKEY_FILE			"public.der"
 #define RSA_PRIVKEY_FILE		"private.der"
 
+#define HASH_SHA1_HEX_BITS		40
+#define HASH_MAX_SHA1_HEX_CHARS	HASH_SHA1_HEX_BITS + 1	// use this for hex sha1 buffers
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -30,6 +33,7 @@ extern "C" {
 	int Crypto_RSADumpKey( int pub, char *out, size_t outLen );
 	int Crypto_RSAEncrypt( const char *in, char *out, size_t outLen );
 	int Crypto_RSADecrypt( const char *in, char *out, size_t outLen );
+	int Crypto_Hash( const char *in, char *out, size_t outLen );
 	const char* Crypto_LastError( void );
 #ifdef __cplusplus
 }
