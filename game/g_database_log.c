@@ -46,7 +46,7 @@ const char* const sqlCreateLogDb =
 "  [ip_int] INTEGER,                                                            "
 "  [name] TEXT,                                                                 "
 "  [duration] INTEGER,                                                          "
-"  [cuid_hash2] BIGINT );                                                       ";
+"  [cuid_hash2] TEXT );                                                         ";
                                                                                
 
 const char* const sqlLogLevelStart =
@@ -73,9 +73,13 @@ const char* const sqlAddLevelEvent =
 "event_context)                                                            "
 "VALUES (?,?,?,?,?,?,?,?)                                                  ";
 
+const char* const sqlAddNameNM =
+"INSERT INTO nicknames (ip_int, name, duration, cuid_hash2)     "
+"VALUES (?,?,?,?)                                               ";
+
 const char* const sqlAddName =
-"INSERT INTO nicknames (ip_int, name, duration, cuid_hash2)      "
-"VALUES (?,?,?,?)                                                ";
+"INSERT INTO nicknames (ip_int, name, duration)                 "
+"VALUES (?,?,?)                                                 ";
 
 const char* const sqlGetAliases =
 "SELECT name, SUM( duration ) AS time                           "
@@ -98,7 +102,7 @@ const char* const sqlCountAliases =
 const char* const sqlGetNMAliases =
 "SELECT name, SUM( duration ) AS time                           "
 "FROM nicknames                                                 "
-"WHERE nicknames.cuid_hash2 = ?1                                 "
+"WHERE nicknames.cuid_hash2 = ?1                                "
 "GROUP BY name                                                  "
 "ORDER BY time DESC                                             "
 "LIMIT ?2                                                       ";
@@ -117,14 +121,14 @@ const char* const sqlTestCuidSupport =
 "PRAGMA table_info(nicknames)                                   ";
 
 const char* const sqlUpgradeToCuid2FromNoCuid =
-"ALTER TABLE nicknames ADD cuid_hash2 BIGINT                    ";
+"ALTER TABLE nicknames ADD cuid_hash2 TEXT                      ";
 
 const char* const sqlUpgradeToCuid2FromCuid1 =
 "BEGIN TRANSACTION;                                                                                      "
 "CREATE TABLE nicknames_temp([ip_int] INTEGER, [name] TEXT, [duration] INTEGER);                         "
 "INSERT INTO nicknames_temp (ip_int, name, duration) SELECT ip_int, name, duration FROM nicknames;       "
 "DROP TABLE nicknames;                                                                                   "
-"CREATE TABLE nicknames([ip_int] INTEGER, [name] TEXT, [duration] INTEGER, [cuid_hash2] BIGINT);         "
+"CREATE TABLE nicknames([ip_int] INTEGER, [name] TEXT, [duration] INTEGER, [cuid_hash2] TEXT);           "
 "INSERT INTO nicknames (ip_int, name, duration) SELECT ip_int, name, duration FROM nicknames_temp;       "
 "DROP TABLE nicknames_temp;                                                                              "
 "COMMIT;                                                                                                 ";
@@ -319,22 +323,23 @@ void G_LogDbLogSessionEnd( int sessionId )
 //
 //  G_LogDbLogNickname
 // 
-//  Logs players nickname
+//  Logs a player's nickname (and cuid hash, if applicable)
 //
 void G_LogDbLogNickname( unsigned int ipInt,
     const char* name,
     int duration,
-	unsigned long long cuidHash)
+	const char* cuidHash)
 {
     sqlite3_stmt* statement;
 
     // prepare insert statement
-    int rc = sqlite3_prepare( db, sqlAddName, -1, &statement, 0 );
+    int rc = sqlite3_prepare( db, VALIDSTRING(cuidHash) ? sqlAddNameNM : sqlAddName, -1, &statement, 0 );
 
     sqlite3_bind_int( statement, 1, ipInt );
     sqlite3_bind_text( statement, 2, name, -1, 0 );
     sqlite3_bind_int( statement, 3, duration );
-	sqlite3_bind_int64(statement, 4, (signed long long)cuidHash); // sql needs it signed
+	if (VALIDSTRING(cuidHash))
+		sqlite3_bind_text(statement, 4, cuidHash, -1, 0);
 
     rc = sqlite3_step( statement );
 
@@ -346,16 +351,16 @@ void G_CfgDbListAliases( unsigned int ipInt,
     int limit,
     ListAliasesCallback callback,
     void* context,
-	unsigned long long cuidHash)
+	const char* cuidHash)
 {
 	sqlite3_stmt* statement;
 	int rc;
 	const char* name;
 	int duration;
-	if (cuidHash) { // newmod user; check for cuid matches first before falling back to checking for unique id matches
+	if (VALIDSTRING(cuidHash)) { // newmod user; check for cuid matches first before falling back to checking for unique id matches
 		int numNMFound = 0;
 		rc = sqlite3_prepare(db, sqlCountNMAliases, -1, &statement, 0);
-		sqlite3_bind_int64(statement, 1, (signed long long)cuidHash); // sql needs it signed
+		sqlite3_bind_text(statement, 1, cuidHash, -1, 0);
 		sqlite3_bind_int(statement, 2, limit);
 
 		rc = sqlite3_step(statement);
@@ -367,7 +372,7 @@ void G_CfgDbListAliases( unsigned int ipInt,
 
 		if (numNMFound) { // we found some cuid matches; let's use these
 			rc = sqlite3_prepare(db, sqlGetNMAliases, -1, &statement, 0);
-			sqlite3_bind_int64(statement, 1, (signed long long)cuidHash); // sql needs it signed
+			sqlite3_bind_text(statement, 1, cuidHash, -1, 0);
 			sqlite3_bind_int(statement, 2, limit);
 
 			rc = sqlite3_step(statement);
