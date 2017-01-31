@@ -2357,6 +2357,8 @@ BeginIntermission
 */
 //ghost debug
 
+extern void PrintStatsTo( gentity_t *ent, const char *type );
+
 void BeginIntermission( void ) {
 	int			i;
 	gentity_t	*client;
@@ -2415,8 +2417,8 @@ void BeginIntermission( void ) {
 	SendScoreboardMessageToAllClients();
 
 	if ( g_autoStats.integer ) {
-		Cmd_PrintStats_f( NULL );
-		trap_SendServerCommand( -1, "print \""S_COLOR_WHITE"Use "S_COLOR_CYAN"/ctfstats <ctf | force> "S_COLOR_WHITE"for other types of stats.\n" );
+		PrintStatsTo( NULL, "general" );
+		PrintStatsTo( NULL, "force" );
 	}
 }
 

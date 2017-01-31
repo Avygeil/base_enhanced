@@ -4201,10 +4201,10 @@ static void PrintClientStats( const int id, const char *name, StatsDesc desc, in
 			);
 	}
 
-	trap_SendServerCommand( id, va( "print \"%s\n", s ) );
+	trap_SendServerCommand( id, va( "print \"%s\n\"", s ) );
 }
 
-static void PrintTeamStats( const int id, const team_t team, StatsDesc desc, void( *fillCallback )( gclient_t*, int* ) ) {
+static void PrintTeamStats( const int id, const team_t team, const char teamColor, StatsDesc desc, void( *fillCallback )( gclient_t*, int* ), qboolean printHeader ) {
 	int i, j, nameLen = 0, maxNameLen = 0;
 	int stats[MAX_CLIENTS][MAX_STATS] = { { 0 } }, bestStats[MAX_STATS] = { 0 };
 	char header[MAX_STRING_CHARS], separator[MAX_STRING_CHARS];
@@ -4255,7 +4255,7 @@ static void PrintTeamStats( const int id, const team_t team, StatsDesc desc, voi
 	for ( i = 0; i < maxNameLen - 4; ++i )
 		Q_strcat( header, sizeof( header ), " " );
 
-	Com_sprintf( separator, sizeof( separator ), S_COLOR_WHITE );
+	Com_sprintf( separator, sizeof( separator ), "^%c", teamColor );
 
 	for ( i = 0; i < maxNameLen; ++i )
 		Q_strcat( separator, sizeof( separator ), STATS_ROW_SEPARATOR );
@@ -4281,7 +4281,11 @@ static void PrintTeamStats( const int id, const team_t team, StatsDesc desc, voi
 		}
 	}
 
-	trap_SendServerCommand( id, va( "print \"%s\n%s\n", header, separator ) );
+	if ( printHeader ) {
+		trap_SendServerCommand( id, va( "print \"%s\n%s\n\"", header, separator ) );
+	} else {
+		trap_SendServerCommand( id, va( "print \"%s\n\"", separator ) );
+	}
 
 	// send stats of everyone on the team
 	for ( i = 0; i < level.numConnectedClients; i++ ) {
@@ -4343,38 +4347,25 @@ static void FillForceStats( gclient_t *cl, int *values ) {
 	*values++ = cl->pers.protTimeUsed;
 }
 
-#define PrintTeamScore( id, team ) \
-	do { \
-		trap_SendServerCommand( id, va( "print \"%s%s: "S_COLOR_WHITE"%i\n", \
-			team == TEAM_BLUE ? S_COLOR_BLUE : S_COLOR_RED, \
-			team == TEAM_BLUE ? "BLUE" : "RED", level.teamScores[team] ) ); \
-	} while ( 0 )
+#define ColorForTeam( team )		( team == TEAM_BLUE ? COLOR_BLUE : COLOR_RED )
+#define ScoreTextForTeam( team )	( team == TEAM_BLUE ? S_COLOR_BLUE"BLUE" : S_COLOR_RED"RED" )
 
-void Cmd_PrintStats_f( gentity_t *ent ) {
+void PrintStatsTo( gentity_t *ent, const char *type ) {
 	qboolean winningIngame = qfalse, losingIngame = qfalse;
 	int id = ent ? ( ent - g_entities ) : -1, i;
-	char subcmd[MAX_STRING_CHARS] = { 0 };
 	const StatsDesc *desc;
 	void( *callback )( gclient_t*, int* );
 
-	if ( g_gametype.integer != GT_CTF ) {
-		if ( id != -1 )
-			trap_SendServerCommand( id, "print \""S_COLOR_WHITE"Gametype is not CTF. Statistics aren't generated.\n" );
+	if ( !VALIDSTRING( type ) ) {
 		return;
 	}
 
-	if ( trap_Argc() < 2 ) {
-		Q_strncpyz( subcmd, "ctf", sizeof( subcmd ) );
-	} else {
-		trap_Argv( 1, subcmd, sizeof( subcmd ) );
-	}
+	if ( g_gametype.integer != GT_CTF ) {
+		if ( id != -1 ) {
+			trap_SendServerCommand( id, "print \""S_COLOR_WHITE"Gametype is not CTF. Statistics aren't generated.\n\"" );
+		}
 
-	if ( !Q_stricmp( subcmd, "force" ) ) {
-		desc = &ForceStatsDesc;
-		callback = &FillForceStats;
-	} else { // use "ctf" as default
-		desc = &CtfStatsDesc;
-		callback = &FillCtfStats;
+		return;
 	}
 
 	team_t winningTeam = level.teamScores[TEAM_RED] > level.teamScores[TEAM_BLUE] ? TEAM_RED : TEAM_BLUE;
@@ -4397,17 +4388,48 @@ void Cmd_PrintStats_f( gentity_t *ent ) {
 	}
 
 	if ( !winningIngame && !losingIngame ) {
-		if ( id != -1 )
-			trap_SendServerCommand( id, "print \""S_COLOR_WHITE"Nobody is playing. Statistics aren't generated.\n" );
+		if ( id != -1 ) {
+			trap_SendServerCommand( id, "print \""S_COLOR_WHITE"Nobody is playing. Statistics aren't generated.\n\"" );
+		}
+
+		return;
+	}
+
+	if ( !Q_stricmp( type, "general" ) ) {
+		desc = &CtfStatsDesc;
+		callback = &FillCtfStats;
+
+		// for general stats, also print the score
+		trap_SendServerCommand( id, va( "print \"%s: "S_COLOR_WHITE"%d    %s: "S_COLOR_WHITE"%d\n\n\"",
+			ScoreTextForTeam( winningTeam ), level.teamScores[winningTeam],
+			ScoreTextForTeam( losingTeam ), level.teamScores[losingTeam]
+		) );
+	} else if ( !Q_stricmp( type, "force" ) ) {
+		desc = &ForceStatsDesc;
+		callback = &FillForceStats;
+	} else {
+		if ( id != -1 ) {
+			trap_SendServerCommand( id, va( "print \""S_COLOR_WHITE"Unknown type \"%s"S_COLOR_WHITE"\". Usage: "S_COLOR_CYAN"/ctfstats <general | force>\n\"", type ) );
+		}
+
 		return;
 	}
 
 	// print the winning team first, and don't print stats of teams that have no players
-	PrintTeamScore( id, winningTeam );
-	if ( winningIngame ) PrintTeamStats( id, winningTeam, *desc, callback );
-	if ( losingIngame ) trap_SendServerCommand( id, "print \"\n" );
-	PrintTeamScore( id, losingTeam );
-	PrintTeamStats( id, losingTeam, *desc, callback );
+	if ( winningIngame ) PrintTeamStats( id, winningTeam, ColorForTeam( winningTeam ), *desc, callback, qtrue );
+	if ( losingIngame ) PrintTeamStats( id, losingTeam, ColorForTeam( losingTeam ), *desc, callback, !winningIngame );
+	trap_SendServerCommand( id, "print \"\n\"" );
+}
+
+void Cmd_PrintStats_f( gentity_t *ent ) {
+	if ( trap_Argc() < 2 ) { // display all types if none is specified, i guess
+		PrintStatsTo( ent, "general" );
+		PrintStatsTo( ent, "force" );
+	} else {
+		char subcmd[MAX_STRING_CHARS] = { 0 };
+		trap_Argv( 1, subcmd, sizeof( subcmd ) );
+		PrintStatsTo( ent, subcmd );
+	}
 }
 
 #define MAX_HELP_LINE_LEN	97
