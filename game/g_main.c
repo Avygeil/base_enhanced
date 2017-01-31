@@ -361,7 +361,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_duelLifes, "g_duelLifes", "100", CVAR_SERVERINFO | CVAR_ARCHIVE, 0, qtrue  },
 	{ &g_duelShields, "g_duelShields", "25", CVAR_SERVERINFO | CVAR_ARCHIVE, 0, qtrue  },
 
-	{ &g_chatLimit, "g_chatLimit", "0", CVAR_SERVERINFO | CVAR_ARCHIVE, 0, qtrue  },
+	{ &g_chatLimit, "g_chatLimit", "0", CVAR_ARCHIVE, 0, qtrue  },
 
 	{ &g_allowNPC, "g_allowNPC", "1", CVAR_SERVERINFO | CVAR_ARCHIVE, 0, qtrue  },
 
