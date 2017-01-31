@@ -2011,44 +2011,48 @@ Creates and sends the server command necessary to update the CS index for the
 given client
 ===============
 */
-static void G_SendConfigstring(int clientNum, char *extra)
+static void G_SendConfigstring( int clientNum, int configstringNum, char *extra )
 {
-	if (clientNum < 0 || clientNum >= MAX_CLIENTS)
+	if ( clientNum < 0 || clientNum >= MAX_CLIENTS )
 		return;
 
 	int maxChunkSize = MAX_STRING_CHARS - 24, len;
-	char string[16384] = { 0 };
+	char configstring[16384] = { 0 };
+	trap_GetConfigstring( configstringNum, configstring, sizeof( configstring ) );
 
-	trap_GetConfigstring(CS_SYSTEMINFO, string, sizeof(string));
-	if (extra && *extra)
-		Q_strcat(string, sizeof(string), extra);
+	if ( !configstring[0] ) {
+		return; // fix: sometimes cs is empty, this prevents unpinning them client side
+	}
 
-	len = strlen(string);
+	if ( extra && *extra ) {
+		Q_strcat( configstring, sizeof( configstring ), extra );
+	}
 
-	if (len >= maxChunkSize) {
+	len = strlen( configstring );
+
+	if ( len >= maxChunkSize ) {
 		int		sent = 0;
 		int		remaining = len;
 		char	*cmd;
 		char	buf[MAX_STRING_CHARS];
 
-		while (remaining > 0) {
-			if (sent == 0)
+		while ( remaining > 0 ) {
+			if ( sent == 0 )
 				cmd = "bcs0";
-			else if (remaining < maxChunkSize)
+			else if ( remaining < maxChunkSize )
 				cmd = "bcs2";
 			else
 				cmd = "bcs1";
-			Q_strncpyz(buf, &string[sent], maxChunkSize);
+			Q_strncpyz( buf, &configstring[sent], maxChunkSize );
 
-			trap_SendServerCommand(clientNum, va("%s %i \"%s\"\n", cmd,
-				CS_SYSTEMINFO, buf));
+			trap_SendServerCommand( clientNum, va( "%s %i \"%s\"\n", cmd, configstringNum, buf ) );
 
-			sent += (maxChunkSize - 1);
-			remaining -= (maxChunkSize - 1);
+			sent += ( maxChunkSize - 1 );
+			remaining -= ( maxChunkSize - 1 );
 		}
+	} else { // standard cs, just send it
+		trap_SendServerCommand( clientNum, va( "cs %i \"%s\"\n", configstringNum, configstring ) );
 	}
-	else // standard cs, just send it
-		trap_SendServerCommand(clientNum, va("cs %i \"%s\"\n", CS_SYSTEMINFO, string));
 }
 
 /*
@@ -2082,8 +2086,6 @@ void ClientUserinfoChanged( int clientNum ) {
 	char	*value;
 	int		maxHealth;
 	qboolean	modelChanged = qfalse;
-	int		netflags;
-
 
 	ent = g_entities + clientNum;
 	client = ent->client;
@@ -2373,13 +2375,13 @@ void ClientUserinfoChanged( int clientNum ) {
 
 	// enforce net settings except on openjk clients which show an annoying warning
 	if ( g_enforceNetSettings.integer && Info_ValueForKey( userinfo, "ja_guid" )[0] == '\0' ) {
-		netflags = 0;
+		char forcedSettings[MAX_STRING_CHARS] = { 0 };
 
 		if ( g_enforceNetSettings.integer & NF_SNAPS ) {
 			value = Info_ValueForKey( userinfo, "snaps" );
 
 			if ( value && atoi( value ) != trap_Cvar_VariableIntegerValue( "sv_fps" ) ) {
-				netflags |= NF_SNAPS;
+				Q_strcat( forcedSettings, sizeof( forcedSettings ), va( "\\%d", trap_Cvar_VariableIntegerValue( "sv_fps" ) ) );
 			}
 		}
 
@@ -2387,26 +2389,18 @@ void ClientUserinfoChanged( int clientNum ) {
 			value = Info_ValueForKey( userinfo, "rate" );
 
 			if ( value && atoi( value ) < 25000 ) {
-				netflags |= NF_RATE;
+				Q_strcat( forcedSettings, sizeof( forcedSettings ), "\\rate\\25000" );
 			}
 		}
 
 		if ( g_enforceNetSettings.integer & NF_MAXPACKETS ) {
-			netflags |= NF_MAXPACKETS;
+			Q_strcat( forcedSettings, sizeof( forcedSettings ), "\\cl_maxpackets\\100" );
 		}
 
 		// write any settings that should be changed
-		if ( netflags ) {
-			char systeminfo[16384] = { 0 };
-			trap_GetConfigstring( CS_SYSTEMINFO, systeminfo, sizeof( systeminfo ) );
-
-			if ( systeminfo[0] ) {
-				G_SendConfigstring(clientNum, va("%s%s%s%s", netflags & NF_SNAPS ? "\\snaps" : "",
-					netflags & NF_SNAPS ? va("\\%d", trap_Cvar_VariableIntegerValue("sv_fps")) : "",
-					netflags & NF_RATE ? "\\rate\\25000" : "",
-					netflags & NF_MAXPACKETS ? "\\cl_maxpackets\\100" : ""));
-				G_SendConfigstring(clientNum, NULL);
-			}
+		if ( forcedSettings[0] ) {
+			G_SendConfigstring( clientNum, CS_SYSTEMINFO, forcedSettings );
+			G_SendConfigstring( clientNum, CS_SYSTEMINFO, NULL );
 		}
 	}
 
@@ -2575,13 +2569,10 @@ void ClientUserinfoChanged( int clientNum ) {
 					guidHash = rand();
 					G_LogPrintf( "Assigning random guid %d to client %d (userinfo %s)\n", guidHash, clientNum, GetStrippedUserinfo( userinfo ) );
 				}
-				trap_GetConfigstring( CS_SYSTEMINFO, systeminfo, sizeof( systeminfo ) );
 
-				if ( systeminfo[0] ) {
-					// they only need to see it once for it to be set
-					G_SendConfigstring(clientNum, va("\\sex\\%d", guidHash));
-					G_SendConfigstring(clientNum, NULL);
-				}
+				// they only need to see it once for it to be set
+				G_SendConfigstring( clientNum, CS_SYSTEMINFO, va( "\\sex\\%d", guidHash ) );
+				G_SendConfigstring( clientNum, CS_SYSTEMINFO, NULL );
 			}
 		}
 		totalHash = ((unsigned long long int) ipHash) << 32 | guidHash;
