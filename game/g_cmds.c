@@ -4093,8 +4093,10 @@ static void Cmd_WhoIs_f( gentity_t* ent )
 	{
 		for ( i = 0 ; i < level.maxclients ; ++i ) {
 			if ( level.clients[i].pers.connected != CON_DISCONNECTED && !( &g_entities[i] && g_entities[i].r.svFlags & SVF_BOT ) ) {
-				trap_SendServerCommand( ent - g_entities, va( "print \"Client %i (%s"S_COLOR_WHITE"): \"",
-					i, level.clients[i].pers.netname ) );
+				trap_SendServerCommand( ent - g_entities, va( "print \"%sClient %i "S_COLOR_WHITE"(%s"S_COLOR_WHITE"): \"",
+					level.clients[i].sess.sessionTeam == TEAM_RED ? S_COLOR_RED : ( level.clients[i].sess.sessionTeam == TEAM_BLUE ? S_COLOR_BLUE : S_COLOR_WHITE ),
+					i, level.clients[i].pers.netname )
+				);
 				G_CfgDbListAliases( level.clients[i].sess.ip, ( unsigned int )0xFFFFFFFF, 1, singleAliasCallback, &context, level.clients[i].sess.auth == AUTHENTICATED ? level.clients[i].sess.cuidHash : "");
 				trap_SendServerCommand( ent - g_entities, "print \"\n\"" );
 			}
@@ -4467,25 +4469,6 @@ void G_LoadHelpFile(const char *filename) {
 void Cmd_Help_f( gentity_t *ent ) {
 	trap_SendServerCommand(ent - g_entities,
 		va("print \"%s\n\"", help));
-}
-
-void Cmd_ClientList_f( gentity_t *ent ) {
-	int i;
-
-	if ( !ent->client ) {
-		return;
-	}
-
-	trap_SendServerCommand( ent - g_entities,
-		"print \"id: name:\n\"" );
-
-	for (i = 0 ; i < level.maxclients ; ++i) {
-		if ( level.clients[i].pers.connected != CON_DISCONNECTED ) {
-			trap_SendServerCommand( ent - g_entities,
-				va( "print \"%s%-2d  "S_COLOR_WHITE"%s%s\n\"", level.clients[i].sess.sessionTeam == TEAM_RED ? S_COLOR_RED : ( level.clients[i].sess.sessionTeam == TEAM_BLUE ? S_COLOR_BLUE : S_COLOR_WHITE ),
-					i, &g_entities[i] && g_entities[i].r.svFlags & SVF_BOT ? "^9[BOT] ^7" : "", level.clients[i].pers.netname ) );
-		}
-	}
 }
 
 void Cmd_EngageDuel_f(gentity_t *ent)
@@ -5029,8 +5012,6 @@ void ClientCommand( int clientNum ) {
 		Cmd_PrintStats_f(ent);
 	else if ( helpEnabled && ( Q_stricmp( cmd, "help" ) == 0 || Q_stricmp( cmd, "rules" ) == 0 ) )
 		Cmd_Help_f( ent );
-	else if ( Q_stricmp( cmd, "clientlist" ) == 0 )
-		Cmd_ClientList_f( ent );
 	else if (Q_stricmp (cmd, "gc") == 0)
 		Cmd_GameCommand_f( ent );
 	else if (Q_stricmp (cmd, "setviewpos") == 0)
