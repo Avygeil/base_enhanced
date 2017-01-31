@@ -1345,7 +1345,7 @@ void Svcmd_RandomTeams_f() {
     trap_SendServerCommand(-1, va("print \"^2The captain in team ^4BLUE ^2is^7: %s\n\"", g_entities[readyPlayers[team1Count]].client->pers.netname));
 }
 
-void Svcmd_ClientInfo_f( void ) {
+void Svcmd_ClientDesc_f( void ) {
 	int i;
 
 	for ( i = 0; i < level.maxclients; ++i ) {
@@ -1780,7 +1780,7 @@ qboolean	ConsoleCommand( void ) {
         return qtrue;
     }
 	
-	if ( !Q_stricmp( cmd, "clientinfo" ) ) {
+	if ( !Q_stricmp( cmd, "clientdesc" ) ) {
 		Svcmd_ClientInfo_f();
 		return qtrue;
 	}
