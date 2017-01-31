@@ -5027,7 +5027,7 @@ void ClientCommand( int clientNum ) {
         Cmd_WhoIs_f( ent );
 	else if (Q_stricmp(cmd, "ctfstats") == 0)
 		Cmd_PrintStats_f(ent);
-	else if ( helpEnabled && Q_stricmp( cmd, "help" ) == 0 )
+	else if ( helpEnabled && ( Q_stricmp( cmd, "help" ) == 0 || Q_stricmp( cmd, "rules" ) == 0 ) )
 		Cmd_Help_f( ent );
 	else if ( Q_stricmp( cmd, "clientlist" ) == 0 )
 		Cmd_ClientList_f( ent );
