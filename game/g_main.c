@@ -613,7 +613,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_allow_vote_nextmap,	"g_allow_vote_nextmap"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_allow_vote_timelimit,	"g_allow_vote_timelimit"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_allow_vote_fraglimit,	"g_allow_vote_fraglimit"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
-	{ &g_allow_vote_maprandom, "g_allow_vote_maprandom", "1", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_allow_vote_maprandom, "g_allow_vote_maprandom", "4", CVAR_ARCHIVE, 0, qtrue },
     { &g_allow_vote_warmup, "g_allow_vote_warmup", "1", CVAR_ARCHIVE, 0, qtrue },          
 
 	{ &g_quietrcon,	"g_quietrcon"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
