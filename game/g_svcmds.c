@@ -946,15 +946,21 @@ void Svcmd_VoteForce_f( qboolean pass ) {
 		return;
 	}
 
-	trap_SendServerCommand( -1,
-		va( "print \""S_COLOR_RED"Vote forced to %s.\n\"", pass ? "pass" : "fail" ) );
+	trap_SendServerCommand( -1, va( "print \""S_COLOR_RED"Vote forced to %s.\n\"", pass ? "pass" : "fail" ) );
 
 	if ( pass ) {
 		level.voteExecuteTime = level.time + 3000;
 	}
-	
+
+	if ( !level.multiVoting ) {
+		g_entities[level.lastVotingClient].client->lastCallvoteTime = level.time;
+	} else if ( !pass ) {
+		level.multiVoting = qfalse;
+		level.multiVoteChoices = 0;
+		memset( level.multiVotes, 0, sizeof( level.multiVotes ) );
+	}
+
 	level.voteTime = 0;
-	g_entities[level.lastVotingClient].client->lastCallvoteTime = level.time;
 	trap_SetConfigstring( CS_VOTE_TIME, "" );
 }
 
@@ -1154,27 +1160,241 @@ void Svcmd_AccountPrintAll_f(){
 }
 */
 
+extern void fixVoters();
+
+// starts a multiple choices vote using some of the binary voting logic
+static void StartMultiMapVote( const int numMaps, const char *listOfMaps ) {
+	if ( level.voteTime ) {
+		// stop the current vote because we are going to replace it
+		level.voteTime = 0;
+		g_entities[level.lastVotingClient].client->lastCallvoteTime = level.time;
+	}
+
+	G_LogPrintf( "A multi map vote was started: %s\n", listOfMaps );
+
+	// start a "fake vote" so that we can use most of the logic that already exists
+	Com_sprintf( level.voteString, sizeof( level.voteString ), "map_multi_vote %s", listOfMaps );
+	Q_strncpyz( level.voteDisplayString, S_COLOR_RED"Vote for a map in console", sizeof( level.voteDisplayString ) );
+	level.voteTime = level.time;
+	level.voteYes = 0;
+	level.voteNo = 0;
+	// we don't set lastVotingClient since this isn't a "normal" vote
+	level.multiVoting = qtrue;
+	level.multiVoteChoices = numMaps;
+	memset( &( level.multiVotes ), 0, sizeof( level.multiVotes ) );
+
+	fixVoters();
+
+	trap_SetConfigstring( CS_VOTE_TIME, va( "%i", level.voteTime ) );
+	trap_SetConfigstring( CS_VOTE_STRING, level.voteDisplayString );
+	trap_SetConfigstring( CS_VOTE_YES, va( "%i", level.voteYes ) );
+	trap_SetConfigstring( CS_VOTE_NO, va( "%i", level.voteNo ) );
+}
+
+typedef struct {
+	char listOfMaps[MAX_STRING_CHARS];
+	qboolean announceMultiVote;
+	int numSelected;
+} MapSelectionContext;
+
+extern const char *G_GetArenaInfoByMap( const char *map );
+
+static void mapSelectedCallback( void *context, char *mapname ) {
+	MapSelectionContext *selection = ( MapSelectionContext* )context;
+
+	// build a whitespace separated list ready to be passed as arguments in voteString if needed
+	if ( selection->listOfMaps[0] ) {
+		Q_strcat( selection->listOfMaps, sizeof( selection->listOfMaps ), " " );
+		Q_strcat( selection->listOfMaps, sizeof( selection->listOfMaps ), mapname );
+	} else {
+		Q_strncpyz( selection->listOfMaps, mapname, sizeof( selection->listOfMaps ) );
+	}
+
+	selection->numSelected++;
+
+	if ( selection->announceMultiVote ) {
+		// try to print the full map name to players
+		char *mapDisplayName = NULL;
+		const char *arenaInfo = G_GetArenaInfoByMap( mapname );
+
+		if ( arenaInfo ) {
+			mapDisplayName = Info_ValueForKey( arenaInfo, "longname" );
+		}
+
+		if ( !VALIDSTRING( mapDisplayName ) ) {
+			mapDisplayName = mapname;
+		}
+
+		trap_SendServerCommand( -1, va( "print \""S_COLOR_CYAN"/vote %d "S_COLOR_WHITE" - %s\n\"", selection->numSelected, mapDisplayName ) );
+	}
+}
+
+extern void CountPlayersIngame( int *total, int *ingame );
+
 void Svcmd_MapRandom_f()
 {
 	char pool[64];
+	int mapsToRandomize;
 
-	if (trap_Argc() < 1)
-	{
+	if (trap_Argc() < 2) {
 		return;
-	}       
+	}
 
     trap_Argv( 1, pool, sizeof( pool ) );
-    static char currentMap[MAX_MAP_NAME];
-    trap_Cvar_VariableStringBuffer( "mapname", currentMap, sizeof( currentMap ) );
-    MapInfo mapInfo;
 
-    if ( G_CfgDbSelectMapFromPool( pool, currentMap, &mapInfo ) )
+	if ( trap_Argc() < 3 ) {
+		// default to 1 map if no argument
+		mapsToRandomize = 1;
+	} else {
+		// get it from the argument then
+		char mapsToRandomizeBuf[64];
+		trap_Argv( 2, mapsToRandomizeBuf, sizeof( mapsToRandomizeBuf ) );
+
+		mapsToRandomize = atoi( mapsToRandomizeBuf );
+		if ( mapsToRandomize < 1 ) mapsToRandomize = 1; // we don't want negative/zero maps. the upper limit is set in callvote code so rcon can do whatever
+	}
+
+	int total, ingame;
+	CountPlayersIngame( &total, &ingame );
+	if ( ingame < 2 ) { // how? this should have been handled in callvote code, maybe some stupid admin directly called it with nobody in game..?
+		mapsToRandomize = 1;
+	}
+
+	char currentMap[MAX_MAP_NAME];
+    trap_Cvar_VariableStringBuffer( "mapname", currentMap, sizeof( currentMap ) );
+	
+	MapSelectionContext context = { 0 };
+	if ( mapsToRandomize > 1 ) { // if we are randomizing more than one map, there will be a second vote
+		if ( level.multiVoting && level.voteTime ) {
+			return; // theres already a multi vote going on, retard
+		}
+
+		if ( level.voteExecuteTime && level.voteExecuteTime < level.time ) {
+			return; // another vote just passed and is waiting to execute, don't interrupt it...
+		}
+
+		trap_SendServerCommand( -1, "print \"Please vote for your favorite map below:\n\"" );
+		context.announceMultiVote = qtrue;
+	}
+
+	if ( G_CfgDbSelectMapsFromPool( pool, currentMap, mapsToRandomize, mapSelectedCallback, &context ) )
     {
-        trap_SendConsoleCommand( EXEC_APPEND, va( "map %s\n", mapInfo.mapname ) );
-        return;
+		if ( context.numSelected != mapsToRandomize ) {
+			G_Printf( "Could not randomize this many maps! Expected %d, but randomized %d\n", mapsToRandomize, context.numSelected );
+		}
+
+		if ( context.numSelected > 1 ) {
+			// we are going to need another vote for this...
+			StartMultiMapVote( context.numSelected, context.listOfMaps );
+		} else {
+			// we want 1 map, this means listOfMaps only contains 1 randomized map. Just change to it straight away.
+			trap_SendConsoleCommand( EXEC_APPEND, va( "map %s\n", context.listOfMaps ) );
+		}
+
+		return;
     }
 
     G_Printf( "Map pool '%s' not found\n", pool );
+}
+
+void Svcmd_MapMultiVote_f() {
+	if ( !level.multiVoting || !level.multiVoteChoices ) {
+		return; // this command should only be run by the callvote code
+	}
+
+	if ( trap_Argc() - 1 != level.multiVoteChoices ) { // wtf? this should never happen...
+		G_LogPrintf( "MapMultiVote failed: argc=%d != multiVoteChoices=%d\n", trap_Argc() - 1, level.multiVoteChoices );
+		return;
+	}
+
+	// guess we have to sort out the votes now
+	int i, numVotes = 0, highestVoteCount = 0;
+	int *voteResults = calloc( level.multiVoteChoices, sizeof( *voteResults ) ); // voteResults[i] = how many votes for the i-th choice
+
+	for ( i = 0; i < MAX_CLIENTS; ++i ) {
+		int voteId = level.multiVotes[i];
+
+		if ( voteId > 0 && voteId <= level.multiVoteChoices ) {
+			// one more valid vote...
+			++numVotes;
+			voteResults[voteId - 1]++;
+
+			if ( voteResults[voteId - 1] > highestVoteCount ) {
+				highestVoteCount = voteResults[voteId - 1];
+			}
+		} else if ( voteId ) { // shouldn't happen since we check that in /vote...
+			G_LogPrintf( "Invalid multi vote id for client %d: %d\n", i, voteId );
+		}
+	}
+
+	// build a string to show the idiots what they voted for
+	char resultString[MAX_STRING_CHARS] = S_COLOR_WHITE"Map voting results: ";
+	char mapname[MAX_MAP_NAME];
+	for ( i = 0; i < level.multiVoteChoices; ++i ) {
+		if ( i ) {
+			Q_strcat( resultString, sizeof( resultString ), " ; " );
+		}
+
+		trap_Argv( 1 + i, mapname, sizeof( mapname ) );
+
+		// get the full name of the map
+		char *mapDisplayName = NULL;
+		const char *arenaInfo = G_GetArenaInfoByMap( mapname );
+
+		if ( arenaInfo ) {
+			mapDisplayName = Info_ValueForKey( arenaInfo, "longname" );
+		}
+
+		if ( !VALIDSTRING( mapDisplayName ) ) {
+			mapDisplayName = &mapname[0];
+		}
+
+		Q_strcat( resultString, sizeof( resultString ), mapDisplayName );
+		Q_strcat( resultString, sizeof( resultString ), va( S_COLOR_WHITE" (%s%d"S_COLOR_WHITE" vote%s)",
+			!voteResults[i] ? S_COLOR_RED : ( voteResults[i] >= highestVoteCount ? S_COLOR_GREEN : S_COLOR_WHITE ),
+			voteResults[i],
+			voteResults[i] != 1 ? "s" : "" )
+		);
+	}
+
+	trap_SendServerCommand( -1, va( "print \"%s\n\"", resultString ) );
+
+	
+	if ( !numVotes ) {
+		// if nobody voted, just give all maps a weight of 1, ie the same probability
+		for ( i = 0; i < level.multiVoteChoices; ++i ) {
+			voteResults[i] = 1;
+		}
+
+		numVotes = level.multiVoteChoices;
+	}
+
+	// now, since the amount of votes is pretty low (always <= MAX_CLIENTS) we can just build a uniformly distributed function
+	// as an array where each item appears as many times as they were voted, thus giving weight (0 votes = 0%)
+	// this isn't the fastest but it is more readable (and anyways we are gonna change map next frame)
+	int *udf = malloc( sizeof( *udf ) * numVotes ), *udfPtr = udf;
+	for ( i = 0; i < level.multiVoteChoices; ++i ) {
+		int j;
+
+		for ( j = 0; j < voteResults[i]; ++j ) {
+			*( udfPtr++ ) = i + 1;
+		}
+	}
+
+	free( voteResults );
+
+	// since the array is uniform, we can just pick an index to have a weighted map pick
+	const int random = rand() % numVotes;
+	trap_Argv( udf[random], mapname, sizeof( mapname ) );
+	free( udf );
+
+	// the wait is so that people can see voting result printed before map change
+	trap_SendConsoleCommand( EXEC_APPEND, va( "wait 5;map %s\n", mapname ) );
+
+	// make sure we clean those, even though they should be set in callvote code anyway and we are changing map soon...
+	level.multiVoting = qfalse;
+	level.multiVoteChoices = 0;
+	memset( level.multiVotes, 0, sizeof( level.multiVotes ) );
 }
 
 void Svcmd_SpecAll_f() {
@@ -1507,6 +1727,7 @@ void Svcmd_PoolMapAdd_f()
         trap_Argv( 3, weightStr, sizeof( weightStr ) );
 
         weight = atoi( weightStr );
+		if ( weight < 1 ) weight = 1;
     }
     else
     {
@@ -1633,6 +1854,11 @@ qboolean	ConsoleCommand( void ) {
 
 	if (Q_stricmp(cmd, "map_random") == 0) {
 		Svcmd_MapRandom_f();
+		return qtrue;
+	}
+
+	if ( Q_stricmp( cmd, "map_multi_vote" ) == 0 ) {
+		Svcmd_MapMultiVote_f();
 		return qtrue;
 	}
 

@@ -50,16 +50,16 @@ typedef void( *ListPoolCallback )(void* context,
 
 void G_CfgDbListPools( ListPoolCallback, void* context );
 
-typedef void( *ListMapsPoolCallback )(void* context,
-    const char* long_name,
-    int pool_id,
+typedef void( *ListMapsPoolCallback )(void** context,
+	const char* long_name,
+	int pool_id,
     const char* mapname,
-    int weight);
+    int mapWeight );
 
-void G_CfgDbListMapsInPool( const char* short_name, 
+void G_CfgDbListMapsInPool( const char* short_name,
     const char* ignore,
-    ListMapsPoolCallback, 
-    void* context );
+	ListMapsPoolCallback callback,
+	void** context );
 
 typedef struct
 {
@@ -70,18 +70,14 @@ typedef struct
 
 qboolean G_CfgDbFindPool( const char* short_name, PoolInfo* poolInfo );
 
-typedef struct
-{
-    char mapname[64];
+typedef void( *MapSelectedCallback )( void *context,
+	char* mapname );
 
-} MapInfo;
-
-int G_CfgDbGetPoolWeight( const char* short_name,
-    const char* ignoreMap);
-
-qboolean G_CfgDbSelectMapFromPool( const char* short_name,
-    const char* ignoreMap, 
-    MapInfo* mapInfo );
+qboolean G_CfgDbSelectMapsFromPool( const char* short_name,
+	const char* ignoreMap,
+	const int mapsToRandomize,
+	MapSelectedCallback callback,
+	void* context );
 
 qboolean G_CfgDbPoolCreate( const char* short_name, const char* long_name );
 qboolean G_CfgDbPoolDeleteAllMaps( const char* short_name );

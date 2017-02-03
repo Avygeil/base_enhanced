@@ -3772,53 +3772,73 @@ void CheckVote( void ) {
 	if ( !level.voteTime ) {
 		return;
 	}
-	if ( level.time - level.voteTime >= VOTE_TIME ) {
-        if ((g_minimumVotesCount.integer) && (level.numVotingClients % 2 == 0) && (level.voteYes > level.voteNo) && (level.voteYes + level.voteNo >= g_minimumVotesCount.integer)) {
-            trap_SendServerCommand(-1, va("print \"%s\n\"",
-                G_GetStringEdString("MP_SVGAME", "VOTEPASSED")));
+	if ( !level.multiVoting ) {
+		// normal behavior for basejka voting
+		if ( level.time - level.voteTime >= VOTE_TIME ) {
+			if ( ( g_minimumVotesCount.integer ) && ( level.numVotingClients % 2 == 0 ) && ( level.voteYes > level.voteNo ) && ( level.voteYes + level.voteNo >= g_minimumVotesCount.integer ) ) {
+				trap_SendServerCommand( -1, va( "print \"%s\n\"",
+					G_GetStringEdString( "MP_SVGAME", "VOTEPASSED" ) ) );
 
-		// log the vote
-            G_LogPrintf("Vote passed. (Yes:%i No:%i All:%i g_minimumVotesCount:%i)\n", level.voteYes, level.voteNo, level.numVotingClients, g_minimumVotesCount.integer);
+				// log the vote
+				G_LogPrintf( "Vote passed. (Yes:%i No:%i All:%i g_minimumVotesCount:%i)\n", level.voteYes, level.voteNo, level.numVotingClients, g_minimumVotesCount.integer );
 
-            level.voteExecuteTime = level.time + 3000;
-        } else {
-            trap_SendServerCommand(-1, va("print \"%s\n\"", G_GetStringEdString("MP_SVGAME", "VOTEFAILED")));
+				level.voteExecuteTime = level.time + 3000;
+			} else {
+				trap_SendServerCommand( -1, va( "print \"%s\n\"", G_GetStringEdString( "MP_SVGAME", "VOTEFAILED" ) ) );
 
-		// log the vote
-		G_LogPrintf("Vote timed out. (Yes:%i No:%i All:%i)\n", level.voteYes, level.voteNo, level.numVotingClients);
-        }
-	} else {
-        if ((g_enforceEvenVotersCount.integer) && (level.numVotingClients % 2 == 1)) {
-            if ((g_minVotersForEvenVotersCount.integer > 4) && (level.numVotingClients >= g_minVotersForEvenVotersCount.integer)) {
-                if (level.voteYes < level.numVotingClients/2 + 2) {
-                    return;
-                }
-            }
-        }
-
-		if ( level.voteYes > level.numVotingClients/2 ) {
-			trap_SendServerCommand( -1, va("print \"%s\n\"", 
-				G_GetStringEdString("MP_SVGAME", "VOTEPASSED")) );
-
-			// log the vote
-			G_LogPrintf("Vote passed. (Yes:%i No:%i All:%i)\n", level.voteYes, level.voteNo, level.numVotingClients);
-
-			level.voteExecuteTime = level.time + 3000;
-		} else if ( level.voteNo >= (level.numVotingClients+1)/2 ) {
-			// same behavior as a timeout
-			trap_SendServerCommand( -1, va("print \"%s\n\"", 
-				G_GetStringEdString("MP_SVGAME", "VOTEFAILED")) );
-
-			// log the vote
-			G_LogPrintf("Vote failed. (Yes:%i No:%i All:%i)\n", level.voteYes, level.voteNo, level.numVotingClients);
+				// log the vote
+				G_LogPrintf( "Vote timed out. (Yes:%i No:%i All:%i)\n", level.voteYes, level.voteNo, level.numVotingClients );
+			}
 		} else {
-			// still waiting for a majority
+			if ( ( g_enforceEvenVotersCount.integer ) && ( level.numVotingClients % 2 == 1 ) ) {
+				if ( ( g_minVotersForEvenVotersCount.integer > 4 ) && ( level.numVotingClients >= g_minVotersForEvenVotersCount.integer ) ) {
+					if ( level.voteYes < level.numVotingClients / 2 + 2 ) {
+						return;
+					}
+				}
+			}
+
+			if ( level.voteYes > level.numVotingClients / 2 ) {
+				trap_SendServerCommand( -1, va( "print \"%s\n\"",
+					G_GetStringEdString( "MP_SVGAME", "VOTEPASSED" ) ) );
+
+				// log the vote
+				G_LogPrintf( "Vote passed. (Yes:%i No:%i All:%i)\n", level.voteYes, level.voteNo, level.numVotingClients );
+
+				level.voteExecuteTime = level.time + 3000;
+			} else if ( level.voteNo >= ( level.numVotingClients + 1 ) / 2 ) {
+				// same behavior as a timeout
+				trap_SendServerCommand( -1, va( "print \"%s\n\"",
+					G_GetStringEdString( "MP_SVGAME", "VOTEFAILED" ) ) );
+
+				// log the vote
+				G_LogPrintf( "Vote failed. (Yes:%i No:%i All:%i)\n", level.voteYes, level.voteNo, level.numVotingClients );
+			} else {
+				// still waiting for a majority
+				return;
+			}
+		}
+
+		g_entities[level.lastVotingClient].client->lastCallvoteTime = level.time;
+	} else {
+		// special handler for multiple choices voting
+		int i, numVotes = 0;
+		for ( i = 0; i < MAX_CLIENTS; ++i ) {
+			if ( level.multiVotes[i] > 0 && level.multiVotes[i] <= level.multiVoteChoices ) {
+				++numVotes;
+			}
+		}
+
+		// the vote only ends when it times out OR when everyone voted
+		if ( numVotes >= level.numVotingClients || level.time - level.voteTime >= VOTE_TIME ) {
+			G_LogPrintf( "Multi vote ended (%d voters)\n", numVotes );
+			level.voteExecuteTime = level.time + 3000; // everything else will be handled in the svcmd
+		} else {
 			return;
 		}
 	}
+
 	level.voteTime = 0;
-	g_entities[level.lastVotingClient].client->lastCallvoteTime = level.time;
-	
 	trap_SetConfigstring( CS_VOTE_TIME, "" );
 
 }

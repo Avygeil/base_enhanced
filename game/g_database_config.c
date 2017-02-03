@@ -93,14 +93,6 @@ const char* const sqlFindPool =
 "ON pools.pool_id = pool_has_map.pool_id                                    "
 "WHERE short_name = ?                                                       ";
 
-const char* const sqlGetPoolWeight =
-"SELECT SUM( weight ) AS sum                                                "
-"FROM pools                                                                 "
-"JOIN                                                                       "
-"pool_has_map                                                               "
-"ON pools.pool_id = pool_has_map.pool_id                                    "
-"WHERE short_name = ? AND mapname <> ?                                      ";
-
 const char* const sqlCreatePool =
 "INSERT INTO pools (short_name, long_name) "
 "VALUES (?,?)                              ";
@@ -460,10 +452,10 @@ void G_CfgDbListPools( ListPoolCallback callback, void* context )
 // 
 //  List maps in pool
 //
-void G_CfgDbListMapsInPool( const char* short_name, 
-    const char* ignore, 
-    ListMapsPoolCallback callback, 
-    void* context )
+void G_CfgDbListMapsInPool( const char* short_name,
+    const char* ignore,
+	ListMapsPoolCallback callback,
+    void** context )
 {
     sqlite3_stmt* statement;
     // prepare insert statement
@@ -479,8 +471,11 @@ void G_CfgDbListMapsInPool( const char* short_name,
         int pool_id = sqlite3_column_int( statement, 1 );
         const char* mapname = (const char*)sqlite3_column_text( statement, 2 );
         int weight = sqlite3_column_int( statement, 3 );
+		if ( weight < 1 ) weight = 1;
 
-        callback( context, long_name, pool_id, mapname, weight );
+		if ( Q_stricmp( mapname, ignore ) ) {
+			callback( context, long_name, pool_id, mapname, weight );
+		}
 
         rc = sqlite3_step( statement );
     }
@@ -523,66 +518,40 @@ qboolean G_CfgDbFindPool( const char* short_name, PoolInfo* poolInfo )
     return found;
 }
 
-typedef  struct
-{
-    int acc;
-    int random;
-    char selectedMap[64];
-    char ignore[MAX_MAP_NAME];
-    qboolean selected;
-} 
-SelectMapInfo;
+typedef struct CumulativeMapWeight {
+    char mapname[MAX_MAP_NAME];
+	int cumulativeWeight; // the sum of all previous weights in the list and the current one
+	struct CumulativeMapWeight *next;
+} CumulativeMapWeight;
 
-void selectMapCallback( void* context,
-    const char* long_name,
-    int pool_id,
+void BuildCumulativeWeight( void** context,
+	const char* long_name,
+	int pool_id,
     const char* mapname,
-    int weight )
+    int mapWeight )
 {
-    SelectMapInfo* selectMapInfo = (SelectMapInfo*)context;
+	CumulativeMapWeight **cdf = ( CumulativeMapWeight** )context;
 
-    if ( (selectMapInfo->acc  <= selectMapInfo->random) 
-        && (selectMapInfo->random < selectMapInfo->acc + weight) )
-    {
-        if ( Q_strncmp( mapname, selectMapInfo->ignore, sizeof( selectMapInfo->ignore ) ) == 0 )
-        {
-            selectMapInfo->random += weight;
-        }
-        else
-        {
-            Q_strncpyz( selectMapInfo->selectedMap, mapname, sizeof( selectMapInfo->selectedMap ) );
-            selectMapInfo->selected = qtrue;
-        }   
-    }
+	// first, create the current node using parameters
+	CumulativeMapWeight *currentNode = malloc( sizeof( *currentNode ) );
+	Q_strncpyz( currentNode->mapname, mapname, sizeof( currentNode->mapname ) );
+	currentNode->cumulativeWeight = mapWeight;
+	currentNode->next = NULL;
 
-    selectMapInfo->acc += weight;
-}
+	if ( !*cdf ) {
+		// this is the first item, just assign it
+		*cdf = currentNode;
+	} else {
+		// otherwise, add it to the end of the list
+		CumulativeMapWeight *n = *cdf;
 
-//
-//  G_CfgDbGetPoolWeight
-// 
-//  Gets sum of weights of maps in pool
-//
-int G_CfgDbGetPoolWeight( const char* short_name,
-    const char* ignoreMap)
-{
-    sqlite3_stmt* statement;
-    int weight = 0;
-    // prepare insert statement
-    int rc = sqlite3_prepare( db, sqlGetPoolWeight, -1, &statement, 0 );
+		while ( n->next ) {
+			n = n->next;
+		}
 
-    sqlite3_bind_text( statement, 1, short_name, -1, 0 );
-    sqlite3_bind_text( statement, 2, ignoreMap, -1, 0 );
-
-    rc = sqlite3_step( statement );
-    if ( rc == SQLITE_ROW )
-    {
-        weight = sqlite3_column_int( statement, 0 );
-    }
-
-    sqlite3_finalize( statement ); 
-
-    return weight;
+		currentNode->cumulativeWeight += n->cumulativeWeight; // add the weight of the previous node
+		n->next = currentNode;
+	}
 }
 
 //
@@ -590,35 +559,93 @@ int G_CfgDbGetPoolWeight( const char* short_name,
 // 
 //  Selects map from pool
 //
-qboolean G_CfgDbSelectMapFromPool( const char* short_name,
-    const char* ignoreMap,
-    MapInfo* mapInfo )
+qboolean G_CfgDbSelectMapsFromPool( const char* short_name,
+	const char* ignoreMap,
+	const int mapsToRandomize,
+	MapSelectedCallback callback,
+	void* context )
 {
-    // TBD this function should make sure that current map will not be selected
     PoolInfo poolInfo;
     if ( G_CfgDbFindPool( short_name, &poolInfo ) )
     {
-        SelectMapInfo selectMapInfo;
-        selectMapInfo.acc = 0;
-        selectMapInfo.selectedMap[0] = '\0';
-        selectMapInfo.selected = qfalse;
-        
-        Q_strncpyz( selectMapInfo.ignore, ignoreMap, sizeof( selectMapInfo.ignore ) );     
+		// fill the cumulative density function of the map pool
+		CumulativeMapWeight *cdf = NULL;
+		G_CfgDbListMapsInPool( short_name, ignoreMap, BuildCumulativeWeight, &cdf );
 
-        int weight = G_CfgDbGetPoolWeight( short_name, ignoreMap );
+		if ( cdf ) {
+			CumulativeMapWeight *n = cdf;
+			int i, numMapsInList = 0;
 
-        if ( weight )
-        {
-            selectMapInfo.random = rand() % weight;
+			while ( n ) {
+				++numMapsInList; // if we got here, we have at least 1 map, so this will always be at least 1
+				n = n->next;
+			}
 
-            G_CfgDbListMapsInPool( short_name, ignoreMap, selectMapCallback, &selectMapInfo );
+			// pick as many maps as needed from the pool while there are enough in the list
+			for ( i = 0; i < mapsToRandomize && numMapsInList > 0; ++i ) {
+				// first, get a random number based on the highest cumulative weight
+				n = cdf;
+				while ( n->next ) {
+					n = n->next;
+				}
+				const int random = rand() % n->cumulativeWeight;
 
-            if ( selectMapInfo.selected )
-            {
-                Q_strncpyz( mapInfo->mapname, selectMapInfo.selectedMap, sizeof( mapInfo->mapname ) );
-                return qtrue;
-            }
-        }    
+				// now, pick the map
+				n = cdf;
+				while ( n ) {
+					if ( random < n->cumulativeWeight ) {
+						break; // got it
+					}
+					n = n->next;
+				}
+
+				// let the caller do whatever they want with the map we picked
+				callback( context, n->mapname );
+
+				// delete the map from the cdf for further iterations
+				CumulativeMapWeight *nodeToDelete = n;
+				int weightToDelete;
+
+				// get the node right before the node to delete and find the weight to delete
+				if ( nodeToDelete == cdf ) {
+					n = NULL;
+					weightToDelete = cdf->cumulativeWeight; // the head's weight is equal to its cumulative weight
+				} else {
+					n = cdf;
+					while ( n->next && n->next != nodeToDelete ) {
+						n = n->next;
+					}
+					weightToDelete = nodeToDelete->cumulativeWeight - n->cumulativeWeight;
+				}
+
+				// relink the list
+				if ( !n ) {
+					cdf = cdf->next; // we are deleting the head, so just rebase it (may be NULL if this was the last remaining element)
+				} else {
+					n->next = nodeToDelete->next; // may be NULL if we are deleting the last element in the list
+				}
+				--numMapsInList;
+
+				// rebuild the cumulative weights
+				n = nodeToDelete->next;
+				while ( n ) {
+					n->cumulativeWeight -= weightToDelete;
+					n = n->next;
+				}
+
+				free( nodeToDelete );
+			}
+
+			// free the remaining resources
+			n = cdf;
+			while ( n ) {
+				CumulativeMapWeight *nodeToDelete = n;
+				n = n->next;
+				free( nodeToDelete );
+			}
+
+			return qtrue;
+		}
     }
 
     return qfalse;   

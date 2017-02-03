@@ -2664,7 +2664,26 @@ void fixVoters(){
 	}
 }
 
+void CountPlayersIngame( int *total, int *ingame ) {
+	gentity_t *ent;
+	int i;
 
+	*total = *ingame = 0;
+
+	for ( i = 0; i < level.maxclients; i++ ) { // count clients that are connected and who are not bots
+		ent = &g_entities[i];
+
+		if ( !ent || !ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED || ent->r.svFlags & SVF_BOT ) {
+			continue;
+		}
+
+		( *total )++;
+
+		if ( ent->client->sess.sessionTeam != TEAM_SPECTATOR ) {
+			( *ingame )++;
+		}
+	}
+}
 
 /*
 ==================
@@ -2844,24 +2863,10 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 		}
 
 		if ( g_mapVoteThreshold.integer ) { // anti force map protection when the server is populated
-			gentity_t *ent;
-			int i, count = 0, ingame = 0;
+			int total, ingame;
+			CountPlayersIngame( &total, &ingame );
 
-			for ( i = 0; i < level.maxclients; i++ ) { // count clients that are connected and not bots
-				ent = &g_entities[i];
-
-				if ( !ent || !ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED || ent->r.svFlags & SVF_BOT ) {
-					continue;
-				}
-
-				++count;
-
-				if ( ent->client->sess.sessionTeam != TEAM_SPECTATOR ) {
-					++ingame;
-				}
-			}
-
-			if ( count >= g_mapVoteThreshold.integer && ingame < g_mapVotePlayers.integer ) {
+			if ( total >= g_mapVoteThreshold.integer && ingame < g_mapVotePlayers.integer ) {
 				trap_SendServerCommand( ent - g_entities, "print \"Not enough players in game to call this vote.\n\"" );
 				return;
 			}
@@ -2912,15 +2917,36 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 			return;
 		}
 
+		// the cvar value is the amount of maps to randomize up to 5 (so 1 is the old, instant random map behavior)
+		int mapsToRandomize = Com_Clampi( 1, 5, g_allow_vote_maprandom.integer );
+
+		int total, ingame;
+		CountPlayersIngame( &total, &ingame );
+
+		if ( g_mapVoteThreshold.integer && total >= g_mapVoteThreshold.integer && ingame < g_mapVotePlayers.integer ) {
+			// anti force map protection when the server is populated
+			trap_SendServerCommand( ent - g_entities, "print \"Not enough players in game to call this vote.\n\"" );
+			return;
+		}
+
+		if ( ingame < 2 ) {
+			mapsToRandomize = 1; // not enough clients for a multi vote, just randomize 1 map right away
+		}
+
         PoolInfo poolInfo;
         if ( !G_CfgDbFindPool( arg2, &poolInfo ) )
         {
             trap_SendServerCommand( ent - g_entities, "print \"Pool not found.\n\"" );
             return;
         }
-        
-        Com_sprintf( level.voteDisplayString, sizeof( level.voteDisplayString ), "Random Map: %s", poolInfo.long_name );
-        Com_sprintf( level.voteString, sizeof( level.voteString ), "%s %s", arg1, arg2 );
+
+		if ( mapsToRandomize >= 2 ) {
+			Com_sprintf( level.voteDisplayString, sizeof( level.voteDisplayString ), "Randomize %d Maps: %s", mapsToRandomize, poolInfo.long_name );
+		} else {
+			Com_sprintf( level.voteDisplayString, sizeof( level.voteDisplayString ), "Random Map: %s", poolInfo.long_name );
+		}
+
+		Com_sprintf( level.voteString, sizeof( level.voteString ), "%s %s %d", arg1, arg2, mapsToRandomize );
 
 		//// find the pool
 		//for (i = 0; i < poolNum; ++i)
@@ -3177,6 +3203,9 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 	level.voteYes = 1;
 	level.voteNo = 0;
 	level.lastVotingClient = ent-g_entities;
+	level.multiVoting = qfalse;
+	level.multiVoteChoices = 0;
+	memset( &( level.multiVotes ), 0, sizeof( level.multiVotes ) );
 
 	fixVoters();
 
@@ -3218,21 +3247,37 @@ void Cmd_Vote_f( gentity_t *ent ) {
 		}
 	}
 
-	trap_SendServerCommand( ent-g_entities, va("print \"%s\n\"", G_GetStringEdString("MP_SVGAME", "PLVOTECAST")) );
-
-	ent->client->mGameFlags |= PSG_VOTED;
-
 	trap_Argv( 1, msg, sizeof( msg ) );
 
-	if ( msg[0] == 'y' || msg[1] == 'Y' || msg[1] == '1' ) {
-		G_LogPrintf("Client %i (%s) voted YES\n", ent - g_entities, ent->client->pers.netname);
-		level.voteYes++;
-		trap_SetConfigstring( CS_VOTE_YES, va("%i", level.voteYes ) );
+	if ( !level.multiVoting ) {
+		// not a special multi vote, use legacy behavior
+		if ( msg[0] == 'y' || msg[1] == 'Y' || msg[1] == '1' ) {
+			G_LogPrintf( "Client %i (%s) voted YES\n", ent - g_entities, ent->client->pers.netname );
+			level.voteYes++;
+			trap_SetConfigstring( CS_VOTE_YES, va( "%i", level.voteYes ) );
+		} else {
+			G_LogPrintf( "Client %i (%s) voted NO\n", ent - g_entities, ent->client->pers.netname );
+			level.voteNo++;
+			trap_SetConfigstring( CS_VOTE_NO, va( "%i", level.voteNo ) );
+		}
 	} else {
-		G_LogPrintf("Client %i (%s) voted NO\n", ent - g_entities, ent->client->pers.netname);
-		level.voteNo++;
-		trap_SetConfigstring( CS_VOTE_NO, va("%i", level.voteNo ) );	
+		// multi map vote, only allow voting for valid choice ids
+		int voteId = atoi( msg );
+
+		if ( voteId <= 0 || voteId > level.multiVoteChoices ) {
+			trap_SendServerCommand( ent - g_entities, va( "print \"Invalid choice, please use /vote 1-%d from console\n\"", level.multiVoteChoices ) );
+			return;
+		}
+
+		// we maintain an internal array of choice ids, and only use voteYes to show how many people voted
+		G_LogPrintf( "Client %i (%s) voted for choice %d\n", ent - g_entities, ent->client->pers.netname, voteId );
+		level.multiVotes[ent - g_entities] = voteId;
+		level.voteYes++;
+		trap_SetConfigstring( CS_VOTE_YES, va( "%i", level.voteYes ) );
 	}
+
+	trap_SendServerCommand( ent - g_entities, va( "print \"%s\n\"", G_GetStringEdString( "MP_SVGAME", "PLVOTECAST" ) ) );
+	ent->client->mGameFlags |= PSG_VOTED;
 
 	// a majority will be determined in CheckVote, which will also account
 	// for players entering or leaving
@@ -4018,13 +4063,13 @@ typedef struct
 
 } ListMapsInPoolContext;
 
-void listMapsInPools( void* context,
+void listMapsInPools( void** context,
     const char* long_name,
     int pool_id,
     const char* mapname,
-    int weight )
+    int mapWeight )
 {
-    ListMapsInPoolContext* thisContext = (ListMapsInPoolContext*)context;
+	ListMapsInPoolContext* thisContext = *( ( ListMapsInPoolContext** )context );
     thisContext->pool_id = pool_id;
     thisContext->count++;
     Q_strncpyz( thisContext->long_name, long_name, sizeof( thisContext->long_name ) );
@@ -4039,11 +4084,12 @@ static void Cmd_MapPool_f(gentity_t* ent)
         ListMapsInPoolContext context;
         context.entity = ent - g_entities;
         context.count = 0;
+		ListMapsInPoolContext *ctxPtr = &context;
 
         char short_name[64];
         trap_Argv( 1, short_name, sizeof( short_name ) );
 
-        G_CfgDbListMapsInPool( short_name, "", listMapsInPools, &context );
+        G_CfgDbListMapsInPool( short_name, "", listMapsInPools, &ctxPtr );
 
         trap_SendServerCommand( context.entity, va( "print \"Found %i maps for pool %s.\n\"",
             context.count, short_name, context.long_name ) );
