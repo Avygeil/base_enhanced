@@ -195,14 +195,17 @@ static std::string HashStringHex( const char *in ) {
 
 /* ------------------------------------------------------------------------ */
 
-static std::stringstream lastError;
+static char lastErrorBuffer[CRYPTO_ERROR_CHARS] = { 0 };
 
 // returns CRYPTO_ERROR for convenience when returning from catch blocks
 static int SetLastError( const std::exception &e, const char *function = "" ) {
-	lastError.clear();
+	std::stringstream lastError;
 	lastError << "Exception caught";
-	if ( *function ) lastError << "in " << function;
+	if ( *function ) lastError << " in " << function;
 	lastError << ": " << e.what();
+
+	std::strncpy( lastErrorBuffer, lastError.str().c_str(), sizeof( lastErrorBuffer ) - 1 );
+	lastErrorBuffer[sizeof( lastErrorBuffer ) - 1] = '\0';
 
 	return CRYPTO_ERROR;
 }
@@ -296,7 +299,7 @@ int Crypto_Hash( const char *in, char *out, size_t outLen ) {
 
 // whenever a function returns CRYPTO_ERROR, use this for the error message
 const char* Crypto_LastError( void ) {
-	return lastError.str().c_str();
+	return &lastErrorBuffer[0];
 }
 
 /* ------------------------------------------------------------------------ */

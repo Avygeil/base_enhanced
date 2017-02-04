@@ -5,6 +5,8 @@
 #define CRYPTO_FINE				0
 #define CRYPTO_ERROR			-1
 
+#define CRYPTO_ERROR_CHARS		256						// size of the buffer used to store errors
+
 #define RSA_VALIDATE_LEVEL		1						// 0 for no checks, 1 for functionality check, 2 for security check, 3 for full checks
 
 #define RSA_KEY_BITS			189						// this is the largest key size that generates base64 output <= 255 chars
