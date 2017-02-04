@@ -277,6 +277,10 @@ vmCvar_t    g_minVotersForEvenVotersCount;
 vmCvar_t	g_maxNameLength;
 vmCvar_t	g_duplicateNamesId;
 
+#ifdef NEWMOD_SUPPORT
+vmCvar_t	g_enableNmAuth;
+#endif
+
 vmCvar_t     g_strafejump_mod;
 
 vmCvar_t	g_antiWallhack;
@@ -501,26 +505,26 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &pmove_fixed, "pmove_fixed", "0", CVAR_SYSTEMINFO, 0, qfalse},
 	{ &pmove_msec, "pmove_msec", "8", CVAR_SYSTEMINFO, 0, qfalse},
 
-	{ &g_dismember, "g_dismember", "0", CVAR_ARCHIVE, 0, qtrue  },
-	{ &g_forceDodge, "g_forceDodge", "1", 0, 0, qtrue  },
+	{ &g_dismember, "g_dismember", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_forceDodge, "g_forceDodge", "1", 0, 0, qtrue },
 
 	{ &g_timeouttospec, "g_timeouttospec", "70", CVAR_ARCHIVE, 0, qfalse },
 
-	{ &g_saberDmgVelocityScale, "g_saberDmgVelocityScale", "0", CVAR_ARCHIVE, 0, qtrue  },
-	{ &g_saberDmgDelay_Idle, "g_saberDmgDelay_Idle", "350", CVAR_ARCHIVE, 0, qtrue  },
-	{ &g_saberDmgDelay_Wound, "g_saberDmgDelay_Wound", "0", CVAR_ARCHIVE, 0, qtrue  },
+	{ &g_saberDmgVelocityScale, "g_saberDmgVelocityScale", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_saberDmgDelay_Idle, "g_saberDmgDelay_Idle", "350", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_saberDmgDelay_Wound, "g_saberDmgDelay_Wound", "0", CVAR_ARCHIVE, 0, qtrue },
 
 #ifndef FINAL_BUILD
-	{ &g_saberDebugPrint, "g_saberDebugPrint", "0", CVAR_CHEAT, 0, qfalse  },
+	{ &g_saberDebugPrint, "g_saberDebugPrint", "0", CVAR_CHEAT, 0, qfalse },
 #endif
 	{ &g_debugSaberLocks, "g_debugSaberLocks", "0", CVAR_CHEAT, 0, qfalse },
 	{ &g_saberLockRandomNess, "g_saberLockRandomNess", "2", CVAR_CHEAT, 0, qfalse },
-// nmckenzie: SABER_DAMAGE_WALLS
+		// nmckenzie: SABER_DAMAGE_WALLS
 	{ &g_saberWallDamageScale, "g_saberWallDamageScale", "0.4", CVAR_SERVERINFO, 0, qfalse },
 
 	{ &d_saberStanceDebug, "d_saberStanceDebug", "0", 0, 0, qfalse },
 
-	{ &g_siegeTeamSwitch, "g_siegeTeamSwitch", "1", CVAR_SERVERINFO|CVAR_ARCHIVE, qfalse },
+	{ &g_siegeTeamSwitch, "g_siegeTeamSwitch", "1", CVAR_SERVERINFO | CVAR_ARCHIVE, qfalse },
 
 	{ &bg_fighterAltControl, "bg_fighterAltControl", "0", CVAR_SERVERINFO, 0, qtrue },
 
@@ -543,14 +547,14 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &d_JediAI, "d_JediAI", "0", CVAR_CHEAT },
 	{ &d_noGroupAI, "d_noGroupAI", "0", CVAR_CHEAT },
 	{ &d_asynchronousGroupAI, "d_asynchronousGroupAI", "0", CVAR_CHEAT },
-	
-	//0 = never (BORING)
-	//1 = kyle only
-	//2 = kyle and last enemy jedi
-	//3 = kyle and any enemy jedi
-	//4 = kyle and last enemy in a group
-	//5 = kyle and any enemy
-	//6 = also when kyle takes pain or enemy jedi dodges player saber swing or does an acrobatic evasion
+
+		//0 = never (BORING)
+		//1 = kyle only
+		//2 = kyle and last enemy jedi
+		//3 = kyle and any enemy jedi
+		//4 = kyle and last enemy in a group
+		//5 = kyle and any enemy
+		//6 = also when kyle takes pain or enemy jedi dodges player saber swing or does an acrobatic evasion
 
 	{ &d_slowmodeath, "d_slowmodeath", "0", CVAR_CHEAT },
 
@@ -558,32 +562,32 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_spskill, "g_npcspskill", "0", CVAR_ARCHIVE | CVAR_INTERNAL },
 
-	//for overriding the level defaults
-	{ &g_siegeTeam1, "g_siegeTeam1", "none", CVAR_ARCHIVE|CVAR_SERVERINFO, 0, qfalse  },
-	{ &g_siegeTeam2, "g_siegeTeam2", "none", CVAR_ARCHIVE|CVAR_SERVERINFO, 0, qfalse  },
+		//for overriding the level defaults
+	{ &g_siegeTeam1, "g_siegeTeam1", "none", CVAR_ARCHIVE | CVAR_SERVERINFO, 0, qfalse },
+	{ &g_siegeTeam2, "g_siegeTeam2", "none", CVAR_ARCHIVE | CVAR_SERVERINFO, 0, qfalse },
 
-	//mainly for debugging with bots while I'm not around (want the server to
-	//cycle through levels naturally)
-	{ &d_noIntermissionWait, "d_noIntermissionWait", "0", CVAR_CHEAT, 0, qfalse  },
+		//mainly for debugging with bots while I'm not around (want the server to
+		//cycle through levels naturally)
+	{ &d_noIntermissionWait, "d_noIntermissionWait", "0", CVAR_CHEAT, 0, qfalse },
 
-	{ &g_austrian, "g_austrian", "0", CVAR_ARCHIVE, 0, qfalse  },
-// nmckenzie:
-// DUEL_HEALTH
+	{ &g_austrian, "g_austrian", "0", CVAR_ARCHIVE, 0, qfalse },
+		// nmckenzie:
+		// DUEL_HEALTH
 	{ &g_showDuelHealths, "g_showDuelHealths", "0", CVAR_SERVERINFO },
-	{ &g_powerDuelStartHealth, "g_powerDuelStartHealth", "150", CVAR_ARCHIVE, 0, qtrue  },
-	{ &g_powerDuelEndHealth, "g_powerDuelEndHealth", "90", CVAR_ARCHIVE, 0, qtrue  },
+	{ &g_powerDuelStartHealth, "g_powerDuelStartHealth", "150", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_powerDuelEndHealth, "g_powerDuelEndHealth", "90", CVAR_ARCHIVE, 0, qtrue },
 
-	// *CHANGE 12* allowing/disabling cvars
+		// *CHANGE 12* allowing/disabling cvars
 	{ &g_protectQ3Fill,	"g_protectQ3Fill"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_protectQ3FillIPLimit,	"g_protectQ3FillIPLimit"	, "3"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_protectHPhack,	"g_protectHPhack"	, "3"	, CVAR_ARCHIVE, 0, qtrue },
-	
+
 
 	{ &g_protectCallvoteHack,	"g_protectCallvoteHack"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
 
-	{ &g_maxIPConnected,	"g_maxIPConnected"	, "0"	, CVAR_ARCHIVE, 0, qtrue },	
+	{ &g_maxIPConnected,	"g_maxIPConnected"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
 
-	// *CHANGE 10* anti q3fill
+		// *CHANGE 10* anti q3fill
 	{ &g_cleverFakeDetection,	"g_cleverFakeDetection"	, "forcepowers"	, CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_fixPitKills,	"g_fixPitKills"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
@@ -591,15 +595,19 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_balanceSaber, "g_balanceSaber", "0", CVAR_SERVERINFO | CVAR_ARCHIVE, 0, qtrue },
 	{ &g_balanceSeeing, "g_balanceSeeing", "0", CVAR_ARCHIVE, 0, qtrue },
 
-    { &g_minimumVotesCount, "g_minimumVotesCount", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_minimumVotesCount, "g_minimumVotesCount", "0", CVAR_ARCHIVE, 0, qtrue },
 
-    { &g_enforceEvenVotersCount, "g_enforceEvenVotersCount", "0", CVAR_ARCHIVE, 0, qtrue },
-    { &g_minVotersForEvenVotersCount, "g_minVotersForEvenVotersCount", "7", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_enforceEvenVotersCount, "g_enforceEvenVotersCount", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_minVotersForEvenVotersCount, "g_minVotersForEvenVotersCount", "7", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_maxNameLength, "g_maxNameLength", "24", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_duplicateNamesId, "g_duplicateNamesId", "1", CVAR_ARCHIVE, 0, qtrue },
 
+#ifdef NEWMOD_SUPPORT
+	{ &g_enableNmAuth, "g_enableNmAuth", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
+#endif
 	{ &g_strafejump_mod,	"g_strafejump_mod"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
+
 
 	{ &g_antiWallhack,	"g_antiWallhack"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_wallhackMaxTraces,	"g_wallhackMaxTraces"	, "1000"	, CVAR_ARCHIVE, 0, qtrue },
@@ -1257,14 +1265,18 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 	}
 
 #ifdef NEWMOD_SUPPORT
-	level.nmAuthEnabled = Crypto_RSAInit() != CRYPTO_ERROR
-		&& Crypto_RSADumpKey( qtrue, level.pubKeyStr, sizeof( level.pubKeyStr ) ) != CRYPTO_ERROR;
+	if ( g_enableNmAuth.integer ) {
+		level.nmAuthEnabled = Crypto_RSAInit() != CRYPTO_ERROR
+			&& Crypto_RSADumpKey( qtrue, level.pubKeyStr, sizeof( level.pubKeyStr ) ) != CRYPTO_ERROR;
 
-	if ( !level.nmAuthEnabled ) {
-		G_Printf( S_COLOR_RED"%s\n", Crypto_LastError() );
-		G_Printf( S_COLOR_RED"Newmod auth support was disabled\n" );
+		if ( !level.nmAuthEnabled ) {
+			G_Printf( S_COLOR_RED"%s\n", Crypto_LastError() );
+			G_Printf( S_COLOR_RED"Newmod auth support was disabled\n" );
+		} else {
+			G_Printf( "Loaded RSA keys successfully\n" );
+		}
 	} else {
-		G_Printf( "Loaded RSA keys successfully\n" );
+		level.nmAuthEnabled = qfalse;
 	}
 #endif
 
