@@ -1102,6 +1102,13 @@ typedef struct {
 
 	int wallhackTracesDone;
 
+	struct {
+		char cmd[MAX_STRING_CHARS];
+		int sendUntilTime;
+		int lastSentTime;
+		qboolean prioritized;
+	} globalCenterPrint;
+
 #ifdef NEWMOD_SUPPORT
 	qboolean nmAuthEnabled;
 	char pubKeyStr[RSA_MAX_PUB_B64U_CHARS];
@@ -1236,6 +1243,9 @@ qboolean G_ActivateBehavior (gentity_t *self, int bset );
 void	G_TouchTriggers (gentity_t *ent);
 void	G_TouchSolids (gentity_t *ent);
 void	GetAnglesForDirection( const vec3_t p1, const vec3_t p2, vec3_t out );
+
+void UpdateGlobalCenterPrint( const int levelTime );
+void G_GlobalTickedCenterPrint( const char *msg, int milliseconds, qboolean prioritized );
 
 //
 // g_object.c

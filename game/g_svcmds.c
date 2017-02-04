@@ -1193,6 +1193,7 @@ static void StartMultiMapVote( const int numMaps, const char *listOfMaps ) {
 
 typedef struct {
 	char listOfMaps[MAX_STRING_CHARS];
+	char printMessage[MAX_STRING_CHARS];
 	qboolean announceMultiVote;
 	int numSelected;
 } MapSelectionContext;
@@ -1203,7 +1204,7 @@ static void mapSelectedCallback( void *context, char *mapname ) {
 	MapSelectionContext *selection = ( MapSelectionContext* )context;
 
 	// build a whitespace separated list ready to be passed as arguments in voteString if needed
-	if ( selection->listOfMaps[0] ) {
+	if ( VALIDSTRING( selection->listOfMaps ) ) {
 		Q_strcat( selection->listOfMaps, sizeof( selection->listOfMaps ), " " );
 		Q_strcat( selection->listOfMaps, sizeof( selection->listOfMaps ), mapname );
 	} else {
@@ -1213,7 +1214,11 @@ static void mapSelectedCallback( void *context, char *mapname ) {
 	selection->numSelected++;
 
 	if ( selection->announceMultiVote ) {
-		// try to print the full map name to players
+		if ( selection->numSelected == 1 ) {
+			Q_strncpyz( selection->printMessage, "Vote for your favorite map:", sizeof( selection->printMessage ) );
+		}
+
+		// try to print the full map name to players (if a full name doesn't appear, map has no .arena or isn't installed)
 		char *mapDisplayName = NULL;
 		const char *arenaInfo = G_GetArenaInfoByMap( mapname );
 
@@ -1225,7 +1230,9 @@ static void mapSelectedCallback( void *context, char *mapname ) {
 			mapDisplayName = mapname;
 		}
 
-		trap_SendServerCommand( -1, va( "print \""S_COLOR_CYAN"/vote %d "S_COLOR_WHITE" - %s\n\"", selection->numSelected, mapDisplayName ) );
+		Q_strcat( selection->printMessage, sizeof( selection->printMessage ),
+			va( "\n"S_COLOR_CYAN"/vote %d "S_COLOR_WHITE" - %s", selection->numSelected, mapDisplayName )
+		);
 	}
 }
 
@@ -1254,10 +1261,14 @@ void Svcmd_MapRandom_f()
 		if ( mapsToRandomize < 1 ) mapsToRandomize = 1; // we don't want negative/zero maps. the upper limit is set in callvote code so rcon can do whatever
 	}
 
-	int total, ingame;
-	CountPlayersIngame( &total, &ingame );
-	if ( ingame < 2 ) { // how? this should have been handled in callvote code, maybe some stupid admin directly called it with nobody in game..?
-		mapsToRandomize = 1;
+	if ( mapsToRandomize > 1 ) {
+		int total, ingame;
+		CountPlayersIngame( &total, &ingame );
+		if ( ingame < 2 ) { // how? this should have been handled in callvote code, maybe some stupid admin directly called it with nobody in game..?
+							// or it could also be caused by people joining spec before map_random passes... so inform them, i guess
+			G_Printf( "Not enough people in game to start a multi vote, a single map will be randomized\n" );
+			mapsToRandomize = 1;
+		}
 	}
 
 	char currentMap[MAX_MAP_NAME];
@@ -1273,7 +1284,6 @@ void Svcmd_MapRandom_f()
 			return; // another vote just passed and is waiting to execute, don't interrupt it...
 		}
 
-		trap_SendServerCommand( -1, "print \"Please vote for your favorite map below:\n\"" );
 		context.announceMultiVote = qtrue;
 	}
 
@@ -1281,6 +1291,12 @@ void Svcmd_MapRandom_f()
     {
 		if ( context.numSelected != mapsToRandomize ) {
 			G_Printf( "Could not randomize this many maps! Expected %d, but randomized %d\n", mapsToRandomize, context.numSelected );
+		}
+
+		if ( VALIDSTRING( context.printMessage ) ) {
+			// print in console and do a global prioritized center print
+			trap_SendServerCommand( -1, va( "print \"%s\n\"", context.printMessage ) );
+			G_GlobalTickedCenterPrint( context.printMessage, 10000, qtrue ); // give them 10s to see the options
 		}
 
 		if ( context.numSelected > 1 ) {
@@ -1327,14 +1343,41 @@ void Svcmd_MapMultiVote_f() {
 		}
 	}
 
-	// build a string to show the idiots what they voted for
-	char resultString[MAX_STRING_CHARS] = S_COLOR_WHITE"Map voting results: ";
-	char mapname[MAX_MAP_NAME];
-	for ( i = 0; i < level.multiVoteChoices; ++i ) {
-		if ( i ) {
-			Q_strcat( resultString, sizeof( resultString ), " ; " );
-		}
+	// now, since the amount of votes is pretty low (always <= MAX_CLIENTS) we can just build a uniformly distributed function
+	// this isn't the fastest but it is more readable
+	int *udf;
+	if ( !numVotes ) {
+		// if nobody voted, just give all maps a weight of 1, ie the same probability
+		numVotes = level.multiVoteChoices;
+		udf = malloc( sizeof( *udf ) * level.multiVoteChoices );
 
+		for ( i = 0; i < level.multiVoteChoices; ++i ) {
+			udf[i] = i + 1;
+		}
+	} else {
+		// make it an array where each item appears as many times as they were voted, thus giving weight (0 votes = 0%)
+		udf = malloc( sizeof( *udf ) * numVotes );
+		int *udfPtr = udf;
+
+		for ( i = 0; i < level.multiVoteChoices; ++i ) {
+			int j;
+
+			for ( j = 0; j < voteResults[i]; ++j ) {
+				*( udfPtr++ ) = i + 1;
+			}
+		}
+	}
+
+	// since the array is uniform, we can just pick an index to have a weighted map pick
+	const int random = rand() % numVotes;
+	char selectedMapname[MAX_MAP_NAME];
+	trap_Argv( udf[random], selectedMapname, sizeof( selectedMapname ) );
+	free( udf );
+
+	// build a string to show the idiots what they voted for
+	char resultString[MAX_STRING_CHARS] = S_COLOR_WHITE"Map voting results:";
+	for ( i = 0; i < level.multiVoteChoices; ++i ) {
+		char mapname[MAX_MAP_NAME];
 		trap_Argv( 1 + i, mapname, sizeof( mapname ) );
 
 		// get the full name of the map
@@ -1347,51 +1390,26 @@ void Svcmd_MapMultiVote_f() {
 
 		if ( !VALIDSTRING( mapDisplayName ) ) {
 			mapDisplayName = &mapname[0];
+			Q_CleanStr( mapDisplayName );
 		}
 
-		Q_strcat( resultString, sizeof( resultString ), mapDisplayName );
-		Q_strcat( resultString, sizeof( resultString ), va( S_COLOR_WHITE" (%s%d"S_COLOR_WHITE" vote%s)",
-			!voteResults[i] ? S_COLOR_RED : ( voteResults[i] >= highestVoteCount ? S_COLOR_GREEN : S_COLOR_WHITE ),
-			voteResults[i],
-			voteResults[i] != 1 ? "s" : "" )
+		Q_strcat( resultString, sizeof( resultString ), va( "\n%s%s - %d vote%s",
+			!Q_stricmp(mapname, selectedMapname) ? S_COLOR_GREEN : S_COLOR_WHITE, // the selected map is green
+			mapDisplayName, voteResults[i], voteResults[i] != 1 ? "s" : "" )
 		);
-	}
-
-	trap_SendServerCommand( -1, va( "print \"%s\n\"", resultString ) );
-
-	
-	if ( !numVotes ) {
-		// if nobody voted, just give all maps a weight of 1, ie the same probability
-		for ( i = 0; i < level.multiVoteChoices; ++i ) {
-			voteResults[i] = 1;
-		}
-
-		numVotes = level.multiVoteChoices;
-	}
-
-	// now, since the amount of votes is pretty low (always <= MAX_CLIENTS) we can just build a uniformly distributed function
-	// as an array where each item appears as many times as they were voted, thus giving weight (0 votes = 0%)
-	// this isn't the fastest but it is more readable (and anyways we are gonna change map next frame)
-	int *udf = malloc( sizeof( *udf ) * numVotes ), *udfPtr = udf;
-	for ( i = 0; i < level.multiVoteChoices; ++i ) {
-		int j;
-
-		for ( j = 0; j < voteResults[i]; ++j ) {
-			*( udfPtr++ ) = i + 1;
-		}
 	}
 
 	free( voteResults );
 
-	// since the array is uniform, we can just pick an index to have a weighted map pick
-	const int random = rand() % numVotes;
-	trap_Argv( udf[random], mapname, sizeof( mapname ) );
-	free( udf );
+	// do both a console print and global prioritized center print
+	if ( VALIDSTRING( resultString ) ) {
+		trap_SendServerCommand( -1, va( "print \"%s\n\"", resultString ) );
+		G_GlobalTickedCenterPrint( resultString, 3000, qtrue ); // show it for 3s, the time before map changes
+	}
 
-	// the wait is so that people can see voting result printed before map change
-	trap_SendConsoleCommand( EXEC_APPEND, va( "wait 5;map %s\n", mapname ) );
-
-	// make sure we clean those, even though they should be set in callvote code anyway and we are changing map soon...
+	// re-use the vote timer so that there's a small delay before map change
+	Q_strncpyz( level.voteString, va( "map %s", selectedMapname ), sizeof( level.voteString ) );
+	level.voteExecuteTime = level.time + 3000;
 	level.multiVoting = qfalse;
 	level.multiVoteChoices = 0;
 	memset( level.multiVotes, 0, sizeof( level.multiVotes ) );
@@ -2020,8 +2038,6 @@ qboolean	ConsoleCommand( void ) {
 	//	Svcmd_AccountPrintAll_f();
 	//	return qtrue;
 	//}	
-	
-	
 
 	if (g_dedicated.integer) {
 		if (Q_stricmp (cmd, "say") == 0) {

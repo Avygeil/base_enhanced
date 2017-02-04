@@ -112,6 +112,12 @@ void trap_DropClient( int clientNum, const char *reason ) {
 }
 
 void trap_SendServerCommand( int clientNum, const char *text ) {
+	// don't allow other center prints while we have a global prioritized one
+	if ( level.globalCenterPrint.sendUntilTime && level.globalCenterPrint.prioritized &&
+		!Q_stricmpn( text, "cp ", 3 ) || !Q_stricmpn( text, "cps ", 4 ) ) {
+		return;
+	}
+
 	/* *CHANGE 5* protecting from overflowing client commands */
 	if(strlen(text) > 1022) 
 	{ 

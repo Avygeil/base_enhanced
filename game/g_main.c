@@ -3832,7 +3832,7 @@ void CheckVote( void ) {
 		// the vote only ends when it times out OR when everyone voted
 		if ( numVotes >= level.numVotingClients || level.time - level.voteTime >= VOTE_TIME ) {
 			G_LogPrintf( "Multi vote ended (%d voters)\n", numVotes );
-			level.voteExecuteTime = level.time + 3000; // everything else will be handled in the svcmd
+			level.voteExecuteTime = level.time; // in this special case, execute it now. the delay is done in the svcmd
 		} else {
 			return;
 		}
@@ -4238,6 +4238,8 @@ void G_RunFrame( int levelTime ) {
 #endif
 
 	level.wallhackTracesDone = 0; // reset the traces for the next ClientThink wave
+
+	UpdateGlobalCenterPrint( levelTime );
 
 	if (g_gametype.integer == GT_SIEGE &&
 		g_siegeRespawn.integer &&

@@ -2333,3 +2333,34 @@ void GetAnglesForDirection( const vec3_t p1, const vec3_t p2, vec3_t out )
 	VectorSubtract( p2, p1, v );
 	vectoangles( v, out );
 }
+
+void UpdateGlobalCenterPrint( const int levelTime ) {
+	if ( level.globalCenterPrint.sendUntilTime ) {
+		// temporarily turn priority off so we can print stuff here
+		qboolean oldPriority = level.globalCenterPrint.prioritized;
+		level.globalCenterPrint.prioritized = qfalse;
+
+		if ( levelTime >= level.globalCenterPrint.sendUntilTime ) {
+			// timeout, send an empty one to reset the center print and clear state
+			trap_SendServerCommand( -1, "cp \"\"" );
+			level.globalCenterPrint.sendUntilTime = 0;
+		} else if ( levelTime >= level.globalCenterPrint.lastSentTime + 1000 ) {
+			// send another one every second
+			trap_SendServerCommand( -1, level.globalCenterPrint.cmd );
+			level.globalCenterPrint.lastSentTime = levelTime;
+		}
+
+		level.globalCenterPrint.prioritized = oldPriority;
+	}
+}
+
+// used to print a global cp for a duration, optionally prioritized (no other cp will be shown during that time)
+// a call to this overrides the previous one if still going on
+void G_GlobalTickedCenterPrint( const char *msg, int milliseconds, qboolean prioritized ) {
+	Com_sprintf( level.globalCenterPrint.cmd, sizeof( level.globalCenterPrint ), "cp \"%s\n\"", msg );
+	level.globalCenterPrint.sendUntilTime = level.time + milliseconds;
+	level.globalCenterPrint.lastSentTime = 0;
+	level.globalCenterPrint.prioritized = prioritized;
+
+	UpdateGlobalCenterPrint( level.time );
+}
