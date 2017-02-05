@@ -1263,7 +1263,7 @@ void TeamplayInfoMessage( gentity_t *ent ) {
 					// you can filter these back to spaces clientside
 					char	loc[MAX_ENHANCED_LOCATION] = { 0 }, *p;
 					Q_strncpyz(loc, ctx->loc, sizeof(loc));
-					while (p = strchr(loc, ' '))
+					while ((p = strchr(loc, ' ')))
 						*p = '_';
 					Com_sprintf(newLocString, sizeof(newLocString), "%s%i=%s%c", newLocString, i, loc, ENHANCED_LOCATION_SEPARATOR_CHAR);
 				}
@@ -1287,7 +1287,7 @@ void TeamplayInfoMessage( gentity_t *ent ) {
 	trap_SendServerCommand( ent-g_entities, va("tinfo %i %s", cnt, string) );
 
 #ifdef NEWMOD_SUPPORT
-	if (doEnhancedLocations && newLocString && newLocString[0]) {
+	if (doEnhancedLocations && newLocString[0]) {
 		ctx = &ent->client->sess.enhancedLocation;
 		if (!Q_stricmp(newLocString, ctx->sentString)) {
 			// we sent the exact same string to this guy last time

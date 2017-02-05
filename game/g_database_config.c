@@ -162,9 +162,7 @@ void G_CfgDbLoad()
 //
 void G_CfgDbUnload()
 {
-    int rc = -1;
-
-    rc = sqlite3_close( db );
+    sqlite3_close( db );
 }
 
 //
@@ -207,11 +205,11 @@ qboolean G_CfgDbIsFilteredByWhitelist( unsigned int ip,
     sqlite3_stmt* statement;
 
     // prepare whitelist check statement
-    int rc = sqlite3_prepare( db, sqlIsIpWhitelisted, -1, &statement, 0 );
+    sqlite3_prepare( db, sqlIsIpWhitelisted, -1, &statement, 0 );
 
     sqlite3_bind_int( statement, 1, ip );
 
-    rc = sqlite3_step( statement );
+    sqlite3_step( statement );
     int count = sqlite3_column_int( statement, 0 );
 
     if ( count == 0 )
@@ -570,7 +568,7 @@ qboolean G_CfgDbSelectMapsFromPool( const char* short_name,
     {
 		// fill the cumulative density function of the map pool
 		CumulativeMapWeight *cdf = NULL;
-		G_CfgDbListMapsInPool( short_name, ignoreMap, BuildCumulativeWeight, &cdf );
+		G_CfgDbListMapsInPool( short_name, ignoreMap, BuildCumulativeWeight, ( void ** )&cdf );
 
 		if ( cdf ) {
 			CumulativeMapWeight *n = cdf;

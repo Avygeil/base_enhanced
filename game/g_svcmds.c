@@ -1274,7 +1274,9 @@ void Svcmd_MapRandom_f()
 	char currentMap[MAX_MAP_NAME];
     trap_Cvar_VariableStringBuffer( "mapname", currentMap, sizeof( currentMap ) );
 	
-	MapSelectionContext context = { 0 };
+	MapSelectionContext context;
+	memset( &context, 0, sizeof( context ) );
+
 	if ( mapsToRandomize > 1 ) { // if we are randomizing more than one map, there will be a second vote
 		if ( level.multiVoting && level.voteTime ) {
 			return; // theres already a multi vote going on, retard

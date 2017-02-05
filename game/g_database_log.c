@@ -192,9 +192,7 @@ void G_LogDbLoad()
 //
 void G_LogDbUnload()
 {
-    int rc = -1;
-
-    rc = sqlite3_close( db );
+    sqlite3_close( db );
 }
 
 //
@@ -204,7 +202,6 @@ void G_LogDbUnload()
 //
 int G_LogDbLogLevelStart(qboolean isRestart)
 {
-    int rc = -1;
     sqlite3_stmt* statement;
 
     // load current map name
@@ -212,11 +209,11 @@ int G_LogDbLogLevelStart(qboolean isRestart)
     trap_Cvar_VariableStringBuffer( "mapname", mapname, sizeof( mapname ) );
 
     // prepare insert statement
-    rc = sqlite3_prepare( db, sqlLogLevelStart, -1, &statement, 0 );
+    sqlite3_prepare( db, sqlLogLevelStart, -1, &statement, 0 );
     sqlite3_bind_text( statement, 1, mapname, -1, 0 );
     sqlite3_bind_int( statement, 2, isRestart ? 1 : 0 );
 
-    rc = sqlite3_step( statement );
+    sqlite3_step( statement );
 
     int levelId = sqlite3_last_insert_rowid( db );
 
@@ -232,14 +229,13 @@ int G_LogDbLogLevelStart(qboolean isRestart)
 //
 void G_LogDbLogLevelEnd( int levelId )
 {
-    int rc = -1;
     sqlite3_stmt* statement;
 
     // prepare update statement
-    rc = sqlite3_prepare( db, sqlLogLevelEnd, -1, &statement, 0 );
+    sqlite3_prepare( db, sqlLogLevelEnd, -1, &statement, 0 );
     sqlite3_bind_int( statement, 1, levelId );
 
-    rc = sqlite3_step( statement );
+    sqlite3_step( statement );
 
     sqlite3_finalize( statement );
 }
@@ -260,7 +256,7 @@ void G_LogDbLogLevelEvent( int levelId,
 {
     sqlite3_stmt* statement;
     // prepare insert statement
-    int rc = sqlite3_prepare( db, sqlAddLevelEvent, -1, &statement, 0 );
+    sqlite3_prepare( db, sqlAddLevelEvent, -1, &statement, 0 );
 
     sqlite3_bind_int( statement, 1, levelId );
     sqlite3_bind_int( statement, 2, levelTime );
@@ -271,7 +267,7 @@ void G_LogDbLogLevelEvent( int levelId,
     sqlite3_bind_int( statement, 7, context4 );
     sqlite3_bind_text( statement, 8, contextText, -1, 0 );
 
-    rc = sqlite3_step( statement );
+    sqlite3_step( statement );
 
     sqlite3_finalize( statement );
 }
@@ -287,13 +283,13 @@ int G_LogDbLogSessionStart( unsigned int ipInt,
 {     
     sqlite3_stmt* statement;
     // prepare insert statement
-    int rc = sqlite3_prepare( db, sqllogSessionStart, -1, &statement, 0 );
+    sqlite3_prepare( db, sqllogSessionStart, -1, &statement, 0 );
 
     sqlite3_bind_int( statement, 1, ipInt );
     sqlite3_bind_int( statement, 2, ipPort );
     sqlite3_bind_int( statement, 3, id );
 
-    rc = sqlite3_step( statement );
+    sqlite3_step( statement );
 
     int sessionId = sqlite3_last_insert_rowid( db );
 
@@ -311,11 +307,11 @@ void G_LogDbLogSessionEnd( int sessionId )
 {
     sqlite3_stmt* statement;
     // prepare insert statement
-    int rc = sqlite3_prepare( db, sqllogSessionEnd, -1, &statement, 0 );
+    sqlite3_prepare( db, sqllogSessionEnd, -1, &statement, 0 );
 
     sqlite3_bind_int( statement, 1, sessionId );
 
-    rc = sqlite3_step( statement );
+    sqlite3_step( statement );
 
     sqlite3_finalize( statement );
 }
@@ -333,7 +329,7 @@ void G_LogDbLogNickname( unsigned int ipInt,
     sqlite3_stmt* statement;
 
     // prepare insert statement
-    int rc = sqlite3_prepare( db, VALIDSTRING(cuidHash) ? sqlAddNameNM : sqlAddName, -1, &statement, 0 );
+    sqlite3_prepare( db, VALIDSTRING(cuidHash) ? sqlAddNameNM : sqlAddName, -1, &statement, 0 );
 
     sqlite3_bind_int( statement, 1, ipInt );
     sqlite3_bind_text( statement, 2, name, -1, 0 );
@@ -341,7 +337,7 @@ void G_LogDbLogNickname( unsigned int ipInt,
 	if (VALIDSTRING(cuidHash))
 		sqlite3_bind_text(statement, 4, cuidHash, -1, 0);
 
-    rc = sqlite3_step( statement );
+    sqlite3_step( statement );
 
     sqlite3_finalize( statement ); 
 }

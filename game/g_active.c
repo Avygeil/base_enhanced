@@ -729,8 +729,6 @@ Returns qfalse if the spectator is dropped
 */
 qboolean CheckSpectatorInactivityTimer(gclient_t *client)
 {
-    qboolean active = qtrue;
-
     if (!g_spectatorInactivity.integer)
     {
         // give everyone some time, so if the operator sets g_inactivity during
@@ -761,8 +759,6 @@ qboolean CheckSpectatorInactivityTimer(gclient_t *client)
         {
             // kick them..
             trap_DropClient(client - level.clients, "dropped due to inactivity");
-
-            active = qfalse;
         }
 
         if ((getGlobalTime() > (client->sess.inactivityTime - 10000)) && (!client->inactivityWarning))
@@ -1298,7 +1294,7 @@ static qboolean SE_RenderPlayerPoints( qboolean isCrouching, const vec3_t player
 
 static void GetCameraPosition( const gentity_t *self, vec3_t cameraOrigin ) {
 	vec3_t forward;
-	int thirdPerson = 1, thirdPersonRange = 80, thirdPersonVertOffset = 16;
+	int thirdPersonRange = 80, thirdPersonVertOffset = 16;
 
 	AngleVectors( self->client->ps.viewangles, forward, NULL, NULL );
 	VectorNormalize( forward );

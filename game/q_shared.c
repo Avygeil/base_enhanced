@@ -731,14 +731,14 @@ int Q_isalpha( int c )
 qboolean Q_isanumber( const char *s )
 {
 	char *p;
-	long ret;
+	double ret;
 
 	if( *s == '\0' )
 		return qfalse;
 
-	ret = strtol( s, &p, 10 );
+	ret = strtod( s, &p );
 
-	if ( errno == ERANGE )
+	if ( ret == HUGE_VAL || errno == ERANGE )
 		return qfalse;
 
 	return (qboolean)(*p == '\0');

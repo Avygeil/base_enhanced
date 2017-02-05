@@ -1283,6 +1283,7 @@ team_t PickTeam( int ignoreClientNum ) {
 	return TEAM_BLUE;
 }
 
+#if 0
 static qboolean IsEmpty(const char* name){
 	const char* ptr;
 	char        ch, nextch;
@@ -1315,6 +1316,7 @@ static qboolean IsEmpty(const char* name){
 
 	return qtrue;
 }
+#endif
 
 #define DEFAULT_NAME			S_COLOR_WHITE"Padawan"
 #define IsControlChar( c )		( c && *c && ( ( *c > 0 && *c < 32 ) || *c == 127 ) ) // control and DEL
@@ -1344,7 +1346,7 @@ static qboolean IsEmpty(const char* name){
 // -----------------------------------------------------------------------------------------------------------
 void NormalizeName( const char *in, char *out, int outSize, int colorlessSize ) {
 	int i = 0, spaces = 0;
-	char *p, pendingColorCode;
+	char *p, pendingColorCode = '\0';
 	qboolean metVisibleChar = qfalse;
 
 	--outSize; // room for null byte
@@ -1382,7 +1384,7 @@ void NormalizeName( const char *in, char *out, int outSize, int colorlessSize ) 
 		if ( pendingColorCode && IsVisibleChar( p ) && i < outSize - 3 ) { // 3 because we need an actual char after it
 			*out++ = Q_COLOR_ESCAPE;
 			*out++ = pendingColorCode;
-			pendingColorCode = 0;
+			pendingColorCode = '\0';
 			i += 2;
 		}
 
@@ -2542,7 +2544,6 @@ void ClientUserinfoChanged( int clientNum ) {
 				guidHash = atoi( value );
 				G_LogPrintf( "Client %d reports guid %d (userinfo %s)\n", clientNum, guidHash, GetStrippedUserinfo( userinfo ) );
 			} else {
-				char systeminfo[16384] = { 0 };
 				char previnfo[16384] = { 0 };
 				qboolean prevGuid = qfalse;
 				trap_GetConfigstring( CS_PLAYERS+clientNum, previnfo, sizeof( previnfo ) );

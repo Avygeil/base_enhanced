@@ -14,7 +14,6 @@
 #include <assert.h>
 #include <string.h> // memset
 #include <limits.h> 
-#define __USE_GNU
 #include <ucontext.h>
 #include <signal.h>
 #endif
