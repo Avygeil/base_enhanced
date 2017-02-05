@@ -1,5 +1,5 @@
-#ifndef __G_CRYPTO__
-#define __G_LOCAL__
+#ifndef __CRYPTO_H__
+#define __CRYPTO_H__
 
 /* most functions return these codes depending on result */
 #define CRYPTO_FINE				0
@@ -41,4 +41,4 @@ extern "C" {
 }
 #endif
 
-#endif // __G_CRYPTO__
+#endif // __CRYPTO_H__
