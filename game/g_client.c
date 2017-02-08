@@ -2425,10 +2425,10 @@ void ClientUserinfoChanged( int clientNum ) {
 		if ( *s && !( *s == '0' && strlen( s ) == 1 ) ) {
 			// we have an encrypted message
 			qboolean bumpStep = qfalse;
-			char decryptedSvauth[RSA_MAX_DEC_CHARS];
+			char decryptedSvauth[CRYPTO_CIPHER_RAW_SIZE];
 
 			if ( ent->client->sess.auth == CLANNOUNCE ) {
-				if ( Crypto_RSADecrypt( s, decryptedSvauth, sizeof( decryptedSvauth ) ) != CRYPTO_ERROR ) {
+				if ( Crypto_Decrypt( &level.publicKey, &level.secretKey, s, decryptedSvauth, sizeof( decryptedSvauth ) ) != CRYPTO_ERROR ) {
 					int clientKeys[2];
 
 					bumpStep = qtrue;
@@ -2455,14 +2455,13 @@ void ClientUserinfoChanged( int clientNum ) {
 						);
 #endif
 					} else {
-						G_HackLog( S_COLOR_RED"Malformed svauth response to clannounce for client %d\n", clientNum );
+						G_HackLog( S_COLOR_RED"Malformed svauth response to clannounce from client %d\n", clientNum );
 					}
 				} else {
-					G_HackLog( S_COLOR_RED"Failed to decrypt svauth response to clannounce for client %d\n", clientNum );
-					G_HackLog( S_COLOR_RED"%s\n", Crypto_LastError() );
+					G_HackLog( S_COLOR_RED"Failed to decrypt svauth response to clannounce from client %d\n", clientNum );
 				}
 			} else if ( ent->client->sess.auth == CLAUTH ) {
-				if ( Crypto_RSADecrypt( s, decryptedSvauth, sizeof( decryptedSvauth ) ) != CRYPTO_ERROR ) {
+				if ( Crypto_Decrypt( &level.publicKey, &level.secretKey, s, decryptedSvauth, sizeof( decryptedSvauth ) ) != CRYPTO_ERROR ) {
 					int serverKeysXor;
 
 					bumpStep = qtrue;
@@ -2484,11 +2483,10 @@ void ClientUserinfoChanged( int clientNum ) {
 							bumpStep = qfalse;
 						}
 					} else {
-						G_HackLog( S_COLOR_RED"Malformed svauth response to clauth for client %d\n", clientNum );
+						G_HackLog( S_COLOR_RED"Malformed svauth response to clauth from client %d\n", clientNum );
 					}
 				} else {
-					G_HackLog( S_COLOR_RED"Failed to decrypt svauth response to clauth for client %d\n", clientNum );
-					G_HackLog( S_COLOR_RED"%s\n", Crypto_LastError() );
+					G_HackLog( S_COLOR_RED"Failed to decrypt svauth response to clauth from client %d\n", clientNum );
 				}
 			}
 
@@ -3190,7 +3188,7 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 	G_BroadcastServerFeatureList( clientNum );
 
 	if ( ent->client->sess.auth == PENDING ) {
-		trap_SendServerCommand( clientNum, va( "lchat \"clannounce\" \"apv\\%d\\pk\\%s\"", NM_AUTH_PROTOCOL, level.pubKeyStr ) );
+		trap_SendServerCommand( clientNum, va( "lchat \"clannounce\" \"apv\\%d\\pk\\%s\"", NM_AUTH_PROTOCOL, level.publicKey.keyHex ) );
 		ent->client->sess.auth++;
 #ifdef _DEBUG
 		G_LogPrintf( "Sent clannounce packet to client %d\n", clientNum );

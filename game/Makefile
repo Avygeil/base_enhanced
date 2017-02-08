@@ -11,7 +11,6 @@
 
 # Compiler - GCC
 CC = gcc
-CP = g++
 #CC = /opt/intel/composer_xe_2013_sp1.0.080/bin/ia32/icc
 
 # Compiler Flags
@@ -25,13 +24,13 @@ CP = g++
 
 # Compiler Flags - swap CONFIG for release/debug builds
 CONFIG = -O2 -DFINAL_BUILD -DNDEBUG -fno-stack-protector -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0 -D_GNU_SOURCE
-#CONFIG = -O0 -g -DFINAL_BUILD -DNDEBUG
-#CONFIG = -g3 -D_DEBUG
+#CONFIG = -O0 -g -DFINAL_BUILD -DNDEBUG -D_GNU_SOURCE
+#CONFIG = -g3 -D_DEBUG -D_GNU_SOURCE
 INCLUDES = -I./ -I../include/
 DEFINES = -DMISSION_PACK -DQAGAME -D_JK2 -D__linux__ -D__GCC__
 OPTIONS = -Wall -fno-strict-aliasing -m32 #-masm=intel
 FLAGS = $(INCLUDES) $(DEFINES) $(OPTIONS) $(CONFIG)
-LIBS = -pthread ../lib/libcryptopp.a
+LIBS = -pthread ../lib/libsodium.a
 #LIBS = -fno-stack-protector -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0 -D_GNU_SOURCE /usr/local/lib/libcurl.a -lrt -Wl,-Bstatic -lz -Wl,-Bdynamic 
 #LIBS = -fno-stack-protector -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0 -D_GNU_SOURCE /usr/local/lib/libcurl.a -lrt -Wl,-Bstatic -lz -Wl,-Bdynamic 
 #LIBS = -U_FORTIFY_SOURCE /usr/local/lib/libcurl.a -lrt -lz
@@ -68,10 +67,6 @@ $(TARGET):  $(FILES)
 # "make .c.o"
 .c.o:
 	$(CC) $(FLAGS) -c $*.c -o $*.o
-
-# "make crypto.o"
-crypto.o: crypto.cpp
-	$(CP) -std=c++11 $(FLAGS) -c crypto.cpp -o crypto.o
 
 # "make clean"
 clean:

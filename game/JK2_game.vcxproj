@@ -85,7 +85,7 @@
     <ClCompile Include="bg_slidemove.c" />
     <ClCompile Include="bg_vehicleLoad.c" />
     <ClCompile Include="bg_weapons.c" />
-    <ClCompile Include="crypto.cpp" />
+    <ClCompile Include="crypto.c" />
     <ClCompile Include="FighterNPC.c" />
     <ClCompile Include="g_active.c" />
     <ClCompile Include="g_arenas.c" />
@@ -221,7 +221,7 @@
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
-      <PreprocessorDefinitions>NDEBUG;_WINDOWS;QAGAME;WIN32;_JK2;FINAL_BUILD;_SCL_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_WINDOWS;QAGAME;WIN32;_JK2;FINAL_BUILD;_SCL_SECURE_NO_WARNINGS;_CRT_SECURE_NO_WARNINGS;SODIUM_STATIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <BufferSecurityCheck>false</BufferSecurityCheck>
@@ -248,7 +248,7 @@
     </ResourceCompile>
     <Link>
       <AdditionalOptions>/MACHINE:I386 %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalDependencies>Dbghelp.lib;Psapi.lib;Ws2_32.lib;cryptlib.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Dbghelp.lib;Psapi.lib;Ws2_32.lib;libsodium.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>../Final/jampgamex86.dll</OutputFile>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <ModuleDefinitionFile>.\JK2_game.def</ModuleDefinitionFile>
@@ -281,7 +281,7 @@
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>_DEBUG;Debug;WIN32;_WINDOWS;QAGAME;_JK2;_SCL_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;Debug;WIN32;_WINDOWS;QAGAME;_JK2;_SCL_SECURE_NO_WARNINGS;_CRT_SECURE_NO_WARNINGS;SODIUM_STATIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <PrecompiledHeader>
@@ -297,6 +297,7 @@
       <AdditionalIncludeDirectories>../include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AssemblerOutput>All</AssemblerOutput>
       <CompileAs>Default</CompileAs>
+      <PreprocessToFile>false</PreprocessToFile>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>_Debug;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -304,7 +305,7 @@
     </ResourceCompile>
     <Link>
       <AdditionalOptions>/MACHINE:I386 /OPT:NOLBR %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalDependencies>Dbghelp.lib;Psapi.lib;Ws2_32.lib;cryptlibd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Dbghelp.lib;Psapi.lib;Ws2_32.lib;libsodium.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>..\Debug\jampgamex86.dll</OutputFile>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <ModuleDefinitionFile>.\JK2_game.def</ModuleDefinitionFile>

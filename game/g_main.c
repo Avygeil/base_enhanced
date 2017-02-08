@@ -1265,18 +1265,25 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 	}
 
 #ifdef NEWMOD_SUPPORT
-	if ( g_enableNmAuth.integer ) {
-		level.nmAuthEnabled = Crypto_RSAInit() != CRYPTO_ERROR
-			&& Crypto_RSADumpKey( qtrue, level.pubKeyStr, sizeof( level.pubKeyStr ) ) != CRYPTO_ERROR;
+	level.nmAuthEnabled = qfalse;
 
-		if ( !level.nmAuthEnabled ) {
-			G_Printf( S_COLOR_RED"%s\n", Crypto_LastError() );
-			G_Printf( S_COLOR_RED"Newmod auth support was disabled\n" );
-		} else {
-			G_Printf( "Loaded RSA keys successfully\n" );
+	if ( g_enableNmAuth.integer && Crypto_Init( G_Printf ) != CRYPTO_ERROR ) {
+		if ( Crypto_LoadKeysFromFiles( &level.publicKey, PUBLIC_KEY_FILENAME, &level.secretKey, SECRET_KEY_FILENAME ) != CRYPTO_ERROR ) {
+			// got the keys, all is good
+			G_Printf( "Loaded crypto key files from disk successfully\n" );
+			level.nmAuthEnabled = qtrue;
+		} else if ( Crypto_GenerateKeys( &level.publicKey, &level.secretKey ) != CRYPTO_ERROR ) {
+			// either first run or file couldnt be read. whatever, we got a key pair for this session
+			G_Printf( "Generated new crypto key pair successfully:\nPUBLIC=%s\nSECRET=%s\n", level.publicKey.keyHex, level.secretKey.keyHex );
+			level.nmAuthEnabled = qtrue;
+
+			// save them to disk for the next time
+			Crypto_SaveKeysToFiles( &level.publicKey, PUBLIC_KEY_FILENAME, &level.secretKey, SECRET_KEY_FILENAME );
 		}
-	} else {
-		level.nmAuthEnabled = qfalse;
+	}
+
+	if ( !level.nmAuthEnabled ) {
+		G_Printf( S_COLOR_RED"Newmod auth support is not active. Some functionality will be unavailable for these clients.\n" );
 	}
 #endif
 
@@ -1537,10 +1544,6 @@ void G_ShutdownGame( int restart ) {
     G_LogDbUnload();
 
 	UnpatchEngine();
-
-#ifdef NEWMOD_SUPPORT
-	Crypto_RSAFree();
-#endif
 }
 
 

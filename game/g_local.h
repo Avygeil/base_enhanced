@@ -36,7 +36,11 @@ extern vec3_t gPainPoint;
 
 #define NEWMOD_SUPPORT
 #ifdef NEWMOD_SUPPORT
-#define NM_AUTH_PROTOCOL				2
+#define NM_AUTH_PROTOCOL				3
+
+#define PUBLIC_KEY_FILENAME				"public_key.bin"
+#define SECRET_KEY_FILENAME				"secret_key.bin"
+
 #define MAX_ENHANCED_LOCATION			31
 #define MAX_ENHANCED_LOCATION_STRING	1012
 #endif
@@ -505,7 +509,7 @@ typedef struct {
 		AUTHENTICATED,
 		INVALID
 	} auth;
-	char		cuidHash[HASH_MAX_SHA1_HEX_CHARS]; // sha1 hash of the client cuid
+	char		cuidHash[CRYPTO_HASH_HEX_SIZE]; // hash of the client cuid
 	int			serverKeys[2]; // randomly generated auth keys to confirm legit clients
 	EnhancedLocationContext	enhancedLocation;
 #endif
@@ -1110,7 +1114,8 @@ typedef struct {
 
 #ifdef NEWMOD_SUPPORT
 	qboolean nmAuthEnabled;
-	char pubKeyStr[RSA_MAX_PUB_B64U_CHARS];
+	publicKey_t publicKey;
+	secretKey_t secretKey;
 #endif
 
 } level_locals_t;
