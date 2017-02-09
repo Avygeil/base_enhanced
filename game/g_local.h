@@ -1965,7 +1965,12 @@ extern vmCvar_t     g_fixPitKills;
 extern vmCvar_t		g_balanceSaber;
 extern vmCvar_t		g_balanceSeeing;
 
-extern vmCvar_t		g_randFix;
+// flags for g_randFix
+#define BROKEN_RNG_BLOCK	(1<<0) // intentionally break rng for saber blocking
+#define BROKEN_RNG_DEFLECT	(1<<1) // intentionally break rng for projectile deflection
+#define BROKEN_RNG_REFLECT	(1<<2) // intentionally break rng for projectile reflection
+
+extern vmCvar_t		g_breakRNG;
 
 extern vmCvar_t		g_reflectAngle;
 

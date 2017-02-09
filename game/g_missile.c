@@ -24,12 +24,12 @@ G_ReflectMissile
 extern void G_TestLine( vec3_t start, vec3_t end, int color, int time );
 #endif
 
-float RandFloat( float min, float max );
+float RandFloat( float min, float max, qboolean breakIntentionally );
 void G_ReflectMissile( gentity_t *ent, gentity_t *missile, vec3_t forward ) {
 	vec3_t		bounce_dir;
 	int			i;
 	float		speed;
-	qboolean	isOwner;
+	qboolean	isOwner, breakRng;
 	int			coneAngleDegrees;
 
 #if 0
@@ -43,6 +43,8 @@ void G_ReflectMissile( gentity_t *ent, gentity_t *missile, vec3_t forward ) {
 	VectorAdd( viewTestLine, eyePoint, viewTestLine );
 	G_TestLine( eyePoint, viewTestLine, 0x00ff00, 10000 );
 #endif
+
+	breakRng = g_breakRNG.integer & BROKEN_RNG_REFLECT;
 
 	//save the original speed
 	speed = VectorNormalize( missile->s.pos.trDelta );
@@ -65,8 +67,8 @@ void G_ReflectMissile( gentity_t *ent, gentity_t *missile, vec3_t forward ) {
 		VectorNormalize( coneDir );
 
 		// generate a point on the angled spherical cap centered on the Z axis
-		const float phi = RandFloat( 0, 1 ) * 2 * M_PI;
-		bounce_dir[2] = RandFloat( 0, 1 ) * ( 1 - cos( coneAngle ) ) + cos( coneAngle );
+		const float phi = RandFloat( 0, 1, breakRng ) * 2 * M_PI;
+		bounce_dir[2] = RandFloat( 0, 1, breakRng ) * ( 1 - cos( coneAngle ) ) + cos( coneAngle );
 		bounce_dir[0] = sqrt( 1 - bounce_dir[2] * bounce_dir[2] ) * cos( phi );
 		bounce_dir[1] = sqrt( 1 - bounce_dir[2] * bounce_dir[2] ) * sin( phi );
 
@@ -113,7 +115,7 @@ void G_ReflectMissile( gentity_t *ent, gentity_t *missile, vec3_t forward ) {
 		}
 
 		for ( i = 0; i < 3; i++ ) {
-			bounce_dir[i] += RandFloat( -0.2f, 0.2f ); // *CHANGE 10a* bigger deflect angles
+			bounce_dir[i] += RandFloat( -0.2f, 0.2f, breakRng ); // *CHANGE 10a* bigger deflect angles
 		}
 	}
 
@@ -169,7 +171,7 @@ void G_DeflectMissile( gentity_t *ent, gentity_t *missile, vec3_t forward )
 
 	for ( i = 0; i < 3; i++ )
 	{
-		bounce_dir[i] += RandFloat( -1.0f, 1.0f );// *CHANGE 10b* bigger deflect angles
+		bounce_dir[i] += RandFloat( -1.0f, 1.0f, g_breakRNG.integer & BROKEN_RNG_DEFLECT );// *CHANGE 10b* bigger deflect angles
 	}
 
 	VectorNormalize( bounce_dir );

@@ -36,16 +36,16 @@ qboolean WP_SaberBladeDoTransitionDamage( saberInfo_t *saber, int bladeNum );
 void WP_SaberAddG2Model( gentity_t *saberent, const char *saberModel, qhandle_t saberSkin );
 void WP_SaberRemoveG2Model( gentity_t *saberent );
 
-float RandFloat( float min, float max ) {
+float RandFloat( float min, float max, qboolean breakIntentionally ) {
 	int randActual = rand();
 	float randMax = 32768.0f;
 #ifdef _WIN32
 	// it's fine on windows, so break it intentionally if needed
-	if ( !g_randFix.integer )
+	if ( breakIntentionally )
 		randActual = ( randActual << 16 ) | randActual;
 #elif defined(__GCC__)
 	// it's broken on linux, so fix it if needed
-	if ( g_randFix.integer )
+	if ( !breakIntentionally )
 		randMax = RAND_MAX;
 #endif
 	return ( ( randActual * ( max - min ) ) / randMax ) + min;
@@ -8914,7 +8914,7 @@ void WP_SaberBlock( gentity_t *playerent, vec3_t hitloc, qboolean missileBlock )
 	// Ultimately we might care if the shot was ahead or behind, but for now, just quadrant is fine.
 	AngleVectors( fwdangles, NULL, right, NULL );
 
-	rightdot = DotProduct(right, diff) + RandFloat(-0.2f,0.2f);
+	rightdot = DotProduct( right, diff ) + RandFloat( -0.2f, 0.2f, g_breakRNG.integer & BROKEN_RNG_BLOCK );
 	zdiff = hitloc[2] - playerent->client->ps.origin[2] + Q_irand(-8,8);
 	
 	// Figure out what quadrant the block was in.
