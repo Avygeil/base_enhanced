@@ -271,6 +271,8 @@ vmCvar_t    g_fixPitKills;
 vmCvar_t	g_balanceSaber;
 vmCvar_t	g_balanceSeeing;
 
+vmCvar_t	g_randFix;
+
 vmCvar_t    g_enforceEvenVotersCount;
 vmCvar_t    g_minVotersForEvenVotersCount;
 
@@ -594,6 +596,8 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_balanceSaber, "g_balanceSaber", "0", CVAR_SERVERINFO | CVAR_ARCHIVE, 0, qtrue },
 	{ &g_balanceSeeing, "g_balanceSeeing", "0", CVAR_ARCHIVE, 0, qtrue },
+
+	{ &g_randFix, "g_randFix", "1", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_minimumVotesCount, "g_minimumVotesCount", "0", CVAR_ARCHIVE, 0, qtrue },
 

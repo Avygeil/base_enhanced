@@ -36,17 +36,20 @@ qboolean WP_SaberBladeDoTransitionDamage( saberInfo_t *saber, int bladeNum );
 void WP_SaberAddG2Model( gentity_t *saberent, const char *saberModel, qhandle_t saberSkin );
 void WP_SaberRemoveG2Model( gentity_t *saberent );
 
-// sil - bugging for identical behaviour on windows
-float RandFloatFlawed(float min, float max) {
-	int random = rand();
-#if RAND_MAX < 2147483647
-	random = (random << 16) | random; 
+//	g_randFix 0 == Same as basejka. Broken on Linux, fine on Windows
+//	g_randFix 1 == Use proper behaviour of RAND_MAX. Fine on Linux, fine on Windows
+//	g_randFix 2 == Intentionally break RAND_MAX. Broken on Linux, broken on Windows.
+float RandFloat( float min, float max ) {
+	int randActual = rand();
+	float randMax = 32768.0f;
+#ifdef _WIN32
+	if ( g_randFix.integer == 2 )
+		randActual = ( randActual << 16 ) | randActual;
+#elif defined(__GCC__)
+	if ( g_randFix.integer == 1 )
+		randMax = RAND_MAX;
 #endif
-	return ((random * (max - min)) / 32768.0F) + min; 
-}
-
-float RandFloat(float min, float max) {
-	return ((rand() * (max - min)) / RAND_MAX) + min; 
+	return ( ( randActual * ( max - min ) ) / randMax ) + min;
 }
 
 
@@ -8913,7 +8916,7 @@ void WP_SaberBlock( gentity_t *playerent, vec3_t hitloc, qboolean missileBlock )
 	// Ultimately we might care if the shot was ahead or behind, but for now, just quadrant is fine.
 	AngleVectors( fwdangles, NULL, right, NULL );
 
-	rightdot = DotProduct(right, diff) + RandFloatFlawed(-0.2f,0.2f);
+	rightdot = DotProduct(right, diff) + RandFloat(-0.2f,0.2f);
 	zdiff = hitloc[2] - playerent->client->ps.origin[2] + Q_irand(-8,8);
 	
 	// Figure out what quadrant the block was in.
