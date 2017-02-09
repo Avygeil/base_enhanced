@@ -3721,7 +3721,7 @@ void ForceThrow( gentity_t *self, qboolean pull )
 				}
 				else 
 				{
-					G_ReflectMissile( self, push_list[x], forward );
+					G_ReflectMissile( self, push_list[x], forward, g_randomConeReflection.integer & CONE_REFLECT_PUSH );
 				}
 			}
 			else if ( !Q_stricmp( "func_static", push_list[x]->classname ) )

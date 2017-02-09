@@ -273,7 +273,8 @@ vmCvar_t	g_balanceSeeing;
 
 vmCvar_t	g_breakRNG;
 
-vmCvar_t	g_reflectAngle;
+vmCvar_t	g_randomConeReflection;
+vmCvar_t	g_coneReflectAngle;
 
 vmCvar_t    g_enforceEvenVotersCount;
 vmCvar_t    g_minVotersForEvenVotersCount;
@@ -601,7 +602,8 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_breakRNG, "g_breakRNG", "0", CVAR_ARCHIVE, 0, qtrue },
 
-	{ &g_reflectAngle , "g_reflectAngle", "-1", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_randomConeReflection , "g_randomConeReflection", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_coneReflectAngle , "g_coneReflectAngle", "30", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_minimumVotesCount, "g_minimumVotesCount", "0", CVAR_ARCHIVE, 0, qtrue },
 

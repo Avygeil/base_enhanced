@@ -25,12 +25,11 @@ extern void G_TestLine( vec3_t start, vec3_t end, int color, int time );
 #endif
 
 float RandFloat( float min, float max, qboolean breakIntentionally );
-void G_ReflectMissile( gentity_t *ent, gentity_t *missile, vec3_t forward ) {
+void G_ReflectMissile( gentity_t *ent, gentity_t *missile, vec3_t forward, qboolean coneBased ) {
 	vec3_t		bounce_dir;
 	int			i;
 	float		speed;
 	qboolean	isOwner, breakRng;
-	int			coneAngleDegrees;
 
 #if 0
 	vec3_t eyePoint;
@@ -55,13 +54,9 @@ void G_ReflectMissile( gentity_t *ent, gentity_t *missile, vec3_t forward ) {
 		isOwner = qtrue;
 	}
 
-	// negative mode = basejka, otherwise it's the angle of a cone centered on an axis parallel to the player's view angles, from within a direction is randomized
-	coneAngleDegrees = g_reflectAngle.integer;
-	if ( coneAngleDegrees > 360 ) coneAngleDegrees = 360;
-
-	if ( coneAngleDegrees >= 0 ) {
+	if ( coneBased ) {
 		// new behavior: the direction is randomized in a cone centered around the player view, so you can roughly aim
-		const float coneAngle = DEG2RAD( coneAngleDegrees );
+		const float coneAngle = DEG2RAD( Com_Clampi( 0, 360, g_coneReflectAngle.integer ) );
 		vec3_t coneDir;
 		VectorCopy( forward, coneDir );
 		VectorNormalize( coneDir );
@@ -594,7 +589,7 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 		}
 		else
 		{
-			G_ReflectMissile(other, ent, fwd);
+			G_ReflectMissile(other, ent, fwd, g_randomConeReflection.integer & CONE_REFLECT_SDEF);
 		}
 		other->client->ps.saberBlockTime = level.time + (350 - (otherDefLevel*100)); 
 
@@ -666,7 +661,7 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 			}
 			else
 			{
-				G_ReflectMissile(otherOwner, ent, fwd);
+				G_ReflectMissile(otherOwner, ent, fwd, g_randomConeReflection.integer & CONE_REFLECT_SDEF);
 			}
 			otherOwner->client->ps.saberBlockTime = level.time + (350 - (otherDefLevel*100));
 

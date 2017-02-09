@@ -1398,7 +1398,7 @@ void G_RunExPhys(gentity_t *ent, float gravity, float mass, float bounce, qboole
 //
 // g_missile.c
 //
-void G_ReflectMissile( gentity_t *ent, gentity_t *missile, vec3_t forward );
+void G_ReflectMissile( gentity_t *ent, gentity_t *missile, vec3_t forward, qboolean coneBased );
 
 void G_RunMissile( gentity_t *ent );
 
@@ -1972,7 +1972,12 @@ extern vmCvar_t		g_balanceSeeing;
 
 extern vmCvar_t		g_breakRNG;
 
-extern vmCvar_t		g_reflectAngle;
+// flags for g_randomConeReflection
+#define CONE_REFLECT_PUSH	(1<<0) // toggle cone based random reflection when pushing projectiles
+#define CONE_REFLECT_SDEF	(1<<1) // toggle cone based random reflection with saber def 3
+
+extern vmCvar_t		g_randomConeReflection;
+extern vmCvar_t		g_coneReflectAngle;
 
 extern vmCvar_t     g_allow_vote_gametype;
 extern vmCvar_t     g_allow_vote_kick;
