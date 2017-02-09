@@ -20,68 +20,125 @@ G_ReflectMissile
   Reflect the missile roughly back at it's owner
 ================
 */
+#if 0
+extern void G_TestLine( vec3_t start, vec3_t end, int color, int time );
+#endif
+
 float RandFloat( float min, float max );
-void G_ReflectMissile( gentity_t *ent, gentity_t *missile, vec3_t forward ) 
-{
-	vec3_t	bounce_dir;
-	int		i;
-	float	speed;
-	int		isowner = 0;
+void G_ReflectMissile( gentity_t *ent, gentity_t *missile, vec3_t forward ) {
+	vec3_t		bounce_dir;
+	int			i;
+	float		speed;
+	qboolean	isOwner;
+	int			coneAngleDegrees;
 
-	if ( ent->r.ownerNum )
-	{
-	}
-
-	if (missile->r.ownerNum == ent->s.number)
-	{ //the original owner is bouncing the missile, so don't try to bounce it back at him
-		isowner = 1;
-	}
+#if 0
+	vec3_t eyePoint;
+	vec3_t viewTestLine;
+	VectorCopy( ent->client->ps.origin, eyePoint );
+	eyePoint[2] += ent->client->ps.viewheight;
+	VectorCopy( forward, viewTestLine );
+	VectorNormalize( viewTestLine );
+	VectorScale( viewTestLine, 500, viewTestLine );
+	VectorAdd( viewTestLine, eyePoint, viewTestLine );
+	G_TestLine( eyePoint, viewTestLine, 0x00ff00, 10000 );
+#endif
 
 	//save the original speed
 	speed = VectorNormalize( missile->s.pos.trDelta );
 
-	//if ( ent && owner && owner->NPC && owner->enemy && Q_stricmp( "Tavion", owner->NPC_type ) == 0 && Q_irand( 0, 3 ) )
-	if ( &g_entities[missile->r.ownerNum] && missile->s.weapon != WP_SABER && missile->s.weapon != G2_MODEL_PART && !isowner )
-	{//bounce back at them if you can
-		VectorSubtract( g_entities[missile->r.ownerNum].r.currentOrigin, missile->r.currentOrigin, bounce_dir );
-		VectorNormalize( bounce_dir );
-	}
-	else if (isowner)
-	{ //in this case, actually push the missile away from me, and since we're giving boost to our own missile by pushing it, up the velocity
-		vec3_t missile_dir;
-
+	if ( missile->r.ownerNum == ent->s.number ) {
+		// since we're giving boost to our own missile by pushing it, up the velocity
 		speed *= 1.5;
-
-		VectorSubtract( missile->r.currentOrigin, ent->r.currentOrigin, missile_dir );
-		VectorCopy( missile->s.pos.trDelta, bounce_dir );
-		VectorScale( bounce_dir, DotProduct( forward, missile_dir ), bounce_dir );
-		VectorNormalize( bounce_dir );
+		isOwner = qtrue;
 	}
-	else
-	{
-		vec3_t missile_dir;
 
-		VectorSubtract( ent->r.currentOrigin, missile->r.currentOrigin, missile_dir );
-		VectorCopy( missile->s.pos.trDelta, bounce_dir );
-		VectorScale( bounce_dir, DotProduct( forward, missile_dir ), bounce_dir );
-		VectorNormalize( bounce_dir );
-	}
-	   
-	for ( i = 0; i < 3; i++ ) {
-		bounce_dir[i] += RandFloat( -0.2f, 0.2f ); // *CHANGE 10a* bigger deflect angles
+	// negative mode = basejka, otherwise it's the angle of a cone centered on an axis parallel to the player's view angles, from within a direction is randomized
+	coneAngleDegrees = g_reflectAngle.integer;
+	if ( coneAngleDegrees > 360 ) coneAngleDegrees = 360;
+
+	if ( coneAngleDegrees >= 0 ) {
+		// new behavior: the direction is randomized in a cone centered around the player view, so you can roughly aim
+		const float coneAngle = DEG2RAD( coneAngleDegrees );
+		vec3_t coneDir;
+		VectorCopy( forward, coneDir );
+		VectorNormalize( coneDir );
+
+		// generate a point on the angled spherical cap centered on the Z axis
+		const float phi = RandFloat( 0, 1 ) * 2 * M_PI;
+		bounce_dir[2] = RandFloat( 0, 1 ) * ( 1 - cos( coneAngle ) ) + cos( coneAngle );
+		bounce_dir[0] = sqrt( 1 - bounce_dir[2] * bounce_dir[2] ) * cos( phi );
+		bounce_dir[1] = sqrt( 1 - bounce_dir[2] * bounce_dir[2] ) * sin( phi );
+
+		// find the rotation axis and rotation angle for the cone direction
+		const vec3_t zAxis = { 0.0f, 0.0f, 1.0f };
+		vec3_t rotationAxis;
+		CrossProduct( zAxis, coneDir, rotationAxis );
+		const float rotationAngle = acos( DotProduct( coneDir, zAxis ) );
+
+		if ( rotationAngle ) {
+			// rotate that shit
+			const float cr = cos( rotationAngle );
+			const float sr = sin( rotationAngle );
+			vec3_t zCenteredDirection;
+			VectorCopy( bounce_dir, zCenteredDirection );
+
+			// my head
+			bounce_dir[0] =
+				( ( cr + ( rotationAxis[0] * rotationAxis[0] * ( 1 - cr ) ) ) * zCenteredDirection[0] ) +
+				( ( ( rotationAxis[0] * rotationAxis[1] * ( 1 - cr ) ) - ( rotationAxis[2] * sr ) ) * zCenteredDirection[1] ) +
+				( ( ( rotationAxis[0] * rotationAxis[2] * ( 1 - cr ) ) + ( rotationAxis[1] * sr ) ) * zCenteredDirection[2] );
+			bounce_dir[1] =
+				( ( ( rotationAxis[1] * rotationAxis[0] * ( 1 - cr ) ) + ( rotationAxis[2] * sr ) ) * zCenteredDirection[0] ) +
+				( ( cr + ( rotationAxis[1] * rotationAxis[1] * ( 1 - cr ) ) ) * zCenteredDirection[1] ) +
+				( ( ( rotationAxis[1] * rotationAxis[2] * ( 1 - cr ) ) - ( rotationAxis[0] * sr ) ) * zCenteredDirection[2] );
+			bounce_dir[2] =
+				( ( ( rotationAxis[2] * rotationAxis[0] * ( 1 - cr ) ) - ( rotationAxis[1] * sr ) ) * zCenteredDirection[0] ) +
+				( ( ( rotationAxis[2] * rotationAxis[1] * ( 1 - cr ) ) + ( rotationAxis[0] * sr ) ) * zCenteredDirection[1] ) +
+				( ( cr + ( rotationAxis[2] * rotationAxis[2] * ( 1 - cr ) ) ) * zCenteredDirection[2] );
+		}
+	} else {
+		// basejka behavior: if owner is present, it's roughly sent back at him
+		if ( &g_entities[missile->r.ownerNum] && missile->s.weapon != WP_SABER && missile->s.weapon != G2_MODEL_PART && !isOwner ) {
+			// bounce back at them if you can
+			VectorSubtract( g_entities[missile->r.ownerNum].r.currentOrigin, missile->r.currentOrigin, bounce_dir );
+			VectorNormalize( bounce_dir );
+		} else {
+			vec3_t missile_dir;
+
+			VectorSubtract( ent->r.currentOrigin, missile->r.currentOrigin, missile_dir );
+			VectorCopy( missile->s.pos.trDelta, bounce_dir );
+			VectorScale( bounce_dir, DotProduct( forward, missile_dir ), bounce_dir );
+			VectorNormalize( bounce_dir );
+		}
+
+		for ( i = 0; i < 3; i++ ) {
+			bounce_dir[i] += RandFloat( -0.2f, 0.2f ); // *CHANGE 10a* bigger deflect angles
+		}
 	}
 
 	VectorNormalize( bounce_dir );
 	VectorScale( bounce_dir, speed, missile->s.pos.trDelta );
-	missile->s.pos.trTime = level.time;		// move a bit on the very first frame
+	missile->s.pos.trTime = level.time; // move a bit on the very first frame
 	VectorCopy( missile->r.currentOrigin, missile->s.pos.trBase );
-	if ( missile->s.weapon != WP_SABER && missile->s.weapon != G2_MODEL_PART )
-	{//you are mine, now!
+
+#if 0
+	vec3_t reflectionTestLine;
+	VectorCopy( missile->s.pos.trDelta, reflectionTestLine );
+	VectorNormalize( reflectionTestLine );
+	VectorScale( reflectionTestLine, 500, reflectionTestLine );
+	VectorAdd( reflectionTestLine, missile->s.pos.trBase, reflectionTestLine );
+	G_TestLine( missile->s.pos.trBase, reflectionTestLine, 0x0000ff, 10000 );
+#endif
+
+	if ( missile->s.weapon != WP_SABER && missile->s.weapon != G2_MODEL_PART ) {
+		// you are mine, now!
 		missile->r.ownerNum = ent->s.number;
 		missile->isReflected = qtrue;
 	}
-	if ( missile->s.weapon == WP_ROCKET_LAUNCHER )
-	{//stop homing
+
+	if ( missile->s.weapon == WP_ROCKET_LAUNCHER ) {
+		// stop homing
 		missile->think = 0;
 		missile->nextthink = 0;
 	}

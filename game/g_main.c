@@ -273,6 +273,8 @@ vmCvar_t	g_balanceSeeing;
 
 vmCvar_t	g_randFix;
 
+vmCvar_t	g_reflectAngle;
+
 vmCvar_t    g_enforceEvenVotersCount;
 vmCvar_t    g_minVotersForEvenVotersCount;
 
@@ -503,9 +505,9 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_singlePlayer, "ui_singlePlayerActive", "", 0, 0, qfalse, qfalse  },
 
 	{ &g_enableBreath, "g_enableBreath", "0", 0, 0, qtrue, qfalse },
-	{ &g_smoothClients, "g_smoothClients", "1", 0, 0, qfalse},
-	{ &pmove_fixed, "pmove_fixed", "0", CVAR_SYSTEMINFO, 0, qfalse},
-	{ &pmove_msec, "pmove_msec", "8", CVAR_SYSTEMINFO, 0, qfalse},
+	{ &g_smoothClients, "g_smoothClients", "1", 0, 0, qfalse },
+	{ &pmove_fixed, "pmove_fixed", "0", CVAR_SYSTEMINFO, 0, qfalse },
+	{ &pmove_msec, "pmove_msec", "8", CVAR_SYSTEMINFO, 0, qfalse },
 
 	{ &g_dismember, "g_dismember", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_forceDodge, "g_forceDodge", "1", 0, 0, qtrue },
@@ -598,6 +600,8 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_balanceSeeing, "g_balanceSeeing", "0", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_randFix, "g_randFix", "1", CVAR_ARCHIVE, 0, qtrue },
+
+	{ &g_reflectAngle , "g_reflectAngle", "-1", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_minimumVotesCount, "g_minimumVotesCount", "0", CVAR_ARCHIVE, 0, qtrue },
 
