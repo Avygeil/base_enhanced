@@ -36,22 +36,20 @@ qboolean WP_SaberBladeDoTransitionDamage( saberInfo_t *saber, int bladeNum );
 void WP_SaberAddG2Model( gentity_t *saberent, const char *saberModel, qhandle_t saberSkin );
 void WP_SaberRemoveG2Model( gentity_t *saberent );
 
-//	g_randFix 0 == Same as basejka. Broken on Linux, fine on Windows
-//	g_randFix 1 == Use proper behaviour of RAND_MAX. Fine on Linux, fine on Windows
-//	g_randFix 2 == Intentionally break RAND_MAX. Broken on Linux, broken on Windows.
 float RandFloat( float min, float max ) {
 	int randActual = rand();
 	float randMax = 32768.0f;
 #ifdef _WIN32
-	if ( g_randFix.integer == 2 )
+	// it's fine on windows, so break it intentionally if needed
+	if ( !g_randFix.integer )
 		randActual = ( randActual << 16 ) | randActual;
 #elif defined(__GCC__)
-	if ( g_randFix.integer == 1 )
+	// it's broken on linux, so fix it if needed
+	if ( g_randFix.integer )
 		randMax = RAND_MAX;
 #endif
 	return ( ( randActual * ( max - min ) ) / randMax ) + min;
 }
-
 
 #ifdef DEBUG_SABER_BOX
 void	G_DebugBoxLines(vec3_t mins, vec3_t maxs, int duration)
