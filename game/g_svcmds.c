@@ -952,6 +952,11 @@ void Svcmd_VoteForce_f( qboolean pass ) {
 		level.voteExecuteTime = level.time + 3000;
 	}
 
+	if ( level.multiVoting ) {
+		// reset global cp so it doesnt show up more than needed since we forced the vote to end
+		G_GlobalTickedCenterPrint( "", 0, qfalse );
+	}
+
 	if ( !level.multiVoting ) {
 		g_entities[level.lastVotingClient].client->lastCallvoteTime = level.time;
 	} else if ( !pass ) {
