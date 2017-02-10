@@ -3709,6 +3709,7 @@ CheckVote
 ==================
 */
 extern void SiegeClearSwitchData(void);
+extern int* BuildVoteResults( const int numChoices, int *numVotes, int *highestVoteCount );
 
 void CheckVote( void ) {
 	if ( level.voteExecuteTime && level.voteExecuteTime < level.time ) {
@@ -3847,15 +3848,12 @@ void CheckVote( void ) {
 		g_entities[level.lastVotingClient].client->lastCallvoteTime = level.time;
 	} else {
 		// special handler for multiple choices voting
-		int i, numVotes = 0;
-		for ( i = 0; i < MAX_CLIENTS; ++i ) {
-			if ( level.multiVotes[i] > 0 && level.multiVotes[i] <= level.multiVoteChoices ) {
-				++numVotes;
-			}
-		}
+		int numVotes, highestVoteCount;
+		int *voteResults = BuildVoteResults( level.multiVoteChoices, &numVotes, &highestVoteCount );
+		free( voteResults );
 
-		// the vote only ends when it times out OR when everyone voted
-		if ( numVotes >= level.numVotingClients || level.time - level.voteTime >= VOTE_TIME ) {
+		// the vote ends when a map has >50% majority, when everyone voted, or when the vote timed out
+		if ( highestVoteCount >= ( ( level.numVotingClients / 2 ) + 1 ) || numVotes >= level.numVotingClients || level.time - level.voteTime >= VOTE_TIME ) {
 			G_LogPrintf( "Multi vote ended (%d voters)\n", numVotes );
 			level.voteExecuteTime = level.time; // in this special case, execute it now. the delay is done in the svcmd
 		} else {

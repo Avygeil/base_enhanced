@@ -1224,6 +1224,7 @@ static void mapSelectedCallback( void *context, char *mapname ) {
 
 		if ( arenaInfo ) {
 			mapDisplayName = Info_ValueForKey( arenaInfo, "longname" );
+			Q_CleanStr( mapDisplayName );
 		}
 
 		if ( !VALIDSTRING( mapDisplayName ) ) {
@@ -1315,6 +1316,90 @@ void Svcmd_MapRandom_f()
     G_Printf( "Map pool '%s' not found\n", pool );
 }
 
+// allocates an array of length numChoices containing the sorted results from level.multiVoteChoices
+// don't forget to FREE THE RESULT
+int* BuildVoteResults( const int numChoices, int *numVotes, int *highestVoteCount ) {
+	int i;
+	int *voteResults = calloc( numChoices, sizeof( *voteResults ) ); // voteResults[i] = how many votes for the i-th choice
+
+	if ( numVotes ) *numVotes = 0;
+	if ( highestVoteCount ) *highestVoteCount = 0;
+
+	for ( i = 0; i < MAX_CLIENTS; ++i ) {
+		int voteId = level.multiVotes[i];
+
+		if ( voteId > 0 && voteId <= numChoices ) {
+			// one more valid vote...
+			if ( numVotes ) ( *numVotes )++;
+			voteResults[voteId - 1]++;
+
+			if ( highestVoteCount && voteResults[voteId - 1] > *highestVoteCount ) {
+				*highestVoteCount = voteResults[voteId - 1];
+			}
+		} else if ( voteId ) { // shouldn't happen since we check that in /vote...
+			G_LogPrintf( "Invalid multi vote id for client %d: %d\n", i, voteId );
+		}
+	}
+
+	return voteResults;
+}
+
+static void PickRandomMultiMap( const int *voteResults, const int numChoices, const int numVotingClients,
+	const int numVotes, const int highestVoteCount, char *out, size_t outSize ) {
+	int i;
+
+	if ( highestVoteCount >= ( numVotingClients / 2 ) + 1 ) {
+		// one map has a >50% majority, find it and pass it
+		for ( i = 0; i < numChoices; ++i ) {
+			if ( voteResults[i] == highestVoteCount ) {
+				trap_Argv( i + 1, out, outSize );
+				return;
+			}
+		}
+	}
+
+	// now, since the amount of votes is pretty low (always <= MAX_CLIENTS) we can just build a uniformly distributed function
+	// this isn't the fastest but it is more readable
+	int *udf;
+	int random;
+
+	if ( !numVotes ) {
+		// if nobody voted, just give all maps a weight of 1, ie the same probability
+		udf = malloc( sizeof( *udf ) * numChoices );
+
+		for ( i = 0; i < numChoices; ++i ) {
+			udf[i] = i + 1;
+		}
+
+		random = rand() % numChoices;
+	} else {
+		// make it an array where each item appears as many times as they were voted, thus giving weight (0 votes = 0%)
+		int items = numVotes, currentItem = 0;
+		udf = malloc( sizeof( *udf ) * items );
+
+		for ( i = 0; i < numChoices; ++i ) {
+			if ( highestVoteCount - voteResults[i] > ( numVotingClients / 4 ) ) {
+				// rule out very low vote counts relatively to the highest one and the max voting clients
+				items -= voteResults[i];
+				udf = realloc( udf, sizeof( *udf ) * items );
+				continue;
+			}
+
+			int j;
+
+			for ( j = 0; j < voteResults[i]; ++j ) {
+				udf[currentItem++] = i + 1;
+			}
+		}
+
+		random = rand() % items;
+	}
+
+	// since the array is uniform, we can just pick an index to have a weighted map pick
+	trap_Argv( udf[random], out, outSize );
+	free( udf );
+}
+
 void Svcmd_MapMultiVote_f() {
 	if ( !level.multiVoting || !level.multiVoteChoices ) {
 		return; // this command should only be run by the callvote code
@@ -1325,58 +1410,15 @@ void Svcmd_MapMultiVote_f() {
 		return;
 	}
 
-	// guess we have to sort out the votes now
-	int i, numVotes = 0, highestVoteCount = 0;
-	int *voteResults = calloc( level.multiVoteChoices, sizeof( *voteResults ) ); // voteResults[i] = how many votes for the i-th choice
+	// get the results and pick a map
+	int numVotes, highestVoteCount;
+	int *voteResults = BuildVoteResults( level.multiVoteChoices, &numVotes, &highestVoteCount );
 
-	for ( i = 0; i < MAX_CLIENTS; ++i ) {
-		int voteId = level.multiVotes[i];
-
-		if ( voteId > 0 && voteId <= level.multiVoteChoices ) {
-			// one more valid vote...
-			++numVotes;
-			voteResults[voteId - 1]++;
-
-			if ( voteResults[voteId - 1] > highestVoteCount ) {
-				highestVoteCount = voteResults[voteId - 1];
-			}
-		} else if ( voteId ) { // shouldn't happen since we check that in /vote...
-			G_LogPrintf( "Invalid multi vote id for client %d: %d\n", i, voteId );
-		}
-	}
-
-	// now, since the amount of votes is pretty low (always <= MAX_CLIENTS) we can just build a uniformly distributed function
-	// this isn't the fastest but it is more readable
-	int *udf;
-	if ( !numVotes ) {
-		// if nobody voted, just give all maps a weight of 1, ie the same probability
-		numVotes = level.multiVoteChoices;
-		udf = malloc( sizeof( *udf ) * level.multiVoteChoices );
-
-		for ( i = 0; i < level.multiVoteChoices; ++i ) {
-			udf[i] = i + 1;
-		}
-	} else {
-		// make it an array where each item appears as many times as they were voted, thus giving weight (0 votes = 0%)
-		udf = malloc( sizeof( *udf ) * numVotes );
-		int *udfPtr = udf;
-
-		for ( i = 0; i < level.multiVoteChoices; ++i ) {
-			int j;
-
-			for ( j = 0; j < voteResults[i]; ++j ) {
-				*( udfPtr++ ) = i + 1;
-			}
-		}
-	}
-
-	// since the array is uniform, we can just pick an index to have a weighted map pick
-	const int random = rand() % numVotes;
 	char selectedMapname[MAX_MAP_NAME];
-	trap_Argv( udf[random], selectedMapname, sizeof( selectedMapname ) );
-	free( udf );
+	PickRandomMultiMap( voteResults, level.multiVoteChoices, level.numVotingClients, numVotes, highestVoteCount, selectedMapname, sizeof( selectedMapname ) );
 
 	// build a string to show the idiots what they voted for
+	int i;
 	char resultString[MAX_STRING_CHARS] = S_COLOR_WHITE"Map voting results:";
 	for ( i = 0; i < level.multiVoteChoices; ++i ) {
 		char mapname[MAX_MAP_NAME];
@@ -1388,11 +1430,11 @@ void Svcmd_MapMultiVote_f() {
 
 		if ( arenaInfo ) {
 			mapDisplayName = Info_ValueForKey( arenaInfo, "longname" );
+			Q_CleanStr( mapDisplayName );
 		}
 
 		if ( !VALIDSTRING( mapDisplayName ) ) {
 			mapDisplayName = &mapname[0];
-			Q_CleanStr( mapDisplayName );
 		}
 
 		Q_strcat( resultString, sizeof( resultString ), va( "\n%s%s - %d vote%s",
