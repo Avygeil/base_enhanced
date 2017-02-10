@@ -1215,7 +1215,7 @@ static void mapSelectedCallback( void *context, char *mapname ) {
 
 	if ( selection->announceMultiVote ) {
 		if ( selection->numSelected == 1 ) {
-			Q_strncpyz( selection->printMessage, "Vote for your favorite map:", sizeof( selection->printMessage ) );
+			Q_strncpyz( selection->printMessage, "Vote for a map to increase its probability:", sizeof( selection->printMessage ) );
 		}
 
 		// try to print the full map name to players (if a full name doesn't appear, map has no .arena or isn't installed)
