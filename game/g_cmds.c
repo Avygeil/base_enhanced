@@ -2395,7 +2395,7 @@ void Cmd_Where_f( gentity_t *ent ) {
 	if (!ent->client)
 		return;
 
-	trap_SendServerCommand( ent-g_entities, va("print \"%s\n\"", vtos( ent->client->ps.origin ) ) );
+	trap_SendServerCommand( ent - g_entities, va( "print \"Origin: %s ; Yaw: %.2f degrees\n\"", vtos( ent->client->ps.origin ), ent->client->ps.viewangles[YAW] ) );
 }
 
 static const char *gameNames[] = {
