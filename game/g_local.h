@@ -153,7 +153,8 @@ extern int gEscapeTime;
 #ifdef NEWMOD_SUPPORT
 // for knowing which team "owns" a ctf enhanced location
 typedef enum {
-	OWNER_RED = 1,
+	OWNER_UNDETERMINED = 0,
+	OWNER_RED,
 	OWNER_BLUE,
 	OWNER_NONE
 } locationOwner_t;

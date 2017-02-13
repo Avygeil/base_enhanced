@@ -1783,9 +1783,10 @@ static char *GetOwnerOfLocation(gentity_t *locEnt) {
 		return "";
 
 	switch (locEnt->owner) { // check to see if we have already determined that this entity has an owner earlier in the match
-	case OWNER_RED: return "$R";
-	case OWNER_BLUE: return "$B";
-	default: return "";
+	case OWNER_UNDETERMINED:	break;
+	case OWNER_RED:				return "$R";
+	case OWNER_BLUE:			return "$B";
+	case OWNER_NONE:			return "";
 	}
 
 	// count the number of instances of this kind of entity on the map (not including locEnt itself)
