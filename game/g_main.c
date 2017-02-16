@@ -276,6 +276,8 @@ vmCvar_t	g_breakRNG;
 vmCvar_t	g_randomConeReflection;
 vmCvar_t	g_coneReflectAngle;
 
+vmCvar_t	g_saveCaptureRecords;
+
 vmCvar_t    g_enforceEvenVotersCount;
 vmCvar_t    g_minVotersForEvenVotersCount;
 
@@ -604,6 +606,8 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_randomConeReflection , "g_randomConeReflection", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_coneReflectAngle , "g_coneReflectAngle", "30", CVAR_ARCHIVE, 0, qtrue },
+
+	{ &g_saveCaptureRecords, "g_saveCaptureRecords", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 
 	{ &g_minimumVotesCount, "g_minimumVotesCount", "0", CVAR_ARCHIVE, 0, qtrue },
 
@@ -1456,6 +1460,9 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
     G_CfgDbLoad();
     G_LogDbLoad();
     level.db.levelId = G_LogDbLogLevelStart(restart);
+
+	// cache the capture records for this map
+	G_LogDbListCaptureRecords( mapname.string, &level.mapCaptureRecords );
 }
 
 
@@ -1547,6 +1554,9 @@ void G_ShutdownGame( int restart ) {
 
 	// accounts system
 	//cleanDB();
+
+	// save the capture records for this map
+	G_LogDbSaveCaptureRecords( &level.mapCaptureRecords );
 
     G_LogDbLogLevelEnd(level.db.levelId);
 
@@ -4263,6 +4273,26 @@ void G_RunFrame( int levelTime ) {
 	level.wallhackTracesDone = 0; // reset the traces for the next ClientThink wave
 
 	UpdateGlobalCenterPrint( levelTime );
+
+	// check for modified physics and disable capture times if non standard
+	if ( level.mapCaptureRecords.enabled && level.time > 1000 ) { // wat. it seems that sv_cheats = 1 on first frame... so don't check until 1000ms i guess
+		if ( g_cheats.integer != 0 ) {
+			G_Printf( S_COLOR_YELLOW"Cheats are enabled. Capture records won't be tracked during this map.\n" );
+			level.mapCaptureRecords.enabled = qfalse;
+		} else if ( g_speed.value != 250 ) {
+			G_Printf( S_COLOR_YELLOW"Speed is not standard. Capture records won't be tracked during this map.\n" );
+			level.mapCaptureRecords.enabled = qfalse;
+		} else if ( g_gravity.value != 800 ) {
+			G_Printf( S_COLOR_YELLOW"Gravity is not standard. Capture records won't be tracked during this map.\n" );
+			level.mapCaptureRecords.enabled = qfalse;
+		} else if ( g_knockback.value != 1000 ) {
+			G_Printf( S_COLOR_YELLOW"Knockback is not standard. Capture records won't be tracked during this map.\n" );
+			level.mapCaptureRecords.enabled = qfalse;
+		} else if ( g_forceRegenTime.value != 200 ) {
+			G_Printf( S_COLOR_YELLOW"Force regen is not standard. Capture records won't be tracked during this map.\n" );
+			level.mapCaptureRecords.enabled = qfalse;
+		}
+	}
 
 	if (g_gametype.integer == GT_SIEGE &&
 		g_siegeRespawn.integer &&

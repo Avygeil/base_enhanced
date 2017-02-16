@@ -3045,6 +3045,9 @@ static void WP_FireConcussionAlt( gentity_t *ent )
 	vec3_t shot_mins, shot_maxs;
 	int			i;
 
+	// count this as weapon usage out of G_Damage because of the knockback
+	ent->client->usedWeapon = qtrue;
+
 	//Shove us backwards for half a second
 	VectorMA( ent->client->ps.velocity, -200, forward, ent->client->ps.velocity );
 	ent->client->ps.groundEntityNum = ENTITYNUM_NONE;

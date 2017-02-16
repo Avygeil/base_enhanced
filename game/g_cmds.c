@@ -3587,6 +3587,97 @@ void Cmd_TestCmd_f( gentity_t *ent ) {
 
 /*
 =================
+Cmd_TopTimes_f
+=================
+*/
+
+const char* GetShortNameForRecordType( CaptureRecordType type ) {
+	switch ( type ) {
+	case CAPTURE_RECORD_STANDARD: return "standard";
+	case CAPTURE_RECORD_WEAPONS: return "weapons";
+	default: return "unknown";
+	}
+}
+
+static void copyTopNameCallback( void* context, const char* name, int duration ) {
+	Q_strncpyz( ( char* )context, name, MAX_NETNAME );
+}
+
+#define DEMOARCHIVE_BASE_MATCH_URL	"http://demos.jactf.com/match.html#rpc=lookup&id=%s"
+
+void PartitionedTimer( const int time, int *mins, int *secs, int *millis ) {
+	div_t qr;
+
+	qr = div( time, 1000 );
+	if ( millis ) *millis = qr.rem;
+	qr = div( qr.quot, 60 );
+	if ( secs ) *secs = qr.rem;
+	if ( mins ) *mins = qr.quot;
+}
+
+void Cmd_TopTimes_f( gentity_t *ent ) {
+	if ( !ent || !ent->client ) {
+		return;
+	}
+
+	if ( !level.mapCaptureRecords.enabled ) {
+		trap_SendServerCommand( ent - g_entities, "print \"Capture records are disabled.\n\"" );
+		return;
+	}
+
+	int i, j;
+
+	for ( i = 0; i < CAPTURE_RECORD_NUM_TYPES; ++i ) {
+		char *title = va( "%s", GetShortNameForRecordType( i ) );
+		Q_strupr( title );
+
+		if ( !level.mapCaptureRecords.records[i][0].captureTime ) {
+			// there is no first record for that category
+			trap_SendServerCommand( ent - g_entities, va( "print \""S_COLOR_YELLOW"* %s: "S_COLOR_WHITE"no record for this map yet!\n\"", title ) );
+			continue;
+		} else {
+			trap_SendServerCommand( ent - g_entities, va( "print \""S_COLOR_YELLOW"* %s:\n\"", title ) );
+		}
+
+		// print each record as a row
+		for ( j = 0; j < MAX_SAVED_RECORDS; ++j ) {
+			CaptureRecord *record = &level.mapCaptureRecords.records[i][j];
+
+			if ( !record->captureTime ) {
+				continue;
+			}
+
+			// try to get their name from db using ip/cuid, otherwise fall back to what we stored
+			char name[MAX_NETNAME] = { 0 };
+			G_CfgDbListAliases( record->recordHolderIpInt, ( unsigned int )0xFFFFFFFF, 1, copyTopNameCallback, &name, record->recordHolderCuid );
+			if ( !VALIDSTRING( name ) ) {
+				Q_strncpyz( name, record->recordHolderName, sizeof( name ) );
+			}
+
+			int mins, secs, millis;
+
+			// nice time formatting
+			PartitionedTimer( record->captureTime, NULL, &secs, &millis );
+
+			trap_SendServerCommand( ent - g_entities, va(
+				"print \"    "S_COLOR_WHITE"%d. %s "S_COLOR_WHITE"captured %s%s"S_COLOR_WHITE"'s flag in "S_COLOR_YELLOW"%d.%d\n",
+				j + 1, name, TeamColorString( record->whoseFlag ), TeamName( record->whoseFlag ), secs, millis
+			) );
+
+			// if we have saved a match id along with it, tell them info on how to rewatch the record
+			if ( VALIDSTRING( record->matchId ) ) {
+				PartitionedTimer( record->pickupLevelTime, &mins, &secs, NULL );
+				trap_SendServerCommand( ent - g_entities, va(
+					"print \"    "S_COLOR_CYAN"(as client %d @ %d:%02d - "DEMOARCHIVE_BASE_MATCH_URL")\n",
+					record->recordHolderClientId, mins, secs, record->matchId
+				) );
+			}
+		}
+	}
+}
+
+/*
+=================
 Cmd_Stats_f
 =================
 */
@@ -5041,6 +5132,8 @@ void ClientCommand( int clientNum ) {
 		Cmd_Ignore_f( ent );
 	else if (Q_stricmp (cmd, "testcmd") == 0)
 		Cmd_TestCmd_f( ent );
+	else if ( !Q_stricmp(cmd, "toptimes") )
+		Cmd_TopTimes_f( ent );
 		
 	//for convenient powerduel testing in release
 	else if (Q_stricmp(cmd, "killother") == 0 && CheatsOk( ent ))

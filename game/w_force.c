@@ -3509,6 +3509,9 @@ void ForceThrow( gentity_t *self, qboolean pull )
 				qboolean canPullWeapon = qtrue;
 				float dirLen = 0;
 
+				// we knocked that guy with push/pull, his run is invalid
+				push_list[x]->client->runInvalid = qtrue;
+
 				if ( g_debugMelee.integer )
 				{
 					if ( (push_list[x]->client->ps.pm_flags&PMF_STUCK_TO_WALL) )

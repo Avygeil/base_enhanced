@@ -1736,6 +1736,57 @@ void Svcmd_WhTrustToggle_f( void ) {
 	G_Printf( "Player %d (%s"S_COLOR_WHITE") %s\n", ent - g_entities, ent->client->pers.netname, s );
 }
 
+void Svcmd_FastCapsRemove_f( void ) {
+	if ( !level.mapCaptureRecords.enabled ) {
+		G_Printf( "Capture records are disabled.\n" );
+		return;
+	}
+
+	if ( trap_Argc() < 3 ) {
+		G_Printf( "Usage: fastcaps_remove <type> <rank>\n" );
+		return;
+	}
+
+	int type, rank;
+	char str[16];
+
+	trap_Argv( 1, str, sizeof( str ) );
+	type = atoi( str );
+
+	if ( !Q_isanumber( str ) || type < 0 || type >= CAPTURE_RECORD_NUM_TYPES ) {
+		G_Printf( "Invalid type.\n" );
+		return;
+	}
+
+	trap_Argv( 2, str, sizeof( str ) );
+	rank = atoi( str );
+
+	if ( !Q_isanumber( str ) || rank < 1 || rank > MAX_SAVED_RECORDS ) { // rank = index + 1
+		G_Printf( "Invalid rank.\n" );
+		return;
+	}
+
+	CaptureRecord *recordArray = &level.mapCaptureRecords.records[type][0];
+
+	if ( !recordArray[rank - 1].captureTime ) {
+		G_Printf( "This record is not set yet.\n" );
+		return;
+	}
+
+	// shift the array to the left unless this is the last element
+	if ( rank < MAX_SAVED_RECORDS ) {
+		memmove( recordArray + rank - 1, recordArray + rank, ( MAX_SAVED_RECORDS - rank ) * sizeof( *recordArray ) );
+	}
+
+	// always set the last element to 0 so it gets shifted as a zero element with the others later
+	memset( recordArray + MAX_SAVED_RECORDS - 1, 0, sizeof( *recordArray ) );
+
+	// save the changes later in db
+	level.mapCaptureRecords.changed = qtrue;
+
+	G_Printf( "Rank %d deleted from category %d successfully.\n", rank, type );
+}
+
 void Svcmd_PoolCreate_f()
 {
     char short_name[64];
@@ -2080,6 +2131,11 @@ qboolean	ConsoleCommand( void ) {
 
 	if ( !Q_stricmp( cmd, "whTrustToggle" ) ) {
 		Svcmd_WhTrustToggle_f();
+		return qtrue;
+	}
+
+	if ( !Q_stricmp( cmd, "fastcaps_remove" ) ) {
+		Svcmd_FastCapsRemove_f();
 		return qtrue;
 	}
 

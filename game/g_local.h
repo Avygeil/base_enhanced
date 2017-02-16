@@ -874,6 +874,9 @@ struct gclient_s {
 
 	int			preduelWeaps;
 
+	qboolean	runInvalid; // qtrue if external damage/force was used on this player. this invalidates ALL categories
+	qboolean	usedWeapon; // triggers the weapon capture record category
+
 #ifdef NEWMOD_SUPPORT
 	qboolean	isLagging; // mark lagger without actually changing EF_CONNECTION
 #endif
@@ -953,6 +956,38 @@ typedef struct
 	int		clientNum; //for fast lookup
 	int		left; //when did this person leave his team :o
 } rosterData;
+
+// best capture times stuff
+#define SV_UNIQUEID_LEN		17 // 2 concatenated hex 4 bytes ints, so 2*8 chars + NULL
+#define MAX_SAVED_RECORDS	3 // records saved per mode
+
+typedef struct {
+	char recordHolderName[MAX_NETNAME]; // fallback name in case we can't find it with ip
+	unsigned int recordHolderIpInt; // used to find who it is with name db
+	char recordHolderCuid[CRYPTO_HASH_HEX_SIZE]; // make it easier to find clients with cuid, but optional (may be empty)
+
+	char matchId[SV_UNIQUEID_LEN]; // used to link to the game on demoarchive, but requires special OpenJK (may be empty)
+	int recordHolderClientId; // client id assigned when the record took place
+
+	int captureTime; // capture time in ms
+	team_t whoseFlag; // the team that owns the flag that was captured
+	int pickupLevelTime; // level.time when flag was picked up
+} CaptureRecord;
+
+typedef enum {
+	CAPTURE_RECORD_STANDARD = 0, // restrictive category from which the other rules derivate
+	CAPTURE_RECORD_WEAPONS, // self weapon damage is allowed
+
+	CAPTURE_RECORD_NUM_TYPES,
+	CAPTURE_RECORD_INVALID
+} CaptureRecordType;
+
+typedef struct {
+	qboolean enabled; // qtrue if globally enabled (toggled by cvar or mid game by changing movement settings)
+	qboolean changed; // qtrue if at least one record changed, which means the whole struct is saved when map ends
+	char mapname[MAX_MAP_NAME]; // the current map used as a context for loading/saving from db
+	CaptureRecord records[CAPTURE_RECORD_NUM_TYPES][MAX_SAVED_RECORDS]; // all the records pulled from db when level starts
+} CaptureRecordList;
 
 typedef struct {
 	struct gclient_s	*clients;		// [maxclients]
@@ -1112,6 +1147,8 @@ typedef struct {
 		int lastSentTime;
 		qboolean prioritized;
 	} globalCenterPrint;
+
+	CaptureRecordList mapCaptureRecords;
 
 #ifdef NEWMOD_SUPPORT
 	qboolean nmAuthEnabled;
@@ -1979,6 +2016,8 @@ extern vmCvar_t		g_breakRNG;
 
 extern vmCvar_t		g_randomConeReflection;
 extern vmCvar_t		g_coneReflectAngle;
+
+extern vmCvar_t		g_saveCaptureRecords;
 
 extern vmCvar_t     g_allow_vote_gametype;
 extern vmCvar_t     g_allow_vote_kick;

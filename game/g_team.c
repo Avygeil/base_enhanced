@@ -3,7 +3,7 @@
 
 #include "g_local.h"
 #include "bg_saga.h"
-
+#include "g_database_log.h"
 
 typedef struct teamgame_s {
 	float			last_flag_capture;
@@ -724,7 +724,21 @@ Team_DroppedFlagThink
 static vec3_t	minFlagRange = { 50, 36, 36 };
 static vec3_t	maxFlagRange = { 44, 36, 36 };
 
+static CaptureRecordType FindCaptureTypeForRun( gclient_t *client ) {
+	if ( client->runInvalid ) {
+		return CAPTURE_RECORD_INVALID;
+	}
+
+	if ( client->usedWeapon ) {
+		return CAPTURE_RECORD_WEAPONS;
+	}
+
+	return CAPTURE_RECORD_STANDARD;
+}
+
 int Team_TouchEnemyFlag( gentity_t *ent, gentity_t *other, int team );
+extern void PartitionedTimer( const int time, int *mins, int *secs, int *millis );
+extern const char* GetShortNameForRecordType( CaptureRecordType type );
 
 int Team_TouchOurFlag( gentity_t *ent, gentity_t *other, int team ) {
 	int			i;
@@ -816,6 +830,34 @@ int Team_TouchOurFlag( gentity_t *ent, gentity_t *other, int team ) {
 	other->client->pers.teamState.flaghold += (level.time - other->client->pers.teamState.flagsince);
 	if ( level.time - other->client->pers.teamState.flagsince > other->client->pers.teamState.longestFlaghold )
 		other->client->pers.teamState.longestFlaghold = level.time - other->client->pers.teamState.flagsince;
+
+	const CaptureRecordType captureRecordType = FindCaptureTypeForRun( other->client );
+	if ( captureRecordType != CAPTURE_RECORD_INVALID ) {
+		// log the capture time using the initial pickup time to prevent very low times with dropped flags
+		const int pickupTime = team == TEAM_BLUE ? level.redFlagStealTime : level.blueFlagStealTime;
+
+		char matchId[SV_UNIQUEID_LEN];
+		trap_Cvar_VariableStringBuffer( "sv_uniqueid", matchId, sizeof( matchId ) ); // this requires a custom OpenJK build
+
+		const int recordRank = G_LogDbCaptureTime( other->client->sess.ip, other->client->pers.netname,
+			other->client->sess.auth == AUTHENTICATED ? other->client->sess.cuidHash : "", other - g_entities,
+			matchId, level.time - pickupTime, OtherTeam( team ), pickupTime, captureRecordType, &level.mapCaptureRecords );
+
+		int secs, millis;
+		PartitionedTimer( level.time - pickupTime, NULL, &secs, &millis );
+
+		if ( recordRank ) {
+			// we just did a new capture record, broadcast it
+			trap_SendServerCommand( -1, va( "print \""S_COLOR_RED"New capture record by "S_COLOR_WHITE"%s"S_COLOR_RED"!    "S_COLOR_YELLOW"type:%s    rank:%d    time:%d.%d\n\"",
+				other->client->pers.netname, GetShortNameForRecordType( captureRecordType ), recordRank, secs, millis )
+			);
+		} else {
+			// we didn't make a new record, but that was still a valid run. show them what time they did
+			trap_SendServerCommand( other - g_entities, va( "print \""S_COLOR_WHITE"No capture record beaten.    "S_COLOR_YELLOW"type:%s    time:%d.%d\n\"",
+				GetShortNameForRecordType( captureRecordType ), secs, millis )
+			);
+		}
+	}
 
 	cl->ps.powerups[enemy_flag] = 0;
 	

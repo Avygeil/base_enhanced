@@ -2124,6 +2124,12 @@ int Pickup_Powerup( gentity_t *ent, gentity_t *other ) {
 		// anti-reward
 		client->ps.persistant[PERS_PLAYEREVENTS] ^= PLAYEREVENT_DENIEDREWARD;
 	}
+
+	// picking up any of those invalidates the run
+	if ( ent->item->giTag >= PW_FORCE_ENLIGHTENED_LIGHT && ent->item->giTag <= PW_YSALAMIRI ) {
+		other->client->runInvalid = qtrue;
+	}
+
 	return RESPAWN_POWERUP;
 }
 
