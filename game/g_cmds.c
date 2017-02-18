@@ -3646,12 +3646,19 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 			trap_SendServerCommand( ent - g_entities, va( "print \""S_COLOR_YELLOW"* %s:\n\"", title ) );
 		}
 
+		int rank = 0;
+
 		// print each record as a row
 		for ( j = 0; j < MAX_SAVED_RECORDS; ++j ) {
 			CaptureRecord *record = &level.mapCaptureRecords.records[i][j];
 
 			if ( !record->captureTime ) {
 				continue;
+			}
+
+			// only increase the rank if the previous record was better, so equal times have equal ranks
+			if ( !j || level.mapCaptureRecords.records[i][j - 1].captureTime < record->captureTime ) {
+				++rank;
 			}
 
 			// try to get their name from db using ip/cuid, otherwise fall back to what we stored
@@ -3668,7 +3675,7 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 
 			trap_SendServerCommand( ent - g_entities, va(
 				"print \"    "S_COLOR_WHITE"%d. %s "S_COLOR_WHITE"captured %s%s"S_COLOR_WHITE"'s flag in "S_COLOR_YELLOW"%d.%d\n",
-				j + 1, name, TeamColorString( record->whoseFlag ), TeamName( record->whoseFlag ), secs, millis
+				rank, name, TeamColorString( record->whoseFlag ), TeamName( record->whoseFlag ), secs, millis
 			) );
 
 			// if we have saved a match id along with it, tell them info on how to rewatch the record
