@@ -834,7 +834,7 @@ int Team_TouchOurFlag( gentity_t *ent, gentity_t *other, int team ) {
 	const CaptureRecordType captureRecordType = FindCaptureTypeForRun( other->client );
 	if ( captureRecordType != CAPTURE_RECORD_INVALID ) {
 		// log the capture time using the initial pickup time to prevent very low times with dropped flags
-		const int pickupTime = team == TEAM_BLUE ? level.redFlagStealTime : level.blueFlagStealTime;
+		const int pickupTime = other->client->pers.teamState.flagsince; //team == TEAM_BLUE ? level.redFlagStealTime : level.blueFlagStealTime;
 
 		char matchId[SV_UNIQUEID_LEN];
 		trap_Cvar_VariableStringBuffer( "sv_uniqueid", matchId, sizeof( matchId ) ); // this requires a custom OpenJK build
@@ -975,6 +975,9 @@ int Team_TouchEnemyFlag( gentity_t *ent, gentity_t *other, int team ) {
 			level.redFlagStealTime = level.time;
 		else
 			level.blueFlagStealTime = level.time;
+	} else {
+		// this guy picked up a dropped flag, thus his run is invalid
+		other->client->runInvalid = qtrue;
 	}
 
 	Team_SetFlagStatus( team, FLAG_TAKEN );
