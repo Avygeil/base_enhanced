@@ -841,7 +841,7 @@ int Team_TouchOurFlag( gentity_t *ent, gentity_t *other, int team ) {
 
 		const int recordRank = G_LogDbCaptureTime( other->client->sess.ip, other->client->pers.netname,
 			other->client->sess.auth == AUTHENTICATED ? other->client->sess.cuidHash : "", other - g_entities,
-			matchId, level.time - pickupTime, OtherTeam( team ), pickupTime, captureRecordType, &level.mapCaptureRecords );
+			matchId, level.time - pickupTime, OtherTeam( team ), pickupTime - level.startTime, captureRecordType, &level.mapCaptureRecords );
 
 		int secs, millis;
 		PartitionedTimer( level.time - pickupTime, NULL, &secs, &millis );
