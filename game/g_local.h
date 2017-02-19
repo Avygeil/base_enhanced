@@ -874,6 +874,11 @@ struct gclient_s {
 
 	int			preduelWeaps;
 
+	struct {
+		int startTime;
+		int startLag;
+		int pmoveMsec;
+	} runTimer; // accurate timer
 	qboolean	runInvalid; // qtrue if external damage/force was used on this player. this invalidates ALL categories
 	qboolean	usedWeapon; // triggers the weapon capture record category
 
@@ -1148,6 +1153,7 @@ typedef struct {
 		qboolean prioritized;
 	} globalCenterPrint;
 
+	int frameStartTime; // accurate timer
 	CaptureRecordList mapCaptureRecords;
 
 #ifdef NEWMOD_SUPPORT

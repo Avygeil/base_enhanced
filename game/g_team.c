@@ -736,6 +736,55 @@ static CaptureRecordType FindCaptureTypeForRun( gclient_t *client ) {
 	return CAPTURE_RECORD_STANDARD;
 }
 
+static qboolean InTrigger( vec3_t interpOrigin, gentity_t *trigger ) {
+	vec3_t mins, maxs;
+	static const vec3_t	pmins = { -15, -15, DEFAULT_MINS_2 };
+	static const vec3_t	pmaxs = { 15, 15, DEFAULT_MAXS_2 };
+
+	VectorAdd( interpOrigin, pmins, mins );
+	VectorAdd( interpOrigin, pmaxs, maxs );
+
+	if ( trap_EntityContact( mins, maxs, trigger ) ) {
+		return qtrue; // Player is touching the trigger
+	}
+
+	return qfalse; // Player is not touching the trigger
+}
+
+static int InterpolateTouchTime( gentity_t *activator, gentity_t *trigger ) { 
+	vec3_t	interpOrigin, delta;
+	int lessTime = 0;
+
+	// We know that last client frame, they were not touching the flag, but now they are.  Last client frame was pmoveMsec ms ago, so we only want to interp inbetween that range.
+	VectorCopy( activator->client->ps.origin, interpOrigin );
+	VectorScale( activator->s.pos.trDelta, 0.001f, delta ); // Delta is how much they travel in 1 ms.
+
+	VectorSubtract( interpOrigin, delta, interpOrigin ); // Do it once before we loop
+
+	// This will be done a max of pml.msec times, in theory, before we are guarenteed to not be in the trigger anymore.
+	while ( InTrigger( interpOrigin, trigger ) ) {
+		lessTime++; // Add one more ms to be subtracted
+		VectorSubtract( interpOrigin, delta, interpOrigin ); // Keep Rewinding position by a tiny bit, that corresponds with 1ms precision (delta*0.001), since delta is per second.
+		if ( lessTime >= activator->client->runTimer.pmoveMsec || lessTime >= 8 ) {
+			break; // In theory, this should never happen, but just incase stop it here.
+		}
+	}
+
+	return lessTime;
+}
+
+static int GetAccurateRunTime( gentity_t *ent, gentity_t *flag ) {
+	const int endTime = trap_Milliseconds() - InterpolateTouchTime( ent, flag );
+	const int endLag = trap_Milliseconds() - level.frameStartTime + level.time - ent->client->pers.cmd.serverTime;
+
+	int time = endTime - ent->client->runTimer.startTime;
+	if ( ent->client->runTimer.startLag - endLag > 0 ) {
+		time += ent->client->runTimer.startLag - endLag;
+	}
+
+	return time;
+}
+
 int Team_TouchEnemyFlag( gentity_t *ent, gentity_t *other, int team );
 extern void PartitionedTimer( const int time, int *mins, int *secs, int *millis );
 extern const char* GetShortNameForRecordType( CaptureRecordType type );
@@ -833,18 +882,32 @@ int Team_TouchOurFlag( gentity_t *ent, gentity_t *other, int team ) {
 
 	const CaptureRecordType captureRecordType = FindCaptureTypeForRun( other->client );
 	if ( captureRecordType != CAPTURE_RECORD_INVALID ) {
-		// log the capture time using the initial pickup time to prevent very low times with dropped flags
-		const int pickupTime = other->client->pers.teamState.flagsince; //team == TEAM_BLUE ? level.redFlagStealTime : level.blueFlagStealTime;
+		const int pickupTime = other->client->pers.teamState.flagsince; // I guess we don't need extreme accuracy for this, it's just used for demos. so just use flagsince
+		const int runTime = GetAccurateRunTime( other, ent ); // use the accurate timer for the actual run though
 
 		char matchId[SV_UNIQUEID_LEN];
 		trap_Cvar_VariableStringBuffer( "sv_uniqueid", matchId, sizeof( matchId ) ); // this requires a custom OpenJK build
 
 		const int recordRank = G_LogDbCaptureTime( other->client->sess.ip, other->client->pers.netname,
 			other->client->sess.auth == AUTHENTICATED ? other->client->sess.cuidHash : "", other - g_entities,
-			matchId, level.time - pickupTime, OtherTeam( team ), pickupTime - level.startTime, captureRecordType, &level.mapCaptureRecords );
+			matchId, runTime, OtherTeam( team ), pickupTime - level.startTime, captureRecordType, &level.mapCaptureRecords );
 
 		int secs, millis;
 		PartitionedTimer( level.time - pickupTime, NULL, &secs, &millis );
+
+		if ( recordRank ) {
+			// we just did a new capture record, broadcast it
+			trap_SendServerCommand( -1, va( "print \""S_COLOR_RED"New capture record by "S_COLOR_WHITE"%s"S_COLOR_RED"!    "S_COLOR_YELLOW"type:%s    rank:%d    time:%d.%d\n\"",
+				other->client->pers.netname, GetShortNameForRecordType( captureRecordType ), recordRank, secs, millis )
+			);
+		} else {
+			// we didn't make a new record, but that was still a valid run. show them what time they did
+			trap_SendServerCommand( other - g_entities, va( "print \""S_COLOR_WHITE"No capture record beaten.    "S_COLOR_YELLOW"type:%s    time:%d.%d\n\"",
+				GetShortNameForRecordType( captureRecordType ), secs, millis )
+			);
+		}
+
+		PartitionedTimer( runTime, NULL, &secs, &millis );
 
 		if ( recordRank ) {
 			// we just did a new capture record, broadcast it
@@ -975,6 +1038,10 @@ int Team_TouchEnemyFlag( gentity_t *ent, gentity_t *other, int team ) {
 			level.redFlagStealTime = level.time;
 		else
 			level.blueFlagStealTime = level.time;
+
+		// we are picking up a flag at base. start the accurate timer
+		cl->runTimer.startTime = trap_Milliseconds() - InterpolateTouchTime( other, ent );
+		cl->runTimer.startLag = trap_Milliseconds() - level.frameStartTime + level.time - other->client->pers.cmd.serverTime;
 	} else {
 		// this guy picked up a dropped flag, thus his run is invalid
 		other->client->runInvalid = qtrue;

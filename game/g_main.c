@@ -4938,6 +4938,8 @@ void G_RunFrame( int levelTime ) {
 		iTimer_Queues);
 #endif
 
+	level.frameStartTime = trap_Milliseconds(); // accurate timer
+
 	g_LastFrameTime = level.time;
 }
 
