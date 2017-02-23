@@ -897,12 +897,12 @@ int Team_TouchOurFlag( gentity_t *ent, gentity_t *other, int team ) {
 
 		if ( recordRank ) {
 			// we just did a new capture record, broadcast it
-			trap_SendServerCommand( -1, va( "print \""S_COLOR_RED"New capture record by "S_COLOR_WHITE"%s"S_COLOR_RED"!    "S_COLOR_YELLOW"type:%s    rank:%d    time:%d.%d\n\"",
+			trap_SendServerCommand( -1, va( "print \""S_COLOR_RED"New /toptimes capture record by "S_COLOR_WHITE"%s"S_COLOR_RED"!    "S_COLOR_YELLOW"type:%s    rank:%d    time:%d.%d\n\"",
 				other->client->pers.netname, GetShortNameForRecordType( captureRecordType ), recordRank, secs, millis )
 			);
 		} else {
 			// we didn't make a new record, but that was still a valid run. show them what time they did
-			trap_SendServerCommand( other - g_entities, va( "print \""S_COLOR_WHITE"No capture record beaten.    "S_COLOR_YELLOW"type:%s    time:%d.%d\n\"",
+			trap_SendServerCommand( other - g_entities, va( "print \""S_COLOR_WHITE"No /toptimes capture record beaten.    "S_COLOR_YELLOW"type:%s    time:%d.%d\n\"",
 				GetShortNameForRecordType( captureRecordType ), secs, millis )
 			);
 		}
