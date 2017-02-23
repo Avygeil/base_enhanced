@@ -3678,13 +3678,16 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 				rank, name, TeamColorString( record->whoseFlag ), TeamName( record->whoseFlag ), secs, millis
 			) );
 
-			// if we have saved a match id along with it, tell them info on how to rewatch the record
 			if ( VALIDSTRING( record->matchId ) ) {
+				// if we have saved a match id along with it, tell them info on how to rewatch the record
 				PartitionedTimer( record->pickupLevelTime, &mins, &secs, NULL );
 				trap_SendServerCommand( ent - g_entities, va(
-					"print \"    "S_COLOR_CYAN"(as client %d @ %d:%02d - "DEMOARCHIVE_BASE_MATCH_URL")\n",
-					record->recordHolderClientId, mins, secs, record->matchId
+					"print \"    "S_COLOR_CYAN"(as "S_COLOR_WHITE"%s "S_COLOR_CYAN"(client %d) @ %d:%02d - "DEMOARCHIVE_BASE_MATCH_URL")\n",
+					record->recordHolderName, record->recordHolderClientId, mins, secs, record->matchId
 				) );
+			} else {
+				// otherwise, just give the name
+				trap_SendServerCommand( ent - g_entities, va( "print \"    "S_COLOR_CYAN"(as "S_COLOR_WHITE"%s"S_COLOR_CYAN")\n\"", record->recordHolderName ) );
 			}
 		}
 	}
