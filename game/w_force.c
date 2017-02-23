@@ -1553,6 +1553,9 @@ void ForceTeamForceReplenish( gentity_t *self )
 			g_entities[pl[i]].client->ps.fd.forcePower = 100;
 		}
 
+		// getting te invalidates the run
+		g_entities[pl[i]].client->runInvalid = qtrue;
+
 		//At this point we know we got one, so add him into the collective event client bitflag
 		if (!te)
 		{
