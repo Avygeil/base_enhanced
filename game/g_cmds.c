@@ -3612,14 +3612,32 @@ static void copyTopNameCallback( void* context, const char* name, int duration )
 
 #define DEMOARCHIVE_BASE_MATCH_URL	"http://demos.jactf.com/match.html#rpc=lookup&id=%s"
 
+// if one parameter is NULL, its value is added to the next non NULL parameter
 void PartitionedTimer( const int time, int *mins, int *secs, int *millis ) {
 	div_t qr;
+	int pMins, pSecs, pMillis;
 
 	qr = div( time, 1000 );
-	if ( millis ) *millis = qr.rem;
+	pMillis = qr.rem;
 	qr = div( qr.quot, 60 );
-	if ( secs ) *secs = qr.rem;
-	if ( mins ) *mins = qr.quot;
+	pSecs = qr.rem;
+	pMins = qr.quot;
+
+	if ( mins ) {
+		*mins = pMins;
+	} else {
+		pSecs += pMins * 60;
+	}
+
+	if ( secs ) {
+		*secs = pSecs;
+	} else {
+		pMillis += pSecs * 1000;
+	}
+
+	if ( millis ) {
+		*millis = pMillis;
+	}
 }
 
 void Cmd_TopTimes_f( gentity_t *ent ) {
