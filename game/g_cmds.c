@@ -3674,7 +3674,7 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 			PartitionedTimer( record->captureTime, NULL, &secs, &millis );
 
 			trap_SendServerCommand( ent - g_entities, va(
-				"print \"    "S_COLOR_WHITE"%d. %s "S_COLOR_WHITE"captured %s%s"S_COLOR_WHITE"'s flag in "S_COLOR_YELLOW"%d.%d\n",
+				"print \"    "S_COLOR_WHITE"%d. %s "S_COLOR_WHITE"captured %s%s"S_COLOR_WHITE"'s flag in "S_COLOR_YELLOW"%d.%03d\n",
 				rank, name, TeamColorString( record->whoseFlag ), TeamName( record->whoseFlag ), secs, millis
 			) );
 
