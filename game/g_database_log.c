@@ -639,6 +639,23 @@ int G_LogDbCaptureTime( unsigned int ipInt,
 		if ( captureTime >= recordArray[newIndex].captureTime ) {
 			return 0; // our existing record is better, so don't save anything to avoid record spam
 		}
+
+		// we know we have AT LEAST done better than our current record, so we will save something in any case
+		// now, if we didn't already have the top record, check if we did less than the better records
+		if ( newIndex > 0 ) {
+			const int currentRecordIndex = newIndex;
+
+			for ( ; newIndex > 0; --newIndex ) {
+				if ( recordArray[newIndex - 1].captureTime && recordArray[newIndex - 1].captureTime <= captureTime ) {
+					break; // this one is better, so use the index after it
+				}
+			}
+
+			if ( newIndex != currentRecordIndex ) {
+				// we indeed did less than a record which was better than our former record. use its index and shift the array
+				memmove( recordArray + newIndex + 1, recordArray + newIndex, ( currentRecordIndex - newIndex ) * sizeof( *recordArray ) );
+			}
+		}
 	} else {
 		// this player doesn't have a record in this category yet, so find an index by comparing times from the worst to the best
 		for ( newIndex = MAX_SAVED_RECORDS; newIndex > 0; --newIndex ) {
