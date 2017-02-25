@@ -165,6 +165,16 @@ const char* const sqlGetFastcaps =
 "ORDER BY capture_time                                                 "
 "LIMIT ?3                                                              ";
 
+const char* const sqlListBestFastcaps =
+"SELECT mapname, player_name, player_ip_int,                           "
+"player_cuid_hash2, MIN( capture_time ) AS best_time                   "
+"FROM fastcaps                                                         "
+"WHERE fastcaps.type = ?1                                              "
+"GROUP BY mapname                                                      "
+"ORDER BY mapname                                                      "
+"LIMIT ?2                                                              "
+"OFFSET ?3                                                             ";
+
 //
 //  G_LogDbLoad
 // 
@@ -459,7 +469,7 @@ void G_CfgDbListAliases( unsigned int ipInt,
 	}
 }
 
-void G_LogDbListCaptureRecords( const char *mapname,
+void G_LogDbLoadCaptureRecords( const char *mapname,
 	CaptureRecordList *recordsToLoad )
 {
 	memset( recordsToLoad, 0, sizeof( *recordsToLoad ) );
@@ -467,6 +477,10 @@ void G_LogDbListCaptureRecords( const char *mapname,
 	if ( g_gametype.integer != GT_CTF || !g_saveCaptureRecords.integer ) {
 		return;
 	}
+
+	// make sure we always make a lower case map lookup
+	Q_strncpyz( recordsToLoad->mapname, mapname, sizeof( recordsToLoad->mapname ) );
+	Q_strlwr( recordsToLoad->mapname );
 
 	sqlite3_stmt* statement;
 	int i, rc = -1, loaded = 0;
@@ -477,7 +491,7 @@ void G_LogDbListCaptureRecords( const char *mapname,
 		sqlite3_reset( statement );
 		sqlite3_clear_bindings( statement );
 
-		sqlite3_bind_text( statement, 1, mapname, -1, 0 );
+		sqlite3_bind_text( statement, 1, recordsToLoad->mapname, -1, 0 );
 		sqlite3_bind_int( statement, 2, i );
 		sqlite3_bind_int( statement, 3, MAX_SAVED_RECORDS );
 
@@ -523,10 +537,38 @@ void G_LogDbListCaptureRecords( const char *mapname,
 	sqlite3_finalize( statement );
 
 	// write the remaining global fields
-	Q_strncpyz( recordsToLoad->mapname, mapname, sizeof( recordsToLoad->mapname ) );
 	recordsToLoad->enabled = qtrue;
 
 	G_Printf( "Loaded %d capture time records from database\n", loaded );
+}
+
+void G_LogDbListBestCaptureRecords( CaptureRecordType type,
+	int limit,
+	int offset,
+	ListBestCapturesCallback callback,
+	void *context )
+{
+	sqlite3_stmt* statement;
+	int rc = sqlite3_prepare( db, sqlListBestFastcaps, -1, &statement, 0 );
+
+	sqlite3_bind_int( statement, 1, type );
+	sqlite3_bind_int( statement, 2, limit );
+	sqlite3_bind_int( statement, 3, offset );
+
+	rc = sqlite3_step( statement );
+	while ( rc == SQLITE_ROW ) {
+		const char *mapname = ( const char* )sqlite3_column_text( statement, 0 );
+		const char *player_name = ( const char* )sqlite3_column_text( statement, 1 );
+		const unsigned int player_ip_int = sqlite3_column_int( statement, 2 );
+		const char *player_cuid_hash2 = ( const char* )sqlite3_column_text( statement, 3 );
+		const int best_time = sqlite3_column_int( statement, 4 );
+
+		callback( context, mapname, player_name, player_ip_int, player_cuid_hash2, best_time );
+
+		rc = sqlite3_step( statement );
+	}
+
+	sqlite3_finalize( statement );
 }
 
 void G_LogDbSaveCaptureRecords( CaptureRecordList *recordsToSave )

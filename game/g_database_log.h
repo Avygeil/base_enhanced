@@ -49,8 +49,21 @@ void G_CfgDbListAliases(unsigned int ipInt,
 	void* context,
 	const char* cuidHash);
 
-void G_LogDbListCaptureRecords( const char *mapname,
+void G_LogDbLoadCaptureRecords( const char *mapname,
 	CaptureRecordList *recordsToLoad );
+
+typedef void( *ListBestCapturesCallback )( void *context,
+	const char *mapname,
+	const char *recordHolderName,
+	unsigned int recordHolderIpInt,
+	const char *recordHolderCuid,
+	int bestTime );
+
+void G_LogDbListBestCaptureRecords( CaptureRecordType type,
+	int limit,
+	int offset,
+	ListBestCapturesCallback callback,
+	void *context );
 
 void G_LogDbSaveCaptureRecords( CaptureRecordList *recordsToSave );
 

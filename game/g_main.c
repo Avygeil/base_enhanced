@@ -1462,7 +1462,7 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
     level.db.levelId = G_LogDbLogLevelStart(restart);
 
 	// cache the capture records for this map
-	G_LogDbListCaptureRecords( mapname.string, &level.mapCaptureRecords );
+	G_LogDbLoadCaptureRecords( mapname.string, &level.mapCaptureRecords );
 }
 
 

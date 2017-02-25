@@ -3598,20 +3598,6 @@ Cmd_TopTimes_f
 =================
 */
 
-const char* GetShortNameForRecordType( CaptureRecordType type ) {
-	switch ( type ) {
-	case CAPTURE_RECORD_STANDARD: return "standard";
-	case CAPTURE_RECORD_WEAPONS: return "weapons";
-	default: return "unknown";
-	}
-}
-
-static void copyTopNameCallback( void* context, const char* name, int duration ) {
-	Q_strncpyz( ( char* )context, name, MAX_NETNAME );
-}
-
-#define DEMOARCHIVE_BASE_MATCH_URL	"http://demos.jactf.com/match.html#rpc=lookup&id=%s"
-
 // if one parameter is NULL, its value is added to the next non NULL parameter
 void PartitionedTimer( const int time, int *mins, int *secs, int *millis ) {
 	div_t qr;
@@ -3640,6 +3626,67 @@ void PartitionedTimer( const int time, int *mins, int *secs, int *millis ) {
 	}
 }
 
+const char* GetShortNameForRecordType( CaptureRecordType type ) {
+	switch ( type ) {
+	case CAPTURE_RECORD_STANDARD: return "standard";
+	case CAPTURE_RECORD_WEAPONS: return "weapons";
+	default: return "unknown";
+	}
+}
+
+CaptureRecordType GetRecordTypeForShortName( const char *name ) {
+	if ( !Q_stricmpn( name, "s", 1 ) ) {
+		return CAPTURE_RECORD_STANDARD;
+	}
+
+	if ( !Q_stricmpn( name, "w", 1 ) ) {
+		return CAPTURE_RECORD_WEAPONS;
+	}
+
+	return CAPTURE_RECORD_INVALID;
+}
+
+static void copyTopNameCallback( void* context, const char* name, int duration ) {
+	Q_strncpyz( ( char* )context, name, MAX_NETNAME );
+}
+
+typedef struct {
+	int entNum;
+	qboolean hasPrinted;
+} BestTimeContext;
+
+static void printBestTimeCallback( void *context, const char *mapname, const char *recordHolderName, unsigned int recordHolderIpInt, const char *recordHolderCuid, int bestTime ) {
+	BestTimeContext* thisContext = ( BestTimeContext* )context;
+
+	char identifier[MAX_NETNAME * 2 + 7 + 1] = { 0 };
+	G_CfgDbListAliases( recordHolderIpInt, ( unsigned int )0xFFFFFFFF, 1, copyTopNameCallback, &identifier, recordHolderCuid );
+
+	// if we have a name in db for this guy, append the name we stored, otherwise just use the one we stored
+	if ( VALIDSTRING( identifier ) ) {
+		// only append it if it's different
+		if ( Q_stricmp( identifier, recordHolderName ) ) {
+			Q_strcat( identifier, sizeof( identifier ), S_COLOR_WHITE" (" );
+			Q_strcat( identifier, sizeof( identifier ), recordHolderName );
+			Q_strcat( identifier, sizeof( identifier ), S_COLOR_WHITE ")" );
+		}
+	} else {
+		Q_strncpyz( identifier, recordHolderName, sizeof( identifier ) );
+	}
+
+	int secs, millis;
+	PartitionedTimer( bestTime, NULL, &secs, &millis );
+
+	// 21 spaces = arbitrary but sounds reasonable unless grab makes more shitty huge names
+	trap_SendServerCommand( thisContext->entNum, va(
+		"print \""S_COLOR_CYAN"%21s "S_COLOR_WHITE"- %s"S_COLOR_WHITE": "S_COLOR_YELLOW"%d.%03d\n\"", mapname, identifier, secs, millis
+	) );
+
+	thisContext->hasPrinted = qtrue;
+}
+
+#define DEMOARCHIVE_BASE_MATCH_URL	"http://demos.jactf.com/match.html#rpc=lookup&id=%s"
+#define MAPLIST_MAPS_PER_PAGE		15
+
 void Cmd_TopTimes_f( gentity_t *ent ) {
 	if ( !ent || !ent->client ) {
 		return;
@@ -3648,6 +3695,48 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 	if ( !level.mapCaptureRecords.enabled ) {
 		trap_SendServerCommand( ent - g_entities, "print \"Capture records are disabled.\n\"" );
 		return;
+	}
+
+	if ( trap_Argc() > 1 ) {
+		char buf[32];
+		trap_Argv( 1, buf, sizeof( buf ) );
+
+		if ( !Q_stricmp( buf, "maplist" ) ) {
+			if ( trap_Argc() < 3 ) {
+				trap_SendServerCommand( ent - g_entities, "print \"Usage: /toptimes maplist <standard | weapons> [page]\n\"" );
+				return;
+			}
+
+			trap_Argv( 2, buf, sizeof( buf ) );
+			CaptureRecordType category = GetRecordTypeForShortName( buf );
+
+			if ( category == CAPTURE_RECORD_INVALID ) {
+				trap_SendServerCommand( ent - g_entities, "print \"Invalid category.\n\"" );
+				return;
+			}
+
+			int page;
+			if ( trap_Argc() > 3 ) {
+				trap_Argv( 3, buf, sizeof( buf ) );
+				page = atoi( buf );
+				if ( page < 1 ) page = 1;
+			} else {
+				page = 1;
+			}
+
+			BestTimeContext context;
+			context.entNum = ent - g_entities;
+			context.hasPrinted = qfalse;
+			G_LogDbListBestCaptureRecords( category, MAPLIST_MAPS_PER_PAGE, ( page - 1 ) * MAPLIST_MAPS_PER_PAGE, printBestTimeCallback, &context );
+			
+			if ( context.hasPrinted ) {
+				trap_SendServerCommand( ent - g_entities, va( "print \"Viewing page: %d\n\"", page ) );
+			} else {
+				trap_SendServerCommand( ent - g_entities, "print \"There aren't this many records! Try a lower page number.\n\"" );
+			}
+
+			return;
+		}
 	}
 
 	int i, j;
@@ -3680,10 +3769,20 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 			}
 
 			// try to get their name from db using ip/cuid, otherwise fall back to what we stored
-			char name[MAX_NETNAME] = { 0 };
+			char name[MAX_NETNAME + 1] = { 0 };
 			G_CfgDbListAliases( record->recordHolderIpInt, ( unsigned int )0xFFFFFFFF, 1, copyTopNameCallback, &name, record->recordHolderCuid );
 			if ( !VALIDSTRING( name ) ) {
 				Q_strncpyz( name, record->recordHolderName, sizeof( name ) );
+			}
+
+			// to find people in demos/differentiate people with the same ip
+			char identifier[MAX_NETNAME + 14 + 1] = { 0 };
+			if ( Q_stricmp( name, record->recordHolderName ) ) {
+				// if we have a different whois name, show the name they used here
+				Com_sprintf( identifier, sizeof( identifier ), "%s "S_COLOR_CYAN"(client %d)", record->recordHolderName, record->recordHolderClientId );
+			} else {
+				// same name, just show the client id
+				Com_sprintf( identifier, sizeof( identifier ), S_COLOR_CYAN"client %d", record->recordHolderClientId );
 			}
 
 			int mins, secs, millis;
@@ -3700,15 +3799,17 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 				// if we have saved a match id along with it, tell them info on how to rewatch the record
 				PartitionedTimer( record->pickupLevelTime, &mins, &secs, NULL );
 				trap_SendServerCommand( ent - g_entities, va(
-					"print \"    "S_COLOR_CYAN"(as "S_COLOR_WHITE"%s "S_COLOR_CYAN"(client %d) @ %d:%02d - "DEMOARCHIVE_BASE_MATCH_URL")\n",
-					record->recordHolderName, record->recordHolderClientId, mins, secs, record->matchId
+					"print \"    "S_COLOR_CYAN"(as "S_COLOR_WHITE"%s @ %d:%02d - "DEMOARCHIVE_BASE_MATCH_URL")\n",
+					identifier, mins, secs, record->matchId
 				) );
 			} else {
 				// otherwise, just give the name
-				trap_SendServerCommand( ent - g_entities, va( "print \"    "S_COLOR_CYAN"(as "S_COLOR_WHITE"%s"S_COLOR_CYAN")\n\"", record->recordHolderName ) );
+				trap_SendServerCommand( ent - g_entities, va( "print \"    "S_COLOR_CYAN"(as "S_COLOR_WHITE"%s)\n\"", identifier ) );
 			}
 		}
 	}
+
+	trap_SendServerCommand( ent - g_entities, "print \""S_COLOR_WHITE"Use "S_COLOR_YELLOW"/toptimes maplist "S_COLOR_WHITE"for an overview of top records on all maps\n\"" );
 }
 
 /*
@@ -5167,7 +5268,7 @@ void ClientCommand( int clientNum ) {
 		Cmd_Ignore_f( ent );
 	else if (Q_stricmp (cmd, "testcmd") == 0)
 		Cmd_TestCmd_f( ent );
-	else if ( !Q_stricmp(cmd, "toptimes") )
+	else if ( !Q_stricmp(cmd, "toptimes") || !Q_stricmp( cmd, "fastcaps" ) )
 		Cmd_TopTimes_f( ent );
 		
 	//for convenient powerduel testing in release
