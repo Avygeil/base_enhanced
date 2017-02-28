@@ -497,6 +497,8 @@ typedef struct {
     int         sessionId;
     int         nameChangeTime;
 
+	qboolean	shadowMuted;
+
 	qboolean	canJoin; // Passwordless clients
 	qboolean	whTrustToggle; // in whitelist mode, qtrue = trusted, in blacklist mode, qtrue = untrusted
 

@@ -1649,6 +1649,11 @@ static void G_SayTo( gentity_t *ent, gentity_t *other, int mode, int color, cons
 		return;
 	}
 
+	// if this guy is shadow muted, don't let anyone see his messages except himself and other shadow muted clients
+	if ( ent->client->sess.shadowMuted && ent != other && !other->client->sess.shadowMuted ) {
+		return;
+	}
+
 	//They've requested I take this out.
 
 	if (locMsg && !(g_gametype.integer == GT_CTF || g_gametype.integer == GT_CTY)) // duo: never send location in teamchat for ctf

@@ -150,6 +150,8 @@ void G_InitSessionData( gclient_t *client, char *userinfo, qboolean isBot, qbool
 	Q_strncpyz( sess->saberType, Info_ValueForKey( userinfo, "saber1" ), sizeof( sess->saberType ) );
 	Q_strncpyz( sess->saber2Type, Info_ValueForKey( userinfo, "saber2" ), sizeof( sess->saber2Type ) );
 
+	sess->shadowMuted = qfalse;
+
 #ifdef NEWMOD_SUPPORT
 	sess->cuidHash[0] = '\0';
 	sess->serverKeys[0] = sess->serverKeys[1] = 0;
