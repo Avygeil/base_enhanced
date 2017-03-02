@@ -941,22 +941,26 @@ void Svcmd_ForceName_f(void) {
 }
 
 void Svcmd_ShadowMute_f( void ) {
+	gentity_t	*found = NULL;
 	gclient_t	*cl;
 	char		str[MAX_TOKEN_CHARS];
 
 	// find the player
 	trap_Argv( 1, str, sizeof( str ) );
-	cl = ClientForString( str );
-	if ( !cl ) {
+	found = G_FindClient(str);
+	if (!found || !found->client) {
+		Com_Printf("Client %s"S_COLOR_WHITE" not found or ambiguous. Use client number or be more specific.\n", str);
 		return;
 	}
+	cl = found->client;
 
 	cl->sess.shadowMuted = !cl->sess.shadowMuted;
 
-	if ( cl->sess.shadowMuted ) {
-		G_Printf( "Client %d is now shadow muted\n", cl - level.clients );
-	} else {
-		G_Printf( "Client %d is no longer shadow muted\n", cl - level.clients );
+	if (cl->sess.shadowMuted) {
+		G_Printf("Client %d (%s"S_COLOR_WHITE") is now shadowmuted.\n", cl - level.clients, cl->pers.netname);
+	}
+	else {
+		G_Printf("Client %d (%s"S_COLOR_WHITE") is no longer shadowmuted.\n", cl - level.clients, cl->pers.netname);
 	}
 }
 
