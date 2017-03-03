@@ -475,7 +475,7 @@ void G_ProcessGetstatusIPBans(void)
 	    }      
     }
 
-
+extern char	*ConcatArgs( int start );
 
 /*
 =================
@@ -918,26 +918,27 @@ void Svcmd_Cointoss_f(void)
 }
 
 void Svcmd_ForceName_f(void) {
-	gclient_t	*cl;
+	if ( trap_Argc() < 4 ) {
+		Com_Printf( "Usage: forcename <player> <duration> <new name>\n" );
+		return;
+	}
+
+	gentity_t	*found = NULL;
 	char		str[MAX_TOKEN_CHARS];
-	char		durationStr[4];
-	int			duration = 700;
+	int			duration;
 
 	// find the player
 	trap_Argv( 1, str, sizeof( str ) );
-	cl = ClientForString( str );
-	if ( !cl ) {
+	found = G_FindClient( str );
+	if ( !found || !found->client ) {
+		Com_Printf( "Client %s"S_COLOR_WHITE" not found or ambiguous. Use client number or be more specific.\n", str );
 		return;
 	}
 
 	trap_Argv( 2, str, sizeof( str ) );
+	duration = atoi( str ) * 1000;
 
-	if ( trap_Argc() > 2 ) {
-		trap_Argv( 3, durationStr, sizeof( durationStr ) );
-		duration = atoi( durationStr ) * 1000;
-	}
-
-	SetNameQuick( &g_entities[cl - level.clients], str, duration );
+	SetNameQuick( found, ConcatArgs( 3 ), duration );
 }
 
 void Svcmd_ShadowMute_f( void ) {
@@ -1905,8 +1906,6 @@ void Svcmd_PoolMapRemove_f()
     }
 
 }
-
-char	*ConcatArgs( int start );
 
 /*
 =================
