@@ -54,6 +54,7 @@ void G_LogDbLoadCaptureRecords( const char *mapname,
 
 typedef void( *ListBestCapturesCallback )( void *context,
 	const char *mapname,
+	const CaptureRecordType type,
 	const char *recordHolderName,
 	unsigned int recordHolderIpInt,
 	const char *recordHolderCuid,

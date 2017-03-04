@@ -563,7 +563,7 @@ void G_LogDbListBestCaptureRecords( CaptureRecordType type,
 		const char *player_cuid_hash2 = ( const char* )sqlite3_column_text( statement, 3 );
 		const int best_time = sqlite3_column_int( statement, 4 );
 
-		callback( context, mapname, player_name, player_ip_int, player_cuid_hash2, best_time );
+		callback( context, mapname, type, player_name, player_ip_int, player_cuid_hash2, best_time );
 
 		rc = sqlite3_step( statement );
 	}

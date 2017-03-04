@@ -3660,8 +3660,21 @@ typedef struct {
 	qboolean hasPrinted;
 } BestTimeContext;
 
-static void printBestTimeCallback( void *context, const char *mapname, const char *recordHolderName, unsigned int recordHolderIpInt, const char *recordHolderCuid, int bestTime ) {
+static void printBestTimeCallback( void *context, const char *mapname, const CaptureRecordType type, const char *recordHolderName, unsigned int recordHolderIpInt, const char *recordHolderCuid, int bestTime ) {
 	BestTimeContext* thisContext = ( BestTimeContext* )context;
+
+	// if we are printing the current map, since we only save new records at the end of the round, check if we beat the top time during this session
+	// and print that one instead (the record in DB will stay outdated until round ends)
+	if ( !Q_stricmp( mapname, level.mapCaptureRecords.mapname ) ) {
+		const CaptureRecord *currentRecord = &level.mapCaptureRecords.records[type][0];
+
+		if ( currentRecord->captureTime && currentRecord->captureTime <= bestTime ) {
+			recordHolderName = currentRecord->recordHolderName;
+			recordHolderIpInt = currentRecord->recordHolderIpInt;
+			recordHolderCuid = currentRecord->recordHolderCuid;
+			bestTime = currentRecord->captureTime;
+		}
+	}
 
 	char identifier[MAX_NETNAME * 2 + 7 + 1] = { 0 };
 	G_CfgDbListAliases( recordHolderIpInt, ( unsigned int )0xFFFFFFFF, 1, copyTopNameCallback, &identifier, recordHolderCuid );
