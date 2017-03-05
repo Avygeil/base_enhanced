@@ -30,6 +30,8 @@ void Team_InitGame( void ) {
 		Team_SetFlagStatus( TEAM_BLUE, FLAG_ATBASE );
 		level.redFlagStealTime = 0;
 		level.blueFlagStealTime = 0;
+		level.redTeamRunFlaghold = 0;
+		level.blueTeamRunFlaghold = 0;
 		break;
 	default:
 		break;
@@ -111,6 +113,15 @@ void PrintCTFMessage(int plIndex, int teamIndex, int ctfMessage)
 	else
 	{
 		te->s.trickedentindex2 = teamIndex;
+	}
+
+	if ( ctfMessage == CTFMESSAGE_PLAYER_CAPTURED_FLAG ) {
+		// send the capture time as an unused event parameter
+		if ( teamIndex == TEAM_RED ) {
+			te->s.time = level.redTeamRunFlaghold;
+		} else if ( teamIndex == TEAM_BLUE ) {
+			te->s.time = level.blueTeamRunFlaghold;
+		}
 	}
 }
 
@@ -395,9 +406,20 @@ void Team_FragBonuses(gentity_t *targ, gentity_t *inflictor, gentity_t *attacker
 		AddScore(attacker, targ->r.currentOrigin, CTF_FRAG_CARRIER_BONUS * tokens * tokens);
 
 		//*CHANGE 31* longest flag holding time keeping track
-		targ->client->pers.teamState.flaghold += (level.time - targ->client->pers.teamState.flagsince);
-		if ( level.time - targ->client->pers.teamState.flagsince > targ->client->pers.teamState.longestFlaghold )
-			targ->client->pers.teamState.longestFlaghold = level.time - targ->client->pers.teamState.flagsince;
+		const int thisFlaghold = G_GetAccurateTimerOnTrigger( &targ->client->pers.teamState.flagsince, targ, NULL );
+
+		targ->client->pers.teamState.flaghold += thisFlaghold;
+
+		if ( thisFlaghold > targ->client->pers.teamState.longestFlaghold )
+			targ->client->pers.teamState.longestFlaghold = thisFlaghold;
+
+		if ( targ->client->ps.powerups[PW_REDFLAG] ) {
+			// carried the red flag, so blue team
+			level.blueTeamRunFlaghold += thisFlaghold;
+		} else if ( targ->client->ps.powerups[PW_BLUEFLAG] ) {
+			// carried the blue flag, so red team
+			level.redTeamRunFlaghold += thisFlaghold;
+		}
 
 		attacker->client->pers.teamState.fragcarrier++;
 
@@ -576,10 +598,14 @@ gentity_t *Team_ResetFlag( int team ) {
 		}
 	}
 
-	if (team == TEAM_RED)
+	// team is the color of the flag being reset, so reset the flaghold of the opposite team
+	if ( team == TEAM_RED ) {
 		level.redFlagStealTime = 0;
-	else 
+		level.blueTeamRunFlaghold = 0;
+	} else {
 		level.blueFlagStealTime = 0;
+		level.redTeamRunFlaghold = 0;
+	}
 
 	Team_SetFlagStatus( team, FLAG_ATBASE );
 
@@ -736,55 +762,6 @@ static CaptureRecordType FindCaptureTypeForRun( gclient_t *client ) {
 	return CAPTURE_RECORD_STANDARD;
 }
 
-static qboolean InTrigger( vec3_t interpOrigin, gentity_t *trigger ) {
-	vec3_t mins, maxs;
-	static const vec3_t	pmins = { -15, -15, DEFAULT_MINS_2 };
-	static const vec3_t	pmaxs = { 15, 15, DEFAULT_MAXS_2 };
-
-	VectorAdd( interpOrigin, pmins, mins );
-	VectorAdd( interpOrigin, pmaxs, maxs );
-
-	if ( trap_EntityContact( mins, maxs, trigger ) ) {
-		return qtrue; // Player is touching the trigger
-	}
-
-	return qfalse; // Player is not touching the trigger
-}
-
-static int InterpolateTouchTime( gentity_t *activator, gentity_t *trigger ) { 
-	vec3_t	interpOrigin, delta;
-	int lessTime = 0;
-
-	// We know that last client frame, they were not touching the flag, but now they are.  Last client frame was pmoveMsec ms ago, so we only want to interp inbetween that range.
-	VectorCopy( activator->client->ps.origin, interpOrigin );
-	VectorScale( activator->s.pos.trDelta, 0.001f, delta ); // Delta is how much they travel in 1 ms.
-
-	VectorSubtract( interpOrigin, delta, interpOrigin ); // Do it once before we loop
-
-	// This will be done a max of pml.msec times, in theory, before we are guarenteed to not be in the trigger anymore.
-	while ( InTrigger( interpOrigin, trigger ) ) {
-		lessTime++; // Add one more ms to be subtracted
-		VectorSubtract( interpOrigin, delta, interpOrigin ); // Keep Rewinding position by a tiny bit, that corresponds with 1ms precision (delta*0.001), since delta is per second.
-		if ( lessTime >= activator->client->runTimer.pmoveMsec || lessTime >= 8 ) {
-			break; // In theory, this should never happen, but just incase stop it here.
-		}
-	}
-
-	return lessTime;
-}
-
-static int GetAccurateRunTime( gentity_t *ent, gentity_t *flag ) {
-	const int endTime = trap_Milliseconds() - InterpolateTouchTime( ent, flag );
-	const int endLag = trap_Milliseconds() - level.frameStartTime + level.time - ent->client->pers.cmd.serverTime;
-
-	int time = endTime - ent->client->runTimer.startTime;
-	if ( ent->client->runTimer.startLag - endLag > 0 ) {
-		time += ent->client->runTimer.startLag - endLag;
-	}
-
-	return time;
-}
-
 int Team_TouchEnemyFlag( gentity_t *ent, gentity_t *other, int team );
 extern void PartitionedTimer( const int time, int *mins, int *secs, int *millis );
 extern const char* GetShortNameForRecordType( CaptureRecordType type );
@@ -873,27 +850,36 @@ int Team_TouchOurFlag( gentity_t *ent, gentity_t *other, int team ) {
 		}
 	}
 
-	PrintCTFMessage(other->s.number, team, CTFMESSAGE_PLAYER_CAPTURED_FLAG);
-
 	//*CHANGE 31* longest flag holding time keeping track
-	other->client->pers.teamState.flaghold += (level.time - other->client->pers.teamState.flagsince);
-	if ( level.time - other->client->pers.teamState.flagsince > other->client->pers.teamState.longestFlaghold )
-		other->client->pers.teamState.longestFlaghold = level.time - other->client->pers.teamState.flagsince;
+	const int thisFlaghold = G_GetAccurateTimerOnTrigger( &other->client->pers.teamState.flagsince, other, ent );
+
+	other->client->pers.teamState.flaghold += thisFlaghold;
+	if ( thisFlaghold > other->client->pers.teamState.longestFlaghold )
+		other->client->pers.teamState.longestFlaghold = thisFlaghold;
+
+	// team is the color of the flagstand on which we are capturing, so we add time to the ACTUAL team (not the opposite)
+	int initialStealTime;
+	if ( team == TEAM_RED ) {
+		initialStealTime = level.blueFlagStealTime;
+		level.redTeamRunFlaghold += thisFlaghold;
+	} else {
+		initialStealTime = level.redFlagStealTime;
+		level.blueTeamRunFlaghold += thisFlaghold;
+	}
+
+	PrintCTFMessage( other->s.number, team, CTFMESSAGE_PLAYER_CAPTURED_FLAG );
 
 	const CaptureRecordType captureRecordType = FindCaptureTypeForRun( other->client );
 	if ( captureRecordType != CAPTURE_RECORD_INVALID ) {
-		const int pickupTime = other->client->pers.teamState.flagsince; // I guess we don't need extreme accuracy for this, it's just used for demos. so just use flagsince
-		const int runTime = GetAccurateRunTime( other, ent ); // use the accurate timer for the actual run though
-
 		char matchId[SV_UNIQUEID_LEN];
 		trap_Cvar_VariableStringBuffer( "sv_uniqueid", matchId, sizeof( matchId ) ); // this requires a custom OpenJK build
 
 		const int recordRank = G_LogDbCaptureTime( other->client->sess.ip, other->client->pers.netname,
 			other->client->sess.auth == AUTHENTICATED ? other->client->sess.cuidHash : "", other - g_entities,
-			matchId, runTime, OtherTeam( team ), pickupTime - level.startTime, captureRecordType, &level.mapCaptureRecords );
+			matchId, thisFlaghold, OtherTeam( team ), initialStealTime - level.startTime, captureRecordType, &level.mapCaptureRecords );
 
 		int secs, millis;
-		PartitionedTimer( runTime, NULL, &secs, &millis );
+		PartitionedTimer( thisFlaghold, NULL, &secs, &millis );
 
 		if ( recordRank ) {
 			// we just did a new capture record, broadcast it
@@ -1019,24 +1005,24 @@ int Team_TouchEnemyFlag( gentity_t *ent, gentity_t *other, int team ) {
 		cl->ps.powerups[PW_BLUEFLAG] = INT_MAX; // flags never expire
 
 	if (!(ent->flags & FL_DROPPED_ITEM)){ 
-		//log initial flag steal
-		if (team == TEAM_RED)
+		// initial flag steal, so reset the team flaghold times
+		// team is the color of the STOLEN flag, so we reset the run flaghold of the opposite team
+		if ( team == TEAM_RED ) {
 			level.redFlagStealTime = level.time;
-		else
+			level.blueTeamRunFlaghold = 0;
+		} else {
 			level.blueFlagStealTime = level.time;
-
-		// we are picking up a flag at base. start the accurate timer
-		cl->runTimer.startTime = trap_Milliseconds() - InterpolateTouchTime( other, ent );
-		cl->runTimer.startLag = trap_Milliseconds() - level.frameStartTime + level.time - other->client->pers.cmd.serverTime;
+			level.redTeamRunFlaghold = 0;
+		}
 	} else {
 		// this guy picked up a dropped flag, thus his run is invalid
 		other->client->runInvalid = qtrue;
 	}
 
-	Team_SetFlagStatus( team, FLAG_TAKEN );
+	G_ResetAccurateTimerOnTrigger( &cl->pers.teamState.flagsince, other, ent );
 
+	Team_SetFlagStatus( team, FLAG_TAKEN );
 	AddScore(other, ent->r.currentOrigin, CTF_FLAG_BONUS);
-	cl->pers.teamState.flagsince = level.time;
 	Team_TakeFlagSound( ent, team );
 
 	return -1; // Do not respawn this automatically, but do delete it if it was FL_DROPPED

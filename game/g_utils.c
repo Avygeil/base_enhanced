@@ -2364,3 +2364,60 @@ void G_GlobalTickedCenterPrint( const char *msg, int milliseconds, qboolean prio
 
 	UpdateGlobalCenterPrint( level.time );
 }
+
+static qboolean InTrigger( vec3_t interpOrigin, gentity_t *trigger ) {
+	vec3_t mins, maxs;
+	static const vec3_t	pmins = { -15, -15, DEFAULT_MINS_2 };
+	static const vec3_t	pmaxs = { 15, 15, DEFAULT_MAXS_2 };
+
+	VectorAdd( interpOrigin, pmins, mins );
+	VectorAdd( interpOrigin, pmaxs, maxs );
+
+	if ( trap_EntityContact( mins, maxs, trigger ) ) {
+		return qtrue; // Player is touching the trigger
+	}
+
+	return qfalse; // Player is not touching the trigger
+}
+
+static int InterpolateTouchTime( gentity_t *activator, gentity_t *trigger ) {
+	int lessTime = 0;
+
+	if ( trigger ) {
+		vec3_t	interpOrigin, delta;
+
+		// We know that last client frame, they were not touching the flag, but now they are.  Last client frame was pmoveMsec ms ago, so we only want to interp inbetween that range.
+		VectorCopy( activator->client->ps.origin, interpOrigin );
+		VectorScale( activator->s.pos.trDelta, 0.001f, delta ); // Delta is how much they travel in 1 ms.
+
+		VectorSubtract( interpOrigin, delta, interpOrigin ); // Do it once before we loop
+
+		// This will be done a max of pml.msec times, in theory, before we are guarenteed to not be in the trigger anymore.
+		while ( InTrigger( interpOrigin, trigger ) ) {
+			lessTime++; // Add one more ms to be subtracted
+			VectorSubtract( interpOrigin, delta, interpOrigin ); // Keep Rewinding position by a tiny bit, that corresponds with 1ms precision (delta*0.001), since delta is per second.
+			if ( lessTime >= activator->client->pmoveMsec || lessTime >= 8 ) {
+				break; // In theory, this should never happen, but just incase stop it here.
+			}
+		}
+	}
+
+	return lessTime;
+}
+
+void G_ResetAccurateTimerOnTrigger( accurateTimer *timer, gentity_t *activator, gentity_t *trigger ) {
+	timer->startTime = trap_Milliseconds() - InterpolateTouchTime( activator, trigger );
+	timer->startLag = trap_Milliseconds() - level.frameStartTime + level.time - activator->client->pers.cmd.serverTime;
+}
+
+int G_GetAccurateTimerOnTrigger( accurateTimer *timer, gentity_t *activator, gentity_t *trigger ) {
+	const int endTime = trap_Milliseconds() - InterpolateTouchTime( activator, trigger );
+	const int endLag = trap_Milliseconds() - level.frameStartTime + level.time - activator->client->pers.cmd.serverTime;
+
+	int time = endTime - timer->startTime;
+	if ( timer->startLag - endLag > 0 ) {
+		time += timer->startLag - endLag;
+	}
+
+	return time;
+}

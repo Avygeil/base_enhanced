@@ -419,6 +419,12 @@ typedef enum {
 	TEAM_ACTIVE		// Now actively playing
 } playerTeamStateState_t;
 
+// do NOT use level.time with this structure, use the helper functions instead
+typedef struct {
+	int startTime;
+	int startLag;
+} accurateTimer;
+
 typedef struct {
 	playerTeamStateState_t	state;
 
@@ -441,7 +447,7 @@ typedef struct {
 
 	int			lasthurtcarrier;
 	int			lastreturnedflag;
-	int			flagsince;
+	accurateTimer flagsince;
 	int			lastfraggedcarrier;
 } playerTeamState_t;
 
@@ -876,11 +882,8 @@ struct gclient_s {
 
 	int			preduelWeaps;
 
-	struct {
-		int startTime;
-		int startLag;
-		int pmoveMsec;
-	} runTimer; // accurate timer
+	int			pmoveMsec; // used for interpolation with accurate timers
+
 	qboolean	runInvalid; // qtrue if external damage/force was used on this player. this invalidates ALL categories
 	qboolean	usedWeapon; // triggers the weapon capture record category
 
@@ -1098,6 +1101,11 @@ typedef struct {
 	int			redFlagStealTime;
 	int			blueFlagStealTime;
 
+	// this is used to transmit the capture time to clients
+	// unlike flagsince, this is the sum of the flagholds needed to bring a flag from one flagstand to another (time dropped doesn't count)
+	int			redTeamRunFlaghold;
+	int			blueTeamRunFlaghold;
+
 	qboolean			allReady;       // all ready flag
 
 	char		*changemap;
@@ -1296,6 +1304,8 @@ void	GetAnglesForDirection( const vec3_t p1, const vec3_t p2, vec3_t out );
 
 void UpdateGlobalCenterPrint( const int levelTime );
 void G_GlobalTickedCenterPrint( const char *msg, int milliseconds, qboolean prioritized );
+void G_ResetAccurateTimerOnTrigger( accurateTimer *timer, gentity_t *activator, gentity_t *trigger );
+int G_GetAccurateTimerOnTrigger( accurateTimer *timer, gentity_t *activator, gentity_t *trigger );
 
 //
 // g_object.c

@@ -2727,9 +2727,20 @@ void LogExit( const char *string ) {
 		}
 
 		if ((cl->ps.powerups[PW_BLUEFLAG] || cl->ps.powerups[PW_REDFLAG])){
-			cl->pers.teamState.flaghold += (level.time - cl->pers.teamState.flagsince);
-			if ( level.time - cl->pers.teamState.flagsince > cl->pers.teamState.longestFlaghold )
-				cl->pers.teamState.longestFlaghold = level.time - cl->pers.teamState.flagsince;
+			const int thisFlaghold = G_GetAccurateTimerOnTrigger( &cl->pers.teamState.flagsince, &g_entities[level.sortedClients[i]], NULL );
+
+			cl->pers.teamState.flaghold += thisFlaghold;
+
+			if ( thisFlaghold > cl->pers.teamState.longestFlaghold )
+				cl->pers.teamState.longestFlaghold = thisFlaghold;
+
+			if ( cl->ps.powerups[PW_REDFLAG] ) {
+				// carried the red flag, so blue team
+				level.blueTeamRunFlaghold += thisFlaghold;
+			} else if ( cl->ps.powerups[PW_BLUEFLAG] ) {
+				// carried the blue flag, so red team
+				level.redTeamRunFlaghold += thisFlaghold;
+			}
 		}
 
 		if ( cl->ps.fd.forcePowersActive & ( 1 << FP_PROTECT ) ) {

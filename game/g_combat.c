@@ -2311,12 +2311,20 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 
 	//*CHANGE 31* longest flag holding time keeping track
 	if ((self->client->ps.powerups[PW_BLUEFLAG] || self->client->ps.powerups[PW_REDFLAG])){
-		if (level.time < self->client->pers.teamState.flagsince)
-			G_LogPrintf("ERROR: flagsince bugged, level.time:%i flagsince:%i\n",level.time,self->client->pers.teamState.flagsince);
+		const int thisFlaghold = G_GetAccurateTimerOnTrigger( &self->client->pers.teamState.flagsince, self, NULL );
 
-		self->client->pers.teamState.flaghold += level.time - self->client->pers.teamState.flagsince;
-		if ( level.time - self->client->pers.teamState.flagsince > self->client->pers.teamState.longestFlaghold )
-			self->client->pers.teamState.longestFlaghold = level.time - self->client->pers.teamState.flagsince;
+		self->client->pers.teamState.flaghold += thisFlaghold;
+
+		if ( thisFlaghold > self->client->pers.teamState.longestFlaghold )
+			self->client->pers.teamState.longestFlaghold = thisFlaghold;
+
+		if ( self->client->ps.powerups[PW_REDFLAG] ) {
+			// carried the red flag, so blue team
+			level.blueTeamRunFlaghold += thisFlaghold;
+		} else if ( self->client->ps.powerups[PW_BLUEFLAG] ) {
+			// carried the blue flag, so red team
+			level.redTeamRunFlaghold += thisFlaghold;
+		}
 	}
 
 	if (self == attacker)

@@ -9911,7 +9911,7 @@ void PmoveSingle (pmove_t *pmove) {
 	}
 
 #ifdef QAGAME
-	( ( gentity_t * )pm_entSelf )->client->runTimer.pmoveMsec = pml.msec; // accurate timer
+	( ( gentity_t * )pm_entSelf )->client->pmoveMsec = pml.msec; // accurate timer
 #endif
 
 	pm->ps->commandTime = pmove->cmd.serverTime;
