@@ -1965,26 +1965,6 @@ qboolean PasswordMatches( const char *s ) {
 		( sv_privatepassword.string[0] && !strcmp( sv_privatepassword.string, s ) );
 }
 
-#define StripUserinfo( u, k )				\
-do {										\
-	if ( Info_ValueForKey( u, k ) ) {		\
-		Info_SetValueForKey( u, k, "***" );	\
-	}										\
-} while ( 0 )
-
-// strips sensitive info from userinfo and returns a static buffer for quick logging
-static char* GetStrippedUserinfo( char *userinfo ) {
-	static char cleanedUserinfo[MAX_INFO_STRING];
-
-	memcpy( cleanedUserinfo, userinfo, sizeof( cleanedUserinfo ) );
-	StripUserinfo( cleanedUserinfo, "ja_guid" );
-	StripUserinfo( cleanedUserinfo, "cuid" );
-	StripUserinfo( cleanedUserinfo, "sex" );
-	StripUserinfo( cleanedUserinfo, "password" );
-
-	return cleanedUserinfo;
-}
-
 // replaces "@@@" in a string with "   "
 void PurgeStringedTrolling(char *in, char *out, int outSize) {
 	if (!in || !in[0])
@@ -2533,14 +2513,14 @@ void ClientUserinfoChanged( int clientNum ) {
 			SHA1Input( &ctx, (unsigned char *)value, (unsigned int)strlen(value) );
 			if ( SHA1Result( &ctx ) == 1 ) {
 				guidHash = ctx.Message_Digest[0];
-				G_LogPrintf( "Client %d (OpenJK) reports guid %d (userinfo %s)\n", clientNum, guidHash, GetStrippedUserinfo( userinfo ) );
+				G_LogPrintf( "Client %d (OpenJK) reports guid %d (userinfo %s)\n", clientNum, guidHash, userinfo );
 			}
 		} else {
 			// not an openjk client, so we should be able to force their cvars
 			value = Info_ValueForKey( userinfo, "sex" );
 			if ( value && *value && Q_isanumber( value ) ) {
 				guidHash = atoi( value );
-				G_LogPrintf( "Client %d reports guid %d (userinfo %s)\n", clientNum, guidHash, GetStrippedUserinfo( userinfo ) );
+				G_LogPrintf( "Client %d reports guid %d (userinfo %s)\n", clientNum, guidHash, userinfo );
 			} else {
 				char previnfo[16384] = { 0 };
 				qboolean prevGuid = qfalse;
@@ -2563,10 +2543,10 @@ void ClientUserinfoChanged( int clientNum ) {
 					}
 				}
 				if ( prevGuid ) {
-					G_LogPrintf( "Reassigning previously assigned guid %d to client %d (userinfo %s)\n", guidHash, clientNum, GetStrippedUserinfo( userinfo ) );
+					G_LogPrintf( "Reassigning previously assigned guid %d to client %d (userinfo %s)\n", guidHash, clientNum, userinfo );
 				} else {
 					guidHash = rand();
-					G_LogPrintf( "Assigning random guid %d to client %d (userinfo %s)\n", guidHash, clientNum, GetStrippedUserinfo( userinfo ) );
+					G_LogPrintf( "Assigning random guid %d to client %d (userinfo %s)\n", guidHash, clientNum, userinfo );
 				}
 
 				// they only need to see it once for it to be set
