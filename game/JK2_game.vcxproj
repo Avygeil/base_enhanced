@@ -52,6 +52,7 @@
     <ClInclude Include="interpreter.h" />
     <ClInclude Include="inv.h" />
     <ClInclude Include="jp_engine.h" />
+    <ClInclude Include="kdtree.h" />
     <ClInclude Include="match.h" />
     <ClInclude Include="menudef.h" />
     <ClInclude Include="namespace_begin.h" />
@@ -126,6 +127,10 @@
     <ClCompile Include="g_weapon.c" />
     <ClCompile Include="jp_engine.c" />
     <ClCompile Include="jp_enginehelper.c" />
+    <ClCompile Include="kdtree.c">
+      <WarningLevel Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">TurnOffAllWarnings</WarningLevel>
+      <WarningLevel Condition="'$(Configuration)|$(Platform)'=='Final|Win32'">TurnOffAllWarnings</WarningLevel>
+    </ClCompile>
     <ClCompile Include="NPC.c" />
     <ClCompile Include="NPC_AI_Atst.c" />
     <ClCompile Include="NPC_AI_Default.c" />
@@ -164,6 +169,8 @@
     <ClCompile Include="SpeederNPC.c" />
     <ClCompile Include="sqlite3.c">
       <BrowseInformation Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</BrowseInformation>
+      <WarningLevel Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">TurnOffAllWarnings</WarningLevel>
+      <WarningLevel Condition="'$(Configuration)|$(Platform)'=='Final|Win32'">TurnOffAllWarnings</WarningLevel>
     </ClCompile>
     <ClCompile Include="tri_coll_test.c" />
     <ClCompile Include="WalkerNPC.c" />

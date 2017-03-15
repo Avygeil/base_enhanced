@@ -2421,3 +2421,28 @@ int G_GetAccurateTimerOnTrigger( accurateTimer *timer, gentity_t *activator, gen
 
 	return time;
 }
+
+gentity_t* G_ClosestEntity( gentity_t *ref, entityFilter_func filterFunc ) {
+	int i;
+	gentity_t *ent;
+
+	gentity_t *found = NULL;
+	vec_t lowestDistance = 0;
+
+	for ( i = 0, ent = g_entities; i < level.num_entities; ++i, ++ent ) {
+		if ( !ent || !ent->classname ) {
+			continue;
+		}
+
+		if ( filterFunc( ent ) ) {
+			vec_t distance = DistanceSquared( ref->r.currentOrigin, ent->r.currentOrigin );
+
+			if ( !found || distance < lowestDistance ) {
+				found = ent;
+				lowestDistance = distance;
+			}
+		}
+	}
+
+	return found;
+}

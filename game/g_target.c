@@ -547,36 +547,6 @@ void SP_target_position( gentity_t *self ){
 	G_SetOrigin( self, self->s.origin );
 }
 
-static void target_location_linkup(gentity_t *ent)
-{
-	int i;
-	int n;
-
-	if (level.locationLinked) 
-		return;
-
-	level.locationLinked = qtrue;
-
-	level.locationHead = NULL;
-
-	trap_SetConfigstring( CS_LOCATIONS, "unknown" );
-
-	for (i = 0, ent = g_entities, n = 1;
-			i < level.num_entities;
-			i++, ent++) {
-		if (ent->classname && !Q_stricmp(ent->classname, "target_location")) {
-			// lets overload some variables!
-			ent->health = n; // use for location marking
-			trap_SetConfigstring( CS_LOCATIONS + n, ent->message );
-			n++;
-			ent->nextTrain = level.locationHead;
-			level.locationHead = ent;
-		}
-	}
-
-	// All linked together now
-}
-
 /*QUAKED target_location (0 0.5 0) (-8 -8 -8) (8 8 8)
 Set "message" to the name of this location.
 Set "count" to 0-7 for color.
@@ -585,11 +555,37 @@ Set "count" to 0-7 for color.
 Closest target_location in sight used for the location, if none
 in site, closest in distance
 */
-void SP_target_location( gentity_t *self ){
-	self->think = target_location_linkup;
-	self->nextthink = level.time + 200;  // Let them all spawn first
+void SP_target_location( gentity_t *self ) {
+	if ( self->targetname && self->targetname[0] ) {
+		SP_target_position( self );
+		return;
+	} else {
+		static qboolean didwarn = qfalse;
 
-	G_SetOrigin( self, self->s.origin );
+		if ( !VALIDSTRING( self->message ) ) {
+			G_Printf( "target_location with no message at %s\n", vtos( self->s.origin ) );
+			G_FreeEntity( self );
+			return;
+		}
+
+		if ( level.locations.legacy.num >= MAX_LOCATIONS ) {
+			if ( !didwarn ) {
+				G_Printf( "Maximum target_locations hit (%d)! Remaining locations will be removed.\n", MAX_LOCATIONS );
+				didwarn = qtrue;
+			}
+
+			G_FreeEntity( self );
+			return;
+		}
+
+		VectorCopy( self->s.origin, level.locations.legacy.data[level.locations.legacy.num].origin );
+		Q_strncpyz( level.locations.legacy.data[level.locations.legacy.num].message, self->message, sizeof( level.locations.legacy.data[level.locations.legacy.num].message ) );
+		level.locations.legacy.data[level.locations.legacy.num].count = Com_Clampi( 0, 9, self->count );
+
+		level.locations.legacy.num++;
+
+		G_FreeEntity( self );
+	}
 }
 
 /*QUAKED target_counter (1.0 0 0) (-4 -4 -4) (4 4 4) x x x x x x x INACTIVE

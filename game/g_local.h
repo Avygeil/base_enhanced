@@ -35,14 +35,12 @@ extern vec3_t gPainPoint;
 //#define	GAMEVERSION	"basejka" //test
 
 #define NEWMOD_SUPPORT
+
 #ifdef NEWMOD_SUPPORT
 #define NM_AUTH_PROTOCOL				3
 
 #define PUBLIC_KEY_FILENAME				"public_key.bin"
 #define SECRET_KEY_FILENAME				"secret_key.bin"
-
-#define MAX_ENHANCED_LOCATION			31
-#define MAX_ENHANCED_LOCATION_STRING	1012
 #endif
 
 #define MAX_USERNAME_SIZE 32 //username size	16
@@ -149,16 +147,6 @@ extern void *g2SaberInstance;
 
 extern qboolean gEscaping;
 extern int gEscapeTime;
-
-#ifdef NEWMOD_SUPPORT
-// for knowing which team "owns" a ctf enhanced location
-typedef enum {
-	OWNER_UNDETERMINED = 0,
-	OWNER_RED,
-	OWNER_BLUE,
-	OWNER_NONE
-} locationOwner_t;
-#endif
 
 struct gentity_s {
 	//rww - entstate must be first, to correspond with the bg shared entity structure
@@ -390,10 +378,6 @@ struct gentity_s {
 	qboolean    isReflected;
 
 	gitem_t		*item;			// for bonus items
-
-#ifdef NEWMOD_SUPPORT
-	locationOwner_t		owner;
-#endif
 };
 
 #define DAMAGEREDIRECT_HEAD		1
@@ -456,14 +440,6 @@ typedef struct {
 #define	FOLLOW_ACTIVE1	-1
 #define	FOLLOW_ACTIVE2	-2
 
-#ifdef NEWMOD_SUPPORT
-typedef struct {
-	char		loc[MAX_ENHANCED_LOCATION];					// where this player is
-	char		sentString[MAX_ENHANCED_LOCATION_STRING];	// the data that was last sent to this player
-	int			sentTime;									// the time at which it was sent
-} EnhancedLocationContext;
-#endif
-
 // client data that stays across multiple levels or tournament restarts
 // this is achieved by writing all the data to cvar strings at game shutdown
 // time and reading them back at connection time.  Anything added here
@@ -520,7 +496,6 @@ typedef struct {
 	} auth;
 	char		cuidHash[CRYPTO_HASH_HEX_SIZE]; // hash of the client cuid
 	int			serverKeys[2]; // randomly generated auth keys to confirm legit clients
-	EnhancedLocationContext	enhancedLocation;
 #endif
 } clientSession_t;
 
@@ -999,6 +974,21 @@ typedef struct {
 	CaptureRecord records[CAPTURE_RECORD_NUM_TYPES][MAX_SAVED_RECORDS]; // all the records pulled from db when level starts
 } CaptureRecordList;
 
+#define MAX_LOCATION_CHARS 32
+
+typedef struct {
+	char	message[MAX_LOCATION_CHARS];
+	int		count;
+	int		cs_index;
+	vec3_t	origin;
+} legacyLocation_t;
+
+typedef struct {
+	char	message[MAX_LOCATION_CHARS];
+	team_t	teamowner;
+	int		cs_index;
+} enhancedLocation_t;
+
 typedef struct {
 	struct gclient_s	*clients;		// [maxclients]
 
@@ -1114,8 +1104,6 @@ typedef struct {
 	vec3_t		intermission_origin;	// also used for spectator spawns
 	vec3_t		intermission_angle;
 
-	qboolean	locationLinked;			// target_locations get linked
-	gentity_t	*locationHead;			// head of the location list
 	int			bodyQueIndex;			// dead bodies
 	gentity_t	*bodyQue[BODY_QUEUE_SIZE];
 	int			portalSequence;
@@ -1166,6 +1154,22 @@ typedef struct {
 	int frameStartTime; // accurate timer
 	CaptureRecordList mapCaptureRecords;
 
+	struct {
+		struct {
+			int num;
+			legacyLocation_t data[MAX_LOCATIONS];
+		} legacy;
+
+		struct {
+			int numUnique; // two locations with the same message make an unique location, so this is at most MAX_LOCATIONS
+			int numTotal; // how many entities were parsed in total, duplicates included
+			enhancedLocation_t data[MAX_LOCATIONS];
+			void *lookupTree; // k-d tree for fast lookup, multiple nodes may point to the same data[n]
+		} enhanced;
+
+		qboolean linked;
+	} locations;
+
 #ifdef NEWMOD_SUPPORT
 	qboolean nmAuthEnabled;
 	publicKey_t publicKey;
@@ -1204,9 +1208,6 @@ void Cmd_Help_f( gentity_t *ent );
 void Cmd_FollowFlag_f( gentity_t *ent );
 
 gentity_t *G_GetDuelWinner(gclient_t *client);
-#ifdef NEWMOD_SUPPORT
-char* GetLocation(gclient_t *cl);
-#endif
 
 //
 // g_items.c
@@ -1306,6 +1307,9 @@ void UpdateGlobalCenterPrint( const int levelTime );
 void G_GlobalTickedCenterPrint( const char *msg, int milliseconds, qboolean prioritized );
 void G_ResetAccurateTimerOnTrigger( accurateTimer *timer, gentity_t *activator, gentity_t *trigger );
 int G_GetAccurateTimerOnTrigger( accurateTimer *timer, gentity_t *activator, gentity_t *trigger );
+
+typedef qboolean ( *entityFilter_func )( gentity_t* );
+gentity_t* G_ClosestEntity( gentity_t *ref, entityFilter_func );
 
 //
 // g_object.c
@@ -2021,6 +2025,9 @@ extern vmCvar_t     g_fixPitKills;
 extern vmCvar_t		g_balanceSaber;
 extern vmCvar_t		g_balanceSeeing;
 
+extern vmCvar_t		g_autoGenerateLocations;
+extern vmCvar_t		g_enableChatLocations;
+
 // flags for g_randFix
 #define BROKEN_RNG_BLOCK	(1<<0) // intentionally break rng for saber blocking
 #define BROKEN_RNG_DEFLECT	(1<<1) // intentionally break rng for projectile deflection
@@ -2052,7 +2059,6 @@ extern vmCvar_t	g_accounts;
 extern vmCvar_t	g_accountsFile;
 
 extern vmCvar_t	g_whitelist;
-extern vmCvar_t    g_enhancedLocations;
 extern vmCvar_t    g_fixboon;
 extern vmCvar_t    g_maxstatusrequests;
 extern vmCvar_t	   g_logrcon;

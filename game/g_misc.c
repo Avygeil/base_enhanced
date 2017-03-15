@@ -7,6 +7,8 @@
 
 #include "ai_main.h" //for the g2animents
 
+#include "kdtree.h"
+
 #define HOLOCRON_RESPAWN_TIME 30000
 #define MAX_AMMO_GIVE 2
 #define STATION_RECHARGE_TIME 100
@@ -27,10 +29,58 @@ void SP_info_camp( gentity_t *self ) {
 }
 
 /*QUAKED info_b_e_location
-The targetname of the closest entity of this type will be used for the $L team chat token.
+Set "message" to the name of this location. Colors are stripped. $R and $B
+will be replaced by the relative team at runtime ("Enemy" or "Our").
+
+If at least one entity of this type is present, the entire target_location
+system is replaced by this set of entities for team overlay, localized chat
+and $L chat tokens.
 */
 void SP_info_b_e_location( gentity_t *self ) {
-	G_SetOrigin( self, self->s.origin );
+	static qboolean didwarn = qfalse;
+	int i;
+
+	if ( !VALIDSTRING( self->message ) ) {
+		G_Printf( "info_b_e_location with no message at %s\n", vtos( self->s.origin ) );
+		G_FreeEntity( self );
+		return;
+	}
+
+	if ( level.locations.enhanced.numUnique >= MAX_LOCATIONS ) {
+		if ( !didwarn ) {
+			G_Printf( "Maximum info_b_e_locations hit (%d)! Remaining locations will be removed.\n", MAX_LOCATIONS );
+			didwarn = qtrue;
+		}
+
+		G_FreeEntity( self );
+		return;
+	}
+
+	enhancedLocation_t *loc = NULL;
+
+	// let's find if a handle for this location message already exists
+	for ( i = 0; i < level.locations.enhanced.numUnique; ++i ) {
+		enhancedLocation_t *thisLoc = &level.locations.enhanced.data[i];
+
+		if ( !strcmp( self->message, thisLoc->message ) && self->s.teamowner == thisLoc->teamowner ) {
+			loc = thisLoc;
+			break;
+		}
+	}
+
+	// if there was no handle with this location message, create one now
+	if ( !loc ) {
+		loc = &level.locations.enhanced.data[level.locations.enhanced.numUnique++];
+		Q_strncpyz( loc->message, self->message, sizeof( loc->message ) );
+		Q_CleanStr( loc->message );
+		loc->teamowner = Com_Clampi( 0, 2, self->s.teamowner );
+	}
+
+	// add the location to the k-d tree, and point to the corresponding handle
+	kd_insertf( level.locations.enhanced.lookupTree, self->s.origin, loc );
+	level.locations.enhanced.numTotal++;
+
+	G_FreeEntity( self );
 }
 
 /*QUAKED info_null (0 0.5 0) (-4 -4 -4) (4 4 4)
@@ -447,7 +497,7 @@ void SP_misc_bsp(gentity_t *ent)
 
 	level.mBSPInstanceDepth--;
 	level.mTeamFilter[0] = 0;
-		}
+}
 
 /*QUAKED terrain (1.0 1.0 1.0) ? NOVEHDMG
 

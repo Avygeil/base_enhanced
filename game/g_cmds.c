@@ -4,8 +4,9 @@
 #include "bg_saga.h"
 #include "g_database_log.h"
 #include "g_database_config.h"
-#include <float.h>
-#include "menudef.h"			// for the voice 
+
+#include "menudef.h"			// for the voice chats
+
 //rww - for getting bot commands...
 int AcceptBotCommand(char *cmd, gentity_t *pl);
 //end rww
@@ -1656,7 +1657,7 @@ static void G_SayTo( gentity_t *ent, gentity_t *other, int mode, int color, cons
 
 	//They've requested I take this out.
 
-	if (locMsg && !(g_gametype.integer == GT_CTF || g_gametype.integer == GT_CTY)) // duo: never send location in teamchat for ctf
+	if (locMsg && g_enableChatLocations.integer)
 	{
 		trap_SendServerCommand( other-g_entities, va("%s \"%s\" \"%s\" \"%c\" \"%s\"", 
 			mode == SAY_TEAM ? "ltchat" : "lchat",
@@ -1715,315 +1716,40 @@ char* NM_SerializeUIntToColor( const unsigned int n ) {
 	return &result[0];
 }
 
-#ifdef NEWMOD_SUPPORT
-static char* GetWeaponShortName( int weapon ) {
-	switch ( weapon ) {
-	case WP_STUN_BATON: return "Stun Baton";
-	case WP_BRYAR_PISTOL:
-	case WP_BRYAR_OLD: return "Pistol";
-	case WP_BLASTER: return "Blaster";
-	case WP_DISRUPTOR: return "Disruptor";
-	case WP_BOWCASTER: return "Bowcaster";
-	case WP_REPEATER: return "Repeater";
-	case WP_DEMP2: return "Demp";
-	case WP_FLECHETTE: return "Golan";
-	case WP_ROCKET_LAUNCHER: return "Rockets";
-	case WP_THERMAL: return "Thermals";
-	case WP_TRIP_MINE: return "Mines";
-	case WP_DET_PACK: return "Detpacks";
-	case WP_CONCUSSION: return "Concussion";
-	default: return "Unknown";
-	}
-}
+static void WriteTextForToken( gentity_t *ent, const char token, char *buffer, size_t bufferSize ) {
+	buffer[0] = '\0';
 
-static char* GetPowerupShortName(int pw) {
-	switch (pw) {
-	case PW_FORCE_ENLIGHTENED_LIGHT: return "Light Enlightenment";
-	case PW_FORCE_ENLIGHTENED_DARK: return "Dark Enlightenment";
-	case PW_FORCE_BOON: return "Boon";
-	case PW_YSALAMIRI: return "Ysalamiri";
-	default: return "Unknown";
-	}
-}
-
-typedef enum {
-	CTFLOC_UNKNOWN = 0,
-	CTFLOC_REDFLAGSTAND,
-	CTFLOC_BLUEFLAGSTAND,
-	CTFLOC_POWERUP,
-	CTFLOC_WEAPON,
-	MAX_CTFLOCS
-} ctfLocationType_t;
-
-static ctfLocationType_t GetCTFLocationType(gentity_t *ent) {
-	if (!ent || !ent->classname)
-		return CTFLOC_UNKNOWN;
-	if (!Q_stricmp(ent->classname, "team_ctf_redflag"))
-		return CTFLOC_REDFLAGSTAND;
-	if (!Q_stricmp(ent->classname, "team_ctf_blueflag"))
-		return CTFLOC_BLUEFLAGSTAND;
-	if (ent->item && ent->item->giType == IT_POWERUP && ent->item->giTag >= PW_FORCE_ENLIGHTENED_LIGHT && ent->item->giTag <= PW_YSALAMIRI)
-		return CTFLOC_POWERUP;
-	if (ent->item && ent->item->giType == IT_WEAPON)
-		return CTFLOC_WEAPON;
-	return CTFLOC_UNKNOWN;
-}
-
-static float GetXYDistance(gentity_t *ent1, gentity_t *ent2) {
-	if (!ent1 || !ent2)
-		return -1;
-
-	float diff[2];
-	diff[0] = fabs(ent1->s.origin[0] - ent2->s.origin[0]);
-	diff[1] = fabs(ent1->s.origin[1] - ent2->s.origin[1]);
-
-	return sqrt(diff[0] * diff[0] + diff[1] * diff[1]);
-}
-
-// determines if a weapon or powerup is "owned" by a particular team, and returns a string to indicate this
-// this is done by seeing whose flagstand it is closer to.
-// returns "$R" if red, "$B" if blue, or "" if none or unknown.
-static char *GetOwnerOfLocation(gentity_t *locEnt) {
-	if (!locEnt || !locEnt->item || (locEnt->item->giType != IT_POWERUP && locEnt->item->giType != IT_WEAPON))
-		return "";
-
-	switch (locEnt->owner) { // check to see if we have already determined that this entity has an owner earlier in the match
-	case OWNER_UNDETERMINED:	break;
-	case OWNER_RED:				return "$R";
-	case OWNER_BLUE:			return "$B";
-	case OWNER_NONE:			return "";
-	}
-
-	// count the number of instances of this kind of entity on the map (not including locEnt itself)
-	int i, found = 0;
-	gentity_t *ent, *redFlagstand = 0, *blueFlagstand = 0, *closestWeapon = 0;
-	float lowestWeaponDistance = FLT_MAX;
-	for (i = MAX_CLIENTS; i < MAX_GENTITIES; i++) {
-		ent = &g_entities[i];
-		if (!ent)
-			continue;
-		if (ent != locEnt && ent->item && ent->item->giType == IT_WEAPON && !(locEnt->item->giType == IT_WEAPON && ent->item->giTag == locEnt->item->giTag)) {
-			float distance = GetXYDistance(ent, locEnt);
-			if (distance < lowestWeaponDistance) {
-				lowestWeaponDistance = distance;
-				closestWeapon = ent;
-			}
-		}
-		if (ent->classname && *ent->classname && !Q_stricmp(ent->classname, "team_ctf_redflag")) {
-			redFlagstand = ent;
-			continue;
-		}
-		else if (ent->classname && *ent->classname && !Q_stricmp(ent->classname, "team_ctf_blueflag")) {
-			blueFlagstand = ent;
-			continue;
-		}
-		else if (!ent->item || ent->item->giType != locEnt->item->giType || ent->item->giTag != locEnt->item->giTag || ent == locEnt)
-			continue;
-		found++;
-	}
-
-	if (!found) {
-		locEnt->owner = OWNER_NONE;
-		return ""; // locEnt is the only instance of this kind of entity on the map; there is no owner (likely e.g. for boon)
-	}
-
-	// there are multiple of this kind of entity; let's see whose flagstand locEnt is closer to
-	if (!redFlagstand || !blueFlagstand)
-		return ""; // couldn't find either flag...?
-	float locEntRedDistance = GetXYDistance(locEnt, redFlagstand), locEntBlueDistance = GetXYDistance(locEnt, blueFlagstand);
-	if (locEntRedDistance < locEntBlueDistance) {
-		locEnt->owner = OWNER_RED;
-		return "$R";
-	}
-	else if (locEntBlueDistance < locEntRedDistance) {
-		locEnt->owner = OWNER_BLUE;
-		return "$B";
-	}
-
-	// if we got here, there are multiple of this kind of entity and locEnt is equidistant from the two flags
-	// take the closest weapon to locEnt and see which flagstand it's closer to
-	if (closestWeapon) {
-		float weaponRedDistance = GetXYDistance(closestWeapon, redFlagstand), weaponBlueDistance = GetXYDistance(closestWeapon, blueFlagstand);
-		if (weaponRedDistance < weaponBlueDistance) {
-			locEnt->owner = OWNER_RED;
-			return "$R";
-		}
-		else if (weaponBlueDistance < weaponRedDistance) {
-			locEnt->owner = OWNER_BLUE;
-			return "$B";
-		}
-	}
-
-	// both locEnt and closestWeapon are equidistant from both flagstands; crash the server to get off this shit map
-	//*((unsigned int*)0) = 0xDEAD;
-	return "";
-}
-
-// returns a (possibly) tokenized string such as "$RGolan" or "$BFlagstand" or "Boon"
-static char *FindClosestCTFLocation(gclient_t *cl) {
-	gentity_t *ent, *foundEnt = NULL;
-	ctfLocationType_t type = CTFLOC_UNKNOWN;
-	int i;
-	vec_t lowestDistance = 0;
-
-	for (i = 0, ent = &g_entities[0]; i < level.num_entities; ++i, ++ent) {
-		type = GetCTFLocationType(ent);
-		if (!type)
-			continue;
-
-		vec_t distance = DistanceSquared(cl->ps.origin, ent->r.currentOrigin);
-
-		if (!foundEnt || distance < lowestDistance) {
-			lowestDistance = distance;
-			foundEnt = ent;
-		}
-	}
-
-	if (foundEnt) {
-		type = GetCTFLocationType(foundEnt);
-		switch (type) {
-		case CTFLOC_REDFLAGSTAND:
-			return "$RFlagstand";
-		case CTFLOC_BLUEFLAGSTAND:
-			return "$BFlagstand";
-		case CTFLOC_POWERUP:
-			return va("%s%s", GetOwnerOfLocation(foundEnt), GetPowerupShortName(foundEnt->item->giTag));
-		case CTFLOC_WEAPON:
-			return va("%s%s", GetOwnerOfLocation(foundEnt), GetWeaponShortName(foundEnt->item->giTag));
-		default:
-			return ""; // invalid type
-		}
-	}
-
-	return "";
-}
-
-static int FindClosestStaticWeapon( gclient_t *cl ) {
-	gentity_t *ent;
-	int i, weaponFound = -1;
-	vec_t lowestDistance = 0;
-	
-	for ( i = 0, ent = &g_entities[0]; i < level.num_entities; ++i, ++ent ) {
-		if ( !ent || !ent->item || ent->item->giType != IT_WEAPON ) { // not a weapon
-			continue;
-		}
-
-		entityState_t *s = &ent->s;
-
-		if ( !s || s->eFlags & EF_DROPPEDWEAPON ) { // dropped weapon
-			continue;
-		}
-
-		vec_t distance = DistanceSquared( cl->ps.origin, ent->r.currentOrigin );
-
-		if ( weaponFound < 0 || distance < lowestDistance ) { // this one is closer
-			lowestDistance = distance;
-			weaponFound = ent->item->giTag;
-		}
-	}
-
-	return weaponFound;
-}
-
-static char* FindClosestInfoLocation( gclient_t *cl ) {
-	gentity_t *ent, *foundLocation = NULL;
-	int i;
-	vec_t lowestDistance = 0;
-
-	for ( i = 0, ent = &g_entities[0]; i < level.num_entities; ++i, ++ent ) {
-		if ( !ent || !ent->classname || Q_stricmp(ent->classname, "info_b_e_location") || !ent->message[0] ) {
-			continue;
-		}
-
-		vec_t distance = DistanceSquared( cl->ps.origin, ent->r.currentOrigin );
-
-		if ( !foundLocation || distance < lowestDistance ) {
-			lowestDistance = distance;
-			foundLocation = ent;
-		}
-	}
-
-	if ( foundLocation ) {
-		return foundLocation->message;
-	}
-
-	return "";
-}
-
-static char *GetLocationToken(const char token, team_t team) {
-	switch (token) {
-	case 'r': case 'R': return team == TEAM_RED ? "" : "Enemy "; // with a trailing space
-	case 'b': case 'B': return team == TEAM_BLUE ? "" : "Enemy "; // with a trailing space
-	default: return "";
-	}
-}
-
-#define TOKEN_CHAR	'$'
-static void TokenizeLocation(gclient_t *cl, char *dest, char *src, size_t destsize) {
-	if (!src || !*src)
+	if ( !ent || !ent->client ) {
 		return;
-	const char *p;
-	int i = 0;
-
-	for (p = src; p && *p && destsize > 1; ++p) {
-		if (*p == TOKEN_CHAR) {
-			char *token = GetLocationToken(*++p, cl->ps.persistant[PERS_TEAM]);
-			if (token && *token) {
-				int len = strlen(token);
-				destsize -= len;
-				if (destsize > 0) {
-					Q_strcat(dest + i, len + 1, token);
-					i += len;
-					continue;
-				}
-				else
-					break; // don't write it at all if there is no room
-			};
-			p++; // GetLocationToken returned empty; move on to the next digit
-#if 0 // not going to bother supporting info_b_e_locations containing random $ symbols
-			--p; // this token is invalid, go back to write the $ sign
-#endif
-		}
-		dest[i++] = *p;
-		--destsize;
 	}
 
-	dest[i] = '\0';
-}
+	gclient_t *cl = ent->client;
 
-// attempts to find the closest info_b_e_location, otherwise return the closest flagstand/powerup/weapon (just weapon in non-CTF modes)
-char* GetLocation( gclient_t *cl ) {
-	char *location = NULL, tokenized[MAX_STRING_CHARS] = { 0 };
-	static char ret[MAX_STRING_CHARS] = { 0 };
-
-	location = FindClosestInfoLocation(cl);
-
-	if (!location || !location[0])
-		location = g_gametype.integer == GT_CTF || g_gametype.integer == GT_CTY ? FindClosestCTFLocation(cl) : GetWeaponShortName(FindClosestStaticWeapon(cl));
-
-	if (location && location[0]) {
-		TokenizeLocation(cl, tokenized, location, sizeof(ret));
-		if (tokenized[0])
-			Q_strncpyz(ret, tokenized, sizeof(ret));
-	}
-
-	return ret[0] ? ret : "";
-}
-#endif
-
-static char* GetToken( gclient_t *cl, const char token ) {
 	switch ( token ) {
-	case 'h': case 'H': return va( "%d", Com_Clampi( 0, 999, cl->ps.stats[STAT_HEALTH] ) );
-	case 'a': case 'A': return va( "%d", Com_Clampi( 0, 999, cl->ps.stats[STAT_ARMOR] ) );
-	case 'f': case 'F': return va( "%d", Com_Clampi( 0, 999, cl->ps.fd.forcePowersKnown == 0 ? 0 : cl->ps.fd.forcePower ) );
-	case 'm': case 'M': return va( "%d", Com_Clampi( 0, 999, !weaponData[cl->ps.weapon].energyPerShot && !weaponData[cl->ps.weapon].energyPerShot ? 0 : cl->ps.ammo[weaponData[cl->ps.weapon].ammoIndex]));
-	case 'l': case 'L': return GetLocation( cl );
-	default: return NULL;
+	case 'h': case 'H':
+		Com_sprintf( buffer, bufferSize, "%d", Com_Clampi( 0, 999, cl->ps.stats[STAT_HEALTH] ) );
+		break;
+	case 'a': case 'A':
+		Com_sprintf( buffer, bufferSize, "%d", Com_Clampi( 0, 999, cl->ps.stats[STAT_ARMOR] ) );
+		break;
+	case 'f': case 'F':
+		Com_sprintf( buffer, bufferSize, "%d", Com_Clampi( 0, 999, cl->ps.fd.forcePowersKnown == 0 ? 0 : cl->ps.fd.forcePower ) );
+		break;
+	case 'm': case 'M':
+		Com_sprintf( buffer, bufferSize, "%d", Com_Clampi( 0, 999, !weaponData[cl->ps.weapon].energyPerShot && !weaponData[cl->ps.weapon].energyPerShot ? 0 : cl->ps.ammo[weaponData[cl->ps.weapon].ammoIndex] ) );
+		break;
+	case 'l': case 'L':
+		Team_GetLocation( ent, buffer, bufferSize );
+		break;
+	default: return;
 	}
 }
+
+#define TEAM_CHAT_TOKEN_CHAR '$'
 
 static void TokenizeTeamChat( gentity_t *ent, char *dest, const char *src, size_t destsize ) {
 	const char *p;
+	char tokenText[64];
 	int i = 0;
 
 	if ( !ent || !ent->client ) {
@@ -2031,12 +1757,12 @@ static void TokenizeTeamChat( gentity_t *ent, char *dest, const char *src, size_
 	}
 
 	for ( p = src; p && *p && destsize > 1; ++p ) {
-		if ( *p == TOKEN_CHAR ) {
-			char *token = GetToken( ent->client, *++p );
+		if ( *p == TEAM_CHAT_TOKEN_CHAR ) {
+			WriteTextForToken( ent, *++p, tokenText, sizeof( tokenText ) );
 
-			if ( !token && *p == 'B' && *++p ) { // special case for boon: write text after if i have it
+			if ( !tokenText[0] && ( *p == 'b' || *p == 'B' ) && *++p ) { // special case for boon: write text after if i have it
 				int len, offset = 0;
-				char *s = strchr( p, TOKEN_CHAR );
+				char *s = strchr( p, TEAM_CHAT_TOKEN_CHAR );
 
 				if ( s && *s ) {
 					len = s - p;
@@ -2067,12 +1793,12 @@ static void TokenizeTeamChat( gentity_t *ent, char *dest, const char *src, size_
 				}
 			}
 
-			if ( token && *token ) {
-				int len = strlen( token );
+			if ( VALIDSTRING( tokenText ) ) {
+				int len = strlen( tokenText );
 				destsize -= len;
 
 				if ( destsize > 0 ) {
-					Q_strcat( dest + i, len + 1, token );
+					Q_strcat( dest + i, len + 1, tokenText );
 					i += len;
 					continue;
 				} else {
@@ -2119,7 +1845,7 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText ) 
 		break;
 	case SAY_TEAM:
 		G_LogPrintf( "sayteam: %i %s: %s\n", ent-g_entities, ent->client->pers.netname, chatText );
-		if (Team_GetLocationMsg(ent, location, sizeof(location)))
+		if (Team_GetLocation(ent, location, sizeof(location)))
 		{
 			Com_sprintf (name, sizeof(name), EC"(%s%s%c%c%s"EC")"EC": ", 
 				NM_SerializeUIntToColor( ent - g_entities ), ent->client->pers.netname, Q_COLOR_ESCAPE, COLOR_WHITE, GetSuffixId( ent ) );
@@ -2139,7 +1865,7 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText ) 
 
 		if (target && g_gametype.integer >= GT_TEAM &&
 			target->client->sess.sessionTeam == ent->client->sess.sessionTeam &&
-			Team_GetLocationMsg(ent, location, sizeof(location)))
+			Team_GetLocation(ent, location, sizeof(location)))
 		{
 			
 			locMsg = location;

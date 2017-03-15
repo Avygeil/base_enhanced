@@ -5,6 +5,8 @@
 #include "bg_saga.h"
 #include "g_database_log.h"
 
+#include "kdtree.h"
+
 typedef struct teamgame_s {
 	float			last_flag_capture;
 	int				last_capture_team;
@@ -1057,69 +1059,93 @@ int Pickup_Team( gentity_t *ent, gentity_t *other ) {
 ===========
 Team_GetLocation
 
-Report a location for the player. Uses placed nearby target_location entities
+Report a location for the player. May use different systems as defined in G_LinkLocations.
+
+Returns the configstring index of the location, or 0 if no location could be found.
+If locationBuffer is not NULL, the location string will be directly written there.
 ============
 */
-gentity_t *Team_GetLocation(gentity_t *ent)
-{
-	gentity_t		*eloc, *best;
-	float			bestlen, len;
-	vec3_t			origin;
-
-	best = NULL;
-	bestlen = 3*8192.0*8192.0;
-
+int Team_GetLocation( gentity_t *ent, char *locationBuffer, size_t locationBufferSize ) {
+	vec3_t origin;
 	VectorCopy( ent->r.currentOrigin, origin );
 
-	for (eloc = level.locationHead; eloc; eloc = eloc->nextTrain) {
-		len = ( origin[0] - eloc->r.currentOrigin[0] ) * ( origin[0] - eloc->r.currentOrigin[0] )
-			+ ( origin[1] - eloc->r.currentOrigin[1] ) * ( origin[1] - eloc->r.currentOrigin[1] )
-			+ ( origin[2] - eloc->r.currentOrigin[2] ) * ( origin[2] - eloc->r.currentOrigin[2] );
-
-		if ( len > bestlen ) {
-			continue;
-		}
-
-		if ( !trap_InPVS( origin, eloc->r.currentOrigin ) ) {
-			continue;
-		}
-
-		bestlen = len;
-		best = eloc;
+	if ( locationBuffer ) {
+		locationBuffer[0] = '\0';
 	}
 
-	return best;
+	if ( level.locations.enhanced.numUnique ) {
+		// using enhanced locations
+		int		resultIndex = 0;
+		void	*nearest;
+
+		// we should always have at most 1 result
+		nearest = kd_nearestf( level.locations.enhanced.lookupTree, origin );
+
+		if ( nearest && kd_res_size( nearest ) == 1 ) {
+			enhancedLocation_t *loc = ( enhancedLocation_t* )kd_res_item_data( nearest );
+
+			if ( loc ) {
+				if ( locationBuffer && ent->client ) {
+					// we aren't writing to configstrings here, so we can format the team dynamically
+					if ( loc->teamowner ) {
+						if ( ent->client->ps.persistant[PERS_TEAM] == loc->teamowner ) {
+							Com_sprintf( locationBuffer, locationBufferSize, "Our %s", loc->message );
+						} else {
+							Com_sprintf( locationBuffer, locationBufferSize, "Enemy %s", loc->message );
+						}
+					} else {
+						Q_strncpyz( locationBuffer, loc->message, locationBufferSize );
+					}
+				}
+
+				resultIndex = loc->cs_index;
+			}
+		}
+
+		kd_res_free( nearest );
+
+		return resultIndex;
+	} else if ( level.locations.legacy.num ) {
+		// using legacy locations
+		legacyLocation_t	*loc, *best;
+		vec_t				bestlen, len;
+		int					i;
+
+		best = NULL;
+		bestlen = 3 * 8192.0*8192.0;
+
+		for ( i = 0; i < level.locations.legacy.num; i++ ) {
+			loc = &level.locations.legacy.data[i];
+
+			len = DistanceSquared( origin, loc->origin );
+
+			if ( len > bestlen ) {
+				continue;
+			}
+
+			if ( !trap_InPVS( origin, loc->origin ) ) {
+				continue;
+			}
+
+			bestlen = len;
+			best = loc;
+		}
+
+		if ( best ) {
+			if ( locationBuffer ) {
+				if ( best->count ) {
+					Com_sprintf( locationBuffer, locationBufferSize, "%c%c%s" S_COLOR_WHITE, Q_COLOR_ESCAPE, best->count + '0', best->message );
+				} else {
+					Com_sprintf( locationBuffer, locationBufferSize, "%s", best->message );
+				}
+			}
+
+			return best->cs_index;
+		}
+	}
+
+	return 0;
 }
-
-
-/*
-===========
-Team_GetLocation
-
-Report a location for the player. Uses placed nearby target_location entities
-============
-*/
-qboolean Team_GetLocationMsg(gentity_t *ent, char *loc, int loclen)
-{
-	gentity_t *best;
-
-	best = Team_GetLocation( ent );
-	
-	if (!best)
-		return qfalse;
-
-	if (best->count) {
-		if (best->count < 0)
-			best->count = 0;
-		if (best->count > 7)
-			best->count = 7;
-		Com_sprintf(loc, loclen, "%c%c%s" S_COLOR_WHITE, Q_COLOR_ESCAPE, best->count + '0', best->message );
-	} else
-		Com_sprintf(loc, loclen, "%s", best->message);
-
-	return qtrue;
-}
-
 
 /*---------------------------------------------------------------------------*/
 
@@ -1281,16 +1307,6 @@ Format:
 
 ==================
 */
-#ifdef NEWMOD_SUPPORT
-// example:
-// 0=Golan`3=Enemy_Flagstand`17=Enemy_Mines`
-// translates to
-// client 0		location ==> "Golan"
-// client 3		location ==> "Enemy Flagstand"
-// client 17	location ==> "Enemy Mines"
-#define ENHANCED_LOCATION_SEPARATOR_CHAR	'@'
-#define ENHANCED_LOCATION_REDUNDANT_TIME	3000
-#endif
 void TeamplayInfoMessage( gentity_t *ent ) {
 	char		entry[1024];
 	char		string[8192];
@@ -1300,12 +1316,6 @@ void TeamplayInfoMessage( gentity_t *ent ) {
 	int			cnt;
 	int			h, a;
 	int			clients[TEAM_MAXOVERLAY];
-	qboolean	doEnhancedLocations = g_gametype.integer != GT_SIEGE && g_enhancedLocations.integer ? qtrue : qfalse;
-	char		newLocString[MAX_ENHANCED_LOCATION_STRING] = { 0 };
-	EnhancedLocationContext *ctx = NULL;
-
-	if (doEnhancedLocations)
-		Q_strncpyz(newLocString, "lchat el ", sizeof(newLocString));
 
 	if ( ! ent->client->pers.teamInfo )
 		return;
@@ -1338,22 +1348,6 @@ void TeamplayInfoMessage( gentity_t *ent ) {
 			if (h < 0) h = 0;
 			if (a < 0) a = 0;
 
-#ifdef NEWMOD_SUPPORT
-			if (doEnhancedLocations) {
-				// get this guy's enhanced location and add it to newLocString so we can send them all out in one message later
-				ctx = &player->client->sess.enhancedLocation;
-				if (ctx && ctx->loc && *ctx->loc) {
-					// replace spaces with underscores (because location needs to fit into one word for lchat)
-					// you can filter these back to spaces clientside
-					char	loc[MAX_ENHANCED_LOCATION] = { 0 }, *p;
-					Q_strncpyz(loc, ctx->loc, sizeof(loc));
-					while ((p = strchr(loc, ' ')))
-						*p = '_';
-					Com_sprintf(newLocString, sizeof(newLocString), "%s%i=%s%c", newLocString, i, loc, ENHANCED_LOCATION_SEPARATOR_CHAR);
-				}
-			}
-#endif
-
 			Com_sprintf (entry, sizeof(entry),
 				" %i %i %i %i %i %i", 
 //				level.sortedClients[i], player->client->pers.teamState.location, h, a, 
@@ -1369,26 +1363,11 @@ void TeamplayInfoMessage( gentity_t *ent ) {
 	}
 
 	trap_SendServerCommand( ent-g_entities, va("tinfo %i %s", cnt, string) );
-
-#ifdef NEWMOD_SUPPORT
-	if (doEnhancedLocations && newLocString[0]) {
-		ctx = &ent->client->sess.enhancedLocation;
-		if (!Q_stricmp(newLocString, ctx->sentString)) {
-			// we sent the exact same string to this guy last time
-			if (level.time && level.time - ctx->sentTime < ENHANCED_LOCATION_REDUNDANT_TIME)
-				return; // it's been less than 2 seconds; let's wait before possibly sending it again
-		}
-		// send the string
-		ctx->sentTime = level.time;
-		Q_strncpyz(ctx->sentString, newLocString, sizeof(ctx->sentString));
-		trap_SendServerCommand(ent - g_entities, newLocString);
-	}
-#endif
 }
 
 void CheckTeamStatus(void) {
 	int i;
-	gentity_t *loc, *ent;
+	gentity_t *ent;
 
     //OSP: pause
     if ( level.pause.state != PAUSE_NONE )
@@ -1411,19 +1390,7 @@ void CheckTeamStatus(void) {
 			}
 
 			if (ent->inuse && (ent->client->sess.sessionTeam == TEAM_RED ||	ent->client->sess.sessionTeam == TEAM_BLUE)) {
-				loc = Team_GetLocation( ent );
-				if (loc)
-					ent->client->pers.teamState.location = loc->health;
-				else
-					ent->client->pers.teamState.location = 0;
-#ifdef NEWMOD_SUPPORT
-				// determine this player's enhanced location and store it
-				char *enhancedLocation = GetLocation(ent->client);
-				if (enhancedLocation && *enhancedLocation)
-					Q_strncpyz(ent->client->sess.enhancedLocation.loc, enhancedLocation, sizeof(ent->client->sess.enhancedLocation.loc));
-				else
-					memset(ent->client->sess.enhancedLocation.loc, 0, sizeof(ent->client->sess.enhancedLocation.loc));
-#endif
+				ent->client->pers.teamState.location = Team_GetLocation( ent, NULL, 0 );
 			}
 		}
 
