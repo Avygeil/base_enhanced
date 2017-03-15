@@ -49,7 +49,7 @@ FILES =     ai_main.o               ai_util.o               ai_wpnav.o          
             g_mover.o               g_nav.o                 g_navnew.o              g_object.o              g_saga.o                g_session.o \
             g_spawn.o               g_strap.o               g_svcmds.o              g_syscalls.o            g_target.o              g_team.o  \
             g_timer.o               g_trigger.o             g_turret.o              g_turret_G2.o           g_utils.o               g_vehicles.o  \
-            g_vehicleTurret.o       g_weapon.o              NPC.o                   NPC_AI_Atst.o           NPC_AI_Default.o        NPC_AI_Droid.o \
+            g_vehicleTurret.o       g_weapon.o              kdtree.o                NPC.o                   NPC_AI_Atst.o           NPC_AI_Default.o        NPC_AI_Droid.o \
             NPC_AI_GalakMech.o      NPC_AI_Grenadier.o      NPC_AI_Howler.o         NPC_AI_ImperialProbe.o  NPC_AI_Interrogator.o   NPC_AI_Jedi.o  \
             NPC_AI_Mark1.o          NPC_AI_Mark2.o          NPC_AI_MineMonster.o    NPC_AI_Rancor.o         NPC_AI_Remote.o         NPC_AI_Seeker.o  \
             NPC_AI_Sentry.o         NPC_AI_Sniper.o         NPC_AI_Stormtrooper.o   NPC_AI_Utils.o          NPC_AI_Wampa.o          NPC_behavior.o \
