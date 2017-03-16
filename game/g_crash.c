@@ -6,7 +6,10 @@
 #ifdef _WIN32
 #include <Windows.h>
 #include <Psapi.h>
+#pragma warning( push )
+#pragma warning( disable : 4091 )
 #include <Dbghelp.h>
+#pragma warning( pop ) 
 #else // linux
 #include <stdlib.h>
 #include <execinfo.h>
@@ -308,7 +311,7 @@ LONG Win_Handler(LPEXCEPTION_POINTERS p)
 	fprintf(CrashLogFile, "Exception Code: 0x%08X (%s)\n", 
 		p->ExceptionRecord->ExceptionCode, GetExceptionName(p->ExceptionRecord->ExceptionCode));  
 	fprintf(CrashLogFile, "Exception Address: 0x%08X (%s+0x%X)\n", 
-		p->ExceptionRecord->ExceptionAddress,ModuleName,(DWORD)p->ExceptionRecord->ExceptionAddress - moduleAddress);  
+		(UINT)p->ExceptionRecord->ExceptionAddress,ModuleName,(UINT)((DWORD)p->ExceptionRecord->ExceptionAddress - moduleAddress));  
 
 	fprintf(CrashLogFile, "\n-----------------------------------\n");
 	fprintf(CrashLogFile, "           Register Dump           \n");

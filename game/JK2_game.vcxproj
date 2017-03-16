@@ -254,7 +254,7 @@
       <Culture>0x0409</Culture>
     </ResourceCompile>
     <Link>
-      <AdditionalOptions>/MACHINE:I386 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/MACHINE:I386 /ignore:4098 /ignore:4099 %(AdditionalOptions)</AdditionalOptions>
       <AdditionalDependencies>Dbghelp.lib;Psapi.lib;Ws2_32.lib;libsodium.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>../Final/jampgamex86.dll</OutputFile>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -311,7 +311,7 @@
       <Culture>0x0409</Culture>
     </ResourceCompile>
     <Link>
-      <AdditionalOptions>/MACHINE:I386 /OPT:NOLBR %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/MACHINE:I386 /OPT:NOLBR /ignore:4098 /ignore:4099 %(AdditionalOptions)</AdditionalOptions>
       <AdditionalDependencies>Dbghelp.lib;Psapi.lib;Ws2_32.lib;libsodium.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>..\Debug\jampgamex86.dll</OutputFile>
       <SuppressStartupBanner>true</SuppressStartupBanner>
