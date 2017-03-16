@@ -1048,9 +1048,25 @@ void WP_ForcePowerRegenerate( gentity_t *self, int overrideAmt )
 		self->client->ps.fd.forcePower++;
 	}
 
-	if ( self->client->ps.fd.forcePower > self->client->ps.fd.forcePowerMax )
+	if ( self->client->ps.fd.forcePower >= self->client->ps.fd.forcePowerMax )
 	{ //cap it off at the max (default 100)
 		self->client->ps.fd.forcePower = self->client->ps.fd.forcePowerMax;
+
+		/*
+		If i'm standing with full force..
+		.. and not moving
+		.. and not using any forcepower
+		.. and not carrying a flag
+		.. and not carrying a boon
+		*/
+		if ( !self->client->ps.velocity[0] && !self->client->ps.velocity[1] && !self->client->ps.velocity[2] &&
+			!self->client->ps.fd.forcePowersActive &&
+			!( self->client->ps.powerups[PW_REDFLAG] || self->client->ps.powerups[PW_BLUEFLAG] ) &&
+			!self->client->ps.powerups[PW_FORCE_BOON] ) {
+			// .. then there is no reason to keep the run invalid/making it a weapons run
+			self->client->usedWeapon = qfalse;
+			self->client->runInvalid = qfalse;
+		}
 	}
 }
 
