@@ -944,7 +944,7 @@ typedef struct
 
 // best capture times stuff
 #define SV_UNIQUEID_LEN		17 // 2 concatenated hex 4 bytes ints, so 2*8 chars + NULL
-#define MAX_SAVED_RECORDS	3 // records saved per mode
+#define MAX_SAVED_RECORDS	5 // records saved per mode
 
 typedef struct {
 	char recordHolderName[MAX_NETNAME]; // fallback name in case we can't find it with ip
