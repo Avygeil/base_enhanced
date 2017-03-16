@@ -1464,7 +1464,7 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 
     G_CfgDbLoad();
     G_LogDbLoad();
-    level.db.levelId = G_LogDbLogLevelStart(restart);
+    //level.db.levelId = G_LogDbLogLevelStart(restart);
 
 	// cache the capture records for this map
 	G_LogDbLoadCaptureRecords( mapname.string, &level.mapCaptureRecords );
@@ -1565,7 +1565,7 @@ void G_ShutdownGame( int restart ) {
 	// save the capture records for this map
 	G_LogDbSaveCaptureRecords( &level.mapCaptureRecords );
 
-    G_LogDbLogLevelEnd(level.db.levelId);
+    //G_LogDbLogLevelEnd(level.db.levelId);
 
     G_CfgDbUnload();
     G_LogDbUnload();
