@@ -2908,28 +2908,36 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 }
 
 #ifdef NEWMOD_SUPPORT
-// features whose existences are not necessarily implicitly declared via their use
-static char *supportedFeatures[] = {
-	"oid",	// octal ids
-	/*"cl",	// clientlist command*/
-	"whoi",	// whois command
-	"redy",	// ready command
-	"ctfs",	// ctfstats command
-	NULL
-};
 
-void G_BroadcastServerFeatureList(int clientNum) {
-	char string[MAX_CVAR_VALUE_STRING] = { 0 };
-	Q_strncpyz(string, "lchat \"sfl\" ", sizeof(string)); // begin the string
-	int i = 0;
-	char *p = supportedFeatures[i];
-	while (p && *p) { // loop through supportedFeatures and add each one to the string
-		Q_strcat(string, sizeof(string), va("%c%s", i ? ',' : '\"', p));
-		i++;
-		p = supportedFeatures[i];
+#define NM_LONG_SVCMD_PREFIX	"remapShader onasi is ez"
+
+void G_BroadcastServerFeatureList( int clientNum ) {
+	static char featureListCmd[MAX_TOKEN_CHARS] =
+		NM_LONG_SVCMD_PREFIX " sfl "
+		"oid";
+
+	static char commandListCmd[MAX_TOKEN_CHARS] =
+		NM_LONG_SVCMD_PREFIX " cmds "
+		"whois \"Shows the most used names\" "
+		"toptimes \"Leaderboard of the fastest caps\"";
+
+	static char locationsListCmd[MAX_TOKEN_CHARS] = { 0 };
+
+	// lazy initialization of the locations strings
+
+	if ( level.locations.enhanced.numUnique && !*locationsListCmd ) {
+		Q_strncpyz( locationsListCmd, NM_LONG_SVCMD_PREFIX " locs", sizeof( locationsListCmd ) );
+
+		int i;
+		for ( i = 0; i < level.locations.enhanced.numUnique; ++i ) {
+			Q_strcat( locationsListCmd, sizeof( locationsListCmd ), va( " \"%s\" %d", level.locations.enhanced.data[i].message, level.locations.enhanced.data[i].teamowner ) );
+		}
 	}
-	Q_strcat(string, sizeof(string), "\""); // add the final quotation mark
-	trap_SendServerCommand(clientNum, string); // send it
+
+	trap_SendServerCommand( clientNum, featureListCmd );
+	trap_SendServerCommand( clientNum, commandListCmd );
+	if ( level.locations.enhanced.numUnique )
+		trap_SendServerCommand( clientNum, locationsListCmd );
 }
 #endif
 
