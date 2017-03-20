@@ -2919,6 +2919,11 @@ void G_BroadcastServerFeatureList( int clientNum ) {
 	static char commandListCmd[MAX_TOKEN_CHARS] =
 		NM_LONG_SVCMD_PREFIX " cmds "
 		"whois \"Shows the most used names\" "
+		"followflag \"Cycles between flag carriers as a spectator\" "
+		"rules \"Displays server rules\" "
+		"mappool \"Lists server map pools and their content\" "
+		"ready \"Marks yourself as ready for to be part of random teams\" "
+		"ctfstats \"Shows stats for the current CTF game\" "
 		"toptimes \"Leaderboard of the fastest caps\"";
 
 	static char locationsListCmd[MAX_TOKEN_CHARS] = { 0 };
