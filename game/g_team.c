@@ -753,7 +753,7 @@ static vec3_t	minFlagRange = { 50, 36, 36 };
 static vec3_t	maxFlagRange = { 44, 36, 36 };
 
 static CaptureRecordType FindCaptureTypeForRun( gclient_t *client ) {
-	if ( client->runInvalid ) {
+	if ( !level.mapCaptureRecords.enabled || client->runInvalid ) {
 		return CAPTURE_RECORD_INVALID;
 	}
 
