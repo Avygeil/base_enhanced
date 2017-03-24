@@ -478,6 +478,19 @@ void G_LogDbLoadCaptureRecords( const char *mapname,
 		return;
 	}
 
+	extern const char *G_GetArenaInfoByMap( const char *map );
+	const char *arenaInfo = G_GetArenaInfoByMap( mapname );
+
+	if ( VALIDSTRING( arenaInfo ) ) {
+		const char *mapFlags = Info_ValueForKey( arenaInfo, "b_e_flags" );
+		
+		// this flag disables toptimes on this map
+		// TODO: if I ever make more flags, make an actual define in some header file...
+		if ( VALIDSTRING( mapFlags ) && atoi( mapFlags ) & 1 ) {
+			return;
+		}
+	}
+
 	// make sure we always make a lower case map lookup
 	Q_strncpyz( recordsToLoad->mapname, mapname, sizeof( recordsToLoad->mapname ) );
 	Q_strlwr( recordsToLoad->mapname );
