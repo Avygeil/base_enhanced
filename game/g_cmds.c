@@ -4050,6 +4050,97 @@ static void Cmd_MapPool_f(gentity_t* ent)
 	}
 }
 
+#ifdef NEWMOD_SUPPORT
+static void Cmd_Svauth_f( gentity_t *ent ) {
+	if ( trap_Argc() < 2 ) {
+		return;
+	}
+
+	if ( !ent || !ent->client ) {
+		return;
+	}
+
+	if ( !( ent->client->sess.auth > PENDING && ent->client->sess.auth < AUTHENTICATED ) ) {
+		return;
+	}
+
+	do {
+		char encryptedSvauth[CRYPTO_CIPHER_HEX_SIZE];
+		trap_Argv( 1, encryptedSvauth, sizeof( encryptedSvauth ) );
+
+		char decryptedSvauth[CRYPTO_CIPHER_RAW_SIZE];
+		if ( Crypto_Decrypt( &level.publicKey, &level.secretKey, encryptedSvauth, decryptedSvauth, sizeof( decryptedSvauth ) ) ) {
+			G_HackLog( S_COLOR_RED"Failed to decrypt svauth command from client %d\n", ent - g_entities );
+			break;
+		}
+
+		char *s;
+
+		if ( ent->client->sess.auth == CLANNOUNCE ) {
+			int clientKeys[2];
+
+			s = Info_ValueForKey( decryptedSvauth, "ck1" );
+			if ( !VALIDSTRING( s ) ) {
+				G_HackLog( S_COLOR_RED"svauth command for client %d misses ck1\n", ent - g_entities );
+				break;
+			}
+			clientKeys[0] = atoi( s );
+
+			s = Info_ValueForKey( decryptedSvauth, "ck2" );
+			if ( !VALIDSTRING( s ) ) {
+				G_HackLog( S_COLOR_RED"svauth command for client %d misses ck2\n", ent - g_entities );
+				break;
+			}
+			clientKeys[1] = atoi( s );
+
+#define RandomConfirmationKey()	( ( rand() << 16 ) ^ rand() ^ trap_Milliseconds() )
+			ent->client->sess.serverKeys[0] = RandomConfirmationKey();
+			ent->client->sess.serverKeys[1] = RandomConfirmationKey();
+
+			trap_SendServerCommand( ent - g_entities, va( "kls -1 -1 \"clauth\" %d %d %d",
+				clientKeys[0] ^ clientKeys[1], ent->client->sess.serverKeys[0], ent->client->sess.serverKeys[1] ) );
+			ent->client->sess.auth++;
+#ifdef _DEBUG
+			G_Printf( "Got keys %d ^ %d = %d from client %d, sent %d and %d\n",
+				clientKeys[0], clientKeys[1], clientKeys[0] ^ clientKeys[1], ent - g_entities, ent->client->sess.serverKeys[0], ent->client->sess.serverKeys[1]
+			);
+#endif
+			return;
+		} else if ( ent->client->sess.auth == CLAUTH ) {
+			int serverKeysXor;
+
+			s = Info_ValueForKey( decryptedSvauth, "skx" );
+			if ( !VALIDSTRING( s ) ) {
+				G_HackLog( S_COLOR_RED"svauth command for client %d misses skx\n", ent - g_entities );
+				break;
+			}
+			serverKeysXor = atoi( s );
+
+			s = Info_ValueForKey( decryptedSvauth, "cid" );
+			if ( !VALIDSTRING( s ) ) {
+				G_HackLog( S_COLOR_RED"svauth command for client %d misses cid\n", ent - g_entities );
+				break;
+			}
+
+			if ( ( ent->client->sess.serverKeys[0] ^ ent->client->sess.serverKeys[1] ) != serverKeysXor ) {
+				G_HackLog( S_COLOR_RED"Client %d failed the server key check!\n", ent - g_entities );
+				break;
+			}
+
+			Crypto_Hash( s, ent->client->sess.cuidHash, sizeof( ent->client->sess.cuidHash ) );
+			G_Printf( "Newmod client %d authenticated successfully (cuid hash: %s)\n", ent - g_entities, ent->client->sess.cuidHash );
+			ent->client->sess.auth++;
+
+			return;
+		}
+	} while ( 0 );
+
+	// if we got here, auth failed
+	ent->client->sess.auth = INVALID;
+	G_Printf( "Client %d failed newmod authentication (at state: %d)\n", ent - g_entities, ent->client->sess.auth );
+}
+#endif
+
 typedef struct
 {
     int entNum;
@@ -5014,6 +5105,10 @@ void ClientCommand( int clientNum ) {
 		Cmd_TestCmd_f( ent );
 	else if ( !Q_stricmp(cmd, "toptimes") || !Q_stricmp( cmd, "fastcaps" ) )
 		Cmd_TopTimes_f( ent );
+#ifdef NEWMOD_SUPPORT
+	else if ( Q_stricmp( cmd, "svauth" ) == 0 && ent->client->sess.auth > PENDING && ent->client->sess.auth < AUTHENTICATED )
+		Cmd_Svauth_f( ent );
+#endif
 		
 	//for convenient powerduel testing in release
 	else if (Q_stricmp(cmd, "killother") == 0 && CheatsOk( ent ))

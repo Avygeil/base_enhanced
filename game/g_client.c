@@ -2395,92 +2395,6 @@ void ClientUserinfoChanged( int clientNum ) {
 	strcpy(c1, Info_ValueForKey( userinfo, "color1" ));
 	strcpy(c2, Info_ValueForKey( userinfo, "color2" ));
 
-#ifdef NEWMOD_SUPPORT
-#define RandomConfirmationKey()	( ( rand() << 16 ) ^ rand() ^ trap_Milliseconds() )
-	if ( ent->client->sess.auth > PENDING && ent->client->sess.auth < AUTHENTICATED ) {
-		// this client is currently getting authenticated
-		s = Info_ValueForKey( userinfo, "svauth" );
-
-		// the cvar can either contain 0 for no msg or a base64 string
-		if ( *s && !( *s == '0' && strlen( s ) == 1 ) ) {
-			// we have an encrypted message
-			qboolean bumpStep = qfalse;
-			char decryptedSvauth[CRYPTO_CIPHER_RAW_SIZE];
-
-			if ( ent->client->sess.auth == CLANNOUNCE ) {
-				if ( Crypto_Decrypt( &level.publicKey, &level.secretKey, s, decryptedSvauth, sizeof( decryptedSvauth ) ) != CRYPTO_ERROR ) {
-					int clientKeys[2];
-
-					bumpStep = qtrue;
-
-					s = Info_ValueForKey( decryptedSvauth, "ck1" );
-					if ( !*s || !Q_isanumber( s ) ) bumpStep = qfalse;
-					clientKeys[0] = atoi( s );
-
-					s = Info_ValueForKey( decryptedSvauth, "ck2" );
-					if ( !*s || !Q_isanumber( s ) ) bumpStep = qfalse;
-					clientKeys[1] = atoi( s );
-
-					if ( bumpStep ) {
-						client->sess.serverKeys[0] = RandomConfirmationKey();
-						client->sess.serverKeys[1] = RandomConfirmationKey();
-
-						trap_SendServerCommand( clientNum, va( "lchat \"clauth\" \"ckx\\%d\\sk1\\%d\\sk2\\%d\"",
-							clientKeys[0] ^ clientKeys[1], client->sess.serverKeys[0], client->sess.serverKeys[1] ) );
-
-						bumpStep = qtrue;
-#ifdef _DEBUG
-						G_Printf( "Got keys %d ^ %d = %d from client %d, sent %d and %d\n",
-							clientKeys[0], clientKeys[1], clientKeys[0] ^ clientKeys[1], ent - g_entities, client->sess.serverKeys[0], client->sess.serverKeys[1]
-						);
-#endif
-					} else {
-						G_HackLog( S_COLOR_RED"Malformed svauth response to clannounce from client %d\n", clientNum );
-					}
-				} else {
-					G_HackLog( S_COLOR_RED"Failed to decrypt svauth response to clannounce from client %d\n", clientNum );
-				}
-			} else if ( ent->client->sess.auth == CLAUTH ) {
-				if ( Crypto_Decrypt( &level.publicKey, &level.secretKey, s, decryptedSvauth, sizeof( decryptedSvauth ) ) != CRYPTO_ERROR ) {
-					int serverKeysXor;
-
-					bumpStep = qtrue;
-
-					s = Info_ValueForKey( decryptedSvauth, "skx" );
-					if ( !*s || !Q_isanumber( s ) ) bumpStep = qfalse;
-					serverKeysXor = atoi( s );
-
-					s = Info_ValueForKey( decryptedSvauth, "cid" );
-					if ( !*s ) bumpStep = qfalse;
-
-					if ( bumpStep ) {
-						if ( ( client->sess.serverKeys[0] ^ client->sess.serverKeys[1] ) == serverKeysXor ) {
-							// legit client
-							Crypto_Hash( s, client->sess.cuidHash, sizeof( client->sess.cuidHash ) );
-							G_Printf( "Newmod client %d authenticated successfully (cuid hash: %s)\n", clientNum, client->sess.cuidHash );
-						} else {
-							G_HackLog( S_COLOR_RED"Client %d failed the server keys check!\n", clientNum );
-							bumpStep = qfalse;
-						}
-					} else {
-						G_HackLog( S_COLOR_RED"Malformed svauth response to clauth from client %d\n", clientNum );
-					}
-				} else {
-					G_HackLog( S_COLOR_RED"Failed to decrypt svauth response to clauth from client %d\n", clientNum );
-				}
-			}
-
-			if ( bumpStep ) {
-				ent->client->sess.auth++;
-			} else {
-				// give only 1 chance/prevent error loops
-				client->sess.auth = INVALID;
-				G_Printf( "Client %d failed newmod authentication\n", clientNum );
-			}
-		}
-	}
-#endif
-
 	// send over a subset of the userinfo keys so other clients can
 	// print scoreboards, display models, and play custom sounds
 	if ( ent->r.svFlags & SVF_BOT ) {
@@ -3179,7 +3093,7 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 	G_BroadcastServerFeatureList( clientNum );
 
 	if ( ent->client->sess.auth == PENDING ) {
-		trap_SendServerCommand( clientNum, va( "lchat \"clannounce\" \"apv\\%d\\pk\\%s\"", NM_AUTH_PROTOCOL, level.publicKey.keyHex ) );
+		trap_SendServerCommand( clientNum, va( "kls -1 -1 \"clannounce\" %d \"%s\"", NM_AUTH_PROTOCOL, level.publicKey.keyHex ) );
 		ent->client->sess.auth++;
 #ifdef _DEBUG
 		G_LogPrintf( "Sent clannounce packet to client %d\n", clientNum );
