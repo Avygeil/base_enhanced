@@ -272,6 +272,8 @@ vmCvar_t    g_fixPitKills;
 vmCvar_t	g_balanceSaber;
 vmCvar_t	g_balanceSeeing;
 
+vmCvar_t	g_autoSendScores;
+
 vmCvar_t	g_autoGenerateLocations;
 vmCvar_t	g_enableChatLocations;
 
@@ -605,6 +607,8 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_balanceSaber, "g_balanceSaber", "0", CVAR_SERVERINFO | CVAR_ARCHIVE, 0, qtrue },
 	{ &g_balanceSeeing, "g_balanceSeeing", "0", CVAR_ARCHIVE, 0, qtrue },
+
+	{ &g_autoSendScores, "g_autoSendScores", "2000", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_autoGenerateLocations, "g_autoGenerateLocations", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_enableChatLocations, "g_enableChatLocations", "0", CVAR_ARCHIVE, 0, qtrue },
@@ -4940,6 +4944,18 @@ void G_RunFrame( int levelTime ) {
 			gQueueScoreMessageTime = 0;
 			gQueueScoreMessage = 0;
 		}
+	}
+	else if ( g_autoSendScores.integer )
+	{
+		// if we don't have a message queued, do it now
+		gQueueScoreMessage = qtrue;
+		gQueueScoreMessageTime = g_autoSendScores.integer;
+
+		if ( gQueueScoreMessageTime < 500 ) {
+			gQueueScoreMessageTime = 500;
+		}
+
+		gQueueScoreMessageTime += level.time;
 	}
 #ifdef _G_FRAME_PERFANAL
 	iTimer_Queues = trap_PrecisionTimer_End(timer_Queues);

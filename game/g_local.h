@@ -2025,6 +2025,8 @@ extern vmCvar_t     g_fixPitKills;
 extern vmCvar_t		g_balanceSaber;
 extern vmCvar_t		g_balanceSeeing;
 
+extern vmCvar_t		g_autoSendScores;
+
 extern vmCvar_t		g_autoGenerateLocations;
 extern vmCvar_t		g_enableChatLocations;
 
