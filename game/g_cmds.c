@@ -4130,6 +4130,7 @@ static void Cmd_Svauth_f( gentity_t *ent ) {
 			Crypto_Hash( s, ent->client->sess.cuidHash, sizeof( ent->client->sess.cuidHash ) );
 			G_Printf( "Newmod client %d authenticated successfully (cuid hash: %s)\n", ent - g_entities, ent->client->sess.cuidHash );
 			ent->client->sess.auth++;
+			ClientUserinfoChanged( ent - g_entities );
 
 			return;
 		}
