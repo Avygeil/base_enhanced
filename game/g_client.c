@@ -2355,37 +2355,6 @@ void ClientUserinfoChanged( int clientNum ) {
 		}
 	}
 
-	// enforce net settings except on openjk clients which show an annoying warning
-	if ( g_enforceNetSettings.integer && Info_ValueForKey( userinfo, "ja_guid" )[0] == '\0' ) {
-		char forcedSettings[MAX_STRING_CHARS] = { 0 };
-
-		if ( g_enforceNetSettings.integer & NF_SNAPS ) {
-			value = Info_ValueForKey( userinfo, "snaps" );
-
-			if ( value && atoi( value ) != trap_Cvar_VariableIntegerValue( "sv_fps" ) ) {
-				Q_strcat( forcedSettings, sizeof( forcedSettings ), va( "\\%d", trap_Cvar_VariableIntegerValue( "sv_fps" ) ) );
-			}
-		}
-
-		if ( g_enforceNetSettings.integer & NF_RATE ) {
-			value = Info_ValueForKey( userinfo, "rate" );
-
-			if ( value && atoi( value ) < 25000 ) {
-				Q_strcat( forcedSettings, sizeof( forcedSettings ), "\\rate\\25000" );
-			}
-		}
-
-		if ( g_enforceNetSettings.integer & NF_MAXPACKETS ) {
-			Q_strcat( forcedSettings, sizeof( forcedSettings ), "\\cl_maxpackets\\100" );
-		}
-
-		// write any settings that should be changed
-		if ( forcedSettings[0] ) {
-			G_SendConfigstring( clientNum, CS_SYSTEMINFO, forcedSettings );
-			G_SendConfigstring( clientNum, CS_SYSTEMINFO, NULL );
-		}
-	}
-
 	// team task (0 = none, 1 = offence, 2 = defence)
 	teamTask = atoi(Info_ValueForKey(userinfo, "teamtask"));
 	// team Leader (1 = leader, 0 is normal player)

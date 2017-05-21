@@ -2072,8 +2072,6 @@ extern vmCvar_t	   debug_clientNumLog;
 
 extern vmCvar_t    g_teamOverlayUpdateRate;
 
-extern vmCvar_t    g_enforceNetSettings;
-
 extern vmCvar_t	   g_rconpassword;
 
 extern vmCvar_t	   g_callvotedelay;
