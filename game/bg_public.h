@@ -79,6 +79,7 @@
 #define CS_SHADERSTATE			24
 #define CS_BOTINFO				25
 #define CS_SERVERFEATURELIST	CS_BOTINFO // added
+#define CS_ENHANCEDLOCATIONS	26 // added
 #define	CS_ITEMS				27		// string of 0's and 1's that tell which items are present
 
 #define CS_CLIENT_JEDIMASTER	28		// current jedi master
