@@ -2814,7 +2814,7 @@ void G_BroadcastServerFeatureList( int clientNum ) {
 	// lazy initialization of the locations strings
 
 	if ( level.locations.enhanced.numUnique && !*locationsListConfigString) {
-		Q_strncpyz(locationsListConfigString, "kls -1 -1 locs", sizeof(locationsListConfigString) );
+		Q_strncpyz(locationsListConfigString, "locs", sizeof(locationsListConfigString) );
 
 		int i;
 		for ( i = 0; i < level.locations.enhanced.numUnique; ++i ) {
