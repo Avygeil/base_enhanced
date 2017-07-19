@@ -2626,7 +2626,10 @@ void Cmd_CallVote_f( gentity_t *ent ) {
        
 		Com_sprintf( level.voteDisplayString, sizeof( level.voteDisplayString ), "map %s", mapName);
 	}
-	else if (!Q_stricmp(arg1, "map_random"))
+	else if (!Q_stricmp(arg1, "map_random") ||
+		// if enabled, redirect "nextmap" to "maprandom", but only if the nextmap vote is disabled and the maprandom vote is enabled
+		// TODO: don't hardcode this and use the openjk vote table for less terrible coding
+		(g_redirectDisabledVotes.integer && !Q_stricmp(arg1, "nextmap") && g_allow_vote_maprandom.integer && !g_allow_vote_nextmap.integer) )
 	{
 		if (!g_allow_vote_maprandom.integer){
 			trap_SendServerCommand(ent - g_entities, "print \"Vote map_random is disabled.\n\"");
@@ -2649,6 +2652,11 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 			mapsToRandomize = 1; // not enough clients for a multi vote, just randomize 1 map right away
 		}
 
+		// hardcode default to custom_4s for now
+		if (!*arg2) {
+			Q_strncpyz(arg2, "custom_4s", sizeof(arg2));
+		}
+
         PoolInfo poolInfo;
         if ( !G_CfgDbFindPool( arg2, &poolInfo ) )
         {
@@ -2662,7 +2670,7 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 			Com_sprintf( level.voteDisplayString, sizeof( level.voteDisplayString ), "Random Map: %s", poolInfo.long_name );
 		}
 
-		Com_sprintf( level.voteString, sizeof( level.voteString ), "%s %s %d", arg1, arg2, mapsToRandomize );
+		Com_sprintf( level.voteString, sizeof( level.voteString ), "map_random %s %d", arg2, mapsToRandomize ); // write map_random directly because it can come from a nextmap vote
 
 		//// find the pool
 		//for (i = 0; i < poolNum; ++i)
@@ -2821,9 +2829,12 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 		Com_sprintf(level.voteString, sizeof(level.voteString), "%s", arg1);
 		Com_sprintf(level.voteDisplayString, sizeof(level.voteDisplayString), "%s", level.voteString);
 	}
-	else if (!Q_stricmp(arg1, "cointoss"))
+	else if (!Q_stricmp(arg1, "cointoss") ||
+		// if enabled, redirect "g_doWarmup" to "cointoss", but only if the warmup vote is disabled
+		// TODO: don't hardcode this and use the openjk vote table for less terrible coding
+		(g_redirectDisabledVotes.integer && !Q_stricmp(arg1, "g_doWarmup") && !g_allow_vote_warmup.integer) )
 	{
-		Com_sprintf(level.voteString, sizeof(level.voteString), "%s", arg1);
+		Com_sprintf(level.voteString, sizeof(level.voteString), "cointoss"); // write cointoss directly because it can come from a warmup vote
 		Com_sprintf(level.voteDisplayString, sizeof(level.voteDisplayString), "Coin Toss");
 	}
     else if (!Q_stricmp(arg1, "randomcapts"))

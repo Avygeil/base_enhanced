@@ -2055,6 +2055,7 @@ extern vmCvar_t     g_allow_vote_timelimit;
 extern vmCvar_t     g_allow_vote_fraglimit;
 extern vmCvar_t     g_allow_vote_maprandom;
 extern vmCvar_t     g_allow_vote_warmup;
+extern vmCvar_t		g_redirectDisabledVotes;
 extern vmCvar_t     g_default_restart_countdown;
 
 extern vmCvar_t	g_accounts;
