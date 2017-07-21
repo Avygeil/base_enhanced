@@ -1615,9 +1615,6 @@ const char *G_GetStringEdString(char *refSection, char *refName);
 //
 // g_client.c
 //
-#define NF_SNAPS		(1<<0)
-#define NF_RATE			(1<<1)
-#define NF_MAXPACKETS	(1<<2)
 
 char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot );
 void ClientUserinfoChanged( int clientNum );
