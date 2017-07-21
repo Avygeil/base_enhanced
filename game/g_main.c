@@ -2290,7 +2290,7 @@ void SendScoreboardMessageToAllClients( void ) {
 	int		i;
 
 	for ( i = 0 ; i < level.maxclients ; i++ ) {
-		if ( level.clients[ i ].pers.connected == CON_CONNECTED ) {
+		if ( level.clients[ i ].pers.connected == CON_CONNECTED && !level.clients[i].isLagging ) {
 			DeathmatchScoreboardMessage( g_entities + i );
 		}
 	}
