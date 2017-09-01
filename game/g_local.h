@@ -1999,6 +1999,11 @@ extern vmCvar_t		g_maxNameLength;
 extern vmCvar_t		g_duplicateNamesId;
 
 #ifdef NEWMOD_SUPPORT
+extern vmCvar_t		g_netUnlock;
+#define NMF_KICK			(1 << 0)
+#define NMF_BACKFLIP		(1 << 1)
+#define NMF_NETUNLOCK		(1 << 2)
+extern vmCvar_t		g_nmFlags;
 extern vmCvar_t		g_enableNmAuth;
 #endif
 

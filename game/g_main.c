@@ -289,6 +289,8 @@ vmCvar_t	g_maxNameLength;
 vmCvar_t	g_duplicateNamesId;
 
 #ifdef NEWMOD_SUPPORT
+vmCvar_t	g_netUnlock;
+vmCvar_t	g_nmFlags;
 vmCvar_t	g_enableNmAuth;
 #endif
 
@@ -604,7 +606,7 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_fixPitKills,	"g_fixPitKills"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
 
-	{ &g_balanceSaber, "g_balanceSaber", "0", CVAR_SERVERINFO | CVAR_ARCHIVE, 0, qtrue },
+	{ &g_balanceSaber, "g_balanceSaber", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_balanceSeeing, "g_balanceSeeing", "0", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_autoSendScores, "g_autoSendScores", "2000", CVAR_ARCHIVE, 0, qtrue },
@@ -628,6 +630,8 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_duplicateNamesId, "g_duplicateNamesId", "1", CVAR_ARCHIVE, 0, qtrue },
 
 #ifdef NEWMOD_SUPPORT
+	{ &g_netUnlock, "g_netUnlock", "1", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_nmFlags, "g_nmFlags", "0", CVAR_ROM | CVAR_SERVERINFO, 0, qfalse },
 	{ &g_enableNmAuth, "g_enableNmAuth", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
 #endif
 	{ &g_strafejump_mod,	"g_strafejump_mod"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
@@ -4288,6 +4292,26 @@ void G_RunFrame( int levelTime ) {
 		if ( level.wallhackTracesDone > g_wallhackMaxTraces.integer ) {
 			G_LogPrintf( "Last frame's WH check terminated prematurely with %d traces (limit: %d)\n", level.wallhackTracesDone, g_wallhackMaxTraces.integer );
 		}
+	}
+#endif
+
+#ifdef NEWMOD_SUPPORT
+	static qboolean flagsSet = qfalse; // make sure it gets set at least once
+	static int saberFlags, netUnlock;
+	if (!flagsSet || saberFlags != g_balanceSaber.integer || netUnlock != g_netUnlock.integer) {
+		saberFlags = g_balanceSaber.integer;
+		netUnlock = g_netUnlock.integer;
+
+		int sendFlags = 0;
+		if (saberFlags & SB_KICK)
+			sendFlags |= NMF_KICK;
+		if (saberFlags & SB_BACKFLIP)
+			sendFlags |= NMF_BACKFLIP;
+		if (netUnlock)
+			sendFlags |= NMF_NETUNLOCK;
+
+		trap_Cvar_Set("g_nmFlags", va("%i", sendFlags));
+		flagsSet = qtrue;
 	}
 #endif
 
