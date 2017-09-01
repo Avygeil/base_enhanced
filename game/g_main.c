@@ -374,8 +374,8 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_forceBasedTeams, "g_forceBasedTeams", "0", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse  },
 	{ &g_privateDuel, "g_privateDuel", "1", CVAR_SERVERINFO | CVAR_ARCHIVE, 0, qtrue  },
 	
-	{ &g_duelLifes, "g_duelLifes", "100", CVAR_SERVERINFO | CVAR_ARCHIVE, 0, qtrue  },
-	{ &g_duelShields, "g_duelShields", "25", CVAR_SERVERINFO | CVAR_ARCHIVE, 0, qtrue  },
+	{ &g_duelLifes, "g_duelLifes", "100", CVAR_ARCHIVE, 0, qtrue  },
+	{ &g_duelShields, "g_duelShields", "25", CVAR_ARCHIVE, 0, qtrue  },
 
 	{ &g_chatLimit, "g_chatLimit", "0", CVAR_ARCHIVE, 0, qtrue  },
 
