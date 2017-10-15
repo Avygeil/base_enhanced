@@ -37,7 +37,7 @@ extern vec3_t gPainPoint;
 #define NEWMOD_SUPPORT
 
 #ifdef NEWMOD_SUPPORT
-#define NM_AUTH_PROTOCOL				4
+#define NM_AUTH_PROTOCOL				5
 
 #define PUBLIC_KEY_FILENAME				"public_key.bin"
 #define SECRET_KEY_FILENAME				"secret_key.bin"
