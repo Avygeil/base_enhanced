@@ -2005,6 +2005,7 @@ extern vmCvar_t		g_netUnlock;
 #define NMF_NETUNLOCK		(1 << 2)
 extern vmCvar_t		g_nmFlags;
 extern vmCvar_t		g_enableNmAuth;
+extern vmCvar_t		g_specInfo;
 #endif
 
 extern vmCvar_t     g_strafejump_mod;

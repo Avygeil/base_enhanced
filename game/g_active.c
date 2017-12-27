@@ -1416,6 +1416,10 @@ void G_UpdateClientBroadcasts( gentity_t *self ) {
 			continue;
 		}
 
+		if (other->client->sess.sessionTeam == TEAM_SPECTATOR) {
+			send = qtrue;
+		}
+
 		VectorSubtract( self->client->ps.origin, other->client->ps.origin, angles );
 		dist = VectorLengthSquared( angles );
 		vectoangles( angles, angles );

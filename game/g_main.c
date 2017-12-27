@@ -292,6 +292,7 @@ vmCvar_t	g_duplicateNamesId;
 vmCvar_t	g_netUnlock;
 vmCvar_t	g_nmFlags;
 vmCvar_t	g_enableNmAuth;
+vmCvar_t	g_specInfo;
 #endif
 
 vmCvar_t     g_strafejump_mod;
@@ -633,6 +634,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_netUnlock, "g_netUnlock", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_nmFlags, "g_nmFlags", "0", CVAR_ROM | CVAR_SERVERINFO, 0, qfalse },
 	{ &g_enableNmAuth, "g_enableNmAuth", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
+	{ &g_specInfo, "g_specInfo", "1", CVAR_ARCHIVE, 0, qtrue },
 #endif
 	{ &g_strafejump_mod,	"g_strafejump_mod"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
 
@@ -4267,6 +4269,80 @@ extern int getstatus_UniqueIPCount;
 extern int gImperialCountdown;
 extern int gRebelCountdown;
 
+#ifdef NEWMOD_SUPPORT
+#define MAX_SPECINFO_PLAYERS_PER_TEAM	4
+#define MAX_SPECINFO_PLAYERS			(MAX_SPECINFO_PLAYERS_PER_TEAM * 2)
+void CheckSpecInfo(void) {
+	if (!g_specInfo.integer)
+		return;
+
+	static int lastUpdate = 0;
+	int updateRate = Com_Clampi(1, 1000, g_teamOverlayUpdateRate.integer);
+	if (lastUpdate && level.time - lastUpdate <= updateRate)
+		return;
+
+	// see if anyone is spec
+	int i, numPlayers[3] = { 0 };
+	qboolean gotRecipient = qfalse, include[MAX_CLIENTS] = { qfalse }, sendTo[MAX_CLIENTS] = { qfalse };
+	for (i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *ent = &g_entities[i];
+		gclient_t *cl = &level.clients[i];
+		if (!ent->inuse || cl->pers.connected != CON_CONNECTED /*|| ent->r.svFlags & SVF_BOT*/)
+			continue;
+		if (cl->sess.sessionTeam == TEAM_SPECTATOR) {
+			if (!cl->isLagging) {
+				sendTo[i] = qtrue;
+				gotRecipient = qtrue;
+			}
+		}
+		else {
+			if (g_gametype.integer < GT_TEAM && cl->sess.sessionTeam == TEAM_FREE && numPlayers[TEAM_FREE] < MAX_SPECINFO_PLAYERS) {
+				include[i] = qtrue;
+				numPlayers[TEAM_FREE]++;
+			}
+			else if (g_gametype.integer >= GT_TEAM && cl->sess.sessionTeam != TEAM_FREE && numPlayers[cl->sess.sessionTeam] < MAX_SPECINFO_PLAYERS_PER_TEAM) {
+				include[i] = qtrue;
+				numPlayers[cl->sess.sessionTeam]++;
+			}
+		}
+	}
+	if (!gotRecipient)
+		return;
+	lastUpdate = level.time;
+
+	// build the spec info string
+	char totalString[MAX_STRING_CHARS] = { 0 };
+	Q_strncpyz(totalString, "kls -1 -1 snfo", sizeof(totalString));
+	for (i = 0; i < MAX_CLIENTS; i++) {
+		if (!include[i])
+			continue;
+		gentity_t *ent = &g_entities[i];
+		gclient_t *cl = &level.clients[i];
+
+		char playerString[MAX_STRING_CHARS] = { 0 };
+		Q_strncpyz(playerString, va(" \"%d", i), sizeof(playerString));
+		Q_strcat(playerString, sizeof(playerString), va(" h=%d", ent->health <= 0 || g_gametype.integer == GT_SIEGE && ent->client->tempSpectate >= level.time ? 0 : ent->health));
+		Q_strcat(playerString, sizeof(playerString), va(" a=%d", cl->ps.stats[STAT_ARMOR]));
+		Q_strcat(playerString, sizeof(playerString), va(" f=%d", !cl->ps.fd.forcePowersKnown ? -1 : cl->ps.fd.forcePower));
+		Q_strcat(playerString, sizeof(playerString), va(" l=%d", g_gametype.integer < GT_TEAM ? Team_GetLocation(ent, NULL, 0) : cl->pers.teamState.location));
+		if (g_gametype.integer == GT_SIEGE && cl->siegeClass != -1 && bgSiegeClasses[cl->siegeClass].maxhealth != 100)
+			Q_strcat(playerString, sizeof(playerString), va(" mh=%d", bgSiegeClasses[cl->siegeClass].maxhealth));
+		if (g_gametype.integer == GT_SIEGE && cl->siegeClass != -1 && bgSiegeClasses[cl->siegeClass].maxarmor != 100)
+			Q_strcat(playerString, sizeof(playerString), va(" ma=%d", bgSiegeClasses[cl->siegeClass].maxarmor));
+		Q_strcat(playerString, sizeof(playerString), "\"");
+
+		Q_strcat(totalString, sizeof(totalString), playerString);
+	}
+
+	// send it to specs
+	for (i = 0; i < MAX_CLIENTS; i++) {
+		if (!sendTo[i])
+			continue;
+		trap_SendServerCommand(i, totalString);
+	}
+}
+#endif
+
 void G_RunFrame( int levelTime ) {
 	int			i;
 	gentity_t	*ent;
@@ -4868,6 +4944,11 @@ void G_RunFrame( int levelTime ) {
 
 	// update to team status?
 	CheckTeamStatus();
+
+#ifdef NEWMOD_SUPPORT
+	// send extra data to specs
+	CheckSpecInfo();
+#endif
 
 	// cancel vote if timed out
 	CheckVote();
