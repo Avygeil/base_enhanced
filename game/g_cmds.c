@@ -1589,6 +1589,60 @@ void Cmd_FollowFlag_f( gentity_t *ent )
 	} while ( clientnum != original );
 }
 
+void Cmd_FollowTarget_f(gentity_t *ent) {
+	// first set them to spectator
+	if (ent->client->sess.spectatorState == SPECTATOR_NOT) {
+		SetTeam(ent, "spectator");
+	}
+
+	// check who is eligible to be followed
+	qboolean valid[MAX_CLIENTS] = { qfalse }, gotValid = qfalse;
+	int i;
+	for (i = 0; i < MAX_CLIENTS; i++) {
+		if (i == ent->s.number || !g_entities[i].inuse || level.clients[i].pers.connected != CON_CONNECTED || level.clients[i].sess.sessionTeam == TEAM_SPECTATOR || g_entities[i].health <= 0 || level.clients[i].tempSpectate >= level.time)
+			continue;
+		if (ent->client->sess.spectatorState == SPECTATOR_FOLLOW && ent->client->sess.spectatorClient == i)
+			continue; // already following this guy
+		valid[i] = qtrue;
+		gotValid = qtrue;
+	}
+	if (!gotValid)
+		return; // nobody to follow
+
+	// check for aiming directly at someone
+	trace_t tr;
+	vec3_t start, end, forward;
+	VectorCopy(ent->client->ps.origin, start);
+	AngleVectors(ent->client->ps.viewangles, forward, NULL, NULL);
+	VectorMA(start, 16384, forward, end);
+	start[2] += ent->client->ps.viewheight;
+	trap_G2Trace(&tr, start, NULL, NULL, end, ent->s.number, MASK_SHOT, G2TRFLAG_DOGHOULTRACE | G2TRFLAG_GETSURFINDEX | G2TRFLAG_THICK | G2TRFLAG_HITCORPSES, g_g2TraceLod.integer);
+	if (tr.entityNum >= 0 && tr.entityNum < MAX_CLIENTS && valid[tr.entityNum]) {
+		ent->client->sess.spectatorState = SPECTATOR_FOLLOW;
+		ent->client->sess.spectatorClient = tr.entityNum;
+		return;
+	}
+
+	// see who was closest to where we aimed
+	float closestDistance = -1;
+	int closestPlayer = -1;
+	for (i = 0; i < MAX_CLIENTS; i++) {
+		if (!valid[i])
+			continue;
+		vec3_t difference;
+		VectorSubtract(level.clients[i].ps.origin, tr.endpos, difference);
+		if (difference && (closestDistance == -1 || VectorLength(difference) < closestDistance)) {
+			closestDistance = VectorLength(difference);
+			closestPlayer = i;
+		}
+	}
+
+	if (closestDistance != -1 && closestPlayer != -1) {
+		ent->client->sess.spectatorState = SPECTATOR_FOLLOW;
+		ent->client->sess.spectatorClient = closestPlayer;
+	}
+}
+
 /*
 ==================
 G_Say
@@ -5087,6 +5141,8 @@ void ClientCommand( int clientNum ) {
 		Cmd_FollowCycle_f (ent, -1);
 	else if (Q_stricmp (cmd, "followflag") == 0)
 		Cmd_FollowFlag_f (ent);
+	else if (Q_stricmp(cmd, "followtarget") == 0)
+		Cmd_FollowTarget_f(ent);
 	else if (Q_stricmp (cmd, "team") == 0)
 		Cmd_Team_f (ent);
 	else if (Q_stricmp (cmd, "duelteam") == 0)
