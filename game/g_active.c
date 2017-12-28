@@ -2162,14 +2162,12 @@ void G_SetTauntAnim( gentity_t *ent, int taunt )
 				//generate dank taunt sounds for clients that support them
 
 				//determine the cool taunt sound randomly
-				int rng;
-				if (taunt == TAUNT_GLOAT)
-				{
-					rng = Q_irand(NMTAUNT_ANGER1, NMTAUNT_GLOAT3);
-				}
-				else
-				{
-					rng = Q_irand(NMTAUNT_DEFLECT1, NMTAUNT_VICTORY3);
+				int rng = 0;
+				while (rng >= 0 && rng <= TAUNT_GLOAT) { // make sure the final number isn't <= 4
+					rng = Q_irand(0, 255);
+					rng &= ~3; // zero the lower two bits
+					if (taunt == TAUNT_FLOURISH)
+						rng |= 1; // set the lowest bit for flourish
 				}
 				G_AddEvent(ent, EV_TAUNT, rng);
 				//non-supporting clients will just use the normal taunt sound anyway;
