@@ -1487,6 +1487,9 @@ void Cmd_Follow_f( gentity_t *ent ) {
 		SetTeam( ent, "spectator" );
 	}
 
+	if (ent->client->sess.sessionTeam != TEAM_SPECTATOR)
+		return; // we weren't able to go spec for some reason; stop here
+
 	ent->client->sess.spectatorState = SPECTATOR_FOLLOW;
 	ent->client->sess.spectatorClient = i;
 }
@@ -1510,6 +1513,9 @@ void Cmd_FollowCycle_f( gentity_t *ent, int dir ) {
 	if ( ent->client->sess.spectatorState == SPECTATOR_NOT ) {
 		SetTeam( ent, "spectator" );
 	}
+
+	if (ent->client->sess.sessionTeam != TEAM_SPECTATOR)
+		return; // we weren't able to go spec for some reason; stop here
 
 	if ( dir != 1 && dir != -1 ) {
 		G_Error( "Cmd_FollowCycle_f: bad dir %i", dir );
@@ -1557,6 +1563,9 @@ void Cmd_FollowFlag_f( gentity_t *ent )
 		SetTeam( ent, "spectator" );
 	}
 
+	if (ent->client->sess.sessionTeam != TEAM_SPECTATOR)
+		return; // we weren't able to go spec for some reason; stop here
+
 	clientnum = ent->client->sess.spectatorClient;
 	if (clientnum < 0) clientnum += level.maxclients;
 	original = clientnum;
@@ -1595,11 +1604,14 @@ void Cmd_FollowTarget_f(gentity_t *ent) {
 		SetTeam(ent, "spectator");
 	}
 
+	if (ent->client->sess.sessionTeam != TEAM_SPECTATOR)
+		return; // we weren't able to go spec for some reason; stop here
+
 	// check who is eligible to be followed
 	qboolean valid[MAX_CLIENTS] = { qfalse }, gotValid = qfalse;
 	int i;
 	for (i = 0; i < MAX_CLIENTS; i++) {
-		if (i == ent->s.number || !g_entities[i].inuse || level.clients[i].pers.connected != CON_CONNECTED || level.clients[i].sess.sessionTeam == TEAM_SPECTATOR || g_entities[i].health <= 0 || level.clients[i].tempSpectate >= level.time)
+		if (i == ent->s.number || !g_entities[i].inuse || level.clients[i].pers.connected != CON_CONNECTED || level.clients[i].sess.sessionTeam == TEAM_SPECTATOR)
 			continue;
 		if (ent->client->sess.spectatorState == SPECTATOR_FOLLOW && ent->client->sess.spectatorClient == i)
 			continue; // already following this guy
