@@ -4312,7 +4312,7 @@ void CheckSpecInfo(void) {
 
 	// build the spec info string
 	char totalString[MAX_STRING_CHARS] = { 0 };
-	Q_strncpyz(totalString, "kls -1 -1 snfo", sizeof(totalString));
+	Q_strncpyz(totalString, "kls -1 -1 snf2", sizeof(totalString));
 	for (i = 0; i < MAX_CLIENTS; i++) {
 		if (!include[i])
 			continue;
@@ -4321,14 +4321,18 @@ void CheckSpecInfo(void) {
 
 		char playerString[MAX_STRING_CHARS] = { 0 };
 		Q_strncpyz(playerString, va(" \"%d", i), sizeof(playerString));
-		Q_strcat(playerString, sizeof(playerString), va(" h=%d", ent->health <= 0 || g_gametype.integer == GT_SIEGE && ent->client->tempSpectate >= level.time ? 0 : ent->health));
-		Q_strcat(playerString, sizeof(playerString), va(" a=%d", cl->ps.stats[STAT_ARMOR]));
+		if (ent->health > 0 && !(g_gametype.integer == GT_SIEGE && ent->client->tempSpectate && ent->client->tempSpectate >= level.time))
+			Q_strcat(playerString, sizeof(playerString), va(" h=%d", ent->health));
+		if (cl->ps.stats[STAT_ARMOR] > 0 && ent->health > 0  && !(g_gametype.integer == GT_SIEGE && ent->client->tempSpectate && ent->client->tempSpectate >= level.time))
+			Q_strcat(playerString, sizeof(playerString), va(" a=%d", cl->ps.stats[STAT_ARMOR]));
 		Q_strcat(playerString, sizeof(playerString), va(" f=%d", !cl->ps.fd.forcePowersKnown ? -1 : cl->ps.fd.forcePower));
 		Q_strcat(playerString, sizeof(playerString), va(" l=%d", g_gametype.integer < GT_TEAM ? Team_GetLocation(ent, NULL, 0) : cl->pers.teamState.location));
 		if (g_gametype.integer == GT_SIEGE && cl->siegeClass != -1 && bgSiegeClasses[cl->siegeClass].maxhealth != 100)
 			Q_strcat(playerString, sizeof(playerString), va(" mh=%d", bgSiegeClasses[cl->siegeClass].maxhealth));
 		if (g_gametype.integer == GT_SIEGE && cl->siegeClass != -1 && bgSiegeClasses[cl->siegeClass].maxarmor != 100)
 			Q_strcat(playerString, sizeof(playerString), va(" ma=%d", bgSiegeClasses[cl->siegeClass].maxarmor));
+		if (ent->s.powerups)
+			Q_strcat(playerString, sizeof(playerString), va(" p=%d", ent->s.powerups));
 		Q_strcat(playerString, sizeof(playerString), "\"");
 
 		Q_strcat(totalString, sizeof(totalString), playerString);
