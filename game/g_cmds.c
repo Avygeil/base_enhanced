@@ -1667,7 +1667,7 @@ static qboolean ChatLimitExceeded(gentity_t *ent, int mode) {
 		return qfalse;
 
 	int *sentTime, *sentCount, *limit;
-	if (mode == SAY_TEAM && ent->client->sess.canJoin && GetRealTeam(ent->client) != TEAM_SPECTATOR) { // an in-game player using teamchat
+	if (mode == SAY_TEAM && ent->client->sess.canJoin && ent->client->sess.sessionTeam != TEAM_SPECTATOR) { // an in-game player using teamchat
 		sentTime = &ent->client->pers.teamChatSentTime;
 		sentCount = &ent->client->pers.teamChatSentCount;
 		limit = &g_teamChatLimit.integer;
