@@ -1662,36 +1662,36 @@ G_Say
 */
 #define EC		"\x19"
 
-qboolean chatLimitCheck(gentity_t *ent){
-	qboolean result = qtrue;
-
+static qboolean ChatLimitExceeded(gentity_t *ent, int mode) {
 	if (!ent || !ent->client)
-		return qtrue;
+		return qfalse;
 
-	//special chat limit check
-	if ( !ent->client->sess.canJoin ) {
-		// If the client is a passwordless spectator, apply a more strict
-		// anti spam with a permanent lock, just like sv_floodprotect
-		result = level.time - ent->client->pers.chatSentTime > 1000;
-	} else if ( g_chatLimit.integer
-		&& ent->client->pers.chatSentTime
-		&& (level.time - ent->client->pers.chatSentTime) < 1000 ){
-		//we are in tracking minute for current user, check limit
-		result = !( ent->client->pers.chatSentCount >= g_chatLimit.integer );
-
-		if ( result ) {
-			//it is fine
-			++ent->client->pers.chatSentCount;
-		}
-	} else if ( g_chatLimit.integer ) {
-		ent->client->pers.chatSentCount = 1;
+	int *sentTime, *sentCount, *limit;
+	if (mode == SAY_TEAM && ent->client->sess.canJoin && GetRealTeam(ent->client) != TEAM_SPECTATOR) { // an in-game player using teamchat
+		sentTime = &ent->client->pers.teamChatSentTime;
+		sentCount = &ent->client->pers.teamChatSentCount;
+		limit = &g_teamChatLimit.integer;
+	} else {
+		sentTime = &ent->client->pers.chatSentTime;
+		sentCount = &ent->client->pers.chatSentCount;
+		limit = &g_chatLimit.integer;
 	}
 
-	// In any case reset the timer so people have to unpress their spam binds
-	// during the lock time to be unlocked
-	ent->client->pers.chatSentTime = level.time;
+	qboolean exceeded = qfalse;
 
-	return result;
+	if ( !ent->client->sess.canJoin ) { // for passwordless specs, apply a more strict anti spam with a permanent lock, just like sv_floodprotect
+		exceeded = level.time - *sentTime < 1000;
+	} else if ( *limit > 0 && *sentTime && (level.time - *sentTime) < 1000 ) { // we are in tracking second for current user, check limit
+		exceeded = *sentCount >= *limit;
+		++*sentCount;
+	} else { // this is the first and only message that has been sent in the last second
+		*sentCount = 1;
+	}
+
+	// in any case, reset the timer so people have to unpress their spam binds while blocked to be unblocked
+	*sentTime = level.time;
+
+	return exceeded;
 }
 
 static void G_SayTo( gentity_t *ent, gentity_t *other, int mode, int color, const char *name, const char *message, char *locMsg )
@@ -1894,7 +1894,7 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText ) 
 
 	// Check chat limit regardless of g_chatLimit since it now encapsulates
 	// passwordless specs chat limit
-	if ( mode != SAY_TEAM && !chatLimitCheck( ent ) ){
+	if ( ChatLimitExceeded( ent, mode ) ) {
 		return;
 	}
 

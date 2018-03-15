@@ -57,7 +57,7 @@ vmCvar_t	g_duelLifes;
 vmCvar_t	g_duelShields;
 
 vmCvar_t	g_chatLimit;
-
+vmCvar_t	g_teamChatLimit;
 
 vmCvar_t	g_allowNPC;
 
@@ -379,6 +379,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_duelShields, "g_duelShields", "25", CVAR_ARCHIVE, 0, qtrue  },
 
 	{ &g_chatLimit, "g_chatLimit", "0", CVAR_ARCHIVE, 0, qtrue  },
+	{ &g_teamChatLimit, "g_teamChatLimit", "0", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_allowNPC, "g_allowNPC", "1", CVAR_SERVERINFO | CVAR_ARCHIVE, 0, qtrue  },
 
