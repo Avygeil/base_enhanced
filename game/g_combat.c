@@ -4025,37 +4025,64 @@ void G_LocationBasedDamageModifier(gentity_t *inflictor, gentity_t *ent, vec3_t 
 		hitLoc = G_GetHitLocation( ent, point );
 	}
 
-	switch (hitLoc)
-	{
-	case HL_FOOT_RT:
-	case HL_FOOT_LT:
-		*damage *= 0.5;
-		break;
-	case HL_LEG_RT:
-	case HL_LEG_LT:
-		*damage *= 0.7;
-		break;
-	case HL_WAIST:
-	case HL_BACK_RT:
-	case HL_BACK_LT:
-	case HL_BACK:
-	case HL_CHEST_RT:
-	case HL_CHEST_LT:
-	case HL_CHEST:
-		break; //normal damage
-	case HL_ARM_RT:
-	case HL_ARM_LT:
-		*damage *= 0.85;
-		break;
-	case HL_HAND_RT:
-	case HL_HAND_LT:
-		*damage *= 0.6;
-		break;
-	case HL_HEAD:
-		*damage *= 1.3;
-		break;
-	default:
-		break; //do nothing then
+	if ( g_locationBasedDamage.integer >= 2 ) {
+		switch (hitLoc) {
+			case HL_FOOT_RT:
+			case HL_FOOT_LT:
+			case HL_LEG_RT:
+			case HL_LEG_LT:
+				*damage *= 0.7;
+				break;
+			case HL_WAIST:
+			case HL_BACK_RT:
+			case HL_BACK_LT:
+			case HL_BACK:
+			case HL_CHEST_RT:
+			case HL_CHEST_LT:
+			case HL_CHEST:
+			case HL_ARM_RT:
+			case HL_ARM_LT:
+			case HL_HAND_RT:
+			case HL_HAND_LT:
+				break; //normal damage
+			case HL_HEAD:
+				*damage *= 1.3;
+				break;
+			default:
+				break; //do nothing then
+		}
+	} else {
+		switch (hitLoc) {
+			case HL_FOOT_RT:
+			case HL_FOOT_LT:
+				*damage *= 0.5;
+				break;
+			case HL_LEG_RT:
+			case HL_LEG_LT:
+				*damage *= 0.7;
+				break;
+			case HL_WAIST:
+			case HL_BACK_RT:
+			case HL_BACK_LT:
+			case HL_BACK:
+			case HL_CHEST_RT:
+			case HL_CHEST_LT:
+			case HL_CHEST:
+				break; //normal damage
+			case HL_ARM_RT:
+			case HL_ARM_LT:
+				*damage *= 0.85;
+				break;
+			case HL_HAND_RT:
+			case HL_HAND_LT:
+				*damage *= 0.6;
+				break;
+			case HL_HEAD:
+				*damage *= 1.3;
+				break;
+			default:
+				break; //do nothing then
+		}
 	}
 }
 /*
