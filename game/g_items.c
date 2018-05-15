@@ -1028,7 +1028,7 @@ void SP_PAS( gentity_t *base )
 
 	base->physicsObject = qtrue;
 
-	G_Sound( base, CHAN_BODY, G_SoundIndex( "sound/chars/turret/startup.wav" ));
+	G_Sound( base, CHAN_BODY, G_SoundIndex( "sound/player/use_sentry.wav" )); // sentry start sound
 }
 
 //------------------------------------------------------------------------
@@ -2637,7 +2637,7 @@ void Touch_Item (gentity_t *ent, gentity_t *other, trace_t *trace) {
 	// picked up items still stay around, they just don't
 	// draw anything.  This allows respawnable items
 	// to be placed on movers.
-	if (!(ent->flags & FL_DROPPED_ITEM) && (ent->item->giType==IT_WEAPON || ent->item->giType==IT_POWERUP))
+	if (!(ent->flags & FL_DROPPED_ITEM) && (ent->item->giType==IT_WEAPON || ent->item->giType==IT_POWERUP || ent->item->giType == IT_AMMO || ent->item->giType == IT_HEALTH || ent->item->giType == IT_ARMOR || ent->item->giType == IT_HOLDABLE)) // placeholder
 	{
 		ent->s.eFlags |= EF_ITEMPLACEHOLDER;
 		ent->s.eFlags &= ~EF_NODRAW;

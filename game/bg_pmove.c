@@ -5758,10 +5758,10 @@ static qboolean PM_DoChargedWeapons( qboolean vehicleRocketLock, bgEntity_t *veh
 		case WP_BOWCASTER:
 
 			// primary fire charges the weapon
-			if ( pm->cmd.buttons & BUTTON_ATTACK )
+			/*if ( pm->cmd.buttons & BUTTON_ATTACK )
 			{
 				charging = qtrue;
-			}
+			}*/
 			break;
 		
 		//------------------

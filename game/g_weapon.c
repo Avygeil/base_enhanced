@@ -38,19 +38,21 @@ static	vec3_t	muzzle;
 
 // Wookiee Bowcaster
 //----------
-#define	BOWCASTER_DAMAGE			50
+#define	BOWCASTER_DAMAGE			30		// was 50
 #define	BOWCASTER_VELOCITY			1300
 #define BOWCASTER_SPLASH_DAMAGE		0
 #define BOWCASTER_SPLASH_RADIUS		0
 #define BOWCASTER_SIZE				2
 
+#define	BOWCASTER_ALT_DAMAGE		50
+#define	BOWCASTER_ALT_VELOCITY		1600	// added
 #define BOWCASTER_ALT_SPREAD		5.0f
 #define BOWCASTER_VEL_RANGE			0.3f
 #define BOWCASTER_CHARGE_UNIT		200.0f	// bowcaster charging gives us one more unit every 200ms--if you change this, you'll have to do the same in bg_pmove
 
 // Heavy Repeater
 //----------
-#define REPEATER_SPREAD				1.4f
+#define REPEATER_SPREAD				1.2f // was 1.4
 #define	REPEATER_DAMAGE				14
 #define	REPEATER_VELOCITY			1600
 
@@ -74,10 +76,10 @@ static	vec3_t	muzzle;
 
 // Golan Arms Flechette
 //---------
-#define FLECHETTE_SHOTS				5
+#define FLECHETTE_SHOTS				20  // was 5
 #define FLECHETTE_SHOTS_ALT			2
 #define FLECHETTE_SPREAD			4.0f
-#define FLECHETTE_DAMAGE			12//15
+#define FLECHETTE_DAMAGE			4  // was 12 / 60 point blank, now it is 80
 #define FLECHETTE_VEL				3500
 #define FLECHETTE_SIZE				1
 #define FLECHETTE_MINE_RADIUS_CHECK	256
@@ -92,6 +94,8 @@ static	vec3_t	muzzle;
 #define	ROCKET_SPLASH_DAMAGE		100
 #define	ROCKET_SPLASH_RADIUS		160
 #define ROCKET_SIZE					3
+
+#define	ROCKET_ALT_VELOCITY			600
 #define ROCKET_ALT_THINK_TIME		100
 
 // Concussion Rifle
@@ -114,9 +118,9 @@ static	vec3_t	muzzle;
 
 // Stun Baton
 //--------------
-#define STUN_BATON_DAMAGE			20
-#define STUN_BATON_ALT_DAMAGE		20
-#define STUN_BATON_RANGE			8
+#define STUN_BATON_DAMAGE			50
+#define STUN_BATON_ALT_DAMAGE		50
+#define STUN_BATON_RANGE			32
 
 // Melee
 //--------------
@@ -971,9 +975,9 @@ BOWCASTER
 
 static void WP_BowcasterAltFire( gentity_t *ent )
 {
-	int	damage	= BOWCASTER_DAMAGE;
+	int	damage	= BOWCASTER_ALT_DAMAGE;
 
-	gentity_t *missile = CreateMissile( muzzle, forward, BOWCASTER_VELOCITY, 10000, ent, qfalse);
+	gentity_t *missile = CreateMissile( muzzle, forward, BOWCASTER_ALT_VELOCITY, 10000, ent, qfalse);
 
 	missile->classname = "bowcaster_proj";
 	missile->s.weapon = WP_BOWCASTER;
@@ -987,19 +991,20 @@ static void WP_BowcasterAltFire( gentity_t *ent )
 	missile->clipmask = MASK_SHOT | CONTENTS_LIGHTSABER;
 
 	missile->flags |= FL_BOUNCE;
-	missile->bounceCount = 3;
+	missile->bounceCount = 6; // was 3
 }
 
 //---------------------------------------------------------
 static void WP_BowcasterMainFire( gentity_t *ent )
 //---------------------------------------------------------
 {
-	int			damage	= BOWCASTER_DAMAGE, count;
+	int			damage	= BOWCASTER_DAMAGE;
 	float		vel;
 	vec3_t		angs, dir;
 	gentity_t	*missile;
 	int i;
 
+	/*
 	if (!ent->client)
 	{
 		count = 1;
@@ -1045,17 +1050,19 @@ static void WP_BowcasterMainFire( gentity_t *ent )
 	{
 		damage = 30;
 	}
+	*/
 
-	for (i = 0; i < count; i++ )
+	//	for (i = 0; i < count; i++ )
+	for (i = 0; i < 5; i++ )
 	{
 		// create a range of different velocities
-		vel = BOWCASTER_VELOCITY * ( crandom() * BOWCASTER_VEL_RANGE + 1.0f );
+		vel = BOWCASTER_VELOCITY; //* ( crandom() * BOWCASTER_VEL_RANGE + 1.0f );
 
 		vectoangles( forward, angs );
 
 		// add some slop to the alt-fire direction
 		angs[PITCH] += crandom() * BOWCASTER_ALT_SPREAD * 0.2f;
-		angs[YAW]	+= ((i+0.5f) * BOWCASTER_ALT_SPREAD - count * 0.5f * BOWCASTER_ALT_SPREAD );
+		angs[YAW]	+= ((i+0.5f) * BOWCASTER_ALT_SPREAD - 5 * 0.5f * BOWCASTER_ALT_SPREAD );
 		
 		AngleVectors( angs, dir, NULL, NULL );
 
@@ -1779,12 +1786,12 @@ void rocketThink( gentity_t *ent )
 			if ( dot2 > 0 )
 			{	
 				// Turn 45 degrees right.
-				VectorMA( ent->movedir, 0.4f*newDirMult, right, newdir );
+				VectorMA( ent->movedir, 0.2f*newDirMult, right, newdir ); // 0.4 pamietac
 			}
 			else
 			{	
 				// Turn 45 degrees left.
-				VectorMA( ent->movedir, -0.4f*newDirMult, right, newdir );
+				VectorMA( ent->movedir, -0.2f*newDirMult, right, newdir ); // 0.4 pamietac
 			}
 
 			// Yeah we've adjusted horizontally, but let's split the difference vertically, so we kinda try to move towards it.
@@ -1863,7 +1870,7 @@ static void WP_FireRocket( gentity_t *ent, qboolean altFire )
 
 	if ( altFire )
 	{
-		vel *= 0.5f;
+		vel = ROCKET_ALT_VELOCITY;
 	}
 
 	missile = CreateMissile( muzzle, forward, vel, 30000, ent, altFire );
@@ -1921,12 +1928,13 @@ static void WP_FireRocket( gentity_t *ent, qboolean altFire )
 		missile->methodOfDeath = MOD_ROCKET;
 		missile->splashMethodOfDeath = MOD_ROCKET_SPLASH;
 	}
-//===testing being able to shoot rockets out of the air==================================
-	missile->health = 10;
-	missile->takedamage = qtrue;
-	missile->r.contents = MASK_SHOT;
-	missile->die = RocketDie;
-//===testing being able to shoot rockets out of the air==================================
+	if (altFire) 		//===testing being able to shoot rockets out of the air==================================
+	{
+		missile->health = 10;
+		missile->takedamage = qtrue;
+		missile->r.contents = MASK_SHOT;
+		missile->die = RocketDie;
+	}
 	
 	missile->clipmask = MASK_SHOT;
 	missile->splashDamage = ROCKET_SPLASH_DAMAGE;
