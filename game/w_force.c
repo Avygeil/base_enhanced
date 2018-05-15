@@ -281,8 +281,7 @@ void WP_InitForcePowers( gentity_t *ent )
 		trap_GetUserinfo( ent->s.number, userinfo, sizeof( userinfo ) );
 	}
 
-	//Q_strncpyz( forcePowers, Info_ValueForKey (userinfo, "forcepowers"), sizeof( forcePowers ) );
-	Q_strncpyz( forcePowers, "7-1-033330000000000330", sizeof( forcePowers ) ); // LMFAO
+	Q_strncpyz( forcePowers, Info_ValueForKey (userinfo, "forcepowers"), sizeof( forcePowers ) );
 
     /* *CHANGE 7c* anti force crash */
     temp = gaCheckForceString(forcePowers);
