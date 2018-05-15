@@ -335,6 +335,9 @@ vmCvar_t	sv_passwordlessSpectators;
 // DUEL_HEALTH
 vmCvar_t		g_showDuelHealths;
 
+// tdm
+vmCvar_t	g_largeShieldRespawnTime;
+
 // bk001129 - made static to avoid aliasing
 static cvarTable_t		gameCvarTable[] = {
 	// don't override the cheat state set by the system
@@ -696,7 +699,11 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_floatingItems, "g_floatingItems", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_rocketSurfing, "g_rocketSurfing", "1", CVAR_ARCHIVE, 0, qtrue },
-	{ &g_bouncePadDoubleJump, "g_bouncePadDoubleJump", "1", CVAR_ARCHIVE, 0, qtrue }
+	{ &g_bouncePadDoubleJump, "g_bouncePadDoubleJump", "1", CVAR_ARCHIVE, 0, qtrue },
+
+	// tdm
+	{ &g_largeShieldRespawnTime, "g_largeShieldRespawnTime", 30, CVAR_ARCHIVE, 0, qtrue }
+		
 };
 
 // bk001129 - made static to avoid aliasing

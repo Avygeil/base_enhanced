@@ -2092,6 +2092,9 @@ extern vmCvar_t    sv_passwordlessSpectators;
 
 extern vmCvar_t	   g_wasRestarted;
 
+// tdm
+extern vmCvar_t    g_largeShieldRespawnTime;
+
 int validateAccount(const char* username, const char* password, int num);
 void unregisterUser(const char* username);
 void loadAccounts();

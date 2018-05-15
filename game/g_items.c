@@ -2306,7 +2306,12 @@ int Pickup_Armor( gentity_t *ent, gentity_t *other )
 		other->client->ps.stats[STAT_ARMOR] = other->client->ps.stats[STAT_MAX_HEALTH] * ent->item->giTag;
 	}
 
-	return adjustRespawnTime(RESPAWN_ARMOR, ent->item->giType, ent->item->giTag);
+	if ( ent->item->giType == IT_ARMOR && ent->item->giTag == 2 ) { // special case for large shield
+		return adjustRespawnTime( Com_Clampi( g_largeShieldRespawnTime.integer, 100, 1 ), ent->item->giType, ent->item->giTag );
+	} else {
+		return adjustRespawnTime( RESPAWN_ARMOR, ent->item->giType, ent->item->giTag );
+	}
+	
 }
 
 //======================================================================
