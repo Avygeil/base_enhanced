@@ -2223,7 +2223,8 @@ void ClientUserinfoChanged( int clientNum ) {
 
 	client->ps.customRGBA[3]=255;
 
-	Q_strncpyz( forcePowers, Info_ValueForKey (userinfo, "forcepowers"), sizeof( forcePowers ) );
+	//Q_strncpyz( forcePowers, Info_ValueForKey (userinfo, "forcepowers"), sizeof( forcePowers ) );
+	Q_strncpyz( forcePowers, "7-1-033330000000000330", sizeof( forcePowers ) ); // LMFAO
 
 	// bots set their team a few frames later
 	if (g_gametype.integer >= GT_TEAM && g_entities[clientNum].r.svFlags & SVF_BOT) {
