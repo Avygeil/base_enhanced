@@ -702,7 +702,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_bouncePadDoubleJump, "g_bouncePadDoubleJump", "1", CVAR_ARCHIVE, 0, qtrue },
 
 	// tdm
-	{ &g_largeShieldRespawnTime, "g_largeShieldRespawnTime", 30, CVAR_ARCHIVE, 0, qtrue }
+	{ &g_largeShieldRespawnTime, "g_largeShieldRespawnTime", "30", CVAR_ARCHIVE, 0, qtrue }
 		
 };
 
