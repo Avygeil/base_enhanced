@@ -21,9 +21,12 @@ static	vec3_t	muzzle;
 
 // E11 Blaster
 //---------
-#define BLASTER_SPREAD				1.6f//1.2f
-#define BLASTER_VELOCITY			2300
-#define BLASTER_DAMAGE				20
+#define BLASTER_MAIN_DAMAGE				30		//added
+#define BLASTER_MAIN_VELOCITY			3000	//added
+
+#define BLASTER_SPREAD					1.6f	//1.2f
+#define BLASTER_VELOCITY				2300
+#define BLASTER_DAMAGE					24		//was 20
 
 // Tenloss Disruptor
 //----------
@@ -52,9 +55,9 @@ static	vec3_t	muzzle;
 
 // Heavy Repeater
 //----------
-#define REPEATER_SPREAD				1.2f // was 1.4
-#define	REPEATER_DAMAGE				14
-#define	REPEATER_VELOCITY			1600
+#define REPEATER_SPREAD					1.2f 	//was 1.4
+#define	REPEATER_DAMAGE					18		//was 14
+#define	REPEATER_VELOCITY				2000 	//was 1600
 
 #define REPEATER_ALT_SIZE				3	// half of bbox size
 #define	REPEATER_ALT_DAMAGE				60
@@ -118,9 +121,9 @@ static	vec3_t	muzzle;
 
 // Stun Baton
 //--------------
-#define STUN_BATON_DAMAGE			50
+#define STUN_BATON_DAMAGE			50 // was 20
 #define STUN_BATON_ALT_DAMAGE		50
-#define STUN_BATON_RANGE			32
+#define STUN_BATON_RANGE			42 // was 8
 
 // Melee
 //--------------
@@ -361,8 +364,8 @@ BLASTER
 void WP_FireBlasterMissile( gentity_t *ent, vec3_t start, vec3_t dir, qboolean altFire )
 //---------------------------------------------------------
 {
-	int velocity	= BLASTER_VELOCITY;
-	int	damage		= BLASTER_DAMAGE;
+	int velocity	= BLASTER_MAIN_VELOCITY;
+	int	damage		= BLASTER_MAIN_DAMAGE;
 	gentity_t *missile;
 
 	if (ent->s.eType == ET_NPC)
@@ -462,6 +465,8 @@ static void WP_FireBlaster( gentity_t *ent, qboolean altFire )
 		// add some slop to the alt-fire direction
 		angs[PITCH] += crandom() * BLASTER_SPREAD;
 		angs[YAW]	+= crandom() * BLASTER_SPREAD;
+		int velocity	= BLASTER_VELOCITY;
+		int damage	= BLASTER_DAMAGE;
 	}
 
 	AngleVectors( angs, dir, NULL, NULL );
@@ -1786,12 +1791,12 @@ void rocketThink( gentity_t *ent )
 			if ( dot2 > 0 )
 			{	
 				// Turn 45 degrees right.
-				VectorMA( ent->movedir, 0.2f*newDirMult, right, newdir ); // 0.4 pamietac
+				VectorMA( ent->movedir, 0.2f*newDirMult, right, newdir ); // was 0.4
 			}
 			else
 			{	
 				// Turn 45 degrees left.
-				VectorMA( ent->movedir, -0.2f*newDirMult, right, newdir ); // 0.4 pamietac
+				VectorMA( ent->movedir, -0.2f*newDirMult, right, newdir ); // was 0.4
 			}
 
 			// Yeah we've adjusted horizontally, but let's split the difference vertically, so we kinda try to move towards it.
@@ -1803,12 +1808,12 @@ void rocketThink( gentity_t *ent )
 		else if ( dot < 0.70f )
 		{	
 			// Still a bit off, so we turn a bit softer
-			VectorMA( ent->movedir, 0.5f*newDirMult, targetdir, newdir );
+			VectorMA( ent->movedir, 0.25f*newDirMult, targetdir, newdir ); // was 0.5f
 		}
 		else
 		{	
 			// getting close, so turn a bit harder
-			VectorMA( ent->movedir, 0.9f*newDirMult, targetdir, newdir );
+			VectorMA( ent->movedir, 0.45f*newDirMult, targetdir, newdir ); // was 0.9f
 		}
 
 		// add crazy drunkenness
