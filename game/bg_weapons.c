@@ -171,7 +171,7 @@ weaponData_t weaponData[WP_NUM_WEAPONS] =
 		AMMO_METAL_BOLTS,		//	int		ammoIndex;			// Index to proper ammo slot
 		5,						//	int		ammoLow;			// Count when ammo is low
 		1,						//	int		energyPerShot;		// Amount of energy used per shot
-		100,					//	int		fireTime;			// Amount of time between firings
+		75,					//	int		fireTime;			// Amount of time between firings
 		8192,					//	int		range;				// Range of weapon
 		15,						//	int		altEnergyPerShot;	// Amount of energy used for alt-fire
 		800,					//	int		altFireTime;		// Amount of time between alt-firings
