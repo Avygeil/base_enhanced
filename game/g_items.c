@@ -1028,7 +1028,7 @@ void SP_PAS( gentity_t *base )
 
 	base->physicsObject = qtrue;
 
-	G_Sound( base, CHAN_BODY, G_SoundIndex( "sound/chars/turret/startup.wav" ));
+	G_Sound( base, CHAN_BODY, G_SoundIndex( "sound/player/use_sentry.wav" )); // sentry start sound
 }
 
 //------------------------------------------------------------------------
@@ -2254,10 +2254,10 @@ int Pickup_Weapon (gentity_t *ent, gentity_t *other) {
 	G_LogWeaponPickup(other->s.number, ent->item->giTag);
 	
 	// team deathmatch has slow weapon respawns
-	if ( g_gametype.integer == GT_TEAM ) 
+	/*if ( g_gametype.integer == GT_TEAM ) 
 	{
 		return adjustRespawnTime(RESPAWN_TEAM_WEAPON, ent->item->giType, ent->item->giTag);
-	}
+	}*/
 
 	return adjustRespawnTime(g_weaponRespawn.integer, ent->item->giType, ent->item->giTag);
 }
@@ -2306,7 +2306,12 @@ int Pickup_Armor( gentity_t *ent, gentity_t *other )
 		other->client->ps.stats[STAT_ARMOR] = other->client->ps.stats[STAT_MAX_HEALTH] * ent->item->giTag;
 	}
 
-	return adjustRespawnTime(RESPAWN_ARMOR, ent->item->giType, ent->item->giTag);
+	if ( ent->item->giType == IT_ARMOR && ent->item->giTag == 2 ) { // special case for large shield
+		return adjustRespawnTime( Com_Clampi( g_largeShieldRespawnTime.integer, 100, 1 ), ent->item->giType, ent->item->giTag );
+	} else {
+		return adjustRespawnTime( RESPAWN_ARMOR, ent->item->giType, ent->item->giTag );
+	}
+	
 }
 
 //======================================================================
@@ -2637,7 +2642,7 @@ void Touch_Item (gentity_t *ent, gentity_t *other, trace_t *trace) {
 	// picked up items still stay around, they just don't
 	// draw anything.  This allows respawnable items
 	// to be placed on movers.
-	if (!(ent->flags & FL_DROPPED_ITEM) && (ent->item->giType==IT_WEAPON || ent->item->giType==IT_POWERUP))
+	if (!(ent->flags & FL_DROPPED_ITEM) && (ent->item->giType==IT_WEAPON || ent->item->giType==IT_POWERUP || ent->item->giType == IT_AMMO || ent->item->giType == IT_HEALTH || ent->item->giType == IT_ARMOR || ent->item->giType == IT_HOLDABLE)) // placeholder
 	{
 		ent->s.eFlags |= EF_ITEMPLACEHOLDER;
 		ent->s.eFlags &= ~EF_NODRAW;
