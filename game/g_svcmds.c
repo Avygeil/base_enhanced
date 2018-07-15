@@ -1256,7 +1256,7 @@ static void mapSelectedCallback( void *context, char *mapname ) {
 			// the only difference behind the scenes is that it doesn't display the name of the map
 
 			Q_strcat( selection->printMessage, sizeof( selection->printMessage ),
-				va( "\n"S_COLOR_CYAN"/vote %d "S_COLOR_WHITE" - A random map not above", selection->numSelected )
+				va( "\n"S_COLOR_CYAN"/vote %d "S_COLOR_WHITE" - "S_COLOR_YELLOW"A random map not above", selection->numSelected )
 			);
 		} else {
 			// otherwise this is a standard option
