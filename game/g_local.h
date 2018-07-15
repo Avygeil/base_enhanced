@@ -1070,6 +1070,7 @@ typedef struct {
 
 	// b_e multi voting
 	qboolean	multiVoting; // bypass some stuff if this is true (ie, cant vote yes/no)
+	qboolean	multiVoteHasWildcard; // required for different rng logic
 	int			multiVoteChoices;
 	int			multiVotes[MAX_CLIENTS]; // the id of the choice they voted for
 
@@ -2061,6 +2062,7 @@ extern vmCvar_t     g_allow_vote_timelimit;
 extern vmCvar_t     g_allow_vote_fraglimit;
 extern vmCvar_t     g_allow_vote_maprandom;
 extern vmCvar_t     g_allow_vote_warmup;
+extern vmCvar_t		g_enable_maprandom_wildcard;
 extern vmCvar_t		g_redirectDisabledVotes;
 extern vmCvar_t     g_default_restart_countdown;
 

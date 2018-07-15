@@ -1193,7 +1193,7 @@ void Svcmd_AccountPrintAll_f(){
 extern void fixVoters();
 
 // starts a multiple choices vote using some of the binary voting logic
-static void StartMultiMapVote( const int numMaps, const char *listOfMaps ) {
+static void StartMultiMapVote( const int numMaps, const qboolean hasWildcard, const char *listOfMaps ) {
 	if ( level.voteTime ) {
 		// stop the current vote because we are going to replace it
 		level.voteTime = 0;
@@ -1210,6 +1210,7 @@ static void StartMultiMapVote( const int numMaps, const char *listOfMaps ) {
 	level.voteNo = 0;
 	// we don't set lastVotingClient since this isn't a "normal" vote
 	level.multiVoting = qtrue;
+	level.multiVoteHasWildcard = hasWildcard;
 	level.multiVoteChoices = numMaps;
 	memset( &( level.multiVotes ), 0, sizeof( level.multiVotes ) );
 
@@ -1225,6 +1226,8 @@ typedef struct {
 	char listOfMaps[MAX_STRING_CHARS];
 	char printMessage[MAX_STRING_CHARS];
 	qboolean announceMultiVote;
+	qboolean hasWildcard;
+	int mapsToRandomize;
 	int numSelected;
 } MapSelectionContext;
 
@@ -1248,22 +1251,34 @@ static void mapSelectedCallback( void *context, char *mapname ) {
 			Q_strncpyz( selection->printMessage, "Vote for a map to increase its probability:", sizeof( selection->printMessage ) );
 		}
 
-		// try to print the full map name to players (if a full name doesn't appear, map has no .arena or isn't installed)
-		char *mapDisplayName = NULL;
-		const char *arenaInfo = G_GetArenaInfoByMap( mapname );
+		if ( selection->hasWildcard && selection->mapsToRandomize == selection->numSelected ) {
+			// the wildcard option is always the last option printed
+			// the only difference behind the scenes is that it doesn't display the name of the map
 
-		if ( arenaInfo ) {
-			mapDisplayName = Info_ValueForKey( arenaInfo, "longname" );
-			Q_CleanStr( mapDisplayName );
+			Q_strcat( selection->printMessage, sizeof( selection->printMessage ),
+				va( "\n"S_COLOR_CYAN"/vote %d "S_COLOR_WHITE" - A random map not above", selection->numSelected )
+			);
+		} else {
+			// otherwise this is a standard option
+			// try to print the full map name to players (if a full name doesn't appear, map has no .arena or isn't installed)
+
+			char *mapDisplayName = NULL;
+			const char *arenaInfo = G_GetArenaInfoByMap( mapname );
+
+			if ( arenaInfo ) {
+				mapDisplayName = Info_ValueForKey( arenaInfo, "longname" );
+				Q_CleanStr( mapDisplayName );
+			}
+
+			if ( !VALIDSTRING( mapDisplayName ) ) {
+				mapDisplayName = mapname;
+			}
+
+			Q_strcat( selection->printMessage, sizeof( selection->printMessage ),
+				va( "\n"S_COLOR_CYAN"/vote %d "S_COLOR_WHITE" - %s", selection->numSelected, mapDisplayName )
+			);
 		}
-
-		if ( !VALIDSTRING( mapDisplayName ) ) {
-			mapDisplayName = mapname;
-		}
-
-		Q_strcat( selection->printMessage, sizeof( selection->printMessage ),
-			va( "\n"S_COLOR_CYAN"/vote %d "S_COLOR_WHITE" - %s", selection->numSelected, mapDisplayName )
-		);
+		
 	}
 }
 
@@ -1318,12 +1333,22 @@ void Svcmd_MapRandom_f()
 		}
 
 		context.announceMultiVote = qtrue;
+
+		// in order to make the option work, we randomize the wildcard map here along with the other choices
+		// this avoids having to randomize it later while excluding the other choices
+		// so even though the wildcard option is actually "pre-determined", but hidden, the effect is the same
+		if ( g_enable_maprandom_wildcard.integer ) {
+			context.hasWildcard = qtrue;
+			++mapsToRandomize;
+		}
 	}
 
-	if ( G_CfgDbSelectMapsFromPool( pool, currentMap, mapsToRandomize, mapSelectedCallback, &context ) )
+	context.mapsToRandomize = mapsToRandomize;
+
+	if ( G_CfgDbSelectMapsFromPool( pool, currentMap, context.mapsToRandomize, mapSelectedCallback, &context ) )
     {
-		if ( context.numSelected != mapsToRandomize ) {
-			G_Printf( "Could not randomize this many maps! Expected %d, but randomized %d\n", mapsToRandomize, context.numSelected );
+		if ( context.numSelected != context.mapsToRandomize ) {
+			G_Printf( "Could not randomize this many maps! Expected %d, but randomized %d\n", context.mapsToRandomize, context.numSelected );
 		}
 
 		if ( VALIDSTRING( context.printMessage ) ) {
@@ -1334,9 +1359,9 @@ void Svcmd_MapRandom_f()
 
 		if ( context.numSelected > 1 ) {
 			// we are going to need another vote for this...
-			StartMultiMapVote( context.numSelected, context.listOfMaps );
+			StartMultiMapVote( context.numSelected, context.hasWildcard, context.listOfMaps );
 		} else {
-			// we want 1 map, this means listOfMaps only contains 1 randomized map. Just change to it straight away.
+			// we have 1 map, this means listOfMaps only contains 1 randomized map. Just change to it straight away.
 			trap_SendConsoleCommand( EXEC_APPEND, va( "map %s\n", context.listOfMaps ) );
 		}
 
@@ -1375,7 +1400,7 @@ int* BuildVoteResults( const int numChoices, int *numVotes, int *highestVoteCoun
 }
 
 static void PickRandomMultiMap( const int *voteResults, const int numChoices, const int numVotingClients,
-	const int numVotes, const int highestVoteCount, char *out, size_t outSize ) {
+	const int numVotes, const int highestVoteCount, qboolean hasWildcard, char *out, size_t outSize ) {
 	int i;
 
 	if ( highestVoteCount >= ( numVotingClients / 2 ) + 1 ) {
@@ -1408,8 +1433,15 @@ static void PickRandomMultiMap( const int *voteResults, const int numChoices, co
 		udf = malloc( sizeof( *udf ) * items );
 
 		for ( i = 0; i < numChoices; ++i ) {
-			if ( highestVoteCount - voteResults[i] > ( numVotingClients / 4 ) ) {
-				// rule out very low vote counts relatively to the highest one and the max voting clients
+			// 1. special case for wildcard vote: if it has the highest amount of votes, it either passed with >50% majority earlier,
+			// or if we got here it could be tied with other votes for the highest amount of votes: for this case, rule out all
+			// votes that aren't tied with it
+			// 2. otherwise, if the wildcard vote doesn't have the highest amount of votes, discard its votes
+			// 3. rule out very low vote counts relatively to the highest one and the max voting clients
+			if (
+				( hasWildcard && voteResults[numChoices - 1] == highestVoteCount && voteResults[i] != highestVoteCount ) ||
+				( hasWildcard && voteResults[numChoices - 1] != highestVoteCount && i == numChoices - 1 ) ||
+				( highestVoteCount - voteResults[i] > ( numVotingClients / 4 ) ) ) {
 				items -= voteResults[i];
 				udf = realloc( udf, sizeof( *udf ) * items );
 				continue;
@@ -1445,7 +1477,7 @@ void Svcmd_MapMultiVote_f() {
 	int *voteResults = BuildVoteResults( level.multiVoteChoices, &numVotes, &highestVoteCount );
 
 	char selectedMapname[MAX_MAP_NAME];
-	PickRandomMultiMap( voteResults, level.multiVoteChoices, level.numVotingClients, numVotes, highestVoteCount, selectedMapname, sizeof( selectedMapname ) );
+	PickRandomMultiMap( voteResults, level.multiVoteChoices, level.numVotingClients, numVotes, highestVoteCount, level.multiVoteHasWildcard, selectedMapname, sizeof( selectedMapname ) );
 
 	// build a string to show the idiots what they voted for
 	int i;
@@ -1485,6 +1517,7 @@ void Svcmd_MapMultiVote_f() {
 	Q_strncpyz( level.voteString, va( "map %s", selectedMapname ), sizeof( level.voteString ) );
 	level.voteExecuteTime = level.time + 3000;
 	level.multiVoting = qfalse;
+	level.multiVoteHasWildcard = qfalse;
 	level.multiVoteChoices = 0;
 	memset( level.multiVotes, 0, sizeof( level.multiVotes ) );
 }

@@ -310,6 +310,7 @@ vmCvar_t    g_allow_vote_timelimit;
 vmCvar_t    g_allow_vote_fraglimit;
 vmCvar_t    g_allow_vote_maprandom;
 vmCvar_t    g_allow_vote_warmup;
+vmCvar_t	g_enable_maprandom_wildcard;
 vmCvar_t	g_redirectDisabledVotes;
 vmCvar_t    g_quietrcon;
 vmCvar_t    g_npc_spawn_limit;
@@ -655,6 +656,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_allow_vote_maprandom, "g_allow_vote_maprandom", "4", CVAR_ARCHIVE, 0, qtrue },
     { &g_allow_vote_warmup, "g_allow_vote_warmup", "1", CVAR_ARCHIVE, 0, qtrue },
 
+	{ &g_enable_maprandom_wildcard, "g_enable_maprandom_wildcard", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_redirectDisabledVotes, "g_redirectDisabledVotes", "1", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_quietrcon,	"g_quietrcon"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
