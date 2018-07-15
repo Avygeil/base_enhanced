@@ -1400,7 +1400,7 @@ int* BuildVoteResults( const int numChoices, int *numVotes, int *highestVoteCoun
 }
 
 static void PickRandomMultiMap( const int *voteResults, const int numChoices, const int numVotingClients,
-	const int numVotes, const int highestVoteCount, qboolean hasWildcard, char *out, size_t outSize ) {
+	const int numVotes, const int highestVoteCount, qboolean *hasWildcard, char *out, size_t outSize ) {
 	int i;
 
 	if ( highestVoteCount >= ( numVotingClients / 2 ) + 1 ) {
@@ -1439,8 +1439,8 @@ static void PickRandomMultiMap( const int *voteResults, const int numChoices, co
 			// 2. otherwise, if the wildcard vote doesn't have the highest amount of votes, discard its votes
 			// 3. rule out very low vote counts relatively to the highest one and the max voting clients
 			if (
-				( hasWildcard && voteResults[numChoices - 1] == highestVoteCount && voteResults[i] != highestVoteCount ) ||
-				( hasWildcard && voteResults[numChoices - 1] != highestVoteCount && i == numChoices - 1 ) ||
+				( *hasWildcard && voteResults[numChoices - 1] == highestVoteCount && voteResults[i] != highestVoteCount ) ||
+				( *hasWildcard && voteResults[numChoices - 1] != highestVoteCount && i == numChoices - 1 ) ||
 				( highestVoteCount - voteResults[i] > ( numVotingClients / 4 ) ) ) {
 				items -= voteResults[i];
 				udf = realloc( udf, sizeof( *udf ) * items );
@@ -1458,8 +1458,15 @@ static void PickRandomMultiMap( const int *voteResults, const int numChoices, co
 	}
 
 	// since the array is uniform, we can just pick an index to have a weighted map pick
-	trap_Argv( udf[random], out, outSize );
+	const int result = udf[random];
 	free( udf );
+
+	if ( *hasWildcard && result != numChoices ) {
+		// if the wildcard vote didn't pass, change the upstream value to hide it from the results
+		*hasWildcard = qfalse;
+	}
+
+	trap_Argv( result, out, outSize );
 }
 
 void Svcmd_MapMultiVote_f() {
@@ -1477,12 +1484,18 @@ void Svcmd_MapMultiVote_f() {
 	int *voteResults = BuildVoteResults( level.multiVoteChoices, &numVotes, &highestVoteCount );
 
 	char selectedMapname[MAX_MAP_NAME];
-	PickRandomMultiMap( voteResults, level.multiVoteChoices, level.numVotingClients, numVotes, highestVoteCount, level.multiVoteHasWildcard, selectedMapname, sizeof( selectedMapname ) );
+	qboolean hasWildcard = level.multiVoteHasWildcard; // changes based on result (since the wildcard vote can only either pass or be discarded)
+	PickRandomMultiMap( voteResults, level.multiVoteChoices, level.numVotingClients, numVotes, highestVoteCount, &hasWildcard, selectedMapname, sizeof( selectedMapname ) );
 
 	// build a string to show the idiots what they voted for
 	int i;
 	char resultString[MAX_STRING_CHARS] = S_COLOR_WHITE"Map voting results:";
 	for ( i = 0; i < level.multiVoteChoices; ++i ) {
+		// if this was a wildcard vote and the wildcard failed, hide the wildcard option from results
+		if ( level.multiVoteHasWildcard && !hasWildcard && i == level.multiVoteChoices - 1 ) {
+			continue;
+		}
+
 		char mapname[MAX_MAP_NAME];
 		trap_Argv( 1 + i, mapname, sizeof( mapname ) );
 
