@@ -2066,6 +2066,8 @@ extern vmCvar_t		g_enable_maprandom_wildcard;
 extern vmCvar_t		g_redirectDisabledVotes;
 extern vmCvar_t     g_default_restart_countdown;
 
+extern vmCvar_t		g_allowVGS;
+
 extern vmCvar_t	g_accounts;
 extern vmCvar_t	g_accountsFile;
 

@@ -2165,15 +2165,15 @@ static void Cmd_VGSCommand_f( gentity_t *ent )
 		return;
 	}
 
-	/*if ( !g_allowVGS.integer ) {
+	if ( !g_allowVGS.integer ) {
 		return;
 	}
 
 	if ( g_allowVGS.integer < 2 && ( ent->client->sess.sessionTeam == TEAM_SPECTATOR || ent->client->tempSpectate >= level.time ) )
 	{
-		trap->SendServerCommand( ent - g_entities, va( "print \"%s\n\"", G_GetStringEdString( "MP_SVGAME", "NOVOICECHATASSPEC" ) ) );
+		trap_SendServerCommand( ent - g_entities, va( "print \"%s\n\"", G_GetStringEdString( "MP_SVGAME", "NOVOICECHATASSPEC" ) ) );
 		return;
-	}*/
+	}
 
 	trap_Argv( 1, arg, sizeof( arg ) );
 

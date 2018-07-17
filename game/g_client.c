@@ -2808,7 +2808,8 @@ void G_BroadcastServerFeatureList( int clientNum ) {
 		"mappool \"Lists server map pools and their content\" "
 		"ready \"Marks yourself as ready to be part of random teams\" "
 		"ctfstats \"Shows stats for the current CTF game\" "
-		"toptimes \"Leaderboard of the fastest caps\"";
+		"toptimes \"Leaderboard of the fastest caps\" "
+		"vgs_cmd \"Extended Voice Game System\"";
 
 	static char locationsListConfigString[MAX_TOKEN_CHARS] = { 0 };
 
