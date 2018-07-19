@@ -2107,6 +2107,22 @@ static void Cmd_VoiceCommand_f(gentity_t *ent)
 
 	if (trap_Argc() < 2)
 	{
+		// list available arguments to help users bind stuff (otherwise the only way is to use assets/code)
+		
+		char voiceCmdList[MAX_STRING_CHARS];
+
+		while ( i < MAX_CUSTOM_SIEGE_SOUNDS ) {
+			if ( !bg_customSiegeSoundNames[i] ) {
+				break;
+			}
+
+			if ( !Q_stricmp( bg_customSiegeSoundNames[i], s ) ) {
+				break;
+			}
+
+			i++;
+		}
+
 		return;
 	}
 
