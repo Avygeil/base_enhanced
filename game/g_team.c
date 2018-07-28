@@ -1215,7 +1215,63 @@ gentity_t *SelectRandomTeamSpawnPoint( int teamstate, team_t team, int siegeClas
 			break;
 	}
 
-	if ( !count ) {	// no spots that won't telefrag
+	// in ctf, rule out spawns that are too close to recently dropped flags if enabled
+	if ( g_gametype.integer == GT_CTF && count && g_droppedFlagSpawnProtectionRadius.integer > 0 ) {
+		int i;
+
+		// look for any dropped flag here and remove matching spawns instead of
+		// not adding them in the loop above (saves building an array of dropped flags,
+		// since there can theoretically be more than 2)
+		for ( i = 0; i < level.num_entities; ++i ) {
+			gentity_t* ent = &g_entities[i];
+
+			if ( !ent->inuse || !ent->item ) {
+				continue;
+			}
+
+			if ( ent->item->giTag != PW_REDFLAG &&
+				ent->item->giTag != PW_BLUEFLAG &&
+				ent->item->giTag != PW_NEUTRALFLAG ) {
+				continue;
+			}
+
+			if ( !( ent->flags & FL_DROPPED_ITEM ) ) {
+				continue;
+			}
+
+			// this is a dropped flag
+
+			// hack: nextthink is always level.time + 30000 at the time the flag was dropped
+			int flagDroppedTime = ent->nextthink - 30000;
+
+			// g_droppedFlagSpawnProtectionDuration is the time in ms during which dropped flags prevent nearby spawns
+			// (minimum 1s, maximum 30s which is the time it takes the flag to respawn)
+			if ( level.time > flagDroppedTime + Com_Clampi( 1000, 30000, g_droppedFlagSpawnProtectionDuration.integer ) ) {
+				continue;
+			}
+
+			// this dropped flag still prevents spawns -- check all spawns against it			
+			const float radiusSquared = ( float )( g_droppedFlagSpawnProtectionRadius.integer * g_droppedFlagSpawnProtectionRadius.integer );
+
+			int j = 0;
+			while ( j < count ) {
+				if ( DistanceSquared( spots[j]->s.origin, ent->r.currentOrigin ) > radiusSquared ) {
+					++j;
+					continue;
+				}
+
+				// this spawn is close enough, remove it from the array of candidates
+
+				if ( j + 1 < count ) { // if there are more spots, shift the array
+					memmove( spots + j, spots + j + 1, ( count - j - 1 ) * sizeof( gentity_t* ) );
+				}
+
+				--count;
+			}
+		}
+	}
+
+	if ( !count ) {	// no valid spot
 		return G_Find( NULL, FOFS(classname), classname);
 	}
 

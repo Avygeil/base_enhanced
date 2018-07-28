@@ -2002,6 +2002,9 @@ extern vmCvar_t		g_minVotersForEvenVotersCount;
 extern vmCvar_t		g_maxNameLength;
 extern vmCvar_t		g_duplicateNamesId;
 
+extern vmCvar_t		g_droppedFlagSpawnProtectionRadius;
+extern vmCvar_t		g_droppedFlagSpawnProtectionDuration;
+
 #ifdef NEWMOD_SUPPORT
 extern vmCvar_t		g_netUnlock;
 #define NMF_KICK			(1 << 0)
