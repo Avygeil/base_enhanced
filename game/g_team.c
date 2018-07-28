@@ -1021,6 +1021,9 @@ int Team_TouchEnemyFlag( gentity_t *ent, gentity_t *other, int team ) {
 		other->client->runInvalid = qtrue;
 	}
 
+	// picking up the flag removes invulnerability
+	cl->ps.eFlags &= ~EF_INVULNERABLE;
+
 	G_ResetAccurateTimerOnTrigger( &cl->pers.teamState.flagsince, other, ent );
 
 	Team_SetFlagStatus( team, FLAG_TAKEN );
