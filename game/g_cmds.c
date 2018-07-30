@@ -3102,7 +3102,7 @@ void Cmd_Vote_f( gentity_t *ent ) {
 		trap_SendServerCommand( ent-g_entities, va("print \"%s\n\"", G_GetStringEdString("MP_SVGAME", "NOVOTEINPROG")) );
 		return;
 	}
-	if ( ent->client->mGameFlags & PSG_VOTED ) {
+	if ( !level.multiVoting && ent->client->mGameFlags & PSG_VOTED ) {
 		trap_SendServerCommand( ent-g_entities, va("print \"%s\n\"", G_GetStringEdString("MP_SVGAME", "VOTEALREADY")) );
 		return;
 	}
@@ -3143,10 +3143,16 @@ void Cmd_Vote_f( gentity_t *ent ) {
 		}
 
 		// we maintain an internal array of choice ids, and only use voteYes to show how many people voted
-		G_LogPrintf( "Client %i (%s) voted for choice %d\n", ent - g_entities, ent->client->pers.netname, voteId );
+
+		if ( !( ent->client->mGameFlags & PSG_VOTED ) ) { // first vote
+			G_LogPrintf( "Client %i (%s) voted for choice %d\n", ent - g_entities, ent->client->pers.netname, voteId );
+			level.voteYes++;
+			trap_SetConfigstring( CS_VOTE_YES, va( "%i", level.voteYes ) );
+		} else { // changing vote
+			G_LogPrintf( "Client %i (%s) changed their vote to choice %d\n", ent - g_entities, ent->client->pers.netname, voteId );
+		}
+		
 		level.multiVotes[ent - g_entities] = voteId;
-		level.voteYes++;
-		trap_SetConfigstring( CS_VOTE_YES, va( "%i", level.voteYes ) );
 	}
 
 	trap_SendServerCommand( ent - g_entities, va( "print \"%s\n\"", G_GetStringEdString( "MP_SVGAME", "PLVOTECAST" ) ) );
