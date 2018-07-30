@@ -761,6 +761,14 @@ static CaptureRecordType FindCaptureTypeForRun( gclient_t *client ) {
 		return CAPTURE_RECORD_WEAPONS;
 	}
 
+	if ( !client->jumpedOrCrouched ) {
+		return CAPTURE_RECORD_WALK;
+	}
+
+	if ( !client->usedForward ) {
+		return CAPTURE_RECORD_NOFORWARD;
+	}
+
 	return CAPTURE_RECORD_STANDARD;
 }
 

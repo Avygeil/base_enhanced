@@ -3330,6 +3330,14 @@ void ClientThink_real( gentity_t *ent ) {
 
 	Pmove (&pm);
 
+	if ( pm.cmd.forwardmove > 0 ) {
+		ent->client->usedForward = qtrue;
+	}
+
+	if ( pm.cmd.upmove ) {
+		ent->client->jumpedOrCrouched = qtrue;
+	}
+
 	if (g_strafejump_mod.integer){
 		ent->r.contents &= ~CONTENTS_BODY;
 	}

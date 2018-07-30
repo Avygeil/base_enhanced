@@ -1064,8 +1064,10 @@ void WP_ForcePowerRegenerate( gentity_t *self, int overrideAmt )
 			!( self->client->ps.powerups[PW_REDFLAG] || self->client->ps.powerups[PW_BLUEFLAG] ) &&
 			!self->client->ps.powerups[PW_FORCE_BOON] ) {
 			// .. then there is no reason to keep the run invalid/making it a weapons run
-			self->client->usedWeapon = qfalse;
 			self->client->runInvalid = qfalse;
+			self->client->usedWeapon = qfalse;
+			self->client->jumpedOrCrouched = qfalse;
+			self->client->usedForward = qfalse;
 		}
 	}
 }

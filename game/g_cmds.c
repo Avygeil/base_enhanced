@@ -3516,9 +3516,11 @@ void PartitionedTimer( const int time, int *mins, int *secs, int *millis ) {
 
 const char* GetShortNameForRecordType( CaptureRecordType type ) {
 	switch ( type ) {
-	case CAPTURE_RECORD_STANDARD: return "standard";
-	case CAPTURE_RECORD_WEAPONS: return "weapons";
-	default: return "unknown";
+		case CAPTURE_RECORD_STANDARD: return "standard";
+		case CAPTURE_RECORD_WEAPONS: return "weapons";
+		case CAPTURE_RECORD_WALK: return "walkcap";
+		case CAPTURE_RECORD_NOFORWARD: return "noforward";
+		default: return "unknown";
 	}
 }
 
@@ -3527,8 +3529,16 @@ CaptureRecordType GetRecordTypeForShortName( const char *name ) {
 		return CAPTURE_RECORD_STANDARD;
 	}
 
-	if ( !Q_stricmpn( name, "w", 1 ) ) {
+	if ( !Q_stricmpn( name, "we", 2 ) ) {
 		return CAPTURE_RECORD_WEAPONS;
+	}
+
+	if ( !Q_stricmpn( name, "wa", 2 ) ) {
+		return CAPTURE_RECORD_WALK;
+	}
+
+	if ( !Q_stricmpn( name, "n", 1 ) ) {
+		return CAPTURE_RECORD_NOFORWARD;
 	}
 
 	return CAPTURE_RECORD_INVALID;
@@ -3604,7 +3614,7 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 
 		if ( !Q_stricmp( buf, "maplist" ) ) {
 			if ( trap_Argc() < 3 ) {
-				trap_SendServerCommand( ent - g_entities, "print \"Usage: /toptimes maplist <standard | weapons> [page]\n\"" );
+				trap_SendServerCommand( ent - g_entities, "print \"Usage: /toptimes maplist <standard | weapons | walkcap | noforward> [page]\n\"" );
 				return;
 			}
 

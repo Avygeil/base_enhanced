@@ -861,8 +861,10 @@ struct gclient_s {
 
 	int			pmoveMsec; // used for interpolation with accurate timers
 
-	qboolean	runInvalid; // qtrue if external damage/force was used on this player. this invalidates ALL categories
+	qboolean	runInvalid; // this invalidates ALL categories (eg: external damage/force was used on this player)
 	qboolean	usedWeapon; // triggers the weapon capture record category
+	qboolean	jumpedOrCrouched; // invalidates the walk category
+	qboolean	usedForward; // invalidates the backwards category
 
 #ifdef NEWMOD_SUPPORT
 	qboolean	isLagging; // mark lagger without actually changing EF_CONNECTION
@@ -963,7 +965,9 @@ typedef struct {
 
 typedef enum {
 	CAPTURE_RECORD_STANDARD = 0, // restrictive category from which the other rules derivate
-	CAPTURE_RECORD_WEAPONS, // self weapon damage is allowed
+	CAPTURE_RECORD_WEAPONS, // self weapon damage is allowed (except dets/mines)
+	CAPTURE_RECORD_WALK, // no jump, no roll
+	CAPTURE_RECORD_NOFORWARD, // no +forward
 
 	CAPTURE_RECORD_NUM_TYPES,
 	CAPTURE_RECORD_INVALID
