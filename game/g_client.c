@@ -2185,43 +2185,10 @@ void ClientUserinfoChanged( int clientNum ) {
 		}
 	}
 
-	//Get the skin RGB based on his userinfo
-	value = Info_ValueForKey (userinfo, "char_color_red");
-	if (value)
-	{
-		client->ps.customRGBA[0] = atoi(value);
-	}
-	else
-	{
-		client->ps.customRGBA[0] = 255;
-	}
-
-	value = Info_ValueForKey (userinfo, "char_color_green");
-	if (value)
-	{
-		client->ps.customRGBA[1] = atoi(value);
-	}
-	else
-	{
-		client->ps.customRGBA[1] = 255;
-	}
-
-	value = Info_ValueForKey (userinfo, "char_color_blue");
-	if (value)
-	{
-		client->ps.customRGBA[2] = atoi(value);
-	}
-	else
-	{
-		client->ps.customRGBA[2] = 255;
-	}
-
-	/*if ((client->ps.customRGBA[0]+client->ps.customRGBA[1]+client->ps.customRGBA[2]) < 100)
-	{ //hmm, too dark!
-		client->ps.customRGBA[0] = client->ps.customRGBA[1] = client->ps.customRGBA[2] = 255;
-	}*/
-
-	client->ps.customRGBA[3]=255;
+	client->ps.customRGBA[0] = ( value = Info_ValueForKey( userinfo, "char_color_red" ) ) ? Com_Clampi( 0, 255, atoi( value ) ) : 255;
+	client->ps.customRGBA[1] = ( value = Info_ValueForKey( userinfo, "char_color_green" ) ) ? Com_Clampi( 0, 255, atoi( value ) ) : 255;
+	client->ps.customRGBA[2] = ( value = Info_ValueForKey( userinfo, "char_color_blue" ) ) ? Com_Clampi( 0, 255, atoi( value ) ) : 255;
+	client->ps.customRGBA[3] = 255;
 
 	Q_strncpyz( forcePowers, Info_ValueForKey (userinfo, "forcepowers"), sizeof( forcePowers ) );
 
