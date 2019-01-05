@@ -2216,10 +2216,10 @@ void ClientUserinfoChanged( int clientNum ) {
 		client->ps.customRGBA[2] = 255;
 	}
 
-	if ((client->ps.customRGBA[0]+client->ps.customRGBA[1]+client->ps.customRGBA[2]) < 100)
+	/*if ((client->ps.customRGBA[0]+client->ps.customRGBA[1]+client->ps.customRGBA[2]) < 100)
 	{ //hmm, too dark!
 		client->ps.customRGBA[0] = client->ps.customRGBA[1] = client->ps.customRGBA[2] = 255;
-	}
+	}*/
 
 	client->ps.customRGBA[3]=255;
 
