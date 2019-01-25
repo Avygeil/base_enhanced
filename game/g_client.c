@@ -2411,7 +2411,7 @@ void ClientUserinfoChanged( int clientNum ) {
 				G_SendConfigstring( clientNum, CS_SYSTEMINFO, NULL );
 			}
 		}
-		totalHash = ((unsigned long long int) ipHash) << 32 | guidHash;
+		totalHash = ((unsigned long long int) ipHash) << 32 | (((unsigned long long int) guidHash) & 0xFFFFFFFF);
 		G_LogPrintf( "Client %d (%s) has unique id %llu\n", clientNum, client->pers.netname, totalHash );
 		if (g_gametype.integer == GT_SIEGE)
 		{ //more crap to send
