@@ -653,7 +653,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_antiWallhack,	"g_antiWallhack"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_wallhackMaxTraces,	"g_wallhackMaxTraces"	, "1000"	, CVAR_ARCHIVE, 0, qtrue },
 
-    { &g_restart_countdown, "g_restart_countdown", "5", CVAR_ARCHIVE, 0, qtrue }, 
+    { &g_restart_countdown, "g_restart_countdown", "3", CVAR_ARCHIVE, 0, qtrue }, 
 
 	{ &g_allow_vote_gametype,	"g_allow_vote_gametype"	, "1023"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_allow_vote_kick,	"g_allow_vote_kick"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
