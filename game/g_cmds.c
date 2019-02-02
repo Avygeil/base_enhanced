@@ -5195,6 +5195,11 @@ void ClientCommand( int clientNum ) {
 			Cmd_PrintStats_f( ent );
 			return;
 		}
+		else if ( Q_stricmp( cmd, "whois" ) == 0 )
+		{
+			Cmd_WhoIs_f( ent );
+			return;
+		}
 #ifdef NEWMOD_SUPPORT
 		else if (Q_stricmp(cmd, "svauth") == 0 && ent->client->sess.auth > PENDING && ent->client->sess.auth < AUTHENTICATED) {
 			Cmd_Svauth_f(ent);
