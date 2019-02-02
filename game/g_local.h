@@ -555,6 +555,8 @@ typedef struct {
 	int         chatSentTime;
 	int			teamChatSentCount;
 	int			teamChatSentTime;
+	int			voiceChatSentCount;
+	int			voiceChatSentTime;
 
 	//damage calculating
 	int			damageCaused;
@@ -1843,6 +1845,7 @@ extern	vmCvar_t	g_allowNPC;
 
 extern	vmCvar_t	g_chatLimit;
 extern	vmCvar_t	g_teamChatLimit;
+extern	vmCvar_t	g_voiceChatLimit;
 
 extern	vmCvar_t	g_armBreakage;
 

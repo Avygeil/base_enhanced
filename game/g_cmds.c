@@ -1667,11 +1667,16 @@ static qboolean ChatLimitExceeded(gentity_t *ent, int mode) {
 		return qfalse;
 
 	int *sentTime, *sentCount, *limit;
-	if (mode == SAY_TEAM && ent->client->sess.canJoin && ent->client->sess.sessionTeam != TEAM_SPECTATOR) { // an in-game player using teamchat
+
+	if ( mode == -1 && ent->client->sess.canJoin ) { // -1 is voice chat
+		sentTime = &ent->client->pers.voiceChatSentTime;
+		sentCount = &ent->client->pers.voiceChatSentCount;
+		limit = &g_voiceChatLimit.integer;
+	} else if (mode == SAY_TEAM && ent->client->sess.canJoin) { // using teamchat
 		sentTime = &ent->client->pers.teamChatSentTime;
 		sentCount = &ent->client->pers.teamChatSentCount;
 		limit = &g_teamChatLimit.integer;
-	} else {
+	} else { // using all chat OR private chat (or anything for passwordless)
 		sentTime = &ent->client->pers.chatSentTime;
 		sentCount = &ent->client->pers.chatSentCount;
 		limit = &g_chatLimit.integer;
@@ -2168,6 +2173,10 @@ static void Cmd_VoiceCommand_f(gentity_t *ent)
 		return;
 	}
 
+	if ( ChatLimitExceeded( ent, -1 ) ) {
+		return;
+	}
+
 	te = G_TempEntity(vec3_origin, EV_VOICECMD_SOUND);
 	te->s.groundEntityNum = ent->s.number;
 	te->s.eventParm = G_SoundIndex((char *)bg_customSiegeSoundNames[i]);
@@ -2223,6 +2232,10 @@ static void Cmd_VGSCommand_f( gentity_t *ent )
 
 	if ( i == MAX_CUSTOM_VGS_SOUNDS || !bg_customVGSSoundNames[i] )
 	{ //didn't find it in the list
+		return;
+	}
+
+	if ( ChatLimitExceeded( ent, -1 ) ) {
 		return;
 	}
 
