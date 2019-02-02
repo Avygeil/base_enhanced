@@ -4430,7 +4430,7 @@ void G_RunFrame( int levelTime ) {
 		} else if ( g_knockback.value != 1000 ) {
 			G_Printf( S_COLOR_YELLOW"Knockback is not standard. Capture records won't be tracked during this map.\n" );
 			level.mapCaptureRecords.enabled = qfalse;
-		} else if ( g_forceRegenTime.value != 200 ) {
+		} else if ( g_forceRegenTime.value != 231 ) {
 			G_Printf( S_COLOR_YELLOW"Force regen is not standard. Capture records won't be tracked during this map.\n" );
 			level.mapCaptureRecords.enabled = qfalse;
 		}
