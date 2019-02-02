@@ -1487,10 +1487,31 @@ static void WP_FlechetteMainFire( gentity_t *ent )
 	{
 		vectoangles( forward, angs );
 
-		if (i != 0)
-		{ //do nothing on the first shot, it will hit the crosshairs
-			angs[PITCH] += crandom() * FLECHETTE_SPREAD;
-			angs[YAW]	+= crandom() * FLECHETTE_SPREAD;
+		if ( g_flechetteSpread.integer ) {
+			switch ( i ) {
+				case 1:
+					angs[PITCH] -= random() * FLECHETTE_SPREAD;
+					angs[YAW] -= random() * FLECHETTE_SPREAD;
+					break;
+				case 2:
+					angs[PITCH] -= random() * FLECHETTE_SPREAD;
+					angs[YAW] += random() * FLECHETTE_SPREAD;
+					break;
+				case 3:
+					angs[PITCH] += random() * FLECHETTE_SPREAD;
+					angs[YAW] -= random() * FLECHETTE_SPREAD;
+					break;
+				case 4:
+					angs[PITCH] += random() * FLECHETTE_SPREAD;
+					angs[YAW] += random() * FLECHETTE_SPREAD;
+					break;
+			}
+		} else {
+			if ( i != 0 )
+			{ //do nothing on the first shot, it will hit the crosshairs
+				angs[PITCH] += crandom() * FLECHETTE_SPREAD;
+				angs[YAW] += crandom() * FLECHETTE_SPREAD;
+			}
 		}
 
 		AngleVectors( angs, fwd, NULL, NULL );

@@ -1961,6 +1961,8 @@ extern	vmCvar_t	pmove_msec;
 extern	vmCvar_t	pmove_float;
 #include "namespace_end.h"
 
+extern	vmCvar_t	g_flechetteSpread;
+
 extern	vmCvar_t	g_enableBreath;
 extern	vmCvar_t	g_singlePlayer;
 extern	vmCvar_t	g_dismember;

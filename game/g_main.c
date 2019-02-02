@@ -196,6 +196,8 @@ vmCvar_t	pmove_msec;
 vmCvar_t	pmove_float;
 #include "namespace_end.h"
 
+vmCvar_t	g_flechetteSpread;
+
 vmCvar_t	g_listEntity;
 vmCvar_t	g_singlePlayer;
 vmCvar_t	g_enableBreath;
@@ -529,6 +531,8 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &pmove_fixed, "pmove_fixed", "0", CVAR_SYSTEMINFO | CVAR_ARCHIVE, 0, qtrue },
 	{ &pmove_msec, "pmove_msec", "8", CVAR_SYSTEMINFO | CVAR_ARCHIVE, 0, qtrue },
 	{ &pmove_float, "pmove_float", "0", CVAR_SYSTEMINFO | CVAR_ARCHIVE, 0, qtrue },
+
+	{ &g_flechetteSpread, "g_flechetteSpread", "0", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_dismember, "g_dismember", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_forceDodge, "g_forceDodge", "1", 0, 0, qtrue },
