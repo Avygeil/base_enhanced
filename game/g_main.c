@@ -4389,6 +4389,11 @@ void G_RunFrame( int levelTime ) {
 #endif
 	static int lastMsgTime = 0;
 
+#ifdef NEWMOD_SUPPORT
+	for (i = 0; i < MAX_CLIENTS; i++)
+		level.clients[i].realPing = level.clients[i].ps.ping;
+#endif
+
 #ifdef _DEBUG
 	if ( g_antiWallhack.integer && g_wallhackMaxTraces.integer && level.wallhackTracesDone ) {
 #if 0
