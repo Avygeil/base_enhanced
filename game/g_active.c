@@ -3330,8 +3330,8 @@ void ClientThink_real( gentity_t *ent ) {
 
 	Pmove (&pm);
 
-	if ( pm.cmd.forwardmove > 0 ) {
-		ent->client->usedForward = qtrue;
+	if ( pm.cmd.forwardmove ) {
+		ent->client->usedForwardOrBackward = qtrue;
 	}
 
 	if ( pm.cmd.upmove ) {

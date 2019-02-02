@@ -765,8 +765,8 @@ static CaptureRecordType FindCaptureTypeForRun( gclient_t *client ) {
 		return CAPTURE_RECORD_WALK;
 	}
 
-	if ( !client->usedForward ) {
-		return CAPTURE_RECORD_NOFORWARD;
+	if ( !client->usedForwardOrBackward ) {
+		return CAPTURE_RECORD_AD;
 	}
 
 	return CAPTURE_RECORD_STANDARD;

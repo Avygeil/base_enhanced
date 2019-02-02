@@ -1067,7 +1067,7 @@ void WP_ForcePowerRegenerate( gentity_t *self, int overrideAmt )
 			self->client->runInvalid = qfalse;
 			self->client->usedWeapon = qfalse;
 			self->client->jumpedOrCrouched = qfalse;
-			self->client->usedForward = qfalse;
+			self->client->usedForwardOrBackward = qfalse;
 		}
 	}
 }
