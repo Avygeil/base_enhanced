@@ -2937,29 +2937,13 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 	} 
 	else if ( !Q_stricmp( arg1, "map_restart" )) 
 	{
-		int n = atoi(arg2);
-
 		// *CHANGE 22* - vote disabling
 		if (!g_allow_vote_restart.integer){
 			trap_SendServerCommand( ent-g_entities, "print \"Vote map_restart is disabled.\n\"" );
 			return;
 		}
-
-        // set default map_restart 3 when there is no time provided
-        if (argc < 3)
-        {
-            if ( g_gametype.integer == GT_SIEGE )
-            {
-                n = 0;
-            }
-            else
-            {  
-                n = g_default_restart_countdown.integer;
-            }
-        }
-
-		if (n < 0) n = 0;
-		else if (n > 10) n = 10;
+		
+		const int n = Com_Clampi( 0, 60, g_restart_countdown.integer );
 
 		Com_sprintf( level.voteString, sizeof( level.voteString ), "%s \"%i\"", arg1, n );
 		Com_sprintf( level.voteDisplayString, sizeof( level.voteDisplayString ), "%s", level.voteString );
@@ -3612,6 +3596,10 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 	if ( !level.mapCaptureRecords.enabled ) {
 		trap_SendServerCommand( ent - g_entities, "print \"Capture records are disabled.\n\"" );
 		return;
+	}
+
+	if ( level.mapCaptureRecords.readonly ) {
+		trap_SendServerCommand( ent - g_entities, "print \""S_COLOR_YELLOW"WARNING: Server settings are non standard, new times won't be recorded!\n\"" );
 	}
 
 	if ( trap_Argc() > 1 ) {

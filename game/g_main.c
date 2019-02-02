@@ -320,7 +320,7 @@ vmCvar_t    g_quietrcon;
 vmCvar_t    g_npc_spawn_limit;
 vmCvar_t	g_hackLog;
 
-vmCvar_t    g_default_restart_countdown;
+vmCvar_t    g_restart_countdown;
 
 vmCvar_t    g_fixboon;
 vmCvar_t    g_maxstatusrequests;
@@ -651,7 +651,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_antiWallhack,	"g_antiWallhack"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_wallhackMaxTraces,	"g_wallhackMaxTraces"	, "1000"	, CVAR_ARCHIVE, 0, qtrue },
 
-    { &g_default_restart_countdown, "g_default_restart_countdown", "0", CVAR_ARCHIVE, 0, qtrue }, 
+    { &g_restart_countdown, "g_restart_countdown", "5", CVAR_ARCHIVE, 0, qtrue }, 
 
 	{ &g_allow_vote_gametype,	"g_allow_vote_gametype"	, "1023"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_allow_vote_kick,	"g_allow_vote_kick"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
@@ -4417,22 +4417,22 @@ void G_RunFrame( int levelTime ) {
 	UpdateGlobalCenterPrint( levelTime );
 
 	// check for modified physics and disable capture times if non standard
-	if ( level.mapCaptureRecords.enabled && level.time > 1000 ) { // wat. it seems that sv_cheats = 1 on first frame... so don't check until 1000ms i guess
+	if ( level.mapCaptureRecords.enabled && !level.mapCaptureRecords.readonly && level.time > 1000 ) { // wat. it seems that sv_cheats = 1 on first frame... so don't check until 1000ms i guess
 		if ( g_cheats.integer != 0 ) {
 			G_Printf( S_COLOR_YELLOW"Cheats are enabled. Capture records won't be tracked during this map.\n" );
-			level.mapCaptureRecords.enabled = qfalse;
+			level.mapCaptureRecords.readonly = qtrue;
 		} else if ( g_speed.value != 250 ) {
 			G_Printf( S_COLOR_YELLOW"Speed is not standard. Capture records won't be tracked during this map.\n" );
-			level.mapCaptureRecords.enabled = qfalse;
+			level.mapCaptureRecords.readonly = qtrue;
 		} else if ( g_gravity.value != 800 ) {
 			G_Printf( S_COLOR_YELLOW"Gravity is not standard. Capture records won't be tracked during this map.\n" );
-			level.mapCaptureRecords.enabled = qfalse;
+			level.mapCaptureRecords.readonly = qtrue;
 		} else if ( g_knockback.value != 1000 ) {
 			G_Printf( S_COLOR_YELLOW"Knockback is not standard. Capture records won't be tracked during this map.\n" );
-			level.mapCaptureRecords.enabled = qfalse;
+			level.mapCaptureRecords.readonly = qtrue;
 		} else if ( g_forceRegenTime.value != 231 ) {
 			G_Printf( S_COLOR_YELLOW"Force regen is not standard. Capture records won't be tracked during this map.\n" );
-			level.mapCaptureRecords.enabled = qfalse;
+			level.mapCaptureRecords.readonly = qtrue;
 		}
 	}
 
