@@ -1958,6 +1958,7 @@ extern	vmCvar_t	g_bouncePadDoubleJump;
 #include "namespace_begin.h"
 extern	vmCvar_t	pmove_fixed;
 extern	vmCvar_t	pmove_msec;
+extern	vmCvar_t	pmove_float;
 #include "namespace_end.h"
 
 extern	vmCvar_t	g_enableBreath;

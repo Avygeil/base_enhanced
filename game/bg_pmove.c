@@ -10449,8 +10449,16 @@ void PmoveSingle (pmove_t *pmove) {
 	// entering / leaving water splashes
 	PM_WaterEvents();
 
-	// snap some parts of playerstate to save network bandwidth
-	trap_SnapVector( pm->ps->velocity );
+	if ( pm->ps->persistant[PERS_TEAM] == TEAM_SPECTATOR ) {
+		trap_SnapVector( pm->ps->velocity );
+	} else {
+		if ( pm->pmove_float > 1 ) { // japro fps fix
+		}
+		else if ( !pm->pmove_float ) {
+			// snap some parts of playerstate to save network bandwidth
+			trap_SnapVector( pm->ps->velocity );
+		}
+	}
 
  	if (pm->ps->pm_type == PM_JETPACK || gPMDoSlowFall )
 	{
