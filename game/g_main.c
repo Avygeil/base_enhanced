@@ -4434,10 +4434,13 @@ void G_RunFrame( int levelTime ) {
 		if ( g_cheats.integer != 0 ) {
 			G_Printf( S_COLOR_YELLOW"Cheats are enabled. Capture records won't be tracked during this map.\n" );
 			level.mapCaptureRecords.readonly = qtrue;
+		} else if ( !pmove_float.integer ) {
+			G_Printf( S_COLOR_YELLOW"pmove_float is not enabled. Capture records won't be tracked during this map.\n" );
+			level.mapCaptureRecords.readonly = qtrue;
 		} else if ( g_speed.value != 250 ) {
 			G_Printf( S_COLOR_YELLOW"Speed is not standard. Capture records won't be tracked during this map.\n" );
 			level.mapCaptureRecords.readonly = qtrue;
-		} else if ( g_gravity.value != 800 ) {
+		} else if ( g_gravity.value != 750 ) {
 			G_Printf( S_COLOR_YELLOW"Gravity is not standard. Capture records won't be tracked during this map.\n" );
 			level.mapCaptureRecords.readonly = qtrue;
 		} else if ( g_knockback.value != 1000 ) {
