@@ -1970,7 +1970,7 @@ THERMAL DETONATOR
 ======================================================================
 */
 
-#define TD_DAMAGE			70 //only do 70 on a direct impact
+#define TD_DAMAGE			90 // alpha: bump direct damage to be equal to the highest splash dmg possible
 #define TD_SPLASH_RAD		128
 #define TD_SPLASH_DAM		90
 #define TD_VELOCITY			900
