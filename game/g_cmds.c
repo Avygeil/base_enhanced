@@ -75,19 +75,22 @@ void DeathmatchScoreboardMessage( gentity_t *ent ) {
 		statsMix |= ((cl->pers.teamState.te) << 16);
 
 		// first 16 bits are unused
-		// next 10 bits are real ping (we don't care about -1)
+		// next 10 bits are real ping
 		// next 5 bits are followed client #
 		// final bit is whether you are following someone or not
-		int specMix; // this was previously scoreFlags
+		int specMix = 0; // this was previously scoreFlags
 		if (cl->pers.connected == CON_CONNECTED && cl->sess.sessionTeam == TEAM_SPECTATOR && cl->sess.spectatorState == SPECTATOR_FOLLOW) {
 			specMix = 0b1;
 			specMix |= ((cl->sess.spectatorClient & 0b11111) << 1);
-			specMix |= ((cl->realPing & 0b1111111111) << 6);
 		}
-		else {
-			specMix = 0;
-			specMix |= ((cl->realPing & 0b1111111111) << 6); // i guess we can still send ping
-		}
+		int realPing;
+		if (cl->pers.connected != CON_CONNECTED)
+			realPing = -1;
+		else if (cl->isLagging)
+			realPing = 999;
+		else
+			realPing = Com_Clampi(-1, 999, cl->realPing);
+		specMix |= ((realPing & 0b1111111111) << 6);
 
 		Com_sprintf (entry, sizeof(entry),
 			" %i %i %i %i %i %i %i %i %i %i %i %i %i %i", level.sortedClients[i],
