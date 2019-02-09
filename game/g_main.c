@@ -317,6 +317,7 @@ vmCvar_t    g_allow_vote_timelimit;
 vmCvar_t    g_allow_vote_fraglimit;
 vmCvar_t    g_allow_vote_maprandom;
 vmCvar_t    g_allow_vote_warmup;
+vmCvar_t	g_default_capturedifflimit;
 vmCvar_t	g_enable_maprandom_wildcard;
 vmCvar_t	g_redirectDisabledVotes;
 vmCvar_t	g_allowVGS;
@@ -454,8 +455,8 @@ static cvarTable_t		gameCvarTable[] = {
     { &g_fraglimit, "fraglimit", "20", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_NORESTART, 0, qtrue },
     { &g_duel_fraglimit, "duel_fraglimit", "10", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_NORESTART, 0, qtrue },
     { &g_timelimit, "timelimit", "0", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_NORESTART, 0, qtrue },
-    { &g_capturelimit, "capturelimit", "8", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_NORESTART, 0, qtrue },
-    { &g_capturedifflimit, "capturedifflimit", "0", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_NORESTART, 0, qtrue },
+    { &g_capturelimit, "capturelimit", "0", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_NORESTART, 0, qtrue },
+    { &g_capturedifflimit, "capturedifflimit", "10", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_NORESTART, 0, qtrue },
 
     { &g_synchronousClients, "g_synchronousClients", "0", CVAR_SYSTEMINFO, 0, qfalse },
 
@@ -671,6 +672,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_allow_vote_maprandom, "g_allow_vote_maprandom", "4", CVAR_ARCHIVE, 0, qtrue },
     { &g_allow_vote_warmup, "g_allow_vote_warmup", "1", CVAR_ARCHIVE, 0, qtrue },
 
+	{ &g_default_capturedifflimit, "g_default_capturedifflimit", "10", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_enable_maprandom_wildcard, "g_enable_maprandom_wildcard", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_redirectDisabledVotes, "g_redirectDisabledVotes", "1", CVAR_ARCHIVE, 0, qtrue },
 
@@ -1497,6 +1499,9 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 
 	// cache the capture records for this map
 	G_LogDbLoadCaptureRecords( mapname.string, &level.mapCaptureRecords );
+
+	// reset capturedifflimit on map rs
+	trap_Cvar_Set( "capturedifflimit", g_default_capturedifflimit.string );
 }
 
 

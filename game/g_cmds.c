@@ -2687,12 +2687,14 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 	} else if ( !Q_stricmp ( arg1, "lockteams") ) {
 	} else if ( !Q_stricmp( arg1, "cointoss")) {
     } else if ( !Q_stricmp( arg1, "randomcapts")) {
-    } else if ( !Q_stricmp( arg1, "randomteams")) {
+	} else if ( !Q_stricmp( arg1, "randomteams" ) ) {
+	} else if ( !Q_stricmp( arg1, "capturedifflimit" ) ) {
 	} else {
 		trap_SendServerCommand( ent-g_entities, "print \"Invalid vote string.\n\"" );
 		trap_SendServerCommand( ent-g_entities, "print \"Vote commands are: map_restart, nextmap, map <mapname>, g_gametype <n>, "
 			"kick <player>, clientkick <clientnum>, g_doWarmup, timelimit <time>, fraglimit <frags>, "
-			"resetflags, q <question>, pause, unpause, endmatch, randomcapts, randomteams <numRedPlayers> <numBluePlayers>, lockteams <numPlayers>.\n\"" );
+			"resetflags, q <question>, pause, unpause, endmatch, randomcapts, randomteams <numRedPlayers> <numBluePlayers>, "
+			"lockteams <numPlayers>, capturedifflimit <capLimit>.\n\"" );
 		return;
 	}
 
@@ -3060,6 +3062,13 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 			trap_SendServerCommand( ent - g_entities, "print \"usage: /callvote lockteams 4s/5s/reset\n\"" );
 			return;
 		}
+	}
+	else if ( !Q_stricmp( arg1, "capturedifflimit" ) )
+	{
+		int n = Com_Clampi( 0, 100, atoi( arg2 ) );
+
+		Com_sprintf( level.voteString, sizeof( level.voteString ), "%s \"%i\"", arg1, n );
+		Com_sprintf( level.voteDisplayString, sizeof( level.voteDisplayString ), "Capture Diff Limit: %i", n );
 	}
 	else if (!Q_stricmp(arg1, "g_doWarmup"))
 	{
