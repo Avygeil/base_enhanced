@@ -491,7 +491,7 @@ static cvarTable_t		gameCvarTable[] = {
     { &g_developer, "developer", "0", 0, 0, qfalse },
 
     { &g_speed, "g_speed", "250", CVAR_SERVERINFO, 0, qtrue },
-    { &g_gravity, "g_gravity", "800", CVAR_SERVERINFO, 0, qtrue },
+    { &g_gravity, "g_gravity", "750", CVAR_SERVERINFO, 0, qtrue },
     { &g_knockback, "g_knockback", "1000", 0, 0, qtrue },
     { &g_weaponRespawn, "g_weaponrespawn", "5", 0, 0, qtrue },
     { &g_weaponTeamRespawn, "g_weaponTeamRespawn", "5", 0, 0, qtrue },
@@ -530,7 +530,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_smoothClients, "g_smoothClients", "1", 0, 0, qfalse },
 	{ &pmove_fixed, "pmove_fixed", "0", CVAR_SYSTEMINFO | CVAR_ARCHIVE, 0, qtrue },
 	{ &pmove_msec, "pmove_msec", "8", CVAR_SYSTEMINFO | CVAR_ARCHIVE, 0, qtrue },
-	{ &pmove_float, "pmove_float", "0", CVAR_SYSTEMINFO | CVAR_ARCHIVE, 0, qtrue },
+	{ &pmove_float, "pmove_float", "1", CVAR_SYSTEMINFO | CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_flechetteSpread, "g_flechetteSpread", "0", CVAR_ARCHIVE, 0, qtrue },
 
