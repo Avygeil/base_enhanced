@@ -1333,8 +1333,8 @@ void SP_worldspawn( void )
 
 	trap_SetConfigstring( CS_MOTD, g_motd.string );		// message of the day
 
-	G_SpawnString( "gravity", "800", &text );
-	trap_Cvar_Set( "g_gravity", text );
+	//G_SpawnString( "gravity", "800", &text );
+	//trap_Cvar_Set( "g_gravity", text );
 
 	G_SpawnString( "enableBreath", "0", &text );
 	trap_Cvar_Set( "g_enableBreath", text );
