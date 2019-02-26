@@ -2110,6 +2110,8 @@ extern vmCvar_t    g_mapVoteThreshold;
 extern vmCvar_t	   sv_privateclients;
 extern vmCvar_t    sv_passwordlessSpectators;
 
+extern vmCvar_t    d_measureAirTime;
+
 extern vmCvar_t	   g_wasRestarted;
 
 int validateAccount(const char* username, const char* password, int num);

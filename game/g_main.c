@@ -341,6 +341,8 @@ vmCvar_t	g_mapVoteThreshold;
 vmCvar_t	sv_privateclients;
 vmCvar_t	sv_passwordlessSpectators;
 
+vmCvar_t	d_measureAirTime;
+
 // nmckenzie: temporary way to show player healths in duels - some iface gfx in game would be better, of course.
 // DUEL_HEALTH
 vmCvar_t		g_showDuelHealths;
@@ -717,7 +719,9 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_floatingItems, "g_floatingItems", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_rocketSurfing, "g_rocketSurfing", "1", CVAR_ARCHIVE, 0, qtrue },
-	{ &g_bouncePadDoubleJump, "g_bouncePadDoubleJump", "1", CVAR_ARCHIVE, 0, qtrue }
+	{ &g_bouncePadDoubleJump, "g_bouncePadDoubleJump", "1", CVAR_ARCHIVE, 0, qtrue },
+
+	{ &d_measureAirTime, "d_measureAirTime", "0", CVAR_TEMP, 0, qtrue }
 };
 
 // bk001129 - made static to avoid aliasing

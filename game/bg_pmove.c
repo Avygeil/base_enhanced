@@ -3962,6 +3962,14 @@ static void PM_GroundTrace( void ) {
 		}
 	}
 
+	if ( d_measureAirTime.integer && pm->ps->groundEntityNum == ENTITYNUM_NONE ) {
+		int airTime = pm->cmd.serverTime - pm->ps->lastOnGround;
+
+		if ( airTime > d_measureAirTime.integer ) { // ignore values smaller than set threshold while testing to avoid spam
+			trap_SendServerCommand( -1, va( "print \"^6Client %i was in air for %i ms\n\"", pm->ps->clientNum, airTime ) );
+		}
+	}
+
 	pm->ps->groundEntityNum = trace.entityNum;
 	pm->ps->lastOnGround = pm->cmd.serverTime;
 
