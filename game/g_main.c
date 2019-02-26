@@ -494,7 +494,7 @@ static cvarTable_t		gameCvarTable[] = {
     { &g_developer, "developer", "0", 0, 0, qfalse },
 
     { &g_speed, "g_speed", "250", CVAR_SERVERINFO, 0, qtrue },
-    { &g_gravity, "g_gravity", "750", CVAR_SERVERINFO, 0, qtrue },
+    { &g_gravity, "g_gravity", "760", CVAR_SERVERINFO, 0, qtrue },
     { &g_knockback, "g_knockback", "1000", 0, 0, qtrue },
     { &g_weaponRespawn, "g_weaponrespawn", "5", 0, 0, qtrue },
     { &g_weaponTeamRespawn, "g_weaponTeamRespawn", "5", 0, 0, qtrue },
@@ -4446,10 +4446,13 @@ void G_RunFrame( int levelTime ) {
 		} else if ( !pmove_float.integer ) {
 			G_Printf( S_COLOR_YELLOW"pmove_float is not enabled. Capture records won't be tracked during this map.\n" );
 			level.mapCaptureRecords.readonly = qtrue;
+		} else if ( g_svfps.integer != 30 ) {
+			G_Printf( S_COLOR_YELLOW"Server FPS is not standard. Capture records won't be tracked during this map.\n" );
+			level.mapCaptureRecords.readonly = qtrue;
 		} else if ( g_speed.value != 250 ) {
 			G_Printf( S_COLOR_YELLOW"Speed is not standard. Capture records won't be tracked during this map.\n" );
 			level.mapCaptureRecords.readonly = qtrue;
-		} else if ( g_gravity.value != 750 ) {
+		} else if ( g_gravity.value != 760 ) {
 			G_Printf( S_COLOR_YELLOW"Gravity is not standard. Capture records won't be tracked during this map.\n" );
 			level.mapCaptureRecords.readonly = qtrue;
 		} else if ( g_knockback.value != 1000 ) {
