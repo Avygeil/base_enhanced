@@ -58,7 +58,8 @@ typedef void( *ListBestCapturesCallback )( void *context,
 	const char *recordHolderName,
 	unsigned int recordHolderIpInt,
 	const char *recordHolderCuid,
-	int bestTime );
+	int bestTime,
+	time_t bestTimeDate );
 
 void G_LogDbListBestCaptureRecords( CaptureRecordType type,
 	int limit,
@@ -75,6 +76,9 @@ int G_LogDbCaptureTime( unsigned int ipInt,
 	const char *matchId,
 	const int captureTime,
 	const team_t whoseFlag,
+	const int maxSpeed,
+	const int avgSpeed,
+	const time_t date,
 	const int pickupLevelTime,
 	const CaptureRecordType type,
 	CaptureRecordList *currentRecords );

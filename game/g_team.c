@@ -880,27 +880,44 @@ int Team_TouchOurFlag( gentity_t *ent, gentity_t *other, int team ) {
 	PrintCTFMessage( other->s.number, team, CTFMESSAGE_PLAYER_CAPTURED_FLAG );
 
 	const CaptureRecordType captureRecordType = FindCaptureTypeForRun( other->client );
+
 	if ( captureRecordType != CAPTURE_RECORD_INVALID ) {
 		char matchId[SV_UNIQUEID_LEN];
 		trap_Cvar_VariableStringBuffer( "sv_uniqueid", matchId, sizeof( matchId ) ); // this requires a custom OpenJK build
 
+		int thisRunMaxSpeed = ( int )( other->client->pers.topSpeed + 0.5f );
+		int thisRunAvgSpeed;
+
+		if ( other->client->pers.displacementSamples ) {
+			thisRunAvgSpeed = ( int )floorf( ( ( other->client->pers.displacement * g_svfps.value ) / other->client->pers.displacementSamples ) + 0.5f );
+		} else {
+			thisRunAvgSpeed = thisRunMaxSpeed;
+		}
+
 		const int recordRank = G_LogDbCaptureTime( other->client->sess.ip, other->client->pers.netname,
 			other->client->sess.auth == AUTHENTICATED ? other->client->sess.cuidHash : "", other - g_entities,
-			matchId, thisFlaghold, OtherTeam( team ), initialStealTime - level.startTime, captureRecordType, &level.mapCaptureRecords );
+			matchId, thisFlaghold, OtherTeam( team ), thisRunMaxSpeed, thisRunAvgSpeed, time( NULL ),
+			initialStealTime - level.startTime, captureRecordType, &level.mapCaptureRecords
+		);
 
 		int secs, millis;
 		PartitionedTimer( thisFlaghold, NULL, &secs, &millis );
 
 		if ( recordRank ) {
 			// we just did a new capture record, broadcast it
-			trap_SendServerCommand( -1, va( "print \""S_COLOR_RED"New /toptimes capture record by "S_COLOR_WHITE"%s"S_COLOR_RED"!    "S_COLOR_YELLOW"type:%s    rank:%d    time:%d.%03d\n\"",
-				other->client->pers.netname, GetShortNameForRecordType( captureRecordType ), recordRank, secs, millis )
-			);
+
+			char *rankColor;
+			if ( recordRank == 1 ) rankColor = S_COLOR_RED;
+			else rankColor = S_COLOR_YELLOW;
+
+			trap_SendServerCommand( -1, va( "print \""S_COLOR_CYAN"New capture record by "S_COLOR_WHITE"%s"S_COLOR_CYAN"!    "S_COLOR_CYAN"rank:%s%d    "S_COLOR_CYAN"type:"S_COLOR_YELLOW"%s    "S_COLOR_CYAN"topspeed:"S_COLOR_YELLOW"%d    "S_COLOR_CYAN"avg:"S_COLOR_YELLOW"%d    "S_COLOR_CYAN"time:"S_COLOR_YELLOW"%d.%03d\n\"",
+				other->client->pers.netname, rankColor, recordRank, GetShortNameForRecordType( captureRecordType ), thisRunMaxSpeed, thisRunAvgSpeed, secs, millis
+			) );
 		} else {
 			// we didn't make a new record, but that was still a valid run. show them what time they did
-			trap_SendServerCommand( other - g_entities, va( "print \""S_COLOR_WHITE"No /toptimes capture record beaten.    "S_COLOR_YELLOW"type:%s    time:%d.%03d\n\"",
-				GetShortNameForRecordType( captureRecordType ), secs, millis )
-			);
+			trap_SendServerCommand( other - g_entities, va( "print \""S_COLOR_WHITE"No capture record beaten.    "S_COLOR_WHITE"type:"S_COLOR_YELLOW"%s    "S_COLOR_WHITE"topspeed:"S_COLOR_YELLOW"%d    "S_COLOR_WHITE"avg:"S_COLOR_YELLOW"%d    "S_COLOR_WHITE"time:"S_COLOR_YELLOW"%d.%03d\n\"",
+				GetShortNameForRecordType( captureRecordType ), thisRunMaxSpeed, thisRunAvgSpeed, secs, millis
+			) );
 		}
 	}
 
@@ -953,6 +970,11 @@ int Team_TouchOurFlag( gentity_t *ent, gentity_t *other, int team ) {
 		}
 	}
 	Team_ResetFlags();
+
+	// reset the speed stats for this run
+	other->client->pers.topSpeed = 0;
+	other->client->pers.displacement = 0;
+	other->client->pers.displacementSamples = 0;
 
 	CalculateRanks();
 
@@ -1028,6 +1050,11 @@ int Team_TouchEnemyFlag( gentity_t *ent, gentity_t *other, int team ) {
 		// this guy picked up a dropped flag, thus his run is invalid
 		other->client->runInvalid = qtrue;
 	}
+
+	// reset the speed stats for this run
+	other->client->pers.topSpeed = 0;
+	other->client->pers.displacement = 0;
+	other->client->pers.displacementSamples = 0;
 
 	// picking up the flag removes invulnerability
 	cl->ps.eFlags &= ~EF_INVULNERABLE;

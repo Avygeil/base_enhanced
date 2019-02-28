@@ -3515,6 +3515,13 @@ Cmd_TopTimes_f
 =================
 */
 
+static void FormatLocalDateFromEpoch( char* buf, size_t bufSize, time_t epochSecs ) {
+	struct tm * timeinfo;
+	timeinfo = localtime( &epochSecs );
+
+	strftime( buf, bufSize, "%d/%m/%y %I:%M %p", timeinfo );
+}
+
 // if one parameter is NULL, its value is added to the next non NULL parameter
 void PartitionedTimer( const int time, int *mins, int *secs, int *millis ) {
 	div_t qr;
@@ -3540,6 +3547,16 @@ void PartitionedTimer( const int time, int *mins, int *secs, int *millis ) {
 
 	if ( millis ) {
 		*millis = pMillis;
+	}
+}
+
+const char* GetLongNameForRecordType( CaptureRecordType type ) {
+	switch ( type ) {
+	case CAPTURE_RECORD_STANDARD: return "Standard";
+	case CAPTURE_RECORD_WEAPONS: return "Weapons";
+	case CAPTURE_RECORD_WALK: return "Walk";
+	case CAPTURE_RECORD_AD: return "A/D";
+	default: return "Unknown";
 	}
 }
 
@@ -3582,7 +3599,7 @@ typedef struct {
 	qboolean hasPrinted;
 } BestTimeContext;
 
-static void printBestTimeCallback( void *context, const char *mapname, const CaptureRecordType type, const char *recordHolderName, unsigned int recordHolderIpInt, const char *recordHolderCuid, int bestTime ) {
+static void printBestTimeCallback( void *context, const char *mapname, const CaptureRecordType type, const char *recordHolderName, unsigned int recordHolderIpInt, const char *recordHolderCuid, int bestTime, time_t bestTimeDate ) {
 	BestTimeContext* thisContext = ( BestTimeContext* )context;
 
 	// if we are printing the current map, since we only save new records at the end of the round, check if we beat the top time during this session
@@ -3590,35 +3607,43 @@ static void printBestTimeCallback( void *context, const char *mapname, const Cap
 	if ( !Q_stricmp( mapname, level.mapCaptureRecords.mapname ) ) {
 		const CaptureRecord *currentRecord = &level.mapCaptureRecords.records[type][0];
 
-		if ( currentRecord->captureTime && currentRecord->captureTime <= bestTime ) {
+		if ( currentRecord->captureTime && currentRecord->captureTime < bestTime ) {
 			recordHolderName = currentRecord->recordHolderName;
 			recordHolderIpInt = currentRecord->recordHolderIpInt;
 			recordHolderCuid = currentRecord->recordHolderCuid;
 			bestTime = currentRecord->captureTime;
+			bestTimeDate = currentRecord->date;
 		}
 	}
 
-	char identifier[MAX_NETNAME * 2 + 7 + 1] = { 0 };
+	if ( !thisContext->hasPrinted ) {
+		// first time printing, show a header
+		trap_SendServerCommand( thisContext->entNum, va( "print \""S_COLOR_WHITE"Records for the "S_COLOR_YELLOW"%s "S_COLOR_WHITE"category:\n"S_COLOR_CYAN"           Map               Time           Date                 Name\n\"", GetLongNameForRecordType( type ) ) );
+	}
+
+	char identifier[MAX_NETNAME + 1] = { 0 };
 	G_CfgDbListAliases( recordHolderIpInt, ( unsigned int )0xFFFFFFFF, 1, copyTopNameCallback, &identifier, recordHolderCuid );
 
-	// if we have a name in db for this guy, append the name we stored, otherwise just use the one we stored
-	if ( VALIDSTRING( identifier ) ) {
-		// only append it if it's different
-		if ( Q_stricmp( identifier, recordHolderName ) ) {
-			Q_strcat( identifier, sizeof( identifier ), S_COLOR_WHITE" (" );
-			Q_strcat( identifier, sizeof( identifier ), recordHolderName );
-			Q_strcat( identifier, sizeof( identifier ), S_COLOR_WHITE ")" );
-		}
-	} else {
+	// no name in db for this guy, use the one we stored
+	if ( !VALIDSTRING( identifier ) ) {
 		Q_strncpyz( identifier, recordHolderName, sizeof( identifier ) );
 	}
 
 	int secs, millis;
 	PartitionedTimer( bestTime, NULL, &secs, &millis );
 
-	// 21 spaces = arbitrary but sounds reasonable unless grab makes more shitty huge names
+	char timeString[8];
+	if ( secs > 999 ) Com_sprintf( timeString, sizeof( timeString ), "  >999 " );
+	else Com_sprintf( timeString, sizeof( timeString ), "%3d.%03d", secs, millis );
+
+	char date[20];
+	time_t now = time( NULL );
+	if ( now - bestTimeDate < 60 * 60 * 24 ) Q_strncpyz( date, S_COLOR_GREEN, sizeof( date ) );
+	else Q_strncpyz( date, S_COLOR_WHITE, sizeof( date ) );
+	FormatLocalDateFromEpoch( date + 2, sizeof( date ) - 2, bestTimeDate );
+
 	trap_SendServerCommand( thisContext->entNum, va(
-		"print \""S_COLOR_CYAN"%21s "S_COLOR_WHITE"- %s"S_COLOR_WHITE": "S_COLOR_YELLOW"%d.%03d\n\"", mapname, identifier, secs, millis
+		"print \""S_COLOR_WHITE"%-25s  "S_COLOR_YELLOW"%s   %s   "S_COLOR_WHITE"%s\n\"", mapname, timeString, date, identifier
 	) );
 
 	thisContext->hasPrinted = qtrue;
@@ -3641,31 +3666,42 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 		trap_SendServerCommand( ent - g_entities, "print \""S_COLOR_YELLOW"WARNING: Server settings are non standard, new times won't be recorded!\n\"" );
 	}
 
+	// assume standard by default
+	CaptureRecordType category = CAPTURE_RECORD_STANDARD;
+
 	if ( trap_Argc() > 1 ) {
 		char buf[32];
 		trap_Argv( 1, buf, sizeof( buf ) );
 
 		if ( !Q_stricmp( buf, "maplist" ) ) {
-			if ( trap_Argc() < 3 ) {
-				trap_SendServerCommand( ent - g_entities, "print \"Usage: /toptimes maplist <std | wpn | walk | ad> [page]\n\"" );
-				return;
-			}
 
-			trap_Argv( 2, buf, sizeof( buf ) );
-			CaptureRecordType category = GetRecordTypeForShortName( buf );
+			// special logic for maplist subcommand
 
-			if ( category == CAPTURE_RECORD_INVALID ) {
-				trap_SendServerCommand( ent - g_entities, "print \"Invalid category.\n\"" );
-				return;
-			}
+			int page = 1;
 
-			int page;
-			if ( trap_Argc() > 3 ) {
-				trap_Argv( 3, buf, sizeof( buf ) );
-				page = atoi( buf );
-				if ( page < 1 ) page = 1;
-			} else {
-				page = 1;
+			if ( trap_Argc() > 2 ) {
+				trap_Argv( 2, buf, sizeof( buf ) );
+
+				// is the 2nd argument directly the page number?
+				if ( Q_isanumber( buf ) ) {
+					page = atoi( buf );
+					if ( page < 1 ) page = 1;
+				} else {
+					// a movement type is being specified as 2nd argument
+					category = GetRecordTypeForShortName( buf );
+
+					if ( category == CAPTURE_RECORD_INVALID ) {
+						trap_SendServerCommand( ent - g_entities, "print \"Invalid category. Usage: /toptimes maplist [std | wpn | walk | ad] [page]\n\"" );
+						return;
+					}
+
+					if ( trap_Argc() > 3 ) {
+						// 3rd argument must be the page number
+						trap_Argv( 3, buf, sizeof( buf ) );
+						page = atoi( buf );
+						if ( page < 1 ) page = 1;
+					}
+				}
 			}
 
 			BestTimeContext context;
@@ -3674,86 +3710,145 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 			G_LogDbListBestCaptureRecords( category, MAPLIST_MAPS_PER_PAGE, ( page - 1 ) * MAPLIST_MAPS_PER_PAGE, printBestTimeCallback, &context );
 			
 			if ( context.hasPrinted ) {
-				trap_SendServerCommand( ent - g_entities, va( "print \"Viewing page: %d\n\"", page ) );
+				trap_SendServerCommand( ent - g_entities, va( "print \"Viewing page %d.\nUsage: /toptimes maplist [std | wpn | walk | ad] [page]\n\"", page ) );
 			} else {
-				trap_SendServerCommand( ent - g_entities, "print \"There aren't this many records! Try a lower page number.\n\"" );
+				trap_SendServerCommand( ent - g_entities, "print \"There aren't this many records! Try a lower page number.\nUsage: /toptimes maplist [std | wpn | walk | ad] [page]\n\"" );
 			}
 
 			return;
-		}
-	}
+		} else if ( !Q_stricmp( buf, "rules" ) ) {
 
-	int i, j;
+			// special logic for rules subcommand
 
-	for ( i = 0; i < CAPTURE_RECORD_NUM_TYPES; ++i ) {
-		char *title = va( "%s", GetShortNameForRecordType( i ) );
-		Q_strupr( title );
+			char *text;
 
-		if ( !level.mapCaptureRecords.records[i][0].captureTime ) {
-			// there is no first record for that category
-			trap_SendServerCommand( ent - g_entities, va( "print \""S_COLOR_YELLOW"* %s: "S_COLOR_WHITE"no record for this map yet!\n\"", title ) );
-			continue;
+			if ( trap_Argc() > 2 ) {
+				trap_Argv( 2, buf, sizeof( buf ) );
+				category = GetRecordTypeForShortName( buf );
+
+				switch ( category ) {
+					case CAPTURE_RECORD_STANDARD:
+						text =
+							S_COLOR_WHITE"Standard type:\n"
+							S_COLOR_RED"* No self dmg (except from falling)\n"
+							S_COLOR_RED"* No dmg or force powers from others (except alt sniping)\n"
+							S_COLOR_GREEN"* All force powers allowed\n"
+							S_COLOR_CYAN"NB: Stand idle and wait to regen to 100 force to start over with no category";
+						break;
+					case CAPTURE_RECORD_WEAPONS:
+						text =
+							S_COLOR_WHITE"Weapons type:\n"
+							S_COLOR_GREEN"* Self dmg allowed (except dets/mines)\n"
+							S_COLOR_RED"* No dmg or force powers from others (except alt sniping)\n"
+							S_COLOR_GREEN"* All force powers allowed\n"
+							S_COLOR_CYAN"NB: Stand idle and wait to regen to 100 force to start over with no category";
+						break;
+					case CAPTURE_RECORD_WALK:
+						text =
+							S_COLOR_WHITE"Walk type:\n"
+							S_COLOR_RED"* No self dmg (except from falling)\n"
+							S_COLOR_RED"* No dmg or force powers from others (except alt sniping)\n"
+							S_COLOR_RED"* No jumping or rolling\n"
+							S_COLOR_GREEN"* All force powers allowed (except jump)\n"
+							S_COLOR_CYAN"NB: Stand idle and wait to regen to 100 force to start over with no category";
+						break;
+					case CAPTURE_RECORD_AD:
+						text =
+							S_COLOR_WHITE"A/D type:\n"
+							S_COLOR_RED"* No self dmg (except from falling)\n"
+							S_COLOR_RED"* No dmg or force powers from others (except alt sniping)\n"
+							S_COLOR_RED"* No moving with forward/backward\n"
+							S_COLOR_GREEN"* All force powers allowed\n"
+							S_COLOR_CYAN"NB: Stand idle and wait to regen to 100 force to start over with no category";
+						break;
+				}
+			} else {
+				text = "Usage: /toptimes rules <std | wpn | walk | ad>";
+			}
+
+			trap_SendServerCommand( ent - g_entities, va( "print \"%s\n\"", text ) );
+
+			return;
 		} else {
-			trap_SendServerCommand( ent - g_entities, va( "print \""S_COLOR_YELLOW"* %s:\n\"", title ) );
-		}
 
-		int rank = 0;
+			// not a subcommand, 1st argument is the movement type
 
-		// print each record as a row
-		for ( j = 0; j < MAX_SAVED_RECORDS; ++j ) {
-			CaptureRecord *record = &level.mapCaptureRecords.records[i][j];
+			category = GetRecordTypeForShortName( buf );
 
-			if ( !record->captureTime ) {
-				continue;
-			}
-
-			// only increase the rank if the previous record was better, so equal times have equal ranks
-			if ( !j || level.mapCaptureRecords.records[i][j - 1].captureTime < record->captureTime ) {
-				++rank;
-			}
-
-			// try to get their name from db using ip/cuid, otherwise fall back to what we stored
-			char name[MAX_NETNAME + 1] = { 0 };
-			G_CfgDbListAliases( record->recordHolderIpInt, ( unsigned int )0xFFFFFFFF, 1, copyTopNameCallback, &name, record->recordHolderCuid );
-			if ( !VALIDSTRING( name ) ) {
-				Q_strncpyz( name, record->recordHolderName, sizeof( name ) );
-			}
-
-			// to find people in demos/differentiate people with the same ip
-			char identifier[MAX_NETNAME + 14 + 1] = { 0 };
-			if ( Q_stricmp( name, record->recordHolderName ) ) {
-				// if we have a different whois name, show the name they used here
-				Com_sprintf( identifier, sizeof( identifier ), "%s "S_COLOR_CYAN"(client %d)", record->recordHolderName, record->recordHolderClientId );
-			} else {
-				// same name, just show the client id
-				Com_sprintf( identifier, sizeof( identifier ), S_COLOR_CYAN"client %d", record->recordHolderClientId );
-			}
-
-			int mins, secs, millis;
-
-			// nice time formatting
-			PartitionedTimer( record->captureTime, NULL, &secs, &millis );
-
-			trap_SendServerCommand( ent - g_entities, va(
-				"print \"    "S_COLOR_WHITE"%d. %s "S_COLOR_WHITE"captured %s%s"S_COLOR_WHITE"'s flag in "S_COLOR_YELLOW"%d.%03d\n",
-				rank, name, TeamColorString( record->whoseFlag ), TeamName( record->whoseFlag ), secs, millis
-			) );
-
-			if ( VALIDSTRING( record->matchId ) ) {
-				// if we have saved a match id along with it, tell them info on how to rewatch the record
-				PartitionedTimer( record->pickupLevelTime, &mins, &secs, NULL );
-				trap_SendServerCommand( ent - g_entities, va(
-					"print \"    "S_COLOR_CYAN"(as "S_COLOR_WHITE"%s @ %d:%02d - "DEMOARCHIVE_BASE_MATCH_URL")\n",
-					identifier, mins, secs, record->matchId
-				) );
-			} else {
-				// otherwise, just give the name
-				trap_SendServerCommand( ent - g_entities, va( "print \"    "S_COLOR_CYAN"(as "S_COLOR_WHITE"%s)\n\"", identifier ) );
+			if ( category == CAPTURE_RECORD_INVALID ) {
+				trap_SendServerCommand( ent - g_entities, "print \"Invalid category. Usage: /toptimes maplist [std | wpn | walk | ad] [page]\n\"" );
+				return;
 			}
 		}
 	}
 
-	trap_SendServerCommand( ent - g_entities, "print \""S_COLOR_WHITE"Use "S_COLOR_YELLOW"/toptimes maplist "S_COLOR_WHITE"for an overview of top records on all maps\n\"" );
+	const char* categoryName = GetLongNameForRecordType( category );
+
+	if ( !level.mapCaptureRecords.records[category][0].captureTime ) {
+		// there is no first record for that category
+		trap_SendServerCommand( ent - g_entities, va( "print \"No record for the %s category on this map yet!\n\"", categoryName ) );
+		return;
+	}
+
+	trap_SendServerCommand( ent - g_entities, va( "print \""S_COLOR_WHITE"Records for the "S_COLOR_YELLOW"%s "S_COLOR_WHITE"category on "S_COLOR_YELLOW"%s"S_COLOR_WHITE":\n"S_COLOR_CYAN"             Name              Time    Flag    Topspeed     Average           Date\n\"", categoryName, level.mapCaptureRecords.mapname ) );
+
+	int i;
+
+	// print each record as a row
+	for ( i = 0; i < MAX_SAVED_RECORDS; ++i ) {
+		CaptureRecord *record = &level.mapCaptureRecords.records[category][i];
+
+		if ( !record->captureTime ) {
+			continue;
+		}
+
+		char nameString[MAX_NETNAME + 1] = { 0 };
+		G_CfgDbListAliases( record->recordHolderIpInt, ( unsigned int )0xFFFFFFFF, 1, copyTopNameCallback, &nameString, record->recordHolderCuid );
+
+		// no name in db for this guy, use the one we stored
+		if ( !VALIDSTRING( nameString ) ) {
+			Q_strncpyz( nameString, record->recordHolderName, sizeof( nameString ) );
+		}
+
+		{
+			// pad the name string with spaces here because printf padding will ignore colors
+
+			int spacesToAdd = g_maxNameLength.integer - Q_PrintStrlen( nameString );
+			int i;
+
+			for ( i = 0; i < sizeof( nameString ) && spacesToAdd > 0; ++i ) {
+				if ( nameString[i] == '\0' ) {
+					nameString[i] = ' '; // replace null terminators with spaces
+					--spacesToAdd;
+				}
+			}
+
+			nameString[sizeof( nameString ) - 1] = '\0'; // make sure it's still null terminated
+		}
+
+		int secs, millis;
+		PartitionedTimer( record->captureTime, NULL, &secs, &millis );
+
+		char timeString[8];
+		if ( secs > 999 ) Com_sprintf( timeString, sizeof( timeString ), "  >999 " );
+		else Com_sprintf( timeString, sizeof( timeString ), "%3d.%03d", secs, millis );
+
+		char flagString[7];
+		Com_sprintf( flagString, sizeof( flagString ), "%s%s", TeamColorString( record->whoseFlag ), TeamName( record->whoseFlag ) );
+
+		char date[20];
+		time_t now = time( NULL );
+		if ( now - record->date < 60 * 60 * 24 ) Q_strncpyz( date, S_COLOR_GREEN, sizeof( date ) );
+		else Q_strncpyz( date, S_COLOR_WHITE, sizeof( date ) );
+		FormatLocalDateFromEpoch( date + 2, sizeof( date ) - 2, record->date );
+
+		trap_SendServerCommand( ent - g_entities, va(
+			"print \""S_COLOR_CYAN"%d"S_COLOR_WHITE""S_COLOR_YELLOW": "S_COLOR_WHITE"%s  "S_COLOR_YELLOW"%s   %-4s      "S_COLOR_YELLOW"%-6d      %-6d     %s\n\"",
+			i + 1, nameString, timeString, flagString, Com_Clampi( 1, 99999999, record->maxSpeed ), Com_Clampi( 1, 9999999, record->avgSpeed ), date
+		) );
+	}
+
+	trap_SendServerCommand( ent - g_entities, "print \"For a list of records on all maps: /toptimes maplist [std | wpn | walk | ad] [page]\nFor category rules: /toptimes rules <std | wpn | walk | ad>\n\"" );
 }
 
 /*

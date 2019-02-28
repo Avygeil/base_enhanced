@@ -4915,6 +4915,32 @@ void G_RunFrame( int levelTime ) {
 				WP_ForcePowersUpdate(ent, &ent->client->pers.cmd );
 				WP_SaberPositionUpdate(ent, &ent->client->pers.cmd);
 				WP_SaberStartMissileBlockCheck(ent, &ent->client->pers.cmd);
+
+				// update speed stats if they carry a flag
+				if ( ent->playerState->powerups[PW_REDFLAG] || ent->playerState->powerups[PW_BLUEFLAG] ) {
+					float xyspeed;
+					
+					if ( ent->client->ps.m_iVehicleNum ) {
+						gentity_t *currentVeh = &g_entities[ent->client->ps.m_iVehicleNum];
+
+						if ( currentVeh->client ) {
+							xyspeed = sqrt( currentVeh->client->ps.velocity[0] * currentVeh->client->ps.velocity[0] + currentVeh->client->ps.velocity[1] * currentVeh->client->ps.velocity[1] );
+						}
+					} else {
+						xyspeed = sqrt( ent->client->ps.velocity[0] * ent->client->ps.velocity[0] + ent->client->ps.velocity[1] * ent->client->ps.velocity[1] );
+					}
+
+					ent->client->pers.displacement += xyspeed / g_svfps.value;
+					ent->client->pers.displacementSamples++;
+
+					if ( xyspeed > ent->client->pers.topSpeed ) {
+						ent->client->pers.topSpeed = xyspeed;
+					}
+				} else {
+					ent->client->pers.displacement = 0;
+					ent->client->pers.topSpeed = 0;
+					ent->client->pers.displacement = 0;
+				}
 			}
 
 			if (g_allowNPC.integer)

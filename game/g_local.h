@@ -572,6 +572,11 @@ typedef struct {
 	int			protDmgAvoided;
 	int			protTimeUsed;
 	int			protsince;
+
+	// fastcap speed stats
+	float topSpeed;
+	float displacement;
+	int	displacementSamples;
 } clientPersistant_t;
 
 typedef struct renderInfo_s
@@ -958,11 +963,14 @@ typedef struct {
 	unsigned int recordHolderIpInt; // used to find who it is with name db
 	char recordHolderCuid[CRYPTO_HASH_HEX_SIZE]; // make it easier to find clients with cuid, but optional (may be empty)
 
-	char matchId[SV_UNIQUEID_LEN]; // used to link to the game on demoarchive, but requires special OpenJK (may be empty)
-	int recordHolderClientId; // client id assigned when the record took place
-
 	int captureTime; // capture time in ms
 	team_t whoseFlag; // the team that owns the flag that was captured
+	int maxSpeed; // max speed in ups
+	int avgSpeed; // average speed in ups
+	time_t date; // epoch time of the record (seconds)
+
+	char matchId[SV_UNIQUEID_LEN]; // used to link to the game on demoarchive, but requires special OpenJK (may be empty)
+	int recordHolderClientId; // client id assigned when the record took place
 	int pickupLevelTime; // level.time when flag was picked up
 } CaptureRecord;
 
