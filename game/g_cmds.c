@@ -1660,7 +1660,7 @@ void Cmd_FollowTarget_f(gentity_t *ent) {
 			continue;
 		vec3_t difference;
 		VectorSubtract(level.clients[i].ps.origin, tr.endpos, difference);
-		if (difference && (closestDistance == -1 || VectorLength(difference) < closestDistance)) {
+		if (closestDistance == -1 || VectorLength(difference) < closestDistance) {
 			closestDistance = VectorLength(difference);
 			closestPlayer = i;
 		}
@@ -3760,6 +3760,9 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 							S_COLOR_RED"* No moving with forward/backward\n"
 							S_COLOR_GREEN"* All force powers allowed\n"
 							S_COLOR_CYAN"NB: Stand idle and wait to regen to 100 force to start over with no category";
+						break;
+					default:
+						text = "Invalid category. Usage: /toptimes rules <std | wpn | walk | ad>";
 						break;
 				}
 			} else {
