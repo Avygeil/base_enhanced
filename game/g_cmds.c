@@ -5387,7 +5387,7 @@ void ClientCommand( int clientNum ) {
 		Cmd_FollowFlag_f (ent);
 	else if (Q_stricmp(cmd, "followtarget") == 0)
 		Cmd_FollowTarget_f(ent);
-	else if (Q_stricmp (cmd, "team") == 0)
+	else if (Q_stricmp (cmd, "team") == 0 || Q_stricmp(cmd, "join") == 0)
 		Cmd_Team_f (ent);
 	else if (Q_stricmp (cmd, "duelteam") == 0)
 		Cmd_DuelTeam_f (ent);
