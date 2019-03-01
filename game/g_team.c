@@ -885,11 +885,11 @@ int Team_TouchOurFlag( gentity_t *ent, gentity_t *other, int team ) {
 		char matchId[SV_UNIQUEID_LEN];
 		trap_Cvar_VariableStringBuffer( "sv_uniqueid", matchId, sizeof( matchId ) ); // this requires a custom OpenJK build
 
-		int thisRunMaxSpeed = ( int )( other->client->pers.topSpeed + 0.5f );
+		int thisRunMaxSpeed = ( int )( other->client->pers.fastcapTopSpeed + 0.5f );
 		int thisRunAvgSpeed;
 
-		if ( other->client->pers.displacementSamples ) {
-			thisRunAvgSpeed = ( int )floorf( ( ( other->client->pers.displacement * g_svfps.value ) / other->client->pers.displacementSamples ) + 0.5f );
+		if ( other->client->pers.fastcapDisplacementSamples ) {
+			thisRunAvgSpeed = ( int )floorf( ( ( other->client->pers.fastcapDisplacement * g_svfps.value ) / other->client->pers.fastcapDisplacementSamples ) + 0.5f );
 		} else {
 			thisRunAvgSpeed = thisRunMaxSpeed;
 		}
@@ -972,9 +972,9 @@ int Team_TouchOurFlag( gentity_t *ent, gentity_t *other, int team ) {
 	Team_ResetFlags();
 
 	// reset the speed stats for this run
-	other->client->pers.topSpeed = 0;
-	other->client->pers.displacement = 0;
-	other->client->pers.displacementSamples = 0;
+	other->client->pers.fastcapTopSpeed = 0;
+	other->client->pers.fastcapDisplacement = 0;
+	other->client->pers.fastcapDisplacementSamples = 0;
 
 	CalculateRanks();
 
@@ -1052,9 +1052,9 @@ int Team_TouchEnemyFlag( gentity_t *ent, gentity_t *other, int team ) {
 	}
 
 	// reset the speed stats for this run
-	other->client->pers.topSpeed = 0;
-	other->client->pers.displacement = 0;
-	other->client->pers.displacementSamples = 0;
+	other->client->pers.fastcapTopSpeed = 0;
+	other->client->pers.fastcapDisplacement = 0;
+	other->client->pers.fastcapDisplacementSamples = 0;
 
 	// picking up the flag removes invulnerability
 	cl->ps.eFlags &= ~EF_INVULNERABLE;

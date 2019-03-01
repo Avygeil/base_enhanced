@@ -4520,7 +4520,7 @@ void Cmd_WhoIs_f( gentity_t* ent )
 #define STATS_ROW_SEPARATOR	"-"
 
 typedef enum {
-	STAT_NONE = 0, // types are this are RIGHT aligned
+	STAT_NONE = 0, // types after this are RIGHT aligned
 	STAT_BLANK, // only serves as caption, no value
 	STAT_INT,
 	STAT_DURATION,
@@ -4684,12 +4684,12 @@ static void PrintTeamStats( const int id, const team_t team, const char teamColo
 
 static const StatsDesc CtfStatsDesc = {
 	{
-		"SCORE", "CAP", "ASS", "DEF", "ACC", "FCKIL", "RET",
-		"BOON", "TTLHOLD", "MAXHOLD", "SAVES", "DMGDLT", "DMGTKN"
+		"SCORE", "CAP", "ASS", "DEF", "ACC", "FCKIL", "RET", "BOON", "TTLHOLD", "MAXHOLD",
+		"SAVES", "DMGDLT", "DMGTKN", "TOPSPD", "AVGSPD"
 	},
 	{
-		STAT_INT, STAT_INT, STAT_INT, STAT_INT, STAT_INT, STAT_INT, STAT_INT,
-		STAT_INT, STAT_DURATION, STAT_DURATION, STAT_INT, STAT_INT, STAT_INT
+		STAT_INT, STAT_INT, STAT_INT, STAT_INT, STAT_INT, STAT_INT, STAT_INT, STAT_INT, STAT_DURATION, STAT_DURATION,
+		STAT_INT, STAT_INT, STAT_INT, STAT_INT, STAT_INT
 	}
 };
 
@@ -4707,16 +4707,26 @@ static void FillCtfStats( gclient_t *cl, int *values ) {
 	*values++ = cl->pers.teamState.saves;
 	*values++ = cl->pers.damageCaused;
 	*values++ = cl->pers.damageTaken;
+
+	int maxSpeed = ( int )( cl->pers.topSpeed + 0.5f );
+	int avgSpeed;
+
+	if ( cl->pers.displacementSamples ) {
+		avgSpeed = ( int )floorf( ( ( cl->pers.displacement * g_svfps.value ) / cl->pers.displacementSamples ) + 0.5f );
+	} else {
+		avgSpeed = maxSpeed;
+	}
+
+	*values++ = maxSpeed;
+	*values++ = avgSpeed;
 }
 
 static const StatsDesc ForceStatsDesc = {
 	{
-		"PUSH", "PULL", "HEALED", "NRGSED ALLY", "ENEMY",
-		"ABSRBD", "PROTDMG", "PROTTIME"
+		"PUSH", "PULL", "HEALED", "NRGSED ALLY", "ENEMY", "ABSRBD", "PROTDMG", "PROTTIME"
 	},
 	{
-		STAT_INT_PAIR1, STAT_INT_PAIR2, STAT_INT, STAT_INT_PAIR1, STAT_INT_PAIR2,
-		STAT_INT, STAT_INT, STAT_DURATION
+		STAT_INT_PAIR1, STAT_INT_PAIR2, STAT_INT, STAT_INT_PAIR1, STAT_INT_PAIR2, STAT_INT, STAT_INT, STAT_DURATION
 	}
 };
 

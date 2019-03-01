@@ -4916,10 +4916,11 @@ void G_RunFrame( int levelTime ) {
 				WP_SaberPositionUpdate(ent, &ent->client->pers.cmd);
 				WP_SaberStartMissileBlockCheck(ent, &ent->client->pers.cmd);
 
-				// update speed stats if they carry a flag
-				if ( ent->playerState->powerups[PW_REDFLAG] || ent->playerState->powerups[PW_BLUEFLAG] ) {
+				{
+					// this client is in game, update speed stats
+
 					float xyspeed = 0;
-					
+
 					if ( ent->client->ps.m_iVehicleNum ) {
 						gentity_t *currentVeh = &g_entities[ent->client->ps.m_iVehicleNum];
 
@@ -4936,10 +4937,20 @@ void G_RunFrame( int levelTime ) {
 					if ( xyspeed > ent->client->pers.topSpeed ) {
 						ent->client->pers.topSpeed = xyspeed;
 					}
-				} else {
-					ent->client->pers.displacement = 0;
-					ent->client->pers.topSpeed = 0;
-					ent->client->pers.displacementSamples = 0;
+
+					// if they carry a flag, also update fastcap speed stats
+					if ( ent->playerState->powerups[PW_REDFLAG] || ent->playerState->powerups[PW_BLUEFLAG] ) {
+						ent->client->pers.fastcapDisplacement += xyspeed / g_svfps.value;
+						ent->client->pers.fastcapDisplacementSamples++;
+
+						if ( xyspeed > ent->client->pers.fastcapTopSpeed ) {
+							ent->client->pers.fastcapTopSpeed = xyspeed;
+						}
+					} else {
+						ent->client->pers.fastcapDisplacement = 0;
+						ent->client->pers.fastcapTopSpeed = 0;
+						ent->client->pers.fastcapDisplacementSamples = 0;
+					}
 				}
 			}
 

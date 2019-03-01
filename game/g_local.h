@@ -573,10 +573,13 @@ typedef struct {
 	int			protTimeUsed;
 	int			protsince;
 
-	// fastcap speed stats
-	float topSpeed;
-	float displacement;
-	int	displacementSamples;
+	// speed stats
+	float		topSpeed;
+	float		displacement;
+	int			displacementSamples;
+	float		fastcapTopSpeed;
+	float		fastcapDisplacement;
+	int			fastcapDisplacementSamples;
 } clientPersistant_t;
 
 typedef struct renderInfo_s
