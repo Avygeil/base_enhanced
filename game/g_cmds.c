@@ -3805,7 +3805,7 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 			continue;
 		}
 
-		char nameString[MAX_NETNAME + 1] = { 0 };
+		char nameString[64] = { 0 };
 		G_CfgDbListAliases( record->recordHolderIpInt, ( unsigned int )0xFFFFFFFF, 1, copyTopNameCallback, &nameString, record->recordHolderCuid );
 
 		// no name in db for this guy, use the one we stored

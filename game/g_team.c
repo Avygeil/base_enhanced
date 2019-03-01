@@ -911,7 +911,7 @@ int Team_TouchOurFlag( gentity_t *ent, gentity_t *other, int team ) {
 			else Com_sprintf( rankString, sizeof( rankString ), S_COLOR_CYAN"rank:"S_COLOR_YELLOW"%d", recordRank );
 
 			trap_SendServerCommand( -1, va( "print \""S_COLOR_CYAN"New capture record by "S_COLOR_WHITE"%s"S_COLOR_CYAN"!    %s    "S_COLOR_CYAN"type:"S_COLOR_YELLOW"%s    "S_COLOR_CYAN"topspeed:"S_COLOR_YELLOW"%d    "S_COLOR_CYAN"avg:"S_COLOR_YELLOW"%d    "S_COLOR_CYAN"time:"S_COLOR_YELLOW"%d.%03d\n\"",
-				other->client->pers.netname, rankString, recordRank, GetShortNameForRecordType( captureRecordType ), thisRunMaxSpeed, thisRunAvgSpeed, secs, millis
+				other->client->pers.netname, rankString, GetShortNameForRecordType( captureRecordType ), thisRunMaxSpeed, thisRunAvgSpeed, secs, millis
 			) );
 		} else {
 			// we didn't make a new record, but that was still a valid run. show them what time they did
