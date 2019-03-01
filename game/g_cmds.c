@@ -4816,12 +4816,12 @@ void Cmd_PrintStats_f( gentity_t *ent ) {
 	}
 }
 
-#define MAX_HELP_LINE_LEN	97
-#define MAX_HELP_LINES		16
-#define MAX_HELP_LEN		MAX_HELP_LINE_LEN * MAX_HELP_LINES
+#define MAX_PRINT_CHARS		( 1022 - 9 ) // server commands are limited to 1022 chars, minus 9 chars for: print "\n"
+#define MAX_PRINTS_AT_ONCE	4 // more than 4 full server prints at once causes noticeable lag spikes when issuing the cmd
+#define MAX_HELP_BYTES		( MAX_PRINT_CHARS * MAX_PRINTS_AT_ONCE )
 
 qboolean helpEnabled = qfalse;
-char help[MAX_HELP_LEN];
+char help[MAX_PRINTS_AT_ONCE][MAX_PRINT_CHARS + 1];
 
 void G_LoadHelpFile(const char *filename) {
 	int len;
@@ -4829,28 +4829,59 @@ void G_LoadHelpFile(const char *filename) {
 
 	len = trap_FS_FOpenFile( filename, &f, FS_READ );
 
-	if ( !f ) {
-		trap_Printf( va( S_COLOR_YELLOW "Help file %s not found, disabling /help\n", filename ) );
+	if ( !f || !len ) {
+		trap_Printf( va( S_COLOR_YELLOW "Help file %s not found or empty, disabling /help\n", filename ) );
 		return;
 	}
 
-	if ( len >= MAX_HELP_LEN ) {
-		trap_Printf( va( S_COLOR_YELLOW "Help file %s is too large (%i chars, max is %i), disabling /help\n", filename, len, MAX_HELP_LEN ) );
+	if ( len > MAX_HELP_BYTES ) {
+		trap_Printf( va( S_COLOR_YELLOW "Help file %s is too large (%d bytes, max is %d), disabling /help\n", filename, len, MAX_HELP_BYTES ) );
 		trap_FS_FCloseFile( f );
 		return;
 	}
 
-	trap_FS_Read( help, len, f );
-	help[len] = '\0';
+	char* buf = malloc( len + 1 );
+
+	trap_FS_Read( buf, len, f );
+	buf[len] = '\0';
 	trap_FS_FCloseFile( f );
+
+	// break down the buffer into multiple buffers sized for printing
+
+	int i = 0;
+	char* bufPtr = buf;
+
+	while ( len > 0 && i < sizeof( help ) / sizeof( help[0] ) ) {
+		size_t lenToCopy = len % MAX_PRINT_CHARS;
+		if ( !lenToCopy ) lenToCopy = MAX_PRINT_CHARS;
+
+		memcpy( help[i], bufPtr, lenToCopy );
+		help[i][lenToCopy] = '\0';
+
+		bufPtr += lenToCopy;
+		len -= lenToCopy;
+		++i;
+	}
+
+	free( buf );
 
 	Com_Printf( "Loaded help file %s sucessfully\n", filename );
 	helpEnabled = qtrue;
 }
 
 void Cmd_Help_f( gentity_t *ent ) {
-	trap_SendServerCommand(ent - g_entities,
-		va("print \"%s\n\"", help));
+	int i;
+
+	for ( i = 0; i < sizeof( help ) / sizeof( help[0] ); ++i ) {
+		if ( VALIDSTRING( help[i] ) ) {
+			// only append a new line if there is no print after this one
+			if ( ( i + 1 >= sizeof( help ) / sizeof( help[0] ) ) || !VALIDSTRING( help[i + 1] ) ) {
+				trap_SendServerCommand( ent - g_entities, va( "print \"%s\n\"", help[i] ) );
+			} else {
+				trap_SendServerCommand( ent - g_entities, va( "print \"%s\"", help[i] ) );
+			}
+		}
+	}
 }
 
 void Cmd_EngageDuel_f(gentity_t *ent)
