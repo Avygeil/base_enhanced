@@ -79,7 +79,8 @@ void DeathmatchScoreboardMessage( gentity_t *ent ) {
 		// next 5 bits are followed client #
 		// final bit is whether you are following someone or not
 		int specMix = 0; // this was previously scoreFlags
-		if (cl->pers.connected == CON_CONNECTED && cl->sess.sessionTeam == TEAM_SPECTATOR && cl->sess.spectatorState == SPECTATOR_FOLLOW) {
+		if (cl->pers.connected == CON_CONNECTED && cl->sess.sessionTeam == TEAM_SPECTATOR && cl->sess.spectatorState == SPECTATOR_FOLLOW &&
+			!cl->sess.isInkognito) {
 			specMix = 0b1;
 			specMix |= ((cl->sess.spectatorClient & 0b11111) << 1);
 		}
