@@ -4912,8 +4912,8 @@ void Cmd_EngageDuel_f(gentity_t *ent)
 		return;
 	}
 
-	if (g_gametype.integer >= GT_TEAM && g_gametype.integer != GT_CTF) 
-	{ //no private dueling in team modes, except captain duel in ctf
+	if (g_gametype.integer >= GT_TEAM && !g_teamPrivateDuels.integer) 
+	{
 		trap_SendServerCommand( ent-g_entities, va("print \"%s\n\"", G_GetStringEdString("MP_SVGAME", "NODUEL_GAMETYPE")) );
 		return;
 	}

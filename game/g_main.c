@@ -151,6 +151,7 @@ vmCvar_t	g_logrcon;
 vmCvar_t	g_flags_overboarding;
 vmCvar_t	g_selfkill_penalty;
 vmCvar_t    g_moreTaunts;
+vmCvar_t	g_teamPrivateDuels;
 
 vmCvar_t	g_teamOverlayUpdateRate;
 vmCvar_t	debug_clientNumLog;
@@ -697,6 +698,8 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_selfkill_penalty, "g_selfkill_penalty", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_flags_overboarding, "g_flags_overboarding", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_moreTaunts, "g_moreTaunts", "1", CVAR_ARCHIVE, 0, qtrue },
+
+	{ &g_teamPrivateDuels, "g_teamPrivateDuels", "0", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_teamOverlayUpdateRate, "g_teamOverlayUpdateRate", "250", CVAR_ARCHIVE, 0, qtrue },
 	{ &debug_clientNumLog, "debug_clientNumLog", "0", CVAR_ARCHIVE, 0, qtrue},
