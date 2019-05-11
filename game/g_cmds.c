@@ -3674,10 +3674,21 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 		char buf[32];
 		trap_Argv( 1, buf, sizeof( buf ) );
 
-		if ( !Q_stricmp( buf, "maplist" ) ) {
+		// special logic for subcommands
 
-			// special logic for maplist subcommand
+		if ( !Q_stricmp( buf, "help" ) ) {
+			char *text =
+				S_COLOR_WHITE"List all map records:\n"
+				S_COLOR_CYAN"/toptimes maplist [std | wpn | walk | ad] [page]\n"
+				S_COLOR_WHITE"Demo information of a specific rank on the current map:\n"
+				S_COLOR_CYAN"/toptimes demo <rank> [std | wpn | walk | ad]\n"
+				S_COLOR_WHITE"Valid runs rules:\n"
+				S_COLOR_CYAN"/toptimes rules <std | wpn | walk | ad>";
 
+			trap_SendServerCommand( ent - g_entities, va( "print \"%s\n\"", text ) );
+
+			return;
+		} else if ( !Q_stricmp( buf, "maplist" ) ) {
 			int page = 1;
 
 			if ( trap_Argc() > 2 ) {
@@ -3717,10 +3728,69 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 			}
 
 			return;
+		} else if ( !Q_stricmp( buf, "demo" ) ) {
+			if ( trap_Argc() > 2 ) {
+				trap_Argv( 2, buf, sizeof( buf ) );
+				const int rank = atoi( buf );
+
+				if ( rank >= 1 && rank <= MAX_SAVED_RECORDS ) {
+
+					// do we have a movement type specified?
+					if ( trap_Argc() > 3 ) {
+						trap_Argv( 3, buf, sizeof( buf ) );
+						category = GetRecordTypeForShortName( buf );
+
+						if ( category == CAPTURE_RECORD_INVALID ) {
+							trap_SendServerCommand( ent - g_entities, "print \"Invalid category. Usage: /toptimes demo <rank> [std | wpn | walk | ad]\n\"" );
+							return;
+						}
+					}
+
+					const CaptureRecord* thisRecord = &level.mapCaptureRecords.records[category][rank - 1];
+
+					if ( !thisRecord->captureTime ) {
+						trap_SendServerCommand( ent - g_entities, "print \"This rank does not exist for this category on this map\n\"" );
+						return;
+					}
+
+					if ( !VALIDSTRING( thisRecord->matchId ) ) {
+						trap_SendServerCommand( ent - g_entities, "print \"There is no demo associated with this rank in the database!\n\"" );
+						return;
+					}
+
+					const char* categoryName = GetLongNameForRecordType( category );
+
+					char nameString[64] = { 0 };
+					G_CfgDbListAliases( thisRecord->recordHolderIpInt, ( unsigned int )0xFFFFFFFF, 1, copyTopNameCallback, &nameString, thisRecord->recordHolderCuid );
+
+					// no name in db for this guy, use the one we stored
+					if ( !VALIDSTRING( nameString ) ) {
+						Q_strncpyz( nameString, thisRecord->recordHolderName, sizeof( nameString ) );
+					}
+
+					int mins, secs;
+					PartitionedTimer( thisRecord->pickupLevelTime, &mins, &secs, NULL );
+
+					team_t playerTeam = OtherTeam( thisRecord->whoseFlag ); // the opposite of the captured flag's team
+
+					// print the demo info
+					trap_SendServerCommand( ent - g_entities, va(
+						"print \""S_COLOR_WHITE"Rank %i (%s"S_COLOR_WHITE") - "S_COLOR_YELLOW"%s\n"
+						""S_COLOR_WHITE"As %s (client %d) in team %s%s"S_COLOR_WHITE" @ "S_COLOR_CYAN"%d:%02d\n\"",
+						rank, nameString, categoryName, thisRecord->recordHolderName, thisRecord->recordHolderClientId, TeamColorString( playerTeam ), TeamName( playerTeam ), mins, secs
+					) );
+
+					// send the demo link as a chat message to this client only so it can be opened by newmod
+					trap_SendServerCommand( ent - g_entities, va( "chat \"^1Demo link^7\x19: " DEMOARCHIVE_BASE_MATCH_URL "\"\n", thisRecord->matchId ) );
+				} else {
+					trap_SendServerCommand( ent - g_entities, va( "print \"Rank must be a number between 1 and %i\n\"", MAX_SAVED_RECORDS ) );
+				}
+			} else {
+				trap_SendServerCommand( ent - g_entities, "print \"Usage: /toptimes demo <rank> [std | wpn | walk | ad]\n\"" );
+			}
+
+			return;
 		} else if ( !Q_stricmp( buf, "rules" ) ) {
-
-			// special logic for rules subcommand
-
 			char *text;
 
 			if ( trap_Argc() > 2 ) {
@@ -3852,7 +3922,7 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 		) );
 	}
 
-	trap_SendServerCommand( ent - g_entities, "print \"For a list of records on all maps: /toptimes maplist [std | wpn | walk | ad] [page]\nFor category rules: /toptimes rules <std | wpn | walk | ad>\n\"" );
+	trap_SendServerCommand( ent - g_entities, "print \"For a list of all subcommands: /toptimes help\n\"" );
 }
 
 /*
