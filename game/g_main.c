@@ -4919,8 +4919,10 @@ void G_RunFrame( int levelTime ) {
 				WP_SaberPositionUpdate(ent, &ent->client->pers.cmd);
 				WP_SaberStartMissileBlockCheck(ent, &ent->client->pers.cmd);
 
-				{
-					// this client is in game, update speed stats
+				if ( ent->client->ps.stats[STAT_HEALTH] > 0 && !( ent->client->ps.eFlags & EF_DEAD ) ) {
+					// this client is in game and alive, update speed stats
+
+					Com_Printf( "ADDING SPEED %i\n", levelTime );
 
 					float xyspeed = 0;
 
