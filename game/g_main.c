@@ -4922,8 +4922,6 @@ void G_RunFrame( int levelTime ) {
 				if ( ent->client->ps.stats[STAT_HEALTH] > 0 && !( ent->client->ps.eFlags & EF_DEAD ) ) {
 					// this client is in game and alive, update speed stats
 
-					Com_Printf( "ADDING SPEED %i\n", levelTime );
-
 					float xyspeed = 0;
 
 					if ( ent->client->ps.m_iVehicleNum ) {
