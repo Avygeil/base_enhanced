@@ -137,6 +137,7 @@ const char* const sqlCreateFastcapsV2Table =
 "CREATE TABLE IF NOT EXISTS fastcapsV2 (                                        "
 "    [fastcap_id] INTEGER PRIMARY KEY AUTOINCREMENT,                            "
 "    [mapname] TEXT,                                                            "
+"    [rank] INTEGER,                                                            "
 "    [type] INTEGER,                                                            "
 "    [player_name] TEXT,                                                        "
 "    [player_ip_int] INTEGER,                                                   "
@@ -152,10 +153,10 @@ const char* const sqlCreateFastcapsV2Table =
 
 const char* const sqlAddFastcapV2 =
 "INSERT INTO fastcapsV2 (                                                       "
-"    mapname, type, player_name, player_ip_int, player_cuid_hash2,              "
+"    mapname, rank, type, player_name, player_ip_int, player_cuid_hash2,        "
 "    capture_time, whose_flag, max_speed, avg_speed, date, match_id,            "
 "    client_id, pickup_time)                                                    "
-"VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)                                             ";
+"VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)                                           ";
 
 const char* const sqlremoveFastcapsV2 =
 "DELETE FROM fastcapsV2 WHERE mapname = ?                                       ";
@@ -172,11 +173,20 @@ const char* const sqlListBestFastcapsV2 =
 "SELECT mapname, player_name, player_ip_int, player_cuid_hash2,                 "
 "MIN( capture_time ) AS best_time, date                                         "
 "FROM fastcapsV2                                                                "
-"WHERE fastcapsV2.type = ?1                                                       "
+"WHERE fastcapsV2.type = ?1                                                     "
 "GROUP BY mapname                                                               "
 "ORDER BY mapname ASC, date ASC                                                 "
 "LIMIT ?2                                                                       "
 "OFFSET ?3                                                                      ";
+
+const char* const sqlTestFastcapsV2RankColumn =
+"PRAGMA table_info(fastcapsV2)                                                  ";
+
+const char* const sqlAddFastcapsV2RankColumn =
+"ALTER TABLE fastcapsV2 ADD rank INTEGER;                                       ";
+
+const char* const sqlListAllFastcapsV2Maps =
+"SELECT DISTINCT mapname FROM fastcapsV2;                                       ";
 
 //
 //  G_LogDbLoad
@@ -221,6 +231,38 @@ void G_LogDbLoad()
 
 		// create the database IF NEEDED, since it might have been created before the feature was added
 		sqlite3_exec( db, sqlCreateFastcapsV2Table, 0, 0, 0 );
+
+		// add a rank column if it doesn't have it (added late for better query performance)
+		rc = sqlite3_prepare( db, sqlTestFastcapsV2RankColumn, -1, &statement, 0 );
+		rc = sqlite3_step( statement );
+		qboolean foundRankColumn = qfalse;
+		while ( rc == SQLITE_ROW ) {
+			const char *name = ( const char* )sqlite3_column_text( statement, 1 );
+			if ( name && *name && !Q_stricmp( name, "rank" ) )
+				foundRankColumn = qtrue;
+			rc = sqlite3_step( statement );
+		}
+		sqlite3_finalize( statement );
+		if ( !foundRankColumn ) {
+			G_LogPrintf( "Adding 'rank' column to fastcapsV2 table, indexing ranks automatically...\n" );
+			sqlite3_exec( db, sqlAddFastcapsV2RankColumn, 0, 0, 0 );
+
+			// for each map, load and save records so that rank indexing is done automatically (will take some time)
+			rc = sqlite3_prepare( db, sqlListAllFastcapsV2Maps, -1, &statement, 0 );
+			rc = sqlite3_step( statement );
+			while ( rc == SQLITE_ROW ) {
+				const char *thisMapname = ( const char* )sqlite3_column_text( statement, 0 );
+				if ( VALIDSTRING( thisMapname ) ) {
+					// load and save so ranks are generated
+					CaptureRecordList thisMapRecords;
+					G_LogDbLoadCaptureRecords( thisMapname, &thisMapRecords );
+					thisMapRecords.changed = qtrue;
+					G_LogDbSaveCaptureRecords( &thisMapRecords );
+				}
+				rc = sqlite3_step( statement );
+			}
+			sqlite3_finalize( statement );
+		}
 	}
 	else {
 		G_LogPrintf("Couldn't find log database %s, creating a new one\n", logDbFileName);
@@ -625,31 +667,31 @@ void G_LogDbSaveCaptureRecords( CaptureRecordList *recordsToSave )
 			sqlite3_clear_bindings( statement );
 
 			sqlite3_bind_text( statement, 1, recordsToSave->mapname, -1, 0 );
-			sqlite3_bind_int( statement, 2, i );
-			sqlite3_bind_text( statement, 3, record->recordHolderName, -1, 0 );
-			sqlite3_bind_int( statement, 4, record->recordHolderIpInt );
+			sqlite3_bind_int( statement, 2, j + 1 );
+			sqlite3_bind_int( statement, 3, i );
+			sqlite3_bind_text( statement, 4, record->recordHolderName, -1, 0 );
+			sqlite3_bind_int( statement, 5, record->recordHolderIpInt );
 
 			if ( VALIDSTRING( record->recordHolderCuid ) ) {
-				sqlite3_bind_text( statement, 5, record->recordHolderCuid, -1, 0 );
+				sqlite3_bind_text( statement, 6, record->recordHolderCuid, -1, 0 );
 			} else {
-				sqlite3_bind_null( statement, 5 );
+				sqlite3_bind_null( statement, 6 );
 			}
 
-			sqlite3_bind_int( statement, 6, record->captureTime );
-			sqlite3_bind_int( statement, 7, record->whoseFlag );
-			sqlite3_bind_int( statement, 8, record->maxSpeed );
-			sqlite3_bind_int( statement, 9, record->avgSpeed );
-			sqlite3_bind_int64( statement, 10, record->date );
+			sqlite3_bind_int( statement, 7, record->captureTime );
+			sqlite3_bind_int( statement, 8, record->whoseFlag );
+			sqlite3_bind_int( statement, 9, record->maxSpeed );
+			sqlite3_bind_int( statement, 10, record->avgSpeed );
+			sqlite3_bind_int64( statement, 11, record->date );
 
 			if ( VALIDSTRING( record->matchId ) ) {
-				sqlite3_bind_text( statement, 11, record->matchId, -1, 0 );
-			}
-			else {
-				sqlite3_bind_null( statement, 11 );
+				sqlite3_bind_text( statement, 12, record->matchId, -1, 0 );
+			} else {
+				sqlite3_bind_null( statement, 12 );
 			}
 
-			sqlite3_bind_int( statement, 12, record->recordHolderClientId );
-			sqlite3_bind_int( statement, 13, record->pickupLevelTime);
+			sqlite3_bind_int( statement, 13, record->recordHolderClientId );
+			sqlite3_bind_int( statement, 14, record->pickupLevelTime);
 
 			sqlite3_step( statement );
 			++saved;
