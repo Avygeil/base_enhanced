@@ -171,9 +171,9 @@ const char* const sqlGetFastcapsV2 =
 
 const char* const sqlListBestFastcapsV2 =
 "SELECT mapname, player_name, player_ip_int, player_cuid_hash2,                 "
-"MIN( capture_time ) AS best_time, date                                         "
+"capture_time AS best_time, date                                                "
 "FROM fastcapsV2                                                                "
-"WHERE fastcapsV2.type = ?1                                                     "
+"WHERE fastcapsV2.type = ?1 AND fastcapsV2.rank = 1                             "
 "GROUP BY mapname                                                               "
 "ORDER BY mapname ASC, date ASC                                                 "
 "LIMIT ?2                                                                       "
