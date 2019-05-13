@@ -3600,6 +3600,12 @@ typedef struct {
 	qboolean hasPrinted;
 } BestTimeContext;
 
+typedef struct {
+	int entNum;
+	int currentRank;
+	qboolean hasPrinted;
+} LeaderboardContext;
+
 static void printBestTimeCallback( void *context, const char *mapname, const CaptureRecordType type, const char *recordHolderName, unsigned int recordHolderIpInt, const char *recordHolderCuid, int bestTime, time_t bestTimeDate ) {
 	BestTimeContext* thisContext = ( BestTimeContext* )context;
 
@@ -3650,8 +3656,51 @@ static void printBestTimeCallback( void *context, const char *mapname, const Cap
 	thisContext->hasPrinted = qtrue;
 }
 
+static void printLeaderboardCallback( void *context, const CaptureRecordType type, const unsigned int playerIpInt, const int golds, const int silvers, const int bronzes ) {
+	LeaderboardContext* thisContext = ( LeaderboardContext* )context;
+
+	if ( !thisContext->hasPrinted ) {
+		// first time printing, show a header
+		trap_SendServerCommand( thisContext->entNum, va( "print \""S_COLOR_WHITE"Leaderboard for the "S_COLOR_YELLOW"%s "S_COLOR_WHITE"category:\n"S_COLOR_CYAN"               Name           Golds    Silvers   Bronzes\n\"", GetLongNameForRecordType( type ) ) );
+	}
+
+	// TODO: pair ip/cuid in the query
+	char nameString[64] = { 0 };
+	G_CfgDbListAliases( playerIpInt, ( unsigned int )0xFFFFFFFF, 1, copyTopNameCallback, &nameString, NULL );
+
+	// TODO: fixme
+	if ( !VALIDSTRING( nameString ) ) {
+		Q_strncpyz( nameString, "^7Padawan", sizeof( nameString ) );
+	}
+
+	{
+		// pad the name string with spaces here because printf padding will ignore colors
+
+		int spacesToAdd = g_maxNameLength.integer - Q_PrintStrlen( nameString );
+		int i;
+
+		for ( i = 0; i < sizeof( nameString ) && spacesToAdd > 0; ++i ) {
+			if ( nameString[i] == '\0' ) {
+				nameString[i] = ' '; // replace null terminators with spaces
+				--spacesToAdd;
+			}
+		}
+
+		nameString[sizeof( nameString ) - 1] = '\0'; // make sure it's still null terminated
+	}
+
+	trap_SendServerCommand( thisContext->entNum, va(
+		"print \""S_COLOR_CYAN"%3d"S_COLOR_WHITE": "S_COLOR_WHITE"%s  "S_COLOR_YELLOW"%2d        "S_COLOR_GREY"%2d        "S_COLOR_ORANGE"%2d\n\"",
+		thisContext->currentRank, nameString, golds, silvers, bronzes
+	) );
+
+	thisContext->hasPrinted = qtrue;
+	thisContext->currentRank++;
+}
+
 #define DEMOARCHIVE_BASE_MATCH_URL	"http://demos.jactf.com/match.html#rpc=lookup&id=%s"
-#define MAPLIST_MAPS_PER_PAGE		15
+#define MAPLIST_MAPS_PER_PAGE			15
+#define LEADERBOARD_PLAYERS_PER_PAGE	10
 
 void Cmd_TopTimes_f( gentity_t *ent ) {
 	if ( !ent || !ent->client ) {
@@ -3680,9 +3729,11 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 			char *text =
 				S_COLOR_WHITE"List all map records:\n"
 				S_COLOR_CYAN"/toptimes maplist [std | wpn | walk | ad] [page]\n"
-				S_COLOR_WHITE"Demo information of a specific rank on the current map:\n"
+				S_COLOR_WHITE"Show player leaderboard:\n"
+				S_COLOR_CYAN"/toptimes ranks [std | wpn | walk | ad] [page]\n"
+				S_COLOR_WHITE"Get demo information of a specific rank on the current map:\n"
 				S_COLOR_CYAN"/toptimes demo <rank> [std | wpn | walk | ad]\n"
-				S_COLOR_WHITE"Valid runs rules:\n"
+				S_COLOR_WHITE"Show valid runs rules:\n"
 				S_COLOR_CYAN"/toptimes rules <std | wpn | walk | ad>";
 
 			trap_SendServerCommand( ent - g_entities, va( "print \"%s\n\"", text ) );
@@ -3698,7 +3749,8 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 				if ( Q_isanumber( buf ) ) {
 					page = atoi( buf );
 					if ( page < 1 ) page = 1;
-				} else {
+				}
+				else {
 					// a movement type is being specified as 2nd argument
 					category = GetRecordTypeForShortName( buf );
 
@@ -3720,11 +3772,53 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 			context.entNum = ent - g_entities;
 			context.hasPrinted = qfalse;
 			G_LogDbListBestCaptureRecords( category, MAPLIST_MAPS_PER_PAGE, ( page - 1 ) * MAPLIST_MAPS_PER_PAGE, printBestTimeCallback, &context );
-			
+
 			if ( context.hasPrinted ) {
 				trap_SendServerCommand( ent - g_entities, va( "print \"Viewing page %d.\nUsage: /toptimes maplist [std | wpn | walk | ad] [page]\n\"", page ) );
-			} else {
+			}
+			else {
 				trap_SendServerCommand( ent - g_entities, "print \"There aren't this many records! Try a lower page number.\nUsage: /toptimes maplist [std | wpn | walk | ad] [page]\n\"" );
+			}
+
+			return;
+		} else if ( !Q_stricmp( buf, "ranks" ) ) {
+			int page = 1;
+
+			if ( trap_Argc() > 2 ) {
+				trap_Argv( 2, buf, sizeof( buf ) );
+
+				// is the 2nd argument directly the page number?
+				if ( Q_isanumber( buf ) ) {
+					page = atoi( buf );
+					if ( page < 1 ) page = 1;
+				} else {
+					// a movement type is being specified as 2nd argument
+					category = GetRecordTypeForShortName( buf );
+
+					if ( category == CAPTURE_RECORD_INVALID ) {
+						trap_SendServerCommand( ent - g_entities, "print \"Invalid category. Usage: /toptimes ranks [std | wpn | walk | ad] [page]\n\"" );
+						return;
+					}
+
+					if ( trap_Argc() > 3 ) {
+						// 3rd argument must be the page number
+						trap_Argv( 3, buf, sizeof( buf ) );
+						page = atoi( buf );
+						if ( page < 1 ) page = 1;
+					}
+				}
+			}
+
+			LeaderboardContext context;
+			context.entNum = ent - g_entities;
+			context.currentRank = 1 + ( page - 1 ) * LEADERBOARD_PLAYERS_PER_PAGE;
+			context.hasPrinted = qfalse;
+			G_LogDbGetCaptureRecordsLeaderboard( category, LEADERBOARD_PLAYERS_PER_PAGE, ( page - 1 ) * LEADERBOARD_PLAYERS_PER_PAGE, printLeaderboardCallback, &context );
+
+			if ( context.hasPrinted ) {
+				trap_SendServerCommand( ent - g_entities, va( "print \"Viewing page %d.\nUsage: /toptimes ranks [std | wpn | walk | ad] [page]\n\"", page ) );
+			} else {
+				trap_SendServerCommand( ent - g_entities, "print \"There aren't this many players! Try a lower page number.\nUsage: /toptimes ranks [std | wpn | walk | ad] [page]\n\"" );
 			}
 
 			return;
@@ -3917,7 +4011,7 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 		FormatLocalDateFromEpoch( date + 2, sizeof( date ) - 2, record->date );
 
 		trap_SendServerCommand( ent - g_entities, va(
-			"print \""S_COLOR_CYAN"%d"S_COLOR_WHITE""S_COLOR_YELLOW": "S_COLOR_WHITE"%s  "S_COLOR_YELLOW"%s   %-6s      "S_COLOR_YELLOW"%-6d      %-6d     %s\n\"",
+			"print \""S_COLOR_CYAN"%d"S_COLOR_WHITE": "S_COLOR_WHITE"%s  "S_COLOR_YELLOW"%s   %-6s      "S_COLOR_YELLOW"%-6d      %-6d     %s\n\"",
 			i + 1, nameString, timeString, flagString, Com_Clampi( 1, 99999999, record->maxSpeed ), Com_Clampi( 1, 9999999, record->avgSpeed ), date
 		) );
 	}

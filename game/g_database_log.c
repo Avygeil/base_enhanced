@@ -179,6 +179,19 @@ const char* const sqlListBestFastcapsV2 =
 "LIMIT ?2                                                                       "
 "OFFSET ?3                                                                      ";
 
+const char* const sqlGetFastcapsV2Leaderboard =
+"SELECT player_ip_int,                                                          "
+"    SUM( CASE WHEN rank = 1 THEN 1 ELSE 0 END ) AS golds,                      "
+"    SUM( CASE WHEN rank = 2 THEN 1 ELSE 0 END ) AS silvers,                    "
+"    SUM( CASE WHEN rank = 3 THEN 1 ELSE 0 END ) AS bronzes                     "
+"FROM fastcapsV2                                                                "
+"WHERE fastcapsV2.type = ?1                                                     "
+"GROUP BY player_ip_int                                                         "
+"HAVING golds > 0 OR silvers > 0 OR bronzes > 0                                 "
+"ORDER BY golds DESC, silvers DESC, bronzes DESC                                "
+"LIMIT ?2                                                                       "
+"OFFSET ?3                                                                      ";
+
 const char* const sqlTestFastcapsV2RankColumn =
 "PRAGMA table_info(fastcapsV2)                                                  ";
 
@@ -630,6 +643,34 @@ void G_LogDbListBestCaptureRecords( CaptureRecordType type,
 		const time_t date = sqlite3_column_int64( statement, 5 );
 
 		callback( context, mapname, type, player_name, player_ip_int, player_cuid_hash2, best_time, date );
+
+		rc = sqlite3_step( statement );
+	}
+
+	sqlite3_finalize( statement );
+}
+
+void G_LogDbGetCaptureRecordsLeaderboard( CaptureRecordType type,
+	int limit,
+	int offset,
+	LeaderboardCapturesCallback callback,
+	void *context )
+{
+	sqlite3_stmt* statement;
+	int rc = sqlite3_prepare( db, sqlGetFastcapsV2Leaderboard, -1, &statement, 0 );
+
+	sqlite3_bind_int( statement, 1, type );
+	sqlite3_bind_int( statement, 2, limit );
+	sqlite3_bind_int( statement, 3, offset );
+
+	rc = sqlite3_step( statement );
+	while ( rc == SQLITE_ROW ) {
+		const unsigned int player_ip_int = sqlite3_column_int( statement, 0 );
+		const int golds = sqlite3_column_int( statement, 1 );
+		const int silvers = sqlite3_column_int( statement, 2 );
+		const int bronzes = sqlite3_column_int( statement, 3 );
+
+		callback( context, type, player_ip_int, golds, silvers, bronzes );
 
 		rc = sqlite3_step( statement );
 	}
