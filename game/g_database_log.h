@@ -49,17 +49,17 @@ void G_CfgDbListAliases(unsigned int ipInt,
 	void* context,
 	const char* cuidHash);
 
-void G_LogDbLoadCaptureRecords( const char *mapname,
+int G_LogDbLoadCaptureRecords( const char *mapname,
 	CaptureRecordList *recordsToLoad );
 
 typedef void( *ListBestCapturesCallback )( void *context,
 	const char *mapname,
 	const CaptureRecordType type,
 	const char *recordHolderName,
-	unsigned int recordHolderIpInt,
+	const unsigned int recordHolderIpInt,
 	const char *recordHolderCuid,
-	int bestTime,
-	time_t bestTimeDate );
+	const int bestTime,
+	const time_t bestTimeDate );
 
 typedef void( *LeaderboardCapturesCallback )( void *context,
 	const CaptureRecordType type,
@@ -73,7 +73,7 @@ typedef void( *ListLatestCapturesCallback )( void *context,
 	const int rank,
 	const CaptureRecordType type,
 	const char *recordHolderName,
-	unsigned int recordHolderIpInt,
+	const unsigned int recordHolderIpInt,
 	const char *recordHolderCuid,
 	const int captureTime,
 	const time_t captureTimeDate );
@@ -96,7 +96,7 @@ void G_LogDbListLatestCaptureRecords( CaptureRecordType type,
 	ListLatestCapturesCallback callback,
 	void *context );
 
-void G_LogDbSaveCaptureRecords( CaptureRecordList *recordsToSave );
+int G_LogDbSaveCaptureRecords( CaptureRecordList *recordsToSave );
 
 int G_LogDbCaptureTime( unsigned int ipInt,
 	const char *netname,

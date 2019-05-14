@@ -988,7 +988,7 @@ typedef enum {
 } CaptureRecordType;
 
 typedef struct {
-	qboolean enabled; // qtrue if cvar-enabled
+	qboolean enabled; // qtrue if cvar-enabled and if gametype is ctf
 	qboolean readonly; // qtrue if new times won't be recorded (non standard movement cvars for example)
 	qboolean changed; // qtrue if at least one record changed, which means the whole struct is saved when map ends
 	char mapname[MAX_MAP_NAME]; // the current map used as a context for loading/saving from db

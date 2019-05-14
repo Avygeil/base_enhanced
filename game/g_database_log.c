@@ -267,10 +267,13 @@ void G_LogDbLoad()
 		}
 		sqlite3_finalize( statement );
 		if ( !foundRankColumn ) {
-			G_LogPrintf( "Adding 'rank' column to fastcapsV2 table, indexing ranks automatically...\n" );
+			G_LogPrintf( "Adding 'rank' column to fastcapsV2 table, indexing ranks automatically (this may take a while)\n" );
 			sqlite3_exec( diskDb, sqlAddFastcapsV2RankColumn, 0, 0, 0 );
 
+			int recordsIndexed = 0;
+
 			// for each map, load and save records so that rank indexing is done automatically (will take some time)
+			dbPtr = diskDb;
 			rc = sqlite3_prepare( diskDb, sqlListAllFastcapsV2Maps, -1, &statement, 0 );
 			rc = sqlite3_step( statement );
 			while ( rc == SQLITE_ROW ) {
@@ -280,11 +283,14 @@ void G_LogDbLoad()
 					CaptureRecordList thisMapRecords;
 					G_LogDbLoadCaptureRecords( thisMapname, &thisMapRecords );
 					thisMapRecords.changed = qtrue;
-					G_LogDbSaveCaptureRecords( &thisMapRecords );
+					recordsIndexed += G_LogDbSaveCaptureRecords( &thisMapRecords );
 				}
 				rc = sqlite3_step( statement );
 			}
 			sqlite3_finalize( statement );
+			dbPtr = NULL;
+
+			G_LogPrintf( "Indexed %d records successfully\n", recordsIndexed );
 		}
 	} else {
 		G_LogPrintf("Couldn't find log database %s, creating a new one\n", logDbFileName);
@@ -593,27 +599,11 @@ void G_CfgDbListAliases( unsigned int ipInt,
 	}
 }
 
-void G_LogDbLoadCaptureRecords( const char *mapname,
+// returns how many records were loaded
+int G_LogDbLoadCaptureRecords( const char *mapname,
 	CaptureRecordList *recordsToLoad )
 {
 	memset( recordsToLoad, 0, sizeof( *recordsToLoad ) );
-
-	if ( g_gametype.integer != GT_CTF || !g_saveCaptureRecords.integer ) {
-		return;
-	}
-
-	extern const char *G_GetArenaInfoByMap( const char *map );
-	const char *arenaInfo = G_GetArenaInfoByMap( mapname );
-
-	if ( VALIDSTRING( arenaInfo ) ) {
-		const char *mapFlags = Info_ValueForKey( arenaInfo, "b_e_flags" );
-		
-		// this flag disables toptimes on this map
-		// TODO: if I ever make more flags, make an actual define in some header file...
-		if ( VALIDSTRING( mapFlags ) && atoi( mapFlags ) & 1 ) {
-			return;
-		}
-	}
 
 	// make sure we always make a lower case map lookup
 	Q_strncpyz( recordsToLoad->mapname, mapname, sizeof( recordsToLoad->mapname ) );
@@ -649,7 +639,7 @@ void G_LogDbLoadCaptureRecords( const char *mapname,
 			const int client_id = sqlite3_column_int( statement, 9 );
 			const int pickup_time = sqlite3_column_int( statement, 10 );
 
-			// write them to the record
+			// write them to the record list
 			CaptureRecord *record = &recordsToLoad->records[i][j];
 
 			Q_strncpyz( record->recordHolderName, player_name, sizeof( record->recordHolderName ) );
@@ -683,7 +673,7 @@ void G_LogDbLoadCaptureRecords( const char *mapname,
 	// write the remaining global fields
 	recordsToLoad->enabled = qtrue;
 
-	G_Printf( "Loaded %d capture time records from database\n", loaded );
+	return loaded;
 }
 
 void G_LogDbListBestCaptureRecords( CaptureRecordType type,
@@ -775,10 +765,15 @@ void G_LogDbListLatestCaptureRecords( CaptureRecordType type,
 	sqlite3_finalize( statement );
 }
 
-void G_LogDbSaveCaptureRecords( CaptureRecordList *recordsToSave )
+// returns how many records were written, or -1 if the capture record list is inactive (disabled)
+int G_LogDbSaveCaptureRecords( CaptureRecordList *recordsToSave )
 {
-	if ( g_gametype.integer != GT_CTF || !recordsToSave->enabled || !recordsToSave->changed ) {
-		return;
+	if ( !recordsToSave->enabled ) {
+		return -1;
+	}
+
+	if ( !recordsToSave->changed ) {
+		return 0;
 	}
 
 	sqlite3_stmt* statement;
@@ -838,7 +833,9 @@ void G_LogDbSaveCaptureRecords( CaptureRecordList *recordsToSave )
 
 	sqlite3_finalize( statement );
 
-	G_Printf( "Saved %d capture time records to database\n", saved );
+	recordsToSave->changed = qfalse;
+
+	return saved;
 }
 
 // this function assumes the arrays in currentRecords are sorted by captureTime and date
@@ -955,8 +952,13 @@ int G_LogDbCaptureTime( unsigned int ipInt,
 		newElement->matchId[0] = '\0';
 	}
 
-	// save the changes later in db
+	// marks changes to be saved in db
 	currentRecords->changed = qtrue;
+
+	// if we are using in memory db, we can afford saving all records straight away
+	if ( g_inMemoryDB.integer ) {
+		G_LogDbSaveCaptureRecords( currentRecords );
+	}
 
 	return newIndex + 1;
 }

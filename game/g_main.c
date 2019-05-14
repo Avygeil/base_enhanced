@@ -1206,6 +1206,7 @@ extern void G_LoadArenas( void );
 extern void G_LoadVoteMapsPools(void);
 extern void InitUnhandledExceptionFilter();
 extern void G_LoadHelpFile( const char *filename );
+extern const char *G_GetArenaInfoByMap( char *map );
 
 void G_InitGame( int levelTime, int randomSeed, int restart ) {
 	int					i;
@@ -1508,8 +1509,28 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
     G_LogDbLoad();
     //level.db.levelId = G_LogDbLogLevelStart(restart);
 
-	// cache the capture records for this map
-	G_LogDbLoadCaptureRecords( mapname.string, &level.mapCaptureRecords );
+	if ( g_gametype.integer == GT_CTF && g_saveCaptureRecords.integer ) {
+		// load capture records for this map
+
+		const char *arenaInfo = G_GetArenaInfoByMap( mapname.string );
+
+		if ( VALIDSTRING( arenaInfo ) ) {
+			const char *mapFlags = Info_ValueForKey( arenaInfo, "b_e_flags" );
+
+			// this flag disables toptimes on this map
+			// TODO: if I ever make more flags, make an actual define in some header file...
+			if ( VALIDSTRING( mapFlags ) && atoi( mapFlags ) & 1 ) {
+				return;
+			}
+		}
+
+		int recordsLoaded = G_LogDbLoadCaptureRecords( mapname.string, &level.mapCaptureRecords );
+		if ( recordsLoaded ) {
+			G_Printf( "Loaded %d capture time records from database\n", recordsLoaded );
+		}
+	} else {
+		level.mapCaptureRecords.enabled = qfalse;
+	}
 
 	// reset capturedifflimit on map rs
 	trap_Cvar_Set( "capturedifflimit", g_default_capturedifflimit.string );
@@ -1608,7 +1629,10 @@ void G_ShutdownGame( int restart ) {
 	//cleanDB();
 
 	// save the capture records for this map
-	G_LogDbSaveCaptureRecords( &level.mapCaptureRecords );
+	int recordsSaved = G_LogDbSaveCaptureRecords( &level.mapCaptureRecords );
+	if ( recordsSaved ) {
+		G_Printf( "Saved %d capture time records to database\n", recordsSaved );
+	}
 
     //G_LogDbLogLevelEnd(level.db.levelId);
 
