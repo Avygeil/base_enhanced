@@ -2,7 +2,8 @@
 #include "sqlite3.h"
 #include "time.h"
 
-static sqlite3* db = 0;
+static sqlite3* diskDb = NULL;
+static sqlite3* dbPtr = NULL;
 
 const char* const logDbFileName = "jka_log.db";
 
@@ -221,13 +222,13 @@ void G_LogDbLoad()
     int rc = -1;    
 
     rc = sqlite3_initialize();
-    rc = sqlite3_open_v2( logDbFileName, &db, SQLITE_OPEN_READWRITE, 0 );
+    rc = sqlite3_open_v2( logDbFileName, &diskDb, SQLITE_OPEN_READWRITE, 0 );
 
 	if (rc == SQLITE_OK) {
 		G_LogPrintf("Successfully loaded log database %s\n", logDbFileName);
 		// if needed, upgrade legacy servers that don't support cuid_hash yet
 		sqlite3_stmt* statement;
-		rc = sqlite3_prepare(db, sqlTestCuidSupport, -1, &statement, 0);
+		rc = sqlite3_prepare(diskDb, sqlTestCuidSupport, -1, &statement, 0);
 		rc = sqlite3_step(statement);
 		qboolean foundCuid2 = qfalse, foundCuid1 = qfalse;
 		while (rc == SQLITE_ROW) {
@@ -244,18 +245,18 @@ void G_LogDbLoad()
 		}
 		else if (foundCuid1) {
 			G_LogPrintf("Automatically upgrading old log database: cuid 1.0 support ==> cuid 2.0 support.\n");
-			sqlite3_exec(db, sqlUpgradeToCuid2FromCuid1, 0, 0, 0);
+			sqlite3_exec(diskDb, sqlUpgradeToCuid2FromCuid1, 0, 0, 0);
 		}
 		else {
 			G_LogPrintf("Automatically upgrading old log database: no cuid support ==> cuid 2.0 support.\n");
-			sqlite3_exec(db, sqlUpgradeToCuid2FromNoCuid, 0, 0, 0);
+			sqlite3_exec(diskDb, sqlUpgradeToCuid2FromNoCuid, 0, 0, 0);
 		}
 
 		// create the database IF NEEDED, since it might have been created before the feature was added
-		sqlite3_exec( db, sqlCreateFastcapsV2Table, 0, 0, 0 );
+		sqlite3_exec( diskDb, sqlCreateFastcapsV2Table, 0, 0, 0 );
 
 		// add a rank column if it doesn't have it (added late for better query performance)
-		rc = sqlite3_prepare( db, sqlTestFastcapsV2RankColumn, -1, &statement, 0 );
+		rc = sqlite3_prepare( diskDb, sqlTestFastcapsV2RankColumn, -1, &statement, 0 );
 		rc = sqlite3_step( statement );
 		qboolean foundRankColumn = qfalse;
 		while ( rc == SQLITE_ROW ) {
@@ -267,10 +268,10 @@ void G_LogDbLoad()
 		sqlite3_finalize( statement );
 		if ( !foundRankColumn ) {
 			G_LogPrintf( "Adding 'rank' column to fastcapsV2 table, indexing ranks automatically...\n" );
-			sqlite3_exec( db, sqlAddFastcapsV2RankColumn, 0, 0, 0 );
+			sqlite3_exec( diskDb, sqlAddFastcapsV2RankColumn, 0, 0, 0 );
 
 			// for each map, load and save records so that rank indexing is done automatically (will take some time)
-			rc = sqlite3_prepare( db, sqlListAllFastcapsV2Maps, -1, &statement, 0 );
+			rc = sqlite3_prepare( diskDb, sqlListAllFastcapsV2Maps, -1, &statement, 0 );
 			rc = sqlite3_step( statement );
 			while ( rc == SQLITE_ROW ) {
 				const char *thisMapname = ( const char* )sqlite3_column_text( statement, 0 );
@@ -285,15 +286,45 @@ void G_LogDbLoad()
 			}
 			sqlite3_finalize( statement );
 		}
-	}
-	else {
+	} else {
 		G_LogPrintf("Couldn't find log database %s, creating a new one\n", logDbFileName);
         // create new database
-        rc = sqlite3_open_v2( logDbFileName, &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, 0 );
+        rc = sqlite3_open_v2( logDbFileName, &diskDb, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, 0 );
 
-        sqlite3_exec( db, sqlCreateLogDb, 0, 0, 0 );
-		sqlite3_exec( db, sqlCreateFastcapsV2Table, 0, 0, 0 );
+        sqlite3_exec( diskDb, sqlCreateLogDb, 0, 0, 0 );
+		sqlite3_exec( diskDb, sqlCreateFastcapsV2Table, 0, 0, 0 );
     }
+
+	if ( g_inMemoryDB.integer ) {
+		Com_Printf( "Using in-memory database\n" );
+
+		// open db in memory
+		sqlite3* memoryDb = NULL;
+		rc = sqlite3_open_v2( ":memory:", &memoryDb, SQLITE_OPEN_READWRITE, 0 );
+
+		if ( rc == SQLITE_OK ) {
+			sqlite3_backup *backup = sqlite3_backup_init( memoryDb, "main", diskDb, "main" );
+			if ( backup ) {
+				rc = sqlite3_backup_step( backup, -1 );
+				if ( rc == SQLITE_DONE ) {
+					rc = sqlite3_backup_finish( backup );
+					if ( rc == SQLITE_OK ) {
+						dbPtr = memoryDb;
+					}
+				}
+			}
+		}
+
+		if ( !dbPtr ) {
+			Com_Printf( "WARNING: Failed to load database into memory!\n" );
+		}
+	}
+
+	// use disk db by default in any case
+	if ( !dbPtr ) {
+		Com_Printf( "Using on-disk database\n" );
+		dbPtr = diskDb;
+	}
 }
 
 
@@ -305,7 +336,33 @@ void G_LogDbLoad()
 //
 void G_LogDbUnload()
 {
-    sqlite3_close( db );
+	int rc;
+
+	if ( dbPtr != diskDb ) {
+		Com_Printf( "Saving in-memory database changes to disk\n" );
+
+		// we are using in memory db, save changes to disk
+		qboolean success = qfalse;
+		sqlite3_backup *backup = sqlite3_backup_init( diskDb, "main", dbPtr, "main" );
+		if ( backup ) {
+			rc = sqlite3_backup_step( backup, -1 );
+			if ( rc == SQLITE_DONE ) {
+				rc = sqlite3_backup_finish( backup );
+				if ( rc == SQLITE_OK ) {
+					success = qtrue;
+				}
+			}
+		}
+
+		if ( !success ) {
+			Com_Printf( "WARNING: Failed to backup in-memory database! Changes from this session have NOT been saved!\n" );
+		}
+
+		sqlite3_close( dbPtr );
+	}
+
+	sqlite3_close( diskDb );
+	diskDb = dbPtr = NULL;
 }
 
 //
@@ -322,13 +379,13 @@ int G_LogDbLogLevelStart(qboolean isRestart)
     trap_Cvar_VariableStringBuffer( "mapname", mapname, sizeof( mapname ) );
 
     // prepare insert statement
-    sqlite3_prepare( db, sqlLogLevelStart, -1, &statement, 0 );
+    sqlite3_prepare( dbPtr, sqlLogLevelStart, -1, &statement, 0 );
     sqlite3_bind_text( statement, 1, mapname, -1, 0 );
     sqlite3_bind_int( statement, 2, isRestart ? 1 : 0 );
 
     sqlite3_step( statement );
 
-    int levelId = sqlite3_last_insert_rowid( db );
+    int levelId = sqlite3_last_insert_rowid( dbPtr );
 
     sqlite3_finalize( statement );   
 
@@ -345,7 +402,7 @@ void G_LogDbLogLevelEnd( int levelId )
     sqlite3_stmt* statement;
 
     // prepare update statement
-    sqlite3_prepare( db, sqlLogLevelEnd, -1, &statement, 0 );
+    sqlite3_prepare( dbPtr, sqlLogLevelEnd, -1, &statement, 0 );
     sqlite3_bind_int( statement, 1, levelId );
 
     sqlite3_step( statement );
@@ -369,7 +426,7 @@ void G_LogDbLogLevelEvent( int levelId,
 {
     sqlite3_stmt* statement;
     // prepare insert statement
-    sqlite3_prepare( db, sqlAddLevelEvent, -1, &statement, 0 );
+    sqlite3_prepare( dbPtr, sqlAddLevelEvent, -1, &statement, 0 );
 
     sqlite3_bind_int( statement, 1, levelId );
     sqlite3_bind_int( statement, 2, levelTime );
@@ -396,7 +453,7 @@ int G_LogDbLogSessionStart( unsigned int ipInt,
 {     
     sqlite3_stmt* statement;
     // prepare insert statement
-    sqlite3_prepare( db, sqllogSessionStart, -1, &statement, 0 );
+    sqlite3_prepare( dbPtr, sqllogSessionStart, -1, &statement, 0 );
 
     sqlite3_bind_int( statement, 1, ipInt );
     sqlite3_bind_int( statement, 2, ipPort );
@@ -404,7 +461,7 @@ int G_LogDbLogSessionStart( unsigned int ipInt,
 
     sqlite3_step( statement );
 
-    int sessionId = sqlite3_last_insert_rowid( db );
+    int sessionId = sqlite3_last_insert_rowid( dbPtr );
 
     sqlite3_finalize( statement );
     
@@ -420,7 +477,7 @@ void G_LogDbLogSessionEnd( int sessionId )
 {
     sqlite3_stmt* statement;
     // prepare insert statement
-    sqlite3_prepare( db, sqllogSessionEnd, -1, &statement, 0 );
+    sqlite3_prepare( dbPtr, sqllogSessionEnd, -1, &statement, 0 );
 
     sqlite3_bind_int( statement, 1, sessionId );
 
@@ -442,7 +499,7 @@ void G_LogDbLogNickname( unsigned int ipInt,
     sqlite3_stmt* statement;
 
     // prepare insert statement
-    sqlite3_prepare( db, VALIDSTRING(cuidHash) ? sqlAddNameNM : sqlAddName, -1, &statement, 0 );
+    sqlite3_prepare( dbPtr, VALIDSTRING(cuidHash) ? sqlAddNameNM : sqlAddName, -1, &statement, 0 );
 
     sqlite3_bind_int( statement, 1, ipInt );
     sqlite3_bind_text( statement, 2, name, -1, 0 );
@@ -468,7 +525,7 @@ void G_CfgDbListAliases( unsigned int ipInt,
 	int duration;
 	if (VALIDSTRING(cuidHash)) { // newmod user; check for cuid matches first before falling back to checking for unique id matches
 		int numNMFound = 0;
-		rc = sqlite3_prepare(db, sqlCountNMAliases, -1, &statement, 0);
+		rc = sqlite3_prepare( dbPtr, sqlCountNMAliases, -1, &statement, 0);
 		sqlite3_bind_text(statement, 1, cuidHash, -1, 0);
 		sqlite3_bind_int(statement, 2, limit);
 
@@ -480,7 +537,7 @@ void G_CfgDbListAliases( unsigned int ipInt,
 		sqlite3_reset(statement);
 
 		if (numNMFound) { // we found some cuid matches; let's use these
-			rc = sqlite3_prepare(db, sqlGetNMAliases, -1, &statement, 0);
+			rc = sqlite3_prepare( dbPtr, sqlGetNMAliases, -1, &statement, 0);
 			sqlite3_bind_text(statement, 1, cuidHash, -1, 0);
 			sqlite3_bind_int(statement, 2, limit);
 
@@ -496,7 +553,7 @@ void G_CfgDbListAliases( unsigned int ipInt,
 			sqlite3_finalize(statement);
 		}
 		else { // didn't find any cuid matches; use the old unique id method
-			rc = sqlite3_prepare(db, sqlGetAliases, -1, &statement, 0);
+			rc = sqlite3_prepare( dbPtr, sqlGetAliases, -1, &statement, 0);
 			sqlite3_bind_int(statement, 1, ipInt);
 			sqlite3_bind_int(statement, 2, ipMask);
 			sqlite3_bind_int(statement, 3, limit);
@@ -516,7 +573,7 @@ void G_CfgDbListAliases( unsigned int ipInt,
 	else { // non-newmod; just use the old unique id method
 		sqlite3_stmt* statement;
 		// prepare insert statement
-		int rc = sqlite3_prepare(db, sqlGetAliases, -1, &statement, 0);
+		int rc = sqlite3_prepare( dbPtr, sqlGetAliases, -1, &statement, 0);
 
 		sqlite3_bind_int(statement, 1, ipInt);
 		sqlite3_bind_int(statement, 2, ipMask);
@@ -565,7 +622,7 @@ void G_LogDbLoadCaptureRecords( const char *mapname,
 	sqlite3_stmt* statement;
 	int i, rc = -1, loaded = 0;
 
-	rc = sqlite3_prepare( db, sqlGetFastcapsV2, -1, &statement, 0 );
+	rc = sqlite3_prepare( dbPtr, sqlGetFastcapsV2, -1, &statement, 0 );
 
 	for ( i = 0; i < CAPTURE_RECORD_NUM_TYPES; ++i ) {
 		sqlite3_reset( statement );
@@ -636,7 +693,7 @@ void G_LogDbListBestCaptureRecords( CaptureRecordType type,
 	void *context )
 {
 	sqlite3_stmt* statement;
-	int rc = sqlite3_prepare( db, sqlListBestFastcapsV2, -1, &statement, 0 );
+	int rc = sqlite3_prepare( dbPtr, sqlListBestFastcapsV2, -1, &statement, 0 );
 
 	sqlite3_bind_int( statement, 1, type );
 	sqlite3_bind_int( statement, 2, limit );
@@ -666,7 +723,7 @@ void G_LogDbGetCaptureRecordsLeaderboard( CaptureRecordType type,
 	void *context )
 {
 	sqlite3_stmt* statement;
-	int rc = sqlite3_prepare( db, sqlGetFastcapsV2Leaderboard, -1, &statement, 0 );
+	int rc = sqlite3_prepare( dbPtr, sqlGetFastcapsV2Leaderboard, -1, &statement, 0 );
 
 	sqlite3_bind_int( statement, 1, type );
 	sqlite3_bind_int( statement, 2, limit );
@@ -694,7 +751,7 @@ void G_LogDbListLatestCaptureRecords( CaptureRecordType type,
 	void *context )
 {
 	sqlite3_stmt* statement;
-	int rc = sqlite3_prepare( db, sqlListLatestFastcapsV2, -1, &statement, 0 );
+	int rc = sqlite3_prepare( dbPtr, sqlListLatestFastcapsV2, -1, &statement, 0 );
 
 	sqlite3_bind_int( statement, 1, type );
 	sqlite3_bind_int( statement, 2, limit );
@@ -727,13 +784,13 @@ void G_LogDbSaveCaptureRecords( CaptureRecordList *recordsToSave )
 	sqlite3_stmt* statement;
 
 	// first, delete all of the old records for this map, even those that didn't change
-	sqlite3_prepare( db, sqlremoveFastcapsV2, -1, &statement, 0 );
+	sqlite3_prepare( dbPtr, sqlremoveFastcapsV2, -1, &statement, 0 );
 	sqlite3_bind_text( statement, 1, recordsToSave->mapname, -1, 0 );
 	sqlite3_step( statement );
 	sqlite3_finalize( statement );
 
 	// rewrite everything
-	sqlite3_prepare( db, sqlAddFastcapV2, -1, &statement, 0 );
+	sqlite3_prepare( dbPtr, sqlAddFastcapV2, -1, &statement, 0 );
 
 	int i, j, saved = 0;
 	for ( i = 0; i < CAPTURE_RECORD_NUM_TYPES; ++i ) {
