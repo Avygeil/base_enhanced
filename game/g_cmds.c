@@ -3606,6 +3606,8 @@ typedef struct {
 	qboolean hasPrinted;
 } LeaderboardContext;
 
+typedef BestTimeContext LatestTimeContext;
+
 static void printBestTimeCallback( void *context, const char *mapname, const CaptureRecordType type, const char *recordHolderName, unsigned int recordHolderIpInt, const char *recordHolderCuid, int bestTime, time_t bestTimeDate ) {
 	BestTimeContext* thisContext = ( BestTimeContext* )context;
 
@@ -3698,9 +3700,67 @@ static void printLeaderboardCallback( void *context, const CaptureRecordType typ
 	thisContext->currentRank++;
 }
 
+static void printLatestTimesCallback( void *context, const char *mapname, const int rank, const CaptureRecordType type, const char *recordHolderName, unsigned int recordHolderIpInt, const char *recordHolderCuid, const int captureTime, const time_t captureTimeDate ) {
+	LatestTimeContext* thisContext = ( LatestTimeContext* )context;
+
+	if ( !thisContext->hasPrinted ) {
+		// first time printing, show a header
+		trap_SendServerCommand( thisContext->entNum, va( "print \""S_COLOR_WHITE"Latest records for the "S_COLOR_YELLOW"%s "S_COLOR_WHITE"category:\n"S_COLOR_CYAN"           Name              Rank     Time           Date                 Map\n\"", GetLongNameForRecordType( type ) ) );
+	}
+
+	char nameString[64] = { 0 };
+	G_CfgDbListAliases( recordHolderIpInt, ( unsigned int )0xFFFFFFFF, 1, copyTopNameCallback, &nameString, recordHolderCuid );
+
+	// no name in db for this guy, use the one we stored
+	if ( !VALIDSTRING( nameString ) ) {
+		Q_strncpyz( nameString, recordHolderName, sizeof( nameString ) );
+	}
+
+	{
+		// pad the name string with spaces here because printf padding will ignore colors
+
+		int spacesToAdd = g_maxNameLength.integer - Q_PrintStrlen( nameString );
+		int i;
+
+		for ( i = 0; i < sizeof( nameString ) && spacesToAdd > 0; ++i ) {
+			if ( nameString[i] == '\0' ) {
+				nameString[i] = ' '; // replace null terminators with spaces
+				--spacesToAdd;
+			}
+		}
+
+		nameString[sizeof( nameString ) - 1] = '\0'; // make sure it's still null terminated
+	}
+
+	// two chars for colors, max 2 for rank, 1 null terminator
+	char rankString[5];
+	char* color = rank == 1 ? S_COLOR_RED : S_COLOR_WHITE;
+	Com_sprintf( rankString, sizeof( rankString ), "%s%d", color, rank );
+
+	int secs, millis;
+	PartitionedTimer( captureTime, NULL, &secs, &millis );
+
+	char timeString[8];
+	if ( secs > 999 ) Com_sprintf( timeString, sizeof( timeString ), "  >999 " );
+	else Com_sprintf( timeString, sizeof( timeString ), "%3d.%03d", secs, millis );
+
+	char date[20];
+	time_t now = time( NULL );
+	if ( now - captureTimeDate < 60 * 60 * 24 ) Q_strncpyz( date, S_COLOR_GREEN, sizeof( date ) );
+	else Q_strncpyz( date, S_COLOR_WHITE, sizeof( date ) );
+	FormatLocalDateFromEpoch( date + 2, sizeof( date ) - 2, captureTimeDate );
+
+	trap_SendServerCommand( thisContext->entNum, va(
+		"print \""S_COLOR_WHITE"%s      %-4s    "S_COLOR_YELLOW"%s   %s   "S_COLOR_WHITE"%s\n\"", nameString, rankString, timeString, date, mapname
+	) );
+
+	thisContext->hasPrinted = qtrue;
+}
+
 #define DEMOARCHIVE_BASE_MATCH_URL	"http://demos.jactf.com/match.html#rpc=lookup&id=%s"
 #define MAPLIST_MAPS_PER_PAGE			15
 #define LEADERBOARD_PLAYERS_PER_PAGE	10
+#define LATEST_RECORDS_PER_PAGE			10
 
 void Cmd_TopTimes_f( gentity_t *ent ) {
 	if ( !ent || !ent->client ) {
@@ -3727,14 +3787,12 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 
 		if ( !Q_stricmp( buf, "help" ) ) {
 			char *text =
-				S_COLOR_WHITE"List all map records:\n"
-				S_COLOR_CYAN"/toptimes maplist [std | wpn | walk | ad] [page]\n"
-				S_COLOR_WHITE"Show player leaderboard:\n"
-				S_COLOR_CYAN"/toptimes ranks [std | wpn | walk | ad] [page]\n"
-				S_COLOR_WHITE"Get demo information of a specific rank on the current map:\n"
-				S_COLOR_CYAN"/toptimes demo <rank> [std | wpn | walk | ad]\n"
-				S_COLOR_WHITE"Show valid runs rules:\n"
-				S_COLOR_CYAN"/toptimes rules <std | wpn | walk | ad>";
+				S_COLOR_WHITE"Show records for the current map: "S_COLOR_CYAN"/toptimes [std | wpn | walk | ad]\n"
+				S_COLOR_WHITE"List all map records: "S_COLOR_CYAN"/toptimes maplist [std | wpn | walk | ad] [page]\n"
+				S_COLOR_WHITE"Show player leaderboard: "S_COLOR_CYAN"/toptimes ranks [std | wpn | walk | ad] [page]\n"
+				S_COLOR_WHITE"Show latest records:" S_COLOR_CYAN"/toptimes latest [std | wpn | walk | ad] [page]\n"
+				S_COLOR_WHITE"Get demo information of a specific rank on the current map:" S_COLOR_CYAN"/toptimes demo <rank> [std | wpn | walk | ad]\n"
+				S_COLOR_WHITE"Show valid runs rules:" S_COLOR_CYAN"/toptimes rules <std | wpn | walk | ad>";
 
 			trap_SendServerCommand( ent - g_entities, va( "print \"%s\n\"", text ) );
 
@@ -3819,6 +3877,48 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 				trap_SendServerCommand( ent - g_entities, va( "print \"Viewing page %d.\nUsage: /toptimes ranks [std | wpn | walk | ad] [page]\n\"", page ) );
 			} else {
 				trap_SendServerCommand( ent - g_entities, "print \"There aren't this many players! Try a lower page number.\nUsage: /toptimes ranks [std | wpn | walk | ad] [page]\n\"" );
+			}
+
+			return;
+		} else if ( !Q_stricmp( buf, "latest" ) ) {
+			int page = 1;
+
+			if ( trap_Argc() > 2 ) {
+				trap_Argv( 2, buf, sizeof( buf ) );
+
+				// is the 2nd argument directly the page number?
+				if ( Q_isanumber( buf ) ) {
+					page = atoi( buf );
+					if ( page < 1 ) page = 1;
+				}
+				else {
+					// a movement type is being specified as 2nd argument
+					category = GetRecordTypeForShortName( buf );
+
+					if ( category == CAPTURE_RECORD_INVALID ) {
+						trap_SendServerCommand( ent - g_entities, "print \"Invalid category. Usage: /toptimes latest [std | wpn | walk | ad] [page]\n\"" );
+						return;
+					}
+
+					if ( trap_Argc() > 3 ) {
+						// 3rd argument must be the page number
+						trap_Argv( 3, buf, sizeof( buf ) );
+						page = atoi( buf );
+						if ( page < 1 ) page = 1;
+					}
+				}
+			}
+
+			LatestTimeContext context;
+			context.entNum = ent - g_entities;
+			context.hasPrinted = qfalse;
+			G_LogDbListLatestCaptureRecords( category, LATEST_RECORDS_PER_PAGE, ( page - 1 ) * LATEST_RECORDS_PER_PAGE, printLatestTimesCallback, &context );
+
+			if ( context.hasPrinted ) {
+				trap_SendServerCommand( ent - g_entities, va( "print \"Viewing page %d.\nUsage: /toptimes latest [std | wpn | walk | ad] [page]\n\"", page ) );
+			}
+			else {
+				trap_SendServerCommand( ent - g_entities, "print \"There aren't this many records! Try a lower page number.\nUsage: /toptimes latest [std | wpn | walk | ad] [page]\n\"" );
 			}
 
 			return;

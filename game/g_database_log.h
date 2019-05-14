@@ -68,6 +68,16 @@ typedef void( *LeaderboardCapturesCallback )( void *context,
 	const int silvers,
 	const int bronzes );
 
+typedef void( *ListLatestCapturesCallback )( void *context,
+	const char *mapname,
+	const int rank,
+	const CaptureRecordType type,
+	const char *recordHolderName,
+	unsigned int recordHolderIpInt,
+	const char *recordHolderCuid,
+	const int captureTime,
+	const time_t captureTimeDate );
+
 void G_LogDbListBestCaptureRecords( CaptureRecordType type,
 	int limit,
 	int offset,
@@ -78,6 +88,12 @@ void G_LogDbGetCaptureRecordsLeaderboard( CaptureRecordType type,
 	int limit,
 	int offset,
 	LeaderboardCapturesCallback callback,
+	void *context );
+
+void G_LogDbListLatestCaptureRecords( CaptureRecordType type,
+	int limit,
+	int offset,
+	ListLatestCapturesCallback callback,
 	void *context );
 
 void G_LogDbSaveCaptureRecords( CaptureRecordList *recordsToSave );

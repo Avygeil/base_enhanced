@@ -175,7 +175,7 @@ const char* const sqlListBestFastcapsV2 =
 "FROM fastcapsV2                                                                "
 "WHERE fastcapsV2.type = ?1 AND fastcapsV2.rank = 1                             "
 "GROUP BY mapname                                                               "
-"ORDER BY mapname ASC, date ASC                                                 "
+"ORDER BY mapname ASC                                                           "
 "LIMIT ?2                                                                       "
 "OFFSET ?3                                                                      ";
 
@@ -189,6 +189,15 @@ const char* const sqlGetFastcapsV2Leaderboard =
 "GROUP BY player_ip_int                                                         "
 "HAVING golds > 0 OR silvers > 0 OR bronzes > 0                                 "
 "ORDER BY golds DESC, silvers DESC, bronzes DESC                                "
+"LIMIT ?2                                                                       "
+"OFFSET ?3                                                                      ";
+
+const char* const sqlListLatestFastcapsV2 =
+"SELECT mapname, rank, player_name, player_ip_int, player_cuid_hash2,           "
+"capture_time, date                                                             "
+"FROM fastcapsV2                                                                "
+"WHERE fastcapsV2.type = ?1                                                     "
+"ORDER BY date DESC                                                             "
 "LIMIT ?2                                                                       "
 "OFFSET ?3                                                                      ";
 
@@ -671,6 +680,37 @@ void G_LogDbGetCaptureRecordsLeaderboard( CaptureRecordType type,
 		const int bronzes = sqlite3_column_int( statement, 3 );
 
 		callback( context, type, player_ip_int, golds, silvers, bronzes );
+
+		rc = sqlite3_step( statement );
+	}
+
+	sqlite3_finalize( statement );
+}
+
+void G_LogDbListLatestCaptureRecords( CaptureRecordType type,
+	int limit,
+	int offset,
+	ListLatestCapturesCallback callback,
+	void *context )
+{
+	sqlite3_stmt* statement;
+	int rc = sqlite3_prepare( db, sqlListLatestFastcapsV2, -1, &statement, 0 );
+
+	sqlite3_bind_int( statement, 1, type );
+	sqlite3_bind_int( statement, 2, limit );
+	sqlite3_bind_int( statement, 3, offset );
+
+	rc = sqlite3_step( statement );
+	while ( rc == SQLITE_ROW ) {
+		const char *mapname = ( const char* )sqlite3_column_text( statement, 0 );
+		const int rank = sqlite3_column_int( statement, 1 );
+		const char *player_name = ( const char* )sqlite3_column_text( statement, 2 );
+		const unsigned int player_ip_int = sqlite3_column_int( statement, 3 );
+		const char *player_cuid_hash2 = ( const char* )sqlite3_column_text( statement, 4 );
+		const int capture_time = sqlite3_column_int( statement, 5 );
+		const time_t date = sqlite3_column_int64( statement, 6 );
+
+		callback( context, mapname, rank, type, player_name, player_ip_int, player_cuid_hash2, capture_time, date );
 
 		rc = sqlite3_step( statement );
 	}
