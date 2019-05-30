@@ -1752,6 +1752,16 @@ int PassStandardEnemyChecks(bot_state_t *bs, gentity_t *en)
 		return 0;
 	}
 
+	if ( en->client->sess.inRacemode )
+	{ // don't target clients in racemode
+		return 0;
+	}
+
+	if ( en->client->ps.pm_type == PM_NOCLIP )
+	{ // don't target clients in noclip
+		return 0;
+	}
+
 	if (en->health < 1)
 	{ //he's already dead
 		return 0;

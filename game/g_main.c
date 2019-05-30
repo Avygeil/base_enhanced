@@ -310,6 +310,8 @@ vmCvar_t	g_wallhackMaxTraces;
 
 vmCvar_t	g_inMemoryDB;
 
+vmCvar_t	g_enableRacemode;
+
 //allowing/disabling vote types
 vmCvar_t    g_allow_vote_gametype;
 vmCvar_t    g_allow_vote_kick;
@@ -666,6 +668,8 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_wallhackMaxTraces,	"g_wallhackMaxTraces"	, "1000"	, CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_inMemoryDB, "g_inMemoryDB", "0", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
+
+	{ &g_enableRacemode, "g_enableRacemode", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 
     { &g_restart_countdown, "g_restart_countdown", "3", CVAR_ARCHIVE, 0, qtrue }, 
 

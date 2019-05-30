@@ -383,7 +383,8 @@ void Client_CheckImpactBBrush( gentity_t *self, gentity_t *other )
 	}
 	if (!self || !self->inuse || !self->client ||
 		self->client->tempSpectate >= level.time ||
-		self->client->sess.sessionTeam == TEAM_SPECTATOR)
+		self->client->sess.sessionTeam == TEAM_SPECTATOR ||
+		self->client->sess.inRacemode )
 	{ //hmm.. let's not let spectators ram into breakables.
 		return;
 	}
@@ -522,6 +523,15 @@ void	G_TouchTriggers( gentity_t *ent ) {
 				// this is ugly but adding a new ET_? type will
 				// most likely cause network incompatibilities
 				hit->touch != Touch_DoorTrigger) {
+				continue;
+			}
+		}
+
+		// racemode: no trigger except a few
+		if ( ent->client->sess.inRacemode ) {
+			// TODO: check if right type, death trigger tp, auto door open
+			if ( hit->s.eType != ET_TELEPORT_TRIGGER &&
+				hit->s.eType != ET_PUSH_TRIGGER ) {
 				continue;
 			}
 		}
@@ -1380,34 +1390,94 @@ static qboolean G_EntityOccluded( const gentity_t *self, const gentity_t *other 
 	return qfalse;
 }
 
+static qboolean IsClientHiddenToOtherClient( gentity_t *self, gentity_t *other ) {
+	// racemode visibility
+	if ( other->client->sess.sessionTeam == TEAM_SPECTATOR ) {
+		qboolean isFollowingPlayerInRace = other->client->sess.spectatorState == SPECTATOR_FOLLOW &&
+			other->client->sess.spectatorClient >= 0 &&
+			level.clients[other->client->sess.spectatorClient].sess.inRacemode;
+
+		// special case for spectators: hide all clients that are not in the same race state as the followed player
+		if ( isFollowingPlayerInRace && !self->client->sess.inRacemode ) {
+			return qtrue;
+		} else if ( !isFollowingPlayerInRace && self->client->sess.inRacemode ) {
+			return qtrue;
+		}
+
+		return qfalse;
+	} else {
+		// always hide non spectator clients to each other if they are not in the same racemode state
+		if ( self->client->sess.inRacemode != other->client->sess.inRacemode ) {
+			return qtrue;
+		}
+	}
+
+	// anti wallhack visibility
+	if ( g_antiWallhack.integer ) {
+		// never hide if we reached the max traces
+		if ( g_wallhackMaxTraces.integer && level.wallhackTracesDone > g_wallhackMaxTraces.integer ) {
+			return qfalse;
+		}
+
+		// other is whitelisted, don't hide me to him
+		if ( g_antiWallhack.integer == 1 && other->client->sess.whTrustToggle ) {
+			return qfalse;
+		}
+
+		// other is not blacklisted, don't hide me to him
+		if ( g_antiWallhack.integer >= 2 && !other->client->sess.whTrustToggle ) {
+			return qfalse;
+		}
+
+		return G_EntityOccluded( self, other );
+	}
+
+	return qfalse;
+}
+
 #define MAX_JEDI_MASTER_DISTANCE	( ( float )( 2500 * 2500 ) )
 #define MAX_JEDI_MASTER_FOV			100.0f
 #define MAX_FORCE_SIGHT_DISTANCE	( ( float )( 1500 * 1500 ) )
 #define MAX_FORCE_SIGHT_FOV			100.0f
 
+static qboolean IsClientBroadcastToOtherClient( gentity_t *self, gentity_t *other ) {
+	float dist;
+	vec3_t angles;
+
+	// always broadcast to spectators
+	if ( other->client->sess.sessionTeam == TEAM_SPECTATOR ) {
+		return qtrue;
+	}
+
+	VectorSubtract( self->client->ps.origin, other->client->ps.origin, angles );
+	dist = VectorLengthSquared( angles );
+	vectoangles( angles, angles );
+
+	// broadcast jedi master to everyone if we are in distance/field of view
+	if ( g_gametype.integer == GT_JEDIMASTER && self->client->ps.isJediMaster ) {
+		if ( dist < MAX_JEDI_MASTER_DISTANCE && InFieldOfVision( other->client->ps.viewangles, MAX_JEDI_MASTER_FOV, angles ) ) {
+			return qtrue;
+		}
+	}
+
+	// broadcast this client to everyone using force sight if we are in distance/field of view
+	if ( ( other->client->ps.fd.forcePowersActive & ( 1 << FP_SEE ) ) ) {
+		if ( dist < MAX_FORCE_SIGHT_DISTANCE && InFieldOfVision( other->client->ps.viewangles, MAX_FORCE_SIGHT_FOV, angles ) ) {
+			return qtrue;
+		}
+	}
+
+	return qfalse;
+}
+
 void G_UpdateClientBroadcasts( gentity_t *self ) {
 	int i;
 	gentity_t *other;
 
-	// we are always sent to ourselves
-	// we are always sent to other clients if we are in their PVS
-	// if we are not in their PVS, we must set the broadcastClients bit field
-	// if we do not wish to be sent to any particular entity, we must set the broadcastClients bit field and the
-	//	SVF_BROADCASTCLIENTS bit flag
 	self->r.broadcastClients[0] = 0;
 	self->r.broadcastClients[1] = 0;
 
-	if ( g_antiWallhack.integer ) {
-		self->r.svFlags |= SVF_BROADCASTCLIENTS;
-	} else {
-		self->r.svFlags &= ~SVF_BROADCASTCLIENTS;
-	}
-
 	for ( i = 0, other = g_entities; i < MAX_CLIENTS; i++, other++ ) {
-		qboolean send = qfalse;
-		float dist;
-		vec3_t angles;
-
 		if ( !other->inuse || other->client->pers.connected != CON_CONNECTED ) {
 			// no need to compute visibility for non-connected clients
 			continue;
@@ -1418,48 +1488,18 @@ void G_UpdateClientBroadcasts( gentity_t *self ) {
 			continue;
 		}
 
-		if (other->client->sess.sessionTeam == TEAM_SPECTATOR) {
-			send = qtrue;
+		// the goal of this function is to set the bits of the second index of the broadcastClients array
+		// this array takes precedence over both SVF_BROADCAST and the first array index
+		// set bits represent clients we will always be hidden to, unset bits do nothing
+		if ( IsClientHiddenToOtherClient( self, other ) ) {
+			self->r.broadcastClients[1] |= ( 1 << ( i % 32 ) );
 		}
 
-		VectorSubtract( self->client->ps.origin, other->client->ps.origin, angles );
-		dist = VectorLengthSquared( angles );
-		vectoangles( angles, angles );
-
-		// broadcast jedi master to everyone if we are in distance/field of view
-		if ( g_gametype.integer == GT_JEDIMASTER && self->client->ps.isJediMaster ) {
-			if ( dist < MAX_JEDI_MASTER_DISTANCE && InFieldOfVision( other->client->ps.viewangles, MAX_JEDI_MASTER_FOV, angles ) ) {
-				send = qtrue;
-			}
-		}
-
-		// broadcast this client to everyone using force sight if we are in distance/field of view
-		if ( ( other->client->ps.fd.forcePowersActive & ( 1 << FP_SEE ) ) ) {
-			if ( dist < MAX_FORCE_SIGHT_DISTANCE && InFieldOfVision( other->client->ps.viewangles, MAX_FORCE_SIGHT_FOV, angles ) ) {
-				send = qtrue;
-			}
-		}
-
-		// always broadcast if we reached the max traces
-		if ( g_wallhackMaxTraces.integer ) {
-			if ( level.wallhackTracesDone > g_wallhackMaxTraces.integer ) {
-				send = qtrue;
-			}
-		}
-
-		if ( !send && g_antiWallhack.integer ) {
-			if ( other->client->ps.pm_type != PM_SPECTATOR // always send everyone to spectators
-				&& ( ( g_antiWallhack.integer == 1 && !other->client->sess.whTrustToggle ) // not whitelisted
-				|| ( g_antiWallhack.integer >= 2 && other->client->sess.whTrustToggle ) ) // blacklisted
-				&& G_EntityOccluded( self, other ) ) {
-				continue;
-			} else {
-				send = qtrue;
-			}
-		}
-
-		if ( send ) {
-			self->r.broadcastClients[i / 32] |= ( 1 << ( i % 32 ) );
+		// the goal of this function is to set the bits of the first index of the broadcastClients array
+		// set bits represent clients we will be broadcast to, unless hidden by the next array index (see above)
+		// unset bits do nothing (PVS check will be performed normally for those)
+		if ( IsClientBroadcastToOtherClient( self, other ) ) {
+			self->r.broadcastClients[0] |= ( 1 << ( i % 32 ) );
 		}
 	}
 

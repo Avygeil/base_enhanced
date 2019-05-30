@@ -4093,6 +4093,9 @@ void ClientSpawn(gentity_t *ent) {
 	//Do per-spawn force power initialization
 	WP_SpawnInitForcePowers( ent );
 
+	if ( client->sess.inRacemode ) {
+		ent->health = client->ps.stats[STAT_HEALTH] = client->ps.stats[STAT_MAX_HEALTH] = 100;
+	}
 	// health will count down towards max_health
 	if (g_gametype.integer == GT_SIEGE &&
 		client->siegeClass != -1 &&
@@ -4237,7 +4240,7 @@ void ClientSpawn(gentity_t *ent) {
 		trap_LinkEntity( ent );
 	}
 
-	if (g_spawnInvulnerability.integer)
+	if (g_spawnInvulnerability.integer && !ent->client->sess.inRacemode )
 	{
 		ent->client->ps.eFlags |= EF_INVULNERABLE;
 		ent->client->invulnerableTimer = level.time + g_spawnInvulnerability.integer;

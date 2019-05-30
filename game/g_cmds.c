@@ -554,6 +554,7 @@ void Cmd_TeamTask_f( gentity_t *ent ) {
 Cmd_Kill_f
 =================
 */
+
 void Cmd_Kill_f( gentity_t *ent ) {
 	if ( ent->client->sess.sessionTeam == TEAM_SPECTATOR ) {
 		return;
@@ -570,6 +571,10 @@ void Cmd_Kill_f( gentity_t *ent ) {
     //OSP: pause
     if ( level.pause.state != PAUSE_NONE )
             return;
+
+	// racemode - delete all fired projectiles
+	if ( ent->client && ent->client->sess.inRacemode )
+		G_DeletePlayerProjectiles( ent );
 
 	if ((g_gametype.integer == GT_DUEL || g_gametype.integer == GT_POWERDUEL) &&
 		level.numPlayingClients > 1 && !level.warmupTime)
@@ -711,6 +716,12 @@ void SetTeam( gentity_t *ent, char *s ) {
 	// see what change is requested
 	//
 	client = ent->client;
+
+	// safety checks
+	if ( client->sess.inRacemode ) {
+		G_LogPrintf( "WARNING: SetTeam called while in race mode!!!" );
+		client->sess.inRacemode = qfalse;
+	}
 
 	clientNum = client - level.clients;
 	specClient = 0;
@@ -1018,6 +1029,11 @@ void Cmd_Team_f( gentity_t *ent ) {
 			trap_SendServerCommand( ent-g_entities, va("print \"%s\n\"", G_GetStringEdString("MP_SVGAME", "PRINTSPECTEAM")) );
 			break;
 		}
+		return;
+	}
+
+	if ( ent->client->sess.inRacemode ) {
+		trap_SendServerCommand( ent - g_entities,  "print \"Cannot switch teams while in racemode!\n\"" );
 		return;
 	}
 
@@ -1529,6 +1545,11 @@ void Cmd_FollowCycle_f( gentity_t *ent, int dir ) {
 	}
 	// first set them to spectator
 	if ( ent->client->sess.spectatorState == SPECTATOR_NOT ) {
+		if ( ent->client->sess.inRacemode ) {
+			trap_SendServerCommand( ent - g_entities, "print \"Cannot switch teams while in racemode!\n\"" );
+			return;
+		}
+
 		SetTeam( ent, "spectator" );
 	}
 
@@ -4107,6 +4128,111 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 
 /*
 =================
+Cmd_Race_f
+=================
+*/
+void Cmd_Race_f( gentity_t *ent ) {
+	if ( !ent || !ent->client ) {
+		return;
+	}
+
+	if ( g_gametype.integer != GT_CTF ) {
+		return;
+	}
+
+	if ( !g_enableRacemode.integer ) {
+		trap_SendServerCommand( ent - g_entities, "print \"Racemode is disabled\n\"" );
+		return;
+	}
+
+	team_t oldTeam = ent->client->sess.sessionTeam;
+
+	if ( oldTeam == TEAM_RED || oldTeam == TEAM_BLUE ) {
+		// don't let them go in racemode from red/blue
+		trap_SendServerCommand( ent - g_entities, "print \"You must be spectating to use this command\n\"" );
+		return;
+	}
+
+	if ( ent->client->switchTeamTime > level.time ) {
+		trap_SendServerCommand( ent - g_entities, va( "print \"%s\n\"", G_GetStringEdString( "MP_SVGAME", "NOSWITCH" ) ) );
+		return;
+	}
+
+	// set this to false so safety logs aren't triggered in SetTeamQuick
+	qboolean oldInRacemode = ent->client->sess.inRacemode;
+	ent->client->sess.inRacemode = qfalse;
+
+	if ( oldTeam != TEAM_FREE ) {
+		// put them in race mode from spec
+		SetTeamQuick( ent, TEAM_FREE, qtrue );
+	} else {
+		// put them in spec from race mode
+		SetTeamQuick( ent, TEAM_SPECTATOR, qtrue );
+	}
+
+	ent->client->sess.inRacemode = oldInRacemode;
+
+	team_t newTeam = ent->client->sess.sessionTeam;
+
+	if ( oldTeam != newTeam ) {
+		ent->client->switchTeamTime = level.time + 5000;
+
+		if ( newTeam == TEAM_FREE ) {
+			trap_SendServerCommand( -1, va("print \"%s%s " S_COLOR_WHITE "entered racemode\n\"", NM_SerializeUIntToColor( ent - g_entities ), ent->client->pers.netname ) );
+			ent->client->sess.inRacemode = qtrue;
+		} else {
+			trap_SendServerCommand( -1, va( "print \"%s%s " S_COLOR_WHITE "left racemode\n\"", NM_SerializeUIntToColor( ent - g_entities ), ent->client->pers.netname ) );
+			ent->client->sess.inRacemode = qfalse;
+		}
+	}
+}
+
+/*
+=================
+Cmd_Amtelemark_f
+=================
+*/
+void Cmd_Amtelemark_f( gentity_t *ent ) {
+	if ( !ent || !ent->client ) {
+		return;
+	}
+
+	if ( !ent->client->sess.inRacemode ) {
+		trap_SendServerCommand( ent - g_entities, "print \"You cannot use this command outside of racemode\n\"" );
+	}
+
+	VectorCopy( ent->client->ps.origin, ent->client->pers.telemarkOrigin );
+	ent->client->pers.telemarkYawAngle = ent->client->ps.viewangles[YAW];
+	ent->client->pers.telemarkPitchAngle = ent->client->ps.viewangles[PITCH];
+
+	trap_SendServerCommand( ent - g_entities, va( "print \"Teleport Marker: ^3<%i, %i, %i> %i, %i\n\"",
+		( int )ent->client->pers.telemarkOrigin[0],
+		( int )ent->client->pers.telemarkOrigin[1],
+		( int )ent->client->pers.telemarkOrigin[2],
+		( int )ent->client->pers.telemarkYawAngle,
+		( int )ent->client->pers.telemarkPitchAngle )
+	);
+}
+
+/*
+=================
+Cmd_Amtele_f
+=================
+*/
+void Cmd_Amtele_f( gentity_t *ent ) {
+	if ( !ent || !ent->client ) {
+		return;
+	}
+
+	if ( !ent->client->sess.inRacemode ) {
+		trap_SendServerCommand( ent - g_entities, "print \"You cannot use this command outside of racemode\n\"" );
+	}
+
+	
+}
+
+/*
+=================
 Cmd_Stats_f
 =================
 */
@@ -5195,6 +5321,11 @@ void Cmd_EngageDuel_f(gentity_t *ent)
 		return;
 	}
 
+	if ( ent->client->sess.inRacemode )
+	{
+		return;
+	}
+
 	//New: Don't let a player duel if he just did and hasn't waited 10 seconds yet (note: If someone challenges him, his duel timer will reset so he can accept)
 	if (ent->client->ps.fd.privateDuelTime > level.time)
 	{
@@ -5715,6 +5846,12 @@ void ClientCommand( int clientNum ) {
 		Cmd_TestCmd_f( ent );
 	else if ( !Q_stricmp(cmd, "toptimes") || !Q_stricmp( cmd, "fastcaps" ) )
 		Cmd_TopTimes_f( ent );
+	else if ( !Q_stricmp( cmd, "race" ) )
+		Cmd_Race_f( ent );
+	else if ( !Q_stricmp(cmd, "amtelemark") )
+		Cmd_Amtelemark_f( ent );
+	else if ( !Q_stricmp(cmd, "amtele") )
+		Cmd_Amtele_f( ent );
 #ifdef NEWMOD_SUPPORT
 	else if ( Q_stricmp( cmd, "svauth" ) == 0 && ent->client->sess.auth > PENDING && ent->client->sess.auth < AUTHENTICATED )
 		Cmd_Svauth_f( ent );

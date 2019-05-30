@@ -332,6 +332,10 @@ void TossClientWeapon(gentity_t *self, vec3_t direction, float speed)
 		return;
 	}
 
+	if ( self->client->sess.inRacemode ) {
+		return;
+	}
+
 	if (weapon <= WP_BRYAR_PISTOL)
 	{ //can't have this
 		return;
@@ -434,6 +438,10 @@ void TossClientItems( gentity_t *self ) {
 
 	if (g_gametype.integer == GT_SIEGE)
 	{ //just don't drop anything then
+		return;
+	}
+
+	if ( self->client->sess.inRacemode ) {
 		return;
 	}
 

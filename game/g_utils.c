@@ -2422,6 +2422,15 @@ int G_GetAccurateTimerOnTrigger( accurateTimer *timer, gentity_t *activator, gen
 	return time;
 }
 
+void DeletePlayerProjectiles( gentity_t *ent ) {
+	int i;
+	for ( i = MAX_CLIENTS; i < MAX_GENTITIES; i++ ) {
+		if ( g_entities[i].inuse && g_entities[i].s.eType == ET_MISSILE && ( g_entities[i].r.ownerNum == ent->s.number ) ) {
+			G_FreeEntity( &g_entities[i] );
+		}
+	}
+}
+
 gentity_t* G_ClosestEntity( gentity_t *ref, entityFilter_func filterFunc ) {
 	int i;
 	gentity_t *ent;

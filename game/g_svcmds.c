@@ -843,6 +843,9 @@ void	Svcmd_ForceTeam_f( void ) {
 	// set the team
 	trap_Argv( 2, str, sizeof( str ) );
 
+	// this always disables racemode
+	cl->sess.inRacemode = qfalse;
+
 	if (cl->sess.canJoin) {
 		SetTeam(&g_entities[cl - level.clients], str);
 	} else {

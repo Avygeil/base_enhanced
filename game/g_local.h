@@ -484,6 +484,8 @@ typedef struct {
 	qboolean	canJoin; // Passwordless clients
 	qboolean	whTrustToggle; // in whitelist mode, qtrue = trusted, in blacklist mode, qtrue = untrusted
 
+	qboolean	inRacemode;
+
 	char        username[MAX_USERNAME_SIZE];
 
 #ifdef NEWMOD_SUPPORT
@@ -580,6 +582,11 @@ typedef struct {
 	float		fastcapTopSpeed;
 	float		fastcapDisplacement;
 	int			fastcapDisplacementSamples;
+
+	// racemode telemarks
+	vec3_t		telemarkOrigin;
+	float		telemarkYawAngle;
+	float		telemarkPitchAngle;
 } clientPersistant_t;
 
 typedef struct renderInfo_s
@@ -1329,6 +1336,7 @@ void UpdateGlobalCenterPrint( const int levelTime );
 void G_GlobalTickedCenterPrint( const char *msg, int milliseconds, qboolean prioritized );
 void G_ResetAccurateTimerOnTrigger( accurateTimer *timer, gentity_t *activator, gentity_t *trigger );
 int G_GetAccurateTimerOnTrigger( accurateTimer *timer, gentity_t *activator, gentity_t *trigger );
+void DeletePlayerProjectiles( gentity_t *ent );
 
 typedef qboolean ( *entityFilter_func )( gentity_t* );
 gentity_t* G_ClosestEntity( gentity_t *ref, entityFilter_func );
@@ -2044,6 +2052,8 @@ extern vmCvar_t     g_antiWallhack;
 extern vmCvar_t		g_wallhackMaxTraces;
 
 extern vmCvar_t     g_inMemoryDB;
+
+extern vmCvar_t     g_enableRacemode;
 
 extern vmCvar_t     g_quietrcon;
 

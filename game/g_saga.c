@@ -759,6 +759,12 @@ void G_ValidateSiegeClassForTeam(gentity_t *ent, int team)
 //bypass most of the normal checks in SetTeam
 void SetTeamQuick(gentity_t *ent, int team, qboolean doBegin)
 {
+	// safety checks
+	if ( ent->client->sess.inRacemode ) {
+		G_LogPrintf( "WARNING: SetTeamQuick called while in race mode!!!" );
+		ent->client->sess.inRacemode = qfalse;
+	}
+
 	char userinfo[MAX_INFO_STRING];
 
 	// Only check one way, so you can join spec back if you were forced as a passwordless spectator

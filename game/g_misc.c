@@ -284,6 +284,10 @@ void TeleportPlayer( gentity_t *player, vec3_t origin, vec3_t angles ) {
 	if ( player->client->sess.sessionTeam != TEAM_SPECTATOR ) {
 		trap_LinkEntity (player);
 	}
+
+	if ( player->client->sess.inRacemode ) {
+		DeletePlayerProjectiles( player );
+	}
 }
 
 

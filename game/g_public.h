@@ -15,7 +15,6 @@
 // in entityStates (level eType), so the game must explicitly flag
 // special server behaviors
 #define	SVF_NOCLIENT			0x00000001	// don't send entity to clients, even if it has effects
-#define SVF_BROADCASTCLIENTS	0x00000002
 //#define SVF_CLIENTMASK          0x00000002  // enhanced base test
 
 #define SVF_BOT					0x00000008	// set if the entity is a bot
