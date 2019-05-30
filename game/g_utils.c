@@ -2422,7 +2422,7 @@ int G_GetAccurateTimerOnTrigger( accurateTimer *timer, gentity_t *activator, gen
 	return time;
 }
 
-void DeletePlayerProjectiles( gentity_t *ent ) {
+void G_DeletePlayerProjectiles( gentity_t *ent ) {
 	int i;
 	for ( i = MAX_CLIENTS; i < MAX_GENTITIES; i++ ) {
 		if ( g_entities[i].inuse && g_entities[i].s.eType == ET_MISSILE && ( g_entities[i].r.ownerNum == ent->s.number ) ) {
