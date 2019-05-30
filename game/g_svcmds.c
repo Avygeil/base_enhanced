@@ -830,6 +830,7 @@ forceteam <player> <team>
 ===================
 */
 void	Svcmd_ForceTeam_f( void ) {
+	gentity_t	*ent;
 	gclient_t	*cl;
 	char		str[MAX_TOKEN_CHARS];
 
@@ -840,17 +841,19 @@ void	Svcmd_ForceTeam_f( void ) {
 		return;
 	}
 
+	ent = &g_entities[cl - level.clients];
+
 	// set the team
 	trap_Argv( 2, str, sizeof( str ) );
 
 	// this always disables racemode
-	cl->sess.inRacemode = qfalse;
+	G_SetRaceMode( ent, qfalse );
 
 	if (cl->sess.canJoin) {
-		SetTeam(&g_entities[cl - level.clients], str);
+		SetTeam(ent, str);
 	} else {
 		cl->sess.canJoin = qtrue; // Admins can force passwordless spectators on a team
-		SetTeam(&g_entities[cl - level.clients], str);
+		SetTeam(ent, str);
 		cl->sess.canJoin = qfalse;
 	}
 }

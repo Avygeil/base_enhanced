@@ -3409,6 +3409,37 @@ static qboolean SaberStyleIsValidNew(gentity_t *ent, int style, int forceLevel) 
 
 /*
 ===========
+G_SetRaceMode
+============
+*/
+
+void G_SetRaceMode( gentity_t *self, qboolean race ) {
+	// set the flag to ignore this entity while clipping
+	if ( race ) {
+		self->r.svFlags |= SVF_GHOST;
+	} else {
+		self->r.svFlags &= ~SVF_GHOST;
+	}
+
+	int clientNum = self - g_entities;
+
+	// update the cached mask of clients in race
+	if ( race ) {
+		level.racemodeClientMask |= ( 1 << ( clientNum % 32 ) );
+	} else {
+		level.racemodeClientMask &= ~( 1 << ( clientNum % 32 ) );
+	}
+
+	// destroy projectiles if leaving racemode
+	if ( self->client->sess.inRacemode && !race ) {
+		G_DeletePlayerProjectiles( self );
+	}
+
+	self->client->sess.inRacemode = race;
+}
+
+/*
+===========
 ClientSpawn
 
 Called every time a client is placed fresh in the world:

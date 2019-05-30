@@ -720,7 +720,7 @@ void SetTeam( gentity_t *ent, char *s ) {
 	// safety checks
 	if ( client->sess.inRacemode ) {
 		G_LogPrintf( "WARNING: SetTeam called while in race mode!!!" );
-		client->sess.inRacemode = qfalse;
+		G_SetRaceMode( ent, qfalse );
 	}
 
 	clientNum = client - level.clients;
@@ -4158,6 +4158,7 @@ void Cmd_Race_f( gentity_t *ent ) {
 		return;
 	}
 
+	// FIXME: when we are sure safety logs can't be triggered, remove this
 	// set this to false so safety logs aren't triggered in SetTeamQuick
 	qboolean oldInRacemode = ent->client->sess.inRacemode;
 	ent->client->sess.inRacemode = qfalse;
@@ -4179,10 +4180,10 @@ void Cmd_Race_f( gentity_t *ent ) {
 
 		if ( newTeam == TEAM_FREE ) {
 			trap_SendServerCommand( -1, va("print \"%s%s " S_COLOR_WHITE "entered racemode\n\"", NM_SerializeUIntToColor( ent - g_entities ), ent->client->pers.netname ) );
-			ent->client->sess.inRacemode = qtrue;
+			G_SetRaceMode( ent, qtrue );
 		} else {
 			trap_SendServerCommand( -1, va( "print \"%s%s " S_COLOR_WHITE "left racemode\n\"", NM_SerializeUIntToColor( ent - g_entities ), ent->client->pers.netname ) );
-			ent->client->sess.inRacemode = qfalse;
+			G_SetRaceMode( ent, qtrue );
 		}
 	}
 }

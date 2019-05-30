@@ -1173,6 +1173,8 @@ typedef struct {
 
 	int wallhackTracesDone;
 
+	int racemodeClientMask; // bits set to 1 = clients in racemode, cached here for hiding to several entities
+
 	struct {
 		char cmd[MAX_STRING_CHARS];
 		int sendUntilTime;
@@ -1652,6 +1654,7 @@ void ClientDisconnect( int clientNum );
 void ClientBegin( int clientNum, qboolean allowTeamReset );
 void G_BreakArm(gentity_t *ent, int arm);
 void G_UpdateClientAnims(gentity_t *self, float animSpeedScale);
+void G_SetRaceMode( gentity_t *self, qboolean race );
 void ClientCommand( int clientNum );
 void PurgeStringedTrolling(char *in, char *out, int outSize);
 
