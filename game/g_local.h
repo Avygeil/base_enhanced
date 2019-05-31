@@ -587,6 +587,10 @@ typedef struct {
 	vec3_t		telemarkOrigin;
 	float		telemarkYawAngle;
 	float		telemarkPitchAngle;
+
+	// other racemode stuff
+	int			flagTakeTime; // used to get the steal time for demos independently from level.blue/redFlagStealTime
+	int			flagDebounceTime; // used not to pickup a flag immediately after finishing a run
 } clientPersistant_t;
 
 typedef struct renderInfo_s
@@ -1339,6 +1343,8 @@ void G_GlobalTickedCenterPrint( const char *msg, int milliseconds, qboolean prio
 void G_ResetAccurateTimerOnTrigger( accurateTimer *timer, gentity_t *activator, gentity_t *trigger );
 int G_GetAccurateTimerOnTrigger( accurateTimer *timer, gentity_t *activator, gentity_t *trigger );
 void G_DeletePlayerProjectiles( gentity_t *ent );
+qboolean G_IsInRacemodeOrIsFollowingRacemode( gentity_t *ent );
+void G_PrintBasedOnRacemode( const char* text, qboolean toRacersOnly );
 
 typedef qboolean ( *entityFilter_func )( gentity_t* );
 gentity_t* G_ClosestEntity( gentity_t *ref, entityFilter_func );

@@ -772,10 +772,124 @@ static CaptureRecordType FindCaptureTypeForRun( gclient_t *client ) {
 	return CAPTURE_RECORD_STANDARD;
 }
 
-int Team_TouchEnemyFlag( gentity_t *ent, gentity_t *other, int team );
 extern void PartitionedTimer( const int time, int *mins, int *secs, int *millis );
 extern const char* GetShortNameForRecordType( CaptureRecordType type );
+static void RacemodeClientTouchFlag( gentity_t *self, gentity_t *flagEntity, team_t flagTouched ) {
+	gclient_t *client = self->client;
 
+	if ( client->ps.powerups[PW_REDFLAG] || client->ps.powerups[PW_BLUEFLAG] ) {
+
+		// we already have a flag
+
+		if ( ( client->ps.powerups[PW_REDFLAG] && flagTouched == TEAM_BLUE ) ||
+			( client->ps.powerups[PW_BLUEFLAG] && flagTouched == TEAM_RED ) ) {
+
+			// we have a flag and are touching the opposite flag, remove flag and stop the run
+
+			int myFlagPw = flagTouched == TEAM_RED ? PW_BLUEFLAG : PW_REDFLAG;
+			client->ps.powerups[myFlagPw] = 0;
+
+			client->pers.flagDebounceTime = level.time + 1000; // wait 1s before being able to take a flag so we don't pickup the other one instantly
+
+			const CaptureRecordType captureRecordType = FindCaptureTypeForRun( client );
+
+			if ( captureRecordType == CAPTURE_RECORD_INVALID ) {
+				return;
+			}
+
+			const int captureTime = G_GetAccurateTimerOnTrigger( &client->pers.teamState.flagsince, self, flagEntity );
+
+			char matchId[SV_UNIQUEID_LEN];
+			trap_Cvar_VariableStringBuffer( "sv_uniqueid", matchId, sizeof( matchId ) ); // this requires a custom OpenJK build
+
+			int thisRunMaxSpeed = ( int )( client->pers.fastcapTopSpeed + 0.5f );
+			int thisRunAvgSpeed;
+
+			if ( client->pers.fastcapDisplacementSamples ) {
+				thisRunAvgSpeed = ( int )floorf( ( ( client->pers.fastcapDisplacement * g_svfps.value ) / client->pers.fastcapDisplacementSamples ) + 0.5f );
+			} else {
+				thisRunAvgSpeed = thisRunMaxSpeed;
+			}
+
+			const int recordRank = G_LogDbCaptureTime( client->sess.ip, client->pers.netname,
+				client->sess.auth == AUTHENTICATED ? client->sess.cuidHash : "", self - g_entities,
+				matchId, captureTime, OtherTeam( flagTouched ), thisRunMaxSpeed, thisRunAvgSpeed, time( NULL ),
+				client->pers.flagTakeTime - level.startTime, captureRecordType, &level.mapCaptureRecords
+			);
+
+			int secs, millis;
+			PartitionedTimer( captureTime, NULL, &secs, &millis );
+
+			if ( recordRank ) {
+				// we just did a new capture record, broadcast it to racers
+
+				char rankString[16];
+				if ( recordRank == 1 ) Com_sprintf( rankString, sizeof( rankString ), S_COLOR_RED"rank:1" );
+				else Com_sprintf( rankString, sizeof( rankString ), S_COLOR_CYAN"rank:"S_COLOR_YELLOW"%d", recordRank );
+
+				G_PrintBasedOnRacemode( va( S_COLOR_CYAN"New capture record by "S_COLOR_WHITE"%s"S_COLOR_CYAN"!     %s     "S_COLOR_CYAN"type:"S_COLOR_YELLOW"%s     "S_COLOR_CYAN"topspeed:"S_COLOR_YELLOW"%d     "S_COLOR_CYAN"avg:"S_COLOR_YELLOW"%d     "S_COLOR_CYAN"time:"S_COLOR_YELLOW"%d.%03d",
+					client->pers.netname, rankString, GetShortNameForRecordType( captureRecordType ), thisRunMaxSpeed, thisRunAvgSpeed, secs, millis
+				), qtrue );
+
+				// play a sound to all racers
+
+				// same sounds as japro
+				int soundIndex;
+				if ( recordRank == 1 ) {
+					soundIndex = G_SoundIndex( "sound/chars/rosh_boss/misc/victory3" );
+				} else {
+					soundIndex = G_SoundIndex( "sound/chars/rosh/misc/taunt1" );
+				}
+
+				int i;
+				for ( i = 0; i < level.maxclients; i++ ) {
+					gentity_t *ent = &g_entities[i];
+
+					if ( !ent || !ent->inuse ) {
+						continue;
+					}
+
+					if ( !G_IsInRacemodeOrIsFollowingRacemode( ent ) ) {
+						continue;
+					}
+
+					G_Sound( ent, CHAN_AUTO, soundIndex );
+				}
+			} else {
+				// not a record, but still print their time
+				G_PrintBasedOnRacemode( va( S_COLOR_WHITE"Run completed by %s     "S_COLOR_CYAN"type:"S_COLOR_YELLOW"%s     "S_COLOR_CYAN"topspeed:"S_COLOR_YELLOW"%d     "S_COLOR_CYAN"avg:"S_COLOR_YELLOW"%d     "S_COLOR_CYAN"time:"S_COLOR_YELLOW"%d.%03d",
+					client->pers.netname, GetShortNameForRecordType( captureRecordType ), thisRunMaxSpeed, thisRunAvgSpeed, secs, millis
+				), qtrue );
+
+				// generic noise
+			}
+
+		} else {
+
+			// we have a flag and are touching the same flag, do nothing
+
+		}
+	} else {
+
+		// we don't have a flag, so we are taking one and starting a run
+
+		if ( level.time < client->pers.flagDebounceTime ) {
+			return;
+		}
+
+		// reset the speed stats/timer for this run
+		client->pers.fastcapTopSpeed = 0;
+		client->pers.fastcapDisplacement = 0;
+		client->pers.fastcapDisplacementSamples = 0;
+		client->pers.flagTakeTime = level.time;
+		G_ResetAccurateTimerOnTrigger( &client->pers.teamState.flagsince, self, flagEntity );
+
+		int flagTouchedPw = flagTouched == TEAM_RED ? PW_REDFLAG : PW_BLUEFLAG;
+		client->ps.powerups[flagTouchedPw] = INT_MAX;
+	}
+}
+
+int Team_TouchEnemyFlag( gentity_t *ent, gentity_t *other, int team );
 int Team_TouchOurFlag( gentity_t *ent, gentity_t *other, int team ) {
 	int			i;
 	gentity_t	*player;
@@ -868,58 +982,13 @@ int Team_TouchOurFlag( gentity_t *ent, gentity_t *other, int team ) {
 		other->client->pers.teamState.longestFlaghold = thisFlaghold;
 
 	// team is the color of the flagstand on which we are capturing, so we add time to the ACTUAL team (not the opposite)
-	int initialStealTime;
 	if ( team == TEAM_RED ) {
-		initialStealTime = level.blueFlagStealTime;
 		level.redTeamRunFlaghold += thisFlaghold;
 	} else {
-		initialStealTime = level.redFlagStealTime;
 		level.blueTeamRunFlaghold += thisFlaghold;
 	}
 
 	PrintCTFMessage( other->s.number, team, CTFMESSAGE_PLAYER_CAPTURED_FLAG );
-
-	const CaptureRecordType captureRecordType = FindCaptureTypeForRun( other->client );
-
-	if ( captureRecordType != CAPTURE_RECORD_INVALID ) {
-		char matchId[SV_UNIQUEID_LEN];
-		trap_Cvar_VariableStringBuffer( "sv_uniqueid", matchId, sizeof( matchId ) ); // this requires a custom OpenJK build
-
-		int thisRunMaxSpeed = ( int )( other->client->pers.fastcapTopSpeed + 0.5f );
-		int thisRunAvgSpeed;
-
-		if ( other->client->pers.fastcapDisplacementSamples ) {
-			thisRunAvgSpeed = ( int )floorf( ( ( other->client->pers.fastcapDisplacement * g_svfps.value ) / other->client->pers.fastcapDisplacementSamples ) + 0.5f );
-		} else {
-			thisRunAvgSpeed = thisRunMaxSpeed;
-		}
-
-		const int recordRank = G_LogDbCaptureTime( other->client->sess.ip, other->client->pers.netname,
-			other->client->sess.auth == AUTHENTICATED ? other->client->sess.cuidHash : "", other - g_entities,
-			matchId, thisFlaghold, OtherTeam( team ), thisRunMaxSpeed, thisRunAvgSpeed, time( NULL ),
-			initialStealTime - level.startTime, captureRecordType, &level.mapCaptureRecords
-		);
-
-		int secs, millis;
-		PartitionedTimer( thisFlaghold, NULL, &secs, &millis );
-
-		if ( recordRank ) {
-			// we just did a new capture record, broadcast it
-
-			char rankString[16];
-			if ( recordRank == 1 ) Com_sprintf( rankString, sizeof( rankString ), S_COLOR_RED"rank:1" );
-			else Com_sprintf( rankString, sizeof( rankString ), S_COLOR_CYAN"rank:"S_COLOR_YELLOW"%d", recordRank );
-
-			trap_SendServerCommand( -1, va( "print \""S_COLOR_CYAN"New capture record by "S_COLOR_WHITE"%s"S_COLOR_CYAN"!    %s    "S_COLOR_CYAN"type:"S_COLOR_YELLOW"%s    "S_COLOR_CYAN"topspeed:"S_COLOR_YELLOW"%d    "S_COLOR_CYAN"avg:"S_COLOR_YELLOW"%d    "S_COLOR_CYAN"time:"S_COLOR_YELLOW"%d.%03d\n\"",
-				other->client->pers.netname, rankString, GetShortNameForRecordType( captureRecordType ), thisRunMaxSpeed, thisRunAvgSpeed, secs, millis
-			) );
-		} else {
-			// we didn't make a new record, but that was still a valid run. show them what time they did
-			trap_SendServerCommand( other - g_entities, va( "print \""S_COLOR_WHITE"No capture record beaten.    "S_COLOR_WHITE"type:"S_COLOR_YELLOW"%s    "S_COLOR_WHITE"topspeed:"S_COLOR_YELLOW"%d    "S_COLOR_WHITE"avg:"S_COLOR_YELLOW"%d    "S_COLOR_WHITE"time:"S_COLOR_YELLOW"%d.%03d\n\"",
-				GetShortNameForRecordType( captureRecordType ), thisRunMaxSpeed, thisRunAvgSpeed, secs, millis
-			) );
-		}
-	}
 
 	cl->ps.powerups[enemy_flag] = 0;
 	
@@ -989,6 +1058,18 @@ int Team_TouchEnemyFlag( gentity_t *ent, gentity_t *other, int team ) {
 	gentity_t*	enemy;
 	float enemyDist, dist;
 
+	// racemode flag logic here, since we will ALWAYS touch an enemy flag
+	if ( cl->sess.inRacemode ) {
+		// figure out what team this flag is
+		if ( strcmp( ent->classname, "team_CTF_redflag" ) == 0 ) {
+			RacemodeClientTouchFlag( other, ent, TEAM_RED );
+		} else if ( strcmp( ent->classname, "team_CTF_blueflag" ) == 0 ) {
+			RacemodeClientTouchFlag( other, ent, TEAM_BLUE );
+		}
+
+		return 0;
+	}
+
 	//fix capture condition v2
 	VectorSubtract( ent->s.pos.trBase, minFlagRange, mins );
 	VectorAdd( ent->s.pos.trBase, maxFlagRange, maxs );
@@ -1050,11 +1131,6 @@ int Team_TouchEnemyFlag( gentity_t *ent, gentity_t *other, int team ) {
 		// this guy picked up a dropped flag, thus his run is invalid
 		other->client->runInvalid = qtrue;
 	}
-
-	// reset the speed stats for this run
-	other->client->pers.fastcapTopSpeed = 0;
-	other->client->pers.fastcapDisplacement = 0;
-	other->client->pers.fastcapDisplacementSamples = 0;
 
 	// picking up the flag removes invulnerability
 	cl->ps.eFlags &= ~EF_INVULNERABLE;

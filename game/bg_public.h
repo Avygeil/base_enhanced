@@ -537,7 +537,11 @@ typedef enum {
 	STAT_ARMOR,				
 	STAT_DEAD_YAW,					// look this direction when dead (FIXME: get rid of?)
 	STAT_CLIENTS_READY,				// bit mask of clients wishing to exit the intermission (FIXME: configstring?)
-	STAT_MAX_HEALTH					// health / armor limit, changable by handicap
+	STAT_MAX_HEALTH,				// health / armor limit, changable by handicap
+	STAT_UNUSEDFILL1,
+	STAT_UNUSEDFILL2,
+	STAT_RACEMODE					// in racemode (set every spawn based on sess.inRacemode)
+									// used in pmove and to transmit to client (same index as japro for compat)
 } statIndex_t;
 
 

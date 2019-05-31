@@ -745,6 +745,8 @@ void G_ShutdownGame				( int restart );
 void CheckExitRules				( void );
 void G_ROFF_NotetrackCallback	( gentity_t *cent, const char *notetrack);
 
+void G_UpdateNonClientBroadcasts( gentity_t *self );
+
 extern stringID_table_t setTable[];
 
 qboolean G_ParseSpawnVars( qboolean inSubBSP );
@@ -4416,6 +4418,28 @@ void CheckSpecInfo(void) {
 }
 #endif
 
+void G_UpdateNonClientBroadcasts( gentity_t *self ) {
+	self->r.broadcastClients[0] = 0;
+	self->r.broadcastClients[1] = 0;
+
+	// racemode visibility
+
+	// non dropped flags are never hidden to anyone
+	if ( self->s.eType == ET_ITEM && self->item->giType == IT_TEAM && !( self->flags & FL_DROPPED_ITEM ) ) {
+		return;
+	}
+
+	// just use our cached race client mask for performance
+	self->r.broadcastClients[1] = level.racemodeClientMask;
+
+	// TOOD: glass always shown to racers to allow boosting
+
+	// never hide to owner
+	if ( self->r.ownerNum >= 0 && self->r.ownerNum < MAX_CLIENTS ) {
+		self->r.broadcastClients[1] &= ~( 1 << ( self->r.ownerNum % 32 ) );
+	}
+}
+
 void G_RunFrame( int levelTime ) {
 	int			i;
 	gentity_t	*ent;
@@ -4758,6 +4782,11 @@ void G_RunFrame( int levelTime ) {
 
 		if ( !ent->r.linked && ent->neverFree ) {
 			continue;
+		}
+
+		// not a client, update broadcasts
+		if ( i >= MAX_CLIENTS ) {
+			G_UpdateNonClientBroadcasts( ent );
 		}
 
 		if ( ent->s.eType == ET_MISSILE ) {

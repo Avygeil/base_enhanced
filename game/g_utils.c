@@ -2431,6 +2431,40 @@ void G_DeletePlayerProjectiles( gentity_t *ent ) {
 	}
 }
 
+qboolean G_IsInRacemodeOrIsFollowingRacemode( gentity_t *ent ) {
+	if ( !ent || !ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED ) {
+		return qfalse;
+	}
+
+	gclient_t *client = ent->client;
+
+	if ( client->sess.spectatorState == TEAM_SPECTATOR && client->sess.spectatorState == SPECTATOR_FOLLOW && client->sess.spectatorClient >= 0 ) {
+		return level.clients[client->sess.spectatorClient].sess.inRacemode;
+	}
+
+	return client->sess.inRacemode;
+}
+
+void G_PrintBasedOnRacemode( const char* text, qboolean toRacersOnly ) {
+	int i;
+	for ( i = 0; i < level.maxclients; ++i ) {
+		gentity_t *ent = &g_entities[i];
+
+		if ( !ent || !ent->inuse ) {
+			continue;
+		}
+
+		qboolean raceState = G_IsInRacemodeOrIsFollowingRacemode( ent );
+
+		// skip if different race state than specified
+		if ( raceState != toRacersOnly ) {
+			continue;
+		}
+
+		trap_SendServerCommand( ent - g_entities, va( "print \"%s\n\"", text ) );
+	}
+}
+
 gentity_t* G_ClosestEntity( gentity_t *ref, entityFilter_func filterFunc ) {
 	int i;
 	gentity_t *ent;

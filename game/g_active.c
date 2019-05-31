@@ -530,8 +530,14 @@ void	G_TouchTriggers( gentity_t *ent ) {
 		// racemode: no trigger except a few
 		if ( ent->client->sess.inRacemode ) {
 			// TODO: check if right type, death trigger tp, auto door open
-			if ( hit->s.eType != ET_TELEPORT_TRIGGER &&
+			if ( hit->s.eType != ET_ITEM &&
+				hit->s.eType != ET_TELEPORT_TRIGGER &&
 				hit->s.eType != ET_PUSH_TRIGGER ) {
+				continue;
+			}
+
+			// the only item racers can interact with are non dropped flags
+			if ( hit->s.eType == ET_ITEM && ( hit->item->giType != IT_TEAM || ( hit->flags & FL_DROPPED_ITEM ) ) ) {
 				continue;
 			}
 		}

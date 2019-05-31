@@ -2426,6 +2426,27 @@ qboolean BG_CanItemBeGrabbed( int gametype, const entityState_t *ent, const play
 
 	case IT_TEAM: // team items, such as flags
 		if( gametype == GT_CTF || gametype == GT_CTY ) {
+			// racemode: allow picking up flags regardless of team
+			if ( ps->stats[STAT_RACEMODE] ) {
+				if ( ent->modelindex2 || item->giTag == PW_NEUTRALFLAG ) {
+					return qfalse; // no picking up dropped or neutral flags
+				}
+
+				if ( !ps->powerups[PW_BLUEFLAG] && !ps->powerups[PW_REDFLAG] ) {
+					return qtrue; // this guy has no flag, allow any team's flag in any case
+				}
+
+				if ( ps->powerups[PW_BLUEFLAG] && item->giTag == PW_REDFLAG ) {
+					return qtrue; // has the blue flag and touches red flag, allow
+				}
+
+				if ( ps->powerups[PW_REDFLAG] && item->giTag == PW_BLUEFLAG ) {
+					return qtrue; // has the red flag and touches blue flag, allow
+				}
+
+				return qfalse;
+			}
+
 			// ent->modelindex2 is non-zero on items if they are dropped
 			// we need to know this because we can pick up our dropped flag (and return it)
 			// but we can't pick up our flag at base

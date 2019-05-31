@@ -2948,6 +2948,9 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 		ent->client->renderInfo.lastG2 = NULL; //update the renderinfo bolts next update.
 	}
 
+	// racemode
+	client->ps.stats[STAT_RACEMODE] = client->sess.inRacemode ? 1 : 0;
+
 	if (g_gametype.integer == GT_POWERDUEL && client->sess.sessionTeam != TEAM_SPECTATOR &&
 		client->sess.duelTeam == DUELTEAM_FREE)
 	{
@@ -3417,7 +3420,7 @@ G_SetRaceMode
 */
 
 void G_SetRaceMode( gentity_t *self, qboolean race ) {
-	// set the flag to ignore this entity while clipping
+	// set appropriate flags
 	if ( race ) {
 		self->r.svFlags |= SVF_GHOST;
 	} else {
@@ -3435,6 +3438,13 @@ void G_SetRaceMode( gentity_t *self, qboolean race ) {
 
 	// stuff to only do if the ent is initialized
 	if ( self->inuse ) {
+		// set the pmove flag here as well, which will also be set every spawn
+		if ( race ) {
+			self->client->ps.stats[STAT_RACEMODE] = 1;
+		} else {
+			self->client->ps.stats[STAT_RACEMODE] = 0;
+		}
+
 		// destroy projectiles if leaving racemode
 		if ( self->client->sess.inRacemode && !race ) {
 			G_DeletePlayerProjectiles( self );
@@ -3858,7 +3868,8 @@ void ClientSpawn(gentity_t *ent) {
 	//give default weapons
 	client->ps.stats[STAT_WEAPONS] = ( 1 << WP_NONE );
 
-
+	// racemode
+	client->ps.stats[STAT_RACEMODE] = client->sess.inRacemode ? 1 : 0;
 
 	if (g_gametype.integer == GT_DUEL || g_gametype.integer == GT_POWERDUEL)
 	{
