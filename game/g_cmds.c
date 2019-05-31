@@ -4183,7 +4183,7 @@ void Cmd_Race_f( gentity_t *ent ) {
 			G_SetRaceMode( ent, qtrue );
 		} else {
 			trap_SendServerCommand( -1, va( "print \"%s%s " S_COLOR_WHITE "left racemode\n\"", NM_SerializeUIntToColor( ent - g_entities ), ent->client->pers.netname ) );
-			G_SetRaceMode( ent, qtrue );
+			G_SetRaceMode( ent, qfalse );
 		}
 	}
 }

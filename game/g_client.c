@@ -2684,6 +2684,9 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 		G_InitSessionData( client, userinfo, isBot, firstTime );
 	}
 
+	// set racemode state here using session data that was carried over
+	G_SetRaceMode( ent, client->sess.inRacemode );
+
 	//clean all players ignore flags for connecting guy
 	if (firstTime){
 		int i;
@@ -3430,9 +3433,12 @@ void G_SetRaceMode( gentity_t *self, qboolean race ) {
 		level.racemodeClientMask &= ~( 1 << ( clientNum % 32 ) );
 	}
 
-	// destroy projectiles if leaving racemode
-	if ( self->client->sess.inRacemode && !race ) {
-		G_DeletePlayerProjectiles( self );
+	// stuff to only do if the ent is initialized
+	if ( self->inuse ) {
+		// destroy projectiles if leaving racemode
+		if ( self->client->sess.inRacemode && !race ) {
+			G_DeletePlayerProjectiles( self );
+		}
 	}
 
 	self->client->sess.inRacemode = race;
@@ -3851,6 +3857,8 @@ void ClientSpawn(gentity_t *ent) {
 
 	//give default weapons
 	client->ps.stats[STAT_WEAPONS] = ( 1 << WP_NONE );
+
+
 
 	if (g_gametype.integer == GT_DUEL || g_gametype.integer == GT_POWERDUEL)
 	{
@@ -4378,6 +4386,9 @@ void ClientDisconnect( int clientNum ) {
 		// Especially important for stuff like CTF flags
 		TossClientItems( ent );
 	}
+
+	// leave racemode automatically first
+	G_SetRaceMode( ent, qfalse );
 
 	G_LogPrintf( "ClientDisconnect: %i (%s) from %s\n", clientNum, ent->client->pers.netname, ent->client->sess.ipString);
 
