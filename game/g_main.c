@@ -2808,7 +2808,7 @@ void LogExit( const char *string ) {
 			continue;
 		}
 
-		if ((cl->ps.powerups[PW_BLUEFLAG] || cl->ps.powerups[PW_REDFLAG])){
+		if ((cl->ps.powerups[PW_BLUEFLAG] || cl->ps.powerups[PW_REDFLAG]) && !cl->sess.inRacemode){
 			const int thisFlaghold = G_GetAccurateTimerOnTrigger( &cl->pers.teamState.flagsince, &g_entities[level.sortedClients[i]], NULL );
 
 			cl->pers.teamState.flaghold += thisFlaghold;

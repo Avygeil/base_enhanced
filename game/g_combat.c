@@ -675,6 +675,11 @@ void CheckAlmostCapture( gentity_t *self, gentity_t *attacker ) {
 	vec3_t		dir;
 	char		*classname;
 
+	// ignore racemode clients
+	if ( self->client->sess.inRacemode ) {
+		return;
+	}
+
 	// if this player was carrying a flag
 	if ( self->client->ps.powerups[PW_REDFLAG] ||
 		self->client->ps.powerups[PW_BLUEFLAG] ||
@@ -2318,7 +2323,7 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 	self->client->ps.persistant[PERS_KILLED]++;
 
 	//*CHANGE 31* longest flag holding time keeping track
-	if ((self->client->ps.powerups[PW_BLUEFLAG] || self->client->ps.powerups[PW_REDFLAG])){
+	if ((self->client->ps.powerups[PW_BLUEFLAG] || self->client->ps.powerups[PW_REDFLAG]) && !self->client->sess.inRacemode){
 		const int thisFlaghold = G_GetAccurateTimerOnTrigger( &self->client->pers.teamState.flagsince, self, NULL );
 
 		self->client->pers.teamState.flaghold += thisFlaghold;
@@ -2476,7 +2481,7 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 	Team_FragBonuses(self, inflictor, attacker);
 
 	// if I committed suicide, the flag does not fall, it returns.
-	if (meansOfDeath == MOD_SUICIDE) {
+	if (meansOfDeath == MOD_SUICIDE && !self->client->sess.inRacemode) { // for racemode clients, powerup reset will be done later
 		if ( self->client->ps.powerups[PW_NEUTRALFLAG] ) {		// only happens in One Flag CTF
 			Team_ReturnFlag( TEAM_FREE );
 			self->client->ps.powerups[PW_NEUTRALFLAG] = 0;

@@ -1629,6 +1629,10 @@ void Cmd_FollowFlag_f( gentity_t *ent )
 		}
 
 		if (level.clients[ clientnum ].ps.powerups[PW_REDFLAG] || level.clients[ clientnum ].ps.powerups[PW_BLUEFLAG]){
+			if ( level.clients[clientnum].sess.inRacemode ) {
+				continue; // no following clients in racemode with flags
+			}
+
 			// this is good, we can use it
 			ent->client->sess.spectatorClient = clientnum;
 			ent->client->sess.spectatorState = SPECTATOR_FOLLOW;

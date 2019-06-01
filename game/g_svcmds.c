@@ -868,6 +868,11 @@ void Svcmd_ResetFlags_f(){
 		if (!ent->inuse || !ent->client )
 			continue;
 
+		// no resetting for racemode clients
+		if ( ent->client->sess.inRacemode ) {
+			continue;
+		}
+
 		ent->client->ps.powerups[PW_BLUEFLAG] = 0;
 		ent->client->ps.powerups[PW_REDFLAG] = 0;
 	}
