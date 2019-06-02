@@ -480,6 +480,7 @@ Spectators will only interact with teleporters.
 ============
 */
 extern void Touch_RaceTrigger( gentity_t *trigger, gentity_t *player, trace_t *trace );
+extern void hurt_touch( gentity_t *self, gentity_t *other, trace_t *trace );
 void	G_TouchTriggers( gentity_t *ent ) {
 	int			i, num;
 	int			touch[MAX_GENTITIES];
@@ -540,8 +541,8 @@ void	G_TouchTriggers( gentity_t *ent ) {
 			if ( hit->s.eType != ET_ITEM &&
 				hit->s.eType != ET_TELEPORT_TRIGGER &&
 				hit->s.eType != ET_PUSH_TRIGGER &&
-				!isRaceTrigger
-				/*TODO strcmp( hit->classname, "trigger_hurt" )*/ ) {
+				!isRaceTrigger &&
+				hit->touch != hurt_touch ) {
 				continue;
 			}
 		}
