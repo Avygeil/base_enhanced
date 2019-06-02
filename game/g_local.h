@@ -2067,6 +2067,9 @@ extern vmCvar_t		g_wallhackMaxTraces;
 extern vmCvar_t     g_inMemoryDB;
 
 extern vmCvar_t     g_enableRacemode;
+#ifdef _DEBUG
+extern vmCvar_t     d_disableRaceVisChecks;
+#endif
 
 extern vmCvar_t     g_quietrcon;
 

@@ -311,6 +311,9 @@ vmCvar_t	g_wallhackMaxTraces;
 vmCvar_t	g_inMemoryDB;
 
 vmCvar_t	g_enableRacemode;
+#ifdef _DEBUG
+vmCvar_t	d_disableRaceVisChecks;
+#endif
 
 //allowing/disabling vote types
 vmCvar_t    g_allow_vote_gametype;
@@ -670,6 +673,9 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_inMemoryDB, "g_inMemoryDB", "0", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
 
 	{ &g_enableRacemode, "g_enableRacemode", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
+#ifdef _DEBUG
+	{ &d_disableRaceVisChecks, "d_disableRaceVisChecks", "0", CVAR_TEMP, 0, qtrue },
+#endif
 
     { &g_restart_countdown, "g_restart_countdown", "3", CVAR_ARCHIVE, 0, qtrue }, 
 
@@ -4422,6 +4428,10 @@ void G_UpdateNonClientBroadcasts( gentity_t *self ) {
 	self->r.broadcastClients[0] = 0;
 	self->r.broadcastClients[1] = 0;
 
+#ifdef _DEBUG
+	if ( !d_disableRaceVisChecks.integer )
+	{
+#endif
 	// racemode visibility
 
 	// never hide triggers that can be interacted with by racers for prediction
@@ -4443,6 +4453,9 @@ void G_UpdateNonClientBroadcasts( gentity_t *self ) {
 	if ( self->r.ownerNum >= 0 && self->r.ownerNum < MAX_CLIENTS ) {
 		self->r.broadcastClients[1] &= ~( 1 << ( self->r.ownerNum % 32 ) );
 	}
+#ifdef _DEBUG
+	}
+#endif
 }
 
 void G_RunFrame( int levelTime ) {

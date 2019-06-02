@@ -1403,6 +1403,10 @@ static qboolean G_EntityOccluded( const gentity_t *self, const gentity_t *other 
 }
 
 static qboolean IsClientHiddenToOtherClient( gentity_t *self, gentity_t *other ) {
+#ifdef _DEBUG
+	if ( !d_disableRaceVisChecks.integer )
+	{
+#endif
 	// racemode visibility
 	if ( other->client->sess.sessionTeam == TEAM_SPECTATOR ) {
 		qboolean isFollowingPlayerInRace = other->client->sess.spectatorState == SPECTATOR_FOLLOW &&
@@ -1423,6 +1427,9 @@ static qboolean IsClientHiddenToOtherClient( gentity_t *self, gentity_t *other )
 			return qtrue;
 		}
 	}
+#ifdef _DEBUG
+	}
+#endif
 
 	// anti wallhack visibility
 	if ( g_antiWallhack.integer ) {
