@@ -5372,6 +5372,17 @@ qboolean G_RadiusDamage ( vec3_t origin, gentity_t *attacker, float damage, floa
 		if (!ent->takedamage)
 			continue;
 
+		// racemode radius dmg
+		if ( ent->client ) {
+			if ( ent->client->sess.inRacemode ) {
+				// client hit is in racemode, only allow if attacker is self
+				if ( attacker != ent ) continue;
+			} else {
+				// client hit is not in racemode, only if attacker is not a racer
+				if ( attacker->client && attacker->client->sess.inRacemode ) continue;
+			}
+		}
+
 		// find the distance from the edge of the bounding box
 		for ( i = 0 ; i < 3 ; i++ ) {
 			if ( origin[i] < ent->r.absmin[i] ) {
