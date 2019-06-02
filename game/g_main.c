@@ -4440,18 +4440,33 @@ void G_UpdateNonClientBroadcasts( gentity_t *self ) {
 	}
 
 	// non dropped flags are never hidden to anyone
+	// TODO: show stolen flags as at home to racers...?
 	if ( self->s.eType == ET_ITEM && self->item->giType == IT_TEAM && !( self->flags & FL_DROPPED_ITEM ) ) {
 		return;
 	}
 
-	// just use our cached race client mask for performance
-	self->r.broadcastClients[1] = level.racemodeClientMask;
-
 	// TOOD: glass always shown to racers to allow boosting
 
-	// never hide to owner
-	if ( self->r.ownerNum >= 0 && self->r.ownerNum < MAX_CLIENTS ) {
-		self->r.broadcastClients[1] &= ~( 1 << ( self->r.ownerNum % 32 ) );
+	if ( self->s.eType == ET_MISSILE && self->r.ownerNum >= 0 && self->r.ownerNum < MAX_CLIENTS ) {
+
+		// special case: this is a missile with an owner
+		gclient_t *owner = &level.clients[self->r.ownerNum];
+
+		if ( !owner->sess.inRacemode ) {
+			// if its owner is not in racemode, always hide it to racers/racespectators as by default
+			self->r.broadcastClients[1] |= ( level.racemodeClientMask | level.racemodeSpectatorMask );
+		} else {
+			// its owner is in racemode, hide to in game clients and other racers, but not to self and any spectator
+			self->r.broadcastClients[1] |= ~( level.racemodeClientMask | level.racemodeSpectatorMask ); // non racers
+			self->r.broadcastClients[1] |= level.racemodeClientMask; // racers
+			self->r.broadcastClients[1] &= ~( 1 << ( self->r.ownerNum % 32 ) ); // never hide to owner
+		}
+
+	} else {
+
+		// by default, just hide to racers and racespectators
+		self->r.broadcastClients[1] |= ( level.racemodeClientMask | level.racemodeSpectatorMask );
+
 	}
 #ifdef _DEBUG
 	}

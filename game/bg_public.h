@@ -542,6 +542,7 @@ typedef enum {
 	STAT_UNUSEDFILL2,
 	STAT_RACEMODE					// in racemode (set every spawn based on sess.inRacemode)
 									// used in pmove and to transmit to client (same index as japro for compat)
+									// also useful to tell if a spectator is specing a client in racemode
 } statIndex_t;
 
 

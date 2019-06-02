@@ -1179,6 +1179,7 @@ typedef struct {
 
 	// racemode
 	int			racemodeClientMask; // bits set to 1 = clients in racemode, cached here for hiding to several entities
+	int			racemodeSpectatorMask; // bits set to 1 = clients specing a client in spectator, can be combined with the mask above
 	int			raceSpawnWeapons; // mask of weapons present in this level
 	int			raceSpawnAmmo[AMMO_MAX]; // exactly the ammo to hand out at spawn based on what's present in this level
 	qboolean	raceSpawnWithArmor; // qtrue if this level has at least one shield pickup

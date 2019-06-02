@@ -735,6 +735,14 @@ void SpectatorThink( gentity_t *ent, usercmd_t *ucmd ) {
 			StopFollowing(ent);
 		}
 	}
+
+	// racemode - update the mask of spectators spectating racers
+	int clientNum = ent - g_entities;
+	if ( client->ps.stats[STAT_RACEMODE] ) {
+		level.racemodeSpectatorMask |= ( 1 << ( clientNum % 32 ) );
+	} else {
+		level.racemodeSpectatorMask &= ~( 1 << ( clientNum % 32 ) );
+	}
 }
 
 // returns global time in ms, this should persist between server restarts
