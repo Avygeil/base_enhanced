@@ -3398,6 +3398,10 @@ gentity_t *Jedi_FindEnemyInCone( gentity_t *self, gentity_t *fallback, float min
 		{//not a client - FIXME: what about turrets?
 			continue;
 		}
+		if ( check->client->sess.inRacemode )
+		{ // racer
+			continue;
+		}
 		if ( check->client->playerTeam != self->client->enemyTeam )
 		{//not an enemy - FIXME: what about turrets?
 			continue;

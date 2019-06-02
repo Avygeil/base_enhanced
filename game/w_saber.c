@@ -3633,6 +3633,11 @@ void WP_SaberRadiusDamage( gentity_t *ent, vec3_t point, float radius, int damag
 			{//Skip myself
 				continue;
 			}
+
+			if ( radiusEnt->client && radiusEnt->client->sess.inRacemode )
+			{// no saber dmg on racers
+				continue;
+			}
 			
 			if ( radiusEnt->client == NULL )
 			{//must be a client
@@ -5398,6 +5403,9 @@ void WP_SaberStartMissileBlockCheck( gentity_t *self, usercmd_t *ucmd  )
 
 		if (ent == self)
 			continue;
+
+		if ( ent->client && ent->client->sess.inRacemode )
+			continue; // no saber dmg on racers
 
 		//as long as we're here I'm going to get a looktarget too, I guess. -rww
 		if (self->s.eType == ET_PLAYER &&

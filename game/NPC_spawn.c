@@ -740,7 +740,8 @@ qboolean NPC_SpotWouldTelefrag( gentity_t *npc )
 		hit = &g_entities[touch[i]];
 		//if ( hit->client && hit->client->ps.stats[STAT_HEALTH] > 0 ) {
 		if (hit->inuse 
-			&& hit->client 
+			&& hit->client
+			&& !hit->client->sess.inRacemode // no telefragging racers
 			&& hit->s.number != npc->s.number 
 			&& (hit->r.contents&MASK_NPCSOLID)
 			&& hit->s.number != npc->r.ownerNum

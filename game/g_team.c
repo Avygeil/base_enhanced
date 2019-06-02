@@ -816,6 +816,11 @@ int Team_TouchOurFlag( gentity_t *ent, gentity_t *other, int team ) {
 			continue;
 		}
 
+		// clients in racemode don't interact with flags
+		if ( enemy->client->sess.inRacemode ) {
+			continue;
+		}
+
 		//check if its alive
 		if (enemy->health < 1)
 			continue;		// dead people can't pickup
@@ -939,6 +944,11 @@ int Team_TouchEnemyFlag( gentity_t *ent, gentity_t *other, int team ) {
 		enemy = (g_entities + touch[j]);
 
 		if (!enemy || !enemy->inuse || !enemy->client){
+			continue;
+		}
+
+		// clients in racemode don't interact with flags
+		if ( enemy->client->sess.inRacemode ) {
 			continue;
 		}
 

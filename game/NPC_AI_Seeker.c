@@ -403,6 +403,12 @@ void Seeker_FindEnemy( void )
 			continue;
 		}
 
+		// don't target racers
+		if ( ent->client->sess.inRacemode )
+		{
+			continue;
+		}
+
 		if ( ent->client->playerTeam == NPC->client->playerTeam || ent->client->playerTeam == NPCTEAM_NEUTRAL ) // don't attack same team or bots
 		{
 			continue;

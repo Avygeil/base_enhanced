@@ -184,6 +184,11 @@ void Wampa_Slash( int boltIndex, qboolean backhand )
 			continue;
 		}
 
+		if ( radiusEnt->client->sess.inRacemode )
+		{//must not be in racemode
+			continue;
+		}
+
 		if ( DistanceSquared( radiusEnt->r.currentOrigin, boltOrg ) <= radiusSquared )
 		{
 			//smack

@@ -1272,6 +1272,12 @@ void DEMP2_AltRadiusDamage( gentity_t *ent )
 			continue;
 		}
 
+		// don't damage racers
+		if ( gent->client && gent->client->sess.inRacemode )
+		{
+			continue;
+		}
+
 		// find the distance from the edge of the bounding box
 		for ( i = 0 ; i < 3 ; i++ ) 
 		{
@@ -1550,6 +1556,12 @@ void prox_mine_think( gentity_t *ent )
 
 		for ( i = 0; i < count; i++ )
 		{
+			// racers don't trigger proximity mines
+			if ( ent_list[i]->client && ent_list[i]->client->sess.inRacemode )
+			{
+				continue;
+			}
+
 			if ( ent_list[i]->client && ent_list[i]->health > 0 && ent->activator && ent_list[i]->s.number != ent->activator->s.number )
 			{
 				blow = qtrue;

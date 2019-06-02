@@ -542,7 +542,7 @@ qboolean SpotWouldTelefrag( gentity_t *spot ) {
 	for (i=0 ; i<num ; i++) {
 		hit = &g_entities[touch[i]];
 		//if ( hit->client && hit->client->ps.stats[STAT_HEALTH] > 0 ) {
-		if ( hit->client) {
+		if ( hit->client && !hit->client->sess.inRacemode) {
 			return qtrue;
 		}
 

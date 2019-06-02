@@ -2025,6 +2025,8 @@ void ForceShootLightning( gentity_t *self )
 				continue;
 			if ( !g_friendlyFire.integer && OnSameTeam(self, traceEnt))
 				continue;
+			if ( traceEnt->client && traceEnt->client->sess.inRacemode )
+				continue; // don't use force powers on racers
 			//this is all to see if we need to start a saber attack, if it's in flight, this doesn't matter
 			// find the distance from the edge of the bounding box
 			for ( i = 0 ; i < 3 ; i++ ) 
@@ -2274,6 +2276,8 @@ int ForceShootDrain( gentity_t *self )
 				continue;
 			if (OnSameTeam(self, traceEnt) && !g_friendlyFire.integer)
 				continue;
+			if ( traceEnt->client && traceEnt->client->sess.inRacemode )
+				continue; // don't use force powers on racers
 			//this is all to see if we need to start a saber attack, if it's in flight, this doesn't matter
 			// find the distance from the edge of the bounding box
 			for ( i = 0 ; i < 3 ; i++ ) 
@@ -2878,6 +2882,10 @@ void ForceTelepathy(gentity_t *self)
 				{
 					entityList[e] = ENTITYNUM_NONE;
 				}
+				else if (ent->client->sess.inRacemode)
+				{ //no force powers on racers
+					entityList[e] = ENTITYNUM_NONE;
+				}
 				else if (!InFieldOfVision(self->client->ps.viewangles, visionArc, a))
 				{ //only bother with arc rules if the victim is a client
 					entityList[e] = ENTITYNUM_NONE;
@@ -3370,6 +3378,8 @@ void ForceThrow( gentity_t *self, qboolean pull )
 			continue;
 		if (ent == self)
 			continue;
+		if ( ent->client && ent->client->sess.inRacemode )
+			continue; // don't use force powers on racers
 		if (ent->client && OnSameTeam(ent, self))
 		{
 			continue;

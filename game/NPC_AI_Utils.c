@@ -52,6 +52,10 @@ int	AI_GetGroupSize( vec3_t origin, int radius, team_t playerTeam, gentity_t *av
 		if ( ( avoid != NULL ) && ( check == avoid ) )
 			continue;
 
+		//No racers
+		if ( check->client->sess.inRacemode )
+			continue;
+
 		//Must be on the same team
 		if ( check->client->playerTeam != playerTeam )
 			continue;
@@ -1016,6 +1020,10 @@ gentity_t *AI_DistributeAttack( gentity_t *attacker, gentity_t *enemy, team_t te
 
 		//Skip the requested avoid ent if present
 		if ( ( check == enemy ) )
+			continue;
+
+		//No racers
+		if ( check->client->sess.inRacemode )
 			continue;
 
 		//Must be on the same team

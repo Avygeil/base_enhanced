@@ -235,6 +235,10 @@ static qboolean VEH_TurretFindEnemies( Vehicle_t *pVeh,
 			}
 			//else: we will shoot at bbrushes!
 		}
+		else if ( target->client->sess.inRacemode )
+		{
+			continue; // don't pull aggro on racers
+		}
 		else if ( target->client->sess.sessionTeam == TEAM_SPECTATOR )
 		{
 			continue;

@@ -607,6 +607,10 @@ static qboolean pas_find_enemies( gentity_t *self )
 		{
 			continue;
 		}
+		if ( target->client->sess.inRacemode )
+		{
+			continue; // don't pull aggro on racers
+		}
 		if ( target == self || !target->takedamage || target->health <= 0 || ( target->flags & FL_NOTARGET ))
 		{
 			continue;

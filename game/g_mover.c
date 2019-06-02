@@ -320,6 +320,11 @@ qboolean G_MoverPush( gentity_t *pusher, vec3_t move, vec3_t amove, gentity_t **
 			continue;
 		}
 
+		// don't push racers
+		if ( check->client && check->client->sess.inRacemode ) {
+			continue;
+		}
+
 		// if the entity is standing on the pusher, it will definitely be moved
 		if ( check->s.groundEntityNum != pusher->s.number ) {
 			// see if the ent needs to be tested

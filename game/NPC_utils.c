@@ -1153,6 +1153,10 @@ int NPC_FindNearestEnemy( gentity_t *ent )
 		if ( radEnt == ent )
 			continue;
 
+		//No racers
+		if ( radEnt->client && radEnt->client->sess.inRacemode )
+			continue;
+
 		//Must be valid
 		if ( NPC_ValidEnemy( radEnt ) == qfalse )
 			continue;

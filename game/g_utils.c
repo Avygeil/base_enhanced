@@ -1215,6 +1215,11 @@ void G_KillBox (gentity_t *ent) {
 			continue;
 		}
 
+		if ( hit->client->sess.inRacemode )
+		{ // don't telefrag racers
+			continue;
+		}
+
 		if (hit->s.number == ent->s.number)
 		{ //don't telefrag yourself!
 			continue;

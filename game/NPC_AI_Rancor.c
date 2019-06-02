@@ -219,6 +219,11 @@ void Rancor_Swing( qboolean tryGrab )
 			continue;
 		}
 
+		if ( radiusEnt->client->sess.inRacemode )
+		{//must not be in racemode
+			continue;
+		}
+
 		if ( (radiusEnt->client->ps.eFlags2&EF2_HELD_BY_MONSTER) )
 		{//can't be one already being held
 			continue;
@@ -328,6 +333,11 @@ void Rancor_Smash( void )
 			continue;
 		}
 
+		if ( radiusEnt->client->sess.inRacemode )
+		{//must not be in racemode
+			continue;
+		}
+
 		if ( (radiusEnt->client->ps.eFlags2&EF2_HELD_BY_MONSTER) )
 		{//can't be one being held
 			continue;
@@ -382,6 +392,11 @@ void Rancor_Bite( void )
 		
 		if ( radiusEnt->client == NULL )
 		{//must be a client
+			continue;
+		}
+
+		if ( radiusEnt->client->sess.inRacemode )
+		{//must not be in racemode
 			continue;
 		}
 
