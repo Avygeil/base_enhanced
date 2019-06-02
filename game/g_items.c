@@ -2961,6 +2961,37 @@ void FinishSpawningItem( gentity_t *ent ) {
 	}
 
 	trap_LinkEntity (ent);
+
+	// racemode - if we got here, this item is definitely going to spawn
+
+	// add weapons/ammo/shields to the list of pickups for this level
+	if ( ent->item->giType == IT_WEAPON ) {
+		// only give weapons that are useful in race...
+		if ( ent->item->giTag == WP_REPEATER ||
+			ent->item->giTag == WP_FLECHETTE ||
+			ent->item->giTag == WP_ROCKET_LAUNCHER ||
+			ent->item->giTag == WP_THERMAL ||
+			ent->item->giTag == WP_CONCUSSION ) {
+
+			level.raceSpawnWeapons |= ( 1 << ent->item->giTag );
+
+			if ( ent->item->giTag != WP_THERMAL ) {
+				int ammoIndex = weaponData[ent->item->giTag].ammoIndex;
+				if ( !level.raceSpawnAmmo[ammoIndex] ) {
+					// no ammo found for this weapon yet in this level, so set it to min value
+					// if the ammo type is found later, it will just override it with max value
+					level.raceSpawnAmmo[ammoIndex] = ent->count ? ent->count : ent->item->quantity;
+				}
+			} else {
+				// exception for thermals, which are a multi pickup from the weapon item itself
+				level.raceSpawnAmmo[AMMO_THERMAL] = ammoData[AMMO_THERMAL].max;
+			}
+		}
+	} else if ( ent->item->giType == IT_AMMO ) {
+		level.raceSpawnAmmo[ent->item->giTag] = ammoData[ent->item->giTag].max;
+	} else if ( ent->item->giType == IT_ARMOR ) {
+		level.raceSpawnWithArmor = qtrue;
+	}
 }
 
 

@@ -4143,9 +4143,6 @@ void ClientSpawn(gentity_t *ent) {
 	//Do per-spawn force power initialization
 	WP_SpawnInitForcePowers( ent );
 
-	if ( client->sess.inRacemode ) {
-		ent->health = client->ps.stats[STAT_HEALTH] = client->ps.stats[STAT_MAX_HEALTH] = 100;
-	}
 	// health will count down towards max_health
 	if (g_gametype.integer == GT_SIEGE &&
 		client->siegeClass != -1 &&
@@ -4200,6 +4197,43 @@ void ClientSpawn(gentity_t *ent) {
 	else
 	{
 		client->ps.stats[STAT_ARMOR] = client->ps.stats[STAT_MAX_HEALTH] * 0.25;
+	}
+
+	// FIXME not called on first spawn.....................?
+	// racemode - override all the crap above and spawn with our own stuff
+	if ( client->sess.inRacemode ) {
+		ent->health = client->ps.stats[STAT_HEALTH] = client->ps.stats[STAT_MAX_HEALTH] = 100;
+
+		client->ps.stats[STAT_ARMOR] = level.raceSpawnWithArmor ? 100 : 25;
+
+		client->ps.stats[STAT_WEAPONS] = ( 1 << WP_NONE );
+		client->ps.stats[STAT_WEAPONS] |= ( 1 << WP_BRYAR_PISTOL ); // always carry pistol
+		client->ps.stats[STAT_WEAPONS] |= level.raceSpawnWeapons;
+
+		memset( client->ps.ammo, 0, sizeof( client->ps.ammo ) );
+		int i;
+		for ( i = 0; i < AMMO_MAX; ++i ) {
+			if ( level.raceSpawnAmmo[i] ) {
+				client->ps.ammo[i] = level.raceSpawnAmmo[i];
+			}
+		}
+
+		// saber or melee is just personal preference, base it on their force powers
+		// do the base logic for this and for held weapon
+
+		if ( client->ps.fd.forcePowerLevel[FP_SABER_OFFENSE] ) {
+			client->ps.stats[STAT_WEAPONS] |= ( 1 << WP_SABER );
+		} else {
+			client->ps.stats[STAT_WEAPONS] |= ( 1 << WP_MELEE );
+		}
+
+		if ( client->ps.stats[STAT_WEAPONS] & ( 1 << WP_SABER ) ) {
+			client->ps.weapon = WP_SABER;
+		} else if ( client->ps.stats[STAT_WEAPONS] & ( 1 << WP_BRYAR_PISTOL ) ) {
+			client->ps.weapon = WP_BRYAR_PISTOL;
+		} else {
+			client->ps.weapon = WP_MELEE;
+		}
 	}
 
 	G_SetOrigin( ent, spawn_origin );
