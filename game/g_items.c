@@ -2992,6 +2992,11 @@ void FinishSpawningItem( gentity_t *ent ) {
 	} else if ( ent->item->giType == IT_ARMOR ) {
 		level.raceSpawnWithArmor = qtrue;
 	}
+
+	// is this is a flag, build a trigger which mirrors its hitbox for use in race
+	if ( ent->item->giType == IT_TEAM ) {
+		G_CreateRaceTrigger( ent );
+	}
 }
 
 

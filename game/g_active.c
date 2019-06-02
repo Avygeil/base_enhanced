@@ -528,23 +528,27 @@ void	G_TouchTriggers( gentity_t *ent ) {
 		}
 
 		// racemode: no trigger except a few
+
+		qboolean isRaceTrigger = hit == level.raceRedFlagTrigger || hit == level.raceBlueFlagTrigger; // avoids a strcmp every time
+
+		if ( isRaceTrigger && !ent->client->sess.inRacemode ) {
+			continue; // non racemode clients don't interact with race triggers
+		}
+
 		if ( ent->client->sess.inRacemode ) {
-			// TODO: check if right type, death trigger tp, auto door open
 			if ( hit->s.eType != ET_ITEM &&
 				hit->s.eType != ET_TELEPORT_TRIGGER &&
-				hit->s.eType != ET_PUSH_TRIGGER ) {
-				continue;
-			}
-
-			// the only item racers can interact with are non dropped flags
-			if ( hit->s.eType == ET_ITEM && ( hit->item->giType != IT_TEAM || ( hit->flags & FL_DROPPED_ITEM ) ) ) {
+				hit->s.eType != ET_PUSH_TRIGGER &&
+				!isRaceTrigger
+				/*TODO strcmp( hit->classname, "trigger_hurt" )*/ ) {
 				continue;
 			}
 		}
 
 		// use seperate code for determining if an item is picked up
 		// so you don't have to actually contact its bounding box
-		if ( hit->s.eType == ET_ITEM ) {
+		// racemode - use item logic for race triggers to match flag hitboxes
+		if ( hit->s.eType == ET_ITEM || isRaceTrigger ) {
 			if ( !BG_PlayerTouchesItem( &ent->client->ps, &hit->s, level.time ) ) {
 				continue;
 			}
