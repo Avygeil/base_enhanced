@@ -538,8 +538,7 @@ void	G_TouchTriggers( gentity_t *ent ) {
 		}
 
 		if ( ent->client->sess.inRacemode ) {
-			if ( hit->s.eType != ET_ITEM &&
-				hit->s.eType != ET_TELEPORT_TRIGGER &&
+			if ( hit->s.eType != ET_TELEPORT_TRIGGER &&
 				hit->s.eType != ET_PUSH_TRIGGER &&
 				!isRaceTrigger &&
 				hit->touch != hurt_touch ) {
