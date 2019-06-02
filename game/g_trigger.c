@@ -1872,7 +1872,7 @@ void SP_trigger_asteroid_field(gentity_t *self)
 }
 
 static CaptureRecordType FindCaptureTypeForRun( gclient_t *client ) {
-	if ( !level.mapCaptureRecords.enabled || level.mapCaptureRecords.readonly || client->runInvalid ) {
+	if ( !level.mapCaptureRecords.enabled || level.mapCaptureRecords.readonly ) {
 		return CAPTURE_RECORD_INVALID;
 	}
 

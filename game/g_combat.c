@@ -4377,15 +4377,11 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 			return;
 		}
 
-		// anything that isn't fall dmg or scoped disruptor has an impact on the flag capture record type
-		// this should catch all weapons (except conc alt) + grip and lightning
 		// we aren't checking this in FireWeapon because firing has no impact on our run until it changes our trajectory
-		if ( mod != MOD_FALLING && mod != MOD_DISRUPTOR_SNIPER ) {
-			if ( targ != attacker || mod == MOD_TRIP_MINE_SPLASH || mod == MOD_TIMED_MINE_SPLASH || mod == MOD_DET_PACK_SPLASH ) {
-				client->runInvalid = qtrue;
-			} else {
-				client->usedWeapon = qtrue;
-			}
+		// this should catch all weapons (except conc alt)
+		if ( targ == attacker && mod != MOD_FALLING && mod != MOD_DISRUPTOR_SNIPER && mod != MOD_TRIP_MINE_SPLASH &&
+			mod == MOD_TIMED_MINE_SPLASH && mod == MOD_DET_PACK_SPLASH ) {
+			client->usedWeapon = qtrue;
 		}
 	}
 

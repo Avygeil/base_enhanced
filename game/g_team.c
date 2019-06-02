@@ -988,9 +988,6 @@ int Team_TouchEnemyFlag( gentity_t *ent, gentity_t *other, int team ) {
 			level.blueFlagStealTime = level.time;
 			level.redTeamRunFlaghold = 0;
 		}
-	} else {
-		// this guy picked up a dropped flag, thus his run is invalid
-		other->client->runInvalid = qtrue;
 	}
 
 	// picking up the flag removes invulnerability

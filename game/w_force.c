@@ -1064,7 +1064,6 @@ void WP_ForcePowerRegenerate( gentity_t *self, int overrideAmt )
 			!( self->client->ps.powerups[PW_REDFLAG] || self->client->ps.powerups[PW_BLUEFLAG] ) &&
 			!self->client->ps.powerups[PW_FORCE_BOON] ) {
 			// .. then there is no reason to keep the run invalid/making it a weapons run
-			self->client->runInvalid = qfalse;
 			self->client->usedWeapon = qfalse;
 			self->client->jumpedOrCrouched = qfalse;
 			self->client->usedForwardOrBackward = qfalse;
@@ -1570,9 +1569,6 @@ void ForceTeamForceReplenish( gentity_t *self )
 		{
 			g_entities[pl[i]].client->ps.fd.forcePower = 100;
 		}
-
-		// getting te invalidates the run
-		g_entities[pl[i]].client->runInvalid = qtrue;
 
 		//At this point we know we got one, so add him into the collective event client bitflag
 		if (!te)
@@ -3539,9 +3535,6 @@ void ForceThrow( gentity_t *self, qboolean pull )
 				int otherPushPower = push_list[x]->client->ps.fd.forcePowerLevel[powerUse];
 				qboolean canPullWeapon = qtrue;
 				float dirLen = 0;
-
-				// we knocked that guy with push/pull, his run is invalid
-				push_list[x]->client->runInvalid = qtrue;
 
 				if ( g_debugMelee.integer )
 				{

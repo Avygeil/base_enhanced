@@ -882,7 +882,6 @@ struct gclient_s {
 
 	int			pmoveMsec; // used for interpolation with accurate timers
 
-	qboolean	runInvalid; // this invalidates ALL categories (eg: external damage/force was used on this player)
 	qboolean	usedWeapon; // triggers the weapon capture record category
 	qboolean	jumpedOrCrouched; // invalidates the walk category
 	qboolean	usedForwardOrBackward; // invalidates the ad category
@@ -2105,8 +2104,6 @@ extern vmCvar_t		g_breakRNG;
 
 extern vmCvar_t		g_randomConeReflection;
 extern vmCvar_t		g_coneReflectAngle;
-
-extern vmCvar_t		g_saveCaptureRecords;
 
 extern vmCvar_t     g_allow_vote_gametype;
 extern vmCvar_t     g_allow_vote_kick;

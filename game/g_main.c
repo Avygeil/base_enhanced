@@ -285,8 +285,6 @@ vmCvar_t	g_breakRNG;
 vmCvar_t	g_randomConeReflection;
 vmCvar_t	g_coneReflectAngle;
 
-vmCvar_t	g_saveCaptureRecords;
-
 vmCvar_t    g_enforceEvenVotersCount;
 vmCvar_t    g_minVotersForEvenVotersCount;
 
@@ -644,8 +642,6 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_randomConeReflection , "g_randomConeReflection", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_coneReflectAngle , "g_coneReflectAngle", "30", CVAR_ARCHIVE, 0, qtrue },
-
-	{ &g_saveCaptureRecords, "g_saveCaptureRecords", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 
 	{ &g_minimumVotesCount, "g_minimumVotesCount", "0", CVAR_ARCHIVE, 0, qtrue },
 
@@ -1521,7 +1517,7 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
     G_LogDbLoad();
     //level.db.levelId = G_LogDbLogLevelStart(restart);
 
-	if ( g_gametype.integer == GT_CTF && g_saveCaptureRecords.integer ) {
+	if ( g_gametype.integer == GT_CTF && g_enableRacemode.integer ) {
 		// load capture records for this map
 
 		const char *arenaInfo = G_GetArenaInfoByMap( mapname.string );
