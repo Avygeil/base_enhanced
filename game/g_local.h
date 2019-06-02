@@ -1182,8 +1182,6 @@ typedef struct {
 	int			raceSpawnWeapons; // mask of weapons present in this level
 	int			raceSpawnAmmo[AMMO_MAX]; // exactly the ammo to hand out at spawn based on what's present in this level
 	qboolean	raceSpawnWithArmor; // qtrue if this level has at least one shield pickup
-	gentity_t*	raceRedFlagTrigger; // cached entities for fast comparing in G_TouchTriggers
-	gentity_t*	raceBlueFlagTrigger;
 
 	struct {
 		char cmd[MAX_STRING_CHARS];

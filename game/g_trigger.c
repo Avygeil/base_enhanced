@@ -1893,11 +1893,7 @@ static CaptureRecordType FindCaptureTypeForRun( gclient_t *client ) {
 
 extern void PartitionedTimer( const int time, int *mins, int *secs, int *millis );
 extern const char* GetShortNameForRecordType( CaptureRecordType type );
-static void Touch_RaceTrigger( gentity_t *trigger, gentity_t *player, trace_t *trace ) {
-	if ( trigger != level.raceRedFlagTrigger && trigger != level.raceBlueFlagTrigger ) {
-		return;
-	}
-
+void Touch_RaceTrigger( gentity_t *trigger, gentity_t *player, trace_t *trace ) {
 	if ( !player->client ) {
 		return;
 	}
@@ -2041,16 +2037,6 @@ void G_CreateRaceTrigger( gentity_t *flagBase ) {
 		return;
 	}
 
-	// don't create more triggers than possible
-
-	if ( ownerTeam == TEAM_RED && level.raceRedFlagTrigger ) {
-		return;
-	}
-
-	if ( ownerTeam == TEAM_BLUE && level.raceBlueFlagTrigger ) {
-		return;
-	}
-
 	// bare minimum for the trigger to function
 	gentity_t *trigger = G_Spawn();
 	trigger->classname = "trigger_race";
@@ -2058,16 +2044,6 @@ void G_CreateRaceTrigger( gentity_t *flagBase ) {
 	trigger->r.svFlags = SVF_NOCLIENT;
 	trigger->touch = Touch_RaceTrigger;
 	trigger->count = ownerTeam; // store team in count variable because team is a char*
-
-	// cache triggers
-
-	if ( ownerTeam == TEAM_RED ) {
-		level.raceRedFlagTrigger = trigger;
-	}
-
-	if ( ownerTeam == TEAM_BLUE ) {
-		level.raceBlueFlagTrigger = trigger;
-	}
 
 	// mirror provided flag entity
 	VectorCopy( flagBase->s.origin, trigger->s.origin );

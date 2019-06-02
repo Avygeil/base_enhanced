@@ -479,6 +479,7 @@ Find all trigger entities that ent's current position touches.
 Spectators will only interact with teleporters.
 ============
 */
+extern void Touch_RaceTrigger( gentity_t *trigger, gentity_t *player, trace_t *trace );
 void	G_TouchTriggers( gentity_t *ent ) {
 	int			i, num;
 	int			touch[MAX_GENTITIES];
@@ -529,7 +530,7 @@ void	G_TouchTriggers( gentity_t *ent ) {
 
 		// racemode: no trigger except a few
 
-		qboolean isRaceTrigger = hit == level.raceRedFlagTrigger || hit == level.raceBlueFlagTrigger; // avoids a strcmp every time
+		qboolean isRaceTrigger = hit->touch == Touch_RaceTrigger; // avoids a strcmp every time
 
 		if ( isRaceTrigger && !ent->client->sess.inRacemode ) {
 			continue; // non racemode clients don't interact with race triggers
