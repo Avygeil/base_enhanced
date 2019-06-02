@@ -4424,6 +4424,11 @@ void G_UpdateNonClientBroadcasts( gentity_t *self ) {
 
 	// racemode visibility
 
+	// never hide triggers that can be interacted with by racers for prediction
+	if ( self->s.eType == ET_PUSH_TRIGGER || self->s.eType == ET_TELEPORT_TRIGGER ) {
+		return;
+	}
+
 	// non dropped flags are never hidden to anyone
 	if ( self->s.eType == ET_ITEM && self->item->giType == IT_TEAM && !( self->flags & FL_DROPPED_ITEM ) ) {
 		return;
