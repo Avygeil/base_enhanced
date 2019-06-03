@@ -4151,6 +4151,99 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 	trap_SendServerCommand( ent - g_entities, "print \"For a list of all subcommands: /toptimes help\n\"" );
 }
 
+#ifdef NEWMOD_SUPPORT
+#define VCHAT_ESCAPE_CHAR '$'
+void Cmd_Vchat_f( gentity_t *sender ) {
+	char *s = ConcatArgs( 1 );
+	if ( !VALIDSTRING( s ) || !strchr( s, VCHAT_ESCAPE_CHAR ) ) {
+		trap_SendServerCommand( sender - g_entities, "print \"Usage: vchat $mod=xxx$ $file=xxx$ $msg=xxx$ $team=0/1$\n\"" );
+		return;
+	}
+
+	qboolean teamOnly = qfalse;
+	char modName[MAX_QPATH] = { 0 }, fileName[MAX_QPATH] = { 0 }, msg[200] = { 0 };
+	// parse each argument
+	for ( char *r = s; *r; r++ ) {
+		// skip to the next argument
+		while ( *r && *r != VCHAT_ESCAPE_CHAR )
+			r++;
+		if ( !*r++ )
+			break;
+
+		// copy this argument into a buffer
+		char buf[MAX_STRING_CHARS] = { 0 }, *w = buf;
+		while ( *r && *r != VCHAT_ESCAPE_CHAR && w - buf < sizeof( buf ) - 1 )
+			*w++ = *r++;
+		if ( !buf[0] )
+			break;
+
+		if ( !Q_stricmpn( buf, "mod=", 4 ) && buf[4] )
+			Q_strncpyz( modName, buf + 4, sizeof( modName ) );
+		else if ( !Q_stricmpn( buf, "file=", 5 ) && buf[5] )
+			Q_strncpyz( fileName, buf + 5, sizeof( fileName ) );
+		else if ( !Q_stricmpn( buf, "msg=", 4 ) && buf[4] )
+			Q_strncpyz( msg, buf + 4, sizeof( msg ) );
+		else if ( !Q_stricmpn( buf, "team=", 5 ) && buf[5] )
+			teamOnly = !!atoi( buf + 5 );
+
+		if ( !*r )
+			break; // we reached the end of the line
+				   // the for loop will increment r here, taking us past the current escape char
+	}
+
+	if ( !modName[0] || !fileName[0] || !msg[0] ) {
+		trap_SendServerCommand( sender - g_entities, "print \"Invalid vchat command.\nUsage: vchat $mod=xxx$ $file=xxx$ $msg=xxx$ $team=0/1$\n\"" );
+		return;
+	}
+
+	Q_CleanStr( modName );
+	Q_CleanStr( fileName );
+#if 1
+	Q_CleanStr( msg );
+#endif
+
+#ifdef _DEBUG
+	Com_Printf( "Got vchat request with mod name %s, file name %s, team %d, message %s\n", modName, fileName, teamOnly, msg );
+#endif
+
+	int senderLocation = 0;
+#if 0 // disable locations in ctf
+	// get his location (disable this section to never send locations)
+	if ( g_gametype.integer >= GT_TEAM )
+		senderLocation = Team_GetLocation( sender, NULL, 0 );
+#endif
+
+	for ( int i = 0; i < MAX_CLIENTS; i++ ) {
+		gclient_t *cl = &level.clients[i];
+		if ( cl->pers.connected != CON_CONNECTED )
+			continue;
+
+		int locationToSend = 0;
+		if ( teamOnly ) {
+			team_t senderTeam = sender->client->sess.sessionTeam;
+			team_t recipientTeam = cl->sess.sessionTeam;
+			if ( senderTeam != recipientTeam ) { // it's a teamchat and this guy isn't on our team...
+				if ( recipientTeam == TEAM_SPECTATOR && cl->ps.persistant[PERS_TEAM] == senderTeam ) {
+					// but he is speccing our team, so it's okay
+				} else {
+					continue; // he is truly on a different team; don't send it to him
+				}
+			}
+			locationToSend = senderLocation;
+		}
+
+		trap_SendServerCommand( i,
+			va( "kls -1 -1 vcht \"cl=%d\" \"mod=%s\" \"file=%s\" \"msg=%s\" \"team=%d\"%s",
+				sender - g_entities,
+				modName,
+				fileName,
+				msg,
+				teamOnly,
+				teamOnly && locationToSend ? va( "\"loc=%d\"", locationToSend ) : "" ) ); // team only parameter is sent anyway so clients can display with team styling
+	}
+}
+#endif
+
 /*
 =================
 Cmd_Race_f
@@ -5894,6 +5987,10 @@ void ClientCommand( int clientNum ) {
 			Cmd_Svauth_f(ent);
 			return;
 		}
+		else if ( !Q_stricmp( cmd, "vchat" ) ) {
+			Cmd_Vchat_f( ent );
+			return;
+		}
 #endif
 
 			trap_SendServerCommand( clientNum, va("print \"%s (%s) \n\"", G_GetStringEdString("MP_SVGAME", "CANNOT_TASK_INTERMISSION"), cmd ) );
@@ -5999,6 +6096,8 @@ void ClientCommand( int clientNum ) {
 #ifdef NEWMOD_SUPPORT
 	else if ( Q_stricmp( cmd, "svauth" ) == 0 && ent->client->sess.auth > PENDING && ent->client->sess.auth < AUTHENTICATED )
 		Cmd_Svauth_f( ent );
+	else if ( !Q_stricmp( cmd, "vchat" ) )
+		Cmd_Vchat_f( ent );
 #endif
 		
 	//for convenient powerduel testing in release
