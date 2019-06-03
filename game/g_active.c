@@ -2484,7 +2484,7 @@ void ClientThink_real( gentity_t *ent ) {
 	}
 
     //OSP: pause
-    if ( level.pause.state != PAUSE_NONE ) {
+    if ( level.pause.state != PAUSE_NONE && !client->sess.inRacemode ) {
         ucmd->buttons = 0;
         ucmd->forwardmove = 0;
         ucmd->rightmove = 0;
@@ -3705,7 +3705,7 @@ void ClientThink_real( gentity_t *ent ) {
 
 	// execute client events
     //OSP: pause
-    if ( level.pause.state == PAUSE_NONE )
+    if ( level.pause.state == PAUSE_NONE || ent->client->sess.inRacemode )
             ClientEvents( ent, oldEventSequence );
 
 	if ( pm.useEvent )
@@ -3834,7 +3834,7 @@ void ClientThink_real( gentity_t *ent ) {
 
 	// perform once-a-second actions
     //OSP: pause
-    if ( level.pause.state == PAUSE_NONE )
+    if ( level.pause.state == PAUSE_NONE || ent->client->sess.inRacemode )
             ClientTimerActions( ent, msec );
 
 	G_UpdateClientBroadcasts ( ent );
@@ -4051,7 +4051,7 @@ void ClientEndFrame( gentity_t *ent ) {
             if ( ent->client->ps.powerups[i] == 0 )
                     continue;
 
-            if ( level.pause.state != PAUSE_NONE && ent->client->ps.powerups[i] != INT_MAX )
+            if ( level.pause.state != PAUSE_NONE && ent->client->ps.powerups[i] != INT_MAX && !ent->client->sess.inRacemode )
                     ent->client->ps.powerups[i] += level.time - level.previousTime;
 
             if ( ent->client->ps.powerups[i] < level.time )
@@ -4060,7 +4060,7 @@ void ClientEndFrame( gentity_t *ent ) {
 
     //OSP: pause
     //      If we're paused, make sure other timers stay in sync
-    if ( level.pause.state != PAUSE_NONE ) {
+    if ( level.pause.state != PAUSE_NONE && !ent->client->sess.inRacemode ) {
             int i, time_delta = level.time - level.previousTime;
 
             ent->client->airOutTime += time_delta;

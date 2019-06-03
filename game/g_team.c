@@ -1398,7 +1398,7 @@ void CheckTeamStatus(void) {
 	gentity_t *ent;
 
     //OSP: pause
-    if ( level.pause.state != PAUSE_NONE )
+    if ( level.pause.state != PAUSE_NONE ) // doesn't affect racers due to TEAM_FREE
             return;
 	int updateRate = Com_Clampi(1, 1000, g_teamOverlayUpdateRate.integer);
 	if (level.time - level.lastTeamLocationTime > updateRate) {

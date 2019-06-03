@@ -1848,7 +1848,7 @@ void G_SiegeClientExData(gentity_t *msgTarg)
 	char str[MAX_STRING_CHARS];
 	char scratch[MAX_STRING_CHARS];
 
-    if ( level.pause.state != PAUSE_NONE )
+    if ( level.pause.state != PAUSE_NONE ) // doesn't affect racers (siege)
             return;
 
 	while (i < level.num_entities && count < MAX_EXDATA_ENTS_TO_SEND)

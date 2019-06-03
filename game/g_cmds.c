@@ -569,7 +569,7 @@ void Cmd_Kill_f( gentity_t *ent ) {
     }
 
     //OSP: pause
-    if ( level.pause.state != PAUSE_NONE )
+    if ( level.pause.state != PAUSE_NONE && !ent->client->sess.inRacemode )
             return;
 
 	// racemode - delete all fired projectiles

@@ -4225,7 +4225,7 @@ void G_RunThink (gentity_t *ent) {
 
     //OSP: pause
     //      If paused, push nextthink
-    if ( level.pause.state != PAUSE_NONE) { 
+    if ( level.pause.state != PAUSE_NONE && !(ent->r.ownerNum >= 0 && ent->r.ownerNum < MAX_CLIENTS && level.clients[ent->r.ownerNum].sess.inRacemode)) { 
 		if ( ent-g_entities >= g_maxclients.integer && ent->nextthink > level.time )
             ent->nextthink += level.time - level.previousTime;
 
@@ -4696,8 +4696,21 @@ void G_RunFrame( int levelTime ) {
     if ( level.pause.state == PAUSE_PAUSED )
     {
             if ( lastMsgTime < level.time-500 ) {
-                    trap_SendServerCommand( -1, va( "cp \"Match has been paused. (%.0f)\n\"", ceil((level.pause.time-level.time)/1000.0f)) );
-                    lastMsgTime = level.time;
+				int j;
+				for ( j = 0; j < level.maxclients; ++j ) {
+					if ( !g_entities[j].inuse || !g_entities[j].client ) {
+						continue;
+					}
+
+					// don't print to racers or racespectators
+					if ( g_entities[j].client->ps.stats[STAT_RACEMODE] ) {
+						continue;
+					}
+
+					trap_SendServerCommand( j, va( "cp \"Match has been paused. (%.0f)\n\"", ceil( ( level.pause.time - level.time ) / 1000.0f ) ) );
+				}
+
+				lastMsgTime = level.time;
             }
 
 			//if ( level.time > level.pause.time - (japp_unpauseTime.integer*1000) )
@@ -4707,13 +4720,39 @@ void G_RunFrame( int levelTime ) {
     if ( level.pause.state == PAUSE_UNPAUSING )
     {
             if ( lastMsgTime < level.time-500 ) {
-                    trap_SendServerCommand( -1, va( "cp \"MATCH IS UNPAUSING\nin %.0f...\n\"", ceil((level.pause.time-level.time)/1000.0f)) );
-                    lastMsgTime = level.time;
+				int j;
+				for ( j = 0; j < level.maxclients; ++j ) {
+					if ( !g_entities[j].inuse || !g_entities[j].client ) {
+						continue;
+					}
+
+					// don't print to racers or racespectators
+					if ( g_entities[j].client->ps.stats[STAT_RACEMODE] ) {
+						continue;
+					}
+
+					trap_SendServerCommand( j, va( "cp \"MATCH IS UNPAUSING\nin %.0f...\n\"", ceil( ( level.pause.time - level.time ) / 1000.0f ) ) );
+				}
+				
+				lastMsgTime = level.time;
             }
 
             if ( level.time > level.pause.time ) {
-                    level.pause.state = PAUSE_NONE;
-                    trap_SendServerCommand( -1, "cp \"Go!\n\"" );
+				int j;
+				for ( j = 0; j < level.maxclients; ++j ) {
+					if ( !g_entities[j].inuse || !g_entities[j].client ) {
+						continue;
+					}
+
+					// don't print to racers or racespectators
+					if ( g_entities[j].client->ps.stats[STAT_RACEMODE] ) {
+						continue;
+					}
+
+					trap_SendServerCommand( j, "cp \"Go!\n\"" );
+				}
+				
+				level.pause.state = PAUSE_NONE;
             }
     }
 
@@ -4820,7 +4859,7 @@ void G_RunFrame( int levelTime ) {
 
 		if ( ent->s.eType == ET_MISSILE ) {
             //OSP: pause
-            if ( level.pause.state == PAUSE_NONE )
+            if ( level.pause.state == PAUSE_NONE || ( ent->r.ownerNum >= 0 && ent->r.ownerNum < MAX_CLIENTS && level.clients[ent->r.ownerNum].sess.inRacemode ) )
                     G_RunMissile( ent );
             else
             {// During a pause, gotta keep track of stuff in the air
@@ -4892,7 +4931,7 @@ void G_RunFrame( int levelTime ) {
 				}
 			}
 
-			if (ent->client->isHacking && level.pause.state == PAUSE_NONE)
+			if (ent->client->isHacking && ( level.pause.state == PAUSE_NONE || ent->client->sess.inRacemode ))
 			{ //hacking checks
 				gentity_t *hacked = &g_entities[ent->client->isHacking];
 				vec3_t angDif;
@@ -4934,7 +4973,7 @@ void G_RunFrame( int levelTime ) {
 
 #define JETPACK_DEFUEL_RATE		200 //approx. 20 seconds of idle use from a fully charged fuel amt
 #define JETPACK_REFUEL_RATE		150 //seems fair
-			if (ent->client->jetPackOn && level.pause.state == PAUSE_NONE)
+			if (ent->client->jetPackOn && ( level.pause.state == PAUSE_NONE || ent->client->sess.inRacemode ))
 			{ //using jetpack, drain fuel
 				if (ent->client->jetPackDebReduce < level.time)
 				{
@@ -4955,7 +4994,7 @@ void G_RunFrame( int levelTime ) {
 					ent->client->jetPackDebReduce = level.time + JETPACK_DEFUEL_RATE;
 				}
 			}
-			else if (ent->client->ps.jetpackFuel < 100 && level.pause.state == PAUSE_NONE)
+			else if (ent->client->ps.jetpackFuel < 100 && (level.pause.state == PAUSE_NONE || ent->client->sess.inRacemode))
 			{ //recharge jetpack
 				if (ent->client->jetPackDebRecharge < level.time)
 				{
@@ -4966,7 +5005,7 @@ void G_RunFrame( int levelTime ) {
 
 #define CLOAK_DEFUEL_RATE		200 //approx. 20 seconds of idle use from a fully charged fuel amt
 #define CLOAK_REFUEL_RATE		150 //seems fair
-			if (ent->client->ps.powerups[PW_CLOAKED] && level.pause.state == PAUSE_NONE)
+			if (ent->client->ps.powerups[PW_CLOAKED] && (level.pause.state == PAUSE_NONE || ent->client->sess.inRacemode))
 			{ //using cloak, drain battery
 				if (ent->client->cloakDebReduce < level.time)
 				{
@@ -5000,7 +5039,7 @@ void G_RunFrame( int levelTime ) {
 				}
 			}
 
-            if ( level.pause.state == PAUSE_NONE
+            if ( ( level.pause.state == PAUSE_NONE || ent->client->sess.inRacemode )
                     && !level.intermissiontime
                     && !(ent->client->ps.pm_flags & PMF_FOLLOW)
                     && ent->client->sess.sessionTeam != TEAM_SPECTATOR )

@@ -4579,7 +4579,7 @@ int WP_DoSpecificPower( gentity_t *self, usercmd_t *ucmd, forcePowers_t forcepow
 	powerSucceeded = 1;
 
     //OSP: pause
-    if ( level.pause.state != PAUSE_NONE )
+    if ( level.pause.state != PAUSE_NONE && self->client && !self->client->sess.inRacemode )
             return 0;
 
 	// OVERRIDEFIXME
