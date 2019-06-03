@@ -1348,7 +1348,6 @@ void G_GlobalTickedCenterPrint( const char *msg, int milliseconds, qboolean prio
 void G_ResetAccurateTimerOnTrigger( accurateTimer *timer, gentity_t *activator, gentity_t *trigger );
 int G_GetAccurateTimerOnTrigger( accurateTimer *timer, gentity_t *activator, gentity_t *trigger );
 void G_DeletePlayerProjectiles( gentity_t *ent );
-qboolean G_IsInRacemodeOrIsFollowingRacemode( gentity_t *ent );
 void G_PrintBasedOnRacemode( const char* text, qboolean toRacersOnly );
 
 typedef qboolean ( *entityFilter_func )( gentity_t* );

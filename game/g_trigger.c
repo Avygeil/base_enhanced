@@ -1981,11 +1981,12 @@ void Touch_RaceTrigger( gentity_t *trigger, gentity_t *player, trace_t *trace ) 
 				for ( i = 0; i < level.maxclients; i++ ) {
 					gentity_t *ent = &g_entities[i];
 
-					if ( !ent || !ent->inuse ) {
+					if ( !ent || !ent->inuse || !ent->client ) {
 						continue;
 					}
 
-					if ( !G_IsInRacemodeOrIsFollowingRacemode( ent ) ) {
+					// use STAT_RACEMODE so racespectators also hear the sound
+					if ( !ent->client->ps.stats[STAT_RACEMODE] ) {
 						continue;
 					}
 
