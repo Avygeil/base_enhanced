@@ -3453,6 +3453,43 @@ void G_SetRaceMode( gentity_t *self, qboolean race ) {
 
 /*
 ===========
+G_GiveRacemodeItemsAndStats
+============
+*/
+
+void G_GiveRacemodeItemsAndFullStats( gentity_t *ent ) {
+	if ( !ent->client ) {
+		return;
+	}
+
+	ent->health = ent->client->ps.stats[STAT_HEALTH] = ent->client->ps.stats[STAT_MAX_HEALTH] = 100;
+
+	ent->client->ps.stats[STAT_ARMOR] = level.raceSpawnWithArmor ? 100 : 25;
+
+	ent->client->ps.stats[STAT_WEAPONS] = ( 1 << WP_NONE );
+	ent->client->ps.stats[STAT_WEAPONS] |= ( 1 << WP_BRYAR_PISTOL ); // always carry pistol
+	ent->client->ps.stats[STAT_WEAPONS] |= level.raceSpawnWeapons;
+
+	memset( ent->client->ps.ammo, 0, sizeof( ent->client->ps.ammo ) );
+	int i;
+	for ( i = 0; i < AMMO_MAX; ++i ) {
+		if ( level.raceSpawnAmmo[i] ) {
+			ent->client->ps.ammo[i] = level.raceSpawnAmmo[i];
+		}
+	}
+
+	// saber or melee is just personal preference, base it on their force powers
+	if ( ent->client->ps.fd.forcePowerLevel[FP_SABER_OFFENSE] ) {
+		ent->client->ps.stats[STAT_WEAPONS] |= ( 1 << WP_SABER );
+	} else {
+		ent->client->ps.stats[STAT_WEAPONS] |= ( 1 << WP_MELEE );
+	}
+
+	ent->client->ps.fd.forcePower = ent->client->ps.fd.forcePowerMax;
+}
+
+/*
+===========
 ClientSpawn
 
 Called every time a client is placed fresh in the world:
@@ -4198,31 +4235,9 @@ void ClientSpawn(gentity_t *ent) {
 
 	// racemode - override all the crap above and spawn with our own stuff
 	if ( client->sess.inRacemode ) {
-		ent->health = client->ps.stats[STAT_HEALTH] = client->ps.stats[STAT_MAX_HEALTH] = 100;
+		G_GiveRacemodeItemsAndFullStats( ent );
 
-		client->ps.stats[STAT_ARMOR] = level.raceSpawnWithArmor ? 100 : 25;
-
-		client->ps.stats[STAT_WEAPONS] = ( 1 << WP_NONE );
-		client->ps.stats[STAT_WEAPONS] |= ( 1 << WP_BRYAR_PISTOL ); // always carry pistol
-		client->ps.stats[STAT_WEAPONS] |= level.raceSpawnWeapons;
-
-		memset( client->ps.ammo, 0, sizeof( client->ps.ammo ) );
-		int i;
-		for ( i = 0; i < AMMO_MAX; ++i ) {
-			if ( level.raceSpawnAmmo[i] ) {
-				client->ps.ammo[i] = level.raceSpawnAmmo[i];
-			}
-		}
-
-		// saber or melee is just personal preference, base it on their force powers
-		// do the base logic for this and for held weapon
-
-		if ( client->ps.fd.forcePowerLevel[FP_SABER_OFFENSE] ) {
-			client->ps.stats[STAT_WEAPONS] |= ( 1 << WP_SABER );
-		} else {
-			client->ps.stats[STAT_WEAPONS] |= ( 1 << WP_MELEE );
-		}
-
+		// set their held item at spawn
 		if ( client->ps.stats[STAT_WEAPONS] & ( 1 << WP_SABER ) ) {
 			client->ps.weapon = WP_SABER;
 		} else if ( client->ps.stats[STAT_WEAPONS] & ( 1 << WP_BRYAR_PISTOL ) ) {

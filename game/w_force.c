@@ -1086,7 +1086,6 @@ void WP_ForcePowerRegenerate( gentity_t *self, int overrideAmt )
 		.. and not moving
 		.. and not using any forcepower
 		.. and not carrying a flag
-		.. and not carrying a boon
 		*/
 		if ( !self->client->ps.velocity[0] && !self->client->ps.velocity[1] && !self->client->ps.velocity[2] &&
 			!self->client->ps.fd.forcePowersActive &&

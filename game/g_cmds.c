@@ -4207,6 +4207,7 @@ void Cmd_Amtelemark_f( gentity_t *ent ) {
 
 	if ( !ent->client->sess.inRacemode ) {
 		trap_SendServerCommand( ent - g_entities, "print \"You cannot use this command outside of racemode\n\"" );
+		return;
 	}
 
 	VectorCopy( ent->client->ps.origin, ent->client->pers.telemarkOrigin );
@@ -4232,11 +4233,81 @@ void Cmd_Amtele_f( gentity_t *ent ) {
 		return;
 	}
 
-	if ( !ent->client->sess.inRacemode ) {
+	gclient_t *client = ent->client;
+
+	if ( !client->sess.inRacemode ) {
 		trap_SendServerCommand( ent - g_entities, "print \"You cannot use this command outside of racemode\n\"" );
+		return;
 	}
 
-	
+	if ( client->pers.telemarkOrigin[0] == 0 &&
+		client->pers.telemarkOrigin[1] == 0 &&
+		client->pers.telemarkOrigin[2] == 0 &&
+		client->pers.telemarkYawAngle == 0 &&
+		client->pers.telemarkPitchAngle == 0 ) {
+
+		trap_SendServerCommand( ent - g_entities, "print \"No telemark set!\n\"" );
+		return;
+	}
+
+	// don't let them tp while in rolls so they can't precharge rolls on ground and do them in limited space with tele
+	if ( BG_InRoll( &client->ps, ent->s.legsAnim ) ) {
+		return;
+	}
+
+	vec3_t angles = { 0, 0, 0 };
+	vec3_t neworigin;
+	angles[YAW] = client->pers.telemarkYawAngle;
+	angles[PITCH] = client->pers.telemarkPitchAngle;
+	VectorCopy( client->pers.telemarkOrigin, neworigin );
+
+	// drop them to floor
+	trace_t tr;
+	vec3_t down, mins, maxs;
+	VectorSet( mins, -15, -15, DEFAULT_MINS_2 );
+	VectorSet( maxs, 15, 15, DEFAULT_MAXS_2 );
+	VectorCopy( client->pers.telemarkOrigin, down );
+	down[2] -= 32768;
+	trap_Trace( &tr, client->pers.telemarkOrigin, mins, maxs, down, client->ps.clientNum, MASK_PLAYERSOLID );
+	neworigin[2] = ( int )tr.endpos[2];
+
+	trap_UnlinkEntity( ent );
+
+	// teleport them
+	VectorCopy( neworigin, client->ps.origin );
+	client->ps.origin[2] += 8; // teleport slightly above to prevent jitteriness
+	VectorClear( client->ps.velocity ); // make sure they have 0 momentum
+	client->ps.eFlags ^= EF_TELEPORT_BIT; // toggle the teleport bit so the client knows to not lerp
+	SetClientViewAngle( ent, angles ); // set angles
+	BG_PlayerStateToEntityState( &client->ps, &ent->s, qtrue ); // save results of pmove
+	VectorCopy( client->ps.origin, ent->r.currentOrigin ); // use the precise origin for linking
+
+	trap_LinkEntity( ent );
+
+	// reset flags and set small debounce in case they tp right on flag
+	client->ps.powerups[PW_REDFLAG] = 0;
+	client->ps.powerups[PW_BLUEFLAG] = 0;
+	client->pers.flagDebounceTime = level.time + 500;
+
+	// reset any run validity var
+	client->usedWeapon = qfalse;
+	client->jumpedOrCrouched = qfalse;
+	client->usedForwardOrBackward = qfalse;
+
+	// destroy projectiles
+	G_DeletePlayerProjectiles( ent );
+
+	// stop all force powers
+	int i = 0;
+	while ( i < NUM_FORCE_POWERS ) {
+		if ( ent->client->ps.fd.forcePowersActive & ( 1 << i ) ) {
+			WP_ForcePowerStop( ent, i );
+		}
+		i++;
+	}
+
+	// give them full stats again
+	G_GiveRacemodeItemsAndFullStats( ent );
 }
 
 /*

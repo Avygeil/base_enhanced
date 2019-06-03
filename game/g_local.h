@@ -1665,6 +1665,7 @@ void ClientBegin( int clientNum, qboolean allowTeamReset );
 void G_BreakArm(gentity_t *ent, int arm);
 void G_UpdateClientAnims(gentity_t *self, float animSpeedScale);
 void G_SetRaceMode( gentity_t *self, qboolean race );
+void G_GiveRacemodeItemsAndFullStats( gentity_t *ent );
 void ClientCommand( int clientNum );
 void PurgeStringedTrolling(char *in, char *out, int outSize);
 
