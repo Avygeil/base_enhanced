@@ -2550,7 +2550,7 @@ int G_ClientNumberFromStrippedName ( const char* name )
 //
 //}
 
-void fixVoters(){
+void fixVoters(qboolean allowRacers){
 	int i;
 
 	level.numVotingClients = 0;
@@ -2562,6 +2562,11 @@ void fixVoters(){
 
 	for ( i = 0 ; i < level.maxclients ; i++ ) {
 		if ( level.clients[i].pers.connected != CON_DISCONNECTED ) {
+			// only let racers vote if specified
+			if ( !allowRacers && level.clients[i].sess.inRacemode ) {
+				continue;
+			}
+
 			if ( level.clients[i].sess.sessionTeam != TEAM_SPECTATOR || g_gametype.integer == GT_DUEL || g_gametype.integer == GT_POWERDUEL )
 			{
                 /*
@@ -2586,6 +2591,7 @@ void CountPlayersIngame( int *total, int *ingame ) {
 	gentity_t *ent;
 	int i;
 
+	// total = all non bot, fully connected clients ; ingame = non spectators and non racemode
 	*total = *ingame = 0;
 
 	for ( i = 0; i < level.maxclients; i++ ) { // count clients that are connected and who are not bots
@@ -2597,7 +2603,7 @@ void CountPlayersIngame( int *total, int *ingame ) {
 
 		( *total )++;
 
-		if ( ent->client->sess.sessionTeam != TEAM_SPECTATOR ) {
+		if ( ent->client->sess.sessionTeam != TEAM_SPECTATOR && !ent->client->sess.inRacemode ) {
 			( *ingame )++;
 		}
 	}
@@ -2695,9 +2701,14 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 		return;
 	}
 
+	// racers can only call a very limited set of votes
+	qboolean voteAllowRacers = qfalse;
+
 	if ( !Q_stricmp( arg1, "map_restart" ) ) {
+		voteAllowRacers = qtrue;
 	} else if ( !Q_stricmp( arg1, "nextmap" ) ) {
 	} else if ( !Q_stricmp( arg1, "map" ) ) {
+		voteAllowRacers = qtrue;
 	} else if ( !Q_stricmp( arg1, "map_random" ) ) {
 	} else if ( !Q_stricmp( arg1, "g_gametype" ) ) {
 	} else if ( !Q_stricmp( arg1, "kick" ) ) {
@@ -2721,6 +2732,22 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 			"kick <player>, clientkick <clientnum>, g_doWarmup, timelimit <time>, fraglimit <frags>, "
 			"resetflags, q <question>, pause, unpause, endmatch, randomcapts, randomteams <numRedPlayers> <numBluePlayers>, "
 			"lockteams <numPlayers>, capturedifflimit <capLimit>.\n\"" );
+		return;
+	}
+
+	// cancel if this vote is not allowed in racemode and this is a racer
+	if ( !voteAllowRacers && ent->client->sess.inRacemode ) {
+		trap_SendServerCommand( ent - g_entities, "print \"Cannot call this vote while in racemode.\n\"" );
+		trap_SendServerCommand( ent - g_entities, "print \"Allowed commands are: map_restart, map <mapname>.\n\"" );
+
+		return;
+	}
+
+	// racers can't callvote unless ZERO in game clients are present
+	int clientsTotal, clientsInGame;
+	CountPlayersIngame( &clientsTotal, &clientsInGame );
+	if ( clientsInGame > 0 && ent->client->sess.inRacemode ) {
+		trap_SendServerCommand( ent - g_entities, "print \"Cannot call a vote in racemode while other players are in game.\n\"" );
 		return;
 	}
 
@@ -2783,10 +2810,7 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 		}
 
 		if ( g_mapVoteThreshold.integer ) { // anti force map protection when the server is populated
-			int total, ingame;
-			CountPlayersIngame( &total, &ingame );
-
-			if ( total >= g_mapVoteThreshold.integer && ingame < g_mapVotePlayers.integer ) {
+			if ( clientsTotal >= g_mapVoteThreshold.integer && clientsInGame < g_mapVotePlayers.integer ) {
 				trap_SendServerCommand( ent - g_entities, "print \"Not enough players in game to call this vote.\n\"" );
 				return;
 			}
@@ -2843,16 +2867,13 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 		// the cvar value is the amount of maps to randomize up to 5 (so 1 is the old, instant random map behavior)
 		int mapsToRandomize = Com_Clampi( 1, 5, g_allow_vote_maprandom.integer );
 
-		int total, ingame;
-		CountPlayersIngame( &total, &ingame );
-
-		if ( g_mapVoteThreshold.integer && total >= g_mapVoteThreshold.integer && ingame < g_mapVotePlayers.integer ) {
+		if ( g_mapVoteThreshold.integer && clientsTotal >= g_mapVoteThreshold.integer && clientsInGame < g_mapVotePlayers.integer ) {
 			// anti force map protection when the server is populated
 			trap_SendServerCommand( ent - g_entities, "print \"Not enough players in game to call this vote.\n\"" );
 			return;
 		}
 
-		if ( ingame < 2 ) {
+		if ( clientsInGame < 2 ) {
 			mapsToRandomize = 1; // not enough clients for a multi vote, just randomize 1 map right away
 		}
 
@@ -3129,7 +3150,7 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 	level.multiVoteChoices = 0;
 	memset( &( level.multiVotes ), 0, sizeof( level.multiVotes ) );
 
-	fixVoters();
+	fixVoters( voteAllowRacers );
 
 	ent->client->mGameFlags |= PSG_VOTED;
 
@@ -3156,7 +3177,7 @@ void Cmd_Vote_f( gentity_t *ent ) {
 		return;
 	}
 	if ( !(ent->client->mGameFlags & PSG_CANVOTE) ) {
-		trap_SendServerCommand( ent-g_entities, va("print \"%s\n\"", "You haven't been in game during vote call. You can't vote.") );
+		trap_SendServerCommand( ent-g_entities, va("print \"%s\n\"", "You can't participate in this vote.") );
 		return;
 	}
 

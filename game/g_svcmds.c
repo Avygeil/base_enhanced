@@ -1201,7 +1201,7 @@ void Svcmd_AccountPrintAll_f(){
 }
 */
 
-extern void fixVoters();
+extern void fixVoters(qboolean allowRacers);
 
 // starts a multiple choices vote using some of the binary voting logic
 static void StartMultiMapVote( const int numMaps, const qboolean hasWildcard, const char *listOfMaps ) {
@@ -1225,7 +1225,7 @@ static void StartMultiMapVote( const int numMaps, const qboolean hasWildcard, co
 	level.multiVoteChoices = numMaps;
 	memset( &( level.multiVotes ), 0, sizeof( level.multiVotes ) );
 
-	fixVoters();
+	fixVoters( qfalse ); // racers can never vote in multi map votes
 
 	trap_SetConfigstring( CS_VOTE_TIME, va( "%i", level.voteTime ) );
 	trap_SetConfigstring( CS_VOTE_STRING, level.voteDisplayString );
