@@ -4196,7 +4196,6 @@ void ClientSpawn(gentity_t *ent) {
 		client->ps.stats[STAT_ARMOR] = client->ps.stats[STAT_MAX_HEALTH] * 0.25;
 	}
 
-	// FIXME not called on first spawn.....................?
 	// racemode - override all the crap above and spawn with our own stuff
 	if ( client->sess.inRacemode ) {
 		ent->health = client->ps.stats[STAT_HEALTH] = client->ps.stats[STAT_MAX_HEALTH] = 100;
