@@ -2948,9 +2948,6 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 		ent->client->renderInfo.lastG2 = NULL; //update the renderinfo bolts next update.
 	}
 
-	// racemode
-	client->ps.stats[STAT_RACEMODE] = client->sess.inRacemode ? 1 : 0;
-
 	if (g_gametype.integer == GT_POWERDUEL && client->sess.sessionTeam != TEAM_SPECTATOR &&
 		client->sess.duelTeam == DUELTEAM_FREE)
 	{

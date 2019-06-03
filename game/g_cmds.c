@@ -4169,10 +4169,10 @@ void Cmd_Race_f( gentity_t *ent ) {
 
 	if ( oldTeam != TEAM_FREE ) {
 		// put them in race mode from spec
-		SetTeamQuick( ent, TEAM_FREE, qtrue );
+		SetTeamQuick( ent, TEAM_FREE, qfalse );
 	} else {
 		// put them in spec from race mode
-		SetTeamQuick( ent, TEAM_SPECTATOR, qtrue );
+		SetTeamQuick( ent, TEAM_SPECTATOR, qfalse );
 	}
 
 	ent->client->sess.inRacemode = oldInRacemode;
@@ -4180,8 +4180,6 @@ void Cmd_Race_f( gentity_t *ent ) {
 	team_t newTeam = ent->client->sess.sessionTeam;
 
 	if ( oldTeam != newTeam ) {
-		ent->client->switchTeamTime = level.time + 5000;
-
 		if ( newTeam == TEAM_FREE ) {
 			trap_SendServerCommand( -1, va("print \"%s%s " S_COLOR_WHITE "entered racemode\n\"", NM_SerializeUIntToColor( ent - g_entities ), ent->client->pers.netname ) );
 			G_SetRaceMode( ent, qtrue );
@@ -4189,6 +4187,11 @@ void Cmd_Race_f( gentity_t *ent ) {
 			trap_SendServerCommand( -1, va( "print \"%s%s " S_COLOR_WHITE "left racemode\n\"", NM_SerializeUIntToColor( ent - g_entities ), ent->client->pers.netname ) );
 			G_SetRaceMode( ent, qfalse );
 		}
+
+		// do ClientBegin here and not in SetTeamQuick so that sess.inRacemode is set for initialization
+		ClientBegin( ent->s.number, qfalse );
+
+		ent->client->switchTeamTime = level.time + 5000;
 	}
 }
 

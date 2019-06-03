@@ -540,6 +540,35 @@ void WP_InitForcePowers( gentity_t *ent )
 			//trap_SendServerCommand(ent-g_entities, va("print \"The server has one or more force powers that you have chosen disabled.\nYou will not be able to use the disable force power(s) while playing on this server.\n\""));
 		}
 	}
+	
+	// in racemode, force our own useful powers and unset all the others
+	if ( ent->client->sess.inRacemode ) {
+		ent->client->ps.fd.forcePowerLevel[FP_HEAL] = FORCE_LEVEL_0;
+		ent->client->ps.fd.forcePowerLevel[FP_LEVITATION] = FORCE_LEVEL_3;
+		ent->client->ps.fd.forcePowerLevel[FP_SPEED] = FORCE_LEVEL_3;
+		ent->client->ps.fd.forcePowerLevel[FP_PUSH] = FORCE_LEVEL_0;
+		ent->client->ps.fd.forcePowerLevel[FP_PULL] = FORCE_LEVEL_0;
+		ent->client->ps.fd.forcePowerLevel[FP_TELEPATHY] = FORCE_LEVEL_0;
+		ent->client->ps.fd.forcePowerLevel[FP_GRIP] = FORCE_LEVEL_0;
+		ent->client->ps.fd.forcePowerLevel[FP_LIGHTNING] = FORCE_LEVEL_0;
+		ent->client->ps.fd.forcePowerLevel[FP_RAGE] = FORCE_LEVEL_3;
+		ent->client->ps.fd.forcePowerLevel[FP_PROTECT] = FORCE_LEVEL_3;
+		ent->client->ps.fd.forcePowerLevel[FP_ABSORB] = FORCE_LEVEL_0;
+		ent->client->ps.fd.forcePowerLevel[FP_TEAM_HEAL] = FORCE_LEVEL_0;
+		ent->client->ps.fd.forcePowerLevel[FP_TEAM_FORCE] = FORCE_LEVEL_0;
+		ent->client->ps.fd.forcePowerLevel[FP_DRAIN] = FORCE_LEVEL_0;
+		ent->client->ps.fd.forcePowerLevel[FP_SEE] = FORCE_LEVEL_0;
+		ent->client->ps.fd.forcePowerLevel[FP_SABERTHROW] = FORCE_LEVEL_0;
+		
+		// let them choose if they have a saber or not
+		if ( ent->client->ps.fd.forcePowerLevel[FP_SABER_OFFENSE] > FORCE_LEVEL_0 ) {
+			ent->client->ps.fd.forcePowerLevel[FP_SABER_OFFENSE] = FORCE_LEVEL_3;
+			ent->client->ps.fd.forcePowerLevel[FP_SABER_DEFENSE] = FORCE_LEVEL_3;
+		} else {
+			ent->client->ps.fd.forcePowerLevel[FP_SABER_OFFENSE] = FORCE_LEVEL_0;
+			ent->client->ps.fd.forcePowerLevel[FP_SABER_DEFENSE] = FORCE_LEVEL_0;
+		}
+	}
 
 	i = 0;
 	while (i < NUM_FORCE_POWERS)
