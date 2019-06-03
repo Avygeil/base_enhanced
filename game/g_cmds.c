@@ -4228,6 +4228,7 @@ void Cmd_Amtelemark_f( gentity_t *ent ) {
 Cmd_Amtele_f
 =================
 */
+extern int speedLoopSound;
 void Cmd_Amtele_f( gentity_t *ent ) {
 	if ( !ent || !ent->client ) {
 		return;
@@ -4308,6 +4309,45 @@ void Cmd_Amtele_f( gentity_t *ent ) {
 
 	// give them full stats again
 	G_GiveRacemodeItemsAndFullStats( ent );
+
+	// use speed automatically if they set the setting
+	if ( client->pers.teleportWithSpeedOn ) {
+		qboolean wasAlreadyActive = client->ps.fd.forcePowersActive & ( 1 << FP_SPEED );
+
+		WP_ForcePowerStart( ent, FP_SPEED, 0 );
+		G_Sound( ent, CHAN_BODY, G_SoundIndex( "sound/weapons/force/speed.wav" ) );
+		if ( !wasAlreadyActive ) { // only start the loop if it wasn't already active
+			G_Sound( ent, TRACK_CHANNEL_2, speedLoopSound );
+		}
+
+		client->ps.forceAllowDeactivateTime = level.time + 1500;
+	}
+}
+
+/*
+=================
+Cmd_AmAutoSpeed_f
+=================
+*/
+void Cmd_AmAutoSpeed_f( gentity_t *ent ) {
+	if ( !ent || !ent->client ) {
+		return;
+	}
+
+	gclient_t *client = ent->client;
+
+	if ( !client->sess.inRacemode ) {
+		trap_SendServerCommand( ent - g_entities, "print \"You cannot use this command outside of racemode\n\"" );
+		return;
+	}
+
+	if ( !client->pers.teleportWithSpeedOn ) {
+		trap_SendServerCommand( ent - g_entities, "print \""S_COLOR_GREEN"Auto speed on amtele ON\n\"" );
+	} else {
+		trap_SendServerCommand( ent - g_entities, "print \""S_COLOR_RED"Auto speed on amtele OFF\n\"" );
+	}
+
+	client->pers.teleportWithSpeedOn = !client->pers.teleportWithSpeedOn;
 }
 
 /*
@@ -5931,6 +5971,8 @@ void ClientCommand( int clientNum ) {
 		Cmd_Amtelemark_f( ent );
 	else if ( !Q_stricmp(cmd, "amtele") )
 		Cmd_Amtele_f( ent );
+	else if ( !Q_stricmp( cmd, "amautospeed" ) )
+		Cmd_AmAutoSpeed_f( ent );
 #ifdef NEWMOD_SUPPORT
 	else if ( Q_stricmp( cmd, "svauth" ) == 0 && ent->client->sess.auth > PENDING && ent->client->sess.auth < AUTHENTICATED )
 		Cmd_Svauth_f( ent );

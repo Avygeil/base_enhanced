@@ -21,12 +21,12 @@ extern qboolean BG_FullBodyTauntAnim( int anim );
 
 extern bot_state_t *botstates[MAX_CLIENTS];
 
-static int speedLoopSound = 0;
-static int rageLoopSound = 0;
-static int protectLoopSound = 0;
-static int absorbLoopSound = 0;
-static int seeLoopSound = 0;
-static int ysalamiriLoopSound = 0;
+int speedLoopSound = 0;
+int rageLoopSound = 0;
+int protectLoopSound = 0;
+int absorbLoopSound = 0;
+int seeLoopSound = 0;
+int ysalamiriLoopSound = 0;
 
 #define FORCE_VELOCITY_DAMAGE 0
 

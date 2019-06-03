@@ -587,6 +587,7 @@ typedef struct {
 	vec3_t		telemarkOrigin;
 	float		telemarkYawAngle;
 	float		telemarkPitchAngle;
+	qboolean	teleportWithSpeedOn;
 
 	// other racemode stuff
 	int			flagTakeTime; // used to get the steal time for demos independently from level.blue/redFlagStealTime
