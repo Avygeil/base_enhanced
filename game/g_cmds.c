@@ -4205,21 +4205,23 @@ void Cmd_Amtelemark_f( gentity_t *ent ) {
 		return;
 	}
 
-	if ( !ent->client->sess.inRacemode ) {
+	gclient_t *client = ent->client;
+
+	if ( !client->sess.inRacemode ) {
 		trap_SendServerCommand( ent - g_entities, "print \"You cannot use this command outside of racemode\n\"" );
 		return;
 	}
 
-	VectorCopy( ent->client->ps.origin, ent->client->pers.telemarkOrigin );
-	ent->client->pers.telemarkYawAngle = ent->client->ps.viewangles[YAW];
-	ent->client->pers.telemarkPitchAngle = ent->client->ps.viewangles[PITCH];
+	VectorCopy( client->ps.origin, client->pers.telemarkOrigin );
+	client->pers.telemarkYawAngle = client->ps.viewangles[YAW];
+	client->pers.telemarkPitchAngle = client->ps.viewangles[PITCH];
 
 	trap_SendServerCommand( ent - g_entities, va( "print \"Teleport Marker: ^3<%i, %i, %i> %i, %i\n\"",
-		( int )ent->client->pers.telemarkOrigin[0],
-		( int )ent->client->pers.telemarkOrigin[1],
-		( int )ent->client->pers.telemarkOrigin[2],
-		( int )ent->client->pers.telemarkYawAngle,
-		( int )ent->client->pers.telemarkPitchAngle )
+		( int )client->pers.telemarkOrigin[0],
+		( int )client->pers.telemarkOrigin[1],
+		( int )client->pers.telemarkOrigin[2],
+		( int )client->pers.telemarkYawAngle,
+		( int )client->pers.telemarkPitchAngle )
 	);
 }
 
@@ -4301,7 +4303,7 @@ void Cmd_Amtele_f( gentity_t *ent ) {
 	// stop all force powers
 	int i = 0;
 	while ( i < NUM_FORCE_POWERS ) {
-		if ( ent->client->ps.fd.forcePowersActive & ( 1 << i ) ) {
+		if ( client->ps.fd.forcePowersActive & ( 1 << i ) ) {
 			WP_ForcePowerStop( ent, i );
 		}
 		i++;
