@@ -1422,6 +1422,8 @@ void G_Sound( gentity_t *ent, int channel, int soundIndex ) {
 		te->r.svFlags |= SVF_BROADCAST;
 
 	}
+
+	G_ApplyRaceBroadcastsToEvent( ent, te );
 }
 
 /*

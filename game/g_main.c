@@ -4420,6 +4420,45 @@ void CheckSpecInfo(void) {
 }
 #endif
 
+void G_ApplyRaceBroadcastsToEvent( gentity_t *parent, gentity_t *ev ) {
+	if ( ev->s.eType <= ET_EVENTS ) {
+		return;
+	}
+
+#ifdef _DEBUG
+	if ( !d_disableRaceVisChecks.integer )
+	{
+#endif
+
+	gclient_t *client = parent->client;
+	const int evType = ev->s.eType - ET_EVENTS;
+
+	qboolean playInRaceDimension = qfalse; // by default, play the event in normal dimension
+
+	if ( !parent )
+	{ // a world event, hide to racers by default
+		playInRaceDimension = qfalse;
+	}
+	else if ( parent->client && parent->client->sess.inRacemode )
+	{ // originates from a racer
+		playInRaceDimension = qtrue;
+	}
+	else if ( parent->r.ownerNum >= 0 && parent->r.ownerNum < MAX_CLIENTS && level.clients[parent->r.ownerNum].sess.inRacemode )
+	{ // originates from an entity owned by a racer
+		playInRaceDimension = qtrue;
+	}
+
+	if ( playInRaceDimension ) {
+		ev->r.broadcastClients[1] |= ~( level.racemodeClientMask | level.racemodeSpectatorMask );
+	} else {
+		ev->r.broadcastClients[1] |= ( level.racemodeClientMask | level.racemodeSpectatorMask );
+	}
+
+#ifdef _DEBUG
+	}
+#endif
+}
+
 void G_UpdateNonClientBroadcasts( gentity_t *self ) {
 	self->r.broadcastClients[0] = 0;
 	self->r.broadcastClients[1] = 0;

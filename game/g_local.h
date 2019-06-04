@@ -1653,6 +1653,7 @@ void SendScoreboardMessageToAllClients( void );
 void QDECL G_Printf( const char *fmt, ... );
 void QDECL G_Error( const char *fmt, ... );
 const char *G_GetStringEdString(char *refSection, char *refName);
+void G_ApplyRaceBroadcastsToEvent( gentity_t *ent, gentity_t *ev );
 
 //
 // g_client.c
