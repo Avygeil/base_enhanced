@@ -1752,7 +1752,7 @@ const char *G_GetDefaultMap(int gametype);
 void G_InitVoteMapsLimit();
 
 // w_force.c / w_saber.c
-gentity_t *G_PreDefSound(vec3_t org, int pdSound);
+gentity_t *G_PreDefSound(gentity_t *ent, int pdSound);
 qboolean HasSetSaberOnly(void);
 void WP_ForcePowerStop( gentity_t *self, forcePowers_t forcePower );
 void WP_ForcePowerStart( gentity_t *self, forcePowers_t forcePower, int overrideAmt );
