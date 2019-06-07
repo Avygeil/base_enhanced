@@ -1347,6 +1347,8 @@ void UpdateGlobalCenterPrint( const int levelTime );
 void G_GlobalTickedCenterPrint( const char *msg, int milliseconds, qboolean prioritized );
 void G_ResetAccurateTimerOnTrigger( accurateTimer *timer, gentity_t *activator, gentity_t *trigger );
 int G_GetAccurateTimerOnTrigger( accurateTimer *timer, gentity_t *activator, gentity_t *trigger );
+typedef qboolean( *ProjectileFilterCallback )( gentity_t* ent );
+void G_DeletePlayerProjectilesAtPoint( gentity_t *ent, vec3_t origin, float radius, ProjectileFilterCallback filterCallback );
 void G_DeletePlayerProjectiles( gentity_t *ent );
 void G_PrintBasedOnRacemode( const char* text, qboolean toRacersOnly );
 

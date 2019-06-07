@@ -1891,6 +1891,25 @@ static CaptureRecordType FindCaptureTypeForRun( gclient_t *client ) {
 	return CAPTURE_RECORD_STANDARD;
 }
 
+static qboolean IsProjectileTypeDeletedOnFlagTouch( gentity_t *ent ) {
+	// alt rockets
+	if ( ent->s.weapon == WP_ROCKET_LAUNCHER && ent->s.eFlags & EF_ALT_FIRING ) {
+		return qtrue;
+	}
+
+	// alt golan
+	if ( ent->s.weapon == WP_FLECHETTE && ent->s.eFlags & EF_ALT_FIRING ) {
+		return qtrue;
+	}
+
+	// primary nades
+	if ( ent->s.weapon == WP_THERMAL && ent->flags & FL_BOUNCE_HALF ) {
+		return qtrue;
+	}
+
+	return qfalse;
+}
+
 extern void PartitionedTimer( const int time, int *mins, int *secs, int *millis );
 extern const char* GetShortNameForRecordType( CaptureRecordType type );
 void Touch_RaceTrigger( gentity_t *trigger, gentity_t *player, trace_t *trace ) {
@@ -2009,6 +2028,9 @@ void Touch_RaceTrigger( gentity_t *trigger, gentity_t *player, trace_t *trace ) 
 		client->pers.fastcapDisplacementSamples = 0;
 		client->pers.flagTakeTime = level.time;
 		G_ResetAccurateTimerOnTrigger( &client->pers.teamState.flagsince, player, trigger );
+
+		// delete some projectiles that can be abused 200 units around flagstand
+		G_DeletePlayerProjectilesAtPoint( player, trigger->r.currentOrigin, 200.0f, IsProjectileTypeDeletedOnFlagTouch );
 
 		int flagTouchedPw = flagTouched == TEAM_RED ? PW_REDFLAG : PW_BLUEFLAG;
 		client->ps.powerups[flagTouchedPw] = INT_MAX;

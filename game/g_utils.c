@@ -2431,13 +2431,37 @@ int G_GetAccurateTimerOnTrigger( accurateTimer *timer, gentity_t *activator, gen
 	return time;
 }
 
-void G_DeletePlayerProjectiles( gentity_t *ent ) {
+void G_DeletePlayerProjectilesAtPoint( gentity_t *ent, vec3_t origin, float radius, ProjectileFilterCallback filterCallback ) {
 	int i;
 	for ( i = MAX_CLIENTS; i < MAX_GENTITIES; i++ ) {
-		if ( g_entities[i].inuse && g_entities[i].s.eType == ET_MISSILE && ( g_entities[i].r.ownerNum == ent->s.number ) ) {
-			G_FreeEntity( &g_entities[i] );
+		if ( !g_entities[i].inuse ) {
+			continue;
 		}
+
+		if ( g_entities[i].r.ownerNum != ent->s.number ) {
+			continue; // not my missile
+		}
+
+		int weap = g_entities[i].s.weapon;
+		
+		if ( g_entities[i].s.eType != ET_MISSILE ) {
+			continue; // not a missile
+		}
+
+		if ( filterCallback && !filterCallback( &g_entities[i] ) ) {
+			continue; // don't delete it if the filter returns qfalse
+		}
+
+		if ( origin && DistanceSquared( origin, g_entities[i].r.currentOrigin ) >= radius * radius ) {
+			continue; // don't delete it if an origin is specified and it is too far
+		}
+
+		G_FreeEntity( &g_entities[i] );
 	}
+}
+
+void G_DeletePlayerProjectiles( gentity_t *ent ) {
+	G_DeletePlayerProjectilesAtPoint( ent, NULL, 0, NULL );
 }
 
 void G_PrintBasedOnRacemode( const char* text, qboolean toRacersOnly ) {
