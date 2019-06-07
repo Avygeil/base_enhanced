@@ -1293,7 +1293,7 @@ static void mapSelectedCallback( void *context, char *mapname ) {
 	}
 }
 
-extern void CountPlayersIngame( int *total, int *ingame );
+extern void CountPlayersIngame( int *total, int *ingame, int *inrace );
 
 void Svcmd_MapRandom_f()
 {
@@ -1319,8 +1319,8 @@ void Svcmd_MapRandom_f()
 	}
 
 	if ( mapsToRandomize > 1 ) {
-		int total, ingame;
-		CountPlayersIngame( &total, &ingame );
+		int ingame;
+		CountPlayersIngame( NULL, &ingame, NULL );
 		if ( ingame < 2 ) { // how? this should have been handled in callvote code, maybe some stupid admin directly called it with nobody in game..?
 							// or it could also be caused by people joining spec before map_random passes... so inform them, i guess
 			G_Printf( "Not enough people in game to start a multi vote, a single map will be randomized\n" );

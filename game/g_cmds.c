@@ -2588,12 +2588,14 @@ void fixVoters(qboolean allowRacers){
 	}
 }
 
-void CountPlayersIngame( int *total, int *ingame ) {
+void CountPlayersIngame( int *total, int *ingame, int *inrace ) {
 	gentity_t *ent;
 	int i;
 
 	// total = all non bot, fully connected clients ; ingame = non spectators and non racemode
-	*total = *ingame = 0;
+	if ( total ) *total = 0;
+	if ( ingame ) *ingame = 0;
+	if ( inrace ) *inrace = 0;
 
 	for ( i = 0; i < level.maxclients; i++ ) { // count clients that are connected and who are not bots
 		ent = &g_entities[i];
@@ -2602,10 +2604,14 @@ void CountPlayersIngame( int *total, int *ingame ) {
 			continue;
 		}
 
-		( *total )++;
+		if ( total ) ( *total )++;
 
-		if ( ent->client->sess.sessionTeam != TEAM_SPECTATOR && !ent->client->sess.inRacemode ) {
-			( *ingame )++;
+		if ( ent->client->sess.sessionTeam != TEAM_SPECTATOR ) {
+			if ( !ent->client->sess.inRacemode ) {
+				if ( ingame ) ( *ingame )++;
+			} else {
+				if ( inrace ) ( *inrace )++;
+			}
 		}
 	}
 }
@@ -2703,22 +2709,30 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 	}
 
 	// racers can only call a very limited set of votes
-	qboolean voteAllowRacers = qfalse;
+	qboolean racersAllowVote = qfalse, racersAllowCallvote = qfalse;
 
 	if ( !Q_stricmp( arg1, "map_restart" ) ) {
-		voteAllowRacers = qtrue;
+		racersAllowVote = qtrue;
+		racersAllowCallvote = qtrue;
 	} else if ( !Q_stricmp( arg1, "nextmap" ) ) {
+		racersAllowVote = qtrue;
 	} else if ( !Q_stricmp( arg1, "map" ) ) {
-		voteAllowRacers = qtrue;
+		racersAllowVote = qtrue;
+		racersAllowCallvote = qtrue;
 	} else if ( !Q_stricmp( arg1, "map_random" ) ) {
+		racersAllowVote = qtrue;
 	} else if ( !Q_stricmp( arg1, "g_gametype" ) ) {
+		racersAllowVote = qtrue;
 	} else if ( !Q_stricmp( arg1, "kick" ) ) {
+		racersAllowVote = qtrue;
 	} else if ( !Q_stricmp( arg1, "clientkick" ) ) {
+		racersAllowVote = qtrue;
 	} else if ( !Q_stricmp( arg1, "g_doWarmup" ) ) {
 	} else if ( !Q_stricmp( arg1, "timelimit" ) ) {
 	} else if ( !Q_stricmp( arg1, "fraglimit" ) ) {
 	} else if ( !Q_stricmp( arg1, "resetflags" ) ) { //flag reset when they disappear (debug)
 	} else if ( !Q_stricmp( arg1, "q" ) ) { //general question vote :)
+		racersAllowVote = qtrue;
 	} else if ( !Q_stricmp( arg1, "pause" ) ) {
 	} else if ( !Q_stricmp( arg1, "unpause" ) ) { 
 	} else if ( !Q_stricmp( arg1, "endmatch" ) ) {
@@ -2737,18 +2751,31 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 	}
 
 	// cancel if this vote is not allowed in racemode and this is a racer
-	if ( !voteAllowRacers && ent->client->sess.inRacemode ) {
+	if ( !racersAllowCallvote && ent->client->sess.inRacemode ) {
 		trap_SendServerCommand( ent - g_entities, "print \"Cannot call this vote while in racemode.\n\"" );
 		trap_SendServerCommand( ent - g_entities, "print \"Allowed commands are: map_restart, map <mapname>.\n\"" );
 
 		return;
 	}
 
-	// racers can't callvote unless ZERO in game clients are present
-	int clientsTotal, clientsInGame;
-	CountPlayersIngame( &clientsTotal, &clientsInGame );
-	if ( clientsInGame > 0 && ent->client->sess.inRacemode ) {
-		trap_SendServerCommand( ent - g_entities, "print \"Cannot call a vote in racemode while other players are in game.\n\"" );
+	int clientsTotal, clientsInGame, clientsInRace;
+	CountPlayersIngame( &clientsTotal, &clientsInGame, &clientsInRace );
+
+	// racer majority is limited to 3 ig players at most
+	qboolean racersHaveMajorityOrEqual = qfalse;
+	if ( clientsInGame < 4 && clientsInRace >= clientsInGame ) {
+		racersHaveMajorityOrEqual = qtrue;
+	}
+
+	if ( !racersHaveMajorityOrEqual ) {
+		racersAllowVote = qfalse;
+		racersAllowCallvote = qfalse;
+	}
+
+	// let them know if they can't callvote due to not having majority
+	if ( !racersAllowCallvote && ent->client->sess.inRacemode ) {
+		trap_SendServerCommand( ent - g_entities, "print \"Cannot call this vote due to too many in game players.\n\"" );
+
 		return;
 	}
 
@@ -3151,7 +3178,7 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 	level.multiVoteChoices = 0;
 	memset( &( level.multiVotes ), 0, sizeof( level.multiVotes ) );
 
-	fixVoters( voteAllowRacers );
+	fixVoters( racersAllowVote );
 
 	ent->client->mGameFlags |= PSG_VOTED;
 
