@@ -5370,12 +5370,25 @@ qboolean G_RadiusDamage ( vec3_t origin, gentity_t *attacker, float damage, floa
 			continue;
 
 		// racemode radius dmg
+
+		if ( !attacker || !attacker->client ) {
+			// world explosion, don't dmg racers or race projectiles by default
+			if ( ent->client && ent->client->sess.inRacemode ) continue;
+			else if ( ent->r.ownerNum >= 0 && ent->r.ownerNum < MAX_CLIENTS && level.clients[ent->r.ownerNum].sess.inRacemode ) continue;
+		}
+
+		if ( missile ) {
+			// missiles fired from racemode can only dmg the racer that fired them
+			if ( missile->parent && missile->parent->client && missile->parent->client->sess.inRacemode && missile->parent != ent ) continue;
+			if ( missile->r.ownerNum >= 0 && missile->r.ownerNum < MAX_CLIENTS && level.clients[missile->r.ownerNum].sess.inRacemode && &g_entities[missile->r.ownerNum] != ent ) continue;
+		}
+
 		if ( ent->client ) {
 			if ( ent->client->sess.inRacemode ) {
 				// client hit is in racemode, only allow if attacker is self
 				if ( attacker != ent ) continue;
 			} else {
-				// client hit is not in racemode, only if attacker is not a racer
+				// client hit is not in racemode, only allow if attacker is not a racer
 				if ( attacker->client && attacker->client->sess.inRacemode ) continue;
 			}
 		}
