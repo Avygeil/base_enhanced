@@ -1415,7 +1415,7 @@ static qboolean IsClientHiddenToOtherClient( gentity_t *self, gentity_t *other )
 	{
 #endif
 	// racemode visibility
-	if ( other->client->ps.stats[STAT_RACEMODE] != other->client->ps.stats[STAT_RACEMODE] ) {
+	if ( other->client->ps.stats[STAT_RACEMODE] != self->client->ps.stats[STAT_RACEMODE] ) {
 		return qtrue;
 	}
 #ifdef _DEBUG
