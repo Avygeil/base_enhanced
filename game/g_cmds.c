@@ -929,6 +929,7 @@ void SetTeam( gentity_t *ent, char *s ) {
 	{
 		gentity_t *tent = G_TempEntity( client->ps.origin, EV_PLAYER_TELEPORT_OUT );
 		tent->s.clientNum = clientNum;
+		G_ApplyRaceBroadcastsToEvent( ent, tent );
 	}
 
 	// get and distribute relevent paramters

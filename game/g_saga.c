@@ -836,6 +836,7 @@ void SiegeRespawn(gentity_t *ent)
 		// add a teleportation effect
 		tent = G_TempEntity( ent->client->ps.origin, EV_PLAYER_TELEPORT_IN );
 		tent->s.clientNum = ent->s.clientNum;
+		G_ApplyRaceBroadcastsToEvent( ent, tent );
 	}
 }
 

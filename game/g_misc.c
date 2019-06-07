@@ -243,9 +243,11 @@ void TeleportPlayer( gentity_t *player, vec3_t origin, vec3_t angles ) {
 	if ( player->client->sess.sessionTeam != TEAM_SPECTATOR ) {
 		tent = G_TempEntity( player->client->ps.origin, EV_PLAYER_TELEPORT_OUT );
 		tent->s.clientNum = player->s.clientNum;
+		G_ApplyRaceBroadcastsToEvent( player, tent );
 
 		tent = G_TempEntity( origin, EV_PLAYER_TELEPORT_IN );
 		tent->s.clientNum = player->s.clientNum;
+		G_ApplyRaceBroadcastsToEvent( player, tent );
 	}
 
 	// unlink to make sure it can't possibly interfere with G_KillBox

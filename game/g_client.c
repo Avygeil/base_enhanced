@@ -1200,6 +1200,7 @@ void respawn( gentity_t *ent ) {
 		// add a teleportation effect
 		tent = G_TempEntity( ent->client->ps.origin, EV_PLAYER_TELEPORT_IN );
 		tent->s.clientNum = ent->s.clientNum;
+		G_ApplyRaceBroadcastsToEvent( ent, tent );
 	}
 }
 
@@ -3028,6 +3029,7 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 		// send event
 		tent = G_TempEntity( ent->client->ps.origin, EV_PLAYER_TELEPORT_IN );
 		tent->s.clientNum = ent->s.clientNum;
+		G_ApplyRaceBroadcastsToEvent( ent, tent );
 
 		if ( /*g_gametype.integer != GT_DUEL ||*/ g_gametype.integer == GT_POWERDUEL ) {
 			trap_SendServerCommand( -1, va("print \"%s%s" S_COLOR_WHITE " %s\n\"", NM_SerializeUIntToColor(client - level.clients), client->pers.netname, G_GetStringEdString("MP_SVGAME", "PLENTER")) );
@@ -4438,6 +4440,7 @@ void ClientDisconnect( int clientNum ) {
 		&& ent->client->sess.sessionTeam != TEAM_SPECTATOR ) {
 		tent = G_TempEntity( ent->client->ps.origin, EV_PLAYER_TELEPORT_OUT );
 		tent->s.clientNum = ent->s.clientNum;
+		G_ApplyRaceBroadcastsToEvent( ent, tent );
 
 		// They don't get to take powerups with them!
 		// Especially important for stuff like CTF flags
