@@ -1415,24 +1415,8 @@ static qboolean IsClientHiddenToOtherClient( gentity_t *self, gentity_t *other )
 	{
 #endif
 	// racemode visibility
-	if ( other->client->sess.sessionTeam == TEAM_SPECTATOR ) {
-		qboolean isFollowingPlayerInRace = other->client->sess.spectatorState == SPECTATOR_FOLLOW &&
-			other->client->sess.spectatorClient >= 0 &&
-			level.clients[other->client->sess.spectatorClient].sess.inRacemode;
-
-		// special case for spectators: hide all clients that are not in the same race state as the followed player
-		if ( isFollowingPlayerInRace && !self->client->sess.inRacemode ) {
-			return qtrue;
-		} else if ( !isFollowingPlayerInRace && self->client->sess.inRacemode ) {
-			return qtrue;
-		}
-
-		return qfalse;
-	} else {
-		// always hide non spectator clients to each other if they are not in the same racemode state
-		if ( self->client->sess.inRacemode != other->client->sess.inRacemode ) {
-			return qtrue;
-		}
+	if ( other->client->ps.stats[STAT_RACEMODE] != other->client->ps.stats[STAT_RACEMODE] ) {
+		return qtrue;
 	}
 #ifdef _DEBUG
 	}
