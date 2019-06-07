@@ -1597,7 +1597,14 @@ void WP_flechette_alt_blow( gentity_t *ent )
 static void WP_CreateFlechetteBouncyThing( vec3_t start, vec3_t fwd, gentity_t *self )
 //------------------------------------------------------------------------------
 {
-	gentity_t	*missile = CreateMissile( start, fwd, 700 + random() * 700, 1500 + random() * 2000, self, qtrue );
+	gentity_t	*missile;
+
+	// no rng while in racemode
+	if ( !self->client || !self->client->sess.inRacemode ) {
+		missile = CreateMissile( start, fwd, 700 + random() * 700, 1500 + random() * 2000, self, qtrue );
+	} else {
+		missile = CreateMissile( start, fwd, 700 + 0.5f * 700, 1500 + 0.5f * 2000, self, qtrue );
+	}
 	
 	missile->think = WP_flechette_alt_blow;
 
@@ -1653,8 +1660,14 @@ static void WP_FlechetteAltFire( gentity_t *self )
 	{
 		VectorCopy( angs, dir );
 
-		dir[PITCH] -= random() * 4 + 8; // make it fly upwards
-		dir[YAW] += crandom() * 2;
+		// no rng while in racemode
+		if ( !self->client || !self->client->sess.inRacemode ) {
+			dir[PITCH] -= random() * 4 + 8; // make it fly upwards
+			dir[YAW] += crandom() * 2;
+		} else {
+			dir[PITCH] -= 0.5 * 4 + 8; // make it fly upwards
+			dir[YAW] += 0 * 2;
+		}
 		AngleVectors( dir, fwd, NULL, NULL );
 
 		WP_CreateFlechetteBouncyThing( start, fwd, self );
