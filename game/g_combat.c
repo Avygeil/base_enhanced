@@ -2316,6 +2316,7 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 		ent->s.otherEntityNum2 = killer;
 		ent->r.svFlags = SVF_BROADCAST;	// send to everyone
 		ent->s.isJediMaster = wasJediMaster;
+		G_ApplyRaceBroadcastsToEvent( self, ent );
 	}
 
 	self->enemy = attacker;
