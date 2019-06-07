@@ -1977,26 +1977,16 @@ void Touch_RaceTrigger( gentity_t *trigger, gentity_t *player, trace_t *trace ) 
 					soundIndex = G_SoundIndex( "sound/chars/rosh/misc/taunt1" );
 				}
 
-				int i;
-				for ( i = 0; i < level.maxclients; i++ ) {
-					gentity_t *ent = &g_entities[i];
-
-					if ( !ent || !ent->inuse || !ent->client ) {
-						continue;
-					}
-
-					// use STAT_RACEMODE so racespectators also hear the sound
-					if ( !ent->client->ps.stats[STAT_RACEMODE] ) {
-						continue;
-					}
-
-					G_Sound( ent, CHAN_AUTO, soundIndex );
-				}
+				gentity_t *te = G_Sound( player, CHAN_AUTO, soundIndex );
+				te->r.svFlags |= SVF_BROADCAST; // broadcast so that all racers and racespectators can hear it
 			} else {
 				// not a record, but still print their time
 				G_PrintBasedOnRacemode( va( S_COLOR_WHITE"Run completed by %s     "S_COLOR_CYAN"type:"S_COLOR_YELLOW"%s     "S_COLOR_CYAN"topspeed:"S_COLOR_YELLOW"%d     "S_COLOR_CYAN"avg:"S_COLOR_YELLOW"%d     "S_COLOR_CYAN"time:"S_COLOR_YELLOW"%d.%03d",
 					client->pers.netname, GetShortNameForRecordType( captureRecordType ), thisRunMaxSpeed, thisRunAvgSpeed, secs, millis
 				), qtrue );
+
+				G_Sound( player, CHAN_AUTO, G_SoundIndex( "sound/weapons/force/heal.wav" ) );
+				// don't broadcast this sound, play it for other nearby clients and specs only
 			}
 
 		} else {

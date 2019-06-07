@@ -1392,7 +1392,7 @@ void G_MuteSound( int entnum, int channel )
 G_Sound
 =============
 */
-void G_Sound( gentity_t *ent, int channel, int soundIndex ) {
+gentity_t* G_Sound( gentity_t *ent, int channel, int soundIndex ) {
 	gentity_t	*te;
 
 	assert(soundIndex);
@@ -1424,6 +1424,8 @@ void G_Sound( gentity_t *ent, int channel, int soundIndex ) {
 	}
 
 	G_ApplyRaceBroadcastsToEvent( ent, te );
+
+	return te;
 }
 
 /*
