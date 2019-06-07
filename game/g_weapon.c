@@ -1542,51 +1542,6 @@ static void WP_FlechetteMainFire( gentity_t *ent )
 	}
 }
 
-//---------------------------------------------------------
-void prox_mine_think( gentity_t *ent )
-//---------------------------------------------------------
-{
-	int			count, i;
-	qboolean	blow = qfalse;
-
-	// if it isn't time to auto-explode, do a small proximity check
-	if ( ent->delay > level.time )
-	{
-		count = G_RadiusList( ent->r.currentOrigin, FLECHETTE_MINE_RADIUS_CHECK, ent, qtrue, ent_list );
-
-		for ( i = 0; i < count; i++ )
-		{
-			// racers don't trigger proximity mines
-			if ( ent_list[i]->client && ent_list[i]->client->sess.inRacemode )
-			{
-				continue;
-			}
-
-			if ( ent_list[i]->client && ent_list[i]->health > 0 && ent->activator && ent_list[i]->s.number != ent->activator->s.number )
-			{
-				blow = qtrue;
-				break;
-			}
-		}
-	}
-	else
-	{
-		// well, we must die now
-		blow = qtrue;
-	}
-
-	if ( blow )
-	{
-		ent->think = laserTrapExplode;
-		ent->nextthink = level.time + 200;
-	}
-	else
-	{
-		// we probably don't need to do this thinking logic very often...maybe this is fast enough?
-		ent->nextthink = level.time + 500;
-	}
-}
-
 //-----------------------------------------------------------------------------
 static void WP_TraceSetStart( gentity_t *ent, vec3_t start, vec3_t mins, vec3_t maxs )
 //-----------------------------------------------------------------------------
@@ -2409,7 +2364,7 @@ void proxMineThink(gentity_t *ent)
 
 		if (cl->inuse && cl->client && cl->client->pers.connected == CON_CONNECTED &&
 			owner != cl && cl->client->sess.sessionTeam != TEAM_SPECTATOR &&
-			cl->client->tempSpectate < level.time && cl->health > 0)
+			cl->client->tempSpectate < level.time && cl->health > 0 && !cl->client->sess.inRacemode)
 		{
 			if (!OnSameTeam(owner, cl) || g_friendlyFire.integer)
 			{ //not on the same team, or friendly fire is enabled
