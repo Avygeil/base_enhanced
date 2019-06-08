@@ -5743,6 +5743,12 @@ static GAME_INLINE qboolean CheckThrownSaberDamaged(gentity_t *saberent, gentity
 		return qfalse;
 	}
 
+	// raceprojectiles are never hit by thrown sabers
+	if ( ent->r.ownerNum >= 0 && ent->r.ownerNum < MAX_CLIENTS && level.clients[ent->r.ownerNum].sess.inRacemode )
+	{
+		return qfalse;
+	}
+
 	if (ent && ent->client && ent->inuse && ent->s.number != saberOwner->s.number &&
 		ent->health > 0 && ent->takedamage &&
 		trap_InPVS(ent->client->ps.origin, saberent->r.currentOrigin) &&
