@@ -5713,6 +5713,18 @@ static GAME_INLINE qboolean CheckThrownSaberDamaged(gentity_t *saberent, gentity
 		return qfalse;
 	}
 
+	// racers don't hit anyone with thrown sabers (if they ever get into a thrown state somehow)
+	if ( saberOwner && saberOwner->client && saberOwner->client->sess.inRacemode )
+	{
+		return qfalse;
+	}
+
+	// racers are never hit by thrown sabers
+	if ( ent && ent->client && ent->client->sess.inRacemode )
+	{
+		return qfalse;
+	}
+
 	if (ent && ent->client && ent->inuse && ent->s.number != saberOwner->s.number &&
 		ent->health > 0 && ent->takedamage &&
 		trap_InPVS(ent->client->ps.origin, saberent->r.currentOrigin) &&
