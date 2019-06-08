@@ -539,6 +539,11 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 		return;
 	}
 
+	// don't shoot down racer owned entities by direct impact
+	if ( other->r.ownerNum >= 0 && other->r.ownerNum < MAX_CLIENTS && level.clients[other->r.ownerNum].sess.inRacemode ) {
+		return;
+	}
+
 	if (other->takedamage && other->client &&
 		ent->s.weapon != WP_ROCKET_LAUNCHER &&
 		ent->s.weapon != WP_THERMAL &&
@@ -612,6 +617,7 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 		gentity_t *otherOwner = &g_entities[other->r.ownerNum];
 
 		if (otherOwner->takedamage && otherOwner->client &&
+			!otherOwner->client->sess.inRacemode && // no block if in racemode
 			ent->s.weapon != WP_ROCKET_LAUNCHER &&
 			ent->s.weapon != WP_THERMAL &&
 			ent->s.weapon != WP_TRIP_MINE &&

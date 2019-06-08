@@ -9040,6 +9040,12 @@ int WP_SaberCanBlock(gentity_t *self, vec3_t point, int dflags, int mod, qboolea
 		return 0;
 	}
 
+	// racers can't block
+	if ( self->client->sess.inRacemode )
+	{
+		return 0;
+	}
+
     if ( self->health < 1)
     {
         return 0;
