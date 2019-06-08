@@ -540,7 +540,7 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 	}
 
 	// don't shoot down racer owned entities by direct impact
-	if ( other->r.ownerNum >= 0 && other->r.ownerNum < MAX_CLIENTS && level.clients[other->r.ownerNum].sess.inRacemode ) {
+	if ( other->s.eType == ET_MISSILE && other->r.ownerNum >= 0 && other->r.ownerNum < MAX_CLIENTS && level.clients[other->r.ownerNum].sess.inRacemode ) {
 		return;
 	}
 
