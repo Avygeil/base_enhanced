@@ -740,8 +740,6 @@ void SpectatorThink( gentity_t *ent, usercmd_t *ucmd ) {
 	int clientNum = ent - g_entities;
 	if ( client->ps.stats[STAT_RACEMODE] ) {
 		level.racemodeSpectatorMask |= ( 1 << ( clientNum % 32 ) );
-	} else {
-		level.racemodeSpectatorMask &= ~( 1 << ( clientNum % 32 ) );
 	}
 }
 
@@ -2420,6 +2418,9 @@ void ClientThink_real( gentity_t *ent ) {
 			return;
 		}
 	}
+
+	int clientNum = ent - g_entities;
+	level.racemodeSpectatorMask &= ~( 1 << ( clientNum % 32 ) );
 
 	// spectators don't do much
 	if ( client->sess.sessionTeam == TEAM_SPECTATOR || client->tempSpectate > level.time ) {
