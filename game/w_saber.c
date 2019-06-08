@@ -120,6 +120,11 @@ qboolean G_CanBeEnemy(gentity_t *self, gentity_t *enemy)
 		return qfalse;
 	}
 
+	if ( self->client->sess.inRacemode != self->client->sess.inRacemode )
+	{ //not in same race state
+		return qfalse;
+	}
+
 	return qtrue;
 }
 
@@ -4405,6 +4410,13 @@ static GAME_INLINE qboolean CheckSaberDamage(gentity_t *self, int rSaberNum, int
 			return qfalse;
 		}
 
+		// racers don't trigger any block
+		if ( g_entities[tr.entityNum].client &&
+			g_entities[tr.entityNum].client->sess.inRacemode )
+		{
+			return qfalse;
+		}
+
 		if (g_entities[tr.entityNum].client &&
 			g_entities[tr.entityNum].client->ps.duelInProgress &&
 			g_entities[tr.entityNum].client->ps.duelIndex != self->s.number)
@@ -4627,6 +4639,12 @@ static GAME_INLINE qboolean CheckSaberDamage(gentity_t *self, int rSaberNum, int
 			self->client->playerTeam == otherOwner->client->playerTeam &&
 			g_gametype.integer != GT_SIEGE)
 		{ //don't hit your teammate's sabers if you are an NPC. It can be rather annoying.
+			return qfalse;
+		}
+
+		// racers don't trigger any block
+		if ( otherOwner && otherOwner->client && otherOwner->client->sess.inRacemode )
+		{
 			return qfalse;
 		}
 
