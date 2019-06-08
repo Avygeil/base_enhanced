@@ -5310,6 +5310,12 @@ void WP_SaberStartMissileBlockCheck( gentity_t *self, usercmd_t *ucmd  )
 	gentity_t	*lookT = NULL;
 	qboolean	doFullRoutine = qtrue;
 
+	if ( self->client->sess.inRacemode )
+	{ // no block and no looktarget in racemode
+		self->client->ps.hasLookTarget = qfalse;
+		return;
+	}
+
 	//keep this updated even if we don't get below
 	if ( !(self->client->ps.eFlags2&EF2_HELD_BY_MONSTER) )
 	{//lookTarget is set by and to the monster that's holding you, no other operations can change that
@@ -5405,7 +5411,7 @@ void WP_SaberStartMissileBlockCheck( gentity_t *self, usercmd_t *ucmd  )
 			continue;
 
 		if ( ent->client && ent->client->sess.inRacemode )
-			continue; // no saber dmg on racers
+			continue; // no saber interaction or looktarget with racers
 
 		//as long as we're here I'm going to get a looktarget too, I guess. -rww
 		if (self->s.eType == ET_PLAYER &&
@@ -5450,6 +5456,8 @@ void WP_SaberStartMissileBlockCheck( gentity_t *self, usercmd_t *ucmd  )
 			continue;
 		if ( !(ent->inuse) )
 			continue;
+		if ( ent->r.ownerNum > 0 && ent->r.ownerNum < MAX_CLIENTS && level.clients[ent->r.ownerNum].sess.inRacemode )
+			continue; // don't consider entities owned by racers (no need to consider the other way around since this function doesn't run for racers)
 		if ( ent->s.eType != ET_MISSILE && !(ent->s.eFlags&EF_MISSILE_STICK) )
 		{//not a normal projectile
 			gentity_t *pOwner;
