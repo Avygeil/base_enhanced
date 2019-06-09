@@ -540,6 +540,15 @@ static void WP_DisruptorMainFire( gentity_t *ent )
 			continue;
 		}
 
+		// can't shoot projectiles of people in racemode
+		if ( traceEnt->s.eType == ET_MISSILE && traceEnt->r.ownerNum >= 0 && traceEnt->r.ownerNum < MAX_CLIENTS && level.clients[traceEnt->r.ownerNum].sess.inRacemode )
+		{
+			ignore = tr.entityNum;
+			VectorCopy( tr.endpos, start );
+			traces++;
+			continue;
+		}
+
 		if (traceEnt && traceEnt->client && traceEnt->client->ps.duelInProgress &&
 			traceEnt->client->ps.duelIndex != ent->s.number)
 		{
@@ -755,6 +764,14 @@ void WP_DisruptorAltFire( gentity_t *ent )
 		{
 			skip = tr.entityNum;
 			VectorCopy(tr.endpos, start);
+			continue;
+		}
+
+		// can't shoot projectiles of people in racemode
+		if ( traceEnt->s.eType == ET_MISSILE && traceEnt->r.ownerNum >= 0 && traceEnt->r.ownerNum < MAX_CLIENTS && level.clients[traceEnt->r.ownerNum].sess.inRacemode )
+		{
+			skip = tr.entityNum;
+			VectorCopy( tr.endpos, start );
 			continue;
 		}
 
