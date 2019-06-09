@@ -574,6 +574,8 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 		te->s.weapon = 0;//saberNum
 		te->s.legsAnim = 0;//bladeNum
 
+		G_ApplyRaceBroadcastsToEvent( ent, te );
+
 		/*if (other->client->ps.velocity[2] > 0 ||
 			other->client->pers.cmd.forwardmove ||
 			other->client->pers.cmd.rightmove)
@@ -649,6 +651,8 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 			te->s.eventParm = 0;
 			te->s.weapon = 0;//saberNum
 			te->s.legsAnim = 0;//bladeNum
+
+			G_ApplyRaceBroadcastsToEvent( ent, te );
 
 			if (otherOwner->client->ps.velocity[2] > 0 ||
 				otherOwner->client->pers.cmd.forwardmove < 0) //now we only do it if jumping or running backward. Should be able to full-on charge.

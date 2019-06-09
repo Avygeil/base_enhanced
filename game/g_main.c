@@ -4419,7 +4419,7 @@ void CheckSpecInfo(void) {
 #endif
 
 void G_ApplyRaceBroadcastsToEvent( gentity_t *parent, gentity_t *ev ) {
-	if ( ev->s.eType <= ET_EVENTS ) {
+	if ( !ev || ev->s.eType <= ET_EVENTS ) {
 		return;
 	}
 

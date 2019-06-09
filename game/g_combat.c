@@ -286,6 +286,8 @@ void ScorePlum( gentity_t *ent, vec3_t origin, int score ) {
 	//
 	plum->s.otherEntityNum = ent->s.number;
 	plum->s.time = score;
+
+	G_ApplyRaceBroadcastsToEvent( ent, plum );
 }
 
 /*
@@ -5100,6 +5102,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 			evEnt->s.otherEntityNum = targ->s.number;
 			evEnt->s.eventParm = DirToByte(dir);
 			evEnt->s.time2=shieldAbsorbed;
+			G_ApplyRaceBroadcastsToEvent( targ, evEnt );
 		}
 	}
 
@@ -5458,6 +5461,8 @@ qboolean G_RadiusDamage ( vec3_t origin, gentity_t *attacker, float damage, floa
 
 				evEnt->s.otherEntityNum = ent->s.number; //the entity the mark should be placed on
 				evEnt->s.weapon = WP_ROCKET_LAUNCHER; //always say it's rocket so we make the right mark
+
+				G_ApplyRaceBroadcastsToEvent( ent, evEnt );
 
 				//Try to place the decal by going from the missile location to the location of the person that was hit
 				VectorCopy(missile->r.currentOrigin, evEnt->s.origin);

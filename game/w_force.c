@@ -1512,6 +1512,7 @@ void ForceTeamHeal( gentity_t *self )
 			{
 				te = G_TempEntity( self->client->ps.origin, EV_TEAM_POWER);
 				te->s.eventParm = 1; //eventParm 1 is heal, eventParm 2 is force regen
+				G_ApplyRaceBroadcastsToEvent( self, te );
 
 				//since we had an extra check above, do the drain now because we got at least one guy
 				BG_ForcePowerDrain( &self->client->ps, FP_TEAM_HEAL, forcePowerNeeded[self->client->ps.fd.forcePowerLevel[FP_TEAM_HEAL]][FP_TEAM_HEAL] );
@@ -1624,6 +1625,7 @@ void ForceTeamForceReplenish( gentity_t *self )
 		{
 			te = G_TempEntity( self->client->ps.origin, EV_TEAM_POWER);
 			te->s.eventParm = 2; //eventParm 1 is heal, eventParm 2 is force regen
+			G_ApplyRaceBroadcastsToEvent( self, te );
 		}
 
 		WP_AddToClientBitflags(te, pl[i]);
@@ -2257,6 +2259,7 @@ void ForceDrainDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, vec3_t 
 					tent = G_TempEntity( impactPoint, EV_FORCE_DRAINED);
 					tent->s.eventParm = DirToByte(dir);
 					tent->s.owner = traceEnt->s.number;
+					G_ApplyRaceBroadcastsToEvent( traceEnt, tent );
 
 					traceEnt->client->forcePowerSoundDebounce = level.time + 400;
 				}

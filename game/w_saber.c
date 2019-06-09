@@ -3588,10 +3588,13 @@ void WP_SaberDoHit( gentity_t *self, int saberNum, int bladeNum )
 					{ //I suppose I could tie this into the saberblock event, but I'm tired of adding flags to that thing.
 						gentity_t *teS = G_TempEntity( te->s.origin, EV_SABER_CLASHFLARE );
 						VectorCopy(te->s.origin, teS->s.origin);
+						G_ApplyRaceBroadcastsToEvent( self, teS );
 					}
 					te->s.eventParm = 0;
 				}
 			}
+
+			G_ApplyRaceBroadcastsToEvent( self, te );
 		}
 	}
 }
@@ -3716,6 +3719,7 @@ void WP_SaberDoClash( gentity_t *self, int saberNum, int bladeNum )
 		te->s.otherEntityNum2 = self->s.number;
 		te->s.weapon = saberNum;
 		te->s.legsAnim = bladeNum;
+		G_ApplyRaceBroadcastsToEvent( self, te );
 	}
 }
 
@@ -4377,6 +4381,7 @@ static GAME_INLINE qboolean CheckSaberDamage(gentity_t *self, int rSaberNum, int
 			te->s.otherEntityNum2 = self->s.number;//send this so it knows who we are
 			te->s.weapon = rSaberNum;
 			te->s.legsAnim = rBladeNum;
+			G_ApplyRaceBroadcastsToEvent( self, te );
 			VectorCopy(tr.endpos, te->s.origin);
 			VectorCopy(tr.plane.normal, te->s.angles);
 			if (!te->s.angles[0] && !te->s.angles[1] && !te->s.angles[2])
@@ -5790,6 +5795,7 @@ static GAME_INLINE qboolean CheckThrownSaberDamaged(gentity_t *saberent, gentity
 					WP_SaberBlockNonRandom(ent, tr.endpos, qfalse);
 
 					te = G_TempEntity( tr.endpos, EV_SABER_BLOCK );
+					G_ApplyRaceBroadcastsToEvent( saberOwner, te );
 					VectorCopy(tr.endpos, te->s.origin);
 					VectorCopy(tr.plane.normal, te->s.angles);
 					if (!te->s.angles[0] && !te->s.angles[1] && !te->s.angles[2])
@@ -5850,6 +5856,7 @@ static GAME_INLINE qboolean CheckThrownSaberDamaged(gentity_t *saberent, gentity
 					te->s.otherEntityNum2 = saberOwner->s.number;
 					te->s.weapon = 0;//saberNum
 					te->s.legsAnim = 0;//bladeNum
+					G_ApplyRaceBroadcastsToEvent( saberOwner, te );
 					VectorCopy(tr.endpos, te->s.origin);
 					VectorCopy(tr.plane.normal, te->s.angles);
 					if (!te->s.angles[0] && !te->s.angles[1] && !te->s.angles[2])
@@ -5933,6 +5940,7 @@ static GAME_INLINE qboolean CheckThrownSaberDamaged(gentity_t *saberent, gentity
 				te->s.otherEntityNum2 = saberOwner->s.number;//actually, do send this, though - for the overridden per-saber hit effects/sounds
 				te->s.weapon = 0;//saberNum
 				te->s.legsAnim = 0;//bladeNum
+				G_ApplyRaceBroadcastsToEvent( saberOwner, te );
 				VectorCopy(tr.endpos, te->s.origin);
 				VectorCopy(tr.plane.normal, te->s.angles);
 				if (!te->s.angles[0] && !te->s.angles[1] && !te->s.angles[2])
@@ -5952,6 +5960,7 @@ static GAME_INLINE qboolean CheckThrownSaberDamaged(gentity_t *saberent, gentity
 					{
 						//I suppose I could tie this into the saberblock event, but I'm tired of adding flags to that thing.
 						gentity_t *teS = G_TempEntity( te->s.origin, EV_SABER_CLASHFLARE );
+						G_ApplyRaceBroadcastsToEvent( saberOwner, teS );
 						VectorCopy(te->s.origin, teS->s.origin);
 
 						te->s.eventParm = 0;
@@ -8535,6 +8544,7 @@ nextStep:
 				te->s.eventParm = 1;
 				te->s.weapon = 0;//saberNum
 				te->s.legsAnim = 0;//bladeNum
+				G_ApplyRaceBroadcastsToEvent( self, te );
 
 				self->client->ps.saberIdleWound = level.time + Q_irand(400, 600);
 			}

@@ -2375,6 +2375,8 @@ void G_MiscModelExplosion( vec3_t mins, vec3_t maxs, int size, material_t chunkT
 	VectorCopy(mins, te->s.angles2);
 	te->s.time = size;
 	te->s.eventParm = chunkType;
+
+	G_ApplyRaceBroadcastsToEvent( NULL, te );
 }
 
 void G_Chunks( int owner, vec3_t origin, const vec3_t normal, const vec3_t mins, const vec3_t maxs, 
@@ -2488,6 +2490,7 @@ void funcBBrushDieGo (gentity_t *self)
 
 		te = G_TempEntity( org, EV_GENERAL_SOUND );
 		te->s.eventParm = G_SoundIndex("sound/weapons/explosions/cargoexplode.wav");
+		G_ApplyRaceBroadcastsToEvent( self, te );
 	}
 
 	//FIXME: base numChunks off size?
@@ -2880,6 +2883,8 @@ void GlassDie(gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int da
 	te->s.trickedentindex = (int)self->splashRadius;
 	te->s.pos.trTime = (int)self->genericValue3;
 
+	G_ApplyRaceBroadcastsToEvent( self, te );
+
 	G_FreeEntity(self);
 }
 
@@ -2898,6 +2903,8 @@ void GlassDie_Old(gentity_t *self, gentity_t *inflictor, gentity_t *attacker, in
 	te->s.genericenemyindex = self->s.number;
 	VectorCopy(self->r.maxs, te->s.origin);
 	VectorCopy(self->r.mins, te->s.angles);
+
+	G_ApplyRaceBroadcastsToEvent( self, te );
 
 	G_FreeEntity(self);
 }

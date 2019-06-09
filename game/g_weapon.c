@@ -574,8 +574,10 @@ static void WP_DisruptorMainFire( gentity_t *ent )
 				tent = G_TempEntity( tr.endpos, EV_DISRUPTOR_MAIN_SHOT );
 				VectorCopy( muzzle, tent->s.origin2 );
 				tent->s.eventParm = ent->s.number;
+				G_ApplyRaceBroadcastsToEvent( ent, tent );
 
 				te = G_TempEntity( tr.endpos, EV_SABER_BLOCK );
+				G_ApplyRaceBroadcastsToEvent( traceEnt, te );
 				VectorCopy(tr.endpos, te->s.origin);
 				VectorCopy(tr.plane.normal, te->s.angles);
 				if (!te->s.angles[0] && !te->s.angles[1] && !te->s.angles[2])
@@ -606,6 +608,7 @@ static void WP_DisruptorMainFire( gentity_t *ent )
 	tent = G_TempEntity( tr.endpos, EV_DISRUPTOR_MAIN_SHOT );
 	VectorCopy( muzzle, tent->s.origin2 );
 	tent->s.eventParm = ent->s.number;
+	G_ApplyRaceBroadcastsToEvent( ent, tent );
 
 	traceEnt = &g_entities[tr.entityNum];
 
@@ -621,6 +624,8 @@ static void WP_DisruptorMainFire( gentity_t *ent )
 			
 			tent = G_TempEntity( tr.endpos, EV_DISRUPTOR_HIT );
 			tent->s.eventParm = DirToByte( tr.plane.normal );
+			G_ApplyRaceBroadcastsToEvent( traceEnt, tent );
+
 			if (traceEnt->client)
 			{
 				tent->s.weapon = 1;
@@ -632,6 +637,7 @@ static void WP_DisruptorMainFire( gentity_t *ent )
 			tent = G_TempEntity( tr.endpos, EV_DISRUPTOR_SNIPER_MISS );
 			tent->s.eventParm = DirToByte( tr.plane.normal );
 			tent->s.weapon = 1;
+			G_ApplyRaceBroadcastsToEvent( ent, tent );
 		}
 	}
 	// give the shooter a reward sound if they have made two railgun hits in a row
@@ -804,8 +810,10 @@ void WP_DisruptorAltFire( gentity_t *ent )
 				VectorCopy( muzzle, tent->s.origin2 );
 				tent->s.shouldtarget = fullCharge;
 				tent->s.eventParm = ent->s.number;
+				G_ApplyRaceBroadcastsToEvent( ent, tent );
 
 				te = G_TempEntity( tr.endpos, EV_SABER_BLOCK );
+				G_ApplyRaceBroadcastsToEvent( traceEnt, te );
 				VectorCopy(tr.endpos, te->s.origin);
 				VectorCopy(tr.plane.normal, te->s.angles);
 				if (!te->s.angles[0] && !te->s.angles[1] && !te->s.angles[2])
@@ -825,6 +833,7 @@ void WP_DisruptorAltFire( gentity_t *ent )
 		VectorCopy( muzzle, tent->s.origin2 );
 		tent->s.shouldtarget = fullCharge;
 		tent->s.eventParm = ent->s.number;
+		G_ApplyRaceBroadcastsToEvent( ent, tent );
 
 		// If the beam hits a skybox, etc. it would look foolish to add impact effects
 		if ( render_impact ) 
@@ -837,6 +846,7 @@ void WP_DisruptorAltFire( gentity_t *ent )
 				tent = G_TempEntity(tr.endpos, EV_MISSILE_MISS);
 				tent->s.eventParm = DirToByte(tr.plane.normal);
 				tent->s.eFlags |= EF_ALT_FIRING;
+				G_ApplyRaceBroadcastsToEvent( ent, tent );
 	
 				if ( LogAccuracyHit( traceEnt, ent )) {
 					if (ent->client) {
@@ -857,6 +867,7 @@ void WP_DisruptorAltFire( gentity_t *ent )
 
 						tent = G_TempEntity( tr.endpos, EV_DISRUPTOR_HIT );
 						tent->s.eventParm = DirToByte( tr.plane.normal );
+						G_ApplyRaceBroadcastsToEvent( traceEnt, tent );
 					}
 				 }
 				 else
@@ -864,6 +875,7 @@ void WP_DisruptorAltFire( gentity_t *ent )
 					 // Hmmm, maybe don't make any marks on things that could break
 					tent = G_TempEntity( tr.endpos, EV_DISRUPTOR_SNIPER_MISS );
 					tent->s.eventParm = DirToByte( tr.plane.normal );
+					G_ApplyRaceBroadcastsToEvent( ent, tent );
 				 }
 				break; // and don't try any more traces
 			}
@@ -909,6 +921,7 @@ void WP_DisruptorAltFire( gentity_t *ent )
 
 				tent = G_TempEntity( tr.endpos, EV_DISRUPTOR_HIT );
 				tent->s.eventParm = DirToByte( tr.plane.normal );
+				G_ApplyRaceBroadcastsToEvent( traceEnt, tent );
 				if (traceEnt->client)
 				{
 					tent->s.weapon = 1;
@@ -2805,6 +2818,7 @@ void charge_stick (gentity_t *self, gentity_t *other, trace_t *trace)
 	tent->s.weapon = 0;
 	tent->parent = self;
 	tent->r.ownerNum = self->s.number;
+	G_ApplyRaceBroadcastsToEvent( self, tent );
 
 	//so that the owner can blow it up with projectiles
 	self->r.svFlags |= SVF_OWNERNOTSHARED;
@@ -3256,6 +3270,7 @@ static void WP_FireConcussionAlt( gentity_t *ent )
 	tent = G_TempEntity(tr.endpos, EV_CONC_ALT_IMPACT);
 	tent->s.eventParm = DirToByte(tr.plane.normal);
 	tent->s.owner = ent->s.number;
+	G_ApplyRaceBroadcastsToEvent( ent, tent );
 	VectorCopy(dir, tent->s.angles);
 	VectorCopy(muzzle, tent->s.origin2);
 	VectorCopy(forward, tent->s.angles2);
@@ -3891,6 +3906,7 @@ void G_VehMuzzleFireFX( gentity_t *ent, gentity_t *broadcaster, int muzzlesFired
 	if (!broadcaster)
 	{ //oh well. We will WASTE A TEMPENT.
 		b = G_TempEntity( ent->client->ps.origin, EV_VEH_FIRE );
+		G_ApplyRaceBroadcastsToEvent( ent, b );
 	}
 	else
 	{ //joy
