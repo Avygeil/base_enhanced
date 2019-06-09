@@ -2231,6 +2231,7 @@ static void Cmd_VoiceCommand_f(gentity_t *ent)
 	te->s.groundEntityNum = ent->s.number;
 	te->s.eventParm = G_SoundIndex((char *)bg_customSiegeSoundNames[i]);
 	te->r.svFlags |= SVF_BROADCAST;
+	G_ApplyRaceBroadcastsToEvent( ent, te );
 }
 
 //vgs command
