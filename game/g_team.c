@@ -125,6 +125,8 @@ void PrintCTFMessage(int plIndex, int teamIndex, int ctfMessage)
 			te->s.time = level.blueTeamRunFlaghold;
 		}
 	}
+
+	G_ApplyRaceBroadcastsToEvent( NULL, te );
 }
 
 /*
@@ -172,6 +174,8 @@ void AddTeamScore(vec3_t origin, int team, int score) {
 		}
 	}
 	level.teamScores[ team ] += score;
+
+	G_ApplyRaceBroadcastsToEvent( NULL, te );
 }
 
 /*
@@ -637,6 +641,8 @@ void Team_ReturnFlagSound( gentity_t *ent, int team ) {
 		te->s.eventParm = GTS_BLUE_RETURN;
 	}
 	te->r.svFlags |= SVF_BROADCAST;
+
+	G_ApplyRaceBroadcastsToEvent( NULL, te );
 }
 
 void Team_TakeFlagSound( gentity_t *ent, int team ) {
@@ -675,6 +681,8 @@ void Team_TakeFlagSound( gentity_t *ent, int team ) {
 		te->s.eventParm = GTS_BLUE_TAKEN;
 	}
 	te->r.svFlags |= SVF_BROADCAST;
+
+	G_ApplyRaceBroadcastsToEvent( NULL, te );
 }
 
 void Team_CaptureFlagSound( gentity_t *ent, int team ) {
@@ -693,6 +701,8 @@ void Team_CaptureFlagSound( gentity_t *ent, int team ) {
 		te->s.eventParm = GTS_RED_CAPTURE;
 	}
 	te->r.svFlags |= SVF_BROADCAST;
+
+	G_ApplyRaceBroadcastsToEvent( NULL, te );
 }
 
 void Team_ReturnFlag( int team ) {

@@ -2357,6 +2357,7 @@ void RespawnItem( gentity_t *ent ) {
 		}
 		te->s.eventParm = G_SoundIndex( "sound/items/respawn1" );
 		te->r.svFlags |= SVF_BROADCAST;
+		G_ApplyRaceBroadcastsToEvent( ent, te );
 	}
 
 	// play the normal respawn sound only to nearby clients
@@ -2595,6 +2596,7 @@ void Touch_Item (gentity_t *ent, gentity_t *other, trace_t *trace) {
 			te = G_TempEntity( ent->s.pos.trBase, EV_GLOBAL_ITEM_PICKUP );
 			te->s.eventParm = ent->s.modelindex;
 			te->r.svFlags |= SVF_BROADCAST;
+			G_ApplyRaceBroadcastsToEvent( ent, te );
 		} else {
 			gentity_t	*te;
 
