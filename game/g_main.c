@@ -4428,9 +4428,6 @@ void G_ApplyRaceBroadcastsToEvent( gentity_t *parent, gentity_t *ev ) {
 	{
 #endif
 
-	gclient_t *client = parent->client;
-	const int evType = ev->s.eType - ET_EVENTS;
-
 	qboolean playInRaceDimension = qfalse; // by default, play the event in normal dimension
 
 	if ( !parent || !parent->inuse )

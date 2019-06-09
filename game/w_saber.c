@@ -120,7 +120,7 @@ qboolean G_CanBeEnemy(gentity_t *self, gentity_t *enemy)
 		return qfalse;
 	}
 
-	if ( self->client->sess.inRacemode != self->client->sess.inRacemode )
+	if ( self->client->sess.inRacemode != enemy->client->sess.inRacemode )
 	{ //not in same race state
 		return qfalse;
 	}

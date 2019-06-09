@@ -2444,8 +2444,6 @@ void G_DeletePlayerProjectilesAtPoint( gentity_t *ent, vec3_t origin, float radi
 		if ( g_entities[i].r.ownerNum != ent->s.number ) {
 			continue; // not my missile
 		}
-
-		int weap = g_entities[i].s.weapon;
 		
 		if ( g_entities[i].s.eType != ET_MISSILE ) {
 			continue; // not a missile

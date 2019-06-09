@@ -1238,8 +1238,6 @@ static void WP_DEMP2_MainFire( gentity_t *ent )
 	missile->bounceCount = 0;
 }
 
-static gentity_t *ent_list[MAX_GENTITIES];
-
 void DEMP2_AltRadiusDamage( gentity_t *ent )
 {
 	float		frac = ( level.time - ent->genericValue5 ) / 800.0f; 
