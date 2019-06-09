@@ -1009,6 +1009,7 @@ void StopFollowing( gentity_t *ent ) {
 Cmd_Team_f
 =================
 */
+void Cmd_Race_f( gentity_t *ent );
 void Cmd_Team_f( gentity_t *ent ) {
 	int			oldTeam;
 	char		s[MAX_TOKEN_CHARS];
@@ -1033,8 +1034,16 @@ void Cmd_Team_f( gentity_t *ent ) {
 		return;
 	}
 
+	trap_Argv( 1, s, sizeof( s ) );
+
 	if ( ent->client->sess.inRacemode ) {
-		trap_SendServerCommand( ent - g_entities,  "print \"Cannot switch teams while in racemode!\n\"" );
+		// simulate /race if already in racemode and writing /team s
+		if ( !Q_stricmpn( s, "s", 1 ) ) {
+			Cmd_Race_f( ent );
+		} else {
+			trap_SendServerCommand( ent - g_entities, "print \"Cannot switch teams while in racemode!\n\"" );
+		}
+
 		return;
 	}
 
@@ -1062,9 +1071,6 @@ void Cmd_Team_f( gentity_t *ent ) {
 		trap_SendServerCommand( ent-g_entities, "print \"Cannot switch teams in Power Duel\n\"" );
 		return;
 	}
-
-	trap_Argv( 1, s, sizeof( s ) );
-
 	
 	SetTeam( ent, s );
 
