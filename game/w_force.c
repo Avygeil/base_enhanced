@@ -546,29 +546,49 @@ void WP_InitForcePowers( gentity_t *ent )
 	// in racemode, force our own useful powers and unset all the others
 	if ( ent->client->sess.inRacemode ) {
 		ent->client->ps.fd.forcePowerLevel[FP_HEAL] = FORCE_LEVEL_0;
+		ent->client->ps.fd.forcePowersKnown &= ~( 1 << FP_HEAL );
 		ent->client->ps.fd.forcePowerLevel[FP_LEVITATION] = FORCE_LEVEL_3;
+		ent->client->ps.fd.forcePowersKnown |= ( 1 << FP_LEVITATION );
 		ent->client->ps.fd.forcePowerLevel[FP_SPEED] = FORCE_LEVEL_3;
+		ent->client->ps.fd.forcePowersKnown |= ( 1 << FP_SPEED );
 		ent->client->ps.fd.forcePowerLevel[FP_PUSH] = FORCE_LEVEL_0;
+		ent->client->ps.fd.forcePowersKnown &= ~( 1 << FP_PUSH );
 		ent->client->ps.fd.forcePowerLevel[FP_PULL] = FORCE_LEVEL_0;
+		ent->client->ps.fd.forcePowersKnown &= ~( 1 << FP_PULL );
 		ent->client->ps.fd.forcePowerLevel[FP_TELEPATHY] = FORCE_LEVEL_0;
+		ent->client->ps.fd.forcePowersKnown &= ~( 1 << FP_TELEPATHY );
 		ent->client->ps.fd.forcePowerLevel[FP_GRIP] = FORCE_LEVEL_0;
+		ent->client->ps.fd.forcePowersKnown &= ~( 1 << FP_GRIP );
 		ent->client->ps.fd.forcePowerLevel[FP_LIGHTNING] = FORCE_LEVEL_0;
+		ent->client->ps.fd.forcePowersKnown &= ~( 1 << FP_LIGHTNING );
 		ent->client->ps.fd.forcePowerLevel[FP_RAGE] = FORCE_LEVEL_3;
+		ent->client->ps.fd.forcePowersKnown |= ( 1 << FP_RAGE );
 		ent->client->ps.fd.forcePowerLevel[FP_PROTECT] = FORCE_LEVEL_3;
+		ent->client->ps.fd.forcePowersKnown |= ( 1 << FP_PROTECT );
 		ent->client->ps.fd.forcePowerLevel[FP_ABSORB] = FORCE_LEVEL_0;
+		ent->client->ps.fd.forcePowersKnown &= ~( 1 << FP_ABSORB );
 		ent->client->ps.fd.forcePowerLevel[FP_TEAM_HEAL] = FORCE_LEVEL_0;
+		ent->client->ps.fd.forcePowersKnown &= ~( 1 << FP_TEAM_HEAL );
 		ent->client->ps.fd.forcePowerLevel[FP_TEAM_FORCE] = FORCE_LEVEL_0;
+		ent->client->ps.fd.forcePowersKnown &= ~( 1 << FP_TEAM_FORCE );
 		ent->client->ps.fd.forcePowerLevel[FP_DRAIN] = FORCE_LEVEL_0;
+		ent->client->ps.fd.forcePowersKnown &= ~( 1 << FP_DRAIN );
 		ent->client->ps.fd.forcePowerLevel[FP_SEE] = FORCE_LEVEL_0;
+		ent->client->ps.fd.forcePowersKnown &= ~( 1 << FP_SEE );
 		ent->client->ps.fd.forcePowerLevel[FP_SABERTHROW] = FORCE_LEVEL_0;
+		ent->client->ps.fd.forcePowersKnown &= ~( 1 << FP_SABERTHROW );
 		
 		// let them choose if they have a saber or not
 		if ( ent->client->ps.fd.forcePowerLevel[FP_SABER_OFFENSE] > FORCE_LEVEL_0 ) {
 			ent->client->ps.fd.forcePowerLevel[FP_SABER_OFFENSE] = FORCE_LEVEL_3;
+			ent->client->ps.fd.forcePowersKnown |= ( 1 << FP_SABER_OFFENSE );
 			ent->client->ps.fd.forcePowerLevel[FP_SABER_DEFENSE] = FORCE_LEVEL_3;
+			ent->client->ps.fd.forcePowersKnown |= ( 1 << FP_SABER_DEFENSE );
 		} else {
 			ent->client->ps.fd.forcePowerLevel[FP_SABER_OFFENSE] = FORCE_LEVEL_0;
+			ent->client->ps.fd.forcePowersKnown &= ~( 1 << FP_SABER_OFFENSE );
 			ent->client->ps.fd.forcePowerLevel[FP_SABER_DEFENSE] = FORCE_LEVEL_0;
+			ent->client->ps.fd.forcePowersKnown &= ~( 1 << FP_SABER_DEFENSE );
 		}
 	}
 
