@@ -4778,7 +4778,8 @@ void FindGenericEnemyIndex(gentity_t *self)
 
         if ( ent && 
             ent->inuse &&
-            ent->client && 
+            ent->client &&
+			!ent->client->sess.inRacemode &&
             (ent->s.number != self->s.number) && 
             (ent->health > 0) && 
             !OnSameTeam( self, ent ) && 
