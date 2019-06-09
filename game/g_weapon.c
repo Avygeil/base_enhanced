@@ -541,7 +541,7 @@ static void WP_DisruptorMainFire( gentity_t *ent )
 		}
 
 		// can't shoot projectiles of people in racemode
-		if ( traceEnt->s.eType == ET_MISSILE && traceEnt->r.ownerNum >= 0 && traceEnt->r.ownerNum < MAX_CLIENTS && level.clients[traceEnt->r.ownerNum].sess.inRacemode )
+		if ( traceEnt && traceEnt->s.eType == ET_MISSILE && traceEnt->r.ownerNum >= 0 && traceEnt->r.ownerNum < MAX_CLIENTS && level.clients[traceEnt->r.ownerNum].sess.inRacemode )
 		{
 			ignore = tr.entityNum;
 			VectorCopy( tr.endpos, start );
@@ -768,7 +768,7 @@ void WP_DisruptorAltFire( gentity_t *ent )
 		}
 
 		// can't shoot projectiles of people in racemode
-		if ( traceEnt->s.eType == ET_MISSILE && traceEnt->r.ownerNum >= 0 && traceEnt->r.ownerNum < MAX_CLIENTS && level.clients[traceEnt->r.ownerNum].sess.inRacemode )
+		if ( traceEnt && traceEnt->s.eType == ET_MISSILE && traceEnt->r.ownerNum >= 0 && traceEnt->r.ownerNum < MAX_CLIENTS && level.clients[traceEnt->r.ownerNum].sess.inRacemode )
 		{
 			skip = tr.entityNum;
 			VectorCopy( tr.endpos, start );
