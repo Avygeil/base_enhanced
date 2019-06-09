@@ -2072,6 +2072,8 @@ void ForceShootLightning( gentity_t *self )
 				continue;
 			if ( traceEnt->client && traceEnt->client->sess.inRacemode )
 				continue; // don't use force powers on racers
+			if ( traceEnt->s.eType == ET_MISSILE && traceEnt->r.ownerNum >= 0 && traceEnt->r.ownerNum < MAX_CLIENTS && level.clients[traceEnt->r.ownerNum].sess.inRacemode )
+				continue; // don't use force powers on race projectiles
 			//this is all to see if we need to start a saber attack, if it's in flight, this doesn't matter
 			// find the distance from the edge of the bounding box
 			for ( i = 0 ; i < 3 ; i++ ) 
@@ -3425,6 +3427,8 @@ void ForceThrow( gentity_t *self, qboolean pull )
 			continue;
 		if ( ent->client && ent->client->sess.inRacemode )
 			continue; // don't use force powers on racers
+		if ( ent->s.eType == ET_MISSILE && ent->r.ownerNum >= 0 && ent->r.ownerNum < MAX_CLIENTS && level.clients[ent->r.ownerNum].sess.inRacemode )
+			continue; // don't use force powers on race projectiles
 		if (ent->client && OnSameTeam(ent, self))
 		{
 			continue;

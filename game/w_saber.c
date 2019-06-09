@@ -3643,6 +3643,11 @@ void WP_SaberRadiusDamage( gentity_t *ent, vec3_t point, float radius, int damag
 			{// no saber dmg on racers
 				continue;
 			}
+
+			if ( radiusEnt->s.eType == ET_MISSILE && radiusEnt->r.ownerNum >= 0 && radiusEnt->r.ownerNum < MAX_CLIENTS && level.clients[radiusEnt->r.ownerNum].sess.inRacemode )
+			{// no force powers on race projectiles
+				continue;
+			}
 			
 			if ( radiusEnt->client == NULL )
 			{//must be a client

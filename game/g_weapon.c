@@ -1295,6 +1295,12 @@ void DEMP2_AltRadiusDamage( gentity_t *ent )
 			continue;
 		}
 
+		// don't damage racer projectiles
+		if ( gent->s.eType == ET_MISSILE && gent->r.ownerNum >= 0 && gent->r.ownerNum < MAX_CLIENTS && level.clients[gent->r.ownerNum].sess.inRacemode )
+		{
+			continue;
+		}
+
 		// find the distance from the edge of the bounding box
 		for ( i = 0 ; i < 3 ; i++ ) 
 		{
