@@ -1397,6 +1397,7 @@ void DEMP2_AltDetonate( gentity_t *ent )
 	}
 	//Let's just save ourself some bandwidth and play both the effect and sphere spawn in 1 event
 	efEnt = G_PlayEffect( EFFECT_EXPLOSION_DEMP2ALT, ent->r.currentOrigin, ent->pos1 );
+	G_ApplyRaceBroadcastsToEvent( ent, efEnt );
 
 	if (efEnt)
 	{
@@ -2328,11 +2329,13 @@ void laserTrapExplode( gentity_t *self )
 
 	if (self->s.weapon == WP_FLECHETTE)
 	{
-		G_PlayEffect(EFFECT_EXPLOSION_FLECHETTE, self->r.currentOrigin, v);
+		gentity_t *te = G_PlayEffect(EFFECT_EXPLOSION_FLECHETTE, self->r.currentOrigin, v);
+		G_ApplyRaceBroadcastsToEvent( self, te );
 	}
 	else
 	{
-		G_PlayEffect(EFFECT_EXPLOSION_TRIPMINE, self->r.currentOrigin, v);
+		gentity_t *te = G_PlayEffect(EFFECT_EXPLOSION_TRIPMINE, self->r.currentOrigin, v);
+		G_ApplyRaceBroadcastsToEvent( self, te );
 	}
 
 	self->think = G_FreeEntity;
@@ -2757,7 +2760,8 @@ void charge_stick (gentity_t *self, gentity_t *other, trace_t *trace)
 		VectorCopy(trace->plane.normal, v);
 		VectorCopy(v, self->pos2);
 		self->count = -1;
-		G_PlayEffect(EFFECT_EXPLOSION_DETPACK, self->r.currentOrigin, v);
+		gentity_t *te = G_PlayEffect(EFFECT_EXPLOSION_DETPACK, self->r.currentOrigin, v);
+		G_ApplyRaceBroadcastsToEvent( self, te );
 
 		self->think = G_FreeEntity;
 		self->nextthink = level.time;
@@ -2828,7 +2832,8 @@ void DetPackBlow(gentity_t *self)
 		VectorCopy(self->pos2, v);
 	}
 
-	G_PlayEffect(EFFECT_EXPLOSION_DETPACK, self->r.currentOrigin, v);
+	gentity_t *te = G_PlayEffect(EFFECT_EXPLOSION_DETPACK, self->r.currentOrigin, v);
+	G_ApplyRaceBroadcastsToEvent( self, te );
 
 	self->think = G_FreeEntity;
 	self->nextthink = level.time;
@@ -3368,7 +3373,8 @@ void WP_FireStunBaton( gentity_t *ent, qboolean alt_fire )
 
 	if ( tr_ent && tr_ent->takedamage )
 	{
-		G_PlayEffect( EFFECT_STUNHIT, tr.endpos, tr.plane.normal );
+		gentity_t *te = G_PlayEffect( EFFECT_STUNHIT, tr.endpos, tr.plane.normal );
+		G_ApplyRaceBroadcastsToEvent( ent, te );
 
 		G_Sound( tr_ent, CHAN_WEAPON, G_SoundIndex( va("sound/weapons/melee/punch%d", Q_irand(1, 4)) ) );
 		G_Damage( tr_ent, ent, ent, forward, tr.endpos, STUN_BATON_DAMAGE, (DAMAGE_NO_KNOCKBACK|DAMAGE_HALF_ABSORB), MOD_STUN_BATON );
@@ -4856,7 +4862,8 @@ void emplaced_gun_update(gentity_t *self)
 		explOrg[2] += 16;
 
 		//just use the detpack explosion effect
-		G_PlayEffect(EFFECT_EXPLOSION_DETPACK, explOrg, puffAngle);
+		gentity_t *te = G_PlayEffect(EFFECT_EXPLOSION_DETPACK, explOrg, puffAngle);
+		G_ApplyRaceBroadcastsToEvent( self, te );
 
 		self->genericValue3 = level.time + Q_irand(2500, 3500);
 
@@ -4876,7 +4883,8 @@ void emplaced_gun_update(gentity_t *self)
 
 			smokeOrg[2] += 60;
 
-			G_PlayEffect(EFFECT_SMOKE, smokeOrg, puffAngle);
+			gentity_t *te = G_PlayEffect(EFFECT_SMOKE, smokeOrg, puffAngle);
+			G_ApplyRaceBroadcastsToEvent( self, te );
 			self->genericValue2 = level.time + Q_irand(250, 400);
 		}
 	}

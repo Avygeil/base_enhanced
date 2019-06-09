@@ -1726,6 +1726,8 @@ void DeathFX( gentity_t *ent )
 	vec3_t		effectPos, right;
 	vec3_t		defaultDir;
 
+	gentity_t *te;
+
 	if ( !ent || !ent->client )
 		return;
 
@@ -1737,42 +1739,49 @@ void DeathFX( gentity_t *ent )
 	case CLASS_MOUSE:
 		VectorCopy( ent->r.currentOrigin, effectPos );
 		effectPos[2] -= 20;
-		G_PlayEffectID( G_EffectIndex("env/small_explode"), effectPos, defaultDir );
+		te = G_PlayEffectID( G_EffectIndex("env/small_explode"), effectPos, defaultDir );
+		G_ApplyRaceBroadcastsToEvent( ent, te );
 		G_Sound( ent, CHAN_AUTO, G_SoundIndex("sound/chars/mouse/misc/death1") );
 		break;
 
 	case CLASS_PROBE:
 		VectorCopy( ent->r.currentOrigin, effectPos );
 		effectPos[2] += 50;
-		G_PlayEffectID( G_EffectIndex("explosions/probeexplosion1"), effectPos, defaultDir );
+		te = G_PlayEffectID( G_EffectIndex("explosions/probeexplosion1"), effectPos, defaultDir );
+		G_ApplyRaceBroadcastsToEvent( ent, te );
 		break;
 		
 	case CLASS_ATST: 
 		AngleVectors( ent->r.currentAngles, NULL, right, NULL );
 		VectorMA( ent->r.currentOrigin, 20, right, effectPos );
 		effectPos[2] += 180;
-		G_PlayEffectID( G_EffectIndex("explosions/droidexplosion1"), effectPos, defaultDir );
+		te = G_PlayEffectID( G_EffectIndex("explosions/droidexplosion1"), effectPos, defaultDir );
+		G_ApplyRaceBroadcastsToEvent( ent, te );
 		VectorMA( effectPos, -40, right, effectPos );
-		G_PlayEffectID( G_EffectIndex("explosions/droidexplosion1"), effectPos, defaultDir );
+		te = G_PlayEffectID( G_EffectIndex("explosions/droidexplosion1"), effectPos, defaultDir );
+		G_ApplyRaceBroadcastsToEvent( ent, te );
 		break;
 
 	case CLASS_SEEKER:
 	case CLASS_REMOTE:
-		G_PlayEffectID( G_EffectIndex("env/small_explode"), ent->r.currentOrigin, defaultDir );
+		te = G_PlayEffectID( G_EffectIndex("env/small_explode"), ent->r.currentOrigin, defaultDir );
+		G_ApplyRaceBroadcastsToEvent( ent, te );
 		break;
 
 	case CLASS_GONK:
 		VectorCopy( ent->r.currentOrigin, effectPos );
 		effectPos[2] -= 5;
 		G_Sound( ent, CHAN_AUTO, G_SoundIndex(va("sound/chars/gonk/misc/death%d.wav",Q_irand( 1, 3 ))) );
-		G_PlayEffectID( G_EffectIndex("env/med_explode"), effectPos, defaultDir );
+		te = G_PlayEffectID( G_EffectIndex("env/med_explode"), effectPos, defaultDir );
+		G_ApplyRaceBroadcastsToEvent( ent, te );
 		break;
 
 	// should list all remaining droids here, hope I didn't miss any
 	case CLASS_R2D2:
 		VectorCopy( ent->r.currentOrigin, effectPos );
 		effectPos[2] -= 10;
-		G_PlayEffectID( G_EffectIndex("env/med_explode"), effectPos, defaultDir );
+		te = G_PlayEffectID( G_EffectIndex("env/med_explode"), effectPos, defaultDir );
+		G_ApplyRaceBroadcastsToEvent( ent, te );
 		G_Sound( ent, CHAN_AUTO, G_SoundIndex("sound/chars/mark2/misc/mark2_explo") );
 		break;
 
@@ -1780,21 +1789,24 @@ void DeathFX( gentity_t *ent )
 	case CLASS_R5D2:
 		VectorCopy( ent->r.currentOrigin, effectPos );
 		effectPos[2] -= 10;
-		G_PlayEffectID( G_EffectIndex("env/med_explode"), effectPos, defaultDir );
+		te = G_PlayEffectID( G_EffectIndex("env/med_explode"), effectPos, defaultDir );
+		G_ApplyRaceBroadcastsToEvent( ent, te );
 		G_Sound( ent, CHAN_AUTO, G_SoundIndex("sound/chars/mark2/misc/mark2_explo") );
 		break;
 
 	case CLASS_MARK2:
 		VectorCopy( ent->r.currentOrigin, effectPos );
 		effectPos[2] -= 15;
-		G_PlayEffectID( G_EffectIndex("explosions/droidexplosion1"), effectPos, defaultDir );
+		te = G_PlayEffectID( G_EffectIndex("explosions/droidexplosion1"), effectPos, defaultDir );
+		G_ApplyRaceBroadcastsToEvent( ent, te );
 		G_Sound( ent, CHAN_AUTO, G_SoundIndex("sound/chars/mark2/misc/mark2_explo") );
 		break;
 
 	case CLASS_INTERROGATOR:
 		VectorCopy( ent->r.currentOrigin, effectPos );
 		effectPos[2] -= 15;
-		G_PlayEffectID( G_EffectIndex("explosions/droidexplosion1"), effectPos, defaultDir );
+		te = G_PlayEffectID( G_EffectIndex("explosions/droidexplosion1"), effectPos, defaultDir );
+		G_ApplyRaceBroadcastsToEvent( ent, te );
 		G_Sound( ent, CHAN_AUTO, G_SoundIndex("sound/chars/interrogator/misc/int_droid_explo") );
 		break;
 
@@ -1802,18 +1814,22 @@ void DeathFX( gentity_t *ent )
 		AngleVectors( ent->r.currentAngles, NULL, right, NULL );
 		VectorMA( ent->r.currentOrigin, 10, right, effectPos );
 		effectPos[2] -= 15;
-		G_PlayEffectID( G_EffectIndex("explosions/droidexplosion1"), effectPos, defaultDir );
+		te = G_PlayEffectID( G_EffectIndex("explosions/droidexplosion1"), effectPos, defaultDir );
+		G_ApplyRaceBroadcastsToEvent( ent, te );
 		VectorMA( effectPos, -20, right, effectPos );
-		G_PlayEffectID( G_EffectIndex("explosions/droidexplosion1"), effectPos, defaultDir );
+		te = G_PlayEffectID( G_EffectIndex("explosions/droidexplosion1"), effectPos, defaultDir );
+		G_ApplyRaceBroadcastsToEvent( ent, te );
 		VectorMA( effectPos, -20, right, effectPos );
-		G_PlayEffectID( G_EffectIndex("explosions/droidexplosion1"), effectPos, defaultDir );
+		te = G_PlayEffectID( G_EffectIndex("explosions/droidexplosion1"), effectPos, defaultDir );
+		G_ApplyRaceBroadcastsToEvent( ent, te );
 		G_Sound( ent, CHAN_AUTO, G_SoundIndex("sound/chars/mark1/misc/mark1_explo") );
 		break;
 
 	case CLASS_SENTRY:
 		G_Sound( ent, CHAN_AUTO, G_SoundIndex("sound/chars/sentry/misc/sentry_explo") );
 		VectorCopy( ent->r.currentOrigin, effectPos );
-		G_PlayEffectID( G_EffectIndex("env/med_explode"), effectPos, defaultDir );
+		te = G_PlayEffectID( G_EffectIndex("env/med_explode"), effectPos, defaultDir );
+		G_ApplyRaceBroadcastsToEvent( ent, te );
 		break;
 
 	default:
@@ -2125,7 +2141,8 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 			{
 				vec3_t	up;
 				AngleVectors( self->r.currentAngles, NULL, NULL, up );
-				G_PlayEffectID( G_EffectIndex("chunks/r2d2head_veh"), self->r.currentOrigin, up );
+				gentity_t *te = G_PlayEffectID( G_EffectIndex("chunks/r2d2head_veh"), self->r.currentOrigin, up );
+				G_ApplyRaceBroadcastsToEvent( self, te );
 			}
 			break;
 
@@ -2134,7 +2151,8 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 			{
 				vec3_t	up;
 				AngleVectors( self->r.currentAngles, NULL, NULL, up );
-				G_PlayEffectID( G_EffectIndex("chunks/r5d2head_veh"), self->r.currentOrigin, up );
+				gentity_t *te = G_PlayEffectID( G_EffectIndex("chunks/r5d2head_veh"), self->r.currentOrigin, up );
+				G_ApplyRaceBroadcastsToEvent( self, te );
 			}
 			break;
 		default:

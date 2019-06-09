@@ -2769,7 +2769,8 @@ qboolean ForceTelepathyCheckDirectNPCTarget( gentity_t *self, trace_t *tr, qbool
 		}//NOTE: no effect on TEAM_NEUTRAL?
 		AngleVectors( traceEnt->client->renderInfo.eyeAngles, eyeDir, NULL, NULL );
 		VectorNormalize( eyeDir );
-		G_PlayEffectID( G_EffectIndex( "force/force_touch" ), traceEnt->client->renderInfo.eyePoint, eyeDir );
+		gentity_t *te = G_PlayEffectID( G_EffectIndex( "force/force_touch" ), traceEnt->client->renderInfo.eyePoint, eyeDir );
+		G_ApplyRaceBroadcastsToEvent( traceEnt, te );
 
 		//make sure this plays and that you cannot press fire for about 1 second after this
 		//FIXME: BOTH_FORCEMINDTRICK or BOTH_FORCEDISTRACT
@@ -2780,7 +2781,8 @@ qboolean ForceTelepathyCheckDirectNPCTarget( gentity_t *self, trace_t *tr, qbool
 		if ( self->client->ps.fd.forcePowerLevel[FP_TELEPATHY] > FORCE_LEVEL_1 && tr->fraction * 2048 > 64 )
 		{//don't create a diversion less than 64 from you of if at power level 1
 			//use distraction anim instead
-			G_PlayEffectID( G_EffectIndex( "force/force_touch" ), tr->endpos, tr->plane.normal );
+			gentity_t *te = G_PlayEffectID( G_EffectIndex( "force/force_touch" ), tr->endpos, tr->plane.normal );
+			G_ApplyRaceBroadcastsToEvent( traceEnt, te );
 			//FIXME: these events don't seem to always be picked up...?
 			AddSoundEvent( self, tr->endpos, 512, AEL_SUSPICIOUS, qtrue );
 			AddSightEvent( self, tr->endpos, 512, AEL_SUSPICIOUS, 50 );
@@ -4843,7 +4845,8 @@ void SeekerDroneUpdate(gentity_t *self)
 		a[YAW] = 0;
 		a[PITCH] = 1;
 
-		G_PlayEffect(EFFECT_SPARK_EXPLOSION, org, a);
+		gentity_t *te = G_PlayEffect(EFFECT_SPARK_EXPLOSION, org, a);
+		G_ApplyRaceBroadcastsToEvent( self, te );
 
 		//ugly
 		self->client->ps.eFlags &= ~EF_SEEKERDRONE;
@@ -4893,7 +4896,8 @@ void SeekerDroneUpdate(gentity_t *self)
 		a[YAW] = 0;
 		a[PITCH] = 1;
 
-		G_PlayEffect(EFFECT_SPARK_EXPLOSION, org, a);
+		gentity_t *te = G_PlayEffect(EFFECT_SPARK_EXPLOSION, org, a);
+		G_ApplyRaceBroadcastsToEvent( self, te );
 
 		//ugly
 		self->client->ps.eFlags	&= ~EF_SEEKERDRONE;

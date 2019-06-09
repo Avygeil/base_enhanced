@@ -758,7 +758,8 @@ void Do_Strike(gentity_t *ent)
 		}
 	}
 
-	G_PlayEffectID(ent->genericValue2, strikeFrom, fxAng);
+	gentity_t *te = G_PlayEffectID(ent->genericValue2, strikeFrom, fxAng);
+	G_ApplyRaceBroadcastsToEvent( ent, te );
 }
 
 //lightning strike trigger think loop

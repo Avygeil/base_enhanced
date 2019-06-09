@@ -66,8 +66,10 @@ void auto_turret_die ( gentity_t *self, gentity_t *inflictor, gentity_t *attacke
 
 	VectorCopy( self->r.currentOrigin, pos );
 	pos[2] += self->r.maxs[2]*0.5f;
-	G_PlayEffect( EFFECT_EXPLOSION_TURRET, pos, forward );
-	G_PlayEffectID( G_EffectIndex( "turret/explode" ), pos, forward );
+	gentity_t *te = G_PlayEffect( EFFECT_EXPLOSION_TURRET, pos, forward );
+	G_ApplyRaceBroadcastsToEvent( self, te );
+	te = G_PlayEffectID( G_EffectIndex( "turret/explode" ), pos, forward );
+	G_ApplyRaceBroadcastsToEvent( self, te );
 	
 	if ( self->splashDamage > 0 && self->splashRadius > 0 )
 	{
@@ -137,7 +139,8 @@ static void turret_fire ( gentity_t *ent, vec3_t start, vec3_t dir )
 	}
 
 	VectorMA( start, -START_DIS, dir, org ); // dumb....
-	G_PlayEffectID( ent->genericValue13, org, dir );
+	gentity_t *te = G_PlayEffectID( ent->genericValue13, org, dir );
+	G_ApplyRaceBroadcastsToEvent( ent, te );
 
 	bolt = G_Spawn();
 	
@@ -186,7 +189,8 @@ void turret_head_think( gentity_t *self )
 	{
 		vec3_t	v_up;
 		VectorSet( v_up, 0, 0, 1 );
-		G_PlayEffect( EFFECT_SPARKS, self->r.currentOrigin, v_up );
+		gentity_t *te = G_PlayEffect( EFFECT_SPARKS, self->r.currentOrigin, v_up );
+		G_ApplyRaceBroadcastsToEvent( self, te );
 		if ( Q_irand( 0, 3) )
 		{//25% chance of still firing
 			return;

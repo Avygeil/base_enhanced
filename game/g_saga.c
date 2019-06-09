@@ -1364,8 +1364,10 @@ static void SiegeItemRespawnEffect(gentity_t *ent, vec3_t newOrg)
 	VectorSet(upAng, 0, 0, 1);
 
 	//Play it once on the current origin, and once on the origin we're respawning to.
-	G_PlayEffectID(ent->genericValue10, ent->r.currentOrigin, upAng);
-	G_PlayEffectID(ent->genericValue10, newOrg, upAng);
+	gentity_t *te = G_PlayEffectID(ent->genericValue10, ent->r.currentOrigin, upAng);
+	G_ApplyRaceBroadcastsToEvent( ent, te );
+	te = G_PlayEffectID(ent->genericValue10, newOrg, upAng);
+	G_ApplyRaceBroadcastsToEvent( ent, te );
 }
 
 static void SiegeItemRespawnOnOriginalSpot(gentity_t *ent, gentity_t *carrier)
@@ -1558,7 +1560,8 @@ void SiegeItemDie( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, i
 		vec3_t upAng;
 
 		VectorSet(upAng, 0, 0, 1);
-		G_PlayEffectID(self->genericValue3, self->r.currentOrigin, upAng);
+		gentity_t *te = G_PlayEffectID(self->genericValue3, self->r.currentOrigin, upAng);
+		G_ApplyRaceBroadcastsToEvent( self, te );
 	}
 
 	self->neverFree = qfalse;

@@ -766,7 +766,8 @@ void PM_HoverTrace( void )
 #ifdef QAGAME
 							if ( pVeh->m_pVehicleInfo->iWakeFX )
 							{
-								G_PlayEffectID( pVeh->m_pVehicleInfo->iWakeFX, trace->endpos, fxAxis[0] );
+								gentity_t *te = G_PlayEffectID( pVeh->m_pVehicleInfo->iWakeFX, trace->endpos, fxAxis[0] );
+								G_ApplyRaceBroadcastsToEvent( NULL, te );
 							}
 #endif
 						}

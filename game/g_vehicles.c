@@ -1486,7 +1486,8 @@ static void DeathUpdate( Vehicle_t *pVeh )
 				vec3_t fxAng;
 
 				VectorSet(fxAng, -90.0f, 0.0f, 0.0f);
-				G_PlayEffectID( pVeh->m_pVehicleInfo->iExplodeFX, parent->currentOrigin, fxAng );
+				gentity_t *te = G_PlayEffectID( pVeh->m_pVehicleInfo->iExplodeFX, parent->currentOrigin, fxAng );
+				G_ApplyRaceBroadcastsToEvent( NULL, te );
 #else
 				G_PlayEffect( pVeh->m_pVehicleInfo->iExplodeFX, parent->currentOrigin, vec3_origin );
 #endif
@@ -1500,7 +1501,8 @@ static void DeathUpdate( Vehicle_t *pVeh )
 					bottom[2] += 2;
 #ifdef _JK2MP
 					VectorSet(fxAng, -90.0f, 0.0f, 0.0f);
-					G_PlayEffectID( G_EffectIndex("ships/ship_explosion_mark"), trace.endpos, fxAng );
+					gentity_t *te = G_PlayEffectID( G_EffectIndex("ships/ship_explosion_mark"), trace.endpos, fxAng );
+					G_ApplyRaceBroadcastsToEvent( NULL, te );
 #else
 					G_PlayEffect( "ships/ship_explosion_mark", trace.endpos );
 #endif

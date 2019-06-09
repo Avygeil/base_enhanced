@@ -4436,7 +4436,7 @@ void G_ApplyRaceBroadcastsToEvent( gentity_t *parent, gentity_t *ev ) {
 
 	qboolean playInRaceDimension = qfalse; // by default, play the event in normal dimension
 
-	if ( !parent )
+	if ( !parent || !parent->inuse )
 	{ // a world event, hide to racers by default
 		playInRaceDimension = qfalse;
 	}
@@ -4446,6 +4446,10 @@ void G_ApplyRaceBroadcastsToEvent( gentity_t *parent, gentity_t *ev ) {
 	}
 	else if ( parent->r.ownerNum >= 0 && parent->r.ownerNum < MAX_CLIENTS && level.clients[parent->r.ownerNum].sess.inRacemode )
 	{ // originates from an entity owned by a racer
+		playInRaceDimension = qtrue;
+	}
+	else if ( parent->parent && parent->parent->client && parent->parent->client->sess.inRacemode )
+	{ // has itself a parent who is a racer
 		playInRaceDimension = qtrue;
 	}
 

@@ -2476,7 +2476,8 @@ void funcBBrushDieGo (gentity_t *self)
 	{ //a custom effect to play
 		vec3_t ang;
 		VectorSet(ang, 0.0f, 1.0f, 0.0f);
-		G_PlayEffectID(self->genericValue15, org, ang);
+		gentity_t *te = G_PlayEffectID(self->genericValue15, org, ang);
+		G_ApplyRaceBroadcastsToEvent( self, te );
 	}
 
 	if ( self->splashDamage > 0 && self->splashRadius > 0 )

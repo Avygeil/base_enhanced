@@ -243,7 +243,8 @@ void turretG2_die ( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, 
 	}
 
 	VectorMA( self->r.currentOrigin, 12, forward, pos );
-	G_PlayEffect( EFFECT_EXPLOSION_TURRET, pos, forward );
+	gentity_t *te = G_PlayEffect( EFFECT_EXPLOSION_TURRET, pos, forward );
+	G_ApplyRaceBroadcastsToEvent( self, te );
 	
 	if ( self->splashDamage > 0 && self->splashRadius > 0 )
 	{
@@ -342,7 +343,8 @@ static void turretG2_fire ( gentity_t *ent, vec3_t start, vec3_t dir )
 	if ( (ent->spawnflags&SPF_TURRETG2_TURBO) )
 	{
 		//muzzle flash
-		G_PlayEffectID( ent->genericValue13, org, ang );
+		gentity_t *te = G_PlayEffectID( ent->genericValue13, org, ang );
+		G_ApplyRaceBroadcastsToEvent( ent, te );
 		WP_FireTurboLaserMissile( ent, start, dir );
 		if ( ent->alt_fire )
 		{
@@ -355,7 +357,8 @@ static void turretG2_fire ( gentity_t *ent, vec3_t start, vec3_t dir )
 	}
 	else
 	{
-		G_PlayEffectID( G_EffectIndex("blaster/muzzle_flash"), org, ang );
+		gentity_t *te = G_PlayEffectID( G_EffectIndex("blaster/muzzle_flash"), org, ang );
+		G_ApplyRaceBroadcastsToEvent( ent, te );
 		bolt = G_Spawn();
 		
 		bolt->classname = "turret_proj";

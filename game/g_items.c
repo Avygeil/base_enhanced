@@ -989,7 +989,8 @@ void turret_die(gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int 
 	// hack the effect angle so that explode death can orient the effect properly
 	VectorSet( self->s.angles, 0, 0, 1 );
 
-	G_PlayEffect(EFFECT_EXPLOSION_PAS, self->s.pos.trBase, self->s.angles);
+	gentity_t *te = G_PlayEffect(EFFECT_EXPLOSION_PAS, self->s.pos.trBase, self->s.angles);
+	G_ApplyRaceBroadcastsToEvent( self, te );
 	G_RadiusDamage(self->s.pos.trBase, &g_entities[self->genericValue3], 30, 256, self, self, MOD_UNKNOWN);
 
 	g_entities[self->genericValue3].client->ps.fd.sentryDeployed = qfalse;
@@ -1476,7 +1477,8 @@ void EWebDie(gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int dam
 	G_RadiusDamage(self->r.currentOrigin, self, EWEB_DEATH_DMG, EWEB_DEATH_RADIUS, self, self, MOD_SUICIDE);
 
 	VectorSet(fxDir, 1.0f, 0.0f, 0.0f);
-	G_PlayEffect(EFFECT_EXPLOSION_DETPACK, self->r.currentOrigin, fxDir);
+	gentity_t *te = G_PlayEffect(EFFECT_EXPLOSION_DETPACK, self->r.currentOrigin, fxDir);
+	G_ApplyRaceBroadcastsToEvent( self, te );
 
 	if (self->r.ownerNum != ENTITYNUM_NONE)
 	{
@@ -1687,7 +1689,8 @@ void EWebFire(gentity_t *owner, gentity_t *eweb)
 
 	//play the muzzle flash
 	vectoangles(d, d);
-	G_PlayEffectID(G_EffectIndex("turret/muzzle_flash.efx"), p, d);
+	gentity_t *te = G_PlayEffectID(G_EffectIndex("turret/muzzle_flash.efx"), p, d);
+	G_ApplyRaceBroadcastsToEvent( owner, te );
 }
 
 //lock the owner into place relative to the cannon pos

@@ -386,19 +386,24 @@ gentity_t *CreateMissile( vec3_t org, vec3_t dir, float vel, int life,
 
 void G_MissileBounceEffect( gentity_t *ent, vec3_t org, vec3_t dir )
 {
+	gentity_t *te;
+
 	//FIXME: have an EV_BOUNCE_MISSILE event that checks the s.weapon and does the appropriate effect
 	switch( ent->s.weapon )
 	{
 	case WP_BOWCASTER:
-		G_PlayEffectID( G_EffectIndex("bowcaster/deflect"), ent->r.currentOrigin, dir );
+		te = G_PlayEffectID( G_EffectIndex("bowcaster/deflect"), ent->r.currentOrigin, dir );
+		G_ApplyRaceBroadcastsToEvent( ent, te );
 		break;
 	case WP_BLASTER:
 	case WP_BRYAR_PISTOL:
-		G_PlayEffectID( G_EffectIndex("blaster/deflect"), ent->r.currentOrigin, dir );
+		te = G_PlayEffectID( G_EffectIndex( "blaster/deflect" ), ent->r.currentOrigin, dir );
+		G_ApplyRaceBroadcastsToEvent( ent, te );
 		break;
 	default:
 		{
-			gentity_t *te = G_TempEntity( org, EV_SABER_BLOCK );
+			te = G_TempEntity( org, EV_SABER_BLOCK );
+			G_ApplyRaceBroadcastsToEvent( ent, te );
 			VectorCopy(org, te->s.origin);
 			VectorCopy(dir, te->s.angles);
 			te->s.eventParm = 0;
