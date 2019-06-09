@@ -3065,7 +3065,7 @@ void BG_PlayerStateToEntityState( playerState_t *ps, entityState_t *s, qboolean 
 	s->saberMove = ps->saberMove;
 	s->forcePowersActive = ps->fd.forcePowersActive;
 
-	if (ps->duelInProgress)
+	if (ps->duelInProgress || ps->stats[STAT_RACEMODE])
 	{
 		s->bolt1 = 1;
 	}
@@ -3219,7 +3219,7 @@ void BG_PlayerStateToEntityStateExtraPolate( playerState_t *ps, entityState_t *s
 	s->saberMove = ps->saberMove;
 	s->forcePowersActive = ps->fd.forcePowersActive;
 
-	if (ps->duelInProgress)
+	if (ps->duelInProgress || ps->stats[STAT_RACEMODE])
 	{
 		s->bolt1 = 1;
 	}
