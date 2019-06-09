@@ -1413,7 +1413,14 @@ static qboolean IsClientHiddenToOtherClient( gentity_t *self, gentity_t *other )
 	{
 #endif
 	// racemode visibility
+
+	// always hidden if not in the same race state
 	if ( other->client->ps.stats[STAT_RACEMODE] != self->client->ps.stats[STAT_RACEMODE] ) {
+		return qtrue;
+	}
+
+	// if both are in racemode, hide self to other if other doesn't want to see other racers
+	if ( other->client->ps.stats[STAT_RACEMODE] && self->client->ps.stats[STAT_RACEMODE] && other->client->pers.hideOtherRacers ) {
 		return qtrue;
 	}
 #ifdef _DEBUG
@@ -3506,7 +3513,18 @@ void ClientThink_real( gentity_t *ent ) {
 			ForceTeamForceReplenish(ent);
 			break;
 		case GENCMD_FORCE_SEEING:
-			ForceSeeing(ent);
+			// let racers toggle seeing other racers with force seeing
+			if ( ent->client->sess.inRacemode ) {
+				if ( ent->client->pers.hideOtherRacers ) {
+					trap_SendServerCommand( ent - g_entities, "print \""S_COLOR_GREEN"Other racers VISIBLE\n\"" );
+				} else {
+					trap_SendServerCommand( ent - g_entities, "print \""S_COLOR_RED"Other racers HIDDEN\n\"" );
+				}
+
+				ent->client->pers.hideOtherRacers = !ent->client->pers.hideOtherRacers;
+			} else {
+				ForceSeeing( ent );
+			}
 			break;
 		case GENCMD_USE_SEEKER:
 			if ( (ent->client->ps.stats[STAT_HOLDABLE_ITEMS] & (1 << HI_SEEKER)) &&
