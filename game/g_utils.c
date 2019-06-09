@@ -1453,6 +1453,8 @@ void G_EntitySound( gentity_t *ent, int channel, int soundIndex ) {
 	te->s.eventParm = soundIndex;
 	te->s.clientNum = ent->s.number;
 	te->s.trickedentindex = channel;
+
+	G_ApplyRaceBroadcastsToEvent( ent, te );
 }
 
 //To make porting from SP easier.
@@ -1465,6 +1467,7 @@ void G_SoundOnEnt( gentity_t *ent, int channel, const char *soundPath )
 	te->s.clientNum = ent->s.number;
 	te->s.trickedentindex = channel;
 
+	G_ApplyRaceBroadcastsToEvent( ent, te );
 }
 
 #ifdef _XBOX
