@@ -4135,7 +4135,8 @@ void Cmd_Vchat_f( gentity_t *sender ) {
 	qboolean teamOnly = qfalse;
 	char modName[MAX_QPATH] = { 0 }, fileName[MAX_QPATH] = { 0 }, msg[200] = { 0 };
 	// parse each argument
-	for ( char *r = s; *r; r++ ) {
+	char *r;
+	for ( r = s; *r; r++ ) {
 		// skip to the next argument
 		while ( *r && *r != VCHAT_ESCAPE_CHAR )
 			r++;
@@ -4242,7 +4243,8 @@ void Cmd_Vchat_f( gentity_t *sender ) {
 		Com_sprintf( chatSenderName, sizeof( chatSenderName ), "%s%c%c"EC": ", sender->client->pers.netname, Q_COLOR_ESCAPE, COLOR_WHITE );
 	}
 
-	for ( int i = 0; i < MAX_CLIENTS; i++ ) {
+	int i;
+	for ( i = 0; i < MAX_CLIENTS; i++ ) {
 		gclient_t *cl = &level.clients[i];
 		if ( cl->pers.connected != CON_CONNECTED )
 			continue;
