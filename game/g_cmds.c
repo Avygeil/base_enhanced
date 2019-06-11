@@ -6198,9 +6198,9 @@ void ClientCommand( int clientNum ) {
 		Cmd_TopTimes_f( ent );
 	else if ( !Q_stricmp( cmd, "race" ) )
 		Cmd_Race_f( ent );
-	else if ( !Q_stricmp(cmd, "amtelemark") )
+	else if ( !Q_stricmp(cmd, "amtelemark") || !Q_stricmp( cmd, "telemark" ) )
 		Cmd_Amtelemark_f( ent );
-	else if ( !Q_stricmp(cmd, "amtele") )
+	else if ( !Q_stricmp(cmd, "amtele") || !Q_stricmp( cmd, "tele" ) )
 		Cmd_Amtele_f( ent );
 	else if ( !Q_stricmp( cmd, "amautospeed" ) )
 		Cmd_AmAutoSpeed_f( ent );
