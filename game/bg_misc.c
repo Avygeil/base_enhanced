@@ -2948,20 +2948,13 @@ void BG_PlayerStateToEntityState( playerState_t *ps, entityState_t *s, qboolean 
 	s->saberMove = ps->saberMove;
 	s->forcePowersActive = ps->fd.forcePowersActive;
 
-	if (ps->duelInProgress)
+	if (ps->duelInProgress || ps->stats[STAT_RACEMODE] )
 	{
 		s->bolt1 = 1;
 	}
 	else
 	{
-		if ( ps->stats[STAT_RACEMODE] )
-		{
-			s->bolt1 = 3;
-		}
-		else
-		{
-			s->bolt1 = 0;
-		}
+		s->bolt1 = 0;
 	}
 
 	s->otherEntityNum2 = ps->emplacedIndex;
@@ -3109,20 +3102,13 @@ void BG_PlayerStateToEntityStateExtraPolate( playerState_t *ps, entityState_t *s
 	s->saberMove = ps->saberMove;
 	s->forcePowersActive = ps->fd.forcePowersActive;
 
-	if (ps->duelInProgress)
+	if (ps->duelInProgress || ps->stats[STAT_RACEMODE] )
 	{
 		s->bolt1 = 1;
 	}
 	else
 	{
-		if ( ps->stats[STAT_RACEMODE] )
-		{
-			s->bolt1 = 3;
-		}
-		else
-		{
-			s->bolt1 = 0;
-		}
+		s->bolt1 = 0;
 	}
 
 	s->otherEntityNum2 = ps->emplacedIndex;
