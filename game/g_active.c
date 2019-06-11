@@ -735,12 +735,6 @@ void SpectatorThink( gentity_t *ent, usercmd_t *ucmd ) {
 			StopFollowing(ent);
 		}
 	}
-
-	// racemode - update the mask of spectators spectating racers
-	int clientNum = ent - g_entities;
-	if ( client->ps.stats[STAT_RACEMODE] ) {
-		level.racemodeSpectatorMask |= ( 1 << ( clientNum % 32 ) );
-	}
 }
 
 // returns global time in ms, this should persist between server restarts
@@ -1414,13 +1408,18 @@ static qboolean IsClientHiddenToOtherClient( gentity_t *self, gentity_t *other )
 #endif
 	// racemode visibility
 
-	// always hidden if not in the same race state
-	if ( other->client->ps.stats[STAT_RACEMODE] != self->client->ps.stats[STAT_RACEMODE] ) {
+	// if self is in racemode and other is not, always hide self to other
+	if ( self->client->ps.stats[STAT_RACEMODE] && !other->client->ps.stats[STAT_RACEMODE] ) {
 		return qtrue;
 	}
 
-	// if both are in racemode, hide self to other if other doesn't want to see other racers
-	if ( other->client->ps.stats[STAT_RACEMODE] && self->client->ps.stats[STAT_RACEMODE] && other->client->pers.hideOtherRacers ) {
+	// if self is not in racemode and other is, hide self to other if other didn't explicitly enable ig players visibility
+	if ( !self->client->ps.stats[STAT_RACEMODE] && other->client->ps.stats[STAT_RACEMODE] && !( other->client->sess.racemodeFlags & RMF_SHOWINGAME ) ) {
+		return qtrue;
+	}
+
+	// if both are in racemode, hide self to other if other explicitly disabled seeing other racers
+	if ( self->client->ps.stats[STAT_RACEMODE] && other->client->ps.stats[STAT_RACEMODE] && ( other->client->sess.racemodeFlags & RMF_HIDERACERS ) ) {
 		return qtrue;
 	}
 #ifdef _DEBUG
@@ -2413,6 +2412,8 @@ void ClientThink_real( gentity_t *ent ) {
 		ucmd->serverTime = ((ucmd->serverTime + pmove_msec.integer-1) / pmove_msec.integer) * pmove_msec.integer;
 	}
 
+	G_UpdateRaceBitMasks( client );
+
 	//
 	// check for exiting intermission
 	//
@@ -2425,9 +2426,6 @@ void ClientThink_real( gentity_t *ent ) {
 			return;
 		}
 	}
-
-	int clientNum = ent - g_entities;
-	level.racemodeSpectatorMask &= ~( 1 << ( clientNum % 32 ) );
 
 	// spectators don't do much
 	if ( client->sess.sessionTeam == TEAM_SPECTATOR || client->tempSpectate > level.time ) {
@@ -3513,15 +3511,35 @@ void ClientThink_real( gentity_t *ent ) {
 			ForceTeamForceReplenish(ent);
 			break;
 		case GENCMD_FORCE_SEEING:
-			// let racers toggle seeing other racers with force seeing
+			// let racers toggle seeing other racers and ig players with force seeing
 			if ( ent->client->sess.inRacemode ) {
-				if ( ent->client->pers.hideOtherRacers ) {
-					trap_SendServerCommand( ent - g_entities, "print \""S_COLOR_GREEN"Other racers VISIBLE\n\"" );
+				// simple way to cycle over the 4 states of visibility flags while not touching other flags
+
+				int visFlags = ent->client->sess.racemodeFlags & ( RMF_HIDERACERS | RMF_SHOWINGAME );
+				++visFlags;
+				visFlags &= ( RMF_HIDERACERS | RMF_SHOWINGAME );
+				ent->client->sess.racemodeFlags &= ~( RMF_HIDERACERS | RMF_SHOWINGAME );
+				ent->client->sess.racemodeFlags |= visFlags;
+
+				char *otherRacersColor, *otherRacersTxt, *igColor, *igText;
+
+				if ( ent->client->sess.racemodeFlags & RMF_HIDERACERS ) {
+					otherRacersColor = S_COLOR_RED;
+					otherRacersTxt = "HIDDEN";
 				} else {
-					trap_SendServerCommand( ent - g_entities, "print \""S_COLOR_RED"Other racers HIDDEN\n\"" );
+					otherRacersColor = S_COLOR_GREEN;
+					otherRacersTxt = "VISIBLE";
 				}
 
-				ent->client->pers.hideOtherRacers = !ent->client->pers.hideOtherRacers;
+				if ( ent->client->sess.racemodeFlags & RMF_SHOWINGAME ) {
+					igColor = S_COLOR_GREEN;
+					igText = "VISIBLE";
+				} else {
+					igColor = S_COLOR_RED;
+					igText = "HIDDEN";
+				}
+
+				trap_SendServerCommand( ent - g_entities, va( "print \"%sOther racers %s, %sin game %s\n\"", otherRacersColor, otherRacersTxt, igColor, igText ) );
 			} else {
 				ForceSeeing( ent );
 			}

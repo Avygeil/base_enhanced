@@ -484,7 +484,12 @@ typedef struct {
 	qboolean	canJoin; // Passwordless clients
 	qboolean	whTrustToggle; // in whitelist mode, qtrue = trusted, in blacklist mode, qtrue = untrusted
 
+	// racemode stuff
 	qboolean	inRacemode;
+	int			racemodeFlags;
+	vec3_t		telemarkOrigin;
+	float		telemarkYawAngle;
+	float		telemarkPitchAngle;
 
 	char        username[MAX_USERNAME_SIZE];
 
@@ -500,6 +505,11 @@ typedef struct {
 	int			serverKeys[2]; // randomly generated auth keys to confirm legit clients
 #endif
 } clientSession_t;
+
+// race flags
+#define	RMF_HIDERACERS		0x00000001	// hides other racers from the racer this is set for
+#define RMF_SHOWINGAME		0x00000002	// shows in game entities to the racer this is set for
+#define RMF_TELEWITHSPEED	0x00000004	// auto activates speed when using telemarks
 
 // playerstate mGameFlags
 #define	PSG_VOTED				(1<<0)		// already cast a vote
@@ -583,16 +593,9 @@ typedef struct {
 	float		fastcapDisplacement;
 	int			fastcapDisplacementSamples;
 
-	// racemode telemarks
-	vec3_t		telemarkOrigin;
-	float		telemarkYawAngle;
-	float		telemarkPitchAngle;
-	qboolean	teleportWithSpeedOn;
-
 	// other racemode stuff
 	int			flagTakeTime; // used to get the steal time for demos independently from level.blue/redFlagStealTime
 	int			flagDebounceTime; // used not to pickup a flag immediately after finishing a run
-	qboolean	hideOtherRacers; // racers can toggle seeing other racers with force seeing
 } clientPersistant_t;
 
 typedef struct renderInfo_s
@@ -1181,6 +1184,8 @@ typedef struct {
 	// racemode
 	int			racemodeClientMask; // bits set to 1 = clients in racemode, cached here for hiding to several entities
 	int			racemodeSpectatorMask; // bits set to 1 = clients specing a client in spectator, can be combined with the mask above
+	int			racemodeClientsHidingOtherRacersMask; // bits set to 1 = clients in racemode who disabled seeing other racers
+	int			racemodeClientsSeeingIngameMask; // bits set to 1 = clients in racemode who enabled seeing in game entities
 	int			raceSpawnWeapons; // mask of weapons present in this level
 	int			raceSpawnAmmo[AMMO_MAX]; // exactly the ammo to hand out at spawn based on what's present in this level
 	qboolean	raceSpawnWithArmor; // qtrue if this level has at least one shield pickup
@@ -1670,6 +1675,7 @@ void G_BreakArm(gentity_t *ent, int arm);
 void G_UpdateClientAnims(gentity_t *self, float animSpeedScale);
 void G_SetRaceMode( gentity_t *self, qboolean race );
 void G_GiveRacemodeItemsAndFullStats( gentity_t *ent );
+void G_UpdateRaceBitMasks( gclient_t *client );
 void ClientCommand( int clientNum );
 void PurgeStringedTrolling(char *in, char *out, int outSize);
 

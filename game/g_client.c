@@ -3427,15 +3427,6 @@ void G_SetRaceMode( gentity_t *self, qboolean race ) {
 		self->r.svFlags &= ~SVF_GHOST;
 	}
 
-	int clientNum = self - g_entities;
-
-	// update the cached mask of clients in race
-	if ( race ) {
-		level.racemodeClientMask |= ( 1 << ( clientNum % 32 ) );
-	} else {
-		level.racemodeClientMask &= ~( 1 << ( clientNum % 32 ) );
-	}
-
 	// stuff to only do if the ent is initialized
 	if ( self->inuse ) {
 		// set the pmove flag here as well, which will also be set every spawn
@@ -3452,6 +3443,9 @@ void G_SetRaceMode( gentity_t *self, qboolean race ) {
 	}
 
 	self->client->sess.inRacemode = race;
+
+	// update bitmasks
+	G_UpdateRaceBitMasks( self->client );
 }
 
 /*
@@ -3489,6 +3483,46 @@ void G_GiveRacemodeItemsAndFullStats( gentity_t *ent ) {
 	}
 
 	ent->client->ps.fd.forcePower = ent->client->ps.fd.forcePowerMax;
+}
+
+/*
+===========
+G_UpdateRaceBitMasks
+============
+*/
+
+void G_UpdateRaceBitMasks( gclient_t *client ) {
+	const int clientNum = client - level.clients;
+
+	// reset all relevant bits
+	level.racemodeClientMask &= ~( 1 << ( clientNum % 32 ) );
+	level.racemodeSpectatorMask &= ~( 1 << ( clientNum % 32 ) );
+	level.racemodeClientsHidingOtherRacersMask &= ~( 1 << ( clientNum % 32 ) );
+	level.racemodeClientsSeeingIngameMask &= ~( 1 << ( clientNum % 32 ) );
+
+	if ( client->sess.sessionTeam == TEAM_SPECTATOR || client->tempSpectate > level.time ) {
+		// spectator
+
+		if ( client->ps.stats[STAT_RACEMODE] ) {
+			level.racemodeSpectatorMask |= ( 1 << ( clientNum % 32 ) );
+		}
+
+		return;
+	}
+
+	if ( client->sess.inRacemode ) {
+		// in racemode
+
+		level.racemodeClientMask |= ( 1 << ( clientNum % 32 ) );
+
+		if ( client->sess.racemodeFlags & RMF_HIDERACERS ) {
+			level.racemodeClientsHidingOtherRacersMask |= ( 1 << ( clientNum % 32 ) );
+		}
+
+		if ( client->sess.racemodeFlags & RMF_SHOWINGAME ) {
+			level.racemodeClientsSeeingIngameMask |= ( 1 << ( clientNum % 32 ) );
+		}
+	}
 }
 
 /*

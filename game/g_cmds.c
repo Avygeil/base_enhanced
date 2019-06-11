@@ -4432,16 +4432,16 @@ void Cmd_Amtelemark_f( gentity_t *ent ) {
 		return;
 	}
 
-	VectorCopy( client->ps.origin, client->pers.telemarkOrigin );
-	client->pers.telemarkYawAngle = client->ps.viewangles[YAW];
-	client->pers.telemarkPitchAngle = client->ps.viewangles[PITCH];
+	VectorCopy( client->ps.origin, client->sess.telemarkOrigin );
+	client->sess.telemarkYawAngle = client->ps.viewangles[YAW];
+	client->sess.telemarkPitchAngle = client->ps.viewangles[PITCH];
 
 	trap_SendServerCommand( ent - g_entities, va( "print \"Teleport Marker: ^3<%i, %i, %i> %i, %i\n\"",
-		( int )client->pers.telemarkOrigin[0],
-		( int )client->pers.telemarkOrigin[1],
-		( int )client->pers.telemarkOrigin[2],
-		( int )client->pers.telemarkYawAngle,
-		( int )client->pers.telemarkPitchAngle )
+		( int )client->sess.telemarkOrigin[0],
+		( int )client->sess.telemarkOrigin[1],
+		( int )client->sess.telemarkOrigin[2],
+		( int )client->sess.telemarkYawAngle,
+		( int )client->sess.telemarkPitchAngle )
 	);
 }
 
@@ -4463,11 +4463,11 @@ void Cmd_Amtele_f( gentity_t *ent ) {
 		return;
 	}
 
-	if ( client->pers.telemarkOrigin[0] == 0 &&
-		client->pers.telemarkOrigin[1] == 0 &&
-		client->pers.telemarkOrigin[2] == 0 &&
-		client->pers.telemarkYawAngle == 0 &&
-		client->pers.telemarkPitchAngle == 0 ) {
+	if ( client->sess.telemarkOrigin[0] == 0 &&
+		client->sess.telemarkOrigin[1] == 0 &&
+		client->sess.telemarkOrigin[2] == 0 &&
+		client->sess.telemarkYawAngle == 0 &&
+		client->sess.telemarkPitchAngle == 0 ) {
 
 		trap_SendServerCommand( ent - g_entities, "print \"No telemark set!\n\"" );
 		return;
@@ -4480,18 +4480,18 @@ void Cmd_Amtele_f( gentity_t *ent ) {
 
 	vec3_t angles = { 0, 0, 0 };
 	vec3_t neworigin;
-	angles[YAW] = client->pers.telemarkYawAngle;
-	angles[PITCH] = client->pers.telemarkPitchAngle;
-	VectorCopy( client->pers.telemarkOrigin, neworigin );
+	angles[YAW] = client->sess.telemarkYawAngle;
+	angles[PITCH] = client->sess.telemarkPitchAngle;
+	VectorCopy( client->sess.telemarkOrigin, neworigin );
 
 	// drop them to floor
 	trace_t tr;
 	vec3_t down, mins, maxs;
 	VectorSet( mins, -15, -15, DEFAULT_MINS_2 );
 	VectorSet( maxs, 15, 15, DEFAULT_MAXS_2 );
-	VectorCopy( client->pers.telemarkOrigin, down );
+	VectorCopy( client->sess.telemarkOrigin, down );
 	down[2] -= 32768;
-	trap_Trace( &tr, client->pers.telemarkOrigin, mins, maxs, down, client->ps.clientNum, MASK_PLAYERSOLID );
+	trap_Trace( &tr, client->sess.telemarkOrigin, mins, maxs, down, client->ps.clientNum, MASK_PLAYERSOLID );
 	neworigin[2] = ( int )tr.endpos[2];
 
 	trap_UnlinkEntity( ent );
@@ -4533,7 +4533,7 @@ void Cmd_Amtele_f( gentity_t *ent ) {
 	G_GiveRacemodeItemsAndFullStats( ent );
 
 	// use speed automatically if they set the setting
-	if ( client->pers.teleportWithSpeedOn ) {
+	if ( client->sess.racemodeFlags & RMF_TELEWITHSPEED ) {
 		qboolean wasAlreadyActive = client->ps.fd.forcePowersActive & ( 1 << FP_SPEED );
 
 		WP_ForcePowerStart( ent, FP_SPEED, 0 );
@@ -4563,13 +4563,13 @@ void Cmd_AmAutoSpeed_f( gentity_t *ent ) {
 		return;
 	}
 
-	if ( !client->pers.teleportWithSpeedOn ) {
-		trap_SendServerCommand( ent - g_entities, "print \""S_COLOR_GREEN"Auto speed on amtele ON\n\"" );
+	if ( !( client->sess.racemodeFlags & RMF_TELEWITHSPEED ) ) {
+		trap_SendServerCommand( ent - g_entities, "print \""S_COLOR_GREEN"Auto speed on teleport ON\n\"" );
+		client->sess.racemodeFlags |= RMF_TELEWITHSPEED;
 	} else {
-		trap_SendServerCommand( ent - g_entities, "print \""S_COLOR_RED"Auto speed on amtele OFF\n\"" );
+		trap_SendServerCommand( ent - g_entities, "print \""S_COLOR_RED"Auto speed on teleport OFF\n\"" );
+		client->sess.racemodeFlags &= ~RMF_TELEWITHSPEED;
 	}
-
-	client->pers.teleportWithSpeedOn = !client->pers.teleportWithSpeedOn;
 }
 
 /*

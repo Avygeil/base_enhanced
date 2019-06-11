@@ -4429,28 +4429,36 @@ void G_ApplyRaceBroadcastsToEvent( gentity_t *parent, gentity_t *ev ) {
 #endif
 
 	qboolean playInRaceDimension = qfalse; // by default, play the event in normal dimension
+	int raceClientNum = -1; // client num associated with the event when playing in race dimension
 
 	if ( !parent || !parent->inuse )
 	{ // a world event, hide to racers by default
 		playInRaceDimension = qfalse;
 	}
 	else if ( parent->client && parent->client->sess.inRacemode )
-	{ // originates from a racer
+	{ // originates directly from a racer
 		playInRaceDimension = qtrue;
+		raceClientNum = parent - g_entities; // use client num directly
 	}
 	else if ( parent->r.ownerNum >= 0 && parent->r.ownerNum < MAX_CLIENTS && level.clients[parent->r.ownerNum].sess.inRacemode )
 	{ // originates from an entity owned by a racer
 		playInRaceDimension = qtrue;
+		raceClientNum = parent->r.ownerNum; // use the owner num
 	}
 	else if ( parent->parent && parent->parent->client && parent->parent->client->sess.inRacemode )
 	{ // has itself a parent who is a racer
 		playInRaceDimension = qtrue;
+		raceClientNum = parent->parent - g_entities; // use the client num of its parent
 	}
 
 	if ( playInRaceDimension ) {
-		ev->r.broadcastClients[1] |= ~( level.racemodeClientMask | level.racemodeSpectatorMask );
+		ev->r.broadcastClients[1] |= ~( level.racemodeClientMask | level.racemodeSpectatorMask ); // hide to in game players...
+		ev->r.broadcastClients[1] |= level.racemodeClientsHidingOtherRacersMask; // ...hide to racers who disabled seeing other racers as well
+		if ( raceClientNum >= 0 && raceClientNum < MAX_CLIENTS )
+			ev->r.broadcastClients[1] &= ~( 1 << raceClientNum ); // ...but show to the client num associated with this event if there is one
 	} else {
-		ev->r.broadcastClients[1] |= ( level.racemodeClientMask | level.racemodeSpectatorMask );
+		ev->r.broadcastClients[1] |= ( level.racemodeClientMask | level.racemodeSpectatorMask ); // hide to racers and racespectators...
+		ev->r.broadcastClients[1] &= ~level.racemodeClientsSeeingIngameMask; // ...but show to racers who enabled seeing in game stuff
 	}
 
 #ifdef _DEBUG
@@ -4487,19 +4495,20 @@ void G_UpdateNonClientBroadcasts( gentity_t *self ) {
 		gclient_t *owner = &level.clients[self->r.ownerNum];
 
 		if ( !owner->sess.inRacemode ) {
-			// if its owner is not in racemode, always hide it to racers/racespectators as by default
-			self->r.broadcastClients[1] |= ( level.racemodeClientMask | level.racemodeSpectatorMask );
+			// if its owner is not in racemode...
+			self->r.broadcastClients[1] |= ( level.racemodeClientMask | level.racemodeSpectatorMask ); // ...hide it to racers/racespectators...
+			self->r.broadcastClients[1] &= ~level.racemodeClientsSeeingIngameMask; // ...but show it to racers who enabled seeing in game stuff
 		} else {
-			// its owner is in racemode, hide to in game clients and other racers, but not to self and any spectator
-			self->r.broadcastClients[1] |= ~( level.racemodeClientMask | level.racemodeSpectatorMask ); // non racers
-			self->r.broadcastClients[1] |= level.racemodeClientMask; // racers
-			self->r.broadcastClients[1] &= ~( 1 << ( self->r.ownerNum % 32 ) ); // never hide to owner
+			// its owner is in racemode...
+			self->r.broadcastClients[1] |= ~( level.racemodeClientMask | level.racemodeSpectatorMask ); // ...hide to non racers
+			self->r.broadcastClients[1] |= level.racemodeClientMask; // ...hide to racers as well
+			self->r.broadcastClients[1] &= ~( 1 << ( self->r.ownerNum % 32 ) ); // ...but show it to its owner
 		}
 
 	} else {
 
-		// by default, just hide to racers and racespectators
-		self->r.broadcastClients[1] |= ( level.racemodeClientMask | level.racemodeSpectatorMask );
+		self->r.broadcastClients[1] |= ( level.racemodeClientMask | level.racemodeSpectatorMask ); // by default, just hide to racers and racespectators...
+		self->r.broadcastClients[1] &= ~level.racemodeClientsSeeingIngameMask; // ...but show to racers who enabled seeing in game stuff
 
 	}
 #ifdef _DEBUG
