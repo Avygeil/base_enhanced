@@ -6255,7 +6255,7 @@ void ClientCommand( int clientNum ) {
 		Cmd_TestCmd_f( ent );
 	else if ( !Q_stricmp(cmd, "toptimes") || !Q_stricmp( cmd, "fastcaps" ) )
 		Cmd_TopTimes_f( ent );
-	else if ( !Q_stricmp( cmd, "race" ) )
+	else if ( !Q_stricmp( cmd, "race" ) || !Q_stricmp( cmd, "ghost" ) )
 		Cmd_Race_f( ent );
 	else if ( !Q_stricmp(cmd, "hideRacers") )
 		Cmd_RacerVisibility_f(ent, 0);
