@@ -3498,7 +3498,8 @@ void G_UpdateRaceBitMasks( gclient_t *client ) {
 	level.racemodeClientMask &= ~( 1 << ( clientNum % 32 ) );
 	level.racemodeSpectatorMask &= ~( 1 << ( clientNum % 32 ) );
 	level.racemodeClientsHidingOtherRacersMask &= ~( 1 << ( clientNum % 32 ) );
-	level.racemodeClientsSeeingIngameMask &= ~( 1 << ( clientNum % 32 ) );
+	level.racemodeClientsHidingIngameMask &= ~( 1 << ( clientNum % 32 ) );
+	level.ingameClientsSeeingInRaceMask &= ~( 1 << ( clientNum % 32 ) );
 
 	if ( client->sess.sessionTeam == TEAM_SPECTATOR || client->tempSpectate > level.time ) {
 		// spectator
@@ -3519,8 +3520,14 @@ void G_UpdateRaceBitMasks( gclient_t *client ) {
 			level.racemodeClientsHidingOtherRacersMask |= ( 1 << ( clientNum % 32 ) );
 		}
 
-		if ( client->sess.racemodeFlags & RMF_SHOWINGAME ) {
-			level.racemodeClientsSeeingIngameMask |= ( 1 << ( clientNum % 32 ) );
+		if ( client->sess.racemodeFlags & RMF_HIDEINGAME ) {
+			level.racemodeClientsHidingIngameMask |= ( 1 << ( clientNum % 32 ) );
+		}
+	} else {
+		// in game
+
+		if ( client->sess.seeRacersWhileIngame ) {
+			level.ingameClientsSeeingInRaceMask |= ( 1 << ( clientNum % 32 ) );
 		}
 	}
 }

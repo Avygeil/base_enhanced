@@ -1408,13 +1408,13 @@ static qboolean IsClientHiddenToOtherClient( gentity_t *self, gentity_t *other )
 #endif
 	// racemode visibility
 
-	// if self is in racemode and other is not, always hide self to other
-	if ( self->client->ps.stats[STAT_RACEMODE] && !other->client->ps.stats[STAT_RACEMODE] ) {
+	// if self is in racemode and other is not, hide self to other unless other explicitly enabled seeing racers
+	if ( self->client->ps.stats[STAT_RACEMODE] && !other->client->ps.stats[STAT_RACEMODE] && !other->client->sess.seeRacersWhileIngame ) {
 		return qtrue;
 	}
 
-	// if self is not in racemode and other is, hide self to other if other didn't explicitly enable ig players visibility
-	if ( !self->client->ps.stats[STAT_RACEMODE] && other->client->ps.stats[STAT_RACEMODE] && !( other->client->sess.racemodeFlags & RMF_SHOWINGAME ) ) {
+	// if self is not in racemode and other is, hide self to other if other explicitly disabled seeing ig players
+	if ( !self->client->ps.stats[STAT_RACEMODE] && other->client->ps.stats[STAT_RACEMODE] && ( other->client->sess.racemodeFlags & RMF_HIDEINGAME ) ) {
 		return qtrue;
 	}
 
@@ -3513,12 +3513,12 @@ void ClientThink_real( gentity_t *ent ) {
 		case GENCMD_FORCE_SEEING:
 			// let racers toggle seeing in game players with force seeing
 			if ( ent->client->sess.inRacemode ) {
-				if ( ent->client->sess.racemodeFlags & RMF_SHOWINGAME ) {
-					trap_SendServerCommand( ent - g_entities, "print \""S_COLOR_GREEN"In game players VISIBLE\n\"" );
-					ent->client->sess.racemodeFlags &= ~RMF_SHOWINGAME;
+				if ( ent->client->sess.racemodeFlags & RMF_HIDEINGAME ) {
+					trap_SendServerCommand( ent - g_entities, "print \""S_COLOR_GREEN"In game entities VISIBLE\n\"" );
+					ent->client->sess.racemodeFlags &= ~RMF_HIDEINGAME;
 				} else {
-					trap_SendServerCommand( ent - g_entities, "print \""S_COLOR_GREEN"In game players HIDDEN\n\"" );
-					ent->client->sess.racemodeFlags |= RMF_SHOWINGAME;
+					trap_SendServerCommand( ent - g_entities, "print \""S_COLOR_RED"In game entities HIDDEN\n\"" );
+					ent->client->sess.racemodeFlags |= RMF_HIDEINGAME;
 				}
 			} else {
 				ForceSeeing( ent );

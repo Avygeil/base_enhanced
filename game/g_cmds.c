@@ -4430,7 +4430,7 @@ void Cmd_RacerVisibility_f( gentity_t *ent, int mode ) {
 	// mode: 0 to hide, 1 to show, 2 to toggle
 	qboolean show;
 
-	if ( !client->sess.inRacemode ) {
+	if ( client->sess.inRacemode ) {
 		// in racemode, use the flag
 
 		if ( mode == 0 ) {

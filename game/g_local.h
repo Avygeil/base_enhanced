@@ -509,7 +509,7 @@ typedef struct {
 
 // race flags
 #define	RMF_HIDERACERS		0x00000001	// hides other racers from the racer this is set for
-#define RMF_SHOWINGAME		0x00000002	// shows in game entities to the racer this is set for
+#define RMF_HIDEINGAME		0x00000002	// hides in game entities to the racer this is set for
 #define RMF_TELEWITHSPEED	0x00000004	// auto activates speed when using telemarks
 
 // playerstate mGameFlags
@@ -1186,7 +1186,8 @@ typedef struct {
 	int			racemodeClientMask; // bits set to 1 = clients in racemode, cached here for hiding to several entities
 	int			racemodeSpectatorMask; // bits set to 1 = clients specing a client in spectator, can be combined with the mask above
 	int			racemodeClientsHidingOtherRacersMask; // bits set to 1 = clients in racemode who disabled seeing other racers
-	int			racemodeClientsSeeingIngameMask; // bits set to 1 = clients in racemode who enabled seeing in game entities
+	int			racemodeClientsHidingIngameMask; // bits set to 1 = clients in racemode who disabled seeing in game entities
+	int			ingameClientsSeeingInRaceMask; // bits set to 1 = clients in game who enabled seeing in race entities
 	int			raceSpawnWeapons; // mask of weapons present in this level
 	int			raceSpawnAmmo[AMMO_MAX]; // exactly the ammo to hand out at spawn based on what's present in this level
 	qboolean	raceSpawnWithArmor; // qtrue if this level has at least one shield pickup
