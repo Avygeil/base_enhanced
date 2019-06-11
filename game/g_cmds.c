@@ -4417,6 +4417,60 @@ void Cmd_Race_f( gentity_t *ent ) {
 
 /*
 =================
+Cmd_RacerVisibility_f
+=================
+*/
+void Cmd_RacerVisibility_f( gentity_t *ent, int mode ) {
+	if ( !ent || !ent->client ) {
+		return;
+	}
+
+	gclient_t *client = ent->client;
+
+	// mode: 0 to hide, 1 to show, 2 to toggle
+	qboolean show;
+
+	if ( !client->sess.inRacemode ) {
+		// in racemode, use the flag
+
+		if ( mode == 0 ) {
+			show = qfalse;
+		} else if ( mode == 1 ) {
+			show = qtrue;
+		} else {
+			show = client->sess.racemodeFlags & RMF_HIDERACERS ? qtrue : qfalse;
+		}
+
+		if ( show ) {
+			trap_SendServerCommand( ent - g_entities, "print \""S_COLOR_GREEN"Other racers VISIBLE\n\"" );
+			client->sess.racemodeFlags &= ~RMF_HIDERACERS;
+		} else {
+			trap_SendServerCommand( ent - g_entities, "print \""S_COLOR_RED"Other racers HIDDEN\n\"" );
+			client->sess.racemodeFlags |= RMF_HIDERACERS;
+		}
+	} else {
+		// in game, use the separate variable
+
+		if ( mode == 0 ) {
+			show = qfalse;
+		} else if ( mode == 1 ) {
+			show = qtrue;
+		} else {
+			show = client->sess.seeRacersWhileIngame ? qfalse : qtrue;
+		}
+
+		if ( show ) {
+			trap_SendServerCommand( ent - g_entities, "print \""S_COLOR_GREEN"Racers VISIBLE\n\"" );
+			client->sess.seeRacersWhileIngame = qtrue;
+		} else {
+			trap_SendServerCommand( ent - g_entities, "print \""S_COLOR_RED"Racers HIDDEN\n\"" );
+			client->sess.seeRacersWhileIngame = qfalse;
+		}
+	}
+}
+
+/*
+=================
 Cmd_Amtelemark_f
 =================
 */
@@ -6198,6 +6252,12 @@ void ClientCommand( int clientNum ) {
 		Cmd_TopTimes_f( ent );
 	else if ( !Q_stricmp( cmd, "race" ) )
 		Cmd_Race_f( ent );
+	else if ( !Q_stricmp(cmd, "hideRacers") )
+		Cmd_RacerVisibility_f(ent, 0);
+	else if ( !Q_stricmp( cmd, "showRacers" ) )
+		Cmd_RacerVisibility_f( ent, 1 );
+	else if ( !Q_stricmp( cmd, "toggleRacers" ) )
+		Cmd_RacerVisibility_f( ent, 2 );
 	else if ( !Q_stricmp(cmd, "amtelemark") || !Q_stricmp( cmd, "telemark" ) )
 		Cmd_Amtelemark_f( ent );
 	else if ( !Q_stricmp(cmd, "amtele") || !Q_stricmp( cmd, "tele" ) )

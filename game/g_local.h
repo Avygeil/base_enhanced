@@ -487,6 +487,7 @@ typedef struct {
 	// racemode stuff
 	qboolean	inRacemode;
 	int			racemodeFlags;
+	qboolean	seeRacersWhileIngame; // for in game clients, separate from RMF_HIDERACERS because the meaning is reversed
 	vec3_t		telemarkOrigin;
 	float		telemarkYawAngle;
 	float		telemarkPitchAngle;

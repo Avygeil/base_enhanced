@@ -3511,35 +3511,15 @@ void ClientThink_real( gentity_t *ent ) {
 			ForceTeamForceReplenish(ent);
 			break;
 		case GENCMD_FORCE_SEEING:
-			// let racers toggle seeing other racers and ig players with force seeing
+			// let racers toggle seeing in game players with force seeing
 			if ( ent->client->sess.inRacemode ) {
-				// simple way to cycle over the 4 states of visibility flags while not touching other flags
-
-				int visFlags = ent->client->sess.racemodeFlags & ( RMF_HIDERACERS | RMF_SHOWINGAME );
-				++visFlags;
-				visFlags &= ( RMF_HIDERACERS | RMF_SHOWINGAME );
-				ent->client->sess.racemodeFlags &= ~( RMF_HIDERACERS | RMF_SHOWINGAME );
-				ent->client->sess.racemodeFlags |= visFlags;
-
-				char *otherRacersColor, *otherRacersTxt, *igColor, *igText;
-
-				if ( ent->client->sess.racemodeFlags & RMF_HIDERACERS ) {
-					otherRacersColor = S_COLOR_RED;
-					otherRacersTxt = "HIDDEN";
-				} else {
-					otherRacersColor = S_COLOR_GREEN;
-					otherRacersTxt = "VISIBLE";
-				}
-
 				if ( ent->client->sess.racemodeFlags & RMF_SHOWINGAME ) {
-					igColor = S_COLOR_GREEN;
-					igText = "VISIBLE";
+					trap_SendServerCommand( ent - g_entities, "print \""S_COLOR_GREEN"In game players VISIBLE\n\"" );
+					ent->client->sess.racemodeFlags &= ~RMF_SHOWINGAME;
 				} else {
-					igColor = S_COLOR_RED;
-					igText = "HIDDEN";
+					trap_SendServerCommand( ent - g_entities, "print \""S_COLOR_GREEN"In game players HIDDEN\n\"" );
+					ent->client->sess.racemodeFlags |= RMF_SHOWINGAME;
 				}
-
-				trap_SendServerCommand( ent - g_entities, va( "print \"%sOther racers %s, %sin game %s\n\"", otherRacersColor, otherRacersTxt, igColor, igText ) );
 			} else {
 				ForceSeeing( ent );
 			}
