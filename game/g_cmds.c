@@ -4479,6 +4479,10 @@ void Cmd_Amtelemark_f( gentity_t *ent ) {
 		return;
 	}
 
+	if ( ent->health <= 0 ) {
+		return;
+	}
+
 	gclient_t *client = ent->client;
 
 	if ( !client->sess.inRacemode ) {
@@ -4507,6 +4511,10 @@ Cmd_Amtele_f
 extern int speedLoopSound;
 void Cmd_Amtele_f( gentity_t *ent ) {
 	if ( !ent || !ent->client ) {
+		return;
+	}
+
+	if ( ent->health <= 0 ) {
 		return;
 	}
 
