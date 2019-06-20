@@ -2789,7 +2789,14 @@ void G_BroadcastServerFeatureList( int clientNum ) {
 		"ready \"Marks yourself as ready to be part of random teams\" "
 		"ctfstats \"Shows stats for the current CTF game\" "
 		"toptimes \"Leaderboard of the fastest caps\" "
-		"inkognito \"Hides whom you are following on the scoreboard\"";
+		"inkognito \"Hides whom you are following on the scoreboard\" "
+		"race \"Enters or leaves racemode\" "
+		"amtelemark \"Sets your teleport point\" "
+		"amtele \"Teleports back to telemark\" "
+		"amautospeed \"Enables speed upon teleporting\" "
+		"hideRacers \"Hides racers\" "
+		"showRacers \"Shows racers\" "
+		"toggleRacers \"Toggles seeing racers\"";
 
 	static char locationsListConfigString[MAX_TOKEN_CHARS] = { 0 };
 
