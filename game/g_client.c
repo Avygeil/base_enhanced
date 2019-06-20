@@ -2789,6 +2789,7 @@ void G_BroadcastServerFeatureList( int clientNum ) {
 		"ready \"Marks yourself as ready to be part of random teams\" "
 		"ctfstats \"Shows stats for the current CTF game\" "
 		"toptimes \"Leaderboard of the fastest caps\" "
+		"inkognito \"Hides whom you are following on the scoreboard\" "
 		"vgs_cmd \"Extended Voice Game System\"";
 
 	static char locationsListConfigString[MAX_TOKEN_CHARS] = { 0 };
@@ -3045,6 +3046,9 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 
 #ifdef NEWMOD_SUPPORT
 	G_BroadcastServerFeatureList( clientNum );
+
+	if ( ent->client->sess.isInkognito )
+		trap_SendServerCommand( ent - g_entities, "kls -1 -1 \"inko\" \"1\"" ); // only update if enabled
 
 	if ( ent->client->sess.auth == PENDING ) {
 		trap_SendServerCommand( clientNum, va( "kls -1 -1 \"clannounce\" %d \"%s\"", NM_AUTH_PROTOCOL, level.publicKey.keyHex ) );

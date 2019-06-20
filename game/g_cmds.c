@@ -6197,6 +6197,9 @@ void ClientCommand( int clientNum ) {
 
 			trap_SendServerCommand( ent-g_entities, 
 			va("print \"Inkognito %s\n\"", ent->client->sess.isInkognito ? "ON" : "OFF"));
+#ifdef NEWMOD_SUPPORT
+			trap_SendServerCommand( ent - g_entities, va( "kls -1 -1 \"inko\" \"%d\"", ent->client->sess.isInkognito ) );
+#endif
 		}
 		return;
 	}
