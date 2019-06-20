@@ -213,7 +213,7 @@ void G_WriteSessionData( void )
     trap_FS_FCloseFile( sessionFile );
 }  
 
-void G_ReadSessionData()
+void G_ReadSessionData( qboolean restart )
 {
     fileHandle_t sessionFile;
     int fileSize = trap_FS_FOpenFile( "session.dat", &sessionFile, FS_READ );
@@ -242,6 +242,14 @@ void G_ReadSessionData()
             client->ps.fd.saberAnimLevel = client->sess.saberLevel;
             client->ps.fd.saberDrawAnimLevel = client->sess.saberLevel;
             client->ps.fd.forcePowerSelected = client->sess.selectedFP;
+
+			if ( !restart ) {
+				// reset the fields that do not persist at map change
+				VectorClear( client->sess.telemarkOrigin );
+				client->sess.telemarkYawAngle = 0;
+				client->sess.telemarkPitchAngle = 0;
+				client->sess.racemodeFlags &= ~RMF_TELEWITHSPEED;
+			}
         }
     }
 

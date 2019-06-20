@@ -1380,7 +1380,7 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 		g_entities[i].client = level.clients + i;
 	}
 
-    G_ReadSessionData();
+	G_ReadSessionData( restart ? qtrue : qfalse );
 
 	// always leave room for the max number of clients,
 	// even if they aren't all used, so numbers inside that

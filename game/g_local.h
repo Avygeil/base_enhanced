@@ -1724,7 +1724,7 @@ void G_InitSessionData( gclient_t *client, char *userinfo, qboolean isBot, qbool
 
 void G_InitWorldSession( void );
 void G_WriteSessionData( void );
-void G_ReadSessionData( void );
+void G_ReadSessionData( qboolean restart );
 
 //
 // NPC_senses.cpp
