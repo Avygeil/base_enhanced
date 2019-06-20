@@ -4494,9 +4494,48 @@ void Cmd_Amtelemark_f( gentity_t *ent ) {
 		return;
 	}
 
-	VectorCopy( client->ps.origin, client->sess.telemarkOrigin );
-	client->sess.telemarkYawAngle = client->ps.viewangles[YAW];
-	client->sess.telemarkPitchAngle = client->ps.viewangles[PITCH];
+	const int argc = trap_Argc();
+	char s[16];
+
+	vec3_t newOrigin;
+	float newYaw, newPitch;
+
+	if ( argc >= 4 ) {
+		// amtelemark <x> <y> <z>
+		trap_Argv( 1, s, sizeof( s ) );
+		newOrigin[0] = ( float )atoi( s );
+
+		trap_Argv( 2, s, sizeof( s ) );
+		newOrigin[1] = ( float )atoi( s );
+
+		trap_Argv( 3, s, sizeof( s ) );
+		newOrigin[2] = ( float )atoi( s );
+	} else {
+		// use current position
+		VectorCopy( client->ps.origin, newOrigin );
+	}
+
+	if ( argc >= 5 ) {
+		// amtelemark <x> <y> <z> <yaw>
+		trap_Argv( 4, s, sizeof( s ) );
+		newYaw = ( float )atoi( s );
+	} else {
+		// use current yaw
+		newYaw = client->ps.viewangles[YAW];
+	}
+
+	if ( argc >= 6 ) {
+		// amtelemark <x> <y> <z> <yaw> <pitch>
+		trap_Argv( 5, s, sizeof( s ) );
+		newPitch = ( float )atoi( s );
+	} else {
+		// use current pitch
+		newPitch = client->ps.viewangles[PITCH];
+	}
+
+	VectorCopy( newOrigin, client->sess.telemarkOrigin );
+	client->sess.telemarkYawAngle = newYaw;
+	client->sess.telemarkPitchAngle = newPitch;
 
 	trap_SendServerCommand( ent - g_entities, va( "print \"Teleport Marker: ^3<%i, %i, %i> %i, %i\n\"",
 		( int )client->sess.telemarkOrigin[0],
