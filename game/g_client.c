@@ -3452,6 +3452,10 @@ void G_SetRaceMode( gentity_t *self, qboolean race ) {
 		}
 	}
 
+	if ( race ) {
+		self->client->sess.racemodeFlags |= RMF_ALREADYJOINED;
+	}
+
 	self->client->sess.inRacemode = race;
 
 	// update bitmasks

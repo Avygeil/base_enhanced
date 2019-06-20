@@ -511,6 +511,7 @@ typedef struct {
 #define	RMF_HIDERACERS		0x00000001	// hides other racers from the racer this is set for
 #define RMF_HIDEINGAME		0x00000002	// hides in game entities to the racer this is set for
 #define RMF_TELEWITHSPEED	0x00000004	// auto activates speed when using telemarks
+#define RMF_ALREADYJOINED	0x00000008	// not set the first time entering /race, and set every other time
 
 // playerstate mGameFlags
 #define	PSG_VOTED				(1<<0)		// already cast a vote

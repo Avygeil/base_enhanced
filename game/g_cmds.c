@@ -4390,6 +4390,25 @@ void Cmd_Race_f( gentity_t *ent ) {
 		return;
 	}
 
+	if ( trap_Argc() > 1 ) {
+		char s[MAX_TOKEN_CHARS];
+		trap_Argv( 1, s, sizeof( s ) );
+
+		if ( !Q_stricmp( "help", s ) ) {
+			trap_SendServerCommand( ent - g_entities, "print \""
+				S_COLOR_WHITE"Racemode lets you travel the map in a different dimension.\n"
+				S_COLOR_WHITE"You can both submit fastcaps and spectate an ongoing pug while in racemode.\n"
+				S_COLOR_RED"=> "S_COLOR_WHITE"Type "S_COLOR_CYAN"/toptimes help "S_COLOR_WHITE"for more information about fastcaps\n"
+				S_COLOR_RED"=> "S_COLOR_WHITE"Press your "S_COLOR_YELLOW"Force Seeing "S_COLOR_WHITE"bind to toggle seeing in game players\n"
+				S_COLOR_RED"=> "S_COLOR_WHITE"Change the visibility of other racers with "S_COLOR_CYAN"/hideRacers"S_COLOR_WHITE", "S_COLOR_CYAN"/showRacers "S_COLOR_WHITE"or just "S_COLOR_CYAN"/toggleRacers\n"
+				S_COLOR_YELLOW"NB: These last three commands also work while in game and lets you see racers if you want to\n"
+				S_COLOR_RED"=> "S_COLOR_WHITE"Set your teleport point with "S_COLOR_CYAN"/amtelemark"S_COLOR_WHITE", and teleport to it with "S_COLOR_CYAN"/amtele\n"
+				S_COLOR_RED"=> "S_COLOR_WHITE"Automatically use speed when teleporting with "S_COLOR_CYAN"/amautospeed\n\"" );
+
+			return;
+		}
+	}
+
 	team_t oldTeam = ent->client->sess.sessionTeam;
 
 	if ( oldTeam == TEAM_RED || oldTeam == TEAM_BLUE ) {
@@ -4423,6 +4442,11 @@ void Cmd_Race_f( gentity_t *ent ) {
 	if ( oldTeam != newTeam ) {
 		if ( newTeam == TEAM_FREE ) {
 			trap_SendServerCommand( -1, va("print \"%s%s " S_COLOR_WHITE "entered racemode\n\"", NM_SerializeUIntToColor( ent - g_entities ), ent->client->pers.netname ) );
+			
+			if ( !( ent->client->sess.racemodeFlags & RMF_ALREADYJOINED ) ) {
+				trap_SendServerCommand( ent - g_entities, "print \""S_COLOR_WHITE"Type "S_COLOR_CYAN"/race help "S_COLOR_WHITE"for more information about racemode\n\"" );
+			}
+			
 			G_SetRaceMode( ent, qtrue );
 		} else {
 			trap_SendServerCommand( -1, va( "print \"%s%s " S_COLOR_WHITE "left racemode\n\"", NM_SerializeUIntToColor( ent - g_entities ), ent->client->pers.netname ) );
