@@ -4489,8 +4489,8 @@ void Cmd_Amtelemark_f( gentity_t *ent ) {
 		return;
 	}
 
-	if ( !client->sess.inRacemode ) {
-		trap_SendServerCommand( ent - g_entities, "print \"You cannot use this command outside of racemode\n\"" );
+	if ( !client->ps.stats[STAT_RACEMODE] ) {
+		trap_SendServerCommand( ent - g_entities, "print \"You must be in racemode or spectating a racer to use this command\n\"" );
 		return;
 	}
 
