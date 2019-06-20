@@ -2466,6 +2466,10 @@ void G_DeletePlayerProjectiles( gentity_t *ent ) {
 }
 
 void G_PrintBasedOnRacemode( const char* text, qboolean toRacersOnly ) {
+	// save the text because it probably comes from one of the va() buffers which will be cleared in the loop
+	char textSave[MAX_STRING_CHARS];
+	Q_strncpyz( textSave, text, sizeof( textSave ) );
+
 	int i;
 	for ( i = 0; i < level.maxclients; ++i ) {
 		gentity_t *ent = &g_entities[i];
@@ -2482,7 +2486,7 @@ void G_PrintBasedOnRacemode( const char* text, qboolean toRacersOnly ) {
 			continue;
 		}
 
-		trap_SendServerCommand( ent - g_entities, va( "print \"%s\n\"", text ) );
+		trap_SendServerCommand( ent - g_entities, va( "print \"%s\n\"", textSave ) );
 	}
 }
 
