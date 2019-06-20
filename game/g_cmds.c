@@ -4485,6 +4485,10 @@ void Cmd_Amtelemark_f( gentity_t *ent ) {
 
 	gclient_t *client = ent->client;
 
+	if ( client->ps.fallingToDeath ) {
+		return;
+	}
+
 	if ( !client->sess.inRacemode ) {
 		trap_SendServerCommand( ent - g_entities, "print \"You cannot use this command outside of racemode\n\"" );
 		return;
@@ -4519,6 +4523,10 @@ void Cmd_Amtele_f( gentity_t *ent ) {
 	}
 
 	gclient_t *client = ent->client;
+
+	if ( client->ps.fallingToDeath ) {
+		return;
+	}
 
 	if ( !client->sess.inRacemode ) {
 		trap_SendServerCommand( ent - g_entities, "print \"You cannot use this command outside of racemode\n\"" );
