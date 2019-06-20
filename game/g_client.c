@@ -2789,8 +2789,7 @@ void G_BroadcastServerFeatureList( int clientNum ) {
 		"ready \"Marks yourself as ready to be part of random teams\" "
 		"ctfstats \"Shows stats for the current CTF game\" "
 		"toptimes \"Leaderboard of the fastest caps\" "
-		"inkognito \"Hides whom you are following on the scoreboard\" "
-		"vgs_cmd \"Extended Voice Game System\"";
+		"inkognito \"Hides whom you are following on the scoreboard\"";
 
 	static char locationsListConfigString[MAX_TOKEN_CHARS] = { 0 };
 
