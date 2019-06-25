@@ -4367,7 +4367,7 @@ static void Cmd_VchatDl_f( gentity_t *ent ) {
 	char fullPath[MAX_STRING_CHARS] = { 0 };
 	Com_sprintf( fullPath, sizeof( fullPath ), "%s/%s.pk3", base, pk3 );
 	trap_SendServerCommand( ent - g_entities, va( "kls -1 -1 vcdl \"%s\" \"%s\"", buf, fullPath ) );
-	G_LogPrintf( "Vchat download request from client %d (%s) for mod %s\n^7", ent - g_entities, ent->client->pers.netname, buf );
+	G_LogPrintf( "Vchat download request from client %d (%s) for mod %s (sent url: %s)\n^7", ent - g_entities, ent->client->pers.netname, buf, fullPath );
 }
 #endif
 
