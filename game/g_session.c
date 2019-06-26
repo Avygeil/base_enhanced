@@ -253,7 +253,6 @@ void G_ReadSessionData( qboolean restart )
 				VectorClear( client->sess.telemarkOrigin );
 				client->sess.telemarkYawAngle = 0;
 				client->sess.telemarkPitchAngle = 0;
-				client->sess.racemodeFlags &= ~RMF_TELEWITHSPEED;
 			}
         }
     }
