@@ -598,6 +598,7 @@ typedef struct {
 	// other racemode stuff
 	int			flagTakeTime; // used to get the steal time for demos independently from level.blue/redFlagStealTime
 	int			flagDebounceTime; // used not to pickup a flag immediately after finishing a run
+	int			checkpointDebounceTime; // used to not spam checkpoint prints
 } clientPersistant_t;
 
 typedef struct renderInfo_s

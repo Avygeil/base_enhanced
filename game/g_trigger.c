@@ -1920,158 +1920,290 @@ static qboolean IsProjectileTypeDeletedOnFlagTouch( gentity_t *ent ) {
 	return qfalse;
 }
 
+static void RaceTrigger_Start( gentity_t *trigger, gentity_t *player, team_t flagTaken ) {
+	if ( !player->client ) {
+		return;
+	}
+
+	gclient_t *client = player->client;
+
+	if ( level.time < client->pers.flagDebounceTime ) {
+		return;
+	}
+
+	// reset the speed stats/timer for this run
+	client->pers.fastcapTopSpeed = 0;
+	client->pers.fastcapDisplacement = 0;
+	client->pers.fastcapDisplacementSamples = 0;
+	client->pers.flagTakeTime = level.time;
+	G_ResetAccurateTimerOnTrigger( &client->pers.teamState.flagsince, player, trigger );
+
+	// delete some projectiles that can be abused 200 units around flagstand
+	G_DeletePlayerProjectilesAtPoint( player, trigger->r.currentOrigin, 200.0f, IsProjectileTypeDeletedOnFlagTouch );
+
+	// give the specified flag
+	client->ps.powerups[flagTaken == TEAM_RED ? PW_REDFLAG : PW_BLUEFLAG] = INT_MAX;
+
+	// this doesn't matter for flag triggers, as this function won't be called anymore, but it allows resetting runs on radiant triggers every 300ms
+	client->pers.flagDebounceTime = level.time + 300;
+}
+
 extern void PartitionedTimer( const int time, int *mins, int *secs, int *millis );
+static void RaceTrigger_Checkpoint( gentity_t *trigger, gentity_t *player ) {
+	if ( !player->client ) {
+		return;
+	}
+
+	gclient_t *client = player->client;
+
+	if ( level.time < client->pers.checkpointDebounceTime ) {
+		return;
+	}
+
+	// get time and speed stats
+	const int currentTime = G_GetAccurateTimerOnTrigger( &client->pers.teamState.flagsince, player, trigger );
+
+	int currentMaxSpeed = ( int )( client->pers.fastcapTopSpeed + 0.5f );
+	int currentAvgSpeed;
+
+	if ( client->pers.fastcapDisplacementSamples ) {
+		currentAvgSpeed = ( int )floorf( ( ( client->pers.fastcapDisplacement * g_svfps.value ) / client->pers.fastcapDisplacementSamples ) + 0.5f );
+	} else {
+		currentAvgSpeed = currentMaxSpeed;
+	}
+
+	// print their checkpoint
+	trap_SendServerCommand( player - g_entities, va(
+		"cp \""S_COLOR_YELLOW"%.3fs"S_COLOR_CYAN", avg "S_COLOR_YELLOW"%i"S_COLOR_CYAN"u, max "S_COLOR_YELLOW"%i^5u\n\n\n\n\n\n\n\n\n\n\"",
+		( float )currentTime * 0.001f,
+		currentAvgSpeed,
+		currentMaxSpeed )
+	);
+
+	// print it to everyone specing them
+	int i;
+	for ( i = 0; i < level.maxclients; i++ ) {
+		if ( !g_entities[i].inuse ) {
+			continue;
+		}
+
+		if ( level.clients[i].sess.sessionTeam == TEAM_SPECTATOR &&
+			( level.clients[i].ps.pm_flags & PMF_FOLLOW ) &&
+			level.clients[i].sess.spectatorClient == player->client->ps.clientNum ) {
+
+			trap_SendServerCommand( i, va(
+				"cp \""S_COLOR_YELLOW"%.3fs"S_COLOR_CYAN", avg "S_COLOR_YELLOW"%i"S_COLOR_CYAN"u, max "S_COLOR_YELLOW"%i^5u\n\n\n\n\n\n\n\n\n\n\"",
+				( float )currentTime * 0.001f,
+				currentAvgSpeed,
+				currentMaxSpeed )
+			);
+		}
+	}
+
+	// delay checkpoints by 1000ms
+	client->pers.checkpointDebounceTime = level.time + 1000;
+}
+
 extern const char* GetShortNameForRecordType( CaptureRecordType type );
+static void RaceTrigger_Finish( gentity_t *trigger, gentity_t *player ) {
+	if ( !player->client ) {
+		return;
+	}
+
+	gclient_t *client = player->client;
+
+	team_t flagCarried;
+	if ( client->ps.powerups[PW_REDFLAG] ) {
+		flagCarried = TEAM_RED;
+	} else if ( client->ps.powerups[PW_BLUEFLAG] ) {
+		flagCarried = TEAM_BLUE;
+	} else {
+		return;
+	}
+
+	// reset flag powerup
+	client->ps.powerups[flagCarried == TEAM_RED ? PW_REDFLAG : PW_BLUEFLAG] = 0;
+
+	// wait 1s before being able to take a flag so we don't pickup the other one instantly
+	client->pers.flagDebounceTime = level.time + 1000;
+
+	const CaptureRecordType captureRecordType = FindCaptureTypeForRun( client );
+
+	if ( captureRecordType == CAPTURE_RECORD_INVALID ) {
+		return;
+	}
+
+	const int captureTime = G_GetAccurateTimerOnTrigger( &client->pers.teamState.flagsince, player, trigger );
+
+	char matchId[SV_UNIQUEID_LEN];
+	trap_Cvar_VariableStringBuffer( "sv_uniqueid", matchId, sizeof( matchId ) ); // this requires a custom OpenJK build
+
+	int thisRunMaxSpeed = ( int )( client->pers.fastcapTopSpeed + 0.5f );
+	int thisRunAvgSpeed;
+
+	if ( client->pers.fastcapDisplacementSamples ) {
+		thisRunAvgSpeed = ( int )floorf( ( ( client->pers.fastcapDisplacement * g_svfps.value ) / client->pers.fastcapDisplacementSamples ) + 0.5f );
+	} else {
+		thisRunAvgSpeed = thisRunMaxSpeed;
+	}
+
+	const int recordRank = G_LogDbCaptureTime( client->sess.ip, client->pers.netname,
+		client->sess.auth == AUTHENTICATED ? client->sess.cuidHash : "", player - g_entities,
+		matchId, captureTime, flagCarried, thisRunMaxSpeed, thisRunAvgSpeed, time( NULL ),
+		client->pers.flagTakeTime - level.startTime, captureRecordType, &level.mapCaptureRecords
+	);
+
+	int secs, millis;
+	PartitionedTimer( captureTime, NULL, &secs, &millis );
+
+	if ( recordRank ) {
+		// we just did a new capture record, broadcast it to racers
+
+		char rankString[16];
+		if ( recordRank == 1 ) Com_sprintf( rankString, sizeof( rankString ), S_COLOR_RED"rank:1" );
+		else Com_sprintf( rankString, sizeof( rankString ), S_COLOR_CYAN"rank:"S_COLOR_YELLOW"%d", recordRank );
+
+		G_PrintBasedOnRacemode( va( S_COLOR_CYAN"New capture record by "S_COLOR_WHITE"%s"S_COLOR_CYAN"!     %s     "S_COLOR_CYAN"type:"S_COLOR_YELLOW"%s     "S_COLOR_CYAN"topspeed:"S_COLOR_YELLOW"%d     "S_COLOR_CYAN"avg:"S_COLOR_YELLOW"%d     "S_COLOR_CYAN"time:"S_COLOR_YELLOW"%d.%03d",
+			client->pers.netname, rankString, GetShortNameForRecordType( captureRecordType ), thisRunMaxSpeed, thisRunAvgSpeed, secs, millis
+		), qtrue );
+
+		// play a sound to all racers
+
+		// same sounds as japro
+		int soundIndex;
+		if ( recordRank == 1 ) {
+			soundIndex = G_SoundIndex( "sound/chars/rosh_boss/misc/victory3" );
+		} else {
+			soundIndex = G_SoundIndex( "sound/chars/rosh/misc/taunt1" );
+		}
+
+		gentity_t *te = G_Sound( player, CHAN_AUTO, soundIndex );
+		te->r.svFlags |= SVF_BROADCAST; // broadcast so that all racers and racespectators can hear it
+	} else {
+		// not a record, but still print their time
+		G_PrintBasedOnRacemode( va( S_COLOR_WHITE"Run completed by %s     "S_COLOR_CYAN"type:"S_COLOR_YELLOW"%s     "S_COLOR_CYAN"topspeed:"S_COLOR_YELLOW"%d     "S_COLOR_CYAN"avg:"S_COLOR_YELLOW"%d     "S_COLOR_CYAN"time:"S_COLOR_YELLOW"%d.%03d",
+			client->pers.netname, GetShortNameForRecordType( captureRecordType ), thisRunMaxSpeed, thisRunAvgSpeed, secs, millis
+		), qtrue );
+
+		G_Sound( player, CHAN_AUTO, G_SoundIndex( "sound/weapons/force/heal.wav" ) );
+		// don't broadcast this sound, play it for other nearby clients and specs only
+	}
+}
+
 void Touch_RaceTrigger( gentity_t *trigger, gentity_t *player, trace_t *trace ) {
 	if ( !player->client ) {
 		return;
 	}
 
+	gclient_t *client = player->client;
+
 	if ( player->r.svFlags & SVF_BOT || player->s.eType == ET_NPC ) {
 		return;
 	}
 
-	if ( !player->client->sess.inRacemode ) {
+	if ( !client->sess.inRacemode ) {
 		return;
 	}
 
 	if ( player->health < 1 ) {
 		return;
 	}
-	
-	gclient_t *client = player->client;
-	team_t flagTouched = trigger->count; // trigger team is stored in count
 
-	if ( client->ps.powerups[PW_REDFLAG] || client->ps.powerups[PW_BLUEFLAG] ) {
+	if ( trigger->count ) {
 
-		// we already have a flag
+		// this trigger was copied from a flagstand, so the owning team was stored
 
-		if ( ( client->ps.powerups[PW_REDFLAG] && flagTouched == TEAM_BLUE ) ||
-			( client->ps.powerups[PW_BLUEFLAG] && flagTouched == TEAM_RED ) ) {
+		team_t flagTouched = trigger->count;
 
-			// we have a flag and are touching the opposite flag, remove flag and stop the run
+		if ( client->ps.powerups[PW_REDFLAG] || client->ps.powerups[PW_BLUEFLAG] ) {
 
-			int myFlagPw = flagTouched == TEAM_RED ? PW_BLUEFLAG : PW_REDFLAG;
-			client->ps.powerups[myFlagPw] = 0;
+			// we already have a flag
 
-			client->pers.flagDebounceTime = level.time + 1000; // wait 1s before being able to take a flag so we don't pickup the other one instantly
+			if ( ( client->ps.powerups[PW_REDFLAG] && flagTouched == TEAM_BLUE ) ||
+				( client->ps.powerups[PW_BLUEFLAG] && flagTouched == TEAM_RED ) ) {
 
-			const CaptureRecordType captureRecordType = FindCaptureTypeForRun( client );
+				// we have a flag and are touching the opposite flag, stop the run
+				RaceTrigger_Finish( trigger, player );
 
-			if ( captureRecordType == CAPTURE_RECORD_INVALID ) {
+			} else {
+
+				// we have a flag and are touching the same flag, do nothing
 				return;
+
 			}
+		} else {
 
-			const int captureTime = G_GetAccurateTimerOnTrigger( &client->pers.teamState.flagsince, player, trigger );
+			// we don't have a flag, so we are starting a run
+			RaceTrigger_Start( trigger, player, flagTouched );
 
-			char matchId[SV_UNIQUEID_LEN];
-			trap_Cvar_VariableStringBuffer( "sv_uniqueid", matchId, sizeof( matchId ) ); // this requires a custom OpenJK build
+		}
+	} else {
 
-			int thisRunMaxSpeed = ( int )( client->pers.fastcapTopSpeed + 0.5f );
-			int thisRunAvgSpeed;
+		// this trigger was created directly in radiant
+		// TODO: do it with neutral flag? (needs client assets)
 
-			if ( client->pers.fastcapDisplacementSamples ) {
-				thisRunAvgSpeed = ( int )floorf( ( ( client->pers.fastcapDisplacement * g_svfps.value ) / client->pers.fastcapDisplacementSamples ) + 0.5f );
-			} else {
-				thisRunAvgSpeed = thisRunMaxSpeed;
-			}
+		if ( trigger->spawnflags & 1 ) {
 
-			const int recordRank = G_LogDbCaptureTime( client->sess.ip, client->pers.netname,
-				client->sess.auth == AUTHENTICATED ? client->sess.cuidHash : "", player - g_entities,
-				matchId, captureTime, OtherTeam( flagTouched ), thisRunMaxSpeed, thisRunAvgSpeed, time( NULL ),
-				client->pers.flagTakeTime - level.startTime, captureRecordType, &level.mapCaptureRecords
-			);
+			// a start trigger that gives the flag
+			RaceTrigger_Start( trigger, player, TEAM_BLUE );
 
-			int secs, millis;
-			PartitionedTimer( captureTime, NULL, &secs, &millis );
+		} else if ( trigger->spawnflags & 2 ) {
 
-			if ( recordRank ) {
-				// we just did a new capture record, broadcast it to racers
-
-				char rankString[16];
-				if ( recordRank == 1 ) Com_sprintf( rankString, sizeof( rankString ), S_COLOR_RED"rank:1" );
-				else Com_sprintf( rankString, sizeof( rankString ), S_COLOR_CYAN"rank:"S_COLOR_YELLOW"%d", recordRank );
-
-				G_PrintBasedOnRacemode( va( S_COLOR_CYAN"New capture record by "S_COLOR_WHITE"%s"S_COLOR_CYAN"!     %s     "S_COLOR_CYAN"type:"S_COLOR_YELLOW"%s     "S_COLOR_CYAN"topspeed:"S_COLOR_YELLOW"%d     "S_COLOR_CYAN"avg:"S_COLOR_YELLOW"%d     "S_COLOR_CYAN"time:"S_COLOR_YELLOW"%d.%03d",
-					client->pers.netname, rankString, GetShortNameForRecordType( captureRecordType ), thisRunMaxSpeed, thisRunAvgSpeed, secs, millis
-				), qtrue );
-
-				// play a sound to all racers
-
-				// same sounds as japro
-				int soundIndex;
-				if ( recordRank == 1 ) {
-					soundIndex = G_SoundIndex( "sound/chars/rosh_boss/misc/victory3" );
-				} else {
-					soundIndex = G_SoundIndex( "sound/chars/rosh/misc/taunt1" );
-				}
-
-				gentity_t *te = G_Sound( player, CHAN_AUTO, soundIndex );
-				te->r.svFlags |= SVF_BROADCAST; // broadcast so that all racers and racespectators can hear it
-			} else {
-				// not a record, but still print their time
-				G_PrintBasedOnRacemode( va( S_COLOR_WHITE"Run completed by %s     "S_COLOR_CYAN"type:"S_COLOR_YELLOW"%s     "S_COLOR_CYAN"topspeed:"S_COLOR_YELLOW"%d     "S_COLOR_CYAN"avg:"S_COLOR_YELLOW"%d     "S_COLOR_CYAN"time:"S_COLOR_YELLOW"%d.%03d",
-					client->pers.netname, GetShortNameForRecordType( captureRecordType ), thisRunMaxSpeed, thisRunAvgSpeed, secs, millis
-				), qtrue );
-
-				G_Sound( player, CHAN_AUTO, G_SoundIndex( "sound/weapons/force/heal.wav" ) );
-				// don't broadcast this sound, play it for other nearby clients and specs only
-			}
+			// a checkpoint trigger that prints time (only possible with radiant triggers)
+			RaceTrigger_Checkpoint( trigger, player );
 
 		} else {
 
-			// we have a flag and are touching the same flag, do nothing
-			return;
+			// a finish trigger
+			RaceTrigger_Finish( trigger, player );
 
 		}
-	} else {
-
-		// we don't have a flag, so we are taking one and starting a run
-
-		if ( level.time < client->pers.flagDebounceTime ) {
-			return;
-		}
-
-		// reset the speed stats/timer for this run
-		client->pers.fastcapTopSpeed = 0;
-		client->pers.fastcapDisplacement = 0;
-		client->pers.fastcapDisplacementSamples = 0;
-		client->pers.flagTakeTime = level.time;
-		G_ResetAccurateTimerOnTrigger( &client->pers.teamState.flagsince, player, trigger );
-
-		// delete some projectiles that can be abused 200 units around flagstand
-		G_DeletePlayerProjectilesAtPoint( player, trigger->r.currentOrigin, 200.0f, IsProjectileTypeDeletedOnFlagTouch );
-
-		int flagTouchedPw = flagTouched == TEAM_RED ? PW_REDFLAG : PW_BLUEFLAG;
-		client->ps.powerups[flagTouchedPw] = INT_MAX;
 	}
 }
 
-void G_CreateRaceTrigger( gentity_t *flagBase ) {
-	// find the team
-	team_t ownerTeam;
-	if ( flagBase->item->giTag == PW_REDFLAG ) {
-		ownerTeam = TEAM_RED;
-	} else if ( flagBase->item->giTag == PW_BLUEFLAG ) {
-		ownerTeam = TEAM_BLUE;
-	} else {
+
+void G_CreateRaceTrigger( gentity_t *base ) {
+	if ( !base ) {
 		return;
 	}
 
-	// bare minimum for the trigger to function
-	gentity_t *trigger = G_Spawn();
-	trigger->classname = "trigger_race";
-	trigger->r.contents = CONTENTS_TRIGGER;
-	trigger->r.svFlags = SVF_NOCLIENT;
-	trigger->touch = Touch_RaceTrigger;
-	trigger->count = ownerTeam; // store team in count variable because team is a char*
+	gentity_t *trigger;
+	team_t ownerTeam;
 
-	// mirror provided flag entity
-	VectorCopy( flagBase->s.origin, trigger->s.origin );
-	VectorCopy( flagBase->s.pos.trBase, trigger->s.pos.trBase );
-	VectorCopy( flagBase->r.currentOrigin, trigger->r.currentOrigin );
-	VectorCopy( flagBase->r.mins, trigger->r.mins );
-	VectorCopy( flagBase->r.maxs, trigger->r.maxs );
+	if ( base->item && base->item->giType == IT_TEAM ) {
+		// we are mirroring a flag entity to create this trigger
+
+		// find the team
+		if ( base->item->giTag == PW_REDFLAG ) {
+			ownerTeam = TEAM_RED;
+		} else if ( base->item->giTag == PW_BLUEFLAG ) {
+			ownerTeam = TEAM_BLUE;
+		} else {
+			return;
+		}
+		
+		// bare minimum for the trigger to function (mirrors InitTrigger without trap_SetBrushModel)
+		trigger = G_Spawn();
+		trigger->classname = "trigger_b_e_race";
+		trigger->r.contents = CONTENTS_TRIGGER;
+		trigger->r.svFlags = SVF_NOCLIENT;
+		VectorCopy( base->s.origin, trigger->s.origin );
+		VectorCopy( base->s.pos.trBase, trigger->s.pos.trBase );
+		VectorCopy( base->r.currentOrigin, trigger->r.currentOrigin );
+		VectorCopy( base->r.mins, trigger->r.mins );
+		VectorCopy( base->r.maxs, trigger->r.maxs );
+	} else {
+		// we are creating a race trigger directly from parsing map entities
+
+		ownerTeam = TEAM_FREE;
+
+		// init like a normal trigger
+		trigger = base;
+		InitTrigger( trigger );
+	}
+
+	trigger->touch = Touch_RaceTrigger;
+	trigger->count = ownerTeam;
 
 	trap_LinkEntity( trigger );
 }

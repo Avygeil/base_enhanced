@@ -493,6 +493,7 @@ spawn_t	spawns[] = {
 	{"trigger_shipboundary", SP_trigger_shipboundary},
 	{"trigger_hyperspace", SP_trigger_hyperspace},
 	{"trigger_asteroid_field", SP_trigger_asteroid_field},
+	{"trigger_b_e_race", G_CreateRaceTrigger}, // racemode - let mappers create non flag based, arbitrarily sized race triggers
 
 	// targets perform no action by themselves, but must be triggered
 	// by another entity

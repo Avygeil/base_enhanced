@@ -548,8 +548,9 @@ void	G_TouchTriggers( gentity_t *ent ) {
 
 		// use seperate code for determining if an item is picked up
 		// so you don't have to actually contact its bounding box
-		// racemode - use item logic for race triggers to match flag hitboxes
-		if ( hit->s.eType == ET_ITEM || isRaceTrigger ) {
+		// racemode - use item logic for race triggers to match flag hitboxes,
+		// unless the race trigger has no hit->count which means it wasn't based on a flag
+		if ( hit->s.eType == ET_ITEM || ( isRaceTrigger && hit->count ) ) {
 			if ( !BG_PlayerTouchesItem( &ent->client->ps, &hit->s, level.time ) ) {
 				continue;
 			}
