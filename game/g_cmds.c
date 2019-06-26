@@ -5796,6 +5796,10 @@ void Cmd_EngageDuel_f(gentity_t *ent)
 		return;
 	}
 
+	if ( ent->client->sess.inRacemode ) {
+		return;
+	}
+
 	if (ent->client->ps.duelTime >= level.time)
 	{
 		return;
