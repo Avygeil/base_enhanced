@@ -1881,8 +1881,8 @@ void SP_trigger_asteroid_field(gentity_t *self)
     trap_LinkEntity(self);
 }
 
-static CaptureRecordType FindCaptureTypeForRun( gclient_t *client ) {
-	if ( !level.mapCaptureRecords.enabled || level.mapCaptureRecords.readonly ) {
+CaptureRecordType FindCaptureTypeForRun( gclient_t *client ) {
+	if ( !level.mapCaptureRecords.enabled || level.mapCaptureRecords.readonly || !client->sess.inRacemode ) {
 		return CAPTURE_RECORD_INVALID;
 	}
 

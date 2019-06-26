@@ -5637,7 +5637,7 @@ void WP_ForcePowersUpdate( gentity_t *self, usercmd_t *ucmd )
 	{
 		if ( self->client->ps.fd.forcePowerDuration[i] )
 		{
-			if ( self->client->ps.fd.forcePowerDuration[i] < level.time )
+			if ( self->client->ps.fd.forcePowerDuration[i] < level.time && !( i == FP_SPEED && self->client->sess.inRacemode ) )
 			{
 				if ( (self->client->ps.fd.forcePowersActive&( 1 << i )) )
 				{//turn it off
