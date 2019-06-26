@@ -1254,6 +1254,15 @@ void hurt_touch( gentity_t *self, gentity_t *other, trace_t *trace ) {
 		return;
 	}
 
+	if ( self->damage == -1 && other && other->client && other->client->sess.inRacemode )
+	{
+		// racers get teleported to their telemark if they set one
+
+		if ( G_TeleportRacerToTelemark( other ) ) {
+			return;
+		}
+	}
+
 	if (self->damage == -1 && other && other->client && other->health < 1)
 	{
 		other->client->ps.fallingToDeath = 0;

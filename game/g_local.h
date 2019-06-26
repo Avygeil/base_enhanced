@@ -1360,6 +1360,7 @@ typedef qboolean( *ProjectileFilterCallback )( gentity_t* ent );
 void G_DeletePlayerProjectilesAtPoint( gentity_t *ent, vec3_t origin, float radius, ProjectileFilterCallback filterCallback );
 void G_DeletePlayerProjectiles( gentity_t *ent );
 void G_PrintBasedOnRacemode( const char* text, qboolean toRacersOnly );
+qboolean G_TeleportRacerToTelemark( gentity_t *ent );
 
 typedef qboolean ( *entityFilter_func )( gentity_t* );
 gentity_t* G_ClosestEntity( gentity_t *ref, entityFilter_func );
