@@ -142,6 +142,11 @@ void G_InitSessionData( gclient_t *client, char *userinfo, qboolean isBot, qbool
 	sess->whTrustToggle = qfalse;
 
 	sess->inRacemode = qfalse;
+	sess->racemodeFlags = 0;
+	sess->seeRacersWhileIngame = qfalse;
+	VectorClear( sess->telemarkOrigin );
+	sess->telemarkYawAngle = 0;
+	sess->telemarkPitchAngle = 0;
 
 	sess->spectatorState = SPECTATOR_FREE;
 	sess->spectatorTime = level.time;
