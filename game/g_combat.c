@@ -2525,7 +2525,7 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 			TossClientItems( self );
 		}
 	}
-	else {
+	else if ( !self->client->sess.inRacemode ) {
 		if ( self->client->ps.powerups[PW_NEUTRALFLAG] ) {		// only happens in One Flag CTF
 			Team_ReturnFlag( TEAM_FREE );
 		}
