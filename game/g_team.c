@@ -3,7 +3,7 @@
 
 #include "g_local.h"
 #include "bg_saga.h"
-#include "g_database_log.h"
+#include "g_database.h"
 
 #include "kdtree.h"
 

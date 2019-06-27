@@ -2,8 +2,7 @@
 //
 #include "g_local.h"
 #include "bg_saga.h"
-#include "g_database_log.h"
-#include "g_database_config.h"
+#include "g_database.h"
 
 #include "menudef.h"			// for the voice chats
 
@@ -2854,7 +2853,7 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 		}
 
         PoolInfo poolInfo;
-        if ( !G_CfgDbFindPool( arg2, &poolInfo ) )
+        if ( !G_DBFindPool( arg2, &poolInfo ) )
         {
             trap_SendServerCommand( ent - g_entities, "print \"Pool not found.\n\"" );
             return;
@@ -3634,7 +3633,7 @@ static void printBestTimeCallback( void *context, const char *mapname, const Cap
 	}
 
 	char identifier[MAX_NETNAME + 1] = { 0 };
-	G_CfgDbListAliases( recordHolderIpInt, ( unsigned int )0xFFFFFFFF, 1, copyTopNameCallback, &identifier, recordHolderCuid );
+	G_DBListAliases( recordHolderIpInt, ( unsigned int )0xFFFFFFFF, 1, copyTopNameCallback, &identifier, recordHolderCuid );
 
 	// no name in db for this guy, use the one we stored
 	if ( !VALIDSTRING( identifier ) ) {
@@ -3671,7 +3670,7 @@ static void printLeaderboardCallback( void *context, const CaptureRecordType typ
 
 	// TODO: pair ip/cuid in the query
 	char nameString[64] = { 0 };
-	G_CfgDbListAliases( playerIpInt, ( unsigned int )0xFFFFFFFF, 1, copyTopNameCallback, &nameString, NULL );
+	G_DBListAliases( playerIpInt, ( unsigned int )0xFFFFFFFF, 1, copyTopNameCallback, &nameString, NULL );
 
 	// TODO: fixme
 	if ( !VALIDSTRING( nameString ) ) {
@@ -3712,7 +3711,7 @@ static void printLatestTimesCallback( void *context, const char *mapname, const 
 	}
 
 	char nameString[64] = { 0 };
-	G_CfgDbListAliases( recordHolderIpInt, ( unsigned int )0xFFFFFFFF, 1, copyTopNameCallback, &nameString, recordHolderCuid );
+	G_DBListAliases( recordHolderIpInt, ( unsigned int )0xFFFFFFFF, 1, copyTopNameCallback, &nameString, recordHolderCuid );
 
 	// no name in db for this guy, use the one we stored
 	if ( !VALIDSTRING( nameString ) ) {
@@ -3832,7 +3831,7 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 			BestTimeContext context;
 			context.entNum = ent - g_entities;
 			context.hasPrinted = qfalse;
-			G_LogDbListBestCaptureRecords( category, MAPLIST_MAPS_PER_PAGE, ( page - 1 ) * MAPLIST_MAPS_PER_PAGE, printBestTimeCallback, &context );
+			G_DBListBestCaptureRecords( category, MAPLIST_MAPS_PER_PAGE, ( page - 1 ) * MAPLIST_MAPS_PER_PAGE, printBestTimeCallback, &context );
 
 			if ( context.hasPrinted ) {
 				trap_SendServerCommand( ent - g_entities, va( "print \"Viewing page %d.\nUsage: /toptimes maplist [std | wpn | walk | ad] [page]\n\"", page ) );
@@ -3874,7 +3873,7 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 			context.entNum = ent - g_entities;
 			context.currentRank = 1 + ( page - 1 ) * LEADERBOARD_PLAYERS_PER_PAGE;
 			context.hasPrinted = qfalse;
-			G_LogDbGetCaptureRecordsLeaderboard( category, LEADERBOARD_PLAYERS_PER_PAGE, ( page - 1 ) * LEADERBOARD_PLAYERS_PER_PAGE, printLeaderboardCallback, &context );
+			G_DBGetCaptureRecordsLeaderboard( category, LEADERBOARD_PLAYERS_PER_PAGE, ( page - 1 ) * LEADERBOARD_PLAYERS_PER_PAGE, printLeaderboardCallback, &context );
 
 			if ( context.hasPrinted ) {
 				trap_SendServerCommand( ent - g_entities, va( "print \"Viewing page %d.\nUsage: /toptimes ranks [std | wpn | walk | ad] [page]\n\"", page ) );
@@ -3915,7 +3914,7 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 			LatestTimeContext context;
 			context.entNum = ent - g_entities;
 			context.hasPrinted = qfalse;
-			G_LogDbListLatestCaptureRecords( category, LATEST_RECORDS_PER_PAGE, ( page - 1 ) * LATEST_RECORDS_PER_PAGE, printLatestTimesCallback, &context );
+			G_DBListLatestCaptureRecords( category, LATEST_RECORDS_PER_PAGE, ( page - 1 ) * LATEST_RECORDS_PER_PAGE, printLatestTimesCallback, &context );
 
 			if ( context.hasPrinted ) {
 				trap_SendServerCommand( ent - g_entities, va( "print \"Viewing page %d.\nUsage: /toptimes latest [std | wpn | walk | ad] [page]\n\"", page ) );
@@ -3958,7 +3957,7 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 					const char* categoryName = GetLongNameForRecordType( category );
 
 					char nameString[64] = { 0 };
-					G_CfgDbListAliases( thisRecord->recordHolderIpInt, ( unsigned int )0xFFFFFFFF, 1, copyTopNameCallback, &nameString, thisRecord->recordHolderCuid );
+					G_DBListAliases( thisRecord->recordHolderIpInt, ( unsigned int )0xFFFFFFFF, 1, copyTopNameCallback, &nameString, thisRecord->recordHolderCuid );
 
 					// no name in db for this guy, use the one we stored
 					if ( !VALIDSTRING( nameString ) ) {
@@ -4074,7 +4073,7 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 		}
 
 		char nameString[64] = { 0 };
-		G_CfgDbListAliases( record->recordHolderIpInt, ( unsigned int )0xFFFFFFFF, 1, copyTopNameCallback, &nameString, record->recordHolderCuid );
+		G_DBListAliases( record->recordHolderIpInt, ( unsigned int )0xFFFFFFFF, 1, copyTopNameCallback, &nameString, record->recordHolderCuid );
 
 		// no name in db for this guy, use the one we stored
 		if ( !VALIDSTRING( nameString ) ) {
@@ -5123,7 +5122,7 @@ static void Cmd_MapPool_f(gentity_t* ent)
         char short_name[64];
         trap_Argv( 1, short_name, sizeof( short_name ) );
 
-		G_CfgDbListMapsInPool( short_name, "", listMapsInPools, ( void** )&ctxPtr );
+		G_DBListMapsInPool( short_name, "", listMapsInPools, ( void** )&ctxPtr );
 
         trap_SendServerCommand( context.entity, va( "print \"Found %i maps for pool %s.\n\"",
             context.count, short_name, context.long_name ) );
@@ -5134,7 +5133,7 @@ static void Cmd_MapPool_f(gentity_t* ent)
         context.entity = ent - g_entities;
         context.count = 0;
 
-        G_CfgDbListPools( listPools, &context );
+        G_DBListPools( listPools, &context );
 
         trap_SendServerCommand( context.entity, va( "print \"Found %i map pools.\n\"", context.count ) );
 	}
@@ -5278,7 +5277,7 @@ void Cmd_WhoIs_f( gentity_t* ent )
 				trap_SendServerCommand( ent - g_entities, va( "print \"%sClient %i "S_COLOR_WHITE"(%s"S_COLOR_WHITE"): \"",
 					 color, i, level.clients[i].pers.netname )
 				);
-				G_CfgDbListAliases( level.clients[i].sess.ip, ( unsigned int )0xFFFFFFFF, 1, singleAliasCallback, &context, level.clients[i].sess.auth == AUTHENTICATED ? level.clients[i].sess.cuidHash : "");
+				G_DBListAliases( level.clients[i].sess.ip, ( unsigned int )0xFFFFFFFF, 1, singleAliasCallback, &context, level.clients[i].sess.auth == AUTHENTICATED ? level.clients[i].sess.cuidHash : "");
 				trap_SendServerCommand( ent - g_entities, "print \"\n\"" );
 			}
 		}
@@ -5312,7 +5311,7 @@ void Cmd_WhoIs_f( gentity_t* ent )
 		getIpFromString( mask, &maskInt );
 	}     
 
-	G_CfgDbListAliases( found->client->sess.ip, maskInt, 3, listAliasesCallback, &context, found->client->sess.auth == AUTHENTICATED ? found->client->sess.cuidHash : "");
+	G_DBListAliases( found->client->sess.ip, maskInt, 3, listAliasesCallback, &context, found->client->sess.auth == AUTHENTICATED ? found->client->sess.cuidHash : "");
 }
 
 #define MAX_STATS			16

@@ -8,8 +8,7 @@
 
 //#include "accounts.h"
 #include "jp_engine.h"
-#include "g_database_log.h"
-#include "g_database_config.h"
+#include "g_database.h"
 
 #include "kdtree.h"
 
@@ -1510,8 +1509,7 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 
 	G_LoadHelpFile( "help.txt" );
 
-    G_CfgDbLoad();
-    G_LogDbLoad();
+	G_DBLoadDatabase();
 
 	if ( g_gametype.integer == GT_CTF && g_enableRacemode.integer ) {
 		// load capture records for this map
@@ -1528,7 +1526,7 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 			}
 		}
 
-		int recordsLoaded = G_LogDbLoadCaptureRecords( mapname.string, &level.mapCaptureRecords );
+		int recordsLoaded = G_DBLoadCaptureRecords( mapname.string, &level.mapCaptureRecords );
 		if ( recordsLoaded ) {
 			G_Printf( "Loaded %d capture time records from database\n", recordsLoaded );
 		}
@@ -1633,13 +1631,12 @@ void G_ShutdownGame( int restart ) {
 	//cleanDB();
 
 	// save the capture records for this map
-	int recordsSaved = G_LogDbSaveCaptureRecords( &level.mapCaptureRecords );
+	int recordsSaved = G_DBSaveCaptureRecords( &level.mapCaptureRecords );
 	if ( recordsSaved ) {
 		G_Printf( "Saved %d capture time records to database\n", recordsSaved );
 	}
 
-    G_CfgDbUnload();
-    G_LogDbUnload();
+    G_DBUnloadDatabase();
 
 	UnpatchEngine();
 }

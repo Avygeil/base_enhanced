@@ -4,8 +4,7 @@
 // this file holds commands that can be executed by the server console, but not remote clients
 
 #include "g_local.h"
-#include "g_database_log.h"
-#include "g_database_config.h"
+#include "g_database.h"
 
 void Team_ResetFlags( void );
 /*
@@ -349,7 +348,12 @@ qboolean G_FilterPacket( char *from, char* reasonBuffer, int reasonBufferSize )
 {
     unsigned int ip = 0;
     getIpFromString( from, &ip );
-    return G_CfgDbIsFiltered( ip, reasonBuffer, reasonBufferSize );
+
+	if ( g_whitelist.integer ) {
+		return G_DBIsFilteredByWhitelist( ip, reasonBuffer, reasonBufferSize );
+	} else {
+		return G_DBIsFilteredByBlacklist( ip, reasonBuffer, reasonBufferSize );
+	}
 }
 
 /*
@@ -537,7 +541,7 @@ void Svcmd_AddIP_f (void)
         hours = atoi( hoursStr );        
     }                       
 
-    if ( G_CfgDbAddToBlacklist( ipInt, maskInt, notes, reason, hours ) )
+    if ( G_DBAddToBlacklist( ipInt, maskInt, notes, reason, hours ) )
     {
         G_Printf( "Added %s to blacklist successfuly.\n", ip );
         }
@@ -580,7 +584,7 @@ void Svcmd_RemoveIP_f (void)
         getIpFromString( mask, &maskInt );
     }   
 
-    if ( G_CfgDbRemoveFromBlacklist( ipInt, maskInt ) )
+    if ( G_DBRemoveFromBlacklist( ipInt, maskInt ) )
     {
         G_Printf( "Removed %s from blacklist successfuly.\n", ip );
     }
@@ -632,7 +636,7 @@ void Svcmd_AddWhiteIP_f( void )
         trap_Argv( 3, notes, sizeof( notes ) );
     }          
 
-    if ( G_CfgDbAddToWhitelist( ipInt, maskInt, notes ) )
+    if ( G_DBAddToWhitelist( ipInt, maskInt, notes ) )
     {
         G_Printf( "Added %s to whitelist successfuly.\n", ip );
     }
@@ -677,7 +681,7 @@ void Svcmd_RemoveWhiteIP_f( void )
         getIpFromString( mask, &maskInt );
     }         
 
-    if ( G_CfgDbRemoveFromWhitelist( ipInt, maskInt ) )
+    if ( G_DBRemoveFromWhitelist( ipInt, maskInt ) )
     {
         G_Printf( "Removed %s from whitelist successfuly.\n", ip );
     }
@@ -716,7 +720,7 @@ void Svcmd_Listip_f (void)
 {
     G_Printf( "ip mask notes reason banned_since banned_until\n" );   
 
-    G_CfgDbListBlacklist( listCallback );
+    G_DBListBlacklist( listCallback );
 }
 
 		
@@ -1356,7 +1360,7 @@ void Svcmd_MapRandom_f()
 
 	context.mapsToRandomize = mapsToRandomize;
 
-	if ( G_CfgDbSelectMapsFromPool( pool, currentMap, context.mapsToRandomize, mapSelectedCallback, &context ) )
+	if ( G_DBSelectMapsFromPool( pool, currentMap, context.mapsToRandomize, mapSelectedCallback, &context ) )
     {
 		if ( context.numSelected != context.mapsToRandomize ) {
 			G_Printf( "Could not randomize this many maps! Expected %d, but randomized %d\n", context.mapsToRandomize, context.numSelected );
@@ -1886,7 +1890,7 @@ void Svcmd_PoolCreate_f()
     trap_Argv( 1, short_name, sizeof( short_name ) );
     trap_Argv( 2, long_name, sizeof( long_name ) );
 
-    if ( !G_CfgDbPoolCreate( short_name, long_name ) )
+    if ( !G_DBPoolCreate( short_name, long_name ) )
     {
         G_Printf( "Could not create pool '%s'.\n", short_name );
     }
@@ -1903,7 +1907,7 @@ void Svcmd_PoolDelete_f()
 
     trap_Argv( 1, short_name, sizeof( short_name ) );
 
-    if ( !G_CfgDbPoolDelete( short_name ))
+    if ( !G_DBPoolDelete( short_name ))
     {
         G_Printf( "Failed to delete pool '%s'.\n", short_name );
     }
@@ -1938,7 +1942,7 @@ void Svcmd_PoolMapAdd_f()
         weight = 1;
     } 
 
-    if ( !G_CfgDbPoolMapAdd( short_name, mapname, weight ) )
+    if ( !G_DBPoolMapAdd( short_name, mapname, weight ) )
     {
         G_Printf( "Could not add map to pool '%s'.\n", short_name );
     }  
@@ -1957,7 +1961,7 @@ void Svcmd_PoolMapRemove_f()
     trap_Argv( 1, short_name, sizeof( short_name ) );
     trap_Argv( 2, mapname, sizeof( mapname ) );
 
-    if ( !G_CfgDbPoolMapRemove( short_name, mapname ) )
+    if ( !G_DBPoolMapRemove( short_name, mapname ) )
     {
         G_Printf( "Could not remove map from pool '%s'.\n", short_name );
     }

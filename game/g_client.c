@@ -3,7 +3,7 @@
 #include "g_local.h"
 #include "G2.h"
 #include "bg_saga.h"
-#include "g_database_log.h"
+#include "g_database.h"
 
 //#include "accounts.h"
 #include "sha1.h"
@@ -2162,7 +2162,7 @@ void ClientUserinfoChanged( int clientNum ) {
 				Info_SetValueForKey( userinfo, "name", client->pers.netname );
 				trap_SetUserinfo( clientNum, userinfo );
 
-                G_LogDbLogNickname( client->sess.ip, oldname, (getGlobalTime() - client->sess.nameChangeTime ) / 1000, client->sess.auth == AUTHENTICATED ? client->sess.cuidHash : "");
+				G_DBLogNickname( client->sess.ip, oldname, (getGlobalTime() - client->sess.nameChangeTime ) / 1000, client->sess.auth == AUTHENTICATED ? client->sess.cuidHash : "");
                 client->sess.nameChangeTime = getGlobalTime();
 
 				//make heartbeat soon - accounts system
@@ -4441,7 +4441,7 @@ void ClientDisconnect( int clientNum ) {
 		return;
 	}
 
-    G_LogDbLogNickname( ent->client->sess.ip, ent->client->pers.netname, (getGlobalTime() - ent->client->sess.nameChangeTime ) / 1000, ent->client->sess.auth == AUTHENTICATED ? ent->client->sess.cuidHash : "");
+	G_DBLogNickname( ent->client->sess.ip, ent->client->pers.netname, (getGlobalTime() - ent->client->sess.nameChangeTime ) / 1000, ent->client->sess.auth == AUTHENTICATED ? ent->client->sess.cuidHash : "");
     ent->client->sess.nameChangeTime = getGlobalTime();
 
 	i = 0;

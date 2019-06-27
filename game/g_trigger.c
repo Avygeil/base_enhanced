@@ -2,7 +2,7 @@
 //
 #include "g_local.h"
 #include "bg_saga.h"
-#include "g_database_log.h"
+#include "g_database.h"
 
 int gTrigFallSound;
 
@@ -2053,7 +2053,7 @@ static void RaceTrigger_Finish( gentity_t *trigger, gentity_t *player ) {
 		thisRunAvgSpeed = thisRunMaxSpeed;
 	}
 
-	const int recordRank = G_LogDbCaptureTime( client->sess.ip, client->pers.netname,
+	const int recordRank = G_DBAddCaptureTime( client->sess.ip, client->pers.netname,
 		client->sess.auth == AUTHENTICATED ? client->sess.cuidHash : "", player - g_entities,
 		matchId, captureTime, flagCarried, thisRunMaxSpeed, thisRunAvgSpeed, time( NULL ),
 		client->pers.flagTakeTime - level.startTime, captureRecordType, &level.mapCaptureRecords
