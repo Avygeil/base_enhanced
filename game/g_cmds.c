@@ -6125,11 +6125,11 @@ void ClientCommand( int clientNum ) {
 	}
 	//end rww
 
-	if (Q_stricmp (cmd, "say") == 0) {
+	if (Q_stricmp (cmd, "say") == 0 || !Q_stricmp(cmd, "sm_say")) {
 		Cmd_Say_f (ent, SAY_ALL, qfalse);
 		return;
 	}
-	if (Q_stricmp (cmd, "say_team") == 0) {
+	if (Q_stricmp (cmd, "say_team") == 0 || !Q_stricmp(cmd, "sm_say_team")) {
 		if (g_gametype.integer < GT_TEAM)
 		{ //not a team game, just refer to regular say.
 			Cmd_Say_f (ent, SAY_ALL, qfalse);
