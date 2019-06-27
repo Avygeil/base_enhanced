@@ -921,7 +921,6 @@ void SetTeam( gentity_t *ent, char *s ) {
 	}
 
 	BroadcastTeamChange( client, oldTeam );
-    // G_LogDbLogLevelEvent( level.db.levelId, level.time - level.startTime, levelEventTeamChanged, client->sess.sessionId, oldTeam, team, 0, 0 );
 
 	//make a disappearing effect where they were before teleporting them to the appropriate spawn point,
 	//if we were not on the spec team

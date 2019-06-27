@@ -1512,7 +1512,6 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 
     G_CfgDbLoad();
     G_LogDbLoad();
-    //level.db.levelId = G_LogDbLogLevelStart(restart);
 
 	if ( g_gametype.integer == GT_CTF && g_enableRacemode.integer ) {
 		// load capture records for this map
@@ -1638,8 +1637,6 @@ void G_ShutdownGame( int restart ) {
 	if ( recordsSaved ) {
 		G_Printf( "Saved %d capture time records to database\n", recordsSaved );
 	}
-
-    //G_LogDbLogLevelEnd(level.db.levelId);
 
     G_CfgDbUnload();
     G_LogDbUnload();
