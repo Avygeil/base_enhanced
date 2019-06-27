@@ -1962,6 +1962,10 @@ static void RaceTrigger_Checkpoint( gentity_t *trigger, gentity_t *player ) {
 		return;
 	}
 
+	if ( !client->ps.powerups[PW_REDFLAG] && !client->ps.powerups[PW_BLUEFLAG] ) {
+		return;
+	}
+
 	// get time and speed stats
 	const int currentTime = G_GetAccurateTimerOnTrigger( &client->pers.teamState.flagsince, player, trigger );
 
