@@ -1938,8 +1938,10 @@ static void RaceTrigger_Start( gentity_t *trigger, gentity_t *player, team_t fla
 	client->pers.flagTakeTime = level.time;
 	G_ResetAccurateTimerOnTrigger( &client->pers.teamState.flagsince, player, trigger );
 
-	// delete some projectiles that can be abused 200 units around flagstand
-	G_DeletePlayerProjectilesAtPoint( player, trigger->r.currentOrigin, 200.0f, IsProjectileTypeDeletedOnFlagTouch );
+	// for flag based triggers, delete some projectiles that can be abused 200 units around flagstand
+	if ( trigger->count ) {
+		G_DeletePlayerProjectilesAtPoint( player, trigger->r.currentOrigin, 200.0f, IsProjectileTypeDeletedOnFlagTouch );
+	}
 
 	// give the specified flag
 	client->ps.powerups[flagTaken == TEAM_RED ? PW_REDFLAG : PW_BLUEFLAG] = INT_MAX;
