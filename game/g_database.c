@@ -14,7 +14,8 @@ void InitWhitelist( void );
 void InitBlacklist( void );
 void InitPools( void );
 
-void G_DBLoadDatabase( void ) {
+void G_DBLoadDatabase( void )
+{
     int rc;
 
     rc = sqlite3_initialize();
@@ -75,7 +76,8 @@ void G_DBLoadDatabase( void ) {
 	G_DBSetMetadata( "schema_version", "1" );
 }
 
-void G_DBUnloadDatabase( void ) {
+void G_DBUnloadDatabase( void )
+{
 	int rc;
 
 	if ( dbPtr != diskDb ) {
