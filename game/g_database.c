@@ -7,6 +7,7 @@ static sqlite3* dbPtr = NULL;
 
 const char* const dbFileName = "enhanced.db";
 
+void InitMetadata( void );
 void InitNicknames( void );
 void InitFastcaps( void );
 void InitWhitelist( void );
@@ -64,11 +65,14 @@ void G_DBLoadDatabase( void ) {
 	}
 
 	// init all modules
+	InitMetadata();
 	InitNicknames();
 	InitFastcaps();
 	InitWhitelist();
 	InitBlacklist();
 	InitPools();
+
+	G_DBSetMetadata( "schema_version", "1" );
 }
 
 void G_DBUnloadDatabase( void ) {
@@ -99,6 +103,63 @@ void G_DBUnloadDatabase( void ) {
 
 	sqlite3_close( diskDb );
 	diskDb = dbPtr = NULL;
+}
+
+// =========== METADATA= =======================================================
+
+const char* const sqlCreateMetadataTable =
+"CREATE TABLE IF NOT EXISTS [metadata] (                                       "
+"  [key] TEXT COLLATE NOCASE PRIMARY KEY NOT NULL,                             "
+"  [value] TEXT DEFAULT NULL                                                   "
+");                                                                            ";
+
+const char* const sqlGetMetadata =
+"SELECT value FROM metadata WHERE metadata.key = ?1 LIMIT 1;                   ";
+
+const char* const sqlSetMetadata =
+"INSERT OR REPLACE INTO metadata (key, value) VALUES( ?1, ?2 );                ";
+
+void InitMetadata( void )
+{
+	sqlite3_exec( dbPtr, sqlCreateMetadataTable, NULL, NULL, NULL );
+}
+
+void G_DBGetMetadata( const char *key,
+	char *outValue,
+	size_t outValueBufSize )
+{
+	sqlite3_stmt* statement;
+
+	outValue[0] = '\0';
+
+	int rc = sqlite3_prepare_v2( dbPtr, sqlGetMetadata, -1, &statement, 0 );
+
+	sqlite3_bind_text( statement, 1, key, -1, SQLITE_STATIC );
+
+	rc = sqlite3_step( statement );
+	while ( rc == SQLITE_ROW ) {
+		const char *value = ( const char* )sqlite3_column_text( statement, 0 );
+		Q_strncpyz( outValue, value, outValueBufSize );
+
+		rc = sqlite3_step( statement );
+	}
+
+	sqlite3_finalize( statement );
+}
+
+void G_DBSetMetadata( const char *key,
+	const char *value )
+{
+	sqlite3_stmt* statement;
+
+	int rc = sqlite3_prepare_v2( dbPtr, sqlSetMetadata, -1, &statement, 0 );
+
+	sqlite3_bind_text( statement, 1, key, -1, SQLITE_STATIC );
+	sqlite3_bind_text( statement, 2, value, -1, SQLITE_STATIC );
+
+	rc = sqlite3_step( statement );
+
+	sqlite3_finalize( statement );
 }
 
 // =========== NICKNAMES =======================================================

@@ -6,6 +6,15 @@
 void G_DBLoadDatabase( void );
 void G_DBUnloadDatabase( void );
 
+// =========== METADATA= =======================================================
+
+void G_DBGetMetadata( const char *key,
+	char *outValue,
+	size_t outValueBufSize );
+
+void G_DBSetMetadata( const char *key,
+	const char *value );
+
 // =========== NICKNAMES =======================================================
 
 typedef void( *ListAliasesCallback )( void* context,
