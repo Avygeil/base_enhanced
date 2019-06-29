@@ -5,114 +5,6 @@
 static sqlite3* diskDb = NULL;
 static sqlite3* dbPtr = NULL;
 
-void InitMetadata( void );
-void InitNicknames( void );
-void InitFastcaps( void );
-void InitWhitelist( void );
-void InitBlacklist( void );
-void InitPools( void );
-
-void G_DBLoadDatabase( void )
-{
-    int rc;
-
-    rc = sqlite3_initialize();
-
-	if ( rc != SQLITE_OK ) {
-		Com_Printf( "Failed to initialize SQLite3 (code: %d)\n", rc );
-		return;
-	}
-
-    rc = sqlite3_open_v2( DB_FILENAME, &diskDb, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, NULL );
-
-	if ( rc != SQLITE_OK ) {
-		Com_Printf( "Failed to open database file "DB_FILENAME" (code: %d)\n", rc );
-		return;
-	}
-
-	Com_Printf( "Successfully opened database file "DB_FILENAME"\n" );
-
-	if ( g_inMemoryDB.integer ) {
-		Com_Printf( "Using in-memory database\n" );
-
-		// open db in memory
-		sqlite3* memoryDb = NULL;
-		rc = sqlite3_open_v2( ":memory:", &memoryDb, SQLITE_OPEN_READWRITE, NULL );
-
-		if ( rc == SQLITE_OK ) {
-			sqlite3_backup *backup = sqlite3_backup_init( memoryDb, "main", diskDb, "main" );
-			if ( backup ) {
-				rc = sqlite3_backup_step( backup, -1 );
-				if ( rc == SQLITE_DONE ) {
-					rc = sqlite3_backup_finish( backup );
-					if ( rc == SQLITE_OK ) {
-						dbPtr = memoryDb;
-					}
-				}
-			}
-		}
-
-		if ( !dbPtr ) {
-			Com_Printf( "WARNING: Failed to load database into memory!\n" );
-		}
-	}
-
-	// use disk db by default in any case
-	if ( !dbPtr ) {
-		Com_Printf( "Using on-disk database\n" );
-		dbPtr = diskDb;
-	}
-
-	// init all modules
-	InitMetadata();
-	InitNicknames();
-	InitFastcaps();
-	InitWhitelist();
-	InitBlacklist();
-	InitPools();
-
-	// get version and call the upgrade routine
-
-	char schema_version[16];
-	G_DBGetMetadata( "schema_version", schema_version, sizeof( schema_version ) );
-
-	int version = VALIDSTRING( schema_version ) ? atoi( schema_version ) : 0;
-	G_DBUpgradeDatabaseSchema( version, dbPtr );
-
-	G_DBSetMetadata( "schema_version", DB_SCHEMA_VERSION_STR );
-}
-
-void G_DBUnloadDatabase( void )
-{
-	int rc;
-
-	if ( dbPtr != diskDb ) {
-		Com_Printf( "Saving in-memory database changes to disk\n" );
-
-		// we are using in memory db, save changes to disk
-		qboolean success = qfalse;
-		sqlite3_backup *backup = sqlite3_backup_init( diskDb, "main", dbPtr, "main" );
-		if ( backup ) {
-			rc = sqlite3_backup_step( backup, -1 );
-			if ( rc == SQLITE_DONE ) {
-				rc = sqlite3_backup_finish( backup );
-				if ( rc == SQLITE_OK ) {
-					success = qtrue;
-				}
-			}
-		}
-
-		if ( !success ) {
-			Com_Printf( "WARNING: Failed to backup in-memory database! Changes from this session have NOT been saved!\n" );
-		}
-
-		sqlite3_close( dbPtr );
-	}
-
-	sqlite3_close( diskDb );
-	diskDb = dbPtr = NULL;
-}
-
 // =========== METADATA ========================================================
 
 const char* const sqlCreateMetadataTable =
@@ -1431,4 +1323,107 @@ qboolean G_DBPoolMapRemove( const char* short_name,
 	sqlite3_finalize( statement );
 
 	return success;
+}
+
+// =============================================================================
+
+void G_DBLoadDatabase( void )
+{
+    int rc;
+
+    rc = sqlite3_initialize();
+
+	if ( rc != SQLITE_OK ) {
+		Com_Printf( "Failed to initialize SQLite3 (code: %d)\n", rc );
+		return;
+	}
+
+    rc = sqlite3_open_v2( DB_FILENAME, &diskDb, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, NULL );
+
+	if ( rc != SQLITE_OK ) {
+		Com_Printf( "Failed to open database file "DB_FILENAME" (code: %d)\n", rc );
+		return;
+	}
+
+	Com_Printf( "Successfully opened database file "DB_FILENAME"\n" );
+
+	if ( g_inMemoryDB.integer ) {
+		Com_Printf( "Using in-memory database\n" );
+
+		// open db in memory
+		sqlite3* memoryDb = NULL;
+		rc = sqlite3_open_v2( ":memory:", &memoryDb, SQLITE_OPEN_READWRITE, NULL );
+
+		if ( rc == SQLITE_OK ) {
+			sqlite3_backup *backup = sqlite3_backup_init( memoryDb, "main", diskDb, "main" );
+			if ( backup ) {
+				rc = sqlite3_backup_step( backup, -1 );
+				if ( rc == SQLITE_DONE ) {
+					rc = sqlite3_backup_finish( backup );
+					if ( rc == SQLITE_OK ) {
+						dbPtr = memoryDb;
+					}
+				}
+			}
+		}
+
+		if ( !dbPtr ) {
+			Com_Printf( "WARNING: Failed to load database into memory!\n" );
+		}
+	}
+
+	// use disk db by default in any case
+	if ( !dbPtr ) {
+		Com_Printf( "Using on-disk database\n" );
+		dbPtr = diskDb;
+	}
+
+	// init all modules
+	InitMetadata();
+	InitNicknames();
+	InitFastcaps();
+	InitWhitelist();
+	InitBlacklist();
+	InitPools();
+
+	// get version and call the upgrade routine
+
+	char schema_version[16];
+	G_DBGetMetadata( "schema_version", schema_version, sizeof( schema_version ) );
+
+	int version = VALIDSTRING( schema_version ) ? atoi( schema_version ) : 0;
+	G_DBUpgradeDatabaseSchema( version, dbPtr );
+
+	G_DBSetMetadata( "schema_version", DB_SCHEMA_VERSION_STR );
+}
+
+void G_DBUnloadDatabase( void )
+{
+	int rc;
+
+	if ( dbPtr != diskDb ) {
+		Com_Printf( "Saving in-memory database changes to disk\n" );
+
+		// we are using in memory db, save changes to disk
+		qboolean success = qfalse;
+		sqlite3_backup *backup = sqlite3_backup_init( diskDb, "main", dbPtr, "main" );
+		if ( backup ) {
+			rc = sqlite3_backup_step( backup, -1 );
+			if ( rc == SQLITE_DONE ) {
+				rc = sqlite3_backup_finish( backup );
+				if ( rc == SQLITE_OK ) {
+					success = qtrue;
+				}
+			}
+		}
+
+		if ( !success ) {
+			Com_Printf( "WARNING: Failed to backup in-memory database! Changes from this session have NOT been saved!\n" );
+		}
+
+		sqlite3_close( dbPtr );
+	}
+
+	sqlite3_close( diskDb );
+	diskDb = dbPtr = NULL;
 }
