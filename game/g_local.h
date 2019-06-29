@@ -2087,6 +2087,8 @@ extern vmCvar_t     g_enableRacemode;
 extern vmCvar_t     d_disableRaceVisChecks;
 #endif
 
+extern vmCvar_t		g_traceSQL;
+
 extern vmCvar_t     g_quietrcon;
 
 extern vmCvar_t     g_hackLog;

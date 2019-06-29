@@ -1327,9 +1327,51 @@ qboolean G_DBPoolMapRemove( const char* short_name,
 
 // =============================================================================
 
+static void ErrorCallback( void* ctx, int code, const char* msg ) {
+	Com_Printf( "SQL error (code %d): %s\n", code, msg );
+}
+
+static int TraceCallback( unsigned int type, void* ctx, void* ptr, void* info ) {
+	if ( !ptr || !info ) {
+		return 0;
+	}
+
+	if ( type == SQLITE_TRACE_STMT ) {
+		char* sql = ( char* )info;
+
+		Com_Printf( "--------------------------------------------------------------------------------\n" );
+
+		if ( !Q_stricmpn( sql, "--", 2 ) ) {
+			// a comment, which means this is a trigger, log it directly
+			Com_Printf( "Executing SQL: \n%s\n", sql );
+		} else {
+			// expand the sql before logging it so we can see parameters
+			sqlite3_stmt* stmt = ( sqlite3_stmt* )ptr;
+			sql = sqlite3_expanded_sql( stmt );
+			Com_Printf( "Executing SQL: \n%s\n", sql );
+			sqlite3_free( sql );
+		}
+	} else if ( type == SQLITE_TRACE_PROFILE ) {
+		unsigned long long nanoseconds = *( ( unsigned long long* )info );
+		float ms = nanoseconds / 1000000;
+		Com_Printf( "Executed in %.6f\n", ms );
+		Com_Printf( "--------------------------------------------------------------------------------\n" );
+	}
+
+	return 0;
+}
+
 void G_DBLoadDatabase( void )
 {
     int rc;
+
+	// db options
+
+	sqlite3_config( SQLITE_CONFIG_SINGLETHREAD ); // we don't need multi threading
+	sqlite3_config( SQLITE_CONFIG_MEMSTATUS, 0 ); // we don't need allocation statistics
+	sqlite3_config( SQLITE_CONFIG_LOG, ErrorCallback, NULL ); // error logging
+
+	// initialize db
 
     rc = sqlite3_initialize();
 
@@ -1376,6 +1418,11 @@ void G_DBLoadDatabase( void )
 	if ( !dbPtr ) {
 		Com_Printf( "Using on-disk database\n" );
 		dbPtr = diskDb;
+	}
+
+	// register trace callback if needed
+	if ( g_traceSQL.integer ) {
+		sqlite3_trace_v2( dbPtr, SQLITE_TRACE_STMT | SQLITE_TRACE_PROFILE, TraceCallback, NULL );
 	}
 
 	// init all modules

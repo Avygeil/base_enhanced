@@ -312,6 +312,8 @@ vmCvar_t	g_enableRacemode;
 vmCvar_t	d_disableRaceVisChecks;
 #endif
 
+vmCvar_t	g_traceSQL;
+
 //allowing/disabling vote types
 vmCvar_t    g_allow_vote_gametype;
 vmCvar_t    g_allow_vote_kick;
@@ -670,6 +672,8 @@ static cvarTable_t		gameCvarTable[] = {
 #ifdef _DEBUG
 	{ &d_disableRaceVisChecks, "d_disableRaceVisChecks", "0", CVAR_TEMP, 0, qtrue },
 #endif
+
+	{ &g_traceSQL, "g_traceSQL", "0", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
 
     { &g_restart_countdown, "g_restart_countdown", "3", CVAR_ARCHIVE, 0, qtrue }, 
 
