@@ -3,10 +3,16 @@
 
 #include "g_local.h"
 
+#define DB_FILENAME				"enhanced.db"
+#define DB_SCHEMA_VERSION		1
+#define DB_SCHEMA_VERSION_STR	"1"
+
 void G_DBLoadDatabase( void );
 void G_DBUnloadDatabase( void );
 
-// =========== METADATA= =======================================================
+qboolean G_DBUpgradeDatabaseSchema( int versionFrom, void* db );
+
+// =========== METADATA ========================================================
 
 void G_DBGetMetadata( const char *key,
 	char *outValue,

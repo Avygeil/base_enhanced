@@ -5,8 +5,6 @@
 static sqlite3* diskDb = NULL;
 static sqlite3* dbPtr = NULL;
 
-const char* const dbFileName = "enhanced.db";
-
 void InitMetadata( void );
 void InitNicknames( void );
 void InitFastcaps( void );
@@ -25,14 +23,14 @@ void G_DBLoadDatabase( void )
 		return;
 	}
 
-    rc = sqlite3_open_v2( dbFileName, &diskDb, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, NULL );
+    rc = sqlite3_open_v2( DB_FILENAME, &diskDb, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, NULL );
 
 	if ( rc != SQLITE_OK ) {
-		Com_Printf( "Failed to open database file %s (code: %d)\n", dbFileName, rc );
+		Com_Printf( "Failed to open database file "DB_FILENAME" (code: %d)\n", rc );
 		return;
 	}
 
-	Com_Printf( "Successfully opened database file %s\n", dbFileName );
+	Com_Printf( "Successfully opened database file "DB_FILENAME"\n" );
 
 	if ( g_inMemoryDB.integer ) {
 		Com_Printf( "Using in-memory database\n" );
@@ -73,7 +71,15 @@ void G_DBLoadDatabase( void )
 	InitBlacklist();
 	InitPools();
 
-	G_DBSetMetadata( "schema_version", "1" );
+	// get version and call the upgrade routine
+
+	char schema_version[16];
+	G_DBGetMetadata( "schema_version", schema_version, sizeof( schema_version ) );
+
+	int version = VALIDSTRING( schema_version ) ? atoi( schema_version ) : 0;
+	G_DBUpgradeDatabaseSchema( version, dbPtr );
+
+	G_DBSetMetadata( "schema_version", DB_SCHEMA_VERSION_STR );
 }
 
 void G_DBUnloadDatabase( void )
@@ -107,7 +113,7 @@ void G_DBUnloadDatabase( void )
 	diskDb = dbPtr = NULL;
 }
 
-// =========== METADATA= =======================================================
+// =========== METADATA ========================================================
 
 const char* const sqlCreateMetadataTable =
 "CREATE TABLE IF NOT EXISTS [metadata] (                                       "
