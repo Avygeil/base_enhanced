@@ -1339,23 +1339,26 @@ static int TraceCallback( unsigned int type, void* ctx, void* ptr, void* info ) 
 	if ( type == SQLITE_TRACE_STMT ) {
 		char* sql = ( char* )info;
 
-		Com_Printf( "--------------------------------------------------------------------------------\n" );
+		Com_Printf( "Executing SQL: \n" );
 
 		if ( !Q_stricmpn( sql, "--", 2 ) ) {
 			// a comment, which means this is a trigger, log it directly
-			Com_Printf( "Executing SQL: \n%s\n", sql );
+			Com_Printf( "--------------------------------------------------------------------------------\n" );
+			Com_Printf( "%s\n", sql );
+			Com_Printf( "--------------------------------------------------------------------------------\n" );
 		} else {
 			// expand the sql before logging it so we can see parameters
 			sqlite3_stmt* stmt = ( sqlite3_stmt* )ptr;
 			sql = sqlite3_expanded_sql( stmt );
-			Com_Printf( "Executing SQL: \n%s\n", sql );
+			Com_Printf( "--------------------------------------------------------------------------------\n" );
+			Com_Printf( "%s\n", sql );
+			Com_Printf( "--------------------------------------------------------------------------------\n" );
 			sqlite3_free( sql );
 		}
 	} else if ( type == SQLITE_TRACE_PROFILE ) {
 		unsigned long long nanoseconds = *( ( unsigned long long* )info );
 		unsigned int ms = nanoseconds / 1000000;
-		Com_Printf( "Executed in %umsf\n", ms );
-		Com_Printf( "--------------------------------------------------------------------------------\n" );
+		Com_Printf( "Executed in %ums\n", ms );
 	}
 
 	return 0;
