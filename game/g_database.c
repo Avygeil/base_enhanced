@@ -1353,8 +1353,8 @@ static int TraceCallback( unsigned int type, void* ctx, void* ptr, void* info ) 
 		}
 	} else if ( type == SQLITE_TRACE_PROFILE ) {
 		unsigned long long nanoseconds = *( ( unsigned long long* )info );
-		float ms = nanoseconds / 1000000;
-		Com_Printf( "Executed in %.6f\n", ms );
+		unsigned int ms = nanoseconds / 1000000;
+		Com_Printf( "Executed in %umsf\n", ms );
 		Com_Printf( "--------------------------------------------------------------------------------\n" );
 	}
 
