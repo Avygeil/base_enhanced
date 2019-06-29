@@ -7,17 +7,17 @@ const char* const oldCfgDbFilename = "jka_config.db";
 // =========== METADATA ========================================================
 
 const char* const sqlCopyOldTablesToNewV1DB =
-"ATTACH DATABASE 'jka_log.db' AS logDb;                                        "
-"ATTACH DATABASE 'jka_config.db' as cfgDb;                                     "
-"BEGIN TRANSACTION;                                                            "
-"INSERT INTO main.fastcapsV2 SELECT * FROM logDb.fastcapsV2;                   "
-"INSERT INTO main.nicknames SELECT * FROM logDb.nicknames;                     "
-"INSERT INTO main.ip_whitelist SELECT * FROM cfgDb.ip_whitelist;               "
-"INSERT INTO main.ip_blacklist SELECT * FROM cfgDb.ip_blacklist;               "
-"INSERT INTO main.pool_has_map SELECT * FROM cfgDb.pool_has_map;               "
-"INSERT INTO main.pools SELECT * FROM cfgDb.pools;                             "
-"COMMIT TRANSACTION;                                                           "
-"DETACH DATABASE logDb;                                                        "
+"ATTACH DATABASE 'jka_log.db' AS logDb;                                      \n"
+"ATTACH DATABASE 'jka_config.db' as cfgDb;                                   \n"
+"BEGIN TRANSACTION;                                                          \n"
+"INSERT INTO main.fastcapsV2 SELECT * FROM logDb.fastcapsV2;                 \n"
+"INSERT INTO main.nicknames SELECT * FROM logDb.nicknames;                   \n"
+"INSERT INTO main.ip_whitelist SELECT * FROM cfgDb.ip_whitelist;             \n"
+"INSERT INTO main.ip_blacklist SELECT * FROM cfgDb.ip_blacklist;             \n"
+"INSERT INTO main.pool_has_map SELECT * FROM cfgDb.pool_has_map;             \n"
+"INSERT INTO main.pools SELECT * FROM cfgDb.pools;                           \n"
+"COMMIT TRANSACTION;                                                         \n"
+"DETACH DATABASE logDb;                                                      \n"
 "DETACH DATABASE cfgDb;                                                        ";
 
 static void UpgradeDBToVersion1( sqlite3* dbPtr ) {

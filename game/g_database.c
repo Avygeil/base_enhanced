@@ -8,9 +8,9 @@ static sqlite3* dbPtr = NULL;
 // =========== METADATA ========================================================
 
 const char* const sqlCreateMetadataTable =
-"CREATE TABLE IF NOT EXISTS [metadata] (                                       "
-"  [key] TEXT COLLATE NOCASE PRIMARY KEY NOT NULL,                             "
-"  [value] TEXT DEFAULT NULL                                                   "
+"CREATE TABLE IF NOT EXISTS [metadata] (                                     \n"
+"  [key] TEXT COLLATE NOCASE PRIMARY KEY NOT NULL,                           \n"
+"  [value] TEXT DEFAULT NULL                                                 \n"
 ");                                                                            ";
 
 const char* const sqlGetMetadata =
@@ -65,45 +65,45 @@ void G_DBSetMetadata( const char *key,
 // =========== NICKNAMES =======================================================
 
 const char* const sqlCreateNicknamesTable =
-"CREATE TABLE IF NOT EXISTS nicknames(                                          "
-"  [ip_int] INTEGER,                                                            "
-"  [name] TEXT,                                                                 "
-"  [duration] INTEGER,                                                          "
-"  [cuid_hash2] TEXT );                                                         ";
+"CREATE TABLE IF NOT EXISTS nicknames(                                       \n"
+"  [ip_int] INTEGER,                                                         \n"
+"  [name] TEXT,                                                              \n"
+"  [duration] INTEGER,                                                       \n"
+"  [cuid_hash2] TEXT );                                                        ";
 
 const char* const sqlAddName =
-"INSERT INTO nicknames (ip_int, name, duration)                 "
-"VALUES (?,?,?)                                                 ";
+"INSERT INTO nicknames (ip_int, name, duration)                              \n"
+"VALUES (?,?,?)                                                                ";
 
 const char* const sqlAddNameNM =
-"INSERT INTO nicknames (ip_int, name, duration, cuid_hash2)     "
-"VALUES (?,?,?,?)                                               ";
+"INSERT INTO nicknames (ip_int, name, duration, cuid_hash2)                  \n"
+"VALUES (?,?,?,?)                                                              ";
 
 const char* const sqlGetAliases =
-"SELECT name, SUM( duration ) AS time                           "
-"FROM nicknames                                                 "
-"WHERE nicknames.ip_int & ?2 = ?1 & ?2                          "
-"GROUP BY name                                                  "
-"ORDER BY time DESC                                             "
-"LIMIT ?3                                                       ";
+"SELECT name, SUM( duration ) AS time                                        \n"
+"FROM nicknames                                                              \n"
+"WHERE nicknames.ip_int & ?2 = ?1 & ?2                                       \n"
+"GROUP BY name                                                               \n"
+"ORDER BY time DESC                                                          \n"
+"LIMIT ?3                                                                      ";
 
 const char* const sqlGetNMAliases =
-"SELECT name, SUM( duration ) AS time                           "
-"FROM nicknames                                                 "
-"WHERE nicknames.cuid_hash2 = ?1                                "
-"GROUP BY name                                                  "
-"ORDER BY time DESC                                             "
-"LIMIT ?2                                                       ";
+"SELECT name, SUM( duration ) AS time                                        \n"
+"FROM nicknames                                                              \n"
+"WHERE nicknames.cuid_hash2 = ?1                                             \n"
+"GROUP BY name                                                               \n"
+"ORDER BY time DESC                                                          \n"
+"LIMIT ?2                                                                      ";
 
 const char* const sqlCountNMAliases =
 "SELECT COUNT(*) FROM ("
-"SELECT name, SUM( duration ) AS time                           "
-"FROM nicknames                                                 "
-"WHERE nicknames.cuid_hash2 = ?1                                "
-"GROUP BY name                                                  "
-"ORDER BY time DESC                                             "
-"LIMIT ?2                                                       "
-")                                                              ";
+"SELECT name, SUM( duration ) AS time                                        \n"
+"FROM nicknames                                                              \n"
+"WHERE nicknames.cuid_hash2 = ?1                                             \n"
+"GROUP BY name                                                               \n"
+"ORDER BY time DESC                                                          \n"
+"LIMIT ?2                                                                    \n"
+")                                                                             ";
 
 void InitNicknames( void )
 {
@@ -215,72 +215,72 @@ void G_DBListAliases( unsigned int ipInt,
 // =========== FASTCAPS ========================================================
 
 const char* const sqlCreateFastcapsV2Table =
-"CREATE TABLE IF NOT EXISTS fastcapsV2 (                                        "
-"    [fastcap_id] INTEGER PRIMARY KEY AUTOINCREMENT,                            "
-"    [mapname] TEXT,                                                            "
-"    [rank] INTEGER,                                                            "
-"    [type] INTEGER,                                                            "
-"    [player_name] TEXT,                                                        "
-"    [player_ip_int] INTEGER,                                                   "
-"    [player_cuid_hash2] TEXT,                                                  "
-"    [capture_time] INTEGER,                                                    "
-"    [whose_flag] INTEGER,                                                      "
-"    [max_speed] INTEGER,                                                       "
-"    [avg_speed] INTEGER,                                                       "
-"    [date] INTEGER,                                                            "
-"    [match_id] TEXT,                                                           "
-"    [client_id] INTEGER,                                                       "
-"    [pickup_time] INTEGER);                                                    ";
+"CREATE TABLE IF NOT EXISTS fastcapsV2 (                                     \n"
+"    [fastcap_id] INTEGER PRIMARY KEY AUTOINCREMENT,                         \n"
+"    [mapname] TEXT,                                                         \n"
+"    [rank] INTEGER,                                                         \n"
+"    [type] INTEGER,                                                         \n"
+"    [player_name] TEXT,                                                     \n"
+"    [player_ip_int] INTEGER,                                                \n"
+"    [player_cuid_hash2] TEXT,                                               \n"
+"    [capture_time] INTEGER,                                                 \n"
+"    [whose_flag] INTEGER,                                                   \n"
+"    [max_speed] INTEGER,                                                    \n"
+"    [avg_speed] INTEGER,                                                    \n"
+"    [date] INTEGER,                                                         \n"
+"    [match_id] TEXT,                                                        \n"
+"    [client_id] INTEGER,                                                    \n"
+"    [pickup_time] INTEGER);                                                   ";
 
 const char* const sqlAddFastcapV2 =
-"INSERT INTO fastcapsV2 (                                                       "
-"    mapname, rank, type, player_name, player_ip_int, player_cuid_hash2,        "
-"    capture_time, whose_flag, max_speed, avg_speed, date, match_id,            "
-"    client_id, pickup_time)                                                    "
-"VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)                                           ";
+"INSERT INTO fastcapsV2 (                                                    \n"
+"    mapname, rank, type, player_name, player_ip_int, player_cuid_hash2,     \n"
+"    capture_time, whose_flag, max_speed, avg_speed, date, match_id,         \n"
+"    client_id, pickup_time)                                                 \n"
+"VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)                                          ";
 
 const char* const sqlremoveFastcapsV2 =
-"DELETE FROM fastcapsV2 WHERE mapname = ?                                       ";
+"DELETE FROM fastcapsV2 WHERE mapname = ?                                      ";
 
 const char* const sqlGetFastcapsV2 =
-"SELECT player_name, player_ip_int, player_cuid_hash2, capture_time,            "
-"whose_flag, max_speed, avg_speed, date, match_id, client_id, pickup_time       "
-"FROM fastcapsV2                                                                "
-"WHERE fastcapsV2.mapname = ?1 AND fastcapsV2.type = ?2                         "
-"ORDER BY capture_time                                                          "
-"LIMIT ?3                                                                       ";
+"SELECT player_name, player_ip_int, player_cuid_hash2, capture_time,         \n"
+"whose_flag, max_speed, avg_speed, date, match_id, client_id, pickup_time    \n"
+"FROM fastcapsV2                                                             \n"
+"WHERE fastcapsV2.mapname = ?1 AND fastcapsV2.type = ?2                      \n"
+"ORDER BY capture_time                                                       \n"
+"LIMIT ?3                                                                      ";
 
 const char* const sqlListBestFastcapsV2 =
-"SELECT mapname, player_name, player_ip_int, player_cuid_hash2,                 "
-"capture_time AS best_time, date                                                "
-"FROM fastcapsV2                                                                "
-"WHERE fastcapsV2.type = ?1 AND fastcapsV2.rank = 1                             "
-"GROUP BY mapname                                                               "
-"ORDER BY mapname ASC                                                           "
-"LIMIT ?2                                                                       "
-"OFFSET ?3                                                                      ";
+"SELECT mapname, player_name, player_ip_int, player_cuid_hash2,              \n"
+"capture_time AS best_time, date                                             \n"
+"FROM fastcapsV2                                                             \n"
+"WHERE fastcapsV2.type = ?1 AND fastcapsV2.rank = 1                          \n"
+"GROUP BY mapname                                                            \n"
+"ORDER BY mapname ASC                                                        \n"
+"LIMIT ?2                                                                    \n"
+"OFFSET ?3                                                                     ";
 
 const char* const sqlGetFastcapsV2Leaderboard =
-"SELECT player_ip_int,                                                          "
-"    SUM( CASE WHEN rank = 1 THEN 1 ELSE 0 END ) AS golds,                      "
-"    SUM( CASE WHEN rank = 2 THEN 1 ELSE 0 END ) AS silvers,                    "
-"    SUM( CASE WHEN rank = 3 THEN 1 ELSE 0 END ) AS bronzes                     "
-"FROM fastcapsV2                                                                "
-"WHERE fastcapsV2.type = ?1                                                     "
-"GROUP BY player_ip_int                                                         "
-"HAVING golds > 0 OR silvers > 0 OR bronzes > 0                                 "
-"ORDER BY golds DESC, silvers DESC, bronzes DESC                                "
-"LIMIT ?2                                                                       "
-"OFFSET ?3                                                                      ";
+"SELECT player_ip_int,                                                       \n"
+"    SUM( CASE WHEN rank = 1 THEN 1 ELSE 0 END ) AS golds,                   \n"
+"    SUM( CASE WHEN rank = 2 THEN 1 ELSE 0 END ) AS silvers,                 \n"
+"    SUM( CASE WHEN rank = 3 THEN 1 ELSE 0 END ) AS bronzes                  \n"
+"FROM fastcapsV2                                                             \n"
+"WHERE fastcapsV2.type = ?1                                                  \n"
+"GROUP BY player_ip_int                                                      \n"
+"HAVING golds > 0 OR silvers > 0 OR bronzes > 0                              \n"
+"ORDER BY golds DESC, silvers DESC, bronzes DESC                             \n"
+"LIMIT ?2                                                                    \n"
+"OFFSET ?3                                                                     ";
 
 const char* const sqlListLatestFastcapsV2 =
-"SELECT mapname, rank, player_name, player_ip_int, player_cuid_hash2,           "
-"capture_time, date                                                             "
-"FROM fastcapsV2                                                                "
-"WHERE fastcapsV2.type = ?1                                                     "
-"ORDER BY date DESC                                                             "
-"LIMIT ?2                                                                       "
-"OFFSET ?3                                                                      ";
+"SELECT mapname, rank, player_name, player_ip_int, player_cuid_hash2,        \n"
+"capture_time, date                                                          \n"
+"FROM fastcapsV2                                                             \n"
+"WHERE fastcapsV2.type = ?1                                                  \n"
+"ORDER BY date DESC                                                          \n"
+"LIMIT ?2                                                                    \n"
+"OFFSET ?3                                                                     ";
 
 void InitFastcaps( void )
 {
@@ -654,24 +654,24 @@ int G_DBAddCaptureTime( unsigned int ipInt,
 // =========== WHITELIST =======================================================
 
 const char* const sqlCreateWhitelistTable =
-"CREATE TABLE IF NOT EXISTS ip_whitelist (                                      "
-"    [ip_int] INTEGER PRIMARY KEY,                                              "
-"    [mask_int] INTEGER,                                                        "
-"    [notes] TEXT);                                                             ";
+"CREATE TABLE IF NOT EXISTS ip_whitelist (                                   \n"
+"    [ip_int] INTEGER PRIMARY KEY,                                           \n"
+"    [mask_int] INTEGER,                                                     \n"
+"    [notes] TEXT);                                                            ";
 
 const char* const sqlIsIpWhitelisted =
-"SELECT COUNT(*)                               "
-"FROM ip_whitelist                             "
-"WHERE( ip_int & mask_int ) = (? & mask_int)   ";
+"SELECT COUNT(*)                                                             \n"
+"FROM ip_whitelist                                                           \n"
+"WHERE( ip_int & mask_int ) = (? & mask_int)                                   ";
 
 const char* const sqlAddToWhitelist =
-"INSERT INTO ip_whitelist (ip_int, mask_int, notes)  "
-"VALUES (?,?,?)                                      ";
+"INSERT INTO ip_whitelist (ip_int, mask_int, notes)                          \n"
+"VALUES (?,?,?)                                                                ";
 
 const char* const sqlremoveFromWhitelist =
-"DELETE FROM ip_whitelist   "
-"WHERE ip_int = ?           "
-"AND mask_int = ?           ";
+"DELETE FROM ip_whitelist                                                    \n"
+"WHERE ip_int = ?                                                            \n"
+"AND mask_int = ?                                                              ";
 
 void InitWhitelist( void )
 {
@@ -762,33 +762,33 @@ qboolean G_DBRemoveFromWhitelist( unsigned int ip,
 // =========== BLACKLIST =======================================================
 
 const char* const sqlCreateBlacklistTable =
-"CREATE TABLE IF NOT EXISTS ip_blacklist (                                      "
-"    [ip_int] INTEGER PRIMARY KEY,                                              "
-"    [mask_int] INTEGER,                                                        "
-"    [notes] TEXT,                                                              "
-"    [reason] TEXT,                                                             "
-"    [banned_since] DATETIME,                                                   "
-"    [banned_until] DATETIME);                                                  ";
+"CREATE TABLE IF NOT EXISTS ip_blacklist (                                   \n"
+"    [ip_int] INTEGER PRIMARY KEY,                                           \n"
+"    [mask_int] INTEGER,                                                     \n"
+"    [notes] TEXT,                                                           \n"
+"    [reason] TEXT,                                                          \n"
+"    [banned_since] DATETIME,                                                \n"
+"    [banned_until] DATETIME);                                                 ";
 
 const char* const sqlIsIpBlacklisted =
-"SELECT reason                                 "
-"FROM ip_blacklist                             "
-"WHERE( ip_int & mask_int ) = (? & mask_int)   "
-"AND banned_until >= datetime('now')           ";
+"SELECT reason                                                               \n"
+"FROM ip_blacklist                                                           \n"
+"WHERE( ip_int & mask_int ) = (? & mask_int)                                 \n"
+"AND banned_until >= datetime('now')                                           ";
 
 const char* const sqlListBlacklist =
-"SELECT ip_int, mask_int, notes, reason, banned_since, banned_until   "
-"FROM ip_blacklist                                                    ";
+"SELECT ip_int, mask_int, notes, reason, banned_since, banned_until          \n"
+"FROM ip_blacklist                                                             ";
 
 const char* const sqlAddToBlacklist =
-"INSERT INTO ip_blacklist (ip_int,                                  "
-"mask_int, notes, reason, banned_since, banned_until)               "
-"VALUES (?,?,?,?,datetime('now'),datetime('now','+'||?||' hours'))  ";
+"INSERT INTO ip_blacklist (ip_int,                                           \n"
+"mask_int, notes, reason, banned_since, banned_until)                        \n"
+"VALUES (?,?,?,?,datetime('now'),datetime('now','+'||?||' hours'))             ";
 
 const char* const sqlRemoveFromBlacklist =
-"DELETE FROM ip_blacklist   "
-"WHERE ip_int = ?           "
-"AND mask_int = ?           ";
+"DELETE FROM ip_blacklist                                                    \n"
+"WHERE ip_int = ?                                                            \n"
+"AND mask_int = ?                                                              ";
 
 void InitBlacklist( void )
 {
@@ -913,69 +913,69 @@ qboolean G_DBRemoveFromBlacklist( unsigned int ip,
 // =========== MAP POOLS =======================================================
 
 const char* const sqlCreatePoolsTables =
-"CREATE TABLE IF NOT EXISTS pools (                                             "
-"    [pool_id] INTEGER PRIMARY KEY AUTOINCREMENT,                               "
-"    [short_name] TEXT,                                                         "
-"    [long_name] TEXT );                                                        "
-"                                                                               "
-"CREATE TABLE IF NOT EXISTS pool_has_map (                                      "
-"    [pool_id] INTEGER REFERENCES [pools]([pool_id]) ON DELETE RESTRICT,        "
-"    [mapname] TEXT,                                                            "
-"    [weight] INTEGER);                                                         ";
+"CREATE TABLE IF NOT EXISTS pools (                                          \n"
+"    [pool_id] INTEGER PRIMARY KEY AUTOINCREMENT,                            \n"
+"    [short_name] TEXT,                                                      \n"
+"    [long_name] TEXT );                                                     \n"
+"                                                                            \n"
+"CREATE TABLE IF NOT EXISTS pool_has_map (                                   \n"
+"    [pool_id] INTEGER REFERENCES [pools]([pool_id]) ON DELETE RESTRICT,     \n"
+"    [mapname] TEXT,                                                         \n"
+"    [weight] INTEGER);                                                        ";
 
 const char* const sqlListPools =
-"SELECT pool_id, short_name, long_name   "
-"FROM pools                              ";
+"SELECT pool_id, short_name, long_name                                       \n"
+"FROM pools                                                                    ";
 
 const char* const sqlListMapsInPool =
-"SELECT long_name, pools.pool_id, mapname, weight    "
-"FROM pools                                          "
-"JOIN pool_has_map                                   "
-"ON pools.pool_id = pool_has_map.pool_id             "
-"WHERE short_name = ? AND mapname <> ?               ";
+"SELECT long_name, pools.pool_id, mapname, weight                            \n"
+"FROM pools                                                                  \n"
+"JOIN pool_has_map                                                           \n"
+"ON pools.pool_id = pool_has_map.pool_id                                     \n"
+"WHERE short_name = ? AND mapname <> ?                                         ";
 
 const char* const sqlFindPool =
-"SELECT pools.pool_id, long_name                                            "
-"FROM pools                                                                 "
-"JOIN                                                                       "
-"pool_has_map                                                               "
-"ON pools.pool_id = pool_has_map.pool_id                                    "
-"WHERE short_name = ?                                                       ";
+"SELECT pools.pool_id, long_name                                             \n"
+"FROM pools                                                                  \n"
+"JOIN                                                                        \n"
+"pool_has_map                                                                \n"
+"ON pools.pool_id = pool_has_map.pool_id                                     \n"
+"WHERE short_name = ?                                                          ";
 
 const char* const sqlCreatePool =
-"INSERT INTO pools (short_name, long_name) "
-"VALUES (?,?)                              ";
+"INSERT INTO pools (short_name, long_name)                                   \n"
+"VALUES (?,?)                                                                  ";
 
 const char* const sqlDeleteAllMapsInPool =
-"DELETE FROM pool_has_map                "
-"WHERE pool_id                           "
-"IN                                      "
-"( SELECT pools.pool_id                  "
-"FROM pools                              "
-"JOIN pool_has_map                       "
-"ON pools.pool_id = pool_has_map.pool_id "
-"WHERE short_name = ? )                  ";
+"DELETE FROM pool_has_map                                                    \n"
+"WHERE pool_id                                                               \n"
+"IN                                                                          \n"
+"( SELECT pools.pool_id                                                      \n"
+"FROM pools                                                                  \n"
+"JOIN pool_has_map                                                           \n"
+"ON pools.pool_id = pool_has_map.pool_id                                     \n"
+"WHERE short_name = ? )                                                        ";
 
 const char* const sqlDeletePool =
-"DELETE FROM pools          "
-"WHERE short_name = ?;      ";
+"DELETE FROM pools                                                           \n"
+"WHERE short_name = ?;                                                         ";
 
 const char* const sqlAddMapToPool =
-"INSERT INTO pool_has_map (pool_id, mapname, weight)   "
-"SELECT pools.pool_id, ?, ?                            "
-"FROM pools                                            "
-"WHERE short_name = ?                                  ";
+"INSERT INTO pool_has_map (pool_id, mapname, weight)                         \n"
+"SELECT pools.pool_id, ?, ?                                                  \n"
+"FROM pools                                                                  \n"
+"WHERE short_name = ?                                                          ";
 
 const char* const sqlRemoveMapToPool =
-"DELETE FROM pool_has_map                "
-"WHERE pool_id                           "
-"IN                                      "
-"( SELECT pools.pool_id                  "
-"FROM pools                              "
-"JOIN pool_has_map                       "
-"ON pools.pool_id = pool_has_map.pool_id "
-"WHERE short_name = ? )                  "
-"AND mapname = ? ;                       ";
+"DELETE FROM pool_has_map                                                    \n"
+"WHERE pool_id                                                               \n"
+"IN                                                                          \n"
+"( SELECT pools.pool_id                                                      \n"
+"FROM pools                                                                  \n"
+"JOIN pool_has_map                                                           \n"
+"ON pools.pool_id = pool_has_map.pool_id                                     \n"
+"WHERE short_name = ? )                                                      \n"
+"AND mapname = ? ;                                                             ";
 
 void InitPools( void )
 {
