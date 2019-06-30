@@ -5360,6 +5360,26 @@ void G_RunFrame( int levelTime ) {
 		iTimer_Queues);
 #endif
 
+	// periodically check whether the vchat cvars have been changed
+	static char listBuf[MAX_STRING_CHARS] = { 0 }, baseBuf[MAX_STRING_CHARS] = { 0 };
+	static int lastVchatCheckTime = -1;
+	if (lastVchatCheckTime == -1) { // initialize
+		trap_Cvar_VariableStringBuffer("sv_availableVchats", listBuf, sizeof(listBuf));
+		trap_Cvar_VariableStringBuffer("g_vchatdlbase", baseBuf, sizeof(baseBuf));
+		lastVchatCheckTime = trap_Milliseconds();
+	}
+	else if (trap_Milliseconds() >= lastVchatCheckTime + 5000) { // check once every few seconds
+		char newListBuf[MAX_STRING_CHARS] = { 0 }, newBaseBuf[MAX_STRING_CHARS] = { 0 };
+		trap_Cvar_VariableStringBuffer("sv_availableVchats", newListBuf, sizeof(newListBuf));
+		trap_Cvar_VariableStringBuffer("g_vchatdlbase", newBaseBuf, sizeof(newBaseBuf));
+		if (Q_stricmp(newListBuf, listBuf) || Q_stricmp(newBaseBuf, baseBuf)) {
+			SendVchatList(-1);
+			Q_strncpyz(listBuf, newListBuf, sizeof(listBuf));
+			Q_strncpyz(baseBuf, newBaseBuf, sizeof(baseBuf));
+		}
+		lastVchatCheckTime = trap_Milliseconds();
+	}
+
 	level.frameStartTime = trap_Milliseconds(); // accurate timer
 
 	g_LastFrameTime = level.time;

@@ -4115,19 +4115,50 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 }
 
 #ifdef NEWMOD_SUPPORT
-#define VCHAT_ESCAPE_CHAR '$'
-void Cmd_Vchat_f( gentity_t *sender ) {
-	char *s = ConcatArgs( 1 );
-	if ( !VALIDSTRING( s ) || !strchr( s, VCHAT_ESCAPE_CHAR ) ) {
-		//trap_SendServerCommand( sender - g_entities, "print \"Usage: vchat $mod=xxx$ $file=xxx$ $msg=xxx$ $team=0/1$\n\"" );
-		return;
+static qboolean StringIsOnlyNumbers(const char *s) {
+	if (!VALIDSTRING(s))
+		return qfalse;
+	for (const char *p = s; *p; p++) {
+		if (*p < '0' || *p > '9')
+			return qfalse;
 	}
+	return qtrue;
+}
+
+#include "xxhash.h"
+static XXH32_hash_t GetVchatHash(const char *modName, const char *msg, const char *fileName) {
+	static char mapname[MAX_QPATH] = { 0 };
+	if (!mapname[0])
+		trap_Cvar_VariableStringBuffer("mapname", mapname, sizeof(mapname));
+
+	char buf[MAX_TOKEN_CHARS] = { 0 };
+	Com_sprintf(buf, sizeof(buf), "%s%s%s%s", mapname, modName, msg, fileName);
+	return XXH32(buf, strlen(buf), 0);
+}
+
+typedef enum vchatType_s {
+	VCHATTYPE_TEAMWORK = 0,
+	VCHATTYPE_GENERAL,
+	VCHATTYPE_MEME
+} vchatType_t;
+
+#define VCHAT_ESCAPE_CHAR '$'
+void Cmd_Vchat_f(gentity_t *sender) {
+	char hashBuf[MAX_TOKEN_CHARS] = { 0 };
+	trap_Argv(1, hashBuf, sizeof(hashBuf));
+	if (!hashBuf[0] || !StringIsOnlyNumbers(hashBuf))
+		return;
+	XXH32_hash_t hash = (XXH32_hash_t)strtoul(hashBuf, NULL, 10);
+
+	char *s = ConcatArgs(2);
+	if (!VALIDSTRING(s) || !strchr(s, VCHAT_ESCAPE_CHAR))
+		return;
 
 	if ( ChatLimitExceeded( sender, -1 ) )
 		return;
 
 	qboolean teamOnly = qfalse;
-	qboolean needsSound = qtrue;
+	vchatType_t type = VCHATTYPE_MEME;
 	char modName[MAX_QPATH] = { 0 }, fileName[MAX_QPATH] = { 0 }, msg[200] = { 0 };
 	// parse each argument
 	char *r;
@@ -4145,35 +4176,47 @@ void Cmd_Vchat_f( gentity_t *sender ) {
 		if ( !buf[0] )
 			break;
 
-		if ( !Q_stricmpn( buf, "mod=", 4 ) && buf[4] )
-			Q_strncpyz( modName, buf + 4, sizeof( modName ) );
-		else if ( !Q_stricmpn( buf, "file=", 5 ) && buf[5] )
-			Q_strncpyz( fileName, buf + 5, sizeof( fileName ) );
-		else if ( !Q_stricmpn( buf, "msg=", 4 ) && buf[4] )
-			Q_strncpyz( msg, buf + 4, sizeof( msg ) );
-		else if ( !Q_stricmpn( buf, "team=", 5 ) && buf[5] )
-			teamOnly = !!atoi( buf + 5 );
-		else if ( !Q_stricmpn( buf, "ns=", 3 ) && buf[3] )
-			needsSound = !!atoi( buf + 3 );
+		if (!Q_stricmpn(buf, "mod=", 4) && buf[4])
+			Q_strncpyz(modName, buf + 4, sizeof(modName));
+		else if (!Q_stricmpn(buf, "file=", 5) && buf[5])
+			Q_strncpyz(fileName, buf + 5, sizeof(fileName));
+		else if (!Q_stricmpn(buf, "msg=", 4) && buf[4])
+			Q_strncpyz(msg, buf + 4, sizeof(msg));
+		else if (!Q_stricmpn(buf, "team=", 5) && buf[5])
+			teamOnly = !!atoi(buf + 5);
+		else if (!Q_stricmpn(buf, "t=", 2) && buf[2])
+			type = atoi(buf + 2);
 
-		if ( !*r )
+		if (!*r)
 			break; // we reached the end of the line
 				   // the for loop will increment r here, taking us past the current escape char
 	}
 
-	if ( !modName[0] || !fileName[0] || !msg[0] ) {
-		//trap_SendServerCommand( sender - g_entities, "print \"Invalid vchat command.\nUsage: vchat $mod=xxx$ $file=xxx$ $msg=xxx$ $team=0/1$\n\"" );
+	if (!modName[0] || !fileName[0] || !msg[0])
 		return;
-	}
 
 	Q_CleanStr( modName );
 	Q_CleanStr( fileName );
 #if 1
 	Q_CleanStr( msg );
 #endif
+	
+	XXH32_hash_t expectedHash = GetVchatHash(modName, msg, fileName);
+	if (hash != expectedHash)
+		return;
 
-	G_LogPrintf( "vchat: %d %s%s: %s%s/%s: %s\n",
-		sender - g_entities, sender->client->pers.netname, teamOnly ? "(team) " : "", needsSound ? va( "%s(ns)", teamOnly ? " " : "" ) : "", modName, fileName, msg );
+	// convert global teamwork vchats and teamwork vchats among specs to memes
+	if (type == VCHATTYPE_TEAMWORK && (!teamOnly || sender->client->sess.sessionTeam == TEAM_SPECTATOR || sender->client->sess.sessionTeam == TEAM_FREE))
+		type = VCHATTYPE_MEME;
+
+	G_LogPrintf("vchat: %d %s (%s/%s): %s/%s: %s\n",
+		sender - g_entities,
+		sender->client->pers.netname,
+		teamOnly ? "team" : "global",
+		type == VCHATTYPE_TEAMWORK ? "teamwork" : (type == VCHATTYPE_GENERAL ? "general" : "meme"),
+		modName,
+		fileName,
+		msg);
 
 	int senderLocation = 0;
 	char chatLocation[64] = { 0 };
@@ -4184,11 +4227,6 @@ void Cmd_Vchat_f( gentity_t *sender ) {
 	if ( g_gametype.integer >= GT_TEAM )
 		senderLocation = Team_GetLocation( sender, chatLocation, sizeof( chatLocation ) );
 #endif
-
-	char baseCvar[2] = { 0 }, downloadCvar[2] = { 0 };
-	trap_Cvar_VariableStringBuffer( "g_vchatdlbase", baseCvar, sizeof( baseCvar ) );
-	trap_Cvar_VariableStringBuffer( va( "g_vchatdl_%s", modName ), downloadCvar, sizeof( downloadCvar ) );
-	qboolean downloadAvailable = !!( baseCvar[0] && downloadCvar[0] );
 
 	char chatSenderName[64] = { 0 };
 	if ( teamOnly ) {
@@ -4260,20 +4298,19 @@ void Cmd_Vchat_f( gentity_t *sender ) {
 		}
 
 		char *command;
-		if ( needsSound ) {
-			command = va( "kls -1 -1 vcht \"cl=%d\" \"mod=%s\" \"file=%s\" \"msg=%s\" \"ns=%d\" \"team=%d\"%s%s",
+		if (type == VCHATTYPE_MEME) {
+			command = va("kls -1 -1 vcht \"cl=%d\" \"mod=%s\" \"file=%s\" \"msg=%s\" \"t=%d\" \"team=%d\"%s",
 				sender - g_entities,
 				modName,
 				fileName,
 				msg,
-				needsSound,
+				type,
 				teamOnly,
-				teamOnly && locationToSend ? va( " \"loc=%d\"", locationToSend ) : "",
-				downloadAvailable ? " \"dl=1\"" : "" );
+				teamOnly && locationToSend ? va(" \"loc=%d\"", locationToSend) : "");
 		}
 		else {
-			if ( teamOnly && locationToSend ) {
-				command = va( "ltchat \"%s\" \"%s\" \"5\" \"%s\" \"%d\" \"vchat\" \"mod=%s\" \"file=%s\" \"msg=%s\" \"ns=%d\" \"team=%d\" \"loc=%d\"%s",
+			if (teamOnly && locationToSend) {
+				command = va("ltchat \"%s\" \"%s\" \"5\" \"%s\" \"%d\" \"vchat\" \"mod=%s\" \"file=%s\" \"msg=%s\" \"t=%d\" \"team=%d\" \"loc=%d\"",
 					chatSenderName,
 					chatLocation,
 					chatMessage,
@@ -4281,35 +4318,32 @@ void Cmd_Vchat_f( gentity_t *sender ) {
 					modName,
 					fileName,
 					msg,
-					needsSound,
+					type,
 					teamOnly, // team only parameter is sent anyway so clients can display with team styling
-					locationToSend,
-					downloadAvailable ? " \"dl=1\"" : "" );
+					locationToSend);
 			}
 			else {
-				if ( teamOnly ) {
-					command = va( "tchat \"%s^5%s\" \"%d\" \"vchat\" \"mod=%s\" \"file=%s\" \"msg=%s\" \"ns=%d\" \"team=%d\"%s",
+				if (teamOnly) {
+					command = va("tchat \"%s^5%s\" \"%d\" \"vchat\" \"mod=%s\" \"file=%s\" \"msg=%s\" \"t=%d\" \"team=%d\"",
 						chatSenderName,
 						chatMessage,
 						sender - g_entities,
 						modName,
 						fileName,
 						msg,
-						needsSound,
-						teamOnly, // team only parameter is sent anyway so clients can display with team styling
-						downloadAvailable ? " \"dl=1\"" : "" );
+						type,
+						teamOnly); // team only parameter is sent anyway so clients can display with team styling);
 				}
 				else {
-					command = va( "chat \"%s^2%s\" \"%d\" \"vchat\" \"mod=%s\" \"file=%s\" \"msg=%s\" \"ns=%d\" \"team=%d\"%s",
+					command = va("chat \"%s^2%s\" \"%d\" \"vchat\" \"mod=%s\" \"file=%s\" \"msg=%s\" \"t=%d\" \"team=%d\"",
 						chatSenderName,
 						chatMessage,
 						sender - g_entities,
 						modName,
 						fileName,
 						msg,
-						needsSound,
-						teamOnly, // team only parameter is sent anyway so clients can display with team styling
-						downloadAvailable ? " \"dl=1\"" : "" );
+						type,
+						teamOnly); // team only parameter is sent anyway so clients can display with team styling);
 				}
 			}
 		}
@@ -4317,49 +4351,6 @@ void Cmd_Vchat_f( gentity_t *sender ) {
 	}
 }
 
-static void Cmd_VchatDl_f( gentity_t *ent ) {
-	if ( trap_Argc() < 2 || !ent || !ent->client )
-		return;
-
-	char buf[MAX_QPATH];
-	trap_Argv( 1, buf, sizeof( buf ) );
-	if ( !buf[0] || strstr( buf, "../" ) || strstr( buf, "..\\" ) )
-		return;
-
-	char base[MAX_STRING_CHARS] = { 0 };
-	trap_Cvar_VariableStringBuffer( "g_vchatdlbase", base, sizeof( base ) );
-	if ( !base[0] ) {
-		trap_SendServerCommand( ent - g_entities, "print \"This server is not configured for downloading vchat packs.\n\"" );
-		return;
-	}
-	// remove any trailing slash
-	size_t baseLen = strlen( base );
-	if ( base[baseLen - 1] == '/' || base[baseLen - 1] == '\\' )
-		base[baseLen - 1] = '\0';
-	if ( !base[0] )
-		return; // ...
-
-	char pk3[MAX_STRING_CHARS] = { 0 };
-	trap_Cvar_VariableStringBuffer( va( "g_vchatdl_%s", buf ), pk3, sizeof( pk3 ) );
-	if ( !pk3[0] ) {
-		trap_SendServerCommand( ent - g_entities, va( "print \"This server does not have a download link available for the %s pack.\n\"", buf ) );
-		return;
-	}
-	// remove any trailing ".pk3"
-	size_t pk3Len = strlen( pk3 );
-	if ( pk3Len >= strlen( ".pk3" ) ) {
-		char *checkPtr = &pk3[0] + pk3Len - strlen( ".pk3" );
-		if ( !Q_stricmp( checkPtr, ".pk3" ) )
-			*checkPtr = '\0';
-	}
-	if ( !pk3[0] )
-		return; // ...
-
-	char fullPath[MAX_STRING_CHARS] = { 0 };
-	Com_sprintf( fullPath, sizeof( fullPath ), "%s/%s.pk3", base, pk3 );
-	trap_SendServerCommand( ent - g_entities, va( "kls -1 -1 vcdl \"%s\" \"%s\"", buf, fullPath ) );
-	G_LogPrintf( "Vchat download request from client %d (%s) for mod %s (sent url: %s)\n^7", ent - g_entities, ent->client->pers.netname, buf, fullPath );
-}
 #endif
 
 /*
@@ -5226,6 +5217,26 @@ static void Cmd_Svauth_f( gentity_t *ent ) {
 	// if we got here, auth failed
 	ent->client->sess.auth = INVALID;
 	G_LogPrintf( "Client %d failed newmod authentication (at state: %d)\n", ent - g_entities, ent->client->sess.auth );
+}
+
+static void Cmd_VchatDl_f( gentity_t* ent ) {
+	// no longer used
+}
+
+// use -1 for everyone
+void SendVchatList(int clientNum) {
+	char listBuf[MAX_STRING_CHARS] = { 0 }, baseBuf[MAX_STRING_CHARS] = { 0 };
+	trap_Cvar_VariableStringBuffer("sv_availableVchats", listBuf, sizeof(listBuf));
+	trap_Cvar_VariableStringBuffer("g_vchatdlbase", baseBuf, sizeof(baseBuf));
+
+	if (!listBuf[0] || !Q_stricmp(listBuf, "0") || !baseBuf[0] || !Q_stricmp(baseBuf, "0") || strchr(baseBuf, ' '))
+		return;
+
+	trap_SendServerCommand(clientNum, va("kls -1 -1 vchl \"%s\" %s", baseBuf, listBuf));
+}
+
+void Cmd_VchatList_f(gentity_t* ent) {
+	SendVchatList(ent - g_entities);
 }
 #endif
 
@@ -6194,8 +6205,11 @@ void ClientCommand( int clientNum ) {
 			Cmd_VchatDl_f( ent );
 			return;
 		}
+		else if (!Q_stricmp(cmd, "vchl")) {
+			Cmd_VchatList_f(ent);
+			return;
+		}
 #endif
-
 			trap_SendServerCommand( clientNum, va("print \"%s (%s) \n\"", G_GetStringEdString("MP_SVGAME", "CANNOT_TASK_INTERMISSION"), cmd ) );
 		return;
 	}
@@ -6309,6 +6323,8 @@ void ClientCommand( int clientNum ) {
 		Cmd_Vchat_f( ent );
 	else if ( !Q_stricmp( cmd, "vchatdl" ) )
 		Cmd_VchatDl_f( ent );
+	else if (!Q_stricmp(cmd, "vchl"))
+		Cmd_VchatList_f(ent);
 #endif
 		
 	//for convenient powerduel testing in release
