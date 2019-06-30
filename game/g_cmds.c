@@ -3532,13 +3532,6 @@ Cmd_TopTimes_f
 =================
 */
 
-static void FormatLocalDateFromEpoch( char* buf, size_t bufSize, time_t epochSecs ) {
-	struct tm * timeinfo;
-	timeinfo = localtime( &epochSecs );
-
-	strftime( buf, bufSize, "%d/%m/%y %I:%M %p", timeinfo );
-}
-
 // if one parameter is NULL, its value is added to the next non NULL parameter
 void PartitionedTimer( const int time, int *mins, int *secs, int *millis ) {
 	div_t qr;
@@ -3651,7 +3644,7 @@ static void printBestTimeCallback( void *context, const char *mapname, const Cap
 	time_t now = time( NULL );
 	if ( now - bestTimeDate < 60 * 60 * 24 ) Q_strncpyz( date, S_COLOR_GREEN, sizeof( date ) );
 	else Q_strncpyz( date, S_COLOR_WHITE, sizeof( date ) );
-	FormatLocalDateFromEpoch( date + 2, sizeof( date ) - 2, bestTimeDate );
+	G_FormatLocalDateFromEpoch( date + 2, sizeof( date ) - 2, bestTimeDate );
 
 	trap_SendServerCommand( thisContext->entNum, va(
 		"print \""S_COLOR_WHITE"%-25s  "S_COLOR_YELLOW"%s   %s   "S_COLOR_WHITE"%s\n\"", mapname, timeString, date, identifier
@@ -3750,7 +3743,7 @@ static void printLatestTimesCallback( void *context, const char *mapname, const 
 	time_t now = time( NULL );
 	if ( now - captureTimeDate < 60 * 60 * 24 ) Q_strncpyz( date, S_COLOR_GREEN, sizeof( date ) );
 	else Q_strncpyz( date, S_COLOR_WHITE, sizeof( date ) );
-	FormatLocalDateFromEpoch( date + 2, sizeof( date ) - 2, captureTimeDate );
+	G_FormatLocalDateFromEpoch( date + 2, sizeof( date ) - 2, captureTimeDate );
 
 	trap_SendServerCommand( thisContext->entNum, va(
 		"print \""S_COLOR_WHITE"%s      %-4s    "S_COLOR_YELLOW"%s   %s   "S_COLOR_WHITE"%s\n\"", nameString, rankString, timeString, date, mapname
@@ -4110,7 +4103,7 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 		time_t now = time( NULL );
 		if ( now - record->date < 60 * 60 * 24 ) Q_strncpyz( date, S_COLOR_GREEN, sizeof( date ) );
 		else Q_strncpyz( date, S_COLOR_WHITE, sizeof( date ) );
-		FormatLocalDateFromEpoch( date + 2, sizeof( date ) - 2, record->date );
+		G_FormatLocalDateFromEpoch( date + 2, sizeof( date ) - 2, record->date );
 
 		trap_SendServerCommand( ent - g_entities, va(
 			"print \""S_COLOR_CYAN"%d"S_COLOR_WHITE": "S_COLOR_WHITE"%s  "S_COLOR_YELLOW"%s   %-6s      "S_COLOR_YELLOW"%-6d      %-6d     %s\n\"",

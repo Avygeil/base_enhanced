@@ -1968,6 +1968,29 @@ void Svcmd_PoolMapRemove_f()
 
 }
 
+void Svcmd_AccountCreate_f( void ) {
+	if ( trap_Argc() < 2 ) {
+		G_Printf( "Usage: accountCreate <username>\n" );
+		return;
+	}
+
+	char username[MAX_ACCOUNTNAME_LEN];
+	trap_Argv( 1, username, sizeof( username ) );
+
+	// make sure it doesn't exist
+	account_t acc;
+	if ( G_DBGetAccount( username, &acc ) ) {
+		char timestamp[32];
+		G_FormatLocalDateFromEpoch( timestamp, sizeof( timestamp ), acc.creationDate );
+		Com_Printf( "Account '%s' was already created on %s\n", acc.name, timestamp );
+
+		return;
+	}
+
+	// create it
+	G_DBCreateAccount( username );
+}
+
 /*
 =================
 ConsoleCommand
@@ -2232,10 +2255,10 @@ qboolean	ConsoleCommand( void ) {
 		return qtrue;
 	}
 
-	//if (Q_stricmp (cmd, "accountlistall") == 0) {
-	//	Svcmd_AccountPrintAll_f();
-	//	return qtrue;
-	//}	
+	if ( !Q_stricmp( cmd, "accountCreate" ) ) {
+		Svcmd_AccountCreate_f();
+		return qtrue;
+	}
 
 	if (g_dedicated.integer) {
 		if (Q_stricmp (cmd, "say") == 0) {

@@ -62,6 +62,95 @@ void G_DBSetMetadata( const char *key,
 	sqlite3_finalize( statement );
 }
 
+// =========== ACCOUNTS ========================================================
+
+static const char* sqlCreateAccountsTables =
+"CREATE TABLE IF NOT EXISTS [accounts] (                                     \n"
+"    [account_id] INTEGER NOT NULL,                                          \n"
+"    [name] TEXT COLLATE NOCASE NOT NULL,                                    \n"
+"    [created_on] INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),          \n"
+"    [usergroup] TEXT DEFAULT NULL,                                          \n"
+"    [flags] INTEGER NOT NULL DEFAULT 0,                                     \n"
+"    PRIMARY KEY ( [account_id] ),                                           \n"
+"    UNIQUE ( [name] )                                                       \n"
+");                                                                          \n"
+"                                                                            \n"
+"CREATE INDEX accounts_name_idx ON accounts ( name );                        \n"
+"                                                                            \n"
+"CREATE TABLE IF NOT EXISTS [sessions] (                                     \n"
+"    [connection_id] INTEGER NOT NULL,                                       \n"
+"    [identifier] INTEGER NOT NULL,                                          \n"
+"    [info] TEXT NOT NULL,                                                   \n"
+"    [last_seen] INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),           \n"
+"    [playtime] INTEGER NOT NULL DEFAULT 0,                                  \n"
+"    [linked_account] INTEGER DEFAULT NULL,                                  \n"
+"    [temporary] INTEGER NOT NULL DEFAULT 1,                                 \n"
+"    PRIMARY KEY ( [connection_id] ),                                        \n"
+"    UNIQUE ( [identifier] ),                                                \n"
+"    FOREIGN KEY ( [linked_account] )                                        \n"
+"        REFERENCES accounts ( [account_id] )                                \n"
+"        ON DELETE SET NULL                                                  \n"
+");                                                                            ";
+
+static const char* sqlGetAccount =
+"SELECT account_id, name, created_on, usergroup, flags                       \n"
+"FROM accounts                                                               \n"
+"WHERE accounts.name = ?1;                                                     ";
+
+static const char* sqlCreateAccount =
+"INSERT INTO accounts ( name ) VALUES ( ?1 );                                  ";
+
+void InitAccounts( void )
+{
+	sqlite3_exec( dbPtr, sqlCreateAccountsTables, NULL, NULL, NULL );
+}
+
+qboolean G_DBGetAccount( const char* name,
+	account_t* account )
+{
+	sqlite3_stmt* statement;
+
+	sqlite3_prepare( dbPtr, sqlGetAccount, -1, &statement, 0 );
+
+	sqlite3_bind_text( statement, 1, name, -1, 0 );
+
+	qboolean found = qfalse;
+	int rc = sqlite3_step( statement );
+
+	if ( rc == SQLITE_ROW ) {
+		const int account_id = sqlite3_column_int( statement, 0 );
+		const char* name = ( const char* )sqlite3_column_text( statement, 1 );
+		const int created_on = sqlite3_column_int( statement, 2 );
+		const char* usergroup = ( const char* )sqlite3_column_text( statement, 3 );
+		const int flags = sqlite3_column_int( statement, 4 );
+
+		account->id = account_id;
+		Q_strncpyz( account->name, name, sizeof( account->name ) );
+		account->creationDate = created_on;
+		//Q_strncpyz( account->group, group, sizeof( account->group ) );
+		account->flags = flags;
+
+		found = qtrue;
+	}
+
+	sqlite3_finalize( statement );
+
+	return found;
+}
+
+void G_DBCreateAccount( const char* name )
+{
+	sqlite3_stmt* statement;
+
+	sqlite3_prepare( dbPtr, sqlCreateAccount, -1, &statement, 0 );
+
+	sqlite3_bind_text( statement, 1, name, -1, 0 );
+
+	sqlite3_step( statement );
+
+	sqlite3_finalize( statement );
+}
+
 // =========== NICKNAMES =======================================================
 
 const char* const sqlCreateNicknamesTable =
@@ -1430,6 +1519,7 @@ void G_DBLoadDatabase( void )
 
 	// init all modules
 	InitMetadata();
+	InitAccounts();
 	InitNicknames();
 	InitFastcaps();
 	InitWhitelist();

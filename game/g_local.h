@@ -1366,6 +1366,8 @@ qboolean G_TeleportRacerToTelemark( gentity_t *ent );
 typedef qboolean ( *entityFilter_func )( gentity_t* );
 gentity_t* G_ClosestEntity( gentity_t *ref, entityFilter_func );
 
+void G_FormatLocalDateFromEpoch( char* buf, size_t bufSize, time_t epochSecs );
+
 //
 // g_object.c
 //

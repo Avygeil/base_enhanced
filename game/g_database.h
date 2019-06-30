@@ -12,6 +12,23 @@ void G_DBUnloadDatabase( void );
 
 qboolean G_DBUpgradeDatabaseSchema( int versionFrom, void* db );
 
+// =========== ACCOUNTS ========================================================
+
+#define MAX_ACCOUNTNAME_LEN		24
+
+typedef struct {
+	int id;
+	char name[MAX_ACCOUNTNAME_LEN];
+	int creationDate;
+	//char group
+	int flags;
+} account_t;
+
+qboolean G_DBGetAccount( const char* name,
+	account_t* account );
+
+void G_DBCreateAccount( const char* name );
+
 // =========== METADATA ========================================================
 
 void G_DBGetMetadata( const char *key,
