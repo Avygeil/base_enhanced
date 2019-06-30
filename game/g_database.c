@@ -154,11 +154,16 @@ void G_DBCreateAccount( const char* name )
 // =========== NICKNAMES =======================================================
 
 const char* const sqlCreateNicknamesTable =
-"CREATE TABLE IF NOT EXISTS nicknames(                                       \n"
-"  [ip_int] INTEGER,                                                         \n"
-"  [name] TEXT,                                                              \n"
-"  [duration] INTEGER,                                                       \n"
-"  [cuid_hash2] TEXT );                                                        ";
+"CREATE TABLE IF NOT EXISTS nicknames (                                      \n"
+"    [ip_int] INTEGER,                                                       \n"
+"    [name] TEXT,                                                            \n"
+"    [duration] INTEGER,                                                     \n"
+"    [cuid_hash2] TEXT                                                       \n"
+");                                                                          \n"
+"                                                                            \n"
+"CREATE INDEX nicknames_ip_int_idx ON nicknames ( ip_int );                  \n"
+"                                                                            \n"
+"CREATE INDEX nicknames_cuid_hash2_idx ON nicknames ( cuid_hash2 );            ";
 
 const char* const sqlAddName =
 "INSERT INTO nicknames (ip_int, name, duration)                              \n"
