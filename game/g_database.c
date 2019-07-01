@@ -75,8 +75,6 @@ static const char* sqlCreateAccountsTables =
 "    UNIQUE ( [name] )                                                       \n"
 ");                                                                          \n"
 "                                                                            \n"
-"CREATE INDEX accounts_name_idx ON accounts ( name );                        \n"
-"                                                                            \n"
 "CREATE TABLE IF NOT EXISTS [sessions] (                                     \n"
 "    [connection_id] INTEGER NOT NULL,                                       \n"
 "    [identifier] INTEGER NOT NULL,                                          \n"
