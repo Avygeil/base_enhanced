@@ -1968,27 +1968,107 @@ void Svcmd_PoolMapRemove_f()
 
 }
 
-void Svcmd_AccountCreate_f( void ) {
-	if ( trap_Argc() < 2 ) {
-		G_Printf( "Usage: accountCreate <username>\n" );
-		return;
+typedef struct {
+	char format[MAX_STRING_CHARS];
+} SessionPrintCtx;
+
+static void FormatAccountSessionList( void* ctx, const session_t* session ) {
+	SessionPrintCtx* out = ( SessionPrintCtx* )ctx;
+
+	// TODO: pretty printing
+	Q_strcat( out->format, sizeof( out->format ), va(
+		"SESSION %d (%d, %s)\n",
+		session->id,
+		session->identifier,
+		session->info
+	) );
+}
+
+void Svcmd_Account_f( void ) {
+	char s[64];
+
+	if ( trap_Argc() > 1 ) {
+		trap_Argv( 1, s, sizeof( s ) );
+	} else {
+		Q_strncpyz( s, "help", sizeof( s ) ); // no subcommand just prints help
 	}
 
-	char username[MAX_ACCOUNTNAME_LEN];
-	trap_Argv( 1, username, sizeof( username ) );
+	if ( !Q_stricmp( s, "create" ) ) {
 
-	// make sure it doesn't exist
-	account_t acc;
-	if ( G_DBGetAccount( username, &acc ) ) {
+		if ( trap_Argc() < 3 ) {
+			G_Printf( "Usage: account create <username>\n" );
+			return;
+		}
+
+		char username[MAX_ACCOUNTNAME_LEN];
+		trap_Argv( 2, username, sizeof( username ) );
+
+		// make sure it doesn't already exist
+		account_t acc;
+		if ( G_DBGetAccount( username, &acc ) ) {
+			char timestamp[32];
+			G_FormatLocalDateFromEpoch( timestamp, sizeof( timestamp ), acc.creationDate );
+			G_Printf( "Account '%s' was already created on %s\n", acc.name, timestamp );
+
+			return;
+		}
+
+		// create it
+		G_DBCreateAccount( username );
+
+	} else if ( !Q_stricmp( s, "info" ) ) {
+
+		if ( trap_Argc() < 3 ) {
+			G_Printf( "Usage: account info <username>\n" );
+			return;
+		}
+
+		char username[MAX_ACCOUNTNAME_LEN];
+		trap_Argv( 2, username, sizeof( username ) );
+
+		// get the account
+		account_t acc;
+		if ( !G_DBGetAccount( username, &acc ) ) {
+			G_Printf( "Account '%s' does not exist\n", username );
+			return;
+		}
+
+		SessionPrintCtx sessionsPrint = { 0 };
+		G_DBListSessionsForAccount( &acc, FormatAccountSessionList, &sessionsPrint );
+
 		char timestamp[32];
 		G_FormatLocalDateFromEpoch( timestamp, sizeof( timestamp ), acc.creationDate );
-		Com_Printf( "Account '%s' was already created on %s\n", acc.name, timestamp );
+		
+		// TODO: pages
 
-		return;
+		G_Printf(
+			S_COLOR_YELLOW"Account Name: "S_COLOR_WHITE"%s\n"
+			S_COLOR_YELLOW"Account ID: "S_COLOR_WHITE"%d\n"
+			S_COLOR_YELLOW"Created on: "S_COLOR_WHITE"%s\n"
+			S_COLOR_YELLOW"Group: "S_COLOR_WHITE"%s\n"
+			S_COLOR_YELLOW"Flags: "S_COLOR_WHITE"%d\n"
+			"\n",
+			acc.name,
+			acc.id,
+			timestamp,
+			acc.group,
+			acc.flags
+		);
+
+		if ( VALIDSTRING( sessionsPrint.format ) ) {
+			G_Printf( "Sessions tied to this account:\n%s", sessionsPrint.format );
+		} else {
+			G_Printf( "No session tied to this account yet.\n" );
+		}
+
+	} else if ( !Q_stricmp( s, "help" ) ) {
+		G_Printf(
+			"Valid subcommands:\n"
+			"account create <username>: Creates a new account with the given name\n"
+			"account info <username>: Prints various information for the given account name\n"
+			"account help: Prints this message\n"
+		);
 	}
-
-	// create it
-	G_DBCreateAccount( username );
 }
 
 /*
@@ -2255,8 +2335,8 @@ qboolean	ConsoleCommand( void ) {
 		return qtrue;
 	}
 
-	if ( !Q_stricmp( cmd, "accountCreate" ) ) {
-		Svcmd_AccountCreate_f();
+	if ( !Q_stricmp( cmd, "account" ) ) {
+		Svcmd_Account_f();
 		return qtrue;
 	}
 

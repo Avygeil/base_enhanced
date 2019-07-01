@@ -76,16 +76,14 @@ static const char* sqlCreateAccountsTables =
 ");                                                                          \n"
 "                                                                            \n"
 "CREATE TABLE IF NOT EXISTS [sessions] (                                     \n"
-"    [connection_id] INTEGER NOT NULL,                                       \n"
+"    [session_id] INTEGER NOT NULL,                                          \n"
 "    [identifier] INTEGER NOT NULL,                                          \n"
 "    [info] TEXT NOT NULL,                                                   \n"
-"    [last_seen] INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),           \n"
-"    [playtime] INTEGER NOT NULL DEFAULT 0,                                  \n"
-"    [linked_account] INTEGER DEFAULT NULL,                                  \n"
+"    [account_id] INTEGER DEFAULT NULL,                                      \n"
 "    [temporary] INTEGER NOT NULL DEFAULT 1,                                 \n"
-"    PRIMARY KEY ( [connection_id] ),                                        \n"
+"    PRIMARY KEY ( [session_id] ),                                           \n"
 "    UNIQUE ( [identifier] ),                                                \n"
-"    FOREIGN KEY ( [linked_account] )                                        \n"
+"    FOREIGN KEY ( [account_id] )                                            \n"
 "        REFERENCES accounts ( [account_id] )                                \n"
 "        ON DELETE SET NULL                                                  \n"
 ");                                                                            ";
@@ -97,6 +95,24 @@ static const char* sqlGetAccount =
 
 static const char* sqlCreateAccount =
 "INSERT INTO accounts ( name ) VALUES ( ?1 );                                  ";
+
+static const char* sqlGetSession =
+"SELECT session_id, info, account_id                                         \n"
+"FROM sessions                                                               \n"
+"WHERE sessions.identifier = ?1;                                               ";
+
+static const char* sqlCreateSession =
+"INSERT INTO sessions ( identifier, info ) VALUES ( ?1, ?2 );                  ";
+
+static const char* sqlLinkAccountToSession =
+"UPDATE sessions                                                             \n"
+"SET account_id = ?1                                                         \n"
+"WHERE session_id = ?2;                                                        ";
+
+static const char* sqlListSessionIdsForAccount =
+"SELECT session_id, identifier, info                                         \n"
+"FROM sessions                                                               \n"
+"WHERE sessions.account_id = ?1;                                               ";
 
 void InitAccounts( void )
 {
@@ -119,14 +135,19 @@ qboolean G_DBGetAccount( const char* name,
 		const int account_id = sqlite3_column_int( statement, 0 );
 		const char* name = ( const char* )sqlite3_column_text( statement, 1 );
 		const int created_on = sqlite3_column_int( statement, 2 );
-		const char* usergroup = ( const char* )sqlite3_column_text( statement, 3 );
 		const int flags = sqlite3_column_int( statement, 4 );
 
 		account->id = account_id;
 		Q_strncpyz( account->name, name, sizeof( account->name ) );
 		account->creationDate = created_on;
-		//Q_strncpyz( account->group, group, sizeof( account->group ) );
 		account->flags = flags;
+
+		if ( sqlite3_column_type( statement, 3 ) != SQLITE_NULL ) {
+			const char* usergroup = ( const char* )sqlite3_column_text( statement, 3 );
+			Q_strncpyz( account->group, usergroup, sizeof( account->group ) );
+		} else {
+			account->group[0] = '\0';
+		}
 
 		found = qtrue;
 	}
@@ -145,6 +166,117 @@ void G_DBCreateAccount( const char* name )
 	sqlite3_bind_text( statement, 1, name, -1, 0 );
 
 	sqlite3_step( statement );
+
+	sqlite3_finalize( statement );
+}
+
+qboolean G_DBGetSession( const int identifier,
+	session_t* session )
+{
+	sqlite3_stmt* statement;
+
+	sqlite3_prepare( dbPtr, sqlGetSession, -1, &statement, 0 );
+
+	sqlite3_bind_int( statement, 1, identifier );
+
+	qboolean found = qfalse;
+	int rc = sqlite3_step( statement );
+
+	if ( rc == SQLITE_ROW ) {
+		const int session_id = sqlite3_column_int( statement, 0 );
+		const char* info = ( const char* )sqlite3_column_text( statement, 1 );
+		
+		session->id = session_id;
+		session->identifier = identifier;
+		Q_strncpyz( session->info, info, sizeof( session->info ) );
+
+		if ( sqlite3_column_type( statement, 3 ) != SQLITE_NULL ) {
+			const int account_id = sqlite3_column_int( statement, 2 );
+			session->accountId = account_id;
+		} else {
+			session->accountId = -1;
+		}
+
+		found = qtrue;
+	}
+
+	sqlite3_finalize( statement );
+
+	return found;
+}
+
+void G_DBCreateSession( const int identifier,
+	const char* info )
+{
+	sqlite3_stmt* statement;
+
+	sqlite3_prepare( dbPtr, sqlCreateSession, -1, &statement, 0 );
+
+	sqlite3_bind_int( statement, 1, identifier );
+	sqlite3_bind_text( statement, 2, info, -1, 0 );
+
+	sqlite3_step( statement );
+
+	sqlite3_finalize( statement );
+}
+
+void G_DBLinkAccountToSession( session_t* session,
+	account_t* account )
+{
+	sqlite3_stmt* statement;
+
+	sqlite3_prepare( dbPtr, sqlLinkAccountToSession, -1, &statement, 0 );
+
+	if ( account ) {
+		sqlite3_bind_int( statement, 1, account->id );
+	} else {
+		sqlite3_bind_null( statement, 1 );
+	}
+	
+	sqlite3_bind_int( statement, 2, session->id );
+
+	sqlite3_step( statement );
+
+	// link in the struct if successful
+	if ( sqlite3_changes( dbPtr ) != 0 ) {
+		session->accountId = account->id;
+	}
+
+	sqlite3_finalize( statement );
+}
+
+void G_DBUnlinkAccountFromSession( session_t* session )
+{
+	G_DBLinkAccountToSession( session, NULL );
+}
+
+void G_DBListSessionsForAccount( account_t* account,
+	ListAccountSessionsCallback callback,
+	void* ctx )
+{
+	sqlite3_stmt* statement;
+
+	int rc = sqlite3_prepare( dbPtr, sqlListSessionIdsForAccount, -1, &statement, 0 );
+
+	sqlite3_bind_int( statement, 1, account->id );
+
+	rc = sqlite3_step( statement );
+	while ( rc == SQLITE_ROW ) {
+		session_t session;
+
+		const int session_id = sqlite3_column_int( statement, 0 );
+		const int identifier = sqlite3_column_int( statement, 1 );
+		const char* info = ( const char* )sqlite3_column_text( statement, 2 );
+
+		session.id = session_id;
+		session.identifier = identifier;
+		Q_strncpyz( session.info, info, sizeof( session.info ) );
+		session.accountId = account->id;
+
+		callback( ctx, &session );
+
+		rc = sqlite3_step( statement );
+	}
 
 	sqlite3_finalize( statement );
 }
