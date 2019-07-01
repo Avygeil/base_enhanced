@@ -3,9 +3,9 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LocalDebuggerAttach>false</LocalDebuggerAttach>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
-    <LocalDebuggerCommand>C:\Program Files\NewJK\openjkded.x86.exe</LocalDebuggerCommand>
-    <LocalDebuggerWorkingDirectory>..\..\..\My Games\openjkded</LocalDebuggerWorkingDirectory>
-    <LocalDebuggerCommandArguments>+set fs_homepath "C:\Users\Utilisateur\Documents\My Games\openjkded" +set dedicated 2 +set net_port 29070 +exec server.cfg</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommand>G:\JKADebug\openjkded.x86.exe</LocalDebuggerCommand>
+    <LocalDebuggerWorkingDirectory>G:\JKADebug</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerCommandArguments>+set dedicated 2 +set net_port 29070 +exec server.cfg</LocalDebuggerCommandArguments>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Final|Win32'">
     <LocalDebuggerCommand>D:\JKADebug\openjkded.x86.exe</LocalDebuggerCommand>
