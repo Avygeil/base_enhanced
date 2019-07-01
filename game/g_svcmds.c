@@ -1977,7 +1977,7 @@ static void FormatAccountSessionList( void* ctx, const session_t* session ) {
 
 	// TODO: pretty printing
 	Q_strcat( out->format, sizeof( out->format ), va(
-		"SESSION %d (%d, %s)\n",
+		"SESSION %d (%lld, %s)\n",
 		session->id,
 		session->identifier,
 		session->info

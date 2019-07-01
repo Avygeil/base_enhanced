@@ -170,14 +170,14 @@ void G_DBCreateAccount( const char* name )
 	sqlite3_finalize( statement );
 }
 
-qboolean G_DBGetSession( const int identifier,
+qboolean G_DBGetSession( const sessionIdentifier_t identifier,
 	session_t* session )
 {
 	sqlite3_stmt* statement;
 
 	sqlite3_prepare( dbPtr, sqlGetSession, -1, &statement, 0 );
 
-	sqlite3_bind_int( statement, 1, identifier );
+	sqlite3_bind_int64( statement, 1, identifier );
 
 	qboolean found = qfalse;
 	int rc = sqlite3_step( statement );
@@ -205,14 +205,14 @@ qboolean G_DBGetSession( const int identifier,
 	return found;
 }
 
-void G_DBCreateSession( const int identifier,
+void G_DBCreateSession( const sessionIdentifier_t identifier,
 	const char* info )
 {
 	sqlite3_stmt* statement;
 
 	sqlite3_prepare( dbPtr, sqlCreateSession, -1, &statement, 0 );
 
-	sqlite3_bind_int( statement, 1, identifier );
+	sqlite3_bind_int64( statement, 1, identifier );
 	sqlite3_bind_text( statement, 2, info, -1, 0 );
 
 	sqlite3_step( statement );
@@ -265,7 +265,7 @@ void G_DBListSessionsForAccount( account_t* account,
 		session_t session;
 
 		const int session_id = sqlite3_column_int( statement, 0 );
-		const int identifier = sqlite3_column_int( statement, 1 );
+		const sqlite3_int64 identifier = sqlite3_column_int64( statement, 1 );
 		const char* info = ( const char* )sqlite3_column_text( statement, 2 );
 
 		session.id = session_id;

@@ -14,26 +14,6 @@ qboolean G_DBUpgradeDatabaseSchema( int versionFrom, void* db );
 
 // =========== ACCOUNTS ========================================================
 
-#define MAX_ACCOUNTNAME_LEN		24
-#define MAX_GROUPNAME_LEN		48
-
-typedef struct {
-	int id;
-	char name[MAX_ACCOUNTNAME_LEN];
-	int creationDate;
-	char group[MAX_GROUPNAME_LEN];
-	int flags;
-} account_t;
-
-#define MAX_SESSIONINFO_LEN		256
-
-typedef struct {
-	int id;
-	int identifier;
-	char info[MAX_SESSIONINFO_LEN];
-	int accountId;
-} session_t;
-
 typedef void( *ListAccountSessionsCallback )( void *ctx,
 	const session_t* session );
 
@@ -42,10 +22,10 @@ qboolean G_DBGetAccount( const char* name,
 
 void G_DBCreateAccount( const char* name );
 
-qboolean G_DBGetSession( const int identifier,
+qboolean G_DBGetSession( const sessionIdentifier_t identifier,
 	session_t* session );
 
-void G_DBCreateSession( const int identifier,
+void G_DBCreateSession( const sessionIdentifier_t identifier,
 	const char* info );
 
 void G_DBLinkAccountToSession( session_t* session,

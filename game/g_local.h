@@ -518,6 +518,28 @@ typedef struct {
 #define PSG_TEAMVOTED			(1<<1)		// already cast a team vote
 #define PSG_CANVOTE			    (1<<2)		// this player can vote
 
+#define MAX_ACCOUNTNAME_LEN		24
+#define MAX_GROUPNAME_LEN		48
+
+typedef struct {
+	int id;
+	char name[MAX_ACCOUNTNAME_LEN];
+	int creationDate;
+	char group[MAX_GROUPNAME_LEN];
+	int flags;
+} account_t;
+
+#define MAX_SESSIONINFO_LEN		256
+
+typedef long long sessionIdentifier_t;
+
+typedef struct {
+	int id;
+	sessionIdentifier_t identifier;
+	char info[MAX_SESSIONINFO_LEN];
+	int accountId;
+} session_t;
+
 //
 #define MAX_NETNAME			36
 #define	MAX_VOTE_COUNT		3
@@ -1367,6 +1389,8 @@ typedef qboolean ( *entityFilter_func )( gentity_t* );
 gentity_t* G_ClosestEntity( gentity_t *ref, entityFilter_func );
 
 void G_FormatLocalDateFromEpoch( char* buf, size_t bufSize, time_t epochSecs );
+
+sessionIdentifier_t G_HashSessionIDFromStr( const char* str );
 
 //
 // g_object.c
