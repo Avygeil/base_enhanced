@@ -1985,83 +1985,92 @@ static void FormatAccountSessionList( void* ctx, const session_t* session ) {
 }
 
 void Svcmd_Account_f( void ) {
-	char s[64];
+	qboolean printHelp = qfalse;
 
 	if ( trap_Argc() > 1 ) {
+		char s[64];
 		trap_Argv( 1, s, sizeof( s ) );
-	} else {
-		Q_strncpyz( s, "help", sizeof( s ) ); // no subcommand just prints help
-	}
 
-	if ( !Q_stricmp( s, "create" ) ) {
+		if ( !Q_stricmp( s, "create" ) ) {
 
-		if ( trap_Argc() < 3 ) {
-			G_Printf( "Usage: account create <username>\n" );
-			return;
-		}
+			if ( trap_Argc() < 3 ) {
+				G_Printf( "Usage: account create <username>\n" );
+				return;
+			}
 
-		char username[MAX_ACCOUNTNAME_LEN];
-		trap_Argv( 2, username, sizeof( username ) );
+			char username[MAX_ACCOUNTNAME_LEN];
+			trap_Argv( 2, username, sizeof( username ) );
 
-		// make sure it doesn't already exist
-		account_t acc;
-		if ( G_DBGetAccount( username, &acc ) ) {
+			// make sure it doesn't already exist
+			account_t acc;
+			if ( G_DBGetAccount( username, &acc ) ) {
+				char timestamp[32];
+				G_FormatLocalDateFromEpoch( timestamp, sizeof( timestamp ), acc.creationDate );
+				G_Printf( "Account '%s' was already created on %s\n", acc.name, timestamp );
+
+				return;
+			}
+
+			// create it
+			G_DBCreateAccount( username );
+
+		} else if ( !Q_stricmp( s, "info" ) ) {
+
+			if ( trap_Argc() < 3 ) {
+				G_Printf( "Usage: account info <username>\n" );
+				return;
+			}
+
+			char username[MAX_ACCOUNTNAME_LEN];
+			trap_Argv( 2, username, sizeof( username ) );
+
+			// get the account
+			account_t acc;
+			if ( !G_DBGetAccount( username, &acc ) ) {
+				G_Printf( "Account '%s' does not exist\n", username );
+				return;
+			}
+
+			SessionPrintCtx sessionsPrint = { 0 };
+			G_DBListSessionsForAccount( &acc, FormatAccountSessionList, &sessionsPrint );
+
 			char timestamp[32];
 			G_FormatLocalDateFromEpoch( timestamp, sizeof( timestamp ), acc.creationDate );
-			G_Printf( "Account '%s' was already created on %s\n", acc.name, timestamp );
 
-			return;
-		}
+			// TODO: pages
 
-		// create it
-		G_DBCreateAccount( username );
+			G_Printf(
+				S_COLOR_YELLOW"Account Name: "S_COLOR_WHITE"%s\n"
+				S_COLOR_YELLOW"Account ID: "S_COLOR_WHITE"%d\n"
+				S_COLOR_YELLOW"Created on: "S_COLOR_WHITE"%s\n"
+				S_COLOR_YELLOW"Group: "S_COLOR_WHITE"%s\n"
+				S_COLOR_YELLOW"Flags: "S_COLOR_WHITE"%d\n"
+				"\n",
+				acc.name,
+				acc.id,
+				timestamp,
+				acc.group,
+				acc.flags
+			);
 
-	} else if ( !Q_stricmp( s, "info" ) ) {
+			if ( VALIDSTRING( sessionsPrint.format ) ) {
+				G_Printf( "Sessions tied to this account:\n%s", sessionsPrint.format );
+			}
+			else {
+				G_Printf( "No session tied to this account yet.\n" );
+			}
 
-		if ( trap_Argc() < 3 ) {
-			G_Printf( "Usage: account info <username>\n" );
-			return;
-		}
-
-		char username[MAX_ACCOUNTNAME_LEN];
-		trap_Argv( 2, username, sizeof( username ) );
-
-		// get the account
-		account_t acc;
-		if ( !G_DBGetAccount( username, &acc ) ) {
-			G_Printf( "Account '%s' does not exist\n", username );
-			return;
-		}
-
-		SessionPrintCtx sessionsPrint = { 0 };
-		G_DBListSessionsForAccount( &acc, FormatAccountSessionList, &sessionsPrint );
-
-		char timestamp[32];
-		G_FormatLocalDateFromEpoch( timestamp, sizeof( timestamp ), acc.creationDate );
-		
-		// TODO: pages
-
-		G_Printf(
-			S_COLOR_YELLOW"Account Name: "S_COLOR_WHITE"%s\n"
-			S_COLOR_YELLOW"Account ID: "S_COLOR_WHITE"%d\n"
-			S_COLOR_YELLOW"Created on: "S_COLOR_WHITE"%s\n"
-			S_COLOR_YELLOW"Group: "S_COLOR_WHITE"%s\n"
-			S_COLOR_YELLOW"Flags: "S_COLOR_WHITE"%d\n"
-			"\n",
-			acc.name,
-			acc.id,
-			timestamp,
-			acc.group,
-			acc.flags
-		);
-
-		if ( VALIDSTRING( sessionsPrint.format ) ) {
-			G_Printf( "Sessions tied to this account:\n%s", sessionsPrint.format );
+		} else if ( !Q_stricmp( s, "help" ) ) {
+			printHelp = qtrue;
 		} else {
-			G_Printf( "No session tied to this account yet.\n" );
+			G_Printf( "Invalid subcommand.\n" );
+			printHelp = qtrue;
 		}
+	} else {
+		printHelp = qtrue;
+	}
 
-	} else if ( !Q_stricmp( s, "help" ) ) {
+	if ( printHelp ) {
 		G_Printf(
 			"Valid subcommands:\n"
 			"account create <username>: Creates a new account with the given name\n"
