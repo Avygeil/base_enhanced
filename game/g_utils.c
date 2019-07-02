@@ -6,8 +6,6 @@
 #include "bg_saga.h"
 #include "q_shared.h"
 
-#include "xxhash.h"
-
 typedef struct {
   char oldShader[MAX_QPATH];
   char newShader[MAX_QPATH];
@@ -2627,8 +2625,4 @@ void G_FormatLocalDateFromEpoch( char* buf, size_t bufSize, time_t epochSecs ) {
 	timeinfo = localtime( &epochSecs );
 
 	strftime( buf, bufSize, "%d/%m/%y %I:%M %p", timeinfo );
-}
-
-sessionIdentifier_t G_HashSessionIDFromStr( const char* str ) {
-	return XXH64( str, strlen( str ), 0L );
 }

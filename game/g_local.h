@@ -440,6 +440,38 @@ typedef struct {
 #define	FOLLOW_ACTIVE1	-1
 #define	FOLLOW_ACTIVE2	-2
 
+#define MAX_ACCOUNTNAME_LEN		24
+#define MAX_GROUPNAME_LEN		48
+
+typedef struct {
+	int id;
+	char name[MAX_ACCOUNTNAME_LEN];
+	int creationDate;
+	char group[MAX_GROUPNAME_LEN];
+	int flags;
+} account_t;
+
+#define MAX_SESSIONINFO_LEN		256
+
+typedef long long sessionIdentifier_t;
+
+typedef struct {
+	int id;
+	sessionIdentifier_t identifier;
+	char info[MAX_SESSIONINFO_LEN];
+	int accountId;
+} session_t;
+
+typedef struct {
+	account_t* ptr;
+	qboolean online;
+} accountReference_t;
+
+typedef struct {
+	session_t* ptr;
+	qboolean online;
+} sessionReference_t;
+
 // client data that stays across multiple levels or tournament restarts
 // this is achieved by writing all the data to cvar strings at game shutdown
 // time and reading them back at connection time.  Anything added here
@@ -492,6 +524,10 @@ typedef struct {
 	float		telemarkYawAngle;
 	float		telemarkPitchAngle;
 
+	// account system
+	int sessionCacheNum;
+	int accountCacheNum;
+
 	char        username[MAX_USERNAME_SIZE];
 
 #ifdef NEWMOD_SUPPORT
@@ -517,28 +553,6 @@ typedef struct {
 #define	PSG_VOTED				(1<<0)		// already cast a vote
 #define PSG_TEAMVOTED			(1<<1)		// already cast a team vote
 #define PSG_CANVOTE			    (1<<2)		// this player can vote
-
-#define MAX_ACCOUNTNAME_LEN		24
-#define MAX_GROUPNAME_LEN		48
-
-typedef struct {
-	int id;
-	char name[MAX_ACCOUNTNAME_LEN];
-	int creationDate;
-	char group[MAX_GROUPNAME_LEN];
-	int flags;
-} account_t;
-
-#define MAX_SESSIONINFO_LEN		256
-
-typedef long long sessionIdentifier_t;
-
-typedef struct {
-	int id;
-	sessionIdentifier_t identifier;
-	char info[MAX_SESSIONINFO_LEN];
-	int accountId;
-} session_t;
 
 //
 #define MAX_NETNAME			36
@@ -704,6 +718,10 @@ struct gclient_s {
 	// the rest of the structure is private to game
 	clientPersistant_t	pers;
 	clientSession_t		sess;
+
+	// accounts
+	session_t* session;
+	account_t* account;
 
 	saberInfo_t	saber[MAX_SABERS];
 	void		*weaponGhoul2[MAX_SABERS];
@@ -1252,6 +1270,28 @@ typedef struct {
 
 
 //
+// g_accounts.c
+//
+typedef void( *ListAccountSessionsCallback )( void *ctx,
+	const sessionReference_t sessionRef,
+	const qboolean temporary );
+
+void G_SaveAccountsCache( void );
+qboolean G_ReadAccountsCache( void );
+void G_InitClientSession( gclient_t *client );
+void G_InitClientAccount( gclient_t* client );
+qboolean G_CreateAccount( const char* name, accountReference_t* out );
+sessionReference_t G_GetSessionByID( const int id, qboolean onlineOnly );
+sessionReference_t G_GetSessionByIdentifier( const sessionIdentifier_t identifier, qboolean onlineOnly );
+accountReference_t G_GetAccountByID( const int id, qboolean onlineOnly );
+accountReference_t G_GetAccountByName( const char* name, qboolean onlineOnly );
+qboolean G_LinkAccountToSession( session_t* session, account_t* account );
+qboolean G_UnlinkAccountFromSession( session_t* session );
+void G_ListSessionsForAccount( account_t* account, ListAccountSessionsCallback callback, void* ctx );
+qboolean G_SessionInfoHasString( const session_t* session, const char* key );
+void G_GetStringFromSessionInfo( const session_t* session, const char* key, char* outValue, size_t outValueSize );
+
+//
 // g_spawn.c
 //
 qboolean	G_SpawnString( const char *key, const char *defaultString, char **out );
@@ -1390,7 +1430,7 @@ gentity_t* G_ClosestEntity( gentity_t *ref, entityFilter_func );
 
 void G_FormatLocalDateFromEpoch( char* buf, size_t bufSize, time_t epochSecs );
 
-sessionIdentifier_t G_HashSessionIDFromStr( const char* str );
+qboolean G_GetIPFromString( const char* from, unsigned int* ip );
 
 //
 // g_object.c
@@ -1753,7 +1793,7 @@ void G_InitSessionData( gclient_t *client, char *userinfo, qboolean isBot, qbool
 
 void G_InitWorldSession( void );
 void G_WriteSessionData( void );
-void G_ReadSessionData( qboolean restart );
+void G_ReadSessionData( qboolean restart, qboolean resetAccounts );
 
 //
 // NPC_senses.cpp

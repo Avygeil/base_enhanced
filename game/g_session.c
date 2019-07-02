@@ -148,6 +148,9 @@ void G_InitSessionData( gclient_t *client, char *userinfo, qboolean isBot, qbool
 	sess->telemarkYawAngle = 0;
 	sess->telemarkPitchAngle = 0;
 
+	sess->sessionCacheNum = -1;
+	sess->accountCacheNum = -1;
+
 	sess->spectatorState = SPECTATOR_FREE;
 	sess->spectatorTime = level.time;
     sess->inactivityTime = getGlobalTime() + 1000 * g_spectatorInactivity.integer;
@@ -164,6 +167,7 @@ void G_InitSessionData( gclient_t *client, char *userinfo, qboolean isBot, qbool
 	sess->serverKeys[0] = sess->serverKeys[1] = 0;
 	sess->auth = level.nmAuthEnabled && *Info_ValueForKey( userinfo, "nm_ver" ) ? PENDING : INVALID;
 #endif
+
 }
 
 
@@ -218,7 +222,7 @@ void G_WriteSessionData( void )
     trap_FS_FCloseFile( sessionFile );
 }  
 
-void G_ReadSessionData( qboolean restart )
+void G_ReadSessionData( qboolean restart, qboolean resetAccounts )
 {
     fileHandle_t sessionFile;
     int fileSize = trap_FS_FOpenFile( "session.dat", &sessionFile, FS_READ );
@@ -253,6 +257,11 @@ void G_ReadSessionData( qboolean restart )
 				VectorClear( client->sess.telemarkOrigin );
 				client->sess.telemarkYawAngle = 0;
 				client->sess.telemarkPitchAngle = 0;
+			}
+
+			if ( resetAccounts ) {
+				client->sess.sessionCacheNum = -1;
+				client->sess.accountCacheNum = -1;
 			}
         }
     }

@@ -5210,8 +5210,13 @@ static void Cmd_Svauth_f( gentity_t *ent ) {
 			}
 
 			Crypto_Hash( s, ent->client->sess.cuidHash, sizeof( ent->client->sess.cuidHash ) );
-			G_Printf( "Newmod client %d authenticated successfully (cuid hash: %s)\n", ent - g_entities, ent->client->sess.cuidHash );
+			G_LogPrintf( "Newmod client %d authenticated successfully (cuid hash: %s)\n", ent - g_entities, ent->client->sess.cuidHash );
 			ent->client->sess.auth++;
+
+			// now that this client is fully authenticated, init session and account
+			G_InitClientSession( ent->client );
+			G_InitClientAccount( ent->client );
+
 			ClientUserinfoChanged( ent - g_entities );
 
 			return;
@@ -5220,7 +5225,7 @@ static void Cmd_Svauth_f( gentity_t *ent ) {
 
 	// if we got here, auth failed
 	ent->client->sess.auth = INVALID;
-	G_Printf( "Client %d failed newmod authentication (at state: %d)\n", ent - g_entities, ent->client->sess.auth );
+	G_LogPrintf( "Client %d failed newmod authentication (at state: %d)\n", ent - g_entities, ent->client->sess.auth );
 }
 #endif
 

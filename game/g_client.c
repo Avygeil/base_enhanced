@@ -2685,6 +2685,17 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 		G_InitSessionData( client, userinfo, isBot, firstTime );
 	}
 
+	// init accounts
+	if ( !isBot
+#ifdef NEWMOD_SUPPORT
+		&& client->sess.auth == INVALID // only init immediately for non authenticating newmod clients
+#endif
+		)
+	{
+		G_InitClientSession( client );
+		G_InitClientAccount( client );
+	}
+
 	// set racemode state here using session data that was carried over
 	G_SetRaceMode( ent, client->sess.inRacemode );
 

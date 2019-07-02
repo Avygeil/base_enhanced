@@ -1976,6 +1976,8 @@ typedef int soundChannel_t;
 #define MAX_TERRAINS		1//32 //rwwRMG: inserted
 #define MAX_LOCATIONS		64
 
+#define IN_CLIENTNUM_RANGE(x)	( x >= 0 && x < MAX_CLIENTS )
+
 #ifdef _XBOX
 #define	GENTITYNUM_BITS	9		// don't need to send any more
 #else

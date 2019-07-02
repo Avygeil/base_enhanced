@@ -14,15 +14,22 @@ qboolean G_DBUpgradeDatabaseSchema( int versionFrom, void* db );
 
 // =========== ACCOUNTS ========================================================
 
-typedef void( *ListAccountSessionsCallback )( void *ctx,
-	const session_t* session );
+typedef void( *DBListAccountSessionsCallback )( void *ctx,
+	session_t* session,
+	qboolean temporary );
 
-qboolean G_DBGetAccount( const char* name,
+qboolean G_DBGetAccountByID( const int id,
+	account_t* account );
+
+qboolean G_DBGetAccountByName( const char* name,
 	account_t* account );
 
 void G_DBCreateAccount( const char* name );
 
-qboolean G_DBGetSession( const sessionIdentifier_t identifier,
+qboolean G_DBGetSessionByID( const int id,
+	session_t* session );
+
+qboolean G_DBGetSessionByIdentifier( const sessionIdentifier_t identifier,
 	session_t* session );
 
 void G_DBCreateSession( const sessionIdentifier_t identifier,
@@ -34,7 +41,7 @@ void G_DBLinkAccountToSession( session_t* session,
 void G_DBUnlinkAccountFromSession( session_t* session );
 
 void G_DBListSessionsForAccount( account_t* account,
-	ListAccountSessionsCallback callback,
+	DBListAccountSessionsCallback callback,
 	void* ctx );
 
 // =========== METADATA ========================================================

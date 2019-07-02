@@ -1972,16 +1972,23 @@ typedef struct {
 	char format[MAX_STRING_CHARS];
 } SessionPrintCtx;
 
-static void FormatAccountSessionList( void* ctx, const session_t* session ) {
+static void FormatAccountSessionList( void *ctx, const sessionReference_t sessionRef, const qboolean temporary ) {
 	SessionPrintCtx* out = ( SessionPrintCtx* )ctx;
 
-	// TODO: pretty printing
-	Q_strcat( out->format, sizeof( out->format ), va(
-		"SESSION %d (%lld, %s)\n",
-		session->id,
-		session->identifier,
-		session->info
-	) );
+#ifdef NEWMOD_SUPPORT
+	qboolean isNewmodSession = G_SessionInfoHasString( sessionRef.ptr, "cuid_hash2" );
+#endif
+
+	char sessFlags[16] = { 0 };
+	if ( sessionRef.online ) Q_strcat( sessFlags, sizeof( sessFlags ), S_COLOR_GREEN"|" );
+	if ( temporary ) Q_strcat( sessFlags, sizeof( sessFlags ), S_COLOR_YELLOW"|" );
+#ifdef NEWMOD_SUPPORT
+	if ( isNewmodSession ) Q_strcat( sessFlags, sizeof( sessFlags ), S_COLOR_CYAN"|" );
+#endif
+
+	Q_strcat( out->format, sizeof( out->format ), va( S_COLOR_WHITE"Session ID %d ", sessionRef.ptr->id ) );
+	if ( VALIDSTRING( sessFlags ) ) Q_strcat( out->format, sizeof( out->format ), va( "%s ", sessFlags ) );
+	Q_strcat( out->format, sizeof( out->format ), va( S_COLOR_WHITE"(identifier: %lld)\n", sessionRef.ptr->identifier ) );
 }
 
 void Svcmd_Account_f( void ) {
@@ -2001,18 +2008,19 @@ void Svcmd_Account_f( void ) {
 			char username[MAX_ACCOUNTNAME_LEN];
 			trap_Argv( 2, username, sizeof( username ) );
 
-			// make sure it doesn't already exist
-			account_t acc;
-			if ( G_DBGetAccount( username, &acc ) ) {
-				char timestamp[32];
-				G_FormatLocalDateFromEpoch( timestamp, sizeof( timestamp ), acc.creationDate );
-				G_Printf( "Account '%s' was already created on %s\n", acc.name, timestamp );
+			accountReference_t acc;
 
-				return;
+			if ( G_CreateAccount( username, &acc ) ) {
+				G_Printf( "Account '%s' created successfully\n", acc.ptr->name );
+			} else {
+				if ( acc.ptr ) {
+					char timestamp[32];
+					G_FormatLocalDateFromEpoch( timestamp, sizeof( timestamp ), acc.ptr->creationDate );
+					G_Printf( "Account '%s' was already created on %s\n", acc.ptr->name, timestamp );
+				} else {
+					G_Printf( "Failed to create account!\n" );
+				}
 			}
-
-			// create it
-			G_DBCreateAccount( username );
 
 		} else if ( !Q_stricmp( s, "info" ) ) {
 
@@ -2024,18 +2032,18 @@ void Svcmd_Account_f( void ) {
 			char username[MAX_ACCOUNTNAME_LEN];
 			trap_Argv( 2, username, sizeof( username ) );
 
-			// get the account
-			account_t acc;
-			if ( !G_DBGetAccount( username, &acc ) ) {
+			accountReference_t acc = G_GetAccountByName( username, qfalse );
+
+			if ( !acc.ptr ) {
 				G_Printf( "Account '%s' does not exist\n", username );
 				return;
 			}
 
 			SessionPrintCtx sessionsPrint = { 0 };
-			G_DBListSessionsForAccount( &acc, FormatAccountSessionList, &sessionsPrint );
+			G_ListSessionsForAccount( acc.ptr, FormatAccountSessionList, &sessionsPrint );
 
 			char timestamp[32];
-			G_FormatLocalDateFromEpoch( timestamp, sizeof( timestamp ), acc.creationDate );
+			G_FormatLocalDateFromEpoch( timestamp, sizeof( timestamp ), acc.ptr->creationDate );
 
 			// TODO: pages
 
@@ -2046,17 +2054,30 @@ void Svcmd_Account_f( void ) {
 				S_COLOR_YELLOW"Group: "S_COLOR_WHITE"%s\n"
 				S_COLOR_YELLOW"Flags: "S_COLOR_WHITE"%d\n"
 				"\n",
-				acc.name,
-				acc.id,
+				acc.ptr->name,
+				acc.ptr->id,
 				timestamp,
-				acc.group,
-				acc.flags
+				acc.ptr->group,
+				acc.ptr->flags
 			);
 
 			if ( VALIDSTRING( sessionsPrint.format ) ) {
-				G_Printf( "Sessions tied to this account:\n%s", sessionsPrint.format );
-			}
-			else {
+
+#ifdef NEWMOD_SUPPORT
+				G_Printf(
+					"Sessions tied to this account:\n"
+					S_COLOR_GREEN"| - online "S_COLOR_YELLOW"| - temporary "S_COLOR_CYAN"| - newmod\n"
+				);
+#else
+				G_Printf(
+					"Sessions tied to this account:\n"
+					S_COLOR_GREEN"| - online "S_COLOR_YELLOW"| - temporary\n"
+				);
+#endif
+
+				G_Printf( "%s", sessionsPrint.format );
+
+			} else {
 				G_Printf( "No session tied to this account yet.\n" );
 			}
 
@@ -2076,6 +2097,202 @@ void Svcmd_Account_f( void ) {
 			"account create <username>: Creates a new account with the given name\n"
 			"account info <username>: Prints various information for the given account name\n"
 			"account help: Prints this message\n"
+		);
+	}
+}
+
+void Svcmd_Session_f( void ) {
+	qboolean printHelp = qfalse;
+
+	if ( trap_Argc() > 1 ) {
+		char s[64];
+		trap_Argv( 1, s, sizeof( s ) );
+
+		if ( !Q_stricmp( s, "latest" ) ) {
+
+			// TODO
+
+		} else if ( !Q_stricmp( s, "info" ) ) {
+
+			// TODO
+
+		} else if ( !Q_stricmp( s, "link" ) ) {
+
+			if ( trap_Argc() < 4 ) {
+				G_Printf( "Usage: session link <session id> <account name>\n" );
+				return;
+			}
+
+			trap_Argv( 2, s, sizeof( s ) );
+			const int sessionId = atoi( s );
+			if ( sessionId <= 0 ) {
+				G_Printf( "Session ID must be a number > 1\n" );
+				return;
+			}
+
+			char username[MAX_ACCOUNTNAME_LEN];
+			trap_Argv( 3, username, sizeof( username ) );
+
+			sessionReference_t sess = G_GetSessionByID( sessionId, qfalse );
+
+			if ( !sess.ptr ) {
+				G_Printf( "No session found with this ID\n" );
+				return;
+			}
+
+			if ( sess.ptr->accountId > 0 ) {
+				accountReference_t acc = G_GetAccountByID( sess.ptr->accountId, qfalse );
+				if ( acc.ptr ) G_Printf( "This session is already linked to account '%s' (id: %d)\n", acc.ptr->name, acc.ptr->id );
+				return;
+			}
+
+			accountReference_t acc = G_GetAccountByName( username, qfalse );
+
+			if ( !acc.ptr ) {
+				G_Printf( "No account found with this name\n" );
+				return;
+			}
+
+			if ( G_LinkAccountToSession( sess.ptr, acc.ptr ) ) {
+				G_Printf( "Session successfully linked to account '%s' (id: %d)\n", acc.ptr->name, acc.ptr->id );
+			} else {
+				G_Printf( "Failed to link session to this account!\n" );
+			}
+
+		} else if ( !Q_stricmp( s, "linkingame" ) ) {
+
+			if ( trap_Argc() < 4 ) {
+				G_Printf( "Usage: session linkingame <client id> <account name>\n" );
+				return;
+			}
+
+			trap_Argv( 2, s, sizeof( s ) );
+			const int clientId = atoi( s );
+			if ( !IN_CLIENTNUM_RANGE( clientId ) ||
+				!g_entities[clientId].inuse ||
+				level.clients[clientId].pers.connected != CON_CONNECTED ) {
+				G_Printf( "You must enter a valid client ID of a connected client\n" );
+				return;
+			}
+
+			gclient_t *client = &level.clients[clientId];
+
+			char username[MAX_ACCOUNTNAME_LEN];
+			trap_Argv( 3, username, sizeof( username ) );
+
+			if ( !client->session ) {
+				return;
+			}
+
+			if ( client->account ) {
+				G_Printf( "This session is already linked to account '%s' (id: %d)\n", client->account->name, client->account->id );
+				return;
+			}
+
+			accountReference_t acc = G_GetAccountByName( username, qfalse );
+
+			if ( !acc.ptr ) {
+				G_Printf( "No account found with this name\n" );
+				return;
+			}
+
+			if ( G_LinkAccountToSession( client->session, acc.ptr ) ) {
+				G_Printf( "Client session successfully linked to account '%s' (id: %d)\n", acc.ptr->name, acc.ptr->id );
+			} else {
+				G_Printf( "Failed to link client session to this account!\n" );
+			}
+
+		} else if ( !Q_stricmp( s, "unlink" ) ) {
+
+			if ( trap_Argc() < 3 ) {
+				G_Printf( "Usage: session unlink <session id>\n" );
+				return;
+			}
+
+			trap_Argv( 2, s, sizeof( s ) );
+			const int sessionId = atoi( s );
+			if ( sessionId <= 0 ) {
+				G_Printf( "Session ID must be a number > 1\n" );
+				return;
+			}
+
+			sessionReference_t sess = G_GetSessionByID( sessionId, qfalse );
+
+			if ( !sess.ptr ) {
+				G_Printf( "No session found with this ID\n" );
+				return;
+			}
+
+			if ( sess.ptr->accountId <= 0 ) {
+				G_Printf( "This session is not linked to any account\n" );
+				return;
+			}
+
+			accountReference_t acc = G_GetAccountByID( sess.ptr->accountId, qfalse );
+
+			if ( !acc.ptr ) {
+				return;
+			}
+
+			if ( G_UnlinkAccountFromSession( sess.ptr ) ) {
+				G_Printf( "Session successfully unlinked from account '%s' (id: %d)\n", acc.ptr->name, acc.ptr->id );
+			} else {
+				G_Printf( "Failed to unlink session from this account!\n" );
+			}
+
+		} else if ( !Q_stricmp( s, "unlinkingame" ) ) {
+
+			if ( trap_Argc() < 3 ) {
+				G_Printf( "Usage: session unlinkingame <client id>\n" );
+				return;
+			}
+
+			trap_Argv( 2, s, sizeof( s ) );
+			const int clientId = atoi( s );
+			if ( !IN_CLIENTNUM_RANGE( clientId ) ||
+				!g_entities[clientId].inuse ||
+				level.clients[clientId].pers.connected != CON_CONNECTED ) {
+				G_Printf( "You must enter a valid client ID of a connected client\n" );
+				return;
+			}
+
+			gclient_t *client = &level.clients[clientId];
+
+			if ( !client->session ) {
+				return;
+			}
+
+			if ( !client->account ) {
+				G_Printf( "This client's session is not linked to any account\n" );
+				return;
+			}
+
+			if ( G_UnlinkAccountFromSession( client->session ) ) {
+				G_Printf( "Client session successfully unlinked from account '%s' (id: %d)\n", client->account->name, client->account->id );
+			} else {
+				G_Printf( "Failed to unlink Client session from this account!\n" );
+			}
+
+		} else if ( !Q_stricmp( s, "help" ) ) {
+			printHelp = qtrue;
+		} else {
+			G_Printf( "Invalid subcommand.\n" );
+			printHelp = qtrue;
+		}
+	} else {
+		printHelp = qtrue;
+	}
+
+	if ( printHelp ) {
+		G_Printf(
+			"Valid subcommands:\n"
+			"session latest: Lists the latest unassigned sessions\n"
+			"session info <session id>: Prints detailed information for the given session ID\n"
+			"session link <session id> <account name>: Links the given session ID to an existing account\n"
+			"session linkingame <client id> <account name>: Shortcut command to link an in-game client's session to an existing account\n"
+			"session unlink <session id>: Unlinks the account associated to the given session ID\n"
+			"session unlinkingame <client id>: Shortcut command to unlink the account associated to an in-game client's session\n"
+			"session help: Prints this message\n"
 		);
 	}
 }
@@ -2346,6 +2563,11 @@ qboolean	ConsoleCommand( void ) {
 
 	if ( !Q_stricmp( cmd, "account" ) ) {
 		Svcmd_Account_f();
+		return qtrue;
+	}
+
+	if ( !Q_stricmp( cmd, "session" ) ) {
+		Svcmd_Session_f();
 		return qtrue;
 	}
 

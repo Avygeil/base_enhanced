@@ -1383,7 +1383,10 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 		g_entities[i].client = level.clients + i;
 	}
 
-	G_ReadSessionData( restart ? qtrue : qfalse );
+	// read accounts and sessions cache
+	qboolean resetAccountsCache = !G_ReadAccountsCache();
+
+	G_ReadSessionData( restart ? qtrue : qfalse, resetAccountsCache );
 
 	// always leave room for the max number of clients,
 	// even if they aren't all used, so numbers inside that
@@ -1620,6 +1623,9 @@ void G_ShutdownGame( int restart ) {
 
 	// write all the client session data so we can get it back
 	G_WriteSessionData();
+
+	// save accounts and sessions cache
+	G_SaveAccountsCache();
 
 	trap_ROFF_Clean();
 
@@ -2634,6 +2640,9 @@ void ExitLevel (void) {
 
 	// we need to do this here before chaning to CON_CONNECTING
 	G_WriteSessionData();
+
+	// save accounts and sessions cache
+	G_SaveAccountsCache();
 
 	// change all client states to connecting, so the early players into the
 	// next level will know the others aren't done reconnecting
