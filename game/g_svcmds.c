@@ -2064,17 +2064,10 @@ void Svcmd_Account_f( void ) {
 			if ( VALIDSTRING( sessionsPrint.format ) ) {
 
 #ifdef NEWMOD_SUPPORT
-				G_Printf(
-					"Sessions tied to this account:\n"
-					S_COLOR_GREEN"| - online "S_COLOR_YELLOW"| - temporary "S_COLOR_CYAN"| - newmod\n"
-				);
+				G_Printf( "Sessions tied to this account: ( "S_COLOR_GREEN"| = online "S_COLOR_YELLOW"| = temporary "S_COLOR_CYAN"| = newmod "S_COLOR_WHITE")\n" );
 #else
-				G_Printf(
-					"Sessions tied to this account:\n"
-					S_COLOR_GREEN"| - online "S_COLOR_YELLOW"| - temporary\n"
-				);
+				G_Printf( "Sessions tied to this account: ( "S_COLOR_GREEN"| - online "S_COLOR_YELLOW"| - temporary "S_COLOR_WHITE")\n" );
 #endif
-
 				G_Printf( "%s", sessionsPrint.format );
 
 			} else {

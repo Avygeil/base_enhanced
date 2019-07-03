@@ -511,7 +511,11 @@ static void ListAccountSessionsCallbackReferencer( void *ctx, session_t* session
 }
 
 void G_ListSessionsForAccount( account_t* account, ListAccountSessionsCallback callback, void* ctx ) {
-	G_DBListSessionsForAccount( account, ListAccountSessionsCallbackReferencer, ctx );
+	ReferencerCallbackProxy proxyCtx;
+	proxyCtx.callback = callback;
+	proxyCtx.ctx = ctx;
+
+	G_DBListSessionsForAccount( account, ListAccountSessionsCallbackReferencer, &proxyCtx );
 }
 
 qboolean G_SessionInfoHasString( const session_t* session, const char* key ) {
