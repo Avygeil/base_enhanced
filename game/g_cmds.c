@@ -5248,7 +5248,7 @@ void singleAliasCallback( void* context,
 	int duration )
 {
 	AliasesContext* thisContext = ( AliasesContext* )context;
-	trap_SendServerCommand( thisContext->entNum, va( "print \"%s"S_COLOR_WHITE"\"", name ) );
+	trap_SendServerCommand( thisContext->entNum, va( "print \""S_COLOR_WHITE"* %s"S_COLOR_WHITE"\"", name ) );
 }
 
 void Cmd_WhoIs_f( gentity_t* ent )
@@ -5275,8 +5275,13 @@ void Cmd_WhoIs_f( gentity_t* ent )
 				trap_SendServerCommand( ent - g_entities, va( "print \"%sClient %i "S_COLOR_WHITE"(%s"S_COLOR_WHITE"): \"",
 					 color, i, level.clients[i].pers.netname )
 				);
-				G_DBListAliases( level.clients[i].sess.ip, ( unsigned int )0xFFFFFFFF, 1, singleAliasCallback, &context, level.clients[i].sess.auth == AUTHENTICATED ? level.clients[i].sess.cuidHash : "");
-				trap_SendServerCommand( ent - g_entities, "print \"\n\"" );
+
+				if ( level.clients[i].account ) {
+					trap_SendServerCommand( ent - g_entities, va( "print \""S_COLOR_GREEN"* "S_COLOR_WHITE"%s\n\"" ) );
+				} else {
+					G_DBListAliases( level.clients[i].sess.ip, ( unsigned int )0xFFFFFFFF, 1, singleAliasCallback, &context, level.clients[i].sess.auth == AUTHENTICATED ? level.clients[i].sess.cuidHash : "" );
+					trap_SendServerCommand( ent - g_entities, "print \"\n\"" );
+				}
 			}
 		}
 
@@ -5295,21 +5300,25 @@ void Cmd_WhoIs_f( gentity_t* ent )
 		return;
 	}	 
 	
-	trap_SendServerCommand( ent - g_entities, va( "print \"Aliases for client %i (%s"S_COLOR_WHITE").\n\"", 
-		found - g_entities, found->client->pers.netname ) );
+	if ( found->client->account ) {
+		trap_SendServerCommand( ent - g_entities, va( "print \"Client %i (%s"S_COLOR_WHITE"): %s\n\"",
+			found - g_entities, found->client->pers.netname, found->client->account->name ) );
+	} else {
+		trap_SendServerCommand( ent - g_entities, va( "print \"Aliases for client %i (%s"S_COLOR_WHITE").\n\"",
+			found - g_entities, found->client->pers.netname ) );
 
-	
-	unsigned int maskInt = 0xFFFFFFFF;
+		unsigned int maskInt = 0xFFFFFFFF;
 
-	if ( trap_Argc() > 2 )
-	{
-		char mask[20];
-		trap_Argv( 2, mask, sizeof( mask ) );
-		maskInt = 0; 
-		getIpFromString( mask, &maskInt );
-	}     
+		if ( trap_Argc() > 2 )
+		{
+			char mask[20];
+			trap_Argv( 2, mask, sizeof( mask ) );
+			maskInt = 0;
+			getIpFromString( mask, &maskInt );
+		}
 
-	G_DBListAliases( found->client->sess.ip, maskInt, 3, listAliasesCallback, &context, found->client->sess.auth == AUTHENTICATED ? found->client->sess.cuidHash : "");
+		G_DBListAliases( found->client->sess.ip, maskInt, 3, listAliasesCallback, &context, found->client->sess.auth == AUTHENTICATED ? found->client->sess.cuidHash : "" );
+	}
 }
 
 #define MAX_STATS			16
