@@ -5277,7 +5277,7 @@ void Cmd_WhoIs_f( gentity_t* ent )
 				);
 
 				if ( level.clients[i].account ) {
-					trap_SendServerCommand( ent - g_entities, va( "print \""S_COLOR_GREEN"* "S_COLOR_WHITE"%s\n\"" ) );
+					trap_SendServerCommand( ent - g_entities, va( "print \""S_COLOR_GREEN"* "S_COLOR_WHITE"%s\n\"", level.clients[i].account->name ) );
 				} else {
 					G_DBListAliases( level.clients[i].sess.ip, ( unsigned int )0xFFFFFFFF, 1, singleAliasCallback, &context, level.clients[i].sess.auth == AUTHENTICATED ? level.clients[i].sess.cuidHash : "" );
 					trap_SendServerCommand( ent - g_entities, "print \"\n\"" );
