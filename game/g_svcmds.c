@@ -2108,7 +2108,31 @@ void Svcmd_Session_f( void ) {
 		char s[64];
 		trap_Argv( 1, s, sizeof( s ) );
 
-		if ( !Q_stricmp( s, "latest" ) ) {
+		if ( !Q_stricmp( s, "whois" ) ) {
+
+			qboolean printed = qfalse;
+
+			int i;
+			for ( i = 0; i < level.maxclients; ++i ) {
+				gclient_t *client = &level.clients[i];
+
+				if ( client->pers.connected != CON_DISCONNECTED &&
+					!( &g_entities[i] && g_entities[i].r.svFlags & SVF_BOT ) &&
+					client->session )
+				{
+					G_Printf( S_COLOR_WHITE"Client %d (%s"S_COLOR_WHITE"): Session ID %d (identifier: %lld)\n",
+						i, client->pers.netname, client->session->id, client->session->identifier
+					);
+
+					printed = qtrue;
+				}
+			}
+
+			if ( !printed ) {
+				G_Printf( "Nobody is online with a valid session.\n" );
+			}
+
+		} else if ( !Q_stricmp( s, "latest" ) ) {
 
 			// TODO
 
@@ -2286,6 +2310,7 @@ void Svcmd_Session_f( void ) {
 	if ( printHelp ) {
 		G_Printf(
 			"Valid subcommands:\n"
+			"session whois: Lists the session currently in use by all in-game players\n"
 			"session latest: Lists the latest unassigned sessions\n"
 			"session info <session id>: Prints detailed information for the given session ID\n"
 			"session link <session id> <account name>: Links the given session ID to an existing account\n"
