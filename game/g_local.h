@@ -1281,6 +1281,7 @@ qboolean G_ReadAccountsCache( void );
 void G_InitClientSession( gclient_t *client );
 void G_InitClientAccount( gclient_t* client );
 qboolean G_CreateAccount( const char* name, accountReference_t* out );
+qboolean G_DeleteAccount( account_t* account );
 sessionReference_t G_GetSessionByID( const int id, qboolean onlineOnly );
 sessionReference_t G_GetSessionByIdentifier( const sessionIdentifier_t identifier, qboolean onlineOnly );
 accountReference_t G_GetAccountByID( const int id, qboolean onlineOnly );

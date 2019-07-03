@@ -2,27 +2,164 @@
 #include "sqlite3.h"
 #include "time.h"
 
+#include "g_database_schema.h"
+
 static sqlite3* diskDb = NULL;
 static sqlite3* dbPtr = NULL;
 
-// =========== METADATA ========================================================
+static void ErrorCallback( void* ctx, int code, const char* msg ) {
+	Com_Printf( "SQL error (code %d): %s\n", code, msg );
+}
 
-const char* const sqlCreateMetadataTable =
-"CREATE TABLE IF NOT EXISTS [metadata] (                                     \n"
-"  [key] TEXT COLLATE NOCASE PRIMARY KEY NOT NULL,                           \n"
-"  [value] TEXT DEFAULT NULL                                                 \n"
-");                                                                            ";
+static int TraceCallback( unsigned int type, void* ctx, void* ptr, void* info ) {
+	if ( !ptr || !info ) {
+		return 0;
+	}
+
+	if ( type == SQLITE_TRACE_STMT ) {
+		char* sql = ( char* )info;
+
+		Com_Printf( "Executing SQL: \n" );
+
+		if ( !Q_stricmpn( sql, "--", 2 ) ) {
+			// a comment, which means this is a trigger, log it directly
+			Com_Printf( "--------------------------------------------------------------------------------\n" );
+			Com_Printf( "%s\n", sql );
+			Com_Printf( "--------------------------------------------------------------------------------\n" );
+		} else {
+			// expand the sql before logging it so we can see parameters
+			sqlite3_stmt* stmt = ( sqlite3_stmt* )ptr;
+			sql = sqlite3_expanded_sql( stmt );
+			Com_Printf( "--------------------------------------------------------------------------------\n" );
+			Com_Printf( "%s\n", sql );
+			Com_Printf( "--------------------------------------------------------------------------------\n" );
+			sqlite3_free( sql );
+		}
+	} else if ( type == SQLITE_TRACE_PROFILE ) {
+		unsigned long long nanoseconds = *( ( unsigned long long* )info );
+		unsigned int ms = nanoseconds / 1000000;
+		Com_Printf( "Executed in %ums\n", ms );
+	}
+
+	return 0;
+}
+
+void G_DBLoadDatabase( void )
+{
+    int rc;
+
+	// db options
+
+	sqlite3_config( SQLITE_CONFIG_SINGLETHREAD ); // we don't need multi threading
+	sqlite3_config( SQLITE_CONFIG_MEMSTATUS, 0 ); // we don't need allocation statistics
+	sqlite3_config( SQLITE_CONFIG_LOG, ErrorCallback, NULL ); // error logging
+
+	// initialize db
+
+    rc = sqlite3_initialize();
+
+	if ( rc != SQLITE_OK ) {
+		Com_Printf( "Failed to initialize SQLite3 (code: %d)\n", rc );
+		return;
+	}
+
+    rc = sqlite3_open_v2( DB_FILENAME, &diskDb, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, NULL );
+
+	if ( rc != SQLITE_OK ) {
+		Com_Printf( "Failed to open database file "DB_FILENAME" (code: %d)\n", rc );
+		return;
+	}
+
+	Com_Printf( "Successfully opened database file "DB_FILENAME"\n" );
+
+	if ( g_inMemoryDB.integer ) {
+		Com_Printf( "Using in-memory database\n" );
+
+		// open db in memory
+		sqlite3* memoryDb = NULL;
+		rc = sqlite3_open_v2( ":memory:", &memoryDb, SQLITE_OPEN_READWRITE, NULL );
+
+		if ( rc == SQLITE_OK ) {
+			sqlite3_backup *backup = sqlite3_backup_init( memoryDb, "main", diskDb, "main" );
+			if ( backup ) {
+				rc = sqlite3_backup_step( backup, -1 );
+				if ( rc == SQLITE_DONE ) {
+					rc = sqlite3_backup_finish( backup );
+					if ( rc == SQLITE_OK ) {
+						dbPtr = memoryDb;
+					}
+				}
+			}
+		}
+
+		if ( !dbPtr ) {
+			Com_Printf( "WARNING: Failed to load database into memory!\n" );
+		}
+	}
+
+	// use disk db by default in any case
+	if ( !dbPtr ) {
+		Com_Printf( "Using on-disk database\n" );
+		dbPtr = diskDb;
+	}
+
+	// register trace callback if needed
+	if ( g_traceSQL.integer ) {
+		sqlite3_trace_v2( dbPtr, SQLITE_TRACE_STMT | SQLITE_TRACE_PROFILE, TraceCallback, NULL );
+	}
+
+	// setup tables
+	sqlite3_exec( dbPtr, sqlCreateTables, 0, 0, 0 );
+
+	// get version and call the upgrade routine
+
+	char schema_version[16];
+	G_DBGetMetadata( "schema_version", schema_version, sizeof( schema_version ) );
+
+	int version = VALIDSTRING( schema_version ) ? atoi( schema_version ) : 0;
+	G_DBUpgradeDatabaseSchema( version, dbPtr );
+
+	G_DBSetMetadata( "schema_version", DB_SCHEMA_VERSION_STR );
+}
+
+void G_DBUnloadDatabase( void )
+{
+	int rc;
+
+	if ( dbPtr != diskDb ) {
+		Com_Printf( "Saving in-memory database changes to disk\n" );
+
+		// we are using in memory db, save changes to disk
+		qboolean success = qfalse;
+		sqlite3_backup *backup = sqlite3_backup_init( diskDb, "main", dbPtr, "main" );
+		if ( backup ) {
+			rc = sqlite3_backup_step( backup, -1 );
+			if ( rc == SQLITE_DONE ) {
+				rc = sqlite3_backup_finish( backup );
+				if ( rc == SQLITE_OK ) {
+					success = qtrue;
+				}
+			}
+		}
+
+		if ( !success ) {
+			Com_Printf( "WARNING: Failed to backup in-memory database! Changes from this session have NOT been saved!\n" );
+		}
+
+		sqlite3_close( dbPtr );
+	}
+
+	sqlite3_close( diskDb );
+	diskDb = dbPtr = NULL;
+}
+
+// =========== METADATA ========================================================
 
 const char* const sqlGetMetadata =
 "SELECT value FROM metadata WHERE metadata.key = ?1 LIMIT 1;                   ";
 
 const char* const sqlSetMetadata =
 "INSERT OR REPLACE INTO metadata (key, value) VALUES( ?1, ?2 );                ";
-
-void InitMetadata( void )
-{
-	sqlite3_exec( dbPtr, sqlCreateMetadataTable, NULL, NULL, NULL );
-}
 
 void G_DBGetMetadata( const char *key,
 	char *outValue,
@@ -64,30 +201,6 @@ void G_DBSetMetadata( const char *key,
 
 // =========== ACCOUNTS ========================================================
 
-static const char* sqlCreateAccountsTables =
-"CREATE TABLE IF NOT EXISTS [accounts] (                                     \n"
-"    [account_id] INTEGER NOT NULL,                                          \n"
-"    [name] TEXT COLLATE NOCASE NOT NULL,                                    \n"
-"    [created_on] INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),          \n"
-"    [usergroup] TEXT DEFAULT NULL,                                          \n"
-"    [flags] INTEGER NOT NULL DEFAULT 0,                                     \n"
-"    PRIMARY KEY ( [account_id] ),                                           \n"
-"    UNIQUE ( [name] )                                                       \n"
-");                                                                          \n"
-"                                                                            \n"
-"CREATE TABLE IF NOT EXISTS [sessions] (                                     \n"
-"    [session_id] INTEGER NOT NULL,                                          \n"
-"    [identifier] INTEGER NOT NULL,                                          \n"
-"    [info] TEXT NOT NULL,                                                   \n"
-"    [account_id] INTEGER DEFAULT NULL,                                      \n"
-"    [temporary] INTEGER NOT NULL DEFAULT 1,                                 \n"
-"    PRIMARY KEY ( [session_id] ),                                           \n"
-"    UNIQUE ( [identifier] ),                                                \n"
-"    FOREIGN KEY ( [account_id] )                                            \n"
-"        REFERENCES accounts ( [account_id] )                                \n"
-"        ON DELETE SET NULL                                                  \n"
-");                                                                            ";
-
 static const char* sqlGetAccountByID =
 "SELECT name, created_on, usergroup, flags                                   \n"
 "FROM accounts                                                               \n"
@@ -100,6 +213,9 @@ static const char* sqlGetAccountByName =
 
 static const char* sqlCreateAccount =
 "INSERT INTO accounts ( name ) VALUES ( ?1 );                                  ";
+
+static const char* sqlDeleteAccount =
+"DELETE FROM accounts WHERE accounts.account_id = ?1;                          ";
 
 static const char* sqlGetSessionByID =
 "SELECT identifier, info, account_id                                         \n"
@@ -123,11 +239,6 @@ static const char* sqlListSessionIdsForAccount =
 "SELECT session_id, identifier, info, temporary                              \n"
 "FROM sessions                                                               \n"
 "WHERE sessions.account_id = ?1;                                               ";
-
-void InitAccounts( void )
-{
-	sqlite3_exec( dbPtr, sqlCreateAccountsTables, NULL, NULL, NULL );
-}
 
 qboolean G_DBGetAccountByID( const int id,
 	account_t* account )
@@ -216,6 +327,23 @@ void G_DBCreateAccount( const char* name )
 	sqlite3_step( statement );
 
 	sqlite3_finalize( statement );
+}
+
+qboolean G_DBDeleteAccount( account_t* account )
+{
+	sqlite3_stmt* statement;
+
+	sqlite3_prepare( dbPtr, sqlDeleteAccount, -1, &statement, 0 );
+
+	sqlite3_bind_int( statement, 1, account->id );
+
+	sqlite3_step( statement );
+
+	qboolean success = sqlite3_changes( dbPtr ) != 0;
+
+	sqlite3_finalize( statement );
+
+	return success;
 }
 
 qboolean G_DBGetSessionByID( const int id,
@@ -368,20 +496,6 @@ void G_DBListSessionsForAccount( account_t* account,
 
 // =========== NICKNAMES =======================================================
 
-const char* const sqlCreateNicknamesTable =
-"CREATE TABLE IF NOT EXISTS nicknames (                                      \n"
-"    [ip_int] INTEGER,                                                       \n"
-"    [name] TEXT,                                                            \n"
-"    [duration] INTEGER,                                                     \n"
-"    [cuid_hash2] TEXT                                                       \n"
-");                                                                          \n"
-"                                                                            \n"
-"CREATE INDEX IF NOT EXISTS nicknames_ip_int_idx                             \n"
-"ON nicknames ( ip_int );                                                    \n"
-"                                                                            \n"
-"CREATE INDEX IF NOT EXISTS nicknames_cuid_hash2_idx                         \n"
-"ON nicknames ( cuid_hash2 );                                                  ";
-
 const char* const sqlAddName =
 "INSERT INTO nicknames (ip_int, name, duration)                              \n"
 "VALUES (?,?,?)                                                                ";
@@ -415,11 +529,6 @@ const char* const sqlCountNMAliases =
 "ORDER BY time DESC                                                          \n"
 "LIMIT ?2                                                                    \n"
 ")                                                                             ";
-
-void InitNicknames( void )
-{
-	sqlite3_exec( dbPtr, sqlCreateNicknamesTable, 0, 0, 0 );
-}
 
 void G_DBLogNickname( unsigned int ipInt,
 	const char* name,
@@ -525,24 +634,6 @@ void G_DBListAliases( unsigned int ipInt,
 
 // =========== FASTCAPS ========================================================
 
-const char* const sqlCreateFastcapsV2Table =
-"CREATE TABLE IF NOT EXISTS fastcapsV2 (                                     \n"
-"    [fastcap_id] INTEGER PRIMARY KEY AUTOINCREMENT,                         \n"
-"    [mapname] TEXT,                                                         \n"
-"    [rank] INTEGER,                                                         \n"
-"    [type] INTEGER,                                                         \n"
-"    [player_name] TEXT,                                                     \n"
-"    [player_ip_int] INTEGER,                                                \n"
-"    [player_cuid_hash2] TEXT,                                               \n"
-"    [capture_time] INTEGER,                                                 \n"
-"    [whose_flag] INTEGER,                                                   \n"
-"    [max_speed] INTEGER,                                                    \n"
-"    [avg_speed] INTEGER,                                                    \n"
-"    [date] INTEGER,                                                         \n"
-"    [match_id] TEXT,                                                        \n"
-"    [client_id] INTEGER,                                                    \n"
-"    [pickup_time] INTEGER);                                                   ";
-
 const char* const sqlAddFastcapV2 =
 "INSERT INTO fastcapsV2 (                                                    \n"
 "    mapname, rank, type, player_name, player_ip_int, player_cuid_hash2,     \n"
@@ -592,11 +683,6 @@ const char* const sqlListLatestFastcapsV2 =
 "ORDER BY date DESC                                                          \n"
 "LIMIT ?2                                                                    \n"
 "OFFSET ?3                                                                     ";
-
-void InitFastcaps( void )
-{
-	sqlite3_exec( dbPtr, sqlCreateFastcapsV2Table, 0, 0, 0 );
-}
 
 // returns how many records were loaded
 int G_DBLoadCaptureRecords( const char *mapname,
@@ -964,12 +1050,6 @@ int G_DBAddCaptureTime( unsigned int ipInt,
 
 // =========== WHITELIST =======================================================
 
-const char* const sqlCreateWhitelistTable =
-"CREATE TABLE IF NOT EXISTS ip_whitelist (                                   \n"
-"    [ip_int] INTEGER PRIMARY KEY,                                           \n"
-"    [mask_int] INTEGER,                                                     \n"
-"    [notes] TEXT);                                                            ";
-
 const char* const sqlIsIpWhitelisted =
 "SELECT COUNT(*)                                                             \n"
 "FROM ip_whitelist                                                           \n"
@@ -983,11 +1063,6 @@ const char* const sqlremoveFromWhitelist =
 "DELETE FROM ip_whitelist                                                    \n"
 "WHERE ip_int = ?                                                            \n"
 "AND mask_int = ?                                                              ";
-
-void InitWhitelist( void )
-{
-	sqlite3_exec( dbPtr, sqlCreateWhitelistTable, 0, 0, 0 );
-}
 
 qboolean G_DBIsFilteredByWhitelist( unsigned int ip,
 	char* reasonBuffer,
@@ -1072,15 +1147,6 @@ qboolean G_DBRemoveFromWhitelist( unsigned int ip,
 
 // =========== BLACKLIST =======================================================
 
-const char* const sqlCreateBlacklistTable =
-"CREATE TABLE IF NOT EXISTS ip_blacklist (                                   \n"
-"    [ip_int] INTEGER PRIMARY KEY,                                           \n"
-"    [mask_int] INTEGER,                                                     \n"
-"    [notes] TEXT,                                                           \n"
-"    [reason] TEXT,                                                          \n"
-"    [banned_since] DATETIME,                                                \n"
-"    [banned_until] DATETIME);                                                 ";
-
 const char* const sqlIsIpBlacklisted =
 "SELECT reason                                                               \n"
 "FROM ip_blacklist                                                           \n"
@@ -1100,11 +1166,6 @@ const char* const sqlRemoveFromBlacklist =
 "DELETE FROM ip_blacklist                                                    \n"
 "WHERE ip_int = ?                                                            \n"
 "AND mask_int = ?                                                              ";
-
-void InitBlacklist( void )
-{
-	sqlite3_exec( dbPtr, sqlCreateBlacklistTable, 0, 0, 0 );
-}
 
 qboolean G_DBIsFilteredByBlacklist( unsigned int ip,
 	char* reasonBuffer,
@@ -1223,17 +1284,6 @@ qboolean G_DBRemoveFromBlacklist( unsigned int ip,
 
 // =========== MAP POOLS =======================================================
 
-const char* const sqlCreatePoolsTables =
-"CREATE TABLE IF NOT EXISTS pools (                                          \n"
-"    [pool_id] INTEGER PRIMARY KEY AUTOINCREMENT,                            \n"
-"    [short_name] TEXT,                                                      \n"
-"    [long_name] TEXT );                                                     \n"
-"                                                                            \n"
-"CREATE TABLE IF NOT EXISTS pool_has_map (                                   \n"
-"    [pool_id] INTEGER REFERENCES [pools]([pool_id]) ON DELETE RESTRICT,     \n"
-"    [mapname] TEXT,                                                         \n"
-"    [weight] INTEGER);                                                        ";
-
 const char* const sqlListPools =
 "SELECT pool_id, short_name, long_name                                       \n"
 "FROM pools                                                                    ";
@@ -1287,11 +1337,6 @@ const char* const sqlRemoveMapToPool =
 "ON pools.pool_id = pool_has_map.pool_id                                     \n"
 "WHERE short_name = ? )                                                      \n"
 "AND mapname = ? ;                                                             ";
-
-void InitPools( void )
-{
-	sqlite3_exec( dbPtr, sqlCreatePoolsTables, 0, 0, 0 );
-}
 
 void G_DBListPools( ListPoolCallback callback,
 	void* context )
@@ -1634,158 +1679,4 @@ qboolean G_DBPoolMapRemove( const char* short_name,
 	sqlite3_finalize( statement );
 
 	return success;
-}
-
-// =============================================================================
-
-static void ErrorCallback( void* ctx, int code, const char* msg ) {
-	Com_Printf( "SQL error (code %d): %s\n", code, msg );
-}
-
-static int TraceCallback( unsigned int type, void* ctx, void* ptr, void* info ) {
-	if ( !ptr || !info ) {
-		return 0;
-	}
-
-	if ( type == SQLITE_TRACE_STMT ) {
-		char* sql = ( char* )info;
-
-		Com_Printf( "Executing SQL: \n" );
-
-		if ( !Q_stricmpn( sql, "--", 2 ) ) {
-			// a comment, which means this is a trigger, log it directly
-			Com_Printf( "--------------------------------------------------------------------------------\n" );
-			Com_Printf( "%s\n", sql );
-			Com_Printf( "--------------------------------------------------------------------------------\n" );
-		} else {
-			// expand the sql before logging it so we can see parameters
-			sqlite3_stmt* stmt = ( sqlite3_stmt* )ptr;
-			sql = sqlite3_expanded_sql( stmt );
-			Com_Printf( "--------------------------------------------------------------------------------\n" );
-			Com_Printf( "%s\n", sql );
-			Com_Printf( "--------------------------------------------------------------------------------\n" );
-			sqlite3_free( sql );
-		}
-	} else if ( type == SQLITE_TRACE_PROFILE ) {
-		unsigned long long nanoseconds = *( ( unsigned long long* )info );
-		unsigned int ms = nanoseconds / 1000000;
-		Com_Printf( "Executed in %ums\n", ms );
-	}
-
-	return 0;
-}
-
-void G_DBLoadDatabase( void )
-{
-    int rc;
-
-	// db options
-
-	sqlite3_config( SQLITE_CONFIG_SINGLETHREAD ); // we don't need multi threading
-	sqlite3_config( SQLITE_CONFIG_MEMSTATUS, 0 ); // we don't need allocation statistics
-	sqlite3_config( SQLITE_CONFIG_LOG, ErrorCallback, NULL ); // error logging
-
-	// initialize db
-
-    rc = sqlite3_initialize();
-
-	if ( rc != SQLITE_OK ) {
-		Com_Printf( "Failed to initialize SQLite3 (code: %d)\n", rc );
-		return;
-	}
-
-    rc = sqlite3_open_v2( DB_FILENAME, &diskDb, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, NULL );
-
-	if ( rc != SQLITE_OK ) {
-		Com_Printf( "Failed to open database file "DB_FILENAME" (code: %d)\n", rc );
-		return;
-	}
-
-	Com_Printf( "Successfully opened database file "DB_FILENAME"\n" );
-
-	if ( g_inMemoryDB.integer ) {
-		Com_Printf( "Using in-memory database\n" );
-
-		// open db in memory
-		sqlite3* memoryDb = NULL;
-		rc = sqlite3_open_v2( ":memory:", &memoryDb, SQLITE_OPEN_READWRITE, NULL );
-
-		if ( rc == SQLITE_OK ) {
-			sqlite3_backup *backup = sqlite3_backup_init( memoryDb, "main", diskDb, "main" );
-			if ( backup ) {
-				rc = sqlite3_backup_step( backup, -1 );
-				if ( rc == SQLITE_DONE ) {
-					rc = sqlite3_backup_finish( backup );
-					if ( rc == SQLITE_OK ) {
-						dbPtr = memoryDb;
-					}
-				}
-			}
-		}
-
-		if ( !dbPtr ) {
-			Com_Printf( "WARNING: Failed to load database into memory!\n" );
-		}
-	}
-
-	// use disk db by default in any case
-	if ( !dbPtr ) {
-		Com_Printf( "Using on-disk database\n" );
-		dbPtr = diskDb;
-	}
-
-	// register trace callback if needed
-	if ( g_traceSQL.integer ) {
-		sqlite3_trace_v2( dbPtr, SQLITE_TRACE_STMT | SQLITE_TRACE_PROFILE, TraceCallback, NULL );
-	}
-
-	// init all modules
-	InitMetadata();
-	InitAccounts();
-	InitNicknames();
-	InitFastcaps();
-	InitWhitelist();
-	InitBlacklist();
-	InitPools();
-
-	// get version and call the upgrade routine
-
-	char schema_version[16];
-	G_DBGetMetadata( "schema_version", schema_version, sizeof( schema_version ) );
-
-	int version = VALIDSTRING( schema_version ) ? atoi( schema_version ) : 0;
-	G_DBUpgradeDatabaseSchema( version, dbPtr );
-
-	G_DBSetMetadata( "schema_version", DB_SCHEMA_VERSION_STR );
-}
-
-void G_DBUnloadDatabase( void )
-{
-	int rc;
-
-	if ( dbPtr != diskDb ) {
-		Com_Printf( "Saving in-memory database changes to disk\n" );
-
-		// we are using in memory db, save changes to disk
-		qboolean success = qfalse;
-		sqlite3_backup *backup = sqlite3_backup_init( diskDb, "main", dbPtr, "main" );
-		if ( backup ) {
-			rc = sqlite3_backup_step( backup, -1 );
-			if ( rc == SQLITE_DONE ) {
-				rc = sqlite3_backup_finish( backup );
-				if ( rc == SQLITE_OK ) {
-					success = qtrue;
-				}
-			}
-		}
-
-		if ( !success ) {
-			Com_Printf( "WARNING: Failed to backup in-memory database! Changes from this session have NOT been saved!\n" );
-		}
-
-		sqlite3_close( dbPtr );
-	}
-
-	sqlite3_close( diskDb );
-	diskDb = dbPtr = NULL;
 }

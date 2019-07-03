@@ -26,6 +26,8 @@ qboolean G_DBGetAccountByName( const char* name,
 
 void G_DBCreateAccount( const char* name );
 
+qboolean G_DBDeleteAccount( account_t* account );
+
 qboolean G_DBGetSessionByID( const int id,
 	session_t* session );
 

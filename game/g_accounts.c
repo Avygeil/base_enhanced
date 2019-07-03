@@ -58,6 +58,49 @@ qboolean G_ReadAccountsCache( void ) {
 	return qtrue;
 }
 
+// this must be called to rebuild pointers and cache when sessions are hotlinked
+static void RelinkAccounts( void ) {
+
+	// do this in two steps so that all account ptrs are properly freed for all clients when unlinking, so that we can't run out of cache slots
+
+	int i;
+	gclient_t *client;
+
+	for ( i = 0; i < level.maxclients; ++i ) {
+		if ( level.clients[i].pers.connected == CON_DISCONNECTED ) {
+			continue;
+		}
+
+		client = &level.clients[i];
+
+		// if no session, reset account in case they just somehow lost their session
+		if ( !client->session ) {
+			client->account = NULL;
+			client->sess.accountCacheNum = -1;
+			continue;
+		}
+
+		if ( client->session->accountId <= 0 && client->account ) {
+			// their session has no account id but has an account ptr (just unlinked?)
+			client->account = NULL;
+			client->sess.accountCacheNum = -1;
+		}
+	}
+
+	for ( i = 0; i < level.maxclients; ++i ) {
+		if ( level.clients[i].pers.connected == CON_DISCONNECTED ) {
+			continue;
+		}
+
+		client = &level.clients[i];
+
+		if ( client->session && client->session->accountId > 0 && !client->account ) {
+			// their session has an account id but no account ptr (just linked?)
+			G_InitClientAccount( client );
+		}
+	}
+}
+
 static void BuildSessionInfo( char* outInfo, size_t outInfoSize, gclient_t *client ) {
 	outInfo[0] = '\0';
 
@@ -304,6 +347,31 @@ qboolean G_CreateAccount( const char* name, accountReference_t* out ) {
 	return result.ptr != NULL;
 }
 
+qboolean G_DeleteAccount( account_t* account ) {
+	if ( !G_DBDeleteAccount( account ) ) {
+		return qfalse;
+	}
+
+	// remove the reference to this account from all online sessions, then relink
+
+	int i;
+	for ( i = 0; i < level.maxclients; ++i ) {
+		if ( level.clients[i].pers.connected == CON_DISCONNECTED ) {
+			continue;
+		}
+
+		gclient_t* client = &level.clients[i];
+
+		if ( client->session && client->session->accountId == account->id ) {
+			client->session->accountId = -1;
+		}
+	}
+
+	RelinkAccounts();
+
+	return qtrue;
+}
+
 // This family of functions return special reference structures
 // If there is an online player with this session/account, online = qtrue and ptr points to safe memory (cached)
 // Otherwise, online = qfalse and ptr points to static memory pulled from DB that will be cleared the next call to one of the functions
@@ -424,49 +492,6 @@ static qboolean PullAccountByName( account_t* account, const void* ctx ) {
 
 accountReference_t G_GetAccountByName( const char* name, qboolean onlineOnly ) {
 	return GetAccount( ValidateAccountName, PullAccountByName, name, onlineOnly );
-}
-
-// this must be called to rebuild pointers and cache when sessions are hotlinked
-static void RelinkAccounts( void ) {
-
-	// do this in two steps so that all account ptrs are properly freed for all clients when unlinking, so that we can't run out of cache slots
-
-	int i;
-	gclient_t *client;
-
-	for ( i = 0; i < level.maxclients; ++i ) {
-		if ( level.clients[i].pers.connected == CON_DISCONNECTED ) {
-			continue;
-		}
-
-		client = &level.clients[i];
-
-		// if no session, reset account in case they just somehow lost their session
-		if ( !client->session ) {
-			client->account = NULL;
-			client->sess.accountCacheNum = -1;
-			continue;
-		}
-
-		if ( client->session->accountId <= 0 && client->account ) {
-			// their session has no account id but has an account ptr (just unlinked?)
-			client->account = NULL;
-			client->sess.accountCacheNum = -1;
-		}
-	}
-
-	for ( i = 0; i < level.maxclients; ++i ) {
-		if ( level.clients[i].pers.connected == CON_DISCONNECTED ) {
-			continue;
-		}
-
-		client = &level.clients[i];
-
-		if ( client->session && client->session->accountId > 0 && !client->account ) {
-			// their session has an account id but no account ptr (just linked?)
-			G_InitClientAccount( client );
-		}
-	}
 }
 
 qboolean G_LinkAccountToSession( session_t* session, account_t* account ) {

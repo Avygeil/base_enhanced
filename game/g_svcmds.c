@@ -2022,6 +2022,29 @@ void Svcmd_Account_f( void ) {
 				}
 			}
 
+		} else if ( !Q_stricmp( s, "delete" ) ) {
+
+			if ( trap_Argc() < 3 ) {
+				G_Printf( "Usage: account delete <username>\n" );
+				return;
+			}
+
+			char username[MAX_ACCOUNTNAME_LEN];
+			trap_Argv( 2, username, sizeof( username ) );
+
+			accountReference_t acc = G_GetAccountByName( username, qfalse );
+
+			if ( !acc.ptr ) {
+				G_Printf( "No account exists with this name\n" );
+				return;
+			}
+
+			if ( G_DeleteAccount( acc.ptr ) ) {
+				G_Printf( "Deleted account '%s' successfully\n", acc.ptr->name );
+			} else {
+				G_Printf( "Failed to delete account!\n" );
+			}
+
 		} else if ( !Q_stricmp( s, "info" ) ) {
 
 			if ( trap_Argc() < 3 ) {
@@ -2088,6 +2111,7 @@ void Svcmd_Account_f( void ) {
 		G_Printf(
 			"Valid subcommands:\n"
 			"account create <username>: Creates a new account with the given name\n"
+			"account delete <username>: Deletes the given account and unlinks all associated sessions\n"
 			"account info <username>: Prints various information for the given account name\n"
 			"account help: Prints this message\n"
 		);
