@@ -9,7 +9,7 @@ const char* const oldCfgDbFilename = "jka_config.db";
 const char* const sqlCopyOldTablesToNewV1DB =
 "ATTACH DATABASE 'jka_log.db' AS logDb;                                      \n"
 "ATTACH DATABASE 'jka_config.db' as cfgDb;                                   \n"
-"BEGIN TRANSACTION;                                                          \n"
+//"BEGIN TRANSACTION;                                                          \n"
 "                                                                            \n"
 "INSERT INTO main.fastcapsV2                                                 \n"
 "    (fastcap_id, mapname, rank, type, player_name, player_ip_int,           \n"
@@ -51,7 +51,7 @@ const char* const sqlCopyOldTablesToNewV1DB =
 "    pool_id, short_name, long_name                                          \n"
 "FROM cfgDb.pools;                                                           \n"
 "                                                                            \n"
-"COMMIT TRANSACTION;                                                         \n"
+//"COMMIT TRANSACTION;                                                         \n"
 "DETACH DATABASE logDb;                                                      \n"
 "DETACH DATABASE cfgDb;                                                        ";
 

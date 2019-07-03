@@ -116,13 +116,46 @@ void G_DBLoadDatabase( void )
 
 	// get version and call the upgrade routine
 
-	char schema_version[16];
-	G_DBGetMetadata( "schema_version", schema_version, sizeof( schema_version ) );
+	char s[16];
+	G_DBGetMetadata( "schema_version", s, sizeof( s ) );
 
-	int version = VALIDSTRING( schema_version ) ? atoi( schema_version ) : 0;
+	int version = VALIDSTRING( s ) ? atoi( s ) : 0;
 	G_DBUpgradeDatabaseSchema( version, dbPtr );
 
 	G_DBSetMetadata( "schema_version", DB_SCHEMA_VERSION_STR );
+
+	// optimize the db if needed
+
+	G_DBGetMetadata( "last_optimize", s, sizeof( s ) );
+
+	const time_t currentTime = time( NULL );
+	time_t last_optimize = VALIDSTRING( s ) ? strtoll( s, NULL, 10 ) : 0;
+
+	if ( last_optimize + DB_OPTIMIZE_INTERVAL < currentTime ) {
+		Com_Printf( "Automatically optimizing database...\n" );
+
+		sqlite3_exec( dbPtr, "PRAGMA optimize;", NULL, NULL, NULL );
+
+		G_DBSetMetadata( "last_optimize", va( "%lld", currentTime ) );
+	}
+
+	// if the server is empty, vacuum the db if needed
+
+	if ( !level.numConnectedClients ) {
+		G_DBGetMetadata( "last_vacuum", s, sizeof( s ) );
+
+		time_t last_autoclean = VALIDSTRING( s ) ? strtoll( s, NULL, 10 ) : 0;
+
+		if ( last_autoclean + DB_VACUUM_INTERVAL < currentTime ) {
+			Com_Printf( "Automatically running vacuum on database...\n" );
+
+			sqlite3_exec( dbPtr, "VACUUM;", NULL, NULL, NULL );
+
+			G_DBSetMetadata( "last_vacuum", va( "%lld", currentTime ) );
+		}
+	}
+
+	
 }
 
 void G_DBUnloadDatabase( void )

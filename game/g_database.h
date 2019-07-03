@@ -6,6 +6,8 @@
 #define DB_FILENAME				"enhanced.db"
 #define DB_SCHEMA_VERSION		1
 #define DB_SCHEMA_VERSION_STR	"1"
+#define DB_OPTIMIZE_INTERVAL	( 60*60*3 ) // every 3 hours
+#define DB_VACUUM_INTERVAL		( 60*60*24*7 ) // every week
 
 void G_DBLoadDatabase( void );
 void G_DBUnloadDatabase( void );
