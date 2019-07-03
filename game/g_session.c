@@ -183,7 +183,7 @@ void G_InitWorldSession( void ) {
 
     level.newSession = qfalse;
 
-	trap_Cvar_VariableStringBuffer( "session", s, sizeof(s) );
+	trap_Cvar_VariableStringBuffer( "session_gametype", s, sizeof(s) );
 	gt = atoi( s );
 	
 	// if the gametype changed since the last session, don't use any
@@ -202,7 +202,7 @@ G_WriteSessionData
 */
 void G_WriteSessionData( void )
 {
-    trap_Cvar_Set( "session", va( "%i", g_gametype.integer ) );
+    trap_Cvar_Set( "session_gametype", va( "%i", g_gametype.integer ) );
 
     fileHandle_t sessionFile;
     trap_FS_FOpenFile( "session.dat", &sessionFile, FS_WRITE );
