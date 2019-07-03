@@ -2688,7 +2688,8 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 	// init accounts
 	if ( !isBot
 #ifdef NEWMOD_SUPPORT
-		&& client->sess.auth == INVALID // only init immediately for non authenticating newmod clients
+		// newmod clients with pending auth will be initialized later when auth is complete
+		&& ( client->sess.auth == INVALID || client->sess.auth == AUTHENTICATED )
 #endif
 		)
 	{
@@ -3572,6 +3573,8 @@ void ClientSpawn(gentity_t *ent) {
 	int					i;
 	clientPersistant_t	saved;
 	clientSession_t		savedSess;
+	session_t*			savedSession;
+	account_t*			savedAccount;
 	int					persistant[MAX_PERSISTANT];
 	gentity_t			*spawnPoint;
 	int					flags, gameFlags;
@@ -3813,6 +3816,8 @@ void ClientSpawn(gentity_t *ent) {
 
 	saved = client->pers;
 	savedSess = client->sess;
+	savedSession = client->session;
+	savedAccount = client->account;
 	savedPing = client->ps.ping;
 	accuracy_hits = client->accuracy_hits;
 	accuracy_shots = client->accuracy_shots;
@@ -3907,6 +3912,8 @@ void ClientSpawn(gentity_t *ent) {
 
 	client->pers = saved;
 	client->sess = savedSess;
+	client->session = savedSession;
+	client->account = savedAccount;
 	client->ps.ping = savedPing;
 	client->accuracy_hits = accuracy_hits;
 	client->accuracy_shots = accuracy_shots;
