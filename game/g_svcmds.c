@@ -1988,7 +1988,7 @@ static void FormatAccountSessionList( void *ctx, const sessionReference_t sessio
 
 	Q_strcat( out->format, sizeof( out->format ), va( S_COLOR_WHITE"Session ID %d ", sessionRef.ptr->id ) );
 	if ( VALIDSTRING( sessFlags ) ) Q_strcat( out->format, sizeof( out->format ), va( "%s ", sessFlags ) );
-	Q_strcat( out->format, sizeof( out->format ), va( S_COLOR_WHITE"(identifier: %lld)\n", sessionRef.ptr->identifier ) );
+	Q_strcat( out->format, sizeof( out->format ), va( S_COLOR_WHITE"(identifier: %llX)\n", sessionRef.ptr->identifier ) );
 }
 
 void Svcmd_Account_f( void ) {
@@ -2110,19 +2110,51 @@ void Svcmd_Session_f( void ) {
 				gclient_t *client = &level.clients[i];
 
 				if ( client->pers.connected != CON_DISCONNECTED &&
-					!( &g_entities[i] && g_entities[i].r.svFlags & SVF_BOT ) &&
-					client->session )
+					!( &g_entities[i] && g_entities[i].r.svFlags & SVF_BOT ) )
 				{
-					G_Printf( S_COLOR_WHITE"Client %d (%s"S_COLOR_WHITE"): Session ID %d (identifier: %lld)\n",
-						i, client->pers.netname, client->session->id, client->session->identifier
-					);
+					char* color;
+					switch ( level.clients[i].sess.sessionTeam ) {
+						case TEAM_RED: color = S_COLOR_RED; break;
+						case TEAM_BLUE: color = S_COLOR_BLUE; break;
+						case TEAM_FREE: color = S_COLOR_YELLOW; break;
+						default: color = S_COLOR_WHITE;
+					}
 
 					printed = qtrue;
+
+					if ( !client->session ) {
+						G_Printf( "%sClient %d "S_COLOR_WHITE"(%s"S_COLOR_WHITE"): Uninitialized session\n", color, i, client->pers.netname );
+						continue;
+					}
+
+					char line[MAX_STRING_CHARS];
+					line[0] = '\0';
+
+					Q_strcat( line, sizeof( line ), va( "%sClient %d "S_COLOR_WHITE"(%s"S_COLOR_WHITE"): Session ID %d (identifier: %llX)",
+						color, i, client->pers.netname, client->session->id, client->session->identifier ) );
+
+					if ( client->account ) {
+						Q_strcat( line, sizeof( line ), va( " linked to Account ID %d '%s'", client->account->id, client->account->name ) );
+					}
+
+					Q_strcat( line, sizeof( line ), "\n" );
+
+#ifdef _DEBUG
+					Q_strcat( line, sizeof( line ), va( "=> Session cache num %d (ptr: 0x%lx)", client->sess.sessionCacheNum, ( uintptr_t )client->session ) );
+
+					if ( client->account ) {
+						Q_strcat( line, sizeof( line ), va( " ; Account cache num %d (ptr: 0x%lx)", client->sess.accountCacheNum, ( uintptr_t )client->account ) );
+					}
+
+					Q_strcat( line, sizeof( line ), "\n" );
+#endif
+
+					G_Printf( line );
 				}
 			}
 
 			if ( !printed ) {
-				G_Printf( "Nobody is online with a valid session.\n" );
+				G_Printf( "No player online\n" );
 			}
 
 		} else if ( !Q_stricmp( s, "latest" ) ) {
