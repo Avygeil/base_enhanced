@@ -274,7 +274,7 @@ qboolean G_DBGetSessionByIdentifier( const sessionIdentifier_t identifier,
 		session->identifier = identifier;
 		Q_strncpyz( session->info, info, sizeof( session->info ) );
 
-		if ( sqlite3_column_type( statement, 3 ) != SQLITE_NULL ) {
+		if ( sqlite3_column_type( statement, 2 ) != SQLITE_NULL ) {
 			const int account_id = sqlite3_column_int( statement, 2 );
 			session->accountId = account_id;
 		} else {
