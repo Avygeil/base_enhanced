@@ -376,9 +376,11 @@ const char* const sqlCreateNicknamesTable =
 "    [cuid_hash2] TEXT                                                       \n"
 ");                                                                          \n"
 "                                                                            \n"
-"CREATE INDEX nicknames_ip_int_idx ON nicknames ( ip_int );                  \n"
+"CREATE INDEX IF NOT EXISTS nicknames_ip_int_idx                             \n"
+"ON nicknames ( ip_int );                                                    \n"
 "                                                                            \n"
-"CREATE INDEX nicknames_cuid_hash2_idx ON nicknames ( cuid_hash2 );            ";
+"CREATE INDEX IF NOT EXISTS nicknames_cuid_hash2_idx                         \n"
+"ON nicknames ( cuid_hash2 );                                                  ";
 
 const char* const sqlAddName =
 "INSERT INTO nicknames (ip_int, name, duration)                              \n"
