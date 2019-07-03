@@ -151,7 +151,7 @@ qboolean G_DBGetAccountByID( const int id,
 		account->creationDate = created_on;
 		account->flags = flags;
 
-		if ( sqlite3_column_type( statement, 3 ) != SQLITE_NULL ) {
+		if ( sqlite3_column_type( statement, 2 ) != SQLITE_NULL ) {
 			const char* usergroup = ( const char* )sqlite3_column_text( statement, 2 );
 			Q_strncpyz( account->group, usergroup, sizeof( account->group ) );
 		}
