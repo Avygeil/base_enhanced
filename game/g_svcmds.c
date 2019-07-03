@@ -2284,8 +2284,13 @@ void Svcmd_Session_f( void ) {
 				return;
 			}
 
+			// save a reference so we can print the name even after unlinking
+			accountReference_t acc;
+			acc.ptr = client->account;
+			acc.online = qtrue;
+
 			if ( G_UnlinkAccountFromSession( client->session ) ) {
-				G_Printf( "Client session successfully unlinked from account '%s' (id: %d)\n", client->account->name, client->account->id );
+				G_Printf( "Client session successfully unlinked from account '%s' (id: %d)\n", acc.ptr->name, acc.ptr->id );
 			} else {
 				G_Printf( "Failed to unlink Client session from this account!\n" );
 			}
