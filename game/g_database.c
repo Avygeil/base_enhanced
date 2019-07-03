@@ -108,6 +108,9 @@ void G_DBLoadDatabase( void )
 		sqlite3_trace_v2( dbPtr, SQLITE_TRACE_STMT | SQLITE_TRACE_PROFILE, TraceCallback, NULL );
 	}
 
+	// more db options
+	sqlite3_exec( dbPtr, "PRAGMA foreign_keys = ON;", NULL, NULL, NULL );
+
 	// setup tables
 	sqlite3_exec( dbPtr, sqlCreateTables, 0, 0, 0 );
 
