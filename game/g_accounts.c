@@ -423,7 +423,7 @@ static qboolean PullAccountByName( account_t* account, const void* ctx ) {
 }
 
 accountReference_t G_GetAccountByName( const char* name, qboolean onlineOnly ) {
-	return GetAccount( ValidateAccountName, PullAccountByName, &name, onlineOnly );
+	return GetAccount( ValidateAccountName, PullAccountByName, name, onlineOnly );
 }
 
 // this must be called to rebuild pointers and cache when sessions are hotlinked
