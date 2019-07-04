@@ -1701,6 +1701,7 @@ int Q_isprint( int c );
 int Q_islower( int c );
 int Q_isupper( int c );
 int Q_isalpha( int c );
+int Q_isalphanumeric( int c );
 qboolean Q_isanumber( const char *s );
 
 // portable case insensitive compare

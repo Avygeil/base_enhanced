@@ -2008,6 +2008,27 @@ void Svcmd_Account_f( void ) {
 			char username[MAX_ACCOUNTNAME_LEN];
 			trap_Argv( 2, username, sizeof( username ) );
 
+			// sanitize input
+			char *p;
+			for ( p = username; *p; ++p ) {
+				if ( p == username ) {
+					if ( !Q_isalpha( *p ) ) {
+						G_Printf( "Username must start with an alphabetic character\n" );
+						return;
+					}
+				} else if ( !*( p + 1 ) ) {
+					if ( !Q_isalphanumeric( *p ) ) {
+						G_Printf( "Username must end with an alphanumeric character\n" );
+						return;
+					}
+				} else {
+					if ( !Q_isalphanumeric( *p ) && *p != '-' && *p != '_' ) {
+						G_Printf( "Valid characters are: a-z A-Z 0-9 - _\n" );
+						return;
+					}
+				}
+			}
+
 			accountReference_t acc;
 
 			if ( G_CreateAccount( username, &acc ) ) {
