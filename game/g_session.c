@@ -142,7 +142,7 @@ void G_InitSessionData( gclient_t *client, char *userinfo, qboolean isBot, qbool
 	sess->whTrustToggle = qfalse;
 
 	sess->inRacemode = qfalse;
-	sess->racemodeFlags = 0;
+	sess->racemodeFlags = RMF_HIDERACERS | RMF_HIDEINGAME;
 	sess->seeRacersWhileIngame = qfalse;
 	VectorClear( sess->telemarkOrigin );
 	sess->telemarkYawAngle = 0;
@@ -166,6 +166,11 @@ void G_InitSessionData( gclient_t *client, char *userinfo, qboolean isBot, qbool
 	sess->cuidHash[0] = '\0';
 	sess->serverKeys[0] = sess->serverKeys[1] = 0;
 	sess->auth = level.nmAuthEnabled && *Info_ValueForKey( userinfo, "nm_ver" ) ? PENDING : INVALID;
+
+	// newmod clients are guaranteed to have collision prediction, default to seeing other people in racemode
+	if ( sess->auth == PENDING ) {
+		sess->racemodeFlags = 0;
+	}
 #endif
 
 }
