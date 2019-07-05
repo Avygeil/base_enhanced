@@ -405,9 +405,8 @@ qboolean G_DBGetSessionByID( const int id,
 		if ( sqlite3_column_type( statement, 2 ) != SQLITE_NULL ) {
 			const int account_id = sqlite3_column_int( statement, 2 );
 			session->accountId = account_id;
-		}
-		else {
-			session->accountId = -1;
+		} else {
+			session->accountId = ACCOUNT_ID_UNLINKED;
 		}
 
 		found = qtrue;
@@ -442,7 +441,7 @@ qboolean G_DBGetSessionByIdentifier( const sessionIdentifier_t identifier,
 			const int account_id = sqlite3_column_int( statement, 2 );
 			session->accountId = account_id;
 		} else {
-			session->accountId = -1;
+			session->accountId = ACCOUNT_ID_UNLINKED;
 		}
 
 		found = qtrue;
@@ -487,7 +486,7 @@ void G_DBLinkAccountToSession( session_t* session,
 
 	// link in the struct too if successful
 	if ( sqlite3_changes( dbPtr ) != 0 ) {
-		session->accountId = account ? account->id : -1;
+		session->accountId = account ? account->id : ACCOUNT_ID_UNLINKED;
 	}
 
 	sqlite3_finalize( statement );

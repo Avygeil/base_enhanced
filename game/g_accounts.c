@@ -76,14 +76,14 @@ static void RelinkAccounts( void ) {
 		// if no session, reset account in case they just somehow lost their session
 		if ( !client->session ) {
 			client->account = NULL;
-			client->sess.accountCacheNum = -1;
+			client->sess.accountCacheNum = ACCOUNT_ID_UNLINKED;
 			continue;
 		}
 
 		if ( client->session->accountId <= 0 && client->account ) {
 			// their session has no account id but has an account ptr (just unlinked?)
 			client->account = NULL;
-			client->sess.accountCacheNum = -1;
+			client->sess.accountCacheNum = ACCOUNT_ID_UNLINKED;
 		}
 	}
 
@@ -363,7 +363,7 @@ qboolean G_DeleteAccount( account_t* account ) {
 		gclient_t* client = &level.clients[i];
 
 		if ( client->session && client->session->accountId == account->id ) {
-			client->session->accountId = -1;
+			client->session->accountId = ACCOUNT_ID_UNLINKED;
 		}
 	}
 

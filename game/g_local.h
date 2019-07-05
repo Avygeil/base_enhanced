@@ -455,6 +455,8 @@ typedef struct {
 
 typedef long long sessionIdentifier_t;
 
+#define ACCOUNT_ID_UNLINKED		-1;
+
 typedef struct {
 	int id;
 	sessionIdentifier_t identifier;
