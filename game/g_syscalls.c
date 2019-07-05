@@ -1507,4 +1507,13 @@ void trap_Bot_CalculatePaths(int rmg)
 	syscall(G_BOT_CALCULATEPATHS, rmg);
 }
 
+#ifdef NEW_TRAP_CALLS
+// new base_enhanced trap calls: can't run without the right server exe
+
+void trap_OutOfBandPrint( int clientNum, const char* text )
+{
+	syscall( G_OOBPRINT, clientNum, text );
+}
+#endif
+
 #include "namespace_end.h"

@@ -2556,6 +2556,11 @@ void trap_RMG_Init(int terrainID);
 void trap_Bot_UpdateWaypoints(int wpnum, wpobject_t **wps);
 void trap_Bot_CalculatePaths(int rmg);
 
+#ifdef NEW_TRAP_CALLS
+// new base_enhanced trap calls
+void trap_OutOfBandPrint( int clientNum, const char* text );
+#endif
+
 #include "namespace_end.h"
 
 #endif

@@ -10,6 +10,8 @@
 
 #define	GAME_API_VERSION	8
 
+#define NEW_TRAP_CALLS
+
 // entity->svFlags
 // the server does not know how to interpret most of the values
 // in entityStates (level eType), so the game must explicitly flag
@@ -576,10 +578,15 @@ Ghoul2 Insert Start
 	G_RMG_INIT,
 
 	G_BOT_UPDATEWAYPOINTS,
-	G_BOT_CALCULATEPATHS
+	G_BOT_CALCULATEPATHS,
 /*
 Ghoul2 Insert End
 */
+
+#ifdef NEW_TRAP_CALLS
+	// new base_enhanced trap calls
+	G_OOBPRINT = 1337
+#endif
 
 } gameImport_t;
 
