@@ -272,9 +272,9 @@ static const char* sqlLinkAccountToSession =
 "WHERE session_id = ?2;                                                        ";
 
 static const char* sqlListSessionIdsForAccount =
-"SELECT session_id, identifier, info, temporary                              \n"
-"FROM sessions                                                               \n"
-"WHERE sessions.account_id = ?1;                                               ";
+"SELECT session_id, identifier, info, referenced                             \n"
+"FROM sessions_info                                                          \n"
+"WHERE sessions_info.account_id = ?1;                                          ";
 
 qboolean G_DBGetAccountByID( const int id,
 	account_t* account )
@@ -514,14 +514,14 @@ void G_DBListSessionsForAccount( account_t* account,
 		const int session_id = sqlite3_column_int( statement, 0 );
 		const sqlite3_int64 identifier = sqlite3_column_int64( statement, 1 );
 		const char* info = ( const char* )sqlite3_column_text( statement, 2 );
-		const qboolean temporary = !!sqlite3_column_int( statement, 3 );
+		const qboolean referenced = !!sqlite3_column_int( statement, 3 );
 
 		session.id = session_id;
 		session.identifier = identifier;
 		Q_strncpyz( session.info, info, sizeof( session.info ) );
 		session.accountId = account->id;
 
-		callback( ctx, &session, temporary );
+		callback( ctx, &session, !referenced );
 
 		rc = sqlite3_step( statement );
 	}
