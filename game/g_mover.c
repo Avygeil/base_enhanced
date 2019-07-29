@@ -2974,6 +2974,10 @@ void SP_func_glass( gentity_t *ent ) {
 	ent->die = GlassDie;
 	ent->use = GlassUse;
 	ent->pain = GlassPain;
+
+#ifdef NEWMOD_SUPPORT
+	ent->s.bolt1 = 2; // predict collision with glass
+#endif
 }
 
 void func_usable_use (gentity_t *self, gentity_t *other, gentity_t *activator);

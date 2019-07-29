@@ -4377,7 +4377,7 @@ void Cmd_Race_f( gentity_t *ent ) {
 	}
 
 	if ( !g_enableRacemode.integer ) {
-		trap_SendServerCommand( ent - g_entities, "print \"Racemode is disabled\n\"" );
+		trap_SendServerCommand( ent - g_entities, "print \"Racemode is disabled.\n\"" );
 		return;
 	}
 
@@ -4404,7 +4404,7 @@ void Cmd_Race_f( gentity_t *ent ) {
 
 	if ( oldTeam == TEAM_RED || oldTeam == TEAM_BLUE ) {
 		// don't let them go in racemode from red/blue
-		trap_SendServerCommand( ent - g_entities, "print \"You must be spectating to use this command\n\"" );
+		trap_SendServerCommand( ent - g_entities, "print \"You must be spectating to use this command.\n\"" );
 		return;
 	}
 
@@ -4432,7 +4432,7 @@ void Cmd_Race_f( gentity_t *ent ) {
 
 	if ( oldTeam != newTeam ) {
 		if ( newTeam == TEAM_FREE ) {
-			trap_SendServerCommand( -1, va("print \"%s%s " S_COLOR_WHITE "entered racemode\n\"", NM_SerializeUIntToColor( ent - g_entities ), ent->client->pers.netname ) );
+			trap_SendServerCommand( -1, va("print \"%s%s " S_COLOR_WHITE S_COLOR_WHITE S_COLOR_WHITE "entered racemode.\n\"", NM_SerializeUIntToColor( ent - g_entities ), ent->client->pers.netname ) );
 			
 			if ( !( ent->client->sess.racemodeFlags & RMF_ALREADYJOINED ) ) {
 				trap_SendServerCommand( ent - g_entities, "print \""S_COLOR_WHITE"Type "S_COLOR_CYAN"/race help "S_COLOR_WHITE"for more information about racemode\n\"" );
@@ -4440,7 +4440,7 @@ void Cmd_Race_f( gentity_t *ent ) {
 			
 			G_SetRaceMode( ent, qtrue );
 		} else {
-			trap_SendServerCommand( -1, va( "print \"%s%s " S_COLOR_WHITE "left racemode\n\"", NM_SerializeUIntToColor( ent - g_entities ), ent->client->pers.netname ) );
+			trap_SendServerCommand( -1, va( "print \"%s%s " S_COLOR_WHITE S_COLOR_WHITE S_COLOR_WHITE "left racemode.\n\"", NM_SerializeUIntToColor( ent - g_entities ), ent->client->pers.netname ) );
 			G_SetRaceMode( ent, qfalse );
 		}
 
@@ -4526,7 +4526,7 @@ void Cmd_Amtelemark_f( gentity_t *ent ) {
 	}
 
 	if ( !client->ps.stats[STAT_RACEMODE] ) {
-		trap_SendServerCommand( ent - g_entities, "print \"You must be in racemode or spectating a racer to use this command\n\"" );
+		trap_SendServerCommand( ent - g_entities, "print \"You must be in racemode or spectating a racer to use this command.\n\"" );
 		return;
 	}
 

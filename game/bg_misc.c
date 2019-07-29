@@ -2954,14 +2954,7 @@ void BG_PlayerStateToEntityState( playerState_t *ps, entityState_t *s, qboolean 
 	}
 	else
 	{
-		if ( ps->stats[STAT_RACEMODE] )
-		{
-			s->bolt1 = 3;
-		}
-		else
-		{
-			s->bolt1 = 0;
-		}
+		s->bolt1 = 0;
 	}
 
 	s->otherEntityNum2 = ps->emplacedIndex;
@@ -3115,14 +3108,7 @@ void BG_PlayerStateToEntityStateExtraPolate( playerState_t *ps, entityState_t *s
 	}
 	else
 	{
-		if ( ps->stats[STAT_RACEMODE] )
-		{
-			s->bolt1 = 3;
-		}
-		else
-		{
-			s->bolt1 = 0;
-		}
+		s->bolt1 = 0;
 	}
 
 	s->otherEntityNum2 = ps->emplacedIndex;

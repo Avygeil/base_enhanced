@@ -2069,7 +2069,7 @@ static void RaceTrigger_Finish( gentity_t *trigger, gentity_t *player ) {
 		if ( recordRank == 1 ) Com_sprintf( rankString, sizeof( rankString ), S_COLOR_RED"rank:1" );
 		else Com_sprintf( rankString, sizeof( rankString ), S_COLOR_CYAN"rank:"S_COLOR_YELLOW"%d", recordRank );
 
-		G_PrintBasedOnRacemode( va( S_COLOR_CYAN"New"S_COLOR_CYAN S_COLOR_CYAN" capture record by %s%s"S_COLOR_CYAN"!     %s     "S_COLOR_CYAN"type:"S_COLOR_YELLOW"%s     "S_COLOR_CYAN"topspeed:"S_COLOR_YELLOW"%d     "S_COLOR_CYAN"avg:"S_COLOR_YELLOW"%d     "S_COLOR_CYAN"time:"S_COLOR_YELLOW"%d.%03d",
+		G_PrintBasedOnRacemode( va( S_COLOR_CYAN"New"S_COLOR_CYAN S_COLOR_CYAN S_COLOR_CYAN" capture record by %s%s"S_COLOR_CYAN"!     %s     "S_COLOR_CYAN"type:"S_COLOR_YELLOW"%s     "S_COLOR_CYAN"topspeed:"S_COLOR_YELLOW"%d     "S_COLOR_CYAN"avg:"S_COLOR_YELLOW"%d     "S_COLOR_CYAN"time:"S_COLOR_YELLOW"%d.%03d",
 			NM_SerializeUIntToColor(client - level.clients), client->pers.netname, rankString, GetShortNameForRecordType( captureRecordType ), thisRunMaxSpeed, thisRunAvgSpeed, secs, millis
 		), qtrue );
 
@@ -2087,7 +2087,7 @@ static void RaceTrigger_Finish( gentity_t *trigger, gentity_t *player ) {
 		te->r.svFlags |= SVF_BROADCAST; // broadcast so that all racers and racespectators can hear it
 	} else {
 		// not a record, but still print their time
-		G_PrintBasedOnRacemode( va( S_COLOR_WHITE"Run"S_COLOR_WHITE S_COLOR_WHITE" completed by %s%s     "S_COLOR_CYAN"type:"S_COLOR_YELLOW"%s     "S_COLOR_CYAN"topspeed:"S_COLOR_YELLOW"%d     "S_COLOR_CYAN"avg:"S_COLOR_YELLOW"%d     "S_COLOR_CYAN"time:"S_COLOR_YELLOW"%d.%03d",
+		G_PrintBasedOnRacemode( va( S_COLOR_WHITE"Run"S_COLOR_WHITE S_COLOR_WHITE S_COLOR_WHITE" completed by %s%s     "S_COLOR_CYAN"type:"S_COLOR_YELLOW"%s     "S_COLOR_CYAN"topspeed:"S_COLOR_YELLOW"%d     "S_COLOR_CYAN"avg:"S_COLOR_YELLOW"%d     "S_COLOR_CYAN"time:"S_COLOR_YELLOW"%d.%03d",
 			NM_SerializeUIntToColor(client - level.clients), client->pers.netname, GetShortNameForRecordType( captureRecordType ), thisRunMaxSpeed, thisRunAvgSpeed, secs, millis
 		), qtrue );
 

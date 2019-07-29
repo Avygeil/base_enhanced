@@ -4496,7 +4496,10 @@ void G_UpdateNonClientBroadcasts( gentity_t *self ) {
 		return;
 	}
 
-	// TOOD: glass always shown to racers to allow boosting
+	// glass is never hidden
+	if ( self->s.eType == ET_MOVER && self->r.svFlags == SVF_GLASS_BRUSH ) {
+		return;
+	}
 
 	if ( self->s.eType == ET_MISSILE && self->r.ownerNum >= 0 && self->r.ownerNum < MAX_CLIENTS ) {
 
