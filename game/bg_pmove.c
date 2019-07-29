@@ -3407,7 +3407,8 @@ static void PM_CrashLandEffect( void )
 
 		if ( effectID != -1 )
 		{
-			G_PlayEffect( effectID, bottom, pml.groundTrace.plane.normal );
+			gentity_t *effectEnt = G_PlayEffect( effectID, bottom, pml.groundTrace.plane.normal );
+			G_ApplyRaceBroadcastsToEvent(&g_entities[pm->ps->clientNum], effectEnt);
 		}
 	}
 }
@@ -5435,18 +5436,20 @@ static void PM_WaterEvents( void ) {		// FIXME?
 
 		if ( tr.fraction < 1.0f )
 		{
+			gentity_t *effectEnt;
 			if ( (tr.contents&CONTENTS_LAVA) )
 			{
-				G_PlayEffect( EFFECT_LAVA_SPLASH, tr.endpos, tr.plane.normal );
+				effectEnt = G_PlayEffect( EFFECT_LAVA_SPLASH, tr.endpos, tr.plane.normal );
 			}
 			else if ( (tr.contents&CONTENTS_SLIME) )
 			{
-				G_PlayEffect( EFFECT_ACID_SPLASH, tr.endpos, tr.plane.normal );
+				effectEnt = G_PlayEffect( EFFECT_ACID_SPLASH, tr.endpos, tr.plane.normal );
 			}
 			else //must be water
 			{
-				G_PlayEffect( EFFECT_WATER_SPLASH, tr.endpos, tr.plane.normal );
+				effectEnt = G_PlayEffect( EFFECT_WATER_SPLASH, tr.endpos, tr.plane.normal );
 			}
+			G_ApplyRaceBroadcastsToEvent(&g_entities[pm->ps->clientNum], effectEnt);
 		}
 	}
 #endif
