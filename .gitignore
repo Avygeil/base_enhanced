@@ -37,3 +37,4 @@ uix86.dll
 bin
 *.opendb
 *.VC.db
+.vs/
