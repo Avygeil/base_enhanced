@@ -1992,6 +1992,9 @@ static void FormatAccountSessionList( void *ctx, const sessionReference_t sessio
 }
 
 void Svcmd_Account_f( void ) {
+#ifndef SESSIONS_ACCOUNTS_SYSTEM
+	return;
+#endif
 	qboolean printHelp = qfalse;
 
 	if ( trap_Argc() > 1 ) {
@@ -2140,6 +2143,9 @@ void Svcmd_Account_f( void ) {
 }
 
 void Svcmd_Session_f( void ) {
+#ifndef SESSIONS_ACCOUNTS_SYSTEM
+	return;
+#endif
 	qboolean printHelp = qfalse;
 
 	if ( trap_Argc() > 1 ) {
