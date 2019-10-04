@@ -1282,7 +1282,13 @@ static void InitializeWaypoints(int randomSeed) {
 	srand(level.waypointHash);
 #define WAYPOINT_MINIMUM_DISTANCE_BETWEEN		(512.0)
 	double distances[NUM_WAYPOINTS] = { 0.0 };
+	unsigned int attempts = 0;
 	do {
+		if (++attempts == UINT_MAX) { // prevent troll maps from creating an infinite loop
+			assert(qfalse);
+			G_LogPrintf("InitializeWaypoints: ERROR! Unable to generate a valid set of three waypoints. Waypoints mode will be disabled on this map.\n");
+			return;
+		}
 		ShuffleNumbers(pickups, numPickups);
 		vec3_t distVecs[NUM_WAYPOINTS];
 		VectorSubtract(g_entities[pickups[0]].r.currentOrigin, g_entities[pickups[1]].r.currentOrigin, distVecs[0]);
