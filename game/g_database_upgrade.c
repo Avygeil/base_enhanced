@@ -89,7 +89,7 @@ static void UpgradeDBToVersion1( sqlite3* dbPtr ) {
 }
 
 const char* const sqlAddSeedField =
-"ALTER TABLE fastcapsv2 ADD COLUMN seed INTEGER;";
+"ALTER TABLE fastcapsv2 ADD COLUMN seed TEXT;";
 
 static void UpgradeDBToVersion2(sqlite3* dbPtr) {
 	// add "seed" field to fastcaps for use with weekly challenges
