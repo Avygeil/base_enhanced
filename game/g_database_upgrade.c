@@ -88,6 +88,14 @@ static void UpgradeDBToVersion1( sqlite3* dbPtr ) {
 	sqlite3_exec( dbPtr, sqlCopyOldTablesToNewV1DB, NULL, NULL, NULL );
 }
 
+const char* const sqlAddSeedField =
+"ALTER TABLE fastcapsv2 ADD COLUMN seed INTEGER;";
+
+static void UpgradeDBToVersion2(sqlite3* dbPtr) {
+	// add "seed" field to fastcaps for use with weekly challenges
+	sqlite3_exec(dbPtr, sqlAddSeedField, NULL, NULL, NULL);
+}
+
 // =============================================================================
 
 static qboolean UpgradeDB( int versionTo, sqlite3* dbPtr ) {
@@ -95,6 +103,7 @@ static qboolean UpgradeDB( int versionTo, sqlite3* dbPtr ) {
 
 	switch ( versionTo ) {
 		case 1: UpgradeDBToVersion1( dbPtr ); break;
+		case 2: UpgradeDBToVersion2( dbPtr ); break;
 		default:
 			Com_Printf( "ERROR: Unsupported database upgrade routine\n" );
 			return qfalse;

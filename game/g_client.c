@@ -3530,7 +3530,12 @@ void G_UpdateRaceBitMasks( gclient_t *client ) {
 		// spectator
 
 		if ( client->ps.stats[STAT_RACEMODE] ) {
+			// a spectator who is following a racer
 			level.racemodeSpectatorMask |= ( 1 << ( clientNum % 32 ) );
+		}
+		else if (client->sess.seeRacersWhileIngame) {
+			// a spectator who is not following a racer, but wants to see racers (fixme: doesn't working if following someone right now)
+			level.ingameClientsSeeingInRaceMask |= (1 << (clientNum % 32));
 		}
 
 		return;
@@ -3542,16 +3547,19 @@ void G_UpdateRaceBitMasks( gclient_t *client ) {
 		level.racemodeClientMask |= ( 1 << ( clientNum % 32 ) );
 
 		if ( client->sess.racemodeFlags & RMF_HIDERACERS ) {
+			// a racer who doesn't want to see other racers
 			level.racemodeClientsHidingOtherRacersMask |= ( 1 << ( clientNum % 32 ) );
 		}
 
 		if ( client->sess.racemodeFlags & RMF_HIDEINGAME ) {
+			// a racer doesn't want to see ingame players
 			level.racemodeClientsHidingIngameMask |= ( 1 << ( clientNum % 32 ) );
 		}
 	} else {
 		// in game
 
 		if ( client->sess.seeRacersWhileIngame ) {
+			// an ingame player (on a team; not spec) who wants to see racers
 			level.ingameClientsSeeingInRaceMask |= ( 1 << ( clientNum % 32 ) );
 		}
 	}
@@ -3598,6 +3606,8 @@ void ClientSpawn(gentity_t *ent) {
 
 	index = ent - g_entities;
 	client = ent->client;
+
+	client->touchedWaypoints = 0;
 
 	//first we want the userinfo so we can see if we should update this client's saber -rww
 	trap_GetUserinfo( index, userinfo, sizeof(userinfo) );

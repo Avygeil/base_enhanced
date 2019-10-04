@@ -12,6 +12,8 @@
 
 #include "crypto.h"
 
+#include "xxhash.h"
+
 #ifndef __LCC__
 #define GAME_INLINE ID_INLINE
 #else
@@ -378,6 +380,9 @@ struct gentity_s {
 	qboolean    isReflected;
 
 	gitem_t		*item;			// for bonus items
+
+	qboolean	unreachableItem;
+	qboolean	raceDimensionEvent;
 };
 
 #define DAMAGEREDIRECT_HEAD		1
@@ -940,6 +945,10 @@ struct gclient_s {
 	qboolean	isLagging; // mark lagger without actually changing EF_CONNECTION
 	int			realPing;
 #endif
+
+#define NUM_WAYPOINTS	(3)
+#define ALL_WAYPOINT_BITS	((1 << 0) | (1 << 1) | (1 << 2)) // 7
+	int			touchedWaypoints;
 };
 
 //Interest points
@@ -1035,6 +1044,8 @@ typedef struct {
 	char matchId[SV_UNIQUEID_LEN]; // used to link to the game on demoarchive, but requires special OpenJK (may be empty)
 	int recordHolderClientId; // client id assigned when the record took place
 	int pickupLevelTime; // level.time when flag was picked up
+
+	XXH32_hash_t	waypointHash;
 } CaptureRecord;
 
 typedef enum {
@@ -1042,6 +1053,9 @@ typedef enum {
 	CAPTURE_RECORD_WEAPONS, // self weapon damage is allowed (except dets/mines)
 	CAPTURE_RECORD_WALK, // no jump, no roll
 	CAPTURE_RECORD_AD, // no +forward
+	CAPTURE_RECORD_WEEKLY, // weekly rotating challenge
+	CAPTURE_RECORD_LASTWEEK, // last week's challenge (cannot actually be set ingame)
+	CAPTURE_RECORD_ANCIENT, // weekly challenge records that are 2+ weeks old (not exposed to users at all, and cannot actually be set ingame)
 
 	CAPTURE_RECORD_NUM_TYPES,
 	CAPTURE_RECORD_INVALID
@@ -1228,7 +1242,7 @@ typedef struct {
 
 	// racemode
 	int			racemodeClientMask; // bits set to 1 = clients in racemode, cached here for hiding to several entities
-	int			racemodeSpectatorMask; // bits set to 1 = clients specing a client in spectator, can be combined with the mask above
+	int			racemodeSpectatorMask; // bits set to 1 = clients specing a client in who is in racemode, can be combined with the mask above
 	int			racemodeClientsHidingOtherRacersMask; // bits set to 1 = clients in racemode who disabled seeing other racers
 	int			racemodeClientsHidingIngameMask; // bits set to 1 = clients in racemode who disabled seeing in game entities
 	int			ingameClientsSeeingInRaceMask; // bits set to 1 = clients in game who enabled seeing in race entities
@@ -1261,6 +1275,12 @@ typedef struct {
 
 		qboolean linked;
 	} locations;
+
+	qboolean		waypointsValid;
+	gentity_t*		waypoints[NUM_WAYPOINTS];
+	vec3_t			waypointLowerBounds[NUM_WAYPOINTS];
+	vec3_t			waypointUpperBounds[NUM_WAYPOINTS];
+	XXH32_hash_t	waypointHash;
 
 #ifdef NEWMOD_SUPPORT
 	qboolean nmAuthEnabled;
@@ -2153,6 +2173,7 @@ extern vmCvar_t		g_wallhackMaxTraces;
 extern vmCvar_t     g_inMemoryDB;
 
 extern vmCvar_t     g_enableRacemode;
+extern vmCvar_t		g_enableRacemodeWaypoints;
 #ifdef _DEBUG
 extern vmCvar_t     d_disableRaceVisChecks;
 #endif
@@ -2192,6 +2213,13 @@ extern vmCvar_t		g_breakRNG;
 
 extern vmCvar_t		g_randomConeReflection;
 extern vmCvar_t		g_coneReflectAngle;
+
+#ifdef _DEBUG
+extern vmCvar_t		z_debug1;
+extern vmCvar_t		z_debug2;
+extern vmCvar_t		z_debug3;
+extern vmCvar_t		z_debug4;
+#endif
 
 extern vmCvar_t     g_allow_vote_gametype;
 extern vmCvar_t     g_allow_vote_kick;

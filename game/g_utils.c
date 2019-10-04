@@ -2525,6 +2525,8 @@ qboolean G_TeleportRacerToTelemark( gentity_t *ent ) {
 		return qfalse;
 	}
 
+	client->touchedWaypoints = 0;
+
 	vec3_t angles = { 0, 0, 0 };
 	vec3_t neworigin;
 	angles[YAW] = client->sess.telemarkYawAngle;

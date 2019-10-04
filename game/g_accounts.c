@@ -1,7 +1,6 @@
 #include "g_local.h"
 #include "g_database.h"
 
-#include "xxhash.h"
 #include "cJSON.h"
 
 // These are the cached memory locations client->session and client->account will always point to.

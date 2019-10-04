@@ -3106,6 +3106,19 @@ int G_ItemDisabled( gitem_t *item ) {
 	return trap_Cvar_VariableIntegerValue( name );
 }
 
+// detect idiots who put troll unreachable items in their maps
+static qboolean ItemIsUnreachable(gentity_t* ent) {
+	if (ent->item && ent->item->giType == IT_HOLDABLE) {
+		static char mapname[MAX_QPATH] = { 0 };
+		if (!mapname[0])
+			trap_Cvar_VariableStringBuffer("mapname", mapname, sizeof(mapname));
+		if (!Q_stricmpn(mapname, "mp/ctf_ansion", 13) || !Q_stricmp(mapname, "mp/ctf_hagrent"))
+			return qtrue;
+	}
+
+	return qfalse;
+}
+
 /*
 ============
 G_SpawnItem
@@ -3157,6 +3170,14 @@ void G_SpawnItem (gentity_t *ent, gitem_t *item) {
 	if ( item->giType == IT_POWERUP ) {
 		G_SoundIndex( "sound/items/respawn1" );
 		G_SpawnFloat( "noglobalsound", "0", &ent->speed);
+	}
+
+	// detect idiots who put troll unreachable items in their maps
+	if (g_gametype.integer == GT_CTF || g_gametype.integer == GT_CTY) {
+		int unreachable = 0;
+		G_SpawnInt("unreachable", "0", &unreachable);
+		if (unreachable || ItemIsUnreachable(ent))
+			ent->unreachableItem = qtrue;
 	}
 }
 

@@ -1898,6 +1898,10 @@ CaptureRecordType FindCaptureTypeForRun( gclient_t *client ) {
 		return CAPTURE_RECORD_AD;
 	}
 
+	if (client->touchedWaypoints == ALL_WAYPOINT_BITS) {
+		return CAPTURE_RECORD_WEEKLY;
+	}
+
 	return CAPTURE_RECORD_STANDARD;
 }
 
@@ -2034,6 +2038,7 @@ static void RaceTrigger_Finish( gentity_t *trigger, gentity_t *player ) {
 	client->pers.flagDebounceTime = level.time + 1000;
 
 	const CaptureRecordType captureRecordType = FindCaptureTypeForRun( client );
+	client->touchedWaypoints = 0; // we're done with this now, since it was checked in FindCaptureTypeForRun
 
 	if ( captureRecordType == CAPTURE_RECORD_INVALID ) {
 		return;

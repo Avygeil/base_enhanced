@@ -673,15 +673,15 @@ const char* const sqlAddFastcapV2 =
 "INSERT INTO fastcapsV2 (                                                    \n"
 "    mapname, rank, type, player_name, player_ip_int, player_cuid_hash2,     \n"
 "    capture_time, whose_flag, max_speed, avg_speed, date, match_id,         \n"
-"    client_id, pickup_time)                                                 \n"
-"VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)                                          ";
+"    client_id, pickup_time, seed)                                           \n"
+"VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)                                        ";
 
 const char* const sqlremoveFastcapsV2 =
 "DELETE FROM fastcapsV2 WHERE mapname = ?                                      ";
 
 const char* const sqlGetFastcapsV2 =
 "SELECT player_name, player_ip_int, player_cuid_hash2, capture_time,         \n"
-"whose_flag, max_speed, avg_speed, date, match_id, client_id, pickup_time    \n"
+"whose_flag, max_speed, avg_speed, date, match_id, client_id, pickup_time, seed \n"
 "FROM fastcapsV2                                                             \n"
 "WHERE fastcapsV2.mapname = ?1 AND fastcapsV2.type = ?2                      \n"
 "ORDER BY capture_time                                                       \n"
@@ -758,6 +758,7 @@ int G_DBLoadCaptureRecords( const char *mapname,
 			const char *match_id = ( const char* )sqlite3_column_text( statement, 8 );
 			const int client_id = sqlite3_column_int( statement, 9 );
 			const int pickup_time = sqlite3_column_int( statement, 10 );
+			const char* seedString = (const char*)sqlite3_column_text(statement, 11);
 
 			// write them to the record list
 			CaptureRecord *record = &recordsToLoad->records[i][j];
@@ -781,6 +782,12 @@ int G_DBLoadCaptureRecords( const char *mapname,
 
 			record->recordHolderClientId = client_id;
 			record->pickupLevelTime = pickup_time;
+
+			if (i >= CAPTURE_RECORD_WEEKLY && i <= CAPTURE_RECORD_ANCIENT && VALIDSTRING(seedString)) {
+				XXH32_hash_t seed = 0;
+				sscanf(seedString, "%x", &seed);
+				record->waypointHash = seed;
+			}
 
 			rc = sqlite3_step( statement );
 			++loaded;
@@ -945,6 +952,10 @@ int G_DBSaveCaptureRecords( CaptureRecordList *recordsToSave )
 
 			sqlite3_bind_int( statement, 13, record->recordHolderClientId );
 			sqlite3_bind_int( statement, 14, record->pickupLevelTime);
+			if (i >= CAPTURE_RECORD_WEEKLY && i <= CAPTURE_RECORD_ANCIENT)
+				sqlite3_bind_text(statement, 15, va("%08X", record->waypointHash), -1, 0);
+			else
+				sqlite3_bind_null(statement, 15);
 
 			sqlite3_step( statement );
 			++saved;
@@ -955,7 +966,54 @@ int G_DBSaveCaptureRecords( CaptureRecordList *recordsToSave )
 
 	recordsToSave->changed = qfalse;
 
+	// store the waypoints hash that we used during this session
+	G_DBSetMetadata("lastWaypointsHash", va("%08X", level.waypointHash));
+
 	return saved;
+}
+
+const char* const sqlCountRecordsOfType =
+"SELECT COUNT(*) FROM fastcapsV2 WHERE type = ?";
+
+const char* const sqlChangeRecordType =
+"UPDATE fastcapsV2 SET type = ? WHERE type = ?;";
+
+void G_DBRotateWeeklyChallenge(XXH32_hash_t newSeed, XXH32_hash_t oldSeed) {
+	sqlite3_stmt* statement;
+
+	// count the number of "last week's records" (which are now 2 weeks old)
+	sqlite3_prepare(dbPtr, sqlCountRecordsOfType, -1, &statement, 0);
+	sqlite3_bind_int(statement, 1, CAPTURE_RECORD_LASTWEEK);
+	sqlite3_step(statement);
+	int numChangedToAncient = sqlite3_column_int(statement, 0);
+
+	// change them to "ancient"
+	// TODO: allow some way to view these? leaderboard?
+	sqlite3_reset(statement);
+	sqlite3_clear_bindings(statement);
+	sqlite3_prepare(dbPtr, sqlChangeRecordType, -1, &statement, 0);
+	sqlite3_bind_int(statement, 1, CAPTURE_RECORD_ANCIENT);
+	sqlite3_bind_int(statement, 2, CAPTURE_RECORD_LASTWEEK);
+	sqlite3_step(statement);
+
+	// count the number of "this week's records" (which are now 1 week old)
+	sqlite3_prepare(dbPtr, sqlCountRecordsOfType, -1, &statement, 0);
+	sqlite3_bind_int(statement, 1, CAPTURE_RECORD_WEEKLY);
+	sqlite3_step(statement);
+	int numChangedToLastWeek = sqlite3_column_int(statement, 0);
+	
+	// change them to "last week's records"
+	sqlite3_reset(statement);
+	sqlite3_clear_bindings(statement);
+	sqlite3_prepare(dbPtr, sqlChangeRecordType, -1, &statement, 0);
+	sqlite3_bind_int(statement, 1, CAPTURE_RECORD_LASTWEEK);
+	sqlite3_bind_int(statement, 2, CAPTURE_RECORD_WEEKLY);
+	sqlite3_step(statement);
+
+	G_DBSetMetadata("lastWaypointsHash", va("%08X", level.waypointHash));
+
+	G_LogPrintf("Rotated weekly challenge! Old seed: %08X. New seed: %08X. %d lastweek records changed to ancient. %d weekly records changed to lastweek.\n",
+		oldSeed, newSeed, numChangedToAncient, numChangedToLastWeek);
 }
 
 // this function assumes the arrays in currentRecords are sorted by captureTime and date
@@ -1071,6 +1129,9 @@ int G_DBAddCaptureTime( unsigned int ipInt,
 	} else {
 		newElement->matchId[0] = '\0';
 	}
+
+	if (type == CAPTURE_RECORD_WEEKLY)
+		newElement->waypointHash = level.waypointHash;
 
 	// marks changes to be saved in db
 	currentRecords->changed = qtrue;

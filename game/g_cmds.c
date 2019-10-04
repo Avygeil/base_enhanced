@@ -919,6 +919,7 @@ void SetTeam( gentity_t *ent, char *s ) {
 		return;
 	}
 
+	client->touchedWaypoints = 0;
 	BroadcastTeamChange( client, oldTeam );
 
 	//make a disappearing effect where they were before teleporting them to the appropriate spawn point,
@@ -3566,6 +3567,8 @@ const char* GetLongNameForRecordType( CaptureRecordType type ) {
 	case CAPTURE_RECORD_WEAPONS: return "Weapons";
 	case CAPTURE_RECORD_WALK: return "Walk";
 	case CAPTURE_RECORD_AD: return "A/D";
+	case CAPTURE_RECORD_WEEKLY: return "Weekly Challenge";
+	case CAPTURE_RECORD_LASTWEEK: return "Last Week's Challenge";
 	default: return "Unknown";
 	}
 }
@@ -3576,6 +3579,8 @@ const char* GetShortNameForRecordType( CaptureRecordType type ) {
 		case CAPTURE_RECORD_WEAPONS: return "wpn";
 		case CAPTURE_RECORD_WALK: return "walk";
 		case CAPTURE_RECORD_AD: return "ad";
+		case CAPTURE_RECORD_WEEKLY: return "weekly";
+		case CAPTURE_RECORD_LASTWEEK: return "lastweek";
 		default: return "unknown";
 	}
 }
@@ -3585,7 +3590,7 @@ CaptureRecordType GetRecordTypeForShortName( const char *name ) {
 		return CAPTURE_RECORD_STANDARD;
 	}
 
-	if ( !Q_stricmpn( name, "we", 2 ) || !Q_stricmpn( name, "wp", 2 ) ) {
+	if ( !Q_stricmpn( name, "wea", 3 ) || !Q_stricmpn( name, "wp", 2 ) ) {
 		return CAPTURE_RECORD_WEAPONS;
 	}
 
@@ -3595,6 +3600,14 @@ CaptureRecordType GetRecordTypeForShortName( const char *name ) {
 
 	if ( !Q_stricmpn( name, "a", 1 ) ) {
 		return CAPTURE_RECORD_AD;
+	}
+
+	if (!Q_stricmpn(name, "wee", 3) || !Q_stricmpn(name, "wk", 2)) {
+		return CAPTURE_RECORD_WEEKLY;
+	}
+
+	if (!Q_stricmpn(name, "la", 2) || !Q_stricmpn(name, "old", 3)) {
+		return CAPTURE_RECORD_LASTWEEK;
 	}
 
 	return CAPTURE_RECORD_INVALID;
@@ -3782,12 +3795,12 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 
 		if ( !Q_stricmp( buf, "help" ) ) {
 			char *text =
-				S_COLOR_WHITE"Show records for the current map: "S_COLOR_CYAN"/toptimes [std | wpn | walk | ad]\n"
-				S_COLOR_WHITE"List all map records: "S_COLOR_CYAN"/toptimes maplist [std | wpn | walk | ad] [page]\n"
-				S_COLOR_WHITE"Show player leaderboard: "S_COLOR_CYAN"/toptimes ranks [std | wpn | walk | ad] [page]\n"
-				S_COLOR_WHITE"Show latest records:" S_COLOR_CYAN"/toptimes latest [std | wpn | walk | ad] [page]\n"
-				S_COLOR_WHITE"Get demo information of a specific rank on the current map:" S_COLOR_CYAN"/toptimes demo <rank> [std | wpn | walk | ad]\n"
-				S_COLOR_WHITE"Show valid runs rules:" S_COLOR_CYAN"/toptimes rules <std | wpn | walk | ad>";
+				S_COLOR_WHITE"Show records for the current map: "S_COLOR_CYAN"/toptimes [std | wpn | walk | ad | weekly | lastweek]\n"
+				S_COLOR_WHITE"List all map records: "S_COLOR_CYAN"/toptimes maplist [std | wpn | walk | ad | weekly | lastweek] [page]\n"
+				S_COLOR_WHITE"Show player leaderboard: "S_COLOR_CYAN"/toptimes ranks [std | wpn | walk | ad | weekly | lastweek] [page]\n"
+				S_COLOR_WHITE"Show latest records:" S_COLOR_CYAN"/toptimes latest [std | wpn | walk | ad | weekly | lastweek] [page]\n"
+				S_COLOR_WHITE"Get demo information of a specific rank on the current map:" S_COLOR_CYAN"/toptimes demo <rank> [std | wpn | walk | ad | weekly | lastweek]\n"
+				S_COLOR_WHITE"Show valid runs rules:" S_COLOR_CYAN"/toptimes rules <std | wpn | walk | ad | weekly>";
 
 			trap_SendServerCommand( ent - g_entities, va( "print \"%s\n\"", text ) );
 
@@ -3808,7 +3821,7 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 					category = GetRecordTypeForShortName( buf );
 
 					if ( category == CAPTURE_RECORD_INVALID ) {
-						trap_SendServerCommand( ent - g_entities, "print \"Invalid category. Usage: /toptimes maplist [std | wpn | walk | ad] [page]\n\"" );
+						trap_SendServerCommand( ent - g_entities, "print \"Invalid category. Usage: /toptimes maplist [std | wpn | walk | ad | weekly | lastweek] [page]\n\"" );
 						return;
 					}
 
@@ -3827,10 +3840,10 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 			G_DBListBestCaptureRecords( category, MAPLIST_MAPS_PER_PAGE, ( page - 1 ) * MAPLIST_MAPS_PER_PAGE, printBestTimeCallback, &context );
 
 			if ( context.hasPrinted ) {
-				trap_SendServerCommand( ent - g_entities, va( "print \"Viewing page %d.\nUsage: /toptimes maplist [std | wpn | walk | ad] [page]\n\"", page ) );
+				trap_SendServerCommand( ent - g_entities, va( "print \"Viewing page %d.\nUsage: /toptimes maplist [std | wpn | walk | ad | weekly | lastweek] [page]\n\"", page ) );
 			}
 			else {
-				trap_SendServerCommand( ent - g_entities, "print \"There aren't this many records! Try a lower page number.\nUsage: /toptimes maplist [std | wpn | walk | ad] [page]\n\"" );
+				trap_SendServerCommand( ent - g_entities, "print \"There aren't this many records! Try a lower page number.\nUsage: /toptimes maplist [std | wpn | walk | ad | weekly | lastweek] [page]\n\"" );
 			}
 
 			return;
@@ -3849,7 +3862,7 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 					category = GetRecordTypeForShortName( buf );
 
 					if ( category == CAPTURE_RECORD_INVALID ) {
-						trap_SendServerCommand( ent - g_entities, "print \"Invalid category. Usage: /toptimes ranks [std | wpn | walk | ad] [page]\n\"" );
+						trap_SendServerCommand( ent - g_entities, "print \"Invalid category. Usage: /toptimes ranks [std | wpn | walk | ad | weekly | lastweek] [page]\n\"" );
 						return;
 					}
 
@@ -3869,9 +3882,9 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 			G_DBGetCaptureRecordsLeaderboard( category, LEADERBOARD_PLAYERS_PER_PAGE, ( page - 1 ) * LEADERBOARD_PLAYERS_PER_PAGE, printLeaderboardCallback, &context );
 
 			if ( context.hasPrinted ) {
-				trap_SendServerCommand( ent - g_entities, va( "print \"Viewing page %d.\nUsage: /toptimes ranks [std | wpn | walk | ad] [page]\n\"", page ) );
+				trap_SendServerCommand( ent - g_entities, va( "print \"Viewing page %d.\nUsage: /toptimes ranks [std | wpn | walk | ad | weekly | lastweek] [page]\n\"", page ) );
 			} else {
-				trap_SendServerCommand( ent - g_entities, "print \"There aren't this many players! Try a lower page number.\nUsage: /toptimes ranks [std | wpn | walk | ad] [page]\n\"" );
+				trap_SendServerCommand( ent - g_entities, "print \"There aren't this many players! Try a lower page number.\nUsage: /toptimes ranks [std | wpn | walk | ad | weekly | lastweek] [page]\n\"" );
 			}
 
 			return;
@@ -3891,7 +3904,7 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 					category = GetRecordTypeForShortName( buf );
 
 					if ( category == CAPTURE_RECORD_INVALID ) {
-						trap_SendServerCommand( ent - g_entities, "print \"Invalid category. Usage: /toptimes latest [std | wpn | walk | ad] [page]\n\"" );
+						trap_SendServerCommand( ent - g_entities, "print \"Invalid category. Usage: /toptimes latest [std | wpn | walk | ad | weekly | lastweek] [page]\n\"" );
 						return;
 					}
 
@@ -3910,10 +3923,10 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 			G_DBListLatestCaptureRecords( category, LATEST_RECORDS_PER_PAGE, ( page - 1 ) * LATEST_RECORDS_PER_PAGE, printLatestTimesCallback, &context );
 
 			if ( context.hasPrinted ) {
-				trap_SendServerCommand( ent - g_entities, va( "print \"Viewing page %d.\nUsage: /toptimes latest [std | wpn | walk | ad] [page]\n\"", page ) );
+				trap_SendServerCommand( ent - g_entities, va( "print \"Viewing page %d.\nUsage: /toptimes latest [std | wpn | walk | ad | weekly | lastweek] [page]\n\"", page ) );
 			}
 			else {
-				trap_SendServerCommand( ent - g_entities, "print \"There aren't this many records! Try a lower page number.\nUsage: /toptimes latest [std | wpn | walk | ad] [page]\n\"" );
+				trap_SendServerCommand( ent - g_entities, "print \"There aren't this many records! Try a lower page number.\nUsage: /toptimes latest [std | wpn | walk | ad | weekly | lastweek] [page]\n\"" );
 			}
 
 			return;
@@ -3930,7 +3943,7 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 						category = GetRecordTypeForShortName( buf );
 
 						if ( category == CAPTURE_RECORD_INVALID ) {
-							trap_SendServerCommand( ent - g_entities, "print \"Invalid category. Usage: /toptimes demo <rank> [std | wpn | walk | ad]\n\"" );
+							trap_SendServerCommand( ent - g_entities, "print \"Invalid category. Usage: /toptimes demo <rank> [std | wpn | walk | ad | weekly | lastweek]\n\"" );
 							return;
 						}
 					}
@@ -3975,7 +3988,7 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 					trap_SendServerCommand( ent - g_entities, va( "print \"Rank must be a number between 1 and %i\n\"", MAX_SAVED_RECORDS ) );
 				}
 			} else {
-				trap_SendServerCommand( ent - g_entities, "print \"Usage: /toptimes demo <rank> [std | wpn | walk | ad]\n\"" );
+				trap_SendServerCommand( ent - g_entities, "print \"Usage: /toptimes demo <rank> [std | wpn | walk | ad | weekly | lastweek]\n\"" );
 			}
 
 			return;
@@ -4021,15 +4034,25 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 							S_COLOR_GREEN"* All force powers allowed\n"
 							S_COLOR_CYAN"NB: Stand idle and wait to regen to 100 force to start over with no category";
 						break;
+					case CAPTURE_RECORD_WEEKLY:
+					case CAPTURE_RECORD_LASTWEEK:
+						text =
+							S_COLOR_WHITE"Weekly challenge type:\n"
+							S_COLOR_CYAN"* 3 randomly-generated waypoints are marked with lightning\n"
+							S_COLOR_RED"* After getting a flag, you must touch all 3 waypoints before capturing\n"
+							S_COLOR_GREEN"* Same rules as Standard otherwise apply\n"
+							S_COLOR_CYAN"* New waypoints are generated every Tuesday at 13:00\n"
+							S_COLOR_CYAN"NB: Stand idle and wait to regen to 100 force to start over with no category";
+						break;
 					default:
-						text = "Invalid category. Usage: /toptimes rules <std | wpn | walk | ad>";
+						text = "Invalid category. Usage: /toptimes rules <std | wpn | walk | ad | weekly>";
 						break;
 				}
 			} else {
-				text = "Usage: /toptimes rules <std | wpn | walk | ad>";
+				text = "Usage: /toptimes rules <std | wpn | walk | ad | weekly>";
 			}
 
-			trap_SendServerCommand( ent - g_entities, va( "print \"%s\n\"", text ) );
+			trap_SendServerCommand( ent - g_entities, va( "print \"%s"S_COLOR_WHITE"\n\"", text ) );
 
 			return;
 		} else {
@@ -4039,7 +4062,7 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 			category = GetRecordTypeForShortName( buf );
 
 			if ( category == CAPTURE_RECORD_INVALID ) {
-				trap_SendServerCommand( ent - g_entities, "print \"Invalid category. Usage: /toptimes maplist [std | wpn | walk | ad] [page]\n\"" );
+				trap_SendServerCommand( ent - g_entities, "print \"Invalid category. Usage: /toptimes maplist [std | wpn | walk | ad | weekly | lastweek] [page]\n\"" );
 				return;
 			}
 		}
@@ -4125,7 +4148,6 @@ static qboolean StringIsOnlyNumbers(const char *s) {
 	return qtrue;
 }
 
-#include "xxhash.h"
 static XXH32_hash_t GetVchatHash(const char *modName, const char *msg, const char *fileName) {
 	static char mapname[MAX_QPATH] = { 0 };
 	if (!mapname[0])
@@ -4418,6 +4440,7 @@ void Cmd_Race_f( gentity_t *ent ) {
 	}
 
 	ent->client->sess.inRacemode = oldInRacemode;
+	ent->client->touchedWaypoints = 0;
 
 	team_t newTeam = ent->client->sess.sessionTeam;
 
