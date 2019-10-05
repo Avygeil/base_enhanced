@@ -3599,7 +3599,7 @@ static char* GetItemName(gentity_t* ent) {
 
 // modified version of Team_GetLocation for use with waypoints
 // e.g. "red blaster ammo"
-static void GetWaypointName(gentity_t* waypoint, char* locationBuffer, size_t locationBufferSize) {
+static void GetSpecificWaypointName(gentity_t* waypoint, char* locationBuffer, size_t locationBufferSize) {
 	if (!waypoint || !locationBuffer) {
 		assert(qfalse);
 		return;
@@ -3643,10 +3643,10 @@ char* GetWaypointNames(void) {
 
 	char locBufs[NUM_WAYPOINTS][32] = { 0 };
 	for (int i = 0; i < NUM_WAYPOINTS; i++)
-		GetWaypointName(level.waypoints[i], locBufs[i], sizeof(locBufs[i]));
+		GetSpecificWaypointName(level.waypoints[i], locBufs[i], sizeof(locBufs[i]));
 
 	if (locBufs[0][0] && locBufs[1][0] && locBufs[2][0]) {
-		Com_sprintf(result, sizeof(result), "Current waypoints: %s, %s, %s", locBufs[0], locBufs[1], locBufs[2]);
+		Com_sprintf(result, sizeof(result), "%s, %s, %s", locBufs[0], locBufs[1], locBufs[2]);
 		return result;
 	}
 
@@ -4168,7 +4168,7 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 								S_COLOR_GREEN"* Same rules as Standard otherwise apply\n"
 								S_COLOR_CYAN"* New waypoints are generated every Tuesday at 13:00\n"
 								S_COLOR_CYAN"NB: Stand idle and wait to regen to 100 force to start over with no category%s",
-									VALIDSTRING(waypointNames) ? va("\n"S_COLOR_WHITE"%s", waypointNames) : "");
+									VALIDSTRING(waypointNames) ? va("\n"S_COLOR_WHITE"Current waypoints: %s", waypointNames) : "");
 						}
 						break;
 					default:
@@ -4212,7 +4212,7 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 		if (category == CAPTURE_RECORD_WEEKLY) {
 			char* waypointNames = GetWaypointNames();
 			if (VALIDSTRING(waypointNames))
-				trap_SendServerCommand(ent - g_entities, va("print \"%s\n\"", waypointNames));
+				trap_SendServerCommand(ent - g_entities, va("print \"Current waypoints: %s\n\"", waypointNames));
 		}
 		else if (category == CAPTURE_RECORD_LASTWEEK) {
 			char waypointNamesBuf[256] = { 0 };
@@ -4284,7 +4284,7 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 	if (category == CAPTURE_RECORD_WEEKLY) {
 		char* waypointNames = GetWaypointNames();
 		if (VALIDSTRING(waypointNames))
-			trap_SendServerCommand(ent - g_entities, va("print \"%s\n\"", waypointNames));
+			trap_SendServerCommand(ent - g_entities, va("print \"Current waypoints: %s\n\"", waypointNames));
 	}
 	else if (category == CAPTURE_RECORD_LASTWEEK) {
 		char waypointNamesBuf[256] = { 0 };
