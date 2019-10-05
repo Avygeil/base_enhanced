@@ -3580,6 +3580,14 @@ static char* GetItemName(gentity_t* ent) {
 	else if (ent->item->giType == IT_HEALTH) {
 		return "health";
 	}
+	else if (ent->item->giType == IT_POWERUP) {
+		switch (ent->item->giTag) {
+		case PW_FORCE_ENLIGHTENED_LIGHT: return "light enlightenment";
+		case PW_FORCE_ENLIGHTENED_DARK: return "dark enlightenment";
+		case PW_FORCE_BOON: return "boon";
+		case PW_YSALAMIRI: return "ysalamiri";
+		}
+	}
 	else if (ent->item->giType == IT_HOLDABLE) {
 		switch (ent->item->giTag) {
 		case HI_SEEKER: return "seeker";

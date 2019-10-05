@@ -1261,13 +1261,17 @@ static void InitializeWaypoints(int randomSeed) {
 	for (int i = MAX_CLIENTS; i < MAX_GENTITIES; i++) {
 		gentity_t* ent = &g_entities[i];
 		if (!ent->item)
-			continue;
+			continue; // only allow items
 		if (ent->item->giType != IT_WEAPON && ent->item->giType != IT_AMMO &&
 			ent->item->giType != IT_ARMOR && ent->item->giType != IT_HEALTH &&
-			ent->item->giType != IT_HOLDABLE)
-			continue;
+			ent->item->giType != IT_POWERUP && ent->item->giType != IT_HOLDABLE)
+			continue; // only allow some types of items
+		if (ent->item->giType == IT_POWERUP && ent->item->giTag != PW_FORCE_ENLIGHTENED_LIGHT &&
+			ent->item->giTag != PW_FORCE_ENLIGHTENED_DARK && ent->item->giTag != PW_FORCE_BOON &&
+			ent->item->giTag != PW_YSALAMIRI)
+			continue; // only allow some types of powerups
 		if (ent->unreachableItem)
-			continue;
+			continue; // only allow items that are actually physically reachable
 		numPickups++;
 		if (numPickups > 1)
 			pickups = realloc(pickups, numPickups * sizeof(int));
