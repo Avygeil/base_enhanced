@@ -1291,6 +1291,7 @@ static void InitializeWaypoints(int randomSeed) {
 		if (++attempts == UINT_MAX) { // prevent troll maps from creating an infinite loop
 			assert(qfalse);
 			G_LogPrintf("InitializeWaypoints: ERROR! Unable to generate a valid set of three waypoints. Waypoints mode will be disabled on this map.\n");
+			srand(randomSeed); // re-seed
 			return;
 		}
 		ShuffleNumbers(pickups, numPickups);
