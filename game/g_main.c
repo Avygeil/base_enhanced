@@ -1292,6 +1292,7 @@ static void InitializeWaypoints(int randomSeed) {
 			assert(qfalse);
 			G_LogPrintf("InitializeWaypoints: ERROR! Unable to generate a valid set of three waypoints. Waypoints mode will be disabled on this map.\n");
 			srand(randomSeed); // re-seed
+			free(pickups);
 			return;
 		}
 		ShuffleNumbers(pickups, numPickups);
