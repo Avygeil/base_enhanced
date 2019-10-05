@@ -1936,6 +1936,7 @@ static void RaceTrigger_Start( gentity_t *trigger, gentity_t *player, team_t fla
 	}
 
 	// reset the speed stats/timer for this run
+	client->touchedWaypoints = 0;
 	client->pers.fastcapTopSpeed = 0;
 	client->pers.fastcapDisplacement = 0;
 	client->pers.fastcapDisplacementSamples = 0;

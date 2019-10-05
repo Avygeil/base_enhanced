@@ -969,6 +969,10 @@ int G_DBSaveCaptureRecords( CaptureRecordList *recordsToSave )
 	// store the waypoints hash that we used during this session
 	G_DBSetMetadata("lastWaypointsHash", va("%08X", level.waypointHash));
 
+	// store the waypoint names that we used during this session
+	char* waypointNames = GetWaypointNames();
+	G_DBSetMetadata("lastWaypointNames", VALIDSTRING(waypointNames) ? waypointNames : "");
+
 	return saved;
 }
 
@@ -1010,7 +1014,20 @@ void G_DBRotateWeeklyChallenge(XXH32_hash_t newSeed, XXH32_hash_t oldSeed) {
 	sqlite3_bind_int(statement, 2, CAPTURE_RECORD_WEEKLY);
 	sqlite3_step(statement);
 
+	// update the hash in the metadata to the current one
 	G_DBSetMetadata("lastWaypointsHash", va("%08X", level.waypointHash));
+
+	// set oldWaypointNames to what is currently lastWaypointNames
+	char lastWaypointNamesBuf[256] = { 0 };
+	G_DBGetMetadata("lastWaypointNames", lastWaypointNamesBuf, sizeof(lastWaypointNamesBuf));
+	if (lastWaypointNamesBuf[0])
+		G_DBSetMetadata("oldWaypointNames", lastWaypointNamesBuf);
+	else
+		G_DBSetMetadata("oldWaypointNames", "");
+	
+	// set lastWaypointNames to the current waypoint names
+	char* waypointNames = GetWaypointNames();
+	G_DBSetMetadata("lastWaypointNames", VALIDSTRING(waypointNames) ? waypointNames : "");
 
 	G_LogPrintf("Rotated weekly challenge! Old seed: %08X. New seed: %08X. %d lastweek records changed to ancient. %d weekly records changed to lastweek.\n",
 		oldSeed, newSeed, numChangedToAncient, numChangedToLastWeek);

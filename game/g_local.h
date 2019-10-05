@@ -1344,6 +1344,7 @@ void Cmd_FollowFlag_f( gentity_t *ent );
 void Cmd_FollowTarget_f(gentity_t *ent);
 gentity_t *G_GetDuelWinner(gclient_t *client);
 void SendVchatList(int clientNum);
+char* GetWaypointNames(void);
 
 //
 // g_items.c

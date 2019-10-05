@@ -4,6 +4,8 @@
 #include "bg_saga.h"
 #include "g_database.h"
 
+#include "kdtree.h"
+
 #include "menudef.h"			// for the voice chats
 
 //rww - for getting bot commands...
@@ -3533,6 +3535,124 @@ Cmd_TopTimes_f
 =================
 */
 
+static char* GetItemName(gentity_t* ent) {
+	if (!ent || !ent->item) {
+		assert(qfalse);
+		return NULL;
+	}
+
+	if (ent->item->giType == IT_WEAPON) {
+		switch (ent->item->giTag) {
+		case WP_STUN_BATON: return "stun baton";
+		case WP_MELEE: return "melee";
+		case WP_SABER: return "saber";
+		case WP_BRYAR_PISTOL: case WP_BRYAR_OLD: return "pistol";
+		case WP_BLASTER: return "blaster";
+		case WP_DISRUPTOR: return "disruptor";
+		case WP_BOWCASTER: return "bowcaster";
+		case WP_REPEATER: return "repeater";
+		case WP_DEMP2: return "demp";
+		case WP_FLECHETTE: return "golan";
+		case WP_ROCKET_LAUNCHER: return "rocket launcher";
+		case WP_THERMAL: return "thermals";
+		case WP_TRIP_MINE: return "mines";
+		case WP_DET_PACK: return "detpacks";
+		case WP_CONCUSSION: return "concussion";
+		}
+	}
+	else if (ent->item->giType == IT_AMMO) {
+		switch (ent->item->giTag) {
+		case AMMO_BLASTER: return "blaster ammo";
+		case AMMO_POWERCELL: return "power cell";
+		case AMMO_METAL_BOLTS: return "metallic bolts";
+		case AMMO_ROCKETS: return "rocket ammo";
+		case AMMO_THERMAL: return "thermal ammo";
+		case AMMO_TRIPMINE: return "mine ammo";
+		case AMMO_DETPACK: return "detpack ammo";
+		}
+	}
+	else if (ent->item->giType == IT_ARMOR) {
+		switch (ent->item->giTag) {
+		case 1: return "small armor";
+		case 2: return "large armor";
+		}
+	}
+	else if (ent->item->giType == IT_HEALTH) {
+		return "health";
+	}
+	else if (ent->item->giType == IT_HOLDABLE) {
+		switch (ent->item->giTag) {
+		case HI_SEEKER: return "seeker";
+		case HI_SHIELD: return "shield";
+		case HI_MEDPAC: return "bacta";
+		case HI_MEDPAC_BIG: return "big bacta";
+		case HI_BINOCULARS: return "binoculars";
+		case HI_SENTRY_GUN: return "sentry";
+		case HI_JETPACK: return "jetpack"; // am i really doing this
+		case HI_EWEB: return "eweb";
+		case HI_CLOAK: return "cloak";
+		}
+	}
+
+	return NULL;
+}
+
+// modified version of Team_GetLocation for use with waypoints
+// e.g. "red blaster ammo"
+static void GetWaypointName(gentity_t* waypoint, char* locationBuffer, size_t locationBufferSize) {
+	if (!waypoint || !locationBuffer) {
+		assert(qfalse);
+		return;
+	}
+
+	locationBuffer[0] = '\0';
+	vec3_t origin;
+	VectorCopy(waypoint->r.currentOrigin, origin);
+
+	if (!level.locations.enhanced.numUnique)
+		return;
+
+	// we should always have at most 1 result
+	void* nearest = kd_nearestf(level.locations.enhanced.lookupTree, origin);
+	if (nearest && kd_res_size(nearest) == 1) {
+		enhancedLocation_t* loc = (enhancedLocation_t*)kd_res_item_data(nearest);
+		if (loc) {
+			char* ownerStr;
+			if (loc->teamowner == TEAM_RED)
+				ownerStr = "red ";
+			else if (loc->teamowner == TEAM_BLUE)
+				ownerStr = "blue ";
+			else
+				ownerStr = "";
+			char* itemName = GetItemName(waypoint);
+			if (VALIDSTRING(itemName))
+				Com_sprintf(locationBuffer, locationBufferSize, "%s%s", ownerStr, itemName);
+		}
+	}
+
+	kd_res_free(nearest);
+}
+
+char* GetWaypointNames(void) {
+	static char result[256] = { 0 };
+	if (result[0])
+		return result;
+
+	if (!level.waypointsValid)
+		return "";
+
+	char locBufs[NUM_WAYPOINTS][32] = { 0 };
+	for (int i = 0; i < NUM_WAYPOINTS; i++)
+		GetWaypointName(level.waypoints[i], locBufs[i], sizeof(locBufs[i]));
+
+	if (locBufs[0][0] && locBufs[1][0] && locBufs[2][0]) {
+		Com_sprintf(result, sizeof(result), "Current waypoints: %s, %s, %s", locBufs[0], locBufs[1], locBufs[2]);
+		return result;
+	}
+
+	return "";
+}
+
 // if one parameter is NULL, its value is added to the next non NULL parameter
 void PartitionedTimer( const int time, int *mins, int *secs, int *millis ) {
 	div_t qr;
@@ -4036,13 +4156,20 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 						break;
 					case CAPTURE_RECORD_WEEKLY:
 					case CAPTURE_RECORD_LASTWEEK:
-						text =
-							S_COLOR_WHITE"Weekly challenge type:\n"
-							S_COLOR_CYAN"* 3 randomly-generated waypoints are marked with lightning\n"
-							S_COLOR_RED"* After getting a flag, you must touch all 3 waypoints before capturing\n"
-							S_COLOR_GREEN"* Same rules as Standard otherwise apply\n"
-							S_COLOR_CYAN"* New waypoints are generated every Tuesday at 13:00\n"
-							S_COLOR_CYAN"NB: Stand idle and wait to regen to 100 force to start over with no category";
+						if (!g_enableRacemodeWaypoints.integer || !level.waypointsValid) {
+							text = "Weekly challenge mode is currently disabled.";
+						}
+						else {
+							char* waypointNames = GetWaypointNames();
+							text =
+								va(S_COLOR_WHITE"Weekly challenge type:\n"
+								S_COLOR_RED"* 3 randomly-generated waypoints are marked with lightning\n"
+								S_COLOR_RED"* After getting a flag, you must touch all 3 waypoints before capturing\n"
+								S_COLOR_GREEN"* Same rules as Standard otherwise apply\n"
+								S_COLOR_CYAN"* New waypoints are generated every Tuesday at 13:00\n"
+								S_COLOR_CYAN"NB: Stand idle and wait to regen to 100 force to start over with no category%s",
+									VALIDSTRING(waypointNames) ? va("\n"S_COLOR_WHITE"%s", waypointNames) : "");
+						}
 						break;
 					default:
 						text = "Invalid category. Usage: /toptimes rules <std | wpn | walk | ad | weekly>";
@@ -4068,11 +4195,31 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 		}
 	}
 
+	if (category == CAPTURE_RECORD_WEEKLY && (!g_enableRacemodeWaypoints.integer || !level.waypointsValid)) {
+		trap_SendServerCommand(ent - g_entities, "print \"Weekly challenge mode is currently disabled.\n\"");
+		return;
+	}
+
 	const char* categoryName = GetLongNameForRecordType( category );
 
 	if ( !level.mapCaptureRecords.records[category][0].captureTime ) {
 		// there is no first record for that category
-		trap_SendServerCommand( ent - g_entities, va( "print \"No record for the %s category on this map yet!\n\"", categoryName ) );
+		if (category == CAPTURE_RECORD_LASTWEEK)
+			trap_SendServerCommand(ent - g_entities, "print \"No Weekly Challenge records were set on this map last week!\n\"");
+		else
+			trap_SendServerCommand(ent - g_entities, va("print \"No record for the %s category on this map yet!\n\"", categoryName));
+
+		if (category == CAPTURE_RECORD_WEEKLY) {
+			char* waypointNames = GetWaypointNames();
+			if (VALIDSTRING(waypointNames))
+				trap_SendServerCommand(ent - g_entities, va("print \"%s\n\"", waypointNames));
+		}
+		else if (category == CAPTURE_RECORD_LASTWEEK) {
+			char waypointNamesBuf[256] = { 0 };
+			G_DBGetMetadata("oldWaypointNames", waypointNamesBuf, sizeof(waypointNamesBuf));
+			if (waypointNamesBuf[0])
+				trap_SendServerCommand(ent - g_entities, va("print \"Last week's waypoints: %s\n\"", waypointNamesBuf));
+		}
 		return;
 	}
 
@@ -4132,6 +4279,18 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 			"print \""S_COLOR_CYAN"%d"S_COLOR_WHITE": "S_COLOR_WHITE"%s  "S_COLOR_YELLOW"%s   %-6s      "S_COLOR_YELLOW"%-6d      %-6d     %s\n\"",
 			i + 1, nameString, timeString, flagString, Com_Clampi( 1, 99999999, record->maxSpeed ), Com_Clampi( 1, 9999999, record->avgSpeed ), date
 		) );
+	}
+
+	if (category == CAPTURE_RECORD_WEEKLY) {
+		char* waypointNames = GetWaypointNames();
+		if (VALIDSTRING(waypointNames))
+			trap_SendServerCommand(ent - g_entities, va("print \"%s\n\"", waypointNames));
+	}
+	else if (category == CAPTURE_RECORD_LASTWEEK) {
+		char waypointNamesBuf[256] = { 0 };
+		G_DBGetMetadata("oldWaypointNames", waypointNamesBuf, sizeof(waypointNamesBuf));
+		if (waypointNamesBuf[0])
+			trap_SendServerCommand(ent - g_entities, va("print \"Last week's waypoints: %s\n\"", waypointNamesBuf));
 	}
 
 	trap_SendServerCommand( ent - g_entities, "print \"For a list of all subcommands: /toptimes help\n\"" );
