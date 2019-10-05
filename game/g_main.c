@@ -5560,7 +5560,7 @@ void G_RunFrame( int levelTime ) {
 
 		for (i = 0; i < MAX_CLIENTS; i++) {
 			ent = &g_entities[i];
-			if (!ent->client || ent->client->pers.connected != CON_CONNECTED || !ent->client->sess.inRacemode/* || (!ent->client->ps.powerups[PW_REDFLAG] && !ent->client->ps.powerups[PW_BLUEFLAG])*/)
+			if (!ent->client || ent->client->pers.connected != CON_CONNECTED || !ent->client->sess.inRacemode || (!ent->client->ps.powerups[PW_REDFLAG] && !ent->client->ps.powerups[PW_BLUEFLAG]))
 				continue;
 			for (int j = 0; j < NUM_WAYPOINTS; j++) {
 				if (ent->client->touchedWaypoints & (1 << j))
