@@ -1673,6 +1673,7 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 			}
 		}
 
+		InitializeWaypoints(randomSeed);
 		int recordsLoaded = G_DBLoadCaptureRecords( mapname.string, &level.mapCaptureRecords );
 		if ( recordsLoaded ) {
 			G_Printf( "Loaded %d capture time records from database\n", recordsLoaded );
@@ -1683,8 +1684,6 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 
 	// reset capturedifflimit on map rs
 	trap_Cvar_Set( "capturedifflimit", g_default_capturedifflimit.string );
-
-	InitializeWaypoints(randomSeed);
 }
 
 
