@@ -1662,7 +1662,7 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 		// load capture records for this map
 
 		const char *arenaInfo = G_GetArenaInfoByMap( mapname.string );
-		qboolean waypointsOkay = qtrue;
+		qboolean racemodeOkay = qtrue, waypointsOkay = qtrue;
 
 		if ( VALIDSTRING( arenaInfo ) ) {
 			const char *mapFlags = Info_ValueForKey( arenaInfo, "b_e_flags" );
@@ -1672,7 +1672,7 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 
 				// this flag disables toptimes on this map
 				if (mapFlagsInt & ARENAINFO_B_E_FLAG_DISABLETOPTIMES)
-					return;
+					racemodeOkay = qfalse;
 
 				// this flag disables waypoints/weekly challenge on this map
 				if (mapFlagsInt & ARENAINFO_B_E_FLAG_DISABLEWAYPOINTS)
@@ -1680,15 +1680,20 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 			}
 		}
 
-		if (!Q_stricmp(mapname.string, "mp/ctf_dash2"))
-			waypointsOkay = qfalse;
+		if (racemodeOkay) {
+			if (!Q_stricmp(mapname.string, "mp/ctf_dash2"))
+				waypointsOkay = qfalse;
 
-		if (waypointsOkay)
-			InitializeWaypoints(randomSeed);
+			if (waypointsOkay)
+				InitializeWaypoints(randomSeed);
 
-		int recordsLoaded = G_DBLoadCaptureRecords( mapname.string, &level.mapCaptureRecords );
-		if ( recordsLoaded ) {
-			G_Printf( "Loaded %d capture time records from database\n", recordsLoaded );
+			int recordsLoaded = G_DBLoadCaptureRecords(mapname.string, &level.mapCaptureRecords);
+			if (recordsLoaded) {
+				G_Printf("Loaded %d capture time records from database\n", recordsLoaded);
+			}
+		}
+		else {
+			level.mapCaptureRecords.enabled = qfalse;
 		}
 	} else {
 		level.mapCaptureRecords.enabled = qfalse;
