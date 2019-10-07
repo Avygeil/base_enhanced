@@ -951,6 +951,9 @@ struct gclient_s {
 	int			touchedWaypoints;
 };
 
+#define ARENAINFO_B_E_FLAG_DISABLETOPTIMES		(1 << 0)
+#define ARENAINFO_B_E_FLAG_DISABLEWAYPOINTS		(1 << 1)
+
 //Interest points
 
 #define MAX_INTEREST_POINTS		64

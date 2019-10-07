@@ -1286,9 +1286,9 @@ static void InitializeWaypoints(int randomSeed) {
 	srand(level.waypointHash);
 #define WAYPOINT_MINIMUM_DISTANCE_BETWEEN		(512.0)
 	double distances[NUM_WAYPOINTS] = { 0.0 };
-	unsigned int attempts = 0;
+	int attempts = 0;
 	do {
-		if (++attempts == UINT_MAX) { // prevent troll maps from creating an infinite loop
+		if (++attempts >= 16384) { // prevent troll maps from creating an infinite loop
 			assert(qfalse);
 			G_LogPrintf("InitializeWaypoints: ERROR! Unable to generate a valid set of three waypoints. Waypoints mode will be disabled on this map.\n");
 			srand(randomSeed); // re-seed
@@ -1662,18 +1662,30 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 		// load capture records for this map
 
 		const char *arenaInfo = G_GetArenaInfoByMap( mapname.string );
+		qboolean waypointsOkay = qtrue;
 
 		if ( VALIDSTRING( arenaInfo ) ) {
 			const char *mapFlags = Info_ValueForKey( arenaInfo, "b_e_flags" );
 
-			// this flag disables toptimes on this map
-			// TODO: if I ever make more flags, make an actual define in some header file...
-			if ( VALIDSTRING( mapFlags ) && atoi( mapFlags ) & 1 ) {
-				return;
+			if ( VALIDSTRING( mapFlags ) ) {
+				int mapFlagsInt = atoi(mapFlags);
+
+				// this flag disables toptimes on this map
+				if (mapFlagsInt & ARENAINFO_B_E_FLAG_DISABLETOPTIMES)
+					return;
+
+				// this flag disables waypoints/weekly challenge on this map
+				if (mapFlagsInt & ARENAINFO_B_E_FLAG_DISABLEWAYPOINTS)
+					waypointsOkay = qfalse;
 			}
 		}
 
-		InitializeWaypoints(randomSeed);
+		if (!Q_stricmp(mapname.string, "mp/ctf_dash2"))
+			waypointsOkay = qfalse;
+
+		if (waypointsOkay)
+			InitializeWaypoints(randomSeed);
+
 		int recordsLoaded = G_DBLoadCaptureRecords( mapname.string, &level.mapCaptureRecords );
 		if ( recordsLoaded ) {
 			G_Printf( "Loaded %d capture time records from database\n", recordsLoaded );
