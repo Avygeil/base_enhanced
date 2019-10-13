@@ -306,7 +306,7 @@ static void UpgradeDBToVersion1( sqlite3* dbPtr ) {
 	}
 
 	// we have to perform a special check as to whether the existing jka_log.db fastcapsV2 table
-	// had the "rank" column, and add+initialize it if so in order for the upgrade function to
+	// had the "rank" column, and add+initialize it if not in order for the upgrade function to
 	// work properly
 	CheckRankColumn(logDb);
 
