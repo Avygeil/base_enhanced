@@ -4222,12 +4222,6 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 			if (VALIDSTRING(waypointNames))
 				trap_SendServerCommand(ent - g_entities, va("print \"Current waypoints: %s\n\"", waypointNames));
 		}
-		else if (category == CAPTURE_RECORD_LASTWEEK) {
-			char waypointNamesBuf[256] = { 0 };
-			G_DBGetMetadata("oldWaypointNames", waypointNamesBuf, sizeof(waypointNamesBuf));
-			if (waypointNamesBuf[0])
-				trap_SendServerCommand(ent - g_entities, va("print \"Last week's waypoints: %s\n\"", waypointNamesBuf));
-		}
 		return;
 	}
 
@@ -4293,12 +4287,6 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 		char* waypointNames = GetWaypointNames();
 		if (VALIDSTRING(waypointNames))
 			trap_SendServerCommand(ent - g_entities, va("print \"Current waypoints: %s\n\"", waypointNames));
-	}
-	else if (category == CAPTURE_RECORD_LASTWEEK) {
-		char waypointNamesBuf[256] = { 0 };
-		G_DBGetMetadata("oldWaypointNames", waypointNamesBuf, sizeof(waypointNamesBuf));
-		if (waypointNamesBuf[0])
-			trap_SendServerCommand(ent - g_entities, va("print \"Last week's waypoints: %s\n\"", waypointNamesBuf));
 	}
 
 	trap_SendServerCommand( ent - g_entities, "print \"For a list of all subcommands: /toptimes help\n\"" );

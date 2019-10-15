@@ -1016,14 +1016,6 @@ void G_DBRotateWeeklyChallenge(XXH32_hash_t newSeed, XXH32_hash_t oldSeed) {
 
 	// update the hash in the metadata to the current one
 	G_DBSetMetadata("lastWaypointsHash", va("%08X", level.waypointHash));
-
-	// set oldWaypointNames to what is currently lastWaypointNames
-	char lastWaypointNamesBuf[256] = { 0 };
-	G_DBGetMetadata("lastWaypointNames", lastWaypointNamesBuf, sizeof(lastWaypointNamesBuf));
-	if (lastWaypointNamesBuf[0])
-		G_DBSetMetadata("oldWaypointNames", lastWaypointNamesBuf);
-	else
-		G_DBSetMetadata("oldWaypointNames", "");
 	
 	// set lastWaypointNames to the current waypoint names
 	char* waypointNames = GetWaypointNames();
