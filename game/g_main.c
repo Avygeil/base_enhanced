@@ -2375,7 +2375,7 @@ void CalculateRanks( void ) {
 
 			if ( level.clients[i].sess.sessionTeam != TEAM_SPECTATOR || g_gametype.integer == GT_DUEL || g_gametype.integer == GT_POWERDUEL )
 			{
-				if (level.clients[i].sess.sessionTeam != TEAM_SPECTATOR)
+				if (level.clients[i].sess.sessionTeam != TEAM_SPECTATOR && !(g_gametype.integer == GT_CTF && level.clients[i].sess.sessionTeam == TEAM_FREE))
 				{
 					level.numNonSpectatorClients++;
 				}
