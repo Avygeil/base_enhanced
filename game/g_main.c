@@ -1793,8 +1793,6 @@ void G_ShutdownGame( int restart ) {
 
 	B_CleanupAlloc(); //clean up all allocations made with B_Alloc
 
-	kd_free( level.locations.enhanced.lookupTree );
-
 	// accounts system
 	//cleanDB();
 
@@ -1805,6 +1803,8 @@ void G_ShutdownGame( int restart ) {
 	}
 
     G_DBUnloadDatabase();
+
+	kd_free(level.locations.enhanced.lookupTree);
 
 	UnpatchEngine();
 }
