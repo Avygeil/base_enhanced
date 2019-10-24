@@ -2686,6 +2686,12 @@ void Cmd_CallVote_f( gentity_t *ent ) {
     } else if ( !Q_stricmp( arg1, "randomcapts")) {
 	} else if ( !Q_stricmp( arg1, "randomteams" ) ) {
 	} else if ( !Q_stricmp( arg1, "capturedifflimit" ) ) {
+	} else if ( !Q_stricmp( arg1, "ffa" ) ) {
+	} else if ( !Q_stricmp( arg1, "duel" ) ) {
+	} else if ( !Q_stricmp( arg1, "powerduel" ) ) {
+	} else if ( !Q_stricmp( arg1, "tffa" ) ) {
+	} else if ( !Q_stricmp( arg1, "siege" ) ) {
+	} else if ( !Q_stricmp( arg1, "ctf" ) ) {
 	} else {
 		trap_SendServerCommand( ent-g_entities, "print \"Invalid vote string.\n\"" );
 		trap_SendServerCommand( ent-g_entities, "print \"Vote commands are: map_restart, nextmap, map <mapname>, g_gametype <n>, "
@@ -2740,12 +2746,38 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 		trap_SendConsoleCommand( EXEC_APPEND, va("%s\n", level.voteString ) );
 	}
 
+	// allow e.g. /callvote ctf as an alias of /callvote g_gametype 8
+	if (!Q_stricmp(arg1, "ffa")) {
+		Q_strncpyz(arg1, "g_gametype", sizeof(arg1));
+		Q_strncpyz(arg2, "0", sizeof(arg2));
+	}
+	else if (!Q_stricmp(arg1, "duel")) {
+		Q_strncpyz(arg1, "g_gametype", sizeof(arg1));
+		Q_strncpyz(arg2, "3", sizeof(arg2));
+	}
+	else if (!Q_stricmp(arg1, "powerduel")) {
+		Q_strncpyz(arg1, "g_gametype", sizeof(arg1));
+		Q_strncpyz(arg2, "4", sizeof(arg2));
+	}
+	else if (!Q_stricmp(arg1, "tffa")) {
+		Q_strncpyz(arg1, "g_gametype", sizeof(arg1));
+		Q_strncpyz(arg2, "6", sizeof(arg2));
+	}
+	else if (!Q_stricmp(arg1, "siege")) {
+		Q_strncpyz(arg1, "g_gametype", sizeof(arg1));
+		Q_strncpyz(arg2, "7", sizeof(arg2));
+	}
+	else if (!Q_stricmp(arg1, "ctf")) {
+		Q_strncpyz(arg1, "g_gametype", sizeof(arg1));
+		Q_strncpyz(arg2, "8", sizeof(arg2));
+	}
+
 	// special case for g_gametype, check for bad values
 	if ( !Q_stricmp( arg1, "g_gametype" ) )
 	{
 		// *CHANGE 22* - vote disabling
 		if (!g_allow_vote_gametype.integer){
-			trap_SendServerCommand( ent-g_entities, "print \"Vote gametype is disabled.\n\"" );
+			trap_SendServerCommand( ent-g_entities, "print \"Voting for any gametype is disabled.\n\"" );
 			return;
 		}
 
@@ -2758,7 +2790,7 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 
 		//check for specific gametype
 		if (!(g_allow_vote_gametype.integer & (1 << i))){
-			trap_SendServerCommand( ent-g_entities, "print \"This gametype isnt allowed to vote.\n\"" );
+			trap_SendServerCommand( ent-g_entities, "print \"Voting for this gametype is disabled.\n\"" );
 			return;
 		}
 

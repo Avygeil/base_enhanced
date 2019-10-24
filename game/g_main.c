@@ -198,6 +198,11 @@ vmCvar_t	pmove_float;
 
 vmCvar_t	g_flechetteSpread;
 
+vmCvar_t	g_defaultMapFFA;
+vmCvar_t	g_defaultMapDuel;
+vmCvar_t	g_defaultMapSiege;
+vmCvar_t	g_defaultMapCTF;
+
 vmCvar_t	g_listEntity;
 vmCvar_t	g_singlePlayer;
 vmCvar_t	g_enableBreath;
@@ -550,6 +555,11 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &pmove_float, "pmove_float", "1", CVAR_SYSTEMINFO | CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_flechetteSpread, "g_flechetteSpread", "0", CVAR_ARCHIVE, 0, qtrue },
+
+	{ &g_defaultMapFFA, "g_defaultMapFFA", "", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_defaultMapDuel, "g_defaultMapDuel", "", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_defaultMapSiege, "g_defaultMapSiege", "", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_defaultMapCTF, "g_defaultMapCTF", "", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_dismember, "g_dismember", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_forceDodge, "g_forceDodge", "1", 0, 0, qtrue },

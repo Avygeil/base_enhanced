@@ -1460,6 +1460,8 @@ void G_FormatLocalDateFromEpoch( char* buf, size_t bufSize, time_t epochSecs );
 
 qboolean G_GetIPFromString( const char* from, unsigned int* ip );
 
+qboolean FileExists(const char *fileName);
+
 //
 // g_object.c
 //
@@ -2105,6 +2107,11 @@ extern	vmCvar_t	pmove_float;
 #include "namespace_end.h"
 
 extern	vmCvar_t	g_flechetteSpread;
+
+extern vmCvar_t		g_defaultMapFFA;
+extern vmCvar_t		g_defaultMapDuel;
+extern vmCvar_t		g_defaultMapSiege;
+extern vmCvar_t		g_defaultMapCTF;
 
 extern	vmCvar_t	g_enableBreath;
 extern	vmCvar_t	g_singlePlayer;

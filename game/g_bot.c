@@ -317,31 +317,37 @@ const char *G_RefreshNextMap(int gametype, qboolean forced)
 //rww - auto-obtain nextmap. I could've sworn Q3 had something like this, but I guess not.
 const char *G_GetDefaultMap(int gametype)
 {
-    const char* mapName = 0;
+	const char *fallback = NULL, *mapFromCvar = NULL;
 
     switch (gametype)
     {
-    case GT_FFA:
-       mapName = "mp/ffa1";
+	case GT_FFA:
+		mapFromCvar = g_defaultMapFFA.string;
+		fallback = "mp/ffa1";
        break;
     case GT_DUEL:
     case GT_POWERDUEL:
-        mapName = "mp/duel1";
+		mapFromCvar = g_defaultMapDuel.string;
+		fallback = "mp/duel1";
         break;
     case GT_TEAM:
-        mapName = "mp/ffa1";
+		mapFromCvar = g_defaultMapFFA.string;
+		fallback = "mp/ffa1";
         break;
     case GT_SIEGE:
-        mapName = "mp/siege_hoth";
+		mapFromCvar = g_defaultMapSiege.string;
+		fallback = "mp/siege_hoth";
         break;
     case GT_CTF:
-       mapName = "mp/ctf1";            
-       break;
-    default:
-        break;
+		mapFromCvar = g_defaultMapCTF.string;
+		fallback = "mp/ctf1";
+		break;
     }
 
-    return mapName;
+	if (VALIDSTRING(mapFromCvar) && strcmp(mapFromCvar, "0") && FileExists(va("maps/%s.bsp", mapFromCvar)))
+		return mapFromCvar;
+
+    return fallback;
 }
 
 

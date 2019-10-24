@@ -2628,3 +2628,14 @@ void G_FormatLocalDateFromEpoch( char* buf, size_t bufSize, time_t epochSecs ) {
 
 	strftime( buf, bufSize, "%d/%m/%y %I:%M %p", timeinfo );
 }
+
+qboolean FileExists(const char *fileName) {
+	fileHandle_t f = 0;
+	int len = trap_FS_FOpenFile(fileName, &f, FS_READ);
+
+	if (!f)
+		return qfalse;
+
+	trap_FS_FCloseFile(f);
+	return qtrue;
+}
