@@ -2653,6 +2653,33 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 		return;
 	}
 
+	if (!Q_stricmp(arg1, "nextmap") && !g_allow_vote_nextmap.integer &&
+		g_redirectNextMapVote.string[0] && Q_stricmp(g_redirectNextMapVote.string, "0")) {
+
+		Q_strncpyz(arg1, g_redirectNextMapVote.string, sizeof(arg1));
+		char *space = strchr(arg1, ' ');
+		if (space && *(space + 1)) { // everything after the first space is arg2
+			*space = '\0';
+			Q_strncpyz(arg2, space + 1, sizeof(arg2));
+		}
+		else {
+			arg2[0] = '\0';
+		}
+	}
+	else if (!Q_stricmp(arg1, "g_doWarmup") && !g_allow_vote_warmup.integer &&
+		g_redirectDoWarmupVote.string[0] && Q_stricmp(g_redirectDoWarmupVote.string, "0")) {
+
+		Q_strncpyz(arg1, g_redirectDoWarmupVote.string, sizeof(arg1));
+		char *space = strchr(arg1, ' ');
+		if (space && *(space + 1)) { // everything after the first space is arg2
+			*space = '\0';
+			Q_strncpyz(arg2, space + 1, sizeof(arg2));
+		}
+		else {
+			arg2[0] = '\0';
+		}
+	}
+
 	// racers can only call a very limited set of votes
 	qboolean racersAllowVote = qfalse, racersAllowCallvote = qfalse;
 
@@ -2859,10 +2886,7 @@ void Cmd_CallVote_f( gentity_t *ent ) {
        
 		Com_sprintf( level.voteDisplayString, sizeof( level.voteDisplayString ), "map %s", mapName);
 	}
-	else if (!Q_stricmp(arg1, "map_random") ||
-		// if enabled, redirect "nextmap" to "maprandom", but only if the nextmap vote is disabled and the maprandom vote is enabled
-		// TODO: don't hardcode this and use the openjk vote table for less terrible coding
-		(g_redirectDisabledVotes.integer && !Q_stricmp(arg1, "nextmap") && g_allow_vote_maprandom.integer && !g_allow_vote_nextmap.integer) )
+	else if (!Q_stricmp(arg1, "map_random"))
 	{
 		if (!g_allow_vote_maprandom.integer){
 			trap_SendServerCommand(ent - g_entities, "print \"Vote map_random is disabled.\n\"");
@@ -3043,10 +3067,7 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 		Com_sprintf(level.voteString, sizeof(level.voteString), "%s", arg1);
 		Com_sprintf(level.voteDisplayString, sizeof(level.voteDisplayString), "%s", level.voteString);
 	}
-	else if (!Q_stricmp(arg1, "cointoss") ||
-		// if enabled, redirect "g_doWarmup" to "cointoss", but only if the warmup vote is disabled
-		// TODO: don't hardcode this and use the openjk vote table for less terrible coding
-		(g_redirectDisabledVotes.integer && !Q_stricmp(arg1, "g_doWarmup") && !g_allow_vote_warmup.integer) )
+	else if (!Q_stricmp(arg1, "cointoss"))
 	{
 		Com_sprintf(level.voteString, sizeof(level.voteString), "cointoss"); // write cointoss directly because it can come from a warmup vote
 		Com_sprintf(level.voteDisplayString, sizeof(level.voteDisplayString), "Coin Toss");

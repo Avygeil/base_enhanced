@@ -339,7 +339,8 @@ vmCvar_t    g_allow_vote_maprandom;
 vmCvar_t    g_allow_vote_warmup;
 vmCvar_t	g_default_capturedifflimit;
 vmCvar_t	g_enable_maprandom_wildcard;
-vmCvar_t	g_redirectDisabledVotes;
+vmCvar_t	g_redirectDoWarmupVote;
+vmCvar_t	g_redirectNextMapVote;
 vmCvar_t    g_quietrcon;
 vmCvar_t    g_npc_spawn_limit;
 vmCvar_t	g_hackLog;
@@ -380,7 +381,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ NULL, "gamename", GAMEVERSION , CVAR_SERVERINFO | CVAR_ROM, 0, qfalse  },
 	{ NULL, "gamedate", __DATE__ , CVAR_ROM, 0, qfalse  },
 	//TODO: autogenerate gameversion
-	{ NULL, "gameversion", "18w11a" , CVAR_SERVERINFO | CVAR_ROM, 0, qfalse  },
+	{ NULL, "gameversion", "20w03a" , CVAR_SERVERINFO | CVAR_ROM, 0, qfalse  },
 	{ &g_restarted, "g_restarted", "0", CVAR_ROM, 0, qfalse  },
 	{ NULL, "sv_mapname", "", CVAR_SERVERINFO | CVAR_ROM, 0, qfalse  },
 
@@ -715,7 +716,8 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_default_capturedifflimit, "g_default_capturedifflimit", "10", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_enable_maprandom_wildcard, "g_enable_maprandom_wildcard", "1", CVAR_ARCHIVE, 0, qtrue },
-	{ &g_redirectDisabledVotes, "g_redirectDisabledVotes", "1", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_redirectDoWarmupVote, "g_redirectDoWarmupVote", "cointoss", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_redirectNextMapVote, "g_redirectNextMapVote", "map_random custom_4s", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_quietrcon,	"g_quietrcon"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_hackLog,	"g_hackLog"	, "hacks.log"	, CVAR_ARCHIVE, 0, qtrue },
