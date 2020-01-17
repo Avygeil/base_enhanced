@@ -1884,16 +1884,19 @@ void Svcmd_PoolCreate_f()
 
     if ( trap_Argc() < 3 )
     {
+		G_Printf("Usage: pool_create <short name> <long name>\n");
         return;
     }
 
     trap_Argv( 1, short_name, sizeof( short_name ) );
-    trap_Argv( 2, long_name, sizeof( long_name ) );
+	Q_strncpyz(long_name, ConcatArgs(2), sizeof(long_name));
 
-    if ( !G_DBPoolCreate( short_name, long_name ) )
-    {
-        G_Printf( "Could not create pool '%s'.\n", short_name );
+    if ( G_DBPoolCreate( short_name, long_name ) ){
+        G_Printf( "Successfully created pool with short name ^5%s^7 and long name ^5%s^7.\n", short_name, long_name );
     }
+	else {
+		G_Printf("Failed to create pool with short name ^5%s^7 and long name ^5%s^7!\n", short_name, long_name);
+	}
 }
 
 void Svcmd_PoolDelete_f()
@@ -1902,15 +1905,18 @@ void Svcmd_PoolDelete_f()
 
     if ( trap_Argc() < 2 )
     {
+		G_Printf("Usage: pool_delete <short name>\n");
         return;
     }
 
     trap_Argv( 1, short_name, sizeof( short_name ) );
 
-    if ( !G_DBPoolDelete( short_name ))
-    {
-        G_Printf( "Failed to delete pool '%s'.\n", short_name );
+    if ( G_DBPoolDelete( short_name )) {
+        G_Printf( "Sucessfully deleted pool '%s'.\n", short_name );
     }
+	else {
+		G_Printf("Failed to delete pool '%s'!\n", short_name);
+	}
 
 
 }
@@ -1923,6 +1929,7 @@ void Svcmd_PoolMapAdd_f()
 
     if ( trap_Argc() < 3 )
     {
+		G_Printf("Usage: pool_map_add <pool short name> <map filename> [weight]   (weight defaults to 1 if unspecified)\n");
         return;
     }
 
@@ -1942,10 +1949,12 @@ void Svcmd_PoolMapAdd_f()
         weight = 1;
     } 
 
-    if ( !G_DBPoolMapAdd( short_name, mapname, weight ) )
-    {
-        G_Printf( "Could not add map to pool '%s'.\n", short_name );
-    }  
+    if ( G_DBPoolMapAdd( short_name, mapname, weight ) ) {
+        G_Printf( "Successfully added ^5%s^7 to pool ^5%s^7 with weight ^5%d^7.\n", mapname, short_name, weight );
+    }
+	else {
+		G_Printf("Failed to add ^5%s^7 to pool ^5%s^7 with weight ^5%d^7!\n", mapname, short_name, weight);
+	}
 }
 
 void Svcmd_PoolMapRemove_f()
@@ -1955,16 +1964,19 @@ void Svcmd_PoolMapRemove_f()
 
     if ( trap_Argc() < 3 )
     {
+		G_Printf("Usage: pool_map_remove <pool short name> <map filename>\n");
         return;
     } 
 
     trap_Argv( 1, short_name, sizeof( short_name ) );
     trap_Argv( 2, mapname, sizeof( mapname ) );
 
-    if ( !G_DBPoolMapRemove( short_name, mapname ) )
-    {
-        G_Printf( "Could not remove map from pool '%s'.\n", short_name );
+    if ( G_DBPoolMapRemove( short_name, mapname ) ) {
+        G_Printf( "Sucessfully removed ^5%s^7 from pool ^5%s^7.\n", mapname, short_name );
     }
+	else {
+		G_Printf("Failed to remove ^5%s^7 from pool ^5%s^7!\n", mapname, short_name);
+	}
 
 }
 
@@ -2503,25 +2515,25 @@ qboolean	ConsoleCommand( void ) {
 		return qtrue;
 	}
 
-    if ( Q_stricmp( cmd, "pool_create" ) == 0 )
+    if ( Q_stricmp( cmd, "pool_create" ) == 0 || !Q_stricmp(cmd, "poolcreate") )
     {
         Svcmd_PoolCreate_f();
         return qtrue;
     }
 
-    if ( Q_stricmp( cmd, "pool_delete" ) == 0 )
+    if ( Q_stricmp( cmd, "pool_delete" ) == 0 || !Q_stricmp(cmd, "pooldelete") )
     {
         Svcmd_PoolDelete_f();
         return qtrue;
     }
 
-    if ( Q_stricmp( cmd, "pool_map_add" ) == 0 )
+    if ( Q_stricmp( cmd, "pool_map_add" ) == 0 || !Q_stricmp(cmd, "poolmapadd") )
     {
         Svcmd_PoolMapAdd_f();
         return qtrue;
     }
 
-    if ( Q_stricmp( cmd, "pool_map_remove" ) == 0 )
+    if ( Q_stricmp( cmd, "pool_map_remove" ) == 0 || !Q_stricmp(cmd, "poolmapremove") )
     {
         Svcmd_PoolMapRemove_f();
         return qtrue;
