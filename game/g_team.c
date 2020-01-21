@@ -86,6 +86,9 @@ const char *TeamColorString(int team) {
 //teamIndex used to print team name
 void PrintCTFMessage(int plIndex, int teamIndex, int ctfMessage)
 {
+	if (level.intermissiontime && ctfMessage == CTFMESSAGE_FLAG_RETURNED)
+		return;
+
 	gentity_t *te;
 
 	if (plIndex == -1)
@@ -626,6 +629,9 @@ void Team_ResetFlags( void ) {
 }
 
 void Team_ReturnFlagSound( gentity_t *ent, int team ) {
+	if (level.intermissiontime)
+		return;
+
 	gentity_t	*te;
 
 	if (ent == NULL) {
