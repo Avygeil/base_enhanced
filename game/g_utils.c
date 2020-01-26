@@ -2490,6 +2490,30 @@ void G_PrintBasedOnRacemode( const char* text, qboolean toRacersOnly ) {
 	}
 }
 
+static qboolean RacerTeleportLimitExceeded(gentity_t *ent) {
+	if (!ent || !ent->client)
+		return qfalse;
+
+	qboolean exceeded = qfalse;
+
+	if (ent->client->pers.raceTeleportFrame == level.framenum - 1) { // prevent idiots from just holding down their teleport bind
+		exceeded = qtrue;
+	}
+	else if (ent->client->pers.raceTeleportTime && (level.time - ent->client->pers.raceTeleportTime) < 1000) { // we are in tracking second for current user, check limit
+		exceeded = ent->client->pers.raceTeleportCount >= 10; // limit to 10 per second i guess
+		++ent->client->pers.raceTeleportCount;
+	}
+	else { // this is the first and only teleport that has been done in the last second
+		ent->client->pers.raceTeleportCount = 1;
+	}
+
+	// in any case, reset the timer and framenum so people have to unpress their spam binds while blocked to be unblocked
+	ent->client->pers.raceTeleportTime = level.time;
+	ent->client->pers.raceTeleportFrame = level.framenum;
+
+	return exceeded;
+}
+
 // returns qtrue on success
 extern int speedLoopSound;
 qboolean G_TeleportRacerToTelemark( gentity_t *ent ) {
@@ -2522,6 +2546,10 @@ qboolean G_TeleportRacerToTelemark( gentity_t *ent ) {
 
 	// don't let them tp while in rolls so they can't precharge rolls on ground and do them in limited space with tele
 	if ( BG_InRoll( &client->ps, ent->s.legsAnim ) ) {
+		return qfalse;
+	}
+
+	if (RacerTeleportLimitExceeded(ent)) {
 		return qfalse;
 	}
 
