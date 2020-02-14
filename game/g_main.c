@@ -3053,7 +3053,7 @@ void CheckIntermissionExit( void ) {
 			if ( i < 16 ) {
 				readyMask |= 1 << i;
 			}
-		} else {
+		} else if (cl->sess.sessionTeam != TEAM_SPECTATOR) {
 			notReady++;
 		}
 	}
