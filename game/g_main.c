@@ -3053,7 +3053,7 @@ void CheckIntermissionExit( void ) {
 			if ( i < 16 ) {
 				readyMask |= 1 << i;
 			}
-		} else if (cl->sess.sessionTeam != TEAM_SPECTATOR) {
+		} else if (cl->sess.sessionTeam != TEAM_SPECTATOR && !(g_gametype.integer == GT_CTF && cl->sess.sessionTeam == TEAM_FREE)) {
 			notReady++;
 		}
 	}
