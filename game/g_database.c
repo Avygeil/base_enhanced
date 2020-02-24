@@ -72,21 +72,30 @@ void G_DBLoadDatabase( void )
 
 	Com_Printf( "Successfully opened database file "DB_FILENAME"\n" );
 
+	unsigned int existingDbAddress = strtoul(dbLocation.string, NULL, 10);
+
 	if ( g_inMemoryDB.integer ) {
-		Com_Printf( "Using in-memory database\n" );
+		unsigned int existingDbAddress = strtoul(dbLocation.string, NULL, 10);
+		if (dbLocation.string[0] && existingDbAddress) {
+			// we have a db already open in memory; simply set the pointer to it
+			Com_Printf("Using existing in-memory database\n");
+			dbPtr = (sqlite3 *)existingDbAddress;
+		}
+		else {
+			// server starting up for first time this session; open db in memory
+			Com_Printf("In-memory database will be used\n");
+			sqlite3 *memoryDb = NULL;
+			rc = sqlite3_open_v2(":memory:", &memoryDb, SQLITE_OPEN_READWRITE, NULL);
 
-		// open db in memory
-		sqlite3* memoryDb = NULL;
-		rc = sqlite3_open_v2( ":memory:", &memoryDb, SQLITE_OPEN_READWRITE, NULL );
-
-		if ( rc == SQLITE_OK ) {
-			sqlite3_backup *backup = sqlite3_backup_init( memoryDb, "main", diskDb, "main" );
-			if ( backup ) {
-				rc = sqlite3_backup_step( backup, -1 );
-				if ( rc == SQLITE_DONE ) {
-					rc = sqlite3_backup_finish( backup );
-					if ( rc == SQLITE_OK ) {
-						dbPtr = memoryDb;
+			if (rc == SQLITE_OK) {
+				sqlite3_backup *backup = sqlite3_backup_init(memoryDb, "main", diskDb, "main");
+				if (backup) {
+					rc = sqlite3_backup_step(backup, -1);
+					if (rc == SQLITE_DONE) {
+						rc = sqlite3_backup_finish(backup);
+						if (rc == SQLITE_OK) {
+							dbPtr = memoryDb;
+						}
 					}
 				}
 			}
@@ -95,6 +104,12 @@ void G_DBLoadDatabase( void )
 		if ( !dbPtr ) {
 			Com_Printf( "WARNING: Failed to load database into memory!\n" );
 		}
+	}
+	else if (dbLocation.string[0] && existingDbAddress) {
+		// g_inMemoryDb is 0, but we somehow have an address leftover; maybe the cvar was manually changed. close it.
+		Com_Printf("An existing in-memory database was detected, but g_inMemoryDb is 0; freeing in-memory database\n");
+		sqlite3_close((sqlite3 *)existingDbAddress);
+		trap_Cvar_Set("dbLocation", "");
 	}
 
 	// use disk db by default in any case
@@ -154,36 +169,45 @@ void G_DBLoadDatabase( void )
 			G_DBSetMetadata( "last_vacuum", va( "%lld", currentTime ) );
 		}
 	}
+}
 
-	
+void G_SaveDatabase(void) {
+	if (dbPtr == diskDb) {
+		trap_Cvar_Set("dbLocation", "");
+		return;
+	}
+
+	int startTime = trap_Milliseconds();
+	Com_Printf("Saving in-memory database changes to disk...");
+
+	// we are using in memory db, save changes to disk
+	qboolean success = qfalse;
+	sqlite3_backup *backup = sqlite3_backup_init(diskDb, "main", dbPtr, "main");
+	if (backup) {
+		int rc = sqlite3_backup_step(backup, -1);
+		if (rc == SQLITE_DONE) {
+			rc = sqlite3_backup_finish(backup);
+			if (rc == SQLITE_OK) {
+				success = qtrue;
+			}
+		}
+	}
+
+	int finishTime = trap_Milliseconds();
+	if (success)
+		Com_Printf("done (took %d milliseconds).\n", finishTime - startTime);
+	else
+		Com_Printf("WARNING: Failed to backup in-memory database! Changes from this session have NOT been saved!\n");
+
+	trap_Cvar_Set("dbLocation", va("%u", (unsigned int)dbPtr));
 }
 
 void G_DBUnloadDatabase( void )
 {
-	int rc;
+	if (!g_inMemoryDB.integer || ServerIsEmpty())
+		G_SaveDatabase();
 
-	if ( dbPtr != diskDb ) {
-		Com_Printf( "Saving in-memory database changes to disk\n" );
-
-		// we are using in memory db, save changes to disk
-		qboolean success = qfalse;
-		sqlite3_backup *backup = sqlite3_backup_init( diskDb, "main", dbPtr, "main" );
-		if ( backup ) {
-			rc = sqlite3_backup_step( backup, -1 );
-			if ( rc == SQLITE_DONE ) {
-				rc = sqlite3_backup_finish( backup );
-				if ( rc == SQLITE_OK ) {
-					success = qtrue;
-				}
-			}
-		}
-
-		if ( !success ) {
-			Com_Printf( "WARNING: Failed to backup in-memory database! Changes from this session have NOT been saved!\n" );
-		}
-
-		sqlite3_close( dbPtr );
-	}
+	//sqlite3_close( dbPtr );
 
 	sqlite3_close( diskDb );
 	diskDb = dbPtr = NULL;

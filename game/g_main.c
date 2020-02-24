@@ -318,6 +318,7 @@ vmCvar_t	g_antiWallhack;
 vmCvar_t	g_wallhackMaxTraces;
 
 vmCvar_t	g_inMemoryDB;
+vmCvar_t	dbLocation;
 
 vmCvar_t	g_enableRacemode;
 vmCvar_t	g_enableRacemodeWaypoints;
@@ -693,6 +694,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_wallhackMaxTraces,	"g_wallhackMaxTraces"	, "1000"	, CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_inMemoryDB, "g_inMemoryDB", "0", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
+	{ &dbLocation, "dbLocation", "", CVAR_ROM | CVAR_TEMP, 0, qfalse },
 
 	{ &g_enableRacemode, "g_enableRacemode", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 	{ &g_enableRacemodeWaypoints, "g_enableRacemodeWaypoints", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
@@ -1712,7 +1714,7 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 	}
 
 	// reset capturedifflimit on map rs
-	trap_Cvar_Set( "capturedifflimit", g_default_capturedifflimit.string );
+	trap_Cvar_Set("capturedifflimit", g_default_capturedifflimit.string);
 }
 
 

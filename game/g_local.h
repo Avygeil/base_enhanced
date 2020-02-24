@@ -1465,6 +1465,8 @@ qboolean G_GetIPFromString( const char* from, unsigned int* ip );
 
 qboolean FileExists(const char *fileName);
 
+qboolean ServerIsEmpty(void);
+
 //
 // g_object.c
 //
@@ -2185,6 +2187,7 @@ extern vmCvar_t     g_antiWallhack;
 extern vmCvar_t		g_wallhackMaxTraces;
 
 extern vmCvar_t     g_inMemoryDB;
+extern vmCvar_t		dbLocation;
 
 extern vmCvar_t     g_enableRacemode;
 extern vmCvar_t		g_enableRacemodeWaypoints;
