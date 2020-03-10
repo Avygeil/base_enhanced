@@ -4600,8 +4600,6 @@ void ClientDisconnect( int clientNum ) {
 
 	G_ClearClientLog(clientNum);
 
-	if (ServerIsEmpty())
-		G_SaveDatabase();
 }   
 
 
