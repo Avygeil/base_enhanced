@@ -348,8 +348,6 @@ vmCvar_t	g_hackLog;
 
 vmCvar_t    g_restart_countdown;
 
-vmCvar_t	lastMapName;
-
 vmCvar_t    g_fixboon;
 vmCvar_t    g_maxstatusrequests;
 vmCvar_t	g_testdebug; //for tmp debug
@@ -745,8 +743,6 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_teamOverlayUpdateRate, "g_teamOverlayUpdateRate", "250", CVAR_ARCHIVE, 0, qtrue },
 	{ &debug_clientNumLog, "debug_clientNumLog", "0", CVAR_ARCHIVE, 0, qtrue},
-
-	{ &lastMapName, "lastMapName", "", CVAR_ARCHIVE | CVAR_ROM, 0, qfalse },
 
 	{ &g_maxstatusrequests,	"g_maxstatusrequests"	, "50"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_testdebug,	"g_testdebug"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
@@ -1716,10 +1712,6 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 	} else {
 		level.mapCaptureRecords.enabled = qfalse;
 	}
-
-	if (lastMapName.string[0] && Q_stricmp(lastMapName.string, mapname.string))
-		G_SaveDatabase(); // the map has been changed, so save db to disk
-	trap_Cvar_Set("lastMapName", mapname.string);
 
 	// reset capturedifflimit on map rs
 	trap_Cvar_Set("capturedifflimit", g_default_capturedifflimit.string);
