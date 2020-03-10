@@ -645,6 +645,11 @@ void BotUpdateInput(bot_state_t *bs, int time, int elapsed_time) {
 	for (j = 0; j < 3; j++) {
 		bs->viewangles[j] = AngleMod(bs->viewangles[j] - SHORT2ANGLE(bs->cur_ps.delta_angles[j]));
 	}
+
+	if (g_braindeadBots.integer) {
+		bs->lastucmd.buttons = bs->lastucmd.forcesel = bs->lastucmd.forwardmove = bs->lastucmd.generic_cmd =
+			bs->lastucmd.invensel = bs->lastucmd.rightmove = bs->lastucmd.upmove = bs->lastucmd.weapon = 0;
+	}
 }
 
 /*

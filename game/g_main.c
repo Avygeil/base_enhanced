@@ -150,6 +150,12 @@ vmCvar_t	g_logrcon;
 vmCvar_t	g_flags_overboarding;
 vmCvar_t	g_selfkill_penalty;
 vmCvar_t    g_moreTaunts;
+
+vmCvar_t	g_improvedHoming;
+vmCvar_t	g_improvedHomingThreshold;
+vmCvar_t	d_debugImprovedHoming;
+vmCvar_t	g_braindeadBots;
+
 vmCvar_t	g_teamPrivateDuels;
 
 vmCvar_t	g_teamOverlayUpdateRate;
@@ -740,7 +746,14 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_teamPrivateDuels, "g_teamPrivateDuels", "0", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_teamOverlayUpdateRate, "g_teamOverlayUpdateRate", "250", CVAR_ARCHIVE, 0, qtrue },
+
 	{ &debug_clientNumLog, "debug_clientNumLog", "0", CVAR_ARCHIVE, 0, qtrue},
+
+	{ &g_improvedHoming, "g_improvedHoming", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
+	{ &g_improvedHomingThreshold, "g_improvedHomingThreshold", "500", CVAR_ARCHIVE, 0, qtrue },
+	{ &d_debugImprovedHoming, "d_debugImprovedHoming", "0", CVAR_ARCHIVE, 0, qtrue },
+
+	{ &g_braindeadBots, "g_braindeadBots", "0", CVAR_ARCHIVE, 0 , qtrue },
 
 	{ &g_maxstatusrequests,	"g_maxstatusrequests"	, "50"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_testdebug,	"g_testdebug"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
@@ -4487,6 +4500,96 @@ int BG_GetTime(void)
 }
 #include "namespace_end.h"
 
+#ifdef NEWMOD_SUPPORT
+// use some bullshit unused fields to put homing data in the client's playerstate
+static void SetHomingInPlayerstate(gclient_t *cl, int stage) {
+	assert(cl);
+	assert(stage >= 0 && stage <= 10);
+	for (int i = 0; i < 4; i++) {
+		if (stage & (1 << i))
+			cl->ps.holocronBits |= (1 << (NUM_FORCE_POWERS + i));
+		else
+			cl->ps.holocronBits &= ~(1 << (NUM_FORCE_POWERS + i));
+	}
+}
+
+static void RunImprovedHoming(void) {
+	if (!g_improvedHoming.integer)
+		return;
+
+	float lockTimeInterval = ((g_gametype.integer == GT_SIEGE) ? 2400.0f : 1200.0f) / 16.0f;
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *ent = &g_entities[i];
+		gclient_t *cl = &level.clients[i];
+		if (cl->pers.connected != CON_CONNECTED) {
+			cl->homingLockTime = 0;
+			SetHomingInPlayerstate(cl, 0);
+			continue;
+		}
+
+		// check if they are following someone
+		gentity_t *lockEnt = ent;
+		gclient_t *lockCl = cl;
+		if (cl->sess.sessionTeam == TEAM_SPECTATOR && cl->sess.spectatorState == SPECTATOR_FOLLOW &&
+			cl->sess.spectatorClient >= 0 && cl->sess.spectatorClient < MAX_CLIENTS) {
+			gclient_t *followed = &level.clients[cl->sess.spectatorClient];
+			if (followed->pers.connected != CON_CONNECTED) {
+				lockCl->homingLockTime = 0;
+				SetHomingInPlayerstate(cl, 0);
+				continue;
+			}
+			lockCl = followed;
+			lockEnt = &g_entities[lockCl - level.clients];
+		}
+
+		if (lockCl->sess.sessionTeam == TEAM_SPECTATOR || lockEnt->health <= 0 || lockCl->ps.pm_type == PM_SPECTATOR || lockCl->ps.pm_type == PM_INTERMISSION) {
+			lockCl->homingLockTime = 0;
+			SetHomingInPlayerstate(cl, 0);
+			continue;
+		}
+
+		// check that the rocketeer has a lock
+		if (lockCl->ps.rocketLockIndex == ENTITYNUM_NONE) {
+			SetHomingInPlayerstate(cl, 0);
+			continue;
+		}
+
+		// get the lock stage
+		float rTime = lockCl->ps.rocketLockTime == -1 ? lockCl->ps.rocketLastValidTime : lockCl->ps.rocketLockTime;
+		int dif = Com_Clampi(0, 10, (level.time - rTime) / lockTimeInterval);
+		if (lockCl->ps.m_iVehicleNum) {
+			gentity_t *veh = &g_entities[lockCl->ps.m_iVehicleNum];
+			if (veh->m_pVehicle) {
+				vehWeaponInfo_t *vehWeapon = NULL;
+				if (lockCl->ps.weaponstate == WEAPON_CHARGING_ALT) {
+					if (veh->m_pVehicle->m_pVehicleInfo->weapon[1].ID > VEH_WEAPON_BASE &&veh->m_pVehicle->m_pVehicleInfo->weapon[1].ID < MAX_VEH_WEAPONS)
+						vehWeapon = &g_vehWeaponInfo[veh->m_pVehicle->m_pVehicleInfo->weapon[1].ID];
+				}
+				else if (veh->m_pVehicle->m_pVehicleInfo->weapon[0].ID > VEH_WEAPON_BASE &&veh->m_pVehicle->m_pVehicleInfo->weapon[0].ID < MAX_VEH_WEAPONS) {
+					vehWeapon = &g_vehWeaponInfo[veh->m_pVehicle->m_pVehicleInfo->weapon[0].ID];
+				}
+				if (vehWeapon) {//we are trying to lock on with a valid vehicle weapon, so use *its* locktime, not the hard-coded one
+					if (!vehWeapon->iLockOnTime) { //instant lock-on
+						dif = 10;
+					}
+					else {//use the custom vehicle lockOnTime
+						lockTimeInterval = (vehWeapon->iLockOnTime / 16.0f);
+						dif = Com_Clampi(0, 10, (level.time - rTime) / lockTimeInterval);
+					}
+				}
+			}
+		}
+
+		// set the homing stage in their playerstate and start the special serverside timer
+		SetHomingInPlayerstate(cl, dif);
+		if (dif == 10) {
+			lockCl->homingLockTime = level.time;
+			lockCl->homingLockTarget = lockCl->ps.rocketLockIndex;
+		}
+	}
+}
+#endif
+
 /*
 ================
 G_RunFrame
@@ -5613,6 +5716,10 @@ void G_RunFrame( int levelTime ) {
 			}
 		}
 	}
+
+#ifdef NEWMOD_SUPPORT
+	RunImprovedHoming();
+#endif
 
 	level.frameStartTime = trap_Milliseconds(); // accurate timer
 

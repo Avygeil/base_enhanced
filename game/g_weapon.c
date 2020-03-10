@@ -1904,7 +1904,15 @@ static void WP_FireRocket( gentity_t *ent, qboolean altFire )
 
 	missile = CreateMissile( muzzle, forward, vel, 30000, ent, altFire );
 
-	if (ent->client && ent->client->ps.rocketLockIndex != ENTITYNUM_NONE)
+	int forceLock = -1;
+	int deltaT = level.time - ent->client->homingLockTime;
+	int homingThreshold = g_improvedHomingThreshold.integer > 0 ? g_improvedHomingThreshold.integer : (g_gametype.integer == GT_SIEGE ? 150 : 75);
+	if (g_improvedHoming.integer && ent->client && ent->client->homingLockTime && deltaT <= homingThreshold && ent->client->homingLockTarget != ENTITYNUM_NONE)
+		forceLock = ent->client->homingLockTarget;
+	if (d_debugImprovedHoming.integer)
+		trap_SendServerCommand(ent - g_entities, va("print \"deltaT is %d (threshold is %d)\n\"", deltaT, homingThreshold));
+
+	if (forceLock != -1 || (ent->client && ent->client->ps.rocketLockIndex != ENTITYNUM_NONE))
 	{
 		float lockTimeInterval = ((g_gametype.integer==GT_SIEGE)?2400.0f:1200.0f)/16.0f;
 		rTime = ent->client->ps.rocketLockTime;
@@ -1921,9 +1929,12 @@ static void WP_FireRocket( gentity_t *ent, qboolean altFire )
 		}
 
 		//It's 10 even though it locks client-side at 8, because we want them to have a sturdy lock first, and because there's a slight difference in time between server and client
-		if ( dif >= 10 && rTime != -1 )
+		if (forceLock != -1 || (dif >= 10 && rTime != -1))
 		{
-			missile->enemy = &g_entities[ent->client->ps.rocketLockIndex];
+			if (forceLock != -1)
+				missile->enemy = &g_entities[forceLock];
+			else
+				missile->enemy = &g_entities[ent->client->ps.rocketLockIndex];
 
 			if (missile->enemy && missile->enemy->client && missile->enemy->health > 0 && !OnSameTeam(ent, missile->enemy))
 			{ //if enemy became invalid, died, or is on the same team, then don't seek it

@@ -2789,7 +2789,7 @@ void G_BroadcastServerFeatureList( int clientNum ) {
 		"tnt2 "
 		"isd2 "
 		"vch2 "
-		"vchl";
+		"vchl ";
 
 	static char commandListCmd[MAX_TOKEN_CHARS] =
 		"kls -1 -1 cmds "
@@ -2821,6 +2821,9 @@ void G_BroadcastServerFeatureList( int clientNum ) {
 			Q_strcat(locationsListConfigString, sizeof(locationsListConfigString), va( " \"%s\" %d", level.locations.enhanced.data[i].message, level.locations.enhanced.data[i].teamowner ) );
 		}
 	}
+
+	if (g_improvedHoming.integer)
+		Q_strcat(featureListConfigString, sizeof(featureListConfigString), "rhom ");
 
 	trap_SetConfigstring(CS_SERVERFEATURELIST, featureListConfigString);
 	trap_SendServerCommand( clientNum, commandListCmd );

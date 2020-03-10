@@ -952,6 +952,9 @@ struct gclient_s {
 #define NUM_WAYPOINTS	(3)
 #define ALL_WAYPOINT_BITS	((1 << 0) | (1 << 1) | (1 << 2)) // 7
 	int			touchedWaypoints;
+
+	int homingLockTime; // time at which homing weapon locked on to a target
+	int homingLockTarget; // the target of it
 };
 
 #define ARENAINFO_B_E_FLAG_DISABLETOPTIMES		(1 << 0)
@@ -2260,7 +2263,12 @@ extern vmCvar_t	   g_logrcon;
 extern vmCvar_t	   g_flags_overboarding;
 extern vmCvar_t	   g_selfkill_penalty;
 extern vmCvar_t	   g_moreTaunts;
+
 extern vmCvar_t	   g_teamPrivateDuels;
+extern vmCvar_t    g_improvedHoming;
+extern vmCvar_t    g_improvedHomingThreshold;
+extern vmCvar_t    d_debugImprovedHoming;
+extern vmCvar_t    g_braindeadBots;
 
 extern vmCvar_t	   debug_clientNumLog;
 
