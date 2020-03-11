@@ -41,6 +41,7 @@ qboolean gDuelExit = qfalse;
 vmCvar_t	g_trueJedi;
 
 vmCvar_t	g_wasRestarted;
+vmCvar_t	g_wasIntermission;
 
 vmCvar_t	g_gametype;
 vmCvar_t	g_MaxHolocronCarry;
@@ -369,6 +370,8 @@ vmCvar_t	sv_passwordlessSpectators;
 
 vmCvar_t	d_measureAirTime;
 
+vmCvar_t	g_notifyAFK;
+
 // nmckenzie: temporary way to show player healths in duels - some iface gfx in game would be better, of course.
 // DUEL_HEALTH
 vmCvar_t		g_showDuelHealths;
@@ -392,6 +395,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ NULL, "sv_mapname", "", CVAR_SERVERINFO | CVAR_ROM, 0, qfalse  },
 
 	{ &g_wasRestarted, "g_wasRestarted", "0", CVAR_ROM, 0, qfalse  },
+	{ &g_wasIntermission, "g_wasIntermission", "0", CVAR_ROM, 0, qfalse  },
 
 	// latched vars
 	{ &g_gametype, "g_gametype", "0", CVAR_SERVERINFO | CVAR_LATCH, 0, qfalse  },
@@ -775,7 +779,9 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_rocketSurfing, "g_rocketSurfing", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_bouncePadDoubleJump, "g_bouncePadDoubleJump", "1", CVAR_ARCHIVE, 0, qtrue },
 
-	{ &d_measureAirTime, "d_measureAirTime", "0", CVAR_TEMP, 0, qtrue }
+	{ &d_measureAirTime, "d_measureAirTime", "0", CVAR_TEMP, 0, qtrue },
+
+	{ &g_notifyAFK, "g_notifyAFK", "5", CVAR_ARCHIVE, 0, qtrue },
 };
 
 // bk001129 - made static to avoid aliasing
@@ -1235,6 +1241,52 @@ void initMatch(){
 
 }
 
+static void CheckForAFKs(void) {
+	if (!level.wasRestarted)
+		return;
+
+	int numRed = 0, numBlue = 0;
+	enum {
+		CLIENTNUMAFK_MULTIPLE = -2,
+		CLIENTNUMAFK_NONE = -1
+	} clientNumAfk = CLIENTNUMAFK_NONE;
+
+	for (int i = 0; i < level.maxclients; i++) {
+		gentity_t *ent = &g_entities[i];
+		if (!ent->inuse || !ent->client)
+			continue;
+		if (ent->client->sess.sessionTeam == TEAM_SPECTATOR || ent->client->sess.sessionTeam == TEAM_FREE)
+			continue;
+
+		// this guy is ingame
+		if (ent->client->sess.sessionTeam == TEAM_RED)
+			numRed++;
+		else if (ent->client->sess.sessionTeam == TEAM_BLUE)
+			numBlue++;
+
+		if (!ent->client->pers.hasDoneSomething) {
+			// this guy is afk
+			if (clientNumAfk == CLIENTNUMAFK_NONE)
+				clientNumAfk = i; // he's the only one afk (so far)
+			else
+				clientNumAfk = CLIENTNUMAFK_MULTIPLE; // someone else is already afk
+		}
+	}
+
+	// only notify if 4v4+
+	if (clientNumAfk == CLIENTNUMAFK_NONE || numRed < 4 || numBlue < 4)
+		return;
+
+	char *whoIsAfkString;
+	if (clientNumAfk == CLIENTNUMAFK_MULTIPLE)
+		whoIsAfkString = "Multiple players are AFK";
+	else
+		whoIsAfkString = va("%s^7 is AFK", level.clients[clientNumAfk].pers.netname);
+
+	trap_SendServerCommand(-1, va("print \"^1Pug is not live:^7 %s^7\n\"", whoIsAfkString));
+	trap_SendServerCommand(-1, va("cp \"^1Pug is not live:^7\n%s^7\n\"", whoIsAfkString));
+}
+
 static void ShuffleNumbers(int *array, const int numMembers) {
 	for (int i = numMembers - 1; i >= 1; i--) {
 		int j = rand() % (i + 1);
@@ -1493,6 +1545,10 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 		G_Printf( "Not logging to disk.\n" );
 	}
 #endif
+
+	if (restart && !g_wasIntermission.integer)
+		level.wasRestarted = qtrue;
+	trap_Cvar_Set("g_wasIntermission", "0");
 
 	if (!restart)
 	{
@@ -2668,6 +2724,7 @@ void BeginIntermission( void ) {
 	}
 
 	trap_Cvar_Set("g_wasRestarted", "0");
+	trap_Cvar_Set("g_wasIntermission", "1");
 
 	// if in tournement mode, change the wins / losses
 	if ( g_gametype.integer == GT_DUEL || g_gametype.integer == GT_POWERDUEL ) {
@@ -5579,6 +5636,12 @@ void G_RunFrame( int levelTime ) {
 		level.initialChecked = qtrue;
 	}
 
+	// duo: new afk detection
+	if (g_notifyAFK.integer > 0 && !level.checkedForAFKs && level.firstFrameTime && (trap_Milliseconds() - level.firstFrameTime >= (g_notifyAFK.integer * 1000))) {
+		CheckForAFKs();
+		level.checkedForAFKs = qtrue;
+	}
+
     // report time wrapping 20 minutes ahead
     #define SERVER_WRAP_RESTART_TIME 0x70000000
     if ( enginePatched && (level.time >= SERVER_WRAP_RESTART_TIME - 20*60*1000 ) )
@@ -5720,6 +5783,9 @@ void G_RunFrame( int levelTime ) {
 #ifdef NEWMOD_SUPPORT
 	RunImprovedHoming();
 #endif
+
+	if (!level.firstFrameTime)
+		level.firstFrameTime = trap_Milliseconds();
 
 	level.frameStartTime = trap_Milliseconds(); // accurate timer
 

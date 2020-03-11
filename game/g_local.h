@@ -645,6 +645,8 @@ typedef struct {
 	int			raceTeleportTime; // for anti-teleport spam
 	int			raceTeleportFrame; // for anti-teleport spam
 	int			raceTeleportCount; // for anti-teleport spam
+
+	qboolean	hasDoneSomething;
 } clientPersistant_t;
 
 typedef struct renderInfo_s
@@ -1115,6 +1117,8 @@ typedef struct {
 	int			initialBlueCount;
 	int			initialRedCount;
 
+	qboolean	checkedForAFKs;
+
 	qboolean    overtime;
 
 	//special handle for libcurl debug
@@ -1126,7 +1130,10 @@ typedef struct {
 	int			time;					// in msec
 	int			previousTime;			// so movers can back up when blocked
 
+	qboolean	wasRestarted;
+
 	int			startTime;				// level.time the map was started
+	int			firstFrameTime;			// trap_Milliseconds() of the first G_RunFrame (after all init lag has finished)
 
 	int			teamScores[TEAM_NUM_TEAMS];
 	int			lastTeamLocationTime;		// last time of client team location update
@@ -1979,6 +1986,7 @@ extern	vmCvar_t	g_cheats;
 extern	vmCvar_t	g_maxclients;			// allow this many total, including spectators
 extern	vmCvar_t	g_maxGameClients;		// allow this many active
 extern	vmCvar_t	g_restarted;
+extern	vmCvar_t	g_wasIntermission;
 
 extern	vmCvar_t	g_trueJedi;
 
@@ -2286,8 +2294,8 @@ extern vmCvar_t	   sv_privateclients;
 extern vmCvar_t    sv_passwordlessSpectators;
 
 extern vmCvar_t    d_measureAirTime;
-
-extern vmCvar_t	   g_wasRestarted;
+extern vmCvar_t		g_wasRestarted;
+extern vmCvar_t		g_notifyAFK;
 
 int validateAccount(const char* username, const char* password, int num);
 void unregisterUser(const char* username);

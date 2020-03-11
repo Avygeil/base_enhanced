@@ -809,6 +809,18 @@ qboolean CheckPlayerInactivityTimer(gclient_t *client)
 {
     qboolean active = qtrue;
 
+	// check for doing anything aside from nudging your mouse
+	if (!client->pers.hasDoneSomething && (
+		client->pers.cmd.forwardmove ||
+		client->pers.cmd.rightmove ||
+		client->pers.cmd.upmove ||
+		client->pers.cmd.buttons & BUTTON_ATTACK ||
+		client->pers.cmd.buttons & BUTTON_ALT_ATTACK ||
+		client->pers.cmd.generic_cmd
+		)) {
+		client->pers.hasDoneSomething = qtrue;
+	}
+
     if (!g_inactivity.integer)
     {
         // give everyone some time, so if the operator sets g_inactivity during
