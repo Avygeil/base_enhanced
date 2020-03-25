@@ -6348,6 +6348,10 @@ static void PM_Weapon( void )
 	bgEntity_t *veh = NULL;
 	qboolean vehicleRocketLock = qfalse;
 
+	// duo: clear rocket lock while frozen
+	if (pm->ps->electrifyTime > level.time && pm->ps->weaponTime > 0)
+		BG_ClearRocketLock(pm->ps);
+
 #ifdef QAGAME
 	if (pm->ps->clientNum >= MAX_CLIENTS &&
 		pm->ps->weapon == WP_NONE &&

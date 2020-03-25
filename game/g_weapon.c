@@ -1904,49 +1904,51 @@ static void WP_FireRocket( gentity_t *ent, qboolean altFire )
 
 	missile = CreateMissile( muzzle, forward, vel, 30000, ent, altFire );
 
-	int forceLock = -1;
-	int deltaT = level.time - ent->client->homingLockTime;
-	int homingThreshold = g_improvedHomingThreshold.integer > 0 ? g_improvedHomingThreshold.integer : (g_gametype.integer == GT_SIEGE ? 150 : 75);
-	if (g_improvedHoming.integer && ent->client && ent->client->homingLockTime && deltaT <= homingThreshold && ent->client->homingLockTarget != ENTITYNUM_NONE)
-		forceLock = ent->client->homingLockTarget;
-	if (d_debugImprovedHoming.integer)
-		trap_SendServerCommand(ent - g_entities, va("print \"deltaT is %d (threshold is %d)\n\"", deltaT, homingThreshold));
+	if (altFire) {
+		int forceLock = -1;
+		int deltaT = level.time - ent->client->homingLockTime;
+		int homingThreshold = g_improvedHomingThreshold.integer > 0 ? g_improvedHomingThreshold.integer : (g_gametype.integer == GT_SIEGE ? 150 : 75);
+		if (g_improvedHoming.integer && ent->client && ent->client->homingLockTime && deltaT <= homingThreshold && ent->client->homingLockTarget != ENTITYNUM_NONE)
+			forceLock = ent->client->homingLockTarget;
+		if (d_debugImprovedHoming.integer)
+			trap_SendServerCommand(ent - g_entities, va("print \"deltaT is %d (threshold is %d)\n\"", deltaT, homingThreshold));
 
-	if (forceLock != -1 || (ent->client && ent->client->ps.rocketLockIndex != ENTITYNUM_NONE))
-	{
-		float lockTimeInterval = ((g_gametype.integer==GT_SIEGE)?2400.0f:1200.0f)/16.0f;
-		rTime = ent->client->ps.rocketLockTime;
-
-		if (rTime == -1)
+		if (forceLock != -1 || (ent->client && ent->client->ps.rocketLockIndex != ENTITYNUM_NONE))
 		{
-			rTime = ent->client->ps.rocketLastValidTime;
-		}
-		dif = ( level.time - rTime ) / lockTimeInterval;
+			float lockTimeInterval = ((g_gametype.integer == GT_SIEGE) ? 2400.0f : 1200.0f) / 16.0f;
+			rTime = ent->client->ps.rocketLockTime;
 
-		if (dif < 0)
-		{
-			dif = 0;
-		}
-
-		//It's 10 even though it locks client-side at 8, because we want them to have a sturdy lock first, and because there's a slight difference in time between server and client
-		if (forceLock != -1 || (dif >= 10 && rTime != -1))
-		{
-			if (forceLock != -1)
-				missile->enemy = &g_entities[forceLock];
-			else
-				missile->enemy = &g_entities[ent->client->ps.rocketLockIndex];
-
-			if (missile->enemy && missile->enemy->client && missile->enemy->health > 0 && !OnSameTeam(ent, missile->enemy))
-			{ //if enemy became invalid, died, or is on the same team, then don't seek it
-				missile->angle = 0.5f;
-				missile->think = rocketThink;
-				missile->nextthink = level.time + ROCKET_ALT_THINK_TIME;
+			if (rTime == -1)
+			{
+				rTime = ent->client->ps.rocketLastValidTime;
 			}
-		}
+			dif = (level.time - rTime) / lockTimeInterval;
 
-		ent->client->ps.rocketLockIndex = ENTITYNUM_NONE;
-		ent->client->ps.rocketLockTime = 0;
-		ent->client->ps.rocketTargetTime = 0;
+			if (dif < 0)
+			{
+				dif = 0;
+			}
+
+			//It's 10 even though it locks client-side at 8, because we want them to have a sturdy lock first, and because there's a slight difference in time between server and client
+			if (forceLock != -1 || (dif >= 10 && rTime != -1))
+			{
+				if (forceLock != -1)
+					missile->enemy = &g_entities[forceLock];
+				else
+					missile->enemy = &g_entities[ent->client->ps.rocketLockIndex];
+
+				if (missile->enemy && missile->enemy->client && missile->enemy->health > 0 && !OnSameTeam(ent, missile->enemy))
+				{ //if enemy became invalid, died, or is on the same team, then don't seek it
+					missile->angle = 0.5f;
+					missile->think = rocketThink;
+					missile->nextthink = level.time + ROCKET_ALT_THINK_TIME;
+				}
+			}
+
+			ent->client->ps.rocketLockIndex = ENTITYNUM_NONE;
+			ent->client->ps.rocketLockTime = 0;
+			ent->client->ps.rocketTargetTime = 0;
+		}
 	}
 
 	missile->classname = "rocket_proj";
@@ -1986,6 +1988,9 @@ static void WP_FireRocket( gentity_t *ent, qboolean altFire )
 
 	// we don't want it to ever bounce
 	missile->bounceCount = 0;
+
+	// duo: fix clientside prediction when running into your own rocket
+	missile->s.genericenemyindex = ent->s.number + MAX_GENTITIES;
 }
 
 /*
