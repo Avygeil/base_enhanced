@@ -2822,8 +2822,11 @@ void G_BroadcastServerFeatureList( int clientNum ) {
 		}
 	}
 
-	if (g_improvedHoming.integer)
+	static qboolean initializedHoming = qfalse;
+	if (!initializedHoming && g_improvedHoming.integer) {
 		Q_strcat(featureListConfigString, sizeof(featureListConfigString), "rhom ");
+		initializedHoming = qtrue;
+	}
 
 	trap_SetConfigstring(CS_SERVERFEATURELIST, featureListConfigString);
 	trap_SendServerCommand( clientNum, commandListCmd );
