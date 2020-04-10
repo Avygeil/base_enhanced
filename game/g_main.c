@@ -1782,6 +1782,8 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 
 	// reset capturedifflimit on map rs
 	trap_Cvar_Set( "capturedifflimit", g_default_capturedifflimit.string );
+
+	G_BroadcastServerFeatureList(-1);
 }
 
 

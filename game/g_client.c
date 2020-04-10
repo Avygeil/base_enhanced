@@ -2781,16 +2781,6 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 #ifdef NEWMOD_SUPPORT
 
 void G_BroadcastServerFeatureList( int clientNum ) {
-	static char featureListConfigString[MAX_TOKEN_CHARS] =
-		"sfl "
-		"oid "
-		"fqs "
-		"ccid "
-		"tnt2 "
-		"isd2 "
-		"vch2 "
-		"vchl ";
-
 	static char commandListCmd[MAX_TOKEN_CHARS] =
 		"kls -1 -1 cmds "
 		"whois \"Shows the most used names\" "
@@ -2809,6 +2799,25 @@ void G_BroadcastServerFeatureList( int clientNum ) {
 		"showRacers \"Shows racers\" "
 		"toggleRacers \"Toggles seeing racers\"";
 
+	if (clientNum != -1) // we call this function with -1 clientNum to just do the global stuff
+		trap_SendServerCommand(clientNum, commandListCmd);
+
+	static qboolean didGlobal = qfalse;
+	if (didGlobal)
+		return;
+
+	didGlobal = qtrue;
+
+	static char featureListConfigString[MAX_TOKEN_CHARS] =
+		"sfl "
+		"oid "
+		"fqs "
+		"ccid "
+		"tnt2 "
+		"isd2 "
+		"vch2 "
+		"vchl ";
+
 	static char locationsListConfigString[MAX_TOKEN_CHARS] = { 0 };
 
 	// lazy initialization of the locations strings
@@ -2822,14 +2831,11 @@ void G_BroadcastServerFeatureList( int clientNum ) {
 		}
 	}
 
-	static qboolean initializedHoming = qfalse;
-	if (!initializedHoming && g_improvedHoming.integer) {
+	if (g_improvedHoming.integer)
 		Q_strcat(featureListConfigString, sizeof(featureListConfigString), "rhom ");
-		initializedHoming = qtrue;
-	}
 
 	trap_SetConfigstring(CS_SERVERFEATURELIST, featureListConfigString);
-	trap_SendServerCommand( clientNum, commandListCmd );
+
 	if ( level.locations.enhanced.numUnique )
 		trap_SetConfigstring( CS_ENHANCEDLOCATIONS, locationsListConfigString);
 }
