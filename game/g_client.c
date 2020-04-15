@@ -738,8 +738,11 @@ gentity_t *SelectRandomFurthestSpawnPoint ( vec3_t avoidPoint, vec3_t origin, ve
 		}
 		if (!numSpots) {
 			spot = G_Find( NULL, FOFS(classname), "info_player_deathmatch");
-			if (!spot)
-				G_Error( "Couldn't find a spawn point" );
+			if (!spot) {
+				if (team == TEAM_FREE && (g_gametype.integer == GT_CTF || g_gametype.integer == GT_CTY))
+					return NULL; // just return null for ctf racers instead of erroring
+				G_Error("Couldn't find a spawn point");
+			}
 			VectorCopy (spot->s.origin, origin);
 			origin[2] += 9;
 			VectorCopy (spot->s.angles, angles);

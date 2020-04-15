@@ -1303,7 +1303,15 @@ gentity_t *SelectCTFSpawnPoint ( team_t team, int teamstate, vec3_t origin, vec3
 	spot = SelectRandomTeamSpawnPoint ( teamstate, team, -1 );
 
 	if (!spot) {
-		return SelectSpawnPoint( vec3_origin, origin, angles, team );
+		spot = SelectSpawnPoint( vec3_origin, origin, angles, team );
+		if (spot)
+			return spot; // +9 etc already done
+
+		if (team == TEAM_FREE) // no ffa spawns found for a racer; just try to get a random team one
+			spot = SelectRandomTeamSpawnPoint(teamstate, Q_irand(TEAM_RED, TEAM_BLUE), -1);
+
+		if (!spot) // STILL no spawn found (shouldn't happen)
+			G_Error("No spawn point found");
 	}
 
 	VectorCopy (spot->s.origin, origin);
