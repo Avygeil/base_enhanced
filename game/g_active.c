@@ -4005,7 +4005,7 @@ void SpectatorClientEndFrame( gentity_t *ent ) {
     {
         if (level.pause.state != PAUSE_NONE) {
             int time_delta = level.time - level.previousTime;
-			ent->client->pers.enterTime += (time_delta / 1000);
+			ent->client->pers.enterTime += time_delta;
             ent->client->sess.inactivityTime += (time_delta / 1000);
         }
     }
