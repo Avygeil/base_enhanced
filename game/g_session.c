@@ -153,7 +153,7 @@ void G_InitSessionData( gclient_t *client, char *userinfo, qboolean isBot, qbool
 
 	sess->spectatorState = SPECTATOR_FREE;
 	sess->spectatorTime = level.time;
-    sess->inactivityTime = getGlobalTime() + 1000 * g_spectatorInactivity.integer;
+    sess->inactivityTime = getGlobalTime() + 1 * g_spectatorInactivity.integer;
 
 	sess->siegeClass[0] = 0;
 
