@@ -1974,9 +1974,9 @@ void G_SetTauntAnim( gentity_t *ent, int taunt )
 			return;
 		}
 	}
-	if (g_gametype.integer != GT_DUEL && g_gametype.integer != GT_POWERDUEL && taunt == TAUNT_MEDITATE)
+	if (g_gametype.integer != GT_DUEL && g_gametype.integer != GT_POWERDUEL && taunt == TAUNT_MEDITATE && !ent->client->sess.inRacemode)
 	{
-		return; //no meditating; could be cheesy with hiding behind boxes with really small animation
+		return; //no meditating unless racemode; could be cheesy with hiding behind boxes with really small animation
 	}
 	// *CHANGE 65* fix - release rocket lock, old bug
 	BG_ClearRocketLock(&ent->client->ps);
