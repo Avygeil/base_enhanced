@@ -1882,7 +1882,7 @@ void SP_trigger_asteroid_field(gentity_t *self)
 }
 
 CaptureRecordType FindCaptureTypeForRun( gclient_t *client ) {
-	if ( !level.mapCaptureRecords.enabled || level.mapCaptureRecords.readonly || !client->sess.inRacemode ) {
+	if ( !level.mapCaptureRecords.enabled || level.mapCaptureRecords.readonly || !client->sess.inRacemode || client->runInvalid ) {
 		return CAPTURE_RECORD_INVALID;
 	}
 
@@ -1930,6 +1930,10 @@ static void RaceTrigger_Start( gentity_t *trigger, gentity_t *player, team_t fla
 	}
 
 	gclient_t *client = player->client;
+
+	if (client->runInvalid) {
+		return; // don't let them take the flag if the run is already deemed invalid
+	}
 
 	if ( level.time < client->pers.flagDebounceTime ) {
 		return;

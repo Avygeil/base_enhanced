@@ -1108,14 +1108,17 @@ void WP_ForcePowerRegenerate( gentity_t *self, int overrideAmt )
 		.. and not moving
 		.. and not using any forcepower
 		.. and not carrying a flag
+		.. and not in a special animation
 		*/
 		if ( !self->client->ps.velocity[0] && !self->client->ps.velocity[1] && !self->client->ps.velocity[2] &&
 			!self->client->ps.fd.forcePowersActive &&
-			!( self->client->ps.powerups[PW_REDFLAG] || self->client->ps.powerups[PW_BLUEFLAG] ) ) {
+			!( self->client->ps.powerups[PW_REDFLAG] || self->client->ps.powerups[PW_BLUEFLAG] ) &&
+			!self->client->ps.torsoTimer && !self->client->ps.legsTimer ) {
 			// .. then there is no reason to keep the run invalid/making it a weapons run
 			self->client->usedWeapon = qfalse;
 			self->client->jumpedOrCrouched = qfalse;
 			self->client->usedForwardOrBackward = qfalse;
+			self->client->runInvalid = qfalse;
 			self->client->touchedWaypoints = 0;
 		}
 	}

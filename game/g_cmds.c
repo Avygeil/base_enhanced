@@ -4863,6 +4863,86 @@ void Cmd_AmAutoSpeed_f( gentity_t *ent ) {
 
 /*
 =================
+Cmd_Emote_f
+=================
+*/
+#define NUM_EMOTES				LEGS_TURN180
+#define NUM_EMOTE_COMBINATIONS	(NUM_EMOTES * NUM_EMOTES)
+#define MIN_EMOTE_TIME			1000
+#define MAX_EMOTE_TIME			10000
+
+void Cmd_Emote_f(gentity_t* ent) {
+	if (!ent || !ent->client) {
+		return;
+	}
+
+	if (!g_raceEmotes.integer) {
+		trap_SendServerCommand(ent - g_entities, "print \"Emotes are disabled\n\"");
+		return;
+	}
+
+	gclient_t* client = ent->client;
+
+	if (!client->sess.inRacemode) {
+		trap_SendServerCommand(ent - g_entities, "print \"You cannot use this command outside of racemode\n\"");
+		return;
+	}
+
+	if (client->ps.stats[STAT_HEALTH] <= 0 ||
+		client->ps.pm_type != PM_NORMAL ||
+		client->ps.pm_flags & PMF_STUCK_TO_WALL)
+	{
+		return;
+	}
+
+	char p[MAX_TOKEN_CHARS] = { 0 };
+	int extraTime = 0;
+
+	if (trap_Argc() > 1) {
+		trap_Argv(1, p, sizeof(p));
+
+		if (trap_Argc() > 2) {
+			char s[MAX_TOKEN_CHARS];
+			trap_Argv(2, s, sizeof(s));
+			extraTime = Com_Clampi(0, MAX_EMOTE_TIME, atoi(s));
+		}
+	}
+
+	unsigned int hash;
+
+	if (VALIDSTRING(p)) { // manually-specified animation string
+		hash = XXH32(p, strlen(p), 0x69420) % (unsigned)NUM_EMOTE_COMBINATIONS;
+	} else { // no arg == generate random animations
+		hash = rand() & 0xff;
+		hash |= (rand() & 0xff) << 8;
+		hash |= (rand() & 0xff) << 16;
+		hash &= (unsigned)NUM_EMOTE_COMBINATIONS;
+	}
+
+	unsigned int torso = hash / (unsigned)NUM_EMOTES;
+	unsigned int legs = hash % (unsigned)NUM_EMOTES;
+
+	client->ps.torsoAnim = (signed)torso;
+	client->ps.legsAnim = (signed)legs;
+
+	client->ps.torsoTimer = BG_AnimLength(ent->localAnimIndex, client->ps.torsoAnim);
+	client->ps.legsTimer = BG_AnimLength(ent->localAnimIndex, client->ps.legsAnim);
+
+	// let clients add some extra time to anims up to 10 secs in total
+	client->ps.torsoTimer = Com_Clampi(MIN_EMOTE_TIME, MAX_EMOTE_TIME, client->ps.torsoTimer + extraTime);
+	client->ps.legsTimer = Com_Clampi(MIN_EMOTE_TIME, MAX_EMOTE_TIME, client->ps.legsTimer + extraTime);
+
+	// any run is invalid until amtele/selfkill
+	client->runInvalid = qtrue;
+
+	// if they have a flag, remove it from them so they can't confuse it with a valid run
+	if (client->ps.powerups[PW_REDFLAG] || client->ps.powerups[PW_BLUEFLAG]) {
+		client->ps.powerups[PW_REDFLAG] = client->ps.powerups[PW_BLUEFLAG] = 0;
+	}
+}
+
+/*
+=================
 Cmd_Stats_f
 =================
 */
@@ -6548,6 +6628,8 @@ void ClientCommand( int clientNum ) {
 		Cmd_Amtele_f( ent );
 	else if ( !Q_stricmp( cmd, "amautospeed" ) )
 		Cmd_AmAutoSpeed_f( ent );
+	else if ( !Q_stricmp( cmd, "emote" ) )
+		Cmd_Emote_f( ent );
 #ifdef NEWMOD_SUPPORT
 	else if ( Q_stricmp( cmd, "svauth" ) == 0 && ent->client->sess.auth > PENDING && ent->client->sess.auth < AUTHENTICATED )
 		Cmd_Svauth_f( ent );

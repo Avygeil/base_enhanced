@@ -945,6 +945,7 @@ struct gclient_s {
 	qboolean	usedWeapon; // triggers the weapon capture record category
 	qboolean	jumpedOrCrouched; // invalidates the walk category
 	qboolean	usedForwardOrBackward; // invalidates the ad category
+	qboolean	runInvalid; // run completely invalidated by other means
 
 #ifdef NEWMOD_SUPPORT
 	qboolean	isLagging; // mark lagger without actually changing EF_CONNECTION
@@ -2271,6 +2272,7 @@ extern vmCvar_t	   g_logrcon;
 extern vmCvar_t	   g_flags_overboarding;
 extern vmCvar_t	   g_selfkill_penalty;
 extern vmCvar_t	   g_moreTaunts;
+extern vmCvar_t    g_raceEmotes;
 
 extern vmCvar_t	   g_teamPrivateDuels;
 extern vmCvar_t    g_improvedHoming;

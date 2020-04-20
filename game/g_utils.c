@@ -2593,6 +2593,11 @@ qboolean G_TeleportRacerToTelemark( gentity_t *ent ) {
 	client->usedWeapon = qfalse;
 	client->jumpedOrCrouched = qfalse;
 	client->usedForwardOrBackward = qfalse;
+	client->runInvalid = qfalse;
+
+	// reset animation to prevent both wallrun and emote abuse
+	client->ps.torsoTimer = 0;
+	client->ps.legsTimer = 0;
 
 	// destroy projectiles
 	G_DeletePlayerProjectiles( ent );
