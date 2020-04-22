@@ -158,6 +158,28 @@ vmCvar_t	g_improvedHomingThreshold;
 vmCvar_t	d_debugImprovedHoming;
 vmCvar_t	g_braindeadBots;
 
+vmCvar_t	g_customVotes;
+vmCvar_t	g_customVote1_command;
+vmCvar_t	g_customVote1_label;
+vmCvar_t	g_customVote2_command;
+vmCvar_t	g_customVote2_label;
+vmCvar_t	g_customVote3_command;
+vmCvar_t	g_customVote3_label;
+vmCvar_t	g_customVote4_command;
+vmCvar_t	g_customVote4_label;
+vmCvar_t	g_customVote5_command;
+vmCvar_t	g_customVote5_label;
+vmCvar_t	g_customVote6_command;
+vmCvar_t	g_customVote6_label;
+vmCvar_t	g_customVote7_command;
+vmCvar_t	g_customVote7_label;
+vmCvar_t	g_customVote8_command;
+vmCvar_t	g_customVote8_label;
+vmCvar_t	g_customVote9_command;
+vmCvar_t	g_customVote9_label;
+vmCvar_t	g_customVote10_command;
+vmCvar_t	g_customVote10_label;
+
 vmCvar_t	g_teamPrivateDuels;
 
 vmCvar_t	g_teamOverlayUpdateRate;
@@ -758,6 +780,37 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_improvedHoming, "g_improvedHoming", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 	{ &g_improvedHomingThreshold, "g_improvedHomingThreshold", "500", CVAR_ARCHIVE, 0, qtrue },
 	{ &d_debugImprovedHoming, "d_debugImprovedHoming", "0", CVAR_ARCHIVE, 0, qtrue },
+
+	{ &g_customVotes, "g_customVotes", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
+	{ &g_customVote1_command, "g_customVote1_command", "map_restart", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
+	{ &g_customVote1_label, "g_customVote1_label", "Restart map", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
+
+	{ &g_customVote2_command, "g_customVote2_command", "cointoss", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
+	{ &g_customVote2_label, "g_customVote2_label", "Coin toss", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
+
+	{ &g_customVote3_command, "g_customVote3_command", "pause", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
+	{ &g_customVote3_label, "g_customVote3_label", "Pause", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
+
+	{ &g_customVote4_command, "g_customVote4_command", "unpause", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
+	{ &g_customVote4_label, "g_customVote4_label", "Unpause", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
+
+	{ &g_customVote5_command, "g_customVote5_command", "resetflags", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
+	{ &g_customVote5_label, "g_customVote5_label", "Reset flags", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
+
+	{ &g_customVote6_command, "g_customVote6_command", "endmatch", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
+	{ &g_customVote6_label, "g_customVote6_label", "End match", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
+
+	{ &g_customVote7_command, "g_customVote7_command", "nextmap", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
+	{ &g_customVote7_label, "g_customVote7_label", "Next map", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
+
+	{ &g_customVote8_command, "g_customVote8_command", "", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
+	{ &g_customVote8_label, "g_customVote8_label", "", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
+
+	{ &g_customVote9_command, "g_customVote9_command", "", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
+	{ &g_customVote9_label, "g_customVote9_label", "", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
+
+	{ &g_customVote10_command, "g_customVote10_command", "", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
+	{ &g_customVote10_label, "g_customVote10_label", "", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 
 	{ &g_braindeadBots, "g_braindeadBots", "0", CVAR_ARCHIVE, 0 , qtrue },
 

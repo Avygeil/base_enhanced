@@ -1476,6 +1476,8 @@ qboolean G_GetIPFromString( const char* from, unsigned int* ip );
 
 qboolean FileExists(const char *fileName);
 
+void Q_strstrip(char *string, const char *strip, const char *repl);
+
 //
 // g_object.c
 //
@@ -2279,6 +2281,29 @@ extern vmCvar_t    g_improvedHoming;
 extern vmCvar_t    g_improvedHomingThreshold;
 extern vmCvar_t    d_debugImprovedHoming;
 extern vmCvar_t    g_braindeadBots;
+
+#define MAX_CUSTOM_VOTES	(10)
+extern vmCvar_t    g_customVotes;
+extern vmCvar_t    g_customVote1_command;
+extern vmCvar_t    g_customVote1_label;
+extern vmCvar_t    g_customVote2_command;
+extern vmCvar_t    g_customVote2_label;
+extern vmCvar_t    g_customVote3_command;
+extern vmCvar_t    g_customVote3_label;
+extern vmCvar_t    g_customVote4_command;
+extern vmCvar_t    g_customVote4_label;
+extern vmCvar_t    g_customVote5_command;
+extern vmCvar_t    g_customVote5_label;
+extern vmCvar_t    g_customVote6_command;
+extern vmCvar_t    g_customVote6_label;
+extern vmCvar_t    g_customVote7_command;
+extern vmCvar_t    g_customVote7_label;
+extern vmCvar_t    g_customVote8_command;
+extern vmCvar_t    g_customVote8_label;
+extern vmCvar_t    g_customVote9_command;
+extern vmCvar_t    g_customVote0_label;
+extern vmCvar_t    g_customVote10_command;
+extern vmCvar_t    g_customVote10_label;
 
 extern vmCvar_t	   debug_clientNumLog;
 

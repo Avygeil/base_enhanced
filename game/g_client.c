@@ -2841,6 +2841,37 @@ void G_BroadcastServerFeatureList( int clientNum ) {
 
 	if ( level.locations.enhanced.numUnique )
 		trap_SetConfigstring( CS_ENHANCEDLOCATIONS, locationsListConfigString);
+
+	qboolean gotCustomVote = qfalse;
+	static char customVotesStr[MAX_TOKEN_CHARS] = "cuvo ";
+	if (g_customVotes.integer) {
+		for (int i = 0; i < MAX_CUSTOM_VOTES; i++) {
+			// get the command
+			char cmdBuf[256] = { 0 };
+			trap_Cvar_VariableStringBuffer(va("g_customVote%d_command", i + 1), cmdBuf, sizeof(cmdBuf));
+			if (!cmdBuf[0] || !Q_stricmp(cmdBuf, "0"))
+				continue;
+			Q_strstrip(cmdBuf, ";\"\n\r", NULL); // remove bad chars
+			if (!cmdBuf[0])
+				continue;
+
+			// get the label
+			char labelBuf[256] = { 0 };
+			trap_Cvar_VariableStringBuffer(va("g_customVote%d_label", i + 1), labelBuf, sizeof(labelBuf));
+			if (!labelBuf[0] || !Q_stricmp(labelBuf, "0"))
+				continue;
+			Q_strstrip(labelBuf, "\"\n\r", NULL); // remove bad chars
+			if (!labelBuf[0])
+				continue;
+
+			// append to the overall string
+			if (gotCustomVote)
+				Q_strcat(customVotesStr, sizeof(customVotesStr), " "); // prepend a space if not the first one
+			Q_strcat(customVotesStr, sizeof(customVotesStr), va("\"%s\" \"%s\"", cmdBuf, labelBuf));
+			gotCustomVote = qtrue;
+		}
+	}
+	trap_SetConfigstring(CS_CUSTOMVOTES, gotCustomVote ? customVotesStr : "");
 }
 #endif
 
