@@ -4514,6 +4514,16 @@ void Cmd_Vchat_f(gentity_t *sender) {
 		if ( cl->pers.connected != CON_CONNECTED )
 			continue;
 
+		if (sender->client != cl && cl->sess.ignoreFlags & (1 << (sender - g_entities))) {
+			// this recipient has ignored the sender
+			continue;
+		}
+
+		if (sender->client != cl && sender->client->sess.shadowMuted && !cl->sess.shadowMuted) {
+			// the sender is shadowmuted and this recipient is not shadowmuted
+			continue;
+		}
+
 		int locationToSend = 0;
 		if ( teamOnly ) {
 			team_t senderTeam = sender->client->sess.sessionTeam;
