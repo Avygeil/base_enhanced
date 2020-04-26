@@ -367,6 +367,7 @@ vmCvar_t    g_allow_vote_timelimit;
 vmCvar_t    g_allow_vote_fraglimit;
 vmCvar_t    g_allow_vote_maprandom;
 vmCvar_t    g_allow_vote_warmup;
+vmCvar_t	g_allow_vote_boon;
 vmCvar_t	g_default_capturedifflimit;
 vmCvar_t	g_enable_maprandom_wildcard;
 vmCvar_t	g_redirectDoWarmupVote;
@@ -746,6 +747,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_allow_vote_fraglimit,	"g_allow_vote_fraglimit"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_allow_vote_maprandom, "g_allow_vote_maprandom", "4", CVAR_ARCHIVE, 0, qtrue },
     { &g_allow_vote_warmup, "g_allow_vote_warmup", "1", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_allow_vote_boon, "g_allow_vote_boon", "1", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_default_capturedifflimit, "g_default_capturedifflimit", "10", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_enable_maprandom_wildcard, "g_enable_maprandom_wildcard", "1", CVAR_ARCHIVE, 0, qtrue },

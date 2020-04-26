@@ -2714,6 +2714,8 @@ void Cmd_CallVote_f( gentity_t *ent ) {
     } else if ( !Q_stricmp( arg1, "randomcapts")) {
 	} else if ( !Q_stricmp( arg1, "randomteams" ) ) {
 	} else if ( !Q_stricmp( arg1, "capturedifflimit" ) ) {
+	} else if ( !Q_stricmp( arg1, "enableboon" ) ) {
+	} else if ( !Q_stricmp( arg1, "disableboon" ) ) {
 	} else if ( !Q_stricmp( arg1, "ffa" ) ) {
 	} else if ( !Q_stricmp( arg1, "duel" ) ) {
 	} else if ( !Q_stricmp( arg1, "powerduel" ) ) {
@@ -2725,7 +2727,7 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 		trap_SendServerCommand( ent-g_entities, "print \"Vote commands are: map_restart, nextmap, map <mapname>, g_gametype <n>, "
 			"kick <player>, clientkick <clientnum>, g_doWarmup, timelimit <time>, fraglimit <frags>, "
 			"resetflags, q <question>, pause, unpause, endmatch, randomcapts, randomteams <numRedPlayers> <numBluePlayers>, "
-			"lockteams <numPlayers>, capturedifflimit <capLimit>.\n\"" );
+			"lockteams <numPlayers>, capturedifflimit <capLimit>, enableboon, disableboon.\n\"" );
 		return;
 	}
 
@@ -3143,6 +3145,32 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 
 		Com_sprintf( level.voteString, sizeof( level.voteString ), "%s \"%i\"", arg1, n );
 		Com_sprintf( level.voteDisplayString, sizeof( level.voteDisplayString ), "Capture Diff Limit: %i", n );
+	}
+	else if ( !Q_stricmp( arg1, "enableboon" ) )
+	{
+		if (!g_allow_vote_boon.integer) {
+			trap_SendServerCommand(ent - g_entities, "print \"Vote enableboon is disabled.\n\"");
+			return;
+		}
+
+		if (g_enableBoon.integer) {
+			trap_SendServerCommand(ent - g_entities, "print \"Boon is already enabled.\n\"");
+			return;
+		}
+
+		// Use the value of g_allow_vote_boon for g_enableboon so admins can switch between different behaviors
+		Com_sprintf(level.voteString, sizeof(level.voteString), "g_enableBoon %d;svsay Boon will be enabled next map_restart.", g_allow_vote_boon.integer);
+		Com_sprintf(level.voteDisplayString, sizeof(level.voteDisplayString), "Enable Boon", level.voteString);
+	}
+	else if ( !Q_stricmp( arg1, "disableboon" ) )
+	{
+		if (!g_enableBoon.integer) {
+			trap_SendServerCommand(ent - g_entities, "print \"Boon is already disabled.\n\"");
+			return;
+		}
+
+		Com_sprintf(level.voteString, sizeof(level.voteString), "g_enableBoon %d;svsay Boon will be disabled next map_restart.", 0);
+		Com_sprintf(level.voteDisplayString, sizeof(level.voteDisplayString), "Disable Boon", level.voteString);
 	}
 	else if (!Q_stricmp(arg1, "g_doWarmup"))
 	{
