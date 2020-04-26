@@ -3159,17 +3159,22 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 		}
 
 		// Use the value of g_allow_vote_boon for g_enableboon so admins can switch between different behaviors
-		Com_sprintf(level.voteString, sizeof(level.voteString), "g_enableBoon %d;svsay Boon will be enabled next map_restart.", g_allow_vote_boon.integer);
+		Com_sprintf(level.voteString, sizeof(level.voteString), "g_enableBoon %d;svsay "S_COLOR_CYAN"Boon will be enabled next map_restart.", g_allow_vote_boon.integer);
 		Com_sprintf(level.voteDisplayString, sizeof(level.voteDisplayString), "Enable Boon", level.voteString);
 	}
 	else if ( !Q_stricmp( arg1, "disableboon" ) )
 	{
+		if (!g_allow_vote_boon.integer) {
+			trap_SendServerCommand(ent - g_entities, "print \"Vote disableboon is disabled.\n\"");
+			return;
+		}
+
 		if (!g_enableBoon.integer) {
 			trap_SendServerCommand(ent - g_entities, "print \"Boon is already disabled.\n\"");
 			return;
 		}
 
-		Com_sprintf(level.voteString, sizeof(level.voteString), "g_enableBoon %d;svsay Boon will be disabled next map_restart.", 0);
+		Com_sprintf(level.voteString, sizeof(level.voteString), "g_enableBoon %d;svsay "S_COLOR_CYAN"Boon will be disabled next map_restart.", 0);
 		Com_sprintf(level.voteDisplayString, sizeof(level.voteDisplayString), "Disable Boon", level.voteString);
 	}
 	else if (!Q_stricmp(arg1, "g_doWarmup"))
