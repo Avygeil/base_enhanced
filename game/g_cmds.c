@@ -3260,10 +3260,12 @@ void Cmd_Vote_f( gentity_t *ent ) {
 }
 
 static void Cmd_Ready_f(gentity_t *ent) {
+	/*
 	if (!g_doWarmup.integer || level.restarted  )
 		return;
+	*/
 
-	if (ent->client->pers.readyTime > level.time - 2000)
+	if (ent->client->pers.readyTime > level.time - 500 /*2000*/)
 		return;
 
 	// if (ent->client->sess.sessionTeam == TEAM_SPECTATOR)
@@ -3275,7 +3277,7 @@ static void Cmd_Ready_f(gentity_t *ent) {
 	if (ent->client->pers.ready) {
 		trap_SendServerCommand(ent - g_entities, va("cp \""S_COLOR_GREEN"You are ready\""));
 	}
-	else 
+	else
 	{
 		trap_SendServerCommand(ent - g_entities, va("cp \""S_COLOR_YELLOW"You are NOT ready\""));
 	}

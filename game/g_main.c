@@ -394,6 +394,8 @@ vmCvar_t	sv_passwordlessSpectators;
 vmCvar_t	d_measureAirTime;
 
 vmCvar_t	g_notifyAFK;
+vmCvar_t	g_autoStart;
+vmCvar_t	g_autoStartTimer;
 
 // nmckenzie: temporary way to show player healths in duels - some iface gfx in game would be better, of course.
 // DUEL_HEALTH
@@ -837,6 +839,8 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &d_measureAirTime, "d_measureAirTime", "0", CVAR_TEMP, 0, qtrue },
 
 	{ &g_notifyAFK, "g_notifyAFK", "5", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_autoStart, "g_autoStart", "1", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_autoStartTimer, "g_autoStartTimer", "10", CVAR_ARCHIVE, 0, qtrue },
 };
 
 // bk001129 - made static to avoid aliasing
@@ -4286,7 +4290,7 @@ void CheckReady(void)
 
     // for original functionality of /ready
     // if (!g_doWarmup.integer || !level.numPlayingClients || restarting || level.intermissiontime)
-    if (!g_doWarmup.integer || restarting || level.intermissiontime)
+    if (/*!g_doWarmup.integer || */restarting || level.intermissiontime)
         return;
 
     for (i = 0, ent = g_entities; i < level.maxclients; i++, ent++)
@@ -4703,6 +4707,120 @@ static void RunImprovedHoming(void) {
 	}
 }
 #endif
+
+static int GetCurrentRestartCountdown(void) {
+	char buf[8] = { 0 };
+	trap_GetConfigstring(CS_WARMUP, buf, sizeof(buf));
+	if (buf[0]) {
+		int num = atoi(buf);
+		if (num > 0)
+			return num;
+	}
+	return 0;
+}
+
+#define AUTORESTART_AFK_SECONDS			(10)
+#define AUTORESTART_COUNTDOWN_MIN		(3)
+#define AUTORESTART_COUNTDOWN_MAX		(30)
+#define AUTORESTART_COUNTDOWN_DEFAULT	(10)
+#ifdef _DEBUG
+#define AUTORESTART_MIN_PLAYERS			(2) // 1v1 in debug builds for easy testing
+#else
+#define AUTORESTART_MIN_PLAYERS			(8) // 4v4+
+#endif
+static void RunAutoRestart(void) {
+	if (g_gametype.integer != GT_CTF)
+		return;
+
+	const int currentCountdown = GetCurrentRestartCountdown();
+	static int autoCountdown = 0;
+
+	if (!g_autoStart.integer || level.intermissiontime) {
+		if (currentCountdown && autoCountdown) {
+			// edge case: the g_autoStart cvar was disabled or intermission was reached while the auto countdown was active
+			// cancel the auto countdown
+			trap_SendConsoleCommand(EXEC_APPEND, "map_restart -1\n");
+			autoCountdown = 0;
+		}
+		return;
+	}
+
+	if (autoCountdown && !currentCountdown) {
+		// edge case: an admin used rcon map_restart -1 to cancel the auto countdown
+		// set the g_autoStart cvar to 0 to prevent instantly spamming auto countdown
+		trap_Cvar_Set("g_autoStart", "0");
+		autoCountdown = 0;
+		return;
+	}
+
+	if (currentCountdown && autoCountdown && currentCountdown != autoCountdown) {
+		// edge case: a countdown was started elsewhere (map_restart vote/rcon, etc) while the auto countdown was active
+		// e.g., auto countdown was ticking down with 2 seconds left and then ski used rcon map_restart 300
+		// disable special auto countdown checks (afk detection, etc) so that this function treats it as a manual countdown
+		autoCountdown = 0;
+		return;
+	}
+
+	int numRed = 0, numBlue = 0, numReady = 0;
+	qboolean someoneAfk = qfalse;
+	int now = getGlobalTime();
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *ent = &g_entities[i];
+		if (!ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED)
+			continue;
+		if (ent->client->sess.sessionTeam == TEAM_SPECTATOR || ent->client->sess.sessionTeam == TEAM_FREE)
+			continue;
+
+		if (ent->client->sess.sessionTeam == TEAM_RED)
+			numRed++;
+		else
+			numBlue++;
+
+		if (ent->client->pers.ready)
+			numReady++;
+		if (now - ent->client->pers.lastInputTime > AUTORESTART_AFK_SECONDS)
+			someoneAfk = qtrue;
+	}
+
+	if (currentCountdown) {
+		if (!autoCountdown) {
+			// there is currently a countdown, but it wasn't from here (map_restart vote/rcon, etc); don't do anything at all.
+			return;
+		}
+		if (numReady < numRed + numBlue || someoneAfk || numRed != numBlue || numRed + numBlue < AUTORESTART_MIN_PLAYERS) {
+			/*
+			there is currently an auto countdown, but ANY ONE of the following is true:
+			- someone has unreadied
+			- someone has become afk
+			- the teams have become uneven
+			- there are now less than 8 players ingame
+
+			cancel the auto countdown
+			*/
+			trap_SendConsoleCommand(EXEC_APPEND, "map_restart -1\n");
+			autoCountdown = 0;
+		}
+	}
+	else {
+		if (numRed == numBlue && numRed + numBlue >= AUTORESTART_MIN_PLAYERS && numReady == numRed + numBlue && !someoneAfk) {
+			/*
+			there is NOT currently a countdown, and ALL of the following are true:
+			- everyone is ready
+			- everyone is present
+			- there are at least 8 players ingame
+			- the teams are even
+
+			start the auto countdown
+			*/
+			int seconds = g_autoStartTimer.integer;
+			if (seconds <= 0)
+				seconds = AUTORESTART_COUNTDOWN_DEFAULT;
+			seconds = Com_Clampi(AUTORESTART_COUNTDOWN_MIN, AUTORESTART_COUNTDOWN_MAX, seconds);
+			trap_SendConsoleCommand(EXEC_APPEND, va("map_restart %d\n", seconds));
+			autoCountdown = level.time + (seconds * 1000);
+		}
+	}	
+}
 
 /*
 ================
@@ -5840,6 +5958,8 @@ void G_RunFrame( int levelTime ) {
 #ifdef NEWMOD_SUPPORT
 	RunImprovedHoming();
 #endif
+
+	RunAutoRestart();
 
 	if (!level.firstFrameTime)
 		level.firstFrameTime = trap_Milliseconds();

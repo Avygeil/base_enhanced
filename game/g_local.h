@@ -646,7 +646,9 @@ typedef struct {
 	int			raceTeleportFrame; // for anti-teleport spam
 	int			raceTeleportCount; // for anti-teleport spam
 
-	qboolean	hasDoneSomething;
+	qboolean	hasDoneSomething; // for auto AFK detection
+
+	int			lastInputTime;
 } clientPersistant_t;
 
 typedef struct renderInfo_s
@@ -2323,6 +2325,8 @@ extern vmCvar_t    sv_passwordlessSpectators;
 extern vmCvar_t    d_measureAirTime;
 extern vmCvar_t		g_wasRestarted;
 extern vmCvar_t		g_notifyAFK;
+extern vmCvar_t		g_autoStart;
+extern vmCvar_t		g_autoStartTimer;
 
 int validateAccount(const char* username, const char* password, int num);
 void unregisterUser(const char* username);
