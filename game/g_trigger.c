@@ -2051,8 +2051,8 @@ static void RaceTrigger_Finish( gentity_t *trigger, gentity_t *player ) {
 
 	const int captureTime = G_GetAccurateTimerOnTrigger( &client->pers.teamState.flagsince, player, trigger );
 
-	char matchId[SV_UNIQUEID_LEN];
-	trap_Cvar_VariableStringBuffer( "sv_uniqueid", matchId, sizeof( matchId ) ); // this requires a custom OpenJK build
+	char matchId[SV_MATCHID_LEN];
+	trap_Cvar_VariableStringBuffer( "sv_matchid", matchId, sizeof( matchId ) ); // this requires a custom OpenJK build
 
 	int thisRunMaxSpeed = ( int )( client->pers.fastcapTopSpeed + 0.5f );
 	int thisRunAvgSpeed;

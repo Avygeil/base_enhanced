@@ -5,6 +5,7 @@
 #include "g_database.h"
 
 #include "kdtree.h"
+#include "cJSON.h"
 
 #include "menudef.h"			// for the voice chats
 
@@ -5634,16 +5635,77 @@ static void Cmd_VchatDl_f( gentity_t* ent ) {
 	// no longer used
 }
 
+static char vchatListArgs[MAX_STRING_CHARS] = { 0 };
+
 // use -1 for everyone
 void SendVchatList(int clientNum) {
-	char listBuf[MAX_STRING_CHARS] = { 0 }, baseBuf[MAX_STRING_CHARS] = { 0 };
-	trap_Cvar_VariableStringBuffer("sv_availableVchats", listBuf, sizeof(listBuf));
-	trap_Cvar_VariableStringBuffer("g_vchatdlbase", baseBuf, sizeof(baseBuf));
-
-	if (!listBuf[0] || !Q_stricmp(listBuf, "0") || !baseBuf[0] || !Q_stricmp(baseBuf, "0") || strchr(baseBuf, ' '))
+	if (!VALIDSTRING(vchatListArgs))
 		return;
 
-	trap_SendServerCommand(clientNum, va("kls -1 -1 vchl \"%s\" %s", baseBuf, listBuf));
+	trap_SendServerCommand(clientNum, va("kls -1 -1 vchl %s", vchatListArgs));
+}
+
+#define VCHATPACK_CONFIG_FILE	"vchatpacks.config"
+
+void G_InitVchats() {
+	fileHandle_t f;
+	int len = trap_FS_FOpenFile(VCHATPACK_CONFIG_FILE, &f, FS_READ);
+
+	memset(vchatListArgs, 0, sizeof(vchatListArgs));
+
+	if (!f || len <= 0) {
+		Com_Printf(VCHATPACK_CONFIG_FILE" not found, vchats will be unavailable\n");
+		return;
+	}
+
+	char* buf = (char*)malloc(len + 1);
+	trap_FS_Read(buf, len, f);
+	buf[len] = '\0';
+	trap_FS_FCloseFile(f);
+
+	char parseBuf[MAX_STRING_CHARS] = { 0 };
+	int numParsed = 0;
+
+	cJSON* root = cJSON_Parse(buf);
+	if (root) {
+		cJSON* download_base = cJSON_GetObjectItemCaseSensitive(root, "download_base");
+		if (cJSON_IsString(download_base) && VALIDSTRING(download_base->valuestring) && !strchr(download_base->valuestring, ' ')) {
+			Q_strcat(parseBuf, sizeof(parseBuf), va("\"%s\"", download_base->valuestring));
+
+			cJSON* packs = cJSON_GetObjectItemCaseSensitive(root, "packs");
+			if (cJSON_IsArray(packs)) {
+				int i;
+				for (i = 0; i < cJSON_GetArraySize(packs); ++i) {
+					cJSON* pack = cJSON_GetArrayItem(packs, i);
+
+					cJSON* pack_name = cJSON_GetObjectItemCaseSensitive(pack, "pack_name");
+					cJSON* file_name = cJSON_GetObjectItemCaseSensitive(pack, "file_name");
+					cJSON* version = cJSON_GetObjectItemCaseSensitive(pack, "version");
+
+					if (cJSON_IsString(pack_name) && VALIDSTRING(pack_name->valuestring) && !strchr(pack_name->valuestring, ' ') &&
+						cJSON_IsString(file_name) && VALIDSTRING(file_name->valuestring) && !strchr(file_name->valuestring, ' ') &&
+						cJSON_IsNumber(version) && version > 0)
+					{
+						Q_strcat(parseBuf, sizeof(parseBuf), va(" %s %s %d", pack_name->valuestring, file_name->valuestring, version->valueint));
+						++numParsed;
+					}
+				}
+			}
+		}
+	}
+
+	cJSON_Delete(root);
+	free(buf);
+
+	if (!numParsed) {
+		Com_Printf("WARNING: No vchat pack parsed in "VCHATPACK_CONFIG_FILE", invalid format?\n");
+		return;
+	}
+
+	Com_Printf("Parsed %d vchat packs from "VCHATPACK_CONFIG_FILE"\n", numParsed);
+
+	Q_strncpyz(vchatListArgs, parseBuf, sizeof(vchatListArgs));
+	SendVchatList(-1);
 }
 
 void Cmd_VchatList_f(gentity_t* ent) {

@@ -1132,8 +1132,8 @@ int G_DBAddCaptureTime( unsigned int ipInt,
 		newElement->recordHolderCuid[0] = '\0';
 	}
 
-	// match id is optional, empty if sv_uniqueid is not implemented in this OpenJK version
-	if ( VALIDSTRING( matchId ) && strlen( matchId ) == SV_UNIQUEID_LEN - 1 ) {
+	// match id is optional, empty if sv_matchid is not implemented in this OpenJK version
+	if ( VALIDSTRING( matchId ) && strlen( matchId ) == SV_MATCHID_LEN - 1 ) {
 		Q_strncpyz( newElement->matchId, matchId, sizeof( newElement->matchId ) );
 	} else {
 		newElement->matchId[0] = '\0';
