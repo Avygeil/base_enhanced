@@ -4833,7 +4833,7 @@ static void RunAutoRestart(void) {
 		else if (numRed != numBlue)
 			Q_strncpyz(cancelReason, "Uneven # of players", sizeof(cancelReason));
 		else if (clientNumAfk == CLIENTNUMAFK_MULTIPLE)
-			Q_strncpyz(cancelReason, "Multiple players are not ready", sizeof(cancelReason));
+			Q_strncpyz(cancelReason, "Multiple players are AFK", sizeof(cancelReason));
 		else if (clientNumAfk >= 0 && clientNumAfk < MAX_CLIENTS)
 			Q_strncpyz(cancelReason, va("%s^7 is AFK", level.clients[clientNumAfk].pers.netname), sizeof(cancelReason));
 
