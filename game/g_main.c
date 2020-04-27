@@ -4767,8 +4767,15 @@ static void RunAutoRestart(void) {
 		return;
 	}
 
-	int numRed = 0, numBlue = 0, numReady = 0;
-	qboolean someoneAfk = qfalse;
+	int numRed = 0, numBlue = 0;
+	enum {
+		CLIENTNUMAFK_MULTIPLE = -2,
+		CLIENTNUMAFK_NONE = -1
+	} clientNumAfk = CLIENTNUMAFK_NONE;
+	enum {
+		CLIENTNUMNOTREADY_MULTIPLE = -2,
+		CLIENTNUMNOTREADY_NONE = -1
+	} clientNumNotReady = CLIENTNUMNOTREADY_NONE;
 	int now = getGlobalTime();
 	for (int i = 0; i < MAX_CLIENTS; i++) {
 		gentity_t *ent = &g_entities[i];
@@ -4782,10 +4789,18 @@ static void RunAutoRestart(void) {
 		else
 			numBlue++;
 
-		if (ent->client->pers.ready)
-			numReady++;
-		if (now - ent->client->pers.lastInputTime > AUTORESTART_AFK_SECONDS)
-			someoneAfk = qtrue;
+		if (!ent->client->pers.ready) {
+			if (clientNumNotReady == CLIENTNUMNOTREADY_NONE)
+				clientNumNotReady = i;
+			else
+				clientNumNotReady = CLIENTNUMNOTREADY_MULTIPLE;
+		}
+		if (now - ent->client->pers.lastInputTime > AUTORESTART_AFK_SECONDS) {
+			if (clientNumAfk == CLIENTNUMAFK_NONE)
+				clientNumAfk = i;
+			else
+				clientNumAfk = CLIENTNUMAFK_MULTIPLE;
+		}
 	}
 
 	if (currentCountdown) {
@@ -4793,7 +4808,21 @@ static void RunAutoRestart(void) {
 			// there is currently a countdown, but it wasn't from here (map_restart vote/rcon, etc); don't do anything at all.
 			return;
 		}
-		if (numReady < numRed + numBlue || someoneAfk || numRed != numBlue || numRed + numBlue < AUTORESTART_MIN_PLAYERS) {
+		char cancelReason[256] = { 0 };
+		if (numRed + numBlue < AUTORESTART_MIN_PLAYERS)
+			Q_strncpyz(cancelReason, "Not enough players ingame", sizeof(cancelReason));
+		else if (clientNumNotReady == CLIENTNUMNOTREADY_MULTIPLE)
+			Q_strncpyz(cancelReason, "Multiple players are not ready", sizeof(cancelReason));
+		else if (clientNumNotReady >= 0 && clientNumNotReady < MAX_CLIENTS)
+			Q_strncpyz(cancelReason, va("%s^7 is not ready", level.clients[clientNumNotReady].pers.netname), sizeof(cancelReason));
+		else if (numRed != numBlue)
+			Q_strncpyz(cancelReason, "Uneven # of players", sizeof(cancelReason));
+		else if (clientNumAfk == CLIENTNUMAFK_MULTIPLE)
+			Q_strncpyz(cancelReason, "Multiple players are not ready", sizeof(cancelReason));
+		else if (clientNumAfk >= 0 && clientNumAfk < MAX_CLIENTS)
+			Q_strncpyz(cancelReason, va("%s^7 is AFK", level.clients[clientNumAfk].pers.netname), sizeof(cancelReason));
+
+		if (cancelReason[0]) {
 			/*
 			there is currently an auto countdown, but ANY ONE of the following is true:
 			- someone has unreadied
@@ -4805,10 +4834,12 @@ static void RunAutoRestart(void) {
 			*/
 			trap_SendConsoleCommand(EXEC_APPEND, "map_restart -1\n");
 			autoCountdown = 0;
+			trap_SendServerCommand(-1, va("print \"^1Auto-start cancelled:^7 %s^7\n\"", cancelReason));
+			trap_SendServerCommand(-1, va("cp \"^1Auto-start cancelled:^7\n%s^7\n\"", cancelReason));
 		}
 	}
 	else {
-		if (numRed == numBlue && numRed + numBlue >= AUTORESTART_MIN_PLAYERS && numReady == numRed + numBlue && !someoneAfk) {
+		if (numRed == numBlue && numRed + numBlue >= AUTORESTART_MIN_PLAYERS && clientNumNotReady == CLIENTNUMNOTREADY_NONE && clientNumAfk == CLIENTNUMAFK_NONE) {
 			/*
 			there is NOT currently a countdown, and ALL of the following are true:
 			- everyone is ready
