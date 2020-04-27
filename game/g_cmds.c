@@ -3298,6 +3298,9 @@ static void Cmd_Ready_f(gentity_t *ent) {
 		return;
 	*/
 
+	if (!g_allowReady.integer)
+		return;
+
 	if (ent->client->pers.readyTime > level.time - 500 /*2000*/)
 		return;
 

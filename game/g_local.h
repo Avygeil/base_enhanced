@@ -2267,6 +2267,8 @@ extern vmCvar_t		g_redirectDoWarmupVote;
 extern vmCvar_t		g_redirectNextMapVote;
 extern vmCvar_t     g_restart_countdown;
 
+extern vmCvar_t		g_allowReady;
+
 extern vmCvar_t	g_accounts;
 extern vmCvar_t	g_accountsFile;
 
