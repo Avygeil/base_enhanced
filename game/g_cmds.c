@@ -1751,6 +1751,35 @@ static qboolean ChatLimitExceeded(gentity_t *ent, int mode) {
 	return exceeded;
 }
 
+char *stristr(const char *str1, const char *str2) {
+	const char *p1 = str1;
+	const char *p2 = str2;
+	const char *r = *p2 == 0 ? str1 : 0;
+
+	while (*p1 != 0 && *p2 != 0) {
+		if (tolower((unsigned char)*p1) == tolower((unsigned char)*p2)) {
+			if (r == 0)
+				r = p1;
+			p2++;
+		}
+		else {
+			p2 = str2;
+			if (r != 0)
+				p1 = r + 1;
+			if (tolower((unsigned char)*p1) == tolower((unsigned char)*p2)) {
+				r = p1;
+				p2++;
+			}
+			else {
+				r = 0;
+			}
+		}
+		p1++;
+	}
+
+	return *p2 == 0 ? (char *)r : 0;
+}
+
 static void G_SayTo( gentity_t *ent, gentity_t *other, int mode, int color, const char *name, const char *message, char *locMsg )
 {
 	if (!other) {
@@ -1776,6 +1805,17 @@ static void G_SayTo( gentity_t *ent, gentity_t *other, int mode, int color, cons
 	// if this guy is shadow muted, don't let anyone see his messages except himself and other shadow muted clients
 	if ( ent->client->sess.shadowMuted && ent != other && !other->client->sess.shadowMuted ) {
 		return;
+	}
+
+	if (VALIDSTRING(message)) {
+		char *filter = stristr(message, "sertao");
+		if (filter) {
+			filter += 4;
+			if (*filter == 'a')
+				*filter = 'ã';
+			else if (*filter == 'A')
+				*filter = 'Ã';
+		}
 	}
 
 	//They've requested I take this out.
@@ -2848,6 +2888,17 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 			if ( clientsTotal >= g_mapVoteThreshold.integer && clientsInGame < g_mapVotePlayers.integer ) {
 				trap_SendServerCommand( ent - g_entities, "print \"Not enough players in game to call this vote.\n\"" );
 				return;
+			}
+		}
+
+		if (arg2[0]) {
+			char *filter = stristr(arg2, "sertao");
+			if (filter) {
+				filter += 4;
+				if (*filter == 'a')
+					*filter = 'ã';
+				else if (*filter == 'A')
+					*filter = 'Ã';
 			}
 		}
 
