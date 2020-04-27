@@ -399,6 +399,7 @@ vmCvar_t	d_measureAirTime;
 vmCvar_t	g_notifyAFK;
 vmCvar_t	g_autoStart;
 vmCvar_t	g_autoStartTimer;
+vmCvar_t	g_autoStartAFKThreshold;
 
 // nmckenzie: temporary way to show player healths in duels - some iface gfx in game would be better, of course.
 // DUEL_HEALTH
@@ -847,6 +848,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_notifyAFK, "g_notifyAFK", "5", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_autoStart, "g_autoStart", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_autoStartTimer, "g_autoStartTimer", "10", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_autoStartAFKThreshold, "g_autoStartAFKThreshold", "10", CVAR_ARCHIVE, 0, qtrue },
 };
 
 // bk001129 - made static to avoid aliasing
@@ -4725,7 +4727,9 @@ static int GetCurrentRestartCountdown(void) {
 	return 0;
 }
 
-#define AUTORESTART_AFK_SECONDS			(10)
+#define AUTORESTART_AFK_MIN				(1)
+#define AUTORESTART_AFK_MAX				(30)
+#define AUTORESTART_AFK_DEFAULT			(10)
 #define AUTORESTART_COUNTDOWN_MIN		(3)
 #define AUTORESTART_COUNTDOWN_MAX		(30)
 #define AUTORESTART_COUNTDOWN_DEFAULT	(10)
@@ -4777,6 +4781,10 @@ static void RunAutoRestart(void) {
 		CLIENTNUMNOTREADY_NONE = -1
 	} clientNumNotReady = CLIENTNUMNOTREADY_NONE;
 	int now = getGlobalTime();
+	int afkThreshold = g_autoStartAFKThreshold.integer;
+	if (afkThreshold <= 0)
+		afkThreshold = AUTORESTART_AFK_DEFAULT;
+	afkThreshold = Com_Clampi(AUTORESTART_AFK_MIN, AUTORESTART_AFK_MAX, afkThreshold);
 	for (int i = 0; i < MAX_CLIENTS; i++) {
 		gentity_t *ent = &g_entities[i];
 		if (!ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED)
@@ -4795,7 +4803,7 @@ static void RunAutoRestart(void) {
 			else
 				clientNumNotReady = CLIENTNUMNOTREADY_MULTIPLE;
 		}
-		if (now - ent->client->pers.lastInputTime > AUTORESTART_AFK_SECONDS) {
+		if (now - ent->client->pers.lastInputTime > afkThreshold) {
 			if (clientNumAfk == CLIENTNUMAFK_NONE)
 				clientNumAfk = i;
 			else
