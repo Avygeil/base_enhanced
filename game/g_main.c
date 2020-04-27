@@ -400,6 +400,7 @@ vmCvar_t	g_notifyAFK;
 vmCvar_t	g_autoStart;
 vmCvar_t	g_autoStartTimer;
 vmCvar_t	g_autoStartAFKThreshold;
+vmCvar_t	g_autoStartMinPlayers;
 
 // nmckenzie: temporary way to show player healths in duels - some iface gfx in game would be better, of course.
 // DUEL_HEALTH
@@ -849,6 +850,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_autoStart, "g_autoStart", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_autoStartTimer, "g_autoStartTimer", "10", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_autoStartAFKThreshold, "g_autoStartAFKThreshold", "10", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_autoStartMinPlayers, "g_autoStartMinPlayers", "8", CVAR_ARCHIVE, 0, qtrue },
 };
 
 // bk001129 - made static to avoid aliasing
@@ -4730,14 +4732,15 @@ static int GetCurrentRestartCountdown(void) {
 #define AUTORESTART_AFK_MIN				(1)
 #define AUTORESTART_AFK_MAX				(30)
 #define AUTORESTART_AFK_DEFAULT			(10)
+
 #define AUTORESTART_COUNTDOWN_MIN		(3)
 #define AUTORESTART_COUNTDOWN_MAX		(30)
 #define AUTORESTART_COUNTDOWN_DEFAULT	(10)
-#ifdef _DEBUG
-#define AUTORESTART_MIN_PLAYERS			(2) // 1v1 in debug builds for easy testing
-#else
-#define AUTORESTART_MIN_PLAYERS			(8) // 4v4+
-#endif
+
+#define AUTORESTART_MINPLAYERS_MIN		(2)
+#define AUTORESTART_MINPLAYERS_MAX		(MAX_CLIENTS)
+#define AUTORESTART_MINPLAYERS_DEFAULT	(8) // 4v4
+
 static void RunAutoRestart(void) {
 	if (g_gametype.integer != GT_CTF)
 		return;
@@ -4811,13 +4814,17 @@ static void RunAutoRestart(void) {
 		}
 	}
 
+	int minPlayers = g_autoStartMinPlayers.integer;
+	if (minPlayers <= 0)
+		minPlayers = AUTORESTART_MINPLAYERS_DEFAULT;
+	minPlayers = Com_Clampi(AUTORESTART_MINPLAYERS_MIN, AUTORESTART_MINPLAYERS_MAX, minPlayers);
 	if (currentCountdown) {
 		if (!autoCountdown) {
 			// there is currently a countdown, but it wasn't from here (map_restart vote/rcon, etc); don't do anything at all.
 			return;
 		}
 		char cancelReason[256] = { 0 };
-		if (numRed + numBlue < AUTORESTART_MIN_PLAYERS)
+		if (numRed + numBlue < minPlayers)
 			Q_strncpyz(cancelReason, "Not enough players ingame", sizeof(cancelReason));
 		else if (clientNumNotReady == CLIENTNUMNOTREADY_MULTIPLE)
 			Q_strncpyz(cancelReason, "Multiple players are not ready", sizeof(cancelReason));
@@ -4847,7 +4854,7 @@ static void RunAutoRestart(void) {
 		}
 	}
 	else {
-		if (numRed == numBlue && numRed + numBlue >= AUTORESTART_MIN_PLAYERS && clientNumNotReady == CLIENTNUMNOTREADY_NONE && clientNumAfk == CLIENTNUMAFK_NONE) {
+		if (numRed == numBlue && numRed + numBlue >= minPlayers && clientNumNotReady == CLIENTNUMNOTREADY_NONE && clientNumAfk == CLIENTNUMAFK_NONE) {
 			/*
 			there is NOT currently a countdown, and ALL of the following are true:
 			- everyone is ready

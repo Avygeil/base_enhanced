@@ -2331,6 +2331,7 @@ extern vmCvar_t		g_notifyAFK;
 extern vmCvar_t		g_autoStart;
 extern vmCvar_t		g_autoStartTimer;
 extern vmCvar_t		g_autoStartAFKThreshold;
+extern vmCvar_t		g_autoStartMinPlayers;
 
 int validateAccount(const char* username, const char* password, int num);
 void unregisterUser(const char* username);
