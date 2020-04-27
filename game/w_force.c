@@ -5371,7 +5371,7 @@ void WP_ForcePowersUpdate( gentity_t *self, usercmd_t *ucmd )
 	// boon will cost only half for everyone -sil
 
 	if (self->client->ps.powerups[PW_FORCE_BOON]
-		&& !g_fixboon.integer)
+		&& g_enableBoon.integer >= 2)
 	{
 		prepower = self->client->ps.fd.forcePower;
 	}

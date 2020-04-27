@@ -7,7 +7,7 @@
 extern qboolean BG_SabersOff( playerState_t *ps );
 saberInfo_t *BG_MySaber( int clientNum, int saberNum );
 
-extern vmCvar_t    g_fixboon;
+extern vmCvar_t    g_enableBoon;
 
 int PM_irand_timesync(int val1, int val2)
 {
@@ -96,7 +96,7 @@ void BG_ForcePowerDrain( playerState_t *ps, forcePowers_t forcePower, int overri
 	//and remove it from it from 
 	//WP_ForcePowersUpdate - sil
 	if (ps->powerups[PW_FORCE_BOON] &&
-		g_fixboon.integer && drain > 1) {
+		g_enableBoon.integer == 1 && drain > 1) {
 		drain /= 2;
 	}
 

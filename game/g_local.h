@@ -2260,6 +2260,7 @@ extern vmCvar_t     g_allow_vote_timelimit;
 extern vmCvar_t     g_allow_vote_fraglimit;
 extern vmCvar_t     g_allow_vote_maprandom;
 extern vmCvar_t     g_allow_vote_warmup;
+extern vmCvar_t     g_allow_vote_boon;
 extern vmCvar_t		g_default_capturedifflimit;
 extern vmCvar_t		g_enable_maprandom_wildcard;
 extern vmCvar_t		g_redirectDoWarmupVote;
@@ -2269,8 +2270,8 @@ extern vmCvar_t     g_restart_countdown;
 extern vmCvar_t	g_accounts;
 extern vmCvar_t	g_accountsFile;
 
-extern vmCvar_t	g_whitelist;
-extern vmCvar_t    g_fixboon;
+extern vmCvar_t    g_whitelist;
+extern vmCvar_t    g_enableBoon;
 extern vmCvar_t    g_maxstatusrequests;
 extern vmCvar_t	   g_logrcon;
 extern vmCvar_t	   g_flags_overboarding;
