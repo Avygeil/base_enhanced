@@ -1360,7 +1360,6 @@ void Cmd_Help_f( gentity_t *ent );
 void Cmd_FollowFlag_f( gentity_t *ent );
 void Cmd_FollowTarget_f(gentity_t *ent);
 gentity_t *G_GetDuelWinner(gclient_t *client);
-void SendVchatList(int clientNum);
 char* GetWaypointNames(void);
 
 //
@@ -1751,6 +1750,7 @@ void DeathmatchScoreboardMessage (gentity_t *client);
 // g_cmds.c
 //
 char* NM_SerializeUIntToColor(const unsigned int n);
+void G_InitVchats();
 
 //
 // g_pweapon.c
