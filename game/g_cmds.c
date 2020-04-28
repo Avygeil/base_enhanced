@@ -901,6 +901,10 @@ void SetTeam( gentity_t *ent, char *s ) {
 		}
 	}
 
+	// reset readiness when joining spectators if g_allowReady is 1
+	if (g_allowReady.integer == 1 && (team == TEAM_SPECTATOR || team == TEAM_FREE))
+		client->pers.ready = qfalse;
+
 	client->sess.sessionTeam = team;
 	client->sess.spectatorState = specState;
 	client->sess.spectatorClient = specClient;
@@ -3321,8 +3325,18 @@ static void Cmd_Ready_f(gentity_t *ent) {
 		return;
 	*/
 
-	if (!g_allowReady.integer)
+	// g_allowReady 0 = no readying
+	// g_allowReady 1 = only ingame dudes can ready
+	// g_allowReady 2 = everyone (including specs/racers) can ready
+	if (!g_allowReady.integer) {
+		trap_SendServerCommand(ent - g_entities, "print \"Ready is disabled.\n\"");
 		return;
+	}
+
+	if (g_allowReady.integer == 1 && (ent->client->sess.sessionTeam == TEAM_SPECTATOR || ent->client->sess.sessionTeam == TEAM_FREE)) {
+		trap_SendServerCommand(ent - g_entities, "print \"You must be in-game to ready.\n\"");
+		return;
+	}
 
 	if (ent->client->pers.readyTime > level.time - 500 /*2000*/)
 		return;
