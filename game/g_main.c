@@ -4721,7 +4721,7 @@ static void RunImprovedHoming(void) {
 #endif
 
 static int GetCurrentRestartCountdown(void) {
-	char buf[8] = { 0 };
+	char buf[32] = { 0 };
 	trap_GetConfigstring(CS_WARMUP, buf, sizeof(buf));
 	if (buf[0]) {
 		int num = atoi(buf);
@@ -4768,7 +4768,7 @@ static void RunAutoRestart(void) {
 		return;
 	}
 
-	if (currentCountdown && autoCountdown && currentCountdown != autoCountdown) {
+	if (currentCountdown && autoCountdown && abs(currentCountdown - autoCountdown) > 200) {
 		// edge case: a countdown was started elsewhere (map_restart vote/rcon, etc) while the auto countdown was active
 		// e.g., auto countdown was ticking down with 2 seconds left and then ski used rcon map_restart 300
 		// disable special auto countdown checks (afk detection, etc) so that this function treats it as a manual countdown
@@ -4870,7 +4870,7 @@ static void RunAutoRestart(void) {
 			if (seconds <= 0)
 				seconds = AUTORESTART_COUNTDOWN_DEFAULT;
 			seconds = Com_Clampi(AUTORESTART_COUNTDOWN_MIN, AUTORESTART_COUNTDOWN_MAX, seconds);
-			trap_SendConsoleCommand(EXEC_APPEND, va("map_restart %d\n", seconds));
+			trap_SendConsoleCommand(EXEC_NOW, va("map_restart %d\n", seconds));
 			autoCountdown = level.time + (seconds * 1000);
 		}
 	}	
