@@ -1885,6 +1885,7 @@ void Svcmd_PoolCreate_f()
     if ( trap_Argc() < 3 )
     {
 		G_Printf("Usage: pool_create <short name> <long name>\n");
+		G_Printf("Related commands: pool_delete, pool_map_add, pool_map_remove, pool_list\n");
         return;
     }
 
@@ -1906,16 +1907,17 @@ void Svcmd_PoolDelete_f()
     if ( trap_Argc() < 2 )
     {
 		G_Printf("Usage: pool_delete <short name>\n");
+		G_Printf("Related commands: pool_create, pool_map_add, pool_map_remove, pool_list\n");
         return;
     }
 
     trap_Argv( 1, short_name, sizeof( short_name ) );
 
     if ( G_DBPoolDelete( short_name )) {
-        G_Printf( "Sucessfully deleted pool '%s'.\n", short_name );
+        G_Printf( "Sucessfully deleted pool '%s^7'.\n", short_name );
     }
 	else {
-		G_Printf("Failed to delete pool '%s'!\n", short_name);
+		G_Printf("Failed to delete pool '%s^7'!\n", short_name);
 	}
 
 
@@ -1930,11 +1932,22 @@ void Svcmd_PoolMapAdd_f()
     if ( trap_Argc() < 3 )
     {
 		G_Printf("Usage: pool_map_add <pool short name> <map filename> [weight]   (weight defaults to 1 if unspecified)\n");
+		G_Printf("Related commands: pool_create, pool_delete, pool_map_remove, pool_list\n");
         return;
     }
 
     trap_Argv( 1, short_name, sizeof( short_name ) );
     trap_Argv( 2, mapname, sizeof( mapname ) );
+	if (mapname[0]) {
+		char *filter = stristr(mapname, "sertao");
+		if (filter) {
+			filter += 4;
+			if (*filter == 'a')
+				*filter = 'ã';
+			else if (*filter == 'A')
+				*filter = 'Ã';
+		}
+	}
 
     if ( trap_Argc() > 3 )
     {
@@ -1965,11 +1978,22 @@ void Svcmd_PoolMapRemove_f()
     if ( trap_Argc() < 3 )
     {
 		G_Printf("Usage: pool_map_remove <pool short name> <map filename>\n");
+		G_Printf("Related commands: pool_create, pool_delete, pool_map_add, pool_list\n");
         return;
     } 
 
     trap_Argv( 1, short_name, sizeof( short_name ) );
     trap_Argv( 2, mapname, sizeof( mapname ) );
+	if (mapname[0]) {
+		char *filter = stristr(mapname, "sertao");
+		if (filter) {
+			filter += 4;
+			if (*filter == 'a')
+				*filter = 'ã';
+			else if (*filter == 'A')
+				*filter = 'Ã';
+		}
+	}
 
     if ( G_DBPoolMapRemove( short_name, mapname ) ) {
         G_Printf( "Sucessfully removed ^5%s^7 from pool ^5%s^7.\n", mapname, short_name );
@@ -1978,6 +2002,57 @@ void Svcmd_PoolMapRemove_f()
 		G_Printf("Failed to remove ^5%s^7 from pool ^5%s^7!\n", mapname, short_name);
 	}
 
+}
+
+void svListPools(void *context,
+	int pool_id,
+	const char *short_name,
+	const char *long_name)
+{
+	ListPoolsContext *thisContext = (ListPoolsContext *)context;
+	G_Printf("%s (%s)\n", short_name, long_name);
+	++(thisContext->count);
+}
+
+void svListMapsInPools(void **context,
+	const char *long_name,
+	int pool_id,
+	const char *mapname,
+	int mapWeight)
+{
+	ListMapsInPoolContext *thisContext = *((ListMapsInPoolContext **)context);
+	thisContext->pool_id = pool_id;
+	thisContext->count++;
+	Q_strncpyz(thisContext->long_name, long_name, sizeof(thisContext->long_name));
+	G_Printf(" %s\n", mapname);
+}
+
+
+void Svcmd_MapPool_f(void) {
+	if (trap_Argc() > 1)
+	{
+		ListMapsInPoolContext context;
+		context.count = 0;
+		ListMapsInPoolContext *ctxPtr = &context;
+
+		char short_name[64];
+		trap_Argv(1, short_name, sizeof(short_name));
+
+		G_DBListMapsInPool(short_name, "", svListMapsInPools, (void **)&ctxPtr);
+
+		G_Printf("Found %i maps for pool %s^7.\n", context.count, short_name, context.long_name);
+	}
+	else
+	{
+		ListPoolsContext context;
+		context.count = 0;
+
+		G_DBListPools(svListPools, &context);
+
+		G_Printf("Found %i map pools.\n", context.count);
+		G_Printf("To see a list of maps in a specific pool, use ^5pool_list <pool short name>^7\n");
+		G_Printf("Related commands: pool_create, pool_delete, pool_map_add, pool_map_remove\n");
+	}
 }
 
 typedef struct {
@@ -2515,29 +2590,39 @@ qboolean	ConsoleCommand( void ) {
 		return qtrue;
 	}
 
-    if ( Q_stricmp( cmd, "pool_create" ) == 0 || !Q_stricmp(cmd, "poolcreate") )
+    if ( Q_stricmp( cmd, "pool_create" ) == 0 || !Q_stricmp(cmd, "poolcreate") || !Q_stricmp(cmd, "createpool") || !Q_stricmp(cmd, "create_pool") )
     {
         Svcmd_PoolCreate_f();
         return qtrue;
     }
 
-    if ( Q_stricmp( cmd, "pool_delete" ) == 0 || !Q_stricmp(cmd, "pooldelete") )
+    if ( Q_stricmp( cmd, "pool_delete" ) == 0 || !Q_stricmp(cmd, "pooldelete") || !Q_stricmp(cmd, "deletepool") || !Q_stricmp(cmd, "delete_pool") )
     {
         Svcmd_PoolDelete_f();
         return qtrue;
     }
 
-    if ( Q_stricmp( cmd, "pool_map_add" ) == 0 || !Q_stricmp(cmd, "poolmapadd") )
+    if ( Q_stricmp( cmd, "pool_map_add" ) == 0 || !Q_stricmp(cmd, "poolmapadd") || !Q_stricmp(cmd, "pool_add_map") || !Q_stricmp(cmd, "pooladdmap") ||
+		!Q_stricmp(cmd, "pool_add"))
     {
         Svcmd_PoolMapAdd_f();
         return qtrue;
     }
 
-    if ( Q_stricmp( cmd, "pool_map_remove" ) == 0 || !Q_stricmp(cmd, "poolmapremove") )
+    if ( Q_stricmp( cmd, "pool_map_remove" ) == 0 || !Q_stricmp(cmd, "poolmapremove") || !Q_stricmp(cmd, "pool_remove_map") || !Q_stricmp(cmd, "poolremovemap") ||
+		!Q_stricmp(cmd, "pool_remove"))
     {
         Svcmd_PoolMapRemove_f();
         return qtrue;
     }
+
+	if (!Q_stricmp(cmd, "mappool") || !Q_stricmp(cmd, "mappools") || !Q_stricmp(cmd, "listpool") || !Q_stricmp(cmd, "listpools") ||
+		!Q_stricmp(cmd, "map_pool") || !Q_stricmp(cmd, "map_pools") || !Q_stricmp(cmd, "list_pool") || !Q_stricmp(cmd, "list_pools") ||
+		!Q_stricmp(cmd, "poolmap") || !Q_stricmp(cmd, "pool_map") || !Q_stricmp(cmd, "poollist") || !Q_stricmp(cmd, "pool_list") ||
+		!Q_stricmp(cmd, "poolmaps") || !Q_stricmp(cmd, "pool_maps") || !Q_stricmp(cmd, "pools") || !Q_stricmp(cmd, "pool")) {
+		Svcmd_MapPool_f();
+		return qtrue;
+	}
 
 	//if (Q_stricmp (cmd, "accountadd") == 0) {
 	//	Svcmd_AddAccount_f();

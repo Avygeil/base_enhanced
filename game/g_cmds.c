@@ -1751,35 +1751,6 @@ static qboolean ChatLimitExceeded(gentity_t *ent, int mode) {
 	return exceeded;
 }
 
-char *stristr(const char *str1, const char *str2) {
-	const char *p1 = str1;
-	const char *p2 = str2;
-	const char *r = *p2 == 0 ? str1 : 0;
-
-	while (*p1 != 0 && *p2 != 0) {
-		if (tolower((unsigned char)*p1) == tolower((unsigned char)*p2)) {
-			if (r == 0)
-				r = p1;
-			p2++;
-		}
-		else {
-			p2 = str2;
-			if (r != 0)
-				p1 = r + 1;
-			if (tolower((unsigned char)*p1) == tolower((unsigned char)*p2)) {
-				r = p1;
-				p2++;
-			}
-			else {
-				r = 0;
-			}
-		}
-		p1++;
-	}
-
-	return *p2 == 0 ? (char *)r : 0;
-}
-
 static void G_SayTo( gentity_t *ent, gentity_t *other, int mode, int color, const char *name, const char *message, char *locMsg )
 {
 	if (!other) {
@@ -5463,33 +5434,15 @@ qboolean G_OtherPlayersDueling(void)
 	return qfalse;
 }
 
-typedef struct 
-{
-    int entity;
-    int count;
-
-    char poolName[64];
-} ListPoolsContext;
-
 void listPools( void* context,
     int pool_id,
     const char* short_name,
     const char* long_name )
 {
     ListPoolsContext* thisContext = (ListPoolsContext*)context;
-    trap_SendServerCommand( thisContext->entity, va( "print \"%s (%s)\n\"", short_name, long_name ) );
+    trap_SendServerCommand( thisContext->entity, va( "print \"%s^7 (%s^7)\n\"", short_name, long_name ) );
     ++(thisContext->count);
 }
-
-typedef struct
-{
-    int entity;
-    int count;
-    int pool_id;
-
-    char long_name[64];
-
-} ListMapsInPoolContext;
 
 void listMapsInPools( void** context,
     const char* long_name,
@@ -5501,7 +5454,7 @@ void listMapsInPools( void** context,
     thisContext->pool_id = pool_id;
     thisContext->count++;
     Q_strncpyz( thisContext->long_name, long_name, sizeof( thisContext->long_name ) );
-    trap_SendServerCommand( thisContext->entity, va( "print \" %s\n\"", mapname ) );
+    trap_SendServerCommand( thisContext->entity, va( "print \" %s^7\n\"", mapname ) );
 }
 
 
@@ -5519,7 +5472,7 @@ static void Cmd_MapPool_f(gentity_t* ent)
 
 		G_DBListMapsInPool( short_name, "", listMapsInPools, ( void** )&ctxPtr );
 
-        trap_SendServerCommand( context.entity, va( "print \"Found %i maps for pool %s.\n\"",
+        trap_SendServerCommand( context.entity, va( "print \"Found %i maps for pool %s^7.\n\"",
             context.count, short_name, context.long_name ) );
 	}
 	else
@@ -5531,6 +5484,7 @@ static void Cmd_MapPool_f(gentity_t* ent)
         G_DBListPools( listPools, &context );
 
         trap_SendServerCommand( context.entity, va( "print \"Found %i map pools.\n\"", context.count ) );
+		trap_SendServerCommand(context.entity, "print \"To see a list of maps in a specific pool, use ^5pools <pool short name>^7\n\"");
 	}
 }
 
@@ -6695,7 +6649,10 @@ void ClientCommand( int clientNum ) {
 		Cmd_Vote_f (ent);
 	else if (Q_stricmp(cmd, "ready") == 0)
 		Cmd_Ready_f(ent);
-	else if (Q_stricmp(cmd, "mappool") == 0)
+	else if (!Q_stricmp(cmd, "mappool") || !Q_stricmp(cmd, "mappools") || !Q_stricmp(cmd, "listpool") || !Q_stricmp(cmd, "listpools") ||
+		!Q_stricmp(cmd, "map_pool") || !Q_stricmp(cmd, "map_pools") || !Q_stricmp(cmd, "list_pool") || !Q_stricmp(cmd, "list_pools") ||
+		!Q_stricmp(cmd, "poolmap") || !Q_stricmp(cmd, "pool_map") || !Q_stricmp(cmd, "poollist") || !Q_stricmp(cmd, "pool_list") ||
+		!Q_stricmp(cmd, "poolmaps") || !Q_stricmp(cmd, "pool_maps") || !Q_stricmp(cmd, "pools") || !Q_stricmp(cmd, "pool")) // fuck off
 		Cmd_MapPool_f(ent);
     else if ( Q_stricmp( cmd, "whois" ) == 0 )
         Cmd_WhoIs_f( ent );

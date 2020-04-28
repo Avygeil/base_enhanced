@@ -1479,6 +1479,7 @@ qboolean G_GetIPFromString( const char* from, unsigned int* ip );
 qboolean FileExists(const char *fileName);
 
 void Q_strstrip(char *string, const char *strip, const char *repl);
+char *stristr(const char *str1, const char *str2);
 
 //
 // g_object.c
@@ -1753,6 +1754,24 @@ void DeathmatchScoreboardMessage (gentity_t *client);
 // g_cmds.c
 //
 char* NM_SerializeUIntToColor(const unsigned int n);
+
+typedef struct
+{
+	int entity;
+	int count;
+
+	char poolName[64];
+} ListPoolsContext;
+
+typedef struct
+{
+	int entity;
+	int count;
+	int pool_id;
+
+	char long_name[64];
+
+} ListMapsInPoolContext;
 
 //
 // g_pweapon.c
