@@ -1041,7 +1041,7 @@ typedef struct
 } rosterData;
 
 // best capture times stuff
-#define SV_UNIQUEID_LEN		17 // 2 concatenated hex 4 bytes ints, so 2*8 chars + NULL
+#define SV_MATCHID_LEN		17 // 2 concatenated hex 4 bytes ints, so 2*8 chars + NULL
 #define MAX_SAVED_RECORDS	9 // records saved per mode
 
 typedef struct {
@@ -1055,7 +1055,7 @@ typedef struct {
 	int avgSpeed; // average speed in ups
 	time_t date; // epoch time of the record (seconds)
 
-	char matchId[SV_UNIQUEID_LEN]; // used to link to the game on demoarchive, but requires special OpenJK (may be empty)
+	char matchId[SV_MATCHID_LEN]; // used to link to the game on demoarchive, but requires special OpenJK (may be empty)
 	int recordHolderClientId; // client id assigned when the record took place
 	int pickupLevelTime; // level.time when flag was picked up
 
@@ -1362,7 +1362,6 @@ void Cmd_Help_f( gentity_t *ent );
 void Cmd_FollowFlag_f( gentity_t *ent );
 void Cmd_FollowTarget_f(gentity_t *ent);
 gentity_t *G_GetDuelWinner(gclient_t *client);
-void SendVchatList(int clientNum);
 char* GetWaypointNames(void);
 
 //
@@ -1754,6 +1753,7 @@ void DeathmatchScoreboardMessage (gentity_t *client);
 // g_cmds.c
 //
 char* NM_SerializeUIntToColor(const unsigned int n);
+void G_InitVchats();
 
 typedef struct
 {
