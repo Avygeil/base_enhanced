@@ -903,7 +903,7 @@ void SetTeam( gentity_t *ent, char *s ) {
 
 	// reset readiness when joining spectators if g_allowReady is 1
 	if (g_allowReady.integer == 1 && (team == TEAM_SPECTATOR || team == TEAM_FREE))
-		client->pers.ready = qfalse;
+		SetReadyBool(ent, qfalse);
 
 	client->sess.sessionTeam = team;
 	client->sess.spectatorState = specState;
@@ -3319,6 +3319,30 @@ void Cmd_Vote_f( gentity_t *ent ) {
 	// for players entering or leaving
 }
 
+// sets pers.ready or readyToExit (depending on intermission),
+// and sends the event for clients with client num 16+
+void SetReadyBool(gentity_t *ent, qboolean newReady) {
+	if (!ent || !ent->client) {
+		assert(qfalse);
+		return;
+	}
+
+	if (level.intermissiontime) {
+		if (ent->client->readyToExit == newReady)
+			return; // already done
+		ent->client->readyToExit = newReady;
+	}
+	else {
+		if (ent->client->pers.ready == newReady)
+			return; // already done
+		ent->client->pers.ready = newReady;
+	}
+
+	// broadcast the special event if needed
+	if (g_broadcastExpandedReady.integer && ent - g_entities >= 16)
+		BroadcastExpandedReady(-1);
+}
+
 static void Cmd_Ready_f(gentity_t *ent) {
 	/*
 	if (!g_doWarmup.integer || level.restarted  )
@@ -3344,7 +3368,8 @@ static void Cmd_Ready_f(gentity_t *ent) {
 	// if (ent->client->sess.sessionTeam == TEAM_SPECTATOR)
     //     return;
 
-	ent->client->pers.ready = !ent->client->pers.ready;
+	SetReadyBool(ent, !ent->client->pers.ready);
+	//ent->client->pers.ready = !ent->client->pers.ready;
 	ent->client->pers.readyTime = level.time;
 
 	if (ent->client->pers.ready) {

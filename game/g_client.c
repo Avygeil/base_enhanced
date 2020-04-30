@@ -2782,6 +2782,29 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 }
 
 #ifdef NEWMOD_SUPPORT
+void BroadcastExpandedReady(int clientNum) {
+	int readyBits = 0;
+	for (int i = 16; i < level.maxclients; i++) {
+		gentity_t *ent = &g_entities[i];
+		if (!ent || !ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED)
+			continue;
+		if ((level.intermissiontime && ent->client->readyToExit) || (!level.intermissiontime && ent->client->pers.ready))
+			readyBits |= (1 << (i - 16));
+	}
+
+	if (g_developer.integer)
+		Com_Printf("BroadcastExpandedReady: sent %d to %s\n", readyBits, clientNum >= 0 && clientNum < MAX_CLIENTS ? va("client %d only", clientNum) : "everyone");
+
+	gentity_t *te = G_TempEntity(vec3_origin, EV_MISC_MODEL_EXP);
+	te->s.eventParm = 0; // makes it do nothing
+	te->s.brokenLimbs = 1; // to signify this is expanded ready
+	te->s.trickedentindex = readyBits;
+	te->r.svFlags |= SVF_BROADCAST;
+	if (clientNum >= 0 && clientNum < MAX_CLIENTS) {
+		te->r.svFlags |= SVF_SINGLECLIENT;
+		te->r.singleClient = clientNum;
+	}
+}
 
 void G_BroadcastServerFeatureList( int clientNum ) {
 	static char commandListCmd[MAX_TOKEN_CHARS] =
@@ -3109,6 +3132,7 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 
 #ifdef NEWMOD_SUPPORT
 	G_BroadcastServerFeatureList( clientNum );
+	BroadcastExpandedReady(clientNum);
 
 	if ( ent->client->sess.isInkognito )
 		trap_SendServerCommand( ent - g_entities, "kls -1 -1 \"inko\" \"1\"" ); // only update if enabled
