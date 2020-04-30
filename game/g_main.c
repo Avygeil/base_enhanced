@@ -402,8 +402,6 @@ vmCvar_t	g_autoStartTimer;
 vmCvar_t	g_autoStartAFKThreshold;
 vmCvar_t	g_autoStartMinPlayers;
 
-vmCvar_t	g_broadcastExpandedReady;
-
 // nmckenzie: temporary way to show player healths in duels - some iface gfx in game would be better, of course.
 // DUEL_HEALTH
 vmCvar_t		g_showDuelHealths;
@@ -853,8 +851,6 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_autoStartTimer, "g_autoStartTimer", "10", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_autoStartAFKThreshold, "g_autoStartAFKThreshold", "10", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_autoStartMinPlayers, "g_autoStartMinPlayers", "8", CVAR_ARCHIVE, 0, qtrue },
-
-	{ &g_broadcastExpandedReady, "g_broadcastExpandedReady", "1", CVAR_ARCHIVE, 0, qtrue },
 };
 
 // bk001129 - made static to avoid aliasing
@@ -1857,7 +1853,6 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 	trap_Cvar_Set( "capturedifflimit", g_default_capturedifflimit.string );
 
 	G_BroadcastServerFeatureList(-1);
-	BroadcastExpandedReady(-1);
 
 	G_InitVchats();
 }

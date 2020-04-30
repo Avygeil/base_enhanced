@@ -786,7 +786,7 @@ void SetTeamQuick(gentity_t *ent, int team, qboolean doBegin)
 
 	// reset readiness when joining spectators if g_allowReady is 1
 	if (g_allowReady.integer == 1 && (team == TEAM_SPECTATOR || team == TEAM_FREE))
-		SetReadyBool(ent, qfalse);
+		ent->client->pers.ready = qfalse;
 
 	ent->client->sess.sessionTeam = team;
 

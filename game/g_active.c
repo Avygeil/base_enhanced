@@ -918,8 +918,7 @@ void ClientIntermissionThink( gclient_t *client ) {
 	client->buttons = client->pers.cmd.buttons;
 	if ( client->buttons & ( BUTTON_ATTACK | BUTTON_USE_HOLDABLE ) & ( client->oldbuttons ^ client->buttons ) ) {
 		// this used to be an ^1 but once a player says ready, it should stick
-		//client->readyToExit = 1;
-		SetReadyBool(&g_entities[client - level.clients], qtrue);
+		client->readyToExit = 1;
 	}
 }
 
@@ -4050,7 +4049,6 @@ void ClientEndFrame( gentity_t *ent ) {
 				G_BroadcastServerFeatureList(ent - g_entities);
 				if (ent->client->sess.isInkognito)
 					trap_SendServerCommand(ent - g_entities, "kls -1 -1 \"inko\" \"1\""); // only update if enabled
-				BroadcastExpandedReady(ent - g_entities);
 				lastTimePostLagMessagesSent[ent - g_entities] = now;
 			}
 		}

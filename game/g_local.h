@@ -596,7 +596,7 @@ typedef struct {
 	int			voteCount;			// to prevent people from constantly calling votes
 	int			teamVoteCount;		// to prevent people from constantly calling votes
 	qboolean	teamInfo;			// send team overlay updates?
-	qboolean	ready; // try to set this only from SetReadyBool
+	qboolean	ready;
 	int			readyTime;
 
     // info maintained for inactivity detection
@@ -1719,7 +1719,6 @@ void CalculateRanks( void );
 qboolean SpotWouldTelefrag( gentity_t *spot );
 void NormalizeName(const char *in, char *out, int outSize, int colorlessSize);
 #ifdef NEWMOD_SUPPORT
-void BroadcastExpandedReady(int clientNum);
 void G_BroadcastServerFeatureList(int clientNum);
 #endif
 extern gentity_t *gJMSaberEnt;
@@ -1753,7 +1752,6 @@ void DeathmatchScoreboardMessage (gentity_t *client);
 //
 // g_cmds.c
 //
-void SetReadyBool(gentity_t *ent, qboolean newReady);
 char* NM_SerializeUIntToColor(const unsigned int n);
 void G_InitVchats();
 
@@ -2353,8 +2351,6 @@ extern vmCvar_t		g_autoStart;
 extern vmCvar_t		g_autoStartTimer;
 extern vmCvar_t		g_autoStartAFKThreshold;
 extern vmCvar_t		g_autoStartMinPlayers;
-
-extern vmCvar_t		g_broadcastExpandedReady;
 
 int validateAccount(const char* username, const char* password, int num);
 void unregisterUser(const char* username);
