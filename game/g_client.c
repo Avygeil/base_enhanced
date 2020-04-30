@@ -2783,6 +2783,8 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 
 #ifdef NEWMOD_SUPPORT
 void BroadcastExpandedReady(int clientNum) {
+	if (!g_broadcastExpandedReady.integer)
+		return;
 	int readyBits = 0;
 	for (int i = 16; i < level.maxclients; i++) {
 		gentity_t *ent = &g_entities[i];
