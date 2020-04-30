@@ -3193,7 +3193,7 @@ void CheckIntermissionExit( void ) {
 
 		if ( cl->readyToExit ) {
 			ready++;
-			if ( i < 16 ) {
+			if ( i < 15 ) {
 				readyMask |= 1 << i;
 			}
 		} else if (cl->sess.sessionTeam != TEAM_SPECTATOR && !(g_gametype.integer == GT_CTF && cl->sess.sessionTeam == TEAM_FREE)) {
@@ -4315,7 +4315,7 @@ void CheckReady(void)
         if (ent->client->pers.ready)
         {
             readyCount++;
-            if (i < 16)
+            if (i < 15)
                 readyMask |= (1 << i);
         }
 

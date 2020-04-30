@@ -3348,11 +3348,11 @@ static void Cmd_Ready_f(gentity_t *ent) {
 	ent->client->pers.readyTime = level.time;
 
 	if (ent->client->pers.ready) {
-		trap_SendServerCommand(ent - g_entities, va("cp \""S_COLOR_GREEN"You are ready\""));
+		trap_SendServerCommand(ent - g_entities, va("cp \"^2You are ready^7%s\"", ent - g_entities >= 15 ? "\n\nDue to a base JKA bug, you will NOT\nappear ready on the scoreboard.\nA fix is being worked on." : ""));
 	}
 	else
 	{
-		trap_SendServerCommand(ent - g_entities, va("cp \""S_COLOR_YELLOW"You are NOT ready\""));
+		trap_SendServerCommand(ent - g_entities, va("cp \"^3You are NOT ready^7\""));
 	}
 }
 
@@ -6723,7 +6723,7 @@ void ClientCommand( int clientNum ) {
 		Cmd_CallVote_f (ent);
 	else if (Q_stricmp (cmd, "vote") == 0)
 		Cmd_Vote_f (ent);
-	else if (Q_stricmp(cmd, "ready") == 0)
+	else if (Q_stricmp(cmd, "ready") == 0 || !Q_stricmp(cmd, "readyup"))
 		Cmd_Ready_f(ent);
 	else if (!Q_stricmp(cmd, "mappool") || !Q_stricmp(cmd, "mappools") || !Q_stricmp(cmd, "listpool") || !Q_stricmp(cmd, "listpools") ||
 		!Q_stricmp(cmd, "map_pool") || !Q_stricmp(cmd, "map_pools") || !Q_stricmp(cmd, "list_pool") || !Q_stricmp(cmd, "list_pools") ||

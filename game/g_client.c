@@ -2790,7 +2790,7 @@ void G_BroadcastServerFeatureList( int clientNum ) {
 		"followflag \"Cycles between flag carriers as a spectator\" "
 		"rules \"Displays server rules\" "
 		"mappool \"Lists server map pools and their content\" "
-		"ready \"Marks yourself as ready to be part of random teams\" "
+		"ready \"Marks yourself as ready\" "
 		"ctfstats \"Shows stats for the current CTF game\" "
 		"toptimes \"Leaderboard of the fastest caps\" "
 		"inkognito \"Hides whom you are following on the scoreboard\" "
