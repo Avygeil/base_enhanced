@@ -3319,6 +3319,117 @@ void Cmd_Vote_f( gentity_t *ent ) {
 	// for players entering or leaving
 }
 
+void BroadcastScoreboardTags(int recipient) {
+	if (!g_scoreboardTags.integer)
+		return;
+
+	// first, mark everyone who is connected
+	unsigned int connectedPlayers = 0;
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *ent = &g_entities[i];
+		if (!ent || !ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED)
+			continue;
+		connectedPlayers |= (1 << i);
+	}
+
+	// next, loop through and group them all together based on having the same tag
+	char buf[MAX_STRING_CHARS] = "kls -1 -1 tags";
+	unsigned int donePlayers = 0;
+	qboolean gotEmpty = qfalse, gotAnything = qfalse;
+	int preventInfiniteLoop = 0;
+	while (donePlayers != connectedPlayers) {
+		if (++preventInfiniteLoop >= 64) {
+			assert(qfalse);
+			G_LogPrintf("Warning: infinite loop avoided in BroadcastScoreboardTags\n");
+			break;
+		}
+		char *tag = NULL;
+		unsigned int playersWithCurrentTag = 0;
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *ent = &g_entities[i];
+			if (!ent || !ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED)
+				continue;
+			if (donePlayers & (1 << i))
+				continue; // we already handled this guy
+			if (!gotEmpty) { // we first handle people that have NO tag
+				if (!ent->client->pers.scoreboardTag[0]) { // this guy is one of those people with NO tag
+					playersWithCurrentTag |= (1 << i);
+					donePlayers |= (1 << i);
+				}
+			}
+			else if (VALIDSTRING(tag)) { // we have a tag we are searching for
+				if (!Q_stricmp(tag, ent->client->pers.scoreboardTag)) { // this guy has the tag we are searching for
+					playersWithCurrentTag |= (1 << i);
+					donePlayers |= (1 << i);
+				}
+			}
+			else if (ent->client->pers.scoreboardTag[0]) { // we don't currently have a tag we are searching for and this guy has a tag; search for it
+				tag = ent->client->pers.scoreboardTag;
+				playersWithCurrentTag |= (1 << i);
+				donePlayers |= (1 << i);
+			}
+			else { // wtf? this guy doesn't have a tag but somehow he wasn't included in the empty tag pass (should never happen)
+				assert(qfalse);
+			}
+		}
+
+		if (!gotEmpty && playersWithCurrentTag) { // empty tag (¶)
+			Q_strcat(buf, sizeof(buf), va(" 0 %x ¶", playersWithCurrentTag));
+			gotAnything = qtrue;
+		}
+		else if (VALIDSTRING(tag) && playersWithCurrentTag) { // real tag
+			Q_strcat(buf, sizeof(buf), va(" 0 %x \"%s\"", playersWithCurrentTag, tag));
+			gotAnything = qtrue;
+		}
+
+		gotEmpty = qtrue;
+	}
+
+	if (!gotAnything)
+		return; // nothing to send
+
+	if (g_developer.integer)
+		Com_Printf("BroadcastScoreboardTags: sending to %s: %s\n",
+			recipient >= 0 && recipient < MAX_CLIENTS ? va("client %d", recipient) : "everyone", buf);
+
+	trap_SendServerCommand(recipient, buf);
+}
+
+// returns qtrue if the tag was actually changed from its existing value
+qboolean SetScoreboardTag(int clientNum, const char *tag, qboolean broadcastIfChanged) {
+	if (!g_scoreboardTags.integer)
+		return;
+
+	qboolean changed = qfalse;
+
+	if (clientNum >= 0 && clientNum < MAX_CLIENTS) {
+		// set an individual client
+		gentity_t *ent = &g_entities[clientNum];
+		if (!ent || !ent->inuse || !ent->client/* || ent->client->pers.connected != CON_CONNECTED*/)
+			return qfalse;
+
+		if (Q_stricmp(ent->client->pers.scoreboardTag, tag))
+			changed = qtrue;
+
+		if (VALIDSTRING(tag))
+			Q_strncpyz(ent->client->pers.scoreboardTag, tag, sizeof(ent->client->pers.scoreboardTag));
+		else
+			ent->client->pers.scoreboardTag[0] = '\0';
+	}
+	else {
+		// set everyone
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			if (SetScoreboardTag(i, tag, qfalse)) // dank recursion
+				changed = qtrue;
+		}
+	}
+
+	if (broadcastIfChanged && changed)
+		BroadcastScoreboardTags(-1);
+
+	return changed;
+}
+
 static void Cmd_Ready_f(gentity_t *ent) {
 	/*
 	if (!g_doWarmup.integer || level.restarted  )
@@ -3349,10 +3460,12 @@ static void Cmd_Ready_f(gentity_t *ent) {
 
 	if (ent->client->pers.ready) {
 		trap_SendServerCommand(ent - g_entities, va("cp \"^2You are ready^7%s\"", ent - g_entities >= 15 ? "\n\nDue to a base JKA bug, you will NOT\nappear ready on the scoreboard.\nA fix is being worked on." : ""));
+		SetScoreboardTag(ent - g_entities, "READY", qtrue);
 	}
 	else
 	{
 		trap_SendServerCommand(ent - g_entities, va("cp \"^3You are NOT ready^7\""));
+		SetScoreboardTag(ent - g_entities, NULL, qtrue);
 	}
 }
 

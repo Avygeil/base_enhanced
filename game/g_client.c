@@ -2837,6 +2837,9 @@ void G_BroadcastServerFeatureList( int clientNum ) {
 	if (g_improvedHoming.integer)
 		Q_strcat(featureListConfigString, sizeof(featureListConfigString), "rhom ");
 
+	if (g_scoreboardTags.integer)
+		Q_strcat(featureListConfigString, sizeof(featureListConfigString), "tags ");
+
 	trap_SetConfigstring(CS_SERVERFEATURELIST, featureListConfigString);
 
 	if ( level.locations.enhanced.numUnique )
@@ -3109,6 +3112,7 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 
 #ifdef NEWMOD_SUPPORT
 	G_BroadcastServerFeatureList( clientNum );
+	BroadcastScoreboardTags(clientNum);
 
 	if ( ent->client->sess.isInkognito )
 		trap_SendServerCommand( ent - g_entities, "kls -1 -1 \"inko\" \"1\"" ); // only update if enabled

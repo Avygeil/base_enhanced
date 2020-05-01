@@ -4047,6 +4047,7 @@ void ClientEndFrame( gentity_t *ent ) {
 			int now = trap_Milliseconds();
 			if (!lastTimePostLagMessagesSent[ent - g_entities] || now - lastTimePostLagMessagesSent[ent - g_entities] >= 3000) {
 				G_BroadcastServerFeatureList(ent - g_entities);
+				BroadcastScoreboardTags(ent - g_entities);
 				if (ent->client->sess.isInkognito)
 					trap_SendServerCommand(ent - g_entities, "kls -1 -1 \"inko\" \"1\""); // only update if enabled
 				lastTimePostLagMessagesSent[ent - g_entities] = now;

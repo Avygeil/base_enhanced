@@ -649,6 +649,7 @@ typedef struct {
 	qboolean	hasDoneSomething; // for auto AFK detection
 
 	int			lastInputTime;
+	char		scoreboardTag[64]; // a small message for the scoreboard
 } clientPersistant_t;
 
 typedef struct renderInfo_s
@@ -1363,6 +1364,8 @@ void Cmd_FollowFlag_f( gentity_t *ent );
 void Cmd_FollowTarget_f(gentity_t *ent);
 gentity_t *G_GetDuelWinner(gclient_t *client);
 char* GetWaypointNames(void);
+void BroadcastScoreboardTags(int recipient);
+qboolean SetScoreboardTag(int clientNum, const char *tag, qboolean broadcast);
 
 //
 // g_items.c
@@ -2351,6 +2354,8 @@ extern vmCvar_t		g_autoStart;
 extern vmCvar_t		g_autoStartTimer;
 extern vmCvar_t		g_autoStartAFKThreshold;
 extern vmCvar_t		g_autoStartMinPlayers;
+
+extern vmCvar_t		g_scoreboardTags;
 
 int validateAccount(const char* username, const char* password, int num);
 void unregisterUser(const char* username);
