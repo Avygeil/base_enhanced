@@ -3398,7 +3398,7 @@ void BroadcastScoreboardTags(int recipient) {
 // returns qtrue if the tag was actually changed from its existing value
 qboolean SetScoreboardTag(int clientNum, const char *tag, qboolean broadcastIfChanged) {
 	if (!g_scoreboardTags.integer)
-		return;
+		return qfalse;
 
 	qboolean changed = qfalse;
 
