@@ -1514,6 +1514,27 @@ void trap_OutOfBandPrint( int clientNum, const char* text )
 {
 	syscall( G_OOBPRINT, clientNum, text );
 }
+
+void trap_SetConfigstringNoUpdate( int num, const char* string )
+{
+	syscall( G_SET_CONFIGSTRING_NO_UPDATE, num, string );
+}
+
+qboolean trap_SendGETRequest( trsfHandle_t* handle, const char* url, const char* headerAccept, const char* headerContentType )
+{
+	return syscall( G_SEND_GET_REQUEST, handle, url, headerAccept, headerContentType );
+}
+
+qboolean trap_SendPOSTRequest( trsfHandle_t* handle, const char* url, const char* data, const char* headerAccept, const char* headerContentType, qboolean receiveResult )
+{
+	return syscall( G_SEND_POST_REQUEST, handle, url, data, headerAccept, headerContentType, receiveResult );
+}
+
+qboolean trap_SendMultipartPOSTRequest(trsfHandle_t* handle, const char* url, trsfFormPart_t* multiPart, size_t numParts, const char* headerAccept, const char* headerContentType, qboolean receiveResult)
+{
+	return syscall(G_SEND_MULTIPART_POST_REQUEST, handle, url, multiPart, numParts, headerAccept, headerContentType, receiveResult);
+}
+
 #endif
 
 #include "namespace_end.h"

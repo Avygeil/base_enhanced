@@ -153,6 +153,9 @@ vmCvar_t	g_selfkill_penalty;
 vmCvar_t    g_moreTaunts;
 vmCvar_t	g_raceEmotes;
 
+vmCvar_t	g_webhookId;
+vmCvar_t	g_webhookToken;
+
 vmCvar_t	g_improvedHoming;
 vmCvar_t	g_improvedHomingThreshold;
 vmCvar_t	d_debugImprovedHoming;
@@ -781,6 +784,9 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_moreTaunts, "g_moreTaunts", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_raceEmotes, "g_raceEmotes", "1", CVAR_ARCHIVE, 0, qtrue },
 
+	{ &g_webhookId, "g_webhookId", "", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_webhookToken, "g_webhookToken", "", CVAR_ARCHIVE, 0, qfalse },
+
 	{ &g_teamPrivateDuels, "g_teamPrivateDuels", "0", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_teamOverlayUpdateRate, "g_teamOverlayUpdateRate", "250", CVAR_ARCHIVE, 0, qtrue },
@@ -1072,6 +1078,13 @@ int vmMain( int command, int arg0, int arg1, int arg2, int arg3, int arg4, int a
 		return 0;
 	case GAME_GETITEMINDEXBYTAG:
 		return BG_GetItemIndexByTag(arg0, arg1);
+
+	// base_enhanced
+
+	case GAME_TRANSFER_RESULT:
+		G_HandleTransferResult((trsfHandle_t)arg0, (trsfErrorInfo_t*)arg1, arg2, (void*)arg3, (size_t)arg4);
+		return 0;
+
 	}
 
 	return -1;
@@ -2786,13 +2799,13 @@ BeginIntermission
 */
 //ghost debug
 
-extern void PrintStatsTo( gentity_t *ent, const char *type );
+extern void PrintStatsTo( gentity_t *ent, const char *type, char* outputBuffer, size_t outSize );
 
-void BeginIntermission( void ) {
+void BeginIntermission(void) {
 	int			i;
-	gentity_t	*client;
+	gentity_t* client;
 
-	if ( level.intermissiontime ) {
+	if (level.intermissiontime) {
 		return;		// already active
 	}
 
@@ -2800,8 +2813,8 @@ void BeginIntermission( void ) {
 	trap_Cvar_Set("g_wasIntermission", "1");
 
 	// if in tournement mode, change the wins / losses
-	if ( g_gametype.integer == GT_DUEL || g_gametype.integer == GT_POWERDUEL ) {
-		trap_SetConfigstring ( CS_CLIENT_DUELWINNER, "-1" );
+	if (g_gametype.integer == GT_DUEL || g_gametype.integer == GT_POWERDUEL) {
+		trap_SetConfigstring(CS_CLIENT_DUELWINNER, "-1");
 
 		if (g_gametype.integer != GT_POWERDUEL)
 		{
@@ -2818,7 +2831,7 @@ void BeginIntermission( void ) {
 	}
 
 	//*CHANGE 32* printing tops on intermission
-	if (g_gametype.integer == GT_CTF){//NYI
+	if (g_gametype.integer == GT_CTF) {//NYI
 	}
 
 	level.intermissiontime = level.time;
@@ -2827,7 +2840,7 @@ void BeginIntermission( void ) {
 	//what the? Well, I don't want this to happen.
 
 	// move all clients to the intermission point
-	for (i=0 ; i< level.maxclients ; i++) {
+	for (i = 0; i < level.maxclients; i++) {
 		client = g_entities + i;
 		if (!client->inuse)
 			continue;
@@ -2840,15 +2853,45 @@ void BeginIntermission( void ) {
 				respawn(client);
 			}
 		}
-		MoveClientToIntermission( client );
+		MoveClientToIntermission(client);
 	}
 
 	// send the current scoring to all clients
 	SendScoreboardMessageToAllClients();
 
-	if ( g_autoStats.integer ) {
-		PrintStatsTo( NULL, "general" );
-		PrintStatsTo( NULL, "force" );
+	char statsBuf[4096] = { 0 };
+
+	if (g_autoStats.integer) {
+		PrintStatsTo(NULL, "general", statsBuf, sizeof(statsBuf));
+		PrintStatsTo(NULL, "force", statsBuf, sizeof(statsBuf));
+		Q_StripColor(statsBuf);
+	}
+
+	if (level.numTeamTicks) {
+		float avgRed = (float)level.numRedPlayerTicks / (float)level.numTeamTicks;
+		float avgBlue = (float)level.numBluePlayerTicks / (float)level.numTeamTicks;
+
+		int avgRedInt = (int)lroundf(avgRed);
+		int avgBlueInt = (int)lroundf(avgBlue);
+
+		int durationMins = (level.time - level.startTime) / 60000;
+
+		// a pug is considered live if:
+		// * the level was map_restarted
+		// * the match lasted at least 10 mins
+		// * the average rounded integer number of players in each team is equal
+		// * the sum of these average integers is >= 4 (at least 2s)
+		// * both averages are within +/- 0.1 of their rounded values
+		// (accounts for subs, ragequits, random joins... 0.1 represents 2 mins of a 20 mins pug)
+		if (level.wasRestarted &&
+			durationMins >= 10 &&
+			avgRedInt == avgBlueInt &&
+			avgRedInt + avgBlueInt >= 4 &&
+			fabs(avgRed - round(avgRed)) < 0.1f &&
+			fabs(avgBlue - round(avgBlue)) < 0.1f)
+		{
+			G_PostScoreboardToWebhook(statsBuf);
+		}
 	}
 }
 
@@ -5697,6 +5740,12 @@ void G_RunFrame( int levelTime ) {
 				WP_SaberPositionUpdate(ent, &ent->client->pers.cmd);
 				WP_SaberStartMissileBlockCheck(ent, &ent->client->pers.cmd);
 
+				if (ent->client->sess.sessionTeam == TEAM_RED) {
+					level.numRedPlayerTicks++;
+				} else if (ent->client->sess.sessionTeam == TEAM_BLUE) {
+					level.numBluePlayerTicks++;
+				}
+
 				if ( ent->client->ps.stats[STAT_HEALTH] > 0 && !( ent->client->ps.eFlags & EF_DEAD ) ) {
 					// this client is in game and alive, update speed stats
 
@@ -5771,6 +5820,10 @@ void G_RunFrame( int levelTime ) {
 #ifdef _G_FRAME_PERFANAL
 	iTimer_ItemRun = trap_PrecisionTimer_End(timer_ItemRun);
 #endif
+
+	if (level.pause.state == PAUSE_NONE && !level.intermissiontime) {
+		level.numTeamTicks++;
+	}
 
 	SiegeCheckTimers();
 

@@ -1721,6 +1721,7 @@ void	Q_strcat( char *dest, int size, const char *src );
 int Q_PrintStrlen( const char *string );
 // removes color sequences from string
 char *Q_CleanStr( char *string );
+void Q_StripColor(char* text);
 
 //=============================================
 

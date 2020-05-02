@@ -585,7 +585,11 @@ Ghoul2 Insert End
 
 #ifdef NEW_TRAP_CALLS
 	// new base_enhanced trap calls
-	G_OOBPRINT = 1337
+	G_OOBPRINT = 1337,
+	G_SET_CONFIGSTRING_NO_UPDATE,
+	G_SEND_GET_REQUEST,
+	G_SEND_POST_REQUEST,
+	G_SEND_MULTIPART_POST_REQUEST
 #endif
 
 } gameImport_t;
@@ -807,7 +811,10 @@ typedef enum {
 	GAME_NAV_ENTISREMOVABLEUSABLE,
 	GAME_NAV_FINDCOMBATPOINTWAYPOINTS,
 	
-	GAME_GETITEMINDEXBYTAG
+	GAME_GETITEMINDEXBYTAG,
+
+	// base_enhanced
+	GAME_TRANSFER_RESULT = 1337
 } gameExport_t;
 
 typedef struct
@@ -933,5 +940,35 @@ typedef struct
 {
 	char string[2048];
 } T_G_ICARUS_GETSETIDFORSTRING;
+
+// curl stuff
+typedef int trsfHandle_t;
+
+typedef struct trsfErrorInfo_s {
+	int			code; // CURLcode
+	const char* desc;
+} trsfErrorInfo_t;
+
+// Four possible scenarios:
+// * isFile false:
+//     * fromDisk false: bufSize bytes from buf are copied and sent as content
+//     * fromDisk true: uses the content of the file in filename as content, but
+//       don't send this part as a file upload
+// * isFile true:
+//     * fromDisk false: bufSize bytes from buf are copied and sent as file upload
+//       and filename is used for the filename of the file part
+//     * fromDisk true: uses the content of the file in filename as content AND
+//       its basename for the filename of the file part
+typedef struct trsfFormPart_s {
+	const char* partName; // name in the multipart, always required
+
+	qboolean	isFile; // if set, this part is sent as a file upload part	
+	qboolean	fromDisk; // if set, the content is read from disk
+
+	const char* filename;
+
+	const void* buf;
+	size_t		bufSize;
+} trsfFormPart_t;
 
 #endif //G_PUBLIC_H

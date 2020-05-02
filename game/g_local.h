@@ -1301,6 +1301,11 @@ typedef struct {
 	vec3_t			waypointUpperBounds[NUM_WAYPOINTS];
 	XXH32_hash_t	waypointHash;
 
+	// used to keep track of the average number of humans in each team throughout the pug
+	unsigned int	numRedPlayerTicks;
+	unsigned int	numBluePlayerTicks;
+	unsigned int	numTeamTicks;
+
 #ifdef NEWMOD_SUPPORT
 	qboolean nmAuthEnabled;
 	publicKey_t publicKey;
@@ -1332,6 +1337,12 @@ qboolean G_UnlinkAccountFromSession( session_t* session );
 void G_ListSessionsForAccount( account_t* account, ListAccountSessionsCallback callback, void* ctx );
 qboolean G_SessionInfoHasString( const session_t* session, const char* key );
 void G_GetStringFromSessionInfo( const session_t* session, const char* key, char* outValue, size_t outValueSize );
+
+//
+// g_transfers.c
+//
+void G_HandleTransferResult(trsfHandle_t handle, trsfErrorInfo_t* errorInfo, int responseCode, void* data, size_t size);
+void G_PostScoreboardToWebhook(const char* stats);
 
 //
 // g_spawn.c
@@ -2300,6 +2311,9 @@ extern vmCvar_t	   g_selfkill_penalty;
 extern vmCvar_t	   g_moreTaunts;
 extern vmCvar_t    g_raceEmotes;
 
+extern vmCvar_t    g_webhookId;
+extern vmCvar_t    g_webhookToken;
+
 extern vmCvar_t	   g_teamPrivateDuels;
 extern vmCvar_t    g_improvedHoming;
 extern vmCvar_t    g_improvedHomingThreshold;
@@ -2674,6 +2688,10 @@ void trap_Bot_CalculatePaths(int rmg);
 #ifdef NEW_TRAP_CALLS
 // new base_enhanced trap calls
 void trap_OutOfBandPrint( int clientNum, const char* text );
+void trap_SetConfigstringNoUpdate( int num, const char* string );
+qboolean trap_SendGETRequest( trsfHandle_t* handle, const char* url, const char* headerAccept, const char* headerContentType );
+qboolean trap_SendPOSTRequest( trsfHandle_t* handle, const char* url, const char* data, const char* headerAccept, const char* headerContentType, qboolean receiveResult );
+qboolean trap_SendMultipartPOSTRequest(trsfHandle_t* handle, const char* url, trsfFormPart_t* multiPart, size_t numParts, const char* headerAccept, const char* headerContentType, qboolean receiveResult);
 #endif
 
 #include "namespace_end.h"
