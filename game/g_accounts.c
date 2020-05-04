@@ -148,9 +148,6 @@ static ID_INLINE int GetLowestSetBitIndex( int n ) {
 }
 
 void G_InitClientSession( gclient_t *client ) {
-#ifndef SESSIONS_ACCOUNTS_SYSTEM
-	return;
-#endif
 	session_t* newSessionPtr = NULL;
 	client->session = NULL;
 
@@ -242,9 +239,6 @@ void G_InitClientSession( gclient_t *client ) {
 }
 
 void G_InitClientAccount( gclient_t* client ) {
-#ifndef SESSIONS_ACCOUNTS_SYSTEM
-	return;
-#endif
 	account_t* newAccountPtr = NULL;
 	client->account = NULL;
 
