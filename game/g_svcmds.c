@@ -2088,7 +2088,7 @@ void Svcmd_Account_f( void ) {
 		if ( !Q_stricmp( s, "create" ) ) {
 
 			if ( trap_Argc() < 3 ) {
-				G_Printf( "Usage: account create <username>\n" );
+				G_Printf( "Usage: "S_COLOR_YELLOW"account create <username>\n" );
 				return;
 			}
 
@@ -2133,7 +2133,7 @@ void Svcmd_Account_f( void ) {
 		} else if ( !Q_stricmp( s, "delete" ) ) {
 
 			if ( trap_Argc() < 3 ) {
-				G_Printf( "Usage: account delete <username>\n" );
+				G_Printf( "Usage: "S_COLOR_YELLOW"account delete <username>\n" );
 				return;
 			}
 
@@ -2156,7 +2156,7 @@ void Svcmd_Account_f( void ) {
 		} else if ( !Q_stricmp( s, "info" ) ) {
 
 			if ( trap_Argc() < 3 ) {
-				G_Printf( "Usage: account info <username>\n" );
+				G_Printf( "Usage: "S_COLOR_YELLOW"account info <username>\n" );
 				return;
 			}
 
@@ -2218,10 +2218,10 @@ void Svcmd_Account_f( void ) {
 	if ( printHelp ) {
 		G_Printf(
 			"Valid subcommands:\n"
-			"account create <username>: Creates a new account with the given name\n"
-			"account delete <username>: Deletes the given account and unlinks all associated sessions\n"
-			"account info <username>: Prints various information for the given account name\n"
-			"account help: Prints this message\n"
+			S_COLOR_YELLOW"account create <username>"S_COLOR_WHITE": Creates a new account with the given name\n"
+			S_COLOR_YELLOW"account delete <username>"S_COLOR_WHITE": Deletes the given account and unlinks all associated sessions\n"
+			S_COLOR_YELLOW"account info <username>"S_COLOR_WHITE": Prints various information for the given account name\n"
+			S_COLOR_YELLOW"account help"S_COLOR_WHITE": Prints this message\n"
 		);
 	}
 }
@@ -2300,7 +2300,7 @@ void Svcmd_Session_f( void ) {
 		} else if ( !Q_stricmp( s, "link" ) ) {
 
 			if ( trap_Argc() < 4 ) {
-				G_Printf( "Usage: session link <session id> <account name>\n" );
+				G_Printf( "Usage: "S_COLOR_YELLOW"session link <session id> <account name>\n" );
 				return;
 			}
 
@@ -2343,7 +2343,7 @@ void Svcmd_Session_f( void ) {
 		} else if ( !Q_stricmp( s, "linkingame" ) ) {
 
 			if ( trap_Argc() < 4 ) {
-				G_Printf( "Usage: session linkingame <client id> <account name>\n" );
+				G_Printf( "Usage: "S_COLOR_YELLOW"session linkingame <client id> <account name>\n" );
 				return;
 			}
 
@@ -2386,7 +2386,7 @@ void Svcmd_Session_f( void ) {
 		} else if ( !Q_stricmp( s, "unlink" ) ) {
 
 			if ( trap_Argc() < 3 ) {
-				G_Printf( "Usage: session unlink <session id>\n" );
+				G_Printf( "Usage: "S_COLOR_YELLOW"session unlink <session id>\n" );
 				return;
 			}
 
@@ -2424,7 +2424,7 @@ void Svcmd_Session_f( void ) {
 		} else if ( !Q_stricmp( s, "unlinkingame" ) ) {
 
 			if ( trap_Argc() < 3 ) {
-				G_Printf( "Usage: session unlinkingame <client id>\n" );
+				G_Printf( "Usage: "S_COLOR_YELLOW"session unlinkingame <client id>\n" );
 				return;
 			}
 
@@ -2472,14 +2472,14 @@ void Svcmd_Session_f( void ) {
 	if ( printHelp ) {
 		G_Printf(
 			"Valid subcommands:\n"
-			"session whois: Lists the session currently in use by all in-game players\n"
-			"session latest: Lists the latest unassigned sessions\n"
-			"session info <session id>: Prints detailed information for the given session ID\n"
-			"session link <session id> <account name>: Links the given session ID to an existing account\n"
-			"session linkingame <client id> <account name>: Shortcut command to link an in-game client's session to an existing account\n"
-			"session unlink <session id>: Unlinks the account associated to the given session ID\n"
-			"session unlinkingame <client id>: Shortcut command to unlink the account associated to an in-game client's session\n"
-			"session help: Prints this message\n"
+			S_COLOR_YELLOW"session whois"S_COLOR_WHITE": Lists the session currently in use by all in-game players\n"
+			S_COLOR_YELLOW"session latest"S_COLOR_WHITE": Lists the latest unassigned sessions\n"
+			S_COLOR_YELLOW"session info <session id>"S_COLOR_WHITE": Prints detailed information for the given session ID\n"
+			S_COLOR_YELLOW"session link <session id> <account name>"S_COLOR_WHITE": Links the given session ID to an existing account\n"
+			S_COLOR_YELLOW"session linkingame <client id> <account name>"S_COLOR_WHITE": Shortcut command to link an in-game client's session to an existing account\n"
+			S_COLOR_YELLOW"session unlink <session id>"S_COLOR_WHITE": Unlinks the account associated to the given session ID\n"
+			S_COLOR_YELLOW"session unlinkingame <client id>"S_COLOR_WHITE": Shortcut command to unlink the account associated to an in-game client's session\n"
+			S_COLOR_YELLOW"session help"S_COLOR_WHITE": Prints this message\n"
 		);
 	}
 }
