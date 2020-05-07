@@ -137,7 +137,7 @@ static void BuildSessionInfo( char* outInfo, size_t outInfoSize, gclient_t *clie
 	cJSON_Delete( root );
 }
 
-static sessionIdentifier_t HashSessionIdentifier( const char* info ) {
+static sessionInfoHash_t HashSessionInfo( const char* info ) {
 	return XXH64( info, strlen( info ), 0L );
 }
 
@@ -176,8 +176,8 @@ void G_InitClientSession( gclient_t *client ) {
 		return;
 	}
 
-	// compute the identifier from the info
-	sessionIdentifier_t sessionIdentifier = HashSessionIdentifier( sessionInfo );
+	// compute the hash from the info
+	sessionInfoHash_t infoHash = HashSessionInfo( sessionInfo );
 
 	// find a free slot while reusing another client's session if possible
 
@@ -192,7 +192,7 @@ void G_InitClientSession( gclient_t *client ) {
 			// this slot is taken
 			freeSlots &= ~( 1 << level.clients[i].sess.sessionCacheNum );
 
-			if ( level.clients[i].session->identifier == sessionIdentifier ) {
+			if ( level.clients[i].session->hash == infoHash ) {
 				// reuse this client's session data
 #ifdef _DEBUG
 				G_LogPrintf( "Using existing session from client %d for client %d (cache num: %d, sess id: %d)\n", i, client - level.clients, level.clients[i].sess.sessionCacheNum, level.clients[i].session->id );
@@ -218,12 +218,12 @@ void G_InitClientSession( gclient_t *client ) {
 	newSessionPtr = &clientSessions[lowestSlotAvailable];
 
 	// try to pull the session from db
-	if ( !G_DBGetSessionByIdentifier( sessionIdentifier, newSessionPtr ) ) {
+	if ( !G_DBGetSessionByHash( infoHash, newSessionPtr ) ) {
 
 		// not found: create a new one and pull it immediately
 
-		G_DBCreateSession( sessionIdentifier, sessionInfo );
-		if ( !G_DBGetSessionByIdentifier( sessionIdentifier, newSessionPtr ) ) {
+		G_DBCreateSession( infoHash, sessionInfo );
+		if ( !G_DBGetSessionByHash( infoHash, newSessionPtr ) ) {
 			G_LogPrintf( "ERROR: Failed to create a new session for client %d\n", client - level.clients );
 			return;
 		}
@@ -423,16 +423,16 @@ sessionReference_t G_GetSessionByID( const int id, qboolean onlineOnly ) {
 	return GetSession( ValidateSessionID, PullSessionByID, &id, onlineOnly );
 }
 
-static qboolean ValidateSessionIdentifier( const session_t* session, const void* ctx ) {
-	return session->identifier == *( ( const sessionIdentifier_t* )ctx );
+static qboolean ValidateSessionHash( const session_t* session, const void* ctx ) {
+	return session->hash == *( ( const sessionInfoHash_t* )ctx );
 }
 
-static qboolean PullSessionByIdentifier( session_t* session, const void* ctx ) {
-	return G_DBGetSessionByIdentifier( *( ( const sessionIdentifier_t* )ctx ), session );
+static qboolean PullSessionByHash( session_t* session, const void* ctx ) {
+	return G_DBGetSessionByHash( *( ( const sessionInfoHash_t* )ctx ), session );
 }
 
-sessionReference_t G_GetSessionByIdentifier( const sessionIdentifier_t identifier, qboolean onlineOnly ) {
-	return GetSession( ValidateSessionIdentifier, PullSessionByIdentifier, &identifier, onlineOnly );
+sessionReference_t G_GetSessionByHash( const sessionInfoHash_t hash, qboolean onlineOnly ) {
+	return GetSession( ValidateSessionHash, PullSessionByHash, &hash, onlineOnly );
 }
 
 typedef qboolean ( *AccountValidator )( const account_t* account, const void* ctx );

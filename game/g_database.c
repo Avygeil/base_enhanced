@@ -258,7 +258,7 @@ static const char* sqlGetSessionByID =
 "FROM sessions                                                               \n"
 "WHERE sessions.identifier = ?1;                                               ";
 
-static const char* sqlGetSessionByIdentifier =
+static const char* sqlGetSessionByHash =
 "SELECT session_id, info, account_id                                         \n"
 "FROM sessions                                                               \n"
 "WHERE sessions.identifier = ?1;                                               ";
@@ -395,11 +395,11 @@ qboolean G_DBGetSessionByID( const int id,
 	int rc = sqlite3_step( statement );
 
 	if ( rc == SQLITE_ROW ) {
-		const sessionIdentifier_t identifier = sqlite3_column_int64( statement, 0 );
+		const sessionInfoHash_t hash = sqlite3_column_int64( statement, 0 );
 		const char* info = ( const char* )sqlite3_column_text( statement, 1 );
 
 		session->id = id;
-		session->identifier = identifier;
+		session->hash = hash;
 		Q_strncpyz( session->info, info, sizeof( session->info ) );
 
 		if ( sqlite3_column_type( statement, 2 ) != SQLITE_NULL ) {
@@ -417,14 +417,14 @@ qboolean G_DBGetSessionByID( const int id,
 	return found;
 }
 
-qboolean G_DBGetSessionByIdentifier( const sessionIdentifier_t identifier,
+qboolean G_DBGetSessionByHash( const sessionInfoHash_t hash,
 	session_t* session )
 {
 	sqlite3_stmt* statement;
 
-	sqlite3_prepare( dbPtr, sqlGetSessionByIdentifier, -1, &statement, 0 );
+	sqlite3_prepare( dbPtr, sqlGetSessionByHash, -1, &statement, 0 );
 
-	sqlite3_bind_int64( statement, 1, identifier );
+	sqlite3_bind_int64( statement, 1, hash );
 
 	qboolean found = qfalse;
 	int rc = sqlite3_step( statement );
@@ -434,7 +434,7 @@ qboolean G_DBGetSessionByIdentifier( const sessionIdentifier_t identifier,
 		const char* info = ( const char* )sqlite3_column_text( statement, 1 );
 		
 		session->id = session_id;
-		session->identifier = identifier;
+		session->hash = hash;
 		Q_strncpyz( session->info, info, sizeof( session->info ) );
 
 		if ( sqlite3_column_type( statement, 2 ) != SQLITE_NULL ) {
@@ -452,14 +452,14 @@ qboolean G_DBGetSessionByIdentifier( const sessionIdentifier_t identifier,
 	return found;
 }
 
-void G_DBCreateSession( const sessionIdentifier_t identifier,
+void G_DBCreateSession( const sessionInfoHash_t hash,
 	const char* info )
 {
 	sqlite3_stmt* statement;
 
 	sqlite3_prepare( dbPtr, sqlCreateSession, -1, &statement, 0 );
 
-	sqlite3_bind_int64( statement, 1, identifier );
+	sqlite3_bind_int64( statement, 1, hash );
 	sqlite3_bind_text( statement, 2, info, -1, 0 );
 
 	sqlite3_step( statement );
@@ -512,12 +512,12 @@ void G_DBListSessionsForAccount( account_t* account,
 		session_t session;
 
 		const int session_id = sqlite3_column_int( statement, 0 );
-		const sqlite3_int64 identifier = sqlite3_column_int64( statement, 1 );
+		const sqlite3_int64 hash = sqlite3_column_int64( statement, 1 );
 		const char* info = ( const char* )sqlite3_column_text( statement, 2 );
 		const qboolean referenced = !!sqlite3_column_int( statement, 3 );
 
 		session.id = session_id;
-		session.identifier = identifier;
+		session.hash = hash;
 		Q_strncpyz( session.info, info, sizeof( session.info ) );
 		session.accountId = account->id;
 

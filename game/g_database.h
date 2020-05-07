@@ -33,10 +33,10 @@ qboolean G_DBDeleteAccount( account_t* account );
 qboolean G_DBGetSessionByID( const int id,
 	session_t* session );
 
-qboolean G_DBGetSessionByIdentifier( const sessionIdentifier_t identifier,
+qboolean G_DBGetSessionByHash( const sessionInfoHash_t hash,
 	session_t* session );
 
-void G_DBCreateSession( const sessionIdentifier_t identifier,
+void G_DBCreateSession( const sessionInfoHash_t hash,
 	const char* info );
 
 void G_DBLinkAccountToSession( session_t* session,

@@ -458,13 +458,14 @@ typedef struct {
 
 #define MAX_SESSIONINFO_LEN		256
 
-typedef long long sessionIdentifier_t;
+// 64 bits for now - expand to 128 if collisions occur
+typedef unsigned long long sessionInfoHash_t;
 
 #define ACCOUNT_ID_UNLINKED		-1;
 
 typedef struct {
 	int id;
-	sessionIdentifier_t identifier;
+	sessionInfoHash_t hash;
 	char info[MAX_SESSIONINFO_LEN];
 	int accountId;
 } session_t;
@@ -1329,7 +1330,7 @@ void G_InitClientAccount( gclient_t* client );
 qboolean G_CreateAccount( const char* name, accountReference_t* out );
 qboolean G_DeleteAccount( account_t* account );
 sessionReference_t G_GetSessionByID( const int id, qboolean onlineOnly );
-sessionReference_t G_GetSessionByIdentifier( const sessionIdentifier_t identifier, qboolean onlineOnly );
+sessionReference_t G_GetSessionByHash( const sessionInfoHash_t hash, qboolean onlineOnly );
 accountReference_t G_GetAccountByID( const int id, qboolean onlineOnly );
 accountReference_t G_GetAccountByName( const char* name, qboolean onlineOnly );
 qboolean G_LinkAccountToSession( session_t* session, account_t* account );

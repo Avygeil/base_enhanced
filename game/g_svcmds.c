@@ -2075,7 +2075,7 @@ static void FormatAccountSessionList( void *ctx, const sessionReference_t sessio
 
 	Q_strcat( out->format, sizeof( out->format ), va( S_COLOR_WHITE"Session ID %d ", sessionRef.ptr->id ) );
 	if ( VALIDSTRING( sessFlags ) ) Q_strcat( out->format, sizeof( out->format ), va( "%s ", sessFlags ) );
-	Q_strcat( out->format, sizeof( out->format ), va( S_COLOR_WHITE"(identifier: %llX)\n", sessionRef.ptr->identifier ) );
+	Q_strcat( out->format, sizeof( out->format ), va( S_COLOR_WHITE"(hash: %llX)\n", sessionRef.ptr->hash ) );
 }
 
 void Svcmd_Account_f( void ) {
@@ -2263,8 +2263,8 @@ void Svcmd_Session_f( void ) {
 					char line[MAX_STRING_CHARS];
 					line[0] = '\0';
 
-					Q_strcat( line, sizeof( line ), va( "%sClient %d "S_COLOR_WHITE"(%s"S_COLOR_WHITE"): Session ID %d (identifier: %llX)",
-						color, i, client->pers.netname, client->session->id, client->session->identifier ) );
+					Q_strcat( line, sizeof( line ), va( "%sClient %d "S_COLOR_WHITE"(%s"S_COLOR_WHITE"): Session ID %d (hash: %llX)",
+						color, i, client->pers.netname, client->session->id, client->session->hash ) );
 
 					if ( client->account ) {
 						Q_strcat( line, sizeof( line ), va( " linked to Account ID %d '%s'", client->account->id, client->account->name ) );
