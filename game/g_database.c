@@ -254,17 +254,17 @@ static const char* sqlDeleteAccount =
 "DELETE FROM accounts WHERE accounts.account_id = ?1;                          ";
 
 static const char* sqlGetSessionByID =
-"SELECT identifier, info, account_id                                         \n"
+"SELECT hash, info, account_id                                               \n"
 "FROM sessions                                                               \n"
-"WHERE sessions.identifier = ?1;                                               ";
+"WHERE sessions.hash = ?1;                                                     ";
 
 static const char* sqlGetSessionByHash =
 "SELECT session_id, info, account_id                                         \n"
 "FROM sessions                                                               \n"
-"WHERE sessions.identifier = ?1;                                               ";
+"WHERE sessions.hash = ?1;                                                     ";
 
 static const char* sqlCreateSession =
-"INSERT INTO sessions ( identifier, info ) VALUES ( ?1, ?2 );                  ";
+"INSERT INTO sessions ( hash, info ) VALUES ( ?1, ?2 );                        ";
 
 static const char* sqlLinkAccountToSession =
 "UPDATE sessions                                                             \n"
@@ -272,7 +272,7 @@ static const char* sqlLinkAccountToSession =
 "WHERE session_id = ?2;                                                        ";
 
 static const char* sqlListSessionIdsForAccount =
-"SELECT session_id, identifier, info, referenced                             \n"
+"SELECT session_id, hash, info, referenced                                   \n"
 "FROM sessions_info                                                          \n"
 "WHERE sessions_info.account_id = ?1;                                          ";
 

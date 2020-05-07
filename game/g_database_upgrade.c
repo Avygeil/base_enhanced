@@ -325,6 +325,18 @@ static void UpgradeDBToVersion2(sqlite3* dbPtr) {
 	sqlite3_exec(dbPtr, sqlAddSeedField, NULL, NULL, NULL);
 }
 
+// ================ V3 UPGRADE =================================================
+
+const char* const v3Upgrade =
+"ALTER TABLE sessions RENAME COLUMN identifier TO hash;        \n"
+"UPDATE accounts SET name = LOWER(name);                         ";
+
+static void UpgradeDBToVersion3(sqlite3* dbPtr) {
+	// rename sessions column identifier -> hash
+	// force lowercase for existing account names
+	sqlite3_exec(dbPtr, v3Upgrade, NULL, NULL, NULL);
+}
+
 // =============================================================================
 
 static qboolean UpgradeDB( int versionTo, sqlite3* dbPtr ) {
@@ -333,6 +345,7 @@ static qboolean UpgradeDB( int versionTo, sqlite3* dbPtr ) {
 	switch ( versionTo ) {
 		case 1: UpgradeDBToVersion1( dbPtr ); break;
 		case 2: UpgradeDBToVersion2( dbPtr ); break;
+		case 3: UpgradeDBToVersion3( dbPtr ); break;
 		default:
 			Com_Printf( "ERROR: Unsupported database upgrade routine\n" );
 			return qfalse;
