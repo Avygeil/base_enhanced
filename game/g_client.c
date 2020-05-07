@@ -2688,16 +2688,13 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 		G_InitSessionData( client, userinfo, isBot, firstTime );
 	}
 
-	// init accounts
-	if ( !isBot
-#ifdef NEWMOD_SUPPORT
-		// newmod clients with pending auth will be initialized later when auth is complete
-		&& ( client->sess.auth == INVALID || client->sess.auth == AUTHENTICATED )
-#endif
-		)
-	{
-		G_InitClientSession( client );
-		G_InitClientAccount( client );
+	// init accounts, but only for clients with a cached session (map restart, map change)
+	// for first time connections, session retrieval/creation is done in ClientBegin for non
+	// newmod and at the end of auth for newmod
+	// this avoids polluting the db with new sessions when people who never fully join connect
+	if (IN_CLIENTNUM_RANGE(client->sess.sessionCacheNum)) {
+		G_InitClientSession(client);
+		G_InitClientAccount(client);
 	}
 
 	// set racemode state here using session data that was carried over
@@ -2950,6 +2947,21 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 
 	//assign the pointer for bg entity access
 	ent->playerState = &ent->client->ps;
+
+	// if we just connected and don't have a session yet, it means we didn't init it in ClientConnect
+	// and thus it's a first connection, so retrieve/create it here
+	if (!(ent->r.svFlags & SVF_BOT)
+		&& !client->session
+		&& client->pers.connected == CON_CONNECTING
+#ifdef NEWMOD_SUPPORT
+		// only do this here for non newmod clients
+		&& client->sess.auth == INVALID
+#endif
+		)
+	{
+		G_InitClientSession(client);
+		G_InitClientAccount(client);
+	}
 
 	client->pers.connected = CON_CONNECTED;
 	client->pers.enterTime = level.time;
