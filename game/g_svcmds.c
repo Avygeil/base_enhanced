@@ -2094,6 +2094,7 @@ void Svcmd_Account_f( void ) {
 
 			char username[MAX_ACCOUNTNAME_LEN];
 			trap_Argv( 2, username, sizeof( username ) );
+			Q_strlwr(username);
 
 			// sanitize input
 			char *p;
