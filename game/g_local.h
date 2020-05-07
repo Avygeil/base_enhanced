@@ -459,7 +459,7 @@ typedef struct {
 #define MAX_SESSIONINFO_LEN		256
 
 // 64 bits for now - expand to 128 if collisions occur
-typedef unsigned long long sessionInfoHash_t;
+typedef long long sessionInfoHash_t;
 
 #define ACCOUNT_ID_UNLINKED		-1;
 
