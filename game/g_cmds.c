@@ -357,6 +357,19 @@ void Cmd_Give_f (gentity_t *cmdent, int baseArg)
 			return;
 	}
 
+	if (give_all || Q_stricmp(name, "force") == 0)
+	{
+		if (trap_Argc() == 3 + baseArg) {
+			trap_Argv(2 + baseArg, arg, sizeof(arg));
+			ent->client->ps.fd.forcePower = Com_Clampi(0, 999, atoi(arg));
+		}
+		else {
+			ent->client->ps.fd.forcePower = ent->client->ps.fd.forcePowerMax;
+		}
+		if (!give_all)
+			return;
+	}
+
 	if (give_all || Q_stricmp(name, "weapons") == 0)
 	{
 		ent->client->ps.stats[STAT_WEAPONS] = (1 << (LAST_USEABLE_WEAPON+1))  - ( 1 << WP_NONE );
