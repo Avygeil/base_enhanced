@@ -1965,7 +1965,7 @@ void G_ShutdownGame( int restart ) {
 
 	// save the capture records for this map
 	int recordsSaved = G_DBSaveCaptureRecords( &level.mapCaptureRecords );
-	if ( recordsSaved ) {
+	if ( recordsSaved > 0 ) {
 		G_Printf( "Saved %d capture time records to database\n", recordsSaved );
 	}
 
