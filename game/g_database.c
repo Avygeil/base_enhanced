@@ -46,6 +46,10 @@ static int TraceCallback( unsigned int type, void* ctx, void* ptr, void* info ) 
 
 void G_DBLoadDatabase( void )
 {
+	if (dbPtr) {
+		return;
+	}
+
     int rc;
 
 	// db options
@@ -59,14 +63,14 @@ void G_DBLoadDatabase( void )
     rc = sqlite3_initialize();
 
 	if ( rc != SQLITE_OK ) {
-		Com_Printf( "Failed to initialize SQLite3 (code: %d)\n", rc );
+		Com_Error( ERR_DROP, "Failed to initialize SQLite3 (code: %d)\n", rc );
 		return;
 	}
 
     rc = sqlite3_open_v2( DB_FILENAME, &diskDb, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, NULL );
 
 	if ( rc != SQLITE_OK ) {
-		Com_Printf( "Failed to open database file "DB_FILENAME" (code: %d)\n", rc );
+		Com_Error( ERR_DROP, "Failed to open database file "DB_FILENAME" (code: %d)\n", rc );
 		return;
 	}
 
@@ -93,7 +97,7 @@ void G_DBLoadDatabase( void )
 		}
 
 		if ( !dbPtr ) {
-			Com_Printf( "WARNING: Failed to load database into memory!\n" );
+			Com_Printf( "ERROR: Failed to load database into memory!\n" );
 		}
 	}
 
@@ -120,7 +124,17 @@ void G_DBLoadDatabase( void )
 	G_DBGetMetadata( "schema_version", s, sizeof( s ) );
 
 	int version = VALIDSTRING( s ) ? atoi( s ) : 0;
-	G_DBUpgradeDatabaseSchema( version, dbPtr );
+	if ( !G_DBUpgradeDatabaseSchema( version, dbPtr ) ) {
+		// don't let server load if an upgrade failed
+
+		if (dbPtr != diskDb) {
+			// close in memory db immediately
+			sqlite3_close(dbPtr);
+			dbPtr = NULL;
+		}
+
+		Com_Error(ERR_DROP, "Failed to upgrade database, shutting down to avoid data corruption");
+	}
 
 	G_DBSetMetadata( "schema_version", DB_SCHEMA_VERSION_STR );
 
@@ -162,7 +176,7 @@ void G_DBUnloadDatabase( void )
 {
 	int rc;
 
-	if ( dbPtr != diskDb ) {
+	if ( dbPtr && diskDb && dbPtr != diskDb ) {
 		Com_Printf( "Saving in-memory database changes to disk\n" );
 
 		// we are using in memory db, save changes to disk
@@ -185,8 +199,10 @@ void G_DBUnloadDatabase( void )
 		sqlite3_close( dbPtr );
 	}
 
-	sqlite3_close( diskDb );
-	diskDb = dbPtr = NULL;
+	if (diskDb) {
+		sqlite3_close(diskDb);
+		diskDb = dbPtr = NULL;
+	}
 }
 
 // =========== METADATA ========================================================

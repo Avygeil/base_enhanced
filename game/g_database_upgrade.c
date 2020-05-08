@@ -280,7 +280,7 @@ const char* const sqlCopyOldTablesToNewV1DB =
 "DETACH DATABASE logDb;                                                      \n"
 "DETACH DATABASE cfgDb;                                                        ";
 
-static void UpgradeDBToVersion1( sqlite3* dbPtr ) {
+static qboolean UpgradeDBToVersion1( sqlite3* dbPtr ) {
 	// special type of upgrade: upgrading from the two old file databases to version 1 of single database model
 
 	int rc;
@@ -294,7 +294,7 @@ static void UpgradeDBToVersion1( sqlite3* dbPtr ) {
 
 	if ( rc != SQLITE_OK ) {
 		Com_Printf( "Failed to open logs database file %s for upgrading (code: %d)\n", oldLogDbFilename, rc );
-		return;
+		return qfalse;
 	}
 
 
@@ -302,7 +302,7 @@ static void UpgradeDBToVersion1( sqlite3* dbPtr ) {
 
 	if ( rc != SQLITE_OK ) {
 		Com_Printf( "Failed to open config database file %s for upgrading (code: %d)\n", oldCfgDbFilename, rc );
-		return;
+		return qfalse;
 	}
 
 	// we have to perform a special check as to whether the existing jka_log.db fastcapsV2 table
@@ -314,15 +314,15 @@ static void UpgradeDBToVersion1( sqlite3* dbPtr ) {
 	sqlite3_close( cfgDb );
 
 	// upgrade
-	sqlite3_exec( dbPtr, sqlCopyOldTablesToNewV1DB, NULL, NULL, NULL );
+	return sqlite3_exec( dbPtr, sqlCopyOldTablesToNewV1DB, NULL, NULL, NULL ) == SQLITE_OK;
 }
 
 const char* const sqlAddSeedField =
 "ALTER TABLE fastcapsv2 ADD COLUMN seed TEXT;";
 
-static void UpgradeDBToVersion2(sqlite3* dbPtr) {
+static qboolean UpgradeDBToVersion2(sqlite3* dbPtr) {
 	// add "seed" field to fastcaps for use with weekly challenges
-	sqlite3_exec(dbPtr, sqlAddSeedField, NULL, NULL, NULL);
+	return sqlite3_exec(dbPtr, sqlAddSeedField, NULL, NULL, NULL) == SQLITE_OK;
 }
 
 // ================ V3 UPGRADE =================================================
@@ -331,10 +331,10 @@ const char* const v3Upgrade =
 "ALTER TABLE sessions RENAME COLUMN identifier TO hash;        \n"
 "UPDATE accounts SET name = LOWER(name);                         ";
 
-static void UpgradeDBToVersion3(sqlite3* dbPtr) {
+static qboolean UpgradeDBToVersion3(sqlite3* dbPtr) {
 	// rename sessions column identifier -> hash
 	// force lowercase for existing account names
-	sqlite3_exec(dbPtr, v3Upgrade, NULL, NULL, NULL);
+	return sqlite3_exec(dbPtr, v3Upgrade, NULL, NULL, NULL) == SQLITE_OK;
 }
 
 // =============================================================================
@@ -343,30 +343,27 @@ static qboolean UpgradeDB( int versionTo, sqlite3* dbPtr ) {
 	Com_Printf( "Upgrading database to version %d...\n", versionTo );
 
 	switch ( versionTo ) {
-		case 1: UpgradeDBToVersion1( dbPtr ); break;
-		case 2: UpgradeDBToVersion2( dbPtr ); break;
-		case 3: UpgradeDBToVersion3( dbPtr ); break;
+		case 1: return UpgradeDBToVersion1( dbPtr );
+		case 2: return UpgradeDBToVersion2( dbPtr );
+		case 3: return UpgradeDBToVersion3( dbPtr );
 		default:
 			Com_Printf( "ERROR: Unsupported database upgrade routine\n" );
-			return qfalse;
 	}
 
-	return qtrue;
+	return qfalse;
 }
 
 qboolean G_DBUpgradeDatabaseSchema( int versionFrom, void* db ) {
-	if ( versionFrom < 0 ) {
-		versionFrom = 0;
-	}
-
-#ifndef _DEBUG
-	if ( versionFrom > DB_SCHEMA_VERSION ) {
-		Com_Printf( "WARNING: Database version is higher than the one used by this mod version!\n" );
-	}
-#endif
-
-	if ( versionFrom >= DB_SCHEMA_VERSION ) {
+	if (versionFrom == DB_SCHEMA_VERSION) {
+		// already up-to-date
 		return qtrue;
+	} else if (versionFrom > DB_SCHEMA_VERSION) {
+		// don't let older servers load more recent databases
+		Com_Printf("ERROR: Database version is higher than the one used by this mod version!\n");
+		return qfalse;
+	} else if (versionFrom < 0) {
+		// ???
+		versionFrom = 0;
 	}
 
 	sqlite3* dbPtr = ( sqlite3* )db;
