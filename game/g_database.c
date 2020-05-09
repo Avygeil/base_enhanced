@@ -115,15 +115,18 @@ void G_DBLoadDatabase( void )
 	// more db options
 	sqlite3_exec( dbPtr, "PRAGMA foreign_keys = ON;", NULL, NULL, NULL );
 
-	// setup tables
-	sqlite3_exec( dbPtr, sqlCreateTables, 0, 0, 0 );
-
 	// get version and call the upgrade routine
 
 	char s[16];
 	G_DBGetMetadata( "schema_version", s, sizeof( s ) );
-
 	int version = VALIDSTRING( s ) ? atoi( s ) : 0;
+
+	// setup tables if database was just created
+	// NOTE: this means g_database_schema.h must always reflect the latest version
+	if (!version) {
+		sqlite3_exec(dbPtr, sqlCreateTables, 0, 0, 0);
+	}
+
 	if ( !G_DBUpgradeDatabaseSchema( version, dbPtr ) ) {
 		// don't let server load if an upgrade failed
 
@@ -133,7 +136,7 @@ void G_DBLoadDatabase( void )
 			dbPtr = NULL;
 		}
 
-		Com_Error(ERR_DROP, "Failed to upgrade database, shutting down to avoid data corruption");
+		Com_Error(ERR_DROP, "Failed to upgrade database, shutting down to avoid data corruption\n");
 	}
 
 	G_DBSetMetadata( "schema_version", DB_SCHEMA_VERSION_STR );

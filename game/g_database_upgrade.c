@@ -280,7 +280,7 @@ const char* const sqlCopyOldTablesToNewV1DB =
 "DETACH DATABASE logDb;                                                      \n"
 "DETACH DATABASE cfgDb;                                                        ";
 
-static qboolean UpgradeDBToVersion1( sqlite3* dbPtr ) {
+static qboolean UpgradeFromOldVersions( sqlite3* dbPtr ) {
 	// special type of upgrade: upgrading from the two old file databases to version 1 of single database model
 
 	int rc;
@@ -343,7 +343,6 @@ static qboolean UpgradeDB( int versionTo, sqlite3* dbPtr ) {
 	Com_Printf( "Upgrading database to version %d...\n", versionTo );
 
 	switch ( versionTo ) {
-		case 1: return UpgradeDBToVersion1( dbPtr );
 		case 2: return UpgradeDBToVersion2( dbPtr );
 		case 3: return UpgradeDBToVersion3( dbPtr );
 		default:
@@ -361,20 +360,26 @@ qboolean G_DBUpgradeDatabaseSchema( int versionFrom, void* db ) {
 		// don't let older servers load more recent databases
 		Com_Printf("ERROR: Database version is higher than the one used by this mod version!\n");
 		return qfalse;
-	} else if (versionFrom < 0) {
-		// ???
-		versionFrom = 0;
 	}
 
-	sqlite3* dbPtr = ( sqlite3* )db;
+	sqlite3* dbPtr = (sqlite3*)db;
 
-	while ( versionFrom < DB_SCHEMA_VERSION ) {
-		if ( !UpgradeDB( ++versionFrom, dbPtr ) ) {
-			return qfalse;
+	if (versionFrom > 0) {
+		// database already exists, we are just upgrading between versions
+
+		while (versionFrom < DB_SCHEMA_VERSION) {
+			if (!UpgradeDB(++versionFrom, dbPtr)) {
+				return qfalse;
+			}
 		}
+
+		Com_Printf("Database upgrade successful\n");
+	} else {
+		// special case: database was just created, try to upgrade from the even older versions
+		// but don't fail if it's not possible
+		Com_Printf("Attempting to convert jka_log.db and jka_config.db...\n");
+		UpgradeFromOldVersions(dbPtr);
 	}
-
-	Com_Printf( "Database upgrade successful\n" );
-
+	
 	return qtrue;
 }
