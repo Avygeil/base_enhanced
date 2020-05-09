@@ -67,6 +67,8 @@ void G_DBLoadDatabase( void )
 		return;
 	}
 
+	Com_Printf("SQLite version: %s\n", sqlite3_libversion());
+
     rc = sqlite3_open_v2( DB_FILENAME, &diskDb, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, NULL );
 
 	if ( rc != SQLITE_OK ) {
