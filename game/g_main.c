@@ -160,6 +160,11 @@ vmCvar_t	g_improvedHoming;
 vmCvar_t	g_improvedHomingThreshold;
 vmCvar_t	d_debugImprovedHoming;
 vmCvar_t	g_braindeadBots;
+vmCvar_t	g_unlagged;
+vmCvar_t	g_unlaggedFactor;
+vmCvar_t	g_unlaggedOffset;
+vmCvar_t	g_unlaggedSkeletonTime;
+vmCvar_t	g_unlaggedDebug;
 
 vmCvar_t	g_customVotes;
 vmCvar_t	g_customVote1_command;
@@ -855,8 +860,15 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_notifyAFK, "g_notifyAFK", "5", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_autoStart, "g_autoStart", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_autoStartTimer, "g_autoStartTimer", "10", CVAR_ARCHIVE, 0, qtrue },
+
 	{ &g_autoStartAFKThreshold, "g_autoStartAFKThreshold", "10", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_autoStartMinPlayers, "g_autoStartMinPlayers", "8", CVAR_ARCHIVE, 0, qtrue },
+
+	{ &g_unlagged, "g_unlagged", "0", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
+	{ &g_unlaggedFactor, "g_unlaggedFactor", "0.25", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_unlaggedOffset, "g_unlaggedOffset", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_unlaggedSkeletonTime, "g_unlaggedSkeletonTime", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_unlaggedDebug, "g_unlaggedDebug", "0", CVAR_ARCHIVE, 0, qtrue }
 };
 
 // bk001129 - made static to avoid aliasing

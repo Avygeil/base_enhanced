@@ -149,6 +149,107 @@ void Cmd_Score_f( gentity_t *ent ) {
 	DeathmatchScoreboardMessage( ent );
 }
 
+typedef struct version_s {
+	int		major;
+	int		minor;
+	int		revision;
+} version_t;
+
+static void VersionStringToNumbers(const char *s, version_t *out) {
+	assert(VALIDSTRING(s) && out);
+	out->major = out->minor = out->revision = 0;
+
+	if (!VALIDSTRING(s) || *s < '0' || *s > '9' || strlen(s) >= 16)
+		return;
+
+	char *r = (char *)s;
+	for (int i = 0; i < 3; i++) {
+		char temp[16] = { 0 }, *w;
+		for (w = temp; *r && *r >= '0' && *r <= '9'; r++, w++) // loop through all number chars, copying to the temporary buffer
+			*w = *r;
+		switch (i) { // set the number
+		case 0:		out->major = atoi(temp);		break;
+		case 1:		out->minor = atoi(temp);		break;
+		case 2:		out->revision = atoi(temp);		break;
+		}
+		while (*r < '0' || *r > '9') {
+			if (!*r)
+				return;
+			r++;
+		}
+	}
+}
+
+// returns 1 if verStr is greater, 0 if same, -1 if verStr is older
+int CompareVersions(const char *verStr, const char *compareToStr) {
+	if (!VALIDSTRING(verStr) && !VALIDSTRING(compareToStr))
+		return 0;
+	if (!VALIDSTRING(verStr))
+		return -1;
+	if (!VALIDSTRING(compareToStr))
+		return 1;
+
+	version_t ver, compareTo;
+	VersionStringToNumbers(verStr, &ver);
+	VersionStringToNumbers(compareToStr, &compareTo);
+
+	if (ver.major > compareTo.major)
+		return 1;
+	else if (ver.major < compareTo.major)
+		return -1;
+
+	// same major
+	if (ver.minor > compareTo.minor)
+		return 1;
+	else if (ver.minor < compareTo.minor)
+		return -1;
+
+	// same major and same minor
+	if (ver.revision > compareTo.revision)
+		return 1;
+	else if (ver.revision < compareTo.revision)
+		return -1;
+
+	// equal
+	return 0;
+}
+
+void Cmd_Unlagged_f(gentity_t *ent) {
+	if (!g_unlagged.integer) {
+		trap_SendServerCommand(ent - g_entities, "print \"This server has completely disabled unlagged support.\n\"");
+		return;
+	}
+
+	// only allow the command to be used by the unascended
+	if (ent->client->sess.auth != INVALID && CompareVersions(ent->client->sess.nmVer, "1.5.6") >= 0) {
+		trap_SendServerCommand(ent - g_entities, "print \"Invalid command. You must use the ^5cg_unlagged^7 cvar instead.\n\"");
+		return;
+	}
+
+	if (g_unlagged.integer == 2) { // special testing mode, don't let people use it with the command
+		trap_SendServerCommand(ent - g_entities, "print \"Invalid command.\n\"");
+		return;
+	}
+
+	ent->client->sess.unlagged ^= UNLAGGED_COMMAND;
+
+	if (ent->client->sess.unlagged & UNLAGGED_COMMAND) {
+		char msg[MAX_STRING_CHARS] = "print \"Unlagged ^2enabled^7.";
+		if (!ent->client->sess.basementNeckbeardsTriggered) {
+			if (ent->client->sess.auth != INVALID)
+				Q_strcat(msg, sizeof(msg), " For the best unlagged experience, update to Newmod 1.6.0 and enable cg_unlagged.");
+			else
+				Q_strcat(msg, sizeof(msg), " For the best unlagged experience, use Newmod and enable cg_unlagged.");
+			ent->client->sess.basementNeckbeardsTriggered = qtrue;
+		}
+		Q_strcat(msg, sizeof(msg), "\n\"");
+		trap_SendServerCommand(ent - g_entities, msg);
+	}
+	else {
+		trap_SendServerCommand(ent - g_entities, "print \"Unlagged ^1disabled^7.\n\"");
+	}
+}
+
 /*
 ==================
 CheatsOk
@@ -6612,6 +6713,11 @@ void ClientCommand( int clientNum ) {
 
 	if (Q_stricmp (cmd, "score") == 0) {
 		Cmd_Score_f (ent);
+		return;
+	}
+
+	if (!Q_stricmp(cmd, "unlagged")) {
+		Cmd_Unlagged_f(ent);
 		return;
 	}
 

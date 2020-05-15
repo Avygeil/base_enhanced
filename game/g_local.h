@@ -547,7 +547,13 @@ typedef struct {
 	} auth;
 	char		cuidHash[CRYPTO_HASH_HEX_SIZE]; // hash of the client cuid
 	int			serverKeys[2]; // randomly generated auth keys to confirm legit clients
+	char		nmVer[16];
 #endif
+
+#define UNLAGGED_CLIENTINFO		(1 << 0)
+#define UNLAGGED_COMMAND		(1 << 1)
+	int		unlagged;
+	qboolean	basementNeckbeardsTriggered;
 } clientSession_t;
 
 // race flags
@@ -722,6 +728,22 @@ typedef struct renderInfo_s
 
 	int			boltValidityTime;
 } renderInfo_t;
+
+void G_StoreTrail(gentity_t *ent);
+void G_ResetTrail(gentity_t *ent);
+void G_TimeShiftClient(gentity_t *ent, int time, qboolean timeshiftAnims);
+void G_TimeShiftAllClients(int time, gentity_t *skip, qboolean timeshiftAnims);
+void G_UnTimeShiftClient(gentity_t *ent, qboolean timeshiftAnims);
+void G_UnTimeShiftAllClients(gentity_t *skip, qboolean timeshiftAnims);
+void G_PredictPlayerStepSlideMove(gentity_t *ent, float frametime);
+
+//NT - client origin trails
+typedef struct { //Should this store their g2 anim? for proper g2 sync?
+	vec3_t	mins, maxs;
+	vec3_t	currentOrigin;//, currentAngles; //Well r.currentAngles are never actually used by clients in this game?
+	int		time, torsoAnim, torsoTimer, legsAnim, legsTimer;
+	float	realAngle; //Only the [YAW] is ever used for hit detection
+} clientTrail_t;
 
 // this structure is cleared on each ClientSpawn(),
 // except for 'client->pers' and 'client->sess'
@@ -1312,6 +1334,14 @@ typedef struct {
 	secretKey_t secretKey;
 #endif
 
+	struct {
+		int				trailHead;
+#define MAX_UNLAGGED_TRAILS	(1000)
+		clientTrail_t	trail[MAX_UNLAGGED_TRAILS];
+		clientTrail_t	saved; // used to restore after time shift
+	} unlagged[MAX_CLIENTS];
+	int		lastThinkRealTime[MAX_CLIENTS];
+
 } level_locals_t;
 
 
@@ -1481,6 +1511,8 @@ qboolean G_TeleportRacerToTelemark( gentity_t *ent );
 
 typedef qboolean ( *entityFilter_func )( gentity_t* );
 gentity_t* G_ClosestEntity( gentity_t *ref, entityFilter_func );
+void Q_strstrip(char *string, const char *strip, const char *repl);
+void PrintIngame(int clientNum, const char *s, ...);
 
 void G_FormatLocalDateFromEpoch( char* buf, size_t bufSize, time_t epochSecs );
 
@@ -1765,6 +1797,7 @@ void DeathmatchScoreboardMessage (gentity_t *client);
 //
 char* NM_SerializeUIntToColor(const unsigned int n);
 void G_InitVchats();
+int CompareVersions(const char *verStr, const char *compareToStr);
 
 typedef struct
 {
@@ -2319,6 +2352,11 @@ extern vmCvar_t    g_improvedHoming;
 extern vmCvar_t    g_improvedHomingThreshold;
 extern vmCvar_t    d_debugImprovedHoming;
 extern vmCvar_t    g_braindeadBots;
+extern vmCvar_t    g_unlagged;
+extern vmCvar_t	   g_unlaggedFactor;
+extern vmCvar_t	   g_unlaggedOffset;
+extern vmCvar_t	   g_unlaggedSkeletonTime;
+extern vmCvar_t	   g_unlaggedDebug;
 
 #define MAX_CUSTOM_VOTES	(10)
 extern vmCvar_t    g_customVotes;
