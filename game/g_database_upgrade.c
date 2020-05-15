@@ -328,8 +328,22 @@ static qboolean UpgradeDBToVersion2(sqlite3* dbPtr) {
 // ================ V3 UPGRADE =================================================
 
 const char* const v3Upgrade =
-"ALTER TABLE sessions RENAME COLUMN identifier TO hash;        \n"
-"UPDATE accounts SET name = LOWER(name);                         ";
+"ALTER TABLE sessions RENAME TO tmp_sessions;                                \n"
+"CREATE TABLE IF NOT EXISTS [sessions] (                                     \n"
+"    [session_id] INTEGER NOT NULL,                                          \n"
+"    [hash] INTEGER NOT NULL,                                                \n"
+"    [info] TEXT NOT NULL,                                                   \n"
+"    [account_id] INTEGER DEFAULT NULL,                                      \n"
+"    PRIMARY KEY ( [session_id] ),                                           \n"
+"    UNIQUE ( [hash] ),                                                      \n"
+"    FOREIGN KEY ( [account_id] )                                            \n"
+"        REFERENCES accounts ( [account_id] )                                \n"
+"        ON DELETE SET NULL                                                  \n"
+");                                                                          \n"
+"INSERT INTO sessions(session_id, hash, info, account_id)                    \n"
+"SELECT session_id, identifier, info, account_id FROM tmp_sessions;          \n"
+"DROP TABLE tmp_sessions;                                                    \n"
+"UPDATE accounts SET name = LOWER(name);                                       ";
 
 static qboolean UpgradeDBToVersion3(sqlite3* dbPtr) {
 	// rename sessions column identifier -> hash
