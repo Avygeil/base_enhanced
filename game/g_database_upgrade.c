@@ -343,6 +343,18 @@ const char* const v3Upgrade =
 "INSERT INTO sessions(session_id, hash, info, account_id)                    \n"
 "SELECT session_id, identifier, info, account_id FROM tmp_sessions;          \n"
 "DROP TABLE tmp_sessions;                                                    \n"
+"DROP VIEW sessions_info;                                                    \n"
+"CREATE VIEW IF NOT EXISTS sessions_info AS                                  \n"
+"SELECT                                                                      \n"
+"    session_id,                                                             \n"
+"    hash,                                                                   \n"
+"    info,                                                                   \n"
+"    account_id,                                                             \n"
+"    CASE WHEN (                                                             \n"
+"	     sessions.account_id IS NOT NULL                                     \n"
+"    )                                                                       \n"
+"    THEN 1 ELSE 0 END referenced                                            \n"
+"FROM sessions;                                                              \n"
 "UPDATE accounts SET name = LOWER(name);                                       ";
 
 static qboolean UpgradeDBToVersion3(sqlite3* dbPtr) {
