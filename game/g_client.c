@@ -2105,6 +2105,21 @@ void ClientUserinfoChanged( int clientNum ) {
 		client->pers.predictItemPickup = qtrue;
 	}
 
+	char *nmVer = Info_ValueForKey(userinfo, "nm_ver");
+	if (VALIDSTRING(nmVer))
+		Q_strncpyz(client->sess.nmVer, nmVer, sizeof(client->sess.nmVer));
+	else
+		client->sess.nmVer[0] = '\0';
+
+	s = Info_ValueForKey(userinfo, "nm_flags");
+	if (!!(VALIDSTRING(s) && CompareVersions(client->sess.nmVer, "1.5.6") >= 0 && strchr(s, 'u'))) {
+		client->sess.unlagged |= UNLAGGED_CLIENTINFO;
+		client->sess.unlagged &= ~UNLAGGED_COMMAND;
+	}
+	else {
+		client->sess.unlagged &= ~UNLAGGED_CLIENTINFO;
+	}
+
 	// passwordless spectators - check for password change
 	s = Info_ValueForKey( userinfo, "password" );
 	if (!client->sess.canJoin) {
@@ -2833,6 +2848,9 @@ void G_BroadcastServerFeatureList( int clientNum ) {
 
 	if (g_improvedHoming.integer)
 		Q_strcat(featureListConfigString, sizeof(featureListConfigString), "rhom ");
+
+	if (g_unlagged.integer)
+		Q_strcat(featureListConfigString, sizeof(featureListConfigString), "unlg ");
 
 	trap_SetConfigstring(CS_SERVERFEATURELIST, featureListConfigString);
 
@@ -3882,6 +3900,8 @@ void ClientSpawn(gentity_t *ent) {
 	gameFlags = ent->client->mGameFlags & ( PSG_VOTED | PSG_TEAMVOTED | PSG_CANVOTE);
 
 	// clear everything but the persistant data
+
+	G_ResetTrail(ent);
 
 	saved = client->pers;
 	savedSess = client->sess;

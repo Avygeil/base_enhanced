@@ -502,6 +502,11 @@ static void WP_DisruptorMainFire( gentity_t *ent )
 
 	VectorMA( start, shotRange, forward, end );
 
+	qboolean compensate = ent && ent->client ? ent->client->sess.unlagged : qfalse;
+	qboolean ghoul2 = !!(d_projectileGhoul2Collision.integer);
+	if (g_unlagged.integer && compensate)
+		G_TimeShiftAllClients(trap_Milliseconds() - (level.time - ent->client->pers.cmd.serverTime), ent, ghoul2);
+
 	ignore = ent->s.number;
 	traces = 0;
 	while ( traces < 10 )
@@ -588,6 +593,9 @@ static void WP_DisruptorMainFire( gentity_t *ent )
 				te->s.weapon = 0;//saberNum
 				te->s.legsAnim = 0;//bladeNum
 
+				if (g_unlagged.integer && compensate)
+					G_UnTimeShiftAllClients(ent, ghoul2);
+
 				return;
 			}
 		}
@@ -598,6 +606,9 @@ static void WP_DisruptorMainFire( gentity_t *ent )
 		//a Jedi is not dodging this shot
 		break;
 	}
+
+	if (g_unlagged.integer && compensate)
+		G_UnTimeShiftAllClients(ent, ghoul2);
 
 	if ( tr.surfaceFlags & SURF_NOIMPACT ) 
 	{
@@ -692,6 +703,7 @@ void WP_DisruptorAltFire( gentity_t *ent )
 	int			traces = DISRUPTOR_ALT_TRACES;
 	qboolean	fullCharge = qfalse;
 	int			hits = 0, disintegrations = 0;
+	int			deathTorsoAnim[16] = { 0 }, deathLegsAnim[16] = { 0 }, deathClientNum[16] = { -1 }, numKilled = 0;
 
 	damage = DISRUPTOR_ALT_DAMAGE-30;
 
@@ -735,6 +747,11 @@ void WP_DisruptorAltFire( gentity_t *ent )
 	damage += count;
 	
 	skip = ent->s.number;
+
+	qboolean compensate =  ent && ent->client ? ent->client->sess.unlagged : qfalse;
+	qboolean ghoul2 = !!(d_projectileGhoul2Collision.integer);
+	if (g_unlagged.integer && compensate)
+		G_TimeShiftAllClients(trap_Milliseconds() - (level.time - ent->client->pers.cmd.serverTime), ent, ghoul2);
 
 	for (i = 0; i < traces; i++ )
 	{
@@ -824,6 +841,8 @@ void WP_DisruptorAltFire( gentity_t *ent )
 				te->s.weapon = 0;//saberNum
 				te->s.legsAnim = 0;//bladeNum
 
+				if (g_unlagged.integer && compensate)
+					G_UnTimeShiftAllClients(ent, ghoul2);
 				return;
 			}
 		}
@@ -902,6 +921,15 @@ void WP_DisruptorAltFire( gentity_t *ent )
 				}
 
 				G_Damage( traceEnt, ent, ent, forward, tr.endpos, damage, DAMAGE_NO_KNOCKBACK, MOD_DISRUPTOR_SNIPER );
+
+				// if the shot killed him, save the death animation so that we can use it after unshifting
+				if (g_unlagged.integer && compensate && preHealth > 0 && traceEnt->health <= 0 && traceEnt->client && numKilled < 16) {
+					deathTorsoAnim[numKilled] = traceEnt->client->ps.torsoAnim;
+					deathLegsAnim[numKilled] = traceEnt->client->ps.legsAnim;
+					deathClientNum[numKilled] = traceEnt - g_entities;
+					numKilled++;
+				}
+
 				if (traceEnt->client && preHealth > 0 && traceEnt->health <= 0 && fullCharge &&
 					G_CanDisruptify(traceEnt))
 				{ //was killed by a fully charged sniper shot, so disintegrate
@@ -961,6 +989,19 @@ void WP_DisruptorAltFire( gentity_t *ent )
 			//ent->client->rewardTime = level.time + REWARD_SPRITE_TIME;
 		}
 		ent->client->accuracy_hits++;
+	}
+
+	if (g_unlagged.integer && compensate) {
+		G_UnTimeShiftAllClients(ent, ghoul2);
+
+		// restore death animations if this killed someone
+		for (int i = 0; i < numKilled && numKilled < 16; i++) {
+			gentity_t *deadEnt = &g_entities[deathClientNum[i]];
+			if (!deadEnt->inuse || !deadEnt->client)
+				continue;
+			deadEnt->client->ps.torsoAnim = deathTorsoAnim[i];
+			deadEnt->client->ps.legsAnim = deathLegsAnim[i];
+		}
 	}
 }
 
@@ -1462,7 +1503,26 @@ static void WP_DEMP2_AltFire( gentity_t *ent )
 		damage = 1;
 	}
 
-	trap_Trace( &tr, start, NULL, NULL, end, ent->s.number, MASK_SHOT);
+	qboolean compensate = ent && ent->client ? ent->client->sess.unlagged : qfalse;
+	qboolean ghoul2 = !!(d_projectileGhoul2Collision.integer);
+	if (g_unlagged.integer && compensate)
+		G_TimeShiftAllClients(trap_Milliseconds() - (level.time - ent->client->pers.cmd.serverTime), ent, ghoul2);
+
+#if 0
+	if (d_projectileGhoul2Collision.integer) // add?
+#else
+	if (qfalse)
+#endif
+	{
+		trap_G2Trace(&tr, start, NULL, NULL, end, ent->s.number, MASK_SHOT, G2TRFLAG_DOGHOULTRACE | G2TRFLAG_GETSURFINDEX | G2TRFLAG_HITCORPSES, g_g2TraceLod.integer);
+	}
+	else
+	{
+		trap_Trace(&tr, start, NULL, NULL, end, ent->s.number, MASK_SHOT);
+	}
+
+	if (g_unlagged.integer && compensate)
+		G_UnTimeShiftAllClients(ent, ghoul2);
 
 	missile = G_Spawn();
 	G_SetOrigin(missile, tr.endpos);
@@ -3103,6 +3163,7 @@ static void WP_FireConcussionAlt( gentity_t *ent )
 	qboolean	hitDodged = qfalse;
 	vec3_t shot_mins, shot_maxs;
 	int			i;
+	int			deathTorsoAnim[16] = { 0 }, deathLegsAnim[16] = { 0 }, deathClientNum[16] = { -1 }, numKilled = 0;
 
 	// count this as weapon usage out of G_Damage because of the knockback
 	ent->client->usedWeapon = qtrue;
@@ -3127,6 +3188,11 @@ static void WP_FireConcussionAlt( gentity_t *ent )
 	//Make it a little easier to hit guys at long range
 	VectorSet( shot_mins, -1, -1, -1 );
 	VectorSet( shot_maxs, 1, 1, 1 );
+
+	qboolean compensate = ent && ent->client ? ent->client->sess.unlagged : qfalse;
+	qboolean ghoul2 = !!(d_projectileGhoul2Collision.integer);
+	if (g_unlagged.integer && compensate)
+		G_TimeShiftAllClients(trap_Milliseconds() - (level.time - ent->client->pers.cmd.serverTime), ent, ghoul2);
 
 	for ( i = 0; i < traces; i++ )
 	{
@@ -3204,6 +3270,7 @@ static void WP_FireConcussionAlt( gentity_t *ent )
 						ent->client->accuracy_hits++;
 					} 
 
+					int preHealth = traceEnt->health;
 					noKnockBack = (traceEnt->flags&FL_NO_KNOCKBACK);//will be set if they die, I want to know if it was on *before* they died
 					if ( traceEnt && traceEnt->client && traceEnt->client->NPC_class == CLASS_GALAKMECH )
 					{//hehe
@@ -3211,6 +3278,14 @@ static void WP_FireConcussionAlt( gentity_t *ent )
 						break;
 					}
 					G_Damage( traceEnt, ent, ent, forward, tr.endpos, damage, DAMAGE_NO_KNOCKBACK|DAMAGE_NO_HIT_LOC, MOD_CONC_ALT );
+
+					// if the shot killed him, save the death animation so that we can use it after unshifting
+					if (g_unlagged.integer && compensate && preHealth > 0 && traceEnt->health <= 0 && traceEnt->client && numKilled < 16) {
+						deathTorsoAnim[numKilled] = traceEnt->client->ps.torsoAnim;
+						deathLegsAnim[numKilled] = traceEnt->client->ps.legsAnim;
+						deathClientNum[numKilled] = traceEnt - g_entities;
+						numKilled++;
+					}
 
 					//do knockback and knockdown manually
 					if ( traceEnt->client )
@@ -3275,6 +3350,19 @@ static void WP_FireConcussionAlt( gentity_t *ent )
 		VectorCopy( tr.endpos, start );
 		skip = tr.entityNum;
 		hitDodged = qfalse;
+	}
+
+	if (g_unlagged.integer && compensate) {
+		G_UnTimeShiftAllClients(ent, ghoul2);
+
+		// restore death animations if this killed someone
+		for (int i = 0; i < numKilled && i < 16; i++) {
+			gentity_t *deadEnt = &g_entities[deathClientNum[i]];
+			if (!deadEnt->inuse || !deadEnt->client)
+				continue;
+			deadEnt->client->ps.torsoAnim = deathTorsoAnim[i];
+			deadEnt->client->ps.legsAnim = deathLegsAnim[i];
+		}
 	}
 
 	// now go along the trail and make sight events
@@ -3375,7 +3463,14 @@ void WP_FireStunBaton( gentity_t *ent, qboolean alt_fire )
 	VectorSet( maxs, 6, 6, 6 );
 	VectorScale( maxs, -1, mins );
 
+	qboolean compensate = ent->client->sess.unlagged;
+	if (g_unlagged.integer && compensate)
+		G_TimeShiftAllClients(trap_Milliseconds() - (level.time - ent->client->pers.cmd.serverTime), ent, qfalse);
+
 	trap_Trace ( &tr, muzzleStun, mins, maxs, end, ent->s.number, MASK_SHOT );
+
+	if (g_unlagged.integer && compensate)
+		G_UnTimeShiftAllClients(ent, qfalse);
 
 	if ( tr.entityNum >= ENTITYNUM_WORLD )
 	{
@@ -3472,7 +3567,14 @@ void WP_FireMelee( gentity_t *ent, qboolean alt_fire )
 	VectorSet( maxs, 6, 6, 6 );
 	VectorScale( maxs, -1, mins );
 
+	qboolean compensate = ent->client->sess.unlagged;
+	if (g_unlagged.integer && compensate)
+		G_TimeShiftAllClients(trap_Milliseconds() - (level.time - ent->client->pers.cmd.serverTime), ent, qfalse);
+
 	trap_Trace ( &tr, muzzlePunch, mins, maxs, end, ent->s.number, MASK_SHOT );
+
+	if (g_unlagged.integer && compensate)
+		G_UnTimeShiftAllClients(ent, qfalse);
 
 	if (tr.entityNum != ENTITYNUM_NONE)
 	{ //hit something

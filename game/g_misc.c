@@ -290,6 +290,8 @@ void TeleportPlayer( gentity_t *player, vec3_t origin, vec3_t angles ) {
 	if ( player->client->sess.inRacemode ) {
 		G_DeletePlayerProjectiles( player );
 	}
+
+	G_ResetTrail(player);
 }
 
 

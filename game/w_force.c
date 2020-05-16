@@ -2134,7 +2134,15 @@ void ForceShootLightning( gentity_t *self )
 	{//trace-line
 		VectorMA( self->client->ps.origin, 2048, forward, end );
 		
+		qboolean compensate = self->client->sess.unlagged;
+		if (g_unlagged.integer && compensate)
+			G_TimeShiftAllClients(trap_Milliseconds() - (level.time - self->client->pers.cmd.serverTime), self, qfalse);
+
 		trap_Trace( &tr, self->client->ps.origin, vec3_origin, vec3_origin, end, self->s.number, MASK_SHOT );
+
+		if (g_unlagged.integer && compensate)
+			G_UnTimeShiftAllClients(self, qfalse);
+
 		if ( tr.entityNum == ENTITYNUM_NONE || tr.fraction == 1.0 || tr.allsolid || tr.startsolid )
 		{
 			return;
@@ -2386,8 +2394,12 @@ int ForceShootDrain( gentity_t *self )
 	else
 	{//trace-line
 		VectorMA( self->client->ps.origin, 2048, forward, end );
-		
+		qboolean compensate = self->client->sess.unlagged;
+		if (g_unlagged.integer && compensate)
+			G_TimeShiftAllClients(trap_Milliseconds() - (level.time - self->client->pers.cmd.serverTime), self, qfalse);
 		trap_Trace( &tr, self->client->ps.origin, vec3_origin, vec3_origin, end, self->s.number, MASK_SHOT );
+		if (g_unlagged.integer && compensate)
+			G_UnTimeShiftAllClients(self, qfalse);
 		if ( tr.entityNum == ENTITYNUM_NONE || tr.fraction == 1.0 || tr.allsolid || tr.startsolid || !g_entities[tr.entityNum].client || !g_entities[tr.entityNum].inuse )
 		{
 			return 0;
@@ -2849,7 +2861,16 @@ void ForceTelepathy(gentity_t *self)
 	// *CHANGE 65* fix - release rocket lock, old bug
 	BG_ClearRocketLock(&self->client->ps);
 
-	if ( ForceTelepathyCheckDirectNPCTarget( self, &tr, &tookPower ) )
+		qboolean compensate = self->client->sess.unlagged;
+		if (g_unlagged.integer && compensate && self->client->ps.fd.forcePowerLevel[FP_TELEPATHY] == FORCE_LEVEL_1)
+			G_TimeShiftAllClients(trap_Milliseconds() - (level.time - self->client->pers.cmd.serverTime), self, qfalse);
+
+		qboolean hitNpcDirectly = ForceTelepathyCheckDirectNPCTarget(self, &tr, &tookPower);
+
+		if (g_unlagged.integer && compensate && self->client->ps.fd.forcePowerLevel[FP_TELEPATHY] == FORCE_LEVEL_1)
+			G_UnTimeShiftAllClients(self, qfalse);
+
+	if ( hitNpcDirectly )
 	{//hit an NPC directly
 		self->client->ps.forceAllowDeactivateTime = level.time + 1500;
 		G_Sound( self, CHAN_AUTO, G_SoundIndex("sound/weapons/force/distract.wav") );
@@ -3315,7 +3336,14 @@ void ForceThrow( gentity_t *self, qboolean pull )
 		tto[1] = tfrom[1] + fwd[1]*radius/2;
 		tto[2] = tfrom[2] + fwd[2]*radius/2;
 
+		qboolean compensate = self->client->sess.unlagged;
+		if (g_unlagged.integer && compensate)
+			G_TimeShiftAllClients(trap_Milliseconds() - (level.time - self->client->pers.cmd.serverTime), self, qfalse);
+
 		trap_Trace(&tr, tfrom, NULL, NULL, tto, self->s.number, MASK_PLAYERSOLID);
+
+		if (g_unlagged.integer && compensate)
+			G_UnTimeShiftAllClients(self, qfalse);
 
 		if (tr.fraction != 1.0 &&
 			tr.entityNum != ENTITYNUM_NONE)

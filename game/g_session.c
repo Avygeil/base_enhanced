@@ -165,12 +165,21 @@ void G_InitSessionData( gclient_t *client, char *userinfo, qboolean isBot, qbool
 #ifdef NEWMOD_SUPPORT
 	sess->cuidHash[0] = '\0';
 	sess->serverKeys[0] = sess->serverKeys[1] = 0;
-	sess->auth = level.nmAuthEnabled && *Info_ValueForKey( userinfo, "nm_ver" ) ? PENDING : INVALID;
+
+	char* nmVer = Info_ValueForKey(userinfo, "nm_ver");
+	sess->auth = level.nmAuthEnabled && VALIDSTRING(nmVer) ? PENDING : INVALID;
 
 	// newmod clients are guaranteed to have collision prediction, default to seeing other people in racemode
 	if ( sess->auth == PENDING ) {
 		sess->racemodeFlags = 0;
 	}
+
+	sess->basementNeckbeardsTriggered = qfalse;
+	sess->unlagged = 0;
+	if (VALIDSTRING(nmVer))
+		Q_strncpyz(sess->nmVer, nmVer, sizeof(sess->nmVer));
+	else
+		sess->nmVer[0] = '\0';
 #endif
 
 }
