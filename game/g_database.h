@@ -53,6 +53,9 @@ void G_DBListSessionsForInfo( const char* key,
 	DBListSessionsCallback callback,
 	void* ctx );
 
+void G_DBSetAccountFlags( account_t* account,
+	const int flags );
+
 // =========== METADATA ========================================================
 
 void G_DBGetMetadata( const char *key,

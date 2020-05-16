@@ -2078,6 +2078,21 @@ static void FormatAccountSessionList( void *ctx, const sessionReference_t sessio
 	Q_strcat( out->format, sizeof( out->format ), va( S_COLOR_WHITE"(hash: %llX)\n", sessionRef.ptr->hash ) );
 }
 
+static int AccountFlagName2Bitflag(const char* flagName) {
+	if (!Q_stricmp(flagName, "Admin")) {
+		return ACCOUNTFLAG_ADMIN;
+	}
+
+	return 0;
+}
+
+static const char* AccountBitflag2FlagName(int bitflag) {
+	switch (bitflag) {
+		case ACCOUNTFLAG_ADMIN: return "Admin";
+		default: return NULL;
+	}
+}
+
 void Svcmd_Account_f( void ) {
 	qboolean printHelp = qfalse;
 
@@ -2179,18 +2194,34 @@ void Svcmd_Account_f( void ) {
 
 			// TODO: pages
 
+			char flagsStr[64] = { 0 };
+			for ( int bitflag = 1; bitflag <= sizeof( int ) * 8; ++bitflag ) {
+				if ( !( acc.ptr->flags & bitflag ) )
+					continue;
+				
+				const char* flagName = AccountBitflag2FlagName( bitflag );
+
+				if ( !VALIDSTRING( flagName ) )
+					continue;
+
+				if ( VALIDSTRING( flagsStr ) )
+					Q_strcat( flagsStr, sizeof( flagsStr ), ", " );
+
+				Q_strcat( flagsStr, sizeof( flagsStr ), flagName);
+			}
+
 			G_Printf(
 				S_COLOR_YELLOW"Account Name: "S_COLOR_WHITE"%s\n"
 				S_COLOR_YELLOW"Account ID: "S_COLOR_WHITE"%d\n"
 				S_COLOR_YELLOW"Created on: "S_COLOR_WHITE"%s\n"
 				S_COLOR_YELLOW"Group: "S_COLOR_WHITE"%s\n"
-				S_COLOR_YELLOW"Flags: "S_COLOR_WHITE"%d\n"
+				S_COLOR_YELLOW"Flags: "S_COLOR_WHITE"%s\n"
 				"\n",
 				acc.ptr->name,
 				acc.ptr->id,
 				timestamp,
 				acc.ptr->group,
-				acc.ptr->flags
+				flagsStr
 			);
 
 			if ( VALIDSTRING( sessionsPrint.format ) ) {
@@ -2204,6 +2235,50 @@ void Svcmd_Account_f( void ) {
 
 			} else {
 				G_Printf( "No session tied to this account yet.\n" );
+			}
+
+		} else if ( !Q_stricmp( s, "toggleflag" ) ) {
+
+			if ( trap_Argc() < 4 ) {
+				G_Printf( "Usage: "S_COLOR_YELLOW"account toggleflag <username> <flag>\n" );
+				G_Printf( "Available flags: Admin\n" );
+				return;
+			}
+
+			char username[MAX_ACCOUNTNAME_LEN];
+			trap_Argv( 2, username, sizeof( username ) );
+
+			accountReference_t acc = G_GetAccountByName( username, qfalse );
+
+			if ( !acc.ptr ) {
+				G_Printf( "Account '%s' does not exist\n", username );
+				return;
+			}
+
+			char flagName[32];
+			trap_Argv( 3, flagName, sizeof( flagName ) );
+
+			int flag = AccountFlagName2Bitflag( flagName );
+
+			if ( !flag ) {
+				G_Printf( "Unknown account flag name '%s'\n", flagName );
+				return;
+			}
+
+			if ( !( acc.ptr->flags & flag ) ) {
+				// we are enabling the flag
+				if ( G_SetAccountFlags( acc.ptr, flag, qtrue ) ) {
+					G_Printf( "Flag '%s' enabled for account '%s' (id: %d)\n", flagName, acc.ptr->name, acc.ptr->id );
+				} else {
+					G_Printf( "Failed to enable flag '%s' for account '%s' (id: %d)\n", flagName, acc.ptr->name, acc.ptr->id );
+				}
+			} else {
+				// we are disabling the flag
+				if ( G_SetAccountFlags( acc.ptr, flag, qfalse ) ) {
+					G_Printf( "Flag '%s' disabled for account '%s' (id: %d)\n", flagName, acc.ptr->name, acc.ptr->id );
+				} else {
+					G_Printf( "Failed to disable flag '%s' for account '%s' (id: %d)\n", flagName, acc.ptr->name, acc.ptr->id );
+				}
 			}
 
 		} else if ( !Q_stricmp( s, "help" ) ) {
@@ -2222,6 +2297,7 @@ void Svcmd_Account_f( void ) {
 			S_COLOR_YELLOW"account create <username>"S_COLOR_WHITE": Creates a new account with the given name\n"
 			S_COLOR_YELLOW"account delete <username>"S_COLOR_WHITE": Deletes the given account and unlinks all associated sessions\n"
 			S_COLOR_YELLOW"account info <username>"S_COLOR_WHITE": Prints various information for the given account name\n"
+			S_COLOR_YELLOW"account toggleflag <username> <flag>"S_COLOR_WHITE": Toggles an account flag for the given account name\n"
 			S_COLOR_YELLOW"account help"S_COLOR_WHITE": Prints this message\n"
 		);
 	}

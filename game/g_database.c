@@ -302,6 +302,11 @@ static const char* sqlListSessionIdsForInfo =
 "FROM sessions_info                                                          \n"
 "WHERE json_extract(info, ?1) = ?2;                                            ";
 
+static const char* sqlSetFlagsForAccountId =
+"UPDATE accounts                                                             \n"
+"SET flags = ?1                                                              \n"
+"WHERE accounts.account_id = ?2;                                               ";
+
 qboolean G_DBGetAccountByID( const int id,
 	account_t* account )
 {
@@ -593,6 +598,26 @@ void G_DBListSessionsForInfo( const char* key,
 	}
 
 	sqlite3_finalize(statement);
+}
+
+void G_DBSetAccountFlags( account_t* account,
+	const int flags )
+{
+	sqlite3_stmt* statement;
+
+	sqlite3_prepare( dbPtr, sqlSetFlagsForAccountId, -1, &statement, 0 );
+
+	sqlite3_bind_int( statement, 1, flags );
+	sqlite3_bind_int( statement, 2, account->id );
+
+	sqlite3_step( statement );
+
+	// link in the struct too if successful
+	if ( sqlite3_changes( dbPtr ) != 0 ) {
+		account->flags = flags;
+	}
+
+	sqlite3_finalize( statement );
 }
 
 // =========== NICKNAMES =======================================================

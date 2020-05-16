@@ -632,3 +632,23 @@ void G_GetStringFromSessionInfo( const session_t* session, const char* key, char
 
 	cJSON_Delete( root );
 }
+
+qboolean G_SetAccountFlags( account_t* account, const int flags, qboolean flagsEnabled ) {
+	const int oldFlags = account->flags;
+	int newFlags = oldFlags;
+
+	if (flagsEnabled) {
+		newFlags |= flags;
+	} else {
+		newFlags &= ~flags;
+	}
+
+	// if there is no actual change, we don't need to do anything
+	if (oldFlags == newFlags) {
+		return qtrue;
+	}
+
+	G_DBSetAccountFlags( account, newFlags );
+
+	return account->flags != oldFlags;
+}

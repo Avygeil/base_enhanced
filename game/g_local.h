@@ -1349,6 +1349,8 @@ typedef struct {
 //
 // g_accounts.c
 //
+#define ACCOUNTFLAG_ADMIN		( 1 << 0 )
+
 typedef void( *ListSessionsCallback )( void *ctx,
 	const sessionReference_t sessionRef,
 	const qboolean temporary );
@@ -1369,6 +1371,7 @@ void G_ListSessionsForAccount( account_t* account, ListSessionsCallback callback
 void G_ListSessionsForInfo( const char* key, const char* value, ListSessionsCallback callback, void* ctx );
 qboolean G_SessionInfoHasString( const session_t* session, const char* key );
 void G_GetStringFromSessionInfo( const session_t* session, const char* key, char* outValue, size_t outValueSize );
+qboolean G_SetAccountFlags( account_t* account, const int flags, qboolean flagsEnabled );
 
 //
 // g_transfers.c
