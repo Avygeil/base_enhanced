@@ -27,7 +27,7 @@ CONFIG = -O2 -DFINAL_BUILD -DNDEBUG -fno-stack-protector -U_FORTIFY_SOURCE -D_FO
 #CONFIG = -O0 -g -DFINAL_BUILD -DNDEBUG -D_GNU_SOURCE
 #CONFIG = -g3 -D_DEBUG -D_GNU_SOURCE
 INCLUDES = -I./ -I../include/
-DEFINES = -DMISSION_PACK -DQAGAME -D_JK2 -D__linux__ -D__GCC__
+DEFINES = -DMISSION_PACK -DQAGAME -D_JK2 -DSQLITE_ENABLE_JSON1 -D__linux__ -D__GCC__
 OPTIONS = -Wall -fno-strict-aliasing -m32 #-masm=intel
 FLAGS = $(INCLUDES) $(DEFINES) $(OPTIONS) $(CONFIG)
 LIBS = -pthread ../lib/libsodium.a

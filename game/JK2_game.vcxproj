@@ -236,7 +236,7 @@
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
-      <PreprocessorDefinitions>NDEBUG;_WINDOWS;QAGAME;WIN32;_JK2;FINAL_BUILD;_SCL_SECURE_NO_WARNINGS;_CRT_SECURE_NO_WARNINGS;SODIUM_STATIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_WINDOWS;QAGAME;WIN32;_JK2;FINAL_BUILD;_SCL_SECURE_NO_WARNINGS;_CRT_SECURE_NO_WARNINGS;SODIUM_STATIC;SQLITE_ENABLE_JSON1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <BufferSecurityCheck>false</BufferSecurityCheck>
@@ -296,7 +296,7 @@
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>_DEBUG;Debug;WIN32;_WINDOWS;QAGAME;_JK2;_SCL_SECURE_NO_WARNINGS;_CRT_SECURE_NO_WARNINGS;SODIUM_STATIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;Debug;WIN32;_WINDOWS;QAGAME;_JK2;_SCL_SECURE_NO_WARNINGS;_CRT_SECURE_NO_WARNINGS;SODIUM_STATIC;SQLITE_ENABLE_JSON1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <PrecompiledHeader>
