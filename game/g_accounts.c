@@ -100,6 +100,44 @@ static void RelinkAccounts( void ) {
 	}
 }
 
+// writes the account id to ctx for each element in the session list so that we can get the latest
+static void GetLatestAccountId( void* ctx, session_t* session, qboolean temporary ) {
+	if (session->accountId > 0) {
+		*( ( int* )ctx ) = session->accountId;
+	}
+}
+
+static qboolean AutoLinkSession( gclient_t* client, session_t* session ) {
+	int existingAccountId = ACCOUNT_ID_UNLINKED;
+
+#ifdef NEWMOD_SUPPORT
+
+	// for now, the only unambiguous and foolproof way of autolinking is by using newmod ids
+	if ( client->sess.auth == AUTHENTICATED && VALIDSTRING( client->sess.cuidHash ) ) {
+		G_DBListSessionsForInfo( "cuid_hash2", client->sess.cuidHash, GetLatestAccountId, &existingAccountId);
+	}
+
+#endif
+
+	// if we found an account id, retrieve it and hotlink it
+	// since we call this from G_InitSession, we don't keep a reference to that account and we don't
+	// want to relink accounts since it is expected that G_InitAccounts is called after. This is only to
+	// make sure that both the database and the session pointer are linked with the existing account
+	if (existingAccountId > 0) {
+		account_t existingAccount;
+		
+		if (G_DBGetAccountByID(existingAccountId, &existingAccount)) {
+			G_DBLinkAccountToSession(session, &existingAccount);
+
+			if (session->accountId > 0) {
+				return qtrue;
+			}
+		}
+	}
+
+	return qfalse;
+}
+
 static void BuildSessionInfo( char* outInfo, size_t outInfoSize, gclient_t *client ) {
 	outInfo[0] = '\0';
 
@@ -229,6 +267,11 @@ void G_InitClientSession( gclient_t *client ) {
 		}
 
 		G_LogPrintf( "Created new session (id: %d) for client %d\n", newSessionPtr->id, client - level.clients );
+
+		// try to automatically link the session to an account if possible
+		if ( AutoLinkSession( client, newSessionPtr ) ) {
+			G_LogPrintf( "New session (id: %d) was automatically linked to account (id: %d)\n", newSessionPtr->id, newSessionPtr->accountId );
+		}
 
 	} else {
 		G_LogPrintf( "Found existing session (id: %d) for client %d\n", newSessionPtr->id, client - level.clients );
@@ -517,10 +560,10 @@ qboolean G_UnlinkAccountFromSession( session_t* session ) {
 
 typedef struct {
 	void *ctx;
-	ListAccountSessionsCallback callback;
+	ListSessionsCallback callback;
 } ReferencerCallbackProxy;
 
-static void ListAccountSessionsCallbackReferencer( void *ctx, session_t* session, qboolean temporary ) {
+static void ListSessionsCallbackReferencer( void *ctx, session_t* session, qboolean temporary ) {
 	ReferencerCallbackProxy* proxy = ( ReferencerCallbackProxy* )ctx;
 	
 	// make a reference out of that session_t: check if someone is online with that session
@@ -534,12 +577,20 @@ static void ListAccountSessionsCallbackReferencer( void *ctx, session_t* session
 	proxy->callback( proxy->ctx, ref, temporary );
 }
 
-void G_ListSessionsForAccount( account_t* account, ListAccountSessionsCallback callback, void* ctx ) {
+void G_ListSessionsForAccount( account_t* account, ListSessionsCallback callback, void* ctx ) {
 	ReferencerCallbackProxy proxyCtx;
 	proxyCtx.callback = callback;
 	proxyCtx.ctx = ctx;
 
-	G_DBListSessionsForAccount( account, ListAccountSessionsCallbackReferencer, &proxyCtx );
+	G_DBListSessionsForAccount( account, ListSessionsCallbackReferencer, &proxyCtx );
+}
+
+void G_ListSessionsForInfo( const char* key, const char* value, ListSessionsCallback callback, void* ctx ) {
+	ReferencerCallbackProxy proxyCtx;
+	proxyCtx.callback = callback;
+	proxyCtx.ctx = ctx;
+
+	G_DBListSessionsForInfo( key, value, ListSessionsCallbackReferencer, &proxyCtx );
 }
 
 qboolean G_SessionInfoHasString( const session_t* session, const char* key ) {

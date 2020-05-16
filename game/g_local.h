@@ -461,7 +461,7 @@ typedef struct {
 // 64 bits for now - expand to 128 if collisions occur
 typedef long long sessionInfoHash_t;
 
-#define ACCOUNT_ID_UNLINKED		-1;
+#define ACCOUNT_ID_UNLINKED		-1
 
 typedef struct {
 	int id;
@@ -1319,7 +1319,7 @@ typedef struct {
 //
 // g_accounts.c
 //
-typedef void( *ListAccountSessionsCallback )( void *ctx,
+typedef void( *ListSessionsCallback )( void *ctx,
 	const sessionReference_t sessionRef,
 	const qboolean temporary );
 
@@ -1335,7 +1335,8 @@ accountReference_t G_GetAccountByID( const int id, qboolean onlineOnly );
 accountReference_t G_GetAccountByName( const char* name, qboolean onlineOnly );
 qboolean G_LinkAccountToSession( session_t* session, account_t* account );
 qboolean G_UnlinkAccountFromSession( session_t* session );
-void G_ListSessionsForAccount( account_t* account, ListAccountSessionsCallback callback, void* ctx );
+void G_ListSessionsForAccount( account_t* account, ListSessionsCallback callback, void* ctx );
+void G_ListSessionsForInfo( const char* key, const char* value, ListSessionsCallback callback, void* ctx );
 qboolean G_SessionInfoHasString( const session_t* session, const char* key );
 void G_GetStringFromSessionInfo( const session_t* session, const char* key, char* outValue, size_t outValueSize );
 

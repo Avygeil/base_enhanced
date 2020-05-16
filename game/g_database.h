@@ -16,7 +16,7 @@ qboolean G_DBUpgradeDatabaseSchema( int versionFrom, void* db );
 
 // =========== ACCOUNTS ========================================================
 
-typedef void( *DBListAccountSessionsCallback )( void *ctx,
+typedef void( *DBListSessionsCallback )( void *ctx,
 	session_t* session,
 	qboolean temporary );
 
@@ -45,7 +45,12 @@ void G_DBLinkAccountToSession( session_t* session,
 void G_DBUnlinkAccountFromSession( session_t* session );
 
 void G_DBListSessionsForAccount( account_t* account,
-	DBListAccountSessionsCallback callback,
+	DBListSessionsCallback callback,
+	void* ctx );
+
+void G_DBListSessionsForInfo( const char* key,
+	const char* value,
+	DBListSessionsCallback callback,
 	void* ctx );
 
 // =========== METADATA ========================================================

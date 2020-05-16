@@ -297,6 +297,11 @@ static const char* sqlListSessionIdsForAccount =
 "FROM sessions_info                                                          \n"
 "WHERE sessions_info.account_id = ?1;                                          ";
 
+static const char* sqlListSessionIdsForInfo =
+"SELECT session_id, hash, info, account_id, referenced                       \n"
+"FROM sessions_info                                                          \n"
+"WHERE json_extract(info, ?1) = ?2;                                            ";
+
 qboolean G_DBGetAccountByID( const int id,
 	account_t* account )
 {
@@ -519,7 +524,7 @@ void G_DBUnlinkAccountFromSession( session_t* session )
 }
 
 void G_DBListSessionsForAccount( account_t* account,
-	DBListAccountSessionsCallback callback,
+	DBListSessionsCallback callback,
 	void* ctx )
 {
 	sqlite3_stmt* statement;
@@ -548,6 +553,46 @@ void G_DBListSessionsForAccount( account_t* account,
 	}
 
 	sqlite3_finalize( statement );
+}
+
+void G_DBListSessionsForInfo( const char* key,
+	const char* value,
+	DBListSessionsCallback callback,
+	void* ctx )
+{
+	sqlite3_stmt* statement;
+
+	int rc = sqlite3_prepare(dbPtr, sqlListSessionIdsForInfo, -1, &statement, 0);
+
+	sqlite3_bind_text(statement, 1, key, -1, SQLITE_STATIC);
+	sqlite3_bind_text(statement, 2, key, -1, SQLITE_STATIC);
+
+	rc = sqlite3_step(statement);
+	while (rc == SQLITE_ROW) {
+		session_t session;
+
+		const int session_id = sqlite3_column_int(statement, 0);
+		const sqlite3_int64 hash = sqlite3_column_int64(statement, 1);
+		const char* info = (const char*)sqlite3_column_text(statement, 2);
+		const qboolean referenced = !!sqlite3_column_int(statement, 4);
+
+		session.id = session_id;
+		session.hash = hash;
+		Q_strncpyz(session.info, info, sizeof(session.info));
+
+		if ( sqlite3_column_type( statement, 3 ) != SQLITE_NULL ) {
+			const int account_id = sqlite3_column_int(statement, 3);
+			session.accountId = account_id;
+		} else {
+			session.accountId = ACCOUNT_ID_UNLINKED;
+		}
+
+		callback(ctx, &session, !referenced);
+
+		rc = sqlite3_step(statement);
+	}
+
+	sqlite3_finalize(statement);
 }
 
 // =========== NICKNAMES =======================================================
