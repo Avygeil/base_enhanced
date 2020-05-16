@@ -368,6 +368,8 @@ void G_TimeShiftAllClients(int time, gentity_t *skip, qboolean timeshiftAnims) {
 		return;
 	if (skip->s.eType == ET_NPC)
 		return;
+	if (skip->client->sess.inRacemode)
+		return;
 
 	if (g_unlaggedDebug.integer)
 		PrintIngame(-1, "G_TimeShiftAllClients: time param %d, factor %f, offset %d, final time ", time, g_unlaggedFactor.value, g_unlaggedOffset.integer);
@@ -395,7 +397,7 @@ void G_TimeShiftAllClients(int time, gentity_t *skip, qboolean timeshiftAnims) {
 	// for every client
 	ent = &g_entities[0];
 	for (i = 0; i < MAX_CLIENTS; i++, ent++) {
-		if (ent->client && ent->inuse && ent->client->sess.sessionTeam < TEAM_SPECTATOR && ent != skip) {
+		if (ent->client && ent->inuse && ent->client->sess.sessionTeam < TEAM_SPECTATOR && ent != skip && !ent->client->sess.inRacemode) {
 			G_TimeShiftClient(ent, time, timeshiftAnims);
 		}
 	}
@@ -451,10 +453,12 @@ void G_UnTimeShiftAllClients(gentity_t *skip, qboolean timeshiftAnims) {
 		return;
 	if (skip->s.eType == ET_NPC)
 		return;
+	if (skip->client->sess.inRacemode)
+		return;
 
 	ent = &g_entities[0];
 	for (i = 0; i < MAX_CLIENTS; i++, ent++) {
-		if (ent->client && ent->inuse && ent->client->sess.sessionTeam < TEAM_SPECTATOR && ent != skip) {
+		if (ent->client && ent->inuse && ent->client->sess.sessionTeam < TEAM_SPECTATOR && ent != skip && !ent->client->sess.inRacemode) {
 			G_UnTimeShiftClient(ent, timeshiftAnims);
 		}
 	}
