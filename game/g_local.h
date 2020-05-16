@@ -1773,6 +1773,7 @@ qboolean	ConsoleCommand( void );
 void G_ProcessGetstatusIPBans(void);
 qboolean G_FilterPacket( char *from, char* reasonBuffer, int reasonBufferSize);
 qboolean G_FilterGetstatusPacket (unsigned int ip);
+void G_LogRconCommand(const char* ipFrom, const char* command);
 qboolean getIpFromString( const char* from, unsigned int* ip );
 qboolean getIpPortFromString( const char* from, unsigned int* ip, int* port );
 void getStringFromIp( unsigned int ip, char* buffer, int size );
