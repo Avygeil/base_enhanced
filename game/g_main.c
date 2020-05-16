@@ -1098,7 +1098,9 @@ int vmMain( int command, int arg0, int arg1, int arg2, int arg3, int arg4, int a
 	case GAME_TRANSFER_RESULT:
 		G_HandleTransferResult((trsfHandle_t)arg0, (trsfErrorInfo_t*)arg1, arg2, (void*)arg3, (size_t)arg4);
 		return 0;
-
+	case GAME_RCON_COMMAND:
+		G_LogRconCommand((const char*)arg0, (const char*)arg1);
+		return 0;
 	}
 
 	return -1;

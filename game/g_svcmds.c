@@ -2860,3 +2860,9 @@ qboolean	ConsoleCommand( void ) {
 	return qfalse;
 }
 
+void G_LogRconCommand(const char* ipFrom, const char* command) {
+	// log it to disk if needed
+	if (g_logrcon.integer) {
+		G_RconLog("rcon from {%s}: %s", ipFrom, command);
+	}
+}

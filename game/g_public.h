@@ -814,7 +814,8 @@ typedef enum {
 	GAME_GETITEMINDEXBYTAG,
 
 	// base_enhanced
-	GAME_TRANSFER_RESULT = 1337
+	GAME_TRANSFER_RESULT = 1337,
+	GAME_RCON_COMMAND
 } gameExport_t;
 
 typedef struct
