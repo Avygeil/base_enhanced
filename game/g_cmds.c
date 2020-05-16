@@ -5701,6 +5701,7 @@ static void Cmd_Svauth_f( gentity_t *ent ) {
 			// now that this client is fully authenticated, init session and account
 			G_InitClientSession( ent->client );
 			G_InitClientAccount( ent->client );
+			G_PrintWelcomeMessage( ent->client );
 
 			ClientUserinfoChanged( ent - g_entities );
 

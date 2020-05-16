@@ -1770,6 +1770,7 @@ void NormalizeName(const char *in, char *out, int outSize, int colorlessSize);
 #ifdef NEWMOD_SUPPORT
 void G_BroadcastServerFeatureList(int clientNum);
 #endif
+void G_PrintWelcomeMessage(gclient_t* client);
 extern gentity_t *gJMSaberEnt;
 
 //

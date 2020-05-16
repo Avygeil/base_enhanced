@@ -2890,6 +2890,25 @@ void G_BroadcastServerFeatureList( int clientNum ) {
 }
 #endif
 
+void G_PrintWelcomeMessage(gclient_t* client) {
+	if (!client->account) {
+		return;
+	}
+
+	// capitalize the first letter of the account name
+	char* accountName = va("%s", client->account->name);
+	if (!VALIDSTRING(accountName))
+		return;
+	accountName[0] = toupper(accountName[0]);
+
+	// greet admins differently so that their superiority is acknowledged
+	if (!(client->account->flags & ACCOUNTFLAG_ADMIN)) {
+		trap_OutOfBandPrint(client - level.clients, va("print\nWelcome back, %s!\n", accountName));
+	} else {
+		trap_OutOfBandPrint(client - level.clients, va("print\nWelcome back, %s! You are logged in as an admin.\n", accountName));
+	}
+}
+
 #include "namespace_begin.h"
 void WP_SetSaber( int entNum, saberInfo_t *sabers, int saberNum, const char *saberName );
 #include "namespace_end.h"
@@ -2979,6 +2998,7 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 	{
 		G_InitClientSession(client);
 		G_InitClientAccount(client);
+		G_PrintWelcomeMessage(client);
 	}
 
 	client->pers.connected = CON_CONNECTED;
