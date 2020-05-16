@@ -371,6 +371,11 @@ void G_TimeShiftAllClients(int time, gentity_t *skip, qboolean timeshiftAnims) {
 	if (skip->client->sess.inRacemode)
 		return;
 
+	time = Com_Clampi(0, g_unlaggedMaxCompensation.integer, time);
+
+	if (!time)
+		return;
+
 	if (g_unlaggedDebug.integer)
 		PrintIngame(-1, "G_TimeShiftAllClients: time param %d, factor %f, offset %d, final time ", time, g_unlaggedFactor.value, g_unlaggedOffset.integer);
 

@@ -2356,6 +2356,7 @@ extern vmCvar_t    g_unlagged;
 extern vmCvar_t	   g_unlaggedFactor;
 extern vmCvar_t	   g_unlaggedOffset;
 extern vmCvar_t	   g_unlaggedSkeletonTime;
+extern vmCvar_t    g_unlaggedMaxCompensation;
 extern vmCvar_t	   g_unlaggedDebug;
 
 #define MAX_CUSTOM_VOTES	(10)
