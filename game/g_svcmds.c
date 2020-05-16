@@ -2081,6 +2081,8 @@ static void FormatAccountSessionList( void *ctx, const sessionReference_t sessio
 static int AccountFlagName2Bitflag(const char* flagName) {
 	if (!Q_stricmp(flagName, "Admin")) {
 		return ACCOUNTFLAG_ADMIN;
+	} else if (!Q_stricmp(flagName, "VerboseRcon")) {
+		return ACCOUNTFLAG_RCONLOG;
 	}
 
 	return 0;
@@ -2089,6 +2091,7 @@ static int AccountFlagName2Bitflag(const char* flagName) {
 static const char* AccountBitflag2FlagName(int bitflag) {
 	switch (bitflag) {
 		case ACCOUNTFLAG_ADMIN: return "Admin";
+		case ACCOUNTFLAG_RCONLOG: return "VerboseRcon";
 		default: return NULL;
 	}
 }
@@ -2241,7 +2244,7 @@ void Svcmd_Account_f( void ) {
 
 			if ( trap_Argc() < 4 ) {
 				G_Printf( "Usage: "S_COLOR_YELLOW"account toggleflag <username> <flag>\n" );
-				G_Printf( "Available flags: Admin\n" );
+				G_Printf( "Available flags: Admin, VerboseRcon\n" );
 				return;
 			}
 
@@ -2861,8 +2864,26 @@ qboolean	ConsoleCommand( void ) {
 }
 
 void G_LogRconCommand(const char* ipFrom, const char* command) {
-	// log it to disk if needed
+	// notify all online admins who also have the verbose rcon flag
+	int i;
+	for (i = 0; i < level.maxclients; ++i) {
+		gclient_t* client = &level.clients[i];
+
+		if (client->pers.connected != CON_CONNECTED)
+			continue;
+		if (!client->account)
+			continue;
+		if (!(client->account->flags & ACCOUNTFLAG_ADMIN) || !(client->account->flags & ACCOUNTFLAG_RCONLOG))
+			continue;
+		if (!Q_stricmp(client->sess.ipString, ipFrom))
+			continue;
+
+		// use out of band print so it doesn't get in demos
+		trap_OutOfBandPrint(i, va("print\n"S_COLOR_GREEN"[Admin] "S_COLOR_WHITE"Rcon from "S_COLOR_GREEN"%s"S_COLOR_WHITE": /rcon %s\n", ipFrom, command));
+	}
+
+	// also log it to disk if needed
 	if (g_logrcon.integer) {
-		G_RconLog("rcon from {%s}: %s", ipFrom, command);
+		G_RconLog("rcon from {%s}: %s\n", ipFrom, command);
 	}
 }

@@ -1350,6 +1350,7 @@ typedef struct {
 // g_accounts.c
 //
 #define ACCOUNTFLAG_ADMIN		( 1 << 0 )
+#define ACCOUNTFLAG_RCONLOG		( 1 << 1 )
 
 typedef void( *ListSessionsCallback )( void *ctx,
 	const sessionReference_t sessionRef,
