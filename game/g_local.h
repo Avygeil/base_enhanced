@@ -2354,11 +2354,13 @@ extern vmCvar_t    g_improvedHomingThreshold;
 extern vmCvar_t    d_debugImprovedHoming;
 extern vmCvar_t    g_braindeadBots;
 extern vmCvar_t    g_unlagged;
+#ifdef _DEBUG
+extern vmCvar_t    g_unlaggedMaxCompensation;
+extern vmCvar_t	   g_unlaggedSkeletonTime;
 extern vmCvar_t	   g_unlaggedFactor;
 extern vmCvar_t	   g_unlaggedOffset;
-extern vmCvar_t	   g_unlaggedSkeletonTime;
-extern vmCvar_t    g_unlaggedMaxCompensation;
 extern vmCvar_t	   g_unlaggedDebug;
+#endif
 
 #define MAX_CUSTOM_VOTES	(10)
 extern vmCvar_t    g_customVotes;

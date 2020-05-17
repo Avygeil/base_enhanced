@@ -227,8 +227,10 @@ void G_TimeShiftClient(gentity_t *ent, int time, qboolean timeshiftAnims) {
 		time = now;
 	}
 
+#ifdef _DEBUG
 	if (g_unlaggedDebug.integer)
 		PrintIngame(-1, "G_TimeShiftClient: ent %d, trap_milliseconds is %d, time is %d, trailhead time is %d\n", ent - g_entities, now, time, level.unlagged[ent - g_entities].trail[level.unlagged[ent - g_entities].trailHead].time);
+#endif
 
 	// find two entries in the origin trail whose times sandwich "time"
 	// assumes no two adjacent trail records have the same timestamp
@@ -265,7 +267,7 @@ void G_TimeShiftClient(gentity_t *ent, int time, qboolean timeshiftAnims) {
 			level.unlagged[ent - g_entities].saved.time = now;
 		}
 
-#if 1
+#ifdef _DEBUG
 		if (g_unlaggedSkeletonTime.integer) {
 			G_DrawPlayerStick(ent, 0x0000ff, Com_Clampi(1, 60, abs(g_unlaggedSkeletonTime.integer)) * 1000, level.time);
 			//Com_Printf("pre angle is %.2f\n", ent->s.apos.trBase[YAW]);
@@ -279,8 +281,10 @@ void G_TimeShiftClient(gentity_t *ent, int time, qboolean timeshiftAnims) {
 			float	frac = (float)(level.unlagged[ent - g_entities].trail[k].time - time) / (float)(level.unlagged[ent - g_entities].trail[k].time - level.unlagged[ent - g_entities].trail[j].time);
 
 			// FOR TESTING ONLY
+#ifdef _DEBUG
 			if (g_unlaggedDebug.integer)
 				PrintIngame(-1, "time: %d, fire time: %d, j time: %d, k time: %d, diff: %d\n", now, time, level.unlagged[ent - g_entities].trail[j].time, level.unlagged[ent - g_entities].trail[k].time, level.unlagged[ent - g_entities].trail[k].time - level.unlagged[ent - g_entities].trail[j].time);
+#endif
 
 			// interpolate between the two origins to give position at time index "time"
 			TimeShiftLerp(frac, level.unlagged[ent - g_entities].trail[k].currentOrigin, level.unlagged[ent - g_entities].trail[j].currentOrigin, ent->r.currentOrigin);
@@ -339,7 +343,7 @@ void G_TimeShiftClient(gentity_t *ent, int time, qboolean timeshiftAnims) {
 			trap_LinkEntity(ent);
 		}
 
-#if 1
+#ifdef _DEBUG
 		if (g_unlaggedSkeletonTime.integer) {
 			G_DrawPlayerStick(ent, 0x00ff00, Com_Clampi(1, 60, abs(g_unlaggedSkeletonTime.integer)) * 1000, level.time);
 			//Com_Printf("post angle is %.2f\n", ent->s.apos.trBase[YAW]);
@@ -358,6 +362,8 @@ Move ALL clients back to where they were at the specified "time",
 except for "skip"
 =====================
 */
+#define UNLAGGED_FACTOR				(0.25)
+#define UNLAGGED_MAX_COMPENSATION	(500)
 void G_TimeShiftAllClients(int time, gentity_t *skip, qboolean timeshiftAnims) {
 	int			i;
 	gentity_t *ent;
@@ -371,32 +377,49 @@ void G_TimeShiftAllClients(int time, gentity_t *skip, qboolean timeshiftAnims) {
 	if (skip->client->sess.inRacemode)
 		return;
 
+#ifdef _DEBUG
 	if (g_unlaggedDebug.integer)
 		PrintIngame(-1, "G_TimeShiftAllClients: time param %d, factor %f, offset %d, final time ", time, g_unlaggedFactor.value, g_unlaggedOffset.integer);
+#endif
 
 	int now = trap_Milliseconds();
 	if (time > now) {
 		time = now;
 	}
 
+#ifdef _DEBUG
 	if (g_unlaggedFactor.value) {
 		float diff = now - time;
 		time += (int)round((double)g_unlaggedFactor.value * (double)diff);
 	}
+#else
+	float diff = now - time;
+	time += (int)round(UNLAGGED_FACTOR * (double)diff);
+#endif
 
+#ifdef _DEBUG
 	if (g_unlaggedOffset.integer)
 		time += g_unlaggedOffset.integer;
+#endif
 
 	if (time > now) {
 		time = now;
 	}
 
+#ifdef _DEBUG
 	if (now - time > g_unlaggedMaxCompensation.integer) {
 		time = now - g_unlaggedMaxCompensation.integer;
 	}
+#else
+	if (now - time > UNLAGGED_MAX_COMPENSATION) {
+		time = now - UNLAGGED_MAX_COMPENSATION;
+	}
+#endif
 
+#ifdef _DEBUG
 	if (g_unlaggedDebug.integer)
 		PrintIngame(-1, "%d, now %d, diff %d\n", time, now, now - time);
+#endif
 
 	// for every client
 	ent = &g_entities[0];
