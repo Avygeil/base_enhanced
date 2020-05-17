@@ -2864,22 +2864,36 @@ qboolean	ConsoleCommand( void ) {
 }
 
 void G_LogRconCommand(const char* ipFrom, const char* command) {
+	const char* displayStr;
+
+	// try to find who used the command
+	gclient_t* from = G_FindClientByIPPort(ipFrom);
+	if (from) {
+		if (from->account) {
+			displayStr = from->account->name;
+		} else {
+			displayStr = from->pers.netname;
+		}
+	} else {
+		displayStr = ipFrom;
+	}
+
 	// notify all online admins who also have the verbose rcon flag
 	int i;
 	for (i = 0; i < level.maxclients; ++i) {
-		gclient_t* client = &level.clients[i];
+		gclient_t* other = &level.clients[i];
 
-		if (client->pers.connected != CON_CONNECTED)
+		if (other->pers.connected != CON_CONNECTED)
 			continue;
-		if (!client->account)
+		if (!other->account)
 			continue;
-		if (!(client->account->flags & ACCOUNTFLAG_ADMIN) || !(client->account->flags & ACCOUNTFLAG_RCONLOG))
+		if (!(other->account->flags & ACCOUNTFLAG_ADMIN) || !(other->account->flags & ACCOUNTFLAG_RCONLOG))
 			continue;
-		if (!Q_stricmp(client->sess.ipString, ipFrom))
+		if (other == from)
 			continue;
 
 		// use out of band print so it doesn't get in demos
-		trap_OutOfBandPrint(i, va("print\n"S_COLOR_GREEN"[Admin] "S_COLOR_WHITE"Rcon from "S_COLOR_GREEN"%s"S_COLOR_WHITE": /rcon %s\n", ipFrom, command));
+		trap_OutOfBandPrint(i, va("print\n"S_COLOR_GREEN"[Admin] "S_COLOR_WHITE"Rcon from "S_COLOR_GREEN"%s"S_COLOR_WHITE": /rcon %s\n", displayStr, command));
 	}
 
 	// also log it to disk if needed

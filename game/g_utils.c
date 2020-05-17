@@ -2758,3 +2758,19 @@ void PrintIngame(int clientNum, const char *msg, ...) {
 	trap_SendServerCommand(clientNum, buf);
 	Com_Printf(buf);
 }
+
+gclient_t* G_FindClientByIPPort(const char* ipPortString) {
+	int i;
+	for (i = 0; i < level.maxclients; ++i) {
+		gclient_t* client = &level.clients[i];
+
+		if (client->pers.connected != CON_CONNECTED)
+			continue;
+		if (Q_stricmp(client->sess.ipString, ipPortString))
+			continue;
+
+		return client;
+	}
+
+	return NULL;
+}

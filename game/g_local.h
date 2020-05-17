@@ -1519,6 +1519,7 @@ typedef qboolean ( *entityFilter_func )( gentity_t* );
 gentity_t* G_ClosestEntity( gentity_t *ref, entityFilter_func );
 void Q_strstrip(char *string, const char *strip, const char *repl);
 void PrintIngame(int clientNum, const char *s, ...);
+gclient_t* G_FindClientByIPPort(const char* ipPortString);
 
 void G_FormatLocalDateFromEpoch( char* buf, size_t bufSize, time_t epochSecs );
 
