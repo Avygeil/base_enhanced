@@ -4,8 +4,8 @@
 #include "g_local.h"
 
 #define DB_FILENAME				"enhanced.db"
-#define DB_SCHEMA_VERSION		3
-#define DB_SCHEMA_VERSION_STR	"3"
+#define DB_SCHEMA_VERSION		4
+#define DB_SCHEMA_VERSION_STR	"4"
 #define DB_OPTIMIZE_INTERVAL	( 60*60*3 ) // every 3 hours
 #define DB_VACUUM_INTERVAL		( 60*60*24*7 ) // every week
 
