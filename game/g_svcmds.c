@@ -1772,15 +1772,23 @@ void Svcmd_ClientDesc_f( void ) {
 			} else {
 				Q_strcat( description, sizeof( description ), "Jamp or other" );
 			}
+
+			if (level.clients[i].sess.unlagged) {
+				Q_strcat(description, sizeof(description), " (unlagged)");
+			}
+
+			if (sv_passwordlessSpectators.integer && !level.clients[i].sess.canJoin) {
+				Q_strcat(description, sizeof(description), " (^3no password^7)");
+			}
 			
 			if ( ( g_antiWallhack.integer == 1 && !level.clients[i].sess.whTrustToggle )
 				|| ( g_antiWallhack.integer >= 2 && level.clients[i].sess.whTrustToggle ) ) {
 				// anti wallhack is enabled for this player
-				Q_strcat( description, sizeof( description ), " ("S_COLOR_YELLOW"anti WH enabled"S_COLOR_WHITE")" );
+				Q_strcat( description, sizeof( description ), " (^3anti WH enabled^7)" );
 			}
 
 			if ( level.clients[i].sess.shadowMuted ) {
-				Q_strcat( description, sizeof( description ), " ("S_COLOR_YELLOW"shadow muted"S_COLOR_WHITE")" );
+				Q_strcat( description, sizeof( description ), " (^3shadow muted^7)" );
 			}
 
 			G_Printf( "Client %i (%s"S_COLOR_WHITE"): %s\n", i, level.clients[i].pers.netname, description );
