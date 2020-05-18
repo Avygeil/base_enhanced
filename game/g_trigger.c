@@ -1890,18 +1890,6 @@ CaptureRecordType FindCaptureTypeForRun( gclient_t *client ) {
 		return CAPTURE_RECORD_WEAPONS;
 	}
 
-	if ( !client->jumpedOrCrouched ) {
-		return CAPTURE_RECORD_WALK;
-	}
-
-	if ( !client->usedForwardOrBackward ) {
-		return CAPTURE_RECORD_AD;
-	}
-
-	if (client->touchedWaypoints == ALL_WAYPOINT_BITS) {
-		return CAPTURE_RECORD_WEEKLY;
-	}
-
 	return CAPTURE_RECORD_STANDARD;
 }
 
@@ -1940,7 +1928,6 @@ static void RaceTrigger_Start( gentity_t *trigger, gentity_t *player, team_t fla
 	}
 
 	// reset the speed stats/timer for this run
-	client->touchedWaypoints = 0;
 	client->pers.fastcapTopSpeed = 0;
 	client->pers.fastcapDisplacement = 0;
 	client->pers.fastcapDisplacementSamples = 0;
@@ -2043,7 +2030,6 @@ static void RaceTrigger_Finish( gentity_t *trigger, gentity_t *player ) {
 	client->pers.flagDebounceTime = level.time + 1000;
 
 	const CaptureRecordType captureRecordType = FindCaptureTypeForRun( client );
-	client->touchedWaypoints = 0; // we're done with this now, since it was checked in FindCaptureTypeForRun
 
 	if ( captureRecordType == CAPTURE_RECORD_INVALID ) {
 		return;

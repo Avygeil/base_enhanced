@@ -661,6 +661,7 @@ void G_DBLogNickname( unsigned int ipInt,
 	int duration,
 	const char* cuidHash )
 {
+#if 0
 	sqlite3_stmt* statement;
 
 	// prepare insert statement
@@ -675,6 +676,7 @@ void G_DBLogNickname( unsigned int ipInt,
 	sqlite3_step( statement );
 
 	sqlite3_finalize( statement );
+#endif
 }
 
 void G_DBListAliases( unsigned int ipInt,
@@ -684,6 +686,7 @@ void G_DBListAliases( unsigned int ipInt,
 	void* context,
 	const char* cuidHash )
 {
+#if 0
 	sqlite3_stmt* statement;
 	int rc;
 	const char* name;
@@ -756,6 +759,7 @@ void G_DBListAliases( unsigned int ipInt,
 
 		sqlite3_finalize( statement );
 	}
+#endif
 }
 
 // =========== FASTCAPS ========================================================
@@ -814,6 +818,8 @@ const char* const sqlListLatestFastcapsV2 =
 int G_DBLoadCaptureRecords( const char *mapname,
 	CaptureRecordList *recordsToLoad )
 {
+	return 0;
+#if 0
 	memset( recordsToLoad, 0, sizeof( *recordsToLoad ) );
 
 	// make sure we always make a lower case map lookup
@@ -892,6 +898,7 @@ int G_DBLoadCaptureRecords( const char *mapname,
 	recordsToLoad->enabled = qtrue;
 
 	return loaded;
+#endif
 }
 
 void G_DBListBestCaptureRecords( CaptureRecordType type,
@@ -900,6 +907,7 @@ void G_DBListBestCaptureRecords( CaptureRecordType type,
 	ListBestCapturesCallback callback,
 	void *context )
 {
+#if 0
 	sqlite3_stmt* statement;
 	int rc = sqlite3_prepare( dbPtr, sqlListBestFastcapsV2, -1, &statement, 0 );
 
@@ -922,6 +930,7 @@ void G_DBListBestCaptureRecords( CaptureRecordType type,
 	}
 
 	sqlite3_finalize( statement );
+#endif
 }
 
 void G_DBGetCaptureRecordsLeaderboard( CaptureRecordType type,
@@ -930,6 +939,7 @@ void G_DBGetCaptureRecordsLeaderboard( CaptureRecordType type,
 	LeaderboardCapturesCallback callback,
 	void *context )
 {
+#if 0
 	sqlite3_stmt* statement;
 	int rc = sqlite3_prepare( dbPtr, sqlGetFastcapsV2Leaderboard, -1, &statement, 0 );
 
@@ -950,6 +960,7 @@ void G_DBGetCaptureRecordsLeaderboard( CaptureRecordType type,
 	}
 
 	sqlite3_finalize( statement );
+#endif
 }
 
 void G_DBListLatestCaptureRecords( CaptureRecordType type,
@@ -958,6 +969,7 @@ void G_DBListLatestCaptureRecords( CaptureRecordType type,
 	ListLatestCapturesCallback callback,
 	void *context )
 {
+#if 0
 	sqlite3_stmt* statement;
 	int rc = sqlite3_prepare( dbPtr, sqlListLatestFastcapsV2, -1, &statement, 0 );
 
@@ -981,11 +993,14 @@ void G_DBListLatestCaptureRecords( CaptureRecordType type,
 	}
 
 	sqlite3_finalize( statement );
+#endif
 }
 
 // returns how many records were written, or -1 if the capture record list is inactive (disabled)
 int G_DBSaveCaptureRecords( CaptureRecordList *recordsToSave )
 {
+	return -1;
+#if 0
 	if ( !recordsToSave->enabled ) {
 		return -1;
 	}
@@ -1065,55 +1080,7 @@ int G_DBSaveCaptureRecords( CaptureRecordList *recordsToSave )
 	G_DBSetMetadata("lastWaypointNames", VALIDSTRING(waypointNames) ? waypointNames : "");
 
 	return saved;
-}
-
-const char* const sqlCountRecordsOfType =
-"SELECT COUNT(*) FROM fastcapsV2 WHERE type = ?";
-
-const char* const sqlChangeRecordType =
-"UPDATE fastcapsV2 SET type = ? WHERE type = ?;";
-
-void G_DBRotateWeeklyChallenge(XXH32_hash_t newSeed, XXH32_hash_t oldSeed) {
-	sqlite3_stmt* statement;
-
-	// count the number of "last week's records" (which are now 2 weeks old)
-	sqlite3_prepare(dbPtr, sqlCountRecordsOfType, -1, &statement, 0);
-	sqlite3_bind_int(statement, 1, CAPTURE_RECORD_LASTWEEK);
-	sqlite3_step(statement);
-	int numChangedToAncient = sqlite3_column_int(statement, 0);
-
-	// change them to "ancient"
-	// TODO: allow some way to view these? leaderboard?
-	sqlite3_reset(statement);
-	sqlite3_clear_bindings(statement);
-	sqlite3_prepare(dbPtr, sqlChangeRecordType, -1, &statement, 0);
-	sqlite3_bind_int(statement, 1, CAPTURE_RECORD_ANCIENT);
-	sqlite3_bind_int(statement, 2, CAPTURE_RECORD_LASTWEEK);
-	sqlite3_step(statement);
-
-	// count the number of "this week's records" (which are now 1 week old)
-	sqlite3_prepare(dbPtr, sqlCountRecordsOfType, -1, &statement, 0);
-	sqlite3_bind_int(statement, 1, CAPTURE_RECORD_WEEKLY);
-	sqlite3_step(statement);
-	int numChangedToLastWeek = sqlite3_column_int(statement, 0);
-	
-	// change them to "last week's records"
-	sqlite3_reset(statement);
-	sqlite3_clear_bindings(statement);
-	sqlite3_prepare(dbPtr, sqlChangeRecordType, -1, &statement, 0);
-	sqlite3_bind_int(statement, 1, CAPTURE_RECORD_LASTWEEK);
-	sqlite3_bind_int(statement, 2, CAPTURE_RECORD_WEEKLY);
-	sqlite3_step(statement);
-
-	// update the hash in the metadata to the current one
-	G_DBSetMetadata("lastWaypointsHash", va("%08X", level.waypointHash));
-	
-	// set lastWaypointNames to the current waypoint names
-	char* waypointNames = GetWaypointNames();
-	G_DBSetMetadata("lastWaypointNames", VALIDSTRING(waypointNames) ? waypointNames : "");
-
-	G_LogPrintf("Rotated weekly challenge! Old seed: %08X. New seed: %08X. %d lastweek records changed to ancient. %d weekly records changed to lastweek.\n",
-		oldSeed, newSeed, numChangedToAncient, numChangedToLastWeek);
+#endif
 }
 
 // this function assumes the arrays in currentRecords are sorted by captureTime and date
@@ -1132,6 +1099,8 @@ int G_DBAddCaptureTime( unsigned int ipInt,
 	const CaptureRecordType type,
 	CaptureRecordList *currentRecords )
 {
+	return 0;
+#if 0
 	if ( g_gametype.integer != GT_CTF || !currentRecords->enabled ) {
 		return 0;
 	}
@@ -1242,6 +1211,7 @@ int G_DBAddCaptureTime( unsigned int ipInt,
 	}
 
 	return newIndex + 1;
+#endif
 }
 
 // =========== WHITELIST =======================================================

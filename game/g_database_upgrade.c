@@ -402,14 +402,17 @@ const char* const v4NewTables =
 ");                                                                                                    ";
 
 const char* const v4TerminateMyLife =
-"DROP INDEX nicknames_ip_int_idx;              \n"
-"DROP INDEX nicknames_cuid_hash2_idx;          \n"
-"DROP VIEW sessions_info;                      \n"
-"DROP TABLE nicknames_TMP;                     \n"
-"DROP TABLE nicknames;                         \n"
-"DROP TABLE fastcapsV2;                        \n"
-"ALTER TABLE fastcaps_NEW RENAME TO fastcaps;  \n"
-"ALTER TABLE nicknames_NEW RENAME TO nicknames;  ";
+"DROP INDEX nicknames_ip_int_idx;                      \n"
+"DROP INDEX nicknames_cuid_hash2_idx;                  \n"
+"DROP VIEW sessions_info;                              \n"
+"DROP TABLE nicknames_TMP;                             \n"
+"DROP TABLE nicknames;                                 \n"
+"DROP TABLE fastcapsV2;                                \n"
+"DELETE from metadata WHERE key = 'oldWaypointNames';  \n"
+"DELETE from metadata WHERE key = 'lastWaypointsHash'; \n"
+"DELETE from metadata WHERE key = 'lastWaypointNames'; \n"
+"ALTER TABLE fastcaps_NEW RENAME TO fastcaps;          \n"
+"ALTER TABLE nicknames_NEW RENAME TO nicknames;          ";
 
 const char* const v4CreateNewShit =
 "CREATE VIEW IF NOT EXISTS sessions_info AS                                                          \n"
@@ -471,6 +474,7 @@ static qboolean UpgradeDBToVersion4(sqlite3* dbPtr) {
 	int rc;
 
 	// merge nicknames
+	Com_Printf("Merging nicknames\n");
 	sqlite3_prepare(dbPtr, "SELECT * FROM nicknames;", -1, &statement, 0);
 	sqlite3_prepare(dbPtr, "INSERT OR IGNORE INTO nicknames_TMP(ip_int, name, duration, cuid_hash2) VALUES (?1, ?2, ?3, ?4);", -1, &statement2, 0);
 	sqlite3_prepare(dbPtr, "UPDATE nicknames_TMP SET duration=duration+?1 WHERE ip_int=?2 AND name=?3 AND cuid_hash2=?4;", -1, &statement3, 0);
@@ -515,7 +519,8 @@ static qboolean UpgradeDBToVersion4(sqlite3* dbPtr) {
 	sqlite3_finalize(statement2);
 	sqlite3_finalize(statement3);
 
-	// port nicknames worn > 1 hour by creating sessions for them
+	// port nicknames by creating sessions for them
+	Com_Printf("Port nicknames to sessions\n");
 	sqlite3_prepare(dbPtr, "SELECT * FROM nicknames_TMP;", -1, &statement, 0);
 	sqlite3_prepare(dbPtr, "INSERT OR IGNORE INTO nicknames_NEW (session_id, name) VALUES (?1, ?2);", -1, &statement2, 0);
 	sqlite3_prepare(dbPtr, "UPDATE nicknames_NEW SET duration=duration+?1 WHERE session_id=?2;", -1, &statement3, 0);
@@ -575,6 +580,7 @@ static qboolean UpgradeDBToVersion4(sqlite3* dbPtr) {
 	sqlite3_finalize(statement3);
 
 	// port fastcaps to the new format and make new sessions if they weren't created with nicknames
+	Com_Printf("Port fastcaps to new format\n");
 	sqlite3_prepare(dbPtr, "SELECT * FROM fastcapsV2;", -1, &statement, 0);
 	sqlite3_prepare(dbPtr, "INSERT OR IGNORE INTO fastcaps_NEW(mapname, type, session_id, capture_time, date, extra) VALUES(?1, ?2, ?3, ?4, ?5, ?6);", -1, &statement2, 0);
 	sqlite3_prepare(dbPtr, "UPDATE fastcaps_NEW SET capture_time=MIN(capture_time, ?1) WHERE mapname=?2 AND type=?3 AND session_id=?4;", -1, &statement3, 0);
@@ -667,6 +673,12 @@ static qboolean UpgradeDBToVersion4(sqlite3* dbPtr) {
 	sqlite3_finalize(statement);
 	sqlite3_finalize(statement2);
 	sqlite3_finalize(statement3);
+
+	Com_Printf("Finalizing...\n");
+
+	// delete non normal/weapon records
+	if (sqlite3_exec(dbPtr, "DELETE from fastcaps_NEW WHERE type > 1;", NULL, NULL, NULL) != SQLITE_OK)
+		return qfalse;
 
 	// remove the intermediate and old tables and rename the new ones
 	if (sqlite3_exec(dbPtr, v4TerminateMyLife, NULL, NULL, NULL) != SQLITE_OK)

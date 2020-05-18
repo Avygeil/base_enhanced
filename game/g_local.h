@@ -381,7 +381,6 @@ struct gentity_s {
 
 	gitem_t		*item;			// for bonus items
 
-	qboolean	unreachableItem;
 	qboolean	raceDimensionEvent;
 };
 
@@ -977,16 +976,9 @@ struct gclient_s {
 	int			realPing;
 #endif
 
-#define NUM_WAYPOINTS	(3)
-#define ALL_WAYPOINT_BITS	((1 << 0) | (1 << 1) | (1 << 2)) // 7
-	int			touchedWaypoints;
-
 	int homingLockTime; // time at which homing weapon locked on to a target
 	int homingLockTarget; // the target of it
 };
-
-#define ARENAINFO_B_E_FLAG_DISABLETOPTIMES		(1 << 0)
-#define ARENAINFO_B_E_FLAG_DISABLEWAYPOINTS		(1 << 1)
 
 //Interest points
 
@@ -1088,11 +1080,6 @@ typedef struct {
 typedef enum {
 	CAPTURE_RECORD_STANDARD = 0, // restrictive category from which the other rules derivate
 	CAPTURE_RECORD_WEAPONS, // self weapon damage is allowed (except dets/mines)
-	CAPTURE_RECORD_WALK, // no jump, no roll
-	CAPTURE_RECORD_AD, // no +forward
-	CAPTURE_RECORD_WEEKLY, // weekly rotating challenge
-	CAPTURE_RECORD_LASTWEEK, // last week's challenge (cannot actually be set ingame)
-	CAPTURE_RECORD_ANCIENT, // weekly challenge records that are 2+ weeks old (not exposed to users at all, and cannot actually be set ingame)
 
 	CAPTURE_RECORD_NUM_TYPES,
 	CAPTURE_RECORD_INVALID
@@ -1318,12 +1305,6 @@ typedef struct {
 		qboolean linked;
 	} locations;
 
-	qboolean		waypointsValid;
-	gentity_t*		waypoints[NUM_WAYPOINTS];
-	vec3_t			waypointLowerBounds[NUM_WAYPOINTS];
-	vec3_t			waypointUpperBounds[NUM_WAYPOINTS];
-	XXH32_hash_t	waypointHash;
-
 	// used to keep track of the average number of humans in each team throughout the pug
 	unsigned int	numRedPlayerTicks;
 	unsigned int	numBluePlayerTicks;
@@ -1409,7 +1390,6 @@ void Cmd_Help_f( gentity_t *ent );
 void Cmd_FollowFlag_f( gentity_t *ent );
 void Cmd_FollowTarget_f(gentity_t *ent);
 gentity_t *G_GetDuelWinner(gclient_t *client);
-char* GetWaypointNames(void);
 
 //
 // g_items.c
@@ -2275,7 +2255,6 @@ extern vmCvar_t		g_wallhackMaxTraces;
 extern vmCvar_t     g_inMemoryDB;
 
 extern vmCvar_t     g_enableRacemode;
-extern vmCvar_t		g_enableRacemodeWaypoints;
 #ifdef _DEBUG
 extern vmCvar_t     d_disableRaceVisChecks;
 #endif

@@ -1041,7 +1041,6 @@ void SetTeam( gentity_t *ent, char *s ) {
 		return;
 	}
 
-	client->touchedWaypoints = 0;
 	BroadcastTeamChange( client, oldTeam );
 
 	//make a disappearing effect where they were before teleporting them to the appropriate spawn point,
@@ -3884,26 +3883,6 @@ static void GetSpecificWaypointName(gentity_t* waypoint, char* locationBuffer, s
 	kd_res_free(nearest);
 }
 
-char* GetWaypointNames(void) {
-	static char result[256] = { 0 };
-	if (result[0])
-		return result;
-
-	if (!level.waypointsValid)
-		return "";
-
-	char locBufs[NUM_WAYPOINTS][32] = { 0 };
-	for (int i = 0; i < NUM_WAYPOINTS; i++)
-		GetSpecificWaypointName(level.waypoints[i], locBufs[i], sizeof(locBufs[i]));
-
-	if (locBufs[0][0] && locBufs[1][0] && locBufs[2][0]) {
-		Com_sprintf(result, sizeof(result), "%s, %s, %s", locBufs[0], locBufs[1], locBufs[2]);
-		return result;
-	}
-
-	return "";
-}
-
 // if one parameter is NULL, its value is added to the next non NULL parameter
 void PartitionedTimer( const int time, int *mins, int *secs, int *millis ) {
 	div_t qr;
@@ -3936,10 +3915,6 @@ const char* GetLongNameForRecordType( CaptureRecordType type ) {
 	switch ( type ) {
 	case CAPTURE_RECORD_STANDARD: return "Standard";
 	case CAPTURE_RECORD_WEAPONS: return "Weapons";
-	case CAPTURE_RECORD_WALK: return "Walk";
-	case CAPTURE_RECORD_AD: return "A/D";
-	case CAPTURE_RECORD_WEEKLY: return "Weekly Challenge";
-	case CAPTURE_RECORD_LASTWEEK: return "Last Week's Challenge";
 	default: return "Unknown";
 	}
 }
@@ -3948,10 +3923,6 @@ const char* GetShortNameForRecordType( CaptureRecordType type ) {
 	switch ( type ) {
 		case CAPTURE_RECORD_STANDARD: return "std";
 		case CAPTURE_RECORD_WEAPONS: return "wpn";
-		case CAPTURE_RECORD_WALK: return "walk";
-		case CAPTURE_RECORD_AD: return "ad";
-		case CAPTURE_RECORD_WEEKLY: return "weekly";
-		case CAPTURE_RECORD_LASTWEEK: return "lastweek";
 		default: return "unknown";
 	}
 }
@@ -3963,22 +3934,6 @@ CaptureRecordType GetRecordTypeForShortName( const char *name ) {
 
 	if ( !Q_stricmpn( name, "wea", 3 ) || !Q_stricmpn( name, "wp", 2 ) ) {
 		return CAPTURE_RECORD_WEAPONS;
-	}
-
-	if ( !Q_stricmpn( name, "wa", 2 ) ) {
-		return CAPTURE_RECORD_WALK;
-	}
-
-	if ( !Q_stricmpn( name, "a", 1 ) ) {
-		return CAPTURE_RECORD_AD;
-	}
-
-	if (!Q_stricmpn(name, "wee", 3) || !Q_stricmpn(name, "wk", 2)) {
-		return CAPTURE_RECORD_WEEKLY;
-	}
-
-	if (!Q_stricmpn(name, "la", 2) || !Q_stricmpn(name, "old", 3)) {
-		return CAPTURE_RECORD_LASTWEEK;
 	}
 
 	return CAPTURE_RECORD_INVALID;
@@ -4166,12 +4121,12 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 
 		if ( !Q_stricmp( buf, "help" ) ) {
 			char *text =
-				S_COLOR_WHITE"Show records for the current map: "S_COLOR_CYAN"/toptimes [std | wpn | walk | ad | weekly | lastweek]\n"
-				S_COLOR_WHITE"List all map records: "S_COLOR_CYAN"/toptimes maplist [std | wpn | walk | ad | weekly | lastweek] [page]\n"
-				S_COLOR_WHITE"Show player leaderboard: "S_COLOR_CYAN"/toptimes ranks [std | wpn | walk | ad | weekly | lastweek] [page]\n"
-				S_COLOR_WHITE"Show latest records:" S_COLOR_CYAN"/toptimes latest [std | wpn | walk | ad | weekly | lastweek] [page]\n"
-				S_COLOR_WHITE"Get demo information of a specific rank on the current map:" S_COLOR_CYAN"/toptimes demo <rank> [std | wpn | walk | ad | weekly | lastweek]\n"
-				S_COLOR_WHITE"Show valid runs rules:" S_COLOR_CYAN"/toptimes rules <std | wpn | walk | ad | weekly>";
+				S_COLOR_WHITE"Show records for the current map: "S_COLOR_CYAN"/toptimes [std | wpn]\n"
+				S_COLOR_WHITE"List all map records: "S_COLOR_CYAN"/toptimes maplist [std | wpn] [page]\n"
+				S_COLOR_WHITE"Show player leaderboard: "S_COLOR_CYAN"/toptimes ranks [std | wpn] [page]\n"
+				S_COLOR_WHITE"Show latest records:" S_COLOR_CYAN"/toptimes latest [std | wpn] [page]\n"
+				S_COLOR_WHITE"Get demo information of a specific rank on the current map:" S_COLOR_CYAN"/toptimes demo <rank> [std | wpn]\n"
+				S_COLOR_WHITE"Show valid runs rules:" S_COLOR_CYAN"/toptimes rules <std | wpn>";
 
 			trap_SendServerCommand( ent - g_entities, va( "print \"%s\n\"", text ) );
 
@@ -4192,7 +4147,7 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 					category = GetRecordTypeForShortName( buf );
 
 					if ( category == CAPTURE_RECORD_INVALID ) {
-						trap_SendServerCommand( ent - g_entities, "print \"Invalid category. Usage: /toptimes maplist [std | wpn | walk | ad | weekly | lastweek] [page]\n\"" );
+						trap_SendServerCommand( ent - g_entities, "print \"Invalid category. Usage: /toptimes maplist [std | wpn] [page]\n\"" );
 						return;
 					}
 
@@ -4211,10 +4166,10 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 			G_DBListBestCaptureRecords( category, MAPLIST_MAPS_PER_PAGE, ( page - 1 ) * MAPLIST_MAPS_PER_PAGE, printBestTimeCallback, &context );
 
 			if ( context.hasPrinted ) {
-				trap_SendServerCommand( ent - g_entities, va( "print \"Viewing page %d.\nUsage: /toptimes maplist [std | wpn | walk | ad | weekly | lastweek] [page]\n\"", page ) );
+				trap_SendServerCommand( ent - g_entities, va( "print \"Viewing page %d.\nUsage: /toptimes maplist [std | wpn] [page]\n\"", page ) );
 			}
 			else {
-				trap_SendServerCommand( ent - g_entities, "print \"There aren't this many records! Try a lower page number.\nUsage: /toptimes maplist [std | wpn | walk | ad | weekly | lastweek] [page]\n\"" );
+				trap_SendServerCommand( ent - g_entities, "print \"There aren't this many records! Try a lower page number.\nUsage: /toptimes maplist [std | wpn] [page]\n\"" );
 			}
 
 			return;
@@ -4253,9 +4208,9 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 			G_DBGetCaptureRecordsLeaderboard( category, LEADERBOARD_PLAYERS_PER_PAGE, ( page - 1 ) * LEADERBOARD_PLAYERS_PER_PAGE, printLeaderboardCallback, &context );
 
 			if ( context.hasPrinted ) {
-				trap_SendServerCommand( ent - g_entities, va( "print \"Viewing page %d.\nUsage: /toptimes ranks [std | wpn | walk | ad | weekly | lastweek] [page]\n\"", page ) );
+				trap_SendServerCommand( ent - g_entities, va( "print \"Viewing page %d.\nUsage: /toptimes ranks [std | wpn] [page]\n\"", page ) );
 			} else {
-				trap_SendServerCommand( ent - g_entities, "print \"There aren't this many players! Try a lower page number.\nUsage: /toptimes ranks [std | wpn | walk | ad | weekly | lastweek] [page]\n\"" );
+				trap_SendServerCommand( ent - g_entities, "print \"There aren't this many players! Try a lower page number.\nUsage: /toptimes ranks [std | wpn] [page]\n\"" );
 			}
 
 			return;
@@ -4275,7 +4230,7 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 					category = GetRecordTypeForShortName( buf );
 
 					if ( category == CAPTURE_RECORD_INVALID ) {
-						trap_SendServerCommand( ent - g_entities, "print \"Invalid category. Usage: /toptimes latest [std | wpn | walk | ad | weekly | lastweek] [page]\n\"" );
+						trap_SendServerCommand( ent - g_entities, "print \"Invalid category. Usage: /toptimes latest [std | wpn] [page]\n\"" );
 						return;
 					}
 
@@ -4294,10 +4249,10 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 			G_DBListLatestCaptureRecords( category, LATEST_RECORDS_PER_PAGE, ( page - 1 ) * LATEST_RECORDS_PER_PAGE, printLatestTimesCallback, &context );
 
 			if ( context.hasPrinted ) {
-				trap_SendServerCommand( ent - g_entities, va( "print \"Viewing page %d.\nUsage: /toptimes latest [std | wpn | walk | ad | weekly | lastweek] [page]\n\"", page ) );
+				trap_SendServerCommand( ent - g_entities, va( "print \"Viewing page %d.\nUsage: /toptimes latest [std | wpn] [page]\n\"", page ) );
 			}
 			else {
-				trap_SendServerCommand( ent - g_entities, "print \"There aren't this many records! Try a lower page number.\nUsage: /toptimes latest [std | wpn | walk | ad | weekly | lastweek] [page]\n\"" );
+				trap_SendServerCommand( ent - g_entities, "print \"There aren't this many records! Try a lower page number.\nUsage: /toptimes latest [std | wpn] [page]\n\"" );
 			}
 
 			return;
@@ -4314,7 +4269,7 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 						category = GetRecordTypeForShortName( buf );
 
 						if ( category == CAPTURE_RECORD_INVALID ) {
-							trap_SendServerCommand( ent - g_entities, "print \"Invalid category. Usage: /toptimes demo <rank> [std | wpn | walk | ad | weekly | lastweek]\n\"" );
+							trap_SendServerCommand( ent - g_entities, "print \"Invalid category. Usage: /toptimes demo <rank> [std | wpn]\n\"" );
 							return;
 						}
 					}
@@ -4387,47 +4342,12 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 							S_COLOR_GREEN"* All force powers allowed\n"
 							S_COLOR_CYAN"NB: Stand idle and wait to regen to 100 force to start over with no category";
 						break;
-					case CAPTURE_RECORD_WALK:
-						text =
-							S_COLOR_WHITE"Walk type:\n"
-							S_COLOR_RED"* No self dmg (except from falling)\n"
-							S_COLOR_RED"* No dmg or force powers from others (except alt sniping)\n"
-							S_COLOR_RED"* No jumping or rolling\n"
-							S_COLOR_GREEN"* All force powers allowed (except jump)\n"
-							S_COLOR_CYAN"NB: Stand idle and wait to regen to 100 force to start over with no category";
-						break;
-					case CAPTURE_RECORD_AD:
-						text =
-							S_COLOR_WHITE"A/D type:\n"
-							S_COLOR_RED"* No self dmg (except from falling)\n"
-							S_COLOR_RED"* No dmg or force powers from others (except alt sniping)\n"
-							S_COLOR_RED"* No moving with forward/backward\n"
-							S_COLOR_GREEN"* All force powers allowed\n"
-							S_COLOR_CYAN"NB: Stand idle and wait to regen to 100 force to start over with no category";
-						break;
-					case CAPTURE_RECORD_WEEKLY:
-					case CAPTURE_RECORD_LASTWEEK:
-						if (!g_enableRacemodeWaypoints.integer || !level.waypointsValid) {
-							text = "Weekly challenge mode is currently disabled.";
-						}
-						else {
-							char* waypointNames = GetWaypointNames();
-							text =
-								va(S_COLOR_WHITE"Weekly challenge type:\n"
-								S_COLOR_RED"* 3 randomly-generated waypoints are marked with lightning\n"
-								S_COLOR_RED"* After getting a flag, you must touch all 3 waypoints before capturing\n"
-								S_COLOR_GREEN"* Same rules as Standard otherwise apply\n"
-								S_COLOR_CYAN"* New waypoints are generated every Tuesday at 13:00\n"
-								S_COLOR_CYAN"NB: Stand idle and wait to regen to 100 force to start over with no category%s",
-									VALIDSTRING(waypointNames) ? va("\n"S_COLOR_WHITE"Current waypoints: %s", waypointNames) : "");
-						}
-						break;
 					default:
-						text = "Invalid category. Usage: /toptimes rules <std | wpn | walk | ad | weekly>";
+						text = "Invalid category. Usage: /toptimes rules <std | wpn>";
 						break;
 				}
 			} else {
-				text = "Usage: /toptimes rules <std | wpn | walk | ad | weekly>";
+				text = "Usage: /toptimes rules <std | wpn>";
 			}
 
 			trap_SendServerCommand( ent - g_entities, va( "print \"%s"S_COLOR_WHITE"\n\"", text ) );
@@ -4446,25 +4366,11 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 		}
 	}
 
-	if (category == CAPTURE_RECORD_WEEKLY && (!g_enableRacemodeWaypoints.integer || !level.waypointsValid)) {
-		trap_SendServerCommand(ent - g_entities, "print \"Weekly challenge mode is currently disabled.\n\"");
-		return;
-	}
-
 	const char* categoryName = GetLongNameForRecordType( category );
 
 	if ( !level.mapCaptureRecords.records[category][0].captureTime ) {
 		// there is no first record for that category
-		if (category == CAPTURE_RECORD_LASTWEEK)
-			trap_SendServerCommand(ent - g_entities, "print \"No Weekly Challenge records were set on this map last week!\n\"");
-		else
-			trap_SendServerCommand(ent - g_entities, va("print \"No record for the %s category on this map yet!\n\"", categoryName));
-
-		if (category == CAPTURE_RECORD_WEEKLY) {
-			char* waypointNames = GetWaypointNames();
-			if (VALIDSTRING(waypointNames))
-				trap_SendServerCommand(ent - g_entities, va("print \"Current waypoints: %s\n\"", waypointNames));
-		}
+		trap_SendServerCommand(ent - g_entities, va("print \"No record for the %s category on this map yet!\n\"", categoryName));
 		return;
 	}
 
@@ -4524,12 +4430,6 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 			"print \""S_COLOR_CYAN"%d"S_COLOR_WHITE": "S_COLOR_WHITE"%s  "S_COLOR_YELLOW"%s   %-6s      "S_COLOR_YELLOW"%-6d      %-6d     %s\n\"",
 			i + 1, nameString, timeString, flagString, Com_Clampi( 1, 99999999, record->maxSpeed ), Com_Clampi( 1, 9999999, record->avgSpeed ), date
 		) );
-	}
-
-	if (category == CAPTURE_RECORD_WEEKLY) {
-		char* waypointNames = GetWaypointNames();
-		if (VALIDSTRING(waypointNames))
-			trap_SendServerCommand(ent - g_entities, va("print \"Current waypoints: %s\n\"", waypointNames));
 	}
 
 	trap_SendServerCommand( ent - g_entities, "print \"For a list of all subcommands: /toptimes help\n\"" );
@@ -4848,7 +4748,6 @@ void Cmd_Race_f( gentity_t *ent ) {
 	}
 
 	ent->client->sess.inRacemode = oldInRacemode;
-	ent->client->touchedWaypoints = 0;
 
 	team_t newTeam = ent->client->sess.sessionTeam;
 

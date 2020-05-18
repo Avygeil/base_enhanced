@@ -134,8 +134,6 @@ void G_DBListLatestCaptureRecords( CaptureRecordType type,
 
 int G_DBSaveCaptureRecords( CaptureRecordList *recordsToSave );
 
-void G_DBRotateWeeklyChallenge(XXH32_hash_t newSeed, XXH32_hash_t oldSeed);
-
 int G_DBAddCaptureTime( unsigned int ipInt,
 	const char *netname,
 	const char *cuid,
