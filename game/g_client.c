@@ -1429,7 +1429,7 @@ static qboolean ClientCleanName( const char *in, char *out, int outSize ) {
 	spaces = 0;
 
 	while( 1 ) {
-		if (colorlessLen >= g_maxNameLength.integer) {
+		if (colorlessLen >= MAX_NAME_DISPLAYLENGTH) {
 			break;
 		}
 
@@ -2149,7 +2149,7 @@ void ClientUserinfoChanged( int clientNum ) {
 	}
 #endif
 
-	NormalizeName( s, client->pers.netname, sizeof( client->pers.netname ), g_maxNameLength.integer );
+	NormalizeName( s, client->pers.netname, sizeof( client->pers.netname ), MAX_NAME_DISPLAYLENGTH);
 
 	if ( client->sess.sessionTeam == TEAM_SPECTATOR ) {
 		if ( client->sess.spectatorState == SPECTATOR_SCOREBOARD ) {

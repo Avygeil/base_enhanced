@@ -4012,7 +4012,7 @@ static void printLeaderboardCallback( void *context, const CaptureRecordType typ
 	{
 		// pad the name string with spaces here because printf padding will ignore colors
 
-		int spacesToAdd = g_maxNameLength.integer - Q_PrintStrlen( nameString );
+		int spacesToAdd = MAX_NAME_DISPLAYLENGTH - Q_PrintStrlen( nameString );
 		int i;
 
 		for ( i = 0; i < sizeof( nameString ) && spacesToAdd > 0; ++i ) {
@@ -4053,7 +4053,7 @@ static void printLatestTimesCallback( void *context, const char *mapname, const 
 	{
 		// pad the name string with spaces here because printf padding will ignore colors
 
-		int spacesToAdd = g_maxNameLength.integer - Q_PrintStrlen( nameString );
+		int spacesToAdd = MAX_NAME_DISPLAYLENGTH - Q_PrintStrlen( nameString );
 		int i;
 
 		for ( i = 0; i < sizeof( nameString ) && spacesToAdd > 0; ++i ) {
@@ -4397,7 +4397,7 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 		{
 			// pad the name string with spaces here because printf padding will ignore colors
 
-			int spacesToAdd = g_maxNameLength.integer - Q_PrintStrlen( nameString );
+			int spacesToAdd = MAX_NAME_DISPLAYLENGTH - Q_PrintStrlen( nameString );
 			int i;
 
 			for ( i = 0; i < sizeof( nameString ) && spacesToAdd > 0; ++i ) {
@@ -5723,7 +5723,7 @@ void Cmd_WhoIs_f( gentity_t* ent )
 			Q_strcat(buf, sizeof(buf), va("%s%-2d ", color, i));
 			Q_strcat(buf, sizeof(buf), client->pers.netname);
 			int j;
-			for (j = Q_PrintStrlen(client->pers.netname); j < g_maxNameLength.integer + 1; ++j)
+			for (j = Q_PrintStrlen(client->pers.netname); j < MAX_NAME_DISPLAYLENGTH + 1; ++j)
 				Q_strcat(buf, sizeof(buf), " ");
 
 			if (client->account) {

@@ -487,7 +487,7 @@ static qboolean UpgradeDBToVersion4(sqlite3* dbPtr) {
 
 		// make sure even very old names are also normalized
 		char cleanname[MAX_NETNAME];
-		NormalizeName(name, cleanname, sizeof(cleanname), g_maxNameLength.integer);
+		NormalizeName(name, cleanname, sizeof(cleanname), MAX_NAME_DISPLAYLENGTH);
 
 		if (ip_int && VALIDSTRING(name)) {
 			sqlite3_reset(statement2);
@@ -644,7 +644,7 @@ static qboolean UpgradeDBToVersion4(sqlite3* dbPtr) {
 
 			// make sure even very old names are also normalized
 			char cleanname[MAX_NETNAME];
-			NormalizeName(player_name, cleanname, sizeof(cleanname), g_maxNameLength.integer);
+			NormalizeName(player_name, cleanname, sizeof(cleanname), MAX_NAME_DISPLAYLENGTH);
 
 			// build the extra string
 			cJSON* root2 = cJSON_CreateObject();

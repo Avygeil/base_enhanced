@@ -338,7 +338,6 @@ vmCvar_t	z_debug4;
 vmCvar_t    g_enforceEvenVotersCount;
 vmCvar_t    g_minVotersForEvenVotersCount;
 
-vmCvar_t	g_maxNameLength;
 vmCvar_t	g_duplicateNamesId;
 
 vmCvar_t	g_droppedFlagSpawnProtectionRadius;
@@ -722,7 +721,6 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_enforceEvenVotersCount, "g_enforceEvenVotersCount", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_minVotersForEvenVotersCount, "g_minVotersForEvenVotersCount", "7", CVAR_ARCHIVE, 0, qtrue },
 
-	{ &g_maxNameLength, "g_maxNameLength", "24", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_duplicateNamesId, "g_duplicateNamesId", "1", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_droppedFlagSpawnProtectionRadius, "g_droppedFlagSpawnProtectionRadius", "1024", CVAR_ARCHIVE, 0, qtrue },
