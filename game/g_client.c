@@ -2180,7 +2180,9 @@ void ClientUserinfoChanged( int clientNum ) {
 				Info_SetValueForKey( userinfo, "name", client->pers.netname );
 				trap_SetUserinfo( clientNum, userinfo );
 
-				G_DBLogNickname( client->sess.ip, oldname, getGlobalTime() - client->sess.nameChangeTime , client->sess.auth == AUTHENTICATED ? client->sess.cuidHash : "");
+				if (client->session) {
+					G_DBLogNickname(client->session->id, oldname, getGlobalTime() - client->sess.nameChangeTime);
+				}
                 client->sess.nameChangeTime = getGlobalTime();
 
 				//make heartbeat soon - accounts system
@@ -4566,7 +4568,9 @@ void ClientDisconnect( int clientNum ) {
 		return;
 	}
 
-	G_DBLogNickname( ent->client->sess.ip, ent->client->pers.netname, getGlobalTime() - ent->client->sess.nameChangeTime, ent->client->sess.auth == AUTHENTICATED ? ent->client->sess.cuidHash : "");
+	if (ent->client->session) {
+		G_DBLogNickname(ent->client->session->id, ent->client->pers.netname, getGlobalTime() - ent->client->sess.nameChangeTime);
+	}
     ent->client->sess.nameChangeTime = getGlobalTime();
 
 	i = 0;

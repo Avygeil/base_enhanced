@@ -3965,7 +3965,7 @@ static void printBestTimeCallback( void *context, const char *mapname, const Cap
 	}
 
 	char identifier[MAX_NETNAME + 1] = { 0 };
-	G_DBListAliases( recordHolderIpInt, ( unsigned int )0xFFFFFFFF, 1, copyTopNameCallback, &identifier, recordHolderCuid );
+	//G_DBListAliases( recordHolderIpInt, ( unsigned int )0xFFFFFFFF, 1, copyTopNameCallback, &identifier, recordHolderCuid );
 
 	// no name in db for this guy, use the one we stored
 	if ( !VALIDSTRING( identifier ) ) {
@@ -4002,7 +4002,7 @@ static void printLeaderboardCallback( void *context, const CaptureRecordType typ
 
 	// TODO: pair ip/cuid in the query
 	char nameString[64] = { 0 };
-	G_DBListAliases( playerIpInt, ( unsigned int )0xFFFFFFFF, 1, copyTopNameCallback, &nameString, NULL );
+	//G_DBListAliases( playerIpInt, ( unsigned int )0xFFFFFFFF, 1, copyTopNameCallback, &nameString, NULL );
 
 	// TODO: fixme
 	if ( !VALIDSTRING( nameString ) ) {
@@ -4043,7 +4043,7 @@ static void printLatestTimesCallback( void *context, const char *mapname, const 
 	}
 
 	char nameString[64] = { 0 };
-	G_DBListAliases( recordHolderIpInt, ( unsigned int )0xFFFFFFFF, 1, copyTopNameCallback, &nameString, recordHolderCuid );
+	//G_DBListAliases( recordHolderIpInt, ( unsigned int )0xFFFFFFFF, 1, copyTopNameCallback, &nameString, recordHolderCuid );
 
 	// no name in db for this guy, use the one we stored
 	if ( !VALIDSTRING( nameString ) ) {
@@ -4289,7 +4289,7 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 					const char* categoryName = GetLongNameForRecordType( category );
 
 					char nameString[64] = { 0 };
-					G_DBListAliases( thisRecord->recordHolderIpInt, ( unsigned int )0xFFFFFFFF, 1, copyTopNameCallback, &nameString, thisRecord->recordHolderCuid );
+					//G_DBListAliases( thisRecord->recordHolderIpInt, ( unsigned int )0xFFFFFFFF, 1, copyTopNameCallback, &nameString, thisRecord->recordHolderCuid );
 
 					// no name in db for this guy, use the one we stored
 					if ( !VALIDSTRING( nameString ) ) {
@@ -4387,7 +4387,7 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 		}
 
 		char nameString[64] = { 0 };
-		G_DBListAliases( record->recordHolderIpInt, ( unsigned int )0xFFFFFFFF, 1, copyTopNameCallback, &nameString, record->recordHolderCuid );
+		//G_DBListAliases( record->recordHolderIpInt, ( unsigned int )0xFFFFFFFF, 1, copyTopNameCallback, &nameString, record->recordHolderCuid );
 
 		// no name in db for this guy, use the one we stored
 		if ( !VALIDSTRING( nameString ) ) {
@@ -5695,96 +5695,56 @@ void Cmd_VchatList_f(gentity_t* ent) {
 }
 #endif
 
-typedef struct
-{
-    int entNum;
-
-} AliasesContext;
-
-void listAliasesCallback( void* context,
-    const char* name,
-    int duration )
-{
-    AliasesContext* thisContext = (AliasesContext*)context;
-    trap_SendServerCommand( thisContext->entNum, va( "print \"  %s"S_COLOR_WHITE" (%i).\n\"", name, duration ) );
-}
-
-void singleAliasCallback( void* context,
-	const char* name,
-	int duration )
-{
-	AliasesContext* thisContext = ( AliasesContext* )context;
-	trap_SendServerCommand( thisContext->entNum, va( "print \""S_COLOR_WHITE"* %s"S_COLOR_WHITE"\"", name ) );
-}
-
 void Cmd_WhoIs_f( gentity_t* ent )
 {
-	char buffer[64];
-	gentity_t* found = NULL;
-	AliasesContext context;
+	if (!ent || !ent->client) {
+		return;
+	}
+
+	char buf[MAX_STRING_CHARS];
+	Q_strncpyz(buf,
+		"id name                     alias\n"
+		"-- ------------------------ ------------------------\n",
+		sizeof(buf));
+
 	int i;
+	for (i = 0; i < level.maxclients; ++i) {
+		gclient_t* client = &level.clients[i];
+		
+		if (client->pers.connected != CON_DISCONNECTED && !(g_entities[i].r.svFlags & SVF_BOT)) {
+			char* color;
+			switch (client->sess.sessionTeam) {
+				case TEAM_RED: color = S_COLOR_RED; break;
+				case TEAM_BLUE: color = S_COLOR_BLUE; break;
+				case TEAM_FREE: color = S_COLOR_YELLOW; break;
+				default: color = S_COLOR_WHITE;
+			}
 
-	context.entNum = ent - g_entities;
+			Q_strcat(buf, sizeof(buf), va("%s%-2d ", color, i));
+			Q_strcat(buf, sizeof(buf), client->pers.netname);
+			int j;
+			for (j = Q_PrintStrlen(client->pers.netname); j < g_maxNameLength.integer + 1; ++j)
+				Q_strcat(buf, sizeof(buf), " ");
 
-	if ( trap_Argc() < 2 )
-	{
-		for ( i = 0 ; i < level.maxclients ; ++i ) {
-			if ( level.clients[i].pers.connected != CON_DISCONNECTED && !( &g_entities[i] && g_entities[i].r.svFlags & SVF_BOT ) ) {
-				char* color;
-				switch ( level.clients[i].sess.sessionTeam ) {
-					case TEAM_RED: color = S_COLOR_RED; break;
-					case TEAM_BLUE: color = S_COLOR_BLUE; break;
-					case TEAM_FREE: color = S_COLOR_YELLOW; break;
-					default: color = S_COLOR_WHITE;
-				}
+			if (client->account) {
+				// if we have an account to use, just use the account name
+				Q_strcat(buf, sizeof(buf), S_COLOR_WHITE);
+				Q_strcat(buf, sizeof(buf), client->account->name);
+			} else if (client->session) {
+				// fallback to the nicknames db
+				nicknameEntry_t nickname = { 0 };
+				G_DBGetTopNickname(client->session->id, &nickname);
 
-				trap_SendServerCommand( ent - g_entities, va( "print \"%sClient %i "S_COLOR_WHITE"(%s"S_COLOR_WHITE"): \"",
-					 color, i, level.clients[i].pers.netname )
-				);
-
-				if ( level.clients[i].account ) {
-					trap_SendServerCommand( ent - g_entities, va( "print \""S_COLOR_GREEN"* "S_COLOR_WHITE"%s\n\"", level.clients[i].account->name ) );
-				} else {
-					G_DBListAliases( level.clients[i].sess.ip, ( unsigned int )0xFFFFFFFF, 1, singleAliasCallback, &context, level.clients[i].sess.auth == AUTHENTICATED ? level.clients[i].sess.cuidHash : "" );
-					trap_SendServerCommand( ent - g_entities, "print \"\n\"" );
+				if (VALIDSTRING(nickname.name)) {
+					Q_strcat(buf, sizeof(buf), nickname.name);
 				}
 			}
-		}
 
-		return;
+			Q_strcat(buf, sizeof(buf), "\n");
+		}
 	}
 
-	trap_Argv( 1, buffer, sizeof( buffer ) );  
-	found = G_FindClient( buffer );
-
-	if ( !found || !found->client )
-	{
-		trap_SendServerCommand( 
-			ent - g_entities, 
-			va( "print \"Client %s"S_COLOR_WHITE" not found or ambiguous. Use client number or be more specific.\n\"",
-			buffer) );
-		return;
-	}	 
-	
-	if ( found->client->account ) {
-		trap_SendServerCommand( ent - g_entities, va( "print \"Client %i (%s"S_COLOR_WHITE"): %s\n\"",
-			found - g_entities, found->client->pers.netname, found->client->account->name ) );
-	} else {
-		trap_SendServerCommand( ent - g_entities, va( "print \"Aliases for client %i (%s"S_COLOR_WHITE").\n\"",
-			found - g_entities, found->client->pers.netname ) );
-
-		unsigned int maskInt = 0xFFFFFFFF;
-
-		if ( trap_Argc() > 2 )
-		{
-			char mask[20];
-			trap_Argv( 2, mask, sizeof( mask ) );
-			maskInt = 0;
-			getIpFromString( mask, &maskInt );
-		}
-
-		G_DBListAliases( found->client->sess.ip, maskInt, 3, listAliasesCallback, &context, found->client->sess.auth == AUTHENTICATED ? found->client->sess.cuidHash : "" );
-	}
+	trap_SendServerCommand(ent - g_entities, va("print \"%s\"", buf));
 }
 
 #define MAX_STATS			16

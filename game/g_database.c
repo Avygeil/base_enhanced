@@ -622,144 +622,75 @@ void G_DBSetAccountFlags( account_t* account,
 
 // =========== NICKNAMES =======================================================
 
-const char* const sqlAddName =
-"INSERT INTO nicknames (ip_int, name, duration)                              \n"
-"VALUES (?,?,?)                                                                ";
+// TODO: this can be simplified with one UPSERT statement once linux sqlite can be updated
+const char* const sqlLogNickname1 =
+"INSERT OR IGNORE INTO nicknames(session_id, name) VALUES (?1, ?2);        ";
+const char* const sqlLogNickname2 =
+"UPDATE nicknames SET duration=duration+?1 WHERE session_id=?2 AND name=?3;";
 
-const char* const sqlAddNameNM =
-"INSERT INTO nicknames (ip_int, name, duration, cuid_hash2)                  \n"
-"VALUES (?,?,?,?)                                                              ";
+const char* const sqlGetTopNicknames =
+"SELECT name, duration                                                   \n"
+"FROM nicknames WHERE session_id = ?1                                    \n"
+"ORDER BY duration DESC LIMIT ?2;                                          ";
 
-const char* const sqlGetAliases =
-"SELECT name, SUM( duration ) AS time                                        \n"
-"FROM nicknames                                                              \n"
-"WHERE nicknames.ip_int & ?2 = ?1 & ?2                                       \n"
-"GROUP BY name                                                               \n"
-"ORDER BY time DESC                                                          \n"
-"LIMIT ?3                                                                      ";
-
-const char* const sqlGetNMAliases =
-"SELECT name, SUM( duration ) AS time                                        \n"
-"FROM nicknames                                                              \n"
-"WHERE nicknames.cuid_hash2 = ?1                                             \n"
-"GROUP BY name                                                               \n"
-"ORDER BY time DESC                                                          \n"
-"LIMIT ?2                                                                      ";
-
-const char* const sqlCountNMAliases =
-"SELECT COUNT(*) FROM ("
-"SELECT name, SUM( duration ) AS time                                        \n"
-"FROM nicknames                                                              \n"
-"WHERE nicknames.cuid_hash2 = ?1                                             \n"
-"GROUP BY name                                                               \n"
-"ORDER BY time DESC                                                          \n"
-"LIMIT ?2                                                                    \n"
-")                                                                             ";
-
-void G_DBLogNickname( unsigned int ipInt,
+void G_DBLogNickname(const int sessionId,
 	const char* name,
-	int duration,
-	const char* cuidHash )
+	int duration)
 {
-#if 0
-	sqlite3_stmt* statement;
+	sqlite3_stmt* statement1;
+	sqlite3_stmt* statement2;
 
 	// prepare insert statement
-	sqlite3_prepare( dbPtr, VALIDSTRING( cuidHash ) ? sqlAddNameNM : sqlAddName, -1, &statement, 0 );
+	sqlite3_prepare(dbPtr, sqlLogNickname1, -1, &statement1, 0);
+	sqlite3_prepare(dbPtr, sqlLogNickname2, -1, &statement2, 0);
 
-	sqlite3_bind_int( statement, 1, ipInt );
-	sqlite3_bind_text( statement, 2, name, -1, 0 );
-	sqlite3_bind_int( statement, 3, duration );
-	if ( VALIDSTRING( cuidHash ) )
-		sqlite3_bind_text( statement, 4, cuidHash, -1, 0 );
+	sqlite3_bind_int(statement1, 1, sessionId);
+	sqlite3_bind_text(statement1, 2, name, -1, 0);
+	sqlite3_step(statement1);
 
-	sqlite3_step( statement );
+	sqlite3_bind_int(statement2, 1, duration);
+	sqlite3_bind_int(statement2, 2, sessionId);
+	sqlite3_bind_text(statement2, 3, name, -1, 0);
+	sqlite3_step(statement2);
 
-	sqlite3_finalize( statement );
-#endif
+	sqlite3_finalize(statement1);
+	sqlite3_finalize(statement2);
 }
 
-void G_DBListAliases( unsigned int ipInt,
-	unsigned int ipMask,
-	int limit,
-	ListAliasesCallback callback,
-	void* context,
-	const char* cuidHash )
+void G_DBGetMostUsedNicknames(const int sessionId,
+	const int numNicknames,
+	nicknameEntry_t* outNicknames)
 {
-#if 0
 	sqlite3_stmt* statement;
-	int rc;
-	const char* name;
-	int duration;
-	if ( VALIDSTRING( cuidHash ) ) { // newmod user; check for cuid matches first before falling back to checking for unique id matches
-		int numNMFound = 0;
-		rc = sqlite3_prepare( dbPtr, sqlCountNMAliases, -1, &statement, 0 );
-		sqlite3_bind_text( statement, 1, cuidHash, -1, 0 );
-		sqlite3_bind_int( statement, 2, limit );
 
-		rc = sqlite3_step( statement );
-		while ( rc == SQLITE_ROW ) {
-			numNMFound = sqlite3_column_int( statement, 0 );
-			rc = sqlite3_step( statement );
-		}
-		sqlite3_reset( statement );
+	int rc = sqlite3_prepare(dbPtr, sqlGetTopNicknames, -1, &statement, 0);
 
-		if ( numNMFound ) { // we found some cuid matches; let's use these
-			rc = sqlite3_prepare( dbPtr, sqlGetNMAliases, -1, &statement, 0 );
-			sqlite3_bind_text( statement, 1, cuidHash, -1, 0 );
-			sqlite3_bind_int( statement, 2, limit );
+	sqlite3_bind_int(statement, 1, sessionId);
+	sqlite3_bind_int(statement, 2, numNicknames);
 
-			rc = sqlite3_step( statement );
-			while ( rc == SQLITE_ROW ) {
-				name = ( const char* )sqlite3_column_text( statement, 0 );
-				duration = sqlite3_column_int( statement, 1 );
+	int i = 0;
+	memset(outNicknames, 0, sizeof(*outNicknames) * numNicknames);
 
-				callback( context, name, duration );
+	rc = sqlite3_step(statement);
+	while (rc == SQLITE_ROW && i < numNicknames) {
+		const char* name = (const char*)sqlite3_column_text(statement, 0);
+		const int duration = sqlite3_column_int(statement, 1);
 
-				rc = sqlite3_step( statement );
-			}
-			sqlite3_finalize( statement );
-		}
-		else { // didn't find any cuid matches; use the old unique id method
-			rc = sqlite3_prepare( dbPtr, sqlGetAliases, -1, &statement, 0 );
-			sqlite3_bind_int( statement, 1, ipInt );
-			sqlite3_bind_int( statement, 2, ipMask );
-			sqlite3_bind_int( statement, 3, limit );
+		nicknameEntry_t* nickname = outNicknames + i++;
 
-			rc = sqlite3_step( statement );
-			while ( rc == SQLITE_ROW ) {
-				name = ( const char* )sqlite3_column_text( statement, 0 );
-				duration = sqlite3_column_int( statement, 1 );
+		Q_strncpyz(nickname->name, name, sizeof(nickname->name));
+		nickname->duration = duration;
 
-				callback( context, name, duration );
-
-				rc = sqlite3_step( statement );
-			}
-			sqlite3_finalize( statement );
-		}
+		rc = sqlite3_step(statement);
 	}
-	else { // non-newmod; just use the old unique id method
-		sqlite3_stmt* statement;
-		// prepare insert statement
-		int rc = sqlite3_prepare( dbPtr, sqlGetAliases, -1, &statement, 0 );
 
-		sqlite3_bind_int( statement, 1, ipInt );
-		sqlite3_bind_int( statement, 2, ipMask );
-		sqlite3_bind_int( statement, 3, limit );
+	sqlite3_finalize(statement);
+}
 
-		rc = sqlite3_step( statement );
-		while ( rc == SQLITE_ROW ) {
-			name = ( const char* )sqlite3_column_text( statement, 0 );
-			duration = sqlite3_column_int( statement, 1 );
-
-			callback( context, name, duration );
-
-			rc = sqlite3_step( statement );
-		}
-
-		sqlite3_finalize( statement );
-	}
-#endif
+void G_DBGetTopNickname(const int sessionId,
+	nicknameEntry_t* outNickname)
+{
+	G_DBGetMostUsedNicknames(sessionId, 1, outNickname);
 }
 
 // =========== FASTCAPS ========================================================

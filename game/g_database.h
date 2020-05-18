@@ -67,21 +67,21 @@ void G_DBSetMetadata( const char *key,
 
 // =========== NICKNAMES =======================================================
 
-typedef void( *ListAliasesCallback )( void* context,
-	const char* name,
-	int duration );
+typedef struct nicknameEntry_s {
+	char	name[MAX_NETNAME];
+	int		duration;
+} nicknameEntry_t;
 
-void G_DBLogNickname( unsigned int ipInt,
+void G_DBLogNickname(const int sessionId,
 	const char* name,
-	int duration,
-	const char* cuidHash );
+	int duration);
 
-void G_DBListAliases( unsigned int ipInt,
-	unsigned int ipMask,
-	int limit,
-	ListAliasesCallback callback,
-	void* context,
-	const char* cuidHash );
+void G_DBGetMostUsedNicknames(const int sessionId,
+	const int numNicknames,
+	nicknameEntry_t* outNicknames);
+
+void G_DBGetTopNickname(const int sessionId,
+	nicknameEntry_t* outNickname);
 
 // =========== FASTCAPS ========================================================
 
