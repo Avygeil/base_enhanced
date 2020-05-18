@@ -561,6 +561,11 @@ static qboolean UpgradeDBToVersion4(sqlite3* dbPtr) {
 				}
 			}
 
+			if (Q_stricmp(session.info, sessionInfo)) {
+				Com_Printf("ERROR: Hash collision!!!\n%s\n%s\n", session.info, sessionInfo);
+				return qfalse;
+			}
+
 			sqlite3_reset(statement2);
 			sqlite3_bind_int(statement2, 1, session.id);
 			sqlite3_bind_text(statement2, 2, name, -1, 0);
@@ -629,6 +634,11 @@ static qboolean UpgradeDBToVersion4(sqlite3* dbPtr) {
 				if (!G_DBGetSessionByHash(hash, &session)) {
 					return qfalse;
 				}
+			}
+
+			if (Q_stricmp(session.info, sessionInfo)) {
+				Com_Printf("ERROR: Hash collision!!!\n%s\n%s\n", session.info, sessionInfo);
+				return qfalse;
 			}
 
 			// make sure even very old names are also normalized
