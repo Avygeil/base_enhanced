@@ -688,6 +688,10 @@ static qboolean UpgradeDBToVersion4(sqlite3* dbPtr) {
 	if (sqlite3_exec(dbPtr, v4CreateNewShit, NULL, NULL, NULL) != SQLITE_OK)
 		return qfalse;
 
+	// make sure to reduce the file size
+	sqlite3_exec(dbPtr, "VACUUM;", NULL, NULL, NULL);
+	sqlite3_exec(dbPtr, "PRAGMA optimize;", NULL, NULL, NULL);
+
 	return qtrue;
 }
 
