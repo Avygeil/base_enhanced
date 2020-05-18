@@ -1773,7 +1773,7 @@ void Svcmd_ClientDesc_f( void ) {
 				Q_strcat( description, sizeof( description ), "Jamp or other" );
 			}
 
-			if (level.clients[i].sess.unlagged) {
+			if (g_unlagged.integer && level.clients[i].sess.unlagged) {
 				Q_strcat(description, sizeof(description), " (unlagged)");
 			}
 
