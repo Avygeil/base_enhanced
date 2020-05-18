@@ -523,7 +523,7 @@ static qboolean UpgradeDBToVersion4(sqlite3* dbPtr) {
 	Com_Printf("Port nicknames to sessions\n");
 	sqlite3_prepare(dbPtr, "SELECT * FROM nicknames_TMP;", -1, &statement, 0);
 	sqlite3_prepare(dbPtr, "INSERT OR IGNORE INTO nicknames_NEW (session_id, name) VALUES (?1, ?2);", -1, &statement2, 0);
-	sqlite3_prepare(dbPtr, "UPDATE nicknames_NEW SET duration=duration+?1 WHERE session_id=?2;", -1, &statement3, 0);
+	sqlite3_prepare(dbPtr, "UPDATE nicknames_NEW SET duration=duration+?1 WHERE session_id=?2 AND name=?3;", -1, &statement3, 0);
 	rc = sqlite3_step(statement);
 	while (rc == SQLITE_ROW) {
 		const int ip_int = sqlite3_column_int(statement, 0);
@@ -574,6 +574,7 @@ static qboolean UpgradeDBToVersion4(sqlite3* dbPtr) {
 			sqlite3_reset(statement3);
 			sqlite3_bind_int(statement3, 1, duration);
 			sqlite3_bind_int(statement3, 2, session.id);
+			sqlite3_bind_text(statement3, 3, name, -1, 0);
 			sqlite3_step(statement3);
 		}
 
