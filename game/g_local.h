@@ -45,6 +45,8 @@ extern vec3_t gPainPoint;
 #define SECRET_KEY_FILENAME				"secret_key.bin"
 #endif
 
+#define MAX_NETNAME 36
+
 #define MAX_USERNAME_SIZE 32 //username size	16
 #define MAX_PASSWORD	16
 
@@ -479,6 +481,36 @@ typedef struct {
 	qboolean online;
 } sessionReference_t;
 
+// race stuff
+#define SV_MATCHID_LEN		17 // 2 concatenated hex 4 bytes ints, so 2*8 chars + NULL
+
+typedef struct raceRecordInfo_s {
+	// demo info
+	char	matchId[SV_MATCHID_LEN];	// used to link to the game on demoarchive
+	char	playerName[MAX_NETNAME];	// in-game name used when capturing
+	int		clientId;					// in-game client id used when capturing
+	int		pickupTime;					// level.time when flag was picked up
+	team_t	whoseFlag;					// the team that owns the flag that was captured
+
+	// additional statistics
+	int		maxSpeed;					// max speed in ups
+	int		avgSpeed;					// average speed in ups
+} raceRecordInfo_t;
+
+typedef struct raceRecord_s {
+	int					time;	// capture time in ms
+	time_t				date;	// epoch time of the record (seconds)
+	raceRecordInfo_t	extra;	// other stuff here is stored as optional "extra" information
+} raceRecord_t;
+
+typedef enum raceType_e {
+	RACE_TYPE_STANDARD = 0,	// restrictive category from which the other rules derivate
+	RACE_TYPE_WEAPONS,		// self weapon damage is allowed (except dets/mines)
+
+	NUM_RACE_TYPES,
+	RACE_TYPE_INVALID
+} raceType_t;
+
 // client data that stays across multiple levels or tournament restarts
 // this is achieved by writing all the data to cvar strings at game shutdown
 // time and reading them back at connection time.  Anything added here
@@ -531,6 +563,14 @@ typedef struct {
 	float		telemarkYawAngle;
 	float		telemarkPitchAngle;
 
+	// this is only used in case a sql error happens so that the player won't overwrite their own times.
+	// they should still be able to race, but no actual change is made in db
+	qboolean canSubmitRaceTimes;
+	// cached personal best times, tied to SESSION. Used to efficiently determine if changes should be
+	// made to the db after a record is submitted. Unset records have a time of 0.
+	// it is expected that this cache is maintained on record updates
+	int cachedSessionRaceTimes[NUM_RACE_TYPES];
+
 	// account system
 	int sessionCacheNum;
 	int accountCacheNum;
@@ -568,7 +608,6 @@ typedef struct {
 #define PSG_CANVOTE			    (1<<2)		// this player can vote
 
 //
-#define MAX_NETNAME			36
 #define	MAX_VOTE_COUNT		3
 
 #define MAX_MAP_POOL_ID 20
@@ -1055,44 +1094,6 @@ typedef struct
 	int		left; //when did this person leave his team :o
 } rosterData;
 
-// best capture times stuff
-#define SV_MATCHID_LEN		17 // 2 concatenated hex 4 bytes ints, so 2*8 chars + NULL
-#define MAX_SAVED_RECORDS	9 // records saved per mode
-
-typedef struct {
-	char recordHolderName[MAX_NETNAME]; // fallback name in case we can't find it with ip
-	unsigned int recordHolderIpInt; // used to find who it is with name db
-	char recordHolderCuid[CRYPTO_HASH_HEX_SIZE]; // make it easier to find clients with cuid, but optional (may be empty)
-
-	int captureTime; // capture time in ms
-	team_t whoseFlag; // the team that owns the flag that was captured
-	int maxSpeed; // max speed in ups
-	int avgSpeed; // average speed in ups
-	time_t date; // epoch time of the record (seconds)
-
-	char matchId[SV_MATCHID_LEN]; // used to link to the game on demoarchive, but requires special OpenJK (may be empty)
-	int recordHolderClientId; // client id assigned when the record took place
-	int pickupLevelTime; // level.time when flag was picked up
-
-	XXH32_hash_t	waypointHash;
-} CaptureRecord;
-
-typedef enum {
-	CAPTURE_RECORD_STANDARD = 0, // restrictive category from which the other rules derivate
-	CAPTURE_RECORD_WEAPONS, // self weapon damage is allowed (except dets/mines)
-
-	CAPTURE_RECORD_NUM_TYPES,
-	CAPTURE_RECORD_INVALID
-} CaptureRecordType;
-
-typedef struct {
-	qboolean enabled; // qtrue if cvar-enabled and if gametype is ctf
-	qboolean readonly; // qtrue if new times won't be recorded (non standard movement cvars for example)
-	qboolean changed; // qtrue if at least one record changed, which means the whole struct is saved when map ends
-	char mapname[MAX_MAP_NAME]; // the current map used as a context for loading/saving from db
-	CaptureRecord records[CAPTURE_RECORD_NUM_TYPES][MAX_SAVED_RECORDS]; // all the records pulled from db when level starts
-} CaptureRecordList;
-
 #define MAX_LOCATION_CHARS 32
 
 typedef struct {
@@ -1116,6 +1117,9 @@ typedef struct {
 	int			num_entities;		// current number, <= MAX_GENTITIES
 
 	int			warmupTime;			// restart match at this time
+
+	// current map name
+	char		mapname[MAX_MAP_NAME];
 
 	fileHandle_t	logFile;
 	fileHandle_t	hackLogFile;
@@ -1270,6 +1274,8 @@ typedef struct {
 	int wallhackTracesDone;
 
 	// racemode
+	qboolean	racemodeRecordsEnabled; // qtrue if records are cvar-enabled and gametype is CTF
+	qboolean	racemodeRecordsReadonly; // qtrue if new times won't be recorded (non standard movement cvars for example)
 	int			racemodeClientMask; // bits set to 1 = clients in racemode, cached here for hiding to several entities
 	int			racemodeSpectatorMask; // bits set to 1 = clients specing a client in who is in racemode, can be combined with the mask above
 	int			racemodeClientsHidingOtherRacersMask; // bits set to 1 = clients in racemode who disabled seeing other racers
@@ -1287,7 +1293,6 @@ typedef struct {
 	} globalCenterPrint;
 
 	int frameStartTime; // accurate timer
-	CaptureRecordList mapCaptureRecords;
 
 	struct {
 		struct {
@@ -1847,6 +1852,7 @@ void G_UpdateClientAnims(gentity_t *self, float animSpeedScale);
 void G_SetRaceMode( gentity_t *self, qboolean race );
 void G_GiveRacemodeItemsAndFullStats( gentity_t *ent );
 void G_UpdateRaceBitMasks( gclient_t *client );
+void G_InitClientRaceRecordsCache(gclient_t* client);
 void ClientCommand( int clientNum );
 void PurgeStringedTrolling(char *in, char *out, int outSize);
 

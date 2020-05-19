@@ -222,13 +222,11 @@ void PrintJKAInfo(FILE* file)
 {
 	//JKA Info variables
 	int i, clientcount;
-	static char mapname[128];
 
-	trap_Cvar_VariableStringBuffer("mapname",mapname,sizeof(mapname));
 	fprintf(file, "\n-----------------------------------\n");
 	fprintf(file, "           JKA Information           \n");
 	fprintf(file, "-----------------------------------\n");
-	fprintf(file, "Map: %s\n", mapname ); 
+	fprintf(file, "Map: %s\n", level.mapname ); 
 	fprintf(file, "Gametype: %i\n", g_gametype.integer ); 
 	fprintf(file, "Server Time: %i ms\n", level.time ); 
 	fprintf(file, "Map Time: %i ms\n", level.time - level.startTime ); 

@@ -93,17 +93,13 @@ void G_PostScoreboardToWebhook(const char* stats) {
 
 	// get map str
 	char mapStr[256] = { 0 };
-	char mapname[MAX_QPATH];
-	trap_Cvar_VariableStringBuffer("mapname", mapname, sizeof(mapname));
-	if (VALIDSTRING(mapname)) {
-		Q_strncpyz(mapStr, mapname, sizeof(mapStr));
+	Q_strncpyz(mapStr, level.mapname, sizeof(mapStr));
 
-		const char* arenaInfo = G_GetArenaInfoByMap(mapname);
-		if (arenaInfo) {
-			char* mapLongName = Info_ValueForKey(arenaInfo, "longname");
-			if (VALIDSTRING(mapLongName)) {
-				Com_sprintf(mapStr, sizeof(mapStr), "%s (%s)", mapLongName, mapname);
-			}
+	const char* arenaInfo = G_GetArenaInfoByMap(level.mapname);
+	if (arenaInfo) {
+		char* mapLongName = Info_ValueForKey(arenaInfo, "longname");
+		if (VALIDSTRING(mapLongName)) {
+			Com_sprintf(mapStr, sizeof(mapStr), "%s (%s)", mapLongName, level.mapname);
 		}
 	}
 

@@ -3000,6 +3000,7 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 	{
 		G_InitClientSession(client);
 		G_InitClientAccount(client);
+		G_InitClientRaceRecordsCache(client);
 		G_PrintWelcomeMessage(client);
 	}
 
@@ -3660,6 +3661,53 @@ void G_UpdateRaceBitMasks( gclient_t *client ) {
 			// an ingame player (on a team; not spec) who wants to see racers
 			level.ingameClientsSeeingInRaceMask |= ( 1 << ( clientNum % 32 ) );
 		}
+	}
+}
+
+/*
+===========
+G_InitClientRaceRecords
+
+Attempts to cache records based on the session and ranks based on the account,
+for each race type.
+============
+*/
+
+void G_InitClientRaceRecordsCache(gclient_t* client) {
+	client->sess.canSubmitRaceTimes = qfalse;
+	memset(client->sess.cachedSessionRaceTimes, 0, sizeof(client->sess.cachedSessionRaceTimes));
+
+	qboolean errored = qfalse;
+	int numLoaded = 0;
+
+	// cache all the session-tied record times
+	if (client->session) {
+		client->sess.canSubmitRaceTimes = qtrue;
+
+		raceType_t type;
+		for (type = RACE_TYPE_STANDARD; type < NUM_RACE_TYPES; ++type) {
+			raceRecord_t record;
+			if (G_DBLoadRaceRecord(client->session->id, level.mapname, type, &record)) {
+				if (record.time)
+					++numLoaded;
+				client->sess.cachedSessionRaceTimes[type] = record.time;
+			} else {
+				errored = qtrue;
+				break;
+			}
+		}
+
+		if (numLoaded) {
+			Com_Printf("Loaded %d records for client %d (session id: %d)\n", numLoaded, client - level.clients, client->session->id);
+		}
+	}
+
+	if (errored) {
+		Com_Printf("Failed to load records for client %d\n", client - level.clients);
+		client->sess.canSubmitRaceTimes = qfalse;
+		memset(client->sess.cachedSessionRaceTimes, 0, sizeof(client->sess.cachedSessionRaceTimes));
+
+		return;
 	}
 }
 

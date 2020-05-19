@@ -1449,6 +1449,8 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 	level.time = levelTime;
 	level.startTime = levelTime;
 
+	Q_strncpyz(level.mapname, mapname.string, sizeof(level.mapname));
+
 	level.snd_fry = G_SoundIndex("sound/player/fry.wav");	// FIXME standing in lava / slime
 
 	level.snd_hack = G_SoundIndex("sound/player/hacking.wav");
@@ -1708,15 +1710,8 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 
 	G_DBLoadDatabase();
 
-	if ( g_gametype.integer == GT_CTF && g_enableRacemode.integer ) {
-		// load capture records for this map
-		int recordsLoaded = G_DBLoadCaptureRecords(mapname.string, &level.mapCaptureRecords);
-		if (recordsLoaded) {
-			G_Printf("Loaded %d capture time records from database\n", recordsLoaded);
-		}
-	} else {
-		level.mapCaptureRecords.enabled = qfalse;
-	}
+	// only enable racemode records in ctf
+	level.racemodeRecordsEnabled = g_gametype.integer == GT_CTF && g_enableRacemode.integer;
 
 	// reset capturedifflimit on map rs
 	trap_Cvar_Set( "capturedifflimit", g_default_capturedifflimit.string );
@@ -1818,12 +1813,6 @@ void G_ShutdownGame( int restart ) {
 
 	// accounts system
 	//cleanDB();
-
-	// save the capture records for this map
-	int recordsSaved = G_DBSaveCaptureRecords( &level.mapCaptureRecords );
-	if ( recordsSaved > 0 ) {
-		G_Printf( "Saved %d capture time records to database\n", recordsSaved );
-	}
 
     G_DBUnloadDatabase();
 
@@ -5058,28 +5047,28 @@ void G_RunFrame( int levelTime ) {
 	UpdateGlobalCenterPrint( levelTime );
 
 	// check for modified physics and disable capture times if non standard
-	if ( level.mapCaptureRecords.enabled && !level.mapCaptureRecords.readonly && level.time > 1000 ) { // wat. it seems that sv_cheats = 1 on first frame... so don't check until 1000ms i guess
+	if ( level.racemodeRecordsEnabled && !level.racemodeRecordsReadonly && level.time > 1000 ) { // wat. it seems that sv_cheats = 1 on first frame... so don't check until 1000ms i guess
 		if ( g_cheats.integer != 0 ) {
 			G_Printf( S_COLOR_YELLOW"Cheats are enabled. Capture records won't be tracked during this map.\n" );
-			level.mapCaptureRecords.readonly = qtrue;
+			level.racemodeRecordsReadonly = qtrue;
 		} else if ( !pmove_float.integer ) {
 			G_Printf( S_COLOR_YELLOW"pmove_float is not enabled. Capture records won't be tracked during this map.\n" );
-			level.mapCaptureRecords.readonly = qtrue;
+			level.racemodeRecordsReadonly = qtrue;
 		} else if ( g_svfps.integer != 30 ) {
 			G_Printf( S_COLOR_YELLOW"Server FPS is not standard. Capture records won't be tracked during this map.\n" );
-			level.mapCaptureRecords.readonly = qtrue;
+			level.racemodeRecordsReadonly = qtrue;
 		} else if ( g_speed.value != 250 ) {
 			G_Printf( S_COLOR_YELLOW"Speed is not standard. Capture records won't be tracked during this map.\n" );
-			level.mapCaptureRecords.readonly = qtrue;
+			level.racemodeRecordsReadonly = qtrue;
 		} else if ( g_gravity.value != 760 ) {
 			G_Printf( S_COLOR_YELLOW"Gravity is not standard. Capture records won't be tracked during this map.\n" );
-			level.mapCaptureRecords.readonly = qtrue;
+			level.racemodeRecordsReadonly = qtrue;
 		} else if ( g_knockback.value != 1000 ) {
 			G_Printf( S_COLOR_YELLOW"Knockback is not standard. Capture records won't be tracked during this map.\n" );
-			level.mapCaptureRecords.readonly = qtrue;
+			level.racemodeRecordsReadonly = qtrue;
 		} else if ( g_forceRegenTime.value != 231 ) {
 			G_Printf( S_COLOR_YELLOW"Force regen is not standard. Capture records won't be tracked during this map.\n" );
-			level.mapCaptureRecords.readonly = qtrue;
+			level.racemodeRecordsReadonly = qtrue;
 		}
 	}
 

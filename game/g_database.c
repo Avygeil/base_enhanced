@@ -2,7 +2,10 @@
 #include "sqlite3.h"
 #include "time.h"
 
+#include "cJSON.h"
+
 #include "g_database_schema.h"
+
 
 static sqlite3* diskDb = NULL;
 static sqlite3* dbPtr = NULL;
@@ -173,7 +176,7 @@ void G_DBLoadDatabase( void )
 			G_DBSetMetadata( "last_vacuum", va( "%lld", currentTime ) );
 		}
 	}
-
+	sqlite3_exec(dbPtr, "SELECT * from fastcaps_ranks WHERE mapname='mp/ctf_nelvaan' AND type=0;", NULL, NULL, NULL);
 	
 }
 
@@ -695,454 +698,345 @@ void G_DBGetTopNickname(const int sessionId,
 
 // =========== FASTCAPS ========================================================
 
-const char* const sqlAddFastcapV2 =
-"INSERT INTO fastcapsV2 (                                                    \n"
-"    mapname, rank, type, player_name, player_ip_int, player_cuid_hash2,     \n"
-"    capture_time, whose_flag, max_speed, avg_speed, date, match_id,         \n"
-"    client_id, pickup_time, seed)                                           \n"
-"VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)                                        ";
+const char* const sqlGetFastcapRecord =
+"SELECT DISTINCT capture_time, date, extra                                             \n"
+"FROM fastcaps                                                                         \n"
+"WHERE mapname = ?1 AND type = ?2 AND session_id = ?3;                                   ";
 
-const char* const sqlremoveFastcapsV2 =
-"DELETE FROM fastcapsV2 WHERE mapname = ?                                      ";
+// TODO: this can be simplified with one UPSERT statement once linux sqlite can be updated
+const char* const sqlSaveFastcapRecord1 =
+"INSERT OR IGNORE INTO fastcaps(mapname, type, session_id, capture_time, date, extra)  \n"
+"VALUES(?1, ?2, ?3, 0, 0, '')                                                            ";
+const char* const sqlSaveFastcapRecord2 =
+"UPDATE fastcaps SET capture_time = ?1, date = ?2, extra = ?3                          \n"
+"WHERE mapname = ?4 AND type = ?5 AND session_id = ?6;                                   ";
 
-const char* const sqlGetFastcapsV2 =
-"SELECT player_name, player_ip_int, player_cuid_hash2, capture_time,         \n"
-"whose_flag, max_speed, avg_speed, date, match_id, client_id, pickup_time, seed \n"
-"FROM fastcapsV2                                                             \n"
-"WHERE fastcapsV2.mapname = ?1 AND fastcapsV2.type = ?2                      \n"
-"ORDER BY capture_time                                                       \n"
-"LIMIT ?3                                                                      ";
+const char* const sqlGetFastcapLoggedPersonalBest =
+"SELECT DISTINCT rank, capture_time                                                    \n"
+"FROM fastcaps_ranks WHERE mapname = ?1 AND type = ?2 AND account_id = ?3;               ";
 
-const char* const sqlListBestFastcapsV2 =
-"SELECT mapname, player_name, player_ip_int, player_cuid_hash2,              \n"
-"capture_time AS best_time, date                                             \n"
-"FROM fastcapsV2                                                             \n"
-"WHERE fastcapsV2.type = ?1 AND fastcapsV2.rank = 1                          \n"
-"GROUP BY mapname                                                            \n"
-"ORDER BY mapname ASC                                                        \n"
-"LIMIT ?2                                                                    \n"
-"OFFSET ?3                                                                     ";
+const char* const sqlListFastcapsLoggedRecords =
+"SELECT name, rank, capture_time, date, extra                                          \n"
+"FROM fastcaps_ranks                                                                   \n"
+"WHERE mapname = ?1 AND type = ?2                                                      \n"
+"ORDER BY rank ASC;                                                                      ";
 
-const char* const sqlGetFastcapsV2Leaderboard =
-"SELECT player_ip_int,                                                       \n"
-"    SUM( CASE WHEN rank = 1 THEN 1 ELSE 0 END ) AS golds,                   \n"
-"    SUM( CASE WHEN rank = 2 THEN 1 ELSE 0 END ) AS silvers,                 \n"
-"    SUM( CASE WHEN rank = 3 THEN 1 ELSE 0 END ) AS bronzes                  \n"
-"FROM fastcapsV2                                                             \n"
-"WHERE fastcapsV2.type = ?1                                                  \n"
-"GROUP BY player_ip_int                                                      \n"
-"HAVING golds > 0 OR silvers > 0 OR bronzes > 0                              \n"
-"ORDER BY golds DESC, silvers DESC, bronzes DESC                             \n"
-"LIMIT ?2                                                                    \n"
-"OFFSET ?3                                                                     ";
+const char* const sqlListFastcapsLoggedTop =
+"SELECT DISTINCT mapname, name, capture_time, date FROM fastcaps_ranks                 \n"
+"WHERE type = ?1 AND rank = 1                                                          \n"
+"ORDER BY mapname ASC;                                                                   ";
 
-const char* const sqlListLatestFastcapsV2 =
-"SELECT mapname, rank, player_name, player_ip_int, player_cuid_hash2,        \n"
-"capture_time, date                                                          \n"
-"FROM fastcapsV2                                                             \n"
-"WHERE fastcapsV2.type = ?1                                                  \n"
-"ORDER BY date DESC                                                          \n"
-"LIMIT ?2                                                                    \n"
-"OFFSET ?3                                                                     ";
+const char* const sqlListFastcapsLoggedLeaderboard =
+"SELECT name, golds, silvers, bronzes                                                  \n"
+"FROM fastcaps_leaderboard                                                             \n"
+"WHERE type = ?1                                                                       \n"
+"ORDER BY golds DESC, silvers DESC, bronzes DESC;                                        ";
 
-// returns how many records were loaded
-int G_DBLoadCaptureRecords( const char *mapname,
-	CaptureRecordList *recordsToLoad )
-{
-	return 0;
-#if 0
-	memset( recordsToLoad, 0, sizeof( *recordsToLoad ) );
+const char* const sqlListFastcapsLoggedLatest =
+"SELECT mapname, type, name, rank, capture_time, date                                  \n"
+"FROM fastcaps_ranks                                                                   \n"
+"ORDER BY date DESC;                                                                     ";
 
-	// make sure we always make a lower case map lookup
-	Q_strncpyz( recordsToLoad->mapname, mapname, sizeof( recordsToLoad->mapname ) );
-	Q_strlwr( recordsToLoad->mapname );
+static void ReadExtraRaceInfo(const char* inJson, raceRecordInfo_t* outInfo) {
+	cJSON* root = cJSON_Parse(inJson);
 
-	sqlite3_stmt* statement;
-	int i, rc = -1, loaded = 0;
+	if (root) {
+		cJSON* j;
 
-	rc = sqlite3_prepare( dbPtr, sqlGetFastcapsV2, -1, &statement, 0 );
-
-	for ( i = 0; i < CAPTURE_RECORD_NUM_TYPES; ++i ) {
-		sqlite3_reset( statement );
-		sqlite3_clear_bindings( statement );
-
-		sqlite3_bind_text( statement, 1, recordsToLoad->mapname, -1, 0 );
-		sqlite3_bind_int( statement, 2, i );
-		sqlite3_bind_int( statement, 3, MAX_SAVED_RECORDS );
-
-		rc = sqlite3_step( statement );
-
-		int j = 0;
-		while ( rc == SQLITE_ROW && j < MAX_SAVED_RECORDS ) {
-			// get the fields from the query
-			const char *player_name = ( const char* )sqlite3_column_text( statement, 0 );
-			const unsigned int player_ip_int = sqlite3_column_int( statement, 1 );
-			const char *player_cuid_hash2 = ( const char* )sqlite3_column_text( statement, 2 );
-			const int capture_time = sqlite3_column_int( statement, 3 );
-			const int whose_flag = sqlite3_column_int( statement, 4 );
-			const int max_speed = sqlite3_column_int( statement, 5 );
-			const int avg_speed = sqlite3_column_int( statement, 6 );
-			const time_t date = sqlite3_column_int64( statement, 7 );
-			const char *match_id = ( const char* )sqlite3_column_text( statement, 8 );
-			const int client_id = sqlite3_column_int( statement, 9 );
-			const int pickup_time = sqlite3_column_int( statement, 10 );
-			const char* seedString = (const char*)sqlite3_column_text(statement, 11);
-
-			// write them to the record list
-			CaptureRecord *record = &recordsToLoad->records[i][j];
-
-			Q_strncpyz( record->recordHolderName, player_name, sizeof( record->recordHolderName ) );
-			record->recordHolderIpInt = player_ip_int;
-
-			if ( VALIDSTRING( player_cuid_hash2 ) ) {
-				Q_strncpyz( record->recordHolderCuid, player_cuid_hash2, sizeof( record->recordHolderCuid ) );
-			}
-
-			record->captureTime = capture_time;
-			record->whoseFlag = whose_flag;
-			record->maxSpeed = max_speed;
-			record->avgSpeed = avg_speed;
-			record->date = date;
-
-			if ( VALIDSTRING( match_id ) ) {
-				Q_strncpyz( record->matchId, match_id, sizeof( record->matchId ) );
-			}
-
-			record->recordHolderClientId = client_id;
-			record->pickupLevelTime = pickup_time;
-
-			if (i >= CAPTURE_RECORD_WEEKLY && i <= CAPTURE_RECORD_ANCIENT && VALIDSTRING(seedString)) {
-				XXH32_hash_t seed = 0;
-				sscanf(seedString, "%x", &seed);
-				record->waypointHash = seed;
-			}
-
-			rc = sqlite3_step( statement );
-			++loaded;
-			++j;
-		}
+		j = cJSON_GetObjectItemCaseSensitive(root, "match_id");
+		if (j && cJSON_IsString(j))
+			Q_strncpyz(outInfo->matchId, j->valuestring, sizeof(outInfo->matchId));
+		j = cJSON_GetObjectItemCaseSensitive(root, "player_name");
+		if (j && cJSON_IsString(j))
+			Q_strncpyz(outInfo->playerName, j->valuestring, sizeof(outInfo->playerName));
+		j = cJSON_GetObjectItemCaseSensitive(root, "client_id");
+		if (j && cJSON_IsNumber(j))
+			outInfo->clientId = j->valueint;
+		j = cJSON_GetObjectItemCaseSensitive(root, "pickup_time");
+		if (j && cJSON_IsNumber(j))
+			outInfo->pickupTime = j->valueint;
+		j = cJSON_GetObjectItemCaseSensitive(root, "whose_flag");
+		if (j && cJSON_IsNumber(j))
+			outInfo->whoseFlag = j->valueint;
+		j = cJSON_GetObjectItemCaseSensitive(root, "max_speed");
+		if (j && cJSON_IsNumber(j))
+			outInfo->maxSpeed = j->valueint;
+		j = cJSON_GetObjectItemCaseSensitive(root, "avg_speed");
+		if (j && cJSON_IsNumber(j))
+			outInfo->avgSpeed = j->valueint;
 	}
 
-	sqlite3_finalize( statement );
-
-	// write the remaining global fields
-	recordsToLoad->enabled = qtrue;
-
-	return loaded;
-#endif
+	cJSON_Delete(root);
 }
 
-void G_DBListBestCaptureRecords( CaptureRecordType type,
-	int limit,
-	int offset,
-	ListBestCapturesCallback callback,
-	void *context )
-{
-#if 0
-	sqlite3_stmt* statement;
-	int rc = sqlite3_prepare( dbPtr, sqlListBestFastcapsV2, -1, &statement, 0 );
+static void WriteExtraRaceInfo(const raceRecordInfo_t* inInfo, char** outJson) {
+	*outJson = NULL;
 
-	sqlite3_bind_int( statement, 1, type );
-	sqlite3_bind_int( statement, 2, limit );
-	sqlite3_bind_int( statement, 3, offset );
+	cJSON* root = cJSON_CreateObject();
 
-	rc = sqlite3_step( statement );
-	while ( rc == SQLITE_ROW ) {
-		const char *mapname = ( const char* )sqlite3_column_text( statement, 0 );
-		const char *player_name = ( const char* )sqlite3_column_text( statement, 1 );
-		const unsigned int player_ip_int = sqlite3_column_int( statement, 2 );
-		const char *player_cuid_hash2 = ( const char* )sqlite3_column_text( statement, 3 );
-		const int best_time = sqlite3_column_int( statement, 4 );
-		const time_t date = sqlite3_column_int64( statement, 5 );
+	if (root) {
+		if (VALIDSTRING(inInfo->matchId))
+			cJSON_AddStringToObject(root, "match_id", inInfo->matchId);
+		if (VALIDSTRING(inInfo->playerName))
+			cJSON_AddStringToObject(root, "player_name", inInfo->playerName);
+		if (IN_CLIENTNUM_RANGE(inInfo->clientId))
+			cJSON_AddNumberToObject(root, "client_id", inInfo->clientId);
+		if (inInfo->pickupTime >= 0)
+			cJSON_AddNumberToObject(root, "pickup_time", inInfo->pickupTime);
+		if (inInfo->whoseFlag == TEAM_RED || inInfo->whoseFlag == TEAM_BLUE)
+			cJSON_AddNumberToObject(root, "whose_flag", inInfo->whoseFlag);
+		if (inInfo->maxSpeed >= 0)
+			cJSON_AddNumberToObject(root, "max_speed", inInfo->maxSpeed);
+		if (inInfo->avgSpeed >= 0)
+			cJSON_AddNumberToObject(root, "avg_speed", inInfo->avgSpeed);
 
-		callback( context, mapname, type, player_name, player_ip_int, player_cuid_hash2, best_time, date );
-
-		rc = sqlite3_step( statement );
+		*outJson = cJSON_PrintUnformatted(root);
 	}
 
-	sqlite3_finalize( statement );
-#endif
+	cJSON_Delete(root);
+
+	static char* emptyJson = "";
+	if (!*outJson) {
+		*outJson = emptyJson;
+	}
 }
 
-void G_DBGetCaptureRecordsLeaderboard( CaptureRecordType type,
-	int limit,
-	int offset,
-	LeaderboardCapturesCallback callback,
-	void *context )
+// returns the account-agnostic session-tied personal best record used for caching
+qboolean G_DBLoadRaceRecord(const int sessionId,
+	const char* mapname,
+	const raceType_t type,
+	raceRecord_t* outRecord)
 {
-#if 0
-	sqlite3_stmt* statement;
-	int rc = sqlite3_prepare( dbPtr, sqlGetFastcapsV2Leaderboard, -1, &statement, 0 );
-
-	sqlite3_bind_int( statement, 1, type );
-	sqlite3_bind_int( statement, 2, limit );
-	sqlite3_bind_int( statement, 3, offset );
-
-	rc = sqlite3_step( statement );
-	while ( rc == SQLITE_ROW ) {
-		const unsigned int player_ip_int = sqlite3_column_int( statement, 0 );
-		const int golds = sqlite3_column_int( statement, 1 );
-		const int silvers = sqlite3_column_int( statement, 2 );
-		const int bronzes = sqlite3_column_int( statement, 3 );
-
-		callback( context, type, player_ip_int, golds, silvers, bronzes );
-
-		rc = sqlite3_step( statement );
-	}
-
-	sqlite3_finalize( statement );
-#endif
-}
-
-void G_DBListLatestCaptureRecords( CaptureRecordType type,
-	int limit,
-	int offset,
-	ListLatestCapturesCallback callback,
-	void *context )
-{
-#if 0
-	sqlite3_stmt* statement;
-	int rc = sqlite3_prepare( dbPtr, sqlListLatestFastcapsV2, -1, &statement, 0 );
-
-	sqlite3_bind_int( statement, 1, type );
-	sqlite3_bind_int( statement, 2, limit );
-	sqlite3_bind_int( statement, 3, offset );
-
-	rc = sqlite3_step( statement );
-	while ( rc == SQLITE_ROW ) {
-		const char *mapname = ( const char* )sqlite3_column_text( statement, 0 );
-		const int rank = sqlite3_column_int( statement, 1 );
-		const char *player_name = ( const char* )sqlite3_column_text( statement, 2 );
-		const unsigned int player_ip_int = sqlite3_column_int( statement, 3 );
-		const char *player_cuid_hash2 = ( const char* )sqlite3_column_text( statement, 4 );
-		const int capture_time = sqlite3_column_int( statement, 5 );
-		const time_t date = sqlite3_column_int64( statement, 6 );
-
-		callback( context, mapname, rank, type, player_name, player_ip_int, player_cuid_hash2, capture_time, date );
-
-		rc = sqlite3_step( statement );
-	}
-
-	sqlite3_finalize( statement );
-#endif
-}
-
-// returns how many records were written, or -1 if the capture record list is inactive (disabled)
-int G_DBSaveCaptureRecords( CaptureRecordList *recordsToSave )
-{
-	return -1;
-#if 0
-	if ( !recordsToSave->enabled ) {
-		return -1;
-	}
-
-	if ( !recordsToSave->changed ) {
-		return 0;
-	}
-
 	sqlite3_stmt* statement;
 
-	// first, delete all of the old records for this map, even those that didn't change
-	sqlite3_prepare( dbPtr, sqlremoveFastcapsV2, -1, &statement, 0 );
-	sqlite3_bind_text( statement, 1, recordsToSave->mapname, -1, 0 );
-	sqlite3_step( statement );
-	sqlite3_finalize( statement );
+	int rc = sqlite3_prepare(dbPtr, sqlGetFastcapRecord, -1, &statement, 0);
 
-	// rewrite everything
-	sqlite3_prepare( dbPtr, sqlAddFastcapV2, -1, &statement, 0 );
+	qboolean error = qfalse;
 
-	int i, j, saved = 0;
-	for ( i = 0; i < CAPTURE_RECORD_NUM_TYPES; ++i ) {
-		for ( j = 0; j < MAX_SAVED_RECORDS; ++j ) {
-			CaptureRecord *record = &recordsToSave->records[i][j];
+	sqlite3_bind_text(statement, 1, mapname, -1, SQLITE_STATIC);
+	sqlite3_bind_int(statement, 2, type);
+	sqlite3_bind_int(statement, 3, sessionId);
 
-			if ( !record->captureTime ) {
-				continue; // not a valid record
-			}
+	memset(outRecord, 0, sizeof(*outRecord));
 
-			sqlite3_reset( statement );
-			sqlite3_clear_bindings( statement );
+	rc = sqlite3_step(statement);
+	if (rc == SQLITE_ROW) {
+		const int capture_time = sqlite3_column_int(statement, 0);
+		const time_t date = sqlite3_column_int64(statement, 1);
+		const char* extra = (const char*)sqlite3_column_text(statement, 2);
+		
+		outRecord->time = capture_time;
+		outRecord->date = date;
+		ReadExtraRaceInfo(extra, &outRecord->extra);
 
-			sqlite3_bind_text( statement, 1, recordsToSave->mapname, -1, 0 );
-			sqlite3_bind_int( statement, 2, j + 1 );
-			sqlite3_bind_int( statement, 3, i );
-			sqlite3_bind_text( statement, 4, record->recordHolderName, -1, 0 );
-			sqlite3_bind_int( statement, 5, record->recordHolderIpInt );
-
-			if ( VALIDSTRING( record->recordHolderCuid ) ) {
-				sqlite3_bind_text( statement, 6, record->recordHolderCuid, -1, 0 );
-			} else {
-				sqlite3_bind_null( statement, 6 );
-			}
-
-			sqlite3_bind_int( statement, 7, record->captureTime );
-			sqlite3_bind_int( statement, 8, record->whoseFlag );
-			sqlite3_bind_int( statement, 9, record->maxSpeed );
-			sqlite3_bind_int( statement, 10, record->avgSpeed );
-			sqlite3_bind_int64( statement, 11, record->date );
-
-			if ( VALIDSTRING( record->matchId ) ) {
-				sqlite3_bind_text( statement, 12, record->matchId, -1, 0 );
-			} else {
-				sqlite3_bind_null( statement, 12 );
-			}
-
-			sqlite3_bind_int( statement, 13, record->recordHolderClientId );
-			sqlite3_bind_int( statement, 14, record->pickupLevelTime);
-			if (i >= CAPTURE_RECORD_WEEKLY && i <= CAPTURE_RECORD_ANCIENT)
-				sqlite3_bind_text(statement, 15, va("%08X", record->waypointHash), -1, 0);
-			else
-				sqlite3_bind_null(statement, 15);
-
-			sqlite3_step( statement );
-			++saved;
-		}
+		rc = sqlite3_step(statement);
+	} else if (rc != SQLITE_DONE) {
+		error = qtrue;
 	}
 
-	sqlite3_finalize( statement );
+	sqlite3_finalize(statement);
 
-	recordsToSave->changed = qfalse;
-
-	// store the waypoints hash that we used during this session
-	G_DBSetMetadata("lastWaypointsHash", va("%08X", level.waypointHash));
-
-	// store the waypoint names that we used during this session
-	char* waypointNames = GetWaypointNames();
-	G_DBSetMetadata("lastWaypointNames", VALIDSTRING(waypointNames) ? waypointNames : "");
-
-	return saved;
-#endif
+	return !error;
 }
 
-// this function assumes the arrays in currentRecords are sorted by captureTime and date
-// returns 0 if this is not a record, or the newly assigned rank otherwise (1 = 1st, 2 = 2nd...)
-int G_DBAddCaptureTime( unsigned int ipInt,
-	const char *netname,
-	const char *cuid,
-	const int clientId,
-	const char *matchId,
-	const int captureTime,
-	const team_t whoseFlag,
-	const int maxSpeed,
-	const int avgSpeed,
-	const time_t date,
-	const int pickupLevelTime,
-	const CaptureRecordType type,
-	CaptureRecordList *currentRecords )
+// saves an account-agnostic session-tied personal best record
+qboolean G_DBSaveRaceRecord(const int sessionId,
+	const char* mapname,
+	const raceType_t type,
+	const raceRecord_t* inRecord)
 {
-	return 0;
-#if 0
-	if ( g_gametype.integer != GT_CTF || !currentRecords->enabled ) {
-		return 0;
+	sqlite3_stmt* statement1;
+	sqlite3_stmt* statement2;
+
+	sqlite3_prepare(dbPtr, sqlSaveFastcapRecord1, -1, &statement1, 0);
+	sqlite3_prepare(dbPtr, sqlSaveFastcapRecord2, -1, &statement2, 0);
+
+	qboolean error = qfalse;
+
+	sqlite3_bind_text(statement1, 1, mapname, -1, SQLITE_STATIC);
+	sqlite3_bind_int(statement1, 2, type);
+	sqlite3_bind_int(statement1, 3, sessionId);
+	sqlite3_step(statement1);
+
+	char* extra;
+	WriteExtraRaceInfo(&inRecord->extra, &extra);
+
+	sqlite3_bind_int(statement2, 1, inRecord->time);
+	sqlite3_bind_int(statement2, 2, inRecord->date);
+	sqlite3_bind_text(statement2, 3, extra, -1, SQLITE_STATIC);
+	sqlite3_bind_text(statement2, 4, mapname, -1, SQLITE_STATIC);
+	sqlite3_bind_int(statement2, 5, type);
+	sqlite3_bind_int(statement2, 6, sessionId);
+	int rc = sqlite3_step(statement2);
+
+	error = rc != SQLITE_DONE;
+
+	free(extra);
+
+	sqlite3_finalize(statement1);
+	sqlite3_finalize(statement2);
+
+	return !error;
+}
+
+// returns the PB for a given map/run type for an account for non NULL arguments (0 for none, -1 for error)
+qboolean G_DBGetAccountPersonalBest(const int accountId,
+	const char* mapname,
+	const raceType_t type,
+	int* outRank,
+	int* outTime)
+{
+	sqlite3_stmt* statement;
+
+	int rc = sqlite3_prepare(dbPtr, sqlGetFastcapLoggedPersonalBest, -1, &statement, 0);
+
+	qboolean errored = qfalse;
+
+	sqlite3_bind_text(statement, 1, mapname, -1, SQLITE_STATIC);
+	sqlite3_bind_int(statement, 2, type);
+	sqlite3_bind_int(statement, 3, accountId);
+
+	if (outRank)
+		*outRank = 0;
+	if (outTime)
+		*outTime = 0;
+
+	rc = sqlite3_step(statement);
+	if (rc == SQLITE_ROW) {
+		const int rank = sqlite3_column_int(statement, 0);
+		const int capture_time = sqlite3_column_int(statement, 1);
+
+		if (outRank)
+			*outRank = rank;
+		if (outTime)
+			*outTime = capture_time;
+
+		rc = sqlite3_step(statement);
+	} else if (rc != SQLITE_DONE) {
+		if (outRank)
+			*outRank = -1;
+		if (outTime)
+			*outTime = -1;
+
+		errored = qtrue;
 	}
 
-	if ( whoseFlag != TEAM_BLUE && whoseFlag != TEAM_RED ) {
-		return 0; // someone tried to capture a neutral flag...
+	sqlite3_finalize(statement);
+
+	return !errored;
+}
+
+// lists logged in records sorted by rank for a map/type
+void G_DBListRaceRecords(const char* mapname,
+	const raceType_t type,
+	ListRaceRecordsCallback callback,
+	void* context)
+{
+	sqlite3_stmt* statement;
+
+	int rc = sqlite3_prepare(dbPtr, sqlGetFastcapRecord, -1, &statement, 0);
+
+	sqlite3_bind_text(statement, 1, mapname, -1, SQLITE_STATIC);
+	sqlite3_bind_int(statement, 2, type);
+
+	rc = sqlite3_step(statement);
+	while (rc == SQLITE_ROW) {
+		const char* name = (const char*)sqlite3_column_text(statement, 0);
+		const int rank = sqlite3_column_int(statement, 1);
+		const int capture_time = sqlite3_column_int(statement, 2);
+		const time_t date = sqlite3_column_int64(statement, 3);
+		const char* extra = (const char*)sqlite3_column_text(statement, 4);
+
+		raceRecord_t record;
+		record.time = capture_time;
+		record.date = date;
+		ReadExtraRaceInfo(extra, &record.extra);
+
+		callback(context, mapname, type, rank, name, &record);
+
+		rc = sqlite3_step(statement);
 	}
 
-	CaptureRecord *recordArray = &currentRecords->records[type][0];
-	int newIndex;
+	sqlite3_finalize(statement);
+}
 
-	// we don't want more than one entry per category per player, so first, check if there is already one record for this player
-	for ( newIndex = 0; newIndex < MAX_SAVED_RECORDS; ++newIndex ) {
-		if ( !recordArray[newIndex].captureTime ) {
-			continue; // not a valid record
-		}
+// lists only the best records for a type sorted by mapname
+void G_DBListRaceTop(const raceType_t type,
+	ListRaceTopCallback callback,
+	void* context)
+{
+	sqlite3_stmt* statement;
 
-		// don't mix the two types of lookup
-		if ( VALIDSTRING( cuid ) ) {
-			// we have a cuid, use that to find an existing record
-			if ( VALIDSTRING( recordArray[newIndex].recordHolderCuid ) && !Q_stricmp( cuid, recordArray[newIndex].recordHolderCuid ) ) {
-				break;
-			}
-		} else {
-			// fall back to the whois accuracy...
-			if ( ipInt == recordArray[newIndex].recordHolderIpInt ) {
-				break;
-			}
-		}
+	int rc = sqlite3_prepare(dbPtr, sqlListFastcapsLoggedTop, -1, &statement, 0);
+
+	sqlite3_bind_int(statement, 1, type);
+
+	rc = sqlite3_step(statement);
+	while (rc == SQLITE_ROW) {
+		const char* mapname = (const char*)sqlite3_column_text(statement, 0);
+		const char* name = (const char*)sqlite3_column_text(statement, 1);
+		const int capture_time = sqlite3_column_int(statement, 2);
+		const time_t date = sqlite3_column_int64(statement, 3);
+
+		callback(context, mapname, type, name, capture_time, date);
+
+		rc = sqlite3_step(statement);
 	}
 
-	if ( newIndex < MAX_SAVED_RECORDS ) {
-		// we found an existing record for this player, so just use its index to overwrite it if it's better
-		if ( captureTime >= recordArray[newIndex].captureTime ) {
-			return 0; // our existing record is better, so don't save anything to avoid record spam
-		}
+	sqlite3_finalize(statement);
+}
 
-		// we know we have AT LEAST done better than our current record, so we will save something in any case
-		// now, if we didn't already have the top record, check if we did less than the better records
-		if ( newIndex > 0 ) {
-			const int currentRecordIndex = newIndex;
+// lists logged in leaderboard sorted by golds, silvers, bronzes
+void G_DBListRaceLeaderboard(const raceType_t type,
+	ListRaceLeaderboardCallback callback,
+	void* context)
+{
+	sqlite3_stmt* statement;
 
-			for ( ; newIndex > 0; --newIndex ) {
-				if ( recordArray[newIndex - 1].captureTime && recordArray[newIndex - 1].captureTime <= captureTime ) {
-					break; // this one is better or equal, so use the index after it
-				}
-			}
+	int rc = sqlite3_prepare(dbPtr, sqlListFastcapsLoggedLeaderboard, -1, &statement, 0);
 
-			if ( newIndex != currentRecordIndex ) {
-				// we indeed did less than a record which was better than our former record. use its index and shift the array
-				memmove( recordArray + newIndex + 1, recordArray + newIndex, ( currentRecordIndex - newIndex ) * sizeof( *recordArray ) );
-			}
-		}
-	} else {
-		// this player doesn't have a record in this category yet, so find an index by comparing times from the worst to the best
-		for ( newIndex = MAX_SAVED_RECORDS; newIndex > 0; --newIndex ) {
-			if ( recordArray[newIndex - 1].captureTime && recordArray[newIndex - 1].captureTime <= captureTime ) {
-				break; // this one is better or equal, so use the index after it
-			}
-		}
+	sqlite3_bind_int(statement, 1, type);
 
-		// if the worst time is better, the index will point past the array, so don't bother
-		if ( newIndex >= MAX_SAVED_RECORDS ) {
-			return 0;
-		}
+	int rank = 1;
 
-		// shift the array to the right unless this is already the last element
-		if ( newIndex < MAX_SAVED_RECORDS - 1 ) {
-			memmove( recordArray + newIndex + 1, recordArray + newIndex, ( MAX_SAVED_RECORDS - newIndex - 1 ) * sizeof( *recordArray ) );
-		}
+	rc = sqlite3_step(statement);
+	while (rc == SQLITE_ROW) {
+		const char* name = (const char*)sqlite3_column_text(statement, 0);
+		const int golds = sqlite3_column_int(statement, 1);
+		const int silvers = sqlite3_column_int(statement, 2);
+		const int bronzes = sqlite3_column_int(statement, 3);
+
+		callback(context, type, rank++, name, golds, silvers, bronzes);
+
+		rc = sqlite3_step(statement);
 	}
 
-	// overwrite the selected element with the new record
-	CaptureRecord *newElement = &recordArray[newIndex];
-	Q_strncpyz( newElement->recordHolderName, netname, sizeof( newElement->recordHolderName ) );
-	newElement->recordHolderIpInt = ipInt;
-	newElement->captureTime = captureTime;
-	newElement->whoseFlag = whoseFlag;
-	newElement->maxSpeed = maxSpeed;
-	newElement->avgSpeed = avgSpeed;
-	newElement->date = date;
-	newElement->recordHolderClientId = clientId;
-	newElement->pickupLevelTime = pickupLevelTime;
+	sqlite3_finalize(statement);
+}
 
-	// cuid is optional, empty for clients without one
-	if ( VALIDSTRING( cuid ) ) {
-		Q_strncpyz( newElement->recordHolderCuid, cuid, sizeof( newElement->recordHolderCuid ) );
-	} else {
-		newElement->recordHolderCuid[0] = '\0';
+// lists logged in latest records across all maps/types
+void G_DBListRaceLatest(ListRaceLatestCallback callback,
+	void* context)
+{
+	sqlite3_stmt* statement;
+
+	int rc = sqlite3_prepare(dbPtr, sqlListFastcapsLoggedLatest, -1, &statement, 0);
+
+	rc = sqlite3_step(statement);
+	while (rc == SQLITE_ROW) {
+		const char* mapname = (const char*)sqlite3_column_text(statement, 0);
+		const int type = sqlite3_column_int(statement, 1);
+		const char* name = (const char*)sqlite3_column_text(statement, 2);
+		const int rank = sqlite3_column_int(statement, 3);
+		const int capture_time = sqlite3_column_int(statement, 4);
+		const time_t date = sqlite3_column_int64(statement, 5);
+
+		callback(context, mapname, type, rank, name, capture_time, date);
+
+		rc = sqlite3_step(statement);
 	}
 
-	// match id is optional, empty if sv_matchid is not implemented in this OpenJK version
-	if ( VALIDSTRING( matchId ) && strlen( matchId ) == SV_MATCHID_LEN - 1 ) {
-		Q_strncpyz( newElement->matchId, matchId, sizeof( newElement->matchId ) );
-	} else {
-		newElement->matchId[0] = '\0';
-	}
-
-	if (type == CAPTURE_RECORD_WEEKLY)
-		newElement->waypointHash = level.waypointHash;
-
-	// marks changes to be saved in db
-	currentRecords->changed = qtrue;
-
-	// if we are using in memory db, we can afford saving all records straight away
-	if ( g_inMemoryDB.integer ) {
-		G_DBSaveCaptureRecords( currentRecords );
-	}
-
-	return newIndex + 1;
-#endif
+	sqlite3_finalize(statement);
 }
 
 // =========== WHITELIST =======================================================

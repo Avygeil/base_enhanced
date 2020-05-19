@@ -148,6 +148,9 @@ void G_InitSessionData( gclient_t *client, char *userinfo, qboolean isBot, qbool
 	sess->telemarkYawAngle = 0;
 	sess->telemarkPitchAngle = 0;
 
+	sess->canSubmitRaceTimes = qfalse;
+	memset(&sess->cachedSessionRaceTimes, 0, sizeof(sess->cachedSessionRaceTimes));
+
 	sess->sessionCacheNum = -1;
 	sess->accountCacheNum = -1;
 

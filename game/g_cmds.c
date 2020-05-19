@@ -3911,160 +3911,139 @@ void PartitionedTimer( const int time, int *mins, int *secs, int *millis ) {
 	}
 }
 
-const char* GetLongNameForRecordType( CaptureRecordType type ) {
+const char* GetLongNameForRecordType( raceType_t type ) {
 	switch ( type ) {
-	case CAPTURE_RECORD_STANDARD: return "Standard";
-	case CAPTURE_RECORD_WEAPONS: return "Weapons";
-	default: return "Unknown";
+		case RACE_TYPE_STANDARD: return "Standard";
+		case RACE_TYPE_WEAPONS: return "Weapons";
+		default: return "Unknown";
 	}
 }
 
-const char* GetShortNameForRecordType( CaptureRecordType type ) {
+const char* GetShortNameForRecordType( raceType_t type ) {
 	switch ( type ) {
-		case CAPTURE_RECORD_STANDARD: return "std";
-		case CAPTURE_RECORD_WEAPONS: return "wpn";
+		case RACE_TYPE_STANDARD: return "std";
+		case RACE_TYPE_WEAPONS: return "wpn";
 		default: return "unknown";
 	}
 }
 
-CaptureRecordType GetRecordTypeForShortName( const char *name ) {
+raceType_t GetRecordTypeForShortName( const char *name ) {
 	if ( !Q_stricmpn( name, "s", 1 ) ) {
-		return CAPTURE_RECORD_STANDARD;
+		return RACE_TYPE_STANDARD;
 	}
 
 	if ( !Q_stricmpn( name, "wea", 3 ) || !Q_stricmpn( name, "wp", 2 ) ) {
-		return CAPTURE_RECORD_WEAPONS;
+		return RACE_TYPE_WEAPONS;
 	}
 
-	return CAPTURE_RECORD_INVALID;
+	return RACE_TYPE_INVALID;
 }
 
-static void copyTopNameCallback( void* context, const char* name, int duration ) {
-	Q_strncpyz( ( char* )context, name, MAX_NETNAME );
-}
-
-typedef struct {
-	int entNum;
-	qboolean hasPrinted;
-} BestTimeContext;
-
-typedef struct {
-	int entNum;
-	int currentRank;
-	qboolean hasPrinted;
-} LeaderboardContext;
-
-typedef BestTimeContext LatestTimeContext;
-
-static void printBestTimeCallback( void *context, const char *mapname, const CaptureRecordType type, const char *recordHolderName, const unsigned int recordHolderIpInt, const char *recordHolderCuid, const int bestTime, const time_t bestTimeDate ) {
-	BestTimeContext* thisContext = ( BestTimeContext* )context;
-
-	if ( !thisContext->hasPrinted ) {
-		// first time printing, show a header
-		trap_SendServerCommand( thisContext->entNum, va( "print \""S_COLOR_WHITE"Records for the "S_COLOR_YELLOW"%s "S_COLOR_WHITE"category:\n"S_COLOR_CYAN"           Map               Time           Date                 Name\n\"", GetLongNameForRecordType( type ) ) );
-	}
-
-	char identifier[MAX_NETNAME + 1] = { 0 };
-	//G_DBListAliases( recordHolderIpInt, ( unsigned int )0xFFFFFFFF, 1, copyTopNameCallback, &identifier, recordHolderCuid );
-
-	// no name in db for this guy, use the one we stored
-	if ( !VALIDSTRING( identifier ) ) {
-		Q_strncpyz( identifier, recordHolderName, sizeof( identifier ) );
-	}
+static void PrintRaceRecordsCallback(void* context, const char* mapname, const raceType_t type, const int rank, const char* name, const raceRecord_t* record) {
+	gentity_t* ent = (gentity_t*)context;
+	
+	char nameString[64] = { 0 };
+	Q_strncpyz(nameString, name, sizeof(nameString));
+	int j;
+	for (j = Q_PrintStrlen(nameString); j < MAX_NAME_DISPLAYLENGTH + 1; ++j)
+		Q_strcat(nameString, sizeof(nameString), " ");
 
 	int secs, millis;
-	PartitionedTimer( bestTime, NULL, &secs, &millis );
+	PartitionedTimer(record->time, NULL, &secs, &millis);
+
+	char timeString[8];
+	if (secs > 999) Com_sprintf(timeString, sizeof(timeString), "  >999 ");
+	else Com_sprintf(timeString, sizeof(timeString), "%3d.%03d", secs, millis);
+
+	char flagString[7];
+	Com_sprintf(flagString, sizeof(flagString), "%s%s", TeamColorString(record->extra.whoseFlag), TeamName(record->extra.whoseFlag));
+
+	char dateString[20];
+	time_t now = time(NULL);
+	if (now - record->date < 60 * 60 * 24) Q_strncpyz(dateString, S_COLOR_GREEN, sizeof(dateString));
+	else Q_strncpyz(dateString, S_COLOR_WHITE, sizeof(dateString));
+	G_FormatLocalDateFromEpoch(dateString + 2, sizeof(dateString) - 2, record->date);
+
+	trap_SendServerCommand(ent - g_entities, va(
+		"print \""S_COLOR_CYAN"%-3d"S_COLOR_WHITE": "S_COLOR_WHITE"%s  "S_COLOR_YELLOW"%s   %-6s      "S_COLOR_YELLOW"%-6d      %-6d     %s\n\"",
+		rank, nameString, timeString, flagString, Com_Clampi(1, 99999999, record->extra.maxSpeed), Com_Clampi(1, 9999999, record->extra.avgSpeed), dateString
+	));
+}
+
+static void SubCmd_TopTimes_Records(gentity_t* ent, const char* mapname, const raceType_t type, const int page) {
+	trap_SendServerCommand(ent - g_entities, va(
+		"print \""S_COLOR_WHITE"Records for the "S_COLOR_YELLOW"%s "S_COLOR_WHITE"category on "S_COLOR_YELLOW"%s"S_COLOR_WHITE":\n"
+		S_COLOR_CYAN"               Name              Time    Flag    Topspeed     Average           Date\n\"",
+		GetLongNameForRecordType(type), level.mapname)
+	);
+
+	G_DBListRaceRecords(level.mapname, type, PrintRaceRecordsCallback, ent);
+}
+
+static void PrintRaceTopCallback(void* context, const char* mapname, const raceType_t type, const char* name, const int captureTime, const time_t date) {
+	gentity_t* ent = (gentity_t*)context;
+
+	int secs, millis;
+	PartitionedTimer( captureTime, NULL, &secs, &millis );
 
 	char timeString[8];
 	if ( secs > 999 ) Com_sprintf( timeString, sizeof( timeString ), "  >999 " );
 	else Com_sprintf( timeString, sizeof( timeString ), "%3d.%03d", secs, millis );
 
-	char date[20];
+	char dateString[20];
 	time_t now = time( NULL );
-	if ( now - bestTimeDate < 60 * 60 * 24 ) Q_strncpyz( date, S_COLOR_GREEN, sizeof( date ) );
-	else Q_strncpyz( date, S_COLOR_WHITE, sizeof( date ) );
-	G_FormatLocalDateFromEpoch( date + 2, sizeof( date ) - 2, bestTimeDate );
+	if ( now - date < 60 * 60 * 24 ) Q_strncpyz(dateString, S_COLOR_GREEN, sizeof(dateString) );
+	else Q_strncpyz(dateString, S_COLOR_WHITE, sizeof(dateString) );
+	G_FormatLocalDateFromEpoch(dateString + 2, sizeof(dateString) - 2, date );
 
-	trap_SendServerCommand( thisContext->entNum, va(
-		"print \""S_COLOR_WHITE"%-25s  "S_COLOR_YELLOW"%s   %s   "S_COLOR_WHITE"%s\n\"", mapname, timeString, date, identifier
+	trap_SendServerCommand( ent - g_entities, va(
+		"print \""S_COLOR_WHITE"%-25s  "S_COLOR_YELLOW"%s   %s   "S_COLOR_WHITE"%s\n\"", mapname, timeString, dateString, name
 	) );
-
-	thisContext->hasPrinted = qtrue;
 }
 
-static void printLeaderboardCallback( void *context, const CaptureRecordType type, const unsigned int playerIpInt, const int golds, const int silvers, const int bronzes ) {
-	LeaderboardContext* thisContext = ( LeaderboardContext* )context;
+static void SubCmd_TopTimes_Maplist(gentity_t* ent, const raceType_t type, const int page) {
+	trap_SendServerCommand(ent - g_entities, va(
+		"print \""S_COLOR_WHITE"Records for the "S_COLOR_YELLOW"%s "S_COLOR_WHITE"category:\n"
+		S_COLOR_CYAN"           Map               Time           Date                 Name\n\"",
+		GetLongNameForRecordType(type))
+	);
 
-	if ( !thisContext->hasPrinted ) {
-		// first time printing, show a header
-		trap_SendServerCommand( thisContext->entNum, va( "print \""S_COLOR_WHITE"Leaderboard for the "S_COLOR_YELLOW"%s "S_COLOR_WHITE"category:\n"S_COLOR_CYAN"               Name           Golds    Silvers   Bronzes\n\"", GetLongNameForRecordType( type ) ) );
-	}
+	G_DBListRaceTop(type, PrintRaceTopCallback, ent);
+}
 
-	// TODO: pair ip/cuid in the query
+static void PrintRaceLeaderboardCallback(void* context, const raceType_t type, const int rank, const char* name, const int golds, const int silvers, const int bronzes) {
+	gentity_t* ent = (gentity_t*)context;
+
 	char nameString[64] = { 0 };
-	//G_DBListAliases( playerIpInt, ( unsigned int )0xFFFFFFFF, 1, copyTopNameCallback, &nameString, NULL );
+	Q_strncpyz(nameString, name, sizeof(nameString));
+	int j;
+	for (j = Q_PrintStrlen(nameString); j < MAX_NAME_DISPLAYLENGTH + 1; ++j)
+		Q_strcat(nameString, sizeof(nameString), " ");
 
-	// TODO: fixme
-	if ( !VALIDSTRING( nameString ) ) {
-		Q_strncpyz( nameString, "^7Padawan", sizeof( nameString ) );
-	}
-
-	{
-		// pad the name string with spaces here because printf padding will ignore colors
-
-		int spacesToAdd = MAX_NAME_DISPLAYLENGTH - Q_PrintStrlen( nameString );
-		int i;
-
-		for ( i = 0; i < sizeof( nameString ) && spacesToAdd > 0; ++i ) {
-			if ( nameString[i] == '\0' ) {
-				nameString[i] = ' '; // replace null terminators with spaces
-				--spacesToAdd;
-			}
-		}
-
-		nameString[sizeof( nameString ) - 1] = '\0'; // make sure it's still null terminated
-	}
-
-	trap_SendServerCommand( thisContext->entNum, va(
+	trap_SendServerCommand( ent - g_entities, va(
 		"print \""S_COLOR_CYAN"%3d"S_COLOR_WHITE": "S_COLOR_WHITE"%s  "S_COLOR_YELLOW"%2d        "S_COLOR_GREY"%2d        "S_COLOR_ORANGE"%2d\n\"",
-		thisContext->currentRank, nameString, golds, silvers, bronzes
+		rank, nameString, golds, silvers, bronzes
 	) );
-
-	thisContext->hasPrinted = qtrue;
-	thisContext->currentRank++;
 }
 
-static void printLatestTimesCallback( void *context, const char *mapname, const int rank, const CaptureRecordType type, const char *recordHolderName, const unsigned int recordHolderIpInt, const char *recordHolderCuid, const int captureTime, const time_t captureTimeDate ) {
-	LatestTimeContext* thisContext = ( LatestTimeContext* )context;
+static void SubCmd_TopTimes_Ranks(gentity_t* ent, const raceType_t type, const int page) {
+	trap_SendServerCommand(ent - g_entities, va(
+		"print \""S_COLOR_WHITE"Leaderboard for the "S_COLOR_YELLOW"%s "S_COLOR_WHITE"category:\n"
+		S_COLOR_CYAN"               Name           Golds    Silvers   Bronzes\n\"",
+		GetLongNameForRecordType(type))
+	);
 
-	if ( !thisContext->hasPrinted ) {
-		// first time printing, show a header
-		trap_SendServerCommand( thisContext->entNum, va( "print \""S_COLOR_WHITE"Latest records for the "S_COLOR_YELLOW"%s "S_COLOR_WHITE"category:\n"S_COLOR_CYAN"           Name              Rank     Time           Date                 Map\n\"", GetLongNameForRecordType( type ) ) );
-	}
+	G_DBListRaceLeaderboard(type, PrintRaceLeaderboardCallback, ent);
+}
+
+static void PrintRaceLatestCallback(void* context, const char* mapname, const raceType_t type, const int rank, const char* name, const int captureTime, const time_t date) {
+	gentity_t* ent = (gentity_t*)context;
 
 	char nameString[64] = { 0 };
-	//G_DBListAliases( recordHolderIpInt, ( unsigned int )0xFFFFFFFF, 1, copyTopNameCallback, &nameString, recordHolderCuid );
-
-	// no name in db for this guy, use the one we stored
-	if ( !VALIDSTRING( nameString ) ) {
-		Q_strncpyz( nameString, recordHolderName, sizeof( nameString ) );
-	}
-
-	{
-		// pad the name string with spaces here because printf padding will ignore colors
-
-		int spacesToAdd = MAX_NAME_DISPLAYLENGTH - Q_PrintStrlen( nameString );
-		int i;
-
-		for ( i = 0; i < sizeof( nameString ) && spacesToAdd > 0; ++i ) {
-			if ( nameString[i] == '\0' ) {
-				nameString[i] = ' '; // replace null terminators with spaces
-				--spacesToAdd;
-			}
-		}
-
-		nameString[sizeof( nameString ) - 1] = '\0'; // make sure it's still null terminated
-	}
+	Q_strncpyz(nameString, name, sizeof(nameString));
+	int j;
+	for (j = Q_PrintStrlen(nameString); j < MAX_NAME_DISPLAYLENGTH + 1; ++j)
+		Q_strcat(nameString, sizeof(nameString), " ");
 
 	// two chars for colors, max 2 for rank, 1 null terminator
 	char rankString[5];
@@ -4078,361 +4057,113 @@ static void printLatestTimesCallback( void *context, const char *mapname, const 
 	if ( secs > 999 ) Com_sprintf( timeString, sizeof( timeString ), "  >999 " );
 	else Com_sprintf( timeString, sizeof( timeString ), "%3d.%03d", secs, millis );
 
-	char date[20];
+	char dateString[20];
 	time_t now = time( NULL );
-	if ( now - captureTimeDate < 60 * 60 * 24 ) Q_strncpyz( date, S_COLOR_GREEN, sizeof( date ) );
-	else Q_strncpyz( date, S_COLOR_WHITE, sizeof( date ) );
-	G_FormatLocalDateFromEpoch( date + 2, sizeof( date ) - 2, captureTimeDate );
+	if ( now - date < 60 * 60 * 24 ) Q_strncpyz(dateString, S_COLOR_GREEN, sizeof(dateString) );
+	else Q_strncpyz(dateString, S_COLOR_WHITE, sizeof(dateString) );
+	G_FormatLocalDateFromEpoch(dateString + 2, sizeof(dateString) - 2, date );
 
-	trap_SendServerCommand( thisContext->entNum, va(
-		"print \""S_COLOR_WHITE"%s      %-4s    "S_COLOR_YELLOW"%s   %s   "S_COLOR_WHITE"%s\n\"", nameString, rankString, timeString, date, mapname
+	trap_SendServerCommand( ent - g_entities, va(
+		"print \""S_COLOR_WHITE"%s      "S_COLOR_YELLOW"%-4s   %-4s    "S_COLOR_YELLOW"%s   %s   "S_COLOR_WHITE"%s\n\"",
+		nameString, GetShortNameForRecordType(type), rankString, timeString, dateString, mapname
 	) );
-
-	thisContext->hasPrinted = qtrue;
 }
 
-#define DEMOARCHIVE_BASE_MATCH_URL	"http://demos.jactf.com/match.html#rpc=lookup&id=%s"
-#define MAPLIST_MAPS_PER_PAGE			15
-#define LEADERBOARD_PLAYERS_PER_PAGE	10
-#define LATEST_RECORDS_PER_PAGE			10
+static void SubCmd_TopTimes_Latest(gentity_t* ent, const int page) {
+	trap_SendServerCommand(ent - g_entities, va(
+		"print \""S_COLOR_WHITE"Latest records for the "S_COLOR_YELLOW"%s "S_COLOR_WHITE"category:\n"
+		S_COLOR_CYAN"           Name              Type   Rank     Time           Date                 Map\n\"")
+	);
+
+	G_DBListRaceLatest(PrintRaceLatestCallback, ent);
+}
 
 void Cmd_TopTimes_f( gentity_t *ent ) {
 	if ( !ent || !ent->client ) {
 		return;
 	}
 
-	if ( !level.mapCaptureRecords.enabled ) {
+	if ( !level.racemodeRecordsEnabled ) {
 		trap_SendServerCommand( ent - g_entities, "print \"Capture records are disabled.\n\"" );
 		return;
 	}
 
-	if ( level.mapCaptureRecords.readonly ) {
-		trap_SendServerCommand( ent - g_entities, "print \""S_COLOR_YELLOW"WARNING: Server settings are non standard, new times won't be recorded!\n\"" );
+	if ( level.racemodeRecordsReadonly ) {
+		trap_SendServerCommand( ent - g_entities, "print \""S_COLOR_YELLOW"WARNING: Server settings were modified, capture records are read-only!\n\"" );
 	}
 
-	// assume standard by default
-	CaptureRecordType category = CAPTURE_RECORD_STANDARD;
+	// figure out the arguments to redirect the command:
+	// subcommand - [mapname - type - page]
+	// where the ones in [] can be in any order
+	
+	// default arguments
+	char subcommand[32] = { 0 };
+	qboolean gotMapname = qfalse;
+	char mapname[MAX_QPATH];
+	Q_strncpyz(mapname, level.mapname, sizeof(mapname));
+	qboolean gotType = qfalse;
+	raceType_t type = RACE_TYPE_STANDARD;
+	qboolean gotPage = qfalse;
+	int page = 0;
 
-	if ( trap_Argc() > 1 ) {
-		char buf[32];
-		trap_Argv( 1, buf, sizeof( buf ) );
+	if (trap_Argc() > 1) {
+		char buf[64];
+		trap_Argv(1, buf, sizeof(buf));
 
-		// special logic for subcommands
+		int startOptionalsAt = 1;
 
-		if ( !Q_stricmp( buf, "help" ) ) {
-			char *text =
-				S_COLOR_WHITE"Show records for the current map: "S_COLOR_CYAN"/toptimes [std | wpn]\n"
-				S_COLOR_WHITE"List all map records: "S_COLOR_CYAN"/toptimes maplist [std | wpn] [page]\n"
-				S_COLOR_WHITE"Show player leaderboard: "S_COLOR_CYAN"/toptimes ranks [std | wpn] [page]\n"
-				S_COLOR_WHITE"Show latest records:" S_COLOR_CYAN"/toptimes latest [std | wpn] [page]\n"
-				S_COLOR_WHITE"Get demo information of a specific rank on the current map:" S_COLOR_CYAN"/toptimes demo <rank> [std | wpn]\n"
-				S_COLOR_WHITE"Show valid runs rules:" S_COLOR_CYAN"/toptimes rules <std | wpn>";
-
-			trap_SendServerCommand( ent - g_entities, va( "print \"%s\n\"", text ) );
-
-			return;
-		} else if ( !Q_stricmp( buf, "maplist" ) ) {
-			int page = 1;
-
-			if ( trap_Argc() > 2 ) {
-				trap_Argv( 2, buf, sizeof( buf ) );
-
-				// is the 2nd argument directly the page number?
-				if ( Q_isanumber( buf ) ) {
-					page = atoi( buf );
-					if ( page < 1 ) page = 1;
-				}
-				else {
-					// a movement type is being specified as 2nd argument
-					category = GetRecordTypeForShortName( buf );
-
-					if ( category == CAPTURE_RECORD_INVALID ) {
-						trap_SendServerCommand( ent - g_entities, "print \"Invalid category. Usage: /toptimes maplist [std | wpn] [page]\n\"" );
-						return;
-					}
-
-					if ( trap_Argc() > 3 ) {
-						// 3rd argument must be the page number
-						trap_Argv( 3, buf, sizeof( buf ) );
-						page = atoi( buf );
-						if ( page < 1 ) page = 1;
-					}
-				}
-			}
-
-			BestTimeContext context;
-			context.entNum = ent - g_entities;
-			context.hasPrinted = qfalse;
-			G_DBListBestCaptureRecords( category, MAPLIST_MAPS_PER_PAGE, ( page - 1 ) * MAPLIST_MAPS_PER_PAGE, printBestTimeCallback, &context );
-
-			if ( context.hasPrinted ) {
-				trap_SendServerCommand( ent - g_entities, va( "print \"Viewing page %d.\nUsage: /toptimes maplist [std | wpn] [page]\n\"", page ) );
-			}
-			else {
-				trap_SendServerCommand( ent - g_entities, "print \"There aren't this many records! Try a lower page number.\nUsage: /toptimes maplist [std | wpn] [page]\n\"" );
-			}
-
-			return;
-		} else if ( !Q_stricmp( buf, "ranks" ) ) {
-			int page = 1;
-
-			if ( trap_Argc() > 2 ) {
-				trap_Argv( 2, buf, sizeof( buf ) );
-
-				// is the 2nd argument directly the page number?
-				if ( Q_isanumber( buf ) ) {
-					page = atoi( buf );
-					if ( page < 1 ) page = 1;
-				} else {
-					// a movement type is being specified as 2nd argument
-					category = GetRecordTypeForShortName( buf );
-
-					if ( category == CAPTURE_RECORD_INVALID ) {
-						trap_SendServerCommand( ent - g_entities, "print \"Invalid category. Usage: /toptimes ranks [std | wpn | walk | ad | weekly | lastweek] [page]\n\"" );
-						return;
-					}
-
-					if ( trap_Argc() > 3 ) {
-						// 3rd argument must be the page number
-						trap_Argv( 3, buf, sizeof( buf ) );
-						page = atoi( buf );
-						if ( page < 1 ) page = 1;
-					}
-				}
-			}
-
-			LeaderboardContext context;
-			context.entNum = ent - g_entities;
-			context.currentRank = 1 + ( page - 1 ) * LEADERBOARD_PLAYERS_PER_PAGE;
-			context.hasPrinted = qfalse;
-			G_DBGetCaptureRecordsLeaderboard( category, LEADERBOARD_PLAYERS_PER_PAGE, ( page - 1 ) * LEADERBOARD_PLAYERS_PER_PAGE, printLeaderboardCallback, &context );
-
-			if ( context.hasPrinted ) {
-				trap_SendServerCommand( ent - g_entities, va( "print \"Viewing page %d.\nUsage: /toptimes ranks [std | wpn] [page]\n\"", page ) );
-			} else {
-				trap_SendServerCommand( ent - g_entities, "print \"There aren't this many players! Try a lower page number.\nUsage: /toptimes ranks [std | wpn] [page]\n\"" );
-			}
-
-			return;
-		} else if ( !Q_stricmp( buf, "latest" ) ) {
-			int page = 1;
-
-			if ( trap_Argc() > 2 ) {
-				trap_Argv( 2, buf, sizeof( buf ) );
-
-				// is the 2nd argument directly the page number?
-				if ( Q_isanumber( buf ) ) {
-					page = atoi( buf );
-					if ( page < 1 ) page = 1;
-				}
-				else {
-					// a movement type is being specified as 2nd argument
-					category = GetRecordTypeForShortName( buf );
-
-					if ( category == CAPTURE_RECORD_INVALID ) {
-						trap_SendServerCommand( ent - g_entities, "print \"Invalid category. Usage: /toptimes latest [std | wpn] [page]\n\"" );
-						return;
-					}
-
-					if ( trap_Argc() > 3 ) {
-						// 3rd argument must be the page number
-						trap_Argv( 3, buf, sizeof( buf ) );
-						page = atoi( buf );
-						if ( page < 1 ) page = 1;
-					}
-				}
-			}
-
-			LatestTimeContext context;
-			context.entNum = ent - g_entities;
-			context.hasPrinted = qfalse;
-			G_DBListLatestCaptureRecords( category, LATEST_RECORDS_PER_PAGE, ( page - 1 ) * LATEST_RECORDS_PER_PAGE, printLatestTimesCallback, &context );
-
-			if ( context.hasPrinted ) {
-				trap_SendServerCommand( ent - g_entities, va( "print \"Viewing page %d.\nUsage: /toptimes latest [std | wpn] [page]\n\"", page ) );
-			}
-			else {
-				trap_SendServerCommand( ent - g_entities, "print \"There aren't this many records! Try a lower page number.\nUsage: /toptimes latest [std | wpn] [page]\n\"" );
-			}
-
-			return;
-		} else if ( !Q_stricmp( buf, "demo" ) ) {
-			if ( trap_Argc() > 2 ) {
-				trap_Argv( 2, buf, sizeof( buf ) );
-				const int rank = atoi( buf );
-
-				if ( rank >= 1 && rank <= MAX_SAVED_RECORDS ) {
-
-					// do we have a movement type specified?
-					if ( trap_Argc() > 3 ) {
-						trap_Argv( 3, buf, sizeof( buf ) );
-						category = GetRecordTypeForShortName( buf );
-
-						if ( category == CAPTURE_RECORD_INVALID ) {
-							trap_SendServerCommand( ent - g_entities, "print \"Invalid category. Usage: /toptimes demo <rank> [std | wpn]\n\"" );
-							return;
-						}
-					}
-
-					const CaptureRecord* thisRecord = &level.mapCaptureRecords.records[category][rank - 1];
-
-					if ( !thisRecord->captureTime ) {
-						trap_SendServerCommand( ent - g_entities, "print \"This rank does not exist for this category on this map\n\"" );
-						return;
-					}
-
-					if ( !VALIDSTRING( thisRecord->matchId ) ) {
-						trap_SendServerCommand( ent - g_entities, "print \"There is no demo associated with this rank in the database!\n\"" );
-						return;
-					}
-
-					const char* categoryName = GetLongNameForRecordType( category );
-
-					char nameString[64] = { 0 };
-					//G_DBListAliases( thisRecord->recordHolderIpInt, ( unsigned int )0xFFFFFFFF, 1, copyTopNameCallback, &nameString, thisRecord->recordHolderCuid );
-
-					// no name in db for this guy, use the one we stored
-					if ( !VALIDSTRING( nameString ) ) {
-						Q_strncpyz( nameString, thisRecord->recordHolderName, sizeof( nameString ) );
-					}
-
-					int mins, secs;
-					PartitionedTimer( thisRecord->pickupLevelTime, &mins, &secs, NULL );
-
-					team_t playerTeam = OtherTeam( thisRecord->whoseFlag ); // the opposite of the captured flag's team
-
-					// print the demo info
-					trap_SendServerCommand( ent - g_entities, va(
-						"print \""S_COLOR_WHITE"Rank %i (%s"S_COLOR_WHITE") - "S_COLOR_YELLOW"%s\n"
-						""S_COLOR_WHITE"As %s (client %d) in team %s%s"S_COLOR_WHITE" @ "S_COLOR_CYAN"%d:%02d\n\"",
-						rank, nameString, categoryName, thisRecord->recordHolderName, thisRecord->recordHolderClientId, TeamColorString( playerTeam ), TeamName( playerTeam ), mins, secs
-					) );
-
-					// send the demo link as a chat message to this client only so it can be opened by newmod
-					trap_SendServerCommand( ent - g_entities, va( "chat \"^1Demo link^7\x19: " DEMOARCHIVE_BASE_MATCH_URL "\"\n", thisRecord->matchId ) );
-				} else {
-					trap_SendServerCommand( ent - g_entities, va( "print \"Rank must be a number between 1 and %i\n\"", MAX_SAVED_RECORDS ) );
-				}
-			} else {
-				trap_SendServerCommand( ent - g_entities, "print \"Usage: /toptimes demo <rank> [std | wpn | walk | ad | weekly | lastweek]\n\"" );
-			}
-
-			return;
-		} else if ( !Q_stricmp( buf, "rules" ) ) {
-			char *text;
-
-			if ( trap_Argc() > 2 ) {
-				trap_Argv( 2, buf, sizeof( buf ) );
-				category = GetRecordTypeForShortName( buf );
-
-				switch ( category ) {
-					case CAPTURE_RECORD_STANDARD:
-						text =
-							S_COLOR_WHITE"Standard type:\n"
-							S_COLOR_RED"* No self dmg (except from falling)\n"
-							S_COLOR_RED"* No dmg or force powers from others (except alt sniping)\n"
-							S_COLOR_GREEN"* All force powers allowed\n"
-							S_COLOR_CYAN"NB: Stand idle and wait to regen to 100 force to start over with no category";
-						break;
-					case CAPTURE_RECORD_WEAPONS:
-						text =
-							S_COLOR_WHITE"Weapons type:\n"
-							S_COLOR_GREEN"* Self dmg allowed (except dets/mines)\n"
-							S_COLOR_RED"* No dmg or force powers from others (except alt sniping)\n"
-							S_COLOR_GREEN"* All force powers allowed\n"
-							S_COLOR_CYAN"NB: Stand idle and wait to regen to 100 force to start over with no category";
-						break;
-					default:
-						text = "Invalid category. Usage: /toptimes rules <std | wpn>";
-						break;
-				}
-			} else {
-				text = "Usage: /toptimes rules <std | wpn>";
-			}
-
-			trap_SendServerCommand( ent - g_entities, va( "print \"%s"S_COLOR_WHITE"\n\"", text ) );
-
-			return;
-		} else {
-
-			// not a subcommand, 1st argument is the movement type
-
-			category = GetRecordTypeForShortName( buf );
-
-			if ( category == CAPTURE_RECORD_INVALID ) {
-				trap_SendServerCommand( ent - g_entities, "print \"Invalid category. Usage: /toptimes maplist [std | wpn | walk | ad | weekly | lastweek] [page]\n\"" );
-				return;
-			}
-		}
-	}
-
-	const char* categoryName = GetLongNameForRecordType( category );
-
-	if ( !level.mapCaptureRecords.records[category][0].captureTime ) {
-		// there is no first record for that category
-		trap_SendServerCommand(ent - g_entities, va("print \"No record for the %s category on this map yet!\n\"", categoryName));
-		return;
-	}
-
-	trap_SendServerCommand( ent - g_entities, va( "print \""S_COLOR_WHITE"Records for the "S_COLOR_YELLOW"%s "S_COLOR_WHITE"category on "S_COLOR_YELLOW"%s"S_COLOR_WHITE":\n"S_COLOR_CYAN"             Name              Time    Flag    Topspeed     Average           Date\n\"", categoryName, level.mapCaptureRecords.mapname ) );
-
-	int i;
-
-	// print each record as a row
-	for ( i = 0; i < MAX_SAVED_RECORDS; ++i ) {
-		CaptureRecord *record = &level.mapCaptureRecords.records[category][i];
-
-		if ( !record->captureTime ) {
-			continue;
-		}
-
-		char nameString[64] = { 0 };
-		//G_DBListAliases( record->recordHolderIpInt, ( unsigned int )0xFFFFFFFF, 1, copyTopNameCallback, &nameString, record->recordHolderCuid );
-
-		// no name in db for this guy, use the one we stored
-		if ( !VALIDSTRING( nameString ) ) {
-			Q_strncpyz( nameString, record->recordHolderName, sizeof( nameString ) );
-		}
-
+		if (!Q_stricmp(buf, "maplist") ||
+			!Q_stricmp(buf, "ranks") ||
+			!Q_stricmp(buf, "latest"))
 		{
-			// pad the name string with spaces here because printf padding will ignore colors
-
-			int spacesToAdd = MAX_NAME_DISPLAYLENGTH - Q_PrintStrlen( nameString );
-			int i;
-
-			for ( i = 0; i < sizeof( nameString ) && spacesToAdd > 0; ++i ) {
-				if ( nameString[i] == '\0' ) {
-					nameString[i] = ' '; // replace null terminators with spaces
-					--spacesToAdd;
-				}
-			}
-
-			nameString[sizeof( nameString ) - 1] = '\0'; // make sure it's still null terminated
+			// first arg is a subcommand
+			Q_strncpyz(subcommand, buf, sizeof(subcommand));
+			startOptionalsAt = 2;
 		}
 
-		int secs, millis;
-		PartitionedTimer( record->captureTime, NULL, &secs, &millis );
+		int i;
+		for (i = startOptionalsAt; i < trap_Argc() && i < 3 + startOptionalsAt; ++i) {
+			trap_Argv(i, buf, sizeof(buf));
 
-		char timeString[8];
-		if ( secs > 999 ) Com_sprintf( timeString, sizeof( timeString ), "  >999 " );
-		else Com_sprintf( timeString, sizeof( timeString ), "%3d.%03d", secs, millis );
-
-		char flagString[7];
-		Com_sprintf( flagString, sizeof( flagString ), "%s%s", TeamColorString( record->whoseFlag ), TeamName( record->whoseFlag ) );
-
-		char date[20];
-		time_t now = time( NULL );
-		if ( now - record->date < 60 * 60 * 24 ) Q_strncpyz( date, S_COLOR_GREEN, sizeof( date ) );
-		else Q_strncpyz( date, S_COLOR_WHITE, sizeof( date ) );
-		G_FormatLocalDateFromEpoch( date + 2, sizeof( date ) - 2, record->date );
-
-		trap_SendServerCommand( ent - g_entities, va(
-			"print \""S_COLOR_CYAN"%d"S_COLOR_WHITE": "S_COLOR_WHITE"%s  "S_COLOR_YELLOW"%s   %-6s      "S_COLOR_YELLOW"%-6d      %-6d     %s\n\"",
-			i + 1, nameString, timeString, flagString, Com_Clampi( 1, 99999999, record->maxSpeed ), Com_Clampi( 1, 9999999, record->avgSpeed ), date
-		) );
+			if (!gotPage) {
+				int testPage = atoi(buf);
+				if (testPage > 0 && testPage < 999) {
+					page = testPage;
+					gotPage = qtrue;
+				}
+			} else if (!gotType) {
+				raceType_t testType = GetRecordTypeForShortName(buf);
+				if (testType != RACE_TYPE_INVALID) {
+					type = testType;
+				}
+			} else if (!gotMapname) {
+				// assume it's a map name otherwise
+				Q_strncpyz(mapname, buf, sizeof(mapname));
+				gotMapname = qtrue;
+			}
+		}
 	}
+	
+	if (!Q_stricmp(subcommand, "help")) {
+		char* text =
+			S_COLOR_WHITE"Show records for the current map: "S_COLOR_CYAN"/toptimes [mapname] [std | wpn] [page]\n"
+			S_COLOR_WHITE"List all map records: "S_COLOR_CYAN"/toptimes maplist [std | wpn] [page]\n"
+			S_COLOR_WHITE"Show player leaderboard: "S_COLOR_CYAN"/toptimes ranks [std | wpn] [page]\n"
+			S_COLOR_WHITE"Show latest records:" S_COLOR_CYAN"/toptimes latest [page]";
 
-	trap_SendServerCommand( ent - g_entities, "print \"For a list of all subcommands: /toptimes help\n\"" );
+		trap_SendServerCommand(ent - g_entities, va("print \"%s\n\"", text));
+
+		return;
+	} else if (!Q_stricmp(subcommand, "maplist")) {
+		SubCmd_TopTimes_Maplist(ent, type, page);
+	} else if (!Q_stricmp(subcommand, "ranks")) {
+		SubCmd_TopTimes_Ranks(ent, type, page);
+	} else if (!Q_stricmp(subcommand, "latest")) {
+		SubCmd_TopTimes_Latest(ent, page);
+	} else {
+		SubCmd_TopTimes_Records(ent, mapname, type, page);
+		trap_SendServerCommand(ent - g_entities, "print \"For a list of all subcommands: /toptimes help\n\"");
+	}
 }
 
 #ifdef NEWMOD_SUPPORT
@@ -4447,12 +4178,8 @@ static qboolean StringIsOnlyNumbers(const char *s) {
 }
 
 static XXH32_hash_t GetVchatHash(const char *modName, const char *msg, const char *fileName) {
-	static char mapname[MAX_QPATH] = { 0 };
-	if (!mapname[0])
-		trap_Cvar_VariableStringBuffer("mapname", mapname, sizeof(mapname));
-
 	char buf[MAX_TOKEN_CHARS] = { 0 };
-	Com_sprintf(buf, sizeof(buf), "%s%s%s%s", mapname, modName, msg, fileName);
+	Com_sprintf(buf, sizeof(buf), "%s%s%s%s", level.mapname, modName, msg, fileName);
 	return XXH32(buf, strlen(buf), 0);
 }
 
@@ -5600,6 +5327,7 @@ static void Cmd_Svauth_f( gentity_t *ent ) {
 			// now that this client is fully authenticated, init session and account
 			G_InitClientSession( ent->client );
 			G_InitClientAccount( ent->client );
+			G_InitClientRaceRecordsCache( ent->client );
 			G_PrintWelcomeMessage( ent->client );
 
 			ClientUserinfoChanged( ent - g_entities );

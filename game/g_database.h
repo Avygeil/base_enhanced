@@ -85,68 +85,67 @@ void G_DBGetTopNickname(const int sessionId,
 
 // =========== FASTCAPS ========================================================
 
-typedef void( *ListBestCapturesCallback )( void *context,
-	const char *mapname,
-	const CaptureRecordType type,
-	const char *recordHolderName,
-	const unsigned int recordHolderIpInt,
-	const char *recordHolderCuid,
-	const int bestTime,
-	const time_t bestTimeDate );
+typedef void(*ListRaceRecordsCallback)(void* context,
+	const char* mapname,
+	const raceType_t type,
+	const int rank,
+	const char* name,
+	const raceRecord_t* record);
 
-typedef void( *LeaderboardCapturesCallback )( void *context,
-	const CaptureRecordType type,
-	const unsigned int playerIpInt,
+typedef void(*ListRaceTopCallback)(void* context,
+	const char* mapname,
+	const raceType_t type,
+	const char* name,
+	const int captureTime,
+	const time_t date);
+
+typedef void(*ListRaceLeaderboardCallback)(void* context,
+	const raceType_t type,
+	const int rank,
+	const char* name,
 	const int golds,
 	const int silvers,
-	const int bronzes );
+	const int bronzes);
 
-typedef void( *ListLatestCapturesCallback )( void *context,
-	const char *mapname,
+typedef void(*ListRaceLatestCallback)(void* context,
+	const char* mapname,
+	const raceType_t type,
 	const int rank,
-	const CaptureRecordType type,
-	const char *recordHolderName,
-	const unsigned int recordHolderIpInt,
-	const char *recordHolderCuid,
+	const char* name,
 	const int captureTime,
-	const time_t captureTimeDate );
+	const time_t date);
 
-int G_DBLoadCaptureRecords( const char *mapname,
-	CaptureRecordList *recordsToLoad );
+qboolean G_DBLoadRaceRecord(const int sessionId,
+	const char* mapname,
+	const raceType_t type,
+	raceRecord_t* outRecord);
 
-void G_DBListBestCaptureRecords( CaptureRecordType type,
-	int limit,
-	int offset,
-	ListBestCapturesCallback callback,
-	void *context );
+qboolean G_DBSaveRaceRecord(const int sessionId,
+	const char* mapname,
+	const raceType_t type,
+	const raceRecord_t* inRecord);
 
-void G_DBGetCaptureRecordsLeaderboard( CaptureRecordType type,
-	int limit,
-	int offset,
-	LeaderboardCapturesCallback callback,
-	void *context );
+qboolean G_DBGetAccountPersonalBest(const int accountId,
+	const char* mapname,
+	const raceType_t type,
+	int* outRank,
+	int* outTime);
 
-void G_DBListLatestCaptureRecords( CaptureRecordType type,
-	int limit,
-	int offset,
-	ListLatestCapturesCallback callback,
-	void *context );
+void G_DBListRaceRecords(const char* mapname,
+	const raceType_t type,
+	ListRaceRecordsCallback callback,
+	void* context);
 
-int G_DBSaveCaptureRecords( CaptureRecordList *recordsToSave );
+void G_DBListRaceTop(const raceType_t type,
+	ListRaceTopCallback callback,
+	void* context);
 
-int G_DBAddCaptureTime( unsigned int ipInt,
-	const char *netname,
-	const char *cuid,
-	const int clientId,
-	const char *matchId,
-	const int captureTime,
-	const team_t whoseFlag,
-	const int maxSpeed,
-	const int avgSpeed,
-	const time_t date,
-	const int pickupLevelTime,
-	const CaptureRecordType type,
-	CaptureRecordList *currentRecords );
+void G_DBListRaceLeaderboard(const raceType_t type,
+	ListRaceLeaderboardCallback callback,
+	void* context);
+
+void G_DBListRaceLatest(ListRaceLatestCallback callback,
+	void* context);
 
 // =========== WHITELIST =======================================================
 
