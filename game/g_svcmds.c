@@ -2254,6 +2254,24 @@ void Svcmd_Account_f( void ) {
 	}
 }
 
+static void PrintUnassignedSessionIDsCallback(void* ctx, const int sessionId, const char* topAlias, const int playtime, const qboolean referenced) {
+	char nameString[64] = { 0 };
+	Q_strncpyz(nameString, topAlias, sizeof(nameString));
+	int j;
+	for (j = Q_PrintStrlen(nameString); j < MAX_NAME_DISPLAYLENGTH; ++j)
+		Q_strcat(nameString, sizeof(nameString), " ");
+
+	char durationString[64];
+	G_FormatDuration(playtime, durationString, sizeof(durationString));
+
+	G_Printf(
+		S_COLOR_WHITE"%s  "S_COLOR_WHITE"(%s) - session ID: %d\n",
+		nameString, durationString, sessionId
+	);
+}
+
+#define NUM_UNASSIGNED_PER_PAGE 10
+
 void Svcmd_Session_f( void ) {
 	qboolean printHelp = qfalse;
 
@@ -2317,9 +2335,23 @@ void Svcmd_Session_f( void ) {
 				G_Printf( "No player online\n" );
 			}
 
-		} else if ( !Q_stricmp( s, "latest" ) ) {
+		} else if ( !Q_stricmp( s, "unassigned" ) ) {
 
-			// TODO
+			int page = 1;
+
+			if (trap_Argc() > 2) {
+				char buf[8];
+				trap_Argv(2, buf, sizeof(buf));
+				page = Com_Clampi(1, 999, atoi(buf));
+			}
+
+			pagination_t pagination;
+			pagination.numPerPage = NUM_UNASSIGNED_PER_PAGE;
+			pagination.numPage = page;
+
+			G_DBListTopUnassignedSessionIDs(pagination, PrintUnassignedSessionIDsCallback, NULL);
+
+			G_Printf("Viewing page: %d\n", page);
 
 		} else if ( !Q_stricmp( s, "info" ) ) {
 
@@ -2501,7 +2533,7 @@ void Svcmd_Session_f( void ) {
 		G_Printf(
 			"Valid subcommands:\n"
 			S_COLOR_YELLOW"session whois"S_COLOR_WHITE": Lists the session currently in use by all in-game players\n"
-			S_COLOR_YELLOW"session latest"S_COLOR_WHITE": Lists the latest unassigned sessions\n"
+			S_COLOR_YELLOW"session unassigned [page]"S_COLOR_WHITE": Lists the top unassigned sessions\n"
 			S_COLOR_YELLOW"session info <session id>"S_COLOR_WHITE": Prints detailed information for the given session ID\n"
 			S_COLOR_YELLOW"session link <session id> <account name>"S_COLOR_WHITE": Links the given session ID to an existing account\n"
 			S_COLOR_YELLOW"session linkingame <client id> <account name>"S_COLOR_WHITE": Shortcut command to link an in-game client's session to an existing account\n"

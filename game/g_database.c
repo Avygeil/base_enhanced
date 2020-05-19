@@ -308,6 +308,15 @@ static const char* sqlSetFlagsForAccountId =
 "SET flags = ?1                                                              \n"
 "WHERE accounts.account_id = ?2;                                               ";
 
+static const char* sqlListTopUnassignedSessionIds =
+"SELECT sessions_info.session_id, player_aliases.alias, player_aliases.playtime, sessions_info.referenced \n"
+"FROM sessions_info                                                                                       \n"
+"INNER JOIN player_aliases ON sessions_info.session_id = player_aliases.session_id                        \n"
+"WHERE sessions_info.account_id IS NULL                                                                   \n"
+"ORDER BY sessions_info.referenced DESC, player_aliases.playtime DESC                                     \n"
+"LIMIT ?1                                                                                                 \n"
+"OFFSET ?2;                                                                                                 ";
+
 qboolean G_DBGetAccountByID( const int id,
 	account_t* account )
 {
@@ -619,6 +628,35 @@ void G_DBSetAccountFlags( account_t* account,
 	}
 
 	sqlite3_finalize( statement );
+}
+
+void G_DBListTopUnassignedSessionIDs(pagination_t pagination,
+	DBListUnassignedSessionIDsCallback callback,
+	void* ctx)
+{
+	sqlite3_stmt* statement;
+
+	int rc = sqlite3_prepare(dbPtr, sqlListTopUnassignedSessionIds, -1, &statement, 0);
+
+	const int limit = pagination.numPerPage;
+	const int offset = (pagination.numPage - 1) * pagination.numPerPage;
+
+	sqlite3_bind_int(statement, 1, limit);
+	sqlite3_bind_int(statement, 2, offset);
+
+	rc = sqlite3_step(statement);
+	while (rc == SQLITE_ROW) {
+		const int session_id = sqlite3_column_int(statement, 0);
+		const char* alias = (const char*)sqlite3_column_text(statement, 1);
+		const int playtime = sqlite3_column_int(statement, 2);
+		const qboolean referenced = !!sqlite3_column_int(statement, 3);
+
+		callback(ctx, session_id, alias, playtime, referenced);
+
+		rc = sqlite3_step(statement);
+	}
+
+	sqlite3_finalize(statement);
 }
 
 // =========== NICKNAMES =======================================================

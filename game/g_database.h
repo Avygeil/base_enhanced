@@ -26,6 +26,12 @@ typedef void( *DBListSessionsCallback )( void *ctx,
 	session_t* session,
 	qboolean temporary );
 
+typedef void( *DBListUnassignedSessionIDsCallback )( void *ctx,
+	const int sessionId,
+	const char* topAlias,
+	const int playtime,
+	const qboolean referenced );
+
 qboolean G_DBGetAccountByID( const int id,
 	account_t* account );
 
@@ -61,6 +67,10 @@ void G_DBListSessionsForInfo( const char* key,
 
 void G_DBSetAccountFlags( account_t* account,
 	const int flags );
+
+void G_DBListTopUnassignedSessionIDs( pagination_t pagination,
+	DBListUnassignedSessionIDsCallback callback,
+	void* ctx );
 
 // =========== METADATA ========================================================
 

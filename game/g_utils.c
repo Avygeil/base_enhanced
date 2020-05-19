@@ -2772,3 +2772,24 @@ gclient_t* G_FindClientByIPPort(const char* ipPortString) {
 
 	return NULL;
 }
+
+void G_FormatDuration(const int duration, char* out, size_t outSize) {
+	div_t qr;
+	int pHours, pMins, pSecs;
+
+	qr = div(duration, 60);
+	pSecs = qr.rem;
+	qr = div(qr.quot, 60);
+	pMins = qr.rem;
+	pHours = qr.quot;
+
+	if (pHours) {
+		Com_sprintf(out, outSize, "%d hours", pHours);
+	} else if (pMins) {
+		Com_sprintf(out, outSize, "%d minutes", pMins);
+	} else if (pSecs) {
+		Com_sprintf(out, outSize, "%d secondes", pSecs);
+	} else {
+		Q_strncpyz(out, "less than a second", outSize);
+	}
+}
