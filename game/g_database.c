@@ -278,7 +278,7 @@ static const char* sqlDeleteAccount =
 static const char* sqlGetSessionByID =
 "SELECT hash, info, account_id                                               \n"
 "FROM sessions                                                               \n"
-"WHERE sessions.hash = ?1;                                                     ";
+"WHERE sessions.session_id = ?1;                                               ";
 
 static const char* sqlGetSessionByHash =
 "SELECT session_id, info, account_id                                         \n"
