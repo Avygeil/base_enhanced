@@ -3945,7 +3945,7 @@ static void PrintRaceRecordsCallback(void* context, const char* mapname, const r
 	char nameString[64] = { 0 };
 	Q_strncpyz(nameString, name, sizeof(nameString));
 	int j;
-	for (j = Q_PrintStrlen(nameString); j < MAX_NAME_DISPLAYLENGTH + 1; ++j)
+	for (j = Q_PrintStrlen(nameString); j < MAX_NAME_DISPLAYLENGTH; ++j)
 		Q_strcat(nameString, sizeof(nameString), " ");
 
 	int secs, millis;
@@ -3965,19 +3965,27 @@ static void PrintRaceRecordsCallback(void* context, const char* mapname, const r
 	G_FormatLocalDateFromEpoch(dateString + 2, sizeof(dateString) - 2, record->date);
 
 	trap_SendServerCommand(ent - g_entities, va(
-		"print \""S_COLOR_CYAN"%-3d"S_COLOR_WHITE": "S_COLOR_WHITE"%s  "S_COLOR_YELLOW"%s   %-6s      "S_COLOR_YELLOW"%-6d      %-6d     %s\n\"",
+		"print \""S_COLOR_CYAN"%3d"S_COLOR_WHITE": "S_COLOR_WHITE"%s  "S_COLOR_YELLOW"%s   %-6s      "S_COLOR_YELLOW"%-6d      %-6d     %s\n\"",
 		rank, nameString, timeString, flagString, Com_Clampi(1, 99999999, record->extra.maxSpeed), Com_Clampi(1, 9999999, record->extra.avgSpeed), dateString
 	));
 }
+
+#define NUM_RECORDS_PER_PAGE 10
 
 static void SubCmd_TopTimes_Records(gentity_t* ent, const char* mapname, const raceType_t type, const int page) {
 	trap_SendServerCommand(ent - g_entities, va(
 		"print \""S_COLOR_WHITE"Records for the "S_COLOR_YELLOW"%s "S_COLOR_WHITE"category on "S_COLOR_YELLOW"%s"S_COLOR_WHITE":\n"
 		S_COLOR_CYAN"               Name              Time    Flag    Topspeed     Average           Date\n\"",
-		GetLongNameForRecordType(type), level.mapname)
+		GetLongNameForRecordType(type), mapname)
 	);
 
-	G_DBListRaceRecords(level.mapname, type, PrintRaceRecordsCallback, ent);
+	pagination_t pagination;
+	pagination.numPerPage = NUM_RECORDS_PER_PAGE;
+	pagination.numPage = page;
+
+	G_DBListRaceRecords(mapname, type, pagination, PrintRaceRecordsCallback, ent);
+
+	trap_SendServerCommand(ent - g_entities, va("print \""S_COLOR_WHITE"Viewing page: %d\n\"", page));
 }
 
 static void PrintRaceTopCallback(void* context, const char* mapname, const raceType_t type, const char* name, const int captureTime, const time_t date) {
@@ -4001,6 +4009,8 @@ static void PrintRaceTopCallback(void* context, const char* mapname, const raceT
 	) );
 }
 
+#define NUM_TOP_PER_PAGE 15
+
 static void SubCmd_TopTimes_Maplist(gentity_t* ent, const raceType_t type, const int page) {
 	trap_SendServerCommand(ent - g_entities, va(
 		"print \""S_COLOR_WHITE"Records for the "S_COLOR_YELLOW"%s "S_COLOR_WHITE"category:\n"
@@ -4008,7 +4018,13 @@ static void SubCmd_TopTimes_Maplist(gentity_t* ent, const raceType_t type, const
 		GetLongNameForRecordType(type))
 	);
 
-	G_DBListRaceTop(type, PrintRaceTopCallback, ent);
+	pagination_t pagination;
+	pagination.numPerPage = NUM_TOP_PER_PAGE;
+	pagination.numPage = page;
+
+	G_DBListRaceTop(type, pagination, PrintRaceTopCallback, ent);
+
+	trap_SendServerCommand(ent - g_entities, va("print \""S_COLOR_WHITE"Viewing page: %d\n\"", page));
 }
 
 static void PrintRaceLeaderboardCallback(void* context, const raceType_t type, const int rank, const char* name, const int golds, const int silvers, const int bronzes) {
@@ -4017,23 +4033,31 @@ static void PrintRaceLeaderboardCallback(void* context, const raceType_t type, c
 	char nameString[64] = { 0 };
 	Q_strncpyz(nameString, name, sizeof(nameString));
 	int j;
-	for (j = Q_PrintStrlen(nameString); j < MAX_NAME_DISPLAYLENGTH + 1; ++j)
+	for (j = Q_PrintStrlen(nameString); j < MAX_NAME_DISPLAYLENGTH; ++j)
 		Q_strcat(nameString, sizeof(nameString), " ");
 
 	trap_SendServerCommand( ent - g_entities, va(
-		"print \""S_COLOR_CYAN"%3d"S_COLOR_WHITE": "S_COLOR_WHITE"%s  "S_COLOR_YELLOW"%2d        "S_COLOR_GREY"%2d        "S_COLOR_ORANGE"%2d\n\"",
+		"print \""S_COLOR_CYAN"%3d"S_COLOR_WHITE": "S_COLOR_WHITE"%s    "S_COLOR_YELLOW"%2d        "S_COLOR_GREY"%2d        "S_COLOR_ORANGE"%2d\n\"",
 		rank, nameString, golds, silvers, bronzes
 	) );
 }
 
+#define NUM_LEADERBOARD_PER_PAGE 10
+
 static void SubCmd_TopTimes_Ranks(gentity_t* ent, const raceType_t type, const int page) {
 	trap_SendServerCommand(ent - g_entities, va(
 		"print \""S_COLOR_WHITE"Leaderboard for the "S_COLOR_YELLOW"%s "S_COLOR_WHITE"category:\n"
-		S_COLOR_CYAN"               Name           Golds    Silvers   Bronzes\n\"",
+		S_COLOR_CYAN"               Name             Golds    Silvers   Bronzes\n\"",
 		GetLongNameForRecordType(type))
 	);
 
-	G_DBListRaceLeaderboard(type, PrintRaceLeaderboardCallback, ent);
+	pagination_t pagination;
+	pagination.numPerPage = NUM_LEADERBOARD_PER_PAGE;
+	pagination.numPage = page;
+
+	G_DBListRaceLeaderboard(type, pagination, PrintRaceLeaderboardCallback, ent);
+
+	trap_SendServerCommand(ent - g_entities, va("print \""S_COLOR_WHITE"Viewing page: %d\n\"", page));
 }
 
 static void PrintRaceLatestCallback(void* context, const char* mapname, const raceType_t type, const int rank, const char* name, const int captureTime, const time_t date) {
@@ -4042,7 +4066,7 @@ static void PrintRaceLatestCallback(void* context, const char* mapname, const ra
 	char nameString[64] = { 0 };
 	Q_strncpyz(nameString, name, sizeof(nameString));
 	int j;
-	for (j = Q_PrintStrlen(nameString); j < MAX_NAME_DISPLAYLENGTH + 1; ++j)
+	for (j = Q_PrintStrlen(nameString); j < MAX_NAME_DISPLAYLENGTH; ++j)
 		Q_strcat(nameString, sizeof(nameString), " ");
 
 	// two chars for colors, max 2 for rank, 1 null terminator
@@ -4064,18 +4088,26 @@ static void PrintRaceLatestCallback(void* context, const char* mapname, const ra
 	G_FormatLocalDateFromEpoch(dateString + 2, sizeof(dateString) - 2, date );
 
 	trap_SendServerCommand( ent - g_entities, va(
-		"print \""S_COLOR_WHITE"%s      "S_COLOR_YELLOW"%-4s   %-4s    "S_COLOR_YELLOW"%s   %s   "S_COLOR_WHITE"%s\n\"",
+		"print \""S_COLOR_WHITE"%s     "S_COLOR_YELLOW"%-4s   %-4s    "S_COLOR_YELLOW"%s   %s   "S_COLOR_WHITE"%s\n\"",
 		nameString, GetShortNameForRecordType(type), rankString, timeString, dateString, mapname
 	) );
 }
 
+#define NUM_LATEST_PER_PAGE 15
+
 static void SubCmd_TopTimes_Latest(gentity_t* ent, const int page) {
 	trap_SendServerCommand(ent - g_entities, va(
-		"print \""S_COLOR_WHITE"Latest records for the "S_COLOR_YELLOW"%s "S_COLOR_WHITE"category:\n"
-		S_COLOR_CYAN"           Name              Type   Rank     Time           Date                 Map\n\"")
+		"print \""S_COLOR_WHITE"Latest records:\n"
+		S_COLOR_CYAN"           Name             Type   Rank     Time           Date                 Map\n\"")
 	);
 
-	G_DBListRaceLatest(PrintRaceLatestCallback, ent);
+	pagination_t pagination;
+	pagination.numPerPage = NUM_LEADERBOARD_PER_PAGE;
+	pagination.numPage = page;
+
+	G_DBListRaceLatest(pagination, PrintRaceLatestCallback, ent);
+
+	trap_SendServerCommand(ent - g_entities, va("print \""S_COLOR_WHITE"Viewing page: %d\n\"", page));
 }
 
 void Cmd_TopTimes_f( gentity_t *ent ) {
@@ -4104,7 +4136,7 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 	qboolean gotType = qfalse;
 	raceType_t type = RACE_TYPE_STANDARD;
 	qboolean gotPage = qfalse;
-	int page = 0;
+	int page = 1;
 
 	if (trap_Argc() > 1) {
 		char buf[64];
@@ -4130,16 +4162,21 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 				if (testPage > 0 && testPage < 999) {
 					page = testPage;
 					gotPage = qtrue;
+					continue;
 				}
-			} else if (!gotType) {
+			}
+			if (!gotType) {
 				raceType_t testType = GetRecordTypeForShortName(buf);
 				if (testType != RACE_TYPE_INVALID) {
 					type = testType;
+					continue;
 				}
-			} else if (!gotMapname) {
+			}
+			if (!gotMapname) {
 				// assume it's a map name otherwise
 				Q_strncpyz(mapname, buf, sizeof(mapname));
 				gotMapname = qtrue;
+				continue;
 			}
 		}
 	}

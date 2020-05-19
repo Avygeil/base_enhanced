@@ -2085,11 +2085,11 @@ static void RaceTrigger_Finish( gentity_t *trigger, gentity_t *player ) {
 	int secs, millis;
 	PartitionedTimer( record.time, NULL, &secs, &millis );
 
-	if (client->session && client->account && 
-		oldRank > 0 && oldPBTime > 0 && newRank > 0 &&
-		(newRank < oldRank || record.time < oldPBTime))
+	if (client->session && client->account &&
+		!(oldRank < 0 || oldPBTime < 0 || newRank < 0) &&
+		((!oldRank && newRank > 0) || (oldRank > 0 && oldPBTime > 0 && newRank > 0 && (newRank < oldRank || record.time < oldPBTime))))
 	{
-		// beat someone OR a personal best
+		// beat someone OR a personal best OR a new record
 
 		char rankString[16] = { 0 };
 

@@ -9,6 +9,12 @@
 #define DB_OPTIMIZE_INTERVAL	( 60*60*3 ) // every 3 hours
 #define DB_VACUUM_INTERVAL		( 60*60*24*7 ) // every week
 
+// common helper struct
+typedef struct pagination_s {
+	int numPerPage;
+	int numPage;
+} pagination_t;
+
 void G_DBLoadDatabase( void );
 void G_DBUnloadDatabase( void );
 
@@ -133,18 +139,22 @@ qboolean G_DBGetAccountPersonalBest(const int accountId,
 
 void G_DBListRaceRecords(const char* mapname,
 	const raceType_t type,
+	const pagination_t pagination,
 	ListRaceRecordsCallback callback,
 	void* context);
 
 void G_DBListRaceTop(const raceType_t type,
+	const pagination_t pagination,
 	ListRaceTopCallback callback,
 	void* context);
 
 void G_DBListRaceLeaderboard(const raceType_t type,
+	const pagination_t pagination,
 	ListRaceLeaderboardCallback callback,
 	void* context);
 
-void G_DBListRaceLatest(ListRaceLatestCallback callback,
+void G_DBListRaceLatest(const pagination_t pagination,
+	ListRaceLatestCallback callback,
 	void* context);
 
 // =========== WHITELIST =======================================================

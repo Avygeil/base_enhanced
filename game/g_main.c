@@ -1449,8 +1449,6 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 	level.time = levelTime;
 	level.startTime = levelTime;
 
-	Q_strncpyz(level.mapname, mapname.string, sizeof(level.mapname));
-
 	level.snd_fry = G_SoundIndex("sound/player/fry.wav");	// FIXME standing in lava / slime
 
 	level.snd_hack = G_SoundIndex("sound/player/hacking.wav");
@@ -1613,6 +1611,8 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 
 	trap_Cvar_Register( &mapname, "mapname", "", CVAR_SERVERINFO | CVAR_ROM );
 	trap_Cvar_Register( &ckSum, "sv_mapChecksum", "", CVAR_ROM );
+
+	Q_strncpyz(level.mapname, mapname.string, sizeof(level.mapname));
 
 	navCalculatePaths	= ( trap_Nav_Load( mapname.string, ckSum.integer ) == qfalse );
 

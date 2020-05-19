@@ -717,23 +717,31 @@ const char* const sqlListFastcapsLoggedRecords =
 "SELECT name, rank, capture_time, date, extra                                          \n"
 "FROM fastcaps_ranks                                                                   \n"
 "WHERE mapname = ?1 AND type = ?2                                                      \n"
-"ORDER BY rank ASC;                                                                      ";
+"ORDER BY rank ASC                                                                     \n"
+"LIMIT ?3                                                                              \n"
+"OFFSET ?4;                                                                              ";
 
 const char* const sqlListFastcapsLoggedTop =
 "SELECT DISTINCT mapname, name, capture_time, date FROM fastcaps_ranks                 \n"
 "WHERE type = ?1 AND rank = 1                                                          \n"
-"ORDER BY mapname ASC;                                                                   ";
+"ORDER BY mapname ASC                                                                  \n"
+"LIMIT ?2                                                                              \n"
+"OFFSET ?3;                                                                               ";
 
 const char* const sqlListFastcapsLoggedLeaderboard =
 "SELECT name, golds, silvers, bronzes                                                  \n"
 "FROM fastcaps_leaderboard                                                             \n"
 "WHERE type = ?1                                                                       \n"
-"ORDER BY golds DESC, silvers DESC, bronzes DESC;                                        ";
+"ORDER BY golds DESC, silvers DESC, bronzes DESC                                       \n"
+"LIMIT ?2                                                                              \n"
+"OFFSET ?3;                                                                              ";
 
 const char* const sqlListFastcapsLoggedLatest =
 "SELECT mapname, type, name, rank, capture_time, date                                  \n"
 "FROM fastcaps_ranks                                                                   \n"
-"ORDER BY date DESC;                                                                     ";
+"ORDER BY date DESC                                                                    \n"
+"LIMIT ?1                                                                              \n"
+"OFFSET ?2;                                                                              ";
 
 static void ReadExtraRaceInfo(const char* inJson, raceRecordInfo_t* outInfo) {
 	cJSON* root = cJSON_Parse(inJson);
@@ -859,10 +867,14 @@ qboolean G_DBSaveRaceRecord(const int sessionId,
 	char* extra;
 	WriteExtraRaceInfo(&inRecord->extra, &extra);
 
+	// force saving in lowercase
+	char* mapnameLowercase = strdup(mapname);
+	Q_strlwr(mapnameLowercase);
+
 	sqlite3_bind_int(statement2, 1, inRecord->time);
 	sqlite3_bind_int(statement2, 2, inRecord->date);
 	sqlite3_bind_text(statement2, 3, extra, -1, SQLITE_STATIC);
-	sqlite3_bind_text(statement2, 4, mapname, -1, SQLITE_STATIC);
+	sqlite3_bind_text(statement2, 4, mapnameLowercase, -1, SQLITE_STATIC);
 	sqlite3_bind_int(statement2, 5, type);
 	sqlite3_bind_int(statement2, 6, sessionId);
 	int rc = sqlite3_step(statement2);
@@ -870,6 +882,7 @@ qboolean G_DBSaveRaceRecord(const int sessionId,
 	error = rc != SQLITE_DONE;
 
 	free(extra);
+	free(mapnameLowercase);
 
 	sqlite3_finalize(statement1);
 	sqlite3_finalize(statement2);
@@ -927,15 +940,21 @@ qboolean G_DBGetAccountPersonalBest(const int accountId,
 // lists logged in records sorted by rank for a map/type
 void G_DBListRaceRecords(const char* mapname,
 	const raceType_t type,
+	const pagination_t pagination,
 	ListRaceRecordsCallback callback,
 	void* context)
 {
 	sqlite3_stmt* statement;
 
-	int rc = sqlite3_prepare(dbPtr, sqlGetFastcapRecord, -1, &statement, 0);
+	int rc = sqlite3_prepare(dbPtr, sqlListFastcapsLoggedRecords, -1, &statement, 0);
+
+	const int limit = pagination.numPerPage;
+	const int offset = (pagination.numPage - 1) * pagination.numPerPage;
 
 	sqlite3_bind_text(statement, 1, mapname, -1, SQLITE_STATIC);
 	sqlite3_bind_int(statement, 2, type);
+	sqlite3_bind_int(statement, 3, limit);
+	sqlite3_bind_int(statement, 4, offset);
 
 	rc = sqlite3_step(statement);
 	while (rc == SQLITE_ROW) {
@@ -960,6 +979,7 @@ void G_DBListRaceRecords(const char* mapname,
 
 // lists only the best records for a type sorted by mapname
 void G_DBListRaceTop(const raceType_t type,
+	const pagination_t pagination,
 	ListRaceTopCallback callback,
 	void* context)
 {
@@ -967,7 +987,12 @@ void G_DBListRaceTop(const raceType_t type,
 
 	int rc = sqlite3_prepare(dbPtr, sqlListFastcapsLoggedTop, -1, &statement, 0);
 
+	const int limit = pagination.numPerPage;
+	const int offset = (pagination.numPage - 1) * pagination.numPerPage;
+
 	sqlite3_bind_int(statement, 1, type);
+	sqlite3_bind_int(statement, 2, limit);
+	sqlite3_bind_int(statement, 3, offset);
 
 	rc = sqlite3_step(statement);
 	while (rc == SQLITE_ROW) {
@@ -986,6 +1011,7 @@ void G_DBListRaceTop(const raceType_t type,
 
 // lists logged in leaderboard sorted by golds, silvers, bronzes
 void G_DBListRaceLeaderboard(const raceType_t type,
+	const pagination_t pagination,
 	ListRaceLeaderboardCallback callback,
 	void* context)
 {
@@ -993,9 +1019,14 @@ void G_DBListRaceLeaderboard(const raceType_t type,
 
 	int rc = sqlite3_prepare(dbPtr, sqlListFastcapsLoggedLeaderboard, -1, &statement, 0);
 
-	sqlite3_bind_int(statement, 1, type);
+	const int limit = pagination.numPerPage;
+	const int offset = (pagination.numPage - 1) * pagination.numPerPage;
 
-	int rank = 1;
+	sqlite3_bind_int(statement, 1, type);
+	sqlite3_bind_int(statement, 2, limit);
+	sqlite3_bind_int(statement, 3, offset);
+
+	int rank = 1 + offset;
 
 	rc = sqlite3_step(statement);
 	while (rc == SQLITE_ROW) {
@@ -1013,12 +1044,19 @@ void G_DBListRaceLeaderboard(const raceType_t type,
 }
 
 // lists logged in latest records across all maps/types
-void G_DBListRaceLatest(ListRaceLatestCallback callback,
+void G_DBListRaceLatest(const pagination_t pagination,
+	ListRaceLatestCallback callback,
 	void* context)
 {
 	sqlite3_stmt* statement;
 
 	int rc = sqlite3_prepare(dbPtr, sqlListFastcapsLoggedLatest, -1, &statement, 0);
+
+	const int limit = pagination.numPerPage;
+	const int offset = (pagination.numPage - 1) * pagination.numPerPage;
+
+	sqlite3_bind_int(statement, 1, limit);
+	sqlite3_bind_int(statement, 2, offset);
 
 	rc = sqlite3_step(statement);
 	while (rc == SQLITE_ROW) {
