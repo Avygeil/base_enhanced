@@ -175,9 +175,7 @@ void G_DBLoadDatabase( void )
 
 			G_DBSetMetadata( "last_vacuum", va( "%lld", currentTime ) );
 		}
-	}
-	sqlite3_exec(dbPtr, "SELECT * from fastcaps_ranks WHERE mapname='mp/ctf_nelvaan' AND type=0;", NULL, NULL, NULL);
-	
+	}	
 }
 
 void G_DBUnloadDatabase( void )
