@@ -1308,6 +1308,8 @@ void Svcmd_MapRandom_f()
 		return;
 	}
 
+	level.autoStartPending = qfalse;
+
     trap_Argv( 1, pool, sizeof( pool ) );
 
 	if ( trap_Argc() < 3 ) {
@@ -2498,6 +2500,38 @@ void Svcmd_Session_f( void ) {
 	}
 }
 
+static void Svcmd_AutoRestart_f(void) {
+	if (g_gametype.integer != GT_CTF)
+		return;
+
+	if (!g_waitForAFK.integer) {
+		Com_Printf("Auto start is disabled.\n");
+		return;
+	}
+
+	// if there aren't 6+ people ingame, just do a regular restart
+	int minPlayers = g_waitForAFKMinPlayers.integer;
+	if (minPlayers <= 0)
+		minPlayers = WAITFORAFK_MINPLAYERS_DEFAULT;
+	minPlayers = Com_Clampi(WAITFORAFK_MINPLAYERS_MIN, WAITFORAFK_MINPLAYERS_MAX, minPlayers);
+	if (TeamCount(-1, TEAM_RED) + TeamCount(-1, TEAM_BLUE) < minPlayers) {
+		trap_SendConsoleCommand(EXEC_NOW, va("map_restart %d\n", Com_Clampi(0, 60, g_restart_countdown.integer)));
+		level.autoStartPending = qfalse;
+		return;
+	}
+
+	Com_Printf("Auto start initiated.\n");
+	level.autoStartPending = qtrue;
+}
+
+static void Svcmd_AutoRestartCancel_f(void) {
+	if (!level.autoStartPending)
+		return;
+
+	Com_Printf("Auto start cancelled.\n");
+	level.autoStartPending = qfalse;
+}
+
 /*
 =================
 ConsoleCommand
@@ -2779,6 +2813,16 @@ qboolean	ConsoleCommand( void ) {
 
 	if ( !Q_stricmp( cmd, "session" ) ) {
 		Svcmd_Session_f();
+		return qtrue;
+	}
+
+	if (!Q_stricmp(cmd, "auto_restart")) {
+		Svcmd_AutoRestart_f();
+		return qtrue;
+	}
+
+	if (!Q_stricmp(cmd, "auto_restart_cancel")) {
+		Svcmd_AutoRestartCancel_f();
 		return qtrue;
 	}
 
