@@ -247,12 +247,12 @@ void G_DBSetMetadata( const char *key,
 {
 	sqlite3_stmt* statement;
 
-	int rc = sqlite3_prepare_v2( dbPtr, sqlSetMetadata, -1, &statement, 0 );
+	sqlite3_prepare_v2( dbPtr, sqlSetMetadata, -1, &statement, 0 );
 
 	sqlite3_bind_text( statement, 1, key, -1, SQLITE_STATIC );
 	sqlite3_bind_text( statement, 2, value, -1, SQLITE_STATIC );
 
-	rc = sqlite3_step( statement );
+	sqlite3_step( statement );
 
 	sqlite3_finalize( statement );
 }

@@ -366,7 +366,6 @@ static qboolean UpgradeDBToVersion4(sqlite3* dbPtr) {
 	sqlite3_prepare(dbPtr, "UPDATE fastcaps_NEW SET capture_time=MIN(capture_time, ?1) WHERE mapname=?2 AND type=?3 AND session_id=?4;", -1, &statement3, 0);
 	rc = sqlite3_step(statement);
 	while (rc == SQLITE_ROW) {
-		const int fastcap_id = sqlite3_column_int(statement, 0);
 		const char* mapname = (const char*)sqlite3_column_text(statement, 1);
 		const int type = sqlite3_column_int(statement, 3);
 		const char* player_name = (const char*)sqlite3_column_text(statement, 4);
