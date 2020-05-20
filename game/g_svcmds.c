@@ -2580,7 +2580,7 @@ void Svcmd_Session_f( void ) {
 		G_Printf(
 			"Valid subcommands:\n"
 			S_COLOR_YELLOW"session whois"S_COLOR_WHITE": Lists the session currently in use by all in-game players\n"
-			S_COLOR_YELLOW"session unassigned [page]"S_COLOR_WHITE": Lists the top unassigned sessions (may lag the server if too many sessions, so be cautious)\n"
+			S_COLOR_YELLOW"session unassigned [page]"S_COLOR_WHITE": Lists the top unassigned sessions (may lag the server with too many sessions, so be cautious)\n"
 			S_COLOR_YELLOW"session nicknames <session id>"S_COLOR_WHITE": Prints the top used nicknames for the given session ID\n"
 			S_COLOR_YELLOW"session link <session id> <account name>"S_COLOR_WHITE": Links the given session ID to an existing account\n"
 			S_COLOR_YELLOW"session linkingame <client id> <account name>"S_COLOR_WHITE": Shortcut command to link an in-game client's session to an existing account\n"
