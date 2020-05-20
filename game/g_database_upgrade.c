@@ -183,8 +183,10 @@ const char* const v4CreateNewShit =
 "GROUP BY type, account_id                                                                           \n"
 "HAVING golds > 0 OR silvers > 0 OR bronzes > 0;                                                       ";
 
+static fileHandle_t csvFile;
+
 static void V4WriteUnassignedToCsv(void* ctx, const int sessionId, const char* topAlias, const int playtime, const qboolean referenced) {
-	fileHandle_t* f = (fileHandle_t*)ctx;
+	sqlite3* dbPtr = (sqlite3*)ctx;
 
 	nicknameEntry_t nicknames[10];
 
@@ -201,10 +203,24 @@ static void V4WriteUnassignedToCsv(void* ctx, const int sessionId, const char* t
 		Com_sprintf(strings[i], sizeof(strings[i]), "\"%s (%s)\"", nicknames[i].name, durationString);
 	}
 
+	char cuidString[64] = { 0 };
+	sqlite3_stmt* statement = NULL;
+	sqlite3_prepare(dbPtr, "SELECT COALESCE(json_extract(info, '$.cuid_hash2'), '') AS cuid FROM sessions WHERE session_id = ?1;", -1, &statement, 0);
+	sqlite3_bind_int(statement, 1, sessionId);
+	int rc = sqlite3_step(statement);
+	if (rc == SQLITE_ROW) {
+		const char* cuid = (const char*)sqlite3_column_text(statement, 0);
+		if (VALIDSTRING(cuid))
+			Q_strncpyz(cuidString, cuid, sizeof(cuidString));
+		sqlite3_step(statement);
+	}
+
 	char* buf = va(
-		"%d,%d,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n",
+		"%d,%d,%s,%d,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n",
 		referenced ? 1 : 0,
 		sessionId,
+		cuidString,
+		playtime,
 		strings[0],
 		strings[1],
 		strings[2],
@@ -217,7 +233,7 @@ static void V4WriteUnassignedToCsv(void* ctx, const int sessionId, const char* t
 		strings[9]
 	);
 	
-	trap_FS_Write(buf, strlen(buf), *f);
+	trap_FS_Write(buf, strlen(buf), csvFile);
 }
 
 extern void NormalizeName(const char* in, char* out, int outSize, int colorlessSize);
@@ -463,16 +479,15 @@ static qboolean UpgradeDBToVersion4(sqlite3* dbPtr) {
 
 	// write a detailed report about the new unassigned sessions for use by admins
 	Com_Printf("Writing unassigned_sessions.csv...\n");
-	fileHandle_t f;
-	trap_FS_FOpenFile("unassigned_sessions.csv", &f, FS_WRITE);
-	if (f) {
+	trap_FS_FOpenFile("unassigned_sessions.csv", &csvFile, FS_WRITE);
+	if (csvFile) {
 		pagination_t pagination;
 		pagination.numPerPage = INT_MAX;
 		pagination.numPage = 1;
 
-		G_DBListTopUnassignedSessionIDs(pagination, V4WriteUnassignedToCsv, &f);
+		G_DBListTopUnassignedSessionIDs(pagination, V4WriteUnassignedToCsv, dbPtr);
 	}
-	trap_FS_FCloseFile(f);
+	trap_FS_FCloseFile(csvFile);
 
 	return qtrue;
 }
