@@ -183,6 +183,43 @@ const char* const v4CreateNewShit =
 "GROUP BY type, account_id                                                                           \n"
 "HAVING golds > 0 OR silvers > 0 OR bronzes > 0;                                                       ";
 
+static void V4WriteUnassignedToCsv(void* ctx, const int sessionId, const char* topAlias, const int playtime, const qboolean referenced) {
+	fileHandle_t* f = (fileHandle_t*)ctx;
+
+	nicknameEntry_t nicknames[10];
+
+	G_DBGetMostUsedNicknames(sessionId, 10, &nicknames[0]);
+
+	char strings[10][128];
+	memset(strings, 0, sizeof(strings));
+
+	int i;
+	for (i = 0; i < 10 && VALIDSTRING(nicknames[i].name); ++i) {
+		char durationString[64];
+		G_FormatDuration(nicknames[i].duration, durationString, sizeof(durationString));
+
+		Com_sprintf(strings[i], sizeof(strings[i]), "\"%s (%s)\"", nicknames[i].name, durationString);
+	}
+
+	char* buf = va(
+		"%d,%d,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n",
+		referenced ? 1 : 0,
+		sessionId,
+		strings[0],
+		strings[1],
+		strings[2],
+		strings[3],
+		strings[4],
+		strings[5],
+		strings[6],
+		strings[7],
+		strings[8],
+		strings[9]
+	);
+	
+	trap_FS_Write(buf, strlen(buf), *f);
+}
+
 extern void NormalizeName(const char* in, char* out, int outSize, int colorlessSize);
 
 static qboolean UpgradeDBToVersion4(sqlite3* dbPtr) {
@@ -423,6 +460,19 @@ static qboolean UpgradeDBToVersion4(sqlite3* dbPtr) {
 	// make sure to reduce the file size
 	sqlite3_exec(dbPtr, "VACUUM;", NULL, NULL, NULL);
 	sqlite3_exec(dbPtr, "PRAGMA optimize;", NULL, NULL, NULL);
+
+	// write a detailed report about the new unassigned sessions for use by admins
+	Com_Printf("Writing unassigned_sessions.csv...\n");
+	fileHandle_t f;
+	trap_FS_FOpenFile("unassigned_sessions.csv", &f, FS_WRITE);
+	if (f) {
+		pagination_t pagination;
+		pagination.numPerPage = INT_MAX;
+		pagination.numPage = 1;
+
+		G_DBListTopUnassignedSessionIDs(pagination, V4WriteUnassignedToCsv, &f);
+	}
+	trap_FS_FCloseFile(f);
 
 	return qtrue;
 }
