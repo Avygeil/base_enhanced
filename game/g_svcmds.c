@@ -2566,6 +2566,22 @@ void Svcmd_Session_f( void ) {
 				G_Printf( "Failed to unlink Client session from this account!\n" );
 			}
 
+		} else if ( !Q_stricmp( s, "purge") ) {
+
+			static int lastConfirmationTime = INT_MIN;
+
+			if (level.time < lastConfirmationTime + 10000) {
+				int deleted = G_DBPurgeUnassignedSessions();
+				G_Printf("Deleted %d unreferenced sessions from database.\n", deleted);
+			} else {
+				G_Printf( 
+					"You are about to delete unreferenced sessions from the database FOREVER.\n"
+					"If you still wish to proceed, type the command again within 10 seconds.\n"
+				);
+			}
+
+			lastConfirmationTime = level.time;
+
 		} else if ( !Q_stricmp( s, "help" ) ) {
 			printHelp = qtrue;
 		} else {
@@ -2586,6 +2602,7 @@ void Svcmd_Session_f( void ) {
 			S_COLOR_YELLOW"session linkingame <client id> <account name>"S_COLOR_WHITE": Shortcut command to link an in-game client's session to an existing account\n"
 			S_COLOR_YELLOW"session unlink <session id>"S_COLOR_WHITE": Unlinks the account associated to the given session ID\n"
 			S_COLOR_YELLOW"session unlinkingame <client id>"S_COLOR_WHITE": Shortcut command to unlink the account associated to an in-game client's session\n"
+			S_COLOR_YELLOW"session purge"S_COLOR_WHITE": Deletes all unreferenced sessions from the database. USE WITH CAUTION!\n"
 			S_COLOR_YELLOW"session help"S_COLOR_WHITE": Prints this message\n"
 		);
 	}

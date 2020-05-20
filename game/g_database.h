@@ -72,6 +72,8 @@ void G_DBListTopUnassignedSessionIDs( pagination_t pagination,
 	DBListUnassignedSessionIDsCallback callback,
 	void* ctx );
 
+int G_DBPurgeUnassignedSessions( void );
+
 // =========== METADATA ========================================================
 
 void G_DBGetMetadata( const char *key,

@@ -317,6 +317,9 @@ static const char* sqlListTopUnassignedSessionIds =
 "LIMIT ?1                                                                                                 \n"
 "OFFSET ?2;                                                                                                 ";
 
+static const char* sqlPurgeUnreferencedSessions =
+"DELETE FROM sessions_info WHERE NOT referenced;                               ";
+
 qboolean G_DBGetAccountByID( const int id,
 	account_t* account )
 {
@@ -657,6 +660,13 @@ void G_DBListTopUnassignedSessionIDs(pagination_t pagination,
 	}
 
 	sqlite3_finalize(statement);
+}
+
+int G_DBPurgeUnassignedSessions(void)
+{
+	sqlite3_exec(dbPtr, sqlPurgeUnreferencedSessions, NULL, NULL, NULL);
+
+	return sqlite3_changes(dbPtr);
 }
 
 // =========== NICKNAMES =======================================================
