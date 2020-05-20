@@ -2788,7 +2788,7 @@ void G_FormatDuration(const int duration, char* out, size_t outSize) {
 	} else if (pMins) {
 		Com_sprintf(out, outSize, "%d minutes", pMins);
 	} else if (pSecs) {
-		Com_sprintf(out, outSize, "%d secondes", pSecs);
+		Com_sprintf(out, outSize, "%d seconds", pSecs);
 	} else {
 		Q_strncpyz(out, "less than a second", outSize);
 	}
