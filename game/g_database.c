@@ -312,6 +312,9 @@ static const char* sqlSetFlagsForAccountId =
 "SET flags = ?1                                                              \n"
 "WHERE accounts.account_id = ?2;                                               ";
 
+static const char* sqlGetPlaytimeForAccountId =
+"SELECT playtime FROM player_aliases WHERE account_id = ?1 LIMIT 1;            ";
+
 static const char* sqlListTopUnassignedSessionIds =
 "SELECT sessions_info.session_id, player_aliases.alias, player_aliases.playtime, sessions_info.referenced \n"
 "FROM sessions_info                                                                                       \n"
@@ -647,6 +650,32 @@ void G_DBSetAccountFlags( account_t* account,
 	}
 
 	sqlite3_finalize( statement );
+}
+
+int G_DBGetAccountPlaytime( account_t* account )
+{
+	sqlite3_stmt* statement;
+
+	int rc = sqlite3_prepare(dbPtr, sqlGetPlaytimeForAccountId, -1, &statement, 0);
+
+	sqlite3_bind_int(statement, 1, account->id);
+
+	int result = 0;
+
+	rc = sqlite3_step(statement);
+	if (rc == SQLITE_ROW) {
+		const int playtime = sqlite3_column_int(statement, 0);
+
+		result = playtime;
+
+		rc = sqlite3_step(statement);
+	} else if (rc != SQLITE_DONE) {
+		result = -1;
+	}
+
+	sqlite3_finalize(statement);
+
+	return result;
 }
 
 void G_DBListTopUnassignedSessionIDs(pagination_t pagination,

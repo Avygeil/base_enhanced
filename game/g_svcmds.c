@@ -2150,6 +2150,8 @@ void Svcmd_Account_f( void ) {
 			SessionPrintCtx sessionsPrint = { 0 };
 			G_ListSessionsForAccount( acc.ptr, NUM_SESSIONS_PER_WHOIS_PAGE, page, FormatAccountSessionList, &sessionsPrint );
 
+			int playtime = G_DBGetAccountPlaytime( acc.ptr );
+
 			char timestamp[32];
 			G_FormatLocalDateFromEpoch( timestamp, sizeof( timestamp ), acc.ptr->creationDate );
 
@@ -2183,6 +2185,13 @@ void Svcmd_Account_f( void ) {
 				flagsStr
 			);
 
+			if (playtime > 0) {
+				char durationString[64];
+				G_FormatDuration(playtime, durationString, sizeof(durationString));
+
+				G_Printf(S_COLOR_ORANGE"Playtime: "S_COLOR_WHITE"%s\n\n", durationString);
+			}
+
 			if ( VALIDSTRING( sessionsPrint.format ) ) {
 
 #ifdef NEWMOD_SUPPORT
@@ -2191,9 +2200,10 @@ void Svcmd_Account_f( void ) {
 				G_Printf( "Sessions tied to this account: ( "S_COLOR_GREEN"| - online "S_COLOR_YELLOW"| - unreferenced "S_COLOR_WHITE")\n" );
 #endif
 				G_Printf( "%s", sessionsPrint.format );
-				G_Printf( "Viewing page: %d\n", page );
 
 			}
+
+			G_Printf("Viewing page: %d\n", page);
 
 		} else if ( !Q_stricmp( s, "toggleflag" ) ) {
 

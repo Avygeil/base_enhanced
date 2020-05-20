@@ -70,6 +70,8 @@ void G_DBListSessionsForInfo( const char* key,
 void G_DBSetAccountFlags( account_t* account,
 	const int flags );
 
+int G_DBGetAccountPlaytime( account_t* account );
+
 void G_DBListTopUnassignedSessionIDs( pagination_t pagination,
 	DBListUnassignedSessionIDsCallback callback,
 	void* ctx );
