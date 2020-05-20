@@ -24,7 +24,7 @@ qboolean G_DBUpgradeDatabaseSchema( int versionFrom, void* db );
 
 typedef void( *DBListSessionsCallback )( void *ctx,
 	session_t* session,
-	qboolean temporary );
+	qboolean referenced );
 
 typedef void( *DBListUnassignedSessionIDsCallback )( void *ctx,
 	const int sessionId,
@@ -57,11 +57,13 @@ void G_DBLinkAccountToSession( session_t* session,
 void G_DBUnlinkAccountFromSession( session_t* session );
 
 void G_DBListSessionsForAccount( account_t* account,
+	pagination_t pagination,
 	DBListSessionsCallback callback,
 	void* ctx );
 
 void G_DBListSessionsForInfo( const char* key,
 	const char* value,
+	pagination_t pagination,
 	DBListSessionsCallback callback,
 	void* ctx );
 

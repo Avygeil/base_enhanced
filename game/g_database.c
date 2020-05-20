@@ -296,12 +296,16 @@ static const char* sqlLinkAccountToSession =
 static const char* sqlListSessionIdsForAccount =
 "SELECT session_id, hash, info, referenced                                   \n"
 "FROM sessions_info                                                          \n"
-"WHERE sessions_info.account_id = ?1;                                          ";
+"WHERE sessions_info.account_id = ?1                                         \n"
+"LIMIT ?2                                                                    \n"
+"OFFSET ?3;                                                                    ";
 
 static const char* sqlListSessionIdsForInfo =
 "SELECT session_id, hash, info, account_id, referenced                       \n"
 "FROM sessions_info                                                          \n"
-"WHERE json_extract(info, ?1) = ?2;                                            ";
+"WHERE json_extract(info, ?1) = ?2                                           \n"
+"LIMIT ?3                                                                    \n"
+"OFFSET ?4;                                                                    ";
 
 static const char* sqlSetFlagsForAccountId =
 "UPDATE accounts                                                             \n"
@@ -542,6 +546,7 @@ void G_DBUnlinkAccountFromSession( session_t* session )
 }
 
 void G_DBListSessionsForAccount( account_t* account,
+	pagination_t pagination,
 	DBListSessionsCallback callback,
 	void* ctx )
 {
@@ -549,7 +554,12 @@ void G_DBListSessionsForAccount( account_t* account,
 
 	int rc = sqlite3_prepare( dbPtr, sqlListSessionIdsForAccount, -1, &statement, 0 );
 
+	const int limit = pagination.numPerPage;
+	const int offset = (pagination.numPage - 1) * pagination.numPerPage;
+
 	sqlite3_bind_int( statement, 1, account->id );
+	sqlite3_bind_int(statement, 2, limit);
+	sqlite3_bind_int(statement, 3, offset);
 
 	rc = sqlite3_step( statement );
 	while ( rc == SQLITE_ROW ) {
@@ -565,7 +575,7 @@ void G_DBListSessionsForAccount( account_t* account,
 		Q_strncpyz( session.info, info, sizeof( session.info ) );
 		session.accountId = account->id;
 
-		callback( ctx, &session, !referenced );
+		callback( ctx, &session, referenced );
 
 		rc = sqlite3_step( statement );
 	}
@@ -575,6 +585,7 @@ void G_DBListSessionsForAccount( account_t* account,
 
 void G_DBListSessionsForInfo( const char* key,
 	const char* value,
+	pagination_t pagination,
 	DBListSessionsCallback callback,
 	void* ctx )
 {
@@ -582,8 +593,13 @@ void G_DBListSessionsForInfo( const char* key,
 
 	int rc = sqlite3_prepare(dbPtr, sqlListSessionIdsForInfo, -1, &statement, 0);
 
+	const int limit = pagination.numPerPage;
+	const int offset = (pagination.numPage - 1) * pagination.numPerPage;
+
 	sqlite3_bind_text(statement, 1, va( "$.%s", key ), -1, SQLITE_STATIC);
 	sqlite3_bind_text(statement, 2, value, -1, SQLITE_STATIC);
+	sqlite3_bind_int(statement, 3, limit);
+	sqlite3_bind_int(statement, 4, offset);
 
 	rc = sqlite3_step(statement);
 	while (rc == SQLITE_ROW) {
@@ -605,7 +621,7 @@ void G_DBListSessionsForInfo( const char* key,
 			session.accountId = ACCOUNT_ID_UNLINKED;
 		}
 
-		callback(ctx, &session, !referenced);
+		callback(ctx, &session, referenced);
 
 		rc = sqlite3_step(statement);
 	}

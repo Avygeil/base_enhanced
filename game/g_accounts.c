@@ -101,7 +101,7 @@ static void RelinkAccounts( void ) {
 }
 
 // writes the account id to ctx for each element in the session list so that we can get the latest
-static void GetLatestAccountId( void* ctx, session_t* session, qboolean temporary ) {
+static void GetLatestAccountId( void* ctx, session_t* session, qboolean referenced ) {
 	if (session->accountId > 0) {
 		*( ( int* )ctx ) = session->accountId;
 	}
@@ -114,7 +114,11 @@ static qboolean AutoLinkSession( gclient_t* client, session_t* session ) {
 
 	// for now, the only unambiguous and foolproof way of autolinking is by using newmod ids
 	if ( client->sess.auth == AUTHENTICATED && VALIDSTRING( client->sess.cuidHash ) ) {
-		G_DBListSessionsForInfo( "cuid_hash2", client->sess.cuidHash, GetLatestAccountId, &existingAccountId);
+		pagination_t pagination;
+		pagination.numPerPage = INT_MAX;
+		pagination.numPage = 1;
+
+		G_DBListSessionsForInfo( "cuid_hash2", client->sess.cuidHash, pagination, GetLatestAccountId, &existingAccountId);
 	}
 
 #endif
@@ -563,7 +567,7 @@ typedef struct {
 	ListSessionsCallback callback;
 } ReferencerCallbackProxy;
 
-static void ListSessionsCallbackReferencer( void *ctx, session_t* session, qboolean temporary ) {
+static void ListSessionsCallbackReferencer( void *ctx, session_t* session, qboolean referenced ) {
 	ReferencerCallbackProxy* proxy = ( ReferencerCallbackProxy* )ctx;
 	
 	// make a reference out of that session_t: check if someone is online with that session
@@ -574,23 +578,31 @@ static void ListSessionsCallbackReferencer( void *ctx, session_t* session, qbool
 		ref.online = qfalse;
 	}
 
-	proxy->callback( proxy->ctx, ref, temporary );
+	proxy->callback( proxy->ctx, ref, referenced );
 }
 
-void G_ListSessionsForAccount( account_t* account, ListSessionsCallback callback, void* ctx ) {
+void G_ListSessionsForAccount( account_t* account, int numPerPage, int page, ListSessionsCallback callback, void* ctx ) {
 	ReferencerCallbackProxy proxyCtx;
 	proxyCtx.callback = callback;
 	proxyCtx.ctx = ctx;
 
-	G_DBListSessionsForAccount( account, ListSessionsCallbackReferencer, &proxyCtx );
+	pagination_t pagination;
+	pagination.numPerPage = numPerPage;
+	pagination.numPage = page;
+
+	G_DBListSessionsForAccount( account, pagination, ListSessionsCallbackReferencer, &proxyCtx );
 }
 
-void G_ListSessionsForInfo( const char* key, const char* value, ListSessionsCallback callback, void* ctx ) {
+void G_ListSessionsForInfo( const char* key, const char* value, int numPerPage, int page, ListSessionsCallback callback, void* ctx ) {
 	ReferencerCallbackProxy proxyCtx;
 	proxyCtx.callback = callback;
 	proxyCtx.ctx = ctx;
 
-	G_DBListSessionsForInfo( key, value, ListSessionsCallbackReferencer, &proxyCtx );
+	pagination_t pagination;
+	pagination.numPerPage = numPerPage;
+	pagination.numPage = page;
+
+	G_DBListSessionsForInfo( key, value, pagination, ListSessionsCallbackReferencer, &proxyCtx );
 }
 
 qboolean G_SessionInfoHasString( const session_t* session, const char* key ) {

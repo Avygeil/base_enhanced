@@ -2007,7 +2007,7 @@ typedef struct {
 	char format[MAX_STRING_CHARS];
 } SessionPrintCtx;
 
-static void FormatAccountSessionList( void *ctx, const sessionReference_t sessionRef, const qboolean temporary ) {
+static void FormatAccountSessionList( void *ctx, const sessionReference_t sessionRef, const qboolean referenced ) {
 	SessionPrintCtx* out = ( SessionPrintCtx* )ctx;
 
 #ifdef NEWMOD_SUPPORT
@@ -2016,14 +2016,14 @@ static void FormatAccountSessionList( void *ctx, const sessionReference_t sessio
 
 	char sessFlags[16] = { 0 };
 	if ( sessionRef.online ) Q_strcat( sessFlags, sizeof( sessFlags ), S_COLOR_GREEN"|" );
-	if ( temporary ) Q_strcat( sessFlags, sizeof( sessFlags ), S_COLOR_YELLOW"|" );
+	if ( !referenced ) Q_strcat( sessFlags, sizeof( sessFlags ), S_COLOR_YELLOW"|" );
 #ifdef NEWMOD_SUPPORT
 	if ( isNewmodSession ) Q_strcat( sessFlags, sizeof( sessFlags ), S_COLOR_CYAN"|" );
 #endif
 
 	Q_strcat( out->format, sizeof( out->format ), va( S_COLOR_WHITE"Session ID %d ", sessionRef.ptr->id ) );
 	if ( VALIDSTRING( sessFlags ) ) Q_strcat( out->format, sizeof( out->format ), va( "%s ", sessFlags ) );
-	Q_strcat( out->format, sizeof( out->format ), va( S_COLOR_WHITE"(hash: %llX)\n", sessionRef.ptr->hash ) );
+	Q_strcat( out->format, sizeof( out->format ), va( S_COLOR_WHITE"(hash: %llx)\n", sessionRef.ptr->hash ) );
 }
 
 static int AccountFlagName2Bitflag(const char* flagName) {
@@ -2035,6 +2035,8 @@ static int AccountFlagName2Bitflag(const char* flagName) {
 
 	return 0;
 }
+
+#define NUM_SESSIONS_PER_WHOIS_PAGE 5
 
 static const char* AccountBitflag2FlagName(int bitflag) {
 	switch (bitflag) {
@@ -2123,8 +2125,16 @@ void Svcmd_Account_f( void ) {
 		} else if ( !Q_stricmp( s, "info" ) ) {
 
 			if ( trap_Argc() < 3 ) {
-				G_Printf( "Usage: "S_COLOR_YELLOW"account info <username>\n" );
+				G_Printf( "Usage: "S_COLOR_YELLOW"account info <username> [page]\n" );
 				return;
+			}
+
+			int page = 1;
+
+			if (trap_Argc() > 3) {
+				char buf[8];
+				trap_Argv(3, buf, sizeof(buf));
+				page = Com_Clampi(1, 999, atoi(buf));
 			}
 
 			char username[MAX_ACCOUNTNAME_LEN];
@@ -2138,12 +2148,10 @@ void Svcmd_Account_f( void ) {
 			}
 
 			SessionPrintCtx sessionsPrint = { 0 };
-			G_ListSessionsForAccount( acc.ptr, FormatAccountSessionList, &sessionsPrint );
+			G_ListSessionsForAccount( acc.ptr, NUM_SESSIONS_PER_WHOIS_PAGE, page, FormatAccountSessionList, &sessionsPrint );
 
 			char timestamp[32];
 			G_FormatLocalDateFromEpoch( timestamp, sizeof( timestamp ), acc.ptr->creationDate );
-
-			// TODO: pages
 
 			char flagsStr[64] = { 0 };
 			for ( int bitflag = 1; bitflag <= sizeof( int ) * 8; ++bitflag ) {
@@ -2178,14 +2186,13 @@ void Svcmd_Account_f( void ) {
 			if ( VALIDSTRING( sessionsPrint.format ) ) {
 
 #ifdef NEWMOD_SUPPORT
-				G_Printf( "Sessions tied to this account: ( "S_COLOR_GREEN"| = online "S_COLOR_YELLOW"| = temporary "S_COLOR_CYAN"| = newmod "S_COLOR_WHITE")\n" );
+				G_Printf( "Sessions tied to this account: ( "S_COLOR_GREEN"| = online "S_COLOR_YELLOW"| = unreferenced "S_COLOR_CYAN"| = newmod "S_COLOR_WHITE")\n" );
 #else
-				G_Printf( "Sessions tied to this account: ( "S_COLOR_GREEN"| - online "S_COLOR_YELLOW"| - temporary "S_COLOR_WHITE")\n" );
+				G_Printf( "Sessions tied to this account: ( "S_COLOR_GREEN"| - online "S_COLOR_YELLOW"| - unreferenced "S_COLOR_WHITE")\n" );
 #endif
 				G_Printf( "%s", sessionsPrint.format );
+				G_Printf( "Viewing page: %d\n", page );
 
-			} else {
-				G_Printf( "No session tied to this account yet.\n" );
 			}
 
 		} else if ( !Q_stricmp( s, "toggleflag" ) ) {
@@ -2247,7 +2254,8 @@ void Svcmd_Account_f( void ) {
 			"Valid subcommands:\n"
 			S_COLOR_YELLOW"account create <username>"S_COLOR_WHITE": Creates a new account with the given name\n"
 			S_COLOR_YELLOW"account delete <username>"S_COLOR_WHITE": Deletes the given account and unlinks all associated sessions\n"
-			S_COLOR_YELLOW"account info <username>"S_COLOR_WHITE": Prints various information for the given account name\n"
+			S_COLOR_YELLOW"account list [page]"S_COLOR_WHITE": Prints a list of created accounts\n"
+			S_COLOR_YELLOW"account info <username> [page]"S_COLOR_WHITE": Prints various information for the given account name\n"
 			S_COLOR_YELLOW"account toggleflag <username> <flag>"S_COLOR_WHITE": Toggles an account flag for the given account name\n"
 			S_COLOR_YELLOW"account help"S_COLOR_WHITE": Prints this message\n"
 		);
@@ -2313,7 +2321,7 @@ void Svcmd_Session_f( void ) {
 					char line[MAX_STRING_CHARS];
 					line[0] = '\0';
 
-					Q_strcat( line, sizeof( line ), va( "%sClient %d "S_COLOR_WHITE"(%s"S_COLOR_WHITE"): Session ID %d (hash: %llX)",
+					Q_strcat( line, sizeof( line ), va( "%sClient %d "S_COLOR_WHITE"(%s"S_COLOR_WHITE"): Session ID %d (hash: %llx)",
 						color, i, client->pers.netname, client->session->id, client->session->hash ) );
 
 					if ( client->account ) {
