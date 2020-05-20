@@ -3847,42 +3847,6 @@ static char* GetItemName(gentity_t* ent) {
 	return NULL;
 }
 
-// modified version of Team_GetLocation for use with waypoints
-// e.g. "red blaster ammo"
-static void GetSpecificWaypointName(gentity_t* waypoint, char* locationBuffer, size_t locationBufferSize) {
-	if (!waypoint || !locationBuffer) {
-		assert(qfalse);
-		return;
-	}
-
-	locationBuffer[0] = '\0';
-	vec3_t origin;
-	VectorCopy(waypoint->r.currentOrigin, origin);
-
-	if (!level.locations.enhanced.numUnique)
-		return;
-
-	// we should always have at most 1 result
-	void* nearest = kd_nearestf(level.locations.enhanced.lookupTree, origin);
-	if (nearest && kd_res_size(nearest) == 1) {
-		enhancedLocation_t* loc = (enhancedLocation_t*)kd_res_item_data(nearest);
-		if (loc) {
-			char* ownerStr;
-			if (loc->teamowner == TEAM_RED)
-				ownerStr = "red ";
-			else if (loc->teamowner == TEAM_BLUE)
-				ownerStr = "blue ";
-			else
-				ownerStr = "";
-			char* itemName = GetItemName(waypoint);
-			if (VALIDSTRING(itemName))
-				Com_sprintf(locationBuffer, locationBufferSize, "%s%s", ownerStr, itemName);
-		}
-	}
-
-	kd_res_free(nearest);
-}
-
 // if one parameter is NULL, its value is added to the next non NULL parameter
 void PartitionedTimer( const int time, int *mins, int *secs, int *millis ) {
 	div_t qr;
