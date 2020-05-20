@@ -2571,8 +2571,8 @@ void Svcmd_Session_f( void ) {
 			static int lastConfirmationTime = INT_MIN;
 
 			if (level.time < lastConfirmationTime + 10000) {
-				int deleted = G_DBPurgeUnassignedSessions();
-				G_Printf("Deleted %d unreferenced sessions from database.\n", deleted);
+				G_DBPurgeUnassignedSessions();
+				G_Printf("Purge completed.\n");
 			} else {
 				G_Printf( 
 					"You are about to delete unreferenced sessions from the database FOREVER.\n"

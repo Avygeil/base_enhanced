@@ -662,11 +662,9 @@ void G_DBListTopUnassignedSessionIDs(pagination_t pagination,
 	sqlite3_finalize(statement);
 }
 
-int G_DBPurgeUnassignedSessions(void)
+void G_DBPurgeUnassignedSessions(void)
 {
 	sqlite3_exec(dbPtr, sqlPurgeUnreferencedSessions, NULL, NULL, NULL);
-
-	return sqlite3_changes(dbPtr);
 }
 
 // =========== NICKNAMES =======================================================
