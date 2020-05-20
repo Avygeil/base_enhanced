@@ -2264,13 +2264,18 @@ static void PrintUnassignedSessionIDsCallback(void* ctx, const int sessionId, co
 	char durationString[64];
 	G_FormatDuration(playtime, durationString, sizeof(durationString));
 
+	char* referencedString = "";
+	if (referenced)
+		referencedString = " "S_COLOR_RED"/!\\";
+
 	G_Printf(
-		S_COLOR_WHITE"%s  "S_COLOR_WHITE"(%s) - session ID: %d\n",
-		nameString, durationString, sessionId
+		S_COLOR_WHITE"%s  "S_COLOR_WHITE"(%s) - session ID: %d%s\n",
+		nameString, durationString, sessionId, referencedString
 	);
 }
 
 #define NUM_UNASSIGNED_PER_PAGE 10
+#define NUM_TOP_NICKNAMES		10
 
 void Svcmd_Session_f( void ) {
 	qboolean printHelp = qfalse;
@@ -2351,11 +2356,53 @@ void Svcmd_Session_f( void ) {
 
 			G_DBListTopUnassignedSessionIDs(pagination, PrintUnassignedSessionIDsCallback, NULL);
 
-			G_Printf("Viewing page: %d\n", page);
+			G_Printf(
+				S_COLOR_WHITE"Referenced sessions are marked with "S_COLOR_RED"/!\\ "S_COLOR_WHITE"and should be assigned ASAP.\n"
+				S_COLOR_WHITE"Viewing page: %d\n",
+				page
+			);
 
-		} else if ( !Q_stricmp( s, "info" ) ) {
+		} else if ( !Q_stricmp( s, "nicknames" ) ) {
 
-			// TODO
+			if (trap_Argc() < 3) {
+				G_Printf("Usage: "S_COLOR_YELLOW"session nicknames <session id>\n");
+				return;
+			}
+
+			trap_Argv(2, s, sizeof(s));
+			const int sessionId = atoi(s);
+			if (sessionId <= 0) {
+				G_Printf("Session ID must be a number > 1\n");
+				return;
+			}
+
+			sessionReference_t sess = G_GetSessionByID(sessionId, qfalse);
+
+			if (!sess.ptr) {
+				G_Printf("No session found with this ID\n");
+				return;
+			}
+
+			nicknameEntry_t nicknames[NUM_TOP_NICKNAMES];
+
+			G_DBGetMostUsedNicknames(sess.ptr->id, NUM_TOP_NICKNAMES, &nicknames[0]);
+
+			int i;
+			for (i = 0; i < NUM_TOP_NICKNAMES && VALIDSTRING(nicknames[i].name); ++i) {
+				char nameString[64] = { 0 };
+				Q_strncpyz(nameString, nicknames[i].name, sizeof(nameString));
+				int j;
+				for (j = Q_PrintStrlen(nameString); j < MAX_NAME_DISPLAYLENGTH; ++j)
+					Q_strcat(nameString, sizeof(nameString), " ");
+
+				char durationString[64];
+				G_FormatDuration(nicknames[i].duration, durationString, sizeof(durationString));
+
+				G_Printf(
+					S_COLOR_WHITE"%s  "S_COLOR_WHITE"(%s)\n",
+					nameString, durationString
+				);
+			}
 
 		} else if ( !Q_stricmp( s, "link" ) ) {
 
@@ -2533,8 +2580,8 @@ void Svcmd_Session_f( void ) {
 		G_Printf(
 			"Valid subcommands:\n"
 			S_COLOR_YELLOW"session whois"S_COLOR_WHITE": Lists the session currently in use by all in-game players\n"
-			S_COLOR_YELLOW"session unassigned [page]"S_COLOR_WHITE": Lists the top unassigned sessions\n"
-			S_COLOR_YELLOW"session info <session id>"S_COLOR_WHITE": Prints detailed information for the given session ID\n"
+			S_COLOR_YELLOW"session unassigned [page]"S_COLOR_WHITE": Lists the top unassigned sessions (may lag the server if too many sessions, so be cautious)\n"
+			S_COLOR_YELLOW"session nicknames <session id>"S_COLOR_WHITE": Prints the top used nicknames for the given session ID\n"
 			S_COLOR_YELLOW"session link <session id> <account name>"S_COLOR_WHITE": Links the given session ID to an existing account\n"
 			S_COLOR_YELLOW"session linkingame <client id> <account name>"S_COLOR_WHITE": Shortcut command to link an in-game client's session to an existing account\n"
 			S_COLOR_YELLOW"session unlink <session id>"S_COLOR_WHITE": Unlinks the account associated to the given session ID\n"
