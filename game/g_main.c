@@ -161,11 +161,13 @@ vmCvar_t	g_improvedHomingThreshold;
 vmCvar_t	d_debugImprovedHoming;
 vmCvar_t	g_braindeadBots;
 vmCvar_t	g_unlagged;
+#ifdef _DEBUG
+vmCvar_t	g_unlaggedMaxCompensation;
+vmCvar_t	g_unlaggedSkeletonTime;
 vmCvar_t	g_unlaggedFactor;
 vmCvar_t	g_unlaggedOffset;
-vmCvar_t	g_unlaggedSkeletonTime;
-vmCvar_t	g_unlaggedMaxCompensation;
 vmCvar_t	g_unlaggedDebug;
+#endif
 
 vmCvar_t	g_customVotes;
 vmCvar_t	g_customVote1_command;
@@ -204,6 +206,7 @@ vmCvar_t	g_weaponTeamRespawn;
 vmCvar_t	g_adaptRespawn;
 vmCvar_t	g_motd;
 vmCvar_t	g_synchronousClients;
+vmCvar_t	g_forceClientUpdateRate;
 vmCvar_t	g_warmup;
 vmCvar_t	g_doWarmup;
 vmCvar_t	g_restarted;
@@ -404,10 +407,10 @@ vmCvar_t	sv_passwordlessSpectators;
 vmCvar_t	d_measureAirTime;
 
 vmCvar_t	g_notifyAFK;
-vmCvar_t	g_autoStart;
-vmCvar_t	g_autoStartTimer;
-vmCvar_t	g_autoStartAFKThreshold;
-vmCvar_t	g_autoStartMinPlayers;
+vmCvar_t	g_waitForAFK;
+vmCvar_t	g_waitForAFKTimer;
+vmCvar_t	g_waitForAFKThreshold;
+vmCvar_t	g_waitForAFKMinPlayers;
 
 // nmckenzie: temporary way to show player healths in duels - some iface gfx in game would be better, of course.
 // DUEL_HEALTH
@@ -436,7 +439,7 @@ static cvarTable_t		gameCvarTable[] = {
 
 	// latched vars
 	{ &g_gametype, "g_gametype", "0", CVAR_SERVERINFO | CVAR_LATCH, 0, qfalse  },
-	{ &g_MaxHolocronCarry, "g_MaxHolocronCarry", "3", CVAR_SERVERINFO | CVAR_LATCH, 0, qfalse  },
+	{ &g_MaxHolocronCarry, "g_MaxHolocronCarry", "3", CVAR_LATCH, 0, qfalse  },
 
     { &g_maxclients, "sv_maxclients", "8", CVAR_SERVERINFO | CVAR_LATCH | CVAR_ARCHIVE, 0, qfalse },
 	{ &g_maxGameClients, "g_maxGameClients", "0", CVAR_SERVERINFO | CVAR_LATCH | CVAR_ARCHIVE, 0, qfalse  },
@@ -452,7 +455,7 @@ static cvarTable_t		gameCvarTable[] = {
 	
 	{ &g_maxForceRank, "g_maxForceRank", "6", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse  },
 	{ &g_forceBasedTeams, "g_forceBasedTeams", "0", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse  },
-	{ &g_privateDuel, "g_privateDuel", "1", CVAR_SERVERINFO | CVAR_ARCHIVE, 0, qtrue  },
+	{ &g_privateDuel, "g_privateDuel", "1", CVAR_ARCHIVE, 0, qtrue  },
 	
 	{ &g_duelLifes, "g_duelLifes", "100", CVAR_ARCHIVE, 0, qtrue  },
 	{ &g_duelShields, "g_duelShields", "25", CVAR_ARCHIVE, 0, qtrue  },
@@ -461,7 +464,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_teamChatLimit, "g_teamChatLimit", "5", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_voiceChatLimit, "g_voiceChatLimit", "3", CVAR_ARCHIVE, 0, qtrue },
 
-	{ &g_allowNPC, "g_allowNPC", "1", CVAR_SERVERINFO | CVAR_ARCHIVE, 0, qtrue  },
+	{ &g_allowNPC, "g_allowNPC", "1", CVAR_ARCHIVE, 0, qtrue  },
 
 	{ &g_armBreakage, "g_armBreakage", "0", 0, 0, qtrue  },
 
@@ -528,6 +531,7 @@ static cvarTable_t		gameCvarTable[] = {
     { &g_capturedifflimit, "capturedifflimit", "10", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_NORESTART, 0, qtrue },
 
     { &g_synchronousClients, "g_synchronousClients", "0", CVAR_SYSTEMINFO, 0, qfalse },
+	{ &g_forceClientUpdateRate, "g_forceClientUpdateRate", "250", CVAR_ARCHIVE, 0, qfalse },
 
     { &d_saberInterpolate, "d_saberInterpolate", "0", CVAR_CHEAT, 0, qtrue },
 
@@ -624,7 +628,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_debugSaberLocks, "g_debugSaberLocks", "0", CVAR_CHEAT, 0, qfalse },
 	{ &g_saberLockRandomNess, "g_saberLockRandomNess", "2", CVAR_CHEAT, 0, qfalse },
 		// nmckenzie: SABER_DAMAGE_WALLS
-	{ &g_saberWallDamageScale, "g_saberWallDamageScale", "0.4", CVAR_SERVERINFO, 0, qfalse },
+	{ &g_saberWallDamageScale, "g_saberWallDamageScale", "0.4", 0, 0, qfalse },
 
 	{ &d_saberStanceDebug, "d_saberStanceDebug", "0", 0, 0, qfalse },
 
@@ -855,18 +859,20 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &d_measureAirTime, "d_measureAirTime", "0", CVAR_TEMP, 0, qtrue },
 
 	{ &g_notifyAFK, "g_notifyAFK", "5", CVAR_ARCHIVE, 0, qtrue },
-	{ &g_autoStart, "g_autoStart", "1", CVAR_ARCHIVE, 0, qtrue },
-	{ &g_autoStartTimer, "g_autoStartTimer", "10", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_waitForAFK, "g_waitForAFK", "1", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_waitForAFKTimer, "g_waitForAFKTimer", "10", CVAR_ARCHIVE, 0, qtrue },
 
-	{ &g_autoStartAFKThreshold, "g_autoStartAFKThreshold", "10", CVAR_ARCHIVE, 0, qtrue },
-	{ &g_autoStartMinPlayers, "g_autoStartMinPlayers", "8", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_waitForAFKThreshold, "g_waitForAFKThreshold", "5", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_waitForAFKMinPlayers, "g_waitForAFKMinPlayers", "6", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_unlagged, "g_unlagged", "0", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
+#ifdef _DEBUG
+	{ &g_unlaggedMaxCompensation, "g_unlaggedMaxCompensation", "500", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_unlaggedSkeletonTime, "g_unlaggedSkeletonTime", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_unlaggedFactor, "g_unlaggedFactor", "0.25", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_unlaggedOffset, "g_unlaggedOffset", "0", CVAR_ARCHIVE, 0, qtrue },
-	{ &g_unlaggedSkeletonTime, "g_unlaggedSkeletonTime", "0", CVAR_ARCHIVE, 0, qtrue },
-	{ &g_unlaggedMaxCompensation, "g_unlaggedMaxCompensation", "500", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_unlaggedDebug, "g_unlaggedDebug", "0", CVAR_ARCHIVE, 0, qtrue }
+#endif
 };
 
 // bk001129 - made static to avoid aliasing
@@ -4619,65 +4625,55 @@ static int GetCurrentRestartCountdown(void) {
 	return 0;
 }
 
-#define AUTORESTART_AFK_MIN				(1)
-#define AUTORESTART_AFK_MAX				(30)
-#define AUTORESTART_AFK_DEFAULT			(10)
-
-#define AUTORESTART_COUNTDOWN_MIN		(3)
-#define AUTORESTART_COUNTDOWN_MAX		(30)
-#define AUTORESTART_COUNTDOWN_DEFAULT	(10)
-
-#define AUTORESTART_MINPLAYERS_MIN		(2)
-#define AUTORESTART_MINPLAYERS_MAX		(MAX_CLIENTS)
-#define AUTORESTART_MINPLAYERS_DEFAULT	(8) // 4v4
-
-static void RunAutoRestart(void) {
+static void WaitForAFKs(void) {
 	if (g_gametype.integer != GT_CTF)
 		return;
 
 	const int currentCountdown = GetCurrentRestartCountdown();
 	static int autoCountdown = 0;
 
-	if (!g_autoStart.integer || level.intermissiontime) {
+	if (level.intermissiontime && currentCountdown && autoCountdown) {
+		// intermission was reached during the auto countdown; cancel it
+		trap_SendConsoleCommand(EXEC_APPEND, "map_restart -1\n");
+		autoCountdown = 0;
+		level.autoStartPending = qfalse;
+		return;
+	}
+
+	if (!g_waitForAFK.integer || !level.autoStartPending) {
 		if (currentCountdown && autoCountdown) {
-			// edge case: the g_autoStart cvar was disabled or intermission was reached while the auto countdown was active
+			// edge case: the g_waitForAFK cvar was disabled or autostart was entered with <8 people while the countdown was active
 			// cancel the auto countdown
 			trap_SendConsoleCommand(EXEC_APPEND, "map_restart -1\n");
 			autoCountdown = 0;
+			level.autoStartPending = qfalse;
 		}
 		return;
 	}
 
 	if (autoCountdown && !currentCountdown) {
 		// edge case: an admin used rcon map_restart -1 to cancel the auto countdown
-		// set the g_autoStart cvar to 0 to prevent instantly spamming auto countdown
-		trap_Cvar_Set("g_autoStart", "0");
+		level.autoStartPending = qfalse;
 		autoCountdown = 0;
 		return;
 	}
 
-	if (currentCountdown && autoCountdown && abs(currentCountdown - autoCountdown) > 200) {
-		// edge case: a countdown was started elsewhere (map_restart vote/rcon, etc) while the auto countdown was active
-		// e.g., auto countdown was ticking down with 2 seconds left and then ski used rcon map_restart 300
+	if ((!autoCountdown && currentCountdown) || (currentCountdown && autoCountdown && abs(currentCountdown - autoCountdown) > 200)) {
+		// edge case: a countdown was started elsewhere (rcon) while auto start was pending or an auto countdown was active
+		// e.g. ski used rcon map_restart 300
 		// disable special auto countdown checks (afk detection, etc) so that this function treats it as a manual countdown
+		level.autoStartPending = qfalse;
 		autoCountdown = 0;
 		return;
 	}
 
-	int numRed = 0, numBlue = 0;
-	enum {
-		CLIENTNUMAFK_MULTIPLE = -2,
-		CLIENTNUMAFK_NONE = -1
-	} clientNumAfk = CLIENTNUMAFK_NONE;
-	enum {
-		CLIENTNUMNOTREADY_MULTIPLE = -2,
-		CLIENTNUMNOTREADY_NONE = -1
-	} clientNumNotReady = CLIENTNUMNOTREADY_NONE;
+	int numRed = 0, numBlue = 0, numAfks = 0;
+	int afkGuy1 = -1, afkGuy2 = -1;
 	int now = getGlobalTime();
-	int afkThreshold = g_autoStartAFKThreshold.integer;
+	int afkThreshold = g_waitForAFKThreshold.integer;
 	if (afkThreshold <= 0)
-		afkThreshold = AUTORESTART_AFK_DEFAULT;
-	afkThreshold = Com_Clampi(AUTORESTART_AFK_MIN, AUTORESTART_AFK_MAX, afkThreshold);
+		afkThreshold = WAITFORAFK_AFK_DEFAULT;
+	afkThreshold = Com_Clampi(WAITFORAFK_AFK_MIN, WAITFORAFK_AFK_MAX, afkThreshold);
 	for (int i = 0; i < MAX_CLIENTS; i++) {
 		gentity_t *ent = &g_entities[i];
 		if (!ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED)
@@ -4690,76 +4686,70 @@ static void RunAutoRestart(void) {
 		else
 			numBlue++;
 
-		if (!ent->client->pers.ready) {
-			if (clientNumNotReady == CLIENTNUMNOTREADY_NONE)
-				clientNumNotReady = i;
-			else
-				clientNumNotReady = CLIENTNUMNOTREADY_MULTIPLE;
-		}
 		if (now - ent->client->pers.lastInputTime > afkThreshold) {
-			if (clientNumAfk == CLIENTNUMAFK_NONE)
-				clientNumAfk = i;
-			else
-				clientNumAfk = CLIENTNUMAFK_MULTIPLE;
+			if (!numAfks)
+				afkGuy1 = i;
+			else if (numAfks == 1)
+				afkGuy2 = i;
+			numAfks++;
 		}
 	}
 
-	int minPlayers = g_autoStartMinPlayers.integer;
+	int minPlayers = g_waitForAFKMinPlayers.integer;
 	if (minPlayers <= 0)
-		minPlayers = AUTORESTART_MINPLAYERS_DEFAULT;
-	minPlayers = Com_Clampi(AUTORESTART_MINPLAYERS_MIN, AUTORESTART_MINPLAYERS_MAX, minPlayers);
+		minPlayers = WAITFORAFK_MINPLAYERS_DEFAULT;
+	minPlayers = Com_Clampi(WAITFORAFK_MINPLAYERS_MIN, WAITFORAFK_MINPLAYERS_MAX, minPlayers);
+
+	/*
+	if ANY ONE of the following is true:
+	- someone has become afk
+	- the teams have become uneven
+	- there are now less than 8 players ingame
+
+	we do not start
+	*/
+
+	char failReason[256] = { 0 };
+	if (numRed + numBlue < minPlayers)
+		Q_strncpyz(failReason, "Not enough players ingame", sizeof(failReason));
+	else if (numRed != numBlue)
+		Q_strncpyz(failReason, "Uneven # of players", sizeof(failReason));
+	else if (numAfks > 2)
+		Q_strncpyz(failReason, va("Waiting for %d players to unAFK", numAfks), sizeof(failReason));
+	else if (numAfks == 2)
+		Q_strncpyz(failReason, va("Waiting for %s^7\nand %s^7 to unAFK", level.clients[afkGuy1].pers.netname, level.clients[afkGuy2].pers.netname), sizeof(failReason));
+	else if (numAfks == 1)
+		Q_strncpyz(failReason, va("Waiting for %s^7 to unAFK", level.clients[afkGuy1].pers.netname), sizeof(failReason));
+
+	static int lastCenterPrintTime = 0;
 	if (currentCountdown) {
-		if (!autoCountdown) {
-			// there is currently a countdown, but it wasn't from here (map_restart vote/rcon, etc); don't do anything at all.
-			return;
-		}
-		char cancelReason[256] = { 0 };
-		if (numRed + numBlue < minPlayers)
-			Q_strncpyz(cancelReason, "Not enough players ingame", sizeof(cancelReason));
-		else if (clientNumNotReady == CLIENTNUMNOTREADY_MULTIPLE)
-			Q_strncpyz(cancelReason, "Multiple players are not ready", sizeof(cancelReason));
-		else if (clientNumNotReady >= 0 && clientNumNotReady < MAX_CLIENTS)
-			Q_strncpyz(cancelReason, va("%s^7 is not ready", level.clients[clientNumNotReady].pers.netname), sizeof(cancelReason));
-		else if (numRed != numBlue)
-			Q_strncpyz(cancelReason, "Uneven # of players", sizeof(cancelReason));
-		else if (clientNumAfk == CLIENTNUMAFK_MULTIPLE)
-			Q_strncpyz(cancelReason, "Multiple players are AFK", sizeof(cancelReason));
-		else if (clientNumAfk >= 0 && clientNumAfk < MAX_CLIENTS)
-			Q_strncpyz(cancelReason, va("%s^7 is AFK", level.clients[clientNumAfk].pers.netname), sizeof(cancelReason));
-
-		if (cancelReason[0]) {
-			/*
-			there is currently an auto countdown, but ANY ONE of the following is true:
-			- someone has unreadied
-			- someone has become afk
-			- the teams have become uneven
-			- there are now less than 8 players ingame
-
-			cancel the auto countdown
-			*/
-			trap_SendConsoleCommand(EXEC_APPEND, "map_restart -1\n");
+		if (failReason[0]) {
+			trap_SendConsoleCommand(EXEC_NOW, "map_restart -1\n");
 			autoCountdown = 0;
-			trap_SendServerCommand(-1, va("print \"^1Auto-start cancelled:^7 %s^7\n\"", cancelReason));
-			trap_SendServerCommand(-1, va("cp \"^1Auto-start cancelled:^7\n%s^7\n\"", cancelReason));
+			if (trap_Milliseconds() - lastCenterPrintTime >= 500) {
+				G_GlobalTickedCenterPrint(va("Restart pending...\n\n%s", failReason), 1000, qfalse);
+				lastCenterPrintTime = trap_Milliseconds();
+			}
+		}
+		else {
+			// we're good for the moment, keep counting down
 		}
 	}
-	else {
-		if (numRed == numBlue && numRed + numBlue >= minPlayers && clientNumNotReady == CLIENTNUMNOTREADY_NONE && clientNumAfk == CLIENTNUMAFK_NONE) {
-			/*
-			there is NOT currently a countdown, and ALL of the following are true:
-			- everyone is ready
-			- everyone is present
-			- there are at least 8 players ingame
-			- the teams are even
-
-			start the auto countdown
-			*/
-			int seconds = g_autoStartTimer.integer;
+	else if (level.autoStartPending) {
+		if (failReason[0]) {
+			G_GlobalTickedCenterPrint(va("Restart pending...\n\n%s", failReason), 1000, qfalse);
+		}
+		else {
+			int seconds = g_waitForAFKTimer.integer;
 			if (seconds <= 0)
-				seconds = AUTORESTART_COUNTDOWN_DEFAULT;
-			seconds = Com_Clampi(AUTORESTART_COUNTDOWN_MIN, AUTORESTART_COUNTDOWN_MAX, seconds);
+				seconds = WAITFORAFK_COUNTDOWN_DEFAULT;
+			seconds = Com_Clampi(WAITFORAFK_COUNTDOWN_MIN, WAITFORAFK_COUNTDOWN_MAX, seconds);
 			trap_SendConsoleCommand(EXEC_NOW, va("map_restart %d\n", seconds));
 			autoCountdown = level.time + (seconds * 1000);
+			if (trap_Milliseconds() - lastCenterPrintTime >= 500) {
+				G_GlobalTickedCenterPrint("", 1000, qfalse);
+				lastCenterPrintTime = trap_Milliseconds();
+			}
 		}
 	}	
 }
@@ -5834,7 +5824,7 @@ void G_RunFrame( int levelTime ) {
 	RunImprovedHoming();
 #endif
 
-	RunAutoRestart();
+	WaitForAFKs();
 
 	if (!level.firstFrameTime)
 		level.firstFrameTime = trap_Milliseconds();

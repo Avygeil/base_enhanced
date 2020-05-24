@@ -244,9 +244,11 @@ void Cmd_Unlagged_f(gentity_t *ent) {
 		}
 		Q_strcat(msg, sizeof(msg), "\n\"");
 		trap_SendServerCommand(ent - g_entities, msg);
+		Com_Printf("Client %d (%s^7) enabled unlagged\n", ent - g_entities, ent->client->pers.netname);
 	}
 	else {
 		trap_SendServerCommand(ent - g_entities, "print \"Unlagged ^1disabled^7.\n\"");
+		Com_Printf("Client %d (%s^7) disabled unlagged\n", ent - g_entities, ent->client->pers.netname);
 	}
 }
 
@@ -2701,6 +2703,7 @@ extern const char *G_GetArenaInfoByMap( const char *map );
 int G_GetArenaNumber( const char *map );
 
 static int      g_votedCounts[MAX_ARENAS];
+void Cmd_Vote_f(gentity_t *ent, const char *forceVoteArg);
 
 void Cmd_CallVote_f( gentity_t *ent ) {
 	int		i;
@@ -2710,13 +2713,26 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 	const char*	arenaInfo;
     int argc;
 
+	trap_Argv(1, arg1, sizeof(arg1));
+	trap_Argv(2, arg2, sizeof(arg2));
+	argc = trap_Argc();
+
 	if ( !g_allowVote.integer ) {
 		trap_SendServerCommand( ent-g_entities, va("print \"%s\n\"", G_GetStringEdString("MP_SVGAME", "NOVOTE")) );
 		return;
 	}
 
-	if ( level.voteTime || level.voteExecuteTime >= level.time ) {
+	if ( level.voteExecuteTime >= level.time ) {
 		trap_SendServerCommand( ent-g_entities, va("print \"%s\n\"", G_GetStringEdString("MP_SVGAME", "VOTEINPROGRESS")) );
+		return;
+	}
+
+	if (level.voteTime) {
+		// if they try to call a map_restart vote while a map_restart vote is already pending, just vote yes on it
+		if (!Q_stricmpn(arg1, "map_restart", 11) && (!Q_stricmpn(level.voteString, "map_restart", 11) || !Q_stricmpn(level.voteString, "auto_restart", 12)))
+			Cmd_Vote_f(ent, "yes");
+		else
+			trap_SendServerCommand(ent - g_entities, va("print \"%s\n\"", G_GetStringEdString("MP_SVGAME", "VOTEINPROGRESS")));
 		return;
 	}
 
@@ -2749,9 +2765,6 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 	}
 
 	// make sure it is a valid command to vote on
-	trap_Argv( 1, arg1, sizeof( arg1 ) );
-	trap_Argv( 2, arg2, sizeof( arg2 ) );
-    argc = trap_Argc();
 
 	// *CHANGE 8a* anti callvote bug
 	if ((g_protectCallvoteHack.integer && (strchr( arg1, '\n' ) || strchr( arg2, '\n' ) ||	strchr( arg1, '\r' ) || strchr( arg2, '\r' ))) ) {
@@ -3194,11 +3207,20 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 			return;
 		}
 		
-		const int n = Com_Clampi( 0, 60, g_restart_countdown.integer );
-
-		Com_sprintf( level.voteString, sizeof( level.voteString ), "%s \"%i\"", arg1, n );
-		Com_sprintf( level.voteDisplayString, sizeof( level.voteDisplayString ), "%s", level.voteString );
-
+		if (g_waitForAFK.integer && g_gametype.integer == GT_CTF) {
+			if (level.autoStartPending) {
+				Com_sprintf(level.voteString, sizeof(level.voteString), "auto_restart_cancel");
+				Com_sprintf(level.voteDisplayString, sizeof(level.voteDisplayString), "Cancel Pending Map Restart");
+			}
+			else {
+				Com_sprintf(level.voteString, sizeof(level.voteString), "auto_restart");
+				Com_sprintf(level.voteDisplayString, sizeof(level.voteDisplayString), "map_restart");
+			}
+		}
+		else {
+			Com_sprintf(level.voteString, sizeof(level.voteString), "map_restart \"%i\"", Com_Clampi(0, 60, g_restart_countdown.integer));
+			Com_sprintf(level.voteDisplayString, sizeof(level.voteDisplayString), "%s", level.voteString);
+		}
 	} 
 	else if (!Q_stricmp(arg1, "allready"))
 	{
@@ -3365,7 +3387,7 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 Cmd_Vote_f
 ==================
 */
-void Cmd_Vote_f( gentity_t *ent ) {
+void Cmd_Vote_f( gentity_t *ent, const char *forceVoteArg ) {
 	char		msg[64];
 
 	if ( !level.voteTime ) {
@@ -3390,7 +3412,10 @@ void Cmd_Vote_f( gentity_t *ent ) {
 		}
 	}
 
-	trap_Argv( 1, msg, sizeof( msg ) );
+	if (VALIDSTRING(forceVoteArg))
+		Q_strncpyz(msg, forceVoteArg, sizeof(msg));
+	else
+		trap_Argv( 1, msg, sizeof( msg ) );
 
 	if ( !level.multiVoting ) {
 		// not a special multi vote, use legacy behavior
@@ -6435,7 +6460,7 @@ void ClientCommand( int clientNum ) {
 	else if (Q_stricmp (cmd, "callvote") == 0)
 		Cmd_CallVote_f (ent);
 	else if (Q_stricmp (cmd, "vote") == 0)
-		Cmd_Vote_f (ent);
+		Cmd_Vote_f (ent, NULL);
 	else if (Q_stricmp(cmd, "ready") == 0 || !Q_stricmp(cmd, "readyup"))
 		Cmd_Ready_f(ent);
 	else if (!Q_stricmp(cmd, "mappool") || !Q_stricmp(cmd, "mappools") || !Q_stricmp(cmd, "listpool") || !Q_stricmp(cmd, "listpools") ||

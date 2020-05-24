@@ -2112,7 +2112,7 @@ void ClientUserinfoChanged( int clientNum ) {
 		client->sess.nmVer[0] = '\0';
 
 	s = Info_ValueForKey(userinfo, "nm_flags");
-	if (!!(VALIDSTRING(s) && CompareVersions(client->sess.nmVer, "1.5.6") >= 0 && strchr(s, 'u'))) {
+	if (!!(VALIDSTRING(s) && strchr(s, 'u'))) {
 		client->sess.unlagged |= UNLAGGED_CLIENTINFO;
 		client->sess.unlagged &= ~UNLAGGED_COMMAND;
 	}

@@ -1152,6 +1152,8 @@ typedef struct {
 	int			startTime;				// level.time the map was started
 	int			firstFrameTime;			// trap_Milliseconds() of the first G_RunFrame (after all init lag has finished)
 
+	qboolean	autoStartPending;		// auto_start was executed; we want to restart
+
 	int			teamScores[TEAM_NUM_TEAMS];
 	int			lastTeamLocationTime;		// last time of client team location update
 
@@ -2159,6 +2161,7 @@ extern	vmCvar_t	g_weaponRespawn;
 extern	vmCvar_t	g_weaponTeamRespawn;
 extern	vmCvar_t	g_adaptRespawn;
 extern	vmCvar_t	g_synchronousClients;
+extern	vmCvar_t	g_forceClientUpdateRate;
 extern	vmCvar_t	g_motd;
 extern	vmCvar_t	g_warmup;
 extern	vmCvar_t	g_doWarmup;
@@ -2347,11 +2350,13 @@ extern vmCvar_t    g_improvedHomingThreshold;
 extern vmCvar_t    d_debugImprovedHoming;
 extern vmCvar_t    g_braindeadBots;
 extern vmCvar_t    g_unlagged;
+#ifdef _DEBUG
+extern vmCvar_t    g_unlaggedMaxCompensation;
+extern vmCvar_t	   g_unlaggedSkeletonTime;
 extern vmCvar_t	   g_unlaggedFactor;
 extern vmCvar_t	   g_unlaggedOffset;
-extern vmCvar_t	   g_unlaggedSkeletonTime;
-extern vmCvar_t    g_unlaggedMaxCompensation;
 extern vmCvar_t	   g_unlaggedDebug;
+#endif
 
 #define MAX_CUSTOM_VOTES	(10)
 extern vmCvar_t    g_customVotes;
@@ -2394,10 +2399,22 @@ extern vmCvar_t    sv_passwordlessSpectators;
 extern vmCvar_t    d_measureAirTime;
 extern vmCvar_t		g_wasRestarted;
 extern vmCvar_t		g_notifyAFK;
-extern vmCvar_t		g_autoStart;
-extern vmCvar_t		g_autoStartTimer;
-extern vmCvar_t		g_autoStartAFKThreshold;
-extern vmCvar_t		g_autoStartMinPlayers;
+
+#define WAITFORAFK_AFK_MIN				(1)
+#define WAITFORAFK_AFK_MAX				(30)
+#define WAITFORAFK_AFK_DEFAULT			(5)
+
+#define WAITFORAFK_COUNTDOWN_MIN		(3)
+#define WAITFORAFK_COUNTDOWN_MAX		(30)
+#define WAITFORAFK_COUNTDOWN_DEFAULT	(10)
+
+#define WAITFORAFK_MINPLAYERS_MIN		(2)
+#define WAITFORAFK_MINPLAYERS_MAX		(MAX_CLIENTS)
+#define WAITFORAFK_MINPLAYERS_DEFAULT	(6)
+extern vmCvar_t		g_waitForAFK;
+extern vmCvar_t		g_waitForAFKTimer;
+extern vmCvar_t		g_waitForAFKThreshold;
+extern vmCvar_t		g_waitForAFKMinPlayers;
 
 int validateAccount(const char* username, const char* password, int num);
 void unregisterUser(const char* username);
