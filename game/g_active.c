@@ -4409,6 +4409,18 @@ void ClientThink( int clientNum,usercmd_t *ucmd ) {
 
 
 void G_RunClient( gentity_t *ent ) {
+	// force a client think if it's been too long since their last real one
+	if (!(ent->r.svFlags & SVF_BOT) && g_forceClientUpdateRate.integer && ent->client->lastCmdTime < level.time - g_forceClientUpdateRate.integer) {
+		trap_GetUsercmd(ent - g_entities, &ent->client->pers.cmd);
+		ent->client->lastCmdTime = level.time;
+		ent->client->pers.cmd.serverTime = level.time;
+		ent->client->pers.cmd.forwardmove = ent->client->pers.cmd.rightmove = ent->client->pers.cmd.upmove = 0;
+		//ent->client->pers.cmd.buttons = 0;
+
+		ClientThink_real(ent);
+		return;
+	}
+
 	if ( !(ent->r.svFlags & SVF_BOT) && !g_synchronousClients.integer ) {
 		return;
 	}
