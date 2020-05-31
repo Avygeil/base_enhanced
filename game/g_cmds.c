@@ -1872,6 +1872,12 @@ static qboolean ChatLimitExceeded(gentity_t *ent, int mode) {
 	return exceeded;
 }
 
+static qboolean IsRacerOrSpectator(gentity_t *ent) {
+	if (g_gametype.integer != GT_CTF || !ent || !ent->client || ent->client->sess.sessionTeam == TEAM_RED || ent->client->sess.sessionTeam == TEAM_BLUE)
+		return qfalse;
+	return qtrue;
+}
+
 static void G_SayTo( gentity_t *ent, gentity_t *other, int mode, int color, const char *name, const char *message, char *locMsg )
 {
 	if (!other) {
@@ -1886,7 +1892,7 @@ static void G_SayTo( gentity_t *ent, gentity_t *other, int mode, int color, cons
 	if ( other->client->pers.connected != CON_CONNECTED ) {
 		return;
 	}
-	if ( mode == SAY_TEAM  && !OnSameTeam(ent, other) ) {
+	if ( mode == SAY_TEAM  && !OnSameTeam(ent, other) && !(IsRacerOrSpectator(ent) && IsRacerOrSpectator(other)) ) {
 		return;
 	}
 	if ((other->client->sess.ignoreFlags & (1<<(ent-g_entities)))
@@ -4745,6 +4751,8 @@ void Cmd_Vchat_f(gentity_t *sender) {
 			if ( senderTeam != recipientTeam ) { // it's a teamchat and this guy isn't on our team...
 				if ( recipientTeam == TEAM_SPECTATOR && cl->ps.persistant[PERS_TEAM] == senderTeam ) {
 					// but he is speccing our team, so it's okay
+				} else if (IsRacerOrSpectator(sender) && IsRacerOrSpectator(&g_entities[i])) {
+					// but they are both spec/racer, so it's okay
 				} else {
 					continue; // he is truly on a different team; don't send it to him
 				}
