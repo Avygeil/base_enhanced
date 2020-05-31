@@ -414,6 +414,8 @@ vmCvar_t	g_waitForAFKTimer;
 vmCvar_t	g_waitForAFKThreshold;
 vmCvar_t	g_waitForAFKMinPlayers;
 
+vmCvar_t	g_printCountry;
+
 // nmckenzie: temporary way to show player healths in duels - some iface gfx in game would be better, of course.
 // DUEL_HEALTH
 vmCvar_t		g_showDuelHealths;
@@ -875,8 +877,10 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_unlaggedSkeletonTime, "g_unlaggedSkeletonTime", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_unlaggedFactor, "g_unlaggedFactor", "0.25", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_unlaggedOffset, "g_unlaggedOffset", "0", CVAR_ARCHIVE, 0, qtrue },
-	{ &g_unlaggedDebug, "g_unlaggedDebug", "0", CVAR_ARCHIVE, 0, qtrue }
+	{ &g_unlaggedDebug, "g_unlaggedDebug", "0", CVAR_ARCHIVE, 0, qtrue },
 #endif
+
+	{ &g_printCountry, "g_printCountry", "1", CVAR_ARCHIVE, 0, qtrue },
 };
 
 // bk001129 - made static to avoid aliasing

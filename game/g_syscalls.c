@@ -1535,6 +1535,10 @@ qboolean trap_SendMultipartPOSTRequest(trsfHandle_t* handle, const char* url, tr
 	return syscall(G_SEND_MULTIPART_POST_REQUEST, handle, url, multiPart, numParts, headerAccept, headerContentType, receiveResult);
 }
 
+void trap_GetCountry(const char *ipStr, char *outBuf, int outBufSize) {
+	syscall(G_GETCOUNTRY, ipStr, outBuf, outBufSize);
+}
+
 #endif
 
 #include "namespace_end.h"
