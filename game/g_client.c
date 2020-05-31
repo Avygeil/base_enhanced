@@ -3836,10 +3836,10 @@ void ClientSpawn(gentity_t *ent) {
 						spawn_origin, spawn_angles);
 	} else if (g_gametype.integer == GT_CTF || g_gametype.integer == GT_CTY) {
 		// all base oriented team games use the CTF spawn points
-		spawnPoint = SelectCTFSpawnPoint ( 
-						client->sess.sessionTeam, 
-						client->pers.teamState.state, 
-						spawn_origin, spawn_angles);
+		spawnPoint = SelectCTFSpawnPoint(client, client->sess.sessionTeam, client->pers.teamState.state, spawn_origin, spawn_angles);
+
+		client->pers.lastSpawnPoint = spawnPoint;
+		client->pers.lastSpawnTime = level.time;
 	}
 	else if (g_gametype.integer == GT_SIEGE)
 	{

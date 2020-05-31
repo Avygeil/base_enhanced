@@ -655,6 +655,10 @@ typedef struct {
 	qboolean	hasDoneSomething; // for auto AFK detection
 
 	int			lastInputTime;
+
+	gentity_t	*lastSpawnPoint;
+	int			lastSpawnTime;
+	gentity_t	*lastKiller;
 } clientPersistant_t;
 
 typedef struct renderInfo_s
@@ -2251,6 +2255,7 @@ extern vmCvar_t		g_duplicateNamesId;
 
 extern vmCvar_t		g_droppedFlagSpawnProtectionRadius;
 extern vmCvar_t		g_droppedFlagSpawnProtectionDuration;
+extern vmCvar_t		g_selfKillSpawnSpamProtection;
 
 #ifdef NEWMOD_SUPPORT
 extern vmCvar_t		g_netUnlock;
