@@ -4410,7 +4410,8 @@ void ClientThink( int clientNum,usercmd_t *ucmd ) {
 
 void G_RunClient( gentity_t *ent ) {
 	// force a client think if it's been too long since their last real one
-	if (!(ent->r.svFlags & SVF_BOT) && g_forceClientUpdateRate.integer && ent->client->lastCmdTime < level.time - g_forceClientUpdateRate.integer) {
+	if (!(ent->r.svFlags & SVF_BOT) && g_forceClientUpdateRate.integer && ent->client->lastCmdTime < level.time - g_forceClientUpdateRate.integer &&
+		ent->client->sess.sessionTeam != TEAM_SPECTATOR) {
 		trap_GetUsercmd(ent - g_entities, &ent->client->pers.cmd);
 		ent->client->lastCmdTime = level.time;
 		ent->client->pers.cmd.serverTime = level.time;
