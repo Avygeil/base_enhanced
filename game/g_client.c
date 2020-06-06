@@ -2699,7 +2699,10 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 		client->sess.qport = 0;
 
 	// country detection
-	if (!isBot && firstTime) {
+	if (isBot) {
+		client->sess.country[0] = '\0';
+	}
+	else if (firstTime) {
 		client->sess.country[0] = '\0';
 		trap_GetCountry(ipString, client->sess.country, sizeof(client->sess.country));
 	}
