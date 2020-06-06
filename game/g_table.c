@@ -313,7 +313,7 @@ void Table_WriteToBuffer(Table *t, char *buf, size_t bufSize) {
 			ColumnData *column = ListFind(&t->columnList, ColumnIdMatches, &i, NULL);
 			if (!column)
 				break;
-			WriteCell(t, row, column, grey, buf, bufSize);
+			WriteCell(t, row, column, !!(grey && t->alternateColors), buf, bufSize);
 		}
 		Q_strcat(buf, bufSize, "^7\n");
 		grey = !grey;
