@@ -1489,7 +1489,9 @@ void G_DBListPools( ListPoolCallback callback,
 void G_DBListMapsInPool( const char* short_name,
 	const char* ignore,
 	ListMapsPoolCallback callback,
-	void** context )
+	void* context,
+	char *longNameOut,
+	size_t longNameOutSize)
 {
 	sqlite3_stmt* statement;
 	// prepare insert statement
@@ -1502,6 +1504,8 @@ void G_DBListMapsInPool( const char* short_name,
 	while ( rc == SQLITE_ROW )
 	{
 		const char* long_name = ( const char* )sqlite3_column_text( statement, 0 );
+		if (VALIDSTRING(long_name) && longNameOut && longNameOutSize)
+			Q_strncpyz(longNameOut, long_name, longNameOutSize);
 		int pool_id = sqlite3_column_int( statement, 1 );
 		const char* mapname = ( const char* )sqlite3_column_text( statement, 2 );
 		int weight = sqlite3_column_int( statement, 3 );
@@ -1596,7 +1600,7 @@ qboolean G_DBSelectMapsFromPool( const char* short_name,
 	{
 		// fill the cumulative density function of the map pool
 		CumulativeMapWeight *cdf = NULL;
-		G_DBListMapsInPool( short_name, ignoreMap, BuildCumulativeWeight, ( void ** )&cdf );
+		G_DBListMapsInPool( short_name, ignoreMap, BuildCumulativeWeight, ( void * )cdf, NULL, 0 );
 
 		if ( cdf ) {
 			CumulativeMapWeight *n = cdf;

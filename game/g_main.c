@@ -1113,6 +1113,9 @@ int vmMain( int command, int arg0, int arg1, int arg2, int arg3, int arg4, int a
 	case GAME_RCON_COMMAND:
 		G_LogRconCommand((const char*)arg0, (const char*)arg1);
 		return 0;
+	case GAME_STATUS:
+		G_Status();
+		return 0;
 	}
 
 	return -1;
@@ -1126,13 +1129,13 @@ int vmMain( int command, int arg0, int arg1, int arg2, int arg3, int arg4, int a
 #define BUFFER_REAL_LEN 1024
 void QDECL G_Printf( const char *fmt, ... ) {
 	va_list		argptr;
-	static char		text[BUFFER_TEMP_LEN] = { 0 };
+	static char		text[4096] = { 0 };
 
 	va_start (argptr, fmt);
 	vsnprintf (text, sizeof(text), fmt, argptr);
 	va_end (argptr);
 
-	text[BUFFER_REAL_LEN-1] = '\0';
+	text[4096-1] = '\0';
 
 	trap_Printf( text );
 }
@@ -2024,7 +2027,7 @@ void QDECL Com_Error ( int level, const char *error, ... ) {
 
 void QDECL Com_Printf( const char *msg, ... ) {
 	va_list		argptr;
-	char		text[1024] = { 0 };
+	char		text[4096] = { 0 };
 
 	va_start (argptr, msg);
 	vsnprintf (text, sizeof(text), msg, argptr);

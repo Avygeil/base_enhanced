@@ -206,7 +206,9 @@ void G_DBListPools( ListPoolCallback callback,
 void G_DBListMapsInPool( const char* short_name,
 	const char* ignore,
 	ListMapsPoolCallback callback,
-	void** context );
+	void* context,
+	char *longNameOut,
+	size_t longNameOutSize);
 
 qboolean G_DBFindPool( const char* short_name,
 	PoolInfo* poolInfo );

@@ -2692,10 +2692,17 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 	memset( client, 0, sizeof(*client) );
     client->sess = sessOld;
 
+	value = Info_ValueForKey(userinfo, "qport");
+	if (VALIDSTRING(value))
+		client->sess.qport = atoi(value);
+	else
+		client->sess.qport = 0;
+
 	// country detection
-	char country[256] = { 0 };
-	if (!isBot && firstTime)
-		trap_GetCountry(ipString, country, sizeof(country));
+	if (!isBot && firstTime) {
+		client->sess.country[0] = '\0';
+		trap_GetCountry(ipString, client->sess.country, sizeof(client->sess.country));
+	}
 
 	client->pers.connected = CON_CONNECTING;
 
@@ -2773,13 +2780,13 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 
 	// get and distribute relevent paramters
 	if (firstTime)
-		G_LogPrintf( "ClientConnect: %i (%s) from %s%s\n", clientNum, Info_ValueForKey(userinfo, "name") , Info_ValueForKey(userinfo, "ip"), country[0] ? va(" (%s)", country) : "");
+		G_LogPrintf( "ClientConnect: %i (%s) from %s%s\n", clientNum, Info_ValueForKey(userinfo, "name") , Info_ValueForKey(userinfo, "ip"), client->sess.country[0] ? va(" (%s)", client->sess.country) : "");
 	ClientUserinfoChanged( clientNum );
 
 	// don't do the "xxx connected" messages if they were caried over from previous level
 	if ( firstTime ) {
-		if (g_printCountry.integer && country[0])
-			trap_SendServerCommand( -1, va("print \"%s" S_COLOR_WHITE " %s (from %s)\n\"", client->pers.netname, G_GetStringEdString("MP_SVGAME", "PLCONNECT"), country) );
+		if (g_printCountry.integer && client->sess.country[0])
+			trap_SendServerCommand( -1, va("print \"%s" S_COLOR_WHITE " %s (from %s)\n\"", client->pers.netname, G_GetStringEdString("MP_SVGAME", "PLCONNECT"), client->sess.country) );
 		else
 			trap_SendServerCommand(-1, va("print \"%s" S_COLOR_WHITE " %s\n\"", client->pers.netname, G_GetStringEdString("MP_SVGAME", "PLCONNECT")));
 	}
