@@ -536,7 +536,7 @@ static cvarTable_t		gameCvarTable[] = {
     { &g_capturedifflimit, "capturedifflimit", "10", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_NORESTART, 0, qtrue },
 
     { &g_synchronousClients, "g_synchronousClients", "0", CVAR_SYSTEMINFO, 0, qfalse },
-	{ &g_forceClientUpdateRate, "g_forceClientUpdateRate", "250", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_forceClientUpdateRate, "g_forceClientUpdateRate", "200", CVAR_ARCHIVE, 0, qfalse },
 
     { &d_saberInterpolate, "d_saberInterpolate", "0", CVAR_CHEAT, 0, qtrue },
 
