@@ -23,7 +23,7 @@ CC = gcc
 # -masm=intel   		assembler syntax¨
 
 # Compiler Flags - swap CONFIG for release/debug builds
-CONFIG = -O2 -DFINAL_BUILD -DNDEBUG -fno-stack-protector -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0 -D_GNU_SOURCE
+CONFIG = -O2 -DFINAL_BUILD -DNDEBUG -fno-stack-protector -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0 -D_GNU_SOURCE -std=c99
 #CONFIG = -O0 -g -DFINAL_BUILD -DNDEBUG -D_GNU_SOURCE
 #CONFIG = -g3 -D_DEBUG -D_GNU_SOURCE
 INCLUDES = -I./ -I../include/
