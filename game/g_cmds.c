@@ -4605,9 +4605,6 @@ void Cmd_Vchat_f(gentity_t *sender) {
 	if (!VALIDSTRING(s) || !strchr(s, VCHAT_ESCAPE_CHAR))
 		return;
 
-	if ( ChatLimitExceeded( sender, -1 ) )
-		return;
-
 	qboolean teamOnly = qfalse;
 	vchatType_t type = VCHATTYPE_MEME;
 	char modName[MAX_QPATH] = { 0 }, fileName[MAX_QPATH] = { 0 }, msg[200] = { 0 };
@@ -4644,6 +4641,9 @@ void Cmd_Vchat_f(gentity_t *sender) {
 	}
 
 	if (!modName[0] || !fileName[0] || !msg[0])
+		return;
+
+	if (ChatLimitExceeded(sender, teamOnly ? SAY_TEAM : -1))
 		return;
 
 	Q_CleanStr( modName );
