@@ -1911,7 +1911,7 @@ typedef struct {
 	qboolean		alternateColors;
 	int				lastColumnIdAssigned;
 } Table;
-void listMapsInPools(void *context, const char *long_name, int pool_id, const char *mapname, int mapWeight);
+void listMapsInPools(void **context, const char *long_name, int pool_id, const char *mapname, int mapWeight);
 void listPools(void *context, int pool_id, const char *short_name, const char *long_name);
 const char *TableCallback_MapName(void *context);
 const char *TableCallback_MapWeight(void *context);

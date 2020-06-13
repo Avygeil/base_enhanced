@@ -17,7 +17,7 @@ typedef struct {
 	int				columnId;
 } ColumnData;
 
-void listMapsInPools(void *context, const char *long_name, int pool_id, const char *mapname, int mapWeight) {
+void listMapsInPools(void **context, const char *long_name, int pool_id, const char *mapname, int mapWeight) {
 	list_t *mapList = (list_t *)context;
 	poolMap_t *thisMap = ListAdd(mapList, sizeof(poolMap_t));
 
