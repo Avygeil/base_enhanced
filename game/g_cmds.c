@@ -5258,8 +5258,9 @@ static void Cmd_MapPool_f(gentity_t* ent) {
 		}
 
 		list_t mapList = { 0 };
+		void *ctxPtr = &mapList;
 		char poolLongName[64] = { 0 };
-		G_DBListMapsInPool( short_name, "", listMapsInPools, (void **)&mapList, (char *)poolLongName, sizeof(poolLongName));
+		G_DBListMapsInPool( short_name, "", listMapsInPools, (void **)&ctxPtr, (char *)poolLongName, sizeof(poolLongName));
 
 		iterator_t iter;
 		ListIterate(&mapList, &iter, qfalse);

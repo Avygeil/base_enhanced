@@ -1998,7 +1998,7 @@ void Svcmd_MapPool_f(void) {
 		list_t mapList = { 0 };
 		void *ctxPtr = &mapList;
 		char poolLongName[64] = { 0 };
-		G_DBListMapsInPool(short_name, "", listMapsInPools, (void **)&mapList, &poolLongName[0], sizeof(poolLongName));
+		G_DBListMapsInPool(short_name, "", listMapsInPools, (void **)&ctxPtr, &poolLongName[0], sizeof(poolLongName));
 
 		iterator_t iter;
 		ListIterate(&mapList, &iter, qfalse);
