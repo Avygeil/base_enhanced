@@ -2504,7 +2504,7 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 	gentity_t	*ent;
 	gentity_t	*te;
 	char		cleverFakeDetection[24]; 
-	char        ipString[24];
+	char        ipString[24] = { 0 };
 	unsigned int ip = 0; 
     int         port = 0;
 	char		username[MAX_USERNAME_SIZE];
@@ -2694,6 +2694,21 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 	memset( client, 0, sizeof(*client) );
     client->sess = sessOld;
 
+	value = Info_ValueForKey(userinfo, "qport");
+	if (VALIDSTRING(value))
+		client->sess.qport = atoi(value);
+	else
+		client->sess.qport = 0;
+
+	// country detection
+	if (isBot) {
+		client->sess.country[0] = '\0';
+	}
+	else if (firstTime) {
+		client->sess.country[0] = '\0';
+		trap_GetCountry(ipString, client->sess.country, sizeof(client->sess.country));
+	}
+
 	client->pers.connected = CON_CONNECTING;
 
 	// *CHANGE 8b* added clientNum to persistant data
@@ -2767,12 +2782,15 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 
 	// get and distribute relevent paramters
 	if (firstTime)
-		G_LogPrintf( "ClientConnect: %i (%s) from %s \n", clientNum, Info_ValueForKey(userinfo, "name") , Info_ValueForKey(userinfo, "ip"));
+		G_LogPrintf( "ClientConnect: %i (%s) from %s%s\n", clientNum, Info_ValueForKey(userinfo, "name") , Info_ValueForKey(userinfo, "ip"), client->sess.country[0] ? va(" (%s)", client->sess.country) : "");
 	ClientUserinfoChanged( clientNum );
 
 	// don't do the "xxx connected" messages if they were caried over from previous level
 	if ( firstTime ) {
-		trap_SendServerCommand( -1, va("print \"%s" S_COLOR_WHITE " %s\n\"", client->pers.netname, G_GetStringEdString("MP_SVGAME", "PLCONNECT")) );
+		if (g_printCountry.integer && client->sess.country[0])
+			trap_SendServerCommand( -1, va("print \"%s" S_COLOR_WHITE " %s (from %s)\n\"", client->pers.netname, G_GetStringEdString("MP_SVGAME", "PLCONNECT"), client->sess.country) );
+		else
+			trap_SendServerCommand(-1, va("print \"%s" S_COLOR_WHITE " %s\n\"", client->pers.netname, G_GetStringEdString("MP_SVGAME", "PLCONNECT")));
 	}
 
     if ( firstTime )
@@ -3908,10 +3926,10 @@ void ClientSpawn(gentity_t *ent) {
 						spawn_origin, spawn_angles);
 	} else if (g_gametype.integer == GT_CTF || g_gametype.integer == GT_CTY) {
 		// all base oriented team games use the CTF spawn points
-		spawnPoint = SelectCTFSpawnPoint ( 
-						client->sess.sessionTeam, 
-						client->pers.teamState.state, 
-						spawn_origin, spawn_angles);
+		spawnPoint = SelectCTFSpawnPoint(client, client->sess.sessionTeam, client->pers.teamState.state, spawn_origin, spawn_angles);
+
+		client->pers.lastSpawnPoint = spawnPoint;
+		client->pers.lastSpawnTime = level.time;
 	}
 	else if (g_gametype.integer == GT_SIEGE)
 	{

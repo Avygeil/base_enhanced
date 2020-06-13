@@ -345,6 +345,7 @@ vmCvar_t	g_duplicateNamesId;
 
 vmCvar_t	g_droppedFlagSpawnProtectionRadius;
 vmCvar_t	g_droppedFlagSpawnProtectionDuration;
+vmCvar_t	g_selfKillSpawnSpamProtection;
 
 #ifdef NEWMOD_SUPPORT
 vmCvar_t	g_netUnlock;
@@ -411,6 +412,7 @@ vmCvar_t	g_waitForAFK;
 vmCvar_t	g_waitForAFKTimer;
 vmCvar_t	g_waitForAFKThreshold;
 vmCvar_t	g_waitForAFKMinPlayers;
+vmCvar_t	g_printCountry;
 
 // nmckenzie: temporary way to show player healths in duels - some iface gfx in game would be better, of course.
 // DUEL_HEALTH
@@ -531,7 +533,7 @@ static cvarTable_t		gameCvarTable[] = {
     { &g_capturedifflimit, "capturedifflimit", "10", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_NORESTART, 0, qtrue },
 
     { &g_synchronousClients, "g_synchronousClients", "0", CVAR_SYSTEMINFO, 0, qfalse },
-	{ &g_forceClientUpdateRate, "g_forceClientUpdateRate", "250", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_forceClientUpdateRate, "g_forceClientUpdateRate", "200", CVAR_ARCHIVE, 0, qfalse },
 
     { &d_saberInterpolate, "d_saberInterpolate", "0", CVAR_CHEAT, 0, qtrue },
 
@@ -729,6 +731,7 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_droppedFlagSpawnProtectionRadius, "g_droppedFlagSpawnProtectionRadius", "1024", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_droppedFlagSpawnProtectionDuration, "g_droppedFlagSpawnProtectionDuration", "10000", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_selfKillSpawnSpamProtection, "g_selfKillSpawnSpamProtection", "5", CVAR_ARCHIVE, 0, qtrue },
 
 #ifdef NEWMOD_SUPPORT
 	{ &g_netUnlock, "g_netUnlock", "1", CVAR_ARCHIVE, 0, qtrue },
@@ -871,8 +874,10 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_unlaggedSkeletonTime, "g_unlaggedSkeletonTime", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_unlaggedFactor, "g_unlaggedFactor", "0.25", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_unlaggedOffset, "g_unlaggedOffset", "0", CVAR_ARCHIVE, 0, qtrue },
-	{ &g_unlaggedDebug, "g_unlaggedDebug", "0", CVAR_ARCHIVE, 0, qtrue }
+	{ &g_unlaggedDebug, "g_unlaggedDebug", "0", CVAR_ARCHIVE, 0, qtrue },
 #endif
+
+	{ &g_printCountry, "g_printCountry", "1", CVAR_ARCHIVE, 0, qtrue },
 };
 
 // bk001129 - made static to avoid aliasing
@@ -1103,6 +1108,9 @@ int vmMain( int command, int arg0, int arg1, int arg2, int arg3, int arg4, int a
 	case GAME_RCON_COMMAND:
 		G_LogRconCommand((const char*)arg0, (const char*)arg1);
 		return 0;
+	case GAME_STATUS:
+		G_Status();
+		return 0;
 	}
 
 	return -1;
@@ -1116,13 +1124,13 @@ int vmMain( int command, int arg0, int arg1, int arg2, int arg3, int arg4, int a
 #define BUFFER_REAL_LEN 1024
 void QDECL G_Printf( const char *fmt, ... ) {
 	va_list		argptr;
-	static char		text[BUFFER_TEMP_LEN] = { 0 };
+	static char		text[4096] = { 0 };
 
 	va_start (argptr, fmt);
 	vsnprintf (text, sizeof(text), fmt, argptr);
 	va_end (argptr);
 
-	text[BUFFER_REAL_LEN-1] = '\0';
+	text[4096-1] = '\0';
 
 	trap_Printf( text );
 }
@@ -1847,7 +1855,7 @@ void QDECL Com_Error ( int level, const char *error, ... ) {
 
 void QDECL Com_Printf( const char *msg, ... ) {
 	va_list		argptr;
-	char		text[1024] = { 0 };
+	char		text[4096] = { 0 };
 
 	va_start (argptr, msg);
 	vsnprintf (text, sizeof(text), msg, argptr);

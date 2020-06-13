@@ -1145,7 +1145,7 @@ go to a random point that doesn't telefrag
 ================
 */
 #define	MAX_TEAM_SPAWN_POINTS	32
-gentity_t *SelectRandomTeamSpawnPoint( int teamstate, team_t team, int siegeClass ) {
+gentity_t *SelectRandomTeamSpawnPoint( gclient_t *client, int teamstate, team_t team, int siegeClass ) {
 	gentity_t	*spot;
 	int			count;
 	int			selection;
@@ -1259,6 +1259,20 @@ gentity_t *SelectRandomTeamSpawnPoint( int teamstate, team_t team, int siegeClas
 		}
 	}
 
+	// remove our previous spawnpoint from consideration if we spawned there within a few seconds ago and selfkilled
+	if (g_gametype.integer == GT_CTF && count && g_selfKillSpawnSpamProtection.integer > 0 && client &&
+		client->pers.lastKiller == &g_entities[client - level.clients] && level.time - client->pers.lastSpawnTime < (1000 * g_selfKillSpawnSpamProtection.integer)) {
+		for (int i = 0; i < count; i++) {
+			if (spots[i] != client->pers.lastSpawnPoint)
+				continue;
+
+			if (i + 1 < count) // if there are more spots, shift the array
+				memmove(spots + i, spots + i + 1, (count - i - 1) * sizeof(gentity_t *));
+			--count;
+			break;
+		}
+	}
+
 	if ( !count ) {	// no valid spot
 		return G_Find( NULL, FOFS(classname), classname);
 	}
@@ -1297,10 +1311,10 @@ SelectCTFSpawnPoint
 
 ============
 */
-gentity_t *SelectCTFSpawnPoint ( team_t team, int teamstate, vec3_t origin, vec3_t angles ) {
+gentity_t *SelectCTFSpawnPoint ( gclient_t *client, team_t team, int teamstate, vec3_t origin, vec3_t angles ) {
 	gentity_t	*spot;
 
-	spot = SelectRandomTeamSpawnPoint ( teamstate, team, -1 );
+	spot = SelectRandomTeamSpawnPoint ( client, teamstate, team, -1 );
 
 	if (!spot) {
 		spot = SelectSpawnPoint( vec3_origin, origin, angles, team );
@@ -1308,7 +1322,7 @@ gentity_t *SelectCTFSpawnPoint ( team_t team, int teamstate, vec3_t origin, vec3
 			return spot; // +9 etc already done
 
 		if (team == TEAM_FREE) // no ffa spawns found for a racer; just try to get a random team one
-			spot = SelectRandomTeamSpawnPoint(teamstate, Q_irand(TEAM_RED, TEAM_BLUE), -1);
+			spot = SelectRandomTeamSpawnPoint(NULL, teamstate, Q_irand(TEAM_RED, TEAM_BLUE), -1);
 
 		if (!spot) // STILL no spawn found (shouldn't happen)
 			G_Error("No spawn point found");
@@ -1330,7 +1344,7 @@ SelectSiegeSpawnPoint
 gentity_t *SelectSiegeSpawnPoint ( int siegeClass, team_t team, int teamstate, vec3_t origin, vec3_t angles ) {
 	gentity_t	*spot;
 
-	spot = SelectRandomTeamSpawnPoint ( teamstate, team, siegeClass );
+	spot = SelectRandomTeamSpawnPoint ( NULL, teamstate, team, siegeClass );
 
 	if (!spot) {
 		return SelectSpawnPoint( vec3_origin, origin, angles, team );

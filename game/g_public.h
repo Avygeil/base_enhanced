@@ -589,7 +589,8 @@ Ghoul2 Insert End
 	G_SET_CONFIGSTRING_NO_UPDATE,
 	G_SEND_GET_REQUEST,
 	G_SEND_POST_REQUEST,
-	G_SEND_MULTIPART_POST_REQUEST
+	G_SEND_MULTIPART_POST_REQUEST,
+	G_GETCOUNTRY
 #endif
 
 } gameImport_t;
@@ -815,7 +816,8 @@ typedef enum {
 
 	// base_enhanced
 	GAME_TRANSFER_RESULT = 1337,
-	GAME_RCON_COMMAND
+	GAME_RCON_COMMAND,
+	GAME_STATUS,
 } gameExport_t;
 
 typedef struct

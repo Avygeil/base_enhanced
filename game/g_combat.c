@@ -2729,6 +2729,8 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 			}
 		}
 	}
+
+	self->client->pers.lastKiller = attacker;
 }
 
 

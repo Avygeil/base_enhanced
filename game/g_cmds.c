@@ -1871,6 +1871,12 @@ static qboolean ChatLimitExceeded(gentity_t *ent, int mode) {
 	return exceeded;
 }
 
+static qboolean IsRacerOrSpectator(gentity_t *ent) {
+	if (g_gametype.integer != GT_CTF || !ent || !ent->client || ent->client->sess.sessionTeam == TEAM_RED || ent->client->sess.sessionTeam == TEAM_BLUE)
+		return qfalse;
+	return qtrue;
+}
+
 static void G_SayTo( gentity_t *ent, gentity_t *other, int mode, int color, const char *name, const char *message, char *locMsg )
 {
 	if (!other) {
@@ -1885,7 +1891,7 @@ static void G_SayTo( gentity_t *ent, gentity_t *other, int mode, int color, cons
 	if ( other->client->pers.connected != CON_CONNECTED ) {
 		return;
 	}
-	if ( mode == SAY_TEAM  && !OnSameTeam(ent, other) ) {
+	if ( mode == SAY_TEAM  && !OnSameTeam(ent, other) && !(IsRacerOrSpectator(ent) && IsRacerOrSpectator(other)) ) {
 		return;
 	}
 	if ((other->client->sess.ignoreFlags & (1<<(ent-g_entities)))
@@ -4227,9 +4233,6 @@ void Cmd_Vchat_f(gentity_t *sender) {
 	if (!VALIDSTRING(s) || !strchr(s, VCHAT_ESCAPE_CHAR))
 		return;
 
-	if ( ChatLimitExceeded( sender, -1 ) )
-		return;
-
 	qboolean teamOnly = qfalse;
 	vchatType_t type = VCHATTYPE_MEME;
 	char modName[MAX_QPATH] = { 0 }, fileName[MAX_QPATH] = { 0 }, msg[200] = { 0 };
@@ -4266,6 +4269,9 @@ void Cmd_Vchat_f(gentity_t *sender) {
 	}
 
 	if (!modName[0] || !fileName[0] || !msg[0])
+		return;
+
+	if (ChatLimitExceeded(sender, teamOnly ? SAY_TEAM : -1))
 		return;
 
 	Q_CleanStr( modName );
@@ -4373,6 +4379,8 @@ void Cmd_Vchat_f(gentity_t *sender) {
 			if ( senderTeam != recipientTeam ) { // it's a teamchat and this guy isn't on our team...
 				if ( recipientTeam == TEAM_SPECTATOR && cl->ps.persistant[PERS_TEAM] == senderTeam ) {
 					// but he is speccing our team, so it's okay
+				} else if (IsRacerOrSpectator(sender) && IsRacerOrSpectator(&g_entities[i])) {
+					// but they are both spec/racer, so it's okay
 				} else {
 					continue; // he is truly on a different team; don't send it to him
 				}
@@ -5215,6 +5223,7 @@ qboolean G_OtherPlayersDueling(void)
 	return qfalse;
 }
 
+#if 0
 void listPools( void* context,
     int pool_id,
     const char* short_name,
@@ -5237,35 +5246,75 @@ void listMapsInPools( void** context,
     Q_strncpyz( thisContext->long_name, long_name, sizeof( thisContext->long_name ) );
     trap_SendServerCommand( thisContext->entity, va( "print \" %s^7\n\"", mapname ) );
 }
+#endif
 
-
-static void Cmd_MapPool_f(gentity_t* ent)
-{
-	if (trap_Argc() > 1)
-	{
-        ListMapsInPoolContext context;
-        context.entity = ent - g_entities;
-        context.count = 0;
-		ListMapsInPoolContext *ctxPtr = &context;
-
-        char short_name[64];
+static void Cmd_MapPool_f(gentity_t* ent) {
+	if (trap_Argc() > 1) { // print a list of the maps in a single pool
+		char short_name[64] = { 0 };
         trap_Argv( 1, short_name, sizeof( short_name ) );
+		if (!short_name[0]) {
+			PrintIngame(ent - g_entities, "Please specify a pool short name.\n");
+			return;
+		}
 
-		G_DBListMapsInPool( short_name, "", listMapsInPools, ( void** )&ctxPtr );
+		list_t mapList = { 0 };
+		char poolLongName[64] = { 0 };
+		G_DBListMapsInPool( short_name, "", listMapsInPools, (void **)&mapList, (char *)poolLongName, sizeof(poolLongName));
 
-        trap_SendServerCommand( context.entity, va( "print \"Found %i maps for pool %s^7.\n\"",
-            context.count, short_name, context.long_name ) );
+		iterator_t iter;
+		ListIterate(&mapList, &iter, qfalse);
+		Table *t = Table_Initialize(qtrue);
+		int numMaps = 0;
+		while (IteratorHasNext(&iter)) {
+			poolMap_t *map = (poolMap_t *)IteratorNext(&iter);
+			Table_DefineRow(t, map);
+			numMaps++;
+		}
+
+		if (numMaps) {
+			Table_DefineColumn(t, "Map", TableCallback_MapName, qtrue, 64);
+			Table_DefineColumn(t, "Weight", TableCallback_MapWeight, qtrue, 64);
+
+			char buf[2048] = { 0 };
+			Table_WriteToBuffer(t, buf, sizeof(buf));
+			Q_strcat(buf, sizeof(buf), "\n");
+			PrintIngame(ent - g_entities, buf);
+		}
+		Table_Destroy(t);
+		ListClear(&mapList);
+
+        PrintIngame(ent - g_entities, va( "Found %i maps for pool with long name ^5%s^7 and short name ^5%s^7.\n", numMaps, poolLongName, short_name) );
+		PrintIngame(ent - g_entities, "To see a list of all pools, use ^5pools^7 without any arguments.\n");
 	}
-	else
-	{
-        ListPoolsContext context;
-        context.entity = ent - g_entities;
-        context.count = 0;
+	else { // print a list of pools
+		list_t poolList = { 0 };
 
-        G_DBListPools( listPools, &context );
+        G_DBListPools( listPools, &poolList );
 
-        trap_SendServerCommand( context.entity, va( "print \"Found %i map pools.\n\"", context.count ) );
-		trap_SendServerCommand(context.entity, "print \"To see a list of maps in a specific pool, use ^5pools <pool short name>^7\n\"");
+		iterator_t iter;
+		ListIterate(&poolList, &iter, qfalse);
+		Table *t = Table_Initialize(qtrue);
+		int numPools = 0;
+		while (IteratorHasNext(&iter)) {
+			pool_t *pool = (pool_t *)IteratorNext(&iter);
+			Table_DefineRow(t, pool);
+			numPools++;
+		}
+
+		if (numPools) {
+			Table_DefineColumn(t, "Short Name", TableCallback_PoolShortName, qtrue, 64);
+			Table_DefineColumn(t, "Long Name", TableCallback_PoolLongName, qtrue, 64);
+
+			char buf[2048] = { 0 };
+			Table_WriteToBuffer(t, buf, sizeof(buf));
+			Q_strcat(buf, sizeof(buf), "\n");
+			PrintIngame(ent - g_entities, buf);
+		}
+		Table_Destroy(t);
+		ListClear(&poolList);
+
+        PrintIngame( ent - g_entities, va( "Found %i map pools.\n", numPools) );
+		PrintIngame(ent - g_entities, "To see a list of maps in a specific pool, use ^5pools <pool short name>^7\n");
 	}
 }
 
@@ -5449,56 +5498,39 @@ void Cmd_VchatList_f(gentity_t* ent) {
 }
 #endif
 
-void Cmd_WhoIs_f( gentity_t* ent )
-{
-	if (!ent || !ent->client) {
-		return;
-	}
+void Cmd_WhoIs_f( gentity_t* ent ) {
+	int clientNum = -1;
+	if (trap_Argc() >= 2) {
+		char buf[64] = { 0 };
+		trap_Argv(1, buf, sizeof(buf));
+		gentity_t *found = found = G_FindClient(buf);
 
-	char buf[MAX_STRING_CHARS];
-	Q_strncpyz(buf,
-		"id name                     alias\n"
-		"-- ------------------------ ------------------------\n",
-		sizeof(buf));
-
-	int i;
-	for (i = 0; i < level.maxclients; ++i) {
-		gclient_t* client = &level.clients[i];
-		
-		if (client->pers.connected != CON_DISCONNECTED && !(g_entities[i].r.svFlags & SVF_BOT)) {
-			char* color;
-			switch (client->sess.sessionTeam) {
-				case TEAM_RED: color = S_COLOR_RED; break;
-				case TEAM_BLUE: color = S_COLOR_BLUE; break;
-				case TEAM_FREE: color = S_COLOR_YELLOW; break;
-				default: color = S_COLOR_WHITE;
-			}
-
-			Q_strcat(buf, sizeof(buf), va("%s%-2d ", color, i));
-			Q_strcat(buf, sizeof(buf), client->pers.netname);
-			int j;
-			for (j = Q_PrintStrlen(client->pers.netname); j < MAX_NAME_DISPLAYLENGTH + 1; ++j)
-				Q_strcat(buf, sizeof(buf), " ");
-
-			if (client->account) {
-				// if we have an account to use, just use the account name
-				Q_strcat(buf, sizeof(buf), S_COLOR_WHITE);
-				Q_strcat(buf, sizeof(buf), client->account->name);
-			} else if (client->session) {
-				// fallback to the nicknames db
-				nicknameEntry_t nickname = { 0 };
-				G_DBGetTopNickname(client->session->id, &nickname);
-
-				if (VALIDSTRING(nickname.name)) {
-					Q_strcat(buf, sizeof(buf), nickname.name);
-				}
-			}
-
-			Q_strcat(buf, sizeof(buf), "\n");
+		if (!found || !found->client) {
+			trap_SendServerCommand(ent - g_entities,
+				va("print \"Client %s"S_COLOR_WHITE" not found or ambiguous. Use client number or be more specific.\n\"", buf));
+			return;
 		}
+		clientNum = found - g_entities;
 	}
 
-	trap_SendServerCommand(ent - g_entities, va("print \"%s\"", buf));
+	Table *t = Table_Initialize(qfalse);
+
+	for (int i = 0; i < level.maxclients; i++) {
+		if (!level.clients[i].pers.connected || (clientNum != -1 && i != clientNum))
+			continue;
+		Table_DefineRow(t, &level.clients[i]);
+	}
+
+	Table_DefineColumn(t, "#", TableCallback_ClientNum, qfalse, 2);
+	Table_DefineColumn(t, "Name", TableCallback_Name, qtrue, MAX_NAME_DISPLAYLENGTH);
+	Table_DefineColumn(t, "Alias", TableCallback_Alias, qtrue, MAX_NAME_DISPLAYLENGTH);
+	Table_DefineColumn(t, "Country", TableCallback_Country, qtrue, 64);
+
+	char buf[MAX_STRING_CHARS] = { 0 };
+	Table_WriteToBuffer(t, buf, sizeof(buf));
+	Table_Destroy(t);
+
+	PrintIngame(ent - g_entities, buf);
 }
 
 #define MAX_STATS			16

@@ -2740,21 +2740,50 @@ char *stristr(const char *str1, const char *str2) {
 	return *p2 == 0 ? (char *)r : 0;
 }
 
-// quick way to print something ingame for everyone. does not include newline at end
-// -1 for all clients
+// prints a message ingame for someone (use -1 for everyone)
+// automatically chunks if the text is too long to send in one message
+// NOTE: does NOT automatically append ^7 or \n
+// TODO: support chunked messages prepended with asterisk
 void PrintIngame(int clientNum, const char *msg, ...) {
 	va_list		argptr;
-	char		text[1024] = { 0 };
+	char		text[8192] = { 0 };
 
 	va_start(argptr, msg);
 	vsnprintf(text, sizeof(text), msg, argptr);
 	va_end(argptr);
 
-	char buf[MAX_STRING_CHARS] = "print \"";
-	Q_strcat(buf, sizeof(buf), text);
-	Q_strcat(buf, sizeof(buf), "\"");
-	trap_SendServerCommand(clientNum, buf);
-	Com_Printf(buf);
+	int len = strlen(text);
+#define CHUNK_SIZE	(1000)
+	if (len < CHUNK_SIZE) {
+		char buf[MAX_STRING_CHARS] = "print \"";
+		Q_strcat(buf, sizeof(buf), text);
+		Q_strcat(buf, sizeof(buf), "\"");
+		trap_SendServerCommand(clientNum, buf);
+		return;
+	}
+
+	int remaining = len;
+	char *chunkStart = text;
+
+	while (remaining > 0) {
+		char buf[MAX_STRING_CHARS];
+		memset(&buf, 0, sizeof(buf));
+		Q_strcat(buf, sizeof(buf), "print \"");
+
+		qboolean endsInColor = qfalse;
+		if (strlen(chunkStart) > CHUNK_SIZE) {
+			char *lastDigit = chunkStart + CHUNK_SIZE - 1;
+			if (Q_IsColorString(lastDigit))
+				endsInColor = qtrue;
+		}
+
+		strncpy(buf + 7, chunkStart, CHUNK_SIZE + (endsInColor ? -1 : 0));
+		Q_strcat(buf, sizeof(buf), "\"");
+		trap_SendServerCommand(clientNum, buf);
+		remaining -= CHUNK_SIZE + (endsInColor ? -1 : 0);
+		if (remaining > 0)
+			chunkStart += CHUNK_SIZE + (endsInColor ? -1 : 0);
+	}
 }
 
 gclient_t* G_FindClientByIPPort(const char* ipPortString) {
@@ -2792,4 +2821,16 @@ void G_FormatDuration(const int duration, char* out, size_t outSize) {
 	} else {
 		Q_strncpyz(out, "less than a second", outSize);
 	}
+}
+
+#define NUM_CVAR_BUFFERS	8
+const char *Cvar_VariableString(const char *var_name) {
+	static char buf[NUM_CVAR_BUFFERS][MAX_STRING_CHARS] = { 0 };
+	static int bufferNum = -1;
+
+	bufferNum++;
+	bufferNum %= NUM_CVAR_BUFFERS;
+
+	trap_Cvar_VariableStringBuffer(var_name, buf[bufferNum], sizeof(buf[bufferNum]));
+	return buf[bufferNum];
 }

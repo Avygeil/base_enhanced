@@ -6,6 +6,7 @@
 #define __G_LOCAL__
 
 #include "q_shared.h"
+#include "collections.h"
 #include "bg_public.h"
 #include "bg_vehicles.h"
 #include "g_public.h"
@@ -594,6 +595,9 @@ typedef struct {
 #define UNLAGGED_COMMAND		(1 << 1)
 	int		unlagged;
 	qboolean	basementNeckbeardsTriggered;
+
+	char		country[128];
+	int			qport;
 } clientSession_t;
 
 // race flags
@@ -694,6 +698,10 @@ typedef struct {
 	qboolean	hasDoneSomething; // for auto AFK detection
 
 	int			lastInputTime;
+
+	gentity_t	*lastSpawnPoint;
+	int			lastSpawnTime;
+	gentity_t	*lastKiller;
 } clientPersistant_t;
 
 typedef struct renderInfo_s
@@ -1517,6 +1525,7 @@ qboolean FileExists(const char *fileName);
 
 void Q_strstrip(char *string, const char *strip, const char *repl);
 char *stristr(const char *str1, const char *str2);
+const char *Cvar_VariableString(const char *var_name);
 
 //
 // g_object.c
@@ -1773,7 +1782,7 @@ void G_LogRconCommand(const char* ipFrom, const char* command);
 qboolean getIpFromString( const char* from, unsigned int* ip );
 qboolean getIpPortFromString( const char* from, unsigned int* ip, int* port );
 void getStringFromIp( unsigned int ip, char* buffer, int size );
-
+void G_Status(void);
 
 //
 // g_weapon.c
@@ -1881,6 +1890,48 @@ typedef enum {
 	NMTAUNT_VICTORY2,
 	NMTAUNT_VICTORY3
 } nmTaunt_t;
+
+//
+// g_table.c
+//
+typedef struct {
+	node_t	node;
+	char	mapname[MAX_QPATH];
+	int		weight;
+} poolMap_t;
+typedef struct {
+	node_t	node;
+	char	shortName[64];
+	char	longName[64];
+} pool_t;
+typedef const char *(*ColumnDataCallback)(void *context);
+typedef struct {
+	list_t			columnList;
+	list_t			rowList;
+	qboolean		alternateColors;
+	int				lastColumnIdAssigned;
+} Table;
+void listMapsInPools(void *context, const char *long_name, int pool_id, const char *mapname, int mapWeight);
+void listPools(void *context, int pool_id, const char *short_name, const char *long_name);
+const char *TableCallback_MapName(void *context);
+const char *TableCallback_MapWeight(void *context);
+const char *TableCallback_PoolShortName(void *context);
+const char *TableCallback_PoolLongName(void *context);
+const char *TableCallback_ClientNum(void *context);
+const char *TableCallback_Name(void *context);
+const char *TableCallback_Alias(void *context);
+const char *TableCallback_Ping(void *context);
+const char *TableCallback_Score(void *context);
+const char *TableCallback_IP(void *context);
+const char *TableCallback_Qport(void *context);
+const char *TableCallback_Country(void *context);
+const char *TableCallback_Mod(void *context);
+const char *TableCallback_Shadowmuted(void *context);
+Table *Table_Initialize(qboolean alternateColors);
+void Table_DefineRow(Table *t, void *context);
+void Table_DefineColumn(Table *t, const char *title, ColumnDataCallback callback, qboolean leftAlign, int maxLen);
+void Table_Destroy(Table *t);
+void Table_WriteToBuffer(Table *t, char *buf, size_t bufSize);
 
 //
 // g_team.c
@@ -2245,6 +2296,7 @@ extern vmCvar_t		g_duplicateNamesId;
 
 extern vmCvar_t		g_droppedFlagSpawnProtectionRadius;
 extern vmCvar_t		g_droppedFlagSpawnProtectionDuration;
+extern vmCvar_t		g_selfKillSpawnSpamProtection;
 
 #ifdef NEWMOD_SUPPORT
 extern vmCvar_t		g_netUnlock;
@@ -2415,6 +2467,7 @@ extern vmCvar_t		g_waitForAFK;
 extern vmCvar_t		g_waitForAFKTimer;
 extern vmCvar_t		g_waitForAFKThreshold;
 extern vmCvar_t		g_waitForAFKMinPlayers;
+extern vmCvar_t		g_printCountry;
 
 int validateAccount(const char* username, const char* password, int num);
 void unregisterUser(const char* username);
@@ -2742,6 +2795,7 @@ void trap_SetConfigstringNoUpdate( int num, const char* string );
 qboolean trap_SendGETRequest( trsfHandle_t* handle, const char* url, const char* headerAccept, const char* headerContentType );
 qboolean trap_SendPOSTRequest( trsfHandle_t* handle, const char* url, const char* data, const char* headerAccept, const char* headerContentType, qboolean receiveResult );
 qboolean trap_SendMultipartPOSTRequest(trsfHandle_t* handle, const char* url, trsfFormPart_t* multiPart, size_t numParts, const char* headerAccept, const char* headerContentType, qboolean receiveResult);
+void trap_GetCountry(const char *ipStr, char *outBuf, int outBufSize);
 #endif
 
 #include "namespace_end.h"
