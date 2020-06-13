@@ -4917,7 +4917,10 @@ static void WaitForAFKs(void) {
 	}
 	else if (level.autoStartPending) {
 		if (failReason[0]) {
-			G_GlobalTickedCenterPrint(va("Restart pending...\n\n%s", failReason), 1000, qfalse);
+			if (trap_Milliseconds() - lastCenterPrintTime >= 500) {
+				G_GlobalTickedCenterPrint(va("Restart pending...\n\n%s", failReason), 1000, qfalse);
+				lastCenterPrintTime = trap_Milliseconds();
+			}
 		}
 		else {
 			int seconds = g_waitForAFKTimer.integer;
