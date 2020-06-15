@@ -561,7 +561,7 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 		ent->methodOfDeath != MOD_CONC_ALT &&
 		other->client->ps.saberBlockTime < level.time &&
 		!isKnockedSaber &&
-		WP_SaberCanBlock(other, ent->r.currentOrigin, 0, 0, qtrue, 0))
+		WP_SaberCanBlock(other, ent, ent->r.currentOrigin, 0, 0, qtrue, 0))
 	{ //only block one projectile per 200ms (to prevent giant swarms of projectiles being blocked)
 		vec3_t fwd;
 		gentity_t *te;
