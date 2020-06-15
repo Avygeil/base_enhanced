@@ -5276,7 +5276,7 @@ static void Cmd_MapPool_f(gentity_t* ent) {
 			Table_DefineColumn(t, "Map", TableCallback_MapName, qtrue, 64);
 			Table_DefineColumn(t, "Weight", TableCallback_MapWeight, qtrue, 64);
 
-			char buf[2048] = { 0 };
+			char buf[4096] = { 0 };
 			Table_WriteToBuffer(t, buf, sizeof(buf));
 			Q_strcat(buf, sizeof(buf), "\n");
 			PrintIngame(ent - g_entities, buf);
@@ -5306,7 +5306,7 @@ static void Cmd_MapPool_f(gentity_t* ent) {
 			Table_DefineColumn(t, "Short Name", TableCallback_PoolShortName, qtrue, 64);
 			Table_DefineColumn(t, "Long Name", TableCallback_PoolLongName, qtrue, 64);
 
-			char buf[2048] = { 0 };
+			char buf[4096] = { 0 };
 			Table_WriteToBuffer(t, buf, sizeof(buf));
 			Q_strcat(buf, sizeof(buf), "\n");
 			PrintIngame(ent - g_entities, buf);
