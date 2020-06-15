@@ -98,6 +98,11 @@ vmCvar_t	g_optvehtrace;
 
 vmCvar_t	g_locationBasedDamage;
 
+vmCvar_t	g_fixSaberDefense;
+vmCvar_t	g_saberDefense1Angle;
+vmCvar_t	g_saberDefense2Angle;
+vmCvar_t	g_saberDefense3Angle;
+
 vmCvar_t	g_allowHighPingDuelist;
 
 vmCvar_t	g_logClientInfo;
@@ -502,6 +507,11 @@ static cvarTable_t		gameCvarTable[] = {
     { &g_optvehtrace, "com_optvehtrace", "0", 0, 0, qtrue },
 
     { &g_locationBasedDamage, "g_locationBasedDamage", "2", 0, 0, qtrue },
+
+	{ &g_fixSaberDefense, "g_fixSaberDefense", "0", 0, 0, qtrue },
+	{ &g_saberDefense1Angle, "g_saberDefense1Angle", "6", 0, 0, qtrue },
+	{ &g_saberDefense2Angle, "g_saberDefense2Angle", "30", 0, 0, qtrue },
+	{ &g_saberDefense3Angle, "g_saberDefense3Angle", "73", 0, 0, qtrue },
 
     { &g_allowHighPingDuelist, "g_allowHighPingDuelist", "1", 0, 0, qtrue },
 

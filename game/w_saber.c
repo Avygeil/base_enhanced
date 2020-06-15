@@ -4454,7 +4454,7 @@ static GAME_INLINE qboolean CheckSaberDamage(gentity_t *self, int rSaberNum, int
 		if ( !d_saberSPStyleDamage.integer//let's trying making blocks have to be blocked by a saber
 			&& g_entities[tr.entityNum].client 
 			&& !unblockable 
-			&& WP_SaberCanBlock(&g_entities[tr.entityNum], tr.endpos, 0, MOD_SABER, qfalse, attackStr))
+			&& WP_SaberCanBlock(&g_entities[tr.entityNum], self, tr.endpos, 0, MOD_SABER, qfalse, attackStr))
 		{//hit a client who blocked the attack (fake: didn't actually hit their saber)
 			if (dmg <= SABER_NONATTACK_DAMAGE)
 			{
@@ -5790,7 +5790,7 @@ static GAME_INLINE qboolean CheckThrownSaberDamaged(gentity_t *saberent, gentity
 
 			if (tr.fraction == 1 || tr.entityNum == ent->s.number)
 			{ //Slice them
-				if (!saberOwner->client->ps.isJediMaster && WP_SaberCanBlock(ent, tr.endpos, 0, MOD_SABER, qfalse, 999))
+				if (!saberOwner->client->ps.isJediMaster && WP_SaberCanBlock(ent, saberent, tr.endpos, 0, MOD_SABER, qfalse, 999))
 				{ //they blocked it
 					WP_SaberBlockNonRandom(ent, tr.endpos, qfalse);
 
@@ -9045,7 +9045,8 @@ void WP_SaberBlock( gentity_t *playerent, vec3_t hitloc, qboolean missileBlock )
 	}
 }
 
-int WP_SaberCanBlock(gentity_t *self, vec3_t point, int dflags, int mod, qboolean projectile, int attackStr)
+// alpha: added an "other" parameter, which is the entity responsible for triggering the block (allows for more sophisticated checks)
+int WP_SaberCanBlock(gentity_t *self, gentity_t* other, vec3_t point, int dflags, int mod, qboolean projectile, int attackStr)
 {
 	qboolean thrownSaber = qfalse;
 	float blockFactor = 0;
@@ -9144,6 +9145,48 @@ int WP_SaberCanBlock(gentity_t *self, vec3_t point, int dflags, int mod, qboolea
 	if (self->client->ps.forceHandExtend != HANDEXTEND_NONE)
 	{
 		return 0;
+	}
+
+	if ( mod == MOD_DISRUPTOR || mod == MOD_DISRUPTOR_SNIPER ) {
+		// saber def 3 check moved here from g_weapon.c for both disruptor main/alt so that it can be cvar'd
+		if ( !g_fixSaberDefense.integer && self->client->ps.fd.forcePowerLevel[FP_SABER_DEFENSE] < FORCE_LEVEL_3 ) {
+			return 0;
+		}
+
+		if ( g_fixSaberDefense.integer && other && other->client ) {
+			// disruptor Ghoul2 based block detection is disabled -- use a completely different method
+			// (if enabled, the base method below remains unchanged)
+
+			float maxAngle;
+			switch ( self->client->ps.fd.forcePowerLevel[FP_SABER_DEFENSE] ) {
+				case FORCE_LEVEL_1:	maxAngle = g_saberDefense1Angle.value; break;
+				case FORCE_LEVEL_2: maxAngle = g_saberDefense2Angle.value; break;
+				case FORCE_LEVEL_3: maxAngle = g_saberDefense3Angle.value; break;
+				default: return 0;
+			}
+
+			// allow footshots
+			float spotOnBody = self->client->ps.origin[2] - point[2];
+			if ( spotOnBody >= 19.5f ) {
+				if ( ( self->client->ps.legsAnim >= BOTH_STAND1 && other->client->ps.legsAnim <= BOTH_STAND5LOOK180LEFTSTOP ) ||
+					( self->client->ps.legsAnim >= BOTH_SABERFAST_STANCE && self->client->ps.legsAnim <= BOTH_SABERSTAFF_STANCE ) ) {
+					return 0;
+				}
+			}
+
+			vec3_t subtractedAngles;
+			AnglesSubtract(other->client->ps.viewangles, self->client->ps.viewangles, subtractedAngles);
+			float angle = 180.0f - fabs(subtractedAngles[1]);
+
+			// 100% block rate in range, 0% block rate otherwise
+			if (angle < maxAngle) {
+				WP_SaberBlockNonRandom(self, point, projectile);
+				return 1;
+			}
+			else {
+				return 0;
+			}
+		}
 	}
 
 	if (self->client->ps.fd.forcePowerLevel[FP_SABER_DEFENSE] == FORCE_LEVEL_3)
