@@ -19,6 +19,10 @@ typedef struct {
 
 void listMapsInPools(void **context, const char *long_name, int pool_id, const char *mapname, int mapWeight) {
 	list_t *mapList = *context;
+	if (!mapList) {
+		assert(qfalse);
+		return;
+	}
 	poolMap_t *thisMap = ListAdd(mapList, sizeof(poolMap_t));
 
 	if (VALIDSTRING(mapname))
@@ -27,26 +31,46 @@ void listMapsInPools(void **context, const char *long_name, int pool_id, const c
 }
 
 const char *TableCallback_MapName(void *context) {
+	if (!context) {
+		assert(qfalse);
+		return NULL;
+	}
 	poolMap_t *map = context;
 	return map->mapname;
 }
 
 const char *TableCallback_MapWeight(void *context) {
+	if (!context) {
+		assert(qfalse);
+		return NULL;
+	}
 	poolMap_t *map = context;
 	return va("%d", map->weight);
 }
 
 const char *TableCallback_PoolShortName(void *context) {
+	if (!context) {
+		assert(qfalse);
+		return NULL;
+	}
 	pool_t *pool = context;
 	return pool->shortName;
 }
 
 const char *TableCallback_PoolLongName(void *context) {
+	if (!context) {
+		assert(qfalse);
+		return NULL;
+	}
 	pool_t *pool = context;
 	return pool->longName;
 }
 
 void listPools(void *context, int pool_id, const char *short_name, const char *long_name) {
+	if (!context) {
+		assert(qfalse);
+		return;
+	}
 	list_t *poolList = (list_t *)context;
 	pool_t *thisPool = ListAdd(poolList, sizeof(pool_t));
 
@@ -57,6 +81,10 @@ void listPools(void *context, int pool_id, const char *short_name, const char *l
 }
 
 const char *TableCallback_ClientNum(void *context) {
+	if (!context) {
+		assert(qfalse);
+		return NULL;
+	}
 	gclient_t *cl = context;
 	const char *teamColor;
 
@@ -70,6 +98,10 @@ const char *TableCallback_ClientNum(void *context) {
 }
 
 const char *TableCallback_Name(void *context) {
+	if (!context) {
+		assert(qfalse);
+		return NULL;
+	}
 	gclient_t *cl = context;
 	return va("^7%s", cl->pers.netname);
 }
