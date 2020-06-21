@@ -465,7 +465,8 @@ void TossClientItems( gentity_t *self ) {
 
 	self->s.bolt2 = weapon;
 
-	if ( weapon > WP_BRYAR_PISTOL && 
+	// don't drop weapons upon death in instagib
+	if ( !InstagibEnabled() && weapon > WP_BRYAR_PISTOL && 
 		weapon != WP_EMPLACED_GUN &&
 		weapon != WP_TURRET &&
 		self->client->ps.ammo[ weaponData[weapon].ammoIndex ] ) {
@@ -2607,7 +2608,22 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 				self->health = GIB_HEALTH+1;
 			}
 
-			self->client->respawnTime = level.time + 1000;
+			// slower respawn time if instagib and 4+ people ingame
+			if (InstagibEnabled() && !self->client->sess.inRacemode) {
+				int numPlayers;
+				if (g_gametype.integer >= GT_TEAM)
+					numPlayers = TeamCount(-1, TEAM_RED) + TeamCount(-1, TEAM_BLUE);
+				else
+					numPlayers = TeamCount(-1, TEAM_FREE);
+
+				if (g_instagibRespawnMinPlayers.integer > 0 && numPlayers >= g_instagibRespawnMinPlayers.integer)
+					self->client->respawnTime = level.time + Com_Clampi(1000, 10000, 1000 * g_instagibRespawnTime.integer);
+				else
+					self->client->respawnTime = level.time + 1000;
+			}
+			else {
+				self->client->respawnTime = level.time + 1000;
+			}
 
 			sPMType = self->client->ps.pm_type;
 			self->client->ps.pm_type = PM_NORMAL; //don't want pm type interfering with our setanim calls.
@@ -4246,6 +4262,11 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 		return;
 	}
 
+	if (InstagibEnabled() && mod == MOD_FALLING && damage < 9999 && // allow "real" falling deaths (fade to black) to still kill you will instagibbing
+		!(targ && targ->client && targ->client->sess.inRacemode)) {
+		return;
+	}
+
 	if ( targ->client )
 	{//don't take damage when in a walker, or fighter
 		//unless the walker/fighter is dead!!! -rww
@@ -4577,8 +4598,8 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 		{
 			if (OnSameTeam (targ, attacker))
 			{
-				if ( !g_friendlyFire.integer )
-				{
+				if ( !g_friendlyFire.integer || InstagibEnabled())
+				{ // allow boosting teammates with instagib
 					return;
 				}
 			}
@@ -4589,8 +4610,8 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 			{ //emplaced guns don't hurt teammates of user
 				if (OnSameTeam (targ, attacker->activator))
 				{
-					if ( !g_friendlyFire.integer )
-					{
+					if ( !g_friendlyFire.integer || InstagibEnabled())
+					{ // allow boosting teammates with instagib
 						return;
 					}
 				}
@@ -4600,7 +4621,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 				attacker->s.number >= MAX_CLIENTS &&
 				attacker->alliedTeam &&
 				targ->client->sess.sessionTeam == attacker->alliedTeam &&
-				!g_friendlyFire.integer)
+				(!g_friendlyFire.integer || InstagibEnabled())) // allow boosting teammates with instagib
 			{ //things allied with my team should't hurt me.. I guess
 				return;
 			}
@@ -4684,6 +4705,11 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 				}
 			}
 		}
+	}
+
+	// instant death from disruptor and melee
+	if (InstagibEnabled() && (mod == MOD_DISRUPTOR || mod == MOD_DISRUPTOR_SNIPER || mod == MOD_MELEE)) {
+		damage = 9999;
 	}
 
 	// battlesuit protects from all radius damage (but takes knockback)

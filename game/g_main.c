@@ -103,6 +103,10 @@ vmCvar_t	g_saberDefense1Angle;
 vmCvar_t	g_saberDefense2Angle;
 vmCvar_t	g_saberDefense3Angle;
 
+vmCvar_t	g_instagib;
+vmCvar_t	g_instagibRespawnTime;
+vmCvar_t	g_instagibRespawnMinPlayers;
+
 vmCvar_t	g_allowHighPingDuelist;
 
 vmCvar_t	g_logClientInfo;
@@ -386,6 +390,7 @@ vmCvar_t    g_allow_vote_fraglimit;
 vmCvar_t    g_allow_vote_maprandom;
 vmCvar_t    g_allow_vote_warmup;
 vmCvar_t	g_allow_vote_boon;
+vmCvar_t	g_allow_vote_instagib;
 vmCvar_t	g_default_capturedifflimit;
 vmCvar_t	g_enable_maprandom_wildcard;
 vmCvar_t	g_redirectDoWarmupVote;
@@ -512,6 +517,10 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_saberDefense1Angle, "g_saberDefense1Angle", "6", 0, 0, qtrue },
 	{ &g_saberDefense2Angle, "g_saberDefense2Angle", "30", 0, 0, qtrue },
 	{ &g_saberDefense3Angle, "g_saberDefense3Angle", "73", 0, 0, qtrue },
+
+	{ &g_instagib, "g_instagib", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_instagibRespawnTime, "g_instagibRespawnTime", "5", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_instagibRespawnMinPlayers, "g_instagibRespawnMinPlayers", "4", CVAR_ARCHIVE, 0, qtrue },
 
     { &g_allowHighPingDuelist, "g_allowHighPingDuelist", "1", 0, 0, qtrue },
 
@@ -781,6 +790,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_allow_vote_maprandom, "g_allow_vote_maprandom", "4", CVAR_ARCHIVE, 0, qtrue },
     { &g_allow_vote_warmup, "g_allow_vote_warmup", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_allow_vote_boon, "g_allow_vote_boon", "1", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_allow_vote_instagib, "g_allow_vote_instagib", "1", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_allowReady, "g_allowReady", "1", CVAR_ARCHIVE, 0, qtrue },
 
@@ -6096,6 +6106,12 @@ const char *G_GetStringEdString(char *refSection, char *refName)
 	return text;
 }
 
-
+qboolean InstagibEnabled(void) {
+	if (level.instagibMap)
+		return qtrue; // always enable on instagib maps as defined by the worldspawn key "b_e_instagib"
+	if (g_instagib.integer)
+		return qtrue; // enable on any map if the cvar is enabled
+	return qfalse;
+}
 
 

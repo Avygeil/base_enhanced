@@ -1326,6 +1326,9 @@ void SP_worldspawn( void )
 
 	trap_SetConfigstring( CS_LEVEL_START_TIME, va("%i", level.startTime ) );
 
+	G_SpawnInt("b_e_instagib", "0", &i);
+	level.instagibMap = !!i;
+
 	G_SpawnString( "music", "", &text );
 	trap_SetConfigstring( CS_MUSIC, text );
 

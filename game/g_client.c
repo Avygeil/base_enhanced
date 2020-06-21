@@ -4415,6 +4415,14 @@ void ClientSpawn(gentity_t *ent) {
 			client->ps.weapon = WP_MELEE;
 		}
 	}
+	else if (InstagibEnabled() && client->sess.sessionTeam != TEAM_SPECTATOR) {
+		// default loadout for instagibber
+		client->ps.stats[STAT_WEAPONS] = (1 << WP_DISRUPTOR) | (1 << WP_MELEE);
+		client->ps.weapon = WP_DISRUPTOR;
+		client->ps.ammo[AMMO_POWERCELL] = 999;
+		ent->health = client->ps.stats[STAT_HEALTH] = 100;
+		client->ps.stats[STAT_ARMOR] = 0;
+	}
 
 	G_SetOrigin( ent, spawn_origin );
 	VectorCopy( spawn_origin, client->ps.origin );
