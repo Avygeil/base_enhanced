@@ -890,6 +890,9 @@ qboolean WP_ForcePowerInUse( gentity_t *self, forcePowers_t forcePower )
 
 qboolean WP_ForcePowerUsable( gentity_t *self, forcePowers_t forcePower )
 {
+	if (InstagibEnabled() && forcePower != FP_LEVITATION) { // you can only use force jump in instagib
+		return qfalse;
+	}
 	if (BG_HasYsalamiri(g_gametype.integer, &self->client->ps))
 	{
 		return qfalse;

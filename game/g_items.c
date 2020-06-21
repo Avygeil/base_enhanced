@@ -2425,6 +2425,8 @@ void Touch_Item (gentity_t *ent, gentity_t *other, trace_t *trace) {
 		return;
 	if (other->health < 1)
 		return;		// dead people can't pickup
+	if (InstagibEnabled() && !(other->client && other->client->sess.inRacemode) && ent->item->giType != IT_TEAM)
+		return; // no picking stuff up in instagib, except for flags
 
 	if (ent->item->giType == IT_POWERUP &&
 		(ent->item->giTag == PW_FORCE_ENLIGHTENED_LIGHT || ent->item->giTag == PW_FORCE_ENLIGHTENED_DARK))
@@ -2848,6 +2850,11 @@ void FinishSpawningItem( gentity_t *ent ) {
 			G_FreeEntity(ent);
 			return;
 		}
+	}
+
+	// they can't take non-flag pickups up anyway, but if instagib is enabled at start, might as well prevent them from spawning too
+	if (InstagibEnabled() && ent->item->giType != IT_TEAM) {
+		G_FreeEntity(ent);
 	}
 
 	if (g_gametype.integer == GT_HOLOCRON)

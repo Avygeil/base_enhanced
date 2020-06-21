@@ -1339,6 +1339,8 @@ typedef struct {
 	} unlagged[MAX_CLIENTS];
 	int		lastThinkRealTime[MAX_CLIENTS];
 
+	qboolean		instagibMap;
+
 } level_locals_t;
 
 
@@ -1850,6 +1852,7 @@ void QDECL G_Printf( const char *fmt, ... );
 void QDECL G_Error( const char *fmt, ... );
 const char *G_GetStringEdString(char *refSection, char *refName);
 void G_ApplyRaceBroadcastsToEvent( gentity_t *parent, gentity_t *ev );
+qboolean InstagibEnabled(void);
 
 //
 // g_client.c
@@ -2164,6 +2167,10 @@ extern	vmCvar_t	g_saberDefense1Angle;
 extern	vmCvar_t	g_saberDefense2Angle;
 extern	vmCvar_t	g_saberDefense3Angle;
 
+extern	vmCvar_t	g_instagib;
+extern	vmCvar_t	g_instagibRespawnTime;
+extern	vmCvar_t	g_instagibRespawnMinPlayers;
+
 extern	vmCvar_t	g_allowHighPingDuelist;
 
 extern	vmCvar_t	g_logClientInfo;
@@ -2378,6 +2385,7 @@ extern vmCvar_t     g_allow_vote_fraglimit;
 extern vmCvar_t     g_allow_vote_maprandom;
 extern vmCvar_t     g_allow_vote_warmup;
 extern vmCvar_t     g_allow_vote_boon;
+extern vmCvar_t     g_allow_vote_instagib;
 extern vmCvar_t		g_default_capturedifflimit;
 extern vmCvar_t		g_enable_maprandom_wildcard;
 extern vmCvar_t		g_redirectDoWarmupVote;

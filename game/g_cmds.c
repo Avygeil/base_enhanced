@@ -2870,12 +2870,13 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 	} else if ( !Q_stricmp( arg1, "tffa" ) ) {
 	} else if ( !Q_stricmp( arg1, "siege" ) ) {
 	} else if ( !Q_stricmp( arg1, "ctf" ) ) {
+	} else if ( !Q_stricmp( arg1, "instagib" ) ) {
 	} else {
 		trap_SendServerCommand( ent-g_entities, "print \"Invalid vote string.\n\"" );
 		trap_SendServerCommand( ent-g_entities, "print \"Vote commands are: map_restart, nextmap, map <mapname>, g_gametype <n>, "
 			"kick <player>, clientkick <clientnum>, g_doWarmup, timelimit <time>, fraglimit <frags>, "
 			"resetflags, q <question>, pause, unpause, endmatch, randomcapts, randomteams <numRedPlayers> <numBluePlayers>, "
-			"lockteams <numPlayers>, capturedifflimit <capLimit>, enableboon, disableboon.\n\"" );
+			"lockteams <numPlayers>, capturedifflimit <capLimit>, enableboon, disableboon, instagib.\n\"" );
 		return;
 	}
 
@@ -3344,6 +3345,24 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 
 		Com_sprintf(level.voteString, sizeof(level.voteString), "g_enableBoon %d;svsay "S_COLOR_CYAN"Boon will be disabled next map_restart.", 0);
 		Com_sprintf(level.voteDisplayString, sizeof(level.voteDisplayString), "Disable Boon", level.voteString);
+	}
+	else if (!Q_stricmp(arg1, "instagib"))
+	{
+		if (!g_allow_vote_instagib.integer) {
+			trap_SendServerCommand(ent - g_entities, "print \"Vote instagib is disabled.\n\"");
+			return;
+		}
+
+		if (g_instagib.integer) {
+			Com_sprintf(level.voteString, sizeof(level.voteString), "g_instagib 0");
+			Com_sprintf(level.voteDisplayString, sizeof(level.voteDisplayString), "Disable Instagib%s",
+				level.instagibMap ? va("\n(Does not affect %s^7)", Cvar_VariableString("mapname")) : "");
+		}
+		else {
+			Com_sprintf(level.voteString, sizeof(level.voteString), "g_instagib 1");
+			Com_sprintf(level.voteDisplayString, sizeof(level.voteDisplayString), "Enable Instagib%s",
+				level.instagibMap ? va("\n(Does not affect %s^7)", Cvar_VariableString("mapname")) : "");
+		}
 	}
 	else if (!Q_stricmp(arg1, "g_doWarmup"))
 	{

@@ -3216,6 +3216,10 @@ void ClientThink_real( gentity_t *ent ) {
 			client->ps.speed *= 0.2f;
 		}
 
+		if (InstagibEnabled() && client->sess.sessionTeam != TEAM_SPECTATOR && !client->sess.inRacemode) {
+			client->ps.speed *= 1.7f; // instagib base speed equivalent to using force speed (they can't use force speed anyway)
+		}
+
 		client->ps.basespeed = client->ps.speed;
 	}
 
