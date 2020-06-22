@@ -2855,6 +2855,7 @@ void FinishSpawningItem( gentity_t *ent ) {
 	// they can't take non-flag pickups up anyway, but if instagib is enabled at start, might as well prevent them from spawning too
 	if (InstagibEnabled() && ent->item->giType != IT_TEAM) {
 		G_FreeEntity(ent);
+		return;
 	}
 
 	if (g_gametype.integer == GT_HOLOCRON)
