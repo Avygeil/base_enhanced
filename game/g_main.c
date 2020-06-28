@@ -2491,10 +2491,40 @@ void CalculateRanks( void ) {
 	}
 
 	// set the CS_SCORES1/2 configstrings, which will be visible to everyone
-	if ( g_gametype.integer >= GT_TEAM ) {
-		trap_SetConfigstring( CS_SCORES1, va("%i", level.teamScores[TEAM_RED] ) );
-		trap_SetConfigstring( CS_SCORES2, va("%i", level.teamScores[TEAM_BLUE] ) );
-	} else {
+	if (g_gametype.integer >= GT_TEAM) {
+		// if in ctf and there are no flags at all on this map, just show total frags
+		if (g_gametype.integer == GT_CTF) {
+			static qboolean checkedForFlags = qfalse, thereAreFlags = qfalse;
+			if (!checkedForFlags) {
+				checkedForFlags = qtrue;
+				if (G_Find(NULL, FOFS(classname), "team_CTF_redflag") && G_Find(NULL, FOFS(classname), "team_CTF_blueflag"))
+					thereAreFlags = qtrue;
+			}
+
+			if (thereAreFlags) {
+				trap_SetConfigstring(CS_SCORES1, va("%i", level.teamScores[TEAM_RED]));
+				trap_SetConfigstring(CS_SCORES2, va("%i", level.teamScores[TEAM_BLUE]));
+			}
+			else {
+				int redFrags = 0, blueFrags = 0;
+				for (int i = 0; i < level.maxclients; i++) {
+					if (level.clients[i].pers.connected != CON_CONNECTED)
+						continue;
+					if (level.clients[i].sess.sessionTeam == TEAM_RED)
+						redFrags += level.clients[i].ps.persistant[PERS_SCORE];
+					else if (level.clients[i].sess.sessionTeam == TEAM_BLUE)
+						blueFrags += level.clients[i].ps.persistant[PERS_SCORE];
+				}
+				trap_SetConfigstring(CS_SCORES1, va("%i", redFrags));
+				trap_SetConfigstring(CS_SCORES2, va("%i", blueFrags));
+			}
+		}
+		else {
+			trap_SetConfigstring(CS_SCORES1, va("%i", level.teamScores[TEAM_RED]));
+			trap_SetConfigstring(CS_SCORES2, va("%i", level.teamScores[TEAM_BLUE]));
+		}
+	}
+	else {
 		if ( level.numConnectedClients == 0 ) {
 			trap_SetConfigstring( CS_SCORES1, va("%i", SCORE_NOT_PRESENT) );
 			trap_SetConfigstring( CS_SCORES2, va("%i", SCORE_NOT_PRESENT) );
