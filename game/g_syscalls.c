@@ -24,8 +24,36 @@ int PASSFLOAT( float x ) {
 	return *(int *)&floatTemp;
 }
 
-void	trap_Printf( const char *fmt ) {
-	syscall( G_PRINT, fmt );
+void    trap_Printf(const char *fmt) {
+	if (!VALIDSTRING(fmt))
+		return;
+
+	int len = strlen(fmt);
+#define CHUNK_SIZE    (1000)
+	if (len < CHUNK_SIZE) {
+		syscall(G_PRINT, fmt);
+		return;
+	}
+
+	int remaining = len;
+	const char *chunkStart = fmt;
+
+	while (remaining > 0) {
+		char buf[MAX_STRING_CHARS] = { 0 };
+
+		qboolean endsInColor = qfalse;
+		if (strlen(chunkStart) > CHUNK_SIZE) {
+			const char *lastDigit = chunkStart + CHUNK_SIZE - 1;
+			if (Q_IsColorString(lastDigit))
+				endsInColor = qtrue;
+		}
+
+		strncpy(buf, chunkStart, CHUNK_SIZE + (endsInColor ? -1 : 0));
+		syscall(G_PRINT, buf);
+		remaining -= CHUNK_SIZE + (endsInColor ? -1 : 0);
+		if (remaining > 0)
+			chunkStart += CHUNK_SIZE + (endsInColor ? -1 : 0);
+	}
 }
 
 void	trap_Error( const char *fmt ) {
