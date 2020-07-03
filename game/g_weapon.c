@@ -2033,7 +2033,10 @@ static void WP_FireRocket( gentity_t *ent, qboolean altFire )
 //===testing being able to shoot rockets out of the air==================================
 	missile->health = 10;
 	missile->takedamage = qtrue;
-	missile->r.contents = MASK_SHOT;
+	if (ent && ent->client && ent->client->sess.inRacemode)
+		missile->r.contents = 0; // don't allow people to surf on racer rockets
+	else
+		missile->r.contents = MASK_SHOT;
 	missile->die = RocketDie;
 //===testing being able to shoot rockets out of the air==================================
 	
