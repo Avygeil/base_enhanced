@@ -4993,8 +4993,15 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 		&& mod > MOD_UNKNOWN && mod <= MOD_FORCE_DARK) {
 		// TODO: do we want other kinds of damage?
 		// TODO: it does not count rage or protect reduction...
-		targ->client->pers.damageTaken += (take + asave);
-		attacker->client->pers.damageCaused += (take + asave);
+
+		// cap the damage stat change to the target's health + armor
+		// e.g. if you do 100 damage to someone with 1 hp, then count it as only 1 damage instead of 100
+		int damageStatIncrease = take + asave;
+		if (damageStatIncrease > targ->health + targ->client->ps.stats[STAT_ARMOR])
+			damageStatIncrease = targ->health + targ->client->ps.stats[STAT_ARMOR];
+
+		targ->client->pers.damageTaken += damageStatIncrease;
+		attacker->client->pers.damageCaused += damageStatIncrease;
 	}
 
 #ifndef FINAL_BUILD
