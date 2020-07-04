@@ -4987,23 +4987,6 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 		}
 	}
 
-	//we count only from client to client damage
-	if (attacker && attacker->client && targ && targ->client
-		&& attacker->client->sess.sessionTeam != targ->client->sess.sessionTeam
-		&& mod > MOD_UNKNOWN && mod <= MOD_FORCE_DARK) {
-		// TODO: do we want other kinds of damage?
-		// TODO: it does not count rage or protect reduction...
-
-		// cap the damage stat change to the target's health + armor
-		// e.g. if you do 100 damage to someone with 1 hp, then count it as only 1 damage instead of 100
-		int damageStatIncrease = take + asave;
-		if (damageStatIncrease > targ->health + targ->client->ps.stats[STAT_ARMOR])
-			damageStatIncrease = targ->health + targ->client->ps.stats[STAT_ARMOR];
-
-		targ->client->pers.damageTaken += damageStatIncrease;
-		attacker->client->pers.damageCaused += damageStatIncrease;
-	}
-
 #ifndef FINAL_BUILD
 	if ( g_debugDamage.integer ) {
 		G_Printf( "%i: client:%i health:%i damage:%i armor:%i mod:%i\n", level.time, targ->s.number,
@@ -5139,6 +5122,22 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 			evEnt->s.time2=shieldAbsorbed;
 			G_ApplyRaceBroadcastsToEvent( targ, evEnt );
 		}
+	}
+
+	//we count only from client to client damage
+	if (attacker && attacker->client && targ && targ->client
+		&& attacker->client->sess.sessionTeam != targ->client->sess.sessionTeam
+		&& mod > MOD_UNKNOWN && mod <= MOD_FORCE_DARK) {
+		// TODO: do we want other kinds of damage?
+
+		// cap the damage stat change to the target's health + armor
+		// e.g. if you do 100 damage to someone with 1 hp, then count it as only 1 damage instead of 100
+		int damageStatIncrease = take + asave;
+		if (damageStatIncrease > targ->health + targ->client->ps.stats[STAT_ARMOR])
+			damageStatIncrease = targ->health + targ->client->ps.stats[STAT_ARMOR];
+
+		targ->client->pers.damageTaken += damageStatIncrease;
+		attacker->client->pers.damageCaused += damageStatIncrease;
 	}
 
 	// do the damage
