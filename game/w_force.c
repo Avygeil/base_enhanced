@@ -3041,6 +3041,10 @@ qboolean CanCounterThrow(gentity_t *self, gentity_t *thrower, qboolean pull)
 		return 0;
 	}
 
+	if ((self->client->ps.fd.forcePowersActive & (1 << FP_RAGE)) && !g_ragersCanCounterPushPull.integer) {
+		return 0;
+	}
+
 	if (g_gametype.integer == GT_SIEGE &&
 		pull &&
 		thrower && thrower->client)
