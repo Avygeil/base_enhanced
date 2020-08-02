@@ -162,6 +162,7 @@ vmCvar_t	g_selfkill_penalty;
 vmCvar_t    g_moreTaunts;
 vmCvar_t	g_raceEmotes;
 vmCvar_t	g_ragersCanCounterPushPull;
+vmCvar_t	g_autoPause999;
 
 vmCvar_t	g_webhookId;
 vmCvar_t	g_webhookToken;
@@ -819,6 +820,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_moreTaunts, "g_moreTaunts", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_raceEmotes, "g_raceEmotes", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_ragersCanCounterPushPull, "g_ragersCanCounterPushPull", "1", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_autoPause999, "g_autoPause999", "5", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_webhookId, "g_webhookId", "", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_webhookToken, "g_webhookToken", "", CVAR_ARCHIVE, 0, qfalse },
@@ -1408,8 +1410,12 @@ static void CheckForAFKs(void) {
 		}
 	}
 
-	// only notify if 4v4+
-	if (clientNumAfk == CLIENTNUMAFK_NONE || numRed < 4 || numBlue < 4)
+	if (clientNumAfk == CLIENTNUMAFK_NONE)
+		return;
+
+	level.someoneWasAFK = qtrue;
+		
+	if (numRed < 4 || numBlue < 4) // only notify if 4v4+
 		return;
 
 	char *whoIsAfkString;
@@ -5439,7 +5445,13 @@ void G_RunFrame( int levelTime ) {
 						continue;
 					}
 
-					trap_SendServerCommand( j, va( "cp \"Match has been paused. (%.0f)\n\"", ceil( ( level.pause.time - level.time ) / 1000.0f ) ) );
+					int pauseSecondsRemaining = (int)ceilf((level.pause.time - level.time) / 1000.0f);
+					if (level.pause.reason[0])
+						trap_SendServerCommand(j, va("cp \"The match has been auto-paused. (%s%d^7)\n%s\n\"",
+							pauseSecondsRemaining <= 10 ? S_COLOR_RED : S_COLOR_WHITE, pauseSecondsRemaining, level.pause.reason));
+					else
+						trap_SendServerCommand(j, va("cp \"The match has been paused. (%s%d^7)\n\"",
+							pauseSecondsRemaining <= 10 ? S_COLOR_RED : S_COLOR_WHITE, pauseSecondsRemaining));
 				}
 
 				lastMsgTime = level.time;
@@ -5451,6 +5463,7 @@ void G_RunFrame( int levelTime ) {
     }
     if ( level.pause.state == PAUSE_UNPAUSING )
     {
+		level.pause.reason[0] = '\0';
             if ( lastMsgTime < level.time-500 ) {
 				int j;
 				for ( j = 0; j < level.maxclients; ++j ) {
