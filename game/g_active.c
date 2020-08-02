@@ -4395,6 +4395,7 @@ void ClientThink( int clientNum,usercmd_t *ucmd ) {
 	// mark the time we got info, so we can display the
 	// phone jack if they don't get any for a while
 	ent->client->lastCmdTime = level.time;
+	ent->client->lastRealCmdTime = level.time;
 
 	if (ucmd)
 	{
@@ -4504,6 +4505,38 @@ void SpectatorClientEndFrame( gentity_t *ent ) {
 	}
 }
 
+static qboolean Pause999MatchConditions(void) {
+	if (!level.numTeamTicks)
+		return qfalse;
+
+	float avgRed = (float)level.numRedPlayerTicks / (float)level.numTeamTicks;
+	float avgBlue = (float)level.numBluePlayerTicks / (float)level.numTeamTicks;
+
+	int avgRedInt = (int)lroundf(avgRed);
+	int avgBlueInt = (int)lroundf(avgBlue);
+
+	float duration = level.time - level.startTime;
+
+	// only allow auto-pause if:
+	// * the level was map_restarted
+	// * nobody was AFK at start
+	// * at least 30 seconds have elapsed
+	// * the average rounded integer number of players in each team is equal
+	// * the sum of these average integers is >= 4 (at least 2s)
+	// * both averages are within +/- 0.2 of their rounded values
+	if (level.wasRestarted &&
+		!level.someoneWasAFK &&
+		duration >= 30000 &&
+		avgRedInt == avgBlueInt &&
+		avgRedInt + avgBlueInt >= 4 &&
+		fabs(avgRed - round(avgRed)) < 0.2f &&
+		fabs(avgBlue - round(avgBlue)) < 0.2f) {
+		return qtrue;
+	}
+
+	return qfalse;
+}
+
 /*
 ==============
 ClientEndFrame
@@ -4524,10 +4557,24 @@ void ClientEndFrame( gentity_t *ent ) {
 
 #ifdef NEWMOD_SUPPORT
 	// add the EF_CONNECTION flag for non-specs if we haven't gotten commands recently
-	if (level.time - ent->client->lastCmdTime > 1000) {
+	if (level.time - ent->client->lastRealCmdTime > 1000) {
 		ent->client->isLagging = qtrue;
-		if (ent->client->sess.sessionTeam != TEAM_SPECTATOR)
+
+		if (ent->client->sess.sessionTeam != TEAM_SPECTATOR && !ent->client->sess.inRacemode) {
 			ent->client->ps.eFlags |= EF_CONNECTION;
+
+			// auto-pause if someone goes 999 for a few seconds during a live pug
+			if (g_gametype.integer == GT_CTF &&
+				level.pause.state != PAUSE_PAUSED &&
+				g_autoPause999.integer &&
+				level.time - ent->client->lastRealCmdTime >= (Com_Clampi(1, 10, g_autoPause999.integer) * 1000) &&
+				Pause999MatchConditions()) {
+				level.pause.state = PAUSE_PAUSED;
+				level.pause.time = level.time + 120000; // pause for 2 minutes
+				Q_strncpyz(level.pause.reason, va("%s^7 is 999\n", ent->client->pers.netname), sizeof(level.pause.reason));
+				Com_Printf("Auto-pausing game: %s\n", level.pause.reason);
+			}
+		}
 	}
 	else {
 		if (ent->client->ps.eFlags & EF_CONNECTION || ent->client->isLagging) { // he was lagging (or vid_restarted) but isn't anymore; send this again just to be sure

@@ -832,6 +832,7 @@ struct gclient_s {
 	int			lastCmdTime;		// level.time of last usercmd_t, for EF_CONNECTION
 									// we can't just use pers.lastCommand.time, because
 									// of the g_sycronousclients case
+	int			lastRealCmdTime;
 	int			buttons;
 	int			oldbuttons;
 	int			latched_buttons;
@@ -1143,6 +1144,7 @@ typedef struct {
 	int			initialRedCount;
 
 	qboolean	checkedForAFKs;
+	qboolean	someoneWasAFK;
 
 	qboolean    overtime;
 
@@ -1273,6 +1275,7 @@ typedef struct {
     struct {
             int state;              //OSP: paused state of the match
             int time;
+			char reason[128];
     } pause;
 
     /*struct
@@ -2406,6 +2409,7 @@ extern vmCvar_t	   g_selfkill_penalty;
 extern vmCvar_t	   g_moreTaunts;
 extern vmCvar_t    g_raceEmotes;
 extern vmCvar_t		g_ragersCanCounterPushPull;
+extern vmCvar_t		g_autoPause999;
 
 extern vmCvar_t    g_webhookId;
 extern vmCvar_t    g_webhookToken;
