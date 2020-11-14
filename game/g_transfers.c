@@ -86,6 +86,8 @@ void G_PostScoreboardToWebhook(const char* stats) {
 			// get his top name (auto-chooses best method)
 			nicknameEntry_t nickname = { 0 };
 			G_DBGetTopNickname(found->sessionId, &nickname);
+			if (!nickname.name[0])
+				Q_strncpyz(nickname.name, found->name, sizeof(nickname.name));
 
 			char *buf;
 			size_t bufSize;

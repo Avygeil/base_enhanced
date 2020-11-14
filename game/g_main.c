@@ -5070,24 +5070,26 @@ static qboolean SessionIdMatches(genericNode_t *node, void *userData) {
 
 // adds a tick to a player's tick count for a particular team, even if he left and rejoined
 // allows tracking ragequitters and subs for the discord webhook, as well as using account names/nicknames
-static void AddPlayerTick(team_t team, session_t *s) {
-	if (!s)
+static void AddPlayerTick(team_t team, gclient_t *cl) {
+	if (!cl || !cl->session)
 		return;
 
 	list_t *list = team == TEAM_RED ? &level.redPlayerTickList : &level.bluePlayerTickList;
-	tickPlayer_t *found = ListFind(list, SessionIdMatches, s, NULL);
+	tickPlayer_t *found = ListFind(list, SessionIdMatches, cl->session, NULL);
 
 	if (found) { // this guy is already tracked
 		found->numTicks++;
 		found->accountId = found->accountId; // update the tracked account id, in case an admin assigned him an account during this match
+		Q_strncpyz(found->name, cl->pers.netname[0] ? cl->pers.netname : "Padawan", sizeof(found->name));
 		return;
 	}
 
 	// not yet tracked; add him to the list
 	tickPlayer_t *add = ListAdd(list, sizeof(tickPlayer_t));
 	add->numTicks = 1;
-	add->sessionId = s->id;
-	add->accountId = s->accountId;
+	add->sessionId = cl->session->id;
+	add->accountId = cl->session->accountId;
+	Q_strncpyz(add->name, cl->pers.netname[0] ? cl->pers.netname : "Padawan", sizeof(add->name));
 }
 
 extern void WP_AddToClientBitflags(gentity_t* ent, int entNum);
@@ -5679,10 +5681,10 @@ void G_RunFrame( int levelTime ) {
 
 				if (ent->client->sess.sessionTeam == TEAM_RED) {
 					level.numRedPlayerTicks++;
-					AddPlayerTick(TEAM_RED, ent->client->session);
+					AddPlayerTick(TEAM_RED, ent->client);
 				} else if (ent->client->sess.sessionTeam == TEAM_BLUE) {
 					level.numBluePlayerTicks++;
-					AddPlayerTick(TEAM_BLUE, ent->client->session);
+					AddPlayerTick(TEAM_BLUE, ent->client);
 				}
 
 				if ( ent->client->ps.stats[STAT_HEALTH] > 0 && !( ent->client->ps.eFlags & EF_DEAD ) ) {

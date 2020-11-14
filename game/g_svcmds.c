@@ -2726,6 +2726,8 @@ static void Svcmd_DebugTicks_f(void) {
 		if (found) {
 			nicknameEntry_t nickname = { 0 };
 			G_DBGetTopNickname(found->sessionId, &nickname);
+			if (!nickname.name[0])
+				Q_strncpyz(nickname.name, found->name, sizeof(nickname.name));
 
 			qboolean isSub = qfalse;
 			int subThreshold = (int)((float)level.numTeamTicks * WEBHOOK_INGAME_THRESHOLD_SUB);
@@ -2755,6 +2757,8 @@ static void Svcmd_DebugTicks_f(void) {
 		if (found) {
 			nicknameEntry_t nickname = { 0 };
 			G_DBGetTopNickname(found->sessionId, &nickname);
+			if (!nickname.name[0])
+				Q_strncpyz(nickname.name, found->name, sizeof(nickname.name));
 
 			qboolean isSub = qfalse;
 			int subThreshold = (int)((float)level.numTeamTicks * WEBHOOK_INGAME_THRESHOLD_SUB);

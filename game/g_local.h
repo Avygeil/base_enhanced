@@ -1117,6 +1117,7 @@ typedef struct {
 	unsigned int	numTicks;
 	int				sessionId;
 	int				accountId;
+	char			name[MAX_NAME_LENGTH];
 } tickPlayer_t;
 
 #define MAX_LOCATION_CHARS 32
