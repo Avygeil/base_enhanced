@@ -1109,6 +1109,16 @@ typedef struct
 	int		left; //when did this person leave his team :o
 } rosterData;
 
+#define WEBHOOK_INGAME_THRESHOLD		(0.1f)
+#define WEBHOOK_INGAME_THRESHOLD_SUB	(0.9f)
+
+typedef struct {
+	node_t			node;
+	unsigned int	numTicks;
+	int				sessionId;
+	int				accountId;
+} tickPlayer_t;
+
 #define MAX_LOCATION_CHARS 32
 
 typedef struct {
@@ -1333,6 +1343,9 @@ typedef struct {
 	unsigned int	numRedPlayerTicks;
 	unsigned int	numBluePlayerTicks;
 	unsigned int	numTeamTicks;
+
+	list_t			redPlayerTickList;
+	list_t			bluePlayerTickList;
 
 #ifdef NEWMOD_SUPPORT
 	qboolean nmAuthEnabled;

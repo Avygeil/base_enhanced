@@ -1,4 +1,5 @@
 #include "g_local.h"
+#include "g_database.h"
 
 #include "cJSON.h"
 
@@ -52,29 +53,56 @@ void G_PostScoreboardToWebhook(const char* stats) {
 	}
 
 	// build a list of players in each team
-	int numSorted = level.numConnectedClients;
 	char redTeam[256] = { 0 }, blueTeam[256] = { 0 };
-	int i;
-	for (i = 0; i < numSorted; i++) {
-		gclient_t* cl = &level.clients[level.sortedClients[i]];
+	for (team_t t = TEAM_RED; t <= TEAM_BLUE; t++) {
+		iterator_t iter;
+		ListIterate(t == TEAM_RED ? &level.redPlayerTickList : &level.bluePlayerTickList, &iter, qfalse);
+		while (IteratorHasNext(&iter)) {
+			tickPlayer_t *found = IteratorNext(&iter);
 
-		if (!cl || cl->pers.connected != CON_CONNECTED) {
-			continue;
-		}
+			// don't consider people who weren't ingame and on their team for at least 10% of the match
+			int threshold = (int)((float)level.numTeamTicks * WEBHOOK_INGAME_THRESHOLD);
+			if (found->numTicks < threshold)
+				continue;
 
-		char* buf;
-		size_t bufSize;
-		switch (cl->sess.sessionTeam) {
+			// if he was playing for at least 10% of the match BUT less than 90% of the match, he's considered a sub
+			qboolean isSub = qfalse;
+			int subThreshold = (int)((float)level.numTeamTicks * WEBHOOK_INGAME_THRESHOLD_SUB);
+			if (found->numTicks < subThreshold)
+				isSub = qtrue;
+
+			// is he still connected?
+			qboolean isHere = qfalse;
+			for (int i = 0; i < level.maxclients; i++) {
+				if (level.clients[i].pers.connected != CON_CONNECTED)
+					continue;
+				if ((level.clients[i].account && level.clients[i].account->id == found->accountId) ||
+					(level.clients[i].session && level.clients[i].session->id == found->sessionId)) {
+					isHere = qtrue;
+					break;
+				}
+			}
+
+			// get his top name (auto-chooses best method)
+			nicknameEntry_t nickname = { 0 };
+			G_DBGetTopNickname(found->sessionId, &nickname);
+
+			char *buf;
+			size_t bufSize;
+			switch (t) {
 			case TEAM_RED: buf = redTeam; bufSize = sizeof(redTeam); break;
 			case TEAM_BLUE: buf = blueTeam; bufSize = sizeof(blueTeam); break;
 			default: buf = NULL; bufSize = 0;
-		}
+			}
 
-		if (buf) {
 			if (VALIDSTRING(buf)) Q_strcat(buf, bufSize, "\n");
 			char name[MAX_NETNAME];
-			Q_strncpyz(name, cl->pers.netname, sizeof(name));
+			Q_strncpyz(name, nickname.name, sizeof(name));
 			Q_strcat(buf, bufSize, Q_CleanStr(name));
+			if (isSub)
+				Q_strcat(buf, bufSize, " (SUB)");
+			if (!isHere)
+				Q_strcat(buf, bufSize, " (RQ)");
 		}
 	}
 
@@ -124,14 +152,14 @@ void G_PostScoreboardToWebhook(const char* stats) {
 
 					{
 						cJSON* redField = cJSON_CreateObject();
-						cJSON_AddStringToObject(redField, "name", va("RED: %d", redScore));
+						cJSON_AddStringToObject(redField, "name", va("RED: %d%s", redScore, redScore > blueScore ? " :trophy:" : ""));
 						cJSON_AddStringToObject(redField, "value", redTeam);
 						cJSON_AddBoolToObject(redField, "inline", cJSON_True);
 						cJSON_AddItemToArray(fields, redField);
 					}
 					{
 						cJSON* blueField = cJSON_CreateObject();
-						cJSON_AddStringToObject(blueField, "name", va("BLUE: %d", blueScore));
+						cJSON_AddStringToObject(blueField, "name", va("BLUE: %d%s", blueScore, blueScore > redScore ? " :trophy:" : ""));
 						cJSON_AddStringToObject(blueField, "value", blueTeam);
 						cJSON_AddBoolToObject(blueField, "inline", cJSON_True);
 						cJSON_AddItemToArray(fields, blueField);

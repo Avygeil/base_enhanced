@@ -1862,6 +1862,9 @@ void G_ShutdownGame( int restart ) {
 
 	kd_free(level.locations.enhanced.lookupTree);
 
+	ListClear(&level.redPlayerTickList);
+	ListClear(&level.bluePlayerTickList);
+
 	UnpatchEngine();
 }
 
@@ -5049,6 +5052,44 @@ void G_UpdateNonClientBroadcasts( gentity_t *self ) {
 #endif
 }
 
+static qboolean SessionIdMatches(genericNode_t *node, void *userData) {
+	tickPlayer_t *existing = (tickPlayer_t *)node;
+	session_t *thisGuy = (session_t *)userData;
+
+	if (!existing || !thisGuy)
+		return qfalse;
+	
+	if (thisGuy->accountId != ACCOUNT_ID_UNLINKED && thisGuy->accountId == existing->accountId)
+		return qtrue; // matches a linked account
+
+	if (existing->sessionId == thisGuy->id)
+		return qtrue; // matches a session
+
+	return qfalse;
+}
+
+// adds a tick to a player's tick count for a particular team, even if he left and rejoined
+// allows tracking ragequitters and subs for the discord webhook, as well as using account names/nicknames
+static void AddPlayerTick(team_t team, session_t *s) {
+	if (!s)
+		return;
+
+	list_t *list = team == TEAM_RED ? &level.redPlayerTickList : &level.bluePlayerTickList;
+	tickPlayer_t *found = ListFind(list, SessionIdMatches, s, NULL);
+
+	if (found) { // this guy is already tracked
+		found->numTicks++;
+		found->accountId = found->accountId; // update the tracked account id, in case an admin assigned him an account during this match
+		return;
+	}
+
+	// not yet tracked; add him to the list
+	tickPlayer_t *add = ListAdd(list, sizeof(tickPlayer_t));
+	add->numTicks = 1;
+	add->sessionId = s->id;
+	add->accountId = s->accountId;
+}
+
 extern void WP_AddToClientBitflags(gentity_t* ent, int entNum);
 void G_RunFrame( int levelTime ) {
 	int			i;
@@ -5638,8 +5679,10 @@ void G_RunFrame( int levelTime ) {
 
 				if (ent->client->sess.sessionTeam == TEAM_RED) {
 					level.numRedPlayerTicks++;
+					AddPlayerTick(TEAM_RED, ent->client->session);
 				} else if (ent->client->sess.sessionTeam == TEAM_BLUE) {
 					level.numBluePlayerTicks++;
+					AddPlayerTick(TEAM_BLUE, ent->client->session);
 				}
 
 				if ( ent->client->ps.stats[STAT_HEALTH] > 0 && !( ent->client->ps.eFlags & EF_DEAD ) ) {

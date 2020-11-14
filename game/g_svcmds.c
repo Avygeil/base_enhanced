@@ -2715,6 +2715,71 @@ static void Svcmd_AutoRestartCancel_f(void) {
 	level.autoStartPending = qfalse;
 }
 
+#ifdef _DEBUG
+// test tick tracking for discord webhook
+static void Svcmd_DebugTicks_f(void) {
+	iterator_t iter;
+	Com_Printf("^1RED TEAM^7:\n");
+	ListIterate(&level.redPlayerTickList, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		tickPlayer_t *found = IteratorNext(&iter);
+		if (found) {
+			nicknameEntry_t nickname = { 0 };
+			G_DBGetTopNickname(found->sessionId, &nickname);
+
+			qboolean isSub = qfalse;
+			int subThreshold = (int)((float)level.numTeamTicks * WEBHOOK_INGAME_THRESHOLD_SUB);
+			int thisGuyTicks = found->numTicks;
+			if (thisGuyTicks < subThreshold)
+				isSub = qtrue;
+
+			qboolean isHere = qfalse;
+			for (int i = 0; i < level.maxclients; i++) {
+				if (level.clients[i].pers.connected != CON_CONNECTED)
+					continue;
+				if ((level.clients[i].account && level.clients[i].account->id == found->accountId) ||
+					(level.clients[i].session && level.clients[i].session->id == found->sessionId)) {
+					isHere = qtrue;
+					break;
+				}
+			}
+
+			Com_Printf("%s^7 with account id %d, session id %d, %d ticks%s%s\n", nickname.name, found->accountId, found->sessionId, found->numTicks,
+			isSub ? " (SUB)" : "", isHere ? "" : " (RQ)");
+		}
+	}
+	Com_Printf("^4BLUE TEAM^7:\n");
+	ListIterate(&level.bluePlayerTickList, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		tickPlayer_t *found = IteratorNext(&iter);
+		if (found) {
+			nicknameEntry_t nickname = { 0 };
+			G_DBGetTopNickname(found->sessionId, &nickname);
+
+			qboolean isSub = qfalse;
+			int subThreshold = (int)((float)level.numTeamTicks * WEBHOOK_INGAME_THRESHOLD_SUB);
+			int thisGuyTicks = found->numTicks;
+			if (thisGuyTicks < subThreshold)
+				isSub = qtrue;
+
+			qboolean isHere = qfalse;
+			for (int i = 0; i < level.maxclients; i++) {
+				if (level.clients[i].pers.connected != CON_CONNECTED)
+					continue;
+				if ((level.clients[i].account && level.clients[i].account->id == found->accountId) ||
+					(level.clients[i].session && level.clients[i].session->id == found->sessionId)) {
+					isHere = qtrue;
+					break;
+				}
+			}
+
+			Com_Printf("%s^7 with account id %d, session id %d, %d ticks%s%s\n", nickname.name, found->accountId, found->sessionId, found->numTicks,
+				isSub ? " (SUB)" : "", isHere ? "" : " (RQ)");
+		}
+	}
+}
+#endif
+
 /*
 =================
 ConsoleCommand
@@ -3003,6 +3068,13 @@ qboolean	ConsoleCommand( void ) {
 		Svcmd_AutoRestartCancel_f();
 		return qtrue;
 	}
+
+#ifdef _DEBUG
+	if (!Q_stricmp(cmd, "debugticks")) {
+		Svcmd_DebugTicks_f();
+		return qtrue;
+	}
+#endif
 
 	if (g_dedicated.integer) {
 		if (Q_stricmp (cmd, "say") == 0) {
