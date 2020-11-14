@@ -61,13 +61,13 @@ void G_PostScoreboardToWebhook(const char* stats) {
 			tickPlayer_t *found = IteratorNext(&iter);
 
 			// don't consider people who weren't ingame and on their team for at least 10% of the match
-			int threshold = (int)((float)level.numTeamTicks * WEBHOOK_INGAME_THRESHOLD);
+			unsigned int threshold = (int)((float)level.numTeamTicks * WEBHOOK_INGAME_THRESHOLD);
 			if (found->numTicks < threshold)
 				continue;
 
 			// if he was playing for at least 10% of the match BUT less than 90% of the match, he's considered a sub
 			qboolean isSub = qfalse;
-			int subThreshold = (int)((float)level.numTeamTicks * WEBHOOK_INGAME_THRESHOLD_SUB);
+			unsigned int subThreshold = (int)((float)level.numTeamTicks * WEBHOOK_INGAME_THRESHOLD_SUB);
 			if (found->numTicks < subThreshold)
 				isSub = qtrue;
 
