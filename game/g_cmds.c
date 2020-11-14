@@ -1871,7 +1871,7 @@ static qboolean ChatLimitExceeded(gentity_t *ent, int mode) {
 	return exceeded;
 }
 
-static qboolean IsRacerOrSpectator(gentity_t *ent) {
+qboolean IsRacerOrSpectator(gentity_t *ent) {
 	if (g_gametype.integer != GT_CTF || !ent || !ent->client || ent->client->sess.sessionTeam == TEAM_RED || ent->client->sess.sessionTeam == TEAM_BLUE)
 		return qfalse;
 	return qtrue;
@@ -2076,7 +2076,7 @@ static void TokenizeTeamChat( gentity_t *ent, char *dest, const char *src, size_
 	dest[i] = '\0';
 }
 
-void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText ) {
+void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, qboolean force ) {
 	int			j;
 	gentity_t	*other;
 	int			color;
@@ -2094,6 +2094,23 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText ) 
 
 	if ( g_gametype.integer < GT_TEAM && mode == SAY_TEAM ) {
 		mode = SAY_ALL;
+	}
+
+	if (!force && ent->client->account && ent->client->account->flags & ACCOUNTFLAG_ENTERSPAMMER) {
+		if (mode == SAY_ALL) {
+			if (ent->client->pers.chatBuffer[0])
+				Q_strcat(ent->client->pers.chatBuffer, sizeof(ent->client->pers.chatBuffer), " ");
+			Q_strcat(ent->client->pers.chatBuffer, sizeof(ent->client->pers.chatBuffer), chatText);
+			ent->client->pers.chatBufferCheckTime = trap_Milliseconds() + Com_Clampi(0, 10000, g_enterSpammerTime.integer * 1000);
+			return;
+		}
+		else if (mode == SAY_TEAM && IsRacerOrSpectator(ent)) {
+			if (ent->client->pers.specChatBuffer[0])
+				Q_strcat(ent->client->pers.specChatBuffer, sizeof(ent->client->pers.specChatBuffer), " ");
+			Q_strcat(ent->client->pers.specChatBuffer, sizeof(ent->client->pers.specChatBuffer), chatText);
+			ent->client->pers.specChatBufferCheckTime = trap_Milliseconds() + Com_Clampi(0, 10000, g_enterSpammerTime.integer * 1000);
+			return;
+		}
 	}
 
 	switch ( mode ) {
@@ -2233,7 +2250,7 @@ static void Cmd_Tell_f(gentity_t *ent, char *override) {
 		}
 	}
 
-	G_Say(ent, found, SAY_TELL, p);
+	G_Say(ent, found, SAY_TELL, p, qtrue);
 	// don't tell to the player self if it was already directed to this player
 	// also don't send the chat back to a bot
 	if (ent != found && !(ent->r.svFlags & SVF_BOT) /*UNCOMMENT, JUST FOR DEBUG NOW*/) {
@@ -2283,7 +2300,7 @@ static void Cmd_Say_f( gentity_t *ent, int mode, qboolean arg0 ) {
 		}
 	}
 
-	G_Say( ent, NULL, mode, p );
+	G_Say( ent, NULL, mode, p, qfalse );
 }
 
 //siege voice command
@@ -2407,8 +2424,8 @@ void Cmd_GameCommand_f( gentity_t *ent ) {
 	if ( order < 0 || order >= sizeof(gc_orders)/sizeof(char *) ) {
 		return;
 	}
-	G_Say( ent, &g_entities[player], SAY_TELL, gc_orders[order] );
-	G_Say( ent, ent, SAY_TELL, gc_orders[order] );
+	G_Say( ent, &g_entities[player], SAY_TELL, gc_orders[order], qtrue );
+	G_Say( ent, ent, SAY_TELL, gc_orders[order], qtrue );
 }
 
 /*

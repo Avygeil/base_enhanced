@@ -2085,6 +2085,8 @@ static int AccountFlagName2Bitflag(const char* flagName) {
 		return ACCOUNTFLAG_ADMIN;
 	} else if (!Q_stricmp(flagName, "VerboseRcon")) {
 		return ACCOUNTFLAG_RCONLOG;
+	} else if (!Q_stricmp(flagName, "EnterSpammer")) {
+		return ACCOUNTFLAG_ENTERSPAMMER;
 	}
 
 	return 0;
@@ -2096,6 +2098,7 @@ static const char* AccountBitflag2FlagName(int bitflag) {
 	switch (bitflag) {
 		case ACCOUNTFLAG_ADMIN: return "Admin";
 		case ACCOUNTFLAG_RCONLOG: return "VerboseRcon";
+		case ACCOUNTFLAG_ENTERSPAMMER: return "EnterSpammer";
 		default: return NULL;
 	}
 }

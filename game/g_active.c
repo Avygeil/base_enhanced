@@ -4537,6 +4537,9 @@ static qboolean Pause999MatchConditions(void) {
 	return qfalse;
 }
 
+
+extern void G_Say(gentity_t *ent, gentity_t *target, int mode, const char *chatText, qboolean force);
+extern qboolean IsRacerOrSpectator(gentity_t *ent);
 /*
 ==============
 ClientEndFrame
@@ -4553,6 +4556,25 @@ void ClientEndFrame( gentity_t *ent ) {
 	if (ent->s.eType == ET_NPC)
 	{
 		isNPC = qtrue;
+	}
+
+	if (ent->client->account && ent->client->account->flags & ACCOUNTFLAG_ENTERSPAMMER) {
+		int now = trap_Milliseconds();
+		if (ent->client->ps.eFlags & EF_TALK) {
+			ent->client->pers.chatBufferCheckTime = now + 2000;
+		}
+		else {
+			if (ent->client->pers.chatBuffer[0] && ent->client->pers.chatBufferCheckTime && now >= ent->client->pers.chatBufferCheckTime) {
+				G_Say(ent, NULL, SAY_ALL, ent->client->pers.chatBuffer, qtrue);
+				ent->client->pers.chatBuffer[0] = '\0';
+				ent->client->pers.chatBufferCheckTime = 0;
+			}
+			if (IsRacerOrSpectator(ent) && ent->client->pers.specChatBuffer[0] && ent->client->pers.specChatBufferCheckTime && now >= ent->client->pers.specChatBufferCheckTime) {
+				G_Say(ent, NULL, SAY_TEAM, ent->client->pers.specChatBuffer, qtrue);
+				ent->client->pers.specChatBuffer[0] = '\0';
+				ent->client->pers.chatBufferCheckTime = 0;
+			}
+		}
 	}
 
 #ifdef NEWMOD_SUPPORT

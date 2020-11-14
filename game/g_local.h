@@ -702,6 +702,12 @@ typedef struct {
 	gentity_t	*lastSpawnPoint;
 	int			lastSpawnTime;
 	gentity_t	*lastKiller;
+
+	char		chatBuffer[MAX_SAY_TEXT];
+	int			chatBufferCheckTime;
+
+	char		specChatBuffer[MAX_SAY_TEXT];
+	int			specChatBufferCheckTime;
 } clientPersistant_t;
 
 typedef struct renderInfo_s
@@ -1350,8 +1356,9 @@ typedef struct {
 //
 // g_accounts.c
 //
-#define ACCOUNTFLAG_ADMIN		( 1 << 0 )
-#define ACCOUNTFLAG_RCONLOG		( 1 << 1 )
+#define ACCOUNTFLAG_ADMIN			( 1 << 0 )
+#define ACCOUNTFLAG_RCONLOG			( 1 << 1 )
+#define ACCOUNTFLAG_ENTERSPAMMER	( 1 << 2 )
 
 typedef void( *ListSessionsCallback )( void *ctx,
 	const sessionReference_t sessionRef,
@@ -2410,6 +2417,7 @@ extern vmCvar_t	   g_moreTaunts;
 extern vmCvar_t    g_raceEmotes;
 extern vmCvar_t		g_ragersCanCounterPushPull;
 extern vmCvar_t		g_autoPause999;
+extern vmCvar_t		g_enterSpammerTime;
 
 extern vmCvar_t    g_webhookId;
 extern vmCvar_t    g_webhookToken;
