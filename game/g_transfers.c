@@ -76,7 +76,7 @@ void G_PostScoreboardToWebhook(const char* stats) {
 			for (int i = 0; i < level.maxclients; i++) {
 				if (level.clients[i].pers.connected != CON_CONNECTED)
 					continue;
-				if ((level.clients[i].account && level.clients[i].account->id == found->accountId) ||
+				if ((level.clients[i].account && level.clients[i].account->id != ACCOUNT_ID_UNLINKED && level.clients[i].account->id == found->accountId) ||
 					(level.clients[i].session && level.clients[i].session->id == found->sessionId)) {
 					isHere = qtrue;
 					break;
