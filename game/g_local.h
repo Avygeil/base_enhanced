@@ -2417,6 +2417,7 @@ extern vmCvar_t	   g_moreTaunts;
 extern vmCvar_t    g_raceEmotes;
 extern vmCvar_t		g_ragersCanCounterPushPull;
 extern vmCvar_t		g_autoPause999;
+extern vmCvar_t		g_quickPauseChat;
 
 extern vmCvar_t    g_webhookId;
 extern vmCvar_t    g_webhookToken;

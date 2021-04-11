@@ -163,6 +163,7 @@ vmCvar_t    g_moreTaunts;
 vmCvar_t	g_raceEmotes;
 vmCvar_t	g_ragersCanCounterPushPull;
 vmCvar_t	g_autoPause999;
+vmCvar_t	g_quickPauseChat;
 
 vmCvar_t	g_webhookId;
 vmCvar_t	g_webhookToken;
@@ -821,6 +822,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_raceEmotes, "g_raceEmotes", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_ragersCanCounterPushPull, "g_ragersCanCounterPushPull", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_autoPause999, "g_autoPause999", "5", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_quickPauseChat, "g_quickPauseChat", "1", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_webhookId, "g_webhookId", "", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_webhookToken, "g_webhookToken", "", CVAR_ARCHIVE, 0, qfalse },
@@ -4333,7 +4335,11 @@ void CheckVote( void ) {
 				// log the vote
 				G_LogPrintf( "Vote passed. (Yes:%i No:%i All:%i g_minimumVotesCount:%i)\n", level.voteYes, level.voteNo, level.numVotingClients, g_minimumVotesCount.integer );
 
-				level.voteExecuteTime = level.time + 3000;
+				// set the delay
+				if (!Q_stricmpn(level.voteString, "pause", 5))
+					level.voteExecuteTime = level.time; // allow pause votes to take affect immediately
+				else
+					level.voteExecuteTime = level.time + 3000;
 			} else {
 				trap_SendServerCommand( -1, va( "print \"%s\n\"", G_GetStringEdString( "MP_SVGAME", "VOTEFAILED" ) ) );
 
@@ -4356,7 +4362,11 @@ void CheckVote( void ) {
 				// log the vote
 				G_LogPrintf( "Vote passed. (Yes:%i No:%i All:%i)\n", level.voteYes, level.voteNo, level.numVotingClients );
 
-				level.voteExecuteTime = level.time + 3000;
+				// set the delay
+				if (!Q_stricmpn(level.voteString, "pause", 5))
+					level.voteExecuteTime = level.time; // allow pause votes to take affect immediately
+				else
+					level.voteExecuteTime = level.time + 3000;
 			} else if ( level.voteNo >= ( level.numVotingClients + 1 ) / 2 ) {
 				// same behavior as a timeout
 				trap_SendServerCommand( -1, va( "print \"%s\n\"",

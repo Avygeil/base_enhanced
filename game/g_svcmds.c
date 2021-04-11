@@ -989,7 +989,11 @@ void Svcmd_VoteForce_f( qboolean pass ) {
 	trap_SendServerCommand( -1, va( "print \""S_COLOR_RED"Vote forced to %s.\n\"", pass ? "pass" : "fail" ) );
 
 	if ( pass ) {
-		level.voteExecuteTime = level.time + 3000;
+		// set the delay
+		if (!Q_stricmpn(level.voteString, "pause", 5))
+			level.voteExecuteTime = level.time; // allow pause votes to take affect immediately
+		else
+			level.voteExecuteTime = level.time + 3000;
 	}
 
 	if ( level.multiVoting ) {
