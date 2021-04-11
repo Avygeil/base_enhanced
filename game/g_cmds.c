@@ -2076,6 +2076,7 @@ static void TokenizeTeamChat( gentity_t *ent, char *dest, const char *src, size_
 	dest[i] = '\0';
 }
 
+void Cmd_CallVote_f(gentity_t *ent, int pause);
 void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, qboolean force ) {
 	int			j;
 	gentity_t	*other;
@@ -2095,6 +2096,12 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, q
 	if ( g_gametype.integer < GT_TEAM && mode == SAY_TEAM ) {
 		mode = SAY_ALL;
 	}
+
+	// allow typing "pause" in the chat to quickly call a pause vote
+	if (ent->client->sess.sessionTeam != TEAM_SPECTATOR && mode != SAY_TELL && !Q_stricmpn(chatText, "pause", 5) && strlen(chatText) <= 6 && g_quickPauseChat.integer) // allow a small typo at the end
+		Cmd_CallVote_f(ent, PAUSE_PAUSED);
+	else if (ent->client->sess.sessionTeam != TEAM_SPECTATOR && mode != SAY_TELL && !Q_stricmpn(chatText, "unpause", 7) && strlen(chatText) <= 8 && g_quickPauseChat.integer) // allow a small typo at the end
+		Cmd_CallVote_f(ent, PAUSE_UNPAUSING);
 
 	if (!force && ent->client->account && ent->client->account->flags & ACCOUNTFLAG_ENTERSPAMMER) {
 		if (mode == SAY_ALL) {
@@ -2728,7 +2735,7 @@ int G_GetArenaNumber( const char *map );
 static int      g_votedCounts[MAX_ARENAS];
 void Cmd_Vote_f(gentity_t *ent, const char *forceVoteArg);
 
-void Cmd_CallVote_f( gentity_t *ent ) {
+void Cmd_CallVote_f( gentity_t *ent, int pause ) {
 	int		i;
 	static char	arg1[MAX_STRING_TOKENS];
 	char	arg2[MAX_CVAR_VALUE_STRING];
@@ -2739,6 +2746,11 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 	trap_Argv(1, arg1, sizeof(arg1));
 	trap_Argv(2, arg2, sizeof(arg2));
 	argc = trap_Argc();
+
+	if (pause) {
+		Q_strncpyz(arg1, pause == PAUSE_PAUSED ? "pause" : "unpause", sizeof(arg1));
+		arg2[0] = '\0';
+	}
 
 	if ( !g_allowVote.integer ) {
 		trap_SendServerCommand( ent-g_entities, va("print \"%s\n\"", G_GetStringEdString("MP_SVGAME", "NOVOTE")) );
@@ -3287,7 +3299,7 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 	}
 	else if ( !Q_stricmp( arg1, "q" )) 
 	{
-		NormalizeName(arg2, arg2, sizeof(arg2), sizeof(arg2));
+		NormalizeName(ConcatArgs(2), arg2, sizeof(arg2), sizeof(arg2));
 		PurgeStringedTrolling(arg2, arg2, sizeof(arg2));
 		Com_sprintf( level.voteString, sizeof( level.voteString ), ";" );
 		Com_sprintf( level.voteDisplayString, sizeof( level.voteDisplayString ), "Poll: %s", arg2 );
@@ -3300,6 +3312,10 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 	}
 	else if ( !Q_stricmp( arg1, "unpause" )) 
 	{
+		if (level.pause.state == PAUSE_NONE) {
+			trap_SendServerCommand(ent - g_entities, "print \"The game is not currently paused.\n\"");
+			return;
+		}
 		Com_sprintf( level.voteString, sizeof( level.voteString ), "%s", arg1 );
 		Com_sprintf( level.voteDisplayString, sizeof( level.voteDisplayString ), "Unpause Game" );
 	}
@@ -6527,7 +6543,11 @@ void ClientCommand( int clientNum ) {
 	else if (Q_stricmp (cmd, "where") == 0)
 		Cmd_Where_f (ent);
 	else if (Q_stricmp (cmd, "callvote") == 0)
-		Cmd_CallVote_f (ent);
+		Cmd_CallVote_f (ent, PAUSE_NONE);
+	else if (!Q_stricmp(cmd, "pause"))
+		Cmd_CallVote_f(ent, PAUSE_PAUSED); // allow "pause" command as alias for "callvote pause"
+	else if (!Q_stricmp(cmd, "unpause"))
+		Cmd_CallVote_f(ent, PAUSE_UNPAUSING); // allow "unpause" command as alias for "callvote unpause"
 	else if (Q_stricmp (cmd, "vote") == 0)
 		Cmd_Vote_f (ent, NULL);
 	else if (Q_stricmp(cmd, "ready") == 0 || !Q_stricmp(cmd, "readyup"))
