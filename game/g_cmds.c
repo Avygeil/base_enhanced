@@ -3283,6 +3283,11 @@ void Cmd_CallVote_f( gentity_t *ent, int pause ) {
 	}
 	else if ( !Q_stricmp( arg1, "q" )) 
 	{
+	if (!arg2[0] || isspace(arg2[0])) {
+		trap_SendServerCommand(ent - g_entities, "print \"You must specify a poll question.\n\"");
+		return;
+	}
+
 		NormalizeName(ConcatArgs(2), arg2, sizeof(arg2), sizeof(arg2));
 		PurgeStringedTrolling(arg2, arg2, sizeof(arg2));
 		Com_sprintf( level.voteString, sizeof( level.voteString ), ";" );
