@@ -2871,6 +2871,8 @@ void Cmd_CallVote_f( gentity_t *ent, int pause ) {
 		racersAllowCallvote = qtrue;
 	} else if ( !Q_stricmp( arg1, "map_random" ) ) {
 		racersAllowVote = qtrue;
+	} else if ( !Q_stricmp( arg1, "mapvote" ) ) {
+		racersAllowVote = qtrue;
 	} else if ( !Q_stricmp( arg1, "g_gametype" ) ) {
 		racersAllowVote = qtrue;
 	} else if ( !Q_stricmp( arg1, "kick" ) ) {
@@ -2905,7 +2907,7 @@ void Cmd_CallVote_f( gentity_t *ent, int pause ) {
 		trap_SendServerCommand( ent-g_entities, "print \"Vote commands are: map_restart, nextmap, map <mapname>, g_gametype <n>, "
 			"kick <player>, clientkick <clientnum>, g_doWarmup, timelimit <time>, fraglimit <frags>, "
 			"resetflags, q <question>, pause, unpause, endmatch, randomcapts, randomteams <numRedPlayers> <numBluePlayers>, "
-			"lockteams <numPlayers>, capturedifflimit <capLimit>, enableboon, disableboon, instagib.\n\"" );
+			"lockteams <numPlayers>, capturedifflimit <capLimit>, enableboon, disableboon, instagib, map_random, mapvote.\n\"" );
 		return;
 	}
 
@@ -3077,6 +3079,32 @@ void Cmd_CallVote_f( gentity_t *ent, int pause ) {
         }    
        
 		Com_sprintf( level.voteDisplayString, sizeof( level.voteDisplayString ), "map %s", mapName);
+	}
+	else if (!Q_stricmp(arg1, "mapvote")) {
+		if (!g_allow_vote_mapvote.integer || !g_vote_tierlist.integer) {
+			trap_SendServerCommand(ent - g_entities, "print \"Mapvote is disabled.\n\"");
+			return;
+		}
+
+		if (g_mapVoteThreshold.integer && clientsTotal >= g_mapVoteThreshold.integer && clientsInGame < g_mapVotePlayers.integer) {
+			// anti force map protection when the server is populated
+			trap_SendServerCommand(ent - g_entities, "print \"Not enough players in game to call this vote.\n\"");
+			return;
+		}
+
+		const int totalMapsToChoose = Com_Clampi(2, MAX_MULTIVOTE_MAPS, g_vote_tierlist_totalMaps.integer);
+		if ((g_vote_tierlist_s_max.integer + g_vote_tierlist_a_max.integer + g_vote_tierlist_b_max.integer +
+			g_vote_tierlist_c_max.integer + g_vote_tierlist_f_max.integer < totalMapsToChoose) ||
+			(g_vote_tierlist_s_min.integer + g_vote_tierlist_a_min.integer + g_vote_tierlist_b_min.integer +
+				g_vote_tierlist_c_min.integer + g_vote_tierlist_f_min.integer > totalMapsToChoose)) {
+			// we could just decrease the max, but let's just shame the idiots instead
+			PrintIngame(ent - g_entities, "This server is not properly configured for tierlist voting. Please notify the admins.\n");
+			Com_Printf("Error: min/max conflict with g_vote_tierlist_totalMaps! Unable to use tierlist voting.\n");
+			return;
+		}
+
+		Com_sprintf(level.voteDisplayString, sizeof(level.voteDisplayString), "New Map Vote (%d Maps)", totalMapsToChoose);
+		Com_sprintf(level.voteString, sizeof(level.voteString), "mapvote");
 	}
 	else if (!Q_stricmp(arg1, "map_random"))
 	{
@@ -3432,6 +3460,8 @@ void Cmd_CallVote_f( gentity_t *ent, int pause ) {
 	level.voteNo = 0;
 	level.lastVotingClient = ent-g_entities;
 	level.multiVoting = qfalse;
+	level.inRunoff = qfalse;
+	level.mapsThatCanBeVotedBits = 0;
 	level.multiVoteChoices = 0;
 	memset( &( level.multiVotes ), 0, sizeof( level.multiVotes ) );
 
@@ -3495,19 +3525,22 @@ void Cmd_Vote_f( gentity_t *ent, const char *forceVoteArg ) {
 		// multi map vote, only allow voting for valid choice ids
 		int voteId = atoi( msg );
 
-		if ( voteId <= 0 || voteId > level.multiVoteChoices ) {
-			trap_SendServerCommand( ent - g_entities, va( "print \"Invalid choice, please use /vote 1-%d from console\n\"", level.multiVoteChoices ) );
+		int integerBits = 8 * sizeof(int);
+		if ( voteId <= 0 || /*voteId > level.multiVoteChoices || */voteId > integerBits || !(level.mapsThatCanBeVotedBits & (1 << (voteId - 1))) ) {
+			trap_SendServerCommand( ent - g_entities, "print \"Invalid choice, please use /vote (number) from console\n\"" );
 			return;
 		}
 
 		// we maintain an internal array of choice ids, and only use voteYes to show how many people voted
 
 		if ( !( ent->client->mGameFlags & PSG_VOTED ) ) { // first vote
-			G_LogPrintf( "Client %i (%s) voted for choice %d\n", ent - g_entities, ent->client->pers.netname, voteId );
+			G_LogPrintf( "Client %i (%s) voted for choice %d%s\n", ent - g_entities, ent->client->pers.netname, voteId,
+				level.multiVoteMapShortNames[voteId][0] ? va(" (%s)", level.multiVoteMapShortNames[voteId - 1]) : "" );
 			level.voteYes++;
 			trap_SetConfigstring( CS_VOTE_YES, va( "%i", level.voteYes ) );
 		} else { // changing vote
-			G_LogPrintf( "Client %i (%s) changed their vote to choice %d\n", ent - g_entities, ent->client->pers.netname, voteId );
+			G_LogPrintf("Client %i (%s) changed their vote to choice %d%s\n", ent - g_entities, ent->client->pers.netname, voteId,
+				level.multiVoteMapShortNames[voteId][0] ? va(" (%s)", level.multiVoteMapShortNames[voteId - 1]) : "");
 		}
 		
 		level.multiVotes[ent - g_entities] = voteId;
@@ -5317,7 +5350,7 @@ static void Cmd_MapPool_f(gentity_t* ent) {
 		list_t mapList = { 0 };
 		void *ctxPtr = &mapList;
 		char poolLongName[64] = { 0 };
-		G_DBListMapsInPool( short_name, "", listMapsInPools, (void **)&ctxPtr, (char *)poolLongName, sizeof(poolLongName));
+		G_DBListMapsInPool( short_name, "", listMapsInPools, (void **)&ctxPtr, (char *)poolLongName, sizeof(poolLongName), 0);
 
 		iterator_t iter;
 		ListIterate(&mapList, &iter, qfalse);
@@ -5373,6 +5406,473 @@ static void Cmd_MapPool_f(gentity_t* ent) {
 
         PrintIngame( ent - g_entities, va( "Found %i map pools.\n", numPools) );
 		PrintIngame(ent - g_entities, "To see a list of maps in a specific pool, use ^5pools <pool short name>^7\n");
+	}
+}
+
+const char *GetTierStringForTier(mapTier_t tier) {
+	switch (tier) {
+	case MAPTIER_S:	return "^6S TIER";
+	case MAPTIER_A:	return "^2A TIER";
+	case MAPTIER_B:	return "^3B TIER";
+	case MAPTIER_C:	return "^8C TIER";
+	case MAPTIER_F:	return "^0F TIER";
+	default:		return NULL;
+	}
+}
+
+const char *GetTierColorForTier(mapTier_t tier) {
+	switch (tier) {
+	case MAPTIER_S:	return "^6";
+	case MAPTIER_A:	return "^2";
+	case MAPTIER_B:	return "^3";
+	case MAPTIER_C:	return "^8";
+	case MAPTIER_F:	return "^0";
+	default:		return NULL;
+	}
+}
+
+mapTier_t GetMapTierForChar(char c) {
+	unsigned char u = tolower((unsigned char)c);
+	switch (u) {
+	case 's':	return MAPTIER_S;
+	case 'a':	return MAPTIER_A;
+	case 'b':	return MAPTIER_B;
+	case 'c':	return MAPTIER_C;
+	case 'f':	return MAPTIER_F;
+	default:	return MAPTIER_INVALID;
+	}
+}
+
+// get the casual nickname from a map filename
+// e.g. "mp/ctf_kejim" outputs "kejim"
+qboolean GetShortNameForMapFileName(const char *mapFileName, char *out, size_t outSize) {
+	if (!VALIDSTRING(mapFileName))
+		return qfalse;
+
+	const char *ptr = mapFileName;
+
+	if (!Q_stricmpn(mapFileName, "mp/", 3))
+		ptr += 3;
+	if (*ptr && !Q_stricmpn(ptr, "ctf_", 4))
+		ptr += 4;
+
+	if (*ptr) {
+		Q_strncpyz(out, ptr, outSize);
+		Q_strlwr(out);
+		return qtrue;
+	}
+	else {
+		return qfalse;
+	}
+}
+
+// attempts to find a map filename from a casually typed name
+// e.g. "kejim" and "ctf_kejim" both output "mp/ctf_kejim"
+qboolean GetMatchingMap(const char *in, char *out, size_t outSize) {
+	if (!VALIDSTRING(in) || !out || !outSize)
+		return qfalse;
+
+	char lowercase[MAX_QPATH] = { 0 };
+	Q_strncpyz(lowercase, in, sizeof(lowercase));
+	Q_strlwr(lowercase);
+
+	char *str = va("mp/ctf_%s", lowercase);
+	if (!G_DoesMapSupportGametype(str, GT_CTF)) { // returns 0 if it does
+		Q_strncpyz(out, str, outSize);
+		return qtrue;
+	}
+
+	str = va("ctf_%s", lowercase);
+	if (!G_DoesMapSupportGametype(str, GT_CTF)) { // returns 0 if it does
+		Q_strncpyz(out, str, outSize);
+		return qtrue;
+	}
+
+	str = va("mp/%s", lowercase);
+	if (!G_DoesMapSupportGametype(str, GT_CTF)) { // returns 0 if it does
+		Q_strncpyz(out, str, outSize);
+		return qtrue;
+	}
+
+	str = lowercase;
+	if (!G_DoesMapSupportGametype(str, GT_CTF)) { // returns 0 if it does
+		Q_strncpyz(out, str, outSize);
+		return qtrue;
+	}
+
+	return qfalse;
+}
+
+// e.g. an input of 2.12345 returns MAPTIER_C (2)
+mapTier_t MapTierForDouble(double average) {
+	if (average < 1.0 || average > 5.0) { // should be impossible
+		assert(qfalse);
+		return MAPTIER_INVALID;
+	}
+
+	// in case of a tie, round to the worse tier (idk, this was an arbitrary decision)
+
+	if (average <= 1.5)
+		return MAPTIER_F;
+	else if (average <= 2.5)
+		return MAPTIER_C;
+	else if (average <= 3.5)
+		return MAPTIER_B;
+	else if (average <= 4.5)
+		return MAPTIER_A;
+	else
+		return MAPTIER_S;
+}
+
+static void PrintTiersHelp(int clientNum, qboolean hasAccount) {
+	PrintIngame(clientNum, "Usage:\n" \
+		"^7tier list                         - view the current 4v4 tier list\n"
+		"^9tier community                    - view the overall community 4v4 tier list\n"
+		"\n"
+		"^7tier here                         - view ratings for the current map\n"
+		"^9tier [map]                        - view ratings for a particular map\n"
+		"\n"
+		"^7tier [account name/player name/#] - view someone's tier list\n"
+		"^9tier players                      - see which players have rated maps\n"
+		"^7tier stats                        - view stats about map tiers^7\n"
+		"\n"
+		"^9tier mylist                       - view your personal tier list\n"
+		"^7tier set [map] [tier]             - set a map's tier in your personal list\n"
+		"^9tier remove [map]                 - remove a map's tier from your personal list\n"
+		"^7tier reset <optional tier>        - reset your personal list (or just one tier)\n");
+	if (!hasAccount)
+		PrintIngame(clientNum, "^3You must have an account in order to create a tier list. Contact an admin for help setting up an account.^7\n");
+}
+
+static void Cmd_Tier_f(gentity_t *ent) {
+	assert(ent);
+	int clientNum = ent - g_entities;
+
+	if (!g_vote_tierlist.integer) {
+		PrintIngame(clientNum, "Tierlist is disabled.\n");
+		return;
+	}
+
+	int args = trap_Argc() - 1;
+
+	qboolean hasAccount = !!(ent->client && ent->client->account && VALIDSTRING(ent->client->account->name));
+
+	char arg1[MAX_STRING_CHARS], arg2[MAX_STRING_CHARS], arg3[MAX_STRING_CHARS];
+	trap_Argv(1, arg1, sizeof(arg1));
+	trap_Argv(2, arg2, sizeof(arg2));
+	trap_Argv(3, arg3, sizeof(arg3));
+
+	if (args <= 0 || !arg1[0] || isspace(arg1[0]) || !Q_stricmp(arg1, "help")) {
+		PrintTiersHelp(clientNum, hasAccount);
+		return;
+	}
+
+	qboolean tryingUnknownSubcommand = qfalse;
+
+	if (!Q_stricmp(arg1, "mylist")) {
+		if (!hasAccount) {
+			PrintIngame(clientNum, "^3You must have an account in order to use this feature. Contact an admin for help setting up an account.^7\n");
+			return;
+		}
+		printMyOwnList:; // lick my nuts
+		if (args > 1 && !Q_stricmp(arg2, "unrated")) {
+			if (!G_DBPrintPlayerUnratedList(ent->client->account->id, clientNum, "Maps you have not rated:"))
+				PrintIngame(clientNum, "There are no maps that you have not rated.\n");
+			return;
+		}
+		if (!G_DBPrintPlayerTierList(ent->client->account->id, clientNum, "Your tier list:"))
+			PrintIngame(clientNum, "You do not have a tier list. Enter ^5tier set [map] [tier]^7 to start rating maps.\n");
+		if (G_DBPrintPlayerUnratedList(ent->client->account->id, -1, NULL))
+			PrintIngame(clientNum, "Enter ^5tier mylist unrated^7 to see which maps you have not yet rated.\n");
+		PrintIngame(clientNum, "^3NOTE: ratings should be based on 4v4 gameplay only. Do not rate based on 5s, etc.!^7\n");
+	}
+	else if (!Q_stricmp(arg1, "community") || (!Q_stricmp(arg1, "list") && args > 1 && !Q_stricmp(arg2, "community"))) {
+		if (!G_DBPrintTiersOfAllMaps(clientNum, qfalse, "Community map ratings:")) {
+			PrintIngame(clientNum, "No maps have received ratings yet.\n");
+		}
+	}
+	else if ((!Q_stricmp(arg1, "list") || !Q_stricmp(arg1, "player")) && args > 1 && arg2[0] && !isspace(arg2[0])) {
+		tryFindPlayerFromNoArgs:; // blow my scrote
+		int accountId = -1;
+		char name[64] = { 0 };
+		char *getNameFrom = tryingUnknownSubcommand ? arg1 : arg2;
+		if (Q_isanumber(getNameFrom)) {
+			int num = atoi(getNameFrom);
+			if (num >= 0 && num < MAX_CLIENTS && g_entities[num].inuse && g_entities[num].client && g_entities[num].client->pers.connected != CON_DISCONNECTED) {
+				if (g_entities[num].client->account) {
+					accountId = g_entities[num].client->account->id;
+					Q_strncpyz(name, g_entities[num].client->pers.netname, sizeof(name));
+				}
+				else {
+					PrintIngame(clientNum, "%s^7 does not have a tier list.\n", g_entities[num].client->pers.netname);
+					return;
+				}
+			}
+			else {
+				if (tryingUnknownSubcommand)
+					PrintIngame(clientNum, "Unable to find any map, player, or subcommand matching '%s^7'\n", getNameFrom);
+				else
+					PrintIngame(clientNum, "Unable to find a player matching '%s^7'.\n", getNameFrom);
+				return;
+			}
+		}
+		else {
+			char lowercase[MAX_QPATH] = { 0 };
+			Q_strncpyz(lowercase, getNameFrom, sizeof(lowercase));
+			Q_strlwr(lowercase);
+			account_t account = { 0 };
+			if (G_DBGetAccountByName(lowercase, &account)) {
+				accountId = account.id;
+				Q_strncpyz(name, account.name, sizeof(name));
+			}
+			else {
+				gentity_t *found = G_FindClient(getNameFrom);
+				if (found && found->client) {
+					if (found->client->account) {
+						accountId = found->client->account->id;
+						Q_strncpyz(name, va("%s^7 (%s^7)", found->client->pers.netname, found->client->account->name), sizeof(name));
+					}
+					else {
+						PrintIngame(clientNum, "%s^7 does not have a tier list.\n", found->client->pers.netname);
+						return;
+					}
+				}
+				else {
+					if (tryingUnknownSubcommand)
+						PrintIngame(clientNum, "Unable to find any map, player, or subcommand matching '%s^7'\n", getNameFrom);
+					else
+						PrintIngame(clientNum, "Unable to find a player matching '%s^7'.\n", getNameFrom);
+					return;
+				}
+			}
+		}
+
+		if (accountId == -1)
+			return; // sanity check
+
+		if (hasAccount && accountId == ent->client->account->id)
+			goto printMyOwnList; // suck my fucking ballsack
+
+		char *getUnratedFrom;
+		if (tryingUnknownSubcommand && args > 1 && arg2[0] && !isspace(arg2[0]))
+			getUnratedFrom = arg2;
+		else if (args > 2 && arg3[0] && !isspace(arg3[0]))
+			getUnratedFrom = arg3;
+		else
+			getUnratedFrom = NULL;
+
+		if (VALIDSTRING(getUnratedFrom) && !Q_stricmp(getUnratedFrom, "unrated")) {
+			if (!G_DBPrintPlayerUnratedList(accountId, clientNum, va("Maps %s^7 has not rated:", name)))
+				PrintIngame(clientNum, "There are no maps that %s^7 has not rated.\n", name);
+			return;
+		}
+
+		char *prologue = strdup(va("%s^7's tier list:", name));
+		if (!G_DBPrintPlayerTierList(accountId, clientNum, prologue))
+			PrintIngame(clientNum, "%s^7 does not have a tier list.\n", name);
+		free(prologue);
+		if (G_DBPrintPlayerUnratedList(accountId, -1, NULL))
+			PrintIngame(clientNum, "Enter ^5tier %s^5 unrated^7 to see which maps %s^7 has not yet rated.\n", getNameFrom, name);
+	}
+	else if (!Q_stricmp(arg1, "players") || !Q_stricmp(arg1, "lists")) {
+		if (G_DBTierListPlayersWhoHaveRatedMaps(clientNum, "Players who have rated maps, in order of # of ratings given:")) {
+			PrintIngame(clientNum, "Enter ^5tier [name]^7 to view someone's tier list.\n");
+		}
+		else {
+			PrintIngame(clientNum, "No players have rated maps yet.\n");
+		}
+	}
+	else if (!Q_stricmp(arg1, "set") || !Q_stricmp(arg1, "add")) {
+		// set a map's tier in their list
+		if (!hasAccount) {
+			PrintIngame(clientNum, "^3You must have an account in order to use this feature. Contact an admin for help setting up an account.^7\n");
+			return;
+		}
+
+		if (args < 3 || !arg2[0] || isspace(arg2[0]) || !arg3[0] || isspace(arg3[0])) {
+			PrintIngame(clientNum, "Usage:   tier set [map] [tier]\nExample: ^5tier set kejim s^7 ==> sets mp/ctf_kejim to S tier in your list. Valid tiers are S, A, B, C, F.\n"
+			"^3NOTE: ratings should be based on 4v4 gameplay only. Do not rate based on 5s, etc.!^7\n");
+			return;
+		}
+
+		const char *enteredMap, *enteredTier;
+		if (strlen(arg2) == 1 && strlen(arg3) > 1) { // they typed the tier first and the map second
+			enteredTier = arg2;
+			enteredMap = arg3;
+		}
+		else { // they typed the map first and the tier second
+			enteredMap = arg2;
+			enteredTier = arg3;
+		}
+
+		mapTier_t tier = GetMapTierForChar(*enteredTier);
+		if (tier == MAPTIER_INVALID) {
+			PrintIngame(clientNum, "'%s^7' is not a valid tier. Valid tiers are S, A, B, C, F.\n", enteredTier);
+			return;
+		}
+
+		char mapFileName[MAX_QPATH] = { 0 };
+		if (!GetMatchingMap(enteredMap, mapFileName, sizeof(mapFileName))) {
+			PrintIngame(clientNum, "Unable to find any map matching '%s^7'\n", enteredMap);
+			return;
+		}
+
+		if (!G_DBTierlistMapIsWhitelisted(mapFileName)) {
+			PrintIngame(clientNum, "^5%s^7 (^9%s^7) is not eligible for tierlists.\n", enteredMap, mapFileName);
+			return;
+		}
+
+		mapTier_t existingTier = G_DBGetTierOfSingleMap(va("%d", ent->client->account->id), mapFileName, qfalse);
+		if (existingTier != MAPTIER_INVALID && existingTier == tier) {
+			// trying to move it to the tier it's already in
+			PrintIngame(clientNum, "^5%s^7 (^9%s^7) is already in %s^7.\n", enteredMap, mapFileName, GetTierStringForTier(tier));
+			return;
+		}
+
+		if (existingTier == MAPTIER_INVALID) {
+			// adding a map that is not already in a tier
+			qboolean result = G_DBAddMapToTierList(ent->client->account->id, mapFileName, tier);
+			if (result) {
+				PrintIngame(clientNum, "Added ^5%s^7 (^9%s^7) to %s^7.\n", enteredMap, mapFileName, GetTierStringForTier(tier));
+			}
+			else {
+				PrintIngame(clientNum, "Error adding ^5%s^7 (^9%s^7) to %s^7!\n", enteredMap, mapFileName, GetTierStringForTier(tier));
+				G_LogPrintf("Client %d (%s^7) encountered an error trying to add %s (%s) to %s^7\n", clientNum, ent->client->pers.netname, enteredMap, mapFileName, GetTierStringForTier(tier));
+			}
+		}
+		else {
+			// moving it from a different tier
+			qboolean result = G_DBAddMapToTierList(ent->client->account->id, mapFileName, tier);
+			if (result) {
+				PrintIngame(clientNum, "Moved ^5%s^7 (^9%s^7) to %s^7 (was in %s^7).\n", enteredMap, mapFileName, GetTierStringForTier(tier), GetTierStringForTier(existingTier));
+			}
+			else {
+				PrintIngame(clientNum, "Error moving ^5%s^7 (^9%s^7) to %s^7!\n", enteredMap, mapFileName, GetTierStringForTier(tier));
+				G_LogPrintf("Client %d (%s^7) encountered an error trying to move %s (%s) to %s^7\n", clientNum, ent->client->pers.netname, enteredMap, mapFileName, GetTierStringForTier(tier));
+			}
+		}
+	}
+	else if (!Q_stricmp(arg1, "remove") || !Q_stricmp(arg1, "delete")) {
+		// remove a map from their list
+		if (!hasAccount) {
+			PrintIngame(clientNum, "^3You must have an account in order to use this feature. Contact an admin for help setting up an account.^7\n");
+			return;
+		}
+
+		if (args < 2 || !arg2[0] || isspace(arg2[0])) {
+			PrintIngame(clientNum, "Usage:   tier remove [map]\nExample: ^5tier remove kejim^7 ==> removes mp/ctf_kejim from your list\n");
+			return;
+		}
+
+		char mapFileName[MAX_QPATH] = { 0 };
+		if (!GetMatchingMap(arg2, mapFileName, sizeof(mapFileName))) {
+			PrintIngame(clientNum, "Unable to find any map matching '%s^7'\n", arg2);
+			return;
+		}
+
+		mapTier_t existingTier = G_DBGetTierOfSingleMap(va("%d", ent->client->account->id), mapFileName, qfalse);
+		if (existingTier == MAPTIER_INVALID) {
+			PrintIngame(clientNum, "^5%s^7 (^9%s^7) is already not in your list.\n", arg2, mapFileName);
+			return;
+		}
+
+		qboolean result = G_DBRemoveMapFromTierList(ent->client->account->id, mapFileName);
+		if (result) {
+			PrintIngame(clientNum, "Removed ^5%s^7 (^9%s^7).\n", arg2, mapFileName);
+		}
+		else {
+			PrintIngame(clientNum, "Error removing ^5%s^7 (^9%s^7)!\n", arg2, mapFileName);
+			G_LogPrintf("Client %d (%s^7) encountered an error trying to remove %s (%s)\n", clientNum, ent->client->pers.netname, arg2, mapFileName);
+		}
+	}
+	else if (!Q_stricmp(arg1, "reset") || !Q_stricmp(arg1, "clear") || !Q_stricmp(arg1, "clr")) {
+		// reset their list, or just one particular tier
+		if (!hasAccount) {
+			PrintIngame(clientNum, "^3You must have an account in order to use this feature. Contact an admin for help setting up an account.^7\n");
+			return;
+		}
+
+		if (args >= 2 && arg2[0] && !isspace(arg2[0])) {
+			// reset a particular tier
+			mapTier_t tier = GetMapTierForChar(arg2[0]);
+			if (tier == MAPTIER_INVALID) {
+				PrintIngame(clientNum, "'%c^7' is not a valid tier. Valid tiers are S, A, B, F.\n", arg2[0]);
+				return;
+			}
+
+			if (G_DBClearTierListTier(ent->client->account->id, tier)) {
+				PrintIngame(clientNum, "Cleared all %s maps.\n", GetTierStringForTier(tier));
+			}
+			else {
+				PrintIngame(clientNum, "Error clearing %s maps!\n", GetTierStringForTier(tier));
+				G_LogPrintf("Client %d (%s^7) encountered an error trying to clear %s^7 maps\n", clientNum, ent->client->pers.netname, GetTierStringForTier(tier));
+			}
+		}
+		else {
+			// reset their entire list
+			if (G_DBClearTierList(ent->client->account->id)) {
+				PrintIngame(clientNum, "Your tier list has been completely reset.\n");
+			}
+			else {
+				PrintIngame(clientNum, "Error reseting your tier list!\n");
+				G_LogPrintf("Client %d (%s^7) encountered an error trying to clear their entire tier list\n", clientNum, ent->client->pers.netname);
+			}
+		}
+	}
+	else if (!Q_stricmp(arg1, "stats")) {
+		G_DBTierStats(clientNum);
+	}
+	else if (!Q_stricmp(arg1, "list") || !Q_stricmp(arg1, "ingame") || !Q_stricmp(arg1, "current")) {
+		if (!G_DBPrintTiersOfAllMaps(clientNum, qtrue, "Map ratings of current ingame players:")) {
+			int ingame;
+			CountPlayersIngame(NULL, &ingame, NULL);
+			if (!G_DBPrintTiersOfAllMaps(clientNum, qfalse, ingame > 0 ? "Not enough ratings from ingame players (requires at least 2).\nCommunity map ratings will be used:" :
+				"Community map ratings:")) {
+				PrintIngame(clientNum, "No maps have received ratings yet.\n");
+			}
+		}
+	}
+	else { // if we didn't match any of the preceding subcommands, assume it's a map or player name
+		char mapFileName[MAX_QPATH] = { 0 };
+		if (!Q_stricmp(arg1, "here") || !Q_stricmp(arg1, "map") || !Q_stricmp(arg1, "this")) { // view current map
+			Q_strncpyz(mapFileName, Cvar_VariableString("mapname"), sizeof(mapFileName));
+		}
+		else { // view a specific map name
+			if (!GetMatchingMap(arg1, mapFileName, sizeof(mapFileName))) {
+				tryingUnknownSubcommand = qtrue;
+				goto tryFindPlayerFromNoArgs; // blow me fuckhead
+			}
+		}
+
+		char mapShortName[MAX_QPATH] = { 0 };
+		GetShortNameForMapFileName(mapFileName, mapShortName, sizeof(mapShortName));
+
+		if (!G_DBTierlistMapIsWhitelisted(mapFileName)) {
+			PrintIngame(clientNum, "^5%s^7 (^9%s^7) is not eligible for tierlists.\n", mapShortName, mapFileName);
+			return;
+		}
+
+		PrintIngame(clientNum, "Ratings for ^5%s ^7(^9%s^7):\n", mapShortName, mapFileName);
+
+		mapTier_t currentTier = MAPTIER_INVALID;
+		char ingamePlayersStr[256] = { 0 };
+		int numIngame = GetAccountIdsStringOfIngamePlayers(ingamePlayersStr, sizeof(ingamePlayersStr));
+		if (numIngame >= 2)
+			currentTier = G_DBGetTierOfSingleMap(ingamePlayersStr, mapFileName, qtrue);
+		mapTier_t communityTier = G_DBGetTierOfSingleMap(NULL, mapFileName, qfalse);
+
+		if (currentTier == MAPTIER_INVALID) { // not enough people ingame have rated this map
+			if (numIngame) // only bother showing this "unrated" message if there are actually ingame players
+				PrintIngame(clientNum, "Current rating: unrated (requires at least 2 ratings from ingame players)\n");
+			PrintIngame(clientNum, "Community rating: %s\n", communityTier == MAPTIER_INVALID ? "unrated" : GetTierStringForTier(communityTier));
+		}
+		else {
+			// enough people have rated this map, so display that rating as well as the community rating
+			PrintIngame(clientNum, "Current rating: %s\n", currentTier == MAPTIER_INVALID ? "unrated" : GetTierStringForTier(currentTier));
+			PrintIngame(clientNum, "Community rating: %s\n", communityTier == MAPTIER_INVALID ? "unrated" : GetTierStringForTier(communityTier));
+		}
+
+		G_DBPrintAllPlayerRatingsForSingleMap(mapFileName, clientNum, NULL);
 	}
 }
 
@@ -6451,6 +6951,11 @@ void ClientCommand( int clientNum ) {
 			Cmd_PrintStats_f( ent );
 			return;
 		}
+		else if (!Q_stricmp(cmd, "tier") || !Q_stricmp(cmd, "tiers") || !Q_stricmp(cmd, "tierlist") || !Q_stricmp(cmd, "tierlists") ||
+			!Q_stricmp(cmd, "teir") || !Q_stricmp(cmd, "teirs") || !Q_stricmp(cmd, "teirlist") || !Q_stricmp(cmd, "teirlists")) { // allow idiots to use it too
+			Cmd_Tier_f(ent);
+			return;
+		}
 		else if ( Q_stricmp( cmd, "whois" ) == 0 )
 		{
 			Cmd_WhoIs_f( ent );
@@ -6562,6 +7067,9 @@ void ClientCommand( int clientNum ) {
 		!Q_stricmp(cmd, "poolmap") || !Q_stricmp(cmd, "pool_map") || !Q_stricmp(cmd, "poollist") || !Q_stricmp(cmd, "pool_list") ||
 		!Q_stricmp(cmd, "poolmaps") || !Q_stricmp(cmd, "pool_maps") || !Q_stricmp(cmd, "pools") || !Q_stricmp(cmd, "pool")) // fuck off
 		Cmd_MapPool_f(ent);
+	else if (!Q_stricmp(cmd, "tier") || !Q_stricmp(cmd, "tiers") || !Q_stricmp(cmd, "tierlist") || !Q_stricmp(cmd, "tierlists") ||
+		!Q_stricmp(cmd, "teir") || !Q_stricmp(cmd, "teirs") || !Q_stricmp(cmd, "teirlist") || !Q_stricmp(cmd, "teirlists")) // allow idiots to use it too
+		Cmd_Tier_f(ent);
     else if ( Q_stricmp( cmd, "whois" ) == 0 )
         Cmd_WhoIs_f( ent );
 	else if (Q_stricmp(cmd, "ctfstats") == 0)

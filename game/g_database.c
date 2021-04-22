@@ -119,6 +119,7 @@ void G_DBLoadDatabase( void )
 
 	// more db options
 	sqlite3_exec( dbPtr, "PRAGMA foreign_keys = ON;", NULL, NULL, NULL );
+	sqlite3_exec( dbPtr, "PRAGMA automatic_index = OFF;", NULL, NULL, NULL );
 
 	// get version and call the upgrade routine
 
@@ -1413,6 +1414,16 @@ const char* const sqlListMapsInPool =
 "ON pools.pool_id = pool_has_map.pool_id                                     \n"
 "WHERE short_name = ? AND mapname <> ?                                         ";
 
+const char *const sqlListMapsInPoolWithCooldown =
+"SELECT long_name, pools.pool_id, mapname, weight                            \n"
+"FROM pools                                                                  \n"
+"JOIN pool_has_map                                                           \n"
+"ON pools.pool_id = pool_has_map.pool_id                                     \n"
+"LEFT JOIN lastplayedmap ON mapname = lastplayedmap.map                      \n"
+"WHERE short_name = ? AND mapname <> ?                                       \n"
+"AND (lastplayedmap.map IS NULL OR                                           \n"
+"strftime('%s', 'now') - lastplayedmap.datetime > ?)                         \n";
+
 const char* const sqlFindPool =
 "SELECT pools.pool_id, long_name                                             \n"
 "FROM pools                                                                  \n"
@@ -1483,14 +1494,19 @@ void G_DBListMapsInPool( const char* short_name,
 	ListMapsPoolCallback callback,
 	void** context,
 	char *longNameOut,
-	size_t longNameOutSize)
+	size_t longNameOutSize,
+	int notPlayedWithinLastMinutes)
 {
+	int cooldownSeconds = notPlayedWithinLastMinutes > 0 ? (notPlayedWithinLastMinutes * 60) : 0;
+
 	sqlite3_stmt* statement;
 	// prepare insert statement
-	int rc = sqlite3_prepare( dbPtr, sqlListMapsInPool, -1, &statement, 0 );
+	int rc = sqlite3_prepare( dbPtr, cooldownSeconds > 0 ? sqlListMapsInPoolWithCooldown : sqlListMapsInPool, -1, &statement, 0 );
 
 	sqlite3_bind_text( statement, 1, short_name, -1, 0 );
-	sqlite3_bind_text( statement, 2, ignore, -1, 0 ); // ignore map, we 
+	sqlite3_bind_text( statement, 2, ignore, -1, 0 ); // ignore map, we
+	if (cooldownSeconds > 0)
+		sqlite3_bind_int(statement, 3, cooldownSeconds);
 
 	rc = sqlite3_step( statement );
 	while ( rc == SQLITE_ROW )
@@ -1592,7 +1608,7 @@ qboolean G_DBSelectMapsFromPool( const char* short_name,
 	{
 		// fill the cumulative density function of the map pool
 		CumulativeMapWeight *cdf = NULL;
-		G_DBListMapsInPool( short_name, ignoreMap, BuildCumulativeWeight, ( void ** )&cdf, NULL, 0 );
+		G_DBListMapsInPool( short_name, ignoreMap, BuildCumulativeWeight, ( void ** )&cdf, NULL, 0, g_vote_mapCooldownMinutes.integer > 0 ? g_vote_mapCooldownMinutes.integer : 0 );
 
 		if ( cdf ) {
 			CumulativeMapWeight *n = cdf;
@@ -1801,4 +1817,1103 @@ qboolean G_DBPoolMapRemove( const char* short_name,
 	sqlite3_finalize( statement );
 
 	return success;
+}
+
+typedef struct {
+	int numMapsOfTier[NUM_MAPTIERS];
+} tierListInfo_t;
+
+// check to make sure we just have numbers and commas
+// wHy DoN't YoU jUsT bInD eVeRyTh- stfu
+static void FilterAccountIdString(char *string) {
+	char *out = string, *p = string, c;
+	while ((c = *p++) != '\0') {
+		if (c == ',' || (c >= '0' && c <= '9'))
+			*out++ = c;
+	}
+	*out = '\0';
+}
+
+// Versatile method to retrieve a tier list in the form of a malloc'd list_t pointer, with several customizable parameters.
+// commaSeparatedAccountIds: null for zero accounts, e.g. "1" for one account, e.g. "1,2,3,4" for multiple accounts.
+// singleMapFileName: null for all maps; otherwise specify a map to just check one specific map.
+// requireMultipleVotes: qtrue means at least 2 votes from among the accounts being evaluated are required for a map to make the list.
+// notPlayedWithinLastMinutes: only return maps that have not been pugged on within the last X minutes (use 0 to not use this).
+// ignoreMapFileName: null to not ignore any maps; otherwise specify a map to ignore.
+// randomize: randomize the list order.
+// optionalInfoOut: tierListInfo_t pointer you can supply to output additional info.
+// IMPORTANT: free the result if not null!
+static list_t *GetTierList(const char *commaSeparatedAccountIds, const char *singleMapFileName, qboolean requireMultipleVotes, int notPlayedWithinLastMinutes, const char *ignoreMapFileName, qboolean randomize, tierListInfo_t *optionalInfoOut) {
+	int cooldownSeconds = notPlayedWithinLastMinutes > 0 ? (notPlayedWithinLastMinutes * 60) : 0;
+	if (optionalInfoOut)
+		memset(optionalInfoOut, 0, sizeof(tierListInfo_t));
+
+	char *filteredAccountIds = NULL;
+	if (VALIDSTRING(commaSeparatedAccountIds)) {
+		filteredAccountIds = strdup(commaSeparatedAccountIds);
+		FilterAccountIdString(filteredAccountIds);
+	}
+
+	char *query;
+	if (VALIDSTRING(filteredAccountIds)) { // list for only a few specific people
+		if (requireMultipleVotes) { // only select maps that have received 2+ votes from among the supplied account ids
+			char *str1 = "SELECT tierlistmaps.map, AVG(tierlistmaps.tier) FROM (SELECT tierlistmaps.map FROM tierlistmaps JOIN tierwhitelist ON tierwhitelist.map = tierlistmaps.map WHERE tierlistmaps.account_id IN (";
+			char *str2 = filteredAccountIds;
+			char *str3 = ") GROUP BY tierlistmaps.map HAVING COUNT(*) >= 2) m JOIN tierlistmaps ON m.map = tierlistmaps.map ";
+			char *str4 = cooldownSeconds > 0 ? va("LEFT JOIN lastplayedmap ON tierlistmaps.map = lastplayedmap.map WHERE (lastplayedmap.map IS NULL OR strftime('%%s', 'now') - lastplayedmap.datetime > %d) AND account_id IN (", cooldownSeconds) : "WHERE account_id IN (";
+			char *str5 = filteredAccountIds;
+			char *str6 = VALIDSTRING(singleMapFileName) ? ") AND tierlistmaps.map = ? " : ") ";
+			char *str7 = VALIDSTRING(ignoreMapFileName) ? "AND tierlistmaps.map != ? " : "";
+			char *str8 = "GROUP BY tierlistmaps.map ORDER BY ";
+			char *str9 = randomize ? "RANDOM();" : "tierlistmaps.map;";
+			query = va("%s%s%s%s%s%s%s%s%s", str1, str2, str3, str4, str5, str6, str7, str8, str9);
+		}
+		else { // select maps even if they just have a single vote
+			char *str1 = "SELECT tierlistmaps.map, AVG(tierlistmaps.tier) FROM (SELECT DISTINCT tierlistmaps.map FROM tierlistmaps JOIN tierwhitelist ON tierwhitelist.map = tierlistmaps.map";
+			char *str2 = VALIDSTRING(singleMapFileName) ? va(" WHERE tierlistmaps.map = ?") : "";
+			char *str3 = ") m JOIN tierlistmaps ON m.map = tierlistmaps.map ";
+			char *str4 = cooldownSeconds > 0 ? va("LEFT JOIN lastplayedmap ON tierlistmaps.map = lastplayedmap.map WHERE (lastplayedmap.map IS NULL OR strftime('%%s', 'now') - lastplayedmap.datetime > %d) AND account_id IN (", cooldownSeconds) : "WHERE account_id IN (";
+			char *str5 = filteredAccountIds;
+			char *str6 = VALIDSTRING(ignoreMapFileName) ? ") AND tierlistmaps.map != ? " : ") ";
+			char *str7 = "GROUP BY tierlistmaps.map ORDER BY ";
+			char *str8 = randomize ? "RANDOM();" : "tierlistmaps.map;";
+			query = va("%s%s%s%s%s%s%s%s", str1, str2, str3, str4, str5, str6, str7, str8);
+		}
+		free(filteredAccountIds);
+	}
+	else { // community-wide list
+		if (requireMultipleVotes) { // only select maps that have received 2+ votes
+			char *str1 = "SELECT tierlistmaps.map, AVG(tierlistmaps.tier) FROM (SELECT DISTINCT tierlistmaps.map FROM tierlistmaps JOIN tierwhitelist ON tierwhitelist.map = tierlistmaps.map ";
+			char *str2 = VALIDSTRING(singleMapFileName) ? "WHERE tierlistmaps.map = ? " : "";
+			char *str3 = "GROUP BY tierlistmaps.map HAVING COUNT(*) >= 2) m JOIN tierlistmaps ON m.map = tierlistmaps.map ";
+			char *str4 = cooldownSeconds > 0 ? va("LEFT JOIN lastplayedmap ON tierlistmaps.map = lastplayedmap.map WHERE (lastplayedmap.map IS NULL OR strftime('%%s', 'now') - lastplayedmap.datetime > %d) ", cooldownSeconds) : "";
+			char *str5 = VALIDSTRING(ignoreMapFileName) ? (cooldownSeconds > 0 ? "AND tierlistmaps.map != ? " : "WHERE tierlistmaps.map != ? ") : "";
+			char *str6 = "GROUP BY tierlistmaps.map ORDER BY tierlistmaps.map;";
+			query = va("%s%s%s%s%s%s", str1, str2, str3, str4, str5, str6);
+		}
+		else { // select maps even if they just have a single vote
+			char *str1 = "SELECT tierlistmaps.map, AVG(tierlistmaps.tier) FROM (SELECT DISTINCT tierlistmaps.map FROM tierlistmaps JOIN tierwhitelist ON tierwhitelist.map = tierlistmaps.map";
+			char *str2 = VALIDSTRING(singleMapFileName) ? " WHERE tierlistmaps.map = ?) " : ") ";
+			char *str3 = "m JOIN tierlistmaps ON m.map = tierlistmaps.map ";
+			char *str4 = cooldownSeconds > 0 ? va("LEFT JOIN lastplayedmap ON tierlistmaps.map = lastplayedmap.map WHERE (lastplayedmap.map IS NULL OR strftime('%%s', 'now') - lastplayedmap.datetime > %d) ", cooldownSeconds) : "";
+			char *str5 = VALIDSTRING(ignoreMapFileName) ? (cooldownSeconds > 0 ? "AND tierlistmaps.map != ? " : "WHERE tierlistmaps.map != ? ") : "";
+			char *str6 = "GROUP BY tierlistmaps.map ORDER BY tierlistmaps.map;";
+			query = va("%s%s%s%s%s%s", str1, str2, str3, str4, str5, str6);
+		}
+	}
+
+	sqlite3_stmt *statement;
+	int rc = sqlite3_prepare(dbPtr, query, -1, &statement, 0);
+	int bindMe = 0;
+	if (VALIDSTRING(singleMapFileName)) {
+		char lowercase[MAX_QPATH] = { 0 };
+		Q_strncpyz(lowercase, singleMapFileName, sizeof(lowercase));
+		Q_strlwr(lowercase);
+		sqlite3_bind_text(statement, ++bindMe, lowercase, -1, 0);
+	}
+	if (VALIDSTRING(ignoreMapFileName)) {
+		char lowercase[MAX_QPATH] = { 0 };
+		Q_strncpyz(lowercase, ignoreMapFileName, sizeof(lowercase));
+		Q_strlwr(lowercase);
+		sqlite3_bind_text(statement, ++bindMe, lowercase, -1, 0);
+	}
+
+	rc = sqlite3_step(statement);
+
+	list_t *mapsList = malloc(sizeof(list_t));
+	memset(mapsList, 0, sizeof(list_t));
+	int numGotten = 0;
+
+	while (rc == SQLITE_ROW) {
+		const char *mapFileName = (const char *)sqlite3_column_text(statement, 0);
+		double average = sqlite3_column_double(statement, 1);
+		mapTier_t tier = MapTierForDouble(average);
+		if (VALIDSTRING(mapFileName) && tier >= MAPTIER_F && tier <= MAPTIER_S) {
+			mapTierData_t *data = (mapTierData_t *)ListAdd(mapsList, sizeof(mapTierData_t));
+			data->tier = tier;
+			Q_strncpyz(data->mapFileName, mapFileName, sizeof(data->mapFileName));
+			if (optionalInfoOut)
+				optionalInfoOut->numMapsOfTier[tier]++;
+			numGotten++;
+		}
+		rc = sqlite3_step(statement);
+	}
+
+	sqlite3_finalize(statement);
+	if (!numGotten) {
+		ListClear(mapsList);
+		return NULL;
+	}
+
+	return mapsList;
+}
+
+const char *sqlTierlistMapIsWhitelisted = "SELECT COUNT(*) FROM tierwhitelist WHERE map = ?1;";
+qboolean G_DBTierlistMapIsWhitelisted(const char *mapName) {
+	if (!VALIDSTRING(mapName))
+		return qfalse;
+
+	char mapFileName[MAX_QPATH] = { 0 };
+	GetMatchingMap(mapName, mapFileName, sizeof(mapFileName));
+	if (!mapFileName[0])
+		return qfalse;
+
+	sqlite3_stmt *statement;
+	sqlite3_prepare(dbPtr, sqlTierlistMapIsWhitelisted, -1, &statement, 0);
+	sqlite3_bind_text(statement, 1, mapFileName, -1, 0);
+	int rc = sqlite3_step(statement);
+	qboolean found = qfalse;
+	if (rc == SQLITE_ROW)
+		found = !!(sqlite3_column_int(statement, 0));
+
+	sqlite3_finalize(statement);
+
+	return found;
+}
+
+static qboolean PrintMapTierList(int printClientNum, list_t *mapList, qboolean useIngamePlayers, const char *successPrologueMessage) {
+	if (!mapList)
+		return qfalse;
+
+	char sStr[2048] = { 0 }, aStr[2048] = { 0 }, bStr[2048] = { 0 }, cStr[2048] = { 0 }, fStr[2048] = { 0 };
+	Com_sprintf(sStr, sizeof(sStr), "%s: ^7", GetTierStringForTier(MAPTIER_S));
+	Com_sprintf(aStr, sizeof(aStr), "%s: ^7", GetTierStringForTier(MAPTIER_A));
+	Com_sprintf(bStr, sizeof(bStr), "%s: ^7", GetTierStringForTier(MAPTIER_B));
+	Com_sprintf(cStr, sizeof(cStr), "%s: ^7", GetTierStringForTier(MAPTIER_C));
+	Com_sprintf(fStr, sizeof(fStr), "%s: ^7", GetTierStringForTier(MAPTIER_F));
+
+	int numS = 0, numA = 0, numB = 0, numC = 0, numF = 0;
+
+	iterator_t iter;
+	ListIterate(mapList, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		mapTierData_t *data = (mapTierData_t *)IteratorNext(&iter);
+		char mapShortName[MAX_QPATH] = { 0 };
+		GetShortNameForMapFileName(data->mapFileName, mapShortName, sizeof(mapShortName));
+
+		if (VALIDSTRING(mapShortName)) {
+			if (data->tier == MAPTIER_S) {
+				Q_strcat(sStr, sizeof(sStr), va("%s%s", numS ? ", " : "", mapShortName));
+				numS++;
+			}
+			else if (data->tier == MAPTIER_A) {
+				Q_strcat(aStr, sizeof(aStr), va("%s%s", numA ? ", " : "", mapShortName));
+				numA++;
+			}
+			else if (data->tier == MAPTIER_B) {
+				Q_strcat(bStr, sizeof(bStr), va("%s%s", numB ? ", " : "", mapShortName));
+				numB++;
+			}
+			else if (data->tier == MAPTIER_C) {
+				Q_strcat(cStr, sizeof(cStr), va("%s%s", numC ? ", " : "", mapShortName));
+				numC++;
+			}
+			else if (data->tier == MAPTIER_F) {
+				Q_strcat(fStr, sizeof(fStr), va("%s%s", numF ? ", " : "", mapShortName));
+				numF++;
+			}
+		}
+	}
+
+	if (!numS && !numA && !numB && !numC && !numF)
+		return qfalse;
+
+	if (printClientNum >= 0) {
+		PrintIngame(printClientNum, va("%s^7\n", successPrologueMessage));
+		PrintIngame(printClientNum, va("%s^7\n", sStr));
+		PrintIngame(printClientNum, va("%s^7\n", aStr));
+		PrintIngame(printClientNum, va("%s^7\n", bStr));
+		PrintIngame(printClientNum, va("%s^7\n", cStr));
+		PrintIngame(printClientNum, va("%s^7\n", fStr));
+	}
+
+	return qtrue;
+}
+
+mapTier_t G_DBGetTierOfSingleMap(const char *optionalAccountIdsStr, const char *mapFileName, qboolean requireMultipleVotes) {
+	if (!VALIDSTRING(mapFileName))
+		return MAPTIER_INVALID;
+
+	if (VALIDSTRING(optionalAccountIdsStr) && Q_isanumber(optionalAccountIdsStr) && !strchr(optionalAccountIdsStr, ','))
+		requireMultipleVotes = qfalse; // sanity check to help prevent accidentally requiring multiple votes for one person
+
+	tierListInfo_t info = { 0 };
+	list_t *list = GetTierList(optionalAccountIdsStr, mapFileName, requireMultipleVotes, 0, NULL, qfalse, &info);
+	if (list)
+		free(list);
+
+	// instead of parsing the one or zero actual list items, we simply check the info struct
+	for (mapTier_t t = MAPTIER_F; t <= MAPTIER_S; t++) {
+		if (info.numMapsOfTier[t])
+			return t;
+	}
+	return MAPTIER_INVALID;
+}
+
+const char *sqlAddMapTier = "INSERT OR REPLACE INTO tierlistmaps (account_id, map, tier) VALUES (?1, ?2, ?3);";
+qboolean G_DBAddMapToTierList(int accountId, const char *mapFileName, mapTier_t tier) {
+	if (!VALIDSTRING(mapFileName) || tier <= MAPTIER_INVALID || tier > MAPTIER_S /*|| !G_DBTierlistMapIsWhitelisted(mapFileName)*/) {
+		Com_Printf("Unable to set tier %d for map %s for account id %d\n", tier, mapFileName, accountId);
+		return qfalse;
+	}
+
+	char lowercase[MAX_QPATH] = { 0 };
+	Q_strncpyz(lowercase, mapFileName, sizeof(lowercase));
+	Q_strlwr(lowercase);
+
+	sqlite3_stmt *statement;
+	int rc = sqlite3_prepare(dbPtr, sqlAddMapTier, -1, &statement, 0);
+
+	sqlite3_bind_int(statement, 1, accountId);
+	sqlite3_bind_text(statement, 2, lowercase, -1, 0);
+	sqlite3_bind_int(statement, 3, (int)tier);
+
+	rc = sqlite3_step(statement);
+
+	sqlite3_finalize(statement);
+
+	return !!(rc == SQLITE_DONE);
+}
+
+const char *sqlRemoveMapTier = "DELETE FROM tierlistmaps WHERE account_id = ?1 AND map = ?2;";
+qboolean G_DBRemoveMapFromTierList(int accountId, const char *mapFileName) {
+	if (!VALIDSTRING(mapFileName) /*|| !G_DBTierlistMapIsWhitelisted(mapFileName)*/) {
+		Com_Printf("Unable to remove map %s for account id %d\n", mapFileName, accountId);
+		return qfalse;
+	}
+
+	char lowercase[MAX_QPATH] = { 0 };
+	Q_strncpyz(lowercase, mapFileName, sizeof(lowercase));
+	Q_strlwr(lowercase);
+
+	sqlite3_stmt *statement;
+	int rc = sqlite3_prepare(dbPtr, sqlRemoveMapTier, -1, &statement, 0);
+
+	sqlite3_bind_int(statement, 1, accountId);
+	sqlite3_bind_text(statement, 2, lowercase, -1, 0);
+
+	rc = sqlite3_step(statement);
+
+	sqlite3_finalize(statement);
+
+	return !!(rc == SQLITE_DONE);
+}
+
+const char *sqlClearTierList = "DELETE FROM tierlistmaps WHERE account_id = ?1;";
+qboolean G_DBClearTierList(int accountId) {
+	sqlite3_stmt *statement;
+	int rc = sqlite3_prepare(dbPtr, sqlClearTierList, -1, &statement, 0);
+
+	sqlite3_bind_int(statement, 1, accountId);
+
+	rc = sqlite3_step(statement);
+
+	sqlite3_finalize(statement);
+
+	return !!(rc == SQLITE_DONE);
+}
+
+const char *sqlClearTierListTier = "DELETE FROM tierlistmaps WHERE account_id = ?1 AND tier = ?2;";
+qboolean G_DBClearTierListTier(int accountId, mapTier_t tier) {
+	sqlite3_stmt *statement;
+	int rc = sqlite3_prepare(dbPtr, sqlClearTierListTier, -1, &statement, 0);
+
+	sqlite3_bind_int(statement, 1, accountId);
+	sqlite3_bind_int(statement, 2, tier);
+
+	rc = sqlite3_step(statement);
+
+	sqlite3_finalize(statement);
+
+	return !!(rc == SQLITE_DONE);
+}
+
+const char *sqlGetTiersOfMap = "SELECT accounts.name, tierlistmaps.account_id, tierlistmaps.tier FROM tierlistmaps JOIN accounts ON accounts.account_id = tierlistmaps.account_id WHERE tierlistmaps.map = ?1 ORDER BY accounts.name;";
+// returns a list_t of players and their tiers for a single map
+// IMPORTANT: free the result if not null!
+static list_t *GetTiersOfMap(const char *mapFileName) {
+	if (!VALIDSTRING(mapFileName))
+		return NULL;
+	sqlite3_stmt *statement;
+	int rc = sqlite3_prepare(dbPtr, sqlGetTiersOfMap, -1, &statement, 0);
+
+	char lowercase[MAX_QPATH] = { 0 };
+	Q_strncpyz(lowercase, mapFileName, sizeof(lowercase));
+	Q_strlwr(lowercase);
+	sqlite3_bind_text(statement, 1, lowercase, -1, 0);
+
+	list_t *mapsList = malloc(sizeof(list_t));
+	memset(mapsList, 0, sizeof(list_t));
+	int numGotten = 0;
+
+	rc = sqlite3_step(statement);
+	while (rc == SQLITE_ROW) {
+		const char *accountName = (const char *)sqlite3_column_text(statement, 0);
+		int accountId = sqlite3_column_int(statement, 1);
+		mapTier_t tier = sqlite3_column_int(statement, 2);
+		
+		if (VALIDSTRING(accountName)) {
+			mapTierData_t *data = (mapTierData_t *)ListAdd(mapsList, sizeof(mapTierData_t));
+			Q_strncpyz(data->playerName, accountName, sizeof(data->playerName)); // we copy player name here to save needing to run an account_id/name query later
+			data->accountId = accountId;
+			data->tier = tier;
+			numGotten++;
+		}
+
+		rc = sqlite3_step(statement);
+	}
+
+	if (!numGotten) {
+		free(mapsList);
+		return NULL;
+	}
+
+	return mapsList;
+}
+
+static qboolean PrintAllPlayerRatingsForSingleMap(int printClientNum, list_t *playerRatingList, qboolean useIngamePlayers, const char *successPrologueMessage) {
+	if (!playerRatingList)
+		return qfalse;
+
+	char *prologueMessageCopied = VALIDSTRING(successPrologueMessage) ? strdup(successPrologueMessage) : NULL;
+
+	char sStr[2048] = { 0 }, aStr[2048] = { 0 }, bStr[2048] = { 0 }, cStr[2048] = { 0 }, fStr[2048] = { 0 };
+	Com_sprintf(sStr, sizeof(sStr), "%s: ^7", GetTierStringForTier(MAPTIER_S));
+	Com_sprintf(aStr, sizeof(aStr), "%s: ^7", GetTierStringForTier(MAPTIER_A));
+	Com_sprintf(bStr, sizeof(bStr), "%s: ^7", GetTierStringForTier(MAPTIER_B));
+	Com_sprintf(cStr, sizeof(cStr), "%s: ^7", GetTierStringForTier(MAPTIER_C));
+	Com_sprintf(fStr, sizeof(fStr), "%s: ^7", GetTierStringForTier(MAPTIER_F));
+
+	int numS = 0, numA = 0, numB = 0, numC = 0, numF = 0;
+
+	iterator_t iter;
+	ListIterate(playerRatingList, &iter, qfalse);
+	int numGotten = 0;
+	while (IteratorHasNext(&iter)) {
+		mapTierData_t *data = (mapTierData_t *)IteratorNext(&iter);
+		// see if this player is online, in which case we use a different color
+		const char *colorStr = "^7";
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *ent = &g_entities[i];
+			if (ent->inuse && ent->client && ent->client->pers.connected != CON_DISCONNECTED && ent->client->account && ent->client->account->id == data->accountId) {
+				switch (ent->client->sess.sessionTeam) {
+				case TEAM_RED: colorStr = "^1"; break;
+				case TEAM_BLUE: colorStr = "^4"; break;
+				default: colorStr = "^3"; break;
+				}
+				break;
+			}
+		}
+		const char *appendName = va("%s%s", colorStr, data->playerName);
+
+		if (data->tier == MAPTIER_S) {
+			Q_strcat(sStr, sizeof(sStr), va("%s%s", numS ? "^7, " : "", appendName));
+			numS++;
+		}
+		else if (data->tier == MAPTIER_A) {
+			Q_strcat(aStr, sizeof(aStr), va("%s%s", numA ? "^7, " : "", appendName));
+			numA++;
+		}
+		else if (data->tier == MAPTIER_B) {
+			Q_strcat(bStr, sizeof(bStr), va("%s%s", numB ? "^7, " : "", appendName));
+			numB++;
+		}
+		else if (data->tier == MAPTIER_C) {
+			Q_strcat(cStr, sizeof(cStr), va("%s%s", numC ? "^7, " : "", appendName));
+			numC++;
+		}
+		else if (data->tier == MAPTIER_F) {
+			Q_strcat(fStr, sizeof(fStr), va("%s%s", numF ? "^7, " : "", appendName));
+			numF++;
+		}
+	}
+
+	if (!numS && !numA && !numB && !numC && !numF) {
+		if (prologueMessageCopied)
+			free(prologueMessageCopied);
+		return qfalse;
+	}
+
+	if (printClientNum >= 0) {
+		if (VALIDSTRING(prologueMessageCopied))
+			PrintIngame(printClientNum, va("%s^7\n", prologueMessageCopied));
+		PrintIngame(printClientNum, va("%s^7\n", sStr));
+		PrintIngame(printClientNum, va("%s^7\n", aStr));
+		PrintIngame(printClientNum, va("%s^7\n", bStr));
+		PrintIngame(printClientNum, va("%s^7\n", cStr));
+		PrintIngame(printClientNum, va("%s^7\n", fStr));
+	}
+
+	if (prologueMessageCopied)
+		free(prologueMessageCopied);
+	return qtrue;
+}
+
+qboolean G_DBPrintAllPlayerRatingsForSingleMap(const char *mapFileName, int printClientNum, const char *successPrologueMessage) {
+	list_t *list = GetTiersOfMap(mapFileName);
+	if (list) {
+		PrintAllPlayerRatingsForSingleMap(printClientNum, list, qfalse, successPrologueMessage);
+		ListClear(list);
+		free(list);
+		return qtrue;
+	}
+	else {
+		return qfalse;
+	}
+}
+
+qboolean G_DBPrintPlayerTierList(int accountId, int printClientNum, const char *successPrologueMessage) {
+	list_t *list = GetTierList(va("%d", accountId), NULL, qfalse, 0, NULL, qfalse, NULL);
+	if (list) {
+		PrintMapTierList(printClientNum, list, qfalse, successPrologueMessage);
+		ListClear(list);
+		free(list);
+		return qtrue;
+	}
+	else {
+		return qfalse;
+	}
+}
+
+const char *sqlMapsNotRatedByPlayer = "SELECT map FROM tierwhitelist WHERE map NOT IN (SELECT map FROM tierlistmaps WHERE account_id = ?1) ORDER BY map;";
+// IMPORTANT: free the result if not null!
+static list_t *GetMapsNotRatedByPlayerList(int accountId) {
+	sqlite3_stmt *statement;
+	int rc = sqlite3_prepare(dbPtr, sqlMapsNotRatedByPlayer, -1, &statement, 0);
+	sqlite3_bind_int(statement, 1, accountId);
+	rc = sqlite3_step(statement);
+
+	list_t *mapsList = malloc(sizeof(list_t));
+	memset(mapsList, 0, sizeof(list_t));
+	int numGotten = 0;
+
+	while (rc == SQLITE_ROW) {
+		const char *mapFileName = (const char *)sqlite3_column_text(statement, 0);
+		if (VALIDSTRING(mapFileName)) {
+			mapTierData_t *data = (mapTierData_t *)ListAdd(mapsList, sizeof(mapTierData_t));
+			Q_strncpyz(data->mapFileName, mapFileName, sizeof(data->mapFileName));
+			numGotten++;
+		}
+		rc = sqlite3_step(statement);
+	}
+
+	sqlite3_finalize(statement);
+	if (!numGotten) {
+		ListClear(mapsList);
+		return NULL;
+	}
+
+	return mapsList;
+}
+
+qboolean G_DBPrintPlayerUnratedList(int accountId, int printClientNum, const char *successPrologueMessage) {
+	list_t *list = GetMapsNotRatedByPlayerList(accountId);
+	if (list) {
+		char *prologueMessageCopied = VALIDSTRING(successPrologueMessage) ? strdup(successPrologueMessage) : NULL;
+		char mapsStr[4096] = { 0 };
+		iterator_t iter;
+		ListIterate(list, &iter, qfalse);
+		int numAdded = 0;
+		while (IteratorHasNext(&iter)) {
+			mapTierData_t *data = (mapTierData_t *)IteratorNext(&iter);
+			char mapShortName[MAX_QPATH] = { 0 };
+			GetShortNameForMapFileName(data->mapFileName, mapShortName, sizeof(mapShortName));
+			if (VALIDSTRING(mapShortName)) {
+				Q_strcat(mapsStr, sizeof(mapsStr), va("%s%s", numAdded ? ", " : "", mapShortName));
+				numAdded++;
+			}
+		}
+
+		ListClear(list);
+		free(list);
+
+		if (numAdded) {
+			if (printClientNum >= 0) {
+				if (VALIDSTRING(prologueMessageCopied))
+					PrintIngame(printClientNum, va("%s^7\n", prologueMessageCopied));
+				PrintIngame(printClientNum, va("%s\n", mapsStr));
+			}
+
+			if (prologueMessageCopied)
+				free(prologueMessageCopied);
+			return qtrue;
+		}
+		else {
+			if (prologueMessageCopied)
+				free(prologueMessageCopied);
+			return qfalse;
+		}
+	}
+	else {
+		return qfalse;
+	}
+}
+
+const char *sqlTierStatsNumRatings = "SELECT COUNT(tierlistmaps.map) FROM tierlistmaps JOIN tierwhitelist ON tierlistmaps.map = tierwhitelist.map;";
+const char *sqlTierStatsNumMaps = "SELECT COUNT(*) FROM (SELECT tierlistmaps.map FROM tierlistmaps JOIN tierwhitelist ON tierlistmaps.map = tierwhitelist.map GROUP BY tierlistmaps.map);";
+const char *sqlTierStatsNumPlayers = "SELECT COUNT(*) FROM (SELECT accounts.account_id FROM accounts JOIN (SELECT * FROM tierlistmaps JOIN tierwhitelist ON tierlistmaps.map = tierwhitelist.map) m ON accounts.account_id = m.account_id GROUP BY accounts.account_id);";
+const char *sqlGetBestMaps = "SELECT tierlistmaps.map, AVG(tier) averageTier FROM tierlistmaps JOIN tierwhitelist ON tierlistmaps.map = tierwhitelist.map GROUP BY tierlistmaps.map ORDER BY averageTier DESC LIMIT 5;";
+const char *sqlGetWorstMaps = "SELECT tierlistmaps.map, AVG(tier) averageTier FROM tierlistmaps JOIN tierwhitelist ON tierlistmaps.map = tierwhitelist.map GROUP BY tierlistmaps.map ORDER BY averageTier ASC LIMIT 5;";
+const char *sqlGetLowestVariance = "SELECT map, AVG(tier*tier) - AVG(tier)*AVG(tier) AS var FROM tierlistmaps GROUP BY map HAVING COUNT(*) >= 2 ORDER BY var ASC, map LIMIT 5;";
+const char *sqlGetHighestVariance = "SELECT map, AVG(tier*tier) - AVG(tier)*AVG(tier) AS var FROM tierlistmaps GROUP BY map HAVING COUNT(*) >= 2 ORDER BY var DESC, map LIMIT 5;";
+const char *sqlGetMostPlayedMaps = "SELECT map, num FROM lastplayedmap ORDER BY num DESC LIMIT 5;";
+const char *sqlGetLeastPlayedMaps = "SELECT map, num FROM lastplayedmap ORDER BY num ASC LIMIT 5;";
+void G_DBTierStats(int clientNum) {
+	sqlite3_stmt *statement;
+	int rc = sqlite3_prepare(dbPtr, sqlTierStatsNumRatings, -1, &statement, 0);
+	rc = sqlite3_step(statement);
+	int numRatings = 0;
+	if (rc == SQLITE_ROW) {
+		numRatings = sqlite3_column_int(statement, 0);
+	}
+
+	sqlite3_reset(statement);
+	rc = sqlite3_prepare(dbPtr, sqlTierStatsNumMaps, -1, &statement, 0);
+	rc = sqlite3_step(statement);
+	int numMaps = 0;
+	if (rc == SQLITE_ROW) {
+		numMaps = sqlite3_column_int(statement, 0);
+	}
+
+	sqlite3_reset(statement);
+	rc = sqlite3_prepare(dbPtr, sqlTierStatsNumPlayers, -1, &statement, 0);
+	rc = sqlite3_step(statement);
+	int numPlayers = 0;
+	if (rc == SQLITE_ROW) {
+		numPlayers = sqlite3_column_int(statement, 0);
+	}
+
+	sqlite3_reset(statement);
+	rc = sqlite3_prepare(dbPtr, sqlGetBestMaps, -1, &statement, 0);
+	rc = sqlite3_step(statement);
+	char topMaps[5][MAX_QPATH] = { 0 };
+	double topMapAverages[5] = { 0 };
+	int numTopMaps = 0;
+	while (rc == SQLITE_ROW) {
+		const char *mapFileName = (const char *)sqlite3_column_text(statement, 0);
+		double average = sqlite3_column_double(statement, 1);
+		if (VALIDSTRING(mapFileName)) {
+			GetShortNameForMapFileName(mapFileName, topMaps[numTopMaps], sizeof(topMaps[numTopMaps]));
+			topMapAverages[numTopMaps] = average;
+			numTopMaps++;
+		}
+		rc = sqlite3_step(statement);
+	}
+
+	sqlite3_reset(statement);
+	rc = sqlite3_prepare(dbPtr, sqlGetWorstMaps, -1, &statement, 0);
+	rc = sqlite3_step(statement);
+	char worstMaps[5][MAX_QPATH] = { 0 };
+	double worstMapAverages[5] = { 0 };
+	int numWorstMaps = 0;
+	while (rc == SQLITE_ROW) {
+		const char *mapFileName = (const char *)sqlite3_column_text(statement, 0);
+		double average = sqlite3_column_double(statement, 1);
+		if (VALIDSTRING(mapFileName)) {
+			GetShortNameForMapFileName(mapFileName, worstMaps[numWorstMaps], sizeof(worstMaps[numWorstMaps]));
+			worstMapAverages[numWorstMaps] = average;
+			numWorstMaps++;
+		}
+		rc = sqlite3_step(statement);
+	}
+
+	sqlite3_reset(statement);
+	rc = sqlite3_prepare(dbPtr, sqlGetLowestVariance, -1, &statement, 0);
+	rc = sqlite3_step(statement);
+	char leastControversialMaps[5][MAX_QPATH] = { 0 };
+	double leastControversialStdevs[5] = { 0 };
+	int numLeastControversial = 0;
+	while (rc == SQLITE_ROW) {
+		const char *mapFileName = (const char *)sqlite3_column_text(statement, 0);
+		double variance = sqlite3_column_double(statement, 1);
+		if (VALIDSTRING(mapFileName)) {
+			GetShortNameForMapFileName(mapFileName, leastControversialMaps[numLeastControversial], sizeof(leastControversialMaps[numLeastControversial]));
+			leastControversialStdevs[numLeastControversial] = sqrt(variance);
+			numLeastControversial++;
+		}
+		rc = sqlite3_step(statement);
+	}
+
+	sqlite3_reset(statement);
+	rc = sqlite3_prepare(dbPtr, sqlGetHighestVariance, -1, &statement, 0);
+	rc = sqlite3_step(statement);
+	char mostControversialMaps[5][MAX_QPATH] = { 0 };
+	double mostControversialStdevs[5] = { 0 };
+	int numMostControversial = 0;
+	while (rc == SQLITE_ROW) {
+		const char *mapFileName = (const char *)sqlite3_column_text(statement, 0);
+		double variance = sqlite3_column_double(statement, 1);
+		if (VALIDSTRING(mapFileName)) {
+			GetShortNameForMapFileName(mapFileName, mostControversialMaps[numMostControversial], sizeof(mostControversialMaps[numMostControversial]));
+			mostControversialStdevs[numMostControversial] = sqrt(variance);
+			numMostControversial++;
+		}
+		rc = sqlite3_step(statement);
+	}
+
+	sqlite3_reset(statement);
+	rc = sqlite3_prepare(dbPtr, sqlGetMostPlayedMaps, -1, &statement, 0);
+	rc = sqlite3_step(statement);
+	char mostPlayedMaps[5][MAX_QPATH] = { 0 };
+	int mostPlayedMapCounts[5] = { 0 };
+	int numMostPlayedMaps = 0;
+	while (rc == SQLITE_ROW) {
+		const char *mapFileName = (const char *)sqlite3_column_text(statement, 0);
+		int count = sqlite3_column_int(statement, 1);
+		if (VALIDSTRING(mapFileName)) {
+			GetShortNameForMapFileName(mapFileName, mostPlayedMaps[numMostPlayedMaps], sizeof(mostPlayedMaps[numMostPlayedMaps]));
+			mostPlayedMapCounts[numMostPlayedMaps] = count;
+			numMostPlayedMaps++;
+		}
+		rc = sqlite3_step(statement);
+	}
+
+	sqlite3_reset(statement);
+	rc = sqlite3_prepare(dbPtr, sqlGetLeastPlayedMaps, -1, &statement, 0);
+	rc = sqlite3_step(statement);
+	char leastPlayedMaps[5][MAX_QPATH] = { 0 };
+	int leastPlayedMapCounts[5] = { 0 };
+	int numLeastPlayedMaps = 0;
+	while (rc == SQLITE_ROW) {
+		const char *mapFileName = (const char *)sqlite3_column_text(statement, 0);
+		int count = sqlite3_column_int(statement, 1);
+		if (VALIDSTRING(mapFileName)) {
+			GetShortNameForMapFileName(mapFileName, leastPlayedMaps[numLeastPlayedMaps], sizeof(leastPlayedMaps[numLeastPlayedMaps]));
+			leastPlayedMapCounts[numLeastPlayedMaps] = count;
+			numLeastPlayedMaps++;
+		}
+		rc = sqlite3_step(statement);
+	}
+
+	PrintIngame(clientNum, "There are %d map ratings across %d maps from %d players.\n", numRatings, numMaps, numPlayers);
+
+	if (numTopMaps || numWorstMaps)
+		PrintIngame(clientNum, "\nBy average rating (%s^7 = %d; %s^7 = %d):\n", GetTierStringForTier(MAPTIER_S), (int)MAPTIER_S, GetTierStringForTier(MAPTIER_F), (int)MAPTIER_F);
+	if (numTopMaps) {
+		char topMapsStr[1024] = { 0 };
+		for (int i = 0; i < numTopMaps; i++)
+			Q_strcat(topMapsStr, sizeof(topMapsStr), va("%s%s%s^7 (%0.2f)", i ? "^7, " : "", GetTierColorForTier(MapTierForDouble(topMapAverages[i])), topMaps[i], topMapAverages[i]));
+		PrintIngame(clientNum, "  ^2Top^7 %d maps: %s\n", numTopMaps, topMapsStr);
+	}
+	if (numWorstMaps) {
+		char worstMapsStr[1024] = { 0 };
+		for (int i = 0; i < numWorstMaps; i++)
+			Q_strcat(worstMapsStr, sizeof(worstMapsStr), va("%s%s%s^7 (%0.2f)", i ? "^7, " : "", GetTierColorForTier(MapTierForDouble(worstMapAverages[i])), worstMaps[i], worstMapAverages[i]));
+		PrintIngame(clientNum, "  ^1Bottom^7 %d maps: %s\n", numWorstMaps, worstMapsStr);
+	}
+
+	if (numLeastControversial || numMostControversial)
+		PrintIngame(clientNum, "\nBy standard deviation:\n");
+	if (numLeastControversial) {
+		char leastControversialStr[1024] = { 0 };
+		for (int i = 0; i < numLeastControversial; i++)
+			Q_strcat(leastControversialStr, sizeof(leastControversialStr), va("%s%s (%0.2f)", i ? "^7, " : "", leastControversialMaps[i], leastControversialStdevs[i]));
+		PrintIngame(clientNum, "  ^5Least controversial^7 %d maps: %s\n", numLeastControversial, leastControversialStr);
+	}
+	if (numMostControversial) {
+		char mostControversialStr[1024] = { 0 };
+		for (int i = 0; i < numMostControversial; i++)
+			Q_strcat(mostControversialStr, sizeof(mostControversialStr), va("%s%s (%0.2f)", i ? "^7, " : "", mostControversialMaps[i], mostControversialStdevs[i]));
+		PrintIngame(clientNum, "  ^8Most controversial^7 %d maps: %s\n", numMostControversial, mostControversialStr);
+	}
+
+	if (numMostPlayedMaps || numLeastPlayedMaps)
+		PrintIngame(clientNum, "\n");
+	if (numMostPlayedMaps) {
+		char mostPlayedStr[1024] = { 0 };
+		for (int i = 0; i < numMostPlayedMaps; i++)
+			Q_strcat(mostPlayedStr, sizeof(mostPlayedStr), va("%s%s (%d)", i ? "^7, " : "", mostPlayedMaps[i], mostPlayedMapCounts[i]));
+		PrintIngame(clientNum, "  ^2Most played^7 %d maps: %s\n", numMostPlayedMaps, mostPlayedStr);
+	}
+	if (numLeastPlayedMaps) {
+		char leastPlayedStr[1024] = { 0 };
+		for (int i = 0; i < numLeastPlayedMaps; i++)
+			Q_strcat(leastPlayedStr, sizeof(leastPlayedStr), va("%s%s (%d)", i ? "^7, " : "", leastPlayedMaps[i], leastPlayedMapCounts[i]));
+		PrintIngame(clientNum, "  ^1Least played^7 %d maps: %s\n", numLeastPlayedMaps, leastPlayedStr);
+	}
+
+	sqlite3_finalize(statement);
+}
+
+// display people who have rated the most maps first; break ties alphabetically
+const char *sqlGetPlayersWhoHaveRatedMaps = "SELECT accounts.name, tierlistmaps.account_id, COUNT(tierlistmaps.account_id) AS num_ratings FROM tierlistmaps JOIN tierwhitelist ON tierwhitelist.map = tierlistmaps.map JOIN accounts ON accounts.account_id = tierlistmaps.account_id GROUP BY tierlistmaps.account_id ORDER BY COUNT(tierlistmaps.account_id) DESC, accounts.name;";
+qboolean G_DBTierListPlayersWhoHaveRatedMaps(int clientNum, const char *successPrologueMessage) {
+	sqlite3_stmt *statement;
+	int rc = sqlite3_prepare(dbPtr, sqlGetPlayersWhoHaveRatedMaps, -1, &statement, 0);
+	rc = sqlite3_step(statement);
+
+	char nameList[4096] = { 0 };
+	int numFound = 0;
+	while (rc == SQLITE_ROW) {
+		const char *accountName = (const char *)sqlite3_column_text(statement, 0);
+		int accountId = sqlite3_column_int(statement, 1);
+		//int numRatings = sqlite3_column_int(statement, 2);
+		if (VALIDSTRING(accountName)) {
+			// see if this player is online, in which case we use a different color
+			const char *colorStr = "^7";
+			for (int i = 0; i < MAX_CLIENTS; i++) {
+				gentity_t *ent = &g_entities[i];
+				if (ent->inuse && ent->client && ent->client->pers.connected != CON_DISCONNECTED && ent->client->account && ent->client->account->id == accountId) {
+					switch (ent->client->sess.sessionTeam) {
+					case TEAM_RED: colorStr = "^1"; break;
+					case TEAM_BLUE: colorStr = "^4"; break;
+					default: colorStr = "^3"; break;
+					}
+					break;
+				}
+			}
+			const char *appendName = va("%s%s", colorStr, accountName);
+			Q_strcat(nameList, sizeof(nameList), va("%s%s", numFound ? "^7, " : "", appendName));
+			numFound++;
+		}
+		rc = sqlite3_step(statement);
+	}
+
+	sqlite3_finalize(statement);
+
+	if (numFound) {
+		if (VALIDSTRING(successPrologueMessage))
+			PrintIngame(clientNum, va("%s\n", successPrologueMessage));
+		PrintIngame(clientNum, va("%s^7\n", nameList));
+		return qtrue;
+	}
+	else {
+		return qfalse;
+	}
+}
+
+qboolean G_DBPrintTiersOfAllMaps(int printClientNum, qboolean useIngamePlayers, const char *successPrologueMessage) {
+	char ingamePlayersStr[256] = { 0 };
+	int numIngame = GetAccountIdsStringOfIngamePlayers(ingamePlayersStr, sizeof(ingamePlayersStr));
+
+	if (useIngamePlayers && numIngame < 2)
+		return qfalse;
+
+	char *accountIdsString = NULL;
+	if (useIngamePlayers)
+		accountIdsString = useIngamePlayers ? ingamePlayersStr : NULL;
+
+	list_t *list = GetTierList(accountIdsString, NULL, useIngamePlayers, 0, NULL, qfalse, NULL);
+	if (list) {
+		qboolean result = PrintMapTierList(printClientNum, list, useIngamePlayers, successPrologueMessage);
+		ListClear(list);
+		free(list);
+		return result;
+	}
+	else {
+		return qfalse;
+	}
+}
+
+const char *sqlAddMapToTierWhitelist = "INSERT OR IGNORE INTO tierwhitelist (map) VALUES (?1);";
+qboolean G_DBAddMapToTierWhitelist(const char *mapFileName) {
+	if (!VALIDSTRING(mapFileName))
+		return qfalse;
+
+	sqlite3_stmt *statement;
+
+	sqlite3_prepare(dbPtr, sqlAddMapToTierWhitelist, -1, &statement, 0);
+
+	sqlite3_bind_text(statement, 1, mapFileName, -1, 0);
+
+	int rc = sqlite3_step(statement);
+
+	sqlite3_finalize(statement);
+
+	return !!(rc == SQLITE_DONE);
+}
+
+const char *sqlRemoveMapFromTierWhitelist = "DELETE FROM tierwhitelist WHERE map = ?1;";
+qboolean G_DBRemoveMapFromTierWhitelist(const char *mapFileName) {
+	if (!VALIDSTRING(mapFileName))
+		return qfalse;
+
+	sqlite3_stmt *statement;
+
+	sqlite3_prepare(dbPtr, sqlRemoveMapFromTierWhitelist, -1, &statement, 0);
+
+	sqlite3_bind_text(statement, 1, mapFileName, -1, 0);
+
+	int rc = sqlite3_step(statement);
+
+	sqlite3_finalize(statement);
+
+	return !!(rc == SQLITE_DONE);
+}
+
+const char *sqlGetTierWhitelistedMaps = "SELECT map FROM tierwhitelist ORDER BY map;";
+// IMPORTANT: free the result if not null!
+list_t *G_DBGetTierWhitelistedMaps(void) {
+	sqlite3_stmt *statement;
+	int rc = sqlite3_prepare(dbPtr, sqlGetTierWhitelistedMaps, -1, &statement, 0);
+
+	rc = sqlite3_step(statement);
+
+	list_t *mapsList = malloc(sizeof(list_t));
+	memset(mapsList, 0, sizeof(list_t));
+
+	int numGotten = 0;
+
+	// loop through each map
+	while (rc == SQLITE_ROW) {
+		const char *mapFileName = (const char *)sqlite3_column_text(statement, 0);
+
+		if (VALIDSTRING(mapFileName)) {
+			mapTierData_t *data = (mapTierData_t *)ListAdd(mapsList, sizeof(mapTierData_t));
+			Q_strncpyz(data->mapFileName, mapFileName, sizeof(data->mapFileName));
+			numGotten++;
+		}
+
+		rc = sqlite3_step(statement);
+	}
+
+	sqlite3_finalize(statement);
+
+	if (!numGotten) {
+		ListClear(mapsList);
+		return NULL;
+	}
+
+	return mapsList;
+}
+
+int CvarForTier(mapTier_t tier, qboolean max) {
+	switch (tier) {
+	case MAPTIER_S: return max ? g_vote_tierlist_s_max.integer : g_vote_tierlist_s_min.integer;
+	case MAPTIER_A: return max ? g_vote_tierlist_a_max.integer : g_vote_tierlist_a_min.integer;
+	case MAPTIER_B: return max ? g_vote_tierlist_b_max.integer : g_vote_tierlist_b_min.integer;
+	case MAPTIER_C: return max ? g_vote_tierlist_c_max.integer : g_vote_tierlist_c_min.integer;
+	case MAPTIER_F: return max ? g_vote_tierlist_f_max.integer : g_vote_tierlist_f_min.integer;
+	default: assert(qfalse); return 0;
+	}
+}
+
+// e.g. account ids 13, 20, and 35 are playing ==> "13,20,35"
+// returns the number of players detected
+int GetAccountIdsStringOfIngamePlayers(char *outBuf, size_t outBufSize) {
+	if (!outBuf || !outBufSize)
+		return 0;
+
+	char ingamePlayersBuf[256] = { 0 };
+	int numGotten = 0;
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *ent = &g_entities[i];
+		if (ent->inuse && ent->client && ent->client->pers.connected != CON_DISCONNECTED && ent->client->account && (ent->client->sess.sessionTeam == TEAM_RED || ent->client->sess.sessionTeam == TEAM_BLUE)) {
+			Q_strcat(ingamePlayersBuf, sizeof(ingamePlayersBuf), va("%s%d", numGotten ? "," : "", ent->client->account->id));
+			numGotten++;
+		}
+	}
+
+	Q_strncpyz(outBuf, ingamePlayersBuf, outBufSize);
+	return numGotten;
+}
+
+#define MAX_TIERLIST_RNG_TRIES	(8192) // prevent infinite loop
+
+// This function selects maps for the multivote, just like G_DBSelectMapsFromPool does for pools.
+// We try to do it using solely ratings from ingame players, but if we can't do that, we fall back to
+// using community ratings. We do a bunch of checks at the beginning to make the potentially chaotic/horrible
+// distribution of user ratings neatly fit the desired mins/maxes of each tier, to the extent possible.
+// Most of the checks and fallbacks here will not really be used once enough people have rated maps, assuming
+// those people rated them somewhat reasonably (e.g. every single person didn't rate every single map F tier).
+// returns qtrue if successful; qfalse if not
+qboolean G_DBSelectTierlistMaps(MapSelectedCallback callback, void *context) {
+	// we know there are enough players ingame because we already checked in Svcmd_MapVote_f
+	char ingamePlayersStr[256] = { 0 };
+	GetAccountIdsStringOfIngamePlayers(ingamePlayersStr, sizeof(ingamePlayersStr));
+
+	// try to get a tier list based on the current ingame players
+	tierListInfo_t info;
+	list_t *allMapsList = GetTierList(ingamePlayersStr, NULL, qtrue, g_vote_mapCooldownMinutes.integer > 0 ? g_vote_mapCooldownMinutes.integer : 0, level.mapname, qtrue, &info);
+
+	const int totalMapsToChoose = Com_Clampi(2, MAX_MULTIVOTE_MAPS, g_vote_tierlist_totalMaps.integer);
+	int numToSelectForEachTier[NUM_MAPTIERS] = { 0 };
+	int totalToSelect = 0, tries = 0;
+
+	
+	qboolean usingCommunityRatings;
+	for (usingCommunityRatings = qfalse; usingCommunityRatings <= qtrue; usingCommunityRatings++) {
+		if (usingCommunityRatings) {
+			Com_DebugPrintf("Unable to generate a working set of ingame-rated maps; trying again and including community-rated maps.\n");
+			if (allMapsList)
+				free(allMapsList);
+			allMapsList = GetTierList(NULL, NULL, qtrue, g_vote_mapCooldownMinutes.integer > 0 ? g_vote_mapCooldownMinutes.integer : 0, level.mapname, qtrue, &info);
+		}
+		if (!allMapsList || allMapsList->size < totalMapsToChoose)
+			continue;
+
+		// initialize mins/maxes
+		int min[NUM_MAPTIERS], max[NUM_MAPTIERS];
+		for (mapTier_t t = MAPTIER_S; t >= MAPTIER_F; t--) {
+			max[t] = Com_Clampi(0, totalMapsToChoose, CvarForTier(t, qtrue));
+			min[t] = Com_Clampi(0, max[t], CvarForTier(t, qfalse));
+		}
+
+		// check whether we have enough maps to satisfy the minimum of each tier
+		// if not, try to add map(s) of the next tier in the priority list
+		for (mapTier_t t = MAPTIER_S; t >= MAPTIER_F; t--) {
+			if (min[t] - info.numMapsOfTier[t] <= 0)
+				continue;
+			Com_DebugPrintf("Not enough maps of tier %s^7; going to try to use more maps of other tier(s).\n", GetTierStringForTier(t));
+			mapTier_t checkOrder[4];
+			switch (t) {
+			case MAPTIER_S: checkOrder[0] = MAPTIER_A; checkOrder[1] = MAPTIER_B; checkOrder[2] = MAPTIER_C; checkOrder[3] = MAPTIER_F; break;
+			case MAPTIER_A: checkOrder[0] = MAPTIER_B; checkOrder[1] = MAPTIER_S; checkOrder[2] = MAPTIER_C; checkOrder[3] = MAPTIER_F; break;
+			case MAPTIER_B: checkOrder[0] = MAPTIER_C; checkOrder[1] = MAPTIER_A; checkOrder[2] = MAPTIER_F; checkOrder[3] = MAPTIER_S; break;
+			case MAPTIER_C: checkOrder[0] = MAPTIER_F; checkOrder[1] = MAPTIER_B; checkOrder[2] = MAPTIER_A; checkOrder[3] = MAPTIER_S; break;
+			case MAPTIER_F: checkOrder[0] = MAPTIER_C; checkOrder[1] = MAPTIER_B; checkOrder[2] = MAPTIER_A; checkOrder[3] = MAPTIER_S; break;
+			}
+			for (int i = 0; i < 4; i++) {
+				while (min[t] - info.numMapsOfTier[t] > 0 && info.numMapsOfTier[checkOrder[i]] > max[checkOrder[i]] && max[checkOrder[i]] + 1 < MAX_MULTIVOTE_MAPS) {
+					// we found a tier in the priority list that's not using all of its existent maps; allow it to use additional map(s)
+					Com_DebugPrintf("Adding to the maximum of %s^7 to compensate.\n", GetTierStringForTier(checkOrder[i]));
+					++max[checkOrder[i]];
+					--min[t];
+				}
+				if (min[t] - info.numMapsOfTier[t] <= 0)
+					break; // we're good, move on to check the next tier
+			}
+		}
+		
+		// we still have one more check to do before we can start randomizing the tiers.
+		// we need to check that the sum of the maxes can achieve the total desired number of maps
+		int sumOfMaxes = 0;
+		for (mapTier_t t = MAPTIER_S; t >= MAPTIER_F; t--) {
+			if (max[t] > info.numMapsOfTier[t])
+				max[t] = info.numMapsOfTier[t]; // cap max at number of maps before adding it
+			if (max[t] > totalMapsToChoose)
+				max[t] = totalMapsToChoose; // also cap max at total (saves needless randomizations later)
+			sumOfMaxes += max[t];
+		}
+		if (sumOfMaxes < totalMapsToChoose) {
+			// even if we picked every tier at its maximum allowable number of maps, we still wouldn't hit the desired total.
+			// starting from S tier and working toward F tier, see if any tier has unused maps, and bump up their maximum if so.
+			Com_DebugPrintf("Sum of maxes (%d) < total maps to choose (%d); going to try to bump up tier(s).\n", sumOfMaxes, totalMapsToChoose);
+			for (mapTier_t t = MAPTIER_S; t >= MAPTIER_F; t--) {
+				while (sumOfMaxes < totalMapsToChoose && info.numMapsOfTier[t] > max[t]) {
+					Com_DebugPrintf("Adding to the maximum of %s^7 to compensate.\n", GetTierStringForTier(t));
+					++max[t];
+					++sumOfMaxes;
+				}
+			}
+		}
+		if (sumOfMaxes < totalMapsToChoose)
+			continue; // we somehow couldn't fix the max issue
+
+		// if we got here, our mins and maxes are legit. now we try to find
+		// a randomized set of numbers of maps that totals to g_vote_tierlist_totalMaps
+		// (e.g. 2S, 2A, 1B, 0C, 0F for a total of 5 maps)
+		tries = 0;
+		do {
+			memset(&numToSelectForEachTier, 0, sizeof(numToSelectForEachTier));
+			for (mapTier_t t = MAPTIER_S; t >= MAPTIER_F; t--) {
+				numToSelectForEachTier[t] = Q_irand(min[t], max[t]);
+				if (tries > 2000 || (tries > 1000 && t != MAPTIER_F)) // sanity check, just start fudging the numbers if it takes too long
+					numToSelectForEachTier[t] += Q_irand(-1 * (tries / 1000), 1 * (tries / 1000));
+				numToSelectForEachTier[t] = Com_Clampi(0, info.numMapsOfTier[t], numToSelectForEachTier[t]); // check bounds
+			}
+			totalToSelect = 0;
+			for (mapTier_t t = MAPTIER_S; t >= MAPTIER_F; t--)
+				totalToSelect += numToSelectForEachTier[t];
+			tries++;
+		} while (totalToSelect != totalMapsToChoose && tries < MAX_TIERLIST_RNG_TRIES);
+
+		if (totalToSelect == totalMapsToChoose)
+			break; // we successfully found a working combination; use it
+	}
+
+	if (totalToSelect != totalMapsToChoose) {
+		// WTF, we were STILL unable to get a good combination??? something has gone terribly wrong
+		// perhaps not enough maps were rated by the entire community
+		PrintIngame(-1, "Unable to generate a suitable set of maps for voting%s\n", !allMapsList || allMapsList->size < totalMapsToChoose ? ". You can help by rating maps with ^5tier set [map] [tier]^7." : ".");
+		G_LogPrintf("Error: unable to generate a suitable set of maps for voting.\n");
+		if (allMapsList)
+			free(allMapsList);
+		return qfalse;
+	}
+
+	// if we got here, we managed to not fuck it up, and we have a working set of numbers for each tier
+	// time to start picking maps
+	Com_DebugPrintf("Selecting %d S tier maps, %d A tier maps, %d B tier maps, %d C tier maps, and %d F tier maps (took %d randomizations).\n",
+		numToSelectForEachTier[MAPTIER_S], numToSelectForEachTier[MAPTIER_A], numToSelectForEachTier[MAPTIER_B],
+		numToSelectForEachTier[MAPTIER_C], numToSelectForEachTier[MAPTIER_F], tries);
+	if (usingCommunityRatings)
+		PrintIngame(-1, "Not enough maps rated by ingame players; using community-rated maps.\n");
+
+	// loop through the tiers, picking the number of maps we determined for each one above
+	int numMapsPickedTotal = 0;
+	char chosenMapNames[MAX_MULTIVOTE_MAPS][MAX_QPATH] = { 0 }; // suck my dick, double pointer shit is aids
+	for (mapTier_t t = MAPTIER_S; t >= MAPTIER_F; t--) {
+		if (numMapsPickedTotal >= totalMapsToChoose)
+			break; // should never happen
+
+		// loop through the randomized map list until we find a map matching the current tier
+		int numPickedForThisTier = 0;
+		while (numPickedForThisTier < numToSelectForEachTier[t]) {
+			iterator_t iter;
+			ListIterate(allMapsList, &iter, qfalse);
+			while (IteratorHasNext(&iter)) {
+				mapTierData_t *data = (mapTierData_t *)IteratorNext(&iter);
+				if (data->tier != t)
+					continue;
+
+				// we found a map that matches the current tier; pick it
+				if (MapExistsQuick(data->mapFileName)) { // one last double check to make sure the map actually exists
+					char mapShortName[MAX_QPATH] = { 0 };
+					GetShortNameForMapFileName(data->mapFileName, mapShortName, sizeof(mapShortName));
+					Com_DebugPrintf("Selecting %s (%s^7)\n", mapShortName, GetTierStringForTier(t));
+					Q_strncpyz(chosenMapNames[numMapsPickedTotal], data->mapFileName, sizeof(chosenMapNames[numMapsPickedTotal]));
+
+					ListRemove(allMapsList, data);
+					numPickedForThisTier++;
+					numMapsPickedTotal++;
+
+					goto continueOuterLoop; // suck my enormous nutsack
+				}
+			}
+			continueOuterLoop:; // you bitch
+		}
+	}
+	
+	// fisher-yates shuffle so that the maps don't appear in order of their tiers,
+	// preventing people from simply being biased toward the maps appearing at the top
+	for (int i = numMapsPickedTotal - 1; i >= 1; i--) {
+		int j = rand() % (i + 1);
+		char *temp = strdup(chosenMapNames[i]);
+		Q_strncpyz(chosenMapNames[i], chosenMapNames[j], sizeof(chosenMapNames[i]));
+		Q_strncpyz(chosenMapNames[j], temp, sizeof(chosenMapNames[j]));
+		free(temp);
+	}
+
+	// run the callbacks
+	for (int i = 0; i < numMapsPickedTotal; i++) {
+		if (chosenMapNames[i][0])
+			callback(context, chosenMapNames[i]);
+	}
+
+	free(allMapsList);
+
+	return !!(numMapsPickedTotal > 0);
+}
+
+const char *sqlAddMapToPlayedMapsList = "INSERT OR REPLACE INTO lastplayedmap (map, num) VALUES (?1, (SELECT num FROM lastplayedmap WHERE map = ?1) + 1);";
+qboolean G_DBAddCurrentMapToPlayedMapsList(void) {
+	if (!level.mapname[0])
+		return qfalse;
+
+	char lowercase[MAX_QPATH] = { 0 };
+	Q_strncpyz(lowercase, level.mapname, sizeof(lowercase));
+	Q_strlwr(lowercase);
+
+	sqlite3_stmt *statement;
+
+	sqlite3_prepare(dbPtr, sqlAddMapToPlayedMapsList, -1, &statement, 0);
+
+	sqlite3_bind_text(statement, 1, lowercase, -1, 0);
+
+	int rc = sqlite3_step(statement);
+
+	sqlite3_finalize(statement);
+
+	return !!(rc == SQLITE_DONE);
 }

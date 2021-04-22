@@ -2645,7 +2645,10 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 						if (n >= g_protectQ3FillIPLimit.integer)
                         {
 							G_HackLog("Possible Q3Fill attack: Client from %s is connecting more than %i times.\n", ipString,g_protectQ3FillIPLimit.integer);
+#ifndef _DEBUG
+							// don't do this in debug builds (helps testing)
 							return "Reached limit for given IP, please try later.";	
+#endif
 						}
 					}
 				}

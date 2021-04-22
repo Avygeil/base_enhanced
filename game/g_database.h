@@ -4,8 +4,8 @@
 #include "g_local.h"
 
 #define DB_FILENAME				"enhanced.db"
-#define DB_SCHEMA_VERSION		4
-#define DB_SCHEMA_VERSION_STR	"4"
+#define DB_SCHEMA_VERSION		5
+#define DB_SCHEMA_VERSION_STR	"5"
 #define DB_OPTIMIZE_INTERVAL	( 60*60*3 ) // every 3 hours
 #define DB_VACUUM_INTERVAL		( 60*60*24*7 ) // every week
 
@@ -239,7 +239,8 @@ void G_DBListMapsInPool( const char* short_name,
 	ListMapsPoolCallback callback,
 	void** context,
 	char *longNameOut,
-	size_t longNameOutSize);
+	size_t longNameOutSize,
+	int notPlayedWithinLastMinutes);
 
 qboolean G_DBFindPool( const char* short_name,
 	PoolInfo* poolInfo );
@@ -263,5 +264,24 @@ qboolean G_DBPoolMapAdd( const char* short_name,
 
 qboolean G_DBPoolMapRemove( const char* short_name,
 	const char* mapname );
+
+qboolean G_DBAddMapToTierList(int accountId, const char *mapFileName, mapTier_t tier);
+qboolean G_DBRemoveMapFromTierList(int accountId, const char *mapFileName);
+qboolean G_DBClearTierList(int accountId);
+qboolean G_DBClearTierListTier(int accountId, mapTier_t tier);
+qboolean G_DBPrintAllPlayerRatingsForSingleMap(const char *mapFileName, int printClientNum, const char *successPrologueMessage);
+void G_DBTierStats(int clientNum);
+qboolean G_DBPrintPlayerTierList(int accountId, int printClientNum, const char *successPrologueMessage);
+qboolean G_DBTierListPlayersWhoHaveRatedMaps(int clientNum, const char *successPrologueMessage);
+qboolean G_DBPrintTiersOfAllMaps(int printClientNum, qboolean useIngamePlayers, const char *successPrologueMessage);
+qboolean G_DBAddMapToTierWhitelist(const char *mapFileName);
+qboolean G_DBRemoveMapFromTierWhitelist(const char *mapFileName);
+list_t *G_DBGetTierWhitelistedMaps(void);
+qboolean G_DBTierlistMapIsWhitelisted(const char *mapName);
+qboolean G_DBSelectTierlistMaps(MapSelectedCallback callback, void *context);
+qboolean G_DBPrintPlayerUnratedList(int accountId, int printClientNum, const char *successPrologueMessage);
+mapTier_t G_DBGetTierOfSingleMap(const char *optionalAccountIdsStr, const char *mapFileName, qboolean requireMultipleVotes);
+int GetAccountIdsStringOfIngamePlayers(char *outBuf, size_t outBufSize);
+qboolean G_DBAddCurrentMapToPlayedMapsList(void);
 
 #endif //G_DATABASE_H

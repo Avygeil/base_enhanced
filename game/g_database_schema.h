@@ -1,6 +1,6 @@
 #pragma once
 
-const char* const sqlCreateTables =
+const char *const sqlCreateTables =
 "CREATE TABLE IF NOT EXISTS [metadata] (                                                             \n"
 "  [key] TEXT COLLATE NOCASE PRIMARY KEY NOT NULL,                                                   \n"
 "  [value] TEXT DEFAULT NULL                                                                         \n"
@@ -76,6 +76,20 @@ const char* const sqlCreateTables =
 "    [pool_id] INTEGER REFERENCES [pools]([pool_id]) ON DELETE RESTRICT,                             \n"
 "    [mapname] TEXT,                                                                                 \n"
 "    [weight] INTEGER);                                                                              \n"
+"                                                                                                    \n"
+"CREATE TABLE IF NOT EXISTS [tierlistmaps] (                                                         \n"
+"	[account_id] INTEGER NOT NULL,                                                                   \n"
+"	[map] TEXT COLLATE NOCASE NOT NULL,                                                              \n"
+"	[tier] INTEGER NOT NULL,                                                                         \n"
+"   PRIMARY KEY(account_id, map)                                                                     \n"
+"   FOREIGN KEY(account_id) REFERENCES accounts(account_id) ON DELETE CASCADE);                      \n"
+"                                                                                                    \n"
+"CREATE TABLE IF NOT EXISTS [tierwhitelist] ( [map] TEXT COLLATE NOCASE NOT NULL PRIMARY KEY );      \n"
+"                                                                                                    \n"
+"CREATE TABLE CREATE TABLE IF NOT EXISTS [lastplayedmap] (                                           \n"
+"	[map] TEXT COLLATE NOCASE NOT NULL PRIMARY KEY,                                                  \n"
+"   [num] INTEGER NOT NULL DEFAULT 1,                                                                \n"
+"	[datetime] NOT NULL DEFAULT (strftime('%s', 'now')));                                            \n"
 "                                                                                                    \n"
 // This view lets you see which sessions are hard referenced in other tables (ie, deleting would result
 // in a failure due to a SQL constraint).

@@ -491,6 +491,25 @@ static qboolean UpgradeDBToVersion4(sqlite3* dbPtr) {
 	return qtrue;
 }
 
+const char *const v5Upgrade =
+"CREATE TABLE IF NOT EXISTS [tierlistmaps] (                                                         \n"
+"	[account_id] INTEGER NOT NULL,                                                                   \n"
+"	[map] TEXT COLLATE NOCASE NOT NULL,                                                              \n"
+"	[tier] INTEGER NOT NULL,                                                                         \n"
+"   PRIMARY KEY(account_id, map)                                                                     \n"
+"   FOREIGN KEY(account_id) REFERENCES accounts(account_id) ON DELETE CASCADE);                      \n"
+"                                                                                                    \n"
+"CREATE TABLE IF NOT EXISTS [tierwhitelist] ( [map] TEXT COLLATE NOCASE NOT NULL PRIMARY KEY );      \n"
+"                                                                                                    \n"
+"CREATE TABLE IF NOT EXISTS [lastplayedmap] (                                                        \n"
+"	[map] TEXT COLLATE NOCASE NOT NULL PRIMARY KEY,                                                  \n"
+"   [num] INTEGER NOT NULL DEFAULT 1,                                                                \n"
+"	[datetime] NOT NULL DEFAULT (strftime('%s', 'now')));                                            \n";
+
+static qboolean UpgradeDBToVersion5(sqlite3 *dbPtr) {
+	return sqlite3_exec(dbPtr, v5Upgrade, NULL, NULL, NULL) == SQLITE_OK;
+}
+
 // =============================================================================
 
 static qboolean UpgradeDB( int versionTo, sqlite3* dbPtr ) {
@@ -500,6 +519,7 @@ static qboolean UpgradeDB( int versionTo, sqlite3* dbPtr ) {
 		case 2: return UpgradeDBToVersion2( dbPtr );
 		case 3: return UpgradeDBToVersion3( dbPtr );
 		case 4: return UpgradeDBToVersion4( dbPtr );
+		case 5:	return UpgradeDBToVersion5( dbPtr );
 		default:
 			Com_Printf( "ERROR: Unsupported database upgrade routine\n" );
 	}

@@ -390,6 +390,7 @@ vmCvar_t    g_allow_vote_nextmap;
 vmCvar_t    g_allow_vote_timelimit;
 vmCvar_t    g_allow_vote_fraglimit;
 vmCvar_t    g_allow_vote_maprandom;
+vmCvar_t	g_allow_vote_mapvote;
 vmCvar_t    g_allow_vote_warmup;
 vmCvar_t	g_allow_vote_boon;
 vmCvar_t	g_allow_vote_instagib;
@@ -409,6 +410,22 @@ vmCvar_t    g_enableBoon;
 vmCvar_t    g_maxstatusrequests;
 vmCvar_t	g_testdebug; //for tmp debug
 vmCvar_t	g_rconpassword;
+
+vmCvar_t	g_vote_tierlist;
+vmCvar_t	g_vote_tierlist_s_min;
+vmCvar_t	g_vote_tierlist_s_max;
+vmCvar_t	g_vote_tierlist_a_min;
+vmCvar_t	g_vote_tierlist_a_max;
+vmCvar_t	g_vote_tierlist_b_min;
+vmCvar_t	g_vote_tierlist_b_max;
+vmCvar_t	g_vote_tierlist_c_min;
+vmCvar_t	g_vote_tierlist_c_max;
+vmCvar_t	g_vote_tierlist_f_min;
+vmCvar_t	g_vote_tierlist_f_max;
+vmCvar_t	g_vote_tierlist_totalMaps;
+vmCvar_t	g_vote_rng;
+vmCvar_t	g_vote_runoff;
+vmCvar_t	g_vote_mapCooldownMinutes;
 
 vmCvar_t	g_callvotedelay;
 vmCvar_t	g_callvotemaplimit;
@@ -787,6 +804,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_allow_vote_timelimit,	"g_allow_vote_timelimit"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_allow_vote_fraglimit,	"g_allow_vote_fraglimit"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_allow_vote_maprandom, "g_allow_vote_maprandom", "4", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_allow_vote_mapvote, "g_allow_vote_mapvote", "1", CVAR_ARCHIVE, 0, qtrue },
     { &g_allow_vote_warmup, "g_allow_vote_warmup", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_allow_vote_boon, "g_allow_vote_boon", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_allow_vote_instagib, "g_allow_vote_instagib", "1", CVAR_ARCHIVE, 0, qtrue },
@@ -796,7 +814,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_default_capturedifflimit, "g_default_capturedifflimit", "10", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_enable_maprandom_wildcard, "g_enable_maprandom_wildcard", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_redirectDoWarmupVote, "g_redirectDoWarmupVote", "cointoss", CVAR_ARCHIVE, 0, qtrue },
-	{ &g_redirectNextMapVote, "g_redirectNextMapVote", "map_random custom_4s", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_redirectNextMapVote, "g_redirectNextMapVote", "mapvote", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_quietrcon,	"g_quietrcon"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_hackLog,	"g_hackLog"	, "hacks.log"	, CVAR_ARCHIVE, 0, qtrue },
@@ -811,6 +829,22 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_dlURL,	"g_dlURL"	, ""	, CVAR_SYSTEMINFO, 0, qtrue },
 
 	{ &g_enableBoon,	"g_enableBoon"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
+
+	{ &g_vote_tierlist, "g_vote_tierlist", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_tierlist_s_min, "g_vote_tierlist_s_min", "1", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_tierlist_s_max, "g_vote_tierlist_s_max", "3", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_tierlist_a_min, "g_vote_tierlist_a_min", "1", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_tierlist_a_max, "g_vote_tierlist_a_max", "3", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_tierlist_b_min, "g_vote_tierlist_b_min", "1", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_tierlist_b_max, "g_vote_tierlist_b_max", "1", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_tierlist_c_min, "g_vote_tierlist_c_min", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_tierlist_c_max, "g_vote_tierlist_c_max", "1", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_tierlist_f_min, "g_vote_tierlist_f_min", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_tierlist_f_max, "g_vote_tierlist_f_max", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_tierlist_totalMaps, "g_vote_tierlist_totalMaps", "5", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_rng, "g_vote_rng", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_runoff, "g_vote_runoff", "1", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_mapCooldownMinutes, "g_vote_mapCooldownMinutes", "60", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_selfkill_penalty, "g_selfkill_penalty", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_flags_overboarding, "g_flags_overboarding", "1", CVAR_ARCHIVE, 0, qtrue },
@@ -2815,6 +2849,7 @@ void BeginIntermission(void) {
 			fabs(avgBlue - round(avgBlue)) < 0.1f)
 		{
 			G_PostScoreboardToWebhook(statsBuf);
+			G_DBAddCurrentMapToPlayedMapsList();
 		}
 	}
 }
@@ -4099,7 +4134,7 @@ CheckVote
 ==================
 */
 extern void SiegeClearSwitchData(void);
-extern int* BuildVoteResults( const int numChoices, int *numVotes, int *highestVoteCount );
+extern int* BuildVoteResults( int numChoices, int *numVotes, int *highestVoteCount );
 
 void CheckVote( void ) {
 	if ( level.voteExecuteTime && level.voteExecuteTime < level.time ) {
@@ -4250,11 +4285,20 @@ void CheckVote( void ) {
 		int *voteResults = BuildVoteResults( level.multiVoteChoices, &numVotes, &highestVoteCount );
 		free( voteResults );
 
-		// the vote ends when a map has >50% majority, when everyone voted, or when the vote timed out
-		if ( highestVoteCount >= ( ( level.numVotingClients / 2 ) + 1 ) || numVotes >= level.numVotingClients || level.time - level.voteTime >= VOTE_TIME ) {
-			G_LogPrintf( "Multi vote ended (%d voters)\n", numVotes );
+// the vote ends when a map has >50% majority, when everyone voted, or when the vote timed out
+		if (level.time - level.voteTime >= VOTE_TIME && !DoRunoff()) {
+			G_LogPrintf("Multi vote ended due to time (%d voters)\n", numVotes);
 			level.voteExecuteTime = level.time; // in this special case, execute it now. the delay is done in the svcmd
-		} else {
+		}
+		else if ( highestVoteCount >= ( ( level.numVotingClients / 2 ) + 1 )) {
+			G_LogPrintf( "Multi vote ended due to majority vote (%d voters)\n", numVotes );
+			level.voteExecuteTime = level.time; // in this special case, execute it now. the delay is done in the svcmd
+		}
+		else if (numVotes >= level.numVotingClients && !DoRunoff()) {
+			G_LogPrintf("Multi vote ended due to everyone voted, no majority, and no runoff (%d voters)\n", numVotes);
+			level.voteExecuteTime = level.time; // in this special case, execute it now. the delay is done in the svcmd
+		}
+		else {
 			return;
 		}
 	}
@@ -4800,7 +4844,7 @@ static void WaitForAFKs(void) {
 	else if (numAfks == 2)
 		Q_strncpyz(failReason, va("Waiting for %s^7\nand %s^7 to unAFK", level.clients[afkGuy1].pers.netname, level.clients[afkGuy2].pers.netname), sizeof(failReason));
 	else if (numAfks == 1)
-		Q_strncpyz(failReason, va("Waiting for %s^7 to unAFK", level.clients[afkGuy1].pers.netname), sizeof(failReason));
+		Q_strncpyz(failReason, va("Waiting for %s^7 to %s", level.clients[afkGuy1].pers.netname, Q_stristrclean(level.clients[afkGuy1].pers.netname, "hannah") ? "hunAFK" : "unAFK"), sizeof(failReason));
 
 	static int lastCenterPrintTime = 0;
 	if (currentCountdown) {
@@ -5079,9 +5123,9 @@ static qboolean SessionIdMatches(genericNode_t *node, void *userData) {
 }
 
 // adds a tick to a player's tick count for a particular team, even if he left and rejoined
-// allows tracking ragequitters and subs for the discord webhook, as well as using account names/nicknames
+// allows tracking ragequitters and subs for the discord webhook, as well as using account names/nicknames instead of ingame names
 static void AddPlayerTick(team_t team, gclient_t *cl) {
-	if (!cl || !cl->session)
+	if (!cl || !cl->session || !level.wasRestarted)
 		return;
 
 	list_t *list = team == TEAM_RED ? &level.redPlayerTickList : &level.bluePlayerTickList;
@@ -5089,13 +5133,15 @@ static void AddPlayerTick(team_t team, gclient_t *cl) {
 
 	if (found) { // this guy is already tracked
 		found->numTicks++;
-		found->accountId = found->accountId; // update the tracked account id, in case an admin assigned him an account during this match
+		found->accountId = cl->session->accountId; // update the tracked account id, in case an admin assigned him an account during this match
 		Q_strncpyz(found->name, cl->pers.netname[0] ? cl->pers.netname : "Padawan", sizeof(found->name));
 		return;
 	}
 
 	// not yet tracked; add him to the list
 	tickPlayer_t *add = ListAdd(list, sizeof(tickPlayer_t));
+	add->printed = qfalse;
+	add->clientNum = cl - level.clients;
 	add->numTicks = 1;
 	add->sessionId = cl->session->id;
 	add->accountId = cl->session->accountId;

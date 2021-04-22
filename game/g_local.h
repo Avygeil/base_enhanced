@@ -31,6 +31,12 @@ extern int gPainMOD;
 extern int gPainHitLoc;
 extern vec3_t gPainPoint;
 
+#ifdef _DEBUG
+#define Com_DebugPrintf(...)	Com_Printf(__VA_ARGS__)
+#else
+#define Com_DebugPrintf(...)	do {} while (0)
+#endif
+
 //==================================================================
 
 // the "gameversion" client command will print this plus compile date
@@ -1118,6 +1124,8 @@ typedef struct {
 	int				sessionId;
 	int				accountId;
 	char			name[MAX_NAME_LENGTH];
+	int				clientNum; // to help print in scoreboard order
+	qboolean		printed;
 } tickPlayer_t;
 
 #define MAX_LOCATION_CHARS 32
@@ -1134,6 +1142,16 @@ typedef struct {
 	team_t	teamowner;
 	int		cs_index;
 } enhancedLocation_t;
+
+typedef enum {
+	MAPTIER_INVALID = 0,
+	MAPTIER_F,
+	MAPTIER_C,
+	MAPTIER_B,
+	MAPTIER_A,
+	MAPTIER_S,
+	NUM_MAPTIERS
+} mapTier_t;
 
 typedef struct {
 	struct gclient_s	*clients;		// [maxclients]
@@ -1212,6 +1230,7 @@ typedef struct {
 	int			voteNo;
 	int			numVotingClients;		// set by fixVoters()
 	int			lastVotingClient;		//for delay purposes
+	qboolean	inRunoff;
 
 	qboolean	votingGametype;
 	int			votingGametypeTo;
@@ -1226,8 +1245,14 @@ typedef struct {
 	// b_e multi voting
 	qboolean	multiVoting; // bypass some stuff if this is true (ie, cant vote yes/no)
 	qboolean	multiVoteHasWildcard; // required for different rng logic
+	char		multivoteWildcardMapFileName[MAX_QPATH];
 	int			multiVoteChoices;
 	int			multiVotes[MAX_CLIENTS]; // the id of the choice they voted for
+#define MAX_MULTIVOTE_MAPS		(9) // absolute maximum
+	char		multiVoteMapChars[MAX_MULTIVOTE_MAPS + 1];
+	char		multiVoteMapShortNames[MAX_MULTIVOTE_MAPS + 1][MAX_QPATH];
+	char		multiVoteMapFileNames[MAX_MULTIVOTE_MAPS + 1][MAX_QPATH];
+	int			mapsThatCanBeVotedBits;
 
 	// spawn variables
 	qboolean	spawning;				// the G_Spawn*() functions are valid
@@ -1317,6 +1342,7 @@ typedef struct {
 
 	struct {
 		char cmd[MAX_STRING_CHARS];
+		char cmdUnique[MAX_CLIENTS][MAX_STRING_CHARS];
 		int sendUntilTime;
 		int lastSentTime;
 		qboolean prioritized;
@@ -1431,6 +1457,18 @@ void Cmd_Help_f( gentity_t *ent );
 void Cmd_FollowFlag_f( gentity_t *ent );
 void Cmd_FollowTarget_f(gentity_t *ent);
 gentity_t *G_GetDuelWinner(gclient_t *client);
+const char *GetTierStringForTier(mapTier_t tier);
+const char *GetTierColorForTier(mapTier_t tier);
+qboolean GetShortNameForMapFileName(const char *mapFileName, char *out, size_t outSize);
+qboolean GetMatchingMap(const char *in, char *out, size_t outSize);
+mapTier_t MapTierForDouble(double average);
+typedef struct {
+	node_t		node;
+	char		mapFileName[MAX_QPATH];
+	char		playerName[64];
+	int			accountId;
+	mapTier_t	tier;
+} mapTierData_t;
 
 //
 // g_items.c
@@ -1528,6 +1566,7 @@ void	GetAnglesForDirection( const vec3_t p1, const vec3_t p2, vec3_t out );
 
 void UpdateGlobalCenterPrint( const int levelTime );
 void G_GlobalTickedCenterPrint( const char *msg, int milliseconds, qboolean prioritized );
+void G_UniqueTickedCenterPrint(const void *msgs, size_t msgSize, int milliseconds, qboolean prioritized);
 void G_ResetAccurateTimerOnTrigger( accurateTimer *timer, gentity_t *activator, gentity_t *trigger );
 int G_GetAccurateTimerOnTrigger( accurateTimer *timer, gentity_t *activator, gentity_t *trigger );
 typedef qboolean( *ProjectileFilterCallback )( gentity_t* ent );
@@ -1761,6 +1800,7 @@ int TAG_GetRadius( const char *owner, const char *name );
 int TAG_GetFlags( const char *owner, const char *name );
 
 void TeleportPlayer( gentity_t *player, vec3_t origin, vec3_t angles );
+qboolean DoRunoff(void);
 
 //
 // g_weapon.c
@@ -1809,6 +1849,7 @@ qboolean getIpFromString( const char* from, unsigned int* ip );
 qboolean getIpPortFromString( const char* from, unsigned int* ip, int* port );
 void getStringFromIp( unsigned int ip, char* buffer, int size );
 void G_Status(void);
+qboolean MapExistsQuick(const char *mapFileName);
 
 //
 // g_weapon.c
@@ -2407,6 +2448,7 @@ extern vmCvar_t     g_allow_vote_nextmap;
 extern vmCvar_t     g_allow_vote_timelimit;
 extern vmCvar_t     g_allow_vote_fraglimit;
 extern vmCvar_t     g_allow_vote_maprandom;
+extern vmCvar_t     g_allow_vote_mapvote;
 extern vmCvar_t     g_allow_vote_warmup;
 extern vmCvar_t     g_allow_vote_boon;
 extern vmCvar_t     g_allow_vote_instagib;
@@ -2433,6 +2475,22 @@ extern vmCvar_t		g_ragersCanCounterPushPull;
 extern vmCvar_t		g_autoPause999;
 extern vmCvar_t		g_enterSpammerTime;
 extern vmCvar_t		g_quickPauseChat;
+
+extern vmCvar_t		g_vote_tierlist;
+extern vmCvar_t		g_vote_tierlist_s_min;
+extern vmCvar_t		g_vote_tierlist_s_max;
+extern vmCvar_t		g_vote_tierlist_a_min;
+extern vmCvar_t		g_vote_tierlist_a_max;
+extern vmCvar_t		g_vote_tierlist_b_min;
+extern vmCvar_t		g_vote_tierlist_b_max;
+extern vmCvar_t		g_vote_tierlist_c_min;
+extern vmCvar_t		g_vote_tierlist_c_max;
+extern vmCvar_t		g_vote_tierlist_f_min;
+extern vmCvar_t		g_vote_tierlist_f_max;
+extern vmCvar_t		g_vote_tierlist_totalMaps;
+extern vmCvar_t		g_vote_rng;
+extern vmCvar_t		g_vote_runoff;
+extern vmCvar_t		g_vote_mapCooldownMinutes;
 
 extern vmCvar_t    g_webhookId;
 extern vmCvar_t    g_webhookToken;

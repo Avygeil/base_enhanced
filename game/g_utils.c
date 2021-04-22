@@ -2346,19 +2346,26 @@ void GetAnglesForDirection( const vec3_t p1, const vec3_t p2, vec3_t out )
 	vectoangles( v, out );
 }
 
-void UpdateGlobalCenterPrint( const int levelTime ) {
-	if ( level.globalCenterPrint.sendUntilTime ) {
+void UpdateGlobalCenterPrint(const int levelTime) {
+	if (level.globalCenterPrint.sendUntilTime) {
 		// temporarily turn priority off so we can print stuff here
 		qboolean oldPriority = level.globalCenterPrint.prioritized;
 		level.globalCenterPrint.prioritized = qfalse;
 
-		if ( levelTime >= level.globalCenterPrint.sendUntilTime ) {
+		if (levelTime >= level.globalCenterPrint.sendUntilTime) {
 			// timeout, send an empty one to reset the center print and clear state
-			trap_SendServerCommand( -1, "cp \"\"" );
+			trap_SendServerCommand(-1, "cp \"\"");
 			level.globalCenterPrint.sendUntilTime = 0;
-		} else if ( levelTime >= level.globalCenterPrint.lastSentTime + 1000 ) {
+		}
+		else if (levelTime >= level.globalCenterPrint.lastSentTime + 1000) {
 			// send another one every second
-			trap_SendServerCommand( -1, level.globalCenterPrint.cmd );
+			if (level.globalCenterPrint.cmd[0]) {
+				trap_SendServerCommand(-1, level.globalCenterPrint.cmd);
+			}
+			else {
+				for (int i = 0; i < MAX_CLIENTS; i++)
+					trap_SendServerCommand(i, level.globalCenterPrint.cmdUnique[i]);
+			}
 			level.globalCenterPrint.lastSentTime = levelTime;
 		}
 
@@ -2369,12 +2376,33 @@ void UpdateGlobalCenterPrint( const int levelTime ) {
 // used to print a global cp for a duration, optionally prioritized (no other cp will be shown during that time)
 // a call to this overrides the previous one if still going on
 void G_GlobalTickedCenterPrint( const char *msg, int milliseconds, qboolean prioritized ) {
-	Com_sprintf( level.globalCenterPrint.cmd, sizeof( level.globalCenterPrint ), "cp \"%s\n\"", msg );
+	memset(&level.globalCenterPrint.cmdUnique, 0, sizeof(level.globalCenterPrint.cmdUnique));
+	Com_sprintf( level.globalCenterPrint.cmd, sizeof( level.globalCenterPrint.cmd ), "cp \"%s\n\"", msg );
 	level.globalCenterPrint.sendUntilTime = level.time + milliseconds;
 	level.globalCenterPrint.lastSentTime = 0;
 	level.globalCenterPrint.prioritized = prioritized;
 
 	UpdateGlobalCenterPrint( level.time );
+}
+
+// same as above but with a difference message for everyone
+// msgs should be the start of an array of MAX_CLIENTS strings of msgSize size
+void G_UniqueTickedCenterPrint(const void *msgs, size_t msgSize, int milliseconds, qboolean prioritized) {
+	assert(msgs);
+	memset(&level.globalCenterPrint.cmd, 0, sizeof(level.globalCenterPrint.cmd));
+	memset(&level.globalCenterPrint.cmdUnique, 0, sizeof(level.globalCenterPrint.cmdUnique));
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		Q_strncpyz(level.globalCenterPrint.cmdUnique[i], "cp \"", sizeof(level.globalCenterPrint.cmdUnique[i]));
+		const char *thisMsg = (const char *)((unsigned int)msgs + (msgSize * i));
+		if (VALIDSTRING(thisMsg))
+			Q_strcat(level.globalCenterPrint.cmdUnique[i], sizeof(level.globalCenterPrint.cmdUnique[i]), thisMsg);
+		Q_strcat(level.globalCenterPrint.cmdUnique[i], sizeof(level.globalCenterPrint.cmdUnique[i]), "\n\"");
+	}
+	level.globalCenterPrint.sendUntilTime = level.time + milliseconds;
+	level.globalCenterPrint.lastSentTime = 0;
+	level.globalCenterPrint.prioritized = prioritized;
+
+	UpdateGlobalCenterPrint(level.time);
 }
 
 static qboolean InTrigger( vec3_t interpOrigin, gentity_t *trigger ) {

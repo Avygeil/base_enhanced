@@ -33,6 +33,59 @@ static void SendMatchMultipart(const char* url, const char* matchid, const char*
 
 extern const char* G_GetArenaInfoByMap(const char* map);
 
+void AddPlayerToWebhook(tickPlayer_t *player, team_t t, char *redTeamBuf, size_t redTeamBufSize, char *blueTeamBuf, size_t blueTeamBufSize) {
+	if (player->printed)
+		return;
+
+	// don't consider people who weren't ingame and on their team for at least 10% of the match
+	unsigned int threshold = (int)((float)level.numTeamTicks * WEBHOOK_INGAME_THRESHOLD);
+	if (player->numTicks < threshold)
+		return;
+
+	// if he was playing for at least 10% of the match BUT less than 90% of the match, he's considered a sub
+	qboolean isSub = qfalse;
+	unsigned int subThreshold = (int)((float)level.numTeamTicks * WEBHOOK_INGAME_THRESHOLD_SUB);
+	if (player->numTicks < subThreshold)
+		isSub = qtrue;
+
+	// is he still connected?
+	qboolean isHere = qfalse;
+	for (int i = 0; i < level.maxclients; i++) {
+		if (level.clients[i].pers.connected != CON_CONNECTED)
+			continue;
+		if ((level.clients[i].account && level.clients[i].account->id != ACCOUNT_ID_UNLINKED && level.clients[i].account->id == player->accountId) ||
+			(level.clients[i].session && level.clients[i].session->id == player->sessionId)) {
+			isHere = qtrue;
+			break;
+		}
+	}
+
+	// get his top name (auto-chooses best method)
+	nicknameEntry_t nickname = { 0 };
+	G_DBGetTopNickname(player->sessionId, &nickname);
+	if (!nickname.name[0])
+		Q_strncpyz(nickname.name, player->name, sizeof(nickname.name));
+
+	char *buf;
+	size_t bufSize;
+	switch (t) {
+	case TEAM_RED: buf = redTeamBuf; bufSize = redTeamBufSize; break;
+	case TEAM_BLUE: buf = blueTeamBuf; bufSize = blueTeamBufSize; break;
+	default: buf = NULL; bufSize = 0;
+	}
+
+	if (VALIDSTRING(buf)) Q_strcat(buf, bufSize, "\n");
+	char name[MAX_NETNAME];
+	Q_strncpyz(name, nickname.name, sizeof(name));
+	Q_strcat(buf, bufSize, Q_CleanStr(name));
+	if (!isHere)
+		Q_strcat(buf, bufSize, " (RQ)");
+	else if (isSub)
+		Q_strcat(buf, bufSize, " (SUB)");
+
+	player->printed = qtrue;
+}
+
 void G_PostScoreboardToWebhook(const char* stats) {
 	if (!VALIDSTRING(g_webhookId.string) || !VALIDSTRING(g_webhookToken.string)) {
 		return;
@@ -55,56 +108,24 @@ void G_PostScoreboardToWebhook(const char* stats) {
 	// build a list of players in each team
 	char redTeam[256] = { 0 }, blueTeam[256] = { 0 };
 	for (team_t t = TEAM_RED; t <= TEAM_BLUE; t++) {
+		// first pass to try to get in sorted order, to match stats table
+		for (int i = 0; i < level.numConnectedClients; i++) {
+			int findClientNum = level.sortedClients[i];
+			iterator_t iter;
+			ListIterate(t == TEAM_RED ? &level.redPlayerTickList : &level.bluePlayerTickList, &iter, qfalse);
+			while (IteratorHasNext(&iter)) {
+				tickPlayer_t *found = IteratorNext(&iter);
+				if (found->clientNum != findClientNum)
+					continue;
+				AddPlayerToWebhook(found, t, redTeam, sizeof(redTeam), blueTeam, sizeof(blueTeam));
+			}
+		}
+		// sanity pass to make sure we got everyone
 		iterator_t iter;
 		ListIterate(t == TEAM_RED ? &level.redPlayerTickList : &level.bluePlayerTickList, &iter, qfalse);
 		while (IteratorHasNext(&iter)) {
 			tickPlayer_t *found = IteratorNext(&iter);
-
-			// don't consider people who weren't ingame and on their team for at least 10% of the match
-			unsigned int threshold = (int)((float)level.numTeamTicks * WEBHOOK_INGAME_THRESHOLD);
-			if (found->numTicks < threshold)
-				continue;
-
-			// if he was playing for at least 10% of the match BUT less than 90% of the match, he's considered a sub
-			qboolean isSub = qfalse;
-			unsigned int subThreshold = (int)((float)level.numTeamTicks * WEBHOOK_INGAME_THRESHOLD_SUB);
-			if (found->numTicks < subThreshold)
-				isSub = qtrue;
-
-			// is he still connected?
-			qboolean isHere = qfalse;
-			for (int i = 0; i < level.maxclients; i++) {
-				if (level.clients[i].pers.connected != CON_CONNECTED)
-					continue;
-				if ((level.clients[i].account && level.clients[i].account->id != ACCOUNT_ID_UNLINKED && level.clients[i].account->id == found->accountId) ||
-					(level.clients[i].session && level.clients[i].session->id == found->sessionId)) {
-					isHere = qtrue;
-					break;
-				}
-			}
-
-			// get his top name (auto-chooses best method)
-			nicknameEntry_t nickname = { 0 };
-			G_DBGetTopNickname(found->sessionId, &nickname);
-			if (!nickname.name[0])
-				Q_strncpyz(nickname.name, found->name, sizeof(nickname.name));
-
-			char *buf;
-			size_t bufSize;
-			switch (t) {
-			case TEAM_RED: buf = redTeam; bufSize = sizeof(redTeam); break;
-			case TEAM_BLUE: buf = blueTeam; bufSize = sizeof(blueTeam); break;
-			default: buf = NULL; bufSize = 0;
-			}
-
-			if (VALIDSTRING(buf)) Q_strcat(buf, bufSize, "\n");
-			char name[MAX_NETNAME];
-			Q_strncpyz(name, nickname.name, sizeof(name));
-			Q_strcat(buf, bufSize, Q_CleanStr(name));
-			if (isSub)
-				Q_strcat(buf, bufSize, " (SUB)");
-			if (!isHere)
-				Q_strcat(buf, bufSize, " (RQ)");
+			AddPlayerToWebhook(found, t, redTeam, sizeof(redTeam), blueTeam, sizeof(blueTeam));
 		}
 	}
 
