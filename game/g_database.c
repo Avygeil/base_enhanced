@@ -2737,7 +2737,7 @@ qboolean G_DBSelectTierlistMaps(MapSelectedCallback callback, void *context) {
 			Com_DebugPrintf("Unable to generate a working set of ingame-rated maps; trying again and including community-rated maps.\n");
 			if (allMapsList)
 				free(allMapsList);
-			allMapsList = GetTierList(NULL, NULL, qtrue, g_vote_mapCooldownMinutes.integer > 0 ? g_vote_mapCooldownMinutes.integer : 0, level.mapname, qtrue, &info);
+			allMapsList = GetTierList(NULL, NULL, qfalse, g_vote_mapCooldownMinutes.integer > 0 ? g_vote_mapCooldownMinutes.integer : 0, level.mapname, qtrue, &info);
 		}
 		if (!allMapsList || allMapsList->size < totalMapsToChoose)
 			continue;
