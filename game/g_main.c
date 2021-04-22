@@ -426,6 +426,7 @@ vmCvar_t	g_vote_tierlist_totalMaps;
 vmCvar_t	g_vote_rng;
 vmCvar_t	g_vote_runoff;
 vmCvar_t	g_vote_mapCooldownMinutes;
+vmCvar_t	g_vote_runoffTimeModifier;
 
 vmCvar_t	g_callvotedelay;
 vmCvar_t	g_callvotemaplimit;
@@ -845,6 +846,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_rng, "g_vote_rng", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_runoff, "g_vote_runoff", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_mapCooldownMinutes, "g_vote_mapCooldownMinutes", "60", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_runoffTimeModifier, "g_vote_runoffTimeModifier", "0", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_selfkill_penalty, "g_selfkill_penalty", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_flags_overboarding, "g_flags_overboarding", "1", CVAR_ARCHIVE, 0, qtrue },

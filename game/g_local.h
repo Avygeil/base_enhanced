@@ -2491,6 +2491,7 @@ extern vmCvar_t		g_vote_tierlist_totalMaps;
 extern vmCvar_t		g_vote_rng;
 extern vmCvar_t		g_vote_runoff;
 extern vmCvar_t		g_vote_mapCooldownMinutes;
+extern vmCvar_t		g_vote_runoffTimeModifier;
 
 extern vmCvar_t    g_webhookId;
 extern vmCvar_t    g_webhookToken;

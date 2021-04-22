@@ -1397,12 +1397,13 @@ static void StartMultiMapVote( const int numMaps, const qboolean hasWildcard, co
 	Com_sprintf( level.voteString, sizeof( level.voteString ), "map_multi_vote %s", listOfMaps );
 	Q_strncpyz( level.voteDisplayString, S_COLOR_RED"Vote for a map in console", sizeof( level.voteDisplayString ) );
 	level.voteTime = level.time;
-#ifdef _DEBUG
-	level.voteTime += 30000; // for testing
-#else
-	if (g_vote_runoff.integer)
-		level.voteTime -= 15000; // shorter vote time for runoff rounds
-#endif
+
+	if (g_vote_runoff.integer && g_vote_runoffTimeModifier.integer) { // allow shorter or longer time for runoff votes according to the cvar
+		int timeChange = Com_Clampi(-15, 30, g_vote_runoffTimeModifier.integer);
+		timeChange *= 1000;
+		level.voteTime += timeChange;
+	}
+
 	level.voteYes = 0;
 	level.voteNo = 0;
 	// we don't set lastVotingClient since this isn't a "normal" vote
