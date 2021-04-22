@@ -5134,7 +5134,8 @@ static void AddPlayerTick(team_t team, gclient_t *cl) {
 	if (found) { // this guy is already tracked
 		found->numTicks++;
 		found->accountId = cl->session->accountId; // update the tracked account id, in case an admin assigned him an account during this match
-		Q_strncpyz(found->name, cl->pers.netname[0] ? cl->pers.netname : "Padawan", sizeof(found->name));
+		const char *name = (cl->account && VALIDSTRING(cl->account->name)) ? cl->account->name : (cl->pers.netname[0] ? cl->pers.netname : "Padawan");
+		Q_strncpyz(found->name, name, sizeof(found->name));
 		return;
 	}
 
@@ -5145,7 +5146,8 @@ static void AddPlayerTick(team_t team, gclient_t *cl) {
 	add->numTicks = 1;
 	add->sessionId = cl->session->id;
 	add->accountId = cl->session->accountId;
-	Q_strncpyz(add->name, cl->pers.netname[0] ? cl->pers.netname : "Padawan", sizeof(add->name));
+	const char *name = (cl->account && VALIDSTRING(cl->account->name)) ? cl->account->name : (cl->pers.netname[0] ? cl->pers.netname : "Padawan");
+	Q_strncpyz(add->name, name, sizeof(add->name));
 }
 
 extern void WP_AddToClientBitflags(gentity_t* ent, int entNum);

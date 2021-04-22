@@ -60,12 +60,6 @@ void AddPlayerToWebhook(tickPlayer_t *player, team_t t, char *redTeamBuf, size_t
 		}
 	}
 
-	// get his top name (auto-chooses best method)
-	nicknameEntry_t nickname = { 0 };
-	G_DBGetTopNickname(player->sessionId, &nickname);
-	if (!nickname.name[0])
-		Q_strncpyz(nickname.name, player->name, sizeof(nickname.name));
-
 	char *buf;
 	size_t bufSize;
 	switch (t) {
@@ -76,7 +70,7 @@ void AddPlayerToWebhook(tickPlayer_t *player, team_t t, char *redTeamBuf, size_t
 
 	if (VALIDSTRING(buf)) Q_strcat(buf, bufSize, "\n");
 	char name[MAX_NETNAME];
-	Q_strncpyz(name, nickname.name, sizeof(name));
+	Q_strncpyz(name, VALIDSTRING(player->name) ? player->name : "?", sizeof(name));
 	Q_strcat(buf, bufSize, Q_CleanStr(name));
 	if (!isHere)
 		Q_strcat(buf, bufSize, " (RQ)");
