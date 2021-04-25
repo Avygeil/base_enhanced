@@ -2356,8 +2356,10 @@ const char *sqlGetBestMaps = "SELECT tierlistmaps.map, AVG(tier) averageTier FRO
 const char *sqlGetWorstMaps = "SELECT tierlistmaps.map, AVG(tier) averageTier FROM tierlistmaps JOIN tierwhitelist ON tierlistmaps.map = tierwhitelist.map GROUP BY tierlistmaps.map ORDER BY averageTier ASC LIMIT 5;";
 const char *sqlGetLowestVariance = "SELECT map, AVG(tier*tier) - AVG(tier)*AVG(tier) AS var FROM tierlistmaps GROUP BY map HAVING COUNT(*) >= 2 ORDER BY var ASC, map LIMIT 5;";
 const char *sqlGetHighestVariance = "SELECT map, AVG(tier*tier) - AVG(tier)*AVG(tier) AS var FROM tierlistmaps GROUP BY map HAVING COUNT(*) >= 2 ORDER BY var DESC, map LIMIT 5;";
-const char *sqlGetMostPlayedMaps = "SELECT map, num FROM lastplayedmap ORDER BY num DESC LIMIT 5;";
-const char *sqlGetLeastPlayedMaps = "SELECT map, num FROM lastplayedmap ORDER BY num ASC LIMIT 5;";
+const char *sqlGetMostPlayedMaps = "SELECT num_played_view.map, numPlayed FROM num_played_view JOIN tierwhitelist ON num_played_view.map = tierwhitelist.map ORDER BY numPlayed DESC, avgTier DESC, num_played_view.map ASC LIMIT 5;";
+const char *sqlGetLeastPlayedMaps = "SELECT num_played_view.map, numPlayed FROM num_played_view JOIN tierwhitelist ON num_played_view.map = tierwhitelist.map ORDER BY numPlayed ASC, avgTier DESC, num_played_view.map ASC LIMIT 5;";
+const char *sqlGetMostConformingPlayers = "WITH a AS (SELECT *, abs(round(avgTier, 0) - round(tier, 0)) diff FROM tierlistmaps JOIN num_played_view ON num_played_view.map = tierlistmaps.map), filteredPlayers AS (SELECT account_id FROM tierlistmaps GROUP BY account_id HAVING COUNT(map) >= 10) SELECT name, avg(diff) avgDiff FROM a JOIN accounts ON a.account_id = accounts.account_id JOIN filteredPlayers ON filteredPlayers.account_id = a.account_id GROUP BY a.account_id ORDER BY avgDiff ASC LIMIT 5;";
+const char *sqlGetLeastConformingPlayers = "WITH a AS (SELECT *, abs(round(avgTier, 0) - round(tier, 0)) diff FROM tierlistmaps JOIN num_played_view ON num_played_view.map = tierlistmaps.map), filteredPlayers AS (SELECT account_id FROM tierlistmaps GROUP BY account_id HAVING COUNT(map) >= 10) SELECT name, avg(diff) avgDiff FROM a JOIN accounts ON a.account_id = accounts.account_id JOIN filteredPlayers ON filteredPlayers.account_id = a.account_id GROUP BY a.account_id ORDER BY avgDiff DESC LIMIT 5;";
 void G_DBTierStats(int clientNum) {
 	sqlite3_stmt *statement;
 	int rc = sqlite3_prepare(dbPtr, sqlTierStatsNumRatings, -1, &statement, 0);
@@ -2452,6 +2454,40 @@ void G_DBTierStats(int clientNum) {
 	}
 
 	sqlite3_reset(statement);
+	rc = sqlite3_prepare(dbPtr, sqlGetLeastConformingPlayers, -1, &statement, 0);
+	rc = sqlite3_step(statement);
+	char leastConformingPlayers[5][MAX_QPATH] = { 0 };
+	double leastConformingAverages[5] = { 0 };
+	int numLeastConforming = 0;
+	while (rc == SQLITE_ROW) {
+		const char *playerName = (const char *)sqlite3_column_text(statement, 0);
+		double average = sqlite3_column_double(statement, 1);
+		if (VALIDSTRING(playerName)) {
+			Q_strncpyz(leastConformingPlayers[numLeastConforming], playerName, sizeof(leastConformingPlayers[numLeastConforming]));
+			leastConformingAverages[numLeastConforming] = average;
+			numLeastConforming++;
+		}
+		rc = sqlite3_step(statement);
+	}
+
+	sqlite3_reset(statement);
+	rc = sqlite3_prepare(dbPtr, sqlGetMostConformingPlayers, -1, &statement, 0);
+	rc = sqlite3_step(statement);
+	char mostConformingPlayers[5][MAX_QPATH] = { 0 };
+	double mostConformingAverages[5] = { 0 };
+	int numMostConforming = 0;
+	while (rc == SQLITE_ROW) {
+		const char *playerName = (const char *)sqlite3_column_text(statement, 0);
+		double average = sqlite3_column_double(statement, 1);
+		if (VALIDSTRING(playerName)) {
+			Q_strncpyz(mostConformingPlayers[numMostConforming], playerName, sizeof(mostConformingPlayers[numMostConforming]));
+			mostConformingAverages[numMostConforming] = average;
+			numMostConforming++;
+		}
+		rc = sqlite3_step(statement);
+	}
+
+	sqlite3_reset(statement);
 	rc = sqlite3_prepare(dbPtr, sqlGetMostPlayedMaps, -1, &statement, 0);
 	rc = sqlite3_step(statement);
 	char mostPlayedMaps[5][MAX_QPATH] = { 0 };
@@ -2530,6 +2566,21 @@ void G_DBTierStats(int clientNum) {
 		for (int i = 0; i < numLeastPlayedMaps; i++)
 			Q_strcat(leastPlayedStr, sizeof(leastPlayedStr), va("%s%s (%d)", i ? "^7, " : "", leastPlayedMaps[i], leastPlayedMapCounts[i]));
 		PrintIngame(clientNum, "  ^1Least played^7 %d maps: %s\n", numLeastPlayedMaps, leastPlayedStr);
+	}
+
+	if (numLeastConforming || numMostConforming)
+		PrintIngame(clientNum, "\nBy average difference from community tier:\n");
+	if (numMostConforming) {
+		char mostConformingStr[1024] = { 0 };
+		for (int i = 0; i < numMostConforming; i++)
+			Q_strcat(mostConformingStr, sizeof(mostConformingStr), va("%s%s (%0.2f)", i ? "^7, " : "", mostConformingPlayers[i], mostConformingAverages[i]));
+		PrintIngame(clientNum, "  ^5Most conformist^7 %d players: %s\n", numMostConforming, mostConformingStr);
+	}
+	if (numLeastConforming) {
+		char leastConformingStr[1024] = { 0 };
+		for (int i = 0; i < numLeastConforming; i++)
+			Q_strcat(leastConformingStr, sizeof(leastConformingStr), va("%s%s (%0.2f)", i ? "^7, " : "", leastConformingPlayers[i], leastConformingAverages[i]));
+		PrintIngame(clientNum, "  ^8Least conformist^7 %d players: %s\n", numLeastConforming, leastConformingStr);
 	}
 
 	sqlite3_finalize(statement);

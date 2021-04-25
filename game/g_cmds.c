@@ -5510,15 +5510,15 @@ mapTier_t MapTierForDouble(double average) {
 		return MAPTIER_INVALID;
 	}
 
-	// in case of a tie, round to the worse tier (idk, this was an arbitrary decision)
+	// in case of a tie, round to the higher tier (idk, this was an arbitrary decision)
 
-	if (average <= 1.5)
+	if (average < 1.5)
 		return MAPTIER_F;
-	else if (average <= 2.5)
+	else if (average < 2.5)
 		return MAPTIER_C;
-	else if (average <= 3.5)
+	else if (average < 3.5)
 		return MAPTIER_B;
-	else if (average <= 4.5)
+	else if (average < 4.5)
 		return MAPTIER_A;
 	else
 		return MAPTIER_S;

@@ -91,6 +91,14 @@ const char *const sqlCreateTables =
 "   [num] INTEGER NOT NULL DEFAULT 1,                                                                \n"
 "	[datetime] NOT NULL DEFAULT (strftime('%s', 'now')));                                            \n"
 "                                                                                                    \n"
+"CREATE VIEW IF NOT EXISTS num_played_view AS                                                        \n"
+"WITH t AS (SELECT map, AVG(tier) avgTier FROM tierlistmaps GROUP BY tierlistmaps.map)               \n"
+"SELECT i.map, COALESCE(SUM(s.num), 0) numPlayed, avgTier                                            \n"
+"FROM tierwhitelist i                                                                                \n"
+"LEFT JOIN lastplayedmap s on s.map = i.map                                                          \n"
+"LEFT JOIN t ON t.map = i.map                                                                        \n"
+"GROUP BY i.map;                                                                                     \n"
+"                                                                                                    \n"
 // This view lets you see which sessions are hard referenced in other tables (ie, deleting would result
 // in a failure due to a SQL constraint).
 "CREATE VIEW IF NOT EXISTS sessions_info AS                                                          \n"

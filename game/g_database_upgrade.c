@@ -510,6 +510,19 @@ static qboolean UpgradeDBToVersion5(sqlite3 *dbPtr) {
 	return sqlite3_exec(dbPtr, v5Upgrade, NULL, NULL, NULL) == SQLITE_OK;
 }
 
+const char *const v6Upgrade =
+"CREATE VIEW IF NOT EXISTS num_played_view AS                                                        \n"
+"WITH t AS (SELECT map, AVG(tier) avgTier FROM tierlistmaps GROUP BY tierlistmaps.map)               \n"
+"SELECT i.map, COALESCE(SUM(s.num), 0) numPlayed, avgTier                                            \n"
+"FROM tierwhitelist i                                                                                \n"
+"LEFT JOIN lastplayedmap s on s.map = i.map                                                          \n"
+"LEFT JOIN t ON t.map = i.map                                                                        \n"
+"GROUP BY i.map;                                                                                     \n";
+
+static qboolean UpgradeDBToVersion6(sqlite3 *dbPtr) {
+	return sqlite3_exec(dbPtr, v6Upgrade, NULL, NULL, NULL) == SQLITE_OK;
+}
+
 // =============================================================================
 
 static qboolean UpgradeDB( int versionTo, sqlite3* dbPtr ) {
@@ -520,7 +533,8 @@ static qboolean UpgradeDB( int versionTo, sqlite3* dbPtr ) {
 		case 3: return UpgradeDBToVersion3( dbPtr );
 		case 4: return UpgradeDBToVersion4( dbPtr );
 		case 5:	return UpgradeDBToVersion5( dbPtr );
-		default:
+		case 6: return UpgradeDBToVersion6( dbPtr );
+;		default:
 			Com_Printf( "ERROR: Unsupported database upgrade routine\n" );
 	}
 
