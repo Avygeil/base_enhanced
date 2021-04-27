@@ -832,10 +832,10 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_enableBoon,	"g_enableBoon"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_vote_tierlist, "g_vote_tierlist", "0", CVAR_ARCHIVE, 0, qtrue },
-	{ &g_vote_tierlist_s_min, "g_vote_tierlist_s_min", "1", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_tierlist_s_min, "g_vote_tierlist_s_min", "2", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_tierlist_s_max, "g_vote_tierlist_s_max", "3", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_tierlist_a_min, "g_vote_tierlist_a_min", "1", CVAR_ARCHIVE, 0, qtrue },
-	{ &g_vote_tierlist_a_max, "g_vote_tierlist_a_max", "3", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_tierlist_a_max, "g_vote_tierlist_a_max", "2", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_tierlist_b_min, "g_vote_tierlist_b_min", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_tierlist_b_max, "g_vote_tierlist_b_max", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_tierlist_c_min, "g_vote_tierlist_c_min", "0", CVAR_ARCHIVE, 0, qtrue },
