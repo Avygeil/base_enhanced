@@ -1888,8 +1888,9 @@ static list_t *GetTierList(const char *commaSeparatedAccountIds, const char *sin
 			char *str3 = "GROUP BY tierlistmaps.map HAVING COUNT(*) >= 2) m JOIN tierlistmaps ON m.map = tierlistmaps.map ";
 			char *str4 = cooldownSeconds > 0 ? va("LEFT JOIN lastplayedmap ON tierlistmaps.map = lastplayedmap.map WHERE (lastplayedmap.map IS NULL OR strftime('%%s', 'now') - lastplayedmap.datetime > %d) ", cooldownSeconds) : "";
 			char *str5 = VALIDSTRING(ignoreMapFileName) ? (cooldownSeconds > 0 ? "AND tierlistmaps.map != ? " : "WHERE tierlistmaps.map != ? ") : "";
-			char *str6 = "GROUP BY tierlistmaps.map ORDER BY tierlistmaps.map;";
-			query = va("%s%s%s%s%s%s", str1, str2, str3, str4, str5, str6);
+			char *str6 = "GROUP BY tierlistmaps.map ORDER BY ";
+			char *str7 = randomize ? "RANDOM();" : "tierlistmaps.map;";
+			query = va("%s%s%s%s%s%s%s", str1, str2, str3, str4, str5, str6, str7);
 		}
 		else { // select maps even if they just have a single vote
 			char *str1 = "SELECT tierlistmaps.map, AVG(tierlistmaps.tier) FROM (SELECT DISTINCT tierlistmaps.map FROM tierlistmaps JOIN tierwhitelist ON tierwhitelist.map = tierlistmaps.map";
@@ -1897,8 +1898,9 @@ static list_t *GetTierList(const char *commaSeparatedAccountIds, const char *sin
 			char *str3 = "m JOIN tierlistmaps ON m.map = tierlistmaps.map ";
 			char *str4 = cooldownSeconds > 0 ? va("LEFT JOIN lastplayedmap ON tierlistmaps.map = lastplayedmap.map WHERE (lastplayedmap.map IS NULL OR strftime('%%s', 'now') - lastplayedmap.datetime > %d) ", cooldownSeconds) : "";
 			char *str5 = VALIDSTRING(ignoreMapFileName) ? (cooldownSeconds > 0 ? "AND tierlistmaps.map != ? " : "WHERE tierlistmaps.map != ? ") : "";
-			char *str6 = "GROUP BY tierlistmaps.map ORDER BY tierlistmaps.map;";
-			query = va("%s%s%s%s%s%s", str1, str2, str3, str4, str5, str6);
+			char *str6 = "GROUP BY tierlistmaps.map ORDER BY ";
+			char *str7 = randomize ? "RANDOM();" : "tierlistmaps.map;";
+			query = va("%s%s%s%s%s%s%s", str1, str2, str3, str4, str5, str6, str7);
 		}
 	}
 
