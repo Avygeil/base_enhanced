@@ -5444,7 +5444,7 @@ qboolean G_RadiusDamage ( vec3_t origin, gentity_t *attacker, float damage, floa
 				if ( attacker != ent ) continue;
 			} else {
 				// client hit is not in racemode, only allow if attacker is not a racer
-				if ( attacker->client && attacker->client->sess.inRacemode ) continue;
+				if ( attacker && attacker->client && attacker->client->sess.inRacemode ) continue;
 			}
 		}
 
@@ -5470,7 +5470,7 @@ qboolean G_RadiusDamage ( vec3_t origin, gentity_t *attacker, float damage, floa
 		points = damage * ( 1.0 - dist / radius );
 
 		if( CanDamage (ent, origin) ) {
-			if( LogAccuracyHit( ent, attacker ) ) {
+			if( attacker && LogAccuracyHit( ent, attacker ) ) {
 				hitClient = qtrue;
 			}
 			VectorSubtract (ent->r.currentOrigin, origin, dir);
