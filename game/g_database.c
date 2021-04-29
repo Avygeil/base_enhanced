@@ -2787,13 +2787,17 @@ qboolean G_DBSelectTierlistMaps(MapSelectedCallback callback, void *context) {
 	qboolean usingCommunityRatings;
 	for (usingCommunityRatings = qfalse; usingCommunityRatings <= qtrue; usingCommunityRatings++) {
 		if (usingCommunityRatings) {
-			Com_DebugPrintf("Unable to generate a working set of ingame-rated maps; trying again and including community-rated maps.\n");
+			if (g_vote_tierlist_debug.integer)
+				G_LogPrintf("Unable to generate a working set of ingame-rated maps; trying again and including community-rated maps.\n");
 			if (allMapsList)
 				free(allMapsList);
 			allMapsList = GetTierList(NULL, NULL, qfalse, g_vote_mapCooldownMinutes.integer > 0 ? g_vote_mapCooldownMinutes.integer : 0, level.mapname, qtrue, &info);
 		}
 		if (!allMapsList || allMapsList->size < totalMapsToChoose)
 			continue;
+
+		if (g_vote_tierlist_debug.integer)
+			G_LogPrintf("GetTierList returned %d S, %d A, %d B, %d C, %d F\n", info.numMapsOfTier[MAPTIER_S], info.numMapsOfTier[MAPTIER_A], info.numMapsOfTier[MAPTIER_B], info.numMapsOfTier[MAPTIER_C], info.numMapsOfTier[MAPTIER_F]);
 
 		// initialize mins/maxes
 		int min[NUM_MAPTIERS], max[NUM_MAPTIERS];
@@ -2807,7 +2811,8 @@ qboolean G_DBSelectTierlistMaps(MapSelectedCallback callback, void *context) {
 		for (mapTier_t t = MAPTIER_S; t >= MAPTIER_F; t--) {
 			if (min[t] - info.numMapsOfTier[t] <= 0)
 				continue;
-			Com_DebugPrintf("Not enough maps of tier %s^7; going to try to use more maps of other tier(s).\n", GetTierStringForTier(t));
+			if (g_vote_tierlist_debug.integer)
+				G_LogPrintf("Not enough maps of tier %s^7; going to try to use more maps of other tier(s).\n", GetTierStringForTier(t));
 			mapTier_t checkOrder[4];
 			switch (t) {
 			case MAPTIER_S: checkOrder[0] = MAPTIER_A; checkOrder[1] = MAPTIER_B; checkOrder[2] = MAPTIER_C; checkOrder[3] = MAPTIER_F; break;
@@ -2819,7 +2824,8 @@ qboolean G_DBSelectTierlistMaps(MapSelectedCallback callback, void *context) {
 			for (int i = 0; i < 4; i++) {
 				while (min[t] - info.numMapsOfTier[t] > 0 && info.numMapsOfTier[checkOrder[i]] > max[checkOrder[i]] && max[checkOrder[i]] + 1 < MAX_MULTIVOTE_MAPS) {
 					// we found a tier in the priority list that's not using all of its existent maps; allow it to use additional map(s)
-					Com_DebugPrintf("Adding to the maximum of %s^7 to compensate.\n", GetTierStringForTier(checkOrder[i]));
+					if (g_vote_tierlist_debug.integer)
+						G_LogPrintf("Adding to the maximum of %s^7 to compensate.\n", GetTierStringForTier(checkOrder[i]));
 					++max[checkOrder[i]];
 					--min[t];
 				}
@@ -2841,10 +2847,12 @@ qboolean G_DBSelectTierlistMaps(MapSelectedCallback callback, void *context) {
 		if (sumOfMaxes < totalMapsToChoose) {
 			// even if we picked every tier at its maximum allowable number of maps, we still wouldn't hit the desired total.
 			// starting from S tier and working toward F tier, see if any tier has unused maps, and bump up their maximum if so.
-			Com_DebugPrintf("Sum of maxes (%d) < total maps to choose (%d); going to try to bump up tier(s).\n", sumOfMaxes, totalMapsToChoose);
+			if (g_vote_tierlist_debug.integer)
+				G_LogPrintf("Sum of maxes (%d) < total maps to choose (%d); going to try to bump up tier(s).\n", sumOfMaxes, totalMapsToChoose);
 			for (mapTier_t t = MAPTIER_S; t >= MAPTIER_F; t--) {
 				while (sumOfMaxes < totalMapsToChoose && info.numMapsOfTier[t] > max[t]) {
-					Com_DebugPrintf("Adding to the maximum of %s^7 to compensate.\n", GetTierStringForTier(t));
+					if (g_vote_tierlist_debug.integer)
+						G_LogPrintf("Adding to the maximum of %s^7 to compensate.\n", GetTierStringForTier(t));
 					++max[t];
 					++sumOfMaxes;
 				}
@@ -2852,6 +2860,11 @@ qboolean G_DBSelectTierlistMaps(MapSelectedCallback callback, void *context) {
 		}
 		if (sumOfMaxes < totalMapsToChoose)
 			continue; // we somehow couldn't fix the max issue
+
+		if (g_vote_tierlist_debug.integer)
+			G_LogPrintf("Going to attempt randomization with mins/maxes: %d - %d S, %d - %d A, %d - %d B, %d - %d C, %d - %d F\n",
+				min[MAPTIER_S], max[MAPTIER_S], min[MAPTIER_A], max[MAPTIER_A], min[MAPTIER_B], max[MAPTIER_B],
+				min[MAPTIER_C], max[MAPTIER_C], min[MAPTIER_F], max[MAPTIER_F]);
 
 		// if we got here, our mins and maxes are legit. now we try to find
 		// a randomized set of numbers of maps that totals to g_vote_tierlist_totalMaps
@@ -2887,9 +2900,10 @@ qboolean G_DBSelectTierlistMaps(MapSelectedCallback callback, void *context) {
 
 	// if we got here, we managed to not fuck it up, and we have a working set of numbers for each tier
 	// time to start picking maps
-	Com_DebugPrintf("Selecting %d S tier maps, %d A tier maps, %d B tier maps, %d C tier maps, and %d F tier maps (took %d randomizations).\n",
-		numToSelectForEachTier[MAPTIER_S], numToSelectForEachTier[MAPTIER_A], numToSelectForEachTier[MAPTIER_B],
-		numToSelectForEachTier[MAPTIER_C], numToSelectForEachTier[MAPTIER_F], tries);
+	if (g_vote_tierlist_debug.integer)
+		G_LogPrintf("Selecting %d S tier maps, %d A tier maps, %d B tier maps, %d C tier maps, and %d F tier maps (took %d randomizations).\n",
+			numToSelectForEachTier[MAPTIER_S], numToSelectForEachTier[MAPTIER_A], numToSelectForEachTier[MAPTIER_B],
+			numToSelectForEachTier[MAPTIER_C], numToSelectForEachTier[MAPTIER_F], tries);
 	if (usingCommunityRatings)
 		PrintIngame(-1, "Not enough maps rated by ingame players; using community-rated maps.\n");
 
@@ -2914,7 +2928,8 @@ qboolean G_DBSelectTierlistMaps(MapSelectedCallback callback, void *context) {
 				if (MapExistsQuick(data->mapFileName)) { // one last double check to make sure the map actually exists
 					char mapShortName[MAX_QPATH] = { 0 };
 					GetShortNameForMapFileName(data->mapFileName, mapShortName, sizeof(mapShortName));
-					Com_DebugPrintf("Selecting %s (%s^7)\n", mapShortName, GetTierStringForTier(t));
+					if (g_vote_tierlist_debug.integer)
+						G_LogPrintf("Selecting %s (%s^7)\n", mapShortName, GetTierStringForTier(t));
 					Q_strncpyz(chosenMapNames[numMapsPickedTotal], data->mapFileName, sizeof(chosenMapNames[numMapsPickedTotal]));
 
 					ListRemove(allMapsList, data);
