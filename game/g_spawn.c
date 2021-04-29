@@ -1269,6 +1269,9 @@ void SP_worldspawn( void )
 	//I want to "cull" entities out of net sends to clients to reduce
 	//net traffic on our larger open maps -rww
 	G_SpawnFloat("distanceCull", "6000.0", &g_cullDistance);
+	float minimum = Com_Clamp(6000, 99999, g_minimumCullDistance.value);
+	if (g_cullDistance < minimum)
+		g_cullDistance = minimum;
 	trap_SetServerCull(g_cullDistance);
 
 	G_SpawnString( "classname", "", &text );
