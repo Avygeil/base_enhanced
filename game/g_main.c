@@ -852,7 +852,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_mapCooldownMinutes, "g_vote_mapCooldownMinutes", "60", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_runoffTimeModifier, "g_vote_runoffTimeModifier", "0", CVAR_ARCHIVE, 0, qtrue },
 
-	{ &g_minimumCullDistance, "g_minimumCullDistance", "10000", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_minimumCullDistance, "g_minimumCullDistance", "10000", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 
 	{ &g_selfkill_penalty, "g_selfkill_penalty", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_flags_overboarding, "g_flags_overboarding", "1", CVAR_ARCHIVE, 0, qtrue },
