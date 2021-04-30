@@ -1390,6 +1390,8 @@ typedef struct {
 
 	qboolean		instagibMap;
 
+	float	cullDistance;
+
 } level_locals_t;
 
 

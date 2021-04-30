@@ -89,7 +89,6 @@
 #define CS_GLOBAL_AMBIENT_SET	32
 
 #define CS_CUSTOMVOTES			34
-#define CS_CULLDISTANCE			35
 
 #define CS_AMBIENT_SET			37
 

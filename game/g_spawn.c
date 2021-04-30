@@ -1259,7 +1259,6 @@ BSP Options
 "radarrange" for Siege/Vehicle radar - default range is 2500
 */
 extern void EWebPrecache(void); //g_items.c
-float g_cullDistance;
 void SP_worldspawn( void ) 
 {
 	char		*text, temp[32];
@@ -1268,11 +1267,11 @@ void SP_worldspawn( void )
 
 	//I want to "cull" entities out of net sends to clients to reduce
 	//net traffic on our larger open maps -rww
-	G_SpawnFloat("distanceCull", "6000.0", &g_cullDistance);
+	G_SpawnFloat("distanceCull", "6000.0", &level.cullDistance);
 	float minimum = Com_Clamp(6000, 99999, g_minimumCullDistance.value);
-	if (g_cullDistance < minimum)
-		g_cullDistance = minimum;
-	trap_SetServerCull(g_cullDistance);
+	if (level.cullDistance < minimum)
+		level.cullDistance = minimum;
+	trap_SetServerCull(level.cullDistance);
 
 	G_SpawnString( "classname", "", &text );
 	if ( Q_stricmp( text, "worldspawn" ) ) {

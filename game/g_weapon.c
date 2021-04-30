@@ -4192,7 +4192,6 @@ void WP_VehLeadCrosshairVeh( gentity_t *camTraceEnt, vec3_t newEnd, const vec3_t
 }
 
 #define MAX_XHAIR_DIST_ACCURACY	20000.0f
-extern float g_cullDistance;
 extern int BG_VehTraceFromCamPos( trace_t *camTrace, bgEntity_t *bgEnt, const vec3_t entOrg, const vec3_t shotStart, const vec3_t end, vec3_t newEnd, vec3_t shotDir, float bestDist );
 qboolean WP_VehCheckTraceFromCamPos( gentity_t *ent, const vec3_t shotStart, vec3_t shotDir )
 {
@@ -4206,7 +4205,7 @@ qboolean WP_VehCheckTraceFromCamPos( gentity_t *ent, const vec3_t shotStart, vec
 	{
 		return qfalse;
 	}
-	if ( (ent->m_pVehicle->m_pVehicleInfo->type == VH_FIGHTER && g_cullDistance > MAX_XHAIR_DIST_ACCURACY )
+	if ( (ent->m_pVehicle->m_pVehicleInfo->type == VH_FIGHTER && level.cullDistance > MAX_XHAIR_DIST_ACCURACY )
 		|| ent->m_pVehicle->m_pVehicleInfo->type == VH_WALKER)
 	{
 		//FIRST: simulate the normal crosshair trace from the center of the veh straight forward
@@ -4232,7 +4231,7 @@ qboolean WP_VehCheckTraceFromCamPos( gentity_t *ent, const vec3_t shotStart, vec
 			AngleVectors( ang, dir, NULL, NULL );
 			VectorCopy( ent->r.currentOrigin, start );
 		}
-		VectorMA( start, g_cullDistance, dir, end );
+		VectorMA( start, level.cullDistance, dir, end );
 		trap_Trace( &trace, start, vec3_origin, vec3_origin, end, 
 			ent->s.number, CONTENTS_SOLID|CONTENTS_BODY );
 
@@ -4246,7 +4245,7 @@ qboolean WP_VehCheckTraceFromCamPos( gentity_t *ent, const vec3_t shotStart, vec
 		{//NOW do the trace from the camPos and compare with above trace
 			trace_t	extraTrace;
 			vec3_t	newEnd;
-			int camTraceEntNum = BG_VehTraceFromCamPos( &extraTrace, (bgEntity_t *)ent, ent->r.currentOrigin, shotStart, end, newEnd, shotDir, (trace.fraction*g_cullDistance) );
+			int camTraceEntNum = BG_VehTraceFromCamPos( &extraTrace, (bgEntity_t *)ent, ent->r.currentOrigin, shotStart, end, newEnd, shotDir, (trace.fraction*level.cullDistance) );
 			if ( camTraceEntNum )
 			{
 				WP_VehLeadCrosshairVeh( &g_entities[camTraceEntNum-1], newEnd, dir, shotStart, shotDir );

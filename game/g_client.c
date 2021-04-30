@@ -2860,8 +2860,7 @@ void G_BroadcastServerFeatureList( int clientNum ) {
 		"tnt2 "
 		"isd2 "
 		"vch2 "
-		"vchl "
-		"cull ";
+		"vchl ";
 
 	static char locationsListConfigString[MAX_TOKEN_CHARS] = { 0 };
 
@@ -2875,6 +2874,11 @@ void G_BroadcastServerFeatureList( int clientNum ) {
 			Q_strcat(locationsListConfigString, sizeof(locationsListConfigString), va( " \"%s\" %d", level.locations.enhanced.data[i].message, level.locations.enhanced.data[i].teamowner ) );
 		}
 	}
+
+	float minimum = Com_Clamp(6000, 99999, g_minimumCullDistance.value);
+	if (level.cullDistance < minimum)
+		level.cullDistance = minimum;
+	Q_strcat(featureListConfigString, sizeof(featureListConfigString), va("cull=%d ", (int)level.cullDistance));
 
 	if (g_improvedHoming.integer)
 		Q_strcat(featureListConfigString, sizeof(featureListConfigString), "rhom ");

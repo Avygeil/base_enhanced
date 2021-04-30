@@ -183,7 +183,6 @@ void trap_GetServerinfo( char *buffer, int bufferSize ) {
 //server culling to reduce traffic on open maps -rww
 void trap_SetServerCull(float cullDistance)
 {
-	trap_SetConfigstring(CS_CULLDISTANCE, va("%d", (int)cullDistance));
 	syscall(G_SET_SERVER_CULL, PASSFLOAT(cullDistance));
 }
 
