@@ -2824,7 +2824,8 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
         ent->client->sess.nameChangeTime = getGlobalTime();
     }
 
-	if ( g_gametype.integer >= GT_TEAM &&
+	qboolean isBeginning = !!(!level.firstFrameTime || trap_Milliseconds() - level.firstFrameTime <= 1000);
+	if ( !isBeginning && g_gametype.integer >= GT_TEAM &&
 		client->sess.sessionTeam != TEAM_SPECTATOR ) {
 		BroadcastTeamChange( client, -1 );
 	}
