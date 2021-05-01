@@ -2240,6 +2240,23 @@ void ClientUserinfoChanged( int clientNum ) {
 		team = client->sess.sessionTeam;
 	}
 
+	// detect assetsless clients (jkchat users)
+	// maybe store this in session info in the future? currently only used here
+	enum {
+		CLIENT_TYPE_NORMAL = 0,
+		CLIENT_TYPE_JKCHAT
+	} clientType = CLIENT_TYPE_NORMAL;
+
+	if (!client->sess.nmVer[0] && !Q_stricmp(forcePowers, "7-1-032330000000001333") && !Q_stricmp(model, "kyle/default") &&
+		!Q_stricmp(Info_ValueForKey(userinfo, "rate"), "25000") && !Q_stricmp(Info_ValueForKey(userinfo, "snaps"), "40")
+#if 0
+		&& !Q_stricmp(Info_ValueForKey(userinfo, "engine"), "jkclient") && !Q_stricmp(Info_ValueForKey(userinfo, "assets"), "0")
+#endif
+		) {
+
+		clientType = CLIENT_TYPE_JKCHAT;
+	}
+
 	//Set the siege class
 	if (g_gametype.integer == GT_SIEGE)
 	{
@@ -2440,16 +2457,16 @@ void ClientUserinfoChanged( int clientNum ) {
 		G_LogPrintf( "Client %d (%s) has unique id %llu\n", clientNum, client->pers.netname, totalHash );
 		if (g_gametype.integer == GT_SIEGE)
 		{ //more crap to send
-			s = va("n\\%s\\t\\%i\\model\\%s\\c1\\%s\\c2\\%s\\c5\\%i\\hc\\%i\\w\\%i\\l\\%i\\tt\\%d\\tl\\%d\\siegeclass\\%s\\st\\%s\\st2\\%s\\dt\\%i\\sdt\\%i\\id\\%llu",
+			s = va("n\\%s\\t\\%i\\model\\%s\\c1\\%s\\c2\\%s\\c5\\%i\\hc\\%i\\w\\%i\\l\\%i\\tt\\%d\\tl\\%d\\siegeclass\\%s\\st\\%s\\st2\\%s\\dt\\%i\\sdt\\%i\\id\\%llu\\ct\\%d",
 				client->pers.netname, client->sess.sessionTeam, model, c1, c2, cosmetics,
 				client->pers.maxHealth, client->sess.wins, client->sess.losses, teamTask, teamLeader, className, saberName, saber2Name, client->sess.duelTeam,
-				client->sess.siegeDesiredTeam, totalHash);
+				client->sess.siegeDesiredTeam, totalHash, clientType);
 		}
 		else
 		{
-			s = va("n\\%s\\t\\%i\\model\\%s\\c1\\%s\\c2\\%s\\c5\\%i\\hc\\%i\\w\\%i\\l\\%i\\tt\\%d\\tl\\%d\\st\\%s\\st2\\%s\\dt\\%i\\id\\%llu",
+			s = va("n\\%s\\t\\%i\\model\\%s\\c1\\%s\\c2\\%s\\c5\\%i\\hc\\%i\\w\\%i\\l\\%i\\tt\\%d\\tl\\%d\\st\\%s\\st2\\%s\\dt\\%i\\id\\%llu\\ct\\%d",
 				client->pers.netname, client->sess.sessionTeam, model, c1, c2, cosmetics,
-				client->pers.maxHealth, client->sess.wins, client->sess.losses, teamTask, teamLeader, saberName, saber2Name, client->sess.duelTeam, totalHash);
+				client->pers.maxHealth, client->sess.wins, client->sess.losses, teamTask, teamLeader, saberName, saber2Name, client->sess.duelTeam, totalHash, clientType);
 		}
 #ifdef NEWMOD_SUPPORT
 		if ( client->sess.auth == AUTHENTICATED && client->sess.cuidHash[0] ) {
