@@ -429,6 +429,8 @@ vmCvar_t	g_vote_runoff;
 vmCvar_t	g_vote_mapCooldownMinutes;
 vmCvar_t	g_vote_runoffTimeModifier;
 
+vmCvar_t	g_gripBuff;
+
 vmCvar_t	g_minimumCullDistance;
 
 vmCvar_t	g_callvotedelay;
@@ -851,6 +853,8 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_runoff, "g_vote_runoff", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_mapCooldownMinutes, "g_vote_mapCooldownMinutes", "60", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_runoffTimeModifier, "g_vote_runoffTimeModifier", "0", CVAR_ARCHIVE, 0, qtrue },
+
+	{ &g_gripBuff, "g_gripBuff", "0", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_minimumCullDistance, "g_minimumCullDistance", "10000", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 
@@ -5158,6 +5162,7 @@ static void AddPlayerTick(team_t team, gclient_t *cl) {
 	Q_strncpyz(add->name, name, sizeof(add->name));
 }
 
+extern int forcePowerNeeded[NUM_FORCE_POWER_LEVELS][NUM_FORCE_POWERS];
 extern void WP_AddToClientBitflags(gentity_t* ent, int entNum);
 void G_RunFrame( int levelTime ) {
 	int			i;
@@ -5175,6 +5180,8 @@ void G_RunFrame( int levelTime ) {
 	void		*timer_Queues;
 #endif
 	static int lastMsgTime = 0;
+
+	forcePowerNeeded[FORCE_LEVEL_3][FP_GRIP] = g_gripBuff.integer ? 32 : 60;
 
 #ifdef NEWMOD_SUPPORT
 	for (i = 0; i < MAX_CLIENTS; i++)
