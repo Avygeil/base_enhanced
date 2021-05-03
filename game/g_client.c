@@ -2247,7 +2247,7 @@ void ClientUserinfoChanged( int clientNum ) {
 		CLIENT_TYPE_JKCHAT
 	} clientType = CLIENT_TYPE_NORMAL;
 
-	if (!client->sess.nmVer[0] && !Q_stricmp(forcePowers, "7-1-032330000000001333") && !Q_stricmp(model, "kyle/default") &&
+	if (strcmp(client->pers.netname, "^7elo BOT") && !client->sess.nmVer[0] && !Q_stricmp(forcePowers, "7-1-032330000000001333") && !Q_stricmp(model, "kyle/default") &&
 		!Q_stricmp(Info_ValueForKey(userinfo, "rate"), "25000") && !Q_stricmp(Info_ValueForKey(userinfo, "snaps"), "40")
 #if 0
 		&& !Q_stricmp(Info_ValueForKey(userinfo, "engine"), "jkclient") && !Q_stricmp(Info_ValueForKey(userinfo, "assets"), "0")
