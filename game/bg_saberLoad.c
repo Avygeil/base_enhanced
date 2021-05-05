@@ -2642,8 +2642,12 @@ qboolean WP_SaberParseParm( const char *saberName, const char *parmname, char *s
 	return qfalse;
 }
 
+extern const char *Cvar_VariableString(const char *var_name);
 qboolean WP_SaberValidForPlayerInMP( const char *saberName )
 {
+	if (!Q_stricmp(saberName, "hockeystick_ra") && !Q_stristrclean(Cvar_VariableString("mapname"), "racearena")) {
+		return qfalse;
+	}
 	char allowed [8]={0};
 	if ( !WP_SaberParseParm( saberName, "notInMP", allowed ) )
 	{//not defined, default is yes
