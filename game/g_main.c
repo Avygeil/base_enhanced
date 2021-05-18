@@ -5184,8 +5184,13 @@ void G_RunFrame( int levelTime ) {
 	forcePowerNeeded[FORCE_LEVEL_3][FP_GRIP] = g_gripBuff.integer ? 32 : 60;
 
 #ifdef NEWMOD_SUPPORT
-	for (i = 0; i < MAX_CLIENTS; i++)
+	for (i = 0; i < MAX_CLIENTS; i++) {
 		level.clients[i].realPing = level.clients[i].ps.ping;
+		if (level.clients[i].pers.connected == CON_CONNECTED && level.clients[i].sess.auth == CLANNOUNCE &&
+			level.clients[i].sess.clAnnounceSendTime && trap_Milliseconds() - level.clients[i].sess.clAnnounceSendTime >= 10000) {
+			trap_DropClient(i, "dropped due to authentication error");
+		}
+	}
 #endif
 
 #ifdef _DEBUG

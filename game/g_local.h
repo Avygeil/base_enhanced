@@ -604,6 +604,8 @@ typedef struct {
 
 	char		country[128];
 	int			qport;
+
+	int			clAnnounceSendTime;
 } clientSession_t;
 
 // race flags

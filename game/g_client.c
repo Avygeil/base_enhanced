@@ -3220,6 +3220,7 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 	if ( ent->client->sess.auth == PENDING ) {
 		trap_SendServerCommand( clientNum, va( "kls -1 -1 \"clannounce\" %d \"%s\"", NM_AUTH_PROTOCOL, level.publicKey.keyHex ) );
 		ent->client->sess.auth++;
+		ent->client->sess.clAnnounceSendTime = trap_Milliseconds();
 #ifdef _DEBUG
 		G_LogPrintf( "Sent clannounce packet to client %d\n", clientNum );
 #endif
