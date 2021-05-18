@@ -106,6 +106,24 @@ const char *TableCallback_Name(void *context) {
 	return va("^7%s", cl->pers.netname);
 }
 
+const char *TableCallback_Account(void *context) {
+	if (!context) {
+		assert(qfalse);
+		return NULL;
+	}
+	gclient_t *cl = context;
+	gentity_t *ent = &g_entities[cl - level.clients];
+	if (ent->r.svFlags & SVF_BOT)
+		return NULL;
+	if (cl->account && cl->account->name[0])
+		return "^2|";
+	if (cl->session)
+		return "^3|";
+	if (cl->pers.connected != CON_CONNECTED)
+		return "?";
+	return "^3|";
+}
+
 typedef struct {
 	char	buf[64];
 } AliasContext;
@@ -165,6 +183,8 @@ const char *TableCallback_Score(void *context) {
 	gclient_t *cl = context;
 	if (cl->pers.connected == CON_CONNECTING)
 		return NULL;
+	if (cl->sess.clientType == CLIENT_TYPE_JKCHAT)
+		return NULL;
 	return va("%d", cl->ps.persistant[PERS_SCORE]);
 }
 
@@ -217,6 +237,8 @@ const char *TableCallback_Mod(void *context) {
 	trap_GetUserinfo(cl - level.clients, userinfo, sizeof(userinfo));
 	qboolean modernEngine = !!(*Info_ValueForKey(userinfo, "ja_guid"));
 	char *nmVer = Info_ValueForKey(userinfo, "nm_ver");
+	if (cl->sess.clientType == CLIENT_TYPE_JKCHAT)
+		return "JKChat";
 	if (VALIDSTRING(nmVer)) {
 		if (cl->pers.connected == CON_CONNECTING)
 			return va("NM%s %s?", modernEngine ? "+NJK" : "", nmVer);

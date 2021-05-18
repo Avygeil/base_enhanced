@@ -2241,12 +2241,6 @@ void ClientUserinfoChanged( int clientNum ) {
 	}
 
 	// detect assetsless clients (jkchat users)
-	// maybe store this in session info in the future? currently only used here
-	enum {
-		CLIENT_TYPE_NORMAL = 0,
-		CLIENT_TYPE_JKCHAT
-	} clientType = CLIENT_TYPE_NORMAL;
-
 	if (strcmp(client->pers.netname, "^7elo BOT") && !client->sess.nmVer[0] && !Q_stricmp(forcePowers, "7-1-032330000000001333") && !Q_stricmp(model, "kyle/default") &&
 		!Q_stricmp(Info_ValueForKey(userinfo, "rate"), "25000") && !Q_stricmp(Info_ValueForKey(userinfo, "snaps"), "40")
 #if 0
@@ -2254,7 +2248,10 @@ void ClientUserinfoChanged( int clientNum ) {
 #endif
 		) {
 
-		clientType = CLIENT_TYPE_JKCHAT;
+		client->sess.clientType = CLIENT_TYPE_JKCHAT;
+	}
+	else {
+		client->sess.clientType = CLIENT_TYPE_NORMAL;
 	}
 
 	//Set the siege class
@@ -2460,13 +2457,13 @@ void ClientUserinfoChanged( int clientNum ) {
 			s = va("n\\%s\\t\\%i\\model\\%s\\c1\\%s\\c2\\%s\\c5\\%i\\hc\\%i\\w\\%i\\l\\%i\\tt\\%d\\tl\\%d\\siegeclass\\%s\\st\\%s\\st2\\%s\\dt\\%i\\sdt\\%i\\id\\%llu\\ct\\%d",
 				client->pers.netname, client->sess.sessionTeam, model, c1, c2, cosmetics,
 				client->pers.maxHealth, client->sess.wins, client->sess.losses, teamTask, teamLeader, className, saberName, saber2Name, client->sess.duelTeam,
-				client->sess.siegeDesiredTeam, totalHash, clientType);
+				client->sess.siegeDesiredTeam, totalHash, client->sess.clientType);
 		}
 		else
 		{
 			s = va("n\\%s\\t\\%i\\model\\%s\\c1\\%s\\c2\\%s\\c5\\%i\\hc\\%i\\w\\%i\\l\\%i\\tt\\%d\\tl\\%d\\st\\%s\\st2\\%s\\dt\\%i\\id\\%llu\\ct\\%d",
 				client->pers.netname, client->sess.sessionTeam, model, c1, c2, cosmetics,
-				client->pers.maxHealth, client->sess.wins, client->sess.losses, teamTask, teamLeader, saberName, saber2Name, client->sess.duelTeam, totalHash, clientType);
+				client->pers.maxHealth, client->sess.wins, client->sess.losses, teamTask, teamLeader, saberName, saber2Name, client->sess.duelTeam, totalHash, client->sess.clientType);
 		}
 #ifdef NEWMOD_SUPPORT
 		if ( client->sess.auth == AUTHENTICATED && client->sess.cuidHash[0] ) {

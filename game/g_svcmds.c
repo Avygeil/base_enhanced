@@ -3865,6 +3865,7 @@ void G_Status(void) {
 
 	Table_DefineColumn(t, "#", TableCallback_ClientNum, qfalse, 2);
 	Table_DefineColumn(t, "Name", TableCallback_Name, qtrue, MAX_NAME_DISPLAYLENGTH);
+	Table_DefineColumn(t, "A", TableCallback_Account, qtrue, 4);
 	Table_DefineColumn(t, "Alias", TableCallback_Alias, qtrue, MAX_NAME_DISPLAYLENGTH);
 	Table_DefineColumn(t, "Country", TableCallback_Country, qtrue, 64);
 	Table_DefineColumn(t, "IP", TableCallback_IP, qtrue, 21);

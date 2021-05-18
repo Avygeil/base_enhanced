@@ -606,6 +606,11 @@ typedef struct {
 	int			qport;
 
 	int			clAnnounceSendTime;
+
+	enum {
+		CLIENT_TYPE_NORMAL = 0,
+		CLIENT_TYPE_JKCHAT
+	} clientType;
 } clientSession_t;
 
 // race flags
@@ -1991,6 +1996,7 @@ const char *TableCallback_PoolShortName(void *context);
 const char *TableCallback_PoolLongName(void *context);
 const char *TableCallback_ClientNum(void *context);
 const char *TableCallback_Name(void *context);
+const char *TableCallback_Account(void *context);
 const char *TableCallback_Alias(void *context);
 const char *TableCallback_Ping(void *context);
 const char *TableCallback_Score(void *context);
