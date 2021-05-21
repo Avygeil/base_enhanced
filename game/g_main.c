@@ -4568,6 +4568,8 @@ Runs thinking code for this frame if necessary
 */
 extern void proxMineThink(gentity_t *ent);
 extern void SiegeItemThink( gentity_t *ent );
+extern void pas_think(gentity_t *ent);
+extern void thermalThinkStandard(gentity_t *ent);
 
 void G_RunThink (gentity_t *ent) {
 	int	thinktime;
@@ -4586,6 +4588,13 @@ void G_RunThink (gentity_t *ent) {
         if ( ent->think == SiegeItemThink && ent->genericValue9 > level.time )
             ent->genericValue9 += level.time - level.previousTime;
 
+		// more special cases, sentry
+		if (ent->think == pas_think)
+			ent->genericValue8 += level.time - level.previousTime;
+
+		// another special case, thermal primaries
+		if (ent->think == thermalThinkStandard)
+			ent->genericValue5 += level.time - level.previousTime;
 	}
 
 	thinktime = ent->nextthink;
