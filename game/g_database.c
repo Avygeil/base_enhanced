@@ -2351,17 +2351,18 @@ qboolean G_DBPrintPlayerUnratedList(int accountId, int printClientNum, const cha
 	}
 }
 
+#define TIER_STATS_NUM_MAPS	(10)
 const char *sqlTierStatsNumRatings = "SELECT COUNT(tierlistmaps.map) FROM tierlistmaps JOIN tierwhitelist ON tierlistmaps.map = tierwhitelist.map;";
 const char *sqlTierStatsNumMaps = "SELECT COUNT(*) FROM (SELECT tierlistmaps.map FROM tierlistmaps JOIN tierwhitelist ON tierlistmaps.map = tierwhitelist.map GROUP BY tierlistmaps.map);";
 const char *sqlTierStatsNumPlayers = "SELECT COUNT(*) FROM (SELECT accounts.account_id FROM accounts JOIN (SELECT * FROM tierlistmaps JOIN tierwhitelist ON tierlistmaps.map = tierwhitelist.map) m ON accounts.account_id = m.account_id GROUP BY accounts.account_id);";
-const char *sqlGetBestMaps = "SELECT tierlistmaps.map, AVG(tier) averageTier FROM tierlistmaps JOIN tierwhitelist ON tierlistmaps.map = tierwhitelist.map GROUP BY tierlistmaps.map ORDER BY averageTier DESC LIMIT 5;";
-const char *sqlGetWorstMaps = "SELECT tierlistmaps.map, AVG(tier) averageTier FROM tierlistmaps JOIN tierwhitelist ON tierlistmaps.map = tierwhitelist.map GROUP BY tierlistmaps.map ORDER BY averageTier ASC LIMIT 5;";
-const char *sqlGetLowestVariance = "SELECT tierlistmaps.map, AVG(tier*tier) - AVG(tier)*AVG(tier) AS var FROM tierlistmaps JOIN tierwhitelist ON tierlistmaps.map = tierwhitelist.map GROUP BY tierlistmaps.map HAVING COUNT(*) >= 2 ORDER BY var ASC, tierlistmaps.map LIMIT 5;";
-const char *sqlGetHighestVariance = "SELECT tierlistmaps.map, AVG(tier*tier) - AVG(tier)*AVG(tier) AS var FROM tierlistmaps JOIN tierwhitelist ON tierlistmaps.map = tierwhitelist.map GROUP BY tierlistmaps.map HAVING COUNT(*) >= 2 ORDER BY var DESC, tierlistmaps.map LIMIT 5;";
-const char *sqlGetMostPlayedMaps = "SELECT num_played_view.map, numPlayed FROM num_played_view JOIN tierwhitelist ON num_played_view.map = tierwhitelist.map ORDER BY numPlayed DESC, avgTier DESC, num_played_view.map ASC LIMIT 5;";
-const char *sqlGetLeastPlayedMaps = "SELECT num_played_view.map, numPlayed FROM num_played_view JOIN tierwhitelist ON num_played_view.map = tierwhitelist.map ORDER BY numPlayed ASC, avgTier DESC, num_played_view.map ASC LIMIT 5;";
-const char *sqlGetMostConformingPlayers = "WITH a AS (SELECT *, abs(round(avgTier, 0) - round(tier, 0)) diff FROM tierlistmaps JOIN num_played_view ON num_played_view.map = tierlistmaps.map), filteredPlayers AS (SELECT account_id FROM tierlistmaps GROUP BY account_id HAVING COUNT(map) >= 10) SELECT name, avg(diff) avgDiff FROM a JOIN accounts ON a.account_id = accounts.account_id JOIN filteredPlayers ON filteredPlayers.account_id = a.account_id GROUP BY a.account_id ORDER BY avgDiff ASC LIMIT 5;";
-const char *sqlGetLeastConformingPlayers = "WITH a AS (SELECT *, abs(round(avgTier, 0) - round(tier, 0)) diff FROM tierlistmaps JOIN num_played_view ON num_played_view.map = tierlistmaps.map), filteredPlayers AS (SELECT account_id FROM tierlistmaps GROUP BY account_id HAVING COUNT(map) >= 10) SELECT name, avg(diff) avgDiff FROM a JOIN accounts ON a.account_id = accounts.account_id JOIN filteredPlayers ON filteredPlayers.account_id = a.account_id GROUP BY a.account_id ORDER BY avgDiff DESC LIMIT 5;";
+const char *sqlGetBestMaps = "SELECT tierlistmaps.map, AVG(tier) averageTier FROM tierlistmaps JOIN tierwhitelist ON tierlistmaps.map = tierwhitelist.map GROUP BY tierlistmaps.map ORDER BY averageTier DESC LIMIT 10;";
+const char *sqlGetWorstMaps = "SELECT tierlistmaps.map, AVG(tier) averageTier FROM tierlistmaps JOIN tierwhitelist ON tierlistmaps.map = tierwhitelist.map GROUP BY tierlistmaps.map ORDER BY averageTier ASC LIMIT 10;";
+const char *sqlGetLowestVariance = "SELECT tierlistmaps.map, AVG(tier), AVG(tier*tier) - AVG(tier)*AVG(tier) AS var FROM tierlistmaps JOIN tierwhitelist ON tierlistmaps.map = tierwhitelist.map GROUP BY tierlistmaps.map HAVING COUNT(*) >= 2 ORDER BY var ASC, tierlistmaps.map LIMIT 10;";
+const char *sqlGetHighestVariance = "SELECT tierlistmaps.map, AVG(tier), AVG(tier*tier) - AVG(tier)*AVG(tier) AS var FROM tierlistmaps JOIN tierwhitelist ON tierlistmaps.map = tierwhitelist.map GROUP BY tierlistmaps.map HAVING COUNT(*) >= 2 ORDER BY var DESC, tierlistmaps.map LIMIT 10;";
+const char *sqlGetMostPlayedMaps = "SELECT num_played_view.map, avgTier, numPlayed FROM num_played_view JOIN tierwhitelist ON num_played_view.map = tierwhitelist.map ORDER BY numPlayed DESC, avgTier DESC, num_played_view.map ASC LIMIT 10;";
+const char *sqlGetLeastPlayedMaps = "SELECT num_played_view.map, avgTier, numPlayed FROM num_played_view JOIN tierwhitelist ON num_played_view.map = tierwhitelist.map ORDER BY numPlayed ASC, avgTier DESC, num_played_view.map ASC LIMIT 10;";
+const char *sqlGetMostConformingPlayers = "WITH a AS (SELECT *, abs(round(avgTier, 0) - round(tier, 0)) diff FROM tierlistmaps JOIN num_played_view ON num_played_view.map = tierlistmaps.map), filteredPlayers AS (SELECT account_id FROM tierlistmaps GROUP BY account_id HAVING COUNT(map) >= 10) SELECT name, avg(diff) avgDiff FROM a JOIN accounts ON a.account_id = accounts.account_id JOIN filteredPlayers ON filteredPlayers.account_id = a.account_id GROUP BY a.account_id ORDER BY avgDiff ASC LIMIT 10;";
+const char *sqlGetLeastConformingPlayers = "WITH a AS (SELECT *, abs(round(avgTier, 0) - round(tier, 0)) diff FROM tierlistmaps JOIN num_played_view ON num_played_view.map = tierlistmaps.map), filteredPlayers AS (SELECT account_id FROM tierlistmaps GROUP BY account_id HAVING COUNT(map) >= 10) SELECT name, avg(diff) avgDiff FROM a JOIN accounts ON a.account_id = accounts.account_id JOIN filteredPlayers ON filteredPlayers.account_id = a.account_id GROUP BY a.account_id ORDER BY avgDiff DESC LIMIT 10;";
 void G_DBTierStats(int clientNum) {
 	sqlite3_stmt *statement;
 	int rc = sqlite3_prepare(dbPtr, sqlTierStatsNumRatings, -1, &statement, 0);
@@ -2390,15 +2391,15 @@ void G_DBTierStats(int clientNum) {
 	sqlite3_reset(statement);
 	rc = sqlite3_prepare(dbPtr, sqlGetBestMaps, -1, &statement, 0);
 	rc = sqlite3_step(statement);
-	char topMaps[5][MAX_QPATH] = { 0 };
-	double topMapAverages[5] = { 0 };
+	char topMaps[TIER_STATS_NUM_MAPS][MAX_QPATH] = { 0 };
 	int numTopMaps = 0;
 	while (rc == SQLITE_ROW) {
 		const char *mapFileName = (const char *)sqlite3_column_text(statement, 0);
 		double average = sqlite3_column_double(statement, 1);
 		if (VALIDSTRING(mapFileName)) {
-			GetShortNameForMapFileName(mapFileName, topMaps[numTopMaps], sizeof(topMaps[numTopMaps]));
-			topMapAverages[numTopMaps] = average;
+			char shortName[MAX_QPATH] = { 0 };
+			GetShortNameForMapFileName(mapFileName, shortName, sizeof(shortName));
+			Com_sprintf(topMaps[numTopMaps], sizeof(topMaps[numTopMaps]), "%s%s^7 (%0.2f)", GetTierColorForTier(MapTierForDouble(average)), shortName, average);
 			numTopMaps++;
 		}
 		rc = sqlite3_step(statement);
@@ -2407,15 +2408,15 @@ void G_DBTierStats(int clientNum) {
 	sqlite3_reset(statement);
 	rc = sqlite3_prepare(dbPtr, sqlGetWorstMaps, -1, &statement, 0);
 	rc = sqlite3_step(statement);
-	char worstMaps[5][MAX_QPATH] = { 0 };
-	double worstMapAverages[5] = { 0 };
+	char worstMaps[TIER_STATS_NUM_MAPS][MAX_QPATH] = { 0 };
 	int numWorstMaps = 0;
 	while (rc == SQLITE_ROW) {
 		const char *mapFileName = (const char *)sqlite3_column_text(statement, 0);
 		double average = sqlite3_column_double(statement, 1);
 		if (VALIDSTRING(mapFileName)) {
-			GetShortNameForMapFileName(mapFileName, worstMaps[numWorstMaps], sizeof(worstMaps[numWorstMaps]));
-			worstMapAverages[numWorstMaps] = average;
+			char shortName[MAX_QPATH] = { 0 };
+			GetShortNameForMapFileName(mapFileName, shortName, sizeof(shortName));
+			Com_sprintf(worstMaps[numWorstMaps], sizeof(worstMaps[numWorstMaps]), "%s%s^7 (%0.2f)", GetTierColorForTier(MapTierForDouble(average)), shortName, average);
 			numWorstMaps++;
 		}
 		rc = sqlite3_step(statement);
@@ -2424,15 +2425,16 @@ void G_DBTierStats(int clientNum) {
 	sqlite3_reset(statement);
 	rc = sqlite3_prepare(dbPtr, sqlGetLowestVariance, -1, &statement, 0);
 	rc = sqlite3_step(statement);
-	char leastControversialMaps[5][MAX_QPATH] = { 0 };
-	double leastControversialStdevs[5] = { 0 };
+	char leastControversialMaps[TIER_STATS_NUM_MAPS][MAX_QPATH] = { 0 };
 	int numLeastControversial = 0;
 	while (rc == SQLITE_ROW) {
 		const char *mapFileName = (const char *)sqlite3_column_text(statement, 0);
-		double variance = sqlite3_column_double(statement, 1);
+		double average = sqlite3_column_double(statement, 1);
+		double variance = sqlite3_column_double(statement, 2);
 		if (VALIDSTRING(mapFileName)) {
-			GetShortNameForMapFileName(mapFileName, leastControversialMaps[numLeastControversial], sizeof(leastControversialMaps[numLeastControversial]));
-			leastControversialStdevs[numLeastControversial] = sqrt(variance);
+			char shortName[MAX_QPATH] = { 0 };
+			GetShortNameForMapFileName(mapFileName, shortName, sizeof(shortName));
+			Com_sprintf(leastControversialMaps[numLeastControversial], sizeof(leastControversialMaps[numLeastControversial]), "%s%s^7 (%0.2f)", GetTierColorForTier(MapTierForDouble(average)), shortName, sqrt(variance));
 			numLeastControversial++;
 		}
 		rc = sqlite3_step(statement);
@@ -2441,15 +2443,16 @@ void G_DBTierStats(int clientNum) {
 	sqlite3_reset(statement);
 	rc = sqlite3_prepare(dbPtr, sqlGetHighestVariance, -1, &statement, 0);
 	rc = sqlite3_step(statement);
-	char mostControversialMaps[5][MAX_QPATH] = { 0 };
-	double mostControversialStdevs[5] = { 0 };
+	char mostControversialMaps[TIER_STATS_NUM_MAPS][MAX_QPATH] = { 0 };
 	int numMostControversial = 0;
 	while (rc == SQLITE_ROW) {
 		const char *mapFileName = (const char *)sqlite3_column_text(statement, 0);
-		double variance = sqlite3_column_double(statement, 1);
+		double average = sqlite3_column_double(statement, 1);
+		double variance = sqlite3_column_double(statement, 2);
 		if (VALIDSTRING(mapFileName)) {
-			GetShortNameForMapFileName(mapFileName, mostControversialMaps[numMostControversial], sizeof(mostControversialMaps[numMostControversial]));
-			mostControversialStdevs[numMostControversial] = sqrt(variance);
+			char shortName[MAX_QPATH] = { 0 };
+			GetShortNameForMapFileName(mapFileName, shortName, sizeof(shortName));
+			Com_sprintf(mostControversialMaps[numMostControversial], sizeof(mostControversialMaps[numMostControversial]), "%s%s^7 (%0.2f)", GetTierColorForTier(MapTierForDouble(average)), shortName, sqrt(variance));
 			numMostControversial++;
 		}
 		rc = sqlite3_step(statement);
@@ -2458,15 +2461,13 @@ void G_DBTierStats(int clientNum) {
 	sqlite3_reset(statement);
 	rc = sqlite3_prepare(dbPtr, sqlGetLeastConformingPlayers, -1, &statement, 0);
 	rc = sqlite3_step(statement);
-	char leastConformingPlayers[5][MAX_QPATH] = { 0 };
-	double leastConformingAverages[5] = { 0 };
+	char leastConformingPlayers[TIER_STATS_NUM_MAPS][MAX_QPATH] = { 0 };
 	int numLeastConforming = 0;
 	while (rc == SQLITE_ROW) {
 		const char *playerName = (const char *)sqlite3_column_text(statement, 0);
 		double average = sqlite3_column_double(statement, 1);
 		if (VALIDSTRING(playerName)) {
-			Q_strncpyz(leastConformingPlayers[numLeastConforming], playerName, sizeof(leastConformingPlayers[numLeastConforming]));
-			leastConformingAverages[numLeastConforming] = average;
+			Com_sprintf(leastConformingPlayers[numLeastConforming], sizeof(leastConformingPlayers[numLeastConforming]), "%s^7 (%0.2f)", playerName, average);
 			numLeastConforming++;
 		}
 		rc = sqlite3_step(statement);
@@ -2475,15 +2476,13 @@ void G_DBTierStats(int clientNum) {
 	sqlite3_reset(statement);
 	rc = sqlite3_prepare(dbPtr, sqlGetMostConformingPlayers, -1, &statement, 0);
 	rc = sqlite3_step(statement);
-	char mostConformingPlayers[5][MAX_QPATH] = { 0 };
-	double mostConformingAverages[5] = { 0 };
+	char mostConformingPlayers[TIER_STATS_NUM_MAPS][MAX_QPATH] = { 0 };
 	int numMostConforming = 0;
 	while (rc == SQLITE_ROW) {
 		const char *playerName = (const char *)sqlite3_column_text(statement, 0);
 		double average = sqlite3_column_double(statement, 1);
 		if (VALIDSTRING(playerName)) {
-			Q_strncpyz(mostConformingPlayers[numMostConforming], playerName, sizeof(mostConformingPlayers[numMostConforming]));
-			mostConformingAverages[numMostConforming] = average;
+			Com_sprintf(mostConformingPlayers[numMostConforming], sizeof(mostConformingPlayers[numMostConforming]), "%s^7 (%0.2f)", playerName, average);
 			numMostConforming++;
 		}
 		rc = sqlite3_step(statement);
@@ -2492,15 +2491,16 @@ void G_DBTierStats(int clientNum) {
 	sqlite3_reset(statement);
 	rc = sqlite3_prepare(dbPtr, sqlGetMostPlayedMaps, -1, &statement, 0);
 	rc = sqlite3_step(statement);
-	char mostPlayedMaps[5][MAX_QPATH] = { 0 };
-	int mostPlayedMapCounts[5] = { 0 };
+	char mostPlayedMaps[TIER_STATS_NUM_MAPS][MAX_QPATH] = { 0 };
 	int numMostPlayedMaps = 0;
 	while (rc == SQLITE_ROW) {
 		const char *mapFileName = (const char *)sqlite3_column_text(statement, 0);
-		int count = sqlite3_column_int(statement, 1);
+		double average = sqlite3_column_double(statement, 1);
+		int count = sqlite3_column_int(statement, 2);
 		if (VALIDSTRING(mapFileName)) {
-			GetShortNameForMapFileName(mapFileName, mostPlayedMaps[numMostPlayedMaps], sizeof(mostPlayedMaps[numMostPlayedMaps]));
-			mostPlayedMapCounts[numMostPlayedMaps] = count;
+			char shortName[MAX_QPATH];
+			GetShortNameForMapFileName(mapFileName, shortName, sizeof(shortName));
+			Com_sprintf(mostPlayedMaps[numMostPlayedMaps], sizeof(mostPlayedMaps[numMostPlayedMaps]), "%s%s^7 (%d)", GetTierColorForTier(MapTierForDouble(average)), shortName, count);
 			numMostPlayedMaps++;
 		}
 		rc = sqlite3_step(statement);
@@ -2509,15 +2509,16 @@ void G_DBTierStats(int clientNum) {
 	sqlite3_reset(statement);
 	rc = sqlite3_prepare(dbPtr, sqlGetLeastPlayedMaps, -1, &statement, 0);
 	rc = sqlite3_step(statement);
-	char leastPlayedMaps[5][MAX_QPATH] = { 0 };
-	int leastPlayedMapCounts[5] = { 0 };
+	char leastPlayedMaps[TIER_STATS_NUM_MAPS][MAX_QPATH] = { 0 };
 	int numLeastPlayedMaps = 0;
 	while (rc == SQLITE_ROW) {
 		const char *mapFileName = (const char *)sqlite3_column_text(statement, 0);
-		int count = sqlite3_column_int(statement, 1);
+		double average = sqlite3_column_double(statement, 1);
+		int count = sqlite3_column_int(statement, 2);
 		if (VALIDSTRING(mapFileName)) {
-			GetShortNameForMapFileName(mapFileName, leastPlayedMaps[numLeastPlayedMaps], sizeof(leastPlayedMaps[numLeastPlayedMaps]));
-			leastPlayedMapCounts[numLeastPlayedMaps] = count;
+			char shortName[MAX_QPATH];
+			GetShortNameForMapFileName(mapFileName, shortName, sizeof(shortName));
+			Com_sprintf(leastPlayedMaps[numLeastPlayedMaps], sizeof(leastPlayedMaps[numLeastPlayedMaps]), "%s%s^7 (%d)", GetTierColorForTier(MapTierForDouble(average)), shortName, count);
 			numLeastPlayedMaps++;
 		}
 		rc = sqlite3_step(statement);
@@ -2530,29 +2531,29 @@ void G_DBTierStats(int clientNum) {
 	if (numTopMaps) {
 		char topMapsStr[1024] = { 0 };
 		for (int i = 0; i < numTopMaps; i++)
-			Q_strcat(topMapsStr, sizeof(topMapsStr), va("%s%s%s^7 (%0.2f)", i ? "^7, " : "", GetTierColorForTier(MapTierForDouble(topMapAverages[i])), topMaps[i], topMapAverages[i]));
+			Q_strcat(topMapsStr, sizeof(topMapsStr), va("%s%s^7", i ? "^7, " : "", topMaps[i]));
 		PrintIngame(clientNum, "  ^2Top^7 %d maps: %s\n", numTopMaps, topMapsStr);
 	}
 	if (numWorstMaps) {
 		char worstMapsStr[1024] = { 0 };
 		for (int i = 0; i < numWorstMaps; i++)
-			Q_strcat(worstMapsStr, sizeof(worstMapsStr), va("%s%s%s^7 (%0.2f)", i ? "^7, " : "", GetTierColorForTier(MapTierForDouble(worstMapAverages[i])), worstMaps[i], worstMapAverages[i]));
+			Q_strcat(worstMapsStr, sizeof(worstMapsStr), va("%s%s^7", i ? "^7, " : "", worstMaps[i]));
 		PrintIngame(clientNum, "  ^1Bottom^7 %d maps: %s\n", numWorstMaps, worstMapsStr);
 	}
 
 	if (numLeastControversial || numMostControversial)
 		PrintIngame(clientNum, "\nBy standard deviation:\n");
-	if (numLeastControversial) {
-		char leastControversialStr[1024] = { 0 };
-		for (int i = 0; i < numLeastControversial; i++)
-			Q_strcat(leastControversialStr, sizeof(leastControversialStr), va("%s%s (%0.2f)", i ? "^7, " : "", leastControversialMaps[i], leastControversialStdevs[i]));
-		PrintIngame(clientNum, "  ^5Least controversial^7 %d maps: %s\n", numLeastControversial, leastControversialStr);
-	}
 	if (numMostControversial) {
 		char mostControversialStr[1024] = { 0 };
 		for (int i = 0; i < numMostControversial; i++)
-			Q_strcat(mostControversialStr, sizeof(mostControversialStr), va("%s%s (%0.2f)", i ? "^7, " : "", mostControversialMaps[i], mostControversialStdevs[i]));
+			Q_strcat(mostControversialStr, sizeof(mostControversialStr), va("%s%s", i ? "^7, " : "", mostControversialMaps[i]));
 		PrintIngame(clientNum, "  ^8Most controversial^7 %d maps: %s\n", numMostControversial, mostControversialStr);
+	}
+	if (numLeastControversial) {
+		char leastControversialStr[1024] = { 0 };
+		for (int i = 0; i < numLeastControversial; i++)
+			Q_strcat(leastControversialStr, sizeof(leastControversialStr), va("%s%s", i ? "^7, " : "", leastControversialMaps[i]));
+		PrintIngame(clientNum, "  ^5Least controversial^7 %d maps: %s\n", numLeastControversial, leastControversialStr);
 	}
 
 	if (numMostPlayedMaps || numLeastPlayedMaps)
@@ -2560,28 +2561,28 @@ void G_DBTierStats(int clientNum) {
 	if (numMostPlayedMaps) {
 		char mostPlayedStr[1024] = { 0 };
 		for (int i = 0; i < numMostPlayedMaps; i++)
-			Q_strcat(mostPlayedStr, sizeof(mostPlayedStr), va("%s%s (%d)", i ? "^7, " : "", mostPlayedMaps[i], mostPlayedMapCounts[i]));
+			Q_strcat(mostPlayedStr, sizeof(mostPlayedStr), va("%s%s^7", i ? "^7, " : "", mostPlayedMaps[i]));
 		PrintIngame(clientNum, "  ^2Most played^7 %d maps: %s\n", numMostPlayedMaps, mostPlayedStr);
 	}
 	if (numLeastPlayedMaps) {
 		char leastPlayedStr[1024] = { 0 };
 		for (int i = 0; i < numLeastPlayedMaps; i++)
-			Q_strcat(leastPlayedStr, sizeof(leastPlayedStr), va("%s%s (%d)", i ? "^7, " : "", leastPlayedMaps[i], leastPlayedMapCounts[i]));
+			Q_strcat(leastPlayedStr, sizeof(leastPlayedStr), va("%s%s^7", i ? "^7, " : "", leastPlayedMaps[i]));
 		PrintIngame(clientNum, "  ^1Least played^7 %d maps: %s\n", numLeastPlayedMaps, leastPlayedStr);
 	}
 
 	if (numLeastConforming || numMostConforming)
-		PrintIngame(clientNum, "\nBy average difference from community tier:\n");
+		PrintIngame(clientNum, "\nBy average difference from community tier (minimum 10 ratings):\n");
 	if (numMostConforming) {
 		char mostConformingStr[1024] = { 0 };
 		for (int i = 0; i < numMostConforming; i++)
-			Q_strcat(mostConformingStr, sizeof(mostConformingStr), va("%s%s (%0.2f)", i ? "^7, " : "", mostConformingPlayers[i], mostConformingAverages[i]));
+			Q_strcat(mostConformingStr, sizeof(mostConformingStr), va("%s%s^7", i ? "^7, " : "", mostConformingPlayers[i]));
 		PrintIngame(clientNum, "  ^5Most conformist^7 %d players: %s\n", numMostConforming, mostConformingStr);
 	}
 	if (numLeastConforming) {
 		char leastConformingStr[1024] = { 0 };
 		for (int i = 0; i < numLeastConforming; i++)
-			Q_strcat(leastConformingStr, sizeof(leastConformingStr), va("%s%s (%0.2f)", i ? "^7, " : "", leastConformingPlayers[i], leastConformingAverages[i]));
+			Q_strcat(leastConformingStr, sizeof(leastConformingStr), va("%s%s^7", i ? "^7, " : "", leastConformingPlayers[i]));
 		PrintIngame(clientNum, "  ^8Least conformist^7 %d players: %s\n", numLeastConforming, leastConformingStr);
 	}
 
