@@ -1845,6 +1845,7 @@ void G_BroadcastServerFeatureList(int clientNum);
 #endif
 void G_PrintWelcomeMessage(gclient_t* client);
 extern gentity_t *gJMSaberEnt;
+void TellPlayerToRateMap(gclient_t *client);
 
 //
 // g_svcmds.c
@@ -2499,6 +2500,7 @@ extern vmCvar_t		g_vote_tierlist_f_min;
 extern vmCvar_t		g_vote_tierlist_f_max;
 extern vmCvar_t		g_vote_tierlist_totalMaps;
 extern vmCvar_t		g_vote_tierlist_debug;
+extern vmCvar_t		g_vote_tierlist_reminders;
 extern vmCvar_t		g_vote_rng;
 extern vmCvar_t		g_vote_runoff;
 extern vmCvar_t		g_vote_mapCooldownMinutes;

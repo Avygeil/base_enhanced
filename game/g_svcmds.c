@@ -1711,6 +1711,19 @@ void Svcmd_MapVote_f(const char *overrideMaps) {
 	}
 	G_UniqueTickedCenterPrint(context->printMessage, sizeof(context->printMessage[0]), 15000, qtrue); // give them 15s to see the options
 
+	if (!level.inRunoff && g_vote_tierlist_reminders.integer) {
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			if (g_entities[i].inuse && level.clients[i].pers.connected == CON_CONNECTED && !(g_entities[i].r.svFlags & SVF_BOT) && level.clients[i].account &&
+				(level.clients[i].sess.sessionTeam == TEAM_RED || level.clients[i].sess.sessionTeam == TEAM_BLUE)) {
+				int numRated = G_GetNumberOfMapsRatedByPlayer(level.clients[i].account->id);
+				if (!numRated)
+					PrintIngame(i, "*%s^7, because you haven't rated any maps, you aren't influencing the map selection system! To rate maps, enter ^5tier set <map> <rating>^7 in the console (valid tiers are S, A, B, C, F).\n", level.clients[i].account->name);
+				else if (numRated < 10)
+					PrintIngame(i, "*%s^7, you can better influence the map selection system by rating more maps. To rate maps, enter ^5tier set <map> <rating>^7 in the console (valid tiers are S, A, B, C, F).\n", level.clients[i].account->name);
+			}
+		}
+	}
+
 	if (justPickOneMap || context->numSelected == 1) {
 		// we have 1 map, just change to it straight away.
 		char *space = strchr(context->listOfMaps, ' ');

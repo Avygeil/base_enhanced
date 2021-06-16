@@ -2308,6 +2308,47 @@ static list_t *GetMapsNotRatedByPlayerList(int accountId) {
 	return mapsList;
 }
 
+const char *sqlShouldTellPlayerToRateCurrentMap = "SELECT COUNT(*) FROM tierwhitelist WHERE map = ?1 AND map NOT IN (SELECT map FROM tierlistmaps WHERE account_id = ?2);";
+// whitelisted and not rated by this player ==> qtrue
+// not whitelisted, or IS rated by this player ==> qfalse
+qboolean G_DBShouldTellPlayerToRateCurrentMap(int accountId) {
+	if (accountId == ACCOUNT_ID_UNLINKED)
+		return qfalse;
+
+	sqlite3_stmt *statement;
+	int rc = sqlite3_prepare(dbPtr, sqlShouldTellPlayerToRateCurrentMap, -1, &statement, 0);
+	sqlite3_bind_text(statement, 1, level.mapname, -1, 0);
+	sqlite3_bind_int(statement, 2, accountId);
+	rc = sqlite3_step(statement);
+
+	qboolean shouldTell = qfalse;
+	if (rc == SQLITE_ROW)
+		shouldTell = !!(sqlite3_column_int(statement, 0));
+
+	sqlite3_finalize(statement);
+
+	return shouldTell;
+}
+
+const char *sqlNumMapsRatedByPlayer = "SELECT COUNT(map) FROM tierlistmaps WHERE account_id = ? AND map IN (SELECT map FROM tierwhitelist);";
+int G_GetNumberOfMapsRatedByPlayer(int accountId) {
+	if (accountId == ACCOUNT_ID_UNLINKED)
+		return 0;
+
+	sqlite3_stmt *statement;
+	int rc = sqlite3_prepare(dbPtr, sqlNumMapsRatedByPlayer, -1, &statement, 0);
+	sqlite3_bind_int(statement, 1, accountId);
+	rc = sqlite3_step(statement);
+
+	int numRated = 0;
+	if (rc == SQLITE_ROW)
+		numRated = sqlite3_column_int(statement, 0);
+
+	sqlite3_finalize(statement);
+
+	return numRated;
+}
+
 qboolean G_DBPrintPlayerUnratedList(int accountId, int printClientNum, const char *successPrologueMessage) {
 	list_t *list = GetMapsNotRatedByPlayerList(accountId);
 	if (list) {

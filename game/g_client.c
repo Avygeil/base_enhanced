@@ -2959,6 +2959,22 @@ void G_PrintWelcomeMessage(gclient_t* client) {
 	}
 }
 
+void TellPlayerToRateMap(gclient_t *client) {
+	if (!g_vote_tierlist_reminders.integer)
+		return;
+
+	int clientNum = client - level.clients;
+	static qboolean toldToRate[MAX_CLIENTS] = { qfalse };
+
+	if (g_vote_tierlist.integer && clientNum >= 0 && clientNum < MAX_CLIENTS &&
+		!(g_entities[clientNum].r.svFlags & SVF_BOT) && client->account && !toldToRate[clientNum] && G_DBShouldTellPlayerToRateCurrentMap(client->account->id)) {
+		char mapShortName[MAX_QPATH] = { 0 };
+		GetShortNameForMapFileName(level.mapname, mapShortName, sizeof(mapShortName));
+		PrintIngame(clientNum, "*You have not yet rated this map. To rate this map, enter ^5tier set %s <rating>^7 in the console (valid tiers are S, A, B, C, F).\n", mapShortName);
+		toldToRate[clientNum] = qtrue;
+	}
+}
+
 #include "namespace_begin.h"
 void WP_SetSaber( int entNum, saberInfo_t *sabers, int saberNum, const char *saberName );
 #include "namespace_end.h"
@@ -3051,6 +3067,8 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 		G_InitClientRaceRecordsCache(client);
 		G_PrintWelcomeMessage(client);
 	}
+
+	TellPlayerToRateMap(client);
 
 	client->pers.connected = CON_CONNECTED;
 	client->pers.enterTime = level.time;

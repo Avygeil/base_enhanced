@@ -5962,6 +5962,7 @@ static void Cmd_Svauth_f( gentity_t *ent ) {
 			G_InitClientAccount( ent->client );
 			G_InitClientRaceRecordsCache( ent->client );
 			G_PrintWelcomeMessage( ent->client );
+			TellPlayerToRateMap( ent->client );
 
 			ClientUserinfoChanged( ent - g_entities );
 
