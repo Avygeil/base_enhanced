@@ -373,6 +373,7 @@ const char *TableCallback_WeaponDamage(void *rowContext, void *columnContext) {
 	case MODC_FALL:
 		damage += DamageAmount(MOD_FALLING);
 		damage += DamageAmount(MOD_CRUSH);
+		damage += DamageAmount(MOD_TRIGGER_HURT);
 		break;
 	case MODC_TOTAL:
 		damage += (modcContext->damageTaken ? otherPlayer->client->pers.damageCausedToPlayer[tablePlayerNum] : tablePlayer->client->pers.damageCausedToPlayer[otherPlayerNum]);
