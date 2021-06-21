@@ -681,6 +681,9 @@ typedef struct {
 	int			damageCaused;
 	int			damageTaken;
 
+	int			damageCausedToPlayer[MAX_CLIENTS];
+	int			damageCausedToPlayerOfType[MAX_CLIENTS][MOD_MAX];
+
 	// force stats
 	int			pull;
 	int			push;
@@ -1451,6 +1454,8 @@ char *G_NewString( const char *string );
 //
 // g_cmds.c
 //
+#define ColorForTeam( team )		( team == TEAM_BLUE ? COLOR_BLUE : COLOR_RED )
+#define ScoreTextForTeam( team )	( team == TEAM_BLUE ? S_COLOR_BLUE"BLUE" : S_COLOR_RED"RED" )
 void Cmd_Score_f (gentity_t *ent);
 void StopFollowing( gentity_t *ent );
 void BroadcastTeamChange( gclient_t *client, int oldTeam );
@@ -1982,7 +1987,7 @@ typedef struct {
 	char	shortName[64];
 	char	longName[64];
 } pool_t;
-typedef const char *(*ColumnDataCallback)(void *context);
+typedef const char *(*ColumnDataCallback)(void *rowContext, void *columnContext);
 typedef struct {
 	list_t			columnList;
 	list_t			rowList;
@@ -1991,26 +1996,60 @@ typedef struct {
 } Table;
 void listMapsInPools(void **context, const char *long_name, int pool_id, const char *mapname, int mapWeight);
 void listPools(void *context, int pool_id, const char *short_name, const char *long_name);
-const char *TableCallback_MapName(void *context);
-const char *TableCallback_MapWeight(void *context);
-const char *TableCallback_PoolShortName(void *context);
-const char *TableCallback_PoolLongName(void *context);
-const char *TableCallback_ClientNum(void *context);
-const char *TableCallback_Name(void *context);
-const char *TableCallback_Account(void *context);
-const char *TableCallback_Alias(void *context);
-const char *TableCallback_Ping(void *context);
-const char *TableCallback_Score(void *context);
-const char *TableCallback_IP(void *context);
-const char *TableCallback_Qport(void *context);
-const char *TableCallback_Country(void *context);
-const char *TableCallback_Mod(void *context);
-const char *TableCallback_Shadowmuted(void *context);
+const char *TableCallback_MapName(void *rowContext, void *columnContext);
+const char *TableCallback_MapWeight(void *rowContext, void *columnContext);
+const char *TableCallback_PoolShortName(void *rowContext, void *columnContext);
+const char *TableCallback_PoolLongName(void *rowContext, void *columnContext);
+const char *TableCallback_ClientNum(void *rowContext, void *columnContext);
+const char *TableCallback_Name(void *rowContext, void *columnContext);
+const char *TableCallback_Account(void *rowContext, void *columnContext);
+const char *TableCallback_Alias(void *rowContext, void *columnContext);
+const char *TableCallback_Ping(void *rowContext, void *columnContext);
+const char *TableCallback_Score(void *rowContext, void *columnContext);
+const char *TableCallback_IP(void *rowContext, void *columnContext);
+const char *TableCallback_Qport(void *rowContext, void *columnContext);
+const char *TableCallback_Country(void *rowContext, void *columnContext);
+const char *TableCallback_Mod(void *rowContext, void *columnContext);
+const char *TableCallback_Shadowmuted(void *rowContext, void *columnContext);
+const char *TableCallback_Damage(void *rowContext, void *columnContext);
+const char *TableCallback_DamageName(void *rowContext, void *columnContext);
+const char *TableCallback_WeaponName(void *rowContext, void *columnContext);
+const char *TableCallback_WeaponDamage(void *rowContext, void *columnContext);
+
+typedef enum {
+	MODC_FIRST = 0,
+	MODC_MELEESTUNBATON = MODC_FIRST,
+	MODC_SABER,
+	MODC_PISTOL,
+	MODC_BLASTER,
+	MODC_DISRUPTOR,
+	MODC_BOWCASTER,
+	MODC_REPEATER,
+	MODC_DEMP,
+	MODC_GOLAN,
+	MODC_ROCKET,
+	MODC_CONCUSSION,
+	MODC_THERMAL,
+	MODC_MINE,
+	MODC_DETPACK,
+	MODC_FORCE,
+	MODC_FALL,
+	MODC_TOTAL,
+	MODC_MAX
+} meansOfDeathCategory_t;
+
+typedef struct {
+	int tablePlayerClientNum;
+	qboolean damageTaken;
+	meansOfDeathCategory_t modc;
+} meansOfDeathCategoryContext_t;
+
 Table *Table_Initialize(qboolean alternateColors);
 void Table_DefineRow(Table *t, void *context);
-void Table_DefineColumn(Table *t, const char *title, ColumnDataCallback callback, qboolean leftAlign, int maxLen);
+void Table_DefineColumn(Table *t, const char *title, ColumnDataCallback callback, void *columnContext, qboolean leftAlign, qboolean dividerAfter, int maxLen);
+void Table_AddHorizontalRule(Table *t, int customColor);
 void Table_Destroy(Table *t);
-void Table_WriteToBuffer(Table *t, char *buf, size_t bufSize);
+void Table_WriteToBuffer(Table *t, char *buf, size_t bufSize, qboolean showHeader, int customHeaderColor);
 
 //
 // g_team.c

@@ -2771,7 +2771,7 @@ BeginIntermission
 */
 //ghost debug
 
-extern void PrintStatsTo( gentity_t *ent, const char *type, char* outputBuffer, size_t outSize );
+extern void PrintStatsTo(gentity_t *ent, const char *type, char *outputBuffer, size_t outSize, qboolean announce, int weaponStatsClientNum);
 
 void BeginIntermission(void) {
 	int			i;
@@ -2831,11 +2831,21 @@ void BeginIntermission(void) {
 	// send the current scoring to all clients
 	SendScoreboardMessageToAllClients();
 
-	char statsBuf[4096] = { 0 };
+	char statsBuf[16384] = { 0 };
 
 	if (g_autoStats.integer) {
-		PrintStatsTo(NULL, "general", statsBuf, sizeof(statsBuf));
-		PrintStatsTo(NULL, "force", statsBuf, sizeof(statsBuf));
+		PrintStatsTo(NULL, "general", statsBuf, sizeof(statsBuf), qtrue, -1);
+		PrintStatsTo(NULL, "force", statsBuf, sizeof(statsBuf), qtrue, -1);
+		PrintStatsTo(NULL, "damage", statsBuf, sizeof(statsBuf), qtrue, -1);
+
+		// print each player their own individual weapon stats
+		// they all go into the buffer, though
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			if (g_entities[i].inuse && level.clients[i].pers.connected == CON_CONNECTED &&
+				(level.clients[i].sess.sessionTeam == TEAM_RED || level.clients[i].sess.sessionTeam == TEAM_BLUE)) {
+				PrintStatsTo(&g_entities[i], "weapon", statsBuf, sizeof(statsBuf), qtrue, i);
+			}
+		}
 		Q_StripColor(statsBuf);
 	}
 

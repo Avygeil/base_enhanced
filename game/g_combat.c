@@ -5125,8 +5125,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 	}
 
 	//we count only from client to client damage
-	if (attacker && attacker->client && targ && targ->client
-		&& attacker->client->sess.sessionTeam != targ->client->sess.sessionTeam
+	if (attacker && attacker->client && targ && targ->client && targ->health > 0
 		&& mod > MOD_UNKNOWN && mod <= MOD_FORCE_DARK) {
 		// TODO: do we want other kinds of damage?
 
@@ -5136,8 +5135,15 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 		if (damageStatIncrease > targ->health + targ->client->ps.stats[STAT_ARMOR])
 			damageStatIncrease = targ->health + targ->client->ps.stats[STAT_ARMOR];
 
-		targ->client->pers.damageTaken += damageStatIncrease;
-		attacker->client->pers.damageCaused += damageStatIncrease;
+		if (attacker->client->sess.sessionTeam != targ->client->sess.sessionTeam) {
+			targ->client->pers.damageTaken += damageStatIncrease;
+			attacker->client->pers.damageCaused += damageStatIncrease;
+		}
+
+		if (targ - g_entities < MAX_CLIENTS && attacker - g_entities < MAX_CLIENTS) {
+			attacker->client->pers.damageCausedToPlayer[targ - g_entities] += damageStatIncrease;
+			attacker->client->pers.damageCausedToPlayerOfType[targ - g_entities][mod] += damageStatIncrease;
+		}
 	}
 
 	// do the damage

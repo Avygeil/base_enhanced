@@ -2627,11 +2627,11 @@ void Svcmd_MapPool_f(void) {
 		}
 
 		if (numMaps) {
-			Table_DefineColumn(t, "Map", TableCallback_MapName, qtrue, 64);
-			Table_DefineColumn(t, "Weight", TableCallback_MapWeight, qtrue, 64);
+			Table_DefineColumn(t, "Map", TableCallback_MapName, NULL, qtrue, -1, 64);
+			Table_DefineColumn(t, "Weight", TableCallback_MapWeight, NULL, qtrue, -1, 64);
 
 			char buf[2048] = { 0 };
-			Table_WriteToBuffer(t, buf, sizeof(buf));
+			Table_WriteToBuffer(t, buf, sizeof(buf), qtrue, -1);
 			Q_strcat(buf, sizeof(buf), "\n");
 			Com_Printf(buf);
 		}
@@ -2657,11 +2657,11 @@ void Svcmd_MapPool_f(void) {
 		}
 
 		if (numPools) {
-			Table_DefineColumn(t, "Short Name", TableCallback_PoolShortName, qtrue, 64);
-			Table_DefineColumn(t, "Long Name", TableCallback_PoolLongName, qtrue, 64);
+			Table_DefineColumn(t, "Short Name", TableCallback_PoolShortName, NULL, qtrue, -1, 64);
+			Table_DefineColumn(t, "Long Name", TableCallback_PoolLongName, NULL, qtrue, -1, 64);
 
 			char buf[2048] = { 0 };
-			Table_WriteToBuffer(t, buf, sizeof(buf));
+			Table_WriteToBuffer(t, buf, sizeof(buf), qtrue, -1);
 			Q_strcat(buf, sizeof(buf), "\n");
 			Com_Printf(buf);
 		}
@@ -3876,20 +3876,20 @@ void G_Status(void) {
 		Table_DefineRow(t, &level.clients[i]);
 	}
 
-	Table_DefineColumn(t, "#", TableCallback_ClientNum, qfalse, 2);
-	Table_DefineColumn(t, "Name", TableCallback_Name, qtrue, MAX_NAME_DISPLAYLENGTH);
-	Table_DefineColumn(t, "A", TableCallback_Account, qtrue, 4);
-	Table_DefineColumn(t, "Alias", TableCallback_Alias, qtrue, MAX_NAME_DISPLAYLENGTH);
-	Table_DefineColumn(t, "Country", TableCallback_Country, qtrue, 64);
-	Table_DefineColumn(t, "IP", TableCallback_IP, qtrue, 21);
-	Table_DefineColumn(t, "Qport", TableCallback_Qport, qfalse, 5);
-	Table_DefineColumn(t, "Mod", TableCallback_Mod, qtrue, 64);
-	Table_DefineColumn(t, "Ping", TableCallback_Ping, qfalse, 4);
-	Table_DefineColumn(t, "Score", TableCallback_Score, qfalse, 5);
-	Table_DefineColumn(t, "Shadowmuted", TableCallback_Shadowmuted, qtrue, 64);
+	Table_DefineColumn(t, "#", TableCallback_ClientNum, NULL, qfalse, -1, 2);
+	Table_DefineColumn(t, "Name", TableCallback_Name, NULL, qtrue, -1, MAX_NAME_DISPLAYLENGTH);
+	Table_DefineColumn(t, "A", TableCallback_Account, NULL, qtrue, -1, 4);
+	Table_DefineColumn(t, "Alias", TableCallback_Alias, NULL, qtrue, -1, MAX_NAME_DISPLAYLENGTH);
+	Table_DefineColumn(t, "Country", TableCallback_Country, NULL, qtrue, -1, 64);
+	Table_DefineColumn(t, "IP", TableCallback_IP, NULL, qtrue, -1, 21);
+	Table_DefineColumn(t, "Qport", TableCallback_Qport, NULL, qfalse, -1, 5);
+	Table_DefineColumn(t, "Mod", TableCallback_Mod, NULL, qtrue, -1, 64);
+	Table_DefineColumn(t, "Ping", TableCallback_Ping, NULL, qfalse, -1, 4);
+	Table_DefineColumn(t, "Score", TableCallback_Score, NULL, qfalse, -1, 5);
+	Table_DefineColumn(t, "Shadowmuted", TableCallback_Shadowmuted, NULL, qtrue, -1, 64);
 
 	char buf[4096] = { 0 };
-	Table_WriteToBuffer(t, buf, sizeof(buf));
+	Table_WriteToBuffer(t, buf, sizeof(buf), qtrue, -1);
 	Table_Destroy(t);
 
 	Q_strcat(buf, sizeof(buf), "^7\n");

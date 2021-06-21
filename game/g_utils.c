@@ -2793,24 +2793,45 @@ void PrintIngame(int clientNum, const char *msg, ...) {
 	int remaining = len;
 	char *chunkStart = text;
 
+	int iterationIndex = 0;
+	char endColor = '\0';
 	while (remaining > 0) {
 		char buf[MAX_STRING_CHARS];
 		memset(&buf, 0, sizeof(buf));
 		Q_strcat(buf, sizeof(buf), "print \"");
 
-		qboolean endsInColor = qfalse;
-		if (strlen(chunkStart) > CHUNK_SIZE) {
-			char *lastDigit = chunkStart + CHUNK_SIZE - 1;
-			if (Q_IsColorString(lastDigit))
-				endsInColor = qtrue;
+		// prepend with the color we ended the last chunk in, if applicable
+		qboolean prependedColor = qfalse;
+		if (iterationIndex > 0 && endColor >= '0' && endColor <= '9') {
+			Q_strcat(buf, sizeof(buf), va("^%c", endColor));
+			prependedColor = qtrue;
 		}
 
-		strncpy(buf + 7, chunkStart, CHUNK_SIZE + (endsInColor ? -1 : 0));
+		qboolean shrink = qfalse;
+		if (strlen(chunkStart) > CHUNK_SIZE) {
+			// scan through the string to see which color we end in
+			for (char *p = chunkStart; *p && p < chunkStart + CHUNK_SIZE - 1; p++) {
+				if (Q_IsColorString(p))
+					endColor = *(p + 1);
+			}
+
+			// check for edge case where a color string would be split by chunking
+			// i.e. ^ would be the last digit of one chunk and a number would begin the next chunk
+			// in this case, shrink the current chunk by one digit
+			const char *lastDigit = chunkStart + CHUNK_SIZE - 1;
+			if (Q_IsColorString(lastDigit)) {
+				shrink = qtrue;
+			}
+		}
+
+		strncpy(buf + 7 + (prependedColor ? 2 : 0), chunkStart, CHUNK_SIZE + (shrink ? -1 : 0));
 		Q_strcat(buf, sizeof(buf), "\"");
 		trap_SendServerCommand(clientNum, buf);
-		remaining -= CHUNK_SIZE + (endsInColor ? -1 : 0);
+		remaining -= CHUNK_SIZE + (shrink ? -1 : 0);
 		if (remaining > 0)
-			chunkStart += CHUNK_SIZE + (endsInColor ? -1 : 0);
+			chunkStart += CHUNK_SIZE + (shrink ? -1 : 0);
+
+		++iterationIndex;
 	}
 }
 
