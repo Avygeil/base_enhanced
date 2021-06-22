@@ -511,8 +511,6 @@ static void WriteCell(Table *t, RowData *row, ColumnData *column, qboolean grey,
 		if (!lastColumn) {
 			if (column->dividerColor >= 0 && column->dividerColor <= 9)
 				Q_strcat(buf, bufSize, va("^%d| ", column->dividerColor));
-			else
-				Q_strcat(buf, bufSize, " ");
 		}
 	}
 	else { // " text nextThing"

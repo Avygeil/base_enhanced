@@ -2046,7 +2046,7 @@ typedef struct {
 
 Table *Table_Initialize(qboolean alternateColors);
 void Table_DefineRow(Table *t, void *context);
-void Table_DefineColumn(Table *t, const char *title, ColumnDataCallback callback, void *columnContext, qboolean leftAlign, qboolean dividerAfter, int maxLen);
+void Table_DefineColumn(Table *t, const char *title, ColumnDataCallback callback, void *columnContext, qboolean leftAlign, int dividerColor, int maxLen);
 void Table_AddHorizontalRule(Table *t, int customColor);
 void Table_Destroy(Table *t);
 void Table_WriteToBuffer(Table *t, char *buf, size_t bufSize, qboolean showHeader, int customHeaderColor);

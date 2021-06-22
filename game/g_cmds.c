@@ -6456,7 +6456,7 @@ void GetWeaponChart(int printClientNum, int statsPlayerClientNum, char *outBuf, 
 		}
 
 		// define each column (one for names, and then a column for each player)
-		Table_DefineColumn(t, damageTaken ? "^5ATTACKER" : "^5TARGET", TableCallback_WeaponName, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, damageTaken ? "^5ATTACKER" : "^5TARGET", TableCallback_WeaponName, NULL, qtrue, -1, 32);
 		meansOfDeathCategoryContext_t contexts[MODC_MAX] = { 0 };
 		for (meansOfDeathCategory_t modc = MODC_FIRST; modc < MODC_MAX; modc++) {
 			contexts[modc].tablePlayerClientNum = statsPlayerClientNum;
@@ -6465,7 +6465,7 @@ void GetWeaponChart(int printClientNum, int statsPlayerClientNum, char *outBuf, 
 			Table_DefineColumn(t, NameForMeansOfDeathCategory(modc), TableCallback_WeaponDamage, &contexts[modc], qfalse, -1, 32);
 		}
 
-		Q_strcat(buf, sizeof(buf), va("\nDamage %s^7 by %s^7:\n", damageTaken ? "^1TAKEN" : "^2DEALT", level.clients[statsPlayerClientNum].pers.netname));
+		Q_strcat(buf, sizeof(buf), va("\n^5DAMAGE %s^5 BY ^7%s^7:\n", damageTaken ? "^1TAKEN" : "^2DEALT", level.clients[statsPlayerClientNum].pers.netname));
 		int len = strlen(buf);
 		Table_WriteToBuffer(t, buf + len, sizeof(buf) - len, qtrue, numRed ? 1 : 4);
 
