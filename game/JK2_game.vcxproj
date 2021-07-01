@@ -119,6 +119,7 @@
     <ClCompile Include="g_saga.c" />
     <ClCompile Include="g_session.c" />
     <ClCompile Include="g_spawn.c" />
+    <ClCompile Include="g_stats.c" />
     <ClCompile Include="g_strap.c" />
     <ClCompile Include="g_svcmds.c" />
     <ClCompile Include="g_syscalls.c" />

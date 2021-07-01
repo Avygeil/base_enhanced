@@ -299,11 +299,11 @@ void G_ExplodeMissile( gentity_t *ent ) {
 		{
 			if (ent->parent)
 			{
-				g_entities[ent->parent->s.number].client->accuracy_hits++;
+				g_entities[ent->parent->s.number].client->stats->accuracy_hits++;
 			}
 			else if (ent->activator)
 			{
-				g_entities[ent->activator->s.number].client->accuracy_hits++;
+				g_entities[ent->activator->s.number].client->stats->accuracy_hits++;
 			}
 		}
 	}
@@ -713,7 +713,7 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 
 			if( LogAccuracyHit( other, &g_entities[ent->r.ownerNum] ) &&
 				!ent->isReflected) {
-				g_entities[ent->r.ownerNum].client->accuracy_hits++;
+				g_entities[ent->r.ownerNum].client->stats->accuracy_hits++;
 				hitClient = qtrue;
 			}
 			BG_EvaluateTrajectoryDelta( &ent->s.pos, level.time, velocity );
@@ -856,7 +856,7 @@ killProj:
 			if( !hitClient 
 				&& g_entities[ent->r.ownerNum].client 
 				&& !ent->isReflected) {
-				g_entities[ent->r.ownerNum].client->accuracy_hits++;
+				g_entities[ent->r.ownerNum].client->stats->accuracy_hits++;
 			}
 		}
 	}

@@ -1521,6 +1521,12 @@ static ID_INLINE vec_t VectorLengthSquared( const vec3_t v ) {
 #endif
 }
 
+static ID_INLINE vec_t Distance2D(const vec3_t p1, const vec3_t p2) {
+	float a = p2[0] - p1[0];
+	float b = p2[1] - p1[1];
+	return (vec_t)sqrt((a * a) + (b * b));
+}
+
 static ID_INLINE vec_t Distance( const vec3_t p1, const vec3_t p2 ) {
 	vec3_t	v;
 

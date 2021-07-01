@@ -1915,6 +1915,15 @@ void G_ShutdownGame( int restart ) {
 	ListClear(&level.redPlayerTickList);
 	ListClear(&level.bluePlayerTickList);
 
+	iterator_t iter;
+	ListIterate(&level.statsList, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		stats_t *stats = IteratorNext(&iter);
+		ListClear(&stats->damageGivenList);
+		ListClear(&stats->damageTakenList);
+	}
+	ListClear(&level.statsList);
+
 	UnpatchEngine();
 }
 
@@ -2771,7 +2780,7 @@ BeginIntermission
 */
 //ghost debug
 
-extern void PrintStatsTo(gentity_t *ent, const char *type, char *outputBuffer, size_t outSize, qboolean announce, int weaponStatsClientNum);
+extern void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t outSize, qboolean announce, int weaponStatsClientNum);
 
 void BeginIntermission(void) {
 	int			i;
@@ -2834,16 +2843,16 @@ void BeginIntermission(void) {
 	char statsBuf[16384] = { 0 };
 
 	if (g_autoStats.integer) {
-		PrintStatsTo(NULL, "general", statsBuf, sizeof(statsBuf), qtrue, -1);
-		PrintStatsTo(NULL, "force", statsBuf, sizeof(statsBuf), qtrue, -1);
-		PrintStatsTo(NULL, "damage", statsBuf, sizeof(statsBuf), qtrue, -1);
+		Stats_Print(NULL, "general", statsBuf, sizeof(statsBuf), qtrue, -1);
+		Stats_Print(NULL, "force", statsBuf, sizeof(statsBuf), qtrue, -1);
+		Stats_Print(NULL, "damage", statsBuf, sizeof(statsBuf), qtrue, -1);
 
 		// print each player their own individual weapon stats
 		// they all go into the buffer, though
 		for (int i = 0; i < MAX_CLIENTS; i++) {
 			if (g_entities[i].inuse && level.clients[i].pers.connected == CON_CONNECTED &&
 				(level.clients[i].sess.sessionTeam == TEAM_RED || level.clients[i].sess.sessionTeam == TEAM_BLUE)) {
-				PrintStatsTo(&g_entities[i], "weapon", statsBuf, sizeof(statsBuf), qtrue, i);
+				Stats_Print(&g_entities[i], "weapon", statsBuf, sizeof(statsBuf), qtrue, i);
 			}
 		}
 		Q_StripColor(statsBuf);
@@ -3157,10 +3166,10 @@ void LogExit( const char *string ) {
 		if ((cl->ps.powerups[PW_BLUEFLAG] || cl->ps.powerups[PW_REDFLAG]) && !cl->sess.inRacemode){
 			const int thisFlaghold = G_GetAccurateTimerOnTrigger( &cl->pers.teamState.flagsince, &g_entities[level.sortedClients[i]], NULL );
 
-			cl->pers.teamState.flaghold += thisFlaghold;
+			cl->stats->totalFlagHold += thisFlaghold;
 
-			if ( thisFlaghold > cl->pers.teamState.longestFlaghold )
-				cl->pers.teamState.longestFlaghold = thisFlaghold;
+			if ( thisFlaghold > cl->stats->longestFlagHold )
+				cl->stats->longestFlagHold = thisFlaghold;
 
 			if ( cl->ps.powerups[PW_REDFLAG] ) {
 				// carried the red flag, so blue team
@@ -3173,7 +3182,7 @@ void LogExit( const char *string ) {
 
 		if ( cl->ps.fd.forcePowersActive & ( 1 << FP_PROTECT ) ) {
 			if ( cl->pers.protsince && cl->pers.protsince < level.time ) {
-				cl->pers.protTimeUsed += level.time - cl->pers.protsince;
+				cl->stats->protTimeUsed += level.time - cl->pers.protsince;
 			}
 		}
 
@@ -5801,11 +5810,14 @@ void G_RunFrame( int levelTime ) {
 						xyspeed = sqrt( ent->client->ps.velocity[0] * ent->client->ps.velocity[0] + ent->client->ps.velocity[1] * ent->client->ps.velocity[1] );
 					}
 
-					ent->client->pers.displacement += xyspeed / g_svfps.value;
-					ent->client->pers.displacementSamples++;
+					if (ent->client->sess.sessionTeam == TEAM_RED || ent->client->sess.sessionTeam == TEAM_BLUE) {
+						// only track overall displacement if you are actually ingame
+						ent->client->stats->displacement += xyspeed / g_svfps.value;
+						ent->client->stats->displacementSamples++;
+					}
 
-					if ( xyspeed > ent->client->pers.topSpeed ) {
-						ent->client->pers.topSpeed = xyspeed;
+					if ( xyspeed > ent->client->stats->topSpeed ) {
+						ent->client->stats->topSpeed = xyspeed;
 					}
 
 					// if they carry a flag, also update fastcap speed stats

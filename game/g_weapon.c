@@ -666,7 +666,7 @@ static void WP_DisruptorMainFire( gentity_t *ent )
 			//ent->client->ps.eFlags |= EF_AWARD_IMPRESSIVE;
 			//ent->client->rewardTime = level.time + REWARD_SPRITE_TIME;
 		}
-		ent->client->accuracy_hits++;
+		ent->client->stats->accuracy_hits++;
 	}
 }
 
@@ -988,7 +988,7 @@ void WP_DisruptorAltFire( gentity_t *ent )
 			//ent->client->ps.eFlags |= EF_AWARD_IMPRESSIVE;
 			//ent->client->rewardTime = level.time + REWARD_SPRITE_TIME;
 		}
-		ent->client->accuracy_hits++;
+		ent->client->stats->accuracy_hits++;
 	}
 
 	if (g_unlagged.integer && compensate) {
@@ -2111,7 +2111,7 @@ void thermalDetonatorExplode( gentity_t *ent )
 		if (G_RadiusDamage( ent->r.currentOrigin, ent->parent,  ent->splashDamage, ent->splashRadius, 
 				ent, ent, ent->splashMethodOfDeath) && !ent->isReflected)
 		{
-			g_entities[ent->r.ownerNum].client->accuracy_hits++;
+			g_entities[ent->r.ownerNum].client->stats->accuracy_hits++;
 		}
 
 		trap_LinkEntity( ent );
@@ -3270,7 +3270,7 @@ static void WP_FireConcussionAlt( gentity_t *ent )
 
 					if ( traceEnt->client && LogAccuracyHit( traceEnt, ent )) 
 					{//NOTE: hitting multiple ents can still get you over 100% accuracy
-						ent->client->accuracy_hits++;
+						ent->client->stats->accuracy_hits++;
 					} 
 
 					int preHealth = traceEnt->health;
@@ -4572,9 +4572,9 @@ void FireWeapon( gentity_t *ent, qboolean altFire ) {
 		) 
 	{
 		if( ent->s.weapon == WP_FLECHETTE ) {
-			ent->client->accuracy_shots += altFire ? FLECHETTE_SHOTS_ALT : FLECHETTE_SHOTS;
+			ent->client->stats->accuracy_shots += altFire ? FLECHETTE_SHOTS_ALT : FLECHETTE_SHOTS;
 		} else {
-			ent->client->accuracy_shots++;
+			ent->client->stats->accuracy_shots++;
 		}
 	}
 

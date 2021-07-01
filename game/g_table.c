@@ -271,6 +271,7 @@ const char *TableCallback_Shadowmuted(void *rowContext, void *columnContext) {
 	return "Shadowmuted";
 }
 
+#ifdef NEW_TABLES
 const char *TableCallback_Damage(void *rowContext, void *columnContext) {
 	if (!rowContext || !columnContext)
 		return NULL;
@@ -298,13 +299,15 @@ const char *TableCallback_WeaponName(void *rowContext, void *columnContext) {
 const char *TableCallback_WeaponDamage(void *rowContext, void *columnContext) {
 	if (!rowContext)
 		return NULL;
-	gentity_t *otherPlayer = rowContext;
-	int otherPlayerNum = otherPlayer - g_entities;
+	stats_t *otherPlayer = rowContext;
 	meansOfDeathCategoryContext_t *modcContext = columnContext;
 	
 	int damage = 0;
 	gentity_t *tablePlayer = &g_entities[modcContext->tablePlayerClientNum];
 	int tablePlayerNum = modcContext->tablePlayerClientNum;
+
+	damageCounter_t *dmgPtr = damageTaken ? GetDamageTakenStat()
+
 	switch (modcContext->modc) {
 	case MODC_MELEESTUNBATON:
 		damage += DamageAmount(MOD_STUN_BATON);
@@ -382,6 +385,7 @@ const char *TableCallback_WeaponDamage(void *rowContext, void *columnContext) {
 
 	return va("%d", damage);
 }
+#endif
 
 // initializes a table; use Table_Destroy when done
 Table *Table_Initialize(qboolean alternateColors) {

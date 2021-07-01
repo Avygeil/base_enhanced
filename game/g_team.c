@@ -396,7 +396,7 @@ void Team_FragBonuses(gentity_t *targ, gentity_t *inflictor, gentity_t *attacker
 		attacker->client->pers.teamState.lastfraggedcarrier = level.time;
 		AddScore(attacker, targ->r.currentOrigin, CTF_FRAG_CARRIER_BONUS);
 
-		attacker->client->pers.teamState.fragcarrier++;
+		attacker->client->stats->fcKills++;
 		PrintCTFMessage(attacker->s.number, team, CTFMESSAGE_FRAGGED_FLAG_CARRIER);
 
 		// the target had the flag, clear the hurt carrier
@@ -417,10 +417,10 @@ void Team_FragBonuses(gentity_t *targ, gentity_t *inflictor, gentity_t *attacker
 		//*CHANGE 31* longest flag holding time keeping track
 		const int thisFlaghold = G_GetAccurateTimerOnTrigger( &targ->client->pers.teamState.flagsince, targ, NULL );
 
-		targ->client->pers.teamState.flaghold += thisFlaghold;
+		targ->client->stats->totalFlagHold += thisFlaghold;
 
-		if ( thisFlaghold > targ->client->pers.teamState.longestFlaghold )
-			targ->client->pers.teamState.longestFlaghold = thisFlaghold;
+		if ( thisFlaghold > targ->client->stats->longestFlagHold )
+			targ->client->stats->longestFlagHold = thisFlaghold;
 
 		if ( targ->client->ps.powerups[PW_REDFLAG] ) {
 			// carried the red flag, so blue team
@@ -430,7 +430,7 @@ void Team_FragBonuses(gentity_t *targ, gentity_t *inflictor, gentity_t *attacker
 			level.redTeamRunFlaghold += thisFlaghold;
 		}
 
-		attacker->client->pers.teamState.fragcarrier++;
+		attacker->client->stats->fcKills++;
 
 		// the target had the flag, clear the hurt carrier
 		// field on the other team
@@ -449,7 +449,7 @@ void Team_FragBonuses(gentity_t *targ, gentity_t *inflictor, gentity_t *attacker
 		// fragged a guy who hurt our flag carrier
 		AddScore(attacker, targ->r.currentOrigin, CTF_CARRIER_DANGER_PROTECT_BONUS);
 
-		attacker->client->pers.teamState.carrierdefense++;
+		attacker->client->stats->defends++;
 		targ->client->pers.teamState.lasthurtcarrier = 0;
 
 		attacker->client->ps.persistant[PERS_DEFEND_COUNT]++;
@@ -464,7 +464,7 @@ void Team_FragBonuses(gentity_t *targ, gentity_t *inflictor, gentity_t *attacker
 		// attacker is on the same team as the skull carrier and
 		AddScore(attacker, targ->r.currentOrigin, CTF_CARRIER_DANGER_PROTECT_BONUS);
 
-		attacker->client->pers.teamState.carrierdefense++;
+		attacker->client->stats->defends++;
 		targ->client->pers.teamState.lasthurtcarrier = 0;
 
 		attacker->client->ps.persistant[PERS_DEFEND_COUNT]++;
@@ -519,7 +519,7 @@ void Team_FragBonuses(gentity_t *targ, gentity_t *inflictor, gentity_t *attacker
 
 		// we defended the base flag
 		AddScore(attacker, targ->r.currentOrigin, CTF_FLAG_DEFENSE_BONUS);
-		attacker->client->pers.teamState.basedefense++;
+		attacker->client->stats->defends++;
 
 		attacker->client->ps.persistant[PERS_DEFEND_COUNT]++;
 		attacker->client->rewardTime = level.time + REWARD_SPRITE_TIME;
@@ -537,7 +537,7 @@ void Team_FragBonuses(gentity_t *targ, gentity_t *inflictor, gentity_t *attacker
 				trap_InPVS(carrier->r.currentOrigin, attacker->r.currentOrigin ) ) ) &&
 			attacker->client->sess.sessionTeam != targ->client->sess.sessionTeam) {
 			AddScore(attacker, targ->r.currentOrigin, CTF_CARRIER_PROTECT_BONUS);
-			attacker->client->pers.teamState.carrierdefense++;
+			attacker->client->stats->defends++;
 
 			attacker->client->ps.persistant[PERS_DEFEND_COUNT]++;
 			attacker->client->rewardTime = level.time + REWARD_SPRITE_TIME;
@@ -791,7 +791,7 @@ int Team_TouchOurFlag( gentity_t *ent, gentity_t *other, int team ) {
 		PrintCTFMessage(other->s.number, team, CTFMESSAGE_PLAYER_RETURNED_FLAG);
 
 		AddScore(other, ent->r.currentOrigin, CTF_RECOVERY_BONUS);
-		other->client->pers.teamState.flagrecovery++;
+		other->client->stats->rets++;
 		other->client->pers.teamState.lastreturnedflag = level.time;
 
 		//ResetFlag will remove this entity!  We must return zero
@@ -861,9 +861,9 @@ int Team_TouchOurFlag( gentity_t *ent, gentity_t *other, int team ) {
 	//*CHANGE 31* longest flag holding time keeping track
 	const int thisFlaghold = G_GetAccurateTimerOnTrigger( &other->client->pers.teamState.flagsince, other, ent );
 
-	other->client->pers.teamState.flaghold += thisFlaghold;
-	if ( thisFlaghold > other->client->pers.teamState.longestFlaghold )
-		other->client->pers.teamState.longestFlaghold = thisFlaghold;
+	other->client->stats->totalFlagHold += thisFlaghold;
+	if ( thisFlaghold > other->client->stats->longestFlagHold )
+		other->client->stats->longestFlagHold = thisFlaghold;
 
 	// team is the color of the flagstand on which we are capturing, so we add time to the ACTUAL team (not the opposite)
 	if ( team == TEAM_RED ) {
@@ -883,7 +883,7 @@ int Team_TouchOurFlag( gentity_t *ent, gentity_t *other, int team ) {
 	AddTeamScore(ent->s.pos.trBase, other->client->sess.sessionTeam, 1);
 	//rww - don't really want to do this now. Mainly because performing a gesture disables your upper torso animations until it's done and you can't fire
 
-	other->client->pers.teamState.captures++;
+	other->client->stats->captures++;
 	other->client->rewardTime = level.time + REWARD_SPRITE_TIME;
 	other->client->ps.persistant[PERS_CAPTURES]++;
 
@@ -908,7 +908,7 @@ int Team_TouchOurFlag( gentity_t *ent, gentity_t *other, int team ) {
 			if (player->client->pers.teamState.lastreturnedflag + 
 				CTF_RETURN_FLAG_ASSIST_TIMEOUT > level.time) {
 				AddScore (player, ent->r.currentOrigin, CTF_RETURN_FLAG_ASSIST_BONUS);
-				other->client->pers.teamState.assists++;
+				other->client->stats->assists++;
 
 				player->client->ps.persistant[PERS_ASSIST_COUNT]++;
 				player->client->rewardTime = level.time + REWARD_SPRITE_TIME;
@@ -916,7 +916,7 @@ int Team_TouchOurFlag( gentity_t *ent, gentity_t *other, int team ) {
 			} else if (player->client->pers.teamState.lastfraggedcarrier + 
 				CTF_FRAG_CARRIER_ASSIST_TIMEOUT > level.time) {
 				AddScore(player, ent->r.currentOrigin, CTF_FRAG_CARRIER_ASSIST_BONUS);
-				other->client->pers.teamState.assists++;
+				other->client->stats->assists++;
 				player->client->ps.persistant[PERS_ASSIST_COUNT]++;
 				player->client->rewardTime = level.time + REWARD_SPRITE_TIME;
 			}

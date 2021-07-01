@@ -1437,11 +1437,11 @@ static qboolean IsEntityUniqueType( gentity_t *ent ) {
 	return qtrue;
 }
 
-static qboolean isRedFlagstand( gentity_t *ent ) {
+qboolean isRedFlagstand( gentity_t *ent ) {
 	return !Q_stricmp( ent->classname, "team_ctf_redflag" );
 }
 
-static qboolean isBlueFlagstand( gentity_t *ent ) {
+qboolean isBlueFlagstand( gentity_t *ent ) {
 	return !Q_stricmp( ent->classname, "team_ctf_blueflag" );
 }
 

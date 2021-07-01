@@ -64,8 +64,8 @@ void DeathmatchScoreboardMessage( gentity_t *ent ) {
 
 		}
 
-		if( cl->accuracy_shots ) {
-			accuracy = cl->accuracy_hits * 100 / cl->accuracy_shots;
+		if( cl->stats && cl->stats->accuracy_shots ) {
+			accuracy = cl->stats->accuracy_hits * 100 / cl->stats->accuracy_shots;
 		}
 		else {
 			accuracy = 0;
@@ -73,8 +73,8 @@ void DeathmatchScoreboardMessage( gentity_t *ent ) {
 
 		//lower 16 bits say average return time
 		//higher 16 bits say how many times did player get the flag
-		statsMix = cl->pers.teamState.th;
-		statsMix |= ((cl->pers.teamState.te) << 16);
+		statsMix = cl->stats ? cl->stats->healed : 0;
+		statsMix |= ((cl->stats ? cl->stats->energizedAlly : 0) << 16);
 
 		// first 16 bits are unused
 		// next 10 bits are real ping
@@ -100,7 +100,7 @@ void DeathmatchScoreboardMessage( gentity_t *ent ) {
 			cl->ps.persistant[PERS_SCORE], ping, (level.time - cl->pers.enterTime)/60000,
 			specMix, g_entities[level.sortedClients[i]].s.powerups, accuracy, 
 			
-			cl->pers.teamState.fragcarrier, //this can be replaced
+			cl->stats ? cl->stats->fcKills : 0, //this can be replaced
 			                                       //but only here!
 												   //server uses this value
 			/*
@@ -111,8 +111,8 @@ void DeathmatchScoreboardMessage( gentity_t *ent ) {
 			statsMix,
 			*/
 
-			cl->pers.teamState.flaghold,
-			cl->pers.teamState.flagrecovery, 
+			cl->stats ? cl->stats->totalFlagHold : 0,
+			cl->stats ? cl->stats->rets : 0, 
 			cl->ps.persistant[PERS_DEFEND_COUNT], 
 			cl->ps.persistant[PERS_ASSIST_COUNT], 
 
@@ -1024,6 +1024,8 @@ void SetTeam( gentity_t *ent, char *s ) {
 	client->sess.sessionTeam = team;
 	client->sess.spectatorState = specState;
 	client->sess.spectatorClient = specClient;
+	if (team == TEAM_RED || team == TEAM_BLUE) // we are only concerned about which ingame team they were last on
+		client->stats->lastTeam = team;
 
 	client->sess.teamLeader = qfalse;
 	if ( team == TEAM_RED || team == TEAM_BLUE ) {
@@ -2440,11 +2442,24 @@ void Cmd_GameCommand_f( gentity_t *ent ) {
 Cmd_Where_f
 ==================
 */
+extern qboolean isRedFlagstand(gentity_t *ent);
+extern qboolean isBlueFlagstand(gentity_t *ent);
 void Cmd_Where_f( gentity_t *ent ) {
 	if (!ent->client)
 		return;
 
 	trap_SendServerCommand( ent - g_entities, va( "print \"Origin: %s ; Yaw: %.2f degrees\n\"", vtos( ent->client->ps.origin ), ent->client->ps.viewangles[YAW] ) );
+#ifdef _DEBUG
+	if (g_gametype.integer == GT_CTF) {
+		gentity_t *redFs = G_ClosestEntity(ent, isRedFlagstand);
+		gentity_t *blueFs = G_ClosestEntity(ent, isBlueFlagstand);
+		if (!redFs || !blueFs)
+			return;
+		float rDist = Distance2D(ent->r.currentOrigin, redFs->r.currentOrigin);
+		float bDist = Distance2D(ent->r.currentOrigin, blueFs->r.currentOrigin);
+		PrintIngame(ent - g_entities, "^1Red^7 FS dist: %d - ^4Blue^7 FS dist: %d - Ratio: %.2f\n", (int)rDist, (int)bDist, rDist / bDist);
+	}
+#endif
 }
 
 static const char *gameNames[] = {
@@ -6092,515 +6107,40 @@ void Cmd_WhoIs_f( gentity_t* ent ) {
 	PrintIngame(ent - g_entities, buf);
 }
 
-#define MAX_STATS			16
-#define STATS_ROW_SEPARATOR	"-"
-
-typedef enum {
-	STAT_NONE = 0, // types after this are RIGHT aligned
-	STAT_BLANK, // only serves as caption, no value
-	STAT_INT,
-	STAT_DURATION,
-	STAT_INT_PAIR1,
-	STAT_LEFT_ALIGNED, // types after this are LEFT aligned
-	STAT_INT_PAIR2
-} StatType;
-
-typedef struct {
-	char *cols[MAX_STATS]; // column names, strlen gives the width so use spaces for larger cols
-	StatType types[MAX_STATS]; // type of data
-} StatsDesc;
-
-#define FORMAT_INT( i )				va( "%d", i )
-#define FORMAT_PAIRED_INT( i, grey )		va( "%s%d/", ( grey ?  S_COLOR_GREY : S_COLOR_WHITE), i )
-#define FORMAT_MINS_SECS( m, s )	va( "%dm%02ds", m, s )
-#define FORMAT_SECS( s )			va( "%ds", s )
-
-static char* GetFormattedValue( int value, StatType type, qboolean grey ) {
-	switch ( type ) {
-	case STAT_INT: return FORMAT_INT( value );
-	case STAT_INT_PAIR1: return FORMAT_PAIRED_INT( value, grey );
-	case STAT_INT_PAIR2: return FORMAT_INT( value );
-	case STAT_DURATION: {
-		int secs = value / 1000;
-		int mins = secs / 60;
-
-		// more or less than a minute?
-		if ( value >= 60000 ) {
-			secs %= 60;
-			return FORMAT_MINS_SECS( mins, secs );
-		} else {
-			return FORMAT_SECS( secs );
-		}
-	}
-	default: return "0"; // should never happen
-	}
-}
-
-#define GetStatColor( s, b, grey ) ( b && b == s ? S_COLOR_GREEN : ( grey ?  S_COLOR_GREY : S_COLOR_WHITE) )
-
-static void PrintClientStats( const int id, const char *name, StatsDesc desc, int *stats, int *bestStats, const int nameCols, char* outputBuffer, size_t outSize, qboolean announce, qboolean grey ) {
-	int i, nameLen = 0;
-	char s[MAX_STRING_CHARS];
-
-	nameLen = Q_PrintStrlen( name );
-
-	Com_sprintf( s, sizeof( s ), name );
-
-	// fill up the gaps left by the bigger names
-	if ( nameLen < nameCols ) {
-		for ( i = 0; i < nameCols - nameLen; ++i )
-			Q_strcat( s, sizeof( s ), " " );
-	}
-
-	// write all formatted stats
-	for ( i = 0; i < MAX_STATS && desc.types[i] > STAT_NONE; ++i ) {
-		Q_strcat( s, sizeof( s ), va( desc.types[i] > STAT_LEFT_ALIGNED ? "%s%-*s" : " %s%*s",
-			GetStatColor( stats[i], bestStats[i], grey ), // green if the best, white/grey otherwise
-			Q_PrintStrlen( desc.cols[i] ) + ( desc.types[i] == STAT_INT_PAIR1 ? 3 : 0 ), // add 3 for the ^7/ of PAIR1 types
-			GetFormattedValue( stats[i], desc.types[i], grey ) ) // string-ified version of the type, will contain the slash for PAIR1
-			);
-	}
-
-	if (announce) trap_SendServerCommand( id, va( "print \"%s\n\"", s ) );
-	if (outputBuffer) Q_strcat(outputBuffer, outSize, va("%s\n", s));
-}
-
-static void PrintTeamStats( const int id, const team_t team, const char teamColor, StatsDesc desc, void( *fillCallback )( gclient_t*, int* ), qboolean printHeader, char* outputBuffer, size_t outSize, qboolean announce ) {
-	int i, j, nameLen = 0, maxNameLen = 0;
-	int stats[MAX_CLIENTS][MAX_STATS] = { { 0 } }, bestStats[MAX_STATS] = { 0 };
-	char header[MAX_STRING_CHARS], separator[MAX_STRING_CHARS];
-	gclient_t *client;
-	team_t otherTeam;
-
-	otherTeam = OtherTeam( team );
-
-	// loop over all clients to init stat values as well as the max name length
-	for ( i = 0; i < level.maxclients; ++i ) {
-		if ( !g_entities[i].inuse || !g_entities[i].client || g_entities[i].client->pers.connected != CON_CONNECTED ) {
-			continue;
-		}
-
-		client = g_entities[i].client;
-
-		// count both teams so the columns have the same size
-		if ( g_entities[i].client->sess.sessionTeam != team && g_entities[i].client->sess.sessionTeam != otherTeam ) {
-			continue;
-		}
-
-		nameLen = Q_PrintStrlen( client->pers.netname );
-
-		if ( nameLen > maxNameLen )
-			maxNameLen = nameLen;
-
-		// only fill stats for the current team
-		if ( client->sess.sessionTeam != team ) {
-			continue;
-		}
-
-		( *fillCallback )( client, stats[i] );
-
-		// compare them to the best stats and sum to the total stats
-		for ( j = 0; j < MAX_STATS && desc.types[j] > STAT_NONE; ++j ) {
-			if ( bestStats[j] < stats[i][j] ) {
-				bestStats[j] = stats[i][j];
-			}
-		}
-	}
-
-	// make sure there is room for the NAME column alone
-	if ( maxNameLen < 4 )
-		maxNameLen = 4;
-
-	Com_sprintf( header, sizeof( header ), S_COLOR_CYAN"NAME" );
-
-	for ( i = 0; i < maxNameLen - 4; ++i )
-		Q_strcat( header, sizeof( header ), " " );
-
-	Com_sprintf( separator, sizeof( separator ), "^%c", teamColor );
-
-	for ( i = 0; i < maxNameLen; ++i )
-		Q_strcat( separator, sizeof( separator ), STATS_ROW_SEPARATOR );
-
-	// prepare header and dotted separators
-	for ( j = 0; j < MAX_STATS && desc.types[j] > STAT_NONE; ++j ) {
-		// left aligned names should follow a slash, so no space
-		if ( desc.types[j] < STAT_LEFT_ALIGNED ) {
-			Q_strcat( header, sizeof( header ), " " );
-			Q_strcat( separator, sizeof( separator ), " " );
-		}
-
-		Q_strcat( header, sizeof( header ), desc.cols[j] );
-
-		// only for PAIR1 types, append a slash in the name
-		if ( desc.types[j] == STAT_INT_PAIR1 ) {
-			Q_strcat( header, sizeof( header ), "/" );
-		}
-
-		// generate the dotted delimiter, adding a char for the slash of PAIR1 types
-		for ( i = 0; i < Q_PrintStrlen( desc.cols[j] ) + ( desc.types[j] == STAT_INT_PAIR1 ? 1 : 0 ); ++i ) {
-			Q_strcat( separator, sizeof( separator ), STATS_ROW_SEPARATOR );
-		}
-	}
-
-	if ( printHeader ) {
-		if (announce) trap_SendServerCommand( id, va( "print \"%s\n%s\n\"", header, separator ) );
-		if (outputBuffer) Q_strcat(outputBuffer, outSize, va("%s\n%s\n", header, separator));
-	} else {
-		if (announce) trap_SendServerCommand( id, va( "print \"%s\n\"", separator ) );
-		if (outputBuffer) Q_strcat(outputBuffer, outSize, va("%s\n", separator));
-	}
-
-	// send stats of everyone on the team
-	qboolean grey = qfalse;
-	for ( i = 0; i < level.numConnectedClients; i++ ) {
-		client = &level.clients[level.sortedClients[i]];
-
-		if ( !client || client->sess.sessionTeam != team )
-			continue;
-
-		PrintClientStats( id, client->pers.netname, desc, stats[level.sortedClients[i]], bestStats, maxNameLen, outputBuffer, outSize, announce, grey );
-		grey = !grey;
-	}
-}
-
-static const StatsDesc CtfStatsDesc = {
-	{
-		"SCORE", "CAP", "ASS", "DEF", "ACC", "FCKIL", "RET", "BOON", "TTLHOLD", "MAXHOLD",
-		"SAVES", "DMGDLT", "DMGTKN", "TOPSPD", "AVGSPD"
-	},
-	{
-		STAT_INT, STAT_INT, STAT_INT, STAT_INT, STAT_INT, STAT_INT, STAT_INT, STAT_INT, STAT_DURATION, STAT_DURATION,
-		STAT_INT, STAT_INT, STAT_INT, STAT_INT, STAT_INT
-	}
-};
-
-static void FillCtfStats( gclient_t *cl, int *values ) {
-	*values++ = cl->ps.persistant[PERS_SCORE];
-	*values++ = cl->ps.persistant[PERS_CAPTURES];
-	*values++ = cl->ps.persistant[PERS_ASSIST_COUNT];
-	*values++ = cl->ps.persistant[PERS_DEFEND_COUNT];
-	*values++ = cl->accuracy_shots ? cl->accuracy_hits * 100 / cl->accuracy_shots : 0;
-	*values++ = cl->pers.teamState.fragcarrier;
-	*values++ = cl->pers.teamState.flagrecovery;
-	*values++ = cl->pers.teamState.boonPickups;
-	*values++ = cl->pers.teamState.flaghold;
-	*values++ = cl->pers.teamState.longestFlaghold;
-	*values++ = cl->pers.teamState.saves;
-	*values++ = cl->pers.damageCaused;
-	*values++ = cl->pers.damageTaken;
-
-	int maxSpeed = ( int )( cl->pers.topSpeed + 0.5f );
-	int avgSpeed;
-
-	if ( cl->pers.displacementSamples ) {
-		avgSpeed = ( int )floorf( ( ( cl->pers.displacement * g_svfps.value ) / cl->pers.displacementSamples ) + 0.5f );
-	} else {
-		avgSpeed = maxSpeed;
-	}
-
-	*values++ = maxSpeed;
-	*values++ = avgSpeed;
-}
-
-static const StatsDesc ForceStatsDesc = {
-	{
-		"PUSH", "PULL", "HEALED", "NRGSED ALLY", "ENEMY", "ABSRBD", "PROTDMG", "PROTTIME"
-	},
-	{
-		STAT_INT_PAIR1, STAT_INT_PAIR2, STAT_INT, STAT_INT_PAIR1, STAT_INT_PAIR2, STAT_INT, STAT_INT, STAT_DURATION
-	}
-};
-
-static void FillForceStats( gclient_t *cl, int *values ) {
-	*values++ = cl->pers.push;
-	*values++ = cl->pers.pull;
-	*values++ = cl->pers.healed;
-	*values++ = cl->pers.energizedAlly;
-	*values++ = cl->pers.energizedEnemy;
-	*values++ = cl->pers.absorbed;
-	*values++ = cl->pers.protDmgAvoided;
-	*values++ = cl->pers.protTimeUsed;
-}
-
-void PrintDamageChart(int printClientNum, char *outBuf, size_t outSize, qboolean announce) {
-	Table *t = Table_Initialize(qtrue);
-
-	// special case: the last red player gets a ^4| divider if there are blue players afterward
-	qboolean gotRed = qfalse, gotBlue = qfalse;
-	int lastRedClientNum = -1;
-	for (int i = 0; i < level.numConnectedClients; i++) {
-		int clientNum = level.sortedClients[i];
-		if (level.clients[clientNum].sess.sessionTeam == TEAM_RED) {
-			gotRed = qtrue;
-			lastRedClientNum = clientNum;
-		}
-		else if (level.clients[clientNum].sess.sessionTeam == TEAM_BLUE) {
-			gotBlue = qtrue;
-		}
-	}
-
-	if (!gotRed && !gotBlue) {
-		Table_Destroy(t);
-		return;
-	}
-
-	// define each row
-	int longestNameLen = 0;
-	for (team_t team = TEAM_RED; team <= TEAM_BLUE; team++) {
-		if (team == TEAM_RED && !gotRed)
-			continue;
-		else if (team == TEAM_BLUE && !gotBlue)
-			continue;
-
-		if (team == TEAM_BLUE && gotRed)
-			Table_AddHorizontalRule(t, 4);
-
-		for (int i = 0; i < level.numConnectedClients; i++) {
-			int clientNum = level.sortedClients[i];
-			if (level.clients[clientNum].sess.sessionTeam != team)
-				continue;
-			int len = Q_PrintStrlen(level.clients[clientNum].pers.netname);
-			if (len > longestNameLen)
-				longestNameLen = len;
-			Table_DefineRow(t, &g_entities[clientNum]);
-		}
-	}
-
-	// define each column
-	Table_DefineColumn(t, "^5NAME", TableCallback_DamageName, NULL, qtrue, gotRed ? 1 : 4, 32);
-	for (team_t team = TEAM_RED; team <= TEAM_BLUE; team++) {
-		for (int i = 0; i < level.numConnectedClients; i++) {
-			int clientNum = level.sortedClients[i];
-			if (level.clients[clientNum].sess.sessionTeam != team)
-				continue;
-			char *clean = strdup(level.clients[clientNum].pers.netname);
-			Q_CleanStr(clean);
-			Q_strupr(clean);
-			// do we need a minimum length check here for very short names?
-			char *name = va("^5%s", clean);
-			free(clean);
-			Table_DefineColumn(t, name, TableCallback_Damage, &g_entities[clientNum], qfalse, (gotRed && gotBlue && clientNum == lastRedClientNum) ? 4 : -1, 32);
-		}
-	}
-
-	// print the title above the first name column
-	char buf[8192] = { 0 };
-	for (int i = 0; i < longestNameLen + 3/*`space + pipe + space`*/; i++)
-		Q_strcat(buf, sizeof(buf), " ");
-	Q_strcat(buf, sizeof(buf), "^5DAMAGE DEALT TO\n");
-	int len = strlen(buf);
-	Table_WriteToBuffer(t, buf + len, sizeof(buf) - len, qtrue, gotRed ? 1 : 4);
-	if (announce) PrintIngame(printClientNum, buf);
-	if (outBuf) Q_strncpyz(outBuf, buf, outSize);
-	Table_Destroy(t);
-}
-
-const char *NameForMeansOfDeathCategory(meansOfDeathCategory_t modc) {
-	switch (modc) {
-	case MODC_MELEESTUNBATON: return "^5MEL";
-	case MODC_SABER: return "^5SAB";
-	case MODC_PISTOL: return "^5PIS";
-	case MODC_BLASTER: return "^5BLA";
-	case MODC_DISRUPTOR: return "^5DIS";
-	case MODC_BOWCASTER: return "^5BOW";
-	case MODC_REPEATER: return "^5REP";
-	case MODC_DEMP: return "^5DMP";
-	case MODC_GOLAN: return "^5GOL";
-	case MODC_ROCKET: return "^5RKT";
-	case MODC_CONCUSSION: return "^5CNC";
-	case MODC_THERMAL: return "^5THR";
-	case MODC_MINE: return "^5MIN";
-	case MODC_DETPACK: return "^5DPK";
-	case MODC_FORCE: return "^5FOR";
-	case MODC_FALL: return "^5FAL";
-	case MODC_TOTAL: return "^5TOTAL";
-	default: assert(qfalse); return NULL;
-	}
-}
-
-void GetWeaponChart(int printClientNum, int statsPlayerClientNum, char *outBuf, size_t outSize, qboolean announce) {
-	if (statsPlayerClientNum < 0 || statsPlayerClientNum >= MAX_CLIENTS || !g_entities[statsPlayerClientNum].inuse || level.clients[statsPlayerClientNum].pers.connected != CON_CONNECTED ||
-		(level.clients[statsPlayerClientNum].sess.sessionTeam != TEAM_RED && level.clients[statsPlayerClientNum].sess.sessionTeam != TEAM_BLUE))
-		return;
-
-	char buf[8192] = { 0 };
-	for (qboolean damageTaken = qfalse; damageTaken <= qtrue; damageTaken++) {
-		Table *t = Table_Initialize(qtrue);
-
-		int numRed = 0, numBlue = 0;
-
-		// it would be visually more succinct to show the enemy team first, but it's more uniform to just always show red first regardless
-		// list red team first
-		for (int i = 0; i < level.numConnectedClients; i++) {
-			int clientNum = level.sortedClients[i];
-			if (level.clients[clientNum].sess.sessionTeam != TEAM_RED)
-				continue;
-			Table_DefineRow(t, &g_entities[clientNum]);
-			++numRed;
-		}
-
-		// then list blue team
-		if (numRed)
-			Table_AddHorizontalRule(t, 4);
-		for (int i = 0; i < level.numConnectedClients; i++) {
-			int clientNum = level.sortedClients[i];
-			if (level.clients[clientNum].sess.sessionTeam != TEAM_BLUE)
-				continue;
-			Table_DefineRow(t, &g_entities[clientNum]);
-			++numBlue;
-		}
-
-		if (!numRed && !numBlue) {
-			Table_Destroy(t);
-			return;
-		}
-
-		// define each column (one for names, and then a column for each player)
-		Table_DefineColumn(t, damageTaken ? "^5ATTACKER" : "^5TARGET", TableCallback_WeaponName, NULL, qtrue, -1, 32);
-		meansOfDeathCategoryContext_t contexts[MODC_MAX] = { 0 };
-		for (meansOfDeathCategory_t modc = MODC_FIRST; modc < MODC_MAX; modc++) {
-			contexts[modc].tablePlayerClientNum = statsPlayerClientNum;
-			contexts[modc].damageTaken = damageTaken;
-			contexts[modc].modc = modc;
-			Table_DefineColumn(t, NameForMeansOfDeathCategory(modc), TableCallback_WeaponDamage, &contexts[modc], qfalse, -1, 32);
-		}
-
-		Q_strcat(buf, sizeof(buf), va("\n^5DAMAGE %s^5 BY ^7%s^7:\n", damageTaken ? "^1TAKEN" : "^2DEALT", level.clients[statsPlayerClientNum].pers.netname));
-		int len = strlen(buf);
-		Table_WriteToBuffer(t, buf + len, sizeof(buf) - len, qtrue, numRed ? 1 : 4);
-
-		Table_Destroy(t);
-	}
-	if (announce) PrintIngame(printClientNum, buf);
-	if (outBuf) Q_strncpyz(outBuf, buf, outSize);
-}
-
-void PrintStatsTo( gentity_t *ent, const char *type, char* outputBuffer, size_t outSize, qboolean announce, int weaponStatsClientNum) {
-	qboolean winningIngame = qfalse, losingIngame = qfalse;
-	int id = ent ? ( ent - g_entities ) : -1, i;
-	const StatsDesc *desc;
-	void( *callback )( gclient_t*, int* );
-
-	if ( !VALIDSTRING( type ) ) {
-		return;
-	}
-
-	if ( g_gametype.integer != GT_CTF ) {
-		if ( id != -1 ) {
-			trap_SendServerCommand( id, "print \""S_COLOR_WHITE"Gametype is not CTF. Statistics aren't generated.\n\"" );
-		}
-
-		return;
-	}
-
-	team_t winningTeam = level.teamScores[TEAM_RED] > level.teamScores[TEAM_BLUE] ? TEAM_RED : TEAM_BLUE;
-	team_t losingTeam = OtherTeam( winningTeam );
-
-	for ( i = 0; i < level.maxclients; i++ ) {
-		if ( !g_entities[i].inuse || !g_entities[i].client ) {
-			continue;
-		}
-
-		if ( g_entities[i].client->sess.sessionTeam == winningTeam ) {
-			winningIngame = qtrue;
-		} else if ( g_entities[i].client->sess.sessionTeam == losingTeam ) {
-			losingIngame = qtrue;
-		}
-
-		if ( winningIngame && losingIngame ) {
-			break;
-		}
-	}
-
-	if ( !winningIngame && !losingIngame ) {
-		if ( id != -1 ) {
-			trap_SendServerCommand( id, "print \""S_COLOR_WHITE"Nobody is playing. Statistics aren't generated.\n\"" );
-		}
-
-		return;
-	}
-
-	if ( !Q_stricmpn( type, "gen", 3 ) ) {
-		desc = &CtfStatsDesc;
-		callback = &FillCtfStats;
-
-		// for general stats, also print the score
-		const char* s = va("%s: "S_COLOR_WHITE"%d    %s: "S_COLOR_WHITE"%d\n\n",
-			ScoreTextForTeam(winningTeam), level.teamScores[winningTeam],
-			ScoreTextForTeam(losingTeam), level.teamScores[losingTeam]);
-		if (announce) trap_SendServerCommand( id, va( "print \"%s\"", s) );
-		if (outputBuffer) Q_strcat(outputBuffer, outSize, s);
-	} else if ( !Q_stricmpn( type, "for", 3 ) ) {
-		desc = &ForceStatsDesc;
-		callback = &FillForceStats;
-	} else if (!Q_stricmpn(type, "dam", 3)) {
-		PrintDamageChart(id, outputBuffer, outSize, announce);
-		return;
-	} else if (!Q_stricmpn(type, "wea", 3)) {
-		if (weaponStatsClientNum >= 0 && weaponStatsClientNum < MAX_CLIENTS) { // a single client
-			GetWeaponChart(id, weaponStatsClientNum, outputBuffer, outSize, announce);
-		}
-		else { // everyone
-			for (int i = 0; i < MAX_CLIENTS; i++) {
-				if (g_entities[i].inuse && level.clients[i].pers.connected == CON_CONNECTED &&
-					(level.clients[i].sess.sessionTeam == TEAM_RED || level.clients[i].sess.sessionTeam == TEAM_BLUE)) {
-					GetWeaponChart(id, i, outputBuffer, outSize, announce);
-				}
-			}
-		}
-		return;
-	} else {
-		if ( id != -1 ) {
-			if (!Q_stricmp(type, "help"))
-				trap_SendServerCommand(id, "print \""S_COLOR_WHITE"Usage: "S_COLOR_CYAN"/ctfstats <general | force | damage | weapon [player]>\n\"");
-			else
-				trap_SendServerCommand( id, va( "print \""S_COLOR_WHITE"Unknown type '%s"S_COLOR_WHITE"'. Usage: "S_COLOR_CYAN"/ctfstats <general | force | damage | weapon [player]>\n\"", type ) );
-		}
-
-		return;
-	}
-
-	// print the winning team first, and don't print stats of teams that have no players
-	if ( winningIngame ) PrintTeamStats( id, winningTeam, ColorForTeam( winningTeam ), *desc, callback, qtrue, outputBuffer, outSize, announce );
-	if ( losingIngame ) PrintTeamStats( id, losingTeam, ColorForTeam( losingTeam ), *desc, callback, !winningIngame, outputBuffer, outSize, announce );
-	if (announce) trap_SendServerCommand( id, "print \"\n\"" );
-	if (outputBuffer) Q_strcat(outputBuffer, outSize, "\n");
-}
-
-void Cmd_PrintStats_f( gentity_t *ent ) {
+void Cmd_PrintStats_f(gentity_t *ent) {
 	if (trap_Argc() < 2) { // display all types if none is specified, i guess
-		PrintStatsTo(ent, "general", NULL, 0, qtrue, -1);
-		PrintStatsTo(ent, "force", NULL, 0, qtrue, -1);
-		PrintStatsTo(ent, "damage", NULL, 0, qtrue, -1);
+		Stats_Print(ent, "general", NULL, 0, qtrue, -1);
+		Stats_Print(ent, "force", NULL, 0, qtrue, -1);
+		Stats_Print(ent, "damage", NULL, 0, qtrue, -1);
 		if (ent->client->sess.sessionTeam == TEAM_RED || ent->client->sess.sessionTeam == TEAM_BLUE)
-			PrintStatsTo(ent, "weapon", NULL, 0, qtrue, ent - g_entities);
+			Stats_Print(ent, "weapon", NULL, 0, qtrue, ent - g_entities);
 	}
 	else if (trap_Argc() == 2) {
 		char subcmd[MAX_STRING_CHARS] = { 0 };
 		trap_Argv(1, subcmd, sizeof(subcmd));
-		PrintStatsTo(ent, subcmd, NULL, 0, qtrue, -1);
+		Stats_Print(ent, subcmd, NULL, 0, qtrue, -1);
 	}
 	else {
 		char subcmd[MAX_STRING_CHARS] = { 0 };
-		trap_Argv( 1, subcmd, sizeof( subcmd ) );
+		trap_Argv(1, subcmd, sizeof(subcmd));
 
 		if (!Q_stricmp(subcmd, "weapon")) {
 			char weaponPlayerArg[MAX_STRING_CHARS] = { 0 };
 			trap_Argv(2, weaponPlayerArg, sizeof(weaponPlayerArg));
 			if (weaponPlayerArg[0]) {
-				gentity_t *found = G_FindClient(weaponPlayerArg);
+				gentity_t *found = G_FindClient(weaponPlayerArg); // duoTODO: allow searching through players who ragequit, etc. also
 				if (!found) {
 					PrintIngame(ent - g_entities, "Client %s^7 not found or ambiguous. Use client number or be more specific.\n", weaponPlayerArg);
 					return;
 				}
-				PrintStatsTo(ent, subcmd, NULL, 0, qtrue, found - g_entities);
+				Stats_Print(ent, subcmd, NULL, 0, qtrue, found - g_entities);
 			}
 			else {
-				PrintStatsTo(ent, subcmd, NULL, 0, qtrue, -1);
+				Stats_Print(ent, subcmd, NULL, 0, qtrue, -1);
 			}
 		}
 		else {
-			PrintStatsTo(ent, subcmd, NULL, 0, qtrue, -1);
+			Stats_Print(ent, subcmd, NULL, 0, qtrue, -1);
 		}
 	}
 }

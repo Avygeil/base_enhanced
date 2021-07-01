@@ -718,7 +718,7 @@ void CheckAlmostCapture( gentity_t *self, gentity_t *attacker ) {
 				if ( attacker->client && attacker != self ) { // we don't want this to trigger by our own sk's
 					self->client->ps.persistant[PERS_PLAYEREVENTS] ^= PLAYEREVENT_HOLYSHIT;
 					attacker->client->ps.persistant[PERS_PLAYEREVENTS] ^= PLAYEREVENT_HOLYSHIT;
-					++attacker->client->pers.teamState.saves;
+					++attacker->client->stats->saves;
 				}
 			}
 		}
@@ -2348,10 +2348,10 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 	if ((self->client->ps.powerups[PW_BLUEFLAG] || self->client->ps.powerups[PW_REDFLAG]) && !self->client->sess.inRacemode){
 		const int thisFlaghold = G_GetAccurateTimerOnTrigger( &self->client->pers.teamState.flagsince, self, NULL );
 
-		self->client->pers.teamState.flaghold += thisFlaghold;
+		self->client->stats->totalFlagHold += thisFlaghold;
 
-		if ( thisFlaghold > self->client->pers.teamState.longestFlaghold )
-			self->client->pers.teamState.longestFlaghold = thisFlaghold;
+		if ( thisFlaghold > self->client->stats->longestFlagHold )
+			self->client->stats->longestFlagHold = thisFlaghold;
 
 		if ( self->client->ps.powerups[PW_REDFLAG] ) {
 			// carried the red flag, so blue team
@@ -5095,7 +5095,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 						&& attacker->client->sess.sessionTeam != targ->client->sess.sessionTeam
 						&& mod > MOD_UNKNOWN && mod <= MOD_FORCE_DARK ) {
 						// TODO: do we want other kinds of damage?
-						targ->client->pers.protDmgAvoided += subamt;
+						targ->client->stats->protDamageAvoided += subamt;
 					}
 
 					take -= subamt;
@@ -5136,13 +5136,24 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 			damageStatIncrease = targ->health + targ->client->ps.stats[STAT_ARMOR];
 
 		if (attacker->client->sess.sessionTeam != targ->client->sess.sessionTeam) {
-			targ->client->pers.damageTaken += damageStatIncrease;
-			attacker->client->pers.damageCaused += damageStatIncrease;
+			targ->client->stats->damageTakenTotal += damageStatIncrease;
+			attacker->client->stats->damageDealtTotal += damageStatIncrease;
 		}
 
 		if (targ - g_entities < MAX_CLIENTS && attacker - g_entities < MAX_CLIENTS) {
-			attacker->client->pers.damageCausedToPlayer[targ - g_entities] += damageStatIncrease;
-			attacker->client->pers.damageCausedToPlayerOfType[targ - g_entities][mod] += damageStatIncrease;
+			int *dmg = GetDamageGivenStatOfType(attacker->client, targ->client, mod);
+			if (dmg)
+				*dmg += damageStatIncrease;
+			dmg = GetDamageGivenStat(attacker->client, targ->client);
+			if (dmg)
+				*dmg += damageStatIncrease;
+
+			dmg = GetDamageTakenStatOfType(attacker->client, targ->client, mod);
+			if (dmg)
+				*dmg += damageStatIncrease;
+			dmg = GetDamageTakenStat(attacker->client, targ->client);
+			if (dmg)
+				*dmg += damageStatIncrease;
 		}
 	}
 

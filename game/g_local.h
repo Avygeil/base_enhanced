@@ -427,20 +427,7 @@ typedef struct {
 
 	int			location;
 
-	int			captures;
-	int			basedefense;
-	int			carrierdefense;
-	int			flagrecovery;
-	int			fragcarrier;
-	int			assists;
-
 	//special stats
-	int			th;
-	int			te;
-	int			flaghold;
-	int			longestFlaghold;
-	int			boonPickups;
-	int			saves;
 
 	int			lasthurtcarrier;
 	int			lastreturnedflag;
@@ -677,28 +664,10 @@ typedef struct {
 	int			voiceChatSentCount;
 	int			voiceChatSentTime;
 
-	//damage calculating
-	int			damageCaused;
-	int			damageTaken;
-
-	int			damageCausedToPlayer[MAX_CLIENTS];
-	int			damageCausedToPlayerOfType[MAX_CLIENTS][MOD_MAX];
-
 	// force stats
-	int			pull;
-	int			push;
-	int			healed;
-	int			energizedAlly;
-	int			energizedEnemy;
-	int			absorbed;
-	int			protDmgAvoided;
-	int			protTimeUsed;
 	int			protsince;
 
 	// speed stats
-	float		topSpeed;
-	float		displacement;
-	int			displacementSamples;
 	float		fastcapTopSpeed;
 	float		fastcapDisplacement;
 	int			fastcapDisplacementSamples;
@@ -814,6 +783,60 @@ typedef struct { //Should this store their g2 anim? for proper g2 sync?
 	float	realAngle; //Only the [YAW] is ever used for hit detection
 } clientTrail_t;
 
+typedef struct {
+	node_t		node;
+	qboolean	otherPlayerIsBot;
+	int			otherPlayerSessionId;
+	int			otherPlayerAccountId;
+	int			totalAmount;
+	int			ofType[MOD_MAX];
+} damageCounter_t;
+
+typedef struct {
+	node_t		node;
+
+	qboolean	isBot;
+	int			sessionId; // for bots, this is just their client number. replacing a bot with another bot in the same slot = same stats
+	int			accountId; // if applicable
+	char		accountName[MAX_NAME_LENGTH]; // if applicable
+	char		name[MAX_NAME_LENGTH];
+	int			clientNum; // to help print in scoreboard order
+	team_t		lastTeam; // upon joining red/blue even once, this will never be set back to spectator/free (accounts for people who go spec after playing). initializes to free
+
+	int			score;
+	int			captures;
+	int			assists;
+	int			defends;
+	int			accuracy_shots;
+	int			accuracy_hits;
+	int			accuracy; // this is only calculated on demand; don't just randomly read this (imagine getters in C)
+	int			fcKills;
+	int			rets;
+	int			boonPickups;
+	int			totalFlagHold;
+	int			longestFlagHold;
+	int			saves;
+	int			damageDealtTotal;
+	int			damageTakenTotal;
+
+	float		topSpeed;
+	float		displacement;
+	int			displacementSamples;
+	int			averageSpeed; // this is only calculated on demand; don't just randomly read this (imagine getters in C)
+
+	list_t		damageGivenList; // list of people whom this player has damaged (including ragequitters/specs)
+	list_t		damageTakenList; // list of people by whom this player has been damaged (including ragequitters/specs)
+
+	int			push;
+	int			pull;
+	int			healed;
+	int			energizedAlly;
+	int			energizedEnemy;
+	int			absorbed;
+	int			protDamageAvoided;
+	int			protTimeUsed;
+} stats_t;
+
 // this structure is cleared on each ClientSpawn(),
 // except for 'client->pers' and 'client->sess'
 struct gclient_s {
@@ -827,6 +850,7 @@ struct gclient_s {
 	// accounts
 	session_t* session;
 	account_t* account;
+	stats_t* stats;
 
 	saberInfo_t	saber[MAX_SABERS];
 	void		*weaponGhoul2[MAX_SABERS];
@@ -874,9 +898,6 @@ struct gclient_s {
 	int			damageBoxHandle_LLeg; //entity number of left leg damage box
 
 	int			accurateCount;		// for "impressive" reward sound
-
-	int			accuracy_shots;		// total number of shots
-	int			accuracy_hits;		// total number of hits
 
 	//
 	int			lastkilled_client;	// last client that this client killed
@@ -1383,6 +1404,8 @@ typedef struct {
 
 	list_t			redPlayerTickList;
 	list_t			bluePlayerTickList;
+	list_t			statsList;
+	stats_t			npcStatsDummy; // so we don't have to spam `if (client->stats)` everywhere before setting stats, just have all NPCs share one stats pointer
 
 #ifdef NEWMOD_SUPPORT
 	qboolean nmAuthEnabled;
@@ -1853,6 +1876,16 @@ extern gentity_t *gJMSaberEnt;
 void TellPlayerToRateMap(gclient_t *client);
 
 //
+// g_stats.c
+//
+void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t outSize, qboolean announce, int weaponStatsClientNum);
+void InitClientStats(gclient_t *cl);
+int *GetDamageGivenStat(gclient_t *attacker, gclient_t *victim);
+int *GetDamageGivenStatOfType(gclient_t *attacker, gclient_t *victim, meansOfDeath_t mod);
+int *GetDamageTakenStat(gclient_t *attacker, gclient_t *victim);
+int *GetDamageTakenStatOfType(gclient_t *attacker, gclient_t *victim, meansOfDeath_t mod);
+
+//
 // g_svcmds.c
 //
 qboolean	ConsoleCommand( void );
@@ -2011,10 +2044,12 @@ const char *TableCallback_Qport(void *rowContext, void *columnContext);
 const char *TableCallback_Country(void *rowContext, void *columnContext);
 const char *TableCallback_Mod(void *rowContext, void *columnContext);
 const char *TableCallback_Shadowmuted(void *rowContext, void *columnContext);
+#ifdef NEW_TABLES
 const char *TableCallback_Damage(void *rowContext, void *columnContext);
 const char *TableCallback_DamageName(void *rowContext, void *columnContext);
 const char *TableCallback_WeaponName(void *rowContext, void *columnContext);
 const char *TableCallback_WeaponDamage(void *rowContext, void *columnContext);
+#endif
 
 typedef enum {
 	MODC_FIRST = 0,

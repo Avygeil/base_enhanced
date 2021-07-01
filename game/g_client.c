@@ -3068,13 +3068,16 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 		G_PrintWelcomeMessage(client);
 	}
 
+	if ((ent->r.svFlags & SVF_BOT) && !client->stats)
+		InitClientStats(client);
+
 	TellPlayerToRateMap(client);
 
 	client->pers.connected = CON_CONNECTED;
 	client->pers.enterTime = level.time;
 	client->pers.teamState.state = TEAM_BEGIN;
-	client->accuracy_hits = 0;
-	client->accuracy_shots = 0;
+	if (client->stats)
+		client->stats->accuracy_hits = client->stats->accuracy_shots = 0;
 
 	// save eflags around this, because changing teams will
 	// cause this to happen with a valid entity, and we
@@ -3218,6 +3221,9 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 			trap_SendServerCommand( -1, va("print \"%s%s" S_COLOR_WHITE " %s\n\"", NM_SerializeUIntToColor(client - level.clients), client->pers.netname, G_GetStringEdString("MP_SVGAME", "PLENTER")) );
 		}
 	}
+
+	if (ent->client->stats && (ent->client->sess.sessionTeam == TEAM_RED || ent->client->sess.sessionTeam == TEAM_BLUE))
+		ent->client->stats->lastTeam = ent->client->sess.sessionTeam;
 
 	G_LogPrintf( "ClientBegin: %i (%s)\n", clientNum, ent->client->pers.netname );
 
@@ -3797,6 +3803,7 @@ void ClientSpawn(gentity_t *ent) {
 	clientSession_t		savedSess;
 	session_t*			savedSession;
 	account_t*			savedAccount;
+	stats_t*			savedStats;
 	int					persistant[MAX_PERSISTANT];
 	gentity_t			*spawnPoint;
 	int					flags, gameFlags;
@@ -4042,9 +4049,12 @@ void ClientSpawn(gentity_t *ent) {
 	savedSess = client->sess;
 	savedSession = client->session;
 	savedAccount = client->account;
+	savedStats = client->stats;
 	savedPing = client->ps.ping;
-	accuracy_hits = client->accuracy_hits;
-	accuracy_shots = client->accuracy_shots;
+	if (client->stats) {
+		accuracy_hits = client->stats->accuracy_hits;
+		accuracy_shots = client->stats->accuracy_shots;
+	}
 	for ( i = 0 ; i < MAX_PERSISTANT ; i++ ) {
 		persistant[i] = client->ps.persistant[i];
 	}
@@ -4138,9 +4148,12 @@ void ClientSpawn(gentity_t *ent) {
 	client->sess = savedSess;
 	client->session = savedSession;
 	client->account = savedAccount;
+	client->stats = savedStats;
 	client->ps.ping = savedPing;
-	client->accuracy_hits = accuracy_hits;
-	client->accuracy_shots = accuracy_shots;
+	if (client->stats) {
+		client->stats->accuracy_hits = accuracy_hits;
+		client->stats->accuracy_shots = accuracy_shots;
+	}
 	client->lastkilled_client = -1;
 
 	for ( i = 0 ; i < MAX_PERSISTANT ; i++ ) {
