@@ -307,6 +307,7 @@ const char *CtfStatsTableCallback_ProtTime(void *rowContext, void *columnContext
 	return FormatStatTime(stats->isTotal, stats->protTimeUsed, bestStats[stats->lastTeam].protTimeUsed, bestStats[OtherTeam(stats->lastTeam)].protTimeUsed);
 }
 
+#if 0
 const char *CtfStatsTableCallback_CtfRegionTime(void *rowContext, void *columnContext) {
 	if (!rowContext) {
 		assert(qfalse);
@@ -315,6 +316,17 @@ const char *CtfStatsTableCallback_CtfRegionTime(void *rowContext, void *columnCo
 	stats_t *stats = rowContext;
 	ctfRegion_t region = *((ctfRegion_t *)columnContext);
 	return FormatStatTime(stats->isTotal, stats->regionTime[region], bestStats[stats->lastTeam].regionTime[region], bestStats[OtherTeam(stats->lastTeam)].regionTime[region]);
+}
+#endif
+
+const char *CtfStatsTableCallback_CtfRegionPercent(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	stats_t *stats = rowContext;
+	ctfRegion_t region = *((ctfRegion_t *)columnContext);
+	return FormatStatInt(stats->isTotal, stats->regionPercent[region], bestStats[stats->lastTeam].regionPercent[region], bestStats[OtherTeam(stats->lastTeam)].regionPercent[region]);
 }
 
 #define CheckBest(field) do { if (player->field > best->field) { best->field = player->field; } }  while (0)
@@ -359,8 +371,14 @@ static void CheckBestStats(stats_t *player) {
 	CheckBest(protDamageAvoided);
 	CheckBest(protTimeUsed);
 
+	int allRegionsTime = 0;
 	for (ctfRegion_t region = CTFREGION_FLAGSTAND; region <= CTFREGION_ENEMYFLAGSTAND; region++) {
+		allRegionsTime += player->regionTime[region];
 		CheckBest(regionTime[region]);
+	}
+	for (ctfRegion_t region = CTFREGION_FLAGSTAND; region <= CTFREGION_ENEMYFLAGSTAND; region++) {
+		player->regionPercent[region] = Com_Clampi(0, 100, (int)round((float)player->regionTime[region] / (float)allRegionsTime * 100.0f));
+		CheckBest(regionPercent[region]);
 	}
 }
 
@@ -429,8 +447,13 @@ static void AddStatsToTotal(const stats_t *player, stats_t *team) {
 	AddStatToTotal(protDamageAvoided);
 	AddStatToTotal(protTimeUsed);
 
+	int allRegionsTime = 0;
 	for (ctfRegion_t region = CTFREGION_FLAGSTAND; region <= CTFREGION_ENEMYFLAGSTAND; region++) {
 		AddStatToTotal(regionTime[region]);
+		allRegionsTime += team->regionTime[region];
+	}
+	for (ctfRegion_t region = CTFREGION_FLAGSTAND; region <= CTFREGION_ENEMYFLAGSTAND; region++) {
+		team->regionPercent[region] = Com_Clampi(0, 100, (int)round((float)team->regionTime[region] / (float)allRegionsTime * 100.0f));
 	}
 }
 
@@ -568,15 +591,15 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 	}
 	else if (type == STATS_TABLE_MISC) {
 		ctfRegion_t region = CTFREGION_FLAGSTAND;
-		Table_DefineColumn(t, "^5FSTIME", CtfStatsTableCallback_CtfRegionTime, &region, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5@FS", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
 		++region;
-		Table_DefineColumn(t, "^5BASETIME", CtfStatsTableCallback_CtfRegionTime, &region, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5@BASE", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
 		++region;
-		Table_DefineColumn(t, "^5MIDTIME", CtfStatsTableCallback_CtfRegionTime, &region, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5@MID", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
 		++region;
-		Table_DefineColumn(t, "^5E-BASETIME", CtfStatsTableCallback_CtfRegionTime, &region, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5@E-BASE", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
 		++region;
-		Table_DefineColumn(t, "^5E-FSTIME", CtfStatsTableCallback_CtfRegionTime, &region, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5@E-FS", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
 	}
 
 #define TEMP_STATS_BUFFER_SIZE	(16384) // idk

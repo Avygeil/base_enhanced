@@ -848,6 +848,7 @@ typedef struct {
 	int			protDamageAvoided;
 	int			protTimeUsed;
 	int			regionTime[NUM_CTFREGIONS];
+	int			regionPercent[NUM_CTFREGIONS];
 } stats_t;
 
 // this structure is cleared on each ClientSpawn(),
