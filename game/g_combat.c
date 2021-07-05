@@ -713,7 +713,7 @@ void CheckAlmostCapture( gentity_t *self, gentity_t *attacker ) {
 		if (ent && !(ent->r.svFlags & SVF_NOCLIENT) ) {
 			// if the player was *very* close
 			VectorSubtract( self->client->ps.origin, ent->s.origin, dir );
-			if ( VectorLength(dir) < 200 ) {
+			if ( VectorLength(dir) < CTF_SAVE_DISTANCE_THRESHOLD) {
 				//self->client->ps.persistant[PERS_PLAYEREVENTS] ^= PLAYEREVENT_HOLYSHIT;
 				if ( attacker->client && attacker != self ) { // we don't want this to trigger by our own sk's
 					self->client->ps.persistant[PERS_PLAYEREVENTS] ^= PLAYEREVENT_HOLYSHIT;

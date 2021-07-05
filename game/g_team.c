@@ -934,6 +934,45 @@ int Team_TouchOurFlag( gentity_t *ent, gentity_t *other, int team ) {
 	return 0; // Do not respawn this automatically
 }
 
+// check for taking a flag from the flagstand when the enemy is right about to cap
+static void CheckGetFlagSave(gentity_t *taker, gentity_t *flag) {
+	if (!taker || !taker->client || !flag || (taker->client->sess.sessionTeam != TEAM_RED && taker->client->sess.sessionTeam != TEAM_BLUE)) {
+		assert(qfalse);
+		return;
+	}
+
+	if (flag->flags & FL_DROPPED_ITEM)
+		return; // the flag we picked up was not on the flagstand
+
+	gentity_t *enemyCarrier = NULL;
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *thisGuy = &g_entities[i];
+		if (!thisGuy->inuse || !thisGuy->client || thisGuy->client->pers.connected != CON_CONNECTED)
+			continue;
+		if (thisGuy->client->sess.sessionTeam != OtherTeam(taker->client->sess.sessionTeam))
+			continue;
+
+		powerup_t alliedFlag = taker->client->sess.sessionTeam == TEAM_RED ? PW_REDFLAG : PW_BLUEFLAG;
+		if (!thisGuy->client->ps.powerups[alliedFlag])
+			continue;
+
+		enemyCarrier = thisGuy;
+		break;
+	}
+
+	if (!enemyCarrier)
+		return;
+
+	float dist = Distance(flag->r.currentOrigin, enemyCarrier->r.currentOrigin);
+	PrintIngame(-1, "Distance is %.2f", dist); // duodebug
+	if (dist >= CTF_SAVE_DISTANCE_THRESHOLD)
+		return; // enemy carrier is too far from the flagstand
+
+	taker->client->ps.persistant[PERS_PLAYEREVENTS] ^= PLAYEREVENT_HOLYSHIT;
+	enemyCarrier->client->ps.persistant[PERS_PLAYEREVENTS] ^= PLAYEREVENT_HOLYSHIT;
+	++taker->client->stats->saves;
+}
+
 int Team_TouchEnemyFlag( gentity_t *ent, gentity_t *other, int team ) {
 	gclient_t *cl = other->client;
 	vec3_t		mins, maxs;
@@ -1005,6 +1044,8 @@ int Team_TouchEnemyFlag( gentity_t *ent, gentity_t *other, int team ) {
 			level.redTeamRunFlaghold = 0;
 		}
 	}
+
+	CheckGetFlagSave(other, ent);
 
 	// picking up the flag removes invulnerability
 	cl->ps.eFlags &= ~EF_INVULNERABLE;

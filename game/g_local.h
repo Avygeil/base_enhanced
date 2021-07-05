@@ -1893,6 +1893,7 @@ void TellPlayerToRateMap(gclient_t *client);
 //
 // g_stats.c
 //
+#define CTF_SAVE_DISTANCE_THRESHOLD		(200)
 typedef enum {
 	STATS_TABLE_GENERAL = 0,
 	STATS_TABLE_FORCE,
