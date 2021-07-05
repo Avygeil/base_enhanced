@@ -433,6 +433,35 @@ static qboolean CountsForAirshotStat(gentity_t *missile) {
 	}
 }
 
+qboolean CheckAccuracyAndAirshot(gentity_t *ent, gentity_t *other, qboolean isSurfedRocket) {
+	qboolean hitClient = qfalse;
+
+	if (LogAccuracyHit(other, &g_entities[ent->r.ownerNum]) && !ent->isReflected) {
+		g_entities[ent->r.ownerNum].client->stats->accuracy_hits++;
+		hitClient = qtrue;
+
+		if (isSurfedRocket) {
+			++other->client->stats->airs;
+		}
+		else if (other->playerState->groundEntityNum == ENTITYNUM_NONE && CountsForAirshotStat(ent)) {
+			// hit while in air; make sure the victim is decently in the air though (not just 1 nanometer from the gorund)
+			trace_t tr;
+			vec3_t down;
+			VectorCopy(other->r.currentOrigin, down);
+			down[2] -= 4096;
+			trap_Trace(&tr, other->r.currentOrigin, other->r.mins, other->r.maxs, down, other - g_entities, MASK_SOLID);
+			VectorSubtract(other->r.currentOrigin, tr.endpos, down);
+			float groundDist = VectorLength(down);
+#define AIRSHOT_GROUND_DISTANCE_THRESHOLD (50.0f)
+			if (groundDist >= AIRSHOT_GROUND_DISTANCE_THRESHOLD)
+				++other->client->stats->airs;
+			//PrintIngame(-1, "Ground distance is %0.2f\n", groundDist);
+		}
+	}
+
+	return hitClient;
+}
+
 /*
 ================
 G_MissileImpact
@@ -730,26 +759,7 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 			vec3_t	velocity;
 			qboolean didDmg = qfalse;
 
-			if( LogAccuracyHit( other, &g_entities[ent->r.ownerNum] ) &&
-				!ent->isReflected) {
-				g_entities[ent->r.ownerNum].client->stats->accuracy_hits++;
-				hitClient = qtrue;
-
-				if (other->playerState->groundEntityNum == ENTITYNUM_NONE && CountsForAirshotStat(ent)) {
-					// hit while in air; make sure the victim is decently in the air though (not just 1 nanometer from the gorund)
-					trace_t tr;
-					vec3_t down;
-					VectorCopy(other->r.currentOrigin, down);
-					down[2] -= 4096;
-					trap_Trace(&tr, other->r.currentOrigin, other->r.mins, other->r.maxs, down, other - g_entities, MASK_SOLID);
-					VectorSubtract(other->r.currentOrigin, tr.endpos, down);
-					float groundDist = VectorLength(down);
-#define AIRSHOT_GROUND_DISTANCE_THRESHOLD (50.0f)
-					if (groundDist >= AIRSHOT_GROUND_DISTANCE_THRESHOLD)
-						++other->client->stats->airs;
-					//PrintIngame(-1, "Ground distance is %0.2f\n", groundDist);
-				}
-			}
+			hitClient = CheckAccuracyAndAirshot(ent, other, qfalse);
 			BG_EvaluateTrajectoryDelta( &ent->s.pos, level.time, velocity );
 			if ( VectorLength( velocity ) == 0 ) {
 				velocity[2] = 1;	// stepped on a grenade

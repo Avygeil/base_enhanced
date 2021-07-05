@@ -3753,10 +3753,12 @@ void WP_TouchVehMissile( gentity_t *ent, gentity_t *other, trace_t *trace )
 	G_MissileImpact( ent, &myTrace );
 }
 
+extern qboolean CheckAccuracyAndAirshot(gentity_t *ent, gentity_t *other, qboolean isSurfedRocket);
 void WP_TouchRocket( gentity_t *ent, gentity_t *other, trace_t *trace )
 {
 	if ( ent )
 	{
+		CheckAccuracyAndAirshot(ent, other, qtrue);
 		ent->die( ent, NULL, NULL, ROCKET_DAMAGE, MOD_ROCKET_HOMING );
 	}
 }	 
