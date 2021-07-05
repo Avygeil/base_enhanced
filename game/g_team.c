@@ -964,7 +964,6 @@ static void CheckGetFlagSave(gentity_t *taker, gentity_t *flag) {
 		return;
 
 	float dist = Distance(flag->r.currentOrigin, enemyCarrier->r.currentOrigin);
-	PrintIngame(-1, "Distance is %.2f", dist); // duodebug
 	if (dist >= CTF_SAVE_DISTANCE_THRESHOLD)
 		return; // enemy carrier is too far from the flagstand
 
