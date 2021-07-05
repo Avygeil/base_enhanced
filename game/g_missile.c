@@ -440,7 +440,7 @@ qboolean CheckAccuracyAndAirshot(gentity_t *ent, gentity_t *other, qboolean isSu
 		g_entities[ent->r.ownerNum].client->stats->accuracy_hits++;
 		hitClient = qtrue;
 
-		if (isSurfedRocket) {
+		if (isSurfedRocket && CountsForAirshotStat(ent)) {
 			++other->client->stats->airs;
 		}
 		else if (other->playerState->groundEntityNum == ENTITYNUM_NONE && CountsForAirshotStat(ent)) {
