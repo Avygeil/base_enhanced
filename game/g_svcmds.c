@@ -3331,6 +3331,52 @@ static void Svcmd_AutoRestartCancel_f(void) {
 	level.autoStartPending = qfalse;
 }
 
+static void Svcmd_CtfStats_f(void) {
+	char buf[16384] = { 0 };
+	if (trap_Argc() < 2) { // display all types if none is specified, i guess
+		Stats_Print(NULL, "general", buf, sizeof(buf), qfalse, -1);
+		if (buf[0]) { Com_Printf(buf); buf[0] = '\0'; }
+		Stats_Print(NULL, "force", buf, sizeof(buf), qfalse, -1);
+		if (buf[0]) { Com_Printf(buf); buf[0] = '\0'; }
+		Stats_Print(NULL, "misc", buf, sizeof(buf), qfalse, -1);
+		if (buf[0]) { Com_Printf(buf); buf[0] = '\0'; }
+		Stats_Print(NULL, "damage", buf, sizeof(buf), qfalse, -1);
+		if (buf[0]) { Com_Printf(buf); }
+	}
+	else if (trap_Argc() == 2) {
+		char subcmd[MAX_STRING_CHARS] = { 0 };
+		trap_Argv(1, subcmd, sizeof(subcmd));
+		Stats_Print(NULL, subcmd, buf, sizeof(buf), qfalse, -1);
+		if (buf[0]) { Com_Printf(buf); }
+	}
+	else {
+		char subcmd[MAX_STRING_CHARS] = { 0 };
+		trap_Argv(1, subcmd, sizeof(subcmd));
+
+		if (!Q_stricmp(subcmd, "weapon")) {
+			char weaponPlayerArg[MAX_STRING_CHARS] = { 0 };
+			trap_Argv(2, weaponPlayerArg, sizeof(weaponPlayerArg));
+			if (weaponPlayerArg[0]) {
+				gentity_t *found = G_FindClient(weaponPlayerArg); // duoTODO: allow searching through players who ragequit, etc. also
+				if (!found) {
+					Com_Printf("Client %s^7 not found or ambiguous. Use client number or be more specific.\n", weaponPlayerArg);
+					return;
+				}
+				Stats_Print(found, subcmd, buf, sizeof(buf), qfalse, -1);
+				if (buf[0]) { Com_Printf(buf); }
+			}
+			else {
+				Stats_Print(NULL, subcmd, buf, sizeof(buf), qfalse, -1);
+				if (buf[0]) { Com_Printf(buf); }
+			}
+		}
+		else {
+			Stats_Print(NULL, subcmd, buf, sizeof(buf), qfalse, -1);
+			if (buf[0]) { Com_Printf(buf); }
+		}
+	}
+}
+
 #ifdef _DEBUG
 // test tick tracking for discord webhook
 static void Svcmd_DebugTicks_f(void) {
@@ -3700,6 +3746,11 @@ qboolean	ConsoleCommand( void ) {
 
 	if (!Q_stricmp(cmd, "auto_restart_cancel")) {
 		Svcmd_AutoRestartCancel_f();
+		return qtrue;
+	}
+
+	if (!Q_stricmp(cmd, "ctfstats") || !Q_stricmp(cmd, "stats")) {
+		Svcmd_CtfStats_f();
 		return qtrue;
 	}
 

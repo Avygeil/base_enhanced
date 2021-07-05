@@ -2845,6 +2845,7 @@ void BeginIntermission(void) {
 	if (g_autoStats.integer) {
 		Stats_Print(NULL, "general", statsBuf, sizeof(statsBuf), qtrue, -1);
 		Stats_Print(NULL, "force", statsBuf, sizeof(statsBuf), qtrue, -1);
+		Stats_Print(NULL, "misc", statsBuf, sizeof(statsBuf), qtrue, -1);
 		Stats_Print(NULL, "damage", statsBuf, sizeof(statsBuf), qtrue, -1);
 
 		// print each player their own individual weapon stats
@@ -5814,6 +5815,11 @@ void G_RunFrame( int levelTime ) {
 						// only track overall displacement if you are actually ingame
 						ent->client->stats->displacement += xyspeed / g_svfps.value;
 						ent->client->stats->displacementSamples++;
+						if (g_gametype.integer == GT_CTF) {
+							ctfRegion_t region = GetCTFRegion(ent);
+							if (region != CTFREGION_INVALID)
+								ent->client->stats->regionTime[region] += (int)(1000.0f / g_svfps.value);
+						}
 					}
 
 					if ( xyspeed > ent->client->stats->topSpeed ) {

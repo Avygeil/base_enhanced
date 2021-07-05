@@ -792,10 +792,21 @@ typedef struct {
 	int			ofType[MOD_MAX];
 } damageCounter_t;
 
+typedef enum {
+	CTFREGION_INVALID = -1,
+	CTFREGION_FLAGSTAND = 0,
+	CTFREGION_BASE,
+	CTFREGION_MID,
+	CTFREGION_ENEMYBASE,
+	CTFREGION_ENEMYFLAGSTAND,
+	NUM_CTFREGIONS
+} ctfRegion_t;
+
 typedef struct {
 	node_t		node;
 
 	qboolean	isBot;
+	qboolean	isTotal; // used to denote that this is the total stat for a team (for display purposes)
 	int			sessionId; // for bots, this is just their client number. replacing a bot with another bot in the same slot = same stats
 	int			accountId; // if applicable
 	char		accountName[MAX_NAME_LENGTH]; // if applicable
@@ -812,6 +823,7 @@ typedef struct {
 	int			accuracy; // this is only calculated on demand; don't just randomly read this (imagine getters in C)
 	int			fcKills;
 	int			rets;
+	int			selfkills;
 	int			boonPickups;
 	int			totalFlagHold;
 	int			longestFlagHold;
@@ -835,6 +847,7 @@ typedef struct {
 	int			absorbed;
 	int			protDamageAvoided;
 	int			protTimeUsed;
+	int			regionTime[NUM_CTFREGIONS];
 } stats_t;
 
 // this structure is cleared on each ClientSpawn(),
@@ -1425,6 +1438,8 @@ typedef struct {
 
 	float	cullDistance;
 
+	qboolean	boonExists;
+
 } level_locals_t;
 
 
@@ -1878,12 +1893,18 @@ void TellPlayerToRateMap(gclient_t *client);
 //
 // g_stats.c
 //
+typedef enum {
+	STATS_TABLE_GENERAL = 0,
+	STATS_TABLE_FORCE,
+	STATS_TABLE_MISC
+} statsTableType_t;
 void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t outSize, qboolean announce, int weaponStatsClientNum);
 void InitClientStats(gclient_t *cl);
 int *GetDamageGivenStat(gclient_t *attacker, gclient_t *victim);
 int *GetDamageGivenStatOfType(gclient_t *attacker, gclient_t *victim, meansOfDeath_t mod);
 int *GetDamageTakenStat(gclient_t *attacker, gclient_t *victim);
 int *GetDamageTakenStatOfType(gclient_t *attacker, gclient_t *victim, meansOfDeath_t mod);
+ctfRegion_t GetCTFRegion(gentity_t *ent);
 
 //
 // g_svcmds.c

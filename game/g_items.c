@@ -2885,10 +2885,11 @@ void FinishSpawningItem( gentity_t *ent ) {
 		}
 	}
 
-	if (!g_enableBoon.integer)
-	{ //if boon is disabled, don't spawn it on the map
-		if (ent->item->giType == IT_POWERUP && ent->item->giTag == PW_FORCE_BOON)
-		{
+	if (ent->item->giType == IT_POWERUP && ent->item->giTag == PW_FORCE_BOON) {
+		if (g_enableBoon.integer) {
+			level.boonExists = qtrue;
+		}
+		else { // if boon is disabled, don't spawn it on the map
 			G_FreeEntity(ent);
 			return;
 		}

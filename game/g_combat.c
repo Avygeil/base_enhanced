@@ -2275,6 +2275,9 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 	self->client->ps.pm_type = PM_DEAD;
 	self->client->ps.pm_flags &= ~PMF_STUCK_TO_WALL;
 
+	if (self->client && self->client->stats && (!attacker || self == attacker))
+		++self->client->stats->selfkills;
+
 	if ( attacker ) {
 		killer = attacker->s.number;
 		if ( attacker->client ) {
