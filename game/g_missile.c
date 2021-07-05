@@ -414,6 +414,25 @@ void G_MissileBounceEffect( gentity_t *ent, vec3_t org, vec3_t dir )
 	}
 }
 
+static qboolean CountsForAirshotStat(gentity_t *missile) {
+	assert(missile);
+	switch (missile->methodOfDeath) {
+	case MOD_BOWCASTER:
+	case MOD_REPEATER_ALT:
+	case MOD_FLECHETTE_ALT_SPLASH:
+	case MOD_ROCKET:
+	case MOD_THERMAL:
+	case MOD_CONC:
+		return qtrue;
+	case MOD_ROCKET_HOMING:
+		return !!!(missile->enemy); // alt rockets can count if they are unhomed
+	case MOD_BRYAR_PISTOL_ALT:
+		return !!(missile->s.generic1 > 1); // require a little bit of charge
+	default:
+		return qfalse;
+	}
+}
+
 /*
 ================
 G_MissileImpact
@@ -715,6 +734,21 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 				!ent->isReflected) {
 				g_entities[ent->r.ownerNum].client->stats->accuracy_hits++;
 				hitClient = qtrue;
+
+				if (other->playerState->groundEntityNum == ENTITYNUM_NONE && CountsForAirshotStat(ent)) {
+					// hit while in air; make sure the victim is decently in the air though (not just 1 nanometer from the gorund)
+					trace_t tr;
+					vec3_t down;
+					VectorCopy(other->r.currentOrigin, down);
+					down[2] -= 4096;
+					trap_Trace(&tr, other->r.currentOrigin, other->r.mins, other->r.maxs, down, other - g_entities, MASK_SOLID);
+					VectorSubtract(other->r.currentOrigin, tr.endpos, down);
+					float groundDist = VectorLength(down);
+#define AIRSHOT_GROUND_DISTANCE_THRESHOLD (50.0f)
+					if (groundDist >= AIRSHOT_GROUND_DISTANCE_THRESHOLD)
+						++other->client->stats->airs;
+					//PrintIngame(-1, "Ground distance is %0.2f\n", groundDist);
+				}
 			}
 			BG_EvaluateTrajectoryDelta( &ent->s.pos, level.time, velocity );
 			if ( VectorLength( velocity ) == 0 ) {

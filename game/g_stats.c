@@ -136,6 +136,16 @@ const char *CtfStatsTableCallback_Accuracy(void *rowContext, void *columnContext
 	return FormatStatInt(stats->isTotal, stats->accuracy, bestStats[stats->lastTeam].accuracy, bestStats[OtherTeam(stats->lastTeam)].accuracy);
 }
 
+const char *CtfStatsTableCallback_Airs(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	stats_t *stats = rowContext;
+	return FormatStatInt(stats->isTotal, stats->airs, bestStats[stats->lastTeam].airs, bestStats[OtherTeam(stats->lastTeam)].airs);
+}
+
+
 const char *CtfStatsTableCallback_FcKills(void *rowContext, void *columnContext) {
 	if (!rowContext) {
 		assert(qfalse);
@@ -344,6 +354,7 @@ static void CheckBestStats(stats_t *player) {
 	player->accuracy = player->accuracy_shots ? player->accuracy_hits * 100 / player->accuracy_shots : 0;
 	CheckBest(accuracy);
 
+	CheckBest(airs);
 	CheckBest(fcKills);
 	CheckBest(rets);
 	CheckBest(selfkills);
@@ -418,7 +429,8 @@ static void AddStatsToTotal(const stats_t *player, stats_t *team) {
 	AddStatToTotal(accuracy_shots);
 	AddStatToTotal(accuracy_hits);
 	team->accuracy = team->accuracy_shots ? team->accuracy_hits * 100 / team->accuracy_shots : 0;
-
+	
+	AddStatToTotal(airs);
 	AddStatToTotal(fcKills);
 	AddStatToTotal(rets);
 	AddStatToTotal(selfkills);
@@ -567,6 +579,7 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 		Table_DefineColumn(t, "^5DEF", CtfStatsTableCallback_Defends, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5SAV", CtfStatsTableCallback_Saves, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5ACC", CtfStatsTableCallback_Accuracy, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5AIR", CtfStatsTableCallback_Airs, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5FCKIL", CtfStatsTableCallback_FcKills, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5RET", CtfStatsTableCallback_Rets, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5SK", CtfStatsTableCallback_Selfkills, NULL, qfalse, -1, 32);

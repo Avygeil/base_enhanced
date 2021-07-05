@@ -821,6 +821,7 @@ typedef struct {
 	int			accuracy_shots;
 	int			accuracy_hits;
 	int			accuracy; // this is only calculated on demand; don't just randomly read this (imagine getters in C)
+	int			airs;
 	int			fcKills;
 	int			rets;
 	int			selfkills;
