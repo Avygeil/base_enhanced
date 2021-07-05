@@ -285,5 +285,6 @@ qboolean G_DBPrintPlayerUnratedList(int accountId, int printClientNum, const cha
 mapTier_t G_DBGetTierOfSingleMap(const char *optionalAccountIdsStr, const char *mapFileName, qboolean requireMultipleVotes);
 int GetAccountIdsStringOfIngamePlayers(char *outBuf, size_t outBufSize);
 qboolean G_DBAddCurrentMapToPlayedMapsList(void);
+int G_DBNumTimesPlayedSingleMap(const char *mapFileName);
 
 #endif //G_DATABASE_H

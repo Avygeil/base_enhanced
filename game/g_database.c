@@ -3227,3 +3227,22 @@ qboolean G_DBAddCurrentMapToPlayedMapsList(void) {
 
 	return !!(rc == SQLITE_DONE);
 }
+
+const char *sqlGetNumPlayedSingleMap = "SELECT numPlayed FROM num_played_view WHERE map = ?1;";
+int G_DBNumTimesPlayedSingleMap(const char *mapFileName) {
+	if (!VALIDSTRING(mapFileName))
+		return 0;
+
+	sqlite3_stmt *statement;
+	sqlite3_prepare(dbPtr, sqlGetNumPlayedSingleMap, -1, &statement, 0);
+	sqlite3_bind_text(statement, 1, mapFileName, -1, 0);
+	int rc = sqlite3_step(statement);
+
+	int numPlayed = 0;
+	if (rc == SQLITE_ROW)
+		numPlayed = sqlite3_column_int(statement, 0);
+
+	sqlite3_finalize(statement);
+
+	return numPlayed;
+}

@@ -5867,7 +5867,10 @@ static void Cmd_Tier_f(gentity_t *ent) {
 			return;
 		}
 
-		PrintIngame(clientNum, "Ratings for ^5%s ^7(^9%s^7):\n", mapShortName, mapFileName);
+		PrintIngame(clientNum, "Stats for ^5%s ^7(^9%s^7):\n", mapShortName, mapFileName);
+
+		int numPlays = G_DBNumTimesPlayedSingleMap(mapFileName);
+		PrintIngame(clientNum, "Matches played: %s\n", numPlays ? va("%d", numPlays) : "none");
 
 		mapTier_t currentTier = MAPTIER_INVALID;
 		char ingamePlayersStr[256] = { 0 };
