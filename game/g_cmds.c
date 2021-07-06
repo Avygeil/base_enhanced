@@ -6815,7 +6815,7 @@ void ClientCommand( int clientNum ) {
 		Cmd_Tier_f(ent);
     else if ( Q_stricmp( cmd, "whois" ) == 0 )
         Cmd_WhoIs_f( ent );
-	else if (Q_stricmp(cmd, "ctfstats") == 0)
+	else if (Q_stricmp(cmd, "ctfstats") == 0 || Q_stricmp(cmd, "stats") == 0)
 		Cmd_PrintStats_f(ent);
 	else if ( helpEnabled && ( Q_stricmp( cmd, "help" ) == 0 || Q_stricmp( cmd, "rules" ) == 0 ) )
 		Cmd_Help_f( ent );
