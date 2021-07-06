@@ -1899,7 +1899,8 @@ void TellPlayerToRateMap(gclient_t *client);
 typedef enum {
 	STATS_TABLE_GENERAL = 0,
 	STATS_TABLE_FORCE,
-	STATS_TABLE_MISC
+	STATS_TABLE_MISC,
+	STATS_TABLE_DAMAGE
 } statsTableType_t;
 void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t outSize, qboolean announce, int weaponStatsClientNum);
 void InitClientStats(gclient_t *cl);
@@ -2068,12 +2069,6 @@ const char *TableCallback_Qport(void *rowContext, void *columnContext);
 const char *TableCallback_Country(void *rowContext, void *columnContext);
 const char *TableCallback_Mod(void *rowContext, void *columnContext);
 const char *TableCallback_Shadowmuted(void *rowContext, void *columnContext);
-#ifdef NEW_TABLES
-const char *TableCallback_Damage(void *rowContext, void *columnContext);
-const char *TableCallback_DamageName(void *rowContext, void *columnContext);
-const char *TableCallback_WeaponName(void *rowContext, void *columnContext);
-const char *TableCallback_WeaponDamage(void *rowContext, void *columnContext);
-#endif
 
 typedef enum {
 	MODC_FIRST = 0,

@@ -2176,6 +2176,8 @@ void ClientUserinfoChanged( int clientNum ) {
 			else
 			{		
 				trap_SendServerCommand( -1, va("print \"%s" S_COLOR_WHITE " %s %s\n\"", oldname, G_GetStringEdString("MP_SVGAME", "PLRENAME"), client->pers.netname) );
+				if (client->stats)
+					Q_strncpyz(client->stats->name, client->pers.netname, sizeof(client->stats->name));
 				G_LogPrintf("Client num %i from %s renamed from '%s' to '%s'\n", clientNum,client->sess.ipString,
 					oldname, client->pers.netname);
 				client->pers.netnameTime = level.time + 700; //change time limit from 5s to 1s

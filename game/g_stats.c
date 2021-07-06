@@ -339,57 +339,244 @@ const char *CtfStatsTableCallback_CtfRegionPercent(void *rowContext, void *colum
 	return FormatStatInt(stats->isTotal, stats->regionPercent[region], bestStats[stats->lastTeam].regionPercent[region], bestStats[OtherTeam(stats->lastTeam)].regionPercent[region]);
 }
 
+const char *TableCallback_Damage(void *rowContext, void *columnContext) {
+	if (!rowContext || !columnContext)
+		return NULL;
+	stats_t *attacker = rowContext;
+	stats_t *victim = columnContext;
+
+	iterator_t iter;
+	ListIterate(&attacker->damageGivenList, &iter, qfalse);
+
+	damageCounter_t *damage = NULL;
+	while (IteratorHasNext(&iter)) {
+		damageCounter_t *thisGuy = IteratorNext(&iter);
+		if (thisGuy->otherPlayerSessionId != victim->sessionId)
+			continue;
+		damage = thisGuy;
+		break;
+	}
+
+	if (!damage)
+		return attacker->isTotal ? "^90" : "0";
+
+	if (attacker->isTotal)
+		return FormatStatInt(qtrue, damage ? damage->totalAmount : 0, 0, 0);
+
+	damageCounter_t *bestDamageOnTeam = NULL, *bestDamageOnOtherTeam = NULL;
+	ListIterate(attacker->lastTeam == TEAM_RED ? &bestStats[TEAM_RED].damageGivenList : &bestStats[TEAM_BLUE].damageGivenList, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		damageCounter_t *thisGuy = IteratorNext(&iter);
+		if (thisGuy->otherPlayerSessionId != victim->sessionId)
+			continue;
+		bestDamageOnTeam = thisGuy;
+		break;
+	}
+	ListIterate(attacker->lastTeam == TEAM_RED ? &bestStats[TEAM_BLUE].damageGivenList : &bestStats[TEAM_RED].damageGivenList, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		damageCounter_t *thisGuy = IteratorNext(&iter);
+		if (thisGuy->otherPlayerSessionId != victim->sessionId)
+			continue;
+		bestDamageOnOtherTeam = thisGuy;
+		break;
+	}
+
+	return FormatStatInt(attacker->isTotal, damage ? damage->totalAmount : 0, bestDamageOnTeam ? bestDamageOnTeam->totalAmount : 0, bestDamageOnOtherTeam ? bestDamageOnOtherTeam->totalAmount : 0);
+}
+
+const char *TableCallback_DamageName(void *rowContext, void *columnContext) {
+	if (!rowContext)
+		return NULL;
+	gentity_t *rowPlayer = rowContext;
+	return rowPlayer->client->pers.netname;
+}
+
+const char *TableCallback_WeaponName(void *rowContext, void *columnContext) {
+	if (!rowContext)
+		return NULL;
+	gentity_t *rowPlayer = rowContext;
+	return rowPlayer->client->pers.netname;
+}
+
+#define DamageAmount(mod) (modcContext->damageTaken ? otherPlayer->client->pers.damageCausedToPlayerOfType[tablePlayerNum][mod] : tablePlayer->client->pers.damageCausedToPlayerOfType[otherPlayerNum][mod])
+
+#if 0
+const char *TableCallback_WeaponDamage(void *rowContext, void *columnContext) {
+	if (!rowContext)
+		return NULL;
+	stats_t *otherPlayer = rowContext;
+	meansOfDeathCategoryContext_t *modcContext = columnContext;
+
+	int damage = 0;
+	gentity_t *tablePlayer = &g_entities[modcContext->tablePlayerClientNum];
+	int tablePlayerNum = modcContext->tablePlayerClientNum;
+
+	damageCounter_t *dmgPtr = damageTaken ? GetDamageTakenStat()
+
+		switch (modcContext->modc) {
+		case MODC_MELEESTUNBATON:
+			damage += DamageAmount(MOD_STUN_BATON);
+			damage += DamageAmount(MOD_MELEE);
+			break;
+		case MODC_SABER:
+			damage += DamageAmount(MOD_SABER);
+			break;
+		case MODC_PISTOL:
+			damage += DamageAmount(MOD_BRYAR_PISTOL);
+			damage += DamageAmount(MOD_BRYAR_PISTOL_ALT);
+			break;
+		case MODC_BLASTER:
+			damage += DamageAmount(MOD_BLASTER);
+			break;
+		case MODC_DISRUPTOR:
+			damage += DamageAmount(MOD_DISRUPTOR);
+			damage += DamageAmount(MOD_DISRUPTOR_SNIPER);
+			break;
+		case MODC_BOWCASTER:
+			damage += DamageAmount(MOD_BOWCASTER);
+			break;
+		case MODC_REPEATER:
+			damage += DamageAmount(MOD_REPEATER);
+			damage += DamageAmount(MOD_REPEATER_ALT);
+			damage += DamageAmount(MOD_REPEATER_ALT_SPLASH);
+			break;
+		case MODC_DEMP:
+			damage += DamageAmount(MOD_DEMP2);
+			// todo: fix demp alt fire partially using MOD_DEMP2 for some reason
+#if 1
+			damage += DamageAmount(MOD_DEMP2_ALT);
+#else
+			altDamage += DamageAmount(MOD_DEMP2_ALT);
+			showAlt = qtrue;
+#endif
+			break;
+		case MODC_GOLAN:
+			damage += DamageAmount(MOD_FLECHETTE);
+			damage += DamageAmount(MOD_FLECHETTE_ALT_SPLASH);
+			break;
+		case MODC_ROCKET:
+			damage += DamageAmount(MOD_ROCKET);
+			damage += DamageAmount(MOD_ROCKET_SPLASH);
+			damage += DamageAmount(MOD_ROCKET_HOMING);
+			damage += DamageAmount(MOD_ROCKET_HOMING_SPLASH);
+			break;
+		case MODC_CONCUSSION:
+			damage += DamageAmount(MOD_CONC);
+			damage += DamageAmount(MOD_CONC_ALT);
+			break;
+		case MODC_THERMAL:
+			damage += DamageAmount(MOD_THERMAL);
+			damage += DamageAmount(MOD_THERMAL_SPLASH);
+			break;
+		case MODC_MINE:
+			damage += DamageAmount(MOD_TRIP_MINE_SPLASH);
+			damage += DamageAmount(MOD_TIMED_MINE_SPLASH);
+			break;
+		case MODC_DETPACK:
+			damage += DamageAmount(MOD_DET_PACK_SPLASH);
+			break;
+		case MODC_FORCE:
+			damage += DamageAmount(MOD_FORCE_DARK);
+			break;
+		case MODC_FALL:
+			damage += DamageAmount(MOD_FALLING);
+			damage += DamageAmount(MOD_CRUSH);
+			damage += DamageAmount(MOD_TRIGGER_HURT);
+			break;
+		case MODC_TOTAL:
+			damage += (modcContext->damageTaken ? otherPlayer->client->pers.damageCausedToPlayer[tablePlayerNum] : tablePlayer->client->pers.damageCausedToPlayer[otherPlayerNum]);
+			break;
+		}
+
+	return va("%d", damage);
+}
+#endif
+
 #define CheckBest(field) do { if (player->field > best->field) { best->field = player->field; } }  while (0)
 
 // we use this on every player to set up the bestStats structs
 // this also sets each player's accuracy and averageSpeed
-static void CheckBestStats(stats_t *player) {
+static void CheckBestStats(stats_t *player, statsTableType_t type) {
 	assert(player);
 	stats_t *best = &bestStats[player->lastTeam];
-	CheckBest(score);
-	CheckBest(captures);
-	CheckBest(assists);
-	CheckBest(defends);
 
-	player->accuracy = player->accuracy_shots ? player->accuracy_hits * 100 / player->accuracy_shots : 0;
-	CheckBest(accuracy);
-
-	CheckBest(airs);
-	CheckBest(fcKills);
-	CheckBest(rets);
-	CheckBest(selfkills);
-	CheckBest(boonPickups);
-	CheckBest(totalFlagHold);
-	CheckBest(longestFlagHold);
-	CheckBest(saves);
-	CheckBest(boonPickups);
-	CheckBest(damageDealtTotal);
-	CheckBest(damageTakenTotal);
-	CheckBest(topSpeed);
-
-	if (player->displacementSamples)
-		player->averageSpeed = (int)floorf(((player->displacement * g_svfps.value) / player->displacementSamples) + 0.5f);
-	else
-		player->averageSpeed = (int)(player->topSpeed + 0.5f);
-	CheckBest(averageSpeed);
-
-	CheckBest(push);
-	CheckBest(pull);
-	CheckBest(healed);
-	CheckBest(energizedAlly);
-	CheckBest(energizedEnemy);
-	CheckBest(absorbed);
-	CheckBest(protDamageAvoided);
-	CheckBest(protTimeUsed);
-
-	int allRegionsTime = 0;
-	for (ctfRegion_t region = CTFREGION_FLAGSTAND; region <= CTFREGION_ENEMYFLAGSTAND; region++) {
-		allRegionsTime += player->regionTime[region];
-		CheckBest(regionTime[region]);
+	if (type == STATS_TABLE_GENERAL) {
+		CheckBest(score);
+		CheckBest(captures);
+		CheckBest(assists);
+		CheckBest(defends);
+		player->accuracy = player->accuracy_shots ? player->accuracy_hits * 100 / player->accuracy_shots : 0;
+		CheckBest(accuracy);
+		CheckBest(airs);
+		CheckBest(fcKills);
+		CheckBest(rets);
+		CheckBest(selfkills);
+		CheckBest(boonPickups);
+		CheckBest(totalFlagHold);
+		CheckBest(longestFlagHold);
+		CheckBest(saves);
+		CheckBest(boonPickups);
+		CheckBest(damageDealtTotal);
+		CheckBest(damageTakenTotal);
+		CheckBest(topSpeed);
+		if (player->displacementSamples)
+			player->averageSpeed = (int)floorf(((player->displacement * g_svfps.value) / player->displacementSamples) + 0.5f);
+		else
+			player->averageSpeed = (int)(player->topSpeed + 0.5f);
+		CheckBest(averageSpeed);
 	}
-	for (ctfRegion_t region = CTFREGION_FLAGSTAND; region <= CTFREGION_ENEMYFLAGSTAND; region++) {
-		player->regionPercent[region] = Com_Clampi(0, 100, (int)round((float)player->regionTime[region] / (float)allRegionsTime * 100.0f));
-		CheckBest(regionPercent[region]);
+	else if (type == STATS_TABLE_FORCE) {
+		CheckBest(push);
+		CheckBest(pull);
+		CheckBest(healed);
+		CheckBest(energizedAlly);
+		CheckBest(energizedEnemy);
+		CheckBest(absorbed);
+		CheckBest(protDamageAvoided);
+		CheckBest(protTimeUsed);
+	}
+	else if (type == STATS_TABLE_MISC) {
+		int allRegionsTime = 0;
+		for (ctfRegion_t region = CTFREGION_FLAGSTAND; region <= CTFREGION_ENEMYFLAGSTAND; region++) {
+			allRegionsTime += player->regionTime[region];
+			CheckBest(regionTime[region]);
+		}
+		for (ctfRegion_t region = CTFREGION_FLAGSTAND; region <= CTFREGION_ENEMYFLAGSTAND; region++) {
+			player->regionPercent[region] = Com_Clampi(0, 100, (int)round((float)player->regionTime[region] / (float)allRegionsTime * 100.0f));
+			CheckBest(regionPercent[region]);
+		}
+	}
+	else if (type == STATS_TABLE_DAMAGE) {
+		iterator_t iter;
+		ListIterate(&player->damageGivenList, &iter, qfalse);
+		while (IteratorHasNext(&iter)) {
+			const damageCounter_t *thisDamageGivenByPlayer = IteratorNext(&iter);
+			if (thisDamageGivenByPlayer->totalAmount <= 0)
+				continue;
+
+			iterator_t iter2;
+			ListIterate(&best->damageGivenList, &iter2, qfalse);
+			damageCounter_t *found = NULL;
+			while (IteratorHasNext(&iter2)) {
+				damageCounter_t *thisBestDamageOnTeam = IteratorNext(&iter2);
+				if (thisBestDamageOnTeam->otherPlayerSessionId != thisDamageGivenByPlayer->otherPlayerSessionId)
+					continue;
+				found = thisBestDamageOnTeam;
+				break;
+			}
+
+			if (found) {
+				if (thisDamageGivenByPlayer->totalAmount > found->totalAmount)
+					found->totalAmount = thisDamageGivenByPlayer->totalAmount;
+			}
+			else {
+				found = ListAdd(&best->damageGivenList, sizeof(damageCounter_t));
+				found->otherPlayerSessionId = thisDamageGivenByPlayer->otherPlayerSessionId;
+				found->otherPlayerAccountId = thisDamageGivenByPlayer->otherPlayerAccountId;
+				found->otherPlayerIsBot = thisDamageGivenByPlayer->otherPlayerIsBot;
+				found->totalAmount = thisDamageGivenByPlayer->totalAmount;
+			}
+		}
 	}
 }
 
@@ -397,6 +584,7 @@ typedef struct {
 	node_t		node;
 	int			sessionId;
 	qboolean	isBot;
+	stats_t		*stats;
 } gotPlayer_t;
 
 static qboolean PlayerMatches(genericNode_t *node, void *userData) {
@@ -418,54 +606,84 @@ static qboolean StatsValid(const stats_t *stats) {
 }
 
 #define AddStatToTotal(field) do { team->field += player->field; }  while (0)
-static void AddStatsToTotal(const stats_t *player, stats_t *team) {
+static void AddStatsToTotal(const stats_t *player, stats_t *team, statsTableType_t type) {
 	assert(player && team);
 	team->isTotal = qtrue;
-	AddStatToTotal(score);
-	AddStatToTotal(captures);
-	AddStatToTotal(assists);
-	AddStatToTotal(defends);
 
-	AddStatToTotal(accuracy_shots);
-	AddStatToTotal(accuracy_hits);
-	team->accuracy = team->accuracy_shots ? team->accuracy_hits * 100 / team->accuracy_shots : 0;
-	
-	AddStatToTotal(airs);
-	AddStatToTotal(fcKills);
-	AddStatToTotal(rets);
-	AddStatToTotal(selfkills);
-	AddStatToTotal(boonPickups);
-	AddStatToTotal(totalFlagHold);
-	AddStatToTotal(longestFlagHold);
-	AddStatToTotal(saves);
-	AddStatToTotal(boonPickups);
-	AddStatToTotal(damageDealtTotal);
-	AddStatToTotal(damageTakenTotal);
-	AddStatToTotal(topSpeed);
-
-	AddStatToTotal(displacement);
-	AddStatToTotal(displacementSamples);
-	if (team->displacementSamples)
-		team->averageSpeed = (int)floorf(((team->displacement * g_svfps.value) / team->displacementSamples) + 0.5f);
-	else
-		team->averageSpeed = (int)(team->topSpeed + 0.5f);
-
-	AddStatToTotal(push);
-	AddStatToTotal(pull);
-	AddStatToTotal(healed);
-	AddStatToTotal(energizedAlly);
-	AddStatToTotal(energizedEnemy);
-	AddStatToTotal(absorbed);
-	AddStatToTotal(protDamageAvoided);
-	AddStatToTotal(protTimeUsed);
-
-	int allRegionsTime = 0;
-	for (ctfRegion_t region = CTFREGION_FLAGSTAND; region <= CTFREGION_ENEMYFLAGSTAND; region++) {
-		AddStatToTotal(regionTime[region]);
-		allRegionsTime += team->regionTime[region];
+	if (type == STATS_TABLE_GENERAL) {
+		AddStatToTotal(score);
+		AddStatToTotal(captures);
+		AddStatToTotal(assists);
+		AddStatToTotal(defends);
+		AddStatToTotal(accuracy_shots);
+		AddStatToTotal(accuracy_hits);
+		team->accuracy = team->accuracy_shots ? team->accuracy_hits * 100 / team->accuracy_shots : 0;
+		AddStatToTotal(airs);
+		AddStatToTotal(fcKills);
+		AddStatToTotal(rets);
+		AddStatToTotal(selfkills);
+		AddStatToTotal(boonPickups);
+		AddStatToTotal(totalFlagHold);
+		AddStatToTotal(longestFlagHold);
+		AddStatToTotal(saves);
+		AddStatToTotal(damageDealtTotal);
+		AddStatToTotal(damageTakenTotal);
+		AddStatToTotal(topSpeed);
+		AddStatToTotal(displacement);
+		AddStatToTotal(displacementSamples);
+		if (team->displacementSamples)
+			team->averageSpeed = (int)floorf(((team->displacement * g_svfps.value) / team->displacementSamples) + 0.5f);
+		else
+			team->averageSpeed = (int)(team->topSpeed + 0.5f);
 	}
-	for (ctfRegion_t region = CTFREGION_FLAGSTAND; region <= CTFREGION_ENEMYFLAGSTAND; region++) {
-		team->regionPercent[region] = Com_Clampi(0, 100, (int)round((float)team->regionTime[region] / (float)allRegionsTime * 100.0f));
+	else if (type == STATS_TABLE_FORCE) {
+		AddStatToTotal(push);
+		AddStatToTotal(pull);
+		AddStatToTotal(healed);
+		AddStatToTotal(energizedAlly);
+		AddStatToTotal(energizedEnemy);
+		AddStatToTotal(absorbed);
+		AddStatToTotal(protDamageAvoided);
+		AddStatToTotal(protTimeUsed);
+	}
+	else if (type == STATS_TABLE_MISC) {
+		int allRegionsTime = 0;
+		for (ctfRegion_t region = CTFREGION_FLAGSTAND; region <= CTFREGION_ENEMYFLAGSTAND; region++) {
+			AddStatToTotal(regionTime[region]);
+			allRegionsTime += team->regionTime[region];
+		}
+		for (ctfRegion_t region = CTFREGION_FLAGSTAND; region <= CTFREGION_ENEMYFLAGSTAND; region++) {
+			team->regionPercent[region] = Com_Clampi(0, 100, (int)round((float)team->regionTime[region] / (float)allRegionsTime * 100.0f));
+		}
+	}
+	else if (type == STATS_TABLE_DAMAGE) {
+		iterator_t iter;
+		ListIterate((list_t *)&player->damageGivenList, &iter, qfalse);
+		while (IteratorHasNext(&iter)) {
+			const damageCounter_t *thisDamageGivenByPlayer = IteratorNext(&iter);
+			if (thisDamageGivenByPlayer->totalAmount <= 0)
+				continue;
+
+			iterator_t iter2;
+			ListIterate(&team->damageGivenList, &iter2, qfalse);
+			damageCounter_t *found = NULL;
+			while (IteratorHasNext(&iter2)) {
+				damageCounter_t *thisDamageGivenByTeam = IteratorNext(&iter2);
+				if (thisDamageGivenByTeam->otherPlayerSessionId != thisDamageGivenByPlayer->otherPlayerSessionId)
+					continue;
+				found = thisDamageGivenByTeam;
+				break;
+			}
+
+			if (!found) {
+				found = ListAdd(&team->damageGivenList, sizeof(damageCounter_t));
+				found->otherPlayerSessionId = thisDamageGivenByPlayer->otherPlayerSessionId;
+				found->otherPlayerAccountId = thisDamageGivenByPlayer->otherPlayerAccountId;
+				found->otherPlayerIsBot = thisDamageGivenByPlayer->otherPlayerIsBot;
+			}
+
+			found->totalAmount += thisDamageGivenByPlayer->totalAmount;
+		}
 	}
 }
 
@@ -478,6 +696,7 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 	int numWinningTeam = 0, numLosingTeam = 0;
 	qboolean didHorizontalRule = qfalse;
 	stats_t winningTeamTotalStats = { 0 }, losingTeamTotalStats = { 0 };
+	stats_t *lastWinningTeamPlayer = NULL;
 
 	// loop through level.statsList, first by connected clients only...
 	for (int j = 0; j < 2; j++) {
@@ -499,18 +718,22 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 
 				// this player will be in the stats table
 				gotPlayer_t *add = ListAdd(&gotPlayersList, sizeof(gotPlayer_t));
+				add->stats = found;
 				add->sessionId = found->sessionId;
 				add->isBot = found->isBot;
 
-				if (team == losingTeam && numWinningTeam && !didHorizontalRule) { // there were winners and this is the first loser
+				if (team == winningTeam) {
+					lastWinningTeamPlayer = found;
+				}
+				else if (team == losingTeam && numWinningTeam && !didHorizontalRule) { // there were winners and this is the first loser
 					if (numWinningTeam > 1)
 						Table_DefineRow(t, &winningTeamTotalStats);
 					Table_AddHorizontalRule(t, losingTeam == TEAM_BLUE ? 4 : 1);
 					didHorizontalRule = qtrue;
 				}
 
-				CheckBestStats(found);
-				AddStatsToTotal(found, team == winningTeam ? &winningTeamTotalStats : &losingTeamTotalStats);
+				CheckBestStats(found, type);
+				AddStatsToTotal(found, team == winningTeam ? &winningTeamTotalStats : &losingTeamTotalStats, type);
 				Table_DefineRow(t, found);
 
 				if (team == winningTeam)
@@ -538,18 +761,22 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 
 			// this player will be in the stats table
 			gotPlayer_t *add = ListAdd(&gotPlayersList, sizeof(gotPlayer_t));
+			add->stats = found;
 			add->sessionId = found->sessionId;
 			add->isBot = found->isBot;
 
-			if (team == losingTeam && numWinningTeam && !didHorizontalRule) { // there were winners and this is the first loser
+			if (team == winningTeam) {
+				lastWinningTeamPlayer = found;
+			}
+			else if (team == losingTeam && numWinningTeam && !didHorizontalRule) { // there were winners and this is the first loser
 				if (numWinningTeam > 1)
 					Table_DefineRow(t, &winningTeamTotalStats);
 				Table_AddHorizontalRule(t, losingTeam == TEAM_BLUE ? 4 : 1);
 				didHorizontalRule = qtrue;
 			}
 
-			CheckBestStats(found);
-			AddStatsToTotal(found, team == winningTeam ? &winningTeamTotalStats : &losingTeamTotalStats);
+			CheckBestStats(found, type);
+			AddStatsToTotal(found, team == winningTeam ? &winningTeamTotalStats : &losingTeamTotalStats, type);
 			Table_DefineRow(t, found);
 
 			if (team == winningTeam)
@@ -562,18 +789,17 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 	if (numLosingTeam > 1)
 		Table_DefineRow(t, &losingTeamTotalStats);
 
-	ListClear(&gotPlayersList);
-
 	if (!numWinningTeam && !numLosingTeam) {
 		Table_Destroy(t);
+		ListClear(&gotPlayersList);
 		return;
 	}
 
-	// always print name and alias
-	Table_DefineColumn(t, "^5NAME", CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
-	Table_DefineColumn(t, "^5ALIAS", CtfStatsTableCallback_Alias, NULL, qtrue, -1, 32);
+	int longestPrintLenName = 4 /*NAME*/, longestPrintLenAlias = 5 /*ALIAS*/;
 
 	if (type == STATS_TABLE_GENERAL) {
+		Table_DefineColumn(t, "^5NAME", CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
+		Table_DefineColumn(t, "^5ALIAS", CtfStatsTableCallback_Alias, NULL, qtrue, -1, 32);
 		Table_DefineColumn(t, "^5CAP", CtfStatsTableCallback_Captures, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5ASS", CtfStatsTableCallback_Assists, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5DEF", CtfStatsTableCallback_Defends, NULL, qfalse, -1, 32);
@@ -593,6 +819,8 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 		Table_DefineColumn(t, "^5AVGSPD", CtfStatsTableCallback_AverageSpeed, NULL, qfalse, -1, 32);
 	}
 	else if (type == STATS_TABLE_FORCE) {
+		Table_DefineColumn(t, "^5NAME", CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
+		Table_DefineColumn(t, "^5ALIAS", CtfStatsTableCallback_Alias, NULL, qtrue, -1, 32);
 		Table_DefineColumn(t, "^5PUSH", CtfStatsTableCallback_Push, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5PULL", CtfStatsTableCallback_Pull, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5HEAL", CtfStatsTableCallback_Healed, NULL, qfalse, -1, 32);
@@ -603,6 +831,8 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 		Table_DefineColumn(t, "^5PROTTIME", CtfStatsTableCallback_ProtTime, NULL, qfalse, -1, 32);
 	}
 	else if (type == STATS_TABLE_MISC) {
+		Table_DefineColumn(t, "^5NAME", CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
+		Table_DefineColumn(t, "^5ALIAS", CtfStatsTableCallback_Alias, NULL, qtrue, -1, 32);
 		ctfRegion_t region = CTFREGION_FLAGSTAND;
 		Table_DefineColumn(t, "^5@FS", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
 		++region;
@@ -614,94 +844,82 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 		++region;
 		Table_DefineColumn(t, "^5@E-FS", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
 	}
+	else if (type == STATS_TABLE_DAMAGE) {
+		int aliasDividerColor;
+		if (numWinningTeam) {
+			if (winningTeam == TEAM_RED)
+				aliasDividerColor = 1;
+			else
+				aliasDividerColor = 4;
+		}
+		else {
+			if (losingTeam == TEAM_RED)
+				aliasDividerColor = 1;
+			else
+				aliasDividerColor = 4;
+		}
+
+		Table_DefineColumn(t, "^5NAME", CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
+		Table_DefineColumn(t, "^5ALIAS", CtfStatsTableCallback_Alias, NULL, qtrue, aliasDividerColor, 32);
+
+		iterator_t iter;
+		ListIterate(&gotPlayersList, &iter, qfalse);
+
+		while (IteratorHasNext(&iter)) {
+			gotPlayer_t *player = IteratorNext(&iter);
+			char *clean = strdup(player->stats->name);
+			Q_CleanStr(clean);
+			Q_strupr(clean);
+			char *name = va("^5%s", clean);
+			free(clean);
+			int len = Q_PrintStrlen(name);
+			if (len > longestPrintLenName)
+				longestPrintLenName = len;
+			if (VALIDSTRING(player->stats->accountName)) {
+				len = Q_PrintStrlen(player->stats->accountName);
+				if (len > longestPrintLenAlias)
+					longestPrintLenAlias = len;
+			}
+
+			int dividerColor;
+			if (numWinningTeam && numLosingTeam && player->stats == lastWinningTeamPlayer) {
+				if (winningTeam == TEAM_RED)
+					dividerColor = 4;
+				else
+					dividerColor = 1;
+			}
+			else {
+				dividerColor = -1;
+			}
+
+			Table_DefineColumn(t, name, TableCallback_Damage, player->stats, qfalse, dividerColor, 32);
+		}
+	}
+
+	ListClear(&gotPlayersList);
 
 #define TEMP_STATS_BUFFER_SIZE	(16384) // idk
 	char *temp = malloc(TEMP_STATS_BUFFER_SIZE);
 	size_t tempSize = TEMP_STATS_BUFFER_SIZE;
-	Table_WriteToBuffer(t, temp, tempSize, qtrue, numWinningTeam ? (winningTeam == TEAM_BLUE ? 4 : 1) : (losingTeam == TEAM_BLUE ? 4 : 1));
+	memset(temp, 0, tempSize);
+	if (type == STATS_TABLE_DAMAGE) {
+		for (int i = 0; i < longestPrintLenName + 1/*`space`*/; i++)
+			Q_strcat(temp, tempSize, " ");
+		for (int i = 0; i < longestPrintLenAlias + 3/*`space + pipe + space`*/; i++)
+			Q_strcat(temp, tempSize, " ");
+		Q_strcat(temp, tempSize, "^5DAMAGE DEALT TO\n");
+		int len = strlen(temp);
+		Table_WriteToBuffer(t, temp + len, tempSize - len, qtrue, numWinningTeam ? (winningTeam == TEAM_BLUE ? 4 : 1) : (losingTeam == TEAM_BLUE ? 4 : 1));
+	}
+	else {
+		Table_WriteToBuffer(t, temp, tempSize, qtrue, numWinningTeam ? (winningTeam == TEAM_BLUE ? 4 : 1) : (losingTeam == TEAM_BLUE ? 4 : 1));
+	}
 	Table_Destroy(t);
 
 	if (announce) PrintIngame(id, temp);
 	if (outputBuffer) Q_strncpyz(outputBuffer, temp, outSize);
 
 	free(temp);
-}
-
-static void PrintDamageChart(int printClientNum, char *outBuf, size_t outSize, qboolean announce) {
-#ifdef NEW_TABLES
-	Table *t = Table_Initialize(qtrue);
-
-	// special case: the last red player gets a ^4| divider if there are blue players afterward
-	qboolean gotRed = qfalse, gotBlue = qfalse;
-	int lastRedClientNum = -1;
-	for (int i = 0; i < level.numConnectedClients; i++) {
-		int clientNum = level.sortedClients[i];
-		if (level.clients[clientNum].sess.sessionTeam == TEAM_RED) {
-			gotRed = qtrue;
-			lastRedClientNum = clientNum;
-		}
-		else if (level.clients[clientNum].sess.sessionTeam == TEAM_BLUE) {
-			gotBlue = qtrue;
-		}
-	}
-
-	if (!gotRed && !gotBlue) {
-		Table_Destroy(t);
-		return;
-	}
-
-	// define each row
-	int longestNameLen = 0;
-	for (team_t team = TEAM_RED; team <= TEAM_BLUE; team++) {
-		if (team == TEAM_RED && !gotRed)
-			continue;
-		else if (team == TEAM_BLUE && !gotBlue)
-			continue;
-
-		if (team == TEAM_BLUE && gotRed)
-			Table_AddHorizontalRule(t, 4);
-
-		for (int i = 0; i < level.numConnectedClients; i++) {
-			int clientNum = level.sortedClients[i];
-			if (level.clients[clientNum].sess.sessionTeam != team)
-				continue;
-			int len = Q_PrintStrlen(level.clients[clientNum].pers.netname);
-			if (len > longestNameLen)
-				longestNameLen = len;
-			Table_DefineRow(t, &g_entities[clientNum]);
-		}
-	}
-
-	// define each column
-	Table_DefineColumn(t, "^5NAME", TableCallback_DamageName, NULL, qtrue, gotRed ? 1 : 4, 32);
-	for (team_t team = TEAM_RED; team <= TEAM_BLUE; team++) {
-		for (int i = 0; i < level.numConnectedClients; i++) {
-			int clientNum = level.sortedClients[i];
-			if (level.clients[clientNum].sess.sessionTeam != team)
-				continue;
-			char *clean = strdup(level.clients[clientNum].pers.netname);
-			Q_CleanStr(clean);
-			Q_strupr(clean);
-			// do we need a minimum length check here for very short names?
-			char *name = va("^5%s", clean);
-			free(clean);
-			Table_DefineColumn(t, name, TableCallback_Damage, &g_entities[clientNum], qfalse, (gotRed && gotBlue && clientNum == lastRedClientNum) ? 4 : -1, 32);
-		}
-	}
-
-	// print the title above the first name column
-	char buf[8192] = { 0 };
-	for (int i = 0; i < longestNameLen + 3/*`space + pipe + space`*/; i++)
-		Q_strcat(buf, sizeof(buf), " ");
-	Q_strcat(buf, sizeof(buf), "^5DAMAGE DEALT TO\n");
-	int len = strlen(buf);
-	Table_WriteToBuffer(t, buf + len, sizeof(buf) - len, qtrue, gotRed ? 1 : 4);
-	if (announce) PrintIngame(printClientNum, buf);
-	if (outBuf) Q_strncpyz(outBuf, buf, outSize);
-	Table_Destroy(t);
-#else
-	if (outBuf) *outBuf = '\0';
-#endif
 }
 
 const char *NameForMeansOfDeathCategory(meansOfDeathCategory_t modc) {
@@ -728,7 +946,7 @@ const char *NameForMeansOfDeathCategory(meansOfDeathCategory_t modc) {
 }
 
 static void GetWeaponChart(int printClientNum, int statsPlayerClientNum, char *outBuf, size_t outSize, qboolean announce) {
-#ifdef NEW_TABLES
+#if 0
 	if (statsPlayerClientNum < 0 || statsPlayerClientNum >= MAX_CLIENTS || !g_entities[statsPlayerClientNum].inuse || level.clients[statsPlayerClientNum].pers.connected != CON_CONNECTED ||
 		(level.clients[statsPlayerClientNum].sess.sessionTeam != TEAM_RED && level.clients[statsPlayerClientNum].sess.sessionTeam != TEAM_BLUE))
 		return;
@@ -814,8 +1032,6 @@ static void GetWeaponChart(int printClientNum, int statsPlayerClientNum, char *o
 	}
 	if (announce) PrintIngame(printClientNum, buf);
 	if (outBuf) Q_strncpyz(outBuf, buf, outSize);
-#else
-	if (outBuf) *outBuf = '\0';
 #endif
 }
 
@@ -864,7 +1080,7 @@ void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t ou
 		PrintTeamStats(id, outputBuffer, outSize, announce, STATS_TABLE_MISC);
 	}
 	else if (!Q_stricmpn(type, "dam", 3)) { // damage stats
-		PrintDamageChart(id, outputBuffer, outSize, announce);
+		PrintTeamStats(id, outputBuffer, outSize, announce, STATS_TABLE_DAMAGE);
 		return;
 	}
 	else if (!Q_stricmpn(type, "wea", 3)) { // weapon stats
@@ -884,9 +1100,9 @@ void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t ou
 	else {
 		if (id != -1) {
 			if (!Q_stricmp(type, "help"))
-				trap_SendServerCommand(id, "print \""S_COLOR_WHITE"Usage: "S_COLOR_CYAN"/ctfstats <general | force | damage | weapon [player]>\n\"");
+				trap_SendServerCommand(id, "print \""S_COLOR_WHITE"Usage: "S_COLOR_CYAN"/ctfstats <general | force | misc | damage | weapon [player]>\n\"");
 			else
-				trap_SendServerCommand(id, va("print \""S_COLOR_WHITE"Unknown type '%s"S_COLOR_WHITE"'. Usage: "S_COLOR_CYAN"/ctfstats <general | force | damage | weapon [player]>\n\"", type));
+				trap_SendServerCommand(id, va("print \""S_COLOR_WHITE"Unknown type '%s"S_COLOR_WHITE"'. Usage: "S_COLOR_CYAN"/ctfstats <general | force | misc | damage | weapon [player]>\n\"", type));
 		}
 
 		return;
@@ -962,14 +1178,14 @@ static qboolean MatchesDamage(genericNode_t *node, void *userData) {
 }
 
 int *GetDamageGivenStat(gclient_t *attacker, gclient_t *victim) {
-	damageCounter_t *dmg = ListFind(&attacker->stats->damageTakenList, MatchesDamage, victim->stats, NULL);
+	damageCounter_t *dmg = ListFind(&attacker->stats->damageGivenList, MatchesDamage, victim->stats, NULL);
 
 	if (dmg) { // this guy is already tracked
 		if (!dmg->otherPlayerIsBot)
 			dmg->otherPlayerAccountId = victim->session->accountId; // update the tracked account id, in case an admin assigned him an account during this match
 	}
 	else { // not yet tracked; add him to the list
-		dmg = ListAdd(&attacker->stats->damageTakenList, sizeof(damageCounter_t));
+		dmg = ListAdd(&attacker->stats->damageGivenList, sizeof(damageCounter_t));
 		dmg->otherPlayerIsBot = !!(g_entities[victim - level.clients].r.svFlags & SVF_BOT);
 		if (dmg->otherPlayerIsBot) {
 			dmg->otherPlayerSessionId = victim - level.clients;
@@ -984,14 +1200,14 @@ int *GetDamageGivenStat(gclient_t *attacker, gclient_t *victim) {
 }
 
 int *GetDamageGivenStatOfType(gclient_t *attacker, gclient_t *victim, meansOfDeath_t mod) {
-	damageCounter_t *dmg = ListFind(&attacker->stats->damageTakenList, MatchesDamage, victim->stats, NULL);
+	damageCounter_t *dmg = ListFind(&attacker->stats->damageGivenList, MatchesDamage, victim->stats, NULL);
 
 	if (dmg) { // this guy is already tracked
 		if (!dmg->otherPlayerIsBot)
 			dmg->otherPlayerAccountId = victim->session->accountId; // update the tracked account id, in case an admin assigned him an account during this match
 	}
 	else { // not yet tracked; add him to the list
-		dmg = ListAdd(&attacker->stats->damageTakenList, sizeof(damageCounter_t));
+		dmg = ListAdd(&attacker->stats->damageGivenList, sizeof(damageCounter_t));
 		dmg->otherPlayerIsBot = !!(g_entities[victim - level.clients].r.svFlags & SVF_BOT);
 		if (dmg->otherPlayerIsBot) {
 			dmg->otherPlayerSessionId = victim - level.clients;
