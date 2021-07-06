@@ -6112,17 +6112,17 @@ void Cmd_WhoIs_f( gentity_t* ent ) {
 
 void Cmd_PrintStats_f(gentity_t *ent) {
 	if (trap_Argc() < 2) { // display all types if none is specified, i guess
-		Stats_Print(ent, "general", NULL, 0, qtrue, -1);
-		Stats_Print(ent, "force", NULL, 0, qtrue, -1);
-		Stats_Print(ent, "misc", NULL, 0, qtrue, -1);
-		Stats_Print(ent, "damage", NULL, 0, qtrue, -1);
-		if (ent->client->sess.sessionTeam == TEAM_RED || ent->client->sess.sessionTeam == TEAM_BLUE)
-			Stats_Print(ent, "weapon", NULL, 0, qtrue, ent - g_entities);
+		Stats_Print(ent, "general", NULL, 0, qtrue, NULL);
+		Stats_Print(ent, "force", NULL, 0, qtrue, NULL);
+		Stats_Print(ent, "misc", NULL, 0, qtrue, NULL);
+		Stats_Print(ent, "damage", NULL, 0, qtrue, NULL);
+		if (ent->client && ent->client->stats && StatsValid(ent->client->stats) && (ent->client->sess.sessionTeam == TEAM_RED || ent->client->sess.sessionTeam == TEAM_BLUE))
+			Stats_Print(ent, "weapon", NULL, 0, qtrue, ent->client->stats);
 	}
 	else if (trap_Argc() == 2) {
 		char subcmd[MAX_STRING_CHARS] = { 0 };
 		trap_Argv(1, subcmd, sizeof(subcmd));
-		Stats_Print(ent, subcmd, NULL, 0, qtrue, -1);
+		Stats_Print(ent, subcmd, NULL, 0, qtrue, NULL);
 	}
 	else {
 		char subcmd[MAX_STRING_CHARS] = { 0 };
@@ -6132,19 +6132,19 @@ void Cmd_PrintStats_f(gentity_t *ent) {
 			char weaponPlayerArg[MAX_STRING_CHARS] = { 0 };
 			trap_Argv(2, weaponPlayerArg, sizeof(weaponPlayerArg));
 			if (weaponPlayerArg[0]) {
-				gentity_t *found = G_FindClient(weaponPlayerArg); // duoTODO: allow searching through players who ragequit, etc. also
+				stats_t *found = GetStatsFromString(weaponPlayerArg);
 				if (!found) {
 					PrintIngame(ent - g_entities, "Client %s^7 not found or ambiguous. Use client number or be more specific.\n", weaponPlayerArg);
 					return;
 				}
-				Stats_Print(ent, subcmd, NULL, 0, qtrue, found - g_entities);
+				Stats_Print(ent, subcmd, NULL, 0, qtrue, found);
 			}
 			else {
-				Stats_Print(ent, subcmd, NULL, 0, qtrue, -1);
+				Stats_Print(ent, subcmd, NULL, 0, qtrue, NULL);
 			}
 		}
 		else {
-			Stats_Print(ent, subcmd, NULL, 0, qtrue, -1);
+			Stats_Print(ent, subcmd, NULL, 0, qtrue, NULL);
 		}
 	}
 }

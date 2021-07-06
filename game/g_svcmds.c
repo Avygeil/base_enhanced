@@ -3334,19 +3334,19 @@ static void Svcmd_AutoRestartCancel_f(void) {
 static void Svcmd_CtfStats_f(void) {
 	char buf[16384] = { 0 };
 	if (trap_Argc() < 2) { // display all types if none is specified, i guess
-		Stats_Print(NULL, "general", buf, sizeof(buf), qfalse, -1);
+		Stats_Print(NULL, "general", buf, sizeof(buf), qfalse, NULL);
 		if (buf[0]) { Com_Printf(buf); buf[0] = '\0'; }
-		Stats_Print(NULL, "force", buf, sizeof(buf), qfalse, -1);
+		Stats_Print(NULL, "force", buf, sizeof(buf), qfalse, NULL);
 		if (buf[0]) { Com_Printf(buf); buf[0] = '\0'; }
-		Stats_Print(NULL, "misc", buf, sizeof(buf), qfalse, -1);
+		Stats_Print(NULL, "misc", buf, sizeof(buf), qfalse, NULL);
 		if (buf[0]) { Com_Printf(buf); buf[0] = '\0'; }
-		Stats_Print(NULL, "damage", buf, sizeof(buf), qfalse, -1);
+		Stats_Print(NULL, "damage", buf, sizeof(buf), qfalse, NULL);
 		if (buf[0]) { Com_Printf(buf); }
 	}
 	else if (trap_Argc() == 2) {
 		char subcmd[MAX_STRING_CHARS] = { 0 };
 		trap_Argv(1, subcmd, sizeof(subcmd));
-		Stats_Print(NULL, subcmd, buf, sizeof(buf), qfalse, -1);
+		Stats_Print(NULL, subcmd, buf, sizeof(buf), qfalse, NULL);
 		if (buf[0]) { Com_Printf(buf); }
 	}
 	else {
@@ -3357,21 +3357,21 @@ static void Svcmd_CtfStats_f(void) {
 			char weaponPlayerArg[MAX_STRING_CHARS] = { 0 };
 			trap_Argv(2, weaponPlayerArg, sizeof(weaponPlayerArg));
 			if (weaponPlayerArg[0]) {
-				gentity_t *found = G_FindClient(weaponPlayerArg); // duoTODO: allow searching through players who ragequit, etc. also
+				stats_t *found = GetStatsFromString(weaponPlayerArg);
 				if (!found) {
 					Com_Printf("Client %s^7 not found or ambiguous. Use client number or be more specific.\n", weaponPlayerArg);
 					return;
 				}
-				Stats_Print(found, subcmd, buf, sizeof(buf), qfalse, -1);
+				Stats_Print(NULL, subcmd, buf, sizeof(buf), qfalse, found);
 				if (buf[0]) { Com_Printf(buf); }
 			}
 			else {
-				Stats_Print(NULL, subcmd, buf, sizeof(buf), qfalse, -1);
+				Stats_Print(NULL, subcmd, buf, sizeof(buf), qfalse, NULL);
 				if (buf[0]) { Com_Printf(buf); }
 			}
 		}
 		else {
-			Stats_Print(NULL, subcmd, buf, sizeof(buf), qfalse, -1);
+			Stats_Print(NULL, subcmd, buf, sizeof(buf), qfalse, NULL);
 			if (buf[0]) { Com_Printf(buf); }
 		}
 	}

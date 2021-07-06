@@ -1900,15 +1900,19 @@ typedef enum {
 	STATS_TABLE_GENERAL = 0,
 	STATS_TABLE_FORCE,
 	STATS_TABLE_MISC,
-	STATS_TABLE_DAMAGE
+	STATS_TABLE_DAMAGE,
+	STATS_TABLE_WEAPON_GIVEN,
+	STATS_TABLE_WEAPON_TAKEN
 } statsTableType_t;
-void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t outSize, qboolean announce, int weaponStatsClientNum);
+qboolean StatsValid(const stats_t *stats);
+void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t outSize, qboolean announce, stats_t *weaponStatsPtr);
 void InitClientStats(gclient_t *cl);
 int *GetDamageGivenStat(gclient_t *attacker, gclient_t *victim);
 int *GetDamageGivenStatOfType(gclient_t *attacker, gclient_t *victim, meansOfDeath_t mod);
 int *GetDamageTakenStat(gclient_t *attacker, gclient_t *victim);
 int *GetDamageTakenStatOfType(gclient_t *attacker, gclient_t *victim, meansOfDeath_t mod);
 ctfRegion_t GetCTFRegion(gentity_t *ent);
+stats_t *GetStatsFromString(const char *str);
 
 //
 // g_svcmds.c
@@ -2093,7 +2097,7 @@ typedef enum {
 } meansOfDeathCategory_t;
 
 typedef struct {
-	int tablePlayerClientNum;
+	stats_t *tablePlayerStats;
 	qboolean damageTaken;
 	meansOfDeathCategory_t modc;
 } meansOfDeathCategoryContext_t;

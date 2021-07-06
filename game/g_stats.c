@@ -398,99 +398,117 @@ const char *TableCallback_WeaponName(void *rowContext, void *columnContext) {
 	return rowPlayer->client->pers.netname;
 }
 
-#define DamageAmount(mod) (modcContext->damageTaken ? otherPlayer->client->pers.damageCausedToPlayerOfType[tablePlayerNum][mod] : tablePlayer->client->pers.damageCausedToPlayerOfType[otherPlayerNum][mod])
+static qboolean MatchesDamage(genericNode_t *node, void *userData) {
+	const damageCounter_t *existing = (const damageCounter_t *)node;
+	const stats_t *thisGuy = (const stats_t *)userData;
 
-#if 0
+	if (!existing || !thisGuy || thisGuy->isBot != existing->otherPlayerIsBot)
+		return qfalse;
+
+	if (thisGuy->isBot) {
+		if (thisGuy->sessionId == existing->otherPlayerSessionId)
+			return qtrue;
+		return qfalse;
+	}
+
+	/*if (thisGuy->accountId != ACCOUNT_ID_UNLINKED && thisGuy->accountId == existing->otherPlayerAccountId)
+		return qtrue; // matches a linked account*/
+
+	if (existing->otherPlayerSessionId == thisGuy->sessionId)
+		return qtrue; // matches a session
+
+	return qfalse;
+}
+
 const char *TableCallback_WeaponDamage(void *rowContext, void *columnContext) {
-	if (!rowContext)
+	if (!rowContext || !columnContext)
 		return NULL;
 	stats_t *otherPlayer = rowContext;
-	meansOfDeathCategoryContext_t *modcContext = columnContext;
+	meansOfDeathCategoryContext_t *context = columnContext;
+	stats_t *tablePlayer = context->tablePlayerStats;
+	assert(context->tablePlayerStats);
+
+	damageCounter_t *dmgPtr = ListFind(context->damageTaken ? &tablePlayer->damageTakenList : &tablePlayer->damageGivenList, MatchesDamage, otherPlayer, NULL);
+	if (!dmgPtr) {
+		if (tablePlayer->isTotal)
+			return "^90";
+		return "0";
+	}
 
 	int damage = 0;
-	gentity_t *tablePlayer = &g_entities[modcContext->tablePlayerClientNum];
-	int tablePlayerNum = modcContext->tablePlayerClientNum;
+	
 
-	damageCounter_t *dmgPtr = damageTaken ? GetDamageTakenStat()
-
-		switch (modcContext->modc) {
+		switch (context->modc) {
 		case MODC_MELEESTUNBATON:
-			damage += DamageAmount(MOD_STUN_BATON);
-			damage += DamageAmount(MOD_MELEE);
+			damage += dmgPtr->ofType[MOD_STUN_BATON];
+			damage += dmgPtr->ofType[MOD_MELEE];
 			break;
 		case MODC_SABER:
-			damage += DamageAmount(MOD_SABER);
+			damage += dmgPtr->ofType[MOD_SABER];
 			break;
 		case MODC_PISTOL:
-			damage += DamageAmount(MOD_BRYAR_PISTOL);
-			damage += DamageAmount(MOD_BRYAR_PISTOL_ALT);
+			damage += dmgPtr->ofType[MOD_BRYAR_PISTOL];
+			damage += dmgPtr->ofType[MOD_BRYAR_PISTOL_ALT];
 			break;
 		case MODC_BLASTER:
-			damage += DamageAmount(MOD_BLASTER);
+			damage += dmgPtr->ofType[MOD_BLASTER];
 			break;
 		case MODC_DISRUPTOR:
-			damage += DamageAmount(MOD_DISRUPTOR);
-			damage += DamageAmount(MOD_DISRUPTOR_SNIPER);
+			damage += dmgPtr->ofType[MOD_DISRUPTOR];
+			damage += dmgPtr->ofType[MOD_DISRUPTOR_SNIPER];
 			break;
 		case MODC_BOWCASTER:
-			damage += DamageAmount(MOD_BOWCASTER);
+			damage += dmgPtr->ofType[MOD_BOWCASTER];
 			break;
 		case MODC_REPEATER:
-			damage += DamageAmount(MOD_REPEATER);
-			damage += DamageAmount(MOD_REPEATER_ALT);
-			damage += DamageAmount(MOD_REPEATER_ALT_SPLASH);
+			damage += dmgPtr->ofType[MOD_REPEATER];
+			damage += dmgPtr->ofType[MOD_REPEATER_ALT];
+			damage += dmgPtr->ofType[MOD_REPEATER_ALT_SPLASH];
 			break;
 		case MODC_DEMP:
-			damage += DamageAmount(MOD_DEMP2);
-			// todo: fix demp alt fire partially using MOD_DEMP2 for some reason
-#if 1
-			damage += DamageAmount(MOD_DEMP2_ALT);
-#else
-			altDamage += DamageAmount(MOD_DEMP2_ALT);
-			showAlt = qtrue;
-#endif
+			damage += dmgPtr->ofType[MOD_DEMP2];
+			damage += dmgPtr->ofType[MOD_DEMP2_ALT];
 			break;
 		case MODC_GOLAN:
-			damage += DamageAmount(MOD_FLECHETTE);
-			damage += DamageAmount(MOD_FLECHETTE_ALT_SPLASH);
+			damage += dmgPtr->ofType[MOD_FLECHETTE];
+			damage += dmgPtr->ofType[MOD_FLECHETTE_ALT_SPLASH];
 			break;
 		case MODC_ROCKET:
-			damage += DamageAmount(MOD_ROCKET);
-			damage += DamageAmount(MOD_ROCKET_SPLASH);
-			damage += DamageAmount(MOD_ROCKET_HOMING);
-			damage += DamageAmount(MOD_ROCKET_HOMING_SPLASH);
+			damage += dmgPtr->ofType[MOD_ROCKET];
+			damage += dmgPtr->ofType[MOD_ROCKET_SPLASH];
+			damage += dmgPtr->ofType[MOD_ROCKET_HOMING];
+			damage += dmgPtr->ofType[MOD_ROCKET_HOMING_SPLASH];
 			break;
 		case MODC_CONCUSSION:
-			damage += DamageAmount(MOD_CONC);
-			damage += DamageAmount(MOD_CONC_ALT);
+			damage += dmgPtr->ofType[MOD_CONC];
+			damage += dmgPtr->ofType[MOD_CONC_ALT];
 			break;
 		case MODC_THERMAL:
-			damage += DamageAmount(MOD_THERMAL);
-			damage += DamageAmount(MOD_THERMAL_SPLASH);
+			damage += dmgPtr->ofType[MOD_THERMAL];
+			damage += dmgPtr->ofType[MOD_THERMAL_SPLASH];
 			break;
 		case MODC_MINE:
-			damage += DamageAmount(MOD_TRIP_MINE_SPLASH);
-			damage += DamageAmount(MOD_TIMED_MINE_SPLASH);
+			damage += dmgPtr->ofType[MOD_TRIP_MINE_SPLASH];
+			damage += dmgPtr->ofType[MOD_TIMED_MINE_SPLASH];
 			break;
 		case MODC_DETPACK:
-			damage += DamageAmount(MOD_DET_PACK_SPLASH);
+			damage += dmgPtr->ofType[MOD_DET_PACK_SPLASH];
 			break;
 		case MODC_FORCE:
-			damage += DamageAmount(MOD_FORCE_DARK);
+			damage += dmgPtr->ofType[MOD_FORCE_DARK];
 			break;
 		case MODC_FALL:
-			damage += DamageAmount(MOD_FALLING);
-			damage += DamageAmount(MOD_CRUSH);
-			damage += DamageAmount(MOD_TRIGGER_HURT);
+			damage += dmgPtr->ofType[MOD_FALLING];
+			damage += dmgPtr->ofType[MOD_CRUSH];
+			damage += dmgPtr->ofType[MOD_TRIGGER_HURT];
 			break;
 		case MODC_TOTAL:
-			damage += (modcContext->damageTaken ? otherPlayer->client->pers.damageCausedToPlayer[tablePlayerNum] : tablePlayer->client->pers.damageCausedToPlayer[otherPlayerNum]);
+			damage += dmgPtr->totalAmount;
 			break;
 		}
 
-	return va("%d", damage);
+	return va("%s%d", tablePlayer->isTotal ? "^9" : "", damage);
 }
-#endif
 
 #define CheckBest(field) do { if (player->field > best->field) { best->field = player->field; } }  while (0)
 
@@ -578,6 +596,9 @@ static void CheckBestStats(stats_t *player, statsTableType_t type) {
 			}
 		}
 	}
+	else if (type == STATS_TABLE_WEAPON_GIVEN || type == STATS_TABLE_WEAPON_TAKEN) {
+		// todo
+	}
 }
 
 typedef struct {
@@ -598,7 +619,7 @@ static qboolean PlayerMatches(genericNode_t *node, void *userData) {
 }
 
 // try to prevent people who join and immediately go spec from showing up on stats
-static qboolean StatsValid(const stats_t *stats) {
+qboolean StatsValid(const stats_t *stats) {
 	int svFps = g_svfps.integer ? g_svfps.integer : 30; // prevent divide by zero
 	if (stats->isBot || stats->displacementSamples / svFps >= 1 || stats->damageDealtTotal || stats->damageTakenTotal)
 		return qtrue;
@@ -685,9 +706,188 @@ static void AddStatsToTotal(const stats_t *player, stats_t *team, statsTableType
 			found->totalAmount += thisDamageGivenByPlayer->totalAmount;
 		}
 	}
+	else if (type == STATS_TABLE_WEAPON_GIVEN || type == STATS_TABLE_WEAPON_TAKEN) {
+		// todo
+	}
 }
 
-static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qboolean announce, statsTableType_t type) {
+stats_t *GetStatsFromString(const char *str) {
+	if (!VALIDSTRING(str))
+		return NULL;
+
+	qboolean isNum = Q_isanumber(str);
+	int num = isNum ? atoi(str) : -1;
+
+	if (isNum && num >= 0 && num < MAX_CLIENTS) {
+		// try to match the client number of a connected player
+		gentity_t *ent = &g_entities[num];
+		if (ent->inuse && ent->client && ent->client->pers.connected != CON_DISCONNECTED && ent->client->stats && StatsValid(ent->client->stats) &&
+			(ent->client->stats->lastTeam == TEAM_RED || ent->client->stats->lastTeam == TEAM_BLUE)) {
+			return ent->client->stats;
+		}
+
+		// try to match the client number of a ragequitter
+		iterator_t iter;
+		ListIterate(&level.statsList, &iter, qfalse);
+		while (IteratorHasNext(&iter)) {
+			stats_t *s = IteratorNext(&iter);
+			if (s->clientNum == num && StatsValid(s) && (s->lastTeam == TEAM_RED || s->lastTeam == TEAM_BLUE))
+				return s;
+		}
+
+		return NULL;
+	}
+
+	// look for exact matches on names and account names of online players
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *ent = &g_entities[i];
+		if (ent->inuse && ent->client && ent->client->pers.connected != CON_DISCONNECTED && ent->client->stats && StatsValid(ent->client->stats) &&
+			(ent->client->stats->lastTeam == TEAM_RED || ent->client->stats->lastTeam == TEAM_BLUE)) {
+			char *cleanPlayerName = strdup(ent->client->pers.netname[0] ? ent->client->pers.netname : "Padawan");
+			Q_CleanStr(cleanPlayerName);
+			char *cleanQuery = strdup(str);
+			Q_CleanStr(cleanQuery);
+			if (!Q_stricmp(cleanQuery, cleanPlayerName)) {
+				free(cleanPlayerName);
+				free(cleanQuery);
+				return ent->client->stats; // matched this player name
+			}
+			free(cleanPlayerName);
+
+			if (ent->client->account && ent->client->account->name[0]) {
+				char *cleanAccountName = strdup(ent->client->account->name);
+				Q_CleanStr(cleanAccountName);
+				if (!Q_stricmp(cleanQuery, cleanAccountName)) {
+					free(cleanAccountName);
+					free(cleanQuery);
+					return ent->client->stats; // matched this account name
+				}
+				free(cleanAccountName);
+			}
+			free(cleanQuery);
+		}
+	}
+
+	// look for exact matches on names and account names of ragequitters
+	iterator_t iter;
+	ListIterate(&level.statsList, &iter, qfalse);
+
+	while (IteratorHasNext(&iter)) {
+		stats_t *s = IteratorNext(&iter);
+		if (StatsValid(s) && (s->lastTeam == TEAM_RED || s->lastTeam == TEAM_BLUE)) {
+			char *cleanPlayerName = strdup(s->name);
+			Q_CleanStr(cleanPlayerName);
+			char *cleanQuery = strdup(str);
+			Q_CleanStr(cleanQuery);
+			if (!Q_stricmp(cleanQuery, cleanPlayerName)) {
+				free(cleanPlayerName);
+				free(cleanQuery);
+				return s; // matched this player name
+			}
+			free(cleanPlayerName);
+
+			if (s->accountId != ACCOUNT_ID_UNLINKED && s->accountName[0]) {
+				char *cleanAccountName = strdup(s->accountName);
+				Q_CleanStr(cleanAccountName);
+				if (!Q_stricmp(cleanQuery, cleanAccountName)) {
+					free(cleanAccountName);
+					free(cleanQuery);
+					return s; // matched this account name
+				}
+				free(cleanAccountName);
+			}
+			free(cleanQuery);
+		}
+	}
+
+	// look for partial names of ingame players
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *ent = &g_entities[i];
+		if (ent->inuse && ent->client && ent->client->pers.connected != CON_DISCONNECTED && ent->client->stats && StatsValid(ent->client->stats) &&
+			(ent->client->stats->lastTeam == TEAM_RED || ent->client->stats->lastTeam == TEAM_BLUE)) {
+			char *cleanPlayerName = strdup(ent->client->pers.netname[0] ? ent->client->pers.netname : "Padawan");
+			Q_CleanStr(cleanPlayerName);
+			char *cleanQuery = strdup(str);
+			Q_CleanStr(cleanQuery);
+			if (stristr(cleanPlayerName, cleanQuery)) {
+				free(cleanPlayerName);
+				free(cleanQuery);
+				return ent->client->stats; // matched this player name
+			}
+			free(cleanPlayerName);
+
+			if (ent->client->account && ent->client->account->name[0]) {
+				char *cleanAccountName = strdup(ent->client->account->name);
+				Q_CleanStr(cleanAccountName);
+				if (stristr(cleanAccountName, cleanQuery)) {
+					free(cleanAccountName);
+					free(cleanQuery);
+					return ent->client->stats; // matched this account name
+				}
+				free(cleanAccountName);
+			}
+			free(cleanQuery);
+		}
+	}
+
+	// look for partial names of ragequitters
+	ListIterate(&level.statsList, &iter, qfalse);
+
+	while (IteratorHasNext(&iter)) {
+		stats_t *s = IteratorNext(&iter);
+		if (StatsValid(s) && (s->lastTeam == TEAM_RED || s->lastTeam == TEAM_BLUE)) {
+			char *cleanPlayerName = strdup(s->name);
+			Q_CleanStr(cleanPlayerName);
+			char *cleanQuery = strdup(str);
+			Q_CleanStr(cleanQuery);
+			if (stristr(cleanPlayerName, cleanQuery)) {
+				free(cleanPlayerName);
+				free(cleanQuery);
+				return s; // matched this player name
+			}
+			free(cleanPlayerName);
+
+			if (s->accountId != ACCOUNT_ID_UNLINKED && s->accountName[0]) {
+				char *cleanAccountName = strdup(s->accountName);
+				Q_CleanStr(cleanAccountName);
+				if (stristr(cleanAccountName, cleanQuery)) {
+					free(cleanAccountName);
+					free(cleanQuery);
+					return s; // matched this account name
+				}
+				free(cleanAccountName);
+			}
+			free(cleanQuery);
+		}
+	}
+
+	return NULL; // no match
+}
+
+const char *NameForMeansOfDeathCategory(meansOfDeathCategory_t modc) {
+	switch (modc) {
+	case MODC_MELEESTUNBATON: return "^5MEL";
+	case MODC_SABER: return "^5SAB";
+	case MODC_PISTOL: return "^5PIS";
+	case MODC_BLASTER: return "^5BLA";
+	case MODC_DISRUPTOR: return "^5DIS";
+	case MODC_BOWCASTER: return "^5BOW";
+	case MODC_REPEATER: return "^5REP";
+	case MODC_DEMP: return "^5DMP";
+	case MODC_GOLAN: return "^5GOL";
+	case MODC_ROCKET: return "^5ROC";
+	case MODC_CONCUSSION: return "^5CON";
+	case MODC_THERMAL: return "^5THE";
+	case MODC_MINE: return "^5MIN";
+	case MODC_DETPACK: return "^5DPK";
+	case MODC_FORCE: return "^5FOR";
+	case MODC_FALL: return "^5PIT";
+	case MODC_TOTAL: return "^5TOTAL";
+	default: assert(qfalse); return NULL;
+	}
+}
+
+static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qboolean announce, statsTableType_t type, stats_t *weaponStatsPtr) {
 	Table *t = Table_Initialize(qfalse);
 	list_t gotPlayersList = { 0 };
 	memset(&bestStats, 0, sizeof(bestStats));
@@ -895,6 +1095,18 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 			Table_DefineColumn(t, name, TableCallback_Damage, player->stats, qfalse, dividerColor, 32);
 		}
 	}
+	else if (type == STATS_TABLE_WEAPON_GIVEN || type == STATS_TABLE_WEAPON_TAKEN) {
+		Table_DefineColumn(t, "^5NAME", CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
+		Table_DefineColumn(t, "^5ALIAS", CtfStatsTableCallback_Alias, NULL, qtrue, -1, 32);
+
+		for (meansOfDeathCategory_t modc = MODC_FIRST; modc < MODC_MAX; modc++) {
+			meansOfDeathCategoryContext_t context;
+			context.tablePlayerStats = weaponStatsPtr;
+			context.damageTaken = !!(type == STATS_TABLE_WEAPON_TAKEN);
+			context.modc = modc;
+			Table_DefineColumn(t, NameForMeansOfDeathCategory(modc), TableCallback_WeaponDamage, &context, qfalse, -1, 32);
+		}
+	}
 
 	ListClear(&gotPlayersList);
 
@@ -911,6 +1123,11 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 		int len = strlen(temp);
 		Table_WriteToBuffer(t, temp + len, tempSize - len, qtrue, numWinningTeam ? (winningTeam == TEAM_BLUE ? 4 : 1) : (losingTeam == TEAM_BLUE ? 4 : 1));
 	}
+	else if (type == STATS_TABLE_WEAPON_GIVEN || type == STATS_TABLE_WEAPON_TAKEN) {
+		Com_sprintf(temp, tempSize, "Damage %s^7 by %s^7:\n", type == STATS_TABLE_WEAPON_GIVEN ? "^2DEALT" : "^8TAKEN", weaponStatsPtr->name);
+		int len = strlen(temp);
+		Table_WriteToBuffer(t, temp + len, tempSize - len, qtrue, numWinningTeam ? (winningTeam == TEAM_BLUE ? 4 : 1) : (losingTeam == TEAM_BLUE ? 4 : 1));
+	}
 	else {
 		Table_WriteToBuffer(t, temp, tempSize, qtrue, numWinningTeam ? (winningTeam == TEAM_BLUE ? 4 : 1) : (losingTeam == TEAM_BLUE ? 4 : 1));
 	}
@@ -922,120 +1139,7 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 	free(temp);
 }
 
-const char *NameForMeansOfDeathCategory(meansOfDeathCategory_t modc) {
-	switch (modc) {
-	case MODC_MELEESTUNBATON: return "^5MEL";
-	case MODC_SABER: return "^5SAB";
-	case MODC_PISTOL: return "^5PIS";
-	case MODC_BLASTER: return "^5BLA";
-	case MODC_DISRUPTOR: return "^5DIS";
-	case MODC_BOWCASTER: return "^5BOW";
-	case MODC_REPEATER: return "^5REP";
-	case MODC_DEMP: return "^5DMP";
-	case MODC_GOLAN: return "^5GOL";
-	case MODC_ROCKET: return "^5RKT";
-	case MODC_CONCUSSION: return "^5CNC";
-	case MODC_THERMAL: return "^5THR";
-	case MODC_MINE: return "^5MIN";
-	case MODC_DETPACK: return "^5DPK";
-	case MODC_FORCE: return "^5FOR";
-	case MODC_FALL: return "^5PIT";
-	case MODC_TOTAL: return "^5TOTAL";
-	default: assert(qfalse); return NULL;
-	}
-}
-
-static void GetWeaponChart(int printClientNum, int statsPlayerClientNum, char *outBuf, size_t outSize, qboolean announce) {
-#if 0
-	if (statsPlayerClientNum < 0 || statsPlayerClientNum >= MAX_CLIENTS || !g_entities[statsPlayerClientNum].inuse || level.clients[statsPlayerClientNum].pers.connected != CON_CONNECTED ||
-		(level.clients[statsPlayerClientNum].sess.sessionTeam != TEAM_RED && level.clients[statsPlayerClientNum].sess.sessionTeam != TEAM_BLUE))
-		return;
-
-	char buf[8192] = { 0 };
-	for (qboolean damageTaken = qfalse; damageTaken <= qtrue; damageTaken++) {
-		Table *t = Table_Initialize(qtrue);
-
-		int numRed = 0, numBlue = 0;
-
-
-		// it would be visually more succinct to show the enemy team first, but it's more uniform to just always show red first regardless
-		// list red team first
-		for (int i = 0; i < level.numConnectedClients; i++) {
-			int findClientNum = level.sortedClients[i];
-			iterator_t iter;
-			ListIterate(&level.statsList, &iter, qfalse);
-			while (IteratorHasNext(&iter)) {
-				stats_t *found = IteratorNext(&iter);
-				if (found->clientNum != findClientNum || found->lastTeam != TEAM_RED)
-					continue;
-				Table_DefineRow(t, found);
-				++numRed;
-			}
-		}
-		// sanity pass to make sure we got everyone
-		iterator_t iter;
-		ListIterate(&level.statsList, &iter, qfalse);
-		while (IteratorHasNext(&iter)) {
-			stats_t *found = IteratorNext(&iter);
-			if (found->lastTeam != TEAM_RED)
-				continue;
-			Table_DefineRow(t, found);
-			++numRed;
-		}
-
-		// then list blue team
-		if (numRed)
-			Table_AddHorizontalRule(t, 4);
-		for (int i = 0; i < level.numConnectedClients; i++) {
-			int findClientNum = level.sortedClients[i];
-			iterator_t iter;
-			ListIterate(&level.statsList, &iter, qfalse);
-			while (IteratorHasNext(&iter)) {
-				stats_t *found = IteratorNext(&iter);
-				if (found->clientNum != findClientNum || found->lastTeam != TEAM_BLUE)
-					continue;
-				Table_DefineRow(t, found);
-				++numBlue;
-			}
-		}
-		// sanity pass to make sure we got everyone
-		iterator_t iter;
-		ListIterate(&level.statsList, &iter, qfalse);
-		while (IteratorHasNext(&iter)) {
-			stats_t *found = IteratorNext(&iter);
-			if (found->lastTeam != TEAM_BLUE)
-				continue;
-			Table_DefineRow(t, found);
-			++numBlue;
-		}
-
-		if (!numRed && !numBlue) {
-			Table_Destroy(t);
-			return;
-		}
-
-		// define each column (one for names, and then a column for each player)
-		Table_DefineColumn(t, damageTaken ? "^5ATTACKER" : "^5TARGET", TableCallback_WeaponName, NULL, qtrue, -1, 32);
-		meansOfDeathCategoryContext_t contexts[MODC_MAX] = { 0 };
-		for (meansOfDeathCategory_t modc = MODC_FIRST; modc < MODC_MAX; modc++) {
-			contexts[modc].tablePlayerClientNum = statsPlayerClientNum;
-			contexts[modc].damageTaken = damageTaken;
-			contexts[modc].modc = modc;
-			Table_DefineColumn(t, NameForMeansOfDeathCategory(modc), TableCallback_WeaponDamage, &contexts[modc], qfalse, -1, 32);
-		}
-
-		Q_strcat(buf, sizeof(buf), va("\n^5DAMAGE %s^5 BY ^7%s^7:\n", damageTaken ? "^1TAKEN" : "^2DEALT", level.clients[statsPlayerClientNum].pers.netname));
-		int len = strlen(buf);
-		Table_WriteToBuffer(t, buf + len, sizeof(buf) - len, qtrue, numRed ? 1 : 4);
-
-		Table_Destroy(t);
-	}
-	if (announce) PrintIngame(printClientNum, buf);
-	if (outBuf) Q_strncpyz(outBuf, buf, outSize);
-#endif
-}
-
-void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t outSize, qboolean announce, int weaponStatsClientNum) {
+void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t outSize, qboolean announce, stats_t *weaponStatsPtr) {
 	if (!VALIDSTRING(type))
 		return;
 
@@ -1065,33 +1169,57 @@ void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t ou
 		if (outputBuffer) {
 			Q_strncpyz(outputBuffer, s, outSize);
 			int len = strlen(outputBuffer);
-			PrintTeamStats(id, outputBuffer + len, outSize - len, announce, STATS_TABLE_GENERAL);
+			PrintTeamStats(id, outputBuffer + len, outSize - len, announce, STATS_TABLE_GENERAL, NULL);
 		}
 		else {
 			if (announce)
 				PrintIngame(id, s);
-			PrintTeamStats(id, NULL, 0, announce, STATS_TABLE_GENERAL);
+			PrintTeamStats(id, NULL, 0, announce, STATS_TABLE_GENERAL, NULL);
 		}
 	}
 	else if (!Q_stricmpn(type, "for", 3)) { // force power stats
-		PrintTeamStats(id, outputBuffer, outSize, announce, STATS_TABLE_FORCE);
+		PrintTeamStats(id, outputBuffer, outSize, announce, STATS_TABLE_FORCE, NULL);
 	}
 	else if (!Q_stricmpn(type, "mis", 3)) { // miscellaneous stats
-		PrintTeamStats(id, outputBuffer, outSize, announce, STATS_TABLE_MISC);
+		PrintTeamStats(id, outputBuffer, outSize, announce, STATS_TABLE_MISC, NULL);
 	}
 	else if (!Q_stricmpn(type, "dam", 3)) { // damage stats
-		PrintTeamStats(id, outputBuffer, outSize, announce, STATS_TABLE_DAMAGE);
+		PrintTeamStats(id, outputBuffer, outSize, announce, STATS_TABLE_DAMAGE, NULL);
 		return;
 	}
 	else if (!Q_stricmpn(type, "wea", 3)) { // weapon stats
-		if (weaponStatsClientNum >= 0 && weaponStatsClientNum < MAX_CLIENTS) { // a single client
-			GetWeaponChart(id, weaponStatsClientNum, outputBuffer, outSize, announce);
+		if (weaponStatsPtr) { // a single client
+			PrintTeamStats(id, outputBuffer, outSize, announce, STATS_TABLE_WEAPON_GIVEN, weaponStatsPtr);
+			if (outputBuffer) {
+				size_t len = strlen(outputBuffer);
+				if (len < outSize - 1)
+					PrintTeamStats(id, outputBuffer + len, outSize - len, announce, STATS_TABLE_WEAPON_TAKEN, weaponStatsPtr);
+			}
+			else {
+				PrintTeamStats(id, outputBuffer, outSize, announce, STATS_TABLE_WEAPON_TAKEN, weaponStatsPtr);
+			}
 		}
 		else { // everyone
 			for (int i = 0; i < MAX_CLIENTS; i++) {
 				if (g_entities[i].inuse && level.clients[i].pers.connected == CON_CONNECTED &&
-					(level.clients[i].sess.sessionTeam == TEAM_RED || level.clients[i].sess.sessionTeam == TEAM_BLUE)) {
-					GetWeaponChart(id, i, outputBuffer, outSize, announce);
+					(level.clients[i].sess.sessionTeam == TEAM_RED || level.clients[i].sess.sessionTeam == TEAM_BLUE) &&
+					level.clients[i].stats && StatsValid(level.clients[i].stats)) {
+					if (outputBuffer) {
+						size_t len = strlen(outputBuffer);
+						if (len < outSize - 1)
+							PrintTeamStats(id, outputBuffer + len, outSize - len, announce, STATS_TABLE_WEAPON_GIVEN, level.clients[i].stats);
+					}
+					else {
+						PrintTeamStats(id, outputBuffer, outSize, announce, STATS_TABLE_WEAPON_GIVEN, level.clients[i].stats);
+					}
+					if (outputBuffer) {
+						size_t len = strlen(outputBuffer);
+						if (len < outSize - 1)
+							PrintTeamStats(id, outputBuffer + len, outSize - len, announce, STATS_TABLE_WEAPON_TAKEN, level.clients[i].stats);
+					}
+					else {
+						PrintTeamStats(id, outputBuffer, outSize, announce, STATS_TABLE_WEAPON_TAKEN, level.clients[i].stats);
+					}
 				}
 			}
 		}
@@ -1153,28 +1281,6 @@ void InitClientStats(gclient_t *cl) {
 	Q_strncpyz(stats->name, cl->pers.netname, sizeof(stats->name));
 
 	cl->stats = stats;
-}
-
-static qboolean MatchesDamage(genericNode_t *node, void *userData) {
-	const damageCounter_t *existing = (const damageCounter_t *)node;
-	const stats_t *thisGuy = (const stats_t *)userData;
-
-	if (!existing || !thisGuy || thisGuy->isBot != existing->otherPlayerIsBot)
-		return qfalse;
-
-	if (thisGuy->isBot) {
-		if (thisGuy->sessionId == existing->otherPlayerSessionId)
-			return qtrue;
-		return qfalse;
-	}
-
-	/*if (thisGuy->accountId != ACCOUNT_ID_UNLINKED && thisGuy->accountId == existing->otherPlayerAccountId)
-		return qtrue; // matches a linked account*/
-
-	if (existing->otherPlayerSessionId == thisGuy->sessionId)
-		return qtrue; // matches a session
-
-	return qfalse;
 }
 
 int *GetDamageGivenStat(gclient_t *attacker, gclient_t *victim) {

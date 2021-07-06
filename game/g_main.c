@@ -2780,8 +2780,6 @@ BeginIntermission
 */
 //ghost debug
 
-extern void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t outSize, qboolean announce, int weaponStatsClientNum);
-
 void BeginIntermission(void) {
 	int			i;
 	gentity_t* client;
@@ -2843,17 +2841,18 @@ void BeginIntermission(void) {
 	char statsBuf[16384] = { 0 };
 
 	if (g_autoStats.integer) {
-		Stats_Print(NULL, "general", statsBuf, sizeof(statsBuf), qtrue, -1);
-		Stats_Print(NULL, "force", statsBuf, sizeof(statsBuf), qtrue, -1);
-		Stats_Print(NULL, "misc", statsBuf, sizeof(statsBuf), qtrue, -1);
-		Stats_Print(NULL, "damage", statsBuf, sizeof(statsBuf), qtrue, -1);
+		Stats_Print(NULL, "general", statsBuf, sizeof(statsBuf), qtrue, NULL);
+		Stats_Print(NULL, "force", statsBuf, sizeof(statsBuf), qtrue, NULL);
+		Stats_Print(NULL, "misc", statsBuf, sizeof(statsBuf), qtrue, NULL);
+		Stats_Print(NULL, "damage", statsBuf, sizeof(statsBuf), qtrue, NULL);
 
 		// print each player their own individual weapon stats
 		// they all go into the buffer, though
 		for (int i = 0; i < MAX_CLIENTS; i++) {
-			if (g_entities[i].inuse && level.clients[i].pers.connected == CON_CONNECTED &&
-				(level.clients[i].sess.sessionTeam == TEAM_RED || level.clients[i].sess.sessionTeam == TEAM_BLUE)) {
-				Stats_Print(&g_entities[i], "weapon", statsBuf, sizeof(statsBuf), qtrue, i);
+			if (g_entities[i].inuse && level.clients[i].pers.connected != CON_DISCONNECTED &&
+				(level.clients[i].sess.sessionTeam == TEAM_RED || level.clients[i].sess.sessionTeam == TEAM_BLUE) &&
+				level.clients[i].stats && StatsValid(level.clients[i].stats)) {
+				Stats_Print(&g_entities[i], "weapon", statsBuf, sizeof(statsBuf), qtrue, level.clients[i].stats);
 			}
 		}
 		Q_StripColor(statsBuf);
