@@ -5143,20 +5143,28 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 			attacker->client->stats->damageDealtTotal += damageStatIncrease;
 		}
 
-		if (targ - g_entities < MAX_CLIENTS && attacker - g_entities < MAX_CLIENTS) {
-			int *dmg = GetDamageGivenStatOfType(attacker->client, targ->client, mod);
+		//targ->client->stats->damageTakenOfType[mod] += damageStatIncrease;
+		//attacker->client->stats->damageDealtOfType[mod] += damageStatIncrease;
+
+		if (targ - g_entities < MAX_CLIENTS && attacker - g_entities < MAX_CLIENTS && attacker->client->stats && targ->client->stats) {
+			meansOfDeathCategory_t modc = MeansOfDeathCategoryForMeansOfDeath(mod);
+
+			int *dmg = GetDamageGivenStat(attacker->client->stats, targ->client->stats);
 			if (dmg)
 				*dmg += damageStatIncrease;
-			dmg = GetDamageGivenStat(attacker->client, targ->client);
+			dmg = GetDamageTakenStat(attacker->client->stats, targ->client->stats);
 			if (dmg)
 				*dmg += damageStatIncrease;
 
-			dmg = GetDamageTakenStatOfType(attacker->client, targ->client, mod);
-			if (dmg)
-				*dmg += damageStatIncrease;
-			dmg = GetDamageTakenStat(attacker->client, targ->client);
-			if (dmg)
-				*dmg += damageStatIncrease;
+			if (modc != MODC_INVALID) {
+				int *dmg = GetDamageGivenStatOfType(attacker->client->stats, targ->client->stats, modc);
+				if (dmg)
+					*dmg += damageStatIncrease;
+
+				dmg = GetDamageTakenStatOfType(attacker->client->stats, targ->client->stats, modc);
+				if (dmg)
+					*dmg += damageStatIncrease;
+			}
 		}
 	}
 

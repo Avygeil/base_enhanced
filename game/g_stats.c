@@ -420,101 +420,72 @@ static qboolean MatchesDamage(genericNode_t *node, void *userData) {
 	return qfalse;
 }
 
+// todo: maybe make sure every mod is handled? e.g. how does sentry damage fit into all these categories vs. total?
+meansOfDeathCategory_t MeansOfDeathCategoryForMeansOfDeath(meansOfDeath_t mod) {
+	switch (mod) {
+	case MOD_MELEE: case MOD_STUN_BATON: return MODC_MELEESTUNBATON;
+	case MOD_SABER: return MODC_SABER;
+	case MOD_BRYAR_PISTOL: case MOD_BRYAR_PISTOL_ALT: return MODC_PISTOL;
+	case MOD_BLASTER: return MODC_BLASTER;
+	case MOD_DISRUPTOR: case MOD_DISRUPTOR_SNIPER: return MODC_DISRUPTOR;
+	case MOD_BOWCASTER: return MODC_BOWCASTER;
+	case MOD_REPEATER: case MOD_REPEATER_ALT: case MOD_REPEATER_ALT_SPLASH: return MODC_REPEATER;
+	case MOD_DEMP2: case MOD_DEMP2_ALT: return MODC_DEMP;
+	case MOD_FLECHETTE: case MOD_FLECHETTE_ALT_SPLASH: return MODC_GOLAN;
+	case MOD_ROCKET: case MOD_ROCKET_HOMING: case MOD_ROCKET_HOMING_SPLASH: case MOD_ROCKET_SPLASH: return MODC_ROCKET;
+	case MOD_CONC: case MOD_CONC_ALT: return MODC_CONCUSSION;
+	case MOD_THERMAL: case MOD_THERMAL_SPLASH: return MODC_THERMAL;
+	case MOD_TRIP_MINE_SPLASH: case MOD_TIMED_MINE_SPLASH: return MODC_MINE;
+	case MOD_DET_PACK_SPLASH: return MODC_DETPACK;
+	case MOD_FORCE_DARK: return MODC_FORCE;
+	case MOD_FALLING: case MOD_CRUSH: case MOD_TRIGGER_HURT: return MODC_FALL;
+	default: return MODC_INVALID;
+	}
+}
+
 const char *TableCallback_WeaponDamage(void *rowContext, void *columnContext) {
 	if (!rowContext || !columnContext)
 		return NULL;
-	stats_t *otherPlayer = rowContext;
+	stats_t *rowPlayer = rowContext;
 	meansOfDeathCategoryContext_t *context = columnContext;
 	stats_t *tablePlayer = context->tablePlayerStats;
 	assert(context->tablePlayerStats);
 
-	damageCounter_t *dmgPtr = ListFind(context->damageTaken ? &tablePlayer->damageTakenList : &tablePlayer->damageGivenList, MatchesDamage, otherPlayer, NULL);
-	if (!dmgPtr) {
-		if (tablePlayer->isTotal)
-			return "^90";
-		return "0";
+	if (rowPlayer->isTotal) {
+		int damage = 0;
+		if (context->modc == MODC_ALL_TYPES_COMBINED) {
+			for (int i = MODC_FIRST; i < MODC_ALL_TYPES_COMBINED; i++)
+				damage += rowPlayer->damageOfType[i];
+		}
+		else {
+			damage = rowPlayer->damageOfType[context->modc];
+		}
+		return FormatStatInt(qtrue, damage, 0, 0);
 	}
 
+	int mostDamageThisTeam = bestStats[rowPlayer->lastTeam].damageOfType[context->modc];
+	int mostDamageOtherTeam = bestStats[OtherTeam(rowPlayer->lastTeam)].damageOfType[context->modc];
+
+	damageCounter_t *dmgPtr = ListFind(context->damageTaken ? &tablePlayer->damageTakenList : &tablePlayer->damageGivenList, MatchesDamage, rowPlayer, NULL);
 	int damage = 0;
-	
-
-		switch (context->modc) {
-		case MODC_MELEESTUNBATON:
-			damage += dmgPtr->ofType[MOD_STUN_BATON];
-			damage += dmgPtr->ofType[MOD_MELEE];
-			break;
-		case MODC_SABER:
-			damage += dmgPtr->ofType[MOD_SABER];
-			break;
-		case MODC_PISTOL:
-			damage += dmgPtr->ofType[MOD_BRYAR_PISTOL];
-			damage += dmgPtr->ofType[MOD_BRYAR_PISTOL_ALT];
-			break;
-		case MODC_BLASTER:
-			damage += dmgPtr->ofType[MOD_BLASTER];
-			break;
-		case MODC_DISRUPTOR:
-			damage += dmgPtr->ofType[MOD_DISRUPTOR];
-			damage += dmgPtr->ofType[MOD_DISRUPTOR_SNIPER];
-			break;
-		case MODC_BOWCASTER:
-			damage += dmgPtr->ofType[MOD_BOWCASTER];
-			break;
-		case MODC_REPEATER:
-			damage += dmgPtr->ofType[MOD_REPEATER];
-			damage += dmgPtr->ofType[MOD_REPEATER_ALT];
-			damage += dmgPtr->ofType[MOD_REPEATER_ALT_SPLASH];
-			break;
-		case MODC_DEMP:
-			damage += dmgPtr->ofType[MOD_DEMP2];
-			damage += dmgPtr->ofType[MOD_DEMP2_ALT];
-			break;
-		case MODC_GOLAN:
-			damage += dmgPtr->ofType[MOD_FLECHETTE];
-			damage += dmgPtr->ofType[MOD_FLECHETTE_ALT_SPLASH];
-			break;
-		case MODC_ROCKET:
-			damage += dmgPtr->ofType[MOD_ROCKET];
-			damage += dmgPtr->ofType[MOD_ROCKET_SPLASH];
-			damage += dmgPtr->ofType[MOD_ROCKET_HOMING];
-			damage += dmgPtr->ofType[MOD_ROCKET_HOMING_SPLASH];
-			break;
-		case MODC_CONCUSSION:
-			damage += dmgPtr->ofType[MOD_CONC];
-			damage += dmgPtr->ofType[MOD_CONC_ALT];
-			break;
-		case MODC_THERMAL:
-			damage += dmgPtr->ofType[MOD_THERMAL];
-			damage += dmgPtr->ofType[MOD_THERMAL_SPLASH];
-			break;
-		case MODC_MINE:
-			damage += dmgPtr->ofType[MOD_TRIP_MINE_SPLASH];
-			damage += dmgPtr->ofType[MOD_TIMED_MINE_SPLASH];
-			break;
-		case MODC_DETPACK:
-			damage += dmgPtr->ofType[MOD_DET_PACK_SPLASH];
-			break;
-		case MODC_FORCE:
-			damage += dmgPtr->ofType[MOD_FORCE_DARK];
-			break;
-		case MODC_FALL:
-			damage += dmgPtr->ofType[MOD_FALLING];
-			damage += dmgPtr->ofType[MOD_CRUSH];
-			damage += dmgPtr->ofType[MOD_TRIGGER_HURT];
-			break;
-		case MODC_TOTAL:
-			damage += dmgPtr->totalAmount;
-			break;
+	if (dmgPtr) {
+		if (context->modc == MODC_ALL_TYPES_COMBINED) {
+			for (int i = MODC_FIRST; i < MODC_ALL_TYPES_COMBINED; i++)
+				damage += dmgPtr->ofType[i];
 		}
+		else {
+			damage = dmgPtr->ofType[context->modc];
+		}
+	}
 
-	return va("%s%d", tablePlayer->isTotal ? "^9" : "", damage);
+	return FormatStatInt(qfalse, damage, mostDamageThisTeam, mostDamageOtherTeam);
 }
 
 #define CheckBest(field) do { if (player->field > best->field) { best->field = player->field; } }  while (0)
 
 // we use this on every player to set up the bestStats structs
 // this also sets each player's accuracy and averageSpeed
-static void CheckBestStats(stats_t *player, statsTableType_t type) {
+static void CheckBestStats(stats_t *player, statsTableType_t type, stats_t *weaponStatsPtr) {
 	assert(player);
 	stats_t *best = &bestStats[player->lastTeam];
 
@@ -596,8 +567,43 @@ static void CheckBestStats(stats_t *player, statsTableType_t type) {
 			}
 		}
 	}
-	else if (type == STATS_TABLE_WEAPON_GIVEN || type == STATS_TABLE_WEAPON_TAKEN) {
-		// todo
+	else if (type == STATS_TABLE_WEAPON_GIVEN) {
+		for (int i = 0; i < MODC_MAX; i++) {
+			if (i == MODC_ALL_TYPES_COMBINED) {
+				int damage = 0;
+				for (int i = MODC_FIRST; i < MODC_ALL_TYPES_COMBINED; i++) {
+					int *dmg = GetDamageGivenStatOfType(weaponStatsPtr, player, i);
+					if (dmg)
+						damage += *dmg;
+				}
+				if (damage > bestStats[player->lastTeam].damageOfType[i])
+					bestStats[player->lastTeam].damageOfType[i] = damage;
+			}
+			else {
+				int *dmg = GetDamageGivenStatOfType(weaponStatsPtr, player, i);
+				if (dmg && *dmg > bestStats[player->lastTeam].damageOfType[i])
+					bestStats[player->lastTeam].damageOfType[i] = *dmg;
+			}
+		}
+	}
+	else if (type == STATS_TABLE_WEAPON_TAKEN) {
+		for (int i = 0; i < MODC_MAX; i++) {
+			if (i == MODC_ALL_TYPES_COMBINED) {
+				int damage = 0;
+				for (int i = MODC_FIRST; i < MODC_ALL_TYPES_COMBINED; i++) {
+					int *dmg = GetDamageTakenStatOfType(player, weaponStatsPtr, i);
+					if (dmg)
+						damage += *dmg;
+				}
+				if (damage > bestStats[player->lastTeam].damageOfType[i])
+					bestStats[player->lastTeam].damageOfType[i] = damage;
+			}
+			else {
+				int *dmg = GetDamageTakenStatOfType(player, weaponStatsPtr, i);
+				if (dmg && *dmg > bestStats[player->lastTeam].damageOfType[i])
+					bestStats[player->lastTeam].damageOfType[i] = *dmg;
+			}
+		}
 	}
 }
 
@@ -627,9 +633,8 @@ qboolean StatsValid(const stats_t *stats) {
 }
 
 #define AddStatToTotal(field) do { team->field += player->field; }  while (0)
-static void AddStatsToTotal(const stats_t *player, stats_t *team, statsTableType_t type) {
+static void AddStatsToTotal(stats_t *player, stats_t *team, statsTableType_t type, stats_t *weaponStatsPtr) {
 	assert(player && team);
-	team->isTotal = qtrue;
 
 	if (type == STATS_TABLE_GENERAL) {
 		AddStatToTotal(score);
@@ -706,8 +711,37 @@ static void AddStatsToTotal(const stats_t *player, stats_t *team, statsTableType
 			found->totalAmount += thisDamageGivenByPlayer->totalAmount;
 		}
 	}
-	else if (type == STATS_TABLE_WEAPON_GIVEN || type == STATS_TABLE_WEAPON_TAKEN) {
-		// todo
+	else if (type == STATS_TABLE_WEAPON_GIVEN) {
+		for (int i = 0; i < MODC_MAX; i++) {
+			if (i == MODC_ALL_TYPES_COMBINED) {
+				for (int i = MODC_FIRST; i < MODC_ALL_TYPES_COMBINED; i++) {
+					int *dmg = GetDamageGivenStatOfType(weaponStatsPtr, player, i);
+					if (dmg)
+						team->damageOfType[i] += *dmg;
+				}
+			}
+			else {
+				int *dmg = GetDamageGivenStatOfType(weaponStatsPtr, player, i);
+				if (dmg && *dmg > bestStats[player->lastTeam].damageOfType[i])
+					team->damageOfType[i] += *dmg;
+			}
+		}
+	}
+	else if (type == STATS_TABLE_WEAPON_TAKEN) {
+		for (int i = 0; i < MODC_MAX; i++) {
+			if (i == MODC_ALL_TYPES_COMBINED) {
+				for (int i = MODC_FIRST; i < MODC_ALL_TYPES_COMBINED; i++) {
+					int *dmg = GetDamageTakenStatOfType(player, weaponStatsPtr, i);
+					if (dmg)
+						team->damageOfType[i] += *dmg;
+				}
+			}
+			else {
+				int *dmg = GetDamageTakenStatOfType(player, weaponStatsPtr, i);
+				if (dmg && *dmg > bestStats[player->lastTeam].damageOfType[i])
+					team->damageOfType[i] += *dmg;
+			}
+		}
 	}
 }
 
@@ -882,7 +916,7 @@ const char *NameForMeansOfDeathCategory(meansOfDeathCategory_t modc) {
 	case MODC_DETPACK: return "^5DPK";
 	case MODC_FORCE: return "^5FOR";
 	case MODC_FALL: return "^5PIT";
-	case MODC_TOTAL: return "^5TOTAL";
+	case MODC_ALL_TYPES_COMBINED: return "^5TOTAL";
 	default: assert(qfalse); return NULL;
 	}
 }
@@ -896,6 +930,9 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 	int numWinningTeam = 0, numLosingTeam = 0;
 	qboolean didHorizontalRule = qfalse;
 	stats_t winningTeamTotalStats = { 0 }, losingTeamTotalStats = { 0 };
+	winningTeamTotalStats.isTotal = losingTeamTotalStats.isTotal = qtrue;
+	winningTeamTotalStats.lastTeam = winningTeam;
+	losingTeamTotalStats.lastTeam = losingTeam;
 	stats_t *lastWinningTeamPlayer = NULL;
 
 	// loop through level.statsList, first by connected clients only...
@@ -932,8 +969,8 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 					didHorizontalRule = qtrue;
 				}
 
-				CheckBestStats(found, type);
-				AddStatsToTotal(found, team == winningTeam ? &winningTeamTotalStats : &losingTeamTotalStats, type);
+				CheckBestStats(found, type, weaponStatsPtr);
+				AddStatsToTotal(found, team == winningTeam ? &winningTeamTotalStats : &losingTeamTotalStats, type, weaponStatsPtr);
 				Table_DefineRow(t, found);
 
 				if (team == winningTeam)
@@ -975,8 +1012,8 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 				didHorizontalRule = qtrue;
 			}
 
-			CheckBestStats(found, type);
-			AddStatsToTotal(found, team == winningTeam ? &winningTeamTotalStats : &losingTeamTotalStats, type);
+			CheckBestStats(found, type, weaponStatsPtr);
+			AddStatsToTotal(found, team == winningTeam ? &winningTeamTotalStats : &losingTeamTotalStats, type, weaponStatsPtr);
 			Table_DefineRow(t, found);
 
 			if (team == winningTeam)
@@ -1124,7 +1161,7 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 		Table_WriteToBuffer(t, temp + len, tempSize - len, qtrue, numWinningTeam ? (winningTeam == TEAM_BLUE ? 4 : 1) : (losingTeam == TEAM_BLUE ? 4 : 1));
 	}
 	else if (type == STATS_TABLE_WEAPON_GIVEN || type == STATS_TABLE_WEAPON_TAKEN) {
-		Com_sprintf(temp, tempSize, "Damage %s^7 by %s^7:\n", type == STATS_TABLE_WEAPON_GIVEN ? "^2DEALT" : "^8TAKEN", weaponStatsPtr->name);
+		Com_sprintf(temp, tempSize, "%s^7 by %s^7:\n", type == STATS_TABLE_WEAPON_GIVEN ? "^2DAMAGE DEALT" : "^8DAMAGE TAKEN", weaponStatsPtr->name);
 		int len = strlen(temp);
 		Table_WriteToBuffer(t, temp + len, tempSize - len, qtrue, numWinningTeam ? (winningTeam == TEAM_BLUE ? 4 : 1) : (losingTeam == TEAM_BLUE ? 4 : 1));
 	}
@@ -1283,92 +1320,96 @@ void InitClientStats(gclient_t *cl) {
 	cl->stats = stats;
 }
 
-int *GetDamageGivenStat(gclient_t *attacker, gclient_t *victim) {
-	damageCounter_t *dmg = ListFind(&attacker->stats->damageGivenList, MatchesDamage, victim->stats, NULL);
+int *GetDamageGivenStat(stats_t *attacker, stats_t *victim) {
+	damageCounter_t *dmg = ListFind(&attacker->damageGivenList, MatchesDamage, victim, NULL);
 
 	if (dmg) { // this guy is already tracked
 		if (!dmg->otherPlayerIsBot)
-			dmg->otherPlayerAccountId = victim->session->accountId; // update the tracked account id, in case an admin assigned him an account during this match
+			dmg->otherPlayerAccountId = victim->accountId; // update the tracked account id, in case an admin assigned him an account during this match
 	}
 	else { // not yet tracked; add him to the list
-		dmg = ListAdd(&attacker->stats->damageGivenList, sizeof(damageCounter_t));
-		dmg->otherPlayerIsBot = !!(g_entities[victim - level.clients].r.svFlags & SVF_BOT);
+		dmg = ListAdd(&attacker->damageGivenList, sizeof(damageCounter_t));
+		dmg->otherPlayerIsBot = victim->isBot;
+		dmg->otherPlayerStats = victim;
 		if (dmg->otherPlayerIsBot) {
-			dmg->otherPlayerSessionId = victim - level.clients;
+			dmg->otherPlayerSessionId = victim->clientNum;
 		}
 		else {
-			dmg->otherPlayerSessionId = victim->session->id;
-			dmg->otherPlayerAccountId = victim->session->accountId;
+			dmg->otherPlayerSessionId = victim->sessionId;
+			dmg->otherPlayerAccountId = victim->accountId;
 		}
 	}
 
 	return &dmg->totalAmount;
 }
 
-int *GetDamageGivenStatOfType(gclient_t *attacker, gclient_t *victim, meansOfDeath_t mod) {
-	damageCounter_t *dmg = ListFind(&attacker->stats->damageGivenList, MatchesDamage, victim->stats, NULL);
+int *GetDamageGivenStatOfType(stats_t *attacker, stats_t *victim, meansOfDeathCategory_t modc) {
+	damageCounter_t *dmg = ListFind(&attacker->damageGivenList, MatchesDamage, victim, NULL);
 
 	if (dmg) { // this guy is already tracked
 		if (!dmg->otherPlayerIsBot)
-			dmg->otherPlayerAccountId = victim->session->accountId; // update the tracked account id, in case an admin assigned him an account during this match
+			dmg->otherPlayerAccountId = victim->accountId; // update the tracked account id, in case an admin assigned him an account during this match
 	}
 	else { // not yet tracked; add him to the list
-		dmg = ListAdd(&attacker->stats->damageGivenList, sizeof(damageCounter_t));
-		dmg->otherPlayerIsBot = !!(g_entities[victim - level.clients].r.svFlags & SVF_BOT);
+		dmg = ListAdd(&attacker->damageGivenList, sizeof(damageCounter_t));
+		dmg->otherPlayerIsBot = victim->isBot;
+		dmg->otherPlayerStats = victim;
 		if (dmg->otherPlayerIsBot) {
-			dmg->otherPlayerSessionId = victim - level.clients;
+			dmg->otherPlayerSessionId = victim->clientNum;
 		}
 		else {
-			dmg->otherPlayerSessionId = victim->session->id;
-			dmg->otherPlayerAccountId = victim->session->accountId;
+			dmg->otherPlayerSessionId = victim->sessionId;
+			dmg->otherPlayerAccountId = victim->accountId;
 		}
 	}
 
-	return &dmg->ofType[mod];
+	return &dmg->ofType[modc];
 }
 
-int *GetDamageTakenStat(gclient_t *attacker, gclient_t *victim) {
-	damageCounter_t *dmg = ListFind(&victim->stats->damageTakenList, MatchesDamage, attacker->stats, NULL);
+int *GetDamageTakenStat(stats_t *attacker, stats_t *victim) {
+	damageCounter_t *dmg = ListFind(&victim->damageTakenList, MatchesDamage, attacker, NULL);
 
 	if (dmg) { // this guy is already tracked
 		if (!dmg->otherPlayerIsBot)
-			dmg->otherPlayerAccountId = attacker->session->accountId; // update the tracked account id, in case an admin assigned him an account during this match
+			dmg->otherPlayerAccountId = attacker->accountId; // update the tracked account id, in case an admin assigned him an account during this match
 	}
 	else { // not yet tracked; add him to the list
-		dmg = ListAdd(&victim->stats->damageTakenList, sizeof(damageCounter_t));
-		dmg->otherPlayerIsBot = !!(g_entities[attacker - level.clients].r.svFlags & SVF_BOT);
+		dmg = ListAdd(&victim->damageTakenList, sizeof(damageCounter_t));
+		dmg->otherPlayerIsBot = attacker->isBot;
+		dmg->otherPlayerStats = attacker;
 		if (dmg->otherPlayerIsBot) {
-			dmg->otherPlayerSessionId = attacker - level.clients;
+			dmg->otherPlayerSessionId = attacker->clientNum;
 		}
 		else {
-			dmg->otherPlayerSessionId = attacker->session->id;
-			dmg->otherPlayerAccountId = attacker->session->accountId;
+			dmg->otherPlayerSessionId = attacker->sessionId;
+			dmg->otherPlayerAccountId = attacker->accountId;
 		}
 	}
 
 	return &dmg->totalAmount;
 }
 
-int *GetDamageTakenStatOfType(gclient_t *attacker, gclient_t *victim, meansOfDeath_t mod) {
-	damageCounter_t *dmg = ListFind(&victim->stats->damageTakenList, MatchesDamage, attacker->stats, NULL);
+int *GetDamageTakenStatOfType(stats_t *attacker, stats_t *victim, meansOfDeathCategory_t modc) {
+	damageCounter_t *dmg = ListFind(&victim->damageTakenList, MatchesDamage, attacker, NULL);
 
 	if (dmg) { // this guy is already tracked
 		if (!dmg->otherPlayerIsBot)
-			dmg->otherPlayerAccountId = attacker->session->accountId; // update the tracked account id, in case an admin assigned him an account during this match
+			dmg->otherPlayerAccountId = attacker->accountId; // update the tracked account id, in case an admin assigned him an account during this match
 	}
 	else { // not yet tracked; add him to the list
-		dmg = ListAdd(&victim->stats->damageTakenList, sizeof(damageCounter_t));
-		dmg->otherPlayerIsBot = !!(g_entities[attacker - level.clients].r.svFlags & SVF_BOT);
+		dmg = ListAdd(&victim->damageTakenList, sizeof(damageCounter_t));
+		dmg->otherPlayerIsBot = attacker->isBot;
+		dmg->otherPlayerStats = attacker;
 		if (dmg->otherPlayerIsBot) {
-			dmg->otherPlayerSessionId = attacker - level.clients;
+			dmg->otherPlayerSessionId = attacker->clientNum;
 		}
 		else {
-			dmg->otherPlayerSessionId = attacker->session->id;
-			dmg->otherPlayerAccountId = attacker->session->accountId;
+			dmg->otherPlayerSessionId = attacker->sessionId;
+			dmg->otherPlayerAccountId = attacker->accountId;
 		}
 	}
 
-	return &dmg->ofType[mod];
+	return &dmg->ofType[modc];
 }
 
 extern qboolean isRedFlagstand(gentity_t *ent);

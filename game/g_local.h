@@ -783,15 +783,6 @@ typedef struct { //Should this store their g2 anim? for proper g2 sync?
 	float	realAngle; //Only the [YAW] is ever used for hit detection
 } clientTrail_t;
 
-typedef struct {
-	node_t		node;
-	qboolean	otherPlayerIsBot;
-	int			otherPlayerSessionId;
-	int			otherPlayerAccountId;
-	int			totalAmount;
-	int			ofType[MOD_MAX];
-} damageCounter_t;
-
 typedef enum {
 	CTFREGION_INVALID = -1,
 	CTFREGION_FLAGSTAND = 0,
@@ -801,6 +792,29 @@ typedef enum {
 	CTFREGION_ENEMYFLAGSTAND,
 	NUM_CTFREGIONS
 } ctfRegion_t;
+
+typedef enum {
+	MODC_INVALID = -1,
+	MODC_FIRST = 0,
+	MODC_MELEESTUNBATON = MODC_FIRST,
+	MODC_SABER,
+	MODC_PISTOL,
+	MODC_BLASTER,
+	MODC_DISRUPTOR,
+	MODC_BOWCASTER,
+	MODC_REPEATER,
+	MODC_DEMP,
+	MODC_GOLAN,
+	MODC_ROCKET,
+	MODC_CONCUSSION,
+	MODC_THERMAL,
+	MODC_MINE,
+	MODC_DETPACK,
+	MODC_FORCE,
+	MODC_FALL,
+	MODC_ALL_TYPES_COMBINED,
+	MODC_MAX
+} meansOfDeathCategory_t;
 
 typedef struct {
 	node_t		node;
@@ -831,6 +845,7 @@ typedef struct {
 	int			saves;
 	int			damageDealtTotal;
 	int			damageTakenTotal;
+	int			damageOfType[MODC_MAX]; // only used for total rows; not players
 
 	float		topSpeed;
 	float		displacement;
@@ -851,6 +866,16 @@ typedef struct {
 	int			regionTime[NUM_CTFREGIONS];
 	int			regionPercent[NUM_CTFREGIONS];
 } stats_t;
+
+typedef struct {
+	node_t		node;
+	qboolean	otherPlayerIsBot;
+	int			otherPlayerSessionId;
+	int			otherPlayerAccountId;
+	stats_t		*otherPlayerStats;
+	int			totalAmount;
+	int			ofType[MODC_MAX];
+} damageCounter_t;
 
 // this structure is cleared on each ClientSpawn(),
 // except for 'client->pers' and 'client->sess'
@@ -1907,12 +1932,13 @@ typedef enum {
 qboolean StatsValid(const stats_t *stats);
 void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t outSize, qboolean announce, stats_t *weaponStatsPtr);
 void InitClientStats(gclient_t *cl);
-int *GetDamageGivenStat(gclient_t *attacker, gclient_t *victim);
-int *GetDamageGivenStatOfType(gclient_t *attacker, gclient_t *victim, meansOfDeath_t mod);
-int *GetDamageTakenStat(gclient_t *attacker, gclient_t *victim);
-int *GetDamageTakenStatOfType(gclient_t *attacker, gclient_t *victim, meansOfDeath_t mod);
+int *GetDamageGivenStat(stats_t *attacker, stats_t *victim);
+int *GetDamageGivenStatOfType(stats_t *attacker, stats_t *victim, meansOfDeathCategory_t modc);
+int *GetDamageTakenStat(stats_t *attacker, stats_t *victim);
+int *GetDamageTakenStatOfType(stats_t *attacker, stats_t *victim, meansOfDeathCategory_t modc);
 ctfRegion_t GetCTFRegion(gentity_t *ent);
 stats_t *GetStatsFromString(const char *str);
+meansOfDeathCategory_t MeansOfDeathCategoryForMeansOfDeath(meansOfDeath_t mod);
 
 //
 // g_svcmds.c
@@ -2073,28 +2099,6 @@ const char *TableCallback_Qport(void *rowContext, void *columnContext);
 const char *TableCallback_Country(void *rowContext, void *columnContext);
 const char *TableCallback_Mod(void *rowContext, void *columnContext);
 const char *TableCallback_Shadowmuted(void *rowContext, void *columnContext);
-
-typedef enum {
-	MODC_FIRST = 0,
-	MODC_MELEESTUNBATON = MODC_FIRST,
-	MODC_SABER,
-	MODC_PISTOL,
-	MODC_BLASTER,
-	MODC_DISRUPTOR,
-	MODC_BOWCASTER,
-	MODC_REPEATER,
-	MODC_DEMP,
-	MODC_GOLAN,
-	MODC_ROCKET,
-	MODC_CONCUSSION,
-	MODC_THERMAL,
-	MODC_MINE,
-	MODC_DETPACK,
-	MODC_FORCE,
-	MODC_FALL,
-	MODC_TOTAL,
-	MODC_MAX
-} meansOfDeathCategory_t;
 
 typedef struct {
 	stats_t *tablePlayerStats;
