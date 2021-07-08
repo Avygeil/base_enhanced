@@ -2843,7 +2843,6 @@ void BeginIntermission(void) {
 	if (g_autoStats.integer) {
 		Stats_Print(NULL, "general", statsBuf, sizeof(statsBuf), qtrue, NULL);
 		Stats_Print(NULL, "force", statsBuf, sizeof(statsBuf), qtrue, NULL);
-		Stats_Print(NULL, "misc", statsBuf, sizeof(statsBuf), qtrue, NULL);
 		Stats_Print(NULL, "damage", statsBuf, sizeof(statsBuf), qtrue, NULL);
 
 		// print each player their own individual weapon stats

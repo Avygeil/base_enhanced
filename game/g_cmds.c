@@ -6114,7 +6114,6 @@ void Cmd_PrintStats_f(gentity_t *ent) {
 	if (trap_Argc() < 2) { // display all types if none is specified, i guess
 		Stats_Print(ent, "general", NULL, 0, qtrue, NULL);
 		Stats_Print(ent, "force", NULL, 0, qtrue, NULL);
-		Stats_Print(ent, "misc", NULL, 0, qtrue, NULL);
 		Stats_Print(ent, "damage", NULL, 0, qtrue, NULL);
 		if (ent->client && ent->client->stats && StatsValid(ent->client->stats) && (ent->client->sess.sessionTeam == TEAM_RED || ent->client->sess.sessionTeam == TEAM_BLUE))
 			Stats_Print(ent, "weapon", NULL, 0, qtrue, ent->client->stats);
