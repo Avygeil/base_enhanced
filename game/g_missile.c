@@ -433,28 +433,34 @@ static qboolean CountsForAirshotStat(gentity_t *missile) {
 	}
 }
 
-qboolean CheckAccuracyAndAirshot(gentity_t *ent, gentity_t *other, qboolean isSurfedRocket) {
+qboolean CheckAccuracyAndAirshot(gentity_t *missile, gentity_t *victim, qboolean isSurfedRocket) {
 	qboolean hitClient = qfalse;
 
-	if (LogAccuracyHit(other, &g_entities[ent->r.ownerNum]) && !ent->isReflected) {
-		g_entities[ent->r.ownerNum].client->stats->accuracy_hits++;
+	if (missile->r.ownerNum >= MAX_CLIENTS)
+		return qfalse;
+	gentity_t *missileOwner = &g_entities[missile->r.ownerNum];
+	if (!missileOwner->inuse || !missileOwner->client || !missileOwner->client->stats)
+		return qfalse;
+
+	if (LogAccuracyHit(victim, missileOwner) && !missile->isReflected) {
+		missileOwner->client->stats->accuracy_hits++;
 		hitClient = qtrue;
 
-		if (isSurfedRocket && CountsForAirshotStat(ent)) {
-			++other->client->stats->airs;
+		if (isSurfedRocket && CountsForAirshotStat(missile)) {
+			++missileOwner->client->stats->airs;
 		}
-		else if (other->playerState->groundEntityNum == ENTITYNUM_NONE && CountsForAirshotStat(ent)) {
+		else if (victim->playerState->groundEntityNum == ENTITYNUM_NONE && CountsForAirshotStat(missile)) {
 			// hit while in air; make sure the victim is decently in the air though (not just 1 nanometer from the gorund)
 			trace_t tr;
 			vec3_t down;
-			VectorCopy(other->r.currentOrigin, down);
+			VectorCopy(victim->r.currentOrigin, down);
 			down[2] -= 4096;
-			trap_Trace(&tr, other->r.currentOrigin, other->r.mins, other->r.maxs, down, other - g_entities, MASK_SOLID);
-			VectorSubtract(other->r.currentOrigin, tr.endpos, down);
+			trap_Trace(&tr, victim->r.currentOrigin, victim->r.mins, victim->r.maxs, down, victim - g_entities, MASK_SOLID);
+			VectorSubtract(victim->r.currentOrigin, tr.endpos, down);
 			float groundDist = VectorLength(down);
 #define AIRSHOT_GROUND_DISTANCE_THRESHOLD (50.0f)
 			if (groundDist >= AIRSHOT_GROUND_DISTANCE_THRESHOLD)
-				++other->client->stats->airs;
+				++missileOwner->client->stats->airs;
 			//PrintIngame(-1, "Ground distance is %0.2f\n", groundDist);
 		}
 	}
