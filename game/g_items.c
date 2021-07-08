@@ -2271,6 +2271,8 @@ int Pickup_Health (gentity_t *ent, gentity_t *other) {
 	int			max;
 	int			quantity;
 
+	int preHealth = other->health;
+
 	// small and mega healths will go over the max
 	if ( ent->item->quantity != 5 && ent->item->quantity != 100 ) {
 		max = other->client->ps.stats[STAT_MAX_HEALTH];
@@ -2291,6 +2293,11 @@ int Pickup_Health (gentity_t *ent, gentity_t *other) {
 	}
 	other->client->ps.stats[STAT_HEALTH] = other->health;
 
+	int postHealth = other->health;
+
+	if (other->client->stats && postHealth > preHealth)
+		other->client->stats->healthPickedUp += (postHealth - preHealth); // cap pickup at actual amount changed
+
 	if ( ent->item->quantity == 100 ) {		// mega health respawns slow
 		return RESPAWN_MEGAHEALTH;
 	}
@@ -2302,11 +2309,16 @@ int Pickup_Health (gentity_t *ent, gentity_t *other) {
 
 int Pickup_Armor( gentity_t *ent, gentity_t *other ) 
 {
+	int preArmor = other->client->ps.stats[STAT_ARMOR];
 	other->client->ps.stats[STAT_ARMOR] += ent->item->quantity;
 	if ( other->client->ps.stats[STAT_ARMOR] > other->client->ps.stats[STAT_MAX_HEALTH] * ent->item->giTag ) 
 	{
 		other->client->ps.stats[STAT_ARMOR] = other->client->ps.stats[STAT_MAX_HEALTH] * ent->item->giTag;
 	}
+	int postArmor = other->client->ps.stats[STAT_ARMOR];
+
+	if (other->client->stats && postArmor > preArmor)
+		other->client->stats->armorPickedUp += (postArmor - preArmor); // cap pickup at actual amount changed
 
 	return adjustRespawnTime(RESPAWN_ARMOR, ent->item->giType, ent->item->giTag);
 }

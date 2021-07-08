@@ -361,6 +361,24 @@ const char *CtfStatsTableCallback_GotDrained(void *rowContext, void *columnConte
 	return FormatStatInt(stats->isTotal, stats->gotDrained, bestStats[stats->lastTeam].gotDrained, bestStats[OtherTeam(stats->lastTeam)].gotDrained);
 }
 
+const char *CtfStatsTableCallback_HealthPickedUp(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	stats_t *stats = rowContext;
+	return FormatStatInt(stats->isTotal, stats->healthPickedUp, bestStats[stats->lastTeam].healthPickedUp, bestStats[OtherTeam(stats->lastTeam)].healthPickedUp);
+}
+
+const char *CtfStatsTableCallback_ArmorPickedUp(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	stats_t *stats = rowContext;
+	return FormatStatInt(stats->isTotal, stats->armorPickedUp, bestStats[stats->lastTeam].armorPickedUp, bestStats[OtherTeam(stats->lastTeam)].armorPickedUp);
+}
+
 #if 0
 const char *CtfStatsTableCallback_CtfRegionTime(void *rowContext, void *columnContext) {
 	if (!rowContext) {
@@ -1101,6 +1119,8 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 		Table_DefineColumn(t, "^5SK", CtfStatsTableCallback_Selfkills, NULL, qfalse, -1, 32);
 		if (level.boonExists) // only show boon stat if boon is enabled and exists on this map
 			Table_DefineColumn(t, "^5BOON", CtfStatsTableCallback_BoonPickups, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5+HP", CtfStatsTableCallback_HealthPickedUp, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5+SH", CtfStatsTableCallback_ArmorPickedUp, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5TTLHOLD", CtfStatsTableCallback_TotalHold, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5MAXHOLD", CtfStatsTableCallback_MaxHold, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5DMGDLT", CtfStatsTableCallback_DamageDealt, NULL, qfalse, -1, 32);

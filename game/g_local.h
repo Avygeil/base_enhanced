@@ -842,6 +842,8 @@ typedef struct {
 	int			rets;
 	int			selfkills;
 	int			boonPickups;
+	int			healthPickedUp;
+	int			armorPickedUp;
 	int			totalFlagHold;
 	int			longestFlagHold;
 	int			saves;
