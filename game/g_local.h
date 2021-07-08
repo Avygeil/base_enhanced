@@ -866,6 +866,8 @@ typedef struct {
 	int			protDamageAvoided;
 	int			protTimeUsed;
 	int			rageTimeUsed;
+	int			drain;
+	int			gotDrained;
 	int			regionTime[NUM_CTFREGIONS];
 	int			regionPercent[NUM_CTFREGIONS];
 } stats_t;

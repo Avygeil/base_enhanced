@@ -343,6 +343,24 @@ const char *CtfStatsTableCallback_RageTime(void *rowContext, void *columnContext
 	return FormatStatTime(stats->isTotal, stats->rageTimeUsed, bestStats[stats->lastTeam].rageTimeUsed, bestStats[OtherTeam(stats->lastTeam)].rageTimeUsed);
 }
 
+const char *CtfStatsTableCallback_Drain(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	stats_t *stats = rowContext;
+	return FormatStatInt(stats->isTotal, stats->drain, bestStats[stats->lastTeam].drain, bestStats[OtherTeam(stats->lastTeam)].drain);
+}
+
+const char *CtfStatsTableCallback_GotDrained(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	stats_t *stats = rowContext;
+	return FormatStatInt(stats->isTotal, stats->gotDrained, bestStats[stats->lastTeam].gotDrained, bestStats[OtherTeam(stats->lastTeam)].gotDrained);
+}
+
 #if 0
 const char *CtfStatsTableCallback_CtfRegionTime(void *rowContext, void *columnContext) {
 	if (!rowContext) {
@@ -550,6 +568,8 @@ static void CheckBestStats(stats_t *player, statsTableType_t type, stats_t *weap
 		CheckBest(protDamageAvoided);
 		CheckBest(protTimeUsed);
 		CheckBest(rageTimeUsed);
+		CheckBest(drain);
+		CheckBest(gotDrained);
 	}
 	else if (type == STATS_TABLE_MISC) {
 		int allRegionsTime = 0;
@@ -701,6 +721,8 @@ static void AddStatsToTotal(stats_t *player, stats_t *team, statsTableType_t typ
 		AddStatToTotal(protDamageAvoided);
 		AddStatToTotal(protTimeUsed);
 		AddStatToTotal(rageTimeUsed);
+		AddStatToTotal(drain);
+		AddStatToTotal(gotDrained);
 	}
 	else if (type == STATS_TABLE_MISC) {
 		int allRegionsTime = 0;
@@ -1071,8 +1093,8 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 		Table_DefineColumn(t, "^5DEF", CtfStatsTableCallback_Defends, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5SAV", CtfStatsTableCallback_Saves, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5ACC", CtfStatsTableCallback_Accuracy, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5AIR", CtfStatsTableCallback_Airs, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5PITS", CtfStatsTableCallback_Pits, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5AIRS", CtfStatsTableCallback_Airs, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5PITKIL", CtfStatsTableCallback_Pits, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5PITTED", CtfStatsTableCallback_Pitted, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5FCKIL", CtfStatsTableCallback_FcKills, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5RET", CtfStatsTableCallback_Rets, NULL, qfalse, -1, 32);
@@ -1093,11 +1115,13 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 		Table_DefineColumn(t, "^5PULL", CtfStatsTableCallback_Pull, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5HEAL", CtfStatsTableCallback_Healed, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5NRG", CtfStatsTableCallback_EnergizedAlly, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5E-NRG", CtfStatsTableCallback_EnergizedEnemy, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5NRGENEMY", CtfStatsTableCallback_EnergizedEnemy, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5ABS", CtfStatsTableCallback_Absorbed, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5PROTDMG", CtfStatsTableCallback_ProtDamage, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5PROTTIME", CtfStatsTableCallback_ProtTime, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5RAGETIME", CtfStatsTableCallback_RageTime, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5DRN", CtfStatsTableCallback_Drain, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5GOTDRND", CtfStatsTableCallback_GotDrained, NULL, qfalse, -1, 32);
 	}
 	else if (type == STATS_TABLE_MISC) {
 		Table_DefineColumn(t, "^5NAME", CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);

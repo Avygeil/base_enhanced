@@ -2249,6 +2249,11 @@ void ForceDrainDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, vec3_t 
 				if (dmg)
 				{
 					traceEnt->client->ps.fd.forcePower -= (dmg);
+
+					if (traceEnt->client->sess.sessionTeam == OtherTeam(self->client->sess.sessionTeam) && traceEnt->client->stats && self->client->stats) {
+						self->client->stats->drain += dmg;
+						traceEnt->client->stats->gotDrained += dmg;
+					}
 				}
 				if (traceEnt->client->ps.fd.forcePower < 0)
 				{
