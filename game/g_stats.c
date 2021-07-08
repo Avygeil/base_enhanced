@@ -145,6 +145,23 @@ const char *CtfStatsTableCallback_Airs(void *rowContext, void *columnContext) {
 	return FormatStatInt(stats->isTotal, stats->airs, bestStats[stats->lastTeam].airs, bestStats[OtherTeam(stats->lastTeam)].airs);
 }
 
+const char *CtfStatsTableCallback_Pits(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	stats_t *stats = rowContext;
+	return FormatStatInt(stats->isTotal, stats->pits, bestStats[stats->lastTeam].pits, bestStats[OtherTeam(stats->lastTeam)].pits);
+}
+
+const char *CtfStatsTableCallback_Pitted(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	stats_t *stats = rowContext;
+	return FormatStatInt(stats->isTotal, stats->pitted, bestStats[stats->lastTeam].pitted, bestStats[OtherTeam(stats->lastTeam)].pitted);
+}
 
 const char *CtfStatsTableCallback_FcKills(void *rowContext, void *columnContext) {
 	if (!rowContext) {
@@ -420,14 +437,13 @@ static qboolean MatchesDamage(genericNode_t *node, void *userData) {
 	return qfalse;
 }
 
-// todo: maybe make sure every mod is handled? e.g. how does sentry damage fit into all these categories vs. total?
 meansOfDeathCategory_t MeansOfDeathCategoryForMeansOfDeath(meansOfDeath_t mod) {
 	switch (mod) {
-	case MOD_MELEE: case MOD_STUN_BATON: return MODC_MELEESTUNBATON;
+	case MOD_MELEE: case MOD_STUN_BATON: case MOD_VEHICLE: /*idk*/ return MODC_MELEESTUNBATON;
 	case MOD_SABER: return MODC_SABER;
 	case MOD_BRYAR_PISTOL: case MOD_BRYAR_PISTOL_ALT: return MODC_PISTOL;
-	case MOD_BLASTER: return MODC_BLASTER;
-	case MOD_DISRUPTOR: case MOD_DISRUPTOR_SNIPER: return MODC_DISRUPTOR;
+	case MOD_BLASTER: case MOD_TURBLAST: /*???*/ return MODC_BLASTER;
+	case MOD_DISRUPTOR: case MOD_DISRUPTOR_SNIPER: case MOD_DISRUPTOR_SPLASH: /*???*/ return MODC_DISRUPTOR;
 	case MOD_BOWCASTER: return MODC_BOWCASTER;
 	case MOD_REPEATER: case MOD_REPEATER_ALT: case MOD_REPEATER_ALT_SPLASH: return MODC_REPEATER;
 	case MOD_DEMP2: case MOD_DEMP2_ALT: return MODC_DEMP;
@@ -438,8 +454,7 @@ meansOfDeathCategory_t MeansOfDeathCategoryForMeansOfDeath(meansOfDeath_t mod) {
 	case MOD_TRIP_MINE_SPLASH: case MOD_TIMED_MINE_SPLASH: return MODC_MINE;
 	case MOD_DET_PACK_SPLASH: return MODC_DETPACK;
 	case MOD_FORCE_DARK: return MODC_FORCE;
-	case MOD_FALLING: case MOD_CRUSH: case MOD_TRIGGER_HURT: return MODC_FALL;
-	default: return MODC_INVALID;
+	default: assert(qfalse); return MODC_INVALID;
 	}
 }
 
@@ -497,6 +512,8 @@ static void CheckBestStats(stats_t *player, statsTableType_t type, stats_t *weap
 		player->accuracy = player->accuracy_shots ? player->accuracy_hits * 100 / player->accuracy_shots : 0;
 		CheckBest(accuracy);
 		CheckBest(airs);
+		CheckBest(pits);
+		CheckBest(pitted);
 		CheckBest(fcKills);
 		CheckBest(rets);
 		CheckBest(selfkills);
@@ -645,6 +662,8 @@ static void AddStatsToTotal(stats_t *player, stats_t *team, statsTableType_t typ
 		AddStatToTotal(accuracy_hits);
 		team->accuracy = team->accuracy_shots ? team->accuracy_hits * 100 / team->accuracy_shots : 0;
 		AddStatToTotal(airs);
+		AddStatToTotal(pits);
+		AddStatToTotal(pitted);
 		AddStatToTotal(fcKills);
 		AddStatToTotal(rets);
 		AddStatToTotal(selfkills);
@@ -915,7 +934,6 @@ const char *NameForMeansOfDeathCategory(meansOfDeathCategory_t modc) {
 	case MODC_MINE: return "^5MIN";
 	case MODC_DETPACK: return "^5DPK";
 	case MODC_FORCE: return "^5FOR";
-	case MODC_FALL: return "^5PIT";
 	case MODC_ALL_TYPES_COMBINED: return "^5TOTAL";
 	default: assert(qfalse); return NULL;
 	}
@@ -1043,6 +1061,8 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 		Table_DefineColumn(t, "^5SAV", CtfStatsTableCallback_Saves, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5ACC", CtfStatsTableCallback_Accuracy, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5AIR", CtfStatsTableCallback_Airs, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5PITS", CtfStatsTableCallback_Pits, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5PITTED", CtfStatsTableCallback_Pitted, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5FCKIL", CtfStatsTableCallback_FcKills, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5RET", CtfStatsTableCallback_Rets, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5SK", CtfStatsTableCallback_Selfkills, NULL, qfalse, -1, 32);

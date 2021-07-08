@@ -2278,6 +2278,15 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 	if (self->client && self->client->stats && (!attacker || self == attacker))
 		++self->client->stats->selfkills;
 
+	if (meansOfDeath == MOD_CRUSH || meansOfDeath == MOD_FALLING || meansOfDeath == MOD_TRIGGER_HURT || meansOfDeath == MOD_UNKNOWN || meansOfDeath == MOD_SUICIDE) {
+		if (attacker && self != attacker && self->client && attacker->client && self->client->sess.sessionTeam == OtherTeam(attacker->client->sess.sessionTeam)) {
+			if (self->client->stats)
+				++self->client->stats->pitted;
+			if (attacker->client->stats)
+				++attacker->client->stats->pits;
+		}
+	}
+
 	if ( attacker ) {
 		killer = attacker->s.number;
 		if ( attacker->client ) {

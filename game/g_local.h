@@ -811,7 +811,6 @@ typedef enum {
 	MODC_MINE,
 	MODC_DETPACK,
 	MODC_FORCE,
-	MODC_FALL,
 	MODC_ALL_TYPES_COMBINED,
 	MODC_MAX
 } meansOfDeathCategory_t;
@@ -836,6 +835,8 @@ typedef struct {
 	int			accuracy_hits;
 	int			accuracy; // this is only calculated on demand; don't just randomly read this (imagine getters in C)
 	int			airs;
+	int			pits;
+	int			pitted;
 	int			fcKills;
 	int			rets;
 	int			selfkills;
