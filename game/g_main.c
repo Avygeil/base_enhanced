@@ -3186,6 +3186,12 @@ void LogExit( const char *string ) {
 			}
 		}
 
+		if (cl->ps.fd.forcePowersActive & (1 << FP_RAGE)) {
+			if (cl->pers.ragesince && cl->pers.ragesince < level.time) {
+				cl->stats->rageTimeUsed += level.time - cl->pers.ragesince;
+			}
+		}
+
 		ping = cl->ps.ping < 999 ? cl->ps.ping : 999;
 
 		G_LogPrintf( "score: %i  ping: %i  client: %i %s\n", cl->ps.persistant[PERS_SCORE], ping, level.sortedClients[i],	cl->pers.netname );

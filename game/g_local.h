@@ -666,6 +666,7 @@ typedef struct {
 
 	// force stats
 	int			protsince;
+	int			ragesince;
 
 	// speed stats
 	float		fastcapTopSpeed;
@@ -864,6 +865,7 @@ typedef struct {
 	int			absorbed;
 	int			protDamageAvoided;
 	int			protTimeUsed;
+	int			rageTimeUsed;
 	int			regionTime[NUM_CTFREGIONS];
 	int			regionPercent[NUM_CTFREGIONS];
 } stats_t;

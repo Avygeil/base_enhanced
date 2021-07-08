@@ -1251,6 +1251,7 @@ void WP_ForcePowerStart( gentity_t *self, forcePowers_t forcePower, int override
 		}
 
 		self->client->ps.fd.forcePowersActive |= ( 1 << forcePower );
+		self->client->pers.ragesince = level.time; // force stats
 		break;
 	case FP_PROTECT:
 		hearable = qtrue;
@@ -4043,6 +4044,10 @@ void WP_ForcePowerStop( gentity_t *self, forcePowers_t forcePower )
 		if (wasActive & (1 << FP_RAGE))
 		{
 			G_MuteSound(self->client->ps.fd.killSoundEntIndex[TRACK_CHANNEL_3-50], CHAN_VOICE);
+
+			if (self->client->pers.ragesince && self->client->pers.ragesince < level.time) {
+				self->client->stats->rageTimeUsed += level.time - self->client->pers.ragesince;
+			}
 		}
 		break;
 	case FP_ABSORB:
