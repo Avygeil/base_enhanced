@@ -1496,7 +1496,8 @@ ctfRegion_t GetCTFRegion(gentity_t *ent) {
 		VectorCopy(vec3_origin, temp.r.currentOrigin);
 		redFs = G_ClosestEntity(&temp, isRedFlagstand);
 		blueFs = G_ClosestEntity(&temp, isBlueFlagstand);
-		diffBetweenFlags = Distance2D(redFs->r.currentOrigin, blueFs->r.currentOrigin);
+		if (redFs && blueFs)
+			diffBetweenFlags = Distance2D(redFs->r.currentOrigin, blueFs->r.currentOrigin);
 		initialized = qtrue;
 	}
 
