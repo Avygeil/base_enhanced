@@ -2809,6 +2809,8 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 	if (firstTime)
 		G_LogPrintf( "ClientConnect: %i (%s) from %s%s\n", clientNum, Info_ValueForKey(userinfo, "name") , Info_ValueForKey(userinfo, "ip"), client->sess.country[0] ? va(" (%s)", client->sess.country) : "");
 	ClientUserinfoChanged( clientNum );
+	if (client->stats)
+		InitClientStats(client); // re-initialize to make sure name is correct
 
 	// don't do the "xxx connected" messages if they were caried over from previous level
 	if ( firstTime ) {
