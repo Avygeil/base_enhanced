@@ -4,8 +4,8 @@
 #include "g_local.h"
 
 #define DB_FILENAME				"enhanced.db"
-#define DB_SCHEMA_VERSION		6
-#define DB_SCHEMA_VERSION_STR	"6"
+#define DB_SCHEMA_VERSION		7
+#define DB_SCHEMA_VERSION_STR	"7"
 #define DB_OPTIMIZE_INTERVAL	( 60*60*3 ) // every 3 hours
 #define DB_VACUUM_INTERVAL		( 60*60*24*7 ) // every week
 
@@ -285,5 +285,78 @@ qboolean G_DBPrintPlayerUnratedList(int accountId, int printClientNum, const cha
 mapTier_t G_DBGetTierOfSingleMap(const char *optionalAccountIdsStr, const char *mapFileName, qboolean requireMultipleVotes);
 int GetAccountIdsStringOfIngamePlayers(char *outBuf, size_t outBufSize);
 qboolean G_DBAddCurrentMapToPlayedMapsList(void);
+
+// =========== TOPAIMS ========================================================
+
+typedef void(*ListAimRecordsCallback)(void *context,
+	const char *mapname,
+	const char *packName,
+	const int rank,
+	const char *name,
+	const aimRecord_t *record);
+
+typedef void(*ListAimTopCallback)(void *context,
+	const char *mapname,
+	const char *packName,
+	const char *name,
+	const int captureTime,
+	const time_t date);
+
+typedef void(*ListAimLeaderboardCallback)(void *context,
+	const char *packName,
+	const int rank,
+	const char *name,
+	const int golds,
+	const int silvers,
+	const int bronzes);
+
+typedef void(*ListAimLatestCallback)(void *context,
+	const char *mapname,
+	const char *packName,
+	const int rank,
+	const char *name,
+	const int captureTime,
+	const time_t date);
+
+qboolean G_DBTopAimLoadAimRecord(const int sessionId,
+	const char *mapname,
+	const aimPracticePack_t *pack,
+	aimRecord_t *outRecord);
+
+qboolean G_DBTopAimSaveAimRecord(const int sessionId,
+	const char *mapname,
+	const aimRecord_t *inRecord,
+	const aimPracticePack_t *pack);
+
+qboolean G_DBTopAimGetAccountPersonalBest(const int accountId,
+	const char *mapname,
+	const aimPracticePack_t *pack,
+	int *outRank,
+	int *outTime);
+
+void G_DBTopAimListAimRecords(const char *mapname,
+	const char *packName,
+	const pagination_t pagination,
+	ListAimRecordsCallback callback,
+	void *context);
+
+void G_DBTopAimListAimTop(const char *packName,
+	const pagination_t pagination,
+	ListAimTopCallback callback,
+	void *context);
+
+void G_DBTopAimListAimLeaderboard(const char *packName,
+	const pagination_t pagination,
+	ListAimLeaderboardCallback callback,
+	void *context);
+
+void G_DBTopAimListAimLatest(const pagination_t pagination,
+	ListAimLatestCallback callback,
+	void *context);
+
+qboolean G_DBTopAimSavePack(aimPracticePack_t *pack);
+list_t *G_DBTopAimLoadPacks(const char *mapname);
+list_t *G_DBTopAimQuickLoadPacks(const char *mapname);
+qboolean G_DBTopAimDeletePack(aimPracticePack_t *pack);
 
 #endif //G_DATABASE_H

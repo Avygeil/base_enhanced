@@ -152,6 +152,94 @@ enum
 	HL_MAX
 };
 
+//
+// g_aim.c
+//
+typedef struct { //Should this store their g2 anim? for proper g2 sync?
+	vec3_t	mins, maxs;
+	vec3_t	currentOrigin;
+	vec3_t	angles;
+	vec3_t	velocity;
+	int		time, torsoAnim, torsoTimer, legsAnim, legsTimer;
+} aimPracticeMovementTrail_t;
+
+#define MAX_VARIANTS_PER_PACK			(16)
+#define MAX_MOVEMENT_TRAILS				(4096)
+
+typedef struct {
+	aimPracticeMovementTrail_t	trail[MAX_MOVEMENT_TRAILS]; // array of trails of bot movement
+	int							trailHead; // the number of trails of bot movement
+	vec3_t						playerSpawnPoint; // where the player spawns
+	float						playerSpawnYaw; // which direction the player is facing when they spawn
+	float						playerVelocityYaw; // which direction the player's momentum is taking them when they spawn
+	float						playerSpawnSpeed; // how fast the player should be moving when they spawn
+} aimVariant_t;
+
+typedef struct {
+	node_t						node;
+
+	int							sessionId; // the session id of this player
+	int							score; // their score on the pack that this list belongs to
+} cachedScore_t;
+
+typedef struct {
+	node_t						node;
+
+	// stuff that gets saved
+	char						packName[64]; // the name of the pack
+	int							numVariants; // the number of variants in the variants array
+	aimVariant_t				variants[MAX_VARIANTS_PER_PACK]; // array of routes that belong to this pack
+	int							weaponMode; // which weapons you get to use
+	int							ownerAccountId; // who created this (only they can edit it)
+	int							numRepsPerVariant; // how many times to run each variant per weapon
+
+	// stuff that does NOT get saved
+#define MAX_REPS_PER_ROUTE		(16)
+	int							currentTrailNum; // what trail number we are currently on (irrespective of variant)
+	int							randomVariantOrder[MAX_VARIANTS_PER_PACK * MAX_REPS_PER_ROUTE]; // a randomized order of routes, e.g. 2 routes x 3 reps could be {1, 0, 1, 0, 0, 1}
+	int							currentVariantIndex; // which actual variant we are currently on
+	int							currentVariantNumInRandomVariantOrder; // how far through randomVariantOrder we are
+	qboolean					forceRestart; // if qtrue, the NPC will restart on the next tick
+	gentity_t					*ent; // the NPC entity linked to this pack
+	qboolean					isTemp; // this is a temporary pack only (does not exist in the DB)
+	qboolean					save; // this will be saved to the DB at the end of the round
+	qboolean					deleteMe; // this will be deleted from the DB at the end of the round (also moves the NPC to an inaccessible spot in the map if true)
+	qboolean					changed; // whether this has been altered since it was loaded from the DB, if applicable
+	float						autoDist; // distance for recordroute to put player spawn from bot spawn if unspecified
+	list_t						cachedScoresList; // list of scores for players
+	int							routeStartTime;
+} aimPracticePack_t;
+
+typedef struct {
+	node_t						node;
+	char						packName[64];
+	char						ownerAccountName[64];
+} aimPracticePackMetaData_t;
+
+// main
+void LoadAimPacks(void);
+void SaveDeleteAndFreeAimPacks(void);
+
+// client
+void G_InitClientAimRecordsCache(gclient_t *client);
+
+// database
+char *WeaponModeStringFromWeaponMode(int mode);
+
+// npc_spawn
+void FilterNPCForAimPractice(gentity_t *ent);
+
+// cmds
+void RandomizeAndRestartPack(aimPracticePack_t *pack);
+qboolean SpawnAimPracticePackNPC(gentity_t *ent, aimPracticePack_t *pack);
+void Cmd_Pack_f(gentity_t *ent);
+void Cmd_TopAim_f(gentity_t *ent);
+
+// pmove
+void DoAimPackPmove(pmove_t *pm);
+
+
+
 //============================================================================
 extern void *precachedKyle;
 extern void *g2SaberInstance;
@@ -391,6 +479,19 @@ struct gentity_s {
 	gitem_t		*item;			// for bonus items
 
 	qboolean	raceDimensionEvent;
+
+	aimPracticePack_t	*isAimPracticePack;
+
+	gentity_t	*aimPracticeEntBeingUsed;
+	enum {
+		AIMPRACTICEMODE_NONE = 0,
+		AIMPRACTICEMODE_UNTIMED,
+		AIMPRACTICEMODE_TIMED
+	} aimPracticeMode;
+	int			numAimPracticeSpawns;
+	int			numTotalAimPracticeHits;
+	int			numAimPracticeHitsOfWeapon[WP_NUM_WEAPONS];
+	int			aimPracticeStartTime;
 };
 
 #define DAMAGEREDIRECT_HEAD		1
@@ -518,6 +619,23 @@ typedef enum raceType_e {
 	RACE_TYPE_INVALID
 } raceType_t;
 
+typedef struct aimRecordInfo_s {
+	// demo info
+	char	matchId[SV_MATCHID_LEN];	// used to link to the game on demoarchive
+	char	playerName[MAX_NETNAME];	// in-game name used when capturing
+	int		clientId;					// in-game client id used when capturing
+	int		startTime;					// level.time when practice was started
+
+	// additional statistics
+	int		numHitsOfWeapon[WP_NUM_WEAPONS];
+} aimRecordInfo_t;
+
+typedef struct aimRecord_s {
+	int					time;	// score
+	time_t				date;	// epoch time of the record (seconds)
+	aimRecordInfo_t	extra;	// other stuff here is stored as optional "extra" information
+} aimRecord_t;
+
 // client data that stays across multiple levels or tournament restarts
 // this is achieved by writing all the data to cvar strings at game shutdown
 // time and reading them back at connection time.  Anything added here
@@ -566,6 +684,7 @@ typedef struct {
 	qboolean	inRacemode;
 	int			racemodeFlags;
 	qboolean	seeRacersWhileIngame; // for in game clients, separate from RMF_HIDERACERS because the meaning is reversed
+	qboolean	seeAimBotsWhileIngame; // for in game clients, separate from RMF_HIDEBOTS because the meaning is reversed
 	vec3_t		telemarkOrigin;
 	float		telemarkYawAngle;
 	float		telemarkPitchAngle;
@@ -577,6 +696,8 @@ typedef struct {
 	// made to the db after a record is submitted. Unset records have a time of 0.
 	// it is expected that this cache is maintained on record updates
 	int cachedSessionRaceTimes[NUM_RACE_TYPES];
+
+	qboolean canSubmitAimTimes;
 
 	// account system
 	int sessionCacheNum;
@@ -614,10 +735,11 @@ typedef struct {
 } clientSession_t;
 
 // race flags
-#define	RMF_HIDERACERS		0x00000001	// hides other racers from the racer this is set for
-#define RMF_HIDEINGAME		0x00000002	// hides in game entities to the racer this is set for
-#define RMF_TELEWITHSPEED	0x00000004	// auto activates speed when using telemarks
-#define RMF_ALREADYJOINED	0x00000008	// not set the first time entering /race, and set every other time
+#define	RMF_HIDERACERS			(1 << 0)	// hides other racers from the racer this is set for
+#define RMF_HIDEINGAME			(1 << 1)	// hides in game entities to the racer this is set for
+#define RMF_DONTTELEWITHSPEED	(1 << 2)	// don't auto activates spee when using telemarks
+#define RMF_ALREADYJOINED		(1 << 3)	// not set the first time entering /race, and set every other time
+#define RMF_HIDEBOTS			(1 << 4)	// hides bots while in racemode (for fastcap tryhards)
 
 // playerstate mGameFlags
 #define	PSG_VOTED				(1<<0)		// already cast a vote
@@ -721,6 +843,8 @@ typedef struct {
 
 	char		specChatBuffer[MAX_SAY_TEXT];
 	int			specChatBufferCheckTime;
+
+	aimPracticePack_t	*aimPracticePackBeingEdited; // which pack this player is currently editing (if any)
 } clientPersistant_t;
 
 typedef struct renderInfo_s
@@ -802,14 +926,6 @@ void G_TimeShiftAllClients(int time, gentity_t *skip, qboolean timeshiftAnims);
 void G_UnTimeShiftClient(gentity_t *ent, qboolean timeshiftAnims);
 void G_UnTimeShiftAllClients(gentity_t *skip, qboolean timeshiftAnims);
 void G_PredictPlayerStepSlideMove(gentity_t *ent, float frametime);
-
-//NT - client origin trails
-typedef struct { //Should this store their g2 anim? for proper g2 sync?
-	vec3_t	mins, maxs;
-	vec3_t	currentOrigin;//, currentAngles; //Well r.currentAngles are never actually used by clients in this game?
-	int		time, torsoAnim, torsoTimer, legsAnim, legsTimer;
-	float	realAngle; //Only the [YAW] is ever used for hit detection
-} clientTrail_t;
 
 // this structure is cleared on each ClientSpawn(),
 // except for 'client->pers' and 'client->sess'
@@ -1045,6 +1161,17 @@ struct gclient_s {
 
 	int homingLockTime; // time at which homing weapon locked on to a target
 	int homingLockTarget; // the target of it
+
+	qboolean		reachedLimit;
+	int				moveRecordStart;
+	int				trailHead;
+	aimPracticeMovementTrail_t	trail[MAX_MOVEMENT_TRAILS];
+
+	int rockPaperScissorsChallengeTime;
+	int rockPaperScissorsStartTime;
+	int rockPaperScissorsBothChosenTime;
+	int rockPaperScissorsOtherClientNum;
+	char rockPaperScissorsChoice;
 };
 
 //Interest points
@@ -1159,6 +1286,15 @@ typedef enum {
 	MAPTIER_S,
 	NUM_MAPTIERS
 } mapTier_t;
+
+//NT - client origin trails
+typedef struct { //Should this store their g2 anim? for proper g2 sync?
+	vec3_t	mins, maxs;
+	vec3_t	currentOrigin;//, currentAngles; //Well r.currentAngles are never actually used by clients in this game?
+	int		time, torsoAnim, torsoTimer, legsAnim, legsTimer;
+	float	realAngle; //Only the [YAW] is ever used for hit detection
+} clientTrail_t;
+
 
 typedef struct {
 	struct gclient_s	*clients;		// [maxclients]
@@ -1337,6 +1473,7 @@ typedef struct {
 
 	// racemode
 	qboolean	racemodeRecordsEnabled; // qtrue if records are cvar-enabled and gametype is CTF
+	qboolean	topAimRecordsEnabled; // qtrue if records are cvar-enabled and gametype is CTF
 	qboolean	racemodeRecordsReadonly; // qtrue if new times won't be recorded (non standard movement cvars for example)
 	int			racemodeClientMask; // bits set to 1 = clients in racemode, cached here for hiding to several entities
 	int			racemodeSpectatorMask; // bits set to 1 = clients specing a client in who is in racemode, can be combined with the mask above
@@ -1346,6 +1483,7 @@ typedef struct {
 	int			raceSpawnWeapons; // mask of weapons present in this level
 	int			raceSpawnAmmo[AMMO_MAX]; // exactly the ammo to hand out at spawn based on what's present in this level
 	qboolean	raceSpawnWithArmor; // qtrue if this level has at least one shield pickup
+	qboolean	mapHasConcussionRifle;
 
 	struct {
 		char cmd[MAX_STRING_CHARS];
@@ -1392,13 +1530,14 @@ typedef struct {
 #define MAX_UNLAGGED_TRAILS	(1000)
 		clientTrail_t	trail[MAX_UNLAGGED_TRAILS];
 		clientTrail_t	saved; // used to restore after time shift
-	} unlagged[MAX_CLIENTS];
-	int		lastThinkRealTime[MAX_CLIENTS];
+	} unlagged[MAX_GENTITIES];
+	int		lastThinkRealTime[MAX_GENTITIES];
 
 	qboolean		instagibMap;
 
 	float	cullDistance;
 
+	list_t				*aimPracticePackList;
 } level_locals_t;
 
 
@@ -1408,6 +1547,8 @@ typedef struct {
 #define ACCOUNTFLAG_ADMIN			( 1 << 0 )
 #define ACCOUNTFLAG_RCONLOG			( 1 << 1 )
 #define ACCOUNTFLAG_ENTERSPAMMER	( 1 << 2 )
+#define ACCOUNTFLAG_AIMPACKEDITOR	( 1 << 3 )
+#define ACCOUNTFLAG_AIMPACKADMIN	( 1 << 4 )
 
 typedef void( *ListSessionsCallback )( void *ctx,
 	const sessionReference_t sessionRef,
@@ -1478,6 +1619,7 @@ typedef struct {
 	int			accountId;
 	mapTier_t	tier;
 } mapTierData_t;
+char *ConcatArgs(int start);
 
 //
 // g_items.c
@@ -1600,6 +1742,11 @@ qboolean FileExists(const char *fileName);
 void Q_strstrip(char *string, const char *strip, const char *repl);
 char *stristr(const char *str1, const char *str2);
 const char *Cvar_VariableString(const char *var_name);
+
+void PlayAimPracticeBotPainSound(gentity_t *npc, gentity_t *player);
+void CenterPrintToPlayerAndFollowers(gentity_t *ent, const char *s);
+void ExitAimTraining(gentity_t *ent);
+void PrintBasedOnAccountFlags(int flags, const char *msg);
 
 //
 // g_object.c
@@ -1860,6 +2007,7 @@ qboolean getIpPortFromString( const char* from, unsigned int* ip, int* port );
 void getStringFromIp( unsigned int ip, char* buffer, int size );
 void G_Status(void);
 qboolean MapExistsQuick(const char *mapFileName);
+const char *AccountBitflag2FlagName(int bitflag);
 
 //
 // g_weapon.c
@@ -1941,6 +2089,7 @@ void G_BreakArm(gentity_t *ent, int arm);
 void G_UpdateClientAnims(gentity_t *self, float animSpeedScale);
 void G_SetRaceMode( gentity_t *self, qboolean race );
 void G_GiveRacemodeItemsAndFullStats( gentity_t *ent );
+void SetRacerForcePowers(gentity_t *ent);
 void G_UpdateRaceBitMasks( gclient_t *client );
 void G_InitClientRaceRecordsCache(gclient_t* client);
 void ClientCommand( int clientNum );
@@ -1968,7 +2117,9 @@ typedef enum {
 	NMTAUNT_VICTORY2,
 	NMTAUNT_VICTORY3
 } nmTaunt_t;
-
+void TimeShiftLerp(float frac, vec3_t start, vec3_t end, vec3_t result);
+void TimeShiftAnimLerp(float frac, int anim1, int anim2, int time1, int time2, int *outTime);
+#define ROCK_PAPER_SCISSORS_DURATION					(10000)
 //
 // g_table.c
 //
@@ -2273,6 +2424,7 @@ extern	vmCvar_t	g_duelWeaponDisable;
 extern	vmCvar_t	g_fraglimit;
 extern	vmCvar_t	g_duel_fraglimit;
 extern	vmCvar_t	g_timelimit;
+extern	vmCvar_t	g_nonLiveMatchesCanEnd;
 extern	vmCvar_t	g_capturelimit;
 extern	vmCvar_t	g_capturedifflimit;
 extern	vmCvar_t	d_saberInterpolate;
@@ -2404,6 +2556,7 @@ extern vmCvar_t		g_wallhackMaxTraces;
 extern vmCvar_t     g_inMemoryDB;
 
 extern vmCvar_t     g_enableRacemode;
+extern vmCvar_t     g_enableAimPractice;
 #ifdef _DEBUG
 extern vmCvar_t     d_disableRaceVisChecks;
 #endif
@@ -2506,6 +2659,8 @@ extern vmCvar_t		g_vote_runoff;
 extern vmCvar_t		g_vote_mapCooldownMinutes;
 extern vmCvar_t		g_vote_runoffTimeModifier;
 
+extern vmCvar_t		g_rockPaperScissors;
+
 extern vmCvar_t		g_gripBuff;
 
 extern vmCvar_t		g_minimumCullDistance;
@@ -2521,6 +2676,7 @@ extern vmCvar_t    g_braindeadBots;
 extern vmCvar_t    g_unlagged;
 #ifdef _DEBUG
 extern vmCvar_t    g_unlaggedMaxCompensation;
+extern vmCvar_t    g_unlaggedSkeletons;
 extern vmCvar_t	   g_unlaggedSkeletonTime;
 extern vmCvar_t	   g_unlaggedFactor;
 extern vmCvar_t	   g_unlaggedOffset;

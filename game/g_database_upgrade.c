@@ -523,6 +523,73 @@ static qboolean UpgradeDBToVersion6(sqlite3 *dbPtr) {
 	return sqlite3_exec(dbPtr, v6Upgrade, NULL, NULL, NULL) == SQLITE_OK;
 }
 
+const char *const v7Upgrade =
+"CREATE TABLE IF NOT EXISTS [topaims] (                                                              \n"
+"    [topaim_id] INTEGER NOT NULL,                                                                   \n"
+"    [hash] INTEGER NOT NULL, \n"
+"    [mapname] TEXT COLLATE NOCASE NOT NULL,                                                         \n"
+"[packname] TEXT COLLATE NOCASE NOT NULL,\n"
+"    [session_id] INTEGER NOT NULL,                                                                  \n"
+"    [capture_time] INTEGER NOT NULL,                                                                \n"
+"    [date] NOT NULL DEFAULT (strftime('%s', 'now')),                                                \n"
+"    [extra] TEXT DEFAULT NULL,                                                                      \n"
+"    PRIMARY KEY ( [topaim_id] ),                                                                    \n"
+"    UNIQUE ( [mapname], [packname], [session_id] ),                                                     \n"
+"FOREIGN KEY ([hash]) REFERENCES aimpacks ([hash]) ON DELETE CASCADE,\n"
+"    FOREIGN KEY ( [session_id] )                                                                    \n"
+"        REFERENCES sessions ( [session_id] )                                                        \n"
+");                                                                                                  \n"
+"                                                                                                    \n"
+"CREATE TABLE IF NOT EXISTS[aimpacks] (\n"
+"[hash] INTEGER PRIMARY KEY,\n"
+"[name] TEXT COLLATE NOCASE NOT NULL,\n"
+"[mapname] TEXT COLLATE NOCASE NOT NULL,\n"
+"[owner_account_id] INTEGER NOT NULL,\n"
+"[dateCreated] NOT NULL DEFAULT (strftime('%s', 'now')),\n"
+"[weaponMode] INTEGER NOT NULL,\n"
+"[numVariants] INTEGER NOT NULL,\n"
+"[data] BLOB NOT NULL,\n"
+"[numRepsPerVariant] INTEGER NOT NULL,\n"
+"UNIQUE ([name], [mapname]),\n"
+"FOREIGN KEY ([owner_account_id]) REFERENCES accounts ([account_id])"
+");\n"
+"                                                                                                    \n"
+"CREATE VIEW IF NOT EXISTS topaims_ranks AS                                                          \n"
+"SELECT                                                                                              \n"
+"    topaims.topaim_id,                                                                              \n"
+"    topaims.mapname,                                                                                \n"
+"    topaims.packname,                                                                                   \n"
+"    player_aliases.account_id,                                                                      \n"
+"    player_aliases.alias AS name,                                                                   \n"
+"    RANK() OVER (                                                                                   \n"
+"	     PARTITION BY topaims.mapname, topaims.packname                                                  \n"
+"	     ORDER BY topaims.capture_time DESC, topaims.date ASC                                        \n"
+"    )                                                                                               \n"
+"    rank,                                                                                           \n"
+"    MAX(topaims.capture_time) AS capture_time,                                                      \n"
+"    topaims.date,                                                                                   \n"
+"    topaims.extra                                                                                   \n"
+"FROM topaims, player_aliases                                                                        \n"
+"WHERE topaims.session_id = player_aliases.session_id AND player_aliases.has_account                 \n"
+"GROUP BY topaims.mapname, topaims.packname, player_aliases.account_id;                                  \n"
+"                                                                                                    \n"
+// Aggregates golds, silvers and bronzes for all accounts for each type
+"CREATE VIEW IF NOT EXISTS topaims_leaderboard AS                                                    \n"
+"SELECT                                                                                              \n"
+"    account_id,                                                                                     \n"
+"    name,                                                                                           \n"
+"    packname,                                                                                           \n"
+"    SUM( CASE WHEN rank = 1 THEN 1 ELSE 0 END ) AS golds,                                           \n"
+"    SUM( CASE WHEN rank = 2 THEN 1 ELSE 0 END ) AS silvers,                                         \n"
+"    SUM( CASE WHEN rank = 3 THEN 1 ELSE 0 END ) AS bronzes                                          \n"
+"FROM topaims_ranks                                                                                  \n"
+"GROUP BY packname, account_id                                                                           \n"
+"HAVING golds > 0 OR silvers > 0 OR bronzes > 0;                                                      ";
+
+static qboolean UpgradeDBToVersion7(sqlite3 *dbPtr) {
+	return sqlite3_exec(dbPtr, v7Upgrade, NULL, NULL, NULL) == SQLITE_OK;
+}
+
 // =============================================================================
 
 static qboolean UpgradeDB( int versionTo, sqlite3* dbPtr ) {
@@ -534,6 +601,7 @@ static qboolean UpgradeDB( int versionTo, sqlite3* dbPtr ) {
 		case 4: return UpgradeDBToVersion4( dbPtr );
 		case 5:	return UpgradeDBToVersion5( dbPtr );
 		case 6: return UpgradeDBToVersion6( dbPtr );
+		case 7: return UpgradeDBToVersion7(dbPtr);
 ;		default:
 			Com_Printf( "ERROR: Unsupported database upgrade routine\n" );
 	}

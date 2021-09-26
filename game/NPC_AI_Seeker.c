@@ -409,6 +409,9 @@ void Seeker_FindEnemy( void )
 			continue;
 		}
 
+		if (ent->isAimPracticePack)
+			continue;
+
 		if ( ent->client->playerTeam == NPC->client->playerTeam || ent->client->playerTeam == NPCTEAM_NEUTRAL ) // don't attack same team or bots
 		{
 			continue;

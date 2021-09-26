@@ -1220,6 +1220,9 @@ void G_KillBox (gentity_t *ent) {
 			continue;
 		}
 
+		if (hit->isAimPracticePack)
+			continue;
+
 		if (hit->s.number == ent->s.number)
 		{ //don't telefrag yourself!
 			continue;
@@ -2581,6 +2584,15 @@ qboolean G_TeleportRacerToTelemark( gentity_t *ent ) {
 		return qfalse;
 	}
 
+	// exit training
+	ExitAimTraining(ent);
+
+	// stop recording
+	ent->client->moveRecordStart = 0;
+	ent->client->trailHead = -1;
+	memset(ent->client->trail, 0, sizeof(ent->client->trail));
+	ent->client->reachedLimit = qfalse;
+
 	vec3_t angles = { 0, 0, 0 };
 	vec3_t neworigin;
 	angles[YAW] = client->sess.telemarkYawAngle;
@@ -2641,7 +2653,7 @@ qboolean G_TeleportRacerToTelemark( gentity_t *ent ) {
 	G_GiveRacemodeItemsAndFullStats( ent );
 
 	// use speed automatically if they set the setting
-	if ( client->sess.racemodeFlags & RMF_TELEWITHSPEED ) {
+	if ( !(client->sess.racemodeFlags & RMF_DONTTELEWITHSPEED)) {
 		qboolean wasAlreadyActive = client->ps.fd.forcePowersActive & ( 1 << FP_SPEED );
 
 		WP_ForcePowerStart( ent, FP_SPEED, 0 );
@@ -2685,7 +2697,7 @@ void G_FormatLocalDateFromEpoch( char* buf, size_t bufSize, time_t epochSecs ) {
 	struct tm * timeinfo;
 	timeinfo = localtime( &epochSecs );
 
-	strftime( buf, bufSize, "%d/%m/%y %I:%M %p", timeinfo );
+	strftime( buf, bufSize, "%Y/%m/%d %I:%M %p", timeinfo );
 }
 
 qboolean FileExists(const char *fileName) {
@@ -2861,4 +2873,79 @@ const char *Cvar_VariableString(const char *var_name) {
 
 	trap_Cvar_VariableStringBuffer(var_name, buf[bufferNum], sizeof(buf[bufferNum]));
 	return buf[bufferNum];
+}
+
+void PlayAimPracticeBotPainSound(gentity_t *npc, gentity_t *player) {
+	if (!npc || !player) {
+		assert(qfalse);
+		return;
+	}
+
+	gentity_t *ev = G_TempEntity(npc->r.currentOrigin, EV_ENTITY_SOUND);
+	int rng = Q_irand(0, 3);
+	if (rng == 0)
+		ev->s.eventParm = G_SoundIndex("*pain25");
+	else if (rng == 1)
+		ev->s.eventParm = G_SoundIndex("*pain50");
+	else if (rng == 2)
+		ev->s.eventParm = G_SoundIndex("*pain75");
+	else
+		ev->s.eventParm = G_SoundIndex("*pain100");
+	ev->s.clientNum = npc->s.number;
+	ev->s.trickedentindex = CHAN_VOICE;
+	ev->r.broadcastClients[1] |= ~(level.racemodeClientMask | level.racemodeSpectatorMask); // hide to in game players...
+	for (int i = 0; i < MAX_CLIENTS; i++) { // hide to racers who are doing their own timed run...
+		gentity_t *thisEnt = &g_entities[i];
+		if (thisEnt == player)
+			continue;
+		if (thisEnt->inuse && thisEnt->client && thisEnt->client->pers.connected == CON_CONNECTED && thisEnt->aimPracticeEntBeingUsed && thisEnt->aimPracticeMode == AIMPRACTICEMODE_TIMED)
+			ev->r.broadcastClients[1] |= (1 << i);
+	}
+	ev->r.broadcastClients[1] |= level.racemodeClientsHidingOtherRacersMask; // ...hide to racers who disabled seeing other racers as well...
+	if (player - g_entities >= 0 && player - g_entities < MAX_CLIENTS)
+		ev->r.broadcastClients[1] &= ~(1 << (player - g_entities)); // ...but show to the client num associated with this event if there is one...
+	ev->r.broadcastClients[1] &= ~level.ingameClientsSeeingInRaceMask; // ...and show to ig players who enabled seeing racemode stuff
+}
+
+void CenterPrintToPlayerAndFollowers(gentity_t *ent, const char *s) {
+	char *cmdStr = va("cp \"%s\"", s);
+	trap_SendServerCommand(ent - g_entities, cmdStr);
+
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *thisEnt = &g_entities[i];
+		if (thisEnt == ent || !thisEnt->inuse || !thisEnt->client || thisEnt->client->sess.spectatorState != SPECTATOR_FOLLOW || thisEnt->client->sess.spectatorClient != ent - g_entities)
+			continue;
+		trap_SendServerCommand(thisEnt - g_entities, cmdStr);
+	}
+}
+
+void ExitAimTraining(gentity_t *ent) {
+	if (!ent)
+		return;
+	ent->aimPracticeEntBeingUsed = NULL;
+	ent->aimPracticeMode = AIMPRACTICEMODE_NONE;
+	ent->numAimPracticeSpawns = 0;
+	ent->numTotalAimPracticeHits = 0;
+	memset(ent->numAimPracticeHitsOfWeapon, 0, sizeof(ent->numAimPracticeHitsOfWeapon));
+	G_GiveRacemodeItemsAndFullStats(ent);
+}
+
+void PrintBasedOnAccountFlags(int flags, const char *msg) {
+	static qboolean recursion = qfalse;
+
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *ent = &g_entities[i];
+		if (!ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED || !ent->client->account)
+			continue;
+
+		// special case
+		if (!(ent->client->account->flags & flags) && !(flags == ACCOUNTFLAG_AIMPACKEDITOR && (ent->client->account->flags & ACCOUNTFLAG_AIMPACKADMIN)))
+			continue;
+		
+		const char *prefix = AccountBitflag2FlagName(flags);
+		if (VALIDSTRING(prefix))
+			PrintIngame(i, "^6[%s] ^7%s", AccountBitflag2FlagName(flags), msg);
+		else
+			PrintIngame(i, msg);
+	}
 }

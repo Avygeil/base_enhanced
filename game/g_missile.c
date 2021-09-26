@@ -362,6 +362,13 @@ gentity_t *CreateMissile( vec3_t org, vec3_t dir, float vel, int life,
 	missile->think = G_FreeEntity;
 	missile->s.eType = ET_MISSILE;
 	missile->r.svFlags = SVF_USE_CURRENT_ORIGIN;
+	if (owner && owner->client && owner->client->sess.inRacemode) {
+		missile->r.svFlags |= SVF_COOLKIDSCLUB;
+		if (owner->aimPracticeEntBeingUsed) {
+			missile->r.singleEntityCollision = qtrue;
+			missile->r.singleEntityThatCanCollide = owner->aimPracticeEntBeingUsed - g_entities;
+		}
+	}
 	missile->parent = owner;
 	missile->r.ownerNum = owner->s.number;
 	missile->isReflected = qfalse;
@@ -711,6 +718,35 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 			vec3_t	velocity;
 			qboolean didDmg = qfalse;
 
+			if (other->isAimPracticePack && ent->parent && ent->parent->client && ent->parent->client->sess.inRacemode) {
+				if (ent->parent && ent->parent->aimPracticeEntBeingUsed == other && ent->parent->numAimPracticeSpawns >= 1) {
+					weapon_t weap = WP_NONE;
+					if (ent->methodOfDeath == MOD_BRYAR_PISTOL_ALT && ent->s.generic1 > 1) // require a little bit of charge
+						weap = WP_BRYAR_PISTOL;
+					if (ent->methodOfDeath == MOD_REPEATER_ALT)
+						weap = WP_REPEATER;
+					else if (ent->methodOfDeath == MOD_FLECHETTE_ALT_SPLASH)
+						weap = WP_FLECHETTE;
+					else if (ent->methodOfDeath == MOD_ROCKET || (ent->methodOfDeath == MOD_ROCKET_HOMING && !ent->enemy))
+						weap = WP_ROCKET_LAUNCHER;
+					else if (ent->methodOfDeath == MOD_THERMAL)
+						weap = WP_THERMAL;
+					else if (ent->methodOfDeath == MOD_CONC)
+						weap = WP_CONCUSSION;
+					else if (ent->parent->aimPracticeMode == AIMPRACTICEMODE_TIMED && (ent->methodOfDeath == MOD_BRYAR_PISTOL || ent->methodOfDeath == MOD_REPEATER || ent->methodOfDeath == MOD_FLECHETTE))
+						CenterPrintToPlayerAndFollowers(ent->parent, "Use alt fire! Primary shots don't count.");
+					else if (ent->parent->aimPracticeMode == AIMPRACTICEMODE_TIMED && ent->methodOfDeath == MOD_BRYAR_PISTOL_ALT && ent->s.generic1 <= 1)
+						CenterPrintToPlayerAndFollowers(ent->parent, "Charge your shot for at least 400ms!\n");
+
+					if (weap) {
+						++ent->parent->numTotalAimPracticeHits;
+						++ent->parent->numAimPracticeHitsOfWeapon[weap];
+					}
+				}
+
+				PlayAimPracticeBotPainSound(other, ent->parent);
+			}
+
 			if( LogAccuracyHit( other, &g_entities[ent->r.ownerNum] ) &&
 				!ent->isReflected) {
 				g_entities[ent->r.ownerNum].client->accuracy_hits++;
@@ -909,6 +945,11 @@ void G_RunMissile( gentity_t *ent ) {
 			passent = ent->r.ownerNum;
 		}
 	}
+
+	// set passent properly for racer projectiles
+	if (ent->r.svFlags & SVF_COOLKIDSCLUB)
+		passent = ent->s.number;
+
 	// trace a line from the previous position to the current position
 	if (d_projectileGhoul2Collision.integer)
 	{

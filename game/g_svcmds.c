@@ -2703,6 +2703,10 @@ static int AccountFlagName2Bitflag(const char* flagName) {
 		return ACCOUNTFLAG_RCONLOG;
 	} else if (!Q_stricmp(flagName, "EnterSpammer")) {
 		return ACCOUNTFLAG_ENTERSPAMMER;
+	} else if (!Q_stricmp(flagName, "AimPackEditor")) {
+		return ACCOUNTFLAG_AIMPACKEDITOR;
+	} else if (!Q_stricmp(flagName, "AimPackAdmin")) {
+		return ACCOUNTFLAG_AIMPACKADMIN;
 	}
 
 	return 0;
@@ -2710,11 +2714,13 @@ static int AccountFlagName2Bitflag(const char* flagName) {
 
 #define NUM_SESSIONS_PER_WHOIS_PAGE 5
 
-static const char* AccountBitflag2FlagName(int bitflag) {
+const char* AccountBitflag2FlagName(int bitflag) {
 	switch (bitflag) {
 		case ACCOUNTFLAG_ADMIN: return "Admin";
 		case ACCOUNTFLAG_RCONLOG: return "VerboseRcon";
 		case ACCOUNTFLAG_ENTERSPAMMER: return "EnterSpammer";
+		case ACCOUNTFLAG_AIMPACKEDITOR: return "AimPackEditor";
+		case ACCOUNTFLAG_AIMPACKADMIN: return "AimPackAdmin";
 		default: return NULL;
 	}
 }
@@ -2882,7 +2888,7 @@ void Svcmd_Account_f( void ) {
 
 			if ( trap_Argc() < 4 ) {
 				G_Printf( "Usage: "S_COLOR_YELLOW"account toggleflag <username> <flag>\n" );
-				G_Printf( "Available flags: Admin, VerboseRcon\n" );
+				G_Printf( "Available flags: Admin, VerboseRcon, AimPackEditor, AimPackAdmin\n" );
 				return;
 			}
 

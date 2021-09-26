@@ -686,6 +686,9 @@ void Cmd_Kill_f( gentity_t *ent ) {
         return;
     }
 
+	if (ent->client->rockPaperScissorsBothChosenTime)
+		return;
+
     //OSP: pause
     if ( level.pause.state != PAUSE_NONE && !ent->client->sess.inRacemode )
             return;
@@ -990,9 +993,15 @@ void SetTeam( gentity_t *ent, char *s ) {
 		return;
 	}
 
+	if (client->rockPaperScissorsBothChosenTime)
+		return;
+
 	//
 	// execute the team change
 	//
+
+	if (team != TEAM_FREE)
+		client->pers.aimPracticePackBeingEdited = NULL;
 
 	// if the player was dead leave the body
 	if ( client->ps.stats[STAT_HEALTH] <= 0 && client->sess.sessionTeam != TEAM_SPECTATOR ) {
@@ -1071,6 +1080,21 @@ void SetTeam( gentity_t *ent, char *s ) {
 	//vote delay
 	if (team != oldTeam && oldTeam == TEAM_SPECTATOR){
 		client->lastJoinedTime = level.time;
+	}
+
+	client->rockPaperScissorsOtherClientNum = ENTITYNUM_NONE;
+	client->rockPaperScissorsChallengeTime = 0;
+	client->rockPaperScissorsStartTime = 0;
+	client->rockPaperScissorsBothChosenTime = 0;
+	client->rockPaperScissorsChoice = '\0';
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		if (g_entities[i].inuse && g_entities[i].client && g_entities[i].client->rockPaperScissorsOtherClientNum == ent - g_entities) {
+			g_entities[i].client->rockPaperScissorsOtherClientNum = ENTITYNUM_NONE;
+			g_entities[i].client->rockPaperScissorsChallengeTime = 0;
+			g_entities[i].client->rockPaperScissorsStartTime = 0;
+			g_entities[i].client->rockPaperScissorsBothChosenTime = 0;
+			g_entities[i].client->rockPaperScissorsChoice = '\0';
+		}
 	}
 }
 
@@ -2265,6 +2289,11 @@ static void Cmd_Tell_f(gentity_t *ent, char *override) {
 	}
 }
 
+static void MakeRockPaperScissorsChoice(gentity_t *ent, const char *cmd) {
+	if (!ent || !ent->client || !VALIDSTRING(cmd))
+		return;
+	ent->client->rockPaperScissorsChoice = tolower(*cmd);
+}
 
 /*
 ==================
@@ -2305,6 +2334,14 @@ static void Cmd_Say_f( gentity_t *ent, int mode, qboolean arg0 ) {
 			G_HackLog("Too long message: Client num %d (%s) from %s tried to send too long (%i chars) message (truncated: %s).\n",
                     ent->client->pers.clientNum, ent->client->pers.netname,	ent->client->sess.ipString,	len, p);
 		}
+	}
+
+	if (ent->client->rockPaperScissorsOtherClientNum < MAX_CLIENTS &&
+		ent->client->rockPaperScissorsStartTime && level.time - ent->client->rockPaperScissorsStartTime < ROCK_PAPER_SCISSORS_DURATION &&
+		!ent->client->rockPaperScissorsBothChosenTime &&
+		(!Q_stricmp(p, "r") || !Q_stricmp(p, "p") || !Q_stricmp(p, "s"))) {
+		MakeRockPaperScissorsChoice(ent, p);
+		return;
 	}
 
 	G_Say( ent, NULL, mode, p, qfalse );
@@ -2444,7 +2481,7 @@ void Cmd_Where_f( gentity_t *ent ) {
 	if (!ent->client)
 		return;
 
-	trap_SendServerCommand( ent - g_entities, va( "print \"Origin: %s ; Yaw: %.2f degrees\n\"", vtos( ent->client->ps.origin ), ent->client->ps.viewangles[YAW] ) );
+	trap_SendServerCommand( ent - g_entities, va( "print \"Origin: %s ; Yaw: %.3f degrees\n\"", vtos( ent->client->ps.origin ), ent->client->ps.viewangles[YAW] ) );
 }
 
 static const char *gameNames[] = {
@@ -4043,7 +4080,7 @@ static void PrintRaceRecordsCallback(void* context, const char* mapname, const r
 	char flagString[7];
 	Com_sprintf(flagString, sizeof(flagString), "%s%s", TeamColorString(record->extra.whoseFlag), TeamName(record->extra.whoseFlag));
 
-	char dateString[20];
+	char dateString[22];
 	time_t now = time(NULL);
 	if (now - record->date < 60 * 60 * 24) Q_strncpyz(dateString, S_COLOR_GREEN, sizeof(dateString));
 	else Q_strncpyz(dateString, S_COLOR_WHITE, sizeof(dateString));
@@ -4083,14 +4120,14 @@ static void PrintRaceTopCallback(void* context, const char* mapname, const raceT
 	if ( secs > 999 ) Com_sprintf( timeString, sizeof( timeString ), "  >999 " );
 	else Com_sprintf( timeString, sizeof( timeString ), "%3d.%03d", secs, millis );
 
-	char dateString[20];
+	char dateString[22];
 	time_t now = time( NULL );
 	if ( now - date < 60 * 60 * 24 ) Q_strncpyz(dateString, S_COLOR_GREEN, sizeof(dateString) );
 	else Q_strncpyz(dateString, S_COLOR_WHITE, sizeof(dateString) );
 	G_FormatLocalDateFromEpoch(dateString + 2, sizeof(dateString) - 2, date );
 
 	trap_SendServerCommand( ent - g_entities, va(
-		"print \""S_COLOR_WHITE"%-25s  "S_COLOR_YELLOW"%s   %s   "S_COLOR_WHITE"%s\n\"", mapname, timeString, dateString, name
+		"print \""S_COLOR_WHITE"%-25s  "S_COLOR_YELLOW"%s   %s     "S_COLOR_WHITE"%s\n\"", mapname, timeString, dateString, name
 	) );
 }
 
@@ -4166,14 +4203,14 @@ static void PrintRaceLatestCallback(void* context, const char* mapname, const ra
 	if ( secs > 999 ) Com_sprintf( timeString, sizeof( timeString ), "  >999 " );
 	else Com_sprintf( timeString, sizeof( timeString ), "%3d.%03d", secs, millis );
 
-	char dateString[20];
+	char dateString[22];
 	time_t now = time( NULL );
 	if ( now - date < 60 * 60 * 24 ) Q_strncpyz(dateString, S_COLOR_GREEN, sizeof(dateString) );
 	else Q_strncpyz(dateString, S_COLOR_WHITE, sizeof(dateString) );
 	G_FormatLocalDateFromEpoch(dateString + 2, sizeof(dateString) - 2, date );
 
 	trap_SendServerCommand( ent - g_entities, va(
-		"print \""S_COLOR_WHITE"%s     "S_COLOR_YELLOW"%-4s   %-4s    "S_COLOR_YELLOW"%s   %s   "S_COLOR_WHITE"%s\n\"",
+		"print \""S_COLOR_WHITE"%s     "S_COLOR_YELLOW"%-4s   %-4s    "S_COLOR_YELLOW"%s   %s     "S_COLOR_WHITE"%s\n\"",
 		nameString, GetShortNameForRecordType(type), rankString, timeString, dateString, mapname
 	) );
 }
@@ -4229,7 +4266,8 @@ void Cmd_TopTimes_f( gentity_t *ent ) {
 
 		int startOptionalsAt = 1;
 
-		if (!Q_stricmp(buf, "maplist") ||
+		if (!Q_stricmp(buf, "help") ||
+			!Q_stricmp(buf, "maplist") ||
 			!Q_stricmp(buf, "ranks") ||
 			!Q_stricmp(buf, "latest"))
 		{
@@ -4559,14 +4597,18 @@ void Cmd_Race_f( gentity_t *ent ) {
 
 		if ( !Q_stricmp( "help", s ) ) {
 			trap_SendServerCommand( ent - g_entities, "print \""
-				S_COLOR_WHITE"Racemode lets you travel the map in a different dimension.\n"
-				S_COLOR_WHITE"You can both submit fastcaps and spectate an ongoing pug while in racemode.\n"
+				S_COLOR_WHITE"Racemode lets you travel the map in a different dimension. You are invisible to ingame players.\n"
+				S_COLOR_WHITE"You can submit fastcaps, practice your aim, and spectate an ongoing pug while in racemode.\n"
 				S_COLOR_RED"=> "S_COLOR_WHITE"Type "S_COLOR_CYAN"/toptimes help "S_COLOR_WHITE"for more information about fastcaps\n"
+				S_COLOR_RED"=> "S_COLOR_WHITE"Type "S_COLOR_CYAN"/topaim help "S_COLOR_WHITE"for more information about aim practice\n"
+				S_COLOR_RED"=> "S_COLOR_CYAN"Pull "S_COLOR_WHITE"a bot to begin free aim training\n"
+				S_COLOR_RED"=> "S_COLOR_CYAN"Push "S_COLOR_WHITE"a bot to begin timed aim training\n"
 				S_COLOR_RED"=> "S_COLOR_WHITE"Press your "S_COLOR_YELLOW"Force Seeing "S_COLOR_WHITE"bind to toggle seeing in game players\n"
 				S_COLOR_RED"=> "S_COLOR_WHITE"Change the visibility of other racers with "S_COLOR_CYAN"/hideRacers"S_COLOR_WHITE", "S_COLOR_CYAN"/showRacers "S_COLOR_WHITE"or just "S_COLOR_CYAN"/toggleRacers\n"
+				S_COLOR_RED"=> "S_COLOR_WHITE"Change the visibility of aim practice bots with "S_COLOR_CYAN"/hideBots"S_COLOR_WHITE", "S_COLOR_CYAN"/showBots "S_COLOR_WHITE"or just "S_COLOR_CYAN"/toggleBots\n"
 				S_COLOR_YELLOW"NB: These previous three commands also work while in game and lets you see racers if you want to\n"
 				S_COLOR_RED"=> "S_COLOR_WHITE"Set your teleport point with "S_COLOR_CYAN"/amtelemark"S_COLOR_WHITE", and teleport to it with "S_COLOR_CYAN"/amtele\n"
-				S_COLOR_RED"=> "S_COLOR_WHITE"Automatically use speed when teleporting with "S_COLOR_CYAN"/amautospeed\n\"" );
+				S_COLOR_RED"=> "S_COLOR_WHITE"Automatically use speed when teleporting or restarting aim practice with "S_COLOR_CYAN"/amautospeed\n\"" );
 
 			return;
 		}
@@ -4677,6 +4719,62 @@ void Cmd_RacerVisibility_f( gentity_t *ent, int mode ) {
 	}
 }
 
+void Cmd_BotVisibility_f(gentity_t *ent, int mode) {
+	if (!ent || !ent->client) {
+		return;
+	}
+
+	gclient_t *client = ent->client;
+
+	// mode: 0 to hide, 1 to show, 2 to toggle
+	qboolean show;
+
+	if (client->sess.inRacemode) {
+		// in racemode, use the flag
+
+		if (mode == 0) {
+			show = qfalse;
+		}
+		else if (mode == 1) {
+			show = qtrue;
+		}
+		else {
+			show = client->sess.racemodeFlags & RMF_HIDEBOTS ? qtrue : qfalse;
+		}
+
+		if (show) {
+			trap_SendServerCommand(ent - g_entities, "print \""S_COLOR_GREEN"Aim practice bots VISIBLE\n\"");
+			client->sess.racemodeFlags &= ~RMF_HIDEBOTS;
+		}
+		else {
+			trap_SendServerCommand(ent - g_entities, "print \""S_COLOR_RED"Aim practice bots HIDDEN\n\"");
+			client->sess.racemodeFlags |= RMF_HIDEBOTS;
+		}
+	}
+	else {
+		// in game, use the separate variable
+
+		if (mode == 0) {
+			show = qfalse;
+		}
+		else if (mode == 1) {
+			show = qtrue;
+		}
+		else {
+			show = client->sess.seeAimBotsWhileIngame ? qfalse : qtrue;
+		}
+
+		if (show) {
+			trap_SendServerCommand(ent - g_entities, "print \""S_COLOR_GREEN"Aim practice bots VISIBLE\n\"");
+			client->sess.seeAimBotsWhileIngame = qtrue;
+		}
+		else {
+			trap_SendServerCommand(ent - g_entities, "print \""S_COLOR_RED"Aim practice bots HIDDEN\n\"");
+			client->sess.seeAimBotsWhileIngame = qfalse;
+		}
+	}
+}
+
 /*
 =================
 Cmd_Amtelemark_f
@@ -4771,6 +4869,31 @@ void Cmd_Amtele_f( gentity_t *ent ) {
 		return;
 	}
 
+	if (ent->aimPracticeEntBeingUsed && ent->aimPracticeEntBeingUsed->isAimPracticePack) { // pressed amtele bind while doing aim practice
+		qboolean someoneElseUsingThisPack = qfalse;
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *thisEnt = &g_entities[i];
+			if (!thisEnt->inuse || !thisEnt->client || thisEnt->client->pers.connected != CON_CONNECTED ||
+				thisEnt == ent || !thisEnt->client->sess.inRacemode || thisEnt->aimPracticeEntBeingUsed != ent->aimPracticeEntBeingUsed) {
+				continue;
+			}
+			someoneElseUsingThisPack = qtrue;
+			break;
+		}
+
+		ent->numAimPracticeSpawns = 0;
+		ent->numTotalAimPracticeHits = 0;
+		memset(ent->numAimPracticeHitsOfWeapon, 0, sizeof(ent->numAimPracticeHitsOfWeapon));
+
+		if (someoneElseUsingThisPack) { // someone else is using this pack; just reset their stats and start on the next respawn
+			CenterPrintToPlayerAndFollowers(ent, "Restarting...");
+		}
+		else { // we are the only one using this pack; go ahead and restart it immediately so they don't have to wait
+			RandomizeAndRestartPack(ent->aimPracticeEntBeingUsed->isAimPracticePack);
+		}
+		return;
+	}
+
 	if ( client->sess.telemarkOrigin[0] == 0 &&
 		client->sess.telemarkOrigin[1] == 0 &&
 		client->sess.telemarkOrigin[2] == 0 &&
@@ -4801,12 +4924,12 @@ void Cmd_AmAutoSpeed_f( gentity_t *ent ) {
 		return;
 	}
 
-	if ( !( client->sess.racemodeFlags & RMF_TELEWITHSPEED ) ) {
-		trap_SendServerCommand( ent - g_entities, "print \""S_COLOR_GREEN"Auto speed on teleport ON\n\"" );
-		client->sess.racemodeFlags |= RMF_TELEWITHSPEED;
-	} else {
+	if ( !( client->sess.racemodeFlags & RMF_DONTTELEWITHSPEED) ) {
 		trap_SendServerCommand( ent - g_entities, "print \""S_COLOR_RED"Auto speed on teleport OFF\n\"" );
-		client->sess.racemodeFlags &= ~RMF_TELEWITHSPEED;
+		client->sess.racemodeFlags |= RMF_DONTTELEWITHSPEED;
+	} else {
+		trap_SendServerCommand( ent - g_entities, "print \""S_COLOR_GREEN"Auto speed on teleport ON\n\"" );
+		client->sess.racemodeFlags &= ~RMF_DONTTELEWITHSPEED;
 	}
 }
 
@@ -5102,6 +5225,97 @@ void Cmd_ToggleSaber_f(gentity_t *ent)
 	}
 }
 
+#define ROCK_PAPER_SCISSORS_CHALLENGE_VALID_DURATION	(10000)
+#define ROCK_PAPER_SCISSORS_CHALLENGE_COOLDOWN_TIME		(2000)
+static qboolean RockPaperScissors(gentity_t *ent) {
+	if (!g_rockPaperScissors.integer || level.intermissiontime || g_gametype.integer != GT_CTF)
+		return qfalse;
+
+	if (!ent || !ent->client || ent - g_entities >= MAX_CLIENTS || (ent->r.svFlags & SVF_BOT) || ent->health <= 0 || ent->client->sess.sessionTeam == TEAM_SPECTATOR ||
+		(ent->client->rockPaperScissorsOtherClientNum < MAX_CLIENTS && ent->client->rockPaperScissorsStartTime && level.time - ent->client->rockPaperScissorsStartTime < ROCK_PAPER_SCISSORS_DURATION) ||
+		ent->client->ps.saberInFlight || ent->aimPracticeEntBeingUsed || ent->client->rockPaperScissorsBothChosenTime || ent->client->ps.fallingToDeath)
+		return qfalse;
+
+	// make sure they are standing still
+	if (ent->client->ps.velocity[0] || ent->client->ps.velocity[1] || ent->client->ps.velocity[2])
+		return qfalse;
+
+	// don't allow it in live games
+	if (level.wasRestarted && !level.someoneWasAFK && level.numTeamTicks) {
+		float avgRed = (float)level.numRedPlayerTicks / (float)level.numTeamTicks;
+		float avgBlue = (float)level.numBluePlayerTicks / (float)level.numTeamTicks;
+
+		int avgRedInt = (int)lroundf(avgRed);
+		int avgBlueInt = (int)lroundf(avgBlue);
+
+		if (avgRedInt == avgBlueInt && avgRedInt + avgBlueInt >= 4 && fabs(avgRed - round(avgRed)) < 0.2f && fabs(avgBlue - round(avgBlue)) < 0.2f)
+			return qfalse;
+	}
+
+	trace_t tr;
+	vec3_t forward, fwdOrg;
+	AngleVectors(ent->client->ps.viewangles, forward, NULL, NULL);
+	const float duelrange = 1024;
+	fwdOrg[0] = ent->client->ps.origin[0] + forward[0] * duelrange;
+	fwdOrg[1] = ent->client->ps.origin[1] + forward[1] * duelrange;
+	fwdOrg[2] = (ent->client->ps.origin[2] + ent->client->ps.viewheight) + forward[2] * duelrange;
+
+	trap_Trace(&tr, ent->client->ps.origin, NULL, NULL, fwdOrg, ent->s.number, MASK_PLAYERSOLID);
+	if (tr.fraction == 1 || tr.entityNum >= MAX_CLIENTS)
+		return qfalse;
+
+	gentity_t *targ = &g_entities[tr.entityNum];
+
+	if (!targ || !targ->client || !targ->inuse ||
+		targ->health < 1 || targ->client->ps.stats[STAT_HEALTH] < 1 ||
+		targ->client->sess.sessionTeam == TEAM_SPECTATOR ||
+		targ->client->ps.duelInProgress ||
+		targ->client->ps.saberInFlight ||
+		targ->client->sess.inRacemode != ent->client->sess.inRacemode ||
+		(targ->r.svFlags & SVF_BOT) ||
+		targ->aimPracticeEntBeingUsed ||
+		targ->client->ps.fallingToDeath ||
+		targ->client->rockPaperScissorsBothChosenTime ||
+		(targ->client->rockPaperScissorsOtherClientNum < MAX_CLIENTS && targ->client->rockPaperScissorsStartTime && level.time - targ->client->rockPaperScissorsStartTime < ROCK_PAPER_SCISSORS_DURATION)
+		) {
+		return qfalse;
+	}
+
+	if (ent->client->rockPaperScissorsChallengeTime && level.time - ent->client->rockPaperScissorsChallengeTime < ROCK_PAPER_SCISSORS_CHALLENGE_COOLDOWN_TIME)
+		return qtrue;
+
+	//auto accept for testing, remove in release!
+	if (targ->client->rockPaperScissorsOtherClientNum == ent - g_entities &&
+		targ->client->rockPaperScissorsChallengeTime &&
+		level.time - targ->client->rockPaperScissorsChallengeTime < ROCK_PAPER_SCISSORS_CHALLENGE_VALID_DURATION) {
+		trap_SendServerCommand(ent - g_entities, "cp \"Enter ^5r^7, ^5p^7, or ^5s^7 in chat\"");
+		trap_SendServerCommand(targ - g_entities, "cp \"Enter ^5r^7, ^5p^7, or ^5s^7 in chat\"");
+
+		// don't print the exact same message for people following them, so that idiots don't try to type r/p/s in chat
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *thisEnt = &g_entities[i];
+			if (thisEnt == ent || thisEnt == targ || !thisEnt->inuse || !thisEnt->client || thisEnt->client->sess.spectatorState != SPECTATOR_FOLLOW)
+				continue;
+			if (thisEnt->client->sess.spectatorClient != ent - g_entities && thisEnt->client->sess.spectatorClient != targ - g_entities)
+				continue;
+			trap_SendServerCommand(thisEnt - g_entities, "cp \"Waiting for players to choose...\"");
+		}
+
+		ent->client->rockPaperScissorsStartTime = targ->client->rockPaperScissorsStartTime = level.time;
+	}
+	else {
+		CenterPrintToPlayerAndFollowers(targ, va("%s^7 has challenged you to rock paper scissors!", ent->client->pers.netname));
+		CenterPrintToPlayerAndFollowers(ent, va("You challenged %s^7 to rock paper scissors", targ->client->pers.netname));
+	}
+
+	ent->client->ps.forceHandExtend = HANDEXTEND_DUELCHALLENGE;
+	ent->client->ps.forceHandExtendTime = level.time + 1000;
+
+	ent->client->rockPaperScissorsOtherClientNum = targ - g_entities;
+	ent->client->rockPaperScissorsChallengeTime = level.time;
+	return qtrue;
+}
+
 extern vmCvar_t		d_saberStanceDebug;
 
 extern qboolean WP_SaberCanTurnOffSomeBlades( saberInfo_t *saber );
@@ -5114,6 +5328,9 @@ void Cmd_SaberAttackCycle_f(gentity_t *ent)
 	{
 		return;
 	}
+
+	if (RockPaperScissors(ent))
+		return;
 
 	if (ent->client->saber[0].model[0] && ent->client->saber[1].model[0])
 	{ //no cycling for akimbo
@@ -5139,7 +5356,8 @@ void Cmd_SaberAttackCycle_f(gentity_t *ent)
 				else
 				{
 					//turn it off
-					G_Sound(ent, CHAN_AUTO, ent->client->saber[1].soundOff);
+					if (ent->client->ps.weapon == WP_SABER)
+						G_Sound(ent, CHAN_AUTO, ent->client->saber[1].soundOff);
 					ent->client->ps.saberHolstered = 1;
 					//g_active should take care of this, but...
 					ent->client->ps.fd.saberAnimLevel = SS_FAST;
@@ -5195,7 +5413,8 @@ void Cmd_SaberAttackCycle_f(gentity_t *ent)
 			else
 			{
 				//turn second one off
-				G_Sound(ent, CHAN_AUTO, ent->client->saber[0].soundOff);
+				if (ent->client->ps.weapon == WP_SABER)
+					G_Sound(ent, CHAN_AUTO, ent->client->saber[0].soundOff);
 				ent->client->ps.saberHolstered = 1;
 				//g_active should take care of this, but...
 				if ( ent->client->saber[0].singleBladeStyle != SS_NONE )
@@ -5961,6 +6180,7 @@ static void Cmd_Svauth_f( gentity_t *ent ) {
 			G_InitClientSession( ent->client );
 			G_InitClientAccount( ent->client );
 			G_InitClientRaceRecordsCache( ent->client );
+			G_InitClientAimRecordsCache(ent->client);
 			G_PrintWelcomeMessage( ent->client );
 			TellPlayerToRateMap( ent->client );
 
@@ -6421,12 +6641,12 @@ void G_LoadHelpFile(const char *filename) {
 	len = trap_FS_FOpenFile( filename, &f, FS_READ );
 
 	if ( !f || !len ) {
-		trap_Printf( va( S_COLOR_YELLOW "Help file %s not found or empty, disabling /help\n", filename ) );
+		trap_Printf( va( S_COLOR_YELLOW "Help file %s not found or empty, disabling /help" S_COLOR_WHITE "\n", filename ) );
 		return;
 	}
 
 	if ( len > MAX_HELP_BYTES ) {
-		trap_Printf( va( S_COLOR_YELLOW "Help file %s is too large (%d bytes, max is %d), disabling /help\n", filename, len, MAX_HELP_BYTES ) );
+		trap_Printf( va( S_COLOR_YELLOW "Help file %s is too large (%d bytes, max is %d), disabling /help" S_COLOR_WHITE "\n", filename, len, MAX_HELP_BYTES ) );
 		trap_FS_FCloseFile( f );
 		return;
 	}
@@ -6475,8 +6695,17 @@ void Cmd_Help_f( gentity_t *ent ) {
 	}
 }
 
+void Cmd_RPS_f(gentity_t *ent) {
+	RockPaperScissors(ent);
+}
+
 void Cmd_EngageDuel_f(gentity_t *ent)
 {
+	if (g_rockPaperScissors.integer) {
+		RockPaperScissors(ent);
+		return;
+	}
+
 	trace_t tr;
 	vec3_t forward, fwdOrg;
 	int duelrange = (g_gametype.integer == GT_CTF) ? 1024 : 256;
@@ -6967,6 +7196,11 @@ void ClientCommand( int clientNum ) {
 			Cmd_TopTimes_f( ent );
 			return;
 		}
+		else if (!Q_stricmp(cmd, "topaim") || !Q_stricmp(cmd, "topaims"))
+		{
+			Cmd_TopAim_f(ent);
+			return;
+		}
 #ifdef NEWMOD_SUPPORT
 		else if (Q_stricmp(cmd, "svauth") == 0 && ent->client->sess.auth > PENDING && ent->client->sess.auth < AUTHENTICATED) {
 			Cmd_Svauth_f(ent);
@@ -6989,23 +7223,23 @@ void ClientCommand( int clientNum ) {
 		return;
 	}
 
-	if (Q_stricmp (cmd, "give") == 0)
+	if (Q_stricmp(cmd, "give") == 0)
 	{
-		Cmd_Give_f (ent, 0);
+		Cmd_Give_f(ent, 0);
 	}
-	else if (Q_stricmp (cmd, "giveother") == 0)
+	else if (Q_stricmp(cmd, "giveother") == 0)
 	{ //for debugging pretty much
-		Cmd_Give_f (ent, 1);
+		Cmd_Give_f(ent, 1);
 	}
-	else if (Q_stricmp (cmd, "t_use") == 0 && CheatsOk(ent))
+	else if (Q_stricmp(cmd, "t_use") == 0 && CheatsOk(ent))
 	{ //debug use map object
 		if (trap_Argc() > 1)
 		{
 			char sArg[MAX_STRING_CHARS];
 			gentity_t *targ;
 
-			trap_Argv( 1, sArg, sizeof( sArg ) );
-			targ = G_Find( NULL, FOFS(targetname), sArg );
+			trap_Argv(1, sArg, sizeof(sArg));
+			targ = G_Find(NULL, FOFS(targetname), sArg);
 
 			while (targ)
 			{
@@ -7013,46 +7247,48 @@ void ClientCommand( int clientNum ) {
 				{
 					targ->use(targ, ent, ent);
 				}
-				targ = G_Find( targ, FOFS(targetname), sArg );
+				targ = G_Find(targ, FOFS(targetname), sArg);
 			}
 		}
 	}
-	else if (Q_stricmp (cmd, "god") == 0)
-		Cmd_God_f (ent);
-	else if (Q_stricmp (cmd, "notarget") == 0)
-		Cmd_Notarget_f (ent);
-	else if (Q_stricmp (cmd, "noclip") == 0)
-		Cmd_Noclip_f (ent);
-	else if ( Q_stricmp( cmd, "NPC" ) == 0 && CheatsOk(ent) )
+	else if (Q_stricmp(cmd, "god") == 0)
+		Cmd_God_f(ent);
+	else if (Q_stricmp(cmd, "notarget") == 0)
+		Cmd_Notarget_f(ent);
+	else if (Q_stricmp(cmd, "noclip") == 0)
+		Cmd_Noclip_f(ent);
+	else if (Q_stricmp(cmd, "NPC") == 0 && CheatsOk(ent))
 	{
-		Cmd_NPC_f( ent );
+		Cmd_NPC_f(ent);
 	}
-	else if (Q_stricmp (cmd, "kill") == 0)
-		Cmd_Kill_f (ent);
-	else if (Q_stricmp (cmd, "levelshot") == 0)
-		Cmd_LevelShot_f (ent);
-	else if (Q_stricmp (cmd, "follow") == 0)
-		Cmd_Follow_f (ent);
-	else if (Q_stricmp (cmd, "follownext") == 0)
-		Cmd_FollowCycle_f (ent, 1);
-	else if (Q_stricmp (cmd, "followprev") == 0)
-		Cmd_FollowCycle_f (ent, -1);
-	else if (Q_stricmp (cmd, "followflag") == 0)
-		Cmd_FollowFlag_f (ent);
+	else if (Q_stricmp(cmd, "kill") == 0)
+		Cmd_Kill_f(ent);
+	else if (Q_stricmp(cmd, "levelshot") == 0)
+		Cmd_LevelShot_f(ent);
+	else if (Q_stricmp(cmd, "follow") == 0)
+		Cmd_Follow_f(ent);
+	else if (Q_stricmp(cmd, "follownext") == 0)
+		Cmd_FollowCycle_f(ent, 1);
+	else if (Q_stricmp(cmd, "followprev") == 0)
+		Cmd_FollowCycle_f(ent, -1);
+	else if (Q_stricmp(cmd, "followflag") == 0)
+		Cmd_FollowFlag_f(ent);
 	else if (Q_stricmp(cmd, "followtarget") == 0)
 		Cmd_FollowTarget_f(ent);
-	else if (Q_stricmp (cmd, "team") == 0 || Q_stricmp(cmd, "join") == 0)
-		Cmd_Team_f (ent);
-	else if (Q_stricmp (cmd, "duelteam") == 0)
-		Cmd_DuelTeam_f (ent);
-	else if (Q_stricmp (cmd, "siegeclass") == 0)
-		Cmd_SiegeClass_f (ent);
-	else if ( Q_stricmp( cmd, "class" ) == 0 )
-		Cmd_Class_f( ent );
-	else if (Q_stricmp (cmd, "forcechanged") == 0)
-		Cmd_ForceChanged_f (ent);
-	else if (Q_stricmp (cmd, "where") == 0)
-		Cmd_Where_f (ent);
+	else if (Q_stricmp(cmd, "team") == 0 || Q_stricmp(cmd, "join") == 0)
+		Cmd_Team_f(ent);
+	else if (Q_stricmp(cmd, "duelteam") == 0)
+		Cmd_DuelTeam_f(ent);
+	else if (Q_stricmp(cmd, "siegeclass") == 0)
+		Cmd_SiegeClass_f(ent);
+	else if (Q_stricmp(cmd, "class") == 0)
+		Cmd_Class_f(ent);
+	else if (Q_stricmp(cmd, "forcechanged") == 0)
+		Cmd_ForceChanged_f(ent);
+	else if (Q_stricmp(cmd, "where") == 0)
+		Cmd_Where_f(ent);
+	else if (!Q_stricmp(cmd, "pack"))
+		Cmd_Pack_f(ent);
 	else if (Q_stricmp (cmd, "callvote") == 0)
 		Cmd_CallVote_f (ent, PAUSE_NONE);
 	else if (!Q_stricmp(cmd, "pause"))
@@ -7087,6 +7323,8 @@ void ClientCommand( int clientNum ) {
 		Cmd_TestCmd_f( ent );
 	else if ( !Q_stricmp(cmd, "toptimes") || !Q_stricmp( cmd, "fastcaps" ) )
 		Cmd_TopTimes_f( ent );
+	else if (!Q_stricmp(cmd, "topaim") || !Q_stricmp(cmd, "topaims"))
+		Cmd_TopAim_f(ent);
 	else if ( !Q_stricmp( cmd, "race" ) || !Q_stricmp( cmd, "ghost" ) )
 		Cmd_Race_f( ent );
 	else if ( !Q_stricmp(cmd, "hideRacers") )
@@ -7095,10 +7333,18 @@ void ClientCommand( int clientNum ) {
 		Cmd_RacerVisibility_f( ent, 1 );
 	else if ( !Q_stricmp( cmd, "toggleRacers" ) )
 		Cmd_RacerVisibility_f( ent, 2 );
+	else if (!Q_stricmp(cmd, "hideBots"))
+		Cmd_BotVisibility_f(ent, 0);
+	else if (!Q_stricmp(cmd, "showBots"))
+		Cmd_BotVisibility_f(ent, 1);
+	else if (!Q_stricmp(cmd, "toggleBots"))
+		Cmd_BotVisibility_f(ent, 2);
 	else if ( !Q_stricmp(cmd, "amtelemark") || !Q_stricmp( cmd, "telemark" ) )
 		Cmd_Amtelemark_f( ent );
 	else if ( !Q_stricmp(cmd, "amtele") || !Q_stricmp( cmd, "tele" ) )
 		Cmd_Amtele_f( ent );
+	else if (!Q_stricmp(cmd, "rps"))
+		Cmd_RPS_f(ent);
 	else if ( !Q_stricmp( cmd, "amautospeed" ) )
 		Cmd_AmAutoSpeed_f( ent );
 	else if ( !Q_stricmp( cmd, "emote" ) )
@@ -7140,6 +7386,18 @@ void ClientCommand( int clientNum ) {
 		}
 	}
 #ifdef _DEBUG
+	else if (!Q_stricmp(cmd, "ents")) {
+	char buf[8192] = { 0 };
+		for (int i = 0; i < MAX_GENTITIES; i++) {
+			gentity_t *printEnt = &g_entities[i];
+			if (printEnt->inuse && !printEnt->item && Q_stricmpn(printEnt->classname, "target_", 7) && Q_stricmpn(printEnt->classname, "trigger_", 8) &&
+				Q_stricmpn(printEnt->classname, "team_", 5) && Q_stricmpn(printEnt->classname, "info_", 5)) {
+				Q_strcat(buf, sizeof(buf), va("%d: %s svFlags: %d (%x)\n", i, printEnt->classname, printEnt->r.svFlags, printEnt->r.svFlags));
+			}
+		}
+		if (buf[0])
+			PrintIngame(ent - g_entities, buf);
+	}
 	else if (Q_stricmp(cmd, "relax") == 0 && CheatsOk( ent ))
 	{
 		if (ent->client->ps.eFlags & EF_RAG)

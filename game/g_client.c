@@ -2652,7 +2652,7 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 				otherEnt = g_entities;
 				for(i=0,n=0;i<level.maxclients;++i,++otherEnt)
                 {
-					if ( (otherEnt->client->pers.connected != CON_DISCONNECTED) && 
+					if ( otherEnt->client && (otherEnt->client->pers.connected != CON_DISCONNECTED) && 
                          (ip==otherEnt->client->sess.ip) )
                     {
 						++n;
@@ -2750,6 +2750,9 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 	if (IN_CLIENTNUM_RANGE(client->sess.sessionCacheNum)) {
 		G_InitClientSession(client);
 		G_InitClientAccount(client);
+		G_InitClientRaceRecordsCache(ent->client);
+		G_InitClientAimRecordsCache(ent->client);
+		TellPlayerToRateMap(ent->client);
 	}
 
 	// set racemode state here using session data that was carried over
@@ -2849,11 +2852,15 @@ void G_BroadcastServerFeatureList( int clientNum ) {
 		"ready \"Marks yourself as ready\" "
 		"ctfstats \"Shows stats for the current CTF game\" "
 		"toptimes \"Leaderboard of the fastest caps\" "
+		"topaim \"Leaderboard of top aim practice scores\" "
 		"inkognito \"Hides whom you are following on the scoreboard\" "
 		"race \"Enters or leaves racemode\" "
 		"amtelemark \"Sets your teleport point\" "
 		"amtele \"Teleports back to telemark\" "
 		"amautospeed \"Enables speed upon teleporting\" "
+		"hideBots \"Hides aim practice bots\" "
+		"showBots \"Shows aim practice bots\" "
+		"toggleBots \"Toggles seeing aim practice bots\" "
 		"hideRacers \"Hides racers\" "
 		"showRacers \"Shows racers\" "
 		"toggleRacers \"Toggles seeing racers\"";
@@ -3065,6 +3072,7 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 		G_InitClientSession(client);
 		G_InitClientAccount(client);
 		G_InitClientRaceRecordsCache(client);
+		G_InitClientAimRecordsCache(client);
 		G_PrintWelcomeMessage(client);
 	}
 
@@ -3639,6 +3647,71 @@ void G_SetRaceMode( gentity_t *self, qboolean race ) {
 	G_UpdateRaceBitMasks( self->client );
 }
 
+void SetRacerForcePowers(gentity_t *ent) {
+	if (!ent || !ent->client) {
+		assert(qfalse);
+		return;
+	}
+
+	if (!ent->client->sess.inRacemode)
+		return;
+
+	ent->client->ps.fd.forcePowerLevel[FP_HEAL] = FORCE_LEVEL_0;
+	ent->client->ps.fd.forcePowersKnown &= ~(1 << FP_HEAL);
+	ent->client->ps.fd.forcePowerLevel[FP_LEVITATION] = FORCE_LEVEL_3;
+	ent->client->ps.fd.forcePowersKnown |= (1 << FP_LEVITATION);
+	ent->client->ps.fd.forcePowerLevel[FP_SPEED] = FORCE_LEVEL_3;
+	ent->client->ps.fd.forcePowersKnown |= (1 << FP_SPEED);
+	ent->client->ps.fd.forcePowerLevel[FP_PUSH] = FORCE_LEVEL_3;
+	ent->client->ps.fd.forcePowersKnown |= (1 << FP_PUSH);
+	ent->client->ps.fd.forcePowerLevel[FP_PULL] = FORCE_LEVEL_3;
+	ent->client->ps.fd.forcePowersKnown |= (1 << FP_PULL);
+	ent->client->ps.fd.forcePowerLevel[FP_TELEPATHY] = FORCE_LEVEL_0;
+	ent->client->ps.fd.forcePowersKnown &= ~(1 << FP_TELEPATHY);
+	ent->client->ps.fd.forcePowerLevel[FP_GRIP] = FORCE_LEVEL_0;
+	ent->client->ps.fd.forcePowersKnown &= ~(1 << FP_GRIP);
+	ent->client->ps.fd.forcePowerLevel[FP_LIGHTNING] = FORCE_LEVEL_0;
+	ent->client->ps.fd.forcePowersKnown &= ~(1 << FP_LIGHTNING);
+	if (ent->aimPracticeEntBeingUsed) {
+		ent->client->ps.fd.forcePowerLevel[FP_RAGE] = FORCE_LEVEL_0;
+		ent->client->ps.fd.forcePowersKnown &= ~(1 << FP_RAGE);
+		ent->client->ps.fd.forcePowerLevel[FP_PROTECT] = FORCE_LEVEL_0;
+		ent->client->ps.fd.forcePowersKnown &= ~(1 << FP_PROTECT);
+	}
+	else {
+		ent->client->ps.fd.forcePowerLevel[FP_RAGE] = FORCE_LEVEL_3;
+		ent->client->ps.fd.forcePowersKnown |= (1 << FP_RAGE);
+		ent->client->ps.fd.forcePowerLevel[FP_PROTECT] = FORCE_LEVEL_3;
+		ent->client->ps.fd.forcePowersKnown |= (1 << FP_PROTECT);
+	}
+	ent->client->ps.fd.forcePowerLevel[FP_ABSORB] = FORCE_LEVEL_0;
+	ent->client->ps.fd.forcePowersKnown &= ~(1 << FP_ABSORB);
+	ent->client->ps.fd.forcePowerLevel[FP_TEAM_HEAL] = FORCE_LEVEL_0;
+	ent->client->ps.fd.forcePowersKnown &= ~(1 << FP_TEAM_HEAL);
+	ent->client->ps.fd.forcePowerLevel[FP_TEAM_FORCE] = FORCE_LEVEL_0;
+	ent->client->ps.fd.forcePowersKnown &= ~(1 << FP_TEAM_FORCE);
+	ent->client->ps.fd.forcePowerLevel[FP_DRAIN] = FORCE_LEVEL_0;
+	ent->client->ps.fd.forcePowersKnown &= ~(1 << FP_DRAIN);
+	ent->client->ps.fd.forcePowerLevel[FP_SEE] = FORCE_LEVEL_0;
+	ent->client->ps.fd.forcePowersKnown &= ~(1 << FP_SEE);
+	ent->client->ps.fd.forcePowerLevel[FP_SABERTHROW] = FORCE_LEVEL_0;
+	ent->client->ps.fd.forcePowersKnown &= ~(1 << FP_SABERTHROW);
+
+	// let them choose if they have a saber or not
+	if (ent->client->ps.fd.forcePowerLevel[FP_SABER_OFFENSE] > FORCE_LEVEL_0) {
+		ent->client->ps.fd.forcePowerLevel[FP_SABER_OFFENSE] = FORCE_LEVEL_3;
+		ent->client->ps.fd.forcePowersKnown |= (1 << FP_SABER_OFFENSE);
+		ent->client->ps.fd.forcePowerLevel[FP_SABER_DEFENSE] = FORCE_LEVEL_3;
+		ent->client->ps.fd.forcePowersKnown |= (1 << FP_SABER_DEFENSE);
+	}
+	else {
+		ent->client->ps.fd.forcePowerLevel[FP_SABER_OFFENSE] = FORCE_LEVEL_0;
+		ent->client->ps.fd.forcePowersKnown &= ~(1 << FP_SABER_OFFENSE);
+		ent->client->ps.fd.forcePowerLevel[FP_SABER_DEFENSE] = FORCE_LEVEL_0;
+		ent->client->ps.fd.forcePowersKnown &= ~(1 << FP_SABER_DEFENSE);
+	}
+}
+
 /*
 ===========
 G_GiveRacemodeItemsAndStats
@@ -3662,7 +3735,7 @@ void G_GiveRacemodeItemsAndFullStats( gentity_t *ent ) {
 	int i;
 	for ( i = 0; i < AMMO_MAX; ++i ) {
 		if ( level.raceSpawnAmmo[i] ) {
-			ent->client->ps.ammo[i] = level.raceSpawnAmmo[i];
+			ent->client->ps.ammo[i] = 999;//level.raceSpawnAmmo[i]
 		}
 	}
 
@@ -3674,7 +3747,9 @@ void G_GiveRacemodeItemsAndFullStats( gentity_t *ent ) {
 	}
 
 	ent->client->ps.fd.forcePower = ent->client->ps.fd.forcePowerMax;
+	SetRacerForcePowers(ent);
 }
+
 
 /*
 ===========
@@ -3765,12 +3840,12 @@ void G_InitClientRaceRecordsCache(gclient_t* client) {
 		}
 
 		if (numLoaded) {
-			Com_Printf("Loaded %d records for client %d (session id: %d)\n", numLoaded, client - level.clients, client->session->id);
+			Com_Printf("Loaded %d race records for client %d (session id: %d)\n", numLoaded, client - level.clients, client->session->id);
 		}
 	}
 
 	if (errored) {
-		Com_Printf("Failed to load records for client %d\n", client - level.clients);
+		Com_Printf("Failed to load race records for client %d\n", client - level.clients);
 		client->sess.canSubmitRaceTimes = qfalse;
 		memset(client->sess.cachedSessionRaceTimes, 0, sizeof(client->sess.cachedSessionRaceTimes));
 
@@ -3787,6 +3862,7 @@ after the first ClientBegin, and after each respawn
 Initializes all non-persistant parts of playerState
 ============
 */
+extern int speedLoopSound;
 extern qboolean WP_HasForcePowers( const playerState_t *ps );
 void ClientSpawn(gentity_t *ent) {
 	int					index;
@@ -4036,7 +4112,8 @@ void ClientSpawn(gentity_t *ent) {
 
 	// clear everything but the persistant data
 
-	G_ResetTrail(ent);
+	if (ent - g_entities < MAX_CLIENTS)
+		G_ResetTrail(ent);
 
 	saved = client->pers;
 	savedSess = client->sess;
@@ -4129,6 +4206,11 @@ void ClientSpawn(gentity_t *ent) {
 	client->ps.fd = savedForce;
 
 	client->ps.duelIndex = ENTITYNUM_NONE;
+	client->rockPaperScissorsOtherClientNum = ENTITYNUM_NONE;
+	client->rockPaperScissorsChallengeTime = 0;
+	client->rockPaperScissorsStartTime = 0;
+	client->rockPaperScissorsBothChosenTime = 0;
+	client->rockPaperScissorsChoice = '\0';
 
 	//spawn with 100
 	client->ps.jetpackFuel = 100;
@@ -4543,6 +4625,17 @@ void ClientSpawn(gentity_t *ent) {
 		} else {
 			client->ps.weapon = WP_MELEE;
 		}
+		if (!(client->sess.racemodeFlags & RMF_DONTTELEWITHSPEED)) {
+			qboolean wasAlreadyActive = client->ps.fd.forcePowersActive & (1 << FP_SPEED);
+
+			WP_ForcePowerStart(ent, FP_SPEED, 0);
+			G_Sound(ent, CHAN_BODY, G_SoundIndex("sound/weapons/force/speed.wav"));
+			if (!wasAlreadyActive) { // only start the loop if it wasn't already active
+				G_Sound(ent, TRACK_CHANNEL_2, speedLoopSound);
+			}
+		}
+
+		client->ps.forceAllowDeactivateTime = level.time + 1500;
 	}
 	else if (InstagibEnabled() && client->sess.sessionTeam != TEAM_SPECTATOR) {
 		// default loadout for instagibber

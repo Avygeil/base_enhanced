@@ -291,7 +291,8 @@ void TeleportPlayer( gentity_t *player, vec3_t origin, vec3_t angles ) {
 		G_DeletePlayerProjectiles( player );
 	}
 
-	G_ResetTrail(player);
+	if (player - g_entities < MAX_CLIENTS)
+		G_ResetTrail(player);
 }
 
 

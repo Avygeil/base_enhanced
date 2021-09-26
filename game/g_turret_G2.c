@@ -691,6 +691,8 @@ static qboolean turretG2_find_enemies( gentity_t *self )
 		{
 			continue; // don't pull aggro on racers
 		}
+		if (target->isAimPracticePack)
+			continue;
 		if ( target == self || !target->takedamage || target->health <= 0 || ( target->flags & FL_NOTARGET ))
 		{
 			continue;

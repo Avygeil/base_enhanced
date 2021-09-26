@@ -837,6 +837,9 @@ int Team_TouchOurFlag( gentity_t *ent, gentity_t *other, int team ) {
 			continue;
 		}
 
+		if (enemy->isAimPracticePack)
+			continue;
+
 		//check if its alive
 		if (enemy->health < 1)
 			continue;		// dead people can't pickup
@@ -967,6 +970,9 @@ int Team_TouchEnemyFlag( gentity_t *ent, gentity_t *other, int team ) {
 		if ( enemy->client->sess.inRacemode ) {
 			continue;
 		}
+
+		if (enemy->isAimPracticePack)
+			continue;
 
 		//ignore specs
 		if (enemy->client->sess.sessionTeam == TEAM_SPECTATOR)
@@ -1463,7 +1469,7 @@ void CheckTeamStatus(void) {
 		for (i = 0; i < g_maxclients.integer; i++) {
 			ent = g_entities + i;
 
-			if ( ent->client->pers.connected != CON_CONNECTED ) {
+			if ( !ent->client || ent->client->pers.connected != CON_CONNECTED ) {
 				continue;
 			}
 

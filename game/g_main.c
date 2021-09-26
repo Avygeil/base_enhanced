@@ -130,6 +130,7 @@ vmCvar_t	g_fraglimitVoteCorrection;
 vmCvar_t	g_fraglimit;
 vmCvar_t	g_duel_fraglimit;
 vmCvar_t	g_timelimit;
+vmCvar_t	g_nonLiveMatchesCanEnd;
 vmCvar_t	g_capturelimit;
 vmCvar_t	g_capturedifflimit;
 vmCvar_t	d_saberInterpolate;
@@ -176,6 +177,7 @@ vmCvar_t	g_braindeadBots;
 vmCvar_t	g_unlagged;
 #ifdef _DEBUG
 vmCvar_t	g_unlaggedMaxCompensation;
+vmCvar_t	g_unlaggedSkeletons;
 vmCvar_t	g_unlaggedSkeletonTime;
 vmCvar_t	g_unlaggedFactor;
 vmCvar_t	g_unlaggedOffset;
@@ -375,6 +377,7 @@ vmCvar_t	g_wallhackMaxTraces;
 vmCvar_t	g_inMemoryDB;
 
 vmCvar_t	g_enableRacemode;
+vmCvar_t	g_enableAimPractice;
 #ifdef _DEBUG
 vmCvar_t	d_disableRaceVisChecks;
 #endif
@@ -429,6 +432,8 @@ vmCvar_t	g_vote_rng;
 vmCvar_t	g_vote_runoff;
 vmCvar_t	g_vote_mapCooldownMinutes;
 vmCvar_t	g_vote_runoffTimeModifier;
+
+vmCvar_t	g_rockPaperScissors;
 
 vmCvar_t	g_gripBuff;
 
@@ -576,6 +581,7 @@ static cvarTable_t		gameCvarTable[] = {
     { &g_fraglimit, "fraglimit", "20", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_NORESTART, 0, qtrue },
     { &g_duel_fraglimit, "duel_fraglimit", "10", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_NORESTART, 0, qtrue },
     { &g_timelimit, "timelimit", "0", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_NORESTART, 0, qtrue },
+	{ &g_nonLiveMatchesCanEnd, "g_nonLiveMatchesCanEnd", "1", CVAR_ARCHIVE, 0, qtrue },
     { &g_capturelimit, "capturelimit", "0", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_NORESTART, 0, qtrue },
     { &g_capturedifflimit, "capturedifflimit", "10", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_NORESTART, 0, qtrue },
 
@@ -795,6 +801,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_inMemoryDB, "g_inMemoryDB", "0", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
 
 	{ &g_enableRacemode, "g_enableRacemode", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
+	{ &g_enableAimPractice, "g_enableAimPractice", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 #ifdef _DEBUG
 	{ &d_disableRaceVisChecks, "d_disableRaceVisChecks", "0", CVAR_TEMP, 0, qtrue },
 #endif
@@ -855,6 +862,8 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_runoff, "g_vote_runoff", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_mapCooldownMinutes, "g_vote_mapCooldownMinutes", "60", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_runoffTimeModifier, "g_vote_runoffTimeModifier", "0", CVAR_ARCHIVE, 0, qtrue },
+
+	{ &g_rockPaperScissors, "g_rockPaperScissors", "0", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_gripBuff, "g_gripBuff", "0", CVAR_ARCHIVE, 0, qtrue },
 
@@ -947,6 +956,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_unlagged, "g_unlagged", "0", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 #ifdef _DEBUG
 	{ &g_unlaggedMaxCompensation, "g_unlaggedMaxCompensation", "500", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_unlaggedSkeletons, "g_unlaggedSkeletons", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_unlaggedSkeletonTime, "g_unlaggedSkeletonTime", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_unlaggedFactor, "g_unlaggedFactor", "0.25", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_unlaggedOffset, "g_unlaggedOffset", "0", CVAR_ARCHIVE, 0, qtrue },
@@ -1803,9 +1813,12 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 	G_LoadHelpFile( "help.txt" );
 
 	G_DBLoadDatabase();
+	
+	LoadAimPacks();
 
 	// only enable racemode records in ctf
 	level.racemodeRecordsEnabled = g_gametype.integer == GT_CTF && g_enableRacemode.integer;
+	level.topAimRecordsEnabled = g_gametype.integer == GT_CTF && g_enableAimPractice.integer;
 
 	// reset capturedifflimit on map rs
 	trap_Cvar_Set( "capturedifflimit", g_default_capturedifflimit.string );
@@ -1907,6 +1920,8 @@ void G_ShutdownGame( int restart ) {
 
 	// accounts system
 	//cleanDB();
+
+	SaveDeleteAndFreeAimPacks();
 
     G_DBUnloadDatabase();
 
@@ -2701,6 +2716,7 @@ void MoveClientToIntermission( gentity_t *ent ) {
 	ent->s.loopIsSoundset = qfalse;
 	ent->s.event = 0;
 	ent->r.contents = 0;
+	ExitAimTraining(ent);
 }
 
 /*
@@ -3693,6 +3709,9 @@ void CheckExitRules( void ) {
 		}
 				return;
 			}
+
+	if (!g_nonLiveMatchesCanEnd.integer && g_gametype.integer == GT_CTF && !level.wasRestarted)
+		return;
 
 	// check for sudden death
 	if (g_gametype.integer != GT_SIEGE)
@@ -5053,9 +5072,9 @@ void G_ApplyRaceBroadcastsToEvent( gentity_t *parent, gentity_t *ev ) {
 	if ( playInRaceDimension ) {
 		ev->r.broadcastClients[1] |= ~( level.racemodeClientMask | level.racemodeSpectatorMask ); // hide to in game players...
 		ev->r.broadcastClients[1] |= level.racemodeClientsHidingOtherRacersMask; // ...hide to racers who disabled seeing other racers as well...
+		ev->r.broadcastClients[1] &= ~level.ingameClientsSeeingInRaceMask; // ...and show to ig players who enabled seeing racemode stuff
 		if ( raceClientNum >= 0 && raceClientNum < MAX_CLIENTS )
 			ev->r.broadcastClients[1] &= ~( 1 << raceClientNum ); // ...but show to the client num associated with this event if there is one...
-		ev->r.broadcastClients[1] &= ~level.ingameClientsSeeingInRaceMask; // ...and show to ig players who enabled seeing racemode stuff
 	} else {
 		ev->r.broadcastClients[1] |= level.racemodeClientMask; // hide to racers...
 		ev->r.broadcastClients[1] &= level.racemodeClientsHidingIngameMask; // ...but show to racers who didn't disable seeing in game stuff...
@@ -5095,6 +5114,29 @@ void G_UpdateNonClientBroadcasts( gentity_t *self ) {
 	}
 #endif
 
+	if (self->isAimPracticePack) {
+		self->r.broadcastClients[1] |= ~(level.racemodeClientMask | level.racemodeSpectatorMask); // ...hide to non racers
+		self->r.broadcastClients[1] &= (level.racemodeClientMask | level.racemodeSpectatorMask); // ...show to racers and racespectators
+		self->r.broadcastClients[1] &= ~level.ingameClientsSeeingInRaceMask; // ...and show to ig players who enabled seeing racemode stuff
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *thisEnt = &g_entities[i];
+			if (!thisEnt->inuse || !thisEnt->client)
+				continue;
+
+			if (thisEnt->client->sess.inRacemode) {
+				if ((level.racemodeClientsHidingOtherRacersMask & (1 << i)) && thisEnt->aimPracticeEntBeingUsed && thisEnt->aimPracticeEntBeingUsed != self)
+					self->r.broadcastClients[1] |= (1 << i); // ...hide to racers that are hiding other racers and not using this one
+				else if ((thisEnt->client->sess.racemodeFlags & RMF_HIDEBOTS) && thisEnt->aimPracticeEntBeingUsed != self)
+					self->r.broadcastClients[1] |= (1 << i); // ...hide to racers that are hiding bots and not using this one
+			}
+			else {
+				if (!thisEnt->client->sess.seeAimBotsWhileIngame)
+					self->r.broadcastClients[1] |= (1 << i); // ...hide to ingame players that are not explicitly showing bots while ingame)
+			}
+		}
+		return;
+	}
+
 	if ( self->s.eType == ET_MISSILE && self->r.ownerNum >= 0 && self->r.ownerNum < MAX_CLIENTS ) {
 
 		// special case: this is a missile with an owner
@@ -5107,9 +5149,12 @@ void G_UpdateNonClientBroadcasts( gentity_t *self ) {
 			self->r.broadcastClients[1] |= level.racemodeSpectatorMask; // ...and hide it to racespectators
 		} else {
 			// its owner is in racemode...
-			self->r.broadcastClients[1] |= ~( level.racemodeClientMask | level.racemodeSpectatorMask ); // ...hide to non racers
-			self->r.broadcastClients[1] |= level.racemodeClientMask; // ...hide to racers as well
-			self->r.broadcastClients[1] &= ~( 1 << ( self->r.ownerNum % 32 ) ); // ...but show it to its owner
+			self->r.broadcastClients[1] = -1;
+			self->r.broadcastClients[1] &= ~level.racemodeClientMask; // ...show to racers
+			self->r.broadcastClients[1] &= ~level.racemodeSpectatorMask; // ...show to racespectators
+			self->r.broadcastClients[1] |= level.racemodeClientsHidingOtherRacersMask; // ...but hide to racers hiding other racers
+			self->r.broadcastClients[1] &= ~level.ingameClientsSeeingInRaceMask; // ...and show to ig players who enabled seeing racemode stuff
+			self->r.broadcastClients[1] &= ~(1 << (self->r.ownerNum % 32)); // ...always show it to its owner
 		}
 
 	} else {
@@ -5171,6 +5216,249 @@ static void AddPlayerTick(team_t team, gclient_t *cl) {
 	add->accountId = cl->session->accountId;
 	const char *name = (cl->account && VALIDSTRING(cl->account->name)) ? cl->account->name : (cl->pers.netname[0] ? cl->pers.netname : "Padawan");
 	Q_strncpyz(add->name, name, sizeof(add->name));
+}
+
+animNumber_t RPSAnim(const char choiceChar) {
+	switch (choiceChar) {
+	case 'p': return BOTH_FORCELIGHTNING_START;
+	case 's': return BOTH_DEATH_LYING_UP;
+	default: return BOTH_MELEE1;
+	}
+}
+
+char *RPSString(const char choiceChar) {
+	switch (choiceChar) {
+	case 'p': return "Paper";
+	case 's': return "Scissors";
+	default: return "Rock";
+	}
+}
+
+char *RPSWinString(const char choiceChar) {
+	switch (choiceChar) {
+	case 'p': return "covers";
+	case 's': return "cuts";
+	default: return "crushes";
+	}
+}
+
+static void RunRockPaperScissors(void) {
+	if (!g_rockPaperScissors.integer || level.intermissiontime || g_gametype.integer != GT_CTF)
+		return;
+
+	qboolean handledClient[MAX_CLIENTS] = { qfalse };
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		if (handledClient[i])
+			continue;
+
+		gentity_t *ent = &g_entities[i];
+		if (!ent->client)
+			continue;
+
+		if (!ent->inuse || ent->health < 1 || ent->client->sess.sessionTeam == TEAM_SPECTATOR) {
+			ent->client->rockPaperScissorsOtherClientNum = ENTITYNUM_NONE;
+			ent->client->rockPaperScissorsChallengeTime = 0;
+			ent->client->rockPaperScissorsStartTime = 0;
+			ent->client->rockPaperScissorsBothChosenTime = 0;
+			ent->client->rockPaperScissorsChoice = '\0';
+			continue;
+		}
+
+		if (!ent->client->rockPaperScissorsStartTime) {
+			ent->client->rockPaperScissorsBothChosenTime = 0;
+			ent->client->rockPaperScissorsChoice = '\0';
+			continue;
+		}
+
+		if (ent->client->rockPaperScissorsOtherClientNum >= MAX_CLIENTS) {
+			// has start time but no other client
+			ent->client->rockPaperScissorsOtherClientNum = ENTITYNUM_NONE;
+			ent->client->rockPaperScissorsChallengeTime = 0;
+			ent->client->rockPaperScissorsStartTime = 0;
+			ent->client->rockPaperScissorsBothChosenTime = 0;
+			ent->client->rockPaperScissorsChoice = '\0';
+			continue;
+		}
+
+		gentity_t *other = &g_entities[ent->client->rockPaperScissorsOtherClientNum];
+		if (!other->inuse || !other->client || other->client->pers.connected != CON_CONNECTED || other->health < 1 || other->client->sess.sessionTeam == TEAM_SPECTATOR || other->client->sess.inRacemode != ent->client->sess.inRacemode) {
+			// has start time and other client, but other client is invalid
+			ent->client->rockPaperScissorsOtherClientNum = ENTITYNUM_NONE;
+			ent->client->rockPaperScissorsChallengeTime = 0;
+			ent->client->rockPaperScissorsStartTime = 0;
+			ent->client->rockPaperScissorsBothChosenTime = 0;
+			ent->client->rockPaperScissorsChoice = '\0';
+			if (other->client) {
+				other->client->rockPaperScissorsOtherClientNum = ENTITYNUM_NONE;
+				other->client->rockPaperScissorsChallengeTime = 0;
+				other->client->rockPaperScissorsStartTime = 0;
+				other->client->rockPaperScissorsBothChosenTime = 0;
+				other->client->rockPaperScissorsChoice = '\0';
+			}
+			continue;
+		}
+
+		if (handledClient[other - g_entities])
+			continue;
+
+		// mark them as handled so that the other person doesn't run later in the loop
+		handledClient[ent - g_entities] = qtrue;
+		handledClient[other - g_entities] = qtrue;
+
+		if (ent->client->rockPaperScissorsChoice && other->client->rockPaperScissorsChoice) {
+			static qboolean initialized = qfalse;
+			static int effectId = 0;
+			if (!initialized) {
+				effectId = G_EffectIndex("ships/ship_explosion2");
+				initialized = qtrue;
+			}
+
+			gentity_t *winner, *loser;
+			if ((other->client->rockPaperScissorsChoice == 'r' && ent->client->rockPaperScissorsChoice == 'p') ||
+				(other->client->rockPaperScissorsChoice == 'p' && ent->client->rockPaperScissorsChoice == 's') ||
+				(other->client->rockPaperScissorsChoice == 's' && ent->client->rockPaperScissorsChoice == 'r')) {
+				winner = ent;
+				loser = other;
+			}
+			else {
+				winner = other;
+				loser = ent;
+			}
+
+			char *winnerString = va("Your %s %s %s^7's %s\n\n^2You win!",
+				RPSString(winner->client->rockPaperScissorsChoice),
+				RPSWinString(winner->client->rockPaperScissorsChoice),
+				loser->client->pers.netname,
+				RPSString(loser->client->rockPaperScissorsChoice));
+			char *loserString = va("%s^7's %s %s your %s\n\n^1You lose!",
+				winner->client->pers.netname,
+				RPSString(winner->client->rockPaperScissorsChoice),
+				RPSWinString(winner->client->rockPaperScissorsChoice),
+				RPSString(loser->client->rockPaperScissorsChoice));
+			char *drawString = va("Draw!\n(%s vs %s)", RPSString(ent->client->rockPaperScissorsChoice), RPSString(other->client->rockPaperScissorsChoice));
+
+			qboolean bothChosenTimeAlreadySet = !!(ent->client->rockPaperScissorsBothChosenTime || other->client->rockPaperScissorsBothChosenTime);
+			if (!bothChosenTimeAlreadySet) {
+				ent->client->rockPaperScissorsBothChosenTime = other->client->rockPaperScissorsBothChosenTime = level.time;
+				ent->client->ps.torsoAnim = other->client->ps.torsoAnim = BOTH_STAND1;
+				ent->client->ps.torsoTimer = other->client->ps.torsoTimer = 0;
+			}
+			else if (level.time - ent->client->rockPaperScissorsBothChosenTime >= 7050 || level.time - other->client->rockPaperScissorsBothChosenTime >= 7050) {
+				if (ent->client->rockPaperScissorsChoice != other->client->rockPaperScissorsChoice) {
+					vec3_t dir = { 0, 0, 1 };
+					vec3_t explodeVec;
+					VectorCopy(loser->r.currentOrigin, explodeVec);
+					explodeVec[2] += loser->client->ps.viewheight;
+					if (effectId) {
+						gentity_t *te = G_PlayEffectID(effectId, explodeVec, dir);
+						G_ApplyRaceBroadcastsToEvent(loser, te);
+					}
+					loser->client->rockPaperScissorsStartTime = 0; // to allow the damage to hit
+					G_Damage(loser, winner, winner, vec3_origin, vec3_origin, 999999, DAMAGE_NO_PROTECTION, MOD_SUICIDE);
+				}
+
+				ent->client->rockPaperScissorsStartTime = other->client->rockPaperScissorsStartTime = 0;
+				ent->client->rockPaperScissorsOtherClientNum = other->client->rockPaperScissorsOtherClientNum = ENTITYNUM_NONE;
+				ent->client->rockPaperScissorsChoice = other->client->rockPaperScissorsChoice = '\0';
+				ent->client->rockPaperScissorsChallengeTime = other->client->rockPaperScissorsChallengeTime = 0;
+				ent->client->rockPaperScissorsBothChosenTime = other->client->rockPaperScissorsBothChosenTime = 0;
+			}
+			else if (level.time - ent->client->rockPaperScissorsBothChosenTime >= 3050 || level.time - other->client->rockPaperScissorsBothChosenTime >= 3050) {
+				ent->client->ps.torsoAnim = RPSAnim(ent->client->rockPaperScissorsChoice);
+				other->client->ps.torsoAnim = RPSAnim(other->client->rockPaperScissorsChoice);
+				if (!ent->client->rockPaperScissorsChallengeTime && !other->client->rockPaperScissorsChallengeTime &&
+					(level.time - ent->client->rockPaperScissorsBothChosenTime >= 5050 || level.time - other->client->rockPaperScissorsBothChosenTime >= 5050)) {
+					// refresh the message after a couple seconds
+					ent->client->rockPaperScissorsChallengeTime = other->client->rockPaperScissorsChallengeTime = 1;
+					if (ent->client->rockPaperScissorsChoice == other->client->rockPaperScissorsChoice) {
+						CenterPrintToPlayerAndFollowers(ent, drawString);
+						CenterPrintToPlayerAndFollowers(other, drawString);
+					}
+					else {
+						CenterPrintToPlayerAndFollowers(winner, winnerString);
+						CenterPrintToPlayerAndFollowers(loser, loserString);
+					}
+				}
+				if (ent->client->rockPaperScissorsChallengeTime && other->client->rockPaperScissorsChallengeTime &&
+					ent->client->rockPaperScissorsChallengeTime != 1 && other->client->rockPaperScissorsChallengeTime != 1) {
+					ent->client->ps.torsoTimer = other->client->ps.torsoTimer = 4000;
+					ent->client->rockPaperScissorsChallengeTime = other->client->rockPaperScissorsChallengeTime = 0;
+					if (ent->client->rockPaperScissorsChoice == other->client->rockPaperScissorsChoice) {
+						CenterPrintToPlayerAndFollowers(ent, drawString);
+						CenterPrintToPlayerAndFollowers(other, drawString);
+						char *print = va("%s^7 and %s^7 had a draw (%s).\n",
+							ent->client->pers.netname,
+							other->client->pers.netname,
+							RPSString(ent->client->rockPaperScissorsChoice));
+						if (ent->client->sess.inRacemode)
+							G_PrintBasedOnRacemode(print, qtrue);
+						else
+							PrintIngame(-1, print);
+					}
+					else {
+						CenterPrintToPlayerAndFollowers(winner, winnerString);
+						CenterPrintToPlayerAndFollowers(loser, loserString);
+
+						//G_AddEvent(winner, EV_TAUNT, 0);
+						G_EntitySound(loser, CHAN_VOICE, G_SoundIndex("*falling1.wav"));
+
+						char *print = va("%s^7 (%s) has defeated %s^7 (%s)!\n",
+							winner->client->pers.netname,
+							RPSString(winner->client->rockPaperScissorsChoice),
+							loser->client->pers.netname,
+							RPSString(loser->client->rockPaperScissorsChoice));
+						if (ent->client->sess.inRacemode)
+							G_PrintBasedOnRacemode(print, qtrue);
+						else
+							PrintIngame(-1, print);
+					}
+				}
+			}
+			else if (level.time - ent->client->rockPaperScissorsBothChosenTime >= 3000 || level.time - other->client->rockPaperScissorsBothChosenTime >= 3000) {
+				ent->client->ps.torsoAnim = other->client->ps.torsoAnim = BOTH_STAND1;
+				ent->client->ps.torsoTimer = other->client->ps.torsoTimer = 0;
+			}
+			else if (level.time - ent->client->rockPaperScissorsBothChosenTime >= 2050 || level.time - other->client->rockPaperScissorsBothChosenTime >= 2050) {
+				ent->client->ps.torsoAnim = other->client->ps.torsoAnim = BOTH_THERMAL_THROW;
+				ent->client->ps.torsoTimer = other->client->ps.torsoTimer = 950;
+			}
+			else if (level.time - ent->client->rockPaperScissorsBothChosenTime >= 2000 || level.time - other->client->rockPaperScissorsBothChosenTime >= 2000) {
+				ent->client->ps.torsoAnim = other->client->ps.torsoAnim = BOTH_STAND1;
+				ent->client->ps.torsoTimer = other->client->ps.torsoTimer = 0;
+			}
+			else if (level.time - ent->client->rockPaperScissorsBothChosenTime >= 1050 || level.time - other->client->rockPaperScissorsBothChosenTime >= 1050) {
+				ent->client->ps.torsoAnim = other->client->ps.torsoAnim = BOTH_THERMAL_THROW;
+				ent->client->ps.torsoTimer = other->client->ps.torsoTimer = 950;
+			}
+			else if (level.time - ent->client->rockPaperScissorsBothChosenTime >= 1000 || level.time - other->client->rockPaperScissorsBothChosenTime >= 1000) {
+				ent->client->ps.torsoAnim = other->client->ps.torsoAnim = BOTH_STAND1;
+				ent->client->ps.torsoTimer = other->client->ps.torsoTimer = 0;
+			}
+			else if (level.time - ent->client->rockPaperScissorsBothChosenTime >= 50 || level.time - other->client->rockPaperScissorsBothChosenTime >= 50) {
+				ent->client->ps.torsoAnim = other->client->ps.torsoAnim = BOTH_THERMAL_THROW;
+				ent->client->ps.torsoTimer = other->client->ps.torsoTimer = 950;
+			}
+		}
+		else if (level.time - ent->client->rockPaperScissorsStartTime >= ROCK_PAPER_SCISSORS_DURATION) { // time expired
+			if (!ent->client->rockPaperScissorsChoice && !other->client->rockPaperScissorsChoice) {
+				CenterPrintToPlayerAndFollowers(ent, "Neither player made a choice; cancelling.");
+				CenterPrintToPlayerAndFollowers(other, "Neither player made a choice; cancelling.");
+			}
+			else if (ent->client->rockPaperScissorsChoice) {
+				CenterPrintToPlayerAndFollowers(ent, va("%s^7 didn't make a choice; cancelling.", other->client->pers.netname));
+				CenterPrintToPlayerAndFollowers(other, "You didn't make a choice; cancelling.");
+			}
+			else if (other->client->rockPaperScissorsChoice) {
+				CenterPrintToPlayerAndFollowers(ent, "You didn't make a choice; cancelling.");
+				CenterPrintToPlayerAndFollowers(other, va("%s^7 didn't make a choice; cancelling.", ent->client->pers.netname));
+			}
+			ent->client->rockPaperScissorsStartTime = other->client->rockPaperScissorsStartTime = 0;
+			ent->client->rockPaperScissorsOtherClientNum = other->client->rockPaperScissorsOtherClientNum = ENTITYNUM_NONE;
+			ent->client->rockPaperScissorsChoice = other->client->rockPaperScissorsChoice = '\0';
+			ent->client->rockPaperScissorsChallengeTime = other->client->rockPaperScissorsChallengeTime = 0;
+			ent->client->rockPaperScissorsBothChosenTime = other->client->rockPaperScissorsBothChosenTime = 0;
+		}
+	}
 }
 
 extern int forcePowerNeeded[NUM_FORCE_POWER_LEVELS][NUM_FORCE_POWERS];
@@ -5240,6 +5528,7 @@ void G_RunFrame( int levelTime ) {
 	UpdateGlobalCenterPrint( levelTime );
 
 	// check for modified physics and disable capture times if non standard
+#ifndef _DEBUG
 	if ( level.racemodeRecordsEnabled && !level.racemodeRecordsReadonly && level.time > 1000 ) { // wat. it seems that sv_cheats = 1 on first frame... so don't check until 1000ms i guess
 		if ( g_cheats.integer != 0 ) {
 			G_Printf( S_COLOR_YELLOW"Cheats are enabled. Capture records won't be tracked during this map.\n" );
@@ -5264,6 +5553,7 @@ void G_RunFrame( int levelTime ) {
 			level.racemodeRecordsReadonly = qtrue;
 		}
 	}
+#endif
 
 	if (g_gametype.integer == GT_SIEGE &&
 		g_siegeRespawn.integer &&
@@ -5287,6 +5577,8 @@ void G_RunFrame( int levelTime ) {
 
 		g_siegeRespawnCheck = level.time + g_siegeRespawn.integer * 1000;
 	}
+
+	RunRockPaperScissors();
 
 	if (gDoSlowMoDuel)
 	{
@@ -5764,9 +6056,11 @@ void G_RunFrame( int levelTime ) {
                     && !(ent->client->ps.pm_flags & PMF_FOLLOW)
                     && ent->client->sess.sessionTeam != TEAM_SPECTATOR )
 			{
-				WP_ForcePowersUpdate(ent, &ent->client->pers.cmd );
-				WP_SaberPositionUpdate(ent, &ent->client->pers.cmd);
-				WP_SaberStartMissileBlockCheck(ent, &ent->client->pers.cmd);
+				if (!ent->isAimPracticePack) { // aim bots don't have sabers anyway; skipping this avoids a stupid ghoul2 crash
+					WP_ForcePowersUpdate(ent, &ent->client->pers.cmd);
+					WP_SaberPositionUpdate(ent, &ent->client->pers.cmd);
+					WP_SaberStartMissileBlockCheck(ent, &ent->client->pers.cmd);
+				}
 
 				if (ent->client->sess.sessionTeam == TEAM_RED) {
 					level.numRedPlayerTicks++;
@@ -5835,9 +6129,11 @@ void G_RunFrame( int levelTime ) {
 				}
 			}
 
-			WP_ForcePowersUpdate(ent, &ent->client->pers.cmd );
-			WP_SaberPositionUpdate(ent, &ent->client->pers.cmd);
-			WP_SaberStartMissileBlockCheck(ent, &ent->client->pers.cmd);
+			if (!ent->isAimPracticePack) { // aim bots don't have sabers anyway; skipping this avoids a stupid ghoul2 crash
+				WP_ForcePowersUpdate(ent, &ent->client->pers.cmd);
+				WP_SaberPositionUpdate(ent, &ent->client->pers.cmd);
+				WP_SaberStartMissileBlockCheck(ent, &ent->client->pers.cmd);
+			}
 		}
 
 		G_RunThink( ent );

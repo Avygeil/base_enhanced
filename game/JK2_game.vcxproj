@@ -96,6 +96,7 @@
     <ClCompile Include="FighterNPC.c" />
     <ClCompile Include="g_accounts.c" />
     <ClCompile Include="g_active.c" />
+    <ClCompile Include="g_aim.c" />
     <ClCompile Include="g_arenas.c" />
     <ClCompile Include="g_bot.c" />
     <ClCompile Include="g_client.c" />
