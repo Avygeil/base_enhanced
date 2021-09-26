@@ -2707,6 +2707,8 @@ static int AccountFlagName2Bitflag(const char* flagName) {
 		return ACCOUNTFLAG_AIMPACKEDITOR;
 	} else if (!Q_stricmp(flagName, "AimPackAdmin")) {
 		return ACCOUNTFLAG_AIMPACKADMIN;
+	} else if (!Q_stricmp(flagName, "VoteTroll")) {
+		return ACCOUNTFLAG_VOTETROLL;
 	}
 
 	return 0;
@@ -2721,6 +2723,7 @@ const char* AccountBitflag2FlagName(int bitflag) {
 		case ACCOUNTFLAG_ENTERSPAMMER: return "EnterSpammer";
 		case ACCOUNTFLAG_AIMPACKEDITOR: return "AimPackEditor";
 		case ACCOUNTFLAG_AIMPACKADMIN: return "AimPackAdmin";
+		case ACCOUNTFLAG_VOTETROLL: return "VoteTroll";
 		default: return NULL;
 	}
 }
@@ -2888,7 +2891,7 @@ void Svcmd_Account_f( void ) {
 
 			if ( trap_Argc() < 4 ) {
 				G_Printf( "Usage: "S_COLOR_YELLOW"account toggleflag <username> <flag>\n" );
-				G_Printf( "Available flags: Admin, VerboseRcon, AimPackEditor, AimPackAdmin\n" );
+				G_Printf( "Available flags: Admin, VerboseRcon, AimPackEditor, AimPackAdmin, VoteTroll\n" );
 				return;
 			}
 

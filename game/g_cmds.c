@@ -3212,6 +3212,11 @@ void Cmd_CallVote_f( gentity_t *ent, int pause ) {
 			return;
 		}
 
+		if (ent->client->account && (ent->client->account->flags & ACCOUNTFLAG_VOTETROLL)) {
+			trap_SendServerCommand(ent - g_entities, "print \"Vote kick is disabled.\n\"");
+			return;
+		}
+
 		if ( n < 0 || n >= MAX_CLIENTS )
 		{
 			trap_SendServerCommand( ent-g_entities, va("print \"invalid client number %d.\n\"", n ) );
@@ -3234,6 +3239,11 @@ void Cmd_CallVote_f( gentity_t *ent, int pause ) {
 		// *CHANGE 22* - vote disabling
 		if (!g_allow_vote_kick.integer){
 			trap_SendServerCommand( ent-g_entities, "print \"Vote kick is disabled.\n\"" );
+			return;
+		}
+
+		if (ent->client->account && (ent->client->account->flags & ACCOUNTFLAG_VOTETROLL)) {
+			trap_SendServerCommand(ent - g_entities, "print \"Vote kick is disabled.\n\"");
 			return;
 		}
 
@@ -3396,6 +3406,11 @@ void Cmd_CallVote_f( gentity_t *ent, int pause ) {
 	}
 	else if ( !Q_stricmp( arg1, "lockteams" ) )
 	{
+		if (ent->client->account && (ent->client->account->flags & ACCOUNTFLAG_VOTETROLL)) {
+			trap_SendServerCommand(ent - g_entities, "print \"Lock teams is disabled.\n\"");
+			return;
+		}
+
 		// hacky param whitelist but we aren't going to do any parsing anyway
 		if ( argc >= 3 && ( !Q_stricmp( arg2, "0" ) || !Q_stricmpn( arg2, "r", 1 )
 			|| !Q_stricmp( arg2, "4s" ) || !Q_stricmp( arg2, "5s" ) ) ) {
