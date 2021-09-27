@@ -862,6 +862,9 @@ typedef struct {
 	int			push;
 	int			pull;
 	int			healed;
+	int			numEnergizes;
+	float		normalizedEnergizeAmounts; // e.g. two 90% efficient energizes = 1.8
+	int			energizeEfficiency; // this is only calculated on demand; don't just randomly read this (imagine getters in C)
 	int			energizedAlly;
 	int			energizedEnemy;
 	int			absorbed;

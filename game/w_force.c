@@ -1613,11 +1613,15 @@ void ForceTeamForceReplenish( gentity_t *self )
 
 	i = 0;
 
+	int highestAmountEnergizedForAnyone = 0;
 	while (i < numpl)
 	{
 		// using TE on this ally
 		if ( self && self->client ) {
-			self->client->stats->energizedAlly += ( ( g_entities[pl[i]].client->ps.fd.forcePower + poweradd > 100 ) ? ( 100 - g_entities[pl[i]].client->ps.fd.forcePower ) : poweradd );
+			int thisGuyActualAmountEnergized = ((g_entities[pl[i]].client->ps.fd.forcePower + poweradd > 100) ? (100 - g_entities[pl[i]].client->ps.fd.forcePower) : poweradd);
+			self->client->stats->energizedAlly += thisGuyActualAmountEnergized;
+			if (thisGuyActualAmountEnergized > highestAmountEnergizedForAnyone)
+				highestAmountEnergizedForAnyone = thisGuyActualAmountEnergized;
 		}
 
 		g_entities[pl[i]].client->ps.fd.forcePower += poweradd;
@@ -1639,6 +1643,11 @@ void ForceTeamForceReplenish( gentity_t *self )
 		
 		i++;
 	}
+
+	++self->client->stats->numEnergizes;
+
+	float thisEnergizeEfficiency = Com_Clamp(0.0f, 1.0f, ((float)highestAmountEnergizedForAnyone / (float)poweradd)); // e.g. 50/50 and 33/33 are treated the same (1.0)
+	self->client->stats->normalizedEnergizeAmounts += thisEnergizeEfficiency;
 }
 
 void ForceGrip( gentity_t *self )

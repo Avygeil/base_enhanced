@@ -298,6 +298,15 @@ const char *CtfStatsTableCallback_EnergizedAlly(void *rowContext, void *columnCo
 	return FormatStatInt(stats->isTotal, stats->energizedAlly, bestStats[stats->lastTeam].energizedAlly, bestStats[OtherTeam(stats->lastTeam)].energizedAlly);
 }
 
+const char *CtfStatsTableCallback_EnergizeEfficiency(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	stats_t *stats = rowContext;
+	return FormatStatInt(stats->isTotal, stats->energizeEfficiency, bestStats[stats->lastTeam].energizeEfficiency, bestStats[OtherTeam(stats->lastTeam)].energizeEfficiency);
+}
+
 const char *CtfStatsTableCallback_EnergizedEnemy(void *rowContext, void *columnContext) {
 	if (!rowContext) {
 		assert(qfalse);
@@ -592,6 +601,8 @@ static void CheckBestStats(stats_t *player, statsTableType_t type, stats_t *weap
 		CheckBest(pull);
 		CheckBest(healed);
 		CheckBest(energizedAlly);
+		player->energizeEfficiency = player->numEnergizes ? player->normalizedEnergizeAmounts * 100 / player->numEnergizes : 0;
+		CheckBest(energizeEfficiency);
 		CheckBest(energizedEnemy);
 		CheckBest(absorbed);
 		CheckBest(protDamageAvoided);
@@ -744,6 +755,9 @@ static void AddStatsToTotal(stats_t *player, stats_t *team, statsTableType_t typ
 		AddStatToTotal(pull);
 		AddStatToTotal(healed);
 		AddStatToTotal(energizedAlly);
+		AddStatToTotal(numEnergizes);
+		AddStatToTotal(normalizedEnergizeAmounts);
+		team->energizeEfficiency = team->numEnergizes ? team->normalizedEnergizeAmounts * 100 / team->numEnergizes : 0;
 		AddStatToTotal(energizedEnemy);
 		AddStatToTotal(absorbed);
 		AddStatToTotal(protDamageAvoided);
@@ -1145,11 +1159,12 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 		Table_DefineColumn(t, "^5PULL", CtfStatsTableCallback_Pull, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5HEAL", CtfStatsTableCallback_Healed, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5NRG", CtfStatsTableCallback_EnergizedAlly, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5NRGEFF", CtfStatsTableCallback_EnergizeEfficiency, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5NRGENEMY", CtfStatsTableCallback_EnergizedEnemy, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5ABS", CtfStatsTableCallback_Absorbed, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5PROTDMG", CtfStatsTableCallback_ProtDamage, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5PROT", CtfStatsTableCallback_ProtDamage, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5PROTTIME", CtfStatsTableCallback_ProtTime, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5RAGETIME", CtfStatsTableCallback_RageTime, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5RAGE", CtfStatsTableCallback_RageTime, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5DRN", CtfStatsTableCallback_Drain, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5GOTDRND", CtfStatsTableCallback_GotDrained, NULL, qfalse, -1, 32);
 	}
