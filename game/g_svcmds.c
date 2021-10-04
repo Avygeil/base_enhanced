@@ -2968,9 +2968,18 @@ static void PrintUnassignedSessionIDsCallback(void* ctx, const int sessionId, co
 	if (referenced)
 		referencedString = " "S_COLOR_RED"/!\\";
 
+	char countryStr[128] = { 0 };
+	sessionReference_t sess = G_GetSessionByID(sessionId, qfalse);
+	if (sess.ptr) {
+		char ipStr[64] = { 0 };
+		G_GetStringFromSessionInfo(sess.ptr, "ip", ipStr, sizeof(ipStr));
+		if (ipStr[0])
+			trap_GetCountry(ipStr, countryStr, sizeof(countryStr));
+	}
+
 	G_Printf(
-		S_COLOR_WHITE"%s  "S_COLOR_WHITE"(%s) - session ID: %d%s\n",
-		nameString, durationString, sessionId, referencedString
+		"^7%s  ^7(%s, %s) - session ID: %d%s\n",
+		nameString, countryStr[0] ? countryStr : "Unknown country", durationString, sessionId, referencedString
 	);
 }
 
@@ -3062,10 +3071,10 @@ void Svcmd_Session_f( void ) {
 				page
 			);
 
-		} else if ( !Q_stricmp( s, "nicknames" ) ) {
+		} else if ( !Q_stricmp( s, "nicknames" ) || !Q_stricmp(s, "info")) {
 
 			if (trap_Argc() < 3) {
-				G_Printf("Usage: "S_COLOR_YELLOW"session nicknames <session id>\n");
+				G_Printf("Usage: "S_COLOR_YELLOW"session info <session id>\n");
 				return;
 			}
 
@@ -3083,6 +3092,17 @@ void Svcmd_Session_f( void ) {
 				return;
 			}
 
+			G_Printf("^3Info for session %d^7\n", sessionId);
+			char ipStr[64] = { 0 };
+			G_GetStringFromSessionInfo(sess.ptr, "ip", ipStr, sizeof(ipStr));
+			if (ipStr[0]) {
+				char countryStr[128] = { 0 };
+				trap_GetCountry(ipStr, countryStr, sizeof(countryStr));
+				if (countryStr[0])
+					G_Printf("^5Country: ^7%s\n", countryStr);
+			}
+			G_Printf("^5Top nicknames:^7\n");
+
 			nicknameEntry_t nicknames[NUM_TOP_NICKNAMES];
 
 			G_DBGetMostUsedNicknames(sess.ptr->id, NUM_TOP_NICKNAMES, &nicknames[0]);
@@ -3099,7 +3119,7 @@ void Svcmd_Session_f( void ) {
 				G_FormatDuration(nicknames[i].duration, durationString, sizeof(durationString));
 
 				G_Printf(
-					S_COLOR_WHITE"%s  "S_COLOR_WHITE"(%s)\n",
+					"^7%s  ^7(%s)\n",
 					nameString, durationString
 				);
 			}
@@ -3297,7 +3317,7 @@ void Svcmd_Session_f( void ) {
 			"Valid subcommands:\n"
 			S_COLOR_YELLOW"session whois"S_COLOR_WHITE": Lists the session currently in use by all in-game players\n"
 			S_COLOR_YELLOW"session unassigned [page]"S_COLOR_WHITE": Lists the top unassigned sessions (may lag the server with too many sessions, so be cautious)\n"
-			S_COLOR_YELLOW"session nicknames <session id>"S_COLOR_WHITE": Prints the top used nicknames for the given session ID\n"
+			S_COLOR_YELLOW"session info <session id>"S_COLOR_WHITE": Prints detailed info for a given session ID\n"
 			S_COLOR_YELLOW"session link <session id> <account name>"S_COLOR_WHITE": Links the given session ID to an existing account\n"
 			S_COLOR_YELLOW"session linkingame <client id> <account name>"S_COLOR_WHITE": Shortcut command to link an in-game client's session to an existing account\n"
 			S_COLOR_YELLOW"session unlink <session id>"S_COLOR_WHITE": Unlinks the account associated to the given session ID\n"
