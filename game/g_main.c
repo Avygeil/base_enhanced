@@ -5488,7 +5488,7 @@ void G_RunFrame( int levelTime ) {
 	for (i = 0; i < MAX_CLIENTS; i++) {
 		level.clients[i].realPing = level.clients[i].ps.ping;
 		if (level.clients[i].pers.connected == CON_CONNECTED && level.clients[i].sess.auth == CLANNOUNCE &&
-			level.clients[i].sess.clAnnounceSendTime && trap_Milliseconds() - level.clients[i].sess.clAnnounceSendTime >= 10000) {
+			level.clients[i].sess.clAnnounceSendTime && trap_Milliseconds() - level.clients[i].sess.clAnnounceSendTime >= 20000) {
 			trap_DropClient(i, "dropped due to authentication error");
 		}
 	}
