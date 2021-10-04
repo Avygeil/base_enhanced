@@ -2621,6 +2621,7 @@ extern vmCvar_t		g_default_capturedifflimit;
 extern vmCvar_t		g_enable_maprandom_wildcard;
 extern vmCvar_t		g_redirectDoWarmupVote;
 extern vmCvar_t		g_redirectNextMapVote;
+extern vmCvar_t		g_redirectPoolVoteToTierListVote;
 extern vmCvar_t     g_restart_countdown;
 
 extern vmCvar_t		g_allowReady;

@@ -1547,6 +1547,7 @@ static void mapSelectedCallback( void *context, char *mapname ) {
 }
 
 extern void CountPlayersIngame( int *total, int *ingame, int *inrace );
+void Svcmd_MapVote_f(const char *overrideMaps);
 
 void Svcmd_MapRandom_f()
 {
@@ -1560,6 +1561,11 @@ void Svcmd_MapRandom_f()
 	level.autoStartPending = qfalse;
 
     trap_Argv( 1, pool, sizeof( pool ) );
+
+	if (g_redirectPoolVoteToTierListVote.string[0] && pool[0] && !Q_stricmp(pool, g_redirectPoolVoteToTierListVote.string) && g_vote_tierlist.integer) {
+		Svcmd_MapVote_f(NULL);
+		return;
+	}
 
 	if ( trap_Argc() < 3 ) {
 		// default to 1 map if no argument
