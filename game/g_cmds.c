@@ -2344,6 +2344,15 @@ static void Cmd_Say_f( gentity_t *ent, int mode, qboolean arg0 ) {
 		return;
 	}
 
+	if (!Q_stricmp(p, "h") || !Q_stricmp(p, "heads")) {
+		ent->client->pers.cointossHeadsTime = trap_Milliseconds();
+		ent->client->pers.cointossTailsTime = 0;
+	}
+	else if (!Q_stricmp(p, "t") || !Q_stricmp(p, "tails")) {
+		ent->client->pers.cointossHeadsTime = 0;
+		ent->client->pers.cointossTailsTime = trap_Milliseconds();
+	}
+
 	G_Say( ent, NULL, mode, p, qfalse );
 }
 

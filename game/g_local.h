@@ -845,6 +845,9 @@ typedef struct {
 	int			specChatBufferCheckTime;
 
 	aimPracticePack_t	*aimPracticePackBeingEdited; // which pack this player is currently editing (if any)
+
+	int			cointossHeadsTime;
+	int			cointossTailsTime;
 } clientPersistant_t;
 
 typedef struct renderInfo_s

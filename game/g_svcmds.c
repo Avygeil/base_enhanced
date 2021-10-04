@@ -926,10 +926,57 @@ void Svcmd_LockTeams_f( void ) {
 
 void Svcmd_Cointoss_f(void) 
 {
-	int cointoss = rand() % 2;
+	int isHeads = rand() % 2;
 
-	trap_SendServerCommand(-1, va("cp \""S_COLOR_YELLOW"%s"S_COLOR_WHITE"!\"", cointoss ? "Heads" : "Tails"));
-	trap_SendServerCommand(-1, va("print \"Coin Toss result: "S_COLOR_YELLOW"%s\n\"", cointoss ? "Heads" : "Tails"));
+	int now = trap_Milliseconds();
+
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *ent = &g_entities[i];
+		if (!ent->inuse || !ent->client)
+			continue;
+
+		char *color = "^3";
+		team_t team;
+		int headsTime = 0, tailsTime = 0;
+
+		// color the result for this person if they chose something, or they are ingame, or they are following someone who is ingame
+
+		if (!ent->client->pers.cointossHeadsTime && !ent->client->pers.cointossTailsTime &&
+			ent->client->sess.sessionTeam == TEAM_SPECTATOR && ent->client->sess.spectatorState == SPECTATOR_FOLLOW &&
+			ent->client->sess.spectatorClient >= 0 && ent->client->sess.spectatorClient < MAX_CLIENTS &&
+			g_entities[ent->client->sess.spectatorClient].inuse && g_entities[ent->client->sess.spectatorClient].client &&
+			g_entities[ent->client->sess.spectatorClient].client->sess.sessionTeam != TEAM_FREE) {
+			team = g_entities[ent->client->sess.spectatorClient].client->sess.sessionTeam;
+			headsTime = g_entities[ent->client->sess.spectatorClient].client->pers.cointossHeadsTime;
+			tailsTime = g_entities[ent->client->sess.spectatorClient].client->pers.cointossTailsTime;
+		}
+		else {
+			team = ent->client->sess.sessionTeam;
+			headsTime = ent->client->pers.cointossHeadsTime;
+			tailsTime = ent->client->pers.cointossTailsTime;
+		}
+
+		if (team == TEAM_RED || team == TEAM_BLUE || headsTime || tailsTime) {
+			if (isHeads) {
+				if (headsTime && now - headsTime <= VOTE_TIME)
+					color = "^2";
+				else
+					color = "^1";
+			}
+			else {
+				if (tailsTime && now - tailsTime <= VOTE_TIME)
+					color = "^2";
+				else
+					color = "^1";
+			}
+		}
+
+		trap_SendServerCommand(i, va("cp \"%s%s!\"", color, isHeads ? "Heads" : "Tails"));
+		trap_SendServerCommand(i, va("print \"Coin toss result: %s%s^7\n\"", color, isHeads ? "Heads" : "Tails"));
+		ent->client->pers.cointossHeadsTime = ent->client->pers.cointossTailsTime = 0;
+	}
+
+	G_LogPrintf("Cointoss result was %s.\n", isHeads ? "heads" : "tails");
 }
 
 void Svcmd_ForceName_f(void) {
