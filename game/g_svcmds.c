@@ -956,15 +956,20 @@ void Svcmd_Cointoss_f(void)
 			tailsTime = ent->client->pers.cointossTailsTime;
 		}
 
+		if (headsTime && now - headsTime > VOTE_TIME)
+			headsTime = 0;
+		if (tailsTime && now - tailsTime > VOTE_TIME)
+			tailsTime = 0;
+
 		if (team == TEAM_RED || team == TEAM_BLUE || headsTime || tailsTime) {
 			if (isHeads) {
-				if (headsTime && now - headsTime <= VOTE_TIME)
+				if (headsTime)
 					color = "^2";
 				else
 					color = "^1";
 			}
 			else {
-				if (tailsTime && now - tailsTime <= VOTE_TIME)
+				if (tailsTime)
 					color = "^2";
 				else
 					color = "^1";
