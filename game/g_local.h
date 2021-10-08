@@ -875,6 +875,9 @@ typedef struct {
 	int			gotDrained;
 	int			regionTime[NUM_CTFREGIONS];
 	int			regionPercent[NUM_CTFREGIONS];
+
+	int			numFlagHolds;
+	int			averageFlagHold; // this is only calculated on demand; don't just randomly read this (imagine getters in C)
 } stats_t;
 
 typedef struct {

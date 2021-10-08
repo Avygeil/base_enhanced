@@ -217,6 +217,24 @@ const char *CtfStatsTableCallback_MaxHold(void *rowContext, void *columnContext)
 	return FormatStatTime(stats->isTotal, stats->longestFlagHold, bestStats[stats->lastTeam].longestFlagHold, bestStats[OtherTeam(stats->lastTeam)].longestFlagHold);
 }
 
+const char *CtfStatsTableCallback_Holds(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	stats_t *stats = rowContext;
+	return FormatStatInt(stats->isTotal, stats->numFlagHolds, bestStats[stats->lastTeam].numFlagHolds, bestStats[OtherTeam(stats->lastTeam)].numFlagHolds);
+}
+
+const char *CtfStatsTableCallback_AverageHold(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	stats_t *stats = rowContext;
+	return FormatStatTime(stats->isTotal, stats->averageFlagHold, bestStats[stats->lastTeam].averageFlagHold, bestStats[OtherTeam(stats->lastTeam)].averageFlagHold);
+}
+
 const char *CtfStatsTableCallback_Saves(void *rowContext, void *columnContext) {
 	if (!rowContext) {
 		assert(qfalse);
@@ -576,6 +594,9 @@ static void CheckBestStats(stats_t *player, statsTableType_t type, stats_t *weap
 		CheckBest(armorPickedUp);
 		CheckBest(totalFlagHold);
 		CheckBest(longestFlagHold);
+		CheckBest(numFlagHolds);
+		player->averageFlagHold = player->numFlagHolds ? player->totalFlagHold / player->numFlagHolds : 0;
+		CheckBest(averageFlagHold);
 		CheckBest(saves);
 		CheckBest(boonPickups);
 		CheckBest(damageDealtTotal);
@@ -731,6 +752,8 @@ static void AddStatsToTotal(stats_t *player, stats_t *team, statsTableType_t typ
 		AddStatToTotal(healthPickedUp);
 		AddStatToTotal(armorPickedUp);
 		AddStatToTotal(totalFlagHold);
+		AddStatToTotal(numFlagHolds);
+		team->averageFlagHold = team->numFlagHolds ? team->totalFlagHold / team->numFlagHolds : 0;
 		AddStatToTotal(longestFlagHold);
 		AddStatToTotal(saves);
 		AddStatToTotal(damageDealtTotal);
@@ -1140,6 +1163,8 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 		Table_DefineColumn(t, "^5+SH", CtfStatsTableCallback_ArmorPickedUp, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5TTLHOLD", CtfStatsTableCallback_TotalHold, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5MAXHOLD", CtfStatsTableCallback_MaxHold, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5HOLDS", CtfStatsTableCallback_Holds, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5AVGHOLD", CtfStatsTableCallback_AverageHold, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5DMGDLT", CtfStatsTableCallback_DamageDealt, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5DMGTKN", CtfStatsTableCallback_DamageTaken, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5TOPSPD", CtfStatsTableCallback_TopSpeed, NULL, qfalse, -1, 32);
@@ -1161,13 +1186,13 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 		Table_DefineColumn(t, "^5PUSH", CtfStatsTableCallback_Push, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5PULL", CtfStatsTableCallback_Pull, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5HEAL", CtfStatsTableCallback_Healed, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5NRG", CtfStatsTableCallback_EnergizedAlly, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5NRGEFF", CtfStatsTableCallback_EnergizeEfficiency, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5NRGENEMY", CtfStatsTableCallback_EnergizedEnemy, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5TE", CtfStatsTableCallback_EnergizedAlly, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5TE EFF", CtfStatsTableCallback_EnergizeEfficiency, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5ENEMYNRG", CtfStatsTableCallback_EnergizedEnemy, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5ABS", CtfStatsTableCallback_Absorbed, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5PROT", CtfStatsTableCallback_ProtDamage, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5PROTTIME", CtfStatsTableCallback_ProtTime, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5RAGE", CtfStatsTableCallback_RageTime, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5RAGETIME", CtfStatsTableCallback_RageTime, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5DRN", CtfStatsTableCallback_Drain, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5GOTDRND", CtfStatsTableCallback_GotDrained, NULL, qfalse, -1, 32);
 	}
