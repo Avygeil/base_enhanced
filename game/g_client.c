@@ -3226,8 +3226,15 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 		}
 	}
 
-	if (ent->client->stats && (ent->client->sess.sessionTeam == TEAM_RED || ent->client->sess.sessionTeam == TEAM_BLUE))
+	if (ent->client->stats && (ent->client->sess.sessionTeam == TEAM_RED || ent->client->sess.sessionTeam == TEAM_BLUE)) {
+		if ((ent->client->stats->lastTeam == TEAM_RED || ent->client->stats->lastTeam == TEAM_BLUE) && ent->client->stats->lastTeam != ent->client->sess.sessionTeam) {
+			// they were previously ingame but have changed teams
+			// we need to assign them a new stats struct so that their stats are tracked separately per-team
+			ChangeStatsTeam(ent->client);
+		}
+
 		ent->client->stats->lastTeam = ent->client->sess.sessionTeam;
+	}
 
 	G_LogPrintf( "ClientBegin: %i (%s)\n", clientNum, ent->client->pers.netname );
 

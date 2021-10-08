@@ -688,13 +688,14 @@ typedef struct {
 	int			sessionId;
 	qboolean	isBot;
 	stats_t		*stats;
+	team_t		team;
 } gotPlayer_t;
 
 static qboolean PlayerMatches(genericNode_t *node, void *userData) {
 	const gotPlayer_t *existing = (const gotPlayer_t *)node;
 	const stats_t *thisGuy = (const stats_t *)userData;
 
-	if (existing && thisGuy && thisGuy->sessionId == existing->sessionId && thisGuy->isBot == existing->isBot)
+	if (existing && thisGuy && thisGuy->sessionId == existing->sessionId && thisGuy->isBot == existing->isBot && thisGuy->lastTeam == existing->team)
 		return qtrue;
 
 	return qfalse;
@@ -1041,6 +1042,7 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 				add->stats = found;
 				add->sessionId = found->sessionId;
 				add->isBot = found->isBot;
+				add->team = found->lastTeam;
 
 				if (team == winningTeam) {
 					lastWinningTeamPlayer = found;
@@ -1066,7 +1068,7 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 			continueLoop:; // nuts
 		}
 
-		// ...then, everybody else (ragequitters, people who went spec, etc.)
+		// ...then, everybody else (ragequitters, people who changed teams or went spec, etc.)
 		iterator_t iter;
 		ListIterate(&level.statsList, &iter, qfalse);
 
@@ -1084,6 +1086,7 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 			add->stats = found;
 			add->sessionId = found->sessionId;
 			add->isBot = found->isBot;
+			add->team = found->lastTeam;
 
 			if (team == winningTeam) {
 				lastWinningTeamPlayer = found;
@@ -1377,7 +1380,6 @@ static qboolean SessionIdMatchesStats(genericNode_t *node, void *userData) {
 // sets the client->stats pointer to the stats_t we have allocated for a client
 // this can be brand new or an existing one (e.g. if they left and reconnected during a match)
 void InitClientStats(gclient_t *cl) {
-
 	assert(cl);
 	stats_t *stats = ListFind(&level.statsList, SessionIdMatchesStats, cl->session, NULL);
 
@@ -1391,6 +1393,74 @@ void InitClientStats(gclient_t *cl) {
 		else
 			stats->accountName[0] = '\0';
 		Q_strncpyz(stats->name, cl->pers.netname, sizeof(stats->name));
+		//Com_DebugPrintf("InitClientStats: using new stats ptr for %s %08X\n", cl->pers.netname, (unsigned int)stats);
+	}
+	else {
+		//Com_DebugPrintf("InitClientStats: reusing old stats ptr for %s %08X\n", cl->pers.netname, (unsigned int)stats);
+	}
+
+	if (!stats->isBot)
+		stats->accountId = cl->session->accountId; // update the tracked account id in any case, in case an admin assigned him an account during this match
+	if (cl->account && VALIDSTRING(cl->account->name))
+		Q_strncpyz(stats->accountName, cl->account->name, sizeof(stats->accountName));
+	else
+		stats->accountName[0] = '\0';
+	Q_strncpyz(stats->name, cl->pers.netname, sizeof(stats->name));
+
+	cl->stats = stats;
+}
+
+typedef struct {
+	session_t *session;
+	team_t team;
+} SessionAndTeamContext;
+
+static qboolean SessionIdAndTeamMatchesStats(genericNode_t *node, void *userData) {
+	stats_t *existing = (stats_t *)node;
+	SessionAndTeamContext *thisGuy = (SessionAndTeamContext *)userData;
+
+	if (!existing || !thisGuy)
+		return qfalse;
+
+	if (thisGuy->team != existing->lastTeam)
+		return qfalse;
+
+	if (thisGuy->session->accountId != ACCOUNT_ID_UNLINKED && thisGuy->session->accountId == existing->accountId)
+		return qtrue; // matches a linked account
+
+	if (existing->sessionId == thisGuy->session->id)
+		return qtrue; // matches a session
+
+	return qfalse;
+}
+
+// this is called when someone who has already been ingame (red/blue) changes to the other red/blue team
+// we give them a new stats struct, allowing us to keep track of their stats on a per-team basis
+// e.g. if they did 1000 damage while on red and 1000 damage on blue, we can show two separate players each doing 1000 damage on their respective teams,
+// rather than showing one player did 2000 damage on his most recent team only
+// in other words, if there are 8 total players but two of them swap teams with each other halfway through; level.statsList will have a size of 10
+void ChangeStatsTeam(gclient_t *cl) {
+	assert(cl);
+	SessionAndTeamContext ctx;
+	ctx.session = cl->session;
+	ctx.team = cl->sess.sessionTeam;
+	stats_t *stats = ListFind(&level.statsList, SessionIdAndTeamMatchesStats, &ctx, NULL);
+
+	if (!stats) { // not yet tracked; add him to the list
+		stats = ListAdd(&level.statsList, sizeof(stats_t));
+		stats->isBot = !!(g_entities[cl - level.clients].r.svFlags & SVF_BOT);
+		stats->sessionId = stats->isBot ? cl - level.clients : cl->session->id;
+		stats->clientNum = cl - level.clients;
+		if (cl->account && VALIDSTRING(cl->account->name))
+			Q_strncpyz(stats->accountName, cl->account->name, sizeof(stats->accountName));
+		else
+			stats->accountName[0] = '\0';
+		Q_strncpyz(stats->name, cl->pers.netname, sizeof(stats->name));
+		stats->lastTeam = cl->sess.sessionTeam;
+		//Com_DebugPrintf("ChangeStatsTeam: assigned new stats ptr for %s %08X\n", cl->pers.netname, (unsigned int)stats);
+	}
+	else {
+		//Com_DebugPrintf("ChangeStatsTeam: reusing old stats ptr for %s %08X\n", cl->pers.netname, (unsigned int)stats);
 	}
 
 	if (!stats->isBot)

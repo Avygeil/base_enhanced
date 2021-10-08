@@ -1941,6 +1941,7 @@ typedef enum {
 qboolean StatsValid(const stats_t *stats);
 void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t outSize, qboolean announce, stats_t *weaponStatsPtr);
 void InitClientStats(gclient_t *cl);
+void ChangeStatsTeam(gclient_t *cl);
 int *GetDamageGivenStat(stats_t *attacker, stats_t *victim);
 int *GetDamageGivenStatOfType(stats_t *attacker, stats_t *victim, meansOfDeathCategory_t modc);
 int *GetDamageTakenStat(stats_t *attacker, stats_t *victim);

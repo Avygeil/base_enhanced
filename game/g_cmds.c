@@ -1024,8 +1024,15 @@ void SetTeam( gentity_t *ent, char *s ) {
 	client->sess.sessionTeam = team;
 	client->sess.spectatorState = specState;
 	client->sess.spectatorClient = specClient;
-	if (team == TEAM_RED || team == TEAM_BLUE) // we are only concerned about which ingame team they were last on
+	if (team == TEAM_RED || team == TEAM_BLUE) { // we are only concerned about which ingame team they were last on
+		if ((client->stats->lastTeam == TEAM_RED || client->stats->lastTeam == TEAM_BLUE) && client->stats->lastTeam != team) {
+			// they were previously ingame but have changed teams
+			// we need to assign them a new stats struct so that their stats are tracked separately per-team
+			ChangeStatsTeam(ent->client);
+		}
+
 		client->stats->lastTeam = team;
+	}
 
 	client->sess.teamLeader = qfalse;
 	if ( team == TEAM_RED || team == TEAM_BLUE ) {
