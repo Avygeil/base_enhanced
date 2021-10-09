@@ -797,7 +797,16 @@ int Team_TouchOurFlag( gentity_t *ent, gentity_t *other, int team ) {
 		//ResetFlag will remove this entity!  We must return zero
 		Team_ReturnFlagSound(Team_ResetFlag(team), team);
 
-
+		// this flag was returned, so give teamkills to anyone on the other team who recently killed their flag carrier
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *ent = &g_entities[i];
+			if (!ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED || ent->client->sess.sessionTeam != OtherTeam(other->client->sess.sessionTeam))
+				continue;
+			if (ent->client->killedAlliedFlagCarrierTime) {
+				ent->client->killedAlliedFlagCarrierTime = 0;
+				++ent->client->stats->teamKills;
+			}
+		}
 
 		return 0;
 	}
@@ -1055,6 +1064,9 @@ int Team_TouchEnemyFlag( gentity_t *ent, gentity_t *other, int team ) {
 	Team_SetFlagStatus( team, FLAG_TAKEN );
 	AddScore(other, ent->r.currentOrigin, CTF_FLAG_BONUS);
 	Team_TakeFlagSound( ent, team );
+
+	if (other->client->killedAlliedFlagCarrierTime)
+		other->client->killedAlliedFlagCarrierTime = 0;
 
 	return -1; // Do not respawn this automatically, but do delete it if it was FL_DROPPED
 }

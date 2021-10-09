@@ -2514,8 +2514,19 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 	// Add team bonuses
 	Team_FragBonuses(self, inflictor, attacker);
 
+	// teamkills
+	if (self->client->killedAlliedFlagCarrierTime && !(self->client->ps.powerups[PW_REDFLAG] || self->client->ps.powerups[PW_BLUEFLAG] || self->client->ps.powerups[PW_NEUTRALFLAG])) {
+		self->client->killedAlliedFlagCarrierTime = 0;
+		++self->client->stats->teamKills;
+	}
 	if (g_gametype.integer == GT_CTF && attacker && attacker->client && self->client->sess.sessionTeam == attacker->client->sess.sessionTeam && attacker != self) {
-		attacker->client->stats->teamKills++;
+		if (self->client->ps.powerups[PW_REDFLAG] || self->client->ps.powerups[PW_BLUEFLAG] || self->client->ps.powerups[PW_NEUTRALFLAG]) {
+			// killed a flag carrier; activate a timer to see whether they took the flag afterward
+			attacker->client->killedAlliedFlagCarrierTime = level.time;
+		}
+		else { // killed a non-carrier; just bump the teamkill stat immediately
+			attacker->client->stats->teamKills++;
+		}
 	}
 
 	// if I committed suicide, the flag does not fall, it returns.

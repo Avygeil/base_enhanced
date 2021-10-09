@@ -1125,6 +1125,8 @@ struct gclient_s {
 
 	int homingLockTime; // time at which homing weapon locked on to a target
 	int homingLockTarget; // the target of it
+
+	int killedAlliedFlagCarrierTime;
 };
 
 //Interest points
