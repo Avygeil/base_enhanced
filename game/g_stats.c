@@ -145,6 +145,15 @@ const char *CtfStatsTableCallback_Airs(void *rowContext, void *columnContext) {
 	return FormatStatInt(stats->isTotal, stats->airs, bestStats[stats->lastTeam].airs, bestStats[OtherTeam(stats->lastTeam)].airs);
 }
 
+const char *CtfStatsTableCallback_TeamKills(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	stats_t *stats = rowContext;
+	return FormatStatInt(stats->isTotal, stats->teamKills, bestStats[stats->lastTeam].teamKills, bestStats[OtherTeam(stats->lastTeam)].teamKills);
+}
+
 const char *CtfStatsTableCallback_Pits(void *rowContext, void *columnContext) {
 	if (!rowContext) {
 		assert(qfalse);
@@ -260,6 +269,24 @@ const char *CtfStatsTableCallback_DamageTaken(void *rowContext, void *columnCont
 	}
 	stats_t *stats = rowContext;
 	return FormatStatInt(stats->isTotal, stats->damageTakenTotal, bestStats[stats->lastTeam].damageTakenTotal, bestStats[OtherTeam(stats->lastTeam)].damageTakenTotal);
+}
+
+const char *CtfStatsTableCallback_FlagCarrierDamageDealt(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	stats_t *stats = rowContext;
+	return FormatStatInt(stats->isTotal, stats->flagCarrierDamageDealtTotal, bestStats[stats->lastTeam].flagCarrierDamageDealtTotal, bestStats[OtherTeam(stats->lastTeam)].flagCarrierDamageDealtTotal);
+}
+
+const char *CtfStatsTableCallback_FlagCarrierDamageTaken(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	stats_t *stats = rowContext;
+	return FormatStatInt(stats->isTotal, stats->flagCarrierDamageTakenTotal, bestStats[stats->lastTeam].flagCarrierDamageTakenTotal, bestStats[OtherTeam(stats->lastTeam)].flagCarrierDamageTakenTotal);
 }
 
 const char *CtfStatsTableCallback_TopSpeed(void *rowContext, void *columnContext) {
@@ -587,6 +614,9 @@ static void CheckBestStats(stats_t *player, statsTableType_t type, stats_t *weap
 		CheckBest(pits);
 		CheckBest(pitted);
 		CheckBest(fcKills);
+		CheckBest(flagCarrierDamageDealtTotal);
+		CheckBest(flagCarrierDamageTakenTotal);
+		CheckBest(teamKills);
 		CheckBest(rets);
 		CheckBest(selfkills);
 		CheckBest(boonPickups);
@@ -746,6 +776,9 @@ static void AddStatsToTotal(stats_t *player, stats_t *team, statsTableType_t typ
 		AddStatToTotal(pits);
 		AddStatToTotal(pitted);
 		AddStatToTotal(fcKills);
+		AddStatToTotal(flagCarrierDamageDealtTotal);
+		AddStatToTotal(flagCarrierDamageTakenTotal);
+		AddStatToTotal(teamKills);
 		AddStatToTotal(rets);
 		AddStatToTotal(selfkills);
 		AddStatToTotal(boonPickups);
@@ -1151,24 +1184,27 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 		Table_DefineColumn(t, "^5DEF", CtfStatsTableCallback_Defends, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5SAV", CtfStatsTableCallback_Saves, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5ACC", CtfStatsTableCallback_Accuracy, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5AIRS", CtfStatsTableCallback_Airs, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5AIR", CtfStatsTableCallback_Airs, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5TK", CtfStatsTableCallback_TeamKills, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5PITKIL", CtfStatsTableCallback_Pits, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5PITTED", CtfStatsTableCallback_Pitted, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5PITDTH", CtfStatsTableCallback_Pitted, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5DMG", CtfStatsTableCallback_DamageDealt, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5DMGTKN", CtfStatsTableCallback_DamageTaken, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5FCDMG", CtfStatsTableCallback_FlagCarrierDamageDealt, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5FCDMGTKN", CtfStatsTableCallback_FlagCarrierDamageTaken, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5FCKIL", CtfStatsTableCallback_FcKills, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5RET", CtfStatsTableCallback_Rets, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5SK", CtfStatsTableCallback_Selfkills, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5TTLHOLD", CtfStatsTableCallback_TotalHold, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5MAXHOLD", CtfStatsTableCallback_MaxHold, NULL, qfalse, -1, 32);
+		//Table_DefineColumn(t, "^5HOLDS", CtfStatsTableCallback_Holds, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5AVGHOLD", CtfStatsTableCallback_AverageHold, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5TOPSPD", CtfStatsTableCallback_TopSpeed, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5AVGSPD", CtfStatsTableCallback_AverageSpeed, NULL, qfalse, -1, 32);
 		if (level.boonExists) // only show boon stat if boon is enabled and exists on this map
 			Table_DefineColumn(t, "^5BOON", CtfStatsTableCallback_BoonPickups, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5+HP", CtfStatsTableCallback_HealthPickedUp, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5+SH", CtfStatsTableCallback_ArmorPickedUp, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5TTLHOLD", CtfStatsTableCallback_TotalHold, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5MAXHOLD", CtfStatsTableCallback_MaxHold, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5HOLDS", CtfStatsTableCallback_Holds, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5AVGHOLD", CtfStatsTableCallback_AverageHold, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5DMGDLT", CtfStatsTableCallback_DamageDealt, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5DMGTKN", CtfStatsTableCallback_DamageTaken, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5TOPSPD", CtfStatsTableCallback_TopSpeed, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5AVGSPD", CtfStatsTableCallback_AverageSpeed, NULL, qfalse, -1, 32);
 		ctfRegion_t region = CTFREGION_FLAGSTAND;
 		Table_DefineColumn(t, "^5FS", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
 		++region;

@@ -2514,6 +2514,10 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 	// Add team bonuses
 	Team_FragBonuses(self, inflictor, attacker);
 
+	if (g_gametype.integer == GT_CTF && attacker && attacker->client && self->client->sess.sessionTeam == attacker->client->sess.sessionTeam && attacker != self) {
+		attacker->client->stats->teamKills++;
+	}
+
 	// if I committed suicide, the flag does not fall, it returns.
 	if (meansOfDeath == MOD_SUICIDE && !self->client->sess.inRacemode) { // for racemode clients, powerup reset will be done later
 		if ( self->client->ps.powerups[PW_NEUTRALFLAG] ) {		// only happens in One Flag CTF
@@ -5150,6 +5154,11 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 		if (attacker->client->sess.sessionTeam != targ->client->sess.sessionTeam) {
 			targ->client->stats->damageTakenTotal += damageStatIncrease;
 			attacker->client->stats->damageDealtTotal += damageStatIncrease;
+
+			if (targ->client->ps.powerups[PW_REDFLAG] || targ->client->ps.powerups[PW_BLUEFLAG] || targ->client->ps.powerups[PW_NEUTRALFLAG]) {
+				targ->client->stats->flagCarrierDamageTakenTotal += damageStatIncrease;
+				attacker->client->stats->flagCarrierDamageDealtTotal += damageStatIncrease;
+			}
 		}
 
 		//targ->client->stats->damageTakenOfType[mod] += damageStatIncrease;

@@ -836,6 +836,7 @@ typedef struct {
 	int			accuracy_hits;
 	int			accuracy; // this is only calculated on demand; don't just randomly read this (imagine getters in C)
 	int			airs;
+	int			teamKills;
 	int			pits;
 	int			pitted;
 	int			fcKills;
@@ -849,6 +850,8 @@ typedef struct {
 	int			saves;
 	int			damageDealtTotal;
 	int			damageTakenTotal;
+	int			flagCarrierDamageDealtTotal; // damage given to flag carriers
+	int			flagCarrierDamageTakenTotal; // damage received while carrying a flag
 	int			damageOfType[MODC_MAX]; // only used for total rows; not players
 
 	float		topSpeed;
