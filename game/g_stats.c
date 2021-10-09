@@ -1208,11 +1208,11 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 		ctfRegion_t region = CTFREGION_FLAGSTAND;
 		Table_DefineColumn(t, "^5FS", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
 		++region;
-		Table_DefineColumn(t, "^5BAS", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5BASE", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
 		++region;
 		Table_DefineColumn(t, "^5MID", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
 		++region;
-		Table_DefineColumn(t, "^5EBA", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5EBASE", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
 		++region;
 		Table_DefineColumn(t, "^5EFS", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
 	}
