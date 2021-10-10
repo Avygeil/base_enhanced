@@ -816,6 +816,23 @@ typedef enum {
 	MODC_MAX
 } meansOfDeathCategory_t;
 
+typedef enum {
+	ACC_INVALID = -1,
+	ACC_FIRST = 0,
+	ACC_PISTOL = ACC_FIRST,
+	ACC_BLASTER,
+	ACC_DISRUPTOR,
+	ACC_BOWCASTER,
+	ACC_REPEATER,
+	ACC_DEMP,
+	ACC_GOLAN,
+	ACC_ROCKET,
+	ACC_CONCUSSION,
+	ACC_THERMAL,
+	ACC_ALL_TYPES_COMBINED,
+	ACC_MAX
+} accuracyCategory_t;
+
 typedef struct {
 	node_t		node;
 
@@ -834,7 +851,10 @@ typedef struct {
 	int			defends;
 	int			accuracy_shots;
 	int			accuracy_hits;
+	int			accuracy_shotsOfType[ACC_MAX];
+	int			accuracy_hitsOfType[ACC_MAX];
 	int			accuracy; // this is only calculated on demand; don't just randomly read this (imagine getters in C)
+	int			accuracyOfType[ACC_MAX]; // this is only calculated on demand; don't just randomly read this (imagine getters in C)
 	int			airs;
 	int			teamKills;
 	int			pits;
@@ -1425,7 +1445,8 @@ typedef struct {
 	int			racemodeClientsHidingOtherRacersMask; // bits set to 1 = clients in racemode who disabled seeing other racers
 	int			racemodeClientsHidingIngameMask; // bits set to 1 = clients in racemode who disabled seeing in game entities
 	int			ingameClientsSeeingInRaceMask; // bits set to 1 = clients in game who enabled seeing in race entities
-	int			raceSpawnWeapons; // mask of weapons present in this level
+	int			raceSpawnWeapons; // mask of race-relevant weapons present in this level
+	int			existingWeaponSpawns; // mask of all weapons present in this level
 	int			raceSpawnAmmo[AMMO_MAX]; // exactly the ammo to hand out at spawn based on what's present in this level
 	qboolean	raceSpawnWithArmor; // qtrue if this level has at least one shield pickup
 
@@ -1944,7 +1965,8 @@ typedef enum {
 	STATS_TABLE_FORCE,
 	STATS_TABLE_DAMAGE,
 	STATS_TABLE_WEAPON_GIVEN,
-	STATS_TABLE_WEAPON_TAKEN
+	STATS_TABLE_WEAPON_TAKEN,
+	STATS_TABLE_ACCURACY
 } statsTableType_t;
 qboolean StatsValid(const stats_t *stats);
 void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t outSize, qboolean announce, stats_t *weaponStatsPtr);
@@ -1957,6 +1979,7 @@ int *GetDamageTakenStatOfType(stats_t *attacker, stats_t *victim, meansOfDeathCa
 ctfRegion_t GetCTFRegion(gentity_t *ent);
 stats_t *GetStatsFromString(const char *str);
 meansOfDeathCategory_t MeansOfDeathCategoryForMeansOfDeath(meansOfDeath_t mod);
+accuracyCategory_t AccuracyCategoryForWeapon(weapon_t w);
 
 //
 // g_svcmds.c

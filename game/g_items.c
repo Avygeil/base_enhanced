@@ -3000,6 +3000,7 @@ void FinishSpawningItem( gentity_t *ent ) {
 
 	// add weapons/ammo/shields to the list of pickups for this level
 	if ( ent->item->giType == IT_WEAPON ) {
+		level.existingWeaponSpawns |= (1 << ent->item->giTag);
 		// only give weapons that are useful in race...
 		if ( ent->item->giTag == WP_REPEATER ||
 			ent->item->giTag == WP_FLECHETTE ||

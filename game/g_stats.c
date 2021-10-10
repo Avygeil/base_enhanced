@@ -595,6 +595,37 @@ const char *TableCallback_WeaponDamage(void *rowContext, void *columnContext) {
 	return FormatStatInt(qfalse, damage, mostDamageThisTeam, mostDamageOtherTeam);
 }
 
+weapon_t WeaponForAccuracyCategory(accuracyCategory_t acc);
+const char *CtfStatsTableCallback_WeaponAccuracy(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	stats_t *stats = rowContext;
+	accuracyCategory_t acc = *((accuracyCategory_t *)columnContext);
+
+	if (acc != ACC_PISTOL && acc != ACC_ALL_TYPES_COMBINED) { // only show columns for weapons that exist on this map
+		weapon_t weap = WeaponForAccuracyCategory(acc);
+		if (!(level.existingWeaponSpawns & (1 << weap))) {
+			if (stats->accuracy_shotsOfType[acc])
+				level.existingWeaponSpawns |= (1 << weap); // doesn't exist, but somehow they fired it anyway (cheats)? mark it as existing
+			else
+				return NULL;
+		}
+	}
+
+	if (acc == ACC_ALL_TYPES_COMBINED) {
+		if (!stats->accuracy_shots)
+			return " "; // return a single space instead of null so that the column doesn't get removed if nobody has fired this weapon yet
+		return FormatStatInt(stats->isTotal, stats->accuracy, bestStats[stats->lastTeam].accuracy, bestStats[OtherTeam(stats->lastTeam)].accuracy);
+	}
+	else {
+		if (!stats->accuracy_shotsOfType[acc])
+			return " "; // return a single space instead of null so that the column doesn't get removed if nobody has fired this weapon yet
+		return FormatStatInt(stats->isTotal, stats->accuracyOfType[acc], bestStats[stats->lastTeam].accuracyOfType[acc], bestStats[OtherTeam(stats->lastTeam)].accuracyOfType[acc]);
+	}
+}
+
 #define CheckBest(field) do { if (player->field > best->field) { best->field = player->field; } }  while (0)
 
 // we use this on every player to set up the bestStats structs
@@ -730,6 +761,14 @@ static void CheckBestStats(stats_t *player, statsTableType_t type, stats_t *weap
 				if (dmg && *dmg > bestStats[player->lastTeam].damageOfType[i])
 					bestStats[player->lastTeam].damageOfType[i] = *dmg;
 			}
+		}
+	}
+	else if (type == STATS_TABLE_ACCURACY) {
+		CheckBest(accuracy);
+		player->accuracy = player->accuracy_shots ? player->accuracy_hits * 100 / player->accuracy_shots : 0;
+		for (accuracyCategory_t weap = ACC_FIRST; weap < ACC_MAX; weap++) {
+			player->accuracyOfType[weap] = player->accuracy_shotsOfType[weap] ? player->accuracy_hitsOfType[weap] * 100 / player->accuracy_shotsOfType[weap] : 0;
+			CheckBest(accuracyOfType[weap]);
 		}
 	}
 }
@@ -882,6 +921,16 @@ static void AddStatsToTotal(stats_t *player, stats_t *team, statsTableType_t typ
 				if (dmg && *dmg > bestStats[player->lastTeam].damageOfType[i])
 					team->damageOfType[i] += *dmg;
 			}
+		}
+	}
+	else if (type == STATS_TABLE_ACCURACY) {
+		AddStatToTotal(accuracy_shots);
+		AddStatToTotal(accuracy_hits);
+		team->accuracy = team->accuracy_shots ? team->accuracy_hits * 100 / team->accuracy_shots : 0;
+		for (accuracyCategory_t weap = ACC_FIRST; weap < ACC_MAX; weap++) {
+			AddStatToTotal(accuracy_shotsOfType[weap]);
+			AddStatToTotal(accuracy_hitsOfType[weap]);
+			team->accuracyOfType[weap] = team->accuracy_shotsOfType[weap] ? team->accuracy_hitsOfType[weap] * 100 / team->accuracy_shotsOfType[weap] : 0;
 		}
 	}
 }
@@ -1061,6 +1110,56 @@ const char *NameForMeansOfDeathCategory(meansOfDeathCategory_t modc) {
 	}
 }
 
+const char *NameForAccuracyCategory(accuracyCategory_t acc) {
+	switch (acc) {
+	case ACC_PISTOL: return "^5PIS";
+	case ACC_BLASTER: return "^5BLA";
+	case ACC_DISRUPTOR: return "^5DIS";
+	case ACC_BOWCASTER: return "^5BOW";
+	case ACC_REPEATER: return "^5REP";
+	case ACC_DEMP: return "^5DMP";
+	case ACC_GOLAN: return "^5GOL";
+	case ACC_ROCKET: return "^5ROC";
+	case ACC_CONCUSSION: return "^5CON";
+	case ACC_THERMAL: return "^5THE";
+	case ACC_ALL_TYPES_COMBINED: return "^5TOTAL";
+	default: assert(qfalse); return NULL;
+	}
+}
+
+weapon_t WeaponForAccuracyCategory(accuracyCategory_t acc) {
+	switch (acc) {
+	case ACC_PISTOL: return WP_BRYAR_PISTOL;
+	case ACC_BLASTER: return WP_BLASTER;
+	case ACC_DISRUPTOR: return WP_DISRUPTOR;
+	case ACC_BOWCASTER: return WP_BOWCASTER;
+	case ACC_REPEATER: return WP_REPEATER;
+	case ACC_DEMP: return WP_DEMP2;
+	case ACC_GOLAN: return WP_FLECHETTE;
+	case ACC_ROCKET: return WP_ROCKET_LAUNCHER;
+	case ACC_CONCUSSION: return WP_CONCUSSION;
+	case ACC_THERMAL: return WP_THERMAL;
+	//case ACC_ALL_TYPES_COMBINED: return WP_NONE;
+	default: assert(qfalse); return WP_NONE;
+	}
+}
+
+accuracyCategory_t AccuracyCategoryForWeapon(weapon_t w) {
+	switch (w) {
+	case WP_BRYAR_PISTOL: case WP_BRYAR_OLD: return ACC_PISTOL;
+	case WP_BLASTER: return ACC_BLASTER;
+	case WP_DISRUPTOR: return ACC_DISRUPTOR;
+	case WP_BOWCASTER: return ACC_BOWCASTER;
+	case WP_REPEATER: return ACC_REPEATER;
+	case WP_DEMP2: return ACC_DEMP;
+	case WP_FLECHETTE: return ACC_GOLAN;
+	case WP_ROCKET_LAUNCHER: return ACC_ROCKET;
+	case WP_CONCUSSION: return ACC_CONCUSSION;
+	case WP_THERMAL: return ACC_THERMAL;
+	default: assert(qfalse); return ACC_INVALID;
+	}
+}
+
 static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qboolean announce, statsTableType_t type, stats_t *weaponStatsPtr) {
 	Table *t = Table_Initialize(qfalse);
 	list_t gotPlayersList = { 0 };
@@ -1203,16 +1302,16 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 		Table_DefineColumn(t, "^5AVGSPD", CtfStatsTableCallback_AverageSpeed, NULL, qfalse, -1, 32);
 		if (level.boonExists) // only show boon stat if boon is enabled and exists on this map
 			Table_DefineColumn(t, "^5BOON", CtfStatsTableCallback_BoonPickups, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5+HP", CtfStatsTableCallback_HealthPickedUp, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5+SH", CtfStatsTableCallback_ArmorPickedUp, NULL, qfalse, -1, 32);
+		//Table_DefineColumn(t, "^5+HP", CtfStatsTableCallback_HealthPickedUp, NULL, qfalse, -1, 32);
+		//Table_DefineColumn(t, "^5+SH", CtfStatsTableCallback_ArmorPickedUp, NULL, qfalse, -1, 32);
 		ctfRegion_t region = CTFREGION_FLAGSTAND;
 		Table_DefineColumn(t, "^5FS", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
 		++region;
-		Table_DefineColumn(t, "^5BASE", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5BAS", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
 		++region;
 		Table_DefineColumn(t, "^5MID", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
 		++region;
-		Table_DefineColumn(t, "^5EBASE", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5EBA", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
 		++region;
 		Table_DefineColumn(t, "^5EFS", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
 	}
@@ -1294,6 +1393,13 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 			context.modc = modc;
 			Table_DefineColumn(t, NameForMeansOfDeathCategory(modc), TableCallback_WeaponDamage, &context, qfalse, -1, 32);
 		}
+	}
+	else if (type == STATS_TABLE_ACCURACY) {
+		Table_DefineColumn(t, "^5NAME", CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
+		Table_DefineColumn(t, "^5ALIAS", CtfStatsTableCallback_Alias, NULL, qtrue, -1, 32);
+
+		for (accuracyCategory_t weap = ACC_FIRST; weap < ACC_MAX; weap++)
+			Table_DefineColumn(t, NameForAccuracyCategory(weap), CtfStatsTableCallback_WeaponAccuracy, &weap, qfalse, -1, 32);
 	}
 
 	ListClear(&gotPlayersList);
@@ -1410,12 +1516,15 @@ void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t ou
 		}
 		return;
 	}
+	else if (!Q_stricmpn(type, "ac", 2)) {
+		PrintTeamStats(id, outputBuffer, outSize, announce, STATS_TABLE_ACCURACY, NULL);
+	}
 	else {
 		if (id != -1) {
 			if (!Q_stricmp(type, "help"))
-				trap_SendServerCommand(id, "print \""S_COLOR_WHITE"Usage: "S_COLOR_CYAN"/ctfstats <general | force | damage | weapon [player]>\n\"");
+				trap_SendServerCommand(id, "print \""S_COLOR_WHITE"Usage: "S_COLOR_CYAN"/ctfstats <general | force | damage | accuracy | weapon [player]>\n\"");
 			else
-				trap_SendServerCommand(id, va("print \""S_COLOR_WHITE"Unknown type '%s"S_COLOR_WHITE"'. Usage: "S_COLOR_CYAN"/ctfstats <general | force | damage | weapon [player]>\n\"", type));
+				trap_SendServerCommand(id, va("print \""S_COLOR_WHITE"Unknown type '%s"S_COLOR_WHITE"'. Usage: "S_COLOR_CYAN"/ctfstats <general | force | damage | accuracy | weapon [player]>\n\"", type));
 		}
 
 		return;

@@ -667,6 +667,7 @@ static void WP_DisruptorMainFire( gentity_t *ent )
 			//ent->client->rewardTime = level.time + REWARD_SPRITE_TIME;
 		}
 		ent->client->stats->accuracy_hits++;
+		ent->client->stats->accuracy_hitsOfType[ACC_DISRUPTOR]++;
 	}
 }
 
@@ -989,6 +990,7 @@ void WP_DisruptorAltFire( gentity_t *ent )
 			//ent->client->rewardTime = level.time + REWARD_SPRITE_TIME;
 		}
 		ent->client->stats->accuracy_hits++;
+		ent->client->stats->accuracy_hitsOfType[ACC_DISRUPTOR]++;
 	}
 
 	if (g_unlagged.integer && compensate) {
@@ -2112,6 +2114,7 @@ void thermalDetonatorExplode( gentity_t *ent )
 				ent, ent, ent->splashMethodOfDeath) && !ent->isReflected)
 		{
 			g_entities[ent->r.ownerNum].client->stats->accuracy_hits++;
+			g_entities[ent->r.ownerNum].client->stats->accuracy_hitsOfType[ACC_THERMAL]++;
 		}
 
 		trap_LinkEntity( ent );
@@ -3271,6 +3274,7 @@ static void WP_FireConcussionAlt( gentity_t *ent )
 					if ( traceEnt->client && LogAccuracyHit( traceEnt, ent )) 
 					{//NOTE: hitting multiple ents can still get you over 100% accuracy
 						ent->client->stats->accuracy_hits++;
+						ent->client->stats->accuracy_hitsOfType[ACC_CONCUSSION]++;
 					} 
 
 					int preHealth = traceEnt->health;
@@ -4575,8 +4579,12 @@ void FireWeapon( gentity_t *ent, qboolean altFire ) {
 	{
 		if( ent->s.weapon == WP_FLECHETTE ) {
 			ent->client->stats->accuracy_shots += altFire ? FLECHETTE_SHOTS_ALT : FLECHETTE_SHOTS;
+			ent->client->stats->accuracy_shotsOfType[ACC_GOLAN] += altFire ? FLECHETTE_SHOTS_ALT : FLECHETTE_SHOTS;
 		} else {
 			ent->client->stats->accuracy_shots++;
+			accuracyCategory_t acc = AccuracyCategoryForWeapon(ent->s.weapon);
+			if (acc != ACC_INVALID)
+				ent->client->stats->accuracy_shotsOfType[acc]++;
 		}
 	}
 

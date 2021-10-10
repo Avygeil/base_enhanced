@@ -297,13 +297,22 @@ void G_ExplodeMissile( gentity_t *ent ) {
 		if( G_RadiusDamage( ent->r.currentOrigin, ent->parent, ent->splashDamage, ent->splashRadius, ent, 
 				ent, ent->splashMethodOfDeath ) ) 
 		{
+			accuracyCategory_t acc = AccuracyCategoryForWeapon(ent->s.weapon);
 			if (ent->parent)
 			{
 				g_entities[ent->parent->s.number].client->stats->accuracy_hits++;
+				if (acc != ACC_INVALID) {
+					g_entities[ent->parent->s.number].client->stats->accuracy_hitsOfType[acc]++;
+					Com_DebugPrintf("hit from G_ExplodeMissile 1: hits[%d] is now %d\n", acc, g_entities[ent->parent->s.number].client->stats->accuracy_hitsOfType[acc]);
+				}
 			}
 			else if (ent->activator)
 			{
 				g_entities[ent->activator->s.number].client->stats->accuracy_hits++;
+				if (acc != ACC_INVALID) {
+					g_entities[ent->activator->s.number].client->stats->accuracy_hitsOfType[acc]++;
+					Com_DebugPrintf("hit from G_ExplodeMissile 2: hits[%d] is now %d\n", acc, g_entities[ent->activator->s.number].client->stats->accuracy_hitsOfType[acc]);
+				}
 			}
 		}
 	}
@@ -444,6 +453,11 @@ qboolean CheckAccuracyAndAirshot(gentity_t *missile, gentity_t *victim, qboolean
 
 	if (LogAccuracyHit(victim, missileOwner) && !missile->isReflected) {
 		missileOwner->client->stats->accuracy_hits++;
+		accuracyCategory_t acc = AccuracyCategoryForWeapon(missile->s.weapon);
+		if (acc != ACC_INVALID) {
+			missileOwner->client->stats->accuracy_hitsOfType[acc]++;
+			Com_DebugPrintf("hit from CheckAccuracyAndAirshot: hits[%d] is now %d\n", acc, missileOwner->client->stats->accuracy_hitsOfType[acc]);
+		}
 		hitClient = qtrue;
 
 		if (isSurfedRocket && CountsForAirshotStat(missile)) {
@@ -907,6 +921,11 @@ killProj:
 				&& g_entities[ent->r.ownerNum].client 
 				&& !ent->isReflected) {
 				g_entities[ent->r.ownerNum].client->stats->accuracy_hits++;
+				accuracyCategory_t acc = AccuracyCategoryForWeapon(ent->s.weapon);
+				if (acc != ACC_INVALID) {
+					g_entities[ent->r.ownerNum].client->stats->accuracy_hitsOfType[acc]++;
+					Com_DebugPrintf("hit from G_MissileImpact: hits[%d] is now %d\n", acc, g_entities[ent->r.ownerNum].client->stats->accuracy_hitsOfType[acc]);
+				}
 			}
 		}
 	}
