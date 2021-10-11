@@ -297,19 +297,18 @@ void G_ExplodeMissile( gentity_t *ent ) {
 		if( G_RadiusDamage( ent->r.currentOrigin, ent->parent, ent->splashDamage, ent->splashRadius, ent, 
 				ent, ent->splashMethodOfDeath ) ) 
 		{
-			accuracyCategory_t acc = AccuracyCategoryForWeapon(ent->s.weapon);
+			gentity_t *owner = NULL;
 			if (ent->parent)
-			{
-				g_entities[ent->parent->s.number].client->stats->accuracy_hits++;
-				if (acc != ACC_INVALID) {
-					g_entities[ent->parent->s.number].client->stats->accuracy_hitsOfType[acc]++;
-				}
-			}
+				owner = ent->parent;
 			else if (ent->activator)
-			{
-				g_entities[ent->activator->s.number].client->stats->accuracy_hits++;
+				owner = ent->activator;
+
+			if (owner) {
+				accuracyCategory_t acc = AccuracyCategoryForProjectile(ent);
 				if (acc != ACC_INVALID) {
-					g_entities[ent->activator->s.number].client->stats->accuracy_hitsOfType[acc]++;
+					if (acc != ACC_PISTOL_ALT) // pistol does not count in overall accuracy
+						owner->client->stats->accuracy_hits++;
+					owner->client->stats->accuracy_hitsOfType[acc]++;
 				}
 			}
 		}
@@ -450,9 +449,10 @@ qboolean CheckAccuracyAndAirshot(gentity_t *missile, gentity_t *victim, qboolean
 		return qfalse;
 
 	if (LogAccuracyHit(victim, missileOwner) && !missile->isReflected) {
-		missileOwner->client->stats->accuracy_hits++;
-		accuracyCategory_t acc = AccuracyCategoryForWeapon(missile->s.weapon);
+		accuracyCategory_t acc = AccuracyCategoryForProjectile(missile);
 		if (acc != ACC_INVALID) {
+			if (acc != ACC_PISTOL_ALT) // pistol does not count in overall accuracy
+				missileOwner->client->stats->accuracy_hits++;
 			missileOwner->client->stats->accuracy_hitsOfType[acc]++;
 		}
 		hitClient = qtrue;
@@ -917,9 +917,10 @@ killProj:
 			if( !hitClient 
 				&& g_entities[ent->r.ownerNum].client 
 				&& !ent->isReflected) {
-				g_entities[ent->r.ownerNum].client->stats->accuracy_hits++;
-				accuracyCategory_t acc = AccuracyCategoryForWeapon(ent->s.weapon);
+				accuracyCategory_t acc = AccuracyCategoryForProjectile(ent);
 				if (acc != ACC_INVALID) {
+					if (acc != ACC_PISTOL_ALT) // pistol does not count in overall accuracy
+						g_entities[ent->r.ownerNum].client->stats->accuracy_hits++;
 					g_entities[ent->r.ownerNum].client->stats->accuracy_hitsOfType[acc]++;
 				}
 			}

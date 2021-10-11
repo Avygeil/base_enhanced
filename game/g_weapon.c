@@ -260,6 +260,8 @@ static void WP_FireBryarPistol( gentity_t *ent, qboolean altFire )
 		if (count > 1)
 		{
 			damage *= (count*1.7);
+			//ent->client->stats->accuracy_shots++;
+			ent->client->stats->accuracy_shotsOfType[ACC_PISTOL_ALT]++;
 		}
 		else
 		{
@@ -667,7 +669,7 @@ static void WP_DisruptorMainFire( gentity_t *ent )
 			//ent->client->rewardTime = level.time + REWARD_SPRITE_TIME;
 		}
 		ent->client->stats->accuracy_hits++;
-		ent->client->stats->accuracy_hitsOfType[ACC_DISRUPTOR]++;
+		ent->client->stats->accuracy_hitsOfType[ACC_DISRUPTOR_PRIMARY]++;
 	}
 }
 
@@ -990,7 +992,7 @@ void WP_DisruptorAltFire( gentity_t *ent )
 			//ent->client->rewardTime = level.time + REWARD_SPRITE_TIME;
 		}
 		ent->client->stats->accuracy_hits++;
-		ent->client->stats->accuracy_hitsOfType[ACC_DISRUPTOR]++;
+		ent->client->stats->accuracy_hitsOfType[ACC_DISRUPTOR_SNIPE]++;
 	}
 
 	if (g_unlagged.integer && compensate) {
@@ -1691,7 +1693,7 @@ void WP_flechette_alt_blow( gentity_t *ent )
 }
 
 //------------------------------------------------------------------------------
-static void WP_CreateFlechetteBouncyThing( vec3_t start, vec3_t fwd, gentity_t *self )
+static gentity_t *WP_CreateFlechetteBouncyThing( vec3_t start, vec3_t fwd, gentity_t *self )
 //------------------------------------------------------------------------------
 {
 	gentity_t	*missile;
@@ -1737,6 +1739,8 @@ static void WP_CreateFlechetteBouncyThing( vec3_t start, vec3_t fwd, gentity_t *
 	missile->splashMethodOfDeath = MOD_FLECHETTE_ALT_SPLASH;
 
 	VectorCopy( start, missile->pos2 );
+
+	return missile;
 }
 
 //---------------------------------------------------------
@@ -1753,6 +1757,7 @@ static void WP_FlechetteAltFire( gentity_t *self )
 
 	WP_TraceSetStart( self, start, mins, maxs );//make sure our start point isn't on the other side of a wall
 
+	gentity_t *balls[2] = { NULL };
 	for ( i = 0; i < 2; i++ )
 	{
 		VectorCopy( angs, dir );
@@ -1767,8 +1772,12 @@ static void WP_FlechetteAltFire( gentity_t *self )
 		}
 		AngleVectors( dir, fwd, NULL, NULL );
 
-		WP_CreateFlechetteBouncyThing( start, fwd, self );
+		balls[i] = WP_CreateFlechetteBouncyThing( start, fwd, self );
 	}
+
+	// link the two balls together so that an accuracy "hit" can be determined simply by one of them hitting
+	balls[0]->twin = balls[1];
+	balls[1]->twin = balls[0];
 }
 
 //---------------------------------------------------------
@@ -2114,7 +2123,7 @@ void thermalDetonatorExplode( gentity_t *ent )
 				ent, ent, ent->splashMethodOfDeath) && !ent->isReflected)
 		{
 			g_entities[ent->r.ownerNum].client->stats->accuracy_hits++;
-			g_entities[ent->r.ownerNum].client->stats->accuracy_hitsOfType[ACC_THERMAL]++;
+			g_entities[ent->r.ownerNum].client->stats->accuracy_hitsOfType[ACC_THERMAL_ALT]++;
 		}
 
 		trap_LinkEntity( ent );
@@ -3274,7 +3283,7 @@ static void WP_FireConcussionAlt( gentity_t *ent )
 					if ( traceEnt->client && LogAccuracyHit( traceEnt, ent )) 
 					{//NOTE: hitting multiple ents can still get you over 100% accuracy
 						ent->client->stats->accuracy_hits++;
-						ent->client->stats->accuracy_hitsOfType[ACC_CONCUSSION]++;
+						ent->client->stats->accuracy_hitsOfType[ACC_CONCUSSION_ALT]++;
 					} 
 
 					int preHealth = traceEnt->health;
@@ -4577,14 +4586,35 @@ void FireWeapon( gentity_t *ent, qboolean altFire ) {
 		&& 	ent->s.weapon != WP_TRIP_MINE && ent->s.weapon != WP_DET_PACK 	
 		) 
 	{
-		if( ent->s.weapon == WP_FLECHETTE ) {
-			ent->client->stats->accuracy_shots += altFire ? FLECHETTE_SHOTS_ALT : FLECHETTE_SHOTS;
-			ent->client->stats->accuracy_shotsOfType[ACC_GOLAN] += altFire ? FLECHETTE_SHOTS_ALT : FLECHETTE_SHOTS;
-		} else {
+		if (ent->s.weapon == WP_DISRUPTOR) {
 			ent->client->stats->accuracy_shots++;
-			accuracyCategory_t acc = AccuracyCategoryForWeapon(ent->s.weapon);
-			if (acc != ACC_INVALID)
-				ent->client->stats->accuracy_shotsOfType[acc]++;
+			if (altFire)
+				ent->client->stats->accuracy_shotsOfType[ACC_DISRUPTOR_SNIPE]++;
+			else
+				ent->client->stats->accuracy_shotsOfType[ACC_DISRUPTOR_PRIMARY]++;
+		}
+		else if (ent->s.weapon == WP_REPEATER && altFire) {
+			ent->client->stats->accuracy_shots++;
+			ent->client->stats->accuracy_shotsOfType[ACC_REPEATER_ALT]++;
+		}
+		else if (ent->s.weapon == WP_FLECHETTE && altFire) {
+			ent->client->stats->accuracy_shots++;
+			ent->client->stats->accuracy_shotsOfType[ACC_GOLAN_ALT]++;
+		}
+		else if (ent->s.weapon == WP_ROCKET_LAUNCHER) {
+			ent->client->stats->accuracy_shots++;
+			ent->client->stats->accuracy_shotsOfType[ACC_ROCKET]++;
+		}
+		else if (ent->s.weapon == WP_THERMAL && altFire) {
+			ent->client->stats->accuracy_shots++;
+			ent->client->stats->accuracy_shotsOfType[ACC_THERMAL_ALT]++;
+		}
+		else if (ent->s.weapon == WP_CONCUSSION) {
+			ent->client->stats->accuracy_shots++;
+			if (altFire)
+				ent->client->stats->accuracy_shotsOfType[ACC_CONCUSSION_ALT]++;
+			else
+				ent->client->stats->accuracy_shotsOfType[ACC_CONCUSSION_PRIMARY]++;
 		}
 	}
 

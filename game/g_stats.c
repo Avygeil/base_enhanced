@@ -595,7 +595,19 @@ const char *TableCallback_WeaponDamage(void *rowContext, void *columnContext) {
 	return FormatStatInt(qfalse, damage, mostDamageThisTeam, mostDamageOtherTeam);
 }
 
-weapon_t WeaponForAccuracyCategory(accuracyCategory_t acc);
+static qboolean ShouldShowAccuracyCategory(accuracyCategory_t acc) {
+	switch (acc) {
+	case ACC_PISTOL_ALT: case ACC_ALL_TYPES_COMBINED: return qtrue;
+	case ACC_DISRUPTOR_PRIMARY: case ACC_DISRUPTOR_SNIPE: return !!(level.existingWeaponSpawns & (1 << WP_DISRUPTOR));
+	case ACC_REPEATER_ALT: return !!(level.existingWeaponSpawns & (1 << WP_REPEATER));
+	case ACC_GOLAN_ALT: return !!(level.existingWeaponSpawns & (1 << WP_FLECHETTE));
+	case ACC_ROCKET: return !!(level.existingWeaponSpawns & (1 << WP_ROCKET_LAUNCHER));
+	case ACC_CONCUSSION_PRIMARY: case ACC_CONCUSSION_ALT: return !!(level.existingWeaponSpawns & (1 << WP_CONCUSSION));
+	case ACC_THERMAL_ALT: return !!(level.existingWeaponSpawns & (1 << WP_THERMAL));
+	default: assert(qfalse); return qfalse;
+	}
+}
+
 const char *CtfStatsTableCallback_WeaponAccuracy(void *rowContext, void *columnContext) {
 	if (!rowContext) {
 		assert(qfalse);
@@ -604,15 +616,9 @@ const char *CtfStatsTableCallback_WeaponAccuracy(void *rowContext, void *columnC
 	stats_t *stats = rowContext;
 	accuracyCategory_t acc = *((accuracyCategory_t *)columnContext);
 
-	if (acc != ACC_PISTOL && acc != ACC_ALL_TYPES_COMBINED) { // only show columns for weapons that exist on this map
-		weapon_t weap = WeaponForAccuracyCategory(acc);
-		if (!(level.existingWeaponSpawns & (1 << weap))) {
-			if (stats->accuracy_shotsOfType[acc])
-				level.existingWeaponSpawns |= (1 << weap); // doesn't exist, but somehow they fired it anyway (cheats)? mark it as existing
-			else
-				return NULL;
-		}
-	}
+	// only show columns for weapons that exist on this map
+	if (!ShouldShowAccuracyCategory(acc))
+		return NULL;
 
 	if (acc == ACC_ALL_TYPES_COMBINED) {
 		if (!stats->accuracy_shots)
@@ -1112,52 +1118,45 @@ const char *NameForMeansOfDeathCategory(meansOfDeathCategory_t modc) {
 
 const char *NameForAccuracyCategory(accuracyCategory_t acc) {
 	switch (acc) {
-	case ACC_PISTOL: return "^5PIS";
-	case ACC_BLASTER: return "^5BLA";
-	case ACC_DISRUPTOR: return "^5DIS";
-	case ACC_BOWCASTER: return "^5BOW";
-	case ACC_REPEATER: return "^5REP";
-	case ACC_DEMP: return "^5DMP";
-	case ACC_GOLAN: return "^5GOL";
+	case ACC_PISTOL_ALT: return "^5PIS";
+	case ACC_DISRUPTOR_PRIMARY: return "^5DIS";
+	case ACC_DISRUPTOR_SNIPE: return "^5SNP";
+	case ACC_REPEATER_ALT: return "^5REP";
+	case ACC_GOLAN_ALT: return "^5GOL";
 	case ACC_ROCKET: return "^5ROC";
-	case ACC_CONCUSSION: return "^5CON";
-	case ACC_THERMAL: return "^5THE";
+	case ACC_CONCUSSION_PRIMARY: return "^5CON";
+	case ACC_CONCUSSION_ALT: return "^5ALT";
+	case ACC_THERMAL_ALT: return "^5THE";
 	case ACC_ALL_TYPES_COMBINED: return "^5TOTAL";
 	default: assert(qfalse); return NULL;
 	}
 }
 
-weapon_t WeaponForAccuracyCategory(accuracyCategory_t acc) {
-	switch (acc) {
-	case ACC_PISTOL: return WP_BRYAR_PISTOL;
-	case ACC_BLASTER: return WP_BLASTER;
-	case ACC_DISRUPTOR: return WP_DISRUPTOR;
-	case ACC_BOWCASTER: return WP_BOWCASTER;
-	case ACC_REPEATER: return WP_REPEATER;
-	case ACC_DEMP: return WP_DEMP2;
-	case ACC_GOLAN: return WP_FLECHETTE;
-	case ACC_ROCKET: return WP_ROCKET_LAUNCHER;
-	case ACC_CONCUSSION: return WP_CONCUSSION;
-	case ACC_THERMAL: return WP_THERMAL;
-	//case ACC_ALL_TYPES_COMBINED: return WP_NONE;
-	default: assert(qfalse); return WP_NONE;
-	}
-}
+accuracyCategory_t AccuracyCategoryForProjectile(gentity_t *projectile) {
+	if (!projectile)
+		return ACC_INVALID;
 
-accuracyCategory_t AccuracyCategoryForWeapon(weapon_t w) {
-	switch (w) {
-	case WP_BRYAR_PISTOL: case WP_BRYAR_OLD: return ACC_PISTOL;
-	case WP_BLASTER: return ACC_BLASTER;
-	case WP_DISRUPTOR: return ACC_DISRUPTOR;
-	case WP_BOWCASTER: return ACC_BOWCASTER;
-	case WP_REPEATER: return ACC_REPEATER;
-	case WP_DEMP2: return ACC_DEMP;
-	case WP_FLECHETTE: return ACC_GOLAN;
-	case WP_ROCKET_LAUNCHER: return ACC_ROCKET;
-	case WP_CONCUSSION: return ACC_CONCUSSION;
-	case WP_THERMAL: return ACC_THERMAL;
-	default: assert(qfalse); return ACC_INVALID;
+	if (projectile->methodOfDeath == MOD_BRYAR_PISTOL_ALT && projectile->s.generic1 >= 2)
+		return ACC_PISTOL_ALT;
+	if (projectile->methodOfDeath == MOD_REPEATER_ALT)
+		return ACC_REPEATER_ALT;
+	if (projectile->methodOfDeath == MOD_ROCKET || projectile->methodOfDeath == MOD_ROCKET_HOMING)
+		return ACC_ROCKET;
+	if (projectile->methodOfDeath == MOD_THERMAL && !(projectile->flags & FL_BOUNCE_HALF))
+		return ACC_THERMAL_ALT;
+	if (projectile->methodOfDeath == MOD_CONC)
+		return ACC_CONCUSSION_PRIMARY;
+
+	if (projectile->methodOfDeath == MOD_FLECHETTE_ALT_SPLASH) {
+		if (projectile->twin) { // neither of these balls have touched; count this one and make the other one never count
+			projectile->twin->twin = NULL;
+			projectile->twin = NULL;
+			return ACC_GOLAN_ALT;
+		}
+		return ACC_INVALID; // this is a ball, but the other ball has already touched
 	}
+
+	return ACC_INVALID;
 }
 
 static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qboolean announce, statsTableType_t type, stats_t *weaponStatsPtr) {

@@ -391,6 +391,8 @@ struct gentity_s {
 	gitem_t		*item;			// for bonus items
 
 	qboolean	raceDimensionEvent;
+
+	gentity_t	*twin;
 };
 
 #define DAMAGEREDIRECT_HEAD		1
@@ -819,16 +821,15 @@ typedef enum {
 typedef enum {
 	ACC_INVALID = -1,
 	ACC_FIRST = 0,
-	ACC_PISTOL = ACC_FIRST,
-	ACC_BLASTER,
-	ACC_DISRUPTOR,
-	ACC_BOWCASTER,
-	ACC_REPEATER,
-	ACC_DEMP,
-	ACC_GOLAN,
+	ACC_PISTOL_ALT = ACC_FIRST,
+	ACC_DISRUPTOR_PRIMARY,
+	ACC_DISRUPTOR_SNIPE,
+	ACC_REPEATER_ALT,
+	ACC_GOLAN_ALT,
 	ACC_ROCKET,
-	ACC_CONCUSSION,
-	ACC_THERMAL,
+	ACC_CONCUSSION_PRIMARY,
+	ACC_CONCUSSION_ALT,
+	ACC_THERMAL_ALT,
 	ACC_ALL_TYPES_COMBINED,
 	ACC_MAX
 } accuracyCategory_t;
@@ -1979,7 +1980,7 @@ int *GetDamageTakenStatOfType(stats_t *attacker, stats_t *victim, meansOfDeathCa
 ctfRegion_t GetCTFRegion(gentity_t *ent);
 stats_t *GetStatsFromString(const char *str);
 meansOfDeathCategory_t MeansOfDeathCategoryForMeansOfDeath(meansOfDeath_t mod);
-accuracyCategory_t AccuracyCategoryForWeapon(weapon_t w);
+accuracyCategory_t AccuracyCategoryForProjectile(gentity_t *projectile);
 
 //
 // g_svcmds.c
