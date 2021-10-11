@@ -2122,8 +2122,10 @@ void thermalDetonatorExplode( gentity_t *ent )
 		if (G_RadiusDamage( ent->r.currentOrigin, ent->parent,  ent->splashDamage, ent->splashRadius, 
 				ent, ent, ent->splashMethodOfDeath) && !ent->isReflected)
 		{
-			g_entities[ent->r.ownerNum].client->stats->accuracy_hits++;
-			g_entities[ent->r.ownerNum].client->stats->accuracy_hitsOfType[ACC_THERMAL_ALT]++;
+			if (!(ent->flags & FL_BOUNCE_HALF)) {
+				g_entities[ent->r.ownerNum].client->stats->accuracy_hits++;
+				g_entities[ent->r.ownerNum].client->stats->accuracy_hitsOfType[ACC_THERMAL_ALT]++;
+			}
 		}
 
 		trap_LinkEntity( ent );
