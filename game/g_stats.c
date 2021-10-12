@@ -1321,7 +1321,7 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 		Table_DefineColumn(t, "^5PULL", CtfStatsTableCallback_Pull, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5HEAL", CtfStatsTableCallback_Healed, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5TE", CtfStatsTableCallback_EnergizedAlly, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5TE EFF", CtfStatsTableCallback_EnergizeEfficiency, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5EFF", CtfStatsTableCallback_EnergizeEfficiency, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5ENEMYNRG", CtfStatsTableCallback_EnergizedEnemy, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5ABS", CtfStatsTableCallback_Absorbed, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5PROT", CtfStatsTableCallback_ProtDamage, NULL, qfalse, -1, 32);
