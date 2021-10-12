@@ -399,6 +399,11 @@ void Team_FragBonuses(gentity_t *targ, gentity_t *inflictor, gentity_t *attacker
 		attacker->client->stats->fcKills++;
 		PrintCTFMessage(attacker->s.number, team, CTFMESSAGE_FRAGGED_FLAG_CARRIER);
 
+		if (attacker->client && attacker->client->sess.sessionTeam == TEAM_RED && targ->client->sess.sessionTeam == TEAM_BLUE)
+			level.redPlayerWhoKilledBlueCarrierOfRedFlag = attacker->client->stats;
+		else if (attacker->client && attacker->client->sess.sessionTeam == TEAM_BLUE && targ->client->sess.sessionTeam == TEAM_RED)
+			level.bluePlayerWhoKilledRedCarrierOfBlueFlag = attacker->client->stats;
+
 		// the target had the flag, clear the hurt carrier
 		// field on the other team
 		for (i = 0; i < g_maxclients.integer; i++) {
@@ -429,8 +434,6 @@ void Team_FragBonuses(gentity_t *targ, gentity_t *inflictor, gentity_t *attacker
 			// carried the blue flag, so red team
 			level.redTeamRunFlaghold += thisFlaghold;
 		}
-
-		attacker->client->stats->fcKills++;
 
 		// the target had the flag, clear the hurt carrier
 		// field on the other team
@@ -611,9 +614,11 @@ gentity_t *Team_ResetFlag( int team ) {
 	if ( team == TEAM_RED ) {
 		level.redFlagStealTime = 0;
 		level.blueTeamRunFlaghold = 0;
+		level.redPlayerWhoKilledBlueCarrierOfRedFlag = NULL;
 	} else {
 		level.blueFlagStealTime = 0;
 		level.redTeamRunFlaghold = 0;
+		level.bluePlayerWhoKilledRedCarrierOfBlueFlag = NULL;
 	}
 
 	Team_SetFlagStatus( team, FLAG_ATBASE );
@@ -720,12 +725,21 @@ void Team_ReturnFlag( int team ) {
 	}
 }
 
+// this is only called if a flag is dropped into a pit and overboarding is disabled
 void Team_FreeEntity( gentity_t *ent ) {
 	if( ent->item->giTag == PW_REDFLAG ) {
 		Team_ReturnFlag( TEAM_RED );
+		if (level.redPlayerWhoKilledBlueCarrierOfRedFlag) {
+			level.redPlayerWhoKilledBlueCarrierOfRedFlag->fcKillsResultingInRets++;
+			level.redPlayerWhoKilledBlueCarrierOfRedFlag = NULL;
+		}
 	}
 	else if( ent->item->giTag == PW_BLUEFLAG ) {
 		Team_ReturnFlag( TEAM_BLUE );
+		if (level.bluePlayerWhoKilledRedCarrierOfBlueFlag) {
+			level.bluePlayerWhoKilledRedCarrierOfBlueFlag->fcKillsResultingInRets++;
+			level.bluePlayerWhoKilledRedCarrierOfBlueFlag = NULL;
+		}
 	}
 	else if( ent->item->giTag == PW_NEUTRALFLAG ) {
 		Team_ReturnFlag( TEAM_FREE );
@@ -746,9 +760,17 @@ void Team_DroppedFlagThink(gentity_t *ent) {
 
 	if( ent->item->giTag == PW_REDFLAG ) {
 		team = TEAM_RED;
+		if (level.redPlayerWhoKilledBlueCarrierOfRedFlag) {
+			level.redPlayerWhoKilledBlueCarrierOfRedFlag->fcKillsResultingInRets++;
+			level.redPlayerWhoKilledBlueCarrierOfRedFlag = NULL;
+		}
 	}
 	else if( ent->item->giTag == PW_BLUEFLAG ) {
 		team = TEAM_BLUE;
+		if (level.bluePlayerWhoKilledRedCarrierOfBlueFlag) {
+			level.bluePlayerWhoKilledRedCarrierOfBlueFlag->fcKillsResultingInRets++;
+			level.bluePlayerWhoKilledRedCarrierOfBlueFlag = NULL;
+		}
 	}
 	else if( ent->item->giTag == PW_NEUTRALFLAG ) {
 		team = TEAM_FREE;
@@ -793,6 +815,15 @@ int Team_TouchOurFlag( gentity_t *ent, gentity_t *other, int team ) {
 		AddScore(other, ent->r.currentOrigin, CTF_RECOVERY_BONUS);
 		other->client->stats->rets++;
 		other->client->pers.teamState.lastreturnedflag = level.time;
+
+		if (cl->sess.sessionTeam == TEAM_BLUE && level.bluePlayerWhoKilledRedCarrierOfBlueFlag) {
+			level.bluePlayerWhoKilledRedCarrierOfBlueFlag->fcKillsResultingInRets++;
+			level.bluePlayerWhoKilledRedCarrierOfBlueFlag = NULL;
+		}
+		else if (cl->sess.sessionTeam == TEAM_RED && level.redPlayerWhoKilledBlueCarrierOfRedFlag) {
+			level.redPlayerWhoKilledBlueCarrierOfRedFlag->fcKillsResultingInRets++;
+			level.redPlayerWhoKilledBlueCarrierOfRedFlag = NULL;
+		}
 
 		//ResetFlag will remove this entity!  We must return zero
 		Team_ReturnFlagSound(Team_ResetFlag(team), team);
@@ -882,6 +913,7 @@ int Team_TouchOurFlag( gentity_t *ent, gentity_t *other, int team ) {
 	}
 
 	PrintCTFMessage( other->s.number, team, CTFMESSAGE_PLAYER_CAPTURED_FLAG );
+	level.redPlayerWhoKilledBlueCarrierOfRedFlag = level.bluePlayerWhoKilledRedCarrierOfBlueFlag = NULL;
 
 	cl->ps.powerups[enemy_flag] = 0;
 	
@@ -1037,10 +1069,14 @@ int Team_TouchEnemyFlag( gentity_t *ent, gentity_t *other, int team ) {
 	PrintCTFMessage(other->s.number, team, CTFMESSAGE_PLAYER_GOT_FLAG);
 	++other->client->stats->numFlagHolds;
 
-	if (team == TEAM_RED)
+	if (team == TEAM_RED) {
 		cl->ps.powerups[PW_REDFLAG] = INT_MAX; // flags never expire
-	else
+		level.redPlayerWhoKilledBlueCarrierOfRedFlag = NULL;
+	}
+	else {
 		cl->ps.powerups[PW_BLUEFLAG] = INT_MAX; // flags never expire
+		level.bluePlayerWhoKilledRedCarrierOfBlueFlag = NULL;
+	}
 
 	if (!(ent->flags & FL_DROPPED_ITEM)){ 
 		// initial flag steal, so reset the team flaghold times

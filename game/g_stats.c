@@ -433,6 +433,15 @@ const char *CtfStatsTableCallback_ArmorPickedUp(void *rowContext, void *columnCo
 	return FormatStatInt(stats->isTotal, stats->armorPickedUp, bestStats[stats->lastTeam].armorPickedUp, bestStats[OtherTeam(stats->lastTeam)].armorPickedUp);
 }
 
+const char *CtfStatsTableCallback_FlagCarrierKillEfficiency(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	stats_t *stats = rowContext;
+	return FormatStatInt(stats->isTotal, stats->fcKillEfficiency, bestStats[stats->lastTeam].fcKillEfficiency, bestStats[OtherTeam(stats->lastTeam)].fcKillEfficiency);
+}
+
 #if 0
 const char *CtfStatsTableCallback_CtfRegionTime(void *rowContext, void *columnContext) {
 	if (!rowContext) {
@@ -770,12 +779,16 @@ static void CheckBestStats(stats_t *player, statsTableType_t type, stats_t *weap
 		}
 	}
 	else if (type == STATS_TABLE_ACCURACY) {
-		CheckBest(accuracy);
 		player->accuracy = player->accuracy_shots ? player->accuracy_hits * 100 / player->accuracy_shots : 0;
+		CheckBest(accuracy);
 		for (accuracyCategory_t weap = ACC_FIRST; weap < ACC_MAX; weap++) {
 			player->accuracyOfType[weap] = player->accuracy_shotsOfType[weap] ? player->accuracy_hitsOfType[weap] * 100 / player->accuracy_shotsOfType[weap] : 0;
 			CheckBest(accuracyOfType[weap]);
 		}
+	}
+	else if (type == STATS_TABLE_MISC) {
+		player->fcKillEfficiency = player->fcKills ? player->fcKillsResultingInRets * 100 / player->fcKills : 0;
+		CheckBest(fcKillEfficiency);
 	}
 }
 
@@ -938,6 +951,11 @@ static void AddStatsToTotal(stats_t *player, stats_t *team, statsTableType_t typ
 			AddStatToTotal(accuracy_hitsOfType[weap]);
 			team->accuracyOfType[weap] = team->accuracy_shotsOfType[weap] ? team->accuracy_hitsOfType[weap] * 100 / team->accuracy_shotsOfType[weap] : 0;
 		}
+	}
+	else if (type == STATS_TABLE_MISC) {
+		AddStatToTotal(fcKills);
+		AddStatToTotal(fcKillsResultingInRets);
+		team->fcKillEfficiency = team->fcKills ? team->fcKillsResultingInRets * 100 / team->fcKills : 0;
 	}
 }
 
@@ -1280,7 +1298,7 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 		Table_DefineColumn(t, "^5CAP", CtfStatsTableCallback_Captures, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5ASS", CtfStatsTableCallback_Assists, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5DEF", CtfStatsTableCallback_Defends, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5SAV", CtfStatsTableCallback_Saves, NULL, qfalse, -1, 32);
+		//Table_DefineColumn(t, "^5SAV", CtfStatsTableCallback_Saves, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5ACC", CtfStatsTableCallback_Accuracy, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5AIR", CtfStatsTableCallback_Airs, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5TK", CtfStatsTableCallback_TeamKills, NULL, qfalse, -1, 32);
@@ -1328,7 +1346,7 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 		Table_DefineColumn(t, "^5PROTTIME", CtfStatsTableCallback_ProtTime, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5RAGETIME", CtfStatsTableCallback_RageTime, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5DRN", CtfStatsTableCallback_Drain, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5GOTDRND", CtfStatsTableCallback_GotDrained, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5DRND", CtfStatsTableCallback_GotDrained, NULL, qfalse, -1, 32);
 	}
 	else if (type == STATS_TABLE_DAMAGE) {
 		int aliasDividerColor;
@@ -1399,6 +1417,11 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 
 		for (accuracyCategory_t weap = ACC_FIRST; weap < ACC_MAX; weap++)
 			Table_DefineColumn(t, NameForAccuracyCategory(weap), CtfStatsTableCallback_WeaponAccuracy, &weap, qfalse, -1, 32);
+	}
+	else if (type == STATS_TABLE_MISC) {
+		Table_DefineColumn(t, "^5NAME", CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
+		Table_DefineColumn(t, "^5ALIAS", CtfStatsTableCallback_Alias, NULL, qtrue, -1, 32);
+		Table_DefineColumn(t, "^5FCKILEFF", CtfStatsTableCallback_FlagCarrierKillEfficiency, NULL, qtrue, -1, 32);
 	}
 
 	ListClear(&gotPlayersList);
@@ -1518,12 +1541,15 @@ void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t ou
 	else if (!Q_stricmpn(type, "ac", 2)) {
 		PrintTeamStats(id, outputBuffer, outSize, announce, STATS_TABLE_ACCURACY, NULL);
 	}
+	else if (!Q_stricmpn(type, "mi", 2)) {
+		PrintTeamStats(id, outputBuffer, outSize, announce, STATS_TABLE_MISC, NULL);
+	}
 	else {
 		if (id != -1) {
 			if (!Q_stricmp(type, "help"))
-				trap_SendServerCommand(id, "print \""S_COLOR_WHITE"Usage: "S_COLOR_CYAN"/ctfstats <general | force | damage | accuracy | weapon [player]>\n\"");
+				trap_SendServerCommand(id, "print \""S_COLOR_WHITE"Usage: "S_COLOR_CYAN"/ctfstats <general | force | misc | accuracy | damage | weapon [player]>\n\"");
 			else
-				trap_SendServerCommand(id, va("print \""S_COLOR_WHITE"Unknown type '%s"S_COLOR_WHITE"'. Usage: "S_COLOR_CYAN"/ctfstats <general | force | damage | accuracy | weapon [player]>\n\"", type));
+				trap_SendServerCommand(id, va("print \""S_COLOR_WHITE"Unknown type '%s"S_COLOR_WHITE"'. Usage: "S_COLOR_CYAN"/ctfstats <general | force | misc | accuracy | damage | weapon [player]>\n\"", type));
 		}
 
 		return;

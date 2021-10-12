@@ -880,6 +880,13 @@ void Svcmd_ResetFlags_f(){
 		ent->client->ps.powerups[PW_BLUEFLAG] = 0;
 		ent->client->ps.powerups[PW_REDFLAG] = 0;
 	}
+
+	// count these as rets, i guess; no sense punishing someone's fckill efficiency due to resetflags vote
+	if (level.redPlayerWhoKilledBlueCarrierOfRedFlag)
+		level.redPlayerWhoKilledBlueCarrierOfRedFlag->fcKillsResultingInRets++;
+	if (level.bluePlayerWhoKilledRedCarrierOfBlueFlag)
+		level.bluePlayerWhoKilledRedCarrierOfBlueFlag->fcKillsResultingInRets++;
+
 	Team_ResetFlags();
 }
 
@@ -3338,6 +3345,8 @@ static void Svcmd_CtfStats_f(void) {
 		if (buf[0]) { Com_Printf(buf); buf[0] = '\0'; }
 		Stats_Print(NULL, "force", buf, sizeof(buf), qfalse, NULL);
 		if (buf[0]) { Com_Printf(buf); buf[0] = '\0'; }
+		Stats_Print(NULL, "misc", buf, sizeof(buf), qfalse, NULL);
+		if (buf[0]) { Com_Printf(buf); }
 		Stats_Print(NULL, "accuracy", buf, sizeof(buf), qfalse, NULL);
 		if (buf[0]) { Com_Printf(buf); }
 		Stats_Print(NULL, "damage", buf, sizeof(buf), qfalse, NULL);

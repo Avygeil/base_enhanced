@@ -861,6 +861,8 @@ typedef struct {
 	int			pits;
 	int			pitted;
 	int			fcKills;
+	int			fcKillsResultingInRets;
+	int			fcKillEfficiency; // this is only calculated on demand; don't just randomly read this (imagine getters in C)
 	int			rets;
 	int			selfkills;
 	int			boonPickups;
@@ -1507,6 +1509,10 @@ typedef struct {
 
 	qboolean	boonExists;
 
+	// track final ret results of fc kills (stupid variable names to eliminate ambiguity)
+	stats_t *redPlayerWhoKilledBlueCarrierOfRedFlag;
+	stats_t *bluePlayerWhoKilledRedCarrierOfBlueFlag;
+
 } level_locals_t;
 
 
@@ -1967,7 +1973,8 @@ typedef enum {
 	STATS_TABLE_DAMAGE,
 	STATS_TABLE_WEAPON_GIVEN,
 	STATS_TABLE_WEAPON_TAKEN,
-	STATS_TABLE_ACCURACY
+	STATS_TABLE_ACCURACY,
+	STATS_TABLE_MISC
 } statsTableType_t;
 qboolean StatsValid(const stats_t *stats);
 void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t outSize, qboolean announce, stats_t *weaponStatsPtr);
