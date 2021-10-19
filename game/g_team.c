@@ -1088,6 +1088,9 @@ int Team_TouchEnemyFlag( gentity_t *ent, gentity_t *other, int team ) {
 			level.blueFlagStealTime = level.time;
 			level.redTeamRunFlaghold = 0;
 		}
+
+		++other->client->stats->numGets;
+		other->client->stats->getTotalHealth += (other->health + other->client->ps.stats[STAT_ARMOR]);
 	}
 
 	CheckGetFlagSave(other, ent);

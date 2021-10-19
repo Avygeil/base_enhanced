@@ -289,6 +289,42 @@ const char *CtfStatsTableCallback_FlagCarrierDamageTaken(void *rowContext, void 
 	return FormatStatInt(stats->isTotal, stats->flagCarrierDamageTakenTotal, bestStats[stats->lastTeam].flagCarrierDamageTakenTotal, bestStats[OtherTeam(stats->lastTeam)].flagCarrierDamageTakenTotal);
 }
 
+const char *CtfStatsTableCallback_ClearDamageDealt(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	stats_t *stats = rowContext;
+	return FormatStatInt(stats->isTotal, stats->clearDamageDealtTotal, bestStats[stats->lastTeam].clearDamageDealtTotal, bestStats[OtherTeam(stats->lastTeam)].clearDamageDealtTotal);
+}
+
+const char *CtfStatsTableCallback_ClearDamageTaken(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	stats_t *stats = rowContext;
+	return FormatStatInt(stats->isTotal, stats->clearDamageTakenTotal, bestStats[stats->lastTeam].clearDamageTakenTotal, bestStats[OtherTeam(stats->lastTeam)].clearDamageTakenTotal);
+}
+
+const char *CtfStatsTableCallback_OtherDamageDealt(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	stats_t *stats = rowContext;
+	return FormatStatInt(stats->isTotal, stats->otherDamageDealtTotal, bestStats[stats->lastTeam].otherDamageDealtTotal, bestStats[OtherTeam(stats->lastTeam)].otherDamageDealtTotal);
+}
+
+const char *CtfStatsTableCallback_OtherDamageTaken(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	stats_t *stats = rowContext;
+	return FormatStatInt(stats->isTotal, stats->otherDamageTakenTotal, bestStats[stats->lastTeam].otherDamageTakenTotal, bestStats[OtherTeam(stats->lastTeam)].otherDamageTakenTotal);
+}
+
 const char *CtfStatsTableCallback_TopSpeed(void *rowContext, void *columnContext) {
 	if (!rowContext) {
 		assert(qfalse);
@@ -439,7 +475,20 @@ const char *CtfStatsTableCallback_FlagCarrierKillEfficiency(void *rowContext, vo
 		return NULL;
 	}
 	stats_t *stats = rowContext;
+	if (!stats->fcKills)
+		return " ";
 	return FormatStatInt(stats->isTotal, stats->fcKillEfficiency, bestStats[stats->lastTeam].fcKillEfficiency, bestStats[OtherTeam(stats->lastTeam)].fcKillEfficiency);
+}
+
+const char *CtfStatsTableCallback_GetHealth(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	stats_t *stats = rowContext;
+	if (!stats->numGets)
+		return " ";
+	return FormatStatInt(stats->isTotal, stats->averageGetHealth, bestStats[stats->lastTeam].averageGetHealth, bestStats[OtherTeam(stats->lastTeam)].averageGetHealth);
 }
 
 #if 0
@@ -662,10 +711,13 @@ static void CheckBestStats(stats_t *player, statsTableType_t type, stats_t *weap
 		CheckBest(fcKills);
 		CheckBest(flagCarrierDamageDealtTotal);
 		CheckBest(flagCarrierDamageTakenTotal);
+		CheckBest(clearDamageDealtTotal);
+		CheckBest(clearDamageTakenTotal);
+		CheckBest(otherDamageDealtTotal);
+		CheckBest(otherDamageTakenTotal);
 		CheckBest(teamKills);
 		CheckBest(rets);
 		CheckBest(selfkills);
-		CheckBest(boonPickups);
 		CheckBest(healthPickedUp);
 		CheckBest(armorPickedUp);
 		CheckBest(totalFlagHold);
@@ -674,7 +726,6 @@ static void CheckBestStats(stats_t *player, statsTableType_t type, stats_t *weap
 		player->averageFlagHold = player->numFlagHolds ? player->totalFlagHold / player->numFlagHolds : 0;
 		CheckBest(averageFlagHold);
 		CheckBest(saves);
-		CheckBest(boonPickups);
 		CheckBest(damageDealtTotal);
 		CheckBest(damageTakenTotal);
 		CheckBest(topSpeed);
@@ -683,17 +734,9 @@ static void CheckBestStats(stats_t *player, statsTableType_t type, stats_t *weap
 		else
 			player->averageSpeed = (int)(player->topSpeed + 0.5f);
 		CheckBest(averageSpeed);
-		int allRegionsTime = 0;
-		for (ctfRegion_t region = CTFREGION_FLAGSTAND; region <= CTFREGION_ENEMYFLAGSTAND; region++) {
-			allRegionsTime += player->regionTime[region];
-			CheckBest(regionTime[region]);
-		}
-		for (ctfRegion_t region = CTFREGION_FLAGSTAND; region <= CTFREGION_ENEMYFLAGSTAND; region++) {
-			player->regionPercent[region] = Com_Clampi(0, 100, (int)round((float)player->regionTime[region] / (float)allRegionsTime * 100.0f));
-			CheckBest(regionPercent[region]);
-		}
 	}
 	else if (type == STATS_TABLE_FORCE) {
+		CheckBest(boonPickups);
 		CheckBest(push);
 		CheckBest(pull);
 		CheckBest(healed);
@@ -786,9 +829,20 @@ static void CheckBestStats(stats_t *player, statsTableType_t type, stats_t *weap
 			CheckBest(accuracyOfType[weap]);
 		}
 	}
-	else if (type == STATS_TABLE_MISC) {
+	else if (type == STATS_TABLE_EXPERIMENTAL) {
+		int allRegionsTime = 0;
+		for (ctfRegion_t region = CTFREGION_FLAGSTAND; region <= CTFREGION_ENEMYFLAGSTAND; region++) {
+			allRegionsTime += player->regionTime[region];
+			CheckBest(regionTime[region]);
+		}
+		for (ctfRegion_t region = CTFREGION_FLAGSTAND; region <= CTFREGION_ENEMYFLAGSTAND; region++) {
+			player->regionPercent[region] = Com_Clampi(0, 100, (int)round((float)player->regionTime[region] / (float)allRegionsTime * 100.0f));
+			CheckBest(regionPercent[region]);
+		}
 		player->fcKillEfficiency = player->fcKills ? player->fcKillsResultingInRets * 100 / player->fcKills : 0;
 		CheckBest(fcKillEfficiency);
+		player->averageGetHealth = player->numGets ? (int)floorf((player->getTotalHealth / player->numGets) + 0.5f) : 0;
+		CheckBest(averageGetHealth);
 	}
 }
 
@@ -836,10 +890,13 @@ static void AddStatsToTotal(stats_t *player, stats_t *team, statsTableType_t typ
 		AddStatToTotal(fcKills);
 		AddStatToTotal(flagCarrierDamageDealtTotal);
 		AddStatToTotal(flagCarrierDamageTakenTotal);
+		AddStatToTotal(clearDamageDealtTotal);
+		AddStatToTotal(clearDamageTakenTotal);
+		AddStatToTotal(otherDamageDealtTotal);
+		AddStatToTotal(otherDamageTakenTotal);
 		AddStatToTotal(teamKills);
 		AddStatToTotal(rets);
 		AddStatToTotal(selfkills);
-		AddStatToTotal(boonPickups);
 		AddStatToTotal(healthPickedUp);
 		AddStatToTotal(armorPickedUp);
 		AddStatToTotal(totalFlagHold);
@@ -856,16 +913,9 @@ static void AddStatsToTotal(stats_t *player, stats_t *team, statsTableType_t typ
 			team->averageSpeed = (int)floorf(((team->displacement * g_svfps.value) / team->displacementSamples) + 0.5f);
 		else
 			team->averageSpeed = (int)(team->topSpeed + 0.5f);
-		int allRegionsTime = 0;
-		for (ctfRegion_t region = CTFREGION_FLAGSTAND; region <= CTFREGION_ENEMYFLAGSTAND; region++) {
-			AddStatToTotal(regionTime[region]);
-			allRegionsTime += team->regionTime[region];
-		}
-		for (ctfRegion_t region = CTFREGION_FLAGSTAND; region <= CTFREGION_ENEMYFLAGSTAND; region++) {
-			team->regionPercent[region] = Com_Clampi(0, 100, (int)round((float)team->regionTime[region] / (float)allRegionsTime * 100.0f));
-		}
 	}
 	else if (type == STATS_TABLE_FORCE) {
+		AddStatToTotal(boonPickups);
 		AddStatToTotal(push);
 		AddStatToTotal(pull);
 		AddStatToTotal(healed);
@@ -952,10 +1002,21 @@ static void AddStatsToTotal(stats_t *player, stats_t *team, statsTableType_t typ
 			team->accuracyOfType[weap] = team->accuracy_shotsOfType[weap] ? team->accuracy_hitsOfType[weap] * 100 / team->accuracy_shotsOfType[weap] : 0;
 		}
 	}
-	else if (type == STATS_TABLE_MISC) {
+	else if (type == STATS_TABLE_EXPERIMENTAL) {
+		int allRegionsTime = 0;
+		for (ctfRegion_t region = CTFREGION_FLAGSTAND; region <= CTFREGION_ENEMYFLAGSTAND; region++) {
+			AddStatToTotal(regionTime[region]);
+			allRegionsTime += team->regionTime[region];
+		}
+		for (ctfRegion_t region = CTFREGION_FLAGSTAND; region <= CTFREGION_ENEMYFLAGSTAND; region++) {
+			team->regionPercent[region] = Com_Clampi(0, 100, (int)round((float)team->regionTime[region] / (float)allRegionsTime * 100.0f));
+		}
 		AddStatToTotal(fcKills);
 		AddStatToTotal(fcKillsResultingInRets);
 		team->fcKillEfficiency = team->fcKills ? team->fcKillsResultingInRets * 100 / team->fcKills : 0;
+		AddStatToTotal(numGets);
+		AddStatToTotal(getTotalHealth);
+		team->averageGetHealth = team->numGets ? (int)floorf((team->getTotalHealth / team->numGets) + 0.5f) : 0;
 	}
 }
 
@@ -1136,6 +1197,7 @@ const char *NameForMeansOfDeathCategory(meansOfDeathCategory_t modc) {
 
 const char *NameForAccuracyCategory(accuracyCategory_t acc) {
 	switch (acc) {
+	case ACC_ALL_TYPES_COMBINED: return "^5ACC";
 	case ACC_PISTOL_ALT: return "^5PIS";
 	case ACC_DISRUPTOR_PRIMARY: return "^5DIS";
 	case ACC_DISRUPTOR_SNIPE: return "^5SNP";
@@ -1145,7 +1207,6 @@ const char *NameForAccuracyCategory(accuracyCategory_t acc) {
 	case ACC_CONCUSSION_PRIMARY: return "^5CON";
 	case ACC_CONCUSSION_ALT: return "^5ALT";
 	case ACC_THERMAL_ALT: return "^5THE";
-	case ACC_ALL_TYPES_COMBINED: return "^5TOTAL";
 	default: assert(qfalse); return NULL;
 	}
 }
@@ -1305,36 +1366,30 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 		Table_DefineColumn(t, "^5PITKIL", CtfStatsTableCallback_Pits, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5PITDTH", CtfStatsTableCallback_Pitted, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5DMG", CtfStatsTableCallback_DamageDealt, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5DMGTKN", CtfStatsTableCallback_DamageTaken, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5FCDMG", CtfStatsTableCallback_FlagCarrierDamageDealt, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5CLRDMG", CtfStatsTableCallback_ClearDamageDealt, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5OTHRDMG", CtfStatsTableCallback_OtherDamageDealt, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5DMGTKN", CtfStatsTableCallback_DamageTaken, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5FCDMGTKN", CtfStatsTableCallback_FlagCarrierDamageTaken, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5CLRDMGTKN", CtfStatsTableCallback_ClearDamageTaken, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5OTHRDMGTKN", CtfStatsTableCallback_OtherDamageTaken, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5FCKIL", CtfStatsTableCallback_FcKills, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5RET", CtfStatsTableCallback_Rets, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5SK", CtfStatsTableCallback_Selfkills, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5TTLHOLD", CtfStatsTableCallback_TotalHold, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5MAXHOLD", CtfStatsTableCallback_MaxHold, NULL, qfalse, -1, 32);
 		//Table_DefineColumn(t, "^5HOLDS", CtfStatsTableCallback_Holds, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5AVGHOLD", CtfStatsTableCallback_AverageHold, NULL, qfalse, -1, 32);
+		//Table_DefineColumn(t, "^5AVGHOLD", CtfStatsTableCallback_AverageHold, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5TOPSPD", CtfStatsTableCallback_TopSpeed, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5AVGSPD", CtfStatsTableCallback_AverageSpeed, NULL, qfalse, -1, 32);
-		if (level.boonExists) // only show boon stat if boon is enabled and exists on this map
-			Table_DefineColumn(t, "^5BOON", CtfStatsTableCallback_BoonPickups, NULL, qfalse, -1, 32);
 		//Table_DefineColumn(t, "^5+HP", CtfStatsTableCallback_HealthPickedUp, NULL, qfalse, -1, 32);
 		//Table_DefineColumn(t, "^5+SH", CtfStatsTableCallback_ArmorPickedUp, NULL, qfalse, -1, 32);
-		ctfRegion_t region = CTFREGION_FLAGSTAND;
-		Table_DefineColumn(t, "^5FS", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
-		++region;
-		Table_DefineColumn(t, "^5BAS", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
-		++region;
-		Table_DefineColumn(t, "^5MID", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
-		++region;
-		Table_DefineColumn(t, "^5EBA", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
-		++region;
-		Table_DefineColumn(t, "^5EFS", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
 	}
 	else if (type == STATS_TABLE_FORCE) {
 		Table_DefineColumn(t, "^5NAME", CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
 		Table_DefineColumn(t, "^5ALIAS", CtfStatsTableCallback_Alias, NULL, qtrue, -1, 32);
+		if (level.boonExists) // only show boon stat if boon is enabled and exists on this map
+			Table_DefineColumn(t, "^5BOON", CtfStatsTableCallback_BoonPickups, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5PUSH", CtfStatsTableCallback_Push, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5PULL", CtfStatsTableCallback_Pull, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5HEAL", CtfStatsTableCallback_Healed, NULL, qfalse, -1, 32);
@@ -1418,10 +1473,21 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 		for (accuracyCategory_t weap = ACC_FIRST; weap < ACC_MAX; weap++)
 			Table_DefineColumn(t, NameForAccuracyCategory(weap), CtfStatsTableCallback_WeaponAccuracy, &weap, qfalse, -1, 32);
 	}
-	else if (type == STATS_TABLE_MISC) {
+	else if (type == STATS_TABLE_EXPERIMENTAL) {
 		Table_DefineColumn(t, "^5NAME", CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
 		Table_DefineColumn(t, "^5ALIAS", CtfStatsTableCallback_Alias, NULL, qtrue, -1, 32);
+		ctfRegion_t region = CTFREGION_FLAGSTAND;
+		Table_DefineColumn(t, "^5FS", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
+		++region;
+		Table_DefineColumn(t, "^5BAS", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
+		++region;
+		Table_DefineColumn(t, "^5MID", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
+		++region;
+		Table_DefineColumn(t, "^5EBA", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
+		++region;
+		Table_DefineColumn(t, "^5EFS", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5FCKILEFF", CtfStatsTableCallback_FlagCarrierKillEfficiency, NULL, qtrue, -1, 32);
+		Table_DefineColumn(t, "^5GETHP", CtfStatsTableCallback_GetHealth, NULL, qtrue, -1, 32);
 	}
 
 	ListClear(&gotPlayersList);
@@ -1474,7 +1540,7 @@ void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t ou
 		return;
 	}
 
-	if (!Q_stricmpn(type, "gen", 3)) { // general stats
+	if (!Q_stricmpn(type, "ge", 2)) { // general stats
 		// for general stats, also print the score
 		team_t winningTeam = level.teamScores[TEAM_BLUE] > level.teamScores[TEAM_RED] ? TEAM_BLUE : TEAM_RED; // red if tied to match scoreboard order
 		team_t losingTeam = OtherTeam(winningTeam);
@@ -1493,14 +1559,14 @@ void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t ou
 			PrintTeamStats(id, NULL, 0, announce, STATS_TABLE_GENERAL, NULL);
 		}
 	}
-	else if (!Q_stricmpn(type, "for", 3)) { // force power stats
+	else if (!Q_stricmpn(type, "fo", 2)) { // force power stats
 		PrintTeamStats(id, outputBuffer, outSize, announce, STATS_TABLE_FORCE, NULL);
 	}
-	else if (!Q_stricmpn(type, "dam", 3)) { // damage stats
+	else if (!Q_stricmpn(type, "da", 2) || !Q_stricmpn(type, "dmg", 3)) { // damage stats
 		PrintTeamStats(id, outputBuffer, outSize, announce, STATS_TABLE_DAMAGE, NULL);
 		return;
 	}
-	else if (!Q_stricmpn(type, "wea", 3)) { // weapon stats
+	else if (!Q_stricmpn(type, "we", 2) || !Q_stricmpn(type, "wpn", 3)) { // weapon stats
 		if (weaponStatsPtr) { // a single client
 			PrintTeamStats(id, outputBuffer, outSize, announce, STATS_TABLE_WEAPON_GIVEN, weaponStatsPtr);
 			if (outputBuffer) {
@@ -1541,15 +1607,30 @@ void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t ou
 	else if (!Q_stricmpn(type, "ac", 2)) {
 		PrintTeamStats(id, outputBuffer, outSize, announce, STATS_TABLE_ACCURACY, NULL);
 	}
-	else if (!Q_stricmpn(type, "mi", 2)) {
-		PrintTeamStats(id, outputBuffer, outSize, announce, STATS_TABLE_MISC, NULL);
+	else if (!Q_stricmpn(type, "ex", 2)) {
+		PrintTeamStats(id, outputBuffer, outSize, announce, STATS_TABLE_EXPERIMENTAL, NULL);
 	}
 	else {
 		if (id != -1) {
-			if (!Q_stricmp(type, "help"))
-				trap_SendServerCommand(id, "print \""S_COLOR_WHITE"Usage: "S_COLOR_CYAN"/ctfstats <general | force | misc | accuracy | damage | weapon [player]>\n\"");
-			else
-				trap_SendServerCommand(id, va("print \""S_COLOR_WHITE"Unknown type '%s"S_COLOR_WHITE"'. Usage: "S_COLOR_CYAN"/ctfstats <general | force | misc | accuracy | damage | weapon [player]>\n\"", type));
+			if (!Q_stricmp(type, "help")) {
+				if (!Q_stricmpn(type, "ge", 2)) { // todo
+				}
+				else if (!Q_stricmpn(type, "da", 2) || !Q_stricmpn(type, "dmg", 3)) { // todo
+				}
+				else if (!Q_stricmpn(type, "we", 2) || !Q_stricmpn(type, "wpn", 3)) { // todo
+				}
+				else if (!Q_stricmpn(type, "ac", 2)) { // todo
+				}
+				else if (!Q_stricmpn(type, "ex", 2)) { // todo
+				}
+				else {
+					PrintIngame(id, "Usage: ^5stats <gen | force | ex | acc | dmg | wpn [player]>^7\n"
+						"For information about a certain stats table, enter ^5stats help <gen | force | ex | acc | dmg | wpn>^7\n");
+				}
+			}
+			else {
+				PrintIngame(id, "Unknown argument '%s^7'.\nUsage: ^5stats <gen | force | ex | acc | dmg | wpn [player]>^7\nEnter ^5stats help^7 for more information.", type);
+			}
 		}
 
 		return;

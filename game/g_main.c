@@ -2852,7 +2852,7 @@ void BeginIntermission(void) {
 	if (g_autoStats.integer) {
 		Stats_Print(NULL, "general", statsBuf, sizeof(statsBuf), qtrue, NULL);
 		Stats_Print(NULL, "force", statsBuf, sizeof(statsBuf), qtrue, NULL);
-		Stats_Print(NULL, "misc", statsBuf, sizeof(statsBuf), qtrue, NULL);
+		//Stats_Print(NULL, "experimental", statsBuf, sizeof(statsBuf), qtrue, NULL);
 		Stats_Print(NULL, "accuracy", statsBuf, sizeof(statsBuf), qtrue, NULL);
 		Stats_Print(NULL, "damage", statsBuf, sizeof(statsBuf), qtrue, NULL);
 
@@ -5225,6 +5225,23 @@ static void CheckTeamkills(void) {
 	}
 }
 
+static void RunThisTickCtfStats(void) {
+	if (g_gametype.integer != GT_CTF)
+		return;
+
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *ent = &g_entities[i];
+		if (!ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED || ent->client->sess.sessionTeam == TEAM_SPECTATOR || ent->client->sess.sessionTeam == TEAM_FREE)
+			continue;
+
+		// check teamkills
+		if (ent->client->killedAlliedFlagCarrierTime && level.time - ent->client->killedAlliedFlagCarrierTime >= TEAMKILL_TAKEFLAG_TIME && !HasFlag(ent)) {
+			ent->client->killedAlliedFlagCarrierTime = 0;
+			++ent->client->stats->teamKills;
+		}
+	}
+}
+
 extern int forcePowerNeeded[NUM_FORCE_POWER_LEVELS][NUM_FORCE_POWERS];
 extern void WP_AddToClientBitflags(gentity_t* ent, int entNum);
 void G_RunFrame( int levelTime ) {
@@ -5941,7 +5958,7 @@ void G_RunFrame( int levelTime ) {
 	iTimer_ClientEndframe = trap_PrecisionTimer_End(timer_ClientEndframe);
 #endif
 
-
+	RunThisTickCtfStats();
 
 #ifdef _G_FRAME_PERFANAL
 	trap_PrecisionTimer_Start(&timer_GameChecks);
@@ -5972,8 +5989,6 @@ void G_RunFrame( int levelTime ) {
 
 	// for tracking changes
 	CheckCvars();
-
-	CheckTeamkills();
 
 	//account processing - accounts system
 	//processDatabase();	

@@ -821,7 +821,8 @@ typedef enum {
 typedef enum {
 	ACC_INVALID = -1,
 	ACC_FIRST = 0,
-	ACC_PISTOL_ALT = ACC_FIRST,
+	ACC_ALL_TYPES_COMBINED = ACC_FIRST,
+	ACC_PISTOL_ALT,
 	ACC_DISRUPTOR_PRIMARY,
 	ACC_DISRUPTOR_SNIPE,
 	ACC_REPEATER_ALT,
@@ -830,7 +831,6 @@ typedef enum {
 	ACC_CONCUSSION_PRIMARY,
 	ACC_CONCUSSION_ALT,
 	ACC_THERMAL_ALT,
-	ACC_ALL_TYPES_COMBINED,
 	ACC_MAX
 } accuracyCategory_t;
 
@@ -875,6 +875,10 @@ typedef struct {
 	int			damageTakenTotal;
 	int			flagCarrierDamageDealtTotal; // damage given to flag carriers
 	int			flagCarrierDamageTakenTotal; // damage received while carrying a flag
+	int			clearDamageDealtTotal; // damage given to non-flag carriers in your base/fs
+	int			clearDamageTakenTotal; // damage taken while not a flag carrier and in the enemy base/fs
+	int			otherDamageDealtTotal; // damage given not fitting into either of the two prior categories
+	int			otherDamageTakenTotal; // damage taken not fitting into either of the two prior categories
 	int			damageOfType[MODC_MAX]; // only used for total rows; not players
 
 	float		topSpeed;
@@ -904,6 +908,10 @@ typedef struct {
 
 	int			numFlagHolds;
 	int			averageFlagHold; // this is only calculated on demand; don't just randomly read this (imagine getters in C)
+
+	int			numGets;
+	int			getTotalHealth;
+	int			averageGetHealth; // this is only calculated on demand; don't just randomly read this (imagine getters in C)
 } stats_t;
 
 typedef struct {
@@ -1717,6 +1725,8 @@ void Q_strstrip(char *string, const char *strip, const char *repl);
 char *stristr(const char *str1, const char *str2);
 const char *Cvar_VariableString(const char *var_name);
 
+qboolean HasFlag(gentity_t *ent);
+
 //
 // g_object.c
 //
@@ -1974,7 +1984,7 @@ typedef enum {
 	STATS_TABLE_WEAPON_GIVEN,
 	STATS_TABLE_WEAPON_TAKEN,
 	STATS_TABLE_ACCURACY,
-	STATS_TABLE_MISC
+	STATS_TABLE_EXPERIMENTAL
 } statsTableType_t;
 qboolean StatsValid(const stats_t *stats);
 void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t outSize, qboolean announce, stats_t *weaponStatsPtr);

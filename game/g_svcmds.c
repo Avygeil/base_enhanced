@@ -3345,8 +3345,8 @@ static void Svcmd_CtfStats_f(void) {
 		if (buf[0]) { Com_Printf(buf); buf[0] = '\0'; }
 		Stats_Print(NULL, "force", buf, sizeof(buf), qfalse, NULL);
 		if (buf[0]) { Com_Printf(buf); buf[0] = '\0'; }
-		Stats_Print(NULL, "misc", buf, sizeof(buf), qfalse, NULL);
-		if (buf[0]) { Com_Printf(buf); }
+		//Stats_Print(NULL, "experimental", buf, sizeof(buf), qfalse, NULL);
+		//if (buf[0]) { Com_Printf(buf); }
 		Stats_Print(NULL, "accuracy", buf, sizeof(buf), qfalse, NULL);
 		if (buf[0]) { Com_Printf(buf); }
 		Stats_Print(NULL, "damage", buf, sizeof(buf), qfalse, NULL);

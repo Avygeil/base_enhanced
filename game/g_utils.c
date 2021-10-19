@@ -2883,3 +2883,7 @@ const char *Cvar_VariableString(const char *var_name) {
 	trap_Cvar_VariableStringBuffer(var_name, buf[bufferNum], sizeof(buf[bufferNum]));
 	return buf[bufferNum];
 }
+
+qboolean HasFlag(gentity_t *ent) {
+	return !!(ent && ent->client && (ent->client->ps.powerups[PW_REDFLAG] || ent->client->ps.powerups[PW_BLUEFLAG] || ent->client->ps.powerups[PW_NEUTRALFLAG]));
+}

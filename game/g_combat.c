@@ -5170,6 +5170,17 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 				targ->client->stats->flagCarrierDamageTakenTotal += damageStatIncrease;
 				attacker->client->stats->flagCarrierDamageDealtTotal += damageStatIncrease;
 			}
+			else {
+				ctfRegion_t targRegion = GetCTFRegion(targ);
+				if (targRegion == CTFREGION_ENEMYBASE || targRegion == CTFREGION_ENEMYFLAGSTAND) {
+					targ->client->stats->clearDamageTakenTotal += damageStatIncrease;
+					attacker->client->stats->clearDamageDealtTotal += damageStatIncrease;
+				}
+				else {
+					targ->client->stats->otherDamageTakenTotal += damageStatIncrease;
+					attacker->client->stats->otherDamageDealtTotal += damageStatIncrease;
+				}
+			}
 		}
 
 		//targ->client->stats->damageTakenOfType[mod] += damageStatIncrease;
