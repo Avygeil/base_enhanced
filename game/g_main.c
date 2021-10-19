@@ -2809,19 +2809,6 @@ void BeginIntermission(void) {
 		}
 	}
 
-	// give teamkills if anyone has a timer running when the intermission starts
-	if (g_gametype.integer == GT_CTF) {
-		for (int i = 0; i < MAX_CLIENTS; i++) {
-			gentity_t *ent = &g_entities[i];
-			if (!ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED || ent->client->sess.sessionTeam == TEAM_SPECTATOR || ent->client->sess.sessionTeam == TEAM_FREE)
-				continue;
-			if (ent->client->killedAlliedFlagCarrierTime && !(ent->client->ps.powerups[PW_REDFLAG] || ent->client->ps.powerups[PW_BLUEFLAG] || ent->client->ps.powerups[PW_NEUTRALFLAG])) {
-				ent->client->killedAlliedFlagCarrierTime = 0;
-				++ent->client->stats->teamKills;
-			}
-		}
-	}
-
 	level.intermissiontime = level.time;
 	FindIntermissionPoint();
 
@@ -5208,40 +5195,6 @@ static void AddPlayerTick(team_t team, gclient_t *cl) {
 	Q_strncpyz(add->name, name, sizeof(add->name));
 }
 
-#define TEAMKILL_TAKEFLAG_TIME		(2000)
-static void CheckTeamkills(void) {
-	if (g_gametype.integer != GT_CTF)
-		return;
-
-	for (int i = 0; i < MAX_CLIENTS; i++) {
-		gentity_t *ent = &g_entities[i];
-		if (!ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED || ent->client->sess.sessionTeam == TEAM_SPECTATOR || ent->client->sess.sessionTeam == TEAM_FREE)
-			continue;
-		if (ent->client->killedAlliedFlagCarrierTime && level.time - ent->client->killedAlliedFlagCarrierTime >= TEAMKILL_TAKEFLAG_TIME &&
-			!(ent->client->ps.powerups[PW_REDFLAG] || ent->client->ps.powerups[PW_BLUEFLAG] || ent->client->ps.powerups[PW_NEUTRALFLAG])) {
-			ent->client->killedAlliedFlagCarrierTime = 0;
-			++ent->client->stats->teamKills;
-		}
-	}
-}
-
-static void RunThisTickCtfStats(void) {
-	if (g_gametype.integer != GT_CTF)
-		return;
-
-	for (int i = 0; i < MAX_CLIENTS; i++) {
-		gentity_t *ent = &g_entities[i];
-		if (!ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED || ent->client->sess.sessionTeam == TEAM_SPECTATOR || ent->client->sess.sessionTeam == TEAM_FREE)
-			continue;
-
-		// check teamkills
-		if (ent->client->killedAlliedFlagCarrierTime && level.time - ent->client->killedAlliedFlagCarrierTime >= TEAMKILL_TAKEFLAG_TIME && !HasFlag(ent)) {
-			ent->client->killedAlliedFlagCarrierTime = 0;
-			++ent->client->stats->teamKills;
-		}
-	}
-}
-
 extern int forcePowerNeeded[NUM_FORCE_POWER_LEVELS][NUM_FORCE_POWERS];
 extern void WP_AddToClientBitflags(gentity_t* ent, int entNum);
 void G_RunFrame( int levelTime ) {
@@ -5957,8 +5910,6 @@ void G_RunFrame( int levelTime ) {
 #ifdef _G_FRAME_PERFANAL
 	iTimer_ClientEndframe = trap_PrecisionTimer_End(timer_ClientEndframe);
 #endif
-
-	RunThisTickCtfStats();
 
 #ifdef _G_FRAME_PERFANAL
 	trap_PrecisionTimer_Start(&timer_GameChecks);

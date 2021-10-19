@@ -621,6 +621,14 @@ gentity_t *Team_ResetFlag( int team ) {
 		level.bluePlayerWhoKilledRedCarrierOfBlueFlag = NULL;
 	}
 
+	// reset allied fc kills
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *teammate = &g_entities[i];
+		if (!teammate->inuse || !teammate->client || teammate->client->sess.sessionTeam != OtherTeam(team))
+			continue;
+		teammate->client->pers.killedAlliedFlagCarrier = qfalse;
+	}
+
 	Team_SetFlagStatus( team, FLAG_ATBASE );
 
 	return rent;
@@ -827,17 +835,6 @@ int Team_TouchOurFlag( gentity_t *ent, gentity_t *other, int team ) {
 
 		//ResetFlag will remove this entity!  We must return zero
 		Team_ReturnFlagSound(Team_ResetFlag(team), team);
-
-		// this flag was returned, so give teamkills to anyone on the other team who recently killed their flag carrier
-		for (int i = 0; i < MAX_CLIENTS; i++) {
-			gentity_t *ent = &g_entities[i];
-			if (!ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED || ent->client->sess.sessionTeam != OtherTeam(other->client->sess.sessionTeam))
-				continue;
-			if (ent->client->killedAlliedFlagCarrierTime) {
-				ent->client->killedAlliedFlagCarrierTime = 0;
-				++ent->client->stats->teamKills;
-			}
-		}
 
 		return 0;
 	}
@@ -1092,6 +1089,28 @@ int Team_TouchEnemyFlag( gentity_t *ent, gentity_t *other, int team ) {
 		++other->client->stats->numGets;
 		other->client->stats->getTotalHealth += (other->health + other->client->ps.stats[STAT_ARMOR]);
 	}
+	else {
+		// picking up a dropped flag
+		
+		// refund fc teamkills
+		qboolean gotFcTeamkiller = qfalse;
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *teammate = &g_entities[i];
+			if (!teammate->inuse || !teammate->client || teammate->client->sess.sessionTeam != other->client->sess.sessionTeam)
+				continue;
+
+			if (teammate->client->pers.killedAlliedFlagCarrier && !gotFcTeamkiller) {
+
+				--teammate->client->stats->teamKills; // refund the teamkill
+
+				if (teammate == other)
+					++teammate->client->stats->takes; // this person killed the fc and took the flag; additionally give them a TAKE
+
+				gotFcTeamkiller = qtrue; // sanity check: there should never be more than one such player per team
+			}
+			teammate->client->pers.killedAlliedFlagCarrier = qfalse;
+		}
+	}
 
 	CheckGetFlagSave(other, ent);
 
@@ -1103,9 +1122,6 @@ int Team_TouchEnemyFlag( gentity_t *ent, gentity_t *other, int team ) {
 	Team_SetFlagStatus( team, FLAG_TAKEN );
 	AddScore(other, ent->r.currentOrigin, CTF_FLAG_BONUS);
 	Team_TakeFlagSound( ent, team );
-
-	if (other->client->killedAlliedFlagCarrierTime)
-		other->client->killedAlliedFlagCarrierTime = 0;
 
 	return -1; // Do not respawn this automatically, but do delete it if it was FL_DROPPED
 }

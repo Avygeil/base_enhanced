@@ -154,6 +154,15 @@ const char *CtfStatsTableCallback_TeamKills(void *rowContext, void *columnContex
 	return FormatStatInt(stats->isTotal, stats->teamKills, bestStats[stats->lastTeam].teamKills, bestStats[OtherTeam(stats->lastTeam)].teamKills);
 }
 
+const char *CtfStatsTableCallback_Takes(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	stats_t *stats = rowContext;
+	return FormatStatInt(stats->isTotal, stats->takes, bestStats[stats->lastTeam].takes, bestStats[OtherTeam(stats->lastTeam)].takes);
+}
+
 const char *CtfStatsTableCallback_Pits(void *rowContext, void *columnContext) {
 	if (!rowContext) {
 		assert(qfalse);
@@ -716,6 +725,7 @@ static void CheckBestStats(stats_t *player, statsTableType_t type, stats_t *weap
 		CheckBest(otherDamageDealtTotal);
 		CheckBest(otherDamageTakenTotal);
 		CheckBest(teamKills);
+		CheckBest(takes);
 		CheckBest(rets);
 		CheckBest(selfkills);
 		CheckBest(healthPickedUp);
@@ -895,6 +905,7 @@ static void AddStatsToTotal(stats_t *player, stats_t *team, statsTableType_t typ
 		AddStatToTotal(otherDamageDealtTotal);
 		AddStatToTotal(otherDamageTakenTotal);
 		AddStatToTotal(teamKills);
+		AddStatToTotal(takes);
 		AddStatToTotal(rets);
 		AddStatToTotal(selfkills);
 		AddStatToTotal(healthPickedUp);
@@ -1363,6 +1374,7 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 		Table_DefineColumn(t, "^5ACC", CtfStatsTableCallback_Accuracy, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5AIR", CtfStatsTableCallback_Airs, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5TK", CtfStatsTableCallback_TeamKills, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5TAKE", CtfStatsTableCallback_Takes, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5PITKIL", CtfStatsTableCallback_Pits, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5PITDTH", CtfStatsTableCallback_Pitted, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5DMG", CtfStatsTableCallback_DamageDealt, NULL, qfalse, -1, 32);

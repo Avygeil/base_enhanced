@@ -1046,6 +1046,9 @@ void SetTeam( gentity_t *ent, char *s ) {
 		CheckTeamLeader( oldTeam );
 	}
 
+	if (team == TEAM_SPECTATOR || team == TEAM_FREE || team != oldTeam)
+		client->pers.killedAlliedFlagCarrier = qfalse;
+
 	//pending server commands overflow might cause that this
 	//client is no longer valid, lets check it for it here and few other places
 	if (!ent->inuse){

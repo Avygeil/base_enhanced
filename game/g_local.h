@@ -696,6 +696,8 @@ typedef struct {
 
 	char		specChatBuffer[MAX_SAY_TEXT];
 	int			specChatBufferCheckTime;
+
+	qboolean	killedAlliedFlagCarrier;
 } clientPersistant_t;
 
 typedef struct renderInfo_s
@@ -858,6 +860,7 @@ typedef struct {
 	int			accuracyOfType[ACC_MAX]; // this is only calculated on demand; don't just randomly read this (imagine getters in C)
 	int			airs;
 	int			teamKills;
+	int			takes;
 	int			pits;
 	int			pitted;
 	int			fcKills;
@@ -1156,8 +1159,6 @@ struct gclient_s {
 
 	int homingLockTime; // time at which homing weapon locked on to a target
 	int homingLockTarget; // the target of it
-
-	int killedAlliedFlagCarrierTime;
 };
 
 //Interest points
