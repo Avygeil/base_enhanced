@@ -1575,7 +1575,7 @@ char *G_NewString( const char *string );
 // g_cmds.c
 //
 #define ColorForTeam( team )		( team == TEAM_BLUE ? COLOR_BLUE : COLOR_RED )
-#define ScoreTextForTeam( team )	( team == TEAM_BLUE ? S_COLOR_BLUE"BLUE" : S_COLOR_RED"RED" )
+#define ScoreTextForTeam( team )	( team == TEAM_BLUE ? S_COLOR_BLUE"Blue" : S_COLOR_RED"Red" )
 void Cmd_Score_f (gentity_t *ent);
 void StopFollowing( gentity_t *ent );
 void BroadcastTeamChange( gclient_t *client, int oldTeam );

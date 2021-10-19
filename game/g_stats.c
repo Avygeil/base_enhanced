@@ -1186,38 +1186,38 @@ stats_t *GetStatsFromString(const char *str) {
 
 const char *NameForMeansOfDeathCategory(meansOfDeathCategory_t modc) {
 	switch (modc) {
-	case MODC_MELEESTUNBATON: return "^5MEL";
-	case MODC_SABER: return "^5SAB";
-	case MODC_PISTOL: return "^5PIS";
-	case MODC_BLASTER: return "^5BLA";
-	case MODC_DISRUPTOR: return "^5DIS";
-	case MODC_BOWCASTER: return "^5BOW";
-	case MODC_REPEATER: return "^5REP";
-	case MODC_DEMP: return "^5DMP";
-	case MODC_GOLAN: return "^5GOL";
-	case MODC_ROCKET: return "^5ROC";
-	case MODC_CONCUSSION: return "^5CON";
-	case MODC_THERMAL: return "^5THE";
-	case MODC_MINE: return "^5MIN";
-	case MODC_DETPACK: return "^5DPK";
-	case MODC_FORCE: return "^5FOR";
-	case MODC_ALL_TYPES_COMBINED: return "^5TOTAL";
+	case MODC_MELEESTUNBATON: return "^5Mel";
+	case MODC_SABER: return "^5Sab";
+	case MODC_PISTOL: return "^5Pis";
+	case MODC_BLASTER: return "^5Bla";
+	case MODC_DISRUPTOR: return "^5Dis";
+	case MODC_BOWCASTER: return "^5Bow";
+	case MODC_REPEATER: return "^5Rep";
+	case MODC_DEMP: return "^5Dmp";
+	case MODC_GOLAN: return "^5Gol";
+	case MODC_ROCKET: return "^5Roc";
+	case MODC_CONCUSSION: return "^5Con";
+	case MODC_THERMAL: return "^5The";
+	case MODC_MINE: return "^5Min";
+	case MODC_DETPACK: return "^5Dpk";
+	case MODC_FORCE: return "^5For";
+	case MODC_ALL_TYPES_COMBINED: return "^5Total";
 	default: assert(qfalse); return NULL;
 	}
 }
 
 const char *NameForAccuracyCategory(accuracyCategory_t acc) {
 	switch (acc) {
-	case ACC_ALL_TYPES_COMBINED: return "^5ACC";
-	case ACC_PISTOL_ALT: return "^5PIS";
-	case ACC_DISRUPTOR_PRIMARY: return "^5DIS";
-	case ACC_DISRUPTOR_SNIPE: return "^5SNP";
-	case ACC_REPEATER_ALT: return "^5REP";
-	case ACC_GOLAN_ALT: return "^5GOL";
-	case ACC_ROCKET: return "^5ROC";
-	case ACC_CONCUSSION_PRIMARY: return "^5CON";
-	case ACC_CONCUSSION_ALT: return "^5ALT";
-	case ACC_THERMAL_ALT: return "^5THE";
+	case ACC_ALL_TYPES_COMBINED: return "^5Acc";
+	case ACC_PISTOL_ALT: return "^5Pis";
+	case ACC_DISRUPTOR_PRIMARY: return "^5Dis";
+	case ACC_DISRUPTOR_SNIPE: return "^5Snp";
+	case ACC_REPEATER_ALT: return "^5Rep";
+	case ACC_GOLAN_ALT: return "^5Gol";
+	case ACC_ROCKET: return "^5Roc";
+	case ACC_CONCUSSION_PRIMARY: return "^5Con";
+	case ACC_CONCUSSION_ALT: return "^5Alt";
+	case ACC_THERMAL_ALT: return "^5The";
 	default: assert(qfalse); return NULL;
 	}
 }
@@ -1365,55 +1365,55 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 	int longestPrintLenName = 4 /*NAME*/, longestPrintLenAlias = 5 /*ALIAS*/;
 
 	if (type == STATS_TABLE_GENERAL) {
-		Table_DefineColumn(t, "^5NAME", CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
-		Table_DefineColumn(t, "^5ALIAS", CtfStatsTableCallback_Alias, NULL, qtrue, -1, 32);
-		Table_DefineColumn(t, "^5CAP", CtfStatsTableCallback_Captures, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5ASS", CtfStatsTableCallback_Assists, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5DEF", CtfStatsTableCallback_Defends, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5Name", CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
+		Table_DefineColumn(t, "^5Alias", CtfStatsTableCallback_Alias, NULL, qtrue, -1, 32);
+		Table_DefineColumn(t, "^5Cap", CtfStatsTableCallback_Captures, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5Ass", CtfStatsTableCallback_Assists, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5Def", CtfStatsTableCallback_Defends, NULL, qfalse, -1, 32);
 		//Table_DefineColumn(t, "^5SAV", CtfStatsTableCallback_Saves, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5ACC", CtfStatsTableCallback_Accuracy, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5AIR", CtfStatsTableCallback_Airs, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5Acc", CtfStatsTableCallback_Accuracy, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5Air", CtfStatsTableCallback_Airs, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5TK", CtfStatsTableCallback_TeamKills, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5TAKE", CtfStatsTableCallback_Takes, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5PITKIL", CtfStatsTableCallback_Pits, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5PITDTH", CtfStatsTableCallback_Pitted, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5DMG", CtfStatsTableCallback_DamageDealt, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5FCDMG", CtfStatsTableCallback_FlagCarrierDamageDealt, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5CLRDMG", CtfStatsTableCallback_ClearDamageDealt, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5OTHRDMG", CtfStatsTableCallback_OtherDamageDealt, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5DMGTKN", CtfStatsTableCallback_DamageTaken, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5FCDMGTKN", CtfStatsTableCallback_FlagCarrierDamageTaken, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5CLRDMGTKN", CtfStatsTableCallback_ClearDamageTaken, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5OTHRDMGTKN", CtfStatsTableCallback_OtherDamageTaken, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5FCKIL", CtfStatsTableCallback_FcKills, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5RET", CtfStatsTableCallback_Rets, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5Take", CtfStatsTableCallback_Takes, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5PitKil", CtfStatsTableCallback_Pits, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5PitDth", CtfStatsTableCallback_Pitted, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5Dmg", CtfStatsTableCallback_DamageDealt, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5FcDmg", CtfStatsTableCallback_FlagCarrierDamageDealt, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5ClrDmg", CtfStatsTableCallback_ClearDamageDealt, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5OthrDmg", CtfStatsTableCallback_OtherDamageDealt, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5DmgTkn", CtfStatsTableCallback_DamageTaken, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5FcDmgTkn", CtfStatsTableCallback_FlagCarrierDamageTaken, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5ClrDmgTkn", CtfStatsTableCallback_ClearDamageTaken, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5OthrDmgTkn", CtfStatsTableCallback_OtherDamageTaken, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5FcKil", CtfStatsTableCallback_FcKills, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5Ret", CtfStatsTableCallback_Rets, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5SK", CtfStatsTableCallback_Selfkills, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5TTLHOLD", CtfStatsTableCallback_TotalHold, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5MAXHOLD", CtfStatsTableCallback_MaxHold, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5TtlHold", CtfStatsTableCallback_TotalHold, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5MaxHold", CtfStatsTableCallback_MaxHold, NULL, qfalse, -1, 32);
 		//Table_DefineColumn(t, "^5HOLDS", CtfStatsTableCallback_Holds, NULL, qfalse, -1, 32);
 		//Table_DefineColumn(t, "^5AVGHOLD", CtfStatsTableCallback_AverageHold, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5TOPSPD", CtfStatsTableCallback_TopSpeed, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5AVGSPD", CtfStatsTableCallback_AverageSpeed, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5TopSpd", CtfStatsTableCallback_TopSpeed, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5AvgSpd", CtfStatsTableCallback_AverageSpeed, NULL, qfalse, -1, 32);
 		//Table_DefineColumn(t, "^5+HP", CtfStatsTableCallback_HealthPickedUp, NULL, qfalse, -1, 32);
 		//Table_DefineColumn(t, "^5+SH", CtfStatsTableCallback_ArmorPickedUp, NULL, qfalse, -1, 32);
 	}
 	else if (type == STATS_TABLE_FORCE) {
-		Table_DefineColumn(t, "^5NAME", CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
-		Table_DefineColumn(t, "^5ALIAS", CtfStatsTableCallback_Alias, NULL, qtrue, -1, 32);
+		Table_DefineColumn(t, "^5Name", CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
+		Table_DefineColumn(t, "^5Alias", CtfStatsTableCallback_Alias, NULL, qtrue, -1, 32);
 		if (level.boonExists) // only show boon stat if boon is enabled and exists on this map
-			Table_DefineColumn(t, "^5BOON", CtfStatsTableCallback_BoonPickups, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5PUSH", CtfStatsTableCallback_Push, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5PULL", CtfStatsTableCallback_Pull, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5HEAL", CtfStatsTableCallback_Healed, NULL, qfalse, -1, 32);
+			Table_DefineColumn(t, "^5Boon", CtfStatsTableCallback_BoonPickups, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5Push", CtfStatsTableCallback_Push, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5Pull", CtfStatsTableCallback_Pull, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5Heal", CtfStatsTableCallback_Healed, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5TE", CtfStatsTableCallback_EnergizedAlly, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5EFF", CtfStatsTableCallback_EnergizeEfficiency, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5ENEMYNRG", CtfStatsTableCallback_EnergizedEnemy, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5ABS", CtfStatsTableCallback_Absorbed, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5PROT", CtfStatsTableCallback_ProtDamage, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5PROTTIME", CtfStatsTableCallback_ProtTime, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5RAGETIME", CtfStatsTableCallback_RageTime, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5DRN", CtfStatsTableCallback_Drain, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5DRND", CtfStatsTableCallback_GotDrained, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5Eff", CtfStatsTableCallback_EnergizeEfficiency, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5EnemyNrg", CtfStatsTableCallback_EnergizedEnemy, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5Abs", CtfStatsTableCallback_Absorbed, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5Prot", CtfStatsTableCallback_ProtDamage, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5ProtTime", CtfStatsTableCallback_ProtTime, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5RageTime", CtfStatsTableCallback_RageTime, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5Drn", CtfStatsTableCallback_Drain, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5Drnd", CtfStatsTableCallback_GotDrained, NULL, qfalse, -1, 32);
 	}
 	else if (type == STATS_TABLE_DAMAGE) {
 		int aliasDividerColor;
@@ -1430,8 +1430,8 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 				aliasDividerColor = 4;
 		}
 
-		Table_DefineColumn(t, "^5NAME", CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
-		Table_DefineColumn(t, "^5ALIAS", CtfStatsTableCallback_Alias, NULL, qtrue, aliasDividerColor, 32);
+		Table_DefineColumn(t, "^5Name", CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
+		Table_DefineColumn(t, "^5Alias", CtfStatsTableCallback_Alias, NULL, qtrue, aliasDividerColor, 32);
 
 		iterator_t iter;
 		ListIterate(&gotPlayersList, &iter, qfalse);
@@ -1440,7 +1440,7 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 			gotPlayer_t *player = IteratorNext(&iter);
 			char *clean = strdup(player->stats->name);
 			Q_CleanStr(clean);
-			Q_strupr(clean);
+			//Q_strupr(clean);
 			char *name = va("^5%s", clean);
 			free(clean);
 			int len = Q_PrintStrlen(name);
@@ -1467,8 +1467,8 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 		}
 	}
 	else if (type == STATS_TABLE_WEAPON_GIVEN || type == STATS_TABLE_WEAPON_TAKEN) {
-		Table_DefineColumn(t, "^5NAME", CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
-		Table_DefineColumn(t, "^5ALIAS", CtfStatsTableCallback_Alias, NULL, qtrue, -1, 32);
+		Table_DefineColumn(t, "^5Name", CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
+		Table_DefineColumn(t, "^5Alias", CtfStatsTableCallback_Alias, NULL, qtrue, -1, 32);
 
 		for (meansOfDeathCategory_t modc = MODC_FIRST; modc < MODC_MAX; modc++) {
 			meansOfDeathCategoryContext_t context;
@@ -1479,27 +1479,27 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 		}
 	}
 	else if (type == STATS_TABLE_ACCURACY) {
-		Table_DefineColumn(t, "^5NAME", CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
-		Table_DefineColumn(t, "^5ALIAS", CtfStatsTableCallback_Alias, NULL, qtrue, -1, 32);
+		Table_DefineColumn(t, "^5Name", CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
+		Table_DefineColumn(t, "^5Alias", CtfStatsTableCallback_Alias, NULL, qtrue, -1, 32);
 
 		for (accuracyCategory_t weap = ACC_FIRST; weap < ACC_MAX; weap++)
 			Table_DefineColumn(t, NameForAccuracyCategory(weap), CtfStatsTableCallback_WeaponAccuracy, &weap, qfalse, -1, 32);
 	}
 	else if (type == STATS_TABLE_EXPERIMENTAL) {
-		Table_DefineColumn(t, "^5NAME", CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
-		Table_DefineColumn(t, "^5ALIAS", CtfStatsTableCallback_Alias, NULL, qtrue, -1, 32);
+		Table_DefineColumn(t, "^5Name", CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
+		Table_DefineColumn(t, "^5Alias", CtfStatsTableCallback_Alias, NULL, qtrue, -1, 32);
 		ctfRegion_t region = CTFREGION_FLAGSTAND;
-		Table_DefineColumn(t, "^5FS", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5Fs", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
 		++region;
-		Table_DefineColumn(t, "^5BAS", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5Bas", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
 		++region;
-		Table_DefineColumn(t, "^5MID", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5Mid", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
 		++region;
-		Table_DefineColumn(t, "^5EBA", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5EBa", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
 		++region;
-		Table_DefineColumn(t, "^5EFS", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5FCKILEFF", CtfStatsTableCallback_FlagCarrierKillEfficiency, NULL, qtrue, -1, 32);
-		Table_DefineColumn(t, "^5GETHP", CtfStatsTableCallback_GetHealth, NULL, qtrue, -1, 32);
+		Table_DefineColumn(t, "^5EFs", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5FcKilEff", CtfStatsTableCallback_FlagCarrierKillEfficiency, NULL, qtrue, -1, 32);
+		Table_DefineColumn(t, "^5GetHP", CtfStatsTableCallback_GetHealth, NULL, qtrue, -1, 32);
 	}
 
 	ListClear(&gotPlayersList);
@@ -1513,7 +1513,7 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 			Q_strcat(temp, tempSize, " ");
 		for (int i = 0; i < longestPrintLenAlias + 3/*`space + pipe + space`*/; i++)
 			Q_strcat(temp, tempSize, " ");
-		Q_strcat(temp, tempSize, "^5DAMAGE DEALT TO\n");
+		Q_strcat(temp, tempSize, "^5Damage dealt to\n");
 		int len = strlen(temp);
 		Table_WriteToBuffer(t, temp + len, tempSize - len, qtrue, numWinningTeam ? (winningTeam == TEAM_BLUE ? 4 : 1) : (losingTeam == TEAM_BLUE ? 4 : 1));
 	}
