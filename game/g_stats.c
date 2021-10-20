@@ -1518,7 +1518,7 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 		Table_WriteToBuffer(t, temp + len, tempSize - len, qtrue, numWinningTeam ? (winningTeam == TEAM_BLUE ? 4 : 1) : (losingTeam == TEAM_BLUE ? 4 : 1));
 	}
 	else if (type == STATS_TABLE_WEAPON_GIVEN || type == STATS_TABLE_WEAPON_TAKEN) {
-		Com_sprintf(temp, tempSize, "%s^7 by %s^7:\n", type == STATS_TABLE_WEAPON_GIVEN ? "^2DAMAGE DEALT" : "^8DAMAGE TAKEN", weaponStatsPtr->name);
+		Com_sprintf(temp, tempSize, "%s^7 by %s^7:\n", type == STATS_TABLE_WEAPON_GIVEN ? "^2Damage DEALT" : "^8Damage TAKEN", weaponStatsPtr->name);
 		int len = strlen(temp);
 		Table_WriteToBuffer(t, temp + len, tempSize - len, qtrue, numWinningTeam ? (winningTeam == TEAM_BLUE ? 4 : 1) : (losingTeam == TEAM_BLUE ? 4 : 1));
 	}
