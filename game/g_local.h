@@ -63,6 +63,8 @@ extern vec3_t gPainPoint;
 #define Q3INFINITE			1000000
 #endif
 
+#define ARRAY_LEN(x) (sizeof(x) / sizeof(*(x)))
+
 #define	FRAMETIME			100					// msec
 #define	CARNAGE_REWARD_TIME	3000
 #define REWARD_SPRITE_TIME	2000

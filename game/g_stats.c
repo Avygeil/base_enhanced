@@ -1533,6 +1533,183 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 	free(temp);
 }
 
+typedef struct {
+	const statsTableType_t type;
+	const char *shortName;
+	const char *longName;
+	const char *description;
+} statsHelp_t;
+
+static statsHelp_t helps[] = { // important: make sure any new stats do not conflict with /stats help subcommands that print entire categories (e.g. "ex")
+	{ STATS_TABLE_GENERAL, "Cap", "Captures", "Times you captured the flag"},
+	{ STATS_TABLE_GENERAL, "Ass", "Assists", "Flag carrier kills, or flag returns, within ten seconds prior to your team capturing the flag"},
+	{ STATS_TABLE_GENERAL, "Def", "Defends", "Kills on enemies near your flag, near your flag carrier, or who hurt your flag carrier within the past eight seconds"},
+	{ STATS_TABLE_GENERAL, "Acc", "Accuracy", "Total accuracy percentage, only including disrupts, snipes, repeater blobs, golan balls, rockets, alt thermals, and both concs"},
+	{ STATS_TABLE_GENERAL, "Air", "Air shots", "Hits on midair enemies, only including explosive projectiles, bowcaster, and charged pistol; does not have to kill"},
+	{ STATS_TABLE_GENERAL, "TK", "Teamkills", "Bad kills on teammates; does not include killing your flag carrier if an ally takes the flag afterward"},
+	{ STATS_TABLE_GENERAL, "Take", "Takes", "Times you killed your flag carrier and then took the flag"},
+	{ STATS_TABLE_GENERAL, "PitKil", "Pit kills", "Kills on enemies using pits"},
+	{ STATS_TABLE_GENERAL, "PitDth", "Pit deaths", "Times you got killed by enemies using pits"},
+	{ STATS_TABLE_GENERAL, "Dmg", "Damage", "Total damage dealt to enemies"},
+	{ STATS_TABLE_GENERAL, "FcDmg", "Flag carrier damage", "Damage dealt to enemy flag carriers"},
+	{ STATS_TABLE_GENERAL, "ClrDmg", "Clear damage", "Damage dealt to non-flag-carrying enemies inside your base"},
+	{ STATS_TABLE_GENERAL, "OthrDmg", "Other damage", "Damage dealt to enemies outside your base who are not carrying the flag"},
+	{ STATS_TABLE_GENERAL, "DmgTkn", "Damage taken", "Total damage taken from enemies"},
+	{ STATS_TABLE_GENERAL, "FcDmgTkn", "Flag carrier damage taken", "Damage taken from enemies while carrying the flag"},
+	{ STATS_TABLE_GENERAL, "ClrDmgTkn", "Clear damage taken", "Damage taken from enemies while you are in their base and not carrying the flag"},
+	{ STATS_TABLE_GENERAL, "OthrDmgTkn", "Other damage taken", "Damage taken from enemies while you are outside their base and not carrying the flag"},
+	{ STATS_TABLE_GENERAL, "FcKil", "Flag carrier kills", "Kills on enemy flag carriers"},
+	{ STATS_TABLE_GENERAL, "Ret", "Returns", "Times you returned your flag"},
+	{ STATS_TABLE_GENERAL, "SK", "Selfkills", "Suicides, including falling into pits on your own"},
+	{ STATS_TABLE_GENERAL, "TtlHold", "Total hold", "Total time you carried the flag"},
+	{ STATS_TABLE_GENERAL, "MaxHold", "Maximum hold", "The duration of your longest flag hold"},
+	{ STATS_TABLE_GENERAL, "TopSpd", "Top speed", "The highest movement speed you reached, in units per second"},
+	{ STATS_TABLE_GENERAL, "AvgSpd", "Average speed", "Average movement speed, in units per second"},
+	{ STATS_TABLE_FORCE, "Boon", "Boons", "Boon pickups, if boon is enabled"},
+	{ STATS_TABLE_FORCE, "Push", "Pushes", "Force pushes used"},
+	{ STATS_TABLE_FORCE, "Pull", "Pulls", "Force pulls used"},
+	{ STATS_TABLE_FORCE, "Heal", "Team heal", "Amount of allies' health you replenished with team heal"},
+	{ STATS_TABLE_FORCE, "TE", "Team energize", "Amount of allies' force power you replenished with team energize"},
+	{ STATS_TABLE_FORCE, "Eff", "Team energize efficiency", "Efficiency of your team energize usage (highest amount anyone was energized ÷ maximum amount anyone could have been energized)"},
+	{ STATS_TABLE_FORCE, "EnemyNrg", "Enemy energize", "Force power given to enemies using absorb"},
+	{ STATS_TABLE_FORCE, "Abs", "Absorb", "Force power absorbed from enemies"},
+	{ STATS_TABLE_FORCE, "Prot", "Protect damage", "Damage avoided using protect"},
+	{ STATS_TABLE_FORCE, "ProtTime", "Protect time", "Total duration you had protect activated"},
+	{ STATS_TABLE_FORCE, "RageTime", "Rage time", "Total duration you had rage activated"},
+	{ STATS_TABLE_FORCE, "Drn", "Drain", "Force power gained by draining enemies"},
+	{ STATS_TABLE_FORCE, "Drnd", "Drained", "Force power given to enemies by drain"},
+	// STATS_TABLE_DAMAGE is not used here
+	{ STATS_TABLE_WEAPON_GIVEN, "Mel", "Melee damage", "Damage dealt to enemies with melee"},
+	{ STATS_TABLE_WEAPON_GIVEN, "Sab", "Lightsaber damage", "Damage dealt to enemies with lightsaber"},
+	{ STATS_TABLE_WEAPON_GIVEN, "Pis", "Pistol damage", "Damage dealt to enemies with pistol"},
+	{ STATS_TABLE_WEAPON_GIVEN, "Bla", "Blaster damage", "Damage dealt to enemies with blaster"},
+	{ STATS_TABLE_WEAPON_GIVEN, "Dis", "Disruptor damage", "Damage dealt to enemies with disruptor"},
+	{ STATS_TABLE_WEAPON_GIVEN, "Bow", "Bowcaster damage", "Damage dealt to enemies with bowcaster"},
+	{ STATS_TABLE_WEAPON_GIVEN, "Rep", "Repeater damage", "Damage dealt to enemies with repeater"},
+	{ STATS_TABLE_WEAPON_GIVEN, "Dmp", "Demp damage", "Damage dealt to enemies with demp"},
+	{ STATS_TABLE_WEAPON_GIVEN, "Gol", "Golan damage", "Damage dealt to enemies with golan"},
+	{ STATS_TABLE_WEAPON_GIVEN, "Roc", "Rocket damage", "Damage dealt to enemies with rockets"},
+	{ STATS_TABLE_WEAPON_GIVEN, "Con", "Concussion rifle damage", "Damage dealt to enemies with concussion rifle"},
+	{ STATS_TABLE_WEAPON_GIVEN, "The", "Thermal detonator damage", "Damage dealt to enemies with thermal detonators"},
+	{ STATS_TABLE_WEAPON_GIVEN, "Min", "Mine damage", "Damage dealt to enemies with mines"},
+	{ STATS_TABLE_WEAPON_GIVEN, "Dpk", "Detpack damage", "Damage dealt to enemies with detpacks"},
+	{ STATS_TABLE_WEAPON_GIVEN, "For", "Force damage", "Damage dealt to enemies with force powers"},
+	{ STATS_TABLE_WEAPON_GIVEN, "Total", "Total damage", "Total damage dealt to enemies "},
+	// STATS_TABLE_WEAPON_TAKEN is not used here
+	{ STATS_TABLE_ACCURACY, "Acc", "Accuracy", "Total accuracy percentage, only including disrupts, snipes, repeater blobs, golan balls, rockets, alt thermals, and both concs"},
+	{ STATS_TABLE_ACCURACY, "Pis", "Pistol altfire accuracy", "Accuracy percentage of pistol altfire (must be charged at least 400ms)"},
+	{ STATS_TABLE_ACCURACY, "Dis", "Disruptor primary accuracy", "Accuracy percentage of disruptor primary"},
+	{ STATS_TABLE_ACCURACY, "Snp", "Disruptor snipe accuracy", "Accuracy percentage of disruptor snipes"},
+	{ STATS_TABLE_ACCURACY, "Rep", "Repeater blob accuracy", "Accuracy percentage of repeater blobs"},
+	{ STATS_TABLE_ACCURACY, "Gol", "Golan ball accuracy", "Accuracy percentage of golan balls"},
+	{ STATS_TABLE_ACCURACY, "Roc", "Rocket accuracy", "Accuracy percentage of rockets"},
+	{ STATS_TABLE_ACCURACY, "Con", "Concussion rifle primary accuracy", "Accuracy percentage of concussion rifle primary"},
+	{ STATS_TABLE_ACCURACY, "Alt", "Concussion rifle altfire accuracy", "Accuracy percentage of concussion rifle altfire"},
+	{ STATS_TABLE_ACCURACY, "The", "Thermal detonator altfire accuracy", "Accuracy percentage of thermal detonator altfire"},
+	{ STATS_TABLE_EXPERIMENTAL, "Fs", "Allied flagstand time", "Percentage of the match spent in the 20 percent of the map closest to your flagstand"},
+	{ STATS_TABLE_EXPERIMENTAL, "Bas", "Allied base time", "Percentage of the match spent in the 20 percent of the map between your flagstand and mid"},
+	{ STATS_TABLE_EXPERIMENTAL, "Mid", "Mid time", "Percentage of the match spent in the middle 20 percent of the map"},
+	{ STATS_TABLE_EXPERIMENTAL, "EBa", "Enemy base time", "Percentage of the match spent in the 20 percent of the map between the enemy flagstand and mid"},
+	{ STATS_TABLE_EXPERIMENTAL, "EFs", "Enemy flagstand time", "Percentage of the match spent in the 20 percent of the map closest to the enemy flagstand"},
+	{ STATS_TABLE_EXPERIMENTAL, "FcKillEff", "Flag carrier kill efficiency", "Percentage of your kills on flag carriers that resulted in the flag being returned by you or a teammate"},
+	{ STATS_TABLE_EXPERIMENTAL, "GetHP", "Average get health points", "Average health+armor total you had when you took the flag from the flagstand"},
+}; // important: make sure any new stats do not conflict with /stats help subcommands that print entire categories (e.g. "ex")
+
+const char *StatsHelpTableCallback_Category(void *rowContext, void *columnContext) {
+	if (!rowContext)
+		return NULL;
+	statsHelp_t *help = rowContext;
+	switch (help->type) {
+	case STATS_TABLE_GENERAL: return "General";
+	case STATS_TABLE_FORCE: return "Force";
+	case STATS_TABLE_DAMAGE: return "Damage";
+	case STATS_TABLE_WEAPON_GIVEN: return "Weapon";
+	case STATS_TABLE_WEAPON_TAKEN: assert(qfalse); return NULL; // use STATS_TABLE_WEAPON_GIVEN instead
+	case STATS_TABLE_ACCURACY: return "Accuracy";
+	case STATS_TABLE_EXPERIMENTAL: return "Experimental";
+	default: assert(qfalse); return NULL;
+	}
+}
+
+const char *StatsHelpTableCallback_ShortName(void *rowContext, void *columnContext) {
+	if (!rowContext)
+		return NULL;
+	statsHelp_t *help = rowContext;
+	return help->shortName;
+}
+
+const char *StatsHelpTableCallback_LongName(void *rowContext, void *columnContext) {
+	if (!rowContext)
+		return NULL;
+	statsHelp_t *help = rowContext;
+	return help->longName;
+}
+
+const char *StatsHelpTableCallback_Description(void *rowContext, void *columnContext) {
+	if (!rowContext)
+		return NULL;
+	statsHelp_t *help = rowContext;
+	return help->description;
+}
+
+static void PrintHelpForStatsTable(statsTableType_t type, int id) {
+	Table *t = Table_Initialize(qtrue);
+	
+	statsHelp_t *gotOne = NULL;
+	for (statsHelp_t *help = &helps[0]; help - helps < ARRAY_LEN(helps); help++) {
+		if (help->type == type) {
+			gotOne = help;
+			Table_DefineRow(t, help);
+		}
+	}
+
+	if (!gotOne) {
+		assert(qfalse);
+		Table_Destroy(t);
+		return;
+	}
+
+	PrintIngame(id, "%s stats:\n", StatsHelpTableCallback_Category(gotOne, NULL));
+	Table_DefineColumn(t, "Name", StatsHelpTableCallback_ShortName, NULL, qtrue, -1, 32);
+	Table_DefineColumn(t, "Full name", StatsHelpTableCallback_LongName, NULL, qtrue, -1, 64);
+	Table_DefineColumn(t, "Description", StatsHelpTableCallback_Description, NULL, qtrue, -1, 256);
+
+	char buf[8192] = { 0 };
+	Table_WriteToBuffer(t, buf, sizeof(buf), qtrue, -1);
+	Table_Destroy(t);
+
+	PrintIngame(id, buf);
+}
+
+static qboolean PrintHelpForIndividualStat(const char *query, int id) {
+	Table *t = Table_Initialize(qtrue);
+
+	qboolean gotOne = qfalse;
+	for (statsHelp_t *help = &helps[0]; help - helps < ARRAY_LEN(helps); help++) {
+		if (stristr(help->shortName, query) || stristr(help->longName, query)) {
+			Table_DefineRow(t, help);
+			gotOne = qtrue;
+		}
+	}
+
+	if (!gotOne) {
+		Table_Destroy(t);
+		return qfalse;
+	}
+
+	Table_DefineColumn(t, "Type", StatsHelpTableCallback_Category, NULL, qtrue, -1, 32);
+	Table_DefineColumn(t, "Short name", StatsHelpTableCallback_ShortName, NULL, qtrue, -1, 32);
+	Table_DefineColumn(t, "Full name", StatsHelpTableCallback_LongName, NULL, qtrue, -1, 64);
+	Table_DefineColumn(t, "Description", StatsHelpTableCallback_Description, NULL, qtrue, -1, 256);
+
+	char buf[8192] = { 0 };
+	Table_WriteToBuffer(t, buf, sizeof(buf), qtrue, -1);
+	Table_Destroy(t);
+
+	PrintIngame(id, buf);
+	return qtrue;
+}
+
 void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t outSize, qboolean announce, stats_t *weaponStatsPtr) {
 	if (!VALIDSTRING(type))
 		return;
@@ -1622,30 +1799,49 @@ void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t ou
 	else if (!Q_stricmpn(type, "ex", 2)) {
 		PrintTeamStats(id, outputBuffer, outSize, announce, STATS_TABLE_EXPERIMENTAL, NULL);
 	}
-	else {
-		if (id != -1) {
-			if (!Q_stricmp(type, "help")) {
-				if (!Q_stricmpn(type, "ge", 2)) { // todo
+	else if (id != -1) {
+		if (!Q_stricmp(type, "help")) {
+			char query[MAX_STRING_CHARS] = { 0 };
+			if (trap_Argc() >= 3)
+				trap_Argv(2, query, sizeof(query));
+
+			if (query[0]) { // important: any new stats must not conflict with these category subcommands
+				if (!Q_stricmp(query, "all")) {
+					PrintHelpForStatsTable(STATS_TABLE_GENERAL, id);
+					PrintHelpForStatsTable(STATS_TABLE_WEAPON_GIVEN, id);
+					PrintHelpForStatsTable(STATS_TABLE_ACCURACY, id);
+					PrintHelpForStatsTable(STATS_TABLE_EXPERIMENTAL, id);
 				}
-				else if (!Q_stricmpn(type, "da", 2) || !Q_stricmpn(type, "dmg", 3)) { // todo
+				else if (!Q_stricmp(query, "gen") || !Q_stricmp(query, "general")) {
+					PrintHelpForStatsTable(STATS_TABLE_GENERAL, id);
 				}
-				else if (!Q_stricmpn(type, "we", 2) || !Q_stricmpn(type, "wpn", 3)) { // todo
+				else if (!Q_stricmp(query, "force")) {
+					PrintHelpForStatsTable(STATS_TABLE_FORCE, id);
 				}
-				else if (!Q_stricmpn(type, "ac", 2)) { // todo
+				else if (!Q_stricmp(query, "weapon") || !Q_stricmp(query, "wpn")) {
+					PrintHelpForStatsTable(STATS_TABLE_WEAPON_GIVEN, id);
 				}
-				else if (!Q_stricmpn(type, "ex", 2)) { // todo
+				else if (!Q_stricmp(query, "accuracy")) {
+					PrintHelpForStatsTable(STATS_TABLE_ACCURACY, id);
+				}
+				else if (!Q_stricmpn(query, "ex", 2)) {
+					PrintHelpForStatsTable(STATS_TABLE_EXPERIMENTAL, id);
 				}
 				else {
-					PrintIngame(id, "Usage: ^5stats <gen | force | ex | acc | dmg | wpn [player]>^7\n"
-						"For information about a certain stats table, enter ^5stats help <gen | force | ex | acc | dmg | wpn>^7\n");
+					if (!PrintHelpForIndividualStat(query, id))
+						PrintIngame(id, "No help found for '%s^7'.\n"
+							"Usage: ^5stats help <query>^7\n"
+							"Query can be a stat name (e.g. DmgTkn) or type (general/force/experimental/accuracy/weapon) or 'all'\n", query);
 				}
 			}
 			else {
-				PrintIngame(id, "Unknown argument '%s^7'.\nUsage: ^5stats <gen | force | ex | acc | dmg | wpn [player]>^7\nEnter ^5stats help^7 for more information.", type);
+				PrintIngame(id, "Usage: ^5stats help <query>^7\n"
+					"Query can be a stat name (e.g. DmgTkn) or type (general/force/experimental/accuracy/weapon) or 'all'\n", query);
 			}
 		}
-
-		return;
+		else {
+			PrintIngame(id, "Unknown argument '%s^7'.\nUsage: ^5stats <gen | force | ex | acc | dmg | wpn [player]>^7\nEnter ^5stats help^7 for more information about a stat.\n", type);
+		}
 	}
 }
 
