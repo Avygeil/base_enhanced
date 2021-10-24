@@ -910,6 +910,10 @@ typedef struct {
 	int			gotDrained;
 	int			regionTime[NUM_CTFREGIONS];
 	int			regionPercent[NUM_CTFREGIONS];
+	float		totalPosition;
+	int			numPositionSamples;
+
+	list_t		teammatePositioningList; // record of positioning for people i was ingame with
 
 	int			numFlagHolds;
 	int			averageFlagHold; // this is only calculated on demand; don't just randomly read this (imagine getters in C)
@@ -1161,6 +1165,8 @@ struct gclient_s {
 
 	int homingLockTime; // time at which homing weapon locked on to a target
 	int homingLockTarget; // the target of it
+
+	int lastInputTime; // based on trap_Milliseconds
 };
 
 //Interest points
@@ -1980,6 +1986,13 @@ void TellPlayerToRateMap(gclient_t *client);
 // g_stats.c
 //
 #define CTF_SAVE_DISTANCE_THRESHOLD		(200)
+#define CTFPOS_POSTSPAWN_DELAY			(3000) // wait a little while after spawning before we log position data
+typedef enum {
+	CTFPOSITION_UNKNOWN = 0,
+	CTFPOSITION_BASE,
+	CTFPOSITION_CHASE,
+	CTFPOSITION_OFFENSE
+} ctfPosition_t;
 typedef enum {
 	STATS_TABLE_GENERAL = 0,
 	STATS_TABLE_FORCE,
@@ -1989,6 +2002,12 @@ typedef enum {
 	STATS_TABLE_ACCURACY,
 	STATS_TABLE_EXPERIMENTAL
 } statsTableType_t;
+typedef struct {
+	node_t		node;
+	stats_t		*stats;
+	float		totalPosition;
+	int			numPositionSamples;
+} ctfPositioningData_t;
 qboolean StatsValid(const stats_t *stats);
 void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t outSize, qboolean announce, stats_t *weaponStatsPtr);
 void InitClientStats(gclient_t *cl);
@@ -2108,6 +2127,7 @@ void G_CheckClientTimeouts	( gentity_t *ent );
 void ClientThink			( int clientNum, usercmd_t *ucmd );
 void ClientEndFrame			( gentity_t *ent );
 void G_RunClient			( gentity_t *ent );
+qboolean IsInputting(const gclient_t *client, qboolean checkPressingButtons, qboolean checkMovingMouse, qboolean checkPressingChatButton);
 
 typedef enum {
 	NMTAUNT_ANGER1 = 100, //gloat

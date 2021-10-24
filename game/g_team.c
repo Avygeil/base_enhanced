@@ -402,6 +402,7 @@ void Team_FragBonuses(gentity_t *targ, gentity_t *inflictor, gentity_t *attacker
 		if (attacker->client && attacker->client->sess.sessionTeam == TEAM_RED && targ->client->sess.sessionTeam == TEAM_BLUE)
 			level.redPlayerWhoKilledBlueCarrierOfRedFlag = attacker->client->stats;
 		else if (attacker->client && attacker->client->sess.sessionTeam == TEAM_BLUE && targ->client->sess.sessionTeam == TEAM_RED)
+
 			level.bluePlayerWhoKilledRedCarrierOfBlueFlag = attacker->client->stats;
 
 		// the target had the flag, clear the hurt carrier

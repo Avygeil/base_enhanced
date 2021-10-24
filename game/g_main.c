@@ -1921,6 +1921,7 @@ void G_ShutdownGame( int restart ) {
 		stats_t *stats = IteratorNext(&iter);
 		ListClear(&stats->damageGivenList);
 		ListClear(&stats->damageTakenList);
+		ListClear(&stats->teammatePositioningList);
 	}
 	ListClear(&level.statsList);
 
@@ -5169,10 +5170,78 @@ static qboolean SessionIdMatches(genericNode_t *node, void *userData) {
 
 // adds a tick to a player's tick count for a particular team, even if he left and rejoined
 // allows tracking ragequitters and subs for the discord webhook, as well as using account names/nicknames instead of ingame names
-static void AddPlayerTick(team_t team, gclient_t *cl) {
-	if (!cl || !cl->session || !level.wasRestarted)
-		return;
+extern qboolean isRedFlagstand(gentity_t *ent);
+extern qboolean isBlueFlagstand(gentity_t *ent);
 
+qboolean MatchesCtfPositioningData(genericNode_t *node, void *userData) {
+	ctfPositioningData_t *existing = (ctfPositioningData_t *)node;
+	stats_t *thisGuy = (stats_t *)userData;
+
+	if (!existing || !thisGuy)
+		return qfalse;
+
+	if (existing->stats == thisGuy)
+		return qtrue;
+
+	return qfalse;
+}
+
+static void AddPlayerTick(team_t team, gentity_t *ent) {
+	if (!ent->client || !level.wasRestarted)
+		return;
+	gclient_t *cl = ent->client;
+
+	static gentity_t *redFs = NULL, *blueFs = NULL;
+	static float diffBetweenFlags = 0.0f;
+	static qboolean initialized = qfalse;
+	if (!initialized) {
+		gentity_t temp;
+		VectorCopy(vec3_origin, temp.r.currentOrigin);
+		redFs = G_ClosestEntity(&temp, isRedFlagstand);
+		blueFs = G_ClosestEntity(&temp, isBlueFlagstand);
+		if (redFs && blueFs)
+			diffBetweenFlags = Distance2D(redFs->r.currentOrigin, blueFs->r.currentOrigin);
+		initialized = qtrue;
+	}
+
+	// if i don't have the flag, i've been alive at least a few seconds, and i've done some input within the last few seconds, log my data
+	if (redFs && blueFs &&
+		!HasFlag(ent) &&
+		level.time - ent->client->pers.lastSpawnTime >= CTFPOS_POSTSPAWN_DELAY &&
+		trap_Milliseconds() - ent->client->lastInputTime < 5000) {
+		float allyDist = Distance2D(ent->r.currentOrigin, team == TEAM_RED ? redFs->r.currentOrigin : blueFs->r.currentOrigin);
+		float enemyDist = Distance2D(ent->r.currentOrigin, team == TEAM_RED ? blueFs->r.currentOrigin : redFs->r.currentOrigin);
+		float diff = allyDist / enemyDist;
+
+		float add;
+		if (allyDist < enemyDist && enemyDist > diffBetweenFlags)
+			add = 0.0f;
+		else if (enemyDist < allyDist && allyDist > diffBetweenFlags)
+			add = 1.0f;
+		else
+			add = allyDist / diffBetweenFlags;
+
+		// note our own positioning
+		ent->client->stats->totalPosition += add;
+		++ent->client->stats->numPositionSamples;
+
+		// record our positioning in everyone else's stats so that people's positioning can only be compared to people they were ingame contemporaneously with
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *other = &g_entities[i];
+			if (other == ent || !other->inuse || !other->client || other->client->pers.connected != CON_CONNECTED || other->client->sess.sessionTeam != ent->client->sess.sessionTeam)
+				continue;
+			ctfPositioningData_t *data = ListFind(&other->client->stats->teammatePositioningList, MatchesCtfPositioningData, cl->stats, NULL);
+			if (!data) {
+				data = ListAdd(&other->client->stats->teammatePositioningList, sizeof(ctfPositioningData_t));
+				data->stats = cl->stats;
+			}
+			data->totalPosition += add;
+			++data->numPositionSamples;
+		}
+	}
+
+	if (!ent->client->session)
+		return;
 	list_t *list = team == TEAM_RED ? &level.redPlayerTickList : &level.bluePlayerTickList;
 	tickPlayer_t *found = ListFind(list, SessionIdMatches, cl->session, NULL);
 
@@ -5792,10 +5861,10 @@ void G_RunFrame( int levelTime ) {
 
 				if (ent->client->sess.sessionTeam == TEAM_RED) {
 					level.numRedPlayerTicks++;
-					AddPlayerTick(TEAM_RED, ent->client);
+					AddPlayerTick(TEAM_RED, ent);
 				} else if (ent->client->sess.sessionTeam == TEAM_BLUE) {
 					level.numBluePlayerTicks++;
-					AddPlayerTick(TEAM_BLUE, ent->client);
+					AddPlayerTick(TEAM_BLUE, ent);
 				}
 
 				if ( ent->client->ps.stats[STAT_HEALTH] > 0 && !( ent->client->ps.eFlags & EF_DEAD ) ) {

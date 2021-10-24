@@ -100,6 +100,137 @@ const char *FormatStatTime(qboolean isTotal, int num, int bestMyTeam, int bestOt
 }
 
 stats_t bestStats[TEAM_NUM_TEAMS] = { 0 }; // e.g. bestStats[TEAM_RED].captures contains the best captures of anyone that was on red team
+
+typedef struct {
+	float average;
+	int numberOfSamples;
+} ctfPositioningDataQuick_t;
+
+int ComparePositioningDataAverages(const void *a, const void *b) {
+	ctfPositioningDataQuick_t *aa = (ctfPositioningDataQuick_t *)a;
+	ctfPositioningDataQuick_t *bb = (ctfPositioningDataQuick_t *)b;
+	return (aa->average > bb->average) - (aa->average < bb->average);
+}
+
+int MoveAfksToEnd(const void *a, const void *b) {
+	ctfPositioningDataQuick_t *aa = (ctfPositioningDataQuick_t *)a;
+	ctfPositioningDataQuick_t *bb = (ctfPositioningDataQuick_t *)b;
+	if (aa->numberOfSamples < bb->numberOfSamples)
+		return 1;
+	else if (aa->numberOfSamples > bb->numberOfSamples)
+		return -1;
+	return 0;
+}
+
+#define CTFPOSITION_MINIMUM_SECONDS		(10)
+
+// determine 4v4 ctf position based on average location
+// we track your position relative to the flagstands:
+// 0 == on top of your fs
+// 1 == on top of the enemy fs
+// additionally, we only track:
+// --a few seconds after spawning (to remove bias toward spawnpoints)
+// --while you are NOT holding the flag
+// this seems to reliably result in distributions where the two offense players have the top values,
+// the base player has the lowest value, and the chase player is somewhere in the middle
+ctfPosition_t DetermineCTFPosition(stats_t *posGuy) {
+	if (!level.wasRestarted || level.someoneWasAFK || (level.time - level.startTime) < (CTFPOSITION_MINIMUM_SECONDS * 1000) || !posGuy || !StatsValid(posGuy))
+		return CTFPOSITION_UNKNOWN;
+
+	// we only care about 4v4
+	float avgRed = (float)level.numRedPlayerTicks / (float)level.numTeamTicks;
+	float avgBlue = (float)level.numBluePlayerTicks / (float)level.numTeamTicks;
+	int avgRedInt = (int)lroundf(avgRed);
+	int avgBlueInt = (int)lroundf(avgBlue);
+	if (avgRedInt != 4 || avgBlueInt != 4)
+		return CTFPOSITION_UNKNOWN;
+
+	// if i haven't been ingame for 30+ seconds, don't bother
+	if (posGuy->numPositionSamples < g_svfps.integer * CTFPOSITION_MINIMUM_SECONDS)
+		return CTFPOSITION_UNKNOWN;
+
+	float posGuyAverage = posGuy->totalPosition / (float)posGuy->numPositionSamples;
+
+	// figure out how many people i was ingame with for 30+ seconds while they weren't afk
+	iterator_t iter;
+	ListIterate(&posGuy->teammatePositioningList, &iter, qfalse);
+	int numTeammates = 0;
+	while (IteratorHasNext(&iter)) {
+		ctfPositioningData_t *teammate = IteratorNext(&iter);
+		if (!StatsValid(teammate->stats) || teammate->numPositionSamples < g_svfps.integer * CTFPOSITION_MINIMUM_SECONDS)
+			continue;
+		++numTeammates;
+	}
+
+	// require at least three teammates
+	if (numTeammates < 3)
+		return CTFPOSITION_UNKNOWN;
+
+	// add our own guy to the array
+	ctfPositioningDataQuick_t *data = malloc((numTeammates + 1) * sizeof(ctfPositioningDataQuick_t));
+	data->average = posGuyAverage;
+	data->numberOfSamples = INT_MAX;
+	int index = 1;
+
+	// add everyone else to the array
+	ListIterate(&posGuy->teammatePositioningList, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		ctfPositioningData_t *teammate = IteratorNext(&iter);
+		if (!StatsValid(teammate->stats) || teammate->numPositionSamples < g_svfps.integer * CTFPOSITION_MINIMUM_SECONDS)
+			continue;
+		float average = teammate->totalPosition / (float)teammate->numPositionSamples;
+		ctfPositioningDataQuick_t *thisGuyData = data + index++;
+		thisGuyData->average = average;
+		thisGuyData->numberOfSamples = teammate->numPositionSamples;
+	}
+
+	// if more than three teammates, trim the array to three based on who we played with the most
+	if (numTeammates > 3) {
+		qsort(data, numTeammates + 1, sizeof(ctfPositioningDataQuick_t), MoveAfksToEnd);
+		data = realloc(data, 4 * sizeof(ctfPositioningDataQuick_t));
+	}
+
+	// sort the array such that people who stayed close to their flagstand are lower
+	qsort(data, 4, sizeof(ctfPositioningDataQuick_t), ComparePositioningDataAverages);
+
+	ctfPosition_t pos;
+	if (posGuyAverage == data->average)
+		pos = CTFPOSITION_BASE;
+	else if (posGuyAverage == (data + 1)->average)
+		pos = CTFPOSITION_CHASE;
+	else
+		pos = CTFPOSITION_OFFENSE;
+
+	free(data);
+	return pos;
+}
+
+const char *CtfStatsTableCallback_Position(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	stats_t *stats = rowContext;
+	if (stats->isTotal)
+		return NULL;
+	ctfPosition_t pos = DetermineCTFPosition(stats);
+#if defined(_DEBUG) && defined(DEBUGCTFPOSITIONS)
+	float average = stats->numPositionSamples ? stats->totalPosition / (float)stats->numPositionSamples : 0.0f;
+	switch (pos) {
+	case CTFPOSITION_BASE: return va("Base (%0.3f)", average);
+	case CTFPOSITION_CHASE: return va("Chase (%0.3f)", average);
+	case CTFPOSITION_OFFENSE: return va("Offense (%0.3f)", average);
+	default: return va("Unknown (%0.3f)", average);
+#else
+	switch (pos) {
+	case CTFPOSITION_BASE: return "Bas";
+	case CTFPOSITION_CHASE: return "Cha";
+	case CTFPOSITION_OFFENSE: return "Off";
+	default: return NULL;
+#endif
+	}
+}
+
 const char *CtfStatsTableCallback_Captures(void *rowContext, void *columnContext) {
 	if (!rowContext) {
 		assert(qfalse);
@@ -1362,11 +1493,12 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 		return;
 	}
 
-	int longestPrintLenName = 4 /*NAME*/, longestPrintLenAlias = 5 /*ALIAS*/;
+	int longestPrintLenName = 4 /*Name*/, longestPrintLenAlias = 5 /*Alias*/, longestPrintLenPos = 0 /*Pos -- gets set to 3 if a pos is detected*/;
 
 	if (type == STATS_TABLE_GENERAL) {
 		Table_DefineColumn(t, "^5Name", CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
 		Table_DefineColumn(t, "^5Alias", CtfStatsTableCallback_Alias, NULL, qtrue, -1, 32);
+		Table_DefineColumn(t, "^5Pos", CtfStatsTableCallback_Position, NULL, qtrue, -1, 32);
 		Table_DefineColumn(t, "^5Cap", CtfStatsTableCallback_Captures, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5Ass", CtfStatsTableCallback_Assists, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5Def", CtfStatsTableCallback_Defends, NULL, qfalse, -1, 32);
@@ -1400,6 +1532,7 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 	else if (type == STATS_TABLE_FORCE) {
 		Table_DefineColumn(t, "^5Name", CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
 		Table_DefineColumn(t, "^5Alias", CtfStatsTableCallback_Alias, NULL, qtrue, -1, 32);
+		Table_DefineColumn(t, "^5Pos", CtfStatsTableCallback_Position, NULL, qtrue, -1, 32);
 		if (level.boonExists) // only show boon stat if boon is enabled and exists on this map
 			Table_DefineColumn(t, "^5Boon", CtfStatsTableCallback_BoonPickups, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5Push", CtfStatsTableCallback_Push, NULL, qfalse, -1, 32);
@@ -1416,34 +1549,45 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 		Table_DefineColumn(t, "^5Drnd", CtfStatsTableCallback_GotDrained, NULL, qfalse, -1, 32);
 	}
 	else if (type == STATS_TABLE_DAMAGE) {
-		int aliasDividerColor;
+		int firstDividerColor;
 		if (numWinningTeam) {
 			if (winningTeam == TEAM_RED)
-				aliasDividerColor = 1;
+				firstDividerColor = 1;
 			else
-				aliasDividerColor = 4;
+				firstDividerColor = 4;
 		}
 		else {
 			if (losingTeam == TEAM_RED)
-				aliasDividerColor = 1;
+				firstDividerColor = 1;
 			else
-				aliasDividerColor = 4;
+				firstDividerColor = 4;
 		}
 
-		Table_DefineColumn(t, "^5Name", CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
-		Table_DefineColumn(t, "^5Alias", CtfStatsTableCallback_Alias, NULL, qtrue, aliasDividerColor, 32);
+		qboolean didFirstColumns = qfalse;
 
 		iterator_t iter;
 		ListIterate(&gotPlayersList, &iter, qfalse);
-
 		while (IteratorHasNext(&iter)) {
 			gotPlayer_t *player = IteratorNext(&iter);
 			char *clean = strdup(player->stats->name);
 			Q_CleanStr(clean);
 			//Q_strupr(clean);
-			char *name = va("^5%s", clean);
+			char *name;
+			ctfPosition_t pos = DetermineCTFPosition(player->stats);
+			if (pos) {
+				if (pos == CTFPOSITION_BASE)
+					name = va("^5%s (Bas)", clean);
+				else if (pos == CTFPOSITION_CHASE)
+					name = va("^5%s (Cha)", clean);
+				else if (pos == CTFPOSITION_OFFENSE)
+					name = va("^5%s (Off)", clean);
+				longestPrintLenPos = 3; // account for "Pos" spacing
+			}
+			else {
+				name = va("^5%s", clean);
+			}
 			free(clean);
-			int len = Q_PrintStrlen(name);
+			int len = Q_PrintStrlen(player->stats->name);
 			if (len > longestPrintLenName)
 				longestPrintLenName = len;
 			if (VALIDSTRING(player->stats->accountName)) {
@@ -1452,23 +1596,39 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 					longestPrintLenAlias = len;
 			}
 
-			int dividerColor;
+			int secondDividerColor;
 			if (numWinningTeam && numLosingTeam && player->stats == lastWinningTeamPlayer) {
 				if (winningTeam == TEAM_RED)
-					dividerColor = 4;
+					secondDividerColor = 4;
 				else
-					dividerColor = 1;
+					secondDividerColor = 1;
 			}
 			else {
-				dividerColor = -1;
+				secondDividerColor = -1;
 			}
 
-			Table_DefineColumn(t, name, TableCallback_Damage, player->stats, qfalse, dividerColor, 32);
+			if (!didFirstColumns) {
+				// if we have pos, then the divider goes after the pos column. if not, then the divider goes after the alias column.
+				Table_DefineColumn(t, "^5Name", CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
+				Table_DefineColumn(t, "^5Alias", CtfStatsTableCallback_Alias, NULL, qtrue, longestPrintLenPos ? -1 : firstDividerColor, 32);
+				Table_DefineColumn(t, "^5Pos", CtfStatsTableCallback_Position, NULL, qtrue, longestPrintLenPos ? firstDividerColor : -1, 32);
+				didFirstColumns = qtrue;
+			}
+			Table_DefineColumn(t, name, TableCallback_Damage, player->stats, qfalse, secondDividerColor, 32);
+		}
+
+		if (!didFirstColumns) { // sanity check, make sure these get printed no matter what
+			// if we have pos, then the divider goes after the pos column. if not, then the divider goes after the alias column.
+			Table_DefineColumn(t, "^5Name", CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
+			Table_DefineColumn(t, "^5Alias", CtfStatsTableCallback_Alias, NULL, qtrue, longestPrintLenPos ? -1 : firstDividerColor, 32);
+			Table_DefineColumn(t, "^5Pos", CtfStatsTableCallback_Position, NULL, qtrue, longestPrintLenPos ? firstDividerColor : -1, 32);
+			didFirstColumns = qtrue;
 		}
 	}
 	else if (type == STATS_TABLE_WEAPON_GIVEN || type == STATS_TABLE_WEAPON_TAKEN) {
 		Table_DefineColumn(t, "^5Name", CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
 		Table_DefineColumn(t, "^5Alias", CtfStatsTableCallback_Alias, NULL, qtrue, -1, 32);
+		Table_DefineColumn(t, "^5Pos", CtfStatsTableCallback_Position, NULL, qtrue, -1, 32);
 
 		for (meansOfDeathCategory_t modc = MODC_FIRST; modc < MODC_MAX; modc++) {
 			meansOfDeathCategoryContext_t context;
@@ -1481,6 +1641,7 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 	else if (type == STATS_TABLE_ACCURACY) {
 		Table_DefineColumn(t, "^5Name", CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
 		Table_DefineColumn(t, "^5Alias", CtfStatsTableCallback_Alias, NULL, qtrue, -1, 32);
+		Table_DefineColumn(t, "^5Pos", CtfStatsTableCallback_Position, NULL, qtrue, -1, 32);
 
 		for (accuracyCategory_t weap = ACC_FIRST; weap < ACC_MAX; weap++)
 			Table_DefineColumn(t, NameForAccuracyCategory(weap), CtfStatsTableCallback_WeaponAccuracy, &weap, qfalse, -1, 32);
@@ -1488,6 +1649,7 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 	else if (type == STATS_TABLE_EXPERIMENTAL) {
 		Table_DefineColumn(t, "^5Name", CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
 		Table_DefineColumn(t, "^5Alias", CtfStatsTableCallback_Alias, NULL, qtrue, -1, 32);
+		Table_DefineColumn(t, "^5Pos", CtfStatsTableCallback_Position, NULL, qtrue, -1, 32);
 		ctfRegion_t region = CTFREGION_FLAGSTAND;
 		Table_DefineColumn(t, "^5Fs", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
 		++region;
@@ -1509,10 +1671,16 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 	size_t tempSize = TEMP_STATS_BUFFER_SIZE;
 	memset(temp, 0, tempSize);
 	if (type == STATS_TABLE_DAMAGE) {
-		for (int i = 0; i < longestPrintLenName + 1/*`space`*/; i++)
-			Q_strcat(temp, tempSize, " ");
-		for (int i = 0; i < longestPrintLenAlias + 3/*`space + pipe + space`*/; i++)
-			Q_strcat(temp, tempSize, " ");
+		for (int i = 0; i < longestPrintLenName + 1; i++)
+			Q_strcat(temp, tempSize, " "); // name column spaces, plus a space after
+		for (int i = 0; i < longestPrintLenAlias + 1; i++)
+			Q_strcat(temp, tempSize, " "); // alias column spaces, plus a space after
+		for (int i = 0; i < 2; i++)
+			Q_strcat(temp, tempSize, " "); // divider space, plus a space after
+		if (longestPrintLenPos) {
+			for (int i = 0; i < longestPrintLenPos + 1; i++)
+				Q_strcat(temp, tempSize, " "); // pos column spaces, plus a space after
+		}
 		Q_strcat(temp, tempSize, "^5Damage dealt to\n");
 		int len = strlen(temp);
 		Table_WriteToBuffer(t, temp + len, tempSize - len, qtrue, numWinningTeam ? (winningTeam == TEAM_BLUE ? 4 : 1) : (losingTeam == TEAM_BLUE ? 4 : 1));
