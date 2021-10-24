@@ -5187,8 +5187,14 @@ qboolean MatchesCtfPositioningData(genericNode_t *node, void *userData) {
 }
 
 static void AddPlayerTick(team_t team, gentity_t *ent) {
-	if (!ent->client || !level.wasRestarted)
+	if (!ent->client)
 		return;
+
+	++ent->client->stats->ticksNotPaused;
+
+	if (!level.wasRestarted)
+		return;
+
 	gclient_t *cl = ent->client;
 
 	static gentity_t *redFs = NULL, *blueFs = NULL;

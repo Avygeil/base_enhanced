@@ -231,6 +231,23 @@ const char *CtfStatsTableCallback_Position(void *rowContext, void *columnContext
 	}
 }
 
+const char *CtfStatsTableCallback_Time(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	stats_t *stats = rowContext;
+	if (stats->isTotal)
+		return NULL;
+	int ms = stats->ticksNotPaused * (1000 / g_svfps.integer);
+	int secs = ms / 1000;
+	int mins = secs / 60;
+	if (ms >= 60000)
+		return va("%d:%02d", mins, secs % 60);
+	else
+		return va("0:%02d", secs);
+}
+
 const char *CtfStatsTableCallback_Captures(void *rowContext, void *columnContext) {
 	if (!rowContext) {
 		assert(qfalse);
@@ -1499,6 +1516,8 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 		Table_DefineColumn(t, "^5Name", CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
 		Table_DefineColumn(t, "^5Alias", CtfStatsTableCallback_Alias, NULL, qtrue, -1, 32);
 		Table_DefineColumn(t, "^5Pos", CtfStatsTableCallback_Position, NULL, qtrue, -1, 32);
+
+		Table_DefineColumn(t, "^5Time", CtfStatsTableCallback_Time, NULL, qtrue, -1, 32);
 		Table_DefineColumn(t, "^5Cap", CtfStatsTableCallback_Captures, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5Ass", CtfStatsTableCallback_Assists, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5Def", CtfStatsTableCallback_Defends, NULL, qfalse, -1, 32);
@@ -1709,6 +1728,8 @@ typedef struct {
 } statsHelp_t;
 
 static statsHelp_t helps[] = { // important: make sure any new stats do not conflict with /stats help subcommands that print entire categories (e.g. "ex")
+	{ STATS_TABLE_GENERAL, "Pos", "Position", "CTF position, if 4v4"},
+	{ STATS_TABLE_GENERAL, "Time", "Time", "Time in game while not paused"},
 	{ STATS_TABLE_GENERAL, "Cap", "Captures", "Times you captured the flag"},
 	{ STATS_TABLE_GENERAL, "Ass", "Assists", "Flag carrier kills, or flag returns, within ten seconds prior to your team capturing the flag"},
 	{ STATS_TABLE_GENERAL, "Def", "Defends", "Kills on enemies near your flag, near your flag carrier, or who hurt your flag carrier within the past eight seconds"},
@@ -1733,6 +1754,7 @@ static statsHelp_t helps[] = { // important: make sure any new stats do not conf
 	{ STATS_TABLE_GENERAL, "MaxHold", "Maximum hold", "The duration of your longest flag hold"},
 	{ STATS_TABLE_GENERAL, "TopSpd", "Top speed", "The highest movement speed you reached, in units per second"},
 	{ STATS_TABLE_GENERAL, "AvgSpd", "Average speed", "Average movement speed, in units per second"},
+	{ STATS_TABLE_FORCE, "Pos", "Position", "CTF position, if 4v4"},
 	{ STATS_TABLE_FORCE, "Boon", "Boons", "Boon pickups, if boon is enabled"},
 	{ STATS_TABLE_FORCE, "Push", "Pushes", "Force pushes used"},
 	{ STATS_TABLE_FORCE, "Pull", "Pulls", "Force pulls used"},
@@ -1764,6 +1786,7 @@ static statsHelp_t helps[] = { // important: make sure any new stats do not conf
 	{ STATS_TABLE_WEAPON_GIVEN, "For", "Force damage", "Damage dealt to enemies with force powers"},
 	{ STATS_TABLE_WEAPON_GIVEN, "Total", "Total damage", "Total damage dealt to enemies "},
 	// STATS_TABLE_WEAPON_TAKEN is not used here
+	{ STATS_TABLE_ACCURACY, "Pos", "Position", "CTF position, if 4v4"},
 	{ STATS_TABLE_ACCURACY, "Acc", "Accuracy", "Total accuracy percentage, only including disrupts, snipes, repeater blobs, golan balls, rockets, alt thermals, and both concs"},
 	{ STATS_TABLE_ACCURACY, "Pis", "Pistol altfire accuracy", "Accuracy percentage of pistol altfire (must be charged at least 400ms)"},
 	{ STATS_TABLE_ACCURACY, "Dis", "Disruptor primary accuracy", "Accuracy percentage of disruptor primary"},
@@ -1774,6 +1797,7 @@ static statsHelp_t helps[] = { // important: make sure any new stats do not conf
 	{ STATS_TABLE_ACCURACY, "Con", "Concussion rifle primary accuracy", "Accuracy percentage of concussion rifle primary"},
 	{ STATS_TABLE_ACCURACY, "Alt", "Concussion rifle altfire accuracy", "Accuracy percentage of concussion rifle altfire"},
 	{ STATS_TABLE_ACCURACY, "The", "Thermal detonator altfire accuracy", "Accuracy percentage of thermal detonator altfire"},
+	{ STATS_TABLE_EXPERIMENTAL, "Pos", "Position", "CTF position, if 4v4"},
 	{ STATS_TABLE_EXPERIMENTAL, "Fs", "Allied flagstand time", "Percentage of the match spent in the 20 percent of the map closest to your flagstand"},
 	{ STATS_TABLE_EXPERIMENTAL, "Bas", "Allied base time", "Percentage of the match spent in the 20 percent of the map between your flagstand and mid"},
 	{ STATS_TABLE_EXPERIMENTAL, "Mid", "Mid time", "Percentage of the match spent in the middle 20 percent of the map"},
@@ -1901,9 +1925,19 @@ void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t ou
 		// for general stats, also print the score
 		team_t winningTeam = level.teamScores[TEAM_BLUE] > level.teamScores[TEAM_RED] ? TEAM_BLUE : TEAM_RED; // red if tied to match scoreboard order
 		team_t losingTeam = OtherTeam(winningTeam);
-		const char *s = va("%s: "S_COLOR_WHITE"%d    %s: "S_COLOR_WHITE"%d\n\n",
+		int ms = level.intermissiontime ? (level.intermissiontime - level.startTime) : (level.time - level.startTime);
+		int secs = ms / 1000;
+		int mins = secs / 60;
+		char *timeStr;
+		if (ms >= 60000)
+			timeStr = va("%d:%02d", mins, secs % 60);
+		else
+			timeStr = va("0:%02d", secs);
+		const char *s = va("%s: "S_COLOR_WHITE"%d    %s: "S_COLOR_WHITE"%d\n%s%s\n\n",
 			ScoreTextForTeam(winningTeam), level.teamScores[winningTeam],
-			ScoreTextForTeam(losingTeam), level.teamScores[losingTeam]);
+			ScoreTextForTeam(losingTeam), level.teamScores[losingTeam],
+			timeStr,
+			level.intermissiontime ? "" : " elapsed");
 
 		if (outputBuffer) {
 			Q_strncpyz(outputBuffer, s, outSize);

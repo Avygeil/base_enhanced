@@ -912,6 +912,7 @@ typedef struct {
 	int			regionPercent[NUM_CTFREGIONS];
 	float		totalPosition;
 	int			numPositionSamples;
+	int			ticksNotPaused;
 
 	list_t		teammatePositioningList; // record of positioning for people i was ingame with
 
