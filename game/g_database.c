@@ -797,8 +797,13 @@ const char* const sqlGetFastcapRecord =
 const char* const sqlSaveFastcapRecord1 =
 "INSERT OR IGNORE INTO fastcaps(mapname, type, session_id, capture_time, date, extra)  \n"
 "VALUES(?1, ?2, ?3, 0, 0, '')                                                            ";
+const char *const sqlSaveFastcapRecordExistingCheck =
+"SELECT capture_time FROM fastcaps WHERE mapname = ? AND type = ? AND session_id = ?;";
 const char* const sqlSaveFastcapRecord2 =
 "UPDATE fastcaps SET capture_time = ?1, date = ?2, extra = ?3                          \n"
+"WHERE mapname = ?4 AND type = ?5 AND session_id = ?6;                                   ";
+const char *const sqlSaveFastcapRecord2Min =
+"UPDATE fastcaps SET capture_time = MIN(?1, capture_time), date = ?2, extra = ?3                          \n"
 "WHERE mapname = ?4 AND type = ?5 AND session_id = ?6;                                   ";
 
 const char* const sqlGetFastcapLoggedPersonalBest =
@@ -947,7 +952,6 @@ qboolean G_DBSaveRaceRecord(const int sessionId,
 	sqlite3_stmt* statement2;
 
 	sqlite3_prepare(dbPtr, sqlSaveFastcapRecord1, -1, &statement1, 0);
-	sqlite3_prepare(dbPtr, sqlSaveFastcapRecord2, -1, &statement2, 0);
 
 	qboolean error = qfalse;
 
@@ -963,6 +967,17 @@ qboolean G_DBSaveRaceRecord(const int sessionId,
 	char* mapnameLowercase = strdup(mapname);
 	Q_strlwr(mapnameLowercase);
 
+	sqlite3_stmt *checkStatement;
+	sqlite3_prepare(dbPtr, sqlSaveFastcapRecordExistingCheck, -1, &checkStatement, 0);
+	sqlite3_bind_text(checkStatement, 1, mapname, -1, SQLITE_STATIC);
+	sqlite3_bind_int(checkStatement, 2, type);
+	sqlite3_bind_int(checkStatement, 3, sessionId);
+	int checkResult = sqlite3_step(checkStatement);
+	int existing = 0;
+	if (checkResult == SQLITE_ROW)
+		existing = sqlite3_column_int(checkStatement, 0);
+
+	sqlite3_prepare(dbPtr, existing > 0 ? sqlSaveFastcapRecord2Min : sqlSaveFastcapRecord2, -1, &statement2, 0);
 	sqlite3_bind_int(statement2, 1, inRecord->time);
 	sqlite3_bind_int(statement2, 2, inRecord->date);
 	sqlite3_bind_text(statement2, 3, extra, -1, SQLITE_STATIC);
@@ -977,6 +992,7 @@ qboolean G_DBSaveRaceRecord(const int sessionId,
 	free(mapnameLowercase);
 
 	sqlite3_finalize(statement1);
+	sqlite3_finalize(checkStatement);
 	sqlite3_finalize(statement2);
 
 	return !error;
@@ -1842,7 +1858,7 @@ static void FilterAccountIdString(char *string) {
 // ignoreMapFileName: null to not ignore any maps; otherwise specify a map to ignore.
 // randomize: randomize the list order.
 // optionalInfoOut: tierListInfo_t pointer you can supply to output additional info.
-// IMPORTANT: free the result if not null!
+// IMPORTANT: ListClear and free the result if not null!
 static list_t *GetTierList(const char *commaSeparatedAccountIds, const char *singleMapFileName, qboolean requireMultipleVotes, int notPlayedWithinLastMinutes, const char *ignoreMapFileName, qboolean randomize, tierListInfo_t *optionalInfoOut) {
 	int cooldownSeconds = notPlayedWithinLastMinutes > 0 ? (notPlayedWithinLastMinutes * 60) : 0;
 	if (optionalInfoOut)
@@ -2041,8 +2057,10 @@ mapTier_t G_DBGetTierOfSingleMap(const char *optionalAccountIdsStr, const char *
 
 	tierListInfo_t info = { 0 };
 	list_t *list = GetTierList(optionalAccountIdsStr, mapFileName, requireMultipleVotes, 0, NULL, qfalse, &info);
-	if (list)
+	if (list) {
+		ListClear(list);
 		free(list);
+	}
 
 	// instead of parsing the one or zero actual list items, we simply check the info struct
 	for (mapTier_t t = MAPTIER_F; t <= MAPTIER_S; t++) {
@@ -3031,8 +3049,10 @@ qboolean G_DBSelectTierlistMaps(MapSelectedCallback callback, void *context) {
 		if (usingCommunityRatings) {
 			if (g_vote_tierlist_debug.integer)
 				G_LogPrintf("Unable to generate a working set of ingame-rated maps; trying again and including community-rated maps.\n");
-			if (allMapsList)
+			if (allMapsList) {
+				ListClear(allMapsList);
 				free(allMapsList);
+			}
 			allMapsList = GetTierList(NULL, NULL, qfalse, g_vote_mapCooldownMinutes.integer > 0 ? g_vote_mapCooldownMinutes.integer : 0, level.mapname, qtrue, &info);
 		}
 		if (!allMapsList || allMapsList->size < totalMapsToChoose)
@@ -3201,6 +3221,7 @@ qboolean G_DBSelectTierlistMaps(MapSelectedCallback callback, void *context) {
 			callback(context, chosenMapNames[i]);
 	}
 
+	ListClear(allMapsList);
 	free(allMapsList);
 
 	return !!(numMapsPickedTotal > 0);
@@ -3245,4 +3266,544 @@ int G_DBNumTimesPlayedSingleMap(const char *mapFileName) {
 	sqlite3_finalize(statement);
 
 	return numPlayed;
+}
+
+// =========== TOPAIMS ========================================================
+
+const char *const sqlGetTopaimRecord =
+"SELECT DISTINCT capture_time, date, extra                                             \n"
+"FROM topaims                                                                          \n"
+"WHERE mapname = ?1 AND packname = ?2 AND session_id = ?3;                               ";
+
+// TODO: this can be simplified with one UPSERT statement once linux sqlite can be updated
+const char *const sqlSaveTopaimRecord1 =
+"INSERT OR IGNORE INTO topaims(mapname, packname, session_id, capture_time, date, extra, hash)   \n"
+"VALUES(?1, ?2, ?3, 0, 0, '', ?4)                                                           ";
+const char *const sqlSaveTopaimRecord2 =
+"UPDATE topaims SET capture_time = MAX(?1, capture_time), date = ?2, extra = ?3, hash = ?4                           \n"
+"WHERE mapname = ?5 AND packname = ?6 AND session_id = ?7;                                  ";
+
+const char *const sqlGetTopaimLoggedPersonalBest =
+"SELECT DISTINCT rank, capture_time                                                    \n"
+"FROM topaims_ranks WHERE mapname = ?1 AND packname = ?2 AND account_id = ?3;                ";
+
+const char *const sqlListTopaimsLoggedRecords =
+"SELECT name, rank, capture_time, date, extra                                          \n"
+"FROM topaims_ranks                                                                    \n"
+"WHERE mapname = ?1 AND packname = ?2                                                  \n"
+"ORDER BY rank ASC                                                                     \n"
+"LIMIT ?3                                                                              \n"
+"OFFSET ?4;                                                                              ";
+
+const char *const sqlListTopaimsLoggedTop =
+"SELECT DISTINCT mapname, name, capture_time, date FROM topaims_ranks                  \n"
+"WHERE packname = ?1 AND rank = 1                                                          \n"
+"ORDER BY mapname DESC                                                                  \n"
+"LIMIT ?2                                                                              \n"
+"OFFSET ?3;                                                                              ";
+
+const char *const sqlListTopaimsLoggedLeaderboard =
+"SELECT name, golds, silvers, bronzes                                                  \n"
+"FROM topaims_leaderboard                                                              \n"
+"WHERE packname = ?1                                                                       \n"
+"ORDER BY golds DESC, silvers DESC, bronzes DESC                                       \n"
+"LIMIT ?2                                                                              \n"
+"OFFSET ?3;                                                                             ";
+
+const char *const sqlListTopaimsLoggedLatest =
+"SELECT mapname, packname, name, rank, capture_time, date                              \n"
+"FROM topaims_ranks                                                                    \n"
+"ORDER BY date DESC                                                                    \n"
+"LIMIT ?1                                                                              \n"
+"OFFSET ?2;                                                                             ";
+
+static void ReadExtraAimInfo(const char *inJson, aimRecordInfo_t *outInfo) {
+	cJSON *root = cJSON_Parse(inJson);
+
+	if (root) {
+		cJSON *j;
+
+		j = cJSON_GetObjectItemCaseSensitive(root, "match_id");
+		if (j && cJSON_IsString(j))
+			Q_strncpyz(outInfo->matchId, j->valuestring, sizeof(outInfo->matchId));
+		j = cJSON_GetObjectItemCaseSensitive(root, "player_name");
+		if (j && cJSON_IsString(j))
+			Q_strncpyz(outInfo->playerName, j->valuestring, sizeof(outInfo->playerName));
+		j = cJSON_GetObjectItemCaseSensitive(root, "client_id");
+		if (j && cJSON_IsNumber(j))
+			outInfo->clientId = j->valueint;
+		j = cJSON_GetObjectItemCaseSensitive(root, "start_time");
+		if (j && cJSON_IsNumber(j))
+			outInfo->startTime = j->valueint;
+		for (int i = 0; i < WP_NUM_WEAPONS; i++) {
+			j = cJSON_GetObjectItemCaseSensitive(root, va("hits_%d", i));
+			if (j && cJSON_IsNumber(j))
+				outInfo->numHitsOfWeapon[i] = j->valueint;
+		}
+	}
+
+	cJSON_Delete(root);
+}
+
+static void WriteExtraAimInfo(const aimRecordInfo_t *inInfo, char **outJson) {
+	*outJson = NULL;
+
+	cJSON *root = cJSON_CreateObject();
+
+	if (root) {
+		if (VALIDSTRING(inInfo->matchId))
+			cJSON_AddStringToObject(root, "match_id", inInfo->matchId);
+		if (VALIDSTRING(inInfo->playerName))
+			cJSON_AddStringToObject(root, "player_name", inInfo->playerName);
+		if (IN_CLIENTNUM_RANGE(inInfo->clientId))
+			cJSON_AddNumberToObject(root, "client_id", inInfo->clientId);
+		if (inInfo->startTime >= 0)
+			cJSON_AddNumberToObject(root, "start_time", inInfo->startTime);
+		for (int i = 0; i < WP_NUM_WEAPONS; i++) {
+			if (inInfo->numHitsOfWeapon[i] > 0)
+				cJSON_AddNumberToObject(root, va("hits_%d", i), inInfo->numHitsOfWeapon[i]);
+		}
+
+		*outJson = cJSON_PrintUnformatted(root);
+	}
+
+	cJSON_Delete(root);
+
+	static char *emptyJson = "";
+	if (!*outJson) {
+		*outJson = emptyJson;
+	}
+}
+
+// returns the account-agnostic session-tied personal best record used for caching
+qboolean G_DBTopAimLoadAimRecord(const int sessionId,
+	const char *mapname,
+	const aimPracticePack_t *pack,
+	aimRecord_t *outRecord)
+{
+	sqlite3_stmt *statement;
+
+	int rc = sqlite3_prepare(dbPtr, sqlGetTopaimRecord, -1, &statement, 0);
+
+	qboolean error = qfalse;
+
+	sqlite3_bind_text(statement, 1, mapname, -1, SQLITE_STATIC);
+	sqlite3_bind_text(statement, 2, pack->packName, -1, SQLITE_STATIC);
+	sqlite3_bind_int(statement, 3, sessionId);
+
+	memset(outRecord, 0, sizeof(*outRecord));
+
+	rc = sqlite3_step(statement);
+	if (rc == SQLITE_ROW) {
+		const int capture_time = sqlite3_column_int(statement, 0);
+		const time_t date = sqlite3_column_int64(statement, 1);
+		const char *extra = (const char *)sqlite3_column_text(statement, 2);
+
+		outRecord->time = capture_time;
+		outRecord->date = date;
+		ReadExtraAimInfo(extra, &outRecord->extra);
+
+		rc = sqlite3_step(statement);
+	}
+	else if (rc != SQLITE_DONE) {
+		error = qtrue;
+	}
+
+	sqlite3_finalize(statement);
+
+	return !error;
+}
+
+// ensures that each unique pack (in terms of gameplay) has a unique identifier in the db
+static int GetHashForAimPack(const aimPracticePack_t *pack) {
+	assert(pack);
+
+	// create a temporary "pack" and only copy the relevant gameplay parts into it
+	// (variant data, mapname, num reps per variant, weapon mode)
+	static aimPracticePack_t hashMe = { 0 };
+	memset(&hashMe, 0, sizeof(hashMe));
+	memcpy(hashMe.variants, pack->variants, sizeof(aimVariant_t) * pack->numVariants);
+	Q_strncpyz(hashMe.packName, level.mapname, sizeof(hashMe.packName)); // hax
+	hashMe.numRepsPerVariant = pack->numRepsPerVariant;
+	hashMe.weaponMode = pack->weaponMode;
+
+	int hash = (int)XXH32(&hashMe, sizeof(aimPracticePack_t), 0x69420);
+	return hash;
+}
+
+// saves an account-agnostic session-tied personal best record
+qboolean G_DBTopAimSaveAimRecord(const int sessionId,
+	const char *mapname,
+	const aimRecord_t *inRecord,
+	const aimPracticePack_t *pack)
+{
+	sqlite3_stmt *statement1;
+	sqlite3_stmt *statement2;
+
+	// force saving in lowercase
+	char *mapnameLowercase = strdup(mapname);
+	Q_strlwr(mapnameLowercase);
+
+	sqlite3_stmt *getHashStatement;
+	int realHash = GetHashForAimPack(pack);
+	sqlite3_prepare(dbPtr, "SELECT hash FROM aimpacks WHERE mapname = ? AND name = ?;", -1, &getHashStatement, 0);
+	sqlite3_bind_text(getHashStatement, 1, mapnameLowercase, -1, SQLITE_STATIC);
+	sqlite3_bind_text(getHashStatement, 2, pack->packName, -1, SQLITE_STATIC);
+	int hashRc = sqlite3_step(getHashStatement);
+	int hash;
+	if (hashRc == SQLITE_ROW)
+		hash = sqlite3_column_int(getHashStatement, 0);
+	else
+		hash = realHash;
+	if (hash != realHash)
+		Com_Printf("Warning: hash for %s is different (generated hash is %d, hash in db is %d)\n", pack->packName, realHash, hash);
+
+	sqlite3_prepare(dbPtr, sqlSaveTopaimRecord1, -1, &statement1, 0);
+	sqlite3_prepare(dbPtr, sqlSaveTopaimRecord2, -1, &statement2, 0);
+
+	qboolean error = qfalse;
+
+	sqlite3_bind_text(statement1, 1, mapnameLowercase, -1, SQLITE_STATIC);
+	sqlite3_bind_text(statement1, 2, pack->packName, -1, SQLITE_STATIC);
+	sqlite3_bind_int(statement1, 3, sessionId);
+	sqlite3_bind_int(statement1, 4, hash);
+	sqlite3_step(statement1);
+
+	char *extra;
+	WriteExtraAimInfo(&inRecord->extra, &extra);
+
+	sqlite3_bind_int(statement2, 1, inRecord->time);
+	sqlite3_bind_int(statement2, 2, inRecord->date);
+	sqlite3_bind_text(statement2, 3, extra, -1, SQLITE_STATIC);
+	sqlite3_bind_int(statement2, 4, hash);
+	sqlite3_bind_text(statement2, 5, mapnameLowercase, -1, SQLITE_STATIC);
+	sqlite3_bind_text(statement2, 6, pack->packName, -1, SQLITE_STATIC);
+	sqlite3_bind_int(statement2, 7, sessionId);
+	int rc = sqlite3_step(statement2);
+
+	error = rc != SQLITE_DONE;
+
+	free(extra);
+	free(mapnameLowercase);
+
+	sqlite3_finalize(getHashStatement);
+	sqlite3_finalize(statement1);
+	sqlite3_finalize(statement2);
+
+	return !error;
+}
+
+// returns the PB for a given map/run type for an account for non NULL arguments (0 for none, -1 for error)
+qboolean G_DBTopAimGetAccountPersonalBest(const int accountId,
+	const char *mapname,
+	const aimPracticePack_t *pack,
+	int *outRank,
+	int *outTime)
+{
+	sqlite3_stmt *statement;
+
+	int rc = sqlite3_prepare(dbPtr, sqlGetTopaimLoggedPersonalBest, -1, &statement, 0);
+
+	qboolean errored = qfalse;
+
+	sqlite3_bind_text(statement, 1, mapname, -1, SQLITE_STATIC);
+	sqlite3_bind_text(statement, 2, pack->packName, -1, SQLITE_STATIC);
+	sqlite3_bind_int(statement, 3, accountId);
+
+	if (outRank)
+		*outRank = 0;
+	if (outTime)
+		*outTime = 0;
+
+	rc = sqlite3_step(statement);
+	if (rc == SQLITE_ROW) {
+		const int rank = sqlite3_column_int(statement, 0);
+		const int capture_time = sqlite3_column_int(statement, 1);
+
+		if (outRank)
+			*outRank = rank;
+		if (outTime)
+			*outTime = capture_time;
+
+		rc = sqlite3_step(statement);
+	}
+	else if (rc != SQLITE_DONE) {
+		if (outRank)
+			*outRank = -1;
+		if (outTime)
+			*outTime = -1;
+
+		errored = qtrue;
+	}
+
+	sqlite3_finalize(statement);
+
+	return !errored;
+}
+
+// lists logged in records sorted by rank for a map/type
+void G_DBTopAimListAimRecords(const char *mapname,
+	const char *packName,
+	const pagination_t pagination,
+	ListAimRecordsCallback callback,
+	void *context)
+{
+	sqlite3_stmt *statement;
+
+	int rc = sqlite3_prepare(dbPtr, sqlListTopaimsLoggedRecords, -1, &statement, 0);
+
+	const int limit = pagination.numPerPage;
+	const int offset = (pagination.numPage - 1) * pagination.numPerPage;
+
+	sqlite3_bind_text(statement, 1, mapname, -1, SQLITE_STATIC);
+	sqlite3_bind_text(statement, 2, packName, -1, SQLITE_STATIC);
+	sqlite3_bind_int(statement, 3, limit);
+	sqlite3_bind_int(statement, 4, offset);
+
+	rc = sqlite3_step(statement);
+	while (rc == SQLITE_ROW) {
+		const char *name = (const char *)sqlite3_column_text(statement, 0);
+		const int rank = sqlite3_column_int(statement, 1);
+		const int capture_time = sqlite3_column_int(statement, 2);
+		const time_t date = sqlite3_column_int64(statement, 3);
+		const char *extra = (const char *)sqlite3_column_text(statement, 4);
+
+		aimRecord_t record = { 0 };
+		record.time = capture_time;
+		record.date = date;
+		ReadExtraAimInfo(extra, &record.extra);
+
+		callback(context, mapname, packName, rank, name, &record);
+
+		rc = sqlite3_step(statement);
+	}
+
+	sqlite3_finalize(statement);
+}
+
+// lists only the best records for a type sorted by mapname
+void G_DBTopAimListAimTop(const char *packName,
+	const pagination_t pagination,
+	ListAimTopCallback callback,
+	void *context)
+{
+	sqlite3_stmt *statement;
+
+	int rc = sqlite3_prepare(dbPtr, sqlListTopaimsLoggedTop, -1, &statement, 0);
+
+	const int limit = pagination.numPerPage;
+	const int offset = (pagination.numPage - 1) * pagination.numPerPage;
+
+	sqlite3_bind_text(statement, 1, packName, -1, SQLITE_STATIC);
+	sqlite3_bind_int(statement, 2, limit);
+	sqlite3_bind_int(statement, 3, offset);
+
+	rc = sqlite3_step(statement);
+	while (rc == SQLITE_ROW) {
+		const char *mapname = (const char *)sqlite3_column_text(statement, 0);
+		const char *name = (const char *)sqlite3_column_text(statement, 1);
+		const int capture_time = sqlite3_column_int(statement, 2);
+		const time_t date = sqlite3_column_int64(statement, 3);
+
+		callback(context, mapname, packName, name, capture_time, date);
+
+		rc = sqlite3_step(statement);
+	}
+
+	sqlite3_finalize(statement);
+}
+
+// lists logged in leaderboard sorted by golds, silvers, bronzes
+void G_DBTopAimListAimLeaderboard(const char *packName,
+	const pagination_t pagination,
+	ListAimLeaderboardCallback callback,
+	void *context)
+{
+	sqlite3_stmt *statement;
+
+	int rc = sqlite3_prepare(dbPtr, sqlListTopaimsLoggedLeaderboard, -1, &statement, 0);
+
+	const int limit = pagination.numPerPage;
+	const int offset = (pagination.numPage - 1) * pagination.numPerPage;
+
+	sqlite3_bind_text(statement, 1, packName, -1, SQLITE_STATIC);
+	sqlite3_bind_int(statement, 2, limit);
+	sqlite3_bind_int(statement, 3, offset);
+
+	int rank = 1 + offset;
+
+	rc = sqlite3_step(statement);
+	while (rc == SQLITE_ROW) {
+		const char *name = (const char *)sqlite3_column_text(statement, 0);
+		const int golds = sqlite3_column_int(statement, 1);
+		const int silvers = sqlite3_column_int(statement, 2);
+		const int bronzes = sqlite3_column_int(statement, 3);
+
+		callback(context, packName, rank++, name, golds, silvers, bronzes);
+
+		rc = sqlite3_step(statement);
+	}
+
+	sqlite3_finalize(statement);
+}
+
+// lists logged in latest records across all maps/types
+void G_DBTopAimListAimLatest(const pagination_t pagination,
+	ListAimLatestCallback callback,
+	void *context)
+{
+	sqlite3_stmt *statement;
+
+	int rc = sqlite3_prepare(dbPtr, sqlListTopaimsLoggedLatest, -1, &statement, 0);
+
+	const int limit = pagination.numPerPage;
+	const int offset = (pagination.numPage - 1) * pagination.numPerPage;
+
+	sqlite3_bind_int(statement, 1, limit);
+	sqlite3_bind_int(statement, 2, offset);
+
+	rc = sqlite3_step(statement);
+	while (rc == SQLITE_ROW) {
+		const char *mapname = (const char *)sqlite3_column_text(statement, 0);
+		const char *packname = (const char *)sqlite3_column_text(statement, 1);
+		const char *name = (const char *)sqlite3_column_text(statement, 2);
+		const int rank = sqlite3_column_int(statement, 3);
+		const int capture_time = sqlite3_column_int(statement, 4);
+		const time_t date = sqlite3_column_int64(statement, 5);
+
+		callback(context, mapname, packname, rank, name, capture_time, date);
+
+		rc = sqlite3_step(statement);
+	}
+
+	sqlite3_finalize(statement);
+}
+
+const char *sqlSavePack = "INSERT OR REPLACE INTO aimpacks (mapname, owner_account_id, name, weaponMode, numVariants, data, numRepsPerVariant, hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?);";
+qboolean G_DBTopAimSavePack(aimPracticePack_t *pack) {
+	assert(pack);
+	sqlite3_stmt *statement;
+	sqlite3_prepare(dbPtr, sqlSavePack, -1, &statement, 0);
+	sqlite3_bind_text(statement, 1, level.mapname, -1, SQLITE_STATIC);
+	sqlite3_bind_int(statement, 2, pack->ownerAccountId);
+	sqlite3_bind_text(statement, 3, pack->packName, -1, SQLITE_STATIC);
+	sqlite3_bind_int(statement, 4, pack->weaponMode);
+	sqlite3_bind_int(statement, 5, pack->numVariants);
+	sqlite3_bind_blob(statement, 6, pack->variants, sizeof(aimVariant_t) * pack->numVariants, SQLITE_STATIC);
+	sqlite3_bind_int(statement, 7, pack->numRepsPerVariant);
+	sqlite3_bind_int(statement, 8, GetHashForAimPack(pack));
+	int rc = sqlite3_step(statement);
+	sqlite3_finalize(statement);
+	return !!(rc == SQLITE_DONE);
+}
+
+const char *sqlLoadPacksForMap = "SELECT name, owner_account_id, numVariants, data, numRepsPerVariant, weaponMode FROM aimpacks WHERE mapname = ? ORDER BY dateCreated ASC;";
+// IMPORTANT: free the result if not null!
+list_t *G_DBTopAimLoadPacks(const char *mapname) {
+	if (!VALIDSTRING(mapname))
+		return NULL;
+	sqlite3_stmt *statement;
+	sqlite3_prepare(dbPtr, sqlLoadPacksForMap, -1, &statement, 0);
+	sqlite3_bind_text(statement, 1, mapname, -1, SQLITE_STATIC);
+	int rc = sqlite3_step(statement);
+
+	list_t *packList = malloc(sizeof(list_t));
+	memset(packList, 0, sizeof(list_t));
+	int numGotten = 0;
+	while (rc == SQLITE_ROW) {
+		aimPracticePack_t *newPack = ListAdd(packList, sizeof(aimPracticePack_t));
+		const char *name = (const char *)sqlite3_column_text(statement, 0);
+		Q_strncpyz(newPack->packName, name, sizeof(newPack->packName));
+
+		newPack->ownerAccountId = sqlite3_column_int(statement, 1);
+
+		newPack->numVariants = sqlite3_column_int(statement, 2);
+
+		const void *data = sqlite3_column_blob(statement, 3);
+		memcpy(newPack->variants, data, sizeof(aimVariant_t) * newPack->numVariants);
+
+		newPack->numRepsPerVariant = sqlite3_column_int(statement, 4);
+		newPack->weaponMode = sqlite3_column_int(statement, 5);
+
+		// filter the weapons in case somehow there are invalid weapons in the db record
+		newPack->weaponMode &= ~(1 << WP_NONE);
+		newPack->weaponMode &= ~(1 << WP_MELEE);
+		newPack->weaponMode &= ~(1 << WP_SABER);
+		newPack->weaponMode &= ~(1 << WP_BLASTER);
+		newPack->weaponMode &= ~(1 << WP_BOWCASTER);
+		newPack->weaponMode &= ~(1 << WP_DEMP2);
+		newPack->weaponMode &= ~(1 << WP_TRIP_MINE);
+		newPack->weaponMode &= ~(1 << WP_DET_PACK);
+		newPack->weaponMode &= ~(1 << WP_BRYAR_OLD);
+		newPack->weaponMode &= ~(1 << WP_EMPLACED_GUN);
+		newPack->weaponMode &= ~(1 << WP_TURRET);
+
+		if (WeaponModeStringFromWeaponMode(newPack->weaponMode)) {
+			++numGotten;
+		}
+		else {
+			Com_Printf("Warning: pack %s from the database has invalid weapons %d! Skipping load.\n", newPack->packName, newPack->weaponMode);
+			ListRemove(packList, newPack); // wtf? no valid weapons
+		}
+
+		rc = sqlite3_step(statement);
+	}
+
+	if (!numGotten) {
+		ListClear(packList);
+		free(packList);
+		return NULL;
+	}
+
+	return packList;
+}
+
+const char *quickLoadPacks = "SELECT aimpacks.name, accounts.name FROM aimpacks JOIN accounts ON owner_account_id = account_id WHERE mapname = ? ORDER BY dateCreated ASC;";
+// IMPORTANT: free the result if not null!
+list_t *G_DBTopAimQuickLoadPacks(const char *mapname) {
+	if (!VALIDSTRING(mapname))
+		return NULL;
+
+	sqlite3_stmt *statement;
+	sqlite3_prepare(dbPtr, quickLoadPacks, -1, &statement, 0);
+	sqlite3_bind_text(statement, 1, mapname, -1, SQLITE_STATIC);
+	int rc = sqlite3_step(statement);
+
+	list_t *packList = malloc(sizeof(list_t));
+	memset(packList, 0, sizeof(list_t));
+	int numGotten = 0;
+	while (rc == SQLITE_ROW) {
+		aimPracticePackMetaData_t *data = ListAdd(packList, sizeof(aimPracticePackMetaData_t));
+		const char *packName = (const char *)sqlite3_column_text(statement, 0);
+		Q_strncpyz(data->packName, packName, sizeof(data->packName));
+
+		const char *ownerName = (const char *)sqlite3_column_text(statement, 1);
+		Q_strncpyz(data->ownerAccountName, ownerName, sizeof(data->ownerAccountName));
+
+		++numGotten;
+		rc = sqlite3_step(statement);
+	}
+
+	if (!numGotten) {
+		ListClear(packList);
+		free(packList);
+		return NULL;
+	}
+
+	return packList;
+}
+
+const char *sqlDeletePack = "DELETE FROM aimpacks WHERE mapname = ? AND name = ?;";
+qboolean G_DBTopAimDeletePack(aimPracticePack_t *pack) {
+	if (!pack)
+		return qfalse;
+
+	sqlite3_stmt *statement;
+	sqlite3_prepare(dbPtr, sqlDeletePack, -1, &statement, 0);
+	sqlite3_bind_text(statement, 1, level.mapname, -1, SQLITE_STATIC);
+	sqlite3_bind_text(statement, 2, pack->packName, -1, SQLITE_STATIC);
+	sqlite3_step(statement);
+	qboolean success = sqlite3_changes(dbPtr) != 0;
+	sqlite3_finalize(statement);
+	return success;
 }

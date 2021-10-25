@@ -933,10 +933,62 @@ void Svcmd_LockTeams_f( void ) {
 
 void Svcmd_Cointoss_f(void) 
 {
-	int cointoss = rand() % 2;
+	int isHeads = rand() % 2;
 
-	trap_SendServerCommand(-1, va("cp \""S_COLOR_YELLOW"%s"S_COLOR_WHITE"!\"", cointoss ? "Heads" : "Tails"));
-	trap_SendServerCommand(-1, va("print \"Coin Toss result: "S_COLOR_YELLOW"%s\n\"", cointoss ? "Heads" : "Tails"));
+	int now = trap_Milliseconds();
+
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *ent = &g_entities[i];
+		if (!ent->inuse || !ent->client)
+			continue;
+
+		char *color = "^3";
+		team_t team;
+		int headsTime = 0, tailsTime = 0;
+
+		// color the result for this person if they chose something, or they are ingame, or they are following someone who is ingame
+
+		if (!ent->client->pers.cointossHeadsTime && !ent->client->pers.cointossTailsTime &&
+			ent->client->sess.sessionTeam == TEAM_SPECTATOR && ent->client->sess.spectatorState == SPECTATOR_FOLLOW &&
+			ent->client->sess.spectatorClient >= 0 && ent->client->sess.spectatorClient < MAX_CLIENTS &&
+			g_entities[ent->client->sess.spectatorClient].inuse && g_entities[ent->client->sess.spectatorClient].client &&
+			g_entities[ent->client->sess.spectatorClient].client->sess.sessionTeam != TEAM_FREE) {
+			team = g_entities[ent->client->sess.spectatorClient].client->sess.sessionTeam;
+			headsTime = g_entities[ent->client->sess.spectatorClient].client->pers.cointossHeadsTime;
+			tailsTime = g_entities[ent->client->sess.spectatorClient].client->pers.cointossTailsTime;
+		}
+		else {
+			team = ent->client->sess.sessionTeam;
+			headsTime = ent->client->pers.cointossHeadsTime;
+			tailsTime = ent->client->pers.cointossTailsTime;
+		}
+
+		if (headsTime && now - headsTime > VOTE_TIME)
+			headsTime = 0;
+		if (tailsTime && now - tailsTime > VOTE_TIME)
+			tailsTime = 0;
+
+		if (team == TEAM_RED || team == TEAM_BLUE || headsTime || tailsTime) {
+			if (isHeads) {
+				if (headsTime)
+					color = "^2";
+				else
+					color = "^1";
+			}
+			else {
+				if (tailsTime)
+					color = "^2";
+				else
+					color = "^1";
+			}
+		}
+
+		trap_SendServerCommand(i, va("cp \"%s%s!\"", color, isHeads ? "Heads" : "Tails"));
+		trap_SendServerCommand(i, va("print \"Coin toss result: %s%s^7\n\"", color, isHeads ? "Heads" : "Tails"));
+		ent->client->pers.cointossHeadsTime = ent->client->pers.cointossTailsTime = 0;
+	}
+
+	G_LogPrintf("Cointoss result was %s.\n", isHeads ? "heads" : "tails");
 }
 
 void Svcmd_ForceName_f(void) {
@@ -1554,6 +1606,7 @@ static void mapSelectedCallback( void *context, char *mapname ) {
 }
 
 extern void CountPlayersIngame( int *total, int *ingame, int *inrace );
+void Svcmd_MapVote_f(const char *overrideMaps);
 
 void Svcmd_MapRandom_f()
 {
@@ -1567,6 +1620,11 @@ void Svcmd_MapRandom_f()
 	level.autoStartPending = qfalse;
 
     trap_Argv( 1, pool, sizeof( pool ) );
+
+	if (g_redirectPoolVoteToTierListVote.string[0] && pool[0] && !Q_stricmp(pool, g_redirectPoolVoteToTierListVote.string) && g_vote_tierlist.integer) {
+		Svcmd_MapVote_f(NULL);
+		return;
+	}
 
 	if ( trap_Argc() < 3 ) {
 		// default to 1 map if no argument
@@ -2710,6 +2768,12 @@ static int AccountFlagName2Bitflag(const char* flagName) {
 		return ACCOUNTFLAG_RCONLOG;
 	} else if (!Q_stricmp(flagName, "EnterSpammer")) {
 		return ACCOUNTFLAG_ENTERSPAMMER;
+	} else if (!Q_stricmp(flagName, "AimPackEditor")) {
+		return ACCOUNTFLAG_AIMPACKEDITOR;
+	} else if (!Q_stricmp(flagName, "AimPackAdmin")) {
+		return ACCOUNTFLAG_AIMPACKADMIN;
+	} else if (!Q_stricmp(flagName, "VoteTroll")) {
+		return ACCOUNTFLAG_VOTETROLL;
 	}
 
 	return 0;
@@ -2717,11 +2781,14 @@ static int AccountFlagName2Bitflag(const char* flagName) {
 
 #define NUM_SESSIONS_PER_WHOIS_PAGE 5
 
-static const char* AccountBitflag2FlagName(int bitflag) {
+const char* AccountBitflag2FlagName(int bitflag) {
 	switch (bitflag) {
 		case ACCOUNTFLAG_ADMIN: return "Admin";
 		case ACCOUNTFLAG_RCONLOG: return "VerboseRcon";
 		case ACCOUNTFLAG_ENTERSPAMMER: return "EnterSpammer";
+		case ACCOUNTFLAG_AIMPACKEDITOR: return "AimPackEditor";
+		case ACCOUNTFLAG_AIMPACKADMIN: return "AimPackAdmin";
+		case ACCOUNTFLAG_VOTETROLL: return "VoteTroll";
 		default: return NULL;
 	}
 }
@@ -2889,7 +2956,7 @@ void Svcmd_Account_f( void ) {
 
 			if ( trap_Argc() < 4 ) {
 				G_Printf( "Usage: "S_COLOR_YELLOW"account toggleflag <username> <flag>\n" );
-				G_Printf( "Available flags: Admin, VerboseRcon\n" );
+				G_Printf( "Available flags: Admin, VerboseRcon, AimPackEditor, AimPackAdmin, VoteTroll\n" );
 				return;
 			}
 
@@ -2966,9 +3033,18 @@ static void PrintUnassignedSessionIDsCallback(void* ctx, const int sessionId, co
 	if (referenced)
 		referencedString = " "S_COLOR_RED"/!\\";
 
+	char countryStr[128] = { 0 };
+	sessionReference_t sess = G_GetSessionByID(sessionId, qfalse);
+	if (sess.ptr) {
+		char ipStr[64] = { 0 };
+		G_GetStringFromSessionInfo(sess.ptr, "ip", ipStr, sizeof(ipStr));
+		if (ipStr[0])
+			trap_GetCountry(ipStr, countryStr, sizeof(countryStr));
+	}
+
 	G_Printf(
-		S_COLOR_WHITE"%s  "S_COLOR_WHITE"(%s) - session ID: %d%s\n",
-		nameString, durationString, sessionId, referencedString
+		"^7%s  ^7(%s, %s) - session ID: %d%s\n",
+		nameString, countryStr[0] ? countryStr : "Unknown country", durationString, sessionId, referencedString
 	);
 }
 
@@ -3060,10 +3136,10 @@ void Svcmd_Session_f( void ) {
 				page
 			);
 
-		} else if ( !Q_stricmp( s, "nicknames" ) ) {
+		} else if ( !Q_stricmp( s, "nicknames" ) || !Q_stricmp(s, "info")) {
 
 			if (trap_Argc() < 3) {
-				G_Printf("Usage: "S_COLOR_YELLOW"session nicknames <session id>\n");
+				G_Printf("Usage: "S_COLOR_YELLOW"session info <session id>\n");
 				return;
 			}
 
@@ -3081,6 +3157,17 @@ void Svcmd_Session_f( void ) {
 				return;
 			}
 
+			G_Printf("^3Info for session %d^7\n", sessionId);
+			char ipStr[64] = { 0 };
+			G_GetStringFromSessionInfo(sess.ptr, "ip", ipStr, sizeof(ipStr));
+			if (ipStr[0]) {
+				char countryStr[128] = { 0 };
+				trap_GetCountry(ipStr, countryStr, sizeof(countryStr));
+				if (countryStr[0])
+					G_Printf("^5Country: ^7%s\n", countryStr);
+			}
+			G_Printf("^5Top nicknames:^7\n");
+
 			nicknameEntry_t nicknames[NUM_TOP_NICKNAMES];
 
 			G_DBGetMostUsedNicknames(sess.ptr->id, NUM_TOP_NICKNAMES, &nicknames[0]);
@@ -3097,7 +3184,7 @@ void Svcmd_Session_f( void ) {
 				G_FormatDuration(nicknames[i].duration, durationString, sizeof(durationString));
 
 				G_Printf(
-					S_COLOR_WHITE"%s  "S_COLOR_WHITE"(%s)\n",
+					"^7%s  ^7(%s)\n",
 					nameString, durationString
 				);
 			}
@@ -3295,7 +3382,7 @@ void Svcmd_Session_f( void ) {
 			"Valid subcommands:\n"
 			S_COLOR_YELLOW"session whois"S_COLOR_WHITE": Lists the session currently in use by all in-game players\n"
 			S_COLOR_YELLOW"session unassigned [page]"S_COLOR_WHITE": Lists the top unassigned sessions (may lag the server with too many sessions, so be cautious)\n"
-			S_COLOR_YELLOW"session nicknames <session id>"S_COLOR_WHITE": Prints the top used nicknames for the given session ID\n"
+			S_COLOR_YELLOW"session info <session id>"S_COLOR_WHITE": Prints detailed info for a given session ID\n"
 			S_COLOR_YELLOW"session link <session id> <account name>"S_COLOR_WHITE": Links the given session ID to an existing account\n"
 			S_COLOR_YELLOW"session linkingame <client id> <account name>"S_COLOR_WHITE": Shortcut command to link an in-game client's session to an existing account\n"
 			S_COLOR_YELLOW"session unlink <session id>"S_COLOR_WHITE": Unlinks the account associated to the given session ID\n"

@@ -545,51 +545,7 @@ void WP_InitForcePowers( gentity_t *ent )
 	
 	// in racemode, force our own useful powers and unset all the others
 	if ( ent->client->sess.inRacemode ) {
-		ent->client->ps.fd.forcePowerLevel[FP_HEAL] = FORCE_LEVEL_0;
-		ent->client->ps.fd.forcePowersKnown &= ~( 1 << FP_HEAL );
-		ent->client->ps.fd.forcePowerLevel[FP_LEVITATION] = FORCE_LEVEL_3;
-		ent->client->ps.fd.forcePowersKnown |= ( 1 << FP_LEVITATION );
-		ent->client->ps.fd.forcePowerLevel[FP_SPEED] = FORCE_LEVEL_3;
-		ent->client->ps.fd.forcePowersKnown |= ( 1 << FP_SPEED );
-		ent->client->ps.fd.forcePowerLevel[FP_PUSH] = FORCE_LEVEL_0;
-		ent->client->ps.fd.forcePowersKnown &= ~( 1 << FP_PUSH );
-		ent->client->ps.fd.forcePowerLevel[FP_PULL] = FORCE_LEVEL_0;
-		ent->client->ps.fd.forcePowersKnown &= ~( 1 << FP_PULL );
-		ent->client->ps.fd.forcePowerLevel[FP_TELEPATHY] = FORCE_LEVEL_0;
-		ent->client->ps.fd.forcePowersKnown &= ~( 1 << FP_TELEPATHY );
-		ent->client->ps.fd.forcePowerLevel[FP_GRIP] = FORCE_LEVEL_0;
-		ent->client->ps.fd.forcePowersKnown &= ~( 1 << FP_GRIP );
-		ent->client->ps.fd.forcePowerLevel[FP_LIGHTNING] = FORCE_LEVEL_0;
-		ent->client->ps.fd.forcePowersKnown &= ~( 1 << FP_LIGHTNING );
-		ent->client->ps.fd.forcePowerLevel[FP_RAGE] = FORCE_LEVEL_3;
-		ent->client->ps.fd.forcePowersKnown |= ( 1 << FP_RAGE );
-		ent->client->ps.fd.forcePowerLevel[FP_PROTECT] = FORCE_LEVEL_3;
-		ent->client->ps.fd.forcePowersKnown |= ( 1 << FP_PROTECT );
-		ent->client->ps.fd.forcePowerLevel[FP_ABSORB] = FORCE_LEVEL_0;
-		ent->client->ps.fd.forcePowersKnown &= ~( 1 << FP_ABSORB );
-		ent->client->ps.fd.forcePowerLevel[FP_TEAM_HEAL] = FORCE_LEVEL_0;
-		ent->client->ps.fd.forcePowersKnown &= ~( 1 << FP_TEAM_HEAL );
-		ent->client->ps.fd.forcePowerLevel[FP_TEAM_FORCE] = FORCE_LEVEL_0;
-		ent->client->ps.fd.forcePowersKnown &= ~( 1 << FP_TEAM_FORCE );
-		ent->client->ps.fd.forcePowerLevel[FP_DRAIN] = FORCE_LEVEL_0;
-		ent->client->ps.fd.forcePowersKnown &= ~( 1 << FP_DRAIN );
-		ent->client->ps.fd.forcePowerLevel[FP_SEE] = FORCE_LEVEL_0;
-		ent->client->ps.fd.forcePowersKnown &= ~( 1 << FP_SEE );
-		ent->client->ps.fd.forcePowerLevel[FP_SABERTHROW] = FORCE_LEVEL_0;
-		ent->client->ps.fd.forcePowersKnown &= ~( 1 << FP_SABERTHROW );
-		
-		// let them choose if they have a saber or not
-		if ( ent->client->ps.fd.forcePowerLevel[FP_SABER_OFFENSE] > FORCE_LEVEL_0 ) {
-			ent->client->ps.fd.forcePowerLevel[FP_SABER_OFFENSE] = FORCE_LEVEL_3;
-			ent->client->ps.fd.forcePowersKnown |= ( 1 << FP_SABER_OFFENSE );
-			ent->client->ps.fd.forcePowerLevel[FP_SABER_DEFENSE] = FORCE_LEVEL_3;
-			ent->client->ps.fd.forcePowersKnown |= ( 1 << FP_SABER_DEFENSE );
-		} else {
-			ent->client->ps.fd.forcePowerLevel[FP_SABER_OFFENSE] = FORCE_LEVEL_0;
-			ent->client->ps.fd.forcePowersKnown &= ~( 1 << FP_SABER_OFFENSE );
-			ent->client->ps.fd.forcePowerLevel[FP_SABER_DEFENSE] = FORCE_LEVEL_0;
-			ent->client->ps.fd.forcePowersKnown &= ~( 1 << FP_SABER_DEFENSE );
-		}
+		SetRacerForcePowers(ent);
 	}
 
 	i = 0;
@@ -761,6 +717,11 @@ extern qboolean BG_InKnockDown( int anim ); //bg_pmove.c
 
 int ForcePowerUsableOn(gentity_t *attacker, gentity_t *other, forcePowers_t forcePower)
 {
+	if (other && other->isAimPracticePack) {
+		if (forcePower == FP_PUSH || forcePower == FP_PULL)
+			return qtrue;
+		return qfalse;
+	}
 	if (other && other->client && BG_HasYsalamiri(g_gametype.integer, &other->client->ps))
 	{
 		return 0;
@@ -1344,6 +1305,8 @@ void WP_ForcePowerStart( gentity_t *self, forcePowers_t forcePower, int override
 
 void ForceHeal( gentity_t *self )
 {
+	if (self->isAimPracticePack)
+		return;
 	if ( self->health <= 0 )
 	{
 		return;
@@ -1420,6 +1383,8 @@ void WP_AddToClientBitflags(gentity_t *ent, int entNum)
 
 void ForceTeamHeal( gentity_t *self )
 {
+	if (self->isAimPracticePack)
+		return;
 	float radius = 256;
 	int i = 0;
 	gentity_t *ent;
@@ -1533,6 +1498,8 @@ void ForceTeamHeal( gentity_t *self )
 
 void ForceTeamForceReplenish( gentity_t *self )
 {
+	if (self->isAimPracticePack)
+		return;
 	float radius = 256;
 	int i = 0;
 	gentity_t *ent;
@@ -1652,6 +1619,8 @@ void ForceTeamForceReplenish( gentity_t *self )
 
 void ForceGrip( gentity_t *self )
 {
+	if (self->isAimPracticePack)
+		return;
 	trace_t tr;
 	vec3_t tfrom, tto, fwd;
 
@@ -1725,6 +1694,8 @@ void ForceGrip( gentity_t *self )
 
 void ForceSpeed( gentity_t *self, int forceDuration )
 {
+	if (self->isAimPracticePack)
+		return;
 	if ( self->health <= 0 )
 	{
 		return;
@@ -1760,6 +1731,8 @@ void ForceSpeed( gentity_t *self, int forceDuration )
 
 void ForceSeeing( gentity_t *self )
 {
+	if (self->isAimPracticePack)
+		return;
 	if ( self->health <= 0 )
 	{
 		return;
@@ -1787,6 +1760,8 @@ void ForceSeeing( gentity_t *self )
 
 void ForceProtect( gentity_t *self )
 {
+	if (self->isAimPracticePack)
+		return;
 	if ( self->health <= 0 )
 	{
 		return;
@@ -1823,6 +1798,8 @@ void ForceProtect( gentity_t *self )
 
 void ForceAbsorb( gentity_t *self )
 {
+	if (self->isAimPracticePack)
+		return;
 	if ( self->health <= 0 )
 	{
 		return;
@@ -1859,6 +1836,10 @@ void ForceAbsorb( gentity_t *self )
 
 void ForceRage( gentity_t *self )
 {
+	if (self->isAimPracticePack)
+		return;
+	if (self->aimPracticeEntBeingUsed)
+		return; // don't allow practicing dudes to use this
 	if ( self->health <= 0 )
 	{
 		return;
@@ -1906,6 +1887,8 @@ void ForceRage( gentity_t *self )
 
 void ForceLightning( gentity_t *self )
 {
+	if (self->isAimPracticePack)
+		return;
 	if ( self->health <= 0 )
 	{
 		return;
@@ -2089,6 +2072,8 @@ void ForceShootLightning( gentity_t *self )
 				continue;
 			if ( traceEnt->client && traceEnt->client->sess.inRacemode )
 				continue; // don't use force powers on racers
+			if (traceEnt->isAimPracticePack)
+				continue;
 			if ( traceEnt->s.eType == ET_MISSILE && traceEnt->r.ownerNum >= 0 && traceEnt->r.ownerNum < MAX_CLIENTS && level.clients[traceEnt->r.ownerNum].sess.inRacemode )
 				continue; // don't use force powers on race projectiles
 			//this is all to see if we need to start a saber attack, if it's in flight, this doesn't matter
@@ -2166,6 +2151,8 @@ void ForceShootLightning( gentity_t *self )
 
 void ForceDrain( gentity_t *self )
 {
+	if (self->isAimPracticePack)
+		return;
 	if ( self->health <= 0 )
 	{
 		return;
@@ -2353,6 +2340,8 @@ int ForceShootDrain( gentity_t *self )
 			if ( !traceEnt->client->ps.fd.forcePower )
 				continue;
 			if (OnSameTeam(self, traceEnt) && !g_friendlyFire.integer)
+				continue;
+			if (traceEnt->isAimPracticePack)
 				continue;
 			if ( traceEnt->client && traceEnt->client->sess.inRacemode )
 				continue; // don't use force powers on racers
@@ -2581,6 +2570,8 @@ int WP_GetVelocityForForceJump( gentity_t *self, vec3_t jumpVel, usercmd_t *ucmd
 
 void ForceJump( gentity_t *self, usercmd_t *ucmd )
 {
+	if (self->isAimPracticePack)
+		return;
 	float forceJumpChargeInterval;
 	vec3_t	jumpVel;
 
@@ -2833,6 +2824,8 @@ qboolean ForceTelepathyCheckDirectNPCTarget( gentity_t *self, trace_t *tr, qbool
 
 void ForceTelepathy(gentity_t *self)
 {
+	if (self->isAimPracticePack)
+		return;
 	trace_t tr;
 	vec3_t tto, thispush_org, a;
 	vec3_t mins, maxs, fwdangles, forward, right, center;
@@ -2973,6 +2966,9 @@ void ForceTelepathy(gentity_t *self)
 
 				if (!ent->client)
 				{
+					entityList[e] = ENTITYNUM_NONE;
+				}
+				else if (ent->isAimPracticePack) {
 					entityList[e] = ENTITYNUM_NONE;
 				}
 				else if (ent->client->sess.inRacemode)
@@ -3184,6 +3180,8 @@ float forcePushPullRadius[NUM_FORCE_POWER_LEVELS] =
 extern void Touch_Button(gentity_t *ent, gentity_t *other, trace_t *trace );
 void ForceThrow( gentity_t *self, qboolean pull )
 {
+	if (self->isAimPracticePack)
+		return;
 	//shove things in front of you away
 	float		dist;
 	gentity_t	*ent;
@@ -3329,6 +3327,18 @@ void ForceThrow( gentity_t *self, qboolean pull )
 		return;
 	}
 
+	qboolean exitedAimPracticeMode = qfalse;
+	if (self->aimPracticeEntBeingUsed) {
+		trap_SendServerCommand(self - g_entities, "cp \"Exited training.\"");
+		self->aimPracticeMode = AIMPRACTICEMODE_NONE;
+		self->aimPracticeEntBeingUsed = NULL;
+		self->numAimPracticeSpawns = 0;
+		self->numTotalAimPracticeHits = 0;
+		memset(self->numAimPracticeHitsOfWeapon, 0, sizeof(self->numAimPracticeHitsOfWeapon));
+		G_GiveRacemodeItemsAndFullStats(self);
+		exitedAimPracticeMode = qtrue;
+	}
+
 	// should definitely pull/push
 	if ( self && self->client ) {
 		if ( pull ) {
@@ -3465,6 +3475,7 @@ void ForceThrow( gentity_t *self, qboolean pull )
 		}
 	}
 
+	qboolean gotBot = qfalse;
 	for ( e = 0 ; e < numListedEntities ; e++ ) 
 	{
 		if (entityList[e] != ENTITYNUM_NONE &&
@@ -3605,6 +3616,45 @@ void ForceThrow( gentity_t *self, qboolean pull )
 			{
 				continue;
 			}
+		}
+
+		if (self->client && self - g_entities < MAX_CLIENTS && self->client->sess.inRacemode) {
+			// the puller is in racemode
+
+			if (!ent->isAimPracticePack)
+				continue; // we only care about trying to push/pull a bot
+
+			if (level.topAimRecordsEnabled && !exitedAimPracticeMode && !gotBot) {
+				if (pull) {
+					trap_SendServerCommand(self - g_entities, va("cp \"Entering free training: ^3%s\"", ent->isAimPracticePack->packName));
+					self->aimPracticeMode = AIMPRACTICEMODE_UNTIMED;
+					self->aimPracticeEntBeingUsed = ent;
+					self->numAimPracticeSpawns = 0;
+					self->numTotalAimPracticeHits = 0;
+					memset(self->numAimPracticeHitsOfWeapon, 0, sizeof(self->numAimPracticeHitsOfWeapon));
+					self->client->ps.powerups[PW_REDFLAG] = self->client->ps.powerups[PW_BLUEFLAG] = 0;
+					gotBot = qtrue;
+				}
+				else {
+					if (ent->isAimPracticePack->isTemp)
+						trap_SendServerCommand(self - g_entities, va("cp \"Entering timed training: ^3%s^7\nPack is unsaved; new records cannot be set.\"", ent->isAimPracticePack->packName));
+					else if (ent->isAimPracticePack->changed)
+						trap_SendServerCommand(self - g_entities, va("cp \"Entering timed training: ^3%s^7\nPack has been modified; new records cannot be set.\"", ent->isAimPracticePack->packName));
+					else
+						trap_SendServerCommand(self - g_entities, va("cp \"Entering timed training: ^3%s\"", ent->isAimPracticePack->packName));
+					self->aimPracticeMode = AIMPRACTICEMODE_TIMED;
+					self->aimPracticeEntBeingUsed = ent;
+					self->numAimPracticeSpawns = 0;
+					self->numTotalAimPracticeHits = 0;
+					memset(self->numAimPracticeHitsOfWeapon, 0, sizeof(self->numAimPracticeHitsOfWeapon));
+					self->client->ps.powerups[PW_REDFLAG] = self->client->ps.powerups[PW_BLUEFLAG] = 0;
+					gotBot = qtrue;
+				}
+			}
+			continue; // never actually push/pull anyone
+		}
+		else if (ent->isAimPracticePack) {
+			continue;
 		}
 
 		// ok, we are within the radius, add us to the incoming list
@@ -4845,6 +4895,7 @@ void FindGenericEnemyIndex(gentity_t *self)
             ent->inuse &&
             ent->client &&
 			!ent->client->sess.inRacemode &&
+			!ent->isAimPracticePack &&
             (ent->s.number != self->s.number) && 
             (ent->health > 0) && 
             !OnSameTeam( self, ent ) && 
@@ -5813,6 +5864,8 @@ powersetcheck:
 
 qboolean Jedi_DodgeEvasion( gentity_t *self, gentity_t *shooter, trace_t *tr, int hitLoc )
 {
+	if (self->isAimPracticePack)
+		return qfalse;
 	int	dodgeAnim = -1;
 	qboolean noWeakPoints = qfalse;
 

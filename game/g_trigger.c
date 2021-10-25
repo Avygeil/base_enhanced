@@ -1254,6 +1254,14 @@ void hurt_touch( gentity_t *self, gentity_t *other, trace_t *trace ) {
 		return;
 	}
 
+	if (other->isAimPracticePack) {
+		return;
+	}
+
+	if (other->aimPracticeEntBeingUsed) {
+		return;
+	}
+
 	if ( self->damage == -1 && other && other->client && other->client->sess.inRacemode )
 	{
 		// racers get teleported to their telemark if they set one
@@ -2149,6 +2157,18 @@ void Touch_RaceTrigger( gentity_t *trigger, gentity_t *player, trace_t *trace ) 
 	}
 
 	if ( !client->sess.inRacemode ) {
+		return;
+	}
+
+	if (player->aimPracticeEntBeingUsed)
+		return;
+
+	if (player - g_entities < MAX_CLIENTS && client->pers.aimPracticePackBeingEdited) {
+		static qboolean shownMessage[MAX_CLIENTS] = { qfalse };
+		if (!shownMessage[player - g_entities]) {
+			PrintIngame(player - g_entities, "*Cannot pick up race flags while editing a pack. Enter ^5pack edit none^7 to stop editing a pack.\n");
+			shownMessage[player - g_entities] = qtrue;
+		}
 		return;
 	}
 

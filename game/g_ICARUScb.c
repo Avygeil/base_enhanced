@@ -1874,7 +1874,8 @@ static void Q3_SetOrigin( int entID, vec3_t origin )
 	}
 
 	trap_LinkEntity( ent );
-	G_ResetTrail(ent);
+	if (ent - g_entities < MAX_CLIENTS)
+		G_ResetTrail(ent);
 }
 
 /*

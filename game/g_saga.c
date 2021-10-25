@@ -759,6 +759,9 @@ void G_ValidateSiegeClassForTeam(gentity_t *ent, int team)
 //bypass most of the normal checks in SetTeam
 void SetTeamQuick(gentity_t *ent, int team, qboolean doBegin)
 {
+	if (ent->client->rockPaperScissorsBothChosenTime)
+		return;
+
 	// safety checks
 	if ( ent->client->sess.inRacemode ) {
 		G_LogPrintf( "WARNING: SetTeamQuick called while in race mode!!!" );
@@ -789,6 +792,9 @@ void SetTeamQuick(gentity_t *ent, int team, qboolean doBegin)
 		ent->client->pers.ready = qfalse;
 
 	ent->client->sess.sessionTeam = team;
+
+	if (team != TEAM_FREE)
+		ent->client->pers.aimPracticePackBeingEdited = NULL;
 
 	if (team == TEAM_SPECTATOR)
 	{

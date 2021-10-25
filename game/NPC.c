@@ -1553,7 +1553,7 @@ void NPC_Think ( gentity_t *self)//, int msec )
 	int i = 0;
 	gentity_t *player;
 
-	self->nextthink = level.time + FRAMETIME;
+	self->nextthink = level.time + 1;
 
 	SetNPCGlobals( self );
 
@@ -1592,7 +1592,7 @@ void NPC_Think ( gentity_t *self)//, int msec )
 		return;
 	}
 
-	self->nextthink = level.time + FRAMETIME/2;
+	self->nextthink = level.time + 1;
 
 
 	while (i < MAX_CLIENTS)
@@ -1641,7 +1641,7 @@ void NPC_Think ( gentity_t *self)//, int msec )
 	}
 
 	if ( NPCInfo->nextBStateThink <= level.time 
-		&& !NPC->s.m_iVehicleNum )//NPCs sitting in Vehicles do NOTHING
+		&& !NPC->s.m_iVehicleNum && !NPC->isAimPracticePack )//NPCs sitting in Vehicles do NOTHING
 	{
 #if	AI_TIMERS
 		int	startTime = GetTime(0);

@@ -742,6 +742,7 @@ qboolean NPC_SpotWouldTelefrag( gentity_t *npc )
 		if (hit->inuse 
 			&& hit->client
 			&& !hit->client->sess.inRacemode // no telefragging racers
+			&& !hit->isAimPracticePack
 			&& hit->s.number != npc->s.number 
 			&& (hit->r.contents&MASK_NPCSOLID)
 			&& hit->s.number != npc->r.ownerNum
@@ -1415,6 +1416,9 @@ gentity_t *NPC_Spawn_Do( gentity_t *client_ent, gentity_t *ent )
 		return NULL;
 	}
 
+	if (g_gametype.integer == GT_CTF && newent->client->NPC_class != CLASS_VEHICLE)
+		FilterNPCForAimPractice(newent);
+
 	if ( ent->NPC_type )
 	{
 		if ( !Q_stricmp( ent->NPC_type, "kyle" ) )
@@ -1451,8 +1455,10 @@ gentity_t *NPC_Spawn_Do( gentity_t *client_ent, gentity_t *ent )
 		newent->targetname = G_NewString( va("%s_%i",ent->NPC_type,newent->s.number));
 	}
 
+#if 0
 	if (client_ent)
 		trap_SendServerCommand( client_ent-g_entities, va("print \"NPC %s spawned.\n\"",newent->targetname));
+#endif
 	
 
 	newent->target = ent->NPC_target;//death
@@ -3628,7 +3634,8 @@ gentity_t *NPC_SpawnType( gentity_t *ent, char *npc_type, char *targetname, qboo
 
 	if(!NPCspawner)
 	{
-		trap_SendServerCommand( ent-g_entities, "print \""S_COLOR_RED"NPC_Spawn Error: Out of entities!\n\"");
+		if (ent)
+			trap_SendServerCommand( ent-g_entities, "print \""S_COLOR_RED"NPC_Spawn Error: Out of entities!\n\"");
 		Com_Printf( "NPC_Spawn Error: Out of entities!\n" );
 		return NULL;
 	}
@@ -3643,31 +3650,33 @@ gentity_t *NPC_SpawnType( gentity_t *ent, char *npc_type, char *targetname, qboo
 
 	if (!npc_type[0])
 	{
-		trap_SendServerCommand( ent-g_entities, "print \""S_COLOR_RED"Error, expected one of:\n"S_COLOR_WHITE" NPC spawn [NPC type (from ext_data/NPCs)]\n NPC spawn vehicle [VEH type (from ext_data/vehicles)]\n\"");
-		return NULL;
-	}
-
-	if ( !ent || !ent->client )
-	{//screw you, go away
+		if (ent)
+			trap_SendServerCommand( ent-g_entities, "print \""S_COLOR_RED"Error, expected one of:\n"S_COLOR_WHITE" NPC spawn [NPC type (from ext_data/NPCs)]\n NPC spawn vehicle [VEH type (from ext_data/vehicles)]\n\"");
 		return NULL;
 	}
 
 	//rwwFIXMEFIXME: Care about who is issuing this command/other clients besides 0?
 	//Spawn it at spot of first player
 	//FIXME: will gib them!
-	AngleVectors(ent->client->ps.viewangles, forward, NULL, NULL);
-	VectorNormalize(forward);
-	VectorMA(ent->r.currentOrigin, 64, forward, end);
-	trap_Trace(&trace, ent->r.currentOrigin, NULL, NULL, end, 0, MASK_SOLID);
-	VectorCopy(trace.endpos, end);
-	end[2] -= 24;
-	trap_Trace(&trace, trace.endpos, NULL, NULL, end, 0, MASK_SOLID);
-	VectorCopy(trace.endpos, end);
-	end[2] += 24;
-	G_SetOrigin(NPCspawner, end);
-	VectorCopy(NPCspawner->r.currentOrigin, NPCspawner->s.origin);
-	//set the yaw so that they face away from player
-	NPCspawner->s.angles[1] = ent->client->ps.viewangles[1];
+	if (ent) {
+		AngleVectors(ent->client->ps.viewangles, forward, NULL, NULL);
+		VectorNormalize(forward);
+		VectorMA(ent->r.currentOrigin, 64, forward, end);
+		trap_Trace(&trace, ent->r.currentOrigin, NULL, NULL, end, 0, MASK_SOLID);
+		VectorCopy(trace.endpos, end);
+		end[2] -= 24;
+		trap_Trace(&trace, trace.endpos, NULL, NULL, end, 0, MASK_SOLID);
+		VectorCopy(trace.endpos, end);
+		end[2] += 24;
+		G_SetOrigin(NPCspawner, end);
+		VectorCopy(NPCspawner->r.currentOrigin, NPCspawner->s.origin);
+		//set the yaw so that they face away from player
+		NPCspawner->s.angles[1] = ent->client->ps.viewangles[1];
+	}
+	else {
+		G_SetOrigin(NPCspawner, vec3_origin);
+		VectorCopy(NPCspawner->r.currentOrigin, NPCspawner->s.origin);
+	}
 
 	trap_LinkEntity(NPCspawner);
 
@@ -3799,7 +3808,7 @@ void NPC_Spawn_f( gentity_t *ent )
 		trap_Argv(3, targetname, 1024);
 	}
 
-	NPC_SpawnType( ent, npc_type, targetname, isVehicle );
+	gentity_t *npc = NPC_SpawnType( ent, npc_type, targetname, isVehicle );
 }
 
 /*

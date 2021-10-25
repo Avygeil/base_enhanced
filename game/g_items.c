@@ -611,6 +611,8 @@ static qboolean pas_find_enemies( gentity_t *self )
 		{
 			continue; // don't pull aggro on racers
 		}
+		if (target->isAimPracticePack)
+			continue;
 		if ( target == self || !target->takedamage || target->health <= 0 || ( target->flags & FL_NOTARGET ))
 		{
 			continue;
@@ -3002,13 +3004,19 @@ void FinishSpawningItem( gentity_t *ent ) {
 	if ( ent->item->giType == IT_WEAPON ) {
 		level.existingWeaponSpawns |= (1 << ent->item->giTag);
 		// only give weapons that are useful in race...
-		if ( ent->item->giTag == WP_REPEATER ||
+		if ( ent->item->giTag == WP_BLASTER ||
+			ent->item->giTag == WP_DISRUPTOR ||
+			ent->item->giTag == WP_BOWCASTER ||
+			ent->item->giTag == WP_REPEATER ||
+			ent->item->giTag == WP_DEMP2 ||
 			ent->item->giTag == WP_FLECHETTE ||
 			ent->item->giTag == WP_ROCKET_LAUNCHER ||
 			ent->item->giTag == WP_THERMAL ||
 			ent->item->giTag == WP_CONCUSSION ) {
 
 			level.raceSpawnWeapons |= ( 1 << ent->item->giTag );
+			if (ent->item->giTag == WP_CONCUSSION)
+				level.mapHasConcussionRifle = qtrue;
 
 			if ( ent->item->giTag != WP_THERMAL ) {
 				int ammoIndex = weaponData[ent->item->giTag].ammoIndex;

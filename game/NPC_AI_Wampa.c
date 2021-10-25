@@ -189,6 +189,9 @@ void Wampa_Slash( int boltIndex, qboolean backhand )
 			continue;
 		}
 
+		if (radiusEnt->isAimPracticePack)
+			continue;
+
 		if ( DistanceSquared( radiusEnt->r.currentOrigin, boltOrg ) <= radiusSquared )
 		{
 			//smack

@@ -1985,6 +1985,12 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 		}
 	}
 
+	self->aimPracticeEntBeingUsed = NULL;
+	self->aimPracticeMode = AIMPRACTICEMODE_NONE;
+	self->numAimPracticeSpawns = 0;
+	self->numTotalAimPracticeHits = 0;
+	memset(self->numAimPracticeHitsOfWeapon, 0, sizeof(self->numAimPracticeHitsOfWeapon));
+
 	if (self->s.eType == ET_NPC &&
 		self->s.NPC_class == CLASS_VEHICLE &&
 		self->m_pVehicle &&
@@ -2766,6 +2772,21 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 	}
 
 	self->client->pers.lastKiller = attacker;
+
+	self->client->rockPaperScissorsOtherClientNum = ENTITYNUM_NONE;
+	self->client->rockPaperScissorsChallengeTime = 0;
+	self->client->rockPaperScissorsStartTime = 0;
+	self->client->rockPaperScissorsBothChosenTime = 0;
+	self->client->rockPaperScissorsChoice = '\0';
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		if (g_entities[i].inuse && g_entities[i].client && g_entities[i].client->rockPaperScissorsOtherClientNum == self - g_entities) {
+			g_entities[i].client->rockPaperScissorsOtherClientNum = ENTITYNUM_NONE;
+			g_entities[i].client->rockPaperScissorsChallengeTime = 0;
+			g_entities[i].client->rockPaperScissorsStartTime = 0;
+			g_entities[i].client->rockPaperScissorsBothChosenTime = 0;
+			g_entities[i].client->rockPaperScissorsChoice = '\0';
+		}
+	}
 }
 
 
@@ -4242,6 +4263,22 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 		return;
 	}
 
+	if (targ && targ->isAimPracticePack && mod >= MOD_STUN_BATON && mod <= MOD_SENTRY) {
+		return; // aim practice bots can only take certain types of damage
+	}
+
+	if (targ && targ->client && targ->client->sess.inRacemode) {
+		if ((attacker != targ || targ->aimPracticeEntBeingUsed) && mod >= MOD_STUN_BATON && mod <= MOD_SENTRY)
+			return; // no weapon damage from others in race mode
+		if (targ->aimPracticeEntBeingUsed && mod == MOD_FALLING && !(dflags & DAMAGE_NO_PROTECTION))
+			return; // no fall damage
+	}
+
+	if (targ && targ->client && targ - g_entities < MAX_CLIENTS && attacker && attacker->client && attacker - g_entities < MAX_CLIENTS) {
+		if (attacker->client->sess.inRacemode != targ->client->sess.inRacemode)
+			return; // sanity check: never allow people in different dimensions to damage each other
+	}
+
 	if (mod == MOD_DEMP2 && targ && targ->inuse && targ->client)
 	{
 		if ( targ->client->ps.electrifyTime < level.time )
@@ -4283,6 +4320,9 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 		!(targ && targ->client && targ->client->sess.inRacemode)) {
 		return;
 	}
+
+	if (g_rockPaperScissors.integer && targ && targ->client && targ->client->rockPaperScissorsStartTime)
+		return;
 
 	if ( targ->client )
 	{//don't take damage when in a walker, or fighter
@@ -5483,6 +5523,8 @@ qboolean G_RadiusDamage ( vec3_t origin, gentity_t *attacker, float damage, floa
 			continue;
 		if (!ent->takedamage)
 			continue;
+		if (ent->isAimPracticePack)
+			continue; // no splash damaging aim practice bots
 
 		// racemode radius dmg
 

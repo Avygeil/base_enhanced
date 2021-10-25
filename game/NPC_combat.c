@@ -275,6 +275,8 @@ void G_AttackDelay( gentity_t *self, gentity_t *enemy )
 
 void G_ForceSaberOn(gentity_t *ent)
 {
+	if (ent->isAimPracticePack)
+		return;
 	if (ent->client->ps.saberInFlight)
 	{ //alright, can't turn it on now in any case, so forget it.
 		return;
