@@ -542,6 +542,8 @@ const char *CtfStatsTableCallback_EnergizeEfficiency(void *rowContext, void *col
 		return NULL;
 	}
 	stats_t *stats = rowContext;
+	if (!stats->numEnergizes)
+		return " ";
 	return FormatStatInt(stats->isTotal, stats->energizeEfficiency, bestStats[stats->lastTeam].energizeEfficiency, bestStats[OtherTeam(stats->lastTeam)].energizeEfficiency);
 }
 
@@ -866,6 +868,8 @@ static void CheckBestStats(stats_t *player, statsTableType_t type, stats_t *weap
 		CheckBest(pits);
 		CheckBest(pitted);
 		CheckBest(fcKills);
+		player->fcKillEfficiency = player->fcKills ? player->fcKillsResultingInRets * 100 / player->fcKills : 0;
+		CheckBest(fcKillEfficiency);
 		CheckBest(flagCarrierDamageDealtTotal);
 		CheckBest(flagCarrierDamageTakenTotal);
 		CheckBest(clearDamageDealtTotal);
@@ -997,8 +1001,6 @@ static void CheckBestStats(stats_t *player, statsTableType_t type, stats_t *weap
 			player->regionPercent[region] = Com_Clampi(0, 100, (int)round((float)player->regionTime[region] / (float)allRegionsTime * 100.0f));
 			CheckBest(regionPercent[region]);
 		}
-		player->fcKillEfficiency = player->fcKills ? player->fcKillsResultingInRets * 100 / player->fcKills : 0;
-		CheckBest(fcKillEfficiency);
 		player->averageGetHealth = player->numGets ? (int)floorf((player->getTotalHealth / player->numGets) + 0.5f) : 0;
 		CheckBest(averageGetHealth);
 	}
@@ -1046,6 +1048,9 @@ static void AddStatsToTotal(stats_t *player, stats_t *team, statsTableType_t typ
 		AddStatToTotal(pits);
 		AddStatToTotal(pitted);
 		AddStatToTotal(fcKills);
+		AddStatToTotal(fcKills);
+		AddStatToTotal(fcKillsResultingInRets);
+		team->fcKillEfficiency = team->fcKills ? team->fcKillsResultingInRets * 100 / team->fcKills : 0;
 		AddStatToTotal(flagCarrierDamageDealtTotal);
 		AddStatToTotal(flagCarrierDamageTakenTotal);
 		AddStatToTotal(clearDamageDealtTotal);
@@ -1170,9 +1175,6 @@ static void AddStatsToTotal(stats_t *player, stats_t *team, statsTableType_t typ
 		for (ctfRegion_t region = CTFREGION_FLAGSTAND; region <= CTFREGION_ENEMYFLAGSTAND; region++) {
 			team->regionPercent[region] = Com_Clampi(0, 100, (int)round((float)team->regionTime[region] / (float)allRegionsTime * 100.0f));
 		}
-		AddStatToTotal(fcKills);
-		AddStatToTotal(fcKillsResultingInRets);
-		team->fcKillEfficiency = team->fcKills ? team->fcKillsResultingInRets * 100 / team->fcKills : 0;
 		AddStatToTotal(numGets);
 		AddStatToTotal(getTotalHealth);
 		team->averageGetHealth = team->numGets ? (int)floorf((team->getTotalHealth / team->numGets) + 0.5f) : 0;
@@ -1397,6 +1399,19 @@ accuracyCategory_t AccuracyCategoryForProjectile(gentity_t *projectile) {
 	return ACC_INVALID;
 }
 
+
+#if defined (_DEBUG) && defined(DEBUGSTATSNAMES) // for testing long names
+#define STATSTABLE_NAME			"^5Name5678901234567890"
+#define STATSTABLE_NAME_LENGTH	(20)
+#define STATSTABLE_ALIAS		"^5Alias6789"
+#define STATSTABLE_ALIAS_LENGTH	(9)
+#else
+#define STATSTABLE_NAME "^5Name"
+#define STATSTABLE_NAME_LENGTH	(4)
+#define STATSTABLE_ALIAS "^5Alias"
+#define STATSTABLE_ALIAS_LENGTH	(5)
+#endif
+
 static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qboolean announce, statsTableType_t type, stats_t *weaponStatsPtr) {
 	Table *t = Table_Initialize(qfalse);
 	list_t gotPlayersList = { 0 };
@@ -1510,13 +1525,12 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 		return;
 	}
 
-	int longestPrintLenName = 4 /*Name*/, longestPrintLenAlias = 5 /*Alias*/, longestPrintLenPos = 0 /*Pos -- gets set to 3 if a pos is detected*/;
+	int longestPrintLenName = STATSTABLE_NAME_LENGTH /*Name*/, longestPrintLenAlias = STATSTABLE_ALIAS_LENGTH /*Alias*/, longestPrintLenPos = 0 /*Pos -- gets set to 3 if a pos is detected*/;
 
 	if (type == STATS_TABLE_GENERAL) {
-		Table_DefineColumn(t, "^5Name", CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
-		Table_DefineColumn(t, "^5Alias", CtfStatsTableCallback_Alias, NULL, qtrue, -1, 32);
+		Table_DefineColumn(t, STATSTABLE_NAME, CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
+		Table_DefineColumn(t, STATSTABLE_ALIAS, CtfStatsTableCallback_Alias, NULL, qtrue, -1, 32);
 		Table_DefineColumn(t, "^5Pos", CtfStatsTableCallback_Position, NULL, qtrue, -1, 32);
-
 		Table_DefineColumn(t, "^5Time", CtfStatsTableCallback_Time, NULL, qtrue, -1, 32);
 		Table_DefineColumn(t, "^5Cap", CtfStatsTableCallback_Captures, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5Ass", CtfStatsTableCallback_Assists, NULL, qfalse, -1, 32);
@@ -1526,46 +1540,47 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 		Table_DefineColumn(t, "^5Air", CtfStatsTableCallback_Airs, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5TK", CtfStatsTableCallback_TeamKills, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5Take", CtfStatsTableCallback_Takes, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5PitKil", CtfStatsTableCallback_Pits, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5PitDth", CtfStatsTableCallback_Pitted, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5Dmg", CtfStatsTableCallback_DamageDealt, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5FcDmg", CtfStatsTableCallback_FlagCarrierDamageDealt, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5ClrDmg", CtfStatsTableCallback_ClearDamageDealt, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5OthrDmg", CtfStatsTableCallback_OtherDamageDealt, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5DmgTkn", CtfStatsTableCallback_DamageTaken, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5FcDmgTkn", CtfStatsTableCallback_FlagCarrierDamageTaken, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5ClrDmgTkn", CtfStatsTableCallback_ClearDamageTaken, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5OthrDmgTkn", CtfStatsTableCallback_OtherDamageTaken, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5FcKil", CtfStatsTableCallback_FcKills, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^6Pit", CtfStatsTableCallback_Pits, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^6Dth", CtfStatsTableCallback_Pitted, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^2Dmg", CtfStatsTableCallback_DamageDealt, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^2Fc", CtfStatsTableCallback_FlagCarrierDamageDealt, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^2Clr", CtfStatsTableCallback_ClearDamageDealt, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^2Othr", CtfStatsTableCallback_OtherDamageDealt, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^1Tkn", CtfStatsTableCallback_DamageTaken, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^1Fc", CtfStatsTableCallback_FlagCarrierDamageTaken, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^1Clr", CtfStatsTableCallback_ClearDamageTaken, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^1Othr", CtfStatsTableCallback_OtherDamageTaken, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^6FcKil", CtfStatsTableCallback_FcKills, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^6Eff", CtfStatsTableCallback_FlagCarrierKillEfficiency, NULL, qtrue, -1, 32);
 		Table_DefineColumn(t, "^5Ret", CtfStatsTableCallback_Rets, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5SK", CtfStatsTableCallback_Selfkills, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5TtlHold", CtfStatsTableCallback_TotalHold, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5MaxHold", CtfStatsTableCallback_MaxHold, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^3Hold", CtfStatsTableCallback_TotalHold, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^3Max", CtfStatsTableCallback_MaxHold, NULL, qfalse, -1, 32);
 		//Table_DefineColumn(t, "^5HOLDS", CtfStatsTableCallback_Holds, NULL, qfalse, -1, 32);
 		//Table_DefineColumn(t, "^5AVGHOLD", CtfStatsTableCallback_AverageHold, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5TopSpd", CtfStatsTableCallback_TopSpeed, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5AvgSpd", CtfStatsTableCallback_AverageSpeed, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^6Spd", CtfStatsTableCallback_AverageSpeed, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^6Top", CtfStatsTableCallback_TopSpeed, NULL, qfalse, -1, 32);
 		//Table_DefineColumn(t, "^5+HP", CtfStatsTableCallback_HealthPickedUp, NULL, qfalse, -1, 32);
 		//Table_DefineColumn(t, "^5+SH", CtfStatsTableCallback_ArmorPickedUp, NULL, qfalse, -1, 32);
 	}
 	else if (type == STATS_TABLE_FORCE) {
-		Table_DefineColumn(t, "^5Name", CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
-		Table_DefineColumn(t, "^5Alias", CtfStatsTableCallback_Alias, NULL, qtrue, -1, 32);
+		Table_DefineColumn(t, STATSTABLE_NAME, CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
+		Table_DefineColumn(t, STATSTABLE_ALIAS, CtfStatsTableCallback_Alias, NULL, qtrue, -1, 32);
 		Table_DefineColumn(t, "^5Pos", CtfStatsTableCallback_Position, NULL, qtrue, -1, 32);
 		if (level.boonExists) // only show boon stat if boon is enabled and exists on this map
 			Table_DefineColumn(t, "^5Boon", CtfStatsTableCallback_BoonPickups, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5Push", CtfStatsTableCallback_Push, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5Pull", CtfStatsTableCallback_Pull, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5Heal", CtfStatsTableCallback_Healed, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5TE", CtfStatsTableCallback_EnergizedAlly, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5Eff", CtfStatsTableCallback_EnergizeEfficiency, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^6TE", CtfStatsTableCallback_EnergizedAlly, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^6Eff", CtfStatsTableCallback_EnergizeEfficiency, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5EnemyNrg", CtfStatsTableCallback_EnergizedEnemy, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5Abs", CtfStatsTableCallback_Absorbed, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5Prot", CtfStatsTableCallback_ProtDamage, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5ProtTime", CtfStatsTableCallback_ProtTime, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5RageTime", CtfStatsTableCallback_RageTime, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5Drn", CtfStatsTableCallback_Drain, NULL, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5Drnd", CtfStatsTableCallback_GotDrained, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^2Prot", CtfStatsTableCallback_ProtDamage, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^2Time", CtfStatsTableCallback_ProtTime, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^5Rage", CtfStatsTableCallback_RageTime, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^1Drn", CtfStatsTableCallback_Drain, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^1Drnd", CtfStatsTableCallback_GotDrained, NULL, qfalse, -1, 32);
 	}
 	else if (type == STATS_TABLE_DAMAGE) {
 		int firstDividerColor;
@@ -1628,8 +1643,8 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 
 			if (!didFirstColumns) {
 				// if we have pos, then the divider goes after the pos column. if not, then the divider goes after the alias column.
-				Table_DefineColumn(t, "^5Name", CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
-				Table_DefineColumn(t, "^5Alias", CtfStatsTableCallback_Alias, NULL, qtrue, longestPrintLenPos ? -1 : firstDividerColor, 32);
+				Table_DefineColumn(t, STATSTABLE_NAME, CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
+				Table_DefineColumn(t, STATSTABLE_ALIAS, CtfStatsTableCallback_Alias, NULL, qtrue, longestPrintLenPos ? -1 : firstDividerColor, 32);
 				Table_DefineColumn(t, "^5Pos", CtfStatsTableCallback_Position, NULL, qtrue, longestPrintLenPos ? firstDividerColor : -1, 32);
 				didFirstColumns = qtrue;
 			}
@@ -1638,15 +1653,15 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 
 		if (!didFirstColumns) { // sanity check, make sure these get printed no matter what
 			// if we have pos, then the divider goes after the pos column. if not, then the divider goes after the alias column.
-			Table_DefineColumn(t, "^5Name", CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
-			Table_DefineColumn(t, "^5Alias", CtfStatsTableCallback_Alias, NULL, qtrue, longestPrintLenPos ? -1 : firstDividerColor, 32);
+			Table_DefineColumn(t, STATSTABLE_NAME, CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
+			Table_DefineColumn(t, STATSTABLE_ALIAS, CtfStatsTableCallback_Alias, NULL, qtrue, longestPrintLenPos ? -1 : firstDividerColor, 32);
 			Table_DefineColumn(t, "^5Pos", CtfStatsTableCallback_Position, NULL, qtrue, longestPrintLenPos ? firstDividerColor : -1, 32);
 			didFirstColumns = qtrue;
 		}
 	}
 	else if (type == STATS_TABLE_WEAPON_GIVEN || type == STATS_TABLE_WEAPON_TAKEN) {
-		Table_DefineColumn(t, "^5Name", CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
-		Table_DefineColumn(t, "^5Alias", CtfStatsTableCallback_Alias, NULL, qtrue, -1, 32);
+		Table_DefineColumn(t, STATSTABLE_NAME, CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
+		Table_DefineColumn(t, STATSTABLE_ALIAS, CtfStatsTableCallback_Alias, NULL, qtrue, -1, 32);
 		Table_DefineColumn(t, "^5Pos", CtfStatsTableCallback_Position, NULL, qtrue, -1, 32);
 
 		for (meansOfDeathCategory_t modc = MODC_FIRST; modc < MODC_MAX; modc++) {
@@ -1658,16 +1673,16 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 		}
 	}
 	else if (type == STATS_TABLE_ACCURACY) {
-		Table_DefineColumn(t, "^5Name", CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
-		Table_DefineColumn(t, "^5Alias", CtfStatsTableCallback_Alias, NULL, qtrue, -1, 32);
+		Table_DefineColumn(t, STATSTABLE_NAME, CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
+		Table_DefineColumn(t, STATSTABLE_ALIAS, CtfStatsTableCallback_Alias, NULL, qtrue, -1, 32);
 		Table_DefineColumn(t, "^5Pos", CtfStatsTableCallback_Position, NULL, qtrue, -1, 32);
 
 		for (accuracyCategory_t weap = ACC_FIRST; weap < ACC_MAX; weap++)
 			Table_DefineColumn(t, NameForAccuracyCategory(weap), CtfStatsTableCallback_WeaponAccuracy, &weap, qfalse, -1, 32);
 	}
 	else if (type == STATS_TABLE_EXPERIMENTAL) {
-		Table_DefineColumn(t, "^5Name", CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
-		Table_DefineColumn(t, "^5Alias", CtfStatsTableCallback_Alias, NULL, qtrue, -1, 32);
+		Table_DefineColumn(t, STATSTABLE_NAME, CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
+		Table_DefineColumn(t, STATSTABLE_ALIAS, CtfStatsTableCallback_Alias, NULL, qtrue, -1, 32);
 		Table_DefineColumn(t, "^5Pos", CtfStatsTableCallback_Position, NULL, qtrue, -1, 32);
 		ctfRegion_t region = CTFREGION_FLAGSTAND;
 		Table_DefineColumn(t, "^5Fs", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
@@ -1679,7 +1694,6 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 		Table_DefineColumn(t, "^5EBa", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
 		++region;
 		Table_DefineColumn(t, "^5EFs", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5FcKilEff", CtfStatsTableCallback_FlagCarrierKillEfficiency, NULL, qtrue, -1, 32);
 		Table_DefineColumn(t, "^5GetHP", CtfStatsTableCallback_GetHealth, NULL, qtrue, -1, 32);
 	}
 
@@ -1728,83 +1742,83 @@ typedef struct {
 } statsHelp_t;
 
 static statsHelp_t helps[] = { // important: make sure any new stats do not conflict with /stats help subcommands that print entire categories (e.g. "ex")
-	{ STATS_TABLE_GENERAL, "Pos", "Position", "CTF position, if 4v4"},
-	{ STATS_TABLE_GENERAL, "Time", "Time", "Time in game while not paused"},
-	{ STATS_TABLE_GENERAL, "Cap", "Captures", "Times you captured the flag"},
-	{ STATS_TABLE_GENERAL, "Ass", "Assists", "Flag carrier kills, or flag returns, within ten seconds prior to your team capturing the flag"},
-	{ STATS_TABLE_GENERAL, "Def", "Defends", "Kills on enemies near your flag, near your flag carrier, or who hurt your flag carrier within the past eight seconds"},
-	{ STATS_TABLE_GENERAL, "Acc", "Accuracy", "Total accuracy percentage, only including disrupts, snipes, repeater blobs, golan balls, rockets, alt thermals, and both concs"},
-	{ STATS_TABLE_GENERAL, "Air", "Air shots", "Hits on midair enemies, only including explosive projectiles, bowcaster, and charged pistol; does not have to kill"},
-	{ STATS_TABLE_GENERAL, "TK", "Teamkills", "Bad kills on teammates; does not include killing your flag carrier if an ally takes the flag afterward"},
-	{ STATS_TABLE_GENERAL, "Take", "Takes", "Times you killed your flag carrier and then took the flag"},
-	{ STATS_TABLE_GENERAL, "PitKil", "Pit kills", "Kills on enemies using pits"},
-	{ STATS_TABLE_GENERAL, "PitDth", "Pit deaths", "Times you got killed by enemies using pits"},
-	{ STATS_TABLE_GENERAL, "Dmg", "Damage", "Total damage dealt to enemies"},
-	{ STATS_TABLE_GENERAL, "FcDmg", "Flag carrier damage", "Damage dealt to enemy flag carriers"},
-	{ STATS_TABLE_GENERAL, "ClrDmg", "Clear damage", "Damage dealt to non-flag-carrying enemies inside your base"},
-	{ STATS_TABLE_GENERAL, "OthrDmg", "Other damage", "Damage dealt to enemies outside your base who are not carrying the flag"},
-	{ STATS_TABLE_GENERAL, "DmgTkn", "Damage taken", "Total damage taken from enemies"},
-	{ STATS_TABLE_GENERAL, "FcDmgTkn", "Flag carrier damage taken", "Damage taken from enemies while carrying the flag"},
-	{ STATS_TABLE_GENERAL, "ClrDmgTkn", "Clear damage taken", "Damage taken from enemies while you are in their base and not carrying the flag"},
-	{ STATS_TABLE_GENERAL, "OthrDmgTkn", "Other damage taken", "Damage taken from enemies while you are outside their base and not carrying the flag"},
-	{ STATS_TABLE_GENERAL, "FcKil", "Flag carrier kills", "Kills on enemy flag carriers"},
-	{ STATS_TABLE_GENERAL, "Ret", "Returns", "Times you returned your flag"},
-	{ STATS_TABLE_GENERAL, "SK", "Selfkills", "Suicides, including falling into pits on your own"},
-	{ STATS_TABLE_GENERAL, "TtlHold", "Total hold", "Total time you carried the flag"},
-	{ STATS_TABLE_GENERAL, "MaxHold", "Maximum hold", "The duration of your longest flag hold"},
-	{ STATS_TABLE_GENERAL, "TopSpd", "Top speed", "The highest movement speed you reached, in units per second"},
-	{ STATS_TABLE_GENERAL, "AvgSpd", "Average speed", "Average movement speed, in units per second"},
-	{ STATS_TABLE_FORCE, "Pos", "Position", "CTF position, if 4v4"},
-	{ STATS_TABLE_FORCE, "Boon", "Boons", "Boon pickups, if boon is enabled"},
-	{ STATS_TABLE_FORCE, "Push", "Pushes", "Force pushes used"},
-	{ STATS_TABLE_FORCE, "Pull", "Pulls", "Force pulls used"},
-	{ STATS_TABLE_FORCE, "Heal", "Team heal", "Amount of allies' health you replenished with team heal"},
-	{ STATS_TABLE_FORCE, "TE", "Team energize", "Amount of allies' force power you replenished with team energize"},
-	{ STATS_TABLE_FORCE, "Eff", "Team energize efficiency", "Efficiency of your team energize usage (highest amount anyone was energized ÷ maximum amount anyone could have been energized)"},
-	{ STATS_TABLE_FORCE, "EnemyNrg", "Enemy energize", "Force power given to enemies using absorb"},
-	{ STATS_TABLE_FORCE, "Abs", "Absorb", "Force power absorbed from enemies"},
-	{ STATS_TABLE_FORCE, "Prot", "Protect damage", "Damage avoided using protect"},
-	{ STATS_TABLE_FORCE, "ProtTime", "Protect time", "Total duration you had protect activated"},
-	{ STATS_TABLE_FORCE, "RageTime", "Rage time", "Total duration you had rage activated"},
-	{ STATS_TABLE_FORCE, "Drn", "Drain", "Force power gained by draining enemies"},
-	{ STATS_TABLE_FORCE, "Drnd", "Drained", "Force power given to enemies by drain"},
+	{ STATS_TABLE_GENERAL, "^5Pos", "Position", "CTF position, if 4v4"},
+	{ STATS_TABLE_GENERAL, "^5Time", "Time", "Time in game while not paused"},
+	{ STATS_TABLE_GENERAL, "^5Cap", "Captures", "Times you captured the flag"},
+	{ STATS_TABLE_GENERAL, "^5Ass", "Assists", "Flag carrier kills, or flag returns, within ten seconds prior to your team capturing the flag"},
+	{ STATS_TABLE_GENERAL, "^5Def", "Defends", "Kills on enemies near your flag, near your flag carrier, or who hurt your flag carrier within the past eight seconds"},
+	{ STATS_TABLE_GENERAL, "^5Acc", "Accuracy", "Total accuracy percentage, only including disrupts, snipes, repeater blobs, golan balls, rockets, alt thermals, and both concs"},
+	{ STATS_TABLE_GENERAL, "^5Air", "Air shots", "Hits on midair enemies, only including explosive projectiles, bowcaster, and charged pistol; does not have to kill"},
+	{ STATS_TABLE_GENERAL, "^5TK", "Teamkills", "Bad kills on teammates; does not include killing your flag carrier if an ally takes the flag afterward"},
+	{ STATS_TABLE_GENERAL, "^5Take", "Takes", "Times you killed your flag carrier and then took the flag"},
+	{ STATS_TABLE_GENERAL, "^6Pit", "Pit kills", "Kills on enemies using pits"},
+	{ STATS_TABLE_GENERAL, "^6Dth", "Pit deaths", "Times you got killed by enemies using pits"},
+	{ STATS_TABLE_GENERAL, "^2Dmg", "Damage", "Total damage dealt to enemies"},
+	{ STATS_TABLE_GENERAL, "^2Fc", "Flag carrier damage", "Damage dealt to enemy flag carriers"},
+	{ STATS_TABLE_GENERAL, "^2Clr", "Clear damage", "Damage dealt to non-flag-carrying enemies inside your base"},
+	{ STATS_TABLE_GENERAL, "^2Othr", "Other damage", "Damage dealt to enemies outside your base who are not carrying the flag"},
+	{ STATS_TABLE_GENERAL, "^1Tkn", "Damage taken", "Total damage taken from enemies"},
+	{ STATS_TABLE_GENERAL, "^1Fc", "Flag carrier damage taken", "Damage taken from enemies while carrying the flag"},
+	{ STATS_TABLE_GENERAL, "^1Clr", "Clear damage taken", "Damage taken from enemies while you are in their base and not carrying the flag"},
+	{ STATS_TABLE_GENERAL, "^1Othr", "Other damage taken", "Damage taken from enemies while you are outside their base and not carrying the flag"},
+	{ STATS_TABLE_GENERAL, "^6FcKil", "Flag carrier kills", "Kills on enemy flag carriers"},
+	{ STATS_TABLE_GENERAL, "^6Eff", "Flag carrier kill efficiency", "Percentage of your kills on flag carriers that resulted in the flag being returned by you or a teammate"},
+	{ STATS_TABLE_GENERAL, "^5Ret", "Returns", "Times you returned your flag"},
+	{ STATS_TABLE_GENERAL, "^5SK", "Selfkills", "Suicides, including falling into pits on your own"},
+	{ STATS_TABLE_GENERAL, "^3Hold", "Total hold", "Total time you carried the flag"},
+	{ STATS_TABLE_GENERAL, "^3MaxHold", "Maximum hold", "The duration of your longest flag hold"},
+	{ STATS_TABLE_GENERAL, "^6Spd", "Average speed", "Average movement speed, in units per second"},
+	{ STATS_TABLE_GENERAL, "^6Top", "Top speed", "The highest movement speed you reached, in units per second"},
+	{ STATS_TABLE_FORCE, "^5Pos", "Position", "CTF position, if 4v4"},
+	{ STATS_TABLE_FORCE, "^5Boon", "Boons", "Boon pickups, if boon is enabled"},
+	{ STATS_TABLE_FORCE, "^5Push", "Pushes", "Force pushes used"},
+	{ STATS_TABLE_FORCE, "^5Pull", "Pulls", "Force pulls used"},
+	{ STATS_TABLE_FORCE, "^5Heal", "Team heal", "Amount of allies' health you replenished with team heal"},
+	{ STATS_TABLE_FORCE, "^6TE", "Team energize", "Amount of allies' force power you replenished with team energize"},
+	{ STATS_TABLE_FORCE, "^6Eff", "Team energize efficiency", "Efficiency of your team energize usage (highest amount anyone was energized ÷ maximum amount anyone could have been energized)"},
+	{ STATS_TABLE_FORCE, "^5EnemyNrg", "Enemy energize", "Force power given to enemies using absorb"},
+	{ STATS_TABLE_FORCE, "^5Abs", "Absorb", "Force power absorbed from enemies"},
+	{ STATS_TABLE_FORCE, "^2Prot", "Protect damage", "Damage avoided using protect"},
+	{ STATS_TABLE_FORCE, "^2Time", "Protect time", "Total duration you had protect activated"},
+	{ STATS_TABLE_FORCE, "^5Rage", "Rage time", "Total duration you had rage activated"},
+	{ STATS_TABLE_FORCE, "^1Drn", "Drain", "Force power gained by draining enemies"},
+	{ STATS_TABLE_FORCE, "^1Drnd", "Drained", "Force power given to enemies by drain"},
 	// STATS_TABLE_DAMAGE is not used here
-	{ STATS_TABLE_WEAPON_GIVEN, "Mel", "Melee damage", "Damage dealt to enemies with melee"},
-	{ STATS_TABLE_WEAPON_GIVEN, "Sab", "Lightsaber damage", "Damage dealt to enemies with lightsaber"},
-	{ STATS_TABLE_WEAPON_GIVEN, "Pis", "Pistol damage", "Damage dealt to enemies with pistol"},
-	{ STATS_TABLE_WEAPON_GIVEN, "Bla", "Blaster damage", "Damage dealt to enemies with blaster"},
-	{ STATS_TABLE_WEAPON_GIVEN, "Dis", "Disruptor damage", "Damage dealt to enemies with disruptor"},
-	{ STATS_TABLE_WEAPON_GIVEN, "Bow", "Bowcaster damage", "Damage dealt to enemies with bowcaster"},
-	{ STATS_TABLE_WEAPON_GIVEN, "Rep", "Repeater damage", "Damage dealt to enemies with repeater"},
-	{ STATS_TABLE_WEAPON_GIVEN, "Dmp", "Demp damage", "Damage dealt to enemies with demp"},
-	{ STATS_TABLE_WEAPON_GIVEN, "Gol", "Golan damage", "Damage dealt to enemies with golan"},
-	{ STATS_TABLE_WEAPON_GIVEN, "Roc", "Rocket damage", "Damage dealt to enemies with rockets"},
-	{ STATS_TABLE_WEAPON_GIVEN, "Con", "Concussion rifle damage", "Damage dealt to enemies with concussion rifle"},
-	{ STATS_TABLE_WEAPON_GIVEN, "The", "Thermal detonator damage", "Damage dealt to enemies with thermal detonators"},
-	{ STATS_TABLE_WEAPON_GIVEN, "Min", "Mine damage", "Damage dealt to enemies with mines"},
-	{ STATS_TABLE_WEAPON_GIVEN, "Dpk", "Detpack damage", "Damage dealt to enemies with detpacks"},
-	{ STATS_TABLE_WEAPON_GIVEN, "For", "Force damage", "Damage dealt to enemies with force powers"},
-	{ STATS_TABLE_WEAPON_GIVEN, "Total", "Total damage", "Total damage dealt to enemies "},
+	{ STATS_TABLE_WEAPON_GIVEN, "^5Mel", "Melee damage", "Damage dealt to enemies with melee"},
+	{ STATS_TABLE_WEAPON_GIVEN, "^5Sab", "Lightsaber damage", "Damage dealt to enemies with lightsaber"},
+	{ STATS_TABLE_WEAPON_GIVEN, "^5Pis", "Pistol damage", "Damage dealt to enemies with pistol"},
+	{ STATS_TABLE_WEAPON_GIVEN, "^5Bla", "Blaster damage", "Damage dealt to enemies with blaster"},
+	{ STATS_TABLE_WEAPON_GIVEN, "^5Dis", "Disruptor damage", "Damage dealt to enemies with disruptor"},
+	{ STATS_TABLE_WEAPON_GIVEN, "^5Bow", "Bowcaster damage", "Damage dealt to enemies with bowcaster"},
+	{ STATS_TABLE_WEAPON_GIVEN, "^5Rep", "Repeater damage", "Damage dealt to enemies with repeater"},
+	{ STATS_TABLE_WEAPON_GIVEN, "^5Dmp", "Demp damage", "Damage dealt to enemies with demp"},
+	{ STATS_TABLE_WEAPON_GIVEN, "^5Gol", "Golan damage", "Damage dealt to enemies with golan"},
+	{ STATS_TABLE_WEAPON_GIVEN, "^5Roc", "Rocket damage", "Damage dealt to enemies with rockets"},
+	{ STATS_TABLE_WEAPON_GIVEN, "^5Con", "Concussion rifle damage", "Damage dealt to enemies with concussion rifle"},
+	{ STATS_TABLE_WEAPON_GIVEN, "^5The", "Thermal detonator damage", "Damage dealt to enemies with thermal detonators"},
+	{ STATS_TABLE_WEAPON_GIVEN, "^5Min", "Mine damage", "Damage dealt to enemies with mines"},
+	{ STATS_TABLE_WEAPON_GIVEN, "^5Dpk", "Detpack damage", "Damage dealt to enemies with detpacks"},
+	{ STATS_TABLE_WEAPON_GIVEN, "^5For", "Force damage", "Damage dealt to enemies with force powers"},
+	{ STATS_TABLE_WEAPON_GIVEN, "^5Total", "Total damage", "Total damage dealt to enemies "},
 	// STATS_TABLE_WEAPON_TAKEN is not used here
-	{ STATS_TABLE_ACCURACY, "Pos", "Position", "CTF position, if 4v4"},
-	{ STATS_TABLE_ACCURACY, "Acc", "Accuracy", "Total accuracy percentage, only including disrupts, snipes, repeater blobs, golan balls, rockets, alt thermals, and both concs"},
-	{ STATS_TABLE_ACCURACY, "Pis", "Pistol altfire accuracy", "Accuracy percentage of pistol altfire (must be charged at least 400ms)"},
-	{ STATS_TABLE_ACCURACY, "Dis", "Disruptor primary accuracy", "Accuracy percentage of disruptor primary"},
-	{ STATS_TABLE_ACCURACY, "Snp", "Disruptor snipe accuracy", "Accuracy percentage of disruptor snipes"},
-	{ STATS_TABLE_ACCURACY, "Rep", "Repeater blob accuracy", "Accuracy percentage of repeater blobs"},
-	{ STATS_TABLE_ACCURACY, "Gol", "Golan ball accuracy", "Accuracy percentage of golan balls"},
-	{ STATS_TABLE_ACCURACY, "Roc", "Rocket accuracy", "Accuracy percentage of rockets"},
-	{ STATS_TABLE_ACCURACY, "Con", "Concussion rifle primary accuracy", "Accuracy percentage of concussion rifle primary"},
-	{ STATS_TABLE_ACCURACY, "Alt", "Concussion rifle altfire accuracy", "Accuracy percentage of concussion rifle altfire"},
-	{ STATS_TABLE_ACCURACY, "The", "Thermal detonator altfire accuracy", "Accuracy percentage of thermal detonator altfire"},
-	{ STATS_TABLE_EXPERIMENTAL, "Pos", "Position", "CTF position, if 4v4"},
-	{ STATS_TABLE_EXPERIMENTAL, "Fs", "Allied flagstand time", "Percentage of the match spent in the 20 percent of the map closest to your flagstand"},
-	{ STATS_TABLE_EXPERIMENTAL, "Bas", "Allied base time", "Percentage of the match spent in the 20 percent of the map between your flagstand and mid"},
-	{ STATS_TABLE_EXPERIMENTAL, "Mid", "Mid time", "Percentage of the match spent in the middle 20 percent of the map"},
-	{ STATS_TABLE_EXPERIMENTAL, "EBa", "Enemy base time", "Percentage of the match spent in the 20 percent of the map between the enemy flagstand and mid"},
-	{ STATS_TABLE_EXPERIMENTAL, "EFs", "Enemy flagstand time", "Percentage of the match spent in the 20 percent of the map closest to the enemy flagstand"},
-	{ STATS_TABLE_EXPERIMENTAL, "FcKillEff", "Flag carrier kill efficiency", "Percentage of your kills on flag carriers that resulted in the flag being returned by you or a teammate"},
-	{ STATS_TABLE_EXPERIMENTAL, "GetHP", "Average get health points", "Average health+armor total you had when you took the flag from the flagstand"},
+	{ STATS_TABLE_ACCURACY, "^5Pos", "Position", "CTF position, if 4v4"},
+	{ STATS_TABLE_ACCURACY, "^5Acc", "Accuracy", "Total accuracy percentage, only including disrupts, snipes, repeater blobs, golan balls, rockets, alt thermals, and both concs"},
+	{ STATS_TABLE_ACCURACY, "^5Pis", "Pistol altfire accuracy", "Accuracy percentage of pistol altfire (must be charged at least 400ms)"},
+	{ STATS_TABLE_ACCURACY, "^5Dis", "Disruptor primary accuracy", "Accuracy percentage of disruptor primary"},
+	{ STATS_TABLE_ACCURACY, "^5Snp", "Disruptor snipe accuracy", "Accuracy percentage of disruptor snipes"},
+	{ STATS_TABLE_ACCURACY, "^5Rep", "Repeater blob accuracy", "Accuracy percentage of repeater blobs"},
+	{ STATS_TABLE_ACCURACY, "^5Gol", "Golan ball accuracy", "Accuracy percentage of golan balls"},
+	{ STATS_TABLE_ACCURACY, "^5Roc", "Rocket accuracy", "Accuracy percentage of rockets"},
+	{ STATS_TABLE_ACCURACY, "^5Con", "Concussion rifle primary accuracy", "Accuracy percentage of concussion rifle primary"},
+	{ STATS_TABLE_ACCURACY, "^5Alt", "Concussion rifle altfire accuracy", "Accuracy percentage of concussion rifle altfire"},
+	{ STATS_TABLE_ACCURACY, "^5The", "Thermal detonator altfire accuracy", "Accuracy percentage of thermal detonator altfire"},
+	{ STATS_TABLE_EXPERIMENTAL, "^5Pos", "Position", "CTF position, if 4v4"},
+	{ STATS_TABLE_EXPERIMENTAL, "^5Fs", "Allied flagstand time", "Percentage of the match spent in the 20 percent of the map closest to your flagstand"},
+	{ STATS_TABLE_EXPERIMENTAL, "^5Bas", "Allied base time", "Percentage of the match spent in the 20 percent of the map between your flagstand and mid"},
+	{ STATS_TABLE_EXPERIMENTAL, "^5Mid", "Mid time", "Percentage of the match spent in the middle 20 percent of the map"},
+	{ STATS_TABLE_EXPERIMENTAL, "^5EBa", "Enemy base time", "Percentage of the match spent in the 20 percent of the map between the enemy flagstand and mid"},
+	{ STATS_TABLE_EXPERIMENTAL, "^5EFs", "Enemy flagstand time", "Percentage of the match spent in the 20 percent of the map closest to the enemy flagstand"},
+	{ STATS_TABLE_EXPERIMENTAL, "^5GetHP", "Average get health points", "Average health+armor total you had when you took the flag from the flagstand"},
 }; // important: make sure any new stats do not conflict with /stats help subcommands that print entire categories (e.g. "ex")
 
 const char *StatsHelpTableCallback_Category(void *rowContext, void *columnContext) {
