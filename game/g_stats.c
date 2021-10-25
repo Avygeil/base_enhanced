@@ -1214,9 +1214,9 @@ stats_t *GetStatsFromString(const char *str) {
 		if (ent->inuse && ent->client && ent->client->pers.connected != CON_DISCONNECTED && ent->client->stats && StatsValid(ent->client->stats) &&
 			(ent->client->stats->lastTeam == TEAM_RED || ent->client->stats->lastTeam == TEAM_BLUE)) {
 			char *cleanPlayerName = strdup(ent->client->pers.netname[0] ? ent->client->pers.netname : "Padawan");
-			Q_CleanStr(cleanPlayerName);
+			Q_StripColor(cleanPlayerName);
 			char *cleanQuery = strdup(str);
-			Q_CleanStr(cleanQuery);
+			Q_StripColor(cleanQuery);
 			if (!Q_stricmp(cleanQuery, cleanPlayerName)) {
 				free(cleanPlayerName);
 				free(cleanQuery);
@@ -1226,7 +1226,7 @@ stats_t *GetStatsFromString(const char *str) {
 
 			if (ent->client->account && ent->client->account->name[0]) {
 				char *cleanAccountName = strdup(ent->client->account->name);
-				Q_CleanStr(cleanAccountName);
+				Q_StripColor(cleanAccountName);
 				if (!Q_stricmp(cleanQuery, cleanAccountName)) {
 					free(cleanAccountName);
 					free(cleanQuery);
@@ -1246,9 +1246,9 @@ stats_t *GetStatsFromString(const char *str) {
 		stats_t *s = IteratorNext(&iter);
 		if (StatsValid(s) && (s->lastTeam == TEAM_RED || s->lastTeam == TEAM_BLUE)) {
 			char *cleanPlayerName = strdup(s->name);
-			Q_CleanStr(cleanPlayerName);
+			Q_StripColor(cleanPlayerName);
 			char *cleanQuery = strdup(str);
-			Q_CleanStr(cleanQuery);
+			Q_StripColor(cleanQuery);
 			if (!Q_stricmp(cleanQuery, cleanPlayerName)) {
 				free(cleanPlayerName);
 				free(cleanQuery);
@@ -1258,7 +1258,7 @@ stats_t *GetStatsFromString(const char *str) {
 
 			if (s->accountId != ACCOUNT_ID_UNLINKED && s->accountName[0]) {
 				char *cleanAccountName = strdup(s->accountName);
-				Q_CleanStr(cleanAccountName);
+				Q_StripColor(cleanAccountName);
 				if (!Q_stricmp(cleanQuery, cleanAccountName)) {
 					free(cleanAccountName);
 					free(cleanQuery);
@@ -1276,9 +1276,9 @@ stats_t *GetStatsFromString(const char *str) {
 		if (ent->inuse && ent->client && ent->client->pers.connected != CON_DISCONNECTED && ent->client->stats && StatsValid(ent->client->stats) &&
 			(ent->client->stats->lastTeam == TEAM_RED || ent->client->stats->lastTeam == TEAM_BLUE)) {
 			char *cleanPlayerName = strdup(ent->client->pers.netname[0] ? ent->client->pers.netname : "Padawan");
-			Q_CleanStr(cleanPlayerName);
+			Q_StripColor(cleanPlayerName);
 			char *cleanQuery = strdup(str);
-			Q_CleanStr(cleanQuery);
+			Q_StripColor(cleanQuery);
 			if (stristr(cleanPlayerName, cleanQuery)) {
 				free(cleanPlayerName);
 				free(cleanQuery);
@@ -1288,7 +1288,7 @@ stats_t *GetStatsFromString(const char *str) {
 
 			if (ent->client->account && ent->client->account->name[0]) {
 				char *cleanAccountName = strdup(ent->client->account->name);
-				Q_CleanStr(cleanAccountName);
+				Q_StripColor(cleanAccountName);
 				if (stristr(cleanAccountName, cleanQuery)) {
 					free(cleanAccountName);
 					free(cleanQuery);
@@ -1307,9 +1307,9 @@ stats_t *GetStatsFromString(const char *str) {
 		stats_t *s = IteratorNext(&iter);
 		if (StatsValid(s) && (s->lastTeam == TEAM_RED || s->lastTeam == TEAM_BLUE)) {
 			char *cleanPlayerName = strdup(s->name);
-			Q_CleanStr(cleanPlayerName);
+			Q_StripColor(cleanPlayerName);
 			char *cleanQuery = strdup(str);
-			Q_CleanStr(cleanQuery);
+			Q_StripColor(cleanQuery);
 			if (stristr(cleanPlayerName, cleanQuery)) {
 				free(cleanPlayerName);
 				free(cleanQuery);
@@ -1319,7 +1319,7 @@ stats_t *GetStatsFromString(const char *str) {
 
 			if (s->accountId != ACCOUNT_ID_UNLINKED && s->accountName[0]) {
 				char *cleanAccountName = strdup(s->accountName);
-				Q_CleanStr(cleanAccountName);
+				Q_StripColor(cleanAccountName);
 				if (stristr(cleanAccountName, cleanQuery)) {
 					free(cleanAccountName);
 					free(cleanQuery);
@@ -1604,7 +1604,7 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 		while (IteratorHasNext(&iter)) {
 			gotPlayer_t *player = IteratorNext(&iter);
 			char *clean = strdup(player->stats->name);
-			Q_CleanStr(clean);
+			Q_StripColor(clean);
 			//Q_strupr(clean);
 			char *name;
 			ctfPosition_t pos = DetermineCTFPosition(player->stats);
