@@ -2853,6 +2853,8 @@ void BeginIntermission(void) {
 	// send the current scoring to all clients
 	SendScoreboardMessageToAllClients();
 
+	FinalizeCTFPositions();
+
 	char statsBuf[16384] = { 0 };
 
 	if (g_autoStats.integer) {
@@ -2891,14 +2893,20 @@ void BeginIntermission(void) {
 		// * both averages are within +/- 0.1 of their rounded values
 		// (accounts for subs, ragequits, random joins... 0.1 represents 2 mins of a 20 mins pug)
 		if (level.wasRestarted &&
+#ifdef DEBUG_CTF_POSITION_STATS
+			qtrue)
+#else
 			durationMins >= 10 &&
 			avgRedInt == avgBlueInt &&
 			avgRedInt + avgBlueInt >= 4 &&
 			fabs(avgRed - round(avgRed)) < 0.1f &&
 			fabs(avgBlue - round(avgBlue)) < 0.1f)
+#endif
 		{
 			G_PostScoreboardToWebhook(statsBuf);
 			G_DBAddCurrentMapToPlayedMapsList();
+			if (avgRedInt == 4 && avgBlueInt == 4) // only write stats to db in 4v4
+				G_DBWritePugStats();
 		}
 	}
 }
@@ -5259,7 +5267,6 @@ static void AddPlayerTick(team_t team, gentity_t *ent) {
 
 	// if i don't have the flag, i've been alive at least a few seconds, and i've done some input within the last few seconds, log my data
 	if (redFs && blueFs &&
-		!HasFlag(ent) &&
 		level.time - ent->client->pers.lastSpawnTime >= CTFPOS_POSTSPAWN_DELAY &&
 		trap_Milliseconds() - ent->client->lastInputTime < 5000) {
 		float allyDist = Distance2D(ent->r.currentOrigin, team == TEAM_RED ? redFs->r.currentOrigin : blueFs->r.currentOrigin);
@@ -5275,8 +5282,15 @@ static void AddPlayerTick(team_t team, gentity_t *ent) {
 			add = allyDist / diffBetweenFlags;
 
 		// note our own positioning
-		ent->client->stats->totalPosition += add;
-		++ent->client->stats->numPositionSamples;
+		++ent->client->stats->numTicksIngame;
+		if (HasFlag(ent)) {
+			ent->client->stats->totalPositionWithFlag += add;
+			++ent->client->stats->numPositionSamplesWithFlag;
+		}
+		else {
+			ent->client->stats->totalPositionWithoutFlag += add;
+			++ent->client->stats->numPositionSamplesWithoutFlag;
+		}
 
 		// record our positioning in everyone else's stats so that people's positioning can only be compared to people they were ingame contemporaneously with
 		for (int i = 0; i < MAX_CLIENTS; i++) {
@@ -5288,8 +5302,15 @@ static void AddPlayerTick(team_t team, gentity_t *ent) {
 				data = ListAdd(&other->client->stats->teammatePositioningList, sizeof(ctfPositioningData_t));
 				data->stats = cl->stats;
 			}
-			data->totalPosition += add;
-			++data->numPositionSamples;
+			++data->numTicksIngameTogether;
+			if (HasFlag(ent)) {
+				data->totalPositionWithFlag += add;
+				++data->numPositionSamplesWithFlag;
+			}
+			else {
+				data->totalPositionWithoutFlag += add;
+				++data->numPositionSamplesWithoutFlag;
+			}
 		}
 	}
 
@@ -5910,7 +5931,7 @@ void G_RunFrame( int levelTime ) {
 	// get any cvar changes
 	G_UpdateCvars();
 
-
+	ChangeToNextStatsBlockIfNeeded();
 
 #ifdef _G_FRAME_PERFANAL
 	trap_PrecisionTimer_Start(&timer_ItemRun);

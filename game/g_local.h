@@ -918,6 +918,12 @@ typedef struct { //Should this store their g2 anim? for proper g2 sync?
 	float	realAngle; //Only the [YAW] is ever used for hit detection
 } clientTrail_t;
 
+//
+// g_stats.c
+//
+#define CTF_SAVE_DISTANCE_THRESHOLD		(200)
+#define CTFPOS_POSTSPAWN_DELAY			(3000) // wait a little while after spawning before we log position data
+
 typedef enum {
 	CTFREGION_INVALID = -1,
 	CTFREGION_FLAGSTAND = 0,
@@ -966,8 +972,34 @@ typedef enum {
 	ACC_MAX
 } accuracyCategory_t;
 
+typedef enum {
+	CTFPOSITION_UNKNOWN = 0,
+	CTFPOSITION_BASE,
+	CTFPOSITION_CHASE,
+	CTFPOSITION_OFFENSE
+} ctfPosition_t;
+typedef enum {
+	STATS_TABLE_FIRST = 0,
+	STATS_TABLE_GENERAL = STATS_TABLE_FIRST,
+	STATS_TABLE_FORCE,
+	STATS_TABLE_DAMAGE,
+	STATS_TABLE_WEAPON_GIVEN,
+	STATS_TABLE_WEAPON_TAKEN,
+	STATS_TABLE_ACCURACY,
+	STATS_TABLE_EXPERIMENTAL,
+	NUM_STATS_TABLES
+} statsTableType_t;
+void InitClientStats(gclient_t *cl);
+void ChangeStatsTeam(gclient_t *cl);
+ctfRegion_t GetCTFRegion(gentity_t *ent);
+meansOfDeathCategory_t MeansOfDeathCategoryForMeansOfDeath(meansOfDeath_t mod);
+accuracyCategory_t AccuracyCategoryForProjectile(gentity_t *projectile);
+void ChangeToNextStatsBlockIfNeeded(void);
+
 typedef struct {
 	node_t		node;
+
+	int			blockNum;
 
 	qboolean	isBot;
 	qboolean	isTotal; // used to denote that this is the total stat for a team (for display purposes)
@@ -1036,11 +1068,6 @@ typedef struct {
 	int			rageTimeUsed;
 	int			drain;
 	int			gotDrained;
-	int			regionTime[NUM_CTFREGIONS];
-	int			regionPercent[NUM_CTFREGIONS];
-	float		totalPosition;
-	int			numPositionSamples;
-	int			ticksNotPaused;
 
 	list_t		teammatePositioningList; // record of positioning for people i was ingame with
 
@@ -1050,7 +1077,51 @@ typedef struct {
 	int			numGets;
 	int			getTotalHealth;
 	int			averageGetHealth; // this is only calculated on demand; don't just randomly read this (imagine getters in C)
+
+	int			regionTime[NUM_CTFREGIONS];
+	int			regionPercent[NUM_CTFREGIONS];
+	float		totalPositionWithFlag; // only counts 3+ seconds after spawning
+	int			numPositionSamplesWithFlag; // only counts 3+ seconds after spawning
+	float		totalPositionWithoutFlag; // only counts 3+ seconds after spawning
+	int			numPositionSamplesWithoutFlag; // only counts 3+ seconds after spawning
+	int			ticksNotPaused; // all ticks this player has been ingame for while not paused. used to determine total ingame time
+	int			numTicksIngame; // similar to ticksNotPaused but they can't be afk. used to determine positions (being afk adversely affects position accuracy)
+	ctfPosition_t	lastPosition; // if applicable
+	int			confirmedPositionBits; // list of all positions this person has ever played in this pug on this team
+
+	ctfPosition_t	finalPosition; // set only when confirmed; overrides everything else if set
 } stats_t;
+
+typedef struct {
+	node_t		node;
+	stats_t		*stats;
+	int			numTicksIngameTogether;
+	float		totalPositionWithFlag;
+	int			numPositionSamplesWithFlag;
+	float		totalPositionWithoutFlag;
+	int			numPositionSamplesWithoutFlag;
+} ctfPositioningData_t;
+void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t outSize, qboolean announce, stats_t *weaponStatsPtr);
+qboolean StatsValid(const stats_t *stats);
+stats_t *GetStatsFromString(const char *str);
+int *GetDamageGivenStat(stats_t *attacker, stats_t *victim);
+int *GetDamageGivenStatOfType(stats_t *attacker, stats_t *victim, meansOfDeathCategory_t modc);
+int *GetDamageTakenStat(stats_t *attacker, stats_t *victim);
+int *GetDamageTakenStatOfType(stats_t *attacker, stats_t *victim, meansOfDeathCategory_t modc);
+ctfPosition_t DetermineCTFPosition(stats_t *posGuy);
+void FinalizeCTFPositions(void);
+
+#ifdef DEBUG_CTF_POSITION_STATS
+#define CTFPOSITION_MINIMUM_SECONDS		(30) // 30 seconds minimum for pos detection
+#else
+#define CTFPOSITION_MINIMUM_SECONDS		(60) // 60 seconds minimum for pos detection
+#endif
+
+#ifdef DEBUG_CTF_POSITION_STATS
+#define STATS_BLOCK_DURATION	(60 * 1000) // 1 minute blocks
+#else
+#define STATS_BLOCK_DURATION	(300 * 1000) // 5 minute blocks
+#endif
 
 typedef struct {
 	node_t		node;
@@ -1646,6 +1717,7 @@ typedef struct {
 	list_t			redPlayerTickList;
 	list_t			bluePlayerTickList;
 	list_t			statsList;
+	list_t			savedStatsList;
 	stats_t			npcStatsDummy; // so we don't have to spam `if (client->stats)` everywhere before setting stats, just have all NPCs share one stats pointer
 
 #ifdef NEWMOD_SUPPORT
@@ -1674,6 +1746,7 @@ typedef struct {
 
 	list_t				*aimPracticePackList;
 
+	int statBlock; // e.g. if level.time - level.startTime is 0 through 299999 this is 0; if level.time - level.startTime is 300000 this is 1
 } level_locals_t;
 
 
@@ -2135,45 +2208,6 @@ void G_BroadcastServerFeatureList(int clientNum);
 void G_PrintWelcomeMessage(gclient_t* client);
 extern gentity_t *gJMSaberEnt;
 void TellPlayerToRateMap(gclient_t *client);
-
-//
-// g_stats.c
-//
-#define CTF_SAVE_DISTANCE_THRESHOLD		(200)
-#define CTFPOS_POSTSPAWN_DELAY			(3000) // wait a little while after spawning before we log position data
-typedef enum {
-	CTFPOSITION_UNKNOWN = 0,
-	CTFPOSITION_BASE,
-	CTFPOSITION_CHASE,
-	CTFPOSITION_OFFENSE
-} ctfPosition_t;
-typedef enum {
-	STATS_TABLE_GENERAL = 0,
-	STATS_TABLE_FORCE,
-	STATS_TABLE_DAMAGE,
-	STATS_TABLE_WEAPON_GIVEN,
-	STATS_TABLE_WEAPON_TAKEN,
-	STATS_TABLE_ACCURACY,
-	STATS_TABLE_EXPERIMENTAL
-} statsTableType_t;
-typedef struct {
-	node_t		node;
-	stats_t		*stats;
-	float		totalPosition;
-	int			numPositionSamples;
-} ctfPositioningData_t;
-qboolean StatsValid(const stats_t *stats);
-void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t outSize, qboolean announce, stats_t *weaponStatsPtr);
-void InitClientStats(gclient_t *cl);
-void ChangeStatsTeam(gclient_t *cl);
-int *GetDamageGivenStat(stats_t *attacker, stats_t *victim);
-int *GetDamageGivenStatOfType(stats_t *attacker, stats_t *victim, meansOfDeathCategory_t modc);
-int *GetDamageTakenStat(stats_t *attacker, stats_t *victim);
-int *GetDamageTakenStatOfType(stats_t *attacker, stats_t *victim, meansOfDeathCategory_t modc);
-ctfRegion_t GetCTFRegion(gentity_t *ent);
-stats_t *GetStatsFromString(const char *str);
-meansOfDeathCategory_t MeansOfDeathCategoryForMeansOfDeath(meansOfDeath_t mod);
-accuracyCategory_t AccuracyCategoryForProjectile(gentity_t *projectile);
 
 //
 // g_svcmds.c

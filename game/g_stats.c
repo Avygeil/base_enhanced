@@ -104,6 +104,11 @@ stats_t bestStats[TEAM_NUM_TEAMS] = { 0 }; // e.g. bestStats[TEAM_RED].captures 
 typedef struct {
 	float average;
 	int numberOfSamples;
+	ctfPosition_t forcePos;
+	int energizes;
+	int gets;
+	ctfPosition_t lastPosition;
+	int idNum;
 } ctfPositioningDataQuick_t;
 
 int ComparePositioningDataAverages(const void *a, const void *b) {
@@ -122,8 +127,6 @@ int MoveAfksToEnd(const void *a, const void *b) {
 	return 0;
 }
 
-#define CTFPOSITION_MINIMUM_SECONDS		(10)
-
 // determine 4v4 ctf position based on average location
 // we track your position relative to the flagstands:
 // 0 == on top of your fs
@@ -134,8 +137,15 @@ int MoveAfksToEnd(const void *a, const void *b) {
 // this seems to reliably result in distributions where the two offense players have the top values,
 // the base player has the lowest value, and the chase player is somewhere in the middle
 ctfPosition_t DetermineCTFPosition(stats_t *posGuy) {
-	if (!level.wasRestarted || level.someoneWasAFK || (level.time - level.startTime) < (CTFPOSITION_MINIMUM_SECONDS * 1000) || !posGuy || !StatsValid(posGuy))
-		return CTFPOSITION_UNKNOWN;
+	assert(posGuy);
+
+	if (posGuy->finalPosition)
+		return posGuy->finalPosition;
+
+	if (!level.wasRestarted || level.someoneWasAFK ||
+		(level.time - level.startTime) < (CTFPOSITION_MINIMUM_SECONDS * 1000) || !posGuy || !StatsValid(posGuy) ||
+		posGuy->lastTeam == TEAM_SPECTATOR || posGuy->lastTeam == TEAM_FREE)
+		return posGuy->lastPosition;
 
 	// we only care about 4v4
 	float avgRed = (float)level.numRedPlayerTicks / (float)level.numTeamTicks;
@@ -143,45 +153,66 @@ ctfPosition_t DetermineCTFPosition(stats_t *posGuy) {
 	int avgRedInt = (int)lroundf(avgRed);
 	int avgBlueInt = (int)lroundf(avgBlue);
 	if (avgRedInt != 4 || avgBlueInt != 4)
-		return CTFPOSITION_UNKNOWN;
+		return posGuy->lastPosition;
 
-	// if i haven't been ingame for 30+ seconds, don't bother
-	if (posGuy->numPositionSamples < g_svfps.integer * CTFPOSITION_MINIMUM_SECONDS)
-		return CTFPOSITION_UNKNOWN;
+	// if i haven't been ingame for 60+ seconds, just reuse their last position if possible
+	if (posGuy->numTicksIngame < g_svfps.integer * CTFPOSITION_MINIMUM_SECONDS)
+		return posGuy->lastPosition;
 
-	float posGuyAverage = posGuy->totalPosition / (float)posGuy->numPositionSamples;
+	// if they have held the flag for this entire block, just reuse their last position
+	// this is obviously not possible on the first block, so lastPosition should be valid
+	if (!posGuy->numPositionSamplesWithoutFlag)
+		return posGuy->lastPosition;
 
-	// figure out how many people i was ingame with for 30+ seconds while they weren't afk
+	float posGuyAverage = posGuy->totalPositionWithoutFlag / (float)posGuy->numPositionSamplesWithoutFlag;
+
+	// figure out how many people i was ingame with for 60+ seconds while they weren't afk
 	iterator_t iter;
 	ListIterate(&posGuy->teammatePositioningList, &iter, qfalse);
 	int numTeammates = 0;
 	while (IteratorHasNext(&iter)) {
 		ctfPositioningData_t *teammate = IteratorNext(&iter);
-		if (!StatsValid(teammate->stats) || teammate->numPositionSamples < g_svfps.integer * CTFPOSITION_MINIMUM_SECONDS)
+		if (!StatsValid(teammate->stats) || teammate->numTicksIngameTogether < g_svfps.integer * CTFPOSITION_MINIMUM_SECONDS)
 			continue;
 		++numTeammates;
 	}
 
 	// require at least three teammates
 	if (numTeammates < 3)
-		return CTFPOSITION_UNKNOWN;
+		return posGuy->lastPosition;
 
 	// add our own guy to the array
-	ctfPositioningDataQuick_t *data = malloc((numTeammates + 1) * sizeof(ctfPositioningDataQuick_t));
+	ctfPositioningDataQuick_t *data = calloc(numTeammates + 1, sizeof(ctfPositioningDataQuick_t));
 	data->average = posGuyAverage;
 	data->numberOfSamples = INT_MAX;
+	data->energizes = posGuy->numEnergizes;
+	data->lastPosition = posGuy->lastPosition;
+	data->idNum = 0;
 	int index = 1;
 
 	// add everyone else to the array
 	ListIterate(&posGuy->teammatePositioningList, &iter, qfalse);
 	while (IteratorHasNext(&iter)) {
 		ctfPositioningData_t *teammate = IteratorNext(&iter);
-		if (!StatsValid(teammate->stats) || teammate->numPositionSamples < g_svfps.integer * CTFPOSITION_MINIMUM_SECONDS)
+		if (!StatsValid(teammate->stats) || teammate->numTicksIngameTogether < g_svfps.integer * CTFPOSITION_MINIMUM_SECONDS)
 			continue;
-		float average = teammate->totalPosition / (float)teammate->numPositionSamples;
 		ctfPositioningDataQuick_t *thisGuyData = data + index++;
-		thisGuyData->average = average;
-		thisGuyData->numberOfSamples = teammate->numPositionSamples;
+
+		thisGuyData->numberOfSamples = teammate->numTicksIngameTogether;
+		thisGuyData->energizes = teammate->stats->numEnergizes;
+		thisGuyData->gets = teammate->stats->numGets;
+		thisGuyData->lastPosition = teammate->stats->lastPosition;
+		thisGuyData->idNum = index;
+
+		if (!teammate->numPositionSamplesWithoutFlag) {
+			// this guy has been ingame for 60+ seconds but has been holding the flag the entire time for this block
+			// force him to use his old position
+			thisGuyData->forcePos = teammate->stats->lastPosition;
+		}
+		else {
+			float average = teammate->totalPositionWithoutFlag / (float)teammate->numPositionSamplesWithoutFlag;
+			thisGuyData->average = average;
+		}
 	}
 
 	// if more than three teammates, trim the array to three based on who we played with the most
@@ -193,10 +224,106 @@ ctfPosition_t DetermineCTFPosition(stats_t *posGuy) {
 	// sort the array such that people who stayed close to their flagstand are lower
 	qsort(data, 4, sizeof(ctfPositioningDataQuick_t), ComparePositioningDataAverages);
 
+	// see if anyone needs to be forced to a particular position
+	qboolean resort = qfalse;
+	for (int i = 0; i < 4; i++) {
+		ctfPositioningDataQuick_t *d = data + i;
+		if (!d->forcePos)
+			continue;
+		if (!i && d->forcePos == CTFPOSITION_BASE ||
+			i == 1 && d->forcePos == CTFPOSITION_CHASE ||
+			(i == 2 || i == 3) && d->forcePos == CTFPOSITION_OFFENSE)
+			continue; // it's already the pos it needs to be
+
+		if (d->forcePos == CTFPOSITION_BASE)
+			d->average = -999;
+		else if (d->forcePos == CTFPOSITION_CHASE)
+			d->average = (data + 1)->average - 0.000001f;
+		else if (d->forcePos == CTFPOSITION_OFFENSE)
+			d->average = 999;
+		
+		qsort(data, 4, sizeof(ctfPositioningDataQuick_t), ComparePositioningDataAverages);
+		break; // there should only be at most one forced guy
+	}
+
+	ctfPositioningDataQuick_t *base = data + 0;
+	ctfPositioningDataQuick_t *chase = data + 1;
+	ctfPositioningDataQuick_t *offense1 = data + 2;
+	ctfPositioningDataQuick_t *offense2 = data + 3;
+
+	// edge case: chase and base average positions are extremely close together
+	if (chase->average - base->average < 0.03f) {
+		if (chase->lastPosition == CTFPOSITION_BASE && base->lastPosition == CTFPOSITION_CHASE &&
+			!chase->forcePos && !base->forcePos) {
+			// the supposed chase was confirmed base last block and the supposed base was confirmed chase last block; just reuse those positions
+			chase = data + 0;
+			base = data + 1;
+		}
+		else if (!chase->lastPosition && !base->lastPosition && chase->energizes > base->energizes &&
+			!chase->forcePos && !base->forcePos) {
+			// they don't have confirmed last positions; just go with the person who has more energizes
+			chase = data + 0;
+			base = data + 1;
+		}
+	}
+
+	// edge case: chase and offense average positions are extremely close together
+	if (offense1->average - chase->average < 0.03f) {
+		if (offense2->average - chase->average < 0.03f) { // also include the other offense player
+			if (chase->lastPosition == CTFPOSITION_OFFENSE && offense1->lastPosition == CTFPOSITION_CHASE &&
+				!chase->forcePos && !offense1->forcePos) {
+				// the supposed chase was confirmed offense last block and the supposed offense1 was confirmed chase last block; just reuse those positions
+				chase = data + 2;
+				offense1 = data + 1;
+			}
+			else if (chase->lastPosition == CTFPOSITION_OFFENSE && offense2->lastPosition == CTFPOSITION_CHASE &&
+				!chase->forcePos && !offense2->forcePos) {
+				// the supposed chase was confirmed offense last block and the supposed offense2 was confirmed chase last block; just reuse those positions
+				chase = data + 3;
+				offense2 = data + 1;
+			}
+			else {
+				// see who has the lowest number of gets
+				int lowestGets = 999999, lowestGetsIndex = -1;
+				for (int i = 3; i > 0; i--) {
+					if ((data + i)->gets <= lowestGets) {
+						lowestGets = (data + i)->gets;
+						lowestGetsIndex = i;
+					}
+				}
+
+				if (lowestGetsIndex == 2 && !chase->forcePos && !offense1->forcePos) {
+					// the supposed offense1 has fewer gets than the supposed chase; determine that the supposed offense1 is actually the chase
+					chase = data + 2;
+					offense1 = data + 1;
+				}
+				else if (lowestGetsIndex == 3 && !chase->forcePos && !offense2->forcePos) {
+					// the supposed offense2 has fewer gets than the supposed chase; determine that the supposed offense2 is actually the chase
+					chase = data + 3;
+					offense2 = data + 1;
+				}
+			}
+		}
+		else { // just deal with these two players
+			if (chase->lastPosition == CTFPOSITION_OFFENSE && offense1->lastPosition == CTFPOSITION_CHASE &&
+				!chase->forcePos && !offense1->forcePos) {
+				// the supposed chase was confirmed offense last block and the supposed offense1 was confirmed chase last block; just reuse those positions
+				chase = data + 2;
+				offense1 = data + 1;
+			}
+			else if (offense1->gets < chase->gets && !chase->forcePos && !offense1->forcePos) {
+				// the supposed offense1 has fewer gets than the supposed chase; determine that the supposed offense1 is actually the chase
+				chase = data + 2;
+				offense1 = data + 1;
+			}
+		}
+	}
+
+	// our guy's pos is the one with the id number of zero
 	ctfPosition_t pos;
-	if (posGuyAverage == data->average)
+	if (!base->idNum)
 		pos = CTFPOSITION_BASE;
-	else if (posGuyAverage == (data + 1)->average)
+	else if (!chase->idNum)
 		pos = CTFPOSITION_CHASE;
 	else
 		pos = CTFPOSITION_OFFENSE;
@@ -213,22 +340,39 @@ const char *CtfStatsTableCallback_Position(void *rowContext, void *columnContext
 	stats_t *stats = rowContext;
 	if (stats->isTotal)
 		return NULL;
-	ctfPosition_t pos = DetermineCTFPosition(stats);
-#if defined(_DEBUG) && defined(DEBUGCTFPOSITIONS)
-	float average = stats->numPositionSamples ? stats->totalPosition / (float)stats->numPositionSamples : 0.0f;
+	ctfPosition_t pos = stats->finalPosition ? stats->finalPosition : DetermineCTFPosition(stats);
+
+	if (!pos)
+		return NULL; // no position
+
+	char buf[MAX_STRING_CHARS] = { 0 };;
 	switch (pos) {
-	case CTFPOSITION_BASE: return va("Base (%0.3f)", average);
-	case CTFPOSITION_CHASE: return va("Chase (%0.3f)", average);
-	case CTFPOSITION_OFFENSE: return va("Offense (%0.3f)", average);
-	default: return va("Unknown (%0.3f)", average);
-#else
-	switch (pos) {
-	case CTFPOSITION_BASE: return "Bas";
-	case CTFPOSITION_CHASE: return "Cha";
-	case CTFPOSITION_OFFENSE: return "Off";
-	default: return NULL;
-#endif
+	case CTFPOSITION_BASE: Q_strncpyz(buf, "Bas", sizeof(buf)); break;
+	case CTFPOSITION_CHASE: Q_strncpyz(buf, "Cha", sizeof(buf)); break;
+	case CTFPOSITION_OFFENSE: Q_strncpyz(buf, "Off", sizeof(buf)); break;
 	}
+
+	qboolean gotOldPos = qfalse;
+	for (ctfPosition_t p = CTFPOSITION_BASE; p <= CTFPOSITION_OFFENSE; p++) {
+		char *thisPosStr;
+		switch (p) {
+		case CTFPOSITION_BASE: thisPosStr = "Bas"; break;
+		case CTFPOSITION_CHASE: thisPosStr = "Cha"; break;
+		case CTFPOSITION_OFFENSE: thisPosStr = "Off"; break;
+		}
+
+		if (pos != p && (stats->confirmedPositionBits & (1 << p))) {
+			if (gotOldPos)
+				Q_strcat(buf, sizeof(buf), va("/%s", thisPosStr));
+			else
+				Q_strcat(buf, sizeof(buf), va(" ^9(%s", thisPosStr));
+			gotOldPos = qtrue;
+		}
+	}
+	if (gotOldPos)
+		Q_strcat(buf, sizeof(buf), ")");
+
+	return va("%s", buf);
 }
 
 const char *CtfStatsTableCallback_Time(void *rowContext, void *columnContext) {
@@ -1027,14 +1171,19 @@ static qboolean PlayerMatches(genericNode_t *node, void *userData) {
 // try to prevent people who join and immediately go spec from showing up on stats
 qboolean StatsValid(const stats_t *stats) {
 	int svFps = g_svfps.integer ? g_svfps.integer : 30; // prevent divide by zero
+#ifdef DEBUG_CTF_POSITION_STATS
+	if (stats->ticksNotPaused >= 1)
+		return qtrue;
+#else
 	if (stats->isBot || stats->displacementSamples / svFps >= 1 || stats->damageDealtTotal || stats->damageTakenTotal)
 		return qtrue;
+#endif
 	return qfalse;
 }
 
-#define AddStatToTotal(field) do { team->field += player->field; }  while (0)
-static void AddStatsToTotal(stats_t *player, stats_t *team, statsTableType_t type, stats_t *weaponStatsPtr) {
-	assert(player && team);
+#define AddStatToTotal(field) do { total->field += player->field; }  while (0)
+void AddStatsToTotal(stats_t *player, stats_t *total, statsTableType_t type, stats_t *weaponStatsPtr) {
+	assert(player && total);
 
 	if (type == STATS_TABLE_GENERAL) {
 		AddStatToTotal(score);
@@ -1043,14 +1192,14 @@ static void AddStatsToTotal(stats_t *player, stats_t *team, statsTableType_t typ
 		AddStatToTotal(defends);
 		AddStatToTotal(accuracy_shots);
 		AddStatToTotal(accuracy_hits);
-		team->accuracy = team->accuracy_shots ? team->accuracy_hits * 100 / team->accuracy_shots : 0;
+		total->accuracy = total->accuracy_shots ? total->accuracy_hits * 100 / total->accuracy_shots : 0;
 		AddStatToTotal(airs);
 		AddStatToTotal(pits);
 		AddStatToTotal(pitted);
 		AddStatToTotal(fcKills);
 		AddStatToTotal(fcKills);
 		AddStatToTotal(fcKillsResultingInRets);
-		team->fcKillEfficiency = team->fcKills ? team->fcKillsResultingInRets * 100 / team->fcKills : 0;
+		total->fcKillEfficiency = total->fcKills ? total->fcKillsResultingInRets * 100 / total->fcKills : 0;
 		AddStatToTotal(flagCarrierDamageDealtTotal);
 		AddStatToTotal(flagCarrierDamageTakenTotal);
 		AddStatToTotal(clearDamageDealtTotal);
@@ -1065,7 +1214,7 @@ static void AddStatsToTotal(stats_t *player, stats_t *team, statsTableType_t typ
 		AddStatToTotal(armorPickedUp);
 		AddStatToTotal(totalFlagHold);
 		AddStatToTotal(numFlagHolds);
-		team->averageFlagHold = team->numFlagHolds ? team->totalFlagHold / team->numFlagHolds : 0;
+		total->averageFlagHold = total->numFlagHolds ? total->totalFlagHold / total->numFlagHolds : 0;
 		AddStatToTotal(longestFlagHold);
 		AddStatToTotal(saves);
 		AddStatToTotal(damageDealtTotal);
@@ -1073,10 +1222,10 @@ static void AddStatsToTotal(stats_t *player, stats_t *team, statsTableType_t typ
 		AddStatToTotal(topSpeed);
 		AddStatToTotal(displacement);
 		AddStatToTotal(displacementSamples);
-		if (team->displacementSamples)
-			team->averageSpeed = (int)floorf(((team->displacement * g_svfps.value) / team->displacementSamples) + 0.5f);
+		if (total->displacementSamples)
+			total->averageSpeed = (int)floorf(((total->displacement * g_svfps.value) / total->displacementSamples) + 0.5f);
 		else
-			team->averageSpeed = (int)(team->topSpeed + 0.5f);
+			total->averageSpeed = (int)(total->topSpeed + 0.5f);
 	}
 	else if (type == STATS_TABLE_FORCE) {
 		AddStatToTotal(boonPickups);
@@ -1086,7 +1235,7 @@ static void AddStatsToTotal(stats_t *player, stats_t *team, statsTableType_t typ
 		AddStatToTotal(energizedAlly);
 		AddStatToTotal(numEnergizes);
 		AddStatToTotal(normalizedEnergizeAmounts);
-		team->energizeEfficiency = team->numEnergizes ? team->normalizedEnergizeAmounts * 100 / team->numEnergizes : 0;
+		total->energizeEfficiency = total->numEnergizes ? total->normalizedEnergizeAmounts * 100 / total->numEnergizes : 0;
 		AddStatToTotal(energizedEnemy);
 		AddStatToTotal(absorbed);
 		AddStatToTotal(protDamageAvoided);
@@ -1104,7 +1253,7 @@ static void AddStatsToTotal(stats_t *player, stats_t *team, statsTableType_t typ
 				continue;
 
 			iterator_t iter2;
-			ListIterate(&team->damageGivenList, &iter2, qfalse);
+			ListIterate(&total->damageGivenList, &iter2, qfalse);
 			damageCounter_t *found = NULL;
 			while (IteratorHasNext(&iter2)) {
 				damageCounter_t *thisDamageGivenByTeam = IteratorNext(&iter2);
@@ -1115,7 +1264,7 @@ static void AddStatsToTotal(stats_t *player, stats_t *team, statsTableType_t typ
 			}
 
 			if (!found) {
-				found = ListAdd(&team->damageGivenList, sizeof(damageCounter_t));
+				found = ListAdd(&total->damageGivenList, sizeof(damageCounter_t));
 				found->otherPlayerSessionId = thisDamageGivenByPlayer->otherPlayerSessionId;
 				found->otherPlayerAccountId = thisDamageGivenByPlayer->otherPlayerAccountId;
 				found->otherPlayerIsBot = thisDamageGivenByPlayer->otherPlayerIsBot;
@@ -1130,13 +1279,13 @@ static void AddStatsToTotal(stats_t *player, stats_t *team, statsTableType_t typ
 				for (int i = MODC_FIRST; i < MODC_ALL_TYPES_COMBINED; i++) {
 					int *dmg = GetDamageGivenStatOfType(weaponStatsPtr, player, i);
 					if (dmg)
-						team->damageOfType[i] += *dmg;
+						total->damageOfType[i] += *dmg;
 				}
 			}
 			else {
 				int *dmg = GetDamageGivenStatOfType(weaponStatsPtr, player, i);
 				if (dmg && *dmg > bestStats[player->lastTeam].damageOfType[i])
-					team->damageOfType[i] += *dmg;
+					total->damageOfType[i] += *dmg;
 			}
 		}
 	}
@@ -1146,38 +1295,38 @@ static void AddStatsToTotal(stats_t *player, stats_t *team, statsTableType_t typ
 				for (int i = MODC_FIRST; i < MODC_ALL_TYPES_COMBINED; i++) {
 					int *dmg = GetDamageTakenStatOfType(player, weaponStatsPtr, i);
 					if (dmg)
-						team->damageOfType[i] += *dmg;
+						total->damageOfType[i] += *dmg;
 				}
 			}
 			else {
 				int *dmg = GetDamageTakenStatOfType(player, weaponStatsPtr, i);
 				if (dmg && *dmg > bestStats[player->lastTeam].damageOfType[i])
-					team->damageOfType[i] += *dmg;
+					total->damageOfType[i] += *dmg;
 			}
 		}
 	}
 	else if (type == STATS_TABLE_ACCURACY) {
 		AddStatToTotal(accuracy_shots);
 		AddStatToTotal(accuracy_hits);
-		team->accuracy = team->accuracy_shots ? team->accuracy_hits * 100 / team->accuracy_shots : 0;
+		total->accuracy = total->accuracy_shots ? total->accuracy_hits * 100 / total->accuracy_shots : 0;
 		for (accuracyCategory_t weap = ACC_FIRST; weap < ACC_MAX; weap++) {
 			AddStatToTotal(accuracy_shotsOfType[weap]);
 			AddStatToTotal(accuracy_hitsOfType[weap]);
-			team->accuracyOfType[weap] = team->accuracy_shotsOfType[weap] ? team->accuracy_hitsOfType[weap] * 100 / team->accuracy_shotsOfType[weap] : 0;
+			total->accuracyOfType[weap] = total->accuracy_shotsOfType[weap] ? total->accuracy_hitsOfType[weap] * 100 / total->accuracy_shotsOfType[weap] : 0;
 		}
 	}
 	else if (type == STATS_TABLE_EXPERIMENTAL) {
 		int allRegionsTime = 0;
 		for (ctfRegion_t region = CTFREGION_FLAGSTAND; region <= CTFREGION_ENEMYFLAGSTAND; region++) {
 			AddStatToTotal(regionTime[region]);
-			allRegionsTime += team->regionTime[region];
+			allRegionsTime += total->regionTime[region];
 		}
 		for (ctfRegion_t region = CTFREGION_FLAGSTAND; region <= CTFREGION_ENEMYFLAGSTAND; region++) {
-			team->regionPercent[region] = Com_Clampi(0, 100, (int)round((float)team->regionTime[region] / (float)allRegionsTime * 100.0f));
+			total->regionPercent[region] = Com_Clampi(0, 100, (int)round((float)total->regionTime[region] / (float)allRegionsTime * 100.0f));
 		}
 		AddStatToTotal(numGets);
 		AddStatToTotal(getTotalHealth);
-		team->averageGetHealth = team->numGets ? (int)floorf((team->getTotalHealth / team->numGets) + 0.5f) : 0;
+		total->averageGetHealth = total->numGets ? (int)floorf((total->getTotalHealth / total->numGets) + 0.5f) : 0;
 	}
 }
 
@@ -1426,6 +1575,8 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 	losingTeamTotalStats.lastTeam = losingTeam;
 	stats_t *lastWinningTeamPlayer = NULL;
 
+	list_t combinedStatsList = { 0 };
+
 	// loop through level.statsList, first by connected clients only...
 	for (int j = 0; j < 2; j++) {
 		team_t team = !j ? winningTeam : losingTeam; // winning team first
@@ -1439,6 +1590,8 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 				stats_t *found = IteratorNext(&iter);
 				if (!StatsValid(found) || found->clientNum != findClientNum || found->lastTeam != team)
 					continue;
+
+				ctfPosition_t pos = DetermineCTFPosition(found);
 
 				gotPlayer_t *gotPlayerAlready = ListFind(&gotPlayersList, PlayerMatches, found, NULL);
 				if (gotPlayerAlready)
@@ -1463,7 +1616,32 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 
 				CheckBestStats(found, type, weaponStatsPtr);
 				AddStatsToTotal(found, team == winningTeam ? &winningTeamTotalStats : &losingTeamTotalStats, type, weaponStatsPtr);
-				Table_DefineRow(t, found);
+
+				stats_t *combined = ListAdd(&combinedStatsList, sizeof(stats_t));
+				AddStatsToTotal(found, combined, type, weaponStatsPtr); // add the first stats_t into the combined one
+				Q_strncpyz(combined->accountName, found->accountName, sizeof(combined->accountName));
+				Q_strncpyz(combined->name, found->name, sizeof(combined->name));
+				combined->sessionId = found->sessionId;
+				combined->accountId = found->accountId;
+				combined->isBot = found->isBot;
+				combined->clientNum = found->clientNum;
+				combined->lastTeam = found->lastTeam;
+				combined->finalPosition = pos;
+				combined->ticksNotPaused += found->ticksNotPaused;
+				combined->confirmedPositionBits |= found->confirmedPositionBits;
+
+				iterator_t iter2;
+				ListIterate(&level.savedStatsList, &iter2, qfalse);
+				while (IteratorHasNext(&iter2)) {
+					stats_t *match = IteratorNext(&iter2);
+					if (match->sessionId == found->sessionId && match->lastTeam == found->lastTeam) {
+						AddStatsToTotal(match, combined, type, weaponStatsPtr); // add all other matching stats_ts into the combined one
+						combined->ticksNotPaused += match->ticksNotPaused;
+						combined->confirmedPositionBits |= match->confirmedPositionBits;
+					}
+				}
+
+				Table_DefineRow(t, combined);
 
 				if (team == winningTeam)
 					++numWinningTeam;
@@ -1483,6 +1661,8 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 			stats_t *found = IteratorNext(&iter);
 			if (!StatsValid(found) || found->lastTeam != team)
 				continue;
+
+			ctfPosition_t pos = found->finalPosition ? found->finalPosition : DetermineCTFPosition(found);
 
 			gotPlayer_t *gotPlayerAlready = ListFind(&gotPlayersList, PlayerMatches, found, NULL);
 			if (gotPlayerAlready)
@@ -1507,7 +1687,92 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 
 			CheckBestStats(found, type, weaponStatsPtr);
 			AddStatsToTotal(found, team == winningTeam ? &winningTeamTotalStats : &losingTeamTotalStats, type, weaponStatsPtr);
-			Table_DefineRow(t, found);
+
+			stats_t *combined = ListAdd(&combinedStatsList, sizeof(stats_t));
+			AddStatsToTotal(found, combined, type, weaponStatsPtr); // add the first stats_t into the combined one
+			Q_strncpyz(combined->accountName, found->accountName, sizeof(combined->accountName));
+			Q_strncpyz(combined->name, found->name, sizeof(combined->name));
+			combined->sessionId = found->sessionId;
+			combined->accountId = found->accountId;
+			combined->isBot = found->isBot;
+			combined->clientNum = found->clientNum;
+			combined->lastTeam = found->lastTeam;
+			combined->finalPosition = pos;
+			combined->ticksNotPaused += found->ticksNotPaused;
+			iterator_t iter2;
+			ListIterate(&level.savedStatsList, &iter2, qfalse);
+			while (IteratorHasNext(&iter2)) {
+				stats_t *match = IteratorNext(&iter2);
+				if (match->sessionId == found->sessionId && match->lastTeam == found->lastTeam) {
+					AddStatsToTotal(match, combined, type, weaponStatsPtr); // add all other matching stats_ts into the combined one
+					combined->ticksNotPaused += match->ticksNotPaused;
+				}
+			}
+
+			Table_DefineRow(t, combined);
+
+			if (team == winningTeam)
+				++numWinningTeam;
+			else
+				++numLosingTeam;
+		}
+
+		// finally, the old stats
+		ListIterate(&level.savedStatsList, &iter, qfalse);
+
+		while (IteratorHasNext(&iter)) {
+			stats_t *found = IteratorNext(&iter);
+			if (!StatsValid(found) || found->lastTeam != team)
+				continue;
+
+			ctfPosition_t pos = found->finalPosition ? found->finalPosition : DetermineCTFPosition(found);
+
+			gotPlayer_t *gotPlayerAlready = ListFind(&gotPlayersList, PlayerMatches, found, NULL);
+			if (gotPlayerAlready)
+				continue;
+
+			// this player will be in the stats table
+			gotPlayer_t *add = ListAdd(&gotPlayersList, sizeof(gotPlayer_t));
+			add->stats = found;
+			add->sessionId = found->sessionId;
+			add->isBot = found->isBot;
+			add->team = found->lastTeam;
+
+			if (team == winningTeam) {
+				lastWinningTeamPlayer = found;
+			}
+			else if (team == losingTeam && numWinningTeam && !didHorizontalRule) { // there were winners and this is the first loser
+				if (numWinningTeam > 1)
+					Table_DefineRow(t, &winningTeamTotalStats);
+				Table_AddHorizontalRule(t, losingTeam == TEAM_BLUE ? 4 : 1);
+				didHorizontalRule = qtrue;
+			}
+
+			CheckBestStats(found, type, weaponStatsPtr);
+			AddStatsToTotal(found, team == winningTeam ? &winningTeamTotalStats : &losingTeamTotalStats, type, weaponStatsPtr);
+
+			stats_t *combined = ListAdd(&combinedStatsList, sizeof(stats_t));
+			AddStatsToTotal(found, combined, type, weaponStatsPtr); // add the first stats_t into the combined one
+			Q_strncpyz(combined->accountName, found->accountName, sizeof(combined->accountName));
+			Q_strncpyz(combined->name, found->name, sizeof(combined->name));
+			combined->sessionId = found->sessionId;
+			combined->accountId = found->accountId;
+			combined->isBot = found->isBot;
+			combined->clientNum = found->clientNum;
+			combined->lastTeam = found->lastTeam;
+			combined->finalPosition = pos;
+			combined->ticksNotPaused += found->ticksNotPaused;
+			iterator_t iter2;
+			ListIterate(&level.savedStatsList, &iter2, qfalse);
+			while (IteratorHasNext(&iter2)) {
+				stats_t *match = IteratorNext(&iter2);
+				if (match->sessionId == found->sessionId && match->lastTeam == found->lastTeam) {
+					AddStatsToTotal(match, combined, type, weaponStatsPtr); // add all other matching stats_ts into the combined one
+					combined->ticksNotPaused += match->ticksNotPaused;
+				}
+			}
+
+			Table_DefineRow(t, combined);
 
 			if (team == winningTeam)
 				++numWinningTeam;
@@ -1522,6 +1787,7 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 	if (!numWinningTeam && !numLosingTeam) {
 		Table_Destroy(t);
 		ListClear(&gotPlayersList);
+		ListClear(&combinedStatsList);
 		return;
 	}
 
@@ -1698,6 +1964,7 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 	}
 
 	ListClear(&gotPlayersList);
+	ListClear(&combinedStatsList);
 
 #define TEMP_STATS_BUFFER_SIZE	(16384) // idk
 	char *temp = malloc(TEMP_STATS_BUFFER_SIZE);
@@ -2088,6 +2355,7 @@ void InitClientStats(gclient_t *cl) {
 		stats->isBot = !!(g_entities[cl - level.clients].r.svFlags & SVF_BOT);
 		stats->sessionId = stats->isBot ? cl - level.clients : cl->session->id;
 		stats->clientNum = cl - level.clients;
+		stats->blockNum = level.statBlock;
 		if (cl->account && VALIDSTRING(cl->account->name))
 			Q_strncpyz(stats->accountName, cl->account->name, sizeof(stats->accountName));
 		else
@@ -2096,6 +2364,16 @@ void InitClientStats(gclient_t *cl) {
 		//Com_DebugPrintf("InitClientStats: using new stats ptr for %s %08X\n", cl->pers.netname, (unsigned int)stats);
 	}
 	else {
+		if (stats->blockNum != level.statBlock) {
+			if (StatsValid(stats)) {
+				// this guy reconnected after acquiring valid stats, and the block number has changed
+
+			}
+			else {
+				// his stats weren't valid before, so just update his block number
+				stats->blockNum = level.statBlock;
+			}
+		}
 		//Com_DebugPrintf("InitClientStats: reusing old stats ptr for %s %08X\n", cl->pers.netname, (unsigned int)stats);
 	}
 
@@ -2172,6 +2450,155 @@ void ChangeStatsTeam(gclient_t *cl) {
 	Q_strncpyz(stats->name, cl->pers.netname, sizeof(stats->name));
 
 	cl->stats = stats;
+}
+
+void FinalizeCTFPositions(void) {
+	if (g_gametype.integer != GT_CTF)
+		return;
+
+	iterator_t iter;
+	ListIterate(&level.statsList, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		stats_t *s = IteratorNext(&iter);
+		s->finalPosition = DetermineCTFPosition(s);
+	}
+}
+
+// every five minutes, this function copies all of the stats structs into an archive and then clears out the stats structs
+// thus, each player's stats_t represents their stats for the current five minute block only
+// a player's total stats for the entire match can be calculated by adding together their current stats_t struct and all of their archived stats_t structs
+void ChangeToNextStatsBlockIfNeeded(void) {
+	if (g_gametype.integer != GT_CTF || level.intermissiontime || !level.wasRestarted || !level.numTeamTicks)
+		return;
+
+	// try to verify that this is a legit pug
+	float avgRed = (float)level.numRedPlayerTicks / (float)level.numTeamTicks;
+	float avgBlue = (float)level.numBluePlayerTicks / (float)level.numTeamTicks;
+	int avgRedInt = (int)lroundf(avgRed);
+	int avgBlueInt = (int)lroundf(avgBlue);
+	int durationMins = (level.time - level.startTime) / 60000;
+	if (durationMins >= 120 || avgRedInt != avgBlueInt || avgRedInt + avgBlueInt < 8 || fabs(avgRed - round(avgRed)) >= 0.1f || fabs(avgBlue - round(avgBlue)) >= 0.1f)
+		return;
+
+	int newBlockNum = (level.time - level.startTime) / STATS_BLOCK_DURATION;
+	if (newBlockNum <= level.statBlock)
+		return; // we're already in the block number we should be in
+
+	// time to move to the next block
+
+	FinalizeCTFPositions();
+
+	// save copies of all current stats and then reset them
+	iterator_t iter;
+	ListIterate(&level.statsList, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		stats_t *ongoing = IteratorNext(&iter);
+
+		stats_t *archive = ListAdd(&level.savedStatsList, sizeof(stats_t));
+
+		// save prev/next of the archive before memcpy overwrites it
+		genericNode_t *prev = archive->node.prev;
+		genericNode_t *next = archive->node.next;
+
+		// copy the entire ongoing struct into the archive
+		memcpy(archive, ongoing, sizeof(stats_t));
+
+		// restore prev of the archive
+		archive->node.prev = prev;
+		archive->node.next = next;
+
+		// set some important stuff in the archive
+		archive->finalPosition = ongoing->finalPosition;
+		if (ongoing->finalPosition)
+			archive->confirmedPositionBits |= (1 << ongoing->finalPosition);
+		archive->blockNum = level.statBlock;
+
+		// clear out the archive's lists, which at the moment contain the same pointers as the ongoing struct's lists
+		memset(&archive->damageGivenList, 0, sizeof(list_t));
+		memset(&archive->damageTakenList, 0, sizeof(list_t));
+		memset(&archive->teammatePositioningList, 0, sizeof(list_t));
+
+		// copy the lists
+		ListCopy(&ongoing->damageGivenList, &archive->damageGivenList, sizeof(damageCounter_t));
+		ListCopy(&ongoing->damageTakenList, &archive->damageTakenList, sizeof(damageCounter_t));
+		ListCopy(&ongoing->teammatePositioningList, &archive->teammatePositioningList, sizeof(ctfPositioningData_t));
+
+		// free the lists before clearing out the ongoing struct
+		ListClear(&ongoing->damageGivenList);
+		ListClear(&ongoing->damageTakenList);
+		ListClear(&ongoing->teammatePositioningList);
+
+		// save prev/next of the ongoing struct before memset overwrites it
+		prev = ongoing->node.prev;
+		next = ongoing->node.next;
+
+		// clear out the ongoing struct
+		memset(ongoing, 0, sizeof(stats_t));
+
+		// restore prev/next of the ongoing struct
+		ongoing->node.prev = prev;
+		ongoing->node.next = next;
+
+		// set some important parameters in the ongoing struct
+		ongoing->sessionId = archive->sessionId;
+		ongoing->accountId = archive->accountId;
+		ongoing->isBot = archive->isBot;
+		ongoing->clientNum = archive->clientNum;
+		if (archive->accountName && ongoing->accountName)
+			Q_strncpyz(ongoing->accountName, archive->accountName, sizeof(ongoing->accountName));
+		if (archive->name && ongoing->name)
+			Q_strncpyz(ongoing->name, archive->name, sizeof(ongoing->name));
+		ongoing->lastTeam = archive->lastTeam;
+		ongoing->lastPosition = archive->finalPosition;
+		ongoing->confirmedPositionBits = archive->confirmedPositionBits;
+		if (ongoing->lastPosition)
+			ongoing->confirmedPositionBits |= (1 << ongoing->lastPosition);
+		ongoing->blockNum = newBlockNum;
+	}
+
+	// all stats are archived, but we still need to perform some housekeeping:
+	// beginning with the third block, make sure the account number is correct in all of the archived blocks
+	// in case an admin assigned someone an account since the end of that block
+	if (newBlockNum >= 2) {
+		ListIterate(&level.savedStatsList, &iter, qfalse);
+		while (IteratorHasNext(&iter)) { // iterate through all of the archives
+			stats_t *archive = IteratorNext(&iter);
+			if (archive->blockNum == level.statBlock)
+				continue; // this is one of the ones we just copied, so we already know it's up to date
+
+			int *archiveSessionId = &archive->sessionId;
+			int *archiveAccountId = &archive->accountId;
+			char *archiveAccountName = archive->accountName;
+			char *archiveName = archive->name;
+
+			iterator_t iter2;
+			ListIterate(&level.statsList, &iter2, qfalse);
+			while (IteratorHasNext(&iter2)) { // iterate through all of the ongoing stats
+				stats_t *ongoing = IteratorNext(&iter2);
+				int *ongoingSessionId = &ongoing->sessionId;
+				int *ongoingAccountId = &ongoing->accountId;
+				char *ongoingAccountName = ongoing->accountName;
+				char *ongoingName = ongoing->name;
+
+				if (*ongoingSessionId == *archiveSessionId) {
+					if (*ongoingAccountId != *archiveAccountId) {
+						// we matched session id, but account id is different
+						// an admin must have assigned this person an account id since the end of this block
+						*archiveAccountId = *ongoingAccountId;
+						if (ongoingAccountName && archiveAccountName)
+							Q_strncpyz(archiveAccountName, ongoingAccountName, MAX_NAME_LENGTH);
+					}
+					if (ongoingName && archiveName)
+						Q_strncpyz(archiveName, ongoingName, MAX_NAME_LENGTH); // might as well match their ingame name too
+					goto lick;
+				}
+			}
+			lick:; // my fucking nuts
+		}
+	}
+
+	// finally, increment the global stat block index so we can track stats in the new block
+	level.statBlock = newBlockNum;
 }
 
 int *GetDamageGivenStat(stats_t *attacker, stats_t *victim) {

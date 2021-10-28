@@ -4,8 +4,8 @@
 #include "g_local.h"
 
 #define DB_FILENAME				"enhanced.db"
-#define DB_SCHEMA_VERSION		7
-#define DB_SCHEMA_VERSION_STR	"7"
+#define DB_SCHEMA_VERSION		8
+#define DB_SCHEMA_VERSION_STR	"8"
 #define DB_OPTIMIZE_INTERVAL	( 60*60*3 ) // every 3 hours
 #define DB_VACUUM_INTERVAL		( 60*60*24*7 ) // every week
 
@@ -359,5 +359,7 @@ qboolean G_DBTopAimSavePack(aimPracticePack_t *pack);
 list_t *G_DBTopAimLoadPacks(const char *mapname);
 list_t *G_DBTopAimQuickLoadPacks(const char *mapname);
 qboolean G_DBTopAimDeletePack(aimPracticePack_t *pack);
+
+qboolean G_DBWritePugStats(void);
 
 #endif //G_DATABASE_H

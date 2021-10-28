@@ -4653,7 +4653,11 @@ void ClientThink( int clientNum,usercmd_t *ucmd ) {
 		ClientThink_real( ent );
 	}
 
+#ifdef DEBUG_CTF_POSITION_STATS
+	if (qtrue)
+#else
 	if (IsInputting(ent->client, qtrue, qtrue, qfalse))
+#endif
 		ent->client->lastInputTime = trap_Milliseconds();
 }
 

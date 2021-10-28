@@ -3807,3 +3807,172 @@ qboolean G_DBTopAimDeletePack(aimPracticePack_t *pack) {
 	sqlite3_finalize(statement);
 	return success;
 }
+
+typedef struct {
+	node_t			node;
+	int				sessionId;
+	qboolean		isBot;
+	stats_t			*stats;
+	team_t			team;
+	ctfPosition_t	pos;
+} gotPlayerWithPos_t;
+
+static qboolean PlayerMatchesWithPos(genericNode_t *node, void *userData) {
+	const gotPlayerWithPos_t *existing = (const gotPlayerWithPos_t *)node;
+	const stats_t *thisGuy = (const stats_t *)userData;
+
+	if (existing && thisGuy && thisGuy->sessionId == existing->sessionId && thisGuy->isBot == existing->isBot && thisGuy->lastTeam == existing->team && thisGuy->finalPosition == existing->pos)
+		return qtrue;
+
+	return qfalse;
+}
+
+static char *NameForPos(ctfPosition_t pos) {
+	switch (pos) {
+	case CTFPOSITION_BASE: return "base";
+	case CTFPOSITION_CHASE: return "chase";
+	case CTFPOSITION_OFFENSE: return "offense";
+	default: return "unknown position";
+	}
+}
+
+const char *sqlWritePug = "INSERT INTO pugs (match_id, map, duration, red_score, blue_score) VALUES (?1, ?2, ?3, ?4, ?5);";
+const char *sqlAddBlock = "INSERT INTO pugblocks (match_id, begin_time, duration) VALUES (?1, ?2, ?3);";
+const char *sqlAddPugPlayer = "INSERT INTO playerpugteampos (match_id, session_id, team, duration, name, pos, caps) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7);";
+extern void AddStatsToTotal(stats_t *player, stats_t *total, statsTableType_t type, stats_t *weaponStatsPtr);
+qboolean G_DBWritePugStats(void) {
+	// get the match id
+	const char *matchIdStr = Cvar_VariableString("sv_matchid");
+	if (!VALIDSTRING(matchIdStr)) {
+		assert(qfalse);
+		Com_Printf("Unable to get sv_matchid! Stats will not be written for this pug.\n");
+		return qfalse;
+	}
+	int64_t matchId = strtoll(Cvar_VariableString("sv_matchid"), NULL, 16);
+
+	// write the pug
+	sqlite3_stmt *statement;
+	sqlite3_prepare(dbPtr, sqlWritePug, -1, &statement, 0);
+	sqlite3_bind_int64(statement, 1, matchId);
+	sqlite3_bind_text(statement, 2, level.mapname, -1, SQLITE_STATIC);
+	sqlite3_bind_int(statement, 3, level.intermissiontime - level.startTime);
+	sqlite3_bind_int(statement, 4, level.teamScores[TEAM_RED]);
+	sqlite3_bind_int(statement, 5, level.teamScores[TEAM_BLUE]);
+	int rc = sqlite3_step(statement);
+	if (rc != SQLITE_DONE) {
+		sqlite3_finalize(statement);
+		Com_Printf("Failed to write pug with id %llx (%lld) to db! Stats will not be written for this pug.\n", matchId, matchId);
+		return qfalse;
+	}
+
+	Com_Printf("Writing pug with id %llx (%lld) to db\n", matchId, matchId);
+
+	// get each unique player+pos+team combination
+	int totalBlocks = 0, totalPlayerPositions = 0;
+	list_t gotPlayerAtPosOnTeamList = { 0 }, combinedStatsList = { 0 };
+	for (int i = 0; i < 2; i++) {
+		iterator_t iter;
+		ListIterate(!i ? &level.savedStatsList : &level.statsList, &iter, qfalse);
+		while (IteratorHasNext(&iter)) {
+			stats_t *found = IteratorNext(&iter);
+
+			if (!StatsValid(found) || found->isBot || found->lastTeam == TEAM_SPECTATOR || found->lastTeam == TEAM_FREE)
+				continue;
+
+			gotPlayerWithPos_t *gotPlayerAlready = ListFind(&gotPlayerAtPosOnTeamList, PlayerMatchesWithPos, found, NULL);
+			if (gotPlayerAlready)
+				continue;
+			gotPlayerWithPos_t *add = ListAdd(&gotPlayerAtPosOnTeamList, sizeof(gotPlayerWithPos_t));
+			add->stats = found;
+			add->sessionId = found->sessionId;
+			add->isBot = found->isBot;
+			add->team = found->lastTeam;
+			add->pos = found->finalPosition;
+
+			stats_t *s = ListAdd(&combinedStatsList, sizeof(stats_t));
+			AddStatsToTotal(found, s, STATS_TABLE_GENERAL, NULL);
+			AddStatsToTotal(found, s, STATS_TABLE_FORCE, NULL);
+			AddStatsToTotal(found, s, STATS_TABLE_ACCURACY, NULL);
+			Q_strncpyz(s->name, found->name, sizeof(s->name));
+			int ticksOnAnyPosition = s->ticksNotPaused = found->ticksNotPaused;
+			s->blockNum = found->blockNum;
+
+			// find all blocks that match this player+pos+team
+			int numBlocks = 1;
+			for (int i = 0; i < 2; i++) {
+				iterator_t iter2;
+				ListIterate(!i ? &level.savedStatsList : &level.statsList, &iter2, qfalse);
+				while (IteratorHasNext(&iter2)) {
+					stats_t *found2 = IteratorNext(&iter2);
+					if (!StatsValid(found2) || found2->isBot || found2 == found ||
+						found2->sessionId != found->sessionId || found2->lastTeam != found->lastTeam)
+						continue;
+
+					ticksOnAnyPosition += found2->ticksNotPaused;
+
+					if (DetermineCTFPosition(found2) != found->finalPosition)
+						continue;
+
+					if (found2->blockNum > s->blockNum) {
+						// try to use their most recent name
+						Q_strncpyz(s->name, found2->name, sizeof(s->name));
+						s->blockNum = found2->blockNum;
+					}
+					AddStatsToTotal(found2, s, STATS_TABLE_GENERAL, NULL);
+					AddStatsToTotal(found2, s, STATS_TABLE_FORCE, NULL);
+					AddStatsToTotal(found2, s, STATS_TABLE_ACCURACY, NULL);
+					s->ticksNotPaused += found2->ticksNotPaused;
+					++numBlocks;
+				}
+			}
+
+			// require at least 60 seconds of total ingame time
+			if (ticksOnAnyPosition * (1000 / g_svfps.integer) < CTFPOSITION_MINIMUM_SECONDS * 1000) {
+				Com_Printf("Skipping %d %s %s blocks (%d ms) for %s^7 because total time played was less than %d ms\n",
+					numBlocks,
+					found->lastTeam == TEAM_RED ? "red" : "blue",
+					NameForPos(found->finalPosition),
+					s->ticksNotPaused * (1000 / g_svfps.integer),
+					s->name,
+					CTFPOSITION_MINIMUM_SECONDS * 1000);
+				continue;
+			}
+
+			sqlite3_reset(statement);
+			sqlite3_prepare(dbPtr, sqlAddPugPlayer, -1, &statement, 0);
+			sqlite3_bind_int64(statement, 1, matchId);
+			sqlite3_bind_int(statement, 2, found->sessionId);
+			sqlite3_bind_int(statement, 3, found->lastTeam);
+			sqlite3_bind_int(statement, 4, s->ticksNotPaused * (1000 / g_svfps.integer));
+			sqlite3_bind_text(statement, 5, s->name, -1, SQLITE_STATIC);
+			sqlite3_bind_int(statement, 6, found->finalPosition);
+			sqlite3_bind_int(statement, 7, s->captures);
+
+			rc = sqlite3_step(statement);
+			if (rc == SQLITE_DONE) {
+				totalBlocks += numBlocks;
+				++totalPlayerPositions;
+				Com_Printf("Wrote %d %s %s blocks (%d ms) for %s^7 to db\n",
+					numBlocks,
+					found->lastTeam == TEAM_RED ? "red" : "blue",
+					NameForPos(found->finalPosition),
+					s->ticksNotPaused * (1000 / g_svfps.integer),
+					s->name);
+			}
+			else {
+				Com_Printf("Failed to write %d %s blocks (%d ms) for %s^7 to db!\n",
+					numBlocks,
+					NameForPos(found->finalPosition),
+					s->ticksNotPaused * (1000 / g_svfps.integer),
+					s->name);
+			}
+		}
+	}
+	ListClear(&gotPlayerAtPosOnTeamList);
+	ListClear(&combinedStatsList);
+
+	sqlite3_finalize(statement);
+
+	Com_Printf("Wrote pug with match id %llx (%lld) to db with %d blocks and %d player+pos+team combinations.\n", matchId, matchId, totalBlocks, totalPlayerPositions);
+	return qtrue;
+}

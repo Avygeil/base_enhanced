@@ -590,6 +590,40 @@ static qboolean UpgradeDBToVersion7(sqlite3 *dbPtr) {
 	return sqlite3_exec(dbPtr, v7Upgrade, NULL, NULL, NULL) == SQLITE_OK;
 }
 
+const char *const v8Upgrade =
+"CREATE TABLE IF NOT EXISTS [pugs] ( "
+"[match_id] INTEGER PRIMARY KEY, "
+"[datetime] NOT NULL DEFAULT (strftime('%s', 'now')), "
+"[map] TEXT COLLATE NOCASE NOT NULL, "
+"[duration] INTEGER NOT NULL, "
+"[red_score] INTEGER NOT NULL, "
+"[blue_score] INTEGER NOT NULL "
+"); "
+" "
+"CREATE TABLE IF NOT EXISTS [playerpugteampos] ( "
+"[playerpugteampos_id] INTEGER PRIMARY KEY AUTOINCREMENT, "
+"[match_id] INTEGER NOT NULL, "
+"[session_id] INTEGER NOT NULL, "
+"[team] INTEGER NOT NULL, "
+"[duration] INTEGER NOT NULL, "
+"[name] TEXT NOT NULL, "
+"[pos] INTEGER NOT NULL, "
+"[caps] INTEGER NOT NULL, "
+"FOREIGN KEY([match_id]) REFERENCES pugs([match_id]) ON DELETE CASCADE, "
+"FOREIGN KEY([session_id]) REFERENCES sessions([session_id]), "
+"UNIQUE([match_id], [session_id], [pos]) "
+"); "
+" "
+"CREATE VIEW IF NOT EXISTS [accountstats] AS "
+"SELECT account_id, pos, sum(duration) AS playtime, CAST (sum(caps) AS FLOAT) / (CAST (sum(duration) AS FLOAT) / 1200000) AS avg_caps "
+"FROM playerpugteampos "
+"JOIN sessions ON playerpugteampos.session_id = sessions.session_id "
+"GROUP BY pos, account_id; ";
+
+static qboolean UpgradeDBToVersion8(sqlite3 *dbPtr) {
+	return sqlite3_exec(dbPtr, v8Upgrade, NULL, NULL, NULL) == SQLITE_OK;
+}
+
 // =============================================================================
 
 static qboolean UpgradeDB( int versionTo, sqlite3* dbPtr ) {
@@ -602,6 +636,7 @@ static qboolean UpgradeDB( int versionTo, sqlite3* dbPtr ) {
 		case 5:	return UpgradeDBToVersion5( dbPtr );
 		case 6: return UpgradeDBToVersion6( dbPtr );
 		case 7: return UpgradeDBToVersion7(dbPtr);
+		case 8: return UpgradeDBToVersion8(dbPtr);
 ;		default:
 			Com_Printf( "ERROR: Unsupported database upgrade routine\n" );
 	}
