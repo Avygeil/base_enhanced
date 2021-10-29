@@ -2894,10 +2894,12 @@ void BeginIntermission(void) {
 		// * both averages are within +/- 0.1 of their rounded values
 		// (accounts for subs, ragequits, random joins... 0.1 represents 2 mins of a 20 mins pug)
 #ifdef DEBUG_CTF_POSITION_STATS
-		G_PostScoreboardToWebhook(statsBuf);
-		G_DBAddCurrentMapToPlayedMapsList();
-		if (avgRedInt == 4 && avgBlueInt == 4) // only write stats to db in 4v4
-			G_DBWritePugStats();
+		if (level.wasRestarted) {
+			G_PostScoreboardToWebhook(statsBuf);
+			G_DBAddCurrentMapToPlayedMapsList();
+			if (avgRedInt == 4 && avgBlueInt == 4) // only write stats to db in 4v4
+				G_DBWritePugStats();
+		}
 #else
 		if (level.wasRestarted &&
 			durationMins >= 10 &&
