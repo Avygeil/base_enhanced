@@ -5266,30 +5266,33 @@ static void AddPlayerTick(team_t team, gentity_t *ent) {
 	}
 
 	// if i don't have the flag, i've been alive at least a few seconds, and i've done some input within the last few seconds, log my data
-	if (redFs && blueFs &&
-		level.time - ent->client->pers.lastSpawnTime >= CTFPOS_POSTSPAWN_DELAY &&
-		trap_Milliseconds() - ent->client->lastInputTime < 5000) {
-		float allyDist = Distance2D(ent->r.currentOrigin, team == TEAM_RED ? redFs->r.currentOrigin : blueFs->r.currentOrigin);
-		float enemyDist = Distance2D(ent->r.currentOrigin, team == TEAM_RED ? blueFs->r.currentOrigin : redFs->r.currentOrigin);
-		float diff = allyDist / enemyDist;
+	if (redFs && blueFs) {
+		qboolean validPositionSample = !!(level.time - ent->client->pers.lastSpawnTime >= CTFPOS_POSTSPAWN_DELAY_MS &&
+			ent->client->lastInputTime && trap_Milliseconds() - ent->client->lastInputTime < 5000);
 
 		float add;
-		if (allyDist < enemyDist && enemyDist > diffBetweenFlags)
-			add = 0.0f;
-		else if (enemyDist < allyDist && allyDist > diffBetweenFlags)
-			add = 1.0f;
-		else
-			add = allyDist / diffBetweenFlags;
+		if (validPositionSample) {
+			float allyDist = Distance2D(ent->r.currentOrigin, team == TEAM_RED ? redFs->r.currentOrigin : blueFs->r.currentOrigin);
+			float enemyDist = Distance2D(ent->r.currentOrigin, team == TEAM_RED ? blueFs->r.currentOrigin : redFs->r.currentOrigin);
+			float diff = allyDist / enemyDist;
 
-		// note our own positioning
-		++ent->client->stats->numTicksIngame;
-		if (HasFlag(ent)) {
-			ent->client->stats->totalPositionWithFlag += add;
-			++ent->client->stats->numPositionSamplesWithFlag;
-		}
-		else {
-			ent->client->stats->totalPositionWithoutFlag += add;
-			++ent->client->stats->numPositionSamplesWithoutFlag;
+			if (allyDist < enemyDist && enemyDist > diffBetweenFlags)
+				add = 0.0f;
+			else if (enemyDist < allyDist && allyDist > diffBetweenFlags)
+				add = 1.0f;
+			else
+				add = allyDist / diffBetweenFlags;
+
+			// note our own positioning
+			++ent->client->stats->numPositionSamplesAnyFlag;
+			if (HasFlag(ent)) {
+				ent->client->stats->totalPositionWithFlag += add;
+				++ent->client->stats->numPositionSamplesWithFlag;
+			}
+			else {
+				ent->client->stats->totalPositionWithoutFlag += add;
+				++ent->client->stats->numPositionSamplesWithoutFlag;
+			}
 		}
 
 		// record our positioning in everyone else's stats so that people's positioning can only be compared to people they were ingame contemporaneously with
@@ -5302,14 +5305,19 @@ static void AddPlayerTick(team_t team, gentity_t *ent) {
 				data = ListAdd(&other->client->stats->teammatePositioningList, sizeof(ctfPositioningData_t));
 				data->stats = cl->stats;
 			}
-			++data->numTicksIngameTogether;
-			if (HasFlag(ent)) {
-				data->totalPositionWithFlag += add;
-				++data->numPositionSamplesWithFlag;
-			}
-			else {
-				data->totalPositionWithoutFlag += add;
-				++data->numPositionSamplesWithoutFlag;
+
+			++data->numTicksIngameWithMe; // increment this regardless of whether the position sample is valid
+
+			if (validPositionSample) {
+				++data->numPositionSamplesIngameWithMe;
+				if (HasFlag(ent)) {
+					data->totalPositionWithFlagWithMe += add;
+					++data->numPositionSamplesWithFlagWithMe;
+				}
+				else {
+					data->totalPositionWithoutFlagWithMe += add;
+					++data->numPositionSamplesWithoutFlagWithMe;
+				}
 			}
 		}
 	}

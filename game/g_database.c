@@ -3827,15 +3827,6 @@ static qboolean PlayerMatchesWithPos(genericNode_t *node, void *userData) {
 	return qfalse;
 }
 
-static char *NameForPos(ctfPosition_t pos) {
-	switch (pos) {
-	case CTFPOSITION_BASE: return "base";
-	case CTFPOSITION_CHASE: return "chase";
-	case CTFPOSITION_OFFENSE: return "offense";
-	default: return "unknown position";
-	}
-}
-
 const char *sqlWritePug = "INSERT INTO pugs (match_id, map, duration, red_score, blue_score) VALUES (?1, ?2, ?3, ?4, ?5);";
 const char *sqlAddBlock = "INSERT INTO pugblocks (match_id, begin_time, duration) VALUES (?1, ?2, ?3);";
 const char *sqlAddPugPlayer = "INSERT INTO playerpugteampos (match_id, session_id, team, duration, name, pos, caps) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7);";

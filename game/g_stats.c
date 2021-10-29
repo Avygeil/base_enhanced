@@ -109,6 +109,7 @@ typedef struct {
 	int gets;
 	ctfPosition_t lastPosition;
 	int idNum;
+	stats_t *stats;
 } ctfPositioningDataQuick_t;
 
 int ComparePositioningDataAverages(const void *a, const void *b) {
@@ -127,6 +128,21 @@ int MoveAfksToEnd(const void *a, const void *b) {
 	return 0;
 }
 
+char *NameForPos(ctfPosition_t pos) {
+	switch (pos) {
+	case CTFPOSITION_BASE: return "base";
+	case CTFPOSITION_CHASE: return "chase";
+	case CTFPOSITION_OFFENSE: return "offense";
+	default: return "unknown position";
+	}
+}
+
+#ifdef DEBUG_CTF_POSITION_STATS
+#define DebugCtfPosPrintf(...)	Com_Printf(__VA_ARGS__)
+#else
+#define DebugCtfPosPrintf(...)	do {} while (0)
+#endif
+
 // determine 4v4 ctf position based on average location
 // we track your position relative to the flagstands:
 // 0 == on top of your fs
@@ -136,33 +152,53 @@ int MoveAfksToEnd(const void *a, const void *b) {
 // --while you are NOT holding the flag
 // this seems to reliably result in distributions where the two offense players have the top values,
 // the base player has the lowest value, and the chase player is somewhere in the middle
+// this function can be called on any stats_t at any time, including old ones
 ctfPosition_t DetermineCTFPosition(stats_t *posGuy) {
-	assert(posGuy);
+	if (!posGuy) {
+		assert(qfalse);
+		return CTFPOSITION_UNKNOWN;
+	}
 
-	if (posGuy->finalPosition)
+	// once finalPosition is set, it is always the position for this stats_t
+	if (posGuy->finalPosition) {
+		DebugCtfPosPrintf("%08x cl %d %s^7 (block %d): ^5using finalPosition %s^7\n", posGuy, posGuy->clientNum, posGuy->name, posGuy->blockNum, NameForPos(posGuy->finalPosition));
 		return posGuy->finalPosition;
+	}
 
 	if (!level.wasRestarted || level.someoneWasAFK ||
-		(level.time - level.startTime) < (CTFPOSITION_MINIMUM_SECONDS * 1000) || !posGuy || !StatsValid(posGuy) ||
-		posGuy->lastTeam == TEAM_SPECTATOR || posGuy->lastTeam == TEAM_FREE)
+		(level.time - level.startTime) < (CTFPOSITION_MINIMUM_SECONDS * 1000) || !StatsValid(posGuy) ||
+		posGuy->lastTeam == TEAM_SPECTATOR || posGuy->lastTeam == TEAM_FREE) {
+		DebugCtfPosPrintf("%08x cl %d %s^7 (block %d): restart/afk/< 60/invalid/spec/free, so using lastPosition %s\n", posGuy, posGuy->clientNum, posGuy->name, posGuy->blockNum, NameForPos(posGuy->lastPosition));
 		return posGuy->lastPosition;
+	}
 
 	// we only care about 4v4
 	float avgRed = (float)level.numRedPlayerTicks / (float)level.numTeamTicks;
 	float avgBlue = (float)level.numBluePlayerTicks / (float)level.numTeamTicks;
 	int avgRedInt = (int)lroundf(avgRed);
 	int avgBlueInt = (int)lroundf(avgBlue);
-	if (avgRedInt != 4 || avgBlueInt != 4)
+	if (avgRedInt != 4 || avgBlueInt != 4) {
+		DebugCtfPosPrintf("%08x cl %d %s^7 (block %d): not 4v4, so using lastPosition %s\n", posGuy, posGuy->clientNum, posGuy->name, posGuy->blockNum, NameForPos(posGuy->lastPosition));
 		return posGuy->lastPosition;
+	}
 
-	// if i haven't been ingame for 60+ seconds, just reuse their last position if possible
-	if (posGuy->numTicksIngame < g_svfps.integer * CTFPOSITION_MINIMUM_SECONDS)
+	// make sure i've been ingame for 60+ seconds
+	if (posGuy->ticksNotPaused < g_svfps.integer * CTFPOSITION_MINIMUM_SECONDS) {
+		DebugCtfPosPrintf("%08x cl %d %s^7 (block %d): ingame < 60, so using lastPosition %s\n", posGuy, posGuy->clientNum, posGuy->name, posGuy->blockNum, NameForPos(posGuy->lastPosition));
 		return posGuy->lastPosition;
+	}
 
-	// if they have held the flag for this entire block, just reuse their last position
-	// this is obviously not possible on the first block, so lastPosition should be valid
-	if (!posGuy->numPositionSamplesWithoutFlag)
+	// if i have no position samples, just reuse my last position
+	if (!posGuy->numPositionSamplesAnyFlag) {
+		DebugCtfPosPrintf("%08x cl %d %s^7 (block %d): no positionSamplesAnyFlag, so using lastPosition %s\n", posGuy, posGuy->clientNum, posGuy->name, posGuy->blockNum, NameForPos(posGuy->lastPosition));
 		return posGuy->lastPosition;
+	}
+
+	// if i have held the flag for this entire block, just reuse my last position
+	if (!posGuy->numPositionSamplesWithoutFlag) {
+		DebugCtfPosPrintf("%08x cl %d %s^7 (block %d): no positionSamplesWithoutFlag, so using lastPosition %s\n", posGuy, posGuy->clientNum, posGuy->name, posGuy->blockNum, NameForPos(posGuy->lastPosition));
+		return posGuy->lastPosition;
+	}
 
 	float posGuyAverage = posGuy->totalPositionWithoutFlag / (float)posGuy->numPositionSamplesWithoutFlag;
 
@@ -172,14 +208,20 @@ ctfPosition_t DetermineCTFPosition(stats_t *posGuy) {
 	int numTeammates = 0;
 	while (IteratorHasNext(&iter)) {
 		ctfPositioningData_t *teammate = IteratorNext(&iter);
-		if (!StatsValid(teammate->stats) || teammate->numTicksIngameTogether < g_svfps.integer * CTFPOSITION_MINIMUM_SECONDS)
+		if (!StatsValid(teammate->stats) ||
+			teammate->numTicksIngameWithMe < g_svfps.integer * CTFPOSITION_MINIMUM_SECONDS)
 			continue;
+		if (!teammate->numPositionSamplesIngameWithMe && !teammate->stats->lastPosition)
+			continue; // no valid position samples and has no last position
+
 		++numTeammates;
 	}
 
 	// require at least three teammates
-	if (numTeammates < 3)
+	if (numTeammates < 3) {
+		DebugCtfPosPrintf("%08x cl %d %s^7 (block %d): < 3 teammates, so using lastPosition %s\n", posGuy, posGuy->clientNum, posGuy->name, posGuy->blockNum, NameForPos(posGuy->lastPosition));
 		return posGuy->lastPosition;
+	}
 
 	// add our own guy to the array
 	ctfPositioningDataQuick_t *data = calloc(numTeammates + 1, sizeof(ctfPositioningDataQuick_t));
@@ -188,29 +230,35 @@ ctfPosition_t DetermineCTFPosition(stats_t *posGuy) {
 	data->energizes = posGuy->numEnergizes;
 	data->lastPosition = posGuy->lastPosition;
 	data->idNum = 0;
+	data->stats = posGuy;
 	int index = 1;
 
 	// add everyone else to the array
 	ListIterate(&posGuy->teammatePositioningList, &iter, qfalse);
 	while (IteratorHasNext(&iter)) {
 		ctfPositioningData_t *teammate = IteratorNext(&iter);
-		if (!StatsValid(teammate->stats) || teammate->numTicksIngameTogether < g_svfps.integer * CTFPOSITION_MINIMUM_SECONDS)
+		if (!StatsValid(teammate->stats) ||
+			teammate->numTicksIngameWithMe < g_svfps.integer * CTFPOSITION_MINIMUM_SECONDS)
 			continue;
-		ctfPositioningDataQuick_t *thisGuyData = data + index++;
+		if (!teammate->numPositionSamplesIngameWithMe && !teammate->stats->lastPosition)
+			continue; // no valid position samples and has no last position
 
-		thisGuyData->numberOfSamples = teammate->numTicksIngameTogether;
+		ctfPositioningDataQuick_t *thisGuyData = data + index++;
+		thisGuyData->numberOfSamples = teammate->numPositionSamplesIngameWithMe;
 		thisGuyData->energizes = teammate->stats->numEnergizes;
 		thisGuyData->gets = teammate->stats->numGets;
 		thisGuyData->lastPosition = teammate->stats->lastPosition;
 		thisGuyData->idNum = index;
+		thisGuyData->stats = teammate->stats;
 
-		if (!teammate->numPositionSamplesWithoutFlag) {
-			// this guy has been ingame for 60+ seconds but has been holding the flag the entire time for this block
+		if (!teammate->numPositionSamplesWithoutFlagWithMe) {
+			// this guy has been ingame with me for 60+ seconds but has been holding the flag the entire time for this block
 			// force him to use his old position
 			thisGuyData->forcePos = teammate->stats->lastPosition;
+			DebugCtfPosPrintf("TEAMMATE %08x cl %d %s^7 (block %d): has no position samples without flag with me, so forcing last position %s\n", teammate->stats, teammate->stats->clientNum, teammate->stats->name, teammate->stats->blockNum, NameForPos(teammate->stats->lastPosition));
 		}
 		else {
-			float average = teammate->totalPositionWithoutFlag / (float)teammate->numPositionSamplesWithoutFlag;
+			float average = teammate->totalPositionWithoutFlagWithMe / (float)teammate->numPositionSamplesWithoutFlagWithMe;
 			thisGuyData->average = average;
 		}
 	}
@@ -233,12 +281,12 @@ ctfPosition_t DetermineCTFPosition(stats_t *posGuy) {
 		if (!i && d->forcePos == CTFPOSITION_BASE ||
 			i == 1 && d->forcePos == CTFPOSITION_CHASE ||
 			(i == 2 || i == 3) && d->forcePos == CTFPOSITION_OFFENSE)
-			continue; // it's already the pos it needs to be
+			continue; // he's already the pos he needs to be
 
 		if (d->forcePos == CTFPOSITION_BASE)
 			d->average = -999;
 		else if (d->forcePos == CTFPOSITION_CHASE)
-			d->average = (data + 1)->average - 0.000001f;
+			d->average = (data->average + (data + 1)->average) / 2.0f;
 		else if (d->forcePos == CTFPOSITION_OFFENSE)
 			d->average = 999;
 		
@@ -251,36 +299,45 @@ ctfPosition_t DetermineCTFPosition(stats_t *posGuy) {
 	ctfPositioningDataQuick_t *offense1 = data + 2;
 	ctfPositioningDataQuick_t *offense2 = data + 3;
 
+	DebugCtfPosPrintf("base = %s^7 (%0.3f), chase = %s^7 (%0.3f), offense1 = %s^7 (%0.3f), offense2 = %s^7 (%0.3f)\n", base->stats->name, base->average, chase->stats->name, chase->average, offense1->stats->name, offense1->average, offense2->stats->name, offense2->average);
+
 	// edge case: chase and base average positions are extremely close together
 	if (chase->average - base->average < 0.03f) {
+		DebugCtfPosPrintf("chase and base average positions are extremely close together\n");
 		if (chase->lastPosition == CTFPOSITION_BASE && base->lastPosition == CTFPOSITION_CHASE &&
 			!chase->forcePos && !base->forcePos) {
 			// the supposed chase was confirmed base last block and the supposed base was confirmed chase last block; just reuse those positions
 			chase = data + 0;
 			base = data + 1;
+			DebugCtfPosPrintf("the supposed chase was confirmed base last block and the supposed base was confirmed chase last block; just reuse those positions\n");
 		}
 		else if (!chase->lastPosition && !base->lastPosition && chase->energizes > base->energizes &&
 			!chase->forcePos && !base->forcePos) {
 			// they don't have confirmed last positions; just go with the person who has more energizes
 			chase = data + 0;
 			base = data + 1;
+			DebugCtfPosPrintf("chase has more energizes, swapping them\n");
 		}
 	}
 
 	// edge case: chase and offense average positions are extremely close together
 	if (offense1->average - chase->average < 0.03f) {
+		DebugCtfPosPrintf("chase and offense1 average positions are extremely close together\n");
 		if (offense2->average - chase->average < 0.03f) { // also include the other offense player
+			DebugCtfPosPrintf("chase and offense2 average positions are also extremely close together\n");
 			if (chase->lastPosition == CTFPOSITION_OFFENSE && offense1->lastPosition == CTFPOSITION_CHASE &&
 				!chase->forcePos && !offense1->forcePos) {
 				// the supposed chase was confirmed offense last block and the supposed offense1 was confirmed chase last block; just reuse those positions
 				chase = data + 2;
 				offense1 = data + 1;
+				DebugCtfPosPrintf("the supposed chase was confirmed offense last block and the supposed offense1 was confirmed chase last block; just reuse those positions\n");
 			}
 			else if (chase->lastPosition == CTFPOSITION_OFFENSE && offense2->lastPosition == CTFPOSITION_CHASE &&
 				!chase->forcePos && !offense2->forcePos) {
 				// the supposed chase was confirmed offense last block and the supposed offense2 was confirmed chase last block; just reuse those positions
 				chase = data + 3;
 				offense2 = data + 1;
+				DebugCtfPosPrintf("the supposed chase was confirmed offense last block and the supposed offense2 was confirmed chase last block; just reuse those positions\n");
 			}
 			else {
 				// see who has the lowest number of gets
@@ -296,11 +353,13 @@ ctfPosition_t DetermineCTFPosition(stats_t *posGuy) {
 					// the supposed offense1 has fewer gets than the supposed chase; determine that the supposed offense1 is actually the chase
 					chase = data + 2;
 					offense1 = data + 1;
+					DebugCtfPosPrintf("the supposed offense1 has fewer gets than the supposed chase; determine that the supposed offense1 is actually the chase\n");
 				}
 				else if (lowestGetsIndex == 3 && !chase->forcePos && !offense2->forcePos) {
 					// the supposed offense2 has fewer gets than the supposed chase; determine that the supposed offense2 is actually the chase
 					chase = data + 3;
 					offense2 = data + 1;
+					DebugCtfPosPrintf("the supposed offense2 has fewer gets than the supposed chase; determine that the supposed offense2 is actually the chase\n");
 				}
 			}
 		}
@@ -310,11 +369,13 @@ ctfPosition_t DetermineCTFPosition(stats_t *posGuy) {
 				// the supposed chase was confirmed offense last block and the supposed offense1 was confirmed chase last block; just reuse those positions
 				chase = data + 2;
 				offense1 = data + 1;
+				DebugCtfPosPrintf("the supposed chase was confirmed offense last block and the supposed offense1 was confirmed chase last block; just reuse those positions\n");
 			}
 			else if (offense1->gets < chase->gets && !chase->forcePos && !offense1->forcePos) {
 				// the supposed offense1 has fewer gets than the supposed chase; determine that the supposed offense1 is actually the chase
 				chase = data + 2;
 				offense1 = data + 1;
+				DebugCtfPosPrintf("the supposed offense1 has fewer gets than the supposed chase; determine that the supposed offense1 is actually the chase\n");
 			}
 		}
 	}
@@ -329,6 +390,7 @@ ctfPosition_t DetermineCTFPosition(stats_t *posGuy) {
 		pos = CTFPOSITION_OFFENSE;
 
 	free(data);
+	DebugCtfPosPrintf("%08x cl %d %s^7 (block %d): ^2determined %s^7\n", posGuy, posGuy->clientNum, posGuy->name, posGuy->blockNum, NameForPos(pos));
 	return pos;
 }
 
@@ -2480,7 +2542,7 @@ void ChangeToNextStatsBlockIfNeeded(void) {
 	if (durationMins >= 120 || avgRedInt != avgBlueInt || avgRedInt + avgBlueInt < 8 || fabs(avgRed - round(avgRed)) >= 0.1f || fabs(avgBlue - round(avgBlue)) >= 0.1f)
 		return;
 
-	int newBlockNum = (level.time - level.startTime) / STATS_BLOCK_DURATION;
+	int newBlockNum = (level.time - level.startTime) / STATS_BLOCK_DURATION_MS;
 	if (newBlockNum <= level.statBlock)
 		return; // we're already in the block number we should be in
 

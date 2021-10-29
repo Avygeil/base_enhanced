@@ -921,8 +921,21 @@ typedef struct { //Should this store their g2 anim? for proper g2 sync?
 //
 // g_stats.c
 //
+
+#ifdef DEBUG_CTF_POSITION_STATS
+#define CTFPOSITION_MINIMUM_SECONDS		(60) // 60 seconds minimum for pos detection
+#else
+#define CTFPOSITION_MINIMUM_SECONDS		(60) // 60 seconds minimum for pos detection
+#endif
+
+#ifdef DEBUG_CTF_POSITION_STATS
+#define STATS_BLOCK_DURATION_MS			(120 * 1000) // 2 minute blocks
+#else
+#define STATS_BLOCK_DURATION_MS			(300 * 1000) // 5 minute blocks
+#endif
+
 #define CTF_SAVE_DISTANCE_THRESHOLD		(200)
-#define CTFPOS_POSTSPAWN_DELAY			(3000) // wait a little while after spawning before we log position data
+#define CTFPOS_POSTSPAWN_DELAY_MS		(3000) // wait a little while after spawning before we log position data
 
 typedef enum {
 	CTFREGION_INVALID = -1,
@@ -995,6 +1008,7 @@ ctfRegion_t GetCTFRegion(gentity_t *ent);
 meansOfDeathCategory_t MeansOfDeathCategoryForMeansOfDeath(meansOfDeath_t mod);
 accuracyCategory_t AccuracyCategoryForProjectile(gentity_t *projectile);
 void ChangeToNextStatsBlockIfNeeded(void);
+char *NameForPos(ctfPosition_t pos);
 
 typedef struct {
 	node_t		node;
@@ -1084,22 +1098,23 @@ typedef struct {
 	int			numPositionSamplesWithFlag; // only counts 3+ seconds after spawning
 	float		totalPositionWithoutFlag; // only counts 3+ seconds after spawning
 	int			numPositionSamplesWithoutFlag; // only counts 3+ seconds after spawning
-	int			ticksNotPaused; // all ticks this player has been ingame for while not paused. used to determine total ingame time
-	int			numTicksIngame; // similar to ticksNotPaused but they can't be afk. used to determine positions (being afk adversely affects position accuracy)
-	ctfPosition_t	lastPosition; // if applicable
+	int			ticksNotPaused; // all ticks this player has been ingame for while not paused, regardless of afk/spawn times, etc. used to determine total ingame time
+	int			numPositionSamplesAnyFlag; // similar to ticksNotPaused but they can't be afk and only counts 3+ seconds after spawn
 	int			confirmedPositionBits; // list of all positions this person has ever played in this pug on this team
 
+	ctfPosition_t	lastPosition; // may be valid or unknown
 	ctfPosition_t	finalPosition; // set only when confirmed; overrides everything else if set
 } stats_t;
 
 typedef struct {
 	node_t		node;
 	stats_t		*stats;
-	int			numTicksIngameTogether;
-	float		totalPositionWithFlag;
-	int			numPositionSamplesWithFlag;
-	float		totalPositionWithoutFlag;
-	int			numPositionSamplesWithoutFlag;
+	int			numTicksIngameWithMe; // all ticks this player has been ingame with me, regardless of afk/spawn times, etc.
+	int			numPositionSamplesIngameWithMe; // can't be afk and only counts 3+ seconds after spawn
+	float		totalPositionWithFlagWithMe;
+	int			numPositionSamplesWithFlagWithMe;
+	float		totalPositionWithoutFlagWithMe;
+	int			numPositionSamplesWithoutFlagWithMe;
 } ctfPositioningData_t;
 void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t outSize, qboolean announce, stats_t *weaponStatsPtr);
 qboolean StatsValid(const stats_t *stats);
@@ -1110,18 +1125,6 @@ int *GetDamageTakenStat(stats_t *attacker, stats_t *victim);
 int *GetDamageTakenStatOfType(stats_t *attacker, stats_t *victim, meansOfDeathCategory_t modc);
 ctfPosition_t DetermineCTFPosition(stats_t *posGuy);
 void FinalizeCTFPositions(void);
-
-#ifdef DEBUG_CTF_POSITION_STATS
-#define CTFPOSITION_MINIMUM_SECONDS		(30) // 30 seconds minimum for pos detection
-#else
-#define CTFPOSITION_MINIMUM_SECONDS		(60) // 60 seconds minimum for pos detection
-#endif
-
-#ifdef DEBUG_CTF_POSITION_STATS
-#define STATS_BLOCK_DURATION	(60 * 1000) // 1 minute blocks
-#else
-#define STATS_BLOCK_DURATION	(300 * 1000) // 5 minute blocks
-#endif
 
 typedef struct {
 	node_t		node;
