@@ -2856,25 +2856,25 @@ void BeginIntermission(void) {
 	FinalizeCTFPositions();
 	CheckAccountsOfOldBlocks(-1);
 
-	char statsBuf[16384] = { 0 };
+	const int statsBufSize = 65536;
+	char *statsBuf = calloc(65536, sizeof(char));
 
 	if (g_autoStats.integer) {
-		Stats_Print(NULL, "general", statsBuf, sizeof(statsBuf), qtrue, NULL);
-		Stats_Print(NULL, "force", statsBuf, sizeof(statsBuf), qtrue, NULL);
-		//Stats_Print(NULL, "experimental", statsBuf, sizeof(statsBuf), qtrue, NULL);
-		Stats_Print(NULL, "accuracy", statsBuf, sizeof(statsBuf), qtrue, NULL);
-		Stats_Print(NULL, "damage", statsBuf, sizeof(statsBuf), qtrue, NULL);
+		Stats_Print(NULL, "general", statsBuf, statsBufSize, qtrue, NULL);
+		Stats_Print(NULL, "damage", statsBuf, statsBufSize, qtrue, NULL);
+		Stats_Print(NULL, "accuracy", statsBuf, statsBufSize, qtrue, NULL);
+		Stats_Print(NULL, "weapon", statsBuf, statsBufSize, qfalse, NULL);
+		Q_StripColor(statsBuf);
 
 		// print each player their own individual weapon stats
-		// they all go into the buffer, though
 		for (int i = 0; i < MAX_CLIENTS; i++) {
 			if (g_entities[i].inuse && level.clients[i].pers.connected != CON_DISCONNECTED &&
 				(level.clients[i].sess.sessionTeam == TEAM_RED || level.clients[i].sess.sessionTeam == TEAM_BLUE) &&
 				level.clients[i].stats && StatsValid(level.clients[i].stats)) {
-				Stats_Print(&g_entities[i], "weapon", statsBuf, sizeof(statsBuf), qtrue, level.clients[i].stats);
+				Stats_Print(&g_entities[i], "weapon", NULL, 0, qtrue, level.clients[i].stats);
 			}
 		}
-		Q_StripColor(statsBuf);
+
 	}
 
 	if (level.numTeamTicks) {
@@ -2893,23 +2893,28 @@ void BeginIntermission(void) {
 		// * the sum of these average integers is >= 4 (at least 2s)
 		// * both averages are within +/- 0.1 of their rounded values
 		// (accounts for subs, ragequits, random joins... 0.1 represents 2 mins of a 20 mins pug)
-		if (level.wasRestarted &&
 #ifdef DEBUG_CTF_POSITION_STATS
-			qtrue)
+		G_PostScoreboardToWebhook(statsBuf);
+		G_DBAddCurrentMapToPlayedMapsList();
+		if (avgRedInt == 4 && avgBlueInt == 4) // only write stats to db in 4v4
+			G_DBWritePugStats();
 #else
+		if (level.wasRestarted &&
 			durationMins >= 10 &&
 			avgRedInt == avgBlueInt &&
 			avgRedInt + avgBlueInt >= 4 &&
 			fabs(avgRed - round(avgRed)) < 0.1f &&
 			fabs(avgBlue - round(avgBlue)) < 0.1f)
-#endif
 		{
 			G_PostScoreboardToWebhook(statsBuf);
 			G_DBAddCurrentMapToPlayedMapsList();
 			if (avgRedInt == 4 && avgBlueInt == 4) // only write stats to db in 4v4
 				G_DBWritePugStats();
 		}
+#endif
 	}
+
+	free(statsBuf);
 }
 
 qboolean DuelLimitHit(void)

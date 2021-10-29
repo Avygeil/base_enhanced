@@ -6354,37 +6354,47 @@ void Cmd_WhoIs_f( gentity_t* ent ) {
 }
 
 void Cmd_PrintStats_f(gentity_t *ent) {
-	if (trap_Argc() < 2) { // display all types if none is specified, i guess
+	if (trap_Argc() < 2) {
 		Stats_Print(ent, "general", NULL, 0, qtrue, NULL);
-		Stats_Print(ent, "force", NULL, 0, qtrue, NULL);
-		//Stats_Print(ent, "experimental", NULL, 0, qtrue, NULL);
-		Stats_Print(ent, "accuracy", NULL, 0, qtrue, NULL);
-		Stats_Print(ent, "damage", NULL, 0, qtrue, NULL);
-		if (ent->client && ent->client->stats && StatsValid(ent->client->stats) && (ent->client->sess.sessionTeam == TEAM_RED || ent->client->sess.sessionTeam == TEAM_BLUE))
-			Stats_Print(ent, "weapon", NULL, 0, qtrue, ent->client->stats);
 	}
 	else if (trap_Argc() == 2) {
 		char subcmd[MAX_STRING_CHARS] = { 0 };
 		trap_Argv(1, subcmd, sizeof(subcmd));
-		Stats_Print(ent, subcmd, NULL, 0, qtrue, NULL);
+		if (!Q_stricmpn(subcmd, "we", 2) || !Q_stricmpn(subcmd, "wpn", 3)) {
+			if (ent->client && (ent->client->sess.sessionTeam == TEAM_RED || ent->client->sess.sessionTeam == TEAM_BLUE))
+				Stats_Print(ent, subcmd, NULL, 0, qtrue, ent->client->stats); // ingame player with no args; just print himself
+			else
+				Stats_Print(ent, subcmd, NULL, 0, qtrue, NULL);
+		}
+		else {
+			Stats_Print(ent, subcmd, NULL, 0, qtrue, NULL);
+		}
 	}
 	else {
 		char subcmd[MAX_STRING_CHARS] = { 0 };
 		trap_Argv(1, subcmd, sizeof(subcmd));
 
-		if (!Q_stricmp(subcmd, "weapon")) {
+		if (!Q_stricmpn(subcmd, "we", 2) || !Q_stricmpn(subcmd, "wpn", 3)) {
 			char weaponPlayerArg[MAX_STRING_CHARS] = { 0 };
 			trap_Argv(2, weaponPlayerArg, sizeof(weaponPlayerArg));
 			if (weaponPlayerArg[0]) {
-				stats_t *found = GetStatsFromString(weaponPlayerArg);
-				if (!found) {
-					PrintIngame(ent - g_entities, "Client %s^7 not found or ambiguous. Use client number or be more specific.\n", weaponPlayerArg);
-					return;
+				if (!Q_stricmp(weaponPlayerArg, "all") || !Q_stricmp(weaponPlayerArg, "-1")) {
+					Stats_Print(ent, subcmd, NULL, 0, qtrue, NULL);
 				}
-				Stats_Print(ent, subcmd, NULL, 0, qtrue, found);
+				else {
+					stats_t *found = GetStatsFromString(weaponPlayerArg);
+					if (!found) {
+						PrintIngame(ent - g_entities, "Client %s^7 not found or ambiguous. Use client number or be more specific.\n", weaponPlayerArg);
+						return;
+					}
+					Stats_Print(ent, subcmd, NULL, 0, qtrue, found);
+				}
 			}
 			else {
-				Stats_Print(ent, subcmd, NULL, 0, qtrue, NULL);
+				if (ent->client && (ent->client->sess.sessionTeam == TEAM_RED || ent->client->sess.sessionTeam == TEAM_BLUE))
+					Stats_Print(ent, subcmd, NULL, 0, qtrue, ent->client->stats); // ingame player with no args; just print himself
+				else
+					Stats_Print(ent, subcmd, NULL, 0, qtrue, NULL);
 			}
 		}
 		else {

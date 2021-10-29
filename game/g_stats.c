@@ -1159,6 +1159,17 @@ static void CheckBestStats(stats_t *player, statsTableType_t type, stats_t *weap
 		CheckBest(rageTimeUsed);
 		CheckBest(drain);
 		CheckBest(gotDrained);
+		int allRegionsTime = 0;
+		for (ctfRegion_t region = CTFREGION_FLAGSTAND; region <= CTFREGION_ENEMYFLAGSTAND; region++) {
+			allRegionsTime += player->regionTime[region];
+			CheckBest(regionTime[region]);
+		}
+		for (ctfRegion_t region = CTFREGION_FLAGSTAND; region <= CTFREGION_ENEMYFLAGSTAND; region++) {
+			player->regionPercent[region] = Com_Clampi(0, 100, (int)round((float)player->regionTime[region] / (float)allRegionsTime * 100.0f));
+			CheckBest(regionPercent[region]);
+		}
+		player->averageGetHealth = player->numGets ? (int)floorf((player->getTotalHealth / player->numGets) + 0.5f) : 0;
+		CheckBest(averageGetHealth);
 	}
 	else if (type == STATS_TABLE_DAMAGE) {
 		iterator_t iter;
@@ -1237,19 +1248,6 @@ static void CheckBestStats(stats_t *player, statsTableType_t type, stats_t *weap
 			player->accuracyOfType[weap] = player->accuracy_shotsOfType[weap] ? player->accuracy_hitsOfType[weap] * 100 / player->accuracy_shotsOfType[weap] : 0;
 			CheckBest(accuracyOfType[weap]);
 		}
-	}
-	else if (type == STATS_TABLE_EXPERIMENTAL) {
-		int allRegionsTime = 0;
-		for (ctfRegion_t region = CTFREGION_FLAGSTAND; region <= CTFREGION_ENEMYFLAGSTAND; region++) {
-			allRegionsTime += player->regionTime[region];
-			CheckBest(regionTime[region]);
-		}
-		for (ctfRegion_t region = CTFREGION_FLAGSTAND; region <= CTFREGION_ENEMYFLAGSTAND; region++) {
-			player->regionPercent[region] = Com_Clampi(0, 100, (int)round((float)player->regionTime[region] / (float)allRegionsTime * 100.0f));
-			CheckBest(regionPercent[region]);
-		}
-		player->averageGetHealth = player->numGets ? (int)floorf((player->getTotalHealth / player->numGets) + 0.5f) : 0;
-		CheckBest(averageGetHealth);
 	}
 }
 
@@ -1346,6 +1344,17 @@ void AddStatsToTotal(stats_t *player, stats_t *total, statsTableType_t type, sta
 		AddStatToTotal(rageTimeUsed);
 		AddStatToTotal(drain);
 		AddStatToTotal(gotDrained);
+		int allRegionsTime = 0;
+		for (ctfRegion_t region = CTFREGION_FLAGSTAND; region <= CTFREGION_ENEMYFLAGSTAND; region++) {
+			AddStatToTotal(regionTime[region]);
+			allRegionsTime += total->regionTime[region];
+		}
+		for (ctfRegion_t region = CTFREGION_FLAGSTAND; region <= CTFREGION_ENEMYFLAGSTAND; region++) {
+			total->regionPercent[region] = Com_Clampi(0, 100, (int)round((float)total->regionTime[region] / (float)allRegionsTime * 100.0f));
+		}
+		AddStatToTotal(numGets);
+		AddStatToTotal(getTotalHealth);
+		total->averageGetHealth = total->numGets ? (int)floorf((total->getTotalHealth / total->numGets) + 0.5f) : 0;
 	}
 	else if (type == STATS_TABLE_DAMAGE) {
 		iterator_t iter;
@@ -1417,19 +1426,6 @@ void AddStatsToTotal(stats_t *player, stats_t *total, statsTableType_t type, sta
 			AddStatToTotal(accuracy_hitsOfType[weap]);
 			total->accuracyOfType[weap] = total->accuracy_shotsOfType[weap] ? total->accuracy_hitsOfType[weap] * 100 / total->accuracy_shotsOfType[weap] : 0;
 		}
-	}
-	else if (type == STATS_TABLE_EXPERIMENTAL) {
-		int allRegionsTime = 0;
-		for (ctfRegion_t region = CTFREGION_FLAGSTAND; region <= CTFREGION_ENEMYFLAGSTAND; region++) {
-			AddStatToTotal(regionTime[region]);
-			allRegionsTime += total->regionTime[region];
-		}
-		for (ctfRegion_t region = CTFREGION_FLAGSTAND; region <= CTFREGION_ENEMYFLAGSTAND; region++) {
-			total->regionPercent[region] = Com_Clampi(0, 100, (int)round((float)total->regionTime[region] / (float)allRegionsTime * 100.0f));
-		}
-		AddStatToTotal(numGets);
-		AddStatToTotal(getTotalHealth);
-		total->averageGetHealth = total->numGets ? (int)floorf((total->getTotalHealth / total->numGets) + 0.5f) : 0;
 	}
 }
 
@@ -1950,6 +1946,16 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 		Table_DefineColumn(t, "^5Rage", CtfStatsTableCallback_RageTime, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^1Drn", CtfStatsTableCallback_Drain, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^1Drnd", CtfStatsTableCallback_GotDrained, NULL, qfalse, -1, 32);
+		ctfRegion_t region = CTFREGION_FLAGSTAND;
+		Table_DefineColumn(t, "^5Fs", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
+		++region;
+		Table_DefineColumn(t, "^5Bas", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
+		++region;
+		Table_DefineColumn(t, "^5Mid", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
+		++region;
+		Table_DefineColumn(t, "^5EBa", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
+		++region;
+		Table_DefineColumn(t, "^5EFs", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
 	}
 	else if (type == STATS_TABLE_DAMAGE) {
 		int firstDividerColor;
@@ -2049,22 +2055,6 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 		for (accuracyCategory_t weap = ACC_FIRST; weap < ACC_MAX; weap++)
 			Table_DefineColumn(t, NameForAccuracyCategory(weap), CtfStatsTableCallback_WeaponAccuracy, &weap, qfalse, -1, 32);
 	}
-	else if (type == STATS_TABLE_EXPERIMENTAL) {
-		Table_DefineColumn(t, STATSTABLE_NAME, CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
-		Table_DefineColumn(t, STATSTABLE_ALIAS, CtfStatsTableCallback_Alias, NULL, qtrue, -1, 32);
-		Table_DefineColumn(t, "^5Pos", CtfStatsTableCallback_Position, NULL, qtrue, -1, 32);
-		ctfRegion_t region = CTFREGION_FLAGSTAND;
-		Table_DefineColumn(t, "^5Fs", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
-		++region;
-		Table_DefineColumn(t, "^5Bas", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
-		++region;
-		Table_DefineColumn(t, "^5Mid", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
-		++region;
-		Table_DefineColumn(t, "^5EBa", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
-		++region;
-		Table_DefineColumn(t, "^5EFs", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
-		Table_DefineColumn(t, "^5GetHP", CtfStatsTableCallback_GetHealth, NULL, qtrue, -1, 32);
-	}
 
 	ListClear(&gotPlayersList);
 	ListClear(&combinedStatsList);
@@ -2132,27 +2122,31 @@ static statsHelp_t helps[] = { // important: make sure any new stats do not conf
 	{ STATS_TABLE_GENERAL, "^1Clr", "Clear damage taken", "Damage taken from enemies while you are in their base and not carrying the flag"},
 	{ STATS_TABLE_GENERAL, "^1Othr", "Other damage taken", "Damage taken from enemies while you are outside their base and not carrying the flag"},
 	{ STATS_TABLE_GENERAL, "^6FcKil", "Flag carrier kills", "Kills on enemy flag carriers"},
-	{ STATS_TABLE_GENERAL, "^6Eff", "Flag carrier kill efficiency", "Percentage of your kills on flag carriers that resulted in the flag being returned by you or a teammate"},
+	{ STATS_TABLE_GENERAL, "^6FcKil Eff", "Flag carrier kill efficiency", "Percentage of your kills on flag carriers that resulted in the flag being returned by you or a teammate"},
 	{ STATS_TABLE_GENERAL, "^5Ret", "Returns", "Times you returned your flag"},
 	{ STATS_TABLE_GENERAL, "^5SK", "Selfkills", "Suicides, including falling into pits on your own"},
 	{ STATS_TABLE_GENERAL, "^3Hold", "Total hold", "Total time you carried the flag"},
 	{ STATS_TABLE_GENERAL, "^3MaxHold", "Maximum hold", "The duration of your longest flag hold"},
 	{ STATS_TABLE_GENERAL, "^6Spd", "Average speed", "Average movement speed, in units per second"},
 	{ STATS_TABLE_GENERAL, "^6Top", "Top speed", "The highest movement speed you reached, in units per second"},
-	{ STATS_TABLE_FORCE, "^5Pos", "Position", "CTF position, if 4v4"},
-	{ STATS_TABLE_FORCE, "^5Boon", "Boons", "Boon pickups, if boon is enabled"},
-	{ STATS_TABLE_FORCE, "^5Push", "Pushes", "Force pushes used"},
-	{ STATS_TABLE_FORCE, "^5Pull", "Pulls", "Force pulls used"},
-	{ STATS_TABLE_FORCE, "^5Heal", "Team heal", "Amount of allies' health you replenished with team heal"},
-	{ STATS_TABLE_FORCE, "^6TE", "Team energize", "Amount of allies' force power you replenished with team energize"},
-	{ STATS_TABLE_FORCE, "^6Eff", "Team energize efficiency", "Efficiency of your team energize usage (highest amount anyone was energized ÷ maximum amount anyone could have been energized)"},
-	{ STATS_TABLE_FORCE, "^5EnemyNrg", "Enemy energize", "Force power given to enemies using absorb"},
-	{ STATS_TABLE_FORCE, "^5Abs", "Absorb", "Force power absorbed from enemies"},
-	{ STATS_TABLE_FORCE, "^2Prot", "Protect damage", "Damage avoided using protect"},
-	{ STATS_TABLE_FORCE, "^2Time", "Protect time", "Total duration you had protect activated"},
-	{ STATS_TABLE_FORCE, "^5Rage", "Rage time", "Total duration you had rage activated"},
-	{ STATS_TABLE_FORCE, "^1Drn", "Drain", "Force power gained by draining enemies"},
-	{ STATS_TABLE_FORCE, "^1Drnd", "Drained", "Force power given to enemies by drain"},
+	{ STATS_TABLE_GENERAL, "^5Boon", "Boons", "Boon pickups, if boon is enabled"},
+	{ STATS_TABLE_GENERAL, "^5Push", "Pushes", "Force pushes used"},
+	{ STATS_TABLE_GENERAL, "^5Pull", "Pulls", "Force pulls used"},
+	{ STATS_TABLE_GENERAL, "^5Heal", "Team heal", "Amount of allies' health you replenished with team heal"},
+	{ STATS_TABLE_GENERAL, "^6TE", "Team energize", "Amount of allies' force power you replenished with team energize"},
+	{ STATS_TABLE_GENERAL, "^6TE Eff", "Team energize efficiency", "Efficiency of your team energize usage (highest amount anyone was energized ÷ maximum amount anyone could have been energized)"},
+	{ STATS_TABLE_GENERAL, "^5EnemyNrg", "Enemy energize", "Force power given to enemies using absorb"},
+	{ STATS_TABLE_GENERAL, "^5Abs", "Absorb", "Force power absorbed from enemies"},
+	{ STATS_TABLE_GENERAL, "^2Prot", "Protect damage", "Damage avoided using protect"},
+	{ STATS_TABLE_GENERAL, "^2Time", "Protect time", "Total duration you had protect activated"},
+	{ STATS_TABLE_GENERAL, "^5Rage", "Rage time", "Total duration you had rage activated"},
+	{ STATS_TABLE_GENERAL, "^1Drn", "Drain", "Force power gained by draining enemies"},
+	{ STATS_TABLE_GENERAL, "^1Drnd", "Drained", "Force power given to enemies by drain"},
+	{ STATS_TABLE_GENERAL, "^5Fs", "Allied flagstand time", "Percentage of the match spent in the 20 percent of the map closest to your flagstand"},
+	{ STATS_TABLE_GENERAL, "^5Bas", "Allied base time", "Percentage of the match spent in the 20 percent of the map between your flagstand and mid"},
+	{ STATS_TABLE_GENERAL, "^5Mid", "Mid time", "Percentage of the match spent in the middle 20 percent of the map"},
+	{ STATS_TABLE_GENERAL, "^5EBa", "Enemy base time", "Percentage of the match spent in the 20 percent of the map between the enemy flagstand and mid"},
+	{ STATS_TABLE_GENERAL, "^5EFs", "Enemy flagstand time", "Percentage of the match spent in the 20 percent of the map closest to the enemy flagstand"},
 	// STATS_TABLE_DAMAGE is not used here
 	{ STATS_TABLE_WEAPON_GIVEN, "^5Mel", "Melee damage", "Damage dealt to enemies with melee"},
 	{ STATS_TABLE_WEAPON_GIVEN, "^5Sab", "Lightsaber damage", "Damage dealt to enemies with lightsaber"},
@@ -2182,13 +2176,6 @@ static statsHelp_t helps[] = { // important: make sure any new stats do not conf
 	{ STATS_TABLE_ACCURACY, "^5Con", "Concussion rifle primary accuracy", "Accuracy percentage of concussion rifle primary"},
 	{ STATS_TABLE_ACCURACY, "^5Alt", "Concussion rifle altfire accuracy", "Accuracy percentage of concussion rifle altfire"},
 	{ STATS_TABLE_ACCURACY, "^5The", "Thermal detonator altfire accuracy", "Accuracy percentage of thermal detonator altfire"},
-	{ STATS_TABLE_EXPERIMENTAL, "^5Pos", "Position", "CTF position, if 4v4"},
-	{ STATS_TABLE_EXPERIMENTAL, "^5Fs", "Allied flagstand time", "Percentage of the match spent in the 20 percent of the map closest to your flagstand"},
-	{ STATS_TABLE_EXPERIMENTAL, "^5Bas", "Allied base time", "Percentage of the match spent in the 20 percent of the map between your flagstand and mid"},
-	{ STATS_TABLE_EXPERIMENTAL, "^5Mid", "Mid time", "Percentage of the match spent in the middle 20 percent of the map"},
-	{ STATS_TABLE_EXPERIMENTAL, "^5EBa", "Enemy base time", "Percentage of the match spent in the 20 percent of the map between the enemy flagstand and mid"},
-	{ STATS_TABLE_EXPERIMENTAL, "^5EFs", "Enemy flagstand time", "Percentage of the match spent in the 20 percent of the map closest to the enemy flagstand"},
-	{ STATS_TABLE_EXPERIMENTAL, "^5GetHP", "Average get health points", "Average health+armor total you had when you took the flag from the flagstand"},
 }; // important: make sure any new stats do not conflict with /stats help subcommands that print entire categories (e.g. "ex")
 
 const char *StatsHelpTableCallback_Category(void *rowContext, void *columnContext) {
@@ -2197,12 +2184,10 @@ const char *StatsHelpTableCallback_Category(void *rowContext, void *columnContex
 	statsHelp_t *help = rowContext;
 	switch (help->type) {
 	case STATS_TABLE_GENERAL: return "General";
-	case STATS_TABLE_FORCE: return "Force";
 	case STATS_TABLE_DAMAGE: return "Damage";
 	case STATS_TABLE_WEAPON_GIVEN: return "Weapon";
 	case STATS_TABLE_WEAPON_TAKEN: assert(qfalse); return NULL; // use STATS_TABLE_WEAPON_GIVEN instead
 	case STATS_TABLE_ACCURACY: return "Accuracy";
-	case STATS_TABLE_EXPERIMENTAL: return "Experimental";
 	default: assert(qfalse); return NULL;
 	}
 }
@@ -2327,18 +2312,24 @@ void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t ou
 			Q_strncpyz(outputBuffer, s, outSize);
 			int len = strlen(outputBuffer);
 			PrintTeamStats(id, outputBuffer + len, outSize - len, announce, STATS_TABLE_GENERAL, NULL);
+			len = strlen(outputBuffer);
+			PrintTeamStats(id, outputBuffer + len, outSize - len, announce, STATS_TABLE_FORCE, NULL);
 		}
 		else {
 			if (announce)
 				PrintIngame(id, s);
 			PrintTeamStats(id, NULL, 0, announce, STATS_TABLE_GENERAL, NULL);
+			PrintTeamStats(id, NULL, 0, announce, STATS_TABLE_FORCE, NULL);
 		}
 	}
-	else if (!Q_stricmpn(type, "fo", 2)) { // force power stats
-		PrintTeamStats(id, outputBuffer, outSize, announce, STATS_TABLE_FORCE, NULL);
-	}
 	else if (!Q_stricmpn(type, "da", 2) || !Q_stricmpn(type, "dmg", 3)) { // damage stats
-		PrintTeamStats(id, outputBuffer, outSize, announce, STATS_TABLE_DAMAGE, NULL);
+		if (outputBuffer) {
+			int len = strlen(outputBuffer);
+			PrintTeamStats(id, outputBuffer + len, outSize - len, announce, STATS_TABLE_DAMAGE, NULL);
+		}
+		else {
+			PrintTeamStats(id, NULL, 0, announce, STATS_TABLE_DAMAGE, NULL);
+		}
 		return;
 	}
 	else if (!Q_stricmpn(type, "we", 2) || !Q_stricmpn(type, "wpn", 3)) { // weapon stats
@@ -2354,36 +2345,107 @@ void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t ou
 			}
 		}
 		else { // everyone
-			for (int i = 0; i < MAX_CLIENTS; i++) {
-				if (g_entities[i].inuse && level.clients[i].pers.connected == CON_CONNECTED &&
-					(level.clients[i].sess.sessionTeam == TEAM_RED || level.clients[i].sess.sessionTeam == TEAM_BLUE) &&
-					level.clients[i].stats && StatsValid(level.clients[i].stats)) {
-					if (outputBuffer) {
-						size_t len = strlen(outputBuffer);
-						if (len < outSize - 1)
-							PrintTeamStats(id, outputBuffer + len, outSize - len, announce, STATS_TABLE_WEAPON_GIVEN, level.clients[i].stats);
+			team_t winningTeam = level.teamScores[TEAM_BLUE] > level.teamScores[TEAM_RED] ? TEAM_BLUE : TEAM_RED; // red if tied to match scoreboard order
+			team_t losingTeam = OtherTeam(winningTeam);
+			list_t gotPlayersList = { 0 };
+			for (int j = 0; j < 2; j++) {
+				team_t team = !j ? winningTeam : losingTeam; // winning team first
+
+				for (int i = 0; i < level.numConnectedClients; i++) {
+					int findClientNum = level.sortedClients[i];
+					iterator_t iter;
+					ListIterate(&level.statsList, &iter, qfalse);
+
+					while (IteratorHasNext(&iter)) {
+						stats_t *found = IteratorNext(&iter);
+						if (!StatsValid(found) || found->clientNum != findClientNum || found->lastTeam != team)
+							continue;
+
+						gotPlayer_t *gotPlayerAlready = ListFind(&gotPlayersList, PlayerMatches, found, NULL);
+						if (gotPlayerAlready)
+							continue;
+
+						gotPlayer_t *add = ListAdd(&gotPlayersList, sizeof(gotPlayer_t));
+						add->stats = found;
+						add->sessionId = found->sessionId;
+						add->isBot = found->isBot;
+						add->team = found->lastTeam;
+
+						int len = outputBuffer ? strlen(outputBuffer) : 0;
+						PrintTeamStats(id, outputBuffer + len, outSize - len, announce, STATS_TABLE_WEAPON_GIVEN, found);
+						len = outputBuffer ? strlen(outputBuffer) : 0;
+						PrintTeamStats(id, outputBuffer + len, outSize - len, announce, STATS_TABLE_WEAPON_TAKEN, found);
+
+						goto continueWeaponLoop; // suck my
 					}
-					else {
-						PrintTeamStats(id, outputBuffer, outSize, announce, STATS_TABLE_WEAPON_GIVEN, level.clients[i].stats);
-					}
-					if (outputBuffer) {
-						size_t len = strlen(outputBuffer);
-						if (len < outSize - 1)
-							PrintTeamStats(id, outputBuffer + len, outSize - len, announce, STATS_TABLE_WEAPON_TAKEN, level.clients[i].stats);
-					}
-					else {
-						PrintTeamStats(id, outputBuffer, outSize, announce, STATS_TABLE_WEAPON_TAKEN, level.clients[i].stats);
-					}
+				continueWeaponLoop:; // nuts
+				}
+
+				// ...then, everybody else (ragequitters, people who changed teams or went spec, etc.)
+				iterator_t iter;
+				ListIterate(&level.statsList, &iter, qfalse);
+
+				while (IteratorHasNext(&iter)) {
+					stats_t *found = IteratorNext(&iter);
+					if (!StatsValid(found) || found->lastTeam != team)
+						continue;
+
+					ctfPosition_t pos = found->finalPosition ? found->finalPosition : DetermineCTFPosition(found);
+
+					gotPlayer_t *gotPlayerAlready = ListFind(&gotPlayersList, PlayerMatches, found, NULL);
+					if (gotPlayerAlready)
+						continue;
+
+					gotPlayer_t *add = ListAdd(&gotPlayersList, sizeof(gotPlayer_t));
+					add->stats = found;
+					add->sessionId = found->sessionId;
+					add->isBot = found->isBot;
+					add->team = found->lastTeam;
+
+					int len = outputBuffer ? strlen(outputBuffer) : 0;
+					PrintTeamStats(id, outputBuffer + len, outSize - len, announce, STATS_TABLE_WEAPON_GIVEN, found);
+					len = outputBuffer ? strlen(outputBuffer) : 0;
+					PrintTeamStats(id, outputBuffer + len, outSize - len, announce, STATS_TABLE_WEAPON_TAKEN, found);
+				}
+
+				// finally, the old stats
+				ListIterate(&level.savedStatsList, &iter, qfalse);
+
+				while (IteratorHasNext(&iter)) {
+					stats_t *found = IteratorNext(&iter);
+					if (!StatsValid(found) || found->lastTeam != team)
+						continue;
+
+					ctfPosition_t pos = found->finalPosition ? found->finalPosition : DetermineCTFPosition(found);
+
+					gotPlayer_t *gotPlayerAlready = ListFind(&gotPlayersList, PlayerMatches, found, NULL);
+					if (gotPlayerAlready)
+						continue;
+
+					gotPlayer_t *add = ListAdd(&gotPlayersList, sizeof(gotPlayer_t));
+					add->stats = found;
+					add->sessionId = found->sessionId;
+					add->isBot = found->isBot;
+					add->team = found->lastTeam;
+
+					int len = outputBuffer ? strlen(outputBuffer) : 0;
+					PrintTeamStats(id, outputBuffer + len, outSize - len, announce, STATS_TABLE_WEAPON_GIVEN, found);
+					len = outputBuffer ? strlen(outputBuffer) : 0;
+					PrintTeamStats(id, outputBuffer + len, outSize - len, announce, STATS_TABLE_WEAPON_TAKEN, found);
 				}
 			}
+			ListClear(&gotPlayersList);
 		}
 		return;
 	}
 	else if (!Q_stricmpn(type, "ac", 2)) {
-		PrintTeamStats(id, outputBuffer, outSize, announce, STATS_TABLE_ACCURACY, NULL);
-	}
-	else if (!Q_stricmpn(type, "ex", 2)) {
-		PrintTeamStats(id, outputBuffer, outSize, announce, STATS_TABLE_EXPERIMENTAL, NULL);
+		if (outputBuffer) {
+			int len = strlen(outputBuffer);
+			PrintTeamStats(id, outputBuffer + len, outSize - len, announce, STATS_TABLE_ACCURACY, NULL);
+		}
+		else {
+			PrintTeamStats(id, NULL, 0, announce, STATS_TABLE_ACCURACY, NULL);
+		}
 	}
 	else if (id != -1) {
 		if (!Q_stricmp(type, "help")) {
@@ -2396,13 +2458,9 @@ void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t ou
 					PrintHelpForStatsTable(STATS_TABLE_GENERAL, id);
 					PrintHelpForStatsTable(STATS_TABLE_WEAPON_GIVEN, id);
 					PrintHelpForStatsTable(STATS_TABLE_ACCURACY, id);
-					PrintHelpForStatsTable(STATS_TABLE_EXPERIMENTAL, id);
 				}
 				else if (!Q_stricmp(query, "gen") || !Q_stricmp(query, "general")) {
 					PrintHelpForStatsTable(STATS_TABLE_GENERAL, id);
-				}
-				else if (!Q_stricmp(query, "force")) {
-					PrintHelpForStatsTable(STATS_TABLE_FORCE, id);
 				}
 				else if (!Q_stricmp(query, "weapon") || !Q_stricmp(query, "wpn")) {
 					PrintHelpForStatsTable(STATS_TABLE_WEAPON_GIVEN, id);
@@ -2410,23 +2468,20 @@ void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t ou
 				else if (!Q_stricmp(query, "accuracy")) {
 					PrintHelpForStatsTable(STATS_TABLE_ACCURACY, id);
 				}
-				else if (!Q_stricmpn(query, "ex", 2)) {
-					PrintHelpForStatsTable(STATS_TABLE_EXPERIMENTAL, id);
-				}
 				else {
 					if (!PrintHelpForIndividualStat(query, id))
 						PrintIngame(id, "No help found for '%s^7'.\n"
 							"Usage: ^5stats help <query>^7\n"
-							"Query can be a stat name (e.g. DmgTkn) or type (general/force/experimental/accuracy/weapon) or 'all'\n", query);
+							"Query can be a stat name (e.g. DmgTkn) or type (general/accuracy/weapon) or 'all'\n", query);
 				}
 			}
 			else {
 				PrintIngame(id, "Usage: ^5stats help <query>^7\n"
-					"Query can be a stat name (e.g. DmgTkn) or type (general/force/experimental/accuracy/weapon) or 'all'\n", query);
+					"Query can be a stat name (e.g. DmgTkn) or type (general/accuracy/weapon) or 'all'\n", query);
 			}
 		}
 		else {
-			PrintIngame(id, "Unknown argument '%s^7'.\nUsage: ^5stats <gen | force | ex | acc | dmg | wpn [player]>^7\nEnter ^5stats help^7 for more information about a stat.\n", type);
+			PrintIngame(id, "Unknown argument '%s^7'.\nUsage: ^5stats <gen | dmg | acc | wpn [player]>^7\nEnter ^5stats help^7 for more information about a stat.\n", type);
 		}
 	}
 }

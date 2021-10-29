@@ -1002,7 +1002,6 @@ typedef enum {
 	STATS_TABLE_WEAPON_GIVEN,
 	STATS_TABLE_WEAPON_TAKEN,
 	STATS_TABLE_ACCURACY,
-	STATS_TABLE_EXPERIMENTAL,
 	NUM_STATS_TABLES
 } statsTableType_t;
 void InitClientStats(gclient_t *cl);
