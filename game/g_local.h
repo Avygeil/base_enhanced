@@ -922,6 +922,9 @@ typedef struct { //Should this store their g2 anim? for proper g2 sync?
 // g_stats.c
 //
 
+//#define DEBUGSTATSNAMES // uncomment this to see longer column names in stats
+//#define DEBUG_CTF_POSITION_STATS // uncomment this to remove afk checks and print more message for pos detection
+
 #ifdef DEBUG_CTF_POSITION_STATS
 #define CTFPOSITION_MINIMUM_SECONDS		(60) // 60 seconds minimum for pos detection
 #else

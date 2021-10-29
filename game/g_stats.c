@@ -29,7 +29,18 @@ const char *CtfStatsTableCallback_Alias(void *rowContext, void *columnContext) {
 }
 
 // gold if best overall; green if best on team; uncolored otherwise
-const char *FormatStatInt(qboolean isTotal, int num, int bestMyTeam, int bestOtherTeam) {
+const char *FormatStatInt(qboolean isTotal, int num, int bestMyTeam, int bestOtherTeam, int minDigitsDebug) {
+#if defined (_DEBUG) && defined(DEBUGSTATSNAMES)
+	if (isTotal)
+		return va("^9%0*d", minDigitsDebug, num);
+	if (!num && !bestMyTeam)
+		return va("%0*d", minDigitsDebug, num); // everybody has zero on my team; no color
+	if (num >= bestMyTeam && num >= bestOtherTeam)
+		return va("^3%0*d", minDigitsDebug, num);
+	if (num >= bestMyTeam)
+		return va("^2%0*d", minDigitsDebug, num);
+	return va("%0*d", minDigitsDebug, num);
+#else
 	if (isTotal)
 		return va("^9%d", num);
 	if (!num && !bestMyTeam)
@@ -39,6 +50,7 @@ const char *FormatStatInt(qboolean isTotal, int num, int bestMyTeam, int bestOth
 	if (num >= bestMyTeam)
 		return va("^2%d", num);
 	return va("%d", num);
+#endif
 }
 
 // gold if best overall; green if best on team; uncolored otherwise
@@ -46,6 +58,31 @@ const char *FormatStatTime(qboolean isTotal, int num, int bestMyTeam, int bestOt
 	int secs = num / 1000;
 	int mins = secs / 60;
 
+#if defined (_DEBUG) && defined(DEBUGSTATSNAMES)
+#if 1
+	secs %= 60;
+	if (isTotal)
+		return va("^9%02dm%02ds", mins, secs);
+	if (!num && !bestMyTeam)
+		return va("%02dm%02ds", mins, secs);  // everybody has zero on my team; no color
+	if (num >= bestMyTeam && num >= bestOtherTeam)
+		return va("^3%02dm%02ds", mins, secs);
+	if (num >= bestMyTeam)
+		return va("^2%02dm%02ds", mins, secs);
+	return va("%02dm%02ds", mins, secs);
+#else
+	secs %= 60;
+	if (isTotal)
+		return va("^9%02d:%02ds", mins, secs);
+	if (!num && !bestMyTeam)
+		return va("%02d:%02d", mins, secs);  // everybody has zero on my team; no color
+	if (num >= bestMyTeam && num >= bestOtherTeam)
+		return va("^3%02d:%02d", mins, secs);
+	if (num >= bestMyTeam)
+		return va("^2%02d:%02d", mins, secs);
+	return va("%02d:%02ds", mins, secs);
+#endif
+#else
 #if 1
 	// more or less than a minute?
 	if (num >= 60000) {
@@ -96,6 +133,7 @@ const char *FormatStatTime(qboolean isTotal, int num, int bestMyTeam, int bestOt
 			return va("^2:%02d", secs);
 		return va(":%02d", secs);
 	}
+#endif
 #endif
 }
 
@@ -463,7 +501,7 @@ const char *CtfStatsTableCallback_Captures(void *rowContext, void *columnContext
 		return NULL;
 	}
 	stats_t *stats = rowContext;
-	return FormatStatInt(stats->isTotal, stats->captures, bestStats[stats->lastTeam].captures, bestStats[OtherTeam(stats->lastTeam)].captures);
+	return FormatStatInt(stats->isTotal, stats->captures, bestStats[stats->lastTeam].captures, bestStats[OtherTeam(stats->lastTeam)].captures, 2);
 }
 
 const char *CtfStatsTableCallback_Assists(void *rowContext, void *columnContext) {
@@ -472,7 +510,7 @@ const char *CtfStatsTableCallback_Assists(void *rowContext, void *columnContext)
 		return NULL;
 	}
 	stats_t *stats = rowContext;
-	return FormatStatInt(stats->isTotal, stats->assists, bestStats[stats->lastTeam].assists, bestStats[OtherTeam(stats->lastTeam)].assists);
+	return FormatStatInt(stats->isTotal, stats->assists, bestStats[stats->lastTeam].assists, bestStats[OtherTeam(stats->lastTeam)].assists, 2);
 }
 
 const char *CtfStatsTableCallback_Defends(void *rowContext, void *columnContext) {
@@ -481,7 +519,7 @@ const char *CtfStatsTableCallback_Defends(void *rowContext, void *columnContext)
 		return NULL;
 	}
 	stats_t *stats = rowContext;
-	return FormatStatInt(stats->isTotal, stats->defends, bestStats[stats->lastTeam].defends, bestStats[OtherTeam(stats->lastTeam)].defends);
+	return FormatStatInt(stats->isTotal, stats->defends, bestStats[stats->lastTeam].defends, bestStats[OtherTeam(stats->lastTeam)].defends, 2);
 }
 
 const char *CtfStatsTableCallback_Accuracy(void *rowContext, void *columnContext) {
@@ -490,7 +528,7 @@ const char *CtfStatsTableCallback_Accuracy(void *rowContext, void *columnContext
 		return NULL;
 	}
 	stats_t *stats = rowContext;
-	return FormatStatInt(stats->isTotal, stats->accuracy, bestStats[stats->lastTeam].accuracy, bestStats[OtherTeam(stats->lastTeam)].accuracy);
+	return FormatStatInt(stats->isTotal, stats->accuracy, bestStats[stats->lastTeam].accuracy, bestStats[OtherTeam(stats->lastTeam)].accuracy, 3);
 }
 
 const char *CtfStatsTableCallback_Airs(void *rowContext, void *columnContext) {
@@ -499,7 +537,7 @@ const char *CtfStatsTableCallback_Airs(void *rowContext, void *columnContext) {
 		return NULL;
 	}
 	stats_t *stats = rowContext;
-	return FormatStatInt(stats->isTotal, stats->airs, bestStats[stats->lastTeam].airs, bestStats[OtherTeam(stats->lastTeam)].airs);
+	return FormatStatInt(stats->isTotal, stats->airs, bestStats[stats->lastTeam].airs, bestStats[OtherTeam(stats->lastTeam)].airs, 2);
 }
 
 const char *CtfStatsTableCallback_TeamKills(void *rowContext, void *columnContext) {
@@ -508,7 +546,7 @@ const char *CtfStatsTableCallback_TeamKills(void *rowContext, void *columnContex
 		return NULL;
 	}
 	stats_t *stats = rowContext;
-	return FormatStatInt(stats->isTotal, stats->teamKills, bestStats[stats->lastTeam].teamKills, bestStats[OtherTeam(stats->lastTeam)].teamKills);
+	return FormatStatInt(stats->isTotal, stats->teamKills, bestStats[stats->lastTeam].teamKills, bestStats[OtherTeam(stats->lastTeam)].teamKills, 2);
 }
 
 const char *CtfStatsTableCallback_Takes(void *rowContext, void *columnContext) {
@@ -517,7 +555,7 @@ const char *CtfStatsTableCallback_Takes(void *rowContext, void *columnContext) {
 		return NULL;
 	}
 	stats_t *stats = rowContext;
-	return FormatStatInt(stats->isTotal, stats->takes, bestStats[stats->lastTeam].takes, bestStats[OtherTeam(stats->lastTeam)].takes);
+	return FormatStatInt(stats->isTotal, stats->takes, bestStats[stats->lastTeam].takes, bestStats[OtherTeam(stats->lastTeam)].takes, 2);
 }
 
 const char *CtfStatsTableCallback_Pits(void *rowContext, void *columnContext) {
@@ -526,7 +564,7 @@ const char *CtfStatsTableCallback_Pits(void *rowContext, void *columnContext) {
 		return NULL;
 	}
 	stats_t *stats = rowContext;
-	return FormatStatInt(stats->isTotal, stats->pits, bestStats[stats->lastTeam].pits, bestStats[OtherTeam(stats->lastTeam)].pits);
+	return FormatStatInt(stats->isTotal, stats->pits, bestStats[stats->lastTeam].pits, bestStats[OtherTeam(stats->lastTeam)].pits, 2);
 }
 
 const char *CtfStatsTableCallback_Pitted(void *rowContext, void *columnContext) {
@@ -535,7 +573,7 @@ const char *CtfStatsTableCallback_Pitted(void *rowContext, void *columnContext) 
 		return NULL;
 	}
 	stats_t *stats = rowContext;
-	return FormatStatInt(stats->isTotal, stats->pitted, bestStats[stats->lastTeam].pitted, bestStats[OtherTeam(stats->lastTeam)].pitted);
+	return FormatStatInt(stats->isTotal, stats->pitted, bestStats[stats->lastTeam].pitted, bestStats[OtherTeam(stats->lastTeam)].pitted, 2);
 }
 
 const char *CtfStatsTableCallback_FcKills(void *rowContext, void *columnContext) {
@@ -544,7 +582,7 @@ const char *CtfStatsTableCallback_FcKills(void *rowContext, void *columnContext)
 		return NULL;
 	}
 	stats_t *stats = rowContext;
-	return FormatStatInt(stats->isTotal, stats->fcKills, bestStats[stats->lastTeam].fcKills, bestStats[OtherTeam(stats->lastTeam)].fcKills);
+	return FormatStatInt(stats->isTotal, stats->fcKills, bestStats[stats->lastTeam].fcKills, bestStats[OtherTeam(stats->lastTeam)].fcKills, 2);
 }
 
 const char *CtfStatsTableCallback_Rets(void *rowContext, void *columnContext) {
@@ -553,7 +591,7 @@ const char *CtfStatsTableCallback_Rets(void *rowContext, void *columnContext) {
 		return NULL;
 	}
 	stats_t *stats = rowContext;
-	return FormatStatInt(stats->isTotal, stats->rets, bestStats[stats->lastTeam].rets, bestStats[OtherTeam(stats->lastTeam)].rets);
+	return FormatStatInt(stats->isTotal, stats->rets, bestStats[stats->lastTeam].rets, bestStats[OtherTeam(stats->lastTeam)].rets, 2);
 }
 
 const char *CtfStatsTableCallback_Selfkills(void *rowContext, void *columnContext) {
@@ -562,7 +600,7 @@ const char *CtfStatsTableCallback_Selfkills(void *rowContext, void *columnContex
 		return NULL;
 	}
 	stats_t *stats = rowContext;
-	return FormatStatInt(stats->isTotal, stats->selfkills, bestStats[stats->lastTeam].selfkills, bestStats[OtherTeam(stats->lastTeam)].selfkills);
+	return FormatStatInt(stats->isTotal, stats->selfkills, bestStats[stats->lastTeam].selfkills, bestStats[OtherTeam(stats->lastTeam)].selfkills, 2);
 }
 
 const char *CtfStatsTableCallback_BoonPickups(void *rowContext, void *columnContext) {
@@ -571,7 +609,7 @@ const char *CtfStatsTableCallback_BoonPickups(void *rowContext, void *columnCont
 		return NULL;
 	}
 	stats_t *stats = rowContext;
-	return FormatStatInt(stats->isTotal, stats->boonPickups, bestStats[stats->lastTeam].boonPickups, bestStats[OtherTeam(stats->lastTeam)].boonPickups);
+	return FormatStatInt(stats->isTotal, stats->boonPickups, bestStats[stats->lastTeam].boonPickups, bestStats[OtherTeam(stats->lastTeam)].boonPickups, 2);
 }
 
 const char *CtfStatsTableCallback_TotalHold(void *rowContext, void *columnContext) {
@@ -598,7 +636,7 @@ const char *CtfStatsTableCallback_Holds(void *rowContext, void *columnContext) {
 		return NULL;
 	}
 	stats_t *stats = rowContext;
-	return FormatStatInt(stats->isTotal, stats->numFlagHolds, bestStats[stats->lastTeam].numFlagHolds, bestStats[OtherTeam(stats->lastTeam)].numFlagHolds);
+	return FormatStatInt(stats->isTotal, stats->numFlagHolds, bestStats[stats->lastTeam].numFlagHolds, bestStats[OtherTeam(stats->lastTeam)].numFlagHolds, 2);
 }
 
 const char *CtfStatsTableCallback_AverageHold(void *rowContext, void *columnContext) {
@@ -616,7 +654,7 @@ const char *CtfStatsTableCallback_Saves(void *rowContext, void *columnContext) {
 		return NULL;
 	}
 	stats_t *stats = rowContext;
-	return FormatStatInt(stats->isTotal, stats->saves, bestStats[stats->lastTeam].saves, bestStats[OtherTeam(stats->lastTeam)].saves);
+	return FormatStatInt(stats->isTotal, stats->saves, bestStats[stats->lastTeam].saves, bestStats[OtherTeam(stats->lastTeam)].saves, 2);
 }
 
 const char *CtfStatsTableCallback_DamageDealt(void *rowContext, void *columnContext) {
@@ -625,7 +663,7 @@ const char *CtfStatsTableCallback_DamageDealt(void *rowContext, void *columnCont
 		return NULL;
 	}
 	stats_t *stats = rowContext;
-	return FormatStatInt(stats->isTotal, stats->damageDealtTotal, bestStats[stats->lastTeam].damageDealtTotal, bestStats[OtherTeam(stats->lastTeam)].damageDealtTotal);
+	return FormatStatInt(stats->isTotal, stats->damageDealtTotal, bestStats[stats->lastTeam].damageDealtTotal, bestStats[OtherTeam(stats->lastTeam)].damageDealtTotal, 5);
 }
 
 const char *CtfStatsTableCallback_DamageTaken(void *rowContext, void *columnContext) {
@@ -634,7 +672,7 @@ const char *CtfStatsTableCallback_DamageTaken(void *rowContext, void *columnCont
 		return NULL;
 	}
 	stats_t *stats = rowContext;
-	return FormatStatInt(stats->isTotal, stats->damageTakenTotal, bestStats[stats->lastTeam].damageTakenTotal, bestStats[OtherTeam(stats->lastTeam)].damageTakenTotal);
+	return FormatStatInt(stats->isTotal, stats->damageTakenTotal, bestStats[stats->lastTeam].damageTakenTotal, bestStats[OtherTeam(stats->lastTeam)].damageTakenTotal, 5);
 }
 
 const char *CtfStatsTableCallback_FlagCarrierDamageDealt(void *rowContext, void *columnContext) {
@@ -643,7 +681,7 @@ const char *CtfStatsTableCallback_FlagCarrierDamageDealt(void *rowContext, void 
 		return NULL;
 	}
 	stats_t *stats = rowContext;
-	return FormatStatInt(stats->isTotal, stats->flagCarrierDamageDealtTotal, bestStats[stats->lastTeam].flagCarrierDamageDealtTotal, bestStats[OtherTeam(stats->lastTeam)].flagCarrierDamageDealtTotal);
+	return FormatStatInt(stats->isTotal, stats->flagCarrierDamageDealtTotal, bestStats[stats->lastTeam].flagCarrierDamageDealtTotal, bestStats[OtherTeam(stats->lastTeam)].flagCarrierDamageDealtTotal, 4);
 }
 
 const char *CtfStatsTableCallback_FlagCarrierDamageTaken(void *rowContext, void *columnContext) {
@@ -652,7 +690,7 @@ const char *CtfStatsTableCallback_FlagCarrierDamageTaken(void *rowContext, void 
 		return NULL;
 	}
 	stats_t *stats = rowContext;
-	return FormatStatInt(stats->isTotal, stats->flagCarrierDamageTakenTotal, bestStats[stats->lastTeam].flagCarrierDamageTakenTotal, bestStats[OtherTeam(stats->lastTeam)].flagCarrierDamageTakenTotal);
+	return FormatStatInt(stats->isTotal, stats->flagCarrierDamageTakenTotal, bestStats[stats->lastTeam].flagCarrierDamageTakenTotal, bestStats[OtherTeam(stats->lastTeam)].flagCarrierDamageTakenTotal, 4);
 }
 
 const char *CtfStatsTableCallback_ClearDamageDealt(void *rowContext, void *columnContext) {
@@ -661,7 +699,7 @@ const char *CtfStatsTableCallback_ClearDamageDealt(void *rowContext, void *colum
 		return NULL;
 	}
 	stats_t *stats = rowContext;
-	return FormatStatInt(stats->isTotal, stats->clearDamageDealtTotal, bestStats[stats->lastTeam].clearDamageDealtTotal, bestStats[OtherTeam(stats->lastTeam)].clearDamageDealtTotal);
+	return FormatStatInt(stats->isTotal, stats->clearDamageDealtTotal, bestStats[stats->lastTeam].clearDamageDealtTotal, bestStats[OtherTeam(stats->lastTeam)].clearDamageDealtTotal, 4);
 }
 
 const char *CtfStatsTableCallback_ClearDamageTaken(void *rowContext, void *columnContext) {
@@ -670,7 +708,7 @@ const char *CtfStatsTableCallback_ClearDamageTaken(void *rowContext, void *colum
 		return NULL;
 	}
 	stats_t *stats = rowContext;
-	return FormatStatInt(stats->isTotal, stats->clearDamageTakenTotal, bestStats[stats->lastTeam].clearDamageTakenTotal, bestStats[OtherTeam(stats->lastTeam)].clearDamageTakenTotal);
+	return FormatStatInt(stats->isTotal, stats->clearDamageTakenTotal, bestStats[stats->lastTeam].clearDamageTakenTotal, bestStats[OtherTeam(stats->lastTeam)].clearDamageTakenTotal, 4);
 }
 
 const char *CtfStatsTableCallback_OtherDamageDealt(void *rowContext, void *columnContext) {
@@ -679,7 +717,7 @@ const char *CtfStatsTableCallback_OtherDamageDealt(void *rowContext, void *colum
 		return NULL;
 	}
 	stats_t *stats = rowContext;
-	return FormatStatInt(stats->isTotal, stats->otherDamageDealtTotal, bestStats[stats->lastTeam].otherDamageDealtTotal, bestStats[OtherTeam(stats->lastTeam)].otherDamageDealtTotal);
+	return FormatStatInt(stats->isTotal, stats->otherDamageDealtTotal, bestStats[stats->lastTeam].otherDamageDealtTotal, bestStats[OtherTeam(stats->lastTeam)].otherDamageDealtTotal, 4);
 }
 
 const char *CtfStatsTableCallback_OtherDamageTaken(void *rowContext, void *columnContext) {
@@ -688,7 +726,7 @@ const char *CtfStatsTableCallback_OtherDamageTaken(void *rowContext, void *colum
 		return NULL;
 	}
 	stats_t *stats = rowContext;
-	return FormatStatInt(stats->isTotal, stats->otherDamageTakenTotal, bestStats[stats->lastTeam].otherDamageTakenTotal, bestStats[OtherTeam(stats->lastTeam)].otherDamageTakenTotal);
+	return FormatStatInt(stats->isTotal, stats->otherDamageTakenTotal, bestStats[stats->lastTeam].otherDamageTakenTotal, bestStats[OtherTeam(stats->lastTeam)].otherDamageTakenTotal, 4);
 }
 
 const char *CtfStatsTableCallback_TopSpeed(void *rowContext, void *columnContext) {
@@ -697,7 +735,7 @@ const char *CtfStatsTableCallback_TopSpeed(void *rowContext, void *columnContext
 		return NULL;
 	}
 	stats_t *stats = rowContext;
-	return FormatStatInt(stats->isTotal, (int)(stats->topSpeed + 0.5f), (int)(bestStats[stats->lastTeam].topSpeed + 0.5f), (int)(bestStats[OtherTeam(stats->lastTeam)].topSpeed + 0.5f));
+	return FormatStatInt(stats->isTotal, (int)(stats->topSpeed + 0.5f), (int)(bestStats[stats->lastTeam].topSpeed + 0.5f), (int)(bestStats[OtherTeam(stats->lastTeam)].topSpeed + 0.5f), 4);
 }
 
 const char *CtfStatsTableCallback_AverageSpeed(void *rowContext, void *columnContext) {
@@ -706,7 +744,7 @@ const char *CtfStatsTableCallback_AverageSpeed(void *rowContext, void *columnCon
 		return NULL;
 	}
 	stats_t *stats = rowContext;
-	return FormatStatInt(stats->isTotal, stats->averageSpeed, bestStats[stats->lastTeam].averageSpeed, bestStats[OtherTeam(stats->lastTeam)].averageSpeed);
+	return FormatStatInt(stats->isTotal, stats->averageSpeed, bestStats[stats->lastTeam].averageSpeed, bestStats[OtherTeam(stats->lastTeam)].averageSpeed, 4);
 }
 
 const char *CtfStatsTableCallback_Push(void *rowContext, void *columnContext) {
@@ -715,7 +753,7 @@ const char *CtfStatsTableCallback_Push(void *rowContext, void *columnContext) {
 		return NULL;
 	}
 	stats_t *stats = rowContext;
-	return FormatStatInt(stats->isTotal, stats->push, bestStats[stats->lastTeam].push, bestStats[OtherTeam(stats->lastTeam)].push);
+	return FormatStatInt(stats->isTotal, stats->push, bestStats[stats->lastTeam].push, bestStats[OtherTeam(stats->lastTeam)].push, 3);
 }
 
 const char *CtfStatsTableCallback_Pull(void *rowContext, void *columnContext) {
@@ -724,7 +762,7 @@ const char *CtfStatsTableCallback_Pull(void *rowContext, void *columnContext) {
 		return NULL;
 	}
 	stats_t *stats = rowContext;
-	return FormatStatInt(stats->isTotal, stats->pull, bestStats[stats->lastTeam].pull, bestStats[OtherTeam(stats->lastTeam)].pull);
+	return FormatStatInt(stats->isTotal, stats->pull, bestStats[stats->lastTeam].pull, bestStats[OtherTeam(stats->lastTeam)].pull, 3);
 }
 
 const char *CtfStatsTableCallback_Healed(void *rowContext, void *columnContext) {
@@ -733,7 +771,7 @@ const char *CtfStatsTableCallback_Healed(void *rowContext, void *columnContext) 
 		return NULL;
 	}
 	stats_t *stats = rowContext;
-	return FormatStatInt(stats->isTotal, stats->healed, bestStats[stats->lastTeam].healed, bestStats[OtherTeam(stats->lastTeam)].healed);
+	return FormatStatInt(stats->isTotal, stats->healed, bestStats[stats->lastTeam].healed, bestStats[OtherTeam(stats->lastTeam)].healed, 3);
 }
 
 const char *CtfStatsTableCallback_EnergizedAlly(void *rowContext, void *columnContext) {
@@ -742,7 +780,7 @@ const char *CtfStatsTableCallback_EnergizedAlly(void *rowContext, void *columnCo
 		return NULL;
 	}
 	stats_t *stats = rowContext;
-	return FormatStatInt(stats->isTotal, stats->energizedAlly, bestStats[stats->lastTeam].energizedAlly, bestStats[OtherTeam(stats->lastTeam)].energizedAlly);
+	return FormatStatInt(stats->isTotal, stats->energizedAlly, bestStats[stats->lastTeam].energizedAlly, bestStats[OtherTeam(stats->lastTeam)].energizedAlly, 5);
 }
 
 const char *CtfStatsTableCallback_EnergizeEfficiency(void *rowContext, void *columnContext) {
@@ -753,7 +791,7 @@ const char *CtfStatsTableCallback_EnergizeEfficiency(void *rowContext, void *col
 	stats_t *stats = rowContext;
 	if (!stats->numEnergizes)
 		return " ";
-	return FormatStatInt(stats->isTotal, stats->energizeEfficiency, bestStats[stats->lastTeam].energizeEfficiency, bestStats[OtherTeam(stats->lastTeam)].energizeEfficiency);
+	return FormatStatInt(stats->isTotal, stats->energizeEfficiency, bestStats[stats->lastTeam].energizeEfficiency, bestStats[OtherTeam(stats->lastTeam)].energizeEfficiency, 3);
 }
 
 const char *CtfStatsTableCallback_EnergizedEnemy(void *rowContext, void *columnContext) {
@@ -762,7 +800,7 @@ const char *CtfStatsTableCallback_EnergizedEnemy(void *rowContext, void *columnC
 		return NULL;
 	}
 	stats_t *stats = rowContext;
-	return FormatStatInt(stats->isTotal, stats->energizedEnemy, bestStats[stats->lastTeam].energizedEnemy, bestStats[OtherTeam(stats->lastTeam)].energizedEnemy);
+	return FormatStatInt(stats->isTotal, stats->energizedEnemy, bestStats[stats->lastTeam].energizedEnemy, bestStats[OtherTeam(stats->lastTeam)].energizedEnemy, 4);
 }
 
 const char *CtfStatsTableCallback_Absorbed(void *rowContext, void *columnContext) {
@@ -771,7 +809,7 @@ const char *CtfStatsTableCallback_Absorbed(void *rowContext, void *columnContext
 		return NULL;
 	}
 	stats_t *stats = rowContext;
-	return FormatStatInt(stats->isTotal, stats->absorbed, bestStats[stats->lastTeam].absorbed, bestStats[OtherTeam(stats->lastTeam)].absorbed);
+	return FormatStatInt(stats->isTotal, stats->absorbed, bestStats[stats->lastTeam].absorbed, bestStats[OtherTeam(stats->lastTeam)].absorbed, 4);
 }
 
 const char *CtfStatsTableCallback_ProtDamage(void *rowContext, void *columnContext) {
@@ -780,7 +818,7 @@ const char *CtfStatsTableCallback_ProtDamage(void *rowContext, void *columnConte
 		return NULL;
 	}
 	stats_t *stats = rowContext;
-	return FormatStatInt(stats->isTotal, stats->protDamageAvoided, bestStats[stats->lastTeam].protDamageAvoided, bestStats[OtherTeam(stats->lastTeam)].protDamageAvoided);
+	return FormatStatInt(stats->isTotal, stats->protDamageAvoided, bestStats[stats->lastTeam].protDamageAvoided, bestStats[OtherTeam(stats->lastTeam)].protDamageAvoided, 4);
 }
 
 const char *CtfStatsTableCallback_ProtTime(void *rowContext, void *columnContext) {
@@ -807,7 +845,7 @@ const char *CtfStatsTableCallback_Drain(void *rowContext, void *columnContext) {
 		return NULL;
 	}
 	stats_t *stats = rowContext;
-	return FormatStatInt(stats->isTotal, stats->drain, bestStats[stats->lastTeam].drain, bestStats[OtherTeam(stats->lastTeam)].drain);
+	return FormatStatInt(stats->isTotal, stats->drain, bestStats[stats->lastTeam].drain, bestStats[OtherTeam(stats->lastTeam)].drain, 4);
 }
 
 const char *CtfStatsTableCallback_GotDrained(void *rowContext, void *columnContext) {
@@ -816,7 +854,7 @@ const char *CtfStatsTableCallback_GotDrained(void *rowContext, void *columnConte
 		return NULL;
 	}
 	stats_t *stats = rowContext;
-	return FormatStatInt(stats->isTotal, stats->gotDrained, bestStats[stats->lastTeam].gotDrained, bestStats[OtherTeam(stats->lastTeam)].gotDrained);
+	return FormatStatInt(stats->isTotal, stats->gotDrained, bestStats[stats->lastTeam].gotDrained, bestStats[OtherTeam(stats->lastTeam)].gotDrained, 4);
 }
 
 const char *CtfStatsTableCallback_HealthPickedUp(void *rowContext, void *columnContext) {
@@ -825,7 +863,7 @@ const char *CtfStatsTableCallback_HealthPickedUp(void *rowContext, void *columnC
 		return NULL;
 	}
 	stats_t *stats = rowContext;
-	return FormatStatInt(stats->isTotal, stats->healthPickedUp, bestStats[stats->lastTeam].healthPickedUp, bestStats[OtherTeam(stats->lastTeam)].healthPickedUp);
+	return FormatStatInt(stats->isTotal, stats->healthPickedUp, bestStats[stats->lastTeam].healthPickedUp, bestStats[OtherTeam(stats->lastTeam)].healthPickedUp, 4);
 }
 
 const char *CtfStatsTableCallback_ArmorPickedUp(void *rowContext, void *columnContext) {
@@ -834,7 +872,7 @@ const char *CtfStatsTableCallback_ArmorPickedUp(void *rowContext, void *columnCo
 		return NULL;
 	}
 	stats_t *stats = rowContext;
-	return FormatStatInt(stats->isTotal, stats->armorPickedUp, bestStats[stats->lastTeam].armorPickedUp, bestStats[OtherTeam(stats->lastTeam)].armorPickedUp);
+	return FormatStatInt(stats->isTotal, stats->armorPickedUp, bestStats[stats->lastTeam].armorPickedUp, bestStats[OtherTeam(stats->lastTeam)].armorPickedUp, 4);
 }
 
 const char *CtfStatsTableCallback_FlagCarrierKillEfficiency(void *rowContext, void *columnContext) {
@@ -845,7 +883,7 @@ const char *CtfStatsTableCallback_FlagCarrierKillEfficiency(void *rowContext, vo
 	stats_t *stats = rowContext;
 	if (!stats->fcKills)
 		return " ";
-	return FormatStatInt(stats->isTotal, stats->fcKillEfficiency, bestStats[stats->lastTeam].fcKillEfficiency, bestStats[OtherTeam(stats->lastTeam)].fcKillEfficiency);
+	return FormatStatInt(stats->isTotal, stats->fcKillEfficiency, bestStats[stats->lastTeam].fcKillEfficiency, bestStats[OtherTeam(stats->lastTeam)].fcKillEfficiency, 3);
 }
 
 const char *CtfStatsTableCallback_GetHealth(void *rowContext, void *columnContext) {
@@ -856,7 +894,7 @@ const char *CtfStatsTableCallback_GetHealth(void *rowContext, void *columnContex
 	stats_t *stats = rowContext;
 	if (!stats->numGets)
 		return " ";
-	return FormatStatInt(stats->isTotal, stats->averageGetHealth, bestStats[stats->lastTeam].averageGetHealth, bestStats[OtherTeam(stats->lastTeam)].averageGetHealth);
+	return FormatStatInt(stats->isTotal, stats->averageGetHealth, bestStats[stats->lastTeam].averageGetHealth, bestStats[OtherTeam(stats->lastTeam)].averageGetHealth, 3);
 }
 
 #if 0
@@ -878,7 +916,7 @@ const char *CtfStatsTableCallback_CtfRegionPercent(void *rowContext, void *colum
 	}
 	stats_t *stats = rowContext;
 	ctfRegion_t region = *((ctfRegion_t *)columnContext);
-	return FormatStatInt(stats->isTotal, stats->regionPercent[region], bestStats[stats->lastTeam].regionPercent[region], bestStats[OtherTeam(stats->lastTeam)].regionPercent[region]);
+	return FormatStatInt(stats->isTotal, stats->regionPercent[region], bestStats[stats->lastTeam].regionPercent[region], bestStats[OtherTeam(stats->lastTeam)].regionPercent[region], 3);
 }
 
 const char *TableCallback_Damage(void *rowContext, void *columnContext) {
@@ -903,7 +941,7 @@ const char *TableCallback_Damage(void *rowContext, void *columnContext) {
 		return attacker->isTotal ? "^90" : "0";
 
 	if (attacker->isTotal)
-		return FormatStatInt(qtrue, damage ? damage->totalAmount : 0, 0, 0);
+		return FormatStatInt(qtrue, damage ? damage->totalAmount : 0, 0, 0, 4);
 
 	damageCounter_t *bestDamageOnTeam = NULL, *bestDamageOnOtherTeam = NULL;
 	ListIterate(attacker->lastTeam == TEAM_RED ? &bestStats[TEAM_RED].damageGivenList : &bestStats[TEAM_BLUE].damageGivenList, &iter, qfalse);
@@ -923,7 +961,7 @@ const char *TableCallback_Damage(void *rowContext, void *columnContext) {
 		break;
 	}
 
-	return FormatStatInt(attacker->isTotal, damage ? damage->totalAmount : 0, bestDamageOnTeam ? bestDamageOnTeam->totalAmount : 0, bestDamageOnOtherTeam ? bestDamageOnOtherTeam->totalAmount : 0);
+	return FormatStatInt(attacker->isTotal, damage ? damage->totalAmount : 0, bestDamageOnTeam ? bestDamageOnTeam->totalAmount : 0, bestDamageOnOtherTeam ? bestDamageOnOtherTeam->totalAmount : 0, 4);
 }
 
 const char *TableCallback_DamageName(void *rowContext, void *columnContext) {
@@ -1000,7 +1038,7 @@ const char *TableCallback_WeaponDamage(void *rowContext, void *columnContext) {
 		else {
 			damage = rowPlayer->damageOfType[context->modc];
 		}
-		return FormatStatInt(qtrue, damage, 0, 0);
+		return FormatStatInt(qtrue, damage, 0, 0, 4);
 	}
 
 	int mostDamageThisTeam = bestStats[rowPlayer->lastTeam].damageOfType[context->modc];
@@ -1018,7 +1056,7 @@ const char *TableCallback_WeaponDamage(void *rowContext, void *columnContext) {
 		}
 	}
 
-	return FormatStatInt(qfalse, damage, mostDamageThisTeam, mostDamageOtherTeam);
+	return FormatStatInt(qfalse, damage, mostDamageThisTeam, mostDamageOtherTeam, 4);
 }
 
 static qboolean ShouldShowAccuracyCategory(accuracyCategory_t acc) {
@@ -1049,12 +1087,12 @@ const char *CtfStatsTableCallback_WeaponAccuracy(void *rowContext, void *columnC
 	if (acc == ACC_ALL_TYPES_COMBINED) {
 		if (!stats->accuracy_shots)
 			return " "; // return a single space instead of null so that the column doesn't get removed if nobody has fired this weapon yet
-		return FormatStatInt(stats->isTotal, stats->accuracy, bestStats[stats->lastTeam].accuracy, bestStats[OtherTeam(stats->lastTeam)].accuracy);
+		return FormatStatInt(stats->isTotal, stats->accuracy, bestStats[stats->lastTeam].accuracy, bestStats[OtherTeam(stats->lastTeam)].accuracy, 3);
 	}
 	else {
 		if (!stats->accuracy_shotsOfType[acc])
 			return " "; // return a single space instead of null so that the column doesn't get removed if nobody has fired this weapon yet
-		return FormatStatInt(stats->isTotal, stats->accuracyOfType[acc], bestStats[stats->lastTeam].accuracyOfType[acc], bestStats[OtherTeam(stats->lastTeam)].accuracyOfType[acc]);
+		return FormatStatInt(stats->isTotal, stats->accuracyOfType[acc], bestStats[stats->lastTeam].accuracyOfType[acc], bestStats[OtherTeam(stats->lastTeam)].accuracyOfType[acc], 3);
 	}
 }
 
