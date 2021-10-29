@@ -182,9 +182,9 @@ ctfPosition_t DetermineCTFPosition(stats_t *posGuy) {
 		return posGuy->lastPosition;
 	}
 
-	// make sure i've been ingame for 60+ seconds
+	// if i haven't been in the current block for 60+ seconds, reuse my last position
 	if (posGuy->ticksNotPaused < g_svfps.integer * CTFPOSITION_MINIMUM_SECONDS) {
-		DebugCtfPosPrintf("%08x cl %d %s^7 (block %d): ingame < 60, so using lastPosition %s\n", posGuy, posGuy->clientNum, posGuy->name, posGuy->blockNum, NameForPos(posGuy->lastPosition));
+		DebugCtfPosPrintf("%08x cl %d %s^7 (block %d): < 60 current block, so using lastPosition %s\n", posGuy, posGuy->clientNum, posGuy->name, posGuy->blockNum, NameForPos(posGuy->lastPosition));
 		return posGuy->lastPosition;
 	}
 
@@ -208,9 +208,10 @@ ctfPosition_t DetermineCTFPosition(stats_t *posGuy) {
 	int numTeammates = 0;
 	while (IteratorHasNext(&iter)) {
 		ctfPositioningData_t *teammate = IteratorNext(&iter);
-		if (!StatsValid(teammate->stats) ||
-			teammate->numTicksIngameWithMe < g_svfps.integer * CTFPOSITION_MINIMUM_SECONDS)
+		if (!StatsValid(teammate->stats))
 			continue;
+		if (teammate->numTicksIngameWithMe < g_svfps.integer * CTFPOSITION_MINIMUM_SECONDS)
+			continue; // this guy hasn't been ingame with me during the current block for 60+ seconds.
 		if (!teammate->numPositionSamplesIngameWithMe && !teammate->stats->lastPosition)
 			continue; // no valid position samples and has no last position
 
@@ -237,9 +238,11 @@ ctfPosition_t DetermineCTFPosition(stats_t *posGuy) {
 	ListIterate(&posGuy->teammatePositioningList, &iter, qfalse);
 	while (IteratorHasNext(&iter)) {
 		ctfPositioningData_t *teammate = IteratorNext(&iter);
-		if (!StatsValid(teammate->stats) ||
-			teammate->numTicksIngameWithMe < g_svfps.integer * CTFPOSITION_MINIMUM_SECONDS)
+		if (!StatsValid(teammate->stats))
 			continue;
+		if (teammate->numTicksIngameWithMe < g_svfps.integer * CTFPOSITION_MINIMUM_SECONDS) {
+			continue; // this guy hasn't been ingame with me during the current block for 60+ seconds.
+		}
 		if (!teammate->numPositionSamplesIngameWithMe && !teammate->stats->lastPosition)
 			continue; // no valid position samples and has no last position
 
@@ -2406,6 +2409,125 @@ static qboolean SessionIdMatchesStats(genericNode_t *node, void *userData) {
 	return qfalse;
 }
 
+void FinalizeCTFPositions(void) {
+	if (g_gametype.integer != GT_CTF)
+		return;
+
+	iterator_t iter;
+	ListIterate(&level.statsList, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		stats_t *s = IteratorNext(&iter);
+		s->finalPosition = DetermineCTFPosition(s);
+	}
+}
+
+// moves some current stats into the archive (level.savedStatsList) and then resets the current stats
+static void ArchiveAndResetStatsBlock(stats_t *ongoing, int newBlockNum) {
+	assert(ongoing);
+	stats_t *archive = ListAdd(&level.savedStatsList, sizeof(stats_t));
+
+	// save prev/next of the archive before memcpy overwrites it
+	genericNode_t *prev = archive->node.prev;
+	genericNode_t *next = archive->node.next;
+
+	// copy the entire ongoing struct into the archive
+	memcpy(archive, ongoing, sizeof(stats_t));
+
+	// restore prev of the archive
+	archive->node.prev = prev;
+	archive->node.next = next;
+
+	// set some important stuff in the archive
+	archive->finalPosition = ongoing->finalPosition;
+	if (ongoing->finalPosition)
+		archive->confirmedPositionBits |= (1 << ongoing->finalPosition);
+	archive->blockNum = level.statBlock;
+
+	// clear out the archive's lists, which at the moment contain the same pointers as the ongoing struct's lists
+	memset(&archive->damageGivenList, 0, sizeof(list_t));
+	memset(&archive->damageTakenList, 0, sizeof(list_t));
+	memset(&archive->teammatePositioningList, 0, sizeof(list_t));
+
+	// copy the lists
+	ListCopy(&ongoing->damageGivenList, &archive->damageGivenList, sizeof(damageCounter_t));
+	ListCopy(&ongoing->damageTakenList, &archive->damageTakenList, sizeof(damageCounter_t));
+	ListCopy(&ongoing->teammatePositioningList, &archive->teammatePositioningList, sizeof(ctfPositioningData_t));
+
+	// free the lists before clearing out the ongoing struct
+	ListClear(&ongoing->damageGivenList);
+	ListClear(&ongoing->damageTakenList);
+	ListClear(&ongoing->teammatePositioningList);
+
+	// save prev/next of the ongoing struct before memset overwrites it
+	prev = ongoing->node.prev;
+	next = ongoing->node.next;
+
+	// clear out the ongoing struct
+	memset(ongoing, 0, sizeof(stats_t));
+
+	// restore prev/next of the ongoing struct
+	ongoing->node.prev = prev;
+	ongoing->node.next = next;
+
+	// set some important parameters in the ongoing struct
+	ongoing->sessionId = archive->sessionId;
+	ongoing->accountId = archive->accountId;
+	ongoing->isBot = archive->isBot;
+	ongoing->clientNum = archive->clientNum;
+	if (archive->accountName && ongoing->accountName)
+		Q_strncpyz(ongoing->accountName, archive->accountName, sizeof(ongoing->accountName));
+	if (archive->name && ongoing->name)
+		Q_strncpyz(ongoing->name, archive->name, sizeof(ongoing->name));
+	ongoing->lastTeam = archive->lastTeam;
+	ongoing->lastPosition = archive->finalPosition;
+	ongoing->confirmedPositionBits = archive->confirmedPositionBits;
+	if (ongoing->lastPosition)
+		ongoing->confirmedPositionBits |= (1 << ongoing->lastPosition);
+	ongoing->blockNum = newBlockNum;
+}
+
+void CheckAccountsOfOldBlocks(int ignoreBlockNum) {
+	if (g_gametype.integer != GT_CTF)
+		return;
+
+	iterator_t iter;
+	ListIterate(&level.savedStatsList, &iter, qfalse);
+	while (IteratorHasNext(&iter)) { // iterate through all of the archives
+		stats_t *archive = IteratorNext(&iter);
+		if (archive->blockNum == ignoreBlockNum)
+			continue; // this is one of the ones we just copied, so we already know it's up to date
+
+		int *archiveSessionId = &archive->sessionId;
+		int *archiveAccountId = &archive->accountId;
+		char *archiveAccountName = archive->accountName;
+		char *archiveName = archive->name;
+
+		iterator_t iter2;
+		ListIterate(&level.statsList, &iter2, qfalse);
+		while (IteratorHasNext(&iter2)) { // iterate through all of the ongoing stats
+			stats_t *ongoing = IteratorNext(&iter2);
+			int *ongoingSessionId = &ongoing->sessionId;
+			int *ongoingAccountId = &ongoing->accountId;
+			char *ongoingAccountName = ongoing->accountName;
+			char *ongoingName = ongoing->name;
+
+			if (*ongoingSessionId == *archiveSessionId) {
+				if (*ongoingAccountId != *archiveAccountId) {
+					// we matched session id, but account id is different
+					// an admin must have assigned this person an account id since the end of this block
+					*archiveAccountId = *ongoingAccountId;
+					if (ongoingAccountName && archiveAccountName)
+						Q_strncpyz(archiveAccountName, ongoingAccountName, MAX_NAME_LENGTH);
+				}
+				if (ongoingName && archiveName)
+					Q_strncpyz(archiveName, ongoingName, MAX_NAME_LENGTH); // might as well match their ingame name too
+				goto lick;
+			}
+		}
+		lick:; // my fucking nuts
+	}
+}
+
 // sets the client->stats pointer to the stats_t we have allocated for a client
 // this can be brand new or an existing one (e.g. if they left and reconnected during a match)
 void InitClientStats(gclient_t *cl) {
@@ -2423,20 +2545,21 @@ void InitClientStats(gclient_t *cl) {
 		else
 			stats->accountName[0] = '\0';
 		Q_strncpyz(stats->name, cl->pers.netname, sizeof(stats->name));
-		//Com_DebugPrintf("InitClientStats: using new stats ptr for %s %08X\n", cl->pers.netname, (unsigned int)stats);
+		Com_DebugPrintf("InitClientStats: using new stats ptr for %s %08X\n", cl->pers.netname, (unsigned int)stats);
 	}
 	else {
 		if (stats->blockNum != level.statBlock) {
 			if (StatsValid(stats)) {
-				// this guy reconnected after acquiring valid stats, and the block number has changed
-
+				// sanity check: this guy reconnected after acquiring valid stats, and the block number has changed
+				// this should not really be possible
+				ArchiveAndResetStatsBlock(stats, level.statBlock);
 			}
 			else {
 				// his stats weren't valid before, so just update his block number
 				stats->blockNum = level.statBlock;
 			}
 		}
-		//Com_DebugPrintf("InitClientStats: reusing old stats ptr for %s %08X\n", cl->pers.netname, (unsigned int)stats);
+		Com_DebugPrintf("InitClientStats: reusing old stats ptr for %s %08X\n", cl->pers.netname, (unsigned int)stats);
 	}
 
 	if (!stats->isBot)
@@ -2497,10 +2620,22 @@ void ChangeStatsTeam(gclient_t *cl) {
 			stats->accountName[0] = '\0';
 		Q_strncpyz(stats->name, cl->pers.netname, sizeof(stats->name));
 		stats->lastTeam = cl->sess.sessionTeam;
-		//Com_DebugPrintf("ChangeStatsTeam: assigned new stats ptr for %s %08X\n", cl->pers.netname, (unsigned int)stats);
+		stats->blockNum = level.statBlock;
+		Com_DebugPrintf("ChangeStatsTeam: assigned new stats ptr for %s %08X\n", cl->pers.netname, (unsigned int)stats);
 	}
 	else {
-		//Com_DebugPrintf("ChangeStatsTeam: reusing old stats ptr for %s %08X\n", cl->pers.netname, (unsigned int)stats);
+		if (stats->blockNum != level.statBlock) {
+			if (StatsValid(stats)) {
+				// sanity check: this guy reconnected after acquiring valid stats, and the block number has changed
+				// this should not really be possible
+				ArchiveAndResetStatsBlock(stats, level.statBlock);
+			}
+			else {
+				// his stats weren't valid before, so just update his block number
+				stats->blockNum = level.statBlock;
+			}
+		}
+		Com_DebugPrintf("ChangeStatsTeam: reusing old stats ptr for %s %08X\n", cl->pers.netname, (unsigned int)stats);
 	}
 
 	if (!stats->isBot)
@@ -2512,18 +2647,6 @@ void ChangeStatsTeam(gclient_t *cl) {
 	Q_strncpyz(stats->name, cl->pers.netname, sizeof(stats->name));
 
 	cl->stats = stats;
-}
-
-void FinalizeCTFPositions(void) {
-	if (g_gametype.integer != GT_CTF)
-		return;
-
-	iterator_t iter;
-	ListIterate(&level.statsList, &iter, qfalse);
-	while (IteratorHasNext(&iter)) {
-		stats_t *s = IteratorNext(&iter);
-		s->finalPosition = DetermineCTFPosition(s);
-	}
 }
 
 // every five minutes, this function copies all of the stats structs into an archive and then clears out the stats structs
@@ -2548,6 +2671,7 @@ void ChangeToNextStatsBlockIfNeeded(void) {
 
 	// time to move to the next block
 
+	// finalize current positions
 	FinalizeCTFPositions();
 
 	// save copies of all current stats and then reset them
@@ -2555,109 +2679,14 @@ void ChangeToNextStatsBlockIfNeeded(void) {
 	ListIterate(&level.statsList, &iter, qfalse);
 	while (IteratorHasNext(&iter)) {
 		stats_t *ongoing = IteratorNext(&iter);
-
-		stats_t *archive = ListAdd(&level.savedStatsList, sizeof(stats_t));
-
-		// save prev/next of the archive before memcpy overwrites it
-		genericNode_t *prev = archive->node.prev;
-		genericNode_t *next = archive->node.next;
-
-		// copy the entire ongoing struct into the archive
-		memcpy(archive, ongoing, sizeof(stats_t));
-
-		// restore prev of the archive
-		archive->node.prev = prev;
-		archive->node.next = next;
-
-		// set some important stuff in the archive
-		archive->finalPosition = ongoing->finalPosition;
-		if (ongoing->finalPosition)
-			archive->confirmedPositionBits |= (1 << ongoing->finalPosition);
-		archive->blockNum = level.statBlock;
-
-		// clear out the archive's lists, which at the moment contain the same pointers as the ongoing struct's lists
-		memset(&archive->damageGivenList, 0, sizeof(list_t));
-		memset(&archive->damageTakenList, 0, sizeof(list_t));
-		memset(&archive->teammatePositioningList, 0, sizeof(list_t));
-
-		// copy the lists
-		ListCopy(&ongoing->damageGivenList, &archive->damageGivenList, sizeof(damageCounter_t));
-		ListCopy(&ongoing->damageTakenList, &archive->damageTakenList, sizeof(damageCounter_t));
-		ListCopy(&ongoing->teammatePositioningList, &archive->teammatePositioningList, sizeof(ctfPositioningData_t));
-
-		// free the lists before clearing out the ongoing struct
-		ListClear(&ongoing->damageGivenList);
-		ListClear(&ongoing->damageTakenList);
-		ListClear(&ongoing->teammatePositioningList);
-
-		// save prev/next of the ongoing struct before memset overwrites it
-		prev = ongoing->node.prev;
-		next = ongoing->node.next;
-
-		// clear out the ongoing struct
-		memset(ongoing, 0, sizeof(stats_t));
-
-		// restore prev/next of the ongoing struct
-		ongoing->node.prev = prev;
-		ongoing->node.next = next;
-
-		// set some important parameters in the ongoing struct
-		ongoing->sessionId = archive->sessionId;
-		ongoing->accountId = archive->accountId;
-		ongoing->isBot = archive->isBot;
-		ongoing->clientNum = archive->clientNum;
-		if (archive->accountName && ongoing->accountName)
-			Q_strncpyz(ongoing->accountName, archive->accountName, sizeof(ongoing->accountName));
-		if (archive->name && ongoing->name)
-			Q_strncpyz(ongoing->name, archive->name, sizeof(ongoing->name));
-		ongoing->lastTeam = archive->lastTeam;
-		ongoing->lastPosition = archive->finalPosition;
-		ongoing->confirmedPositionBits = archive->confirmedPositionBits;
-		if (ongoing->lastPosition)
-			ongoing->confirmedPositionBits |= (1 << ongoing->lastPosition);
-		ongoing->blockNum = newBlockNum;
+		ArchiveAndResetStatsBlock(ongoing, newBlockNum);
 	}
 
 	// all stats are archived, but we still need to perform some housekeeping:
 	// beginning with the third block, make sure the account number is correct in all of the archived blocks
 	// in case an admin assigned someone an account since the end of that block
-	if (newBlockNum >= 2) {
-		ListIterate(&level.savedStatsList, &iter, qfalse);
-		while (IteratorHasNext(&iter)) { // iterate through all of the archives
-			stats_t *archive = IteratorNext(&iter);
-			if (archive->blockNum == level.statBlock)
-				continue; // this is one of the ones we just copied, so we already know it's up to date
-
-			int *archiveSessionId = &archive->sessionId;
-			int *archiveAccountId = &archive->accountId;
-			char *archiveAccountName = archive->accountName;
-			char *archiveName = archive->name;
-
-			iterator_t iter2;
-			ListIterate(&level.statsList, &iter2, qfalse);
-			while (IteratorHasNext(&iter2)) { // iterate through all of the ongoing stats
-				stats_t *ongoing = IteratorNext(&iter2);
-				int *ongoingSessionId = &ongoing->sessionId;
-				int *ongoingAccountId = &ongoing->accountId;
-				char *ongoingAccountName = ongoing->accountName;
-				char *ongoingName = ongoing->name;
-
-				if (*ongoingSessionId == *archiveSessionId) {
-					if (*ongoingAccountId != *archiveAccountId) {
-						// we matched session id, but account id is different
-						// an admin must have assigned this person an account id since the end of this block
-						*archiveAccountId = *ongoingAccountId;
-						if (ongoingAccountName && archiveAccountName)
-							Q_strncpyz(archiveAccountName, ongoingAccountName, MAX_NAME_LENGTH);
-					}
-					if (ongoingName && archiveName)
-						Q_strncpyz(archiveName, ongoingName, MAX_NAME_LENGTH); // might as well match their ingame name too
-					goto lick;
-				}
-			}
-			lick:; // my fucking nuts
-		}
-	}
+	if (newBlockNum > 1)
+		CheckAccountsOfOldBlocks(level.statBlock);
 
 	// finally, increment the global stat block index so we can track stats in the new block
 	level.statBlock = newBlockNum;

@@ -1125,6 +1125,7 @@ int *GetDamageTakenStat(stats_t *attacker, stats_t *victim);
 int *GetDamageTakenStatOfType(stats_t *attacker, stats_t *victim, meansOfDeathCategory_t modc);
 ctfPosition_t DetermineCTFPosition(stats_t *posGuy);
 void FinalizeCTFPositions(void);
+void CheckAccountsOfOldBlocks(int ignoreBlockNum);
 
 typedef struct {
 	node_t		node;

@@ -2854,6 +2854,7 @@ void BeginIntermission(void) {
 	SendScoreboardMessageToAllClients();
 
 	FinalizeCTFPositions();
+	CheckAccountsOfOldBlocks(-1);
 
 	char statsBuf[16384] = { 0 };
 
@@ -5265,10 +5266,10 @@ static void AddPlayerTick(team_t team, gentity_t *ent) {
 		initialized = qtrue;
 	}
 
-	// if i don't have the flag, i've been alive at least a few seconds, and i've done some input within the last few seconds, log my data
+	// if i've been alive at least a few seconds, and i've done some input within the last few seconds, log my data
 	if (redFs && blueFs) {
-		qboolean validPositionSample = !!(level.time - ent->client->pers.lastSpawnTime >= CTFPOS_POSTSPAWN_DELAY_MS &&
-			ent->client->lastInputTime && trap_Milliseconds() - ent->client->lastInputTime < 5000);
+		qboolean validPositionSample = !!(ent->health > 0 && level.time - ent->client->pers.lastSpawnTime >= CTFPOS_POSTSPAWN_DELAY_MS &&
+			ent->client->lastInputTime && trap_Milliseconds() - ent->client->lastInputTime < 10000);
 
 		float add;
 		if (validPositionSample) {
