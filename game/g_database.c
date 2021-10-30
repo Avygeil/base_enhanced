@@ -3827,7 +3827,7 @@ static qboolean PlayerMatchesWithPos(genericNode_t *node, void *userData) {
 	return qfalse;
 }
 
-const char *sqlWritePug = "INSERT INTO pugs (match_id, map, duration, red_score, blue_score) VALUES (?1, ?2, ?3, ?4, ?5);";
+const char *sqlWritePug = "INSERT INTO pugs (match_id, map, duration, win_team, red_score, blue_score) VALUES (?1, ?2, ?3, ?4, ?5, ?6);";
 const char *sqlAddBlock = "INSERT INTO pugblocks (match_id, begin_time, duration) VALUES (?1, ?2, ?3);";
 const char *sqlAddPugPlayer = "INSERT INTO playerpugteampos (match_id, session_id, team, duration, name, pos, caps) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7);";
 extern void AddStatsToTotal(stats_t *player, stats_t *total, statsTableType_t type, stats_t *weaponStatsPtr);
@@ -3847,8 +3847,16 @@ qboolean G_DBWritePugStats(void) {
 	sqlite3_bind_int64(statement, 1, matchId);
 	sqlite3_bind_text(statement, 2, level.mapname, -1, SQLITE_STATIC);
 	sqlite3_bind_int(statement, 3, level.intermissiontime - level.startTime);
-	sqlite3_bind_int(statement, 4, level.teamScores[TEAM_RED]);
-	sqlite3_bind_int(statement, 5, level.teamScores[TEAM_BLUE]);
+	int winTeam;
+	if (level.teamScores[TEAM_RED] > level.teamScores[TEAM_BLUE])
+		winTeam = TEAM_RED;
+	else if (level.teamScores[TEAM_BLUE] > level.teamScores[TEAM_RED])
+		winTeam = TEAM_BLUE;
+	else
+		winTeam = 0;
+	sqlite3_bind_int(statement, 4, winTeam);
+	sqlite3_bind_int(statement, 5, level.teamScores[TEAM_RED]);
+	sqlite3_bind_int(statement, 6, level.teamScores[TEAM_BLUE]);
 	int rc = sqlite3_step(statement);
 	if (rc != SQLITE_DONE) {
 		sqlite3_finalize(statement);
