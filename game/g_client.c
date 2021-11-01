@@ -3074,6 +3074,7 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 		G_InitClientRaceRecordsCache(client);
 		G_InitClientAimRecordsCache(client);
 		G_PrintWelcomeMessage(client);
+		RestoreDisconnectedPlayerData(ent);
 	}
 
 	TellPlayerToRateMap(client);
@@ -4757,6 +4758,84 @@ void ClientSpawn(gentity_t *ent) {
 	trap_ICARUS_InitEnt( ent );
 }
 
+typedef struct {
+	node_t			node;
+	int				sessionId;
+	team_t			team;
+	playerState_t	ps;
+	int				health;
+	int				armor;
+	int				boonTime;
+} disconnectedPlayerData_t;
+
+static qboolean DisconnectedPlayerMatches(genericNode_t *node, void *userData) {
+	disconnectedPlayerData_t *existing = (disconnectedPlayerData_t *)node;
+	int thisSessionId = *((int *)userData);
+
+	if (!existing)
+		return qfalse;
+
+	if (existing->sessionId == thisSessionId)
+		return qtrue;
+
+	return qfalse;
+}
+
+static qboolean IsDroppedRedFlag(gentity_t *ent) {
+	return !!(ent && ent->item && ent->think == Team_DroppedFlagThink && ent->item->giType == IT_TEAM && ent->item->giTag == PW_REDFLAG);
+}
+static qboolean IsDroppedBlueFlag(gentity_t *ent) {
+	return !!(ent && ent->item && ent->think == Team_DroppedFlagThink && ent->item->giType == IT_TEAM && ent->item->giTag == PW_BLUEFLAG);
+}
+static qboolean IsBoon(gentity_t *ent) {
+	return !!(ent && ent->item && !(ent->s.eFlags & EF_ITEMPLACEHOLDER) && ent->item->giType == IT_POWERUP && ent->item->giTag == PW_FORCE_BOON);
+}
+void RestoreDisconnectedPlayerData(gentity_t *ent) {
+	if (!g_autoPauseDisconnect.integer || g_autoPauseDisconnect.integer == 1 || g_cheats.integer || !ent || !ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED ||
+		!ent->client->session || (ent->r.svFlags & SVF_BOT) || ent->client->sess.clientType != CLIENT_TYPE_NORMAL || !PauseConditions())
+		return;
+
+	disconnectedPlayerData_t *data = ListFind(&level.disconnectedPlayerList, DisconnectedPlayerMatches, &ent->client->session->id, NULL);
+	if (!data)
+		return;
+
+	PrintIngame(-1, "Restoring %s^7's pre-disconnect state.\n", ent->client->pers.netname);
+
+	SetTeam(ent, data->team == TEAM_RED ? "r" : "b");
+
+	int commandTime = ent->client->ps.commandTime;
+	int pm_time = ent->client->ps.pm_time;
+	memcpy(&ent->client->ps, &data->ps, sizeof(playerState_t));
+	ent->client->ps.commandTime = ent->playerState->commandTime = commandTime;
+	ent->client->ps.pm_time = ent->playerState->pm_time = pm_time;
+	ent->client->ps.stats[STAT_HEALTH] = ent->health = data->health;
+	ent->client->ps.stats[STAT_ARMOR] = data->armor;
+	BG_PlayerStateToEntityState(&ent->client->ps, &ent->s, qfalse);
+
+	if (ent->client->ps.powerups[PW_REDFLAG] || ent->client->ps.powerups[PW_BLUEFLAG]) {
+		gentity_t *flagEnt = G_ClosestEntity(ent, ent->client->ps.powerups[PW_REDFLAG] ? IsDroppedRedFlag : IsDroppedBlueFlag);
+		if (flagEnt && flagEnt->touch) { // touch the flag we dropped
+			ent->client->canTouchPowerupsWhileGameIsPaused = qtrue;
+			flagEnt->touch(flagEnt, ent, NULL);
+			ent->client->canTouchPowerupsWhileGameIsPaused = qfalse;
+		}
+		else { // somehow the dropped flag is gone? take away our flag so there aren't two
+			ent->client->ps.powerups[PW_REDFLAG] = ent->client->ps.powerups[PW_BLUEFLAG] = 0;
+		}
+	}
+	if (data->boonTime) {
+		gentity_t *boonEnt = G_ClosestEntity(ent, IsBoon);
+		if (boonEnt) { // get the boon we dropped
+			ent->client->ps.powerups[PW_FORCE_BOON] = level.time + data->boonTime;
+			G_FreeEntity(boonEnt);
+		}
+		else { // somehow the dropped boon is gone? take away our boon so there aren't two
+			ent->client->ps.powerups[PW_FORCE_BOON] = 0;
+		}
+	}
+
+	ListRemove(&level.disconnectedPlayerList, data);
+}
 
 /*
 ===========
@@ -4786,6 +4865,32 @@ void ClientDisconnect( int clientNum ) {
 
 	if (ent->client->session) {
 		G_DBLogNickname(ent->client->session->id, ent->client->pers.netname, getGlobalTime() - ent->client->sess.nameChangeTime);
+
+		if (g_autoPauseDisconnect.integer && g_gametype.integer == GT_CTF && PauseConditions() &&
+			!(ent->r.svFlags & SVF_BOT) && ent->client->sess.clientType == CLIENT_TYPE_NORMAL &&
+			(ent->client->sess.sessionTeam == TEAM_RED || ent->client->sess.sessionTeam == TEAM_BLUE) &&
+			!g_cheats.integer) {
+			level.pause.state = PAUSE_PAUSED;
+			level.pause.time = level.time + 120000; // pause for 2 minutes
+			Q_strncpyz(level.pause.reason, va("%s^7 disconnected\n", ent->client->pers.netname), sizeof(level.pause.reason));
+			Com_Printf("Auto-pausing game: %s\n", level.pause.reason);
+
+			if (g_autoPauseDisconnect.integer != 1 && (!ent->client->ps.m_iVehicleNum || ent->client->ps.m_iVehicleNum == ENTITYNUM_NONE) &&
+				ent->health > 0 && !ent->client->ps.fallingToDeath) {
+				disconnectedPlayerData_t *data = ListFind(&level.disconnectedPlayerList, DisconnectedPlayerMatches, &ent->client->session->id, NULL);
+				if (!data)
+					data = ListAdd(&level.disconnectedPlayerList, sizeof(disconnectedPlayerData_t));
+				data->sessionId = ent->client->session->id;
+				data->team = ent->client->sess.sessionTeam;
+				data->health = ent->health;
+				data->armor = ent->client->ps.stats[STAT_ARMOR];
+				if (ent->client->ps.powerups[PW_FORCE_BOON] > level.time)
+					data->boonTime = ent->client->ps.powerups[PW_FORCE_BOON] - level.time;
+				else
+					data->boonTime = 0;
+				memcpy(&data->ps, &ent->client->ps, sizeof(playerState_t));
+			}
+		}
 	}
     ent->client->sess.nameChangeTime = getGlobalTime();
 
@@ -4840,7 +4945,7 @@ void ClientDisconnect( int clientNum ) {
 
 		// They don't get to take powerups with them!
 		// Especially important for stuff like CTF flags
-		TossClientItems( ent );
+		TossClientItems( ent, qfalse );
 	}
 
 	// leave racemode automatically first

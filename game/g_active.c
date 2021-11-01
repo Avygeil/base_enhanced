@@ -4747,7 +4747,10 @@ void SpectatorClientEndFrame( gentity_t *ent ) {
 	}
 }
 
-static qboolean Pause999MatchConditions(void) {
+qboolean PauseConditions(void) {
+#ifdef DEBUG_PAUSE
+	return qtrue;
+#else
 	if (!level.numTeamTicks)
 		return qfalse;
 
@@ -4777,6 +4780,7 @@ static qboolean Pause999MatchConditions(void) {
 	}
 
 	return qfalse;
+#endif
 }
 
 
@@ -4832,7 +4836,7 @@ void ClientEndFrame( gentity_t *ent ) {
 				level.pause.state != PAUSE_PAUSED &&
 				g_autoPause999.integer &&
 				level.time - ent->client->lastRealCmdTime >= (Com_Clampi(1, 10, g_autoPause999.integer) * 1000) &&
-				Pause999MatchConditions()) {
+				PauseConditions()) {
 				level.pause.state = PAUSE_PAUSED;
 				level.pause.time = level.time + 120000; // pause for 2 minutes
 				Q_strncpyz(level.pause.reason, va("%s^7 is 999\n", ent->client->pers.netname), sizeof(level.pause.reason));

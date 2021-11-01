@@ -2430,6 +2430,9 @@ void Touch_Item (gentity_t *ent, gentity_t *other, trace_t *trace) {
 	if (InstagibEnabled() && !(other->client && other->client->sess.inRacemode) && ent->item->giType != IT_TEAM)
 		return; // no picking stuff up in instagib, except for flags
 
+	if ((ent->item->giType == IT_TEAM || ent->item->giType == IT_POWERUP) && level.pause.state != PAUSE_NONE && !other->client->canTouchPowerupsWhileGameIsPaused)
+		return;
+
 	if (ent->item->giType == IT_POWERUP &&
 		(ent->item->giTag == PW_FORCE_ENLIGHTENED_LIGHT || ent->item->giTag == PW_FORCE_ENLIGHTENED_DARK))
 	{

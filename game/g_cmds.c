@@ -6207,7 +6207,7 @@ static void Cmd_Svauth_f( gentity_t *ent ) {
 			G_InitClientAimRecordsCache(ent->client);
 			G_PrintWelcomeMessage( ent->client );
 			TellPlayerToRateMap( ent->client );
-
+			RestoreDisconnectedPlayerData(ent);
 			ClientUserinfoChanged( ent - g_entities );
 
 			return;
