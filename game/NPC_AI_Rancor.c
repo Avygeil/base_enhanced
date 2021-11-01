@@ -439,7 +439,7 @@ void Rancor_Bite( void )
 	}
 }
 //------------------------------
-extern void TossClientItems( gentity_t *self );
+extern void TossClientItems( gentity_t *self, qboolean canDropWeapons);
 void Rancor_Attack( float distance, qboolean doCharge )
 {
 	if ( !TIMER_Exists( NPC, "attacking" ) )
@@ -465,7 +465,7 @@ void Rancor_Attack( float distance, qboolean doCharge )
 					NPC_SetAnim( NPC->activator, SETANIM_TORSO, BOTH_FALLDEATH1, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD );
 					if ( NPC->activator->NPC )
 					{//no more thinking for you
-						TossClientItems( NPC );
+						TossClientItems( NPC, qtrue );
 						NPC->activator->NPC->nextBStateThink = Q3_INFINITE;
 					}
 				}

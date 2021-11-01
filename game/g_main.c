@@ -164,6 +164,7 @@ vmCvar_t    g_moreTaunts;
 vmCvar_t	g_raceEmotes;
 vmCvar_t	g_ragersCanCounterPushPull;
 vmCvar_t	g_autoPause999;
+vmCvar_t	g_autoPauseDisconnect;
 vmCvar_t	g_enterSpammerTime;
 vmCvar_t	g_quickPauseChat;
 
@@ -901,6 +902,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_raceEmotes, "g_raceEmotes", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_ragersCanCounterPushPull, "g_ragersCanCounterPushPull", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_autoPause999, "g_autoPause999", "5", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_autoPauseDisconnect, "g_autoPauseDisconnect", "2", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_enterSpammerTime, "g_enterSpammerTime", "3", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_quickPauseChat, "g_quickPauseChat", "1", CVAR_ARCHIVE, 0, qtrue },
 
@@ -1960,6 +1962,7 @@ void G_ShutdownGame( int restart ) {
 
 	ListClear(&level.redPlayerTickList);
 	ListClear(&level.bluePlayerTickList);
+	ListClear(&level.disconnectedPlayerList);
 
 	iterator_t iter;
 	ListIterate(&level.statsList, &iter, qfalse);
@@ -5995,6 +5998,8 @@ void G_RunFrame( int levelTime ) {
 					}
 
 					trap_SendServerCommand( j, "cp \"Go!\n\"" );
+
+					ListClear(&level.disconnectedPlayerList);
 				}
 				
 				level.pause.state = PAUSE_NONE;

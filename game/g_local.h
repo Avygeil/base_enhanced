@@ -1473,6 +1473,8 @@ struct gclient_s {
 	int rockPaperScissorsBothChosenTime;
 	int rockPaperScissorsOtherClientNum;
 	char rockPaperScissorsChoice;
+
+	qboolean canTouchPowerupsWhileGameIsPaused;
 };
 
 //Interest points
@@ -1825,6 +1827,7 @@ typedef struct {
 
 	list_t			redPlayerTickList;
 	list_t			bluePlayerTickList;
+
 	list_t			statsList;
 	list_t			savedStatsList;
 	stats_t			npcStatsDummy; // so we don't have to spam `if (client->stats)` everywhere before setting stats, just have all NPCs share one stats pointer
@@ -1832,6 +1835,7 @@ typedef struct {
 	list_t			cachedWinrates;
 	list_t			cachedPositionStats;
 	list_t			cachedPositionStatsRaw;
+	list_t			disconnectedPlayerList;
 
 #ifdef NEWMOD_SUPPORT
 	qboolean nmAuthEnabled;
@@ -2203,7 +2207,7 @@ void G_Damage (gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, vec3_
 qboolean G_RadiusDamage (vec3_t origin, gentity_t *attacker, float damage, float radius, gentity_t *ignore, gentity_t *missile, int mod);
 void body_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int damage, int meansOfDeath );
 void TossClientWeapon(gentity_t *self, vec3_t direction, float speed);
-void TossClientItems( gentity_t *self );
+void TossClientItems( gentity_t *self, qboolean canDropWeapons );
 void TossClientCubes( gentity_t *self );
 void ExplodeDeath( gentity_t *self );
 void G_CheckForDismemberment(gentity_t *ent, gentity_t *enemy, vec3_t point, int damage, int deathAnim, qboolean postDeath);
@@ -2338,6 +2342,7 @@ void G_BroadcastServerFeatureList(int clientNum);
 void G_PrintWelcomeMessage(gclient_t* client);
 extern gentity_t *gJMSaberEnt;
 void TellPlayerToRateMap(gclient_t *client);
+void RestoreDisconnectedPlayerData(gentity_t *ent);
 
 //
 // g_svcmds.c
@@ -2465,6 +2470,7 @@ typedef enum {
 } nmTaunt_t;
 void TimeShiftLerp(float frac, vec3_t start, vec3_t end, vec3_t result);
 void TimeShiftAnimLerp(float frac, int anim1, int anim2, int time1, int time2, int *outTime);
+qboolean PauseConditions(void);
 #define ROCK_PAPER_SCISSORS_DURATION					(10000)
 //
 // g_table.c
@@ -2999,6 +3005,7 @@ extern vmCvar_t	   g_moreTaunts;
 extern vmCvar_t    g_raceEmotes;
 extern vmCvar_t		g_ragersCanCounterPushPull;
 extern vmCvar_t		g_autoPause999;
+extern vmCvar_t		g_autoPauseDisconnect;
 extern vmCvar_t		g_enterSpammerTime;
 extern vmCvar_t		g_quickPauseChat;
 

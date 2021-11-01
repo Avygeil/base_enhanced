@@ -431,7 +431,7 @@ TossClientItems
 Toss the weapon and powerups for the killed player
 =================
 */
-void TossClientItems( gentity_t *self ) {
+void TossClientItems( gentity_t *self, qboolean canDropWeapons ) {
 	gitem_t		*item;
 	int			weapon;
 	float		angle;
@@ -466,7 +466,7 @@ void TossClientItems( gentity_t *self ) {
 	self->s.bolt2 = weapon;
 
 	// don't drop weapons upon death in instagib
-	if ( !InstagibEnabled() && weapon > WP_BRYAR_PISTOL && 
+	if (canDropWeapons && !InstagibEnabled() && weapon > WP_BRYAR_PISTOL &&
 		weapon != WP_EMPLACED_GUN &&
 		weapon != WP_TURRET &&
 		self->client->ps.ammo[ weaponData[weapon].ammoIndex ] ) {
@@ -2548,7 +2548,7 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 	if ( !( contents & CONTENTS_NODROP ) && !self->client->ps.fallingToDeath) {
 		if (self->s.eType != ET_NPC)
 		{
-			TossClientItems( self );
+			TossClientItems( self, qtrue );
 		}
 	}
 	else if ( !self->client->sess.inRacemode ) {
