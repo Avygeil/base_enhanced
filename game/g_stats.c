@@ -1164,9 +1164,17 @@ static void CheckBestStats(stats_t *player, statsTableType_t type, stats_t *weap
 			allRegionsTime += player->regionTime[region];
 			CheckBest(regionTime[region]);
 		}
-		for (ctfRegion_t region = CTFREGION_FLAGSTAND; region <= CTFREGION_ENEMYFLAGSTAND; region++) {
-			player->regionPercent[region] = Com_Clampi(0, 100, (int)round((float)player->regionTime[region] / (float)allRegionsTime * 100.0f));
-			CheckBest(regionPercent[region]);
+		if (allRegionsTime) {
+			for (ctfRegion_t region = CTFREGION_FLAGSTAND; region <= CTFREGION_ENEMYFLAGSTAND; region++) {
+				player->regionPercent[region] = Com_Clampi(0, 100, (int)round((float)player->regionTime[region] / (float)allRegionsTime * 100.0f));
+				CheckBest(regionPercent[region]);
+			}
+		}
+		else {
+			for (ctfRegion_t region = CTFREGION_FLAGSTAND; region <= CTFREGION_ENEMYFLAGSTAND; region++) {
+				player->regionPercent[region] = 0;
+				CheckBest(regionPercent[region]);
+			}
 		}
 		player->averageGetHealth = player->numGets ? (int)floorf((player->getTotalHealth / player->numGets) + 0.5f) : 0;
 		CheckBest(averageGetHealth);
@@ -1349,8 +1357,15 @@ void AddStatsToTotal(stats_t *player, stats_t *total, statsTableType_t type, sta
 			AddStatToTotal(regionTime[region]);
 			allRegionsTime += total->regionTime[region];
 		}
-		for (ctfRegion_t region = CTFREGION_FLAGSTAND; region <= CTFREGION_ENEMYFLAGSTAND; region++) {
-			total->regionPercent[region] = Com_Clampi(0, 100, (int)round((float)total->regionTime[region] / (float)allRegionsTime * 100.0f));
+		if (allRegionsTime) {
+			for (ctfRegion_t region = CTFREGION_FLAGSTAND; region <= CTFREGION_ENEMYFLAGSTAND; region++) {
+				total->regionPercent[region] = Com_Clampi(0, 100, (int)round((float)total->regionTime[region] / (float)allRegionsTime * 100.0f));
+			}
+		}
+		else {
+			for (ctfRegion_t region = CTFREGION_FLAGSTAND; region <= CTFREGION_ENEMYFLAGSTAND; region++) {
+				total->regionPercent[region] = 0;
+			}
 		}
 		AddStatToTotal(numGets);
 		AddStatToTotal(getTotalHealth);
