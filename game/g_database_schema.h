@@ -260,6 +260,7 @@ const char *const sqlCreateTables =
 "[datetime] NOT NULL DEFAULT (strftime('%s', 'now')), "
 "[map] TEXT COLLATE NOCASE NOT NULL, "
 "[duration] INTEGER NOT NULL, "
+"[boon] INTEGER NOT NULL, "
 "[win_team] INTEGER NOT NULL, "
 "[red_score] INTEGER NOT NULL, "
 "[blue_score] INTEGER NOT NULL "
