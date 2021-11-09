@@ -3827,90 +3827,8 @@ static qboolean PlayerMatchesWithPos(genericNode_t *node, void *userData) {
 	return qfalse;
 }
 
-static void WriteStatsJson(const stats_t *s, char **outJson) {
-	*outJson = NULL;
-
-	cJSON *root = cJSON_CreateObject();
-
-	if (root) {
-		cJSON_AddNumberToObject(root, "cap", s->captures);
-		cJSON_AddNumberToObject(root, "ass", s->assists);
-		cJSON_AddNumberToObject(root, "def", s->defends);
-		cJSON_AddNumberToObject(root, "acc", s->accuracy);
-		cJSON_AddNumberToObject(root, "air", s->airs);
-		cJSON_AddNumberToObject(root, "tk", s->teamKills);
-		cJSON_AddNumberToObject(root, "take", s->takes);
-		cJSON_AddNumberToObject(root, "pitkil", s->pits);
-		cJSON_AddNumberToObject(root, "pitdth", s->pitted);
-		cJSON_AddNumberToObject(root, "dmg", s->damageDealtTotal);
-		cJSON_AddNumberToObject(root, "fcdmg", s->flagCarrierDamageDealtTotal);
-		cJSON_AddNumberToObject(root, "clrdmg", s->clearDamageDealtTotal);
-		cJSON_AddNumberToObject(root, "othrdmg", s->otherDamageDealtTotal);
-		cJSON_AddNumberToObject(root, "dmgtkn", s->damageTakenTotal);
-		cJSON_AddNumberToObject(root, "fcdmgtkn", s->flagCarrierDamageTakenTotal);
-		cJSON_AddNumberToObject(root, "clrdmgtkn", s->clearDamageTakenTotal);
-		cJSON_AddNumberToObject(root, "othrdmgtkn", s->otherDamageTakenTotal);
-		cJSON_AddNumberToObject(root, "fckil", s->fcKills);
-		if (s->fcKills)
-			cJSON_AddNumberToObject(root, "fckilleff", s->fcKillEfficiency);
-		else
-			cJSON_AddNullToObject(root, "fckilleff");
-		cJSON_AddNumberToObject(root, "ret", s->rets);
-		cJSON_AddNumberToObject(root, "sk", s->selfkills);
-		cJSON_AddNumberToObject(root, "ttlhold", s->totalFlagHold);
-		cJSON_AddNumberToObject(root, "maxhold", s->longestFlagHold);
-		cJSON_AddNumberToObject(root, "avgspd", s->averageSpeed);
-		cJSON_AddNumberToObject(root, "topspd", s->topSpeed);
-		if (level.boonExists)
-			cJSON_AddNumberToObject(root, "boon", s->boonPickups);
-		else
-			cJSON_AddNullToObject(root, "boon");
-		cJSON_AddNumberToObject(root, "push", s->push);
-		cJSON_AddNumberToObject(root, "pull", s->pull);
-		cJSON_AddNumberToObject(root, "heal", s->healed);
-		cJSON_AddNumberToObject(root, "te", s->energizedAlly);
-		if (s->numEnergizes)
-			cJSON_AddNumberToObject(root, "teeff", s->energizeEfficiency);
-		else
-			cJSON_AddNullToObject(root, "teeff");
-		cJSON_AddNumberToObject(root, "enemynrg", s->energizedEnemy);
-		cJSON_AddNumberToObject(root, "abs", s->absorbed);
-		cJSON_AddNumberToObject(root, "protdmg", s->protDamageAvoided);
-		cJSON_AddNumberToObject(root, "prottime", s->protTimeUsed);
-		cJSON_AddNumberToObject(root, "rage", s->rageTimeUsed);
-		cJSON_AddNumberToObject(root, "drain", s->drain);
-		cJSON_AddNumberToObject(root, "drained", s->gotDrained);
-		qboolean hasValidRegions = qfalse;
-		for (ctfRegion_t r = CTFREGION_FLAGSTAND; r <= CTFREGION_ENEMYFLAGSTAND; r++)
-			if (s->regionPercent[r]) { hasValidRegions = qtrue; break; }
-		if (hasValidRegions) {
-			cJSON_AddNumberToObject(root, "fs", s->regionPercent[CTFREGION_FLAGSTAND]);
-			cJSON_AddNumberToObject(root, "bas", s->regionPercent[CTFREGION_BASE]);
-			cJSON_AddNumberToObject(root, "mid", s->regionPercent[CTFREGION_MID]);
-			cJSON_AddNumberToObject(root, "eba", s->regionPercent[CTFREGION_ENEMYBASE]);
-			cJSON_AddNumberToObject(root, "efs", s->regionPercent[CTFREGION_FLAGSTAND]);
-		}
-		else {
-			cJSON_AddNullToObject(root, "fs");
-			cJSON_AddNullToObject(root, "bas");
-			cJSON_AddNullToObject(root, "mid");
-			cJSON_AddNullToObject(root, "eba");
-			cJSON_AddNullToObject(root, "efs");
-		}
-
-		*outJson = cJSON_PrintUnformatted(root);
-	}
-
-	cJSON_Delete(root);
-
-	static char *emptyJson = "";
-	if (!*outJson) {
-		*outJson = emptyJson;
-	}
-}
-
-const char *sqlWritePug = "INSERT INTO pugs (match_id, map, duration, boon, win_team, red_score, blue_score) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7);";
-const char *sqlAddPugPlayer = "INSERT INTO playerpugteampos (match_id, session_id, team, duration, name, pos, stats) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7);";
+const char *sqlWritePug = "INSERT INTO pugs (match_id, map, duration, boonexists, win_team, red_score, blue_score) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7);";
+const char *sqlAddPugPlayer = "INSERT INTO playerpugteampos (match_id, session_id, team, duration, name, pos, cap, ass, def, acc, air, tk, take, pitkil, pitdth, dmg, fcdmg, clrdmg, othrdmg, dmgtkn, fcdmgtkn, clrdmgtkn, othrdmgtkn, fckil, fckileff, ret, sk, ttlhold, maxhold, avgspd, topspd, boon, push, pull, heal, te, teeff, enemynrg, absorb, protdmg, prottime, rage, drain, drained, fs, bas, mid, eba, efs) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
 extern void AddStatsToTotal(stats_t *player, stats_t *total, statsTableType_t type, stats_t *weaponStatsPtr);
 qboolean G_DBWritePugStats(void) {
 	// get the match id
@@ -3949,7 +3867,7 @@ qboolean G_DBWritePugStats(void) {
 	Com_Printf("Writing pug with id %llx (%lld) to db\n", matchId, matchId);
 
 	// get each unique player+pos+team combination
-	int totalBlocks = 0, totalPlayerPositions = 0;
+	int totalBlocks = 0, totalPlayerPositions = 0, playerPositionsFailed = 0;
 	list_t gotPlayerAtPosOnTeamList = { 0 }, combinedStatsList = { 0 };
 	for (int i = 0; i < 2; i++) {
 		iterator_t iter;
@@ -4019,18 +3937,79 @@ qboolean G_DBWritePugStats(void) {
 				continue;
 			}
 
-			char *statsString;
-			WriteStatsJson(s, &statsString);
-
 			sqlite3_reset(statement);
 			sqlite3_prepare(dbPtr, sqlAddPugPlayer, -1, &statement, 0);
-			sqlite3_bind_int64(statement, 1, matchId);
-			sqlite3_bind_int(statement, 2, found->sessionId);
-			sqlite3_bind_int(statement, 3, found->lastTeam);
-			sqlite3_bind_int(statement, 4, s->ticksNotPaused * (1000 / g_svfps.integer));
-			sqlite3_bind_text(statement, 5, s->name, -1, SQLITE_STATIC);
-			sqlite3_bind_int(statement, 6, found->finalPosition);
-			sqlite3_bind_text(statement, 7, statsString, -1, SQLITE_STATIC);
+			int num = 1;
+			sqlite3_bind_int64(statement, num++, matchId);
+			sqlite3_bind_int(statement, num++, found->sessionId);
+			sqlite3_bind_int(statement, num++, found->lastTeam);
+			sqlite3_bind_int(statement, num++, s->ticksNotPaused * (1000 / g_svfps.integer));
+			sqlite3_bind_text(statement, num++, s->name, -1, SQLITE_STATIC);
+			sqlite3_bind_int(statement, num++, found->finalPosition);
+			sqlite3_bind_int(statement, num++, found->captures);
+			sqlite3_bind_int(statement, num++, found->assists);
+			sqlite3_bind_int(statement, num++, found->defends);
+			sqlite3_bind_int(statement, num++, found->accuracy);
+			sqlite3_bind_int(statement, num++, found->airs);
+			sqlite3_bind_int(statement, num++, found->teamKills);
+			sqlite3_bind_int(statement, num++, found->takes);
+			sqlite3_bind_int(statement, num++, found->pits);
+			sqlite3_bind_int(statement, num++, found->pitted);
+			sqlite3_bind_int(statement, num++, found->damageDealtTotal);
+			sqlite3_bind_int(statement, num++, found->flagCarrierDamageDealtTotal);
+			sqlite3_bind_int(statement, num++, found->clearDamageDealtTotal);
+			sqlite3_bind_int(statement, num++, found->otherDamageDealtTotal);
+			sqlite3_bind_int(statement, num++, found->damageTakenTotal);
+			sqlite3_bind_int(statement, num++, found->flagCarrierDamageTakenTotal);
+			sqlite3_bind_int(statement, num++, found->clearDamageTakenTotal);
+			sqlite3_bind_int(statement, num++, found->otherDamageTakenTotal);
+			sqlite3_bind_int(statement, num++, found->fcKills);
+			if (found->fcKills)
+				sqlite3_bind_int(statement, num++, found->fcKillEfficiency);
+			else
+				sqlite3_bind_null(statement, num++);
+			sqlite3_bind_int(statement, num++, found->rets);
+			sqlite3_bind_int(statement, num++, found->selfkills);
+			sqlite3_bind_int(statement, num++, found->totalFlagHold);
+			sqlite3_bind_int(statement, num++, found->longestFlagHold);
+			sqlite3_bind_int(statement, num++, found->averageSpeed);
+			sqlite3_bind_int(statement, num++, found->topSpeed);
+			if (level.boonExists)
+				sqlite3_bind_int(statement, num++, found->boonPickups);
+			else
+				sqlite3_bind_null(statement, num++);
+			sqlite3_bind_int(statement, num++, found->push);
+			sqlite3_bind_int(statement, num++, found->pull);
+			sqlite3_bind_int(statement, num++, found->healed);
+			sqlite3_bind_int(statement, num++, found->energizedAlly);
+			if (found->numEnergizes)
+				sqlite3_bind_int(statement, num++, found->energizeEfficiency);
+			else
+				sqlite3_bind_null(statement, num++);
+			sqlite3_bind_int(statement, num++, found->energizedEnemy);
+			sqlite3_bind_int(statement, num++, found->absorbed);
+			sqlite3_bind_int(statement, num++, found->protDamageAvoided);
+			sqlite3_bind_int(statement, num++, found->protTimeUsed);
+			sqlite3_bind_int(statement, num++, found->rageTimeUsed);
+			sqlite3_bind_int(statement, num++, found->drain);
+			sqlite3_bind_int(statement, num++, found->gotDrained);
+			qboolean hasValidRegions = qfalse;
+			for (ctfRegion_t r = CTFREGION_FLAGSTAND; r <= CTFREGION_ENEMYFLAGSTAND; r++)
+				if (found->regionPercent[r]) { hasValidRegions = qtrue; break; }
+			if (hasValidRegions) {
+				sqlite3_bind_int(statement, num++, found->regionPercent[CTFREGION_FLAGSTAND]);
+				sqlite3_bind_int(statement, num++, found->regionPercent[CTFREGION_BASE]);
+				sqlite3_bind_int(statement, num++, found->regionPercent[CTFREGION_MID]);
+				sqlite3_bind_int(statement, num++, found->regionPercent[CTFREGION_ENEMYBASE]);
+				sqlite3_bind_int(statement, num++, found->regionPercent[CTFREGION_ENEMYFLAGSTAND]);
+			}
+			else {
+				sqlite3_bind_null(statement, num++);
+				sqlite3_bind_null(statement, num++);
+				sqlite3_bind_null(statement, num++);
+				sqlite3_bind_null(statement, num++);
+				sqlite3_bind_null(statement, num++);
+			}
 
 			rc = sqlite3_step(statement);
 			if (rc == SQLITE_DONE) {
@@ -4044,6 +4023,7 @@ qboolean G_DBWritePugStats(void) {
 					s->name);
 			}
 			else {
+				++playerPositionsFailed;
 				Com_Printf("Failed to write %d %s blocks (%d ms) for %s^7 to db!\n",
 					numBlocks,
 					NameForPos(found->finalPosition),
@@ -4057,6 +4037,6 @@ qboolean G_DBWritePugStats(void) {
 
 	sqlite3_finalize(statement);
 
-	Com_Printf("Wrote pug with match id %llx (%lld) to db with %d blocks and %d player+pos+team combinations.\n", matchId, matchId, totalBlocks, totalPlayerPositions);
+	Com_Printf("Wrote pug with match id %llx (%lld) to db with %d blocks and %d player+pos+team combinations%s.\n", matchId, matchId, totalBlocks, totalPlayerPositions, playerPositionsFailed ? va(" (%d failures)", playerPositionsFailed) : "");
 	return qtrue;
 }
