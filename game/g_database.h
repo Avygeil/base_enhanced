@@ -360,6 +360,10 @@ list_t *G_DBTopAimLoadPacks(const char *mapname);
 list_t *G_DBTopAimQuickLoadPacks(const char *mapname);
 qboolean G_DBTopAimDeletePack(aimPracticePack_t *pack);
 
+void G_DBInitializeTopPlayers(void);
 qboolean G_DBWritePugStats(void);
+qboolean G_DBPrintPositionStatsForPlayer(int accountId, ctfPosition_t pos, int printClientNum, const char *name);
+void G_DBPrintTopPlayersForPosition(ctfPosition_t pos, int printClientNum);
+void G_DBPrintPlayersWithStats(int printClientNum);
 
 #endif //G_DATABASE_H

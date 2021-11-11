@@ -2857,6 +2857,7 @@ void G_BroadcastServerFeatureList( int clientNum ) {
 		"ctfstats \"Shows stats for the current CTF game\" "
 		"toptimes \"Leaderboard of the fastest caps\" "
 		"topaim \"Leaderboard of top aim practice scores\" "
+		"pugstats \"CTF pug statistics\" "
 		"inkognito \"Hides whom you are following on the scoreboard\" "
 		"race \"Enters or leaves racemode\" "
 		"amtelemark \"Sets your teleport point\" "

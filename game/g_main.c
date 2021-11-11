@@ -1815,6 +1815,8 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 	G_LoadHelpFile( "help.txt" );
 
 	G_DBLoadDatabase();
+
+	G_DBInitializeTopPlayers();
 	
 	LoadAimPacks();
 

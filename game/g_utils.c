@@ -2786,7 +2786,7 @@ char *stristr(const char *str1, const char *str2) {
 // TODO: support chunked messages prepended with asterisk
 void PrintIngame(int clientNum, const char *msg, ...) {
 	va_list		argptr;
-	char		text[8192] = { 0 };
+	char		text[16384] = { 0 };
 
 	va_start(argptr, msg);
 	vsnprintf(text, sizeof(text), msg, argptr);

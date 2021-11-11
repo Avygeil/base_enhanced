@@ -6403,6 +6403,169 @@ void Cmd_PrintStats_f(gentity_t *ent) {
 	}
 }
 
+static ctfPosition_t CtfPositionFromString(char *s) {
+	if (!VALIDSTRING(s))
+		return CTFPOSITION_UNKNOWN;
+
+	if (!Q_stricmp(s, "base") || !Q_stricmp(s, "bas") || !Q_stricmp(s, "b"))
+		return CTFPOSITION_BASE;
+
+	if (!Q_stricmp(s, "chase") || !Q_stricmp(s, "cha") || !Q_stricmp(s, "c"))
+		return CTFPOSITION_CHASE;
+
+	if (!Q_stricmp(s, "offense") || !Q_stricmp(s, "off") || !Q_stricmp(s, "o"))
+		return CTFPOSITION_OFFENSE;
+
+	return CTFPOSITION_UNKNOWN;
+}
+
+static int AccountFromString(char *s, char *nameOut, size_t nameOutSize) {
+	if (!VALIDSTRING(s))
+		return -1;
+
+	int accountId = -1;
+	if (Q_isanumber(s)) {
+		int num = atoi(s);
+		if (num >= 0 && num < MAX_CLIENTS && g_entities[num].inuse && g_entities[num].client && g_entities[num].client->pers.connected != CON_DISCONNECTED) {
+			if (g_entities[num].client->account) {
+				Q_strncpyz(nameOut, g_entities[num].client->pers.netname, nameOutSize);
+				return g_entities[num].client->account->id;
+			}
+			else {
+				return -1;
+			}
+		}
+		else {
+			return -1;
+		}
+	}
+	else {
+		char lowercase[MAX_QPATH] = { 0 };
+		Q_strncpyz(lowercase, s, sizeof(lowercase));
+		Q_strlwr(lowercase);
+		account_t account = { 0 };
+		if (G_DBGetAccountByName(lowercase, &account)) {
+			Q_strncpyz(nameOut, account.name, nameOutSize);
+			return account.id;
+		}
+		else {
+			gentity_t *found = G_FindClient(s);
+			if (found && found->client) {
+				if (found->client->account) {
+					Q_strncpyz(nameOut, va("%s^7 (%s^7)", found->client->pers.netname, found->client->account->name), nameOutSize);
+					return found->client->account->id;
+				}
+				else {
+					return -1;
+				}
+			}
+			else {
+				return -1;
+			}
+		}
+	}
+}
+
+static void PrintPugStatsHelp(gentity_t *ent) {
+	assert(ent);
+	PrintIngame(ent - g_entities, "Usage:\n" \
+		"^9pugstats [pos]          - list the top players for a particular position\n"
+		"\n"
+		"^7pugstats [player]       - view a particular player's overall stats\n"
+		"^9pugstats [player] [pos] - view a particular player's stats on a particular position\n"
+		"\n"
+		"^7pugstats me             - view your own overall stats\n"
+		"^9pugstats me [pos]       - view your own stats on a particular position\n"
+		"\n"
+		"^7pugstats players        - view a list of player names\n");
+}
+
+void Cmd_PugStats_f(gentity_t *ent) {
+	if (trap_Argc() < 2) {
+		PrintPugStatsHelp(ent);
+		return;
+	}
+
+	char arg1[MAX_STRING_CHARS] = { 0 }, arg2[MAX_STRING_CHARS] = { 0 };
+	trap_Argv(1, arg1, sizeof(arg1));
+	if (trap_Argc() >= 3)
+		trap_Argv(2, arg2, sizeof(arg2));
+
+	if (!arg1[0]) {
+		PrintPugStatsHelp(ent);
+		return;
+	}
+
+	int clientNum = ent - g_entities;
+	qboolean hasAccount = !!(ent->client && ent->client->account && VALIDSTRING(ent->client->account->name));
+
+	if (!Q_stricmp(arg1, "players")) {
+		G_DBPrintPlayersWithStats(clientNum);
+		return;
+	}
+	
+	ctfPosition_t pos = CTFPOSITION_UNKNOWN;
+	int accountId = -1;
+	char name[MAX_NAME_LENGTH] = { 0 };
+	float *statPtr = NULL;
+
+	// loop through the arguments so that they can be written in any order
+	for (int i = 0; i < 2; i++) {
+		char *arg = !i ? arg1 : arg2;
+		if (!VALIDSTRING(arg))
+			continue;
+
+		if (accountId == -1 && !Q_stricmp(arg, "me")) {
+			if (!hasAccount) {
+				PrintIngame(clientNum, "^3You must have an account in order to view your own pugstats. Contact an admin for help setting up an account.^7\n");
+				return;
+			}
+			accountId = ent->client->account->id;
+			continue;
+		}
+
+		if (accountId == -1 && (accountId = AccountFromString(arg, name, sizeof(name))) != -1)
+			continue;
+
+		if (!pos && (pos = CtfPositionFromString(arg)))
+			continue;
+
+		PrintIngame(clientNum, "Unrecognized argument '%s^7'\n");
+		PrintPugStatsHelp(ent);
+		return;
+	}
+
+	if (!pos && accountId == -1)
+		return; // sanity check
+
+	if (accountId != -1) {
+		if (pos) {
+			if (!G_DBPrintPositionStatsForPlayer(accountId, pos, clientNum, name)) {
+				if (ent->client->account && accountId == ent->client->account->id)
+					PrintIngame(clientNum, "You have no %s pugstats.\n", NameForPos(pos));
+				else
+					PrintIngame(clientNum, "%s^7 has no %s pugstats.\n", name, NameForPos(pos));
+			}
+		}
+		else {
+			int gotAny = 0;
+			gotAny += (int)G_DBPrintPositionStatsForPlayer(accountId, CTFPOSITION_BASE, clientNum, name);
+			gotAny += (int)G_DBPrintPositionStatsForPlayer(accountId, CTFPOSITION_CHASE, clientNum, name);
+			gotAny += (int)G_DBPrintPositionStatsForPlayer(accountId, CTFPOSITION_OFFENSE, clientNum, name);
+			if (!gotAny) {
+				if (ent->client->account && accountId == ent->client->account->id)
+					PrintIngame(clientNum, "You have no pugstats on any position.\n");
+				else
+					PrintIngame(clientNum, "%s^7 has no pugstats on any position.\n", name);
+			}
+		}
+		return;
+	}
+	else {
+		G_DBPrintTopPlayersForPosition(pos, clientNum);
+	}
+}
+
 #define MAX_PRINT_CHARS		( 1022 - 9 ) // server commands are limited to 1022 chars, minus 9 chars for: print "\n"
 #define MAX_PRINTS_AT_ONCE	4 // more than 4 full server prints at once causes noticeable lag spikes when issuing the cmd
 #define MAX_HELP_BYTES		( MAX_PRINT_CHARS * MAX_PRINTS_AT_ONCE )
@@ -6957,6 +7120,10 @@ void ClientCommand( int clientNum ) {
 			Cmd_PrintStats_f( ent );
 			return;
 		}
+		else if (!Q_stricmp(cmd, "pugstats") || !Q_stricmp(cmd, "pug")) {
+			Cmd_PugStats_f(ent);
+			return;
+		}
 		else if (!Q_stricmp(cmd, "tier") || !Q_stricmp(cmd, "tiers") || !Q_stricmp(cmd, "tierlist") || !Q_stricmp(cmd, "tierlists") ||
 			!Q_stricmp(cmd, "teir") || !Q_stricmp(cmd, "teirs") || !Q_stricmp(cmd, "teirlist") || !Q_stricmp(cmd, "teirlists")) { // allow idiots to use it too
 			Cmd_Tier_f(ent);
@@ -7087,6 +7254,8 @@ void ClientCommand( int clientNum ) {
         Cmd_WhoIs_f( ent );
 	else if (Q_stricmp(cmd, "ctfstats") == 0 || Q_stricmp(cmd, "stats") == 0 || Q_stricmp(cmd, "stat") == 0)
 		Cmd_PrintStats_f(ent);
+	else if (!Q_stricmp(cmd, "pugstats") || !Q_stricmp(cmd, "pug"))
+		Cmd_PugStats_f(ent);
 	else if ( helpEnabled && ( Q_stricmp( cmd, "help" ) == 0 || Q_stricmp( cmd, "rules" ) == 0 ) )
 		Cmd_Help_f( ent );
 	else if (Q_stricmp (cmd, "gc") == 0)

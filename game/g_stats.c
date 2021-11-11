@@ -2487,12 +2487,12 @@ void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t ou
 					if (!PrintHelpForIndividualStat(query, id))
 						PrintIngame(id, "No help found for '%s^7'.\n"
 							"Usage: ^5stats help <query>^7\n"
-							"Query can be a stat name (e.g. DmgTkn) or type (general/accuracy/weapon) or 'all'\n", query);
+							"Query can be a stat name (e.g. FcDmg) or type (general/accuracy/weapon) or 'all'\n", query);
 				}
 			}
 			else {
 				PrintIngame(id, "Usage: ^5stats help <query>^7\n"
-					"Query can be a stat name (e.g. DmgTkn) or type (general/accuracy/weapon) or 'all'\n", query);
+					"Query can be a stat name (e.g. FcDmg) or type (general/accuracy/weapon) or 'all'\n", query);
 			}
 		}
 		else {
