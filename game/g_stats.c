@@ -435,20 +435,18 @@ ctfPosition_t DetermineCTFPosition(stats_t *posGuy) {
 	return pos;
 }
 
-const char *CtfStatsTableCallback_Position(void *rowContext, void *columnContext) {
-	if (!rowContext) {
-		assert(qfalse);
+const char *GetPositionStringForStats(stats_t *stats) {
+	if (!stats)
 		return NULL;
-	}
-	stats_t *stats = rowContext;
+
 	if (stats->isTotal)
 		return NULL;
-	ctfPosition_t pos = stats->finalPosition ? stats->finalPosition : DetermineCTFPosition(stats);
 
+	ctfPosition_t pos = stats->finalPosition ? stats->finalPosition : DetermineCTFPosition(stats);
 	if (!pos)
 		return NULL; // no position
 
-	char buf[MAX_STRING_CHARS] = { 0 };;
+	char buf[MAX_STRING_CHARS] = { 0 };
 	switch (pos) {
 	case CTFPOSITION_BASE: Q_strncpyz(buf, "Bas", sizeof(buf)); break;
 	case CTFPOSITION_CHASE: Q_strncpyz(buf, "Cha", sizeof(buf)); break;
@@ -476,6 +474,15 @@ const char *CtfStatsTableCallback_Position(void *rowContext, void *columnContext
 		Q_strcat(buf, sizeof(buf), ")");
 
 	return va("%s", buf);
+}
+
+const char *CtfStatsTableCallback_Position(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	stats_t *stats = rowContext;
+	return GetPositionStringForStats(stats);
 }
 
 const char *CtfStatsTableCallback_Time(void *rowContext, void *columnContext) {
@@ -2094,7 +2101,12 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 		Table_WriteToBuffer(t, temp + len, tempSize - len, qtrue, numWinningTeam ? (winningTeam == TEAM_BLUE ? 4 : 1) : (losingTeam == TEAM_BLUE ? 4 : 1));
 	}
 	else if (type == STATS_TABLE_WEAPON_GIVEN || type == STATS_TABLE_WEAPON_TAKEN) {
-		Com_sprintf(temp, tempSize, "%s^7 by %s^7:\n", type == STATS_TABLE_WEAPON_GIVEN ? "^2Damage DEALT" : "^8Damage TAKEN", weaponStatsPtr->name);
+		ctfPosition_t pos = DetermineCTFPosition(weaponStatsPtr);
+		Com_sprintf(temp, tempSize, "%s^7 by %s (%s%s)^7:\n",
+			type == STATS_TABLE_WEAPON_GIVEN ? "^2Damage DEALT" : "^8Damage TAKEN",
+			weaponStatsPtr->name,
+			weaponStatsPtr->lastTeam == TEAM_RED ? "Red" : "Blue",
+			pos ? (va(" %s", GetPositionStringForStats(weaponStatsPtr))) : "");
 		int len = strlen(temp);
 		Table_WriteToBuffer(t, temp + len, tempSize - len, qtrue, numWinningTeam ? (winningTeam == TEAM_BLUE ? 4 : 1) : (losingTeam == TEAM_BLUE ? 4 : 1));
 	}
