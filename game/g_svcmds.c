@@ -2865,6 +2865,7 @@ void Svcmd_Account_f( void ) {
 
 			if ( G_DeleteAccount( acc.ptr ) ) {
 				G_Printf( "Deleted account '%s' successfully\n", acc.ptr->name );
+				trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
 			} else {
 				G_Printf( "Failed to delete account!\n" );
 			}
