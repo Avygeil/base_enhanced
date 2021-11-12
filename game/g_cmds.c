@@ -6559,7 +6559,7 @@ void Cmd_PugStats_f(gentity_t *ent) {
 
 	if (accountId != -1) {
 		PrintIngame(clientNum, "%s stats%s:\n", hasAccount && accountId == ent->client->account->id ? "Your" : va("%s^7's", name), pos ? va(" on ^6%s^7", NameForPos(pos)) : "");
-		G_DBPrintWinrates(accountId, pos, clientNum, !pos ? qtrue : winratesOnly); // if no pos, then force it to show all winrates
+		G_DBPrintWinrates(accountId, pos, clientNum, !pos ? qtrue : winratesOnly, name); // if no pos, then force it to show all winrates
 		if (pos && !winratesOnly) {
 			if (!G_DBPrintPositionStatsForPlayer(accountId, pos, clientNum, name)) {
 				if (hasAccount && accountId == ent->client->account->id)

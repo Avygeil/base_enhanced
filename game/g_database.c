@@ -4566,7 +4566,7 @@ const char *WinrateCallback(void *rowContext, void *columnContext) {
 	return va("%s: %0.2f'/. ^9(%d/%d, %d%s)", wr->name, wr->winrate * 100, wr->wins, wr->matchups, wr->rank, RankSuffix(wr->rank));
 }
 
-void G_DBPrintWinrates(int accountId, ctfPosition_t positionOptional, int printClientNum, qboolean noLimits) {
+void G_DBPrintWinrates(int accountId, ctfPosition_t positionOptional, int printClientNum, qboolean noLimits, const char *name) {
 	for (qboolean lowest = qfalse; lowest <= qtrue; lowest++) {
 		int highestNumRows = 0;
 		winrate_t rows[4][50] = { 0 };
@@ -4581,10 +4581,11 @@ void G_DBPrintWinrates(int accountId, ctfPosition_t positionOptional, int printC
 			Table_DefineRow(t, (void *)i);
 
 		int num = 0;
-		Table_DefineColumn(t, va("%s %smatchups", lowest ? "^1Worst" : "^2Best", positionOptional ? va("%s ", NameForPos(positionOptional)) : ""), WinrateCallback, &rows[num++][0], qfalse, -1, 32);
-		Table_DefineColumn(t, va("%svs. Base", lowest ? "^1" : "^2"), WinrateCallback, &rows[num++][0], qfalse, -1, 32);
-		Table_DefineColumn(t, va("%svs. Chase", lowest ? "^1" : "^2"), WinrateCallback, &rows[num++][0], qfalse, -1, 32);
-		Table_DefineColumn(t, va("%svs. Offense", lowest ? "^1" : "^2"), WinrateCallback, &rows[num++][0], qfalse, -1, 32);
+		const char *worstBest = lowest ? "^1Worst" : "^2Best";
+		Table_DefineColumn(t, va("%s %s %svs. any pos", worstBest, name, positionOptional ? va("%s ", NameForPos(positionOptional)) : ""), WinrateCallback, &rows[num++][0], qfalse, -1, 32);
+		Table_DefineColumn(t, va("%s %s %svs. base", worstBest, name, positionOptional ? va("%s ", NameForPos(positionOptional)) : ""), WinrateCallback, &rows[num++][0], qfalse, -1, 32);
+		Table_DefineColumn(t, va("%s %s %svs. chase", worstBest, name, positionOptional ? va("%s ", NameForPos(positionOptional)) : ""), WinrateCallback, &rows[num++][0], qfalse, -1, 32);
+		Table_DefineColumn(t, va("%s %s %svs. offense", worstBest, name, positionOptional ? va("%s ", NameForPos(positionOptional)) : ""), WinrateCallback, &rows[num++][0], qfalse, -1, 32);
 
 		char *buf = calloc(16384, sizeof(char));
 		Table_WriteToBuffer(t, buf, 16384, qtrue, -1);

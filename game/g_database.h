@@ -365,6 +365,6 @@ qboolean G_DBWritePugStats(void);
 qboolean G_DBPrintPositionStatsForPlayer(int accountId, ctfPosition_t pos, int printClientNum, const char *name);
 void G_DBPrintTopPlayersForPosition(ctfPosition_t pos, int printClientNum);
 void G_DBPrintPlayersWithStats(int printClientNum);
-void G_DBPrintWinrates(int accountId, ctfPosition_t positionOptional, int printClientNum, qboolean noLimits);
+void G_DBPrintWinrates(int accountId, ctfPosition_t positionOptional, int printClientNum, qboolean noLimits, const char *name);
 
 #endif //G_DATABASE_H
