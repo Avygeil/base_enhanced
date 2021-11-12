@@ -434,6 +434,9 @@ vmCvar_t	g_vote_runoff;
 vmCvar_t	g_vote_mapCooldownMinutes;
 vmCvar_t	g_vote_runoffTimeModifier;
 
+vmCvar_t	g_notFirstMap;
+vmCvar_t	g_shouldReloadPlayerPugStats;
+
 vmCvar_t	g_rockPaperScissors;
 
 vmCvar_t	g_gripBuff;
@@ -864,6 +867,9 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_runoff, "g_vote_runoff", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_mapCooldownMinutes, "g_vote_mapCooldownMinutes", "60", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_runoffTimeModifier, "g_vote_runoffTimeModifier", "0", CVAR_ARCHIVE, 0, qtrue },
+
+	{ &g_notFirstMap, "g_notFirstMap", "0", CVAR_ROM | CVAR_TEMP, 0, qfalse },
+	{ &g_shouldReloadPlayerPugStats, "g_shouldReloadPlayerPugStats", "0", CVAR_ROM | CVAR_TEMP, 0, qfalse },
 
 	{ &g_rockPaperScissors, "g_rockPaperScissors", "0", CVAR_ARCHIVE, 0, qtrue },
 
@@ -1816,7 +1822,7 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 
 	G_DBLoadDatabase();
 
-	G_DBInitializeTopPlayers();
+	G_DBInitializePugStatsCache();
 	
 	LoadAimPacks();
 
@@ -1840,6 +1846,8 @@ G_ShutdownGame
 =================
 */
 void G_ShutdownGame( int restart ) {
+	trap_Cvar_Set("g_notFirstMap", "1");
+
 	int i = 0;
 	gentity_t *ent;
 
@@ -1943,6 +1951,22 @@ void G_ShutdownGame( int restart ) {
 		ListClear(&stats->teammatePositioningList);
 	}
 	ListClear(&level.statsList);
+
+	ListIterate(&level.cachedPositionStats, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		cachedPlayerPugStats_t *c = IteratorNext(&iter);
+		if (c->strPtr)
+			free(c->strPtr);
+	}
+	ListClear(&level.cachedPositionStats);
+
+	ListIterate(&level.cachedWinrates, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		cachedPlayerPugStats_t *c = IteratorNext(&iter);
+		if (c->strPtr)
+			free(c->strPtr);
+	}
+	ListClear(&level.cachedWinrates);
 
 	UnpatchEngine();
 }
@@ -2899,8 +2923,10 @@ void BeginIntermission(void) {
 		if (level.wasRestarted) {
 			G_PostScoreboardToWebhook(statsBuf);
 			G_DBAddCurrentMapToPlayedMapsList();
-			if (avgRedInt == 4 && avgBlueInt == 4 && !InstagibEnabled()) // only write stats to db in 4v4
+			if (avgRedInt == 4 && avgBlueInt == 4 && !InstagibEnabled()) { // only write stats to db in 4v4
 				G_DBWritePugStats();
+				trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
+			}
 		}
 #else
 		if (level.wasRestarted &&
@@ -2912,8 +2938,10 @@ void BeginIntermission(void) {
 		{
 			G_PostScoreboardToWebhook(statsBuf);
 			G_DBAddCurrentMapToPlayedMapsList();
-			if (avgRedInt == 4 && avgBlueInt == 4 && !InstagibEnabled()) // only write stats to db in 4v4
+			if (avgRedInt == 4 && avgBlueInt == 4 && !InstagibEnabled()) { // only write stats to db in 4v4
 				G_DBWritePugStats();
+				trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
+			}
 		}
 #endif
 	}

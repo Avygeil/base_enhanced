@@ -922,10 +922,8 @@ typedef struct { //Should this store their g2 anim? for proper g2 sync?
 // g_stats.c
 //
 
-#ifdef _DEBUG
 //#define DEBUG_CTF_POSITION_STATS // uncomment this to remove afk checks and print more message for pos detection
 //#define DEBUGSTATSNAMES // uncomment this to see longer column names in stats
-#endif
 
 #ifdef DEBUG_CTF_POSITION_STATS
 #define CTFPOSITION_MINIMUM_SECONDS		(60) // 60 seconds minimum for pos detection
@@ -1727,6 +1725,9 @@ typedef struct {
 	list_t			statsList;
 	list_t			savedStatsList;
 	stats_t			npcStatsDummy; // so we don't have to spam `if (client->stats)` everywhere before setting stats, just have all NPCs share one stats pointer
+
+	list_t			cachedWinrates;
+	list_t			cachedPositionStats;
 
 #ifdef NEWMOD_SUPPORT
 	qboolean nmAuthEnabled;
@@ -2891,6 +2892,9 @@ extern vmCvar_t		g_vote_rng;
 extern vmCvar_t		g_vote_runoff;
 extern vmCvar_t		g_vote_mapCooldownMinutes;
 extern vmCvar_t		g_vote_runoffTimeModifier;
+
+extern vmCvar_t		g_notFirstMap;
+extern vmCvar_t		g_shouldReloadPlayerPugStats;
 
 extern vmCvar_t		g_rockPaperScissors;
 

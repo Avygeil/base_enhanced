@@ -6469,11 +6469,10 @@ static int AccountFromString(char *s, char *nameOut, size_t nameOutSize) {
 static void PrintPugStatsHelp(gentity_t *ent) {
 	assert(ent);
 	PrintIngame(ent - g_entities, "Usage:\n" \
-		"^7pugstats [pos]              - list the top players for a particular position\n"
-		"^9pugstats [player]           - view a player's overall winrates\n"
-		"^7pugstats [player] [pos]     - view a player's stats on a position + top/bottom 5 winrates\n"
-		"^9pugstats [player] [pos] win - view all winrates for a player on a position\n"
-		"^7pugstats players            - view a list of players with valid stats\n"
+		"^7pugstats [pos]          - list the top players for a particular position\n"
+		"^9pugstats [player]       - view a player's overall winrates\n"
+		"^7pugstats [player] [pos] - view a player's stats and winrates on a position\n"
+		"^9pugstats players        - view a list of players with valid stats\n"
 		"\n"
 		"Arguments can be entered in any order.\n"
 		"You can use 'me' for player name.\n"
@@ -6486,19 +6485,12 @@ void Cmd_PugStats_f(gentity_t *ent) {
 		return;
 	}
 
-	char args[3][MAX_STRING_CHARS];
+	char args[2][MAX_STRING_CHARS];
 	trap_Argv(1, args[0], sizeof(args[0]));
-	if (trap_Argc() >= 3) {
+	if (trap_Argc() >= 3)
 		trap_Argv(2, args[1], sizeof(args[1]));
-		if (trap_Argc() >= 3)
-			trap_Argv(3, args[2], sizeof(args[2]));
-		else
-			args[2][0] = '\0';
-	}
-	else {
+	else
 		args[1][0] = '\0';
-		args[2][0] = '\0';
-	}
 
 	if (!args[0][0]) {
 		PrintPugStatsHelp(ent);
@@ -6510,6 +6502,8 @@ void Cmd_PugStats_f(gentity_t *ent) {
 
 	if (!Q_stricmp(args[0], "players")) {
 		G_DBPrintPlayersWithStats(clientNum);
+		if (g_shouldReloadPlayerPugStats.integer)
+			PrintIngame(clientNum, "Note: there are pugstats updates currently pending. Pugstats may change on map restart/change.\n");
 		return;
 	}
 	
@@ -6517,18 +6511,12 @@ void Cmd_PugStats_f(gentity_t *ent) {
 	int accountId = -1;
 	char name[MAX_NAME_LENGTH] = { 0 };
 	float *statPtr = NULL;
-	qboolean winratesOnly = qfalse;
 
 	// loop through the arguments so that they can be written in any order
-	for (int i = 0; i < 3; i++) {
+	for (int i = 0; i < 2; i++) {
 		char *arg = args[i];
 		if (!VALIDSTRING(arg))
 			continue;
-
-		if (!winratesOnly && !Q_stricmpn(arg, "win", 3)) {
-			winratesOnly = qtrue;
-			continue;
-		}
 
 		if (!pos && (pos = CtfPositionFromString(arg)))
 			continue;
@@ -6550,17 +6538,13 @@ void Cmd_PugStats_f(gentity_t *ent) {
 		return;
 	}
 
-	if (!pos && accountId == -1) {
-		if (winratesOnly && hasAccount)
-			accountId = ent->client->account->id; // they only typed win; try to show your own winrates i guess
-		else
-			return; // ??? maybe they only typed win but they don't have an account
-	}
+	if (!pos && accountId == -1)
+		return; // ???
 
 	if (accountId != -1) {
 		PrintIngame(clientNum, "%s stats%s:\n", hasAccount && accountId == ent->client->account->id ? "Your" : va("%s^7's", name), pos ? va(" on ^6%s^7", NameForPos(pos)) : "");
-		G_DBPrintWinrates(accountId, pos, clientNum, !pos ? qtrue : winratesOnly, name); // if no pos, then force it to show all winrates
-		if (pos && !winratesOnly) {
+		G_DBPrintWinrates(accountId, pos, clientNum); // if no pos, then force it to show all winrates
+		if (pos) {
 			if (!G_DBPrintPositionStatsForPlayer(accountId, pos, clientNum, name)) {
 				if (hasAccount && accountId == ent->client->account->id)
 					PrintIngame(clientNum, "You have no %s pugstats.\n", NameForPos(pos));
@@ -6568,10 +6552,13 @@ void Cmd_PugStats_f(gentity_t *ent) {
 					PrintIngame(clientNum, "%s^7 has no %s pugstats.\n", name, NameForPos(pos));
 			}
 		}
-		return;
+		if (g_shouldReloadPlayerPugStats.integer)
+			PrintIngame(clientNum, "Note: there are pugstats updates currently pending. Pugstats may change on map restart/change.\n");
 	}
 	else {
 		G_DBPrintTopPlayersForPosition(pos, clientNum);
+		if (g_shouldReloadPlayerPugStats.integer)
+			PrintIngame(clientNum, "Note: there are pugstats updates currently pending. Pugstats may change on map restart/change.\n");
 	}
 }
 

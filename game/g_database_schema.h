@@ -487,4 +487,14 @@ const char *const sqlCreateTables =
 "RANK() OVER (PARTITION BY pos ORDER BY avg_eba DESC) avg_eba_rank, "
 "avg_efs, "
 "RANK() OVER (PARTITION BY pos ORDER BY avg_efs DESC) avg_efs_rank "
-"FROM t;";
+"FROM t;"
+""
+"CREATE TABLE IF NOT EXISTS [cachedplayerstats] ( "
+"[cachedplayerstats_id] INTEGER PRIMARY KEY AUTOINCREMENT, "
+"[account_id] INTEGER NOT NULL, "
+"[type] INTEGER, "
+"[pos] INTEGER, "
+"[str] TEXT, "
+"FOREIGN KEY([account_id]) REFERENCES accounts([account_id]) ON DELETE CASCADE, "
+"UNIQUE(account_id, type, pos) "
+");";

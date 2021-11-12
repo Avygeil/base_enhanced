@@ -4,8 +4,8 @@
 #include "g_local.h"
 
 #define DB_FILENAME				"enhanced.db"
-#define DB_SCHEMA_VERSION		8
-#define DB_SCHEMA_VERSION_STR	"8"
+#define DB_SCHEMA_VERSION		9
+#define DB_SCHEMA_VERSION_STR	"9"
 #define DB_OPTIMIZE_INTERVAL	( 60*60*3 ) // every 3 hours
 #define DB_VACUUM_INTERVAL		( 60*60*24*7 ) // every week
 
@@ -360,11 +360,18 @@ list_t *G_DBTopAimLoadPacks(const char *mapname);
 list_t *G_DBTopAimQuickLoadPacks(const char *mapname);
 qboolean G_DBTopAimDeletePack(aimPracticePack_t *pack);
 
-void G_DBInitializeTopPlayers(void);
+typedef struct {
+	node_t						node;
+	int							accountId;
+	ctfPosition_t				pos;
+	char						*strPtr;
+} cachedPlayerPugStats_t;
+
 qboolean G_DBWritePugStats(void);
 qboolean G_DBPrintPositionStatsForPlayer(int accountId, ctfPosition_t pos, int printClientNum, const char *name);
 void G_DBPrintTopPlayersForPosition(ctfPosition_t pos, int printClientNum);
 void G_DBPrintPlayersWithStats(int printClientNum);
-void G_DBPrintWinrates(int accountId, ctfPosition_t positionOptional, int printClientNum, qboolean noLimits, const char *name);
+void G_DBPrintWinrates(int accountId, ctfPosition_t positionOptional, int printClientNum);
+void G_DBInitializePugStatsCache(void);
 
 #endif //G_DATABASE_H
