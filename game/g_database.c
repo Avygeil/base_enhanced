@@ -4176,7 +4176,7 @@ static void RecalculatePositionStats(void) {
 	sqlite3_exec(dbPtr, "DELETE FROM [cachedplayerstats] WHERE type = 1;", NULL, NULL, NULL);
 
 	sqlite3_stmt *outerStatement;
-	sqlite3_prepare(dbPtr, "SELECT accounts.name, accounts.account_id FROM [accounts] JOIN [sessions] ON accounts.account_id = sessions.account_id JOIN [playerpugteampos] ON sessions.session_id = playerpugteampos.session_id;", -1, &outerStatement, 0);
+	sqlite3_prepare(dbPtr, "SELECT accounts.name, accounts.account_id FROM [accounts] JOIN [sessions] ON accounts.account_id = sessions.account_id JOIN [playerpugteampos] ON sessions.session_id = playerpugteampos.session_id GROUP BY accounts.account_id;", -1, &outerStatement, 0);
 	int outerRc = sqlite3_step(outerStatement);
 	while (outerRc == SQLITE_ROW) { // loop through each account
 		const char *name = (const char *)sqlite3_column_text(outerStatement, 0);
