@@ -4055,6 +4055,9 @@ typedef struct {
 } accountStats_t;
 
 static char *RankSuffix(int rank) {
+	switch (rank % 100) {
+	case 11: case 12: case 13: return "th";
+	}
 	switch (rank % 10) {
 	case 1: return "st";
 	case 2: return "nd";
@@ -4163,6 +4166,11 @@ static void LoadPositionStatsFromDatabase(void) {
 	sqlite3_finalize(statement);
 }
 
+typedef struct {
+	node_t		node;
+	int			accountNum;
+} accountNumListItem_t;
+
 const char *sqlGetPositionStatsForPlayer = "SELECT * FROM accountstats WHERE account_id = ? AND pos = ?;";
 static void RecalculatePositionStats(void) {
 	iterator_t iter;
@@ -4175,17 +4183,25 @@ static void RecalculatePositionStats(void) {
 	ListClear(&level.cachedPositionStats);
 	sqlite3_exec(dbPtr, "DELETE FROM [cachedplayerstats] WHERE type = 1;", NULL, NULL, NULL);
 
-	sqlite3_stmt *outerStatement;
-	sqlite3_prepare(dbPtr, "SELECT accounts.name, accounts.account_id FROM [accounts] JOIN [sessions] ON accounts.account_id = sessions.account_id JOIN [playerpugteampos] ON sessions.session_id = playerpugteampos.session_id GROUP BY accounts.account_id;", -1, &outerStatement, 0);
-	int outerRc = sqlite3_step(outerStatement);
-	while (outerRc == SQLITE_ROW) { // loop through each account
-		const char *name = (const char *)sqlite3_column_text(outerStatement, 0);
-		const int accountId = sqlite3_column_int(outerStatement, 1);
+	list_t accountsList = { 0 };
+	sqlite3_stmt *statement = NULL;
+	sqlite3_prepare_v2(dbPtr, "SELECT accounts.account_id FROM [accounts] JOIN [sessions] ON accounts.account_id = sessions.account_id JOIN [playerpugteampos] ON sessions.session_id = playerpugteampos.session_id GROUP BY accounts.account_id;", -1, &statement, 0);
+	int rc = sqlite3_step(statement);
+	while (rc == SQLITE_ROW) { // loop through each account
+		accountNumListItem_t *add = (accountNumListItem_t *)ListAdd(&accountsList, sizeof(accountNumListItem_t));
+		add->accountNum = sqlite3_column_int(statement, 0);
+		rc = sqlite3_step(statement);
+	}
+	sqlite3_reset(statement);
+
+	ListIterate(&accountsList, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		accountNumListItem_t *acc = (accountNumListItem_t *)IteratorNext(&iter);
+		const int accountId = acc->accountNum;
 
 		for (ctfPosition_t pos = CTFPOSITION_UNKNOWN; pos <= CTFPOSITION_OFFENSE; pos++) {
 			char *buf = calloc(16384, sizeof(char));
-			sqlite3_stmt *statement;
-			sqlite3_prepare(dbPtr, sqlGetPositionStatsForPlayer, -1, &statement, 0);
+			sqlite3_prepare_v2(dbPtr, sqlGetPositionStatsForPlayer, -1, &statement, 0);
 			sqlite3_bind_int(statement, 1, accountId);
 			sqlite3_bind_int(statement, 2, pos);
 			int rc = sqlite3_step(statement);
@@ -4205,7 +4221,8 @@ static void RecalculatePositionStats(void) {
 				SetStatFloat(dmg, "^2Dmg"); SetStatFloat(fcdmg, "^2Fc"); SetStatFloat(clrdmg, "^2Clr"); SetStatFloat(othrdmg, "^2Othr");
 				SetStatFloat(dmgtkn, "^1Tkn"); SetStatFloat(fcdmgtkn, "^1Fc"); SetStatFloat(clrdmgtkn, "^1Clr"); SetStatFloat(othrdmgtkn, "^1Othr"); SetStatFloat(fckil, "^6FcKil"); SetStatFloat(fckileff, "^6Eff");
 				SetStatFloat(ret, "Ret"); SetStatFloat(sk, "SK");
-				Table_WriteToBuffer(t, buf + strlen(buf), 16384, qtrue, -1);
+				int len = strlen(buf);
+				Table_WriteToBuffer(t, buf + len, 16384 - len, qtrue, -1);
 				Table_Destroy(t);
 
 				t = Table_Initialize(qfalse);
@@ -4213,28 +4230,29 @@ static void RecalculatePositionStats(void) {
 				SetStatTime(ttlhold, "^3Hold"); SetStatTime(maxhold, "^3Max"); SetStatFloat(avgspd, "^6Spd"); SetStatFloat(topspd, "^6Top");
 				SetStatFloat(boon, "^5Boon"); SetStatFloat(push, "^5Push"); SetStatFloat(pull, "^5Pull"); SetStatFloat(heal, "^5Heal"); SetStatFloat(te, "^6TE"); SetStatFloat(teeff, "^6Eff"); SetStatFloat(enemynrg, "^5EnemyNrg");
 				SetStatFloat(absorb, "^5Abs");
-				Table_WriteToBuffer(t, buf + strlen(buf), 16384, qtrue, -1);
+				len = strlen(buf);
+				Table_WriteToBuffer(t, buf + len, 16384 - len, qtrue, -1);
 				Table_Destroy(t);
 
 				t = Table_Initialize(qfalse);
 				Table_DefineRow(t, NULL);
 				SetStatFloat(protdmg, "^2Prot"); SetStatTime(prottime, "^2Time"); SetStatTime(rage, "^5Rage"); SetStatFloat(drain, "^1Drn"); SetStatFloat(drained, "^1Drnd");
 				SetStatFloat(fs, "^5Fs"); SetStatFloat(bas, "^5Bas"); SetStatFloat(mid, "^5Mid"); SetStatFloat(eba, "^5EBa"); SetStatFloat(efs, "^5EFs");
-				Table_WriteToBuffer(t, buf + strlen(buf), 16384, qtrue, -1);
+				len = strlen(buf);
+				Table_WriteToBuffer(t, buf + len, 16384 - len, qtrue, -1);
 				Table_Destroy(t);
 			}
 
-			sqlite3_finalize(statement);
+			sqlite3_reset(statement);
 
 			if (*buf) {
 				// add it to the db
-				sqlite3_stmt *statement;
-				sqlite3_prepare(dbPtr, "INSERT OR REPLACE INTO [cachedplayerstats] (account_id, type, pos, str) VALUES (?, 1, ?, ?);", -1, &statement, 0);
+				sqlite3_prepare_v2(dbPtr, "INSERT OR REPLACE INTO [cachedplayerstats] (account_id, type, pos, str) VALUES (?, 1, ?, ?);", -1, &statement, 0);
 				sqlite3_bind_int(statement, 1, accountId);
 				sqlite3_bind_int(statement, 2, pos);
 				sqlite3_bind_text(statement, 3, buf, -1, SQLITE_STATIC);
 				int rc = sqlite3_step(statement);
-				sqlite3_finalize(statement);
+				sqlite3_reset(statement);
 
 				// also load it into the cache
 				cachedPlayerPugStats_t *c = ListAdd(&level.cachedPositionStats, sizeof(cachedPlayerPugStats_t));
@@ -4244,10 +4262,10 @@ static void RecalculatePositionStats(void) {
 			}
 			free(buf);
 		}
-		outerRc = sqlite3_step(outerStatement);
 	}
 
-	sqlite3_finalize(outerStatement);
+	ListClear(&accountsList);
+	sqlite3_finalize(statement);
 }
 
 qboolean G_DBPrintPositionStatsForPlayer(int accountId, ctfPosition_t pos, int printClientNum, const char *name) {
@@ -4391,7 +4409,8 @@ static void RecalculateTopPlayers(void) {
 		Table_DefineColumn(t, "^6Dth", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
 		Table_DefineColumn(t, "^2Dmg", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
 		Table_DefineColumn(t, "^2Fc", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_WriteToBuffer(t, topPlayersBuf[pos - 1] + strlen(topPlayersBuf[pos - 1]), bufSize, qtrue, -1);
+		int len = strlen(topPlayersBuf[pos - 1]);
+		Table_WriteToBuffer(t, topPlayersBuf[pos - 1] + len, bufSize - len, qtrue, -1);
 		Table_Destroy(t);
 
 		highestNumRows = statNum = 0;
@@ -4414,7 +4433,8 @@ static void RecalculateTopPlayers(void) {
 		Table_DefineColumn(t, "^1Clr", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
 		Table_DefineColumn(t, "^1Othr", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
 		Table_DefineColumn(t, "^6FcKil", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_WriteToBuffer(t, topPlayersBuf[pos - 1] + strlen(topPlayersBuf[pos - 1]), bufSize, qtrue, -1);
+		len = strlen(topPlayersBuf[pos - 1]);
+		Table_WriteToBuffer(t, topPlayersBuf[pos - 1] + len, bufSize - len, qtrue, -1);
 		Table_Destroy(t);
 
 		highestNumRows = statNum = 0;
@@ -4437,7 +4457,8 @@ static void RecalculateTopPlayers(void) {
 		Table_DefineColumn(t, "^3Max", PrintTopPlayersPositionStatTimeCallback, &rows[statNum++][0], qfalse, -1, 32);
 		Table_DefineColumn(t, "^6Spd", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
 		Table_DefineColumn(t, "^6Top", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_WriteToBuffer(t, topPlayersBuf[pos - 1] + strlen(topPlayersBuf[pos - 1]), bufSize, qtrue, -1);
+		len = strlen(topPlayersBuf[pos - 1]);
+		Table_WriteToBuffer(t, topPlayersBuf[pos - 1] + len, bufSize - len, qtrue, -1);
 		Table_Destroy(t);
 
 		highestNumRows = statNum = 0;
@@ -4460,7 +4481,8 @@ static void RecalculateTopPlayers(void) {
 		Table_DefineColumn(t, "^6TE", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
 		Table_DefineColumn(t, "^6Eff", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
 		Table_DefineColumn(t, "^5EnemyNrg", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_WriteToBuffer(t, topPlayersBuf[pos - 1] + strlen(topPlayersBuf[pos - 1]), bufSize, qtrue, -1);
+		len = strlen(topPlayersBuf[pos - 1]);
+		Table_WriteToBuffer(t, topPlayersBuf[pos - 1] + len, bufSize - len, qtrue, -1);
 		Table_Destroy(t);
 
 		highestNumRows = statNum = 0;
@@ -4481,7 +4503,8 @@ static void RecalculateTopPlayers(void) {
 		Table_DefineColumn(t, "^5Rage", PrintTopPlayersPositionStatTimeCallback, &rows[statNum++][0], qfalse, -1, 32);
 		Table_DefineColumn(t, "^1Drn", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
 		Table_DefineColumn(t, "^1Drned", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_WriteToBuffer(t, topPlayersBuf[pos - 1] + strlen(topPlayersBuf[pos - 1]), bufSize, qtrue, -1);
+		len = strlen(topPlayersBuf[pos - 1]);
+		Table_WriteToBuffer(t, topPlayersBuf[pos - 1] + len, bufSize - len, qtrue, -1);
 		Table_Destroy(t);
 
 		highestNumRows = statNum = 0;
@@ -4500,7 +4523,8 @@ static void RecalculateTopPlayers(void) {
 		Table_DefineColumn(t, "^5Mid", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
 		Table_DefineColumn(t, "^5EBa", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
 		Table_DefineColumn(t, "^5EFs", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_WriteToBuffer(t, topPlayersBuf[pos - 1] + strlen(topPlayersBuf[pos - 1]), bufSize, qtrue, -1);
+		len = strlen(topPlayersBuf[pos - 1]);
+		Table_WriteToBuffer(t, topPlayersBuf[pos - 1] + len, bufSize - len, qtrue, -1);
 		Table_Destroy(t);
 
 		// write to db if different
@@ -4605,7 +4629,7 @@ static void RecalculateWinRates(void) {
 	sqlite3_exec(dbPtr, "DELETE FROM [cachedplayerstats] WHERE type = 0;", NULL, NULL, NULL);
 
 	sqlite3_stmt *outerStatement;
-	sqlite3_prepare(dbPtr, "SELECT accounts.name, accounts.account_id FROM [accounts] JOIN [sessions] ON accounts.account_id = sessions.account_id JOIN [playerpugteampos] ON sessions.session_id = playerpugteampos.session_id;", -1, &outerStatement, 0);
+	sqlite3_prepare(dbPtr, "SELECT accounts.name, accounts.account_id FROM [accounts] JOIN [sessions] ON accounts.account_id = sessions.account_id JOIN [playerpugteampos] ON sessions.session_id = playerpugteampos.session_id GROUP BY accounts.account_id;", -1, &outerStatement, 0);
 	int outerRc = sqlite3_step(outerStatement);
 	while (outerRc == SQLITE_ROW) { // loop through each account
 		const char *name = (const char *)sqlite3_column_text(outerStatement, 0);
@@ -4727,14 +4751,14 @@ void G_DBInitializePugStatsCache(void) {
 	qboolean recalculate = (!level.wasRestarted && (g_shouldReloadPlayerPugStats.integer || !g_notFirstMap.integer));
 
 	if (recalculate) {
-		RecalculateTopPlayers();
 		RecalculatePositionStats();
+		RecalculateTopPlayers();
 		RecalculateWinRates();
 		trap_Cvar_Set("g_shouldReloadPlayerPugStats", "0");
 	}
 	else {
-		LoadTopPlayersFromDatabase();
 		LoadPositionStatsFromDatabase();
+		LoadTopPlayersFromDatabase();
 		LoadWinratesFromDatabase();
 	}
 
