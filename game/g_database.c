@@ -4091,9 +4091,9 @@ const char *PrintPositionStatTimeCallback(void *rowContext, void *columnContext)
 	if (!columnContext)
 		return NULL;
 	stat_t *s = columnContext;
-	int secs = s->valueInt / 1000;
+	int secs = s->valueInt;
 	int mins = secs / 60;
-	if (s->valueInt >= 60000) {
+	if (secs >= 60) {
 		secs %= 60;
 		return va("%dm%02ds ^9(%d%s)", mins, secs, s->rank, RankSuffix(s->rank));
 	}
@@ -4295,9 +4295,9 @@ const char *PrintTopPlayersPositionStatFloatCallback(void *rowContext, void *col
 const char *PrintTopPlayersPositionStatTimeCallback(void *rowContext, void *columnContext) {
 	int index = (int)rowContext;
 	stat_t *s = ((stat_t *)columnContext) + index;
-	int secs = s->valueInt / 1000;
+	int secs = (int)round(s->valueFloat);
 	int mins = secs / 60;
-	if (s->valueInt >= 60000) {
+	if (secs >= 60) {
 		secs %= 60;
 		return va("%s: %dm%02ds ^9(%d%s)", s->name, mins, secs, s->rank, RankSuffix(s->rank));
 	}
