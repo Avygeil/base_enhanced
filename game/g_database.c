@@ -4051,7 +4051,11 @@ typedef struct {
 } stat_t;
 
 typedef struct {
+	node_t node;
 	stat_t pugsplayed, wins, winrate, cap, ass, def, acc, air, tk, take, pitkil, pitdth, dmg, fcdmg, clrdmg, othrdmg, dmgtkn, fcdmgtkn, clrdmgtkn, othrdmgtkn, fckil, fckileff, ret, sk, ttlhold, maxhold, avgspd, topspd, boon, push, pull, heal, te, teeff, enemynrg, absorb, protdmg, prottime, rage, drain, drained, fs, bas, mid, eba, efs;
+	int accountId;
+	ctfPosition_t pos;
+	char name[32];
 } accountStats_t;
 
 static char *RankSuffix(int rank) {
@@ -4104,30 +4108,30 @@ const char *PrintPositionStatTimeCallback(void *rowContext, void *columnContext)
 
 #define SetStatInt(field, title) \
 do { \
-	stats.field.valueInt = (int)round(sqlite3_column_double(statement, num++)); \
-	stats.field.rank = sqlite3_column_int(statement, num++); \
-	Table_DefineColumn(t, title, PrintPositionStatIntCallback, &stats.field, qfalse, -1, 32); \
+	stats->field.valueInt = (int)round(sqlite3_column_double(statement, num++)); \
+	stats->field.rank = sqlite3_column_int(statement, num++); \
+	Table_DefineColumn(t, title, PrintPositionStatIntCallback, &stats->field, qfalse, -1, 32); \
 } while (0)
 
 #define SetStatFloat(field, title) \
 do { \
-	stats.field.valueFloat = sqlite3_column_double(statement, num++); \
-	stats.field.rank = sqlite3_column_int(statement, num++); \
-	Table_DefineColumn(t, title, PrintPositionStatFloatCallback, &stats.field, qfalse, -1, 32); \
+	stats->field.valueFloat = sqlite3_column_double(statement, num++); \
+	stats->field.rank = sqlite3_column_int(statement, num++); \
+	Table_DefineColumn(t, title, PrintPositionStatFloatCallback, &stats->field, qfalse, -1, 32); \
 } while (0)
 
 #define SetStatPercent(field, title) \
 do { \
-	stats.field.valueFloat = sqlite3_column_double(statement, num++); \
-	stats.field.rank = sqlite3_column_int(statement, num++); \
-	Table_DefineColumn(t, title, PrintPositionStatPercentCallback, &stats.field, qfalse, -1, 32); \
+	stats->field.valueFloat = sqlite3_column_double(statement, num++); \
+	stats->field.rank = sqlite3_column_int(statement, num++); \
+	Table_DefineColumn(t, title, PrintPositionStatPercentCallback, &stats->field, qfalse, -1, 32); \
 } while (0)
 
 #define SetStatTime(field, title) \
 do { \
-	stats.field.valueInt = (int)round(sqlite3_column_double(statement, num++)); \
-	stats.field.rank = sqlite3_column_int(statement, num++); \
-	Table_DefineColumn(t, title, PrintPositionStatTimeCallback, &stats.field, qfalse, -1, 32); \
+	stats->field.valueInt = (int)round(sqlite3_column_double(statement, num++)); \
+	stats->field.rank = sqlite3_column_int(statement, num++); \
+	Table_DefineColumn(t, title, PrintPositionStatTimeCallback, &stats->field, qfalse, -1, 32); \
 } while (0)
 
 typedef enum {
@@ -4176,6 +4180,7 @@ static void RecalculatePositionStats(void) {
 			free(c->strPtr);
 	}
 	ListClear(&level.cachedPositionStats);
+	ListClear(&level.cachedPositionStatsRaw);
 	sqlite3_exec(dbPtr, "DELETE FROM [cachedplayerstats] WHERE type = 1;", NULL, NULL, NULL);
 
 	sqlite3_stmt *statement;
@@ -4183,10 +4188,14 @@ static void RecalculatePositionStats(void) {
 	int rc = sqlite3_step(statement);
 	while (rc == SQLITE_ROW) {
 		const int accountId = sqlite3_column_int(statement, 0);
+		const char *name = (const char *)sqlite3_column_text(statement, 1);
 		const ctfPosition_t pos = sqlite3_column_int(statement, 2);
 
 		char *buf = calloc(16384, sizeof(char));
-		accountStats_t stats;
+		accountStats_t *stats = ListAdd(&level.cachedPositionStatsRaw, sizeof(accountStats_t));
+		stats->accountId = accountId;
+		stats->pos = pos;
+		Q_strncpyz(stats->name, name, sizeof(stats->name));
 		int num = 3;
 		Table *t = Table_Initialize(qfalse);
 		Table_DefineRow(t, NULL);
@@ -4339,179 +4348,236 @@ static void LoadTopPlayersFromDatabase(void) {
 	G_DBGetMetadata("topPlayers3", topPlayersBuf[2], sizeof(topPlayersBuf[2]));
 }
 
-static void RecalculateTopPlayers(void) {
-	for (ctfPosition_t pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
-		memset(topPlayersBuf[pos - 1], 0, sizeof(topPlayersBuf[pos - 1]));
-		size_t bufSize = sizeof(topPlayersBuf[0]);
-		stat_t rows[NUM_TOPPLAYERS_TABLES][10] = { 0 };
-		int highestNumRows = 0;
-		int statNum = 0;
-		GetStatForTableInt("pugs_played", pos, &rows[statNum++][0], &highestNumRows);
-		GetStatForTableInt("wins", pos, &rows[statNum++][0], &highestNumRows);
-		GetStatForTableFloat("winrate", pos, &rows[statNum++][0], &highestNumRows);
-		GetStatForTableFloat("avg_cap", pos, &rows[statNum++][0], &highestNumRows);
-		GetStatForTableFloat("avg_ass", pos, &rows[statNum++][0], &highestNumRows);
-		GetStatForTableFloat("avg_def", pos, &rows[statNum++][0], &highestNumRows);
-		GetStatForTableFloat("avg_acc", pos, &rows[statNum++][0], &highestNumRows);
-		Table *t = Table_Initialize(qfalse);
-		for (int i = 0; i < highestNumRows; i++)
-			Table_DefineRow(t, (void *)i);
-		statNum = 0;
-		Table_DefineColumn(t, "^5Pugs", PrintTopPlayersPositionStatIntCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_DefineColumn(t, "^5Wins", PrintTopPlayersPositionStatIntCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_DefineColumn(t, "^5Winrate", PrintTopPlayersPositionStatPercentCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_DefineColumn(t, "^5Cap", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_DefineColumn(t, "^5Ass", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_DefineColumn(t, "^5Def", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_DefineColumn(t, "^5Acc", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_WriteToBuffer(t, topPlayersBuf[pos - 1], bufSize, qtrue, -1);
-		Table_Destroy(t);
+int topStatMemoryOffset = 0;
+ctfPosition_t topStatPos = CTFPOSITION_UNKNOWN;
+typedef enum {
+	STATTYPE_INTEGER = 0,
+	STATTYPE_FLOAT,
+	STATTYPE_PERCENT,
+	STATTYPE_TIME
+} topStatType_t;
+topStatType_t topStatType = STATTYPE_INTEGER;
 
-		highestNumRows = statNum = 0;
-		memset(&rows, 0, sizeof(rows));
-		GetStatForTableFloat("avg_air", pos, &rows[statNum++][0], &highestNumRows);
-		GetStatForTableFloat("avg_tk", pos, &rows[statNum++][0], &highestNumRows);
-		GetStatForTableFloat("avg_take", pos, &rows[statNum++][0], &highestNumRows);
-		GetStatForTableFloat("avg_pitkil", pos, &rows[statNum++][0], &highestNumRows);
-		GetStatForTableFloat("avg_pitdth", pos, &rows[statNum++][0], &highestNumRows);
-		GetStatForTableFloat("avg_dmg", pos, &rows[statNum++][0], &highestNumRows);
-		GetStatForTableFloat("avg_fcdmg", pos, &rows[statNum++][0], &highestNumRows);
-		t = Table_Initialize(qfalse);
-		for (int i = 0; i < highestNumRows; i++)
-			Table_DefineRow(t, (void *)i);
-		statNum = 0;
-		Table_DefineColumn(t, "^5Air", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_DefineColumn(t, "^5TK", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_DefineColumn(t, "^5Take", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_DefineColumn(t, "^6Pit", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_DefineColumn(t, "^6Dth", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_DefineColumn(t, "^2Dmg", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_DefineColumn(t, "^2Fc", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		int len = strlen(topPlayersBuf[pos - 1]);
-		Table_WriteToBuffer(t, topPlayersBuf[pos - 1] + len, bufSize - len, qtrue, -1);
-		Table_Destroy(t);
+const char *NewTopDudesCallback(void *rowContext, void *columnContext) {
+	int rowNum = (int)rowContext;
+	accountStats_t *a = (accountStats_t *)columnContext;
+	a += rowNum;
+	if (a->pos != topStatPos)
+		return NULL;
+	unsigned int sAddr = (unsigned int)a;
+	stat_t *s = (stat_t *)(sAddr + topStatMemoryOffset);
 
-		highestNumRows = statNum = 0;
-		memset(&rows, 0, sizeof(rows));
-		GetStatForTableFloat("avg_clrdmg", pos, &rows[statNum++][0], &highestNumRows);
-		GetStatForTableFloat("avg_othrdmg", pos, &rows[statNum++][0], &highestNumRows);
-		GetStatForTableFloat("avg_dmgtkn", pos, &rows[statNum++][0], &highestNumRows);
-		GetStatForTableFloat("avg_fcdmgtkn", pos, &rows[statNum++][0], &highestNumRows);
-		GetStatForTableFloat("avg_clrdmgtkn", pos, &rows[statNum++][0], &highestNumRows);
-		GetStatForTableFloat("avg_othrdmgtkn", pos, &rows[statNum++][0], &highestNumRows);
-		GetStatForTableFloat("avg_fckil", pos, &rows[statNum++][0], &highestNumRows);
-		t = Table_Initialize(qfalse);
-		for (int i = 0; i < highestNumRows; i++)
-			Table_DefineRow(t, (void *)i);
-		statNum = 0;
-		Table_DefineColumn(t, "^2Clr", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_DefineColumn(t, "^2Othr", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_DefineColumn(t, "^1Tkn", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_DefineColumn(t, "^1Fc", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_DefineColumn(t, "^1Clr", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_DefineColumn(t, "^1Othr", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_DefineColumn(t, "^6FcKil", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		len = strlen(topPlayersBuf[pos - 1]);
-		Table_WriteToBuffer(t, topPlayersBuf[pos - 1] + len, bufSize - len, qtrue, -1);
-		Table_Destroy(t);
-
-		highestNumRows = statNum = 0;
-		memset(&rows, 0, sizeof(rows));
-		GetStatForTableFloat("avg_fckileff", pos, &rows[statNum++][0], &highestNumRows);
-		GetStatForTableFloat("avg_ret", pos, &rows[statNum++][0], &highestNumRows);
-		GetStatForTableFloat("avg_sk", pos, &rows[statNum++][0], &highestNumRows);
-		GetStatForTableFloat("avg_ttlhold", pos, &rows[statNum++][0], &highestNumRows);
-		GetStatForTableFloat("avg_maxhold", pos, &rows[statNum++][0], &highestNumRows);
-		GetStatForTableFloat("avg_avgspd", pos, &rows[statNum++][0], &highestNumRows);
-		GetStatForTableFloat("avg_topspd", pos, &rows[statNum++][0], &highestNumRows);
-		t = Table_Initialize(qfalse);
-		for (int i = 0; i < highestNumRows; i++)
-			Table_DefineRow(t, (void *)i);
-		statNum = 0;
-		Table_DefineColumn(t, "^6Eff", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_DefineColumn(t, "^5Ret", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_DefineColumn(t, "^5SK", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_DefineColumn(t, "^3Hold", PrintTopPlayersPositionStatTimeCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_DefineColumn(t, "^3Max", PrintTopPlayersPositionStatTimeCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_DefineColumn(t, "^6Spd", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_DefineColumn(t, "^6Top", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		len = strlen(topPlayersBuf[pos - 1]);
-		Table_WriteToBuffer(t, topPlayersBuf[pos - 1] + len, bufSize - len, qtrue, -1);
-		Table_Destroy(t);
-
-		highestNumRows = statNum = 0;
-		memset(&rows, 0, sizeof(rows));
-		GetStatForTableFloat("avg_boon", pos, &rows[statNum++][0], &highestNumRows);
-		GetStatForTableFloat("avg_push", pos, &rows[statNum++][0], &highestNumRows);
-		GetStatForTableFloat("avg_pull", pos, &rows[statNum++][0], &highestNumRows);
-		GetStatForTableFloat("avg_heal", pos, &rows[statNum++][0], &highestNumRows);
-		GetStatForTableFloat("avg_te", pos, &rows[statNum++][0], &highestNumRows);
-		GetStatForTableFloat("avg_teeff", pos, &rows[statNum++][0], &highestNumRows);
-		GetStatForTableFloat("avg_enemynrg", pos, &rows[statNum++][0], &highestNumRows);
-		t = Table_Initialize(qfalse);
-		for (int i = 0; i < highestNumRows; i++)
-			Table_DefineRow(t, (void *)i);
-		statNum = 0;
-		Table_DefineColumn(t, "^5Boon", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_DefineColumn(t, "^5Push", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_DefineColumn(t, "^5Pull", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_DefineColumn(t, "^5Heal", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_DefineColumn(t, "^6TE", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_DefineColumn(t, "^6Eff", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_DefineColumn(t, "^5EnemyNrg", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		len = strlen(topPlayersBuf[pos - 1]);
-		Table_WriteToBuffer(t, topPlayersBuf[pos - 1] + len, bufSize - len, qtrue, -1);
-		Table_Destroy(t);
-
-		highestNumRows = statNum = 0;
-		memset(&rows, 0, sizeof(rows));
-		GetStatForTableFloat("avg_absorb", pos, &rows[statNum++][0], &highestNumRows);
-		GetStatForTableFloat("avg_protdmg", pos, &rows[statNum++][0], &highestNumRows);
-		GetStatForTableFloat("avg_prottime", pos, &rows[statNum++][0], &highestNumRows);
-		GetStatForTableFloat("avg_rage", pos, &rows[statNum++][0], &highestNumRows);
-		GetStatForTableFloat("avg_drain", pos, &rows[statNum++][0], &highestNumRows);
-		GetStatForTableFloat("avg_drained", pos, &rows[statNum++][0], &highestNumRows);
-		t = Table_Initialize(qfalse);
-		for (int i = 0; i < highestNumRows; i++)
-			Table_DefineRow(t, (void *)i);
-		statNum = 0;
-		Table_DefineColumn(t, "^5Abs", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_DefineColumn(t, "^2Prot", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_DefineColumn(t, "^2Time", PrintTopPlayersPositionStatTimeCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_DefineColumn(t, "^5Rage", PrintTopPlayersPositionStatTimeCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_DefineColumn(t, "^1Drn", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_DefineColumn(t, "^1Drned", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		len = strlen(topPlayersBuf[pos - 1]);
-		Table_WriteToBuffer(t, topPlayersBuf[pos - 1] + len, bufSize - len, qtrue, -1);
-		Table_Destroy(t);
-
-		highestNumRows = statNum = 0;
-		memset(&rows, 0, sizeof(rows));
-		GetStatForTableFloat("avg_fs", pos, &rows[statNum++][0], &highestNumRows);
-		GetStatForTableFloat("avg_bas", pos, &rows[statNum++][0], &highestNumRows);
-		GetStatForTableFloat("avg_mid", pos, &rows[statNum++][0], &highestNumRows);
-		GetStatForTableFloat("avg_eba", pos, &rows[statNum++][0], &highestNumRows);
-		GetStatForTableFloat("avg_efs", pos, &rows[statNum++][0], &highestNumRows);
-		t = Table_Initialize(qfalse);
-		for (int i = 0; i < highestNumRows; i++)
-			Table_DefineRow(t, (void *)i);
-		statNum = 0;
-		Table_DefineColumn(t, "^5Fs", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_DefineColumn(t, "^5Bas", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_DefineColumn(t, "^5Mid", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_DefineColumn(t, "^5EBa", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		Table_DefineColumn(t, "^5EFs", PrintTopPlayersPositionStatFloatCallback, &rows[statNum++][0], qfalse, -1, 32);
-		len = strlen(topPlayersBuf[pos - 1]);
-		Table_WriteToBuffer(t, topPlayersBuf[pos - 1] + len, bufSize - len, qtrue, -1);
-		Table_Destroy(t);
-
-		// write to db if different
-		char *dbBuf = calloc(16384, sizeof(char));
-		G_DBGetMetadata(va("topPlayers%d", (int)pos), dbBuf, 16384);
-		if (!*dbBuf || strcmp(topPlayersBuf[pos - 1], dbBuf))
-			G_DBSetMetadata(va("topPlayers%d", (int)pos), topPlayersBuf[pos - 1]);
-		free(dbBuf);
+	char *theStat = NULL;
+	if (topStatType == STATTYPE_INTEGER) {
+		theStat = va("%d", s->valueInt);
 	}
+	else if (topStatType == STATTYPE_FLOAT) {
+		theStat = va("%0.1f", s->valueFloat);
+	}
+	else if (topStatType == STATTYPE_PERCENT) {
+		theStat = va("%0.2f'/.", s->valueFloat * 100.0f);
+	}
+	else if (topStatType == STATTYPE_TIME) {
+		int secs = s->valueInt;
+		int mins = secs / 60;
+		if (secs >= 60) {
+			secs %= 60;
+			theStat = va("%dm%02ds", mins, secs);
+		}
+		else {
+			theStat = va("%ds", secs);
+		}
+	}
+
+
+	return va("%s: %s ^9(%d%s)", s->name, theStat, s->rank, RankSuffix(s->rank));
+}
+
+int CompareDudes(const void *a, const void *b) {
+	unsigned int aAddr = (unsigned int)a;
+	unsigned int bAddr = (unsigned int)b;
+	accountStats_t *aa = (accountStats_t *)a;
+	accountStats_t *bb = (accountStats_t *)b;
+
+	if (aa->pos == topStatPos && bb->pos != topStatPos)
+		return -1;
+	if (bb->pos == topStatPos && aa->pos != topStatPos)
+		return 1;
+	if (aa->pos != topStatPos && bb->pos != topStatPos)
+		return 0;
+
+	if (topStatType == STATTYPE_INTEGER) {
+		int aVal = *((int *)(aAddr + topStatMemoryOffset));
+		int bVal = *((int *)(bAddr + topStatMemoryOffset));
+		if (aVal < bVal)
+			return 1;
+		if (aVal > bVal)
+			return -1;
+	}
+	else {
+		float aVal = *((float *)(aAddr + topStatMemoryOffset));
+		float bVal = *((float *)(bAddr + topStatMemoryOffset));
+		if (aVal < bVal)
+			return 1;
+		if (aVal > bVal)
+			return -1;
+	}
+
+	if (aa->name[0] > bb->name[0])
+		return 1;
+	if (aa->name[0] < bb->name[0])
+		return -1;
+	return 0;
+}
+
+#define MAX_STAT_COLUMNS (46)
+#define SetTopStat(field, columnName, type) \
+do { \
+		assert(index < MAX_STAT_COLUMNS); \
+		topStatMemoryOffset = (unsigned int)&arr->field - (unsigned int)&arr->node; \
+		topStatType = type; \
+		qsort(arr, size, sizeof(accountStats_t), CompareDudes); \
+		memcpy(sorted, arr, sizeof(accountStats_t) * topNum); \
+ \
+		for (int i = 0; i < topNum; i++) { \
+			accountStats_t *to = topTen[index] + i; \
+			accountStats_t *from = sorted + i; \
+			memcpy(&to->field, &from->field, sizeof(to->field)); \
+			Q_strncpyz(to->field.name, from->name, sizeof(to->field.name)); \
+			to->pos = from->pos; \
+		} \
+ \
+		Table_DefineColumn(t, columnName, NewTopDudesCallback, topTen[index], qfalse, -1, 32); \
+		index++; \
+} while(0)
+
+static void RecalculateTopPlayers(void) {
+	memset(topPlayersBuf, 0, sizeof(topPlayersBuf));
+
+	int size = level.cachedPositionStatsRaw.size;
+	if (!size)
+		return;
+
+	accountStats_t *arr = calloc(size, sizeof(accountStats_t));
+	int topNum = size < 10 ? size : 10;
+	accountStats_t *sorted = calloc(topNum, sizeof(accountStats_t));
+	accountStats_t *topTen[MAX_STAT_COLUMNS];
+	for (int i = 0; i < MAX_STAT_COLUMNS; i++)
+		topTen[i] = calloc(topNum, sizeof(accountStats_t));
+
+	int index = 0;
+	iterator_t iter;
+	ListIterate(&level.cachedPositionStatsRaw, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		accountStats_t *stats = IteratorNext(&iter);
+		memcpy(arr + index++, stats, sizeof(accountStats_t));
+	}
+
+	for (ctfPosition_t pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+		index = 0;
+		topStatPos = pos;
+
+		Table *t = Table_Initialize(qfalse);
+		for (int i = 0; i < topNum; i++)
+			Table_DefineRow(t, (void *)i);
+		SetTopStat(pugsplayed, "^5Pugs", STATTYPE_INTEGER);
+		SetTopStat(wins, "^5Wins", STATTYPE_INTEGER);
+		SetTopStat(winrate, "^5Winrate", STATTYPE_PERCENT);
+		SetTopStat(cap, "^5Cap", STATTYPE_FLOAT);
+		SetTopStat(ass, "^5Ass", STATTYPE_FLOAT);
+		SetTopStat(def, "^5Def", STATTYPE_FLOAT);
+		SetTopStat(acc, "^5Acc", STATTYPE_FLOAT);
+		Table_WriteToBuffer(t, topPlayersBuf[pos - 1], sizeof(topPlayersBuf[pos - 1]), qtrue, -1);
+		Table_Destroy(t);
+
+		t = Table_Initialize(qfalse);
+		for (int i = 0; i < topNum; i++)
+			Table_DefineRow(t, (void *)i);
+		SetTopStat(air, "^5Airs", STATTYPE_FLOAT);
+		SetTopStat(tk, "^5TK", STATTYPE_FLOAT);
+		SetTopStat(take, "^5Take", STATTYPE_FLOAT);
+		SetTopStat(pitkil, "^6Pit", STATTYPE_FLOAT);
+		SetTopStat(pitdth, "^6Dth", STATTYPE_FLOAT);
+		SetTopStat(dmg, "^2Dmg", STATTYPE_FLOAT);
+		SetTopStat(fcdmg, "^2Fc", STATTYPE_FLOAT);
+		int len = strlen(topPlayersBuf[pos - 1]);
+		Table_WriteToBuffer(t, topPlayersBuf[pos - 1] + len, sizeof(topPlayersBuf[pos - 1]) - len , qtrue, -1);
+		Table_Destroy(t);
+
+		t = Table_Initialize(qfalse);
+		for (int i = 0; i < topNum; i++)
+			Table_DefineRow(t, (void *)i);
+		SetTopStat(clrdmg, "^2Clr", STATTYPE_FLOAT);
+		SetTopStat(othrdmg, "^2Othr", STATTYPE_FLOAT);
+		SetTopStat(dmgtkn, "^1Tkn", STATTYPE_FLOAT);
+		SetTopStat(fcdmgtkn, "^1Fc", STATTYPE_FLOAT);
+		SetTopStat(clrdmgtkn, "^1Clr", STATTYPE_FLOAT);
+		SetTopStat(othrdmgtkn, "^1Othr", STATTYPE_FLOAT);
+		SetTopStat(fckil, "^6FcKil", STATTYPE_FLOAT);
+		len = strlen(topPlayersBuf[pos - 1]);
+		Table_WriteToBuffer(t, topPlayersBuf[pos - 1] + len, sizeof(topPlayersBuf[pos - 1]) - len, qtrue, -1);
+		Table_Destroy(t);
+
+		t = Table_Initialize(qfalse);
+		for (int i = 0; i < topNum; i++)
+			Table_DefineRow(t, (void *)i);
+		SetTopStat(fckileff, "^6Eff", STATTYPE_FLOAT);
+		SetTopStat(ret, "^5Ret", STATTYPE_FLOAT);
+		SetTopStat(sk, "^5SK", STATTYPE_FLOAT);
+		SetTopStat(ttlhold, "^3Hold", STATTYPE_TIME);
+		SetTopStat(maxhold, "^3Max", STATTYPE_TIME);
+		SetTopStat(avgspd, "^6Spd", STATTYPE_FLOAT);
+		SetTopStat(topspd, "^6Top", STATTYPE_FLOAT);
+		len = strlen(topPlayersBuf[pos - 1]);
+		Table_WriteToBuffer(t, topPlayersBuf[pos - 1] + len, sizeof(topPlayersBuf[pos - 1]) - len, qtrue, -1);
+		Table_Destroy(t);
+
+		t = Table_Initialize(qfalse);
+		for (int i = 0; i < topNum; i++)
+			Table_DefineRow(t, (void *)i);
+		SetTopStat(boon, "^5Boon", STATTYPE_FLOAT);
+		SetTopStat(push, "^5Push", STATTYPE_FLOAT);
+		SetTopStat(pull, "^5Pull", STATTYPE_FLOAT);
+		SetTopStat(heal, "^5Heal", STATTYPE_FLOAT);
+		SetTopStat(te, "^6TE", STATTYPE_FLOAT);
+		SetTopStat(teeff, "^6Eff", STATTYPE_FLOAT);
+		SetTopStat(enemynrg, "^5EnemyNrg", STATTYPE_FLOAT);
+		len = strlen(topPlayersBuf[pos - 1]);
+		Table_WriteToBuffer(t, topPlayersBuf[pos - 1] + len, sizeof(topPlayersBuf[pos - 1]) - len, qtrue, -1);
+		Table_Destroy(t);
+
+		t = Table_Initialize(qfalse);
+		for (int i = 0; i < topNum; i++)
+			Table_DefineRow(t, (void *)i);
+		SetTopStat(absorb, "^5Abs", STATTYPE_FLOAT);
+		SetTopStat(protdmg, "^2Prot", STATTYPE_FLOAT);
+		SetTopStat(prottime, "^2Time", STATTYPE_TIME);
+		SetTopStat(rage, "^5Rage", STATTYPE_TIME);
+		SetTopStat(drain, "^1Drn", STATTYPE_FLOAT);
+		SetTopStat(drained, "^1Drned", STATTYPE_FLOAT);
+		len = strlen(topPlayersBuf[pos - 1]);
+		Table_WriteToBuffer(t, topPlayersBuf[pos - 1] + len, sizeof(topPlayersBuf[pos - 1]) - len, qtrue, -1);
+		Table_Destroy(t);
+
+		t = Table_Initialize(qfalse);
+		for (int i = 0; i < topNum; i++)
+			Table_DefineRow(t, (void *)i);
+		SetTopStat(fs, "^5Fs", STATTYPE_FLOAT);
+		SetTopStat(bas, "^5Bas", STATTYPE_FLOAT);
+		SetTopStat(mid, "^5Mid", STATTYPE_FLOAT);
+		SetTopStat(eba, "^5EBa", STATTYPE_FLOAT);
+		SetTopStat(efs, "^5EFs", STATTYPE_FLOAT);
+		len = strlen(topPlayersBuf[pos - 1]);
+		Table_WriteToBuffer(t, topPlayersBuf[pos - 1] + len, sizeof(topPlayersBuf[pos - 1]) - len, qtrue, -1);
+		Table_Destroy(t);
+
+		G_DBSetMetadata(va("topPlayers%d", (int)pos), topPlayersBuf[pos - 1]);
+	}
+
+	free(arr);
+	free(sorted);
+	for (int i = 0; i < MAX_STAT_COLUMNS; i++)
+		free(topTen[i]);
 }
 
 static void GetWinrate(int accountId, ctfPosition_t pos, ctfPosition_t otherPos, winrate_t *rowsPtr, int *highestNumRowsPtr, qboolean lowest, qboolean noLimits) {

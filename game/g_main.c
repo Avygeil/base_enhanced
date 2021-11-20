@@ -1959,6 +1959,7 @@ void G_ShutdownGame( int restart ) {
 			free(c->strPtr);
 	}
 	ListClear(&level.cachedPositionStats);
+	ListClear(&level.cachedPositionStatsRaw);
 
 	ListIterate(&level.cachedWinrates, &iter, qfalse);
 	while (IteratorHasNext(&iter)) {

@@ -1728,6 +1728,7 @@ typedef struct {
 
 	list_t			cachedWinrates;
 	list_t			cachedPositionStats;
+	list_t			cachedPositionStatsRaw;
 
 #ifdef NEWMOD_SUPPORT
 	qboolean nmAuthEnabled;
