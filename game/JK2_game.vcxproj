@@ -127,6 +127,7 @@
     <ClCompile Include="g_table.c" />
     <ClCompile Include="g_target.c" />
     <ClCompile Include="g_team.c" />
+    <ClCompile Include="g_teamgen.c" />
     <ClCompile Include="g_timer.c" />
     <ClCompile Include="g_transfers.c" />
     <ClCompile Include="g_trigger.c" />

@@ -1139,6 +1139,32 @@ typedef struct {
 	int			ofType[MODC_MAX];
 } damageCounter_t;
 
+//
+// g_teamgen.c
+//
+typedef struct {
+	double rawStrength;
+	double relativeStrength;
+	int baseId;
+	int chaseId;
+	int offenseId1;
+	int offenseId2;
+	char baseName[MAX_NAME_LENGTH];
+	char chaseName[MAX_NAME_LENGTH];
+	char offense1Name[MAX_NAME_LENGTH];
+	char offense2Name[MAX_NAME_LENGTH];
+} teamData_t;
+
+typedef struct {
+	qboolean valid;
+	double diff;
+	XXH32_hash_t hash;
+	teamData_t teams[2];
+	double numOnPreferredPos;
+} permutationOfTeams_t;
+
+qboolean GenerateTeams(permutationOfTeams_t *mostPlayed, permutationOfTeams_t *highestCaliber, permutationOfTeams_t *fairest, uint64_t *numPermutations);
+
 // this structure is cleared on each ClientSpawn(),
 // except for 'client->pers' and 'client->sess'
 struct gclient_s {
@@ -1500,6 +1526,20 @@ typedef enum {
 } mapTier_t;
 
 typedef struct {
+	node_t				node;
+	int					accountId;
+	double				rating[CTFPOSITION_OFFENSE + 1];
+} playerRating_t;
+
+typedef struct {
+	node_t			node;
+	int				accountId;
+	ctfPosition_t	mostPlayed;
+	ctfPosition_t	secondMostPlayed;
+	ctfPosition_t	thirdMostPlayed;
+} mostPlayedPos_t;
+
+typedef struct {
 	struct gclient_s	*clients;		// [maxclients]
 
 	struct gentity_s	*gentities;
@@ -1757,6 +1797,9 @@ typedef struct {
 	list_t				*aimPracticePackList;
 
 	int statBlock; // e.g. if level.time - level.startTime is 0 through 299999 this is 0; if level.time - level.startTime is 300000 this is 1
+
+	list_t ratingList;
+	list_t mostPlayedPositionsList;
 } level_locals_t;
 
 
@@ -1769,6 +1812,7 @@ typedef struct {
 #define ACCOUNTFLAG_AIMPACKEDITOR	( 1 << 3 )
 #define ACCOUNTFLAG_AIMPACKADMIN	( 1 << 4 )
 #define ACCOUNTFLAG_VOTETROLL		( 1 << 5 )
+#define ACCOUNTFLAG_RATEPLAYERS		( 1 << 6 )
 
 typedef void( *ListSessionsCallback )( void *ctx,
 	const sessionReference_t sessionRef,
@@ -1842,6 +1886,7 @@ typedef struct {
 	mapTier_t	tier;
 } mapTierData_t;
 char *ConcatArgs(int start);
+qboolean IsRacerOrSpectator(gentity_t *ent);
 
 //
 // g_items.c
@@ -1952,6 +1997,7 @@ typedef qboolean ( *entityFilter_func )( gentity_t* );
 gentity_t* G_ClosestEntity( gentity_t *ref, entityFilter_func );
 void Q_strstrip(char *string, const char *strip, const char *repl);
 void PrintIngame(int clientNum, const char *s, ...);
+void OutOfBandPrint(int clientNum, const char *msg, ...);
 gclient_t* G_FindClientByIPPort(const char* ipPortString);
 void G_FormatDuration(const int duration, char* out, size_t outSize);
 
@@ -1972,6 +2018,9 @@ void PlayAimPracticeBotPainSound(gentity_t *npc, gentity_t *player);
 void CenterPrintToPlayerAndFollowers(gentity_t *ent, const char *s);
 void ExitAimTraining(gentity_t *ent);
 void PrintBasedOnAccountFlags(int flags, const char *msg);
+void FisherYatesShuffle(void *firstItem, size_t numItems, size_t itemSize);
+void FormatNumberToStringWithCommas(uint64_t n, char *out, size_t outSize);
+qboolean IsSpecName(const char *name);
 
 //
 // g_object.c
@@ -2836,6 +2885,11 @@ extern vmCvar_t		z_debug1;
 extern vmCvar_t		z_debug2;
 extern vmCvar_t		z_debug3;
 extern vmCvar_t		z_debug4;
+extern vmCvar_t		z_debug5;
+extern vmCvar_t		z_debug6;
+extern vmCvar_t		z_debug7;
+extern vmCvar_t		z_debug8;
+extern vmCvar_t		z_debug9;
 #endif
 
 extern vmCvar_t     g_allow_vote_gametype;

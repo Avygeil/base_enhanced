@@ -351,6 +351,11 @@ vmCvar_t	z_debug1;
 vmCvar_t	z_debug2;
 vmCvar_t	z_debug3;
 vmCvar_t	z_debug4;
+vmCvar_t	z_debug5;
+vmCvar_t	z_debug6;
+vmCvar_t	z_debug7;
+vmCvar_t	z_debug8;
+vmCvar_t	z_debug9;
 #endif
 
 vmCvar_t    g_enforceEvenVotersCount;
@@ -777,6 +782,11 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &z_debug2, "z_debug2", "", 0, 0, qtrue },
 	{ &z_debug3, "z_debug3", "", 0, 0, qtrue },
 	{ &z_debug4, "z_debug4", "", 0, 0, qtrue },
+	{ &z_debug5, "z_debug5", "", 0, 0, qtrue },
+	{ &z_debug6, "z_debug6", "", 0, 0, qtrue },
+	{ &z_debug7, "z_debug7", "", 0, 0, qtrue },
+	{ &z_debug8, "z_debug8", "", 0, 0, qtrue },
+	{ &z_debug9, "z_debug9", "", 0, 0, qtrue },
 #endif
 
 	{ &g_minimumVotesCount, "g_minimumVotesCount", "0", CVAR_ARCHIVE, 0, qtrue },
@@ -1968,6 +1978,9 @@ void G_ShutdownGame( int restart ) {
 			free(c->strPtr);
 	}
 	ListClear(&level.cachedWinrates);
+
+	ListClear(&level.ratingList);
+	ListClear(&level.mostPlayedPositionsList);
 
 	UnpatchEngine();
 }

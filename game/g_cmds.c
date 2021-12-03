@@ -6136,6 +6136,227 @@ static void Cmd_Tier_f(gentity_t *ent) {
 	}
 }
 
+char *PlayerRatingToString(ctfPlayerTier_t tier) {
+	switch (tier) {
+	case PLAYERRATING_C: return "^8C";
+	case PLAYERRATING_LOW_B: return "^3LOW B";
+	case PLAYERRATING_MID_B: return "^3B";
+	case PLAYERRATING_HIGH_B: return "^3HIGH B";
+	case PLAYERRATING_LOW_A: return "^2LOW A";
+	case PLAYERRATING_MID_A: return "^2A";
+	case PLAYERRATING_HIGH_A: return "^2HIGH A";
+	case PLAYERRATING_S: return "^6S";
+	default: return "^9UNRATED";
+	}
+}
+
+static ctfPlayerTier_t StringToPlayerRating(const char *s) {
+	if (!VALIDSTRING(s))
+		return PLAYERRATING_UNRATED;
+
+	qboolean high = qfalse, low = qfalse;
+	if (stristr(s, "h") || stristr(s, "+"))
+		high = qtrue;
+	else if (stristr(s, "l") || stristr(s, "-"))
+		low = qtrue;
+
+	ctfPlayerTier_t tier;
+	if (stristr(s, "s")) {
+		tier = PLAYERRATING_S;
+	}
+	else if (stristr(s, "a")) {
+		tier = PLAYERRATING_MID_A;
+		if (high)
+			++tier;
+		else if (low)
+			--tier;
+	}
+	else if (stristr(s, "b")) {
+		tier = PLAYERRATING_MID_B;
+		if (high)
+			++tier;
+		else if (low)
+			--tier;
+	}
+	else if (stristr(s, "c")) {
+		tier = PLAYERRATING_C;
+	}
+	else {
+		tier = PLAYERRATING_UNRATED;
+	}
+
+	return tier;
+}
+
+static ctfPosition_t CtfPositionFromString(char *s) {
+	if (!VALIDSTRING(s))
+		return CTFPOSITION_UNKNOWN;
+
+	if (!Q_stricmp(s, "base") || !Q_stricmp(s, "bas") || !Q_stricmp(s, "b"))
+		return CTFPOSITION_BASE;
+
+	if (!Q_stricmp(s, "chase") || !Q_stricmp(s, "cha") || !Q_stricmp(s, "c"))
+		return CTFPOSITION_CHASE;
+
+	if (!Q_stricmp(s, "offense") || !Q_stricmp(s, "off") || !Q_stricmp(s, "o"))
+		return CTFPOSITION_OFFENSE;
+
+	return CTFPOSITION_UNKNOWN;
+}
+
+static void PrintRateHelp(int clientNum) {
+	OutOfBandPrint(clientNum, "Usage:\n" \
+		"^7rating [pos]                     - view a list of your ratings for a certain position\n"
+		"^9rating list                      - view lists of your ratings for all positions\n"
+		"\n"
+		"^7rating set [player] [pos] [tier] - set a player's rating on a certain position\n"
+		"^9rating remove [player] [pos]     - delete a player's rating on a certain position\n"
+		"^7rating reset [pos]               - delete all ratings for a certain position\n"
+		"^9rating reset all                  - delete all ratings\n"
+		"\n^7"
+		"  - Skill levels should be equivalent between positions; i.e. S tier base == S tier chase == S tier offense. Your ratings may skew higher or lower for some positions -- do not simply assign tiers based on a curve for each position.\n"
+		"  - Only rate players on positions you have observed them play at least once. Leave people unrated on positions you haven't seen them play.^7\n"
+		"  - ''High'' and ''low'' are only for ^3slight^7 differences between players that are otherwise in the same overall tier.\n"
+		"  - Consider re-rating players over time as their skills develop.\n");
+}
+
+static void Cmd_Rating_f(gentity_t *ent) {
+	if (!ent || !ent->client)
+		return;
+
+	// redirect non-allowed dudes to the tier command since this may be a mistype anyway
+	if (!ent->client->account || !(ent->client->account->flags & ACCOUNTFLAG_RATEPLAYERS)) {
+		Cmd_Tier_f(ent);
+		return;
+	}
+
+	int clientNum = ent - g_entities;
+	int args = trap_Argc() - 1;
+
+	if (!args) {
+		PrintRateHelp(clientNum);
+		return;
+	}
+
+	char arg1[MAX_STRING_CHARS] = { 0 }, arg2[MAX_STRING_CHARS] = { 0 }, arg3[MAX_STRING_CHARS] = { 0 }, arg4[MAX_STRING_CHARS] = { 0 };
+	trap_Argv(1, arg1, sizeof(arg1));
+	trap_Argv(2, arg2, sizeof(arg2));
+	trap_Argv(3, arg3, sizeof(arg3));
+	trap_Argv(4, arg4, sizeof(arg3));
+
+	if (!arg1[0]) {
+		PrintRateHelp(clientNum);
+		return;
+	}
+
+	if (!Q_stricmp(arg1, "reset")) {
+		ctfPosition_t pos = arg2[0] ? CtfPositionFromString(arg2) : CTFPOSITION_UNKNOWN;
+		if (!pos && Q_stricmp(arg2, "all")) {
+			OutOfBandPrint(clientNum, "Usage: rating reset [pos]\n");
+			return;
+		}
+		if (G_DBDeleteAllRatingsForPosition(ent->client->account->id, pos))
+			OutOfBandPrint(clientNum, va("Deleted all %s%sratings.\n", pos ? NameForPos(pos) : "", pos ? " " : ""));
+		else
+			OutOfBandPrint(clientNum, va("Error deleting all %s%sratings!\n", pos ? NameForPos(pos) : "", pos ? " " : ""));
+	}
+	else if (!Q_stricmp(arg1, "resetall")) {
+		if (G_DBDeleteAllRatingsForPosition(ent->client->account->id, CTFPOSITION_UNKNOWN))
+			OutOfBandPrint(clientNum, "Deleted all ratings.\n");
+		else
+			OutOfBandPrint(clientNum, "Error deleting all ratings!\n");
+	}
+	else if (CtfPositionFromString(arg1) == CTFPOSITION_BASE) {
+		G_DBListRatingPlayers(ent->client->account->id, clientNum, CTFPOSITION_BASE);
+		OutOfBandPrint(clientNum, "\n  - Skill levels should be equivalent between positions; i.e. S tier base == S tier chase == S tier offense. Your ratings may skew higher or lower for some positions -- do not simply assign tiers based on a curve for each position.\n"
+		"  - Only rate players on positions you have observed them play at least once. Leave people unrated on positions you haven't seen them play.^7\n"
+		"  - ''High'' and ''low'' are only for ^3slight^7 differences between players that are otherwise in the same overall tier.\n"
+			"  - Consider re-rating players over time as their skills develop.\n");
+	}
+	else if (CtfPositionFromString(arg1) == CTFPOSITION_CHASE) {
+		G_DBListRatingPlayers(ent->client->account->id, clientNum, CTFPOSITION_CHASE);
+		OutOfBandPrint(clientNum, "\n  - Skill levels should be equivalent between positions; i.e. S tier base == S tier chase == S tier offense. Your ratings may skew higher or lower for some positions -- do not simply assign tiers based on a curve for each position.\n"
+			"  - Only rate players on positions you have observed them play at least once. Leave people unrated on positions you haven't seen them play.^7\n"
+			"  - ''High'' and ''low'' are only for ^3slight^7 differences between players that are otherwise in the same overall tier.\n"
+			"  - Consider re-rating players over time as their skills develop.\n");
+	}
+	else if (CtfPositionFromString(arg1) == CTFPOSITION_OFFENSE) {
+		G_DBListRatingPlayers(ent->client->account->id, clientNum, CTFPOSITION_OFFENSE);
+		OutOfBandPrint(clientNum, "\n  - Skill levels should be equivalent between positions; i.e. S tier base == S tier chase == S tier offense. Your ratings may skew higher or lower for some positions -- do not simply assign tiers based on a curve for each position.\n"
+			"  - Only rate players on positions you have observed them play at least once. Leave people unrated on positions you haven't seen them play.^7\n"
+			"  - ''High'' and ''low'' are only for ^3slight^7 differences between players that are otherwise in the same overall tier.\n"
+			"  - Consider re-rating players over time as their skills develop.\n");
+	}
+	else if (!Q_stricmp(arg1, "all") || !Q_stricmp(arg1, "list")) {
+		G_DBListRatingPlayers(ent->client->account->id, clientNum, CTFPOSITION_BASE);
+		G_DBListRatingPlayers(ent->client->account->id, clientNum, CTFPOSITION_CHASE);
+		G_DBListRatingPlayers(ent->client->account->id, clientNum, CTFPOSITION_OFFENSE);
+		OutOfBandPrint(clientNum, "\n  - Skill levels should be equivalent between positions; i.e. S tier base == S tier chase == S tier offense. Your ratings may skew higher or lower for some positions -- do not simply assign tiers based on a curve for each position.\n"
+			"  - Only rate players on positions you have observed them play at least once. Leave people unrated on positions you haven't seen them play.^7\n"
+			"  - ''High'' and ''low'' are only for ^3slight^7 differences between players that are otherwise in the same overall tier.\n"
+			"  - Consider re-rating players over time as their skills develop.\n");
+	}
+	else if (!Q_stricmp(arg1, "set")) {
+		if (!arg2[0] || !arg3[0] || !arg4[0]) {
+			OutOfBandPrint(clientNum, "Usage: rating set [player] [pos] [tier]\n");
+			return;
+		}
+
+		account_t acc = { 0 };
+		qboolean found = G_DBGetAccountByName(arg2, &acc);
+		if (!found) {
+			OutOfBandPrint(clientNum, va("No account found matching '%s^7'. Try checking /rating list.\n", arg2));
+			return;
+		}
+
+		ctfPosition_t pos = CtfPositionFromString(arg3);
+		if (!pos) {
+			OutOfBandPrint(clientNum, va("'%s^7' is not a valid position. Positions can be base, chase, or offense.\n", arg3));
+			return;
+		}
+
+		char *tierStr = ConcatArgs(4);
+		ctfPlayerTier_t tier = StringToPlayerRating(tierStr);
+		if (!tier) {
+			OutOfBandPrint(clientNum, "'%s^7' is not a valid tier.\n", tierStr);
+			return;
+		}
+
+		if (G_DBSetPlayerRating(ent->client->account->id, acc.id, pos, tier))
+			OutOfBandPrint(clientNum, "Set ^5%s^7 %s to %s^7.\n", acc.name, NameForPos(pos), PlayerRatingToString(tier));
+		else
+			OutOfBandPrint(clientNum, "Error setting ^5%s^7 %s to %s^7.\n", acc.name, NameForPos(pos), PlayerRatingToString(tier));
+	}
+	else if (!Q_stricmp(arg1, "remove") || !Q_stricmp(arg1, "rem") || !Q_stricmp(arg1, "rm") || !Q_stricmp(arg1, "delete") || !Q_stricmp(arg1, "del")) {
+		if (!arg2[0] || !arg3[0]) {
+			OutOfBandPrint(clientNum, "Usage: rating remove [player] [pos]\n");
+			return;
+		}
+
+		account_t acc = { 0 };
+		qboolean found = G_DBGetAccountByName(arg2, &acc);
+		if (!found) {
+			OutOfBandPrint(clientNum, "No account found matching '%s^7'. Try checking /rate players.\n", arg2);
+			return;
+		}
+
+		ctfPosition_t pos = CtfPositionFromString(arg3);
+		if (!pos) {
+			OutOfBandPrint(clientNum, "'%s^7' is not a valid position.\n", arg3);
+			return;
+		}
+
+		if (G_DBRemovePlayerRating(ent->client->account->id, acc.id, pos))
+			OutOfBandPrint(clientNum, "Removed rating for %s on %s.\n", acc.name, NameForPos(pos));
+		else
+			OutOfBandPrint(clientNum, "Error removing rating for ^5%s^7 %s (they may have already been unrated).\n", acc.name, NameForPos(pos));
+	}
+	else {
+		OutOfBandPrint(clientNum, "Unknown subcommand '%s^7'\n", arg1);
+		PrintRateHelp(clientNum);
+	}
+}
+
 #ifdef NEWMOD_SUPPORT
 static void Cmd_Svauth_f( gentity_t *ent ) {
 	if ( trap_Argc() < 2 ) {
@@ -6401,22 +6622,6 @@ void Cmd_PrintStats_f(gentity_t *ent) {
 			Stats_Print(ent, subcmd, NULL, 0, qtrue, NULL);
 		}
 	}
-}
-
-static ctfPosition_t CtfPositionFromString(char *s) {
-	if (!VALIDSTRING(s))
-		return CTFPOSITION_UNKNOWN;
-
-	if (!Q_stricmp(s, "base") || !Q_stricmp(s, "bas") || !Q_stricmp(s, "b"))
-		return CTFPOSITION_BASE;
-
-	if (!Q_stricmp(s, "chase") || !Q_stricmp(s, "cha") || !Q_stricmp(s, "c"))
-		return CTFPOSITION_CHASE;
-
-	if (!Q_stricmp(s, "offense") || !Q_stricmp(s, "off") || !Q_stricmp(s, "o"))
-		return CTFPOSITION_OFFENSE;
-
-	return CTFPOSITION_UNKNOWN;
 }
 
 static int AccountFromString(char *s, char *nameOut, size_t nameOutSize) {
@@ -7125,6 +7330,10 @@ void ClientCommand( int clientNum ) {
 			Cmd_Tier_f(ent);
 			return;
 		}
+		else if (!Q_stricmp(cmd, "rating")) {
+			Cmd_Rating_f(ent);
+			return;
+		}
 		else if ( Q_stricmp( cmd, "whois" ) == 0 )
 		{
 			Cmd_WhoIs_f( ent );
@@ -7228,14 +7437,14 @@ void ClientCommand( int clientNum ) {
 		Cmd_Where_f(ent);
 	else if (!Q_stricmp(cmd, "pack"))
 		Cmd_Pack_f(ent);
-	else if (Q_stricmp (cmd, "callvote") == 0)
-		Cmd_CallVote_f (ent, PAUSE_NONE);
+	else if (Q_stricmp(cmd, "callvote") == 0)
+		Cmd_CallVote_f(ent, PAUSE_NONE);
 	else if (!Q_stricmp(cmd, "pause"))
 		Cmd_CallVote_f(ent, PAUSE_PAUSED); // allow "pause" command as alias for "callvote pause"
 	else if (!Q_stricmp(cmd, "unpause"))
 		Cmd_CallVote_f(ent, PAUSE_UNPAUSING); // allow "unpause" command as alias for "callvote unpause"
-	else if (Q_stricmp (cmd, "vote") == 0)
-		Cmd_Vote_f (ent, NULL);
+	else if (Q_stricmp(cmd, "vote") == 0)
+		Cmd_Vote_f(ent, NULL);
 	else if (Q_stricmp(cmd, "ready") == 0 || !Q_stricmp(cmd, "readyup"))
 		Cmd_Ready_f(ent);
 	else if (!Q_stricmp(cmd, "mappool") || !Q_stricmp(cmd, "mappools") || !Q_stricmp(cmd, "listpool") || !Q_stricmp(cmd, "listpools") ||
@@ -7246,6 +7455,8 @@ void ClientCommand( int clientNum ) {
 	else if (!Q_stricmp(cmd, "tier") || !Q_stricmp(cmd, "tiers") || !Q_stricmp(cmd, "tierlist") || !Q_stricmp(cmd, "tierlists") ||
 		!Q_stricmp(cmd, "teir") || !Q_stricmp(cmd, "teirs") || !Q_stricmp(cmd, "teirlist") || !Q_stricmp(cmd, "teirlists")) // allow idiots to use it too
 		Cmd_Tier_f(ent);
+	else if (!Q_stricmp(cmd, "rating"))
+		Cmd_Rating_f(ent);
     else if ( Q_stricmp( cmd, "whois" ) == 0 )
         Cmd_WhoIs_f( ent );
 	else if (Q_stricmp(cmd, "ctfstats") == 0 || Q_stricmp(cmd, "stats") == 0 || Q_stricmp(cmd, "stat") == 0)

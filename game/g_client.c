@@ -2965,9 +2965,9 @@ void G_PrintWelcomeMessage(gclient_t* client) {
 
 	// greet admins differently so that their superiority is acknowledged
 	if (!(client->account->flags & ACCOUNTFLAG_ADMIN)) {
-		trap_OutOfBandPrint(client - level.clients, va("print\nWelcome back, %s!\n", accountName));
+		OutOfBandPrint(client - level.clients, "Welcome back, %s!\n", accountName);
 	} else {
-		trap_OutOfBandPrint(client - level.clients, va("print\nWelcome back, %s! You are logged in as an admin.\n", accountName));
+		OutOfBandPrint(client - level.clients, "Welcome back, %s! You are logged in as an admin.\n", accountName);
 	}
 }
 

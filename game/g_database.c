@@ -369,6 +369,9 @@ qboolean G_DBGetAccountByID( const int id,
 qboolean G_DBGetAccountByName( const char* name,
 	account_t* account )
 {
+	if (!VALIDSTRING(name))
+		return qfalse;
+
 	sqlite3_stmt* statement;
 
 	sqlite3_prepare( dbPtr, sqlGetAccountByName, -1, &statement, 0 );
@@ -4787,6 +4790,9 @@ void G_DBPrintWinrates(int accountId, ctfPosition_t positionOptional, int printC
 		PrintIngame(printClientNum, found->strPtr);
 }
 
+static void GetMostPlayedPositions(void);
+//#define FAST_START // uncomment to force loading from cache instead of recalculating
+
 // if the map was not restarted and either it's the very first map or sessions/stats have been modified (admin linked sessions or a pug happened), we recalculate everything from scratch
 // otherwise, we just load the cached strings from the database for speed
 void G_DBInitializePugStatsCache(void) {
@@ -4795,17 +4801,270 @@ void G_DBInitializePugStatsCache(void) {
 
 	qboolean recalculate = (!level.wasRestarted && (g_shouldReloadPlayerPugStats.integer || !g_notFirstMap.integer));
 
+#if defined(_DEBUG) && defined(FAST_START)
+	recalculate = qfalse;
+#endif
+
 	if (recalculate) {
 		RecalculatePositionStats(); Com_Printf("Recalculated position stats (took %d ms)\n", trap_Milliseconds() - lastTime); lastTime = trap_Milliseconds();
 		RecalculateTopPlayers(); Com_Printf("Recalculated top players (took %d ms)\n", trap_Milliseconds() - lastTime); lastTime = trap_Milliseconds();
-		RecalculateWinRates(); Com_Printf("Recalculated win rates (took %d ms)\n", trap_Milliseconds() - lastTime);
+		RecalculateWinRates(); Com_Printf("Recalculated win rates (took %d ms)\n", trap_Milliseconds() - lastTime); lastTime = trap_Milliseconds();
 		trap_Cvar_Set("g_shouldReloadPlayerPugStats", "0");
 	}
 	else {
 		LoadPositionStatsFromDatabase(); Com_Printf("Loaded position stats cache from db (took %d ms)\n", trap_Milliseconds() - lastTime); lastTime = trap_Milliseconds();
 		LoadTopPlayersFromDatabase(); Com_Printf("Loaded top players cache from db (took %d ms)\n", trap_Milliseconds() - lastTime); lastTime = trap_Milliseconds();
-		LoadWinratesFromDatabase(); Com_Printf("Loaded win rates cache from db (took %d ms)\n", trap_Milliseconds() - lastTime);
+		LoadWinratesFromDatabase(); Com_Printf("Loaded win rates cache from db (took %d ms)\n", trap_Milliseconds() - lastTime); lastTime = trap_Milliseconds();
 	}
+	GetMostPlayedPositions(); Com_Printf("Recalculated most played positions from db (took %d ms)\n", trap_Milliseconds() - lastTime);
 
 	Com_Printf("Finished initializing pug stats cache (took %d ms total)\n", trap_Milliseconds() - start);
+}
+
+typedef struct {
+	node_t				node;
+	char				name[32];
+	double				rating;
+} ratedPlayer_t;
+
+double PlayerTierToRating(ctfPlayerTier_t tier) {
+	switch (tier) {
+	case PLAYERRATING_C: return 0.5;
+	case PLAYERRATING_LOW_B: return 0.78;
+	case PLAYERRATING_MID_B: return 0.8;
+	case PLAYERRATING_HIGH_B: return 0.81;
+	case PLAYERRATING_LOW_A: return 0.89;
+	case PLAYERRATING_MID_A: return 0.9;
+	case PLAYERRATING_HIGH_A: return 0.91;
+	case PLAYERRATING_S: return 1.0;
+	default: return 0.0;
+	}
+}
+
+static ctfPlayerTier_t PlayerTierFromRating(double num) {
+	// stupid >= hack to account for imprecision
+	if (num >= 1.0) return PLAYERRATING_S;
+	if (num >= 0.91) return PLAYERRATING_HIGH_A;
+	if (num >= 0.9) return PLAYERRATING_MID_A;
+	if (num >= 0.89) return PLAYERRATING_LOW_A;
+	if (num >= 0.81) return PLAYERRATING_HIGH_B;
+	if (num >= 0.8) return PLAYERRATING_MID_B;
+	if (num >= 0.78) return PLAYERRATING_LOW_B;
+	if (num >= 0.5) return PLAYERRATING_C;
+	return PLAYERRATING_UNRATED;
+}
+
+extern char *PlayerRatingToString(ctfPlayerTier_t tier);
+const char *const sqlGetPlayerRatings = "WITH unrated AS (SELECT name, account_id, 0 AS rating FROM accounts WHERE account_id NOT IN (SELECT ratee_account_id FROM playerratings JOIN accounts ON accounts.account_id = playerratings.ratee_account_id WHERE rater_account_id = ?1 AND POS = ?2) ORDER BY accounts.name ASC), rated AS (SELECT name, account_id, rating FROM playerratings JOIN accounts ON accounts.account_id = playerratings.ratee_account_id WHERE rater_account_id = ?1 AND pos = ?2) SELECT name, rating FROM unrated UNION SELECT name, rating FROM rated ORDER BY name ASC;";
+void G_DBListRatingPlayers(int raterAccountId, int raterClientNum, ctfPosition_t pos) {
+	sqlite3_stmt *statement;
+	sqlite3_prepare(dbPtr, sqlGetPlayerRatings, -1, &statement, 0);
+	sqlite3_bind_int(statement, 1, raterAccountId);
+	sqlite3_bind_int(statement, 2, pos);
+	int rc = sqlite3_step(statement);
+	qboolean gotAny = qfalse;
+	list_t playerList = { 0 };
+	while (rc == SQLITE_ROW) {
+		gotAny = qtrue;
+		const char *name = (const char *)sqlite3_column_text(statement, 0);
+		const int tier = sqlite3_column_int(statement, 1);
+		if (tier < PLAYERRATING_UNRATED || tier >= NUM_PLAYERRATINGS) {
+			assert(qfalse);
+			rc = sqlite3_step(statement);
+			continue; // ???
+		}
+
+		ratedPlayer_t *add = ListAdd(&playerList, sizeof(ratedPlayer_t));
+		Q_strncpyz(add->name, name, sizeof(add->name));
+		add->rating = PlayerTierToRating(tier);
+
+		rc = sqlite3_step(statement);
+	}
+
+	sqlite3_finalize(statement);
+
+	if (!gotAny) {
+		OutOfBandPrint(raterClientNum, "You have not rated any %s^7 players.", NameForPos(pos));
+		return;
+	}
+
+	char ratingStr[NUM_PLAYERRATINGS][1024];
+	memset(&ratingStr, 0, sizeof(ratingStr));
+	for (int i = 0; i < NUM_PLAYERRATINGS; i++)
+		Com_sprintf(ratingStr[i], sizeof(ratingStr[i]), "%10s: ^7", PlayerRatingToString(i));
+
+	int numOfRating[NUM_PLAYERRATINGS] = { 0 };
+
+	iterator_t iter;
+	ListIterate(&playerList, &iter, qfalse);
+	qboolean gotOne = qfalse;
+	while (IteratorHasNext(&iter)) {
+		ratedPlayer_t *player = (ratedPlayer_t *)IteratorNext(&iter);
+		ctfPlayerTier_t tier = PlayerTierFromRating(player->rating);
+		Q_strcat(ratingStr[tier], sizeof(ratingStr[tier]), va("%s%s", numOfRating[tier]++ ? ", " : "", player->name));
+		gotOne = qtrue;
+	}
+
+	ListClear(&playerList);
+
+	char combined[8192] = { 0 };
+	for (int i = PLAYERRATING_S; i >= PLAYERRATING_UNRATED; i--)
+		Q_strcat(combined, sizeof(combined), va("%s\n", ratingStr[i]));
+
+	OutOfBandPrint(raterClientNum, "Your ^5%s^7 ratings:\n%s", NameForPos(pos), combined);
+}
+
+const char *const sqlSetPlayerRating = "INSERT OR REPLACE INTO playerratings(rater_account_id, ratee_account_id, pos, rating) VALUES (?,?,?,?);";
+qboolean G_DBSetPlayerRating(int raterAccountId, int rateeAccountId, ctfPosition_t pos, ctfPlayerTier_t tier) {
+	sqlite3_stmt *statement;
+	sqlite3_prepare(dbPtr, sqlSetPlayerRating, -1, &statement, 0);
+	sqlite3_bind_int(statement, 1, raterAccountId);
+	sqlite3_bind_int(statement, 2, rateeAccountId);
+	sqlite3_bind_int(statement, 3, pos);
+	sqlite3_bind_int(statement, 4, tier);
+	int rc = sqlite3_step(statement);
+	sqlite3_finalize(statement);
+	return !!(rc == SQLITE_DONE);
+}
+
+const char *const sqlDeletePlayerRating = "DELETE FROM playerratings WHERE rater_account_id = ? AND ratee_account_id = ? AND pos = ?;";
+qboolean G_DBRemovePlayerRating(int raterAccountId, int rateeAccountId, ctfPosition_t pos) {
+	sqlite3_stmt *statement;
+	sqlite3_prepare(dbPtr, sqlDeletePlayerRating, -1, &statement, 0);
+	sqlite3_bind_int(statement, 1, raterAccountId);
+	sqlite3_bind_int(statement, 2, rateeAccountId);
+	sqlite3_bind_int(statement, 3, pos);
+	int rc = sqlite3_step(statement);
+	sqlite3_finalize(statement);
+	return !!(rc == SQLITE_DONE);
+}
+
+const char *const sqlDeleteAllRatingsOnPosition = "DELETE FROM playerratings WHERE rater_account_id = ? AND pos = ?;";
+const char *const sqlDeleteAllRatings = "DELETE FROM playerratings WHERE rater_account_id = ?;";
+qboolean G_DBDeleteAllRatingsForPosition(int raterAccountId, ctfPosition_t pos) {
+	sqlite3_stmt *statement;
+	sqlite3_prepare(dbPtr, pos ? sqlDeleteAllRatingsOnPosition : sqlDeleteAllRatings, -1, &statement, 0);
+	sqlite3_bind_int(statement, 1, raterAccountId);
+	if (pos)
+		sqlite3_bind_int(statement, 2, pos);
+	int rc = sqlite3_step(statement);
+	sqlite3_finalize(statement);
+	return !!(rc == SQLITE_DONE);
+}
+
+#ifdef DO_NOT_ROUND_RATINGS
+// inferior method
+extern qboolean PlayerRatingAccountIdMatches(genericNode_t *node, void *userData);
+const char *const sqlGetAverageRatings = "WITH t AS (SELECT rater_account_id, ratee_account_id, pos, CASE WHEN rating IS 8 THEN 1.0 WHEN rating IS 7 THEN 0.91 WHEN rating IS 6 THEN 0.9 WHEN rating IS 5 THEN 0.89 WHEN rating IS 4 THEN 0.81 WHEN rating IS 3 THEN 0.8 WHEN rating IS 2 THEN 0.78 WHEN rating IS 1 THEN 0.5 END ratingFloat FROM playerratings) SELECT ratee_account_id, pos, avg(ratingFloat) FROM t JOIN accounts ON accounts.account_id = rater_account_id WHERE accounts.flags & (1 << 6) != 0 GROUP BY ratee_account_id, pos;";
+void G_DBGetPlayerRatings(void) {
+	ListClear(&level.ratingList);
+
+	sqlite3_stmt *statement;
+	sqlite3_prepare(dbPtr, sqlGetAverageRatings, -1, &statement, 0);
+	int rc = sqlite3_step(statement);
+	while (rc == SQLITE_ROW) {
+		int accountId = sqlite3_column_int(statement, 0);
+		ctfPosition_t pos = sqlite3_column_int(statement, 1);
+		if (pos < CTFPOSITION_BASE || pos > CTFPOSITION_OFFENSE) {
+			assert(qfalse);
+			rc = sqlite3_step(statement);
+			continue; // ???
+		}
+		double rating = sqlite3_column_double(statement, 2);
+
+		playerRating_t findMe;
+		findMe.accountId = accountId;
+		playerRating_t *found = ListFind(&level.ratingList, PlayerRatingAccountIdMatches, &findMe, NULL);
+		if (!found) {
+			found = ListAdd(&level.ratingList, sizeof(playerRating_t));
+			found->accountId = accountId;
+			memset(found->rating, 0, sizeof(found->rating));
+		}
+
+		found->rating[pos] = rating;
+
+		rc = sqlite3_step(statement);
+	}
+	sqlite3_finalize(statement);
+}
+#else
+// rounding ratings to the nearest tier allows teams to be much more flexible/interchangeable
+extern qboolean PlayerRatingAccountIdMatches(genericNode_t *node, void *userData);
+const char *const sqlGetAverageRatings = "SELECT ratee_account_id, pos, CAST(round(avg(rating)) AS INTEGER) FROM playerratings JOIN accounts ON accounts.account_id = rater_account_id WHERE accounts.flags & (1 << 6) != 0 GROUP BY ratee_account_id, pos;";
+void G_DBGetPlayerRatings(void) {
+	ListClear(&level.ratingList);
+
+	sqlite3_stmt *statement;
+	sqlite3_prepare(dbPtr, sqlGetAverageRatings, -1, &statement, 0);
+	int rc = sqlite3_step(statement);
+	while (rc == SQLITE_ROW) {
+		int accountId = sqlite3_column_int(statement, 0);
+		ctfPosition_t pos = sqlite3_column_int(statement, 1);
+		if (pos < CTFPOSITION_BASE || pos > CTFPOSITION_OFFENSE) {
+			assert(qfalse);
+			rc = sqlite3_step(statement);
+			continue; // ???
+		}
+		int averageTier = sqlite3_column_int(statement, 2);
+		double rating = PlayerTierToRating(averageTier);
+
+		playerRating_t findMe;
+		findMe.accountId = accountId;
+		playerRating_t *found = ListFind(&level.ratingList, PlayerRatingAccountIdMatches, &findMe, NULL);
+		if (!found) {
+			found = ListAdd(&level.ratingList, sizeof(playerRating_t));
+			found->accountId = accountId;
+			memset(found->rating, 0, sizeof(found->rating));
+		}
+
+		found->rating[pos] = rating;
+
+		rc = sqlite3_step(statement);
+	}
+	sqlite3_finalize(statement);
+}
+#endif
+
+extern qboolean MostPlayedPosMatches(genericNode_t *node, void *userData);
+const char *const sqlGetMostPlayedPos = "SELECT account_id, pos, RANK() OVER (PARTITION BY account_id ORDER BY pugs_played DESC, wins DESC) FROM accountstats";
+static void GetMostPlayedPositions(void) {
+	ListClear(&level.mostPlayedPositionsList);
+
+	sqlite3_stmt *statement;
+	sqlite3_prepare(dbPtr, sqlGetMostPlayedPos, -1, &statement, 0);
+	int rc = sqlite3_step(statement);
+	while (rc == SQLITE_ROW) {
+		int accountId = sqlite3_column_int(statement, 0);
+		ctfPosition_t pos = sqlite3_column_int(statement, 1);
+		if (pos < CTFPOSITION_BASE || pos > CTFPOSITION_OFFENSE) {
+			assert(qfalse);
+			rc = sqlite3_step(statement);
+			continue; // ???
+		}
+		int rank = sqlite3_column_int(statement, 2);
+		if (rank < 0 || rank > 3) {
+			assert(qfalse);
+			rc = sqlite3_step(statement);
+			continue; // ???
+		}
+
+		mostPlayedPos_t findMe;
+		findMe.accountId = accountId;
+		mostPlayedPos_t *found = ListFind(&level.mostPlayedPositionsList, MostPlayedPosMatches, &findMe, NULL);
+		if (!found) {
+			found = ListAdd(&level.mostPlayedPositionsList, sizeof(mostPlayedPos_t));
+			found->accountId = accountId;
+			found->mostPlayed = found->secondMostPlayed = found->thirdMostPlayed = 0;
+		}
+
+		if (rank == 1)
+			found->mostPlayed = pos;
+		else if (rank == 2)
+			found->secondMostPlayed = pos;
+		else if (rank == 3)
+			found->thirdMostPlayed = pos;
+
+		rc = sqlite3_step(statement);
+	}
+	sqlite3_finalize(statement);
 }

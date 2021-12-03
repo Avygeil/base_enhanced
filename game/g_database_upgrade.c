@@ -843,6 +843,21 @@ static qboolean UpgradeDBToVersion9(sqlite3 *dbPtr) {
 	return sqlite3_exec(dbPtr, v9Upgrade, NULL, NULL, NULL) == SQLITE_OK;
 }
 
+const char *const v10Upgrade = "CREATE TABLE IF NOT EXISTS [playerratings] ( "
+"[rating_id] INTEGER PRIMARY KEY AUTOINCREMENT, "
+"[rater_account_id] INTEGER NOT NULL, "
+"[ratee_account_id] INTEGER NOT NULL, "
+"[pos] INTEGER NOT NULL, "
+"[rating] INTEGER NOT NULL, "
+"FOREIGN KEY([rater_account_id]) REFERENCES accounts([account_id]) ON DELETE CASCADE, "
+"FOREIGN KEY([ratee_account_id]) REFERENCES accounts([account_id]) ON DELETE CASCADE, "
+"UNIQUE([rater_account_id], [ratee_account_id], [pos]) "
+");";
+
+static qboolean UpgradeDBToVersion10(sqlite3 *dbPtr) {
+	return sqlite3_exec(dbPtr, v10Upgrade, NULL, NULL, NULL) == SQLITE_OK;
+}
+
 // =============================================================================
 
 static qboolean UpgradeDB( int versionTo, sqlite3* dbPtr ) {
@@ -857,6 +872,7 @@ static qboolean UpgradeDB( int versionTo, sqlite3* dbPtr ) {
 		case 7: return UpgradeDBToVersion7(dbPtr);
 		case 8: return UpgradeDBToVersion8(dbPtr);
 		case 9: return UpgradeDBToVersion9(dbPtr);
+		case 10: return UpgradeDBToVersion10(dbPtr);
 ;		default:
 			Com_Printf( "ERROR: Unsupported database upgrade routine\n" );
 	}

@@ -2774,6 +2774,8 @@ static int AccountFlagName2Bitflag(const char* flagName) {
 		return ACCOUNTFLAG_AIMPACKADMIN;
 	} else if (!Q_stricmp(flagName, "VoteTroll")) {
 		return ACCOUNTFLAG_VOTETROLL;
+	} else if (!Q_stricmp(flagName, "RatePlayers")) {
+		return ACCOUNTFLAG_RATEPLAYERS;
 	}
 
 	return 0;
@@ -2789,6 +2791,7 @@ const char* AccountBitflag2FlagName(int bitflag) {
 		case ACCOUNTFLAG_AIMPACKEDITOR: return "AimPackEditor";
 		case ACCOUNTFLAG_AIMPACKADMIN: return "AimPackAdmin";
 		case ACCOUNTFLAG_VOTETROLL: return "VoteTroll";
+		case ACCOUNTFLAG_RATEPLAYERS: return "RatePlayers";
 		default: return NULL;
 	}
 }
@@ -3470,6 +3473,69 @@ static void Svcmd_CtfStats_f(void) {
 	}
 }
 
+static void Svcmd_Teams_f(qboolean forceteam) {
+	permutationOfTeams_t permutations[3] = { 0 };
+	uint64_t numPermutations = 0;
+	if (!GenerateTeams(&permutations[0], &permutations[1], &permutations[2], &numPermutations)) {
+		Com_Printf("Unable to generate teams.\n");
+		return;
+	}
+
+	char formattedNumber[64] = { 0 };
+	FormatNumberToStringWithCommas(numPermutations, formattedNumber, sizeof(formattedNumber));
+	Com_Printf("Team generator results (%s valid permutations evaluated):\n", formattedNumber);
+
+	int numPrinted = 0;
+	qboolean didFairest = qfalse;
+	for (int i = 0; i < 3; i++) {
+		permutationOfTeams_t *thisPermutation = &permutations[i];
+		if (!thisPermutation->valid)
+			continue;
+		if (i == 2 && didFairest)
+			continue;
+
+		char *suggestionTypeStr;
+		if (!i) {
+			if (thisPermutation->hash == permutations[1].hash && (!thisPermutation->diff || thisPermutation->hash == permutations[2].hash || (permutations[2].valid && thisPermutation->diff == permutations[2].diff))) {
+				suggestionTypeStr = "Suggested, highest caliber, and fairest";
+				didFairest = qtrue;
+			}
+			else if (thisPermutation->hash == permutations[1].hash) {
+				suggestionTypeStr = "Suggested and highest caliber";
+			}
+			else if (!thisPermutation->diff || thisPermutation->hash == permutations[2].hash || (permutations[2].valid && thisPermutation->diff == permutations[2].diff)) {
+				suggestionTypeStr = "Suggested and fairest";
+				didFairest = qtrue;
+			}
+			else {
+				suggestionTypeStr = "Suggested";
+			}
+		}
+		else if (i == 1) {
+			if (thisPermutation->hash == permutations[0].hash && permutations[0].valid) {
+				continue;
+			}
+			if (!thisPermutation->diff || (thisPermutation->hash == permutations[2].hash && permutations[2].valid) || (permutations[2].valid && thisPermutation->diff == permutations[2].diff)) {
+				suggestionTypeStr = "Highest caliber and fairest";
+				didFairest = qtrue;
+			}
+			else {
+				suggestionTypeStr = "Highest caliber";
+			}
+		}
+		else {
+			if ((thisPermutation->hash == permutations[0].hash && permutations[0].valid) || (thisPermutation->hash == permutations[1].hash && permutations[1].valid)) {
+				continue;
+			}
+			suggestionTypeStr = "Fairest";
+		}
+
+		Com_Printf("%s%s teams:\nTEAM 1: %.3f%% relative strength\n    ^5Base: %s\n    ^6Chase: %s\n    ^2Offense: %s^7,^2 %s^7\n^7TEAM 2: %.3f%% relative strength\n    ^5Base: %s\n    ^6Chase: %s\n    ^2Offense: %s^7,^2 %s^7\n",
+			numPrinted++ ? "\n" : "", suggestionTypeStr, thisPermutation->teams[0].relativeStrength * 100.0f, thisPermutation->teams[0].baseName, thisPermutation->teams[0].chaseName, thisPermutation->teams[0].offense1Name, thisPermutation->teams[0].offense2Name,
+			thisPermutation->teams[1].relativeStrength * 100.0f, thisPermutation->teams[1].baseName, thisPermutation->teams[1].chaseName, thisPermutation->teams[1].offense1Name, thisPermutation->teams[1].offense2Name);
+	}
+}
+
 #ifdef _DEBUG
 // test tick tracking for discord webhook
 static void Svcmd_DebugTicks_f(void) {
@@ -3847,6 +3913,16 @@ qboolean	ConsoleCommand( void ) {
 		return qtrue;
 	}
 
+	if (!Q_stricmp(cmd, "teams")) {
+		Svcmd_Teams_f(qfalse);
+		return qtrue;
+	}
+
+	if (!Q_stricmp(cmd, "autoteams") || !Q_stricmp(cmd, "autoteam")) {
+		Svcmd_Teams_f(qtrue);
+		return qtrue;
+	}
+
 #ifdef _DEBUG
 	if (!Q_stricmp(cmd, "debugticks")) {
 		Svcmd_DebugTicks_f();
@@ -3899,7 +3975,7 @@ void G_LogRconCommand(const char* ipFrom, const char* command) {
 			continue;
 
 		// use out of band print so it doesn't get in demos
-		trap_OutOfBandPrint(i, va("print\n"S_COLOR_GREEN"[Admin] "S_COLOR_WHITE"Rcon from "S_COLOR_GREEN"%s"S_COLOR_WHITE": /rcon %s\n", displayStr, command));
+		OutOfBandPrint(i, S_COLOR_GREEN"[Admin] "S_COLOR_WHITE"Rcon from "S_COLOR_GREEN"%s"S_COLOR_WHITE": /rcon %s\n", displayStr, command);
 	}
 
 	// also log it to disk if needed

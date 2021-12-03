@@ -4,8 +4,8 @@
 #include "g_local.h"
 
 #define DB_FILENAME				"enhanced.db"
-#define DB_SCHEMA_VERSION		9
-#define DB_SCHEMA_VERSION_STR	"9"
+#define DB_SCHEMA_VERSION		10
+#define DB_SCHEMA_VERSION_STR	"10"
 #define DB_OPTIMIZE_INTERVAL	( 60*60*3 ) // every 3 hours
 #define DB_VACUUM_INTERVAL		( 60*60*24*7 ) // every week
 
@@ -373,5 +373,29 @@ void G_DBPrintTopPlayersForPosition(ctfPosition_t pos, int printClientNum);
 void G_DBPrintPlayersWithStats(int printClientNum);
 void G_DBPrintWinrates(int accountId, ctfPosition_t positionOptional, int printClientNum);
 void G_DBInitializePugStatsCache(void);
+typedef enum {
+	TEAMGENERATORTYPE_FIRST = 0,
+	TEAMGENERATORTYPE_MOSTPLAYED = TEAMGENERATORTYPE_FIRST,
+	TEAMGENERATORTYPE_HIGHESTRATING,
+	TEAMGENERATORTYPE_FAIREST,
+	NUM_TEAMGENERATORTYPES
+} teamGeneratorType_t;
+typedef enum {
+	PLAYERRATING_UNRATED = 0,
+	PLAYERRATING_C,
+	PLAYERRATING_LOW_B,
+	PLAYERRATING_MID_B,
+	PLAYERRATING_HIGH_B,
+	PLAYERRATING_LOW_A,
+	PLAYERRATING_MID_A,
+	PLAYERRATING_HIGH_A,
+	PLAYERRATING_S,
+	NUM_PLAYERRATINGS
+} ctfPlayerTier_t;
+void G_DBListRatingPlayers(int raterAccountId, int raterClientNum, ctfPosition_t pos);
+qboolean G_DBRemovePlayerRating(int raterAccountId, int rateeAccountId, ctfPosition_t pos);
+qboolean G_DBDeleteAllRatingsForPosition(int raterAccountId, ctfPosition_t pos);
+qboolean G_DBSetPlayerRating(int raterAccountId, int rateeAccountId, ctfPosition_t pos, ctfPlayerTier_t tier);
+void G_DBGetPlayerRatings(void);
 
 #endif //G_DATABASE_H
