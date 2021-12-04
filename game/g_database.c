@@ -3037,7 +3037,7 @@ qboolean G_DBSelectTierlistMaps(MapSelectedCallback callback, void *context) {
 
 	// try to get a tier list based on the current ingame players
 	tierListInfo_t info;
-	list_t *allMapsList = GetTierList(ingamePlayersStr, NULL, qtrue, g_vote_mapCooldownMinutes.integer > 0 ? g_vote_mapCooldownMinutes.integer : 0, level.mapname, qtrue, &info);
+	list_t *allMapsList = GetTierList(ingamePlayersStr, NULL, qtrue, g_vote_mapCooldownMinutes.integer > 0 ? g_vote_mapCooldownMinutes.integer : 0, NULL, qtrue, &info);
 
 	const int totalMapsToChoose = Com_Clampi(2, MAX_MULTIVOTE_MAPS, g_vote_tierlist_totalMaps.integer);
 	int numToSelectForEachTier[NUM_MAPTIERS] = { 0 };
@@ -3053,7 +3053,7 @@ qboolean G_DBSelectTierlistMaps(MapSelectedCallback callback, void *context) {
 				ListClear(allMapsList);
 				free(allMapsList);
 			}
-			allMapsList = GetTierList(NULL, NULL, qfalse, g_vote_mapCooldownMinutes.integer > 0 ? g_vote_mapCooldownMinutes.integer : 0, level.mapname, qtrue, &info);
+			allMapsList = GetTierList(NULL, NULL, qfalse, g_vote_mapCooldownMinutes.integer > 0 ? g_vote_mapCooldownMinutes.integer : 0, NULL, qtrue, &info);
 		}
 		if (!allMapsList || allMapsList->size < totalMapsToChoose)
 			continue;
