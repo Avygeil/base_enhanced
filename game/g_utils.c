@@ -3241,3 +3241,25 @@ qboolean IsSpecName(const char *name) {
 
 	return qfalse;
 }
+
+#define SVSAY_PREFIX "Server^7\x19: "
+#define SVTELL_PREFIX "\x19[Server^7\x19]\x19: "
+
+// game equivalent
+void SV_Tell(int clientNum, const char *text) {
+	if (clientNum < 0 || clientNum >= MAX_CLIENTS)
+		return;
+
+	gentity_t *ent = &g_entities[clientNum];
+	if (!ent->inuse || !ent->client)
+		return;
+
+	Com_Printf("tell: svtell to %s" S_COLOR_WHITE ": %s\n", ent->client->pers.netname, text);
+	trap_SendServerCommand(clientNum, va("chat \"" SVTELL_PREFIX S_COLOR_MAGENTA "%s" S_COLOR_WHITE "\"\n", text));
+}
+
+// game equivalent
+void SV_Say(const char *text) {
+	Com_Printf("broadcast: chat \"" SVSAY_PREFIX "%s\\n\"\n", text);
+	trap_SendServerCommand(-1, va("chat \"" SVSAY_PREFIX "%s\"\n", text));
+}

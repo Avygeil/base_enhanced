@@ -595,14 +595,6 @@ static ctfPosition_t GetPositionPreferenceFromName(const char *rawName) {
 	return CTFPOSITION_UNKNOWN;
 }
 
-typedef struct {
-	int clientNum;
-	int accountId;
-	char accountName[32];
-	ctfPosition_t preferredPosFromName;
-	team_t team;
-} sortedClient_t;
-
 static int SortClientsForTeamGenerator(const void *a, const void *b) {
 	sortedClient_t *aa = (sortedClient_t *)a;
 	sortedClient_t *bb = (sortedClient_t *)b;
@@ -616,20 +608,30 @@ static int SortClientsForTeamGenerator(const void *a, const void *b) {
 }
 
 extern double PlayerTierToRating(ctfPlayerTier_t tier);
-qboolean GenerateTeams(permutationOfTeams_t *mostPlayed, permutationOfTeams_t *highestCaliber, permutationOfTeams_t *fairest, uint64_t *numPermutations) {
+static unsigned int teamGenSeed = 0;
+static ctfPosition_t ctfPosTiebreakerOrder[3] = { CTFPOSITION_BASE, CTFPOSITION_CHASE, CTFPOSITION_OFFENSE };
+static qboolean teamGenInitialized = qfalse;
+static void InitializeTeamGenerator(void) {
+	if (teamGenInitialized)
+		return;
+
+	while (!teamGenSeed) {
+		teamGenSeed = time(NULL);
+		FisherYatesShuffle(&ctfPosTiebreakerOrder, 3, sizeof(ctfPosition_t)); // randomize tiebreaker order for people equally rated at multiple positions
+	}
+
+	teamGenInitialized = qtrue;
+}
+
+static qboolean GenerateTeams(setOfPickablePlayers_t *set, permutationOfTeams_t *mostPlayed, permutationOfTeams_t *highestCaliber, permutationOfTeams_t *fairest, uint64_t *numPermutations) {
+	assert(set);
+	InitializeTeamGenerator();
 #ifdef DEBUG_GENERATETEAMS
 	clock_t start = clock();
 #endif
 
 	if (g_gametype.integer != GT_CTF)
 		return qfalse;
-
-	static ctfPosition_t ctfPosTiebreakerOrder[3] = { CTFPOSITION_BASE, CTFPOSITION_CHASE, CTFPOSITION_OFFENSE };
-	static unsigned int seed = 0;
-	while (!seed) {
-		seed = time(NULL);
-		FisherYatesShuffle(&ctfPosTiebreakerOrder, 3, sizeof(ctfPosition_t)); // randomize tiebreaker order for people equally rated at multiple positions
-	}
 
 	// refresh ratings from db
 	G_DBGetPlayerRatings();
@@ -648,6 +650,17 @@ qboolean GenerateTeams(permutationOfTeams_t *mostPlayed, permutationOfTeams_t *h
 		if (!ent->inuse || !ent->client || ent->client->pers.connected == CON_DISCONNECTED ||
 			!ent->client->account || ent->client->sess.clientType != CLIENT_TYPE_NORMAL ||
 			(IsRacerOrSpectator(ent) && IsSpecName(ent->client->pers.netname)))
+			continue;
+
+		qboolean thisPlayerIsPartOfSet = qfalse;
+		for (int j = 0; j < MAX_CLIENTS; j++) {
+			sortedClient_t *cl = set->clients + j;
+			if (!cl->accountName[0] || Q_stricmp(cl->accountName, ent->client->account->name))
+				continue;
+			thisPlayerIsPartOfSet = qtrue;
+			break;
+		}
+		if (!thisPlayerIsPartOfSet)
 			continue;
 
 		qboolean someoneElseIngameSharesMyAccount = qfalse;
@@ -722,7 +735,7 @@ qboolean GenerateTeams(permutationOfTeams_t *mostPlayed, permutationOfTeams_t *h
 	qsort(&sortedClients, MAX_CLIENTS, sizeof(sortedClient_t), SortClientsForTeamGenerator);
 
 	// shuffle to avoid alphabetical bias
-	srand(seed);
+	srand(teamGenSeed);
 	FisherYatesShuffle(&sortedClients, numEligible, sizeof(sortedClient_t));
 	srand(time(NULL));
 
@@ -968,4 +981,659 @@ qboolean GenerateTeams(permutationOfTeams_t *mostPlayed, permutationOfTeams_t *h
 #endif
 
 	return !!(gotValid);
+}
+
+// ignores everything aside from account id/name
+XXH32_hash_t HashSetOfPickablePlayers(const sortedClient_t *clients) {
+	if (!clients) {
+		assert(qfalse);
+		return 0;
+	}
+
+	sortedClient_t sortedClients[MAX_CLIENTS] = { 0 };
+
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		const sortedClient_t *src = clients + i;
+		sortedClient_t *dst = &sortedClients[i];
+		if (!src->accountName[0])
+			continue;
+		dst->accountId = src->accountId;
+		Q_strncpyz(dst->accountName, src->accountName, sizeof(dst->accountName));
+	}
+
+	qsort(&sortedClients, MAX_CLIENTS, sizeof(sortedClient_t), SortClientsForTeamGenerator);
+
+	return XXH32(&sortedClients, sizeof(sortedClients), 0);
+}
+
+void GetCurrentPickablePlayers(sortedClient_t *sortedClientsOut, int *numEligibleOut, qboolean shuffle) {
+	// refresh ratings from db
+	G_DBGetPlayerRatings();
+
+	// figure out who is eligible
+	int numIngame = 0;
+	qboolean eligible[MAX_CLIENTS] = { qfalse };
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+#ifdef DEBUG_GENERATETEAMS
+		account_t acc;
+		if (!G_DBGetAccountByName(Cvar_VariableString(va("z_debug%d", i + 1)), &acc))
+			continue;
+		eligible[i] = qtrue;
+#else
+		gentity_t *ent = &g_entities[i];
+		if (!ent->inuse || !ent->client || ent->client->pers.connected == CON_DISCONNECTED ||
+			!ent->client->account || ent->client->sess.clientType != CLIENT_TYPE_NORMAL ||
+			(IsRacerOrSpectator(ent) && IsSpecName(ent->client->pers.netname)))
+			continue;
+
+		qboolean someoneElseIngameSharesMyAccount = qfalse;
+		for (int j = 0; j < MAX_CLIENTS; j++) {
+			gentity_t *other = &g_entities[j];
+			if (other == ent || !other->inuse || !other->client || other->client->pers.connected == CON_DISCONNECTED)
+				continue;
+
+			if (other->client->account && other->client->account->id == ent->client->account->id) {
+				someoneElseIngameSharesMyAccount = qtrue;
+				break;
+			}
+		}
+		if (someoneElseIngameSharesMyAccount)
+			continue;
+
+		playerRating_t findMe;
+		findMe.accountId = ent->client->account->id;
+		playerRating_t *found = ListFind(&level.ratingList, PlayerRatingAccountIdMatches, &findMe, NULL);
+		if (!found)
+			continue;
+
+		eligible[i] = qtrue;
+#endif
+	}
+
+	// tally up everyone that is eligible. if there are 8+ ingame, then specs are not eligible.
+	// also note their name in case they have a position preference like "base only" in it
+	int numEligible = 0;
+	sortedClient_t sortedClients[MAX_CLIENTS];
+	memset(sortedClients, 0, sizeof(sortedClients));
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		if (!eligible[i])
+			continue;
+
+		gentity_t *ent = &g_entities[i];
+#ifndef DEBUG_GENERATETEAMS
+		if (numIngame >= 8 && IsRacerOrSpectator(ent)) {
+			eligible[i] = qfalse;
+			continue;
+		}
+#endif
+
+		sortedClients[i].clientNum = i;
+#ifdef DEBUG_GENERATETEAMS
+		Q_strncpyz(sortedClients[i].accountName, Cvar_VariableString(va("z_debug%d", i + 1)), sizeof(sortedClients[i].accountName));
+		sortedClients[i].preferredPosFromName = GetPositionPreferenceFromName(Cvar_VariableString(va("z_debugposname%d", i + 1)));
+		account_t acc;
+		G_DBGetAccountByName(Cvar_VariableString(va("z_debug%d", i + 1)), &acc);
+		sortedClients[i].accountId = acc.id;
+		sortedClients[i].team = TEAM_SPECTATOR;
+#else
+		Q_strncpyz(sortedClients[i].accountName, ent->client->account->name, sizeof(sortedClients[i].accountName));
+		sortedClients[i].preferredPosFromName = GetPositionPreferenceFromName(ent->client->pers.netname);
+		sortedClients[i].team = ent->client->sess.sessionTeam;
+		sortedClients[i].accountId = ent->client->account->id;
+#endif
+
+		if (sortedClients[i].preferredPosFromName)
+			TeamGen_DebugPrintf("%s has preferred position from name %s\n", sortedClients[i].accountName, NameForPos(sortedClients[i].preferredPosFromName));
+
+		++numEligible;
+		if (sortedClients[i].team == TEAM_RED || sortedClients[i].team == TEAM_BLUE)
+			++numIngame;
+	}
+
+	if (numEligibleOut)
+		*numEligibleOut = numEligible;
+
+	if (numEligible < 8) {
+		return;
+	}
+
+	// sort players irrespective of their client number so that they can't alter results by reconnecting in a different slot
+	qsort(&sortedClients, MAX_CLIENTS, sizeof(sortedClient_t), SortClientsForTeamGenerator);
+
+	// shuffle to avoid alphabetical bias
+	if (shuffle) {
+		srand(teamGenSeed);
+		FisherYatesShuffle(&sortedClients, numEligible, sizeof(sortedClient_t));
+		srand(time(NULL));
+	}
+
+	if (sortedClientsOut)
+		memcpy(sortedClientsOut, &sortedClients, sizeof(sortedClients));
+}
+
+static int lastNum = 0;
+
+qboolean SetOfPickablePlayersMatchesHash(genericNode_t *node, void *userData) {
+	const setOfPickablePlayers_t *existing = (const setOfPickablePlayers_t *)node;
+	XXH32_hash_t hash = *((XXH32_hash_t *)userData);
+	if (existing && existing->hash == hash)
+		return qtrue;
+	return qfalse;
+}
+
+qboolean SetOfPickablePlayersMatchesNum(genericNode_t *node, void *userData) {
+	const setOfPickablePlayers_t *existing = (const setOfPickablePlayers_t *)node;
+	int num = *((int *)userData);
+	if (existing && existing->num == num)
+		return qtrue;
+	return qfalse;
+}
+
+static char *GetNamesStringForSetOfPickablePlayers(const setOfPickablePlayers_t *players) {
+	assert(players);
+	static char buf[MAX_CLIENTS * 32] = { 0 };
+	memset(buf, 0, sizeof(buf));
+
+	qboolean gotOne = qfalse;
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		const sortedClient_t *cl = &players->clients[i];
+		if (!cl->accountName[0])
+			continue;
+
+		qboolean isLast = qtrue;
+		for (int j = i + 1; j < MAX_CLIENTS; j++) {
+			const sortedClient_t *otherCl = &players->clients[j];
+			if (otherCl->accountName[0]) {
+				isLast = qfalse;
+				break;
+			}
+		}
+
+		Q_strcat(buf, sizeof(buf), va("%s%s%s", (gotOne ? ", " : ""), (gotOne && isLast ? "and " : ""), cl->accountName));
+		gotOne = qtrue;
+	}
+
+	Q_StripColor(buf);
+	return buf;
+}
+
+static void PrintTeamsProposalsInConsole(setOfPickablePlayers_t *set) {
+	assert(set);
+	char formattedNumber[64] = { 0 };
+	FormatNumberToStringWithCommas(set->numValidPermutationsChecked, formattedNumber, sizeof(formattedNumber));
+	PrintIngame(-1, "Team generator results for %s\n(%s valid permutations evaluated):\n", set->namesStr, formattedNumber);
+
+	int numPrinted = 0;
+	char lastLetter = 'a';
+	qboolean didFairest = qfalse;
+	for (int i = 0; i < 3; i++) {
+		permutationOfTeams_t *thisPermutation;
+		switch (i) {
+		case 0: thisPermutation = &set->suggested; break;
+		case 1: thisPermutation = &set->highestCaliber; break;
+		case 2: thisPermutation = &set->fairest; break;
+		}
+		if (!thisPermutation->valid)
+			continue;
+		if (i == 2 && didFairest)
+			continue;
+
+		char letter;
+		char *suggestionTypeStr;
+		if (!i) {
+			if (thisPermutation->hash == set->highestCaliber.hash && (!thisPermutation->diff || thisPermutation->hash == set->fairest.hash || (set->fairest.valid && thisPermutation->diff == set->fairest.diff))) {
+				suggestionTypeStr = "Suggested, highest caliber, and fairest";
+				didFairest = qtrue;
+			}
+			else if (thisPermutation->hash == set->highestCaliber.hash) {
+				suggestionTypeStr = "Suggested and highest caliber";
+			}
+			else if (!thisPermutation->diff || thisPermutation->hash == set->fairest.hash || (set->fairest.valid && thisPermutation->diff == set->fairest.diff)) {
+				suggestionTypeStr = "Suggested and fairest";
+				didFairest = qtrue;
+			}
+			else {
+				suggestionTypeStr = "Suggested";
+			}
+			letter = set->suggestedLetter = lastLetter++;
+		}
+		else if (i == 1) {
+			if (thisPermutation->hash == set->suggested.hash && set->suggested.valid) {
+				thisPermutation->valid = qfalse;
+				continue;
+			}
+			if (!thisPermutation->diff || (thisPermutation->hash == set->fairest.hash && set->fairest.valid) || (set->fairest.valid && thisPermutation->diff == set->fairest.diff)) {
+				suggestionTypeStr = "Highest caliber and fairest";
+				didFairest = qtrue;
+			}
+			else {
+				suggestionTypeStr = "Highest caliber";
+			}
+			letter = set->highestCaliberLetter = lastLetter++;
+		}
+		else {
+			if ((thisPermutation->hash == set->suggested.hash && set->suggested.valid) || (thisPermutation->hash == set->highestCaliber.hash && set->highestCaliber.valid)) {
+				thisPermutation->valid = qfalse;
+				continue;
+			}
+			suggestionTypeStr = "Fairest";
+			letter = set->fairestLetter = lastLetter++;
+		}
+
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *ent = &g_entities[i];
+			if (!ent->inuse || !ent->client)
+				continue;
+			int accId = ent->client->account ? ent->client->account->id : -1;
+			PrintIngame(i, "%s%s teams: ^3enter %c%c in chat if you approve\n^1Red team:^7 %.2f'/. relative strength\n    ^5Base: %s%s\n    ^6Chase: %s%s\n    ^2Offense: %s%s^7, %s%s^7\n^4Blue team:^7 %.2f'/. relative strength\n    ^5Base: %s%s\n    ^6Chase: %s%s\n    ^2Offense: %s%s^7, %s%s^7\n",
+				numPrinted++ ? "\n" : "",
+				suggestionTypeStr,
+				TEAMGEN_CHAT_COMMAND_CHARACTER,
+				letter,
+				thisPermutation->teams[0].relativeStrength * 100.0,
+				thisPermutation->teams[0].baseId == accId ? "^3" : "^7",
+				thisPermutation->teams[0].baseName,
+				thisPermutation->teams[0].chaseId == accId ? "^3" : "^7",
+				thisPermutation->teams[0].chaseName,
+				thisPermutation->teams[0].offenseId1 == accId ? "^3" : "^7",
+				thisPermutation->teams[0].offense1Name,
+				thisPermutation->teams[0].offenseId2 == accId ? "^3" : "^7",
+				thisPermutation->teams[0].offense2Name,
+				thisPermutation->teams[1].relativeStrength * 100.0,
+				thisPermutation->teams[1].baseId == accId ? "^3" : "^7",
+				thisPermutation->teams[1].baseName,
+				thisPermutation->teams[1].chaseId == accId ? "^3" : "^7",
+				thisPermutation->teams[1].chaseName,
+				thisPermutation->teams[1].offenseId1 == accId ? "^3" : "^7",
+				thisPermutation->teams[1].offense1Name,
+				thisPermutation->teams[1].offenseId2 == accId ? "^3" : "^7",
+				thisPermutation->teams[1].offense2Name);
+		}
+	}
+
+	if (numPrinted > 1)
+		PrintIngame(-1, "^3You can approve of multiple teams proposals simultaneously by entering e.g. %cab^7\n", TEAMGEN_CHAT_COMMAND_CHARACTER);
+}
+
+static void ActivatePugProposal(setOfPickablePlayers_t *set) {
+	assert(set);
+
+	if (GenerateTeams(set, &set->suggested, &set->highestCaliber, &set->fairest, &set->numValidPermutationsChecked)) {
+		SV_Say(va("Pug proposal %d passed (%s). Check console for teams proposals.", set->num, set->namesStr));
+		set->passed = qtrue;
+		level.activePugProposal = set;
+		PrintTeamsProposalsInConsole(set);
+	}
+	else {
+		SV_Say(va("Pug proposal %d passed (%s). Unable to generate teams; pug proposal %d terminated.", set->num, set->namesStr, set->num));
+		level.activePugProposal = NULL;
+		ListRemove(&level.pickablePlayerSetsList, set);
+	}
+}
+
+void ActivateTeamsProposal(permutationOfTeams_t *permutation) {
+	assert(permutation);
+
+	const size_t messageSize = MAX_STRING_CHARS;
+	char *printMessage = calloc(MAX_CLIENTS * messageSize, sizeof(char));
+
+	qboolean forceteamed[MAX_CLIENTS] = { qfalse };
+	for (int i = 0; i < 8; i++) {
+		int accountNum, score;
+		char *teamStr = i < 4 ? "r" : "b";
+		ctfPosition_t pos;
+		switch (i) {
+		case 0: accountNum = permutation->teams[0].baseId; pos = CTFPOSITION_BASE; score = 8000;  break;
+		case 1: accountNum = permutation->teams[0].chaseId; pos = CTFPOSITION_CHASE; score = 4000;  break;
+		case 2: accountNum = permutation->teams[0].offenseId1; pos = CTFPOSITION_OFFENSE; score = 2000; break;
+		case 3: accountNum = permutation->teams[0].offenseId2; pos = CTFPOSITION_OFFENSE; score = 1000; break;
+		case 4: accountNum = permutation->teams[1].baseId; pos = CTFPOSITION_BASE; score = 8000; break;
+		case 5: accountNum = permutation->teams[1].chaseId; pos = CTFPOSITION_CHASE; score = 4000; break;
+		case 6: accountNum = permutation->teams[1].offenseId1; pos = CTFPOSITION_OFFENSE; score = 2000; break;
+		case 7: accountNum = permutation->teams[1].offenseId2; pos = CTFPOSITION_OFFENSE; score = 1000; break;
+		default: assert(qfalse); break;
+		}
+		for (int j = 0; j < MAX_CLIENTS; j++) {
+			gentity_t *ent = &g_entities[j];
+			if (!ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED || !ent->client->account || ent->client->account->id != accountNum)
+				continue;
+
+			G_SetRaceMode(ent, qfalse);
+			if (ent->client->sess.canJoin) {
+				SetTeam(ent, teamStr);
+			}
+			else {
+				ent->client->sess.canJoin = qtrue;
+				SetTeam(ent, teamStr);
+				ent->client->sess.canJoin = qfalse;
+			}
+			forceteamed[j] = qtrue;
+
+			Com_sprintf(printMessage + (j * messageSize), messageSize, "^1Red team:^7 (%0.2f'/. relative strength)\n", permutation->teams[0].relativeStrength * 100.0);
+			Q_strcat(printMessage + (j * messageSize), messageSize, va("%s %s\n", permutation->teams[0].baseId == ent->client->account->id ? "^5Base: ^3" : "^5Base: ^7", permutation->teams[0].baseName));
+			Q_strcat(printMessage + (j * messageSize), messageSize, va("%s %s\n", permutation->teams[0].chaseId == ent->client->account->id ? "^6Chase: ^3" : "^6Chase: ^7", permutation->teams[0].chaseName));
+			Q_strcat(printMessage + (j * messageSize), messageSize, va("%s %s^7, ", permutation->teams[0].offenseId1 == ent->client->account->id ? "^2Offense: ^3" : "^2Offense: ^7", permutation->teams[0].offense1Name));
+			Q_strcat(printMessage + (j * messageSize), messageSize, va("%s%s\n\n", permutation->teams[0].offenseId2 == ent->client->account->id ? "^3" : "^7", permutation->teams[0].offense2Name));
+			Q_strcat(printMessage + (j * messageSize), messageSize, va("^4Blue team:^7 (%0.2f'/. relative strength)\n", permutation->teams[1].relativeStrength * 100.0));
+			Q_strcat(printMessage + (j * messageSize), messageSize, va("%s %s\n", permutation->teams[1].baseId == ent->client->account->id ? "^5Base: ^3" : "^5Base: ^7", permutation->teams[1].baseName));
+			Q_strcat(printMessage + (j * messageSize), messageSize, va("%s %s\n", permutation->teams[1].chaseId == ent->client->account->id ? "^6Chase: ^3" : "^6Chase: ^7", permutation->teams[1].chaseName));
+			Q_strcat(printMessage + (j * messageSize), messageSize, va("%s %s^7, ", permutation->teams[1].offenseId1 == ent->client->account->id ? "^2Offense: ^3" : "^2Offense: ^7", permutation->teams[1].offense1Name));
+			Q_strcat(printMessage + (j * messageSize), messageSize, va("%s%s\n\n", permutation->teams[1].offenseId2 == ent->client->account->id ? "^3" : "^7", permutation->teams[1].offense2Name));
+
+			// silly little hack to put them on the scoreboard in the order we printed their names
+			ent->client->ps.persistant[PERS_SCORE] = score;
+		}
+	}
+
+	// force everyone else to spectator
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *ent = &g_entities[i];
+		if (!ent->inuse || !ent->client || forceteamed[i] || IsRacerOrSpectator(ent))
+			continue;
+		G_SetRaceMode(ent, qfalse);
+		if (ent->client->sess.canJoin) {
+			SetTeam(ent, "s");
+		}
+		else {
+			ent->client->sess.canJoin = qtrue;
+			SetTeam(ent, "s");
+			ent->client->sess.canJoin = qfalse;
+		}
+	}
+
+	G_UniqueTickedCenterPrint(printMessage, messageSize, 30000, qtrue);
+	free(printMessage);
+}
+
+qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteStr) {
+	assert(ent && VALIDSTRING(voteStr));
+
+	if (!ent->client->account) {
+		SV_Tell(ent - g_entities, "You do not have an account, so you cannot vote for team proposals. Please contact an admin for help setting up an account.");
+		return qtrue;
+	}
+
+	if (!level.activePugProposal) {
+		SV_Tell(ent - g_entities, "No pug proposal is currently active.");
+		return qtrue;
+	}
+
+	char oldVotes[4] = { 0 };
+	char newVotes[4] = { 0 };
+	for (const char *p = voteStr; *p && p - voteStr < 3; p++) {
+		const char lower = tolower((unsigned)*p);
+		int *votesInt;
+		permutationOfTeams_t *permutation;
+		if (level.activePugProposal->suggested.valid && level.activePugProposal->suggestedLetter == lower) {
+			votesInt = &level.activePugProposal->suggestedVoteClients;
+			permutation = &level.activePugProposal->suggested;
+		}
+		else if (level.activePugProposal->highestCaliber.valid && level.activePugProposal->highestCaliberLetter == lower) {
+			votesInt = &level.activePugProposal->highestCaliberVoteClients;
+			permutation = &level.activePugProposal->highestCaliber;
+		}
+		else if (level.activePugProposal->fairest.valid && level.activePugProposal->highestCaliberLetter == lower) {
+			votesInt = &level.activePugProposal->fairestVoteClients;
+			permutation = &level.activePugProposal->fairest;
+		}
+		else {
+			SV_Tell(ent - g_entities, va("Invalid pug proposal letter '%c'.", *p));
+			continue;
+		}
+
+		if (!permutation->valid) {
+			SV_Tell(ent - g_entities, va("Invalid pug proposal letter '%c'.", *p));
+			continue;
+		}
+
+		qboolean votedYesOnAnotherClient = qfalse;
+		if (!(*votesInt & (1 << ent - g_entities))) {
+			for (int i = 0; i < MAX_CLIENTS; i++) {
+				gentity_t *other = &g_entities[i];
+				if (other == ent || !other->inuse || !other->client || !other->client->account)
+					continue;
+				if (other->client->account->id != ent->client->account->id)
+					continue;
+				if (*votesInt & (1 << other - g_entities)) {
+					votedYesOnAnotherClient = qtrue;
+					break;
+				}
+			}
+		}
+
+		qboolean allowedToVote = qfalse;
+		if (permutation->teams[0].baseId == ent->client->account->id || permutation->teams[0].chaseId == ent->client->account->id ||
+			permutation->teams[0].offenseId1 == ent->client->account->id || permutation->teams[0].offenseId2 == ent->client->account->id ||
+			permutation->teams[1].baseId == ent->client->account->id || permutation->teams[1].chaseId == ent->client->account->id ||
+			permutation->teams[1].offenseId1 == ent->client->account->id || permutation->teams[1].offenseId2 == ent->client->account->id) {
+			allowedToVote = qtrue;
+		}
+
+		if (!allowedToVote) {
+			SV_Tell(ent - g_entities, va("You cannot vote on teams proposal %c because you are not part of it.", lower));
+			continue;
+		}
+
+		if (votedYesOnAnotherClient || *votesInt & (1 << ent - g_entities)) { // already voted for this
+			Q_strcat(oldVotes, sizeof(oldVotes), va("%c", lower));
+		}
+		else { // a new vote
+			*votesInt |= (1 << (ent - g_entities));
+			Q_strcat(newVotes, sizeof(newVotes), va("%c", lower));
+		}
+	}
+
+	char oldVotesMessage[64] = { 0 };
+	if (oldVotes[0])
+		Com_sprintf(oldVotesMessage, sizeof(oldVotesMessage), "You have already voted for teams proposal%s %s.", strlen(oldVotes) > 1 ? "s" : "", oldVotes);
+
+	if (!newVotes[0]) {
+		SV_Tell(ent - g_entities, oldVotesMessage);
+		return qfalse;
+	}
+	
+	if (strlen(newVotes) > 1) {
+		Com_Printf("%s^7 voted yes to teams proposals %s.\n", ent->client->pers.netname, voteStr);
+		SV_Tell(ent - g_entities, va("Vote cast for teams proposals %s.%s%s", voteStr, oldVotes[0] ? " " : "", oldVotes[0] ? oldVotesMessage : ""));
+	}
+	else {
+		Com_Printf("%s^7 voted yes to teams proposal %s.\n", ent->client->pers.netname, voteStr);
+		SV_Tell(ent - g_entities, va("Vote cast for teams proposal %s.%s%s", voteStr, oldVotes[0] ? " " : "", oldVotes[0] ? oldVotesMessage : ""));
+	}
+
+	int tiebreakerOrder[] = { 0, 1, 2 };
+	FisherYatesShuffle(&tiebreakerOrder[0], 3, sizeof(int));
+
+	for (int i = 0; i < 3; i++) {
+		int j = tiebreakerOrder[i];
+		char letter;
+		int *votesInt;
+		permutationOfTeams_t *permutation;
+		switch (j) {
+		case 0: permutation = &level.activePugProposal->suggested; votesInt = &level.activePugProposal->suggestedVoteClients; letter = level.activePugProposal->suggestedLetter; break;
+		case 1: permutation = &level.activePugProposal->highestCaliber; votesInt = &level.activePugProposal->highestCaliberVoteClients; letter = level.activePugProposal->highestCaliberLetter; break;
+		case 2: permutation = &level.activePugProposal->fairest; votesInt = &level.activePugProposal->fairestVoteClients; letter = level.activePugProposal->fairestLetter; break;
+		}
+
+		if (!permutation->valid)
+			continue;
+
+		int numYesVotes = 0;
+		for (int j = 0; j < MAX_CLIENTS; j++) {
+			if (*votesInt & (1 << j))
+				++numYesVotes;
+		}
+
+#ifdef TEAM_GENERATOR_SIMPLE_MAJORITY
+		const int numRequired = 5;
+#else
+		const int numRequired = 4;
+#endif
+		if (numYesVotes >= numRequired) {
+			SV_Say(va("Teams proposal %c passed.", letter));
+
+			char printMessage[1024] = { 0 };
+			Com_sprintf(printMessage, sizeof(printMessage), "*^1Red team:^7 (%0.2f'/. relative strength)\n", permutation->teams[0].relativeStrength * 100.0);
+			Q_strcat(printMessage, sizeof(printMessage), va("^5Base: ^7 %s\n", permutation->teams[0].baseName));
+			Q_strcat(printMessage, sizeof(printMessage), va("^6Chase: ^7 %s\n", permutation->teams[0].chaseName));
+			Q_strcat(printMessage, sizeof(printMessage), va("^2Offense: ^7 %s^7, ", permutation->teams[0].offense1Name));
+			Q_strcat(printMessage, sizeof(printMessage), va("%s\n\n", permutation->teams[0].offense2Name));
+			Q_strcat(printMessage, sizeof(printMessage), va("^4Blue team:^7 (%0.2f'/. relative strength)\n", permutation->teams[1].relativeStrength * 100.0));
+			Q_strcat(printMessage, sizeof(printMessage), va("^5Base: ^7 %s\n", permutation->teams[1].baseName));
+			Q_strcat(printMessage, sizeof(printMessage), va("^6Chase: ^7 %s\n", permutation->teams[1].chaseName));
+			Q_strcat(printMessage, sizeof(printMessage), va("^2Offense: ^7 %s^7, ", permutation->teams[1].offense1Name));
+			Q_strcat(printMessage, sizeof(printMessage), va("^7%s\n\n", permutation->teams[1].offense2Name));
+			PrintIngame(-1, printMessage);
+
+			ActivateTeamsProposal(permutation);
+			level.activePugProposal = NULL;
+			break;
+		}
+	}
+
+	return qfalse;
+}
+
+qboolean TeamGenerator_VoteYesToTeamCombination(gentity_t *ent, int num, setOfPickablePlayers_t *setOptional, char **newMessage) {
+	assert(ent && ent->client);
+
+	if (!ent->client->account) {
+		SV_Tell(ent - g_entities, "You do not have an account, so you cannot vote for pug proposals. Please contact an admin for help setting up an account.");
+		return qtrue;
+	}
+
+	if (!setOptional && num <= 0) {
+		SV_Tell(ent - g_entities, "Invalid pug proposal number.");
+		return qtrue;
+	}
+
+	// use the pointer if one was provided; otherwise, find the set matching the number provided
+	setOfPickablePlayers_t *set = NULL;
+	set = setOptional ? setOptional : ListFind(&level.pickablePlayerSetsList, SetOfPickablePlayersMatchesNum, &num, NULL);
+
+	if (!set) {
+		SV_Tell(ent - g_entities, "Invalid pug proposal number.");
+		return qtrue;
+	}
+
+	if (newMessage) {
+		// this double pointer is supplied if someone tried to start this pug when it was already started
+		// we change their chat message into "pug 3" or whatever instead of "pug start"
+		static char buf[MAX_STRING_CHARS] = { 0 };
+		Com_sprintf(buf, sizeof(buf), "%cpug %d", TEAMGEN_CHAT_COMMAND_CHARACTER, set->num);
+		*newMessage = buf;
+		SV_Tell(ent - g_entities, "A pug with these players has already been proposed. Changed your command into a vote for it.");
+	}
+
+	if (set->passed) {
+		SV_Tell(ent - g_entities, "This pug proposal has already passed.");
+		return qtrue;
+	}
+
+	qboolean allowedToVote = qfalse;
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		sortedClient_t *cl = set->clients + i;
+		if (cl->accountName[0] && cl->accountId == ent->client->account->id) {
+			allowedToVote = qtrue;
+			break;
+		}
+	}
+
+	if (!allowedToVote) {
+		SV_Tell(ent - g_entities, "You cannot vote on this pug proposal because you are not part of it.");
+		return qtrue;
+	}
+
+	// check whether they have another client connected and voted yes on it
+	qboolean votedYesOnAnotherClient = qfalse;
+	if (!(set->votedYesClients & (1 << ent - g_entities))) {
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *other = &g_entities[i];
+			if (other == ent || !other->inuse || !other->client || !other->client->account)
+				continue;
+			if (other->client->account->id != ent->client->account->id)
+				continue;
+			if (set->votedYesClients & (1 << other - g_entities)) {
+				votedYesOnAnotherClient = qtrue;
+				break;
+			}
+		}
+	}
+
+	if (votedYesOnAnotherClient || set->votedYesClients & (1 << ent - g_entities)) {
+		SV_Tell(ent - g_entities, "You have already voted for this pug proposal.");
+		return qfalse; // allow chat message for peer pressure
+	}
+
+	Com_Printf("%s^7 voted yes to pug proposal %d.\n", ent->client->pers.netname, set->num);
+	SV_Tell(ent - g_entities, va("Vote cast for pug proposal %d.", set->num));
+	set->votedYesClients |= (1 << (ent - g_entities));
+
+	int numEligible = 0, numYesVotesFromEligiblePlayers = 0;
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		sortedClient_t *cl = set->clients + i;
+		if (!cl->accountName[0])
+			continue; // not included in this set
+		++numEligible;
+		for (int j = 0; j < MAX_CLIENTS; j++) {
+			gentity_t *other = &g_entities[j];
+			if (!other->inuse || !other->client || !other->client->account || other->client->account->id != cl->accountId)
+				continue;
+			if (set->votedYesClients & (1 << j))
+				++numYesVotesFromEligiblePlayers;
+		}
+	}
+
+#ifdef TEAM_GENERATOR_SIMPLE_MAJORITY
+	const int numRequired = (numEligible / 2) + 1;
+#else
+	const int numRequired = 4;
+#endif
+	if (numYesVotesFromEligiblePlayers >= numRequired)
+		ActivatePugProposal(set);
+
+	return qfalse;
+}
+
+// returns qtrue if the message should be filtered out
+qboolean TeamGenerator_PugStart(gentity_t *ent, char **newMessage) {
+	if (g_gametype.integer != GT_CTF)
+		return qfalse;
+
+	assert(ent && ent->client);
+
+	InitializeTeamGenerator();
+
+	sortedClient_t clients[MAX_CLIENTS] = {0};
+	int numEligible = 0;
+	GetCurrentPickablePlayers(&clients[0], &numEligible, qfalse);
+
+	if (numEligible < 8) {
+		SV_Tell(ent - g_entities, "Not enough eligible players.");
+		return qtrue;
+	}
+
+	XXH32_hash_t hash = HashSetOfPickablePlayers(&clients[0]);
+	setOfPickablePlayers_t *set = ListFind(&level.pickablePlayerSetsList, SetOfPickablePlayersMatchesHash, &hash, NULL);
+	if (set) {
+		// this person is attempting to start a pug with a combination that has already been proposed. redirect it to a yes vote on that combination.
+		return TeamGenerator_VoteYesToTeamCombination(ent, 0, set, newMessage);
+	}
+
+	set = ListAdd(&level.pickablePlayerSetsList, sizeof(setOfPickablePlayers_t));
+	memcpy(set->clients, &clients, sizeof(set->clients));
+	set->hash = hash;
+	set->num = ++lastNum;
+	set->votedYesClients = (1 << ent - g_entities);
+
+	char *name = ent->client->account ? ent->client->account->name : ent->client->pers.netname;
+	char cleanname[32];
+	Q_strncpyz(cleanname, name, sizeof(cleanname));
+	Q_StripColor(cleanname);
+
+	char *namesStr = GetNamesStringForSetOfPickablePlayers(set);
+	if (VALIDSTRING(namesStr))
+		Q_strncpyz(set->namesStr, namesStr, sizeof(set->namesStr));
+	SV_Say(va("%s proposes pug with: %s. Enter ^2%cpug %d^7 in chat if you approve.", cleanname, namesStr, TEAMGEN_CHAT_COMMAND_CHARACTER, set->num));
+	return qfalse;
 }

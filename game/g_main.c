@@ -1982,6 +1982,8 @@ void G_ShutdownGame( int restart ) {
 	ListClear(&level.ratingList);
 	ListClear(&level.mostPlayedPositionsList);
 
+	ListClear(&level.pickablePlayerSetsList);
+
 	UnpatchEngine();
 }
 

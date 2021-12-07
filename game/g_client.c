@@ -4809,6 +4809,46 @@ void ClientDisconnect( int clientNum ) {
 		return;
 	}
 
+	if (ent->client->account) {
+		// remove votes on anything this person voted for
+		iterator_t iter;
+		ListIterate(&level.pickablePlayerSetsList, &iter, qfalse);
+		while (IteratorHasNext(&iter)) {
+			setOfPickablePlayers_t *set = IteratorNext(&iter);
+			set->votedYesClients &= ~(1 << clientNum);
+		}
+
+		if (level.activePugProposal) {
+			if (level.activePugProposal->suggested.valid && level.activePugProposal->suggestedVoteClients & (1 << clientNum))
+				level.activePugProposal->suggestedVoteClients &= ~(1 << clientNum);
+			if (level.activePugProposal->highestCaliber.valid && level.activePugProposal->highestCaliberVoteClients & (1 << clientNum))
+				level.activePugProposal->highestCaliberVoteClients &= ~(1 << clientNum);
+			if (level.activePugProposal->highestCaliber.valid && level.activePugProposal->highestCaliberVoteClients & (1 << clientNum))
+				level.activePugProposal->highestCaliberVoteClients &= ~(1 << clientNum);
+		}
+
+		// destroy any sets they were part of
+		qboolean deleteThis = qfalse;
+		ListIterate(&level.pickablePlayerSetsList, &iter, qfalse);
+		while (IteratorHasNext(&iter)) {
+			setOfPickablePlayers_t *set = IteratorNext(&iter);
+			for (int i = 0; i < MAX_CLIENTS; i++) {
+				sortedClient_t *cl = set->clients + i;
+				if (cl->accountName[0] && cl->accountId == ent->client->account->id) {
+					SV_Say(va("svsay %s disconnected; pug proposal %d terminated.\n", cl->accountName, set->num));
+					deleteThis = qtrue;
+					break;
+				}
+			}
+			if (deleteThis) {
+				if (level.activePugProposal == set)
+					level.activePugProposal = NULL;
+				ListRemove(&level.pickablePlayerSetsList, set);
+				ListIterate(&level.pickablePlayerSetsList, &iter, qfalse);
+			}
+		}
+	}
+
 	if (ent->client->session) {
 		G_DBLogNickname(ent->client->session->id, ent->client->pers.netname, getGlobalTime() - ent->client->sess.nameChangeTime);
 	}

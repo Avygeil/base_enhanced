@@ -1142,6 +1142,8 @@ typedef struct {
 //
 // g_teamgen.c
 //
+#define TEAMGEN_CHAT_COMMAND_CHARACTER		'?'
+
 typedef struct {
 	double rawStrength;
 	double relativeStrength;
@@ -1163,7 +1165,31 @@ typedef struct {
 	double numOnPreferredPos;
 } permutationOfTeams_t;
 
-qboolean GenerateTeams(permutationOfTeams_t *mostPlayed, permutationOfTeams_t *highestCaliber, permutationOfTeams_t *fairest, uint64_t *numPermutations);
+typedef struct {
+	int clientNum;
+	int accountId;
+	char accountName[32];
+	ctfPosition_t preferredPosFromName;
+	team_t team;
+} sortedClient_t;
+
+typedef struct {
+	node_t			node;
+	int				num;
+	XXH32_hash_t	hash;
+	sortedClient_t	clients[MAX_CLIENTS];
+	int				votedYesClients;
+	qboolean		passed;
+	permutationOfTeams_t suggested, highestCaliber, fairest;
+	uint64_t		numValidPermutationsChecked;
+	char			namesStr[1024];
+	char			suggestedLetter, highestCaliberLetter, fairestLetter;
+	int				suggestedVoteClients, highestCaliberVoteClients, fairestVoteClients;
+} setOfPickablePlayers_t;
+
+qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteStr);
+qboolean TeamGenerator_VoteYesToTeamCombination(gentity_t *ent, int num, setOfPickablePlayers_t *setOptional, char **newMessage);
+qboolean TeamGenerator_PugStart(gentity_t *ent, char **newMessage);
 
 // this structure is cleared on each ClientSpawn(),
 // except for 'client->pers' and 'client->sess'
@@ -1800,6 +1826,9 @@ typedef struct {
 
 	list_t ratingList;
 	list_t mostPlayedPositionsList;
+
+	list_t pickablePlayerSetsList;
+	setOfPickablePlayers_t *activePugProposal;
 } level_locals_t;
 
 
@@ -2021,6 +2050,8 @@ void PrintBasedOnAccountFlags(int flags, const char *msg);
 void FisherYatesShuffle(void *firstItem, size_t numItems, size_t itemSize);
 void FormatNumberToStringWithCommas(uint64_t n, char *out, size_t outSize);
 qboolean IsSpecName(const char *name);
+void SV_Tell(int clientNum, const char *text);
+void SV_Say(const char *text);
 
 //
 // g_object.c

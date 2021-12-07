@@ -2112,6 +2112,35 @@ static void TokenizeTeamChat( gentity_t *ent, char *dest, const char *src, size_
 	dest[i] = '\0';
 }
 
+// returns qtrue if the message should be filtered out
+static qboolean CheckForChatCommand(gentity_t *ent, const char *s, char **newMessage) {
+	if (!ent || !ent->client || ent->client->pers.connected != CON_CONNECTED || !VALIDSTRING(s)) {
+		assert(qfalse);
+		return qfalse;
+	}
+
+	if (!Q_stricmp(s, "pug start"))
+		return TeamGenerator_PugStart(ent, newMessage);
+
+	if (!Q_stricmpn(s, "pug ", 4) && *(s + 4) && atoi(s + 4))
+		return TeamGenerator_VoteYesToTeamCombination(ent, atoi(s + 4), NULL, NULL);
+
+	if (strlen(s) <= 3) {
+		qboolean gotNonAbcChar = qfalse;
+		for (const char *p = s; *p; p++) {
+			char lowered = tolower((unsigned) *p);
+			if (lowered != 'a' && lowered != 'b' && !lowered != 'c') {
+				gotNonAbcChar = qtrue;
+				break;
+			}
+		}
+		if (!gotNonAbcChar)
+			return TeamGenerator_VoteForTeamPermutations(ent, s);
+	}
+
+	return qfalse;
+}
+
 void Cmd_CallVote_f(gentity_t *ent, int pause);
 void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, qboolean force ) {
 	int			j;
@@ -2154,6 +2183,14 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, q
 			ent->client->pers.specChatBufferCheckTime = trap_Milliseconds() + Com_Clampi(0, 10000, g_enterSpammerTime.integer * 1000);
 			return;
 		}
+	}
+
+	char *newMessage = NULL;
+	if (mode == SAY_ALL && *chatText == TEAMGEN_CHAT_COMMAND_CHARACTER && *(chatText + 1)) {
+		if (CheckForChatCommand(ent, chatText + 1, &newMessage))
+			return;
+		if (VALIDSTRING(newMessage))
+			chatText = newMessage;
 	}
 
 	switch ( mode ) {
