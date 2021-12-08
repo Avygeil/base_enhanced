@@ -4823,8 +4823,8 @@ void ClientDisconnect( int clientNum ) {
 				level.activePugProposal->suggestedVoteClients &= ~(1 << clientNum);
 			if (level.activePugProposal->highestCaliber.valid && level.activePugProposal->highestCaliberVoteClients & (1 << clientNum))
 				level.activePugProposal->highestCaliberVoteClients &= ~(1 << clientNum);
-			if (level.activePugProposal->highestCaliber.valid && level.activePugProposal->highestCaliberVoteClients & (1 << clientNum))
-				level.activePugProposal->highestCaliberVoteClients &= ~(1 << clientNum);
+			if (level.activePugProposal->fairest.valid && level.activePugProposal->fairestVoteClients & (1 << clientNum))
+				level.activePugProposal->fairestVoteClients &= ~(1 << clientNum);
 		}
 
 		// remove them from any teams permutations they were on
