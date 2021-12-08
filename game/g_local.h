@@ -1163,6 +1163,8 @@ typedef struct {
 	XXH32_hash_t hash;
 	teamData_t teams[2];
 	double numOnPreferredPos;
+	int topTierImbalance;
+	int bottomTierImbalance;
 } permutationOfTeams_t;
 
 typedef struct {

@@ -4827,24 +4827,62 @@ void ClientDisconnect( int clientNum ) {
 				level.activePugProposal->highestCaliberVoteClients &= ~(1 << clientNum);
 		}
 
-		// destroy any sets they were part of
+		// remove them from any teams permutations they were on
 		qboolean deleteThis = qfalse;
 		ListIterate(&level.pickablePlayerSetsList, &iter, qfalse);
 		while (IteratorHasNext(&iter)) {
 			setOfPickablePlayers_t *set = IteratorNext(&iter);
-			for (int i = 0; i < MAX_CLIENTS; i++) {
-				sortedClient_t *cl = set->clients + i;
-				if (cl->accountName[0] && cl->accountId == ent->client->account->id) {
-					SV_Say(va("svsay %s disconnected; pug proposal %d terminated.\n", cl->accountName, set->num));
-					deleteThis = qtrue;
-					break;
+			if (set == level.activePugProposal) { // this is a current active proposal
+				int numValid = 0;
+				if (set->suggested.valid) {
+					++numValid;
+					if (set->suggested.teams[0].baseId == ent->client->account->id || set->suggested.teams[0].chaseId == ent->client->account->id ||
+						set->suggested.teams[0].offenseId1 == ent->client->account->id || set->suggested.teams[0].offenseId2 == ent->client->account->id ||
+						set->suggested.teams[1].baseId == ent->client->account->id || set->suggested.teams[1].chaseId == ent->client->account->id ||
+						set->suggested.teams[1].offenseId1 == ent->client->account->id || set->suggested.teams[1].offenseId2 == ent->client->account->id) {
+						set->suggested.valid = qfalse;
+						--numValid;
+					}
+				}
+				if (set->highestCaliber.valid) {
+					++numValid;
+					if (set->highestCaliber.teams[0].baseId == ent->client->account->id || set->highestCaliber.teams[0].chaseId == ent->client->account->id ||
+						set->highestCaliber.teams[0].offenseId1 == ent->client->account->id || set->highestCaliber.teams[0].offenseId2 == ent->client->account->id ||
+						set->highestCaliber.teams[1].baseId == ent->client->account->id || set->highestCaliber.teams[1].chaseId == ent->client->account->id ||
+						set->highestCaliber.teams[1].offenseId1 == ent->client->account->id || set->highestCaliber.teams[1].offenseId2 == ent->client->account->id) {
+						set->highestCaliber.valid = qfalse;
+						--numValid;
+					}
+				}
+				if (set->fairest.valid) {
+					++numValid;
+					if (set->fairest.teams[0].baseId == ent->client->account->id || set->fairest.teams[0].chaseId == ent->client->account->id ||
+						set->fairest.teams[0].offenseId1 == ent->client->account->id || set->fairest.teams[0].offenseId2 == ent->client->account->id ||
+						set->fairest.teams[1].baseId == ent->client->account->id || set->fairest.teams[1].chaseId == ent->client->account->id ||
+						set->fairest.teams[1].offenseId1 == ent->client->account->id || set->fairest.teams[1].offenseId2 == ent->client->account->id) {
+						set->fairest.valid = qfalse;
+						--numValid;
+					}
+				}
+				if (numValid <= 0) { // no more valid teams permutations; destroy this set
+					SV_Say(va("%s disconnected; current active pug proposal (%d) terminated.\n", ent->client->account->name, set->num));
+					ListRemove(&level.pickablePlayerSetsList, set);
+					level.activePugProposal = NULL;
 				}
 			}
-			if (deleteThis) {
-				if (level.activePugProposal == set)
-					level.activePugProposal = NULL;
-				ListRemove(&level.pickablePlayerSetsList, set);
-				ListIterate(&level.pickablePlayerSetsList, &iter, qfalse);
+			else {
+				for (int i = 0; i < MAX_CLIENTS; i++) {
+					sortedClient_t *cl = set->clients + i;
+					if (cl->accountName[0] && cl->accountId == ent->client->account->id) {
+						SV_Say(va("%s disconnected; pug proposal %d terminated.\n", cl->accountName, set->num));
+						deleteThis = qtrue;
+						break;
+					}
+				}
+				if (deleteThis) {
+					ListRemove(&level.pickablePlayerSetsList, set);
+					ListIterate(&level.pickablePlayerSetsList, &iter, qfalse);
+				}
 			}
 		}
 	}

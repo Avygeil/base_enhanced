@@ -19,6 +19,33 @@
 
 #define CHASE_VERSUS_ENEMY_OFFENSE_THRESHOLD	(0.11)
 
+double PlayerTierToRating(ctfPlayerTier_t tier) {
+	switch (tier) {
+	case PLAYERRATING_C: return 0.6;
+	case PLAYERRATING_LOW_B: return 0.78;
+	case PLAYERRATING_MID_B: return 0.8;
+	case PLAYERRATING_HIGH_B: return 0.81;
+	case PLAYERRATING_LOW_A: return 0.89;
+	case PLAYERRATING_MID_A: return 0.9;
+	case PLAYERRATING_HIGH_A: return 0.91;
+	case PLAYERRATING_S: return 1.0;
+	default: return 0.0;
+	}
+}
+
+ctfPlayerTier_t PlayerTierFromRating(double num) {
+	// stupid >= hack to account for imprecision
+	if (num >= 1.0) return PLAYERRATING_S;
+	if (num >= 0.91) return PLAYERRATING_HIGH_A;
+	if (num >= 0.9) return PLAYERRATING_MID_A;
+	if (num >= 0.89) return PLAYERRATING_LOW_A;
+	if (num >= 0.81) return PLAYERRATING_HIGH_B;
+	if (num >= 0.8) return PLAYERRATING_MID_B;
+	if (num >= 0.78) return PLAYERRATING_LOW_B;
+	if (num >= 0.6) return PLAYERRATING_C;
+	return PLAYERRATING_UNRATED;
+}
+
 typedef struct {
 	int accountId;
 	char accountName[MAX_NAME_LENGTH];
@@ -72,6 +99,8 @@ static XXH32_hash_t HashTeam(permutationOfTeams_t *t) {
 	hashMe.valid = qfalse;
 	hashMe.hash = 0;
 	hashMe.numOnPreferredPos = 0.0;
+	hashMe.topTierImbalance = 0;
+	hashMe.bottomTierImbalance = 0;
 	return XXH32(&hashMe, sizeof(permutationOfTeams_t), 0);
 }
 
@@ -121,6 +150,28 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 	double team1RelativeStrength = team1RawStrength / total;
 	double team2RelativeStrength = team2RawStrength / total;
 	double diff = fabs(team1RelativeStrength - team2RelativeStrength);
+
+	int team1TopTiers = 0, team2TopTiers = 0;
+	if (PlayerTierFromRating(team1base->rating[CTFPOSITION_BASE]) == PLAYERRATING_S) ++team1TopTiers;
+	if (PlayerTierFromRating(team1chase->rating[CTFPOSITION_CHASE]) == PLAYERRATING_S) ++team1TopTiers;
+	if (PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) == PLAYERRATING_S) ++team1TopTiers;
+	if (PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]) == PLAYERRATING_S) ++team1TopTiers;
+	if (PlayerTierFromRating(team2base->rating[CTFPOSITION_BASE]) == PLAYERRATING_S) ++team2TopTiers;
+	if (PlayerTierFromRating(team2chase->rating[CTFPOSITION_CHASE]) == PLAYERRATING_S) ++team2TopTiers;
+	if (PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) == PLAYERRATING_S) ++team2TopTiers;
+	if (PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]) == PLAYERRATING_S) ++team2TopTiers;
+	int topTierImbalance = abs(team1TopTiers - team2TopTiers);
+
+	int team1BottomTiers = 0, team2BottomTiers = 0;
+	if (PlayerTierFromRating(team1base->rating[CTFPOSITION_BASE]) == PLAYERRATING_C) ++team1BottomTiers;
+	if (PlayerTierFromRating(team1chase->rating[CTFPOSITION_CHASE]) == PLAYERRATING_C) ++team1BottomTiers;
+	if (PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) == PLAYERRATING_C) ++team1BottomTiers;
+	if (PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]) == PLAYERRATING_C) ++team1BottomTiers;
+	if (PlayerTierFromRating(team2base->rating[CTFPOSITION_BASE]) == PLAYERRATING_C) ++team2BottomTiers;
+	if (PlayerTierFromRating(team2chase->rating[CTFPOSITION_CHASE]) == PLAYERRATING_C) ++team2BottomTiers;
+	if (PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) == PLAYERRATING_C) ++team2BottomTiers;
+	if (PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]) == PLAYERRATING_C) ++team2BottomTiers;
+	int bottomTierImbalance = abs(team1BottomTiers - team2BottomTiers);
 
 	// reward permutations that put people on preferred positions (large bonus for #1 preferred; small bonus for #2 preferred)
 	double numOnPreferredPos = 0;
@@ -175,17 +226,28 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 		}
 	}
 
-	// if this is fairer, or is equally as fair but has more people on preferred pos, use it
-	if (diff < context->best->diff || (diff == context->best->diff && numOnPreferredPos > context->best->numOnPreferredPos)) {
+	// this permutation will be favored over the previous permutation if:
+	// - it is fairer
+	// - it is equally fair, but has more people on preferred pos
+	// - it is equally fair and has an equal number of people on preferred pos, but has better balance of bottom tier players
+	// - it is equally fair and has an equal number of people on preferred pos and equal balance of bottom tier players, but has better balance of top tier players
+	if (diff < context->best->diff ||
+		(diff == context->best->diff && numOnPreferredPos > context->best->numOnPreferredPos) ||
+		(diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && bottomTierImbalance < context->best->bottomTierImbalance) ||
+		(diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)) {
 		if (diff < context->best->diff)
 			TeamGen_DebugPrintf(" ^3best so far (fairer)^7\n");
 		else if (diff == context->best->diff && numOnPreferredPos > context->best->numOnPreferredPos)
 			TeamGen_DebugPrintf(" ^3best so far (same fairness, but more preferred pos)^7\n");
+		else if (diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && bottomTierImbalance < context->best->bottomTierImbalance)
+			TeamGen_DebugPrintf(" ^3best so far (same fairness and preferred pos, but better bottom tier balaance)^7\n");
 		else
 			TeamGen_DebugPrintf("^1???\n");
 		context->best->valid = qtrue;
 		context->best->diff = diff;
 		context->best->numOnPreferredPos = numOnPreferredPos;
+		context->best->topTierImbalance = topTierImbalance;
+		context->best->bottomTierImbalance = bottomTierImbalance;
 		context->best->teams[0].rawStrength = team1RawStrength;
 		context->best->teams[1].rawStrength = team2RawStrength;
 		context->best->teams[0].relativeStrength = team1RelativeStrength;
@@ -251,6 +313,28 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 	double team2RelativeStrength = team2RawStrength / total;
 	double diff = fabs(team1RelativeStrength - team2RelativeStrength);
 
+	int team1TopTiers = 0, team2TopTiers = 0;
+	if (PlayerTierFromRating(team1base->rating[CTFPOSITION_BASE]) == PLAYERRATING_S) ++team1TopTiers;
+	if (PlayerTierFromRating(team1chase->rating[CTFPOSITION_CHASE]) == PLAYERRATING_S) ++team1TopTiers;
+	if (PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) == PLAYERRATING_S) ++team1TopTiers;
+	if (PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]) == PLAYERRATING_S) ++team1TopTiers;
+	if (PlayerTierFromRating(team2base->rating[CTFPOSITION_BASE]) == PLAYERRATING_S) ++team2TopTiers;
+	if (PlayerTierFromRating(team2chase->rating[CTFPOSITION_CHASE]) == PLAYERRATING_S) ++team2TopTiers;
+	if (PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) == PLAYERRATING_S) ++team2TopTiers;
+	if (PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]) == PLAYERRATING_S) ++team2TopTiers;
+	int topTierImbalance = abs(team1TopTiers - team2TopTiers);
+
+	int team1BottomTiers = 0, team2BottomTiers = 0;
+	if (PlayerTierFromRating(team1base->rating[CTFPOSITION_BASE]) == PLAYERRATING_C) ++team1BottomTiers;
+	if (PlayerTierFromRating(team1chase->rating[CTFPOSITION_CHASE]) == PLAYERRATING_C) ++team1BottomTiers;
+	if (PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) == PLAYERRATING_C) ++team1BottomTiers;
+	if (PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]) == PLAYERRATING_C) ++team1BottomTiers;
+	if (PlayerTierFromRating(team2base->rating[CTFPOSITION_BASE]) == PLAYERRATING_C) ++team2BottomTiers;
+	if (PlayerTierFromRating(team2chase->rating[CTFPOSITION_CHASE]) == PLAYERRATING_C) ++team2BottomTiers;
+	if (PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) == PLAYERRATING_C) ++team2BottomTiers;
+	if (PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]) == PLAYERRATING_C) ++team2BottomTiers;
+	int bottomTierImbalance = abs(team1BottomTiers - team2BottomTiers);
+
 	// reward permutations that put people on preferred positions (large bonus for #1 preferred; small bonus for #2 preferred)
 	double numOnPreferredPos = 0;
 	if (team1base->preference == CTFPOSITION_BASE) numOnPreferredPos += 1.0; else if (team1base->secondPreference == CTFPOSITION_BASE) numOnPreferredPos += 0.1;
@@ -311,19 +395,32 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 
 	double currentBestCombinedStrength = context->best->teams[0].rawStrength + context->best->teams[1].rawStrength;
 
-	// if this is higher caliber, or is the same caliber but more fair, or is the same caliber but more people on preferred positions, use it
-	if (total > currentBestCombinedStrength || (total == currentBestCombinedStrength && diff < context->best->diff) || (total == currentBestCombinedStrength && diff == context->best->diff && numOnPreferredPos > context->best->numOnPreferredPos)) {
+	// this permutation will be favored over the previous permutation if:
+	// - it is higher caliber overall
+	// - it is equally high caliber, but fairer
+	// - it is equally high caliber and equally fair, but has more people on preferred pos
+	// - it is equally high caliber, equally fair, and has an equal number of people on preferred pos, but has better balance of bottom tier players
+	// - it is equally high caliber, equally fair, has an equal number of people on preferred pos and equal balance of bottom tier players, but has better balance of top tier players
+	if (total > currentBestCombinedStrength ||
+		(total == currentBestCombinedStrength && diff < context->best->diff) ||
+		(total == currentBestCombinedStrength && diff == context->best->diff && numOnPreferredPos > context->best->numOnPreferredPos) ||
+		(total == currentBestCombinedStrength && diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && bottomTierImbalance < context->best->bottomTierImbalance) ||
+		(total == currentBestCombinedStrength && diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)) {
 		if (total > currentBestCombinedStrength)
 			TeamGen_DebugPrintf(" ^6best so far (combined strength better)^7\n");
 		else if (total == currentBestCombinedStrength && diff < context->best->diff)
 			TeamGen_DebugPrintf(" ^6best so far (combined strength equal, but fairer)^7\n");
 		else if (total == currentBestCombinedStrength && numOnPreferredPos > context->best->numOnPreferredPos)
 			TeamGen_DebugPrintf(" ^6best so far (combined strength and fairness equal, but more preferred pos)^7\n");
+		else if (total == currentBestCombinedStrength && diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && bottomTierImbalance < context->best->bottomTierImbalance)
+			TeamGen_DebugPrintf(" ^6best so far (combined strength, fairness, and preferred pos, but better bottom tier balance)^7\n");
 		else
 			TeamGen_DebugPrintf("^1???\n");
 		context->best->valid = qtrue;
 		context->best->diff = diff;
 		context->best->numOnPreferredPos = numOnPreferredPos;
+		context->best->topTierImbalance = topTierImbalance;
+		context->best->bottomTierImbalance = bottomTierImbalance;
 		context->best->teams[0].rawStrength = team1RawStrength;
 		context->best->teams[1].rawStrength = team2RawStrength;
 		context->best->teams[0].relativeStrength = team1RelativeStrength;
@@ -607,7 +704,6 @@ static int SortClientsForTeamGenerator(const void *a, const void *b) {
 	return strcmp(aa->accountName, bb->accountName); // alphabetize
 }
 
-extern double PlayerTierToRating(ctfPlayerTier_t tier);
 static unsigned int teamGenSeed = 0;
 static ctfPosition_t ctfPosTiebreakerOrder[3] = { CTFPOSITION_BASE, CTFPOSITION_CHASE, CTFPOSITION_OFFENSE };
 static qboolean teamGenInitialized = qfalse;
@@ -1464,11 +1560,8 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 				++numYesVotes;
 		}
 
-#ifdef TEAM_GENERATOR_SIMPLE_MAJORITY
 		const int numRequired = 5;
-#else
-		const int numRequired = 4;
-#endif
+
 		if (numYesVotes >= numRequired) {
 			SV_Say(va("Teams proposal %c passed.", letter));
 
