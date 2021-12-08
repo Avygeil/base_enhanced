@@ -240,7 +240,9 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 		else if (diff == context->best->diff && numOnPreferredPos > context->best->numOnPreferredPos)
 			TeamGen_DebugPrintf(" ^3best so far (same fairness, but more preferred pos)^7\n");
 		else if (diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && bottomTierImbalance < context->best->bottomTierImbalance)
-			TeamGen_DebugPrintf(" ^3best so far (same fairness and preferred pos, but better bottom tier balaance)^7\n");
+			TeamGen_DebugPrintf(" ^3best so far (same fairness and preferred pos, but better bottom tier balance)^7\n");
+		else if (diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)
+			TeamGen_DebugPrintf(" ^3best so far (same fairness and preferred pos, and bottom tier balance, but better top tier balance)^7\n");
 		else
 			TeamGen_DebugPrintf("^1???\n");
 		context->best->valid = qtrue;
@@ -414,6 +416,8 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 			TeamGen_DebugPrintf(" ^6best so far (combined strength and fairness equal, but more preferred pos)^7\n");
 		else if (total == currentBestCombinedStrength && diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && bottomTierImbalance < context->best->bottomTierImbalance)
 			TeamGen_DebugPrintf(" ^6best so far (combined strength, fairness, and preferred pos, but better bottom tier balance)^7\n");
+		else if (total == currentBestCombinedStrength && diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)
+			TeamGen_DebugPrintf(" ^6best so far (combined strength, fairness, and preferred pos, and bottom tier balance, but better top tier balance)^7\n");
 		else
 			TeamGen_DebugPrintf("^1???\n");
 		context->best->valid = qtrue;
