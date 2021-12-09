@@ -1182,6 +1182,7 @@ typedef struct {
 	sortedClient_t	clients[MAX_CLIENTS];
 	int				votedYesClients;
 	int				votedToRerollClients;
+	int				votedToCancelClients;
 	qboolean		passed;
 	permutationOfTeams_t suggested, highestCaliber, fairest;
 	uint64_t		numValidPermutationsChecked;
@@ -1192,6 +1193,7 @@ typedef struct {
 
 qboolean TeamGenerator_PugStart(gentity_t *ent, char **newMessage);
 qboolean TeamGenerator_VoteToReroll(gentity_t *ent, char **newMessage);
+qboolean TeamGenerator_VoteToCancel(gentity_t *ent, char **newMessage);
 qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteStr, char **newMessage);
 qboolean TeamGenerator_VoteYesToTeamCombination(gentity_t *ent, int num, pugProposal_t *setOptional, char **newMessage);
 

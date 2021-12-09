@@ -4817,6 +4817,7 @@ void ClientDisconnect( int clientNum ) {
 			pugProposal_t *set = IteratorNext(&iter);
 			set->votedYesClients &= ~(1 << clientNum);
 			set->votedToRerollClients &= ~(1 << clientNum);
+			set->votedToCancelClients &= ~(1 << clientNum);
 		}
 
 		if (level.activePugProposal) {

@@ -2128,9 +2128,10 @@ static qboolean CheckForChatCommand(gentity_t *ent, const char *s, char **newMes
 			"*Chat commands:\n"
 			"%cstart      - propose playing a pug with current non-spec players\n"
 			"^9%c[number] - vote to approve a pug proposal\n"
-			"^7%c[a|b|c]  - vote to approve one or more teams proposals\n"
+			"^7%c[ a | b | c ]  - vote to approve one or more teams proposals\n"
 			"^9%creroll   - vote to generate new teams proposals with the same players\n"
-		, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER);
+			"^7%ccancel   - vote to generate new teams proposals with the same players\n"
+		, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER);
 		SV_Tell(ent - g_entities, "See console for chat command help.");
 		return qtrue;
 	}
@@ -2140,6 +2141,9 @@ static qboolean CheckForChatCommand(gentity_t *ent, const char *s, char **newMes
 
 	if (!Q_stricmp(s, "reroll"))
 		return TeamGenerator_VoteToReroll(ent, newMessage);
+
+	if (!Q_stricmp(s, "cancel"))
+		return TeamGenerator_VoteToCancel(ent, newMessage);
 
 	if (strlen(s) <= 3) {
 		qboolean invalidVote = qfalse;

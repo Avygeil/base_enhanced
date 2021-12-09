@@ -1325,7 +1325,7 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 			if (!ent->inuse || !ent->client)
 				continue;
 			int accId = ent->client->account ? ent->client->account->id : -1;
-			PrintIngame(i, "%s%s teams: ^3enter %c%c in chat if you approve\n^1Red team:^7 %.2f'/. relative strength\n    ^5Base: %s%s\n    ^6Chase: %s%s\n    ^2Offense: %s%s^7, %s%s^7\n^4Blue team:^7 %.2f'/. relative strength\n    ^5Base: %s%s\n    ^6Chase: %s%s\n    ^2Offense: %s%s^7, %s%s^7\n",
+			PrintIngame(i, "%s%s teams: ^5enter %c%c in chat if you approve\n^1Red team:^7 %.2f'/. relative strength\n    ^5Base: %s%s\n    ^6Chase: %s%s\n    ^2Offense: %s%s^7, %s%s^7\n^4Blue team:^7 %.2f'/. relative strength\n    ^5Base: %s%s\n    ^6Chase: %s%s\n    ^2Offense: %s%s^7, %s%s^7\n",
 				numPrinted++ ? "\n" : "",
 				suggestionTypeStr,
 				TEAMGEN_CHAT_COMMAND_CHARACTER,
@@ -1351,8 +1351,27 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 		}
 	}
 
-	if (numPrinted > 1)
-		PrintIngame(-1, "^3You can approve of multiple teams proposals simultaneously by entering e.g. %cab^7\n", TEAMGEN_CHAT_COMMAND_CHARACTER);
+	if (numPrinted == 3) {
+		PrintIngame(-1,
+			"Vote for a teams proposal by entering e.g. ^5%ca^7, ^5%cb^7, or ^5%cc^7\n"
+			"You can approve of multiple teams proposals simultaneously by entering e.g. ^5%cab^7\n",
+			TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER);
+	}
+	else if (numPrinted == 2) {
+		PrintIngame(-1,
+			"Vote for a teams proposal by entering e.g. ^5%ca^7 or ^5%cb^7\n"
+			"You can approve of both teams proposals simultaneously by entering ^5%cab^7\n",
+			TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER);
+	}
+	else if (numPrinted == 1) {
+		PrintIngame(-1,
+			"Vote for to approve the teams proposal by entering ^5%ca^7\n", TEAMGEN_CHAT_COMMAND_CHARACTER);
+	}
+
+	PrintIngame(-1,
+		"You can vote to reroll the teams proposals by entering ^5%creroll^7\n"
+		"You can vote to cancel the pug proposal by entering ^5%ccancel^7\n",
+		TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER);
 }
 
 static void ActivatePugProposal(pugProposal_t *set) {
@@ -1770,7 +1789,7 @@ qboolean TeamGenerator_PugStart(gentity_t *ent, char **newMessage) {
 	char *namesStr = GetNamesStringForPugProposal(set);
 	if (VALIDSTRING(namesStr))
 		Q_strncpyz(set->namesStr, namesStr, sizeof(set->namesStr));
-	SV_Say(va("%s proposes pug with: %s. Enter ^2%c%d^7 in chat if you approve.", cleanname, namesStr, TEAMGEN_CHAT_COMMAND_CHARACTER, set->num));
+	SV_Say(va("%s proposes pug with: %s. Enter ^5%c%d^7 in chat if you approve.", cleanname, namesStr, TEAMGEN_CHAT_COMMAND_CHARACTER, set->num));
 	return qfalse;
 }
 
@@ -1903,6 +1922,90 @@ qboolean TeamGenerator_VoteToReroll(gentity_t *ent, char **newMessage) {
 			ListRemove(&level.pugProposalsList, level.activePugProposal);
 			level.activePugProposal = NULL;
 		}
+	}
+
+	return qfalse;
+}
+
+qboolean TeamGenerator_VoteToCancel(gentity_t *ent, char **newMessage) {
+	assert(ent && ent->client);
+
+	if (!ent->client->account) {
+		SV_Tell(ent - g_entities, "You do not have an account, so you cannot vote for pug proposals. Please contact an admin for help setting up an account.");
+		return qtrue;
+	}
+
+	if (!level.activePugProposal) {
+		SV_Tell(ent - g_entities, "No pug proposal is currently active.");
+		return qtrue;
+	}
+
+	qboolean allowedToVote = qfalse;
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		sortedClient_t *cl = &level.activePugProposal->clients[i];
+		if (cl->accountName[0] && cl->accountId == ent->client->account->id) {
+			allowedToVote = qtrue;
+			break;
+		}
+	}
+
+	if (!allowedToVote) {
+		SV_Tell(ent - g_entities, "You cannot vote to cancel because you are not part of this pug proposal.");
+		return qtrue;
+	}
+
+	qboolean votedToCancelOnAnotherClient = qfalse;
+	if (!(level.activePugProposal->votedToCancelClients & (1 << ent - g_entities))) {
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *other = &g_entities[i];
+			if (other == ent || !other->inuse || !other->client || !other->client->account)
+				continue;
+			if (other->client->account->id != ent->client->account->id)
+				continue;
+			if (level.activePugProposal->votedToCancelClients & (1 << other - g_entities)) {
+				votedToCancelOnAnotherClient = qtrue;
+				break;
+			}
+		}
+	}
+
+	if (votedToCancelOnAnotherClient || level.activePugProposal->votedToCancelClients & (1 << ent - g_entities)) {
+		SV_Tell(ent - g_entities, "You have already voted to cancel the teams proposals.");
+		return qfalse; // allow chat message for peer pressure
+	}
+
+	Com_Printf("%s^7 voted to cancel active pug proposal %d.\n", ent->client->pers.netname, level.activePugProposal->num);
+	SV_Tell(ent - g_entities, va("Vote cast to cancel pug proposal %d.", level.activePugProposal->num));
+	level.activePugProposal->votedToCancelClients |= (1 << (ent - g_entities));
+
+	int numEligible = 0, numCancelVotesFromEligiblePlayers = 0;
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		sortedClient_t *cl = &level.activePugProposal->clients[i];
+		if (!cl->accountName[0])
+			continue; // not included in this set
+		++numEligible;
+		for (int j = 0; j < MAX_CLIENTS; j++) {
+			gentity_t *other = &g_entities[j];
+			if (!other->inuse || !other->client || !other->client->account || other->client->account->id != cl->accountId)
+				continue;
+			if (level.activePugProposal->votedToCancelClients & (1 << j))
+				++numCancelVotesFromEligiblePlayers;
+		}
+	}
+
+	// require a simple majority of the total people in the proposal. requiring only 4 or 5 would allow e.g. in a set of 15 people for just a few people who were excluded to cancel it for everyone else
+	const int numRequired = (numEligible / 2) + 1;
+
+	if (newMessage) {
+		static char buf[MAX_STRING_CHARS] = { 0 };
+		Com_sprintf(buf, sizeof(buf), "%ccancel   ^9(%d/%d)", TEAMGEN_CHAT_COMMAND_CHARACTER, numCancelVotesFromEligiblePlayers, numRequired);
+		*newMessage = buf;
+	}
+
+	if (numCancelVotesFromEligiblePlayers >= numRequired) {
+		SV_Say(va("Pug proposal %d canceled (%s).", level.activePugProposal->num, level.activePugProposal->namesStr));
+		ListRemove(&level.pugProposalsList, level.activePugProposal);
+		level.activePugProposal = NULL;
 	}
 
 	return qfalse;
