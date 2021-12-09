@@ -1191,6 +1191,14 @@ typedef struct {
 	int				suggestedVoteClients, highestCaliberVoteClients, fairestVoteClients;
 } pugProposal_t;
 
+typedef struct {
+	node_t			node;
+	char			*text;
+	qboolean		inConsole;
+	int				clientNum;
+	int				serverFrameNum;
+} queuedServerMessage_t;
+
 qboolean TeamGenerator_PugStart(gentity_t *ent, char **newMessage);
 qboolean TeamGenerator_VoteToReroll(gentity_t *ent, char **newMessage);
 qboolean TeamGenerator_VoteToCancel(gentity_t *ent, char **newMessage);
@@ -1835,6 +1843,7 @@ typedef struct {
 
 	list_t pugProposalsList;
 	pugProposal_t *activePugProposal;
+	list_t queuedServerMessagesList;
 } level_locals_t;
 
 

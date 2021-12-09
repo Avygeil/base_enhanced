@@ -1257,11 +1257,35 @@ static char *GetNamesStringForPugProposal(const pugProposal_t *players) {
 	return buf;
 }
 
+// since we may want to respond to the entered chat command with a chat message, we put the server's responses into a queue
+// the queue gets everything in it printed after we have printed whatever chat command the player entered 
+static void WriteServerMessageInChat(int clientNum, const char *msg) {
+	if (!VALIDSTRING(msg))
+		return;
+
+	queuedServerMessage_t *add = ListAdd(&level.queuedServerMessagesList, sizeof(queuedServerMessage_t));
+	add->clientNum = clientNum;
+	add->text = strdup(msg);
+	add->inConsole = qfalse;
+	add->serverFrameNum = level.framenum;
+}
+
+static void WriteServerMessageInConsole(int clientNum, const char *msg) {
+	if (!VALIDSTRING(msg))
+		return;
+
+	queuedServerMessage_t *add = ListAdd(&level.queuedServerMessagesList, sizeof(queuedServerMessage_t));
+	add->clientNum = clientNum;
+	add->text = strdup(msg);
+	add->inConsole = qtrue;
+	add->serverFrameNum = level.framenum;
+}
+
 static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 	assert(set);
 	char formattedNumber[64] = { 0 };
 	FormatNumberToStringWithCommas(set->numValidPermutationsChecked, formattedNumber, sizeof(formattedNumber));
-	PrintIngame(-1, "Team generator results for %s\n(%s valid permutations evaluated):\n", set->namesStr, formattedNumber);
+	WriteServerMessageInConsole(-1, va("Team generator results for %s\n(%s valid permutations evaluated):\n", set->namesStr, formattedNumber));
 
 	int numPrinted = 0;
 	char lastLetter = 'a';
@@ -1325,8 +1349,8 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 			if (!ent->inuse || !ent->client)
 				continue;
 			int accId = ent->client->account ? ent->client->account->id : -1;
-			PrintIngame(i, "%s%s teams: ^5enter %c%c in chat if you approve\n^1Red team:^7 %.2f'/. relative strength\n    ^5Base: %s%s\n    ^6Chase: %s%s\n    ^2Offense: %s%s^7, %s%s^7\n^4Blue team:^7 %.2f'/. relative strength\n    ^5Base: %s%s\n    ^6Chase: %s%s\n    ^2Offense: %s%s^7, %s%s^7\n",
-				numPrinted++ ? "\n" : "",
+			WriteServerMessageInConsole(i, va("%s%s teams: ^5enter %c%c in chat if you approve\n^1Red team:^7 %.2f'/. relative strength\n    ^5Base: %s%s\n    ^6Chase: %s%s\n    ^2Offense: %s%s^7, %s%s^7\n^4Blue team:^7 %.2f'/. relative strength\n    ^5Base: %s%s\n    ^6Chase: %s%s\n    ^2Offense: %s%s^7, %s%s^7\n",
+				numPrinted ? "\n" : "",
 				suggestionTypeStr,
 				TEAMGEN_CHAT_COMMAND_CHARACTER,
 				letter,
@@ -1347,44 +1371,46 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 				thisPermutation->teams[1].offenseId1 == accId ? "^3" : "^7",
 				thisPermutation->teams[1].offense1Name,
 				thisPermutation->teams[1].offenseId2 == accId ? "^3" : "^7",
-				thisPermutation->teams[1].offense2Name);
+				thisPermutation->teams[1].offense2Name));
 		}
+
+		++numPrinted;
 	}
 
 	if (numPrinted == 3) {
-		PrintIngame(-1,
-			"Vote for a teams proposal by entering e.g. ^5%ca^7, ^5%cb^7, or ^5%cc^7\n"
+		WriteServerMessageInConsole(-1,
+			va("Vote for a teams proposal by entering e.g. ^5%ca^7, ^5%cb^7, or ^5%cc^7\n"
 			"You can approve of multiple teams proposals simultaneously by entering e.g. ^5%cab^7\n",
-			TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER);
+			TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER));
 	}
 	else if (numPrinted == 2) {
-		PrintIngame(-1,
-			"Vote for a teams proposal by entering e.g. ^5%ca^7 or ^5%cb^7\n"
+		WriteServerMessageInConsole(-1,
+			va("Vote for a teams proposal by entering e.g. ^5%ca^7 or ^5%cb^7\n"
 			"You can approve of both teams proposals simultaneously by entering ^5%cab^7\n",
-			TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER);
+			TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER));
 	}
 	else if (numPrinted == 1) {
-		PrintIngame(-1,
-			"Vote for to approve the teams proposal by entering ^5%ca^7\n", TEAMGEN_CHAT_COMMAND_CHARACTER);
+		WriteServerMessageInConsole(-1,
+			va("Vote for to approve the teams proposal by entering ^5%ca^7\n", TEAMGEN_CHAT_COMMAND_CHARACTER));
 	}
 
-	PrintIngame(-1,
-		"You can vote to reroll the teams proposals by entering ^5%creroll^7\n"
+	WriteServerMessageInConsole(-1,
+		va("You can vote to reroll the teams proposals by entering ^5%creroll^7\n"
 		"You can vote to cancel the pug proposal by entering ^5%ccancel^7\n",
-		TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER);
+		TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER));
 }
 
 static void ActivatePugProposal(pugProposal_t *set) {
 	assert(set);
 
 	if (GenerateTeams(set, &set->suggested, &set->highestCaliber, &set->fairest, &set->numValidPermutationsChecked)) {
-		SV_Say(va("Pug proposal %d passed (%s). Check console for teams proposals.", set->num, set->namesStr));
+		WriteServerMessageInChat(-1, va("Pug proposal %d passed (%s). Check console for teams proposals.", set->num, set->namesStr));
 		set->passed = qtrue;
 		level.activePugProposal = set;
 		PrintTeamsProposalsInConsole(set);
 	}
 	else {
-		SV_Say(va("Pug proposal %d passed (%s). Unable to generate teams; pug proposal %d terminated.", set->num, set->namesStr, set->num));
+		WriteServerMessageInChat(-1, va("Pug proposal %d passed (%s). Unable to generate teams; pug proposal %d terminated.", set->num, set->namesStr, set->num));
 		level.activePugProposal = NULL;
 		ListRemove(&level.pugProposalsList, set);
 	}
@@ -1480,12 +1506,12 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 	assert(ent && VALIDSTRING(voteStr));
 
 	if (!ent->client->account) {
-		SV_Tell(ent - g_entities, "You do not have an account, so you cannot vote for team proposals. Please contact an admin for help setting up an account.");
+		WriteServerMessageInChat(ent - g_entities, "You do not have an account, so you cannot vote for team proposals. Please contact an admin for help setting up an account.");
 		return qtrue;
 	}
 
 	if (!level.activePugProposal) {
-		SV_Tell(ent - g_entities, "No pug proposal is currently active.");
+		WriteServerMessageInChat(ent - g_entities, "No pug proposal is currently active.");
 		return qtrue;
 	}
 
@@ -1508,12 +1534,12 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 			permutation = &level.activePugProposal->fairest;
 		}
 		else {
-			SV_Tell(ent - g_entities, va("Invalid pug proposal letter '%c'.", *p));
+			WriteServerMessageInChat(ent - g_entities, va("Invalid pug proposal letter '%c'.", *p));
 			continue;
 		}
 
 		if (!permutation->valid) {
-			SV_Tell(ent - g_entities, va("Invalid pug proposal letter '%c'.", *p));
+			WriteServerMessageInChat(ent - g_entities, va("Invalid pug proposal letter '%c'.", *p));
 			continue;
 		}
 
@@ -1541,7 +1567,7 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 		}
 
 		if (!allowedToVote) {
-			SV_Tell(ent - g_entities, va("You cannot vote on teams proposal %c because you are not part of it.", lower));
+			WriteServerMessageInChat(ent - g_entities, va("You cannot vote on teams proposal %c because you are not part of it.", lower));
 			continue;
 		}
 
@@ -1560,16 +1586,16 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 
 	if (!newVotes[0]) {
 		if (oldVotes[0])
-			SV_Tell(ent - g_entities, oldVotesMessage);
+			WriteServerMessageInChat(ent - g_entities, oldVotesMessage);
 	}
 	else {
 		if (strlen(newVotes) > 1) {
 			Com_Printf("%s^7 voted yes to teams proposals %s.\n", ent->client->pers.netname, voteStr);
-			SV_Tell(ent - g_entities, va("Vote cast for teams proposals %s.%s%s", voteStr, oldVotes[0] ? " " : "", oldVotes[0] ? oldVotesMessage : ""));
+			WriteServerMessageInChat(ent - g_entities, va("Vote cast for teams proposals %s.%s%s", voteStr, oldVotes[0] ? " " : "", oldVotes[0] ? oldVotesMessage : ""));
 		}
 		else {
 			Com_Printf("%s^7 voted yes to teams proposal %s.\n", ent->client->pers.netname, voteStr);
-			SV_Tell(ent - g_entities, va("Vote cast for teams proposal %s.%s%s", voteStr, oldVotes[0] ? " " : "", oldVotes[0] ? oldVotesMessage : ""));
+			WriteServerMessageInChat(ent - g_entities, va("Vote cast for teams proposal %s.%s%s", voteStr, oldVotes[0] ? " " : "", oldVotes[0] ? oldVotesMessage : ""));
 		}
 	}
 
@@ -1627,7 +1653,7 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 		const int numRequired = g_vote_teamgen_team_requiredVotes.integer ? g_vote_teamgen_team_requiredVotes.integer : 5;
 
 		if (numYesVotes >= numRequired) {
-			SV_Say(va("Teams proposal %c passed.", letter));
+			WriteServerMessageInChat(-1, va("Teams proposal %c passed.", letter));
 
 			char printMessage[1024] = { 0 };
 			Com_sprintf(printMessage, sizeof(printMessage), "*^1Red team:^7 (%0.2f'/. relative strength)\n", permutation->teams[0].relativeStrength * 100.0);
@@ -1640,7 +1666,7 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 			Q_strcat(printMessage, sizeof(printMessage), va("^6Chase: ^7 %s\n", permutation->teams[1].chaseName));
 			Q_strcat(printMessage, sizeof(printMessage), va("^2Offense: ^7 %s^7, ", permutation->teams[1].offense1Name));
 			Q_strcat(printMessage, sizeof(printMessage), va("^7%s\n\n", permutation->teams[1].offense2Name));
-			PrintIngame(-1, printMessage);
+			WriteServerMessageInConsole(-1, printMessage);
 
 			ActivateTeamsProposal(permutation);
 			ListRemove(&level.pugProposalsList, level.activePugProposal);
@@ -1656,12 +1682,12 @@ qboolean TeamGenerator_VoteYesToTeamCombination(gentity_t *ent, int num, pugProp
 	assert(ent && ent->client);
 
 	if (!ent->client->account) {
-		SV_Tell(ent - g_entities, "You do not have an account, so you cannot vote for pug proposals. Please contact an admin for help setting up an account.");
+		WriteServerMessageInChat(ent - g_entities, "You do not have an account, so you cannot vote for pug proposals. Please contact an admin for help setting up an account.");
 		return qtrue;
 	}
 
 	if (!setOptional && num <= 0) {
-		SV_Tell(ent - g_entities, "Invalid pug proposal number.");
+		WriteServerMessageInChat(ent - g_entities, "Invalid pug proposal number.");
 		return qtrue;
 	}
 
@@ -1670,15 +1696,15 @@ qboolean TeamGenerator_VoteYesToTeamCombination(gentity_t *ent, int num, pugProp
 	set = setOptional ? setOptional : ListFind(&level.pugProposalsList, PugProposalMatchesNum, &num, NULL);
 
 	if (!set) {
-		SV_Tell(ent - g_entities, "Invalid pug proposal number.");
+		WriteServerMessageInChat(ent - g_entities, "Invalid pug proposal number.");
 		return qtrue;
 	}
 
 	if (setOptional)
-		SV_Tell(ent - g_entities, "A pug with these players has already been proposed. Changed your command into a vote for it.");
+		WriteServerMessageInChat(ent - g_entities, "A pug with these players has already been proposed. Changed your command into a vote for it.");
 
 	if (set->passed) {
-		SV_Tell(ent - g_entities, "This pug proposal has already passed.");
+		WriteServerMessageInChat(ent - g_entities, "This pug proposal has already passed.");
 		return qtrue;
 	}
 
@@ -1692,7 +1718,7 @@ qboolean TeamGenerator_VoteYesToTeamCombination(gentity_t *ent, int num, pugProp
 	}
 
 	if (!allowedToVote) {
-		SV_Tell(ent - g_entities, "You cannot vote on this pug proposal because you are not part of it.");
+		WriteServerMessageInChat(ent - g_entities, "You cannot vote on this pug proposal because you are not part of it.");
 		return qtrue;
 	}
 
@@ -1713,12 +1739,12 @@ qboolean TeamGenerator_VoteYesToTeamCombination(gentity_t *ent, int num, pugProp
 	}
 
 	if (votedYesOnAnotherClient || set->votedYesClients & (1 << ent - g_entities)) {
-		SV_Tell(ent - g_entities, "You have already voted for this pug proposal.");
+		WriteServerMessageInChat(ent - g_entities, "You have already voted for this pug proposal.");
 		return qfalse; // allow chat message for peer pressure
 	}
 
 	Com_Printf("%s^7 voted yes to pug proposal %d.\n", ent->client->pers.netname, set->num);
-	SV_Tell(ent - g_entities, va("Vote cast for pug proposal %d.", set->num));
+	WriteServerMessageInChat(ent - g_entities, va("Vote cast for pug proposal %d.", set->num));
 	set->votedYesClients |= (1 << (ent - g_entities));
 
 	int numEligible = 0, numYesVotesFromEligiblePlayers = 0;
@@ -1764,7 +1790,7 @@ qboolean TeamGenerator_PugStart(gentity_t *ent, char **newMessage) {
 	GetCurrentPickablePlayers(&clients[0], &numEligible, qfalse);
 
 	if (numEligible < 8) {
-		SV_Tell(ent - g_entities, "Not enough eligible players.");
+		WriteServerMessageInChat(ent - g_entities, "Not enough eligible players.");
 		return qtrue;
 	}
 
@@ -1789,7 +1815,7 @@ qboolean TeamGenerator_PugStart(gentity_t *ent, char **newMessage) {
 	char *namesStr = GetNamesStringForPugProposal(set);
 	if (VALIDSTRING(namesStr))
 		Q_strncpyz(set->namesStr, namesStr, sizeof(set->namesStr));
-	SV_Say(va("%s proposes pug with: %s. Enter ^5%c%d^7 in chat if you approve.", cleanname, namesStr, TEAMGEN_CHAT_COMMAND_CHARACTER, set->num));
+	WriteServerMessageInChat(-1, va("%s proposes pug with: %s. Enter ^5%c%d^7 in chat if you approve.", cleanname, namesStr, TEAMGEN_CHAT_COMMAND_CHARACTER, set->num));
 	return qfalse;
 }
 
@@ -1798,12 +1824,12 @@ qboolean TeamGenerator_VoteToReroll(gentity_t *ent, char **newMessage) {
 	assert(ent && ent->client);
 
 	if (!ent->client->account) {
-		SV_Tell(ent - g_entities, "You do not have an account, so you cannot vote for pug proposals. Please contact an admin for help setting up an account.");
+		WriteServerMessageInChat(ent - g_entities, "You do not have an account, so you cannot vote for pug proposals. Please contact an admin for help setting up an account.");
 		return qtrue;
 	}
 
 	if (!level.activePugProposal) {
-		SV_Tell(ent - g_entities, "No pug proposal is currently active.");
+		WriteServerMessageInChat(ent - g_entities, "No pug proposal is currently active.");
 		return qtrue;
 	}
 
@@ -1817,7 +1843,7 @@ qboolean TeamGenerator_VoteToReroll(gentity_t *ent, char **newMessage) {
 	}
 
 	if (!allowedToVote) {
-		SV_Tell(ent - g_entities, "You cannot vote to reroll because you are not part of this pug proposal.");
+		WriteServerMessageInChat(ent - g_entities, "You cannot vote to reroll because you are not part of this pug proposal.");
 		return qtrue;
 	}
 
@@ -1837,12 +1863,12 @@ qboolean TeamGenerator_VoteToReroll(gentity_t *ent, char **newMessage) {
 	}
 
 	if (votedToRerollOnAnotherClient || level.activePugProposal->votedToRerollClients & (1 << ent - g_entities)) {
-		SV_Tell(ent - g_entities, "You have already voted to reroll the teams proposals.");
+		WriteServerMessageInChat(ent - g_entities, "You have already voted to reroll the teams proposals.");
 		return qfalse; // allow chat message for peer pressure
 	}
 
 	Com_Printf("%s^7 voted to reroll active pug proposal %d.\n", ent->client->pers.netname, level.activePugProposal->num);
-	SV_Tell(ent - g_entities, "Vote cast to reroll teams proposals.");
+	WriteServerMessageInChat(ent - g_entities, "Vote cast to reroll teams proposals.");
 	level.activePugProposal->votedToRerollClients |= (1 << (ent - g_entities));
 
 	int numEligible = 0, numRerollVotesFromEligiblePlayers = 0;
@@ -1910,15 +1936,15 @@ qboolean TeamGenerator_VoteToReroll(gentity_t *ent, char **newMessage) {
 
 			if (gotNewTeams) {
 				level.activePugProposal->suggestedVoteClients = level.activePugProposal->highestCaliberVoteClients = level.activePugProposal->fairestVoteClients = 0;
-				SV_Say(va("Pug proposal %d rerolled (%s). Check console for new teams proposals.", level.activePugProposal->num, level.activePugProposal->namesStr));
+				WriteServerMessageInChat(-1, va("Pug proposal %d rerolled (%s). Check console for new teams proposals.", level.activePugProposal->num, level.activePugProposal->namesStr));
 				PrintTeamsProposalsInConsole(level.activePugProposal);
 			}
 			else {
-				SV_Say(va("Failed to generate different teams when rerolling pug proposal %d (%s). Voting will continue for the existing teams.", level.activePugProposal->num, level.activePugProposal->namesStr));
+				WriteServerMessageInChat(-1, va("Failed to generate different teams when rerolling pug proposal %d (%s). Voting will continue for the existing teams.", level.activePugProposal->num, level.activePugProposal->namesStr));
 			}
 		}
 		else {
-			SV_Say(va("Pug proposal %d rerolled (%s). Unable to generate new teams; pug proposal %d terminated.", level.activePugProposal->num, level.activePugProposal->namesStr, level.activePugProposal->num));
+			WriteServerMessageInChat(-1, va("Pug proposal %d rerolled (%s). Unable to generate new teams; pug proposal %d terminated.", level.activePugProposal->num, level.activePugProposal->namesStr, level.activePugProposal->num));
 			ListRemove(&level.pugProposalsList, level.activePugProposal);
 			level.activePugProposal = NULL;
 		}
@@ -1931,12 +1957,12 @@ qboolean TeamGenerator_VoteToCancel(gentity_t *ent, char **newMessage) {
 	assert(ent && ent->client);
 
 	if (!ent->client->account) {
-		SV_Tell(ent - g_entities, "You do not have an account, so you cannot vote for pug proposals. Please contact an admin for help setting up an account.");
+		WriteServerMessageInChat(ent - g_entities, "You do not have an account, so you cannot vote for pug proposals. Please contact an admin for help setting up an account.");
 		return qtrue;
 	}
 
 	if (!level.activePugProposal) {
-		SV_Tell(ent - g_entities, "No pug proposal is currently active.");
+		WriteServerMessageInChat(ent - g_entities, "No pug proposal is currently active.");
 		return qtrue;
 	}
 
@@ -1950,7 +1976,7 @@ qboolean TeamGenerator_VoteToCancel(gentity_t *ent, char **newMessage) {
 	}
 
 	if (!allowedToVote) {
-		SV_Tell(ent - g_entities, "You cannot vote to cancel because you are not part of this pug proposal.");
+		WriteServerMessageInChat(ent - g_entities, "You cannot vote to cancel because you are not part of this pug proposal.");
 		return qtrue;
 	}
 
@@ -1970,12 +1996,12 @@ qboolean TeamGenerator_VoteToCancel(gentity_t *ent, char **newMessage) {
 	}
 
 	if (votedToCancelOnAnotherClient || level.activePugProposal->votedToCancelClients & (1 << ent - g_entities)) {
-		SV_Tell(ent - g_entities, "You have already voted to cancel the teams proposals.");
+		WriteServerMessageInChat(ent - g_entities, "You have already voted to cancel the teams proposals.");
 		return qfalse; // allow chat message for peer pressure
 	}
 
 	Com_Printf("%s^7 voted to cancel active pug proposal %d.\n", ent->client->pers.netname, level.activePugProposal->num);
-	SV_Tell(ent - g_entities, va("Vote cast to cancel pug proposal %d.", level.activePugProposal->num));
+	WriteServerMessageInChat(ent - g_entities, va("Vote cast to cancel pug proposal %d.", level.activePugProposal->num));
 	level.activePugProposal->votedToCancelClients |= (1 << (ent - g_entities));
 
 	int numEligible = 0, numCancelVotesFromEligiblePlayers = 0;
@@ -2003,7 +2029,7 @@ qboolean TeamGenerator_VoteToCancel(gentity_t *ent, char **newMessage) {
 	}
 
 	if (numCancelVotesFromEligiblePlayers >= numRequired) {
-		SV_Say(va("Pug proposal %d canceled (%s).", level.activePugProposal->num, level.activePugProposal->namesStr));
+		WriteServerMessageInChat(-1, va("Pug proposal %d canceled (%s).", level.activePugProposal->num, level.activePugProposal->namesStr));
 		ListRemove(&level.pugProposalsList, level.activePugProposal);
 		level.activePugProposal = NULL;
 	}

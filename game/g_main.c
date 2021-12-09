@@ -1990,6 +1990,14 @@ void G_ShutdownGame( int restart ) {
 
 	ListClear(&level.pugProposalsList);
 
+	ListIterate(&level.queuedServerMessagesList, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		queuedServerMessage_t *msg = IteratorNext(&iter);
+		if (msg->text)
+			free(msg->text);
+	}
+	ListClear(&level.queuedServerMessagesList);
+
 	UnpatchEngine();
 }
 
@@ -5679,6 +5687,37 @@ void G_RunFrame( int levelTime ) {
 		}
 	}
 #endif
+
+	// print any queued messages
+	if (level.queuedServerMessagesList.size > 0) {
+		iterator_t iter;
+		ListIterate(&level.queuedServerMessagesList, &iter, qfalse);
+		while (IteratorHasNext(&iter)) {
+			queuedServerMessage_t *msg = IteratorNext(&iter);
+			int timeSince = g_svfps.integer * (level.framenum - msg->serverFrameNum);
+			const int threshold = 50; // this seems to work
+			if (timeSince < threshold)
+				continue;
+
+			if (VALIDSTRING(msg->text)) {
+				if (msg->inConsole) {
+					PrintIngame(msg->clientNum, msg->text);
+				}
+				else {
+					if (msg->clientNum >= 0 && msg->clientNum < MAX_CLIENTS)
+						SV_Tell(msg->clientNum, msg->text);
+					else
+						SV_Say(msg->text);
+				}
+			}
+
+			if (msg->text)
+				free(msg->text);
+
+			ListRemove(&level.queuedServerMessagesList, msg);
+			ListIterate(&level.queuedServerMessagesList, &iter, qfalse);
+		}
+	}
 
 #ifdef _DEBUG
 	if ( g_antiWallhack.integer && g_wallhackMaxTraces.integer && level.wallhackTracesDone ) {
