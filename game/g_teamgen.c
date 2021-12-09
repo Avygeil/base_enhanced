@@ -723,7 +723,7 @@ static void InitializeTeamGenerator(void) {
 	teamGenInitialized = qtrue;
 }
 
-static qboolean GenerateTeams(setOfPickablePlayers_t *set, permutationOfTeams_t *mostPlayed, permutationOfTeams_t *highestCaliber, permutationOfTeams_t *fairest, uint64_t *numPermutations) {
+static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlayed, permutationOfTeams_t *highestCaliber, permutationOfTeams_t *fairest, uint64_t *numPermutations) {
 	assert(set);
 	InitializeTeamGenerator();
 #ifdef DEBUG_GENERATETEAMS
@@ -1084,7 +1084,7 @@ static qboolean GenerateTeams(setOfPickablePlayers_t *set, permutationOfTeams_t 
 }
 
 // ignores everything aside from account id/name
-XXH32_hash_t HashSetOfPickablePlayers(const sortedClient_t *clients) {
+XXH32_hash_t HashPugProposal(const sortedClient_t *clients) {
 	if (!clients) {
 		assert(qfalse);
 		return 0;
@@ -1213,23 +1213,23 @@ void GetCurrentPickablePlayers(sortedClient_t *sortedClientsOut, int *numEligibl
 
 static int lastNum = 0;
 
-qboolean SetOfPickablePlayersMatchesHash(genericNode_t *node, void *userData) {
-	const setOfPickablePlayers_t *existing = (const setOfPickablePlayers_t *)node;
+qboolean PugProposalMatchesHash(genericNode_t *node, void *userData) {
+	const pugProposal_t *existing = (const pugProposal_t *)node;
 	XXH32_hash_t hash = *((XXH32_hash_t *)userData);
 	if (existing && existing->hash == hash)
 		return qtrue;
 	return qfalse;
 }
 
-qboolean SetOfPickablePlayersMatchesNum(genericNode_t *node, void *userData) {
-	const setOfPickablePlayers_t *existing = (const setOfPickablePlayers_t *)node;
+qboolean PugProposalMatchesNum(genericNode_t *node, void *userData) {
+	const pugProposal_t *existing = (const pugProposal_t *)node;
 	int num = *((int *)userData);
 	if (existing && existing->num == num)
 		return qtrue;
 	return qfalse;
 }
 
-static char *GetNamesStringForSetOfPickablePlayers(const setOfPickablePlayers_t *players) {
+static char *GetNamesStringForPugProposal(const pugProposal_t *players) {
 	assert(players);
 	static char buf[MAX_CLIENTS * 32] = { 0 };
 	memset(buf, 0, sizeof(buf));
@@ -1257,7 +1257,7 @@ static char *GetNamesStringForSetOfPickablePlayers(const setOfPickablePlayers_t 
 	return buf;
 }
 
-static void PrintTeamsProposalsInConsole(setOfPickablePlayers_t *set) {
+static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 	assert(set);
 	char formattedNumber[64] = { 0 };
 	FormatNumberToStringWithCommas(set->numValidPermutationsChecked, formattedNumber, sizeof(formattedNumber));
@@ -1355,7 +1355,7 @@ static void PrintTeamsProposalsInConsole(setOfPickablePlayers_t *set) {
 		PrintIngame(-1, "^3You can approve of multiple teams proposals simultaneously by entering e.g. %cab^7\n", TEAMGEN_CHAT_COMMAND_CHARACTER);
 }
 
-static void ActivatePugProposal(setOfPickablePlayers_t *set) {
+static void ActivatePugProposal(pugProposal_t *set) {
 	assert(set);
 
 	if (GenerateTeams(set, &set->suggested, &set->highestCaliber, &set->fairest, &set->numValidPermutationsChecked)) {
@@ -1367,7 +1367,7 @@ static void ActivatePugProposal(setOfPickablePlayers_t *set) {
 	else {
 		SV_Say(va("Pug proposal %d passed (%s). Unable to generate teams; pug proposal %d terminated.", set->num, set->namesStr, set->num));
 		level.activePugProposal = NULL;
-		ListRemove(&level.pickablePlayerSetsList, set);
+		ListRemove(&level.pugProposalsList, set);
 	}
 }
 
@@ -1428,24 +1428,36 @@ void ActivateTeamsProposal(permutationOfTeams_t *permutation) {
 	// force everyone else to spectator
 	for (int i = 0; i < MAX_CLIENTS; i++) {
 		gentity_t *ent = &g_entities[i];
-		if (!ent->inuse || !ent->client || forceteamed[i] || IsRacerOrSpectator(ent))
+		if (!ent->inuse || !ent->client || forceteamed[i] || ent->client->sess.inRacemode)
 			continue;
-		G_SetRaceMode(ent, qfalse);
-		if (ent->client->sess.canJoin) {
-			SetTeam(ent, "s");
+		if (ent->client->sess.sessionTeam == TEAM_RED || ent->client->sess.sessionTeam == TEAM_BLUE) {
+			G_SetRaceMode(ent, qfalse);
+			if (ent->client->sess.canJoin) {
+				SetTeam(ent, "s");
+			}
+			else {
+				ent->client->sess.canJoin = qtrue;
+				SetTeam(ent, "s");
+				ent->client->sess.canJoin = qfalse;
+			}
 		}
-		else {
-			ent->client->sess.canJoin = qtrue;
-			SetTeam(ent, "s");
-			ent->client->sess.canJoin = qfalse;
-		}
+		Com_sprintf(printMessage + (i * messageSize), messageSize, "^1Red team:^7 (%0.2f'/. relative strength)\n", permutation->teams[0].relativeStrength * 100.0);
+		Q_strcat(printMessage + (i * messageSize), messageSize, va("^5Base: ^7 %s\n", permutation->teams[0].baseName));
+		Q_strcat(printMessage + (i * messageSize), messageSize, va("^6Chase: ^7 %s\n", permutation->teams[0].chaseName));
+		Q_strcat(printMessage + (i * messageSize), messageSize, va("^2Offense: ^7 %s^7, ", permutation->teams[0].offense1Name));
+		Q_strcat(printMessage + (i * messageSize), messageSize, va("%s\n\n", permutation->teams[0].offense2Name));
+		Q_strcat(printMessage + (i * messageSize), messageSize, va("^4Blue team:^7 (%0.2f'/. relative strength)\n", permutation->teams[1].relativeStrength * 100.0));
+		Q_strcat(printMessage + (i * messageSize), messageSize, va("^5Base: ^7 %s\n", permutation->teams[1].baseName));
+		Q_strcat(printMessage + (i * messageSize), messageSize, va("^6Chase: ^7 %s\n", permutation->teams[1].chaseName));
+		Q_strcat(printMessage + (i * messageSize), messageSize, va("^2Offense: ^7 %s^7, ", permutation->teams[1].offense1Name));
+		Q_strcat(printMessage + (i * messageSize), messageSize, va("^7%s\n\n", permutation->teams[1].offense2Name));
 	}
 
 	G_UniqueTickedCenterPrint(printMessage, messageSize, 30000, qtrue);
 	free(printMessage);
 }
 
-qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteStr) {
+qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteStr, char **newMessage) {
 	assert(ent && VALIDSTRING(voteStr));
 
 	if (!ent->client->account) {
@@ -1472,7 +1484,7 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 			votesInt = &level.activePugProposal->highestCaliberVoteClients;
 			permutation = &level.activePugProposal->highestCaliber;
 		}
-		else if (level.activePugProposal->fairest.valid && level.activePugProposal->highestCaliberLetter == lower) {
+		else if (level.activePugProposal->fairest.valid && level.activePugProposal->fairestLetter == lower) {
 			votesInt = &level.activePugProposal->fairestVoteClients;
 			permutation = &level.activePugProposal->fairest;
 		}
@@ -1528,17 +1540,46 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 		Com_sprintf(oldVotesMessage, sizeof(oldVotesMessage), "You have already voted for teams proposal%s %s.", strlen(oldVotes) > 1 ? "s" : "", oldVotes);
 
 	if (!newVotes[0]) {
-		SV_Tell(ent - g_entities, oldVotesMessage);
-		return qfalse;
-	}
-	
-	if (strlen(newVotes) > 1) {
-		Com_Printf("%s^7 voted yes to teams proposals %s.\n", ent->client->pers.netname, voteStr);
-		SV_Tell(ent - g_entities, va("Vote cast for teams proposals %s.%s%s", voteStr, oldVotes[0] ? " " : "", oldVotes[0] ? oldVotesMessage : ""));
+		if (oldVotes[0])
+			SV_Tell(ent - g_entities, oldVotesMessage);
 	}
 	else {
-		Com_Printf("%s^7 voted yes to teams proposal %s.\n", ent->client->pers.netname, voteStr);
-		SV_Tell(ent - g_entities, va("Vote cast for teams proposal %s.%s%s", voteStr, oldVotes[0] ? " " : "", oldVotes[0] ? oldVotesMessage : ""));
+		if (strlen(newVotes) > 1) {
+			Com_Printf("%s^7 voted yes to teams proposals %s.\n", ent->client->pers.netname, voteStr);
+			SV_Tell(ent - g_entities, va("Vote cast for teams proposals %s.%s%s", voteStr, oldVotes[0] ? " " : "", oldVotes[0] ? oldVotesMessage : ""));
+		}
+		else {
+			Com_Printf("%s^7 voted yes to teams proposal %s.\n", ent->client->pers.netname, voteStr);
+			SV_Tell(ent - g_entities, va("Vote cast for teams proposal %s.%s%s", voteStr, oldVotes[0] ? " " : "", oldVotes[0] ? oldVotesMessage : ""));
+		}
+	}
+
+	if (newMessage) {
+		static char buf[MAX_STRING_CHARS] = { 0 };
+		Com_sprintf(buf, sizeof(buf), "%c%s  ^9", TEAMGEN_CHAT_COMMAND_CHARACTER, voteStr);
+		for (int i = 0; i < 3; i++) {
+			char letter;
+			int *votesInt;
+			permutationOfTeams_t *permutation;
+			switch (i) {
+			case 0: permutation = &level.activePugProposal->suggested; votesInt = &level.activePugProposal->suggestedVoteClients; letter = level.activePugProposal->suggestedLetter; break;
+			case 1: permutation = &level.activePugProposal->highestCaliber; votesInt = &level.activePugProposal->highestCaliberVoteClients; letter = level.activePugProposal->highestCaliberLetter; break;
+			case 2: permutation = &level.activePugProposal->fairest; votesInt = &level.activePugProposal->fairestVoteClients; letter = level.activePugProposal->fairestLetter; break;
+			}
+
+			if (!permutation->valid)
+				continue;
+
+			int numYesVotes = 0;
+			for (int j = 0; j < MAX_CLIENTS; j++) {
+				if (*votesInt & (1 << j))
+					++numYesVotes;
+			}
+
+			const int numRequired = g_vote_teamgen_team_requiredVotes.integer ? g_vote_teamgen_team_requiredVotes.integer : 5;
+			Q_strcat(buf, sizeof(buf), va(" (%c: %d/%d)", letter, numYesVotes, numRequired));
+		}
+		*newMessage = buf;
 	}
 
 	int tiebreakerOrder[] = { 0, 1, 2 };
@@ -1564,7 +1605,7 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 				++numYesVotes;
 		}
 
-		const int numRequired = 5;
+		const int numRequired = g_vote_teamgen_team_requiredVotes.integer ? g_vote_teamgen_team_requiredVotes.integer : 5;
 
 		if (numYesVotes >= numRequired) {
 			SV_Say(va("Teams proposal %c passed.", letter));
@@ -1583,6 +1624,7 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 			PrintIngame(-1, printMessage);
 
 			ActivateTeamsProposal(permutation);
+			ListRemove(&level.pugProposalsList, level.activePugProposal);
 			level.activePugProposal = NULL;
 			break;
 		}
@@ -1591,7 +1633,7 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 	return qfalse;
 }
 
-qboolean TeamGenerator_VoteYesToTeamCombination(gentity_t *ent, int num, setOfPickablePlayers_t *setOptional, char **newMessage) {
+qboolean TeamGenerator_VoteYesToTeamCombination(gentity_t *ent, int num, pugProposal_t *setOptional, char **newMessage) {
 	assert(ent && ent->client);
 
 	if (!ent->client->account) {
@@ -1605,22 +1647,16 @@ qboolean TeamGenerator_VoteYesToTeamCombination(gentity_t *ent, int num, setOfPi
 	}
 
 	// use the pointer if one was provided; otherwise, find the set matching the number provided
-	setOfPickablePlayers_t *set = NULL;
-	set = setOptional ? setOptional : ListFind(&level.pickablePlayerSetsList, SetOfPickablePlayersMatchesNum, &num, NULL);
+	pugProposal_t *set = NULL;
+	set = setOptional ? setOptional : ListFind(&level.pugProposalsList, PugProposalMatchesNum, &num, NULL);
 
 	if (!set) {
 		SV_Tell(ent - g_entities, "Invalid pug proposal number.");
 		return qtrue;
 	}
 
-	if (newMessage) {
-		// this double pointer is supplied if someone tried to start this pug when it was already started
-		// we change their chat message into "pug 3" or whatever instead of "pug start"
-		static char buf[MAX_STRING_CHARS] = { 0 };
-		Com_sprintf(buf, sizeof(buf), "%cpug %d", TEAMGEN_CHAT_COMMAND_CHARACTER, set->num);
-		*newMessage = buf;
+	if (setOptional)
 		SV_Tell(ent - g_entities, "A pug with these players has already been proposed. Changed your command into a vote for it.");
-	}
 
 	if (set->passed) {
 		SV_Tell(ent - g_entities, "This pug proposal has already passed.");
@@ -1681,11 +1717,14 @@ qboolean TeamGenerator_VoteYesToTeamCombination(gentity_t *ent, int num, setOfPi
 		}
 	}
 
-#ifdef TEAM_GENERATOR_SIMPLE_MAJORITY
-	const int numRequired = (numEligible / 2) + 1;
-#else
-	const int numRequired = 4;
-#endif
+	const int numRequired = g_vote_teamgen_pug_requiredVotes.integer ? g_vote_teamgen_pug_requiredVotes.integer : 5;
+
+	if (newMessage) {
+		static char buf[MAX_STRING_CHARS] = { 0 };
+		Com_sprintf(buf, sizeof(buf), "%c%d   ^9(%d/%d)", TEAMGEN_CHAT_COMMAND_CHARACTER, set->num, numYesVotesFromEligiblePlayers, numRequired);
+		*newMessage = buf;
+	}
+
 	if (numYesVotesFromEligiblePlayers >= numRequired)
 		ActivatePugProposal(set);
 
@@ -1710,14 +1749,14 @@ qboolean TeamGenerator_PugStart(gentity_t *ent, char **newMessage) {
 		return qtrue;
 	}
 
-	XXH32_hash_t hash = HashSetOfPickablePlayers(&clients[0]);
-	setOfPickablePlayers_t *set = ListFind(&level.pickablePlayerSetsList, SetOfPickablePlayersMatchesHash, &hash, NULL);
+	XXH32_hash_t hash = HashPugProposal(&clients[0]);
+	pugProposal_t *set = ListFind(&level.pugProposalsList, PugProposalMatchesHash, &hash, NULL);
 	if (set) {
 		// this person is attempting to start a pug with a combination that has already been proposed. redirect it to a yes vote on that combination.
 		return TeamGenerator_VoteYesToTeamCombination(ent, 0, set, newMessage);
 	}
 
-	set = ListAdd(&level.pickablePlayerSetsList, sizeof(setOfPickablePlayers_t));
+	set = ListAdd(&level.pugProposalsList, sizeof(pugProposal_t));
 	memcpy(set->clients, &clients, sizeof(set->clients));
 	set->hash = hash;
 	set->num = ++lastNum;
@@ -1728,9 +1767,143 @@ qboolean TeamGenerator_PugStart(gentity_t *ent, char **newMessage) {
 	Q_strncpyz(cleanname, name, sizeof(cleanname));
 	Q_StripColor(cleanname);
 
-	char *namesStr = GetNamesStringForSetOfPickablePlayers(set);
+	char *namesStr = GetNamesStringForPugProposal(set);
 	if (VALIDSTRING(namesStr))
 		Q_strncpyz(set->namesStr, namesStr, sizeof(set->namesStr));
-	SV_Say(va("%s proposes pug with: %s. Enter ^2%cpug %d^7 in chat if you approve.", cleanname, namesStr, TEAMGEN_CHAT_COMMAND_CHARACTER, set->num));
+	SV_Say(va("%s proposes pug with: %s. Enter ^2%c%d^7 in chat if you approve.", cleanname, namesStr, TEAMGEN_CHAT_COMMAND_CHARACTER, set->num));
+	return qfalse;
+}
+
+// returns qtrue if the message should be filtered out
+qboolean TeamGenerator_VoteToReroll(gentity_t *ent, char **newMessage) {
+	assert(ent && ent->client);
+
+	if (!ent->client->account) {
+		SV_Tell(ent - g_entities, "You do not have an account, so you cannot vote for pug proposals. Please contact an admin for help setting up an account.");
+		return qtrue;
+	}
+
+	if (!level.activePugProposal) {
+		SV_Tell(ent - g_entities, "No pug proposal is currently active.");
+		return qtrue;
+	}
+
+	qboolean allowedToVote = qfalse;
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		sortedClient_t *cl = &level.activePugProposal->clients[i];
+		if (cl->accountName[0] && cl->accountId == ent->client->account->id) {
+			allowedToVote = qtrue;
+			break;
+		}
+	}
+
+	if (!allowedToVote) {
+		SV_Tell(ent - g_entities, "You cannot vote to reroll because you are not part of this pug proposal.");
+		return qtrue;
+	}
+
+	qboolean votedToRerollOnAnotherClient = qfalse;
+	if (!(level.activePugProposal->votedToRerollClients & (1 << ent - g_entities))) {
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *other = &g_entities[i];
+			if (other == ent || !other->inuse || !other->client || !other->client->account)
+				continue;
+			if (other->client->account->id != ent->client->account->id)
+				continue;
+			if (level.activePugProposal->votedToRerollClients & (1 << other - g_entities)) {
+				votedToRerollOnAnotherClient = qtrue;
+				break;
+			}
+		}
+	}
+
+	if (votedToRerollOnAnotherClient || level.activePugProposal->votedToRerollClients & (1 << ent - g_entities)) {
+		SV_Tell(ent - g_entities, "You have already voted to reroll the teams proposals.");
+		return qfalse; // allow chat message for peer pressure
+	}
+
+	Com_Printf("%s^7 voted to reroll active pug proposal %d.\n", ent->client->pers.netname, level.activePugProposal->num);
+	SV_Tell(ent - g_entities, "Vote cast to reroll teams proposals.");
+	level.activePugProposal->votedToRerollClients |= (1 << (ent - g_entities));
+
+	int numEligible = 0, numRerollVotesFromEligiblePlayers = 0;
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		sortedClient_t *cl = &level.activePugProposal->clients[i];
+		if (!cl->accountName[0])
+			continue; // not included in this set
+		++numEligible;
+		for (int j = 0; j < MAX_CLIENTS; j++) {
+			gentity_t *other = &g_entities[j];
+			if (!other->inuse || !other->client || !other->client->account || other->client->account->id != cl->accountId)
+				continue;
+			if (level.activePugProposal->votedToRerollClients & (1 << j))
+				++numRerollVotesFromEligiblePlayers;
+		}
+	}
+
+	// require a simple majority of the total people in the proposal. requiring only 4 or 5 would allow e.g. in a set of 15 people for just a few people who were excluded to reroll it for everyone else
+	const int numRequired = (numEligible / 2) + 1;
+
+	if (newMessage) {
+		static char buf[MAX_STRING_CHARS] = { 0 };
+		Com_sprintf(buf, sizeof(buf), "%creroll   ^9(%d/%d)", TEAMGEN_CHAT_COMMAND_CHARACTER, numRerollVotesFromEligiblePlayers, numRequired);
+		*newMessage = buf;
+	}
+
+	if (numRerollVotesFromEligiblePlayers >= numRequired) {
+		teamGenSeed = time(NULL);
+		level.activePugProposal->votedToRerollClients = 0;
+
+		pugProposal_t oldHashes = { 0 };
+		if (level.activePugProposal->suggested.valid) {
+			oldHashes.suggested.valid = qtrue;
+			oldHashes.suggested.hash = level.activePugProposal->suggested.hash;
+		}
+		if (level.activePugProposal->highestCaliber.valid) {
+			oldHashes.highestCaliber.valid = qtrue;
+			oldHashes.highestCaliber.hash = level.activePugProposal->highestCaliber.hash;
+		}
+		if (level.activePugProposal->fairest.valid) {
+			oldHashes.fairest.valid = qtrue;
+			oldHashes.fairest.hash = level.activePugProposal->fairest.hash;
+		}
+
+		if (GenerateTeams(level.activePugProposal, &level.activePugProposal->suggested, &level.activePugProposal->highestCaliber, &level.activePugProposal->fairest, &level.activePugProposal->numValidPermutationsChecked)) {
+			// see if we actually got new teams, and try a new seed one more time if we didn't
+			qboolean gotNewTeams = qfalse;
+			if (level.activePugProposal->suggested.valid && oldHashes.suggested.valid && oldHashes.suggested.hash != level.activePugProposal->suggested.hash)
+				gotNewTeams = qtrue;
+			else if (level.activePugProposal->highestCaliber.valid && oldHashes.highestCaliber.valid && oldHashes.highestCaliber.hash != level.activePugProposal->highestCaliber.hash)
+				gotNewTeams = qtrue;
+			else if (level.activePugProposal->fairest.valid && oldHashes.fairest.valid && oldHashes.fairest.hash != level.activePugProposal->fairest.hash)
+				gotNewTeams = qtrue;
+
+			if (!gotNewTeams) {
+				teamGenSeed = time(NULL) + 69420;
+				GenerateTeams(level.activePugProposal, &level.activePugProposal->suggested, &level.activePugProposal->highestCaliber, &level.activePugProposal->fairest, &level.activePugProposal->numValidPermutationsChecked);
+				if (level.activePugProposal->suggested.valid && oldHashes.suggested.valid && oldHashes.suggested.hash != level.activePugProposal->suggested.hash)
+					gotNewTeams = qtrue;
+				else if (level.activePugProposal->highestCaliber.valid && oldHashes.highestCaliber.valid && oldHashes.highestCaliber.hash != level.activePugProposal->highestCaliber.hash)
+					gotNewTeams = qtrue;
+				else if (level.activePugProposal->fairest.valid && oldHashes.fairest.valid && oldHashes.fairest.hash != level.activePugProposal->fairest.hash)
+					gotNewTeams = qtrue;
+			}
+
+			if (gotNewTeams) {
+				level.activePugProposal->suggestedVoteClients = level.activePugProposal->highestCaliberVoteClients = level.activePugProposal->fairestVoteClients = 0;
+				SV_Say(va("Pug proposal %d rerolled (%s). Check console for new teams proposals.", level.activePugProposal->num, level.activePugProposal->namesStr));
+				PrintTeamsProposalsInConsole(level.activePugProposal);
+			}
+			else {
+				SV_Say(va("Failed to generate different teams when rerolling pug proposal %d (%s). Voting will continue for the existing teams.", level.activePugProposal->num, level.activePugProposal->namesStr));
+			}
+		}
+		else {
+			SV_Say(va("Pug proposal %d rerolled (%s). Unable to generate new teams; pug proposal %d terminated.", level.activePugProposal->num, level.activePugProposal->namesStr, level.activePugProposal->num));
+			ListRemove(&level.pugProposalsList, level.activePugProposal);
+			level.activePugProposal = NULL;
+		}
+	}
+
 	return qfalse;
 }

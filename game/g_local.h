@@ -1181,17 +1181,19 @@ typedef struct {
 	XXH32_hash_t	hash;
 	sortedClient_t	clients[MAX_CLIENTS];
 	int				votedYesClients;
+	int				votedToRerollClients;
 	qboolean		passed;
 	permutationOfTeams_t suggested, highestCaliber, fairest;
 	uint64_t		numValidPermutationsChecked;
 	char			namesStr[1024];
 	char			suggestedLetter, highestCaliberLetter, fairestLetter;
 	int				suggestedVoteClients, highestCaliberVoteClients, fairestVoteClients;
-} setOfPickablePlayers_t;
+} pugProposal_t;
 
-qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteStr);
-qboolean TeamGenerator_VoteYesToTeamCombination(gentity_t *ent, int num, setOfPickablePlayers_t *setOptional, char **newMessage);
 qboolean TeamGenerator_PugStart(gentity_t *ent, char **newMessage);
+qboolean TeamGenerator_VoteToReroll(gentity_t *ent, char **newMessage);
+qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteStr, char **newMessage);
+qboolean TeamGenerator_VoteYesToTeamCombination(gentity_t *ent, int num, pugProposal_t *setOptional, char **newMessage);
 
 // this structure is cleared on each ClientSpawn(),
 // except for 'client->pers' and 'client->sess'
@@ -1829,8 +1831,8 @@ typedef struct {
 	list_t ratingList;
 	list_t mostPlayedPositionsList;
 
-	list_t pickablePlayerSetsList;
-	setOfPickablePlayers_t *activePugProposal;
+	list_t pugProposalsList;
+	pugProposal_t *activePugProposal;
 } level_locals_t;
 
 
@@ -2980,6 +2982,9 @@ extern vmCvar_t		g_vote_rng;
 extern vmCvar_t		g_vote_runoff;
 extern vmCvar_t		g_vote_mapCooldownMinutes;
 extern vmCvar_t		g_vote_runoffTimeModifier;
+
+extern vmCvar_t		g_vote_teamgen_pug_requiredVotes;
+extern vmCvar_t		g_vote_teamgen_team_requiredVotes;
 
 extern vmCvar_t		g_notFirstMap;
 extern vmCvar_t		g_shouldReloadPlayerPugStats;

@@ -2114,29 +2114,52 @@ static void TokenizeTeamChat( gentity_t *ent, char *dest, const char *src, size_
 
 // returns qtrue if the message should be filtered out
 static qboolean CheckForChatCommand(gentity_t *ent, const char *s, char **newMessage) {
+	if (g_gametype.integer != GT_CTF)
+		return qfalse;
+
 	if (!ent || !ent->client || ent->client->pers.connected != CON_CONNECTED || !VALIDSTRING(s)) {
 		assert(qfalse);
 		return qfalse;
 	}
 
-	if (!Q_stricmp(s, "pug start"))
+
+	if (!Q_stricmp(s, "help")) {
+		PrintIngame(ent - g_entities,
+			"*Chat commands:\n"
+			"%cstart      - propose playing a pug with current non-spec players\n"
+			"^9%c[number] - vote to approve a pug proposal\n"
+			"^7%c[a|b|c]  - vote to approve one or more teams proposals\n"
+			"^9%creroll   - vote to generate new teams proposals with the same players\n"
+		, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER);
+		SV_Tell(ent - g_entities, "See console for chat command help.");
+		return qtrue;
+	}
+
+	if (!Q_stricmp(s, "start"))
 		return TeamGenerator_PugStart(ent, newMessage);
 
-	if (!Q_stricmpn(s, "pug ", 4) && *(s + 4) && atoi(s + 4))
-		return TeamGenerator_VoteYesToTeamCombination(ent, atoi(s + 4), NULL, NULL);
+	if (!Q_stricmp(s, "reroll"))
+		return TeamGenerator_VoteToReroll(ent, newMessage);
 
 	if (strlen(s) <= 3) {
-		qboolean gotNonAbcChar = qfalse;
+		qboolean invalidVote = qfalse;
 		for (const char *p = s; *p; p++) {
 			char lowered = tolower((unsigned) *p);
-			if (lowered != 'a' && lowered != 'b' && !lowered != 'c') {
-				gotNonAbcChar = qtrue;
+			if (lowered != 'a' && lowered != 'b' && lowered != 'c') {
+				invalidVote = qtrue;
+				break;
+			}
+			if (p > s && lowered == tolower((unsigned)*(p - 1))) {
+				invalidVote = qtrue; // aaa or something
 				break;
 			}
 		}
-		if (!gotNonAbcChar)
-			return TeamGenerator_VoteForTeamPermutations(ent, s);
+		if (!invalidVote)
+			return TeamGenerator_VoteForTeamPermutations(ent, s, newMessage);
 	}
+
+	if (atoi(s))
+		return TeamGenerator_VoteYesToTeamCombination(ent, atoi(s), NULL, newMessage);
 
 	return qfalse;
 }

@@ -4812,10 +4812,11 @@ void ClientDisconnect( int clientNum ) {
 	if (ent->client->account) {
 		// remove votes on anything this person voted for
 		iterator_t iter;
-		ListIterate(&level.pickablePlayerSetsList, &iter, qfalse);
+		ListIterate(&level.pugProposalsList, &iter, qfalse);
 		while (IteratorHasNext(&iter)) {
-			setOfPickablePlayers_t *set = IteratorNext(&iter);
+			pugProposal_t *set = IteratorNext(&iter);
 			set->votedYesClients &= ~(1 << clientNum);
+			set->votedToRerollClients &= ~(1 << clientNum);
 		}
 
 		if (level.activePugProposal) {
@@ -4829,9 +4830,9 @@ void ClientDisconnect( int clientNum ) {
 
 		// remove them from any teams permutations they were on
 		qboolean deleteThis = qfalse;
-		ListIterate(&level.pickablePlayerSetsList, &iter, qfalse);
+		ListIterate(&level.pugProposalsList, &iter, qfalse);
 		while (IteratorHasNext(&iter)) {
-			setOfPickablePlayers_t *set = IteratorNext(&iter);
+			pugProposal_t *set = IteratorNext(&iter);
 			if (set == level.activePugProposal) { // this is a current active proposal
 				int numValid = 0;
 				if (set->suggested.valid) {
@@ -4866,7 +4867,7 @@ void ClientDisconnect( int clientNum ) {
 				}
 				if (numValid <= 0) { // no more valid teams permutations; destroy this set
 					SV_Say(va("%s disconnected; current active pug proposal (%d) terminated.\n", ent->client->account->name, set->num));
-					ListRemove(&level.pickablePlayerSetsList, set);
+					ListRemove(&level.pugProposalsList, set);
 					level.activePugProposal = NULL;
 				}
 			}
@@ -4880,8 +4881,8 @@ void ClientDisconnect( int clientNum ) {
 					}
 				}
 				if (deleteThis) {
-					ListRemove(&level.pickablePlayerSetsList, set);
-					ListIterate(&level.pickablePlayerSetsList, &iter, qfalse);
+					ListRemove(&level.pugProposalsList, set);
+					ListIterate(&level.pugProposalsList, &iter, qfalse);
 				}
 			}
 		}
