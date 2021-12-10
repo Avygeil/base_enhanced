@@ -1106,7 +1106,7 @@ XXH32_hash_t HashPugProposal(const sortedClient_t *clients) {
 	return XXH32(&sortedClients, sizeof(sortedClients), 0);
 }
 
-void GetCurrentPickablePlayers(sortedClient_t *sortedClientsOut, int *numEligibleOut, qboolean shuffle) {
+void GetCurrentPickablePlayers(sortedClient_t *sortedClientsOut, int *numEligibleOut, int *numIngameEligibleOut, qboolean shuffle) {
 	// refresh ratings from db
 	G_DBGetPlayerRatings();
 
@@ -1190,6 +1190,8 @@ void GetCurrentPickablePlayers(sortedClient_t *sortedClientsOut, int *numEligibl
 			++numIngame;
 	}
 
+	if (numIngameEligibleOut)
+		*numIngameEligibleOut = numIngame;
 	if (numEligibleOut)
 		*numEligibleOut = numEligible;
 
@@ -1793,14 +1795,38 @@ qboolean TeamGenerator_PugStart(gentity_t *ent, char **newMessage) {
 
 	assert(ent && ent->client);
 
+	if (!ent->client->account) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You do not have an account, so you cannot start pug proposals. Please contact an admin for help setting up an account.");
+		return qtrue;
+	}
+
 	InitializeTeamGenerator();
 
 	sortedClient_t clients[MAX_CLIENTS] = {0};
-	int numEligible = 0;
-	GetCurrentPickablePlayers(&clients[0], &numEligible, qfalse);
+	int numEligible = 0, numIngameEligible = 0;
+	GetCurrentPickablePlayers(&clients[0], &numEligible, &numIngameEligible, qfalse);
 
 	if (numEligible < 8) {
 		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "Not enough eligible players.");
+		return qtrue;
+	}
+
+	qboolean gotMe = qfalse;
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		sortedClient_t *cl = clients + i;
+		if (!cl->accountName[0])
+			continue;
+		if (cl->accountId == ent->client->account->id) {
+			gotMe = qtrue;
+			break;
+		}
+	}
+
+	if (!gotMe) {
+		if (numIngameEligible >= 8)
+			TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You are not pickable, so you cannot start a pug. Consider joining red/blue if you want to be considered pickable.");
+		else
+			TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You are not pickable, so you cannot start a pug.");
 		return qtrue;
 	}
 
