@@ -4844,7 +4844,7 @@ void ClientDisconnect( int clientNum ) {
 					qboolean gotEm[MAX_CLIENTS] = { qfalse };
 					for (int i = 0; i < MAX_CLIENTS; i++) {
 						sortedClient_t *cl = &level.activePugProposal->clients[i];
-						if (!cl->accountName[0] || cl->accountId == ent->client->account->id)
+						if (!cl->accountName[0])
 							continue; // not included in this set
 
 						++numEligibleMax;
@@ -4889,7 +4889,7 @@ void ClientDisconnect( int clientNum ) {
 					qboolean gotEm[MAX_CLIENTS] = { qfalse };
 					for (int i = 0; i < MAX_CLIENTS; i++) {
 						sortedClient_t *cl = &level.activePugProposal->clients[i];
-						if (!cl->accountName[0] || cl->accountId == ent->client->account->id)
+						if (!cl->accountName[0])
 							continue; // not included in this set
 
 						++numEligibleMax;
