@@ -4844,7 +4844,7 @@ void ClientDisconnect( int clientNum ) {
 					qboolean gotEm[MAX_CLIENTS] = { qfalse };
 					for (int i = 0; i < MAX_CLIENTS; i++) {
 						sortedClient_t *cl = &level.activePugProposal->clients[i];
-						if (!cl->accountName[0])
+						if (!cl->accountName[0] || cl->accountId == ent->client->account->id)
 							continue; // not included in this set
 
 						++numEligibleMax;
@@ -4852,7 +4852,7 @@ void ClientDisconnect( int clientNum ) {
 						// is this person actually connected?
 						for (int j = 0; j < MAX_CLIENTS; j++) {
 							gentity_t *other = &g_entities[j];
-							if (!other->inuse || !other->client || !other->client->account || other->client->account->id != cl->accountId || gotEm[j])
+							if (j == clientNum || !other->inuse || !other->client || !other->client->account || other->client->account->id != cl->accountId || gotEm[j])
 								continue;
 
 							// yes, they are connected
@@ -4862,7 +4862,7 @@ void ClientDisconnect( int clientNum ) {
 							qboolean votedToReroll = qfalse;
 							for (int k = 0; k < MAX_CLIENTS; k++) {
 								gentity_t *thirdEnt = &g_entities[k];
-								if (!thirdEnt->inuse || !thirdEnt->client || !thirdEnt->client->account || thirdEnt->client->account->id != cl->accountId)
+								if (k == clientNum || !thirdEnt->inuse || !thirdEnt->client || !thirdEnt->client->account || thirdEnt->client->account->id != cl->accountId)
 									continue;
 								if (level.activePugProposal->votedToRerollClients & (1 << k))
 									votedToReroll = qtrue;
@@ -4889,7 +4889,7 @@ void ClientDisconnect( int clientNum ) {
 					qboolean gotEm[MAX_CLIENTS] = { qfalse };
 					for (int i = 0; i < MAX_CLIENTS; i++) {
 						sortedClient_t *cl = &level.activePugProposal->clients[i];
-						if (!cl->accountName[0])
+						if (!cl->accountName[0] || cl->accountId == ent->client->account->id)
 							continue; // not included in this set
 
 						++numEligibleMax;
@@ -4897,7 +4897,7 @@ void ClientDisconnect( int clientNum ) {
 						// is this person actually connected?
 						for (int j = 0; j < MAX_CLIENTS; j++) {
 							gentity_t *other = &g_entities[j];
-							if (!other->inuse || !other->client || !other->client->account || other->client->account->id != cl->accountId || gotEm[j])
+							if (j == clientNum || !other->inuse || !other->client || !other->client->account || other->client->account->id != cl->accountId || gotEm[j])
 								continue;
 
 							// yes, they are connected
@@ -4907,7 +4907,7 @@ void ClientDisconnect( int clientNum ) {
 							qboolean votedToCancel = qfalse;
 							for (int k = 0; k < MAX_CLIENTS; k++) {
 								gentity_t *thirdEnt = &g_entities[k];
-								if (!thirdEnt->inuse || !thirdEnt->client || !thirdEnt->client->account || thirdEnt->client->account->id != cl->accountId)
+								if (k == clientNum || !thirdEnt->inuse || !thirdEnt->client || !thirdEnt->client->account || thirdEnt->client->account->id != cl->accountId)
 									continue;
 								if (level.activePugProposal->votedToCancelClients & (1 << k))
 									votedToCancel = qtrue;
