@@ -2487,6 +2487,7 @@ typedef struct {
 } Table;
 void listMapsInPools(void **context, const char *long_name, int pool_id, const char *mapname, int mapWeight);
 void listPools(void *context, int pool_id, const char *short_name, const char *long_name);
+
 const char *TableCallback_MapName(void *rowContext, void *columnContext);
 const char *TableCallback_MapWeight(void *rowContext, void *columnContext);
 const char *TableCallback_PoolShortName(void *rowContext, void *columnContext);
@@ -2495,6 +2496,7 @@ const char *TableCallback_ClientNum(void *rowContext, void *columnContext);
 const char *TableCallback_Name(void *rowContext, void *columnContext);
 const char *TableCallback_Account(void *rowContext, void *columnContext);
 const char *TableCallback_Alias(void *rowContext, void *columnContext);
+const char *TableCallback_Verified(void *rowContext, void *columnContext);
 const char *TableCallback_Ping(void *rowContext, void *columnContext);
 const char *TableCallback_Score(void *rowContext, void *columnContext);
 const char *TableCallback_IP(void *rowContext, void *columnContext);
