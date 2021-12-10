@@ -3008,6 +3008,7 @@ extern vmCvar_t		g_vote_runoff;
 extern vmCvar_t		g_vote_mapCooldownMinutes;
 extern vmCvar_t		g_vote_runoffTimeModifier;
 
+extern vmCvar_t		g_vote_teamgen;
 extern vmCvar_t		g_vote_teamgen_pug_requiredVotes;
 extern vmCvar_t		g_vote_teamgen_team_requiredVotes;
 

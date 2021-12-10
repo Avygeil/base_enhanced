@@ -2181,6 +2181,11 @@ qboolean TeamGenerator_CheckForChatCommand(gentity_t *ent, const char *s, char *
 	if (g_gametype.integer != GT_CTF)
 		return qfalse;
 
+	if (!g_vote_teamgen.integer) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "Team generator is disabled.");
+		return qtrue;
+	}
+
 	if (!ent || !ent->client || ent->client->pers.connected != CON_CONNECTED || !VALIDSTRING(s)) {
 		assert(qfalse);
 		return qfalse;
@@ -2274,7 +2279,7 @@ static void TeamGenerator_ServerCommand_Start(qboolean forcePass) {
 }
 
 static void PrintPugHelp(void) {
-	Com_Printf("^7Usage%s:\n"
+	Com_Printf("^7Usage:\n"
 		"^7pug start                 - start a pug proposal with current pickable players\n"
 		"^9pug pass [num]            - pass a non-active pug proposal (causing it to become active)\n"
 		"^7pug startpass             - start and immediately pass a pug proposal\n"
@@ -2284,6 +2289,8 @@ static void PrintPugHelp(void) {
 		"^7pug bar [player name/#]   - bars a player from team generation for the rest of the current round\n"
 		"^9pug unbar [player name/#] - unbars a player\n"
 		"^7pug list                  - list the players in each pug proposal\n"
+		"%s",
+		!g_vote_teamgen.integer ? "^3Note: team generator is currently disabled! Enable with g_vote_teamgen.^7\n" : ""
 	);
 }
 

@@ -439,6 +439,7 @@ vmCvar_t	g_vote_runoff;
 vmCvar_t	g_vote_mapCooldownMinutes;
 vmCvar_t	g_vote_runoffTimeModifier;
 
+vmCvar_t	g_vote_teamgen;
 vmCvar_t	g_vote_teamgen_pug_requiredVotes;
 vmCvar_t	g_vote_teamgen_team_requiredVotes;
 
@@ -880,6 +881,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_runoff, "g_vote_runoff", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_mapCooldownMinutes, "g_vote_mapCooldownMinutes", "60", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_runoffTimeModifier, "g_vote_runoffTimeModifier", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_teamgen, "g_vote_teamgen", "0", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_vote_teamgen_pug_requiredVotes, "g_vote_teamgen_pug_requiredVotes", "4", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_teamgen_team_requiredVotes, "g_vote_teamgen_team_requiredVotes", "5", CVAR_ARCHIVE, 0, qtrue },
