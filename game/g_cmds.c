@@ -2163,7 +2163,7 @@ static qboolean CheckForChatCommand(gentity_t *ent, const char *s, char **newMes
 	}
 
 	if (atoi(s))
-		return TeamGenerator_VoteYesToTeamCombination(ent, atoi(s), NULL, newMessage);
+		return TeamGenerator_VoteYesToPugProposal(ent, atoi(s), NULL, newMessage);
 
 	return qfalse;
 }

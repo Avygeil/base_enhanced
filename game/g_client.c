@@ -4810,7 +4810,7 @@ void ClientDisconnect( int clientNum ) {
 	}
 
 	if (ent->client->account) {
-		// remove votes on anything this person voted for
+		// check whether they were part of any pug proposals so we can handle them leaving properly
 		iterator_t iter;
 		ListIterate(&level.pugProposalsList, &iter, qfalse);
 		while (IteratorHasNext(&iter)) {
@@ -4827,15 +4827,129 @@ void ClientDisconnect( int clientNum ) {
 				level.activePugProposal->highestCaliberVoteClients &= ~(1 << clientNum);
 			if (level.activePugProposal->fairest.valid && level.activePugProposal->fairestVoteClients & (1 << clientNum))
 				level.activePugProposal->fairestVoteClients &= ~(1 << clientNum);
+
+			qboolean partOfActiveProposal = qfalse;
+			for (int i = 0; i < MAX_CLIENTS; i++) {
+				sortedClient_t *cl = level.activePugProposal->clients + i;
+				if (cl->accountName[0] && cl->accountId == ent->client->account->id) {
+					partOfActiveProposal = qtrue;
+					break;
+				}
+			}
+
+			if (partOfActiveProposal) {
+				// see if the act of them leaving allows a reroll/cancel vote to pass due to lowering the threshold for passing
+				if (level.activePugProposal->votedToRerollClients) {
+					int numEligibleConnected = 0, numEligibleMax = 0, numRerollVotesFromEligiblePlayers = 0;
+					qboolean gotEm[MAX_CLIENTS] = { qfalse };
+					for (int i = 0; i < MAX_CLIENTS; i++) {
+						sortedClient_t *cl = &level.activePugProposal->clients[i];
+						if (!cl->accountName[0])
+							continue; // not included in this set
+
+						++numEligibleMax;
+
+						// is this person actually connected?
+						for (int j = 0; j < MAX_CLIENTS; j++) {
+							gentity_t *other = &g_entities[j];
+							if (!other->inuse || !other->client || !other->client->account || other->client->account->id != cl->accountId || gotEm[j])
+								continue;
+
+							// yes, they are connected
+							++numEligibleConnected;
+
+							// are they connected on any other clients? see if any of them have voted yes, and mark the duplicates so we know not to check them
+							qboolean votedToReroll = qfalse;
+							for (int k = 0; k < MAX_CLIENTS; k++) {
+								gentity_t *thirdEnt = &g_entities[k];
+								if (!thirdEnt->inuse || !thirdEnt->client || !thirdEnt->client->account || thirdEnt->client->account->id != cl->accountId)
+									continue;
+								if (level.activePugProposal->votedToRerollClients & (1 << k))
+									votedToReroll = qtrue;
+								gotEm[k] = qtrue;
+							}
+
+							if (votedToReroll)
+								++numRerollVotesFromEligiblePlayers;
+
+							break;
+						}
+					}
+
+					if (numEligibleConnected > numEligibleMax)
+						numEligibleConnected = numEligibleMax; // sanity check
+					const int numRequired = (numEligibleConnected / 2) + 1;
+
+					if (numRerollVotesFromEligiblePlayers >= numRequired)
+						TeamGenerator_DoReroll();
+				}
+
+				if (level.activePugProposal->votedToCancelClients) {
+					int numEligibleConnected = 0, numEligibleMax = 0, numCancelVotesFromEligiblePlayers = 0;
+					qboolean gotEm[MAX_CLIENTS] = { qfalse };
+					for (int i = 0; i < MAX_CLIENTS; i++) {
+						sortedClient_t *cl = &level.activePugProposal->clients[i];
+						if (!cl->accountName[0])
+							continue; // not included in this set
+
+						++numEligibleMax;
+
+						// is this person actually connected?
+						for (int j = 0; j < MAX_CLIENTS; j++) {
+							gentity_t *other = &g_entities[j];
+							if (!other->inuse || !other->client || !other->client->account || other->client->account->id != cl->accountId || gotEm[j])
+								continue;
+
+							// yes, they are connected
+							++numEligibleConnected;
+
+							// are they connected on any other clients? see if any of them have voted yes, and mark the duplicates so we know not to check them
+							qboolean votedToCancel = qfalse;
+							for (int k = 0; k < MAX_CLIENTS; k++) {
+								gentity_t *thirdEnt = &g_entities[k];
+								if (!thirdEnt->inuse || !thirdEnt->client || !thirdEnt->client->account || thirdEnt->client->account->id != cl->accountId)
+									continue;
+								if (level.activePugProposal->votedToCancelClients & (1 << k))
+									votedToCancel = qtrue;
+								gotEm[k] = qtrue;
+							}
+
+							if (votedToCancel)
+								++numCancelVotesFromEligiblePlayers;
+
+							break;
+						}
+					}
+
+					if (numEligibleConnected > numEligibleMax)
+						numEligibleConnected = numEligibleMax; // sanity check
+					const int numRequired = (numEligibleConnected / 2) + 1;
+
+					if (numCancelVotesFromEligiblePlayers >= numRequired)
+						TeamGenerator_DoCancel();
+				}
+			}
 		}
 
 		// remove them from any teams permutations they were on
-		qboolean deleteThis = qfalse;
 		ListIterate(&level.pugProposalsList, &iter, qfalse);
 		while (IteratorHasNext(&iter)) {
 			pugProposal_t *set = IteratorNext(&iter);
-			if (set == level.activePugProposal) { // this is a current active proposal
+			qboolean partOfPugProposal = qfalse;
+			for (int i = 0; i < MAX_CLIENTS; i++) {
+				sortedClient_t *cl = set->clients + i;
+				if (cl->accountName[0] && cl->accountId == ent->client->account->id) {
+					partOfPugProposal = qtrue;
+					break;
+				}
+			}
+
+			if (!partOfPugProposal)
+				continue;
+
+			if (set == level.activePugProposal) { // this is the current active proposal
 				int numValid = 0;
+				qboolean removedSuggested = qfalse, removedHighestCaliber = qfalse, removedFairest = qfalse;
 				if (set->suggested.valid) {
 					++numValid;
 					if (set->suggested.teams[0].baseId == ent->client->account->id || set->suggested.teams[0].chaseId == ent->client->account->id ||
@@ -4844,6 +4958,7 @@ void ClientDisconnect( int clientNum ) {
 						set->suggested.teams[1].offenseId1 == ent->client->account->id || set->suggested.teams[1].offenseId2 == ent->client->account->id) {
 						set->suggested.valid = qfalse;
 						--numValid;
+						removedSuggested = qtrue;
 					}
 				}
 				if (set->highestCaliber.valid) {
@@ -4854,6 +4969,7 @@ void ClientDisconnect( int clientNum ) {
 						set->highestCaliber.teams[1].offenseId1 == ent->client->account->id || set->highestCaliber.teams[1].offenseId2 == ent->client->account->id) {
 						set->highestCaliber.valid = qfalse;
 						--numValid;
+						removedHighestCaliber = qtrue;
 					}
 				}
 				if (set->fairest.valid) {
@@ -4864,27 +4980,34 @@ void ClientDisconnect( int clientNum ) {
 						set->fairest.teams[1].offenseId1 == ent->client->account->id || set->fairest.teams[1].offenseId2 == ent->client->account->id) {
 						set->fairest.valid = qfalse;
 						--numValid;
+						removedFairest = qtrue;
 					}
 				}
 				if (numValid <= 0) { // no more valid teams permutations; destroy this set
-					SV_Say(va("%s disconnected; current active pug proposal (%d) terminated.\n", ent->client->account->name, set->num));
+					TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; current active pug proposal (%d) terminated.", ent->client->account->name, set->num));
 					ListRemove(&level.pugProposalsList, set);
 					level.activePugProposal = NULL;
-				}
-			}
-			else {
-				for (int i = 0; i < MAX_CLIENTS; i++) {
-					sortedClient_t *cl = set->clients + i;
-					if (cl->accountName[0] && cl->accountId == ent->client->account->id) {
-						SV_Say(va("%s disconnected; pug proposal %d terminated.\n", cl->accountName, set->num));
-						deleteThis = qtrue;
-						break;
-					}
-				}
-				if (deleteThis) {
-					ListRemove(&level.pugProposalsList, set);
 					ListIterate(&level.pugProposalsList, &iter, qfalse);
 				}
+				else if (removedSuggested || removedHighestCaliber || removedFairest) { // we did remove at least one, there is at least one that is still valid
+					if (removedSuggested && removedHighestCaliber)
+						TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; ^5suggested^7 and ^5highest caliber^7 teams proposals invalidated.", ent->client->account->name));
+					else if (removedSuggested && removedFairest)
+						TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; ^5suggested^7 and ^5fairest^7 teams proposals invalidated.", ent->client->account->name));
+					else if (removedHighestCaliber && removedFairest)
+						TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; ^5highest caliber^7 and ^5fairest^7 teams proposals invalidated.", ent->client->account->name));
+					else if (removedSuggested)
+						TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; ^5suggested^7 teams proposal invalidated.", ent->client->account->name));
+					else if (removedHighestCaliber)
+						TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; ^5highest caliber^7 teams proposal invalidated.", ent->client->account->name));
+					else if (removedFairest)
+						TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; ^5fairest^7 teams proposal invalidated.", ent->client->account->name));
+				}
+			}
+			else { // this is not the active pug proposal
+				TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; inactive pug proposal %d terminated.", ent->client->account->name, set->num));
+				ListRemove(&level.pugProposalsList, set);
+				ListIterate(&level.pugProposalsList, &iter, qfalse);
 			}
 		}
 	}

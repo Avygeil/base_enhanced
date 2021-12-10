@@ -1200,10 +1200,14 @@ typedef struct {
 } queuedServerMessage_t;
 
 qboolean TeamGenerator_PugStart(gentity_t *ent, char **newMessage);
+void TeamGenerator_DoReroll(void);
 qboolean TeamGenerator_VoteToReroll(gentity_t *ent, char **newMessage);
+void TeamGenerator_DoCancel(void);
 qboolean TeamGenerator_VoteToCancel(gentity_t *ent, char **newMessage);
 qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteStr, char **newMessage);
-qboolean TeamGenerator_VoteYesToTeamCombination(gentity_t *ent, int num, pugProposal_t *setOptional, char **newMessage);
+qboolean TeamGenerator_VoteYesToPugProposal(gentity_t *ent, int num, pugProposal_t *setOptional, char **newMessage);
+void TeamGenerator_QueueServerMessageInChat(int clientNum, const char *msg);
+void TeamGenerator_QueueServerMessageInConsole(int clientNum, const char *msg);
 
 // this structure is cleared on each ClientSpawn(),
 // except for 'client->pers' and 'client->sess'
