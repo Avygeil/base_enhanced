@@ -3795,6 +3795,11 @@ qboolean	ConsoleCommand( void ) {
 		return qtrue;
 	}
 
+	if (!Q_stricmp(cmd, "pug")) {
+		Svcmd_Pug_f();
+		return qtrue;
+	}
+
     if (!Q_stricmp(cmd, "specall")) {
         Svcmd_SpecAll_f();
         return qtrue;

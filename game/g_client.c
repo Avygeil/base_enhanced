@@ -4881,7 +4881,7 @@ void ClientDisconnect( int clientNum ) {
 					const int numRequired = (numEligibleConnected / 2) + 1;
 
 					if (numRerollVotesFromEligiblePlayers >= numRequired)
-						TeamGenerator_DoReroll();
+						TeamGenerator_DoReroll(qfalse);
 				}
 
 				if (level.activePugProposal->votedToCancelClients) {

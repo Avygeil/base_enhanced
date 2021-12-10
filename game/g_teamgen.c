@@ -46,6 +46,26 @@ ctfPlayerTier_t PlayerTierFromRating(double num) {
 	return PLAYERRATING_UNRATED;
 }
 
+static qboolean PlayerIsBarredFromTeamGenerator(gentity_t *ent) {
+	if (!ent || !ent->client)
+		return qfalse;
+
+	if (ent->client->pers.barredFromPugSelection)
+		return qtrue;
+
+	if (ent->client->account) {
+		iterator_t iter;
+		ListIterate(&level.barredPlayersList, &iter, qfalse);
+		while (IteratorHasNext(&iter)) {
+			barredPlayer_t *bp = IteratorNext(&iter);
+			if (bp->accountId == ent->client->account->id)
+				return qtrue;
+		}
+	}
+
+	return qfalse;
+}
+
 typedef struct {
 	int accountId;
 	char accountName[MAX_NAME_LENGTH];
@@ -725,7 +745,6 @@ static void InitializeTeamGenerator(void) {
 
 static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlayed, permutationOfTeams_t *highestCaliber, permutationOfTeams_t *fairest, uint64_t *numPermutations) {
 	assert(set);
-	InitializeTeamGenerator();
 #ifdef DEBUG_GENERATETEAMS
 	clock_t start = clock();
 #endif
@@ -749,6 +768,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 		gentity_t *ent = &g_entities[i];
 		if (!ent->inuse || !ent->client || ent->client->pers.connected == CON_DISCONNECTED ||
 			!ent->client->account || ent->client->sess.clientType != CLIENT_TYPE_NORMAL ||
+			PlayerIsBarredFromTeamGenerator(ent) ||
 			(IsRacerOrSpectator(ent) && IsSpecName(ent->client->pers.netname)))
 			continue;
 
@@ -835,6 +855,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 	qsort(&sortedClients, MAX_CLIENTS, sizeof(sortedClient_t), SortClientsForTeamGenerator);
 
 	// shuffle to avoid alphabetical bias
+	InitializeTeamGenerator();
 	srand(teamGenSeed);
 	FisherYatesShuffle(&sortedClients, numEligible, sizeof(sortedClient_t));
 	srand(time(NULL));
@@ -1123,6 +1144,7 @@ void GetCurrentPickablePlayers(sortedClient_t *sortedClientsOut, int *numEligibl
 		gentity_t *ent = &g_entities[i];
 		if (!ent->inuse || !ent->client || ent->client->pers.connected == CON_DISCONNECTED ||
 			!ent->client->account || ent->client->sess.clientType != CLIENT_TYPE_NORMAL ||
+			PlayerIsBarredFromTeamGenerator(ent) ||
 			(IsRacerOrSpectator(ent) && IsSpecName(ent->client->pers.netname)))
 			continue;
 
@@ -1204,6 +1226,7 @@ void GetCurrentPickablePlayers(sortedClient_t *sortedClientsOut, int *numEligibl
 
 	// shuffle to avoid alphabetical bias
 	if (shuffle) {
+		InitializeTeamGenerator();
 		srand(teamGenSeed);
 		FisherYatesShuffle(&sortedClients, numEligible, sizeof(sortedClient_t));
 		srand(time(NULL));
@@ -1402,17 +1425,17 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 		TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER));
 }
 
-static void ActivatePugProposal(pugProposal_t *set) {
+static void ActivatePugProposal(pugProposal_t *set, qboolean forcedByServer) {
 	assert(set);
 
 	if (GenerateTeams(set, &set->suggested, &set->highestCaliber, &set->fairest, &set->numValidPermutationsChecked)) {
-		TeamGenerator_QueueServerMessageInChat(-1, va("Pug proposal %d passed (%s). Check console for teams proposals.", set->num, set->namesStr));
+		TeamGenerator_QueueServerMessageInChat(-1, va("Pug proposal %d %s (%s). Check console for teams proposals.", set->num, forcedByServer ? "force passed by server" : "passed", set->namesStr));
 		set->passed = qtrue;
 		level.activePugProposal = set;
 		PrintTeamsProposalsInConsole(set);
 	}
 	else {
-		TeamGenerator_QueueServerMessageInChat(-1, va("Pug proposal %d passed (%s). Unable to generate teams; pug proposal %d terminated.", set->num, set->namesStr, set->num));
+		TeamGenerator_QueueServerMessageInChat(-1, va("Pug proposal %d %s (%s). However, unable to generate teams; pug proposal %d terminated.", set->num, forcedByServer ? "force passed by server" : "passed", set->namesStr, set->num));
 		level.activePugProposal = NULL;
 		ListRemove(&level.pugProposalsList, set);
 	}
@@ -1783,7 +1806,7 @@ qboolean TeamGenerator_VoteYesToPugProposal(gentity_t *ent, int num, pugProposal
 	}
 
 	if (doVote && numYesVotesFromEligiblePlayers >= numRequired)
-		ActivatePugProposal(set);
+		ActivatePugProposal(set, qfalse);
 
 	return qfalse;
 }
@@ -1799,8 +1822,6 @@ qboolean TeamGenerator_PugStart(gentity_t *ent, char **newMessage) {
 		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You do not have an account, so you cannot start pug proposals. Please contact an admin for help setting up an account.");
 		return qtrue;
 	}
-
-	InitializeTeamGenerator();
 
 	sortedClient_t clients[MAX_CLIENTS] = {0};
 	int numEligible = 0, numIngameEligible = 0;
@@ -1855,7 +1876,7 @@ qboolean TeamGenerator_PugStart(gentity_t *ent, char **newMessage) {
 	return qfalse;
 }
 
-void TeamGenerator_DoReroll(void) {
+void TeamGenerator_DoReroll(qboolean forcedByServer) {
 	teamGenSeed = time(NULL);
 	level.activePugProposal->votedToRerollClients = level.activePugProposal->votedToCancelClients = 0;
 
@@ -1896,15 +1917,15 @@ void TeamGenerator_DoReroll(void) {
 
 		if (gotNewTeams) {
 			level.activePugProposal->suggestedVoteClients = level.activePugProposal->highestCaliberVoteClients = level.activePugProposal->fairestVoteClients = 0;
-			TeamGenerator_QueueServerMessageInChat(-1, va("Pug proposal %d rerolled (%s). Check console for new teams proposals.", level.activePugProposal->num, level.activePugProposal->namesStr));
+			TeamGenerator_QueueServerMessageInChat(-1, va("Pug proposal %d rerolled%s (%s). Check console for new teams proposals.", level.activePugProposal->num, forcedByServer ? " by server" : "", level.activePugProposal->namesStr));
 			PrintTeamsProposalsInConsole(level.activePugProposal);
 		}
 		else {
-			TeamGenerator_QueueServerMessageInChat(-1, va("Failed to generate different teams when rerolling pug proposal %d (%s). Voting will continue for the existing teams.", level.activePugProposal->num, level.activePugProposal->namesStr));
+			TeamGenerator_QueueServerMessageInChat(-1, va("Failed to generate different teams when rerolling pug proposal %d%s (%s). Voting will continue for the existing teams.", level.activePugProposal->num, forcedByServer ? " by server" : "", level.activePugProposal->namesStr));
 		}
 	}
 	else {
-		TeamGenerator_QueueServerMessageInChat(-1, va("Pug proposal %d rerolled (%s). Unable to generate new teams; pug proposal %d terminated.", level.activePugProposal->num, level.activePugProposal->namesStr, level.activePugProposal->num));
+		TeamGenerator_QueueServerMessageInChat(-1, va("Pug proposal %d rerolled%s (%s). Unable to generate new teams; pug proposal %d terminated.", level.activePugProposal->num, forcedByServer ? " by server" : "", level.activePugProposal->namesStr, level.activePugProposal->num));
 		ListRemove(&level.pugProposalsList, level.activePugProposal);
 		level.activePugProposal = NULL;
 	}
@@ -2013,13 +2034,13 @@ qboolean TeamGenerator_VoteToReroll(gentity_t *ent, char **newMessage) {
 	}
 
 	if (doVote && numRerollVotesFromEligiblePlayers >= numRequired)
-		TeamGenerator_DoReroll();
+		TeamGenerator_DoReroll(qfalse);
 
 	return qfalse;
 }
 
 void TeamGenerator_DoCancel(void) {
-	TeamGenerator_QueueServerMessageInChat(-1, va("Pug proposal %d canceled (%s).", level.activePugProposal->num, level.activePugProposal->namesStr));
+	TeamGenerator_QueueServerMessageInChat(-1, va("Active pug proposal %d canceled (%s).", level.activePugProposal->num, level.activePugProposal->namesStr));
 	ListRemove(&level.pugProposalsList, level.activePugProposal);
 	level.activePugProposal = NULL;
 }
@@ -2129,4 +2150,320 @@ qboolean TeamGenerator_VoteToCancel(gentity_t *ent, char **newMessage) {
 		TeamGenerator_DoCancel();
 
 	return qfalse;
+}
+
+void TeamGenerator_PrintPlayersInPugProposals(gentity_t *ent) {
+	assert(ent);
+
+	qboolean gotOne = qfalse;
+	iterator_t iter;
+	ListIterate(&level.pugProposalsList, &iter, qfalse);
+	char buf[4096] = { 0 };
+	while (IteratorHasNext(&iter)) {
+		pugProposal_t *p = IteratorNext(&iter);
+		if (!gotOne)
+			Q_strncpyz(buf, "Current pug proposals:\n", sizeof(buf));
+		Q_strcat(buf, sizeof(buf), va("Pug proposal ^5%d^7 - %s%s\n", p->num, p == level.activePugProposal ? "^2(Currently active)^7 " : "", p->namesStr));
+		gotOne = qtrue;
+	}
+
+	if (gotOne) {
+		TeamGenerator_QueueServerMessageInConsole(ent - g_entities, buf);
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "Check console for a list of players in each pug proposal.");
+	}
+	else {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "There are currently no pug proposals.");
+	}
+}
+
+// returns qtrue if the message should be filtered out
+qboolean TeamGenerator_CheckForChatCommand(gentity_t *ent, const char *s, char **newMessage) {
+	if (g_gametype.integer != GT_CTF)
+		return qfalse;
+
+	if (!ent || !ent->client || ent->client->pers.connected != CON_CONNECTED || !VALIDSTRING(s)) {
+		assert(qfalse);
+		return qfalse;
+	}
+
+
+	if (!Q_stricmp(s, "help")) {
+		PrintIngame(ent - g_entities,
+			"*Chat commands:\n"
+			"%cstart            - propose playing a pug with current non-spec players\n"
+			"^9%c[number]       - vote to approve a pug proposal\n"
+			"^7%c[ a | b | c ]  - vote to approve one or more teams proposals\n"
+			"^9%creroll         - vote to generate new teams proposals with the same players\n"
+			"^7%ccancel         - vote to generate new teams proposals with the same players\n"
+			"^9%clist           - show which players are part of each pug proposal\n"
+			"^7"
+			, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER);
+		SV_Tell(ent - g_entities, "See console for chat command help.");
+		return qtrue;
+	}
+
+	if (!Q_stricmp(s, "start"))
+		return TeamGenerator_PugStart(ent, newMessage);
+
+	if (!Q_stricmp(s, "reroll"))
+		return TeamGenerator_VoteToReroll(ent, newMessage);
+
+	if (!Q_stricmp(s, "cancel"))
+		return TeamGenerator_VoteToCancel(ent, newMessage);
+
+	if (!Q_stricmp(s, "list")) {
+		TeamGenerator_PrintPlayersInPugProposals(ent);
+		return qtrue;
+	}
+
+	if (strlen(s) <= 3) {
+		qboolean invalidVote = qfalse;
+		for (const char *p = s; *p; p++) {
+			char lowered = tolower((unsigned)*p);
+			if (lowered != 'a' && lowered != 'b' && lowered != 'c') {
+				invalidVote = qtrue;
+				break;
+			}
+			if (p > s && lowered == tolower((unsigned)*(p - 1))) {
+				invalidVote = qtrue; // aaa or something
+				break;
+			}
+		}
+		if (!invalidVote)
+			return TeamGenerator_VoteForTeamPermutations(ent, s, newMessage);
+	}
+
+	if (atoi(s))
+		return TeamGenerator_VoteYesToPugProposal(ent, atoi(s), NULL, newMessage);
+
+	return qfalse;
+}
+
+static void TeamGenerator_ServerCommand_Start(qboolean forcePass) {
+	sortedClient_t clients[MAX_CLIENTS] = { 0 };
+	int numEligible = 0, numIngameEligible = 0;
+	GetCurrentPickablePlayers(&clients[0], &numEligible, &numIngameEligible, qfalse);
+
+	if (numEligible < 8) {
+		Com_Printf("Not enough eligible players.\n");
+		return;
+	}
+
+	XXH32_hash_t hash = HashPugProposal(&clients[0]);
+	pugProposal_t *set = ListFind(&level.pugProposalsList, PugProposalMatchesHash, &hash, NULL);
+	if (set) {
+		Com_Printf("A pug with the current pickable players has already been proposed.\n");
+		return;
+	}
+
+	set = ListAdd(&level.pugProposalsList, sizeof(pugProposal_t));
+	memcpy(set->clients, &clients, sizeof(set->clients));
+	set->hash = hash;
+	set->num = ++lastNum;
+
+	char *namesStr = GetNamesStringForPugProposal(set);
+	if (VALIDSTRING(namesStr))
+		Q_strncpyz(set->namesStr, namesStr, sizeof(set->namesStr));
+
+	if (!forcePass)
+		TeamGenerator_QueueServerMessageInChat(-1, va("Server proposes pug with: %s. Enter ^5%c%d^7 in chat if you approve.", namesStr, TEAMGEN_CHAT_COMMAND_CHARACTER, set->num));
+	else
+		ActivatePugProposal(set, qtrue);
+
+	return;
+}
+
+static void PrintPugHelp(void) {
+	Com_Printf("^7Usage%s:\n"
+		"^7pug start                 - start a pug proposal with current pickable players\n"
+		"^9pug pass [num]            - pass a non-active pug proposal (causing it to become active)\n"
+		"^7pug startpass             - start and immediately pass a pug proposal\n"
+		"^9pug kill [num]            - kill a non-active pug proposal\n"
+		"^7pug reroll                - reroll a teams proposal\n"
+		"^9pug cancel                - cancel the active pug proposal\n"
+		"^7pug bar [player name/#]   - bars a player from team generation for the rest of the current round\n"
+		"^9pug unbar [player name/#] - unbars a player\n"
+		"^7pug list                  - list the players in each pug proposal\n"
+	);
+}
+
+void Svcmd_Pug_f(void) {
+	if (trap_Argc() < 2) {
+		PrintPugHelp();
+		return;
+	}
+
+	char arg1[MAX_STRING_CHARS] = { 0 }, arg2[MAX_STRING_CHARS] = { 0 };
+	trap_Argv(1, arg1, sizeof(arg1));
+	trap_Argv(2, arg2, sizeof(arg2));
+	if (!arg1[0]) {
+		PrintPugHelp();
+		return;
+	}
+
+	if (!Q_stricmp(arg1, "start")) {
+		TeamGenerator_ServerCommand_Start(qfalse);
+	}
+	else if (!Q_stricmp(arg1, "pass")) {
+		if (!arg2[0] || !atoi(arg2)) {
+			Com_Printf("Usage: pug pass [num]\n");
+			return;
+		}
+
+		int num = atoi(arg2);
+		pugProposal_t *found = ListFind(&level.pugProposalsList, PugProposalMatchesNum, &num, NULL);
+		if (!found) {
+			Com_Printf("Unable to find pug proposal matching number %d.\n", num);
+			return;
+		}
+
+		ActivatePugProposal(found, qtrue);
+	}
+	else if (!Q_stricmp(arg1, "startpass")) {
+		TeamGenerator_ServerCommand_Start(qtrue);
+	}
+	else if (!Q_stricmp(arg1, "kill")) {
+		if (!arg2[0] || !atoi(arg2)) {
+			if (level.activePugProposal)
+				Com_Printf("Usage: pug kill [num]   (use ^5pug cancel^7 to stop the currently active pug proposal)\n");
+			else
+				Com_Printf("Usage: pug kill [num]\n");
+			return;
+		}
+
+		int num = atoi(arg2);
+		pugProposal_t *found = ListFind(&level.pugProposalsList, PugProposalMatchesNum, &num, NULL);
+		if (!found) {
+			Com_Printf("Unable to find pug proposal matching number %d.\n", num);
+			return;
+		}
+
+		if (found == level.activePugProposal) {
+			level.activePugProposal = NULL;
+			TeamGenerator_QueueServerMessageInChat(-1, va("Active pug proposal %d canceled by server (%s).", found->num, found->namesStr));
+		}
+		else {
+			TeamGenerator_QueueServerMessageInChat(-1, va("Inactive pug proposal %d killed by server (%s).", found->num, found->namesStr));
+		}
+		ListRemove(&level.pugProposalsList, found);
+	}
+	else if (!Q_stricmp(arg1, "reroll")) {
+		if (!level.activePugProposal) {
+			Com_Printf("No pug proposal is currently active.\n");
+			return;
+		}
+		TeamGenerator_DoReroll(qtrue);
+	}
+	else if (!Q_stricmp(arg1, "cancel")) {
+		if (!level.activePugProposal) {
+			Com_Printf("No pug proposal is currently active.\n");
+			return;
+		}
+		TeamGenerator_QueueServerMessageInChat(-1, va("Active pug proposal %d canceled by server (%s).", level.activePugProposal->num, level.activePugProposal->namesStr));
+		ListRemove(&level.pugProposalsList, level.activePugProposal);
+		level.activePugProposal = NULL;
+	}
+	else if (!Q_stricmp(arg1, "bar")) {
+		if (!arg2[0]) {
+			Com_Printf("Usage: pug bar [player name/#]\n");
+			return;
+		}
+
+		gentity_t *found = G_FindClient(arg2);
+		if (!found || !found->client) {
+			Com_Printf("Client %s^7 not found or ambiguous. Use client number or be more specific.\n", arg2);
+			return;
+		}
+
+		char *name = found->client->account ? found->client->account->name : found->client->pers.netname;
+		if (found->client->pers.barredFromPugSelection) {
+			if (found->client->account) {
+				qboolean foundInList = qfalse;
+				iterator_t iter;
+				ListIterate(&level.barredPlayersList, &iter, qfalse);
+				while (IteratorHasNext(&iter)) {
+					barredPlayer_t *bp = IteratorNext(&iter);
+					if (bp->accountId == found->client->account->id) {
+						foundInList = qtrue;
+						break;
+					}
+				}
+
+				if (!foundInList) { // barred in client->pers but not list; add them to list
+					barredPlayer_t *add = ListAdd(&level.barredPlayersList, sizeof(barredPlayer_t));
+					add->accountId = found->client->account->id;
+				}
+			}
+			Com_Printf("%s^7 is already barred.\n", name);
+			return;
+		}
+
+		found->client->pers.barredFromPugSelection = qtrue;
+		if (found->client->account) {
+			Com_Printf("Barred player %s^7.\n", name);
+			barredPlayer_t *add = ListAdd(&level.barredPlayersList, sizeof(barredPlayer_t));
+			add->accountId = found->client->account->id;
+		}
+		else {
+			Com_Printf("Barred player %s^7. Since they do not have an account, they will need to be barred again if they reconnect to circumvent the bar before the current map ends.\n", name);
+		}
+
+		TeamGenerator_QueueServerMessageInChat(-1, va("%s^7 barred from team generation by server.", name));
+	}
+	else if (!Q_stricmp(arg1, "unbar")) {
+		if (!arg2[0]) {
+			Com_Printf("Usage: pug unbar [player name/#]\n");
+			return;
+		}
+
+		gentity_t *found = G_FindClient(arg2);
+		if (!found || !found->client) {
+			Com_Printf("Client %s^7 not found or ambiguous. Use client number or be more specific.\n", arg2);
+			return;
+		}
+
+		char *name = found->client->account ? found->client->account->name : found->client->pers.netname;
+
+		if (found->client->account) { // remove from list, if applicable
+			iterator_t iter;
+			ListIterate(&level.barredPlayersList, &iter, qfalse);
+			while (IteratorHasNext(&iter)) {
+				barredPlayer_t *bp = IteratorNext(&iter);
+				if (bp->accountId == found->client->account->id) {
+					ListRemove(&level.barredPlayersList, bp);
+					ListIterate(&level.barredPlayersList, &iter, qfalse);
+				}
+			}
+		}
+
+		if (!found->client->pers.barredFromPugSelection) {
+			Com_Printf("%s^7 is already not barred.\n", name);
+			return;
+		}
+
+		found->client->pers.barredFromPugSelection = qfalse;
+
+		TeamGenerator_QueueServerMessageInChat(-1, va("%s^7 unbarred from team generation by server.", name));
+	}
+	else if (!Q_stricmp(arg1, "list")) {
+		qboolean gotOne = qfalse;
+		iterator_t iter;
+		ListIterate(&level.pugProposalsList, &iter, qfalse);
+		char buf[4096] = { 0 };
+		while (IteratorHasNext(&iter)) {
+			pugProposal_t *p = IteratorNext(&iter);
+			if (!gotOne)
+				Q_strncpyz(buf, "Current pug proposals:\n", sizeof(buf));
+			Q_strcat(buf, sizeof(buf), va("Pug proposal ^5%d^7 - %s%s\n", p->num, p == level.activePugProposal ? "^2(Currently active)^7 " : "", p->namesStr));
+			gotOne = qtrue;
+		}
+
+		if (gotOne)
+			Com_Printf(buf);
+		else
+			Com_Printf("There are currently no pug proposals.\n");
+	}
+	else {
+		PrintPugHelp();
+	}
 }

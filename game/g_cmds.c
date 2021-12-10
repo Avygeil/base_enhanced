@@ -2112,62 +2112,6 @@ static void TokenizeTeamChat( gentity_t *ent, char *dest, const char *src, size_
 	dest[i] = '\0';
 }
 
-// returns qtrue if the message should be filtered out
-static qboolean CheckForChatCommand(gentity_t *ent, const char *s, char **newMessage) {
-	if (g_gametype.integer != GT_CTF)
-		return qfalse;
-
-	if (!ent || !ent->client || ent->client->pers.connected != CON_CONNECTED || !VALIDSTRING(s)) {
-		assert(qfalse);
-		return qfalse;
-	}
-
-
-	if (!Q_stricmp(s, "help")) {
-		PrintIngame(ent - g_entities,
-			"*Chat commands:\n"
-			"%cstart      - propose playing a pug with current non-spec players\n"
-			"^9%c[number] - vote to approve a pug proposal\n"
-			"^7%c[ a | b | c ]  - vote to approve one or more teams proposals\n"
-			"^9%creroll   - vote to generate new teams proposals with the same players\n"
-			"^7%ccancel   - vote to generate new teams proposals with the same players\n"
-		, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER);
-		SV_Tell(ent - g_entities, "See console for chat command help.");
-		return qtrue;
-	}
-
-	if (!Q_stricmp(s, "start"))
-		return TeamGenerator_PugStart(ent, newMessage);
-
-	if (!Q_stricmp(s, "reroll"))
-		return TeamGenerator_VoteToReroll(ent, newMessage);
-
-	if (!Q_stricmp(s, "cancel"))
-		return TeamGenerator_VoteToCancel(ent, newMessage);
-
-	if (strlen(s) <= 3) {
-		qboolean invalidVote = qfalse;
-		for (const char *p = s; *p; p++) {
-			char lowered = tolower((unsigned) *p);
-			if (lowered != 'a' && lowered != 'b' && lowered != 'c') {
-				invalidVote = qtrue;
-				break;
-			}
-			if (p > s && lowered == tolower((unsigned)*(p - 1))) {
-				invalidVote = qtrue; // aaa or something
-				break;
-			}
-		}
-		if (!invalidVote)
-			return TeamGenerator_VoteForTeamPermutations(ent, s, newMessage);
-	}
-
-	if (atoi(s))
-		return TeamGenerator_VoteYesToPugProposal(ent, atoi(s), NULL, newMessage);
-
-	return qfalse;
-}
-
 void Cmd_CallVote_f(gentity_t *ent, int pause);
 void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, qboolean force ) {
 	int			j;
@@ -2214,7 +2158,7 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, q
 
 	char *newMessage = NULL;
 	if (mode == SAY_ALL && *chatText == TEAMGEN_CHAT_COMMAND_CHARACTER && *(chatText + 1)) {
-		if (CheckForChatCommand(ent, chatText + 1, &newMessage))
+		if (TeamGenerator_CheckForChatCommand(ent, chatText + 1, &newMessage))
 			return;
 		if (VALIDSTRING(newMessage))
 			chatText = newMessage;

@@ -828,6 +828,8 @@ typedef struct {
 	int			cointossHeadsTime;
 	int			cointossTailsTime;
 
+	qboolean	barredFromPugSelection;
+
 } clientPersistant_t;
 
 typedef struct renderInfo_s
@@ -1176,6 +1178,11 @@ typedef struct {
 } sortedClient_t;
 
 typedef struct {
+	node_t		node;
+	int			accountId;
+} barredPlayer_t;
+
+typedef struct {
 	node_t			node;
 	int				num;
 	XXH32_hash_t	hash;
@@ -1200,7 +1207,7 @@ typedef struct {
 } queuedServerMessage_t;
 
 qboolean TeamGenerator_PugStart(gentity_t *ent, char **newMessage);
-void TeamGenerator_DoReroll(void);
+void TeamGenerator_DoReroll(qboolean forcedByServer);
 qboolean TeamGenerator_VoteToReroll(gentity_t *ent, char **newMessage);
 void TeamGenerator_DoCancel(void);
 qboolean TeamGenerator_VoteToCancel(gentity_t *ent, char **newMessage);
@@ -1208,6 +1215,8 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 qboolean TeamGenerator_VoteYesToPugProposal(gentity_t *ent, int num, pugProposal_t *setOptional, char **newMessage);
 void TeamGenerator_QueueServerMessageInChat(int clientNum, const char *msg);
 void TeamGenerator_QueueServerMessageInConsole(int clientNum, const char *msg);
+qboolean TeamGenerator_CheckForChatCommand(gentity_t *ent, const char *s, char **newMessage);
+void Svcmd_Pug_f(void);
 
 // this structure is cleared on each ClientSpawn(),
 // except for 'client->pers' and 'client->sess'
@@ -1846,6 +1855,7 @@ typedef struct {
 	list_t mostPlayedPositionsList;
 
 	list_t pugProposalsList;
+	list_t barredPlayersList;
 	pugProposal_t *activePugProposal;
 	list_t queuedServerMessagesList;
 } level_locals_t;

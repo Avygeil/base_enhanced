@@ -1989,6 +1989,7 @@ void G_ShutdownGame( int restart ) {
 	ListClear(&level.mostPlayedPositionsList);
 
 	ListClear(&level.pugProposalsList);
+	ListClear(&level.barredPlayersList);
 
 	ListIterate(&level.queuedServerMessagesList, &iter, qfalse);
 	while (IteratorHasNext(&iter)) {
