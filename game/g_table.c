@@ -159,6 +159,19 @@ const char *TableCallback_Alias(void *context) {
 	return va("%s", nickname.name);
 }
 
+const char *TableCallback_Verified(void *context) {
+	if (!context) {
+		assert(qfalse);
+		return NULL;
+	}
+	gclient_t *cl = context;
+	gentity_t *ent = &g_entities[cl - level.clients];
+	if (cl->account || cl->pers.connected != CON_CONNECTED || (ent->r.svFlags & SVF_BOT))
+		return NULL;
+
+	return "^3Unverified";
+}
+
 const char *TableCallback_Ping(void *context) {
 	if (!context) {
 		assert(qfalse);

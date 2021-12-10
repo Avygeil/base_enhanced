@@ -6328,6 +6328,7 @@ void Cmd_WhoIs_f( gentity_t* ent ) {
 	Table_DefineColumn(t, "Name", TableCallback_Name, qtrue, MAX_NAME_DISPLAYLENGTH);
 	Table_DefineColumn(t, "Alias", TableCallback_Alias, qtrue, MAX_NAME_DISPLAYLENGTH);
 	Table_DefineColumn(t, "Country", TableCallback_Country, qtrue, 64);
+	Table_DefineColumn(t, "Notes", TableCallback_Verified, qtrue, MAX_NAME_DISPLAYLENGTH);
 
 	char buf[4096] = { 0 };
 	Table_WriteToBuffer(t, buf, sizeof(buf));

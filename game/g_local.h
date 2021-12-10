@@ -2158,6 +2158,7 @@ const char *TableCallback_ClientNum(void *context);
 const char *TableCallback_Name(void *context);
 const char *TableCallback_Account(void *context);
 const char *TableCallback_Alias(void *context);
+const char *TableCallback_Verified(void *context);
 const char *TableCallback_Ping(void *context);
 const char *TableCallback_Score(void *context);
 const char *TableCallback_IP(void *context);
