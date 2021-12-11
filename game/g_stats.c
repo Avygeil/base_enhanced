@@ -2953,3 +2953,192 @@ ctfRegion_t GetCTFRegion(gentity_t *ent) {
 		return CTFREGION_MID;
 	}
 }
+
+typedef struct {
+	node_t			node;
+	int				sessionId;
+	qboolean		isBot;
+	stats_t *stats;
+	team_t			team;
+} gotPlayerForMachineFriendlyStats_t;
+
+static qboolean PlayerForMachineFriendlyStatsMatches(genericNode_t *node, void *userData) {
+	const gotPlayerForMachineFriendlyStats_t *existing = (const gotPlayerForMachineFriendlyStats_t *)node;
+	const stats_t *thisGuy = (const stats_t *)userData;
+
+	if (existing && thisGuy && thisGuy->sessionId == existing->sessionId && thisGuy->isBot == existing->isBot && thisGuy->lastTeam == existing->team)
+		return qtrue;
+
+	return qfalse;
+}
+
+typedef struct {
+	node_t			node;
+	char			buf[MAX_STRING_CHARS];
+} machineFriendlyStats_t;
+
+void SendMachineFriendlyStats(void) {
+	// get each unique player+pos+team combination
+	int totalBlocks = 0, totalPlayerPositions = 0, playerPositionsFailed = 0;
+	list_t gotPlayerOnTeamList = { 0 }, combinedStatsList = { 0 }, machineFriendlyStatsList = { 0 };
+	for (int i = 0; i < 2; i++) {
+		iterator_t iter;
+		ListIterate(!i ? &level.savedStatsList : &level.statsList, &iter, qfalse);
+		while (IteratorHasNext(&iter)) {
+			stats_t *found = IteratorNext(&iter);
+
+			if (!StatsValid(found) || found->isBot || found->lastTeam == TEAM_SPECTATOR || found->lastTeam == TEAM_FREE)
+				continue;
+
+			gotPlayerForMachineFriendlyStats_t *gotPlayer = ListFind(&gotPlayerOnTeamList, PlayerForMachineFriendlyStatsMatches, found, NULL);
+			if (gotPlayer)
+				continue;
+			gotPlayerForMachineFriendlyStats_t *add = ListAdd(&gotPlayerOnTeamList, sizeof(gotPlayerForMachineFriendlyStats_t));
+			add->stats = found;
+			add->sessionId = found->sessionId;
+			add->isBot = found->isBot;
+			add->team = found->lastTeam;
+
+			stats_t *s = ListAdd(&combinedStatsList, sizeof(stats_t));
+			AddStatsToTotal(found, s, STATS_TABLE_GENERAL, NULL);
+			AddStatsToTotal(found, s, STATS_TABLE_FORCE, NULL);
+			AddStatsToTotal(found, s, STATS_TABLE_ACCURACY, NULL);
+			Q_strncpyz(s->name, found->name, sizeof(s->name));
+			int ticksOnAnyPosition = s->ticksNotPaused = found->ticksNotPaused;
+			int allPositionsPlayed = 0;
+			if (found->finalPosition)
+				allPositionsPlayed = (1 << found->finalPosition);
+			if (found->confirmedPositionBits)
+				allPositionsPlayed |= found->confirmedPositionBits;
+			s->blockNum = found->blockNum;
+
+			// find all blocks that match this player+team
+			int numBlocks = 1;
+			for (int i = 0; i < 2; i++) {
+				iterator_t iter2;
+				ListIterate(!i ? &level.savedStatsList : &level.statsList, &iter2, qfalse);
+				while (IteratorHasNext(&iter2)) {
+					stats_t *found2 = IteratorNext(&iter2);
+					if (!StatsValid(found2) || found2->isBot || found2 == found ||
+						found2->sessionId != found->sessionId || found2->lastTeam != found->lastTeam)
+						continue;
+
+					ticksOnAnyPosition += found2->ticksNotPaused;
+					if (found2->finalPosition)
+						allPositionsPlayed |= (1 << found2->finalPosition);
+					if (found2->confirmedPositionBits)
+						allPositionsPlayed |= found2->confirmedPositionBits;
+
+					if (found2->blockNum > s->blockNum) {
+						// try to use their most recent name
+						Q_strncpyz(s->name, found2->name, sizeof(s->name));
+						s->blockNum = found2->blockNum;
+					}
+					AddStatsToTotal(found2, s, STATS_TABLE_GENERAL, NULL);
+					AddStatsToTotal(found2, s, STATS_TABLE_FORCE, NULL);
+					AddStatsToTotal(found2, s, STATS_TABLE_ACCURACY, NULL);
+					s->ticksNotPaused += found2->ticksNotPaused;
+					++numBlocks;
+				}
+			}
+
+			// require at least 60 seconds of total ingame time
+			if (ticksOnAnyPosition * (1000 / g_svfps.integer) < CTFPOSITION_MINIMUM_SECONDS * 1000)
+				continue;
+
+			qboolean hasValidRegions = qfalse;
+			for (ctfRegion_t r = CTFREGION_FLAGSTAND; r <= CTFREGION_ENEMYFLAGSTAND; r++)
+				if (s->regionPercent[r]) { hasValidRegions = qtrue; break; }
+
+			machineFriendlyStats_t *mfs = ListAdd(&machineFriendlyStatsList, sizeof(machineFriendlyStats_t));
+#define MACHINEFRIENDLYSTATS_PROTOCOL	1
+			Com_sprintf(mfs->buf, sizeof(mfs->buf),
+//#define DEBUG_PRINT_MACHINEFRIENDLYSTATS // uncomment to print in console
+#ifdef DEBUG_PRINT_MACHINEFRIENDLYSTATS
+				"print \"kls -1 -1 mfs"
+#else
+				"kls -1 -1 mfs"
+#endif
+				/*protocol->*/" %d" /*client num->*/" %d" /*team->*/" %d" /*time in ms->*/" %d"
+				/*final pos->*/" %d" /*all pos played->*/" %d" /*captures->*/" %d" /*assists->*/" %d" /*defends->*/" %d"
+				/*accuracy->*/" %d" /*airs->*/" %d" /*teamkills->*/" %d" /*takes->*/" %d" /*pits->*/" %d" /*pitted->*/" %d"
+				/*dmg->*/" %d" /*fc dmg->*/" %d" /*clr dmg->*/" %d" /*other dmg->*/" %d"
+				/*tkn->*/" %d" /*fc tkn->*/" %d" /*clr tkn->*/" %d" /*other tkn->*/" %d"
+				/*fckil->*/" %d" /*fckileff->*/" %d" /*rets->*/" %d" /*sk->*/" %d"
+				/*total hold->*/" %d" /*max hold->*/" %d" /*avg spd->*/" %d" /*top spd->*/" %d"
+				/*boon->*/" %d" /*push->*/" %d" /*pull->*/" %d" /*heal->*/" %d" /*TE->*/" %d"
+				/*te eff->*/" %d" /*enemy nrg->*/" %d" /*absorb->*/" %d"
+				/*protdmg->*/" %d" /*prottime->*/" %d" /*rage->*/" %d"
+				/*drain->*/" %d" /*drained->*/" %d"
+				/*fs->*/" %d" /*base->*/" %d" /*mid->*/" %d" /*enemy base->*/" %d" /*enemy fs->*/" %d"
+				/*name->*/" %s"
+#ifdef DEBUG_PRINT_MACHINEFRIENDLYSTATS
+				"\n\""
+#endif
+				,
+				MACHINEFRIENDLYSTATS_PROTOCOL,
+				found->clientNum,
+				found->lastTeam,
+				s->ticksNotPaused * (1000 / g_svfps.integer),
+				found->finalPosition,
+				allPositionsPlayed,
+				s->captures,
+				s->assists,
+				s->defends,
+				s->accuracy,
+				s->airs,
+				s->teamKills,
+				s->takes,
+				s->pits,
+				s->pitted,
+				s->damageDealtTotal,
+				s->flagCarrierDamageDealtTotal,
+				s->clearDamageDealtTotal,
+				s->otherDamageDealtTotal,
+				s->damageTakenTotal,
+				s->flagCarrierDamageTakenTotal,
+				s->clearDamageTakenTotal,
+				s->otherDamageTakenTotal,
+				s->fcKills,
+				s->fcKills ? s->fcKillEfficiency : -1, // basically null but we can preserve the format
+				s->rets,
+				s->selfkills,
+				s->totalFlagHold,
+				s->longestFlagHold,
+				s->averageSpeed,
+				(int)(s->topSpeed),
+				level.boonExists ? s->boonPickups : -1, // basically null but we can preserve the format
+				s->push,
+				s->pull,
+				s->healed,
+				s->energizedAlly,
+				s->numEnergizes ? s->energizeEfficiency : -1, // basically null but we can preserve the format
+				s->energizedEnemy,
+				s->absorbed,
+				s->protDamageAvoided,
+				s->protTimeUsed,
+				s->rageTimeUsed,
+				s->drain,
+				s->gotDrained,
+				hasValidRegions ? s->regionPercent[CTFREGION_FLAGSTAND] : -1, // basically null but we can preserve the format
+				hasValidRegions ? s->regionPercent[CTFREGION_BASE] : -1, // basically null but we can preserve the format
+				hasValidRegions ? s->regionPercent[CTFREGION_MID] : -1, // basically null but we can preserve the format
+				hasValidRegions ? s->regionPercent[CTFREGION_ENEMYBASE] : -1, // basically null but we can preserve the format
+				hasValidRegions ? s->regionPercent[CTFREGION_ENEMYFLAGSTAND] : -1, // basically null but we can preserve the format
+				found->name
+				);
+
+		}
+	}
+
+	iterator_t iter;
+	ListIterate(&machineFriendlyStatsList, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		machineFriendlyStats_t *mfs = IteratorNext(&iter);
+		trap_SendServerCommand(-1, mfs->buf);
+	}
+
+	ListClear(&gotPlayerOnTeamList);
+	ListClear(&combinedStatsList);
+	ListClear(&machineFriendlyStatsList);
+}

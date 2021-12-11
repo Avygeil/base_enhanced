@@ -1022,6 +1022,7 @@ meansOfDeathCategory_t MeansOfDeathCategoryForMeansOfDeath(meansOfDeath_t mod);
 accuracyCategory_t AccuracyCategoryForProjectile(gentity_t *projectile);
 void ChangeToNextStatsBlockIfNeeded(void);
 char *NameForPos(ctfPosition_t pos);
+void SendMachineFriendlyStats(void);
 
 typedef struct {
 	node_t		node;

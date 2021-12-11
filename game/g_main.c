@@ -2935,8 +2935,9 @@ void BeginIntermission(void) {
 				Stats_Print(&g_entities[i], "weapon", NULL, 0, qtrue, level.clients[i].stats);
 			}
 		}
-
 	}
+
+	SendMachineFriendlyStats();
 
 	if (level.numTeamTicks) {
 		float avgRed = (float)level.numRedPlayerTicks / (float)level.numTeamTicks;
