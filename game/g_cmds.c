@@ -996,6 +996,9 @@ void SetTeam( gentity_t *ent, char *s ) {
 	if (client->rockPaperScissorsBothChosenTime)
 		return;
 
+	if (client->pers.connected != CON_CONNECTED)
+		return;
+
 	//
 	// execute the team change
 	//
