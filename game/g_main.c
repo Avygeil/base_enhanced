@@ -1841,6 +1841,7 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 	G_DBLoadDatabase();
 
 	G_DBInitializePugStatsCache();
+	G_DBCacheAutoLinks();
 	
 	LoadAimPacks();
 
@@ -2000,6 +2001,7 @@ void G_ShutdownGame( int restart ) {
 			free(msg->text);
 	}
 	ListClear(&level.queuedServerMessagesList);
+	ListClear(&level.autoLinksList);
 
 	UnpatchEngine();
 }

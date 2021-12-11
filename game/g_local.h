@@ -546,13 +546,22 @@ typedef struct {
 #define	FOLLOW_ACTIVE2	-2
 
 #define MAX_ACCOUNTNAME_LEN		24
-#define MAX_GROUPNAME_LEN		48
+
+typedef struct {
+	node_t		node;
+	int			accountId;
+	char		sex[32];
+	char		country[32];
+} autoLink_t;
 
 typedef struct {
 	int id;
 	char name[MAX_ACCOUNTNAME_LEN];
 	int creationDate;
-	char group[MAX_GROUPNAME_LEN];
+	struct {
+		char sex[32];
+		char country[32];
+	} autoLink;
 	int flags;
 } account_t;
 
@@ -1858,6 +1867,7 @@ typedef struct {
 	list_t barredPlayersList;
 	pugProposal_t *activePugProposal;
 	list_t queuedServerMessagesList;
+	list_t autoLinksList;
 } level_locals_t;
 
 

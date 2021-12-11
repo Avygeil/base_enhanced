@@ -2806,7 +2806,7 @@ void Svcmd_Account_f( void ) {
 		if ( !Q_stricmp( s, "create" ) ) {
 
 			if ( trap_Argc() < 3 ) {
-				G_Printf( "Usage: "S_COLOR_YELLOW"account create <username>\n" );
+				G_Printf( "Usage:^3 account create <username>^7\n" );
 				return;
 			}
 
@@ -2852,7 +2852,7 @@ void Svcmd_Account_f( void ) {
 		} else if ( !Q_stricmp( s, "delete" ) ) {
 
 			if ( trap_Argc() < 3 ) {
-				G_Printf( "Usage: "S_COLOR_YELLOW"account delete <username>\n" );
+				G_Printf( "Usage:^3 account delete <username>^7\n" );
 				return;
 			}
 
@@ -2876,7 +2876,7 @@ void Svcmd_Account_f( void ) {
 		} else if ( !Q_stricmp( s, "info" ) ) {
 
 			if ( trap_Argc() < 3 ) {
-				G_Printf( "Usage: "S_COLOR_YELLOW"account info <username> [page]\n" );
+				G_Printf( "Usage:^3 account info <username> [page]^7\n" );
 				return;
 			}
 
@@ -2923,16 +2923,16 @@ void Svcmd_Account_f( void ) {
 			}
 
 			G_Printf(
-				S_COLOR_YELLOW"Account Name: "S_COLOR_WHITE"%s\n"
-				S_COLOR_YELLOW"Account ID: "S_COLOR_WHITE"%d\n"
-				S_COLOR_YELLOW"Created on: "S_COLOR_WHITE"%s\n"
-				S_COLOR_YELLOW"Group: "S_COLOR_WHITE"%s\n"
-				S_COLOR_YELLOW"Flags: "S_COLOR_WHITE"%s\n"
+				"^3Account Name:^7 %s\n"
+				"^3Account ID:^7 %d\n"
+				"^3Created on:^7 %s\n"
+				"%s"
+				"^3Flags:^7 %s\n"
 				"\n",
 				acc.ptr->name,
 				acc.ptr->id,
 				timestamp,
-				acc.ptr->group,
+				acc.ptr->autoLink.sex[0] ? va("^3Autolink:^7 %s%s^7\n", acc.ptr->autoLink.sex, acc.ptr->autoLink.country[0] ? va(", %s", acc.ptr->autoLink.country) : "") : "",
 				flagsStr
 			);
 
@@ -2959,7 +2959,7 @@ void Svcmd_Account_f( void ) {
 		} else if ( !Q_stricmp( s, "toggleflag" ) ) {
 
 			if ( trap_Argc() < 4 ) {
-				G_Printf( "Usage: "S_COLOR_YELLOW"account toggleflag <username> <flag>\n" );
+				G_Printf( "Usage:^3 account toggleflag <username> <flag>^7\n" );
 				G_Printf( "Available flags: Admin, VerboseRcon, AimPackEditor, AimPackAdmin, VoteTroll\n" );
 				return;
 			}
@@ -3000,8 +3000,60 @@ void Svcmd_Account_f( void ) {
 				}
 			}
 
-		} else if ( !Q_stricmp( s, "help" ) ) {
-			printHelp = qtrue;
+		} else if ( !Q_stricmp( s, "autolink" ) ) {
+			if (trap_Argc() < 4) {
+				G_Printf("Usage:^3 account autolink <username> <sex> [country]^7\n");
+				return;
+			}
+			char username[MAX_ACCOUNTNAME_LEN];
+			trap_Argv(2, username, sizeof(username));
+
+			accountReference_t acc = G_GetAccountByName(username, qfalse);
+
+			if (!acc.ptr) {
+				G_Printf("Account '%s' does not exist\n", username);
+				return;
+			}
+
+			char sex[32] = { 0 };
+			trap_Argv(3, sex, sizeof(sex));
+			if (!sex[0]) {
+				G_Printf("Usage:^3 account autolink <username> <sex> [country]^7\n");
+				return;
+			}
+
+			Q_strncpyz(acc.ptr->autoLink.sex, sex, sizeof(acc.ptr->autoLink.sex));
+
+			if (trap_Argc() >= 5) {
+				char *country = ConcatArgs(4);
+				if (VALIDSTRING(country))
+					Q_strncpyz(acc.ptr->autoLink.country, country, sizeof(acc.ptr->autoLink.country));
+			}
+
+			G_DBSetAccountProperties(acc.ptr);
+			G_DBCacheAutoLinks();
+			G_Printf("Created autolink for %s with sex %s%s\n", acc.ptr->name, acc.ptr->autoLink.sex, acc.ptr->autoLink.country[0] ? va(" and country %s", acc.ptr->autoLink.country) : "");
+		} else if (!Q_stricmp(s, "unautolink")) {
+			if (trap_Argc() < 3) {
+				G_Printf("Usage:^3 account autolink <username>^7\n");
+				return;
+			}
+			char username[MAX_ACCOUNTNAME_LEN];
+			trap_Argv(2, username, sizeof(username));
+
+			accountReference_t acc = G_GetAccountByName(username, qfalse);
+
+			if (!acc.ptr) {
+				G_Printf("Account '%s' does not exist\n", username);
+				return;
+			}
+
+			memset(&acc.ptr->autoLink, 0, sizeof(acc.ptr->autoLink));
+			G_DBSetAccountProperties(acc.ptr);
+			G_DBCacheAutoLinks();
+			G_Printf("Removed autolink for account '%s'\n", username);
+		} else if (!Q_stricmp(s, "help")) {
+		printHelp = qtrue;
 		} else {
 			G_Printf( "Invalid subcommand.\n" );
 			printHelp = qtrue;
@@ -3018,6 +3070,8 @@ void Svcmd_Account_f( void ) {
 			S_COLOR_YELLOW"account list [page]"S_COLOR_WHITE": Prints a list of created accounts\n"
 			S_COLOR_YELLOW"account info <username> [page]"S_COLOR_WHITE": Prints various information for the given account name\n"
 			S_COLOR_YELLOW"account toggleflag <username> <flag>"S_COLOR_WHITE": Toggles an account flag for the given account name\n"
+			S_COLOR_YELLOW"account autolink <username> <sex> [country]"S_COLOR_WHITE": Sets up autolinking for the given account name\n"
+			S_COLOR_YELLOW"account unautolink <username>"S_COLOR_WHITE": Disables autolinking for the given account name\n"
 			S_COLOR_YELLOW"account help"S_COLOR_WHITE": Prints this message\n"
 		);
 	}

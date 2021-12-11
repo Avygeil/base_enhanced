@@ -4,8 +4,8 @@
 #include "g_local.h"
 
 #define DB_FILENAME				"enhanced.db"
-#define DB_SCHEMA_VERSION		10
-#define DB_SCHEMA_VERSION_STR	"10"
+#define DB_SCHEMA_VERSION		11
+#define DB_SCHEMA_VERSION_STR	"11"
 #define DB_OPTIMIZE_INTERVAL	( 60*60*3 ) // every 3 hours
 #define DB_VACUUM_INTERVAL		( 60*60*24*7 ) // every week
 
@@ -69,6 +69,9 @@ void G_DBListSessionsForInfo( const char* key,
 
 void G_DBSetAccountFlags( account_t* account,
 	const int flags );
+
+void G_DBSetAccountProperties(account_t *account);
+void G_DBCacheAutoLinks(void);
 
 int G_DBGetAccountPlaytime( account_t* account );
 

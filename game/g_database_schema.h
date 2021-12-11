@@ -10,7 +10,7 @@ const char *const sqlCreateTables =
 "    [account_id] INTEGER NOT NULL,                                                                  \n"
 "    [name] TEXT COLLATE NOCASE NOT NULL,                                                            \n"
 "    [created_on] INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),                                  \n"
-"    [usergroup] TEXT DEFAULT NULL,                                                                  \n"
+"    [properties] TEXT DEFAULT NULL,                                                                 \n"
 "    [flags] INTEGER NOT NULL DEFAULT 0,                                                             \n"
 "    PRIMARY KEY ( [account_id] ),                                                                   \n"
 "    UNIQUE ( [name] )                                                                               \n"

@@ -858,6 +858,12 @@ static qboolean UpgradeDBToVersion10(sqlite3 *dbPtr) {
 	return sqlite3_exec(dbPtr, v10Upgrade, NULL, NULL, NULL) == SQLITE_OK;
 }
 
+const char *const v11Upgrade = "ALTER TABLE accounts RENAME COLUMN usergroup TO properties;";
+
+static qboolean UpgradeDBToVersion11(sqlite3 *dbPtr) {
+	return sqlite3_exec(dbPtr, v11Upgrade, NULL, NULL, NULL) == SQLITE_OK;
+}
+
 // =============================================================================
 
 static qboolean UpgradeDB( int versionTo, sqlite3* dbPtr ) {
@@ -873,6 +879,7 @@ static qboolean UpgradeDB( int versionTo, sqlite3* dbPtr ) {
 		case 8: return UpgradeDBToVersion8(dbPtr);
 		case 9: return UpgradeDBToVersion9(dbPtr);
 		case 10: return UpgradeDBToVersion10(dbPtr);
+		case 11: return UpgradeDBToVersion11(dbPtr);
 ;		default:
 			Com_Printf( "ERROR: Unsupported database upgrade routine\n" );
 	}

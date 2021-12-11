@@ -2971,6 +2971,38 @@ void G_PrintWelcomeMessage(gclient_t* client) {
 	}
 }
 
+void AutoLinkAccount(gclient_t *client, const char *sex) {
+	assert(client && VALIDSTRING(sex));
+
+	if (!level.autoLinksList.size)
+		return;
+
+	iterator_t iter;
+	ListIterate(&level.autoLinksList, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		autoLink_t *autoLink = IteratorNext(&iter);
+		if (Q_stricmp(autoLink->sex, sex))
+			continue;
+		if (autoLink->country[0] && (!client->sess.country[0] || Q_stricmp(autoLink->country, client->sess.country)))
+			continue;
+
+		// link them
+		accountReference_t acc = G_GetAccountByID(autoLink->accountId, qfalse);
+		if (!acc.ptr) {
+			Com_Printf("Warning: autolink attempt for account id %d failed! Does that account still exist?\n", autoLink->accountId);
+			continue;
+		}
+
+		if (G_LinkAccountToSession(client->session, acc.ptr)) {
+			Com_Printf("Client session for player %s^7 successfully autolinked to account '%s' (id: %d)\n", client->pers.netname, acc.ptr->name, acc.ptr->id);
+			trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
+		}
+		else {
+			Com_Printf("Failed to autolink client session for player %s^7 to account id %d!\n", client->pers.netname, autoLink->accountId);
+		}
+	}
+}
+
 void TellPlayerToRateMap(gclient_t *client) {
 	if (!g_vote_tierlist_reminders.integer)
 		return;
@@ -3063,6 +3095,8 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 	//assign the pointer for bg entity access
 	ent->playerState = &ent->client->ps;
 
+	trap_GetUserinfo(clientNum, userinfo, sizeof(userinfo));
+
 	// if we just connected and don't have a session yet, it means we didn't init it in ClientConnect
 	// and thus it's a first connection, so retrieve/create it here
 	if (!(ent->r.svFlags & SVF_BOT)
@@ -3079,6 +3113,11 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 		G_InitClientRaceRecordsCache(client);
 		G_InitClientAimRecordsCache(client);
 		G_PrintWelcomeMessage(client);
+		if (!client->account) {
+			char *sex = Info_ValueForKey(userinfo, "sex");
+			if (VALIDSTRING(sex))
+				AutoLinkAccount(client, sex);
+		}
 	}
 
 	if ((ent->r.svFlags & SVF_BOT) && !client->stats)
@@ -3140,7 +3179,6 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 	}
 
 	// First time model setup for that player.
-	trap_GetUserinfo( clientNum, userinfo, sizeof(userinfo) );
 	modelname = Info_ValueForKey (userinfo, "model");
 	SetupGameGhoul2Model(ent, modelname, NULL);
 

@@ -261,12 +261,12 @@ void G_DBSetMetadata( const char *key,
 // =========== ACCOUNTS ========================================================
 
 static const char* sqlGetAccountByID =
-"SELECT name, created_on, usergroup, flags                                   \n"
+"SELECT name, created_on, properties, flags                                   \n"
 "FROM accounts                                                               \n"
 "WHERE accounts.account_id = ?1;                                               ";
 
 static const char* sqlGetAccountByName =
-"SELECT account_id, name, created_on, usergroup, flags                       \n"
+"SELECT account_id, name, created_on, properties, flags                       \n"
 "FROM accounts                                                               \n"
 "WHERE accounts.name = ?1;                                                     ";
 
@@ -313,6 +313,11 @@ static const char* sqlSetFlagsForAccountId =
 "SET flags = ?1                                                              \n"
 "WHERE accounts.account_id = ?2;                                               ";
 
+static const char *sqlSetPropertiesForAccountId =
+"UPDATE accounts                                                             \n"
+"SET properties = ?1                                                         \n"
+"WHERE accounts.account_id = ?2;                                               ";
+
 static const char* sqlGetPlaytimeForAccountId =
 "SELECT playtime FROM player_aliases WHERE account_id = ?1 LIMIT 1;            ";
 
@@ -327,6 +332,28 @@ static const char* sqlListTopUnassignedSessionIds =
 
 static const char* sqlPurgeUnreferencedSessions =
 "DELETE FROM sessions_info WHERE NOT referenced;                               ";
+
+static void ReadAccountProperties(const char *propertiesIn, account_t *accOut) {
+	cJSON *root = VALIDSTRING(propertiesIn) ? cJSON_Parse(propertiesIn) : NULL;
+	if (root) {
+		cJSON *autolink_sex = cJSON_GetObjectItemCaseSensitive(root, "autolink_sex");
+		if (cJSON_IsString(autolink_sex) && VALIDSTRING(autolink_sex->valuestring)) {
+			Q_strncpyz(accOut->autoLink.sex, autolink_sex->valuestring, sizeof(accOut->autoLink.sex));
+			cJSON *autolink_country = cJSON_GetObjectItemCaseSensitive(root, "autolink_country");
+			if (cJSON_IsString(autolink_country) && VALIDSTRING(autolink_country->valuestring))
+				Q_strncpyz(accOut->autoLink.country, autolink_country->valuestring, sizeof(accOut->autoLink.country));
+			else
+				accOut->autoLink.country[0] = '\0';
+		}
+		else {
+			accOut->autoLink.sex[0] = accOut->autoLink.country[0] = '\0';
+		}
+	}
+	else {
+		accOut->autoLink.sex[0] = accOut->autoLink.country[0] = '\0';
+	}
+	cJSON_Delete(root);
+}
 
 qboolean G_DBGetAccountByID( const int id,
 	account_t* account )
@@ -351,11 +378,10 @@ qboolean G_DBGetAccountByID( const int id,
 		account->flags = flags;
 
 		if ( sqlite3_column_type( statement, 2 ) != SQLITE_NULL ) {
-			const char* usergroup = ( const char* )sqlite3_column_text( statement, 2 );
-			Q_strncpyz( account->group, usergroup, sizeof( account->group ) );
-		}
-		else {
-			account->group[0] = '\0';
+			const char* properties = ( const char* )sqlite3_column_text( statement, 2 );
+			ReadAccountProperties(properties, account);
+		} else {
+			account->autoLink.sex[0] = account->autoLink.country[0] = '\0';
 		}
 
 		found = qtrue;
@@ -392,11 +418,12 @@ qboolean G_DBGetAccountByName( const char* name,
 		account->creationDate = created_on;
 		account->flags = flags;
 
-		if ( sqlite3_column_type( statement, 3 ) != SQLITE_NULL ) {
-			const char* usergroup = ( const char* )sqlite3_column_text( statement, 3 );
-			Q_strncpyz( account->group, usergroup, sizeof( account->group ) );
-		} else {
-			account->group[0] = '\0';
+		if (sqlite3_column_type(statement, 3) != SQLITE_NULL) {
+			const char *properties = (const char *)sqlite3_column_text(statement, 3);
+			ReadAccountProperties(properties, account);
+		}
+		else {
+			account->autoLink.sex[0] = account->autoLink.country[0] = '\0';
 		}
 
 		found = qtrue;
@@ -654,6 +681,66 @@ void G_DBSetAccountFlags( account_t* account,
 	}
 
 	sqlite3_finalize( statement );
+}
+
+void G_DBSetAccountProperties(account_t *account)
+{
+	cJSON *root = cJSON_CreateObject();
+	char *str = NULL;
+	if (root) {
+		if (account->autoLink.sex[0]) {
+			cJSON_AddStringToObject(root, "autolink_sex", account->autoLink.sex);
+			if (account->autoLink.country[0])
+				cJSON_AddStringToObject(root, "autolink_country", account->autoLink.country);
+			str = cJSON_PrintUnformatted(root);
+		}
+	}
+
+	sqlite3_stmt *statement;
+
+	sqlite3_prepare(dbPtr, sqlSetPropertiesForAccountId, -1, &statement, 0);
+
+	if (VALIDSTRING(str))
+		sqlite3_bind_text(statement, 1, str, -1, 0);
+	else
+		sqlite3_bind_null(statement, 1);
+	sqlite3_bind_int(statement, 2, account->id);
+
+	sqlite3_step(statement);
+
+	cJSON_Delete(root);
+	sqlite3_finalize(statement);
+}
+
+const char *const sqlGetAutoLinks = "SELECT account_id, properties FROM accounts WHERE properties IS NOT NULL;";
+void G_DBCacheAutoLinks(void) {
+	ListClear(&level.autoLinksList);
+	sqlite3_stmt *statement;
+
+	int rc = sqlite3_prepare(dbPtr, sqlGetAutoLinks, -1, &statement, 0);
+
+	rc = sqlite3_step(statement);
+	int gotten = 0;
+	while (rc == SQLITE_ROW) {
+		const int accountId = sqlite3_column_int(statement, 0);
+		const char *properties = (const char *)sqlite3_column_text(statement, 1);
+		account_t acc = { 0 };
+		ReadAccountProperties(properties, &acc);
+
+		if (acc.autoLink.sex[0]) {
+			++gotten;
+			autoLink_t *add = ListAdd(&level.autoLinksList, sizeof(autoLink_t));
+			add->accountId = accountId;
+			Q_strncpyz(add->sex, acc.autoLink.sex, sizeof(add->sex));
+			if (acc.autoLink.country[0])
+				Q_strncpyz(add->country, acc.autoLink.country, sizeof(add->country));
+		}
+
+		rc = sqlite3_step(statement);
+	}
+	
+	sqlite3_finalize(statement);
+	Com_Printf("Loaded %d autolinks from database.\n", gotten);
 }
 
 int G_DBGetAccountPlaytime( account_t* account )
