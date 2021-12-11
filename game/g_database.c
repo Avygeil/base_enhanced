@@ -4036,62 +4036,62 @@ qboolean G_DBWritePugStats(void) {
 			sqlite3_bind_int(statement, num++, s->ticksNotPaused * (1000 / g_svfps.integer));
 			sqlite3_bind_text(statement, num++, s->name, -1, SQLITE_STATIC);
 			sqlite3_bind_int(statement, num++, found->finalPosition);
-			sqlite3_bind_int(statement, num++, found->captures);
-			sqlite3_bind_int(statement, num++, found->assists);
-			sqlite3_bind_int(statement, num++, found->defends);
-			sqlite3_bind_int(statement, num++, found->accuracy);
-			sqlite3_bind_int(statement, num++, found->airs);
-			sqlite3_bind_int(statement, num++, found->teamKills);
-			sqlite3_bind_int(statement, num++, found->takes);
-			sqlite3_bind_int(statement, num++, found->pits);
-			sqlite3_bind_int(statement, num++, found->pitted);
-			sqlite3_bind_int(statement, num++, found->damageDealtTotal);
-			sqlite3_bind_int(statement, num++, found->flagCarrierDamageDealtTotal);
-			sqlite3_bind_int(statement, num++, found->clearDamageDealtTotal);
-			sqlite3_bind_int(statement, num++, found->otherDamageDealtTotal);
-			sqlite3_bind_int(statement, num++, found->damageTakenTotal);
-			sqlite3_bind_int(statement, num++, found->flagCarrierDamageTakenTotal);
-			sqlite3_bind_int(statement, num++, found->clearDamageTakenTotal);
-			sqlite3_bind_int(statement, num++, found->otherDamageTakenTotal);
-			sqlite3_bind_int(statement, num++, found->fcKills);
-			if (found->fcKills)
-				sqlite3_bind_int(statement, num++, found->fcKillEfficiency);
+			sqlite3_bind_int(statement, num++, s->captures);
+			sqlite3_bind_int(statement, num++, s->assists);
+			sqlite3_bind_int(statement, num++, s->defends);
+			sqlite3_bind_int(statement, num++, s->accuracy);
+			sqlite3_bind_int(statement, num++, s->airs);
+			sqlite3_bind_int(statement, num++, s->teamKills);
+			sqlite3_bind_int(statement, num++, s->takes);
+			sqlite3_bind_int(statement, num++, s->pits);
+			sqlite3_bind_int(statement, num++, s->pitted);
+			sqlite3_bind_int(statement, num++, s->damageDealtTotal);
+			sqlite3_bind_int(statement, num++, s->flagCarrierDamageDealtTotal);
+			sqlite3_bind_int(statement, num++, s->clearDamageDealtTotal);
+			sqlite3_bind_int(statement, num++, s->otherDamageDealtTotal);
+			sqlite3_bind_int(statement, num++, s->damageTakenTotal);
+			sqlite3_bind_int(statement, num++, s->flagCarrierDamageTakenTotal);
+			sqlite3_bind_int(statement, num++, s->clearDamageTakenTotal);
+			sqlite3_bind_int(statement, num++, s->otherDamageTakenTotal);
+			sqlite3_bind_int(statement, num++, s->fcKills);
+			if (s->fcKills)
+				sqlite3_bind_int(statement, num++, s->fcKillEfficiency);
 			else
 				sqlite3_bind_null(statement, num++);
-			sqlite3_bind_int(statement, num++, found->rets);
-			sqlite3_bind_int(statement, num++, found->selfkills);
-			sqlite3_bind_int(statement, num++, found->totalFlagHold);
-			sqlite3_bind_int(statement, num++, found->longestFlagHold);
-			sqlite3_bind_int(statement, num++, found->averageSpeed);
-			sqlite3_bind_int(statement, num++, found->topSpeed);
+			sqlite3_bind_int(statement, num++, s->rets);
+			sqlite3_bind_int(statement, num++, s->selfkills);
+			sqlite3_bind_int(statement, num++, s->totalFlagHold);
+			sqlite3_bind_int(statement, num++, s->longestFlagHold);
+			sqlite3_bind_int(statement, num++, s->averageSpeed);
+			sqlite3_bind_int(statement, num++, s->topSpeed);
 			if (level.boonExists)
-				sqlite3_bind_int(statement, num++, found->boonPickups);
+				sqlite3_bind_int(statement, num++, s->boonPickups);
 			else
 				sqlite3_bind_null(statement, num++);
-			sqlite3_bind_int(statement, num++, found->push);
-			sqlite3_bind_int(statement, num++, found->pull);
-			sqlite3_bind_int(statement, num++, found->healed);
-			sqlite3_bind_int(statement, num++, found->energizedAlly);
-			if (found->numEnergizes)
-				sqlite3_bind_int(statement, num++, found->energizeEfficiency);
+			sqlite3_bind_int(statement, num++, s->push);
+			sqlite3_bind_int(statement, num++, s->pull);
+			sqlite3_bind_int(statement, num++, s->healed);
+			sqlite3_bind_int(statement, num++, s->energizedAlly);
+			if (s->numEnergizes)
+				sqlite3_bind_int(statement, num++, s->energizeEfficiency);
 			else
 				sqlite3_bind_null(statement, num++);
-			sqlite3_bind_int(statement, num++, found->energizedEnemy);
-			sqlite3_bind_int(statement, num++, found->absorbed);
-			sqlite3_bind_int(statement, num++, found->protDamageAvoided);
-			sqlite3_bind_int(statement, num++, found->protTimeUsed);
-			sqlite3_bind_int(statement, num++, found->rageTimeUsed);
-			sqlite3_bind_int(statement, num++, found->drain);
-			sqlite3_bind_int(statement, num++, found->gotDrained);
+			sqlite3_bind_int(statement, num++, s->energizedEnemy);
+			sqlite3_bind_int(statement, num++, s->absorbed);
+			sqlite3_bind_int(statement, num++, s->protDamageAvoided);
+			sqlite3_bind_int(statement, num++, s->protTimeUsed);
+			sqlite3_bind_int(statement, num++, s->rageTimeUsed);
+			sqlite3_bind_int(statement, num++, s->drain);
+			sqlite3_bind_int(statement, num++, s->gotDrained);
 			qboolean hasValidRegions = qfalse;
 			for (ctfRegion_t r = CTFREGION_FLAGSTAND; r <= CTFREGION_ENEMYFLAGSTAND; r++)
-				if (found->regionPercent[r]) { hasValidRegions = qtrue; break; }
+				if (s->regionPercent[r]) { hasValidRegions = qtrue; break; }
 			if (hasValidRegions) {
-				sqlite3_bind_int(statement, num++, found->regionPercent[CTFREGION_FLAGSTAND]);
-				sqlite3_bind_int(statement, num++, found->regionPercent[CTFREGION_BASE]);
-				sqlite3_bind_int(statement, num++, found->regionPercent[CTFREGION_MID]);
-				sqlite3_bind_int(statement, num++, found->regionPercent[CTFREGION_ENEMYBASE]);
-				sqlite3_bind_int(statement, num++, found->regionPercent[CTFREGION_ENEMYFLAGSTAND]);
+				sqlite3_bind_int(statement, num++, s->regionPercent[CTFREGION_FLAGSTAND]);
+				sqlite3_bind_int(statement, num++, s->regionPercent[CTFREGION_BASE]);
+				sqlite3_bind_int(statement, num++, s->regionPercent[CTFREGION_MID]);
+				sqlite3_bind_int(statement, num++, s->regionPercent[CTFREGION_ENEMYBASE]);
+				sqlite3_bind_int(statement, num++, s->regionPercent[CTFREGION_ENEMYFLAGSTAND]);
 			}
 			else {
 				sqlite3_bind_null(statement, num++);
