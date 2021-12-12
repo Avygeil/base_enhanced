@@ -1737,9 +1737,6 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 					didHorizontalRule = qtrue;
 				}
 
-				CheckBestStats(found, type, weaponStatsPtr);
-				AddStatsToTotal(found, team == winningTeam ? &winningTeamTotalStats : &losingTeamTotalStats, type, weaponStatsPtr);
-
 				stats_t *combined = ListAdd(&combinedStatsList, sizeof(stats_t));
 				AddStatsToTotal(found, combined, type, weaponStatsPtr); // add the first stats_t into the combined one
 				Q_strncpyz(combined->accountName, found->accountName, sizeof(combined->accountName));
@@ -1763,6 +1760,9 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 						combined->confirmedPositionBits |= match->confirmedPositionBits;
 					}
 				}
+
+				CheckBestStats(combined, type, weaponStatsPtr);
+				AddStatsToTotal(combined, team == winningTeam ? &winningTeamTotalStats : &losingTeamTotalStats, type, weaponStatsPtr);
 
 				Table_DefineRow(t, combined);
 
@@ -1808,9 +1808,6 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 				didHorizontalRule = qtrue;
 			}
 
-			CheckBestStats(found, type, weaponStatsPtr);
-			AddStatsToTotal(found, team == winningTeam ? &winningTeamTotalStats : &losingTeamTotalStats, type, weaponStatsPtr);
-
 			stats_t *combined = ListAdd(&combinedStatsList, sizeof(stats_t));
 			AddStatsToTotal(found, combined, type, weaponStatsPtr); // add the first stats_t into the combined one
 			Q_strncpyz(combined->accountName, found->accountName, sizeof(combined->accountName));
@@ -1831,6 +1828,9 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 					combined->ticksNotPaused += match->ticksNotPaused;
 				}
 			}
+
+			CheckBestStats(combined, type, weaponStatsPtr);
+			AddStatsToTotal(combined, team == winningTeam ? &winningTeamTotalStats : &losingTeamTotalStats, type, weaponStatsPtr);
 
 			Table_DefineRow(t, combined);
 
@@ -1871,9 +1871,6 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 				didHorizontalRule = qtrue;
 			}
 
-			CheckBestStats(found, type, weaponStatsPtr);
-			AddStatsToTotal(found, team == winningTeam ? &winningTeamTotalStats : &losingTeamTotalStats, type, weaponStatsPtr);
-
 			stats_t *combined = ListAdd(&combinedStatsList, sizeof(stats_t));
 			AddStatsToTotal(found, combined, type, weaponStatsPtr); // add the first stats_t into the combined one
 			Q_strncpyz(combined->accountName, found->accountName, sizeof(combined->accountName));
@@ -1894,6 +1891,9 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 					combined->ticksNotPaused += match->ticksNotPaused;
 				}
 			}
+
+			CheckBestStats(combined, type, weaponStatsPtr);
+			AddStatsToTotal(combined, team == winningTeam ? &winningTeamTotalStats : &losingTeamTotalStats, type, weaponStatsPtr);
 
 			Table_DefineRow(t, combined);
 
