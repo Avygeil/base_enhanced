@@ -1330,7 +1330,6 @@ void AddStatsToTotal(stats_t *player, stats_t *total, statsTableType_t type, sta
 		AddStatToTotal(totalFlagHold);
 		AddStatToTotal(numFlagHolds);
 		total->averageFlagHold = total->numFlagHolds ? total->totalFlagHold / total->numFlagHolds : 0;
-		AddStatToTotal(longestFlagHold);
 		if (player->longestFlagHold > total->longestFlagHold)
 			total->longestFlagHold = player->longestFlagHold;
 		AddStatToTotal(saves);
