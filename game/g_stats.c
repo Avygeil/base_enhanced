@@ -1313,7 +1313,6 @@ void AddStatsToTotal(stats_t *player, stats_t *total, statsTableType_t type, sta
 		AddStatToTotal(pits);
 		AddStatToTotal(pitted);
 		AddStatToTotal(fcKills);
-		AddStatToTotal(fcKills);
 		AddStatToTotal(fcKillsResultingInRets);
 		total->fcKillEfficiency = total->fcKills ? total->fcKillsResultingInRets * 100 / total->fcKills : 0;
 		AddStatToTotal(flagCarrierDamageDealtTotal);
