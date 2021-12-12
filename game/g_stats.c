@@ -1334,7 +1334,7 @@ void AddStatsToTotal(stats_t *player, stats_t *total, statsTableType_t type, sta
 		AddStatToTotal(saves);
 		AddStatToTotal(damageDealtTotal);
 		AddStatToTotal(damageTakenTotal);
-		if (total->topSpeed > player->topSpeed)
+		if (player->topSpeed > total->topSpeed)
 			total->topSpeed = player->topSpeed;
 		AddStatToTotal(displacement);
 		AddStatToTotal(displacementSamples);
