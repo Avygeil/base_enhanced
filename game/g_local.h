@@ -939,7 +939,7 @@ typedef struct { //Should this store their g2 anim? for proper g2 sync?
 #ifdef DEBUG_CTF_POSITION_STATS
 #define CTFPOSITION_MINIMUM_SECONDS		(60) // 60 seconds minimum for pos detection
 #else
-#define CTFPOSITION_MINIMUM_SECONDS		(60) // 60 seconds minimum for pos detection
+#define CTFPOSITION_MINIMUM_SECONDS		(120) // 120 seconds minimum for pos detection
 #endif
 
 #ifdef DEBUG_CTF_POSITION_STATS
