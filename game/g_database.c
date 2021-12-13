@@ -4698,7 +4698,7 @@ static void GetWinrate(int accountId, ctfPosition_t pos, ctfPosition_t otherPos,
 #else
 		"WHERE matchups >= 5 AND winrate %s 0.5 "
 #endif
-		"ORDER BY winrate %s LIMIT %d;", pos ? " AND pos = ?" : "", otherPos ? " AND pos = ?" : "", lowest ? "ASC" : "DESC", lowest ? "<=" : ">=", lowest ? "ASC" : "DESC", noLimits ? 500 : 5);
+		"ORDER BY winrate %s LIMIT %d;", pos ? " AND pos = ?" : "", otherPos ? " AND pos = ?" : "", lowest ? "ASC" : "DESC", lowest ? "<=" : ">=", lowest ? "ASC" : "DESC", noLimits ? 10 : 5);
 
 	sqlite3_stmt *statement;
 	sqlite3_prepare(dbPtr, query, -1, &statement, 0);
@@ -4791,7 +4791,8 @@ static void RecalculateWinRates(void) {
 				Table_DefineColumn(t, va("%s %s %svs. chase", worstBest, name, pos ? va("%s ", NameForPos(pos)) : ""), WinrateCallback, &rows[num++][0], qfalse, -1, 32);
 				Table_DefineColumn(t, va("%s %s %svs. offense", worstBest, name, pos ? va("%s ", NameForPos(pos)) : ""), WinrateCallback, &rows[num++][0], qfalse, -1, 32);
 
-				Table_WriteToBuffer(t, buf, 16384, qtrue, -1);
+				size_t len = strlen(buf);
+				Table_WriteToBuffer(t, buf + len, 16384 - len, qtrue, -1);
 				Table_Destroy(t);
 			}
 
