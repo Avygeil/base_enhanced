@@ -210,6 +210,11 @@ ctfPosition_t DetermineCTFPosition(stats_t *posGuy) {
 		return posGuy->lastPosition;
 	}
 
+	if (!level.numTeamTicks) { // prevent divide by zero
+		DebugCtfPosPrintf("%08x cl %d %s^7 (block %d): no level.numTeamTicks, so using lastPosition %s\n", posGuy, posGuy->clientNum, posGuy->name, posGuy->blockNum, NameForPos(posGuy->lastPosition));
+		return posGuy->lastPosition;
+	}
+
 	// we only care about 4v4
 	float avgRed = (float)level.numRedPlayerTicks / (float)level.numTeamTicks;
 	float avgBlue = (float)level.numBluePlayerTicks / (float)level.numTeamTicks;
