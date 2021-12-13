@@ -2163,7 +2163,7 @@ void TeamGenerator_PrintPlayersInPugProposals(gentity_t *ent) {
 		pugProposal_t *p = IteratorNext(&iter);
 		if (!gotOne)
 			Q_strncpyz(buf, "Current pug proposals:\n", sizeof(buf));
-		Q_strcat(buf, sizeof(buf), va("Pug proposal ^5%d^7 - %s%s\n", p->num, p == level.activePugProposal ? "^2(Currently active)^7 " : "", p->namesStr));
+		Q_strcat(buf, sizeof(buf), va("Pug proposal ^5%d^7 - %s%s\n", p->num, p->namesStr, p == level.activePugProposal ? " ^2(Currently active)^7" : ""));
 		gotOne = qtrue;
 	}
 
@@ -2461,7 +2461,7 @@ void Svcmd_Pug_f(void) {
 			pugProposal_t *p = IteratorNext(&iter);
 			if (!gotOne)
 				Q_strncpyz(buf, "Current pug proposals:\n", sizeof(buf));
-			Q_strcat(buf, sizeof(buf), va("Pug proposal ^5%d^7 - %s%s\n", p->num, p == level.activePugProposal ? "^2(Currently active)^7 " : "", p->namesStr));
+			Q_strcat(buf, sizeof(buf), va("Pug proposal ^5%d^7 - %s%s\n", p->num, p->namesStr, p == level.activePugProposal ? " ^2(Currently active)^7" : ""));
 			gotOne = qtrue;
 		}
 
