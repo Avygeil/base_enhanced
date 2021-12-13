@@ -3052,7 +3052,7 @@ void SendMachineFriendlyStats(void) {
 				if (s->regionPercent[r]) { hasValidRegions = qtrue; break; }
 
 			machineFriendlyStats_t *mfs = ListAdd(&machineFriendlyStatsList, sizeof(machineFriendlyStats_t));
-#define MACHINEFRIENDLYSTATS_PROTOCOL	1
+#define MACHINEFRIENDLYSTATS_PROTOCOL	2
 			Com_sprintf(mfs->buf, sizeof(mfs->buf),
 //#define DEBUG_PRINT_MACHINEFRIENDLYSTATS // uncomment to print in console
 #ifdef DEBUG_PRINT_MACHINEFRIENDLYSTATS
