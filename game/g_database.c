@@ -4911,7 +4911,7 @@ void G_DBInitializePugStatsCache(void) {
 typedef struct {
 	node_t				node;
 	char				name[32];
-	double				rating;
+	ctfPlayerTier_t		tier;
 } ratedPlayer_t;
 
 extern double PlayerTierToRating(ctfPlayerTier_t tier);
@@ -4939,7 +4939,7 @@ void G_DBListRatingPlayers(int raterAccountId, int raterClientNum, ctfPosition_t
 
 		ratedPlayer_t *add = ListAdd(&playerList, sizeof(ratedPlayer_t));
 		Q_strncpyz(add->name, name, sizeof(add->name));
-		add->rating = PlayerTierToRating(tier);
+		add->tier = tier;
 
 		rc = sqlite3_step(statement);
 	}
@@ -4963,7 +4963,7 @@ void G_DBListRatingPlayers(int raterAccountId, int raterClientNum, ctfPosition_t
 	qboolean gotOne = qfalse;
 	while (IteratorHasNext(&iter)) {
 		ratedPlayer_t *player = (ratedPlayer_t *)IteratorNext(&iter);
-		ctfPlayerTier_t tier = PlayerTierFromRating(player->rating);
+		ctfPlayerTier_t tier = player->tier;
 		Q_strcat(ratingStr[tier], sizeof(ratingStr[tier]), va("%s%s", numOfRating[tier]++ ? ", " : "", player->name));
 		gotOne = qtrue;
 	}
