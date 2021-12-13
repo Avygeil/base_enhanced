@@ -2202,7 +2202,7 @@ qboolean TeamGenerator_CheckForChatCommand(gentity_t *ent, const char *s, char *
 			"^7%ccancel         - vote to generate new teams proposals with the same players\n"
 			"^9%clist           - show which players are part of each pug proposal\n"
 			"^7"
-			, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER);
+			, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER);
 		SV_Tell(ent - g_entities, "See console for chat command help.");
 		return qtrue;
 	}
