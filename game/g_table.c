@@ -162,14 +162,23 @@ const char *TableCallback_Alias(void *rowContext, void *columnContext) {
 	return va("%s", nickname.name);
 }
 
-const char *TableCallback_Verified(void *rowContext, void *columnContext) {
+const char *TableCallback_Notes(void *rowContext, void *columnContext) {
 	if (!rowContext) {
 		assert(qfalse);
 		return NULL;
 	}
 	gclient_t *cl = rowContext;
 	gentity_t *ent = &g_entities[cl - level.clients];
-	if (cl->account || cl->pers.connected != CON_CONNECTED || (ent->r.svFlags & SVF_BOT))
+	if (cl->pers.connected != CON_CONNECTED)
+		return NULL;
+
+	if (ent->r.svFlags & SVF_BOT)
+		return "Bot";
+
+	if (cl->sess.clientType == CLIENT_TYPE_JKCHAT)
+		return "JKChat";
+
+	if (cl->account)
 		return NULL;
 
 	return "^3Unverified";

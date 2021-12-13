@@ -2505,7 +2505,7 @@ const char *TableCallback_ClientNum(void *rowContext, void *columnContext);
 const char *TableCallback_Name(void *rowContext, void *columnContext);
 const char *TableCallback_Account(void *rowContext, void *columnContext);
 const char *TableCallback_Alias(void *rowContext, void *columnContext);
-const char *TableCallback_Verified(void *rowContext, void *columnContext);
+const char *TableCallback_Notes(void *rowContext, void *columnContext);
 const char *TableCallback_Ping(void *rowContext, void *columnContext);
 const char *TableCallback_Score(void *rowContext, void *columnContext);
 const char *TableCallback_IP(void *rowContext, void *columnContext);
