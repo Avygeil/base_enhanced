@@ -4060,8 +4060,8 @@ qboolean G_DBWritePugStats(void) {
 				sqlite3_bind_null(statement, num++);
 			sqlite3_bind_int(statement, num++, s->rets);
 			sqlite3_bind_int(statement, num++, s->selfkills);
-			sqlite3_bind_int(statement, num++, s->totalFlagHold);
-			sqlite3_bind_int(statement, num++, s->longestFlagHold);
+			sqlite3_bind_int(statement, num++, s->totalFlagHold / 1000);
+			sqlite3_bind_int(statement, num++, s->longestFlagHold / 1000);
 			sqlite3_bind_int(statement, num++, s->averageSpeed);
 			sqlite3_bind_int(statement, num++, s->topSpeed);
 			if (level.boonExists)
@@ -4079,8 +4079,8 @@ qboolean G_DBWritePugStats(void) {
 			sqlite3_bind_int(statement, num++, s->energizedEnemy);
 			sqlite3_bind_int(statement, num++, s->absorbed);
 			sqlite3_bind_int(statement, num++, s->protDamageAvoided);
-			sqlite3_bind_int(statement, num++, s->protTimeUsed);
-			sqlite3_bind_int(statement, num++, s->rageTimeUsed);
+			sqlite3_bind_int(statement, num++, s->protTimeUsed / 1000);
+			sqlite3_bind_int(statement, num++, s->rageTimeUsed / 1000);
 			sqlite3_bind_int(statement, num++, s->drain);
 			sqlite3_bind_int(statement, num++, s->gotDrained);
 			qboolean hasValidRegions = qfalse;
