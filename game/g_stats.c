@@ -1051,16 +1051,13 @@ const char *TableCallback_WeaponDamage(void *rowContext, void *columnContext) {
 	int mostDamageThisTeam = bestStats[rowPlayer->lastTeam].damageOfType[context->modc];
 	int mostDamageOtherTeam = bestStats[OtherTeam(rowPlayer->lastTeam)].damageOfType[context->modc];
 
-	damageCounter_t *dmgPtr = ListFind(context->damageTaken ? &tablePlayer->damageTakenList : &tablePlayer->damageGivenList, MatchesDamage, rowPlayer, NULL);
 	int damage = 0;
-	if (dmgPtr) {
-		if (context->modc == MODC_ALL_TYPES_COMBINED) {
-			for (int i = MODC_FIRST; i < MODC_ALL_TYPES_COMBINED; i++)
-				damage += dmgPtr->ofType[i];
-		}
-		else {
-			damage = dmgPtr->ofType[context->modc];
-		}
+	if (context->modc == MODC_ALL_TYPES_COMBINED) {
+		for (int i = MODC_FIRST; i < MODC_ALL_TYPES_COMBINED; i++)
+			damage += context->damageTaken ? GetTotalDamageTakenStatOfType(rowPlayer, tablePlayer, i) : GetTotalDamageGivenStatOfType(tablePlayer, rowPlayer, i);
+	}
+	else {
+		damage = context->damageTaken ? GetTotalDamageTakenStatOfType(rowPlayer, tablePlayer, context->modc) : GetTotalDamageGivenStatOfType(tablePlayer, rowPlayer, context->modc);
 	}
 
 	return FormatStatInt(qfalse, damage, mostDamageThisTeam, mostDamageOtherTeam, 4);
@@ -1223,17 +1220,16 @@ static void CheckBestStats(stats_t *player, statsTableType_t type, stats_t *weap
 			if (i == MODC_ALL_TYPES_COMBINED) {
 				int damage = 0;
 				for (int i = MODC_FIRST; i < MODC_ALL_TYPES_COMBINED; i++) {
-					int *dmg = GetDamageGivenStatOfType(weaponStatsPtr, player, i);
-					if (dmg)
-						damage += *dmg;
+					int dmg = GetTotalDamageGivenStatOfType(weaponStatsPtr, player, i);
+					damage += dmg;
 				}
 				if (damage > bestStats[player->lastTeam].damageOfType[i])
 					bestStats[player->lastTeam].damageOfType[i] = damage;
 			}
 			else {
-				int *dmg = GetDamageGivenStatOfType(weaponStatsPtr, player, i);
-				if (dmg && *dmg > bestStats[player->lastTeam].damageOfType[i])
-					bestStats[player->lastTeam].damageOfType[i] = *dmg;
+				int dmg = GetTotalDamageGivenStatOfType(weaponStatsPtr, player, i);
+				if (dmg > bestStats[player->lastTeam].damageOfType[i])
+					bestStats[player->lastTeam].damageOfType[i] = dmg;
 			}
 		}
 	}
@@ -1242,17 +1238,16 @@ static void CheckBestStats(stats_t *player, statsTableType_t type, stats_t *weap
 			if (i == MODC_ALL_TYPES_COMBINED) {
 				int damage = 0;
 				for (int i = MODC_FIRST; i < MODC_ALL_TYPES_COMBINED; i++) {
-					int *dmg = GetDamageTakenStatOfType(player, weaponStatsPtr, i);
-					if (dmg)
-						damage += *dmg;
+					int dmg = GetTotalDamageTakenStatOfType(player, weaponStatsPtr, i);
+					damage += dmg;
 				}
 				if (damage > bestStats[player->lastTeam].damageOfType[i])
 					bestStats[player->lastTeam].damageOfType[i] = damage;
 			}
 			else {
-				int *dmg = GetDamageTakenStatOfType(player, weaponStatsPtr, i);
-				if (dmg && *dmg > bestStats[player->lastTeam].damageOfType[i])
-					bestStats[player->lastTeam].damageOfType[i] = *dmg;
+				int dmg = GetTotalDamageTakenStatOfType(player, weaponStatsPtr, i);
+				if (dmg > bestStats[player->lastTeam].damageOfType[i])
+					bestStats[player->lastTeam].damageOfType[i] = dmg;
 			}
 		}
 	}
@@ -1412,15 +1407,14 @@ void AddStatsToTotal(stats_t *player, stats_t *total, statsTableType_t type, sta
 		for (int i = 0; i < MODC_MAX; i++) {
 			if (i == MODC_ALL_TYPES_COMBINED) {
 				for (int i = MODC_FIRST; i < MODC_ALL_TYPES_COMBINED; i++) {
-					int *dmg = GetDamageGivenStatOfType(weaponStatsPtr, player, i);
-					if (dmg)
-						total->damageOfType[i] += *dmg;
+					int dmg = GetTotalDamageGivenStatOfType(weaponStatsPtr, player, i);
+					total->damageOfType[i] += dmg;
 				}
 			}
 			else {
-				int *dmg = GetDamageGivenStatOfType(weaponStatsPtr, player, i);
-				if (dmg && *dmg > bestStats[player->lastTeam].damageOfType[i])
-					total->damageOfType[i] += *dmg;
+				int dmg = GetTotalDamageGivenStatOfType(weaponStatsPtr, player, i);
+				if (dmg > bestStats[player->lastTeam].damageOfType[i])
+					total->damageOfType[i] += dmg;
 			}
 		}
 	}
@@ -1428,15 +1422,14 @@ void AddStatsToTotal(stats_t *player, stats_t *total, statsTableType_t type, sta
 		for (int i = 0; i < MODC_MAX; i++) {
 			if (i == MODC_ALL_TYPES_COMBINED) {
 				for (int i = MODC_FIRST; i < MODC_ALL_TYPES_COMBINED; i++) {
-					int *dmg = GetDamageTakenStatOfType(player, weaponStatsPtr, i);
-					if (dmg)
-						total->damageOfType[i] += *dmg;
+					int dmg = GetTotalDamageTakenStatOfType(player, weaponStatsPtr, i);
+					total->damageOfType[i] += dmg;
 				}
 			}
 			else {
-				int *dmg = GetDamageTakenStatOfType(player, weaponStatsPtr, i);
-				if (dmg && *dmg > bestStats[player->lastTeam].damageOfType[i])
-					total->damageOfType[i] += *dmg;
+				int dmg = GetTotalDamageTakenStatOfType(player, weaponStatsPtr, i);
+				if (dmg > bestStats[player->lastTeam].damageOfType[i])
+					total->damageOfType[i] += dmg;
 			}
 		}
 	}
@@ -1682,6 +1675,11 @@ accuracyCategory_t AccuracyCategoryForProjectile(gentity_t *projectile) {
 #define STATSTABLE_ALIAS "^5Alias"
 #define STATSTABLE_ALIAS_LENGTH	(5)
 #endif
+
+typedef struct {
+	node_t		node;
+	char		*str;
+} stringListEntry_t;
 
 static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qboolean announce, statsTableType_t type, stats_t *weaponStatsPtr) {
 	Table *t = Table_Initialize(qfalse);
@@ -1981,6 +1979,7 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 		Table_DefineColumn(t, "^5EFs", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
 	}
 	else if (type == STATS_TABLE_DAMAGE) {
+		list_t stringList = { 0 };
 		int firstDividerColor;
 		if (numWinningTeam) {
 			if (winningTeam == TEAM_RED)
@@ -2018,6 +2017,8 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 			else {
 				name = va("^5%s", clean);
 			}
+			stringListEntry_t *addStr = ListAdd(&stringList, sizeof(stringListEntry_t));
+			addStr->str = strdup(name);
 			free(clean);
 			int len = Q_PrintStrlen(player->stats->name);
 			if (len > longestPrintLenName)
@@ -2046,7 +2047,7 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 				Table_DefineColumn(t, "^5Pos", CtfStatsTableCallback_Position, NULL, qtrue, longestPrintLenPos ? firstDividerColor : -1, 32);
 				didFirstColumns = qtrue;
 			}
-			Table_DefineColumn(t, name, TableCallback_Damage, player->stats, qfalse, secondDividerColor, 32);
+			Table_DefineColumn(t, addStr->str, TableCallback_Damage, player->stats, qfalse, secondDividerColor, 32);
 		}
 
 		if (!didFirstColumns) { // sanity check, make sure these get printed no matter what
@@ -2056,6 +2057,14 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 			Table_DefineColumn(t, "^5Pos", CtfStatsTableCallback_Position, NULL, qtrue, longestPrintLenPos ? firstDividerColor : -1, 32);
 			didFirstColumns = qtrue;
 		}
+
+		ListIterate(&stringList, &iter, qfalse);
+		while (IteratorHasNext(&iter)) {
+			stringListEntry_t *deleteStr = IteratorNext(&iter);
+			if (deleteStr->str)
+				free(deleteStr->str);
+		}
+		ListClear(&stringList);
 	}
 	else if (type == STATS_TABLE_WEAPON_GIVEN || type == STATS_TABLE_WEAPON_TAKEN) {
 		Table_DefineColumn(t, STATSTABLE_NAME, CtfStatsTableCallback_Name, NULL, qtrue, -1, 32);
@@ -2857,6 +2866,69 @@ int *GetDamageGivenStatOfType(stats_t *attacker, stats_t *victim, meansOfDeathCa
 	}
 
 	return &dmg->ofType[modc];
+}
+
+int GetTotalDamageGivenStatOfType(stats_t *attacker, stats_t *victim, meansOfDeathCategory_t modc) {
+	damageCounter_t *dmg = ListFind(&attacker->damageGivenList, MatchesDamage, victim, NULL);
+
+	int total = 0;
+
+	if (dmg)
+		total += dmg->ofType[modc];
+
+	iterator_t iter;
+	ListIterate(&level.statsList, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		stats_t *s = (stats_t *)IteratorNext(&iter);
+		if (s == attacker || s->sessionId != attacker->sessionId || s->lastTeam != attacker->lastTeam || !StatsValid(s))
+			continue;
+		dmg = ListFind(&s->damageGivenList, MatchesDamage, victim, NULL);
+		if (dmg)
+			total += dmg->ofType[modc];
+	}
+
+	ListIterate(&level.savedStatsList, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		stats_t *s = (stats_t *)IteratorNext(&iter);
+		if (s == attacker || s->sessionId != attacker->sessionId || s->lastTeam != attacker->lastTeam || !StatsValid(s))
+			continue;
+		dmg = ListFind(&s->damageGivenList, MatchesDamage, victim, NULL);
+		if (dmg)
+			total += dmg->ofType[modc];
+	}
+
+	return total;
+}
+
+int GetTotalDamageTakenStatOfType(stats_t *attacker, stats_t *victim, meansOfDeathCategory_t modc) {
+	int total = 0;
+
+	damageCounter_t *dmg = ListFind(&victim->damageTakenList, MatchesDamage, attacker, NULL);
+	if (dmg)
+		total += dmg->ofType[modc];
+
+	iterator_t iter;
+	ListIterate(&level.statsList, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		stats_t *s = (stats_t *)IteratorNext(&iter);
+		if (s == victim || s->sessionId != victim->sessionId || s->lastTeam != victim->lastTeam || !StatsValid(s))
+			continue;
+		dmg = ListFind(&s->damageTakenList, MatchesDamage, attacker, NULL);
+		if (dmg)
+			total += dmg->ofType[modc];
+	}
+
+	ListIterate(&level.savedStatsList, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		stats_t *s = (stats_t *)IteratorNext(&iter);
+		if (s == victim || s->sessionId != victim->sessionId || s->lastTeam != victim->lastTeam || !StatsValid(s))
+			continue;
+		dmg = ListFind(&s->damageTakenList, MatchesDamage, attacker, NULL);
+		if (dmg)
+			total += dmg->ofType[modc];
+	}
+
+	return total;
 }
 
 int *GetDamageTakenStat(stats_t *attacker, stats_t *victim) {

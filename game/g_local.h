@@ -1134,8 +1134,10 @@ void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t ou
 qboolean StatsValid(const stats_t *stats);
 stats_t *GetStatsFromString(const char *str);
 int *GetDamageGivenStat(stats_t *attacker, stats_t *victim);
+int GetTotalDamageGivenStatOfType(stats_t *attacker, stats_t *victim, meansOfDeathCategory_t modc);
 int *GetDamageGivenStatOfType(stats_t *attacker, stats_t *victim, meansOfDeathCategory_t modc);
 int *GetDamageTakenStat(stats_t *attacker, stats_t *victim);
+int GetTotalDamageTakenStatOfType(stats_t *attacker, stats_t *victim, meansOfDeathCategory_t modc);
 int *GetDamageTakenStatOfType(stats_t *attacker, stats_t *victim, meansOfDeathCategory_t modc);
 ctfPosition_t DetermineCTFPosition(stats_t *posGuy);
 void FinalizeCTFPositions(void);
