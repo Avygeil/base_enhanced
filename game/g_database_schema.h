@@ -389,7 +389,7 @@ const char *const sqlCreateTables =
 "JOIN accounts ON accounts.account_id = sessions.account_id "
 "JOIN pugs ON pugs.match_id = playerpugteampos.match_id "
 "LEFT JOIN wins ON wins.session_id = sessions.session_id AND wins.pos = playerpugteampos.pos "
-"JOIN pugs_played ON pugs_played.session_id = sessions.session_id AND pugs_played.pos = playerpugteampos.pos "
+"LEFT JOIN pugs_played ON pugs_played.session_id = sessions.session_id AND pugs_played.pos = playerpugteampos.pos "
 "GROUP BY playerpugteampos.pos, accounts.account_id "
 "ORDER BY playerpugteampos.pos ASC, accounts.account_id ASC) "
 "SELECT account_id, "
