@@ -728,21 +728,6 @@ static int SortClientsForTeamGenerator(const void *a, const void *b) {
 	return strcmp(aa->accountName, bb->accountName); // alphabetize
 }
 
-static unsigned int teamGenSeed = 0;
-static ctfPosition_t ctfPosTiebreakerOrder[3] = { CTFPOSITION_BASE, CTFPOSITION_CHASE, CTFPOSITION_OFFENSE };
-static qboolean teamGenInitialized = qfalse;
-static void InitializeTeamGenerator(void) {
-	if (teamGenInitialized)
-		return;
-
-	while (!teamGenSeed) {
-		teamGenSeed = time(NULL);
-		FisherYatesShuffle(&ctfPosTiebreakerOrder, 3, sizeof(ctfPosition_t)); // randomize tiebreaker order for people equally rated at multiple positions
-	}
-
-	teamGenInitialized = qtrue;
-}
-
 static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlayed, permutationOfTeams_t *highestCaliber, permutationOfTeams_t *fairest, uint64_t *numPermutations) {
 	assert(set);
 #ifdef DEBUG_GENERATETEAMS
@@ -851,14 +836,8 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 		return qfalse;
 	}
 
-	// sort players irrespective of their client number so that they can't alter results by reconnecting in a different slot
-	qsort(&sortedClients, MAX_CLIENTS, sizeof(sortedClient_t), SortClientsForTeamGenerator);
-
-	// shuffle to avoid alphabetical bias
-	InitializeTeamGenerator();
-	srand(teamGenSeed);
+	qsort(&sortedClients, MAX_CLIENTS, sizeof(sortedClient_t), SortClientsForTeamGenerator); // do we still need this?
 	FisherYatesShuffle(&sortedClients, numEligible, sizeof(sortedClient_t));
-	srand(time(NULL));
 
 	// try to get the best possible teams using a few different approaches
 	permutationOfTeams_t permutations[NUM_TEAMGENERATORTYPES] = { 0 };
@@ -892,17 +871,17 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 				gotValidRatings = qtrue;
 			}
 
-			// get this guy's bespoke tiebreaker order, which is copied from the standard one and then rearranged if he has a preference
-			ctfPosition_t thisGuyTiebreakerOrder[3];
-			memcpy(&thisGuyTiebreakerOrder, &ctfPosTiebreakerOrder, sizeof(thisGuyTiebreakerOrder));
+			// get this guy's bespoke tiebreaker order
+			ctfPosition_t tiebreakerOrder[3] = { CTFPOSITION_BASE, CTFPOSITION_CHASE, CTFPOSITION_OFFENSE };
+			FisherYatesShuffle(&tiebreakerOrder, 3, sizeof(ctfPosition_t));
 			if (thisGuy->preferredPosFromName) {
-				if (thisGuyTiebreakerOrder[0] == thisGuy->preferredPosFromName) {
-					thisGuyTiebreakerOrder[0] = thisGuyTiebreakerOrder[2];
-					thisGuyTiebreakerOrder[2] = thisGuy->preferredPosFromName;
+				if (tiebreakerOrder[0] == thisGuy->preferredPosFromName) {
+					tiebreakerOrder[0] = tiebreakerOrder[2];
+					tiebreakerOrder[2] = thisGuy->preferredPosFromName;
 				}
-				else if (thisGuyTiebreakerOrder[1] == thisGuy->preferredPosFromName) {
-					thisGuyTiebreakerOrder[1] = thisGuyTiebreakerOrder[2];
-					thisGuyTiebreakerOrder[2] = thisGuy->preferredPosFromName;
+				else if (tiebreakerOrder[1] == thisGuy->preferredPosFromName) {
+					tiebreakerOrder[1] = tiebreakerOrder[2];
+					tiebreakerOrder[2] = thisGuy->preferredPosFromName;
 				}
 			}
 
@@ -933,7 +912,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 					ctfPosition_t highestPos = CTFPOSITION_UNKNOWN;
 					if (gotValidRatings) {
 						for (int j = 0; j < 3; j++) {
-							ctfPosition_t pos = thisGuyTiebreakerOrder[j];
+							ctfPosition_t pos = tiebreakerOrder[j];
 							if (positionRatings->rating[pos] >= highestRating) {
 								highestRating = positionRatings->rating[pos];
 								highestPos = pos;
@@ -948,7 +927,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 						double secondHighestRating = 0.0;
 						ctfPosition_t secondHighestPos = CTFPOSITION_UNKNOWN;
 						for (int j = 0; j < 3; j++) {
-							ctfPosition_t pos = thisGuyTiebreakerOrder[j];
+							ctfPosition_t pos = tiebreakerOrder[j];
 							if (pos == highestPos)
 								continue;
 							if (positionRatings->rating[pos] >= secondHighestRating) {
@@ -969,7 +948,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 				ctfPosition_t highestPos = CTFPOSITION_UNKNOWN;
 				if (gotValidRatings) {
 					for (int j = 0; j < 3; j++) {
-						ctfPosition_t pos = thisGuyTiebreakerOrder[j];
+						ctfPosition_t pos = tiebreakerOrder[j];
 						if (positionRatings->rating[pos] >= highestRating) {
 							highestRating = positionRatings->rating[pos];
 							highestPos = pos;
@@ -984,7 +963,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 					double secondHighestRating = 0.0;
 					ctfPosition_t secondHighestPos = CTFPOSITION_UNKNOWN;
 					for (int j = 0; j < 3; j++) {
-						ctfPosition_t pos = thisGuyTiebreakerOrder[j];
+						ctfPosition_t pos = tiebreakerOrder[j];
 						if (pos == highestPos)
 							continue;
 						if (positionRatings->rating[pos] >= secondHighestRating) {
@@ -1033,7 +1012,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 					ctfPosition_t highestPos = CTFPOSITION_UNKNOWN;
 					if (gotValidRatings) {
 						for (int j = 0; j < 3; j++) {
-							ctfPosition_t pos = thisGuyTiebreakerOrder[j];
+							ctfPosition_t pos = tiebreakerOrder[j];
 							if (positionRatings->rating[pos] >= highestRating) {
 								highestRating = positionRatings->rating[pos];
 								highestPos = pos;
@@ -1048,7 +1027,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 						double secondHighestRating = 0.0;
 						ctfPosition_t secondHighestPos = CTFPOSITION_UNKNOWN;
 						for (int j = 0; j < 3; j++) {
-							ctfPosition_t pos = thisGuyTiebreakerOrder[j];
+							ctfPosition_t pos = tiebreakerOrder[j];
 							if (pos == highestPos)
 								continue;
 							if (positionRatings->rating[pos] >= secondHighestRating) {
@@ -1254,12 +1233,8 @@ void GetCurrentPickablePlayers(sortedClient_t *sortedClientsOut, int *numEligibl
 	qsort(&sortedClients, MAX_CLIENTS, sizeof(sortedClient_t), SortClientsForTeamGenerator);
 
 	// shuffle to avoid alphabetical bias
-	if (shuffle) {
-		InitializeTeamGenerator();
-		srand(teamGenSeed);
+	if (shuffle)
 		FisherYatesShuffle(&sortedClients, numEligible, sizeof(sortedClient_t));
-		srand(time(NULL));
-	}
 
 	if (sortedClientsOut)
 		memcpy(sortedClientsOut, &sortedClients, sizeof(sortedClients));
@@ -1906,7 +1881,6 @@ qboolean TeamGenerator_PugStart(gentity_t *ent, char **newMessage) {
 }
 
 void TeamGenerator_DoReroll(qboolean forcedByServer) {
-	teamGenSeed = time(NULL);
 	level.activePugProposal->votedToRerollClients = level.activePugProposal->votedToCancelClients = 0;
 
 	pugProposal_t oldHashes = { 0 };
@@ -1924,7 +1898,7 @@ void TeamGenerator_DoReroll(qboolean forcedByServer) {
 	}
 
 	if (GenerateTeams(level.activePugProposal, &level.activePugProposal->suggested, &level.activePugProposal->highestCaliber, &level.activePugProposal->fairest, &level.activePugProposal->numValidPermutationsChecked)) {
-		// see if we actually got new teams, and try a new seed one more time if we didn't
+		// see if we actually got new teams, and try one more time if we didn't
 		qboolean gotNewTeams = qfalse;
 		if (level.activePugProposal->suggested.valid && oldHashes.suggested.valid && oldHashes.suggested.hash != level.activePugProposal->suggested.hash)
 			gotNewTeams = qtrue;
@@ -1934,7 +1908,6 @@ void TeamGenerator_DoReroll(qboolean forcedByServer) {
 			gotNewTeams = qtrue;
 
 		if (!gotNewTeams) {
-			teamGenSeed = time(NULL) + 69420;
 			GenerateTeams(level.activePugProposal, &level.activePugProposal->suggested, &level.activePugProposal->highestCaliber, &level.activePugProposal->fairest, &level.activePugProposal->numValidPermutationsChecked);
 			if (level.activePugProposal->suggested.valid && oldHashes.suggested.valid && oldHashes.suggested.hash != level.activePugProposal->suggested.hash)
 				gotNewTeams = qtrue;
