@@ -872,6 +872,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 			}
 
 			// get this guy's bespoke tiebreaker order
+			qboolean okayToUsePreference = qtrue;
 			ctfPosition_t tiebreakerOrder[3] = { CTFPOSITION_BASE, CTFPOSITION_CHASE, CTFPOSITION_OFFENSE };
 			FisherYatesShuffle(&tiebreakerOrder, 3, sizeof(ctfPosition_t));
 			if (thisGuy->preferredPosFromName) {
@@ -963,6 +964,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 						player->rating[mostPlayedPositions->secondMostPlayed] = positionRatings->rating[mostPlayedPositions->secondMostPlayed];
 						player->preference = mostPlayedPositions->mostPlayed;
 						player->secondPreference = mostPlayedPositions->secondMostPlayed;
+						okayToUsePreference = qfalse;
 					}
 					else {
 						player->rating[highestPos] = highestRating;
@@ -1054,7 +1056,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 			}
 
 			// if they have a name like "base only" then try to get them in that position if possible
-			if (thisGuy->preferredPosFromName && thisGuy->preferredPosFromName != player->preference) {
+			if (okayToUsePreference && thisGuy->preferredPosFromName && thisGuy->preferredPosFromName != player->preference) {
 				player->secondPreference = player->preference;
 				player->preference = thisGuy->preferredPosFromName;
 			}
