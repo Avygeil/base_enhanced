@@ -35,15 +35,29 @@ double PlayerTierToRating(ctfPlayerTier_t tier) {
 
 ctfPlayerTier_t PlayerTierFromRating(double num) {
 	// stupid >= hack to account for imprecision
-	if (num >= 1.0) return PLAYERRATING_S;
-	if (num >= 0.90) return PLAYERRATING_HIGH_A;
-	if (num >= 0.85) return PLAYERRATING_MID_A;
-	if (num >= 0.80) return PLAYERRATING_LOW_A;
-	if (num >= 0.75) return PLAYERRATING_HIGH_B;
-	if (num >= 0.7) return PLAYERRATING_MID_B;
-	if (num >= 0.65) return PLAYERRATING_LOW_B;
-	if (num >= (0.6 - 0.01) /*dank imprecision*/) return PLAYERRATING_C;
+	if (num >= 1.0 - 0.00001) return PLAYERRATING_S;
+	if (num >= 0.90 - 0.00001) return PLAYERRATING_HIGH_A;
+	if (num >= 0.85 - 0.00001) return PLAYERRATING_MID_A;
+	if (num >= 0.80 - 0.00001) return PLAYERRATING_LOW_A;
+	if (num >= 0.75 - 0.00001) return PLAYERRATING_HIGH_B;
+	if (num >= 0.7 - 0.00001) return PLAYERRATING_MID_B;
+	if (num >= 0.65 - 0.00001) return PLAYERRATING_LOW_B;
+	if (num >= 0.6 - 0.0001) return PLAYERRATING_C;
 	return PLAYERRATING_UNRATED;
+}
+
+char *PlayerRatingToString(ctfPlayerTier_t tier) {
+	switch (tier) {
+	case PLAYERRATING_C: return "^8C";
+	case PLAYERRATING_LOW_B: return "^3LOW B";
+	case PLAYERRATING_MID_B: return "^3B";
+	case PLAYERRATING_HIGH_B: return "^3HIGH B";
+	case PLAYERRATING_LOW_A: return "^2LOW A";
+	case PLAYERRATING_MID_A: return "^2A";
+	case PLAYERRATING_HIGH_A: return "^2HIGH A";
+	case PLAYERRATING_S: return "^6S";
+	default: return "^9UNRATED";
+	}
 }
 
 static qboolean PlayerIsBarredFromTeamGenerator(gentity_t *ent) {
@@ -902,10 +916,28 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 					player->preference = mostPlayedPositions->mostPlayed;
 					player->secondPreference = mostPlayedPositions->secondMostPlayed;
 
-					if (thisGuy->preferredPosFromName && thisGuy->preferredPosFromName == mostPlayedPositions->thirdMostPlayed) {
-						// special case, their third most played is their preference. fetch it (preference is set later)
-						player->rating[mostPlayedPositions->thirdMostPlayed] = positionRatings->rating[mostPlayedPositions->thirdMostPlayed];
+					if (thisGuy->preferredPosFromName && mostPlayedPositions->mostPlayed && mostPlayedPositions->secondMostPlayed &&
+						thisGuy->preferredPosFromName != mostPlayedPositions->mostPlayed && thisGuy->preferredPosFromName != mostPlayedPositions->secondMostPlayed) {
+						// special case, they have two most played positions but they prefer the third one (which may not actually exist)
+
+						// use it if a rating for it actually exists; otherwise default to C tier
+						if (positionRatings->rating[thisGuy->preferredPosFromName])
+							player->rating[thisGuy->preferredPosFromName] = positionRatings->rating[thisGuy->preferredPosFromName];
+						else
+							player->rating[thisGuy->preferredPosFromName] = PlayerTierToRating(PLAYERRATING_C);
+
+						// remove their second most played from consideration entirely
 						player->rating[mostPlayedPositions->secondMostPlayed] = 0;
+					}
+					else if (thisGuy->preferredPosFromName && mostPlayedPositions->mostPlayed && !mostPlayedPositions->secondMostPlayed &&
+						thisGuy->preferredPosFromName != mostPlayedPositions->mostPlayed) {
+						// special case, they only have one most played position and their preference is something other than it
+
+						// use it if a rating for it actually exists; otherwise default to C tier
+						if (positionRatings->rating[thisGuy->preferredPosFromName])
+							player->rating[thisGuy->preferredPosFromName] = positionRatings->rating[thisGuy->preferredPosFromName];
+						else
+							player->rating[thisGuy->preferredPosFromName] = PlayerTierToRating(PLAYERRATING_C);
 					}
 				}
 				else {
@@ -997,9 +1029,28 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 						player->preference = mostPlayedPositions->mostPlayed;
 						player->secondPreference = mostPlayedPositions->secondMostPlayed;
 
-						if (thisGuy->preferredPosFromName && thisGuy->preferredPosFromName == mostPlayedPositions->thirdMostPlayed) {
-							// special case, their third most played is their preference. fetch it (preference is set later)
-							player->rating[mostPlayedPositions->thirdMostPlayed] = positionRatings->rating[mostPlayedPositions->thirdMostPlayed];
+						if (thisGuy->preferredPosFromName && mostPlayedPositions->mostPlayed && mostPlayedPositions->secondMostPlayed &&
+							thisGuy->preferredPosFromName != mostPlayedPositions->mostPlayed && thisGuy->preferredPosFromName != mostPlayedPositions->secondMostPlayed) {
+							// special case, they have two most played positions but they prefer the third one (which may not actually exist)
+
+							// use it if a rating for it actually exists; otherwise default to C tier
+							if (positionRatings->rating[thisGuy->preferredPosFromName])
+								player->rating[thisGuy->preferredPosFromName] = positionRatings->rating[thisGuy->preferredPosFromName];
+							else
+								player->rating[thisGuy->preferredPosFromName] = PlayerTierToRating(PLAYERRATING_C);
+
+							// remove their second most played from consideration entirely
+							player->rating[mostPlayedPositions->secondMostPlayed] = 0;
+						}
+						else if (thisGuy->preferredPosFromName && mostPlayedPositions->mostPlayed && !mostPlayedPositions->secondMostPlayed &&
+							thisGuy->preferredPosFromName != mostPlayedPositions->mostPlayed) {
+							// special case, they only have one most played position and their preference is something other than it
+
+							// use it if a rating for it actually exists; otherwise default to C tier
+							if (positionRatings->rating[thisGuy->preferredPosFromName])
+								player->rating[thisGuy->preferredPosFromName] = positionRatings->rating[thisGuy->preferredPosFromName];
+							else
+								player->rating[thisGuy->preferredPosFromName] = PlayerTierToRating(PLAYERRATING_C);
 						}
 					}
 				}
@@ -1057,7 +1108,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 			}
 
 			// if they have a name like "base only" then try to get them in that position if possible
-			if (okayToUsePreference && thisGuy->preferredPosFromName && thisGuy->preferredPosFromName != player->preference) {
+			if (okayToUsePreference && thisGuy->preferredPosFromName && thisGuy->preferredPosFromName != player->preference && player->rating[thisGuy->preferredPosFromName]) {
 				player->secondPreference = player->preference;
 				player->preference = thisGuy->preferredPosFromName;
 			}
@@ -1065,6 +1116,15 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 			// if possible, guarantee that all currently ingame players are included
 			if (numIngame < 8 && (thisGuy->team == TEAM_RED || thisGuy->team == TEAM_BLUE))
 				guaranteedPlayersMask |= (1 << thisGuy->clientNum);
+
+			TeamGen_DebugPrintf("%s: preference %s --- secondPreference %s --- %s base,   %s chase,   %s offense^7\n",
+				player->accountName,
+				NameForPos(player->preference),
+				NameForPos(player->secondPreference),
+				PlayerRatingToString(PlayerTierFromRating(player->rating[CTFPOSITION_BASE])),
+				PlayerRatingToString(PlayerTierFromRating(player->rating[CTFPOSITION_CHASE])),
+				PlayerRatingToString(PlayerTierFromRating(player->rating[CTFPOSITION_OFFENSE]))
+				);
 		}
 
 		// evaluate every possible permutation of teams for this teamgen type

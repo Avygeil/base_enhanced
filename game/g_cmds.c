@@ -6147,20 +6147,6 @@ static void Cmd_Tier_f(gentity_t *ent) {
 	}
 }
 
-char *PlayerRatingToString(ctfPlayerTier_t tier) {
-	switch (tier) {
-	case PLAYERRATING_C: return "^8C";
-	case PLAYERRATING_LOW_B: return "^3LOW B";
-	case PLAYERRATING_MID_B: return "^3B";
-	case PLAYERRATING_HIGH_B: return "^3HIGH B";
-	case PLAYERRATING_LOW_A: return "^2LOW A";
-	case PLAYERRATING_MID_A: return "^2A";
-	case PLAYERRATING_HIGH_A: return "^2HIGH A";
-	case PLAYERRATING_S: return "^6S";
-	default: return "^9UNRATED";
-	}
-}
-
 static ctfPlayerTier_t StringToPlayerRating(const char *s) {
 	if (!VALIDSTRING(s))
 		return PLAYERRATING_UNRATED;

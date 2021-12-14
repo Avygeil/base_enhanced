@@ -383,18 +383,6 @@ typedef enum {
 	TEAMGENERATORTYPE_FAIREST,
 	NUM_TEAMGENERATORTYPES
 } teamGeneratorType_t;
-typedef enum {
-	PLAYERRATING_UNRATED = 0,
-	PLAYERRATING_C,
-	PLAYERRATING_LOW_B,
-	PLAYERRATING_MID_B,
-	PLAYERRATING_HIGH_B,
-	PLAYERRATING_LOW_A,
-	PLAYERRATING_MID_A,
-	PLAYERRATING_HIGH_A,
-	PLAYERRATING_S,
-	NUM_PLAYERRATINGS
-} ctfPlayerTier_t;
 void G_DBListRatingPlayers(int raterAccountId, int raterClientNum, ctfPosition_t pos);
 qboolean G_DBRemovePlayerRating(int raterAccountId, int rateeAccountId, ctfPosition_t pos);
 qboolean G_DBDeleteAllRatingsForPosition(int raterAccountId, ctfPosition_t pos);
