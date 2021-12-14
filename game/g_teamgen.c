@@ -905,6 +905,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 					if (thisGuy->preferredPosFromName && thisGuy->preferredPosFromName == mostPlayedPositions->thirdMostPlayed) {
 						// special case, their third most played is their preference. fetch it (preference is set later)
 						player->rating[mostPlayedPositions->thirdMostPlayed] = positionRatings->rating[mostPlayedPositions->thirdMostPlayed];
+						player->rating[mostPlayedPositions->secondMostPlayed] = 0;
 					}
 				}
 				else {
