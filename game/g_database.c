@@ -5019,7 +5019,7 @@ qboolean G_DBDeleteAllRatingsForPosition(int raterAccountId, ctfPosition_t pos) 
 #ifdef DO_NOT_ROUND_RATINGS
 // inferior method
 extern qboolean PlayerRatingAccountIdMatches(genericNode_t *node, void *userData);
-const char *const sqlGetAverageRatings = "WITH t AS (SELECT rater_account_id, ratee_account_id, pos, CASE WHEN rating IS 8 THEN 1.0 WHEN rating IS 7 THEN 0.91 WHEN rating IS 6 THEN 0.9 WHEN rating IS 5 THEN 0.89 WHEN rating IS 4 THEN 0.81 WHEN rating IS 3 THEN 0.8 WHEN rating IS 2 THEN 0.78 WHEN rating IS 1 THEN 0.6 END ratingFloat FROM playerratings) SELECT ratee_account_id, pos, avg(ratingFloat) FROM t JOIN accounts ON accounts.account_id = rater_account_id WHERE accounts.flags & (1 << 6) != 0 GROUP BY ratee_account_id, pos;";
+const char *const sqlGetAverageRatings = "WITH t AS (SELECT rater_account_id, ratee_account_id, pos, CASE WHEN rating IS 8 THEN 1.0 WHEN rating IS 7 THEN 0.9 WHEN rating IS 6 THEN 0.85 WHEN rating IS 5 THEN 0.8 WHEN rating IS 4 THEN 0.75 WHEN rating IS 3 THEN 0.7 WHEN rating IS 2 THEN 0.65 WHEN rating IS 1 THEN 0.6 END ratingFloat FROM playerratings) SELECT ratee_account_id, pos, avg(ratingFloat) FROM t JOIN accounts ON accounts.account_id = rater_account_id WHERE accounts.flags & (1 << 6) != 0 GROUP BY ratee_account_id, pos;";
 void G_DBGetPlayerRatings(void) {
 	ListClear(&level.ratingList);
 

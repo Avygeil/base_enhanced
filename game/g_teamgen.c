@@ -22,12 +22,12 @@
 double PlayerTierToRating(ctfPlayerTier_t tier) {
 	switch (tier) {
 	case PLAYERRATING_C: return 0.6;
-	case PLAYERRATING_LOW_B: return 0.78;
-	case PLAYERRATING_MID_B: return 0.8;
-	case PLAYERRATING_HIGH_B: return 0.81;
-	case PLAYERRATING_LOW_A: return 0.89;
-	case PLAYERRATING_MID_A: return 0.9;
-	case PLAYERRATING_HIGH_A: return 0.91;
+	case PLAYERRATING_LOW_B: return 0.65;
+	case PLAYERRATING_MID_B: return 0.7;
+	case PLAYERRATING_HIGH_B: return 0.75;
+	case PLAYERRATING_LOW_A: return 0.8;
+	case PLAYERRATING_MID_A: return 0.85;
+	case PLAYERRATING_HIGH_A: return 0.9;
 	case PLAYERRATING_S: return 1.0;
 	default: return 0.0;
 	}
@@ -36,13 +36,13 @@ double PlayerTierToRating(ctfPlayerTier_t tier) {
 ctfPlayerTier_t PlayerTierFromRating(double num) {
 	// stupid >= hack to account for imprecision
 	if (num >= 1.0) return PLAYERRATING_S;
-	if (num >= 0.91) return PLAYERRATING_HIGH_A;
-	if (num >= 0.9) return PLAYERRATING_MID_A;
-	if (num >= 0.89) return PLAYERRATING_LOW_A;
-	if (num >= 0.81) return PLAYERRATING_HIGH_B;
-	if (num >= 0.8) return PLAYERRATING_MID_B;
-	if (num >= 0.78) return PLAYERRATING_LOW_B;
-	if (num >= 0.6) return PLAYERRATING_C;
+	if (num >= 0.90) return PLAYERRATING_HIGH_A;
+	if (num >= 0.85) return PLAYERRATING_MID_A;
+	if (num >= 0.80) return PLAYERRATING_LOW_A;
+	if (num >= 0.75) return PLAYERRATING_HIGH_B;
+	if (num >= 0.7) return PLAYERRATING_MID_B;
+	if (num >= 0.65) return PLAYERRATING_LOW_B;
+	if (num >= (0.6 - 0.01) /*dank imprecision*/) return PLAYERRATING_C;
 	return PLAYERRATING_UNRATED;
 }
 
@@ -956,24 +956,34 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 					}
 				}
 				if (highestPos) {
-					player->rating[highestPos] = highestRating;
-					player->preference = highestPos;
-
-					// get their second highest rated pos
-					double secondHighestRating = 0.0;
-					ctfPosition_t secondHighestPos = CTFPOSITION_UNKNOWN;
-					for (int j = 0; j < 3; j++) {
-						ctfPosition_t pos = tiebreakerOrder[j];
-						if (pos == highestPos)
-							continue;
-						if (positionRatings->rating[pos] >= secondHighestRating) {
-							secondHighestRating = positionRatings->rating[pos];
-							secondHighestPos = pos;
-						}
+					if (highestRating == PLAYERRATING_C && mostPlayedPositions) {
+						// special case: their highest rating is a C, meaning they are C on any and all positions they have ratings on
+						// just assume that their most-played positions are higher caliber
+						player->rating[mostPlayedPositions->mostPlayed] = positionRatings->rating[mostPlayedPositions->mostPlayed];
+						player->rating[mostPlayedPositions->secondMostPlayed] = positionRatings->rating[mostPlayedPositions->secondMostPlayed];
+						player->preference = mostPlayedPositions->mostPlayed;
+						player->secondPreference = mostPlayedPositions->secondMostPlayed;
 					}
-					if (secondHighestPos) {
-						player->rating[secondHighestPos] = secondHighestRating;
-						player->secondPreference = secondHighestPos;
+					else {
+						player->rating[highestPos] = highestRating;
+						player->preference = highestPos;
+
+						// get their second highest rated pos
+						double secondHighestRating = 0.0;
+						ctfPosition_t secondHighestPos = CTFPOSITION_UNKNOWN;
+						for (int j = 0; j < 3; j++) {
+							ctfPosition_t pos = tiebreakerOrder[j];
+							if (pos == highestPos)
+								continue;
+							if (positionRatings->rating[pos] >= secondHighestRating) {
+								secondHighestRating = positionRatings->rating[pos];
+								secondHighestPos = pos;
+							}
+						}
+						if (secondHighestPos) {
+							player->rating[secondHighestPos] = secondHighestRating;
+							player->secondPreference = secondHighestPos;
+						}
 					}
 				}
 				else {
