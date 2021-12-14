@@ -892,6 +892,20 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 				gotValidRatings = qtrue;
 			}
 
+			// get this guy's bespoke tiebreaker order, which is copied from the standard one and then rearranged if he has a preference
+			ctfPosition_t thisGuyTiebreakerOrder[3];
+			memcpy(&thisGuyTiebreakerOrder, &ctfPosTiebreakerOrder, sizeof(thisGuyTiebreakerOrder));
+			if (thisGuy->preferredPosFromName) {
+				if (thisGuyTiebreakerOrder[0] == thisGuy->preferredPosFromName) {
+					thisGuyTiebreakerOrder[0] = thisGuyTiebreakerOrder[2];
+					thisGuyTiebreakerOrder[2] = thisGuy->preferredPosFromName;
+				}
+				else if (thisGuyTiebreakerOrder[1] == thisGuy->preferredPosFromName) {
+					thisGuyTiebreakerOrder[1] = thisGuyTiebreakerOrder[2];
+					thisGuyTiebreakerOrder[2] = thisGuy->preferredPosFromName;
+				}
+			}
+
 			mostPlayedPos_t findMe2 = { 0 };
 			findMe2.accountId = findMe.accountId;
 			mostPlayedPos_t *mostPlayedPositions = ListFind(&level.mostPlayedPositionsList, MostPlayedPosMatches, &findMe2, NULL);
@@ -907,6 +921,11 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 					player->rating[mostPlayedPositions->secondMostPlayed] = positionRatings->rating[mostPlayedPositions->secondMostPlayed];
 					player->preference = mostPlayedPositions->mostPlayed;
 					player->secondPreference = mostPlayedPositions->secondMostPlayed;
+
+					if (thisGuy->preferredPosFromName && thisGuy->preferredPosFromName == mostPlayedPositions->thirdMostPlayed) {
+						// special case, their third most played is their preference. fetch it (preference is set later)
+						player->rating[mostPlayedPositions->thirdMostPlayed] = positionRatings->rating[mostPlayedPositions->thirdMostPlayed];
+					}
 				}
 				else {
 					// we have no information about positions they have played. maybe it's a new account? try to fall back to their highest rated pos
@@ -914,7 +933,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 					ctfPosition_t highestPos = CTFPOSITION_UNKNOWN;
 					if (gotValidRatings) {
 						for (int j = 0; j < 3; j++) {
-							ctfPosition_t pos = ctfPosTiebreakerOrder[j];
+							ctfPosition_t pos = thisGuyTiebreakerOrder[j];
 							if (positionRatings->rating[pos] >= highestRating) {
 								highestRating = positionRatings->rating[pos];
 								highestPos = pos;
@@ -929,7 +948,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 						double secondHighestRating = 0.0;
 						ctfPosition_t secondHighestPos = CTFPOSITION_UNKNOWN;
 						for (int j = 0; j < 3; j++) {
-							ctfPosition_t pos = ctfPosTiebreakerOrder[j];
+							ctfPosition_t pos = thisGuyTiebreakerOrder[j];
 							if (pos == highestPos)
 								continue;
 							if (positionRatings->rating[pos] >= secondHighestRating) {
@@ -950,7 +969,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 				ctfPosition_t highestPos = CTFPOSITION_UNKNOWN;
 				if (gotValidRatings) {
 					for (int j = 0; j < 3; j++) {
-						ctfPosition_t pos = ctfPosTiebreakerOrder[j];
+						ctfPosition_t pos = thisGuyTiebreakerOrder[j];
 						if (positionRatings->rating[pos] >= highestRating) {
 							highestRating = positionRatings->rating[pos];
 							highestPos = pos;
@@ -965,7 +984,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 					double secondHighestRating = 0.0;
 					ctfPosition_t secondHighestPos = CTFPOSITION_UNKNOWN;
 					for (int j = 0; j < 3; j++) {
-						ctfPosition_t pos = ctfPosTiebreakerOrder[j];
+						ctfPosition_t pos = thisGuyTiebreakerOrder[j];
 						if (pos == highestPos)
 							continue;
 						if (positionRatings->rating[pos] >= secondHighestRating) {
@@ -985,6 +1004,11 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 						player->rating[mostPlayedPositions->secondMostPlayed] = positionRatings->rating[mostPlayedPositions->secondMostPlayed];
 						player->preference = mostPlayedPositions->mostPlayed;
 						player->secondPreference = mostPlayedPositions->secondMostPlayed;
+
+						if (thisGuy->preferredPosFromName && thisGuy->preferredPosFromName == mostPlayedPositions->thirdMostPlayed) {
+							// special case, their third most played is their preference. fetch it (preference is set later)
+							player->rating[mostPlayedPositions->thirdMostPlayed] = positionRatings->rating[mostPlayedPositions->thirdMostPlayed];
+						}
 					}
 				}
 			}
@@ -997,6 +1021,11 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 					player->rating[mostPlayedPositions->secondMostPlayed] = positionRatings->rating[mostPlayedPositions->secondMostPlayed];
 					player->preference = mostPlayedPositions->mostPlayed;
 					player->secondPreference = mostPlayedPositions->secondMostPlayed;
+
+					if (thisGuy->preferredPosFromName && thisGuy->preferredPosFromName == mostPlayedPositions->thirdMostPlayed) {
+						// special case, their third most played is their preference. fetch it (preference is set later)
+						player->rating[mostPlayedPositions->thirdMostPlayed] = positionRatings->rating[mostPlayedPositions->thirdMostPlayed];
+					}
 				}
 				else {
 					// we have no information about positions they have played. maybe it's a new account? try to fall back to their highest rated pos
@@ -1004,7 +1033,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 					ctfPosition_t highestPos = CTFPOSITION_UNKNOWN;
 					if (gotValidRatings) {
 						for (int j = 0; j < 3; j++) {
-							ctfPosition_t pos = ctfPosTiebreakerOrder[j];
+							ctfPosition_t pos = thisGuyTiebreakerOrder[j];
 							if (positionRatings->rating[pos] >= highestRating) {
 								highestRating = positionRatings->rating[pos];
 								highestPos = pos;
@@ -1019,7 +1048,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 						double secondHighestRating = 0.0;
 						ctfPosition_t secondHighestPos = CTFPOSITION_UNKNOWN;
 						for (int j = 0; j < 3; j++) {
-							ctfPosition_t pos = ctfPosTiebreakerOrder[j];
+							ctfPosition_t pos = thisGuyTiebreakerOrder[j];
 							if (pos == highestPos)
 								continue;
 							if (positionRatings->rating[pos] >= secondHighestRating) {

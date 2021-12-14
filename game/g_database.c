@@ -5090,7 +5090,7 @@ void G_DBGetPlayerRatings(void) {
 #endif
 
 extern qboolean MostPlayedPosMatches(genericNode_t *node, void *userData);
-const char *const sqlGetMostPlayedPos = "SELECT account_id, pos, RANK() OVER (PARTITION BY account_id ORDER BY pugs_played DESC, wins DESC) FROM accountstats";
+const char *const sqlGetMostPlayedPos = "SELECT account_id, pos, RANK() OVER (PARTITION BY account_id ORDER BY pugs_played DESC, wins DESC) FROM accountstats;";
 static void GetMostPlayedPositions(void) {
 	ListClear(&level.mostPlayedPositionsList);
 
