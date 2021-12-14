@@ -956,7 +956,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 					}
 				}
 				if (highestPos) {
-					if (highestRating == PLAYERRATING_C && mostPlayedPositions) {
+					if (PlayerTierFromRating(highestRating) == PLAYERRATING_C && mostPlayedPositions) {
 						// special case: their highest rating is a C, meaning they are C on any and all positions they have ratings on
 						// just assume that their most-played positions are higher caliber
 						player->rating[mostPlayedPositions->mostPlayed] = positionRatings->rating[mostPlayedPositions->mostPlayed];
