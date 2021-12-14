@@ -175,8 +175,12 @@ const char *TableCallback_Notes(void *rowContext, void *columnContext) {
 	if (ent->r.svFlags & SVF_BOT)
 		return "Bot";
 
-	if (cl->sess.clientType == CLIENT_TYPE_JKCHAT)
-		return "JKChat";
+	if (cl->sess.clientType == CLIENT_TYPE_JKCHAT) {
+		if (cl->account)
+			return "JKChat";
+		else
+			return "JKChat ^3(Unverified)";
+	}
 
 	if (cl->account)
 		return NULL;
