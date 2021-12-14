@@ -1097,7 +1097,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 			continue;
 		}
 
-		if (!thisPermutation->diff)
+		if (thisPermutation->diff < 0.00001)
 			got5050 = qtrue; // if we find dead even teams in one of the first two passes, we can skip the third pass
 
 		NormalizePermutationOfTeams(thisPermutation);
