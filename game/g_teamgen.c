@@ -1391,7 +1391,7 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 			if (!ent->inuse || !ent->client)
 				continue;
 			int accId = ent->client->account ? ent->client->account->id : -1;
-			TeamGenerator_QueueServerMessageInConsole(i, va("%s%s teams: ^5enter %c%c in chat if you approve\n^1Red team:^7 %.2f'/. relative strength\n    ^5Base: %s%s\n    ^6Chase: %s%s\n    ^2Offense: %s%s^7, %s%s^7\n^4Blue team:^7 %.2f'/. relative strength\n    ^5Base: %s%s\n    ^6Chase: %s%s\n    ^2Offense: %s%s^7, %s%s^7\n",
+			TeamGenerator_QueueServerMessageInConsole(i, va("%s%s teams: ^5enter %c%c in chat if you approve\n^1Red team:^7 %.3f'/. relative strength\n    ^5Base: %s%s\n    ^6Chase: %s%s\n    ^2Offense: %s%s^7, %s%s^7\n^4Blue team:^7 %.3f'/. relative strength\n    ^5Base: %s%s\n    ^6Chase: %s%s\n    ^2Offense: %s%s^7, %s%s^7\n",
 				numPrinted ? "\n" : "",
 				suggestionTypeStr,
 				TEAMGEN_CHAT_COMMAND_CHARACTER,
@@ -1496,12 +1496,12 @@ void ActivateTeamsProposal(permutationOfTeams_t *permutation) {
 			}
 			forceteamed[j] = qtrue;
 
-			Com_sprintf(printMessage + (j * messageSize), messageSize, "^1Red team:^7 (%0.2f'/. relative strength)\n", permutation->teams[0].relativeStrength * 100.0);
+			Com_sprintf(printMessage + (j * messageSize), messageSize, "^1Red team:^7 (%0.3f'/. relative strength)\n", permutation->teams[0].relativeStrength * 100.0);
 			Q_strcat(printMessage + (j * messageSize), messageSize, va("%s %s\n", permutation->teams[0].baseId == ent->client->account->id ? "^5Base: ^3" : "^5Base: ^7", permutation->teams[0].baseName));
 			Q_strcat(printMessage + (j * messageSize), messageSize, va("%s %s\n", permutation->teams[0].chaseId == ent->client->account->id ? "^6Chase: ^3" : "^6Chase: ^7", permutation->teams[0].chaseName));
 			Q_strcat(printMessage + (j * messageSize), messageSize, va("%s %s^7, ", permutation->teams[0].offenseId1 == ent->client->account->id ? "^2Offense: ^3" : "^2Offense: ^7", permutation->teams[0].offense1Name));
 			Q_strcat(printMessage + (j * messageSize), messageSize, va("%s%s\n\n", permutation->teams[0].offenseId2 == ent->client->account->id ? "^3" : "^7", permutation->teams[0].offense2Name));
-			Q_strcat(printMessage + (j * messageSize), messageSize, va("^4Blue team:^7 (%0.2f'/. relative strength)\n", permutation->teams[1].relativeStrength * 100.0));
+			Q_strcat(printMessage + (j * messageSize), messageSize, va("^4Blue team:^7 (%0.3f'/. relative strength)\n", permutation->teams[1].relativeStrength * 100.0));
 			Q_strcat(printMessage + (j * messageSize), messageSize, va("%s %s\n", permutation->teams[1].baseId == ent->client->account->id ? "^5Base: ^3" : "^5Base: ^7", permutation->teams[1].baseName));
 			Q_strcat(printMessage + (j * messageSize), messageSize, va("%s %s\n", permutation->teams[1].chaseId == ent->client->account->id ? "^6Chase: ^3" : "^6Chase: ^7", permutation->teams[1].chaseName));
 			Q_strcat(printMessage + (j * messageSize), messageSize, va("%s %s^7, ", permutation->teams[1].offenseId1 == ent->client->account->id ? "^2Offense: ^3" : "^2Offense: ^7", permutation->teams[1].offense1Name));
@@ -1528,12 +1528,12 @@ void ActivateTeamsProposal(permutationOfTeams_t *permutation) {
 				ent->client->sess.canJoin = qfalse;
 			}
 		}
-		Com_sprintf(printMessage + (i * messageSize), messageSize, "^1Red team:^7 (%0.2f'/. relative strength)\n", permutation->teams[0].relativeStrength * 100.0);
+		Com_sprintf(printMessage + (i * messageSize), messageSize, "^1Red team:^7 (%0.3f'/. relative strength)\n", permutation->teams[0].relativeStrength * 100.0);
 		Q_strcat(printMessage + (i * messageSize), messageSize, va("^5Base: ^7 %s\n", permutation->teams[0].baseName));
 		Q_strcat(printMessage + (i * messageSize), messageSize, va("^6Chase: ^7 %s\n", permutation->teams[0].chaseName));
 		Q_strcat(printMessage + (i * messageSize), messageSize, va("^2Offense: ^7 %s^7, ", permutation->teams[0].offense1Name));
 		Q_strcat(printMessage + (i * messageSize), messageSize, va("%s\n\n", permutation->teams[0].offense2Name));
-		Q_strcat(printMessage + (i * messageSize), messageSize, va("^4Blue team:^7 (%0.2f'/. relative strength)\n", permutation->teams[1].relativeStrength * 100.0));
+		Q_strcat(printMessage + (i * messageSize), messageSize, va("^4Blue team:^7 (%0.3f'/. relative strength)\n", permutation->teams[1].relativeStrength * 100.0));
 		Q_strcat(printMessage + (i * messageSize), messageSize, va("^5Base: ^7 %s\n", permutation->teams[1].baseName));
 		Q_strcat(printMessage + (i * messageSize), messageSize, va("^6Chase: ^7 %s\n", permutation->teams[1].chaseName));
 		Q_strcat(printMessage + (i * messageSize), messageSize, va("^2Offense: ^7 %s^7, ", permutation->teams[1].offense1Name));
@@ -1705,12 +1705,12 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 			TeamGenerator_QueueServerMessageInChat(-1, va("Teams proposal %c passed.", letter));
 
 			char printMessage[1024] = { 0 };
-			Com_sprintf(printMessage, sizeof(printMessage), "*^1Red team:^7 (%0.2f'/. relative strength)\n", permutation->teams[0].relativeStrength * 100.0);
+			Com_sprintf(printMessage, sizeof(printMessage), "*^1Red team:^7 (%0.3f'/. relative strength)\n", permutation->teams[0].relativeStrength * 100.0);
 			Q_strcat(printMessage, sizeof(printMessage), va("^5Base: ^7 %s\n", permutation->teams[0].baseName));
 			Q_strcat(printMessage, sizeof(printMessage), va("^6Chase: ^7 %s\n", permutation->teams[0].chaseName));
 			Q_strcat(printMessage, sizeof(printMessage), va("^2Offense: ^7 %s^7, ", permutation->teams[0].offense1Name));
 			Q_strcat(printMessage, sizeof(printMessage), va("%s\n\n", permutation->teams[0].offense2Name));
-			Q_strcat(printMessage, sizeof(printMessage), va("^4Blue team:^7 (%0.2f'/. relative strength)\n", permutation->teams[1].relativeStrength * 100.0));
+			Q_strcat(printMessage, sizeof(printMessage), va("^4Blue team:^7 (%0.3f'/. relative strength)\n", permutation->teams[1].relativeStrength * 100.0));
 			Q_strcat(printMessage, sizeof(printMessage), va("^5Base: ^7 %s\n", permutation->teams[1].baseName));
 			Q_strcat(printMessage, sizeof(printMessage), va("^6Chase: ^7 %s\n", permutation->teams[1].chaseName));
 			Q_strcat(printMessage, sizeof(printMessage), va("^2Offense: ^7 %s^7, ", permutation->teams[1].offense1Name));
