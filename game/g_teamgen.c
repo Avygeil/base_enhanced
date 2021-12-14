@@ -1347,14 +1347,14 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 		char letter;
 		char *suggestionTypeStr;
 		if (!i) {
-			if (thisPermutation->hash == set->highestCaliber.hash && (!thisPermutation->diff || thisPermutation->hash == set->fairest.hash || (set->fairest.valid && thisPermutation->diff == set->fairest.diff))) {
+			if (thisPermutation->hash == set->highestCaliber.hash && (thisPermutation->diff < 0.00001 || thisPermutation->hash == set->fairest.hash || (set->fairest.valid && thisPermutation->diff == set->fairest.diff))) {
 				suggestionTypeStr = "Suggested, highest caliber, and fairest";
 				didFairest = qtrue;
 			}
 			else if (thisPermutation->hash == set->highestCaliber.hash) {
 				suggestionTypeStr = "Suggested and highest caliber";
 			}
-			else if (!thisPermutation->diff || thisPermutation->hash == set->fairest.hash || (set->fairest.valid && thisPermutation->diff == set->fairest.diff)) {
+			else if (thisPermutation->diff < 0.00001 || thisPermutation->hash == set->fairest.hash || (set->fairest.valid && thisPermutation->diff == set->fairest.diff)) {
 				suggestionTypeStr = "Suggested and fairest";
 				didFairest = qtrue;
 			}
@@ -1368,7 +1368,7 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 				thisPermutation->valid = qfalse;
 				continue;
 			}
-			if (!thisPermutation->diff || (thisPermutation->hash == set->fairest.hash && set->fairest.valid) || (set->fairest.valid && thisPermutation->diff == set->fairest.diff)) {
+			if (thisPermutation->diff < 0.00001 || (thisPermutation->hash == set->fairest.hash && set->fairest.valid) || (set->fairest.valid && thisPermutation->diff == set->fairest.diff)) {
 				suggestionTypeStr = "Highest caliber and fairest";
 				didFairest = qtrue;
 			}
