@@ -17,7 +17,7 @@
 #define TeamGen_DebugPrintAllPrintf(...)	do {} while (0)
 #endif
 
-#define CHASE_VERSUS_ENEMY_OFFENSE_THRESHOLD	(0.11)
+#define CHASE_VERSUS_ENEMY_OFFENSE_THRESHOLD_TIER	(4)
 
 double PlayerTierToRating(ctfPlayerTier_t tier) {
 	switch (tier) {
@@ -245,17 +245,17 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 
 	if (context->enforceChaseRule) {
 		// make sure each chase isn't too much worse than the best opposing offense
-		double team1ChaseRating = team1chase->rating[CTFPOSITION_CHASE];
-		double highestTeam2OffenseRating = team2offense1->rating[CTFPOSITION_OFFENSE] > team2offense2->rating[CTFPOSITION_OFFENSE] ? team2offense1->rating[CTFPOSITION_OFFENSE] : team2offense2->rating[CTFPOSITION_OFFENSE];
-		if (highestTeam2OffenseRating - team1ChaseRating > CHASE_VERSUS_ENEMY_OFFENSE_THRESHOLD) {
-			TeamGen_DebugPrintf(" unbalanced team 1 chase vs. team 2 offense (diff %0.3f)\n", highestTeam2OffenseRating - team1ChaseRating);
+		ctfPlayerTier_t team1ChaseTier = PlayerTierFromRating(team1chase->rating[CTFPOSITION_CHASE]);
+		ctfPlayerTier_t highestTeam2OffenseTier = PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) > PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]) ? PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) : PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]);
+		if (highestTeam2OffenseTier - team1ChaseTier > CHASE_VERSUS_ENEMY_OFFENSE_THRESHOLD_TIER) {
+			TeamGen_DebugPrintf(" unbalanced team 1 chase vs. team 2 offense %d - %d == %d\n", highestTeam2OffenseTier, team1ChaseTier, highestTeam2OffenseTier - team1ChaseTier);
 			return;
 		}
 
-		double team2ChaseRating = team2chase->rating[CTFPOSITION_CHASE];
-		double highestTeam1OffenseRating = team1offense1->rating[CTFPOSITION_OFFENSE] > team1offense2->rating[CTFPOSITION_OFFENSE] ? team1offense1->rating[CTFPOSITION_OFFENSE] : team1offense2->rating[CTFPOSITION_OFFENSE];
-		if (highestTeam1OffenseRating - team2ChaseRating > CHASE_VERSUS_ENEMY_OFFENSE_THRESHOLD) {
-			TeamGen_DebugPrintf(" unbalanced team 2 chase vs. team 1 offense (diff %0.3f)\n", highestTeam1OffenseRating - team2ChaseRating);
+		ctfPlayerTier_t team2ChaseTier = PlayerTierFromRating(team2chase->rating[CTFPOSITION_CHASE]);
+		ctfPlayerTier_t highestTeam1OffenseTier = PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) > PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]) ? PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) : PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]);
+		if (highestTeam1OffenseTier - team2ChaseTier > CHASE_VERSUS_ENEMY_OFFENSE_THRESHOLD_TIER) {
+			TeamGen_DebugPrintf(" unbalanced team 2 chase vs. team 1 offense %d - %d == %d\n", highestTeam1OffenseTier, team2ChaseTier, highestTeam1OffenseTier - team2ChaseTier);
 			return;
 		}
 	}
@@ -414,17 +414,17 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 
 	if (context->enforceChaseRule) {
 		// make sure each chase isn't too much worse than the best opposing offense
-		double team1ChaseRating = team1chase->rating[CTFPOSITION_CHASE];
-		double highestTeam2OffenseRating = team2offense1->rating[CTFPOSITION_OFFENSE] > team2offense2->rating[CTFPOSITION_OFFENSE] ? team2offense1->rating[CTFPOSITION_OFFENSE] : team2offense2->rating[CTFPOSITION_OFFENSE];
-		if (highestTeam2OffenseRating - team1ChaseRating > CHASE_VERSUS_ENEMY_OFFENSE_THRESHOLD) {
-			TeamGen_DebugPrintf(" unbalanced team 1 chase vs. team 2 offense (diff %0.3f)\n", highestTeam2OffenseRating - team1ChaseRating);
+		ctfPlayerTier_t team1ChaseTier = PlayerTierFromRating(team1chase->rating[CTFPOSITION_CHASE]);
+		ctfPlayerTier_t highestTeam2OffenseTier = PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) > PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]) ? PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) : PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]);
+		if (highestTeam2OffenseTier - team1ChaseTier > CHASE_VERSUS_ENEMY_OFFENSE_THRESHOLD_TIER) {
+			TeamGen_DebugPrintf(" unbalanced team 1 chase vs. team 2 offense %d - %d == %d\n", highestTeam2OffenseTier, team1ChaseTier, highestTeam2OffenseTier - team1ChaseTier);
 			return;
 		}
 
-		double team2ChaseRating = team2chase->rating[CTFPOSITION_CHASE];
-		double highestTeam1OffenseRating = team1offense1->rating[CTFPOSITION_OFFENSE] > team1offense2->rating[CTFPOSITION_OFFENSE] ? team1offense1->rating[CTFPOSITION_OFFENSE] : team1offense2->rating[CTFPOSITION_OFFENSE];
-		if (highestTeam1OffenseRating - team2ChaseRating > CHASE_VERSUS_ENEMY_OFFENSE_THRESHOLD) {
-			TeamGen_DebugPrintf(" unbalanced team 2 chase vs. team 1 offense (diff %0.3f)\n", highestTeam1OffenseRating - team2ChaseRating);
+		ctfPlayerTier_t team2ChaseTier = PlayerTierFromRating(team2chase->rating[CTFPOSITION_CHASE]);
+		ctfPlayerTier_t highestTeam1OffenseTier = PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) > PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]) ? PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) : PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]);
+		if (highestTeam1OffenseTier - team2ChaseTier > CHASE_VERSUS_ENEMY_OFFENSE_THRESHOLD_TIER) {
+			TeamGen_DebugPrintf(" unbalanced team 2 chase vs. team 1 offense %d - %d == %d\n", highestTeam1OffenseTier, team2ChaseTier, highestTeam1OffenseTier - team2ChaseTier);
 			return;
 		}
 	}
