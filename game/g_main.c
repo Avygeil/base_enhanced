@@ -1857,6 +1857,8 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 	G_BroadcastServerFeatureList(-1);
 
 	G_InitVchats();
+
+	TeamGen_Initialize();
 }
 
 

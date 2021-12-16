@@ -1243,6 +1243,7 @@ void TeamGenerator_QueueServerMessageInChat(int clientNum, const char *msg);
 void TeamGenerator_QueueServerMessageInConsole(int clientNum, const char *msg);
 qboolean TeamGenerator_CheckForChatCommand(gentity_t *ent, const char *s, char **newMessage);
 void Svcmd_Pug_f(void);
+void TeamGen_Initialize(void);
 
 // this structure is cleared on each ClientSpawn(),
 // except for 'client->pers' and 'client->sess'
