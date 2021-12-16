@@ -18,6 +18,7 @@
 #endif
 
 static unsigned int teamGenSeed = 0u;
+#define REROLL_NUM_TRIES	(8)
 
 void TeamGen_Initialize(void) {
 	static qboolean initialized = qfalse;
@@ -1987,60 +1988,79 @@ qboolean TeamGenerator_PugStart(gentity_t *ent, char **newMessage) {
 }
 
 void TeamGenerator_DoReroll(qboolean forcedByServer) {
+	assert(level.activePugProposal);
 	level.activePugProposal->votedToRerollClients = level.activePugProposal->votedToCancelClients = 0;
 
+	// make note of the existing teams permutations
 	pugProposal_t oldHashes = { 0 };
+	int numOld = 0;
 	if (level.activePugProposal->suggested.valid) {
 		oldHashes.suggested.valid = qtrue;
 		oldHashes.suggested.hash = level.activePugProposal->suggested.hash;
+		++numOld;
 	}
 	if (level.activePugProposal->highestCaliber.valid) {
 		oldHashes.highestCaliber.valid = qtrue;
 		oldHashes.highestCaliber.hash = level.activePugProposal->highestCaliber.hash;
+		++numOld;
 	}
 	if (level.activePugProposal->fairest.valid) {
 		oldHashes.fairest.valid = qtrue;
 		oldHashes.fairest.hash = level.activePugProposal->fairest.hash;
+		++numOld;
+	}
+	assert(numOld);
+
+	TeamGen_DebugPrintf("Reroll: %d numOld\n", numOld);
+
+	time_t startTime = time(NULL);
+	unsigned int bestNumDifferent = 0u, bestSeed = 0u;
+	unsigned int originalSeed = teamGenSeed;
+
+	// generate teams up to 8 times. the seed that generates the most new permutations will be chosen.
+	for (int i = 0; i < REROLL_NUM_TRIES; i++) {
+		teamGenSeed = startTime + (i * 69);
+		srand(teamGenSeed);
+
+		qboolean result = GenerateTeams(level.activePugProposal, &level.activePugProposal->suggested, &level.activePugProposal->highestCaliber, &level.activePugProposal->fairest, &level.activePugProposal->numValidPermutationsChecked);
+		if (!result) {
+			TeamGen_DebugPrintf("Reroll: i %d (%u) failed\n", i, teamGenSeed);
+			break; // ??? this should not happen. somehow we failed to generate any teams at all.
+		}
+
+		unsigned int gotNewTeams = 0u;
+		if (level.activePugProposal->suggested.valid && oldHashes.suggested.valid && oldHashes.suggested.hash != level.activePugProposal->suggested.hash)
+			++gotNewTeams;
+		else if (level.activePugProposal->highestCaliber.valid && oldHashes.highestCaliber.valid && oldHashes.highestCaliber.hash != level.activePugProposal->highestCaliber.hash)
+			++gotNewTeams;
+		else if (level.activePugProposal->fairest.valid && oldHashes.fairest.valid && oldHashes.fairest.hash != level.activePugProposal->fairest.hash)
+			++gotNewTeams;
+
+		TeamGen_DebugPrintf("Reroll: i %d (%u) has %d new teams\n", i, teamGenSeed, gotNewTeams);
+
+		if (gotNewTeams > bestNumDifferent) {
+			TeamGen_DebugPrintf("Reroll: i %d (%u) is new best\n", i, teamGenSeed);
+			bestNumDifferent = gotNewTeams;
+			bestSeed = teamGenSeed;
+			if (gotNewTeams == numOld) { // if this one is as good as we can possibly get (meaning it rerolled every permutation) then just use it; no need to keep iterating
+				TeamGen_DebugPrintf("Reroll: i %d (%u) is optimal because equals numOld\n", i, teamGenSeed);
+				break;
+			}
+		}
 	}
 
-	teamGenSeed = time(NULL);
-	srand(teamGenSeed);
-	if (GenerateTeams(level.activePugProposal, &level.activePugProposal->suggested, &level.activePugProposal->highestCaliber, &level.activePugProposal->fairest, &level.activePugProposal->numValidPermutationsChecked)) {
-		// see if we actually got new teams, and try one more time if we didn't
-		qboolean gotNewTeams = qfalse;
-		if (level.activePugProposal->suggested.valid && oldHashes.suggested.valid && oldHashes.suggested.hash != level.activePugProposal->suggested.hash)
-			gotNewTeams = qtrue;
-		else if (level.activePugProposal->highestCaliber.valid && oldHashes.highestCaliber.valid && oldHashes.highestCaliber.hash != level.activePugProposal->highestCaliber.hash)
-			gotNewTeams = qtrue;
-		else if (level.activePugProposal->fairest.valid && oldHashes.fairest.valid && oldHashes.fairest.hash != level.activePugProposal->fairest.hash)
-			gotNewTeams = qtrue;
-
-		if (!gotNewTeams) {
-			teamGenSeed = time(NULL) + 69420;
-			srand(teamGenSeed);
-			GenerateTeams(level.activePugProposal, &level.activePugProposal->suggested, &level.activePugProposal->highestCaliber, &level.activePugProposal->fairest, &level.activePugProposal->numValidPermutationsChecked);
-			if (level.activePugProposal->suggested.valid && oldHashes.suggested.valid && oldHashes.suggested.hash != level.activePugProposal->suggested.hash)
-				gotNewTeams = qtrue;
-			else if (level.activePugProposal->highestCaliber.valid && oldHashes.highestCaliber.valid && oldHashes.highestCaliber.hash != level.activePugProposal->highestCaliber.hash)
-				gotNewTeams = qtrue;
-			else if (level.activePugProposal->fairest.valid && oldHashes.fairest.valid && oldHashes.fairest.hash != level.activePugProposal->fairest.hash)
-				gotNewTeams = qtrue;
-		}
-
-		if (gotNewTeams) {
-			level.activePugProposal->suggestedVoteClients = level.activePugProposal->highestCaliberVoteClients = level.activePugProposal->fairestVoteClients = 0;
-			TeamGenerator_QueueServerMessageInChat(-1, va("Pug proposal %d rerolled%s (%s). Check console for new teams proposals.", level.activePugProposal->num, forcedByServer ? " by server" : "", level.activePugProposal->namesStr));
-			PrintTeamsProposalsInConsole(level.activePugProposal);
-		}
-		else {
-			TeamGenerator_QueueServerMessageInChat(-1, va("Failed to generate different teams when rerolling pug proposal %d%s (%s). Voting will continue for the existing teams.", level.activePugProposal->num, forcedByServer ? " by server" : "", level.activePugProposal->namesStr));
-		}
+	if (bestSeed) {
+		TeamGen_DebugPrintf("Reroll: setting teamGenSeed to bestSeed %u\n", bestSeed);
+		teamGenSeed = bestSeed;
+		level.activePugProposal->suggestedVoteClients = level.activePugProposal->highestCaliberVoteClients = level.activePugProposal->fairestVoteClients = 0;
+		TeamGenerator_QueueServerMessageInChat(-1, va("Pug proposal %d rerolled%s (%s). Check console for new teams proposals.", level.activePugProposal->num, forcedByServer ? " by server" : "", level.activePugProposal->namesStr));
+		PrintTeamsProposalsInConsole(level.activePugProposal);
 	}
 	else {
-		TeamGenerator_QueueServerMessageInChat(-1, va("Pug proposal %d rerolled%s (%s). Unable to generate new teams; pug proposal %d terminated.", level.activePugProposal->num, forcedByServer ? " by server" : "", level.activePugProposal->namesStr, level.activePugProposal->num));
-		ListRemove(&level.pugProposalsList, level.activePugProposal);
-		level.activePugProposal = NULL;
+		TeamGenerator_QueueServerMessageInChat(-1, va("Failed to generate different teams when rerolling pug proposal %d%s (%s). Voting will continue for the existing teams.", level.activePugProposal->num, forcedByServer ? " by server" : "", level.activePugProposal->namesStr));
+		teamGenSeed = originalSeed;
 	}
+
 	srand(time(NULL));
 }
 
