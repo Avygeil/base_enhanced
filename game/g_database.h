@@ -370,10 +370,18 @@ typedef struct {
 	char						*strPtr;
 } cachedPlayerPugStats_t;
 
+typedef struct {
+	node_t						node;
+	int							accountId;
+	ctfPosition_t				pos;
+	char						*strPtr;
+} cachedPerMapWinrate_t;
+
 qboolean G_DBWritePugStats(void);
 qboolean G_DBPrintPositionStatsForPlayer(int accountId, ctfPosition_t pos, int printClientNum, const char *name);
 void G_DBPrintTopPlayersForPosition(ctfPosition_t pos, int printClientNum);
 void G_DBPrintPlayersWithStats(int printClientNum);
+void G_DBPrintPerMapWinrates(int accountId, ctfPosition_t positionOptional, int printClientNum);
 void G_DBPrintWinrates(int accountId, ctfPosition_t positionOptional, int printClientNum);
 void G_DBInitializePugStatsCache(void);
 typedef enum {

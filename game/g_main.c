@@ -1991,6 +1991,14 @@ void G_ShutdownGame( int restart ) {
 	}
 	ListClear(&level.cachedWinrates);
 
+	ListIterate(&level.cachedPerMapWinrates, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		cachedPerMapWinrate_t *c = IteratorNext(&iter);
+		if (c->strPtr)
+			free(c->strPtr);
+	}
+	ListClear(&level.cachedPerMapWinrates);
+
 	ListClear(&level.ratingList);
 	ListClear(&level.mostPlayedPositionsList);
 

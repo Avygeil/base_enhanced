@@ -1849,6 +1849,7 @@ typedef struct {
 	stats_t			npcStatsDummy; // so we don't have to spam `if (client->stats)` everywhere before setting stats, just have all NPCs share one stats pointer
 
 	list_t			cachedWinrates;
+	list_t			cachedPerMapWinrates;
 	list_t			cachedPositionStats;
 	list_t			cachedPositionStatsRaw;
 	list_t			disconnectedPlayerList;

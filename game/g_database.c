@@ -4728,6 +4728,212 @@ static void GetWinrate(int accountId, ctfPosition_t pos, ctfPosition_t otherPos,
 		*highestNumRowsPtr = rowNum;
 }
 
+static qboolean CachedPerMapWinrateMatches(genericNode_t *node, void *userData) {
+	cachedPerMapWinrate_t *existing = (cachedPerMapWinrate_t *)node;
+	cachedPerMapWinrate_t *thisOne = (cachedPerMapWinrate_t *)userData;
+	if (!existing || existing->accountId != thisOne->accountId || existing->pos != thisOne->pos)
+		return qfalse;
+	return qtrue;
+}
+
+typedef struct {
+	node_t			node;
+	int				accountId;
+	char			filteredMapName[MAX_QPATH];
+	int				plays;
+	int				wins;
+	double			winrate;
+	int				winrateRank;
+} perMapWinrate_t;
+
+const char *const sqlGetPerMapWinrateAllPos =
+"WITH t AS ( "
+"WITH wins AS ( "
+"SELECT account_id, playerpugteampos.pos, map, count(*) AS wincount "
+"FROM playerpugteampos "
+"JOIN sessions ON sessions.session_id = playerpugteampos.session_id "
+"JOIN pugs ON pugs.match_id = playerpugteampos.match_id "
+"WHERE playerpugteampos.team = win_team "
+"GROUP BY account_id, map), "
+"pugs_played AS ( "
+"SELECT account_id, playerpugteampos.pos, map, count(*) AS playcount "
+"FROM playerpugteampos "
+"JOIN sessions ON sessions.session_id = playerpugteampos.session_id "
+"JOIN pugs ON pugs.match_id = playerpugteampos.match_id "
+"GROUP BY account_id, map) "
+"SELECT wins.account_id, wins.map, playcount, wincount, CAST(wincount AS FLOAT) / CAST(playcount AS FLOAT) AS winrate FROM wins JOIN pugs_played ON wins.account_id = pugs_played.account_id AND wins.map = pugs_played.map "
+"WHERE playcount >= 5 AND winrate %s 0.5 "
+"ORDER BY wins.account_id ASC, winrate %s, playcount, wins.map) "
+"SELECT account_id, map, playcount, wincount, winrate, RANK() OVER (PARTITION BY account_id ORDER BY winrate %s) AS winrate_rank FROM t;";
+
+const char *const sqlGetPerMapWinrateSpecificPos =
+"WITH t AS ( "
+"WITH wins AS ( "
+"SELECT account_id, playerpugteampos.pos, map, count(*) AS wincount "
+"FROM playerpugteampos "
+"JOIN sessions ON sessions.session_id = playerpugteampos.session_id "
+"JOIN pugs ON pugs.match_id = playerpugteampos.match_id "
+"WHERE playerpugteampos.team = win_team AND pos = ?1 "
+"GROUP BY account_id, map), "
+"pugs_played AS ( "
+"SELECT account_id, playerpugteampos.pos, map, count(*) AS playcount "
+"FROM playerpugteampos "
+"JOIN sessions ON sessions.session_id = playerpugteampos.session_id "
+"JOIN pugs ON pugs.match_id = playerpugteampos.match_id "
+"WHERE pos = ?1 "
+"GROUP BY account_id, map) "
+"SELECT wins.account_id, wins.map, playcount, wincount, CAST(wincount AS FLOAT) / CAST(playcount AS FLOAT) AS winrate FROM wins JOIN pugs_played ON wins.account_id = pugs_played.account_id AND wins.map = pugs_played.map "
+"WHERE playcount >= 5 AND winrate %s 0.5 "
+"ORDER BY wins.account_id ASC, winrate %s, playcount, wins.map) "
+"SELECT account_id, map, playcount, wincount, winrate, RANK() OVER (PARTITION BY account_id ORDER BY winrate %s) AS winrate_rank FROM t;";
+
+const char *PerMapWinrateCallback(void *rowContext, void *columnContext) {
+	int index = (int)rowContext;
+	perMapWinrate_t *wr = ((perMapWinrate_t *)columnContext) + index;
+	if (!wr->filteredMapName[0])
+		return NULL;
+	return va("%s: %0.2f'/. ^9(%d/%d, %d%s)", wr->filteredMapName, wr->winrate * 100, wr->wins, wr->plays, wr->winrateRank, RankSuffix(wr->winrateRank));
+}
+
+static void LoadPerMapWinratesFromDatabase(void) {
+	sqlite3_stmt *statement;
+	sqlite3_prepare(dbPtr, "SELECT account_id, pos, str FROM [cachedplayerstats] WHERE type = 2;", -1, &statement, 0);
+	int rc = sqlite3_step(statement);
+	while (rc == SQLITE_ROW) {
+		cachedPerMapWinrate_t *c = ListAdd(&level.cachedPerMapWinrates, sizeof(cachedPerMapWinrate_t));
+		c->accountId = sqlite3_column_int(statement, 0);
+		c->pos = sqlite3_column_int(statement, 1);
+		const char *str = (const char *)sqlite3_column_text(statement, 2);
+		c->strPtr = strdup(str);
+		rc = sqlite3_step(statement);
+	}
+	sqlite3_finalize(statement);
+}
+
+static void RecalculatePerMapWinRates(void) {
+	iterator_t iter;
+	ListIterate(&level.cachedPerMapWinrates, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		cachedPerMapWinrate_t *c = IteratorNext(&iter);
+		if (c->strPtr)
+			free(c->strPtr);
+	}
+	ListClear(&level.cachedPerMapWinrates);
+	sqlite3_exec(dbPtr, "DELETE FROM [cachedplayerstats] WHERE type = 2;", NULL, NULL, NULL);
+
+	list_t winrateDataList[4][2];
+	memset(winrateDataList, 0, sizeof(winrateDataList));
+
+	sqlite3_stmt *statement;
+	for (ctfPosition_t pos = CTFPOSITION_UNKNOWN; pos <= CTFPOSITION_OFFENSE; pos++) {
+		for (qboolean best = qtrue; best >= qfalse; best--) {
+			if (pos == CTFPOSITION_UNKNOWN) {
+				sqlite3_prepare(dbPtr, va(sqlGetPerMapWinrateAllPos, best ? ">=" : "<=", best ? "DESC" : "ASC", best ? "DESC" : "ASC"), -1, &statement, 0);
+			}
+			else {
+				sqlite3_prepare(dbPtr, va(sqlGetPerMapWinrateSpecificPos, best ? ">=" : "<=", best ? "DESC" : "ASC", best ? "DESC" : "ASC"), -1, &statement, 0);
+				sqlite3_bind_int(statement, 1, pos);
+			}
+
+			int rc = sqlite3_step(statement);
+			while (rc == SQLITE_ROW) {
+				perMapWinrate_t *add = ListAdd(&winrateDataList[pos][best], sizeof(perMapWinrate_t));
+				add->accountId = sqlite3_column_int(statement, 0);
+				const char *mapFileName = (const char *)sqlite3_column_text(statement, 1);
+				GetShortNameForMapFileName(mapFileName, add->filteredMapName, sizeof(add->filteredMapName));
+				if (!add->filteredMapName[0])
+					Q_strncpyz(add->filteredMapName, mapFileName, sizeof(add->filteredMapName));
+				add->plays = sqlite3_column_int(statement, 2);
+				add->wins = sqlite3_column_int(statement, 3);
+				add->winrate = sqlite3_column_double(statement, 4);
+				add->winrateRank = sqlite3_column_int(statement, 5);
+				rc = sqlite3_step(statement);
+			}
+
+			sqlite3_reset(statement);
+		}
+	}
+
+	sqlite3_prepare(dbPtr, "SELECT accounts.name, accounts.account_id FROM [accounts] JOIN [sessions] ON accounts.account_id = sessions.account_id JOIN [playerpugteampos] ON sessions.session_id = playerpugteampos.session_id GROUP BY accounts.account_id;", -1, &statement, 0);
+	int rc = sqlite3_step(statement);
+	while (rc == SQLITE_ROW) { // loop through each account
+		const char *name = (const char *)sqlite3_column_text(statement, 0);
+		const int accountId = sqlite3_column_int(statement, 1);
+
+#define PERMAPWINRATE_MAXROWS	(10)
+		perMapWinrate_t rows[4][2][PERMAPWINRATE_MAXROWS] = { 0 };
+		for (ctfPosition_t pos = CTFPOSITION_UNKNOWN; pos <= CTFPOSITION_OFFENSE; pos++) {
+			int highestNumRows = 0;
+			for (qboolean best = qtrue; best >= qfalse; best--) {
+				iterator_t iter;
+				ListIterate(&winrateDataList[pos][best], &iter, qfalse);
+				int rowNum = 0;
+				while (IteratorHasNext(&iter)) {
+					perMapWinrate_t *wr = IteratorNext(&iter);
+					if (wr->accountId != accountId)
+						continue;
+					if (rowNum >= PERMAPWINRATE_MAXROWS)
+						break;
+					memcpy(&rows[pos][best][rowNum++], wr, sizeof(perMapWinrate_t));
+				}
+				if (rowNum > highestNumRows)
+					highestNumRows = rowNum;
+			}
+
+			if (!highestNumRows)
+				continue;
+
+			Table *t = Table_Initialize(qfalse);
+			for (int i = 0; i < highestNumRows; i++)
+				Table_DefineRow(t, (void *)i);
+
+			Table_DefineColumn(t, va("^2Best %s %smaps", name, pos ? va("%s ", NameForPos(pos)) : ""), PerMapWinrateCallback, &rows[pos][1][0], qfalse, -1, 32);
+			Table_DefineColumn(t, va("^1Worst %s %smaps", name, pos ? va("%s ", NameForPos(pos)) : ""), PerMapWinrateCallback, &rows[pos][0][0], qfalse, -1, 32);
+
+			char *buf = calloc(16384, sizeof(char));
+			Table_WriteToBuffer(t, buf, 16384, qtrue, -1);
+			Table_Destroy(t);
+
+			if (*buf) {
+				// add it to the db
+				sqlite3_stmt *innerStatement;
+				sqlite3_prepare(dbPtr, "INSERT OR REPLACE INTO [cachedplayerstats] (account_id, type, pos, str) VALUES (?, 2, ?, ?);", -1, &innerStatement, 0);
+				sqlite3_bind_int(innerStatement, 1, accountId);
+				sqlite3_bind_int(innerStatement, 2, pos);
+				sqlite3_bind_text(innerStatement, 3, buf, -1, SQLITE_STATIC);
+				int rc = sqlite3_step(innerStatement);
+				sqlite3_finalize(innerStatement);
+
+				// also load it into the cache
+				cachedPerMapWinrate_t *c = ListAdd(&level.cachedPerMapWinrates, sizeof(cachedPerMapWinrate_t));
+				c->accountId = accountId;
+				c->pos = pos;
+				c->strPtr = strdup(buf);
+			}
+			free(buf);
+		}
+
+		rc = sqlite3_step(statement);
+	}
+
+	sqlite3_finalize(statement);
+
+	for (qboolean best = qtrue; best >= qfalse; best--) {
+		for (ctfPosition_t pos = CTFPOSITION_UNKNOWN; pos <= CTFPOSITION_OFFENSE; pos++) {
+			ListClear(&winrateDataList[pos][best]);
+		}
+	}
+}
+
+void G_DBPrintPerMapWinrates(int accountId, ctfPosition_t positionOptional, int printClientNum) {
+	cachedPerMapWinrate_t x;
+	x.accountId = accountId;
+	x.pos = positionOptional;
+	cachedPerMapWinrate_t *found = ListFind(&level.cachedPerMapWinrates, CachedPerMapWinrateMatches, &x, NULL);
+	if (found && VALIDSTRING(found->strPtr))
+		PrintIngame(printClientNum, found->strPtr);
+}
+
 const char *WinrateCallback(void *rowContext, void *columnContext) {
 	int index = (int)rowContext;
 	winrate_t *wr = ((winrate_t *)columnContext) + index;
@@ -4896,15 +5102,17 @@ void G_DBInitializePugStatsCache(void) {
 	if (recalculate) {
 		RecalculatePositionStats(); Com_Printf("Recalculated position stats (took %d ms)\n", trap_Milliseconds() - lastTime); lastTime = trap_Milliseconds();
 		RecalculateTopPlayers(); Com_Printf("Recalculated top players (took %d ms)\n", trap_Milliseconds() - lastTime); lastTime = trap_Milliseconds();
+		RecalculatePerMapWinRates(); Com_Printf("Recalculated per-map win rates (took %d ms)\n", trap_Milliseconds() - lastTime); lastTime = trap_Milliseconds();
 		RecalculateWinRates(); Com_Printf("Recalculated win rates (took %d ms)\n", trap_Milliseconds() - lastTime); lastTime = trap_Milliseconds();
 		trap_Cvar_Set("g_shouldReloadPlayerPugStats", "0");
 	}
 	else {
 		LoadPositionStatsFromDatabase(); Com_Printf("Loaded position stats cache from db (took %d ms)\n", trap_Milliseconds() - lastTime); lastTime = trap_Milliseconds();
 		LoadTopPlayersFromDatabase(); Com_Printf("Loaded top players cache from db (took %d ms)\n", trap_Milliseconds() - lastTime); lastTime = trap_Milliseconds();
+		LoadPerMapWinratesFromDatabase(); Com_Printf("Loaded per-map win rates cache from db (took %d ms)\n", trap_Milliseconds() - lastTime); lastTime = trap_Milliseconds();
 		LoadWinratesFromDatabase(); Com_Printf("Loaded win rates cache from db (took %d ms)\n", trap_Milliseconds() - lastTime); lastTime = trap_Milliseconds();
 	}
-	GetMostPlayedPositions(); Com_Printf("Recalculated most played positions from db (took %d ms)\n", trap_Milliseconds() - lastTime);
+	GetMostPlayedPositions(); Com_Printf("Recalculated most played positions from db (took %d ms)\n", trap_Milliseconds() - lastTime); lastTime = trap_Milliseconds();
 
 	Com_Printf("Finished initializing pug stats cache (took %d ms total)\n", trap_Milliseconds() - start);
 }
