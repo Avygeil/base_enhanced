@@ -1495,7 +1495,7 @@ void TeamplayInfoMessage( gentity_t *ent ) {
 	int			i, j;
 	gentity_t	*player;
 	int			cnt;
-	int			h, a;
+	int			h, a, p;
 	int			clients[TEAM_MAXOVERLAY];
 
 	if ( ! ent->client->pers.teamInfo )
@@ -1525,15 +1525,33 @@ void TeamplayInfoMessage( gentity_t *ent ) {
 			ent->client->ps.persistant[PERS_TEAM] ) {
 
 			h = player->client->ps.stats[STAT_HEALTH];
-			a = player->client->ps.stats[STAT_ARMOR];
 			if (h < 0) h = 0;
+
+			if (g_teamOverlayForce.integer) {
+				// modified behavior: compatible client mods can display everything properly; incompatible clients will see force in place of armor
+				// armor slot = force power points
+				// powerups slot = armor in the upper 8 (unused) bits; actual powerups in the lower bits as normal
+				a = player->client->ps.fd.forcePower;
+				byte clampedArmor = (byte)Com_Clampi(0, 255, player->client->ps.stats[STAT_ARMOR]);
+				p = (int)(clampedArmor << 24);
+				p |= player->s.powerups;
+			}
+			else {
+				// normal behavior
+				// armor slot = armor
+				// powerups slot = powerups
+				a = player->client->ps.stats[STAT_ARMOR];
+				p = player->s.powerups;
+			}
 			if (a < 0) a = 0;
+
+			
 
 			Com_sprintf (entry, sizeof(entry),
 				" %i %i %i %i %i %i", 
 //				level.sortedClients[i], player->client->pers.teamState.location, h, a, 
 				i, player->client->pers.teamState.location, h, a, 
-				player->client->ps.weapon, player->s.powerups);
+				player->client->ps.weapon, p);
 			j = strlen(entry);
 			if (stringlength + j > sizeof(string))
 				break;
