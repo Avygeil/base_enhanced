@@ -4825,8 +4825,8 @@ static void RecalculatePerMapWinRates(void) {
 	memset(winrateDataList, 0, sizeof(winrateDataList));
 
 	sqlite3_stmt *statement;
-	for (ctfPosition_t pos = CTFPOSITION_UNKNOWN; pos <= CTFPOSITION_OFFENSE; pos++) {
-		for (qboolean best = qtrue; best >= qfalse; best--) {
+	for (int pos = CTFPOSITION_UNKNOWN; pos <= CTFPOSITION_OFFENSE; pos++) {
+		for (int best = qtrue; best >= qfalse; best--) {
 			if (pos == CTFPOSITION_UNKNOWN) {
 				sqlite3_prepare(dbPtr, va(sqlGetPerMapWinrateAllPos, best ? ">=" : "<=", best ? "DESC" : "ASC", best ? "DESC" : "ASC"), -1, &statement, 0);
 			}
@@ -4862,9 +4862,9 @@ static void RecalculatePerMapWinRates(void) {
 
 #define PERMAPWINRATE_MAXROWS	(10)
 		perMapWinrate_t rows[4][2][PERMAPWINRATE_MAXROWS] = { 0 };
-		for (ctfPosition_t pos = CTFPOSITION_UNKNOWN; pos <= CTFPOSITION_OFFENSE; pos++) {
+		for (int pos = CTFPOSITION_UNKNOWN; pos <= CTFPOSITION_OFFENSE; pos++) {
 			int highestNumRows = 0;
-			for (qboolean best = qtrue; best >= qfalse; best--) {
+			for (int best = qtrue; best >= qfalse; best--) {
 				iterator_t iter;
 				ListIterate(&winrateDataList[pos][best], &iter, qfalse);
 				int rowNum = 0;
@@ -4918,8 +4918,8 @@ static void RecalculatePerMapWinRates(void) {
 
 	sqlite3_finalize(statement);
 
-	for (qboolean best = qtrue; best >= qfalse; best--) {
-		for (ctfPosition_t pos = CTFPOSITION_UNKNOWN; pos <= CTFPOSITION_OFFENSE; pos++) {
+	for (int best = qtrue; best >= qfalse; best--) {
+		for (int pos = CTFPOSITION_UNKNOWN; pos <= CTFPOSITION_OFFENSE; pos++) {
 			ListClear(&winrateDataList[pos][best]);
 		}
 	}
