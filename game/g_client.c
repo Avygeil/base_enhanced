@@ -2878,6 +2878,9 @@ void G_BroadcastServerFeatureList( int clientNum ) {
 	if (g_unlagged.integer)
 		Q_strcat(featureListConfigString, sizeof(featureListConfigString), "unlg ");
 
+	if (g_teamOverlayForce.integer)
+		Q_strcat(featureListConfigString, sizeof(featureListConfigString), "tolf ");
+
 	trap_SetConfigstring(CS_SERVERFEATURELIST, featureListConfigString);
 
 	if ( level.locations.enhanced.numUnique )

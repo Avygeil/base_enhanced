@@ -2422,6 +2422,8 @@ extern vmCvar_t		g_quickPauseChat;
 extern vmCvar_t    g_webhookId;
 extern vmCvar_t    g_webhookToken;
 
+extern vmCvar_t		g_teamOverlayForce;
+
 extern vmCvar_t	   g_teamPrivateDuels;
 extern vmCvar_t    g_improvedHoming;
 extern vmCvar_t    g_improvedHomingThreshold;
