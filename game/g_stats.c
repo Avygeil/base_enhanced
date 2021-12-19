@@ -1756,7 +1756,7 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 				ListIterate(&level.savedStatsList, &iter2, qfalse);
 				while (IteratorHasNext(&iter2)) {
 					stats_t *match = IteratorNext(&iter2);
-					if (match->sessionId == found->sessionId && match->lastTeam == found->lastTeam) {
+					if (StatsValid(match) && match->isBot == found->isBot && match->sessionId == found->sessionId && match->lastTeam == found->lastTeam && match != found) {
 						AddStatsToTotal(match, combined, type, weaponStatsPtr); // add all other matching stats_ts into the combined one
 						combined->ticksNotPaused += match->ticksNotPaused;
 						combined->confirmedPositionBits |= match->confirmedPositionBits;
@@ -1825,7 +1825,7 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 			ListIterate(&level.savedStatsList, &iter2, qfalse);
 			while (IteratorHasNext(&iter2)) {
 				stats_t *match = IteratorNext(&iter2);
-				if (match->sessionId == found->sessionId && match->lastTeam == found->lastTeam) {
+				if (StatsValid(match) && match->isBot == found->isBot && match->sessionId == found->sessionId && match->lastTeam == found->lastTeam && match != found) {
 					AddStatsToTotal(match, combined, type, weaponStatsPtr); // add all other matching stats_ts into the combined one
 					combined->ticksNotPaused += match->ticksNotPaused;
 				}
@@ -1888,7 +1888,7 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 			ListIterate(&level.savedStatsList, &iter2, qfalse);
 			while (IteratorHasNext(&iter2)) {
 				stats_t *match = IteratorNext(&iter2);
-				if (match->sessionId == found->sessionId && match->lastTeam == found->lastTeam) {
+				if (StatsValid(match) && match->isBot == found->isBot && match->sessionId == found->sessionId && match->lastTeam == found->lastTeam && match != found) {
 					AddStatsToTotal(match, combined, type, weaponStatsPtr); // add all other matching stats_ts into the combined one
 					combined->ticksNotPaused += match->ticksNotPaused;
 				}
