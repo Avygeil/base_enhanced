@@ -1751,15 +1751,19 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 				combined->finalPosition = pos;
 				combined->ticksNotPaused += found->ticksNotPaused;
 				combined->confirmedPositionBits |= found->confirmedPositionBits;
+				int blockNumsGotten = (1 << found->blockNum);
 
 				iterator_t iter2;
 				ListIterate(&level.savedStatsList, &iter2, qfalse);
 				while (IteratorHasNext(&iter2)) {
 					stats_t *match = IteratorNext(&iter2);
 					if (match->sessionId == found->sessionId && match->lastTeam == found->lastTeam) {
+						if (blockNumsGotten & (1 << match->blockNum))
+							continue;
 						AddStatsToTotal(match, combined, type, weaponStatsPtr); // add all other matching stats_ts into the combined one
 						combined->ticksNotPaused += match->ticksNotPaused;
 						combined->confirmedPositionBits |= match->confirmedPositionBits;
+						blockNumsGotten |= (1 << match->blockNum);
 					}
 				}
 
@@ -1821,13 +1825,18 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 			combined->lastTeam = found->lastTeam;
 			combined->finalPosition = pos;
 			combined->ticksNotPaused += found->ticksNotPaused;
+			int blockNumsGotten = (1 << found->blockNum);
+
 			iterator_t iter2;
 			ListIterate(&level.savedStatsList, &iter2, qfalse);
 			while (IteratorHasNext(&iter2)) {
 				stats_t *match = IteratorNext(&iter2);
 				if (match->sessionId == found->sessionId && match->lastTeam == found->lastTeam) {
+					if (blockNumsGotten & (1 << match->blockNum))
+						continue;
 					AddStatsToTotal(match, combined, type, weaponStatsPtr); // add all other matching stats_ts into the combined one
 					combined->ticksNotPaused += match->ticksNotPaused;
+					blockNumsGotten |= (1 << match->blockNum);
 				}
 			}
 
@@ -1884,13 +1893,18 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 			combined->lastTeam = found->lastTeam;
 			combined->finalPosition = pos;
 			combined->ticksNotPaused += found->ticksNotPaused;
+			int blockNumsGotten = (1 << found->blockNum);
+
 			iterator_t iter2;
 			ListIterate(&level.savedStatsList, &iter2, qfalse);
 			while (IteratorHasNext(&iter2)) {
 				stats_t *match = IteratorNext(&iter2);
 				if (match->sessionId == found->sessionId && match->lastTeam == found->lastTeam) {
+					if (blockNumsGotten & (1 << match->blockNum))
+						continue;
 					AddStatsToTotal(match, combined, type, weaponStatsPtr); // add all other matching stats_ts into the combined one
 					combined->ticksNotPaused += match->ticksNotPaused;
+					blockNumsGotten |= (1 << match->blockNum);
 				}
 			}
 
