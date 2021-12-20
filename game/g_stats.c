@@ -178,7 +178,7 @@ char *NameForPos(ctfPosition_t pos) {
 #ifdef DEBUG_CTF_POSITION_STATS
 #define DebugCtfPosPrintf(...)	Com_Printf(__VA_ARGS__)
 #else
-#define DebugCtfPosPrintf(...)	do {} while (0)
+#define DebugCtfPosPrintf(...)	do { if (enableDebugPrints && d_debugCtfPosCalculation.integer) { G_LogPrintf(__VA_ARGS__); } } while (0)
 #endif
 
 // determine 4v4 ctf position based on average location
@@ -191,7 +191,7 @@ char *NameForPos(ctfPosition_t pos) {
 // this seems to reliably result in distributions where the two offense players have the top values,
 // the base player has the lowest value, and the chase player is somewhere in the middle
 // this function can be called on any stats_t at any time, including old ones
-ctfPosition_t DetermineCTFPosition(stats_t *posGuy) {
+ctfPosition_t DetermineCTFPosition(stats_t *posGuy, qboolean enableDebugPrints) {
 	if (!posGuy) {
 		assert(qfalse);
 		return CTFPOSITION_UNKNOWN;
@@ -237,10 +237,10 @@ ctfPosition_t DetermineCTFPosition(stats_t *posGuy) {
 		return posGuy->lastPosition;
 	}
 
-	// if i have held the flag for this entire block, just reuse my last position
+	// if i have held the flag for this entire block, i must be offense
 	if (!posGuy->numPositionSamplesWithoutFlag) {
-		DebugCtfPosPrintf("%08x cl %d %s^7 (block %d): no positionSamplesWithoutFlag, so using lastPosition %s\n", posGuy, posGuy->clientNum, posGuy->name, posGuy->blockNum, NameForPos(posGuy->lastPosition));
-		return posGuy->lastPosition;
+		DebugCtfPosPrintf("%08x cl %d %s^7 (block %d): no positionSamplesWithoutFlag, so offense\n", posGuy, posGuy->clientNum, posGuy->name, posGuy->blockNum);
+		return CTFPOSITION_OFFENSE;
 	}
 
 	float posGuyAverage = posGuy->totalPositionWithoutFlag / (float)posGuy->numPositionSamplesWithoutFlag;
@@ -299,13 +299,14 @@ ctfPosition_t DetermineCTFPosition(stats_t *posGuy) {
 
 		if (!teammate->numPositionSamplesWithoutFlagWithMe) {
 			// this guy has been ingame with me for 60+ seconds but has been holding the flag the entire time for this block
-			// force him to use his old position
-			thisGuyData->forcePos = teammate->stats->lastPosition;
-			DebugCtfPosPrintf("TEAMMATE %08x cl %d %s^7 (block %d): has no position samples without flag with me, so forcing last position %s\n", teammate->stats, teammate->stats->clientNum, teammate->stats->name, teammate->stats->blockNum, NameForPos(teammate->stats->lastPosition));
+			// force him to offense
+			thisGuyData->forcePos = CTFPOSITION_OFFENSE;
+			DebugCtfPosPrintf("TEAMMATE %08x cl %d %s^7 (block %d): has no position samples without flag with me, so forcing offense\n", teammate->stats, teammate->stats->clientNum, teammate->stats->name, teammate->stats->blockNum);
 		}
 		else {
 			float average = teammate->totalPositionWithoutFlagWithMe / (float)teammate->numPositionSamplesWithoutFlagWithMe;
 			thisGuyData->average = average;
+			DebugCtfPosPrintf("TEAMMATE %08x cl %d %s^7 (block %d): has average %0.3f\n", teammate->stats, teammate->stats->clientNum, teammate->stats->name, teammate->stats->blockNum, average);
 		}
 	}
 
@@ -362,7 +363,7 @@ ctfPosition_t DetermineCTFPosition(stats_t *posGuy) {
 			// they don't have confirmed last positions; just go with the person who has more energizes
 			chase = data + 0;
 			base = data + 1;
-			DebugCtfPosPrintf("chase has more energizes, swapping them\n");
+			DebugCtfPosPrintf("the supposed chase has more energizes, swapping them\n");
 		}
 	}
 
@@ -447,7 +448,7 @@ const char *GetPositionStringForStats(stats_t *stats) {
 	if (stats->isTotal)
 		return NULL;
 
-	ctfPosition_t pos = stats->finalPosition ? stats->finalPosition : DetermineCTFPosition(stats);
+	ctfPosition_t pos = stats->finalPosition ? stats->finalPosition : DetermineCTFPosition(stats, qfalse);
 	if (!pos)
 		return NULL; // no position
 
@@ -1716,7 +1717,7 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 				if (!StatsValid(found) || found->clientNum != findClientNum || found->lastTeam != team)
 					continue;
 
-				ctfPosition_t pos = DetermineCTFPosition(found);
+				ctfPosition_t pos = DetermineCTFPosition(found, qfalse);
 
 				gotPlayer_t *gotPlayerAlready = ListFind(&gotPlayersList, PlayerMatches, found, NULL);
 				if (gotPlayerAlready)
@@ -1787,7 +1788,7 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 			if (!StatsValid(found) || found->lastTeam != team)
 				continue;
 
-			ctfPosition_t pos = found->finalPosition ? found->finalPosition : DetermineCTFPosition(found);
+			ctfPosition_t pos = found->finalPosition ? found->finalPosition : DetermineCTFPosition(found, qfalse);
 
 			gotPlayer_t *gotPlayerAlready = ListFind(&gotPlayersList, PlayerMatches, found, NULL);
 			if (gotPlayerAlready)
@@ -1850,7 +1851,7 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 			if (!StatsValid(found) || found->lastTeam != team)
 				continue;
 
-			ctfPosition_t pos = found->finalPosition ? found->finalPosition : DetermineCTFPosition(found);
+			ctfPosition_t pos = found->finalPosition ? found->finalPosition : DetermineCTFPosition(found, qfalse);
 
 			gotPlayer_t *gotPlayerAlready = ListFind(&gotPlayersList, PlayerMatches, found, NULL);
 			if (gotPlayerAlready)
@@ -2009,7 +2010,7 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 			Q_StripColor(clean);
 			//Q_strupr(clean);
 			char *name;
-			ctfPosition_t pos = DetermineCTFPosition(player->stats);
+			ctfPosition_t pos = DetermineCTFPosition(player->stats, qfalse);
 			if (pos) {
 				if (pos == CTFPOSITION_BASE)
 					name = va("^5%s (Bas)", clean);
@@ -2116,7 +2117,7 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 		Table_WriteToBuffer(t, temp + len, tempSize - len, qtrue, numWinningTeam ? (winningTeam == TEAM_BLUE ? 4 : 1) : (losingTeam == TEAM_BLUE ? 4 : 1));
 	}
 	else if (type == STATS_TABLE_WEAPON_GIVEN || type == STATS_TABLE_WEAPON_TAKEN) {
-		ctfPosition_t pos = DetermineCTFPosition(weaponStatsPtr);
+		ctfPosition_t pos = DetermineCTFPosition(weaponStatsPtr, qfalse);
 		Com_sprintf(temp, tempSize, "%s^7 by %s (%s%s)^7:\n",
 			type == STATS_TABLE_WEAPON_GIVEN ? "^2Damage DEALT" : "^8Damage TAKEN",
 			weaponStatsPtr->name,
@@ -2432,7 +2433,7 @@ void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t ou
 					if (!StatsValid(found) || found->lastTeam != team)
 						continue;
 
-					ctfPosition_t pos = found->finalPosition ? found->finalPosition : DetermineCTFPosition(found);
+					ctfPosition_t pos = found->finalPosition ? found->finalPosition : DetermineCTFPosition(found, qfalse);
 
 					gotPlayer_t *gotPlayerAlready = ListFind(&gotPlayersList, PlayerMatches, found, NULL);
 					if (gotPlayerAlready)
@@ -2458,7 +2459,7 @@ void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t ou
 					if (!StatsValid(found) || found->lastTeam != team)
 						continue;
 
-					ctfPosition_t pos = found->finalPosition ? found->finalPosition : DetermineCTFPosition(found);
+					ctfPosition_t pos = found->finalPosition ? found->finalPosition : DetermineCTFPosition(found, qfalse);
 
 					gotPlayer_t *gotPlayerAlready = ListFind(&gotPlayersList, PlayerMatches, found, NULL);
 					if (gotPlayerAlready)
@@ -2552,7 +2553,7 @@ void FinalizeCTFPositions(void) {
 	ListIterate(&level.statsList, &iter, qfalse);
 	while (IteratorHasNext(&iter)) {
 		stats_t *s = IteratorNext(&iter);
-		s->finalPosition = DetermineCTFPosition(s);
+		s->finalPosition = DetermineCTFPosition(s, qtrue);
 	}
 }
 

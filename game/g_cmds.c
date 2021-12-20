@@ -2515,7 +2515,38 @@ void Cmd_Where_f( gentity_t *ent ) {
 	if (!ent->client)
 		return;
 
-	trap_SendServerCommand( ent - g_entities, va( "print \"Origin: %s ; Yaw: %.3f degrees\n\"", vtos( ent->client->ps.origin ), ent->client->ps.viewangles[YAW] ) );
+	char *extra = "";
+	if (g_gametype.integer == GT_CTF) {
+		static gentity_t *redFs = NULL, *blueFs = NULL;
+		static float diffBetweenFlags = 0.0f;
+		static qboolean initialized = qfalse;
+		if (!initialized) {
+			gentity_t temp;
+			VectorCopy(vec3_origin, temp.r.currentOrigin);
+			redFs = G_ClosestEntity(&temp, isRedFlagstand);
+			blueFs = G_ClosestEntity(&temp, isBlueFlagstand);
+			if (redFs && blueFs)
+				diffBetweenFlags = Distance2D(redFs->r.currentOrigin, blueFs->r.currentOrigin);
+			initialized = qtrue;
+		}
+		if (redFs && blueFs) {
+			int team = ent->client->sess.sessionTeam;
+			float allyDist = Distance2D(ent->r.currentOrigin, team == TEAM_RED ? redFs->r.currentOrigin : blueFs->r.currentOrigin);
+			float enemyDist = Distance2D(ent->r.currentOrigin, team == TEAM_RED ? blueFs->r.currentOrigin : redFs->r.currentOrigin);
+			float diff = allyDist / enemyDist;
+			float result;
+			if (allyDist < enemyDist && enemyDist > diffBetweenFlags)
+				result = 0.0f;
+			else if (enemyDist < allyDist && allyDist > diffBetweenFlags)
+				result = 1.0f;
+			else
+				result = allyDist / diffBetweenFlags;
+
+			extra = va("\n2D distance from ^2ally^7 FS: %.3f\n2D distance from ^6enemy^7 FS: %.3f\n2D distance ^5between the two flagstands^7: %.3f\nDiff: %.3f\nFiltered result: %.3f\n", allyDist, enemyDist, diffBetweenFlags, diff, result);
+		}
+	}
+
+	trap_SendServerCommand( ent - g_entities, va( "print \"Origin: %s ; Yaw: %.3f degrees%s\n\"", vtos( ent->client->ps.origin ), ent->client->ps.viewangles[YAW], extra ) );
 }
 
 static const char *gameNames[] = {

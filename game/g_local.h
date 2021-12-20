@@ -1139,7 +1139,7 @@ int *GetDamageGivenStatOfType(stats_t *attacker, stats_t *victim, meansOfDeathCa
 int *GetDamageTakenStat(stats_t *attacker, stats_t *victim);
 int GetTotalDamageTakenStatOfType(stats_t *attacker, stats_t *victim, meansOfDeathCategory_t modc);
 int *GetDamageTakenStatOfType(stats_t *attacker, stats_t *victim, meansOfDeathCategory_t modc);
-ctfPosition_t DetermineCTFPosition(stats_t *posGuy);
+ctfPosition_t DetermineCTFPosition(stats_t *posGuy, qboolean enableDebugPrints);
 void FinalizeCTFPositions(void);
 void CheckAccountsOfOldBlocks(int ignoreBlockNum);
 
@@ -3049,6 +3049,8 @@ extern vmCvar_t		g_vote_runoffTimeModifier;
 extern vmCvar_t		g_vote_teamgen;
 extern vmCvar_t		g_vote_teamgen_pug_requiredVotes;
 extern vmCvar_t		g_vote_teamgen_team_requiredVotes;
+
+extern vmCvar_t		d_debugCtfPosCalculation;
 
 extern vmCvar_t		g_notFirstMap;
 extern vmCvar_t		g_shouldReloadPlayerPugStats;

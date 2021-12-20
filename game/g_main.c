@@ -444,6 +444,8 @@ vmCvar_t	g_vote_teamgen;
 vmCvar_t	g_vote_teamgen_pug_requiredVotes;
 vmCvar_t	g_vote_teamgen_team_requiredVotes;
 
+vmCvar_t	d_debugCtfPosCalculation;
+
 vmCvar_t	g_notFirstMap;
 vmCvar_t	g_shouldReloadPlayerPugStats;
 
@@ -886,6 +888,8 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_vote_teamgen_pug_requiredVotes, "g_vote_teamgen_pug_requiredVotes", "4", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_teamgen_team_requiredVotes, "g_vote_teamgen_team_requiredVotes", "5", CVAR_ARCHIVE, 0, qtrue },
+
+	{ &d_debugCtfPosCalculation, "d_debugCtfPosCalculation", "0", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_notFirstMap, "g_notFirstMap", "0", CVAR_ROM | CVAR_TEMP, 0, qfalse },
 	{ &g_shouldReloadPlayerPugStats, "g_shouldReloadPlayerPugStats", "0", CVAR_ROM | CVAR_TEMP, 0, qfalse },

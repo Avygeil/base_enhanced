@@ -3999,7 +3999,7 @@ qboolean G_DBWritePugStats(void) {
 
 					ticksOnAnyPosition += found2->ticksNotPaused;
 
-					if (DetermineCTFPosition(found2) != found->finalPosition)
+					if (DetermineCTFPosition(found2, qfalse) != found->finalPosition)
 						continue;
 
 					if (found2->blockNum > s->blockNum) {
