@@ -2516,6 +2516,7 @@ void Cmd_Where_f( gentity_t *ent ) {
 		return;
 
 	char *extra = "";
+#ifdef _DEBUG
 	if (g_gametype.integer == GT_CTF) {
 		static gentity_t *redFs = NULL, *blueFs = NULL;
 		static float diffBetweenFlags = 0.0f;
@@ -2545,6 +2546,7 @@ void Cmd_Where_f( gentity_t *ent ) {
 			extra = va("\n2D distance from ^2ally^7 FS: %.3f\n2D distance from ^6enemy^7 FS: %.3f\n2D distance ^5between the two flagstands^7: %.3f\nDiff: %.3f\nFiltered result: %.3f\n", allyDist, enemyDist, diffBetweenFlags, diff, result);
 		}
 	}
+#endif
 
 	trap_SendServerCommand( ent - g_entities, va( "print \"Origin: %s ; Yaw: %.3f degrees%s\n\"", vtos( ent->client->ps.origin ), ent->client->ps.viewangles[YAW], extra ) );
 }
