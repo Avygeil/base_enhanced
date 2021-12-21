@@ -2,7 +2,7 @@
 #include "g_database.h"
 
 #define TABLE_ROW_SIZE	(1024)
-#define TABLE_MAX_COLUMNS	(32)
+#define TABLE_MAX_COLUMNS	(64)
 typedef struct {
 	node_t			node;
 	void *context;

@@ -5340,3 +5340,596 @@ static void GetMostPlayedPositions(void) {
 	}
 	sqlite3_finalize(statement);
 }
+
+typedef struct {
+	node_t		node;
+	int			recordId;
+	int64_t		matchId;
+	int			duration;
+	int			durationSeconds;
+	qboolean	boonIsNull;
+	qboolean	teEfficiencyIsNull;
+	qboolean	fcKillEfficiencyIsNull;
+	int			impliedFcKillsReturned;
+	char		teamStr[4];
+	char		posStr[4];
+	stats_t		stats;
+} swapData_t;
+
+const char *SwapIntegerCallback(void *rowContext, void *columnContext) {
+	unsigned int swapAddr = (unsigned int)rowContext;
+	unsigned int offset = (unsigned int)columnContext;
+	int n = *((int *)(swapAddr + offset));
+	return va("%d", n);
+}
+
+const char *SwapInt64Callback(void *rowContext, void *columnContext) {
+	unsigned int swapAddr = (unsigned int)rowContext;
+	unsigned int offset = (unsigned int)columnContext;
+	int64_t n = *((int64_t *)(swapAddr + offset));
+	return va("%llx", n);
+}
+
+const char *SwapFcKillEfficiencyCallback(void *rowContext, void *columnContext) {
+	swapData_t *swap = (swapData_t *)rowContext;
+	if (!swap->stats.fcKills)
+		return "";
+	return va("%d", swap->stats.fcKillEfficiency);
+}
+
+const char *SwapBoonCallback(void *rowContext, void *columnContext) {
+	swapData_t *swap = (swapData_t *)rowContext;
+	if (swap->boonIsNull)
+		return "";
+	return va("%d", swap->stats.boonPickups);
+}
+
+const char *SwapTEEfficiencyCallback(void *rowContext, void *columnContext) {
+	swapData_t *swap = (swapData_t *)rowContext;
+	if (swap->teEfficiencyIsNull)
+		return "";
+	return va("%d", swap->stats.energizeEfficiency);
+}
+
+const char *SwapTimeCallback(void *rowContext, void *columnContext) {
+	unsigned int swapAddr = (unsigned int)rowContext;
+	unsigned int offset = (unsigned int)columnContext;
+	int s = *((int *)(swapAddr + offset));
+	if (s >= 60) {
+		int m = s / 60;
+		s %= 60;
+		return va("%02dm%ds", m, s);
+	}
+	else {
+		return va("%ds", s);
+	}
+}
+
+const char *SwapStringCallback(void *rowContext, void *columnContext) {
+	unsigned int swapAddr = (unsigned int)rowContext;
+	unsigned int offset = (unsigned int)columnContext;
+	const char *string = ((const char *)(swapAddr + offset));
+	return va("%s", string);
+}
+
+const char *const sqlGetFixSwapList = "WITH t AS (SELECT match_id, session_id FROM playerpugteampos GROUP BY match_id, session_id HAVING COUNT(*) > 1) SELECT * FROM playerpugteampos WHERE EXISTS (SELECT 1 FROM t WHERE t.match_id = playerpugteampos.match_id AND t.session_id = playerpugteampos.session_id) ORDER BY match_id, session_id, pos ASC;";
+void G_DBFixSwap_List(void) {
+	sqlite3_stmt *statement;
+
+	int rc = sqlite3_prepare_v2(dbPtr, sqlGetFixSwapList, -1, &statement, 0);
+
+	list_t swapDataList = { 0 };
+	rc = sqlite3_step(statement);
+	int numGotten = 0;
+	while (rc == SQLITE_ROW) {
+		++numGotten;
+		swapData_t *swap = ListAdd(&swapDataList, sizeof(swapData_t));
+		int num = 0;
+		swap->recordId = sqlite3_column_int(statement, num++);
+		swap->matchId = sqlite3_column_int64(statement, num++);
+		swap->stats.sessionId = sqlite3_column_int(statement, num++);
+		swap->stats.lastTeam = sqlite3_column_int(statement, num++);
+		if (swap->stats.lastTeam == TEAM_RED) {
+			Q_strncpyz(swap->teamStr, "^1R", sizeof(swap->teamStr));
+		}
+		else if (swap->stats.lastTeam == TEAM_BLUE) {
+			Q_strncpyz(swap->teamStr, "^4B", sizeof(swap->teamStr));
+		}
+		else {
+			Q_strncpyz(swap->teamStr, "?", sizeof(swap->teamStr));
+			assert(qfalse);
+		}
+		swap->duration = sqlite3_column_int(statement, num++);
+		swap->durationSeconds = swap->duration / 1000;
+		const char *name = (const char *)sqlite3_column_text(statement, num++);
+		if (VALIDSTRING(name))
+			Q_strncpyz(swap->stats.name, name, sizeof(swap->stats.name));
+		swap->stats.finalPosition = sqlite3_column_int(statement, num++);
+		if (swap->stats.finalPosition == CTFPOSITION_BASE) {
+			Q_strncpyz(swap->posStr, "Bas", sizeof(swap->posStr));
+		}
+		else if (swap->stats.finalPosition == CTFPOSITION_CHASE) {
+			Q_strncpyz(swap->posStr, "Cha", sizeof(swap->posStr));
+		}
+		else if (swap->stats.finalPosition == CTFPOSITION_OFFENSE) {
+			Q_strncpyz(swap->posStr, "Off", sizeof(swap->posStr));
+		}
+		else {
+			Q_strncpyz(swap->posStr, "???", sizeof(swap->posStr));
+			assert(qfalse);
+		}
+		swap->stats.captures = sqlite3_column_int(statement, num++);
+		swap->stats.assists = sqlite3_column_int(statement, num++);
+		swap->stats.defends = sqlite3_column_int(statement, num++);
+		swap->stats.accuracy = sqlite3_column_int(statement, num++);
+		swap->stats.airs = sqlite3_column_int(statement, num++);
+		swap->stats.teamKills = sqlite3_column_int(statement, num++);
+		swap->stats.takes = sqlite3_column_int(statement, num++);
+		swap->stats.pits = sqlite3_column_int(statement, num++);
+		swap->stats.pitted = sqlite3_column_int(statement, num++);
+		swap->stats.damageDealtTotal = sqlite3_column_int(statement, num++);
+		swap->stats.flagCarrierDamageDealtTotal = sqlite3_column_int(statement, num++);
+		swap->stats.clearDamageDealtTotal = sqlite3_column_int(statement, num++);
+		swap->stats.otherDamageDealtTotal = sqlite3_column_int(statement, num++);
+		swap->stats.damageTakenTotal = sqlite3_column_int(statement, num++);
+		swap->stats.flagCarrierDamageTakenTotal = sqlite3_column_int(statement, num++);
+		swap->stats.clearDamageTakenTotal = sqlite3_column_int(statement, num++);
+		swap->stats.otherDamageTakenTotal = sqlite3_column_int(statement, num++);
+		swap->stats.fcKills = sqlite3_column_int(statement, num++);
+		if (swap->stats.fcKills > 0)
+			swap->stats.fcKillEfficiency = sqlite3_column_int(statement, num/*++*/);
+		++num;
+		swap->stats.rets = sqlite3_column_int(statement, num++);
+		swap->stats.selfkills = sqlite3_column_int(statement, num++);
+		swap->stats.totalFlagHold = sqlite3_column_int(statement, num++);
+		swap->stats.longestFlagHold = sqlite3_column_int(statement, num++);
+		swap->stats.averageSpeed = sqlite3_column_int(statement, num++);
+		swap->stats.displacementSamples = sqlite3_column_int(statement, num++); // actually top speed
+		if (sqlite3_column_type(statement, num/*++*/) != SQLITE_NULL) {
+			swap->stats.boonPickups = sqlite3_column_int(statement, num++);
+		}
+		else {
+			swap->boonIsNull = qtrue;
+		}
+		++num;
+		swap->stats.push = sqlite3_column_int(statement, num++);
+		swap->stats.pull = sqlite3_column_int(statement, num++);
+		swap->stats.healed = sqlite3_column_int(statement, num++);
+		swap->stats.energizedAlly = sqlite3_column_int(statement, num++);
+		if (sqlite3_column_type(statement, num/*++*/) != SQLITE_NULL) {
+			swap->stats.energizeEfficiency = sqlite3_column_int(statement, num/*++*/);
+		}
+		else {
+			swap->teEfficiencyIsNull = qtrue;
+		}
+		++num;
+		swap->stats.energizedEnemy = sqlite3_column_int(statement, num++);
+		swap->stats.absorbed = sqlite3_column_int(statement, num++);
+		swap->stats.protDamageAvoided = sqlite3_column_int(statement, num++);
+		swap->stats.protTimeUsed = sqlite3_column_int(statement, num++);
+		swap->stats.rageTimeUsed = sqlite3_column_int(statement, num++);
+		swap->stats.drain = sqlite3_column_int(statement, num++);
+		swap->stats.gotDrained = sqlite3_column_int(statement, num++);
+		swap->stats.regionPercent[CTFREGION_FLAGSTAND] = sqlite3_column_int(statement, num++);
+		swap->stats.regionPercent[CTFREGION_BASE] = sqlite3_column_int(statement, num++);
+		swap->stats.regionPercent[CTFREGION_MID] = sqlite3_column_int(statement, num++);
+		swap->stats.regionPercent[CTFREGION_ENEMYBASE] = sqlite3_column_int(statement, num++);
+		swap->stats.regionPercent[CTFREGION_ENEMYFLAGSTAND] = sqlite3_column_int(statement, num++);
+		rc = sqlite3_step(statement);
+	}
+	sqlite3_finalize(statement);
+
+	if (!numGotten) {
+		Com_Printf("No results found.\n");
+		return;
+	}
+
+	iterator_t iter;
+	ListIterate(&swapDataList, &iter, qfalse);
+	Table *t = Table_Initialize(qtrue);
+	while (IteratorHasNext(&iter)) {
+		swapData_t *swap = (swapData_t *)IteratorNext(&iter);
+		Table_DefineRow(t, swap);
+	}
+
+	swapData_t swap = { 0 };
+	Table_DefineColumn(t, "^5Record#", SwapIntegerCallback, (void *)((unsigned int)(&swap.recordId) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^5Match#", SwapInt64Callback, (void *)((unsigned int)(&swap.matchId) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^5Session#", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.sessionId) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^5Team", SwapStringCallback, (void *)((unsigned int)(&swap.teamStr) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^5Dur", SwapTimeCallback, (void *)((unsigned int)(&swap.durationSeconds) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^5Name", SwapStringCallback, (void *)((unsigned int)(&swap.stats.name) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^5Pos", SwapStringCallback, (void *)((unsigned int)(&swap.posStr) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^5Cap", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.captures) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^5Ass", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.assists) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^5Def", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.defends) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^5Acc", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.accuracy) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^5Air", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.airs) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^5TK", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.teamKills) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^5Take", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.takes) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^6Pit", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.pits) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^6Dth", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.pitted) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^2Dmg", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.damageDealtTotal) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^2Fc", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.flagCarrierDamageDealtTotal) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^2Clr", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.clearDamageDealtTotal) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^2Othr", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.otherDamageDealtTotal) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^1Tkn", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.damageTakenTotal) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^1Fc", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.flagCarrierDamageTakenTotal) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^1Clr", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.clearDamageTakenTotal) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^1Othr", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.otherDamageTakenTotal) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^6FcKil", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.fcKills) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^6Eff", SwapFcKillEfficiencyCallback, NULL, qfalse, -1, 32);
+	Table_DefineColumn(t, "^5Ret", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.rets) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^5SK", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.selfkills) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^3Hold", SwapTimeCallback, (void *)((unsigned int)(&swap.stats.totalFlagHold) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^3Max", SwapTimeCallback, (void *)((unsigned int)(&swap.stats.longestFlagHold) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^6Spd", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.averageSpeed) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^6Top", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats./*topSpeed*/displacementSamples) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^5Boon", SwapBoonCallback, NULL, qfalse, -1, 32);
+	Table_DefineColumn(t, "^5Push", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.push) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^5Pull", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.pull) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^5Heal", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.healed) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^6TE", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.energizedAlly) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^6TE", SwapTEEfficiencyCallback, NULL, qfalse, -1, 32);
+	Table_DefineColumn(t, "^5EnemyNrg", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.energizedEnemy) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^5Abs", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.absorbed) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^2Prot", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.protDamageAvoided) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^2Time", SwapTimeCallback, (void *)((unsigned int)(&swap.stats.protTimeUsed) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^5Rage", SwapTimeCallback, (void *)((unsigned int)(&swap.stats.rageTimeUsed) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^1Drn", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.drain) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^1Drnd", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.gotDrained) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^5Fs", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.regionPercent[CTFREGION_FLAGSTAND]) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^5Bas", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.regionPercent[CTFREGION_BASE]) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^5Mid", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.regionPercent[CTFREGION_MID]) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^5Eba", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.regionPercent[CTFREGION_ENEMYBASE]) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^5EFs", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.regionPercent[CTFREGION_ENEMYFLAGSTAND]) - (unsigned int)&swap), qfalse, -1, 32);
+
+	int bufSize = 1024 * numGotten;
+	char *buf = calloc(bufSize, sizeof(char));
+	Table_WriteToBuffer(t, buf, bufSize, qtrue, -1);
+	Com_Printf("Players with multiple positions logged in the same pug:\n");
+
+	// should write a function to do this stupid chunked printing
+	char *remaining = buf;
+	int totalLen = strlen(buf);
+	while (*remaining && remaining < buf + totalLen) {
+		char temp[4096] = { 0 };
+		Q_strncpyz(temp, remaining, sizeof(temp));
+		Com_Printf(temp);
+		int copied = strlen(temp);
+		remaining += copied;
+	}
+
+	free(buf);
+	Table_Destroy(t);
+	ListClear(&swapDataList);
+}
+
+const char *const sqlGetSessionIdAndMatchIdFromRecordId = "SELECT session_id, match_id FROM playerpugteampos WHERE playerpugteampos_id = ?;";
+const char *const sqlGetParticularSwapRecord = "SELECT * FROM playerpugteampos WHERE playerpugteampos_id = ?;";
+const char *const sqlSimpleSwapUpdate = "UPDATE playerpugteampos SET pos = ?1 WHERE playerpugteampos_id = ?2;";
+const char *const sqlGetParticularFixSwapList = "WITH t AS (SELECT * FROM playerpugteampos GROUP BY match_id, session_id HAVING COUNT(*) > 1) SELECT * FROM playerpugteampos WHERE EXISTS (SELECT 1 FROM t WHERE t.match_id = playerpugteampos.match_id AND t.session_id = playerpugteampos.session_id) AND session_id = ?1 AND match_id = ?2 AND pos = ?3 ORDER BY match_id, session_id, pos ASC;";
+const char *const sqlUpdateSwap = "UPDATE playerpugteampos SET duration = ?, name = ?, pos = ?, cap = ?, ass = ?, def = ?, acc = ?, air = ?, tk = ?, take = ?, pitkil = ?, pitdth = ?, dmg = ?, fcdmg = ?, clrdmg = ?, othrdmg = ?, dmgtkn = ?, fcdmgtkn = ?, clrdmgtkn = ?, othrdmgtkn = ?, fckil = ?, fckileff = ?, ret = ?, sk = ?, ttlhold = ?, maxhold = ?, avgspd = ?, topspd = ?, boon = ?, push = ?, pull = ?, heal = ?, te = ?, teeff = ?, enemynrg = ?, absorb = ?, protdmg = ?, prottime = ?, rage = ?, drain = ?, drained = ?, fs = ?, bas = ?, mid = ?, eba = ?, efs = ? WHERE playerpugteampos_id = ?;";
+const char *const sqlDeleteSwap = "DELETE FROM playerpugteampos WHERE playerpugteampos_id = ?;";
+qboolean G_DBFixSwap_Fix(int recordId, int newPos) {
+	// get the session id and match id of the record in question
+	sqlite3_stmt *statement;
+	int rc = sqlite3_prepare_v2(dbPtr, sqlGetSessionIdAndMatchIdFromRecordId, -1, &statement, 0);
+	sqlite3_bind_int(statement, 1, recordId);
+	rc = sqlite3_step(statement);
+	if (rc != SQLITE_ROW) {
+		sqlite3_finalize(statement);
+		return qfalse;
+	}
+	const int sessionId = sqlite3_column_int(statement, 0);
+	const int64_t matchId = sqlite3_column_int64(statement, 1);
+
+	// get the record in question
+	sqlite3_reset(statement);
+	rc = sqlite3_prepare_v2(dbPtr, sqlGetParticularSwapRecord, -1, &statement, 0);
+	sqlite3_bind_int(statement, 1, recordId);
+	rc = sqlite3_step(statement);
+	if (rc != SQLITE_ROW) {
+		sqlite3_finalize(statement);
+		return qfalse;
+	}
+	list_t swapDataList = { 0 };
+	swapData_t *src = ListAdd(&swapDataList, sizeof(swapData_t));
+	int num = 0;
+	src->recordId = sqlite3_column_int(statement, num++);
+	src->matchId = sqlite3_column_int64(statement, num++);
+	src->stats.sessionId = sqlite3_column_int(statement, num++);
+	src->stats.lastTeam = sqlite3_column_int(statement, num++);
+	src->duration = sqlite3_column_int(statement, num++);
+	src->durationSeconds = src->duration / 1000;/*
+	const char *name = (const char *)sqlite3_column_text(statement, num++);
+	if (VALIDSTRING(name))
+		Q_strncpyz(src->stats.name, name, sizeof(src->stats.name));*/
+	num++;
+	src->stats.finalPosition = sqlite3_column_int(statement, num++);
+	src->stats.captures = sqlite3_column_int(statement, num++);
+	src->stats.assists = sqlite3_column_int(statement, num++);
+	src->stats.defends = sqlite3_column_int(statement, num++);
+	src->stats.accuracy = sqlite3_column_int(statement, num++);
+	src->stats.airs = sqlite3_column_int(statement, num++);
+	src->stats.teamKills = sqlite3_column_int(statement, num++);
+	src->stats.takes = sqlite3_column_int(statement, num++);
+	src->stats.pits = sqlite3_column_int(statement, num++);
+	src->stats.pitted = sqlite3_column_int(statement, num++);
+	src->stats.damageDealtTotal = sqlite3_column_int(statement, num++);
+	src->stats.flagCarrierDamageDealtTotal = sqlite3_column_int(statement, num++);
+	src->stats.clearDamageDealtTotal = sqlite3_column_int(statement, num++);
+	src->stats.otherDamageDealtTotal = sqlite3_column_int(statement, num++);
+	src->stats.damageTakenTotal = sqlite3_column_int(statement, num++);
+	src->stats.flagCarrierDamageTakenTotal = sqlite3_column_int(statement, num++);
+	src->stats.clearDamageTakenTotal = sqlite3_column_int(statement, num++);
+	src->stats.otherDamageTakenTotal = sqlite3_column_int(statement, num++);
+	src->stats.fcKills = sqlite3_column_int(statement, num++);
+	if (src->stats.fcKills > 0) {
+		src->stats.fcKillEfficiency = sqlite3_column_int(statement, num/*++*/);
+		src->impliedFcKillsReturned = (int)round((double)src->stats.fcKillEfficiency / 100.0);
+	}
+	++num;
+	src->stats.rets = sqlite3_column_int(statement, num++);
+	src->stats.selfkills = sqlite3_column_int(statement, num++);
+	src->stats.totalFlagHold = sqlite3_column_int(statement, num++);
+	src->stats.longestFlagHold = sqlite3_column_int(statement, num++);
+	src->stats.averageSpeed = sqlite3_column_int(statement, num++);
+	src->stats.displacementSamples = sqlite3_column_int(statement, num++); // actually top speed
+	if (sqlite3_column_type(statement, num/*++*/) != SQLITE_NULL) {
+		src->stats.boonPickups = sqlite3_column_int(statement, num++);
+	}
+	else {
+		src->boonIsNull = qtrue;
+	}
+	++num;
+	src->stats.push = sqlite3_column_int(statement, num++);
+	src->stats.pull = sqlite3_column_int(statement, num++);
+	src->stats.healed = sqlite3_column_int(statement, num++);
+	src->stats.energizedAlly = sqlite3_column_int(statement, num++);
+	if (sqlite3_column_type(statement, num/*++*/) != SQLITE_NULL) {
+		src->stats.energizeEfficiency = sqlite3_column_int(statement, num/*++*/);
+	}
+	else {
+		src->teEfficiencyIsNull = qtrue;
+	}
+	++num;
+	src->stats.energizedEnemy = sqlite3_column_int(statement, num++);
+	src->stats.absorbed = sqlite3_column_int(statement, num++);
+	src->stats.protDamageAvoided = sqlite3_column_int(statement, num++);
+	src->stats.protTimeUsed = sqlite3_column_int(statement, num++);
+	src->stats.rageTimeUsed = sqlite3_column_int(statement, num++);
+	src->stats.drain = sqlite3_column_int(statement, num++);
+	src->stats.gotDrained = sqlite3_column_int(statement, num++);
+	src->stats.regionPercent[CTFREGION_FLAGSTAND] = sqlite3_column_int(statement, num++);
+	src->stats.regionPercent[CTFREGION_BASE] = sqlite3_column_int(statement, num++);
+	src->stats.regionPercent[CTFREGION_MID] = sqlite3_column_int(statement, num++);
+	src->stats.regionPercent[CTFREGION_ENEMYBASE] = sqlite3_column_int(statement, num++);
+	src->stats.regionPercent[CTFREGION_ENEMYFLAGSTAND] = sqlite3_column_int(statement, num++);
+
+	// see if there is a record that already exists in the desired position
+	sqlite3_reset(statement);
+	rc = sqlite3_prepare_v2(dbPtr, sqlGetParticularFixSwapList, -1, &statement, 0);
+	sqlite3_bind_int(statement, 1, sessionId);
+	sqlite3_bind_int64(statement, 2, matchId);
+	sqlite3_bind_int(statement, 3, newPos);
+	rc = sqlite3_step(statement);
+	if (rc != SQLITE_ROW) {
+		// there is no record already existing in the desired position; just change this one
+		sqlite3_reset(statement);
+		rc = sqlite3_prepare_v2(dbPtr, sqlSimpleSwapUpdate, -1, &statement, 0);
+		sqlite3_bind_int(statement, 1, recordId);
+		sqlite3_bind_int(statement, 2, newPos);
+		rc = sqlite3_step(statement);
+		sqlite3_finalize(statement);
+		return qtrue;
+	}
+
+	// there is already a record existing the desired position; we have to merge them
+	// get the record that is already in the desired position
+	sqlite3_reset(statement);
+	rc = sqlite3_prepare_v2(dbPtr, sqlGetParticularFixSwapList, -1, &statement, 0);
+	sqlite3_bind_int(statement, 1, sessionId);
+	sqlite3_bind_int64(statement, 2, matchId);
+	sqlite3_bind_int(statement, 3, newPos);
+	rc = sqlite3_step(statement);
+	if (rc != SQLITE_ROW) { // ???
+		sqlite3_finalize(statement);
+		ListClear(&swapDataList);
+		return qfalse;
+	}
+	swapData_t *dest = ListAdd(&swapDataList, sizeof(swapData_t));
+	num = 0;
+	dest->recordId = sqlite3_column_int(statement, num++);
+	dest->matchId = sqlite3_column_int64(statement, num++);
+	dest->stats.sessionId = sqlite3_column_int(statement, num++);
+	dest->stats.lastTeam = sqlite3_column_int(statement, num++);
+	dest->duration = sqlite3_column_int(statement, num++);
+	int totalDuration = dest->duration + src->duration;
+	double destProportion = ((double)dest->duration) / ((double)totalDuration);
+	double srcProportion = ((double)src->duration) / ((double)totalDuration);
+	const char *name = (const char *)sqlite3_column_text(statement, num++);
+	if (VALIDSTRING(name))
+		Q_strncpyz(dest->stats.name, name, sizeof(dest->stats.name));
+	dest->stats.finalPosition = sqlite3_column_int(statement, num++);
+	dest->stats.captures = sqlite3_column_int(statement, num++) + src->stats.captures;
+	dest->stats.assists = sqlite3_column_int(statement, num++) + src->stats.assists;
+	dest->stats.defends = sqlite3_column_int(statement, num++) + src->stats.defends;
+	dest->stats.accuracy = (int)((((double)sqlite3_column_int(statement, num++)) * destProportion) + (((double)src->stats.accuracy) * srcProportion));
+	dest->stats.airs = sqlite3_column_int(statement, num++) + src->stats.airs;
+	dest->stats.teamKills = sqlite3_column_int(statement, num++) + src->stats.teamKills;
+	dest->stats.takes = sqlite3_column_int(statement, num++) + src->stats.takes;
+	dest->stats.pits = sqlite3_column_int(statement, num++) + src->stats.pits;
+	dest->stats.pitted = sqlite3_column_int(statement, num++) + src->stats.pitted;
+	dest->stats.damageDealtTotal = sqlite3_column_int(statement, num++) + src->stats.damageDealtTotal;
+	dest->stats.flagCarrierDamageDealtTotal = sqlite3_column_int(statement, num++) + src->stats.flagCarrierDamageDealtTotal;
+	dest->stats.clearDamageDealtTotal = sqlite3_column_int(statement, num++) + src->stats.clearDamageDealtTotal;
+	dest->stats.otherDamageDealtTotal = sqlite3_column_int(statement, num++) + src->stats.otherDamageDealtTotal;
+	dest->stats.damageTakenTotal = sqlite3_column_int(statement, num++) + src->stats.damageTakenTotal;
+	dest->stats.flagCarrierDamageTakenTotal = sqlite3_column_int(statement, num++) + src->stats.flagCarrierDamageTakenTotal;
+	dest->stats.clearDamageTakenTotal = sqlite3_column_int(statement, num++) + src->stats.clearDamageTakenTotal;
+	dest->stats.otherDamageTakenTotal = sqlite3_column_int(statement, num++) + src->stats.otherDamageTakenTotal;
+	dest->stats.fcKills = sqlite3_column_int(statement, num++) + src->stats.fcKills;
+	dest->stats.fcKillEfficiency = sqlite3_column_int(statement, num/*++*/);
+	dest->impliedFcKillsReturned = (int)round((double)dest->stats.fcKillEfficiency / 100.0);
+	if (dest->stats.fcKills > 0 && src->stats.fcKills > 0) {
+		int totalFcKills = dest->stats.fcKills + src->stats.fcKills;
+		int totalImpliedFcKillsReturned = dest->impliedFcKillsReturned + src->impliedFcKillsReturned;
+		dest->stats.fcKillEfficiency = (int)(((double)totalImpliedFcKillsReturned) / ((double)totalFcKills) * 100.0);
+	}
+	else if (dest->stats.fcKills > 0) {
+	}
+	else if (src->stats.fcKills > 0) {
+		dest->stats.fcKillEfficiency = src->stats.fcKillEfficiency;
+	}
+	else {
+		dest->fcKillEfficiencyIsNull = qtrue;
+	}
+	++num;
+	dest->stats.rets = sqlite3_column_int(statement, num++) + src->stats.rets;
+	dest->stats.selfkills = sqlite3_column_int(statement, num++) + src->stats.selfkills;
+	dest->stats.totalFlagHold = sqlite3_column_int(statement, num++) + src->stats.totalFlagHold;
+	dest->stats.longestFlagHold = sqlite3_column_int(statement, num++);
+	if (src->stats.longestFlagHold > dest->stats.longestFlagHold)
+		dest->stats.longestFlagHold = src->stats.longestFlagHold;
+	dest->stats.averageSpeed = (int)((((double)sqlite3_column_int(statement, num++)) * destProportion) + (((double)src->stats.averageSpeed) * srcProportion));
+	dest->stats.displacementSamples = sqlite3_column_int(statement, num++); // actually top speed
+	if (src->stats.displacementSamples > dest->stats.displacementSamples)
+		dest->stats.displacementSamples = src->stats.displacementSamples;
+	if (sqlite3_column_type(statement, num/*++*/) != SQLITE_NULL) {
+		dest->stats.boonPickups = sqlite3_column_int(statement, num++);
+	}
+	else {
+		dest->boonIsNull = qtrue;
+	}
+	if (src->boonIsNull)
+		dest->boonIsNull = qtrue; // sanity check
+	++num;
+	dest->stats.push = sqlite3_column_int(statement, num++) + src->stats.push;
+	dest->stats.pull = sqlite3_column_int(statement, num++) + src->stats.pull;
+	dest->stats.healed = sqlite3_column_int(statement, num++) + src->stats.healed;
+	dest->stats.energizedAlly = sqlite3_column_int(statement, num++) + src->stats.energizedAlly;
+	if (sqlite3_column_type(statement, num/*++*/) != SQLITE_NULL) {
+		dest->stats.energizeEfficiency = sqlite3_column_int(statement, num/*++*/);
+	}
+	else {
+		dest->teEfficiencyIsNull = qtrue;
+	}
+	if (dest->teEfficiencyIsNull && src->teEfficiencyIsNull) { // no te in either
+
+	}
+	else if (!dest->teEfficiencyIsNull && !src->teEfficiencyIsNull) { // te in both
+		dest->stats.fcKillEfficiency = (int)((((double)dest->stats.fcKillEfficiency) * destProportion) + (((double)src->stats.fcKillEfficiency) * srcProportion));
+	}
+	else if (src->teEfficiencyIsNull) { // only te in dest
+	}
+	else if (dest->teEfficiencyIsNull) { // only te in src
+		dest->stats.fcKillEfficiency = src->stats.fcKillEfficiency;
+	}
+	++num;
+	dest->stats.energizedEnemy = sqlite3_column_int(statement, num++) + src->stats.energizedEnemy;
+	dest->stats.absorbed = sqlite3_column_int(statement, num++) + src->stats.absorbed;
+	dest->stats.protDamageAvoided = sqlite3_column_int(statement, num++) + src->stats.protDamageAvoided;
+	dest->stats.protTimeUsed = sqlite3_column_int(statement, num++) + src->stats.protTimeUsed;
+	dest->stats.rageTimeUsed = sqlite3_column_int(statement, num++) + src->stats.rageTimeUsed;
+	dest->stats.drain = sqlite3_column_int(statement, num++) + src->stats.drain;
+	dest->stats.gotDrained = sqlite3_column_int(statement, num++) + src->stats.gotDrained;
+	dest->stats.regionPercent[CTFREGION_FLAGSTAND] = (int)((((double)sqlite3_column_int(statement, num++)) * destProportion) + (((double)src->stats.regionPercent[CTFREGION_FLAGSTAND]) * srcProportion));
+	dest->stats.regionPercent[CTFREGION_BASE] = (int)((((double)sqlite3_column_int(statement, num++)) * destProportion) + (((double)src->stats.regionPercent[CTFREGION_BASE]) * srcProportion));
+	dest->stats.regionPercent[CTFREGION_MID] = (int)((((double)sqlite3_column_int(statement, num++)) * destProportion) + (((double)src->stats.regionPercent[CTFREGION_MID]) * srcProportion));
+	dest->stats.regionPercent[CTFREGION_ENEMYBASE] = (int)((((double)sqlite3_column_int(statement, num++)) * destProportion) + (((double)src->stats.regionPercent[CTFREGION_ENEMYBASE]) * srcProportion));
+	dest->stats.regionPercent[CTFREGION_ENEMYFLAGSTAND] = (int)((((double)sqlite3_column_int(statement, num++)) * destProportion) + (((double)src->stats.regionPercent[CTFREGION_ENEMYFLAGSTAND]) * srcProportion));
+
+	// write the merged record to db
+	sqlite3_reset(statement);
+	rc = sqlite3_prepare_v2(dbPtr, sqlUpdateSwap, -1, &statement, 0);
+	num = 1;
+	sqlite3_bind_int(statement, num++, totalDuration);
+	sqlite3_bind_text(statement, num++, dest->stats.name, -1, SQLITE_STATIC);
+	sqlite3_bind_int(statement, num++, dest->stats.finalPosition);
+	sqlite3_bind_int(statement, num++, dest->stats.captures);
+	sqlite3_bind_int(statement, num++, dest->stats.assists);
+	sqlite3_bind_int(statement, num++, dest->stats.defends);
+	sqlite3_bind_int(statement, num++, dest->stats.accuracy);
+	sqlite3_bind_int(statement, num++, dest->stats.airs);
+	sqlite3_bind_int(statement, num++, dest->stats.teamKills);
+	sqlite3_bind_int(statement, num++, dest->stats.takes);
+	sqlite3_bind_int(statement, num++, dest->stats.pits);
+	sqlite3_bind_int(statement, num++, dest->stats.pitted);
+	sqlite3_bind_int(statement, num++, dest->stats.damageDealtTotal);
+	sqlite3_bind_int(statement, num++, dest->stats.flagCarrierDamageDealtTotal);
+	sqlite3_bind_int(statement, num++, dest->stats.clearDamageDealtTotal);
+	sqlite3_bind_int(statement, num++, dest->stats.otherDamageDealtTotal);
+	sqlite3_bind_int(statement, num++, dest->stats.damageTakenTotal);
+	sqlite3_bind_int(statement, num++, dest->stats.flagCarrierDamageTakenTotal);
+	sqlite3_bind_int(statement, num++, dest->stats.clearDamageTakenTotal);
+	sqlite3_bind_int(statement, num++, dest->stats.otherDamageTakenTotal);
+	sqlite3_bind_int(statement, num++, dest->stats.fcKills);
+	if (!dest->fcKillEfficiencyIsNull)
+		sqlite3_bind_int(statement, num++, dest->stats.fcKillEfficiency);
+	else
+		sqlite3_bind_null(statement, num++);
+	sqlite3_bind_int(statement, num++, dest->stats.rets);
+	sqlite3_bind_int(statement, num++, dest->stats.selfkills);
+	sqlite3_bind_int(statement, num++, dest->stats.totalFlagHold);
+	sqlite3_bind_int(statement, num++, dest->stats.longestFlagHold);
+	sqlite3_bind_int(statement, num++, dest->stats.averageSpeed);
+	sqlite3_bind_int(statement, num++, dest->stats.displacementSamples); // actually top speed
+	if (!dest->boonIsNull)
+		sqlite3_bind_int(statement, num++, dest->stats.boonPickups);
+	else
+		sqlite3_bind_null(statement, num++);
+	sqlite3_bind_int(statement, num++, dest->stats.push);
+	sqlite3_bind_int(statement, num++, dest->stats.pull);
+	sqlite3_bind_int(statement, num++, dest->stats.healed);
+	sqlite3_bind_int(statement, num++, dest->stats.energizedAlly);
+	if (!dest->teEfficiencyIsNull)
+		sqlite3_bind_int(statement, num++, dest->stats.energizeEfficiency);
+	else
+		sqlite3_bind_null(statement, num++);
+	sqlite3_bind_int(statement, num++, dest->stats.energizedEnemy);
+	sqlite3_bind_int(statement, num++, dest->stats.absorbed);
+	sqlite3_bind_int(statement, num++, dest->stats.protDamageAvoided);
+	sqlite3_bind_int(statement, num++, dest->stats.protTimeUsed / 1000);
+	sqlite3_bind_int(statement, num++, dest->stats.rageTimeUsed / 1000);
+	sqlite3_bind_int(statement, num++, dest->stats.drain);
+	sqlite3_bind_int(statement, num++, dest->stats.gotDrained);
+	qboolean hasValidRegions = qfalse;
+	for (ctfRegion_t r = CTFREGION_FLAGSTAND; r <= CTFREGION_ENEMYFLAGSTAND; r++)
+		if (dest->stats.regionPercent[r]) { hasValidRegions = qtrue; break; }
+	if (hasValidRegions) {
+		sqlite3_bind_int(statement, num++, dest->stats.regionPercent[CTFREGION_FLAGSTAND]);
+		sqlite3_bind_int(statement, num++, dest->stats.regionPercent[CTFREGION_BASE]);
+		sqlite3_bind_int(statement, num++, dest->stats.regionPercent[CTFREGION_MID]);
+		sqlite3_bind_int(statement, num++, dest->stats.regionPercent[CTFREGION_ENEMYBASE]);
+		sqlite3_bind_int(statement, num++, dest->stats.regionPercent[CTFREGION_ENEMYFLAGSTAND]);
+	}
+	else {
+		sqlite3_bind_null(statement, num++);
+		sqlite3_bind_null(statement, num++);
+		sqlite3_bind_null(statement, num++);
+		sqlite3_bind_null(statement, num++);
+		sqlite3_bind_null(statement, num++);
+	}
+	sqlite3_bind_int(statement, num++, dest->recordId);
+	rc = sqlite3_step(statement);
+	if (rc != SQLITE_DONE) {
+		Com_Printf("Error updating record.\n");
+		sqlite3_finalize(statement);
+		ListClear(&swapDataList);
+		return qfalse;
+	}
+
+	// finally, delete the old one
+	sqlite3_reset(statement);
+	rc = sqlite3_prepare_v2(dbPtr, sqlDeleteSwap, -1, &statement, 0);
+	sqlite3_bind_int(statement, 1, recordId);
+	rc = sqlite3_step(statement);
+
+	sqlite3_finalize(statement);
+	ListClear(&swapDataList);
+	if (rc == SQLITE_DONE)
+		return qtrue;
+	Com_Printf("Error deleting old record.\n");
+	return qfalse;
+}

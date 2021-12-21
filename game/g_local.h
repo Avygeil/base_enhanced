@@ -1978,6 +1978,7 @@ typedef struct {
 } mapTierData_t;
 char *ConcatArgs(int start);
 qboolean IsRacerOrSpectator(gentity_t *ent);
+ctfPosition_t CtfPositionFromString(char *s);
 
 //
 // g_items.c

@@ -6218,7 +6218,7 @@ static ctfPlayerTier_t StringToPlayerRating(const char *s) {
 	return tier;
 }
 
-static ctfPosition_t CtfPositionFromString(char *s) {
+ctfPosition_t CtfPositionFromString(char *s) {
 	if (!VALIDSTRING(s))
 		return CTFPOSITION_UNKNOWN;
 

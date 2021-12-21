@@ -1242,6 +1242,57 @@ void Svcmd_Tier_f(void) {
 	}
 }
 
+static void PrintFixSwapHelp(void) {
+	Com_Printf(	"Usage:\n"
+				"fixswap list                  - lists pugs where someone has played more than one position\n"
+				"fixswap fix [record id] [pos] - set a record to, or merges it into, a specified position\n"
+	);
+}
+
+void Svcmd_FixSwap_f(void) {
+	if (trap_Argc() < 2) {
+		PrintFixSwapHelp();
+		return;
+	}
+
+	char arg1[MAX_STRING_CHARS] = { 0 };
+	trap_Argv(1, arg1, sizeof(arg1));
+
+	if (!Q_stricmp(arg1, "list")) {
+		G_DBFixSwap_List();
+	}
+	else if (!Q_stricmp(arg1, "fix")) {
+		char arg2[MAX_STRING_CHARS] = { 0 };
+		trap_Argv(2, arg2, sizeof(arg2));
+		if (!arg2[0] || !Q_isanumber(arg2)) {
+			PrintFixSwapHelp();
+			return;
+		}
+		int recordId = atoi(arg2);
+
+		char arg3[MAX_STRING_CHARS] = { 0 };
+		trap_Argv(3, arg3, sizeof(arg3));
+		if (!arg3[0]) {
+			PrintFixSwapHelp();
+			return;
+		}
+
+		int pos = (int)CtfPositionFromString(arg3);
+		if (!pos) {
+			PrintFixSwapHelp();
+			return;
+		}
+
+		if (G_DBFixSwap_Fix(recordId, pos))
+			Com_Printf("Successful.\n");
+		else
+			Com_Printf("Failed!\n");
+	}
+	else {
+		PrintFixSwapHelp();
+	}
+}
+
 #ifdef _WIN32
 #define FS_RESTART_ADDR 0x416800
 #else
@@ -3851,6 +3902,11 @@ qboolean	ConsoleCommand( void ) {
 
 	if (!Q_stricmp(cmd, "pug")) {
 		Svcmd_Pug_f();
+		return qtrue;
+	}
+
+	if (!Q_stricmp(cmd, "fixswap")) {
+		Svcmd_FixSwap_f();
 		return qtrue;
 	}
 

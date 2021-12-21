@@ -397,4 +397,7 @@ qboolean G_DBDeleteAllRatingsForPosition(int raterAccountId, ctfPosition_t pos);
 qboolean G_DBSetPlayerRating(int raterAccountId, int rateeAccountId, ctfPosition_t pos, ctfPlayerTier_t tier);
 void G_DBGetPlayerRatings(void);
 
+void G_DBFixSwap_List(void);
+qboolean G_DBFixSwap_Fix(int recordId, int newPos);
+
 #endif //G_DATABASE_H
