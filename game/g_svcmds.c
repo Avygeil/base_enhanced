@@ -1245,7 +1245,7 @@ void Svcmd_Tier_f(void) {
 static void PrintFixSwapHelp(void) {
 	Com_Printf(	"Usage:\n"
 				"fixswap list                  - lists pugs where someone has played more than one position\n"
-				"fixswap fix [record id] [pos] - set a record to, or merges it into, a specified position\n"
+				"fixswap fix [record #] [pos] - set a record to, or merges it into, a specified position\n"
 	);
 }
 
