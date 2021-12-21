@@ -210,6 +210,7 @@ typedef struct {
 	float						autoDist; // distance for recordroute to put player spawn from bot spawn if unspecified
 	list_t						cachedScoresList; // list of scores for players
 	int							routeStartTime;
+	int							maxSpeed; // this must be at the end of the aimPracticePack_t struct to maintain backward compatibility!
 } aimPracticePack_t;
 
 typedef struct {

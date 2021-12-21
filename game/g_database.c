@@ -3516,8 +3516,14 @@ static int GetHashForAimPack(const aimPracticePack_t *pack) {
 	Q_strncpyz(hashMe.packName, level.mapname, sizeof(hashMe.packName)); // hax
 	hashMe.numRepsPerVariant = pack->numRepsPerVariant;
 	hashMe.weaponMode = pack->weaponMode;
+	hashMe.maxSpeed = pack->maxSpeed;
 
-	int hash = (int)XXH32(&hashMe, sizeof(aimPracticePack_t), 0x69420);
+	int hash;
+	if (hashMe.maxSpeed)
+		hash = (int)XXH32(&hashMe, sizeof(aimPracticePack_t), 0x69420);
+	else
+		hash = (int)XXH32(&hashMe, sizeof(aimPracticePack_t) - sizeof(hashMe.maxSpeed), 0x69420);
+
 	return hash;
 }
 
@@ -3769,7 +3775,7 @@ void G_DBTopAimListAimLatest(const pagination_t pagination,
 	sqlite3_finalize(statement);
 }
 
-const char *sqlSavePack = "INSERT OR REPLACE INTO aimpacks (mapname, owner_account_id, name, weaponMode, numVariants, data, numRepsPerVariant, hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?);";
+const char *sqlSavePack = "INSERT OR REPLACE INTO aimpacks (mapname, owner_account_id, name, weaponMode, numVariants, data, numRepsPerVariant, hash, extra) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);";
 qboolean G_DBTopAimSavePack(aimPracticePack_t *pack) {
 	assert(pack);
 	sqlite3_stmt *statement;
@@ -3782,12 +3788,44 @@ qboolean G_DBTopAimSavePack(aimPracticePack_t *pack) {
 	sqlite3_bind_blob(statement, 6, pack->variants, sizeof(aimVariant_t) * pack->numVariants, SQLITE_STATIC);
 	sqlite3_bind_int(statement, 7, pack->numRepsPerVariant);
 	sqlite3_bind_int(statement, 8, GetHashForAimPack(pack));
+
+	cJSON *root = cJSON_CreateObject();
+	char *str = NULL;
+	if (root) {
+		if (pack->maxSpeed) {
+			cJSON_AddNumberToObject(root, "max_speed", pack->maxSpeed);
+			str = cJSON_PrintUnformatted(root);
+		}
+	}
+	cJSON_Delete(root);
+	if (VALIDSTRING(str))
+		sqlite3_bind_text(statement, 9, str, -1, 0);
+	else
+		sqlite3_bind_null(statement, 9);
+
 	int rc = sqlite3_step(statement);
 	sqlite3_finalize(statement);
 	return !!(rc == SQLITE_DONE);
 }
 
-const char *sqlLoadPacksForMap = "SELECT name, owner_account_id, numVariants, data, numRepsPerVariant, weaponMode FROM aimpacks WHERE mapname = ? ORDER BY dateCreated ASC;";
+static void ReadAimPackExtraInfo(const char *extraIn, aimPracticePack_t *packOut) {
+	cJSON *root = VALIDSTRING(extraIn) ? cJSON_Parse(extraIn) : NULL;
+	if (root) {
+		cJSON *maxSpeed = cJSON_GetObjectItemCaseSensitive(root, "max_speed");
+		if (cJSON_IsNumber(maxSpeed)) {
+			packOut->maxSpeed = maxSpeed->valueint;
+		}
+		else {
+			packOut->maxSpeed = 0;
+		}
+	}
+	else {
+		packOut->maxSpeed = 0;
+	}
+	cJSON_Delete(root);
+}
+
+const char *sqlLoadPacksForMap = "SELECT name, owner_account_id, numVariants, data, numRepsPerVariant, weaponMode, extra FROM aimpacks WHERE mapname = ? ORDER BY dateCreated ASC;";
 // IMPORTANT: free the result if not null!
 list_t *G_DBTopAimLoadPacks(const char *mapname) {
 	if (!VALIDSTRING(mapname))
@@ -3835,6 +3873,9 @@ list_t *G_DBTopAimLoadPacks(const char *mapname) {
 			Com_Printf("Warning: pack %s from the database has invalid weapons %d! Skipping load.\n", newPack->packName, newPack->weaponMode);
 			ListRemove(packList, newPack); // wtf? no valid weapons
 		}
+
+		const char *extra = (const char *)sqlite3_column_text(statement, 6);
+		ReadAimPackExtraInfo(extra, newPack);
 
 		rc = sqlite3_step(statement);
 	}

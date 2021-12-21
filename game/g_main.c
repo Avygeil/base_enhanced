@@ -6341,6 +6341,34 @@ void G_RunFrame( int levelTime ) {
 						xyspeed = sqrt( ent->client->ps.velocity[0] * ent->client->ps.velocity[0] + ent->client->ps.velocity[1] * ent->client->ps.velocity[1] );
 					}
 
+					if (ent->client->sess.inRacemode && ent->aimPracticeEntBeingUsed && ent->aimPracticeMode) {
+						aimPracticePack_t *pack = ent->aimPracticeEntBeingUsed->isAimPracticePack;
+						if (pack->maxSpeed && xyspeed > pack->maxSpeed) {
+							qboolean someoneElseUsingThisPack = qfalse;
+							for (int i = 0; i < MAX_CLIENTS; i++) {
+								gentity_t *thisEnt = &g_entities[i];
+								if (!thisEnt->inuse || !thisEnt->client || thisEnt->client->pers.connected != CON_CONNECTED ||
+									thisEnt == ent || !thisEnt->client->sess.inRacemode || thisEnt->aimPracticeEntBeingUsed != ent->aimPracticeEntBeingUsed) {
+									continue;
+								}
+								someoneElseUsingThisPack = qtrue;
+								break;
+							}
+
+							ent->numAimPracticeSpawns = 0;
+							ent->numTotalAimPracticeHits = 0;
+							memset(ent->numAimPracticeHitsOfWeapon, 0, sizeof(ent->numAimPracticeHitsOfWeapon));
+
+							if (someoneElseUsingThisPack) { // someone else is using this pack; just reset their stats and start on the next respawn
+								//CenterPrintToPlayerAndFollowers(ent, va("Do not move faster than %d ups!\nRestarting...", pack->maxSpeed));
+							}
+							else { // we are the only one using this pack; go ahead and restart it immediately so they don't have to wait
+								RandomizeAndRestartPack(ent->aimPracticeEntBeingUsed->isAimPracticePack);
+								//CenterPrintToPlayerAndFollowers(ent, va("Do not move faster than %d ups!\nRestarting.", pack->maxSpeed));
+							}
+						}
+					}
+
 					if (ent->client->sess.sessionTeam == TEAM_RED || ent->client->sess.sessionTeam == TEAM_BLUE) {
 						// only track overall displacement if you are actually ingame
 						ent->client->stats->displacement += xyspeed / g_svfps.value;

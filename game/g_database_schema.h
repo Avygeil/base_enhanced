@@ -79,6 +79,7 @@ const char *const sqlCreateTables =
 "[weaponMode] INTEGER NOT NULL,\n"
 "[numVariants] INTEGER NOT NULL,\n"
 "[data] BLOB NOT NULL,\n"
+"[extra] TEXT DEFAULT NULL,\n"
 "[numRepsPerVariant] INTEGER NOT NULL,\n"
 "UNIQUE ([name], [mapname]),\n"
 "FOREIGN KEY ([owner_account_id]) REFERENCES accounts ([account_id])"

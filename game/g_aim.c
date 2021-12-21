@@ -258,7 +258,7 @@ qboolean SpawnAimPracticePackNPC(gentity_t *ent, aimPracticePack_t *pack) {
 	}
 
 	// pick a random npc type
-	const char *possibleNpcTypes[] = { "reborn", "alora", "tavion", "tavion_new", "trandoshan", "weequay",
+	const char *possibleNpcTypes[] = { "reborn", "alora", "tavion", "tavion_new", "trandoshan", "kyle",
 		"noghri", "kyle", "gran", "rebel", "bartender", "cultist", "jan", "lando", "stormtrooper", "imperial",
 		"prisoner", "reborn_new" };
 	const int numNpcTypes = sizeof(possibleNpcTypes) / sizeof(*possibleNpcTypes);
@@ -477,8 +477,8 @@ static void NewPack(gentity_t *ent, const char *packName) {
 	}
 	pack->autoDist = DEFAULT_AUTO_DISTANCE_FROM_BOT;
 
-	PrintIngame(ent - g_entities, "You are now editing the new pack %s. Using %d reps per route, autodist %0.2f, weapons %s^7\n",
-		pack->packName, pack->numRepsPerVariant, pack->autoDist, WeaponModeStringFromWeaponMode(pack->weaponMode));
+	PrintIngame(ent - g_entities, "You are now editing the new pack %s. Using %d reps per route, autodist %0.2f, weapons %s, %s^7\n",
+		pack->packName, pack->numRepsPerVariant, pack->autoDist, WeaponModeStringFromWeaponMode(pack->weaponMode), pack->maxSpeed ? va("maxspeed %d", pack->maxSpeed) : "no maxspeed");
 }
 
 static void EditPack(gentity_t *ent, const char *packName) {
@@ -754,6 +754,7 @@ static void PackStatus(gentity_t *ent, aimPracticePack_t *pack) {
 	PrintIngame(ent - g_entities, "Owner: %s\n", account.name);
 	PrintIngame(ent - g_entities, "Status: %s\n", PackStatusString(pack));
 	PrintIngame(ent - g_entities, "Weapons: %s\n", WeaponModeStringFromWeaponMode(pack->weaponMode));
+	PrintIngame(ent - g_entities, "Max speed: %s\n", pack->maxSpeed ? va("%d", pack->maxSpeed) : "none");
 
 	if (pack->numVariants <= 0) {
 		PrintIngame(ent - g_entities, "No routes have been added to this pack yet.%s\n",
@@ -869,6 +870,15 @@ static void PackReps(gentity_t *ent, int reps) {
 	PrintBasedOnAccountFlags(ACCOUNTFLAG_AIMPACKEDITOR, va("%s changed pack %s to use %d repetitions per route.\n",
 		ent->client->account->name, pack->packName, reps));
 
+	RandomizeAndRestartPack(pack);
+}
+
+static void PackMaxSpeed(gentity_t *ent, int maxSpeed) {
+	assert(ent && ent->client && ent->client->pers.aimPracticePackBeingEdited);
+	aimPracticePack_t *pack = ent->client->pers.aimPracticePackBeingEdited;
+	pack->maxSpeed = maxSpeed;
+	pack->changed = qtrue;
+	PrintBasedOnAccountFlags(ACCOUNTFLAG_AIMPACKEDITOR, va("%s set max speed for pack %s to %d.\n", ent->client->account->name, ent->client->pers.aimPracticePackBeingEdited, maxSpeed));
 	RandomizeAndRestartPack(pack);
 }
 
@@ -1130,7 +1140,7 @@ void Cmd_Pack_f(gentity_t *ent) {
 		return;
 	}
 	if (trap_Argc() < 2) {
-		PrintIngame(ent - g_entities, "^7Usage: pack [status | list | new | edit | delete | route | weapon | reps | autodist]\n"
+		PrintIngame(ent - g_entities, "^7Usage: pack [status | list | new | edit | delete | route | weapon | reps | maxspeed | autodist]\n"
 			"  ^9status - print info about the pack your selected pack, or a particular pack\n"
 			"    ^7list - list current packs for this map\n"
 			"     ^9new - create a new pack and edit it\n"
@@ -1140,14 +1150,15 @@ void Cmd_Pack_f(gentity_t *ent) {
 			"   ^7route - record or delete routes for your selected pack\n"
 			"  ^9weapon - add or remove a weapon from your selected pack\n"
 			"    ^7reps - change how many times each route must be run per weapon for your selected pack\n"
-			"^9autodist - change how far to automatically place a player spawn from the bot spawn if player spawn coordinates are not specified in record arguments for your selected pack (default: %d)^7\n", DEFAULT_AUTO_DISTANCE_FROM_BOT);
+			"^9maxspeed - set a maximum speed that the player is allowed to move\n"
+			"^7autodist - change how far to automatically place a player spawn from the bot spawn if player spawn coordinates are not specified in record arguments for your selected pack (default: %d)^7\n", DEFAULT_AUTO_DISTANCE_FROM_BOT);
 		return;
 	}
 	char arg1[MAX_STRING_CHARS] = { 0 }, arg2[MAX_STRING_CHARS] = { 0 };
 	trap_Argv(1, arg1, sizeof(arg1));
 	trap_Argv(2, arg2, sizeof(arg2));
 	if (!arg1[0]) {
-		PrintIngame(ent - g_entities, "^7Usage: pack [status | list | new | edit | delete | route | weapon | reps | autodist]\n"
+		PrintIngame(ent - g_entities, "^7Usage: pack [status | list | new | edit | delete | route | weapon | reps | maxspeed | autodist]\n"
 			"  ^9status - print info about the pack your selected pack, or a particular pack\n"
 			"    ^7list - list current packs for this map\n"
 			"     ^9new - create a new pack and edit it\n"
@@ -1157,7 +1168,8 @@ void Cmd_Pack_f(gentity_t *ent) {
 			"   ^7route - record or delete routes for your selected pack\n"
 			"  ^9weapon - add or remove a weapon from your selected pack\n"
 			"    ^7reps - change how many times each route must be run per weapon for your selected pack\n"
-			"^9autodist - change how far to automatically place a player spawn from the bot spawn if player spawn coordinates are not specified in record arguments for your selected pack (default: %d)^7\n", DEFAULT_AUTO_DISTANCE_FROM_BOT);
+			"^9maxspeed - set a maximum speed that the player is allowed to move\n"
+			"^7autodist - change how far to automatically place a player spawn from the bot spawn if player spawn coordinates are not specified in record arguments for your selected pack (default: %d)^7\n", DEFAULT_AUTO_DISTANCE_FROM_BOT);
 		return;
 	}
 
@@ -1335,6 +1347,22 @@ void Cmd_Pack_f(gentity_t *ent) {
 		}
 		PackReps(ent, reps);
 	}
+	else if (!Q_stricmpn(arg1, "max", 3)) {
+		if (!ent->client->pers.aimPracticePackBeingEdited) {
+			PrintIngame(ent - g_entities, "You must first select a pack with ^5pack new^7 or ^5pack edit^7.\n");
+			return;
+		}
+		if (!arg2[0] || !Q_isanumber(arg2)) {
+			PrintIngame(ent - g_entities, "Usage: pack maxspeed [maximum speed the player is allowed to move]    (defaults to no max speed)\n");
+			return;
+		}
+		int maxSpeed = atoi(arg2);
+		if (maxSpeed <= 0) {
+			PrintIngame(ent - g_entities, "Usage: pack maxspeed [maximum speed the player is allowed to move]    (defaults to no max speed)\n");
+			return;
+		}
+		PackMaxSpeed(ent, maxSpeed);
+	}
 	else if (!Q_stricmpn(arg1, "auto", 4) || !Q_stricmpn(arg1, "dist", 4)) {
 		if (!ent->client->pers.aimPracticePackBeingEdited) {
 			PrintIngame(ent - g_entities, "You must first select a pack with ^5pack new^7 or ^5pack edit^7.\n");
@@ -1348,7 +1376,7 @@ void Cmd_Pack_f(gentity_t *ent) {
 		PackAutoDistance(ent, dist);
 	}
 	else {
-		PrintIngame(ent - g_entities, "Usage: pack [status | list | new | edit | delete | route | weapon | reps | autodist]\n");
+		PrintIngame(ent - g_entities, "Usage: pack [status | list | new | edit | delete | route | weapon | reps | maxspeed | autodist]\n");
 	}
 }
 

@@ -1212,6 +1212,12 @@ static qboolean UpgradeDBToVersion13(sqlite3 *dbPtr) {
 	return sqlite3_exec(dbPtr, v13Upgrade, NULL, NULL, NULL) == SQLITE_OK;
 }
 
+const char *const v14Upgrade = "ALTER TABLE aimpacks ADD COLUMN [extra] TEXT DEFAULT NULL;";
+
+static qboolean UpgradeDBToVersion14(sqlite3 *dbPtr) {
+	return sqlite3_exec(dbPtr, v14Upgrade, NULL, NULL, NULL) == SQLITE_OK;
+}
+
 // =============================================================================
 
 static qboolean UpgradeDB( int versionTo, sqlite3* dbPtr ) {
@@ -1230,6 +1236,7 @@ static qboolean UpgradeDB( int versionTo, sqlite3* dbPtr ) {
 		case 11: return UpgradeDBToVersion11(dbPtr);
 		case 12: return UpgradeDBToVersion12(dbPtr);
 		case 13: return UpgradeDBToVersion13(dbPtr);
+		case 14: return UpgradeDBToVersion14(dbPtr);
 ;		default:
 			Com_Printf( "ERROR: Unsupported database upgrade routine\n" );
 	}
