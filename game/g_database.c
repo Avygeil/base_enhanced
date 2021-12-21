@@ -5344,6 +5344,7 @@ static void GetMostPlayedPositions(void) {
 typedef struct {
 	node_t		node;
 	int			recordId;
+	char		recordIdStr[32];
 	int64_t		matchId;
 	int			duration;
 	int			durationSeconds;
@@ -5354,6 +5355,8 @@ typedef struct {
 	char		teamStr[4];
 	char		posStr[4];
 	stats_t		stats;
+	char		dateTimeStr[64];
+	char		mapName[MAX_QPATH];
 } swapData_t;
 
 const char *SwapIntegerCallback(void *rowContext, void *columnContext) {
@@ -5412,7 +5415,7 @@ const char *SwapStringCallback(void *rowContext, void *columnContext) {
 	return va("%s", string);
 }
 
-const char *const sqlGetFixSwapList = "WITH t AS (SELECT match_id, session_id FROM playerpugteampos GROUP BY match_id, session_id HAVING COUNT(*) > 1) SELECT * FROM playerpugteampos WHERE EXISTS (SELECT 1 FROM t WHERE t.match_id = playerpugteampos.match_id AND t.session_id = playerpugteampos.session_id) ORDER BY match_id, session_id, pos ASC;";
+const char *const sqlGetFixSwapList = "WITH t AS (SELECT match_id, session_id FROM playerpugteampos GROUP BY match_id, session_id HAVING COUNT(*) > 1) SELECT * FROM playerpugteampos JOIN pugs ON pugs.match_id = playerpugteampos.match_id WHERE EXISTS (SELECT 1 FROM t WHERE t.match_id = playerpugteampos.match_id AND t.session_id = playerpugteampos.session_id) ORDER BY match_id, session_id, pos ASC;";
 void G_DBFixSwap_List(void) {
 	sqlite3_stmt *statement;
 
@@ -5426,6 +5429,7 @@ void G_DBFixSwap_List(void) {
 		swapData_t *swap = ListAdd(&swapDataList, sizeof(swapData_t));
 		int num = 0;
 		swap->recordId = sqlite3_column_int(statement, num++);
+		Com_sprintf(swap->recordIdStr, sizeof(swap->recordIdStr), "^3%d", swap->recordId);
 		swap->matchId = sqlite3_column_int64(statement, num++);
 		swap->stats.sessionId = sqlite3_column_int(statement, num++);
 		swap->stats.lastTeam = sqlite3_column_int(statement, num++);
@@ -5515,6 +5519,12 @@ void G_DBFixSwap_List(void) {
 		swap->stats.regionPercent[CTFREGION_MID] = sqlite3_column_int(statement, num++);
 		swap->stats.regionPercent[CTFREGION_ENEMYBASE] = sqlite3_column_int(statement, num++);
 		swap->stats.regionPercent[CTFREGION_ENEMYFLAGSTAND] = sqlite3_column_int(statement, num++);
+		num++; // skip match id from pugs table
+		time_t dateTime = sqlite3_column_int64(statement, num++);
+		G_FormatLocalDateFromEpoch(swap->dateTimeStr, sizeof(swap->dateTimeStr), dateTime);
+		const char *mapName = (const char *)sqlite3_column_text(statement, num++);
+		if (VALIDSTRING(mapName))
+			GetShortNameForMapFileName(mapName, swap->mapName, sizeof(swap->mapName));
 		rc = sqlite3_step(statement);
 	}
 	sqlite3_finalize(statement);
@@ -5533,9 +5543,11 @@ void G_DBFixSwap_List(void) {
 	}
 
 	swapData_t swap = { 0 };
-	Table_DefineColumn(t, "^5Record#", SwapIntegerCallback, (void *)((unsigned int)(&swap.recordId) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^3Record#", SwapStringCallback, (void *)((unsigned int)(&swap.recordIdStr) - (unsigned int)&swap), qfalse, -1, 32);
 	Table_DefineColumn(t, "^5Match#", SwapInt64Callback, (void *)((unsigned int)(&swap.matchId) - (unsigned int)&swap), qfalse, -1, 32);
 	Table_DefineColumn(t, "^5Session#", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.sessionId) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^5Map", SwapStringCallback, (void *)((unsigned int)(&swap.mapName) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^5DateTime", SwapStringCallback, (void *)((unsigned int)(&swap.dateTimeStr) - (unsigned int)&swap), qfalse, -1, 32);
 	Table_DefineColumn(t, "^5Team", SwapStringCallback, (void *)((unsigned int)(&swap.teamStr) - (unsigned int)&swap), qfalse, -1, 32);
 	Table_DefineColumn(t, "^5Dur", SwapTimeCallback, (void *)((unsigned int)(&swap.durationSeconds) - (unsigned int)&swap), qfalse, -1, 32);
 	Table_DefineColumn(t, "^5Name", SwapStringCallback, (void *)((unsigned int)(&swap.stats.name) - (unsigned int)&swap), qfalse, -1, 32);
@@ -5599,6 +5611,8 @@ void G_DBFixSwap_List(void) {
 		int copied = strlen(temp);
 		remaining += copied;
 	}
+
+	Com_Printf("^3NOTE:^7 The goal is to distinguish between ^2legitimate swaps^7 and ^1false positives^7. ^3Do not simply try to eliminate the entire list.^7 Just try to find obvious false positives, e.g. someone supposedly playing base for 5 minutes but having 0 damage.\n");
 
 	free(buf);
 	Table_Destroy(t);
