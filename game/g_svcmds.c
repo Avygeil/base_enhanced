@@ -1283,10 +1283,13 @@ void Svcmd_FixSwap_f(void) {
 			return;
 		}
 
-		if (G_DBFixSwap_Fix(recordId, pos))
+		if (G_DBFixSwap_Fix(recordId, pos)) {
 			Com_Printf("Successful.\n");
-		else
+			trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
+		}
+		else {
 			Com_Printf("Failed!\n");
+		}
 	}
 	else {
 		PrintFixSwapHelp();
