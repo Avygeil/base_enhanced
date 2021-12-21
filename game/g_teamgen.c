@@ -2328,7 +2328,7 @@ qboolean TeamGenerator_CheckForChatCommand(gentity_t *ent, const char *s, char *
 	if (!Q_stricmp(s, "help")) {
 		PrintIngame(ent - g_entities,
 			"*Chat commands:\n"
-			"%cstart            - propose playing a pug with current non-spec players\n"
+			"^7%cstart          - propose playing a pug with current non-spec players\n"
 			"^9%c[number]       - vote to approve a pug proposal\n"
 			"^7%c[ a | b | c ]  - vote to approve one or more teams proposals\n"
 			"^9%creroll         - vote to generate new teams proposals with the same players\n"
