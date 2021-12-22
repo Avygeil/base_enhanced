@@ -5371,12 +5371,9 @@ static void AddPlayerTick(team_t team, gentity_t *ent) {
 			float enemyDist = Distance2D(ent->r.currentOrigin, team == TEAM_RED ? blueFs->r.currentOrigin : redFs->r.currentOrigin);
 			float diff = allyDist / enemyDist;
 
+			add = allyDist / diffBetweenFlags;
 			if (allyDist < enemyDist && enemyDist > diffBetweenFlags)
-				add = 0.0f;
-			else if (enemyDist < allyDist && allyDist > diffBetweenFlags)
-				add = 1.0f;
-			else
-				add = allyDist / diffBetweenFlags;
+				add *= -1;
 
 			// note our own positioning
 			++ent->client->stats->numPositionSamplesAnyFlag;

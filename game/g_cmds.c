@@ -2535,13 +2535,9 @@ void Cmd_Where_f( gentity_t *ent ) {
 			float allyDist = Distance2D(ent->r.currentOrigin, team == TEAM_RED ? redFs->r.currentOrigin : blueFs->r.currentOrigin);
 			float enemyDist = Distance2D(ent->r.currentOrigin, team == TEAM_RED ? blueFs->r.currentOrigin : redFs->r.currentOrigin);
 			float diff = allyDist / enemyDist;
-			float result;
+			float result = allyDist / diffBetweenFlags;
 			if (allyDist < enemyDist && enemyDist > diffBetweenFlags)
-				result = 0.0f;
-			else if (enemyDist < allyDist && allyDist > diffBetweenFlags)
-				result = 1.0f;
-			else
-				result = allyDist / diffBetweenFlags;
+				result *= -1;
 
 			extra = va("\n2D distance from ^2ally^7 FS: %.3f\n2D distance from ^6enemy^7 FS: %.3f\n2D distance ^5between the two flagstands^7: %.3f\nDiff: %.3f\nFiltered result: %.3f\n", allyDist, enemyDist, diffBetweenFlags, diff, result);
 		}
