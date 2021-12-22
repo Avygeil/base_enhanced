@@ -148,6 +148,7 @@ typedef struct {
 	ctfPosition_t lastPosition;
 	int idNum;
 	stats_t *stats;
+	qboolean cannotBeChase;
 } ctfPositioningDataQuick_t;
 
 int ComparePositioningDataAverages(const void *a, const void *b) {
@@ -275,6 +276,10 @@ ctfPosition_t DetermineCTFPosition(stats_t *posGuy, qboolean enableDebugPrints) 
 	data->lastPosition = posGuy->lastPosition;
 	data->idNum = 0;
 	data->stats = posGuy;
+	if (posGuy->flagCarrierDamageDealtTotal < 100) {
+		DebugCtfPosPrintf("%08x cl %d %s^7 (block %d): has < 100 fc dmg, so forcing NOT chase\n", posGuy, posGuy->clientNum, posGuy->name, posGuy->blockNum);
+		data->cannotBeChase = qtrue;
+	}
 	int index = 1;
 
 	// add everyone else to the array
@@ -302,6 +307,10 @@ ctfPosition_t DetermineCTFPosition(stats_t *posGuy, qboolean enableDebugPrints) 
 			// force him to offense
 			thisGuyData->forcePos = CTFPOSITION_OFFENSE;
 			DebugCtfPosPrintf("TEAMMATE %08x cl %d %s^7 (block %d): has no position samples without flag with me, so forcing offense\n", teammate->stats, teammate->stats->clientNum, teammate->stats->name, teammate->stats->blockNum);
+		}
+		else if (teammate->stats->flagCarrierDamageDealtTotal < 100) {
+			thisGuyData->cannotBeChase = qtrue;
+			DebugCtfPosPrintf("TEAMMATE %08x cl %d %s^7 (block %d): has < 100 fc dmg, so forcing NOT chase\n", teammate->stats, teammate->stats->clientNum, teammate->stats->name, teammate->stats->blockNum);
 		}
 		else {
 			float average = teammate->totalPositionWithoutFlagWithMe / (float)teammate->numPositionSamplesWithoutFlagWithMe;
@@ -424,6 +433,20 @@ ctfPosition_t DetermineCTFPosition(stats_t *posGuy, qboolean enableDebugPrints) 
 				offense1 = data + 1;
 				DebugCtfPosPrintf("the supposed offense1 has fewer gets than the supposed chase; determine that the supposed offense1 is actually the chase\n");
 			}
+		}
+	}
+
+	// edge case: the supposed chase player has extremely low fc damage
+	if (chase->cannotBeChase) {
+		if (!offense1->forcePos && offense1->stats->flagCarrierDamageDealtTotal >= 100 && offense1->stats->flagCarrierDamageDealtTotal > offense2->stats->flagCarrierDamageDealtTotal) {
+			DebugCtfPosPrintf("the supposed chase has very little fc damage, and the supposed offense1 has the most fc damage of offenses, so swapping offense1 to chase and chase to offense1\n");
+			chase = data + 2;
+			offense1 = data + 1;
+		}
+		else if (!offense2->forcePos && offense2->stats->flagCarrierDamageDealtTotal >= 100) {
+			DebugCtfPosPrintf("the supposed chase has very little fc damage, and the supposed offense2 has the most fc damage of offenses, so swapping offense2 to chase and chase to offense1\n");
+			chase = data + 3;
+			offense2 = data + 1;
 		}
 	}
 
