@@ -9168,7 +9168,7 @@ int WP_SaberCanBlock(gentity_t *self, gentity_t* other, vec3_t point, int dflags
 			// allow footshots
 			float spotOnBody = self->client->ps.origin[2] - point[2];
 			if ( spotOnBody >= 19.5f ) {
-				if ( ( self->client->ps.legsAnim >= BOTH_STAND1 && other->client->ps.legsAnim <= BOTH_STAND5LOOK180LEFTSTOP ) ||
+				if ( ( self->client->ps.legsAnim >= BOTH_STAND1 && self->client->ps.legsAnim <= BOTH_STAND5LOOK180LEFTSTOP ) ||
 					( self->client->ps.legsAnim >= BOTH_SABERFAST_STANCE && self->client->ps.legsAnim <= BOTH_SABERSTAFF_STANCE ) ) {
 					return 0;
 				}
