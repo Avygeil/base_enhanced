@@ -2513,9 +2513,9 @@ Cmd_Where_f
 extern qboolean isRedFlagstand(gentity_t *ent);
 extern qboolean isBlueFlagstand(gentity_t *ent);
 // gets your position relative to the flagstands
-// 0 = on top of your own fs
-// 1 = on top of the enemy fs
-// < 0 = "behind" your fs
+// 0 == on top of your own fs
+// 1 == on top of the enemy fs
+// < 0 == "behind" your fs
 // > 1 == "behind" the enemy fs
 float GetCTFLocationValue(gentity_t *ent) {
 	if (!ent || !ent->client)
