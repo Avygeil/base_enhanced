@@ -257,7 +257,11 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 		{
 			ctfPlayerTier_t team1ChaseTier = PlayerTierFromRating(team1chase->rating[CTFPOSITION_CHASE]);
 			ctfPlayerTier_t highestTeam2OffenseTier = PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) > PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]) ? PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) : PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]);
-			int maxDiff = highestTeam2OffenseTier == PLAYERRATING_S ? 3 : 4;
+			int maxDiff;
+			if (highestTeam2OffenseTier == PLAYERRATING_S || team1ChaseTier == PLAYERRATING_LOW_B || team1ChaseTier == PLAYERRATING_C)
+				maxDiff = 3;
+			else
+				maxDiff = 4;
 			if (highestTeam2OffenseTier - team1ChaseTier > maxDiff) {
 				TeamGen_DebugPrintf(" unbalanced team 1 chase vs. team 2 offense %d - %d == %d\n", highestTeam2OffenseTier, team1ChaseTier, highestTeam2OffenseTier - team1ChaseTier);
 				return;
@@ -267,7 +271,11 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 		{
 			ctfPlayerTier_t team2ChaseTier = PlayerTierFromRating(team2chase->rating[CTFPOSITION_CHASE]);
 			ctfPlayerTier_t highestTeam1OffenseTier = PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) > PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]) ? PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) : PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]);
-			int maxDiff = highestTeam1OffenseTier == PLAYERRATING_S ? 3 : 4;
+			int maxDiff;
+			if (highestTeam1OffenseTier == PLAYERRATING_S || team2ChaseTier == PLAYERRATING_LOW_B || team2ChaseTier == PLAYERRATING_C)
+				maxDiff = 3;
+			else
+				maxDiff = 4;
 			if (highestTeam1OffenseTier - team2ChaseTier > maxDiff) {
 				TeamGen_DebugPrintf(" unbalanced team 2 chase vs. team 1 offense %d - %d == %d\n", highestTeam1OffenseTier, team2ChaseTier, highestTeam1OffenseTier - team2ChaseTier);
 				return;
@@ -432,7 +440,11 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 		{
 			ctfPlayerTier_t team1ChaseTier = PlayerTierFromRating(team1chase->rating[CTFPOSITION_CHASE]);
 			ctfPlayerTier_t highestTeam2OffenseTier = PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) > PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]) ? PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) : PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]);
-			int maxDiff = highestTeam2OffenseTier == PLAYERRATING_S ? 3 : 4;
+			int maxDiff;
+			if (highestTeam2OffenseTier == PLAYERRATING_S || team1ChaseTier == PLAYERRATING_LOW_B || team1ChaseTier == PLAYERRATING_C)
+				maxDiff = 3;
+			else
+				maxDiff = 4;
 			if (highestTeam2OffenseTier - team1ChaseTier > maxDiff) {
 				TeamGen_DebugPrintf(" unbalanced team 1 chase vs. team 2 offense %d - %d == %d\n", highestTeam2OffenseTier, team1ChaseTier, highestTeam2OffenseTier - team1ChaseTier);
 				return;
@@ -442,7 +454,11 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 		{
 			ctfPlayerTier_t team2ChaseTier = PlayerTierFromRating(team2chase->rating[CTFPOSITION_CHASE]);
 			ctfPlayerTier_t highestTeam1OffenseTier = PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) > PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]) ? PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) : PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]);
-			int maxDiff = highestTeam1OffenseTier == PLAYERRATING_S ? 3 : 4;
+			int maxDiff;
+			if (highestTeam1OffenseTier == PLAYERRATING_S || team2ChaseTier == PLAYERRATING_LOW_B || team2ChaseTier == PLAYERRATING_C)
+				maxDiff = 3;
+			else
+				maxDiff = 4;
 			if (highestTeam1OffenseTier - team2ChaseTier > maxDiff) {
 				TeamGen_DebugPrintf(" unbalanced team 2 chase vs. team 1 offense %d - %d == %d\n", highestTeam1OffenseTier, team2ChaseTier, highestTeam1OffenseTier - team2ChaseTier);
 				return;
