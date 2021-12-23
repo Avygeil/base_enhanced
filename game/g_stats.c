@@ -450,6 +450,13 @@ ctfPosition_t DetermineCTFPosition(stats_t *posGuy, qboolean enableDebugPrints) 
 		}
 	}
 
+	// edge case: the supposed chase player has way less fc damage than the supposed offense1 player
+	if (!offense1->cannotBeChase && offense1->stats->flagCarrierDamageDealtTotal >= 300 && offense1->stats->flagCarrierDamageDealtTotal > chase->stats->flagCarrierDamageDealtTotal * 4) {
+		DebugCtfPosPrintf("the supposed chase has way less fc damage than the supposed offense1, so swapping offense1 to chase and chase to offense1\n");
+		chase = data + 2;
+		offense1 = data + 1;
+	}
+
 	// our guy's pos is the one with the id number of zero
 	ctfPosition_t pos;
 	if (!base->idNum)
