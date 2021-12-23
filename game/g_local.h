@@ -1109,12 +1109,12 @@ typedef struct {
 
 	int			regionTime[NUM_CTFREGIONS];
 	int			regionPercent[NUM_CTFREGIONS];
-	float		totalPositionWithFlag; // only counts 3+ seconds after spawning
-	int			numPositionSamplesWithFlag; // only counts 3+ seconds after spawning
-	float		totalPositionWithoutFlag; // only counts 3+ seconds after spawning
-	int			numPositionSamplesWithoutFlag; // only counts 3+ seconds after spawning
+	float		totalLocationWithFlag; // only counts 3+ seconds after spawning
+	int			numLocationSamplesWithFlag; // only counts 3+ seconds after spawning
+	float		totalLocationWithoutFlag; // only counts 3+ seconds after spawning
+	int			numLocationSamplesWithoutFlag; // only counts 3+ seconds after spawning
 	int			ticksNotPaused; // all ticks this player has been ingame for while not paused, regardless of afk/spawn times, etc. used to determine total ingame time
-	int			numPositionSamplesAnyFlag; // similar to ticksNotPaused but they can't be afk and only counts 3+ seconds after spawn
+	int			numLocationSamplesRegardlessOfFlagHolding; // similar to ticksNotPaused but they can't be afk and only counts 3+ seconds after spawn
 	int			confirmedPositionBits; // list of all positions this person has ever played in this pug on this team
 
 	ctfPosition_t	lastPosition; // may be valid or unknown
@@ -1125,11 +1125,11 @@ typedef struct {
 	node_t		node;
 	stats_t		*stats;
 	int			numTicksIngameWithMe; // all ticks this player has been ingame with me, regardless of afk/spawn times, etc.
-	int			numPositionSamplesIngameWithMe; // can't be afk and only counts 3+ seconds after spawn
-	float		totalPositionWithFlagWithMe;
-	int			numPositionSamplesWithFlagWithMe;
-	float		totalPositionWithoutFlagWithMe;
-	int			numPositionSamplesWithoutFlagWithMe;
+	int			numLocationSamplesIngameWithMe; // can't be afk and only counts 3+ seconds after spawn
+	float		totalLocationWithFlagWithMe;
+	int			numLocationSamplesWithFlagWithMe;
+	float		totalLocationWithoutFlagWithMe;
+	int			numLocationSamplesWithoutFlagWithMe;
 } ctfPositioningData_t;
 void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t outSize, qboolean announce, stats_t *weaponStatsPtr);
 qboolean StatsValid(const stats_t *stats);
@@ -1980,6 +1980,7 @@ typedef struct {
 char *ConcatArgs(int start);
 qboolean IsRacerOrSpectator(gentity_t *ent);
 ctfPosition_t CtfPositionFromString(char *s);
+float GetCTFLocationValue(gentity_t *ent);
 
 //
 // g_items.c

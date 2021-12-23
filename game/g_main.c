@@ -5347,69 +5347,48 @@ static void AddPlayerTick(team_t team, gentity_t *ent) {
 
 	gclient_t *cl = ent->client;
 
-	static gentity_t *redFs = NULL, *blueFs = NULL;
-	static float diffBetweenFlags = 0.0f;
-	static qboolean initialized = qfalse;
-	if (!initialized) {
-		gentity_t temp;
-		VectorCopy(vec3_origin, temp.r.currentOrigin);
-		redFs = G_ClosestEntity(&temp, isRedFlagstand);
-		blueFs = G_ClosestEntity(&temp, isBlueFlagstand);
-		if (redFs && blueFs)
-			diffBetweenFlags = Distance2D(redFs->r.currentOrigin, blueFs->r.currentOrigin);
-		initialized = qtrue;
+	// if i've been alive at least a few seconds, and i've done some input within the last few seconds, log my data
+	qboolean validLocationSample = !!(ent->health > 0 && level.time - ent->client->pers.lastSpawnTime >= CTFPOS_POSTSPAWN_DELAY_MS &&
+		ent->client->lastInputTime && trap_Milliseconds() - ent->client->lastInputTime < 10000);
+
+	float loc;
+	if (validLocationSample) {
+		loc = GetCTFLocationValue(ent);
+
+		// note our own location
+		++ent->client->stats->numLocationSamplesRegardlessOfFlagHolding;
+		if (HasFlag(ent)) {
+			ent->client->stats->totalLocationWithFlag += loc;
+			++ent->client->stats->numLocationSamplesWithFlag;
+		}
+		else {
+			ent->client->stats->totalLocationWithoutFlag += loc;
+			++ent->client->stats->numLocationSamplesWithoutFlag;
+		}
 	}
 
-	// if i've been alive at least a few seconds, and i've done some input within the last few seconds, log my data
-	if (redFs && blueFs) {
-		qboolean validPositionSample = !!(ent->health > 0 && level.time - ent->client->pers.lastSpawnTime >= CTFPOS_POSTSPAWN_DELAY_MS &&
-			ent->client->lastInputTime && trap_Milliseconds() - ent->client->lastInputTime < 10000);
-
-		float add;
-		if (validPositionSample) {
-			float allyDist = Distance2D(ent->r.currentOrigin, team == TEAM_RED ? redFs->r.currentOrigin : blueFs->r.currentOrigin);
-			float enemyDist = Distance2D(ent->r.currentOrigin, team == TEAM_RED ? blueFs->r.currentOrigin : redFs->r.currentOrigin);
-			float diff = allyDist / enemyDist;
-
-			add = allyDist / diffBetweenFlags;
-			if (allyDist < enemyDist && enemyDist > diffBetweenFlags)
-				add *= -1;
-
-			// note our own positioning
-			++ent->client->stats->numPositionSamplesAnyFlag;
-			if (HasFlag(ent)) {
-				ent->client->stats->totalPositionWithFlag += add;
-				++ent->client->stats->numPositionSamplesWithFlag;
-			}
-			else {
-				ent->client->stats->totalPositionWithoutFlag += add;
-				++ent->client->stats->numPositionSamplesWithoutFlag;
-			}
+	// record our location in everyone else's stats so that people's positioning can only be compared to people they were ingame contemporaneously with
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *other = &g_entities[i];
+		if (other == ent || !other->inuse || !other->client || other->client->pers.connected != CON_CONNECTED || other->client->sess.sessionTeam != ent->client->sess.sessionTeam)
+			continue;
+		ctfPositioningData_t *data = ListFind(&other->client->stats->teammatePositioningList, MatchesCtfPositioningData, cl->stats, NULL);
+		if (!data) {
+			data = ListAdd(&other->client->stats->teammatePositioningList, sizeof(ctfPositioningData_t));
+			data->stats = cl->stats;
 		}
 
-		// record our positioning in everyone else's stats so that people's positioning can only be compared to people they were ingame contemporaneously with
-		for (int i = 0; i < MAX_CLIENTS; i++) {
-			gentity_t *other = &g_entities[i];
-			if (other == ent || !other->inuse || !other->client || other->client->pers.connected != CON_CONNECTED || other->client->sess.sessionTeam != ent->client->sess.sessionTeam)
-				continue;
-			ctfPositioningData_t *data = ListFind(&other->client->stats->teammatePositioningList, MatchesCtfPositioningData, cl->stats, NULL);
-			if (!data) {
-				data = ListAdd(&other->client->stats->teammatePositioningList, sizeof(ctfPositioningData_t));
-				data->stats = cl->stats;
+		++data->numTicksIngameWithMe; // increment this regardless of whether the position sample is valid
+
+		if (validLocationSample) {
+			++data->numLocationSamplesIngameWithMe;
+			if (HasFlag(ent)) {
+				data->totalLocationWithFlagWithMe += loc;
+				++data->numLocationSamplesWithFlagWithMe;
 			}
-
-			++data->numTicksIngameWithMe; // increment this regardless of whether the position sample is valid
-
-			if (validPositionSample) {
-				++data->numPositionSamplesIngameWithMe;
-				if (HasFlag(ent)) {
-					data->totalPositionWithFlagWithMe += add;
-					++data->numPositionSamplesWithFlagWithMe;
-				}
-				else {
-					data->totalPositionWithoutFlagWithMe += add;
-					++data->numPositionSamplesWithoutFlagWithMe;
-				}
+			else {
+				data->totalLocationWithoutFlagWithMe += loc;
+				++data->numLocationSamplesWithoutFlagWithMe;
 			}
 		}
 	}

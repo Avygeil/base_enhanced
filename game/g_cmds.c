@@ -2509,39 +2509,61 @@ void Cmd_GameCommand_f( gentity_t *ent ) {
 Cmd_Where_f
 ==================
 */
+#define DotProduct2D(a,b)	((a)[0]*(b)[0]+(a)[1]*(b)[1])
 extern qboolean isRedFlagstand(gentity_t *ent);
 extern qboolean isBlueFlagstand(gentity_t *ent);
+// gets your position relative to the flagstands
+// 0 = on top of your own fs
+// 1 = on top of the enemy fs
+// < 0 = "behind" your fs
+// > 1 == "behind" the enemy fs
+float GetCTFLocationValue(gentity_t *ent) {
+	if (!ent || !ent->client)
+		return 0;
+
+	static qboolean initialized = qfalse, valid = qfalse;
+	static float redFs[2] = { 0, 0 }, blueFs[2] = { 0, 0 };
+	if (!initialized) {
+		initialized = qtrue;
+		gentity_t temp;
+		VectorCopy(vec3_origin, temp.r.currentOrigin);
+		gentity_t *redFsEnt = G_ClosestEntity(&temp, isRedFlagstand);
+		gentity_t *blueFsEnt = G_ClosestEntity(&temp, isBlueFlagstand);
+		if (redFsEnt && blueFsEnt) {
+			valid = qtrue;
+			redFs[0] = redFsEnt->r.currentOrigin[0];
+			redFs[1] = redFsEnt->r.currentOrigin[1];
+			blueFs[0] = blueFsEnt->r.currentOrigin[0];
+			blueFs[1] = blueFsEnt->r.currentOrigin[1];
+		}
+	}
+
+	if (!valid)
+		return 0;
+
+	float *allyFs, *enemyFs;
+	if (ent->client->sess.sessionTeam == TEAM_RED) {
+		allyFs = &redFs[0];
+		enemyFs = &blueFs[0];
+	}
+	else {
+		allyFs = &blueFs[0];
+		enemyFs = &redFs[0];
+	}
+
+	float rPrime[2] = { ent->r.currentOrigin[0] - allyFs[0], ent->r.currentOrigin[1] - allyFs[1] };
+	float v[2] = { enemyFs[0] - allyFs[0], enemyFs[1] - allyFs[1] };
+	return DotProduct2D(v, rPrime) / DotProduct2D(v, v);
+}
+
 void Cmd_Where_f( gentity_t *ent ) {
 	if (!ent->client)
 		return;
 
 	char *extra = "";
 #ifdef _DEBUG
-	if (g_gametype.integer == GT_CTF) {
-		static gentity_t *redFs = NULL, *blueFs = NULL;
-		static float diffBetweenFlags = 0.0f;
-		static qboolean initialized = qfalse;
-		if (!initialized) {
-			gentity_t temp;
-			VectorCopy(vec3_origin, temp.r.currentOrigin);
-			redFs = G_ClosestEntity(&temp, isRedFlagstand);
-			blueFs = G_ClosestEntity(&temp, isBlueFlagstand);
-			if (redFs && blueFs)
-				diffBetweenFlags = Distance2D(redFs->r.currentOrigin, blueFs->r.currentOrigin);
-			initialized = qtrue;
-		}
-		if (redFs && blueFs) {
-			int team = ent->client->sess.sessionTeam;
-			float allyDist = Distance2D(ent->r.currentOrigin, team == TEAM_RED ? redFs->r.currentOrigin : blueFs->r.currentOrigin);
-			float enemyDist = Distance2D(ent->r.currentOrigin, team == TEAM_RED ? blueFs->r.currentOrigin : redFs->r.currentOrigin);
-			float diff = allyDist / enemyDist;
-			float result = allyDist / diffBetweenFlags;
-			if (allyDist < enemyDist && enemyDist > diffBetweenFlags)
-				result *= -1;
-
-			extra = va("\n2D distance from ^2ally^7 FS: %.3f\n2D distance from ^6enemy^7 FS: %.3f\n2D distance ^5between the two flagstands^7: %.3f\nDiff: %.3f\nFiltered result: %.3f\n", allyDist, enemyDist, diffBetweenFlags, diff, result);
-		}
-	}
+	if (g_gametype.integer == GT_CTF)
+		extra = va("\nLocation value: %.3f", GetCTFLocationValue(ent));
 #endif
 
 	trap_SendServerCommand( ent - g_entities, va( "print \"Origin: %s ; Yaw: %.3f degrees%s\n\"", vtos( ent->client->ps.origin ), ent->client->ps.viewangles[YAW], extra ) );

@@ -233,18 +233,18 @@ ctfPosition_t DetermineCTFPosition(stats_t *posGuy, qboolean enableDebugPrints) 
 	}
 
 	// if i have no position samples, just reuse my last position
-	if (!posGuy->numPositionSamplesAnyFlag) {
-		DebugCtfPosPrintf("%08x cl %d %s^7 (block %d): no positionSamplesAnyFlag, so using lastPosition %s\n", posGuy, posGuy->clientNum, posGuy->name, posGuy->blockNum, NameForPos(posGuy->lastPosition));
+	if (!posGuy->numLocationSamplesRegardlessOfFlagHolding) {
+		DebugCtfPosPrintf("%08x cl %d %s^7 (block %d): no locationSamplesAnyFlag, so using lastPosition %s\n", posGuy, posGuy->clientNum, posGuy->name, posGuy->blockNum, NameForPos(posGuy->lastPosition));
 		return posGuy->lastPosition;
 	}
 
 	// if i have held the flag for this entire block, i must be offense
-	if (!posGuy->numPositionSamplesWithoutFlag) {
-		DebugCtfPosPrintf("%08x cl %d %s^7 (block %d): no positionSamplesWithoutFlag, so offense\n", posGuy, posGuy->clientNum, posGuy->name, posGuy->blockNum);
+	if (!posGuy->numLocationSamplesWithoutFlag) {
+		DebugCtfPosPrintf("%08x cl %d %s^7 (block %d): no locationSamplesWithoutFlag, so offense\n", posGuy, posGuy->clientNum, posGuy->name, posGuy->blockNum);
 		return CTFPOSITION_OFFENSE;
 	}
 
-	float posGuyAverage = posGuy->totalPositionWithoutFlag / (float)posGuy->numPositionSamplesWithoutFlag;
+	float posGuyAverage = posGuy->totalLocationWithoutFlag / (float)posGuy->numLocationSamplesWithoutFlag;
 
 	// figure out how many people i was ingame with for 60+ seconds while they weren't afk
 	iterator_t iter;
@@ -256,7 +256,7 @@ ctfPosition_t DetermineCTFPosition(stats_t *posGuy, qboolean enableDebugPrints) 
 			continue;
 		if (teammate->numTicksIngameWithMe < g_svfps.integer * CTFPOSITION_MINIMUM_SECONDS)
 			continue; // this guy hasn't been ingame with me during the current block for 60+ seconds.
-		if (!teammate->numPositionSamplesIngameWithMe && !teammate->stats->lastPosition)
+		if (!teammate->numLocationSamplesIngameWithMe && !teammate->stats->lastPosition)
 			continue; // no valid position samples and has no last position
 
 		++numTeammates;
@@ -291,18 +291,18 @@ ctfPosition_t DetermineCTFPosition(stats_t *posGuy, qboolean enableDebugPrints) 
 		if (teammate->numTicksIngameWithMe < g_svfps.integer * CTFPOSITION_MINIMUM_SECONDS) {
 			continue; // this guy hasn't been ingame with me during the current block for 60+ seconds.
 		}
-		if (!teammate->numPositionSamplesIngameWithMe && !teammate->stats->lastPosition)
+		if (!teammate->numLocationSamplesIngameWithMe && !teammate->stats->lastPosition)
 			continue; // no valid position samples and has no last position
 
 		ctfPositioningDataQuick_t *thisGuyData = data + index++;
-		thisGuyData->numberOfSamples = teammate->numPositionSamplesIngameWithMe;
+		thisGuyData->numberOfSamples = teammate->numLocationSamplesIngameWithMe;
 		thisGuyData->energizes = teammate->stats->numEnergizes;
 		thisGuyData->gets = teammate->stats->numGets;
 		thisGuyData->lastPosition = teammate->stats->lastPosition;
 		thisGuyData->idNum = index;
 		thisGuyData->stats = teammate->stats;
 
-		if (!teammate->numPositionSamplesWithoutFlagWithMe) {
+		if (!teammate->numLocationSamplesWithoutFlagWithMe) {
 			// this guy has been ingame with me for 60+ seconds but has been holding the flag the entire time for this block
 			// force him to offense
 			thisGuyData->forcePos = CTFPOSITION_OFFENSE;
@@ -313,7 +313,7 @@ ctfPosition_t DetermineCTFPosition(stats_t *posGuy, qboolean enableDebugPrints) 
 			DebugCtfPosPrintf("TEAMMATE %08x cl %d %s^7 (block %d): has < 100 fc dmg, so forcing NOT chase\n", teammate->stats, teammate->stats->clientNum, teammate->stats->name, teammate->stats->blockNum);
 		}
 		else {
-			float average = teammate->totalPositionWithoutFlagWithMe / (float)teammate->numPositionSamplesWithoutFlagWithMe;
+			float average = teammate->totalLocationWithoutFlagWithMe / (float)teammate->numLocationSamplesWithoutFlagWithMe;
 			thisGuyData->average = average;
 			DebugCtfPosPrintf("TEAMMATE %08x cl %d %s^7 (block %d): has average %0.3f\n", teammate->stats, teammate->stats->clientNum, teammate->stats->name, teammate->stats->blockNum, average);
 		}
