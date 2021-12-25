@@ -306,16 +306,16 @@ ctfPosition_t DetermineCTFPosition(stats_t *posGuy, qboolean enableDebugPrints) 
 			// this guy has been ingame with me for 60+ seconds but has been holding the flag the entire time for this block
 			// force him to offense
 			thisGuyData->forcePos = CTFPOSITION_OFFENSE;
-			DebugCtfPosPrintf("TEAMMATE %08x cl %d %s^7 (block %d): has no position samples without flag with me, so forcing offense\n", teammate->stats, teammate->stats->clientNum, teammate->stats->name, teammate->stats->blockNum);
+			DebugCtfPosPrintf("TEAMMATE %08x cl %d %s^7 (block %d): has no position samples without flag with me, so forcing offense. has average %0.3f\n", teammate->stats, teammate->stats->clientNum, teammate->stats->name, teammate->stats->blockNum, teammate->totalLocationWithoutFlagWithMe / (float)teammate->numLocationSamplesWithoutFlagWithMe);
 		}
 		else if (teammate->stats->flagCarrierDamageDealtTotal < 100) {
 			thisGuyData->cannotBeChase = qtrue;
-			DebugCtfPosPrintf("TEAMMATE %08x cl %d %s^7 (block %d): has < 100 fc dmg, so forcing NOT chase\n", teammate->stats, teammate->stats->clientNum, teammate->stats->name, teammate->stats->blockNum);
+			thisGuyData->average = teammate->totalLocationWithoutFlagWithMe / (float)teammate->numLocationSamplesWithoutFlagWithMe;
+			DebugCtfPosPrintf("TEAMMATE %08x cl %d %s^7 (block %d): has < 100 fc dmg, so forcing NOT chase. has average %0.3f\n", teammate->stats, teammate->stats->clientNum, teammate->stats->name, teammate->stats->blockNum, thisGuyData->average);
 		}
 		else {
-			float average = teammate->totalLocationWithoutFlagWithMe / (float)teammate->numLocationSamplesWithoutFlagWithMe;
-			thisGuyData->average = average;
-			DebugCtfPosPrintf("TEAMMATE %08x cl %d %s^7 (block %d): has average %0.3f\n", teammate->stats, teammate->stats->clientNum, teammate->stats->name, teammate->stats->blockNum, average);
+			thisGuyData->average = teammate->totalLocationWithoutFlagWithMe / (float)teammate->numLocationSamplesWithoutFlagWithMe;
+			DebugCtfPosPrintf("TEAMMATE %08x cl %d %s^7 (block %d): has average %0.3f\n", teammate->stats, teammate->stats->clientNum, teammate->stats->name, teammate->stats->blockNum, thisGuyData->average);
 		}
 	}
 
