@@ -445,6 +445,7 @@ vmCvar_t	g_vote_runoffTimeModifier;
 vmCvar_t	g_vote_teamgen;
 vmCvar_t	g_vote_teamgen_pug_requiredVotes;
 vmCvar_t	g_vote_teamgen_team_requiredVotes;
+vmCvar_t	g_vote_teamgen_subhelp;
 
 vmCvar_t	d_debugCtfPosCalculation;
 
@@ -890,6 +891,7 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_vote_teamgen_pug_requiredVotes, "g_vote_teamgen_pug_requiredVotes", "4", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_teamgen_team_requiredVotes, "g_vote_teamgen_team_requiredVotes", "5", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_teamgen_subhelp, "g_vote_teamgen_subhelp", "1", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &d_debugCtfPosCalculation, "d_debugCtfPosCalculation", "0", CVAR_ARCHIVE, 0, qtrue },
 
@@ -1867,6 +1869,7 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 	G_InitVchats();
 
 	TeamGen_Initialize();
+	G_DBGetPlayerRatings();
 }
 
 
@@ -5052,6 +5055,22 @@ static void WaitForAFKs(void) {
 	}	
 }
 
+#define RECALCULATE_TEAM_BALANCE_INTERVAL (5000)
+
+// recalculate team balance every few seconds. if someone tries to sub, we will be able to compare the hypothetical new balance to the previous balance.
+static void PeriodicallyRecalculateTeamBalance(void) {
+	if (!g_vote_teamgen_subhelp.integer || g_gametype.integer != GT_CTF || !level.wasRestarted || level.someoneWasAFK || (level.time - level.startTime) < (CTFPOSITION_MINIMUM_SECONDS * 1000) || !level.numTeamTicks || level.pause.state != PAUSE_NONE)
+		return;
+
+	static int lastTime = 0;
+	int now = trap_Milliseconds();
+	if (now - lastTime < RECALCULATE_TEAM_BALANCE_INTERVAL)
+		return;
+
+	lastTime = now;
+	RecalculateTeamBalance();
+}
+
 /*
 ================
 G_RunFrame
@@ -5346,6 +5365,8 @@ static void AddPlayerTick(team_t team, gentity_t *ent) {
 		return;
 
 	gclient_t *cl = ent->client;
+	level.lastPlayerTickAddedTime = level.time;
+	ent->client->stats->lastTickIngameTime = level.time;
 
 	// if i've been alive at least a few seconds, and i've done some input within the last few seconds, log my data
 	qboolean validLocationSample = !!(ent->health > 0 && level.time - ent->client->pers.lastSpawnTime >= CTFPOS_POSTSPAWN_DELAY_MS &&
@@ -6599,6 +6620,8 @@ void G_RunFrame( int levelTime ) {
 #endif
 
 	WaitForAFKs();
+
+	PeriodicallyRecalculateTeamBalance();
 
 	if (!level.firstFrameTime)
 		level.firstFrameTime = trap_Milliseconds();

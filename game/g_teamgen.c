@@ -2623,3 +2623,157 @@ void Svcmd_Pug_f(void) {
 		PrintPugHelp();
 	}
 }
+
+ctfPlayerTier_t GetPlayerTierForPlayerOnPosition(int accountId, ctfPosition_t pos, qboolean assumeLowTierIfUnrated) {
+	if (accountId == ACCOUNT_ID_UNLINKED || pos < CTFPOSITION_BASE || pos > CTFPOSITION_OFFENSE) {
+		assert(qfalse);
+		return PLAYERRATING_UNRATED;
+	}
+
+	playerRating_t findMe = { 0 };
+	findMe.accountId = accountId;
+	playerRating_t *positionRatings = ListFind(&level.ratingList, PlayerRatingAccountIdMatches, &findMe, NULL);
+	if (!positionRatings)
+		return assumeLowTierIfUnrated ? PLAYERRATING_C : PLAYERRATING_UNRATED;
+	
+	ctfPlayerTier_t rating = PlayerTierFromRating(positionRatings->rating[pos]);
+	if (!rating && assumeLowTierIfUnrated)
+		return PLAYERRATING_C;
+	return rating;
+}
+
+void ShowSubBalance(void) {
+	if (!g_vote_teamgen_subhelp.integer || !level.wasRestarted || level.someoneWasAFK || (level.time - level.startTime) < (CTFPOSITION_MINIMUM_SECONDS * 1000) || !level.numTeamTicks || level.pause.state == PAUSE_NONE)
+		return;
+
+	float avgRed = (float)level.numRedPlayerTicks / (float)level.numTeamTicks;
+	float avgBlue = (float)level.numBluePlayerTicks / (float)level.numTeamTicks;
+	int avgRedInt = (int)lroundf(avgRed);
+	int avgBlueInt = (int)lroundf(avgBlue);
+	if (avgRedInt != 4 || avgBlueInt != 4)
+		return;
+
+	int missingPositions = 8, numRacersOrSpectators = 0, numRed = 0, numBlue = 0;
+	int base[4], chase[4], offense1[4], offense2[4];
+	memset(base, -1, sizeof(base));
+	memset(chase, -1, sizeof(chase));
+	memset(offense1, -1, sizeof(offense1));
+	memset(offense2, -1, sizeof(offense2));
+	int newJoiner = -1;
+	qboolean gotPlayer[MAX_CLIENTS] = { qfalse };
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *ent = &g_entities[i];
+		if (!ent->inuse || !ent->client || !ent->client->account)
+			continue;
+		if (IsRacerOrSpectator(ent)) {
+			++numRacersOrSpectators;
+			continue;
+		}
+
+		if (ent->client->sess.sessionTeam == TEAM_RED)
+			++numRed;
+		else if (ent->client->sess.sessionTeam == TEAM_BLUE)
+			++numBlue;
+
+		if (!ent->client->stats->lastTickIngameTime || level.lastPlayerTickAddedTime - ent->client->stats->lastTickIngameTime >= 30000) {
+			if (newJoiner != -1)
+				return; // we only care if there is exactly one joiner
+			newJoiner = i;
+			continue; // this player wasn't ingame while not paused in the last 30 seconds
+		}
+
+		int team = ent->client->sess.sessionTeam;
+		int pos = DetermineCTFPosition(ent->client->stats, qfalse);
+		if (pos == CTFPOSITION_BASE && base[team] == -1) {
+			base[team] = ent->client->account->id;
+			--missingPositions;
+			gotPlayer[i] = qtrue;
+		}
+		else if (pos == CTFPOSITION_CHASE && chase[team] == -1) {
+			chase[team] = ent->client->account->id;
+			--missingPositions;
+			gotPlayer[i] = qtrue;
+		}
+		else if (pos == CTFPOSITION_OFFENSE) {
+			if (offense1[team] == -1) {
+				offense1[team] = ent->client->account->id;
+				--missingPositions;
+				gotPlayer[i] = qtrue;
+			}
+			else if (offense2[team] == -1) {
+				offense2[team] = ent->client->account->id;
+				--missingPositions;
+				gotPlayer[i] = qtrue;
+			}
+		}
+	}
+
+	if (missingPositions != 1 || newJoiner == -1 || numRed != 4 || numBlue != 4)
+		return;
+
+	gentity_t *joiner = &g_entities[newJoiner];
+	int joinerTeam = joiner->client->sess.sessionTeam;
+	int otherTeam = OtherTeam(joinerTeam);
+	int missingPos;
+	if (base[joinerTeam] == -1) {
+		missingPos = CTFPOSITION_BASE;
+		base[joinerTeam] = joiner->client->account->id;
+	}
+	else if (chase[joinerTeam] == -1) {
+		missingPos = CTFPOSITION_CHASE;
+		chase[joinerTeam] = joiner->client->account->id;
+	}
+	else if (offense1[joinerTeam] == -1) {
+		missingPos = CTFPOSITION_OFFENSE;
+		offense1[joinerTeam] = joiner->client->account->id;
+	}
+	else if (offense2[joinerTeam] == -1) {
+		missingPos = CTFPOSITION_OFFENSE;
+		offense2[joinerTeam] = joiner->client->account->id;
+	}
+	else {
+		assert(qfalse);
+		return;
+	}
+
+	G_DBGetPlayerRatings();
+
+	double teamTotal[4] = { 0 };
+	for (int t = TEAM_RED; t <= TEAM_BLUE; t++) {
+		teamTotal[t] += PlayerTierToRating(GetPlayerTierForPlayerOnPosition(base[t], CTFPOSITION_BASE, qtrue));
+		teamTotal[t] += PlayerTierToRating(GetPlayerTierForPlayerOnPosition(chase[t], CTFPOSITION_CHASE, qtrue));
+		teamTotal[t] += PlayerTierToRating(GetPlayerTierForPlayerOnPosition(offense1[t], CTFPOSITION_OFFENSE, qtrue));
+		teamTotal[t] += PlayerTierToRating(GetPlayerTierForPlayerOnPosition(offense2[t], CTFPOSITION_OFFENSE, qtrue));
+	}
+	double totalOfBothTeams = teamTotal[TEAM_RED] + teamTotal[TEAM_BLUE];
+	if (!totalOfBothTeams)
+		return; // sanity check, prevent divide by zero
+
+	double relativeStrength[4];
+	relativeStrength[TEAM_RED] = teamTotal[TEAM_RED] / totalOfBothTeams;
+	relativeStrength[TEAM_BLUE] = teamTotal[TEAM_BLUE] / totalOfBothTeams;
+	double diff = fabs(relativeStrength[TEAM_RED] - relativeStrength[TEAM_BLUE]);
+
+	char buf[256] = { 0 };
+	Com_sprintf(buf, sizeof(buf), "With ^5%s^7 subbing on ^5%s %s^7, team balance will become ^1%.2f'/.^7 vs. ^4%.2f'/.^7.",
+		joiner->client->account->name,
+		joinerTeam == TEAM_RED ? "red" : "blue",
+		NameForPos(missingPos),
+		relativeStrength[TEAM_RED] * 100.0,
+		relativeStrength[TEAM_BLUE] * 100.0);
+
+	if (level.lastRelativeStrength[TEAM_RED] && level.lastRelativeStrength[TEAM_BLUE])
+		Q_strcat(buf, sizeof(buf), va(" (Balance before subbing was ^1%.2f'/.^7 vs. ^4%.2f'/.^7.)",
+			level.lastRelativeStrength[TEAM_RED] * 100.0,
+			level.lastRelativeStrength[TEAM_BLUE] * 100.0));
+
+	TeamGenerator_QueueServerMessageInChat(-1, buf);
+
+	if (level.lastRelativeStrength[TEAM_RED] && level.lastRelativeStrength[TEAM_BLUE]) {
+		double oldDiff = fabs(level.lastRelativeStrength[TEAM_RED] - level.lastRelativeStrength[TEAM_BLUE]);
+		if (diff > oldDiff + 0.00001) {
+			TeamGenerator_QueueServerMessageInChat(-1, va("^3Team balance will worsen with this substitution! Consider %sremaking teams with ^5%cstart^3.",
+				numRacersOrSpectators ? "substituting another player or " : "", TEAMGEN_CHAT_COMMAND_CHARACTER));
+		}
+	}
+}

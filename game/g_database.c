@@ -5164,7 +5164,6 @@ typedef struct {
 	ctfPlayerTier_t		tier;
 } ratedPlayer_t;
 
-extern double PlayerTierToRating(ctfPlayerTier_t tier);
 extern ctfPlayerTier_t PlayerTierFromRating(double num);
 
 extern char *PlayerRatingToString(ctfPlayerTier_t tier);
@@ -5623,7 +5622,7 @@ void G_DBFixSwap_List(void) {
 	Table_DefineColumn(t, "^5Pull", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.pull) - (unsigned int)&swap), qfalse, -1, 32);
 	Table_DefineColumn(t, "^5Heal", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.healed) - (unsigned int)&swap), qfalse, -1, 32);
 	Table_DefineColumn(t, "^6TE", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.energizedAlly) - (unsigned int)&swap), qfalse, -1, 32);
-	Table_DefineColumn(t, "^6TE", SwapTEEfficiencyCallback, NULL, qfalse, -1, 32);
+	Table_DefineColumn(t, "^6Eff", SwapTEEfficiencyCallback, NULL, qfalse, -1, 32);
 	Table_DefineColumn(t, "^5EnemyNrg", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.energizedEnemy) - (unsigned int)&swap), qfalse, -1, 32);
 	Table_DefineColumn(t, "^5Abs", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.absorbed) - (unsigned int)&swap), qfalse, -1, 32);
 	Table_DefineColumn(t, "^2Prot", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.protDamageAvoided) - (unsigned int)&swap), qfalse, -1, 32);

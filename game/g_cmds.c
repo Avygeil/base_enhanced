@@ -1069,6 +1069,10 @@ void SetTeam( gentity_t *ent, char *s ) {
 
 	BroadcastTeamChange( client, oldTeam );
 
+	qboolean joinedOrLeftIngameTeam = !!(team == TEAM_RED || team == TEAM_BLUE || oldTeam == TEAM_RED || oldTeam == TEAM_BLUE);
+	if (joinedOrLeftIngameTeam && g_gametype.integer == GT_CTF && level.wasRestarted && !level.someoneWasAFK && level.pause.state != PAUSE_NONE)
+		ShowSubBalance();
+
 	//make a disappearing effect where they were before teleporting them to the appropriate spawn point,
 	//if we were not on the spec team
 	if (oldTeam != TEAM_SPECTATOR)

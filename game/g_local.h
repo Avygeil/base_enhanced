@@ -934,7 +934,7 @@ typedef struct { //Should this store their g2 anim? for proper g2 sync?
 // g_stats.c
 //
 
-//#define DEBUG_CTF_POSITION_STATS // uncomment this to remove afk checks and print more message for pos detection
+//#define DEBUG_CTF_POSITION_STATS // uncomment this to remove afk checks and print more messages for pos detection
 //#define DEBUGSTATSNAMES // uncomment this to see longer column names in stats
 
 #ifdef DEBUG_CTF_POSITION_STATS
@@ -1024,6 +1024,7 @@ accuracyCategory_t AccuracyCategoryForProjectile(gentity_t *projectile);
 void ChangeToNextStatsBlockIfNeeded(void);
 char *NameForPos(ctfPosition_t pos);
 void SendMachineFriendlyStats(void);
+void RecalculateTeamBalance(void);
 
 typedef struct {
 	node_t		node;
@@ -1119,6 +1120,8 @@ typedef struct {
 
 	ctfPosition_t	lastPosition; // may be valid or unknown
 	ctfPosition_t	finalPosition; // set only when confirmed; overrides everything else if set
+
+	int			lastTickIngameTime; // the last time they were ingame and it wasn't paused
 } stats_t;
 
 typedef struct {
@@ -1233,6 +1236,7 @@ typedef enum {
 } ctfPlayerTier_t;
 char *PlayerRatingToString(ctfPlayerTier_t tier);
 
+double PlayerTierToRating(ctfPlayerTier_t tier);
 qboolean TeamGenerator_PugStart(gentity_t *ent, char **newMessage);
 void TeamGenerator_DoReroll(qboolean forcedByServer);
 qboolean TeamGenerator_VoteToReroll(gentity_t *ent, char **newMessage);
@@ -1245,6 +1249,8 @@ void TeamGenerator_QueueServerMessageInConsole(int clientNum, const char *msg);
 qboolean TeamGenerator_CheckForChatCommand(gentity_t *ent, const char *s, char **newMessage);
 void Svcmd_Pug_f(void);
 void TeamGen_Initialize(void);
+ctfPlayerTier_t GetPlayerTierForPlayerOnPosition(int accountId, ctfPosition_t pos, qboolean assumeLowTierIfUnrated);
+void ShowSubBalance(void);
 
 // this structure is cleared on each ClientSpawn(),
 // except for 'client->pers' and 'client->sess'
@@ -1892,6 +1898,9 @@ typedef struct {
 	pugProposal_t *activePugProposal;
 	list_t queuedServerMessagesList;
 	list_t autoLinksList;
+
+	double lastRelativeStrength[4];
+	int lastPlayerTickAddedTime;
 } level_locals_t;
 
 
@@ -3052,6 +3061,7 @@ extern vmCvar_t		g_vote_runoffTimeModifier;
 extern vmCvar_t		g_vote_teamgen;
 extern vmCvar_t		g_vote_teamgen_pug_requiredVotes;
 extern vmCvar_t		g_vote_teamgen_team_requiredVotes;
+extern vmCvar_t		g_vote_teamgen_subhelp;
 
 extern vmCvar_t		d_debugCtfPosCalculation;
 

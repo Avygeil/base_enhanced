@@ -2575,9 +2575,69 @@ static qboolean SessionIdMatchesStats(genericNode_t *node, void *userData) {
 	return qfalse;
 }
 
+void RecalculateTeamBalance(void) {
+	if (!g_vote_teamgen_subhelp.integer || g_gametype.integer != GT_CTF || !level.wasRestarted || level.someoneWasAFK) {
+		level.lastRelativeStrength[TEAM_RED] = level.lastRelativeStrength[TEAM_BLUE] = 0;
+		return;
+	}
+
+	double teamTotal[4] = { 0 };
+	int numRed = 0, numBlue = 0;
+
+	iterator_t iter;
+	ListIterate(&level.statsList, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		const stats_t *s = IteratorNext(&iter);
+		if (s->accountId == ACCOUNT_ID_UNLINKED || (s->lastTeam != TEAM_RED && s->lastTeam != TEAM_BLUE))
+			continue;
+
+		if (s->clientNum >= 0 && s->clientNum < MAX_CLIENTS && (!g_entities[s->clientNum].inuse || !g_entities[s->clientNum].client || !g_entities[s->clientNum].client->account || g_entities[s->clientNum].client->account->id != s->accountId))
+			continue; // this person is no longer in game
+
+		ctfPosition_t pos = DetermineCTFPosition((stats_t *)s, qfalse);
+		if (pos == CTFPOSITION_UNKNOWN)
+			continue;
+
+		teamTotal[s->lastTeam] += PlayerTierToRating(GetPlayerTierForPlayerOnPosition(s->accountId, pos, qtrue));
+		if (s->lastTeam == TEAM_RED)
+			++numRed;
+		else if (s->lastTeam == TEAM_BLUE)
+			++numBlue;
+#if defined(_DEBUG) && defined (DEBUG_CTF_POSITION_STATS)
+		Com_Printf("^7added %s to %s^7 team total; now %.4f\n", s->accountName, s->lastTeam == TEAM_RED ? "^1red" : "^4blue", teamTotal[s->lastTeam]);
+#endif
+	}
+
+	if (numRed != 4 || numBlue != 4) {
+#if defined(_DEBUG) && defined (DEBUG_CTF_POSITION_STATS)
+		Com_Printf("unable to set relative strengths. numRed %d and numBlue %d\n", numRed, numBlue);
+#endif
+		level.lastRelativeStrength[TEAM_RED] = level.lastRelativeStrength[TEAM_BLUE] = 0;
+		return;
+	}
+
+	double totalOfBothTeams = teamTotal[TEAM_RED] + teamTotal[TEAM_BLUE];
+	if (totalOfBothTeams) {
+		level.lastRelativeStrength[TEAM_RED] = teamTotal[TEAM_RED] / totalOfBothTeams;
+		level.lastRelativeStrength[TEAM_BLUE] = teamTotal[TEAM_BLUE] / totalOfBothTeams;
+#if defined(_DEBUG) && defined (DEBUG_CTF_POSITION_STATS)
+		Com_Printf("^7got relative strengths: red %.4f, blue %.4f\n", level.lastRelativeStrength[TEAM_RED] * 100.0, level.lastRelativeStrength[TEAM_BLUE] * 100.0);
+#endif
+	}
+	else {
+#if defined(_DEBUG) && defined (DEBUG_CTF_POSITION_STATS)
+		Com_Printf("unable to set relative strengths. numRed %d and numBlue %d\n", numRed, numBlue);
+#endif
+		level.lastRelativeStrength[TEAM_RED] = level.lastRelativeStrength[TEAM_BLUE] = 0;
+	}
+}
+
 void FinalizeCTFPositions(void) {
 	if (g_gametype.integer != GT_CTF)
 		return;
+
+	double teamTotal[4] = { 0 };
+	int numRed = 0, numBlue = 0;
 
 	iterator_t iter;
 	ListIterate(&level.statsList, &iter, qfalse);
@@ -2585,6 +2645,8 @@ void FinalizeCTFPositions(void) {
 		stats_t *s = IteratorNext(&iter);
 		s->finalPosition = DetermineCTFPosition(s, qtrue);
 	}
+
+	RecalculateTeamBalance();
 }
 
 // moves some current stats into the archive (level.savedStatsList) and then resets the current stats
@@ -2649,6 +2711,7 @@ static void ArchiveAndResetStatsBlock(stats_t *ongoing, int newBlockNum) {
 	ongoing->confirmedPositionBits = archive->confirmedPositionBits;
 	if (ongoing->lastPosition)
 		ongoing->confirmedPositionBits |= (1 << ongoing->lastPosition);
+	ongoing->lastTickIngameTime = archive->lastTickIngameTime;
 	ongoing->blockNum = newBlockNum;
 }
 
