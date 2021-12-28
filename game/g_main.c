@@ -446,6 +446,7 @@ vmCvar_t	g_vote_teamgen;
 vmCvar_t	g_vote_teamgen_pug_requiredVotes;
 vmCvar_t	g_vote_teamgen_team_requiredVotes;
 vmCvar_t	g_vote_teamgen_subhelp;
+vmCvar_t	g_vote_teamgen_rustWeeks;
 
 vmCvar_t	d_debugCtfPosCalculation;
 
@@ -892,6 +893,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_teamgen_pug_requiredVotes, "g_vote_teamgen_pug_requiredVotes", "4", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_teamgen_team_requiredVotes, "g_vote_teamgen_team_requiredVotes", "5", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_teamgen_subhelp, "g_vote_teamgen_subhelp", "1", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_teamgen_rustWeeks, "g_vote_teamgen_rustWeeks", "12", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 
 	{ &d_debugCtfPosCalculation, "d_debugCtfPosCalculation", "0", CVAR_ARCHIVE, 0, qtrue },
 
@@ -2026,6 +2028,7 @@ void G_ShutdownGame( int restart ) {
 	}
 	ListClear(&level.queuedServerMessagesList);
 	ListClear(&level.autoLinksList);
+	ListClear(&level.rustyPlayersList);
 
 	UnpatchEngine();
 }

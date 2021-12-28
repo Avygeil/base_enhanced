@@ -5125,6 +5125,67 @@ void G_DBPrintWinrates(int accountId, ctfPosition_t positionOptional, int printC
 		PrintIngame(printClientNum, found->strPtr);
 }
 
+const char *const sqlGetRustiness = "SELECT datetime FROM playerpugteampos JOIN sessions ON playerpugteampos.session_id = sessions.session_id, pugs ON playerpugteampos.match_id = pugs.match_id WHERE sessions.account_id = ?1 ORDER BY pugs.datetime DESC LIMIT 1 OFFSET ?2;";
+
+typedef struct {
+	node_t		node;
+	int			accountId;
+} rustyPlayer_t;
+
+static qboolean RustyPlayerMatches(genericNode_t *node, void *userData) {
+	rustyPlayer_t *existing = (rustyPlayer_t *)node;
+	int accountId = *((int *)userData);
+	if (!existing || existing->accountId != accountId)
+		return qfalse;
+	return qtrue;
+}
+
+static void GetRustiness(void) {
+	ListClear(&level.rustyPlayersList);
+	if (g_vote_teamgen_rustWeeks.integer <= 0)
+		return;
+
+	sqlite3_stmt *outerStatement;
+	sqlite3_prepare(dbPtr, "SELECT accounts.name, accounts.account_id, accounts.created_on, strftime('%s', 'now') FROM accounts", -1, &outerStatement, 0);
+	int outerRc = sqlite3_step(outerStatement);
+	while (outerRc == SQLITE_ROW) { // loop through each account
+		const char *name = (const char *)sqlite3_column_text(outerStatement, 0);
+		const int accountId = sqlite3_column_int(outerStatement, 1);
+		const int created_on = sqlite3_column_int(outerStatement, 2);
+		const int now = sqlite3_column_int(outerStatement, 3);
+
+		if (now - created_on >= (60 * 60 * 24 * 7 * g_vote_teamgen_rustWeeks.integer)) {
+			qboolean isRusty = qfalse;
+			sqlite3_stmt *innerStatement;
+			sqlite3_prepare(dbPtr, sqlGetRustiness, -1, &innerStatement, 0);
+			sqlite3_bind_int(innerStatement, 1, accountId);
+			sqlite3_bind_int(innerStatement, 2, 2); // third most recent pug
+			int innerRc = sqlite3_step(innerStatement);
+			if (innerRc == SQLITE_ROW) {
+				int pastPugTime = sqlite3_column_int(innerStatement, 0);
+				if (now - pastPugTime >= (60 * 60 * 24 * 7 * g_vote_teamgen_rustWeeks.integer))
+					isRusty = qtrue;
+			}
+			else {
+				isRusty = qtrue; // no pug history in db; assume rusty
+			}
+			sqlite3_finalize(innerStatement);
+
+			if (isRusty) {
+#ifdef DEBUG_RUST
+				Com_Printf("GetRustiness: got rusty player %d (%s)\n", accountId, name);
+#endif
+				rustyPlayer_t *add = ListAdd(&level.rustyPlayersList, sizeof(rustyPlayer_t));
+				add->accountId = accountId;
+			}
+		}
+
+		outerRc = sqlite3_step(outerStatement);
+	}
+
+	sqlite3_finalize(outerStatement);
+}
+
 static void GetMostPlayedPositions(void);
 //#define FAST_START // uncomment to force loading from cache instead of recalculating
 
@@ -5154,6 +5215,7 @@ void G_DBInitializePugStatsCache(void) {
 		LoadWinratesFromDatabase(); Com_Printf("Loaded win rates cache from db (took %d ms)\n", trap_Milliseconds() - lastTime); lastTime = trap_Milliseconds();
 	}
 	GetMostPlayedPositions(); Com_Printf("Recalculated most played positions from db (took %d ms)\n", trap_Milliseconds() - lastTime); lastTime = trap_Milliseconds();
+	GetRustiness(); Com_Printf("Recalculated rusty players from db (took %d ms)\n", trap_Milliseconds() - lastTime); lastTime = trap_Milliseconds();
 
 	Com_Printf("Finished initializing pug stats cache (took %d ms total)\n", trap_Milliseconds() - start);
 }
@@ -5302,8 +5364,9 @@ void G_DBGetPlayerRatings(void) {
 #else
 // rounding ratings to the nearest tier allows teams to be much more flexible/interchangeable
 extern qboolean PlayerRatingAccountIdMatches(genericNode_t *node, void *userData);
-const char *const sqlGetAverageRatings = "SELECT ratee_account_id, pos, CAST(round(avg(rating)) AS INTEGER) FROM playerratings JOIN accounts ON accounts.account_id = rater_account_id WHERE accounts.flags & (1 << 6) != 0 GROUP BY ratee_account_id, pos;";
+const char *const sqlGetAverageRatings = "WITH t AS (SELECT account_id, created_on FROM accounts) SELECT ratee_account_id, pos, CAST(round(avg(rating)) AS INTEGER) FROM playerratings JOIN accounts ON accounts.account_id = rater_account_id, t ON t.account_id = ratee_account_id WHERE accounts.flags & (1 << 6) != 0 GROUP BY ratee_account_id, pos;";
 void G_DBGetPlayerRatings(void) {
+	int start = trap_Milliseconds();
 	ListClear(&level.ratingList);
 
 	sqlite3_stmt *statement;
@@ -5318,6 +5381,19 @@ void G_DBGetPlayerRatings(void) {
 			continue; // ???
 		}
 		int averageTier = sqlite3_column_int(statement, 2);
+
+		qboolean isRusty = qfalse;
+		if (g_vote_teamgen_rustWeeks.integer > 0 && averageTier > PLAYERRATING_C) {
+			rustyPlayer_t *found = ListFind(&level.rustyPlayersList, RustyPlayerMatches, &accountId, NULL);
+			if (found) {
+				averageTier -= 1;
+				isRusty = qtrue;
+#ifdef DEBUG_RUST
+				Com_Printf("Player %d is rusty, so decreasing pos %d rating to %d (was %d)\n", accountId, pos, averageTier, averageTier + 1);
+#endif
+			}
+		}
+
 		double rating = PlayerTierToRating(averageTier);
 
 		playerRating_t findMe;
@@ -5326,6 +5402,7 @@ void G_DBGetPlayerRatings(void) {
 		if (!found) {
 			found = ListAdd(&level.ratingList, sizeof(playerRating_t));
 			found->accountId = accountId;
+			found->isRusty = isRusty;
 			memset(found->rating, 0, sizeof(found->rating));
 		}
 
@@ -5334,6 +5411,8 @@ void G_DBGetPlayerRatings(void) {
 		rc = sqlite3_step(statement);
 	}
 	sqlite3_finalize(statement);
+	int finish = trap_Milliseconds();
+	Com_Printf("Recalculated player ratings (took %d ms)\n", finish - start);
 }
 #endif
 

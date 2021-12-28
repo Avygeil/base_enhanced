@@ -1618,6 +1618,7 @@ typedef struct {
 	node_t				node;
 	int					accountId;
 	double				rating[CTFPOSITION_OFFENSE + 1];
+	qboolean			isRusty;
 } playerRating_t;
 
 typedef struct {
@@ -1901,6 +1902,7 @@ typedef struct {
 
 	double lastRelativeStrength[4];
 	int lastPlayerTickAddedTime;
+	list_t rustyPlayersList;
 } level_locals_t;
 
 
@@ -3062,6 +3064,7 @@ extern vmCvar_t		g_vote_teamgen;
 extern vmCvar_t		g_vote_teamgen_pug_requiredVotes;
 extern vmCvar_t		g_vote_teamgen_team_requiredVotes;
 extern vmCvar_t		g_vote_teamgen_subhelp;
+extern vmCvar_t		g_vote_teamgen_rustWeeks;
 
 extern vmCvar_t		d_debugCtfPosCalculation;
 
