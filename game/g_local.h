@@ -3034,7 +3034,6 @@ extern vmCvar_t	   g_logrcon;
 extern vmCvar_t	   g_flags_overboarding;
 extern vmCvar_t	   g_selfkill_penalty;
 extern vmCvar_t	   g_moreTaunts;
-
 extern vmCvar_t    g_raceEmotes;
 extern vmCvar_t		g_ragersCanCounterPushPull;
 extern vmCvar_t		g_autoPause999;
@@ -3077,8 +3076,6 @@ extern vmCvar_t		g_rockPaperScissors;
 extern vmCvar_t		g_gripBuff;
 
 extern vmCvar_t		g_minimumCullDistance;
-
-extern vmCvar_t		g_fixExplosiveHitboxes;
 
 extern vmCvar_t    g_webhookId;
 extern vmCvar_t    g_webhookToken;

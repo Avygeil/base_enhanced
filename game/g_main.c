@@ -161,15 +161,12 @@ vmCvar_t	g_logrcon;
 vmCvar_t	g_flags_overboarding;
 vmCvar_t	g_selfkill_penalty;
 vmCvar_t    g_moreTaunts;
-
 vmCvar_t	g_raceEmotes;
 vmCvar_t	g_ragersCanCounterPushPull;
 vmCvar_t	g_autoPause999;
 vmCvar_t	g_autoPauseDisconnect;
 vmCvar_t	g_enterSpammerTime;
 vmCvar_t	g_quickPauseChat;
-
-vmCvar_t	g_fixExplosiveHitboxes;
 
 vmCvar_t	g_webhookId;
 vmCvar_t	g_webhookToken;
@@ -912,14 +909,12 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_selfkill_penalty, "g_selfkill_penalty", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_flags_overboarding, "g_flags_overboarding", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_moreTaunts, "g_moreTaunts", "1", CVAR_ARCHIVE, 0, qtrue },
-
 	{ &g_raceEmotes, "g_raceEmotes", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_ragersCanCounterPushPull, "g_ragersCanCounterPushPull", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_autoPause999, "g_autoPause999", "5", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_autoPauseDisconnect, "g_autoPauseDisconnect", "2", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_enterSpammerTime, "g_enterSpammerTime", "3", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_quickPauseChat, "g_quickPauseChat", "1", CVAR_ARCHIVE, 0, qtrue },
-	{ &g_fixExplosiveHitboxes, "g_fixExplosiveHitboxes", "2", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_webhookId, "g_webhookId", "", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_webhookToken, "g_webhookToken", "", CVAR_ARCHIVE, 0, qfalse },
