@@ -4828,6 +4828,7 @@ void ClientSpawn(gentity_t *ent) {
 typedef struct {
 	node_t			node;
 	int				sessionId;
+	int				accountId;
 	team_t			team;
 	playerState_t	ps;
 	int				health;
@@ -4837,12 +4838,15 @@ typedef struct {
 
 static qboolean DisconnectedPlayerMatches(genericNode_t *node, void *userData) {
 	disconnectedPlayerData_t *existing = (disconnectedPlayerData_t *)node;
-	int thisSessionId = *((int *)userData);
+	disconnectedPlayerData_t *find = (disconnectedPlayerData_t *)userData;
 
-	if (!existing)
+	if (!existing || !find)
 		return qfalse;
 
-	if (existing->sessionId == thisSessionId)
+	if (existing->sessionId == find->sessionId)
+		return qtrue;
+
+	if (existing->accountId != ACCOUNT_ID_UNLINKED && find->accountId == existing->accountId)
 		return qtrue;
 
 	return qfalse;
@@ -4862,7 +4866,10 @@ void RestoreDisconnectedPlayerData(gentity_t *ent) {
 		!ent->client->session || (ent->r.svFlags & SVF_BOT) || ent->client->sess.clientType != CLIENT_TYPE_NORMAL || !PauseConditions())
 		return;
 
-	disconnectedPlayerData_t *data = ListFind(&level.disconnectedPlayerList, DisconnectedPlayerMatches, &ent->client->session->id, NULL);
+	disconnectedPlayerData_t findMe = { 0 };
+	findMe.sessionId = ent->client->session->id;
+	findMe.accountId = ent->client->account ? ent->client->account->id : ACCOUNT_ID_UNLINKED;
+	disconnectedPlayerData_t *data = ListFind(&level.disconnectedPlayerList, DisconnectedPlayerMatches, &findMe, NULL);
 	if (!data)
 		return;
 
@@ -5147,10 +5154,14 @@ void ClientDisconnect( int clientNum ) {
 
 			if (g_autoPauseDisconnect.integer != 1 && (!ent->client->ps.m_iVehicleNum || ent->client->ps.m_iVehicleNum == ENTITYNUM_NONE) &&
 				ent->health > 0 && !ent->client->ps.fallingToDeath) {
-				disconnectedPlayerData_t *data = ListFind(&level.disconnectedPlayerList, DisconnectedPlayerMatches, &ent->client->session->id, NULL);
+				disconnectedPlayerData_t findMe = { 0 };
+				findMe.sessionId = ent->client->session->id;
+				findMe.accountId = ent->client->account ? ent->client->account->id : ACCOUNT_ID_UNLINKED;
+				disconnectedPlayerData_t *data = ListFind(&level.disconnectedPlayerList, DisconnectedPlayerMatches, &findMe, NULL);
 				if (!data)
 					data = ListAdd(&level.disconnectedPlayerList, sizeof(disconnectedPlayerData_t));
 				data->sessionId = ent->client->session->id;
+				data->accountId = ent->client->account ? ent->client->account->id : ACCOUNT_ID_UNLINKED;
 				data->team = ent->client->sess.sessionTeam;
 				data->health = ent->health;
 				data->armor = ent->client->ps.stats[STAT_ARMOR];
