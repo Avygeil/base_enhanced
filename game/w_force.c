@@ -1587,10 +1587,10 @@ void ForceTeamForceReplenish( gentity_t *self )
 		if ( self && self->client ) {
 			int thisGuyActualAmountEnergized = ((g_entities[pl[i]].client->ps.fd.forcePower + poweradd > 100) ? (100 - g_entities[pl[i]].client->ps.fd.forcePower) : poweradd);
 			self->client->stats->energizedAlly += thisGuyActualAmountEnergized;
+			g_entities[pl[i]].client->stats->gotEnergizedByAlly += thisGuyActualAmountEnergized;
 			if (thisGuyActualAmountEnergized > highestAmountEnergizedForAnyone)
 				highestAmountEnergizedForAnyone = thisGuyActualAmountEnergized;
 		}
-
 		g_entities[pl[i]].client->ps.fd.forcePower += poweradd;
 		if (g_entities[pl[i]].client->ps.fd.forcePower > 100)
 		{

@@ -837,6 +837,15 @@ const char *CtfStatsTableCallback_EnergizeEfficiency(void *rowContext, void *col
 	return FormatStatInt(stats->isTotal, stats->energizeEfficiency, bestStats[stats->lastTeam].energizeEfficiency, bestStats[OtherTeam(stats->lastTeam)].energizeEfficiency, 3);
 }
 
+const char *CtfStatsTableCallback_GotEnergizedByAlly(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	stats_t *stats = rowContext;
+	return FormatStatInt(stats->isTotal, stats->gotEnergizedByAlly, bestStats[stats->lastTeam].gotEnergizedByAlly, bestStats[OtherTeam(stats->lastTeam)].gotEnergizedByAlly, 5);
+}
+
 const char *CtfStatsTableCallback_EnergizedEnemy(void *rowContext, void *columnContext) {
 	if (!rowContext) {
 		assert(qfalse);
@@ -1190,6 +1199,7 @@ static void CheckBestStats(stats_t *player, statsTableType_t type, stats_t *weap
 		CheckBest(pull);
 		CheckBest(healed);
 		CheckBest(energizedAlly);
+		CheckBest(gotEnergizedByAlly);
 		player->energizeEfficiency = player->numEnergizes ? player->normalizedEnergizeAmounts * 100 / player->numEnergizes : 0;
 		CheckBest(energizeEfficiency);
 		CheckBest(energizedEnemy);
@@ -1381,6 +1391,7 @@ void AddStatsToTotal(stats_t *player, stats_t *total, statsTableType_t type, sta
 		AddStatToTotal(pull);
 		AddStatToTotal(healed);
 		AddStatToTotal(energizedAlly);
+		AddStatToTotal(gotEnergizedByAlly);
 		AddStatToTotal(numEnergizes);
 		AddStatToTotal(normalizedEnergizeAmounts);
 		total->energizeEfficiency = total->numEnergizes ? total->normalizedEnergizeAmounts * 100 / total->numEnergizes : 0;
@@ -1996,6 +2007,7 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 		Table_DefineColumn(t, "^5Heal", CtfStatsTableCallback_Healed, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^6TE", CtfStatsTableCallback_EnergizedAlly, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^6Eff", CtfStatsTableCallback_EnergizeEfficiency, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^6Rcvd", CtfStatsTableCallback_GotEnergizedByAlly, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5EnemyNrg", CtfStatsTableCallback_EnergizedEnemy, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^5Abs", CtfStatsTableCallback_Absorbed, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^2Prot", CtfStatsTableCallback_ProtDamage, NULL, qfalse, -1, 32);
@@ -3223,7 +3235,8 @@ void SendMachineFriendlyStats(void) {
 				if (s->regionPercent[r]) { hasValidRegions = qtrue; break; }
 
 			machineFriendlyStats_t *mfs = ListAdd(&machineFriendlyStatsList, sizeof(machineFriendlyStats_t));
-#define MACHINEFRIENDLYSTATS_PROTOCOL	2
+#define MACHINEFRIENDLYSTATS_PROTOCOL	3
+			// 3 = added got te stat after eff
 			Com_sprintf(mfs->buf, sizeof(mfs->buf),
 //#define DEBUG_PRINT_MACHINEFRIENDLYSTATS // uncomment to print in console
 #ifdef DEBUG_PRINT_MACHINEFRIENDLYSTATS
@@ -3285,6 +3298,7 @@ void SendMachineFriendlyStats(void) {
 				s->healed,
 				s->energizedAlly,
 				s->numEnergizes ? s->energizeEfficiency : -1, // basically null but we can preserve the format
+				s->gotEnergizedByAlly,
 				s->energizedEnemy,
 				s->absorbed,
 				s->protDamageAvoided,

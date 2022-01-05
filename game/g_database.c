@@ -3959,7 +3959,7 @@ static qboolean PlayerMatchesWithPos(genericNode_t *node, void *userData) {
 }
 
 const char *sqlWritePug = "INSERT INTO pugs (match_id, map, duration, boonexists, win_team, red_score, blue_score) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7);";
-const char *sqlAddPugPlayer = "INSERT INTO playerpugteampos (match_id, session_id, team, duration, name, pos, cap, ass, def, acc, air, tk, take, pitkil, pitdth, dmg, fcdmg, clrdmg, othrdmg, dmgtkn, fcdmgtkn, clrdmgtkn, othrdmgtkn, fckil, fckileff, ret, sk, ttlhold, maxhold, avgspd, topspd, boon, push, pull, heal, te, teeff, enemynrg, absorb, protdmg, prottime, rage, drain, drained, fs, bas, mid, eba, efs) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+const char *sqlAddPugPlayer = "INSERT INTO playerpugteampos (match_id, session_id, team, duration, name, pos, cap, ass, def, acc, air, tk, take, pitkil, pitdth, dmg, fcdmg, clrdmg, othrdmg, dmgtkn, fcdmgtkn, clrdmgtkn, othrdmgtkn, fckil, fckileff, ret, sk, ttlhold, maxhold, avgspd, topspd, boon, push, pull, heal, te, teeff, enemynrg, absorb, protdmg, prottime, rage, drain, drained, fs, bas, mid, eba, efs, gotte) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
 extern void AddStatsToTotal(stats_t *player, stats_t *total, statsTableType_t type, stats_t *weaponStatsPtr);
 qboolean G_DBWritePugStats(void) {
 	// get the match id
@@ -4141,6 +4141,7 @@ qboolean G_DBWritePugStats(void) {
 				sqlite3_bind_null(statement, num++);
 				sqlite3_bind_null(statement, num++);
 			}
+			sqlite3_bind_int(statement, num++, s->gotEnergizedByAlly);
 
 			rc = sqlite3_step(statement);
 			if (rc == SQLITE_DONE) {
@@ -4183,7 +4184,7 @@ typedef struct {
 
 typedef struct {
 	node_t node;
-	stat_t pugsplayed, wins, winrate, cap, ass, def, acc, air, tk, take, pitkil, pitdth, dmg, fcdmg, clrdmg, othrdmg, dmgtkn, fcdmgtkn, clrdmgtkn, othrdmgtkn, fckil, fckileff, ret, sk, ttlhold, maxhold, avgspd, topspd, boon, push, pull, heal, te, teeff, enemynrg, absorb, protdmg, prottime, rage, drain, drained, fs, bas, mid, eba, efs;
+	stat_t pugsplayed, wins, winrate, cap, ass, def, acc, air, tk, take, pitkil, pitdth, dmg, fcdmg, clrdmg, othrdmg, dmgtkn, fcdmgtkn, clrdmgtkn, othrdmgtkn, fckil, fckileff, ret, sk, ttlhold, maxhold, avgspd, topspd, boon, push, pull, heal, te, teeff, enemynrg, absorb, protdmg, prottime, rage, drain, drained, fs, bas, mid, eba, efs, gotte;
 	int accountId;
 	ctfPosition_t pos;
 	char name[32];
@@ -4301,7 +4302,7 @@ static void LoadPositionStatsFromDatabase(void) {
 	sqlite3_finalize(statement);
 }
 
-const char *sqlGetPositionStatsForPlayer = "SELECT * FROM accountstats;";
+const char *sqlGetPositionStatsForPlayer = "SELECT account_id, name, pos, pugs_played, pugs_played_rank, wins, wins_rank, winrate, winrate_rank, avg_cap, avg_cap_rank, avg_ass, avg_ass_rank, avg_def, avg_def_rank, avg_acc, avg_acc_rank, avg_air, avg_air_rank, avg_tk, avg_tk_rank, avg_take, avg_take_rank, avg_pitkil, avg_pitkil_rank, avg_pitdth, avg_pitdth_rank, avg_dmg, avg_dmg_rank, avg_fcdmg, avg_fcdmg_rank, avg_clrdmg, avg_clrdmg_rank, avg_othrdmg, avg_othrdmg_rank, avg_dmgtkn, avg_dmgtkn_rank, avg_fcdmgtkn, avg_fcdmgtkn_rank, avg_clrdmgtkn, avg_clrdmgtkn_rank, avg_othrdmgtkn, avg_othrdmgtkn_rank, avg_fckil, avg_fckil_rank, avg_fckileff, avg_fckileff_rank, avg_ret, avg_ret_rank, avg_sk, avg_sk_rank, avg_ttlhold, avg_ttlhold_rank, avg_maxhold, avg_maxhold_rank, avg_avgspd, avg_avgspd_rank, avg_topspd, avg_topspd_rank, avg_boon, avg_boon_rank, avg_push, avg_push_rank, avg_pull, avg_pull_rank, avg_heal, avg_heal_rank, avg_te, avg_te_rank, avg_teeff, avg_teeff_rank, avg_gotte, avg_gotte_rank, avg_enemynrg, avg_enemynrg_rank, avg_absorb, avg_absorb_rank, avg_protdmg, avg_protdmg_rank, avg_prottime, avg_prottime_rank, avg_rage, avg_rage_rank, avg_drain, avg_drain_rank, avg_drained, avg_drained_rank, avg_fs, avg_fs_rank, avg_bas, avg_bas_rank, avg_mid, avg_mid_rank, avg_eba, avg_eba_rank, avg_efs, avg_efs_rank FROM accountstats;";
 static void RecalculatePositionStats(void) {
 	iterator_t iter;
 	ListIterate(&level.cachedPositionStats, &iter, qfalse);
@@ -4315,7 +4316,7 @@ static void RecalculatePositionStats(void) {
 	sqlite3_exec(dbPtr, "DELETE FROM [cachedplayerstats] WHERE type = 1;", NULL, NULL, NULL);
 
 	sqlite3_stmt *statement;
-	sqlite3_prepare_v2(dbPtr, "SELECT * FROM accountstats;", -1, &statement, 0);
+	sqlite3_prepare_v2(dbPtr, sqlGetPositionStatsForPlayer, -1, &statement, 0);
 	int rc = sqlite3_step(statement);
 	while (rc == SQLITE_ROW) {
 		const int accountId = sqlite3_column_int(statement, 0);
@@ -4348,15 +4349,14 @@ static void RecalculatePositionStats(void) {
 		t = Table_Initialize(qfalse);
 		Table_DefineRow(t, NULL);
 		SetStatTime(ttlhold, "^3Hold"); SetStatTime(maxhold, "^3Max"); SetStatFloat(avgspd, "^6Spd"); SetStatFloat(topspd, "^6Top");
-		SetStatFloat(boon, "^5Boon"); SetStatFloat(push, "^5Push"); SetStatFloat(pull, "^5Pull"); SetStatFloat(heal, "^5Heal"); SetStatFloat(te, "^6TE"); SetStatFloat(teeff, "^6Eff"); SetStatFloat(enemynrg, "^5EnemyNrg");
-		SetStatFloat(absorb, "^5Abs");
+		SetStatFloat(boon, "^5Boon"); SetStatFloat(push, "^5Push"); SetStatFloat(pull, "^5Pull"); SetStatFloat(heal, "^5Heal"); SetStatFloat(te, "^6TE"); SetStatFloat(teeff, "^6Eff"); SetStatFloat(gotte, "^6Rcvd");
 		len = strlen(buf);
 		Table_WriteToBuffer(t, buf + len, 16384 - len, qtrue, -1);
 		Table_Destroy(t);
 
 		t = Table_Initialize(qfalse);
 		Table_DefineRow(t, NULL);
-		SetStatFloat(protdmg, "^2Prot"); SetStatTime(prottime, "^2Time"); SetStatTime(rage, "^5Rage"); SetStatFloat(drain, "^1Drn"); SetStatFloat(drained, "^1Drnd");
+		SetStatFloat(enemynrg, "^5EnemyNrg"); SetStatFloat(absorb, "^5Abs"); SetStatFloat(protdmg, "^2Prot"); SetStatTime(prottime, "^2Time"); SetStatTime(rage, "^5Rage"); SetStatFloat(drain, "^1Drn"); SetStatFloat(drained, "^1Drnd");
 		SetStatFloat(fs, "^5Fs"); SetStatFloat(bas, "^5Bas"); SetStatFloat(mid, "^5Mid"); SetStatFloat(eba, "^5EBa"); SetStatFloat(efs, "^5EFs");
 		len = strlen(buf);
 		Table_WriteToBuffer(t, buf + len, 16384 - len, qtrue, -1);
@@ -4561,7 +4561,7 @@ int CompareDudes(const void *a, const void *b) {
 	return 0;
 }
 
-#define MAX_STAT_COLUMNS (46)
+#define MAX_STAT_COLUMNS (47)
 #define SetTopStat(field, columnName, type) \
 do { \
 		assert(index < MAX_STAT_COLUMNS); \
@@ -4672,7 +4672,7 @@ static void RecalculateTopPlayers(void) {
 		SetTopStat(heal, "^5Heal", STATTYPE_FLOAT);
 		SetTopStat(te, "^6TE", STATTYPE_FLOAT);
 		SetTopStat(teeff, "^6Eff", STATTYPE_FLOAT);
-		SetTopStat(enemynrg, "^5EnemyNrg", STATTYPE_FLOAT);
+		SetTopStat(gotte, "^6Rcvd", STATTYPE_FLOAT);
 		len = strlen(topPlayersBuf[pos - 1]);
 		Table_WriteToBuffer(t, topPlayersBuf[pos - 1] + len, sizeof(topPlayersBuf[pos - 1]) - len, qtrue, -1);
 		Table_Destroy(t);
@@ -4680,6 +4680,7 @@ static void RecalculateTopPlayers(void) {
 		t = Table_Initialize(qfalse);
 		for (int i = 0; i < topNum; i++)
 			Table_DefineRow(t, (void *)i);
+		SetTopStat(enemynrg, "^5EnemyNrg", STATTYPE_FLOAT);
 		SetTopStat(absorb, "^5Abs", STATTYPE_FLOAT);
 		SetTopStat(protdmg, "^2Prot", STATTYPE_FLOAT);
 		SetTopStat(prottime, "^2Time", STATTYPE_TIME);
@@ -5638,6 +5639,7 @@ void G_DBFixSwap_List(void) {
 		swap->stats.regionPercent[CTFREGION_MID] = sqlite3_column_int(statement, num++);
 		swap->stats.regionPercent[CTFREGION_ENEMYBASE] = sqlite3_column_int(statement, num++);
 		swap->stats.regionPercent[CTFREGION_ENEMYFLAGSTAND] = sqlite3_column_int(statement, num++);
+		swap->stats.gotEnergizedByAlly = sqlite3_column_int(statement, num++);
 		num++; // skip match id from pugs table
 		time_t dateTime = sqlite3_column_int64(statement, num++);
 		G_FormatLocalDateFromEpoch(swap->dateTimeStr, sizeof(swap->dateTimeStr), dateTime);
@@ -5702,6 +5704,7 @@ void G_DBFixSwap_List(void) {
 	Table_DefineColumn(t, "^5Heal", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.healed) - (unsigned int)&swap), qfalse, -1, 32);
 	Table_DefineColumn(t, "^6TE", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.energizedAlly) - (unsigned int)&swap), qfalse, -1, 32);
 	Table_DefineColumn(t, "^6Eff", SwapTEEfficiencyCallback, NULL, qfalse, -1, 32);
+	Table_DefineColumn(t, "^6Rcvd", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.gotEnergizedByAlly) - (unsigned int)&swap), qfalse, -1, 32);
 	Table_DefineColumn(t, "^5EnemyNrg", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.energizedEnemy) - (unsigned int)&swap), qfalse, -1, 32);
 	Table_DefineColumn(t, "^5Abs", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.absorbed) - (unsigned int)&swap), qfalse, -1, 32);
 	Table_DefineColumn(t, "^2Prot", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.protDamageAvoided) - (unsigned int)&swap), qfalse, -1, 32);
@@ -5742,7 +5745,7 @@ const char *const sqlGetSessionIdAndMatchIdFromRecordId = "SELECT session_id, ma
 const char *const sqlGetParticularSwapRecord = "SELECT * FROM playerpugteampos WHERE playerpugteampos_id = ?;";
 const char *const sqlSimpleSwapUpdate = "UPDATE playerpugteampos SET pos = ?1 WHERE playerpugteampos_id = ?2;";
 const char *const sqlGetParticularFixSwapList = "WITH t AS (SELECT * FROM playerpugteampos GROUP BY match_id, session_id HAVING COUNT(*) > 1) SELECT * FROM playerpugteampos WHERE EXISTS (SELECT 1 FROM t WHERE t.match_id = playerpugteampos.match_id AND t.session_id = playerpugteampos.session_id) AND session_id = ?1 AND match_id = ?2 AND pos = ?3 ORDER BY match_id, session_id, pos ASC;";
-const char *const sqlUpdateSwap = "UPDATE playerpugteampos SET duration = ?, name = ?, pos = ?, cap = ?, ass = ?, def = ?, acc = ?, air = ?, tk = ?, take = ?, pitkil = ?, pitdth = ?, dmg = ?, fcdmg = ?, clrdmg = ?, othrdmg = ?, dmgtkn = ?, fcdmgtkn = ?, clrdmgtkn = ?, othrdmgtkn = ?, fckil = ?, fckileff = ?, ret = ?, sk = ?, ttlhold = ?, maxhold = ?, avgspd = ?, topspd = ?, boon = ?, push = ?, pull = ?, heal = ?, te = ?, teeff = ?, enemynrg = ?, absorb = ?, protdmg = ?, prottime = ?, rage = ?, drain = ?, drained = ?, fs = ?, bas = ?, mid = ?, eba = ?, efs = ? WHERE playerpugteampos_id = ?;";
+const char *const sqlUpdateSwap = "UPDATE playerpugteampos SET duration = ?, name = ?, pos = ?, cap = ?, ass = ?, def = ?, acc = ?, air = ?, tk = ?, take = ?, pitkil = ?, pitdth = ?, dmg = ?, fcdmg = ?, clrdmg = ?, othrdmg = ?, dmgtkn = ?, fcdmgtkn = ?, clrdmgtkn = ?, othrdmgtkn = ?, fckil = ?, fckileff = ?, ret = ?, sk = ?, ttlhold = ?, maxhold = ?, avgspd = ?, topspd = ?, boon = ?, push = ?, pull = ?, heal = ?, te = ?, teeff = ?, enemynrg = ?, absorb = ?, protdmg = ?, prottime = ?, rage = ?, drain = ?, drained = ?, fs = ?, bas = ?, mid = ?, eba = ?, efs = ?, gotte = ? WHERE playerpugteampos_id = ?;";
 const char *const sqlDeleteSwap = "DELETE FROM playerpugteampos WHERE playerpugteampos_id = ?;";
 qboolean G_DBFixSwap_Fix(int recordId, int newPos) {
 	// get the session id and match id of the record in question
@@ -5839,6 +5842,7 @@ qboolean G_DBFixSwap_Fix(int recordId, int newPos) {
 	src->stats.regionPercent[CTFREGION_MID] = sqlite3_column_int(statement, num++);
 	src->stats.regionPercent[CTFREGION_ENEMYBASE] = sqlite3_column_int(statement, num++);
 	src->stats.regionPercent[CTFREGION_ENEMYFLAGSTAND] = sqlite3_column_int(statement, num++);
+	src->stats.gotEnergizedByAlly = sqlite3_column_int(statement, num++);
 
 	// see if there is a record that already exists in the desired position
 	sqlite3_reset(statement);
@@ -5972,6 +5976,7 @@ qboolean G_DBFixSwap_Fix(int recordId, int newPos) {
 	dest->stats.regionPercent[CTFREGION_MID] = (int)((((double)sqlite3_column_int(statement, num++)) * destProportion) + (((double)src->stats.regionPercent[CTFREGION_MID]) * srcProportion));
 	dest->stats.regionPercent[CTFREGION_ENEMYBASE] = (int)((((double)sqlite3_column_int(statement, num++)) * destProportion) + (((double)src->stats.regionPercent[CTFREGION_ENEMYBASE]) * srcProportion));
 	dest->stats.regionPercent[CTFREGION_ENEMYFLAGSTAND] = (int)((((double)sqlite3_column_int(statement, num++)) * destProportion) + (((double)src->stats.regionPercent[CTFREGION_ENEMYFLAGSTAND]) * srcProportion));
+	dest->stats.gotEnergizedByAlly = sqlite3_column_int(statement, num++) + src->stats.gotEnergizedByAlly;
 
 	// write the merged record to db
 	sqlite3_reset(statement);
@@ -6044,6 +6049,7 @@ qboolean G_DBFixSwap_Fix(int recordId, int newPos) {
 		sqlite3_bind_null(statement, num++);
 		sqlite3_bind_null(statement, num++);
 	}
+	sqlite3_bind_int(statement, num++, dest->stats.gotEnergizedByAlly);
 	sqlite3_bind_int(statement, num++, dest->recordId);
 	rc = sqlite3_step(statement);
 	if (rc != SQLITE_DONE) {
