@@ -830,7 +830,7 @@ void SetTeam( gentity_t *ent, char *s ) {
 
 	//base enhanced fix, sometimes we come here with invalid 
 	//entity sloty and this procedure then creates fake player
-	if (!ent->inuse){
+	if (!ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED || !ent->client->stats) {
 		return;
 	}
 
