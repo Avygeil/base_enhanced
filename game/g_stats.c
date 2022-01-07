@@ -3252,7 +3252,7 @@ void SendMachineFriendlyStats(void) {
 				/*fckil->*/" %d" /*fckileff->*/" %d" /*rets->*/" %d" /*sk->*/" %d"
 				/*total hold->*/" %d" /*max hold->*/" %d" /*avg spd->*/" %d" /*top spd->*/" %d"
 				/*boon->*/" %d" /*push->*/" %d" /*pull->*/" %d" /*heal->*/" %d" /*TE->*/" %d"
-				/*te eff->*/" %d" /*te received->*/" %d" /*enemy nrg->*/" %d" /*absorb->*/" %d"
+				/*te eff->*/" %d" /*enemy nrg->*/" %d" /*absorb->*/" %d"
 				/*protdmg->*/" %d" /*prottime->*/" %d" /*rage->*/" %d"
 				/*drain->*/" %d" /*drained->*/" %d"
 				/*fs->*/" %d" /*base->*/" %d" /*mid->*/" %d" /*enemy base->*/" %d" /*enemy fs->*/" %d"

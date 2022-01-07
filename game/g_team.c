@@ -1171,7 +1171,6 @@ If locationBuffer is not NULL, the location string will be directly written ther
 int Team_GetLocation( gentity_t *ent, char *locationBuffer, size_t locationBufferSize ) {
 	vec3_t origin;
 	VectorCopy( ent->r.currentOrigin, origin );
-	origin[2] += z_debug7.value; // duodebug
 
 	if ( locationBuffer ) {
 		locationBuffer[0] = '\0';

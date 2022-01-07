@@ -934,7 +934,7 @@ typedef struct { //Should this store their g2 anim? for proper g2 sync?
 // g_stats.c
 //
 
-#define DEBUG_CTF_POSITION_STATS // uncomment this to remove afk checks and print more messages for pos detection
+//#define DEBUG_CTF_POSITION_STATS // uncomment this to remove afk checks and print more messages for pos detection
 //#define DEBUGSTATSNAMES // uncomment this to see longer column names in stats
 
 #ifdef DEBUG_CTF_POSITION_STATS
@@ -1838,7 +1838,7 @@ typedef struct {
 
 		struct {
 			int numUnique; // two locations with the same message make an unique location, so this is at most MAX_LOCATIONS
-			uint64_t numTotal; // how many entities were parsed in total, duplicates included
+			int numTotal; // how many entities were parsed in total, duplicates included
 			enhancedLocation_t data[MAX_LOCATIONS];
 			void *lookupTree; // k-d tree for fast lookup, multiple nodes may point to the same data[n]
 		} enhanced;
