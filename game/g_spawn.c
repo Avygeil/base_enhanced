@@ -1700,6 +1700,255 @@ void G_LinkLocations( void ) {
 	level.locations.linked = qtrue;
 }
 
+qboolean IsPointVisible(vec3_t org1, vec3_t org2)
+{
+	trace_t tr;
+	vec3_t mins = { -1, -1, -1 };
+	vec3_t maxs = { 1, 1, 1 };
+	trap_Trace(&tr, org1, mins, maxs, org2, ENTITYNUM_NONE, MASK_SOLID);
+	return !!(tr.fraction == 1);
+}
+
+qboolean StartsSolid(vec3_t point) {
+	trace_t tr;
+	vec3_t mins = { -1, -1, -1 };
+	vec3_t maxs = { 1, 1, 1 };
+	trap_Trace(&tr, point, mins, maxs, point, ENTITYNUM_NONE, MASK_SOLID);
+	return !!(tr.startsolid);
+}
+
+#define DotProduct2D(a,b)	((a)[0]*(b)[0]+(a)[1]*(b)[1])
+extern qboolean isRedFlagstand(gentity_t *ent);
+extern qboolean isBlueFlagstand(gentity_t *ent);
+qboolean PointsOnOppositeSidesOfMap(vec3_t pointA, vec3_t pointB) {
+	static qboolean initialized = qfalse, valid = qfalse;
+	static float redFs[2] = { 0, 0 }, blueFs[2] = { 0, 0 };
+	if (!initialized) {
+		initialized = qtrue;
+		gentity_t temp;
+		VectorCopy(vec3_origin, temp.r.currentOrigin);
+		gentity_t *redFsEnt = G_ClosestEntity(&temp, isRedFlagstand);
+		gentity_t *blueFsEnt = G_ClosestEntity(&temp, isBlueFlagstand);
+		if (redFsEnt && blueFsEnt) {
+			valid = qtrue;
+			redFs[0] = redFsEnt->r.currentOrigin[0];
+			redFs[1] = redFsEnt->r.currentOrigin[1];
+			blueFs[0] = blueFsEnt->r.currentOrigin[0];
+			blueFs[1] = blueFsEnt->r.currentOrigin[1];
+		}
+	}
+
+	if (!valid)
+		return qfalse;
+
+	float pointADistanceToRedFs = Distance2D(pointA, redFs);
+	float pointADistanceToBlueFs = Distance2D(pointA, blueFs);
+
+	float *allyFs, *enemyFs;
+	if (pointADistanceToRedFs < pointADistanceToBlueFs) {
+		allyFs = &redFs[0];
+		enemyFs = &blueFs[0];
+	}
+	else {
+		allyFs = &blueFs[0];
+		enemyFs = &redFs[0];
+	}
+
+	float pointAResult;
+	{
+		float rPrime[2] = { pointA[0] - allyFs[0], pointA[1] - allyFs[1] };
+		float v[2] = { enemyFs[0] - allyFs[0], enemyFs[1] - allyFs[1] };
+		pointAResult = DotProduct2D(v, rPrime) / DotProduct2D(v, v);
+	}
+
+	float pointBResult;
+	{
+		float rPrime[2] = { pointB[0] - allyFs[0], pointB[1] - allyFs[1] };
+		float v[2] = { enemyFs[0] - allyFs[0], enemyFs[1] - allyFs[1] };
+		pointBResult = DotProduct2D(v, rPrime) / DotProduct2D(v, v);
+	}
+
+	float diff = fabs(pointAResult - pointBResult);
+	if (diff < 0.05f)
+		return qfalse; // they are super close together; allow some fudging at mid
+
+	if (fabs(pointAResult - 0.5f) < 0.05f)
+		return qfalse; // point A is at mid, therefore nothing can be on the opposite side of the map from it
+
+	if (fabs(pointBResult - 0.5f) < 0.05f)
+		return qfalse; // point B is at mid, therefore nothing can be on the opposite side of the map from it
+
+	if (pointAResult < 0.5f && pointBResult > 0.5f)
+		return qtrue;
+
+	if (pointAResult > 0.5f && pointBResult < 0.5f)
+		return qtrue;
+
+	return qfalse;
+}
+
+gentity_t *ClosestEntityInLineOfSight(vec3_t point, enhancedLocation_t *locOut) {
+	assert(locOut);
+	memset(locOut, 0, sizeof(enhancedLocation_t));
+	float closestDistance = 1500.0f; // ignore entities farther than this
+	gentity_t *closestEnt = NULL;
+	for (int i = MAX_CLIENTS; i < ENTITYNUM_MAX_NORMAL; i++) {
+		gentity_t *ent = &g_entities[i];
+		enhancedLocation_t thisLoc = { 0 };
+		if (!MakeEnhancedLocation(ent, &thisLoc))
+			continue; // not a valid entity for locations
+
+		float dist = Distance(point, ent->r.currentOrigin);
+		if (dist >= closestDistance)
+			continue; // farther away than current best
+
+		if (PointsOnOppositeSidesOfMap(point, ent->r.currentOrigin))
+			continue; // on opposite sides of the map
+
+		if (!IsPointVisible(point, ent->r.currentOrigin))
+			continue; // check visibility last to avoid unnecessary tracing
+
+		closestDistance = dist;
+		closestEnt = ent;
+		memcpy(locOut, &thisLoc, sizeof(enhancedLocation_t));
+	}
+	return closestEnt;
+}
+
+gentity_t *ClosestEntity(vec3_t point, enhancedLocation_t *locOut) {
+	assert(locOut);
+	memset(locOut, 0, sizeof(enhancedLocation_t));
+	float closestDistance = 9999999;
+	gentity_t *closestEnt = NULL;
+	for (int i = MAX_CLIENTS; i < ENTITYNUM_MAX_NORMAL; i++) {
+		gentity_t *ent = &g_entities[i];
+		enhancedLocation_t thisLoc = { 0 };
+		if (!MakeEnhancedLocation(ent, &thisLoc))
+			continue; // not a valid entity for locations
+
+		float dist = Distance(point, ent->r.currentOrigin);
+		if (dist >= closestDistance)
+			continue; // farther away than current best
+
+		if (PointsOnOppositeSidesOfMap(point, ent->r.currentOrigin))
+			continue; // on opposite sides of the map
+
+		closestDistance = dist;
+		closestEnt = ent;
+		memcpy(locOut, &thisLoc, sizeof(enhancedLocation_t));
+	}
+	return closestEnt;
+}
+
+void GenerateIterativeLocations(void) {
+	int startTime = trap_Milliseconds();
+	if (level.locations.linked) {
+		return;
+	}
+
+	trap_SetConfigstring(CS_LOCATIONS, "unknown");
+
+	if (!z_debug1.string[0]) {
+		level.locations.linked = qtrue;
+		return; // duodebug
+	}
+
+	// duodebug
+	float mins[3] = { z_debug1.value, z_debug2.value, z_debug3.value };
+	float maxs[3] = { z_debug4.value, z_debug5.value, z_debug6.value };
+
+	const float interval = 100.0f;
+	for (float x = mins[0]; x <= maxs[0]; x += interval) {
+		for (float y = mins[1]; y <= maxs[1]; y += interval) {
+			for (float z = mins[2]; z <= maxs[2]; z += interval) {
+				vec3_t point = { x, y, z };
+				if (StartsSolid(point))
+					continue; // the point in question is inside a wall; don't bother
+
+				enhancedLocation_t loc = { 0 };
+				gentity_t *bestEnt = ClosestEntityInLineOfSight(point, &loc);
+				if (!bestEnt) { // nothing in line of sight; try again just by proximity
+					bestEnt = ClosestEntity(point, &loc);
+					if (!bestEnt)
+						continue; // still no valid ent???
+				}
+
+				enhancedLocation_t *targetLoc = NULL;
+
+				// this is a valid location, let's see if we already have a handle for it
+				for (int j = 0; j < level.locations.enhanced.numUnique; ++j) {
+					enhancedLocation_t *thisLoc = &level.locations.enhanced.data[j];
+
+					if (!strcmp(loc.message, thisLoc->message) && loc.teamowner == thisLoc->teamowner) {
+						targetLoc = thisLoc;
+						break;
+					}
+				}
+
+				// there was no handle with this location message, copy the info to a new one
+				if (!targetLoc) {
+					targetLoc = &level.locations.enhanced.data[level.locations.enhanced.numUnique++];
+					Q_strncpyz(targetLoc->message, loc.message, sizeof(targetLoc->message));
+					targetLoc->teamowner = loc.teamowner;
+				}
+
+				kd_insertf(level.locations.enhanced.lookupTree, point, targetLoc);
+				level.locations.enhanced.numTotal++;
+			}
+		}
+	}
+
+	if (level.locations.enhanced.numUnique) {
+		// use the enhanced system
+		for (int i = 0, n = 1; i < level.locations.enhanced.numUnique; ++i) {
+			char *prefix;
+
+			// prepend the team name before the location for base clients
+			switch (level.locations.enhanced.data[i].teamowner) {
+			case TEAM_RED: prefix = "Red "; break;
+			case TEAM_BLUE: prefix = "Blue "; break;
+			default: prefix = "";
+			}
+
+			level.locations.enhanced.data[i].cs_index = n;
+			trap_SetConfigstring(CS_LOCATIONS + n, va("%s%s", prefix, level.locations.enhanced.data[i].message));
+			n++;
+		}
+
+		// we won't need the legacy system
+		memset(&level.locations.legacy, 0, sizeof(level.locations.legacy));
+
+		int endTime = trap_Milliseconds();
+		G_Printf("Linked %d enhanced locations", level.locations.enhanced.numUnique);
+		if ((uint64_t)level.locations.enhanced.numUnique != level.locations.enhanced.numTotal) {
+			G_Printf(" (optimized from %llu points)", level.locations.enhanced.numTotal);
+		}
+		G_Printf(" in %d seconds", endTime - startTime / 1000);
+		G_Printf("\n");
+	}
+	else if (level.locations.legacy.num > 0) {
+		for (int i = 0, n = 1; i < level.locations.legacy.num; i++) {
+			level.locations.legacy.data[i].cs_index = n;
+			trap_SetConfigstring(CS_LOCATIONS + n, level.locations.legacy.data[i].message);
+			n++;
+		}
+
+		// we won't need the enhanced system
+		kd_free(level.locations.enhanced.lookupTree);
+		memset(&level.locations.enhanced, 0, sizeof(level.locations.enhanced));
+
+		G_Printf("Linked %d legacy locations\n", level.locations.legacy.num);
+	}
+	else {
+		// we won't need either system
+		kd_free(level.locations.enhanced.lookupTree);
+		memset(&level.locations, 0, sizeof(level.locations));
+	}
+
+	// All linked together now
+	level.locations.linked = qtrue;
+}
+
 /*
 ==============
 G_SpawnEntitiesFromString
@@ -1766,7 +2015,8 @@ void G_SpawnEntitiesFromString( qboolean inSubBSP ) {
 	{
 		level.spawning = qfalse;			// any future calls to G_Spawn*() will be errors
 
-		G_LinkLocations();
+		//G_LinkLocations();
+		GenerateIterativeLocations();
 	}
 
 	G_PrecacheSoundsets();
