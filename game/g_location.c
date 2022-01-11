@@ -753,7 +753,7 @@ static void GenerateLineOfSightLocations(void) {
 			// e.g. with lowest[2] of 260 and pit height of 200, mins[2] will be 160
 			data.mins[2] = lowest[2] - (ceil((lowest[2] - level.pitHeight.value) / data.incrementSize) * data.incrementSize);
 			if (fabs(data.mins[2] - level.pitHeight.value) < 0.001f)
-				data.mins[2] -= data.incrementSize;
+				data.mins[2] -= (data.incrementSize * 0.5f);
 		}
 		else {
 			data.mins[i] = lowest[i] - buffer;
