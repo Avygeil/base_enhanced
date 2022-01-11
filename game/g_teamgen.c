@@ -258,7 +258,9 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 			ctfPlayerTier_t team1ChaseTier = PlayerTierFromRating(team1chase->rating[CTFPOSITION_CHASE]);
 			ctfPlayerTier_t highestTeam2OffenseTier = PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) > PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]) ? PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) : PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]);
 			int maxDiff;
-			if (highestTeam2OffenseTier == PLAYERRATING_S || team1ChaseTier == PLAYERRATING_LOW_B || team1ChaseTier == PLAYERRATING_C)
+			if (team1ChaseTier == PLAYERRATING_LOW_B || team1ChaseTier == PLAYERRATING_C)
+				maxDiff = 2;
+			else if (highestTeam2OffenseTier == PLAYERRATING_S)
 				maxDiff = 3;
 			else
 				maxDiff = 4;
@@ -272,7 +274,9 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 			ctfPlayerTier_t team2ChaseTier = PlayerTierFromRating(team2chase->rating[CTFPOSITION_CHASE]);
 			ctfPlayerTier_t highestTeam1OffenseTier = PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) > PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]) ? PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) : PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]);
 			int maxDiff;
-			if (highestTeam1OffenseTier == PLAYERRATING_S || team2ChaseTier == PLAYERRATING_LOW_B || team2ChaseTier == PLAYERRATING_C)
+			if (team2ChaseTier == PLAYERRATING_LOW_B || team2ChaseTier == PLAYERRATING_C)
+				maxDiff = 2;
+			else if (highestTeam1OffenseTier == PLAYERRATING_S)
 				maxDiff = 3;
 			else
 				maxDiff = 4;
