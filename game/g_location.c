@@ -453,37 +453,37 @@ typedef struct {
 
 enhancedLocationData_t data;
 
-__forceinline qboolean PointsUseSameMsg(int x1, int y1, int z1, int x2, int y2, int z2) {
+qboolean PointsUseSameMsg(int x1, int y1, int z1, int x2, int y2, int z2) {
 	enhancedLocationPoint_t *point1 = &data.pointsArr[x1][y1][z1];
 	enhancedLocationPoint_t *point2 = &data.pointsArr[x2][y2][z2];
 	return (point1->data == point2->data);
 }
 
-__forceinline qboolean PointIsValid(int x, int y, int z) {
+qboolean PointIsValid(int x, int y, int z) {
 	if (x < 0 || y < 0 || z < 0 || x >= data.dimensionSize[0] || y >= data.dimensionSize[1] || z >= data.dimensionSize[2])
 		return qfalse;
 	return qtrue;
 }
 
-__forceinline qboolean PointIsStartSolid(int x, int y, int z) {
+qboolean PointIsStartSolid(int x, int y, int z) {
 	enhancedLocationPoint_t *point = &data.pointsArr[x][y][z];
 	return (point->data == 0xFF);
 }
 
-__forceinline void MakePointStartSolid(enhancedLocationPoint_t *point) {
+void MakePointStartSolid(enhancedLocationPoint_t *point) {
 	point->data = 0xFF;
 }
 
-__forceinline qboolean PointIsDeleted(int x, int y, int z) {
+qboolean PointIsDeleted(int x, int y, int z) {
 	enhancedLocationPoint_t *point = &data.pointsArr[x][y][z];
 	return (point->data == 0);
 }
 
-__forceinline void DeletePoint(enhancedLocationPoint_t *point) {
+void DeletePoint(enhancedLocationPoint_t *point) {
 	point->data = 0;
 }
 
-__forceinline void SetPointIndex(enhancedLocationPoint_t *point, int index) {
+void SetPointIndex(enhancedLocationPoint_t *point, int index) {
 	point->data = (index + 1) & 0b111111;
 }
 
