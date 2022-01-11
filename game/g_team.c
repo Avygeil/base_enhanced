@@ -5,8 +5,6 @@
 #include "bg_saga.h"
 #include "g_database.h"
 
-#include "kdtree.h"
-
 typedef struct teamgame_s {
 	float			last_flag_capture;
 	int				last_capture_team;
@@ -1156,98 +1154,6 @@ int Pickup_Team( gentity_t *ent, gentity_t *other ) {
 		return Team_TouchOurFlag( ent, other, team );
 	}
 	return Team_TouchEnemyFlag( ent, other, team );
-}
-
-/*
-===========
-Team_GetLocation
-
-Report a location for the player. May use different systems as defined in G_LinkLocations.
-
-Returns the configstring index of the location, or 0 if no location could be found.
-If locationBuffer is not NULL, the location string will be directly written there.
-============
-*/
-int Team_GetLocation( gentity_t *ent, char *locationBuffer, size_t locationBufferSize ) {
-	vec3_t origin;
-	VectorCopy( ent->r.currentOrigin, origin );
-
-	if ( locationBuffer ) {
-		locationBuffer[0] = '\0';
-	}
-
-	if ( level.locations.enhanced.numUnique ) {
-		// using enhanced locations
-		int		resultIndex = 0;
-		void	*nearest;
-
-		// we should always have at most 1 result
-		nearest = kd_nearestf( level.locations.enhanced.lookupTree, origin );
-
-		if ( nearest && kd_res_size( nearest ) == 1 ) {
-			enhancedLocation_t *loc = ( enhancedLocation_t* )kd_res_item_data( nearest );
-
-			if ( loc ) {
-				if ( locationBuffer && ent->client ) {
-					// we aren't writing to configstrings here, so we can format the team dynamically
-					if ( loc->teamowner ) {
-						if ( ent->client->ps.persistant[PERS_TEAM] == loc->teamowner ) {
-							Com_sprintf( locationBuffer, locationBufferSize, "Our %s", loc->message );
-						} else {
-							Com_sprintf( locationBuffer, locationBufferSize, "Enemy %s", loc->message );
-						}
-					} else {
-						Q_strncpyz( locationBuffer, loc->message, locationBufferSize );
-					}
-				}
-
-				resultIndex = loc->cs_index;
-			}
-		}
-
-		kd_res_free( nearest );
-
-		return resultIndex;
-	} else if ( level.locations.legacy.num ) {
-		// using legacy locations
-		legacyLocation_t	*loc, *best;
-		vec_t				bestlen, len;
-		int					i;
-
-		best = NULL;
-		bestlen = 3 * 8192.0*8192.0;
-
-		for ( i = 0; i < level.locations.legacy.num; i++ ) {
-			loc = &level.locations.legacy.data[i];
-
-			len = DistanceSquared( origin, loc->origin );
-
-			if ( len > bestlen ) {
-				continue;
-			}
-
-			if ( !trap_InPVS( origin, loc->origin ) ) {
-				continue;
-			}
-
-			bestlen = len;
-			best = loc;
-		}
-
-		if ( best ) {
-			if ( locationBuffer ) {
-				if ( best->count ) {
-					Com_sprintf( locationBuffer, locationBufferSize, "%c%c%s" S_COLOR_WHITE, Q_COLOR_ESCAPE, best->count + '0', best->message );
-				} else {
-					Com_sprintf( locationBuffer, locationBufferSize, "%s", best->message );
-				}
-			}
-
-			return best->cs_index;
-		}
-	}
-
-	return 0;
 }
 
 /*---------------------------------------------------------------------------*/

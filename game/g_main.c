@@ -341,7 +341,8 @@ vmCvar_t	g_balanceSeeing;
 
 vmCvar_t	g_autoSendScores;
 
-vmCvar_t	g_autoGenerateLocations;
+vmCvar_t	g_lineOfSightLocations;
+vmCvar_t	g_lineOfSightLocations_generate;
 vmCvar_t	g_enableChatLocations;
 
 vmCvar_t	g_breakRNG;
@@ -419,6 +420,7 @@ vmCvar_t	g_allowReady;
 vmCvar_t    g_restart_countdown;
 
 vmCvar_t    g_enableBoon;
+vmCvar_t	g_enableMemePickups;
 vmCvar_t    g_maxstatusrequests;
 vmCvar_t	g_testdebug; //for tmp debug
 vmCvar_t	g_rconpassword;
@@ -780,7 +782,8 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_autoSendScores, "g_autoSendScores", "2000", CVAR_ARCHIVE, 0, qtrue },
 
-	{ &g_autoGenerateLocations, "g_autoGenerateLocations", "1", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_lineOfSightLocations, "g_lineOfSightLocations", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
+	{ &g_lineOfSightLocations_generate, "g_lineOfSightLocations_generate", "0", CVAR_TEMP | CVAR_LATCH, 0, qtrue },
 	{ &g_enableChatLocations, "g_enableChatLocations", "0", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_breakRNG, "g_breakRNG", "0", CVAR_ARCHIVE, 0, qtrue },
@@ -869,6 +872,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_dlURL,	"g_dlURL"	, ""	, CVAR_SYSTEMINFO, 0, qtrue },
 
 	{ &g_enableBoon,	"g_enableBoon"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
+	{ &g_enableMemePickups,	"g_enableMemePickups", "1"	, CVAR_LATCH, 0, qtrue },
 
 	{ &g_vote_tierlist, "g_vote_tierlist", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_tierlist_s_min, "g_vote_tierlist_s_min", "2", CVAR_ARCHIVE, 0, qtrue },
@@ -1978,6 +1982,7 @@ void G_ShutdownGame( int restart ) {
 	ListClear(&level.redPlayerTickList);
 	ListClear(&level.bluePlayerTickList);
 	ListClear(&level.disconnectedPlayerList);
+	ListClear(&level.info_b_e_locationsList);
 
 	iterator_t iter;
 	ListIterate(&level.statsList, &iter, qfalse);

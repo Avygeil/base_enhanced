@@ -2912,6 +2912,13 @@ void FinishSpawningItem( gentity_t *ent ) {
 		}
 	}
 
+	if (ent->item->giType == IT_WEAPON && !g_enableMemePickups.integer) {
+		if (ent->item->giTag == WP_MELEE || ent->item->giTag == WP_SABER || ent->item->giTag == WP_BRYAR_PISTOL || ent->item->giTag == WP_STUN_BATON) {
+			G_FreeEntity(ent);
+			return;
+		}
+	}
+
 	if (g_gametype.integer == GT_DUEL || g_gametype.integer == GT_POWERDUEL)
 	{
 		if ( ent->item->giType == IT_ARMOR ||

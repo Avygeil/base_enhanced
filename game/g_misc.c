@@ -46,6 +46,8 @@ void SP_info_b_e_location( gentity_t *self ) {
 		return;
 	}
 
+	Location_AddLocationEntityToList(self);
+
 	if ( level.locations.enhanced.numUnique >= MAX_LOCATIONS ) {
 		if ( !didwarn ) {
 			G_Printf( "Maximum info_b_e_locations hit (%d)! Remaining locations will be removed.\n", MAX_LOCATIONS );
