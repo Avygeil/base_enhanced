@@ -1837,8 +1837,9 @@ typedef struct {
 		} legacy;
 
 		struct {
+			qboolean usingLineOfSightLocations;
 			int numUnique; // two locations with the same message make an unique location, so this is at most MAX_LOCATIONS
-			int numTotal; // how many entities were parsed in total, duplicates included
+			uint64_t numTotal; // how many entities were parsed in total, duplicates included
 			enhancedLocation_t data[MAX_LOCATIONS];
 			void *lookupTree; // k-d tree for fast lookup, multiple nodes may point to the same data[n]
 		} enhanced;
@@ -1863,6 +1864,7 @@ typedef struct {
 	list_t			cachedPositionStats;
 	list_t			cachedPositionStatsRaw;
 	list_t			disconnectedPlayerList;
+	list_t			info_b_e_locationsList;
 
 #ifdef NEWMOD_SUPPORT
 	qboolean nmAuthEnabled;
@@ -1904,6 +1906,13 @@ typedef struct {
 	double lastRelativeStrength[4];
 	int lastPlayerTickAddedTime;
 	list_t rustyPlayersList;
+
+	struct {
+		qboolean valid;
+		float value;
+	} pitHeight;
+
+	float locationAccuracy;
 } level_locals_t;
 
 
@@ -2032,6 +2041,20 @@ void Touch_Item (gentity_t *ent, gentity_t *other, trace_t *trace);
 void ClearRegisteredItems( void );
 void RegisterItem( gitem_t *item );
 void SaveRegisteredItems( void );
+
+//
+// g_location.c
+//
+typedef struct {
+	node_t	node;
+	vec3_t	origin;
+	char	message[MAX_LOCATION_CHARS];
+	int		teamowner;
+} info_b_e_location_listItem_t;
+void Location_ResetLookupTree(void);
+void Location_AddLocationEntityToList(gentity_t *ent);
+int Team_GetLocation(gentity_t *ent, char *locationBuffer, size_t locationBufferSize);
+void G_LinkLocations(void);
 
 //
 // g_utils.c
@@ -2975,7 +2998,8 @@ extern vmCvar_t		g_balanceSeeing;
 
 extern vmCvar_t		g_autoSendScores;
 
-extern vmCvar_t		g_autoGenerateLocations;
+extern vmCvar_t		g_lineOfSightLocations;
+extern vmCvar_t		g_lineOfSightLocations_generate;
 extern vmCvar_t		g_enableChatLocations;
 
 // flags for g_randFix
@@ -3030,6 +3054,7 @@ extern vmCvar_t	g_accountsFile;
 
 extern vmCvar_t    g_whitelist;
 extern vmCvar_t    g_enableBoon;
+extern vmCvar_t    g_enableMemePickups;
 extern vmCvar_t    g_maxstatusrequests;
 extern vmCvar_t	   g_logrcon;
 extern vmCvar_t	   g_flags_overboarding;

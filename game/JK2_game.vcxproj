@@ -108,6 +108,7 @@
     <ClCompile Include="g_exphysics.c" />
     <ClCompile Include="g_ICARUScb.c" />
     <ClCompile Include="g_items.c" />
+    <ClCompile Include="g_location.c" />
     <ClCompile Include="g_log.c" />
     <ClCompile Include="g_main.c" />
     <ClCompile Include="g_mem.c" />
@@ -319,6 +320,7 @@
       <AssemblerOutput>All</AssemblerOutput>
       <CompileAs>Default</CompileAs>
       <PreprocessToFile>false</PreprocessToFile>
+      <LanguageStandard_C>Default</LanguageStandard_C>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>_Debug;%(PreprocessorDefinitions)</PreprocessorDefinitions>
