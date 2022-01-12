@@ -2579,10 +2579,30 @@ void Cmd_Where_f( gentity_t *ent ) {
 		return;
 
 	char *extra = "";
+	if (g_gametype.integer == GT_CTF) {
 #ifdef _DEBUG
-	if (g_gametype.integer == GT_CTF)
 		extra = va("\nLocation value: %.3f", GetCTFLocationValue(ent));
 #endif
+		static qboolean initialized = qfalse, valid = qfalse;
+		static float redFs[2] = { 0, 0 }, blueFs[2] = { 0, 0 };
+		if (!initialized) {
+			initialized = qtrue;
+			gentity_t temp;
+			VectorCopy(vec3_origin, temp.r.currentOrigin);
+			gentity_t *redFsEnt = G_ClosestEntity(&temp, isRedFlagstand);
+			gentity_t *blueFsEnt = G_ClosestEntity(&temp, isBlueFlagstand);
+			if (redFsEnt && blueFsEnt) {
+				valid = qtrue;
+				redFs[0] = redFsEnt->r.currentOrigin[0];
+				redFs[1] = redFsEnt->r.currentOrigin[1];
+				blueFs[0] = blueFsEnt->r.currentOrigin[0];
+				blueFs[1] = blueFsEnt->r.currentOrigin[1];
+			}
+		}
+		if (valid) {
+			extra = va("%s\nDistance between flagstands: %d", extra, (int)Distance2D(redFs, blueFs));
+		}
+	}
 
 	trap_SendServerCommand( ent - g_entities, va( "print \"Origin: %s ; Yaw: %.3f degrees%s\n\"", vtos( ent->client->ps.origin ), ent->client->ps.viewangles[YAW], extra ) );
 }
