@@ -2830,6 +2830,8 @@ static int AccountFlagName2Bitflag(const char* flagName) {
 		return ACCOUNTFLAG_VOTETROLL;
 	} else if (!Q_stricmp(flagName, "RatePlayers")) {
 		return ACCOUNTFLAG_RATEPLAYERS;
+	} else if (!Q_stricmp(flagName, "InstapauseBlacklist")) {
+		return ACCOUNTFLAG_INSTAPAUSE_BLACKLIST;
 	}
 
 	return 0;
@@ -2845,7 +2847,7 @@ const char* AccountBitflag2FlagName(int bitflag) {
 		case ACCOUNTFLAG_AIMPACKEDITOR: return "AimPackEditor";
 		case ACCOUNTFLAG_AIMPACKADMIN: return "AimPackAdmin";
 		case ACCOUNTFLAG_VOTETROLL: return "VoteTroll";
-		case ACCOUNTFLAG_RATEPLAYERS: return "RatePlayers";
+		case ACCOUNTFLAG_INSTAPAUSE_BLACKLIST: return "InstapauseBlacklist";
 		default: return NULL;
 	}
 }
@@ -3014,7 +3016,7 @@ void Svcmd_Account_f( void ) {
 
 			if ( trap_Argc() < 4 ) {
 				G_Printf( "Usage:^3 account toggleflag <username> <flag>^7\n" );
-				G_Printf( "Available flags: Admin, VerboseRcon, AimPackEditor, AimPackAdmin, VoteTroll\n" );
+				G_Printf( "Available flags: Admin, VerboseRcon, AimPackEditor, AimPackAdmin, VoteTroll, InstapauseBlacklist\n" );
 				return;
 			}
 

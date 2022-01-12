@@ -1919,13 +1919,14 @@ typedef struct {
 //
 // g_accounts.c
 //
-#define ACCOUNTFLAG_ADMIN			( 1 << 0 )
-#define ACCOUNTFLAG_RCONLOG			( 1 << 1 )
-#define ACCOUNTFLAG_ENTERSPAMMER	( 1 << 2 )
-#define ACCOUNTFLAG_AIMPACKEDITOR	( 1 << 3 )
-#define ACCOUNTFLAG_AIMPACKADMIN	( 1 << 4 )
-#define ACCOUNTFLAG_VOTETROLL		( 1 << 5 )
-#define ACCOUNTFLAG_RATEPLAYERS		( 1 << 6 )
+#define ACCOUNTFLAG_ADMIN					( 1 << 0 )
+#define ACCOUNTFLAG_RCONLOG					( 1 << 1 )
+#define ACCOUNTFLAG_ENTERSPAMMER			( 1 << 2 )
+#define ACCOUNTFLAG_AIMPACKEDITOR			( 1 << 3 )
+#define ACCOUNTFLAG_AIMPACKADMIN			( 1 << 4 )
+#define ACCOUNTFLAG_VOTETROLL				( 1 << 5 )
+#define ACCOUNTFLAG_RATEPLAYERS				( 1 << 6 )
+#define ACCOUNTFLAG_INSTAPAUSE_BLACKLIST	( 1 << 7 )
 
 typedef void( *ListSessionsCallback )( void *ctx,
 	const sessionReference_t sessionRef,

@@ -2140,11 +2140,25 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, q
 		mode = SAY_ALL;
 	}
 
-	// allow typing "pause" in the chat to quickly call a pause vote
-	if (ent->client->sess.sessionTeam != TEAM_SPECTATOR && mode != SAY_TELL && !Q_stricmpn(chatText, "pause", 5) && strlen(chatText) <= 6 && g_quickPauseChat.integer) // allow a small typo at the end
-		Cmd_CallVote_f(ent, PAUSE_PAUSED);
-	else if (ent->client->sess.sessionTeam != TEAM_SPECTATOR && mode != SAY_TELL && !Q_stricmpn(chatText, "unpause", 7) && strlen(chatText) <= 8 && g_quickPauseChat.integer) // allow a small typo at the end
+	// allow typing "pause" in the chat to instapause or call a pause vote
+	if (!Q_stricmpn(chatText, "pause", 5) && ent->client->sess.sessionTeam != TEAM_SPECTATOR && !ent->client->sess.inRacemode && mode != SAY_TELL && strlen(chatText) <= 6 && g_quickPauseChat.integer) {// allow a small typo at the end
+		// allow setting g_quickPauseChat to 2 for callvote-only mode
+		if (g_quickPauseChat.integer != 2 && ent->client->account && !(ent->client->account->flags & ACCOUNTFLAG_INSTAPAUSE_BLACKLIST)) {
+			// instapause
+			level.pause.state = PAUSE_PAUSED;
+			level.pause.time = level.time + 120000; // pause for 2 minutes
+			PrintIngame(-1, "Pause requested by %s^7.\n", ent->client->pers.netname);
+			Com_Printf("Pausing upon chat request by %s^7.\n", ent->client->pers.netname);
+		}
+		else {
+			// just call a vote
+			Cmd_CallVote_f(ent, PAUSE_PAUSED);
+		}
+	}
+	else if (!Q_stricmpn(chatText, "unpause", 7) && ent->client->sess.sessionTeam != TEAM_SPECTATOR && !ent->client->sess.inRacemode && mode != SAY_TELL && strlen(chatText) <= 8 && g_quickPauseChat.integer) { // allow a small typo at the end
+		// unpause isn't time-sensitive, so we always call a vote
 		Cmd_CallVote_f(ent, PAUSE_UNPAUSING);
+	}
 
 	if (!force && ent->client->account && ent->client->account->flags & ACCOUNTFLAG_ENTERSPAMMER) {
 		if (mode == SAY_ALL) {
