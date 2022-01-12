@@ -5188,7 +5188,9 @@ static void GetRustiness(void) {
 }
 
 static void GetMostPlayedPositions(void);
-//#define FAST_START // uncomment to force loading from cache instead of recalculating
+#ifdef _DEBUG
+#define FAST_START // uncomment to force loading from cache instead of recalculating
+#endif
 
 // if the map was not restarted and either it's the very first map or sessions/stats have been modified (admin linked sessions or a pug happened), we recalculate everything from scratch
 // otherwise, we just load the cached strings from the database for speed
@@ -5199,6 +5201,7 @@ void G_DBInitializePugStatsCache(void) {
 	qboolean recalculate = (!level.wasRestarted && (g_shouldReloadPlayerPugStats.integer || !g_notFirstMap.integer));
 
 #if defined(_DEBUG) && defined(FAST_START)
+	Com_Printf("Debug build; using FAST_START.\n");
 	recalculate = qfalse;
 #endif
 

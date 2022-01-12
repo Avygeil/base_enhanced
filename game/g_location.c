@@ -30,6 +30,43 @@ void Location_AddLocationEntityToList(gentity_t *ent) {
 	Q_CleanStr(add->message);
 	add->teamowner = Com_Clampi(0, 2, ent->s.teamowner);
 	VectorCopy(ent->s.origin, add->origin);
+	char *str = NULL;
+
+	G_SpawnString("min_x", "", &str);
+	if (VALIDSTRING(str)) {
+		add->min[0].value = atof(str);
+		add->min[0].valid = qtrue;
+	}
+
+	G_SpawnString("min_y", "", &str);
+	if (VALIDSTRING(str)) {
+		add->min[1].value = atof(str);
+		add->min[1].valid = qtrue;
+	}
+
+	G_SpawnString("min_z", "", &str);
+	if (VALIDSTRING(str)) {
+		add->min[2].value = atof(str);
+		add->min[2].valid = qtrue;
+	}
+
+	G_SpawnString("max_x", "", &str);
+	if (VALIDSTRING(str)) {
+		add->max[0].value = atof(str);
+		add->max[0].valid = qtrue;
+	}
+
+	G_SpawnString("max_y", "", &str);
+	if (VALIDSTRING(str)) {
+		add->max[1].value = atof(str);
+		add->max[1].valid = qtrue;
+	}
+
+	G_SpawnString("max_z", "", &str);
+	if (VALIDSTRING(str)) {
+		add->max[2].value = atof(str);
+		add->max[2].valid = qtrue;
+	}
 }
 
 qboolean isRedFlagstand(gentity_t *ent) {
@@ -344,25 +381,26 @@ static qboolean PointsAreOnOppositeSidesOfMap(vec3_t pointA, vec3_t pointB) {
 }
 
 #define MAX_LINE_OF_SIGHT_DISTANCE		(1500.0f) // beyond this distance from an entity we just use proximity
+#define Z_AXIS_BOOST					(110.0f)
 
-static qboolean ClosestEntityInLineOfSight(vec3_t point, enhancedLocation_t *locOut) {
+static qboolean ClosestEntityInLineOfSight(vec3_t point, vec3_t tracePoint, enhancedLocation_t *locOut) {
 	float closestDistance = MAX_LINE_OF_SIGHT_DISTANCE; // ignore entities farther than this
 	qboolean gotOne = qfalse;
-	if (g_lineOfSightLocations_generate.integer != 2) {
+	if (!level.generateLocationsWithInfo_b_e_locationsOnly) {
 		for (int i = MAX_CLIENTS; i < ENTITYNUM_MAX_NORMAL; i++) {
 			gentity_t *ent = &g_entities[i];
 			enhancedLocation_t loc = { 0 };
 			if (!MakeEnhancedLocation(ent, &loc))
 				continue; // not a valid entity for locations
 
-			float dist = Distance(point, ent->r.currentOrigin);
+			float dist = Distance(tracePoint, ent->r.currentOrigin);
 			if (dist >= closestDistance)
 				continue; // farther away than current best
 
-			if (PointsAreOnOppositeSidesOfMap(point, ent->r.currentOrigin))
+			if (PointsAreOnOppositeSidesOfMap(tracePoint, ent->r.currentOrigin))
 				continue; // on opposite sides of the map
 
-			if (!IsPointVisible(point, ent->r.currentOrigin))
+			if (!IsPointVisible(tracePoint, ent->r.currentOrigin))
 				continue; // check visibility last to avoid unnecessary tracing
 
 			memcpy(locOut, &loc, sizeof(enhancedLocation_t));
@@ -375,40 +413,49 @@ static qboolean ClosestEntityInLineOfSight(vec3_t point, enhancedLocation_t *loc
 	ListIterate(&level.info_b_e_locationsList, &iter, qfalse);
 	while (IteratorHasNext(&iter)) {
 		info_b_e_location_listItem_t *listItem = (info_b_e_location_listItem_t *)IteratorNext(&iter);
-		float dist = Distance(point, listItem->origin);
+		for (int i = 0; i < 3; i++) {
+			if (listItem->min[i].valid && point[i] < listItem->min[i].value)
+				goto nextClosestLocInLineOfSight;
+			if (listItem->max[i].valid && point[i] > listItem->max[i].value)
+				goto nextClosestLocInLineOfSight;
+		}
+
+		float dist = Distance(tracePoint, listItem->origin);
 		if (dist >= closestDistance)
 			continue; // farther away than current best
 
-		if (PointsAreOnOppositeSidesOfMap(point, listItem->origin))
+		if (PointsAreOnOppositeSidesOfMap(tracePoint, listItem->origin))
 			continue; // on opposite sides of the map
 
-		if (!IsPointVisible(point, listItem->origin))
+		if (!IsPointVisible(tracePoint, listItem->origin))
 			continue; // check visibility last to avoid unnecessary tracing
 
 		locOut->teamowner = listItem->teamowner;
 		Q_strncpyz(locOut->message, listItem->message, sizeof(locOut->message));
 		closestDistance = dist;
 		gotOne = qtrue;
+
+		nextClosestLocInLineOfSight:;
 	}
 
 	return gotOne;
 }
 
-static qboolean ClosestEntity(vec3_t point, enhancedLocation_t *locOut) {
+static qboolean ClosestEntity(vec3_t point, vec3_t tracePoint, enhancedLocation_t *locOut) {
 	float closestDistance = 9999999;
 	qboolean gotOne = qfalse;
-	if (g_lineOfSightLocations_generate.integer != 2) {
+	if (!level.generateLocationsWithInfo_b_e_locationsOnly) {
 		for (int i = MAX_CLIENTS; i < ENTITYNUM_MAX_NORMAL; i++) {
 			gentity_t *ent = &g_entities[i];
 			enhancedLocation_t loc = { 0 };
 			if (!MakeEnhancedLocation(ent, &loc))
 				continue; // not a valid entity for locations
 
-			float dist = Distance(point, ent->r.currentOrigin);
+			float dist = Distance(tracePoint, ent->r.currentOrigin);
 			if (dist >= closestDistance)
 				continue; // farther away than current best
 
-			if (PointsAreOnOppositeSidesOfMap(point, ent->r.currentOrigin))
+			if (PointsAreOnOppositeSidesOfMap(tracePoint, ent->r.currentOrigin))
 				continue; // on opposite sides of the map
 
 			memcpy(locOut, &loc, sizeof(enhancedLocation_t));
@@ -421,17 +468,26 @@ static qboolean ClosestEntity(vec3_t point, enhancedLocation_t *locOut) {
 	ListIterate(&level.info_b_e_locationsList, &iter, qfalse);
 	while (IteratorHasNext(&iter)) {
 		info_b_e_location_listItem_t *listItem = (info_b_e_location_listItem_t *)IteratorNext(&iter);
-		float dist = Distance(point, listItem->origin);
+		for (int i = 0; i < 3; i++) {
+			if (listItem->min[i].valid && point[i] < listItem->min[i].value)
+				goto nextClosestLoc;
+			if (listItem->max[i].valid && point[i] > listItem->max[i].value)
+				goto nextClosestLoc;
+		}
+
+		float dist = Distance(tracePoint, listItem->origin);
 		if (dist >= closestDistance)
 			continue; // farther away than current best
 
-		if (PointsAreOnOppositeSidesOfMap(point, listItem->origin))
+		if (PointsAreOnOppositeSidesOfMap(tracePoint, listItem->origin))
 			continue; // on opposite sides of the map
 
 		locOut->teamowner = listItem->teamowner;
 		Q_strncpyz(locOut->message, listItem->message, sizeof(locOut->message));
 		closestDistance = dist;
 		gotOne = qtrue;
+
+		nextClosestLoc:;
 	}
 
 	return gotOne;
@@ -653,10 +709,10 @@ static void GenerateLineOfSightLocations(void) {
 
 	// iterate through all locationable entities, saving their names+owners and determining the mins/maxs of the map
 	float lowest[3] = { 9999999 }, highest[3] = { -9999999 };
-	int numUnique = 1, numAutoGenerated = 1, numInfo_b_e_locations = 0;
+	int numUnique = 1, numAutoGenerated = 0, numInfo_b_e_locations = 0;
 	Q_strncpyz(data.locationNames[pitLocationIndex], "Pit", sizeof(data.locationNames[pitLocationIndex]));
 	Com_Printf("Got location[0] for Pit\n");
-	if (g_lineOfSightLocations_generate.integer != 2) {
+	if (!level.generateLocationsWithInfo_b_e_locationsOnly) {
 		for (int i = MAX_CLIENTS; i < ENTITYNUM_MAX_NORMAL; i++) {
 			gentity_t *ent = &g_entities[i];
 			/*if (VALIDSTRING(ent->classname))
@@ -742,7 +798,7 @@ static void GenerateLineOfSightLocations(void) {
 		return;
 	}
 
-	Com_Printf("Got %d unique locations from %d entities and %d info_b_e_locations.\n", numUnique, numAutoGenerated, numInfo_b_e_locations);
+	Com_Printf("Got %d unique locations from pit, %d entities and %d info_b_e_locations.\n", numUnique, numAutoGenerated, numInfo_b_e_locations);
 
 	// set the mins and dimension sizes
 	for (int i = 0; i < 3; i++) {
@@ -813,15 +869,14 @@ static void GenerateLineOfSightLocations(void) {
 
 				// we actually check from a point a bit above your head
 				trace_t tr;
-				const float zAxisBoost = 110.0f;
-				float up[3] = { x, y, z + zAxisBoost };
+				float up[3] = { x, y, z + Z_AXIS_BOOST };
 				trap_Trace(&tr, point, NULL, NULL, up, ENTITYNUM_NONE, MASK_SOLID);
 
 				// get the best location for this point
 				enhancedLocation_t loc = { 0 };
-				qboolean gotEnt = ClosestEntityInLineOfSight(tr.endpos, &loc);
+				qboolean gotEnt = ClosestEntityInLineOfSight(point, tr.endpos, &loc);
 				if (!gotEnt) { // nothing in line of sight; try again just by proximity
-					gotEnt = ClosestEntity(tr.endpos, &loc);
+					gotEnt = ClosestEntity(point, tr.endpos, &loc);
 					if (!gotEnt) {
 						DeletePoint(arrPoint);
 						continue; // still no valid ent??? should not be possible
@@ -1033,12 +1088,13 @@ static qboolean LinkLineOfSightLocations(void) {
 *		if maps/mapname.enhancedlocations exists, use the locations from that file
 *		else:
 *			if g_lineOfSightLocations_generate is enabled, generate locations and save to disk as maps/mapname.enhancedlocations
-*				g_lineOfSightLocations_generate 1 = generate locations from both entities and info_b_e_locations
-*				g_lineOfSightLocations_generate 2 = generate locations from info_b_e_locations only
+*				by default, generates locations from both entities and info_b_e_locations
+*				"locationsonly" key in worldspawn = generate locations from info_b_e_locations only
 *				"locationaccuracy" key in worldspawn = space between points on any given axis
 *					set lower for better accuracy at the cost of longer build time, larger disk space, and longer load time
 *				"pitheight" key in worldspawn = if your z-axis origin is below this, you are in the pit
 *					you can also create "Pit" locations using info_b_e_locations
+*				you can also set min_x, min_y, min_z, max_x, max_y, max_z keys in info_b_e_locations
 *			else:
 *				if proximity system is valid, use it
 *				else, use legacy system

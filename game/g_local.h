@@ -1913,6 +1913,7 @@ typedef struct {
 	} pitHeight;
 
 	float locationAccuracy;
+	qboolean generateLocationsWithInfo_b_e_locationsOnly;
 } level_locals_t;
 
 
@@ -2050,6 +2051,14 @@ typedef struct {
 	node_t	node;
 	vec3_t	origin;
 	char	message[MAX_LOCATION_CHARS];
+	struct {
+		qboolean	valid;
+		float		value;
+	} min[3];
+	struct {
+		qboolean	valid;
+		float		value;
+	} max[3];
 	int		teamowner;
 } info_b_e_location_listItem_t;
 void Location_ResetLookupTree(void);

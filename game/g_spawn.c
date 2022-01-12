@@ -1339,6 +1339,9 @@ void SP_worldspawn( void )
 	if (level.locationAccuracy < 1.0f)
 		level.locationAccuracy = 1.0f;
 
+	G_SpawnInt("locationsonly", "0", &i);
+	level.generateLocationsWithInfo_b_e_locationsOnly = !!i;
+
 	G_SpawnInt("b_e_instagib", "0", &i);
 	level.instagibMap = !!i;
 
