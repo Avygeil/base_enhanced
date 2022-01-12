@@ -1211,7 +1211,8 @@ int Team_GetLocation(gentity_t *ent, char *locationBuffer, size_t locationBuffer
 			}
 		}
 
-		kd_res_free(nearest);
+		if (nearest)
+			kd_res_free(nearest);
 
 		return resultIndex;
 	}
