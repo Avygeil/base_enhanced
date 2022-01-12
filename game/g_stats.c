@@ -2220,6 +2220,7 @@ static statsHelp_t helps[] = { // important: make sure any new stats do not conf
 	{ STATS_TABLE_GENERAL, "^5Heal", "Team heal", "Amount of allies' health you replenished with team heal"},
 	{ STATS_TABLE_GENERAL, "^6TE", "Team energize", "Amount of allies' force power you replenished with team energize"},
 	{ STATS_TABLE_GENERAL, "^6TE Eff", "Team energize efficiency", "Efficiency of your team energize usage (highest amount anyone was energized ÷ maximum amount anyone could have been energized)"},
+	{ STATS_TABLE_GENERAL, "^6Rcvd", "Team energize received", "Amount of force power you had replenished by allies with team energize"},
 	{ STATS_TABLE_GENERAL, "^5EnemyNrg", "Enemy energize", "Force power given to enemies using absorb"},
 	{ STATS_TABLE_GENERAL, "^5Abs", "Absorb", "Force power absorbed from enemies"},
 	{ STATS_TABLE_GENERAL, "^2Prot", "Protect damage", "Damage avoided using protect"},
