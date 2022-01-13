@@ -1156,6 +1156,29 @@ int Pickup_Team( gentity_t *ent, gentity_t *other ) {
 	return Team_TouchEnemyFlag( ent, other, team );
 }
 
+gentity_t *oldSpawn = NULL;
+int SortSpotsByDistance(const void *a, const void *b) {
+	if (!oldSpawn)
+		return 0; // shouldn't happen
+
+	gentity_t *aa = *((gentity_t **)a);
+	gentity_t *bb = *((gentity_t **)b);
+
+	if (aa == oldSpawn)
+		return 1;
+	else if (bb == oldSpawn)
+		return -1;
+
+	float aDist = Distance2D(oldSpawn->s.origin, aa->s.origin);
+	float bDist = Distance2D(oldSpawn->s.origin, bb->s.origin);
+
+	if (aDist < bDist)
+		return 1;
+	else if (bDist < aDist)
+		return -1;
+	return 0;
+}
+
 /*---------------------------------------------------------------------------*/
 
 /*
@@ -1280,9 +1303,12 @@ gentity_t *SelectRandomTeamSpawnPoint( gclient_t *client, int teamstate, team_t 
 		}
 	}
 
-	// remove our previous spawnpoint from consideration if we spawned there within a few seconds ago and selfkilled
-	if (g_gametype.integer == GT_CTF && count && g_selfKillSpawnSpamProtection.integer > 0 && client &&
-		client->pers.lastKiller == &g_entities[client - level.clients] && level.time - client->pers.lastSpawnTime < (1000 * g_selfKillSpawnSpamProtection.integer)) {
+#define SPAWN_SPAM_PROTECT_TIME		(5000)
+
+	if (g_gametype.integer == GT_CTF && count && g_selfKillSpawnSpamProtection.integer && g_selfKillSpawnSpamProtection.integer != 2 && client &&
+		client->pers.lastKiller == &g_entities[client - level.clients] && level.time - client->pers.lastSpawnTime < SPAWN_SPAM_PROTECT_TIME) {
+		// g_selfKillSpawnSpamProtection 1
+		// remove our previous spawnpoint from consideration if we spawned there within a few seconds ago and selfkilled
 		for (int i = 0; i < count; i++) {
 			if (spots[i] != client->pers.lastSpawnPoint)
 				continue;
@@ -1292,6 +1318,14 @@ gentity_t *SelectRandomTeamSpawnPoint( gclient_t *client, int teamstate, team_t 
 			--count;
 			break;
 		}
+	}
+	else if (g_gametype.integer == GT_CTF && count > 1 && g_selfKillSpawnSpamProtection.integer == 2 && client &&
+		client->pers.lastKiller == &g_entities[client - level.clients] && level.time - client->pers.lastSpawnTime < SPAWN_SPAM_PROTECT_TIME && client->pers.lastSpawnPoint) {
+		// g_selfKillSpawnSpamProtection 2
+		// remove the 50% of spawns closest to our last spawn point
+		oldSpawn = client->pers.lastSpawnPoint;
+		qsort(spots, count, sizeof(gentity_t *), SortSpotsByDistance);
+		count /= 2;
 	}
 
 	if ( !count ) {	// no valid spot

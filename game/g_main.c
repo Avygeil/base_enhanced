@@ -812,7 +812,7 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_droppedFlagSpawnProtectionRadius, "g_droppedFlagSpawnProtectionRadius", "1024", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_droppedFlagSpawnProtectionDuration, "g_droppedFlagSpawnProtectionDuration", "10000", CVAR_ARCHIVE, 0, qtrue },
-	{ &g_selfKillSpawnSpamProtection, "g_selfKillSpawnSpamProtection", "5", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_selfKillSpawnSpamProtection, "g_selfKillSpawnSpamProtection", "1", CVAR_ARCHIVE, 0, qtrue },
 
 #ifdef NEWMOD_SUPPORT
 	{ &g_netUnlock, "g_netUnlock", "1", CVAR_ARCHIVE, 0, qtrue },
