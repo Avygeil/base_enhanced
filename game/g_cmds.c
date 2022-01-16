@@ -2140,6 +2140,9 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, q
 		mode = SAY_ALL;
 	}
 
+	if (mode == SAY_TEAM && VALIDSTRING(chatText) && Q_stristrclean(chatText, "TE please or TH if i am fully energized and health is low"))
+		chatText = "^1$H ^5$F ^7$L";
+
 	// allow typing "pause" in the chat to instapause or call a pause vote
 	if (!Q_stricmpn(chatText, "pause", 5) && ent->client->sess.sessionTeam != TEAM_SPECTATOR && !ent->client->sess.inRacemode && mode != SAY_TELL && strlen(chatText) <= 6 && g_quickPauseChat.integer) {// allow a small typo at the end
 		// allow setting g_quickPauseChat to 2 for callvote-only mode
