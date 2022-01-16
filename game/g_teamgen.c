@@ -148,7 +148,6 @@ static XXH32_hash_t HashTeam(permutationOfTeams_t *t) {
 }
 
 typedef struct {
-	int guaranteedPlayersMask;
 	permutationOfTeams_t *best;
 	void *callback;
 	qboolean enforceChaseRule;
@@ -172,19 +171,6 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 	if (!team1base->rating[CTFPOSITION_BASE] || !team1chase->rating[CTFPOSITION_CHASE] || !team1offense1->rating[CTFPOSITION_OFFENSE] || !team1offense2->rating[CTFPOSITION_OFFENSE] ||
 		!team2base->rating[CTFPOSITION_BASE] || !team2chase->rating[CTFPOSITION_CHASE] || !team2offense1->rating[CTFPOSITION_OFFENSE] || !team2offense2->rating[CTFPOSITION_OFFENSE]) {
 		return; // at least one player is invalid on their proposed position
-	}
-
-	// if there are players that are guaranteed to be included in the teams and this permutation doesn't have them, return
-	if (context->guaranteedPlayersMask) {
-		for (int i = 0; i < MAX_CLIENTS; i++) {
-			if (!(context->guaranteedPlayersMask & (1 << i)))
-				continue;
-
-			if (team1base->clientNum != i && team1chase->clientNum != i && team1offense1->clientNum != i && team1offense2->clientNum != i &&
-				team2base->clientNum != i && team2chase->clientNum != i && team2offense1->clientNum != i && team2offense2->clientNum != i) {
-				return;
-			}
-		}
 	}
 
 	double team1RawStrength = team1base->rating[CTFPOSITION_BASE] + team1chase->rating[CTFPOSITION_CHASE] + team1offense1->rating[CTFPOSITION_OFFENSE] + team1offense2->rating[CTFPOSITION_OFFENSE];
@@ -354,19 +340,6 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 	if (!team1base->rating[CTFPOSITION_BASE] || !team1chase->rating[CTFPOSITION_CHASE] || !team1offense1->rating[CTFPOSITION_OFFENSE] || !team1offense2->rating[CTFPOSITION_OFFENSE] ||
 		!team2base->rating[CTFPOSITION_BASE] || !team2chase->rating[CTFPOSITION_CHASE] || !team2offense1->rating[CTFPOSITION_OFFENSE] || !team2offense2->rating[CTFPOSITION_OFFENSE]) {
 		return; // at least one player is invalid on their proposed position
-	}
-
-	// if there are players that are guaranteed to be included in the teams and this permutation doesn't have them, return
-	if (context->guaranteedPlayersMask) {
-		for (int i = 0; i < MAX_CLIENTS; i++) {
-			if (!(context->guaranteedPlayersMask & (1 << i)))
-				continue;
-
-			if (team1base->clientNum != i && team1chase->clientNum != i && team1offense1->clientNum != i && team1offense2->clientNum != i &&
-				team2base->clientNum != i && team2chase->clientNum != i && team2offense1->clientNum != i && team2offense2->clientNum != i) {
-				return;
-			}
-		}
 	}
 
 	double team1RawStrength = team1base->rating[CTFPOSITION_BASE] + team1chase->rating[CTFPOSITION_CHASE] + team1offense1->rating[CTFPOSITION_OFFENSE] + team1offense2->rating[CTFPOSITION_OFFENSE];
@@ -704,7 +677,7 @@ for each combination of 4 defenders:
 
 Returns the number of valid permutations evaluated.
 */
-static uint64_t PermuteTeams(permutationPlayer_t *playerArray, int numEligible, permutationOfTeams_t *bestOut, PermutationCallback callback, int guaranteedPlayersMask, qboolean enforceChaseRule) {
+static uint64_t PermuteTeams(permutationPlayer_t *playerArray, int numEligible, permutationOfTeams_t *bestOut, PermutationCallback callback, qboolean enforceChaseRule) {
 #ifdef DEBUG_GENERATETEAMS
 	clock_t start = clock();
 #endif
@@ -716,7 +689,6 @@ static uint64_t PermuteTeams(permutationPlayer_t *playerArray, int numEligible, 
 	teamGeneratorContext_t context;
 	context.best = bestOut;
 	context.callback = callback;
-	context.guaranteedPlayersMask = guaranteedPlayersMask;
 	context.enforceChaseRule = enforceChaseRule;
 	context.numEligible = numEligible;
 	context.numPermutations = 0;
@@ -909,7 +881,6 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 
 		permutationPlayer_t *players = calloc(numEligible, sizeof(permutationPlayer_t));
 		int index = 0;
-		int guaranteedPlayersMask = 0;
 		for (int i = 0; i < numEligible; i++) {
 			sortedClient_t *thisGuy = sortedClients + i;
 			permutationPlayer_t *player = players + index++;
@@ -1160,10 +1131,6 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 				player->preference = thisGuy->preferredPosFromName;
 			}
 
-			// if possible, guarantee that all currently ingame players are included
-			if (numIngame <= 8 && (thisGuy->team == TEAM_RED || thisGuy->team == TEAM_BLUE))
-				guaranteedPlayersMask |= (1 << thisGuy->clientNum);
-
 			TeamGen_DebugPrintf("%s: preference %s --- secondPreference %s --- %s base,   %s chase,   %s offense^7\n",
 				player->accountName,
 				NameForPos(player->preference),
@@ -1183,7 +1150,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 		else
 			callback = TryTeamPermutation;
 		TeamGen_DebugPrintf("^3==========Permuting teams with type %d==========^7\n", type);
-		uint64_t thisGotten = PermuteTeams(&players[0], numEligible, thisPermutation, callback, guaranteedPlayersMask, qtrue);
+		uint64_t thisGotten = PermuteTeams(&players[0], numEligible, thisPermutation, callback, qtrue);
 		if (thisGotten > gotten)
 			gotten = thisGotten;
 
@@ -1191,7 +1158,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 			// if we fail, try this teamgen type again without enforcing the chase rule
 			TeamGen_DebugPrintf("^8==========No valid permutation for type %d; trying again without chase rule==========^7\n", type);
 			thisPermutation->diff = 999999.999999;
-			thisGotten = PermuteTeams(&players[0], numEligible, thisPermutation, callback, guaranteedPlayersMask, qfalse);
+			thisGotten = PermuteTeams(&players[0], numEligible, thisPermutation, callback, qfalse);
 			if (thisGotten > gotten)
 				gotten = thisGotten;
 		}
