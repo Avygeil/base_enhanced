@@ -6268,7 +6268,11 @@ static ctfPlayerTier_t StringToPlayerRating(const char *s) {
 			--tier;
 	}
 	else if (stristr(s, "c")) {
-		tier = PLAYERRATING_C;
+		tier = PLAYERRATING_MID_C;
+		if (high)
+			++tier;
+		else if (low)
+			--tier;
 	}
 	else {
 		tier = PLAYERRATING_UNRATED;
@@ -6305,7 +6309,6 @@ static void PrintRateHelp(int clientNum) {
 		"\n^7"
 		"  - Skill levels should be equivalent between positions; i.e. S tier base == S tier chase == S tier offense. Your ratings may skew higher or lower for some positions -- do not simply assign tiers based on a curve for each position.\n"
 		"  - Only rate players on positions you have observed them play at least once. Leave people unrated on positions you haven't seen them play.^7\n"
-		"  - ''High'' and ''low'' are only for ^3slight^7 differences between players that are otherwise in the same overall tier.\n"
 		"  - Consider re-rating players over time as their skills develop.\n"
 		"  - Do not account for rust. Assume players are NOT rusty.\n");
 }
@@ -6360,7 +6363,6 @@ static void Cmd_Rating_f(gentity_t *ent) {
 		G_DBListRatingPlayers(ent->client->account->id, clientNum, CTFPOSITION_BASE);
 		OutOfBandPrint(clientNum, "\n  - Skill levels should be equivalent between positions; i.e. S tier base == S tier chase == S tier offense. Your ratings may skew higher or lower for some positions -- do not simply assign tiers based on a curve for each position.\n"
 		"  - Only rate players on positions you have observed them play at least once. Leave people unrated on positions you haven't seen them play.^7\n"
-		"  - ''High'' and ''low'' are only for ^3slight^7 differences between players that are otherwise in the same overall tier.\n"
 			"  - Consider re-rating players over time as their skills develop.\n"
 			"  - Do not account for rust. Assume players are NOT rusty.\n");
 	}
@@ -6368,7 +6370,6 @@ static void Cmd_Rating_f(gentity_t *ent) {
 		G_DBListRatingPlayers(ent->client->account->id, clientNum, CTFPOSITION_CHASE);
 		OutOfBandPrint(clientNum, "\n  - Skill levels should be equivalent between positions; i.e. S tier base == S tier chase == S tier offense. Your ratings may skew higher or lower for some positions -- do not simply assign tiers based on a curve for each position.\n"
 			"  - Only rate players on positions you have observed them play at least once. Leave people unrated on positions you haven't seen them play.^7\n"
-			"  - ''High'' and ''low'' are only for ^3slight^7 differences between players that are otherwise in the same overall tier.\n"
 			"  - Consider re-rating players over time as their skills develop.\n"
 			"  - Do not account for rust. Assume players are NOT rusty.\n");
 	}
@@ -6376,7 +6377,6 @@ static void Cmd_Rating_f(gentity_t *ent) {
 		G_DBListRatingPlayers(ent->client->account->id, clientNum, CTFPOSITION_OFFENSE);
 		OutOfBandPrint(clientNum, "\n  - Skill levels should be equivalent between positions; i.e. S tier base == S tier chase == S tier offense. Your ratings may skew higher or lower for some positions -- do not simply assign tiers based on a curve for each position.\n"
 			"  - Only rate players on positions you have observed them play at least once. Leave people unrated on positions you haven't seen them play.^7\n"
-			"  - ''High'' and ''low'' are only for ^3slight^7 differences between players that are otherwise in the same overall tier.\n"
 			"  - Consider re-rating players over time as their skills develop.\n"
 			"  - Do not account for rust. Assume players are NOT rusty.\n");
 	}
@@ -6386,7 +6386,6 @@ static void Cmd_Rating_f(gentity_t *ent) {
 		G_DBListRatingPlayers(ent->client->account->id, clientNum, CTFPOSITION_OFFENSE);
 		OutOfBandPrint(clientNum, "\n  - Skill levels should be equivalent between positions; i.e. S tier base == S tier chase == S tier offense. Your ratings may skew higher or lower for some positions -- do not simply assign tiers based on a curve for each position.\n"
 			"  - Only rate players on positions you have observed them play at least once. Leave people unrated on positions you haven't seen them play.^7\n"
-			"  - ''High'' and ''low'' are only for ^3slight^7 differences between players that are otherwise in the same overall tier.\n"
 			"  - Consider re-rating players over time as their skills develop.\n"
 			"  - Do not account for rust. Assume players are NOT rusty.\n");
 	}

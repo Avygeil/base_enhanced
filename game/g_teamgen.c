@@ -30,7 +30,9 @@ void TeamGen_Initialize(void) {
 
 double PlayerTierToRating(ctfPlayerTier_t tier) {
 	switch (tier) {
-	case PLAYERRATING_C: return 0.6;
+	case PLAYERRATING_LOW_C: return 0.5;
+	case PLAYERRATING_MID_C: return 0.55;
+	case PLAYERRATING_HIGH_C: return 0.6;
 	case PLAYERRATING_LOW_B: return 0.65;
 	case PLAYERRATING_MID_B: return 0.7;
 	case PLAYERRATING_HIGH_B: return 0.75;
@@ -51,13 +53,17 @@ ctfPlayerTier_t PlayerTierFromRating(double num) {
 	if (num >= 0.75 - 0.00001) return PLAYERRATING_HIGH_B;
 	if (num >= 0.7 - 0.00001) return PLAYERRATING_MID_B;
 	if (num >= 0.65 - 0.00001) return PLAYERRATING_LOW_B;
-	if (num >= 0.6 - 0.0001) return PLAYERRATING_C;
+	if (num >= 0.6 - 0.0001) return PLAYERRATING_HIGH_C;
+	if (num >= 0.55 - 0.0001) return PLAYERRATING_MID_C;
+	if (num >= 0.5 - 0.0001) return PLAYERRATING_LOW_C;
 	return PLAYERRATING_UNRATED;
 }
 
 char *PlayerRatingToString(ctfPlayerTier_t tier) {
 	switch (tier) {
-	case PLAYERRATING_C: return "^8C";
+	case PLAYERRATING_LOW_C: return "^8LOW C";
+	case PLAYERRATING_MID_C: return "^8C";
+	case PLAYERRATING_HIGH_C: return "^8HIGH C";
 	case PLAYERRATING_LOW_B: return "^3LOW B";
 	case PLAYERRATING_MID_B: return "^3B";
 	case PLAYERRATING_HIGH_B: return "^3HIGH B";
@@ -192,14 +198,14 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 	int topTierImbalance = abs(team1TopTiers - team2TopTiers);
 
 	int team1BottomTiers = 0, team2BottomTiers = 0;
-	if (PlayerTierFromRating(team1base->rating[CTFPOSITION_BASE]) == PLAYERRATING_C) ++team1BottomTiers;
-	if (PlayerTierFromRating(team1chase->rating[CTFPOSITION_CHASE]) == PLAYERRATING_C) ++team1BottomTiers;
-	if (PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) == PLAYERRATING_C) ++team1BottomTiers;
-	if (PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]) == PLAYERRATING_C) ++team1BottomTiers;
-	if (PlayerTierFromRating(team2base->rating[CTFPOSITION_BASE]) == PLAYERRATING_C) ++team2BottomTiers;
-	if (PlayerTierFromRating(team2chase->rating[CTFPOSITION_CHASE]) == PLAYERRATING_C) ++team2BottomTiers;
-	if (PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) == PLAYERRATING_C) ++team2BottomTiers;
-	if (PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]) == PLAYERRATING_C) ++team2BottomTiers;
+	if (PlayerTierFromRating(team1base->rating[CTFPOSITION_BASE]) <= PLAYERRATING_HIGH_C) ++team1BottomTiers;
+	if (PlayerTierFromRating(team1chase->rating[CTFPOSITION_CHASE]) <= PLAYERRATING_HIGH_C) ++team1BottomTiers;
+	if (PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) <= PLAYERRATING_HIGH_C) ++team1BottomTiers;
+	if (PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]) <= PLAYERRATING_HIGH_C) ++team1BottomTiers;
+	if (PlayerTierFromRating(team2base->rating[CTFPOSITION_BASE]) <= PLAYERRATING_HIGH_C) ++team2BottomTiers;
+	if (PlayerTierFromRating(team2chase->rating[CTFPOSITION_CHASE]) <= PLAYERRATING_HIGH_C) ++team2BottomTiers;
+	if (PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) <= PLAYERRATING_HIGH_C) ++team2BottomTiers;
+	if (PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]) <= PLAYERRATING_HIGH_C) ++team2BottomTiers;
 	int bottomTierImbalance = abs(team1BottomTiers - team2BottomTiers);
 
 	// reward permutations that put people on preferred positions (large bonus for #1 preferred; small bonus for #2 preferred)
@@ -244,7 +250,7 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 			ctfPlayerTier_t team1ChaseTier = PlayerTierFromRating(team1chase->rating[CTFPOSITION_CHASE]);
 			ctfPlayerTier_t highestTeam2OffenseTier = PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) > PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]) ? PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) : PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]);
 			int maxDiff;
-			if (team1ChaseTier == PLAYERRATING_LOW_B || team1ChaseTier == PLAYERRATING_C)
+			if (team1ChaseTier <= PLAYERRATING_LOW_B)
 				maxDiff = 2;
 			else if (highestTeam2OffenseTier == PLAYERRATING_S)
 				maxDiff = 3;
@@ -260,7 +266,7 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 			ctfPlayerTier_t team2ChaseTier = PlayerTierFromRating(team2chase->rating[CTFPOSITION_CHASE]);
 			ctfPlayerTier_t highestTeam1OffenseTier = PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) > PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]) ? PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) : PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]);
 			int maxDiff;
-			if (team2ChaseTier == PLAYERRATING_LOW_B || team2ChaseTier == PLAYERRATING_C)
+			if (team2ChaseTier <= PLAYERRATING_LOW_B)
 				maxDiff = 2;
 			else if (highestTeam1OffenseTier == PLAYERRATING_S)
 				maxDiff = 3;
@@ -361,14 +367,14 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 	int topTierImbalance = abs(team1TopTiers - team2TopTiers);
 
 	int team1BottomTiers = 0, team2BottomTiers = 0;
-	if (PlayerTierFromRating(team1base->rating[CTFPOSITION_BASE]) == PLAYERRATING_C) ++team1BottomTiers;
-	if (PlayerTierFromRating(team1chase->rating[CTFPOSITION_CHASE]) == PLAYERRATING_C) ++team1BottomTiers;
-	if (PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) == PLAYERRATING_C) ++team1BottomTiers;
-	if (PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]) == PLAYERRATING_C) ++team1BottomTiers;
-	if (PlayerTierFromRating(team2base->rating[CTFPOSITION_BASE]) == PLAYERRATING_C) ++team2BottomTiers;
-	if (PlayerTierFromRating(team2chase->rating[CTFPOSITION_CHASE]) == PLAYERRATING_C) ++team2BottomTiers;
-	if (PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) == PLAYERRATING_C) ++team2BottomTiers;
-	if (PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]) == PLAYERRATING_C) ++team2BottomTiers;
+	if (PlayerTierFromRating(team1base->rating[CTFPOSITION_BASE]) <= PLAYERRATING_HIGH_C) ++team1BottomTiers;
+	if (PlayerTierFromRating(team1chase->rating[CTFPOSITION_CHASE]) <= PLAYERRATING_HIGH_C) ++team1BottomTiers;
+	if (PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) <= PLAYERRATING_HIGH_C) ++team1BottomTiers;
+	if (PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]) <= PLAYERRATING_HIGH_C) ++team1BottomTiers;
+	if (PlayerTierFromRating(team2base->rating[CTFPOSITION_BASE]) <= PLAYERRATING_HIGH_C) ++team2BottomTiers;
+	if (PlayerTierFromRating(team2chase->rating[CTFPOSITION_CHASE]) <= PLAYERRATING_HIGH_C) ++team2BottomTiers;
+	if (PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) <= PLAYERRATING_HIGH_C) ++team2BottomTiers;
+	if (PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]) <= PLAYERRATING_HIGH_C) ++team2BottomTiers;
 	int bottomTierImbalance = abs(team1BottomTiers - team2BottomTiers);
 
 	// reward permutations that put people on preferred positions (large bonus for #1 preferred; small bonus for #2 preferred)
@@ -418,7 +424,9 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 			ctfPlayerTier_t team1ChaseTier = PlayerTierFromRating(team1chase->rating[CTFPOSITION_CHASE]);
 			ctfPlayerTier_t highestTeam2OffenseTier = PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) > PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]) ? PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) : PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]);
 			int maxDiff;
-			if (highestTeam2OffenseTier == PLAYERRATING_S || team1ChaseTier == PLAYERRATING_LOW_B || team1ChaseTier == PLAYERRATING_C)
+			if (team1ChaseTier <= PLAYERRATING_LOW_B)
+				maxDiff = 2;
+			else if (highestTeam2OffenseTier == PLAYERRATING_S)
 				maxDiff = 3;
 			else
 				maxDiff = 4;
@@ -432,7 +440,9 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 			ctfPlayerTier_t team2ChaseTier = PlayerTierFromRating(team2chase->rating[CTFPOSITION_CHASE]);
 			ctfPlayerTier_t highestTeam1OffenseTier = PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) > PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]) ? PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) : PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]);
 			int maxDiff;
-			if (highestTeam1OffenseTier == PLAYERRATING_S || team2ChaseTier == PLAYERRATING_LOW_B || team2ChaseTier == PLAYERRATING_C)
+			if (team2ChaseTier <= PLAYERRATING_LOW_B)
+				maxDiff = 2;
+			else if (highestTeam1OffenseTier == PLAYERRATING_S)
 				maxDiff = 3;
 			else
 				maxDiff = 4;
@@ -891,10 +901,10 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 			playerRating_t *positionRatings = ListFind(&level.ratingList, PlayerRatingAccountIdMatches, &findMe, NULL);
 			playerRating_t temp = { 0 };
 			qboolean gotValidRatings;
-			if (!positionRatings) { // if no ratings, assume they are C tier at everything
+			if (!positionRatings) { // if no ratings, assume they are low C tier at everything
 				positionRatings = &temp;
 				player->rating[CTFPOSITION_BASE] = player->rating[CTFPOSITION_CHASE] = player->rating[CTFPOSITION_OFFENSE] =
-					temp.rating[CTFPOSITION_BASE] = temp.rating[CTFPOSITION_CHASE] = temp.rating[CTFPOSITION_OFFENSE] = PlayerTierToRating(PLAYERRATING_C);
+					temp.rating[CTFPOSITION_BASE] = temp.rating[CTFPOSITION_CHASE] = temp.rating[CTFPOSITION_OFFENSE] = PlayerTierToRating(PLAYERRATING_LOW_C);
 				gotValidRatings = qfalse;
 			}
 			else {
@@ -938,11 +948,11 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 						thisGuy->preferredPosFromName != mostPlayedPositions->mostPlayed && thisGuy->preferredPosFromName != mostPlayedPositions->secondMostPlayed) {
 						// special case, they have two most played positions but they prefer the third one (which may not actually exist)
 
-						// use it if a rating for it actually exists; otherwise default to C tier
+						// use it if a rating for it actually exists; otherwise default to low C tier
 						if (positionRatings->rating[thisGuy->preferredPosFromName])
 							player->rating[thisGuy->preferredPosFromName] = positionRatings->rating[thisGuy->preferredPosFromName];
 						else
-							player->rating[thisGuy->preferredPosFromName] = PlayerTierToRating(PLAYERRATING_C);
+							player->rating[thisGuy->preferredPosFromName] = PlayerTierToRating(PLAYERRATING_LOW_C);
 
 						// remove their second most played from consideration entirely
 						player->rating[mostPlayedPositions->secondMostPlayed] = 0;
@@ -951,11 +961,11 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 						thisGuy->preferredPosFromName != mostPlayedPositions->mostPlayed) {
 						// special case, they only have one most played position and their preference is something other than it
 
-						// use it if a rating for it actually exists; otherwise default to C tier
+						// use it if a rating for it actually exists; otherwise default to low C tier
 						if (positionRatings->rating[thisGuy->preferredPosFromName])
 							player->rating[thisGuy->preferredPosFromName] = positionRatings->rating[thisGuy->preferredPosFromName];
 						else
-							player->rating[thisGuy->preferredPosFromName] = PlayerTierToRating(PLAYERRATING_C);
+							player->rating[thisGuy->preferredPosFromName] = PlayerTierToRating(PLAYERRATING_LOW_C);
 					}
 				}
 				else {
@@ -1008,7 +1018,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 					}
 				}
 				if (highestPos) {
-					if (PlayerTierFromRating(highestRating) == PLAYERRATING_C && mostPlayedPositions) {
+					if (PlayerTierFromRating(highestRating) == PLAYERRATING_LOW_C && mostPlayedPositions) {
 						// special case: their highest rating is a C, meaning they are C on any and all positions they have ratings on
 						// just assume that their most-played positions are higher caliber
 						player->rating[mostPlayedPositions->mostPlayed] = positionRatings->rating[mostPlayedPositions->mostPlayed];
@@ -1051,11 +1061,11 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 							thisGuy->preferredPosFromName != mostPlayedPositions->mostPlayed && thisGuy->preferredPosFromName != mostPlayedPositions->secondMostPlayed) {
 							// special case, they have two most played positions but they prefer the third one (which may not actually exist)
 
-							// use it if a rating for it actually exists; otherwise default to C tier
+							// use it if a rating for it actually exists; otherwise default to low C tier
 							if (positionRatings->rating[thisGuy->preferredPosFromName])
 								player->rating[thisGuy->preferredPosFromName] = positionRatings->rating[thisGuy->preferredPosFromName];
 							else
-								player->rating[thisGuy->preferredPosFromName] = PlayerTierToRating(PLAYERRATING_C);
+								player->rating[thisGuy->preferredPosFromName] = PlayerTierToRating(PLAYERRATING_LOW_C);
 
 							// remove their second most played from consideration entirely
 							player->rating[mostPlayedPositions->secondMostPlayed] = 0;
@@ -1064,11 +1074,11 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 							thisGuy->preferredPosFromName != mostPlayedPositions->mostPlayed) {
 							// special case, they only have one most played position and their preference is something other than it
 
-							// use it if a rating for it actually exists; otherwise default to C tier
+							// use it if a rating for it actually exists; otherwise default to low C tier
 							if (positionRatings->rating[thisGuy->preferredPosFromName])
 								player->rating[thisGuy->preferredPosFromName] = positionRatings->rating[thisGuy->preferredPosFromName];
 							else
-								player->rating[thisGuy->preferredPosFromName] = PlayerTierToRating(PLAYERRATING_C);
+								player->rating[thisGuy->preferredPosFromName] = PlayerTierToRating(PLAYERRATING_LOW_C);
 						}
 					}
 				}
@@ -2605,11 +2615,11 @@ ctfPlayerTier_t GetPlayerTierForPlayerOnPosition(int accountId, ctfPosition_t po
 	findMe.accountId = accountId;
 	playerRating_t *positionRatings = ListFind(&level.ratingList, PlayerRatingAccountIdMatches, &findMe, NULL);
 	if (!positionRatings)
-		return assumeLowTierIfUnrated ? PLAYERRATING_C : PLAYERRATING_UNRATED;
+		return assumeLowTierIfUnrated ? PLAYERRATING_LOW_C : PLAYERRATING_UNRATED;
 	
 	ctfPlayerTier_t rating = PlayerTierFromRating(positionRatings->rating[pos]);
 	if (!rating && assumeLowTierIfUnrated)
-		return PLAYERRATING_C;
+		return PLAYERRATING_LOW_C;
 	return rating;
 }
 

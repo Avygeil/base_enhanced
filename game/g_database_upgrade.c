@@ -1394,6 +1394,12 @@ static qboolean UpgradeDBToVersion15(sqlite3 *dbPtr) {
 	return sqlite3_exec(dbPtr, v15Upgrade, NULL, NULL, NULL) == SQLITE_OK;
 }
 
+const char *const v16Upgrade = "UPDATE playerratings SET rating = rating + 2;";
+
+static qboolean UpgradeDBToVersion16(sqlite3 *dbPtr) {
+	return sqlite3_exec(dbPtr, v16Upgrade, NULL, NULL, NULL) == SQLITE_OK;
+}
+
 // =============================================================================
 
 static qboolean UpgradeDB( int versionTo, sqlite3* dbPtr ) {
@@ -1414,6 +1420,7 @@ static qboolean UpgradeDB( int versionTo, sqlite3* dbPtr ) {
 		case 13: return UpgradeDBToVersion13(dbPtr);
 		case 14: return UpgradeDBToVersion14(dbPtr);
 		case 15: return UpgradeDBToVersion15(dbPtr);
+		case 16: return UpgradeDBToVersion16(dbPtr);
 ;		default:
 			Com_Printf( "ERROR: Unsupported database upgrade routine\n" );
 	}

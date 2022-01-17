@@ -5330,42 +5330,6 @@ qboolean G_DBDeleteAllRatingsForPosition(int raterAccountId, ctfPosition_t pos) 
 	return !!(rc == SQLITE_DONE);
 }
 
-#ifdef DO_NOT_ROUND_RATINGS
-// inferior method
-extern qboolean PlayerRatingAccountIdMatches(genericNode_t *node, void *userData);
-const char *const sqlGetAverageRatings = "WITH t AS (SELECT rater_account_id, ratee_account_id, pos, CASE WHEN rating IS 8 THEN 1.0 WHEN rating IS 7 THEN 0.9 WHEN rating IS 6 THEN 0.85 WHEN rating IS 5 THEN 0.8 WHEN rating IS 4 THEN 0.75 WHEN rating IS 3 THEN 0.7 WHEN rating IS 2 THEN 0.65 WHEN rating IS 1 THEN 0.6 END ratingFloat FROM playerratings) SELECT ratee_account_id, pos, avg(ratingFloat) FROM t JOIN accounts ON accounts.account_id = rater_account_id WHERE accounts.flags & (1 << 6) != 0 GROUP BY ratee_account_id, pos;";
-void G_DBGetPlayerRatings(void) {
-	ListClear(&level.ratingList);
-
-	sqlite3_stmt *statement;
-	sqlite3_prepare(dbPtr, sqlGetAverageRatings, -1, &statement, 0);
-	int rc = sqlite3_step(statement);
-	while (rc == SQLITE_ROW) {
-		int accountId = sqlite3_column_int(statement, 0);
-		ctfPosition_t pos = sqlite3_column_int(statement, 1);
-		if (pos < CTFPOSITION_BASE || pos > CTFPOSITION_OFFENSE) {
-			assert(qfalse);
-			rc = sqlite3_step(statement);
-			continue; // ???
-		}
-		double rating = sqlite3_column_double(statement, 2);
-
-		playerRating_t findMe;
-		findMe.accountId = accountId;
-		playerRating_t *found = ListFind(&level.ratingList, PlayerRatingAccountIdMatches, &findMe, NULL);
-		if (!found) {
-			found = ListAdd(&level.ratingList, sizeof(playerRating_t));
-			found->accountId = accountId;
-			memset(found->rating, 0, sizeof(found->rating));
-		}
-
-		found->rating[pos] = rating;
-
-		rc = sqlite3_step(statement);
-	}
-	sqlite3_finalize(statement);
-}
-#else
 // rounding ratings to the nearest tier allows teams to be much more flexible/interchangeable
 extern qboolean PlayerRatingAccountIdMatches(genericNode_t *node, void *userData);
 const char *const sqlGetAverageRatings = "WITH t AS (SELECT account_id, created_on FROM accounts) SELECT ratee_account_id, pos, CAST(round(avg(rating)) AS INTEGER) FROM playerratings JOIN accounts ON accounts.account_id = rater_account_id, t ON t.account_id = ratee_account_id WHERE accounts.flags & (1 << 6) != 0 GROUP BY ratee_account_id, pos;";
@@ -5387,7 +5351,7 @@ void G_DBGetPlayerRatings(void) {
 		int averageTier = sqlite3_column_int(statement, 2);
 
 		qboolean isRusty = qfalse;
-		if (g_vote_teamgen_rustWeeks.integer > 0 && averageTier > PLAYERRATING_C) {
+		if (g_vote_teamgen_rustWeeks.integer > 0 && averageTier > PLAYERRATING_LOW_C) {
 			rustyPlayer_t *found = ListFind(&level.rustyPlayersList, RustyPlayerMatches, &accountId, NULL);
 			if (found) {
 				averageTier -= 1;
@@ -5418,7 +5382,6 @@ void G_DBGetPlayerRatings(void) {
 	int finish = trap_Milliseconds();
 	Com_Printf("Recalculated player ratings (took %d ms)\n", finish - start);
 }
-#endif
 
 extern qboolean MostPlayedPosMatches(genericNode_t *node, void *userData);
 const char *const sqlGetMostPlayedPos = "SELECT account_id, pos, RANK() OVER (PARTITION BY account_id ORDER BY pugs_played DESC, wins DESC) FROM accountstats;";
