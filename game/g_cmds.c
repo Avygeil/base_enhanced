@@ -6450,6 +6450,403 @@ static void Cmd_Rating_f(gentity_t *ent) {
 	}
 }
 
+// returns qtrue if valid; qfalse if they set something dumb (like a pos set on multiple choice levels, or all three pos on second choice, etc)
+qboolean ValidateAndCopyPositionPreferences(const positionPreferences_t *in, positionPreferences_t *out) {
+	if (!in) {
+		assert(qfalse);
+		return qfalse;
+	}
+
+	positionPreferences_t temp = { 0 };
+	memcpy(&temp, in, sizeof(positionPreferences_t));
+
+	temp.first &= ALL_CTF_POSITIONS;
+	temp.second &= ALL_CTF_POSITIONS;
+	temp.third &= ALL_CTF_POSITIONS;
+	temp.avoid &= ALL_CTF_POSITIONS;
+
+	if (!temp.first && !temp.second && !temp.third && !temp.avoid) {
+		if (out)
+			memset(out, 0, sizeof(positionPreferences_t));
+		return qtrue;
+	}
+
+	qboolean inputValid = qtrue;
+
+	// has all three positions on first/second/third
+	// clear it out
+	if (temp.first == ALL_CTF_POSITIONS) {
+		temp.first = 0;
+		inputValid = qfalse;
+	}
+	if (temp.second == ALL_CTF_POSITIONS) {
+		temp.second = 0;
+		inputValid = qfalse;
+	}
+	if (temp.third == ALL_CTF_POSITIONS) {
+		temp.third = 0;
+		inputValid = qfalse;
+	}
+	if (temp.avoid == ALL_CTF_POSITIONS) {
+		temp.avoid = 0;
+		inputValid = qfalse;
+	}
+
+	// check that no positions repeat
+	for (int i = CTFPOSITION_BASE; i <= CTFPOSITION_OFFENSE; i++) {
+		int appearances = 0;
+		if (temp.first & (1 << i))
+			++appearances;
+		if (temp.second & (1 << i))
+			++appearances;
+		if (temp.third & (1 << i))
+			++appearances;
+		if (temp.avoid & (1 << i))
+			++appearances;
+
+		if (appearances > 1) {
+			temp.first &= ~(1 << i);
+			temp.second &= ~(1 << i);
+			temp.third &= ~(1 << i);
+			temp.avoid &= ~(1 << i);
+		}
+	}
+
+	if (!temp.first && temp.second && !temp.third) {
+		// only second
+		// promote it to first
+		temp.first = temp.second;
+		temp.second = 0;
+		inputValid = qfalse;
+	}
+	else if (!temp.first && !temp.second && temp.third) {
+		// only third
+		// promote it to first
+		temp.first = temp.third;
+		temp.third = 0;
+		inputValid = qfalse;
+	}
+	else if (temp.first && !temp.second && temp.third) {
+		// only first and second
+		// promote third to second internally, but don't tell them it's invalid (since people may think of ties as being in the lower slot)
+		temp.second = temp.third;
+		temp.third = 0;
+		//inputValid = qfalse;
+	}
+
+	if (out)
+		memcpy(out, &temp, sizeof(positionPreferences_t));
+
+	return inputValid;
+}
+
+static void PrintPositionPreferences(gentity_t *ent) {
+	assert(ent && ent->client && ent->client->account);
+
+	positionPreferences_t *pref = &ent->client->account->expressedPref;
+
+	if (!pref->first && !pref->second && !pref->third && !pref->avoid) {
+		PrintIngame(ent - g_entities, "You have no position preferences.\n");
+		return;
+	}
+
+	char buf[MAX_STRING_CHARS] = "Your position preferences: \n^3 First choice:^7 ";
+
+	{
+		qboolean gotOne = qfalse;
+		for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+			if (pref->first & (1 << pos)) {
+				Q_strcat(buf, sizeof(buf), va("%s%s", gotOne ? ", " : "", NameForPos(pos)));
+				gotOne = qtrue;
+			}
+		}
+	}
+
+	{
+		Q_strcat(buf, sizeof(buf), "\n^9Second choice:^7 ");
+		qboolean gotOne = qfalse;
+		for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+			if (pref->second & (1 << pos)) {
+				Q_strcat(buf, sizeof(buf), va("%s%s", gotOne ? ", " : "", NameForPos(pos)));
+				gotOne = qtrue;
+			}
+		}
+	}
+
+	{
+		Q_strcat(buf, sizeof(buf), "\n^8 Third choice:^7 ");
+		qboolean gotOne = qfalse;
+		for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+			if (pref->third & (1 << pos)) {
+				Q_strcat(buf, sizeof(buf), va("%s%s", gotOne ? ", " : "", NameForPos(pos)));
+				gotOne = qtrue;
+			}
+		}
+	}
+
+	{
+		Q_strcat(buf, sizeof(buf), "\n^1        Avoid:^7 ");
+		qboolean gotOne = qfalse;
+		for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+			if (pref->avoid & (1 << pos)) {
+				Q_strcat(buf, sizeof(buf), va("%s%s", gotOne ? ", " : "", NameForPos(pos)));
+				gotOne = qtrue;
+			}
+		}
+	}
+
+	if (ValidateAndCopyPositionPreferences(pref, &ent->client->account->validPref))
+		Q_strcat(buf, sizeof(buf), "\n");
+	else
+		Q_strcat(buf, sizeof(buf), "\n^3NOTE:^7 your position preferences are currently invalid. Check that they make sense (e.g. not having a position in more than tier, not only having second choice preferences, etc.)\n");
+
+	PrintIngame(ent - g_entities, buf);
+}
+
+static void PrintPosHelp(gentity_t *ent) {
+	assert(ent);
+	PrintIngame(ent - g_entities,
+		"Usage:  ^5pos [1/2/3/avoid/clear] <position>^7     (order doesn't matter)\n"
+		"Examples:\n"
+		"  ^7pos 1 base      - base is your first choice\n"
+		"  ^9pos 1 chase     - chase is ^2also^9 your first choice\n"
+		"  ^7pos 2 offense   - offense is your second choice\n"
+		"  ^9pos 3 chase     - chase is your third choice\n"
+		"  ^7pos avoid chase - you would like to avoid chase\n"
+		"  ^9pos clear base  - clear all preferences for base\n"
+		"  ^7pos clear       - clear all preferences\n"
+	);
+}
+
+static void Cmd_Pos_f(gentity_t *ent) {
+	if (!ent || !ent->client || ent->client->pers.connected != CON_CONNECTED)
+		return;
+
+	if (!ent->client->account) {
+		PrintIngame(ent - g_entities, "You must have an account in order to use this feature. Please contact an admin for help setting up an account.\n");
+		return;
+	}
+
+	if (trap_Argc() < 2) {
+		PrintPositionPreferences(ent);
+		PrintIngame(ent - g_entities, "Enter ^5pos help^7 for instructions on setting up position preferences.\n");
+		return;
+	}
+
+	char arg1[MAX_STRING_CHARS] = { 0 };
+	trap_Argv(1, arg1, sizeof(arg1));
+
+	positionPreferences_t *pref = &ent->client->account->expressedPref;
+
+	if (trap_Argc() < 3 || !arg1[0]) {
+		if (arg1[0] && (stristr(arg1, "cl") || stristr(arg1, "del") || stristr(arg1, "rm") || stristr(arg1, "rem"))) {
+			PrintIngame(ent - g_entities, "All preferences cleared.\n");
+			pref->first = pref->second = pref->third = 0;
+			ValidateAndCopyPositionPreferences(pref, &ent->client->account->validPref);
+			G_DBSetAccountProperties(ent->client->account);
+		}
+		else if (arg1[0] && stristr(arg1, "help")) {
+			PrintPosHelp(ent);
+		}
+		else if (arg1[0] && stristr(arg1, "list")) {
+			PrintPositionPreferences(ent);
+		}
+		else {
+			PrintPositionPreferences(ent);
+			PrintIngame(ent - g_entities, "Enter ^5pos help^7 for instructions on setting up position preferences.\n");
+		}
+		return;
+	}
+
+	char arg2[MAX_STRING_CHARS] = { 0 };
+	trap_Argv(2, arg2, sizeof(arg2));
+
+	if (!arg2[0]) {
+		PrintPositionPreferences(ent);
+		PrintPosHelp(ent);
+		return;
+	}
+
+	// allow typing the arguments in any order
+	char *intentionStr = NULL;
+	int pos = CtfPositionFromString(arg1);
+	if (pos) {
+		intentionStr = arg2;
+	}
+	else {
+		pos = CtfPositionFromString(arg2);
+		if (pos) {
+			intentionStr = arg1;
+		}
+		else {
+			PrintIngame(ent - g_entities, "You must enter a valid position.\n");
+			PrintPosHelp(ent);
+			return;
+		}
+	}
+	char posStr[16] = { 0 };
+	Com_sprintf(posStr, sizeof(posStr), "^5%s^7", NameForPos(pos));
+
+	assert(intentionStr);
+	enum {
+		INTENTION_UNKNOWN = 0,
+		INTENTION_FIRSTCHOICE,
+		INTENTION_SECONDCHOICE,
+		INTENTION_THIRDCHOICE,
+		INTENTION_AVOID,
+		INTENTION_CLEAR
+	} intention = INTENTION_UNKNOWN;
+	if (stristr(intentionStr, "1") || stristr(intentionStr, "pref") || stristr(intentionStr, "top"))
+		intention = INTENTION_FIRSTCHOICE;
+	else if (stristr(intentionStr, "2") || stristr(intentionStr, "sec"))
+		intention = INTENTION_SECONDCHOICE;
+	else if (stristr(intentionStr, "3") || stristr(intentionStr, "thi"))
+		intention = INTENTION_THIRDCHOICE;
+	else if (stristr(intentionStr, "av"))
+		intention = INTENTION_AVOID;
+	else if (stristr(intentionStr, "cl") || stristr(intentionStr, "rem") || stristr(intentionStr, "rm") || stristr(intentionStr, "del") || stristr(intentionStr, "res"))
+		intention = INTENTION_CLEAR;
+	if (!intention) {
+		PrintIngame(ent - g_entities, "You must enter what you want to do, e.g. '1', '2', 'avoid', or 'clear'\n");
+		return;
+	}
+
+	if (intention == INTENTION_FIRSTCHOICE) {
+		if (pref->first & (1 << pos)) {
+			PrintIngame(ent - g_entities, "%s is already first choice.\n", posStr);
+			return;
+		}
+
+		qboolean printed = qfalse;
+
+		if (pref->second & (1 << pos)) {
+			PrintIngame(ent - g_entities, "%s changed from second choice to first choice.\n", posStr);
+			pref->second &= ~(1 << pos);
+			printed = qtrue;
+		}
+
+		if (pref->third & (1 << pos)) {
+			PrintIngame(ent - g_entities, "%s changed from third choice to first choice.\n", posStr);
+			pref->third &= ~(1 << pos);
+			printed = qtrue;
+		}
+
+		if (pref->avoid & (1 << pos)) {
+			PrintIngame(ent - g_entities, "%s changed from avoided to first choice.\n", posStr);
+			pref->avoid &= ~(1 << pos);
+			printed = qtrue;
+		}
+
+		pref->first |= (1 << pos);
+
+		if (!printed)
+			PrintIngame(ent - g_entities, "Set %s to first choice.\n", posStr);
+	}
+	else if (intention == INTENTION_SECONDCHOICE) {
+		if (pref->second & (1 << pos)) {
+			PrintIngame(ent - g_entities, "%s is already second choice.\n", posStr);
+			return;
+		}
+
+		qboolean printed = qfalse;
+
+		if (pref->first & (1 << pos)) {
+			PrintIngame(ent - g_entities, "%s changed from first choice to second choice.\n", posStr);
+			pref->first &= ~(1 << pos);
+			printed = qtrue;
+		}
+
+		if (pref->third & (1 << pos)) {
+			PrintIngame(ent - g_entities, "%s changed from third choice to second choice.\n", posStr);
+			pref->third &= ~(1 << pos);
+			printed = qtrue;
+		}
+
+		if (pref->avoid & (1 << pos)) {
+			PrintIngame(ent - g_entities, "%s changed from avoided to second choice.\n", posStr);
+			pref->avoid &= ~(1 << pos);
+			printed = qtrue;
+		}
+
+		pref->second |= (1 << pos);
+
+		if (!printed)
+			PrintIngame(ent - g_entities, "Set %s to second choice.\n", posStr);
+	}
+	else if (intention == INTENTION_THIRDCHOICE) {
+		if (pref->third & (1 << pos)) {
+			PrintIngame(ent - g_entities, "%s is already third choice.\n", posStr);
+			return;
+		}
+
+		qboolean printed = qfalse;
+
+		if (pref->first & (1 << pos)) {
+			PrintIngame(ent - g_entities, "%s changed from first choice to third choice.\n", posStr);
+			pref->first &= ~(1 << pos);
+			printed = qtrue;
+		}
+
+		if (pref->second & (1 << pos)) {
+			PrintIngame(ent - g_entities, "%s changed from second choice to third choice.\n", posStr);
+			pref->second &= ~(1 << pos);
+			printed = qtrue;
+		}
+
+		if (pref->avoid & (1 << pos)) {
+			PrintIngame(ent - g_entities, "%s changed from avoided to third choice.\n", posStr);
+			pref->avoid &= ~(1 << pos);
+			printed = qtrue;
+		}
+
+		pref->third |= (1 << pos);
+
+		if (!printed)
+			PrintIngame(ent - g_entities, "Set %s to third choice.\n", posStr);
+	}
+	else if (intention == INTENTION_AVOID) {
+		if (pref->avoid & (1 << pos)) {
+			PrintIngame(ent - g_entities, "%s is already avoided.\n", posStr);
+			return;
+		}
+
+		qboolean printed = qfalse;
+
+		if (pref->first & (1 << pos)) {
+			PrintIngame(ent - g_entities, "%s changed from first choice to avoided.\n", posStr);
+			pref->first &= ~(1 << pos);
+			printed = qtrue;
+		}
+
+		if (pref->second & (1 << pos)) {
+			PrintIngame(ent - g_entities, "%s changed from second choice to avoided.\n", posStr);
+			pref->second &= ~(1 << pos);
+			printed = qtrue;
+		}
+
+		if (pref->third & (1 << pos)) {
+			PrintIngame(ent - g_entities, "%s changed from third choice to avoided.\n", posStr);
+			pref->third &= ~(1 << pos);
+			printed = qtrue;
+		}
+
+		pref->avoid |= (1 << pos);
+
+		if (!printed)
+			PrintIngame(ent - g_entities, "Set %s to avoided.\n", posStr);
+	}
+	else /*if (intention == INTENTION_CLEAR)*/ {
+		PrintIngame(ent - g_entities, "Cleared all preferences for %s.\n", posStr);
+		pref->first &= ~(1 << pos);
+		pref->second &= ~(1 << pos);
+		pref->third &= ~(1 << pos);
+		pref->avoid &= ~(1 << pos);
+	}
+
+	ValidateAndCopyPositionPreferences(pref, &ent->client->account->validPref);
+	G_DBSetAccountProperties(ent->client->account);
+}
+
 #ifdef NEWMOD_SUPPORT
 static void Cmd_Svauth_f( gentity_t *ent ) {
 	if ( trap_Argc() < 2 ) {
@@ -7430,6 +7827,10 @@ void ClientCommand( int clientNum ) {
 			Cmd_Rating_f(ent);
 			return;
 		}
+		else if (!Q_stricmp(cmd, "pos")) {
+			Cmd_Pos_f(ent);
+			return;
+		}
 		else if ( Q_stricmp( cmd, "whois" ) == 0 )
 		{
 			Cmd_WhoIs_f( ent );
@@ -7553,6 +7954,8 @@ void ClientCommand( int clientNum ) {
 		Cmd_Tier_f(ent);
 	else if (!Q_stricmp(cmd, "rating"))
 		Cmd_Rating_f(ent);
+	else if (!Q_stricmp(cmd, "pos"))
+		Cmd_Pos_f(ent);
     else if ( Q_stricmp( cmd, "whois" ) == 0 )
         Cmd_WhoIs_f( ent );
 	else if (Q_stricmp(cmd, "ctfstats") == 0 || Q_stricmp(cmd, "stats") == 0 || Q_stricmp(cmd, "stat") == 0)

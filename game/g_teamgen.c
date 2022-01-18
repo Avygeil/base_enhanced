@@ -75,20 +75,31 @@ char *PlayerRatingToString(ctfPlayerTier_t tier) {
 	}
 }
 
-static qboolean PlayerIsBarredFromTeamGenerator(gentity_t *ent) {
+qboolean TeamGenerator_PlayerIsBarredFromTeamGenerator(gentity_t *ent) {
 	if (!ent || !ent->client)
 		return qfalse;
 
+	// being barred by the server takes precedence over permabarred accounts declaring themselves pickable
 	if (ent->client->pers.barredFromPugSelection)
 		return qtrue;
 
 	if (ent->client->account) {
+		if (ent->client->account->flags & ACCOUNTFLAG_HARDPERMABARRED) {
+			return qtrue;
+		}
+
 		iterator_t iter;
 		ListIterate(&level.barredPlayersList, &iter, qfalse);
 		while (IteratorHasNext(&iter)) {
 			barredPlayer_t *bp = IteratorNext(&iter);
 			if (bp->accountId == ent->client->account->id)
 				return qtrue;
+		}
+
+		if (ent->client->account->flags & ACCOUNTFLAG_PERMABARRED) {
+			if (ent->client->pers.permaBarredDeclaredPickable)
+				return qfalse;
+			return qtrue;
 		}
 	}
 
@@ -100,8 +111,7 @@ typedef struct {
 	char accountName[MAX_NAME_LENGTH];
 	int clientNum;
 	double rating[CTFPOSITION_OFFENSE + 1];
-	ctfPosition_t preference;
-	ctfPosition_t secondPreference;
+	positionPreferences_t posPrefs;
 } permutationPlayer_t;
 
 static int SortTeamsInPermutationOfTeams(const void *a, const void *b) {
@@ -208,33 +218,33 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 	if (PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]) <= PLAYERRATING_HIGH_C) ++team2BottomTiers;
 	int bottomTierImbalance = abs(team1BottomTiers - team2BottomTiers);
 
-	// reward permutations that put people on preferred positions (large bonus for #1 preferred; small bonus for #2 preferred)
-	double numOnPreferredPos = 0;
-	if (team1base->preference == CTFPOSITION_BASE) numOnPreferredPos += 1.0; else if (team1base->secondPreference == CTFPOSITION_BASE) numOnPreferredPos += 0.1;
-	if (team1chase->preference == CTFPOSITION_CHASE) numOnPreferredPos += 1.0; else if (team1chase->secondPreference == CTFPOSITION_CHASE) numOnPreferredPos += 0.1;
-	if (team1offense1->preference == CTFPOSITION_OFFENSE) numOnPreferredPos += 1.0; else if (team1offense1->secondPreference == CTFPOSITION_OFFENSE) numOnPreferredPos += 0.1;
-	if (team1offense2->preference == CTFPOSITION_OFFENSE) numOnPreferredPos += 1.0; else if (team1offense2->secondPreference == CTFPOSITION_OFFENSE) numOnPreferredPos += 0.1;
-	if (team2base->preference == CTFPOSITION_BASE) numOnPreferredPos += 1.0; else if (team2base->secondPreference == CTFPOSITION_BASE) numOnPreferredPos += 0.1;
-	if (team2chase->preference == CTFPOSITION_CHASE) numOnPreferredPos += 1.0; else if (team2chase->secondPreference == CTFPOSITION_CHASE) numOnPreferredPos += 0.1;
-	if (team2offense1->preference == CTFPOSITION_OFFENSE) numOnPreferredPos += 1.0; else if (team2offense1->secondPreference == CTFPOSITION_OFFENSE) numOnPreferredPos += 0.1;
-	if (team2offense2->preference == CTFPOSITION_OFFENSE) numOnPreferredPos += 1.0; else if (team2offense2->secondPreference == CTFPOSITION_OFFENSE) numOnPreferredPos += 0.1;
+	// reward permutations that put people on preferred positions
+	int numOnPreferredPos = 0, numOnAvoidedPos = 0;
+	if (team1base->posPrefs.avoid & (1 << CTFPOSITION_BASE)) numOnAvoidedPos += 1; else if (team1base->posPrefs.first & (1 << CTFPOSITION_BASE)) numOnPreferredPos += 100; else if (team1base->posPrefs.second & (1 << CTFPOSITION_BASE)) numOnPreferredPos += 10; else if (team1base->posPrefs.third & (1 << CTFPOSITION_BASE)) numOnPreferredPos += 1;
+	if (team1chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE)) numOnAvoidedPos += 1; else if (team1chase->posPrefs.first & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += 100; else if (team1chase->posPrefs.second & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += 10; else if (team1chase->posPrefs.third & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += 1;
+	if (team1offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team1offense1->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 100; else if (team1offense1->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 10; else if (team1offense1->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 1;
+	if (team1offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team1offense2->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 100; else if (team1offense2->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 10; else if (team1offense2->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 1;
+	if (team2base->posPrefs.avoid & (1 << CTFPOSITION_BASE)) numOnAvoidedPos += 1; else if (team2base->posPrefs.first & (1 << CTFPOSITION_BASE)) numOnPreferredPos += 100; else if (team2base->posPrefs.second & (1 << CTFPOSITION_BASE)) numOnPreferredPos += 10; else if (team2base->posPrefs.third & (1 << CTFPOSITION_BASE)) numOnPreferredPos += 1;
+	if (team2chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE)) numOnAvoidedPos += 1; else if (team2chase->posPrefs.first & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += 100; else if (team2chase->posPrefs.second & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += 10; else if (team2chase->posPrefs.third & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += 1;
+	if (team2offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team2offense1->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 100; else if (team2offense1->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 10; else if (team2offense1->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 1;
+	if (team2offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team2offense2->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 100; else if (team2offense2->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 10; else if (team2offense2->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 1;
 
 	TeamGen_DebugPrintf("Regular:%s%s/%s%s/%s%s/%s%s vs. %s%s/%s%s/%s%s/%s%s^7 : %0.3f vs. %0.3f raw, %0.3f vs. %0.3f relative, %0.1f numOnPreferredPos, %0.3f total, %0.3f diff",
-		team1base->preference == CTFPOSITION_BASE ? "^2" : (team1base->secondPreference == CTFPOSITION_BASE ? "^5" : "^7"),
+		team1base->posPrefs.avoid & (1 << CTFPOSITION_BASE) ? "^1" : team1base->posPrefs.first & (1 << CTFPOSITION_BASE) ? "^3" : team1base->posPrefs.second & (1 << CTFPOSITION_BASE) ? "^9" : team1base->posPrefs.third & (1 << CTFPOSITION_BASE) ? "^8" : "^7",
 		team1base->accountName,
-		team1chase->preference == CTFPOSITION_CHASE ? "^2" : (team1chase->secondPreference == CTFPOSITION_CHASE ? "^5" : "^7"),
+		team1chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE) ? "^1" : team1chase->posPrefs.first & (1 << CTFPOSITION_CHASE) ? "^3" : team1chase->posPrefs.second & (1 << CTFPOSITION_CHASE) ? "^9" : team1chase->posPrefs.third & (1 << CTFPOSITION_CHASE) ? "^8" : "^7",
 		team1chase->accountName,
-		team1offense1->preference == CTFPOSITION_OFFENSE ? "^2" : (team1offense1->secondPreference == CTFPOSITION_OFFENSE ? "^5" : "^7"),
+		team1offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE) ? "^1" : team1offense1->posPrefs.first & (1 << CTFPOSITION_OFFENSE) ? "^3" : team1offense1->posPrefs.second & (1 << CTFPOSITION_OFFENSE) ? "^9" : team1offense1->posPrefs.third & (1 << CTFPOSITION_OFFENSE) ? "^8" : "^7",
 		team1offense1->accountName,
-		team1offense2->preference == CTFPOSITION_OFFENSE ? "^2" : (team1offense2->secondPreference == CTFPOSITION_OFFENSE ? "^5" : "^7"),
+		team1offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE) ? "^1" : team1offense2->posPrefs.first & (1 << CTFPOSITION_OFFENSE) ? "^3" : team1offense2->posPrefs.second & (1 << CTFPOSITION_OFFENSE) ? "^9" : team1offense2->posPrefs.third & (1 << CTFPOSITION_OFFENSE) ? "^8" : "^7",
 		team1offense2->accountName,
-		team2base->preference == CTFPOSITION_BASE ? "^2" : (team2base->secondPreference == CTFPOSITION_BASE ? "^5" : "^7"),
+		team2base->posPrefs.avoid & (1 << CTFPOSITION_BASE) ? "^1" : team2base->posPrefs.first & (1 << CTFPOSITION_BASE) ? "^3" : team2base->posPrefs.second & (1 << CTFPOSITION_BASE) ? "^9" : team2base->posPrefs.third & (1 << CTFPOSITION_BASE) ? "^8" : "^7",
 		team2base->accountName,
-		team2chase->preference == CTFPOSITION_CHASE ? "^2" : (team2chase->secondPreference == CTFPOSITION_CHASE ? "^5" : "^7"),
+		team2chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE) ? "^1" : team2chase->posPrefs.first & (1 << CTFPOSITION_CHASE) ? "^3" : team2chase->posPrefs.second & (1 << CTFPOSITION_CHASE) ? "^9" : team2chase->posPrefs.third & (1 << CTFPOSITION_CHASE) ? "^8" : "^7",
 		team2chase->accountName,
-		team2offense1->preference == CTFPOSITION_OFFENSE ? "^2" : (team2offense1->secondPreference == CTFPOSITION_OFFENSE ? "^5" : "^7"),
+		team2offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE) ? "^1" : team2offense1->posPrefs.first & (1 << CTFPOSITION_OFFENSE) ? "^3" : team2offense1->posPrefs.second & (1 << CTFPOSITION_OFFENSE) ? "^9" : team2offense1->posPrefs.third & (1 << CTFPOSITION_OFFENSE) ? "^8" : "^7",
 		team2offense1->accountName,
-		team2offense2->preference == CTFPOSITION_OFFENSE ? "^2" : (team2offense2->secondPreference == CTFPOSITION_OFFENSE ? "^5" : "^7"),
+		team2offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE) ? "^1" : team2offense2->posPrefs.first & (1 << CTFPOSITION_OFFENSE) ? "^3" : team2offense2->posPrefs.second & (1 << CTFPOSITION_OFFENSE) ? "^9" : team2offense2->posPrefs.third & (1 << CTFPOSITION_OFFENSE) ? "^8" : "^7",
 		team2offense2->accountName,
 		team1RawStrength,
 		team2RawStrength,
@@ -282,25 +292,30 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 	// this permutation will be favored over the previous permutation if:
 	// - it is fairer
 	// - it is equally fair, but has more people on preferred pos
-	// - it is equally fair and has an equal number of people on preferred pos, but has better balance of bottom tier players
-	// - it is equally fair and has an equal number of people on preferred pos and equal balance of bottom tier players, but has better balance of top tier players
+	// - it is equally fair and has an equal number of people on preferred pos, but has fewer people on avoided pos
+	// - it is equally fair and has an equal number of people on preferred and avoided pos, but has better balance of bottom tier players
+	// - it is equally fair and has an equal number of people on preferred and avoided pos and equal balance of bottom tier players, but has better balance of top tier players
 	if (diff < context->best->diff ||
 		(diff == context->best->diff && numOnPreferredPos > context->best->numOnPreferredPos) ||
-		(diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && bottomTierImbalance < context->best->bottomTierImbalance) ||
-		(diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)) {
+		(diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos) ||
+		(diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance < context->best->bottomTierImbalance) ||
+		(diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)) {
 		if (diff < context->best->diff)
 			TeamGen_DebugPrintf(" ^3best so far (fairer)^7\n");
 		else if (diff == context->best->diff && numOnPreferredPos > context->best->numOnPreferredPos)
 			TeamGen_DebugPrintf(" ^3best so far (same fairness, but more preferred pos)^7\n");
-		else if (diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && bottomTierImbalance < context->best->bottomTierImbalance)
-			TeamGen_DebugPrintf(" ^3best so far (same fairness and preferred pos, but better bottom tier balance)^7\n");
-		else if (diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)
-			TeamGen_DebugPrintf(" ^3best so far (same fairness and preferred pos, and bottom tier balance, but better top tier balance)^7\n");
+		else if (diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos)
+			TeamGen_DebugPrintf(" ^3best so far (same fairness and preferred pos, but less on avoided pos)^7\n");
+		else if (diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance < context->best->bottomTierImbalance)
+			TeamGen_DebugPrintf(" ^3best so far (same fairness, preferred pos, and avoided pos, but better bottom tier balance)^7\n");
+		else if (diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)
+			TeamGen_DebugPrintf(" ^3best so far (same fairness, preferred pos, avoided pos, and bottom tier balance, but better top tier balance)^7\n");
 		else
 			TeamGen_DebugPrintf("^1???\n");
 		context->best->valid = qtrue;
 		context->best->diff = diff;
 		context->best->numOnPreferredPos = numOnPreferredPos;
+		context->best->numOnAvoidedPos = numOnAvoidedPos;
 		context->best->topTierImbalance = topTierImbalance;
 		context->best->bottomTierImbalance = bottomTierImbalance;
 		context->best->teams[0].rawStrength = team1RawStrength;
@@ -377,33 +392,33 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 	if (PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]) <= PLAYERRATING_HIGH_C) ++team2BottomTiers;
 	int bottomTierImbalance = abs(team1BottomTiers - team2BottomTiers);
 
-	// reward permutations that put people on preferred positions (large bonus for #1 preferred; small bonus for #2 preferred)
-	double numOnPreferredPos = 0;
-	if (team1base->preference == CTFPOSITION_BASE) numOnPreferredPos += 1.0; else if (team1base->secondPreference == CTFPOSITION_BASE) numOnPreferredPos += 0.1;
-	if (team1chase->preference == CTFPOSITION_CHASE) numOnPreferredPos += 1.0; else if (team1chase->secondPreference == CTFPOSITION_CHASE) numOnPreferredPos += 0.1;
-	if (team1offense1->preference == CTFPOSITION_OFFENSE) numOnPreferredPos += 1.0; else if (team1offense1->secondPreference == CTFPOSITION_OFFENSE) numOnPreferredPos += 0.1;
-	if (team1offense2->preference == CTFPOSITION_OFFENSE) numOnPreferredPos += 1.0; else if (team1offense2->secondPreference == CTFPOSITION_OFFENSE) numOnPreferredPos += 0.1;
-	if (team2base->preference == CTFPOSITION_BASE) numOnPreferredPos += 1.0; else if (team2base->secondPreference == CTFPOSITION_BASE) numOnPreferredPos += 0.1;
-	if (team2chase->preference == CTFPOSITION_CHASE) numOnPreferredPos += 1.0; else if (team2chase->secondPreference == CTFPOSITION_CHASE) numOnPreferredPos += 0.1;
-	if (team2offense1->preference == CTFPOSITION_OFFENSE) numOnPreferredPos += 1.0; else if (team2offense1->secondPreference == CTFPOSITION_OFFENSE) numOnPreferredPos += 0.1;
-	if (team2offense2->preference == CTFPOSITION_OFFENSE) numOnPreferredPos += 1.0; else if (team2offense2->secondPreference == CTFPOSITION_OFFENSE) numOnPreferredPos += 0.1;
+	// reward permutations that put people on preferred positions
+	int numOnPreferredPos = 0, numOnAvoidedPos = 0;
+	if (team1base->posPrefs.avoid & (1 << CTFPOSITION_BASE)) numOnAvoidedPos += 1; else if (team1base->posPrefs.first & (1 << CTFPOSITION_BASE)) numOnPreferredPos += 100; else if (team1base->posPrefs.second & (1 << CTFPOSITION_BASE)) numOnPreferredPos += 10; else if (team1base->posPrefs.third & (1 << CTFPOSITION_BASE)) numOnPreferredPos += 1;
+	if (team1chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE)) numOnAvoidedPos += 1; else if (team1chase->posPrefs.first & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += 100; else if (team1chase->posPrefs.second & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += 10; else if (team1chase->posPrefs.third & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += 1;
+	if (team1offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team1offense1->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 100; else if (team1offense1->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 10; else if (team1offense1->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 1;
+	if (team1offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team1offense2->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 100; else if (team1offense2->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 10; else if (team1offense2->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 1;
+	if (team2base->posPrefs.avoid & (1 << CTFPOSITION_BASE)) numOnAvoidedPos += 1; else if (team2base->posPrefs.first & (1 << CTFPOSITION_BASE)) numOnPreferredPos += 100; else if (team2base->posPrefs.second & (1 << CTFPOSITION_BASE)) numOnPreferredPos += 10; else if (team2base->posPrefs.third & (1 << CTFPOSITION_BASE)) numOnPreferredPos += 1;
+	if (team2chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE)) numOnAvoidedPos += 1; else if (team2chase->posPrefs.first & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += 100; else if (team2chase->posPrefs.second & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += 10; else if (team2chase->posPrefs.third & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += 1;
+	if (team2offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team2offense1->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 100; else if (team2offense1->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 10; else if (team2offense1->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 1;
+	if (team2offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team2offense2->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 100; else if (team2offense2->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 10; else if (team2offense2->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 1;
 
 	TeamGen_DebugPrintf("Tryhard:%s%s/%s%s/%s%s/%s%s vs. %s%s/%s%s/%s%s/%s%s^7 : %0.3f vs. %0.3f raw, %0.3f vs. %0.3f relative, %0.1f numOnPreferredPos, %0.3f total, %0.3f diff",
-		team1base->preference == CTFPOSITION_BASE ? "^2" : (team1base->secondPreference == CTFPOSITION_BASE ? "^5" : "^7"),
+		team1base->posPrefs.avoid & (1 << CTFPOSITION_BASE) ? "^1" : team1base->posPrefs.first & (1 << CTFPOSITION_BASE) ? "^3" : team1base->posPrefs.second & (1 << CTFPOSITION_BASE) ? "^9" : team1base->posPrefs.third & (1 << CTFPOSITION_BASE) ? "^8" : "^7",
 		team1base->accountName,
-		team1chase->preference == CTFPOSITION_CHASE ? "^2" : (team1chase->secondPreference == CTFPOSITION_CHASE ? "^5" : "^7"),
+		team1chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE) ? "^1" : team1chase->posPrefs.first & (1 << CTFPOSITION_CHASE) ? "^3" : team1chase->posPrefs.second & (1 << CTFPOSITION_CHASE) ? "^9" : team1chase->posPrefs.third & (1 << CTFPOSITION_CHASE) ? "^8" : "^7",
 		team1chase->accountName,
-		team1offense1->preference == CTFPOSITION_OFFENSE ? "^2" : (team1offense1->secondPreference == CTFPOSITION_OFFENSE ? "^5" : "^7"),
+		team1offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE) ? "^1" : team1offense1->posPrefs.first & (1 << CTFPOSITION_OFFENSE) ? "^3" : team1offense1->posPrefs.second & (1 << CTFPOSITION_OFFENSE) ? "^9" : team1offense1->posPrefs.third & (1 << CTFPOSITION_OFFENSE) ? "^8" : "^7",
 		team1offense1->accountName,
-		team1offense2->preference == CTFPOSITION_OFFENSE ? "^2" : (team1offense2->secondPreference == CTFPOSITION_OFFENSE ? "^5" : "^7"),
+		team1offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE) ? "^1" : team1offense2->posPrefs.first & (1 << CTFPOSITION_OFFENSE) ? "^3" : team1offense2->posPrefs.second & (1 << CTFPOSITION_OFFENSE) ? "^9" : team1offense2->posPrefs.third & (1 << CTFPOSITION_OFFENSE) ? "^8" : "^7",
 		team1offense2->accountName,
-		team2base->preference == CTFPOSITION_BASE ? "^2" : (team2base->secondPreference == CTFPOSITION_BASE ? "^5" : "^7"),
+		team2base->posPrefs.avoid & (1 << CTFPOSITION_BASE) ? "^1" : team2base->posPrefs.first & (1 << CTFPOSITION_BASE) ? "^3" : team2base->posPrefs.second & (1 << CTFPOSITION_BASE) ? "^9" : team2base->posPrefs.third & (1 << CTFPOSITION_BASE) ? "^8" : "^7",
 		team2base->accountName,
-		team2chase->preference == CTFPOSITION_CHASE ? "^2" : (team2chase->secondPreference == CTFPOSITION_CHASE ? "^5" : "^7"),
+		team2chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE) ? "^1" : team2chase->posPrefs.first & (1 << CTFPOSITION_CHASE) ? "^3" : team2chase->posPrefs.second & (1 << CTFPOSITION_CHASE) ? "^9" : team2chase->posPrefs.third & (1 << CTFPOSITION_CHASE) ? "^8" : "^7",
 		team2chase->accountName,
-		team2offense1->preference == CTFPOSITION_OFFENSE ? "^2" : (team2offense1->secondPreference == CTFPOSITION_OFFENSE ? "^5" : "^7"),
+		team2offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE) ? "^1" : team2offense1->posPrefs.first & (1 << CTFPOSITION_OFFENSE) ? "^3" : team2offense1->posPrefs.second & (1 << CTFPOSITION_OFFENSE) ? "^9" : team2offense1->posPrefs.third & (1 << CTFPOSITION_OFFENSE) ? "^8" : "^7",
 		team2offense1->accountName,
-		team2offense2->preference == CTFPOSITION_OFFENSE ? "^2" : (team2offense2->secondPreference == CTFPOSITION_OFFENSE ? "^5" : "^7"),
+		team2offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE) ? "^1" : team2offense2->posPrefs.first & (1 << CTFPOSITION_OFFENSE) ? "^3" : team2offense2->posPrefs.second & (1 << CTFPOSITION_OFFENSE) ? "^9" : team2offense2->posPrefs.third & (1 << CTFPOSITION_OFFENSE) ? "^8" : "^7",
 		team2offense2->accountName,
 		team1RawStrength,
 		team2RawStrength,
@@ -413,7 +428,7 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 		total,
 		diff);
 
-	if (diff > 0.10) {
+	if (diff >= 0.04) {
 		TeamGen_DebugPrintf(" difference too great.\n");
 		return;
 	}
@@ -459,28 +474,33 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 	// - it is higher caliber overall
 	// - it is equally high caliber, but fairer
 	// - it is equally high caliber and equally fair, but has more people on preferred pos
-	// - it is equally high caliber, equally fair, and has an equal number of people on preferred pos, but has better balance of bottom tier players
-	// - it is equally high caliber, equally fair, has an equal number of people on preferred pos and equal balance of bottom tier players, but has better balance of top tier players
+	// - it is equally high caliber, equally fair, and has an equal number of people on preferred pos, but has fewer people on avoided pos
+	// - it is equally high caliber, equally fair, and has an equal number of people on preferred and avoided pos, but has better balance of bottom tier players
+	// - it is equally high caliber, equally fair, has an equal number of people on preferred and avoided pos and equal balance of bottom tier players, but has better balance of top tier players
 	if (total > currentBestCombinedStrength ||
 		(total == currentBestCombinedStrength && diff < context->best->diff) ||
 		(total == currentBestCombinedStrength && diff == context->best->diff && numOnPreferredPos > context->best->numOnPreferredPos) ||
-		(total == currentBestCombinedStrength && diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && bottomTierImbalance < context->best->bottomTierImbalance) ||
-		(total == currentBestCombinedStrength && diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)) {
+		(total == currentBestCombinedStrength && diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos) ||
+		(total == currentBestCombinedStrength && diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance < context->best->bottomTierImbalance) ||
+		(total == currentBestCombinedStrength && diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)) {
 		if (total > currentBestCombinedStrength)
 			TeamGen_DebugPrintf(" ^6best so far (combined strength better)^7\n");
 		else if (total == currentBestCombinedStrength && diff < context->best->diff)
 			TeamGen_DebugPrintf(" ^6best so far (combined strength equal, but fairer)^7\n");
 		else if (total == currentBestCombinedStrength && numOnPreferredPos > context->best->numOnPreferredPos)
 			TeamGen_DebugPrintf(" ^6best so far (combined strength and fairness equal, but more preferred pos)^7\n");
-		else if (total == currentBestCombinedStrength && diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && bottomTierImbalance < context->best->bottomTierImbalance)
-			TeamGen_DebugPrintf(" ^6best so far (combined strength, fairness, and preferred pos, but better bottom tier balance)^7\n");
-		else if (total == currentBestCombinedStrength && diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)
-			TeamGen_DebugPrintf(" ^6best so far (combined strength, fairness, and preferred pos, and bottom tier balance, but better top tier balance)^7\n");
+		else if (total == currentBestCombinedStrength && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos)
+			TeamGen_DebugPrintf(" ^6best so far (combined strength, fairness equal and preferred pos equal, but less on avoided pos)^7\n");
+		else if (total == currentBestCombinedStrength && diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance < context->best->bottomTierImbalance)
+			TeamGen_DebugPrintf(" ^6best so far (combined strength, fairness, preferred pos, and avoided pos, but better bottom tier balance)^7\n");
+		else if (total == currentBestCombinedStrength && diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)
+			TeamGen_DebugPrintf(" ^6best so far (combined strength, fairness, preferred pos, avoided pos, and bottom tier balance, but better top tier balance)^7\n");
 		else
 			TeamGen_DebugPrintf("^1???\n");
 		context->best->valid = qtrue;
 		context->best->diff = diff;
 		context->best->numOnPreferredPos = numOnPreferredPos;
+		context->best->numOnAvoidedPos = numOnAvoidedPos;
 		context->best->topTierImbalance = topTierImbalance;
 		context->best->bottomTierImbalance = bottomTierImbalance;
 		context->best->teams[0].rawStrength = team1RawStrength;
@@ -730,29 +750,6 @@ qboolean MostPlayedPosMatches(genericNode_t *node, void *userData) {
 	return qfalse;
 }
 
-// see if a player has a name like "base only" so that we can account for their position preference
-static ctfPosition_t GetPositionPreferenceFromName(const char *rawName) {
-	if (!VALIDSTRING(rawName))
-		return CTFPOSITION_UNKNOWN;
-	char clean[64] = { 0 };
-	Q_strncpyz(clean, rawName, sizeof(clean));
-	Q_StripColor(clean);
-	Q_strlwr(clean);
-	if (!VALIDSTRING(clean))
-		return CTFPOSITION_UNKNOWN;
-
-	if (!Q_stricmp(clean, "o"))
-		return CTFPOSITION_OFFENSE;
-	if (stristr(clean, "base"))
-		return CTFPOSITION_BASE;
-	if (stristr(clean, "chase"))
-		return CTFPOSITION_CHASE;
-	if (stristr(clean, "offense") || stristr(clean, "oonly") || stristr(clean, "o only") || stristr(clean, "permao") || stristr(clean, "perma o") || stristr(clean, "(o)"))
-		return CTFPOSITION_OFFENSE;
-
-	return CTFPOSITION_UNKNOWN;
-}
-
 static int SortClientsForTeamGenerator(const void *a, const void *b) {
 	sortedClient_t *aa = (sortedClient_t *)a;
 	sortedClient_t *bb = (sortedClient_t *)b;
@@ -792,7 +789,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 		gentity_t *ent = &g_entities[i];
 		if (!ent->inuse || !ent->client || ent->client->pers.connected == CON_DISCONNECTED ||
 			!ent->client->account || ent->client->sess.clientType != CLIENT_TYPE_NORMAL ||
-			PlayerIsBarredFromTeamGenerator(ent) ||
+			TeamGenerator_PlayerIsBarredFromTeamGenerator(ent) ||
 			(IsRacerOrSpectator(ent) && IsSpecName(ent->client->pers.netname)))
 			continue;
 
@@ -851,20 +848,26 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 		sortedClients[i].clientNum = i;
 #ifdef DEBUG_GENERATETEAMS
 		Q_strncpyz(sortedClients[i].accountName, Cvar_VariableString(va("z_debug%d", i + 1)), sizeof(sortedClients[i].accountName));
-		sortedClients[i].preferredPosFromName = GetPositionPreferenceFromName(Cvar_VariableString(va("z_debugposname%d", i + 1)));
 		account_t acc;
 		G_DBGetAccountByName(Cvar_VariableString(va("z_debug%d", i + 1)), &acc);
 		sortedClients[i].accountId = acc.id;
 		sortedClients[i].team = TEAM_SPECTATOR;
+		memcpy(&sortedClients[i].posPrefs, &acc.validPref, sizeof(positionPreferences_t));
 #else
 		Q_strncpyz(sortedClients[i].accountName, ent->client->account->name, sizeof(sortedClients[i].accountName));
-		sortedClients[i].preferredPosFromName = GetPositionPreferenceFromName(ent->client->pers.netname);
+		memcpy(&sortedClients[i].posPrefs, &ent->client->account->validPref, sizeof(positionPreferences_t));
 		sortedClients[i].team = ent->client->sess.sessionTeam;
 		sortedClients[i].accountId = ent->client->account->id;
 #endif
 
-		if (sortedClients[i].preferredPosFromName)
-			TeamGen_DebugPrintf("%s has preferred position from name %s\n", sortedClients[i].accountName, NameForPos(sortedClients[i].preferredPosFromName));
+		for (int j = CTFPOSITION_BASE; j <= CTFPOSITION_OFFENSE; j++) {
+			if (sortedClients[i].posPrefs.first & (1 << j))
+				TeamGen_DebugPrintf("%s has first choice pos %s\n", sortedClients[i].accountName, NameForPos(j));
+			if (sortedClients[i].posPrefs.second & (1 << j))
+				TeamGen_DebugPrintf("%s has second choice pos %s\n", sortedClients[i].accountName, NameForPos(j));
+			if (sortedClients[i].posPrefs.third & (1 << j))
+				TeamGen_DebugPrintf("%s has third choice pos %s\n", sortedClients[i].accountName, NameForPos(j));
+		}
 
 		++numEligible;
 		if (sortedClients[i].team == TEAM_RED || sortedClients[i].team == TEAM_BLUE)
@@ -875,19 +878,16 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 		return qfalse;
 	}
 
-	srand(teamGenSeed);
-	qsort(&sortedClients, MAX_CLIENTS, sizeof(sortedClient_t), SortClientsForTeamGenerator);
-	FisherYatesShuffle(&sortedClients, numEligible, sizeof(sortedClient_t));
-	srand(time(NULL));
-
 	// try to get the best possible teams using a few different approaches
 	permutationOfTeams_t permutations[NUM_TEAMGENERATORTYPES] = { 0 };
 	qboolean gotValid = qfalse;
 	uint64_t gotten = 0llu;
-	qboolean got5050 = qfalse;
-	for (teamGeneratorType_t type = TEAMGENERATORTYPE_FIRST; type < NUM_TEAMGENERATORTYPES; type++) {
-		if (type == TEAMGENERATORTYPE_FAIREST && got5050)
-			continue; // we already found dead even teams, so don't bother
+	int rerollNum = 0;
+	for (int type = TEAMGENERATORTYPE_FIRST; type < NUM_TEAMGENERATORTYPES; type++) {
+		srand(teamGenSeed + (type * 100) + rerollNum);
+		qsort(&sortedClients, MAX_CLIENTS, sizeof(sortedClient_t), SortClientsForTeamGenerator);
+		FisherYatesShuffle(&sortedClients, numEligible, sizeof(sortedClient_t));
+		srand(time(NULL));
 
 		permutationPlayer_t *players = calloc(numEligible, sizeof(permutationPlayer_t));
 		int index = 0;
@@ -913,20 +913,6 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 
 			// get this guy's bespoke tiebreaker order
 			qboolean okayToUsePreference = qtrue;
-			ctfPosition_t tiebreakerOrder[3] = { CTFPOSITION_BASE, CTFPOSITION_CHASE, CTFPOSITION_OFFENSE };
-			srand(teamGenSeed + thisGuy->accountId);
-			FisherYatesShuffle(&tiebreakerOrder, 3, sizeof(ctfPosition_t));
-			if (thisGuy->preferredPosFromName) {
-				if (tiebreakerOrder[0] == thisGuy->preferredPosFromName) {
-					tiebreakerOrder[0] = tiebreakerOrder[2];
-					tiebreakerOrder[2] = thisGuy->preferredPosFromName;
-				}
-				else if (tiebreakerOrder[1] == thisGuy->preferredPosFromName) {
-					tiebreakerOrder[1] = tiebreakerOrder[2];
-					tiebreakerOrder[2] = thisGuy->preferredPosFromName;
-				}
-			}
-			srand(time(NULL));
 
 			mostPlayedPos_t findMe2 = { 0 };
 			findMe2.accountId = findMe.accountId;
@@ -941,145 +927,151 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 				if (mostPlayedPositions) {
 					player->rating[mostPlayedPositions->mostPlayed] = positionRatings->rating[mostPlayedPositions->mostPlayed];
 					player->rating[mostPlayedPositions->secondMostPlayed] = positionRatings->rating[mostPlayedPositions->secondMostPlayed];
-					player->preference = mostPlayedPositions->mostPlayed;
-					player->secondPreference = mostPlayedPositions->secondMostPlayed;
-
-					if (thisGuy->preferredPosFromName && mostPlayedPositions->mostPlayed && mostPlayedPositions->secondMostPlayed &&
-						thisGuy->preferredPosFromName != mostPlayedPositions->mostPlayed && thisGuy->preferredPosFromName != mostPlayedPositions->secondMostPlayed) {
-						// special case, they have two most played positions but they prefer the third one (which may not actually exist)
-
-						// use it if a rating for it actually exists; otherwise default to low C tier
-						if (positionRatings->rating[thisGuy->preferredPosFromName])
-							player->rating[thisGuy->preferredPosFromName] = positionRatings->rating[thisGuy->preferredPosFromName];
-						else
-							player->rating[thisGuy->preferredPosFromName] = PlayerTierToRating(PLAYERRATING_LOW_C);
-
-						// remove their second most played from consideration entirely
-						player->rating[mostPlayedPositions->secondMostPlayed] = 0;
-					}
-					else if (thisGuy->preferredPosFromName && mostPlayedPositions->mostPlayed && !mostPlayedPositions->secondMostPlayed &&
-						thisGuy->preferredPosFromName != mostPlayedPositions->mostPlayed) {
-						// special case, they only have one most played position and their preference is something other than it
-
-						// use it if a rating for it actually exists; otherwise default to low C tier
-						if (positionRatings->rating[thisGuy->preferredPosFromName])
-							player->rating[thisGuy->preferredPosFromName] = positionRatings->rating[thisGuy->preferredPosFromName];
-						else
-							player->rating[thisGuy->preferredPosFromName] = PlayerTierToRating(PLAYERRATING_LOW_C);
-					}
+					player->posPrefs.first = (1 << mostPlayedPositions->mostPlayed);
+					player->posPrefs.second = (1 << mostPlayedPositions->secondMostPlayed);
 				}
 				else {
 					// we have no information about positions they have played. maybe it's a new account? try to fall back to their highest rated pos
 					double highestRating = 0.0;
-					ctfPosition_t highestPos = CTFPOSITION_UNKNOWN;
+					int positionsWithHighestRating = 0;
 					if (gotValidRatings) {
-						for (int j = 0; j < 3; j++) {
-							ctfPosition_t pos = tiebreakerOrder[j];
-							if (positionRatings->rating[pos] >= highestRating) {
+						for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+							if (positionRatings->rating[pos] >= highestRating)
 								highestRating = positionRatings->rating[pos];
-								highestPos = pos;
+						}
+						if (highestRating) {
+							for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+								if (positionRatings->rating[pos] == highestRating)
+									positionsWithHighestRating |= (1 << pos);
 							}
 						}
 					}
-					if (highestPos) {
-						player->rating[highestPos] = highestRating;
-						player->preference = highestPos;
+					if (positionsWithHighestRating) {
+						for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+							if (positionsWithHighestRating & (1 << pos)) {
+								player->rating[pos] = highestRating;
+								player->posPrefs.first |= (1 << pos);
+							}
+						}
 
 						// get their second highest rated pos
 						double secondHighestRating = 0.0;
-						ctfPosition_t secondHighestPos = CTFPOSITION_UNKNOWN;
-						for (int j = 0; j < 3; j++) {
-							ctfPosition_t pos = tiebreakerOrder[j];
-							if (pos == highestPos)
+						int positionsWithSecondHighestRating = 0;
+						for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+							if (positionsWithHighestRating & (1 << pos))
 								continue;
-							if (positionRatings->rating[pos] >= secondHighestRating) {
+							if (positionRatings->rating[pos] >= secondHighestRating)
 								secondHighestRating = positionRatings->rating[pos];
-								secondHighestPos = pos;
+						}
+						if (secondHighestRating) {
+							for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+								if (positionsWithHighestRating & (1 << pos))
+									continue;
+								if (positionRatings->rating[pos] == secondHighestRating)
+									positionsWithSecondHighestRating |= (1 << pos);
 							}
 						}
-						if (secondHighestPos) {
-							player->rating[secondHighestPos] = secondHighestRating;
-							player->secondPreference = secondHighestPos;
+
+						if (positionsWithSecondHighestRating) {
+							for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+								if (positionsWithHighestRating & (1 << pos))
+									continue;
+								if (positionsWithSecondHighestRating & (1 << pos)) {
+									player->rating[pos] = secondHighestRating;
+									player->posPrefs.second |= (1 << pos);
+								}
+							}
 						}
 					}
+				}
+
+				// make sure any pos in their first/second preference is rated
+				for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+					if (thisGuy->posPrefs.first & (1 << pos) || thisGuy->posPrefs.second & (1 << pos))
+						player->rating[pos] = positionRatings->rating[pos];
 				}
 			}
 			else if (type == TEAMGENERATORTYPE_HIGHESTRATING) {
 				// get their highest rated pos
 				double highestRating = 0.0;
-				ctfPosition_t highestPos = CTFPOSITION_UNKNOWN;
+				int positionsWithHighestRating = 0;
 				if (gotValidRatings) {
-					for (int j = 0; j < 3; j++) {
-						ctfPosition_t pos = tiebreakerOrder[j];
-						if (positionRatings->rating[pos] >= highestRating) {
+					for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+						if (positionRatings->rating[pos] >= highestRating)
 							highestRating = positionRatings->rating[pos];
-							highestPos = pos;
+					}
+					if (highestRating) {
+						for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+							if (positionRatings->rating[pos] == highestRating)
+								positionsWithHighestRating |= (1 << pos);
 						}
 					}
 				}
-				if (highestPos) {
+				if (positionsWithHighestRating) {
 					if (PlayerTierFromRating(highestRating) == PLAYERRATING_LOW_C && mostPlayedPositions) {
 						// special case: their highest rating is a C, meaning they are C on any and all positions they have ratings on
 						// just assume that their most-played positions are higher caliber
 						player->rating[mostPlayedPositions->mostPlayed] = positionRatings->rating[mostPlayedPositions->mostPlayed];
 						player->rating[mostPlayedPositions->secondMostPlayed] = positionRatings->rating[mostPlayedPositions->secondMostPlayed];
-						player->preference = mostPlayedPositions->mostPlayed;
-						player->secondPreference = mostPlayedPositions->secondMostPlayed;
+						player->posPrefs.first = (1 << mostPlayedPositions->mostPlayed);
+						player->posPrefs.second = (1 << mostPlayedPositions->secondMostPlayed);
 						okayToUsePreference = qfalse;
 					}
 					else {
-						player->rating[highestPos] = highestRating;
-						player->preference = highestPos;
+						for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+							if (positionsWithHighestRating & (1 << pos)) {
+								player->rating[pos] = highestRating;
+								player->posPrefs.first |= (1 << pos);
+							}
+						}
 
 						// get their second highest rated pos
 						double secondHighestRating = 0.0;
-						ctfPosition_t secondHighestPos = CTFPOSITION_UNKNOWN;
-						for (int j = 0; j < 3; j++) {
-							ctfPosition_t pos = tiebreakerOrder[j];
-							if (pos == highestPos)
+						int positionsWithSecondHighestRating = 0;
+						for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+							if (positionsWithHighestRating & (1 << pos))
 								continue;
-							if (positionRatings->rating[pos] >= secondHighestRating) {
+							if (positionRatings->rating[pos] >= secondHighestRating)
 								secondHighestRating = positionRatings->rating[pos];
-								secondHighestPos = pos;
+						}
+						if (secondHighestRating) {
+							for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+								if (positionsWithHighestRating & (1 << pos))
+									continue;
+								if (positionRatings->rating[pos] == secondHighestRating)
+									positionsWithSecondHighestRating |= (1 << pos);
 							}
 						}
-						if (secondHighestPos) {
-							player->rating[secondHighestPos] = secondHighestRating;
-							player->secondPreference = secondHighestPos;
+
+						if (positionsWithSecondHighestRating) {
+							for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+								if (positionsWithHighestRating & (1 << pos))
+									continue;
+								if (positionsWithSecondHighestRating & (1 << pos)) {
+									player->rating[pos] = secondHighestRating;
+									player->posPrefs.second |= (1 << pos);
+								}
+							}
+						}
+
+						// make sure any pos in their first/second preference is rated
+						for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+							if (thisGuy->posPrefs.first & (1 << pos) || thisGuy->posPrefs.second & (1 << pos))
+								player->rating[pos] = positionRatings->rating[pos];
 						}
 					}
 				}
 				else {
 					// we have no ratings for this player. maybe it's a new account? try to fall back to their most played pos
-					if (mostPlayedPositions) {
-						player->rating[mostPlayedPositions->mostPlayed] = positionRatings->rating[mostPlayedPositions->mostPlayed];
-						player->rating[mostPlayedPositions->secondMostPlayed] = positionRatings->rating[mostPlayedPositions->secondMostPlayed];
-						player->preference = mostPlayedPositions->mostPlayed;
-						player->secondPreference = mostPlayedPositions->secondMostPlayed;
-
-						if (thisGuy->preferredPosFromName && mostPlayedPositions->mostPlayed && mostPlayedPositions->secondMostPlayed &&
-							thisGuy->preferredPosFromName != mostPlayedPositions->mostPlayed && thisGuy->preferredPosFromName != mostPlayedPositions->secondMostPlayed) {
-							// special case, they have two most played positions but they prefer the third one (which may not actually exist)
-
-							// use it if a rating for it actually exists; otherwise default to low C tier
-							if (positionRatings->rating[thisGuy->preferredPosFromName])
-								player->rating[thisGuy->preferredPosFromName] = positionRatings->rating[thisGuy->preferredPosFromName];
-							else
-								player->rating[thisGuy->preferredPosFromName] = PlayerTierToRating(PLAYERRATING_LOW_C);
-
-							// remove their second most played from consideration entirely
-							player->rating[mostPlayedPositions->secondMostPlayed] = 0;
-						}
-						else if (thisGuy->preferredPosFromName && mostPlayedPositions->mostPlayed && !mostPlayedPositions->secondMostPlayed &&
-							thisGuy->preferredPosFromName != mostPlayedPositions->mostPlayed) {
-							// special case, they only have one most played position and their preference is something other than it
-
-							// use it if a rating for it actually exists; otherwise default to low C tier
-							if (positionRatings->rating[thisGuy->preferredPosFromName])
-								player->rating[thisGuy->preferredPosFromName] = positionRatings->rating[thisGuy->preferredPosFromName];
-							else
-								player->rating[thisGuy->preferredPosFromName] = PlayerTierToRating(PLAYERRATING_LOW_C);
-						}
+					player->rating[mostPlayedPositions->mostPlayed] = positionRatings->rating[mostPlayedPositions->mostPlayed];
+					player->rating[mostPlayedPositions->secondMostPlayed] = positionRatings->rating[mostPlayedPositions->secondMostPlayed];
+					player->posPrefs.first = (1 << mostPlayedPositions->mostPlayed);
+					player->posPrefs.second = (1 << mostPlayedPositions->secondMostPlayed);
+					
+					// make sure any pos in their first/second preference is rated
+					for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+						if (thisGuy->posPrefs.first & (1 << pos) || thisGuy->posPrefs.second & (1 << pos))
+							player->rating[pos] = positionRatings->rating[pos];
 					}
 				}
 			}
@@ -1090,55 +1082,91 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 				if (mostPlayedPositions) {
 					player->rating[mostPlayedPositions->mostPlayed] = positionRatings->rating[mostPlayedPositions->mostPlayed];
 					player->rating[mostPlayedPositions->secondMostPlayed] = positionRatings->rating[mostPlayedPositions->secondMostPlayed];
-					player->preference = mostPlayedPositions->mostPlayed;
-					player->secondPreference = mostPlayedPositions->secondMostPlayed;
-
-					if (thisGuy->preferredPosFromName && thisGuy->preferredPosFromName == mostPlayedPositions->thirdMostPlayed) {
-						// special case, their third most played is their preference. fetch it (preference is set later)
-						player->rating[mostPlayedPositions->thirdMostPlayed] = positionRatings->rating[mostPlayedPositions->thirdMostPlayed];
-					}
+					player->rating[mostPlayedPositions->thirdMostPlayed] = positionRatings->rating[mostPlayedPositions->thirdMostPlayed];
+					player->posPrefs.first = (1 << mostPlayedPositions->mostPlayed);
+					player->posPrefs.second = (1 << mostPlayedPositions->secondMostPlayed);
+					player->posPrefs.third = (1 << mostPlayedPositions->thirdMostPlayed);
 				}
 				else {
 					// we have no information about positions they have played. maybe it's a new account? try to fall back to their highest rated pos
 					double highestRating = 0.0;
-					ctfPosition_t highestPos = CTFPOSITION_UNKNOWN;
+					int positionsWithHighestRating = 0;
 					if (gotValidRatings) {
-						for (int j = 0; j < 3; j++) {
-							ctfPosition_t pos = tiebreakerOrder[j];
-							if (positionRatings->rating[pos] >= highestRating) {
+						for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+							if (positionRatings->rating[pos] >= highestRating)
 								highestRating = positionRatings->rating[pos];
-								highestPos = pos;
+						}
+						if (highestRating) {
+							for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+								if (positionRatings->rating[pos] == highestRating)
+									positionsWithHighestRating |= (1 << pos);
 							}
 						}
 					}
-					if (highestPos) {
-						player->rating[highestPos] = highestRating;
-						player->preference = highestPos;
+					if (positionsWithHighestRating) {
+						for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+							if (positionsWithHighestRating & (1 << pos)) {
+								player->rating[pos] = highestRating;
+								player->posPrefs.first |= (1 << pos);
+							}
+						}
 
 						// get their second highest rated pos
 						double secondHighestRating = 0.0;
-						ctfPosition_t secondHighestPos = CTFPOSITION_UNKNOWN;
-						for (int j = 0; j < 3; j++) {
-							ctfPosition_t pos = tiebreakerOrder[j];
-							if (pos == highestPos)
+						int positionsWithSecondHighestRating = 0;
+						for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+							if (positionsWithHighestRating & (1 << pos))
 								continue;
-							if (positionRatings->rating[pos] >= secondHighestRating) {
+							if (positionRatings->rating[pos] >= secondHighestRating)
 								secondHighestRating = positionRatings->rating[pos];
-								secondHighestPos = pos;
+						}
+						if (secondHighestRating) {
+							for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+								if (positionsWithHighestRating & (1 << pos))
+									continue;
+								if (positionRatings->rating[pos] == secondHighestRating)
+									positionsWithSecondHighestRating |= (1 << pos);
 							}
 						}
-						if (secondHighestPos) {
-							player->rating[secondHighestPos] = secondHighestRating;
-							player->secondPreference = secondHighestPos;
+
+						if (positionsWithSecondHighestRating) {
+							for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+								if (positionsWithHighestRating & (1 << pos))
+									continue;
+								if (positionsWithSecondHighestRating & (1 << pos)) {
+									player->rating[pos] = secondHighestRating;
+									player->posPrefs.second |= (1 << pos);
+								}
+							}
 						}
 					}
 				}
+
+				// make sure any pos in their first/second preference is rated
+				for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+					if (thisGuy->posPrefs.first & (1 << pos) || thisGuy->posPrefs.second & (1 << pos))
+						player->rating[pos] = positionRatings->rating[pos];
+				}
 			}
 
-			// if they have a name like "base only" then try to get them in that position if possible
-			if (okayToUsePreference && thisGuy->preferredPosFromName && thisGuy->preferredPosFromName != player->preference && player->rating[thisGuy->preferredPosFromName]) {
-				player->secondPreference = player->preference;
-				player->preference = thisGuy->preferredPosFromName;
+			// try to get them in their preferred positions if possible
+			if (okayToUsePreference) {
+				if (thisGuy->posPrefs.first) {
+					if (player->posPrefs.first)
+						player->posPrefs.second = player->posPrefs.first; // demote computer-determined first choice to second
+					player->posPrefs.first = thisGuy->posPrefs.first;
+
+					if (thisGuy->posPrefs.second) {
+						if (player->posPrefs.second)
+							player->posPrefs.third = player->posPrefs.second; // demote computer-determined second choice to third
+						player->posPrefs.second = thisGuy->posPrefs.second;
+
+						if (thisGuy->posPrefs.third)
+							player->posPrefs.third = thisGuy->posPrefs.third;
+					}
+				}
+				if (thisGuy->posPrefs.avoid)
+					player->posPrefs.avoid = thisGuy->posPrefs.avoid;
 			}
 
 			TeamGen_DebugPrintf("%s: preference %s --- secondPreference %s --- %s base,   %s chase,   %s offense^7\n",
@@ -1181,11 +1209,32 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 			continue;
 		}
 
-		if (thisPermutation->diff < 0.00001)
-			got5050 = qtrue; // if we find dead even teams in one of the first two passes, we can skip the third pass
-
 		NormalizePermutationOfTeams(thisPermutation);
 		thisPermutation->hash = HashTeam(thisPermutation);
+
+		// try to reroll hc/fairest if we just generated a duplicate
+		if (type == TEAMGENERATORTYPE_HIGHESTRATING && mostPlayed && mostPlayed->valid && mostPlayed->hash == thisPermutation->hash) {
+			if (++rerollNum <= REROLL_NUM_TRIES) {
+				TeamGen_DebugPrintf("^5------Got duplicate hash for HC, rerolling------^7\n");
+				type--; // retry this type (the for loop will increment it back)
+				continue;
+			}
+			else {
+				rerollNum = 0;
+			}
+		}
+		else if (type == TEAMGENERATORTYPE_FAIREST &&
+			((mostPlayed && mostPlayed->valid && mostPlayed->hash == thisPermutation->hash) ||
+			(highestCaliber && highestCaliber->valid && highestCaliber->hash == thisPermutation->hash))) {
+			if (++rerollNum <= REROLL_NUM_TRIES) {
+				TeamGen_DebugPrintf("^5------Got duplicate hash for fairest, rerolling------^7\n");
+				type--; // retry this type (the for loop will increment it back)
+				continue;
+			}
+			else {
+				rerollNum = 0;
+			}
+		}
 
 		switch (type) {
 		case TEAMGENERATORTYPE_MOSTPLAYED:
@@ -1237,7 +1286,6 @@ void GetCurrentPickablePlayers(sortedClient_t *sortedClientsOut, int *numEligibl
 	G_DBGetPlayerRatings();
 
 	// figure out who is eligible
-	int numIngame = 0;
 	qboolean eligible[MAX_CLIENTS] = { qfalse };
 	for (int i = 0; i < MAX_CLIENTS; i++) {
 #ifdef DEBUG_GENERATETEAMS
@@ -1249,7 +1297,7 @@ void GetCurrentPickablePlayers(sortedClient_t *sortedClientsOut, int *numEligibl
 		gentity_t *ent = &g_entities[i];
 		if (!ent->inuse || !ent->client || ent->client->pers.connected == CON_DISCONNECTED ||
 			!ent->client->account || ent->client->sess.clientType != CLIENT_TYPE_NORMAL ||
-			PlayerIsBarredFromTeamGenerator(ent) ||
+			TeamGenerator_PlayerIsBarredFromTeamGenerator(ent) ||
 			(IsRacerOrSpectator(ent) && IsSpecName(ent->client->pers.netname)))
 			continue;
 
@@ -1279,7 +1327,7 @@ void GetCurrentPickablePlayers(sortedClient_t *sortedClientsOut, int *numEligibl
 
 	// tally up everyone that is eligible. if there are 8+ ingame, then specs are not eligible.
 	// also note their name in case they have a position preference like "base only" in it
-	int numEligible = 0;
+	int numIngameEligible = 0, numEligible = 0;
 	sortedClient_t sortedClients[MAX_CLIENTS];
 	memset(sortedClients, 0, sizeof(sortedClients));
 	for (int i = 0; i < MAX_CLIENTS; i++) {
@@ -1287,38 +1335,38 @@ void GetCurrentPickablePlayers(sortedClient_t *sortedClientsOut, int *numEligibl
 			continue;
 
 		gentity_t *ent = &g_entities[i];
-#ifndef DEBUG_GENERATETEAMS
-		if (numIngame >= 8 && IsRacerOrSpectator(ent)) {
-			eligible[i] = qfalse;
-			continue;
-		}
-#endif
 
 		sortedClients[i].clientNum = i;
 #ifdef DEBUG_GENERATETEAMS
 		Q_strncpyz(sortedClients[i].accountName, Cvar_VariableString(va("z_debug%d", i + 1)), sizeof(sortedClients[i].accountName));
-		sortedClients[i].preferredPosFromName = GetPositionPreferenceFromName(Cvar_VariableString(va("z_debugposname%d", i + 1)));
 		account_t acc;
 		G_DBGetAccountByName(Cvar_VariableString(va("z_debug%d", i + 1)), &acc);
 		sortedClients[i].accountId = acc.id;
 		sortedClients[i].team = TEAM_SPECTATOR;
+		memcpy(&sortedClients[i].posPrefs, &acc.validPref, sizeof(positionPreferences_t));
 #else
 		Q_strncpyz(sortedClients[i].accountName, ent->client->account->name, sizeof(sortedClients[i].accountName));
-		sortedClients[i].preferredPosFromName = GetPositionPreferenceFromName(ent->client->pers.netname);
+		memcpy(&sortedClients[i].posPrefs, &ent->client->account->validPref, sizeof(positionPreferences_t));
 		sortedClients[i].team = ent->client->sess.sessionTeam;
 		sortedClients[i].accountId = ent->client->account->id;
 #endif
 
-		if (sortedClients[i].preferredPosFromName)
-			TeamGen_DebugPrintf("%s has preferred position from name %s\n", sortedClients[i].accountName, NameForPos(sortedClients[i].preferredPosFromName));
+		for (int j = CTFPOSITION_BASE; j <= CTFPOSITION_OFFENSE; j++) {
+			if (sortedClients[i].posPrefs.first & (1 << j))
+				TeamGen_DebugPrintf("%s has first choice pos %s\n", sortedClients[i].accountName, NameForPos(j));
+			if (sortedClients[i].posPrefs.second & (1 << j))
+				TeamGen_DebugPrintf("%s has second choice pos %s\n", sortedClients[i].accountName, NameForPos(j));
+			if (sortedClients[i].posPrefs.third & (1 << j))
+				TeamGen_DebugPrintf("%s has third choice pos %s\n", sortedClients[i].accountName, NameForPos(j));
+	}
 
 		++numEligible;
 		if (sortedClients[i].team == TEAM_RED || sortedClients[i].team == TEAM_BLUE)
-			++numIngame;
+			++numIngameEligible;
 	}
 
 	if (numIngameEligibleOut)
-		*numIngameEligibleOut = numIngame;
+		*numIngameEligibleOut = numIngameEligible;
 	if (numEligibleOut)
 		*numEligibleOut = numEligible;
 
@@ -1418,7 +1466,6 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 
 	int numPrinted = 0;
 	char lastLetter = 'a';
-	qboolean didFairest = qfalse;
 	for (int i = 0; i < 3; i++) {
 		permutationOfTeams_t *thisPermutation;
 		switch (i) {
@@ -1428,22 +1475,18 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 		}
 		if (!thisPermutation->valid)
 			continue;
-		if (i == 2 && didFairest)
-			continue;
 
 		char letter;
 		char *suggestionTypeStr;
 		if (!i) {
 			if (thisPermutation->hash == set->highestCaliber.hash && (thisPermutation->diff < 0.00001 || thisPermutation->hash == set->fairest.hash || (set->fairest.valid && thisPermutation->diff == set->fairest.diff))) {
 				suggestionTypeStr = "Suggested, highest caliber, and fairest";
-				didFairest = qtrue;
 			}
 			else if (thisPermutation->hash == set->highestCaliber.hash) {
 				suggestionTypeStr = "Suggested and highest caliber";
 			}
 			else if (thisPermutation->diff < 0.00001 || thisPermutation->hash == set->fairest.hash || (set->fairest.valid && thisPermutation->diff == set->fairest.diff)) {
 				suggestionTypeStr = "Suggested and fairest";
-				didFairest = qtrue;
 			}
 			else {
 				suggestionTypeStr = "Suggested";
@@ -1457,7 +1500,6 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 			}
 			if (thisPermutation->diff < 0.00001 || (thisPermutation->hash == set->fairest.hash && set->fairest.valid) || (set->fairest.valid && thisPermutation->diff == set->fairest.diff)) {
 				suggestionTypeStr = "Highest caliber and fairest";
-				didFairest = qtrue;
 			}
 			else {
 				suggestionTypeStr = "Highest caliber";
@@ -1951,12 +1993,25 @@ qboolean TeamGenerator_PugStart(gentity_t *ent, char **newMessage) {
 		}
 	}
 
+	// prevent unpickable people from starting pugs they won't be part of
 	if (!gotMe) {
-		if (numIngameEligible >= 8)
-			TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You are not pickable, so you cannot start a pug. Consider joining red/blue if you want to be considered pickable.");
-		else
-			TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You are not pickable, so you cannot start a pug.");
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You are not pickable, so you cannot start a pug.");
 		return qtrue;
+	}
+
+	// prevent spectators from trolling ingame puggers
+	if (IsRacerOrSpectator(ent) && level.wasRestarted && !level.someoneWasAFK && level.numTeamTicks) {
+		float avgRed = (float)level.numRedPlayerTicks / (float)level.numTeamTicks;
+		float avgBlue = (float)level.numBluePlayerTicks / (float)level.numTeamTicks;
+		int avgRedInt = (int)lroundf(avgRed);
+		int avgBlueInt = (int)lroundf(avgBlue);
+		if (avgRedInt == avgBlueInt &&
+			avgRedInt + avgBlueInt >= 4 &&
+			fabs(avgRed - round(avgRed)) < 0.2f &&
+			fabs(avgBlue - round(avgBlue)) < 0.2f) {
+			TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You cannot currently start a pug.");
+			return qtrue;
+		}
 	}
 
 	XXH32_hash_t hash = HashPugProposal(&clients[0]);
@@ -1964,6 +2019,21 @@ qboolean TeamGenerator_PugStart(gentity_t *ent, char **newMessage) {
 	if (set) {
 		// this person is attempting to start a pug with a combination that has already been proposed. redirect it to a yes vote on that combination.
 		return TeamGenerator_VoteYesToPugProposal(ent, 0, set, newMessage);
+	}
+
+	if (g_vote_teamgen_minSecsSinceIntermission.integer && g_lastIntermissionStartTime.string[0] && Q_isanumber(g_lastIntermissionStartTime.string)) {
+		int minSecs = Com_Clampi(1, 60, g_vote_teamgen_minSecsSinceIntermission.integer);
+		qboolean intermissionOccurredRecently = !!(((int)time(NULL)) - g_lastIntermissionStartTime.integer < (g_lastIntermissionStartTime.integer + 30));
+		if (intermissionOccurredRecently && level.time - level.startTime < minSecs * 1000) {
+			char *waitUntilStr = (minSecs == 60) ? "1:00" : va("0:%02d", minSecs);
+			TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("Please wait until at least %s before starting a new pug.", waitUntilStr));
+
+			// let the message through as a warning for people to rename
+			static char buf[MAX_SAY_TEXT] = { 0 };
+			Com_sprintf(buf, sizeof(buf), "%cstart   ^9(available after %s)", TEAMGEN_CHAT_COMMAND_CHARACTER, waitUntilStr);
+			*newMessage = buf;
+			return qfalse;
+		}
 	}
 
 	set = ListAdd(&level.pugProposalsList, sizeof(pugProposal_t));
@@ -2306,6 +2376,33 @@ void TeamGenerator_PrintPlayersInPugProposals(gentity_t *ent) {
 	}
 }
 
+static qboolean TeamGenerator_PermabarredPlayerMarkAsPickable(gentity_t *ent) {
+	assert(ent);
+	if (!ent->client->account) {
+		return qtrue;
+	}
+
+	if (!(ent->client->account->flags & ACCOUNTFLAG_PERMABARRED) && !(ent->client->account->flags & ACCOUNTFLAG_HARDPERMABARRED)) {
+		return qtrue;
+	}
+
+	if (ent->client->account->flags & ACCOUNTFLAG_HARDPERMABARRED) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You are unable to set yourself as pickable. Please contact an admin.");
+		return qtrue;
+	}
+
+	if (ent->client->pers.permaBarredDeclaredPickable) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You have already set yourself as pickable.");
+		return qtrue;
+	}
+
+	ent->client->pers.permaBarredDeclaredPickable = qtrue;
+	TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You are now pickable.");
+	ClientUserinfoChanged(ent - g_entities);
+
+	return qfalse;
+}
+
 // returns qtrue if the message should be filtered out
 qboolean TeamGenerator_CheckForChatCommand(gentity_t *ent, const char *s, char **newMessage) {
 	if (g_gametype.integer != GT_CTF)
@@ -2323,16 +2420,30 @@ qboolean TeamGenerator_CheckForChatCommand(gentity_t *ent, const char *s, char *
 
 
 	if (!Q_stricmp(s, "help")) {
-		PrintIngame(ent - g_entities,
-			"*Chat commands:\n"
-			"^7%cstart          - propose playing a pug with current non-spec players\n"
-			"^9%c[number]       - vote to approve a pug proposal\n"
-			"^7%c[ a | b | c ]  - vote to approve one or more teams proposals\n"
-			"^9%creroll         - vote to generate new teams proposals with the same players\n"
-			"^7%ccancel         - vote to generate new teams proposals with the same players\n"
-			"^9%clist           - show which players are part of each pug proposal\n"
-			"^7"
-			, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER);
+		if (ent->client->account && (ent->client->account->flags & ACCOUNTFLAG_PERMABARRED) && !(ent->client->account->flags & ACCOUNTFLAG_HARDPERMABARRED)) {
+			PrintIngame(ent - g_entities,
+				"*Chat commands:\n"
+				"^7%cstart          - propose playing a pug with current non-spec players\n"
+				"^9%c[number]       - vote to approve a pug proposal\n"
+				"^7%c[ a | b | c ]  - vote to approve one or more teams proposals\n"
+				"^9%creroll         - vote to generate new teams proposals with the same players\n"
+				"^7%ccancel         - vote to generate new teams proposals with the same players\n"
+				"^9%clist           - show which players are part of each pug proposal\n"
+				"^7%cpickable       - declare yourself as pickable for pugs\n"
+				, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER);
+		}
+		else {
+			PrintIngame(ent - g_entities,
+				"*Chat commands:\n"
+				"^7%cstart          - propose playing a pug with current non-spec players\n"
+				"^9%c[number]       - vote to approve a pug proposal\n"
+				"^7%c[ a | b | c ]  - vote to approve one or more teams proposals\n"
+				"^9%creroll         - vote to generate new teams proposals with the same players\n"
+				"^7%ccancel         - vote to generate new teams proposals with the same players\n"
+				"^9%clist           - show which players are part of each pug proposal\n"
+				"^7"
+				, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER);
+		}
 		SV_Tell(ent - g_entities, "See console for chat command help.");
 		return qtrue;
 	}
@@ -2350,6 +2461,9 @@ qboolean TeamGenerator_CheckForChatCommand(gentity_t *ent, const char *s, char *
 		TeamGenerator_PrintPlayersInPugProposals(ent);
 		return qtrue;
 	}
+
+	if (!Q_stricmp(s, "pickable"))
+		return TeamGenerator_PermabarredPlayerMarkAsPickable(ent);
 
 	if (strlen(s) <= 3) {
 		qboolean invalidVote = qfalse;
@@ -2545,6 +2659,8 @@ void Svcmd_Pug_f(void) {
 			Com_Printf("Barred player %s^7. Since they do not have an account, they will need to be barred again if they reconnect to circumvent the bar before the current map ends.\n", name);
 		}
 
+		ClientUserinfoChanged(found - g_entities);
+
 		TeamGenerator_QueueServerMessageInChat(-1, va("%s^7 barred from team generation by server.", name));
 	}
 	else if (!Q_stricmp(arg1, "unbar")) {
@@ -2579,6 +2695,7 @@ void Svcmd_Pug_f(void) {
 		}
 
 		found->client->pers.barredFromPugSelection = qfalse;
+		ClientUserinfoChanged(found - g_entities);
 
 		TeamGenerator_QueueServerMessageInChat(-1, va("%s^7 unbarred from team generation by server.", name));
 	}

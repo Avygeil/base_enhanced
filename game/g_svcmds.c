@@ -2832,6 +2832,10 @@ static int AccountFlagName2Bitflag(const char* flagName) {
 		return ACCOUNTFLAG_RATEPLAYERS;
 	} else if (!Q_stricmp(flagName, "InstapauseBlacklist")) {
 		return ACCOUNTFLAG_INSTAPAUSE_BLACKLIST;
+	} else if (!Q_stricmp(flagName, "PermaBarred")) {
+		return ACCOUNTFLAG_PERMABARRED;
+	} else if (!Q_stricmp(flagName, "HardPermaBarred")) {
+		return ACCOUNTFLAG_HARDPERMABARRED;
 	}
 
 	return 0;
@@ -2848,6 +2852,8 @@ const char* AccountBitflag2FlagName(int bitflag) {
 		case ACCOUNTFLAG_AIMPACKADMIN: return "AimPackAdmin";
 		case ACCOUNTFLAG_VOTETROLL: return "VoteTroll";
 		case ACCOUNTFLAG_INSTAPAUSE_BLACKLIST: return "InstapauseBlacklist";
+		case ACCOUNTFLAG_PERMABARRED: return "PermaBarred";
+		case ACCOUNTFLAG_HARDPERMABARRED: return "HardPermaBarred";
 		default: return NULL;
 	}
 }
@@ -3044,6 +3050,12 @@ void Svcmd_Account_f( void ) {
 				// we are enabling the flag
 				if ( G_SetAccountFlags( acc.ptr, flag, qtrue ) ) {
 					G_Printf( "Flag '%s' enabled for account '%s' (id: %d)\n", flagName, acc.ptr->name, acc.ptr->id );
+					if (flag == ACCOUNTFLAG_PERMABARRED || flag == ACCOUNTFLAG_HARDPERMABARRED) { // refresh userinfo of anyone connected on this account
+						for (int i = 0; i < MAX_CLIENTS; i++) {
+							if (g_entities[i].inuse && g_entities[i].client && g_entities[i].client->pers.connected == CON_CONNECTED && g_entities[i].client->account && g_entities[i].client->account->id == acc.ptr->id)
+								ClientUserinfoChanged(i);
+						}
+					}
 				} else {
 					G_Printf( "Failed to enable flag '%s' for account '%s' (id: %d)\n", flagName, acc.ptr->name, acc.ptr->id );
 				}
@@ -3051,6 +3063,12 @@ void Svcmd_Account_f( void ) {
 				// we are disabling the flag
 				if ( G_SetAccountFlags( acc.ptr, flag, qfalse ) ) {
 					G_Printf( "Flag '%s' disabled for account '%s' (id: %d)\n", flagName, acc.ptr->name, acc.ptr->id );
+					if (flag == ACCOUNTFLAG_PERMABARRED || flag == ACCOUNTFLAG_HARDPERMABARRED) { // refresh userinfo of anyone connected on this account
+						for (int i = 0; i < MAX_CLIENTS; i++) {
+							if (g_entities[i].inuse && g_entities[i].client && g_entities[i].client->pers.connected == CON_CONNECTED && g_entities[i].client->account && g_entities[i].client->account->id == acc.ptr->id)
+								ClientUserinfoChanged(i);
+						}
+					}
 				} else {
 					G_Printf( "Failed to disable flag '%s' for account '%s' (id: %d)\n", flagName, acc.ptr->name, acc.ptr->id );
 				}

@@ -335,6 +335,7 @@ static const char* sqlPurgeUnreferencedSessions =
 
 static void ReadAccountProperties(const char *propertiesIn, account_t *accOut) {
 	cJSON *root = VALIDSTRING(propertiesIn) ? cJSON_Parse(propertiesIn) : NULL;
+	positionPreferences_t positionPreferences = { 0 };
 	if (root) {
 		cJSON *autolink_sex = cJSON_GetObjectItemCaseSensitive(root, "autolink_sex");
 		if (cJSON_IsString(autolink_sex) && VALIDSTRING(autolink_sex->valuestring)) {
@@ -348,10 +349,36 @@ static void ReadAccountProperties(const char *propertiesIn, account_t *accOut) {
 		else {
 			accOut->autoLink.sex[0] = accOut->autoLink.country[0] = '\0';
 		}
+
+		{
+			cJSON *pospref_first = cJSON_GetObjectItemCaseSensitive(root, "pospref_first");
+			if (cJSON_IsNumber(pospref_first))
+				positionPreferences.first = pospref_first->valueint & ALL_CTF_POSITIONS;
+		}
+
+		{
+			cJSON *pospref_second = cJSON_GetObjectItemCaseSensitive(root, "pospref_second");
+			if (cJSON_IsNumber(pospref_second))
+				positionPreferences.second = pospref_second->valueint & ALL_CTF_POSITIONS;
+		}
+
+		{
+			cJSON *pospref_third = cJSON_GetObjectItemCaseSensitive(root, "pospref_third");
+			if (cJSON_IsNumber(pospref_third))
+				positionPreferences.third = pospref_third->valueint & ALL_CTF_POSITIONS;
+		}
+
+		{
+			cJSON *pospref_avoid = cJSON_GetObjectItemCaseSensitive(root, "pospref_avoid");
+			if (cJSON_IsNumber(pospref_avoid))
+				positionPreferences.avoid = pospref_avoid->valueint & ALL_CTF_POSITIONS;
+		}
 	}
 	else {
 		accOut->autoLink.sex[0] = accOut->autoLink.country[0] = '\0';
 	}
+	memcpy(&accOut->expressedPref, &positionPreferences, sizeof(positionPreferences_t));
+	ValidateAndCopyPositionPreferences(&positionPreferences, &accOut->validPref);
 	cJSON_Delete(root);
 }
 
@@ -382,6 +409,8 @@ qboolean G_DBGetAccountByID( const int id,
 			ReadAccountProperties(properties, account);
 		} else {
 			account->autoLink.sex[0] = account->autoLink.country[0] = '\0';
+			memset(&account->expressedPref, 0, sizeof(positionPreferences_t));
+			memset(&account->validPref, 0, sizeof(positionPreferences_t));
 		}
 
 		found = qtrue;
@@ -424,6 +453,8 @@ qboolean G_DBGetAccountByName( const char* name,
 		}
 		else {
 			account->autoLink.sex[0] = account->autoLink.country[0] = '\0';
+			memset(&account->expressedPref, 0, sizeof(positionPreferences_t));
+			memset(&account->validPref, 0, sizeof(positionPreferences_t));
 		}
 
 		found = qtrue;
@@ -688,12 +719,37 @@ void G_DBSetAccountProperties(account_t *account)
 	cJSON *root = cJSON_CreateObject();
 	char *str = NULL;
 	if (root) {
+		qboolean print = qfalse;
+
 		if (account->autoLink.sex[0]) {
 			cJSON_AddStringToObject(root, "autolink_sex", account->autoLink.sex);
 			if (account->autoLink.country[0])
 				cJSON_AddStringToObject(root, "autolink_country", account->autoLink.country);
-			str = cJSON_PrintUnformatted(root);
+			print = qtrue;
 		}
+
+		if (account->expressedPref.first) {
+			cJSON_AddNumberToObject(root, "pospref_first", account->expressedPref.first);
+			print = qtrue;
+		}
+
+		if (account->expressedPref.second) {
+			cJSON_AddNumberToObject(root, "pospref_second", account->expressedPref.second);
+			print = qtrue;
+		}
+
+		if (account->expressedPref.third) {
+			cJSON_AddNumberToObject(root, "pospref_third", account->expressedPref.third);
+			print = qtrue;
+		}
+
+		if (account->expressedPref.avoid) {
+			cJSON_AddNumberToObject(root, "pospref_avoid", account->expressedPref.avoid);
+			print = qtrue;
+		}
+
+		if (print)
+			str = cJSON_PrintUnformatted(root);
 	}
 
 	sqlite3_stmt *statement;

@@ -556,6 +556,13 @@ typedef struct {
 } autoLink_t;
 
 typedef struct {
+	int			first;
+	int			second;
+	int			third;
+	int			avoid;
+} positionPreferences_t;
+
+typedef struct {
 	int id;
 	char name[MAX_ACCOUNTNAME_LEN];
 	int creationDate;
@@ -563,6 +570,7 @@ typedef struct {
 		char sex[32];
 		char country[32];
 	} autoLink;
+	positionPreferences_t expressedPref, validPref;
 	int flags;
 } account_t;
 
@@ -840,6 +848,8 @@ typedef struct {
 
 	qboolean	barredFromPugSelection;
 
+	qboolean permaBarredDeclaredPickable;
+
 } clientPersistant_t;
 
 typedef struct renderInfo_s
@@ -1006,6 +1016,9 @@ typedef enum {
 	CTFPOSITION_CHASE,
 	CTFPOSITION_OFFENSE
 } ctfPosition_t;
+
+#define ALL_CTF_POSITIONS	((1 << CTFPOSITION_BASE) | (1 << CTFPOSITION_CHASE) | (1 << CTFPOSITION_OFFENSE))
+
 typedef enum {
 	STATS_TABLE_FIRST = 0,
 	STATS_TABLE_GENERAL = STATS_TABLE_FIRST,
@@ -1181,7 +1194,8 @@ typedef struct {
 	double diff;
 	XXH32_hash_t hash;
 	teamData_t teams[2];
-	double numOnPreferredPos;
+	int numOnPreferredPos;
+	int numOnAvoidedPos;
 	int topTierImbalance;
 	int bottomTierImbalance;
 } permutationOfTeams_t;
@@ -1190,7 +1204,7 @@ typedef struct {
 	int clientNum;
 	int accountId;
 	char accountName[32];
-	ctfPosition_t preferredPosFromName;
+	positionPreferences_t posPrefs;
 	team_t team;
 } sortedClient_t;
 
@@ -1250,6 +1264,7 @@ qboolean TeamGenerator_VoteYesToPugProposal(gentity_t *ent, int num, pugProposal
 void TeamGenerator_QueueServerMessageInChat(int clientNum, const char *msg);
 void TeamGenerator_QueueServerMessageInConsole(int clientNum, const char *msg);
 qboolean TeamGenerator_CheckForChatCommand(gentity_t *ent, const char *s, char **newMessage);
+qboolean TeamGenerator_PlayerIsBarredFromTeamGenerator(gentity_t *ent);
 void Svcmd_Pug_f(void);
 void TeamGen_Initialize(void);
 ctfPlayerTier_t GetPlayerTierForPlayerOnPosition(int accountId, ctfPosition_t pos, qboolean assumeLowTierIfUnrated);
@@ -1930,6 +1945,8 @@ typedef struct {
 #define ACCOUNTFLAG_VOTETROLL				( 1 << 5 )
 #define ACCOUNTFLAG_RATEPLAYERS				( 1 << 6 )
 #define ACCOUNTFLAG_INSTAPAUSE_BLACKLIST	( 1 << 7 )
+#define ACCOUNTFLAG_PERMABARRED				( 1 << 8 )
+#define ACCOUNTFLAG_HARDPERMABARRED			( 1 << 9 )
 
 typedef void( *ListSessionsCallback )( void *ctx,
 	const sessionReference_t sessionRef,
@@ -2006,6 +2023,7 @@ char *ConcatArgs(int start);
 qboolean IsRacerOrSpectator(gentity_t *ent);
 ctfPosition_t CtfPositionFromString(char *s);
 float GetCTFLocationValue(gentity_t *ent);
+qboolean ValidateAndCopyPositionPreferences(const positionPreferences_t *in, positionPreferences_t *out);
 
 //
 // g_items.c
@@ -3103,6 +3121,9 @@ extern vmCvar_t		g_vote_teamgen_pug_requiredVotes;
 extern vmCvar_t		g_vote_teamgen_team_requiredVotes;
 extern vmCvar_t		g_vote_teamgen_subhelp;
 extern vmCvar_t		g_vote_teamgen_rustWeeks;
+extern vmCvar_t		g_vote_teamgen_minSecsSinceIntermission;
+
+extern vmCvar_t		g_lastIntermissionStartTime;
 
 extern vmCvar_t		d_debugCtfPosCalculation;
 

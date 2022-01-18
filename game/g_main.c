@@ -449,6 +449,9 @@ vmCvar_t	g_vote_teamgen_pug_requiredVotes;
 vmCvar_t	g_vote_teamgen_team_requiredVotes;
 vmCvar_t	g_vote_teamgen_subhelp;
 vmCvar_t	g_vote_teamgen_rustWeeks;
+vmCvar_t	g_vote_teamgen_minSecsSinceIntermission;
+
+vmCvar_t	g_lastIntermissionStartTime;
 
 vmCvar_t	d_debugCtfPosCalculation;
 
@@ -896,8 +899,11 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_vote_teamgen_pug_requiredVotes, "g_vote_teamgen_pug_requiredVotes", "4", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_teamgen_team_requiredVotes, "g_vote_teamgen_team_requiredVotes", "5", CVAR_ARCHIVE, 0, qtrue },
-	{ &g_vote_teamgen_subhelp, "g_vote_teamgen_subhelp", "1", CVAR_ARCHIVE, 0, qtrue },
-	{ &g_vote_teamgen_rustWeeks, "g_vote_teamgen_rustWeeks", "12", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
+	{ &g_vote_teamgen_subhelp, "g_vote_teamgen_subhelp", "1", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_teamgen_rustWeeks, "g_vote_teamgen_rustWeeks", "12", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
+	{ &g_vote_teamgen_minSecsSinceIntermission, "g_vote_teamgen_minSecsSinceIntermission", "20", CVAR_ARCHIVE, 0, qfalse },
+
+	{ &g_lastIntermissionStartTime, "g_lastIntermissionStartTime", "", CVAR_ROM | CVAR_TEMP, 0, qfalse },
 
 	{ &d_debugCtfPosCalculation, "d_debugCtfPosCalculation", "0", CVAR_ARCHIVE, 0, qtrue },
 
@@ -2970,6 +2976,10 @@ void BeginIntermission(void) {
 	}
 
 	SendMachineFriendlyStats();
+
+	char timeBuf[MAX_STRING_CHARS] = { 0 };
+	Com_sprintf(timeBuf, sizeof(timeBuf), "%d", (int)time(NULL));
+	trap_Cvar_Set("g_lastIntermissionStartTime", timeBuf);
 
 	if (level.numTeamTicks) {
 		float avgRed = (float)level.numRedPlayerTicks / (float)level.numTeamTicks;
