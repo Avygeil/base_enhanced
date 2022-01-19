@@ -2187,6 +2187,10 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, q
 		if (VALIDSTRING(newMessage))
 			chatText = newMessage;
 	}
+	else if (mode == SAY_ALL && !Q_stricmp(chatText, "I would like to pug. I apologize for not using a spec name.")) {
+		if (TeamGenerator_PermabarredPlayerMarkAsPickable(ent))
+			return;
+	}
 
 	switch ( mode ) {
 	default:

@@ -1269,6 +1269,7 @@ qboolean TeamGenerator_PlayerIsBarredFromTeamGenerator(gentity_t *ent);
 void Svcmd_Pug_f(void);
 void TeamGen_Initialize(void);
 ctfPlayerTier_t GetPlayerTierForPlayerOnPosition(int accountId, ctfPosition_t pos, qboolean assumeLowTierIfUnrated);
+qboolean TeamGenerator_PermabarredPlayerMarkAsPickable(gentity_t *ent);
 void ShowSubBalance(void);
 
 // this structure is cleared on each ClientSpawn(),

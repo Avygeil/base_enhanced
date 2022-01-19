@@ -2547,14 +2547,13 @@ void TeamGenerator_PrintPlayersInPugProposals(gentity_t *ent) {
 	}
 }
 
-static qboolean TeamGenerator_PermabarredPlayerMarkAsPickable(gentity_t *ent) {
-	assert(ent);
-	if (!ent->client->account) {
-		return qtrue;
+qboolean TeamGenerator_PermabarredPlayerMarkAsPickable(gentity_t *ent) {
+	if (!ent || !ent->client || !ent->client->account) {
+		return qfalse;
 	}
 
 	if (!(ent->client->account->flags & ACCOUNTFLAG_PERMABARRED) && !(ent->client->account->flags & ACCOUNTFLAG_HARDPERMABARRED)) {
-		return qtrue;
+		return qfalse;
 	}
 
 	if (ent->client->account->flags & ACCOUNTFLAG_HARDPERMABARRED) {
@@ -2591,30 +2590,16 @@ qboolean TeamGenerator_CheckForChatCommand(gentity_t *ent, const char *s, char *
 
 
 	if (!Q_stricmp(s, "help")) {
-		if (ent->client->account && (ent->client->account->flags & ACCOUNTFLAG_PERMABARRED) && !(ent->client->account->flags & ACCOUNTFLAG_HARDPERMABARRED)) {
-			PrintIngame(ent - g_entities,
-				"*Chat commands:\n"
-				"^7%cstart          - propose playing a pug with current non-spec players\n"
-				"^9%c[number]       - vote to approve a pug proposal\n"
-				"^7%c[ a | b | c ]  - vote to approve one or more teams proposals\n"
-				"^9%creroll         - vote to generate new teams proposals with the same players\n"
-				"^7%ccancel         - vote to generate new teams proposals with the same players\n"
-				"^9%clist           - show which players are part of each pug proposal\n"
-				"^7%cpickable       - declare yourself as pickable for pugs\n"
-				, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER);
-		}
-		else {
-			PrintIngame(ent - g_entities,
-				"*Chat commands:\n"
-				"^7%cstart          - propose playing a pug with current non-spec players\n"
-				"^9%c[number]       - vote to approve a pug proposal\n"
-				"^7%c[ a | b | c ]  - vote to approve one or more teams proposals\n"
-				"^9%creroll         - vote to generate new teams proposals with the same players\n"
-				"^7%ccancel         - vote to generate new teams proposals with the same players\n"
-				"^9%clist           - show which players are part of each pug proposal\n"
-				"^7"
-				, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER);
-		}
+		PrintIngame(ent - g_entities,
+			"*Chat commands:\n"
+			"^7%cstart          - propose playing a pug with current non-spec players\n"
+			"^9%c[number]       - vote to approve a pug proposal\n"
+			"^7%c[ a | b | c ]  - vote to approve one or more teams proposals\n"
+			"^9%creroll         - vote to generate new teams proposals with the same players\n"
+			"^7%ccancel         - vote to generate new teams proposals with the same players\n"
+			"^9%clist           - show which players are part of each pug proposal\n"
+			"^7"
+			, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER);
 		SV_Tell(ent - g_entities, "See console for chat command help.");
 		return qtrue;
 	}
@@ -2632,9 +2617,6 @@ qboolean TeamGenerator_CheckForChatCommand(gentity_t *ent, const char *s, char *
 		TeamGenerator_PrintPlayersInPugProposals(ent);
 		return qtrue;
 	}
-
-	if (!Q_stricmp(s, "pickable"))
-		return TeamGenerator_PermabarredPlayerMarkAsPickable(ent);
 
 	if (strlen(s) <= 3) {
 		qboolean invalidVote = qfalse;
