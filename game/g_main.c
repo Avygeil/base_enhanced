@@ -2028,7 +2028,13 @@ void G_ShutdownGame( int restart ) {
 	ListClear(&level.ratingList);
 	ListClear(&level.mostPlayedPositionsList);
 
+	ListIterate(&level.pugProposalsList, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		pugProposal_t *p = IteratorNext(&iter);
+		ListClear(&p->avoidedHashesList);
+	}
 	ListClear(&level.pugProposalsList);
+
 	ListClear(&level.barredPlayersList);
 
 	ListIterate(&level.queuedServerMessagesList, &iter, qfalse);

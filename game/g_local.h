@@ -1227,6 +1227,7 @@ typedef struct {
 	char			namesStr[1024];
 	char			suggestedLetter, highestCaliberLetter, fairestLetter;
 	int				suggestedVoteClients, highestCaliberVoteClients, fairestVoteClients;
+	list_t			avoidedHashesList;
 } pugProposal_t;
 
 typedef struct {

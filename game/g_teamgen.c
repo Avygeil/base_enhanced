@@ -2,7 +2,7 @@
 #include "g_database.h"
 
 //#define DEBUG_GENERATETEAMS // uncomment to set players to be put into teams with z_debugX cvars
-//#define DEBUG_GENERATETEAMS_PRINT // uncomment to generate log file
+#define DEBUG_GENERATETEAMS_PRINT // uncomment to generate log file
 
 #ifdef DEBUG_GENERATETEAMS_PRINT
 static fileHandle_t debugFile = 0;
@@ -19,7 +19,6 @@ trap_FS_Write(tempStr, strlen(tempStr), debugFile);	\
 #endif
 
 static unsigned int teamGenSeed = 0u;
-#define REROLL_NUM_TRIES	(8)
 
 #ifdef _DEBUG
 fileHandle_t teamGeneratorFile;
@@ -170,7 +169,7 @@ static void NormalizePermutationOfTeams(permutationOfTeams_t *p) {
 }
 
 // note: normalize the permutation with NormalizePermutationOfTeams before calling this
-static XXH32_hash_t HashTeam(permutationOfTeams_t *t) {
+static XXH32_hash_t HashPermutationOfTeams(permutationOfTeams_t *t) {
 	if (!t)
 		return 0;
 
@@ -192,7 +191,22 @@ typedef struct {
 	qboolean enforceChaseRule;
 	int numEligible;
 	uint64_t numPermutations;
+	list_t *avoidedHashesList;
 } teamGeneratorContext_t;
+
+typedef struct {
+	node_t			node;
+	XXH32_hash_t	hash;
+} avoidedHash_t;
+
+qboolean HashMatchesAvoidedHash(genericNode_t *node, void *userData) {
+	assert(userData);
+	const avoidedHash_t *existing = (const avoidedHash_t *)node;
+	const XXH32_hash_t thisHash = *((const XXH32_hash_t *)userData);
+	if (existing && existing->hash == thisHash)
+		return qtrue;
+	return qfalse;
+}
 
 typedef void(*PermutationCallback)(teamGeneratorContext_t *, const permutationPlayer_t *, const permutationPlayer_t *,
 	const permutationPlayer_t *, const permutationPlayer_t *,
@@ -339,6 +353,51 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 			TeamGen_DebugPrintf(" <font color=purple>best so far (same fairness, preferred pos, avoided pos, and bottom tier balance, but better top tier balance)</font><br/>");
 		else
 			TeamGen_DebugPrintf("<font color=purple>???</font><br/>");
+
+		if (context->avoidedHashesList && context->avoidedHashesList->size > 0) {
+			permutationOfTeams_t hashMe = { 0 };
+			hashMe.valid = qtrue;
+			hashMe.diff = diff;
+			hashMe.numOnPreferredPos = numOnPreferredPos;
+			hashMe.numOnAvoidedPos = numOnAvoidedPos;
+			hashMe.topTierImbalance = topTierImbalance;
+			hashMe.bottomTierImbalance = bottomTierImbalance;
+			hashMe.teams[0].rawStrength = team1RawStrength;
+			hashMe.teams[1].rawStrength = team2RawStrength;
+			hashMe.teams[0].relativeStrength = team1RelativeStrength;
+			hashMe.teams[1].relativeStrength = team2RelativeStrength;
+			hashMe.teams[0].baseId = team1base->accountId;
+			hashMe.teams[0].chaseId = team1chase->accountId;
+			hashMe.teams[0].offenseId1 = team1offense1->accountId;
+			hashMe.teams[0].offenseId2 = team1offense2->accountId;
+			hashMe.teams[1].baseId = team2base->accountId;
+			hashMe.teams[1].chaseId = team2chase->accountId;
+			hashMe.teams[1].offenseId1 = team2offense1->accountId;
+			hashMe.teams[1].offenseId2 = team2offense2->accountId;
+			for (int i = 0; i < 2; i++) {
+				memset(hashMe.teams[i].baseName, 0, MAX_NAME_LENGTH);
+				memset(hashMe.teams[i].chaseName, 0, MAX_NAME_LENGTH);
+				memset(hashMe.teams[i].offense1Name, 0, MAX_NAME_LENGTH);
+				memset(hashMe.teams[i].offense2Name, 0, MAX_NAME_LENGTH);
+			}
+			Q_strncpyz(hashMe.teams[0].baseName, team1base->accountName, MAX_NAME_LENGTH);
+			Q_strncpyz(hashMe.teams[0].chaseName, team1chase->accountName, MAX_NAME_LENGTH);
+			Q_strncpyz(hashMe.teams[0].offense1Name, team1offense1->accountName, MAX_NAME_LENGTH);
+			Q_strncpyz(hashMe.teams[0].offense2Name, team1offense2->accountName, MAX_NAME_LENGTH);
+			Q_strncpyz(hashMe.teams[1].baseName, team2base->accountName, MAX_NAME_LENGTH);
+			Q_strncpyz(hashMe.teams[1].chaseName, team2chase->accountName, MAX_NAME_LENGTH);
+			Q_strncpyz(hashMe.teams[1].offense1Name, team2offense1->accountName, MAX_NAME_LENGTH);
+			Q_strncpyz(hashMe.teams[1].offense2Name, team2offense2->accountName, MAX_NAME_LENGTH);
+
+			NormalizePermutationOfTeams(&hashMe);
+			XXH32_hash_t hash = HashPermutationOfTeams(&hashMe);
+			avoidedHash_t *avoided = ListFind(context->avoidedHashesList, HashMatchesAvoidedHash, &hash, NULL);
+			if (avoided) {
+				TeamGen_DebugPrintf("<font color=darkred>***MATCHES AVOIDED HASH; skipping</font><br/>");
+				return;
+			}
+		}
+
 		context->best->valid = qtrue;
 		context->best->diff = diff;
 		context->best->numOnPreferredPos = numOnPreferredPos;
@@ -528,6 +587,51 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 			TeamGen_DebugPrintf(" <font color=purple>best so far (combined strength, fairness, preferred pos, avoided pos, and bottom tier balance, but better top tier balance)</font><br/>");
 		else
 			TeamGen_DebugPrintf("<font color=purple>???</font><br/>");
+
+		if (context->avoidedHashesList && context->avoidedHashesList->size > 0) {
+			permutationOfTeams_t hashMe = { 0 };
+			hashMe.valid = qtrue;
+			hashMe.diff = diff;
+			hashMe.numOnPreferredPos = numOnPreferredPos;
+			hashMe.numOnAvoidedPos = numOnAvoidedPos;
+			hashMe.topTierImbalance = topTierImbalance;
+			hashMe.bottomTierImbalance = bottomTierImbalance;
+			hashMe.teams[0].rawStrength = team1RawStrength;
+			hashMe.teams[1].rawStrength = team2RawStrength;
+			hashMe.teams[0].relativeStrength = team1RelativeStrength;
+			hashMe.teams[1].relativeStrength = team2RelativeStrength;
+			hashMe.teams[0].baseId = team1base->accountId;
+			hashMe.teams[0].chaseId = team1chase->accountId;
+			hashMe.teams[0].offenseId1 = team1offense1->accountId;
+			hashMe.teams[0].offenseId2 = team1offense2->accountId;
+			hashMe.teams[1].baseId = team2base->accountId;
+			hashMe.teams[1].chaseId = team2chase->accountId;
+			hashMe.teams[1].offenseId1 = team2offense1->accountId;
+			hashMe.teams[1].offenseId2 = team2offense2->accountId;
+			for (int i = 0; i < 2; i++) {
+				memset(hashMe.teams[i].baseName, 0, MAX_NAME_LENGTH);
+				memset(hashMe.teams[i].chaseName, 0, MAX_NAME_LENGTH);
+				memset(hashMe.teams[i].offense1Name, 0, MAX_NAME_LENGTH);
+				memset(hashMe.teams[i].offense2Name, 0, MAX_NAME_LENGTH);
+			}
+			Q_strncpyz(hashMe.teams[0].baseName, team1base->accountName, MAX_NAME_LENGTH);
+			Q_strncpyz(hashMe.teams[0].chaseName, team1chase->accountName, MAX_NAME_LENGTH);
+			Q_strncpyz(hashMe.teams[0].offense1Name, team1offense1->accountName, MAX_NAME_LENGTH);
+			Q_strncpyz(hashMe.teams[0].offense2Name, team1offense2->accountName, MAX_NAME_LENGTH);
+			Q_strncpyz(hashMe.teams[1].baseName, team2base->accountName, MAX_NAME_LENGTH);
+			Q_strncpyz(hashMe.teams[1].chaseName, team2chase->accountName, MAX_NAME_LENGTH);
+			Q_strncpyz(hashMe.teams[1].offense1Name, team2offense1->accountName, MAX_NAME_LENGTH);
+			Q_strncpyz(hashMe.teams[1].offense2Name, team2offense2->accountName, MAX_NAME_LENGTH);
+
+			NormalizePermutationOfTeams(&hashMe);
+			XXH32_hash_t hash = HashPermutationOfTeams(&hashMe);
+			avoidedHash_t *avoided = ListFind(context->avoidedHashesList, HashMatchesAvoidedHash, &hash, NULL);
+			if (avoided) {
+				TeamGen_DebugPrintf("<font color=darkred>***MATCHES AVOIDED HASH; skipping</font><br/>");
+				return;
+			}
+		}
+
 		context->best->valid = qtrue;
 		context->best->diff = diff;
 		context->best->numOnPreferredPos = numOnPreferredPos;
@@ -738,7 +842,7 @@ for each combination of 4 defenders:
 
 Returns the number of valid permutations evaluated.
 */
-static uint64_t PermuteTeams(permutationPlayer_t *playerArray, int numEligible, permutationOfTeams_t *bestOut, PermutationCallback callback, qboolean enforceChaseRule) {
+static uint64_t PermuteTeams(permutationPlayer_t *playerArray, int numEligible, permutationOfTeams_t *bestOut, PermutationCallback callback, qboolean enforceChaseRule, list_t *avoidedHashesList) {
 #ifdef DEBUG_GENERATETEAMS
 	clock_t start = clock();
 #endif
@@ -753,6 +857,10 @@ static uint64_t PermuteTeams(permutationPlayer_t *playerArray, int numEligible, 
 	context.enforceChaseRule = enforceChaseRule;
 	context.numEligible = numEligible;
 	context.numPermutations = 0;
+	if (avoidedHashesList && avoidedHashesList->size > 0)
+		context.avoidedHashesList = avoidedHashesList;
+	else
+		context.avoidedHashesList = NULL;
 	GetDefenseCombinations(playerArray, intArr, &context);
 	free(intArr);
 
@@ -935,9 +1043,8 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 	permutationOfTeams_t permutations[NUM_TEAMGENERATORTYPES] = { 0 };
 	qboolean gotValid = qfalse;
 	uint64_t gotten = 0llu;
-	int rerollNum = 0;
 	for (int type = TEAMGENERATORTYPE_FIRST; type < NUM_TEAMGENERATORTYPES; type++) {
-		srand(teamGenSeed + (type * 100) + rerollNum);
+		srand(teamGenSeed + (type * 100));
 		qsort(&sortedClients, MAX_CLIENTS, sizeof(sortedClient_t), SortClientsForTeamGenerator);
 		FisherYatesShuffle(&sortedClients, numEligible, sizeof(sortedClient_t));
 		srand(time(NULL));
@@ -1243,7 +1350,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 		else
 			callback = TryTeamPermutation;
 		TeamGen_DebugPrintf("<font color=darkgreen>==========Permuting teams with type %d==========</font><br/>", type);
-		uint64_t thisGotten = PermuteTeams(&players[0], numEligible, thisPermutation, callback, qtrue);
+		uint64_t thisGotten = PermuteTeams(&players[0], numEligible, thisPermutation, callback, qtrue, &set->avoidedHashesList);
 		if (thisGotten > gotten)
 			gotten = thisGotten;
 
@@ -1251,7 +1358,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 			// if we fail, try this teamgen type again without enforcing the chase rule
 			TeamGen_DebugPrintf("<font color=orange>==========No valid permutation for type %d; trying again without chase rule==========</font><br/>", type);
 			thisPermutation->diff = 999999.999999;
-			thisGotten = PermuteTeams(&players[0], numEligible, thisPermutation, callback, qfalse);
+			thisGotten = PermuteTeams(&players[0], numEligible, thisPermutation, callback, qfalse, &set->avoidedHashesList);
 			if (thisGotten > gotten)
 				gotten = thisGotten;
 		}
@@ -1265,31 +1372,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 		}
 
 		NormalizePermutationOfTeams(thisPermutation);
-		thisPermutation->hash = HashTeam(thisPermutation);
-
-		// try to reroll hc/fairest if we just generated a duplicate
-		if (type == TEAMGENERATORTYPE_HIGHESTRATING && mostPlayed && mostPlayed->valid && mostPlayed->hash == thisPermutation->hash) {
-			if (++rerollNum <= REROLL_NUM_TRIES) {
-				TeamGen_DebugPrintf("<font color=cyan>------Got duplicate hash for HC, rerolling------</font><br/>");
-				type--; // retry this type (the for loop will increment it back)
-				continue;
-			}
-			else {
-				rerollNum = 0;
-			}
-		}
-		else if (type == TEAMGENERATORTYPE_FAIREST &&
-			((mostPlayed && mostPlayed->valid && mostPlayed->hash == thisPermutation->hash) ||
-			(highestCaliber && highestCaliber->valid && highestCaliber->hash == thisPermutation->hash))) {
-			if (++rerollNum <= REROLL_NUM_TRIES) {
-				TeamGen_DebugPrintf("<font color=cyan>------Got duplicate hash for fairest, rerolling------</font><br/>");
-				type--; // retry this type (the for loop will increment it back)
-				continue;
-			}
-			else {
-				rerollNum = 0;
-			}
-		}
+		thisPermutation->hash = HashPermutationOfTeams(thisPermutation);
 
 		switch (type) {
 		case TEAMGENERATORTYPE_MOSTPLAYED:
@@ -1300,6 +1383,8 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 			if (fairest) memcpy(fairest, thisPermutation, sizeof(permutationOfTeams_t)); break;
 		}
 		gotValid = qtrue;
+		avoidedHash_t *avoid = ListAdd(&set->avoidedHashesList, sizeof(avoidedHash_t));
+		avoid->hash = thisPermutation->hash;
 	}
 	if (numPermutations)
 		*numPermutations = gotten;
@@ -1533,6 +1618,7 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 
 	int numPrinted = 0;
 	char lastLetter = 'a';
+	double lowestDiff = 999999;
 	for (int i = 0; i < 3; i++) {
 		permutationOfTeams_t *thisPermutation;
 		switch (i) {
@@ -1559,6 +1645,8 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 				suggestionTypeStr = "Suggested";
 			}
 			letter = set->suggestedLetter = lastLetter++;
+			if (thisPermutation->diff < lowestDiff)
+				lowestDiff = thisPermutation->diff;
 		}
 		else if (i == 1) {
 			if (thisPermutation->hash == set->suggested.hash && set->suggested.valid) {
@@ -1572,13 +1660,20 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 				suggestionTypeStr = "Highest caliber";
 			}
 			letter = set->highestCaliberLetter = lastLetter++;
+			if (thisPermutation->diff < lowestDiff)
+				lowestDiff = thisPermutation->diff;
 		}
 		else {
 			if ((thisPermutation->hash == set->suggested.hash && set->suggested.valid) || (thisPermutation->hash == set->highestCaliber.hash && set->highestCaliber.valid)) {
 				thisPermutation->valid = qfalse;
 				continue;
 			}
-			suggestionTypeStr = "Fairest";
+			// sanity check: don't bother calling it "fairest" if it's not the fairest option
+			// can happen eventually with enough rerolls
+			if (thisPermutation->diff > lowestDiff + 0.00001)
+				suggestionTypeStr = "Additional";
+			else
+				suggestionTypeStr = "Fairest";
 			letter = set->fairestLetter = lastLetter++;
 		}
 
@@ -1650,6 +1745,7 @@ static void ActivatePugProposal(pugProposal_t *set, qboolean forcedByServer) {
 	else {
 		TeamGenerator_QueueServerMessageInChat(-1, va("Pug proposal %d %s (%s). However, unable to generate teams; pug proposal %d terminated.", set->num, forcedByServer ? "force passed by server" : "passed", set->namesStr, set->num));
 		level.activePugProposal = NULL;
+		ListClear(&set->avoidedHashesList);
 		ListRemove(&level.pugProposalsList, set);
 	}
 }
@@ -1916,6 +2012,7 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 			TeamGenerator_QueueServerMessageInConsole(-1, printMessage);
 
 			ActivateTeamsProposal(permutation);
+			ListClear(&level.activePugProposal->avoidedHashesList);
 			ListRemove(&level.pugProposalsList, level.activePugProposal);
 			level.activePugProposal = NULL;
 			break;
@@ -2155,7 +2252,7 @@ void TeamGenerator_DoReroll(qboolean forcedByServer) {
 #ifdef DEBUG_GENERATETEAMS_PRINT
 	inReroll = qtrue;
 #endif
-	for (int i = 0; i < REROLL_NUM_TRIES; i++) {
+	for (int i = 0; i < 1; i++) {
 		teamGenSeed = startTime + (i * 69);
 		srand(teamGenSeed);
 
@@ -2314,6 +2411,7 @@ qboolean TeamGenerator_VoteToReroll(gentity_t *ent, char **newMessage) {
 
 void TeamGenerator_DoCancel(void) {
 	TeamGenerator_QueueServerMessageInChat(-1, va("Active pug proposal %d canceled (%s).", level.activePugProposal->num, level.activePugProposal->namesStr));
+	ListClear(&level.activePugProposal->avoidedHashesList);
 	ListRemove(&level.pugProposalsList, level.activePugProposal);
 	level.activePugProposal = NULL;
 }
@@ -2669,6 +2767,7 @@ void Svcmd_Pug_f(void) {
 		else {
 			TeamGenerator_QueueServerMessageInChat(-1, va("Inactive pug proposal %d killed by server (%s).", found->num, found->namesStr));
 		}
+		ListClear(&found->avoidedHashesList);
 		ListRemove(&level.pugProposalsList, found);
 	}
 	else if (!Q_stricmp(arg1, "reroll")) {
@@ -2684,6 +2783,7 @@ void Svcmd_Pug_f(void) {
 			return;
 		}
 		TeamGenerator_QueueServerMessageInChat(-1, va("Active pug proposal %d canceled by server (%s).", level.activePugProposal->num, level.activePugProposal->namesStr));
+		ListClear(&level.activePugProposal->avoidedHashesList);
 		ListRemove(&level.pugProposalsList, level.activePugProposal);
 		level.activePugProposal = NULL;
 	}
