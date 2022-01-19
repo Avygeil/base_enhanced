@@ -867,6 +867,8 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 				TeamGen_DebugPrintf("%s has second choice pos %s\n", sortedClients[i].accountName, NameForPos(j));
 			if (sortedClients[i].posPrefs.third & (1 << j))
 				TeamGen_DebugPrintf("%s has third choice pos %s\n", sortedClients[i].accountName, NameForPos(j));
+			if (sortedClients[i].posPrefs.avoid & (1 << j))
+				TeamGen_DebugPrintf("%s has avoided pos %s\n", sortedClients[i].accountName, NameForPos(j));
 		}
 
 		++numEligible;
@@ -892,18 +894,18 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 		permutationPlayer_t *players = calloc(numEligible, sizeof(permutationPlayer_t));
 		int index = 0;
 		for (int i = 0; i < numEligible; i++) {
-			sortedClient_t *thisGuy = sortedClients + i;
-			permutationPlayer_t *player = players + index++;
+			sortedClient_t *client = sortedClients + i;
+			permutationPlayer_t *algoPlayer = players + index++;
 
 			// fetch some information about this player
 			playerRating_t findMe = { 0 };
-			findMe.accountId = thisGuy->accountId;
+			findMe.accountId = client->accountId;
 			playerRating_t *positionRatings = ListFind(&level.ratingList, PlayerRatingAccountIdMatches, &findMe, NULL);
 			playerRating_t temp = { 0 };
 			qboolean gotValidRatings;
 			if (!positionRatings) { // if no ratings, assume they are low C tier at everything
 				positionRatings = &temp;
-				player->rating[CTFPOSITION_BASE] = player->rating[CTFPOSITION_CHASE] = player->rating[CTFPOSITION_OFFENSE] =
+				algoPlayer->rating[CTFPOSITION_BASE] = algoPlayer->rating[CTFPOSITION_CHASE] = algoPlayer->rating[CTFPOSITION_OFFENSE] =
 					temp.rating[CTFPOSITION_BASE] = temp.rating[CTFPOSITION_CHASE] = temp.rating[CTFPOSITION_OFFENSE] = PlayerTierToRating(PLAYERRATING_LOW_C);
 				gotValidRatings = qfalse;
 			}
@@ -911,24 +913,22 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 				gotValidRatings = qtrue;
 			}
 
-			// get this guy's bespoke tiebreaker order
 			qboolean okayToUsePreference = qtrue;
-
 			mostPlayedPos_t findMe2 = { 0 };
 			findMe2.accountId = findMe.accountId;
 			mostPlayedPos_t *mostPlayedPositions = ListFind(&level.mostPlayedPositionsList, MostPlayedPosMatches, &findMe2, NULL);
 
 			// determine what information we will feed the permutation evaluator based on which pass we're on
-			player->accountId = findMe.accountId;
-			Q_strncpyz(player->accountName, thisGuy->accountName, sizeof(player->accountName));
-			player->clientNum = thisGuy->clientNum;
+			algoPlayer->accountId = findMe.accountId;
+			Q_strncpyz(algoPlayer->accountName, client->accountName, sizeof(algoPlayer->accountName));
+			algoPlayer->clientNum = client->clientNum;
 			if (type == TEAMGENERATORTYPE_MOSTPLAYED) {
 				// get their most played and second most played pos
 				if (mostPlayedPositions) {
-					player->rating[mostPlayedPositions->mostPlayed] = positionRatings->rating[mostPlayedPositions->mostPlayed];
-					player->rating[mostPlayedPositions->secondMostPlayed] = positionRatings->rating[mostPlayedPositions->secondMostPlayed];
-					player->posPrefs.first = (1 << mostPlayedPositions->mostPlayed);
-					player->posPrefs.second = (1 << mostPlayedPositions->secondMostPlayed);
+					algoPlayer->rating[mostPlayedPositions->mostPlayed] = positionRatings->rating[mostPlayedPositions->mostPlayed];
+					algoPlayer->rating[mostPlayedPositions->secondMostPlayed] = positionRatings->rating[mostPlayedPositions->secondMostPlayed];
+					algoPlayer->posPrefs.first = (1 << mostPlayedPositions->mostPlayed);
+					algoPlayer->posPrefs.second = (1 << mostPlayedPositions->secondMostPlayed);
 				}
 				else {
 					// we have no information about positions they have played. maybe it's a new account? try to fall back to their highest rated pos
@@ -949,8 +949,8 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 					if (positionsWithHighestRating) {
 						for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
 							if (positionsWithHighestRating & (1 << pos)) {
-								player->rating[pos] = highestRating;
-								player->posPrefs.first |= (1 << pos);
+								algoPlayer->rating[pos] = highestRating;
+								algoPlayer->posPrefs.first |= (1 << pos);
 							}
 						}
 
@@ -977,8 +977,8 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 								if (positionsWithHighestRating & (1 << pos))
 									continue;
 								if (positionsWithSecondHighestRating & (1 << pos)) {
-									player->rating[pos] = secondHighestRating;
-									player->posPrefs.second |= (1 << pos);
+									algoPlayer->rating[pos] = secondHighestRating;
+									algoPlayer->posPrefs.second |= (1 << pos);
 								}
 							}
 						}
@@ -987,8 +987,8 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 
 				// make sure any pos in their first/second preference is rated
 				for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
-					if (thisGuy->posPrefs.first & (1 << pos) || thisGuy->posPrefs.second & (1 << pos))
-						player->rating[pos] = positionRatings->rating[pos];
+					if (client->posPrefs.first & (1 << pos) || client->posPrefs.second & (1 << pos))
+						algoPlayer->rating[pos] = positionRatings->rating[pos];
 				}
 			}
 			else if (type == TEAMGENERATORTYPE_HIGHESTRATING) {
@@ -1011,17 +1011,17 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 					if (PlayerTierFromRating(highestRating) == PLAYERRATING_LOW_C && mostPlayedPositions) {
 						// special case: their highest rating is a C, meaning they are C on any and all positions they have ratings on
 						// just assume that their most-played positions are higher caliber
-						player->rating[mostPlayedPositions->mostPlayed] = positionRatings->rating[mostPlayedPositions->mostPlayed];
-						player->rating[mostPlayedPositions->secondMostPlayed] = positionRatings->rating[mostPlayedPositions->secondMostPlayed];
-						player->posPrefs.first = (1 << mostPlayedPositions->mostPlayed);
-						player->posPrefs.second = (1 << mostPlayedPositions->secondMostPlayed);
+						algoPlayer->rating[mostPlayedPositions->mostPlayed] = positionRatings->rating[mostPlayedPositions->mostPlayed];
+						algoPlayer->rating[mostPlayedPositions->secondMostPlayed] = positionRatings->rating[mostPlayedPositions->secondMostPlayed];
+						algoPlayer->posPrefs.first = (1 << mostPlayedPositions->mostPlayed);
+						algoPlayer->posPrefs.second = (1 << mostPlayedPositions->secondMostPlayed);
 						okayToUsePreference = qfalse;
 					}
 					else {
 						for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
 							if (positionsWithHighestRating & (1 << pos)) {
-								player->rating[pos] = highestRating;
-								player->posPrefs.first |= (1 << pos);
+								algoPlayer->rating[pos] = highestRating;
+								algoPlayer->posPrefs.first |= (1 << pos);
 							}
 						}
 
@@ -1048,44 +1048,46 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 								if (positionsWithHighestRating & (1 << pos))
 									continue;
 								if (positionsWithSecondHighestRating & (1 << pos)) {
-									player->rating[pos] = secondHighestRating;
-									player->posPrefs.second |= (1 << pos);
+									algoPlayer->rating[pos] = secondHighestRating;
+									algoPlayer->posPrefs.second |= (1 << pos);
 								}
 							}
 						}
 
 						// make sure any pos in their first/second preference is rated
 						for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
-							if (thisGuy->posPrefs.first & (1 << pos) || thisGuy->posPrefs.second & (1 << pos))
-								player->rating[pos] = positionRatings->rating[pos];
+							if (client->posPrefs.first & (1 << pos) || client->posPrefs.second & (1 << pos))
+								algoPlayer->rating[pos] = positionRatings->rating[pos];
 						}
 					}
 				}
 				else {
 					// we have no ratings for this player. maybe it's a new account? try to fall back to their most played pos
-					player->rating[mostPlayedPositions->mostPlayed] = positionRatings->rating[mostPlayedPositions->mostPlayed];
-					player->rating[mostPlayedPositions->secondMostPlayed] = positionRatings->rating[mostPlayedPositions->secondMostPlayed];
-					player->posPrefs.first = (1 << mostPlayedPositions->mostPlayed);
-					player->posPrefs.second = (1 << mostPlayedPositions->secondMostPlayed);
+					if (mostPlayedPositions) {
+						algoPlayer->rating[mostPlayedPositions->mostPlayed] = positionRatings->rating[mostPlayedPositions->mostPlayed];
+						algoPlayer->rating[mostPlayedPositions->secondMostPlayed] = positionRatings->rating[mostPlayedPositions->secondMostPlayed];
+						algoPlayer->posPrefs.first = (1 << mostPlayedPositions->mostPlayed);
+						algoPlayer->posPrefs.second = (1 << mostPlayedPositions->secondMostPlayed);
+					}
 					
 					// make sure any pos in their first/second preference is rated
 					for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
-						if (thisGuy->posPrefs.first & (1 << pos) || thisGuy->posPrefs.second & (1 << pos))
-							player->rating[pos] = positionRatings->rating[pos];
+						if (client->posPrefs.first & (1 << pos) || client->posPrefs.second & (1 << pos))
+							algoPlayer->rating[pos] = positionRatings->rating[pos];
 					}
 				}
 			}
 			else {
 				// get every pos they play, with preference for their most played and second most played
-				memcpy(player->rating, positionRatings->rating, sizeof(player->rating));
+				memcpy(algoPlayer->rating, positionRatings->rating, sizeof(algoPlayer->rating));
 
 				if (mostPlayedPositions) {
-					player->rating[mostPlayedPositions->mostPlayed] = positionRatings->rating[mostPlayedPositions->mostPlayed];
-					player->rating[mostPlayedPositions->secondMostPlayed] = positionRatings->rating[mostPlayedPositions->secondMostPlayed];
-					player->rating[mostPlayedPositions->thirdMostPlayed] = positionRatings->rating[mostPlayedPositions->thirdMostPlayed];
-					player->posPrefs.first = (1 << mostPlayedPositions->mostPlayed);
-					player->posPrefs.second = (1 << mostPlayedPositions->secondMostPlayed);
-					player->posPrefs.third = (1 << mostPlayedPositions->thirdMostPlayed);
+					algoPlayer->rating[mostPlayedPositions->mostPlayed] = positionRatings->rating[mostPlayedPositions->mostPlayed];
+					algoPlayer->rating[mostPlayedPositions->secondMostPlayed] = positionRatings->rating[mostPlayedPositions->secondMostPlayed];
+					algoPlayer->rating[mostPlayedPositions->thirdMostPlayed] = positionRatings->rating[mostPlayedPositions->thirdMostPlayed];
+					algoPlayer->posPrefs.first = (1 << mostPlayedPositions->mostPlayed);
+					algoPlayer->posPrefs.second = (1 << mostPlayedPositions->secondMostPlayed);
+					algoPlayer->posPrefs.third = (1 << mostPlayedPositions->thirdMostPlayed);
 				}
 				else {
 					// we have no information about positions they have played. maybe it's a new account? try to fall back to their highest rated pos
@@ -1106,8 +1108,8 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 					if (positionsWithHighestRating) {
 						for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
 							if (positionsWithHighestRating & (1 << pos)) {
-								player->rating[pos] = highestRating;
-								player->posPrefs.first |= (1 << pos);
+								algoPlayer->rating[pos] = highestRating;
+								algoPlayer->posPrefs.first |= (1 << pos);
 							}
 						}
 
@@ -1134,8 +1136,8 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 								if (positionsWithHighestRating & (1 << pos))
 									continue;
 								if (positionsWithSecondHighestRating & (1 << pos)) {
-									player->rating[pos] = secondHighestRating;
-									player->posPrefs.second |= (1 << pos);
+									algoPlayer->rating[pos] = secondHighestRating;
+									algoPlayer->posPrefs.second |= (1 << pos);
 								}
 							}
 						}
@@ -1144,38 +1146,38 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 
 				// make sure any pos in their first/second preference is rated
 				for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
-					if (thisGuy->posPrefs.first & (1 << pos) || thisGuy->posPrefs.second & (1 << pos))
-						player->rating[pos] = positionRatings->rating[pos];
+					if (client->posPrefs.first & (1 << pos) || client->posPrefs.second & (1 << pos))
+						algoPlayer->rating[pos] = positionRatings->rating[pos];
 				}
 			}
 
 			// try to get them in their preferred positions if possible
 			if (okayToUsePreference) {
-				if (thisGuy->posPrefs.first) {
-					if (player->posPrefs.first)
-						player->posPrefs.second = player->posPrefs.first; // demote computer-determined first choice to second
-					player->posPrefs.first = thisGuy->posPrefs.first;
+				if (client->posPrefs.first) {
+					if (algoPlayer->posPrefs.first)
+						algoPlayer->posPrefs.second = algoPlayer->posPrefs.first; // demote computer-determined first choice to second
+					algoPlayer->posPrefs.first = client->posPrefs.first;
 
-					if (thisGuy->posPrefs.second) {
-						if (player->posPrefs.second)
-							player->posPrefs.third = player->posPrefs.second; // demote computer-determined second choice to third
-						player->posPrefs.second = thisGuy->posPrefs.second;
+					if (client->posPrefs.second) {
+						if (algoPlayer->posPrefs.second)
+							algoPlayer->posPrefs.third = algoPlayer->posPrefs.second; // demote computer-determined second choice to third
+						algoPlayer->posPrefs.second = client->posPrefs.second;
 
-						if (thisGuy->posPrefs.third)
-							player->posPrefs.third = thisGuy->posPrefs.third;
+						if (client->posPrefs.third)
+							algoPlayer->posPrefs.third = client->posPrefs.third;
 					}
 				}
-				if (thisGuy->posPrefs.avoid)
-					player->posPrefs.avoid = thisGuy->posPrefs.avoid;
+				if (client->posPrefs.avoid)
+					algoPlayer->posPrefs.avoid = client->posPrefs.avoid;
 			}
 
 			TeamGen_DebugPrintf("%s: preference %s --- secondPreference %s --- %s base,   %s chase,   %s offense^7\n",
-				player->accountName,
-				NameForPos(player->preference),
-				NameForPos(player->secondPreference),
-				PlayerRatingToString(PlayerTierFromRating(player->rating[CTFPOSITION_BASE])),
-				PlayerRatingToString(PlayerTierFromRating(player->rating[CTFPOSITION_CHASE])),
-				PlayerRatingToString(PlayerTierFromRating(player->rating[CTFPOSITION_OFFENSE]))
+				algoPlayer->accountName,
+				NameForPos(algoPlayer->preference),
+				NameForPos(algoPlayer->secondPreference),
+				PlayerRatingToString(PlayerTierFromRating(algoPlayer->rating[CTFPOSITION_BASE])),
+				PlayerRatingToString(PlayerTierFromRating(algoPlayer->rating[CTFPOSITION_CHASE])),
+				PlayerRatingToString(PlayerTierFromRating(algoPlayer->rating[CTFPOSITION_OFFENSE]))
 				);
 		}
 
@@ -1358,6 +1360,8 @@ void GetCurrentPickablePlayers(sortedClient_t *sortedClientsOut, int *numEligibl
 				TeamGen_DebugPrintf("%s has second choice pos %s\n", sortedClients[i].accountName, NameForPos(j));
 			if (sortedClients[i].posPrefs.third & (1 << j))
 				TeamGen_DebugPrintf("%s has third choice pos %s\n", sortedClients[i].accountName, NameForPos(j));
+			if (sortedClients[i].posPrefs.avoid & (1 << j))
+				TeamGen_DebugPrintf("%s has avoided pos %s\n", sortedClients[i].accountName, NameForPos(j));
 	}
 
 		++numEligible;
@@ -2009,7 +2013,7 @@ qboolean TeamGenerator_PugStart(gentity_t *ent, char **newMessage) {
 			avgRedInt + avgBlueInt >= 4 &&
 			fabs(avgRed - round(avgRed)) < 0.2f &&
 			fabs(avgBlue - round(avgBlue)) < 0.2f) {
-			TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You cannot currently start a pug.");
+			TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("You cannot currently start a pug from %s because there is an ongoing match.", ent->client->sess.inRacemode ? "racemode" : "spec"));
 			return qtrue;
 		}
 	}

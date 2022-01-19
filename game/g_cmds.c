@@ -6509,6 +6509,7 @@ qboolean ValidateAndCopyPositionPreferences(const positionPreferences_t *in, pos
 			temp.second &= ~(1 << i);
 			temp.third &= ~(1 << i);
 			temp.avoid &= ~(1 << i);
+			inputValid = qfalse;
 		}
 	}
 
@@ -6527,7 +6528,7 @@ qboolean ValidateAndCopyPositionPreferences(const positionPreferences_t *in, pos
 		inputValid = qfalse;
 	}
 	else if (temp.first && !temp.second && temp.third) {
-		// only first and second
+		// only first and third
 		// promote third to second internally, but don't tell them it's invalid (since people may think of ties as being in the lower slot)
 		temp.second = temp.third;
 		temp.third = 0;
@@ -6598,7 +6599,7 @@ static void PrintPositionPreferences(gentity_t *ent) {
 	if (ValidateAndCopyPositionPreferences(pref, &ent->client->account->validPref))
 		Q_strcat(buf, sizeof(buf), "\n");
 	else
-		Q_strcat(buf, sizeof(buf), "\n^3NOTE:^7 your position preferences are currently invalid. Check that they make sense (e.g. not having a position in more than tier, not only having second choice preferences, etc.)\n");
+		Q_strcat(buf, sizeof(buf), "\n^3NOTE:^7 your position preferences are currently invalid. Check that they make sense (e.g. not having a position in more than one tier, not *only* having second choice preferences, etc.)\n");
 
 	PrintIngame(ent - g_entities, buf);
 }
@@ -6707,7 +6708,7 @@ static void Cmd_Pos_f(gentity_t *ent) {
 	else if (stristr(intentionStr, "cl") || stristr(intentionStr, "rem") || stristr(intentionStr, "rm") || stristr(intentionStr, "del") || stristr(intentionStr, "res"))
 		intention = INTENTION_CLEAR;
 	if (!intention) {
-		PrintIngame(ent - g_entities, "You must enter what you want to do, e.g. '1', '2', 'avoid', or 'clear'\n");
+		PrintIngame(ent - g_entities, "You must enter what you want to do, e.g. '1', '2', '3', 'avoid', or 'clear'\n");
 		return;
 	}
 
