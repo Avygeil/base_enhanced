@@ -980,7 +980,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 #endif
 	}
 
-	// tally up everyone that is eligible. if there are 8+ ingame, then specs are not eligible.
+	// tally up everyone that is eligible
 	// also note their name in case they have a position preference like "base only" in it
 	int numEligible = 0;
 	sortedClient_t sortedClients[MAX_CLIENTS];
@@ -990,12 +990,6 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 			continue;
 
 		gentity_t *ent = &g_entities[i];
-#ifndef DEBUG_GENERATETEAMS
-		if (numIngame >= 8 && IsRacerOrSpectator(ent)) {
-			eligible[i] = qfalse;
-			continue;
-		}
-#endif
 
 		sortedClients[i].clientNum = i;
 #ifdef DEBUG_GENERATETEAMS
