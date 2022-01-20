@@ -4962,6 +4962,8 @@ void ClientDisconnect( int clientNum ) {
 				level.activePugProposal->highestCaliberVoteClients &= ~(1 << clientNum);
 			if (level.activePugProposal->fairest.valid && level.activePugProposal->fairestVoteClients & (1 << clientNum))
 				level.activePugProposal->fairestVoteClients &= ~(1 << clientNum);
+			if (level.activePugProposal->desired.valid && level.activePugProposal->desiredVoteClients & (1 << clientNum))
+				level.activePugProposal->desiredVoteClients &= ~(1 << clientNum);
 
 			qboolean partOfActiveProposal = qfalse;
 			for (int i = 0; i < MAX_CLIENTS; i++) {
@@ -5084,7 +5086,7 @@ void ClientDisconnect( int clientNum ) {
 
 			if (set == level.activePugProposal) { // this is the current active proposal
 				int numValid = 0;
-				qboolean removedSuggested = qfalse, removedHighestCaliber = qfalse, removedFairest = qfalse;
+				qboolean removedSuggested = qfalse, removedHighestCaliber = qfalse, removedFairest = qfalse, removedDesired = qfalse;
 				if (set->suggested.valid) {
 					++numValid;
 					if (set->suggested.teams[0].baseId == ent->client->account->id || set->suggested.teams[0].chaseId == ent->client->account->id ||
@@ -5118,6 +5120,17 @@ void ClientDisconnect( int clientNum ) {
 						removedFairest = qtrue;
 					}
 				}
+				if (set->desired.valid) {
+					++numValid;
+					if (set->desired.teams[0].baseId == ent->client->account->id || set->desired.teams[0].chaseId == ent->client->account->id ||
+						set->desired.teams[0].offenseId1 == ent->client->account->id || set->desired.teams[0].offenseId2 == ent->client->account->id ||
+						set->desired.teams[1].baseId == ent->client->account->id || set->desired.teams[1].chaseId == ent->client->account->id ||
+						set->desired.teams[1].offenseId1 == ent->client->account->id || set->desired.teams[1].offenseId2 == ent->client->account->id) {
+						set->desired.valid = qfalse;
+						--numValid;
+						removedDesired = qtrue;
+					}
+				}
 				if (numValid <= 0) { // no more valid teams permutations; destroy this set
 					TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; current active pug proposal (%d) terminated.", ent->client->account->name, set->num));
 					ListClear(&set->avoidedHashesList);
@@ -5125,19 +5138,35 @@ void ClientDisconnect( int clientNum ) {
 					level.activePugProposal = NULL;
 					ListIterate(&level.pugProposalsList, &iter, qfalse);
 				}
-				else if (removedSuggested || removedHighestCaliber || removedFairest) { // we did remove at least one, there is at least one that is still valid
-					if (removedSuggested && removedHighestCaliber)
-						TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; ^5suggested^7 and ^5highest caliber^7 teams proposals invalidated.", ent->client->account->name));
+				else if (removedSuggested || removedHighestCaliber || removedFairest || removedDesired) { // we did remove at least one, there is at least one that is still valid
+					if (removedSuggested && removedHighestCaliber && removedFairest)
+						TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; teams proposals ^5%c^7, ^5%c^7, and ^5%c^7 invalidated.", ent->client->account->name, set->suggestedLetter, set->highestCaliberLetter, set->fairestLetter));
+					else if (removedSuggested && removedHighestCaliber && removedDesired)
+						TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; teams proposals ^5%c^7, ^5%c^7, and ^5%c^7 invalidated.", ent->client->account->name, set->suggestedLetter, set->highestCaliberLetter, set->desiredLetter));
+					else if (removedSuggested && removedFairest && removedDesired)
+						TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; teams proposals ^5%c^7, ^5%c^7, and ^5%c^7 invalidated.", ent->client->account->name, set->suggestedLetter, set->fairestLetter, set->desiredLetter));
+					else if (removedHighestCaliber && removedFairest && removedDesired)
+						TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; teams proposals ^5%c^7, ^5%c^7, and ^5%c^7 invalidated.", ent->client->account->name, set->highestCaliberLetter, set->fairestLetter, set->desiredLetter));
+					else if (removedSuggested && removedDesired)
+						TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; teams proposals ^5%c^7 and ^5%c^7 invalidated.", ent->client->account->name, set->suggestedLetter, set->desiredLetter));
+					else if (removedSuggested && removedHighestCaliber)
+						TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; teams proposals ^5%c^7 and ^5%c^7 invalidated.", ent->client->account->name, set->suggestedLetter, set->highestCaliberLetter));
 					else if (removedSuggested && removedFairest)
-						TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; ^5suggested^7 and ^5fairest^7 teams proposals invalidated.", ent->client->account->name));
+						TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; teams proposals ^5%c^7 and ^5%c^7 invalidated.", ent->client->account->name, set->suggestedLetter, set->fairestLetter));
 					else if (removedHighestCaliber && removedFairest)
-						TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; ^5highest caliber^7 and ^5fairest^7 teams proposals invalidated.", ent->client->account->name));
+						TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; teams proposals ^5%c^7 and ^5%c^7 invalidated.", ent->client->account->name, set->highestCaliberLetter, set->fairestLetter));
+					else if (removedHighestCaliber && removedDesired)
+						TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; teams proposals ^5%c^7 and ^5%c^7 invalidated.", ent->client->account->name, set->highestCaliberLetter, set->desiredLetter));
+					else if (removedFairest && removedDesired)
+						TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; teams proposals ^5%c^7 and ^5%c^7 invalidated.", ent->client->account->name, set->fairestLetter, set->desiredLetter));
 					else if (removedSuggested)
-						TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; ^5suggested^7 teams proposal invalidated.", ent->client->account->name));
+						TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; teams proposal ^5%c^7 invalidated.", ent->client->account->name, set->suggestedLetter));
 					else if (removedHighestCaliber)
-						TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; ^5highest caliber^7 teams proposal invalidated.", ent->client->account->name));
+						TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; teams proposal ^5%c^7 invalidated.", ent->client->account->name, set->highestCaliberLetter));
 					else if (removedFairest)
-						TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; ^5fairest^7 teams proposal invalidated.", ent->client->account->name));
+						TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; teams proposal ^5%c^7 invalidated.", ent->client->account->name, set->fairestLetter));
+					else if (removedDesired)
+						TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; teams proposal ^5%c^7 invalidated.", ent->client->account->name, set->desiredLetter));
 				}
 			}
 			else { // this is not the active pug proposal

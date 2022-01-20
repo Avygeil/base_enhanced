@@ -1222,11 +1222,11 @@ typedef struct {
 	int				votedToRerollClients;
 	int				votedToCancelClients;
 	qboolean		passed;
-	permutationOfTeams_t suggested, highestCaliber, fairest;
+	permutationOfTeams_t suggested, highestCaliber, fairest, desired;
 	uint64_t		numValidPermutationsChecked;
 	char			namesStr[1024];
-	char			suggestedLetter, highestCaliberLetter, fairestLetter;
-	int				suggestedVoteClients, highestCaliberVoteClients, fairestVoteClients;
+	char			suggestedLetter, highestCaliberLetter, fairestLetter, desiredLetter;
+	int				suggestedVoteClients, highestCaliberVoteClients, fairestVoteClients, desiredVoteClients;
 	list_t			avoidedHashesList;
 } pugProposal_t;
 
@@ -3125,6 +3125,7 @@ extern vmCvar_t		g_vote_teamgen_team_requiredVotes;
 extern vmCvar_t		g_vote_teamgen_subhelp;
 extern vmCvar_t		g_vote_teamgen_rustWeeks;
 extern vmCvar_t		g_vote_teamgen_minSecsSinceIntermission;
+extern vmCvar_t		g_vote_teamgen_enableAppeasing;
 
 extern vmCvar_t		g_lastIntermissionStartTime;
 
