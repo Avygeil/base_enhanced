@@ -1641,8 +1641,8 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 		}
 
 		// evaluate every possible permutation of teams for this teamgen type
-		permutationOfTeams_t permutationBanningAvoidedPos = { 0 }, permutationAllowingAvoidedPos = { 0 };
-		permutationBanningAvoidedPos.diff = permutationAllowingAvoidedPos.diff = 999999.999999;
+		permutationOfTeams_t try1 = { 0 }, try2 = { 0 };
+		try1.diff = try2.diff = 999999.999999;
 		PermutationCallback callback;
 		if (type == TEAMGENERATORTYPE_HIGHESTRATING)
 			callback = TryTeamPermutation_Tryhard;
@@ -1652,47 +1652,73 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 			callback = TryTeamPermutation;
 		TeamGen_DebugPrintf("<font color=darkgreen>==========Permuting teams with type %d==========</font><br/>", type);
 
-		uint64_t thisGotten = PermuteTeams(&players[0], numEligible, &permutationBanningAvoidedPos, callback, qtrue, &set->avoidedHashesList, qtrue);
+		uint64_t thisGotten = PermuteTeams(&players[0], numEligible, &try1, callback, qtrue, &set->avoidedHashesList, qtrue);
 		if (thisGotten > gotten)
 			gotten = thisGotten;
 
-		if (!permutationBanningAvoidedPos.valid) {
+		qboolean allowSecondTry = qtrue;
+		if (!try1.valid) {
 			TeamGen_DebugPrintf("<font color=orange>==========No valid permutation for type %d; trying again without chase rule==========</font><br/>", type);
-			memset(&permutationBanningAvoidedPos, 0, sizeof(permutationBanningAvoidedPos));
-			permutationBanningAvoidedPos.diff = 999999.999999;
-			thisGotten = PermuteTeams(&players[0], numEligible, &permutationBanningAvoidedPos, callback, qfalse, &set->avoidedHashesList, qtrue);
+			memset(&try1, 0, sizeof(try1));
+			try1.diff = 999999.999999;
+			thisGotten = PermuteTeams(&players[0], numEligible, &try1, callback, qfalse, &set->avoidedHashesList, qtrue);
 			if (thisGotten > gotten)
 				gotten = thisGotten;
+
+			if (!try1.valid) {
+				TeamGen_DebugPrintf("<font color=orange>==========No valid permutation without chase rule for type %d; trying again with chase rule but without banning avoided pos==========</font><br/>", type);
+				allowSecondTry = qfalse;
+
+				memset(&try1, 0, sizeof(try1));
+				try1.diff = 999999.999999;
+				thisGotten = PermuteTeams(&players[0], numEligible, &try1, callback, qtrue, &set->avoidedHashesList, qfalse);
+				if (thisGotten > gotten)
+					gotten = thisGotten;
+
+				if (!try1.valid) {
+					TeamGen_DebugPrintf("<font color=orange>==========No valid permutation with chase rule but without banning avoided pos for type %d; trying again without chase rule AND without banning avoided pos==========</font><br/>", type);
+					memset(&try1, 0, sizeof(try1));
+					try1.diff = 999999.999999;
+					thisGotten = PermuteTeams(&players[0], numEligible, &try1, callback, qfalse, &set->avoidedHashesList, qfalse);
+					if (thisGotten > gotten)
+						gotten = thisGotten;
+				}
+			}
 		}
 
 		// if the permutation banning avoided positions is not 50-50, try again without banning avoided pos
 		permutationOfTeams_t *thisPermutation;
-		if (type != TEAMGENERATORTYPE_DESIREDPOS && permutationBanningAvoidedPos.valid && permutationBanningAvoidedPos.diff > 0.00001) {
-			TeamGen_DebugPrintf("<font color=orange>==========Diff is > 0 for type %d; attempting without banning avoided pos==========</font><br/>", type);
-			thisGotten = PermuteTeams(&players[0], numEligible, &permutationAllowingAvoidedPos, callback, qtrue, &set->avoidedHashesList, qfalse);
-			if (thisGotten > gotten)
-				gotten = thisGotten;
-
-			if (!permutationAllowingAvoidedPos.valid) {
-				TeamGen_DebugPrintf("<font color=orange>==========No valid permutation for type %d without banning avoided pos; trying again without chase rule==========</font><br/>", type);
-				memset(&permutationAllowingAvoidedPos, 0, sizeof(permutationAllowingAvoidedPos));
-				permutationAllowingAvoidedPos.diff = 999999.999999;
-				thisGotten = PermuteTeams(&players[0], numEligible, &permutationAllowingAvoidedPos, callback, qfalse, &set->avoidedHashesList, qfalse);
+		if (allowSecondTry) {
+			if (type != TEAMGENERATORTYPE_DESIREDPOS && try1.valid && try1.diff > 0.00001) {
+				TeamGen_DebugPrintf("<font color=orange>==========Diff is > 0 for type %d; attempting without banning avoided pos==========</font><br/>", type);
+				thisGotten = PermuteTeams(&players[0], numEligible, &try2, callback, qtrue, &set->avoidedHashesList, qfalse);
 				if (thisGotten > gotten)
 					gotten = thisGotten;
-			}
 
-			if (permutationAllowingAvoidedPos.valid && permutationAllowingAvoidedPos.diff < permutationBanningAvoidedPos.diff - 0.00001) {
-				thisPermutation = &permutationAllowingAvoidedPos;
-				TeamGen_DebugPrintf("<font color=orange>==========Allowing avoided pos is fairer for type %d; using that==========</font><br/>", type);
+				if (!try2.valid) {
+					TeamGen_DebugPrintf("<font color=orange>==========No valid permutation for type %d without banning avoided pos; trying again without chase rule==========</font><br/>", type);
+					memset(&try2, 0, sizeof(try2));
+					try2.diff = 999999.999999;
+					thisGotten = PermuteTeams(&players[0], numEligible, &try2, callback, qfalse, &set->avoidedHashesList, qfalse);
+					if (thisGotten > gotten)
+						gotten = thisGotten;
+				}
+
+				if (try2.valid && try2.diff < try1.diff - 0.00001) {
+					thisPermutation = &try2;
+					TeamGen_DebugPrintf("<font color=orange>==========Allowing avoided pos is fairer for type %d; using that==========</font><br/>", type);
+				}
+				else {
+					thisPermutation = &try1;
+					TeamGen_DebugPrintf("<font color=orange>==========Allowing avoided pos is NOT fairer for type %d; using avoided pos banned permutation==========</font><br/>", type);
+				}
 			}
 			else {
-				thisPermutation = &permutationBanningAvoidedPos;
-				TeamGen_DebugPrintf("<font color=orange>==========Allowing avoided pos is NOT fairer for type %d; using avoided pos banned permutation==========</font><br/>", type);
+				thisPermutation = &try1;
 			}
 		}
 		else {
-			thisPermutation = &permutationBanningAvoidedPos;
+			thisPermutation = &try1;
 		}
 
 		free(players);
