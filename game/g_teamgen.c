@@ -1665,7 +1665,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 			if (thisGotten > gotten)
 				gotten = thisGotten;
 
-			if (!try1.valid) {
+			if (!try1.valid && type != TEAMGENERATORTYPE_DESIREDPOS) {
 				TeamGen_DebugPrintf("<font color=orange>==========No valid permutation without chase rule for type %d; trying again with chase rule but without banning avoided pos==========</font><br/>", type);
 				allowSecondTry = qfalse;
 
