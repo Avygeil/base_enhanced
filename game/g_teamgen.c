@@ -220,6 +220,7 @@ typedef struct {
 	int numEligible;
 	uint64_t numPermutations;
 	list_t *avoidedHashesList;
+	qboolean banAvoidedPositions;
 } teamGeneratorContext_t;
 
 typedef struct {
@@ -249,6 +250,13 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 	if (!team1base->rating[CTFPOSITION_BASE] || !team1chase->rating[CTFPOSITION_CHASE] || !team1offense1->rating[CTFPOSITION_OFFENSE] || !team1offense2->rating[CTFPOSITION_OFFENSE] ||
 		!team2base->rating[CTFPOSITION_BASE] || !team2chase->rating[CTFPOSITION_CHASE] || !team2offense1->rating[CTFPOSITION_OFFENSE] || !team2offense2->rating[CTFPOSITION_OFFENSE]) {
 		return; // at least one player is invalid on their proposed position
+	}
+
+	if (context->banAvoidedPositions) {
+		if ((team1base->posPrefs.avoid & (1 << CTFPOSITION_BASE)) || (team1chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE)) || (team1offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) || (team1offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) ||
+			(team2base->posPrefs.avoid & (1 << CTFPOSITION_BASE)) || (team2chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE)) || (team2offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) || (team2offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE))) {
+			return;
+		}
 	}
 
 	double team1RawStrength = team1base->rating[CTFPOSITION_BASE] + team1chase->rating[CTFPOSITION_CHASE] + team1offense1->rating[CTFPOSITION_OFFENSE] + team1offense2->rating[CTFPOSITION_OFFENSE];
@@ -472,6 +480,13 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 	if (!team1base->rating[CTFPOSITION_BASE] || !team1chase->rating[CTFPOSITION_CHASE] || !team1offense1->rating[CTFPOSITION_OFFENSE] || !team1offense2->rating[CTFPOSITION_OFFENSE] ||
 		!team2base->rating[CTFPOSITION_BASE] || !team2chase->rating[CTFPOSITION_CHASE] || !team2offense1->rating[CTFPOSITION_OFFENSE] || !team2offense2->rating[CTFPOSITION_OFFENSE]) {
 		return; // at least one player is invalid on their proposed position
+	}
+
+	if (context->banAvoidedPositions) {
+		if ((team1base->posPrefs.avoid & (1 << CTFPOSITION_BASE)) || (team1chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE)) || (team1offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) || (team1offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) ||
+			(team2base->posPrefs.avoid & (1 << CTFPOSITION_BASE)) || (team2chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE)) || (team2offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) || (team2offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE))) {
+			return;
+		}
 	}
 
 	double team1RawStrength = team1base->rating[CTFPOSITION_BASE] + team1chase->rating[CTFPOSITION_CHASE] + team1offense1->rating[CTFPOSITION_OFFENSE] + team1offense2->rating[CTFPOSITION_OFFENSE];
@@ -954,6 +969,13 @@ static void HandleOffenseCombination(permutationPlayer_t *playerArray, int *c, i
 		return; // if any of these offenders are invalid, then we can save time by not bothering to check any teams with them since they will all be invalid
 	}
 
+	if (context->banAvoidedPositions) {
+		if ((offensePlayer1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) || (offensePlayer2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) ||
+			(offensePlayer3->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) || (offensePlayer4->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE))) {
+			return;
+		}
+	}
+
 	HandleTeam(playerArray, arr, context, c[1], c[2], c[3], c[4]);
 	HandleTeam(playerArray, arr, context, c[1], c[3], c[2], c[4]);
 	HandleTeam(playerArray, arr, context, c[1], c[4], c[2], c[3]);
@@ -1011,6 +1033,13 @@ static void GetOffenseCombinations(permutationPlayer_t *playerArray, int *arr, t
 	if (!team1basePlayer->rating[CTFPOSITION_BASE] || !team1chasePlayer->rating[CTFPOSITION_CHASE] ||
 		!team2basePlayer->rating[CTFPOSITION_BASE] || !team2chasePlayer->rating[CTFPOSITION_CHASE]) {
 		return; // if any of these defenders are invalid, then we can save time by not bothering to check any combination of offenses with them since they will all be invalid
+	}
+
+	if (context->banAvoidedPositions) {
+		if ((team1basePlayer->posPrefs.avoid & (1 << CTFPOSITION_BASE)) || (team1chasePlayer->posPrefs.avoid & (1 << CTFPOSITION_CHASE)) ||
+			(team2basePlayer->posPrefs.avoid & (1 << CTFPOSITION_BASE)) || (team2chasePlayer->posPrefs.avoid & (1 << CTFPOSITION_CHASE))) {
+			return;
+		}
 	}
 
 	int n = context->numEligible - 4;
@@ -1099,7 +1128,7 @@ for each combination of 4 defenders:
 
 Returns the number of valid permutations evaluated.
 */
-static uint64_t PermuteTeams(permutationPlayer_t *playerArray, int numEligible, permutationOfTeams_t *bestOut, PermutationCallback callback, qboolean enforceChaseRule, list_t *avoidedHashesList) {
+static uint64_t PermuteTeams(permutationPlayer_t *playerArray, int numEligible, permutationOfTeams_t *bestOut, PermutationCallback callback, qboolean enforceChaseRule, list_t *avoidedHashesList, qboolean banAvoidedPositions) {
 #ifdef DEBUG_GENERATETEAMS
 	clock_t start = clock();
 #endif
@@ -1114,6 +1143,7 @@ static uint64_t PermuteTeams(permutationPlayer_t *playerArray, int numEligible, 
 	context.enforceChaseRule = enforceChaseRule;
 	context.numEligible = numEligible;
 	context.numPermutations = 0;
+	context.banAvoidedPositions = banAvoidedPositions;
 	if (avoidedHashesList && avoidedHashesList->size > 0)
 		context.avoidedHashesList = avoidedHashesList;
 	else
@@ -1291,7 +1321,6 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 	}
 
 	// try to get the best possible teams using a few different approaches
-	permutationOfTeams_t permutations[NUM_TEAMGENERATORTYPES] = { 0 };
 	qboolean gotValid = qfalse;
 	uint64_t gotten = 0llu;
 	for (int type = TEAMGENERATORTYPE_FIRST; type < NUM_TEAMGENERATORTYPES; type++) {
@@ -1612,8 +1641,8 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 		}
 
 		// evaluate every possible permutation of teams for this teamgen type
-		permutationOfTeams_t *thisPermutation = &permutations[type];
-		thisPermutation->diff = 999999.999999;
+		permutationOfTeams_t permutationBanningAvoidedPos = { 0 }, permutationAllowingAvoidedPos = { 0 };
+		permutationBanningAvoidedPos.diff = permutationAllowingAvoidedPos.diff = 999999.999999;
 		PermutationCallback callback;
 		if (type == TEAMGENERATORTYPE_HIGHESTRATING)
 			callback = TryTeamPermutation_Tryhard;
@@ -1622,17 +1651,48 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 		else
 			callback = TryTeamPermutation;
 		TeamGen_DebugPrintf("<font color=darkgreen>==========Permuting teams with type %d==========</font><br/>", type);
-		uint64_t thisGotten = PermuteTeams(&players[0], numEligible, thisPermutation, callback, qtrue, &set->avoidedHashesList);
+
+		uint64_t thisGotten = PermuteTeams(&players[0], numEligible, &permutationBanningAvoidedPos, callback, qtrue, &set->avoidedHashesList, qtrue);
 		if (thisGotten > gotten)
 			gotten = thisGotten;
 
-		if (!thisPermutation->valid) {
-			// if we fail, try this teamgen type again without enforcing the chase rule
+		if (!permutationBanningAvoidedPos.valid) {
 			TeamGen_DebugPrintf("<font color=orange>==========No valid permutation for type %d; trying again without chase rule==========</font><br/>", type);
-			thisPermutation->diff = 999999.999999;
-			thisGotten = PermuteTeams(&players[0], numEligible, thisPermutation, callback, qfalse, &set->avoidedHashesList);
+			memset(&permutationBanningAvoidedPos, 0, sizeof(permutationBanningAvoidedPos));
+			permutationBanningAvoidedPos.diff = 999999.999999;
+			thisGotten = PermuteTeams(&players[0], numEligible, &permutationBanningAvoidedPos, callback, qfalse, &set->avoidedHashesList, qtrue);
 			if (thisGotten > gotten)
 				gotten = thisGotten;
+		}
+
+		// if the permutation banning avoided positions is not 50-50, try again without banning avoided pos
+		permutationOfTeams_t *thisPermutation;
+		if (type != TEAMGENERATORTYPE_DESIREDPOS && permutationBanningAvoidedPos.valid && permutationBanningAvoidedPos.diff > 0.00001) {
+			TeamGen_DebugPrintf("<font color=orange>==========Diff is > 0 for type %d; attempting without banning avoided pos==========</font><br/>", type);
+			thisGotten = PermuteTeams(&players[0], numEligible, &permutationAllowingAvoidedPos, callback, qtrue, &set->avoidedHashesList, qfalse);
+			if (thisGotten > gotten)
+				gotten = thisGotten;
+
+			if (!permutationAllowingAvoidedPos.valid) {
+				TeamGen_DebugPrintf("<font color=orange>==========No valid permutation for type %d without banning avoided pos; trying again without chase rule==========</font><br/>", type);
+				memset(&permutationAllowingAvoidedPos, 0, sizeof(permutationAllowingAvoidedPos));
+				permutationAllowingAvoidedPos.diff = 999999.999999;
+				thisGotten = PermuteTeams(&players[0], numEligible, &permutationAllowingAvoidedPos, callback, qfalse, &set->avoidedHashesList, qfalse);
+				if (thisGotten > gotten)
+					gotten = thisGotten;
+			}
+
+			if (permutationAllowingAvoidedPos.valid && permutationAllowingAvoidedPos.diff < permutationBanningAvoidedPos.diff - 0.00001) {
+				thisPermutation = &permutationAllowingAvoidedPos;
+				TeamGen_DebugPrintf("<font color=orange>==========Allowing avoided pos is fairer for type %d; using that==========</font><br/>", type);
+			}
+			else {
+				thisPermutation = &permutationBanningAvoidedPos;
+				TeamGen_DebugPrintf("<font color=orange>==========Allowing avoided pos is NOT fairer for type %d; using avoided pos banned permutation==========</font><br/>", type);
+			}
+		}
+		else {
+			thisPermutation = &permutationBanningAvoidedPos;
 		}
 
 		free(players);
