@@ -1211,7 +1211,7 @@ typedef struct {
 typedef struct {
 	node_t		node;
 	int			accountId;
-} barredPlayer_t;
+} barredOrForcedPickablePlayer_t;
 
 typedef struct {
 	node_t			node;
@@ -1270,6 +1270,7 @@ void Svcmd_Pug_f(void);
 void TeamGen_Initialize(void);
 ctfPlayerTier_t GetPlayerTierForPlayerOnPosition(int accountId, ctfPosition_t pos, qboolean assumeLowTierIfUnrated);
 void ShowSubBalance(void);
+qboolean TeamGenerator_PlayerIsPermaBarredButTemporarilyForcedPickable(gentity_t *ent);
 
 // this structure is cleared on each ClientSpawn(),
 // except for 'client->pers' and 'client->sess'
@@ -1917,6 +1918,7 @@ typedef struct {
 
 	list_t pugProposalsList;
 	list_t barredPlayersList;
+	list_t forcedPickablePermabarredPlayersList;
 	pugProposal_t *activePugProposal;
 	list_t queuedServerMessagesList;
 	list_t autoLinksList;

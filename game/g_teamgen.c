@@ -97,31 +97,59 @@ static char *PlayerRatingToStringHTML(ctfPlayerTier_t tier) {
 }
 #endif
 
+qboolean TeamGenerator_PlayerIsPermaBarredButTemporarilyForcedPickable(gentity_t *ent) {
+	if (!ent || !ent->client || !ent->client->account)
+		return qfalse;
+
+	if (!(ent->client->account->flags & ACCOUNTFLAG_HARDPERMABARRED) && !(ent->client->account->flags & ACCOUNTFLAG_PERMABARRED))
+		return qfalse;
+
+	qboolean forcedPickableByAdmin = qfalse;
+	iterator_t iter;
+	ListIterate(&level.forcedPickablePermabarredPlayersList, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		barredOrForcedPickablePlayer_t *bp = IteratorNext(&iter);
+		if (bp->accountId == ent->client->account->id)
+			return qtrue;
+	}
+
+	return qfalse;
+}
+
 qboolean TeamGenerator_PlayerIsBarredFromTeamGenerator(gentity_t *ent) {
 	if (!ent || !ent->client)
 		return qfalse;
 
-	// being barred by the server takes precedence over permabarred accounts declaring themselves pickable
 	if (ent->client->pers.barredFromPugSelection)
 		return qtrue;
 
 	if (ent->client->account) {
-		if (ent->client->account->flags & ACCOUNTFLAG_HARDPERMABARRED) {
+		if ((ent->client->account->flags & ACCOUNTFLAG_HARDPERMABARRED) || (ent->client->account->flags & ACCOUNTFLAG_PERMABARRED)) {
+			qboolean forcedPickableByAdmin = qfalse;
+			iterator_t iter;
+			ListIterate(&level.forcedPickablePermabarredPlayersList, &iter, qfalse);
+			while (IteratorHasNext(&iter)) {
+				barredOrForcedPickablePlayer_t *bp = IteratorNext(&iter);
+				if (bp->accountId == ent->client->account->id) {
+					forcedPickableByAdmin = qtrue;
+					break;
+				}
+			}
+			if (forcedPickableByAdmin)
+				return qfalse;
+
+			if (!(ent->client->account->flags & ACCOUNTFLAG_HARDPERMABARRED) && ent->client->pers.permaBarredDeclaredPickable)
+				return qfalse;
+			
 			return qtrue;
 		}
 
 		iterator_t iter;
 		ListIterate(&level.barredPlayersList, &iter, qfalse);
 		while (IteratorHasNext(&iter)) {
-			barredPlayer_t *bp = IteratorNext(&iter);
+			barredOrForcedPickablePlayer_t *bp = IteratorNext(&iter);
 			if (bp->accountId == ent->client->account->id)
 				return qtrue;
-		}
-
-		if (ent->client->account->flags & ACCOUNTFLAG_PERMABARRED) {
-			if (ent->client->pers.permaBarredDeclaredPickable)
-				return qfalse;
-			return qtrue;
 		}
 	}
 
@@ -2794,13 +2822,50 @@ void Svcmd_Pug_f(void) {
 		}
 
 		char *name = found->client->account ? found->client->account->name : found->client->pers.netname;
+
+		if (found->client->account && ((found->client->account->flags & ACCOUNTFLAG_PERMABARRED) || (found->client->account->flags & ACCOUNTFLAG_HARDPERMABARRED))) {
+			qboolean wasForcedPickable = qfalse;
+			iterator_t iter;
+			ListIterate(&level.forcedPickablePermabarredPlayersList, &iter, qfalse);
+			while (IteratorHasNext(&iter)) {
+				barredOrForcedPickablePlayer_t *bp = IteratorNext(&iter);
+				if (bp->accountId == found->client->account->id) {
+					wasForcedPickable = qtrue;
+					break;
+				}
+			}
+
+			if (wasForcedPickable) {
+				Com_Printf("%s^7 is %spermabarred, but had been temporarily forced to be pickable via pug unbar. They are no longer forced to be pickable.\n",
+					name, (found->client->account->flags & ACCOUNTFLAG_HARDPERMABARRED) ? "hard " : "");
+				TeamGenerator_QueueServerMessageInChat(-1, va("%s^7 is no longer temporarily forced to be pickable for team generation by server.", name));
+				ListIterate(&level.forcedPickablePermabarredPlayersList, &iter, qfalse);
+				while (IteratorHasNext(&iter)) {
+					barredOrForcedPickablePlayer_t *bp = IteratorNext(&iter);
+					if (bp->accountId == found->client->account->id) {
+						ListRemove(&level.forcedPickablePermabarredPlayersList, bp);
+						ListIterate(&level.forcedPickablePermabarredPlayersList, &iter, qfalse);
+					}
+				}
+				for (int i = 0; i < MAX_CLIENTS; i++) {
+					if (g_entities[i].inuse && g_entities[i].client && g_entities[i].client->pers.connected == CON_CONNECTED && g_entities[i].client->account && g_entities[i].client->account->id == found->client->account->id)
+						ClientUserinfoChanged(i);
+				}
+			}
+			else {
+				Com_Printf("%s^7 is %spermabarred. You can temporarily force them to be pickable by using pug unbar.\n",
+					name, (found->client->account->flags & ACCOUNTFLAG_HARDPERMABARRED) ? "hard " : "");
+			}
+			return;
+		}
+
 		if (found->client->pers.barredFromPugSelection) {
 			if (found->client->account) {
 				qboolean foundInList = qfalse;
 				iterator_t iter;
 				ListIterate(&level.barredPlayersList, &iter, qfalse);
 				while (IteratorHasNext(&iter)) {
-					barredPlayer_t *bp = IteratorNext(&iter);
+					barredOrForcedPickablePlayer_t *bp = IteratorNext(&iter);
 					if (bp->accountId == found->client->account->id) {
 						foundInList = qtrue;
 						break;
@@ -2808,7 +2873,7 @@ void Svcmd_Pug_f(void) {
 				}
 
 				if (!foundInList) { // barred in client->pers but not list; add them to list
-					barredPlayer_t *add = ListAdd(&level.barredPlayersList, sizeof(barredPlayer_t));
+					barredOrForcedPickablePlayer_t *add = ListAdd(&level.barredPlayersList, sizeof(barredOrForcedPickablePlayer_t));
 					add->accountId = found->client->account->id;
 				}
 			}
@@ -2819,7 +2884,7 @@ void Svcmd_Pug_f(void) {
 		found->client->pers.barredFromPugSelection = qtrue;
 		if (found->client->account) {
 			Com_Printf("Barred player %s^7.\n", name);
-			barredPlayer_t *add = ListAdd(&level.barredPlayersList, sizeof(barredPlayer_t));
+			barredOrForcedPickablePlayer_t *add = ListAdd(&level.barredPlayersList, sizeof(barredOrForcedPickablePlayer_t));
 			add->accountId = found->client->account->id;
 		}
 		else {
@@ -2844,11 +2909,42 @@ void Svcmd_Pug_f(void) {
 
 		char *name = found->client->account ? found->client->account->name : found->client->pers.netname;
 
+		if (found->client->account && ((found->client->account->flags & ACCOUNTFLAG_PERMABARRED) || (found->client->account->flags & ACCOUNTFLAG_HARDPERMABARRED))) {
+			qboolean foundForcedPickable = qfalse;
+			iterator_t iter;
+			ListIterate(&level.forcedPickablePermabarredPlayersList, &iter, qfalse);
+			while (IteratorHasNext(&iter)) {
+				barredOrForcedPickablePlayer_t *bp = IteratorNext(&iter);
+				if (bp->accountId == found->client->account->id) {
+					foundForcedPickable = qtrue;
+					break;
+				}
+			}
+
+			if (foundForcedPickable) {
+				Com_Printf("%s^7 is %spermabarred, but had been temporarily forced to be pickable via pug unbar. You can remove the temporary pickability by using pug bar.\n",
+					name, (found->client->account->flags & ACCOUNTFLAG_HARDPERMABARRED) ? "hard " : "");
+			}
+			else {
+				Com_Printf("%s^7 is %spermabarred. They are now temporarily forced to be pickable.\n",
+					name, (found->client->account->flags & ACCOUNTFLAG_HARDPERMABARRED) ? "hard " : "");
+				TeamGenerator_QueueServerMessageInChat(-1, va("%s^7 temporarily forced to be pickable for team generation by server.", name));
+				barredOrForcedPickablePlayer_t *add = ListAdd(&level.forcedPickablePermabarredPlayersList, sizeof(barredOrForcedPickablePlayer_t));
+				add->accountId = found->client->account->id;
+
+				for (int i = 0; i < MAX_CLIENTS; i++) {
+					if (g_entities[i].inuse && g_entities[i].client && g_entities[i].client->pers.connected == CON_CONNECTED && g_entities[i].client->account && g_entities[i].client->account->id == found->client->account->id)
+						ClientUserinfoChanged(i);
+				}
+			}
+			return;
+		}
+
 		if (found->client->account) { // remove from list, if applicable
 			iterator_t iter;
 			ListIterate(&level.barredPlayersList, &iter, qfalse);
 			while (IteratorHasNext(&iter)) {
-				barredPlayer_t *bp = IteratorNext(&iter);
+				barredOrForcedPickablePlayer_t *bp = IteratorNext(&iter);
 				if (bp->accountId == found->client->account->id) {
 					ListRemove(&level.barredPlayersList, bp);
 					ListIterate(&level.barredPlayersList, &iter, qfalse);

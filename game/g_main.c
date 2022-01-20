@@ -2036,6 +2036,7 @@ void G_ShutdownGame( int restart ) {
 	ListClear(&level.pugProposalsList);
 
 	ListClear(&level.barredPlayersList);
+	ListClear(&level.forcedPickablePermabarredPlayersList);
 
 	ListIterate(&level.queuedServerMessagesList, &iter, qfalse);
 	while (IteratorHasNext(&iter)) {

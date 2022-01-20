@@ -2471,8 +2471,12 @@ void ClientUserinfoChanged( int clientNum ) {
 		if ( client->sess.auth == AUTHENTICATED && client->sess.cuidHash[0] ) {
 			s = va( "%s\\cid\\%s", s, client->sess.cuidHash );
 		}
+
 		if (TeamGenerator_PlayerIsBarredFromTeamGenerator(ent)) {
 			s = va("%s\\bftg\\1", s);
+		}
+		else if (TeamGenerator_PlayerIsPermaBarredButTemporarilyForcedPickable) {
+			s = va("%s\\bftg\\2", s);
 		}
 #endif
 	}
