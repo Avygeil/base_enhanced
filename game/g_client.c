@@ -2475,7 +2475,7 @@ void ClientUserinfoChanged( int clientNum ) {
 		if (TeamGenerator_PlayerIsBarredFromTeamGenerator(ent)) {
 			s = va("%s\\bftg\\1", s);
 		}
-		else if (TeamGenerator_PlayerIsPermaBarredButTemporarilyForcedPickable) {
+		else if (TeamGenerator_PlayerIsPermaBarredButTemporarilyForcedPickable(ent)) {
 			s = va("%s\\bftg\\2", s);
 		}
 #endif
