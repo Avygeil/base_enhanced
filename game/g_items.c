@@ -3223,8 +3223,8 @@ void G_BounceItem(gentity_t *ent, trace_t *trace) {
         if (ent->touch)
         {
             ent->touch(ent, &g_entities[trace->entityNum], trace);
-            return;
         }
+		return;
     }
 
 	// check for stop
