@@ -3137,6 +3137,7 @@ extern vmCvar_t		g_shouldReloadPlayerPugStats;
 extern vmCvar_t		g_rockPaperScissors;
 
 extern vmCvar_t		g_gripBuff;
+extern vmCvar_t		g_gripRefreshRate;
 
 extern vmCvar_t		g_minimumCullDistance;
 
