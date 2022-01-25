@@ -4224,7 +4224,7 @@ void DoGripAction(gentity_t *self, forcePowers_t forcePower)
 		{
 			gripEnt->client->ps.velocity[2] = 30;
 
-			gripEnt->client->ps.forceGripMoveInterval = level.time + 300; //only update velocity every 300ms, so as to avoid heavy bandwidth usage
+			gripEnt->client->ps.forceGripMoveInterval = level.time + Com_Clampi(1000 / g_svfps.integer, 500, g_gripRefreshRate.integer); //only update velocity every 300ms, so as to avoid heavy bandwidth usage
 		}
 
 		gripEnt->client->ps.otherKiller = self->s.number;
@@ -4280,28 +4280,30 @@ void DoGripAction(gentity_t *self, forcePowers_t forcePower)
 
 			nvLen = VectorLength(nvel);
 
-			if (nvLen < 16)
+			float factor = ((float)(Com_Clampi(1000 / g_svfps.integer, 500, g_gripRefreshRate.integer)) / 300.0f);
+
+			if (nvLen < 16 * factor)
 			{ //within x units of desired spot
 				VectorNormalize(nvel);
 				gripEnt->client->ps.velocity[0] = nvel[0]*8;
 				gripEnt->client->ps.velocity[1] = nvel[1]*8;
 				gripEnt->client->ps.velocity[2] = nvel[2]*8;
 			}
-			else if (nvLen < 64)
+			else if (nvLen < 64 * factor)
 			{
 				VectorNormalize(nvel);
 				gripEnt->client->ps.velocity[0] = nvel[0]*128;
 				gripEnt->client->ps.velocity[1] = nvel[1]*128;
 				gripEnt->client->ps.velocity[2] = nvel[2]*128;
 			}
-			else if (nvLen < 128)
+			else if (nvLen < 128 * factor)
 			{
 				VectorNormalize(nvel);
 				gripEnt->client->ps.velocity[0] = nvel[0]*256;
 				gripEnt->client->ps.velocity[1] = nvel[1]*256;
 				gripEnt->client->ps.velocity[2] = nvel[2]*256;
 			}
-			else if (nvLen < 200)
+			else if (nvLen < 200 * factor)
 			{
 				VectorNormalize(nvel);
 				gripEnt->client->ps.velocity[0] = nvel[0]*512;
@@ -4316,7 +4318,7 @@ void DoGripAction(gentity_t *self, forcePowers_t forcePower)
 				gripEnt->client->ps.velocity[2] = nvel[2]*700;
 			}
 
-			gripEnt->client->ps.forceGripMoveInterval = level.time + 300; //only update velocity every 300ms, so as to avoid heavy bandwidth usage
+			gripEnt->client->ps.forceGripMoveInterval = level.time + Com_Clampi(1000 / g_svfps.integer, 500, g_gripRefreshRate.integer); //only update velocity every 300ms, so as to avoid heavy bandwidth usage
 		}
 
 		if ((level.time - gripEnt->client->ps.fd.forceGripStarted) > 3000 && !self->client->ps.fd.forceGripDamageDebounceTime)

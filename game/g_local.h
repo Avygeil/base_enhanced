@@ -2673,6 +2673,7 @@ extern vmCvar_t		g_vote_runoffTimeModifier;
 extern vmCvar_t		g_rockPaperScissors;
 
 extern vmCvar_t		g_gripBuff;
+extern vmCvar_t		g_gripRefreshRate;
 
 extern vmCvar_t		g_minimumCullDistance;
 
