@@ -4,8 +4,8 @@
 #include "g_local.h"
 
 #define DB_FILENAME				"enhanced.db"
-#define DB_SCHEMA_VERSION		16
-#define DB_SCHEMA_VERSION_STR	"16"
+#define DB_SCHEMA_VERSION		17
+#define DB_SCHEMA_VERSION_STR	"17"
 #define DB_OPTIMIZE_INTERVAL	( 60*60*3 ) // every 3 hours
 #define DB_VACUUM_INTERVAL		( 60*60*24*7 ) // every week
 
@@ -400,5 +400,22 @@ void G_DBGetPlayerRatings(void);
 
 void G_DBFixSwap_List(void);
 qboolean G_DBFixSwap_Fix(int recordId, int newPos);
+
+typedef struct {
+	node_t		node;
+	char		filename[MAX_QPATH];
+	char		alias[MAX_QPATH];
+	char		live[8];
+} mapAlias_t;
+
+const char *GenericTableStringCallback(void *rowContext, void *columnContext);
+
+void G_DBListMapAliases(void);
+qboolean G_DBSetMapAlias(const char *filename, const char *alias, qboolean setLive);
+qboolean G_DBClearMapAlias(const char *filename);
+qboolean G_DBSetMapAliasLive(const char *filename, char *aliasOut, size_t aliasOutSize);
+qboolean G_DBGetLiveMapFilenameForAlias(const char *alias, char *result, size_t resultSize);
+qboolean G_DBGetAliasForMapName(const char *filename, char *result, size_t resultSize, qboolean *isliveOut);
+qboolean G_DBGetLiveMapNameForMapName(const char *filename, char *result, size_t resultSize);
 
 #endif //G_DATABASE_H

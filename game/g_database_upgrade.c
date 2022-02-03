@@ -1400,6 +1400,15 @@ static qboolean UpgradeDBToVersion16(sqlite3 *dbPtr) {
 	return sqlite3_exec(dbPtr, v16Upgrade, NULL, NULL, NULL) == SQLITE_OK;
 }
 
+const char *const v17Upgrade =
+"CREATE TABLE IF NOT EXISTS [mapaliases] ([filename] TEXT COLLATE NOCASE NOT NULL, [alias] TEXT COLLATE NOCASE NOT NULL, [islive] BOOLEAN DEFAULT NULL, UNIQUE(filename), UNIQUE(alias, islive)); "
+"CREATE VIEW IF NOT EXISTS [lastplayedalias] AS SELECT alias, sum(num) num, max(datetime) datetime FROM lastplayedmap JOIN mapaliases ON lastplayedmap.map = mapaliases.filename GROUP BY alias; "
+"CREATE VIEW IF NOT EXISTS [lastplayedmaporalias] AS WITH t AS (SELECT alias, sum(num) num, max(datetime) datetime FROM lastplayedalias) SELECT lastplayedmap.map, CASE WHEN t.num IS NOT NULL THEN t.num ELSE lastplayedmap.num END num, CASE WHEN t.datetime IS NOT NULL THEN t.datetime ELSE lastplayedmap.datetime END datetime FROM lastplayedmap LEFT JOIN mapaliases ON lastplayedmap.map = mapaliases.filename LEFT JOIN t ON mapaliases.alias = t.alias;";
+
+static qboolean UpgradeDBToVersion17(sqlite3 *dbPtr) {
+	return sqlite3_exec(dbPtr, v17Upgrade, NULL, NULL, NULL) == SQLITE_OK;
+}
+
 // =============================================================================
 
 static qboolean UpgradeDB( int versionTo, sqlite3* dbPtr ) {
@@ -1421,6 +1430,7 @@ static qboolean UpgradeDB( int versionTo, sqlite3* dbPtr ) {
 		case 14: return UpgradeDBToVersion14(dbPtr);
 		case 15: return UpgradeDBToVersion15(dbPtr);
 		case 16: return UpgradeDBToVersion16(dbPtr);
+		case 17: return UpgradeDBToVersion17(dbPtr);
 ;		default:
 			Com_Printf( "ERROR: Unsupported database upgrade routine\n" );
 	}

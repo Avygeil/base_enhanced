@@ -1112,12 +1112,178 @@ qboolean MapExistsQuick(const char *mapFileName) {
 	return qfalse;
 }
 
+void Svcmd_MapAlias_f(void) {
+	if (trap_Argc() < 2) {
+		Com_Printf("^7Usage:\n"
+			"^7mapalias list                   - lists current map aliases\n"
+			"^9mapalias add [filename] [alias] - adds a map filename with a specified alias to the list\n"
+			"^7mapalias delete [filename]      - deletes a map filename from the list\n"
+			"^9mapalias live [filename]        - sets a map as the live version of its alias\n"
+			"^7use the ^5listmaps^7 command to view a list of all maps.\n");
+		return;
+	}
+
+	char arg1[MAX_STRING_CHARS] = { 0 }, arg2[MAX_STRING_CHARS] = { 0 }, arg3[MAX_STRING_CHARS] = { 0 };
+	trap_Argv(1, arg1, sizeof(arg1));
+	Q_strlwr(arg1);
+	Q_StripColor(arg1);
+	COM_StripExtension((const char *)arg1, arg1);
+	if (trap_Argc() >= 3) {
+		trap_Argv(2, arg2, sizeof(arg2));
+		Q_strlwr(arg2);
+		Q_StripColor(arg2);
+		COM_StripExtension((const char *)arg2, arg2);
+		if (trap_Argc() >= 4) {
+			trap_Argv(3, arg3, sizeof(arg3));
+			Q_strlwr(arg3);
+			Q_StripColor(arg3);
+		}
+	}
+
+	if (!Q_stricmp(arg1, "list") || !Q_stricmp(arg1, "view")) {
+		G_DBListMapAliases();
+	}
+	else if (!Q_stricmp(arg1, "add") || !Q_stricmp(arg1, "forceadd")) {
+		if (!arg2[0]) {
+			Com_Printf("Usage: mapalias add [filename] [alias] <optional 'live'>\n");
+			return;
+		}
+
+		if (Q_stricmp(arg1, "forceadd") && !MapExistsQuick(arg2)) {
+			Com_Printf("%s does not currently exist on the server. Are you sure you entered the correct filename? You can use ^5mapalias forceadd^7 to bypass this warning.\n", arg2);
+			return;
+		}
+
+		if (!Q_stricmpn(arg3, "mp/", 3)) {
+			Com_Printf("Alias should not contain the mp/ prefix.\n");
+			return;
+		}
+
+		qboolean setLive = qfalse;
+		if (trap_Argc() >= 5) {
+			char buf[MAX_STRING_CHARS] = { 0 };
+			trap_Argv(4, buf, sizeof(buf));
+			if (!Q_stricmp(buf, "live"))
+				setLive = qtrue;
+		}
+
+		if (G_DBSetMapAlias(arg2, arg3, setLive))
+			Com_Printf("Successfully added filename ^5%s^7 with alias ^5%s^7%s.\n", arg2, arg3, setLive ? " and set it to live" : "");
+		else
+			Com_Printf("Error adding filename ^5%s^7 with ^5%s^7%s!\n", arg2, arg3, setLive ? " and setting it to live" : "");
+	}
+	else if (!Q_stricmp(arg1, "delete") || !Q_stricmp(arg1, "forcedelete")) {
+		if (!arg2[0]) {
+			Com_Printf("Usage: mapalias delete [filename]\n");
+			return;
+		}
+
+		if (Q_stricmp(arg1, "forcedelete") && !MapExistsQuick(arg2)) {
+			Com_Printf("%s does not currently exist on the server. Are you sure you entered the correct filename? You can use ^5mapalias forcedelete^7 to bypass this warning.\n", arg2);
+			return;
+		}
+
+		if (G_DBClearMapAlias(arg2))
+			Com_Printf("Successfully deleted alias for filename ^5%s^7.\n", arg2);
+		else
+			Com_Printf("Error setting alias for filename ^5%s^7!\n", arg2);
+	}
+	else if (!Q_stricmp(arg1, "live") || !Q_stricmp(arg1, "forcelive")) {
+		if (!arg2[0]) {
+			Com_Printf("Usage: mapalias live [filename]\n");
+			return;
+		}
+
+		if (Q_stricmp(arg1, "forcelive") && !MapExistsQuick(arg2)) {
+			Com_Printf("%s does not currently exist on the server. Are you sure you entered the correct filename? You can use ^5mapalias forcelive^7 to bypass this warning.\n", arg2);
+			return;
+		}
+
+		char alias[MAX_QPATH] = { 0 };
+		if (G_DBSetMapAliasLive(arg2, alias, sizeof(alias)))
+			Com_Printf("Successfully set filename ^5%s^7 as the live filename for alias ^5%s^7.\n", arg2, alias);
+		else
+			Com_Printf("Error setting filename ^5%s^7 as live!\n", arg2);
+	}
+	else {
+		Com_Printf("^7Usage:\n"
+			"^7mapalias list                   - lists current map aliases\n"
+			"^9mapalias add [filename] [alias] - adds a map filename with a specified alias to the list\n"
+			"^7mapalias delete [filename]      - deletes a map filename from the list\n"
+			"^9mapalias live [filename]        - sets a map as the live version of its alias\n"
+			"^7use the ^5listmaps^7 command to view a list of all maps.\n");
+		return;
+	}
+}
+
+void Svcmd_ListMaps_f(void) {
+	list_t list = { 0 };
+	int numGotten = 0;
+	for (int i = g_numArenas - 1; i >= 0; i--) { // go in backwards order so it's alphabetized...nice video game
+		char *value = Info_ValueForKey(g_arenaInfos[i], "type");
+		if (VALIDSTRING(value) && strstr(value, "ctf")) {
+			mapAlias_t *add = (mapAlias_t *)ListAdd(&list, sizeof(mapAlias_t));
+			value = Info_ValueForKey(g_arenaInfos[i], "map");
+			Q_strncpyz(add->filename, value, sizeof(add->filename));
+			char alias[MAX_QPATH] = { 0 };
+			qboolean isLive = qfalse;
+			if (G_DBGetAliasForMapName(value, alias, sizeof(alias), &isLive)) {
+				Q_strncpyz(add->alias, alias, sizeof(add->alias));
+				Q_strncpyz(add->live, isLive ? "^2Yes" : "No", sizeof(add->live));
+			}
+			else {
+				add->alias[0] = ' ';
+				add->live[0] = ' ';
+			}
+			numGotten++;
+		}
+	}
+
+	if (!numGotten) {
+		Com_Printf("Unable to find any CTF maps!\n");
+		return;
+	}
+
+	iterator_t iter;
+	ListIterate(&list, &iter, qfalse);
+	Table *t = Table_Initialize(qtrue);
+	while (IteratorHasNext(&iter)) {
+		mapAlias_t *ma = (mapAlias_t *)IteratorNext(&iter);
+		Table_DefineRow(t, ma);
+	}
+
+	mapAlias_t ma = { 0 };
+	Table_DefineColumn(t, "Filename", GenericTableStringCallback, (void *)((unsigned int)(&ma.filename) - (unsigned int)&ma), qtrue, -1, MAX_QPATH);
+	Table_DefineColumn(t, "Alias", GenericTableStringCallback, (void *)((unsigned int)(&ma.alias) - (unsigned int)&ma), qtrue, -1, MAX_QPATH);
+	Table_DefineColumn(t, "Live", GenericTableStringCallback, (void *)((unsigned int)(&ma.live) - (unsigned int)&ma), qtrue, -1, MAX_QPATH);
+
+	int bufSize = 1024 * numGotten;
+	char *buf = calloc(bufSize, sizeof(char));
+	Table_WriteToBuffer(t, buf, bufSize, qtrue, -1);
+	Com_Printf("CTF maps currently on server:\n");
+
+	// should write a function to do this stupid chunked printing
+	char *remaining = buf;
+	int totalLen = strlen(buf);
+	while (*remaining && remaining < buf + totalLen) {
+		char temp[4096] = { 0 };
+		Q_strncpyz(temp, remaining, sizeof(temp));
+		Com_Printf(temp);
+		int copied = strlen(temp);
+		remaining += copied;
+	}
+
+	free(buf);
+	Table_Destroy(t);
+	ListClear(&list);
+}
+
 void Svcmd_Tier_f(void) {
 	if (trap_Argc() < 2) {
 		Com_Printf("^7Usage%s:\n"
 			"^7rcon tier add [map]    - whitelist a map so that it can be chosen in votes\n"
 			"^9rcon tier remove [map] - remove a map from the whitelist\n"
-			"^7rcon tier list         - view which maps currently are, or are not, whitelisted\n", g_vote_tierlist.integer ? "" : " (note: tierlist is currently disabled, enable with g_vote_tierlist)");
+			"^7rcon tier list         - view a list of maps and whether they are whitelisted\n", g_vote_tierlist.integer ? "" : " (note: tierlist is currently disabled, enable with g_vote_tierlist)");
 		return;
 	}
 
@@ -1128,50 +1294,38 @@ void Svcmd_Tier_f(void) {
 		Com_Printf("^7Usage%s:\n"
 			"^7rcon tier add [map]    - whitelist a map so that it can be chosen in votes\n"
 			"^9rcon tier remove [map] - remove a map from the whitelist\n"
-			"^7rcon tier list         - view which maps currently are, or are not, whitelisted\n", g_vote_tierlist.integer ? "" : " (note: tierlist is currently disabled, enable with g_vote_tierlist)");
+			"^7rcon tier list         - view a list of maps and whether they are whitelisted\n", g_vote_tierlist.integer ? "" : " (note: tierlist is currently disabled, enable with g_vote_tierlist)");
 		return;
 	}
 
 	Q_strlwr(arg1);
+	Q_StripColor(arg1);
 	Q_strlwr(arg2);
+	Q_StripColor(arg2);
 
 	if (!Q_stricmp(arg1, "add") && arg2[0] && !isspace(arg2[0])) {
 		char mapFileName[MAX_QPATH] = { 0 };
-		if (!GetMatchingMap(arg2, mapFileName, sizeof(mapFileName))) {
-			Com_Printf("Unable to find any map matching '%s^7'. If you still want to whitelist this map anyway, enter ^5tier forceadd [filename]^7. Be sure to use the actual map filename (e.g. ^5mp/ctf_kejim^7).\n", arg2);
+		if (!G_DBGetLiveMapFilenameForAlias(arg2, mapFileName, sizeof(mapFileName))) {
+			Com_Printf("Unable to find any alias matching '%s^7'.%s\n", arg2, stristr(arg2, "mp/") ? " Note that aliases cannot contain the mp/ prefix." : "");
 			return;
 		}
 
 		if (G_DBAddMapToTierWhitelist(mapFileName))
-			Com_Printf("Successfully added %s^7 (^9%s^7) to the whitelist.\n", arg2, mapFileName);
+			Com_Printf("Successfully added %s^7 (live: ^9%s^7) to the whitelist.\n", arg2, mapFileName);
 		else
-			Com_Printf("Error adding %s^7 (^9%s^7) to the whitelist!\n", arg2, mapFileName);
-	}
-	else if (!Q_stricmp(arg1, "forceadd") && arg2[0] && !isspace(arg2[0])) {
-		COM_StripExtension((const char *)arg2, arg2);
-		if (G_DBAddMapToTierWhitelist(arg2))
-			Com_Printf("Successfully force-added %s^7 to the whitelist.\n", arg2);
-		else
-			Com_Printf("Error force-adding %s^7 to the whitelist!\n", arg2);
+			Com_Printf("Error adding %s^7 to the whitelist!\n", arg2);
 	}
 	else if (!Q_stricmp(arg1, "remove") && arg2[0] && !isspace(arg2[0])) {
 		char mapFileName[MAX_QPATH] = { 0 };
-		if (!GetMatchingMap(arg2, mapFileName, sizeof(mapFileName))) {
-			Com_Printf("Unable to find any map matching '%s^7'. If you still want to unwhitelist this map anyway, enter ^5tier forceremove [filename]^7. Be sure to use the actual map filename (e.g. ^5mp/ctf_kejim^7).\n", arg2);
+		if (!G_DBGetLiveMapFilenameForAlias(arg2, mapFileName, sizeof(mapFileName))) {
+			Com_Printf("Unable to find any alias matching '%s^7'.%s\n", arg2, stristr(arg2, "mp/") ? " Note that aliases cannot contain the mp/ prefix." : "");
 			return;
 		}
 
 		if (G_DBRemoveMapFromTierWhitelist(mapFileName))
-			Com_Printf("Successfully removed %s^7 (^9%s^7) from the whitelist.\n", arg2, mapFileName);
+			Com_Printf("Successfully removed %s^7 (live: ^9%s^7) from the whitelist.\n", arg2, mapFileName);
 		else
-			Com_Printf("Error removing %s^7 (^9%s^7) from the whitelist!\n", arg2, mapFileName);
-	}
-	else if (!Q_stricmp(arg1, "forceremove") && arg2[0] && !isspace(arg2[0])) {
-		COM_StripExtension((const char *)arg2, arg2);
-		if (G_DBRemoveMapFromTierWhitelist(arg2))
-			Com_Printf("Successfully force-removed %s^7 from the whitelist.\n", arg2);
-		else
-			Com_Printf("Error force-removing %s^7 from the whitelist!\n", arg2);
+			Com_Printf("Error removing %s^7 from the whitelist!\n", arg2);
 	}
 	else if (!Q_stricmp(arg1, "view") || !Q_stricmp(arg1, "list") || !Q_stricmp(arg1, "whitelist") || !Q_stricmp(arg1, "current") || !Q_stricmp(arg1, "community")) {
 		char mapsListStr[4096] = { 0 };
@@ -1237,7 +1391,7 @@ void Svcmd_Tier_f(void) {
 		Com_Printf("^7Usage%s:\n"
 			"^7rcon tier add [map]    - whitelist a map so that it can be chosen in votes\n"
 			"^9rcon tier remove [map] - remove a map from the whitelist\n"
-			"^7rcon tier list         - view which maps currently are, or are not, whitelisted\n", g_vote_tierlist.integer ? "" : " (note: tierlist is currently disabled, enable with g_vote_tierlist)");
+			"^7rcon tier list         - view a list of maps and whether they are whitelisted\n", g_vote_tierlist.integer ? "" : " (note: tierlist is currently disabled, enable with g_vote_tierlist)");
 		return;
 	}
 }
@@ -1749,7 +1903,15 @@ void Svcmd_MapRandom_f()
 		}
 		else {
 			// we have 1 map, this means listOfMaps only contains 1 randomized map. Just change to it straight away.
-			trap_SendConsoleCommand(EXEC_APPEND, va("map %s\n", context->listOfMaps));
+			char overrideMapName[MAX_QPATH] = { 0 };
+			G_DBGetLiveMapNameForMapName(context->listOfMaps, overrideMapName, sizeof(overrideMapName));
+			if (overrideMapName[0] && Q_stricmp(overrideMapName, context->listOfMaps)) {
+				Com_Printf("Overriding %s via map alias to %s\n", context->listOfMaps, overrideMapName);
+				trap_SendConsoleCommand(EXEC_APPEND, va("map %s\n", overrideMapName));
+			}
+			else {
+				trap_SendConsoleCommand(EXEC_APPEND, va("map %s\n", context->listOfMaps));
+			}
 		}
 		free(context);
 		return;
@@ -1848,7 +2010,15 @@ void Svcmd_MapVote_f(const char *overrideMaps) {
 		char *space = strchr(context->listOfMaps, ' ');
 		if (space)
 			*space = '\0';
-		trap_SendConsoleCommand(EXEC_APPEND, va("map %s\n", context->listOfMaps));
+		char overrideMapName[MAX_QPATH] = { 0 };
+		G_DBGetLiveMapNameForMapName(context->listOfMaps, overrideMapName, sizeof(overrideMapName));
+		if (overrideMapName[0] && Q_stricmp(overrideMapName, context->listOfMaps)) {
+			Com_Printf("Overriding %s via map alias to %s\n", context->listOfMaps, overrideMapName);
+			trap_SendConsoleCommand(EXEC_APPEND, va("map %s\n", overrideMapName));
+		}
+		else {
+			trap_SendConsoleCommand(EXEC_APPEND, va("map %s\n", context->listOfMaps));
+		}
 	}
 	else {
 		// we are going to need another vote for this...
@@ -2270,7 +2440,15 @@ void Svcmd_MapMultiVote_f() {
 	}
 
 	// re-use the vote timer so that there's a small delay before map change
-	Q_strncpyz( level.voteString, va( "map %s", selectedMapname ), sizeof( level.voteString ) );
+	char overrideMapName[MAX_QPATH] = { 0 };
+	G_DBGetLiveMapNameForMapName(selectedMapname, overrideMapName, sizeof(overrideMapName));
+	if (overrideMapName[0] && Q_stricmp(overrideMapName, selectedMapname)) {
+		Com_Printf("Overriding %s via map alias to %s\n", selectedMapname, overrideMapName);
+		Q_strncpyz(level.voteString, va("map %s", overrideMapName), sizeof(level.voteString));
+	}
+	else {
+		Q_strncpyz(level.voteString, va("map %s", selectedMapname), sizeof(level.voteString));
+	}
 	level.voteExecuteTime = level.time + 3000;
 	level.multiVoting = qfalse;
 	level.multiVoteHasWildcard = qfalse;
@@ -3920,6 +4098,16 @@ qboolean	ConsoleCommand( void ) {
 
 	if (!Q_stricmp(cmd, "tier") || !Q_stricmp(cmd, "tiers") || !Q_stricmp(cmd, "tierlist") || !Q_stricmp(cmd, "tierlists")) {
 		Svcmd_Tier_f();
+		return qtrue;
+	}
+
+	if (!Q_stricmp(cmd, "listmaps") || !Q_stricmp(cmd, "listmap") || !Q_stricmp(cmd, "maplist") || !Q_stricmp(cmd, "mapslist")) {
+		Svcmd_ListMaps_f();
+		return qtrue;
+	}
+
+	if (!Q_stricmp(cmd, "mapalias") || !Q_stricmp(cmd, "mapaliases")) {
+		Svcmd_MapAlias_f();
 		return qtrue;
 	}
 

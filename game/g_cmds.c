@@ -3205,6 +3205,12 @@ void Cmd_CallVote_f( gentity_t *ent, int pause ) {
 			}
 		}
 
+		char liveVersion[MAX_QPATH] = { 0 };
+		if (g_vote_redirectMapVoteToLiveVersion.integer && Q_stricmpn(arg2, "mp/", 3) &&
+			G_DBGetLiveMapFilenameForAlias(arg2, liveVersion, sizeof(liveVersion)) && liveVersion[0]) {
+			Q_strncpyz(arg2, liveVersion, sizeof(arg2));
+		}
+
 		result = G_DoesMapSupportGametype(arg2, trap_Cvar_VariableIntegerValue("g_gametype"));
 		if (result)
 		{
@@ -6195,7 +6201,11 @@ static void Cmd_Tier_f(gentity_t *ent) {
 	else { // if we didn't match any of the preceding subcommands, assume it's a map or player name
 		char mapFileName[MAX_QPATH] = { 0 };
 		if (!Q_stricmp(arg1, "here") || !Q_stricmp(arg1, "map") || !Q_stricmp(arg1, "this")) { // view current map
-			Q_strncpyz(mapFileName, Cvar_VariableString("mapname"), sizeof(mapFileName));
+			char live[MAX_QPATH] = { 0 };
+			if (G_DBGetLiveMapNameForMapName(Cvar_VariableString("mapname"), live, sizeof(live)) && live[0])
+				Q_strncpyz(mapFileName, live, sizeof(mapFileName));
+			else
+				Q_strncpyz(mapFileName, Cvar_VariableString("mapname"), sizeof(mapFileName));
 		}
 		else { // view a specific map name
 			if (!GetMatchingMap(arg1, mapFileName, sizeof(mapFileName))) {

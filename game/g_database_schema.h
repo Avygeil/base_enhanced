@@ -110,7 +110,7 @@ const char *const sqlCreateTables =
 "                                                                                                    \n"
 "CREATE TABLE IF NOT EXISTS [tierlistmaps] (                                                         \n"
 "	[account_id] INTEGER NOT NULL,                                                                   \n"
-"	[map] TEXT COLLATE NOCASE NOT NULL,                                                              \n"
+"	[map] TEXT COLLATE NOCASE NOT NULL,                                                            \n"
 "	[tier] INTEGER NOT NULL,                                                                         \n"
 "   PRIMARY KEY(account_id, map)                                                                     \n"
 "   FOREIGN KEY(account_id) REFERENCES accounts(account_id) ON DELETE CASCADE);                      \n"
@@ -513,4 +513,8 @@ const char *const sqlCreateTables =
 "FOREIGN KEY([rater_account_id]) REFERENCES accounts([account_id]) ON DELETE CASCADE, "
 "FOREIGN KEY([ratee_account_id]) REFERENCES accounts([account_id]) ON DELETE CASCADE, "
 "UNIQUE([rater_account_id], [ratee_account_id], [pos]) "
-");";
+");"
+""
+"CREATE TABLE IF NOT EXISTS [mapaliases] ([filename] TEXT COLLATE NOCASE NOT NULL, [alias] TEXT COLLATE NOCASE NOT NULL, [islive] BOOLEAN DEFAULT NULL, UNIQUE(filename), UNIQUE(alias, islive)); "
+"CREATE VIEW IF NOT EXISTS [lastplayedalias] AS SELECT alias, sum(num) num, max(datetime) datetime FROM lastplayedmap JOIN mapaliases ON lastplayedmap.map = mapaliases.filename GROUP BY alias; "
+"CREATE VIEW IF NOT EXISTS [lastplayedmaporalias] AS WITH t AS (SELECT alias, sum(num) num, max(datetime) datetime FROM lastplayedalias) SELECT lastplayedmap.map, CASE WHEN t.num IS NOT NULL THEN t.num ELSE lastplayedmap.num END num, CASE WHEN t.datetime IS NOT NULL THEN t.datetime ELSE lastplayedmap.datetime END datetime FROM lastplayedmap LEFT JOIN mapaliases ON lastplayedmap.map = mapaliases.filename LEFT JOIN t ON mapaliases.alias = t.alias;";

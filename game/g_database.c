@@ -2022,7 +2022,7 @@ static list_t *GetTierList(const char *commaSeparatedAccountIds, const char *sin
 			char *str1 = "SELECT tierlistmaps.map, AVG(tierlistmaps.tier) FROM (SELECT tierlistmaps.map FROM tierlistmaps JOIN tierwhitelist ON tierwhitelist.map = tierlistmaps.map WHERE tierlistmaps.account_id IN (";
 			char *str2 = filteredAccountIds;
 			char *str3 = ") GROUP BY tierlistmaps.map HAVING COUNT(*) >= 2) m JOIN tierlistmaps ON m.map = tierlistmaps.map ";
-			char *str4 = cooldownSeconds > 0 ? va("LEFT JOIN lastplayedmap ON tierlistmaps.map = lastplayedmap.map WHERE (lastplayedmap.map IS NULL OR strftime('%%s', 'now') - lastplayedmap.datetime > %d) AND account_id IN (", cooldownSeconds) : "WHERE account_id IN (";
+			char *str4 = cooldownSeconds > 0 ? va("LEFT JOIN lastplayedmaporalias ON tierlistmaps.map = lastplayedmaporalias.map WHERE (lastplayedmaporalias.map IS NULL OR strftime('%%s', 'now') - lastplayedmaporalias.datetime > %d) AND account_id IN (", cooldownSeconds) : "WHERE account_id IN (";
 			char *str5 = filteredAccountIds;
 			char *str6 = VALIDSTRING(singleMapFileName) ? ") AND tierlistmaps.map = ? " : ") ";
 			char *str7 = VALIDSTRING(ignoreMapFileName) ? "AND tierlistmaps.map != ? " : "";
@@ -2034,7 +2034,7 @@ static list_t *GetTierList(const char *commaSeparatedAccountIds, const char *sin
 			char *str1 = "SELECT tierlistmaps.map, AVG(tierlistmaps.tier) FROM (SELECT DISTINCT tierlistmaps.map FROM tierlistmaps JOIN tierwhitelist ON tierwhitelist.map = tierlistmaps.map";
 			char *str2 = VALIDSTRING(singleMapFileName) ? va(" WHERE tierlistmaps.map = ?") : "";
 			char *str3 = ") m JOIN tierlistmaps ON m.map = tierlistmaps.map ";
-			char *str4 = cooldownSeconds > 0 ? va("LEFT JOIN lastplayedmap ON tierlistmaps.map = lastplayedmap.map WHERE (lastplayedmap.map IS NULL OR strftime('%%s', 'now') - lastplayedmap.datetime > %d) AND account_id IN (", cooldownSeconds) : "WHERE account_id IN (";
+			char *str4 = cooldownSeconds > 0 ? va("LEFT JOIN lastplayedmaporalias ON tierlistmaps.map = lastplayedmaporalias.map WHERE (lastplayedmaporalias.map IS NULL OR strftime('%%s', 'now') - lastplayedmaporalias.datetime > %d) AND account_id IN (", cooldownSeconds) : "WHERE account_id IN (";
 			char *str5 = filteredAccountIds;
 			char *str6 = VALIDSTRING(ignoreMapFileName) ? ") AND tierlistmaps.map != ? " : ") ";
 			char *str7 = "GROUP BY tierlistmaps.map ORDER BY ";
@@ -2048,7 +2048,7 @@ static list_t *GetTierList(const char *commaSeparatedAccountIds, const char *sin
 			char *str1 = "SELECT tierlistmaps.map, AVG(tierlistmaps.tier) FROM (SELECT DISTINCT tierlistmaps.map FROM tierlistmaps JOIN tierwhitelist ON tierwhitelist.map = tierlistmaps.map ";
 			char *str2 = VALIDSTRING(singleMapFileName) ? "WHERE tierlistmaps.map = ? " : "";
 			char *str3 = "GROUP BY tierlistmaps.map HAVING COUNT(*) >= 2) m JOIN tierlistmaps ON m.map = tierlistmaps.map ";
-			char *str4 = cooldownSeconds > 0 ? va("LEFT JOIN lastplayedmap ON tierlistmaps.map = lastplayedmap.map WHERE (lastplayedmap.map IS NULL OR strftime('%%s', 'now') - lastplayedmap.datetime > %d) ", cooldownSeconds) : "";
+			char *str4 = cooldownSeconds > 0 ? va("LEFT JOIN lastplayedmaporalias ON tierlistmaps.map = lastplayedmaporalias.map WHERE (lastplayedmaporalias.map IS NULL OR strftime('%%s', 'now') - lastplayedmaporalias.datetime > %d) ", cooldownSeconds) : "";
 			char *str5 = VALIDSTRING(ignoreMapFileName) ? (cooldownSeconds > 0 ? "AND tierlistmaps.map != ? " : "WHERE tierlistmaps.map != ? ") : "";
 			char *str6 = "GROUP BY tierlistmaps.map ORDER BY ";
 			char *str7 = randomize ? "RANDOM();" : "tierlistmaps.map;";
@@ -2058,7 +2058,7 @@ static list_t *GetTierList(const char *commaSeparatedAccountIds, const char *sin
 			char *str1 = "SELECT tierlistmaps.map, AVG(tierlistmaps.tier) FROM (SELECT DISTINCT tierlistmaps.map FROM tierlistmaps JOIN tierwhitelist ON tierwhitelist.map = tierlistmaps.map";
 			char *str2 = VALIDSTRING(singleMapFileName) ? " WHERE tierlistmaps.map = ?) " : ") ";
 			char *str3 = "m JOIN tierlistmaps ON m.map = tierlistmaps.map ";
-			char *str4 = cooldownSeconds > 0 ? va("LEFT JOIN lastplayedmap ON tierlistmaps.map = lastplayedmap.map WHERE (lastplayedmap.map IS NULL OR strftime('%%s', 'now') - lastplayedmap.datetime > %d) ", cooldownSeconds) : "";
+			char *str4 = cooldownSeconds > 0 ? va("LEFT JOIN lastplayedmaporalias ON tierlistmaps.map = lastplayedmaporalias.map WHERE (lastplayedmaporalias.map IS NULL OR strftime('%%s', 'now') - lastplayedmaporalias.datetime > %d) ", cooldownSeconds) : "";
 			char *str5 = VALIDSTRING(ignoreMapFileName) ? (cooldownSeconds > 0 ? "AND tierlistmaps.map != ? " : "WHERE tierlistmaps.map != ? ") : "";
 			char *str6 = "GROUP BY tierlistmaps.map ORDER BY ";
 			char *str7 = randomize ? "RANDOM();" : "tierlistmaps.map;";
@@ -5550,7 +5550,7 @@ const char *SwapTimeCallback(void *rowContext, void *columnContext) {
 	}
 }
 
-const char *SwapStringCallback(void *rowContext, void *columnContext) {
+const char *GenericTableStringCallback(void *rowContext, void *columnContext) {
 	unsigned int swapAddr = (unsigned int)rowContext;
 	unsigned int offset = (unsigned int)columnContext;
 	const char *string = ((const char *)(swapAddr + offset));
@@ -5686,15 +5686,15 @@ void G_DBFixSwap_List(void) {
 	}
 
 	swapData_t swap = { 0 };
-	Table_DefineColumn(t, "^3Record#", SwapStringCallback, (void *)((unsigned int)(&swap.recordIdStr) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^3Record#", GenericTableStringCallback, (void *)((unsigned int)(&swap.recordIdStr) - (unsigned int)&swap), qfalse, -1, 32);
 	Table_DefineColumn(t, "^5Match#", SwapInt64Callback, (void *)((unsigned int)(&swap.matchId) - (unsigned int)&swap), qfalse, -1, 32);
 	Table_DefineColumn(t, "^5Session#", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.sessionId) - (unsigned int)&swap), qfalse, -1, 32);
-	Table_DefineColumn(t, "^5Map", SwapStringCallback, (void *)((unsigned int)(&swap.mapName) - (unsigned int)&swap), qfalse, -1, 32);
-	Table_DefineColumn(t, "^5DateTime", SwapStringCallback, (void *)((unsigned int)(&swap.dateTimeStr) - (unsigned int)&swap), qfalse, -1, 32);
-	Table_DefineColumn(t, "^5Team", SwapStringCallback, (void *)((unsigned int)(&swap.teamStr) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^5Map", GenericTableStringCallback, (void *)((unsigned int)(&swap.mapName) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^5DateTime", GenericTableStringCallback, (void *)((unsigned int)(&swap.dateTimeStr) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^5Team", GenericTableStringCallback, (void *)((unsigned int)(&swap.teamStr) - (unsigned int)&swap), qfalse, -1, 32);
 	Table_DefineColumn(t, "^5Dur", SwapTimeCallback, (void *)((unsigned int)(&swap.durationSeconds) - (unsigned int)&swap), qfalse, -1, 32);
-	Table_DefineColumn(t, "^5Name", SwapStringCallback, (void *)((unsigned int)(&swap.stats.name) - (unsigned int)&swap), qfalse, -1, 32);
-	Table_DefineColumn(t, "^5Pos", SwapStringCallback, (void *)((unsigned int)(&swap.posStr) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^5Name", GenericTableStringCallback, (void *)((unsigned int)(&swap.stats.name) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^5Pos", GenericTableStringCallback, (void *)((unsigned int)(&swap.posStr) - (unsigned int)&swap), qfalse, -1, 32);
 	Table_DefineColumn(t, "^5Cap", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.captures) - (unsigned int)&swap), qfalse, -1, 32);
 	Table_DefineColumn(t, "^5Ass", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.assists) - (unsigned int)&swap), qfalse, -1, 32);
 	Table_DefineColumn(t, "^5Def", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.defends) - (unsigned int)&swap), qfalse, -1, 32);
@@ -6092,5 +6092,194 @@ qboolean G_DBFixSwap_Fix(int recordId, int newPos) {
 	if (rc == SQLITE_DONE)
 		return qtrue;
 	Com_Printf("Error deleting old record.\n");
+	return qfalse;
+}
+
+void G_DBListMapAliases(void) {
+	sqlite3_stmt *statement;
+	sqlite3_prepare(dbPtr, "SELECT filename, alias, CASE WHEN islive IS NOT NULL THEN 1 ELSE 0 END live, CASE WHEN (SELECT 1 FROM tierwhitelist WHERE tierwhitelist.map = mapaliases.alias) THEN 1 ELSE 0 END whitelisted FROM mapaliases ORDER BY alias ASC, filename ASC;", -1, &statement, 0);
+
+	list_t list = { 0 };
+	int rc = sqlite3_step(statement), numGotten = 0;
+	while (rc == SQLITE_ROW) {
+		++numGotten;
+		mapAlias_t *ma = ListAdd(&list, sizeof(swapData_t));
+		const char *filename = (const char *)sqlite3_column_text(statement, 0);
+		const char *alias = (const char *)sqlite3_column_text(statement, 1);
+		const int live = sqlite3_column_int(statement, 2);
+		const int whitelisted = sqlite3_column_int(statement, 3);
+
+		Q_strncpyz(ma->filename, filename, sizeof(ma->filename));
+		Q_strncpyz(ma->alias, alias, sizeof(ma->alias));
+		Q_strncpyz(ma->live, live ? "^2Yes" : "No", sizeof(ma->live));
+
+		rc = sqlite3_step(statement);
+	}
+
+	sqlite3_finalize(statement);
+
+	if (!numGotten) {
+		Com_Printf("No map aliases are currently set.\n");
+		return;
+	}
+
+	iterator_t iter;
+	ListIterate(&list, &iter, qfalse);
+	Table *t = Table_Initialize(qtrue);
+	while (IteratorHasNext(&iter)) {
+		mapAlias_t *ma = (mapAlias_t *)IteratorNext(&iter);
+		Table_DefineRow(t, ma);
+	}
+
+	mapAlias_t ma = { 0 };
+	Table_DefineColumn(t, "Filename", GenericTableStringCallback, (void *)((unsigned int)(&ma.filename) - (unsigned int)&ma), qtrue, -1, MAX_QPATH);
+	Table_DefineColumn(t, "Alias", GenericTableStringCallback, (void *)((unsigned int)(&ma.alias) - (unsigned int)&ma), qtrue, -1, MAX_QPATH);
+	Table_DefineColumn(t, "Live", GenericTableStringCallback, (void *)((unsigned int)(&ma.live) - (unsigned int)&ma), qtrue, -1, MAX_QPATH);
+
+	int bufSize = 1024 * numGotten;
+	char *buf = calloc(bufSize, sizeof(char));
+	Table_WriteToBuffer(t, buf, bufSize, qtrue, -1);
+	Com_Printf("Currently set map aliases:\n");
+
+	// should write a function to do this stupid chunked printing
+	char *remaining = buf;
+	int totalLen = strlen(buf);
+	while (*remaining && remaining < buf + totalLen) {
+		char temp[4096] = { 0 };
+		Q_strncpyz(temp, remaining, sizeof(temp));
+		Com_Printf(temp);
+		int copied = strlen(temp);
+		remaining += copied;
+	}
+
+	free(buf);
+	Table_Destroy(t);
+	ListClear(&list);
+}
+
+qboolean G_DBSetMapAlias(const char *filename, const char *alias, qboolean setLive) {
+	sqlite3_stmt *statement;
+
+	if (setLive) {
+		sqlite3_prepare(dbPtr, "UPDATE mapaliases SET islive = NULL WHERE alias = ?1;", -1, &statement, 0);
+		sqlite3_bind_text(statement, 1, alias, -1, SQLITE_STATIC);
+		sqlite3_step(statement);
+		sqlite3_reset(statement);
+	}
+
+	sqlite3_prepare(dbPtr, va("INSERT INTO mapaliases (filename, alias, islive) VALUES (?1, ?2, %s);", setLive ? "TRUE" : "NULL"), -1, &statement, 0);
+	sqlite3_bind_text(statement, 1, filename, -1, SQLITE_STATIC);
+	sqlite3_bind_text(statement, 2, alias, -1, SQLITE_STATIC);
+	sqlite3_step(statement);
+	qboolean success = sqlite3_changes(dbPtr) != 0;
+	sqlite3_finalize(statement);
+	return success;
+}
+
+qboolean G_DBClearMapAlias(const char *filename) {
+	sqlite3_stmt *statement;
+	sqlite3_prepare(dbPtr, "DELETE FROM mapaliases WHERE filename = ?1;", -1, &statement, 0);
+	sqlite3_bind_text(statement, 1, filename, -1, SQLITE_STATIC);
+	sqlite3_step(statement);
+	qboolean success = sqlite3_changes(dbPtr) != 0;
+	sqlite3_finalize(statement);
+	return success;
+}
+
+qboolean G_DBSetMapAliasLive(const char *filename, char *aliasOut, size_t aliasOutSize) {
+	sqlite3_stmt *statement;
+	sqlite3_prepare(dbPtr, "SELECT alias FROM mapaliases WHERE filename = ?;", -1, &statement, 0);
+	sqlite3_bind_text(statement, 1, filename, -1, SQLITE_STATIC);
+	int rc = sqlite3_step(statement);
+	char alias[MAX_QPATH] = { 0 };
+	if (rc == SQLITE_ROW) {
+		const char *aliasStr = (const char *)sqlite3_column_text(statement, 0);
+		Q_strncpyz(alias, aliasStr, sizeof(alias));
+	}
+
+	if (!alias[0]) {
+		sqlite3_finalize(statement);
+		return qfalse;
+	}
+
+	sqlite3_reset(statement);
+	sqlite3_prepare(dbPtr, "UPDATE mapaliases SET islive = NULL WHERE alias = ?1;", -1, &statement, 0);
+	sqlite3_bind_text(statement, 1, alias, -1, SQLITE_STATIC);
+	sqlite3_step(statement);
+	
+	sqlite3_reset(statement);
+	sqlite3_prepare(dbPtr, "UPDATE mapaliases SET islive = TRUE WHERE filename = ?1;", -1, &statement, 0);
+	sqlite3_bind_text(statement, 1, filename, -1, SQLITE_STATIC);
+	sqlite3_step(statement);
+	qboolean success = sqlite3_changes(dbPtr) != 0;
+	sqlite3_finalize(statement);
+
+	if (aliasOut && aliasOutSize)
+		Q_strncpyz(aliasOut, alias, aliasOutSize);
+
+	return success;
+}
+
+qboolean G_DBGetLiveMapFilenameForAlias(const char *alias, char *result, size_t resultSize) {
+	if (!result || !resultSize) {
+		assert(qfalse);
+		return qfalse;
+	}
+
+	sqlite3_stmt *statement;
+	sqlite3_prepare(dbPtr, "SELECT filename FROM mapaliases WHERE alias = ? AND islive IS NOT NULL;", -1, &statement, 0);
+	sqlite3_bind_text(statement, 1, alias, -1, SQLITE_STATIC);
+	int rc = sqlite3_step(statement);
+	if (rc == SQLITE_ROW) {
+		const char *value = (const char *)sqlite3_column_text(statement, 0);
+		Q_strncpyz(result, value, resultSize);
+		sqlite3_finalize(statement);
+		return qtrue;
+	}
+
+	sqlite3_finalize(statement);
+	return qfalse;
+}
+
+qboolean G_DBGetAliasForMapName(const char *filename, char *result, size_t resultSize, qboolean *isliveOut) {
+	if (!result || !resultSize || !isliveOut) {
+		assert(qfalse);
+		return qfalse;
+	}
+
+	sqlite3_stmt *statement;
+	sqlite3_prepare(dbPtr, "SELECT alias, islive FROM mapaliases WHERE filename = ?;", -1, &statement, 0);
+	sqlite3_bind_text(statement, 1, filename, -1, SQLITE_STATIC);
+	int rc = sqlite3_step(statement);
+	if (rc == SQLITE_ROW) {
+		const char *value = (const char *)sqlite3_column_text(statement, 0);
+		Q_strncpyz(result, value, resultSize);
+		*isliveOut = sqlite3_column_int(statement, 1);
+		sqlite3_finalize(statement);
+		return qtrue;
+	}
+
+	sqlite3_finalize(statement);
+	return qfalse;
+}
+
+qboolean G_DBGetLiveMapNameForMapName(const char *filename, char *result, size_t resultSize) {
+	if (!result || !resultSize) {
+		assert(qfalse);
+		return qfalse;
+	}
+
+	sqlite3_stmt *statement;
+	sqlite3_prepare(dbPtr, "WITH t AS (SELECT alias FROM mapaliases WHERE filename = ?) SELECT filename FROM mapaliases JOIN t ON t.alias = mapaliases.alias WHERE islive IS NOT NULL;", -1, &statement, 0);
+	sqlite3_bind_text(statement, 1, filename, -1, SQLITE_STATIC);
+	int rc = sqlite3_step(statement);
+	if (rc == SQLITE_ROW) {
+		const char *value = (const char *)sqlite3_column_text(statement, 0);
+		Q_strncpyz(result, value, resultSize);
+		sqlite3_finalize(statement);
+		return qtrue;
+	}
+
+	sqlite3_finalize(statement);
 	return qfalse;
 }
