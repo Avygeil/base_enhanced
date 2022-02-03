@@ -1283,7 +1283,7 @@ void Svcmd_Tier_f(void) {
 		Com_Printf("^7Usage%s:\n"
 			"^7rcon tier add [map]    - whitelist a map so that it can be chosen in votes\n"
 			"^9rcon tier remove [map] - remove a map from the whitelist\n"
-			"^7rcon tier list         - view a list of maps and whether they are whitelisted\n", g_vote_tierlist.integer ? "" : " (note: tierlist is currently disabled, enable with g_vote_tierlist)");
+			"^7rcon tier list         - view which maps currently are, or are not, whitelisted\n", g_vote_tierlist.integer ? "" : " (note: tierlist is currently disabled, enable with g_vote_tierlist)");
 		return;
 	}
 
@@ -1294,38 +1294,50 @@ void Svcmd_Tier_f(void) {
 		Com_Printf("^7Usage%s:\n"
 			"^7rcon tier add [map]    - whitelist a map so that it can be chosen in votes\n"
 			"^9rcon tier remove [map] - remove a map from the whitelist\n"
-			"^7rcon tier list         - view a list of maps and whether they are whitelisted\n", g_vote_tierlist.integer ? "" : " (note: tierlist is currently disabled, enable with g_vote_tierlist)");
+			"^7rcon tier list         - view which maps currently are, or are not, whitelisted\n", g_vote_tierlist.integer ? "" : " (note: tierlist is currently disabled, enable with g_vote_tierlist)");
 		return;
 	}
 
 	Q_strlwr(arg1);
-	Q_StripColor(arg1);
 	Q_strlwr(arg2);
-	Q_StripColor(arg2);
 
 	if (!Q_stricmp(arg1, "add") && arg2[0] && !isspace(arg2[0])) {
 		char mapFileName[MAX_QPATH] = { 0 };
-		if (!G_DBGetLiveMapFilenameForAlias(arg2, mapFileName, sizeof(mapFileName))) {
-			Com_Printf("Unable to find any alias matching '%s^7'.%s\n", arg2, stristr(arg2, "mp/") ? " Note that aliases cannot contain the mp/ prefix." : "");
+		if (!GetMatchingMap(arg2, mapFileName, sizeof(mapFileName))) {
+			Com_Printf("Unable to find any map matching '%s^7'. If you still want to whitelist this map anyway, enter ^5tier forceadd [filename]^7. Be sure to use the actual map filename (e.g. ^5mp/ctf_kejim^7).\n", arg2);
 			return;
 		}
 
 		if (G_DBAddMapToTierWhitelist(mapFileName))
-			Com_Printf("Successfully added %s^7 (live: ^9%s^7) to the whitelist.\n", arg2, mapFileName);
+			Com_Printf("Successfully added %s^7 (^9%s^7) to the whitelist.\n", arg2, mapFileName);
 		else
-			Com_Printf("Error adding %s^7 to the whitelist!\n", arg2);
+			Com_Printf("Error adding %s^7 (^9%s^7) to the whitelist!\n", arg2, mapFileName);
+	}
+	else if (!Q_stricmp(arg1, "forceadd") && arg2[0] && !isspace(arg2[0])) {
+		COM_StripExtension((const char *)arg2, arg2);
+		if (G_DBAddMapToTierWhitelist(arg2))
+			Com_Printf("Successfully force-added %s^7 to the whitelist.\n", arg2);
+		else
+			Com_Printf("Error force-adding %s^7 to the whitelist!\n", arg2);
 	}
 	else if (!Q_stricmp(arg1, "remove") && arg2[0] && !isspace(arg2[0])) {
 		char mapFileName[MAX_QPATH] = { 0 };
-		if (!G_DBGetLiveMapFilenameForAlias(arg2, mapFileName, sizeof(mapFileName))) {
-			Com_Printf("Unable to find any alias matching '%s^7'.%s\n", arg2, stristr(arg2, "mp/") ? " Note that aliases cannot contain the mp/ prefix." : "");
+		if (!GetMatchingMap(arg2, mapFileName, sizeof(mapFileName))) {
+			Com_Printf("Unable to find any map matching '%s^7'. If you still want to unwhitelist this map anyway, enter ^5tier forceremove [filename]^7. Be sure to use the actual map filename (e.g. ^5mp/ctf_kejim^7).\n", arg2);
 			return;
 		}
 
 		if (G_DBRemoveMapFromTierWhitelist(mapFileName))
-			Com_Printf("Successfully removed %s^7 (live: ^9%s^7) from the whitelist.\n", arg2, mapFileName);
+			Com_Printf("Successfully removed %s^7 (^9%s^7) from the whitelist.\n", arg2, mapFileName);
 		else
-			Com_Printf("Error removing %s^7 from the whitelist!\n", arg2);
+			Com_Printf("Error removing %s^7 (^9%s^7) from the whitelist!\n", arg2, mapFileName);
+	}
+	else if (!Q_stricmp(arg1, "forceremove") && arg2[0] && !isspace(arg2[0])) {
+		COM_StripExtension((const char *)arg2, arg2);
+		if (G_DBRemoveMapFromTierWhitelist(arg2))
+			Com_Printf("Successfully force-removed %s^7 from the whitelist.\n", arg2);
+		else
+			Com_Printf("Error force-removing %s^7 from the whitelist!\n", arg2);
 	}
 	else if (!Q_stricmp(arg1, "view") || !Q_stricmp(arg1, "list") || !Q_stricmp(arg1, "whitelist") || !Q_stricmp(arg1, "current") || !Q_stricmp(arg1, "community")) {
 		char mapsListStr[4096] = { 0 };
@@ -1391,7 +1403,7 @@ void Svcmd_Tier_f(void) {
 		Com_Printf("^7Usage%s:\n"
 			"^7rcon tier add [map]    - whitelist a map so that it can be chosen in votes\n"
 			"^9rcon tier remove [map] - remove a map from the whitelist\n"
-			"^7rcon tier list         - view a list of maps and whether they are whitelisted\n", g_vote_tierlist.integer ? "" : " (note: tierlist is currently disabled, enable with g_vote_tierlist)");
+			"^7rcon tier list         - view which maps currently are, or are not, whitelisted\n", g_vote_tierlist.integer ? "" : " (note: tierlist is currently disabled, enable with g_vote_tierlist)");
 		return;
 	}
 }
