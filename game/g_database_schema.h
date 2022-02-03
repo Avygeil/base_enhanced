@@ -492,7 +492,7 @@ const char *const sqlCreateTables =
 "RANK() OVER (PARTITION BY pos ORDER BY avg_efs DESC) avg_efs_rank, "
 "avg_gotte, "
 "RANK() OVER (PARTITION BY pos ORDER BY avg_gotte DESC) avg_gotte_rank "
-"FROM t WHERE pugs_played >= 10;"
+"FROM t WHERE pugs_played >= 10; "
 ""
 "CREATE TABLE IF NOT EXISTS [cachedplayerstats] ( "
 "[cachedplayerstats_id] INTEGER PRIMARY KEY AUTOINCREMENT, "
@@ -502,7 +502,7 @@ const char *const sqlCreateTables =
 "[str] TEXT, "
 "FOREIGN KEY([account_id]) REFERENCES accounts([account_id]) ON DELETE CASCADE, "
 "UNIQUE(account_id, type, pos) "
-");"
+"); "
 ""
 "CREATE TABLE IF NOT EXISTS [playerratings] ( "
 "[rating_id] INTEGER PRIMARY KEY AUTOINCREMENT, "
@@ -513,8 +513,8 @@ const char *const sqlCreateTables =
 "FOREIGN KEY([rater_account_id]) REFERENCES accounts([account_id]) ON DELETE CASCADE, "
 "FOREIGN KEY([ratee_account_id]) REFERENCES accounts([account_id]) ON DELETE CASCADE, "
 "UNIQUE([rater_account_id], [ratee_account_id], [pos]) "
-");"
+"); "
 ""
 "CREATE TABLE IF NOT EXISTS [mapaliases] ([filename] TEXT COLLATE NOCASE NOT NULL, [alias] TEXT COLLATE NOCASE NOT NULL, [islive] BOOLEAN DEFAULT NULL, UNIQUE(filename), UNIQUE(alias, islive)); "
 "CREATE VIEW IF NOT EXISTS [lastplayedalias] AS SELECT alias, sum(num) num, max(datetime) datetime FROM lastplayedmap JOIN mapaliases ON lastplayedmap.map = mapaliases.filename GROUP BY alias; "
-"CREATE VIEW IF NOT EXISTS [lastplayedmaporalias] AS WITH t AS (SELECT alias, sum(num) num, max(datetime) datetime FROM lastplayedalias) SELECT lastplayedmap.map, CASE WHEN t.num IS NOT NULL THEN t.num ELSE lastplayedmap.num END num, CASE WHEN t.datetime IS NOT NULL THEN t.datetime ELSE lastplayedmap.datetime END datetime FROM lastplayedmap LEFT JOIN mapaliases ON lastplayedmap.map = mapaliases.filename LEFT JOIN t ON mapaliases.alias = t.alias;";
+"CREATE VIEW IF NOT EXISTS [lastplayedmaporalias] AS WITH t AS (SELECT alias, sum(num) num, max(datetime) datetime FROM lastplayedalias) SELECT lastplayedmap.map, CASE WHEN t.num IS NOT NULL THEN t.num ELSE lastplayedmap.num END num, CASE WHEN t.datetime IS NOT NULL THEN t.datetime ELSE lastplayedmap.datetime END datetime FROM lastplayedmap LEFT JOIN mapaliases ON lastplayedmap.map = mapaliases.filename LEFT JOIN t ON mapaliases.alias = t.alias; ";
