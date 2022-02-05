@@ -2137,6 +2137,11 @@ static void ActivatePugProposal(pugProposal_t *set, qboolean forcedByServer) {
 	}
 }
 
+#define SCOREBOARD_POSITION_SCORE_BASE		(8000)
+#define SCOREBOARD_POSITION_SCORE_CHASE		(4000)
+#define SCOREBOARD_POSITION_SCORE_OFFENSE1	(2000)
+#define SCOREBOARD_POSITION_SCORE_OFFENSE2	(1000)
+
 void ActivateTeamsProposal(permutationOfTeams_t *permutation) {
 	assert(permutation);
 
@@ -2149,14 +2154,14 @@ void ActivateTeamsProposal(permutationOfTeams_t *permutation) {
 		char *teamStr = i < 4 ? "r" : "b";
 		ctfPosition_t pos;
 		switch (i) {
-		case 0: accountNum = permutation->teams[0].baseId; pos = CTFPOSITION_BASE; score = 8000;  break;
-		case 1: accountNum = permutation->teams[0].chaseId; pos = CTFPOSITION_CHASE; score = 4000;  break;
-		case 2: accountNum = permutation->teams[0].offenseId1; pos = CTFPOSITION_OFFENSE; score = 2000; break;
-		case 3: accountNum = permutation->teams[0].offenseId2; pos = CTFPOSITION_OFFENSE; score = 1000; break;
-		case 4: accountNum = permutation->teams[1].baseId; pos = CTFPOSITION_BASE; score = 8000; break;
-		case 5: accountNum = permutation->teams[1].chaseId; pos = CTFPOSITION_CHASE; score = 4000; break;
-		case 6: accountNum = permutation->teams[1].offenseId1; pos = CTFPOSITION_OFFENSE; score = 2000; break;
-		case 7: accountNum = permutation->teams[1].offenseId2; pos = CTFPOSITION_OFFENSE; score = 1000; break;
+		case 0: accountNum = permutation->teams[0].baseId; pos = CTFPOSITION_BASE; score = SCOREBOARD_POSITION_SCORE_BASE;  break;
+		case 1: accountNum = permutation->teams[0].chaseId; pos = CTFPOSITION_CHASE; score = SCOREBOARD_POSITION_SCORE_CHASE;  break;
+		case 2: accountNum = permutation->teams[0].offenseId1; pos = CTFPOSITION_OFFENSE; score = SCOREBOARD_POSITION_SCORE_OFFENSE1; break;
+		case 3: accountNum = permutation->teams[0].offenseId2; pos = CTFPOSITION_OFFENSE; score = SCOREBOARD_POSITION_SCORE_OFFENSE2; break;
+		case 4: accountNum = permutation->teams[1].baseId; pos = CTFPOSITION_BASE; score = SCOREBOARD_POSITION_SCORE_BASE; break;
+		case 5: accountNum = permutation->teams[1].chaseId; pos = CTFPOSITION_CHASE; score = SCOREBOARD_POSITION_SCORE_CHASE; break;
+		case 6: accountNum = permutation->teams[1].offenseId1; pos = CTFPOSITION_OFFENSE; score = SCOREBOARD_POSITION_SCORE_OFFENSE1; break;
+		case 7: accountNum = permutation->teams[1].offenseId2; pos = CTFPOSITION_OFFENSE; score = SCOREBOARD_POSITION_SCORE_OFFENSE2; break;
 		default: assert(qfalse); break;
 		}
 		for (int j = 0; j < MAX_CLIENTS; j++) {
@@ -2188,6 +2193,10 @@ void ActivateTeamsProposal(permutationOfTeams_t *permutation) {
 
 			// silly little hack to put them on the scoreboard in the order we printed their names
 			ent->client->ps.persistant[PERS_SCORE] = score;
+
+			ent->client->sess.remindPositionOnMapChange.valid = qtrue;
+			ent->client->sess.remindPositionOnMapChange.pos = pos;
+			ent->client->sess.remindPositionOnMapChange.score = score;
 		}
 	}
 
@@ -2217,6 +2226,9 @@ void ActivateTeamsProposal(permutationOfTeams_t *permutation) {
 		Q_strcat(printMessage + (i * messageSize), messageSize, va("^6Chase: ^7 %s\n", permutation->teams[1].chaseName));
 		Q_strcat(printMessage + (i * messageSize), messageSize, va("^2Offense: ^7 %s^7, ", permutation->teams[1].offense1Name));
 		Q_strcat(printMessage + (i * messageSize), messageSize, va("^7%s\n\n", permutation->teams[1].offense2Name));
+
+		ent->client->ps.persistant[PERS_SCORE] = 0;
+		memset(&ent->client->sess.remindPositionOnMapChange, 0, sizeof(ent->client->sess.remindPositionOnMapChange));
 	}
 
 	G_UniqueTickedCenterPrint(printMessage, messageSize, 30000, qtrue);
@@ -3515,4 +3527,30 @@ void ShowSubBalance(void) {
 				numRacersOrSpectators ? "substituting another player or " : "", TEAMGEN_CHAT_COMMAND_CHARACTER));
 		}
 	}
+}
+
+void TeamGen_ClearRemindPositions(void) {
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *ent = &g_entities[i];
+		if (!ent->inuse || !ent->client)
+			continue;
+		memset(&ent->client->sess.remindPositionOnMapChange, 0, sizeof(ent->client->sess.remindPositionOnMapChange));
+	}
+}
+
+// sets people's scores again if they change maps
+void TeamGen_RemindPosition(gentity_t *ent) {
+	if (!g_vote_teamgen_remindPositions.integer)
+		return;
+
+	if (!ent || !ent->client || !ent->client->sess.remindPositionOnMapChange.valid)
+		return;
+
+	if (!level.wasRestarted) {
+		ent->client->ps.persistant[PERS_SCORE] = ent->client->sess.remindPositionOnMapChange.score;
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("Your position: %s", NameForPos(ent->client->sess.remindPositionOnMapChange.pos)));
+	}
+
+	// clear so that we don't do it again
+	memset(&ent->client->sess.remindPositionOnMapChange, 0, sizeof(ent->client->sess.remindPositionOnMapChange));
 }

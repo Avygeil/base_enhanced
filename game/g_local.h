@@ -741,6 +741,12 @@ typedef struct {
 		CLIENT_TYPE_NORMAL = 0,
 		CLIENT_TYPE_JKCHAT
 	} clientType;
+
+	struct {
+		qboolean	valid;
+		int			pos;
+		int			score;
+	} remindPositionOnMapChange;
 } clientSession_t;
 
 // race flags
@@ -1271,6 +1277,8 @@ void TeamGen_Initialize(void);
 ctfPlayerTier_t GetPlayerTierForPlayerOnPosition(int accountId, ctfPosition_t pos, qboolean assumeLowTierIfUnrated);
 void ShowSubBalance(void);
 qboolean TeamGenerator_PlayerIsPermaBarredButTemporarilyForcedPickable(gentity_t *ent);
+void TeamGen_ClearRemindPositions(void);
+void TeamGen_RemindPosition(gentity_t *ent);
 
 // this structure is cleared on each ClientSpawn(),
 // except for 'client->pers' and 'client->sess'
@@ -3127,6 +3135,7 @@ extern vmCvar_t		g_vote_teamgen_subhelp;
 extern vmCvar_t		g_vote_teamgen_rustWeeks;
 extern vmCvar_t		g_vote_teamgen_minSecsSinceIntermission;
 extern vmCvar_t		g_vote_teamgen_enableAppeasing;
+extern vmCvar_t		g_vote_teamgen_remindPositions;
 
 extern vmCvar_t		g_lastIntermissionStartTime;
 

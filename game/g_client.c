@@ -3295,6 +3295,8 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 		ent->client->stats->lastTeam = ent->client->sess.sessionTeam;
 	}
 
+	TeamGen_RemindPosition(ent);
+
 	G_LogPrintf( "ClientBegin: %i (%s)\n", clientNum, ent->client->pers.netname );
 
 	// count current clients and rank for scoreboard

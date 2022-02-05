@@ -452,6 +452,7 @@ vmCvar_t	g_vote_teamgen_subhelp;
 vmCvar_t	g_vote_teamgen_rustWeeks;
 vmCvar_t	g_vote_teamgen_minSecsSinceIntermission;
 vmCvar_t	g_vote_teamgen_enableAppeasing;
+vmCvar_t	g_vote_teamgen_remindPositions;
 
 vmCvar_t	g_lastIntermissionStartTime;
 
@@ -907,6 +908,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_teamgen_rustWeeks, "g_vote_teamgen_rustWeeks", "12", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
 	{ &g_vote_teamgen_minSecsSinceIntermission, "g_vote_teamgen_minSecsSinceIntermission", "20", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_enableAppeasing, "g_vote_teamgen_enableAppeasing", "1", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_teamgen_remindPositions, "g_vote_teamgen_remindPositions", "1", CVAR_ARCHIVE, 0, qfalse },
 
 	{ &g_lastIntermissionStartTime, "g_lastIntermissionStartTime", "", CVAR_ROM | CVAR_TEMP, 0, qfalse },
 
@@ -1888,6 +1890,9 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 
 	TeamGen_Initialize();
 	G_DBGetPlayerRatings();
+
+	if (restart)
+		TeamGen_ClearRemindPositions();
 }
 
 
