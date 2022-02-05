@@ -1776,7 +1776,14 @@ static void mapSelectedCallback( void *context, char *mapname ) {
 		Q_strncpyz(level.multivoteWildcardMapFileName, mapname, sizeof(level.multivoteWildcardMapFileName));
 	}
 	else {
-		const char *arenaInfo = G_GetArenaInfoByMap(mapname);
+		const char *arenaInfo = NULL;
+
+		char overrideMapName[MAX_QPATH] = { 0 };
+		if (G_DBGetLiveMapNameForMapName(mapname, overrideMapName, sizeof(overrideMapName)) && overrideMapName[0])
+			arenaInfo = G_GetArenaInfoByMap(overrideMapName);
+		if (!arenaInfo)
+			arenaInfo = G_GetArenaInfoByMap(mapname);
+
 		if (arenaInfo) {
 			mapDisplayName = Info_ValueForKey(arenaInfo, "longname");
 			Q_CleanStr(mapDisplayName);
