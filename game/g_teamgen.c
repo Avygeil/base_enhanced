@@ -2233,6 +2233,11 @@ void ActivateTeamsProposal(permutationOfTeams_t *permutation) {
 
 	G_UniqueTickedCenterPrint(printMessage, messageSize, 30000, qtrue);
 	free(printMessage);
+
+	if (level.autoStartPending) {
+		Com_Printf("The currently pending auto start was cancelled due to team generator changing the teams.\n");
+		level.autoStartPending = qfalse;
+	}
 }
 
 qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteStr, char **newMessage) {
