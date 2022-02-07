@@ -3044,8 +3044,6 @@ void TellPlayerToSetPositions(gclient_t *client) {
 		qboolean set = !!(client->account->validPref.first || client->account->validPref.second || client->account->validPref.third || client->account->validPref.avoid);
 
 		if (!set) {
-			char mapShortName[MAX_QPATH] = { 0 };
-			GetShortNameForMapFileName(level.mapname, mapShortName, sizeof(mapShortName));
 			PrintIngame(clientNum, "You have not set your position preferences. Enter ^5pos^7 in the console to specify which position(s) you want to play.\n");
 			toldToSet[clientNum] = qtrue;
 		}
