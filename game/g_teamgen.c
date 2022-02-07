@@ -2964,7 +2964,7 @@ void TeamGenerator_PrintPlayersInPugProposals(gentity_t *ent) {
 	}
 }
 
-static qboolean TeamGenerator_PermabarredPlayerMarkAsPickable(gentity_t *ent) {
+static qboolean TeamGenerator_PermabarredPlayerMarkAsPickable(gentity_t *ent, char **newMessage) {
 	assert(ent);
 	if (!ent->client->account) {
 		return qtrue;
@@ -2984,8 +2984,12 @@ static qboolean TeamGenerator_PermabarredPlayerMarkAsPickable(gentity_t *ent) {
 		return qtrue;
 	}
 
+	if (newMessage) {
+		static char *idiotMsg = "I am pickable. I apologize for my inconsiderate habit of not spec naming. I also cut in line at grocery stores and piss all over the toilet at work.";
+		*newMessage = idiotMsg;
+	}
+
 	ent->client->pers.permaBarredDeclaredPickable = qtrue;
-	TeamGenerator_QueueServerMessageInChat(ent - g_entities, "Did you know that if you actually used spec names, you wouldn't be forced to use this command?");
 	ClientUserinfoChanged(ent - g_entities);
 
 	return qfalse;
@@ -3051,7 +3055,7 @@ qboolean TeamGenerator_CheckForChatCommand(gentity_t *ent, const char *s, char *
 	}
 
 	if (!Q_stricmp(s, "pickable"))
-		return TeamGenerator_PermabarredPlayerMarkAsPickable(ent);
+		return TeamGenerator_PermabarredPlayerMarkAsPickable(ent, newMessage);
 
 	if (strlen(s) <= 4) {
 		qboolean invalidVote = qfalse;
