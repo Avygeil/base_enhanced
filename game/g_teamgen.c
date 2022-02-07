@@ -2985,7 +2985,7 @@ static qboolean TeamGenerator_PermabarredPlayerMarkAsPickable(gentity_t *ent) {
 	}
 
 	ent->client->pers.permaBarredDeclaredPickable = qtrue;
-	TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You are now pickable.");
+	TeamGenerator_QueueServerMessageInChat(ent - g_entities, "Did you know that if you actually used spec names, you wouldn't be forced to use this command?");
 	ClientUserinfoChanged(ent - g_entities);
 
 	return qfalse;
