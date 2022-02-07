@@ -2439,6 +2439,7 @@ void G_BroadcastServerFeatureList(int clientNum);
 void G_PrintWelcomeMessage(gclient_t* client);
 extern gentity_t *gJMSaberEnt;
 void TellPlayerToRateMap(gclient_t *client);
+void TellPlayerToSetPositions(gclient_t *client);
 void RestoreDisconnectedPlayerData(gentity_t *ent);
 
 //
@@ -3136,6 +3137,7 @@ extern vmCvar_t		g_vote_teamgen_rustWeeks;
 extern vmCvar_t		g_vote_teamgen_minSecsSinceIntermission;
 extern vmCvar_t		g_vote_teamgen_enableAppeasing;
 extern vmCvar_t		g_vote_teamgen_remindPositions;
+extern vmCvar_t		g_vote_teamgen_remindToSetPositions;
 
 extern vmCvar_t		g_lastIntermissionStartTime;
 

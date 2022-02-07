@@ -2762,6 +2762,7 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 		G_InitClientRaceRecordsCache(ent->client);
 		G_InitClientAimRecordsCache(ent->client);
 		TellPlayerToRateMap(ent->client);
+		TellPlayerToSetPositions(ent->client);
 	}
 
 	// set racemode state here using session data that was carried over
@@ -3030,6 +3031,27 @@ void TellPlayerToRateMap(gclient_t *client) {
 	}
 }
 
+void TellPlayerToSetPositions(gclient_t *client) {
+	if (!g_vote_teamgen_remindToSetPositions.integer)
+		return;
+
+	int clientNum = client - level.clients;
+	static qboolean toldToSet[MAX_CLIENTS] = { qfalse };
+
+	if (g_vote_teamgen.integer && clientNum >= 0 && clientNum < MAX_CLIENTS &&
+		!(g_entities[clientNum].r.svFlags & SVF_BOT) && client->account && !toldToSet[clientNum]) {
+
+		qboolean set = !!(client->account->validPref.first || client->account->validPref.second || client->account->validPref.third || client->account->validPref.avoid);
+
+		if (!set) {
+			char mapShortName[MAX_QPATH] = { 0 };
+			GetShortNameForMapFileName(level.mapname, mapShortName, sizeof(mapShortName));
+			PrintIngame(clientNum, "You have not set your position preferences. Enter ^5pos^7 in the console to specify which position(s) you want to play.\n");
+			toldToSet[clientNum] = qtrue;
+		}
+	}
+}
+
 #include "namespace_begin.h"
 void WP_SetSaber( int entNum, saberInfo_t *sabers, int saberNum, const char *saberName );
 #include "namespace_end.h"
@@ -3136,6 +3158,7 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 		InitClientStats(client);
 
 	TellPlayerToRateMap(client);
+	TellPlayerToSetPositions(client);
 
 	client->pers.connected = CON_CONNECTED;
 	client->pers.enterTime = level.time;
