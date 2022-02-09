@@ -1030,7 +1030,7 @@ static cvarTable_t		gameCvarTable[] = {
 static int gameCvarTableSize = sizeof( gameCvarTable ) / sizeof( gameCvarTable[0] );
 
 
-void G_InitGame					( int levelTime, int randomSeed, int restart );
+void G_InitGame					( int levelTime, int randomSeed, int restart, void *serverDbPtr );
 void G_RunFrame					( int levelTime );
 void G_ShutdownGame				( int restart );
 void CheckExitRules				( void );
@@ -1070,7 +1070,7 @@ extern "C" {
 int vmMain( int command, int arg0, int arg1, int arg2, int arg3, int arg4, int arg5, int arg6, int arg7, int arg8, int arg9, int arg10, int arg11  ) {
 	switch ( command ) {
 	case GAME_INIT:
-		G_InitGame( arg0, arg1, arg2 );
+		G_InitGame( arg0, arg1, arg2, (void *)arg3 );
 		return 0;
 	case GAME_SHUTDOWN:
 		G_ShutdownGame( arg0 );
@@ -1566,7 +1566,7 @@ extern void InitUnhandledExceptionFilter();
 extern void G_LoadHelpFile( const char *filename );
 extern const char *G_GetArenaInfoByMap( char *map );
 
-void G_InitGame( int levelTime, int randomSeed, int restart ) {
+void G_InitGame( int levelTime, int randomSeed, int restart, void *serverDbPtr ) {
 	int					i;
 	vmCvar_t	mapname;
 	vmCvar_t	ckSum;
@@ -1872,7 +1872,7 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 
 	G_LoadHelpFile( "help.txt" );
 
-	G_DBLoadDatabase();
+	G_DBLoadDatabase(serverDbPtr);
 
 	G_DBInitializePugStatsCache();
 	G_DBCacheAutoLinks();

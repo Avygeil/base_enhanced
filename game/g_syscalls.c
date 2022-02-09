@@ -1567,6 +1567,22 @@ void trap_GetCountry(const char *ipStr, char *outBuf, int outBufSize) {
 	syscall(G_GETCOUNTRY, ipStr, outBuf, outBufSize);
 }
 
+int trap_sqlite3_prepare_v2(void *unused, const char *zSql, int nBytes, void **ppStmt, const char **pzTail) {
+	return syscall(G_SQLITE3_PREPARE_V2, zSql, nBytes, ppStmt, pzTail);
+}
+
+int trap_sqlite3_step(void *stmt) {
+	return syscall(G_SQLITE3_STEP, stmt);
+}
+
+int trap_sqlite3_finalize(void *stmt) {
+	return syscall(G_SQLITE3_FINALIZE, stmt);
+}
+
+int trap_sqlite3_exec(void *unused, const char *sql, int (*callback)(void *, int, char **, char **), void *callbackarg, char **errmsg) {
+	return syscall(G_SQLITE3_EXEC, sql, callback, callbackarg, errmsg);
+}
+
 #endif
 
 #include "namespace_end.h"

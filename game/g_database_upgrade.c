@@ -9,7 +9,7 @@ const char* const sqlAddSeedField =
 
 static qboolean UpgradeDBToVersion2(sqlite3* dbPtr) {
 	// add "seed" field to fastcaps for use with weekly challenges
-	return sqlite3_exec(dbPtr, sqlAddSeedField, NULL, NULL, NULL) == SQLITE_OK;
+	return trap_sqlite3_exec(dbPtr, sqlAddSeedField, NULL, NULL, NULL) == SQLITE_OK;
 }
 
 // ================ V3 UPGRADE =================================================
@@ -47,7 +47,7 @@ const char* const v3Upgrade =
 static qboolean UpgradeDBToVersion3(sqlite3* dbPtr) {
 	// rename sessions column identifier -> hash
 	// force lowercase for existing account names
-	return sqlite3_exec(dbPtr, v3Upgrade, NULL, NULL, NULL) == SQLITE_OK;
+	return trap_sqlite3_exec(dbPtr, v3Upgrade, NULL, NULL, NULL) == SQLITE_OK;
 }
 
 // ================ V4 UPGRADE =================================================
@@ -205,14 +205,14 @@ static void V4WriteUnassignedToCsv(void* ctx, const int sessionId, const char* t
 
 	char cuidString[64] = { 0 };
 	sqlite3_stmt* statement = NULL;
-	sqlite3_prepare(dbPtr, "SELECT COALESCE(json_extract(info, '$.cuid_hash2'), '') AS cuid FROM sessions WHERE session_id = ?1;", -1, &statement, 0);
+	trap_sqlite3_prepare_v2(dbPtr, "SELECT COALESCE(json_extract(info, '$.cuid_hash2'), '') AS cuid FROM sessions WHERE session_id = ?1;", -1, &statement, 0);
 	sqlite3_bind_int(statement, 1, sessionId);
-	int rc = sqlite3_step(statement);
+	int rc = trap_sqlite3_step(statement);
 	if (rc == SQLITE_ROW) {
 		const char* cuid = (const char*)sqlite3_column_text(statement, 0);
 		if (VALIDSTRING(cuid))
 			Q_strncpyz(cuidString, cuid, sizeof(cuidString));
-		sqlite3_step(statement);
+		trap_sqlite3_step(statement);
 	}
 
 	char* buf = va(
@@ -239,7 +239,7 @@ static void V4WriteUnassignedToCsv(void* ctx, const int sessionId, const char* t
 extern void NormalizeName(const char* in, char* out, int outSize, int colorlessSize);
 
 static qboolean UpgradeDBToVersion4(sqlite3* dbPtr) {
-	if (sqlite3_exec(dbPtr, v4NewTables, NULL, NULL, NULL) != SQLITE_OK)
+	if (trap_sqlite3_exec(dbPtr, v4NewTables, NULL, NULL, NULL) != SQLITE_OK)
 		return qfalse;
 
 	sqlite3_stmt* statement = NULL;
@@ -249,10 +249,10 @@ static qboolean UpgradeDBToVersion4(sqlite3* dbPtr) {
 
 	// merge nicknames
 	Com_Printf("Merging nicknames\n");
-	sqlite3_prepare(dbPtr, "SELECT * FROM nicknames;", -1, &statement, 0);
-	sqlite3_prepare(dbPtr, "INSERT OR IGNORE INTO nicknames_TMP(ip_int, name, duration, cuid_hash2) VALUES (?1, ?2, ?3, ?4);", -1, &statement2, 0);
-	sqlite3_prepare(dbPtr, "UPDATE nicknames_TMP SET duration=duration+?1 WHERE ip_int=?2 AND name=?3 AND cuid_hash2=?4;", -1, &statement3, 0);
-	rc = sqlite3_step(statement);
+	trap_sqlite3_prepare_v2(dbPtr, "SELECT * FROM nicknames;", -1, &statement, 0);
+	trap_sqlite3_prepare_v2(dbPtr, "INSERT OR IGNORE INTO nicknames_TMP(ip_int, name, duration, cuid_hash2) VALUES (?1, ?2, ?3, ?4);", -1, &statement2, 0);
+	trap_sqlite3_prepare_v2(dbPtr, "UPDATE nicknames_TMP SET duration=duration+?1 WHERE ip_int=?2 AND name=?3 AND cuid_hash2=?4;", -1, &statement3, 0);
+	rc = trap_sqlite3_step(statement);
 	while (rc == SQLITE_ROW) {
 		const int ip_int = sqlite3_column_int(statement, 0);
 		const char* name = (const char*)sqlite3_column_text(statement, 1);
@@ -273,7 +273,7 @@ static qboolean UpgradeDBToVersion4(sqlite3* dbPtr) {
 			} else {
 				sqlite3_bind_text(statement2, 4, "", -1, 0);
 			}
-			sqlite3_step(statement2);
+			trap_sqlite3_step(statement2);
 
 			sqlite3_reset(statement3);
 			sqlite3_bind_int(statement3, 1, duration);
@@ -284,21 +284,21 @@ static qboolean UpgradeDBToVersion4(sqlite3* dbPtr) {
 			} else {
 				sqlite3_bind_text(statement3, 4, "", -1, 0);
 			}
-			sqlite3_step(statement3);
+			trap_sqlite3_step(statement3);
 		}
 
-		rc = sqlite3_step(statement);
+		rc = trap_sqlite3_step(statement);
 	}
-	sqlite3_finalize(statement);
-	sqlite3_finalize(statement2);
-	sqlite3_finalize(statement3);
+	trap_sqlite3_finalize(statement);
+	trap_sqlite3_finalize(statement2);
+	trap_sqlite3_finalize(statement3);
 
 	// port nicknames by creating sessions for them
 	Com_Printf("Port nicknames to sessions\n");
-	sqlite3_prepare(dbPtr, "SELECT * FROM nicknames_TMP;", -1, &statement, 0);
-	sqlite3_prepare(dbPtr, "INSERT OR IGNORE INTO nicknames_NEW (session_id, name) VALUES (?1, ?2);", -1, &statement2, 0);
-	sqlite3_prepare(dbPtr, "UPDATE nicknames_NEW SET duration=duration+?1 WHERE session_id=?2 AND name=?3;", -1, &statement3, 0);
-	rc = sqlite3_step(statement);
+	trap_sqlite3_prepare_v2(dbPtr, "SELECT * FROM nicknames_TMP;", -1, &statement, 0);
+	trap_sqlite3_prepare_v2(dbPtr, "INSERT OR IGNORE INTO nicknames_NEW (session_id, name) VALUES (?1, ?2);", -1, &statement2, 0);
+	trap_sqlite3_prepare_v2(dbPtr, "UPDATE nicknames_NEW SET duration=duration+?1 WHERE session_id=?2 AND name=?3;", -1, &statement3, 0);
+	rc = trap_sqlite3_step(statement);
 	while (rc == SQLITE_ROW) {
 		const int ip_int = sqlite3_column_int(statement, 0);
 		const char* name = (const char*)sqlite3_column_text(statement, 1);
@@ -343,28 +343,28 @@ static qboolean UpgradeDBToVersion4(sqlite3* dbPtr) {
 			sqlite3_reset(statement2);
 			sqlite3_bind_int(statement2, 1, session.id);
 			sqlite3_bind_text(statement2, 2, name, -1, 0);
-			sqlite3_step(statement2);
+			trap_sqlite3_step(statement2);
 
 			sqlite3_reset(statement3);
 			sqlite3_bind_int(statement3, 1, duration);
 			sqlite3_bind_int(statement3, 2, session.id);
 			sqlite3_bind_text(statement3, 3, name, -1, 0);
-			sqlite3_step(statement3);
+			trap_sqlite3_step(statement3);
 		}
 
-		rc = sqlite3_step(statement);
+		rc = trap_sqlite3_step(statement);
 	}
 
-	sqlite3_finalize(statement);
-	sqlite3_finalize(statement2);
-	sqlite3_finalize(statement3);
+	trap_sqlite3_finalize(statement);
+	trap_sqlite3_finalize(statement2);
+	trap_sqlite3_finalize(statement3);
 
 	// port fastcaps to the new format and make new sessions if they weren't created with nicknames
 	Com_Printf("Port fastcaps to new format\n");
-	sqlite3_prepare(dbPtr, "SELECT * FROM fastcapsV2;", -1, &statement, 0);
-	sqlite3_prepare(dbPtr, "INSERT OR IGNORE INTO fastcaps_NEW(mapname, type, session_id, capture_time, date, extra) VALUES(?1, ?2, ?3, ?4, ?5, ?6);", -1, &statement2, 0);
-	sqlite3_prepare(dbPtr, "UPDATE fastcaps_NEW SET capture_time=MIN(capture_time, ?1) WHERE mapname=?2 AND type=?3 AND session_id=?4;", -1, &statement3, 0);
-	rc = sqlite3_step(statement);
+	trap_sqlite3_prepare_v2(dbPtr, "SELECT * FROM fastcapsV2;", -1, &statement, 0);
+	trap_sqlite3_prepare_v2(dbPtr, "INSERT OR IGNORE INTO fastcaps_NEW(mapname, type, session_id, capture_time, date, extra) VALUES(?1, ?2, ?3, ?4, ?5, ?6);", -1, &statement2, 0);
+	trap_sqlite3_prepare_v2(dbPtr, "UPDATE fastcaps_NEW SET capture_time=MIN(capture_time, ?1) WHERE mapname=?2 AND type=?3 AND session_id=?4;", -1, &statement3, 0);
+	rc = trap_sqlite3_step(statement);
 	while (rc == SQLITE_ROW) {
 		const char* mapname = (const char*)sqlite3_column_text(statement, 1);
 		const int type = sqlite3_column_int(statement, 3);
@@ -438,43 +438,43 @@ static qboolean UpgradeDBToVersion4(sqlite3* dbPtr) {
 			sqlite3_bind_int(statement2, 4, capture_time);
 			sqlite3_bind_int64(statement2, 5, date);
 			sqlite3_bind_text(statement2, 6, extra, -1, 0);
-			sqlite3_step(statement2);
+			trap_sqlite3_step(statement2);
 
 			sqlite3_reset(statement3);
 			sqlite3_bind_int(statement3, 1, capture_time);
 			sqlite3_bind_text(statement3, 2, mapname, -1, 0);
 			sqlite3_bind_int(statement3, 3, type);
 			sqlite3_bind_int(statement3, 4, session.id);
-			sqlite3_step(statement3);
+			trap_sqlite3_step(statement3);
 
 			free(extra);
 			cJSON_Delete(root2);
 		}
 
-		rc = sqlite3_step(statement);
+		rc = trap_sqlite3_step(statement);
 	}
 
-	sqlite3_finalize(statement);
-	sqlite3_finalize(statement2);
-	sqlite3_finalize(statement3);
+	trap_sqlite3_finalize(statement);
+	trap_sqlite3_finalize(statement2);
+	trap_sqlite3_finalize(statement3);
 
 	Com_Printf("Finalizing...\n");
 
 	// delete non normal/weapon records
-	if (sqlite3_exec(dbPtr, "DELETE from fastcaps_NEW WHERE type > 1;", NULL, NULL, NULL) != SQLITE_OK)
+	if (trap_sqlite3_exec(dbPtr, "DELETE from fastcaps_NEW WHERE type > 1;", NULL, NULL, NULL) != SQLITE_OK)
 		return qfalse;
 
 	// remove the intermediate and old tables and rename the new ones
-	if (sqlite3_exec(dbPtr, v4TerminateMyLife, NULL, NULL, NULL) != SQLITE_OK)
+	if (trap_sqlite3_exec(dbPtr, v4TerminateMyLife, NULL, NULL, NULL) != SQLITE_OK)
 		return qfalse;
 
 	// create the final views
-	if (sqlite3_exec(dbPtr, v4CreateNewShit, NULL, NULL, NULL) != SQLITE_OK)
+	if (trap_sqlite3_exec(dbPtr, v4CreateNewShit, NULL, NULL, NULL) != SQLITE_OK)
 		return qfalse;
 
 	// make sure to reduce the file size
-	sqlite3_exec(dbPtr, "VACUUM;", NULL, NULL, NULL);
-	sqlite3_exec(dbPtr, "PRAGMA optimize;", NULL, NULL, NULL);
+	trap_sqlite3_exec(dbPtr, "VACUUM;", NULL, NULL, NULL);
+	trap_sqlite3_exec(dbPtr, "PRAGMA optimize;", NULL, NULL, NULL);
 
 	// write a detailed report about the new unassigned sessions for use by admins
 	Com_Printf("Writing unassigned_sessions.csv...\n");
@@ -507,7 +507,7 @@ const char *const v5Upgrade =
 "	[datetime] NOT NULL DEFAULT (strftime('%s', 'now')));                                            \n";
 
 static qboolean UpgradeDBToVersion5(sqlite3 *dbPtr) {
-	return sqlite3_exec(dbPtr, v5Upgrade, NULL, NULL, NULL) == SQLITE_OK;
+	return trap_sqlite3_exec(dbPtr, v5Upgrade, NULL, NULL, NULL) == SQLITE_OK;
 }
 
 const char *const v6Upgrade =
@@ -520,7 +520,7 @@ const char *const v6Upgrade =
 "GROUP BY i.map;                                                                                     \n";
 
 static qboolean UpgradeDBToVersion6(sqlite3 *dbPtr) {
-	return sqlite3_exec(dbPtr, v6Upgrade, NULL, NULL, NULL) == SQLITE_OK;
+	return trap_sqlite3_exec(dbPtr, v6Upgrade, NULL, NULL, NULL) == SQLITE_OK;
 }
 
 const char *const v7Upgrade =
@@ -587,7 +587,7 @@ const char *const v7Upgrade =
 "HAVING golds > 0 OR silvers > 0 OR bronzes > 0;                                                      ";
 
 static qboolean UpgradeDBToVersion7(sqlite3 *dbPtr) {
-	return sqlite3_exec(dbPtr, v7Upgrade, NULL, NULL, NULL) == SQLITE_OK;
+	return trap_sqlite3_exec(dbPtr, v7Upgrade, NULL, NULL, NULL) == SQLITE_OK;
 }
 
 const char *const v8Upgrade =
@@ -826,7 +826,7 @@ const char *const v8Upgrade =
 "FROM t WHERE pugs_played >= 10;";
 
 static qboolean UpgradeDBToVersion8(sqlite3 *dbPtr) {
-	return sqlite3_exec(dbPtr, v8Upgrade, NULL, NULL, NULL) == SQLITE_OK;
+	return trap_sqlite3_exec(dbPtr, v8Upgrade, NULL, NULL, NULL) == SQLITE_OK;
 }
 
 const char *const v9Upgrade = "CREATE TABLE IF NOT EXISTS [cachedplayerstats] ( "
@@ -840,7 +840,7 @@ const char *const v9Upgrade = "CREATE TABLE IF NOT EXISTS [cachedplayerstats] ( 
 ");";
 
 static qboolean UpgradeDBToVersion9(sqlite3 *dbPtr) {
-	return sqlite3_exec(dbPtr, v9Upgrade, NULL, NULL, NULL) == SQLITE_OK;
+	return trap_sqlite3_exec(dbPtr, v9Upgrade, NULL, NULL, NULL) == SQLITE_OK;
 }
 
 const char *const v10Upgrade = "CREATE TABLE IF NOT EXISTS [playerratings] ( "
@@ -855,13 +855,13 @@ const char *const v10Upgrade = "CREATE TABLE IF NOT EXISTS [playerratings] ( "
 ");";
 
 static qboolean UpgradeDBToVersion10(sqlite3 *dbPtr) {
-	return sqlite3_exec(dbPtr, v10Upgrade, NULL, NULL, NULL) == SQLITE_OK;
+	return trap_sqlite3_exec(dbPtr, v10Upgrade, NULL, NULL, NULL) == SQLITE_OK;
 }
 
 const char *const v11Upgrade = "ALTER TABLE accounts RENAME COLUMN usergroup TO properties;";
 
 static qboolean UpgradeDBToVersion11(sqlite3 *dbPtr) {
-	return sqlite3_exec(dbPtr, v11Upgrade, NULL, NULL, NULL) == SQLITE_OK;
+	return trap_sqlite3_exec(dbPtr, v11Upgrade, NULL, NULL, NULL) == SQLITE_OK;
 }
 
 const char *const v12Upgrade =
@@ -1035,7 +1035,7 @@ const char *const v12Upgrade =
 "FROM t WHERE pugs_played >= 10;";
 
 static qboolean UpgradeDBToVersion12(sqlite3 *dbPtr) {
-	return sqlite3_exec(dbPtr, v12Upgrade, NULL, NULL, NULL) == SQLITE_OK;
+	return trap_sqlite3_exec(dbPtr, v12Upgrade, NULL, NULL, NULL) == SQLITE_OK;
 }
 
 const char *const v13Upgrade =
@@ -1209,13 +1209,13 @@ const char *const v13Upgrade =
 "FROM t WHERE pugs_played >= 10;";
 
 static qboolean UpgradeDBToVersion13(sqlite3 *dbPtr) {
-	return sqlite3_exec(dbPtr, v13Upgrade, NULL, NULL, NULL) == SQLITE_OK;
+	return trap_sqlite3_exec(dbPtr, v13Upgrade, NULL, NULL, NULL) == SQLITE_OK;
 }
 
 const char *const v14Upgrade = "ALTER TABLE aimpacks ADD COLUMN [extra] TEXT DEFAULT NULL;";
 
 static qboolean UpgradeDBToVersion14(sqlite3 *dbPtr) {
-	return sqlite3_exec(dbPtr, v14Upgrade, NULL, NULL, NULL) == SQLITE_OK;
+	return trap_sqlite3_exec(dbPtr, v14Upgrade, NULL, NULL, NULL) == SQLITE_OK;
 }
 
 const char *const v15Upgrade = "ALTER TABLE playerpugteampos ADD COLUMN [gotte] INTEGER; "
@@ -1391,13 +1391,13 @@ const char *const v15Upgrade = "ALTER TABLE playerpugteampos ADD COLUMN [gotte] 
 "FROM t WHERE pugs_played >= 10;";
 
 static qboolean UpgradeDBToVersion15(sqlite3 *dbPtr) {
-	return sqlite3_exec(dbPtr, v15Upgrade, NULL, NULL, NULL) == SQLITE_OK;
+	return trap_sqlite3_exec(dbPtr, v15Upgrade, NULL, NULL, NULL) == SQLITE_OK;
 }
 
 const char *const v16Upgrade = "UPDATE playerratings SET rating = rating + 2;";
 
 static qboolean UpgradeDBToVersion16(sqlite3 *dbPtr) {
-	return sqlite3_exec(dbPtr, v16Upgrade, NULL, NULL, NULL) == SQLITE_OK;
+	return trap_sqlite3_exec(dbPtr, v16Upgrade, NULL, NULL, NULL) == SQLITE_OK;
 }
 
 const char *const v17Upgrade =
@@ -1406,7 +1406,7 @@ const char *const v17Upgrade =
 "CREATE VIEW IF NOT EXISTS [lastplayedmaporalias] AS WITH t AS (SELECT alias, sum(num) num, max(datetime) datetime FROM lastplayedalias) SELECT lastplayedmap.map, CASE WHEN t.num IS NOT NULL THEN t.num ELSE lastplayedmap.num END num, CASE WHEN t.datetime IS NOT NULL THEN t.datetime ELSE lastplayedmap.datetime END datetime FROM lastplayedmap LEFT JOIN mapaliases ON lastplayedmap.map = mapaliases.filename LEFT JOIN t ON mapaliases.alias = t.alias;";
 
 static qboolean UpgradeDBToVersion17(sqlite3 *dbPtr) {
-	return sqlite3_exec(dbPtr, v17Upgrade, NULL, NULL, NULL) == SQLITE_OK;
+	return trap_sqlite3_exec(dbPtr, v17Upgrade, NULL, NULL, NULL) == SQLITE_OK;
 }
 
 // =============================================================================

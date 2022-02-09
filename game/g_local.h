@@ -3559,6 +3559,10 @@ qboolean trap_SendGETRequest( trsfHandle_t* handle, const char* url, const char*
 qboolean trap_SendPOSTRequest( trsfHandle_t* handle, const char* url, const char* data, const char* headerAccept, const char* headerContentType, qboolean receiveResult );
 qboolean trap_SendMultipartPOSTRequest(trsfHandle_t* handle, const char* url, trsfFormPart_t* multiPart, size_t numParts, const char* headerAccept, const char* headerContentType, qboolean receiveResult);
 void trap_GetCountry(const char *ipStr, char *outBuf, int outBufSize);
+int trap_sqlite3_prepare_v2(void *unused, const char *zSql, int nBytes, void **ppStmt, const char **pzTail);
+int trap_sqlite3_step(void *stmt);
+int trap_sqlite3_finalize(void *stmt);
+int trap_sqlite3_exec(void *unused, const char *sql, int (*callback)(void *, int, char **, char **), void *callbackarg, char **errmsg);
 #endif
 
 #include "namespace_end.h"
