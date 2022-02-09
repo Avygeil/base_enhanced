@@ -1464,7 +1464,7 @@ void G_SpawnEntitiesFromString( qboolean inSubBSP ) {
 
 	// clear the locations and prepare the enhanced lookup tree
 	if ( !inSubBSP && !level.locations.linked ) {
-		Location_ResetLookupTree();
+		//Location_ResetLookupTree();
 	}
 
 	// parse ents

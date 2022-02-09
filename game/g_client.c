@@ -2903,12 +2903,13 @@ void G_BroadcastServerFeatureList( int clientNum ) {
 
 	// lazy initialization of the locations strings
 
-	if ( level.locations.enhanced.numUnique && !*locationsListConfigString) {
+	if (*trap_kd_numunique() && !*locationsListConfigString) {
 		Q_strncpyz(locationsListConfigString, "locs", sizeof(locationsListConfigString) );
 
 		int i;
-		for ( i = 0; i < level.locations.enhanced.numUnique; ++i ) {
-			Q_strcat(locationsListConfigString, sizeof(locationsListConfigString), va( " \"%s\" %d", level.locations.enhanced.data[i].message, level.locations.enhanced.data[i].teamowner ) );
+		for ( i = 0; i < *trap_kd_numunique(); ++i) {
+			enhancedLocation_t *ptr = trap_kd_dataptr(i);
+			Q_strcat(locationsListConfigString, sizeof(locationsListConfigString), va( " \"%s\" %d", ptr->message, ptr->teamowner ) );
 		}
 	}
 
@@ -2928,7 +2929,7 @@ void G_BroadcastServerFeatureList( int clientNum ) {
 
 	trap_SetConfigstring(CS_SERVERFEATURELIST, featureListConfigString);
 
-	if ( level.locations.enhanced.numUnique )
+	if (*trap_kd_numunique())
 		trap_SetConfigstring( CS_ENHANCEDLOCATIONS, locationsListConfigString);
 
 	qboolean gotCustomVote = qfalse;

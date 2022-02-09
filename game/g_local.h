@@ -1868,7 +1868,6 @@ typedef struct {
 			int numUnique; // two locations with the same message make an unique location, so this is at most MAX_LOCATIONS
 			uint64_t numTotal; // how many entities were parsed in total, duplicates included
 			enhancedLocation_t data[MAX_LOCATIONS];
-			void *lookupTree; // k-d tree for fast lookup, multiple nodes may point to the same data[n]
 		} enhanced;
 
 		qboolean linked;
@@ -2096,6 +2095,7 @@ void Location_ResetLookupTree(void);
 void Location_AddLocationEntityToList(gentity_t *ent);
 int Team_GetLocation(gentity_t *ent, char *locationBuffer, size_t locationBufferSize);
 void G_LinkLocations(void);
+void Location_SetTreePtr(void **kdtreePtr);
 
 //
 // g_utils.c
@@ -3563,6 +3563,13 @@ int trap_sqlite3_prepare_v2(void *unused, const char *zSql, int nBytes, void **p
 int trap_sqlite3_step(void *stmt);
 int trap_sqlite3_finalize(void *stmt);
 int trap_sqlite3_exec(void *unused, const char *sql, int (*callback)(void *, int, char **, char **), void *callbackarg, char **errmsg);
+enhancedLocation_t *trap_kd_dataptr(int index);
+int *trap_kd_numunique(void);
+void trap_kd_create(void);
+void trap_kd_free(void);
+int trap_kd_insertf(const float *pos, void *data);
+void *trap_kd_nearestf(const float *pos);
+void trap_kd_res_free(void *set);
 #endif
 
 #include "namespace_end.h"

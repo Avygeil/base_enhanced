@@ -236,12 +236,12 @@ static void GenerateProximityLocations(void) {
 
 	G_Printf("Procedurally generating enhanced locations...\n");
 
-	if (level.locations.enhanced.numUnique + 1 < MAX_LOCATIONS) {
+	if (*trap_kd_numunique() + 1 < MAX_LOCATIONS) {
 		enhancedLocation_t *targetLoc = NULL;
 
 		// this is a valid location, let's see if we already have a handle for it
-		for (int j = 0; j < level.locations.enhanced.numUnique; ++j) {
-			enhancedLocation_t *thisLoc = &level.locations.enhanced.data[j];
+		for (int j = 0; j < *trap_kd_numunique(); ++j) {
+			enhancedLocation_t *thisLoc = trap_kd_dataptr(j);
 
 			if (!strcmp("Pit", thisLoc->message) && !thisLoc->teamowner) {
 				targetLoc = thisLoc;
@@ -251,13 +251,14 @@ static void GenerateProximityLocations(void) {
 
 		// there was no handle with this location message, copy the info to a new one
 		if (!targetLoc) {
-			pitLocationIndex = level.locations.enhanced.numUnique++;
-			targetLoc = &level.locations.enhanced.data[pitLocationIndex];
+			pitLocationIndex = *trap_kd_numunique();
+			*trap_kd_numunique() += 1;
+			targetLoc = trap_kd_dataptr(pitLocationIndex);
 			Q_strncpyz(targetLoc->message, "Pit", sizeof(targetLoc->message));
 			targetLoc->teamowner = 0;
 		}
 
-		//kd_insertf(level.locations.enhanced.lookupTree, vec3_origin, targetLoc);
+		//trap_kd_insertf(vec3_origin, targetLoc);
 		level.locations.enhanced.numTotal++;
 	}
 	else {
@@ -267,7 +268,7 @@ static void GenerateProximityLocations(void) {
 	int i;
 	gentity_t *ent;
 
-	for (i = 0, ent = g_entities; i < level.num_entities && level.locations.enhanced.numUnique < MAX_LOCATIONS; ++i, ++ent) {
+	for (i = 0, ent = g_entities; i < level.num_entities && *trap_kd_numunique() < MAX_LOCATIONS; ++i, ++ent) {
 		if (!ent || !ent->classname) {
 			continue;
 		}
@@ -276,8 +277,8 @@ static void GenerateProximityLocations(void) {
 			enhancedLocation_t *targetLoc = NULL;
 
 			// this is a valid location, let's see if we already have a handle for it
-			for (int j = 0; j < level.locations.enhanced.numUnique; ++j) {
-				enhancedLocation_t *thisLoc = &level.locations.enhanced.data[j];
+			for (int j = 0; j < *trap_kd_numunique(); ++j) {
+				enhancedLocation_t *thisLoc = trap_kd_dataptr(j);
 
 				if (!strcmp(loc.message, thisLoc->message) && loc.teamowner == thisLoc->teamowner) {
 					targetLoc = thisLoc;
@@ -287,12 +288,13 @@ static void GenerateProximityLocations(void) {
 
 			// there was no handle with this location message, copy the info to a new one
 			if (!targetLoc) {
-				targetLoc = &level.locations.enhanced.data[level.locations.enhanced.numUnique++];
+				targetLoc = trap_kd_dataptr(*trap_kd_numunique());
+				*trap_kd_numunique() += 1;
 				Q_strncpyz(targetLoc->message, loc.message, sizeof(targetLoc->message));
 				targetLoc->teamowner = loc.teamowner;
 			}
 
-			kd_insertf(level.locations.enhanced.lookupTree, ent->s.origin, targetLoc);
+			trap_kd_insertf(ent->s.origin, targetLoc);
 			level.locations.enhanced.numTotal++;
 		}
 	}
@@ -964,7 +966,7 @@ static void GenerateLineOfSightLocations(void) {
 
 static void LinkLegacyLocations(void) {
 	if (level.locations.legacy.num <= 0) {
-		kd_free(level.locations.enhanced.lookupTree);
+		trap_kd_free();
 		memset(&level.locations, 0, sizeof(level.locations));
 		return;
 	}
@@ -976,15 +978,13 @@ static void LinkLegacyLocations(void) {
 	}
 
 	// we won't need the enhanced system
-	kd_free(level.locations.enhanced.lookupTree);
+	trap_kd_free();
 	memset(&level.locations.enhanced, 0, sizeof(level.locations.enhanced));
 
 	G_Printf("Linked %d legacy locations\n", level.locations.legacy.num);
 }
 
 static qboolean LinkLineOfSightLocations(void) {
-	trap_SetConfigstring(CS_LOCATIONS, "unknown");
-
 	char fileName[MAX_QPATH];
 	Com_sprintf(fileName, sizeof(fileName), "maps/%s.enhancedlocations", level.mapname);
 	qboolean loaded = qfalse;
@@ -1011,7 +1011,8 @@ static qboolean LinkLineOfSightLocations(void) {
 	for (int i = 0; i < MAX_LOCATIONS; i++) {
 		if (!data.locationNames[i][0])
 			break;
-		enhancedLocation_t *targetLoc = &level.locations.enhanced.data[level.locations.enhanced.numUnique++];
+		enhancedLocation_t *targetLoc = trap_kd_dataptr(*trap_kd_numunique());
+		*trap_kd_numunique() += 1;
 		Q_strncpyz(targetLoc->message, data.locationNames[i], sizeof(targetLoc->message));
 		targetLoc->teamowner = data.teamOwner[i];
 	}
@@ -1030,8 +1031,8 @@ static qboolean LinkLineOfSightLocations(void) {
 				float z = data.mins[2] + (k * data.incrementSize);
 				vec3_t point = { x, y, z };
 
-				enhancedLocation_t *targetLoc = &level.locations.enhanced.data[arrPoint->data - 1];
-				kd_insertf(level.locations.enhanced.lookupTree, point, targetLoc);
+				enhancedLocation_t *targetLoc = trap_kd_dataptr(arrPoint->data - 1);
+				trap_kd_insertf(point, targetLoc);
 
 				level.locations.enhanced.numTotal++;
 			}
@@ -1042,20 +1043,22 @@ static qboolean LinkLineOfSightLocations(void) {
 	if (data.pointsArr)
 		FreePointArray(data.pointsArr);
 
-	if (level.locations.enhanced.numUnique) {
+	if (*trap_kd_numunique()) {
 		// use the enhanced system
-		for (int i = 0, n = 1; i < level.locations.enhanced.numUnique; ++i) {
+		for (int i = 0, n = 1; i < *trap_kd_numunique(); ++i) {
 			char *prefix;
 
+			enhancedLocation_t *ptr = trap_kd_dataptr(i);
+
 			// prepend the team name before the location for base clients
-			switch (level.locations.enhanced.data[i].teamowner) {
+			switch (ptr->teamowner) {
 			case TEAM_RED: prefix = "Red "; break;
 			case TEAM_BLUE: prefix = "Blue "; break;
 			default: prefix = "";
 			}
 
-			level.locations.enhanced.data[i].cs_index = n;
-			trap_SetConfigstring(CS_LOCATIONS + n, va("%s%s", prefix, level.locations.enhanced.data[i].message));
+			ptr->cs_index = n;
+			trap_SetConfigstring(CS_LOCATIONS + n, va("%s%s", prefix, ptr->message));
 			n++;
 		}
 
@@ -1063,8 +1066,8 @@ static qboolean LinkLineOfSightLocations(void) {
 		memset(&level.locations.legacy, 0, sizeof(level.locations.legacy));
 
 		int endTime = trap_Milliseconds();
-		G_Printf("Linked %d enhanced locations", level.locations.enhanced.numUnique);
-		if ((uint64_t)level.locations.enhanced.numUnique != level.locations.enhanced.numTotal) {
+		G_Printf("Linked %d enhanced locations", *trap_kd_numunique());
+		if ((uint64_t)*trap_kd_numunique() != level.locations.enhanced.numTotal) {
 			G_Printf(" (optimized from %llu points)", level.locations.enhanced.numTotal);
 		}
 		G_Printf(" in %0.3f seconds\n", ((float)(endTime - startTime)) / 1000.0f);
@@ -1106,6 +1109,36 @@ void G_LinkLocations(void) {
 	if (level.locations.linked)
 		return;
 
+	trap_SetConfigstring(CS_LOCATIONS, "unknown");
+
+	if (*trap_kd_numunique()) {
+		// use the enhanced system
+		for (int i = 0, n = 1; i < *trap_kd_numunique(); ++i) {
+			char *prefix;
+
+			enhancedLocation_t *ptr = trap_kd_dataptr(i);
+
+			// prepend the team name before the location for base clients
+			switch (ptr->teamowner) {
+			case TEAM_RED: prefix = "Red "; break;
+			case TEAM_BLUE: prefix = "Blue "; break;
+			default: prefix = "";
+			}
+
+			ptr->cs_index = n;
+			trap_SetConfigstring(CS_LOCATIONS + n, va("%s%s", prefix, ptr->message));
+			n++;
+		}
+
+		// we won't need the legacy system
+		memset(&level.locations.legacy, 0, sizeof(level.locations.legacy));
+
+		int endTime = trap_Milliseconds();
+		G_Printf("Reusing %d previously linked enhanced locations\n", *trap_kd_numunique());
+		level.locations.linked = qtrue;
+		return;
+	}
+
 	if (g_gametype.integer == GT_CTF && g_lineOfSightLocations.integer && LinkLineOfSightLocations())
 		return;
 
@@ -1118,28 +1151,28 @@ void G_LinkLocations(void) {
 	if (g_gametype.integer == GT_CTF)
 		GenerateProximityLocations();
 
-	if (level.locations.enhanced.numUnique) {
+	if (*trap_kd_numunique()) {
 		// use the enhanced system
-		for (int i = 0, n = 1; i < level.locations.enhanced.numUnique; ++i) {
+		for (int i = 0, n = 1; i < *trap_kd_numunique(); ++i) {
 			char *prefix;
 
 			// prepend the team name before the location for base clients
-			switch (level.locations.enhanced.data[i].teamowner) {
+			switch (trap_kd_dataptr(i)->teamowner) {
 			case TEAM_RED: prefix = "Red "; break;
 			case TEAM_BLUE: prefix = "Blue "; break;
 			default: prefix = "";
 			}
 
-			level.locations.enhanced.data[i].cs_index = n;
-			trap_SetConfigstring(CS_LOCATIONS + n, va("%s%s", prefix, level.locations.enhanced.data[i].message));
+			trap_kd_dataptr(i)->cs_index = n;
+			trap_SetConfigstring(CS_LOCATIONS + n, va("%s%s", prefix, trap_kd_dataptr(i)->message));
 			n++;
 		}
 
 		// we won't need the legacy system
 		memset(&level.locations.legacy, 0, sizeof(level.locations.legacy));
 
-		G_Printf("Linked %d proximity locations", level.locations.enhanced.numUnique);
-		if (level.locations.enhanced.numUnique != level.locations.enhanced.numTotal) {
+		G_Printf("Linked %d proximity locations", *trap_kd_numunique());
+		if (*trap_kd_numunique() != level.locations.enhanced.numTotal) {
 			G_Printf(" (optimized from %d entities)", level.locations.enhanced.numTotal);
 		}
 		G_Printf("\n");
@@ -1153,9 +1186,9 @@ void G_LinkLocations(void) {
 }
 
 void Location_ResetLookupTree(void) {
-	kd_free(level.locations.enhanced.lookupTree);
+	trap_kd_free();
 	memset(&level.locations, 0, sizeof(level.locations));
-	level.locations.enhanced.lookupTree = kd_create(3);
+	trap_kd_create();
 }
 
 /*
@@ -1176,18 +1209,18 @@ int Team_GetLocation(gentity_t *ent, char *locationBuffer, size_t locationBuffer
 		locationBuffer[0] = '\0';
 	}
 
-	if (level.locations.enhanced.numUnique) {
+	if (*trap_kd_numunique()) {
 		// using enhanced locations
 		int		resultIndex = 0;
 		void *nearest;
 
 		// we should always have at most 1 result
-		nearest = kd_nearestf(level.locations.enhanced.lookupTree, origin);
+		nearest = trap_kd_nearestf(origin);
 
 		if (nearest && kd_res_size(nearest) == 1) {
 			enhancedLocation_t *loc;
 			if (ent->client && ent->client->ps.fallingToDeath && pitLocationIndex != -1)
-				loc = &level.locations.enhanced.data[pitLocationIndex];
+				loc = trap_kd_dataptr(pitLocationIndex);
 			else
 				loc = (enhancedLocation_t *)kd_res_item_data(nearest);
 
@@ -1212,7 +1245,7 @@ int Team_GetLocation(gentity_t *ent, char *locationBuffer, size_t locationBuffer
 		}
 
 		if (nearest)
-			kd_res_free(nearest);
+			trap_kd_res_free(nearest);
 
 		return resultIndex;
 	}

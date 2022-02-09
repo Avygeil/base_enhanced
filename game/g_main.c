@@ -1996,8 +1996,6 @@ void G_ShutdownGame( int restart ) {
 
     G_DBUnloadDatabase();
 
-	kd_free(level.locations.enhanced.lookupTree);
-
 	ListClear(&level.redPlayerTickList);
 	ListClear(&level.bluePlayerTickList);
 	ListClear(&level.disconnectedPlayerList);
