@@ -108,6 +108,7 @@
     <ClCompile Include="g_exphysics.c" />
     <ClCompile Include="g_ICARUScb.c" />
     <ClCompile Include="g_items.c" />
+    <ClCompile Include="g_location.c" />
     <ClCompile Include="g_log.c" />
     <ClCompile Include="g_main.c" />
     <ClCompile Include="g_mem.c" />
@@ -120,12 +121,14 @@
     <ClCompile Include="g_saga.c" />
     <ClCompile Include="g_session.c" />
     <ClCompile Include="g_spawn.c" />
+    <ClCompile Include="g_stats.c" />
     <ClCompile Include="g_strap.c" />
     <ClCompile Include="g_svcmds.c" />
     <ClCompile Include="g_syscalls.c" />
     <ClCompile Include="g_table.c" />
     <ClCompile Include="g_target.c" />
     <ClCompile Include="g_team.c" />
+    <ClCompile Include="g_teamgen.c" />
     <ClCompile Include="g_timer.c" />
     <ClCompile Include="g_transfers.c" />
     <ClCompile Include="g_trigger.c" />
@@ -197,12 +200,12 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseOfMfc>false</UseOfMfc>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Final|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseOfMfc>false</UseOfMfc>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Final (static)|Win32'">
     <PlatformToolset>Intel Parallel Composer 2011</PlatformToolset>
@@ -317,6 +320,7 @@
       <AssemblerOutput>All</AssemblerOutput>
       <CompileAs>Default</CompileAs>
       <PreprocessToFile>false</PreprocessToFile>
+      <LanguageStandard_C>Default</LanguageStandard_C>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>_Debug;%(PreprocessorDefinitions)</PreprocessorDefinitions>

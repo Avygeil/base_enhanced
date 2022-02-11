@@ -880,6 +880,13 @@ void Svcmd_ResetFlags_f(){
 		ent->client->ps.powerups[PW_BLUEFLAG] = 0;
 		ent->client->ps.powerups[PW_REDFLAG] = 0;
 	}
+
+	// count these as rets, i guess; no sense punishing someone's fckill efficiency due to resetflags vote
+	if (level.redPlayerWhoKilledBlueCarrierOfRedFlag)
+		level.redPlayerWhoKilledBlueCarrierOfRedFlag->fcKillsResultingInRets++;
+	if (level.bluePlayerWhoKilledRedCarrierOfBlueFlag)
+		level.bluePlayerWhoKilledRedCarrierOfBlueFlag->fcKillsResultingInRets++;
+
 	Team_ResetFlags();
 }
 
@@ -1105,6 +1112,172 @@ qboolean MapExistsQuick(const char *mapFileName) {
 	return qfalse;
 }
 
+void Svcmd_MapAlias_f(void) {
+	if (trap_Argc() < 2) {
+		Com_Printf("^7Usage:\n"
+			"^7mapalias list                   - lists current map aliases\n"
+			"^9mapalias add [filename] [alias] - adds a map filename with a specified alias to the list\n"
+			"^7mapalias delete [filename]      - deletes a map filename from the list\n"
+			"^9mapalias live [filename]        - sets a map as the live version of its alias\n"
+			"^7use the ^5listmaps^7 command to view a list of all maps.\n");
+		return;
+	}
+
+	char arg1[MAX_STRING_CHARS] = { 0 }, arg2[MAX_STRING_CHARS] = { 0 }, arg3[MAX_STRING_CHARS] = { 0 };
+	trap_Argv(1, arg1, sizeof(arg1));
+	Q_strlwr(arg1);
+	Q_StripColor(arg1);
+	COM_StripExtension((const char *)arg1, arg1);
+	if (trap_Argc() >= 3) {
+		trap_Argv(2, arg2, sizeof(arg2));
+		Q_strlwr(arg2);
+		Q_StripColor(arg2);
+		COM_StripExtension((const char *)arg2, arg2);
+		if (trap_Argc() >= 4) {
+			trap_Argv(3, arg3, sizeof(arg3));
+			Q_strlwr(arg3);
+			Q_StripColor(arg3);
+		}
+	}
+
+	if (!Q_stricmp(arg1, "list") || !Q_stricmp(arg1, "view")) {
+		G_DBListMapAliases();
+	}
+	else if (!Q_stricmp(arg1, "add") || !Q_stricmp(arg1, "forceadd")) {
+		if (!arg2[0]) {
+			Com_Printf("Usage: mapalias add [filename] [alias] <optional 'live'>\n");
+			return;
+		}
+
+		if (Q_stricmp(arg1, "forceadd") && !MapExistsQuick(arg2)) {
+			Com_Printf("%s does not currently exist on the server. Are you sure you entered the correct filename? You can use ^5mapalias forceadd^7 to bypass this warning.\n", arg2);
+			return;
+		}
+
+		if (!Q_stricmpn(arg3, "mp/", 3)) {
+			Com_Printf("Alias should not contain the mp/ prefix.\n");
+			return;
+		}
+
+		qboolean setLive = qfalse;
+		if (trap_Argc() >= 5) {
+			char buf[MAX_STRING_CHARS] = { 0 };
+			trap_Argv(4, buf, sizeof(buf));
+			if (!Q_stricmp(buf, "live"))
+				setLive = qtrue;
+		}
+
+		if (G_DBSetMapAlias(arg2, arg3, setLive))
+			Com_Printf("Successfully added filename ^5%s^7 with alias ^5%s^7%s.\n", arg2, arg3, setLive ? " and set it to live" : "");
+		else
+			Com_Printf("Error adding filename ^5%s^7 with ^5%s^7%s!\n", arg2, arg3, setLive ? " and setting it to live" : "");
+	}
+	else if (!Q_stricmp(arg1, "delete") || !Q_stricmp(arg1, "forcedelete")) {
+		if (!arg2[0]) {
+			Com_Printf("Usage: mapalias delete [filename]\n");
+			return;
+		}
+
+		if (Q_stricmp(arg1, "forcedelete") && !MapExistsQuick(arg2)) {
+			Com_Printf("%s does not currently exist on the server. Are you sure you entered the correct filename? You can use ^5mapalias forcedelete^7 to bypass this warning.\n", arg2);
+			return;
+		}
+
+		if (G_DBClearMapAlias(arg2))
+			Com_Printf("Successfully deleted alias for filename ^5%s^7.\n", arg2);
+		else
+			Com_Printf("Error setting alias for filename ^5%s^7!\n", arg2);
+	}
+	else if (!Q_stricmp(arg1, "live") || !Q_stricmp(arg1, "forcelive")) {
+		if (!arg2[0]) {
+			Com_Printf("Usage: mapalias live [filename]\n");
+			return;
+		}
+
+		if (Q_stricmp(arg1, "forcelive") && !MapExistsQuick(arg2)) {
+			Com_Printf("%s does not currently exist on the server. Are you sure you entered the correct filename? You can use ^5mapalias forcelive^7 to bypass this warning.\n", arg2);
+			return;
+		}
+
+		char alias[MAX_QPATH] = { 0 };
+		if (G_DBSetMapAliasLive(arg2, alias, sizeof(alias)))
+			Com_Printf("Successfully set filename ^5%s^7 as the live filename for alias ^5%s^7.\n", arg2, alias);
+		else
+			Com_Printf("Error setting filename ^5%s^7 as live!\n", arg2);
+	}
+	else {
+		Com_Printf("^7Usage:\n"
+			"^7mapalias list                   - lists current map aliases\n"
+			"^9mapalias add [filename] [alias] - adds a map filename with a specified alias to the list\n"
+			"^7mapalias delete [filename]      - deletes a map filename from the list\n"
+			"^9mapalias live [filename]        - sets a map as the live version of its alias\n"
+			"^7use the ^5listmaps^7 command to view a list of all maps.\n");
+		return;
+	}
+}
+
+void Svcmd_ListMaps_f(void) {
+	list_t list = { 0 };
+	int numGotten = 0;
+	for (int i = g_numArenas - 1; i >= 0; i--) { // go in backwards order so it's alphabetized...nice video game
+		char *value = Info_ValueForKey(g_arenaInfos[i], "type");
+		if (VALIDSTRING(value) && strstr(value, "ctf")) {
+			mapAlias_t *add = (mapAlias_t *)ListAdd(&list, sizeof(mapAlias_t));
+			value = Info_ValueForKey(g_arenaInfos[i], "map");
+			Q_strncpyz(add->filename, value, sizeof(add->filename));
+			char alias[MAX_QPATH] = { 0 };
+			qboolean isLive = qfalse;
+			if (G_DBGetAliasForMapName(value, alias, sizeof(alias), &isLive)) {
+				Q_strncpyz(add->alias, alias, sizeof(add->alias));
+				Q_strncpyz(add->live, isLive ? "^2Yes" : "No", sizeof(add->live));
+			}
+			else {
+				add->alias[0] = ' ';
+				add->live[0] = ' ';
+			}
+			numGotten++;
+		}
+	}
+
+	if (!numGotten) {
+		Com_Printf("Unable to find any CTF maps!\n");
+		return;
+	}
+
+	iterator_t iter;
+	ListIterate(&list, &iter, qfalse);
+	Table *t = Table_Initialize(qtrue);
+	while (IteratorHasNext(&iter)) {
+		mapAlias_t *ma = (mapAlias_t *)IteratorNext(&iter);
+		Table_DefineRow(t, ma);
+	}
+
+	mapAlias_t ma = { 0 };
+	Table_DefineColumn(t, "Filename", GenericTableStringCallback, (void *)((unsigned int)(&ma.filename) - (unsigned int)&ma), qtrue, -1, MAX_QPATH);
+	Table_DefineColumn(t, "Alias", GenericTableStringCallback, (void *)((unsigned int)(&ma.alias) - (unsigned int)&ma), qtrue, -1, MAX_QPATH);
+	Table_DefineColumn(t, "Live", GenericTableStringCallback, (void *)((unsigned int)(&ma.live) - (unsigned int)&ma), qtrue, -1, MAX_QPATH);
+
+	int bufSize = 1024 * numGotten;
+	char *buf = calloc(bufSize, sizeof(char));
+	Table_WriteToBuffer(t, buf, bufSize, qtrue, -1);
+	Com_Printf("CTF maps currently on server:\n");
+
+	// should write a function to do this stupid chunked printing
+	char *remaining = buf;
+	int totalLen = strlen(buf);
+	while (*remaining && remaining < buf + totalLen) {
+		char temp[4096] = { 0 };
+		Q_strncpyz(temp, remaining, sizeof(temp));
+		Com_Printf(temp);
+		int copied = strlen(temp);
+		remaining += copied;
+	}
+
+	free(buf);
+	Table_Destroy(t);
+	ListClear(&list);
+}
+
 void Svcmd_Tier_f(void) {
 	if (trap_Argc() < 2) {
 		Com_Printf("^7Usage%s:\n"
@@ -1232,6 +1405,60 @@ void Svcmd_Tier_f(void) {
 			"^9rcon tier remove [map] - remove a map from the whitelist\n"
 			"^7rcon tier list         - view which maps currently are, or are not, whitelisted\n", g_vote_tierlist.integer ? "" : " (note: tierlist is currently disabled, enable with g_vote_tierlist)");
 		return;
+	}
+}
+
+static void PrintFixSwapHelp(void) {
+	Com_Printf(	"Usage:\n"
+				"fixswap list                  - lists pugs where someone has played more than one position\n"
+				"fixswap fix [record #] [pos]  - set a record to, or merges it into, a specified position\n"
+	);
+}
+
+void Svcmd_FixSwap_f(void) {
+	if (trap_Argc() < 2) {
+		PrintFixSwapHelp();
+		return;
+	}
+
+	char arg1[MAX_STRING_CHARS] = { 0 };
+	trap_Argv(1, arg1, sizeof(arg1));
+
+	if (!Q_stricmp(arg1, "list")) {
+		G_DBFixSwap_List();
+	}
+	else if (!Q_stricmp(arg1, "fix")) {
+		char arg2[MAX_STRING_CHARS] = { 0 };
+		trap_Argv(2, arg2, sizeof(arg2));
+		if (!arg2[0] || !Q_isanumber(arg2)) {
+			PrintFixSwapHelp();
+			return;
+		}
+		int recordId = atoi(arg2);
+
+		char arg3[MAX_STRING_CHARS] = { 0 };
+		trap_Argv(3, arg3, sizeof(arg3));
+		if (!arg3[0]) {
+			PrintFixSwapHelp();
+			return;
+		}
+
+		int pos = (int)CtfPositionFromString(arg3);
+		if (!pos) {
+			PrintFixSwapHelp();
+			return;
+		}
+
+		if (G_DBFixSwap_Fix(recordId, pos)) {
+			Com_Printf("Successful.\n");
+			trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
+		}
+		else {
+			Com_Printf("Failed!\n");
+		}
+	}
+	else {
+		PrintFixSwapHelp();
 	}
 }
 
@@ -1549,7 +1776,14 @@ static void mapSelectedCallback( void *context, char *mapname ) {
 		Q_strncpyz(level.multivoteWildcardMapFileName, mapname, sizeof(level.multivoteWildcardMapFileName));
 	}
 	else {
-		const char *arenaInfo = G_GetArenaInfoByMap(mapname);
+		const char *arenaInfo = NULL;
+
+		char overrideMapName[MAX_QPATH] = { 0 };
+		if (G_DBGetLiveMapNameForMapName(mapname, overrideMapName, sizeof(overrideMapName)) && overrideMapName[0])
+			arenaInfo = G_GetArenaInfoByMap(overrideMapName);
+		if (!arenaInfo)
+			arenaInfo = G_GetArenaInfoByMap(mapname);
+
 		if (arenaInfo) {
 			mapDisplayName = Info_ValueForKey(arenaInfo, "longname");
 			Q_CleanStr(mapDisplayName);
@@ -1688,7 +1922,15 @@ void Svcmd_MapRandom_f()
 		}
 		else {
 			// we have 1 map, this means listOfMaps only contains 1 randomized map. Just change to it straight away.
-			trap_SendConsoleCommand(EXEC_APPEND, va("map %s\n", context->listOfMaps));
+			char overrideMapName[MAX_QPATH] = { 0 };
+			G_DBGetLiveMapNameForMapName(context->listOfMaps, overrideMapName, sizeof(overrideMapName));
+			if (overrideMapName[0] && Q_stricmp(overrideMapName, context->listOfMaps)) {
+				Com_Printf("Overriding %s via map alias to %s\n", context->listOfMaps, overrideMapName);
+				trap_SendConsoleCommand(EXEC_APPEND, va("map %s\n", overrideMapName));
+			}
+			else {
+				trap_SendConsoleCommand(EXEC_APPEND, va("map %s\n", context->listOfMaps));
+			}
 		}
 		free(context);
 		return;
@@ -1787,7 +2029,15 @@ void Svcmd_MapVote_f(const char *overrideMaps) {
 		char *space = strchr(context->listOfMaps, ' ');
 		if (space)
 			*space = '\0';
-		trap_SendConsoleCommand(EXEC_APPEND, va("map %s\n", context->listOfMaps));
+		char overrideMapName[MAX_QPATH] = { 0 };
+		G_DBGetLiveMapNameForMapName(context->listOfMaps, overrideMapName, sizeof(overrideMapName));
+		if (overrideMapName[0] && Q_stricmp(overrideMapName, context->listOfMaps)) {
+			Com_Printf("Overriding %s via map alias to %s\n", context->listOfMaps, overrideMapName);
+			trap_SendConsoleCommand(EXEC_APPEND, va("map %s\n", overrideMapName));
+		}
+		else {
+			trap_SendConsoleCommand(EXEC_APPEND, va("map %s\n", context->listOfMaps));
+		}
 	}
 	else {
 		// we are going to need another vote for this...
@@ -2209,7 +2459,15 @@ void Svcmd_MapMultiVote_f() {
 	}
 
 	// re-use the vote timer so that there's a small delay before map change
-	Q_strncpyz( level.voteString, va( "map %s", selectedMapname ), sizeof( level.voteString ) );
+	char overrideMapName[MAX_QPATH] = { 0 };
+	G_DBGetLiveMapNameForMapName(selectedMapname, overrideMapName, sizeof(overrideMapName));
+	if (overrideMapName[0] && Q_stricmp(overrideMapName, selectedMapname)) {
+		Com_Printf("Overriding %s via map alias to %s\n", selectedMapname, overrideMapName);
+		Q_strncpyz(level.voteString, va("map %s", overrideMapName), sizeof(level.voteString));
+	}
+	else {
+		Q_strncpyz(level.voteString, va("map %s", selectedMapname), sizeof(level.voteString));
+	}
 	level.voteExecuteTime = level.time + 3000;
 	level.multiVoting = qfalse;
 	level.multiVoteHasWildcard = qfalse;
@@ -2685,11 +2943,11 @@ void Svcmd_MapPool_f(void) {
 		}
 
 		if (numMaps) {
-			Table_DefineColumn(t, "Map", TableCallback_MapName, qtrue, 64);
-			Table_DefineColumn(t, "Weight", TableCallback_MapWeight, qtrue, 64);
+			Table_DefineColumn(t, "Map", TableCallback_MapName, NULL, qtrue, -1, 64);
+			Table_DefineColumn(t, "Weight", TableCallback_MapWeight, NULL, qtrue, -1, 64);
 
 			char buf[2048] = { 0 };
-			Table_WriteToBuffer(t, buf, sizeof(buf));
+			Table_WriteToBuffer(t, buf, sizeof(buf), qtrue, -1);
 			Q_strcat(buf, sizeof(buf), "\n");
 			Com_Printf(buf);
 		}
@@ -2715,11 +2973,11 @@ void Svcmd_MapPool_f(void) {
 		}
 
 		if (numPools) {
-			Table_DefineColumn(t, "Short Name", TableCallback_PoolShortName, qtrue, 64);
-			Table_DefineColumn(t, "Long Name", TableCallback_PoolLongName, qtrue, 64);
+			Table_DefineColumn(t, "Short Name", TableCallback_PoolShortName, NULL, qtrue, -1, 64);
+			Table_DefineColumn(t, "Long Name", TableCallback_PoolLongName, NULL, qtrue, -1, 64);
 
 			char buf[2048] = { 0 };
-			Table_WriteToBuffer(t, buf, sizeof(buf));
+			Table_WriteToBuffer(t, buf, sizeof(buf), qtrue, -1);
 			Q_strcat(buf, sizeof(buf), "\n");
 			Com_Printf(buf);
 		}
@@ -2767,6 +3025,14 @@ static int AccountFlagName2Bitflag(const char* flagName) {
 		return ACCOUNTFLAG_AIMPACKADMIN;
 	} else if (!Q_stricmp(flagName, "VoteTroll")) {
 		return ACCOUNTFLAG_VOTETROLL;
+	} else if (!Q_stricmp(flagName, "RatePlayers")) {
+		return ACCOUNTFLAG_RATEPLAYERS;
+	} else if (!Q_stricmp(flagName, "InstapauseBlacklist")) {
+		return ACCOUNTFLAG_INSTAPAUSE_BLACKLIST;
+	} else if (!Q_stricmp(flagName, "PermaBarred")) {
+		return ACCOUNTFLAG_PERMABARRED;
+	} else if (!Q_stricmp(flagName, "HardPermaBarred")) {
+		return ACCOUNTFLAG_HARDPERMABARRED;
 	}
 
 	return 0;
@@ -2782,6 +3048,9 @@ const char* AccountBitflag2FlagName(int bitflag) {
 		case ACCOUNTFLAG_AIMPACKEDITOR: return "AimPackEditor";
 		case ACCOUNTFLAG_AIMPACKADMIN: return "AimPackAdmin";
 		case ACCOUNTFLAG_VOTETROLL: return "VoteTroll";
+		case ACCOUNTFLAG_INSTAPAUSE_BLACKLIST: return "InstapauseBlacklist";
+		case ACCOUNTFLAG_PERMABARRED: return "PermaBarred";
+		case ACCOUNTFLAG_HARDPERMABARRED: return "HardPermaBarred";
 		default: return NULL;
 	}
 }
@@ -2796,7 +3065,7 @@ void Svcmd_Account_f( void ) {
 		if ( !Q_stricmp( s, "create" ) ) {
 
 			if ( trap_Argc() < 3 ) {
-				G_Printf( "Usage: "S_COLOR_YELLOW"account create <username>\n" );
+				G_Printf( "Usage:^3 account create <username>^7\n" );
 				return;
 			}
 
@@ -2842,7 +3111,7 @@ void Svcmd_Account_f( void ) {
 		} else if ( !Q_stricmp( s, "delete" ) ) {
 
 			if ( trap_Argc() < 3 ) {
-				G_Printf( "Usage: "S_COLOR_YELLOW"account delete <username>\n" );
+				G_Printf( "Usage:^3 account delete <username>^7\n" );
 				return;
 			}
 
@@ -2858,6 +3127,7 @@ void Svcmd_Account_f( void ) {
 
 			if ( G_DeleteAccount( acc.ptr ) ) {
 				G_Printf( "Deleted account '%s' successfully\n", acc.ptr->name );
+				trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
 			} else {
 				G_Printf( "Failed to delete account!\n" );
 			}
@@ -2865,7 +3135,7 @@ void Svcmd_Account_f( void ) {
 		} else if ( !Q_stricmp( s, "info" ) ) {
 
 			if ( trap_Argc() < 3 ) {
-				G_Printf( "Usage: "S_COLOR_YELLOW"account info <username> [page]\n" );
+				G_Printf( "Usage:^3 account info <username> [page]^7\n" );
 				return;
 			}
 
@@ -2912,16 +3182,16 @@ void Svcmd_Account_f( void ) {
 			}
 
 			G_Printf(
-				S_COLOR_YELLOW"Account Name: "S_COLOR_WHITE"%s\n"
-				S_COLOR_YELLOW"Account ID: "S_COLOR_WHITE"%d\n"
-				S_COLOR_YELLOW"Created on: "S_COLOR_WHITE"%s\n"
-				S_COLOR_YELLOW"Group: "S_COLOR_WHITE"%s\n"
-				S_COLOR_YELLOW"Flags: "S_COLOR_WHITE"%s\n"
+				"^3Account Name:^7 %s\n"
+				"^3Account ID:^7 %d\n"
+				"^3Created on:^7 %s\n"
+				"%s"
+				"^3Flags:^7 %s\n"
 				"\n",
 				acc.ptr->name,
 				acc.ptr->id,
 				timestamp,
-				acc.ptr->group,
+				acc.ptr->autoLink.sex[0] ? va("^3Autolink:^7 %s%s^7\n", acc.ptr->autoLink.sex, acc.ptr->autoLink.country[0] ? va(", %s", acc.ptr->autoLink.country) : "") : "",
 				flagsStr
 			);
 
@@ -2948,8 +3218,8 @@ void Svcmd_Account_f( void ) {
 		} else if ( !Q_stricmp( s, "toggleflag" ) ) {
 
 			if ( trap_Argc() < 4 ) {
-				G_Printf( "Usage: "S_COLOR_YELLOW"account toggleflag <username> <flag>\n" );
-				G_Printf( "Available flags: Admin, VerboseRcon, AimPackEditor, AimPackAdmin, VoteTroll\n" );
+				G_Printf( "Usage:^3 account toggleflag <username> <flag>^7\n" );
+				G_Printf( "Available flags: Admin, VerboseRcon, AimPackEditor, AimPackAdmin, VoteTroll, InstapauseBlacklist\n" );
 				return;
 			}
 
@@ -2977,6 +3247,12 @@ void Svcmd_Account_f( void ) {
 				// we are enabling the flag
 				if ( G_SetAccountFlags( acc.ptr, flag, qtrue ) ) {
 					G_Printf( "Flag '%s' enabled for account '%s' (id: %d)\n", flagName, acc.ptr->name, acc.ptr->id );
+					if (flag == ACCOUNTFLAG_PERMABARRED || flag == ACCOUNTFLAG_HARDPERMABARRED) { // refresh userinfo of anyone connected on this account
+						for (int i = 0; i < MAX_CLIENTS; i++) {
+							if (g_entities[i].inuse && g_entities[i].client && g_entities[i].client->pers.connected == CON_CONNECTED && g_entities[i].client->account && g_entities[i].client->account->id == acc.ptr->id)
+								ClientUserinfoChanged(i);
+						}
+					}
 				} else {
 					G_Printf( "Failed to enable flag '%s' for account '%s' (id: %d)\n", flagName, acc.ptr->name, acc.ptr->id );
 				}
@@ -2984,13 +3260,71 @@ void Svcmd_Account_f( void ) {
 				// we are disabling the flag
 				if ( G_SetAccountFlags( acc.ptr, flag, qfalse ) ) {
 					G_Printf( "Flag '%s' disabled for account '%s' (id: %d)\n", flagName, acc.ptr->name, acc.ptr->id );
+					if (flag == ACCOUNTFLAG_PERMABARRED || flag == ACCOUNTFLAG_HARDPERMABARRED) { // refresh userinfo of anyone connected on this account
+						for (int i = 0; i < MAX_CLIENTS; i++) {
+							if (g_entities[i].inuse && g_entities[i].client && g_entities[i].client->pers.connected == CON_CONNECTED && g_entities[i].client->account && g_entities[i].client->account->id == acc.ptr->id)
+								ClientUserinfoChanged(i);
+						}
+					}
 				} else {
 					G_Printf( "Failed to disable flag '%s' for account '%s' (id: %d)\n", flagName, acc.ptr->name, acc.ptr->id );
 				}
 			}
 
-		} else if ( !Q_stricmp( s, "help" ) ) {
-			printHelp = qtrue;
+		} else if ( !Q_stricmp( s, "autolink" ) ) {
+			if (trap_Argc() < 4) {
+				G_Printf("Usage:^3 account autolink <username> <sex> [country]^7\n");
+				return;
+			}
+			char username[MAX_ACCOUNTNAME_LEN];
+			trap_Argv(2, username, sizeof(username));
+
+			accountReference_t acc = G_GetAccountByName(username, qfalse);
+
+			if (!acc.ptr) {
+				G_Printf("Account '%s' does not exist\n", username);
+				return;
+			}
+
+			char sex[32] = { 0 };
+			trap_Argv(3, sex, sizeof(sex));
+			if (!sex[0]) {
+				G_Printf("Usage:^3 account autolink <username> <sex> [country]^7\n");
+				return;
+			}
+
+			Q_strncpyz(acc.ptr->autoLink.sex, sex, sizeof(acc.ptr->autoLink.sex));
+
+			if (trap_Argc() >= 5) {
+				char *country = ConcatArgs(4);
+				if (VALIDSTRING(country))
+					Q_strncpyz(acc.ptr->autoLink.country, country, sizeof(acc.ptr->autoLink.country));
+			}
+
+			G_DBSetAccountProperties(acc.ptr);
+			G_DBCacheAutoLinks();
+			G_Printf("Created autolink for %s with sex %s%s\n", acc.ptr->name, acc.ptr->autoLink.sex, acc.ptr->autoLink.country[0] ? va(" and country %s", acc.ptr->autoLink.country) : "");
+		} else if (!Q_stricmp(s, "unautolink")) {
+			if (trap_Argc() < 3) {
+				G_Printf("Usage:^3 account autolink <username>^7\n");
+				return;
+			}
+			char username[MAX_ACCOUNTNAME_LEN];
+			trap_Argv(2, username, sizeof(username));
+
+			accountReference_t acc = G_GetAccountByName(username, qfalse);
+
+			if (!acc.ptr) {
+				G_Printf("Account '%s' does not exist\n", username);
+				return;
+			}
+
+			memset(&acc.ptr->autoLink, 0, sizeof(acc.ptr->autoLink));
+			G_DBSetAccountProperties(acc.ptr);
+			G_DBCacheAutoLinks();
+			G_Printf("Removed autolink for account '%s'\n", username);
+		} else if (!Q_stricmp(s, "help")) {
+		printHelp = qtrue;
 		} else {
 			G_Printf( "Invalid subcommand.\n" );
 			printHelp = qtrue;
@@ -3007,6 +3341,8 @@ void Svcmd_Account_f( void ) {
 			S_COLOR_YELLOW"account list [page]"S_COLOR_WHITE": Prints a list of created accounts\n"
 			S_COLOR_YELLOW"account info <username> [page]"S_COLOR_WHITE": Prints various information for the given account name\n"
 			S_COLOR_YELLOW"account toggleflag <username> <flag>"S_COLOR_WHITE": Toggles an account flag for the given account name\n"
+			S_COLOR_YELLOW"account autolink <username> <sex> [country]"S_COLOR_WHITE": Sets up autolinking for the given account name\n"
+			S_COLOR_YELLOW"account unautolink <username>"S_COLOR_WHITE": Disables autolinking for the given account name\n"
 			S_COLOR_YELLOW"account help"S_COLOR_WHITE": Prints this message\n"
 		);
 	}
@@ -3221,6 +3557,7 @@ void Svcmd_Session_f( void ) {
 
 			if ( G_LinkAccountToSession( sess.ptr, acc.ptr ) ) {
 				G_Printf( "Session successfully linked to account '%s' (id: %d)\n", acc.ptr->name, acc.ptr->id );
+				trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
 			} else {
 				G_Printf( "Failed to link session to this account!\n" );
 			}
@@ -3264,6 +3601,7 @@ void Svcmd_Session_f( void ) {
 
 			if ( G_LinkAccountToSession( client->session, acc.ptr ) ) {
 				G_Printf( "Client session successfully linked to account '%s' (id: %d)\n", acc.ptr->name, acc.ptr->id );
+				trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
 			} else {
 				G_Printf( "Failed to link client session to this account!\n" );
 			}
@@ -3302,6 +3640,7 @@ void Svcmd_Session_f( void ) {
 
 			if ( G_UnlinkAccountFromSession( sess.ptr ) ) {
 				G_Printf( "Session successfully unlinked from account '%s' (id: %d)\n", acc.ptr->name, acc.ptr->id );
+				trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
 			} else {
 				G_Printf( "Failed to unlink session from this account!\n" );
 			}
@@ -3340,6 +3679,7 @@ void Svcmd_Session_f( void ) {
 
 			if ( G_UnlinkAccountFromSession( client->session ) ) {
 				G_Printf( "Client session successfully unlinked from account '%s' (id: %d)\n", acc.ptr->name, acc.ptr->id );
+				trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
 			} else {
 				G_Printf( "Failed to unlink Client session from this account!\n" );
 			}
@@ -3416,6 +3756,46 @@ static void Svcmd_AutoRestartCancel_f(void) {
 
 	Com_Printf("Auto start cancelled.\n");
 	level.autoStartPending = qfalse;
+}
+
+static void Svcmd_CtfStats_f(void) {
+	char buf[16384] = { 0 };
+	if (trap_Argc() < 2) { // display all types if none is specified, i guess
+		Stats_Print(NULL, "general", buf, sizeof(buf), qfalse, NULL);
+		if (buf[0]) { Com_Printf(buf); buf[0] = '\0'; }
+	}
+	else if (trap_Argc() == 2) {
+		char subcmd[MAX_STRING_CHARS] = { 0 };
+		trap_Argv(1, subcmd, sizeof(subcmd));
+		Stats_Print(NULL, subcmd, buf, sizeof(buf), qfalse, NULL);
+		if (buf[0]) { Com_Printf(buf); }
+	}
+	else {
+		char subcmd[MAX_STRING_CHARS] = { 0 };
+		trap_Argv(1, subcmd, sizeof(subcmd));
+
+		if (!Q_stricmp(subcmd, "weapon")) {
+			char weaponPlayerArg[MAX_STRING_CHARS] = { 0 };
+			trap_Argv(2, weaponPlayerArg, sizeof(weaponPlayerArg));
+			if (weaponPlayerArg[0]) {
+				stats_t *found = GetStatsFromString(weaponPlayerArg);
+				if (!found) {
+					Com_Printf("Client %s^7 not found or ambiguous. Use client number or be more specific.\n", weaponPlayerArg);
+					return;
+				}
+				Stats_Print(NULL, subcmd, buf, sizeof(buf), qfalse, found);
+				if (buf[0]) { Com_Printf(buf); }
+			}
+			else {
+				Stats_Print(NULL, subcmd, buf, sizeof(buf), qfalse, NULL);
+				if (buf[0]) { Com_Printf(buf); }
+			}
+		}
+		else {
+			Stats_Print(NULL, subcmd, buf, sizeof(buf), qfalse, NULL);
+			if (buf[0]) { Com_Printf(buf); }
+		}
+	}
 }
 
 #ifdef _DEBUG
@@ -3740,6 +4120,26 @@ qboolean	ConsoleCommand( void ) {
 		return qtrue;
 	}
 
+	if (!Q_stricmp(cmd, "listmaps") || !Q_stricmp(cmd, "listmap") || !Q_stricmp(cmd, "maplist") || !Q_stricmp(cmd, "mapslist")) {
+		Svcmd_ListMaps_f();
+		return qtrue;
+	}
+
+	if (!Q_stricmp(cmd, "mapalias") || !Q_stricmp(cmd, "mapaliases")) {
+		Svcmd_MapAlias_f();
+		return qtrue;
+	}
+
+	if (!Q_stricmp(cmd, "pug")) {
+		Svcmd_Pug_f();
+		return qtrue;
+	}
+
+	if (!Q_stricmp(cmd, "fixswap")) {
+		Svcmd_FixSwap_f();
+		return qtrue;
+	}
+
     if (!Q_stricmp(cmd, "specall")) {
         Svcmd_SpecAll_f();
         return qtrue;
@@ -3787,6 +4187,11 @@ qboolean	ConsoleCommand( void ) {
 
 	if (!Q_stricmp(cmd, "auto_restart_cancel")) {
 		Svcmd_AutoRestartCancel_f();
+		return qtrue;
+	}
+
+	if (!Q_stricmp(cmd, "ctfstats") || !Q_stricmp(cmd, "stats")) {
+		Svcmd_CtfStats_f();
 		return qtrue;
 	}
 
@@ -3842,7 +4247,7 @@ void G_LogRconCommand(const char* ipFrom, const char* command) {
 			continue;
 
 		// use out of band print so it doesn't get in demos
-		trap_OutOfBandPrint(i, va("print\n"S_COLOR_GREEN"[Admin] "S_COLOR_WHITE"Rcon from "S_COLOR_GREEN"%s"S_COLOR_WHITE": /rcon %s\n", displayStr, command));
+		OutOfBandPrint(i, S_COLOR_GREEN"[Admin] "S_COLOR_WHITE"Rcon from "S_COLOR_GREEN"%s"S_COLOR_WHITE": /rcon %s\n", displayStr, command);
 	}
 
 	// also log it to disk if needed
@@ -3963,20 +4368,20 @@ void G_Status(void) {
 		Table_DefineRow(t, &level.clients[i]);
 	}
 
-	Table_DefineColumn(t, "#", TableCallback_ClientNum, qfalse, 2);
-	Table_DefineColumn(t, "Name", TableCallback_Name, qtrue, MAX_NAME_DISPLAYLENGTH);
-	Table_DefineColumn(t, "A", TableCallback_Account, qtrue, 4);
-	Table_DefineColumn(t, "Alias", TableCallback_Alias, qtrue, MAX_NAME_DISPLAYLENGTH);
-	Table_DefineColumn(t, "Country", TableCallback_Country, qtrue, 64);
-	Table_DefineColumn(t, "IP", TableCallback_IP, qtrue, 21);
-	Table_DefineColumn(t, "Qport", TableCallback_Qport, qfalse, 5);
-	Table_DefineColumn(t, "Mod", TableCallback_Mod, qtrue, 64);
-	Table_DefineColumn(t, "Ping", TableCallback_Ping, qfalse, 4);
-	Table_DefineColumn(t, "Score", TableCallback_Score, qfalse, 5);
-	Table_DefineColumn(t, "Shadowmuted", TableCallback_Shadowmuted, qtrue, 64);
+	Table_DefineColumn(t, "#", TableCallback_ClientNum, NULL, qfalse, -1, 2);
+	Table_DefineColumn(t, "Name", TableCallback_Name, NULL, qtrue, -1, MAX_NAME_DISPLAYLENGTH);
+	Table_DefineColumn(t, "A", TableCallback_Account, NULL, qtrue, -1, 4);
+	Table_DefineColumn(t, "Alias", TableCallback_Alias, NULL, qtrue, -1, MAX_NAME_DISPLAYLENGTH);
+	Table_DefineColumn(t, "Country", TableCallback_Country, NULL, qtrue, -1, 64);
+	Table_DefineColumn(t, "IP", TableCallback_IP, NULL, qtrue, -1, 21);
+	Table_DefineColumn(t, "Qport", TableCallback_Qport, NULL, qfalse, -1, 5);
+	Table_DefineColumn(t, "Mod", TableCallback_Mod, NULL, qtrue, -1, 64);
+	Table_DefineColumn(t, "Ping", TableCallback_Ping, NULL, qfalse, -1, 4);
+	Table_DefineColumn(t, "Score", TableCallback_Score, NULL, qfalse, -1, 5);
+	Table_DefineColumn(t, "Shadowmuted", TableCallback_Shadowmuted, NULL, qtrue, -1, 64);
 
 	char buf[4096] = { 0 };
-	Table_WriteToBuffer(t, buf, sizeof(buf));
+	Table_WriteToBuffer(t, buf, sizeof(buf), qtrue, -1);
 	Table_Destroy(t);
 
 	Q_strcat(buf, sizeof(buf), "^7\n");

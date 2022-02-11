@@ -1273,6 +1273,7 @@ gentity_t *NPC_Spawn_Do( gentity_t *client_ent, gentity_t *ent )
 	}
 	
 	memset ( newent->client, 0, sizeof(*newent->client) );
+	newent->client->stats = &level.npcStatsDummy;
 
 	//Assign the pointer for bg entity access
 	newent->playerState = &newent->client->ps;

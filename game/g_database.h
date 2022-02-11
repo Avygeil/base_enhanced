@@ -4,8 +4,8 @@
 #include "g_local.h"
 
 #define DB_FILENAME				"enhanced.db"
-#define DB_SCHEMA_VERSION		7
-#define DB_SCHEMA_VERSION_STR	"7"
+#define DB_SCHEMA_VERSION		17
+#define DB_SCHEMA_VERSION_STR	"17"
 #define DB_OPTIMIZE_INTERVAL	( 60*60*3 ) // every 3 hours
 #define DB_VACUUM_INTERVAL		( 60*60*24*7 ) // every week
 
@@ -15,7 +15,7 @@ typedef struct pagination_s {
 	int numPage;
 } pagination_t;
 
-void G_DBLoadDatabase( void );
+void G_DBLoadDatabase( void *serverDbPtr );
 void G_DBUnloadDatabase( void );
 
 qboolean G_DBUpgradeDatabaseSchema( int versionFrom, void* db );
@@ -69,6 +69,9 @@ void G_DBListSessionsForInfo( const char* key,
 
 void G_DBSetAccountFlags( account_t* account,
 	const int flags );
+
+void G_DBSetAccountProperties(account_t *account);
+void G_DBCacheAutoLinks(void);
 
 int G_DBGetAccountPlaytime( account_t* account );
 
@@ -285,6 +288,7 @@ qboolean G_DBPrintPlayerUnratedList(int accountId, int printClientNum, const cha
 mapTier_t G_DBGetTierOfSingleMap(const char *optionalAccountIdsStr, const char *mapFileName, qboolean requireMultipleVotes);
 int GetAccountIdsStringOfIngamePlayers(char *outBuf, size_t outBufSize);
 qboolean G_DBAddCurrentMapToPlayedMapsList(void);
+int G_DBNumTimesPlayedSingleMap(const char *mapFileName);
 
 // =========== TOPAIMS ========================================================
 
@@ -358,5 +362,60 @@ qboolean G_DBTopAimSavePack(aimPracticePack_t *pack);
 list_t *G_DBTopAimLoadPacks(const char *mapname);
 list_t *G_DBTopAimQuickLoadPacks(const char *mapname);
 qboolean G_DBTopAimDeletePack(aimPracticePack_t *pack);
+
+typedef struct {
+	node_t						node;
+	int							accountId;
+	ctfPosition_t				pos;
+	char						*strPtr;
+} cachedPlayerPugStats_t;
+
+typedef struct {
+	node_t						node;
+	int							accountId;
+	ctfPosition_t				pos;
+	char						*strPtr;
+} cachedPerMapWinrate_t;
+
+qboolean G_DBWritePugStats(void);
+qboolean G_DBPrintPositionStatsForPlayer(int accountId, ctfPosition_t pos, int printClientNum, const char *name);
+void G_DBPrintTopPlayersForPosition(ctfPosition_t pos, int printClientNum);
+void G_DBPrintPlayersWithStats(int printClientNum);
+void G_DBPrintPerMapWinrates(int accountId, ctfPosition_t positionOptional, int printClientNum);
+void G_DBPrintWinrates(int accountId, ctfPosition_t positionOptional, int printClientNum);
+void G_DBInitializePugStatsCache(void);
+typedef enum {
+	TEAMGENERATORTYPE_FIRST = 0,
+	TEAMGENERATORTYPE_MOSTPLAYED = TEAMGENERATORTYPE_FIRST,
+	TEAMGENERATORTYPE_HIGHESTRATING,
+	TEAMGENERATORTYPE_FAIREST,
+	TEAMGENERATORTYPE_DESIREDPOS,
+	NUM_TEAMGENERATORTYPES
+} teamGeneratorType_t;
+void G_DBListRatingPlayers(int raterAccountId, int raterClientNum, ctfPosition_t pos);
+qboolean G_DBRemovePlayerRating(int raterAccountId, int rateeAccountId, ctfPosition_t pos);
+qboolean G_DBDeleteAllRatingsForPosition(int raterAccountId, ctfPosition_t pos);
+qboolean G_DBSetPlayerRating(int raterAccountId, int rateeAccountId, ctfPosition_t pos, ctfPlayerTier_t tier);
+void G_DBGetPlayerRatings(void);
+
+void G_DBFixSwap_List(void);
+qboolean G_DBFixSwap_Fix(int recordId, int newPos);
+
+typedef struct {
+	node_t		node;
+	char		filename[MAX_QPATH];
+	char		alias[MAX_QPATH];
+	char		live[8];
+} mapAlias_t;
+
+const char *GenericTableStringCallback(void *rowContext, void *columnContext);
+
+void G_DBListMapAliases(void);
+qboolean G_DBSetMapAlias(const char *filename, const char *alias, qboolean setLive);
+qboolean G_DBClearMapAlias(const char *filename);
+qboolean G_DBSetMapAliasLive(const char *filename, char *aliasOut, size_t aliasOutSize);
+qboolean G_DBGetLiveMapFilenameForAlias(const char *alias, char *result, size_t resultSize);
+qboolean G_DBGetAliasForMapName(const char *filename, char *result, size_t resultSize, qboolean *isliveOut);
+qboolean G_DBGetLiveMapNameForMapName(const char *filename, char *result, size_t resultSize);
 
 #endif //G_DATABASE_H

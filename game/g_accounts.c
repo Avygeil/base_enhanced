@@ -192,6 +192,7 @@ static ID_INLINE int GetLowestSetBitIndex( int n ) {
 void G_InitClientSession( gclient_t *client ) {
 	session_t* newSessionPtr = NULL;
 	client->session = NULL;
+	client->stats = NULL;
 
 	// immediately get the cached session if possible
 	if ( IN_CLIENTNUM_RANGE( client->sess.sessionCacheNum ) ) {
@@ -199,6 +200,7 @@ void G_InitClientSession( gclient_t *client ) {
 
 		if ( newSessionPtr->id ) {
 			client->session = newSessionPtr;
+			InitClientStats(client);
 #ifdef _DEBUG
 			G_LogPrintf( "Reusing cached session for client %d (cache num: %d, sess id: %d)\n", client - level.clients, client->sess.sessionCacheNum, newSessionPtr->id );
 #endif
@@ -241,6 +243,7 @@ void G_InitClientSession( gclient_t *client ) {
 #endif
 				client->session = level.clients[i].session;
 				client->sess.sessionCacheNum = level.clients[i].sess.sessionCacheNum;
+				InitClientStats(client);
 				return;
 			}
 		}
@@ -283,6 +286,7 @@ void G_InitClientSession( gclient_t *client ) {
 
 	client->session = newSessionPtr;
 	client->sess.sessionCacheNum = lowestSlotAvailable;
+	InitClientStats(client);
 }
 
 void G_InitClientAccount( gclient_t* client ) {
@@ -305,6 +309,10 @@ void G_InitClientAccount( gclient_t* client ) {
 
 		if ( newAccountPtr->id ) {
 			client->account = newAccountPtr;
+			if (client->stats) {
+				client->stats->accountId = client->account->id;
+				Q_strncpyz(client->stats->accountName, client->account->name, sizeof(client->stats->accountName));
+			}
 #ifdef _DEBUG
 			G_LogPrintf( "Reusing cached account for client %d (cache num: %d, acc id: %d)\n", client - level.clients, client->sess.accountCacheNum, newAccountPtr->id );
 #endif
@@ -340,6 +348,10 @@ void G_InitClientAccount( gclient_t* client ) {
 #endif
 				client->account = level.clients[i].account;
 				client->sess.accountCacheNum = level.clients[i].sess.accountCacheNum;
+				if (client->stats) {
+					client->stats->accountId = client->account->id;
+					Q_strncpyz(client->stats->accountName, client->account->name, sizeof(client->stats->accountName));
+				}
 				return;
 			}
 		}
@@ -368,6 +380,10 @@ void G_InitClientAccount( gclient_t* client ) {
 
 	client->account = newAccountPtr;
 	client->sess.accountCacheNum = lowestSlotAvailable;
+	if (client->stats) {
+		client->stats->accountId = client->account->id;
+		Q_strncpyz(client->stats->accountName, client->account->name, sizeof(client->stats->accountName));
+	}
 }
 
 // returns qtrue on creation success, qfalse on failure or if it already exists

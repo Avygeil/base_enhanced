@@ -2786,7 +2786,7 @@ char *stristr(const char *str1, const char *str2) {
 // TODO: support chunked messages prepended with asterisk
 void PrintIngame(int clientNum, const char *msg, ...) {
 	va_list		argptr;
-	char		text[8192] = { 0 };
+	char		text[16384] = { 0 };
 
 	va_start(argptr, msg);
 	vsnprintf(text, sizeof(text), msg, argptr);
@@ -2805,24 +2805,107 @@ void PrintIngame(int clientNum, const char *msg, ...) {
 	int remaining = len;
 	char *chunkStart = text;
 
+	int iterationIndex = 0;
+	char endColor = '\0';
 	while (remaining > 0) {
 		char buf[MAX_STRING_CHARS];
 		memset(&buf, 0, sizeof(buf));
 		Q_strcat(buf, sizeof(buf), "print \"");
 
-		qboolean endsInColor = qfalse;
-		if (strlen(chunkStart) > CHUNK_SIZE) {
-			char *lastDigit = chunkStart + CHUNK_SIZE - 1;
-			if (Q_IsColorString(lastDigit))
-				endsInColor = qtrue;
+		// prepend with the color we ended the last chunk in, if applicable
+		qboolean prependedColor = qfalse;
+		if (iterationIndex > 0 && endColor >= '0' && endColor <= '9') {
+			Q_strcat(buf, sizeof(buf), va("^%c", endColor));
+			prependedColor = qtrue;
 		}
 
-		strncpy(buf + 7, chunkStart, CHUNK_SIZE + (endsInColor ? -1 : 0));
+		qboolean shrink = qfalse;
+		if (strlen(chunkStart) > CHUNK_SIZE) {
+			// scan through the string to see which color we end in
+			for (char *p = chunkStart; *p && p < chunkStart + CHUNK_SIZE - 1; p++) {
+				if (Q_IsColorString(p))
+					endColor = *(p + 1);
+			}
+
+			// check for edge case where a color string would be split by chunking
+			// i.e. ^ would be the last digit of one chunk and a number would begin the next chunk
+			// in this case, shrink the current chunk by one digit
+			const char *lastDigit = chunkStart + CHUNK_SIZE - 1;
+			if (Q_IsColorString(lastDigit)) {
+				shrink = qtrue;
+			}
+		}
+
+		strncpy(buf + 7 + (prependedColor ? 2 : 0), chunkStart, CHUNK_SIZE + (shrink ? -1 : 0));
 		Q_strcat(buf, sizeof(buf), "\"");
 		trap_SendServerCommand(clientNum, buf);
-		remaining -= CHUNK_SIZE + (endsInColor ? -1 : 0);
+		remaining -= CHUNK_SIZE + (shrink ? -1 : 0);
 		if (remaining > 0)
-			chunkStart += CHUNK_SIZE + (endsInColor ? -1 : 0);
+			chunkStart += CHUNK_SIZE + (shrink ? -1 : 0);
+
+		++iterationIndex;
+	}
+}
+
+// prepends the necessary "print\n" and chunks long messages (similar to PrintIngame)
+void OutOfBandPrint(int clientNum, const char *msg, ...) {
+	va_list		argptr;
+	char		text[16384] = { 0 };
+
+	va_start(argptr, msg);
+	vsnprintf(text, sizeof(text), msg, argptr);
+	va_end(argptr);
+
+	int len = strlen(text);
+#define CHUNK_SIZE	(1000)
+	if (len < CHUNK_SIZE) {
+		char buf[MAX_STRING_CHARS] = "print\n";
+		Q_strcat(buf, sizeof(buf), text);
+		trap_OutOfBandPrint(clientNum, buf);
+		return;
+	}
+
+	int remaining = len;
+	char *chunkStart = text;
+
+	int iterationIndex = 0;
+	char endColor = '\0';
+	while (remaining > 0) {
+		char buf[MAX_STRING_CHARS];
+		memset(&buf, 0, sizeof(buf));
+		Q_strcat(buf, sizeof(buf), "print\n");
+
+		// prepend with the color we ended the last chunk in, if applicable
+		qboolean prependedColor = qfalse;
+		if (iterationIndex > 0 && endColor >= '0' && endColor <= '9') {
+			Q_strcat(buf, sizeof(buf), va("^%c", endColor));
+			prependedColor = qtrue;
+		}
+
+		qboolean shrink = qfalse;
+		if (strlen(chunkStart) > CHUNK_SIZE) {
+			// scan through the string to see which color we end in
+			for (char *p = chunkStart; *p && p < chunkStart + CHUNK_SIZE - 1; p++) {
+				if (Q_IsColorString(p))
+					endColor = *(p + 1);
+			}
+
+			// check for edge case where a color string would be split by chunking
+			// i.e. ^ would be the last digit of one chunk and a number would begin the next chunk
+			// in this case, shrink the current chunk by one digit
+			const char *lastDigit = chunkStart + CHUNK_SIZE - 1;
+			if (Q_IsColorString(lastDigit)) {
+				shrink = qtrue;
+			}
+		}
+
+		strncpy(buf + 6 + (prependedColor ? 2 : 0), chunkStart, CHUNK_SIZE + (shrink ? -1 : 0));
+		trap_OutOfBandPrint(clientNum, buf);
+		remaining -= CHUNK_SIZE + (shrink ? -1 : 0);
+		if (remaining > 0)
+			chunkStart += CHUNK_SIZE + (shrink ? -1 : 0);
+
+		++iterationIndex;
 	}
 }
 
@@ -2873,6 +2956,11 @@ const char *Cvar_VariableString(const char *var_name) {
 
 	trap_Cvar_VariableStringBuffer(var_name, buf[bufferNum], sizeof(buf[bufferNum]));
 	return buf[bufferNum];
+}
+
+
+qboolean HasFlag(gentity_t *ent) {
+	return !!(ent && ent->client && (ent->client->ps.powerups[PW_REDFLAG] || ent->client->ps.powerups[PW_BLUEFLAG] || ent->client->ps.powerups[PW_NEUTRALFLAG]));
 }
 
 void PlayAimPracticeBotPainSound(gentity_t *npc, gentity_t *player) {
@@ -2948,4 +3036,230 @@ void PrintBasedOnAccountFlags(int flags, const char *msg) {
 		else
 			PrintIngame(i, msg);
 	}
+}
+
+void FisherYatesShuffle(void *firstItem, size_t numItems, size_t itemSize) {
+	if (!firstItem || !numItems || !itemSize)
+		return;
+
+	for (unsigned int i = numItems - 1; i >= 1; i--) {
+		int j = rand() % (i + 1);
+
+		byte *iPtr = (byte *)(((unsigned int)firstItem) + (i * itemSize));
+		byte *jPtr = (byte *)(((unsigned int)firstItem) + (j * itemSize));
+
+		byte *temp = malloc(itemSize);
+		memcpy(temp, iPtr, itemSize);
+		memcpy(iPtr, jPtr, itemSize);
+		memcpy(jPtr, temp, itemSize);
+		free(temp);
+	}
+}
+
+void FormatNumberToStringWithCommas(uint64_t n, char *out, size_t outSize) {
+	char *buf = calloc(outSize, sizeof(char));
+	char *p;
+
+	sprintf(buf, "%llu", n);
+	int c = 2 - strlen(buf) % 3;
+	for (p = buf; *p != 0; p++) {
+		*out++ = *p;
+		if (c == 1)
+			*out++ = ',';
+		c = (c + 1) % 3;
+	}
+	*--out = 0;
+	free(buf);
+}
+
+#define IsX(s)									(s == 'x' || s == 'X' || s == '×')
+#define IsZ(s)									(s == 'z' || s == 'Z' || s == 'Ž' || s == 'ž')
+#define IsS(s)									(s == 's' || s == 'S' || s == '$' || s == '5' || s == 'Š' || s == 'š' || s == '§')
+#define IsP(s)									(s == 'p' || s == 'P' || s == '¶' || s == 'Þ' || s == 'þ')
+#define IsE(s)									(s == 'e' || s == 'E' || s == '3' || s == '€' || s == '£' || s == 'È' || s == 'É' || s == 'Ê' || s == 'Ë' || s == 'æ' || s == 'è' || s == 'é' || s == 'ê' || s == 'ë')
+#define IsC(s)									(s == 'c' || s == 'C' || s == '<' || s == 'Œ' || s == 'œ' || s == '¢' || s == '©' || s == 'Ç' || s == 'ç' || s == 'k')
+#define IsPunctuation(s)						(s < 48 || s > 57 && s < 65 || s > 90 && s < 97 || s > 122 && s < 138 || s > 138 && s < 154)
+
+// detect if a string is "spec" or any of a ton of variations on it
+static qboolean IsInvalidSpeWord(char *s) {
+	if (strlen(s) >= 4 && IsP(s[1]) && IsE(s[2])) { // spe, xpe
+		char *p = s + 3;
+		while (*p) {
+			if (IsE(*p)) { // speeeeeee
+				p++;
+				continue;
+			}
+			if (IsC(*p) || IsX(*p)) // spec, spex
+				break;
+			return qtrue; // spetznaz
+		}
+		p++;
+		if (!*p || IsPunctuation(*p) || !Q_stricmpn(p, "tat", 3) || !Q_stricmpn(p, "tador", 5)) // spec, spec ,spec), spec(, spec-, spec_, spectat
+			return qfalse;
+		if (IsC(*p) || IsX(*p)) { // specc...spexx
+			while (*p) {
+				if (IsC(*p) || IsX(*p)) { // spexxxxxx
+					p++;
+					continue;
+				}
+				if (!*p || IsPunctuation(*p)) // spexxx,spexxx ,spexxx), spexxx(, spexxx-, spexxx_
+					return qfalse;
+				return qtrue; // spexxxial jedi
+			}
+		}
+		if (!*p || IsPunctuation(*p)) // spexxx, spexxx ,spexxx) ,spexxx( ,spexxx-, spexxx_
+			return qfalse;
+		return qtrue; // special jedi
+	}
+	return qtrue; // dude
+}
+
+// count number of spec-ish words; if you have two of these then you are a spec
+static char *partialSpecWords[] = {
+	"spec", "spex", "spe×", "afk", "bbl", "cookin", "food", "eatin", "5min", "5 min", "1min", "1 min", "0min", "0 min", "1hr", "1 hr", "1hour", "1 hour", "minimized", "dinner",
+	"lunch", "breakfast", "snack", "forawhile", "for a while", "forabit", "for a bit", "foranhour", "for an hour", "foramin", "for a min", "supper", "later", "minutes", "hours",
+	"back in", "working", "studying", NULL
+};
+
+static int CountPartialSpecWords(char *s) {
+	static int numSpecWords;
+	numSpecWords = 0;
+	int i = 0;
+	char *p = partialSpecWords[i];
+	while (p) {
+		if (stristr(s, p))
+			numSpecWords++;
+		i++;
+		p = partialSpecWords[i];
+	}
+	return numSpecWords;
+}
+
+
+// does the client have a word in his name that makes him definitely NOT a spec?
+static char *confirmedNotSpecWords[] = {
+	"unspec", "aspect", "pectoral", "expect", "respect", "inspect", "prospect", "retrospect", "suspect", "circumspect", "perspective",
+	"introspect", "spectrogram", "spectral", "species", "special", "spec fnneed", "not spec", "notspec",
+	"spec if not need", "spec if unneed", "spec unless need", NULL
+};
+
+static qboolean ContainsConfirmedNotSpecWord(char *s) {
+	int i = 0;
+	char *p = confirmedNotSpecWords[i];
+	while (p) {
+		if (stristr(s, p))
+			return qtrue;
+		i++;
+		p = confirmedNotSpecWords[i];
+	}
+	return qfalse;
+}
+
+// does the client have a word in his name that makes him definitely a spec?
+static char *confirmedSpecWords[] = {
+	"elo BOT", "speccin", "xpeccin", "×peccin", "zpeccin", "spectat", "xpectat", "×pectat", "zpectat", "@spec", "@xpec", "@×pec", "@zpec",
+	"@afk", "@bbl", "notpickabl", "not pickabl", "'tpickme", "nt pick me", "notplay", "not play", "notpug", "not pug", "@food", "@breakfast", "@lunch", "@dinner", "@supper", "@snack",
+	"@eating", "@nothere", "speconly", "spec only", "backlater", "back later", "playlater", "play later", "puglater", "pug later", "skillofspecoldwoman",
+	"obserwator", "rotatceps", "specman", "ragespec", "onlyspec", "speconly", "specafew", "specafk", "afkspec", "afkandspec", "specandafk", "speccy",
+	"specdonis", "speceating", "specdinner", "specdindin", "specgaycular", "speclord", "specleo", "specmode", "spec mode", "specpete", "specpolice",
+	"specrickses", "specspec", "skilloflonelyoldspec", "specalways", "spec always", "specone", "spec one", "touchpad",
+	NULL
+};
+
+static qboolean ContainsConfirmedSpecWord(char *s) {
+	int i = 0;
+	char *p = confirmedSpecWords[i];
+	while (p) {
+		if (stristr(s, p))
+			return qtrue;
+		i++;
+		p = confirmedSpecWords[i];
+	}
+	return qfalse;
+}
+
+qboolean IsSpecName(const char *name) {
+	if (!VALIDSTRING(name))
+		return qfalse;
+
+	char cleanname[64] = { 0 };
+	Q_strncpyz(cleanname, name, sizeof(cleanname));
+	Q_StripColor(cleanname);
+
+	if (!cleanname[0])
+		return qfalse;
+
+	if (stristr(cleanname, "aspectato") || stristr(cleanname, "expectato") || stristr(cleanname, "respectato")) // stupid edge case checks for aSpectatorForThisGame, etc
+		return qtrue;
+
+	if (ContainsConfirmedNotSpecWord(cleanname)) // aspect ratio, unspec, respect my authority
+		return qfalse;
+
+	if (ContainsConfirmedSpecWord(cleanname) || CountPartialSpecWords(cleanname) >= 2) // spectatoes, speccing this pug, dude@brb, bbl dinner
+		return qtrue;
+
+	char *p = NULL;
+	static char specWordFirstLetters[] = { 's', 'S', '$', '5', 'Š', 'š', '§', 'x', 'X', '×', 'z', 'Z', 'Ž', 'ž', '\0' };
+
+	// loop to check for all possible names like spec, $peeeeeX, etc
+	for (int i = 0; specWordFirstLetters[i]; i++) {
+		char *readFrom = cleanname;
+		p = strchr(readFrom, specWordFirstLetters[i]);
+		while (p) {
+			if (IsInvalidSpeWord(p)) {
+				if (*(readFrom + 1)) {
+					p = strchr(++readFrom, specWordFirstLetters[i]);
+					continue;
+				}
+				else {
+					goto outerLoopContinue; // lick my
+				}
+			}
+			else {
+				return qtrue;
+			}
+		}
+	outerLoopContinue:; // nuts
+	}
+
+	// check for dumb long words like "spee33eec"
+	if (strlen(cleanname) > 4) {
+		for (unsigned int i = 0; cleanname[i] && i < strlen(cleanname); i++) {
+			p = cleanname + i;
+			if (VALIDSTRING(p) && strlen(p) > 4 && !IsInvalidSpeWord(p))
+				return qtrue;
+		}
+	}
+
+	// special checks for afk and bbl
+	p = stristr(cleanname, "afk");
+	if (VALIDSTRING(p) && IsPunctuation(p[3]))
+		return qtrue;
+	p = stristr(cleanname, "bbl");
+	if (VALIDSTRING(p) && IsPunctuation(p[3]))
+		return qtrue;
+
+	return qfalse;
+}
+
+#define SVSAY_PREFIX "Server^7\x19: "
+#define SVTELL_PREFIX "\x19[Server^7\x19]\x19: "
+
+// game equivalent
+void SV_Tell(int clientNum, const char *text) {
+	if (clientNum < 0 || clientNum >= MAX_CLIENTS)
+		return;
+
+	gentity_t *ent = &g_entities[clientNum];
+	if (!ent->inuse || !ent->client)
+		return;
+
+	Com_Printf("tell: svtell to %s" S_COLOR_WHITE ": %s\n", ent->client->pers.netname, text);
+	trap_SendServerCommand(clientNum, va("chat \"" SVTELL_PREFIX S_COLOR_MAGENTA "%s" S_COLOR_WHITE "\"\n", text));
+}
+
+// game equivalent
+void SV_Say(const char *text) {
+	Com_Printf("broadcast: chat \"" SVSAY_PREFIX "%s\\n\"\n", text);
+	trap_SendServerCommand(-1, va("chat \"" SVSAY_PREFIX "%s\"\n", text));
 }

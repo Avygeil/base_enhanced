@@ -713,12 +713,12 @@ void CheckAlmostCapture( gentity_t *self, gentity_t *attacker ) {
 		if (ent && !(ent->r.svFlags & SVF_NOCLIENT) ) {
 			// if the player was *very* close
 			VectorSubtract( self->client->ps.origin, ent->s.origin, dir );
-			if ( VectorLength(dir) < 200 ) {
+			if ( VectorLength(dir) < CTF_SAVE_DISTANCE_THRESHOLD) {
 				//self->client->ps.persistant[PERS_PLAYEREVENTS] ^= PLAYEREVENT_HOLYSHIT;
 				if ( attacker->client && attacker != self ) { // we don't want this to trigger by our own sk's
 					self->client->ps.persistant[PERS_PLAYEREVENTS] ^= PLAYEREVENT_HOLYSHIT;
 					attacker->client->ps.persistant[PERS_PLAYEREVENTS] ^= PLAYEREVENT_HOLYSHIT;
-					++attacker->client->pers.teamState.saves;
+					++attacker->client->stats->saves;
 				}
 			}
 		}
@@ -2281,6 +2281,18 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 	self->client->ps.pm_type = PM_DEAD;
 	self->client->ps.pm_flags &= ~PMF_STUCK_TO_WALL;
 
+	if (self->client && self->client->stats && (!attacker || self == attacker))
+		++self->client->stats->selfkills;
+
+	if (meansOfDeath == MOD_CRUSH || meansOfDeath == MOD_FALLING || meansOfDeath == MOD_TRIGGER_HURT || meansOfDeath == MOD_UNKNOWN || meansOfDeath == MOD_SUICIDE) {
+		if (attacker && self != attacker && self->client && attacker->client && self->client->sess.sessionTeam == OtherTeam(attacker->client->sess.sessionTeam)) {
+			if (self->client->stats)
+				++self->client->stats->pitted;
+			if (attacker->client->stats)
+				++attacker->client->stats->pits;
+		}
+	}
+
 	if ( attacker ) {
 		killer = attacker->s.number;
 		if ( attacker->client ) {
@@ -2354,10 +2366,10 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 	if ((self->client->ps.powerups[PW_BLUEFLAG] || self->client->ps.powerups[PW_REDFLAG]) && !self->client->sess.inRacemode){
 		const int thisFlaghold = G_GetAccurateTimerOnTrigger( &self->client->pers.teamState.flagsince, self, NULL );
 
-		self->client->pers.teamState.flaghold += thisFlaghold;
+		self->client->stats->totalFlagHold += thisFlaghold;
 
-		if ( thisFlaghold > self->client->pers.teamState.longestFlaghold )
-			self->client->pers.teamState.longestFlaghold = thisFlaghold;
+		if ( thisFlaghold > self->client->stats->longestFlagHold )
+			self->client->stats->longestFlagHold = thisFlaghold;
 
 		if ( self->client->ps.powerups[PW_REDFLAG] ) {
 			// carried the red flag, so blue team
@@ -2507,6 +2519,13 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 
 	// Add team bonuses
 	Team_FragBonuses(self, inflictor, attacker);
+
+	// teamkills
+	if (g_gametype.integer == GT_CTF && attacker && attacker->client && self->client->sess.sessionTeam == attacker->client->sess.sessionTeam && attacker != self) {
+		attacker->client->stats->teamKills++;
+		if (HasFlag(self)) // killed a flag carrier; note this in case someone takes the flag afterward so we can refund the teamkill and possibly bump the killer's TAKE stat
+			attacker->client->pers.killedAlliedFlagCarrier = qtrue;
+	}
 
 	// if I committed suicide, the flag does not fall, it returns.
 	if (meansOfDeath == MOD_SUICIDE && !self->client->sess.inRacemode) { // for racemode clients, powerup reset will be done later
@@ -5135,7 +5154,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 						&& attacker->client->sess.sessionTeam != targ->client->sess.sessionTeam
 						&& mod > MOD_UNKNOWN && mod <= MOD_FORCE_DARK ) {
 						// TODO: do we want other kinds of damage?
-						targ->client->pers.protDmgAvoided += subamt;
+						targ->client->stats->protDamageAvoided += subamt;
 					}
 
 					take -= subamt;
@@ -5165,8 +5184,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 	}
 
 	//we count only from client to client damage
-	if (attacker && attacker->client && targ && targ->client
-		&& attacker->client->sess.sessionTeam != targ->client->sess.sessionTeam
+	if (attacker && attacker->client && targ && targ->client && targ->health > 0
 		&& mod > MOD_UNKNOWN && mod <= MOD_FORCE_DARK) {
 		// TODO: do we want other kinds of damage?
 
@@ -5176,8 +5194,50 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 		if (damageStatIncrease > targ->health + targ->client->ps.stats[STAT_ARMOR])
 			damageStatIncrease = targ->health + targ->client->ps.stats[STAT_ARMOR];
 
-		targ->client->pers.damageTaken += damageStatIncrease;
-		attacker->client->pers.damageCaused += damageStatIncrease;
+		if (attacker->client->sess.sessionTeam != targ->client->sess.sessionTeam) {
+			targ->client->stats->damageTakenTotal += damageStatIncrease;
+			attacker->client->stats->damageDealtTotal += damageStatIncrease;
+
+			if (targ->client->ps.powerups[PW_REDFLAG] || targ->client->ps.powerups[PW_BLUEFLAG] || targ->client->ps.powerups[PW_NEUTRALFLAG]) {
+				targ->client->stats->flagCarrierDamageTakenTotal += damageStatIncrease;
+				attacker->client->stats->flagCarrierDamageDealtTotal += damageStatIncrease;
+			}
+			else {
+				ctfRegion_t targRegion = GetCTFRegion(targ);
+				if (targRegion == CTFREGION_ENEMYBASE || targRegion == CTFREGION_ENEMYFLAGSTAND) {
+					targ->client->stats->clearDamageTakenTotal += damageStatIncrease;
+					attacker->client->stats->clearDamageDealtTotal += damageStatIncrease;
+				}
+				else {
+					targ->client->stats->otherDamageTakenTotal += damageStatIncrease;
+					attacker->client->stats->otherDamageDealtTotal += damageStatIncrease;
+				}
+			}
+		}
+
+		//targ->client->stats->damageTakenOfType[mod] += damageStatIncrease;
+		//attacker->client->stats->damageDealtOfType[mod] += damageStatIncrease;
+
+		if (targ - g_entities < MAX_CLIENTS && attacker - g_entities < MAX_CLIENTS && attacker->client->stats && targ->client->stats) {
+			meansOfDeathCategory_t modc = MeansOfDeathCategoryForMeansOfDeath(mod);
+
+			int *dmg = GetDamageGivenStat(attacker->client->stats, targ->client->stats);
+			if (dmg)
+				*dmg += damageStatIncrease;
+			dmg = GetDamageTakenStat(attacker->client->stats, targ->client->stats);
+			if (dmg)
+				*dmg += damageStatIncrease;
+
+			if (modc != MODC_INVALID) {
+				int *dmg = GetDamageGivenStatOfType(attacker->client->stats, targ->client->stats, modc);
+				if (dmg)
+					*dmg += damageStatIncrease;
+
+				dmg = GetDamageTakenStatOfType(attacker->client->stats, targ->client->stats, modc);
+				if (dmg)
+					*dmg += damageStatIncrease;
+			}
+		}
 	}
 
 	// do the damage

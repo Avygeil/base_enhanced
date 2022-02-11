@@ -57,7 +57,8 @@ FILES =     ai_main.o               ai_util.o               ai_wpnav.o          
             NPC_sounds.o            NPC_spawn.o             NPC_stats.o             NPC_utils.o             q_math.o                q_shared.o  \
             sha1.o                  SpeederNPC.o            tri_coll_test.o         WalkerNPC.o             w_force.o               w_saber.o  \
             jp_engine.o             jp_enginehelper.o       g_crash.o               sqlite3.o               g_database.o            g_database_upgrade.o \
-			cJSON.o                 g_accounts.o            g_transfers.o           xxhash.o				collections.o			g_table.o				g_aim.o
+			cJSON.o                 g_accounts.o            g_transfers.o           xxhash.o				collections.o			g_table.o				g_aim.o \
+			g_stats.o				g_teamgen.o				g_location.o
 			
 
 # "make"

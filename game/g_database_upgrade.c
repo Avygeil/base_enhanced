@@ -9,7 +9,7 @@ const char* const sqlAddSeedField =
 
 static qboolean UpgradeDBToVersion2(sqlite3* dbPtr) {
 	// add "seed" field to fastcaps for use with weekly challenges
-	return sqlite3_exec(dbPtr, sqlAddSeedField, NULL, NULL, NULL) == SQLITE_OK;
+	return trap_sqlite3_exec(dbPtr, sqlAddSeedField, NULL, NULL, NULL) == SQLITE_OK;
 }
 
 // ================ V3 UPGRADE =================================================
@@ -47,7 +47,7 @@ const char* const v3Upgrade =
 static qboolean UpgradeDBToVersion3(sqlite3* dbPtr) {
 	// rename sessions column identifier -> hash
 	// force lowercase for existing account names
-	return sqlite3_exec(dbPtr, v3Upgrade, NULL, NULL, NULL) == SQLITE_OK;
+	return trap_sqlite3_exec(dbPtr, v3Upgrade, NULL, NULL, NULL) == SQLITE_OK;
 }
 
 // ================ V4 UPGRADE =================================================
@@ -205,14 +205,14 @@ static void V4WriteUnassignedToCsv(void* ctx, const int sessionId, const char* t
 
 	char cuidString[64] = { 0 };
 	sqlite3_stmt* statement = NULL;
-	sqlite3_prepare(dbPtr, "SELECT COALESCE(json_extract(info, '$.cuid_hash2'), '') AS cuid FROM sessions WHERE session_id = ?1;", -1, &statement, 0);
+	trap_sqlite3_prepare_v2(dbPtr, "SELECT COALESCE(json_extract(info, '$.cuid_hash2'), '') AS cuid FROM sessions WHERE session_id = ?1;", -1, &statement, 0);
 	sqlite3_bind_int(statement, 1, sessionId);
-	int rc = sqlite3_step(statement);
+	int rc = trap_sqlite3_step(statement);
 	if (rc == SQLITE_ROW) {
 		const char* cuid = (const char*)sqlite3_column_text(statement, 0);
 		if (VALIDSTRING(cuid))
 			Q_strncpyz(cuidString, cuid, sizeof(cuidString));
-		sqlite3_step(statement);
+		trap_sqlite3_step(statement);
 	}
 
 	char* buf = va(
@@ -239,7 +239,7 @@ static void V4WriteUnassignedToCsv(void* ctx, const int sessionId, const char* t
 extern void NormalizeName(const char* in, char* out, int outSize, int colorlessSize);
 
 static qboolean UpgradeDBToVersion4(sqlite3* dbPtr) {
-	if (sqlite3_exec(dbPtr, v4NewTables, NULL, NULL, NULL) != SQLITE_OK)
+	if (trap_sqlite3_exec(dbPtr, v4NewTables, NULL, NULL, NULL) != SQLITE_OK)
 		return qfalse;
 
 	sqlite3_stmt* statement = NULL;
@@ -249,10 +249,10 @@ static qboolean UpgradeDBToVersion4(sqlite3* dbPtr) {
 
 	// merge nicknames
 	Com_Printf("Merging nicknames\n");
-	sqlite3_prepare(dbPtr, "SELECT * FROM nicknames;", -1, &statement, 0);
-	sqlite3_prepare(dbPtr, "INSERT OR IGNORE INTO nicknames_TMP(ip_int, name, duration, cuid_hash2) VALUES (?1, ?2, ?3, ?4);", -1, &statement2, 0);
-	sqlite3_prepare(dbPtr, "UPDATE nicknames_TMP SET duration=duration+?1 WHERE ip_int=?2 AND name=?3 AND cuid_hash2=?4;", -1, &statement3, 0);
-	rc = sqlite3_step(statement);
+	trap_sqlite3_prepare_v2(dbPtr, "SELECT * FROM nicknames;", -1, &statement, 0);
+	trap_sqlite3_prepare_v2(dbPtr, "INSERT OR IGNORE INTO nicknames_TMP(ip_int, name, duration, cuid_hash2) VALUES (?1, ?2, ?3, ?4);", -1, &statement2, 0);
+	trap_sqlite3_prepare_v2(dbPtr, "UPDATE nicknames_TMP SET duration=duration+?1 WHERE ip_int=?2 AND name=?3 AND cuid_hash2=?4;", -1, &statement3, 0);
+	rc = trap_sqlite3_step(statement);
 	while (rc == SQLITE_ROW) {
 		const int ip_int = sqlite3_column_int(statement, 0);
 		const char* name = (const char*)sqlite3_column_text(statement, 1);
@@ -273,7 +273,7 @@ static qboolean UpgradeDBToVersion4(sqlite3* dbPtr) {
 			} else {
 				sqlite3_bind_text(statement2, 4, "", -1, 0);
 			}
-			sqlite3_step(statement2);
+			trap_sqlite3_step(statement2);
 
 			sqlite3_reset(statement3);
 			sqlite3_bind_int(statement3, 1, duration);
@@ -284,21 +284,21 @@ static qboolean UpgradeDBToVersion4(sqlite3* dbPtr) {
 			} else {
 				sqlite3_bind_text(statement3, 4, "", -1, 0);
 			}
-			sqlite3_step(statement3);
+			trap_sqlite3_step(statement3);
 		}
 
-		rc = sqlite3_step(statement);
+		rc = trap_sqlite3_step(statement);
 	}
-	sqlite3_finalize(statement);
-	sqlite3_finalize(statement2);
-	sqlite3_finalize(statement3);
+	trap_sqlite3_finalize(statement);
+	trap_sqlite3_finalize(statement2);
+	trap_sqlite3_finalize(statement3);
 
 	// port nicknames by creating sessions for them
 	Com_Printf("Port nicknames to sessions\n");
-	sqlite3_prepare(dbPtr, "SELECT * FROM nicknames_TMP;", -1, &statement, 0);
-	sqlite3_prepare(dbPtr, "INSERT OR IGNORE INTO nicknames_NEW (session_id, name) VALUES (?1, ?2);", -1, &statement2, 0);
-	sqlite3_prepare(dbPtr, "UPDATE nicknames_NEW SET duration=duration+?1 WHERE session_id=?2 AND name=?3;", -1, &statement3, 0);
-	rc = sqlite3_step(statement);
+	trap_sqlite3_prepare_v2(dbPtr, "SELECT * FROM nicknames_TMP;", -1, &statement, 0);
+	trap_sqlite3_prepare_v2(dbPtr, "INSERT OR IGNORE INTO nicknames_NEW (session_id, name) VALUES (?1, ?2);", -1, &statement2, 0);
+	trap_sqlite3_prepare_v2(dbPtr, "UPDATE nicknames_NEW SET duration=duration+?1 WHERE session_id=?2 AND name=?3;", -1, &statement3, 0);
+	rc = trap_sqlite3_step(statement);
 	while (rc == SQLITE_ROW) {
 		const int ip_int = sqlite3_column_int(statement, 0);
 		const char* name = (const char*)sqlite3_column_text(statement, 1);
@@ -343,28 +343,28 @@ static qboolean UpgradeDBToVersion4(sqlite3* dbPtr) {
 			sqlite3_reset(statement2);
 			sqlite3_bind_int(statement2, 1, session.id);
 			sqlite3_bind_text(statement2, 2, name, -1, 0);
-			sqlite3_step(statement2);
+			trap_sqlite3_step(statement2);
 
 			sqlite3_reset(statement3);
 			sqlite3_bind_int(statement3, 1, duration);
 			sqlite3_bind_int(statement3, 2, session.id);
 			sqlite3_bind_text(statement3, 3, name, -1, 0);
-			sqlite3_step(statement3);
+			trap_sqlite3_step(statement3);
 		}
 
-		rc = sqlite3_step(statement);
+		rc = trap_sqlite3_step(statement);
 	}
 
-	sqlite3_finalize(statement);
-	sqlite3_finalize(statement2);
-	sqlite3_finalize(statement3);
+	trap_sqlite3_finalize(statement);
+	trap_sqlite3_finalize(statement2);
+	trap_sqlite3_finalize(statement3);
 
 	// port fastcaps to the new format and make new sessions if they weren't created with nicknames
 	Com_Printf("Port fastcaps to new format\n");
-	sqlite3_prepare(dbPtr, "SELECT * FROM fastcapsV2;", -1, &statement, 0);
-	sqlite3_prepare(dbPtr, "INSERT OR IGNORE INTO fastcaps_NEW(mapname, type, session_id, capture_time, date, extra) VALUES(?1, ?2, ?3, ?4, ?5, ?6);", -1, &statement2, 0);
-	sqlite3_prepare(dbPtr, "UPDATE fastcaps_NEW SET capture_time=MIN(capture_time, ?1) WHERE mapname=?2 AND type=?3 AND session_id=?4;", -1, &statement3, 0);
-	rc = sqlite3_step(statement);
+	trap_sqlite3_prepare_v2(dbPtr, "SELECT * FROM fastcapsV2;", -1, &statement, 0);
+	trap_sqlite3_prepare_v2(dbPtr, "INSERT OR IGNORE INTO fastcaps_NEW(mapname, type, session_id, capture_time, date, extra) VALUES(?1, ?2, ?3, ?4, ?5, ?6);", -1, &statement2, 0);
+	trap_sqlite3_prepare_v2(dbPtr, "UPDATE fastcaps_NEW SET capture_time=MIN(capture_time, ?1) WHERE mapname=?2 AND type=?3 AND session_id=?4;", -1, &statement3, 0);
+	rc = trap_sqlite3_step(statement);
 	while (rc == SQLITE_ROW) {
 		const char* mapname = (const char*)sqlite3_column_text(statement, 1);
 		const int type = sqlite3_column_int(statement, 3);
@@ -438,43 +438,43 @@ static qboolean UpgradeDBToVersion4(sqlite3* dbPtr) {
 			sqlite3_bind_int(statement2, 4, capture_time);
 			sqlite3_bind_int64(statement2, 5, date);
 			sqlite3_bind_text(statement2, 6, extra, -1, 0);
-			sqlite3_step(statement2);
+			trap_sqlite3_step(statement2);
 
 			sqlite3_reset(statement3);
 			sqlite3_bind_int(statement3, 1, capture_time);
 			sqlite3_bind_text(statement3, 2, mapname, -1, 0);
 			sqlite3_bind_int(statement3, 3, type);
 			sqlite3_bind_int(statement3, 4, session.id);
-			sqlite3_step(statement3);
+			trap_sqlite3_step(statement3);
 
 			free(extra);
 			cJSON_Delete(root2);
 		}
 
-		rc = sqlite3_step(statement);
+		rc = trap_sqlite3_step(statement);
 	}
 
-	sqlite3_finalize(statement);
-	sqlite3_finalize(statement2);
-	sqlite3_finalize(statement3);
+	trap_sqlite3_finalize(statement);
+	trap_sqlite3_finalize(statement2);
+	trap_sqlite3_finalize(statement3);
 
 	Com_Printf("Finalizing...\n");
 
 	// delete non normal/weapon records
-	if (sqlite3_exec(dbPtr, "DELETE from fastcaps_NEW WHERE type > 1;", NULL, NULL, NULL) != SQLITE_OK)
+	if (trap_sqlite3_exec(dbPtr, "DELETE from fastcaps_NEW WHERE type > 1;", NULL, NULL, NULL) != SQLITE_OK)
 		return qfalse;
 
 	// remove the intermediate and old tables and rename the new ones
-	if (sqlite3_exec(dbPtr, v4TerminateMyLife, NULL, NULL, NULL) != SQLITE_OK)
+	if (trap_sqlite3_exec(dbPtr, v4TerminateMyLife, NULL, NULL, NULL) != SQLITE_OK)
 		return qfalse;
 
 	// create the final views
-	if (sqlite3_exec(dbPtr, v4CreateNewShit, NULL, NULL, NULL) != SQLITE_OK)
+	if (trap_sqlite3_exec(dbPtr, v4CreateNewShit, NULL, NULL, NULL) != SQLITE_OK)
 		return qfalse;
 
 	// make sure to reduce the file size
-	sqlite3_exec(dbPtr, "VACUUM;", NULL, NULL, NULL);
-	sqlite3_exec(dbPtr, "PRAGMA optimize;", NULL, NULL, NULL);
+	trap_sqlite3_exec(dbPtr, "VACUUM;", NULL, NULL, NULL);
+	trap_sqlite3_exec(dbPtr, "PRAGMA optimize;", NULL, NULL, NULL);
 
 	// write a detailed report about the new unassigned sessions for use by admins
 	Com_Printf("Writing unassigned_sessions.csv...\n");
@@ -507,7 +507,7 @@ const char *const v5Upgrade =
 "	[datetime] NOT NULL DEFAULT (strftime('%s', 'now')));                                            \n";
 
 static qboolean UpgradeDBToVersion5(sqlite3 *dbPtr) {
-	return sqlite3_exec(dbPtr, v5Upgrade, NULL, NULL, NULL) == SQLITE_OK;
+	return trap_sqlite3_exec(dbPtr, v5Upgrade, NULL, NULL, NULL) == SQLITE_OK;
 }
 
 const char *const v6Upgrade =
@@ -520,7 +520,7 @@ const char *const v6Upgrade =
 "GROUP BY i.map;                                                                                     \n";
 
 static qboolean UpgradeDBToVersion6(sqlite3 *dbPtr) {
-	return sqlite3_exec(dbPtr, v6Upgrade, NULL, NULL, NULL) == SQLITE_OK;
+	return trap_sqlite3_exec(dbPtr, v6Upgrade, NULL, NULL, NULL) == SQLITE_OK;
 }
 
 const char *const v7Upgrade =
@@ -587,7 +587,826 @@ const char *const v7Upgrade =
 "HAVING golds > 0 OR silvers > 0 OR bronzes > 0;                                                      ";
 
 static qboolean UpgradeDBToVersion7(sqlite3 *dbPtr) {
-	return sqlite3_exec(dbPtr, v7Upgrade, NULL, NULL, NULL) == SQLITE_OK;
+	return trap_sqlite3_exec(dbPtr, v7Upgrade, NULL, NULL, NULL) == SQLITE_OK;
+}
+
+const char *const v8Upgrade =
+"CREATE TABLE IF NOT EXISTS [pugs] ( "
+"[match_id] INTEGER PRIMARY KEY, "
+"[datetime] NOT NULL DEFAULT (strftime('%s', 'now')), "
+"[map] TEXT COLLATE NOCASE NOT NULL, "
+"[duration] INTEGER NOT NULL, "
+"[boonexists] INTEGER NOT NULL, "
+"[win_team] INTEGER NOT NULL, "
+"[red_score] INTEGER NOT NULL, "
+"[blue_score] INTEGER NOT NULL "
+"); "
+" "
+"CREATE TABLE IF NOT EXISTS [playerpugteampos] ( "
+"[playerpugteampos_id] INTEGER PRIMARY KEY AUTOINCREMENT, "
+"[match_id] INTEGER NOT NULL, "
+"[session_id] INTEGER NOT NULL, "
+"[team] INTEGER NOT NULL, "
+"[duration] INTEGER NOT NULL, "
+"[name] TEXT NOT NULL, "
+"[pos] INTEGER, "
+"[cap] INTEGER, "
+"[ass] INTEGER, "
+"[def] INTEGER, "
+"[acc] INTEGER, "
+"[air] INTEGER, "
+"[tk] INTEGER, "
+"[take] INTEGER, "
+"[pitkil] INTEGER, "
+"[pitdth] INTEGER, "
+"[dmg] INTEGER, "
+"[fcdmg] INTEGER, "
+"[clrdmg] INTEGER, "
+"[othrdmg] INTEGER, "
+"[dmgtkn] INTEGER, "
+"[fcdmgtkn] INTEGER, "
+"[clrdmgtkn] INTEGER, "
+"[othrdmgtkn] INTEGER, "
+"[fckil] INTEGER, "
+"[fckileff] INTEGER, "
+"[ret] INTEGER, "
+"[sk] INTEGER, "
+"[ttlhold] INTEGER, "
+"[maxhold] INTEGER, "
+"[avgspd] INTEGER, "
+"[topspd] INTEGER, "
+"[boon] INTEGER, "
+"[push] INTEGER, "
+"[pull] INTEGER, "
+"[heal] INTEGER, "
+"[te] INTEGER, "
+"[teeff] INTEGER, "
+"[enemynrg] INTEGER, "
+"[absorb] INTEGER, "
+"[protdmg] INTEGER, "
+"[prottime] INTEGER, "
+"[rage] INTEGER, "
+"[drain] INTEGER, "
+"[drained] INTEGER, "
+"[fs] INTEGER, "
+"[bas] INTEGER, "
+"[mid] INTEGER, "
+"[eba] INTEGER, "
+"[efs] INTEGER, "
+"FOREIGN KEY([match_id]) REFERENCES pugs([match_id]) ON DELETE CASCADE, "
+"FOREIGN KEY([session_id]) REFERENCES sessions([session_id]), "
+"UNIQUE([match_id], [session_id], [pos]) "
+"); "
+""
+"CREATE VIEW [accountstats] AS "
+"WITH wins AS ( "
+"SELECT playerpugteampos.session_id, playerpugteampos.pos, count() AS wins "
+"FROM playerpugteampos "
+"JOIN sessions ON sessions.session_id = playerpugteampos.session_id "
+"JOIN pugs ON pugs.match_id = playerpugteampos.match_id "
+"WHERE pugs.win_team = playerpugteampos.team "
+"GROUP BY account_id, playerpugteampos.pos), "
+"pugs_played AS ( "
+"SELECT playerpugteampos.session_id, playerpugteampos.pos, count(*) AS pugs_played "
+"FROM playerpugteampos "
+"JOIN sessions ON sessions.session_id = playerpugteampos.session_id "
+"JOIN pugs ON pugs.match_id = playerpugteampos.match_id "
+"GROUP BY account_id, playerpugteampos.pos), "
+"t AS ( "
+"SELECT accounts.account_id, accounts.name, playerpugteampos.pos, "
+"pugs_played, "
+"ifnull(wins, 0) AS wins, "
+"CAST(ifnull(wins, 0) AS FLOAT) / pugs_played AS winrate, "
+"avg(cap * (1200000.0 / playerpugteampos.duration)) AS avg_cap, "
+"avg(ass * (1200000.0 / playerpugteampos.duration)) AS avg_ass, "
+"avg(def * (1200000.0 / playerpugteampos.duration)) AS avg_def, "
+"CAST(sum((CASE WHEN acc IS NOT NULL THEN acc ELSE 0 END) * playerpugteampos.duration) AS FLOAT) / CAST(sum(CASE WHEN acc IS NOT NULL THEN playerpugteampos.duration ELSE 0 END) AS FLOAT) AS avg_acc, "
+"avg(air * (1200000.0 / playerpugteampos.duration)) AS avg_air, "
+"avg(tk * (1200000.0 / playerpugteampos.duration)) AS avg_tk, "
+"avg(take * (1200000.0 / playerpugteampos.duration)) AS avg_take, "
+"avg(pitkil * (1200000.0 / playerpugteampos.duration)) AS avg_pitkil, "
+"avg(pitdth * (1200000.0 / playerpugteampos.duration)) AS avg_pitdth, "
+"avg(dmg * (1200000.0 / playerpugteampos.duration)) AS avg_dmg, "
+"avg(fcdmg * (1200000.0 / playerpugteampos.duration)) AS avg_fcdmg, "
+"avg(clrdmg * (1200000.0 / playerpugteampos.duration)) AS avg_clrdmg, "
+"avg(othrdmg * (1200000.0 / playerpugteampos.duration)) AS avg_othrdmg, "
+"avg(dmgtkn * (1200000.0 / playerpugteampos.duration)) AS avg_dmgtkn, "
+"avg(fcdmgtkn * (1200000.0 / playerpugteampos.duration)) AS avg_fcdmgtkn, "
+"avg(clrdmgtkn * (1200000.0 / playerpugteampos.duration)) AS avg_clrdmgtkn, "
+"avg(othrdmgtkn * (1200000.0 / playerpugteampos.duration)) AS avg_othrdmgtkn, "
+"avg(fckil * (1200000.0 / playerpugteampos.duration)) AS avg_fckil, "
+"CAST(sum((CASE WHEN fckileff IS NOT NULL THEN fckileff ELSE 0 END) * playerpugteampos.duration) AS FLOAT) / CAST(sum(CASE WHEN fckileff IS NOT NULL THEN playerpugteampos.duration ELSE 0 END) AS FLOAT) AS avg_fckileff, "
+"avg(ret * (1200000.0 / playerpugteampos.duration)) AS avg_ret, "
+"avg(sk * (1200000.0 / playerpugteampos.duration)) AS avg_sk, "
+"avg(ttlhold * (1200000.0 / playerpugteampos.duration)) AS avg_ttlhold, "
+"avg(maxhold * (1200000.0 / playerpugteampos.duration)) AS avg_maxhold, "
+"CAST(sum(avgspd * playerpugteampos.duration) AS FLOAT) / CAST(sum(playerpugteampos.duration) AS FLOAT) AS avg_avgspd, "
+"CAST(sum(topspd * playerpugteampos.duration) AS FLOAT) / CAST(sum(playerpugteampos.duration) AS FLOAT) AS avg_topspd, "
+"avg(boon * (1200000.0 / playerpugteampos.duration)) AS avg_boon, "
+"avg(push * (1200000.0 / playerpugteampos.duration)) AS avg_push, "
+"avg(pull * (1200000.0 / playerpugteampos.duration)) AS avg_pull, "
+"avg(heal * (1200000.0 / playerpugteampos.duration)) AS avg_heal, "
+"avg(te * (1200000.0 / playerpugteampos.duration)) AS avg_te, "
+"CAST(sum((CASE WHEN teeff IS NOT NULL THEN teeff ELSE 0 END) * playerpugteampos.duration) AS FLOAT) / CAST(sum(CASE WHEN teeff IS NOT NULL THEN playerpugteampos.duration ELSE 0 END) AS FLOAT) AS avg_teeff, "
+"avg(enemynrg * (1200000.0 / playerpugteampos.duration)) AS avg_enemynrg, "
+"avg(absorb * (1200000.0 / playerpugteampos.duration)) AS avg_absorb, "
+"avg(protdmg * (1200000.0 / playerpugteampos.duration)) AS avg_protdmg, "
+"avg(prottime * (1200000.0 / playerpugteampos.duration)) AS avg_prottime, "
+"avg(rage * (1200000.0 / playerpugteampos.duration)) AS avg_rage, "
+"avg(drain * (1200000.0 / playerpugteampos.duration)) AS avg_drain, "
+"avg(drained * (1200000.0 / playerpugteampos.duration)) AS avg_drained, "
+"CAST(sum((CASE WHEN fs IS NOT NULL THEN fs ELSE 0 END) * playerpugteampos.duration) AS FLOAT) / CAST(sum(CASE WHEN fs IS NOT NULL THEN playerpugteampos.duration ELSE 0 END) AS FLOAT) AS avg_fs, "
+"CAST(sum((CASE WHEN bas IS NOT NULL THEN bas ELSE 0 END) * playerpugteampos.duration) AS FLOAT) / CAST(sum(CASE WHEN bas IS NOT NULL THEN playerpugteampos.duration ELSE 0 END) AS FLOAT) AS avg_bas, "
+"CAST(sum((CASE WHEN mid IS NOT NULL THEN mid ELSE 0 END) * playerpugteampos.duration) AS FLOAT) / CAST(sum(CASE WHEN mid IS NOT NULL THEN playerpugteampos.duration ELSE 0 END) AS FLOAT) AS avg_mid, "
+"CAST(sum((CASE WHEN eba IS NOT NULL THEN eba ELSE 0 END) * playerpugteampos.duration) AS FLOAT) / CAST(sum(CASE WHEN eba IS NOT NULL THEN playerpugteampos.duration ELSE 0 END) AS FLOAT) AS avg_eba, "
+"CAST(sum((CASE WHEN efs IS NOT NULL THEN efs ELSE 0 END) * playerpugteampos.duration) AS FLOAT) / CAST(sum(CASE WHEN efs IS NOT NULL THEN playerpugteampos.duration ELSE 0 END) AS FLOAT) AS avg_efs "
+"FROM playerpugteampos "
+"JOIN sessions ON playerpugteampos.session_id = sessions.session_id "
+"JOIN accounts ON accounts.account_id = sessions.account_id "
+"JOIN pugs ON pugs.match_id = playerpugteampos.match_id "
+"LEFT JOIN wins ON wins.session_id = sessions.session_id AND wins.pos = playerpugteampos.pos "
+"JOIN pugs_played ON pugs_played.session_id = sessions.session_id AND pugs_played.pos = playerpugteampos.pos "
+"GROUP BY playerpugteampos.pos, accounts.account_id "
+"ORDER BY playerpugteampos.pos ASC, accounts.account_id ASC) "
+"SELECT account_id, "
+"name, "
+"pos, "
+"pugs_played, "
+"RANK() OVER (PARTITION BY pos ORDER BY pugs_played DESC) pugs_played_rank, "
+"wins, "
+"RANK() OVER (PARTITION BY pos ORDER BY wins DESC) wins_rank, "
+"winrate, "
+"RANK() OVER (PARTITION BY pos ORDER BY winrate DESC) winrate_rank, "
+"avg_cap, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_cap DESC) avg_cap_rank, "
+"avg_ass, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_ass DESC) avg_ass_rank, "
+"avg_def, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_def DESC) avg_def_rank, "
+"avg_acc, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_acc DESC) avg_acc_rank, "
+"avg_air, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_air DESC) avg_air_rank, "
+"avg_tk, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_tk DESC) avg_tk_rank, "
+"avg_take, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_take DESC) avg_take_rank, "
+"avg_pitkil, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_pitkil DESC) avg_pitkil_rank, "
+"avg_pitdth, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_pitdth DESC) avg_pitdth_rank, "
+"avg_dmg, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_dmg DESC) avg_dmg_rank, "
+"avg_fcdmg, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_fcdmg DESC) avg_fcdmg_rank, "
+"avg_clrdmg, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_clrdmg DESC) avg_clrdmg_rank, "
+"avg_othrdmg, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_othrdmg DESC) avg_othrdmg_rank, "
+"avg_dmgtkn, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_dmgtkn DESC) avg_dmgtkn_rank, "
+"avg_fcdmgtkn, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_fcdmgtkn DESC) avg_fcdmgtkn_rank, "
+"avg_clrdmgtkn, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_clrdmgtkn DESC) avg_clrdmgtkn_rank, "
+"avg_othrdmgtkn, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_othrdmgtkn DESC) avg_othrdmgtkn_rank, "
+"avg_fckil, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_fckil DESC) avg_fckil_rank, "
+"avg_fckileff, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_fckileff DESC) avg_fckileff_rank, "
+"avg_ret, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_ret DESC) avg_ret_rank, "
+"avg_sk, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_sk DESC) avg_sk_rank, "
+"avg_ttlhold, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_ttlhold DESC) avg_ttlhold_rank, "
+"avg_maxhold, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_maxhold DESC) avg_maxhold_rank, "
+"avg_avgspd, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_avgspd DESC) avg_avgspd_rank, "
+"avg_topspd, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_topspd DESC) avg_topspd_rank, "
+"avg_boon, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_boon DESC) avg_boon_rank, "
+"avg_push, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_push DESC) avg_push_rank, "
+"avg_pull, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_pull DESC) avg_pull_rank, "
+"avg_heal, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_heal DESC) avg_heal_rank, "
+"avg_te, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_te DESC) avg_te_rank, "
+"avg_teeff, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_teeff DESC) avg_teeff_rank, "
+"avg_enemynrg, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_enemynrg DESC) avg_enemynrg_rank, "
+"avg_absorb, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_absorb DESC) avg_absorb_rank, "
+"avg_protdmg, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_protdmg DESC) avg_protdmg_rank, "
+"avg_prottime, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_prottime DESC) avg_prottime_rank, "
+"avg_rage, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_rage DESC) avg_rage_rank, "
+"avg_drain, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_drain DESC) avg_drain_rank, "
+"avg_drained, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_drained DESC) avg_drained_rank, "
+"avg_fs, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_fs DESC) avg_fs_rank, "
+"avg_bas, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_bas DESC) avg_bas_rank, "
+"avg_mid, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_mid DESC) avg_mid_rank, "
+"avg_eba, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_eba DESC) avg_eba_rank, "
+"avg_efs, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_efs DESC) avg_efs_rank "
+"FROM t WHERE pugs_played >= 10;";
+
+static qboolean UpgradeDBToVersion8(sqlite3 *dbPtr) {
+	return trap_sqlite3_exec(dbPtr, v8Upgrade, NULL, NULL, NULL) == SQLITE_OK;
+}
+
+const char *const v9Upgrade = "CREATE TABLE IF NOT EXISTS [cachedplayerstats] ( "
+"[cachedplayerstats_id] INTEGER PRIMARY KEY AUTOINCREMENT, "
+"[account_id] INTEGER NOT NULL, "
+"[type] INTEGER, "
+"[pos] INTEGER, "
+"[str] TEXT, "
+"FOREIGN KEY([account_id]) REFERENCES accounts([account_id]) ON DELETE CASCADE, "
+"UNIQUE(account_id, type, pos) "
+");";
+
+static qboolean UpgradeDBToVersion9(sqlite3 *dbPtr) {
+	return trap_sqlite3_exec(dbPtr, v9Upgrade, NULL, NULL, NULL) == SQLITE_OK;
+}
+
+const char *const v10Upgrade = "CREATE TABLE IF NOT EXISTS [playerratings] ( "
+"[rating_id] INTEGER PRIMARY KEY AUTOINCREMENT, "
+"[rater_account_id] INTEGER NOT NULL, "
+"[ratee_account_id] INTEGER NOT NULL, "
+"[pos] INTEGER NOT NULL, "
+"[rating] INTEGER NOT NULL, "
+"FOREIGN KEY([rater_account_id]) REFERENCES accounts([account_id]) ON DELETE CASCADE, "
+"FOREIGN KEY([ratee_account_id]) REFERENCES accounts([account_id]) ON DELETE CASCADE, "
+"UNIQUE([rater_account_id], [ratee_account_id], [pos]) "
+");";
+
+static qboolean UpgradeDBToVersion10(sqlite3 *dbPtr) {
+	return trap_sqlite3_exec(dbPtr, v10Upgrade, NULL, NULL, NULL) == SQLITE_OK;
+}
+
+const char *const v11Upgrade = "ALTER TABLE accounts RENAME COLUMN usergroup TO properties;";
+
+static qboolean UpgradeDBToVersion11(sqlite3 *dbPtr) {
+	return trap_sqlite3_exec(dbPtr, v11Upgrade, NULL, NULL, NULL) == SQLITE_OK;
+}
+
+const char *const v12Upgrade =
+"DROP VIEW IF EXISTS [accountstats]; "
+""
+"CREATE VIEW [accountstats] AS "
+"WITH wins AS ( "
+"SELECT playerpugteampos.session_id, playerpugteampos.pos, count() AS wins "
+"FROM playerpugteampos "
+"JOIN sessions ON sessions.session_id = playerpugteampos.session_id "
+"JOIN pugs ON pugs.match_id = playerpugteampos.match_id "
+"WHERE pugs.win_team = playerpugteampos.team "
+"GROUP BY account_id, playerpugteampos.pos), "
+"pugs_played AS ( "
+"SELECT playerpugteampos.session_id, playerpugteampos.pos, count(*) AS pugs_played "
+"FROM playerpugteampos "
+"JOIN sessions ON sessions.session_id = playerpugteampos.session_id "
+"JOIN pugs ON pugs.match_id = playerpugteampos.match_id "
+"GROUP BY account_id, playerpugteampos.pos), "
+"t AS ( "
+"SELECT accounts.account_id, accounts.name, playerpugteampos.pos, "
+"pugs_played, "
+"ifnull(wins, 0) AS wins, "
+"CAST(ifnull(wins, 0) AS FLOAT) / pugs_played AS winrate, "
+"avg(cap * (1200000.0 / playerpugteampos.duration)) AS avg_cap, "
+"avg(ass * (1200000.0 / playerpugteampos.duration)) AS avg_ass, "
+"avg(def * (1200000.0 / playerpugteampos.duration)) AS avg_def, "
+"CAST(sum((CASE WHEN acc IS NOT NULL THEN acc ELSE 0 END) * playerpugteampos.duration) AS FLOAT) / CAST(sum(CASE WHEN acc IS NOT NULL THEN playerpugteampos.duration ELSE 0 END) AS FLOAT) AS avg_acc, "
+"avg(air * (1200000.0 / playerpugteampos.duration)) AS avg_air, "
+"avg(tk * (1200000.0 / playerpugteampos.duration)) AS avg_tk, "
+"avg(take * (1200000.0 / playerpugteampos.duration)) AS avg_take, "
+"avg(pitkil * (1200000.0 / playerpugteampos.duration)) AS avg_pitkil, "
+"avg(pitdth * (1200000.0 / playerpugteampos.duration)) AS avg_pitdth, "
+"avg(dmg * (1200000.0 / playerpugteampos.duration)) AS avg_dmg, "
+"avg(fcdmg * (1200000.0 / playerpugteampos.duration)) AS avg_fcdmg, "
+"avg(clrdmg * (1200000.0 / playerpugteampos.duration)) AS avg_clrdmg, "
+"avg(othrdmg * (1200000.0 / playerpugteampos.duration)) AS avg_othrdmg, "
+"avg(dmgtkn * (1200000.0 / playerpugteampos.duration)) AS avg_dmgtkn, "
+"avg(fcdmgtkn * (1200000.0 / playerpugteampos.duration)) AS avg_fcdmgtkn, "
+"avg(clrdmgtkn * (1200000.0 / playerpugteampos.duration)) AS avg_clrdmgtkn, "
+"avg(othrdmgtkn * (1200000.0 / playerpugteampos.duration)) AS avg_othrdmgtkn, "
+"avg(fckil * (1200000.0 / playerpugteampos.duration)) AS avg_fckil, "
+"CAST(sum((CASE WHEN fckileff IS NOT NULL THEN fckileff ELSE 0 END) * playerpugteampos.duration) AS FLOAT) / CAST(sum(CASE WHEN fckileff IS NOT NULL THEN playerpugteampos.duration ELSE 0 END) AS FLOAT) AS avg_fckileff, "
+"avg(ret * (1200000.0 / playerpugteampos.duration)) AS avg_ret, "
+"avg(sk * (1200000.0 / playerpugteampos.duration)) AS avg_sk, "
+"avg(ttlhold * (1200000.0 / playerpugteampos.duration)) AS avg_ttlhold, "
+"avg(maxhold * (1200000.0 / playerpugteampos.duration)) AS avg_maxhold, "
+"CAST(sum(avgspd * playerpugteampos.duration) AS FLOAT) / CAST(sum(playerpugteampos.duration) AS FLOAT) AS avg_avgspd, "
+"CAST(sum(topspd * playerpugteampos.duration) AS FLOAT) / CAST(sum(playerpugteampos.duration) AS FLOAT) AS avg_topspd, "
+"avg(boon * (1200000.0 / playerpugteampos.duration)) AS avg_boon, "
+"avg(push * (1200000.0 / playerpugteampos.duration)) AS avg_push, "
+"avg(pull * (1200000.0 / playerpugteampos.duration)) AS avg_pull, "
+"avg(heal * (1200000.0 / playerpugteampos.duration)) AS avg_heal, "
+"avg(te * (1200000.0 / playerpugteampos.duration)) AS avg_te, "
+"CAST(sum((CASE WHEN teeff IS NOT NULL THEN teeff ELSE 0 END) * playerpugteampos.duration) AS FLOAT) / CAST(sum(CASE WHEN teeff IS NOT NULL THEN playerpugteampos.duration ELSE 0 END) AS FLOAT) AS avg_teeff, "
+"avg(enemynrg * (1200000.0 / playerpugteampos.duration)) AS avg_enemynrg, "
+"avg(absorb * (1200000.0 / playerpugteampos.duration)) AS avg_absorb, "
+"avg(protdmg * (1200000.0 / playerpugteampos.duration)) AS avg_protdmg, "
+"avg(prottime * (1200000.0 / playerpugteampos.duration)) AS avg_prottime, "
+"avg(rage * (1200000.0 / playerpugteampos.duration)) AS avg_rage, "
+"avg(drain * (1200000.0 / playerpugteampos.duration)) AS avg_drain, "
+"avg(drained * (1200000.0 / playerpugteampos.duration)) AS avg_drained, "
+"CAST(sum((CASE WHEN fs IS NOT NULL THEN fs ELSE 0 END) * playerpugteampos.duration) AS FLOAT) / CAST(sum(CASE WHEN fs IS NOT NULL THEN playerpugteampos.duration ELSE 0 END) AS FLOAT) AS avg_fs, "
+"CAST(sum((CASE WHEN bas IS NOT NULL THEN bas ELSE 0 END) * playerpugteampos.duration) AS FLOAT) / CAST(sum(CASE WHEN bas IS NOT NULL THEN playerpugteampos.duration ELSE 0 END) AS FLOAT) AS avg_bas, "
+"CAST(sum((CASE WHEN mid IS NOT NULL THEN mid ELSE 0 END) * playerpugteampos.duration) AS FLOAT) / CAST(sum(CASE WHEN mid IS NOT NULL THEN playerpugteampos.duration ELSE 0 END) AS FLOAT) AS avg_mid, "
+"CAST(sum((CASE WHEN eba IS NOT NULL THEN eba ELSE 0 END) * playerpugteampos.duration) AS FLOAT) / CAST(sum(CASE WHEN eba IS NOT NULL THEN playerpugteampos.duration ELSE 0 END) AS FLOAT) AS avg_eba, "
+"CAST(sum((CASE WHEN efs IS NOT NULL THEN efs ELSE 0 END) * playerpugteampos.duration) AS FLOAT) / CAST(sum(CASE WHEN efs IS NOT NULL THEN playerpugteampos.duration ELSE 0 END) AS FLOAT) AS avg_efs "
+"FROM playerpugteampos "
+"JOIN sessions ON playerpugteampos.session_id = sessions.session_id "
+"JOIN accounts ON accounts.account_id = sessions.account_id "
+"JOIN pugs ON pugs.match_id = playerpugteampos.match_id "
+"LEFT JOIN wins ON wins.session_id = sessions.session_id AND wins.pos = playerpugteampos.pos "
+"LEFT JOIN pugs_played ON pugs_played.session_id = sessions.session_id AND pugs_played.pos = playerpugteampos.pos "
+"GROUP BY playerpugteampos.pos, accounts.account_id "
+"ORDER BY playerpugteampos.pos ASC, accounts.account_id ASC) "
+"SELECT account_id, "
+"name, "
+"pos, "
+"pugs_played, "
+"RANK() OVER (PARTITION BY pos ORDER BY pugs_played DESC) pugs_played_rank, "
+"wins, "
+"RANK() OVER (PARTITION BY pos ORDER BY wins DESC) wins_rank, "
+"winrate, "
+"RANK() OVER (PARTITION BY pos ORDER BY winrate DESC) winrate_rank, "
+"avg_cap, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_cap DESC) avg_cap_rank, "
+"avg_ass, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_ass DESC) avg_ass_rank, "
+"avg_def, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_def DESC) avg_def_rank, "
+"avg_acc, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_acc DESC) avg_acc_rank, "
+"avg_air, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_air DESC) avg_air_rank, "
+"avg_tk, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_tk DESC) avg_tk_rank, "
+"avg_take, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_take DESC) avg_take_rank, "
+"avg_pitkil, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_pitkil DESC) avg_pitkil_rank, "
+"avg_pitdth, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_pitdth DESC) avg_pitdth_rank, "
+"avg_dmg, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_dmg DESC) avg_dmg_rank, "
+"avg_fcdmg, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_fcdmg DESC) avg_fcdmg_rank, "
+"avg_clrdmg, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_clrdmg DESC) avg_clrdmg_rank, "
+"avg_othrdmg, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_othrdmg DESC) avg_othrdmg_rank, "
+"avg_dmgtkn, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_dmgtkn DESC) avg_dmgtkn_rank, "
+"avg_fcdmgtkn, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_fcdmgtkn DESC) avg_fcdmgtkn_rank, "
+"avg_clrdmgtkn, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_clrdmgtkn DESC) avg_clrdmgtkn_rank, "
+"avg_othrdmgtkn, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_othrdmgtkn DESC) avg_othrdmgtkn_rank, "
+"avg_fckil, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_fckil DESC) avg_fckil_rank, "
+"avg_fckileff, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_fckileff DESC) avg_fckileff_rank, "
+"avg_ret, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_ret DESC) avg_ret_rank, "
+"avg_sk, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_sk DESC) avg_sk_rank, "
+"avg_ttlhold, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_ttlhold DESC) avg_ttlhold_rank, "
+"avg_maxhold, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_maxhold DESC) avg_maxhold_rank, "
+"avg_avgspd, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_avgspd DESC) avg_avgspd_rank, "
+"avg_topspd, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_topspd DESC) avg_topspd_rank, "
+"avg_boon, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_boon DESC) avg_boon_rank, "
+"avg_push, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_push DESC) avg_push_rank, "
+"avg_pull, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_pull DESC) avg_pull_rank, "
+"avg_heal, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_heal DESC) avg_heal_rank, "
+"avg_te, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_te DESC) avg_te_rank, "
+"avg_teeff, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_teeff DESC) avg_teeff_rank, "
+"avg_enemynrg, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_enemynrg DESC) avg_enemynrg_rank, "
+"avg_absorb, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_absorb DESC) avg_absorb_rank, "
+"avg_protdmg, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_protdmg DESC) avg_protdmg_rank, "
+"avg_prottime, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_prottime DESC) avg_prottime_rank, "
+"avg_rage, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_rage DESC) avg_rage_rank, "
+"avg_drain, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_drain DESC) avg_drain_rank, "
+"avg_drained, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_drained DESC) avg_drained_rank, "
+"avg_fs, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_fs DESC) avg_fs_rank, "
+"avg_bas, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_bas DESC) avg_bas_rank, "
+"avg_mid, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_mid DESC) avg_mid_rank, "
+"avg_eba, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_eba DESC) avg_eba_rank, "
+"avg_efs, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_efs DESC) avg_efs_rank "
+"FROM t WHERE pugs_played >= 10;";
+
+static qboolean UpgradeDBToVersion12(sqlite3 *dbPtr) {
+	return trap_sqlite3_exec(dbPtr, v12Upgrade, NULL, NULL, NULL) == SQLITE_OK;
+}
+
+const char *const v13Upgrade =
+"DROP VIEW IF EXISTS[accountstats]; "
+""
+"CREATE VIEW [accountstats] AS "
+"WITH wins AS ( "
+"SELECT account_id, playerpugteampos.pos, count() AS wins "
+"FROM playerpugteampos "
+"JOIN sessions ON sessions.session_id = playerpugteampos.session_id "
+"JOIN pugs ON pugs.match_id = playerpugteampos.match_id "
+"WHERE pugs.win_team = playerpugteampos.team "
+"GROUP BY account_id, playerpugteampos.pos), "
+"pugs_played AS ( "
+"SELECT account_id, playerpugteampos.pos, count(*) AS pugs_played "
+"FROM playerpugteampos "
+"JOIN sessions ON sessions.session_id = playerpugteampos.session_id "
+"JOIN pugs ON pugs.match_id = playerpugteampos.match_id "
+"GROUP BY account_id, playerpugteampos.pos), "
+"t AS ( "
+"SELECT accounts.account_id, accounts.name, playerpugteampos.pos, "
+"pugs_played, "
+"ifnull(wins, 0) AS wins, "
+"CAST(ifnull(wins, 0) AS FLOAT) / pugs_played AS winrate, "
+"avg(cap * (1200000.0 / playerpugteampos.duration)) AS avg_cap, "
+"avg(ass * (1200000.0 / playerpugteampos.duration)) AS avg_ass, "
+"avg(def * (1200000.0 / playerpugteampos.duration)) AS avg_def, "
+"CAST(sum((CASE WHEN acc IS NOT NULL THEN acc ELSE 0 END) * playerpugteampos.duration) AS FLOAT) / CAST(sum(CASE WHEN acc IS NOT NULL THEN playerpugteampos.duration ELSE 0 END) AS FLOAT) AS avg_acc, "
+"avg(air * (1200000.0 / playerpugteampos.duration)) AS avg_air, "
+"avg(tk * (1200000.0 / playerpugteampos.duration)) AS avg_tk, "
+"avg(take * (1200000.0 / playerpugteampos.duration)) AS avg_take, "
+"avg(pitkil * (1200000.0 / playerpugteampos.duration)) AS avg_pitkil, "
+"avg(pitdth * (1200000.0 / playerpugteampos.duration)) AS avg_pitdth, "
+"avg(dmg * (1200000.0 / playerpugteampos.duration)) AS avg_dmg, "
+"avg(fcdmg * (1200000.0 / playerpugteampos.duration)) AS avg_fcdmg, "
+"avg(clrdmg * (1200000.0 / playerpugteampos.duration)) AS avg_clrdmg, "
+"avg(othrdmg * (1200000.0 / playerpugteampos.duration)) AS avg_othrdmg, "
+"avg(dmgtkn * (1200000.0 / playerpugteampos.duration)) AS avg_dmgtkn, "
+"avg(fcdmgtkn * (1200000.0 / playerpugteampos.duration)) AS avg_fcdmgtkn, "
+"avg(clrdmgtkn * (1200000.0 / playerpugteampos.duration)) AS avg_clrdmgtkn, "
+"avg(othrdmgtkn * (1200000.0 / playerpugteampos.duration)) AS avg_othrdmgtkn, "
+"avg(fckil * (1200000.0 / playerpugteampos.duration)) AS avg_fckil, "
+"CAST(sum((CASE WHEN fckileff IS NOT NULL THEN fckileff ELSE 0 END) * playerpugteampos.duration) AS FLOAT) / CAST(sum(CASE WHEN fckileff IS NOT NULL THEN playerpugteampos.duration ELSE 0 END) AS FLOAT) AS avg_fckileff, "
+"avg(ret * (1200000.0 / playerpugteampos.duration)) AS avg_ret, "
+"avg(sk * (1200000.0 / playerpugteampos.duration)) AS avg_sk, "
+"avg(ttlhold * (1200000.0 / playerpugteampos.duration)) AS avg_ttlhold, "
+"avg(maxhold * (1200000.0 / playerpugteampos.duration)) AS avg_maxhold, "
+"CAST(sum(avgspd * playerpugteampos.duration) AS FLOAT) / CAST(sum(playerpugteampos.duration) AS FLOAT) AS avg_avgspd, "
+"CAST(sum(topspd * playerpugteampos.duration) AS FLOAT) / CAST(sum(playerpugteampos.duration) AS FLOAT) AS avg_topspd, "
+"avg(boon * (1200000.0 / playerpugteampos.duration)) AS avg_boon, "
+"avg(push * (1200000.0 / playerpugteampos.duration)) AS avg_push, "
+"avg(pull * (1200000.0 / playerpugteampos.duration)) AS avg_pull, "
+"avg(heal * (1200000.0 / playerpugteampos.duration)) AS avg_heal, "
+"avg(te * (1200000.0 / playerpugteampos.duration)) AS avg_te, "
+"CAST(sum((CASE WHEN teeff IS NOT NULL THEN teeff ELSE 0 END) * playerpugteampos.duration) AS FLOAT) / CAST(sum(CASE WHEN teeff IS NOT NULL THEN playerpugteampos.duration ELSE 0 END) AS FLOAT) AS avg_teeff, "
+"avg(enemynrg * (1200000.0 / playerpugteampos.duration)) AS avg_enemynrg, "
+"avg(absorb * (1200000.0 / playerpugteampos.duration)) AS avg_absorb, "
+"avg(protdmg * (1200000.0 / playerpugteampos.duration)) AS avg_protdmg, "
+"avg(prottime * (1200000.0 / playerpugteampos.duration)) AS avg_prottime, "
+"avg(rage * (1200000.0 / playerpugteampos.duration)) AS avg_rage, "
+"avg(drain * (1200000.0 / playerpugteampos.duration)) AS avg_drain, "
+"avg(drained * (1200000.0 / playerpugteampos.duration)) AS avg_drained, "
+"CAST(sum((CASE WHEN fs IS NOT NULL THEN fs ELSE 0 END) * playerpugteampos.duration) AS FLOAT) / CAST(sum(CASE WHEN fs IS NOT NULL THEN playerpugteampos.duration ELSE 0 END) AS FLOAT) AS avg_fs, "
+"CAST(sum((CASE WHEN bas IS NOT NULL THEN bas ELSE 0 END) * playerpugteampos.duration) AS FLOAT) / CAST(sum(CASE WHEN bas IS NOT NULL THEN playerpugteampos.duration ELSE 0 END) AS FLOAT) AS avg_bas, "
+"CAST(sum((CASE WHEN mid IS NOT NULL THEN mid ELSE 0 END) * playerpugteampos.duration) AS FLOAT) / CAST(sum(CASE WHEN mid IS NOT NULL THEN playerpugteampos.duration ELSE 0 END) AS FLOAT) AS avg_mid, "
+"CAST(sum((CASE WHEN eba IS NOT NULL THEN eba ELSE 0 END) * playerpugteampos.duration) AS FLOAT) / CAST(sum(CASE WHEN eba IS NOT NULL THEN playerpugteampos.duration ELSE 0 END) AS FLOAT) AS avg_eba, "
+"CAST(sum((CASE WHEN efs IS NOT NULL THEN efs ELSE 0 END) * playerpugteampos.duration) AS FLOAT) / CAST(sum(CASE WHEN efs IS NOT NULL THEN playerpugteampos.duration ELSE 0 END) AS FLOAT) AS avg_efs "
+"FROM playerpugteampos "
+"JOIN sessions ON playerpugteampos.session_id = sessions.session_id "
+"JOIN accounts ON accounts.account_id = sessions.account_id "
+"JOIN pugs ON pugs.match_id = playerpugteampos.match_id "
+"LEFT JOIN wins ON wins.account_id = sessions.account_id AND wins.pos = playerpugteampos.pos "
+"LEFT JOIN pugs_played ON pugs_played.account_id = sessions.account_id AND pugs_played.pos = playerpugteampos.pos "
+"GROUP BY playerpugteampos.pos, accounts.account_id "
+"ORDER BY playerpugteampos.pos ASC, accounts.account_id ASC) "
+"SELECT account_id, "
+"name, "
+"pos, "
+"pugs_played, "
+"RANK() OVER (PARTITION BY pos ORDER BY pugs_played DESC) pugs_played_rank, "
+"wins, "
+"RANK() OVER (PARTITION BY pos ORDER BY wins DESC) wins_rank, "
+"winrate, "
+"RANK() OVER (PARTITION BY pos ORDER BY winrate DESC) winrate_rank, "
+"avg_cap, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_cap DESC) avg_cap_rank, "
+"avg_ass, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_ass DESC) avg_ass_rank, "
+"avg_def, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_def DESC) avg_def_rank, "
+"avg_acc, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_acc DESC) avg_acc_rank, "
+"avg_air, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_air DESC) avg_air_rank, "
+"avg_tk, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_tk DESC) avg_tk_rank, "
+"avg_take, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_take DESC) avg_take_rank, "
+"avg_pitkil, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_pitkil DESC) avg_pitkil_rank, "
+"avg_pitdth, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_pitdth DESC) avg_pitdth_rank, "
+"avg_dmg, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_dmg DESC) avg_dmg_rank, "
+"avg_fcdmg, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_fcdmg DESC) avg_fcdmg_rank, "
+"avg_clrdmg, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_clrdmg DESC) avg_clrdmg_rank, "
+"avg_othrdmg, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_othrdmg DESC) avg_othrdmg_rank, "
+"avg_dmgtkn, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_dmgtkn DESC) avg_dmgtkn_rank, "
+"avg_fcdmgtkn, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_fcdmgtkn DESC) avg_fcdmgtkn_rank, "
+"avg_clrdmgtkn, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_clrdmgtkn DESC) avg_clrdmgtkn_rank, "
+"avg_othrdmgtkn, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_othrdmgtkn DESC) avg_othrdmgtkn_rank, "
+"avg_fckil, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_fckil DESC) avg_fckil_rank, "
+"avg_fckileff, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_fckileff DESC) avg_fckileff_rank, "
+"avg_ret, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_ret DESC) avg_ret_rank, "
+"avg_sk, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_sk DESC) avg_sk_rank, "
+"avg_ttlhold, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_ttlhold DESC) avg_ttlhold_rank, "
+"avg_maxhold, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_maxhold DESC) avg_maxhold_rank, "
+"avg_avgspd, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_avgspd DESC) avg_avgspd_rank, "
+"avg_topspd, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_topspd DESC) avg_topspd_rank, "
+"avg_boon, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_boon DESC) avg_boon_rank, "
+"avg_push, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_push DESC) avg_push_rank, "
+"avg_pull, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_pull DESC) avg_pull_rank, "
+"avg_heal, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_heal DESC) avg_heal_rank, "
+"avg_te, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_te DESC) avg_te_rank, "
+"avg_teeff, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_teeff DESC) avg_teeff_rank, "
+"avg_enemynrg, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_enemynrg DESC) avg_enemynrg_rank, "
+"avg_absorb, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_absorb DESC) avg_absorb_rank, "
+"avg_protdmg, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_protdmg DESC) avg_protdmg_rank, "
+"avg_prottime, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_prottime DESC) avg_prottime_rank, "
+"avg_rage, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_rage DESC) avg_rage_rank, "
+"avg_drain, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_drain DESC) avg_drain_rank, "
+"avg_drained, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_drained DESC) avg_drained_rank, "
+"avg_fs, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_fs DESC) avg_fs_rank, "
+"avg_bas, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_bas DESC) avg_bas_rank, "
+"avg_mid, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_mid DESC) avg_mid_rank, "
+"avg_eba, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_eba DESC) avg_eba_rank, "
+"avg_efs, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_efs DESC) avg_efs_rank "
+"FROM t WHERE pugs_played >= 10;";
+
+static qboolean UpgradeDBToVersion13(sqlite3 *dbPtr) {
+	return trap_sqlite3_exec(dbPtr, v13Upgrade, NULL, NULL, NULL) == SQLITE_OK;
+}
+
+const char *const v14Upgrade = "ALTER TABLE aimpacks ADD COLUMN [extra] TEXT DEFAULT NULL;";
+
+static qboolean UpgradeDBToVersion14(sqlite3 *dbPtr) {
+	return trap_sqlite3_exec(dbPtr, v14Upgrade, NULL, NULL, NULL) == SQLITE_OK;
+}
+
+const char *const v15Upgrade = "ALTER TABLE playerpugteampos ADD COLUMN [gotte] INTEGER; "
+"DROP VIEW [accountstats]; "
+"CREATE VIEW [accountstats] AS "
+"WITH wins AS ( "
+"SELECT account_id, playerpugteampos.pos, count() AS wins "
+"FROM playerpugteampos "
+"JOIN sessions ON sessions.session_id = playerpugteampos.session_id "
+"JOIN pugs ON pugs.match_id = playerpugteampos.match_id "
+"WHERE pugs.win_team = playerpugteampos.team "
+"GROUP BY account_id, playerpugteampos.pos), "
+"pugs_played AS ( "
+"SELECT account_id, playerpugteampos.pos, count(*) AS pugs_played "
+"FROM playerpugteampos "
+"JOIN sessions ON sessions.session_id = playerpugteampos.session_id "
+"JOIN pugs ON pugs.match_id = playerpugteampos.match_id "
+"GROUP BY account_id, playerpugteampos.pos), "
+"t AS ( "
+"SELECT accounts.account_id, accounts.name, playerpugteampos.pos, "
+"pugs_played, "
+"ifnull(wins, 0) AS wins, "
+"CAST(ifnull(wins, 0) AS FLOAT) / pugs_played AS winrate, "
+"avg(cap * (1200000.0 / playerpugteampos.duration)) AS avg_cap, "
+"avg(ass * (1200000.0 / playerpugteampos.duration)) AS avg_ass, "
+"avg(def * (1200000.0 / playerpugteampos.duration)) AS avg_def, "
+"CAST(sum((CASE WHEN acc IS NOT NULL THEN acc ELSE 0 END) * playerpugteampos.duration) AS FLOAT) / CAST(sum(CASE WHEN acc IS NOT NULL THEN playerpugteampos.duration ELSE 0 END) AS FLOAT) AS avg_acc, "
+"avg(air * (1200000.0 / playerpugteampos.duration)) AS avg_air, "
+"avg(tk * (1200000.0 / playerpugteampos.duration)) AS avg_tk, "
+"avg(take * (1200000.0 / playerpugteampos.duration)) AS avg_take, "
+"avg(pitkil * (1200000.0 / playerpugteampos.duration)) AS avg_pitkil, "
+"avg(pitdth * (1200000.0 / playerpugteampos.duration)) AS avg_pitdth, "
+"avg(dmg * (1200000.0 / playerpugteampos.duration)) AS avg_dmg, "
+"avg(fcdmg * (1200000.0 / playerpugteampos.duration)) AS avg_fcdmg, "
+"avg(clrdmg * (1200000.0 / playerpugteampos.duration)) AS avg_clrdmg, "
+"avg(othrdmg * (1200000.0 / playerpugteampos.duration)) AS avg_othrdmg, "
+"avg(dmgtkn * (1200000.0 / playerpugteampos.duration)) AS avg_dmgtkn, "
+"avg(fcdmgtkn * (1200000.0 / playerpugteampos.duration)) AS avg_fcdmgtkn, "
+"avg(clrdmgtkn * (1200000.0 / playerpugteampos.duration)) AS avg_clrdmgtkn, "
+"avg(othrdmgtkn * (1200000.0 / playerpugteampos.duration)) AS avg_othrdmgtkn, "
+"avg(fckil * (1200000.0 / playerpugteampos.duration)) AS avg_fckil, "
+"CAST(sum((CASE WHEN fckileff IS NOT NULL THEN fckileff ELSE 0 END) * playerpugteampos.duration) AS FLOAT) / CAST(sum(CASE WHEN fckileff IS NOT NULL THEN playerpugteampos.duration ELSE 0 END) AS FLOAT) AS avg_fckileff, "
+"avg(ret * (1200000.0 / playerpugteampos.duration)) AS avg_ret, "
+"avg(sk * (1200000.0 / playerpugteampos.duration)) AS avg_sk, "
+"avg(ttlhold * (1200000.0 / playerpugteampos.duration)) AS avg_ttlhold, "
+"avg(maxhold * (1200000.0 / playerpugteampos.duration)) AS avg_maxhold, "
+"CAST(sum(avgspd * playerpugteampos.duration) AS FLOAT) / CAST(sum(playerpugteampos.duration) AS FLOAT) AS avg_avgspd, "
+"CAST(sum(topspd * playerpugteampos.duration) AS FLOAT) / CAST(sum(playerpugteampos.duration) AS FLOAT) AS avg_topspd, "
+"avg(boon * (1200000.0 / playerpugteampos.duration)) AS avg_boon, "
+"avg(push * (1200000.0 / playerpugteampos.duration)) AS avg_push, "
+"avg(pull * (1200000.0 / playerpugteampos.duration)) AS avg_pull, "
+"avg(heal * (1200000.0 / playerpugteampos.duration)) AS avg_heal, "
+"avg(te * (1200000.0 / playerpugteampos.duration)) AS avg_te, "
+"CAST(sum((CASE WHEN teeff IS NOT NULL THEN teeff ELSE 0 END) * playerpugteampos.duration) AS FLOAT) / CAST(sum(CASE WHEN teeff IS NOT NULL THEN playerpugteampos.duration ELSE 0 END) AS FLOAT) AS avg_teeff, "
+"avg(enemynrg * (1200000.0 / playerpugteampos.duration)) AS avg_enemynrg, "
+"avg(absorb * (1200000.0 / playerpugteampos.duration)) AS avg_absorb, "
+"avg(protdmg * (1200000.0 / playerpugteampos.duration)) AS avg_protdmg, "
+"avg(prottime * (1200000.0 / playerpugteampos.duration)) AS avg_prottime, "
+"avg(rage * (1200000.0 / playerpugteampos.duration)) AS avg_rage, "
+"avg(drain * (1200000.0 / playerpugteampos.duration)) AS avg_drain, "
+"avg(drained * (1200000.0 / playerpugteampos.duration)) AS avg_drained, "
+"CAST(sum((CASE WHEN fs IS NOT NULL THEN fs ELSE 0 END) * playerpugteampos.duration) AS FLOAT) / CAST(sum(CASE WHEN fs IS NOT NULL THEN playerpugteampos.duration ELSE 0 END) AS FLOAT) AS avg_fs, "
+"CAST(sum((CASE WHEN bas IS NOT NULL THEN bas ELSE 0 END) * playerpugteampos.duration) AS FLOAT) / CAST(sum(CASE WHEN bas IS NOT NULL THEN playerpugteampos.duration ELSE 0 END) AS FLOAT) AS avg_bas, "
+"CAST(sum((CASE WHEN mid IS NOT NULL THEN mid ELSE 0 END) * playerpugteampos.duration) AS FLOAT) / CAST(sum(CASE WHEN mid IS NOT NULL THEN playerpugteampos.duration ELSE 0 END) AS FLOAT) AS avg_mid, "
+"CAST(sum((CASE WHEN eba IS NOT NULL THEN eba ELSE 0 END) * playerpugteampos.duration) AS FLOAT) / CAST(sum(CASE WHEN eba IS NOT NULL THEN playerpugteampos.duration ELSE 0 END) AS FLOAT) AS avg_eba, "
+"CAST(sum((CASE WHEN efs IS NOT NULL THEN efs ELSE 0 END) * playerpugteampos.duration) AS FLOAT) / CAST(sum(CASE WHEN efs IS NOT NULL THEN playerpugteampos.duration ELSE 0 END) AS FLOAT) AS avg_efs, "
+"avg(gotte * (1200000.0 / playerpugteampos.duration)) AS avg_gotte "
+"FROM playerpugteampos "
+"JOIN sessions ON playerpugteampos.session_id = sessions.session_id "
+"JOIN accounts ON accounts.account_id = sessions.account_id "
+"JOIN pugs ON pugs.match_id = playerpugteampos.match_id "
+"LEFT JOIN wins ON wins.account_id = sessions.account_id AND wins.pos = playerpugteampos.pos "
+"LEFT JOIN pugs_played ON pugs_played.account_id = sessions.account_id AND pugs_played.pos = playerpugteampos.pos "
+"GROUP BY playerpugteampos.pos, accounts.account_id "
+"ORDER BY playerpugteampos.pos ASC, accounts.account_id ASC) "
+"SELECT account_id, "
+"name, "
+"pos, "
+"pugs_played, "
+"RANK() OVER (PARTITION BY pos ORDER BY pugs_played DESC) pugs_played_rank, "
+"wins, "
+"RANK() OVER (PARTITION BY pos ORDER BY wins DESC) wins_rank, "
+"winrate, "
+"RANK() OVER (PARTITION BY pos ORDER BY winrate DESC) winrate_rank, "
+"avg_cap, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_cap DESC) avg_cap_rank, "
+"avg_ass, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_ass DESC) avg_ass_rank, "
+"avg_def, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_def DESC) avg_def_rank, "
+"avg_acc, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_acc DESC) avg_acc_rank, "
+"avg_air, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_air DESC) avg_air_rank, "
+"avg_tk, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_tk DESC) avg_tk_rank, "
+"avg_take, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_take DESC) avg_take_rank, "
+"avg_pitkil, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_pitkil DESC) avg_pitkil_rank, "
+"avg_pitdth, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_pitdth DESC) avg_pitdth_rank, "
+"avg_dmg, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_dmg DESC) avg_dmg_rank, "
+"avg_fcdmg, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_fcdmg DESC) avg_fcdmg_rank, "
+"avg_clrdmg, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_clrdmg DESC) avg_clrdmg_rank, "
+"avg_othrdmg, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_othrdmg DESC) avg_othrdmg_rank, "
+"avg_dmgtkn, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_dmgtkn DESC) avg_dmgtkn_rank, "
+"avg_fcdmgtkn, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_fcdmgtkn DESC) avg_fcdmgtkn_rank, "
+"avg_clrdmgtkn, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_clrdmgtkn DESC) avg_clrdmgtkn_rank, "
+"avg_othrdmgtkn, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_othrdmgtkn DESC) avg_othrdmgtkn_rank, "
+"avg_fckil, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_fckil DESC) avg_fckil_rank, "
+"avg_fckileff, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_fckileff DESC) avg_fckileff_rank, "
+"avg_ret, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_ret DESC) avg_ret_rank, "
+"avg_sk, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_sk DESC) avg_sk_rank, "
+"avg_ttlhold, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_ttlhold DESC) avg_ttlhold_rank, "
+"avg_maxhold, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_maxhold DESC) avg_maxhold_rank, "
+"avg_avgspd, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_avgspd DESC) avg_avgspd_rank, "
+"avg_topspd, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_topspd DESC) avg_topspd_rank, "
+"avg_boon, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_boon DESC) avg_boon_rank, "
+"avg_push, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_push DESC) avg_push_rank, "
+"avg_pull, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_pull DESC) avg_pull_rank, "
+"avg_heal, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_heal DESC) avg_heal_rank, "
+"avg_te, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_te DESC) avg_te_rank, "
+"avg_teeff, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_teeff DESC) avg_teeff_rank, "
+"avg_enemynrg, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_enemynrg DESC) avg_enemynrg_rank, "
+"avg_absorb, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_absorb DESC) avg_absorb_rank, "
+"avg_protdmg, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_protdmg DESC) avg_protdmg_rank, "
+"avg_prottime, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_prottime DESC) avg_prottime_rank, "
+"avg_rage, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_rage DESC) avg_rage_rank, "
+"avg_drain, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_drain DESC) avg_drain_rank, "
+"avg_drained, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_drained DESC) avg_drained_rank, "
+"avg_fs, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_fs DESC) avg_fs_rank, "
+"avg_bas, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_bas DESC) avg_bas_rank, "
+"avg_mid, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_mid DESC) avg_mid_rank, "
+"avg_eba, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_eba DESC) avg_eba_rank, "
+"avg_efs, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_efs DESC) avg_efs_rank, "
+"avg_gotte, "
+"RANK() OVER (PARTITION BY pos ORDER BY avg_gotte DESC) avg_gotte_rank "
+"FROM t WHERE pugs_played >= 10;";
+
+static qboolean UpgradeDBToVersion15(sqlite3 *dbPtr) {
+	return trap_sqlite3_exec(dbPtr, v15Upgrade, NULL, NULL, NULL) == SQLITE_OK;
+}
+
+const char *const v16Upgrade = "UPDATE playerratings SET rating = rating + 2;";
+
+static qboolean UpgradeDBToVersion16(sqlite3 *dbPtr) {
+	return trap_sqlite3_exec(dbPtr, v16Upgrade, NULL, NULL, NULL) == SQLITE_OK;
+}
+
+const char *const v17Upgrade =
+"CREATE TABLE IF NOT EXISTS [mapaliases] ([filename] TEXT COLLATE NOCASE NOT NULL, [alias] TEXT COLLATE NOCASE NOT NULL, [islive] BOOLEAN DEFAULT NULL, UNIQUE(filename), UNIQUE(alias, islive)); "
+"CREATE VIEW IF NOT EXISTS [lastplayedalias] AS SELECT alias, sum(num) num, max(datetime) datetime FROM lastplayedmap JOIN mapaliases ON lastplayedmap.map = mapaliases.filename GROUP BY alias; "
+"CREATE VIEW IF NOT EXISTS [lastplayedmaporalias] AS WITH t AS (SELECT alias, sum(num) num, max(datetime) datetime FROM lastplayedalias) SELECT lastplayedmap.map, CASE WHEN t.num IS NOT NULL THEN t.num ELSE lastplayedmap.num END num, CASE WHEN t.datetime IS NOT NULL THEN t.datetime ELSE lastplayedmap.datetime END datetime FROM lastplayedmap LEFT JOIN mapaliases ON lastplayedmap.map = mapaliases.filename LEFT JOIN t ON mapaliases.alias = t.alias;";
+
+static qboolean UpgradeDBToVersion17(sqlite3 *dbPtr) {
+	return trap_sqlite3_exec(dbPtr, v17Upgrade, NULL, NULL, NULL) == SQLITE_OK;
 }
 
 // =============================================================================
@@ -602,6 +1421,16 @@ static qboolean UpgradeDB( int versionTo, sqlite3* dbPtr ) {
 		case 5:	return UpgradeDBToVersion5( dbPtr );
 		case 6: return UpgradeDBToVersion6( dbPtr );
 		case 7: return UpgradeDBToVersion7(dbPtr);
+		case 8: return UpgradeDBToVersion8(dbPtr);
+		case 9: return UpgradeDBToVersion9(dbPtr);
+		case 10: return UpgradeDBToVersion10(dbPtr);
+		case 11: return UpgradeDBToVersion11(dbPtr);
+		case 12: return UpgradeDBToVersion12(dbPtr);
+		case 13: return UpgradeDBToVersion13(dbPtr);
+		case 14: return UpgradeDBToVersion14(dbPtr);
+		case 15: return UpgradeDBToVersion15(dbPtr);
+		case 16: return UpgradeDBToVersion16(dbPtr);
+		case 17: return UpgradeDBToVersion17(dbPtr);
 ;		default:
 			Com_Printf( "ERROR: Unsupported database upgrade routine\n" );
 	}

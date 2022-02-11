@@ -63,6 +63,8 @@ extern vec3_t gPainPoint;
 #define Q3INFINITE			1000000
 #endif
 
+#define ARRAY_LEN(x) (sizeof(x) / sizeof(*(x)))
+
 #define	FRAMETIME			100					// msec
 #define	CARNAGE_REWARD_TIME	3000
 #define REWARD_SPRITE_TIME	2000
@@ -208,6 +210,7 @@ typedef struct {
 	float						autoDist; // distance for recordroute to put player spawn from bot spawn if unspecified
 	list_t						cachedScoresList; // list of scores for players
 	int							routeStartTime;
+	int							maxSpeed; // this must be at the end of the aimPracticePack_t struct to maintain backward compatibility!
 } aimPracticePack_t;
 
 typedef struct {
@@ -480,6 +483,8 @@ struct gentity_s {
 
 	qboolean	raceDimensionEvent;
 
+	gentity_t	*twin;
+
 	aimPracticePack_t	*isAimPracticePack;
 
 	gentity_t	*aimPracticeEntBeingUsed;
@@ -528,20 +533,7 @@ typedef struct {
 
 	int			location;
 
-	int			captures;
-	int			basedefense;
-	int			carrierdefense;
-	int			flagrecovery;
-	int			fragcarrier;
-	int			assists;
-
 	//special stats
-	int			th;
-	int			te;
-	int			flaghold;
-	int			longestFlaghold;
-	int			boonPickups;
-	int			saves;
 
 	int			lasthurtcarrier;
 	int			lastreturnedflag;
@@ -555,13 +547,30 @@ typedef struct {
 #define	FOLLOW_ACTIVE2	-2
 
 #define MAX_ACCOUNTNAME_LEN		24
-#define MAX_GROUPNAME_LEN		48
+
+typedef struct {
+	node_t		node;
+	int			accountId;
+	char		sex[32];
+	char		country[32];
+} autoLink_t;
+
+typedef struct {
+	int			first;
+	int			second;
+	int			third;
+	int			avoid;
+} positionPreferences_t;
 
 typedef struct {
 	int id;
 	char name[MAX_ACCOUNTNAME_LEN];
 	int creationDate;
-	char group[MAX_GROUPNAME_LEN];
+	struct {
+		char sex[32];
+		char country[32];
+	} autoLink;
+	positionPreferences_t expressedPref, validPref;
 	int flags;
 } account_t;
 
@@ -732,6 +741,12 @@ typedef struct {
 		CLIENT_TYPE_NORMAL = 0,
 		CLIENT_TYPE_JKCHAT
 	} clientType;
+
+	struct {
+		qboolean	valid;
+		int			pos;
+		int			score;
+	} remindPositionOnMapChange;
 } clientSession_t;
 
 // race flags
@@ -799,25 +814,11 @@ typedef struct {
 	int			voiceChatSentCount;
 	int			voiceChatSentTime;
 
-	//damage calculating
-	int			damageCaused;
-	int			damageTaken;
-
 	// force stats
-	int			pull;
-	int			push;
-	int			healed;
-	int			energizedAlly;
-	int			energizedEnemy;
-	int			absorbed;
-	int			protDmgAvoided;
-	int			protTimeUsed;
 	int			protsince;
+	int			ragesince;
 
 	// speed stats
-	float		topSpeed;
-	float		displacement;
-	int			displacementSamples;
 	float		fastcapTopSpeed;
 	float		fastcapDisplacement;
 	int			fastcapDisplacementSamples;
@@ -844,10 +845,17 @@ typedef struct {
 	char		specChatBuffer[MAX_SAY_TEXT];
 	int			specChatBufferCheckTime;
 
+	qboolean	killedAlliedFlagCarrier;
+
 	aimPracticePack_t	*aimPracticePackBeingEdited; // which pack this player is currently editing (if any)
 
 	int			cointossHeadsTime;
 	int			cointossTailsTime;
+
+	qboolean	barredFromPugSelection;
+
+	qboolean permaBarredDeclaredPickable;
+
 } clientPersistant_t;
 
 typedef struct renderInfo_s
@@ -930,6 +938,348 @@ void G_UnTimeShiftClient(gentity_t *ent, qboolean timeshiftAnims);
 void G_UnTimeShiftAllClients(gentity_t *skip, qboolean timeshiftAnims);
 void G_PredictPlayerStepSlideMove(gentity_t *ent, float frametime);
 
+//NT - client origin trails
+typedef struct { //Should this store their g2 anim? for proper g2 sync?
+	vec3_t	mins, maxs;
+	vec3_t	currentOrigin;//, currentAngles; //Well r.currentAngles are never actually used by clients in this game?
+	int		time, torsoAnim, torsoTimer, legsAnim, legsTimer;
+	float	realAngle; //Only the [YAW] is ever used for hit detection
+} clientTrail_t;
+
+//
+// g_stats.c
+//
+
+//#define DEBUG_CTF_POSITION_STATS // uncomment this to remove afk checks and print more messages for pos detection
+//#define DEBUGSTATSNAMES // uncomment this to see longer column names in stats
+
+#ifdef DEBUG_CTF_POSITION_STATS
+#define CTFPOSITION_MINIMUM_SECONDS		(60) // 60 seconds minimum for pos detection
+#else
+#define CTFPOSITION_MINIMUM_SECONDS		(120) // 120 seconds minimum for pos detection
+#endif
+
+#ifdef DEBUG_CTF_POSITION_STATS
+#define STATS_BLOCK_DURATION_MS			(120 * 1000) // 2 minute blocks
+#else
+#define STATS_BLOCK_DURATION_MS			(300 * 1000) // 5 minute blocks
+#endif
+
+#define CTF_SAVE_DISTANCE_THRESHOLD		(200)
+#define CTFPOS_POSTSPAWN_DELAY_MS		(3000) // wait a little while after spawning before we log position data
+
+typedef enum {
+	CTFREGION_INVALID = -1,
+	CTFREGION_FLAGSTAND = 0,
+	CTFREGION_BASE,
+	CTFREGION_MID,
+	CTFREGION_ENEMYBASE,
+	CTFREGION_ENEMYFLAGSTAND,
+	NUM_CTFREGIONS
+} ctfRegion_t;
+
+typedef enum {
+	MODC_INVALID = -1,
+	MODC_FIRST = 0,
+	MODC_MELEESTUNBATON = MODC_FIRST,
+	MODC_SABER,
+	MODC_PISTOL,
+	MODC_BLASTER,
+	MODC_DISRUPTOR,
+	MODC_BOWCASTER,
+	MODC_REPEATER,
+	MODC_DEMP,
+	MODC_GOLAN,
+	MODC_ROCKET,
+	MODC_CONCUSSION,
+	MODC_THERMAL,
+	MODC_MINE,
+	MODC_DETPACK,
+	MODC_FORCE,
+	MODC_ALL_TYPES_COMBINED,
+	MODC_MAX
+} meansOfDeathCategory_t;
+
+typedef enum {
+	ACC_INVALID = -1,
+	ACC_FIRST = 0,
+	ACC_ALL_TYPES_COMBINED = ACC_FIRST,
+	ACC_PISTOL_ALT,
+	ACC_DISRUPTOR_PRIMARY,
+	ACC_DISRUPTOR_SNIPE,
+	ACC_REPEATER_ALT,
+	ACC_GOLAN_ALT,
+	ACC_ROCKET,
+	ACC_CONCUSSION_PRIMARY,
+	ACC_CONCUSSION_ALT,
+	ACC_THERMAL_ALT,
+	ACC_MAX
+} accuracyCategory_t;
+
+typedef enum {
+	CTFPOSITION_UNKNOWN = 0,
+	CTFPOSITION_BASE,
+	CTFPOSITION_CHASE,
+	CTFPOSITION_OFFENSE
+} ctfPosition_t;
+
+#define ALL_CTF_POSITIONS	((1 << CTFPOSITION_BASE) | (1 << CTFPOSITION_CHASE) | (1 << CTFPOSITION_OFFENSE))
+
+typedef enum {
+	STATS_TABLE_FIRST = 0,
+	STATS_TABLE_GENERAL = STATS_TABLE_FIRST,
+	STATS_TABLE_FORCE,
+	STATS_TABLE_DAMAGE,
+	STATS_TABLE_WEAPON_GIVEN,
+	STATS_TABLE_WEAPON_TAKEN,
+	STATS_TABLE_ACCURACY,
+	NUM_STATS_TABLES
+} statsTableType_t;
+void InitClientStats(gclient_t *cl);
+void ChangeStatsTeam(gclient_t *cl);
+ctfRegion_t GetCTFRegion(gentity_t *ent);
+meansOfDeathCategory_t MeansOfDeathCategoryForMeansOfDeath(meansOfDeath_t mod);
+accuracyCategory_t AccuracyCategoryForProjectile(gentity_t *projectile);
+void ChangeToNextStatsBlockIfNeeded(void);
+char *NameForPos(ctfPosition_t pos);
+void SendMachineFriendlyStats(void);
+void RecalculateTeamBalance(void);
+
+typedef struct {
+	node_t		node;
+
+	int			blockNum;
+
+	qboolean	isBot;
+	qboolean	isTotal; // used to denote that this is the total stat for a team (for display purposes)
+	int			sessionId; // for bots, this is just their client number. replacing a bot with another bot in the same slot = same stats
+	int			accountId; // if applicable
+	char		accountName[MAX_NAME_LENGTH]; // if applicable
+	char		name[MAX_NAME_LENGTH];
+	int			clientNum; // to help print in scoreboard order
+	team_t		lastTeam; // upon joining red/blue even once, this will never be set back to spectator/free (accounts for people who go spec after playing). initializes to free
+
+	int			score;
+	int			captures;
+	int			assists;
+	int			defends;
+	int			accuracy_shots;
+	int			accuracy_hits;
+	int			accuracy_shotsOfType[ACC_MAX];
+	int			accuracy_hitsOfType[ACC_MAX];
+	int			accuracy; // this is only calculated on demand; don't just randomly read this (imagine getters in C)
+	int			accuracyOfType[ACC_MAX]; // this is only calculated on demand; don't just randomly read this (imagine getters in C)
+	int			airs;
+	int			teamKills;
+	int			takes;
+	int			pits;
+	int			pitted;
+	int			fcKills;
+	int			fcKillsResultingInRets;
+	int			fcKillEfficiency; // this is only calculated on demand; don't just randomly read this (imagine getters in C)
+	int			rets;
+	int			selfkills;
+	int			boonPickups;
+	int			healthPickedUp;
+	int			armorPickedUp;
+	int			totalFlagHold;
+	int			longestFlagHold;
+	int			saves;
+	int			damageDealtTotal;
+	int			damageTakenTotal;
+	int			flagCarrierDamageDealtTotal; // damage given to flag carriers
+	int			flagCarrierDamageTakenTotal; // damage received while carrying a flag
+	int			clearDamageDealtTotal; // damage given to non-flag carriers in your base/fs
+	int			clearDamageTakenTotal; // damage taken while not a flag carrier and in the enemy base/fs
+	int			otherDamageDealtTotal; // damage given not fitting into either of the two prior categories
+	int			otherDamageTakenTotal; // damage taken not fitting into either of the two prior categories
+	int			damageOfType[MODC_MAX]; // only used for total rows; not players
+
+	float		topSpeed;
+	float		displacement;
+	int			displacementSamples;
+	int			averageSpeed; // this is only calculated on demand; don't just randomly read this (imagine getters in C)
+
+	list_t		damageGivenList; // list of people whom this player has damaged (including ragequitters/specs)
+	list_t		damageTakenList; // list of people by whom this player has been damaged (including ragequitters/specs)
+
+	int			push;
+	int			pull;
+	int			healed;
+	int			numEnergizes;
+	float		normalizedEnergizeAmounts; // e.g. two 90% efficient energizes = 1.8
+	int			energizeEfficiency; // this is only calculated on demand; don't just randomly read this (imagine getters in C)
+	int			energizedAlly;
+	int			gotEnergizedByAlly;
+	int			energizedEnemy;
+	int			absorbed;
+	int			protDamageAvoided;
+	int			protTimeUsed;
+	int			rageTimeUsed;
+	int			drain;
+	int			gotDrained;
+
+	list_t		teammatePositioningList; // record of positioning for people i was ingame with
+
+	int			numFlagHolds;
+	int			averageFlagHold; // this is only calculated on demand; don't just randomly read this (imagine getters in C)
+
+	int			numGets;
+	int			getTotalHealth;
+	int			averageGetHealth; // this is only calculated on demand; don't just randomly read this (imagine getters in C)
+
+	int			regionTime[NUM_CTFREGIONS];
+	int			regionPercent[NUM_CTFREGIONS];
+	float		totalLocationWithFlag; // only counts 3+ seconds after spawning
+	int			numLocationSamplesWithFlag; // only counts 3+ seconds after spawning
+	float		totalLocationWithoutFlag; // only counts 3+ seconds after spawning
+	int			numLocationSamplesWithoutFlag; // only counts 3+ seconds after spawning
+	int			ticksNotPaused; // all ticks this player has been ingame for while not paused, regardless of afk/spawn times, etc. used to determine total ingame time
+	int			numLocationSamplesRegardlessOfFlagHolding; // similar to ticksNotPaused but they can't be afk and only counts 3+ seconds after spawn
+	int			confirmedPositionBits; // list of all positions this person has ever played in this pug on this team
+
+	ctfPosition_t	lastPosition; // may be valid or unknown
+	ctfPosition_t	finalPosition; // set only when confirmed; overrides everything else if set
+
+	int			lastTickIngameTime; // the last time they were ingame and it wasn't paused
+} stats_t;
+
+typedef struct {
+	node_t		node;
+	stats_t		*stats;
+	int			numTicksIngameWithMe; // all ticks this player has been ingame with me, regardless of afk/spawn times, etc.
+	int			numLocationSamplesIngameWithMe; // can't be afk and only counts 3+ seconds after spawn
+	float		totalLocationWithFlagWithMe;
+	int			numLocationSamplesWithFlagWithMe;
+	float		totalLocationWithoutFlagWithMe;
+	int			numLocationSamplesWithoutFlagWithMe;
+} ctfPositioningData_t;
+void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t outSize, qboolean announce, stats_t *weaponStatsPtr);
+qboolean StatsValid(const stats_t *stats);
+stats_t *GetStatsFromString(const char *str);
+int *GetDamageGivenStat(stats_t *attacker, stats_t *victim);
+int GetTotalDamageGivenStatOfType(stats_t *attacker, stats_t *victim, meansOfDeathCategory_t modc);
+int *GetDamageGivenStatOfType(stats_t *attacker, stats_t *victim, meansOfDeathCategory_t modc);
+int *GetDamageTakenStat(stats_t *attacker, stats_t *victim);
+int GetTotalDamageTakenStatOfType(stats_t *attacker, stats_t *victim, meansOfDeathCategory_t modc);
+int *GetDamageTakenStatOfType(stats_t *attacker, stats_t *victim, meansOfDeathCategory_t modc);
+ctfPosition_t DetermineCTFPosition(stats_t *posGuy, qboolean enableDebugPrints);
+void FinalizeCTFPositions(void);
+void CheckAccountsOfOldBlocks(int ignoreBlockNum);
+
+typedef struct {
+	node_t		node;
+	qboolean	otherPlayerIsBot;
+	int			otherPlayerSessionId;
+	int			otherPlayerAccountId;
+	stats_t		*otherPlayerStats;
+	int			totalAmount;
+	int			ofType[MODC_MAX];
+} damageCounter_t;
+
+//
+// g_teamgen.c
+//
+#define TEAMGEN_CHAT_COMMAND_CHARACTER		'?'
+
+typedef struct {
+	double rawStrength;
+	double relativeStrength;
+	int baseId;
+	int chaseId;
+	int offenseId1;
+	int offenseId2;
+	char baseName[MAX_NAME_LENGTH];
+	char chaseName[MAX_NAME_LENGTH];
+	char offense1Name[MAX_NAME_LENGTH];
+	char offense2Name[MAX_NAME_LENGTH];
+} teamData_t;
+
+typedef struct {
+	qboolean valid;
+	double diff;
+	XXH32_hash_t hash;
+	teamData_t teams[2];
+	int numOnPreferredPos;
+	int numOnAvoidedPos;
+	int topTierImbalance;
+	int bottomTierImbalance;
+} permutationOfTeams_t;
+
+typedef struct {
+	int clientNum;
+	int accountId;
+	char accountName[32];
+	positionPreferences_t posPrefs;
+	team_t team;
+} sortedClient_t;
+
+typedef struct {
+	node_t		node;
+	int			accountId;
+} barredOrForcedPickablePlayer_t;
+
+typedef struct {
+	node_t			node;
+	int				num;
+	XXH32_hash_t	hash;
+	sortedClient_t	clients[MAX_CLIENTS];
+	int				votedYesClients;
+	int				votedToRerollClients;
+	int				votedToCancelClients;
+	qboolean		passed;
+	permutationOfTeams_t suggested, highestCaliber, fairest, desired;
+	uint64_t		numValidPermutationsChecked;
+	char			namesStr[1024];
+	char			suggestedLetter, highestCaliberLetter, fairestLetter, desiredLetter;
+	int				suggestedVoteClients, highestCaliberVoteClients, fairestVoteClients, desiredVoteClients;
+	list_t			avoidedHashesList;
+} pugProposal_t;
+
+typedef struct {
+	node_t			node;
+	char			*text;
+	qboolean		inConsole;
+	int				clientNum;
+	int				serverFrameNum;
+} queuedServerMessage_t;
+
+typedef enum {
+	PLAYERRATING_UNRATED = 0,
+	PLAYERRATING_LOW_C,
+	PLAYERRATING_MID_C,
+	PLAYERRATING_HIGH_C,
+	PLAYERRATING_LOW_B,
+	PLAYERRATING_MID_B,
+	PLAYERRATING_HIGH_B,
+	PLAYERRATING_LOW_A,
+	PLAYERRATING_MID_A,
+	PLAYERRATING_HIGH_A,
+	PLAYERRATING_S,
+	NUM_PLAYERRATINGS
+} ctfPlayerTier_t;
+char *PlayerRatingToString(ctfPlayerTier_t tier);
+
+double PlayerTierToRating(ctfPlayerTier_t tier);
+qboolean TeamGenerator_PugStart(gentity_t *ent, char **newMessage);
+void TeamGenerator_DoReroll(qboolean forcedByServer);
+qboolean TeamGenerator_VoteToReroll(gentity_t *ent, char **newMessage);
+void TeamGenerator_DoCancel(void);
+qboolean TeamGenerator_VoteToCancel(gentity_t *ent, char **newMessage);
+qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteStr, char **newMessage);
+qboolean TeamGenerator_VoteYesToPugProposal(gentity_t *ent, int num, pugProposal_t *setOptional, char **newMessage);
+void TeamGenerator_QueueServerMessageInChat(int clientNum, const char *msg);
+void TeamGenerator_QueueServerMessageInConsole(int clientNum, const char *msg);
+qboolean TeamGenerator_CheckForChatCommand(gentity_t *ent, const char *s, char **newMessage);
+qboolean TeamGenerator_PlayerIsBarredFromTeamGenerator(gentity_t *ent);
+void Svcmd_Pug_f(void);
+void TeamGen_Initialize(void);
+ctfPlayerTier_t GetPlayerTierForPlayerOnPosition(int accountId, ctfPosition_t pos, qboolean assumeLowTierIfUnrated);
+void ShowSubBalance(void);
+qboolean TeamGenerator_PlayerIsPermaBarredButTemporarilyForcedPickable(gentity_t *ent);
+void TeamGen_ClearRemindPositions(void);
+void TeamGen_RemindPosition(gentity_t *ent);
+
 // this structure is cleared on each ClientSpawn(),
 // except for 'client->pers' and 'client->sess'
 struct gclient_s {
@@ -943,6 +1293,7 @@ struct gclient_s {
 	// accounts
 	session_t* session;
 	account_t* account;
+	stats_t* stats;
 
 	saberInfo_t	saber[MAX_SABERS];
 	void		*weaponGhoul2[MAX_SABERS];
@@ -990,9 +1341,6 @@ struct gclient_s {
 	int			damageBoxHandle_LLeg; //entity number of left leg damage box
 
 	int			accurateCount;		// for "impressive" reward sound
-
-	int			accuracy_shots;		// total number of shots
-	int			accuracy_hits;		// total number of hits
 
 	//
 	int			lastkilled_client;	// last client that this client killed
@@ -1165,6 +1513,8 @@ struct gclient_s {
 	int homingLockTime; // time at which homing weapon locked on to a target
 	int homingLockTarget; // the target of it
 
+	int lastInputTime; // based on trap_Milliseconds
+
 	qboolean		reachedLimit;
 	int				moveRecordStart;
 	int				trailHead;
@@ -1292,13 +1642,20 @@ typedef enum {
 	NUM_MAPTIERS
 } mapTier_t;
 
-//NT - client origin trails
-typedef struct { //Should this store their g2 anim? for proper g2 sync?
-	vec3_t	mins, maxs;
-	vec3_t	currentOrigin;//, currentAngles; //Well r.currentAngles are never actually used by clients in this game?
-	int		time, torsoAnim, torsoTimer, legsAnim, legsTimer;
-	float	realAngle; //Only the [YAW] is ever used for hit detection
-} clientTrail_t;
+typedef struct {
+	node_t				node;
+	int					accountId;
+	double				rating[CTFPOSITION_OFFENSE + 1];
+	qboolean			isRusty;
+} playerRating_t;
+
+typedef struct {
+	node_t			node;
+	int				accountId;
+	ctfPosition_t	mostPlayed;
+	ctfPosition_t	secondMostPlayed;
+	ctfPosition_t	thirdMostPlayed;
+} mostPlayedPos_t;
 
 typedef struct {
 	struct gclient_s	*clients;		// [maxclients]
@@ -1484,7 +1841,8 @@ typedef struct {
 	int			racemodeClientsHidingOtherRacersMask; // bits set to 1 = clients in racemode who disabled seeing other racers
 	int			racemodeClientsHidingIngameMask; // bits set to 1 = clients in racemode who disabled seeing in game entities
 	int			ingameClientsSeeingInRaceMask; // bits set to 1 = clients in game who enabled seeing in race entities
-	int			raceSpawnWeapons; // mask of weapons present in this level
+	int			raceSpawnWeapons; // mask of race-relevant weapons present in this level
+	int			existingWeaponSpawns; // mask of all weapons present in this level
 	int			raceSpawnAmmo[AMMO_MAX]; // exactly the ammo to hand out at spawn based on what's present in this level
 	qboolean	raceSpawnWithArmor; // qtrue if this level has at least one shield pickup
 	qboolean	mapHasConcussionRifle;
@@ -1506,10 +1864,10 @@ typedef struct {
 		} legacy;
 
 		struct {
+			qboolean usingLineOfSightLocations;
 			int numUnique; // two locations with the same message make an unique location, so this is at most MAX_LOCATIONS
-			int numTotal; // how many entities were parsed in total, duplicates included
+			uint64_t numTotal; // how many entities were parsed in total, duplicates included
 			enhancedLocation_t data[MAX_LOCATIONS];
-			void *lookupTree; // k-d tree for fast lookup, multiple nodes may point to the same data[n]
 		} enhanced;
 
 		qboolean linked;
@@ -1523,6 +1881,16 @@ typedef struct {
 	list_t			redPlayerTickList;
 	list_t			bluePlayerTickList;
 	list_t			disconnectedPlayerList;
+
+	list_t			statsList;
+	list_t			savedStatsList;
+	stats_t			npcStatsDummy; // so we don't have to spam `if (client->stats)` everywhere before setting stats, just have all NPCs share one stats pointer
+
+	list_t			cachedWinrates;
+	list_t			cachedPerMapWinrates;
+	list_t			cachedPositionStats;
+	list_t			cachedPositionStatsRaw;
+	list_t			info_b_e_locationsList;
 
 #ifdef NEWMOD_SUPPORT
 	qboolean nmAuthEnabled;
@@ -1542,19 +1910,53 @@ typedef struct {
 
 	float	cullDistance;
 
+	qboolean	boonExists;
+
+	// track final ret results of fc kills (stupid variable names to eliminate ambiguity)
+	stats_t *redPlayerWhoKilledBlueCarrierOfRedFlag;
+	stats_t *bluePlayerWhoKilledRedCarrierOfBlueFlag;
+
 	list_t				*aimPracticePackList;
+
+	int statBlock; // e.g. if level.time - level.startTime is 0 through 299999 this is 0; if level.time - level.startTime is 300000 this is 1
+
+	list_t ratingList;
+	list_t mostPlayedPositionsList;
+
+	list_t pugProposalsList;
+	list_t barredPlayersList;
+	list_t forcedPickablePermabarredPlayersList;
+	pugProposal_t *activePugProposal;
+	list_t queuedServerMessagesList;
+	list_t autoLinksList;
+
+	double lastRelativeStrength[4];
+	int lastPlayerTickAddedTime;
+	list_t rustyPlayersList;
+
+	struct {
+		qboolean valid;
+		float value;
+	} pitHeight;
+
+	float locationAccuracy;
+	qboolean generateLocationsWithInfo_b_e_locationsOnly;
 } level_locals_t;
 
 
 //
 // g_accounts.c
 //
-#define ACCOUNTFLAG_ADMIN			( 1 << 0 )
-#define ACCOUNTFLAG_RCONLOG			( 1 << 1 )
-#define ACCOUNTFLAG_ENTERSPAMMER	( 1 << 2 )
-#define ACCOUNTFLAG_AIMPACKEDITOR	( 1 << 3 )
-#define ACCOUNTFLAG_AIMPACKADMIN	( 1 << 4 )
-#define ACCOUNTFLAG_VOTETROLL		( 1 << 5 )
+#define ACCOUNTFLAG_ADMIN					( 1 << 0 )
+#define ACCOUNTFLAG_RCONLOG					( 1 << 1 )
+#define ACCOUNTFLAG_ENTERSPAMMER			( 1 << 2 )
+#define ACCOUNTFLAG_AIMPACKEDITOR			( 1 << 3 )
+#define ACCOUNTFLAG_AIMPACKADMIN			( 1 << 4 )
+#define ACCOUNTFLAG_VOTETROLL				( 1 << 5 )
+#define ACCOUNTFLAG_RATEPLAYERS				( 1 << 6 )
+#define ACCOUNTFLAG_INSTAPAUSE_BLACKLIST	( 1 << 7 )
+#define ACCOUNTFLAG_PERMABARRED				( 1 << 8 )
+#define ACCOUNTFLAG_HARDPERMABARRED			( 1 << 9 )
 
 typedef void( *ListSessionsCallback )( void *ctx,
 	const sessionReference_t sessionRef,
@@ -1598,6 +2000,8 @@ char *G_NewString( const char *string );
 //
 // g_cmds.c
 //
+#define ColorForTeam( team )		( team == TEAM_BLUE ? COLOR_BLUE : COLOR_RED )
+#define ScoreTextForTeam( team )	( team == TEAM_BLUE ? S_COLOR_BLUE"Blue" : S_COLOR_RED"Red" )
 void Cmd_Score_f (gentity_t *ent);
 void StopFollowing( gentity_t *ent );
 void BroadcastTeamChange( gclient_t *client, int oldTeam );
@@ -1626,6 +2030,10 @@ typedef struct {
 	mapTier_t	tier;
 } mapTierData_t;
 char *ConcatArgs(int start);
+qboolean IsRacerOrSpectator(gentity_t *ent);
+ctfPosition_t CtfPositionFromString(char *s);
+float GetCTFLocationValue(gentity_t *ent);
+qboolean ValidateAndCopyPositionPreferences(const positionPreferences_t *in, positionPreferences_t *out);
 
 //
 // g_items.c
@@ -1665,6 +2073,29 @@ void Touch_Item (gentity_t *ent, gentity_t *other, trace_t *trace);
 void ClearRegisteredItems( void );
 void RegisterItem( gitem_t *item );
 void SaveRegisteredItems( void );
+
+//
+// g_location.c
+//
+typedef struct {
+	node_t	node;
+	vec3_t	origin;
+	char	message[MAX_LOCATION_CHARS];
+	struct {
+		qboolean	valid;
+		float		value;
+	} min[3];
+	struct {
+		qboolean	valid;
+		float		value;
+	} max[3];
+	int		teamowner;
+} info_b_e_location_listItem_t;
+void Location_ResetLookupTree(void);
+void Location_AddLocationEntityToList(gentity_t *ent);
+int Team_GetLocation(gentity_t *ent, char *locationBuffer, size_t locationBufferSize);
+void G_LinkLocations(void);
+void Location_SetTreePtr(void **kdtreePtr);
 
 //
 // g_utils.c
@@ -1736,6 +2167,7 @@ typedef qboolean ( *entityFilter_func )( gentity_t* );
 gentity_t* G_ClosestEntity( gentity_t *ref, entityFilter_func );
 void Q_strstrip(char *string, const char *strip, const char *repl);
 void PrintIngame(int clientNum, const char *s, ...);
+void OutOfBandPrint(int clientNum, const char *msg, ...);
 gclient_t* G_FindClientByIPPort(const char* ipPortString);
 void G_FormatDuration(const int duration, char* out, size_t outSize);
 
@@ -1749,10 +2181,18 @@ void Q_strstrip(char *string, const char *strip, const char *repl);
 char *stristr(const char *str1, const char *str2);
 const char *Cvar_VariableString(const char *var_name);
 
+
+qboolean HasFlag(gentity_t *ent);
+
 void PlayAimPracticeBotPainSound(gentity_t *npc, gentity_t *player);
 void CenterPrintToPlayerAndFollowers(gentity_t *ent, const char *s);
 void ExitAimTraining(gentity_t *ent);
 void PrintBasedOnAccountFlags(int flags, const char *msg);
+void FisherYatesShuffle(void *firstItem, size_t numItems, size_t itemSize);
+void FormatNumberToStringWithCommas(uint64_t n, char *out, size_t outSize);
+qboolean IsSpecName(const char *name);
+void SV_Tell(int clientNum, const char *text);
+void SV_Say(const char *text);
 
 //
 // g_object.c
@@ -1999,6 +2439,7 @@ void G_BroadcastServerFeatureList(int clientNum);
 void G_PrintWelcomeMessage(gclient_t* client);
 extern gentity_t *gJMSaberEnt;
 void TellPlayerToRateMap(gclient_t *client);
+void TellPlayerToSetPositions(gclient_t *client);
 void RestoreDisconnectedPlayerData(gentity_t *ent);
 
 //
@@ -2109,6 +2550,7 @@ void G_CheckClientTimeouts	( gentity_t *ent );
 void ClientThink			( int clientNum, usercmd_t *ucmd );
 void ClientEndFrame			( gentity_t *ent );
 void G_RunClient			( gentity_t *ent );
+qboolean IsInputting(const gclient_t *client, qboolean checkPressingButtons, qboolean checkMovingMouse, qboolean checkPressingChatButton);
 
 typedef enum {
 	NMTAUNT_ANGER1 = 100, //gloat
@@ -2141,7 +2583,7 @@ typedef struct {
 	char	shortName[64];
 	char	longName[64];
 } pool_t;
-typedef const char *(*ColumnDataCallback)(void *context);
+typedef const char *(*ColumnDataCallback)(void *rowContext, void *columnContext);
 typedef struct {
 	list_t			columnList;
 	list_t			rowList;
@@ -2150,27 +2592,36 @@ typedef struct {
 } Table;
 void listMapsInPools(void **context, const char *long_name, int pool_id, const char *mapname, int mapWeight);
 void listPools(void *context, int pool_id, const char *short_name, const char *long_name);
-const char *TableCallback_MapName(void *context);
-const char *TableCallback_MapWeight(void *context);
-const char *TableCallback_PoolShortName(void *context);
-const char *TableCallback_PoolLongName(void *context);
-const char *TableCallback_ClientNum(void *context);
-const char *TableCallback_Name(void *context);
-const char *TableCallback_Account(void *context);
-const char *TableCallback_Alias(void *context);
-const char *TableCallback_Verified(void *context);
-const char *TableCallback_Ping(void *context);
-const char *TableCallback_Score(void *context);
-const char *TableCallback_IP(void *context);
-const char *TableCallback_Qport(void *context);
-const char *TableCallback_Country(void *context);
-const char *TableCallback_Mod(void *context);
-const char *TableCallback_Shadowmuted(void *context);
+
+const char *TableCallback_MapName(void *rowContext, void *columnContext);
+const char *TableCallback_MapWeight(void *rowContext, void *columnContext);
+const char *TableCallback_PoolShortName(void *rowContext, void *columnContext);
+const char *TableCallback_PoolLongName(void *rowContext, void *columnContext);
+const char *TableCallback_ClientNum(void *rowContext, void *columnContext);
+const char *TableCallback_Name(void *rowContext, void *columnContext);
+const char *TableCallback_Account(void *rowContext, void *columnContext);
+const char *TableCallback_Alias(void *rowContext, void *columnContext);
+const char *TableCallback_Notes(void *rowContext, void *columnContext);
+const char *TableCallback_Ping(void *rowContext, void *columnContext);
+const char *TableCallback_Score(void *rowContext, void *columnContext);
+const char *TableCallback_IP(void *rowContext, void *columnContext);
+const char *TableCallback_Qport(void *rowContext, void *columnContext);
+const char *TableCallback_Country(void *rowContext, void *columnContext);
+const char *TableCallback_Mod(void *rowContext, void *columnContext);
+const char *TableCallback_Shadowmuted(void *rowContext, void *columnContext);
+
+typedef struct {
+	stats_t *tablePlayerStats;
+	qboolean damageTaken;
+	meansOfDeathCategory_t modc;
+} meansOfDeathCategoryContext_t;
+
 Table *Table_Initialize(qboolean alternateColors);
 void Table_DefineRow(Table *t, void *context);
-void Table_DefineColumn(Table *t, const char *title, ColumnDataCallback callback, qboolean leftAlign, int maxLen);
+void Table_DefineColumn(Table *t, const char *title, ColumnDataCallback callback, void *columnContext, qboolean leftAlign, int dividerColor, int maxLen);
+void Table_AddHorizontalRule(Table *t, int customColor);
 void Table_Destroy(Table *t);
-void Table_WriteToBuffer(Table *t, char *buf, size_t bufSize);
+void Table_WriteToBuffer(Table *t, char *buf, size_t bufSize, qboolean showHeader, int customHeaderColor);
 
 //
 // g_team.c
@@ -2589,7 +3040,8 @@ extern vmCvar_t		g_balanceSeeing;
 
 extern vmCvar_t		g_autoSendScores;
 
-extern vmCvar_t		g_autoGenerateLocations;
+extern vmCvar_t		g_lineOfSightLocations;
+extern vmCvar_t		g_lineOfSightLocations_generate;
 extern vmCvar_t		g_enableChatLocations;
 
 // flags for g_randFix
@@ -2611,6 +3063,11 @@ extern vmCvar_t		z_debug1;
 extern vmCvar_t		z_debug2;
 extern vmCvar_t		z_debug3;
 extern vmCvar_t		z_debug4;
+extern vmCvar_t		z_debug5;
+extern vmCvar_t		z_debug6;
+extern vmCvar_t		z_debug7;
+extern vmCvar_t		z_debug8;
+extern vmCvar_t		z_debug9;
 #endif
 
 extern vmCvar_t     g_allow_vote_gametype;
@@ -2639,6 +3096,7 @@ extern vmCvar_t	g_accountsFile;
 
 extern vmCvar_t    g_whitelist;
 extern vmCvar_t    g_enableBoon;
+extern vmCvar_t    g_enableMemePickups;
 extern vmCvar_t    g_maxstatusrequests;
 extern vmCvar_t	   g_logrcon;
 extern vmCvar_t	   g_flags_overboarding;
@@ -2669,6 +3127,24 @@ extern vmCvar_t		g_vote_rng;
 extern vmCvar_t		g_vote_runoff;
 extern vmCvar_t		g_vote_mapCooldownMinutes;
 extern vmCvar_t		g_vote_runoffTimeModifier;
+extern vmCvar_t		g_vote_redirectMapVoteToLiveVersion;
+
+extern vmCvar_t		g_vote_teamgen;
+extern vmCvar_t		g_vote_teamgen_pug_requiredVotes;
+extern vmCvar_t		g_vote_teamgen_team_requiredVotes;
+extern vmCvar_t		g_vote_teamgen_subhelp;
+extern vmCvar_t		g_vote_teamgen_rustWeeks;
+extern vmCvar_t		g_vote_teamgen_minSecsSinceIntermission;
+extern vmCvar_t		g_vote_teamgen_enableAppeasing;
+extern vmCvar_t		g_vote_teamgen_remindPositions;
+extern vmCvar_t		g_vote_teamgen_remindToSetPositions;
+
+extern vmCvar_t		g_lastIntermissionStartTime;
+
+extern vmCvar_t		d_debugCtfPosCalculation;
+
+extern vmCvar_t		g_notFirstMap;
+extern vmCvar_t		g_shouldReloadPlayerPugStats;
 
 extern vmCvar_t		g_rockPaperScissors;
 
@@ -2679,6 +3155,8 @@ extern vmCvar_t		g_minimumCullDistance;
 
 extern vmCvar_t    g_webhookId;
 extern vmCvar_t    g_webhookToken;
+
+extern vmCvar_t		g_teamOverlayForce;
 
 extern vmCvar_t	   g_teamPrivateDuels;
 extern vmCvar_t    g_improvedHoming;
@@ -3081,6 +3559,17 @@ qboolean trap_SendGETRequest( trsfHandle_t* handle, const char* url, const char*
 qboolean trap_SendPOSTRequest( trsfHandle_t* handle, const char* url, const char* data, const char* headerAccept, const char* headerContentType, qboolean receiveResult );
 qboolean trap_SendMultipartPOSTRequest(trsfHandle_t* handle, const char* url, trsfFormPart_t* multiPart, size_t numParts, const char* headerAccept, const char* headerContentType, qboolean receiveResult);
 void trap_GetCountry(const char *ipStr, char *outBuf, int outBufSize);
+int trap_sqlite3_prepare_v2(void *unused, const char *zSql, int nBytes, void **ppStmt, const char **pzTail);
+int trap_sqlite3_step(void *stmt);
+int trap_sqlite3_finalize(void *stmt);
+int trap_sqlite3_exec(void *unused, const char *sql, int (*callback)(void *, int, char **, char **), void *callbackarg, char **errmsg);
+enhancedLocation_t *trap_kd_dataptr(int index);
+int *trap_kd_numunique(void);
+void trap_kd_create(void);
+void trap_kd_free(void);
+int trap_kd_insertf(const float *pos, void *data);
+void *trap_kd_nearestf(const float *pos);
+void trap_kd_res_free(void *set);
 #endif
 
 #include "namespace_end.h"

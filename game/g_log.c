@@ -833,8 +833,8 @@ qboolean CalculateEfficiency(gentity_t *ent, int *efficiency)
 		player = g_entities + i;
 		if (!player->inuse)
 			continue;
-		nShotsFired = player->client->accuracy_shots; 
-		nShotsHit = player->client->accuracy_hits; 
+		nShotsFired = player->client->stats->accuracy_shots;
+		nShotsHit = player->client->stats->accuracy_hits;
 		fAccuracyRatio = ( ((float)nShotsHit)/((float)nShotsFired) );
 		if (fAccuracyRatio > fBestRatio)
 		{
@@ -1236,7 +1236,7 @@ qboolean CalculateTeamDefender(gentity_t *ent)
 		player = g_entities + i;
 		if (!player->inuse || (player->client->ps.persistant[PERS_TEAM] != team))
 			continue;
-		nScore = player->client->pers.teamState.basedefense;
+		nScore = player->client->stats ? player->client->stats->defends : 0;
 		if (nScore > nHighestScore)
 		{
 			nHighestScore = nScore;
@@ -1296,7 +1296,7 @@ qboolean CalculateTeamCarrier(gentity_t *ent)
 		player = g_entities + i;
 		if (!player->inuse || (player->client->ps.persistant[PERS_TEAM] != team))
 			continue;
-		nScore = player->client->pers.teamState.captures;
+		nScore = player->client->stats ? player->client->stats->captures : 0;
 		if (nScore > nHighestScore)
 		{
 			nHighestScore = nScore;
@@ -1326,8 +1326,8 @@ qboolean CalculateTeamInterceptor(gentity_t *ent)
 		player = g_entities + i;
 		if (!player->inuse || (player->client->ps.persistant[PERS_TEAM] != team))
 			continue;
-		nScore = player->client->pers.teamState.flagrecovery;
-		nScore += player->client->pers.teamState.fragcarrier;
+		nScore = player->client->stats->rets;
+		nScore += player->client->stats->fcKills;
 		if (nScore > nHighestScore)
 		{
 			nHighestScore = nScore;

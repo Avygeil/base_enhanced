@@ -128,6 +128,10 @@ void			ListRemove( list_t *list, genericNode_t *element );
 // Removes all elements from the list and frees all memory.
 void			ListClear( list_t *list );
 
+// Copies an entire list to new elements in another list.
+// The other list does not need to be empty.
+void			ListCopy(list_t *old, list_t *new, size_t elementSize);
+
 /*
 ==================
 QUEUES

@@ -2066,7 +2066,7 @@ int Pickup_Powerup( gentity_t *ent, gentity_t *other ) {
 
 		// Only add non dropped boons
 		if ( ent->item->giTag == PW_FORCE_BOON && !ent->s.modelindex2 ) {
-			++other->client->pers.teamState.boonPickups;
+			++other->client->stats->boonPickups;
 		}
 
 		G_LogWeaponPowerup(other->s.number, ent->item->giTag);
@@ -2273,6 +2273,8 @@ int Pickup_Health (gentity_t *ent, gentity_t *other) {
 	int			max;
 	int			quantity;
 
+	int preHealth = other->health;
+
 	// small and mega healths will go over the max
 	if ( ent->item->quantity != 5 && ent->item->quantity != 100 ) {
 		max = other->client->ps.stats[STAT_MAX_HEALTH];
@@ -2293,6 +2295,11 @@ int Pickup_Health (gentity_t *ent, gentity_t *other) {
 	}
 	other->client->ps.stats[STAT_HEALTH] = other->health;
 
+	int postHealth = other->health;
+
+	if (other->client->stats && postHealth > preHealth)
+		other->client->stats->healthPickedUp += (postHealth - preHealth); // cap pickup at actual amount changed
+
 	if ( ent->item->quantity == 100 ) {		// mega health respawns slow
 		return RESPAWN_MEGAHEALTH;
 	}
@@ -2304,11 +2311,16 @@ int Pickup_Health (gentity_t *ent, gentity_t *other) {
 
 int Pickup_Armor( gentity_t *ent, gentity_t *other ) 
 {
+	int preArmor = other->client->ps.stats[STAT_ARMOR];
 	other->client->ps.stats[STAT_ARMOR] += ent->item->quantity;
 	if ( other->client->ps.stats[STAT_ARMOR] > other->client->ps.stats[STAT_MAX_HEALTH] * ent->item->giTag ) 
 	{
 		other->client->ps.stats[STAT_ARMOR] = other->client->ps.stats[STAT_MAX_HEALTH] * ent->item->giTag;
 	}
+	int postArmor = other->client->ps.stats[STAT_ARMOR];
+
+	if (other->client->stats && postArmor > preArmor)
+		other->client->stats->armorPickedUp += (postArmor - preArmor); // cap pickup at actual amount changed
 
 	return adjustRespawnTime(RESPAWN_ARMOR, ent->item->giType, ent->item->giTag);
 }
@@ -2890,10 +2902,18 @@ void FinishSpawningItem( gentity_t *ent ) {
 		}
 	}
 
-	if (!g_enableBoon.integer)
-	{ //if boon is disabled, don't spawn it on the map
-		if (ent->item->giType == IT_POWERUP && ent->item->giTag == PW_FORCE_BOON)
-		{
+	if (ent->item->giType == IT_POWERUP && ent->item->giTag == PW_FORCE_BOON) {
+		if (g_enableBoon.integer) {
+			level.boonExists = qtrue;
+		}
+		else { // if boon is disabled, don't spawn it on the map
+			G_FreeEntity(ent);
+			return;
+		}
+	}
+
+	if (ent->item->giType == IT_WEAPON && !g_enableMemePickups.integer) {
+		if (ent->item->giTag == WP_MELEE || ent->item->giTag == WP_SABER || ent->item->giTag == WP_BRYAR_PISTOL || ent->item->giTag == WP_STUN_BATON) {
 			G_FreeEntity(ent);
 			return;
 		}
@@ -2992,6 +3012,7 @@ void FinishSpawningItem( gentity_t *ent ) {
 
 	// add weapons/ammo/shields to the list of pickups for this level
 	if ( ent->item->giType == IT_WEAPON ) {
+		level.existingWeaponSpawns |= (1 << ent->item->giTag);
 		// only give weapons that are useful in race...
 		if ( ent->item->giTag == WP_BLASTER ||
 			ent->item->giTag == WP_DISRUPTOR ||

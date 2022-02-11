@@ -1374,7 +1374,7 @@ int getGlobalTime()
 	return (int)time(0);
 }
 
-static qboolean IsInputting(const gclient_t *client, qboolean checkPressingButtons, qboolean checkMovingMouse, qboolean checkPressingChatButton) {
+qboolean IsInputting(const gclient_t *client, qboolean checkPressingButtons, qboolean checkMovingMouse, qboolean checkPressingChatButton) {
 	if (!client) {
 		assert(qfalse);
 		return qfalse;
@@ -4652,6 +4652,13 @@ void ClientThink( int clientNum,usercmd_t *ucmd ) {
 	else if ( clientNum >= MAX_CLIENTS ) {
 		ClientThink_real( ent );
 	}
+
+#ifdef DEBUG_CTF_POSITION_STATS
+	ent->client->lastInputTime = trap_Milliseconds();
+#else
+	if (IsInputting(ent->client, qtrue, qtrue, qfalse))
+		ent->client->lastInputTime = trap_Milliseconds();
+#endif
 }
 
 

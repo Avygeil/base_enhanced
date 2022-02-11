@@ -1025,8 +1025,8 @@ int WP_AbsorbConversion(gentity_t *attacked, int atdAbsLevel, gentity_t *attacke
 	if ( attacked && attacked->client && attacker && attacker->client
 		&& attacker->client->sess.sessionTeam != attacked->client->sess.sessionTeam ) {
 		int absorbed = attacked->client->ps.fd.forcePower + addTot > 100 ? 100 - attacked->client->ps.fd.forcePower : addTot;
-		attacked->client->pers.absorbed += absorbed;
-		attacker->client->pers.energizedEnemy += absorbed;
+		attacked->client->stats->absorbed += absorbed;
+		attacker->client->stats->energizedEnemy += absorbed;
 	}
 
 	attacked->client->ps.fd.forcePower += addTot;
@@ -1212,6 +1212,7 @@ void WP_ForcePowerStart( gentity_t *self, forcePowers_t forcePower, int override
 		}
 
 		self->client->ps.fd.forcePowersActive |= ( 1 << forcePower );
+		self->client->pers.ragesince = level.time; // force stats
 		break;
 	case FP_PROTECT:
 		hearable = qtrue;
@@ -1442,7 +1443,6 @@ void ForceTeamHeal( gentity_t *self )
 	}
 
 	//this entity will definitely use TH, log it
-	++self->client->pers.teamState.th;
 
 	if (numpl == 1)
 	{
@@ -1467,7 +1467,7 @@ void ForceTeamHeal( gentity_t *self )
 		{
 			// using TH on this ally
 			if ( self && self->client ) {
-				self->client->pers.healed += ( ( g_entities[pl[i]].client->ps.stats[STAT_HEALTH] + healthadd > g_entities[pl[i]].client->ps.stats[STAT_MAX_HEALTH] ) ? ( g_entities[pl[i]].client->ps.stats[STAT_MAX_HEALTH] - g_entities[pl[i]].client->ps.stats[STAT_HEALTH] ) : healthadd );
+				self->client->stats->healed += ( ( g_entities[pl[i]].client->ps.stats[STAT_HEALTH] + healthadd > g_entities[pl[i]].client->ps.stats[STAT_MAX_HEALTH] ) ? ( g_entities[pl[i]].client->ps.stats[STAT_MAX_HEALTH] - g_entities[pl[i]].client->ps.stats[STAT_HEALTH] ) : healthadd );
 			}
 
 			g_entities[pl[i]].client->ps.stats[STAT_HEALTH] += healthadd;
@@ -1560,7 +1560,7 @@ void ForceTeamForceReplenish( gentity_t *self )
 	}
 
 	//this entity will definitely use TE, log it
-	++self->client->pers.teamState.te;
+	//++self->client->pers.teamState.te;
 
 	if (numpl == 1)
 	{
@@ -1580,13 +1580,17 @@ void ForceTeamForceReplenish( gentity_t *self )
 
 	i = 0;
 
+	int highestAmountEnergizedForAnyone = 0;
 	while (i < numpl)
 	{
 		// using TE on this ally
 		if ( self && self->client ) {
-			self->client->pers.energizedAlly += ( ( g_entities[pl[i]].client->ps.fd.forcePower + poweradd > 100 ) ? ( 100 - g_entities[pl[i]].client->ps.fd.forcePower ) : poweradd );
+			int thisGuyActualAmountEnergized = ((g_entities[pl[i]].client->ps.fd.forcePower + poweradd > 100) ? (100 - g_entities[pl[i]].client->ps.fd.forcePower) : poweradd);
+			self->client->stats->energizedAlly += thisGuyActualAmountEnergized;
+			g_entities[pl[i]].client->stats->gotEnergizedByAlly += thisGuyActualAmountEnergized;
+			if (thisGuyActualAmountEnergized > highestAmountEnergizedForAnyone)
+				highestAmountEnergizedForAnyone = thisGuyActualAmountEnergized;
 		}
-
 		g_entities[pl[i]].client->ps.fd.forcePower += poweradd;
 		if (g_entities[pl[i]].client->ps.fd.forcePower > 100)
 		{
@@ -1606,6 +1610,11 @@ void ForceTeamForceReplenish( gentity_t *self )
 		
 		i++;
 	}
+
+	++self->client->stats->numEnergizes;
+
+	float thisEnergizeEfficiency = Com_Clamp(0.0f, 1.0f, ((float)highestAmountEnergizedForAnyone / (float)poweradd)); // e.g. 50/50 and 33/33 are treated the same (1.0)
+	self->client->stats->normalizedEnergizeAmounts += thisEnergizeEfficiency;
 }
 
 void ForceGrip( gentity_t *self )
@@ -2236,6 +2245,11 @@ void ForceDrainDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, vec3_t 
 				if (dmg)
 				{
 					traceEnt->client->ps.fd.forcePower -= (dmg);
+
+					if (traceEnt->client->sess.sessionTeam == OtherTeam(self->client->sess.sessionTeam) && traceEnt->client->stats && self->client->stats) {
+						self->client->stats->drain += dmg;
+						traceEnt->client->stats->gotDrained += dmg;
+					}
 				}
 				if (traceEnt->client->ps.fd.forcePower < 0)
 				{
@@ -3328,9 +3342,9 @@ void ForceThrow( gentity_t *self, qboolean pull )
 	// should definitely pull/push
 	if ( self && self->client ) {
 		if ( pull ) {
-			++self->client->pers.pull;
+			++self->client->stats->pull;
 		} else {
-			++self->client->pers.push;
+			++self->client->stats->push;
 		}
 	}
 
@@ -4094,6 +4108,10 @@ void WP_ForcePowerStop( gentity_t *self, forcePowers_t forcePower )
 		if (wasActive & (1 << FP_RAGE))
 		{
 			G_MuteSound(self->client->ps.fd.killSoundEntIndex[TRACK_CHANNEL_3-50], CHAN_VOICE);
+
+			if (self->client->pers.ragesince && self->client->pers.ragesince < level.time) {
+				self->client->stats->rageTimeUsed += level.time - self->client->pers.ragesince;
+			}
 		}
 		break;
 	case FP_ABSORB:
@@ -4108,7 +4126,7 @@ void WP_ForcePowerStop( gentity_t *self, forcePowers_t forcePower )
 			G_MuteSound(self->client->ps.fd.killSoundEntIndex[TRACK_CHANNEL_3-50], CHAN_VOICE);
 
 			if ( self->client->pers.protsince && self->client->pers.protsince < level.time ) {
-				self->client->pers.protTimeUsed += level.time - self->client->pers.protsince;
+				self->client->stats->protTimeUsed += level.time - self->client->pers.protsince;
 			}
 		}
 		break;

@@ -171,6 +171,8 @@ vmCvar_t	g_quickPauseChat;
 vmCvar_t	g_webhookId;
 vmCvar_t	g_webhookToken;
 
+vmCvar_t	g_teamOverlayForce;
+
 vmCvar_t	g_improvedHoming;
 vmCvar_t	g_improvedHomingThreshold;
 vmCvar_t	d_debugImprovedHoming;
@@ -339,7 +341,8 @@ vmCvar_t	g_balanceSeeing;
 
 vmCvar_t	g_autoSendScores;
 
-vmCvar_t	g_autoGenerateLocations;
+vmCvar_t	g_lineOfSightLocations;
+vmCvar_t	g_lineOfSightLocations_generate;
 vmCvar_t	g_enableChatLocations;
 
 vmCvar_t	g_breakRNG;
@@ -352,6 +355,11 @@ vmCvar_t	z_debug1;
 vmCvar_t	z_debug2;
 vmCvar_t	z_debug3;
 vmCvar_t	z_debug4;
+vmCvar_t	z_debug5;
+vmCvar_t	z_debug6;
+vmCvar_t	z_debug7;
+vmCvar_t	z_debug8;
+vmCvar_t	z_debug9;
 #endif
 
 vmCvar_t    g_enforceEvenVotersCount;
@@ -412,6 +420,7 @@ vmCvar_t	g_allowReady;
 vmCvar_t    g_restart_countdown;
 
 vmCvar_t    g_enableBoon;
+vmCvar_t	g_enableMemePickups;
 vmCvar_t    g_maxstatusrequests;
 vmCvar_t	g_testdebug; //for tmp debug
 vmCvar_t	g_rconpassword;
@@ -434,6 +443,24 @@ vmCvar_t	g_vote_rng;
 vmCvar_t	g_vote_runoff;
 vmCvar_t	g_vote_mapCooldownMinutes;
 vmCvar_t	g_vote_runoffTimeModifier;
+vmCvar_t	g_vote_redirectMapVoteToLiveVersion;
+
+vmCvar_t	g_vote_teamgen;
+vmCvar_t	g_vote_teamgen_pug_requiredVotes;
+vmCvar_t	g_vote_teamgen_team_requiredVotes;
+vmCvar_t	g_vote_teamgen_subhelp;
+vmCvar_t	g_vote_teamgen_rustWeeks;
+vmCvar_t	g_vote_teamgen_minSecsSinceIntermission;
+vmCvar_t	g_vote_teamgen_enableAppeasing;
+vmCvar_t	g_vote_teamgen_remindPositions;
+vmCvar_t	g_vote_teamgen_remindToSetPositions;
+
+vmCvar_t	g_lastIntermissionStartTime;
+
+vmCvar_t	d_debugCtfPosCalculation;
+
+vmCvar_t	g_notFirstMap;
+vmCvar_t	g_shouldReloadPlayerPugStats;
 
 vmCvar_t	g_rockPaperScissors;
 
@@ -763,7 +790,8 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_autoSendScores, "g_autoSendScores", "2000", CVAR_ARCHIVE, 0, qtrue },
 
-	{ &g_autoGenerateLocations, "g_autoGenerateLocations", "1", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_lineOfSightLocations, "g_lineOfSightLocations", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
+	{ &g_lineOfSightLocations_generate, "g_lineOfSightLocations_generate", "0", CVAR_TEMP | CVAR_LATCH, 0, qtrue },
 	{ &g_enableChatLocations, "g_enableChatLocations", "0", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_breakRNG, "g_breakRNG", "0", CVAR_ARCHIVE, 0, qtrue },
@@ -776,6 +804,11 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &z_debug2, "z_debug2", "", 0, 0, qtrue },
 	{ &z_debug3, "z_debug3", "", 0, 0, qtrue },
 	{ &z_debug4, "z_debug4", "", 0, 0, qtrue },
+	{ &z_debug5, "z_debug5", "", 0, 0, qtrue },
+	{ &z_debug6, "z_debug6", "", 0, 0, qtrue },
+	{ &z_debug7, "z_debug7", "", 0, 0, qtrue },
+	{ &z_debug8, "z_debug8", "", 0, 0, qtrue },
+	{ &z_debug9, "z_debug9", "", 0, 0, qtrue },
 #endif
 
 	{ &g_minimumVotesCount, "g_minimumVotesCount", "0", CVAR_ARCHIVE, 0, qtrue },
@@ -787,7 +820,7 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_droppedFlagSpawnProtectionRadius, "g_droppedFlagSpawnProtectionRadius", "1024", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_droppedFlagSpawnProtectionDuration, "g_droppedFlagSpawnProtectionDuration", "10000", CVAR_ARCHIVE, 0, qtrue },
-	{ &g_selfKillSpawnSpamProtection, "g_selfKillSpawnSpamProtection", "5", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_selfKillSpawnSpamProtection, "g_selfKillSpawnSpamProtection", "1", CVAR_ARCHIVE, 0, qtrue },
 
 #ifdef NEWMOD_SUPPORT
 	{ &g_netUnlock, "g_netUnlock", "1", CVAR_ARCHIVE, 0, qtrue },
@@ -847,6 +880,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_dlURL,	"g_dlURL"	, ""	, CVAR_SYSTEMINFO, 0, qtrue },
 
 	{ &g_enableBoon,	"g_enableBoon"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
+	{ &g_enableMemePickups,	"g_enableMemePickups", "1"	, CVAR_LATCH, 0, qtrue },
 
 	{ &g_vote_tierlist, "g_vote_tierlist", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_tierlist_s_min, "g_vote_tierlist_s_min", "2", CVAR_ARCHIVE, 0, qtrue },
@@ -866,6 +900,24 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_runoff, "g_vote_runoff", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_mapCooldownMinutes, "g_vote_mapCooldownMinutes", "60", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_runoffTimeModifier, "g_vote_runoffTimeModifier", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_teamgen, "g_vote_teamgen", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_redirectMapVoteToLiveVersion, "g_vote_redirectMapVoteToLiveVersion", "1", CVAR_ARCHIVE, 0, qtrue },
+
+	{ &g_vote_teamgen_pug_requiredVotes, "g_vote_teamgen_pug_requiredVotes", "4", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_teamgen_team_requiredVotes, "g_vote_teamgen_team_requiredVotes", "5", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_teamgen_subhelp, "g_vote_teamgen_subhelp", "1", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_teamgen_rustWeeks, "g_vote_teamgen_rustWeeks", "12", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
+	{ &g_vote_teamgen_minSecsSinceIntermission, "g_vote_teamgen_minSecsSinceIntermission", "20", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_teamgen_enableAppeasing, "g_vote_teamgen_enableAppeasing", "1", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_teamgen_remindPositions, "g_vote_teamgen_remindPositions", "1", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_teamgen_remindToSetPositions, "g_vote_teamgen_remindToSetPositions", "1", CVAR_ARCHIVE, 0, qfalse },
+
+	{ &g_lastIntermissionStartTime, "g_lastIntermissionStartTime", "", CVAR_ROM | CVAR_TEMP, 0, qfalse },
+
+	{ &d_debugCtfPosCalculation, "d_debugCtfPosCalculation", "0", CVAR_ARCHIVE, 0, qtrue },
+
+	{ &g_notFirstMap, "g_notFirstMap", "0", CVAR_ROM | CVAR_TEMP, 0, qfalse },
+	{ &g_shouldReloadPlayerPugStats, "g_shouldReloadPlayerPugStats", "0", CVAR_ROM | CVAR_TEMP, 0, qfalse },
 
 	{ &g_rockPaperScissors, "g_rockPaperScissors", "0", CVAR_ARCHIVE, 0, qtrue },
 
@@ -886,6 +938,8 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_webhookId, "g_webhookId", "", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_webhookToken, "g_webhookToken", "", CVAR_ARCHIVE, 0, qfalse },
+
+	{ &g_teamOverlayForce, "g_teamOverlayForce", "0", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 
 	{ &g_teamPrivateDuels, "g_teamPrivateDuels", "0", CVAR_ARCHIVE, 0, qtrue },
 
@@ -976,7 +1030,7 @@ static cvarTable_t		gameCvarTable[] = {
 static int gameCvarTableSize = sizeof( gameCvarTable ) / sizeof( gameCvarTable[0] );
 
 
-void G_InitGame					( int levelTime, int randomSeed, int restart );
+void G_InitGame					( int levelTime, int randomSeed, int restart, void *serverDbPtr );
 void G_RunFrame					( int levelTime );
 void G_ShutdownGame				( int restart );
 void CheckExitRules				( void );
@@ -1016,7 +1070,7 @@ extern "C" {
 int vmMain( int command, int arg0, int arg1, int arg2, int arg3, int arg4, int arg5, int arg6, int arg7, int arg8, int arg9, int arg10, int arg11  ) {
 	switch ( command ) {
 	case GAME_INIT:
-		G_InitGame( arg0, arg1, arg2 );
+		G_InitGame( arg0, arg1, arg2, (void *)arg3 );
 		return 0;
 	case GAME_SHUTDOWN:
 		G_ShutdownGame( arg0 );
@@ -1512,7 +1566,7 @@ extern void InitUnhandledExceptionFilter();
 extern void G_LoadHelpFile( const char *filename );
 extern const char *G_GetArenaInfoByMap( char *map );
 
-void G_InitGame( int levelTime, int randomSeed, int restart ) {
+void G_InitGame( int levelTime, int randomSeed, int restart, void *serverDbPtr ) {
 	int					i;
 	vmCvar_t	mapname;
 	vmCvar_t	ckSum;
@@ -1818,7 +1872,10 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 
 	G_LoadHelpFile( "help.txt" );
 
-	G_DBLoadDatabase();
+	G_DBLoadDatabase(serverDbPtr);
+
+	G_DBInitializePugStatsCache();
+	G_DBCacheAutoLinks();
 	
 	LoadAimPacks();
 
@@ -1832,6 +1889,12 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 	G_BroadcastServerFeatureList(-1);
 
 	G_InitVchats();
+
+	TeamGen_Initialize();
+	G_DBGetPlayerRatings();
+
+	if (restart)
+		TeamGen_ClearRemindPositions();
 }
 
 
@@ -1842,6 +1905,8 @@ G_ShutdownGame
 =================
 */
 void G_ShutdownGame( int restart ) {
+	trap_Cvar_Set("g_notFirstMap", "1");
+
 	int i = 0;
 	gentity_t *ent;
 
@@ -1931,11 +1996,69 @@ void G_ShutdownGame( int restart ) {
 
     G_DBUnloadDatabase();
 
-	kd_free(level.locations.enhanced.lookupTree);
-
 	ListClear(&level.redPlayerTickList);
 	ListClear(&level.bluePlayerTickList);
 	ListClear(&level.disconnectedPlayerList);
+
+	ListClear(&level.info_b_e_locationsList);
+
+	iterator_t iter;
+	ListIterate(&level.statsList, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		stats_t *stats = IteratorNext(&iter);
+		ListClear(&stats->damageGivenList);
+		ListClear(&stats->damageTakenList);
+		ListClear(&stats->teammatePositioningList);
+	}
+	ListClear(&level.statsList);
+
+	ListIterate(&level.cachedPositionStats, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		cachedPlayerPugStats_t *c = IteratorNext(&iter);
+		if (c->strPtr)
+			free(c->strPtr);
+	}
+	ListClear(&level.cachedPositionStats);
+	ListClear(&level.cachedPositionStatsRaw);
+
+	ListIterate(&level.cachedWinrates, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		cachedPlayerPugStats_t *c = IteratorNext(&iter);
+		if (c->strPtr)
+			free(c->strPtr);
+	}
+	ListClear(&level.cachedWinrates);
+
+	ListIterate(&level.cachedPerMapWinrates, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		cachedPerMapWinrate_t *c = IteratorNext(&iter);
+		if (c->strPtr)
+			free(c->strPtr);
+	}
+	ListClear(&level.cachedPerMapWinrates);
+
+	ListClear(&level.ratingList);
+	ListClear(&level.mostPlayedPositionsList);
+
+	ListIterate(&level.pugProposalsList, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		pugProposal_t *p = IteratorNext(&iter);
+		ListClear(&p->avoidedHashesList);
+	}
+	ListClear(&level.pugProposalsList);
+
+	ListClear(&level.barredPlayersList);
+	ListClear(&level.forcedPickablePermabarredPlayersList);
+
+	ListIterate(&level.queuedServerMessagesList, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		queuedServerMessage_t *msg = IteratorNext(&iter);
+		if (msg->text)
+			free(msg->text);
+	}
+	ListClear(&level.queuedServerMessagesList);
+	ListClear(&level.autoLinksList);
+	ListClear(&level.rustyPlayersList);
 
 	UnpatchEngine();
 }
@@ -2794,8 +2917,6 @@ BeginIntermission
 */
 //ghost debug
 
-extern void PrintStatsTo( gentity_t *ent, const char *type, char* outputBuffer, size_t outSize );
-
 void BeginIntermission(void) {
 	int			i;
 	gentity_t* client;
@@ -2825,10 +2946,6 @@ void BeginIntermission(void) {
 		}
 	}
 
-	//*CHANGE 32* printing tops on intermission
-	if (g_gametype.integer == GT_CTF) {//NYI
-	}
-
 	level.intermissiontime = level.time;
 	FindIntermissionPoint();
 
@@ -2854,13 +2971,34 @@ void BeginIntermission(void) {
 	// send the current scoring to all clients
 	SendScoreboardMessageToAllClients();
 
-	char statsBuf[4096] = { 0 };
+	FinalizeCTFPositions();
+	CheckAccountsOfOldBlocks(-1);
+
+	const int statsBufSize = 65536;
+	char *statsBuf = calloc(65536, sizeof(char));
 
 	if (g_autoStats.integer) {
-		PrintStatsTo(NULL, "general", statsBuf, sizeof(statsBuf));
-		PrintStatsTo(NULL, "force", statsBuf, sizeof(statsBuf));
+		Stats_Print(NULL, "general", statsBuf, statsBufSize, qtrue, NULL);
+		Stats_Print(NULL, "damage", statsBuf, statsBufSize, qtrue, NULL);
+		Stats_Print(NULL, "accuracy", statsBuf, statsBufSize, qtrue, NULL);
+		Stats_Print(NULL, "weapon", statsBuf, statsBufSize, qfalse, NULL);
 		Q_StripColor(statsBuf);
+
+		// print each player their own individual weapon stats
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			if (g_entities[i].inuse && level.clients[i].pers.connected != CON_DISCONNECTED &&
+				(level.clients[i].sess.sessionTeam == TEAM_RED || level.clients[i].sess.sessionTeam == TEAM_BLUE) &&
+				level.clients[i].stats && StatsValid(level.clients[i].stats)) {
+				Stats_Print(&g_entities[i], "weapon", NULL, 0, qtrue, level.clients[i].stats);
+			}
+		}
 	}
+
+	SendMachineFriendlyStats();
+
+	char timeBuf[MAX_STRING_CHARS] = { 0 };
+	Com_sprintf(timeBuf, sizeof(timeBuf), "%d", (int)time(NULL));
+	trap_Cvar_Set("g_lastIntermissionStartTime", timeBuf);
 
 	if (level.numTeamTicks) {
 		float avgRed = (float)level.numRedPlayerTicks / (float)level.numTeamTicks;
@@ -2878,6 +3016,16 @@ void BeginIntermission(void) {
 		// * the sum of these average integers is >= 4 (at least 2s)
 		// * both averages are within +/- 0.1 of their rounded values
 		// (accounts for subs, ragequits, random joins... 0.1 represents 2 mins of a 20 mins pug)
+#ifdef DEBUG_CTF_POSITION_STATS
+		if (level.wasRestarted) {
+			G_PostScoreboardToWebhook(statsBuf);
+			G_DBAddCurrentMapToPlayedMapsList();
+			if (avgRedInt == 4 && avgBlueInt == 4 && !InstagibEnabled()) { // only write stats to db in 4v4
+				G_DBWritePugStats();
+				trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
+			}
+		}
+#else
 		if (level.wasRestarted &&
 			durationMins >= 10 &&
 			avgRedInt == avgBlueInt &&
@@ -2887,8 +3035,15 @@ void BeginIntermission(void) {
 		{
 			G_PostScoreboardToWebhook(statsBuf);
 			G_DBAddCurrentMapToPlayedMapsList();
+			if (avgRedInt == 4 && avgBlueInt == 4 && !InstagibEnabled()) { // only write stats to db in 4v4
+				G_DBWritePugStats();
+				trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
+			}
 		}
+#endif
 	}
+
+	free(statsBuf);
 }
 
 qboolean DuelLimitHit(void)
@@ -3170,10 +3325,10 @@ void LogExit( const char *string ) {
 		if ((cl->ps.powerups[PW_BLUEFLAG] || cl->ps.powerups[PW_REDFLAG]) && !cl->sess.inRacemode){
 			const int thisFlaghold = G_GetAccurateTimerOnTrigger( &cl->pers.teamState.flagsince, &g_entities[level.sortedClients[i]], NULL );
 
-			cl->pers.teamState.flaghold += thisFlaghold;
+			cl->stats->totalFlagHold += thisFlaghold;
 
-			if ( thisFlaghold > cl->pers.teamState.longestFlaghold )
-				cl->pers.teamState.longestFlaghold = thisFlaghold;
+			if ( thisFlaghold > cl->stats->longestFlagHold )
+				cl->stats->longestFlagHold = thisFlaghold;
 
 			if ( cl->ps.powerups[PW_REDFLAG] ) {
 				// carried the red flag, so blue team
@@ -3186,7 +3341,13 @@ void LogExit( const char *string ) {
 
 		if ( cl->ps.fd.forcePowersActive & ( 1 << FP_PROTECT ) ) {
 			if ( cl->pers.protsince && cl->pers.protsince < level.time ) {
-				cl->pers.protTimeUsed += level.time - cl->pers.protsince;
+				cl->stats->protTimeUsed += level.time - cl->pers.protsince;
+			}
+		}
+
+		if (cl->ps.fd.forcePowersActive & (1 << FP_RAGE)) {
+			if (cl->pers.ragesince && cl->pers.ragesince < level.time) {
+				cl->stats->rageTimeUsed += level.time - cl->pers.ragesince;
 			}
 		}
 
@@ -4931,6 +5092,22 @@ static void WaitForAFKs(void) {
 	}	
 }
 
+#define RECALCULATE_TEAM_BALANCE_INTERVAL (5000)
+
+// recalculate team balance every few seconds. if someone tries to sub, we will be able to compare the hypothetical new balance to the previous balance.
+static void PeriodicallyRecalculateTeamBalance(void) {
+	if (!g_vote_teamgen_subhelp.integer || g_gametype.integer != GT_CTF || !level.wasRestarted || level.someoneWasAFK || (level.time - level.startTime) < (CTFPOSITION_MINIMUM_SECONDS * 1000) || !level.numTeamTicks || level.pause.state != PAUSE_NONE)
+		return;
+
+	static int lastTime = 0;
+	int now = trap_Milliseconds();
+	if (now - lastTime < RECALCULATE_TEAM_BALANCE_INTERVAL)
+		return;
+
+	lastTime = now;
+	RecalculateTeamBalance();
+}
+
 /*
 ================
 G_RunFrame
@@ -5199,10 +5376,83 @@ static qboolean SessionIdMatches(genericNode_t *node, void *userData) {
 
 // adds a tick to a player's tick count for a particular team, even if he left and rejoined
 // allows tracking ragequitters and subs for the discord webhook, as well as using account names/nicknames instead of ingame names
-static void AddPlayerTick(team_t team, gclient_t *cl) {
-	if (!cl || !cl->session || !level.wasRestarted)
+extern qboolean isRedFlagstand(gentity_t *ent);
+extern qboolean isBlueFlagstand(gentity_t *ent);
+
+qboolean MatchesCtfPositioningData(genericNode_t *node, void *userData) {
+	ctfPositioningData_t *existing = (ctfPositioningData_t *)node;
+	stats_t *thisGuy = (stats_t *)userData;
+
+	if (!existing || !thisGuy)
+		return qfalse;
+
+	if (existing->stats == thisGuy)
+		return qtrue;
+
+	return qfalse;
+}
+
+static void AddPlayerTick(team_t team, gentity_t *ent) {
+	if (!ent->client)
 		return;
 
+	++ent->client->stats->ticksNotPaused;
+
+	if (!level.wasRestarted)
+		return;
+
+	gclient_t *cl = ent->client;
+	level.lastPlayerTickAddedTime = level.time;
+	ent->client->stats->lastTickIngameTime = level.time;
+
+	// if i've been alive at least a few seconds, and i've done some input within the last few seconds, log my data
+	qboolean validLocationSample = !!(ent->health > 0 && level.time - ent->client->pers.lastSpawnTime >= CTFPOS_POSTSPAWN_DELAY_MS &&
+		ent->client->lastInputTime && trap_Milliseconds() - ent->client->lastInputTime < 10000);
+
+	float loc;
+	if (validLocationSample) {
+		loc = GetCTFLocationValue(ent);
+
+		// note our own location
+		++ent->client->stats->numLocationSamplesRegardlessOfFlagHolding;
+		if (HasFlag(ent)) {
+			ent->client->stats->totalLocationWithFlag += loc;
+			++ent->client->stats->numLocationSamplesWithFlag;
+		}
+		else {
+			ent->client->stats->totalLocationWithoutFlag += loc;
+			++ent->client->stats->numLocationSamplesWithoutFlag;
+		}
+	}
+
+	// record our location in everyone else's stats so that people's positioning can only be compared to people they were ingame contemporaneously with
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *other = &g_entities[i];
+		if (other == ent || !other->inuse || !other->client || other->client->pers.connected != CON_CONNECTED || other->client->sess.sessionTeam != ent->client->sess.sessionTeam)
+			continue;
+		ctfPositioningData_t *data = ListFind(&other->client->stats->teammatePositioningList, MatchesCtfPositioningData, cl->stats, NULL);
+		if (!data) {
+			data = ListAdd(&other->client->stats->teammatePositioningList, sizeof(ctfPositioningData_t));
+			data->stats = cl->stats;
+		}
+
+		++data->numTicksIngameWithMe; // increment this regardless of whether the position sample is valid
+
+		if (validLocationSample) {
+			++data->numLocationSamplesIngameWithMe;
+			if (HasFlag(ent)) {
+				data->totalLocationWithFlagWithMe += loc;
+				++data->numLocationSamplesWithFlagWithMe;
+			}
+			else {
+				data->totalLocationWithoutFlagWithMe += loc;
+				++data->numLocationSamplesWithoutFlagWithMe;
+			}
+		}
+	}
+
+	if (!ent->client->session)
+		return;
 	list_t *list = team == TEAM_RED ? &level.redPlayerTickList : &level.bluePlayerTickList;
 	tickPlayer_t *found = ListFind(list, SessionIdMatches, cl->session, NULL);
 
@@ -5498,6 +5748,37 @@ void G_RunFrame( int levelTime ) {
 		}
 	}
 #endif
+
+	// print any queued messages
+	if (level.queuedServerMessagesList.size > 0) {
+		iterator_t iter;
+		ListIterate(&level.queuedServerMessagesList, &iter, qfalse);
+		while (IteratorHasNext(&iter)) {
+			queuedServerMessage_t *msg = IteratorNext(&iter);
+			int timeSince = g_svfps.integer * (level.framenum - msg->serverFrameNum);
+			const int threshold = 50; // this seems to work
+			if (timeSince < threshold)
+				continue;
+
+			if (VALIDSTRING(msg->text)) {
+				if (msg->inConsole) {
+					PrintIngame(msg->clientNum, msg->text);
+				}
+				else {
+					if (msg->clientNum >= 0 && msg->clientNum < MAX_CLIENTS)
+						SV_Tell(msg->clientNum, msg->text);
+					else
+						SV_Say(msg->text);
+				}
+			}
+
+			if (msg->text)
+				free(msg->text);
+
+			ListRemove(&level.queuedServerMessagesList, msg);
+			ListIterate(&level.queuedServerMessagesList, &iter, qfalse);
+		}
+	}
 
 #ifdef _DEBUG
 	if ( g_antiWallhack.integer && g_wallhackMaxTraces.integer && level.wallhackTracesDone ) {
@@ -5820,7 +6101,7 @@ void G_RunFrame( int levelTime ) {
 	// get any cvar changes
 	G_UpdateCvars();
 
-
+	ChangeToNextStatsBlockIfNeeded();
 
 #ifdef _G_FRAME_PERFANAL
 	trap_PrecisionTimer_Start(&timer_ItemRun);
@@ -6073,10 +6354,10 @@ void G_RunFrame( int levelTime ) {
 
 				if (ent->client->sess.sessionTeam == TEAM_RED) {
 					level.numRedPlayerTicks++;
-					AddPlayerTick(TEAM_RED, ent->client);
+					AddPlayerTick(TEAM_RED, ent);
 				} else if (ent->client->sess.sessionTeam == TEAM_BLUE) {
 					level.numBluePlayerTicks++;
-					AddPlayerTick(TEAM_BLUE, ent->client);
+					AddPlayerTick(TEAM_BLUE, ent);
 				}
 
 				if ( ent->client->ps.stats[STAT_HEALTH] > 0 && !( ent->client->ps.eFlags & EF_DEAD ) ) {
@@ -6094,11 +6375,47 @@ void G_RunFrame( int levelTime ) {
 						xyspeed = sqrt( ent->client->ps.velocity[0] * ent->client->ps.velocity[0] + ent->client->ps.velocity[1] * ent->client->ps.velocity[1] );
 					}
 
-					ent->client->pers.displacement += xyspeed / g_svfps.value;
-					ent->client->pers.displacementSamples++;
+					if (ent->client->sess.inRacemode && ent->aimPracticeEntBeingUsed && ent->aimPracticeMode) {
+						aimPracticePack_t *pack = ent->aimPracticeEntBeingUsed->isAimPracticePack;
+						if (pack->maxSpeed && xyspeed > pack->maxSpeed) {
+							qboolean someoneElseUsingThisPack = qfalse;
+							for (int i = 0; i < MAX_CLIENTS; i++) {
+								gentity_t *thisEnt = &g_entities[i];
+								if (!thisEnt->inuse || !thisEnt->client || thisEnt->client->pers.connected != CON_CONNECTED ||
+									thisEnt == ent || !thisEnt->client->sess.inRacemode || thisEnt->aimPracticeEntBeingUsed != ent->aimPracticeEntBeingUsed) {
+									continue;
+								}
+								someoneElseUsingThisPack = qtrue;
+								break;
+							}
 
-					if ( xyspeed > ent->client->pers.topSpeed ) {
-						ent->client->pers.topSpeed = xyspeed;
+							ent->numAimPracticeSpawns = 0;
+							ent->numTotalAimPracticeHits = 0;
+							memset(ent->numAimPracticeHitsOfWeapon, 0, sizeof(ent->numAimPracticeHitsOfWeapon));
+
+							if (someoneElseUsingThisPack) { // someone else is using this pack; just reset their stats and start on the next respawn
+								//CenterPrintToPlayerAndFollowers(ent, va("Do not move faster than %d ups!\nRestarting...", pack->maxSpeed));
+							}
+							else { // we are the only one using this pack; go ahead and restart it immediately so they don't have to wait
+								RandomizeAndRestartPack(ent->aimPracticeEntBeingUsed->isAimPracticePack);
+								//CenterPrintToPlayerAndFollowers(ent, va("Do not move faster than %d ups!\nRestarting.", pack->maxSpeed));
+							}
+						}
+					}
+
+					if (ent->client->sess.sessionTeam == TEAM_RED || ent->client->sess.sessionTeam == TEAM_BLUE) {
+						// only track overall displacement if you are actually ingame
+						ent->client->stats->displacement += xyspeed / g_svfps.value;
+						ent->client->stats->displacementSamples++;
+						if (g_gametype.integer == GT_CTF) {
+							ctfRegion_t region = GetCTFRegion(ent);
+							if (region != CTFREGION_INVALID)
+								ent->client->stats->regionTime[region] += (int)(1000.0f / g_svfps.value);
+						}
+					}
+
+					if ( xyspeed > ent->client->stats->topSpeed ) {
+						ent->client->stats->topSpeed = xyspeed;
 					}
 
 					// if they carry a flag, also update fastcap speed stats
@@ -6185,8 +6502,6 @@ void G_RunFrame( int levelTime ) {
 #ifdef _G_FRAME_PERFANAL
 	iTimer_ClientEndframe = trap_PrecisionTimer_End(timer_ClientEndframe);
 #endif
-
-
 
 #ifdef _G_FRAME_PERFANAL
 	trap_PrecisionTimer_Start(&timer_GameChecks);
@@ -6342,6 +6657,8 @@ void G_RunFrame( int levelTime ) {
 #endif
 
 	WaitForAFKs();
+
+	PeriodicallyRecalculateTeamBalance();
 
 	if (!level.firstFrameTime)
 		level.firstFrameTime = trap_Milliseconds();

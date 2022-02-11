@@ -1567,6 +1567,50 @@ void trap_GetCountry(const char *ipStr, char *outBuf, int outBufSize) {
 	syscall(G_GETCOUNTRY, ipStr, outBuf, outBufSize);
 }
 
+int trap_sqlite3_prepare_v2(void *unused, const char *zSql, int nBytes, void **ppStmt, const char **pzTail) {
+	return syscall(G_SQLITE3_PREPARE_V2, zSql, nBytes, ppStmt, pzTail);
+}
+
+int trap_sqlite3_step(void *stmt) {
+	return syscall(G_SQLITE3_STEP, stmt);
+}
+
+int trap_sqlite3_finalize(void *stmt) {
+	return syscall(G_SQLITE3_FINALIZE, stmt);
+}
+
+int trap_sqlite3_exec(void *unused, const char *sql, int (*callback)(void *, int, char **, char **), void *callbackarg, char **errmsg) {
+	return syscall(G_SQLITE3_EXEC, sql, callback, callbackarg, errmsg);
+}
+
+enhancedLocation_t *trap_kd_dataptr(int index) {
+	return (enhancedLocation_t *)syscall(G_KD_DATAPTR, index);
+}
+
+int *trap_kd_numunique(void) {
+	return (int *)syscall(G_KD_NUMUNIQUE);
+}
+
+void trap_kd_create(void) {
+	syscall(G_KD_CREATE);
+}
+
+void trap_kd_free(void) {
+	syscall(G_KD_FREE);
+}
+
+int trap_kd_insertf(const float *pos, void *data) {
+	return syscall(G_KD_INSERTF, pos, data);
+}
+
+void *trap_kd_nearestf(const float *pos) {
+	return (void *)syscall(G_KD_NEARESTF, pos);
+}
+
+void trap_kd_res_free(void *set) {
+	syscall(G_KD_RESFREE, set);
+}
+
 #endif
 
 #include "namespace_end.h"
