@@ -128,6 +128,9 @@ static void ST_Speech( gentity_t *self, int speechType, float failChance )
 		return;
 	}
 
+	if (self && self->isAimPracticePack)
+		return;
+
 	if ( failChance >= 0 )
 	{//a negative failChance makes it always talk
 		if ( self->NPC->group )

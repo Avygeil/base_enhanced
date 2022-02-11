@@ -201,6 +201,8 @@ void Boba_ChangeWeapon( int wp )
 
 void WP_ResistForcePush( gentity_t *self, gentity_t *pusher, qboolean noPenalty )
 {
+	if (self->isAimPracticePack)
+		return;
 	int parts;
 	qboolean runningResist = qfalse;
 
@@ -269,6 +271,8 @@ void WP_ResistForcePush( gentity_t *self, gentity_t *pusher, qboolean noPenalty 
 
 qboolean Boba_StopKnockdown( gentity_t *self, gentity_t *pusher, vec3_t pushDir, qboolean forceKnockdown ) //forceKnockdown = qfalse
 {
+	if (self->isAimPracticePack)
+		return qfalse;
 	vec3_t	pDir, fwd, right, ang;
 	float	fDot, rDot;
 	int		strafeTime;
@@ -342,6 +346,8 @@ qboolean Boba_StopKnockdown( gentity_t *self, gentity_t *pusher, vec3_t pushDir,
 
 void Boba_FlyStart( gentity_t *self )
 {//switch to seeker AI for a while
+	if (self->isAimPracticePack)
+		return;
 	if ( TIMER_Done( self, "jetRecharge" ) )
 	{
 		self->client->ps.gravity = 0;
@@ -364,6 +370,8 @@ void Boba_FlyStart( gentity_t *self )
 
 void Boba_FlyStop( gentity_t *self )
 {
+	if (self->isAimPracticePack)
+		return;
 	self->client->ps.gravity = g_gravity.value;
 	if ( self->NPC )
 	{
@@ -388,6 +396,8 @@ qboolean Boba_Flying( gentity_t *self )
 
 void Boba_FireFlameThrower( gentity_t *self )
 {
+	if (self->isAimPracticePack)
+		return;
 	int		damage	= Q_irand( 20, 30 );
 	trace_t		tr;
 	gentity_t	*traceEnt = NULL;
@@ -414,6 +424,8 @@ void Boba_FireFlameThrower( gentity_t *self )
 
 void Boba_StartFlameThrower( gentity_t *self )
 {
+	if (self->isAimPracticePack)
+		return;
 	int	flameTime = 4000;
 	mdxaBone_t	boltMatrix;
 	vec3_t		org, dir;
@@ -439,6 +451,8 @@ void Boba_StartFlameThrower( gentity_t *self )
 
 void Boba_DoFlameThrower( gentity_t *self )
 {
+	if (self->isAimPracticePack)
+		return;
 	NPC_SetAnim( self, SETANIM_TORSO, BOTH_FORCELIGHTNING_HOLD, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
 	if ( TIMER_Done( self, "nextAttackDelay" ) && TIMER_Done( self, "flameTime" ) )
 	{
@@ -449,6 +463,8 @@ void Boba_DoFlameThrower( gentity_t *self )
 
 void Boba_FireDecide( void )
 {
+	if (NPC->isAimPracticePack)
+		return;
 	qboolean enemyLOS = qfalse;
 	qboolean enemyCS = qfalse;
 	qboolean enemyInFOV = qfalse;
@@ -752,6 +768,8 @@ void Jedi_Cloak( gentity_t *self )
 {
 	if ( self )
 	{
+		if (self->isAimPracticePack)
+			return;
 		self->flags |= FL_NOTARGET;
 		if ( self->client )
 		{
@@ -771,6 +789,8 @@ void Jedi_Decloak( gentity_t *self )
 {
 	if ( self )
 	{
+		if (self->isAimPracticePack)
+			return;
 		self->flags &= ~FL_NOTARGET;
 		if ( self->client )
 		{
@@ -929,6 +949,8 @@ SPEAKING
 
 static qboolean Jedi_BattleTaunt( void )
 {
+	if (NPC->isAimPracticePack)
+		return qfalse;
 	if ( TIMER_Done( NPC, "chatter" ) 
 		&& !Q_irand( 0, 3 ) 
 		&& NPCInfo->blockedSpeechDebounceTime < level.time 
@@ -2917,6 +2939,8 @@ extern float ShortestLineSegBewteen2LineSegs( vec3_t start1, vec3_t end1, vec3_t
 extern int WPDEBUG_SaberColor( saber_colors_t saberColor );
 static qboolean Jedi_SaberBlock( int saberNum, int bladeNum ) //saberNum = 0, bladeNum = 0
 {
+	if (NPC->isAimPracticePack)
+		return qfalse;
 	vec3_t hitloc, saberTipOld, saberTip, top, bottom, axisPoint, saberPoint, dir;//saberBase, 
 	vec3_t pointDir, baseDir, tipDir, saberHitPoint, saberMins, saberMaxs;
 	float	pointDist, baseDirPerc, dist;
@@ -3402,6 +3426,8 @@ gentity_t *Jedi_FindEnemyInCone( gentity_t *self, gentity_t *fallback, float min
 		{ // racer
 			continue;
 		}
+		if (check->isAimPracticePack)
+			continue;
 		if ( check->client->playerTeam != self->client->enemyTeam )
 		{//not an enemy - FIXME: what about turrets?
 			continue;
@@ -3481,6 +3507,9 @@ static void Jedi_FaceEnemy( qboolean doPitch )
 	vec3_t	enemy_eyes, eyes, angles;
 
 	if ( NPC == NULL )
+		return;
+
+	if (NPC->isAimPracticePack)
 		return;
 
 	if ( NPC->enemy == NULL )
@@ -3930,6 +3959,8 @@ static void Jedi_CombatTimersUpdate( int enemy_dist )
 
 static void Jedi_CombatIdle( int enemy_dist )
 {
+	if (NPC->isAimPracticePack)
+		return;
 	if ( !TIMER_Done( NPC, "parryTime" ) )
 	{
 		return;
@@ -4324,6 +4355,8 @@ static qboolean Jedi_Jump( vec3_t dest, int goalEntNum )
 
 static qboolean Jedi_TryJump( gentity_t *goal )
 {//FIXME: never does a simple short, regular jump...
+	if (NPC->isAimPracticePack)
+		return qfalse;
 	//FIXME: I need to be on ground too!
 	if ( (NPCInfo->scriptFlags&SCF_NO_ACROBATICS) )
 	{

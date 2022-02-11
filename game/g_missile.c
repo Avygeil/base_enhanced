@@ -297,13 +297,19 @@ void G_ExplodeMissile( gentity_t *ent ) {
 		if( G_RadiusDamage( ent->r.currentOrigin, ent->parent, ent->splashDamage, ent->splashRadius, ent, 
 				ent, ent->splashMethodOfDeath ) ) 
 		{
+			gentity_t *owner = NULL;
 			if (ent->parent)
-			{
-				g_entities[ent->parent->s.number].client->accuracy_hits++;
-			}
+				owner = ent->parent;
 			else if (ent->activator)
-			{
-				g_entities[ent->activator->s.number].client->accuracy_hits++;
+				owner = ent->activator;
+
+			if (owner) {
+				accuracyCategory_t acc = AccuracyCategoryForProjectile(ent);
+				if (acc != ACC_INVALID) {
+					if (acc != ACC_PISTOL_ALT) // pistol does not count in overall accuracy
+						owner->client->stats->accuracy_hits++;
+					owner->client->stats->accuracy_hitsOfType[acc]++;
+				}
 			}
 		}
 	}
@@ -362,6 +368,13 @@ gentity_t *CreateMissile( vec3_t org, vec3_t dir, float vel, int life,
 	missile->think = G_FreeEntity;
 	missile->s.eType = ET_MISSILE;
 	missile->r.svFlags = SVF_USE_CURRENT_ORIGIN;
+	if (owner && owner->client && owner->client->sess.inRacemode) {
+		missile->r.svFlags |= SVF_COOLKIDSCLUB;
+		if (owner->aimPracticeEntBeingUsed) {
+			missile->r.singleEntityCollision = qtrue;
+			missile->r.singleEntityThatCanCollide = owner->aimPracticeEntBeingUsed - g_entities;
+		}
+	}
 	missile->parent = owner;
 	missile->r.ownerNum = owner->s.number;
 	missile->isReflected = qfalse;
@@ -412,6 +425,65 @@ void G_MissileBounceEffect( gentity_t *ent, vec3_t org, vec3_t dir )
 		}
 		break;
 	}
+}
+
+static qboolean CountsForAirshotStat(gentity_t *missile) {
+	assert(missile);
+	switch (missile->methodOfDeath) {
+	case MOD_BOWCASTER:
+	case MOD_REPEATER_ALT:
+	case MOD_FLECHETTE_ALT_SPLASH:
+	case MOD_ROCKET:
+	case MOD_THERMAL:
+	case MOD_CONC:
+		return qtrue;
+	case MOD_ROCKET_HOMING:
+		return !!!(missile->enemy); // alt rockets can count if they are unhomed
+	case MOD_BRYAR_PISTOL_ALT:
+		return !!(missile->s.generic1 > 1); // require a little bit of charge
+	default:
+		return qfalse;
+	}
+}
+
+qboolean CheckAccuracyAndAirshot(gentity_t *missile, gentity_t *victim, qboolean isSurfedRocket) {
+	qboolean hitClient = qfalse;
+
+	if (missile->r.ownerNum >= MAX_CLIENTS)
+		return qfalse;
+	gentity_t *missileOwner = &g_entities[missile->r.ownerNum];
+	if (!missileOwner->inuse || !missileOwner->client || !missileOwner->client->stats)
+		return qfalse;
+
+	if (LogAccuracyHit(victim, missileOwner) && !missile->isReflected) {
+		accuracyCategory_t acc = AccuracyCategoryForProjectile(missile);
+		if (acc != ACC_INVALID) {
+			if (acc != ACC_PISTOL_ALT) // pistol does not count in overall accuracy
+				missileOwner->client->stats->accuracy_hits++;
+			missileOwner->client->stats->accuracy_hitsOfType[acc]++;
+		}
+		hitClient = qtrue;
+
+		if (isSurfedRocket && CountsForAirshotStat(missile)) {
+			++missileOwner->client->stats->airs;
+		}
+		else if (victim->playerState->groundEntityNum == ENTITYNUM_NONE && CountsForAirshotStat(missile)) {
+			// hit while in air; make sure the victim is decently in the air though (not just 1 nanometer from the gorund)
+			trace_t tr;
+			vec3_t down;
+			VectorCopy(victim->r.currentOrigin, down);
+			down[2] -= 4096;
+			trap_Trace(&tr, victim->r.currentOrigin, victim->r.mins, victim->r.maxs, down, victim - g_entities, MASK_SOLID);
+			VectorSubtract(victim->r.currentOrigin, tr.endpos, down);
+			float groundDist = VectorLength(down);
+#define AIRSHOT_GROUND_DISTANCE_THRESHOLD (50.0f)
+			if (groundDist >= AIRSHOT_GROUND_DISTANCE_THRESHOLD)
+				++missileOwner->client->stats->airs;
+			//PrintIngame(-1, "Ground distance is %0.2f\n", groundDist);
+		}
+	}
+
+	return hitClient;
 }
 
 /*
@@ -711,11 +783,37 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 			vec3_t	velocity;
 			qboolean didDmg = qfalse;
 
-			if( LogAccuracyHit( other, &g_entities[ent->r.ownerNum] ) &&
-				!ent->isReflected) {
-				g_entities[ent->r.ownerNum].client->accuracy_hits++;
-				hitClient = qtrue;
+			if (other->isAimPracticePack && ent->parent && ent->parent->client && ent->parent->client->sess.inRacemode) {
+				if (ent->parent && ent->parent->aimPracticeEntBeingUsed == other && ent->parent->numAimPracticeSpawns >= 1) {
+					weapon_t weap = WP_NONE;
+					if (ent->methodOfDeath == MOD_BRYAR_PISTOL_ALT && ent->s.generic1 > 1) // require a little bit of charge
+						weap = WP_BRYAR_PISTOL;
+					if (ent->methodOfDeath == MOD_REPEATER_ALT)
+						weap = WP_REPEATER;
+					else if (ent->methodOfDeath == MOD_FLECHETTE_ALT_SPLASH)
+						weap = WP_FLECHETTE;
+					else if (ent->methodOfDeath == MOD_ROCKET || (ent->methodOfDeath == MOD_ROCKET_HOMING && !ent->enemy))
+						weap = WP_ROCKET_LAUNCHER;
+					else if (ent->methodOfDeath == MOD_THERMAL)
+						weap = WP_THERMAL;
+					else if (ent->methodOfDeath == MOD_CONC)
+						weap = WP_CONCUSSION;
+					else if (ent->parent->aimPracticeMode == AIMPRACTICEMODE_TIMED && (ent->methodOfDeath == MOD_BRYAR_PISTOL || ent->methodOfDeath == MOD_REPEATER || ent->methodOfDeath == MOD_FLECHETTE))
+						CenterPrintToPlayerAndFollowers(ent->parent, "Use alt fire! Primary shots don't count.");
+					else if (ent->parent->aimPracticeMode == AIMPRACTICEMODE_TIMED && ent->methodOfDeath == MOD_BRYAR_PISTOL_ALT && ent->s.generic1 <= 1)
+						CenterPrintToPlayerAndFollowers(ent->parent, "Charge your shot for at least 400ms!\n");
+
+					if (weap) {
+						++ent->parent->numTotalAimPracticeHits;
+						++ent->parent->numAimPracticeHitsOfWeapon[weap];
+					}
+				}
+
+				PlayAimPracticeBotPainSound(other, ent->parent);
 			}
+
+			hitClient = CheckAccuracyAndAirshot(ent, other, qfalse);
+
 			BG_EvaluateTrajectoryDelta( &ent->s.pos, level.time, velocity );
 			if ( VectorLength( velocity ) == 0 ) {
 				velocity[2] = 1;	// stepped on a grenade
@@ -856,7 +954,12 @@ killProj:
 			if( !hitClient 
 				&& g_entities[ent->r.ownerNum].client 
 				&& !ent->isReflected) {
-				g_entities[ent->r.ownerNum].client->accuracy_hits++;
+				accuracyCategory_t acc = AccuracyCategoryForProjectile(ent);
+				if (acc != ACC_INVALID) {
+					if (acc != ACC_PISTOL_ALT) // pistol does not count in overall accuracy
+						g_entities[ent->r.ownerNum].client->stats->accuracy_hits++;
+					g_entities[ent->r.ownerNum].client->stats->accuracy_hitsOfType[acc]++;
+				}
 			}
 		}
 	}
@@ -909,6 +1012,11 @@ void G_RunMissile( gentity_t *ent ) {
 			passent = ent->r.ownerNum;
 		}
 	}
+
+	// set passent properly for racer projectiles
+	if (ent->r.svFlags & SVF_COOLKIDSCLUB)
+		passent = ent->s.number;
+
 	// trace a line from the previous position to the current position
 	if (d_projectileGhoul2Collision.integer)
 	{

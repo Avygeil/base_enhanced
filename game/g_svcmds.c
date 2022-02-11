@@ -880,6 +880,13 @@ void Svcmd_ResetFlags_f(){
 		ent->client->ps.powerups[PW_BLUEFLAG] = 0;
 		ent->client->ps.powerups[PW_REDFLAG] = 0;
 	}
+
+	// count these as rets, i guess; no sense punishing someone's fckill efficiency due to resetflags vote
+	if (level.redPlayerWhoKilledBlueCarrierOfRedFlag)
+		level.redPlayerWhoKilledBlueCarrierOfRedFlag->fcKillsResultingInRets++;
+	if (level.bluePlayerWhoKilledRedCarrierOfBlueFlag)
+		level.bluePlayerWhoKilledRedCarrierOfBlueFlag->fcKillsResultingInRets++;
+
 	Team_ResetFlags();
 }
 
@@ -926,10 +933,62 @@ void Svcmd_LockTeams_f( void ) {
 
 void Svcmd_Cointoss_f(void) 
 {
-	int cointoss = rand() % 2;
+	int isHeads = rand() % 2;
 
-	trap_SendServerCommand(-1, va("cp \""S_COLOR_YELLOW"%s"S_COLOR_WHITE"!\"", cointoss ? "Heads" : "Tails"));
-	trap_SendServerCommand(-1, va("print \"Coin Toss result: "S_COLOR_YELLOW"%s\n\"", cointoss ? "Heads" : "Tails"));
+	int now = trap_Milliseconds();
+
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *ent = &g_entities[i];
+		if (!ent->inuse || !ent->client)
+			continue;
+
+		char *color = "^3";
+		team_t team;
+		int headsTime = 0, tailsTime = 0;
+
+		// color the result for this person if they chose something, or they are ingame, or they are following someone who is ingame
+
+		if (!ent->client->pers.cointossHeadsTime && !ent->client->pers.cointossTailsTime &&
+			ent->client->sess.sessionTeam == TEAM_SPECTATOR && ent->client->sess.spectatorState == SPECTATOR_FOLLOW &&
+			ent->client->sess.spectatorClient >= 0 && ent->client->sess.spectatorClient < MAX_CLIENTS &&
+			g_entities[ent->client->sess.spectatorClient].inuse && g_entities[ent->client->sess.spectatorClient].client &&
+			g_entities[ent->client->sess.spectatorClient].client->sess.sessionTeam != TEAM_FREE) {
+			team = g_entities[ent->client->sess.spectatorClient].client->sess.sessionTeam;
+			headsTime = g_entities[ent->client->sess.spectatorClient].client->pers.cointossHeadsTime;
+			tailsTime = g_entities[ent->client->sess.spectatorClient].client->pers.cointossTailsTime;
+		}
+		else {
+			team = ent->client->sess.sessionTeam;
+			headsTime = ent->client->pers.cointossHeadsTime;
+			tailsTime = ent->client->pers.cointossTailsTime;
+		}
+
+		if (headsTime && now - headsTime > VOTE_TIME)
+			headsTime = 0;
+		if (tailsTime && now - tailsTime > VOTE_TIME)
+			tailsTime = 0;
+
+		if (team == TEAM_RED || team == TEAM_BLUE || headsTime || tailsTime) {
+			if (isHeads) {
+				if (headsTime)
+					color = "^2";
+				else
+					color = "^1";
+			}
+			else {
+				if (tailsTime)
+					color = "^2";
+				else
+					color = "^1";
+			}
+		}
+
+		trap_SendServerCommand(i, va("cp \"%s%s!\"", color, isHeads ? "Heads" : "Tails"));
+		trap_SendServerCommand(i, va("print \"Coin toss result: %s%s^7\n\"", color, isHeads ? "Heads" : "Tails"));
+		ent->client->pers.cointossHeadsTime = ent->client->pers.cointossTailsTime = 0;
+	}
+
+	G_LogPrintf("Cointoss result was %s.\n", isHeads ? "heads" : "tails");
 }
 
 void Svcmd_ForceName_f(void) {
@@ -980,13 +1039,15 @@ void Svcmd_ShadowMute_f( void ) {
 	}
 }
 
+static unsigned long long runoffSurvivors = 0llu, runoffLosers = 0llu;
+
 void Svcmd_VoteForce_f( qboolean pass ) {
 	if ( !level.voteTime ) {
 		G_Printf("No vote in progress.\n");
 		return;
 	}
 
-	trap_SendServerCommand( -1, va( "print \""S_COLOR_RED"Vote forced to %s.\n\"", pass ? "pass" : "fail" ) );
+	trap_SendServerCommand( -1, va( "print \"%sVote forced to %s.^7\n\"", pass ? "^2" : "^1", pass ? "pass" : "fail" ) );
 
 	if ( pass ) {
 		// set the delay
@@ -1005,12 +1066,400 @@ void Svcmd_VoteForce_f( qboolean pass ) {
 		g_entities[level.lastVotingClient].client->lastCallvoteTime = level.time;
 	} else if ( !pass ) {
 		level.multiVoting = qfalse;
+		level.inRunoff = qfalse;
 		level.multiVoteChoices = 0;
+		level.multiVoteHasWildcard = qfalse;
+		level.multivoteWildcardMapFileName[0] = '\0';
+		level.mapsThatCanBeVotedBits = 0;
+		runoffSurvivors = runoffLosers = 0llu;
 		memset( level.multiVotes, 0, sizeof( level.multiVotes ) );
+		memset(&level.multiVoteMapChars, 0, sizeof(level.multiVoteMapChars));
+		memset(&level.multiVoteMapShortNames, 0, sizeof(level.multiVoteMapShortNames));
+		memset(&level.multiVoteMapFileNames, 0, sizeof(level.multiVoteMapFileNames));
 	}
 
 	level.voteTime = 0;
 	trap_SetConfigstring( CS_VOTE_TIME, "" );
+}
+
+static qboolean MapTierDataMatches(genericNode_t *node, void *userData) {
+	mapTierData_t *existing = (mapTierData_t *)node;
+	const char *thisMap = (const char *)userData;
+
+	if (!existing || !thisMap)
+		return qfalse;
+
+	if (!Q_stricmp(existing->mapFileName, thisMap))
+		return qtrue;
+
+	return qfalse;
+}
+
+extern int g_numArenas;
+extern char *g_arenaInfos[MAX_ARENAS];
+
+// checks arena data to see if map exists, rather than touching the .bsp file (should be faster)
+qboolean MapExistsQuick(const char *mapFileName) {
+	if (!VALIDSTRING(mapFileName))
+		return qfalse;
+
+	for (int i = 0; i < g_numArenas; i++) {
+		char *value = Info_ValueForKey(g_arenaInfos[i], "map");
+		if (!Q_stricmp(mapFileName, value))
+			return qtrue; // found it
+	}
+
+	return qfalse;
+}
+
+void Svcmd_MapAlias_f(void) {
+	if (trap_Argc() < 2) {
+		Com_Printf("^7Usage:\n"
+			"^7mapalias list                   - lists current map aliases\n"
+			"^9mapalias add [filename] [alias] - adds a map filename with a specified alias to the list\n"
+			"^7mapalias delete [filename]      - deletes a map filename from the list\n"
+			"^9mapalias live [filename]        - sets a map as the live version of its alias\n"
+			"^7use the ^5listmaps^7 command to view a list of all maps.\n");
+		return;
+	}
+
+	char arg1[MAX_STRING_CHARS] = { 0 }, arg2[MAX_STRING_CHARS] = { 0 }, arg3[MAX_STRING_CHARS] = { 0 };
+	trap_Argv(1, arg1, sizeof(arg1));
+	Q_strlwr(arg1);
+	Q_StripColor(arg1);
+	COM_StripExtension((const char *)arg1, arg1);
+	if (trap_Argc() >= 3) {
+		trap_Argv(2, arg2, sizeof(arg2));
+		Q_strlwr(arg2);
+		Q_StripColor(arg2);
+		COM_StripExtension((const char *)arg2, arg2);
+		if (trap_Argc() >= 4) {
+			trap_Argv(3, arg3, sizeof(arg3));
+			Q_strlwr(arg3);
+			Q_StripColor(arg3);
+		}
+	}
+
+	if (!Q_stricmp(arg1, "list") || !Q_stricmp(arg1, "view")) {
+		G_DBListMapAliases();
+	}
+	else if (!Q_stricmp(arg1, "add") || !Q_stricmp(arg1, "forceadd")) {
+		if (!arg2[0]) {
+			Com_Printf("Usage: mapalias add [filename] [alias] <optional 'live'>\n");
+			return;
+		}
+
+		if (Q_stricmp(arg1, "forceadd") && !MapExistsQuick(arg2)) {
+			Com_Printf("%s does not currently exist on the server. Are you sure you entered the correct filename? You can use ^5mapalias forceadd^7 to bypass this warning.\n", arg2);
+			return;
+		}
+
+		if (!Q_stricmpn(arg3, "mp/", 3)) {
+			Com_Printf("Alias should not contain the mp/ prefix.\n");
+			return;
+		}
+
+		qboolean setLive = qfalse;
+		if (trap_Argc() >= 5) {
+			char buf[MAX_STRING_CHARS] = { 0 };
+			trap_Argv(4, buf, sizeof(buf));
+			if (!Q_stricmp(buf, "live"))
+				setLive = qtrue;
+		}
+
+		if (G_DBSetMapAlias(arg2, arg3, setLive))
+			Com_Printf("Successfully added filename ^5%s^7 with alias ^5%s^7%s.\n", arg2, arg3, setLive ? " and set it to live" : "");
+		else
+			Com_Printf("Error adding filename ^5%s^7 with ^5%s^7%s!\n", arg2, arg3, setLive ? " and setting it to live" : "");
+	}
+	else if (!Q_stricmp(arg1, "delete") || !Q_stricmp(arg1, "forcedelete")) {
+		if (!arg2[0]) {
+			Com_Printf("Usage: mapalias delete [filename]\n");
+			return;
+		}
+
+		if (Q_stricmp(arg1, "forcedelete") && !MapExistsQuick(arg2)) {
+			Com_Printf("%s does not currently exist on the server. Are you sure you entered the correct filename? You can use ^5mapalias forcedelete^7 to bypass this warning.\n", arg2);
+			return;
+		}
+
+		if (G_DBClearMapAlias(arg2))
+			Com_Printf("Successfully deleted alias for filename ^5%s^7.\n", arg2);
+		else
+			Com_Printf("Error setting alias for filename ^5%s^7!\n", arg2);
+	}
+	else if (!Q_stricmp(arg1, "live") || !Q_stricmp(arg1, "forcelive")) {
+		if (!arg2[0]) {
+			Com_Printf("Usage: mapalias live [filename]\n");
+			return;
+		}
+
+		if (Q_stricmp(arg1, "forcelive") && !MapExistsQuick(arg2)) {
+			Com_Printf("%s does not currently exist on the server. Are you sure you entered the correct filename? You can use ^5mapalias forcelive^7 to bypass this warning.\n", arg2);
+			return;
+		}
+
+		char alias[MAX_QPATH] = { 0 };
+		if (G_DBSetMapAliasLive(arg2, alias, sizeof(alias)))
+			Com_Printf("Successfully set filename ^5%s^7 as the live filename for alias ^5%s^7.\n", arg2, alias);
+		else
+			Com_Printf("Error setting filename ^5%s^7 as live!\n", arg2);
+	}
+	else {
+		Com_Printf("^7Usage:\n"
+			"^7mapalias list                   - lists current map aliases\n"
+			"^9mapalias add [filename] [alias] - adds a map filename with a specified alias to the list\n"
+			"^7mapalias delete [filename]      - deletes a map filename from the list\n"
+			"^9mapalias live [filename]        - sets a map as the live version of its alias\n"
+			"^7use the ^5listmaps^7 command to view a list of all maps.\n");
+		return;
+	}
+}
+
+void Svcmd_ListMaps_f(void) {
+	list_t list = { 0 };
+	int numGotten = 0;
+	for (int i = g_numArenas - 1; i >= 0; i--) { // go in backwards order so it's alphabetized...nice video game
+		char *value = Info_ValueForKey(g_arenaInfos[i], "type");
+		if (VALIDSTRING(value) && strstr(value, "ctf")) {
+			mapAlias_t *add = (mapAlias_t *)ListAdd(&list, sizeof(mapAlias_t));
+			value = Info_ValueForKey(g_arenaInfos[i], "map");
+			Q_strncpyz(add->filename, value, sizeof(add->filename));
+			char alias[MAX_QPATH] = { 0 };
+			qboolean isLive = qfalse;
+			if (G_DBGetAliasForMapName(value, alias, sizeof(alias), &isLive)) {
+				Q_strncpyz(add->alias, alias, sizeof(add->alias));
+				Q_strncpyz(add->live, isLive ? "^2Yes" : "No", sizeof(add->live));
+			}
+			else {
+				add->alias[0] = ' ';
+				add->live[0] = ' ';
+			}
+			numGotten++;
+		}
+	}
+
+	if (!numGotten) {
+		Com_Printf("Unable to find any CTF maps!\n");
+		return;
+	}
+
+	iterator_t iter;
+	ListIterate(&list, &iter, qfalse);
+	Table *t = Table_Initialize(qtrue);
+	while (IteratorHasNext(&iter)) {
+		mapAlias_t *ma = (mapAlias_t *)IteratorNext(&iter);
+		Table_DefineRow(t, ma);
+	}
+
+	mapAlias_t ma = { 0 };
+	Table_DefineColumn(t, "Filename", GenericTableStringCallback, (void *)((unsigned int)(&ma.filename) - (unsigned int)&ma), qtrue, -1, MAX_QPATH);
+	Table_DefineColumn(t, "Alias", GenericTableStringCallback, (void *)((unsigned int)(&ma.alias) - (unsigned int)&ma), qtrue, -1, MAX_QPATH);
+	Table_DefineColumn(t, "Live", GenericTableStringCallback, (void *)((unsigned int)(&ma.live) - (unsigned int)&ma), qtrue, -1, MAX_QPATH);
+
+	int bufSize = 1024 * numGotten;
+	char *buf = calloc(bufSize, sizeof(char));
+	Table_WriteToBuffer(t, buf, bufSize, qtrue, -1);
+	Com_Printf("CTF maps currently on server:\n");
+
+	// should write a function to do this stupid chunked printing
+	char *remaining = buf;
+	int totalLen = strlen(buf);
+	while (*remaining && remaining < buf + totalLen) {
+		char temp[4096] = { 0 };
+		Q_strncpyz(temp, remaining, sizeof(temp));
+		Com_Printf(temp);
+		int copied = strlen(temp);
+		remaining += copied;
+	}
+
+	free(buf);
+	Table_Destroy(t);
+	ListClear(&list);
+}
+
+void Svcmd_Tier_f(void) {
+	if (trap_Argc() < 2) {
+		Com_Printf("^7Usage%s:\n"
+			"^7rcon tier add [map]    - whitelist a map so that it can be chosen in votes\n"
+			"^9rcon tier remove [map] - remove a map from the whitelist\n"
+			"^7rcon tier list         - view which maps currently are, or are not, whitelisted\n", g_vote_tierlist.integer ? "" : " (note: tierlist is currently disabled, enable with g_vote_tierlist)");
+		return;
+	}
+
+	char arg1[MAX_STRING_CHARS] = { 0 }, arg2[MAX_STRING_CHARS] = { 0 };
+	trap_Argv(1, arg1, sizeof(arg1));
+	trap_Argv(2, arg2, sizeof(arg2));
+	if (!arg1[0] || isspace(arg1[0]) || (trap_Argc() >= 3 && (!arg2[0] || isspace(arg2[0])))) {
+		Com_Printf("^7Usage%s:\n"
+			"^7rcon tier add [map]    - whitelist a map so that it can be chosen in votes\n"
+			"^9rcon tier remove [map] - remove a map from the whitelist\n"
+			"^7rcon tier list         - view which maps currently are, or are not, whitelisted\n", g_vote_tierlist.integer ? "" : " (note: tierlist is currently disabled, enable with g_vote_tierlist)");
+		return;
+	}
+
+	Q_strlwr(arg1);
+	Q_strlwr(arg2);
+
+	if (!Q_stricmp(arg1, "add") && arg2[0] && !isspace(arg2[0])) {
+		char mapFileName[MAX_QPATH] = { 0 };
+		if (!GetMatchingMap(arg2, mapFileName, sizeof(mapFileName))) {
+			Com_Printf("Unable to find any map matching '%s^7'. If you still want to whitelist this map anyway, enter ^5tier forceadd [filename]^7. Be sure to use the actual map filename (e.g. ^5mp/ctf_kejim^7).\n", arg2);
+			return;
+		}
+
+		if (G_DBAddMapToTierWhitelist(mapFileName))
+			Com_Printf("Successfully added %s^7 (^9%s^7) to the whitelist.\n", arg2, mapFileName);
+		else
+			Com_Printf("Error adding %s^7 (^9%s^7) to the whitelist!\n", arg2, mapFileName);
+	}
+	else if (!Q_stricmp(arg1, "forceadd") && arg2[0] && !isspace(arg2[0])) {
+		COM_StripExtension((const char *)arg2, arg2);
+		if (G_DBAddMapToTierWhitelist(arg2))
+			Com_Printf("Successfully force-added %s^7 to the whitelist.\n", arg2);
+		else
+			Com_Printf("Error force-adding %s^7 to the whitelist!\n", arg2);
+	}
+	else if (!Q_stricmp(arg1, "remove") && arg2[0] && !isspace(arg2[0])) {
+		char mapFileName[MAX_QPATH] = { 0 };
+		if (!GetMatchingMap(arg2, mapFileName, sizeof(mapFileName))) {
+			Com_Printf("Unable to find any map matching '%s^7'. If you still want to unwhitelist this map anyway, enter ^5tier forceremove [filename]^7. Be sure to use the actual map filename (e.g. ^5mp/ctf_kejim^7).\n", arg2);
+			return;
+		}
+
+		if (G_DBRemoveMapFromTierWhitelist(mapFileName))
+			Com_Printf("Successfully removed %s^7 (^9%s^7) from the whitelist.\n", arg2, mapFileName);
+		else
+			Com_Printf("Error removing %s^7 (^9%s^7) from the whitelist!\n", arg2, mapFileName);
+	}
+	else if (!Q_stricmp(arg1, "forceremove") && arg2[0] && !isspace(arg2[0])) {
+		COM_StripExtension((const char *)arg2, arg2);
+		if (G_DBRemoveMapFromTierWhitelist(arg2))
+			Com_Printf("Successfully force-removed %s^7 from the whitelist.\n", arg2);
+		else
+			Com_Printf("Error force-removing %s^7 from the whitelist!\n", arg2);
+	}
+	else if (!Q_stricmp(arg1, "view") || !Q_stricmp(arg1, "list") || !Q_stricmp(arg1, "whitelist") || !Q_stricmp(arg1, "current") || !Q_stricmp(arg1, "community")) {
+		char mapsListStr[4096] = { 0 };
+		list_t *whitelistedMapsList = G_DBGetTierWhitelistedMaps();
+		if (whitelistedMapsList) {
+			iterator_t iter;
+			ListIterate(whitelistedMapsList, &iter, qfalse);
+			int numGotten = 0;
+			while (IteratorHasNext(&iter)) {
+				mapTierData_t *data = (mapTierData_t *)IteratorNext(&iter);
+				char mapShortName[MAX_QPATH] = { 0 };
+				GetShortNameForMapFileName(data->mapFileName, mapShortName, sizeof(mapShortName));
+				Q_strcat(mapsListStr, sizeof(mapsListStr), va("%s%s", numGotten ? ", " : "", mapShortName));
+				numGotten++;
+			}
+			if (numGotten) {
+				Com_Printf("^2Maps currently whitelisted: ^7");
+				Com_Printf("%s^7\n", mapsListStr);
+				Com_Printf("^3----------------------------------------^7\n");
+			}
+			else {
+				Com_Printf("^2No maps are currently whitelisted.^7\n");
+				Com_Printf("^3----------------------------------------^7\n");
+				whitelistedMapsList = NULL;
+			}
+		}
+		else {
+			Com_Printf("^2No maps are currently whitelisted.^7\n");
+			Com_Printf("^3----------------------------------------^7\n");
+		}
+
+		char allMapsStr[4096] = { 0 };
+		list_t allMapsList = { 0 };
+		int numGotten = 0;
+		for (int i = g_numArenas - 1; i >= 0; i--) { // go in backwards order so it's alphabetized...nice video game
+			char *value = Info_ValueForKey(g_arenaInfos[i], "type");
+			if (VALIDSTRING(value) && strstr(value, "ctf")) {
+				value = Info_ValueForKey(g_arenaInfos[i], "map");
+				qboolean isWhitelisted = qfalse;
+				if (whitelistedMapsList) {
+					mapTierData_t *found = ListFind(whitelistedMapsList, MapTierDataMatches, value, NULL);
+					if (found)
+						isWhitelisted = qtrue;
+				}
+
+				if (!isWhitelisted) {
+					char mapShortName[MAX_QPATH] = { 0 };
+					GetShortNameForMapFileName(value, mapShortName, sizeof(mapShortName));
+					Q_strcat(allMapsStr, sizeof(allMapsStr), va("%s%s", numGotten ? ", " : "", mapShortName));
+					numGotten++;
+				}
+			}
+		}
+		if (numGotten) {
+			Com_Printf("^1Maps currently NOT whitelisted: ^7");
+			Com_Printf("%s^7\n", allMapsStr);
+		}
+
+		if (whitelistedMapsList)
+			free(whitelistedMapsList);
+	}
+	else {
+		Com_Printf("^7Usage%s:\n"
+			"^7rcon tier add [map]    - whitelist a map so that it can be chosen in votes\n"
+			"^9rcon tier remove [map] - remove a map from the whitelist\n"
+			"^7rcon tier list         - view which maps currently are, or are not, whitelisted\n", g_vote_tierlist.integer ? "" : " (note: tierlist is currently disabled, enable with g_vote_tierlist)");
+		return;
+	}
+}
+
+static void PrintFixSwapHelp(void) {
+	Com_Printf(	"Usage:\n"
+				"fixswap list                  - lists pugs where someone has played more than one position\n"
+				"fixswap fix [record #] [pos]  - set a record to, or merges it into, a specified position\n"
+	);
+}
+
+void Svcmd_FixSwap_f(void) {
+	if (trap_Argc() < 2) {
+		PrintFixSwapHelp();
+		return;
+	}
+
+	char arg1[MAX_STRING_CHARS] = { 0 };
+	trap_Argv(1, arg1, sizeof(arg1));
+
+	if (!Q_stricmp(arg1, "list")) {
+		G_DBFixSwap_List();
+	}
+	else if (!Q_stricmp(arg1, "fix")) {
+		char arg2[MAX_STRING_CHARS] = { 0 };
+		trap_Argv(2, arg2, sizeof(arg2));
+		if (!arg2[0] || !Q_isanumber(arg2)) {
+			PrintFixSwapHelp();
+			return;
+		}
+		int recordId = atoi(arg2);
+
+		char arg3[MAX_STRING_CHARS] = { 0 };
+		trap_Argv(3, arg3, sizeof(arg3));
+		if (!arg3[0]) {
+			PrintFixSwapHelp();
+			return;
+		}
+
+		int pos = (int)CtfPositionFromString(arg3);
+		if (!pos) {
+			PrintFixSwapHelp();
+			return;
+		}
+
+		if (G_DBFixSwap_Fix(recordId, pos)) {
+			Com_Printf("Successful.\n");
+			trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
+		}
+		else {
+			Com_Printf("Failed!\n");
+		}
+	}
+	else {
+		PrintFixSwapHelp();
+	}
 }
 
 #ifdef _WIN32
@@ -1211,6 +1660,8 @@ void Svcmd_AccountPrintAll_f(){
 
 extern void fixVoters(qboolean allowRacers);
 
+static char reinstateVotes[MAX_CLIENTS] = { 0 }, removedVotes[MAX_CLIENTS] = { 0 };
+
 // starts a multiple choices vote using some of the binary voting logic
 static void StartMultiMapVote( const int numMaps, const qboolean hasWildcard, const char *listOfMaps ) {
 	if ( level.voteTime ) {
@@ -1225,13 +1676,38 @@ static void StartMultiMapVote( const int numMaps, const qboolean hasWildcard, co
 	Com_sprintf( level.voteString, sizeof( level.voteString ), "map_multi_vote %s", listOfMaps );
 	Q_strncpyz( level.voteDisplayString, S_COLOR_RED"Vote for a map in console", sizeof( level.voteDisplayString ) );
 	level.voteTime = level.time;
+
+	if (g_vote_runoff.integer && g_vote_runoffTimeModifier.integer) { // allow shorter or longer time for runoff votes according to the cvar
+		int timeChange = Com_Clampi(-15, 30, g_vote_runoffTimeModifier.integer);
+		timeChange *= 1000;
+		level.voteTime += timeChange;
+	}
+
 	level.voteYes = 0;
 	level.voteNo = 0;
 	// we don't set lastVotingClient since this isn't a "normal" vote
 	level.multiVoting = qtrue;
+	//level.inRunoff = qfalse;
 	level.multiVoteHasWildcard = hasWildcard;
 	level.multiVoteChoices = numMaps;
 	memset( &( level.multiVotes ), 0, sizeof( level.multiVotes ) );
+
+	// now reinstate votes, if needed
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		if (!reinstateVotes[i] || level.clients[i].pers.connected != CON_CONNECTED ||
+			(g_gametype.integer != GT_DUEL && g_gametype.integer != GT_POWERDUEL && level.clients[i].sess.sessionTeam == TEAM_SPECTATOR) ||
+			(g_entities[i].r.svFlags & SVF_BOT))
+			continue;
+		int index = strchr(level.multiVoteMapChars, reinstateVotes[i]) - level.multiVoteMapChars;
+		if (index >= 0) {
+			level.multiVotes[i] = (strchr(level.multiVoteMapChars, reinstateVotes[i]) - level.multiVoteMapChars) + 1;
+			G_LogPrintf("Client %d (%s) auto-voted for choice %s\n", i, level.clients[i].pers.netname, level.multiVoteMapShortNames[((int)reinstateVotes[i]) - 1]);
+			level.voteYes++;
+			trap_SetConfigstring(CS_VOTE_YES, va("%i", level.voteYes));
+			level.clients[i].mGameFlags |= PSG_VOTED;
+		}
+	}
+	memset(&reinstateVotes, 0, sizeof(reinstateVotes));
 
 	fixVoters( qfalse ); // racers can never vote in multi map votes
 
@@ -1243,7 +1719,7 @@ static void StartMultiMapVote( const int numMaps, const qboolean hasWildcard, co
 
 typedef struct {
 	char listOfMaps[MAX_STRING_CHARS];
-	char printMessage[MAX_STRING_CHARS];
+	char printMessage[MAX_CLIENTS][MAX_STRING_CHARS]; // everyone gets a unique message
 	qboolean announceMultiVote;
 	qboolean hasWildcard;
 	int mapsToRandomize;
@@ -1265,43 +1741,99 @@ static void mapSelectedCallback( void *context, char *mapname ) {
 
 	selection->numSelected++;
 
-	if ( selection->announceMultiVote ) {
-		if ( selection->numSelected == 1 ) {
-			Q_strncpyz( selection->printMessage, "Vote for a map to increase its probability:", sizeof( selection->printMessage ) );
-		}
+	if (!selection->announceMultiVote)
+		return;
 
-		if ( selection->hasWildcard && selection->mapsToRandomize == selection->numSelected ) {
-			// the wildcard option is always the last option printed
-			// the only difference behind the scenes is that it doesn't display the name of the map
-
-			Q_strcat( selection->printMessage, sizeof( selection->printMessage ),
-				va( "\n"S_COLOR_CYAN"/vote %d "S_COLOR_WHITE" - "S_COLOR_YELLOW"A random map not above", selection->numSelected )
-			);
-		} else {
-			// otherwise this is a standard option
-			// try to print the full map name to players (if a full name doesn't appear, map has no .arena or isn't installed)
-
-			char *mapDisplayName = NULL;
-			const char *arenaInfo = G_GetArenaInfoByMap( mapname );
-
-			if ( arenaInfo ) {
-				mapDisplayName = Info_ValueForKey( arenaInfo, "longname" );
-				Q_CleanStr( mapDisplayName );
+	if (selection->numSelected == 1) {
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			if (runoffSurvivors & (1llu << (unsigned long long)i)) {
+				Q_strncpyz(selection->printMessage[i], va("Runoff vote: waiting for other players to vote...\nMaps still in contention:"), sizeof(selection->printMessage[i]));
 			}
-
-			if ( !VALIDSTRING( mapDisplayName ) ) {
-				mapDisplayName = mapname;
+			else if (runoffLosers & (1llu << (unsigned long long)i)) {
+				if (removedVotes[i]) {
+					char map[MAX_QPATH] = { 0 };
+					if (level.multivoteWildcardMapFileName[0] && !Q_stricmp(level.multiVoteMapFileNames[((int)removedVotes[i]) - 1], level.multivoteWildcardMapFileName))
+						Q_strncpyz(map, "Random map", sizeof(map));
+					else
+						Q_strncpyz(map, level.multiVoteMapShortNames[((int)removedVotes[i]) - 1], sizeof(map));
+					Q_strncpyz(selection->printMessage[i], va("Runoff vote:\n"S_COLOR_RED"%s"S_COLOR_RED" was eliminated\n"S_COLOR_YELLOW"Please vote again"S_COLOR_WHITE, map), sizeof(selection->printMessage[i]));
+				}
+				else {
+					Q_strncpyz(selection->printMessage[i], va("Runoff vote: "S_COLOR_YELLOW"please vote again"S_COLOR_WHITE), sizeof(selection->printMessage[i]));
+				}
 			}
-
-			Q_strcat( selection->printMessage, sizeof( selection->printMessage ),
-				va( "\n"S_COLOR_CYAN"/vote %d "S_COLOR_WHITE" - %s", selection->numSelected, mapDisplayName )
-			);
+			else
+				Q_strncpyz(selection->printMessage[i], va("%sote for a map%s:", level.inRunoff ? "Runoff v" : "V", g_vote_rng.integer ? " to increase its probability" : ""), sizeof(selection->printMessage[i]));
 		}
-		
 	}
+
+	// try to print the full map name to players (if a full name doesn't appear, map has no .arena or isn't installed)
+	char *mapDisplayName = NULL;
+
+	if (selection->hasWildcard && selection->mapsToRandomize == selection->numSelected) {
+		// this will only happen on the first vote
+		mapDisplayName = "^3A random map not above^7";
+		Q_strncpyz(level.multivoteWildcardMapFileName, mapname, sizeof(level.multivoteWildcardMapFileName));
+	}
+	else {
+		const char *arenaInfo = NULL;
+
+		char overrideMapName[MAX_QPATH] = { 0 };
+		if (G_DBGetLiveMapNameForMapName(mapname, overrideMapName, sizeof(overrideMapName)) && overrideMapName[0])
+			arenaInfo = G_GetArenaInfoByMap(overrideMapName);
+		if (!arenaInfo)
+			arenaInfo = G_GetArenaInfoByMap(mapname);
+
+		if (arenaInfo) {
+			mapDisplayName = Info_ValueForKey(arenaInfo, "longname");
+			Q_CleanStr(mapDisplayName);
+		}
+
+		if (!VALIDSTRING(mapDisplayName)) {
+			mapDisplayName = mapname;
+		}
+	}
+
+	int thisMapVoteNum = 0;
+	if (level.inRunoff) { // in a runoff; find the original number
+		for (int i = 0; i < MAX_MULTIVOTE_MAPS; i++) {
+			if (!Q_stricmp(level.multiVoteMapFileNames[i], mapname)) {
+				thisMapVoteNum = i + 1;
+				break;
+			}
+		}
+		if (!thisMapVoteNum)
+			thisMapVoteNum = selection->numSelected; // should never happen
+	}
+	else {
+		level.multiVoteMapChars[selection->numSelected - 1] = selection->numSelected;
+		thisMapVoteNum = selection->numSelected;
+
+		char mapShortName[MAX_QPATH] = { 0 };
+		GetShortNameForMapFileName(mapname, mapShortName, sizeof(mapShortName));
+		mapShortName[0] = toupper((unsigned char)mapShortName[0]);
+		Q_strncpyz(level.multiVoteMapShortNames[selection->numSelected - 1], mapShortName, sizeof(level.multiVoteMapShortNames[selection->numSelected - 1]));
+		Q_strncpyz(level.multiVoteMapFileNames[selection->numSelected - 1], mapname, sizeof(level.multiVoteMapFileNames[selection->numSelected - 1]));
+	}
+
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		if (runoffSurvivors & (1llu << (unsigned long long)i)) {
+			Q_strcat(selection->printMessage[i], sizeof(selection->printMessage[i]),
+				va("\n"S_COLOR_WHITE"%d - %s", thisMapVoteNum, mapDisplayName)
+			);
+		}
+		else {
+			Q_strcat(selection->printMessage[i], sizeof(selection->printMessage[i]),
+				va("\n"S_COLOR_CYAN"/vote %d "S_COLOR_WHITE" - %s", thisMapVoteNum, mapDisplayName)
+			);
+		}
+	}
+
+	level.mapsThatCanBeVotedBits |= (1 << (thisMapVoteNum - 1));
 }
 
 extern void CountPlayersIngame( int *total, int *ingame, int *inrace );
+void Svcmd_MapVote_f(const char *overrideMaps);
 
 void Svcmd_MapRandom_f()
 {
@@ -1315,6 +1847,11 @@ void Svcmd_MapRandom_f()
 	level.autoStartPending = qfalse;
 
     trap_Argv( 1, pool, sizeof( pool ) );
+
+	if (g_redirectPoolVoteToTierListVote.string[0] && pool[0] && !Q_stricmp(pool, g_redirectPoolVoteToTierListVote.string) && g_vote_tierlist.integer) {
+		Svcmd_MapVote_f(NULL);
+		return;
+	}
 
 	if ( trap_Argc() < 3 ) {
 		// default to 1 map if no argument
@@ -1338,63 +1875,386 @@ void Svcmd_MapRandom_f()
 		}
 	}
 
-	char currentMap[MAX_MAP_NAME];
-    trap_Cvar_VariableStringBuffer( "mapname", currentMap, sizeof( currentMap ) );
+	const char* currentMap = level.mapname;
 	
-	MapSelectionContext context;
-	memset( &context, 0, sizeof( context ) );
+	MapSelectionContext *context = malloc(sizeof(MapSelectionContext));
+	memset(context, 0, sizeof(MapSelectionContext));
 
 	if ( mapsToRandomize > 1 ) { // if we are randomizing more than one map, there will be a second vote
 		if ( level.multiVoting && level.voteTime ) {
+			free(context);
 			return; // theres already a multi vote going on, retard
 		}
 
 		if ( level.voteExecuteTime && level.voteExecuteTime < level.time ) {
+			free(context);
 			return; // another vote just passed and is waiting to execute, don't interrupt it...
 		}
 
-		context.announceMultiVote = qtrue;
+		context->announceMultiVote = qtrue;
 
 		// in order to make the option work, we randomize the wildcard map here along with the other choices
 		// this avoids having to randomize it later while excluding the other choices
 		// so even though the wildcard option is actually "pre-determined", but hidden, the effect is the same
 		if ( g_enable_maprandom_wildcard.integer ) {
-			context.hasWildcard = qtrue;
+			context->hasWildcard = qtrue;
 			++mapsToRandomize;
 		}
 	}
 
-	context.mapsToRandomize = mapsToRandomize;
-
-	if ( G_DBSelectMapsFromPool( pool, currentMap, context.mapsToRandomize, mapSelectedCallback, &context ) )
-    {
-		if ( context.numSelected != context.mapsToRandomize ) {
-			G_Printf( "Could not randomize this many maps! Expected %d, but randomized %d\n", context.mapsToRandomize, context.numSelected );
+	context->mapsToRandomize = mapsToRandomize;
+	level.mapsThatCanBeVotedBits = 0;
+	if (G_DBSelectMapsFromPool(pool, currentMap, context->mapsToRandomize, mapSelectedCallback, context)) {
+		if (context->numSelected != context->mapsToRandomize) {
+			G_Printf("Could not randomize this many maps! Expected %d, but randomized %d\n", context->mapsToRandomize, context->numSelected);
 		}
 
-		if ( VALIDSTRING( context.printMessage ) ) {
-			// print in console and do a global prioritized center print
-			trap_SendServerCommand( -1, va( "print \"%s\n\"", context.printMessage ) );
-			G_GlobalTickedCenterPrint( context.printMessage, 10000, qtrue ); // give them 10s to see the options
+		// print in console and do a global prioritized center print
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			if (!level.inRunoff) // don't spam the console for non-first rounds
+				trap_SendServerCommand(i, va("print \"%s\n\"", context->printMessage[i]));
 		}
+		G_UniqueTickedCenterPrint(context->printMessage, sizeof(context->printMessage[0]), 15000, qtrue); // give them 15s to see the options
 
-		if ( context.numSelected > 1 ) {
+		if (context->numSelected > 1) {
 			// we are going to need another vote for this...
-			StartMultiMapVote( context.numSelected, context.hasWildcard, context.listOfMaps );
-		} else {
-			// we have 1 map, this means listOfMaps only contains 1 randomized map. Just change to it straight away.
-			trap_SendConsoleCommand( EXEC_APPEND, va( "map %s\n", context.listOfMaps ) );
+			StartMultiMapVote(context->numSelected, context->hasWildcard, context->listOfMaps);
 		}
-
+		else {
+			// we have 1 map, this means listOfMaps only contains 1 randomized map. Just change to it straight away.
+			char overrideMapName[MAX_QPATH] = { 0 };
+			G_DBGetLiveMapNameForMapName(context->listOfMaps, overrideMapName, sizeof(overrideMapName));
+			if (overrideMapName[0] && Q_stricmp(overrideMapName, context->listOfMaps)) {
+				Com_Printf("Overriding %s via map alias to %s\n", context->listOfMaps, overrideMapName);
+				trap_SendConsoleCommand(EXEC_APPEND, va("map %s\n", overrideMapName));
+			}
+			else {
+				trap_SendConsoleCommand(EXEC_APPEND, va("map %s\n", context->listOfMaps));
+			}
+		}
+		free(context);
 		return;
-    }
-
+	}
+	free(context);
     G_Printf( "Map pool '%s' not found\n", pool );
+}
+
+void Svcmd_MapVote_f(const char *overrideMaps) {
+	if (!g_vote_tierlist.integer && !level.inRunoff && !VALIDSTRING(overrideMaps)) {
+		Com_Printf("g_vote_tierlist is disabled.\n");
+		return;
+	}
+
+	int mapsToRandomize = Com_Clampi(2, MAX_MULTIVOTE_MAPS, g_vote_tierlist_totalMaps.integer);
+	if (!level.inRunoff && !VALIDSTRING(overrideMaps) &&
+		((g_vote_tierlist_s_max.integer + g_vote_tierlist_a_max.integer + g_vote_tierlist_b_max.integer +
+		g_vote_tierlist_c_max.integer + g_vote_tierlist_f_max.integer < mapsToRandomize) ||
+		(g_vote_tierlist_s_min.integer + g_vote_tierlist_a_min.integer + g_vote_tierlist_b_min.integer +
+		g_vote_tierlist_c_min.integer + g_vote_tierlist_f_min.integer > mapsToRandomize))) {
+		Com_Printf("Error: min/max conflict with g_vote_tierlist_totalMaps! Unable to use tierlist voting.\n");
+		return;
+	}
+
+	int ingame;
+	CountPlayersIngame(NULL, &ingame, NULL);
+	qboolean justPickOneMap = qfalse;
+	if (ingame < 2) { // how? this should have been handled in callvote code, maybe some stupid admin directly called it with nobody in game..?
+						// or it could also be caused by people joining spec before map_random passes... so inform them, i guess
+		G_Printf("Not enough people in game to start a multi vote, a single map will be randomized\n");
+		justPickOneMap = qtrue;
+	}
+
+	level.autoStartPending = qfalse;
+
+	const char *currentMap = level.mapname;
+
+	if (level.multiVoting && level.voteTime) {
+		return; // theres already a multi vote going on, retard
+	}
+
+	if (level.voteExecuteTime && level.voteExecuteTime < level.time) {
+		return; // another vote just passed and is waiting to execute, don't interrupt it...
+	}
+
+	MapSelectionContext *context = malloc(sizeof(MapSelectionContext));
+	memset(context, 0, sizeof(MapSelectionContext));
+
+	context->announceMultiVote = qtrue;
+	context->hasWildcard = qfalse; // tierlist doesn't use wildcard
+	context->mapsToRandomize = mapsToRandomize;
+	level.mapsThatCanBeVotedBits = 0;
+
+	if (VALIDSTRING(overrideMaps)) {
+		int len = strlen(overrideMaps);
+		for (int i = 0; i < len; i++) {
+			mapSelectedCallback(context, level.multiVoteMapFileNames[((int)overrideMaps[i]) - 1]);
+		}
+	}
+	else {
+		if (!G_DBSelectTierlistMaps(mapSelectedCallback, context)) {
+			Com_Printf("Error selecting tier list maps.\n");
+			free(context);
+			return;
+		}
+	}
+
+	context->mapsToRandomize = g_vote_tierlist_totalMaps.integer;
+
+	if (!level.inRunoff && context->numSelected != context->mapsToRandomize) {
+		G_Printf("Could not randomize this many maps! Expected %d, but randomized %d\n", context->mapsToRandomize, context->numSelected);
+	}
+
+	// print in console and do a global prioritized center print
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		if (!level.inRunoff) // don't spam the console for non-first rounds
+			trap_SendServerCommand(i, va("print \"%s\n\"", context->printMessage[i]));
+	}
+	G_UniqueTickedCenterPrint(context->printMessage, sizeof(context->printMessage[0]), 15000, qtrue); // give them 15s to see the options
+
+	if (!level.inRunoff && g_vote_tierlist_reminders.integer) {
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			if (g_entities[i].inuse && level.clients[i].pers.connected == CON_CONNECTED && !(g_entities[i].r.svFlags & SVF_BOT) && level.clients[i].account &&
+				(level.clients[i].sess.sessionTeam == TEAM_RED || level.clients[i].sess.sessionTeam == TEAM_BLUE)) {
+				int numRated = G_GetNumberOfMapsRatedByPlayer(level.clients[i].account->id);
+				if (!numRated)
+					PrintIngame(i, "*%s^7, because you haven't rated any maps, you aren't influencing the map selection system! To rate maps, enter ^5tier set <map> <rating>^7 in the console (valid tiers are S, A, B, C, F).\n", level.clients[i].account->name);
+				else if (numRated < 10)
+					PrintIngame(i, "*%s^7, you can better influence the map selection system by rating more maps. To rate maps, enter ^5tier set <map> <rating>^7 in the console (valid tiers are S, A, B, C, F).\n", level.clients[i].account->name);
+			}
+		}
+	}
+
+	if (justPickOneMap || context->numSelected == 1) {
+		// we have 1 map, just change to it straight away.
+		char *space = strchr(context->listOfMaps, ' ');
+		if (space)
+			*space = '\0';
+		char overrideMapName[MAX_QPATH] = { 0 };
+		G_DBGetLiveMapNameForMapName(context->listOfMaps, overrideMapName, sizeof(overrideMapName));
+		if (overrideMapName[0] && Q_stricmp(overrideMapName, context->listOfMaps)) {
+			Com_Printf("Overriding %s via map alias to %s\n", context->listOfMaps, overrideMapName);
+			trap_SendConsoleCommand(EXEC_APPEND, va("map %s\n", overrideMapName));
+		}
+		else {
+			trap_SendConsoleCommand(EXEC_APPEND, va("map %s\n", context->listOfMaps));
+		}
+	}
+	else {
+		// we are going to need another vote for this...
+		StartMultiMapVote(context->numSelected, context->hasWildcard, context->listOfMaps);
+	}
+
+	free(context);
+}
+
+qboolean DoRunoff(void) {
+	if (!g_vote_runoff.integer && !level.inRunoff)
+		return qfalse;
+	int numChoices = 0;
+	for (int i = 0; i < MAX_MULTIVOTE_MAPS; i++)
+		if (level.multiVoteMapFileNames[i][0])
+			numChoices++;
+
+	runoffSurvivors = runoffLosers = 0llu;
+
+	// count the votes
+	qboolean gotAnyVote = qfalse;
+	int numVotesForMap[64] = { 0 };
+	for (int i = 0; i < MAX_CLIENTS; ++i) {
+		int voteId = level.multiVotes[i];
+		if (voteId > 0 && voteId <= numChoices) {
+			numVotesForMap[voteId - 1]++;
+			gotAnyVote = qtrue;
+		}
+	}
+
+	if (!gotAnyVote)
+		return qfalse; // nobody has voted whatsoever; don't do anything
+
+	// determine the highest and lowest numbers
+	int lowestNumVotes = 0x7FFFFFFF, highestNumVotes = 0;
+	for (int i = 0; i < numChoices; i++) {
+		if (numVotesForMap[i] > 0 && numVotesForMap[i] < lowestNumVotes)
+			lowestNumVotes = numVotesForMap[i];
+		if (numVotesForMap[i] > highestNumVotes)
+			highestNumVotes = numVotesForMap[i];
+	}
+
+	// determine which maps are tied for highest/lowest/zero
+	int numMapsTiedForFirst = 0, numMapsNOTTiedForFirst = 0, numMapsTiedForLast = 0;
+	for (int i = 0; i < numChoices; i++) {
+		if (numVotesForMap[i] == highestNumVotes)
+			numMapsTiedForFirst++;
+		else if (numVotesForMap[i] > 0 && numVotesForMap[i] < highestNumVotes) {
+			numMapsNOTTiedForFirst++;
+			if (numVotesForMap[i] == lowestNumVotes) {
+				numMapsTiedForLast++;
+			}
+		}
+	}
+
+	if (!numMapsNOTTiedForFirst && numMapsTiedForFirst == 2) {
+		// it's a tie between two maps; let rng decide
+		return qfalse;
+	}
+
+	if (numMapsTiedForFirst == 1 && numMapsNOTTiedForFirst <= 1) {
+		// exactly one map is in first place AND exactly one map is in last place
+		// or exactly one map got votes
+		// let the normal routine pick the first place map as winner
+		return qfalse;
+	}
+
+	// if we got here, at least one map will be eliminated
+	// determine which maps made the cut and which will be eliminated
+	char newMapChars[MAX_MULTIVOTE_MAPS + 1] = { 0 }, choppingBlock[MAX_MULTIVOTE_MAPS + 1] = { 0 };
+	for (int i = 0; i < numChoices; i++) {
+		if (numVotesForMap[i] <= 0) { // this map has exactly 0 votes; remove it
+			continue;
+		}
+		else if (highestNumVotes == lowestNumVotes) { // a tie; add this one to the chopping block
+			char buf[2] = { 0 };
+			buf[0] = level.multiVoteMapChars[i];
+			Q_strcat(choppingBlock, sizeof(choppingBlock), buf);
+		}
+		else if (numVotesForMap[i] >= highestNumVotes) { // this map is tied for first; add it
+			char buf[2] = { 0 };
+			buf[0] = level.multiVoteMapChars[i];
+			Q_strcat(newMapChars, sizeof(newMapChars), buf);
+		}
+		else if (numVotesForMap[i] == lowestNumVotes) { // this map is non-zero and tied for last
+			if (numMapsTiedForLast <= 1) { // only one map is tied for last; remove it
+				continue;
+			}
+			else { // multiple maps are tied for last; add this one to the chopping block
+				char buf[2] = { 0 };
+				buf[0] = level.multiVoteMapChars[i];
+				Q_strcat(choppingBlock, sizeof(choppingBlock), buf);
+			}
+		}
+		else { // this map is non-zero, not in first place, but not in last place; add it
+			char buf[2] = { 0 };
+			buf[0] = level.multiVoteMapChars[i];
+			Q_strcat(newMapChars, sizeof(newMapChars), buf);
+		}
+	}
+
+	// if needed, randomly remove one map from the chopping block and add the others
+	int numOnChoppingBlock = strlen(choppingBlock);
+	if (numOnChoppingBlock > 0) {
+		for (int i = numOnChoppingBlock - 1; i >= 1; i--) { // fisher-yates
+			int j = rand() % (i + 1);
+			int temp = choppingBlock[i];
+			choppingBlock[i] = choppingBlock[j];
+			choppingBlock[j] = temp;
+		}
+		choppingBlock[numOnChoppingBlock - 1] = '\0';
+		Q_strcat(newMapChars, sizeof(newMapChars), choppingBlock);
+	}
+
+	// re-order the remaining maps to match the original order
+	// and note which maps got eliminated (including ones with zero votes)
+	int numOldMaps = strlen(level.multiVoteMapChars);
+	char temp[MAX_MULTIVOTE_MAPS + 1] = { 0 }, eliminatedMaps[MAX_MULTIVOTE_MAPS + 1] = { 0 };
+	for (int i = 0; i < numOldMaps; i++) {
+		char *p = strchr(newMapChars, level.multiVoteMapChars[i]), buf[2] = { 0 };
+		if (VALIDSTRING(p)) { // this map made the cut
+			buf[0] = level.multiVoteMapChars[i];
+			Q_strcat(temp, sizeof(temp), buf);
+		}
+		else { // this map was eliminated
+			buf[0] = level.multiVoteMapChars[i];
+			Q_strcat(eliminatedMaps, sizeof(eliminatedMaps), buf);
+			G_LogPrintf("Choice %s was eliminated from contention.\n", level.multiVoteMapShortNames[((int)buf[0]) - 1]);
+		}
+	}
+	if (temp[0])
+		memcpy(newMapChars, temp, sizeof(newMapChars));
+	int numRemainingMaps = strlen(newMapChars);
+
+	// determine which people will be happy or sad
+	// mark still-valid choices as needing to be reinstated in the next round
+	memset(&reinstateVotes, 0, sizeof(reinstateVotes));
+	memset(&removedVotes, 0, sizeof(removedVotes));
+	int numRunoffLosers = 0;
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		int voteId = level.multiVotes[i];
+		if (level.clients[i].pers.connected == CON_CONNECTED && voteId > 0 && voteId <= numChoices) {
+			if (!strchr(newMapChars, level.multiVoteMapChars[voteId - 1])) { // this guy's map was removed
+				level.clients[i].mGameFlags &= ~PSG_VOTED;
+				runoffLosers |= (1llu << (unsigned long long)i);
+				removedVotes[i] = level.multiVoteMapChars[level.multiVotes[i] - 1];
+				numRunoffLosers++;
+				G_LogPrintf("Client %d (%s) had their \"%s\" vote removed.\n", i, level.clients[i].pers.netname, level.multiVoteMapShortNames[((int)level.multiVoteMapChars[voteId - 1]) - 1]);
+			}
+			else { // this guy's map survived; his vote will be reinstated
+				reinstateVotes[i] = level.multiVoteMapChars[level.multiVotes[i] - 1];
+				runoffSurvivors |= (1llu << (unsigned long long)i);
+			}
+		}
+		if (numRemainingMaps > 1)
+			level.multiVotes[i] = 0; // if there will be another round, reset everyone's vote (some will be reinstated anyway)
+	}
+
+	// notify players which map(s) got removed
+	if (numRemainingMaps > 1) {
+		int numEliminatedMaps = strlen(eliminatedMaps);
+		if (numEliminatedMaps > 0) {
+			// create the string containing the eliminated map names
+			char removedMapNamesStr[MAX_STRING_CHARS] = { 0 };
+			for (int i = 0; i < numEliminatedMaps; i++) {
+				char buf[MAX_QPATH] = { 0 };
+				if (level.multiVoteHasWildcard && (int)(eliminatedMaps[i]) == numChoices)
+					Q_strncpyz(buf, "Random map", sizeof(buf));
+				else
+					Q_strncpyz(buf, level.multiVoteMapShortNames[((int)eliminatedMaps[i]) - 1], sizeof(buf));
+				if (numEliminatedMaps == 2 && i == 1) {
+					Q_strcat(removedMapNamesStr, sizeof(removedMapNamesStr), " and ");
+				}
+				else if (numEliminatedMaps > 2 && i > 0) {
+					Q_strcat(removedMapNamesStr, sizeof(removedMapNamesStr), ", ");
+					if (i == numEliminatedMaps - 1)
+						Q_strcat(removedMapNamesStr, sizeof(removedMapNamesStr), "and ");
+				}
+				Q_strcat(removedMapNamesStr, sizeof(removedMapNamesStr), buf);
+			}
+			Q_strcat(removedMapNamesStr, sizeof(removedMapNamesStr), numEliminatedMaps == 1 ? " was" : " were");
+			for (int i = 0; i < MAX_CLIENTS; i++) {
+				if (level.clients[i].pers.connected != CON_CONNECTED || g_entities[i].r.svFlags & SVF_BOT)
+					continue;
+				if (runoffLosers & (1llu << (unsigned long long)i)) {
+					if (numRunoffLosers == 1)
+						trap_SendServerCommand(i, va("print \"%s eliminated from contention. You may re-vote.\n\"", removedMapNamesStr));
+					else
+						trap_SendServerCommand(i, va("print \"%s eliminated from contention. You and %d other player%s may re-vote.\n\"", removedMapNamesStr, numRunoffLosers - 1, numRunoffLosers - 1 == 1 ? "" : "s"));
+				}
+				else {
+					trap_SendServerCommand(i, va("print \"%s eliminated from contention. %d player%s may re-vote.\n\"", removedMapNamesStr, numRunoffLosers, numRunoffLosers == 1 ? "" : "s"));
+				}
+			}
+		}
+		// start the next round of voting
+		level.multiVoting = qfalse;
+		level.inRunoff = qtrue;
+		Svcmd_MapVote_f(newMapChars);
+		return qtrue;
+	}
+	else {
+		// everything was eliminated except one map
+		// let the normal routine select it as the winner
+		return qfalse;
+	}
 }
 
 // allocates an array of length numChoices containing the sorted results from level.multiVoteChoices
 // don't forget to FREE THE RESULT
-int* BuildVoteResults( const int numChoices, int *numVotes, int *highestVoteCount ) {
+int* BuildVoteResults( int numChoices, int *numVotes, int *highestVoteCount ) {
+	if (level.inRunoff) {
+		numChoices = 0;
+		for (int i = 0; i < MAX_MULTIVOTE_MAPS; i++)
+			if (level.multiVoteMapFileNames[i][0])
+				numChoices++;
+	}
 	int i;
 	int *voteResults = calloc( numChoices, sizeof( *voteResults ) ); // voteResults[i] = how many votes for the i-th choice
 
@@ -1420,15 +2280,25 @@ int* BuildVoteResults( const int numChoices, int *numVotes, int *highestVoteCoun
 	return voteResults;
 }
 
-static void PickRandomMultiMap( const int *voteResults, const int numChoices, const int numVotingClients,
+static void PickRandomMultiMap( const int *voteResults, int numChoices, const int numVotingClients,
 	const int numVotes, const int highestVoteCount, qboolean *hasWildcard, char *out, size_t outSize ) {
+	if (level.inRunoff) {
+		numChoices = 0;
+		for (int i = 0; i < MAX_MULTIVOTE_MAPS; i++)
+			if (level.multiVoteMapFileNames[i][0])
+				numChoices++;
+	}
+
 	int i;
 
 	if ( highestVoteCount >= ( numVotingClients / 2 ) + 1 ) {
 		// one map has a >50% majority, find it and pass it
 		for ( i = 0; i < numChoices; ++i ) {
 			if ( voteResults[i] == highestVoteCount ) {
-				trap_Argv( i + 1, out, outSize );
+				if (level.inRunoff)
+					Q_strncpyz(out, level.multiVoteMapFileNames[i], outSize);
+				else
+					trap_Argv( i + 1, out, outSize );
 				return;
 			}
 		}
@@ -1449,23 +2319,51 @@ static void PickRandomMultiMap( const int *voteResults, const int numChoices, co
 
 		random = rand() % numChoices;
 	} else {
+		if (!g_vote_rng.integer) {
+			// check if there is a single map with the most votes, in which case we simply choose that one
+			int numWithHighestVoteCount = 0, mapWithHighestVoteCount = -1;
+			for (i = 0; i < numChoices; i++) {
+				if (voteResults[i] == highestVoteCount) {
+					numWithHighestVoteCount++;
+					mapWithHighestVoteCount = i;
+				}
+			}
+			if (numWithHighestVoteCount == 1 && mapWithHighestVoteCount != -1) {
+				if (level.inRunoff)
+					Q_strncpyz(out, level.multiVoteMapFileNames[mapWithHighestVoteCount], outSize);
+				else
+					trap_Argv(mapWithHighestVoteCount + 1, out, outSize);
+				return;
+			}
+		}
+
 		// make it an array where each item appears as many times as they were voted, thus giving weight (0 votes = 0%)
 		int items = numVotes, currentItem = 0;
 		udf = malloc( sizeof( *udf ) * items );
 
 		for ( i = 0; i < numChoices; ++i ) {
-			// 1. special case for wildcard vote: if it has the highest amount of votes, it either passed with >50% majority earlier,
-			// or if we got here it could be tied with other votes for the highest amount of votes: for this case, rule out all
-			// votes that aren't tied with it
-			// 2. otherwise, if the wildcard vote doesn't have the highest amount of votes, discard its votes
-			// 3. rule out very low vote counts relatively to the highest one and the max voting clients
-			if (
-				( *hasWildcard && voteResults[numChoices - 1] == highestVoteCount && voteResults[i] != highestVoteCount ) ||
-				( *hasWildcard && voteResults[numChoices - 1] != highestVoteCount && i == numChoices - 1 ) ||
-				( highestVoteCount - voteResults[i] > ( numVotingClients / 4 ) ) ) {
-				items -= voteResults[i];
-				udf = realloc( udf, sizeof( *udf ) * items );
-				continue;
+			if (g_vote_rng.integer) {
+				// 1. special case for wildcard vote: if it has the highest amount of votes, it either passed with >50% majority earlier,
+				// or if we got here it could be tied with other votes for the highest amount of votes: for this case, rule out all
+				// votes that aren't tied with it
+				// 2. otherwise, if the wildcard vote doesn't have the highest amount of votes, discard its votes
+				// 3. rule out very low vote counts relatively to the highest one and the max voting clients
+				if (
+					(*hasWildcard && voteResults[numChoices - 1] == highestVoteCount && voteResults[i] != highestVoteCount) ||
+					(*hasWildcard && voteResults[numChoices - 1] != highestVoteCount && i == numChoices - 1) ||
+					(highestVoteCount - voteResults[i] > (numVotingClients / 4))) {
+					items -= voteResults[i];
+					udf = realloc(udf, sizeof(*udf) * items);
+					continue;
+				}
+			}
+			else {
+				if (voteResults[i] < highestVoteCount) {
+					// rng is disabled; simply rule out vote counts that are not tied for most votes
+					items -= voteResults[i];
+					udf = realloc(udf, sizeof(*udf) * items);
+					continue;
+				}
 			}
 
 			int j;
@@ -1487,7 +2385,10 @@ static void PickRandomMultiMap( const int *voteResults, const int numChoices, co
 		*hasWildcard = qfalse;
 	}
 
-	trap_Argv( result, out, outSize );
+	if (level.inRunoff)
+		Q_strncpyz(out, level.multiVoteMapFileNames[result - 1], outSize);
+	else
+		trap_Argv( result, out, outSize );
 }
 
 void Svcmd_MapMultiVote_f() {
@@ -1533,9 +2434,19 @@ void Svcmd_MapMultiVote_f() {
 			mapDisplayName = &mapname[0];
 		}
 
+		int numVotesForThisMap = voteResults[i];
+		if (level.inRunoff) {
+			for (int j = 0; j < MAX_MULTIVOTE_MAPS; j++) {
+				if (!Q_stricmp(level.multiVoteMapFileNames[j], mapname)) {
+					numVotesForThisMap = voteResults[j];
+					break;
+				}
+			}
+		}
+
 		Q_strcat( resultString, sizeof( resultString ), va( "\n%s%s - %d vote%s",
 			!Q_stricmp(mapname, selectedMapname) ? S_COLOR_GREEN : S_COLOR_WHITE, // the selected map is green
-			mapDisplayName, voteResults[i], voteResults[i] != 1 ? "s" : "" )
+			mapDisplayName, numVotesForThisMap, numVotesForThisMap != 1 ? "s" : "" )
 		);
 	}
 
@@ -1548,11 +2459,27 @@ void Svcmd_MapMultiVote_f() {
 	}
 
 	// re-use the vote timer so that there's a small delay before map change
-	Q_strncpyz( level.voteString, va( "map %s", selectedMapname ), sizeof( level.voteString ) );
+	char overrideMapName[MAX_QPATH] = { 0 };
+	G_DBGetLiveMapNameForMapName(selectedMapname, overrideMapName, sizeof(overrideMapName));
+	if (overrideMapName[0] && Q_stricmp(overrideMapName, selectedMapname)) {
+		Com_Printf("Overriding %s via map alias to %s\n", selectedMapname, overrideMapName);
+		Q_strncpyz(level.voteString, va("map %s", overrideMapName), sizeof(level.voteString));
+	}
+	else {
+		Q_strncpyz(level.voteString, va("map %s", selectedMapname), sizeof(level.voteString));
+	}
 	level.voteExecuteTime = level.time + 3000;
 	level.multiVoting = qfalse;
 	level.multiVoteHasWildcard = qfalse;
 	level.multiVoteChoices = 0;
+	level.multivoteWildcardMapFileName[0] = '\0';
+	level.mapsThatCanBeVotedBits = 0;
+	runoffSurvivors = runoffLosers = 0llu;
+	memset(level.multiVotes, 0, sizeof(level.multiVotes));
+	memset(&level.multiVoteMapChars, 0, sizeof(level.multiVoteMapChars));
+	memset(&level.multiVoteMapShortNames, 0, sizeof(level.multiVoteMapShortNames));
+	memset(&level.multiVoteMapFileNames, 0, sizeof(level.multiVoteMapFileNames));
+	level.inRunoff = qfalse;
 	memset( level.multiVotes, 0, sizeof( level.multiVotes ) );
 }
 
@@ -1840,57 +2767,6 @@ void Svcmd_WhTrustToggle_f( void ) {
 	G_Printf( "Player %d (%s"S_COLOR_WHITE") %s\n", ent - g_entities, ent->client->pers.netname, s );
 }
 
-void Svcmd_FastCapsRemove_f( void ) {
-	if ( !level.mapCaptureRecords.enabled ) {
-		G_Printf( "Capture records are disabled.\n" );
-		return;
-	}
-
-	if ( trap_Argc() < 3 ) {
-		G_Printf( "Usage: fastcaps_remove <type> <rank>\n" );
-		return;
-	}
-
-	int type, rank;
-	char str[16];
-
-	trap_Argv( 1, str, sizeof( str ) );
-	type = atoi( str );
-
-	if ( !Q_isanumber( str ) || type < 0 || type >= CAPTURE_RECORD_NUM_TYPES ) {
-		G_Printf( "Invalid type.\n" );
-		return;
-	}
-
-	trap_Argv( 2, str, sizeof( str ) );
-	rank = atoi( str );
-
-	if ( !Q_isanumber( str ) || rank < 1 || rank > MAX_SAVED_RECORDS ) { // rank = index + 1
-		G_Printf( "Invalid rank.\n" );
-		return;
-	}
-
-	CaptureRecord *recordArray = &level.mapCaptureRecords.records[type][0];
-
-	if ( !recordArray[rank - 1].captureTime ) {
-		G_Printf( "This record is not set yet.\n" );
-		return;
-	}
-
-	// shift the array to the left unless this is the last element
-	if ( rank < MAX_SAVED_RECORDS ) {
-		memmove( recordArray + rank - 1, recordArray + rank, ( MAX_SAVED_RECORDS - rank ) * sizeof( *recordArray ) );
-	}
-
-	// always set the last element to 0 so it gets shifted as a zero element with the others later
-	memset( recordArray + MAX_SAVED_RECORDS - 1, 0, sizeof( *recordArray ) );
-
-	// save the changes later in db
-	level.mapCaptureRecords.changed = qtrue;
-
-	G_Printf( "Rank %d deleted from category %d successfully.\n", rank, type );
-}
-
 void Svcmd_PoolCreate_f()
 {
     char short_name[64];
@@ -2052,8 +2928,9 @@ void Svcmd_MapPool_f(void) {
 		}
 
 		list_t mapList = { 0 };
+		void *ctxPtr = &mapList;
 		char poolLongName[64] = { 0 };
-		G_DBListMapsInPool(short_name, "", listMapsInPools, &mapList, (char *)poolLongName, sizeof(poolLongName));
+		G_DBListMapsInPool(short_name, "", listMapsInPools, (void **)&ctxPtr, &poolLongName[0], sizeof(poolLongName), 0);
 
 		iterator_t iter;
 		ListIterate(&mapList, &iter, qfalse);
@@ -2066,11 +2943,11 @@ void Svcmd_MapPool_f(void) {
 		}
 
 		if (numMaps) {
-			Table_DefineColumn(t, "Map", TableCallback_MapName, qtrue, 64);
-			Table_DefineColumn(t, "Weight", TableCallback_MapWeight, qtrue, 64);
+			Table_DefineColumn(t, "Map", TableCallback_MapName, NULL, qtrue, -1, 64);
+			Table_DefineColumn(t, "Weight", TableCallback_MapWeight, NULL, qtrue, -1, 64);
 
 			char buf[2048] = { 0 };
-			Table_WriteToBuffer(t, buf, sizeof(buf));
+			Table_WriteToBuffer(t, buf, sizeof(buf), qtrue, -1);
 			Q_strcat(buf, sizeof(buf), "\n");
 			Com_Printf(buf);
 		}
@@ -2096,11 +2973,11 @@ void Svcmd_MapPool_f(void) {
 		}
 
 		if (numPools) {
-			Table_DefineColumn(t, "Short Name", TableCallback_PoolShortName, qtrue, 64);
-			Table_DefineColumn(t, "Long Name", TableCallback_PoolLongName, qtrue, 64);
+			Table_DefineColumn(t, "Short Name", TableCallback_PoolShortName, NULL, qtrue, -1, 64);
+			Table_DefineColumn(t, "Long Name", TableCallback_PoolLongName, NULL, qtrue, -1, 64);
 
 			char buf[2048] = { 0 };
-			Table_WriteToBuffer(t, buf, sizeof(buf));
+			Table_WriteToBuffer(t, buf, sizeof(buf), qtrue, -1);
 			Q_strcat(buf, sizeof(buf), "\n");
 			Com_Printf(buf);
 		}
@@ -2116,7 +2993,7 @@ typedef struct {
 	char format[MAX_STRING_CHARS];
 } SessionPrintCtx;
 
-static void FormatAccountSessionList( void *ctx, const sessionReference_t sessionRef, const qboolean temporary ) {
+static void FormatAccountSessionList( void *ctx, const sessionReference_t sessionRef, const qboolean referenced ) {
 	SessionPrintCtx* out = ( SessionPrintCtx* )ctx;
 
 #ifdef NEWMOD_SUPPORT
@@ -2125,20 +3002,60 @@ static void FormatAccountSessionList( void *ctx, const sessionReference_t sessio
 
 	char sessFlags[16] = { 0 };
 	if ( sessionRef.online ) Q_strcat( sessFlags, sizeof( sessFlags ), S_COLOR_GREEN"|" );
-	if ( temporary ) Q_strcat( sessFlags, sizeof( sessFlags ), S_COLOR_YELLOW"|" );
+	if ( !referenced ) Q_strcat( sessFlags, sizeof( sessFlags ), S_COLOR_YELLOW"|" );
 #ifdef NEWMOD_SUPPORT
 	if ( isNewmodSession ) Q_strcat( sessFlags, sizeof( sessFlags ), S_COLOR_CYAN"|" );
 #endif
 
 	Q_strcat( out->format, sizeof( out->format ), va( S_COLOR_WHITE"Session ID %d ", sessionRef.ptr->id ) );
 	if ( VALIDSTRING( sessFlags ) ) Q_strcat( out->format, sizeof( out->format ), va( "%s ", sessFlags ) );
-	Q_strcat( out->format, sizeof( out->format ), va( S_COLOR_WHITE"(identifier: %llX)\n", sessionRef.ptr->identifier ) );
+	Q_strcat( out->format, sizeof( out->format ), va( S_COLOR_WHITE"(hash: %llx)\n", sessionRef.ptr->hash ) );
+}
+
+static int AccountFlagName2Bitflag(const char* flagName) {
+	if (!Q_stricmp(flagName, "Admin")) {
+		return ACCOUNTFLAG_ADMIN;
+	} else if (!Q_stricmp(flagName, "VerboseRcon")) {
+		return ACCOUNTFLAG_RCONLOG;
+	} else if (!Q_stricmp(flagName, "EnterSpammer")) {
+		return ACCOUNTFLAG_ENTERSPAMMER;
+	} else if (!Q_stricmp(flagName, "AimPackEditor")) {
+		return ACCOUNTFLAG_AIMPACKEDITOR;
+	} else if (!Q_stricmp(flagName, "AimPackAdmin")) {
+		return ACCOUNTFLAG_AIMPACKADMIN;
+	} else if (!Q_stricmp(flagName, "VoteTroll")) {
+		return ACCOUNTFLAG_VOTETROLL;
+	} else if (!Q_stricmp(flagName, "RatePlayers")) {
+		return ACCOUNTFLAG_RATEPLAYERS;
+	} else if (!Q_stricmp(flagName, "InstapauseBlacklist")) {
+		return ACCOUNTFLAG_INSTAPAUSE_BLACKLIST;
+	} else if (!Q_stricmp(flagName, "PermaBarred")) {
+		return ACCOUNTFLAG_PERMABARRED;
+	} else if (!Q_stricmp(flagName, "HardPermaBarred")) {
+		return ACCOUNTFLAG_HARDPERMABARRED;
+	}
+
+	return 0;
+}
+
+#define NUM_SESSIONS_PER_WHOIS_PAGE 5
+
+const char* AccountBitflag2FlagName(int bitflag) {
+	switch (bitflag) {
+		case ACCOUNTFLAG_ADMIN: return "Admin";
+		case ACCOUNTFLAG_RCONLOG: return "VerboseRcon";
+		case ACCOUNTFLAG_ENTERSPAMMER: return "EnterSpammer";
+		case ACCOUNTFLAG_AIMPACKEDITOR: return "AimPackEditor";
+		case ACCOUNTFLAG_AIMPACKADMIN: return "AimPackAdmin";
+		case ACCOUNTFLAG_VOTETROLL: return "VoteTroll";
+		case ACCOUNTFLAG_INSTAPAUSE_BLACKLIST: return "InstapauseBlacklist";
+		case ACCOUNTFLAG_PERMABARRED: return "PermaBarred";
+		case ACCOUNTFLAG_HARDPERMABARRED: return "HardPermaBarred";
+		default: return NULL;
+	}
 }
 
 void Svcmd_Account_f( void ) {
-#ifndef SESSIONS_ACCOUNTS_SYSTEM
-	return;
-#endif
 	qboolean printHelp = qfalse;
 
 	if ( trap_Argc() > 1 ) {
@@ -2148,12 +3065,13 @@ void Svcmd_Account_f( void ) {
 		if ( !Q_stricmp( s, "create" ) ) {
 
 			if ( trap_Argc() < 3 ) {
-				G_Printf( "Usage: account create <username>\n" );
+				G_Printf( "Usage:^3 account create <username>^7\n" );
 				return;
 			}
 
 			char username[MAX_ACCOUNTNAME_LEN];
 			trap_Argv( 2, username, sizeof( username ) );
+			Q_strlwr(username);
 
 			// sanitize input
 			char *p;
@@ -2193,7 +3111,7 @@ void Svcmd_Account_f( void ) {
 		} else if ( !Q_stricmp( s, "delete" ) ) {
 
 			if ( trap_Argc() < 3 ) {
-				G_Printf( "Usage: account delete <username>\n" );
+				G_Printf( "Usage:^3 account delete <username>^7\n" );
 				return;
 			}
 
@@ -2209,6 +3127,7 @@ void Svcmd_Account_f( void ) {
 
 			if ( G_DeleteAccount( acc.ptr ) ) {
 				G_Printf( "Deleted account '%s' successfully\n", acc.ptr->name );
+				trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
 			} else {
 				G_Printf( "Failed to delete account!\n" );
 			}
@@ -2216,8 +3135,16 @@ void Svcmd_Account_f( void ) {
 		} else if ( !Q_stricmp( s, "info" ) ) {
 
 			if ( trap_Argc() < 3 ) {
-				G_Printf( "Usage: account info <username>\n" );
+				G_Printf( "Usage:^3 account info <username> [page]^7\n" );
 				return;
+			}
+
+			int page = 1;
+
+			if (trap_Argc() > 3) {
+				char buf[8];
+				trap_Argv(3, buf, sizeof(buf));
+				page = Com_Clampi(1, 999, atoi(buf));
 			}
 
 			char username[MAX_ACCOUNTNAME_LEN];
@@ -2231,42 +3158,173 @@ void Svcmd_Account_f( void ) {
 			}
 
 			SessionPrintCtx sessionsPrint = { 0 };
-			G_ListSessionsForAccount( acc.ptr, FormatAccountSessionList, &sessionsPrint );
+			G_ListSessionsForAccount( acc.ptr, NUM_SESSIONS_PER_WHOIS_PAGE, page, FormatAccountSessionList, &sessionsPrint );
+
+			int playtime = G_DBGetAccountPlaytime( acc.ptr );
 
 			char timestamp[32];
 			G_FormatLocalDateFromEpoch( timestamp, sizeof( timestamp ), acc.ptr->creationDate );
 
-			// TODO: pages
+			char flagsStr[64] = { 0 };
+			for ( int bitflag = 1; bitflag <= sizeof( int ) * 8; ++bitflag ) {
+				if ( !( acc.ptr->flags & bitflag ) )
+					continue;
+				
+				const char* flagName = AccountBitflag2FlagName( bitflag );
+
+				if ( !VALIDSTRING( flagName ) )
+					continue;
+
+				if ( VALIDSTRING( flagsStr ) )
+					Q_strcat( flagsStr, sizeof( flagsStr ), ", " );
+
+				Q_strcat( flagsStr, sizeof( flagsStr ), flagName);
+			}
 
 			G_Printf(
-				S_COLOR_YELLOW"Account Name: "S_COLOR_WHITE"%s\n"
-				S_COLOR_YELLOW"Account ID: "S_COLOR_WHITE"%d\n"
-				S_COLOR_YELLOW"Created on: "S_COLOR_WHITE"%s\n"
-				S_COLOR_YELLOW"Group: "S_COLOR_WHITE"%s\n"
-				S_COLOR_YELLOW"Flags: "S_COLOR_WHITE"%d\n"
+				"^3Account Name:^7 %s\n"
+				"^3Account ID:^7 %d\n"
+				"^3Created on:^7 %s\n"
+				"%s"
+				"^3Flags:^7 %s\n"
 				"\n",
 				acc.ptr->name,
 				acc.ptr->id,
 				timestamp,
-				acc.ptr->group,
-				acc.ptr->flags
+				acc.ptr->autoLink.sex[0] ? va("^3Autolink:^7 %s%s^7\n", acc.ptr->autoLink.sex, acc.ptr->autoLink.country[0] ? va(", %s", acc.ptr->autoLink.country) : "") : "",
+				flagsStr
 			);
+
+			if (playtime > 0) {
+				char durationString[64];
+				G_FormatDuration(playtime, durationString, sizeof(durationString));
+
+				G_Printf(S_COLOR_ORANGE"Playtime: "S_COLOR_WHITE"%s\n\n", durationString);
+			}
 
 			if ( VALIDSTRING( sessionsPrint.format ) ) {
 
 #ifdef NEWMOD_SUPPORT
-				G_Printf( "Sessions tied to this account: ( "S_COLOR_GREEN"| = online "S_COLOR_YELLOW"| = temporary "S_COLOR_CYAN"| = newmod "S_COLOR_WHITE")\n" );
+				G_Printf( "Sessions tied to this account: ( "S_COLOR_GREEN"| = online "S_COLOR_YELLOW"| = unreferenced "S_COLOR_CYAN"| = newmod "S_COLOR_WHITE")\n" );
 #else
-				G_Printf( "Sessions tied to this account: ( "S_COLOR_GREEN"| - online "S_COLOR_YELLOW"| - temporary "S_COLOR_WHITE")\n" );
+				G_Printf( "Sessions tied to this account: ( "S_COLOR_GREEN"| - online "S_COLOR_YELLOW"| - unreferenced "S_COLOR_WHITE")\n" );
 #endif
 				G_Printf( "%s", sessionsPrint.format );
 
-			} else {
-				G_Printf( "No session tied to this account yet.\n" );
 			}
 
-		} else if ( !Q_stricmp( s, "help" ) ) {
-			printHelp = qtrue;
+			G_Printf("Viewing page: %d\n", page);
+
+		} else if ( !Q_stricmp( s, "toggleflag" ) ) {
+
+			if ( trap_Argc() < 4 ) {
+				G_Printf( "Usage:^3 account toggleflag <username> <flag>^7\n" );
+				G_Printf( "Available flags: Admin, VerboseRcon, AimPackEditor, AimPackAdmin, VoteTroll, InstapauseBlacklist\n" );
+				return;
+			}
+
+			char username[MAX_ACCOUNTNAME_LEN];
+			trap_Argv( 2, username, sizeof( username ) );
+
+			accountReference_t acc = G_GetAccountByName( username, qfalse );
+
+			if ( !acc.ptr ) {
+				G_Printf( "Account '%s' does not exist\n", username );
+				return;
+			}
+
+			char flagName[32];
+			trap_Argv( 3, flagName, sizeof( flagName ) );
+
+			int flag = AccountFlagName2Bitflag( flagName );
+
+			if ( !flag ) {
+				G_Printf( "Unknown account flag name '%s'\n", flagName );
+				return;
+			}
+
+			if ( !( acc.ptr->flags & flag ) ) {
+				// we are enabling the flag
+				if ( G_SetAccountFlags( acc.ptr, flag, qtrue ) ) {
+					G_Printf( "Flag '%s' enabled for account '%s' (id: %d)\n", flagName, acc.ptr->name, acc.ptr->id );
+					if (flag == ACCOUNTFLAG_PERMABARRED || flag == ACCOUNTFLAG_HARDPERMABARRED) { // refresh userinfo of anyone connected on this account
+						for (int i = 0; i < MAX_CLIENTS; i++) {
+							if (g_entities[i].inuse && g_entities[i].client && g_entities[i].client->pers.connected == CON_CONNECTED && g_entities[i].client->account && g_entities[i].client->account->id == acc.ptr->id)
+								ClientUserinfoChanged(i);
+						}
+					}
+				} else {
+					G_Printf( "Failed to enable flag '%s' for account '%s' (id: %d)\n", flagName, acc.ptr->name, acc.ptr->id );
+				}
+			} else {
+				// we are disabling the flag
+				if ( G_SetAccountFlags( acc.ptr, flag, qfalse ) ) {
+					G_Printf( "Flag '%s' disabled for account '%s' (id: %d)\n", flagName, acc.ptr->name, acc.ptr->id );
+					if (flag == ACCOUNTFLAG_PERMABARRED || flag == ACCOUNTFLAG_HARDPERMABARRED) { // refresh userinfo of anyone connected on this account
+						for (int i = 0; i < MAX_CLIENTS; i++) {
+							if (g_entities[i].inuse && g_entities[i].client && g_entities[i].client->pers.connected == CON_CONNECTED && g_entities[i].client->account && g_entities[i].client->account->id == acc.ptr->id)
+								ClientUserinfoChanged(i);
+						}
+					}
+				} else {
+					G_Printf( "Failed to disable flag '%s' for account '%s' (id: %d)\n", flagName, acc.ptr->name, acc.ptr->id );
+				}
+			}
+
+		} else if ( !Q_stricmp( s, "autolink" ) ) {
+			if (trap_Argc() < 4) {
+				G_Printf("Usage:^3 account autolink <username> <sex> [country]^7\n");
+				return;
+			}
+			char username[MAX_ACCOUNTNAME_LEN];
+			trap_Argv(2, username, sizeof(username));
+
+			accountReference_t acc = G_GetAccountByName(username, qfalse);
+
+			if (!acc.ptr) {
+				G_Printf("Account '%s' does not exist\n", username);
+				return;
+			}
+
+			char sex[32] = { 0 };
+			trap_Argv(3, sex, sizeof(sex));
+			if (!sex[0]) {
+				G_Printf("Usage:^3 account autolink <username> <sex> [country]^7\n");
+				return;
+			}
+
+			Q_strncpyz(acc.ptr->autoLink.sex, sex, sizeof(acc.ptr->autoLink.sex));
+
+			if (trap_Argc() >= 5) {
+				char *country = ConcatArgs(4);
+				if (VALIDSTRING(country))
+					Q_strncpyz(acc.ptr->autoLink.country, country, sizeof(acc.ptr->autoLink.country));
+			}
+
+			G_DBSetAccountProperties(acc.ptr);
+			G_DBCacheAutoLinks();
+			G_Printf("Created autolink for %s with sex %s%s\n", acc.ptr->name, acc.ptr->autoLink.sex, acc.ptr->autoLink.country[0] ? va(" and country %s", acc.ptr->autoLink.country) : "");
+		} else if (!Q_stricmp(s, "unautolink")) {
+			if (trap_Argc() < 3) {
+				G_Printf("Usage:^3 account autolink <username>^7\n");
+				return;
+			}
+			char username[MAX_ACCOUNTNAME_LEN];
+			trap_Argv(2, username, sizeof(username));
+
+			accountReference_t acc = G_GetAccountByName(username, qfalse);
+
+			if (!acc.ptr) {
+				G_Printf("Account '%s' does not exist\n", username);
+				return;
+			}
+
+			memset(&acc.ptr->autoLink, 0, sizeof(acc.ptr->autoLink));
+			G_DBSetAccountProperties(acc.ptr);
+			G_DBCacheAutoLinks();
+			G_Printf("Removed autolink for account '%s'\n", username);
+		} else if (!Q_stricmp(s, "help")) {
+		printHelp = qtrue;
 		} else {
 			G_Printf( "Invalid subcommand.\n" );
 			printHelp = qtrue;
@@ -2278,18 +3336,51 @@ void Svcmd_Account_f( void ) {
 	if ( printHelp ) {
 		G_Printf(
 			"Valid subcommands:\n"
-			"account create <username>: Creates a new account with the given name\n"
-			"account delete <username>: Deletes the given account and unlinks all associated sessions\n"
-			"account info <username>: Prints various information for the given account name\n"
-			"account help: Prints this message\n"
+			S_COLOR_YELLOW"account create <username>"S_COLOR_WHITE": Creates a new account with the given name\n"
+			S_COLOR_YELLOW"account delete <username>"S_COLOR_WHITE": Deletes the given account and unlinks all associated sessions\n"
+			S_COLOR_YELLOW"account list [page]"S_COLOR_WHITE": Prints a list of created accounts\n"
+			S_COLOR_YELLOW"account info <username> [page]"S_COLOR_WHITE": Prints various information for the given account name\n"
+			S_COLOR_YELLOW"account toggleflag <username> <flag>"S_COLOR_WHITE": Toggles an account flag for the given account name\n"
+			S_COLOR_YELLOW"account autolink <username> <sex> [country]"S_COLOR_WHITE": Sets up autolinking for the given account name\n"
+			S_COLOR_YELLOW"account unautolink <username>"S_COLOR_WHITE": Disables autolinking for the given account name\n"
+			S_COLOR_YELLOW"account help"S_COLOR_WHITE": Prints this message\n"
 		);
 	}
 }
 
+static void PrintUnassignedSessionIDsCallback(void* ctx, const int sessionId, const char* topAlias, const int playtime, const qboolean referenced) {
+	char nameString[64] = { 0 };
+	Q_strncpyz(nameString, topAlias, sizeof(nameString));
+	int j;
+	for (j = Q_PrintStrlen(nameString); j < MAX_NAME_DISPLAYLENGTH; ++j)
+		Q_strcat(nameString, sizeof(nameString), " ");
+
+	char durationString[64];
+	G_FormatDuration(playtime, durationString, sizeof(durationString));
+
+	char* referencedString = "";
+	if (referenced)
+		referencedString = " "S_COLOR_RED"/!\\";
+
+	char countryStr[128] = { 0 };
+	sessionReference_t sess = G_GetSessionByID(sessionId, qfalse);
+	if (sess.ptr) {
+		char ipStr[64] = { 0 };
+		G_GetStringFromSessionInfo(sess.ptr, "ip", ipStr, sizeof(ipStr));
+		if (ipStr[0])
+			trap_GetCountry(ipStr, countryStr, sizeof(countryStr));
+	}
+
+	G_Printf(
+		"^7%s  ^7(%s, %s) - session ID: %d%s\n",
+		nameString, countryStr[0] ? countryStr : "Unknown country", durationString, sessionId, referencedString
+	);
+}
+
+#define NUM_UNASSIGNED_PER_PAGE 10
+#define NUM_TOP_NICKNAMES		10
+
 void Svcmd_Session_f( void ) {
-#ifndef SESSIONS_ACCOUNTS_SYSTEM
-	return;
-#endif
 	qboolean printHelp = qfalse;
 
 	if ( trap_Argc() > 1 ) {
@@ -2325,8 +3416,8 @@ void Svcmd_Session_f( void ) {
 					char line[MAX_STRING_CHARS];
 					line[0] = '\0';
 
-					Q_strcat( line, sizeof( line ), va( "%sClient %d "S_COLOR_WHITE"(%s"S_COLOR_WHITE"): Session ID %d (identifier: %llX)",
-						color, i, client->pers.netname, client->session->id, client->session->identifier ) );
+					Q_strcat( line, sizeof( line ), va( "%sClient %d "S_COLOR_WHITE"(%s"S_COLOR_WHITE"): Session ID %d (hash: %llx)",
+						color, i, client->pers.netname, client->session->id, client->session->hash ) );
 
 					if ( client->account ) {
 						Q_strcat( line, sizeof( line ), va( " linked to Account ID %d '%s'", client->account->id, client->account->name ) );
@@ -2352,18 +3443,85 @@ void Svcmd_Session_f( void ) {
 				G_Printf( "No player online\n" );
 			}
 
-		} else if ( !Q_stricmp( s, "latest" ) ) {
+		} else if ( !Q_stricmp( s, "unassigned" ) ) {
 
-			// TODO
+			int page = 1;
 
-		} else if ( !Q_stricmp( s, "info" ) ) {
+			if (trap_Argc() > 2) {
+				char buf[8];
+				trap_Argv(2, buf, sizeof(buf));
+				page = Com_Clampi(1, 999, atoi(buf));
+			}
 
-			// TODO
+			pagination_t pagination;
+			pagination.numPerPage = NUM_UNASSIGNED_PER_PAGE;
+			pagination.numPage = page;
+
+			G_DBListTopUnassignedSessionIDs(pagination, PrintUnassignedSessionIDsCallback, NULL);
+
+			G_Printf(
+				S_COLOR_WHITE"Referenced sessions are marked with "S_COLOR_RED"/!\\ "S_COLOR_WHITE"and should be assigned ASAP.\n"
+				S_COLOR_WHITE"Viewing page: %d\n",
+				page
+			);
+
+		} else if ( !Q_stricmp( s, "nicknames" ) || !Q_stricmp(s, "info")) {
+
+			if (trap_Argc() < 3) {
+				G_Printf("Usage: "S_COLOR_YELLOW"session info <session id>\n");
+				return;
+			}
+
+			trap_Argv(2, s, sizeof(s));
+			const int sessionId = atoi(s);
+			if (sessionId <= 0) {
+				G_Printf("Session ID must be a number > 1\n");
+				return;
+			}
+
+			sessionReference_t sess = G_GetSessionByID(sessionId, qfalse);
+
+			if (!sess.ptr) {
+				G_Printf("No session found with this ID\n");
+				return;
+			}
+
+			G_Printf("^3Info for session %d^7\n", sessionId);
+			char ipStr[64] = { 0 };
+			G_GetStringFromSessionInfo(sess.ptr, "ip", ipStr, sizeof(ipStr));
+			if (ipStr[0]) {
+				char countryStr[128] = { 0 };
+				trap_GetCountry(ipStr, countryStr, sizeof(countryStr));
+				if (countryStr[0])
+					G_Printf("^5Country: ^7%s\n", countryStr);
+			}
+			G_Printf("^5Top nicknames:^7\n");
+
+			nicknameEntry_t nicknames[NUM_TOP_NICKNAMES];
+
+			G_DBGetMostUsedNicknames(sess.ptr->id, NUM_TOP_NICKNAMES, &nicknames[0]);
+
+			int i;
+			for (i = 0; i < NUM_TOP_NICKNAMES && VALIDSTRING(nicknames[i].name); ++i) {
+				char nameString[64] = { 0 };
+				Q_strncpyz(nameString, nicknames[i].name, sizeof(nameString));
+				int j;
+				for (j = Q_PrintStrlen(nameString); j < MAX_NAME_DISPLAYLENGTH; ++j)
+					Q_strcat(nameString, sizeof(nameString), " ");
+
+				char durationString[64];
+				G_FormatDuration(nicknames[i].duration, durationString, sizeof(durationString));
+
+				G_Printf(
+					"^7%s  ^7(%s)\n",
+					nameString, durationString
+				);
+			}
 
 		} else if ( !Q_stricmp( s, "link" ) ) {
 
 			if ( trap_Argc() < 4 ) {
-				G_Printf( "Usage: session link <session id> <account name>\n" );
+				G_Printf( "Usage: "S_COLOR_YELLOW"session link <session id> <account name>\n" );
 				return;
 			}
 
@@ -2399,6 +3557,7 @@ void Svcmd_Session_f( void ) {
 
 			if ( G_LinkAccountToSession( sess.ptr, acc.ptr ) ) {
 				G_Printf( "Session successfully linked to account '%s' (id: %d)\n", acc.ptr->name, acc.ptr->id );
+				trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
 			} else {
 				G_Printf( "Failed to link session to this account!\n" );
 			}
@@ -2406,7 +3565,7 @@ void Svcmd_Session_f( void ) {
 		} else if ( !Q_stricmp( s, "linkingame" ) ) {
 
 			if ( trap_Argc() < 4 ) {
-				G_Printf( "Usage: session linkingame <client id> <account name>\n" );
+				G_Printf( "Usage: "S_COLOR_YELLOW"session linkingame <client id> <account name>\n" );
 				return;
 			}
 
@@ -2442,6 +3601,7 @@ void Svcmd_Session_f( void ) {
 
 			if ( G_LinkAccountToSession( client->session, acc.ptr ) ) {
 				G_Printf( "Client session successfully linked to account '%s' (id: %d)\n", acc.ptr->name, acc.ptr->id );
+				trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
 			} else {
 				G_Printf( "Failed to link client session to this account!\n" );
 			}
@@ -2449,7 +3609,7 @@ void Svcmd_Session_f( void ) {
 		} else if ( !Q_stricmp( s, "unlink" ) ) {
 
 			if ( trap_Argc() < 3 ) {
-				G_Printf( "Usage: session unlink <session id>\n" );
+				G_Printf( "Usage: "S_COLOR_YELLOW"session unlink <session id>\n" );
 				return;
 			}
 
@@ -2480,6 +3640,7 @@ void Svcmd_Session_f( void ) {
 
 			if ( G_UnlinkAccountFromSession( sess.ptr ) ) {
 				G_Printf( "Session successfully unlinked from account '%s' (id: %d)\n", acc.ptr->name, acc.ptr->id );
+				trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
 			} else {
 				G_Printf( "Failed to unlink session from this account!\n" );
 			}
@@ -2487,7 +3648,7 @@ void Svcmd_Session_f( void ) {
 		} else if ( !Q_stricmp( s, "unlinkingame" ) ) {
 
 			if ( trap_Argc() < 3 ) {
-				G_Printf( "Usage: session unlinkingame <client id>\n" );
+				G_Printf( "Usage: "S_COLOR_YELLOW"session unlinkingame <client id>\n" );
 				return;
 			}
 
@@ -2518,9 +3679,26 @@ void Svcmd_Session_f( void ) {
 
 			if ( G_UnlinkAccountFromSession( client->session ) ) {
 				G_Printf( "Client session successfully unlinked from account '%s' (id: %d)\n", acc.ptr->name, acc.ptr->id );
+				trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
 			} else {
 				G_Printf( "Failed to unlink Client session from this account!\n" );
 			}
+
+		} else if ( !Q_stricmp( s, "purge") ) {
+
+			static int lastConfirmationTime = INT_MIN;
+
+			if (level.time < lastConfirmationTime + 10000) {
+				G_DBPurgeUnassignedSessions();
+				G_Printf("Purge completed.\n");
+			} else {
+				G_Printf( 
+					"You are about to delete unreferenced sessions from the database FOREVER.\n"
+					"If you still wish to proceed, type the command again within 10 seconds.\n"
+				);
+			}
+
+			lastConfirmationTime = level.time;
 
 		} else if ( !Q_stricmp( s, "help" ) ) {
 			printHelp = qtrue;
@@ -2535,14 +3713,15 @@ void Svcmd_Session_f( void ) {
 	if ( printHelp ) {
 		G_Printf(
 			"Valid subcommands:\n"
-			"session whois: Lists the session currently in use by all in-game players\n"
-			"session latest: Lists the latest unassigned sessions\n"
-			"session info <session id>: Prints detailed information for the given session ID\n"
-			"session link <session id> <account name>: Links the given session ID to an existing account\n"
-			"session linkingame <client id> <account name>: Shortcut command to link an in-game client's session to an existing account\n"
-			"session unlink <session id>: Unlinks the account associated to the given session ID\n"
-			"session unlinkingame <client id>: Shortcut command to unlink the account associated to an in-game client's session\n"
-			"session help: Prints this message\n"
+			S_COLOR_YELLOW"session whois"S_COLOR_WHITE": Lists the session currently in use by all in-game players\n"
+			S_COLOR_YELLOW"session unassigned [page]"S_COLOR_WHITE": Lists the top unassigned sessions (may lag the server with too many sessions, so be cautious)\n"
+			S_COLOR_YELLOW"session info <session id>"S_COLOR_WHITE": Prints detailed info for a given session ID\n"
+			S_COLOR_YELLOW"session link <session id> <account name>"S_COLOR_WHITE": Links the given session ID to an existing account\n"
+			S_COLOR_YELLOW"session linkingame <client id> <account name>"S_COLOR_WHITE": Shortcut command to link an in-game client's session to an existing account\n"
+			S_COLOR_YELLOW"session unlink <session id>"S_COLOR_WHITE": Unlinks the account associated to the given session ID\n"
+			S_COLOR_YELLOW"session unlinkingame <client id>"S_COLOR_WHITE": Shortcut command to unlink the account associated to an in-game client's session\n"
+			S_COLOR_YELLOW"session purge"S_COLOR_WHITE": Deletes all unreferenced sessions from the database. USE WITH CAUTION!\n"
+			S_COLOR_YELLOW"session help"S_COLOR_WHITE": Prints this message\n"
 		);
 	}
 }
@@ -2578,6 +3757,119 @@ static void Svcmd_AutoRestartCancel_f(void) {
 	Com_Printf("Auto start cancelled.\n");
 	level.autoStartPending = qfalse;
 }
+
+static void Svcmd_CtfStats_f(void) {
+	char buf[16384] = { 0 };
+	if (trap_Argc() < 2) { // display all types if none is specified, i guess
+		Stats_Print(NULL, "general", buf, sizeof(buf), qfalse, NULL);
+		if (buf[0]) { Com_Printf(buf); buf[0] = '\0'; }
+	}
+	else if (trap_Argc() == 2) {
+		char subcmd[MAX_STRING_CHARS] = { 0 };
+		trap_Argv(1, subcmd, sizeof(subcmd));
+		Stats_Print(NULL, subcmd, buf, sizeof(buf), qfalse, NULL);
+		if (buf[0]) { Com_Printf(buf); }
+	}
+	else {
+		char subcmd[MAX_STRING_CHARS] = { 0 };
+		trap_Argv(1, subcmd, sizeof(subcmd));
+
+		if (!Q_stricmp(subcmd, "weapon")) {
+			char weaponPlayerArg[MAX_STRING_CHARS] = { 0 };
+			trap_Argv(2, weaponPlayerArg, sizeof(weaponPlayerArg));
+			if (weaponPlayerArg[0]) {
+				stats_t *found = GetStatsFromString(weaponPlayerArg);
+				if (!found) {
+					Com_Printf("Client %s^7 not found or ambiguous. Use client number or be more specific.\n", weaponPlayerArg);
+					return;
+				}
+				Stats_Print(NULL, subcmd, buf, sizeof(buf), qfalse, found);
+				if (buf[0]) { Com_Printf(buf); }
+			}
+			else {
+				Stats_Print(NULL, subcmd, buf, sizeof(buf), qfalse, NULL);
+				if (buf[0]) { Com_Printf(buf); }
+			}
+		}
+		else {
+			Stats_Print(NULL, subcmd, buf, sizeof(buf), qfalse, NULL);
+			if (buf[0]) { Com_Printf(buf); }
+		}
+	}
+}
+
+#ifdef _DEBUG
+// test tick tracking for discord webhook
+static void Svcmd_DebugTicks_f(void) {
+	if (!level.wasRestarted) {
+		Com_Printf("Map was not restarted.\n");
+		return;
+	}
+	iterator_t iter;
+	Com_Printf("^1RED TEAM^7:\n");
+	ListIterate(&level.redPlayerTickList, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		tickPlayer_t *found = IteratorNext(&iter);
+		if (found) {
+			nicknameEntry_t nickname = { 0 };
+			G_DBGetTopNickname(found->sessionId, &nickname);
+			if (!nickname.name[0])
+				Q_strncpyz(nickname.name, found->name, sizeof(nickname.name));
+
+			qboolean isSub = qfalse;
+			int subThreshold = (int)((float)level.numTeamTicks * WEBHOOK_INGAME_THRESHOLD_SUB);
+			int thisGuyTicks = found->numTicks;
+			if (thisGuyTicks < subThreshold)
+				isSub = qtrue;
+
+			qboolean isHere = qfalse;
+			for (int i = 0; i < level.maxclients; i++) {
+				if (level.clients[i].pers.connected != CON_CONNECTED)
+					continue;
+				if ((level.clients[i].account && level.clients[i].account->id != ACCOUNT_ID_UNLINKED && level.clients[i].account->id == found->accountId) ||
+					(level.clients[i].session && level.clients[i].session->id == found->sessionId)) {
+					isHere = qtrue;
+					break;
+				}
+			}
+
+			Com_Printf("%s^7 with client num %d, account id %d, session id %d, %d ticks%s%s\n", nickname.name, found->clientNum, found->accountId, found->sessionId, found->numTicks,
+			isSub ? " (SUB)" : "", isHere ? "" : " (RQ)");
+		}
+	}
+	Com_Printf("^4BLUE TEAM^7:\n");
+	ListIterate(&level.bluePlayerTickList, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		tickPlayer_t *found = IteratorNext(&iter);
+		if (found) {
+			nicknameEntry_t nickname = { 0 };
+			G_DBGetTopNickname(found->sessionId, &nickname);
+			if (!nickname.name[0])
+				Q_strncpyz(nickname.name, found->name, sizeof(nickname.name));
+
+			qboolean isSub = qfalse;
+			int subThreshold = (int)((float)level.numTeamTicks * WEBHOOK_INGAME_THRESHOLD_SUB);
+			int thisGuyTicks = found->numTicks;
+			if (thisGuyTicks < subThreshold)
+				isSub = qtrue;
+
+			qboolean isHere = qfalse;
+			for (int i = 0; i < level.maxclients; i++) {
+				if (level.clients[i].pers.connected != CON_CONNECTED)
+					continue;
+				if ((level.clients[i].account && level.clients[i].account->id != ACCOUNT_ID_UNLINKED && level.clients[i].account->id == found->accountId) ||
+					(level.clients[i].session && level.clients[i].session->id == found->sessionId)) {
+					isHere = qtrue;
+					break;
+				}
+			}
+
+			Com_Printf("%s^7 with client num %d, account id %d, session id %d, %d ticks%s%s\n", nickname.name, found->clientNum, found->accountId, found->sessionId, found->numTicks,
+				isSub ? " (SUB)" : "", isHere ? "" : " (RQ)");
+		}
+	}
+}
+#endif
 
 /*
 =================
@@ -2671,6 +3963,11 @@ qboolean	ConsoleCommand( void ) {
 
 	if (Q_stricmp(cmd, "map_random") == 0) {
 		Svcmd_MapRandom_f();
+		return qtrue;
+	}
+
+	if (!Q_stricmp(cmd, "mapvote")) {
+		Svcmd_MapVote_f(NULL);
 		return qtrue;
 	}
 
@@ -2818,6 +4115,31 @@ qboolean	ConsoleCommand( void ) {
 		return qtrue;
 	}
 
+	if (!Q_stricmp(cmd, "tier") || !Q_stricmp(cmd, "tiers") || !Q_stricmp(cmd, "tierlist") || !Q_stricmp(cmd, "tierlists")) {
+		Svcmd_Tier_f();
+		return qtrue;
+	}
+
+	if (!Q_stricmp(cmd, "listmaps") || !Q_stricmp(cmd, "listmap") || !Q_stricmp(cmd, "maplist") || !Q_stricmp(cmd, "mapslist")) {
+		Svcmd_ListMaps_f();
+		return qtrue;
+	}
+
+	if (!Q_stricmp(cmd, "mapalias") || !Q_stricmp(cmd, "mapaliases")) {
+		Svcmd_MapAlias_f();
+		return qtrue;
+	}
+
+	if (!Q_stricmp(cmd, "pug")) {
+		Svcmd_Pug_f();
+		return qtrue;
+	}
+
+	if (!Q_stricmp(cmd, "fixswap")) {
+		Svcmd_FixSwap_f();
+		return qtrue;
+	}
+
     if (!Q_stricmp(cmd, "specall")) {
         Svcmd_SpecAll_f();
         return qtrue;
@@ -2840,11 +4162,6 @@ qboolean	ConsoleCommand( void ) {
 
 	if ( !Q_stricmp( cmd, "whTrustToggle" ) ) {
 		Svcmd_WhTrustToggle_f();
-		return qtrue;
-	}
-
-	if ( !Q_stricmp( cmd, "fastcaps_remove" ) ) {
-		Svcmd_FastCapsRemove_f();
 		return qtrue;
 	}
 
@@ -2873,6 +4190,18 @@ qboolean	ConsoleCommand( void ) {
 		return qtrue;
 	}
 
+	if (!Q_stricmp(cmd, "ctfstats") || !Q_stricmp(cmd, "stats")) {
+		Svcmd_CtfStats_f();
+		return qtrue;
+	}
+
+#ifdef _DEBUG
+	if (!Q_stricmp(cmd, "debugticks")) {
+		Svcmd_DebugTicks_f();
+		return qtrue;
+	}
+#endif
+
 	if (g_dedicated.integer) {
 		if (Q_stricmp (cmd, "say") == 0) {
 			trap_SendServerCommand( -1, va("print \"server: %s\n\"", ConcatArgs(1) ) );
@@ -2889,9 +4218,41 @@ qboolean	ConsoleCommand( void ) {
 }
 
 void G_LogRconCommand(const char* ipFrom, const char* command) {
-	// log it to disk if needed
+	const char* displayStr;
+
+	// try to find who used the command
+	gclient_t* from = G_FindClientByIPPort(ipFrom);
+	if (from) {
+		if (from->account) {
+			displayStr = from->account->name;
+		} else {
+			displayStr = from->pers.netname;
+		}
+	} else {
+		displayStr = ipFrom;
+	}
+
+	// notify all online admins who also have the verbose rcon flag
+	int i;
+	for (i = 0; i < level.maxclients; ++i) {
+		gclient_t* other = &level.clients[i];
+
+		if (other->pers.connected != CON_CONNECTED)
+			continue;
+		if (!other->account)
+			continue;
+		if (!(other->account->flags & ACCOUNTFLAG_ADMIN) || !(other->account->flags & ACCOUNTFLAG_RCONLOG))
+			continue;
+		if (other == from)
+			continue;
+
+		// use out of band print so it doesn't get in demos
+		OutOfBandPrint(i, S_COLOR_GREEN"[Admin] "S_COLOR_WHITE"Rcon from "S_COLOR_GREEN"%s"S_COLOR_WHITE": /rcon %s\n", displayStr, command);
+	}
+
+	// also log it to disk if needed
 	if (g_logrcon.integer) {
-		G_RconLog("rcon from {%s}: %s", ipFrom, command);
+		G_RconLog("rcon from {%s}: %s\n", ipFrom, command);
 	}
 }
 
@@ -3007,19 +4368,20 @@ void G_Status(void) {
 		Table_DefineRow(t, &level.clients[i]);
 	}
 
-	Table_DefineColumn(t, "#", TableCallback_ClientNum, qfalse, 2);
-	Table_DefineColumn(t, "Name", TableCallback_Name, qtrue, g_maxNameLength.integer);
-	Table_DefineColumn(t, "Alias", TableCallback_Alias, qtrue, g_maxNameLength.integer);
-	Table_DefineColumn(t, "Country", TableCallback_Country, qtrue, 64);
-	Table_DefineColumn(t, "IP", TableCallback_IP, qtrue, 21);
-	Table_DefineColumn(t, "Qport", TableCallback_Qport, qfalse, 5);
-	Table_DefineColumn(t, "Mod", TableCallback_Mod, qtrue, 64);
-	Table_DefineColumn(t, "Ping", TableCallback_Ping, qfalse, 4);
-	Table_DefineColumn(t, "Score", TableCallback_Score, qfalse, 5);
-	Table_DefineColumn(t, "Shadowmuted", TableCallback_Shadowmuted, qtrue, 64);
+	Table_DefineColumn(t, "#", TableCallback_ClientNum, NULL, qfalse, -1, 2);
+	Table_DefineColumn(t, "Name", TableCallback_Name, NULL, qtrue, -1, MAX_NAME_DISPLAYLENGTH);
+	Table_DefineColumn(t, "A", TableCallback_Account, NULL, qtrue, -1, 4);
+	Table_DefineColumn(t, "Alias", TableCallback_Alias, NULL, qtrue, -1, MAX_NAME_DISPLAYLENGTH);
+	Table_DefineColumn(t, "Country", TableCallback_Country, NULL, qtrue, -1, 64);
+	Table_DefineColumn(t, "IP", TableCallback_IP, NULL, qtrue, -1, 21);
+	Table_DefineColumn(t, "Qport", TableCallback_Qport, NULL, qfalse, -1, 5);
+	Table_DefineColumn(t, "Mod", TableCallback_Mod, NULL, qtrue, -1, 64);
+	Table_DefineColumn(t, "Ping", TableCallback_Ping, NULL, qfalse, -1, 4);
+	Table_DefineColumn(t, "Score", TableCallback_Score, NULL, qfalse, -1, 5);
+	Table_DefineColumn(t, "Shadowmuted", TableCallback_Shadowmuted, NULL, qtrue, -1, 64);
 
 	char buf[4096] = { 0 };
-	Table_WriteToBuffer(t, buf, sizeof(buf));
+	Table_WriteToBuffer(t, buf, sizeof(buf), qtrue, -1);
 	Table_Destroy(t);
 
 	Q_strcat(buf, sizeof(buf), "^7\n");

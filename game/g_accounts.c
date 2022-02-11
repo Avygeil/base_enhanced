@@ -100,6 +100,48 @@ static void RelinkAccounts( void ) {
 	}
 }
 
+// writes the account id to ctx for each element in the session list so that we can get the latest
+static void GetLatestAccountId( void* ctx, session_t* session, qboolean referenced ) {
+	if (session->accountId > 0) {
+		*( ( int* )ctx ) = session->accountId;
+	}
+}
+
+static qboolean AutoLinkSession( gclient_t* client, session_t* session ) {
+	int existingAccountId = ACCOUNT_ID_UNLINKED;
+
+#ifdef NEWMOD_SUPPORT
+
+	// for now, the only unambiguous and foolproof way of autolinking is by using newmod ids
+	if ( client->sess.auth == AUTHENTICATED && VALIDSTRING( client->sess.cuidHash ) ) {
+		pagination_t pagination;
+		pagination.numPerPage = INT_MAX;
+		pagination.numPage = 1;
+
+		G_DBListSessionsForInfo( "cuid_hash2", client->sess.cuidHash, pagination, GetLatestAccountId, &existingAccountId);
+	}
+
+#endif
+
+	// if we found an account id, retrieve it and hotlink it
+	// since we call this from G_InitSession, we don't keep a reference to that account and we don't
+	// want to relink accounts since it is expected that G_InitAccounts is called after. This is only to
+	// make sure that both the database and the session pointer are linked with the existing account
+	if (existingAccountId > 0) {
+		account_t existingAccount;
+		
+		if (G_DBGetAccountByID(existingAccountId, &existingAccount)) {
+			G_DBLinkAccountToSession(session, &existingAccount);
+
+			if (session->accountId > 0) {
+				return qtrue;
+			}
+		}
+	}
+
+	return qfalse;
+}
+
 static void BuildSessionInfo( char* outInfo, size_t outInfoSize, gclient_t *client ) {
 	outInfo[0] = '\0';
 
@@ -137,7 +179,7 @@ static void BuildSessionInfo( char* outInfo, size_t outInfoSize, gclient_t *clie
 	cJSON_Delete( root );
 }
 
-static sessionIdentifier_t HashSessionIdentifier( const char* info ) {
+static sessionInfoHash_t HashSessionInfo( const char* info ) {
 	return XXH64( info, strlen( info ), 0L );
 }
 
@@ -148,11 +190,9 @@ static ID_INLINE int GetLowestSetBitIndex( int n ) {
 }
 
 void G_InitClientSession( gclient_t *client ) {
-#ifndef SESSIONS_ACCOUNTS_SYSTEM
-	return;
-#endif
 	session_t* newSessionPtr = NULL;
 	client->session = NULL;
+	client->stats = NULL;
 
 	// immediately get the cached session if possible
 	if ( IN_CLIENTNUM_RANGE( client->sess.sessionCacheNum ) ) {
@@ -160,6 +200,7 @@ void G_InitClientSession( gclient_t *client ) {
 
 		if ( newSessionPtr->id ) {
 			client->session = newSessionPtr;
+			InitClientStats(client);
 #ifdef _DEBUG
 			G_LogPrintf( "Reusing cached session for client %d (cache num: %d, sess id: %d)\n", client - level.clients, client->sess.sessionCacheNum, newSessionPtr->id );
 #endif
@@ -179,8 +220,8 @@ void G_InitClientSession( gclient_t *client ) {
 		return;
 	}
 
-	// compute the identifier from the info
-	sessionIdentifier_t sessionIdentifier = HashSessionIdentifier( sessionInfo );
+	// compute the hash from the info
+	sessionInfoHash_t infoHash = HashSessionInfo( sessionInfo );
 
 	// find a free slot while reusing another client's session if possible
 
@@ -195,13 +236,14 @@ void G_InitClientSession( gclient_t *client ) {
 			// this slot is taken
 			freeSlots &= ~( 1 << level.clients[i].sess.sessionCacheNum );
 
-			if ( level.clients[i].session->identifier == sessionIdentifier ) {
+			if ( level.clients[i].session->hash == infoHash ) {
 				// reuse this client's session data
 #ifdef _DEBUG
 				G_LogPrintf( "Using existing session from client %d for client %d (cache num: %d, sess id: %d)\n", i, client - level.clients, level.clients[i].sess.sessionCacheNum, level.clients[i].session->id );
 #endif
 				client->session = level.clients[i].session;
 				client->sess.sessionCacheNum = level.clients[i].sess.sessionCacheNum;
+				InitClientStats(client);
 				return;
 			}
 		}
@@ -221,17 +263,22 @@ void G_InitClientSession( gclient_t *client ) {
 	newSessionPtr = &clientSessions[lowestSlotAvailable];
 
 	// try to pull the session from db
-	if ( !G_DBGetSessionByIdentifier( sessionIdentifier, newSessionPtr ) ) {
+	if ( !G_DBGetSessionByHash( infoHash, newSessionPtr ) ) {
 
 		// not found: create a new one and pull it immediately
 
-		G_DBCreateSession( sessionIdentifier, sessionInfo );
-		if ( !G_DBGetSessionByIdentifier( sessionIdentifier, newSessionPtr ) ) {
+		G_DBCreateSession( infoHash, sessionInfo );
+		if ( !G_DBGetSessionByHash( infoHash, newSessionPtr ) ) {
 			G_LogPrintf( "ERROR: Failed to create a new session for client %d\n", client - level.clients );
 			return;
 		}
 
 		G_LogPrintf( "Created new session (id: %d) for client %d\n", newSessionPtr->id, client - level.clients );
+
+		// try to automatically link the session to an account if possible
+		if ( AutoLinkSession( client, newSessionPtr ) ) {
+			G_LogPrintf( "New session (id: %d) was automatically linked to account (id: %d)\n", newSessionPtr->id, newSessionPtr->accountId );
+		}
 
 	} else {
 		G_LogPrintf( "Found existing session (id: %d) for client %d\n", newSessionPtr->id, client - level.clients );
@@ -239,12 +286,10 @@ void G_InitClientSession( gclient_t *client ) {
 
 	client->session = newSessionPtr;
 	client->sess.sessionCacheNum = lowestSlotAvailable;
+	InitClientStats(client);
 }
 
 void G_InitClientAccount( gclient_t* client ) {
-#ifndef SESSIONS_ACCOUNTS_SYSTEM
-	return;
-#endif
 	account_t* newAccountPtr = NULL;
 	client->account = NULL;
 
@@ -264,6 +309,10 @@ void G_InitClientAccount( gclient_t* client ) {
 
 		if ( newAccountPtr->id ) {
 			client->account = newAccountPtr;
+			if (client->stats) {
+				client->stats->accountId = client->account->id;
+				Q_strncpyz(client->stats->accountName, client->account->name, sizeof(client->stats->accountName));
+			}
 #ifdef _DEBUG
 			G_LogPrintf( "Reusing cached account for client %d (cache num: %d, acc id: %d)\n", client - level.clients, client->sess.accountCacheNum, newAccountPtr->id );
 #endif
@@ -299,6 +348,10 @@ void G_InitClientAccount( gclient_t* client ) {
 #endif
 				client->account = level.clients[i].account;
 				client->sess.accountCacheNum = level.clients[i].sess.accountCacheNum;
+				if (client->stats) {
+					client->stats->accountId = client->account->id;
+					Q_strncpyz(client->stats->accountName, client->account->name, sizeof(client->stats->accountName));
+				}
 				return;
 			}
 		}
@@ -327,6 +380,10 @@ void G_InitClientAccount( gclient_t* client ) {
 
 	client->account = newAccountPtr;
 	client->sess.accountCacheNum = lowestSlotAvailable;
+	if (client->stats) {
+		client->stats->accountId = client->account->id;
+		Q_strncpyz(client->stats->accountName, client->account->name, sizeof(client->stats->accountName));
+	}
 }
 
 // returns qtrue on creation success, qfalse on failure or if it already exists
@@ -429,16 +486,16 @@ sessionReference_t G_GetSessionByID( const int id, qboolean onlineOnly ) {
 	return GetSession( ValidateSessionID, PullSessionByID, &id, onlineOnly );
 }
 
-static qboolean ValidateSessionIdentifier( const session_t* session, const void* ctx ) {
-	return session->identifier == *( ( const sessionIdentifier_t* )ctx );
+static qboolean ValidateSessionHash( const session_t* session, const void* ctx ) {
+	return session->hash == *( ( const sessionInfoHash_t* )ctx );
 }
 
-static qboolean PullSessionByIdentifier( session_t* session, const void* ctx ) {
-	return G_DBGetSessionByIdentifier( *( ( const sessionIdentifier_t* )ctx ), session );
+static qboolean PullSessionByHash( session_t* session, const void* ctx ) {
+	return G_DBGetSessionByHash( *( ( const sessionInfoHash_t* )ctx ), session );
 }
 
-sessionReference_t G_GetSessionByIdentifier( const sessionIdentifier_t identifier, qboolean onlineOnly ) {
-	return GetSession( ValidateSessionIdentifier, PullSessionByIdentifier, &identifier, onlineOnly );
+sessionReference_t G_GetSessionByHash( const sessionInfoHash_t hash, qboolean onlineOnly ) {
+	return GetSession( ValidateSessionHash, PullSessionByHash, &hash, onlineOnly );
 }
 
 typedef qboolean ( *AccountValidator )( const account_t* account, const void* ctx );
@@ -523,10 +580,10 @@ qboolean G_UnlinkAccountFromSession( session_t* session ) {
 
 typedef struct {
 	void *ctx;
-	ListAccountSessionsCallback callback;
+	ListSessionsCallback callback;
 } ReferencerCallbackProxy;
 
-static void ListAccountSessionsCallbackReferencer( void *ctx, session_t* session, qboolean temporary ) {
+static void ListSessionsCallbackReferencer( void *ctx, session_t* session, qboolean referenced ) {
 	ReferencerCallbackProxy* proxy = ( ReferencerCallbackProxy* )ctx;
 	
 	// make a reference out of that session_t: check if someone is online with that session
@@ -537,15 +594,31 @@ static void ListAccountSessionsCallbackReferencer( void *ctx, session_t* session
 		ref.online = qfalse;
 	}
 
-	proxy->callback( proxy->ctx, ref, temporary );
+	proxy->callback( proxy->ctx, ref, referenced );
 }
 
-void G_ListSessionsForAccount( account_t* account, ListAccountSessionsCallback callback, void* ctx ) {
+void G_ListSessionsForAccount( account_t* account, int numPerPage, int page, ListSessionsCallback callback, void* ctx ) {
 	ReferencerCallbackProxy proxyCtx;
 	proxyCtx.callback = callback;
 	proxyCtx.ctx = ctx;
 
-	G_DBListSessionsForAccount( account, ListAccountSessionsCallbackReferencer, &proxyCtx );
+	pagination_t pagination;
+	pagination.numPerPage = numPerPage;
+	pagination.numPage = page;
+
+	G_DBListSessionsForAccount( account, pagination, ListSessionsCallbackReferencer, &proxyCtx );
+}
+
+void G_ListSessionsForInfo( const char* key, const char* value, int numPerPage, int page, ListSessionsCallback callback, void* ctx ) {
+	ReferencerCallbackProxy proxyCtx;
+	proxyCtx.callback = callback;
+	proxyCtx.ctx = ctx;
+
+	pagination_t pagination;
+	pagination.numPerPage = numPerPage;
+	pagination.numPage = page;
+
+	G_DBListSessionsForInfo( key, value, pagination, ListSessionsCallbackReferencer, &proxyCtx );
 }
 
 qboolean G_SessionInfoHasString( const session_t* session, const char* key ) {
@@ -586,4 +659,24 @@ void G_GetStringFromSessionInfo( const session_t* session, const char* key, char
 	}
 
 	cJSON_Delete( root );
+}
+
+qboolean G_SetAccountFlags( account_t* account, const int flags, qboolean flagsEnabled ) {
+	const int oldFlags = account->flags;
+	int newFlags = oldFlags;
+
+	if (flagsEnabled) {
+		newFlags |= flags;
+	} else {
+		newFlags &= ~flags;
+	}
+
+	// if there is no actual change, we don't need to do anything
+	if (oldFlags == newFlags) {
+		return qtrue;
+	}
+
+	G_DBSetAccountFlags( account, newFlags );
+
+	return account->flags != oldFlags;
 }

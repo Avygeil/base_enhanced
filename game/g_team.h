@@ -42,7 +42,6 @@ void Team_ReturnFlag(int team);
 void Team_FreeEntity(gentity_t *ent);
 gentity_t *SelectCTFSpawnPoint ( gclient_t *client, team_t team, int teamstate, vec3_t origin, vec3_t angles );
 gentity_t *SelectSiegeSpawnPoint ( int siegeClass, team_t team, int teamstate, vec3_t origin, vec3_t angles );
-int Team_GetLocation( gentity_t *ent, char *locationBuffer, size_t locationBufferSize );
 void TeamplayInfoMessage( gentity_t *ent );
 void CheckTeamStatus(void);
 

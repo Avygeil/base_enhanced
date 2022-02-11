@@ -130,6 +130,7 @@ vmCvar_t	g_fraglimitVoteCorrection;
 vmCvar_t	g_fraglimit;
 vmCvar_t	g_duel_fraglimit;
 vmCvar_t	g_timelimit;
+vmCvar_t	g_nonLiveMatchesCanEnd;
 vmCvar_t	g_capturelimit;
 vmCvar_t	g_capturedifflimit;
 vmCvar_t	d_saberInterpolate;
@@ -163,10 +164,14 @@ vmCvar_t    g_moreTaunts;
 vmCvar_t	g_raceEmotes;
 vmCvar_t	g_ragersCanCounterPushPull;
 vmCvar_t	g_autoPause999;
+vmCvar_t	g_autoPauseDisconnect;
+vmCvar_t	g_enterSpammerTime;
 vmCvar_t	g_quickPauseChat;
 
 vmCvar_t	g_webhookId;
 vmCvar_t	g_webhookToken;
+
+vmCvar_t	g_teamOverlayForce;
 
 vmCvar_t	g_improvedHoming;
 vmCvar_t	g_improvedHomingThreshold;
@@ -175,6 +180,7 @@ vmCvar_t	g_braindeadBots;
 vmCvar_t	g_unlagged;
 #ifdef _DEBUG
 vmCvar_t	g_unlaggedMaxCompensation;
+vmCvar_t	g_unlaggedSkeletons;
 vmCvar_t	g_unlaggedSkeletonTime;
 vmCvar_t	g_unlaggedFactor;
 vmCvar_t	g_unlaggedOffset;
@@ -335,7 +341,8 @@ vmCvar_t	g_balanceSeeing;
 
 vmCvar_t	g_autoSendScores;
 
-vmCvar_t	g_autoGenerateLocations;
+vmCvar_t	g_lineOfSightLocations;
+vmCvar_t	g_lineOfSightLocations_generate;
 vmCvar_t	g_enableChatLocations;
 
 vmCvar_t	g_breakRNG;
@@ -348,12 +355,16 @@ vmCvar_t	z_debug1;
 vmCvar_t	z_debug2;
 vmCvar_t	z_debug3;
 vmCvar_t	z_debug4;
+vmCvar_t	z_debug5;
+vmCvar_t	z_debug6;
+vmCvar_t	z_debug7;
+vmCvar_t	z_debug8;
+vmCvar_t	z_debug9;
 #endif
 
 vmCvar_t    g_enforceEvenVotersCount;
 vmCvar_t    g_minVotersForEvenVotersCount;
 
-vmCvar_t	g_maxNameLength;
 vmCvar_t	g_duplicateNamesId;
 
 vmCvar_t	g_droppedFlagSpawnProtectionRadius;
@@ -375,7 +386,7 @@ vmCvar_t	g_wallhackMaxTraces;
 vmCvar_t	g_inMemoryDB;
 
 vmCvar_t	g_enableRacemode;
-vmCvar_t	g_enableRacemodeWaypoints;
+vmCvar_t	g_enableAimPractice;
 #ifdef _DEBUG
 vmCvar_t	d_disableRaceVisChecks;
 #endif
@@ -391,6 +402,7 @@ vmCvar_t    g_allow_vote_nextmap;
 vmCvar_t    g_allow_vote_timelimit;
 vmCvar_t    g_allow_vote_fraglimit;
 vmCvar_t    g_allow_vote_maprandom;
+vmCvar_t	g_allow_vote_mapvote;
 vmCvar_t    g_allow_vote_warmup;
 vmCvar_t	g_allow_vote_boon;
 vmCvar_t	g_allow_vote_instagib;
@@ -398,6 +410,7 @@ vmCvar_t	g_default_capturedifflimit;
 vmCvar_t	g_enable_maprandom_wildcard;
 vmCvar_t	g_redirectDoWarmupVote;
 vmCvar_t	g_redirectNextMapVote;
+vmCvar_t	g_redirectPoolVoteToTierListVote;
 vmCvar_t    g_quietrcon;
 vmCvar_t    g_npc_spawn_limit;
 vmCvar_t	g_hackLog;
@@ -407,9 +420,54 @@ vmCvar_t	g_allowReady;
 vmCvar_t    g_restart_countdown;
 
 vmCvar_t    g_enableBoon;
+vmCvar_t	g_enableMemePickups;
 vmCvar_t    g_maxstatusrequests;
 vmCvar_t	g_testdebug; //for tmp debug
 vmCvar_t	g_rconpassword;
+
+vmCvar_t	g_vote_tierlist;
+vmCvar_t	g_vote_tierlist_s_min;
+vmCvar_t	g_vote_tierlist_s_max;
+vmCvar_t	g_vote_tierlist_a_min;
+vmCvar_t	g_vote_tierlist_a_max;
+vmCvar_t	g_vote_tierlist_b_min;
+vmCvar_t	g_vote_tierlist_b_max;
+vmCvar_t	g_vote_tierlist_c_min;
+vmCvar_t	g_vote_tierlist_c_max;
+vmCvar_t	g_vote_tierlist_f_min;
+vmCvar_t	g_vote_tierlist_f_max;
+vmCvar_t	g_vote_tierlist_totalMaps;
+vmCvar_t	g_vote_tierlist_debug;
+vmCvar_t	g_vote_tierlist_reminders;
+vmCvar_t	g_vote_rng;
+vmCvar_t	g_vote_runoff;
+vmCvar_t	g_vote_mapCooldownMinutes;
+vmCvar_t	g_vote_runoffTimeModifier;
+vmCvar_t	g_vote_redirectMapVoteToLiveVersion;
+
+vmCvar_t	g_vote_teamgen;
+vmCvar_t	g_vote_teamgen_pug_requiredVotes;
+vmCvar_t	g_vote_teamgen_team_requiredVotes;
+vmCvar_t	g_vote_teamgen_subhelp;
+vmCvar_t	g_vote_teamgen_rustWeeks;
+vmCvar_t	g_vote_teamgen_minSecsSinceIntermission;
+vmCvar_t	g_vote_teamgen_enableAppeasing;
+vmCvar_t	g_vote_teamgen_remindPositions;
+vmCvar_t	g_vote_teamgen_remindToSetPositions;
+
+vmCvar_t	g_lastIntermissionStartTime;
+
+vmCvar_t	d_debugCtfPosCalculation;
+
+vmCvar_t	g_notFirstMap;
+vmCvar_t	g_shouldReloadPlayerPugStats;
+
+vmCvar_t	g_rockPaperScissors;
+
+vmCvar_t	g_gripBuff;
+vmCvar_t	g_gripRefreshRate;
+
+vmCvar_t	g_minimumCullDistance;
 
 vmCvar_t	g_callvotedelay;
 vmCvar_t	g_callvotemaplimit;
@@ -427,7 +485,6 @@ vmCvar_t	g_waitForAFK;
 vmCvar_t	g_waitForAFKTimer;
 vmCvar_t	g_waitForAFKThreshold;
 vmCvar_t	g_waitForAFKMinPlayers;
-
 vmCvar_t	g_printCountry;
 
 // nmckenzie: temporary way to show player healths in duels - some iface gfx in game would be better, of course.
@@ -554,6 +611,7 @@ static cvarTable_t		gameCvarTable[] = {
     { &g_fraglimit, "fraglimit", "20", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_NORESTART, 0, qtrue },
     { &g_duel_fraglimit, "duel_fraglimit", "10", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_NORESTART, 0, qtrue },
     { &g_timelimit, "timelimit", "0", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_NORESTART, 0, qtrue },
+	{ &g_nonLiveMatchesCanEnd, "g_nonLiveMatchesCanEnd", "1", CVAR_ARCHIVE, 0, qtrue },
     { &g_capturelimit, "capturelimit", "0", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_NORESTART, 0, qtrue },
     { &g_capturedifflimit, "capturedifflimit", "10", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_NORESTART, 0, qtrue },
 
@@ -732,7 +790,8 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_autoSendScores, "g_autoSendScores", "2000", CVAR_ARCHIVE, 0, qtrue },
 
-	{ &g_autoGenerateLocations, "g_autoGenerateLocations", "1", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_lineOfSightLocations, "g_lineOfSightLocations", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
+	{ &g_lineOfSightLocations_generate, "g_lineOfSightLocations_generate", "0", CVAR_TEMP | CVAR_LATCH, 0, qtrue },
 	{ &g_enableChatLocations, "g_enableChatLocations", "0", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_breakRNG, "g_breakRNG", "0", CVAR_ARCHIVE, 0, qtrue },
@@ -745,6 +804,11 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &z_debug2, "z_debug2", "", 0, 0, qtrue },
 	{ &z_debug3, "z_debug3", "", 0, 0, qtrue },
 	{ &z_debug4, "z_debug4", "", 0, 0, qtrue },
+	{ &z_debug5, "z_debug5", "", 0, 0, qtrue },
+	{ &z_debug6, "z_debug6", "", 0, 0, qtrue },
+	{ &z_debug7, "z_debug7", "", 0, 0, qtrue },
+	{ &z_debug8, "z_debug8", "", 0, 0, qtrue },
+	{ &z_debug9, "z_debug9", "", 0, 0, qtrue },
 #endif
 
 	{ &g_minimumVotesCount, "g_minimumVotesCount", "0", CVAR_ARCHIVE, 0, qtrue },
@@ -752,12 +816,11 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_enforceEvenVotersCount, "g_enforceEvenVotersCount", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_minVotersForEvenVotersCount, "g_minVotersForEvenVotersCount", "7", CVAR_ARCHIVE, 0, qtrue },
 
-	{ &g_maxNameLength, "g_maxNameLength", "24", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_duplicateNamesId, "g_duplicateNamesId", "1", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_droppedFlagSpawnProtectionRadius, "g_droppedFlagSpawnProtectionRadius", "1024", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_droppedFlagSpawnProtectionDuration, "g_droppedFlagSpawnProtectionDuration", "10000", CVAR_ARCHIVE, 0, qtrue },
-	{ &g_selfKillSpawnSpamProtection, "g_selfKillSpawnSpamProtection", "5", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_selfKillSpawnSpamProtection, "g_selfKillSpawnSpamProtection", "1", CVAR_ARCHIVE, 0, qtrue },
 
 #ifdef NEWMOD_SUPPORT
 	{ &g_netUnlock, "g_netUnlock", "1", CVAR_ARCHIVE, 0, qtrue },
@@ -774,7 +837,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_inMemoryDB, "g_inMemoryDB", "0", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
 
 	{ &g_enableRacemode, "g_enableRacemode", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
-	{ &g_enableRacemodeWaypoints, "g_enableRacemodeWaypoints", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
+	{ &g_enableAimPractice, "g_enableAimPractice", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 #ifdef _DEBUG
 	{ &d_disableRaceVisChecks, "d_disableRaceVisChecks", "0", CVAR_TEMP, 0, qtrue },
 #endif
@@ -791,6 +854,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_allow_vote_timelimit,	"g_allow_vote_timelimit"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_allow_vote_fraglimit,	"g_allow_vote_fraglimit"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_allow_vote_maprandom, "g_allow_vote_maprandom", "4", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_allow_vote_mapvote, "g_allow_vote_mapvote", "1", CVAR_ARCHIVE, 0, qtrue },
     { &g_allow_vote_warmup, "g_allow_vote_warmup", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_allow_vote_boon, "g_allow_vote_boon", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_allow_vote_instagib, "g_allow_vote_instagib", "1", CVAR_ARCHIVE, 0, qtrue },
@@ -800,7 +864,8 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_default_capturedifflimit, "g_default_capturedifflimit", "10", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_enable_maprandom_wildcard, "g_enable_maprandom_wildcard", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_redirectDoWarmupVote, "g_redirectDoWarmupVote", "cointoss", CVAR_ARCHIVE, 0, qtrue },
-	{ &g_redirectNextMapVote, "g_redirectNextMapVote", "map_random custom_4s", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_redirectNextMapVote, "g_redirectNextMapVote", "mapvote", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_redirectPoolVoteToTierListVote, "g_redirectPoolVoteToTierListVote", "", CVAR_ARCHIVE, 0, qfalse },
 
 	{ &g_quietrcon,	"g_quietrcon"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_hackLog,	"g_hackLog"	, "hacks.log"	, CVAR_ARCHIVE, 0, qtrue },
@@ -815,6 +880,51 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_dlURL,	"g_dlURL"	, ""	, CVAR_SYSTEMINFO, 0, qtrue },
 
 	{ &g_enableBoon,	"g_enableBoon"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
+	{ &g_enableMemePickups,	"g_enableMemePickups", "1"	, CVAR_LATCH, 0, qtrue },
+
+	{ &g_vote_tierlist, "g_vote_tierlist", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_tierlist_s_min, "g_vote_tierlist_s_min", "2", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_tierlist_s_max, "g_vote_tierlist_s_max", "3", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_tierlist_a_min, "g_vote_tierlist_a_min", "1", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_tierlist_a_max, "g_vote_tierlist_a_max", "2", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_tierlist_b_min, "g_vote_tierlist_b_min", "1", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_tierlist_b_max, "g_vote_tierlist_b_max", "1", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_tierlist_c_min, "g_vote_tierlist_c_min", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_tierlist_c_max, "g_vote_tierlist_c_max", "1", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_tierlist_f_min, "g_vote_tierlist_f_min", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_tierlist_f_max, "g_vote_tierlist_f_max", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_tierlist_totalMaps, "g_vote_tierlist_totalMaps", "5", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_tierlist_debug, "g_vote_tierlist_debug", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_tierlist_reminders, "g_vote_tierlist_reminders", "1", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_rng, "g_vote_rng", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_runoff, "g_vote_runoff", "1", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_mapCooldownMinutes, "g_vote_mapCooldownMinutes", "60", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_runoffTimeModifier, "g_vote_runoffTimeModifier", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_teamgen, "g_vote_teamgen", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_redirectMapVoteToLiveVersion, "g_vote_redirectMapVoteToLiveVersion", "1", CVAR_ARCHIVE, 0, qtrue },
+
+	{ &g_vote_teamgen_pug_requiredVotes, "g_vote_teamgen_pug_requiredVotes", "4", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_teamgen_team_requiredVotes, "g_vote_teamgen_team_requiredVotes", "5", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_teamgen_subhelp, "g_vote_teamgen_subhelp", "1", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_teamgen_rustWeeks, "g_vote_teamgen_rustWeeks", "12", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
+	{ &g_vote_teamgen_minSecsSinceIntermission, "g_vote_teamgen_minSecsSinceIntermission", "20", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_teamgen_enableAppeasing, "g_vote_teamgen_enableAppeasing", "1", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_teamgen_remindPositions, "g_vote_teamgen_remindPositions", "1", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_teamgen_remindToSetPositions, "g_vote_teamgen_remindToSetPositions", "1", CVAR_ARCHIVE, 0, qfalse },
+
+	{ &g_lastIntermissionStartTime, "g_lastIntermissionStartTime", "", CVAR_ROM | CVAR_TEMP, 0, qfalse },
+
+	{ &d_debugCtfPosCalculation, "d_debugCtfPosCalculation", "0", CVAR_ARCHIVE, 0, qtrue },
+
+	{ &g_notFirstMap, "g_notFirstMap", "0", CVAR_ROM | CVAR_TEMP, 0, qfalse },
+	{ &g_shouldReloadPlayerPugStats, "g_shouldReloadPlayerPugStats", "0", CVAR_ROM | CVAR_TEMP, 0, qfalse },
+
+	{ &g_rockPaperScissors, "g_rockPaperScissors", "0", CVAR_ARCHIVE, 0, qtrue },
+
+	{ &g_gripBuff, "g_gripBuff", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_gripRefreshRate, "g_gripRefreshRate", "300", CVAR_ARCHIVE, 0, qtrue },
+
+	{ &g_minimumCullDistance, "g_minimumCullDistance", "10000", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 
 	{ &g_selfkill_penalty, "g_selfkill_penalty", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_flags_overboarding, "g_flags_overboarding", "1", CVAR_ARCHIVE, 0, qtrue },
@@ -822,10 +932,14 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_raceEmotes, "g_raceEmotes", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_ragersCanCounterPushPull, "g_ragersCanCounterPushPull", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_autoPause999, "g_autoPause999", "5", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_autoPauseDisconnect, "g_autoPauseDisconnect", "2", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_enterSpammerTime, "g_enterSpammerTime", "3", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_quickPauseChat, "g_quickPauseChat", "1", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_webhookId, "g_webhookId", "", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_webhookToken, "g_webhookToken", "", CVAR_ARCHIVE, 0, qfalse },
+
+	{ &g_teamOverlayForce, "g_teamOverlayForce", "0", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 
 	{ &g_teamPrivateDuels, "g_teamPrivateDuels", "0", CVAR_ARCHIVE, 0, qtrue },
 
@@ -902,6 +1016,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_unlagged, "g_unlagged", "0", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 #ifdef _DEBUG
 	{ &g_unlaggedMaxCompensation, "g_unlaggedMaxCompensation", "500", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_unlaggedSkeletons, "g_unlaggedSkeletons", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_unlaggedSkeletonTime, "g_unlaggedSkeletonTime", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_unlaggedFactor, "g_unlaggedFactor", "0.25", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_unlaggedOffset, "g_unlaggedOffset", "0", CVAR_ARCHIVE, 0, qtrue },
@@ -915,7 +1030,7 @@ static cvarTable_t		gameCvarTable[] = {
 static int gameCvarTableSize = sizeof( gameCvarTable ) / sizeof( gameCvarTable[0] );
 
 
-void G_InitGame					( int levelTime, int randomSeed, int restart );
+void G_InitGame					( int levelTime, int randomSeed, int restart, void *serverDbPtr );
 void G_RunFrame					( int levelTime );
 void G_ShutdownGame				( int restart );
 void CheckExitRules				( void );
@@ -955,7 +1070,7 @@ extern "C" {
 int vmMain( int command, int arg0, int arg1, int arg2, int arg3, int arg4, int arg5, int arg6, int arg7, int arg8, int arg9, int arg10, int arg11  ) {
 	switch ( command ) {
 	case GAME_INIT:
-		G_InitGame( arg0, arg1, arg2 );
+		G_InitGame( arg0, arg1, arg2, (void *)arg3 );
 		return 0;
 	case GAME_SHUTDOWN:
 		G_ShutdownGame( arg0 );
@@ -1430,131 +1545,6 @@ static void CheckForAFKs(void) {
 	trap_SendServerCommand(-1, va("cp \"^1Pug is not live:^7\n%s^7\n\"", whoIsAfkString));
 }
 
-static void ShuffleNumbers(int *array, const int numMembers) {
-	for (int i = numMembers - 1; i >= 1; i--) {
-		int j = rand() % (i + 1);
-		int temp = *(array + i);
-		*(array + i) = *(array + j);
-		*(array + j) = temp;
-	}
-}
-
-// number of weeks since 13:00 on Tuesday, January 6, 1970
-static time_t GetWeekNumber(void) {
-	time_t sec = time(NULL);
-	time_t mins = sec / 60;
-	time_t hrs = (mins / 60) - 13;
-	time_t days = (hrs / 24) - 5;
-	time_t weeks = days / 7;
-
-	return weeks;
-}
-
-#define WAYPOINTS_VERSION_NUMBER		(1)
-
-// returns a hash used for generating the waypoint locations
-// this hash is generated by hashing the week number, using the waypoints version number as seed
-// if we ever update the generation algorithm, we can simply bump WAYPOINTS_VERSION_NUMBER
-// and it will automatically perform the same upgrade routines as if a new week had elapsed
-static XXH32_hash_t GetWaypointHash(void) {
-	time_t weekNum = GetWeekNumber();
-	return XXH32(&weekNum, sizeof(weekNum), WAYPOINTS_VERSION_NUMBER);
-}
-
-// pick three random waypoints based on a seed
-static void InitializeWaypoints(int randomSeed) {
-	if (g_gametype.integer != GT_CTF && g_gametype.integer != GT_CTY || !g_enableRacemodeWaypoints.integer)
-		return;
-
-	level.waypointHash = GetWaypointHash();
-
-	char buf[MAX_STRING_CHARS] = { 0 };
-	G_DBGetMetadata("lastWaypointsHash", buf, sizeof(buf));
-	XXH32_hash_t lastHash = 0;
-	sscanf(buf, "%x", &lastHash);
-	if (lastHash != level.waypointHash)
-		G_DBRotateWeeklyChallenge(level.waypointHash, lastHash);
-
-	// compile a list of pickups on the current map
-	int* pickups = malloc(sizeof(int));
-	int numPickups = 0;
-	for (int i = MAX_CLIENTS; i < MAX_GENTITIES; i++) {
-		gentity_t* ent = &g_entities[i];
-		if (!ent->item)
-			continue; // only allow items
-		if (ent->item->giType != IT_WEAPON && ent->item->giType != IT_AMMO &&
-			ent->item->giType != IT_ARMOR && ent->item->giType != IT_HEALTH &&
-			ent->item->giType != IT_POWERUP && ent->item->giType != IT_HOLDABLE)
-			continue; // only allow some types of items
-		if (ent->item->giType == IT_POWERUP && ent->item->giTag != PW_FORCE_ENLIGHTENED_LIGHT &&
-			ent->item->giTag != PW_FORCE_ENLIGHTENED_DARK && ent->item->giTag != PW_FORCE_BOON &&
-			ent->item->giTag != PW_YSALAMIRI)
-			continue; // only allow some types of powerups
-		if (ent->unreachableItem)
-			continue; // only allow items that are actually physically reachable
-		numPickups++;
-		if (numPickups > 1)
-			pickups = realloc(pickups, numPickups * sizeof(int));
-		*(pickups + (numPickups - 1)) = i;
-	}
-
-	if (numPickups < NUM_WAYPOINTS)
-		return;
-
-	// fisher-yates shuffle according to the seed
-	// re-shuffle as needed to make sure we don't get two items of the exact same type
-	srand(level.waypointHash);
-#define WAYPOINT_MINIMUM_DISTANCE_BETWEEN		(512.0)
-	double distances[NUM_WAYPOINTS] = { 0.0 };
-	int attempts = 0;
-	do {
-		if (++attempts >= 16384) { // prevent troll maps from creating an infinite loop
-			assert(qfalse);
-			G_LogPrintf("InitializeWaypoints: ERROR! Unable to generate a valid set of three waypoints. Waypoints mode will be disabled on this map.\n");
-			srand(randomSeed); // re-seed
-			free(pickups);
-			return;
-		}
-		ShuffleNumbers(pickups, numPickups);
-		vec3_t distVecs[NUM_WAYPOINTS];
-		VectorSubtract(g_entities[pickups[0]].r.currentOrigin, g_entities[pickups[1]].r.currentOrigin, distVecs[0]);
-		VectorSubtract(g_entities[pickups[0]].r.currentOrigin, g_entities[pickups[2]].r.currentOrigin, distVecs[1]);
-		VectorSubtract(g_entities[pickups[1]].r.currentOrigin, g_entities[pickups[2]].r.currentOrigin, distVecs[2]);
-		distVecs[0][2] = distVecs[1][2] = distVecs[2][2] = 0.0f; // zero out z to make sure they are far away on x and y
-		for (int i = 0; i < NUM_WAYPOINTS; i++) {
-			distances[i] = fabs(VectorLength(distVecs[i]));
-		}
-	} while ((g_entities[pickups[0]].item->giType == g_entities[pickups[1]].item->giType && g_entities[pickups[0]].item->giTag == g_entities[pickups[1]].item->giTag) ||
-		(g_entities[pickups[0]].item->giType == g_entities[pickups[2]].item->giType && g_entities[pickups[0]].item->giTag == g_entities[pickups[2]].item->giTag) ||
-		(g_entities[pickups[1]].item->giType == g_entities[pickups[2]].item->giType && g_entities[pickups[1]].item->giTag == g_entities[pickups[2]].item->giTag) ||
-		distances[0] < WAYPOINT_MINIMUM_DISTANCE_BETWEEN || distances[1] < WAYPOINT_MINIMUM_DISTANCE_BETWEEN || distances[2] < WAYPOINT_MINIMUM_DISTANCE_BETWEEN);
-
-	// set level.waypoints for the first three results
-#define WAYPOINT_TOUCH_RADIUS	(64.0f)
-	for (int i = 0; i < 3; i++) {
-		level.waypoints[i] = &g_entities[pickups[i]];
-		level.waypointLowerBounds[i][0] = level.waypoints[i]->r.currentOrigin[0] - WAYPOINT_TOUCH_RADIUS;
-		level.waypointUpperBounds[i][0] = level.waypoints[i]->r.currentOrigin[0] + WAYPOINT_TOUCH_RADIUS;
-		level.waypointLowerBounds[i][1] = level.waypoints[i]->r.currentOrigin[1] - WAYPOINT_TOUCH_RADIUS;
-		level.waypointUpperBounds[i][1] = level.waypoints[i]->r.currentOrigin[1] + WAYPOINT_TOUCH_RADIUS;
-		level.waypointLowerBounds[i][2] = level.waypoints[i]->r.currentOrigin[2] - WAYPOINT_TOUCH_RADIUS;
-#if 0
-		// hack to prevent touching it from underneath the floor, duoTODO: actually trace to the floor
-		level.waypointUpperBounds[i][2] = level.waypoints[i]->r.currentOrigin[2] + (WAYPOINT_TOUCH_RADIUS * 0.5f);
-#else
-		level.waypointUpperBounds[i][2] = level.waypoints[i]->r.currentOrigin[2] + WAYPOINT_TOUCH_RADIUS;
-#endif
-	}
-
-	// re-seed
-	srand(randomSeed);
-
-	free(pickups);
-
-	level.waypointsValid = qtrue;
-}
-
-
 char gSharedBuffer[MAX_G_SHARED_BUFFER_SIZE];
 
 #include "namespace_begin.h"
@@ -1576,7 +1566,7 @@ extern void InitUnhandledExceptionFilter();
 extern void G_LoadHelpFile( const char *filename );
 extern const char *G_GetArenaInfoByMap( char *map );
 
-void G_InitGame( int levelTime, int randomSeed, int restart ) {
+void G_InitGame( int levelTime, int randomSeed, int restart, void *serverDbPtr ) {
 	int					i;
 	vmCvar_t	mapname;
 	vmCvar_t	ckSum;
@@ -1786,6 +1776,8 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 	trap_Cvar_Register( &mapname, "mapname", "", CVAR_SERVERINFO | CVAR_ROM );
 	trap_Cvar_Register( &ckSum, "sv_mapChecksum", "", CVAR_ROM );
 
+	Q_strncpyz(level.mapname, mapname.string, sizeof(level.mapname));
+
 	navCalculatePaths	= ( trap_Nav_Load( mapname.string, ckSum.integer ) == qfalse );
 
 	// parse the key/value pairs and spawn gentities
@@ -1880,48 +1872,16 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 
 	G_LoadHelpFile( "help.txt" );
 
-	G_DBLoadDatabase();
+	G_DBLoadDatabase(serverDbPtr);
 
-	if ( g_gametype.integer == GT_CTF && g_enableRacemode.integer ) {
-		// load capture records for this map
+	G_DBInitializePugStatsCache();
+	G_DBCacheAutoLinks();
+	
+	LoadAimPacks();
 
-		const char *arenaInfo = G_GetArenaInfoByMap( mapname.string );
-		qboolean racemodeOkay = qtrue, waypointsOkay = qtrue;
-
-		if ( VALIDSTRING( arenaInfo ) ) {
-			const char *mapFlags = Info_ValueForKey( arenaInfo, "b_e_flags" );
-
-			if ( VALIDSTRING( mapFlags ) ) {
-				int mapFlagsInt = atoi(mapFlags);
-
-				// this flag disables toptimes on this map
-				if (mapFlagsInt & ARENAINFO_B_E_FLAG_DISABLETOPTIMES)
-					racemodeOkay = qfalse;
-
-				// this flag disables waypoints/weekly challenge on this map
-				if (mapFlagsInt & ARENAINFO_B_E_FLAG_DISABLEWAYPOINTS)
-					waypointsOkay = qfalse;
-			}
-		}
-
-		if (racemodeOkay) {
-			if (!Q_stricmp(mapname.string, "mp/ctf_dash2"))
-				waypointsOkay = qfalse;
-
-			if (waypointsOkay)
-				InitializeWaypoints(randomSeed);
-
-			int recordsLoaded = G_DBLoadCaptureRecords(mapname.string, &level.mapCaptureRecords);
-			if (recordsLoaded) {
-				G_Printf("Loaded %d capture time records from database\n", recordsLoaded);
-			}
-		}
-		else {
-			level.mapCaptureRecords.enabled = qfalse;
-		}
-	} else {
-		level.mapCaptureRecords.enabled = qfalse;
-	}
+	// only enable racemode records in ctf
+	level.racemodeRecordsEnabled = g_gametype.integer == GT_CTF && g_enableRacemode.integer;
+	level.topAimRecordsEnabled = g_gametype.integer == GT_CTF && g_enableAimPractice.integer;
 
 	// reset capturedifflimit on map rs
 	trap_Cvar_Set( "capturedifflimit", g_default_capturedifflimit.string );
@@ -1929,6 +1889,12 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 	G_BroadcastServerFeatureList(-1);
 
 	G_InitVchats();
+
+	TeamGen_Initialize();
+	G_DBGetPlayerRatings();
+
+	if (restart)
+		TeamGen_ClearRemindPositions();
 }
 
 
@@ -1939,6 +1905,8 @@ G_ShutdownGame
 =================
 */
 void G_ShutdownGame( int restart ) {
+	trap_Cvar_Set("g_notFirstMap", "1");
+
 	int i = 0;
 	gentity_t *ent;
 
@@ -2024,15 +1992,73 @@ void G_ShutdownGame( int restart ) {
 	// accounts system
 	//cleanDB();
 
-	// save the capture records for this map
-	int recordsSaved = G_DBSaveCaptureRecords( &level.mapCaptureRecords );
-	if ( recordsSaved > 0 ) {
-		G_Printf( "Saved %d capture time records to database\n", recordsSaved );
-	}
+	SaveDeleteAndFreeAimPacks();
 
     G_DBUnloadDatabase();
 
-	kd_free(level.locations.enhanced.lookupTree);
+	ListClear(&level.redPlayerTickList);
+	ListClear(&level.bluePlayerTickList);
+	ListClear(&level.disconnectedPlayerList);
+
+	ListClear(&level.info_b_e_locationsList);
+
+	iterator_t iter;
+	ListIterate(&level.statsList, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		stats_t *stats = IteratorNext(&iter);
+		ListClear(&stats->damageGivenList);
+		ListClear(&stats->damageTakenList);
+		ListClear(&stats->teammatePositioningList);
+	}
+	ListClear(&level.statsList);
+
+	ListIterate(&level.cachedPositionStats, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		cachedPlayerPugStats_t *c = IteratorNext(&iter);
+		if (c->strPtr)
+			free(c->strPtr);
+	}
+	ListClear(&level.cachedPositionStats);
+	ListClear(&level.cachedPositionStatsRaw);
+
+	ListIterate(&level.cachedWinrates, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		cachedPlayerPugStats_t *c = IteratorNext(&iter);
+		if (c->strPtr)
+			free(c->strPtr);
+	}
+	ListClear(&level.cachedWinrates);
+
+	ListIterate(&level.cachedPerMapWinrates, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		cachedPerMapWinrate_t *c = IteratorNext(&iter);
+		if (c->strPtr)
+			free(c->strPtr);
+	}
+	ListClear(&level.cachedPerMapWinrates);
+
+	ListClear(&level.ratingList);
+	ListClear(&level.mostPlayedPositionsList);
+
+	ListIterate(&level.pugProposalsList, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		pugProposal_t *p = IteratorNext(&iter);
+		ListClear(&p->avoidedHashesList);
+	}
+	ListClear(&level.pugProposalsList);
+
+	ListClear(&level.barredPlayersList);
+	ListClear(&level.forcedPickablePermabarredPlayersList);
+
+	ListIterate(&level.queuedServerMessagesList, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		queuedServerMessage_t *msg = IteratorNext(&iter);
+		if (msg->text)
+			free(msg->text);
+	}
+	ListClear(&level.queuedServerMessagesList);
+	ListClear(&level.autoLinksList);
+	ListClear(&level.rustyPlayersList);
 
 	UnpatchEngine();
 }
@@ -2673,10 +2699,40 @@ void CalculateRanks( void ) {
 	}
 
 	// set the CS_SCORES1/2 configstrings, which will be visible to everyone
-	if ( g_gametype.integer >= GT_TEAM ) {
-		trap_SetConfigstring( CS_SCORES1, va("%i", level.teamScores[TEAM_RED] ) );
-		trap_SetConfigstring( CS_SCORES2, va("%i", level.teamScores[TEAM_BLUE] ) );
-	} else {
+	if (g_gametype.integer >= GT_TEAM) {
+		// if in ctf and there are no flags at all on this map, just show total frags
+		if (g_gametype.integer == GT_CTF) {
+			static qboolean checkedForFlags = qfalse, thereAreFlags = qfalse;
+			if (!checkedForFlags) {
+				checkedForFlags = qtrue;
+				if (G_Find(NULL, FOFS(classname), "team_CTF_redflag") && G_Find(NULL, FOFS(classname), "team_CTF_blueflag"))
+					thereAreFlags = qtrue;
+			}
+
+			if (thereAreFlags) {
+				trap_SetConfigstring(CS_SCORES1, va("%i", level.teamScores[TEAM_RED]));
+				trap_SetConfigstring(CS_SCORES2, va("%i", level.teamScores[TEAM_BLUE]));
+			}
+			else {
+				int redFrags = 0, blueFrags = 0;
+				for (int i = 0; i < level.maxclients; i++) {
+					if (level.clients[i].pers.connected != CON_CONNECTED)
+						continue;
+					if (level.clients[i].sess.sessionTeam == TEAM_RED)
+						redFrags += level.clients[i].ps.persistant[PERS_SCORE];
+					else if (level.clients[i].sess.sessionTeam == TEAM_BLUE)
+						blueFrags += level.clients[i].ps.persistant[PERS_SCORE];
+				}
+				trap_SetConfigstring(CS_SCORES1, va("%i", redFrags));
+				trap_SetConfigstring(CS_SCORES2, va("%i", blueFrags));
+			}
+		}
+		else {
+			trap_SetConfigstring(CS_SCORES1, va("%i", level.teamScores[TEAM_RED]));
+			trap_SetConfigstring(CS_SCORES2, va("%i", level.teamScores[TEAM_BLUE]));
+		}
+	}
+	else {
 		if ( level.numConnectedClients == 0 ) {
 			trap_SetConfigstring( CS_SCORES1, va("%i", SCORE_NOT_PRESENT) );
 			trap_SetConfigstring( CS_SCORES2, va("%i", SCORE_NOT_PRESENT) );
@@ -2790,6 +2846,7 @@ void MoveClientToIntermission( gentity_t *ent ) {
 	ent->s.loopIsSoundset = qfalse;
 	ent->s.event = 0;
 	ent->r.contents = 0;
+	ExitAimTraining(ent);
 }
 
 /*
@@ -2860,8 +2917,6 @@ BeginIntermission
 */
 //ghost debug
 
-extern void PrintStatsTo( gentity_t *ent, const char *type, char* outputBuffer, size_t outSize );
-
 void BeginIntermission(void) {
 	int			i;
 	gentity_t* client;
@@ -2891,10 +2946,6 @@ void BeginIntermission(void) {
 		}
 	}
 
-	//*CHANGE 32* printing tops on intermission
-	if (g_gametype.integer == GT_CTF) {//NYI
-	}
-
 	level.intermissiontime = level.time;
 	FindIntermissionPoint();
 
@@ -2920,13 +2971,34 @@ void BeginIntermission(void) {
 	// send the current scoring to all clients
 	SendScoreboardMessageToAllClients();
 
-	char statsBuf[4096] = { 0 };
+	FinalizeCTFPositions();
+	CheckAccountsOfOldBlocks(-1);
+
+	const int statsBufSize = 65536;
+	char *statsBuf = calloc(65536, sizeof(char));
 
 	if (g_autoStats.integer) {
-		PrintStatsTo(NULL, "general", statsBuf, sizeof(statsBuf));
-		PrintStatsTo(NULL, "force", statsBuf, sizeof(statsBuf));
+		Stats_Print(NULL, "general", statsBuf, statsBufSize, qtrue, NULL);
+		Stats_Print(NULL, "damage", statsBuf, statsBufSize, qtrue, NULL);
+		Stats_Print(NULL, "accuracy", statsBuf, statsBufSize, qtrue, NULL);
+		Stats_Print(NULL, "weapon", statsBuf, statsBufSize, qfalse, NULL);
 		Q_StripColor(statsBuf);
+
+		// print each player their own individual weapon stats
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			if (g_entities[i].inuse && level.clients[i].pers.connected != CON_DISCONNECTED &&
+				(level.clients[i].sess.sessionTeam == TEAM_RED || level.clients[i].sess.sessionTeam == TEAM_BLUE) &&
+				level.clients[i].stats && StatsValid(level.clients[i].stats)) {
+				Stats_Print(&g_entities[i], "weapon", NULL, 0, qtrue, level.clients[i].stats);
+			}
+		}
 	}
+
+	SendMachineFriendlyStats();
+
+	char timeBuf[MAX_STRING_CHARS] = { 0 };
+	Com_sprintf(timeBuf, sizeof(timeBuf), "%d", (int)time(NULL));
+	trap_Cvar_Set("g_lastIntermissionStartTime", timeBuf);
 
 	if (level.numTeamTicks) {
 		float avgRed = (float)level.numRedPlayerTicks / (float)level.numTeamTicks;
@@ -2944,6 +3016,16 @@ void BeginIntermission(void) {
 		// * the sum of these average integers is >= 4 (at least 2s)
 		// * both averages are within +/- 0.1 of their rounded values
 		// (accounts for subs, ragequits, random joins... 0.1 represents 2 mins of a 20 mins pug)
+#ifdef DEBUG_CTF_POSITION_STATS
+		if (level.wasRestarted) {
+			G_PostScoreboardToWebhook(statsBuf);
+			G_DBAddCurrentMapToPlayedMapsList();
+			if (avgRedInt == 4 && avgBlueInt == 4 && !InstagibEnabled()) { // only write stats to db in 4v4
+				G_DBWritePugStats();
+				trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
+			}
+		}
+#else
 		if (level.wasRestarted &&
 			durationMins >= 10 &&
 			avgRedInt == avgBlueInt &&
@@ -2952,8 +3034,16 @@ void BeginIntermission(void) {
 			fabs(avgBlue - round(avgBlue)) < 0.1f)
 		{
 			G_PostScoreboardToWebhook(statsBuf);
+			G_DBAddCurrentMapToPlayedMapsList();
+			if (avgRedInt == 4 && avgBlueInt == 4 && !InstagibEnabled()) { // only write stats to db in 4v4
+				G_DBWritePugStats();
+				trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
+			}
 		}
+#endif
 	}
+
+	free(statsBuf);
 }
 
 qboolean DuelLimitHit(void)
@@ -3235,10 +3325,10 @@ void LogExit( const char *string ) {
 		if ((cl->ps.powerups[PW_BLUEFLAG] || cl->ps.powerups[PW_REDFLAG]) && !cl->sess.inRacemode){
 			const int thisFlaghold = G_GetAccurateTimerOnTrigger( &cl->pers.teamState.flagsince, &g_entities[level.sortedClients[i]], NULL );
 
-			cl->pers.teamState.flaghold += thisFlaghold;
+			cl->stats->totalFlagHold += thisFlaghold;
 
-			if ( thisFlaghold > cl->pers.teamState.longestFlaghold )
-				cl->pers.teamState.longestFlaghold = thisFlaghold;
+			if ( thisFlaghold > cl->stats->longestFlagHold )
+				cl->stats->longestFlagHold = thisFlaghold;
 
 			if ( cl->ps.powerups[PW_REDFLAG] ) {
 				// carried the red flag, so blue team
@@ -3251,7 +3341,13 @@ void LogExit( const char *string ) {
 
 		if ( cl->ps.fd.forcePowersActive & ( 1 << FP_PROTECT ) ) {
 			if ( cl->pers.protsince && cl->pers.protsince < level.time ) {
-				cl->pers.protTimeUsed += level.time - cl->pers.protsince;
+				cl->stats->protTimeUsed += level.time - cl->pers.protsince;
+			}
+		}
+
+		if (cl->ps.fd.forcePowersActive & (1 << FP_RAGE)) {
+			if (cl->pers.ragesince && cl->pers.ragesince < level.time) {
+				cl->stats->rageTimeUsed += level.time - cl->pers.ragesince;
 			}
 		}
 
@@ -3782,6 +3878,9 @@ void CheckExitRules( void ) {
 				return;
 			}
 
+	if (!g_nonLiveMatchesCanEnd.integer && g_gametype.integer == GT_CTF && !level.wasRestarted)
+		return;
+
 	// check for sudden death
 	if (g_gametype.integer != GT_SIEGE)
 	{
@@ -4236,7 +4335,7 @@ CheckVote
 ==================
 */
 extern void SiegeClearSwitchData(void);
-extern int* BuildVoteResults( const int numChoices, int *numVotes, int *highestVoteCount );
+extern int* BuildVoteResults( int numChoices, int *numVotes, int *highestVoteCount );
 
 void CheckVote( void ) {
 	if ( level.voteExecuteTime && level.voteExecuteTime < level.time ) {
@@ -4387,11 +4486,20 @@ void CheckVote( void ) {
 		int *voteResults = BuildVoteResults( level.multiVoteChoices, &numVotes, &highestVoteCount );
 		free( voteResults );
 
-		// the vote ends when a map has >50% majority, when everyone voted, or when the vote timed out
-		if ( highestVoteCount >= ( ( level.numVotingClients / 2 ) + 1 ) || numVotes >= level.numVotingClients || level.time - level.voteTime >= VOTE_TIME ) {
-			G_LogPrintf( "Multi vote ended (%d voters)\n", numVotes );
+// the vote ends when a map has >50% majority, when everyone voted, or when the vote timed out
+		if (level.time - level.voteTime >= VOTE_TIME && !DoRunoff()) {
+			G_LogPrintf("Multi vote ended due to time (%d voters)\n", numVotes);
 			level.voteExecuteTime = level.time; // in this special case, execute it now. the delay is done in the svcmd
-		} else {
+		}
+		else if ( highestVoteCount >= ( ( level.numVotingClients / 2 ) + 1 )) {
+			G_LogPrintf( "Multi vote ended due to majority vote (%d voters)\n", numVotes );
+			level.voteExecuteTime = level.time; // in this special case, execute it now. the delay is done in the svcmd
+		}
+		else if (numVotes >= level.numVotingClients && !DoRunoff()) {
+			G_LogPrintf("Multi vote ended due to everyone voted, no majority, and no runoff (%d voters)\n", numVotes);
+			level.voteExecuteTime = level.time; // in this special case, execute it now. the delay is done in the svcmd
+		}
+		else {
 			return;
 		}
 	}
@@ -4649,6 +4757,8 @@ Runs thinking code for this frame if necessary
 */
 extern void proxMineThink(gentity_t *ent);
 extern void SiegeItemThink( gentity_t *ent );
+extern void pas_think(gentity_t *ent);
+extern void thermalThinkStandard(gentity_t *ent);
 
 void G_RunThink (gentity_t *ent) {
 	int	thinktime;
@@ -4667,6 +4777,13 @@ void G_RunThink (gentity_t *ent) {
         if ( ent->think == SiegeItemThink && ent->genericValue9 > level.time )
             ent->genericValue9 += level.time - level.previousTime;
 
+		// more special cases, sentry
+		if (ent->think == pas_think)
+			ent->genericValue8 += level.time - level.previousTime;
+
+		// another special case, thermal primaries
+		if (ent->think == thermalThinkStandard)
+			ent->genericValue5 += level.time - level.previousTime;
 	}
 
 	thinktime = ent->nextthink;
@@ -4937,7 +5054,7 @@ static void WaitForAFKs(void) {
 	else if (numAfks == 2)
 		Q_strncpyz(failReason, va("Waiting for %s^7\nand %s^7 to unAFK", level.clients[afkGuy1].pers.netname, level.clients[afkGuy2].pers.netname), sizeof(failReason));
 	else if (numAfks == 1)
-		Q_strncpyz(failReason, va("Waiting for %s^7 to unAFK", level.clients[afkGuy1].pers.netname), sizeof(failReason));
+		Q_strncpyz(failReason, va("Waiting for %s^7 to %s", level.clients[afkGuy1].pers.netname, Q_stristrclean(level.clients[afkGuy1].pers.netname, "hannah") ? "hunAFK" : "unAFK"), sizeof(failReason));
 
 	static int lastCenterPrintTime = 0;
 	if (currentCountdown) {
@@ -4973,6 +5090,22 @@ static void WaitForAFKs(void) {
 			}
 		}
 	}	
+}
+
+#define RECALCULATE_TEAM_BALANCE_INTERVAL (5000)
+
+// recalculate team balance every few seconds. if someone tries to sub, we will be able to compare the hypothetical new balance to the previous balance.
+static void PeriodicallyRecalculateTeamBalance(void) {
+	if (!g_vote_teamgen_subhelp.integer || g_gametype.integer != GT_CTF || !level.wasRestarted || level.someoneWasAFK || (level.time - level.startTime) < (CTFPOSITION_MINIMUM_SECONDS * 1000) || !level.numTeamTicks || level.pause.state != PAUSE_NONE)
+		return;
+
+	static int lastTime = 0;
+	int now = trap_Milliseconds();
+	if (now - lastTime < RECALCULATE_TEAM_BALANCE_INTERVAL)
+		return;
+
+	lastTime = now;
+	RecalculateTeamBalance();
 }
 
 /*
@@ -5123,9 +5256,9 @@ void G_ApplyRaceBroadcastsToEvent( gentity_t *parent, gentity_t *ev ) {
 	if ( playInRaceDimension ) {
 		ev->r.broadcastClients[1] |= ~( level.racemodeClientMask | level.racemodeSpectatorMask ); // hide to in game players...
 		ev->r.broadcastClients[1] |= level.racemodeClientsHidingOtherRacersMask; // ...hide to racers who disabled seeing other racers as well...
+		ev->r.broadcastClients[1] &= ~level.ingameClientsSeeingInRaceMask; // ...and show to ig players who enabled seeing racemode stuff
 		if ( raceClientNum >= 0 && raceClientNum < MAX_CLIENTS )
 			ev->r.broadcastClients[1] &= ~( 1 << raceClientNum ); // ...but show to the client num associated with this event if there is one...
-		ev->r.broadcastClients[1] &= ~level.ingameClientsSeeingInRaceMask; // ...and show to ig players who enabled seeing racemode stuff
 	} else {
 		ev->r.broadcastClients[1] |= level.racemodeClientMask; // hide to racers...
 		ev->r.broadcastClients[1] &= level.racemodeClientsHidingIngameMask; // ...but show to racers who didn't disable seeing in game stuff...
@@ -5165,6 +5298,29 @@ void G_UpdateNonClientBroadcasts( gentity_t *self ) {
 	}
 #endif
 
+	if (self->isAimPracticePack) {
+		self->r.broadcastClients[1] |= ~(level.racemodeClientMask | level.racemodeSpectatorMask); // ...hide to non racers
+		self->r.broadcastClients[1] &= (level.racemodeClientMask | level.racemodeSpectatorMask); // ...show to racers and racespectators
+		self->r.broadcastClients[1] &= ~level.ingameClientsSeeingInRaceMask; // ...and show to ig players who enabled seeing racemode stuff
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *thisEnt = &g_entities[i];
+			if (!thisEnt->inuse || !thisEnt->client)
+				continue;
+
+			if (thisEnt->client->sess.inRacemode) {
+				if ((level.racemodeClientsHidingOtherRacersMask & (1 << i)) && thisEnt->aimPracticeEntBeingUsed && thisEnt->aimPracticeEntBeingUsed != self)
+					self->r.broadcastClients[1] |= (1 << i); // ...hide to racers that are hiding other racers and not using this one
+				else if ((thisEnt->client->sess.racemodeFlags & RMF_HIDEBOTS) && thisEnt->aimPracticeEntBeingUsed != self)
+					self->r.broadcastClients[1] |= (1 << i); // ...hide to racers that are hiding bots and not using this one
+			}
+			else {
+				if (!thisEnt->client->sess.seeAimBotsWhileIngame)
+					self->r.broadcastClients[1] |= (1 << i); // ...hide to ingame players that are not explicitly showing bots while ingame)
+			}
+		}
+		return;
+	}
+
 	if ( self->s.eType == ET_MISSILE && self->r.ownerNum >= 0 && self->r.ownerNum < MAX_CLIENTS ) {
 
 		// special case: this is a missile with an owner
@@ -5177,9 +5333,12 @@ void G_UpdateNonClientBroadcasts( gentity_t *self ) {
 			self->r.broadcastClients[1] |= level.racemodeSpectatorMask; // ...and hide it to racespectators
 		} else {
 			// its owner is in racemode...
-			self->r.broadcastClients[1] |= ~( level.racemodeClientMask | level.racemodeSpectatorMask ); // ...hide to non racers
-			self->r.broadcastClients[1] |= level.racemodeClientMask; // ...hide to racers as well
-			self->r.broadcastClients[1] &= ~( 1 << ( self->r.ownerNum % 32 ) ); // ...but show it to its owner
+			self->r.broadcastClients[1] = -1;
+			self->r.broadcastClients[1] &= ~level.racemodeClientMask; // ...show to racers
+			self->r.broadcastClients[1] &= ~level.racemodeSpectatorMask; // ...show to racespectators
+			self->r.broadcastClients[1] |= level.racemodeClientsHidingOtherRacersMask; // ...but hide to racers hiding other racers
+			self->r.broadcastClients[1] &= ~level.ingameClientsSeeingInRaceMask; // ...and show to ig players who enabled seeing racemode stuff
+			self->r.broadcastClients[1] &= ~(1 << (self->r.ownerNum % 32)); // ...always show it to its owner
 		}
 
 	} else {
@@ -5199,23 +5358,367 @@ void G_UpdateNonClientBroadcasts( gentity_t *self ) {
 #endif
 }
 
-static qboolean PlayerTouchingWaypoint(gentity_t* player, int waypointNum) {
-	if (!level.waypointsValid || !player || waypointNum < 0 || waypointNum >= NUM_WAYPOINTS) {
-		assert(qfalse);
-		//return qfalse;
-	}
+static qboolean SessionIdMatches(genericNode_t *node, void *userData) {
+	tickPlayer_t *existing = (tickPlayer_t *)node;
+	session_t *thisGuy = (session_t *)userData;
 
-	for (int axis = 0; axis < 3; axis++) {
-		if (player->r.currentOrigin[axis] < level.waypointLowerBounds[waypointNum][axis])
-			return qfalse;
+	if (!existing || !thisGuy)
+		return qfalse;
+	
+	if (thisGuy->accountId != ACCOUNT_ID_UNLINKED && thisGuy->accountId == existing->accountId)
+		return qtrue; // matches a linked account
 
-		if (player->r.currentOrigin[axis] > level.waypointUpperBounds[waypointNum][axis])
-			return qfalse;
-	}
+	if (existing->sessionId == thisGuy->id)
+		return qtrue; // matches a session
 
-	return qtrue;
+	return qfalse;
 }
 
+// adds a tick to a player's tick count for a particular team, even if he left and rejoined
+// allows tracking ragequitters and subs for the discord webhook, as well as using account names/nicknames instead of ingame names
+extern qboolean isRedFlagstand(gentity_t *ent);
+extern qboolean isBlueFlagstand(gentity_t *ent);
+
+qboolean MatchesCtfPositioningData(genericNode_t *node, void *userData) {
+	ctfPositioningData_t *existing = (ctfPositioningData_t *)node;
+	stats_t *thisGuy = (stats_t *)userData;
+
+	if (!existing || !thisGuy)
+		return qfalse;
+
+	if (existing->stats == thisGuy)
+		return qtrue;
+
+	return qfalse;
+}
+
+static void AddPlayerTick(team_t team, gentity_t *ent) {
+	if (!ent->client)
+		return;
+
+	++ent->client->stats->ticksNotPaused;
+
+	if (!level.wasRestarted)
+		return;
+
+	gclient_t *cl = ent->client;
+	level.lastPlayerTickAddedTime = level.time;
+	ent->client->stats->lastTickIngameTime = level.time;
+
+	// if i've been alive at least a few seconds, and i've done some input within the last few seconds, log my data
+	qboolean validLocationSample = !!(ent->health > 0 && level.time - ent->client->pers.lastSpawnTime >= CTFPOS_POSTSPAWN_DELAY_MS &&
+		ent->client->lastInputTime && trap_Milliseconds() - ent->client->lastInputTime < 10000);
+
+	float loc;
+	if (validLocationSample) {
+		loc = GetCTFLocationValue(ent);
+
+		// note our own location
+		++ent->client->stats->numLocationSamplesRegardlessOfFlagHolding;
+		if (HasFlag(ent)) {
+			ent->client->stats->totalLocationWithFlag += loc;
+			++ent->client->stats->numLocationSamplesWithFlag;
+		}
+		else {
+			ent->client->stats->totalLocationWithoutFlag += loc;
+			++ent->client->stats->numLocationSamplesWithoutFlag;
+		}
+	}
+
+	// record our location in everyone else's stats so that people's positioning can only be compared to people they were ingame contemporaneously with
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *other = &g_entities[i];
+		if (other == ent || !other->inuse || !other->client || other->client->pers.connected != CON_CONNECTED || other->client->sess.sessionTeam != ent->client->sess.sessionTeam)
+			continue;
+		ctfPositioningData_t *data = ListFind(&other->client->stats->teammatePositioningList, MatchesCtfPositioningData, cl->stats, NULL);
+		if (!data) {
+			data = ListAdd(&other->client->stats->teammatePositioningList, sizeof(ctfPositioningData_t));
+			data->stats = cl->stats;
+		}
+
+		++data->numTicksIngameWithMe; // increment this regardless of whether the position sample is valid
+
+		if (validLocationSample) {
+			++data->numLocationSamplesIngameWithMe;
+			if (HasFlag(ent)) {
+				data->totalLocationWithFlagWithMe += loc;
+				++data->numLocationSamplesWithFlagWithMe;
+			}
+			else {
+				data->totalLocationWithoutFlagWithMe += loc;
+				++data->numLocationSamplesWithoutFlagWithMe;
+			}
+		}
+	}
+
+	if (!ent->client->session)
+		return;
+	list_t *list = team == TEAM_RED ? &level.redPlayerTickList : &level.bluePlayerTickList;
+	tickPlayer_t *found = ListFind(list, SessionIdMatches, cl->session, NULL);
+
+	if (found) { // this guy is already tracked
+		found->numTicks++;
+		found->accountId = cl->session->accountId; // update the tracked account id, in case an admin assigned him an account during this match
+		const char *name = (cl->account && VALIDSTRING(cl->account->name)) ? cl->account->name : (cl->pers.netname[0] ? cl->pers.netname : "Padawan");
+		Q_strncpyz(found->name, name, sizeof(found->name));
+		return;
+	}
+
+	// not yet tracked; add him to the list
+	tickPlayer_t *add = ListAdd(list, sizeof(tickPlayer_t));
+	add->printed = qfalse;
+	add->clientNum = cl - level.clients;
+	add->numTicks = 1;
+	add->sessionId = cl->session->id;
+	add->accountId = cl->session->accountId;
+	const char *name = (cl->account && VALIDSTRING(cl->account->name)) ? cl->account->name : (cl->pers.netname[0] ? cl->pers.netname : "Padawan");
+	Q_strncpyz(add->name, name, sizeof(add->name));
+}
+
+animNumber_t RPSAnim(const char choiceChar) {
+	switch (choiceChar) {
+	case 'p': return BOTH_FORCELIGHTNING_START;
+	case 's': return BOTH_DEATH_LYING_UP;
+	default: return BOTH_MELEE1;
+	}
+}
+
+char *RPSString(const char choiceChar) {
+	switch (choiceChar) {
+	case 'p': return "Paper";
+	case 's': return "Scissors";
+	default: return "Rock";
+	}
+}
+
+char *RPSWinString(const char choiceChar) {
+	switch (choiceChar) {
+	case 'p': return "covers";
+	case 's': return "cuts";
+	default: return "crushes";
+	}
+}
+
+static void RunRockPaperScissors(void) {
+	if (!g_rockPaperScissors.integer || level.intermissiontime || g_gametype.integer != GT_CTF)
+		return;
+
+	qboolean handledClient[MAX_CLIENTS] = { qfalse };
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		if (handledClient[i])
+			continue;
+
+		gentity_t *ent = &g_entities[i];
+		if (!ent->client)
+			continue;
+
+		if (!ent->inuse || ent->health < 1 || ent->client->sess.sessionTeam == TEAM_SPECTATOR) {
+			ent->client->rockPaperScissorsOtherClientNum = ENTITYNUM_NONE;
+			ent->client->rockPaperScissorsChallengeTime = 0;
+			ent->client->rockPaperScissorsStartTime = 0;
+			ent->client->rockPaperScissorsBothChosenTime = 0;
+			ent->client->rockPaperScissorsChoice = '\0';
+			continue;
+		}
+
+		if (!ent->client->rockPaperScissorsStartTime) {
+			ent->client->rockPaperScissorsBothChosenTime = 0;
+			ent->client->rockPaperScissorsChoice = '\0';
+			continue;
+		}
+
+		if (ent->client->rockPaperScissorsOtherClientNum >= MAX_CLIENTS) {
+			// has start time but no other client
+			ent->client->rockPaperScissorsOtherClientNum = ENTITYNUM_NONE;
+			ent->client->rockPaperScissorsChallengeTime = 0;
+			ent->client->rockPaperScissorsStartTime = 0;
+			ent->client->rockPaperScissorsBothChosenTime = 0;
+			ent->client->rockPaperScissorsChoice = '\0';
+			continue;
+		}
+
+		gentity_t *other = &g_entities[ent->client->rockPaperScissorsOtherClientNum];
+		if (!other->inuse || !other->client || other->client->pers.connected != CON_CONNECTED || other->health < 1 || other->client->sess.sessionTeam == TEAM_SPECTATOR || other->client->sess.inRacemode != ent->client->sess.inRacemode) {
+			// has start time and other client, but other client is invalid
+			ent->client->rockPaperScissorsOtherClientNum = ENTITYNUM_NONE;
+			ent->client->rockPaperScissorsChallengeTime = 0;
+			ent->client->rockPaperScissorsStartTime = 0;
+			ent->client->rockPaperScissorsBothChosenTime = 0;
+			ent->client->rockPaperScissorsChoice = '\0';
+			if (other->client) {
+				other->client->rockPaperScissorsOtherClientNum = ENTITYNUM_NONE;
+				other->client->rockPaperScissorsChallengeTime = 0;
+				other->client->rockPaperScissorsStartTime = 0;
+				other->client->rockPaperScissorsBothChosenTime = 0;
+				other->client->rockPaperScissorsChoice = '\0';
+			}
+			continue;
+		}
+
+		if (handledClient[other - g_entities])
+			continue;
+
+		// mark them as handled so that the other person doesn't run later in the loop
+		handledClient[ent - g_entities] = qtrue;
+		handledClient[other - g_entities] = qtrue;
+
+		if (ent->client->rockPaperScissorsChoice && other->client->rockPaperScissorsChoice) {
+			static qboolean initialized = qfalse;
+			static int effectId = 0;
+			if (!initialized) {
+				effectId = G_EffectIndex("ships/ship_explosion2");
+				initialized = qtrue;
+			}
+
+			gentity_t *winner, *loser;
+			if ((other->client->rockPaperScissorsChoice == 'r' && ent->client->rockPaperScissorsChoice == 'p') ||
+				(other->client->rockPaperScissorsChoice == 'p' && ent->client->rockPaperScissorsChoice == 's') ||
+				(other->client->rockPaperScissorsChoice == 's' && ent->client->rockPaperScissorsChoice == 'r')) {
+				winner = ent;
+				loser = other;
+			}
+			else {
+				winner = other;
+				loser = ent;
+			}
+
+			char *winnerString = va("Your %s %s %s^7's %s\n\n^2You win!",
+				RPSString(winner->client->rockPaperScissorsChoice),
+				RPSWinString(winner->client->rockPaperScissorsChoice),
+				loser->client->pers.netname,
+				RPSString(loser->client->rockPaperScissorsChoice));
+			char *loserString = va("%s^7's %s %s your %s\n\n^1You lose!",
+				winner->client->pers.netname,
+				RPSString(winner->client->rockPaperScissorsChoice),
+				RPSWinString(winner->client->rockPaperScissorsChoice),
+				RPSString(loser->client->rockPaperScissorsChoice));
+			char *drawString = va("Draw!\n(%s vs %s)", RPSString(ent->client->rockPaperScissorsChoice), RPSString(other->client->rockPaperScissorsChoice));
+
+			qboolean bothChosenTimeAlreadySet = !!(ent->client->rockPaperScissorsBothChosenTime || other->client->rockPaperScissorsBothChosenTime);
+			if (!bothChosenTimeAlreadySet) {
+				ent->client->rockPaperScissorsBothChosenTime = other->client->rockPaperScissorsBothChosenTime = level.time;
+				ent->client->ps.torsoAnim = other->client->ps.torsoAnim = BOTH_STAND1;
+				ent->client->ps.torsoTimer = other->client->ps.torsoTimer = 0;
+			}
+			else if (level.time - ent->client->rockPaperScissorsBothChosenTime >= 7050 || level.time - other->client->rockPaperScissorsBothChosenTime >= 7050) {
+				if (ent->client->rockPaperScissorsChoice != other->client->rockPaperScissorsChoice) {
+					vec3_t dir = { 0, 0, 1 };
+					vec3_t explodeVec;
+					VectorCopy(loser->r.currentOrigin, explodeVec);
+					explodeVec[2] += loser->client->ps.viewheight;
+					if (effectId) {
+						gentity_t *te = G_PlayEffectID(effectId, explodeVec, dir);
+						G_ApplyRaceBroadcastsToEvent(loser, te);
+					}
+					loser->client->rockPaperScissorsStartTime = 0; // to allow the damage to hit
+					G_Damage(loser, winner, winner, vec3_origin, vec3_origin, 999999, DAMAGE_NO_PROTECTION, MOD_SUICIDE);
+				}
+
+				ent->client->rockPaperScissorsStartTime = other->client->rockPaperScissorsStartTime = 0;
+				ent->client->rockPaperScissorsOtherClientNum = other->client->rockPaperScissorsOtherClientNum = ENTITYNUM_NONE;
+				ent->client->rockPaperScissorsChoice = other->client->rockPaperScissorsChoice = '\0';
+				ent->client->rockPaperScissorsChallengeTime = other->client->rockPaperScissorsChallengeTime = 0;
+				ent->client->rockPaperScissorsBothChosenTime = other->client->rockPaperScissorsBothChosenTime = 0;
+			}
+			else if (level.time - ent->client->rockPaperScissorsBothChosenTime >= 3050 || level.time - other->client->rockPaperScissorsBothChosenTime >= 3050) {
+				ent->client->ps.torsoAnim = RPSAnim(ent->client->rockPaperScissorsChoice);
+				other->client->ps.torsoAnim = RPSAnim(other->client->rockPaperScissorsChoice);
+				if (!ent->client->rockPaperScissorsChallengeTime && !other->client->rockPaperScissorsChallengeTime &&
+					(level.time - ent->client->rockPaperScissorsBothChosenTime >= 5050 || level.time - other->client->rockPaperScissorsBothChosenTime >= 5050)) {
+					// refresh the message after a couple seconds
+					ent->client->rockPaperScissorsChallengeTime = other->client->rockPaperScissorsChallengeTime = 1;
+					if (ent->client->rockPaperScissorsChoice == other->client->rockPaperScissorsChoice) {
+						CenterPrintToPlayerAndFollowers(ent, drawString);
+						CenterPrintToPlayerAndFollowers(other, drawString);
+					}
+					else {
+						CenterPrintToPlayerAndFollowers(winner, winnerString);
+						CenterPrintToPlayerAndFollowers(loser, loserString);
+					}
+				}
+				if (ent->client->rockPaperScissorsChallengeTime && other->client->rockPaperScissorsChallengeTime &&
+					ent->client->rockPaperScissorsChallengeTime != 1 && other->client->rockPaperScissorsChallengeTime != 1) {
+					ent->client->ps.torsoTimer = other->client->ps.torsoTimer = 4000;
+					ent->client->rockPaperScissorsChallengeTime = other->client->rockPaperScissorsChallengeTime = 0;
+					if (ent->client->rockPaperScissorsChoice == other->client->rockPaperScissorsChoice) {
+						CenterPrintToPlayerAndFollowers(ent, drawString);
+						CenterPrintToPlayerAndFollowers(other, drawString);
+						char *print = va("%s^7 and %s^7 had a draw (%s).\n",
+							ent->client->pers.netname,
+							other->client->pers.netname,
+							RPSString(ent->client->rockPaperScissorsChoice));
+						if (ent->client->sess.inRacemode)
+							G_PrintBasedOnRacemode(print, qtrue);
+						else
+							PrintIngame(-1, print);
+					}
+					else {
+						CenterPrintToPlayerAndFollowers(winner, winnerString);
+						CenterPrintToPlayerAndFollowers(loser, loserString);
+
+						//G_AddEvent(winner, EV_TAUNT, 0);
+						G_EntitySound(loser, CHAN_VOICE, G_SoundIndex("*falling1.wav"));
+
+						char *print = va("%s^7 (%s) has defeated %s^7 (%s)!\n",
+							winner->client->pers.netname,
+							RPSString(winner->client->rockPaperScissorsChoice),
+							loser->client->pers.netname,
+							RPSString(loser->client->rockPaperScissorsChoice));
+						if (ent->client->sess.inRacemode)
+							G_PrintBasedOnRacemode(print, qtrue);
+						else
+							PrintIngame(-1, print);
+					}
+				}
+			}
+			else if (level.time - ent->client->rockPaperScissorsBothChosenTime >= 3000 || level.time - other->client->rockPaperScissorsBothChosenTime >= 3000) {
+				ent->client->ps.torsoAnim = other->client->ps.torsoAnim = BOTH_STAND1;
+				ent->client->ps.torsoTimer = other->client->ps.torsoTimer = 0;
+			}
+			else if (level.time - ent->client->rockPaperScissorsBothChosenTime >= 2050 || level.time - other->client->rockPaperScissorsBothChosenTime >= 2050) {
+				ent->client->ps.torsoAnim = other->client->ps.torsoAnim = BOTH_THERMAL_THROW;
+				ent->client->ps.torsoTimer = other->client->ps.torsoTimer = 950;
+			}
+			else if (level.time - ent->client->rockPaperScissorsBothChosenTime >= 2000 || level.time - other->client->rockPaperScissorsBothChosenTime >= 2000) {
+				ent->client->ps.torsoAnim = other->client->ps.torsoAnim = BOTH_STAND1;
+				ent->client->ps.torsoTimer = other->client->ps.torsoTimer = 0;
+			}
+			else if (level.time - ent->client->rockPaperScissorsBothChosenTime >= 1050 || level.time - other->client->rockPaperScissorsBothChosenTime >= 1050) {
+				ent->client->ps.torsoAnim = other->client->ps.torsoAnim = BOTH_THERMAL_THROW;
+				ent->client->ps.torsoTimer = other->client->ps.torsoTimer = 950;
+			}
+			else if (level.time - ent->client->rockPaperScissorsBothChosenTime >= 1000 || level.time - other->client->rockPaperScissorsBothChosenTime >= 1000) {
+				ent->client->ps.torsoAnim = other->client->ps.torsoAnim = BOTH_STAND1;
+				ent->client->ps.torsoTimer = other->client->ps.torsoTimer = 0;
+			}
+			else if (level.time - ent->client->rockPaperScissorsBothChosenTime >= 50 || level.time - other->client->rockPaperScissorsBothChosenTime >= 50) {
+				ent->client->ps.torsoAnim = other->client->ps.torsoAnim = BOTH_THERMAL_THROW;
+				ent->client->ps.torsoTimer = other->client->ps.torsoTimer = 950;
+			}
+		}
+		else if (level.time - ent->client->rockPaperScissorsStartTime >= ROCK_PAPER_SCISSORS_DURATION) { // time expired
+			if (!ent->client->rockPaperScissorsChoice && !other->client->rockPaperScissorsChoice) {
+				CenterPrintToPlayerAndFollowers(ent, "Neither player made a choice; cancelling.");
+				CenterPrintToPlayerAndFollowers(other, "Neither player made a choice; cancelling.");
+			}
+			else if (ent->client->rockPaperScissorsChoice) {
+				CenterPrintToPlayerAndFollowers(ent, va("%s^7 didn't make a choice; cancelling.", other->client->pers.netname));
+				CenterPrintToPlayerAndFollowers(other, "You didn't make a choice; cancelling.");
+			}
+			else if (other->client->rockPaperScissorsChoice) {
+				CenterPrintToPlayerAndFollowers(ent, "You didn't make a choice; cancelling.");
+				CenterPrintToPlayerAndFollowers(other, va("%s^7 didn't make a choice; cancelling.", ent->client->pers.netname));
+			}
+			ent->client->rockPaperScissorsStartTime = other->client->rockPaperScissorsStartTime = 0;
+			ent->client->rockPaperScissorsOtherClientNum = other->client->rockPaperScissorsOtherClientNum = ENTITYNUM_NONE;
+			ent->client->rockPaperScissorsChoice = other->client->rockPaperScissorsChoice = '\0';
+			ent->client->rockPaperScissorsChallengeTime = other->client->rockPaperScissorsChallengeTime = 0;
+			ent->client->rockPaperScissorsBothChosenTime = other->client->rockPaperScissorsBothChosenTime = 0;
+		}
+	}
+}
+
+extern int forcePowerNeeded[NUM_FORCE_POWER_LEVELS][NUM_FORCE_POWERS];
 extern void WP_AddToClientBitflags(gentity_t* ent, int entNum);
 void G_RunFrame( int levelTime ) {
 	int			i;
@@ -5234,10 +5737,48 @@ void G_RunFrame( int levelTime ) {
 #endif
 	static int lastMsgTime = 0;
 
+	forcePowerNeeded[FORCE_LEVEL_3][FP_GRIP] = g_gripBuff.integer ? 32 : 60;
+
 #ifdef NEWMOD_SUPPORT
-	for (i = 0; i < MAX_CLIENTS; i++)
+	for (i = 0; i < MAX_CLIENTS; i++) {
 		level.clients[i].realPing = level.clients[i].ps.ping;
+		if (level.clients[i].pers.connected == CON_CONNECTED && level.clients[i].sess.auth == CLANNOUNCE &&
+			level.clients[i].sess.clAnnounceSendTime && trap_Milliseconds() - level.clients[i].sess.clAnnounceSendTime >= 20000) {
+			trap_DropClient(i, "dropped due to authentication error");
+		}
+	}
 #endif
+
+	// print any queued messages
+	if (level.queuedServerMessagesList.size > 0) {
+		iterator_t iter;
+		ListIterate(&level.queuedServerMessagesList, &iter, qfalse);
+		while (IteratorHasNext(&iter)) {
+			queuedServerMessage_t *msg = IteratorNext(&iter);
+			int timeSince = g_svfps.integer * (level.framenum - msg->serverFrameNum);
+			const int threshold = 50; // this seems to work
+			if (timeSince < threshold)
+				continue;
+
+			if (VALIDSTRING(msg->text)) {
+				if (msg->inConsole) {
+					PrintIngame(msg->clientNum, msg->text);
+				}
+				else {
+					if (msg->clientNum >= 0 && msg->clientNum < MAX_CLIENTS)
+						SV_Tell(msg->clientNum, msg->text);
+					else
+						SV_Say(msg->text);
+				}
+			}
+
+			if (msg->text)
+				free(msg->text);
+
+			ListRemove(&level.queuedServerMessagesList, msg);
+			ListIterate(&level.queuedServerMessagesList, &iter, qfalse);
+		}
+	}
 
 #ifdef _DEBUG
 	if ( g_antiWallhack.integer && g_wallhackMaxTraces.integer && level.wallhackTracesDone ) {
@@ -5275,30 +5816,32 @@ void G_RunFrame( int levelTime ) {
 	UpdateGlobalCenterPrint( levelTime );
 
 	// check for modified physics and disable capture times if non standard
-	if ( level.mapCaptureRecords.enabled && !level.mapCaptureRecords.readonly && level.time > 1000 ) { // wat. it seems that sv_cheats = 1 on first frame... so don't check until 1000ms i guess
+#ifndef _DEBUG
+	if ( level.racemodeRecordsEnabled && !level.racemodeRecordsReadonly && level.time > 1000 ) { // wat. it seems that sv_cheats = 1 on first frame... so don't check until 1000ms i guess
 		if ( g_cheats.integer != 0 ) {
 			G_Printf( S_COLOR_YELLOW"Cheats are enabled. Capture records won't be tracked during this map.\n" );
-			level.mapCaptureRecords.readonly = qtrue;
+			level.racemodeRecordsReadonly = qtrue;
 		} else if ( !pmove_float.integer ) {
 			G_Printf( S_COLOR_YELLOW"pmove_float is not enabled. Capture records won't be tracked during this map.\n" );
-			level.mapCaptureRecords.readonly = qtrue;
+			level.racemodeRecordsReadonly = qtrue;
 		} else if ( g_svfps.integer != 30 ) {
 			G_Printf( S_COLOR_YELLOW"Server FPS is not standard. Capture records won't be tracked during this map.\n" );
-			level.mapCaptureRecords.readonly = qtrue;
+			level.racemodeRecordsReadonly = qtrue;
 		} else if ( g_speed.value != 250 ) {
 			G_Printf( S_COLOR_YELLOW"Speed is not standard. Capture records won't be tracked during this map.\n" );
-			level.mapCaptureRecords.readonly = qtrue;
+			level.racemodeRecordsReadonly = qtrue;
 		} else if ( g_gravity.value != 760 ) {
 			G_Printf( S_COLOR_YELLOW"Gravity is not standard. Capture records won't be tracked during this map.\n" );
-			level.mapCaptureRecords.readonly = qtrue;
+			level.racemodeRecordsReadonly = qtrue;
 		} else if ( g_knockback.value != 1000 ) {
 			G_Printf( S_COLOR_YELLOW"Knockback is not standard. Capture records won't be tracked during this map.\n" );
-			level.mapCaptureRecords.readonly = qtrue;
+			level.racemodeRecordsReadonly = qtrue;
 		} else if ( g_forceRegenTime.value != 231 ) {
 			G_Printf( S_COLOR_YELLOW"Force regen is not standard. Capture records won't be tracked during this map.\n" );
-			level.mapCaptureRecords.readonly = qtrue;
+			level.racemodeRecordsReadonly = qtrue;
 		}
 	}
+#endif
 
 	if (g_gametype.integer == GT_SIEGE &&
 		g_siegeRespawn.integer &&
@@ -5322,6 +5865,8 @@ void G_RunFrame( int levelTime ) {
 
 		g_siegeRespawnCheck = level.time + g_siegeRespawn.integer * 1000;
 	}
+
+	RunRockPaperScissors();
 
 	if (gDoSlowMoDuel)
 	{
@@ -5505,6 +6050,8 @@ void G_RunFrame( int levelTime ) {
 					}
 
 					trap_SendServerCommand( j, "cp \"Go!\n\"" );
+
+					ListClear(&level.disconnectedPlayerList);
 				}
 				
 				level.pause.state = PAUSE_NONE;
@@ -5554,7 +6101,7 @@ void G_RunFrame( int levelTime ) {
 	// get any cvar changes
 	G_UpdateCvars();
 
-
+	ChangeToNextStatsBlockIfNeeded();
 
 #ifdef _G_FRAME_PERFANAL
 	trap_PrecisionTimer_Start(&timer_ItemRun);
@@ -5799,14 +6346,18 @@ void G_RunFrame( int levelTime ) {
                     && !(ent->client->ps.pm_flags & PMF_FOLLOW)
                     && ent->client->sess.sessionTeam != TEAM_SPECTATOR )
 			{
-				WP_ForcePowersUpdate(ent, &ent->client->pers.cmd );
-				WP_SaberPositionUpdate(ent, &ent->client->pers.cmd);
-				WP_SaberStartMissileBlockCheck(ent, &ent->client->pers.cmd);
+				if (!ent->isAimPracticePack) { // aim bots don't have sabers anyway; skipping this avoids a stupid ghoul2 crash
+					WP_ForcePowersUpdate(ent, &ent->client->pers.cmd);
+					WP_SaberPositionUpdate(ent, &ent->client->pers.cmd);
+					WP_SaberStartMissileBlockCheck(ent, &ent->client->pers.cmd);
+				}
 
 				if (ent->client->sess.sessionTeam == TEAM_RED) {
 					level.numRedPlayerTicks++;
+					AddPlayerTick(TEAM_RED, ent);
 				} else if (ent->client->sess.sessionTeam == TEAM_BLUE) {
 					level.numBluePlayerTicks++;
+					AddPlayerTick(TEAM_BLUE, ent);
 				}
 
 				if ( ent->client->ps.stats[STAT_HEALTH] > 0 && !( ent->client->ps.eFlags & EF_DEAD ) ) {
@@ -5824,11 +6375,47 @@ void G_RunFrame( int levelTime ) {
 						xyspeed = sqrt( ent->client->ps.velocity[0] * ent->client->ps.velocity[0] + ent->client->ps.velocity[1] * ent->client->ps.velocity[1] );
 					}
 
-					ent->client->pers.displacement += xyspeed / g_svfps.value;
-					ent->client->pers.displacementSamples++;
+					if (ent->client->sess.inRacemode && ent->aimPracticeEntBeingUsed && ent->aimPracticeMode) {
+						aimPracticePack_t *pack = ent->aimPracticeEntBeingUsed->isAimPracticePack;
+						if (pack->maxSpeed && xyspeed > pack->maxSpeed) {
+							qboolean someoneElseUsingThisPack = qfalse;
+							for (int i = 0; i < MAX_CLIENTS; i++) {
+								gentity_t *thisEnt = &g_entities[i];
+								if (!thisEnt->inuse || !thisEnt->client || thisEnt->client->pers.connected != CON_CONNECTED ||
+									thisEnt == ent || !thisEnt->client->sess.inRacemode || thisEnt->aimPracticeEntBeingUsed != ent->aimPracticeEntBeingUsed) {
+									continue;
+								}
+								someoneElseUsingThisPack = qtrue;
+								break;
+							}
 
-					if ( xyspeed > ent->client->pers.topSpeed ) {
-						ent->client->pers.topSpeed = xyspeed;
+							ent->numAimPracticeSpawns = 0;
+							ent->numTotalAimPracticeHits = 0;
+							memset(ent->numAimPracticeHitsOfWeapon, 0, sizeof(ent->numAimPracticeHitsOfWeapon));
+
+							if (someoneElseUsingThisPack) { // someone else is using this pack; just reset their stats and start on the next respawn
+								//CenterPrintToPlayerAndFollowers(ent, va("Do not move faster than %d ups!\nRestarting...", pack->maxSpeed));
+							}
+							else { // we are the only one using this pack; go ahead and restart it immediately so they don't have to wait
+								RandomizeAndRestartPack(ent->aimPracticeEntBeingUsed->isAimPracticePack);
+								//CenterPrintToPlayerAndFollowers(ent, va("Do not move faster than %d ups!\nRestarting.", pack->maxSpeed));
+							}
+						}
+					}
+
+					if (ent->client->sess.sessionTeam == TEAM_RED || ent->client->sess.sessionTeam == TEAM_BLUE) {
+						// only track overall displacement if you are actually ingame
+						ent->client->stats->displacement += xyspeed / g_svfps.value;
+						ent->client->stats->displacementSamples++;
+						if (g_gametype.integer == GT_CTF) {
+							ctfRegion_t region = GetCTFRegion(ent);
+							if (region != CTFREGION_INVALID)
+								ent->client->stats->regionTime[region] += (int)(1000.0f / g_svfps.value);
+						}
+					}
+
+					if ( xyspeed > ent->client->stats->topSpeed ) {
+						ent->client->stats->topSpeed = xyspeed;
 					}
 
 					// if they carry a flag, also update fastcap speed stats
@@ -5868,9 +6455,11 @@ void G_RunFrame( int levelTime ) {
 				}
 			}
 
-			WP_ForcePowersUpdate(ent, &ent->client->pers.cmd );
-			WP_SaberPositionUpdate(ent, &ent->client->pers.cmd);
-			WP_SaberStartMissileBlockCheck(ent, &ent->client->pers.cmd);
+			if (!ent->isAimPracticePack) { // aim bots don't have sabers anyway; skipping this avoids a stupid ghoul2 crash
+				WP_ForcePowersUpdate(ent, &ent->client->pers.cmd);
+				WP_SaberPositionUpdate(ent, &ent->client->pers.cmd);
+				WP_SaberStartMissileBlockCheck(ent, &ent->client->pers.cmd);
+			}
 		}
 
 		G_RunThink( ent );
@@ -5913,8 +6502,6 @@ void G_RunFrame( int levelTime ) {
 #ifdef _G_FRAME_PERFANAL
 	iTimer_ClientEndframe = trap_PrecisionTimer_End(timer_ClientEndframe);
 #endif
-
-
 
 #ifdef _G_FRAME_PERFANAL
 	trap_PrecisionTimer_Start(&timer_GameChecks);
@@ -6065,51 +6652,13 @@ void G_RunFrame( int levelTime ) {
 		iTimer_Queues);
 #endif
 
-	if (level.waypointsValid) {
-		// play effects each waypoint, but not every frame (save fps)
-		int svFps = trap_Cvar_VariableIntegerValue("sv_fps");
-#define WAYPOINT_EFFECTS_PER_SECONDS	(4)
-		int effectInterval = svFps / WAYPOINT_EFFECTS_PER_SECONDS;
-		static unsigned int frameNum = 0;
-		if (!(++frameNum % (effectInterval ? effectInterval : 30))) {
-			for (i = 0; i < NUM_WAYPOINTS; i++) {
-				gentity_t* waypointEffect = G_PlayEffect(EFFECT_EXPLOSION_DEMP2ALT, level.waypoints[i]->r.currentOrigin, (vec_t[]){ 0.0f, 0.0f, 1.0f }); // get rekt by c99 alpha
-				waypointEffect->raceDimensionEvent = qtrue;
-				G_ApplyRaceBroadcastsToEvent(NULL, waypointEffect);
-			}
-		}
-
-		for (i = 0; i < MAX_CLIENTS; i++) {
-			ent = &g_entities[i];
-			if (!ent->client || ent->client->pers.connected != CON_CONNECTED || !ent->client->sess.inRacemode || (!ent->client->ps.powerups[PW_REDFLAG] && !ent->client->ps.powerups[PW_BLUEFLAG]))
-				continue;
-			for (int j = 0; j < NUM_WAYPOINTS; j++) {
-				if (ent->client->touchedWaypoints & (1 << j))
-					continue; // already touched this one
-				gentity_t* waypoint = level.waypoints[j];
-				if (!PlayerTouchingWaypoint(ent, j))
-					continue;
-
-				ent->client->touchedWaypoints |= (1 << j);
-
-				// show a th effect for last waypoint; te for first two waypoints
-				gentity_t* thTeEffect = G_TempEntity(ent->client->ps.origin, EV_TEAM_POWER);
-#define TEAM_POWER_EVENTPARM_TEAMHEAL		(1)
-#define TEAM_POWER_EVENTPARM_TEAMENERGIZE	(2)
-				thTeEffect->s.eventParm = ent->client->touchedWaypoints == ALL_WAYPOINT_BITS ? TEAM_POWER_EVENTPARM_TEAMHEAL : TEAM_POWER_EVENTPARM_TEAMENERGIZE;
-
-				thTeEffect->r.svFlags |= SVF_BROADCAST;
-				G_ApplyRaceBroadcastsToEvent(ent, thTeEffect);
-				WP_AddToClientBitflags(thTeEffect, i);
-			}
-		}
-	}
-
 #ifdef NEWMOD_SUPPORT
 	RunImprovedHoming();
 #endif
 
 	WaitForAFKs();
+
+	PeriodicallyRecalculateTeamBalance();
 
 	if (!level.firstFrameTime)
 		level.firstFrameTime = trap_Milliseconds();

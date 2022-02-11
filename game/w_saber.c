@@ -125,6 +125,9 @@ qboolean G_CanBeEnemy(gentity_t *self, gentity_t *enemy)
 		return qfalse;
 	}
 
+	if (enemy->isAimPracticePack)
+		return qfalse;
+
 	return qtrue;
 }
 
@@ -262,6 +265,9 @@ void WP_ActivateSaber( gentity_t *self )
 	{
 		return;
 	}
+
+	if (self->isAimPracticePack)
+		return;
 
 	if (self->NPC &&
 		self->client->ps.forceHandExtend == HANDEXTEND_JEDITAUNT &&
@@ -3647,6 +3653,9 @@ void WP_SaberRadiusDamage( gentity_t *ent, vec3_t point, float radius, int damag
 				continue;
 			}
 
+			if (radiusEnt->isAimPracticePack)
+				continue;
+
 			if ( radiusEnt->s.eType == ET_MISSILE && radiusEnt->r.ownerNum >= 0 && radiusEnt->r.ownerNum < MAX_CLIENTS && level.clients[radiusEnt->r.ownerNum].sess.inRacemode )
 			{// no force powers on race projectiles
 				continue;
@@ -4427,6 +4436,9 @@ static GAME_INLINE qboolean CheckSaberDamage(gentity_t *self, int rSaberNum, int
 			return qfalse;
 		}
 
+		if (g_entities[tr.entityNum].isAimPracticePack)
+			return qfalse;
+
 		if (g_entities[tr.entityNum].client &&
 			g_entities[tr.entityNum].client->ps.duelInProgress &&
 			g_entities[tr.entityNum].client->ps.duelIndex != self->s.number)
@@ -4657,6 +4669,9 @@ static GAME_INLINE qboolean CheckSaberDamage(gentity_t *self, int rSaberNum, int
 		{
 			return qfalse;
 		}
+
+		if (otherOwner->isAimPracticePack)
+			return qfalse;
 
 		if (otherOwner->client->ps.duelInProgress &&
 			otherOwner->client->ps.duelIndex != self->s.number)
@@ -5344,6 +5359,11 @@ void WP_SaberStartMissileBlockCheck( gentity_t *self, usercmd_t *ucmd  )
 		return;
 	}
 
+	if (self->isAimPracticePack) {
+		self->client->ps.hasLookTarget = qfalse;
+		return;
+	}
+
 	//keep this updated even if we don't get below
 	if ( !(self->client->ps.eFlags2&EF2_HELD_BY_MONSTER) )
 	{//lookTarget is set by and to the monster that's holding you, no other operations can change that
@@ -5440,6 +5460,9 @@ void WP_SaberStartMissileBlockCheck( gentity_t *self, usercmd_t *ucmd  )
 
 		if ( ent->client && ent->client->sess.inRacemode )
 			continue; // no saber interaction or looktarget with racers
+
+		if (ent->isAimPracticePack)
+			continue;
 
 		//as long as we're here I'm going to get a looktarget too, I guess. -rww
 		if (self->s.eType == ET_PLAYER &&
@@ -5753,8 +5776,11 @@ static GAME_INLINE qboolean CheckThrownSaberDamaged(gentity_t *saberent, gentity
 		return qfalse;
 	}
 
+	if (ent->isAimPracticePack)
+		return qfalse;
+
 	// raceprojectiles are never hit by thrown sabers
-	if ( ent->r.ownerNum >= 0 && ent->r.ownerNum < MAX_CLIENTS && level.clients[ent->r.ownerNum].sess.inRacemode )
+	if ( ent && ent->r.ownerNum >= 0 && ent->r.ownerNum < MAX_CLIENTS && level.clients[ent->r.ownerNum].sess.inRacemode )
 	{
 		return qfalse;
 	}
@@ -9061,6 +9087,9 @@ int WP_SaberCanBlock(gentity_t *self, gentity_t* other, vec3_t point, int dflags
 	{
 		return 0;
 	}
+
+	if (self->isAimPracticePack)
+		return 0;
 
     if ( self->health < 1)
     {

@@ -431,7 +431,7 @@ TossClientItems
 Toss the weapon and powerups for the killed player
 =================
 */
-void TossClientItems( gentity_t *self ) {
+void TossClientItems( gentity_t *self, qboolean canDropWeapons ) {
 	gitem_t		*item;
 	int			weapon;
 	float		angle;
@@ -466,7 +466,7 @@ void TossClientItems( gentity_t *self ) {
 	self->s.bolt2 = weapon;
 
 	// don't drop weapons upon death in instagib
-	if ( !InstagibEnabled() && weapon > WP_BRYAR_PISTOL && 
+	if (canDropWeapons && !InstagibEnabled() && weapon > WP_BRYAR_PISTOL &&
 		weapon != WP_EMPLACED_GUN &&
 		weapon != WP_TURRET &&
 		self->client->ps.ammo[ weaponData[weapon].ammoIndex ] ) {
@@ -713,12 +713,12 @@ void CheckAlmostCapture( gentity_t *self, gentity_t *attacker ) {
 		if (ent && !(ent->r.svFlags & SVF_NOCLIENT) ) {
 			// if the player was *very* close
 			VectorSubtract( self->client->ps.origin, ent->s.origin, dir );
-			if ( VectorLength(dir) < 200 ) {
+			if ( VectorLength(dir) < CTF_SAVE_DISTANCE_THRESHOLD) {
 				//self->client->ps.persistant[PERS_PLAYEREVENTS] ^= PLAYEREVENT_HOLYSHIT;
 				if ( attacker->client && attacker != self ) { // we don't want this to trigger by our own sk's
 					self->client->ps.persistant[PERS_PLAYEREVENTS] ^= PLAYEREVENT_HOLYSHIT;
 					attacker->client->ps.persistant[PERS_PLAYEREVENTS] ^= PLAYEREVENT_HOLYSHIT;
-					++attacker->client->pers.teamState.saves;
+					++attacker->client->stats->saves;
 				}
 			}
 		}
@@ -1985,7 +1985,11 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 		}
 	}
 
-	self->client->touchedWaypoints = 0;
+	self->aimPracticeEntBeingUsed = NULL;
+	self->aimPracticeMode = AIMPRACTICEMODE_NONE;
+	self->numAimPracticeSpawns = 0;
+	self->numTotalAimPracticeHits = 0;
+	memset(self->numAimPracticeHitsOfWeapon, 0, sizeof(self->numAimPracticeHitsOfWeapon));
 
 	if (self->s.eType == ET_NPC &&
 		self->s.NPC_class == CLASS_VEHICLE &&
@@ -2277,6 +2281,18 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 	self->client->ps.pm_type = PM_DEAD;
 	self->client->ps.pm_flags &= ~PMF_STUCK_TO_WALL;
 
+	if (self->client && self->client->stats && (!attacker || self == attacker))
+		++self->client->stats->selfkills;
+
+	if (meansOfDeath == MOD_CRUSH || meansOfDeath == MOD_FALLING || meansOfDeath == MOD_TRIGGER_HURT || meansOfDeath == MOD_UNKNOWN || meansOfDeath == MOD_SUICIDE) {
+		if (attacker && self != attacker && self->client && attacker->client && self->client->sess.sessionTeam == OtherTeam(attacker->client->sess.sessionTeam)) {
+			if (self->client->stats)
+				++self->client->stats->pitted;
+			if (attacker->client->stats)
+				++attacker->client->stats->pits;
+		}
+	}
+
 	if ( attacker ) {
 		killer = attacker->s.number;
 		if ( attacker->client ) {
@@ -2350,10 +2366,10 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 	if ((self->client->ps.powerups[PW_BLUEFLAG] || self->client->ps.powerups[PW_REDFLAG]) && !self->client->sess.inRacemode){
 		const int thisFlaghold = G_GetAccurateTimerOnTrigger( &self->client->pers.teamState.flagsince, self, NULL );
 
-		self->client->pers.teamState.flaghold += thisFlaghold;
+		self->client->stats->totalFlagHold += thisFlaghold;
 
-		if ( thisFlaghold > self->client->pers.teamState.longestFlaghold )
-			self->client->pers.teamState.longestFlaghold = thisFlaghold;
+		if ( thisFlaghold > self->client->stats->longestFlagHold )
+			self->client->stats->longestFlagHold = thisFlaghold;
 
 		if ( self->client->ps.powerups[PW_REDFLAG] ) {
 			// carried the red flag, so blue team
@@ -2504,6 +2520,13 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 	// Add team bonuses
 	Team_FragBonuses(self, inflictor, attacker);
 
+	// teamkills
+	if (g_gametype.integer == GT_CTF && attacker && attacker->client && self->client->sess.sessionTeam == attacker->client->sess.sessionTeam && attacker != self) {
+		attacker->client->stats->teamKills++;
+		if (HasFlag(self)) // killed a flag carrier; note this in case someone takes the flag afterward so we can refund the teamkill and possibly bump the killer's TAKE stat
+			attacker->client->pers.killedAlliedFlagCarrier = qtrue;
+	}
+
 	// if I committed suicide, the flag does not fall, it returns.
 	if (meansOfDeath == MOD_SUICIDE && !self->client->sess.inRacemode) { // for racemode clients, powerup reset will be done later
 		if ( self->client->ps.powerups[PW_NEUTRALFLAG] ) {		// only happens in One Flag CTF
@@ -2525,7 +2548,7 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 	if ( !( contents & CONTENTS_NODROP ) && !self->client->ps.fallingToDeath) {
 		if (self->s.eType != ET_NPC)
 		{
-			TossClientItems( self );
+			TossClientItems( self, qtrue );
 		}
 	}
 	else if ( !self->client->sess.inRacemode ) {
@@ -2749,6 +2772,21 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 	}
 
 	self->client->pers.lastKiller = attacker;
+
+	self->client->rockPaperScissorsOtherClientNum = ENTITYNUM_NONE;
+	self->client->rockPaperScissorsChallengeTime = 0;
+	self->client->rockPaperScissorsStartTime = 0;
+	self->client->rockPaperScissorsBothChosenTime = 0;
+	self->client->rockPaperScissorsChoice = '\0';
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		if (g_entities[i].inuse && g_entities[i].client && g_entities[i].client->rockPaperScissorsOtherClientNum == self - g_entities) {
+			g_entities[i].client->rockPaperScissorsOtherClientNum = ENTITYNUM_NONE;
+			g_entities[i].client->rockPaperScissorsChallengeTime = 0;
+			g_entities[i].client->rockPaperScissorsStartTime = 0;
+			g_entities[i].client->rockPaperScissorsBothChosenTime = 0;
+			g_entities[i].client->rockPaperScissorsChoice = '\0';
+		}
+	}
 }
 
 
@@ -4225,6 +4263,22 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 		return;
 	}
 
+	if (targ && targ->isAimPracticePack && mod >= MOD_STUN_BATON && mod <= MOD_SENTRY) {
+		return; // aim practice bots can only take certain types of damage
+	}
+
+	if (targ && targ->client && targ->client->sess.inRacemode) {
+		if ((attacker != targ || targ->aimPracticeEntBeingUsed) && mod >= MOD_STUN_BATON && mod <= MOD_SENTRY)
+			return; // no weapon damage from others in race mode
+		if (targ->aimPracticeEntBeingUsed && mod == MOD_FALLING && !(dflags & DAMAGE_NO_PROTECTION))
+			return; // no fall damage
+	}
+
+	if (targ && targ->client && targ - g_entities < MAX_CLIENTS && attacker && attacker->client && attacker - g_entities < MAX_CLIENTS) {
+		if (attacker->client->sess.inRacemode != targ->client->sess.inRacemode)
+			return; // sanity check: never allow people in different dimensions to damage each other
+	}
+
 	if (mod == MOD_DEMP2 && targ && targ->inuse && targ->client)
 	{
 		if ( targ->client->ps.electrifyTime < level.time )
@@ -4266,6 +4320,9 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 		!(targ && targ->client && targ->client->sess.inRacemode)) {
 		return;
 	}
+
+	if (g_rockPaperScissors.integer && targ && targ->client && targ->client->rockPaperScissorsStartTime)
+		return;
 
 	if ( targ->client )
 	{//don't take damage when in a walker, or fighter
@@ -4989,16 +5046,6 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 		}
 	}
 
-	//we count only from client to client damage
-	if (attacker && attacker->client && targ && targ->client
-		&& attacker->client->sess.sessionTeam != targ->client->sess.sessionTeam
-		&& mod > MOD_UNKNOWN && mod <= MOD_FORCE_DARK) {
-		// TODO: do we want other kinds of damage?
-		// TODO: it does not count rage or protect reduction...
-		targ->client->pers.damageTaken += (take + asave);
-		attacker->client->pers.damageCaused += (take + asave);
-	}
-
 #ifndef FINAL_BUILD
 	if ( g_debugDamage.integer ) {
 		G_Printf( "%i: client:%i health:%i damage:%i armor:%i mod:%i\n", level.time, targ->s.number,
@@ -5107,7 +5154,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 						&& attacker->client->sess.sessionTeam != targ->client->sess.sessionTeam
 						&& mod > MOD_UNKNOWN && mod <= MOD_FORCE_DARK ) {
 						// TODO: do we want other kinds of damage?
-						targ->client->pers.protDmgAvoided += subamt;
+						targ->client->stats->protDamageAvoided += subamt;
 					}
 
 					take -= subamt;
@@ -5133,6 +5180,63 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 			evEnt->s.eventParm = DirToByte(dir);
 			evEnt->s.time2=shieldAbsorbed;
 			G_ApplyRaceBroadcastsToEvent( targ, evEnt );
+		}
+	}
+
+	//we count only from client to client damage
+	if (attacker && attacker->client && targ && targ->client && targ->health > 0
+		&& mod > MOD_UNKNOWN && mod <= MOD_FORCE_DARK) {
+		// TODO: do we want other kinds of damage?
+
+		// cap the damage stat change to the target's health + armor
+		// e.g. if you do 100 damage to someone with 1 hp, then count it as only 1 damage instead of 100
+		int damageStatIncrease = take + asave;
+		if (damageStatIncrease > targ->health + targ->client->ps.stats[STAT_ARMOR])
+			damageStatIncrease = targ->health + targ->client->ps.stats[STAT_ARMOR];
+
+		if (attacker->client->sess.sessionTeam != targ->client->sess.sessionTeam) {
+			targ->client->stats->damageTakenTotal += damageStatIncrease;
+			attacker->client->stats->damageDealtTotal += damageStatIncrease;
+
+			if (targ->client->ps.powerups[PW_REDFLAG] || targ->client->ps.powerups[PW_BLUEFLAG] || targ->client->ps.powerups[PW_NEUTRALFLAG]) {
+				targ->client->stats->flagCarrierDamageTakenTotal += damageStatIncrease;
+				attacker->client->stats->flagCarrierDamageDealtTotal += damageStatIncrease;
+			}
+			else {
+				ctfRegion_t targRegion = GetCTFRegion(targ);
+				if (targRegion == CTFREGION_ENEMYBASE || targRegion == CTFREGION_ENEMYFLAGSTAND) {
+					targ->client->stats->clearDamageTakenTotal += damageStatIncrease;
+					attacker->client->stats->clearDamageDealtTotal += damageStatIncrease;
+				}
+				else {
+					targ->client->stats->otherDamageTakenTotal += damageStatIncrease;
+					attacker->client->stats->otherDamageDealtTotal += damageStatIncrease;
+				}
+			}
+		}
+
+		//targ->client->stats->damageTakenOfType[mod] += damageStatIncrease;
+		//attacker->client->stats->damageDealtOfType[mod] += damageStatIncrease;
+
+		if (targ - g_entities < MAX_CLIENTS && attacker - g_entities < MAX_CLIENTS && attacker->client->stats && targ->client->stats) {
+			meansOfDeathCategory_t modc = MeansOfDeathCategoryForMeansOfDeath(mod);
+
+			int *dmg = GetDamageGivenStat(attacker->client->stats, targ->client->stats);
+			if (dmg)
+				*dmg += damageStatIncrease;
+			dmg = GetDamageTakenStat(attacker->client->stats, targ->client->stats);
+			if (dmg)
+				*dmg += damageStatIncrease;
+
+			if (modc != MODC_INVALID) {
+				int *dmg = GetDamageGivenStatOfType(attacker->client->stats, targ->client->stats, modc);
+				if (dmg)
+					*dmg += damageStatIncrease;
+
+				dmg = GetDamageTakenStatOfType(attacker->client->stats, targ->client->stats, modc);
+				if (dmg)
+					*dmg += damageStatIncrease;
+			}
 		}
 	}
 
@@ -5419,6 +5523,8 @@ qboolean G_RadiusDamage ( vec3_t origin, gentity_t *attacker, float damage, floa
 			continue;
 		if (!ent->takedamage)
 			continue;
+		if (ent->isAimPracticePack)
+			continue; // no splash damaging aim practice bots
 
 		// racemode radius dmg
 

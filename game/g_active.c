@@ -32,9 +32,6 @@ the teleport bit is toggled)
 ============
 */
 void G_ResetTrail(gentity_t *ent) {
-	if (ent - g_entities >= MAX_CLIENTS)
-		return;
-
 	int		i;
 
 	// fill up the origin trails with data (assume the current position for the last 1/2 second or so)
@@ -64,9 +61,6 @@ Keep track of where the client's been (usually called every ClientThink)
 ============
 */
 void G_StoreTrail(gentity_t *ent) {
-	if (ent - g_entities >= MAX_CLIENTS)
-		return;
-
 	int		head;
 
 	head = level.unlagged[ent - g_entities].trailHead;
@@ -81,14 +75,24 @@ void G_StoreTrail(gentity_t *ent) {
 	// store all the collision-detection info and the time
 	VectorCopy(ent->r.mins, level.unlagged[ent - g_entities].trail[head].mins);
 	VectorCopy(ent->r.maxs, level.unlagged[ent - g_entities].trail[head].maxs);
-	VectorCopy(ent->r.currentOrigin, level.unlagged[ent - g_entities].trail[head].currentOrigin);
 	//VectorCopy( ent->r.currentAngles, level.unlagged[ent - g_entities].trail[head].currentAngles );
 
 	level.unlagged[ent - g_entities].trail[head].torsoAnim = ent->client->ps.torsoAnim;
 	level.unlagged[ent - g_entities].trail[head].torsoTimer = ent->client->ps.torsoTimer;
 	level.unlagged[ent - g_entities].trail[head].legsAnim = ent->client->ps.legsAnim;
 	level.unlagged[ent - g_entities].trail[head].legsTimer = ent->client->ps.legsTimer;
-	level.unlagged[ent - g_entities].trail[head].realAngle = ent->s.apos.trBase[YAW];
+
+	if (ent->NPC) { // try to get higher resolution on npcs
+		vec3_t origin, angles;
+		BG_EvaluateTrajectory(&ent->s.pos, level.time, origin);
+		BG_EvaluateTrajectory(&ent->s.apos, level.time, angles);
+		VectorCopy(origin, level.unlagged[ent - g_entities].trail[head].currentOrigin);
+		level.unlagged[ent - g_entities].trail[head].realAngle = angles[YAW];
+	}
+	else {
+		VectorCopy(ent->r.currentOrigin, level.unlagged[ent - g_entities].trail[head].currentOrigin);
+		level.unlagged[ent - g_entities].trail[head].realAngle = ent->s.apos.trBase[YAW];
+	}
 
 	//if (level.unlagged[ent - g_entities].trail[head].currentAngles[0] || level.unlagged[ent - g_entities].trail[head].currentAngles[1] || level.unlagged[ent - g_entities].trail[head].currentAngles[2])
 		//Com_Printf("Current angles are %.2f %.2f %.2f\n", level.unlagged[ent - g_entities].trail[head].currentAngles[0], level.unlagged[ent - g_entities].trail[head].currentAngles[1], level.unlagged[ent - g_entities].trail[head].currentAngles[2]);
@@ -110,7 +114,7 @@ Used below to interpolate between two previous vectors
 Returns a vector "frac" times the distance between "start" and "end"
 =============
 */
-static void TimeShiftLerp(float frac, vec3_t start, vec3_t end, vec3_t result) {
+void TimeShiftLerp(float frac, vec3_t start, vec3_t end, vec3_t result) {
 	float	comp = 1.0f - frac;
 
 	result[0] = frac * start[0] + comp * end[0];
@@ -118,7 +122,7 @@ static void TimeShiftLerp(float frac, vec3_t start, vec3_t end, vec3_t result) {
 	result[2] = frac * start[2] + comp * end[2];
 }
 
-static void TimeShiftAnimLerp(float frac, int anim1, int anim2, int time1, int time2, int *outTime) {
+void TimeShiftAnimLerp(float frac, int anim1, int anim2, int time1, int time2, int *outTime) {
 	if (anim1 == anim2 && time2 > time1) {//Only lerp if both anims are same and time2 is after time1.
 		*outTime = time1 + (time2 - time1) * frac;
 	}
@@ -209,6 +213,96 @@ static void G_DrawPlayerStick(gentity_t *ent, int color, int duration, int time)
 	G_TestLine(lKneePos, lFootPos, color, duration); //L Knee -> L Foot
 }
 
+static aimPracticeMovementTrail_t savedNpcTrails[MAX_GENTITIES] = { 0 };
+static int savedTorsoTimers[MAX_GENTITIES] = { 0 };
+static int savedLegTimers[MAX_GENTITIES] = { 0 };
+
+void G_TimeShiftNPC(gentity_t *ent, int time, qboolean timeshiftAnims) {
+	assert(ent && ent->client && ent->isAimPracticePack);
+
+#ifdef _DEBUG
+	if (g_unlaggedSkeletons.integer & (1 << 0))
+		G_DrawPlayerStick(ent, 0x0000ff, Com_Clampi(1, 60, abs(g_unlaggedSkeletonTime.integer)) * 1000, level.time);
+#endif
+
+	aimPracticePack_t *pack = ent->isAimPracticePack;
+	aimVariant_t *var = &pack->variants[pack->currentVariantIndex];
+	int timeElapsed = time - pack->routeStartTime;
+
+	int i;
+	for (i = 0; i < var->trailHead; i++) {
+		if (var->trail[i].time > timeElapsed) {
+			break;
+		}
+	}
+	int h = i - 1;
+	if (h < 0)
+		h = 0;
+
+	aimPracticeMovementTrail_t *early = &var->trail[h], *late = &var->trail[i];
+
+	float frac = (float)(late->time - timeElapsed) / (float)(late->time - early->time);
+
+	VectorCopy(ent->r.currentOrigin, savedNpcTrails[ent - g_entities].currentOrigin);
+	VectorCopy(ent->r.mins, savedNpcTrails[ent - g_entities].mins);
+	VectorCopy(ent->r.maxs, savedNpcTrails[ent - g_entities].maxs);
+	savedNpcTrails[ent - g_entities].torsoAnim = ent->client->ps.torsoAnim;
+	savedNpcTrails[ent - g_entities].legsAnim = ent->client->ps.legsAnim;
+	savedTorsoTimers[ent - g_entities] = ent->client->ps.torsoTimer;
+	savedLegTimers[ent - g_entities] = ent->client->ps.legsTimer;
+	VectorCopy(ent->s.apos.trBase, savedNpcTrails[ent - g_entities].angles);
+	VectorCopy(ent->client->ps.velocity, savedNpcTrails[ent - g_entities].velocity);
+
+#ifdef _DEBUG
+	if (g_unlaggedSkeletons.integer & (1 << 1)) {
+		VectorCopy(early->mins, ent->r.mins);
+		VectorCopy(early->maxs, ent->r.maxs);
+		VectorCopy(early->currentOrigin, ent->r.currentOrigin);
+		if (timeshiftAnims) {
+			ent->client->ps.torsoAnim = early->torsoAnim;
+			ent->client->ps.torsoTimer = early->torsoTimer;
+			ent->client->ps.legsAnim = early->legsAnim;
+			ent->client->ps.legsTimer = early->legsTimer;
+			ent->s.apos.trBase[YAW] = early->angles[YAW];
+		}
+
+		G_DrawPlayerStick(ent, 0xff0000, Com_Clampi(1, 60, abs(g_unlaggedSkeletonTime.integer)) * 1000, level.time);
+	}
+
+	if (g_unlaggedSkeletons.integer & (1 << 2)) {
+		VectorCopy(late->mins, ent->r.mins);
+		VectorCopy(late->maxs, ent->r.maxs);
+		VectorCopy(late->currentOrigin, ent->r.currentOrigin);
+		if (timeshiftAnims) {
+			ent->client->ps.torsoAnim = late->torsoAnim;
+			ent->client->ps.torsoTimer = late->torsoTimer;
+			ent->client->ps.legsAnim = late->legsAnim;
+			ent->client->ps.legsTimer = late->legsTimer;
+			ent->s.apos.trBase[YAW] = late->angles[YAW];
+		}
+
+		G_DrawPlayerStick(ent, 0xffff00, Com_Clampi(1, 60, abs(g_unlaggedSkeletonTime.integer)) * 1000, level.time);
+	}
+#endif
+
+	TimeShiftLerp(frac, late->currentOrigin, early->currentOrigin, ent->r.currentOrigin);
+	TimeShiftLerp(frac, late->mins, early->mins, ent->r.mins);
+	TimeShiftLerp(frac, late->maxs, early->maxs, ent->r.maxs);
+
+	ent->client->ps.torsoAnim = late->torsoAnim;
+	ent->client->ps.legsAnim = late->legsAnim;
+	TimeShiftAnimLerp(frac, late->torsoAnim, early->torsoAnim, late->torsoTimer, early->torsoTimer, &ent->client->ps.torsoTimer);
+	TimeShiftAnimLerp(frac, late->legsAnim, early->legsAnim, late->legsTimer, early->legsTimer, &ent->client->ps.legsTimer);
+	ent->s.apos.trBase[YAW] = LerpAngle(late->angles[YAW], early->angles[YAW], frac);
+	TimeShiftLerp(frac, late->velocity, early->velocity, ent->client->ps.velocity);
+
+#ifdef _DEBUG
+	if (g_unlaggedSkeletonTime.integer && g_unlaggedSkeletons.integer & (1 << 3)) {
+		G_DrawPlayerStick(ent, 0x00ff00, Com_Clampi(1, 60, abs(g_unlaggedSkeletonTime.integer)) * 1000, level.time);
+		//Com_Printf("post angle is %.2f\n", ent->s.apos.trBase[YAW]);
+	}
+#endif
+}
 
 /*
 =================
@@ -218,9 +312,6 @@ Move a client back to where he was at the specified "time"
 =================
 */
 void G_TimeShiftClient(gentity_t *ent, int time, qboolean timeshiftAnims) {
-	if (ent - g_entities >= MAX_CLIENTS)
-		return;
-
 	int		j, k;
 	int now = trap_Milliseconds();
 	if (time > now) {
@@ -229,7 +320,7 @@ void G_TimeShiftClient(gentity_t *ent, int time, qboolean timeshiftAnims) {
 
 #ifdef _DEBUG
 	if (g_unlaggedDebug.integer)
-		PrintIngame(-1, "G_TimeShiftClient: ent %d, trap_milliseconds is %d, time is %d, trailhead time is %d\n", ent - g_entities, now, time, level.unlagged[ent - g_entities].trail[level.unlagged[ent - g_entities].trailHead].time);
+		PrintIngame(-1, "G_TimeShiftClient: ent %d, trap_milliseconds is %d, time is %d, trailhead time is %d", ent - g_entities, now, time, level.unlagged[ent - g_entities].trail[level.unlagged[ent - g_entities].trailHead].time);
 #endif
 
 	// find two entries in the origin trail whose times sandwich "time"
@@ -245,6 +336,11 @@ void G_TimeShiftClient(gentity_t *ent, int time, qboolean timeshiftAnims) {
 			j = MAX_UNLAGGED_TRAILS - 1;
 		}
 	} while (j != level.unlagged[ent - g_entities].trailHead);
+
+#ifdef _DEBUG
+	if (g_unlaggedDebug.integer)
+		PrintIngame(-1, ", j is %d, k is %d, trailhead is %d\n", j, k, level.unlagged[ent - g_entities].trailHead);
+#endif
 
 	// if we got past the first iteration above, we've sandwiched (or wrapped)
 	if (j != k) {
@@ -269,8 +365,39 @@ void G_TimeShiftClient(gentity_t *ent, int time, qboolean timeshiftAnims) {
 
 #ifdef _DEBUG
 		if (g_unlaggedSkeletonTime.integer) {
-			G_DrawPlayerStick(ent, 0x0000ff, Com_Clampi(1, 60, abs(g_unlaggedSkeletonTime.integer)) * 1000, level.time);
+			if (g_unlaggedSkeletons.integer & (1 << 0))
+				G_DrawPlayerStick(ent, 0x0000ff, Com_Clampi(1, 60, abs(g_unlaggedSkeletonTime.integer)) * 1000, level.time);
 			//Com_Printf("pre angle is %.2f\n", ent->s.apos.trBase[YAW]);
+
+			if (g_unlaggedSkeletons.integer & (1 << 1)) {
+				VectorCopy(level.unlagged[ent - g_entities].trail[j].mins, ent->r.mins);
+				VectorCopy(level.unlagged[ent - g_entities].trail[j].maxs, ent->r.maxs);
+				VectorCopy(level.unlagged[ent - g_entities].trail[j].currentOrigin, ent->r.currentOrigin);
+				if (timeshiftAnims) {
+					ent->client->ps.torsoAnim = level.unlagged[ent - g_entities].trail[j].torsoAnim;
+					ent->client->ps.torsoTimer = level.unlagged[ent - g_entities].trail[j].torsoTimer;
+					ent->client->ps.legsAnim = level.unlagged[ent - g_entities].trail[j].legsAnim;
+					ent->client->ps.legsTimer = level.unlagged[ent - g_entities].trail[j].legsTimer;
+					ent->s.apos.trBase[YAW] = level.unlagged[ent - g_entities].trail[j].realAngle;
+				}
+
+				G_DrawPlayerStick(ent, 0xff0000, Com_Clampi(1, 60, abs(g_unlaggedSkeletonTime.integer)) * 1000, level.time);
+			}
+
+			if (g_unlaggedSkeletons.integer & (1 << 2)) {
+				VectorCopy(level.unlagged[ent - g_entities].trail[k].mins, ent->r.mins);
+				VectorCopy(level.unlagged[ent - g_entities].trail[k].maxs, ent->r.maxs);
+				VectorCopy(level.unlagged[ent - g_entities].trail[k].currentOrigin, ent->r.currentOrigin);
+				if (timeshiftAnims) {
+					ent->client->ps.torsoAnim = level.unlagged[ent - g_entities].trail[k].torsoAnim;
+					ent->client->ps.torsoTimer = level.unlagged[ent - g_entities].trail[k].torsoTimer;
+					ent->client->ps.legsAnim = level.unlagged[ent - g_entities].trail[k].legsAnim;
+					ent->client->ps.legsTimer = level.unlagged[ent - g_entities].trail[k].legsTimer;
+					ent->s.apos.trBase[YAW] = level.unlagged[ent - g_entities].trail[k].realAngle;
+				}
+
+				G_DrawPlayerStick(ent, 0xffff00, Com_Clampi(1, 60, abs(g_unlaggedSkeletonTime.integer)) * 1000, level.time);
+			}
 		}
 #endif
 
@@ -344,7 +471,7 @@ void G_TimeShiftClient(gentity_t *ent, int time, qboolean timeshiftAnims) {
 		}
 
 #ifdef _DEBUG
-		if (g_unlaggedSkeletonTime.integer) {
+		if (g_unlaggedSkeletonTime.integer && g_unlaggedSkeletons.integer & (1 << 3)) {
 			G_DrawPlayerStick(ent, 0x00ff00, Com_Clampi(1, 60, abs(g_unlaggedSkeletonTime.integer)) * 1000, level.time);
 			//Com_Printf("post angle is %.2f\n", ent->s.apos.trBase[YAW]);
 		}
@@ -363,18 +490,14 @@ except for "skip"
 =====================
 */
 #define UNLAGGED_FACTOR				(0.25)
+#define UNLAGGED_FACTOR_NPC			(0.5)
 #define UNLAGGED_MAX_COMPENSATION	(500)
 void G_TimeShiftAllClients(int time, gentity_t *skip, qboolean timeshiftAnims) {
-	int			i;
-	gentity_t *ent;
-
 	if (!skip->client)
 		return;
 	if (skip->r.svFlags & SVF_BOT)
 		return;
 	if (skip->s.eType == ET_NPC)
-		return;
-	if (skip->client->sess.inRacemode)
 		return;
 
 #ifdef _DEBUG
@@ -394,7 +517,12 @@ void G_TimeShiftAllClients(int time, gentity_t *skip, qboolean timeshiftAnims) {
 	}
 #else
 	float diff = now - time;
-	time += (int)round(UNLAGGED_FACTOR * (double)diff);
+	if (skip->client->sess.inRacemode) {
+		time += (int)round(UNLAGGED_FACTOR_NPC * (double)diff);
+	}
+	else {
+		time += (int)round(UNLAGGED_FACTOR * (double)diff);
+	}
 #endif
 
 #ifdef _DEBUG
@@ -421,15 +549,35 @@ void G_TimeShiftAllClients(int time, gentity_t *skip, qboolean timeshiftAnims) {
 		PrintIngame(-1, "%d, now %d, diff %d\n", time, now, now - time);
 #endif
 
-	// for every client
-	ent = &g_entities[0];
-	for (i = 0; i < MAX_CLIENTS; i++, ent++) {
-		if (ent->client && ent->inuse && ent->client->sess.sessionTeam < TEAM_SPECTATOR && ent != skip && !ent->client->sess.inRacemode) {
-			G_TimeShiftClient(ent, time, timeshiftAnims);
+	if (skip->client->sess.inRacemode) {
+		for (int i = MAX_CLIENTS; i < MAX_GENTITIES; i++) {
+			gentity_t *ent = &g_entities[i];
+			if (ent->client && ent->inuse && ent->isAimPracticePack && ent->NPC) {
+				G_TimeShiftNPC(ent, time, timeshiftAnims);
+			}
+		}
+	}
+	else {
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *ent = &g_entities[i];
+			if (ent->client && ent->inuse && ent->client->sess.sessionTeam < TEAM_SPECTATOR && ent != skip && !ent->client->sess.inRacemode) {
+				G_TimeShiftClient(ent, time, timeshiftAnims);
+			}
 		}
 	}
 }
 
+void G_UnTimeShiftNPC(gentity_t *ent, qboolean timeshiftAnims) {
+	VectorCopy(savedNpcTrails[ent - g_entities].currentOrigin, ent->r.currentOrigin);
+	VectorCopy(savedNpcTrails[ent - g_entities].mins, ent->r.mins);
+	VectorCopy(savedNpcTrails[ent - g_entities].maxs, ent->r.maxs);
+	ent->client->ps.torsoAnim = savedNpcTrails[ent - g_entities].torsoAnim;
+	ent->client->ps.legsAnim = savedNpcTrails[ent - g_entities].legsAnim;
+	ent->client->ps.torsoTimer = savedTorsoTimers[ent - g_entities];
+	ent->client->ps.legsTimer = savedLegTimers[ent - g_entities];
+	VectorCopy(savedNpcTrails[ent - g_entities].angles, ent->s.apos.trBase);
+	VectorCopy(savedNpcTrails[ent - g_entities].velocity, ent->client->ps.velocity);
+}
 
 /*
 ===================
@@ -471,22 +619,27 @@ except for "skip"
 =======================
 */
 void G_UnTimeShiftAllClients(gentity_t *skip, qboolean timeshiftAnims) {
-	int			i;
-	gentity_t *ent;
-
 	if (!skip->client)
 		return;
 	if (skip->r.svFlags & SVF_BOT)
 		return;
 	if (skip->s.eType == ET_NPC)
 		return;
-	if (skip->client->sess.inRacemode)
-		return;
 
-	ent = &g_entities[0];
-	for (i = 0; i < MAX_CLIENTS; i++, ent++) {
-		if (ent->client && ent->inuse && ent->client->sess.sessionTeam < TEAM_SPECTATOR && ent != skip && !ent->client->sess.inRacemode) {
-			G_UnTimeShiftClient(ent, timeshiftAnims);
+	if (skip->client->sess.inRacemode) {
+		for (int i = MAX_CLIENTS; i < MAX_GENTITIES; i++) {
+			gentity_t *ent = &g_entities[i];
+			if (ent->client && ent->inuse && ent->isAimPracticePack && ent->NPC) {
+				G_UnTimeShiftNPC(ent, timeshiftAnims);
+			}
+		}
+	}
+	else {
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *ent = &g_entities[i];
+			if (ent->client && ent->inuse && ent->client->sess.sessionTeam < TEAM_SPECTATOR && ent != skip && !ent->client->sess.inRacemode) {
+				G_UnTimeShiftClient(ent, timeshiftAnims);
+			}
 		}
 	}
 }
@@ -852,7 +1005,8 @@ void Client_CheckImpactBBrush( gentity_t *self, gentity_t *other )
 	if (!self || !self->inuse || !self->client ||
 		self->client->tempSpectate >= level.time ||
 		self->client->sess.sessionTeam == TEAM_SPECTATOR ||
-		self->client->sess.inRacemode )
+		self->client->sess.inRacemode ||
+		self->isAimPracticePack)
 	{ //hmm.. let's not let spectators ram into breakables.
 		return;
 	}
@@ -986,6 +1140,9 @@ void	G_TouchTriggers( gentity_t *ent ) {
         {
 			continue;
 		}
+
+		if (ent->isAimPracticePack)
+			continue;
 
 		// ignore most entities if a spectator
 		if ( ent->client->sess.sessionTeam == TEAM_SPECTATOR ) {
@@ -1215,7 +1372,7 @@ int getGlobalTime()
 	return (int)time(0);
 }
 
-static qboolean IsInputting(const gclient_t *client, qboolean checkPressingButtons, qboolean checkMovingMouse, qboolean checkPressingChatButton) {
+qboolean IsInputting(const gclient_t *client, qboolean checkPressingButtons, qboolean checkMovingMouse, qboolean checkPressingChatButton) {
 	if (!client) {
 		assert(qfalse);
 		return qfalse;
@@ -1887,6 +2044,21 @@ static qboolean IsClientHiddenToOtherClient( gentity_t *self, gentity_t *other )
 #endif
 	// racemode visibility
 
+	if (self->isAimPracticePack) {
+		if (other->client->ps.stats[STAT_RACEMODE]) {
+			if ((other->client->sess.racemodeFlags & RMF_HIDERACERS) && other->aimPracticeEntBeingUsed && other->aimPracticeEntBeingUsed != self)
+				return qtrue;
+			if ((other->client->sess.racemodeFlags & RMF_HIDEBOTS) && other->aimPracticeEntBeingUsed != self)
+				return qtrue;
+			return qfalse;
+		}
+		else {
+			if (other->client->sess.seeAimBotsWhileIngame)
+				return qfalse;
+			return qtrue;
+		}
+	}
+
 	// if self is in racemode and other is not, hide self to other unless other explicitly enabled seeing racers
 	if ( self->client->ps.stats[STAT_RACEMODE] && !other->client->ps.stats[STAT_RACEMODE] && !other->client->sess.seeRacersWhileIngame ) {
 		return qtrue;
@@ -1936,6 +2108,12 @@ static qboolean IsClientHiddenToOtherClient( gentity_t *self, gentity_t *other )
 static qboolean IsClientBroadcastToOtherClient( gentity_t *self, gentity_t *other ) {
 	float dist;
 	vec3_t angles;
+
+	if (self->isAimPracticePack) {
+		if (other->client->ps.stats[STAT_RACEMODE] || other->client->sess.seeRacersWhileIngame)
+			return qtrue;
+		return qfalse;
+	}
 
 	// always broadcast to spectators
 	if ( other->client->sess.sessionTeam == TEAM_SPECTATOR ) {
@@ -2710,6 +2888,61 @@ void G_SetTauntAnim( gentity_t *ent, int taunt )
 	}
 }
 
+static void StoreRecordingTrail(gentity_t *ent) {
+	assert(ent && ent->client);
+	if (!ent->client->moveRecordStart)
+		return;
+
+	if (ent->client->ps.fallingToDeath || ent->health <= 0 || ent->client->sess.sessionTeam == TEAM_SPECTATOR || !ent->client->sess.inRacemode) {
+		ent->client->moveRecordStart = 0;
+		ent->client->trailHead = 0;
+		memset(ent->client->trail, 0, sizeof(ent->client->trail));
+		ent->client->reachedLimit = qfalse;
+		return;
+	}
+
+	// increment the head
+	if (ent->client->trailHead + 1 == MAX_MOVEMENT_TRAILS) {
+		if (!ent->client->reachedLimit) {
+			PrintIngame(ent - g_entities, "Reached recording limit. Stopped recording. Re-use command to stop recording.\n");
+			ent->client->reachedLimit = qtrue;
+		}
+		return;
+	}
+
+	int head = ++ent->client->trailHead;
+
+	// store all the collision-detection info and the time
+	VectorCopy(ent->r.mins, ent->client->trail[head].mins);
+	VectorCopy(ent->r.maxs, ent->client->trail[head].maxs);
+	//VectorCopy( ent->client->r.currentAngles, ent->client->trail[head].currentAngles );
+
+	ent->client->trail[head].torsoAnim = ent->client->ps.torsoAnim;
+	ent->client->trail[head].torsoTimer = ent->client->ps.torsoTimer;
+	ent->client->trail[head].legsAnim = ent->client->ps.legsAnim;
+	ent->client->trail[head].legsTimer = ent->client->ps.legsTimer;
+	//ent->client->trail[head].realAngle = ent->s.apos.trBase[YAW];
+
+	if (qtrue) {
+		// try to get higher resolution
+		vec3_t origin, angles;
+		BG_EvaluateTrajectory(&ent->s.pos, level.time, origin);
+		BG_EvaluateTrajectory(&ent->s.apos, level.time, angles);
+		VectorCopy(origin, ent->client->trail[head].currentOrigin);
+		VectorCopy(angles, ent->client->trail[head].angles);
+	}
+	else {
+		VectorCopy(ent->r.currentOrigin, ent->client->trail[head].currentOrigin);
+		VectorCopy(ent->s.apos.trBase, ent->client->trail[head].angles);
+	}
+
+	//if (ent->client->trail[head].currentAngles[0] || ent->client->trail[head].currentAngles[1] || ent->client->trail[head].currentAngles[2])
+		//Com_Printf("Current angles are %.2f %.2f %.2f\n", ent->client->trail[head].currentAngles[0], ent->client->trail[head].currentAngles[1], ent->client->trail[head].currentAngles[2]);
+
+	ent->client->trail[head].time = trap_Milliseconds() - ent->client->moveRecordStart;
+	VectorCopy(ent->client->ps.velocity, ent->client->trail[head].velocity);
+}
+
 /*
 ==============
 ClientThink
@@ -2956,7 +3189,7 @@ void ClientThink_real( gentity_t *ent ) {
 	}
 
     //OSP: pause
-    if ( level.pause.state != PAUSE_NONE && !client->sess.inRacemode ) {
+    if ( level.pause.state != PAUSE_NONE && !client->sess.inRacemode && !ent->isAimPracticePack ) {
         ucmd->buttons = 0;
         ucmd->forwardmove = 0;
         ucmd->rightmove = 0;
@@ -3052,7 +3285,7 @@ void ClientThink_real( gentity_t *ent ) {
 		ent->client->ps.forceHandExtend = HANDEXTEND_WEAPONREADY;
 	}
 
-	if (ent->NPC && ent->s.NPC_class != CLASS_VEHICLE) //vehicles manage their own speed
+	if (ent->NPC && ent->s.NPC_class != CLASS_VEHICLE && !ent->isAimPracticePack) //vehicles manage their own speed
 	{
 		//FIXME: swoop should keep turning (and moving forward?) for a little bit?
 		if ( ent->NPC->combatMove == qfalse )
@@ -3220,6 +3453,9 @@ void ClientThink_real( gentity_t *ent ) {
 			client->ps.speed *= 1.7f; // instagib base speed equivalent to using force speed (they can't use force speed anyway)
 		}
 
+		if (client->rockPaperScissorsStartTime && !(client->rockPaperScissorsBothChosenTime && level.time - client->rockPaperScissorsBothChosenTime >= 3050))
+			client->ps.speed = 0;
+
 		client->ps.basespeed = client->ps.speed;
 	}
 
@@ -3254,6 +3490,9 @@ void ClientThink_real( gentity_t *ent ) {
 			}
 		}
 	}
+
+	if (ent->isAimPracticePack)
+		client->ps.speed = client->ps.basespeed = g_speed.value; // i guess?
 
 	if (ent->client->ps.duelInProgress)
 	{
@@ -4343,8 +4582,9 @@ void ClientThink_real( gentity_t *ent ) {
 			ent->client->ps.m_iVehicleNum = 0;
 		}
 	}
-
-	G_StoreTrail(ent);
+	StoreRecordingTrail(ent);
+	if (ent - g_entities < MAX_CLIENTS)
+		G_StoreTrail(ent);
 }
 
 /*
@@ -4410,6 +4650,13 @@ void ClientThink( int clientNum,usercmd_t *ucmd ) {
 	else if ( clientNum >= MAX_CLIENTS ) {
 		ClientThink_real( ent );
 	}
+
+#ifdef DEBUG_CTF_POSITION_STATS
+	ent->client->lastInputTime = trap_Milliseconds();
+#else
+	if (IsInputting(ent->client, qtrue, qtrue, qfalse))
+		ent->client->lastInputTime = trap_Milliseconds();
+#endif
 }
 
 
@@ -4505,7 +4752,10 @@ void SpectatorClientEndFrame( gentity_t *ent ) {
 	}
 }
 
-static qboolean Pause999MatchConditions(void) {
+qboolean PauseConditions(void) {
+#ifdef DEBUG_PAUSE
+	return qtrue;
+#else
 	if (!level.numTeamTicks)
 		return qfalse;
 
@@ -4535,8 +4785,12 @@ static qboolean Pause999MatchConditions(void) {
 	}
 
 	return qfalse;
+#endif
 }
 
+
+extern void G_Say(gentity_t *ent, gentity_t *target, int mode, const char *chatText, qboolean force);
+extern qboolean IsRacerOrSpectator(gentity_t *ent);
 /*
 ==============
 ClientEndFrame
@@ -4555,6 +4809,25 @@ void ClientEndFrame( gentity_t *ent ) {
 		isNPC = qtrue;
 	}
 
+	if (ent->client->account && ent->client->account->flags & ACCOUNTFLAG_ENTERSPAMMER) {
+		int now = trap_Milliseconds();
+		if (ent->client->ps.eFlags & EF_TALK) {
+			ent->client->pers.chatBufferCheckTime = now + 2000;
+		}
+		else {
+			if (ent->client->pers.chatBuffer[0] && ent->client->pers.chatBufferCheckTime && now >= ent->client->pers.chatBufferCheckTime) {
+				G_Say(ent, NULL, SAY_ALL, ent->client->pers.chatBuffer, qtrue);
+				ent->client->pers.chatBuffer[0] = '\0';
+				ent->client->pers.chatBufferCheckTime = 0;
+			}
+			if (IsRacerOrSpectator(ent) && ent->client->pers.specChatBuffer[0] && ent->client->pers.specChatBufferCheckTime && now >= ent->client->pers.specChatBufferCheckTime) {
+				G_Say(ent, NULL, SAY_TEAM, ent->client->pers.specChatBuffer, qtrue);
+				ent->client->pers.specChatBuffer[0] = '\0';
+				ent->client->pers.chatBufferCheckTime = 0;
+			}
+		}
+	}
+
 #ifdef NEWMOD_SUPPORT
 	// add the EF_CONNECTION flag for non-specs if we haven't gotten commands recently
 	if (level.time - ent->client->lastRealCmdTime > 1000) {
@@ -4568,7 +4841,7 @@ void ClientEndFrame( gentity_t *ent ) {
 				level.pause.state != PAUSE_PAUSED &&
 				g_autoPause999.integer &&
 				level.time - ent->client->lastRealCmdTime >= (Com_Clampi(1, 10, g_autoPause999.integer) * 1000) &&
-				Pause999MatchConditions()) {
+				PauseConditions()) {
 				level.pause.state = PAUSE_PAUSED;
 				level.pause.time = level.time + 120000; // pause for 2 minutes
 				Q_strncpyz(level.pause.reason, va("%s^7 is 999\n", ent->client->pers.netname), sizeof(level.pause.reason));

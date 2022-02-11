@@ -1157,6 +1157,9 @@ int NPC_FindNearestEnemy( gentity_t *ent )
 		if ( radEnt->client && radEnt->client->sess.inRacemode )
 			continue;
 
+		if (radEnt->isAimPracticePack)
+			continue;
+
 		//Must be valid
 		if ( NPC_ValidEnemy( radEnt ) == qfalse )
 			continue;

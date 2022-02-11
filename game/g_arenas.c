@@ -51,8 +51,8 @@ void UpdateTournamentInfo( void ) {
 		Com_sprintf( msg, sizeof(msg), "postgame %i %i 0 0 0 0 0 0 0 0 0 0 0", level.numNonSpectatorClients, playerClientNum );
 	}
 	else {
-		if( player->client->accuracy_shots ) {
-			accuracy = player->client->accuracy_hits * 100 / player->client->accuracy_shots;
+		if( player->client->stats->accuracy_shots ) {
+			accuracy = player->client->stats->accuracy_hits * 100 / player->client->stats->accuracy_shots;
 		}
 		else {
 			accuracy = 0;
@@ -82,8 +82,8 @@ void UpdateTournamentInfo( void ) {
 			perfect = 0;
 		}
 		Com_sprintf( msg, sizeof(msg), "postgame %i %i %i %i %i %i %i %i %i %i %i %i %i %i", level.numNonSpectatorClients, playerClientNum, accuracy,
-			player->client->pers.teamState.fragcarrier, player->client->pers.teamState.flaghold,player->client->ps.persistant[PERS_DEFEND_COUNT],
-			player->client->ps.persistant[PERS_ASSIST_COUNT], player->client->pers.teamState.flagrecovery, player->client->ps.persistant[PERS_SCORE],
+			player->client->stats->fcKills, player->client->stats->totalFlagHold,player->client->ps.persistant[PERS_DEFEND_COUNT],
+			player->client->ps.persistant[PERS_ASSIST_COUNT], player->client->stats->rets, player->client->ps.persistant[PERS_SCORE],
 			perfect, score1, score2, level.time, player->client->ps.persistant[PERS_CAPTURES] );
 	}
 

@@ -402,7 +402,8 @@ typedef int		clipHandle_t;
 #define	MAX_OSPATH			256		// max length of a filesystem pathname
 #endif
 
-#define	MAX_NAME_LENGTH		32		// max length of a client name
+#define	MAX_NAME_LENGTH			32		// max length of a client name
+#define MAX_NAME_DISPLAYLENGTH	24		// max display length of a client name
 
 #define	MAX_SAY_TEXT	150
 
@@ -1518,6 +1519,12 @@ static ID_INLINE vec_t VectorLengthSquared( const vec3_t v ) {
 #else
 	return (v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
 #endif
+}
+
+static ID_INLINE vec_t Distance2D(const vec3_t p1, const vec3_t p2) {
+	float a = p2[0] - p1[0];
+	float b = p2[1] - p1[1];
+	return (vec_t)sqrt((a * a) + (b * b));
 }
 
 static ID_INLINE vec_t Distance( const vec3_t p1, const vec3_t p2 ) {

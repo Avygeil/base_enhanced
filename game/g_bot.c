@@ -10,7 +10,7 @@ static char		*g_botInfos[MAX_BOTS];
 
 
 int				g_numArenas;
-static char		*g_arenaInfos[MAX_ARENAS];
+char			*g_arenaInfos[MAX_ARENAS];
 
 #define BOT_BEGIN_DELAY_BASE		2000
 #define BOT_BEGIN_DELAY_INCREMENT	1500

@@ -3,8 +3,6 @@
 
 #include "g_local.h"
 
-#include "kdtree.h"
-
 qboolean	G_SpawnString( const char *key, const char *defaultString, char **out ) {
 	int		i;
 
@@ -1259,7 +1257,6 @@ BSP Options
 "radarrange" for Siege/Vehicle radar - default range is 2500
 */
 extern void EWebPrecache(void); //g_items.c
-float g_cullDistance;
 void SP_worldspawn( void ) 
 {
 	char		*text, temp[32];
@@ -1268,8 +1265,11 @@ void SP_worldspawn( void )
 
 	//I want to "cull" entities out of net sends to clients to reduce
 	//net traffic on our larger open maps -rww
-	G_SpawnFloat("distanceCull", "6000.0", &g_cullDistance);
-	trap_SetServerCull(g_cullDistance);
+	G_SpawnFloat("distanceCull", "6000.0", &level.cullDistance);
+	float minimum = Com_Clamp(6000, 99999, g_minimumCullDistance.value);
+	if (level.cullDistance < minimum)
+		level.cullDistance = minimum;
+	trap_SetServerCull(level.cullDistance);
 
 	G_SpawnString( "classname", "", &text );
 	if ( Q_stricmp( text, "worldspawn" ) ) {
@@ -1325,6 +1325,22 @@ void SP_worldspawn( void )
 	trap_SetConfigstring( CS_GAME_VERSION, GAME_VERSION );
 
 	trap_SetConfigstring( CS_LEVEL_START_TIME, va("%i", level.startTime ) );
+
+	G_SpawnString("pitheight", "", &text);
+	if (VALIDSTRING(text)) {
+		level.pitHeight.valid = qtrue;
+		level.pitHeight.value = atof(text);
+	}
+	else {
+		level.pitHeight.valid = qfalse;
+	}
+
+	G_SpawnFloat("locationaccuracy", "50", &level.locationAccuracy);
+	if (level.locationAccuracy < 1.0f)
+		level.locationAccuracy = 1.0f;
+
+	G_SpawnInt("locationsonly", "0", &i);
+	level.generateLocationsWithInfo_b_e_locationsOnly = !!i;
 
 	G_SpawnInt("b_e_instagib", "0", &i);
 	level.instagibMap = !!i;
@@ -1414,290 +1430,6 @@ void G_PrecacheSoundsets( void )
 	}
 }
 
-static qboolean IsEntityUniqueType( gentity_t *ent ) {
-	int i;
-	gentity_t *otherEnt;
-
-	for ( i = 0, otherEnt = g_entities; i < level.num_entities; ++i, ++otherEnt ) {
-		if ( !otherEnt || !otherEnt->classname ) {
-			continue;
-		}
-
-		if ( otherEnt == ent ) {
-			continue;
-		}
-
-		if ( !Q_stricmp( ent->classname, otherEnt->classname ) ) {
-			return qfalse;
-		}
-	}
-
-	return qtrue;
-}
-
-static qboolean isRedFlagstand( gentity_t *ent ) {
-	return !Q_stricmp( ent->classname, "team_ctf_redflag" );
-}
-
-static qboolean isBlueFlagstand( gentity_t *ent ) {
-	return !Q_stricmp( ent->classname, "team_ctf_blueflag" );
-}
-
-static qboolean isWeapon( gentity_t *ent ) {
-	return ent->item && ent->item->giType == IT_WEAPON;
-}
-
-static qboolean MakeEnhancedLocation( gentity_t *ent, enhancedLocation_t *loc ) {
-	// flags are always statically bound to a team
-
-	if ( isRedFlagstand( ent ) ) {
-		Q_strncpyz( loc->message, "Flagstand", sizeof( loc->message ) );
-		loc->teamowner = TEAM_RED;
-		return qtrue;
-	}
-	
-	if ( isBlueFlagstand( ent ) ) {
-		Q_strncpyz( loc->message, "Flagstand", sizeof( loc->message ) );
-		loc->teamowner = TEAM_BLUE;
-		return qtrue;
-	}
-
-	// only count certain powerups and weapons
-
-	if ( ent->item && ent->item->giType == IT_POWERUP ) {
-		switch ( ent->item->giTag ) {
-		case PW_FORCE_ENLIGHTENED_LIGHT:
-			Q_strncpyz( loc->message, "Light Enlightenment", sizeof( loc->message ) );
-			break;
-		case PW_FORCE_ENLIGHTENED_DARK:
-			Q_strncpyz( loc->message, "Dark Enlightenment", sizeof( loc->message ) );
-			break;
-		case PW_FORCE_BOON:
-			Q_strncpyz( loc->message, "Boon", sizeof( loc->message ) );
-			break;
-		case PW_YSALAMIRI:
-			Q_strncpyz( loc->message, "Ysalamiri", sizeof( loc->message ) );
-			break;
-		default:
-			return qfalse;
-		}
-	} else if ( ent->item && ent->item->giType == IT_WEAPON ) {
-		switch ( ent->item->giTag ) {
-		case WP_STUN_BATON:
-			Q_strncpyz( loc->message, "Stun Baton", sizeof( loc->message ) );
-			break;
-		case WP_BRYAR_PISTOL:
-		case WP_BRYAR_OLD:
-			Q_strncpyz( loc->message, "Pistol", sizeof( loc->message ) );
-			break;
-		case WP_BLASTER:
-			Q_strncpyz( loc->message, "Blaster", sizeof( loc->message ) );
-			break;
-		case WP_DISRUPTOR:
-			Q_strncpyz( loc->message, "Disruptor", sizeof( loc->message ) );
-			break;
-		case WP_BOWCASTER:
-			Q_strncpyz( loc->message, "Bowcaster", sizeof( loc->message ) );
-			break;
-		case WP_REPEATER:
-			Q_strncpyz( loc->message, "Repeater", sizeof( loc->message ) );
-			break;
-		case WP_DEMP2:
-			Q_strncpyz( loc->message, "Demp", sizeof( loc->message ) );
-			break;
-		case WP_FLECHETTE:
-			Q_strncpyz( loc->message, "Golan", sizeof( loc->message ) );
-			break;
-		case WP_ROCKET_LAUNCHER:
-			Q_strncpyz( loc->message, "Rockets", sizeof( loc->message ) );
-			break;
-		case WP_THERMAL:
-			Q_strncpyz( loc->message, "Thermals", sizeof( loc->message ) );
-			break;
-		case WP_TRIP_MINE:
-			Q_strncpyz( loc->message, "Mines", sizeof( loc->message ) );
-			break;
-		case WP_DET_PACK:
-			Q_strncpyz( loc->message, "Detpacks", sizeof( loc->message ) );
-			break;
-		case WP_CONCUSSION:
-			Q_strncpyz( loc->message, "Concussion", sizeof( loc->message ) );
-			break;
-		default:
-			return qfalse;
-		}
-	} else {
-		return qfalse; // all other entities don't count
-	}
-
-	// in modes that are not those, locations don't have owners
-	if ( g_gametype.integer != GT_CTF && g_gametype.integer != GT_CTY ) {
-		loc->teamowner = TEAM_FREE;
-		return qtrue;
-	}
-
-	// first, if this entity is the only entity of its type on the map, it has no owner
-	if ( IsEntityUniqueType( ent ) ) {
-		loc->teamowner = TEAM_FREE;
-		return qtrue;
-	}
-
-	// let's find the closest flagstands (in case of multiple flagstands)
-	gentity_t *closestRedFlagstand = G_ClosestEntity( ent, isRedFlagstand );
-	gentity_t *closestBlueFlagstand = G_ClosestEntity( ent, isBlueFlagstand );
-
-	// is there just a red flag, just a blue flag, or no flag at all?
-	if ( !closestRedFlagstand && closestBlueFlagstand ) {
-		loc->teamowner = TEAM_BLUE;
-		return qtrue;
-	} else if ( closestRedFlagstand && !closestBlueFlagstand ) {
-		loc->teamowner = TEAM_RED;
-		return qtrue;
-	} else if ( !closestRedFlagstand && !closestBlueFlagstand ) {
-		loc->teamowner = TEAM_FREE;
-		return qtrue;
-	}
-
-	// we need to play with distances then
-	vec_t redDistance = DistanceSquared( ent->s.origin, closestRedFlagstand->s.origin );
-	vec_t blueDistance = DistanceSquared( ent->s.origin, closestBlueFlagstand->s.origin );
-
-	if ( redDistance < blueDistance ) {
-		loc->teamowner = TEAM_RED;
-		return qtrue;
-	} else if ( blueDistance < redDistance ) {
-		loc->teamowner = TEAM_BLUE;
-		return qtrue;
-	}
-
-	// both flags are equidistant, let's take the closest weapon and see which flag is closer to it instead
-	gentity_t *closestWeapon = G_ClosestEntity( ent, isWeapon );
-	if ( closestWeapon ) {
-		redDistance = DistanceSquared( closestWeapon->s.origin, closestRedFlagstand->s.origin );
-		blueDistance = DistanceSquared( closestWeapon->s.origin, closestBlueFlagstand->s.origin );
-
-		if ( redDistance < blueDistance ) {
-			loc->teamowner = TEAM_RED;
-			return qtrue;
-		} else if ( blueDistance < redDistance ) {
-			loc->teamowner = TEAM_BLUE;
-			return qtrue;
-		}
-	}
-
-	// well, I tried
-	loc->teamowner = TEAM_FREE;
-	return qtrue;
-}
-
-static void GenerateEnhancedLocations( void ) {
-	int i;
-	gentity_t *ent;
-	enhancedLocation_t loc;
-	
-	G_Printf( "Procedurally generating enhanced locations...\n" );
-
-	for ( i = 0, ent = g_entities; i < level.num_entities && level.locations.enhanced.numUnique < MAX_LOCATIONS; ++i, ++ent ) {
-		if ( !ent || !ent->classname ) {
-			continue;
-		}
-
-		if ( MakeEnhancedLocation( ent, &loc ) ) {
-			int j;
-			enhancedLocation_t *targetLoc = NULL;
-
-			// this is a valid location, let's see if we already have a handle for it
-			for ( j = 0; j < level.locations.enhanced.numUnique; ++j ) {
-				enhancedLocation_t *thisLoc = &level.locations.enhanced.data[j];
-
-				if ( !strcmp( loc.message, thisLoc->message ) && loc.teamowner == thisLoc->teamowner ) {
-					targetLoc = thisLoc;
-					break;
-				}
-			}
-
-			// there was no handle with this location message, copy the info to a new one
-			if ( !targetLoc ) {
-				targetLoc = &level.locations.enhanced.data[level.locations.enhanced.numUnique++];
-				Q_strncpyz( targetLoc->message, loc.message, sizeof( targetLoc->message ) );
-				targetLoc->teamowner = loc.teamowner;
-			}
-
-			kd_insertf( level.locations.enhanced.lookupTree, ent->s.origin, targetLoc );
-			level.locations.enhanced.numTotal++;
-		}
-	}
-}
-
-/*
-Locations linking rules:
-- If at least one enhanced location is present, all parsed legacy locations are deleted/ignored and the whole new system is used
-- Else, if g_autoGenerateLocations is set to 2, legacy locations are ignored and enhanced locations are always procedurally generated when they aren't present
-- Else, if at least one legacy location is present, the base system is used
-- Else, if none of the above is true, and if g_autoGenerateLocations is set to 1, enhanced locations are procedurally generated
-*/
-void G_LinkLocations( void ) {
-	int i, n;
-
-	if ( level.locations.linked ) {
-		return;
-	}
-
-	trap_SetConfigstring( CS_LOCATIONS, "unknown" );
-
-	if ( ( g_autoGenerateLocations.integer >= 2 && !level.locations.enhanced.numUnique ) ||
-		( g_autoGenerateLocations.integer && !level.locations.enhanced.numUnique && !level.locations.legacy.num ) ) {
-		// attempt to generate enhanced locations procedurally
-		GenerateEnhancedLocations();
-	}
-
-	if ( level.locations.enhanced.numUnique ) {
-		// use the enhanced system
-		for ( i = 0, n = 1; i < level.locations.enhanced.numUnique; ++i ) {
-			char *prefix;
-
-			// prepend the team name before the location for base clients
-			switch ( level.locations.enhanced.data[i].teamowner ) {
-			case TEAM_RED: prefix = "Red "; break;
-			case TEAM_BLUE: prefix = "Blue "; break;
-			default: prefix = "";
-			}
-
-			level.locations.enhanced.data[i].cs_index = n;
-			trap_SetConfigstring( CS_LOCATIONS + n, va( "%s%s", prefix, level.locations.enhanced.data[i].message ) );
-			n++;
-		}
-
-		// we won't need the legacy system
-		memset( &level.locations.legacy, 0, sizeof( level.locations.legacy ) );
-
-		G_Printf( "Linked %d enhanced locations", level.locations.enhanced.numUnique );
-		if ( level.locations.enhanced.numUnique != level.locations.enhanced.numTotal ) {
-			G_Printf( " (optimized from %d entities)", level.locations.enhanced.numTotal );
-		}
-		G_Printf( "\n" );
-	} else if ( level.locations.legacy.num > 0 ) {
-		for ( i = 0, n = 1; i < level.locations.legacy.num; i++ ) {
-			level.locations.legacy.data[i].cs_index = n;
-			trap_SetConfigstring( CS_LOCATIONS + n, level.locations.legacy.data[i].message );
-			n++;
-		}
-
-		// we won't need the enhanced system
-		kd_free( level.locations.enhanced.lookupTree );
-		memset( &level.locations.enhanced, 0, sizeof( level.locations.enhanced ) );
-
-		G_Printf( "Linked %d legacy locations\n", level.locations.legacy.num );
-	} else {
-		// we won't need either system
-		kd_free( level.locations.enhanced.lookupTree );
-		memset( &level.locations, 0, sizeof( level.locations ) );
-	}
-
-	// All linked together now
-	level.locations.linked = qtrue;
-}
-
 /*
 ==============
 G_SpawnEntitiesFromString
@@ -1732,9 +1464,7 @@ void G_SpawnEntitiesFromString( qboolean inSubBSP ) {
 
 	// clear the locations and prepare the enhanced lookup tree
 	if ( !inSubBSP && !level.locations.linked ) {
-		kd_free( level.locations.enhanced.lookupTree );
-		memset( &level.locations, 0, sizeof( level.locations ) );
-		level.locations.enhanced.lookupTree = kd_create( 3 );
+		//Location_ResetLookupTree();
 	}
 
 	// parse ents

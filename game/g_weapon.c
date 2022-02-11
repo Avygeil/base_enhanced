@@ -260,6 +260,8 @@ static void WP_FireBryarPistol( gentity_t *ent, qboolean altFire )
 		if (count > 1)
 		{
 			damage *= (count*1.7);
+			//ent->client->stats->accuracy_shots++;
+			ent->client->stats->accuracy_shotsOfType[ACC_PISTOL_ALT]++;
 		}
 		else
 		{
@@ -490,6 +492,17 @@ static void WP_DisruptorMainFire( gentity_t *ent )
 	int			ignore, traces;
 	int			hits = 0;
 
+	if (ent->client->sess.inRacemode) {
+		// make tracing work temporarily; we will switch them back before returning
+		ent->r.svFlags |= SVF_COOLKIDSCLUB;
+		ent->r.svFlags &= ~SVF_GHOST;
+
+		if (ent->aimPracticeEntBeingUsed) {
+			ent->r.singleEntityCollision = qtrue;
+			ent->r.singleEntityThatCanCollide = ent->aimPracticeEntBeingUsed - g_entities;
+		}
+	}
+
 	if ( g_gametype.integer == GT_SIEGE )
 	{
 		damage = DISRUPTOR_MAIN_DAMAGE_SIEGE;
@@ -582,7 +595,7 @@ static void WP_DisruptorMainFire( gentity_t *ent )
 				G_ApplyRaceBroadcastsToEvent( ent, tent );
 
 				te = G_TempEntity( tr.endpos, EV_SABER_BLOCK );
-				G_ApplyRaceBroadcastsToEvent( traceEnt, te );
+				G_ApplyRaceBroadcastsToEvent( ent, te );
 				VectorCopy(tr.endpos, te->s.origin);
 				VectorCopy(tr.plane.normal, te->s.angles);
 				if (!te->s.angles[0] && !te->s.angles[1] && !te->s.angles[2])
@@ -596,11 +609,28 @@ static void WP_DisruptorMainFire( gentity_t *ent )
 				if (g_unlagged.integer && compensate)
 					G_UnTimeShiftAllClients(ent, ghoul2);
 
+				if (ent->client->sess.inRacemode) {
+					// restore svFlags from before
+					ent->r.svFlags &= ~SVF_COOLKIDSCLUB;
+					ent->r.svFlags |= SVF_GHOST;
+
+					ent->r.singleEntityCollision = qfalse;
+					ent->r.singleEntityThatCanCollide = 0;
+				}
+
 				return;
 			}
 		}
 		else if ( (traceEnt->flags&FL_SHIELDED) )
 		{//stopped cold
+			if (ent->client->sess.inRacemode) {
+				// restore svFlags from before
+				ent->r.svFlags &= ~SVF_COOLKIDSCLUB;
+				ent->r.svFlags |= SVF_GHOST;
+
+				ent->r.singleEntityCollision = qfalse;
+				ent->r.singleEntityThatCanCollide = 0;
+			}
 			return;
 		}
 		//a Jedi is not dodging this shot
@@ -627,6 +657,15 @@ static void WP_DisruptorMainFire( gentity_t *ent )
 	{
 		if ( tr.entityNum < ENTITYNUM_WORLD && traceEnt->takedamage )
 		{
+			if (traceEnt->isAimPracticePack) {
+				if (ent->aimPracticeEntBeingUsed == traceEnt && ent->numAimPracticeSpawns >= 1 && ent->aimPracticeMode == AIMPRACTICEMODE_TIMED) {
+					//++ent->numTotalAimPracticeHits;
+					//++ent->numAimPracticeHitsOfWeapon[WP_DISRUPTOR];
+					CenterPrintToPlayerAndFollowers(ent, "Use scope! Primary shots don't count.");
+				}
+				PlayAimPracticeBotPainSound(traceEnt, ent);
+			}
+
 			if ( traceEnt->client && LogAccuracyHit( traceEnt, ent )) {
 				hits++;
 			} 
@@ -635,7 +674,7 @@ static void WP_DisruptorMainFire( gentity_t *ent )
 			
 			tent = G_TempEntity( tr.endpos, EV_DISRUPTOR_HIT );
 			tent->s.eventParm = DirToByte( tr.plane.normal );
-			G_ApplyRaceBroadcastsToEvent( traceEnt, tent );
+			G_ApplyRaceBroadcastsToEvent( ent, tent );
 
 			if (traceEnt->client)
 			{
@@ -666,7 +705,17 @@ static void WP_DisruptorMainFire( gentity_t *ent )
 			//ent->client->ps.eFlags |= EF_AWARD_IMPRESSIVE;
 			//ent->client->rewardTime = level.time + REWARD_SPRITE_TIME;
 		}
-		ent->client->accuracy_hits++;
+		ent->client->stats->accuracy_hits++;
+		ent->client->stats->accuracy_hitsOfType[ACC_DISRUPTOR_PRIMARY]++;
+	}
+
+	if (ent->client->sess.inRacemode) {
+		// restore svFlags from before
+		ent->r.svFlags &= ~SVF_COOLKIDSCLUB;
+		ent->r.svFlags |= SVF_GHOST;
+
+		ent->r.singleEntityCollision = qfalse;
+		ent->r.singleEntityThatCanCollide = 0;
 	}
 }
 
@@ -704,6 +753,17 @@ void WP_DisruptorAltFire( gentity_t *ent )
 	qboolean	fullCharge = qfalse;
 	int			hits = 0, disintegrations = 0;
 	int			deathTorsoAnim[16] = { 0 }, deathLegsAnim[16] = { 0 }, deathClientNum[16] = { -1 }, numKilled = 0;
+
+	if (ent->client->sess.inRacemode) {
+		// make tracing work temporarily; we will switch them back before returning
+		ent->r.svFlags |= SVF_COOLKIDSCLUB;
+		ent->r.svFlags &= ~SVF_GHOST;
+
+		if (ent->aimPracticeEntBeingUsed) {
+			ent->r.singleEntityCollision = qtrue;
+			ent->r.singleEntityThatCanCollide = ent->aimPracticeEntBeingUsed - g_entities;
+		}
+	}
 
 	damage = DISRUPTOR_ALT_DAMAGE-30;
 
@@ -830,7 +890,7 @@ void WP_DisruptorAltFire( gentity_t *ent )
 				G_ApplyRaceBroadcastsToEvent( ent, tent );
 
 				te = G_TempEntity( tr.endpos, EV_SABER_BLOCK );
-				G_ApplyRaceBroadcastsToEvent( traceEnt, te );
+				G_ApplyRaceBroadcastsToEvent( ent, te );
 				VectorCopy(tr.endpos, te->s.origin);
 				VectorCopy(tr.plane.normal, te->s.angles);
 				if (!te->s.angles[0] && !te->s.angles[1] && !te->s.angles[2])
@@ -843,6 +903,15 @@ void WP_DisruptorAltFire( gentity_t *ent )
 
 				if (g_unlagged.integer && compensate)
 					G_UnTimeShiftAllClients(ent, ghoul2);
+
+				if (ent->client->sess.inRacemode) {
+					// restore svFlags from before
+					ent->r.svFlags &= ~SVF_COOLKIDSCLUB;
+					ent->r.svFlags |= SVF_GHOST;
+
+					ent->r.singleEntityCollision = qfalse;
+					ent->r.singleEntityThatCanCollide = 0;
+				}
 				return;
 			}
 		}
@@ -867,6 +936,14 @@ void WP_DisruptorAltFire( gentity_t *ent )
 				tent->s.eFlags |= EF_ALT_FIRING;
 				G_ApplyRaceBroadcastsToEvent( ent, tent );
 	
+				if (traceEnt->isAimPracticePack) {
+					if (ent->aimPracticeEntBeingUsed == traceEnt && ent->numAimPracticeSpawns >= 1) {
+						++ent->numTotalAimPracticeHits;
+						++ent->numAimPracticeHitsOfWeapon[WP_DISRUPTOR];
+					}
+					PlayAimPracticeBotPainSound(traceEnt, ent);
+				}
+
 				if ( LogAccuracyHit( traceEnt, ent )) {
 					if (ent->client) {
 						hits++;
@@ -886,7 +963,7 @@ void WP_DisruptorAltFire( gentity_t *ent )
 
 						tent = G_TempEntity( tr.endpos, EV_DISRUPTOR_HIT );
 						tent->s.eventParm = DirToByte( tr.plane.normal );
-						G_ApplyRaceBroadcastsToEvent( traceEnt, tent );
+						G_ApplyRaceBroadcastsToEvent( ent, tent );
 					}
 				 }
 				 else
@@ -988,7 +1065,8 @@ void WP_DisruptorAltFire( gentity_t *ent )
 			//ent->client->ps.eFlags |= EF_AWARD_IMPRESSIVE;
 			//ent->client->rewardTime = level.time + REWARD_SPRITE_TIME;
 		}
-		ent->client->accuracy_hits++;
+		ent->client->stats->accuracy_hits++;
+		ent->client->stats->accuracy_hitsOfType[ACC_DISRUPTOR_SNIPE]++;
 	}
 
 	if (g_unlagged.integer && compensate) {
@@ -1002,6 +1080,15 @@ void WP_DisruptorAltFire( gentity_t *ent )
 			deadEnt->client->ps.torsoAnim = deathTorsoAnim[i];
 			deadEnt->client->ps.legsAnim = deathLegsAnim[i];
 		}
+	}
+
+	if (ent->client->sess.inRacemode) {
+		// restore svFlags from before
+		ent->r.svFlags &= ~SVF_COOLKIDSCLUB;
+		ent->r.svFlags |= SVF_GHOST;
+
+		ent->r.singleEntityCollision = qfalse;
+		ent->r.singleEntityThatCanCollide = 0;
 	}
 }
 
@@ -1347,6 +1434,12 @@ void DEMP2_AltRadiusDamage( gentity_t *ent )
 			continue;
 		}
 
+		if (gent->isAimPracticePack)
+			continue;
+
+		if (myOwner->client->sess.inRacemode)
+			continue;
+
 		// don't damage racer projectiles
 		if ( gent->s.eType == ET_MISSILE && gent->r.ownerNum >= 0 && gent->r.ownerNum < MAX_CLIENTS && level.clients[gent->r.ownerNum].sess.inRacemode )
 		{
@@ -1689,7 +1782,7 @@ void WP_flechette_alt_blow( gentity_t *ent )
 }
 
 //------------------------------------------------------------------------------
-static void WP_CreateFlechetteBouncyThing( vec3_t start, vec3_t fwd, gentity_t *self )
+static gentity_t *WP_CreateFlechetteBouncyThing( vec3_t start, vec3_t fwd, gentity_t *self )
 //------------------------------------------------------------------------------
 {
 	gentity_t	*missile;
@@ -1729,12 +1822,14 @@ static void WP_CreateFlechetteBouncyThing( vec3_t start, vec3_t fwd, gentity_t *
 	missile->splashDamage = FLECHETTE_ALT_SPLASH_DAM;
 	missile->splashRadius = FLECHETTE_ALT_SPLASH_RAD;
 
-	missile->r.svFlags = SVF_USE_CURRENT_ORIGIN;
+	missile->r.svFlags |= SVF_USE_CURRENT_ORIGIN;
 
 	missile->methodOfDeath = MOD_FLECHETTE_ALT_SPLASH;
 	missile->splashMethodOfDeath = MOD_FLECHETTE_ALT_SPLASH;
 
 	VectorCopy( start, missile->pos2 );
+
+	return missile;
 }
 
 //---------------------------------------------------------
@@ -1751,7 +1846,15 @@ static void WP_FlechetteAltFire( gentity_t *self )
 
 	WP_TraceSetStart( self, start, mins, maxs );//make sure our start point isn't on the other side of a wall
 
-	for ( i = 0; i < 2; i++ )
+	gentity_t *balls[2] = { NULL };
+
+	int numBalls;
+	if (self->client && self->client->sess.inRacemode && self->aimPracticeEntBeingUsed && self->aimPracticeMode)
+		numBalls = 1; // lance armstrong mode
+	else
+		numBalls = 2;
+
+	for ( i = 0; i < numBalls; i++ )
 	{
 		VectorCopy( angs, dir );
 
@@ -1765,7 +1868,13 @@ static void WP_FlechetteAltFire( gentity_t *self )
 		}
 		AngleVectors( dir, fwd, NULL, NULL );
 
-		WP_CreateFlechetteBouncyThing( start, fwd, self );
+		balls[i] = WP_CreateFlechetteBouncyThing( start, fwd, self );
+	}
+
+	// link the two balls together so that an accuracy "hit" can be determined simply by one of them hitting
+	if (numBalls == 2) {
+		balls[0]->twin = balls[1];
+		balls[1]->twin = balls[0];
 	}
 }
 
@@ -2033,7 +2142,10 @@ static void WP_FireRocket( gentity_t *ent, qboolean altFire )
 //===testing being able to shoot rockets out of the air==================================
 	missile->health = 10;
 	missile->takedamage = qtrue;
-	missile->r.contents = MASK_SHOT;
+	if (ent && ent->client && ent->client->sess.inRacemode)
+		missile->r.contents = 0; // don't allow people to surf on racer rockets
+	else
+		missile->r.contents = MASK_SHOT;
 	missile->die = RocketDie;
 //===testing being able to shoot rockets out of the air==================================
 	
@@ -2108,7 +2220,10 @@ void thermalDetonatorExplode( gentity_t *ent )
 		if (G_RadiusDamage( ent->r.currentOrigin, ent->parent,  ent->splashDamage, ent->splashRadius, 
 				ent, ent, ent->splashMethodOfDeath) && !ent->isReflected)
 		{
-			g_entities[ent->r.ownerNum].client->accuracy_hits++;
+			if (!(ent->flags & FL_BOUNCE_HALF)) {
+				g_entities[ent->r.ownerNum].client->stats->accuracy_hits++;
+				g_entities[ent->r.ownerNum].client->stats->accuracy_hitsOfType[ACC_THERMAL_ALT]++;
+			}
 		}
 
 		trap_LinkEntity( ent );
@@ -2199,6 +2314,13 @@ gentity_t *WP_FireThermalDetonator( gentity_t *ent, qboolean altFire )
 
 	bolt->s.eType = ET_MISSILE;
 	bolt->r.svFlags = SVF_USE_CURRENT_ORIGIN;
+	if (ent->client && ent->client->sess.inRacemode) {
+		bolt->r.svFlags |= SVF_COOLKIDSCLUB;
+		if (ent->aimPracticeEntBeingUsed) {
+			bolt->r.singleEntityCollision = qtrue;
+			bolt->r.singleEntityThatCanCollide = ent->aimPracticeEntBeingUsed - g_entities;
+		}
+	}
 	bolt->s.weapon = WP_THERMAL;
 
 	bolt->methodOfDeath = MOD_THERMAL;
@@ -2490,7 +2612,7 @@ void proxMineThink(gentity_t *ent)
 
 		if (cl->inuse && cl->client && cl->client->pers.connected == CON_CONNECTED &&
 			owner != cl && cl->client->sess.sessionTeam != TEAM_SPECTATOR &&
-			cl->client->tempSpectate < level.time && cl->health > 0 && !cl->client->sess.inRacemode)
+			cl->client->tempSpectate < level.time && cl->health > 0 && !cl->client->sess.inRacemode && !g_entities[i].isAimPracticePack)
 		{
 			if (!OnSameTeam(owner, cl) || g_friendlyFire.integer)
 			{ //not on the same team, or friendly fire is enabled
@@ -3165,6 +3287,17 @@ static void WP_FireConcussionAlt( gentity_t *ent )
 	int			i;
 	int			deathTorsoAnim[16] = { 0 }, deathLegsAnim[16] = { 0 }, deathClientNum[16] = { -1 }, numKilled = 0;
 
+	if (ent->client->sess.inRacemode) {
+		// make tracing work temporarily; we will switch them back before returning
+		ent->r.svFlags |= SVF_COOLKIDSCLUB;
+		ent->r.svFlags &= ~SVF_GHOST;
+
+		if (ent->aimPracticeEntBeingUsed) {
+			ent->r.singleEntityCollision = qtrue;
+			ent->r.singleEntityThatCanCollide = ent->aimPracticeEntBeingUsed - g_entities;
+		}
+	}
+
 	// count this as weapon usage out of G_Damage because of the knockback
 	ent->client->usedWeapon = qtrue;
 
@@ -3267,7 +3400,8 @@ static void WP_FireConcussionAlt( gentity_t *ent )
 
 					if ( traceEnt->client && LogAccuracyHit( traceEnt, ent )) 
 					{//NOTE: hitting multiple ents can still get you over 100% accuracy
-						ent->client->accuracy_hits++;
+						ent->client->stats->accuracy_hits++;
+						ent->client->stats->accuracy_hitsOfType[ACC_CONCUSSION_ALT]++;
 					} 
 
 					int preHealth = traceEnt->health;
@@ -3285,6 +3419,14 @@ static void WP_FireConcussionAlt( gentity_t *ent )
 						deathLegsAnim[numKilled] = traceEnt->client->ps.legsAnim;
 						deathClientNum[numKilled] = traceEnt - g_entities;
 						numKilled++;
+					}
+
+					if (traceEnt->isAimPracticePack) {
+						if (ent->aimPracticeEntBeingUsed == traceEnt && ent->numAimPracticeSpawns >= 1) {
+							++ent->numTotalAimPracticeHits;
+							++ent->numAimPracticeHitsOfWeapon[WP_CONCUSSION];
+						}
+						PlayAimPracticeBotPainSound(traceEnt, ent);
 					}
 
 					//do knockback and knockdown manually
@@ -3393,6 +3535,15 @@ static void WP_FireConcussionAlt( gentity_t *ent )
 
 	G_PlayEffectID( G_EffectIndex( "concussion/altmuzzle_flash" ), muzzle, forward );
 #endif
+
+	if (ent->client->sess.inRacemode) {
+		// restore svFlags from before
+		ent->r.svFlags &= ~SVF_COOLKIDSCLUB;
+		ent->r.svFlags |= SVF_GHOST;
+
+		ent->r.singleEntityCollision = qfalse;
+		ent->r.singleEntityThatCanCollide = 0;
+	}
 }
 
 #ifdef _WIN32
@@ -3685,6 +3836,10 @@ qboolean LogAccuracyHit( gentity_t *target, gentity_t *attacker ) {
 		return qfalse;
 	}
 
+	if (target->client->sess.inRacemode || attacker->client->sess.inRacemode) {
+		return qfalse;
+	}
+
 	return qtrue;
 }
 
@@ -3750,10 +3905,12 @@ void WP_TouchVehMissile( gentity_t *ent, gentity_t *other, trace_t *trace )
 	G_MissileImpact( ent, &myTrace );
 }
 
+extern qboolean CheckAccuracyAndAirshot(gentity_t *missile, gentity_t *victim, qboolean isSurfedRocket);
 void WP_TouchRocket( gentity_t *ent, gentity_t *other, trace_t *trace )
 {
 	if ( ent )
 	{
+		CheckAccuracyAndAirshot(ent, other, qtrue);
 		ent->die( ent, NULL, NULL, ROCKET_DAMAGE, MOD_ROCKET_HOMING );
 	}
 }	 
@@ -4189,7 +4346,6 @@ void WP_VehLeadCrosshairVeh( gentity_t *camTraceEnt, vec3_t newEnd, const vec3_t
 }
 
 #define MAX_XHAIR_DIST_ACCURACY	20000.0f
-extern float g_cullDistance;
 extern int BG_VehTraceFromCamPos( trace_t *camTrace, bgEntity_t *bgEnt, const vec3_t entOrg, const vec3_t shotStart, const vec3_t end, vec3_t newEnd, vec3_t shotDir, float bestDist );
 qboolean WP_VehCheckTraceFromCamPos( gentity_t *ent, const vec3_t shotStart, vec3_t shotDir )
 {
@@ -4203,7 +4359,7 @@ qboolean WP_VehCheckTraceFromCamPos( gentity_t *ent, const vec3_t shotStart, vec
 	{
 		return qfalse;
 	}
-	if ( (ent->m_pVehicle->m_pVehicleInfo->type == VH_FIGHTER && g_cullDistance > MAX_XHAIR_DIST_ACCURACY )
+	if ( (ent->m_pVehicle->m_pVehicleInfo->type == VH_FIGHTER && level.cullDistance > MAX_XHAIR_DIST_ACCURACY )
 		|| ent->m_pVehicle->m_pVehicleInfo->type == VH_WALKER)
 	{
 		//FIRST: simulate the normal crosshair trace from the center of the veh straight forward
@@ -4229,7 +4385,7 @@ qboolean WP_VehCheckTraceFromCamPos( gentity_t *ent, const vec3_t shotStart, vec
 			AngleVectors( ang, dir, NULL, NULL );
 			VectorCopy( ent->r.currentOrigin, start );
 		}
-		VectorMA( start, g_cullDistance, dir, end );
+		VectorMA( start, level.cullDistance, dir, end );
 		trap_Trace( &trace, start, vec3_origin, vec3_origin, end, 
 			ent->s.number, CONTENTS_SOLID|CONTENTS_BODY );
 
@@ -4243,7 +4399,7 @@ qboolean WP_VehCheckTraceFromCamPos( gentity_t *ent, const vec3_t shotStart, vec
 		{//NOW do the trace from the camPos and compare with above trace
 			trace_t	extraTrace;
 			vec3_t	newEnd;
-			int camTraceEntNum = BG_VehTraceFromCamPos( &extraTrace, (bgEntity_t *)ent, ent->r.currentOrigin, shotStart, end, newEnd, shotDir, (trace.fraction*g_cullDistance) );
+			int camTraceEntNum = BG_VehTraceFromCamPos( &extraTrace, (bgEntity_t *)ent, ent->r.currentOrigin, shotStart, end, newEnd, shotDir, (trace.fraction*level.cullDistance) );
 			if ( camTraceEntNum )
 			{
 				WP_VehLeadCrosshairVeh( &g_entities[camTraceEntNum-1], newEnd, dir, shotStart, shotDir );
@@ -4564,15 +4720,40 @@ int BG_EmplacedView(vec3_t baseAngles, vec3_t angles, float *newYaw, float const
 void FireWeapon( gentity_t *ent, qboolean altFire ) {
 
 	// track shots taken for accuracy tracking.  Grapple is not a weapon and gauntet is just not tracked
-	if( ent->s.weapon != WP_SABER && ent->s.weapon != WP_STUN_BATON && ent->s.weapon != WP_MELEE 
+	if( !(ent && ent->client && ent->client->sess.inRacemode) && ent->s.weapon != WP_SABER && ent->s.weapon != WP_STUN_BATON && ent->s.weapon != WP_MELEE 
 		/* *CHANGE 63* mines and det packs should not be considered in accuracy  */
 		&& 	ent->s.weapon != WP_TRIP_MINE && ent->s.weapon != WP_DET_PACK 	
 		) 
 	{
-		if( ent->s.weapon == WP_FLECHETTE ) {
-			ent->client->accuracy_shots += altFire ? FLECHETTE_SHOTS_ALT : FLECHETTE_SHOTS;
-		} else {
-			ent->client->accuracy_shots++;
+		if (ent->s.weapon == WP_DISRUPTOR) {
+			ent->client->stats->accuracy_shots++;
+			if (altFire)
+				ent->client->stats->accuracy_shotsOfType[ACC_DISRUPTOR_SNIPE]++;
+			else
+				ent->client->stats->accuracy_shotsOfType[ACC_DISRUPTOR_PRIMARY]++;
+		}
+		else if (ent->s.weapon == WP_REPEATER && altFire) {
+			ent->client->stats->accuracy_shots++;
+			ent->client->stats->accuracy_shotsOfType[ACC_REPEATER_ALT]++;
+		}
+		else if (ent->s.weapon == WP_FLECHETTE && altFire) {
+			ent->client->stats->accuracy_shots++;
+			ent->client->stats->accuracy_shotsOfType[ACC_GOLAN_ALT]++;
+		}
+		else if (ent->s.weapon == WP_ROCKET_LAUNCHER) {
+			ent->client->stats->accuracy_shots++;
+			ent->client->stats->accuracy_shotsOfType[ACC_ROCKET]++;
+		}
+		else if (ent->s.weapon == WP_THERMAL && altFire) {
+			ent->client->stats->accuracy_shots++;
+			ent->client->stats->accuracy_shotsOfType[ACC_THERMAL_ALT]++;
+		}
+		else if (ent->s.weapon == WP_CONCUSSION) {
+			ent->client->stats->accuracy_shots++;
+			if (altFire)
+				ent->client->stats->accuracy_shotsOfType[ACC_CONCUSSION_ALT]++;
+			else
+				ent->client->stats->accuracy_shotsOfType[ACC_CONCUSSION_PRIMARY]++;
 		}
 	}
 

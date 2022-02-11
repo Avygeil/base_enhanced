@@ -120,6 +120,27 @@ void ListClear( list_t *list ) {
 	}
 }
 
+void ListCopy(list_t *old, list_t *new, size_t elementSize) {
+	iterator_t iter;
+
+	ListIterate(old, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		genericNode_t *oldElement = IteratorNext(&iter);
+		node_t *newElement = (node_t *)ListAdd(new, elementSize);
+
+		// backup prev/next before memcpy overwrites it
+		genericNode_t *prev = newElement->prev;
+		genericNode_t *next = newElement->next;
+
+		// copy
+		memcpy(newElement, oldElement, elementSize);
+
+		// restore prev/next
+		newElement->prev = prev;
+		newElement->next = next;
+	}
+}
+
 genericNode_t* QueueAdd( queue_t *queue, size_t newElementSize ) {
 	// since we are adding things at the end of the queue, this is exactly the same operation
 	return ListAdd( ( list_t* )queue, newElementSize );

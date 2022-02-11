@@ -611,6 +611,8 @@ static qboolean pas_find_enemies( gentity_t *self )
 		{
 			continue; // don't pull aggro on racers
 		}
+		if (target->isAimPracticePack)
+			continue;
 		if ( target == self || !target->takedamage || target->health <= 0 || ( target->flags & FL_NOTARGET ))
 		{
 			continue;
@@ -2064,7 +2066,7 @@ int Pickup_Powerup( gentity_t *ent, gentity_t *other ) {
 
 		// Only add non dropped boons
 		if ( ent->item->giTag == PW_FORCE_BOON && !ent->s.modelindex2 ) {
-			++other->client->pers.teamState.boonPickups;
+			++other->client->stats->boonPickups;
 		}
 
 		G_LogWeaponPowerup(other->s.number, ent->item->giTag);
@@ -2271,6 +2273,8 @@ int Pickup_Health (gentity_t *ent, gentity_t *other) {
 	int			max;
 	int			quantity;
 
+	int preHealth = other->health;
+
 	// small and mega healths will go over the max
 	if ( ent->item->quantity != 5 && ent->item->quantity != 100 ) {
 		max = other->client->ps.stats[STAT_MAX_HEALTH];
@@ -2291,6 +2295,11 @@ int Pickup_Health (gentity_t *ent, gentity_t *other) {
 	}
 	other->client->ps.stats[STAT_HEALTH] = other->health;
 
+	int postHealth = other->health;
+
+	if (other->client->stats && postHealth > preHealth)
+		other->client->stats->healthPickedUp += (postHealth - preHealth); // cap pickup at actual amount changed
+
 	if ( ent->item->quantity == 100 ) {		// mega health respawns slow
 		return RESPAWN_MEGAHEALTH;
 	}
@@ -2302,11 +2311,16 @@ int Pickup_Health (gentity_t *ent, gentity_t *other) {
 
 int Pickup_Armor( gentity_t *ent, gentity_t *other ) 
 {
+	int preArmor = other->client->ps.stats[STAT_ARMOR];
 	other->client->ps.stats[STAT_ARMOR] += ent->item->quantity;
 	if ( other->client->ps.stats[STAT_ARMOR] > other->client->ps.stats[STAT_MAX_HEALTH] * ent->item->giTag ) 
 	{
 		other->client->ps.stats[STAT_ARMOR] = other->client->ps.stats[STAT_MAX_HEALTH] * ent->item->giTag;
 	}
+	int postArmor = other->client->ps.stats[STAT_ARMOR];
+
+	if (other->client->stats && postArmor > preArmor)
+		other->client->stats->armorPickedUp += (postArmor - preArmor); // cap pickup at actual amount changed
 
 	return adjustRespawnTime(RESPAWN_ARMOR, ent->item->giType, ent->item->giTag);
 }
@@ -2427,6 +2441,9 @@ void Touch_Item (gentity_t *ent, gentity_t *other, trace_t *trace) {
 		return;		// dead people can't pickup
 	if (InstagibEnabled() && !(other->client && other->client->sess.inRacemode) && ent->item->giType != IT_TEAM)
 		return; // no picking stuff up in instagib, except for flags
+
+	if ((ent->item->giType == IT_TEAM || ent->item->giType == IT_POWERUP) && level.pause.state != PAUSE_NONE && !other->client->canTouchPowerupsWhileGameIsPaused)
+		return;
 
 	if (ent->item->giType == IT_POWERUP &&
 		(ent->item->giTag == PW_FORCE_ENLIGHTENED_LIGHT || ent->item->giTag == PW_FORCE_ENLIGHTENED_DARK))
@@ -2855,6 +2872,7 @@ void FinishSpawningItem( gentity_t *ent ) {
 	// they can't take non-flag pickups up anyway, but if instagib is enabled at start, might as well prevent them from spawning too
 	if (InstagibEnabled() && ent->item->giType != IT_TEAM) {
 		G_FreeEntity(ent);
+		return;
 	}
 
 	if (g_gametype.integer == GT_HOLOCRON)
@@ -2884,10 +2902,18 @@ void FinishSpawningItem( gentity_t *ent ) {
 		}
 	}
 
-	if (!g_enableBoon.integer)
-	{ //if boon is disabled, don't spawn it on the map
-		if (ent->item->giType == IT_POWERUP && ent->item->giTag == PW_FORCE_BOON)
-		{
+	if (ent->item->giType == IT_POWERUP && ent->item->giTag == PW_FORCE_BOON) {
+		if (g_enableBoon.integer) {
+			level.boonExists = qtrue;
+		}
+		else { // if boon is disabled, don't spawn it on the map
+			G_FreeEntity(ent);
+			return;
+		}
+	}
+
+	if (ent->item->giType == IT_WEAPON && !g_enableMemePickups.integer) {
+		if (ent->item->giTag == WP_MELEE || ent->item->giTag == WP_SABER || ent->item->giTag == WP_BRYAR_PISTOL || ent->item->giTag == WP_STUN_BATON) {
 			G_FreeEntity(ent);
 			return;
 		}
@@ -2986,14 +3012,21 @@ void FinishSpawningItem( gentity_t *ent ) {
 
 	// add weapons/ammo/shields to the list of pickups for this level
 	if ( ent->item->giType == IT_WEAPON ) {
+		level.existingWeaponSpawns |= (1 << ent->item->giTag);
 		// only give weapons that are useful in race...
-		if ( ent->item->giTag == WP_REPEATER ||
+		if ( ent->item->giTag == WP_BLASTER ||
+			ent->item->giTag == WP_DISRUPTOR ||
+			ent->item->giTag == WP_BOWCASTER ||
+			ent->item->giTag == WP_REPEATER ||
+			ent->item->giTag == WP_DEMP2 ||
 			ent->item->giTag == WP_FLECHETTE ||
 			ent->item->giTag == WP_ROCKET_LAUNCHER ||
 			ent->item->giTag == WP_THERMAL ||
 			ent->item->giTag == WP_CONCUSSION ) {
 
 			level.raceSpawnWeapons |= ( 1 << ent->item->giTag );
+			if (ent->item->giTag == WP_CONCUSSION)
+				level.mapHasConcussionRifle = qtrue;
 
 			if ( ent->item->giTag != WP_THERMAL ) {
 				int ammoIndex = weaponData[ent->item->giTag].ammoIndex;
@@ -3122,19 +3155,6 @@ int G_ItemDisabled( gitem_t *item ) {
 	return trap_Cvar_VariableIntegerValue( name );
 }
 
-// detect idiots who put troll unreachable items in their maps
-static qboolean ItemIsUnreachable(gentity_t* ent) {
-	if (ent->item && ent->item->giType == IT_HOLDABLE) {
-		static char mapname[MAX_QPATH] = { 0 };
-		if (!mapname[0])
-			trap_Cvar_VariableStringBuffer("mapname", mapname, sizeof(mapname));
-		if (!Q_stricmpn(mapname, "mp/ctf_ansion", 13) || !Q_stricmp(mapname, "mp/ctf_hagrent"))
-			return qtrue;
-	}
-
-	return qfalse;
-}
-
 /*
 ============
 G_SpawnItem
@@ -3186,14 +3206,6 @@ void G_SpawnItem (gentity_t *ent, gitem_t *item) {
 	if ( item->giType == IT_POWERUP ) {
 		G_SoundIndex( "sound/items/respawn1" );
 		G_SpawnFloat( "noglobalsound", "0", &ent->speed);
-	}
-
-	// detect idiots who put troll unreachable items in their maps
-	if (g_gametype.integer == GT_CTF || g_gametype.integer == GT_CTY) {
-		int unreachable = 0;
-		G_SpawnInt("unreachable", "0", &unreachable);
-		if (unreachable || ItemIsUnreachable(ent))
-			ent->unreachableItem = qtrue;
 	}
 }
 

@@ -1433,7 +1433,7 @@ static qboolean ClientCleanName( const char *in, char *out, int outSize ) {
 	spaces = 0;
 
 	while( 1 ) {
-		if (colorlessLen >= g_maxNameLength.integer) {
+		if (colorlessLen >= MAX_NAME_DISPLAYLENGTH) {
 			break;
 		}
 
@@ -2153,7 +2153,7 @@ void ClientUserinfoChanged( int clientNum ) {
 	}
 #endif
 
-	NormalizeName( s, client->pers.netname, sizeof( client->pers.netname ), g_maxNameLength.integer );
+	NormalizeName( s, client->pers.netname, sizeof( client->pers.netname ), MAX_NAME_DISPLAYLENGTH);
 
 	if ( client->sess.sessionTeam == TEAM_SPECTATOR ) {
 		if ( client->sess.spectatorState == SPECTATOR_SCOREBOARD ) {
@@ -2176,6 +2176,8 @@ void ClientUserinfoChanged( int clientNum ) {
 			else
 			{		
 				trap_SendServerCommand( -1, va("print \"%s" S_COLOR_WHITE " %s %s\n\"", oldname, G_GetStringEdString("MP_SVGAME", "PLRENAME"), client->pers.netname) );
+				if (client->stats)
+					Q_strncpyz(client->stats->name, client->pers.netname, sizeof(client->stats->name));
 				G_LogPrintf("Client num %i from %s renamed from '%s' to '%s'\n", clientNum,client->sess.ipString,
 					oldname, client->pers.netname);
 				client->pers.netnameTime = level.time + 700; //change time limit from 5s to 1s
@@ -2184,7 +2186,9 @@ void ClientUserinfoChanged( int clientNum ) {
 				Info_SetValueForKey( userinfo, "name", client->pers.netname );
 				trap_SetUserinfo( clientNum, userinfo );
 
-				G_DBLogNickname( client->sess.ip, oldname, getGlobalTime() - client->sess.nameChangeTime , client->sess.auth == AUTHENTICATED ? client->sess.cuidHash : "");
+				if (client->session) {
+					G_DBLogNickname(client->session->id, oldname, getGlobalTime() - client->sess.nameChangeTime);
+				}
                 client->sess.nameChangeTime = getGlobalTime();
 
 				//make heartbeat soon - accounts system
@@ -2236,6 +2240,20 @@ void ClientUserinfoChanged( int clientNum ) {
 	}
 	else {
 		team = client->sess.sessionTeam;
+	}
+
+	// detect assetsless clients (jkchat users)
+	if (strcmp(client->pers.netname, "^7elo BOT") && !client->sess.nmVer[0] && !Q_stricmp(forcePowers, "7-1-032330000000001333") && !Q_stricmp(model, "kyle/default") &&
+		!Q_stricmp(Info_ValueForKey(userinfo, "rate"), "25000") && !Q_stricmp(Info_ValueForKey(userinfo, "snaps"), "40")
+#if 0
+		&& !Q_stricmp(Info_ValueForKey(userinfo, "engine"), "jkclient") && !Q_stricmp(Info_ValueForKey(userinfo, "assets"), "0")
+#endif
+		) {
+
+		client->sess.clientType = CLIENT_TYPE_JKCHAT;
+	}
+	else {
+		client->sess.clientType = CLIENT_TYPE_NORMAL;
 	}
 
 	//Set the siege class
@@ -2438,20 +2456,27 @@ void ClientUserinfoChanged( int clientNum ) {
 		G_LogPrintf( "Client %d (%s) has unique id %llu\n", clientNum, client->pers.netname, totalHash );
 		if (g_gametype.integer == GT_SIEGE)
 		{ //more crap to send
-			s = va("n\\%s\\t\\%i\\model\\%s\\c1\\%s\\c2\\%s\\c5\\%i\\hc\\%i\\w\\%i\\l\\%i\\tt\\%d\\tl\\%d\\siegeclass\\%s\\st\\%s\\st2\\%s\\dt\\%i\\sdt\\%i\\id\\%llu",
+			s = va("n\\%s\\t\\%i\\model\\%s\\c1\\%s\\c2\\%s\\c5\\%i\\hc\\%i\\w\\%i\\l\\%i\\tt\\%d\\tl\\%d\\siegeclass\\%s\\st\\%s\\st2\\%s\\dt\\%i\\sdt\\%i\\id\\%llu\\ct\\%d",
 				client->pers.netname, client->sess.sessionTeam, model, c1, c2, cosmetics,
 				client->pers.maxHealth, client->sess.wins, client->sess.losses, teamTask, teamLeader, className, saberName, saber2Name, client->sess.duelTeam,
-				client->sess.siegeDesiredTeam, totalHash);
+				client->sess.siegeDesiredTeam, totalHash, client->sess.clientType);
 		}
 		else
 		{
-			s = va("n\\%s\\t\\%i\\model\\%s\\c1\\%s\\c2\\%s\\c5\\%i\\hc\\%i\\w\\%i\\l\\%i\\tt\\%d\\tl\\%d\\st\\%s\\st2\\%s\\dt\\%i\\id\\%llu",
+			s = va("n\\%s\\t\\%i\\model\\%s\\c1\\%s\\c2\\%s\\c5\\%i\\hc\\%i\\w\\%i\\l\\%i\\tt\\%d\\tl\\%d\\st\\%s\\st2\\%s\\dt\\%i\\id\\%llu\\ct\\%d",
 				client->pers.netname, client->sess.sessionTeam, model, c1, c2, cosmetics,
-				client->pers.maxHealth, client->sess.wins, client->sess.losses, teamTask, teamLeader, saberName, saber2Name, client->sess.duelTeam, totalHash);
+				client->pers.maxHealth, client->sess.wins, client->sess.losses, teamTask, teamLeader, saberName, saber2Name, client->sess.duelTeam, totalHash, client->sess.clientType);
 		}
 #ifdef NEWMOD_SUPPORT
 		if ( client->sess.auth == AUTHENTICATED && client->sess.cuidHash[0] ) {
 			s = va( "%s\\cid\\%s", s, client->sess.cuidHash );
+		}
+
+		if (TeamGenerator_PlayerIsBarredFromTeamGenerator(ent)) {
+			s = va("%s\\bftg\\1", s);
+		}
+		else if (TeamGenerator_PlayerIsPermaBarredButTemporarilyForcedPickable(ent)) {
+			s = va("%s\\bftg\\2", s);
 		}
 #endif
 	}
@@ -2636,14 +2661,17 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 				otherEnt = g_entities;
 				for(i=0,n=0;i<level.maxclients;++i,++otherEnt)
                 {
-					if ( (otherEnt->client->pers.connected != CON_DISCONNECTED) && 
+					if ( otherEnt->client && (otherEnt->client->pers.connected != CON_DISCONNECTED) && 
                          (ip==otherEnt->client->sess.ip) )
                     {
 						++n;
 						if (n >= g_protectQ3FillIPLimit.integer)
                         {
 							G_HackLog("Possible Q3Fill attack: Client from %s is connecting more than %i times.\n", ipString,g_protectQ3FillIPLimit.integer);
+#ifndef _DEBUG
+							// don't do this in debug builds (helps testing)
 							return "Reached limit for given IP, please try later.";	
+#endif
 						}
 					}
 				}
@@ -2696,11 +2724,13 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 	memset( client, 0, sizeof(*client) );
     client->sess = sessOld;
 
-	value = Info_ValueForKey(userinfo, "qport");
-	if (VALIDSTRING(value))
-		client->sess.qport = atoi(value);
-	else
-		client->sess.qport = 0;
+	if (firstTime) {
+		value = Info_ValueForKey(userinfo, "qport");
+		if (VALIDSTRING(value))
+			client->sess.qport = atoi(value);
+		else
+			client->sess.qport = 0;
+	}
 
 	// country detection
 	if (isBot) {
@@ -2722,16 +2752,17 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 		G_InitSessionData( client, userinfo, isBot, firstTime );
 	}
 
-	// init accounts
-	if ( !isBot
-#ifdef NEWMOD_SUPPORT
-		// newmod clients with pending auth will be initialized later when auth is complete
-		&& ( client->sess.auth == INVALID || client->sess.auth == AUTHENTICATED )
-#endif
-		)
-	{
-		G_InitClientSession( client );
-		G_InitClientAccount( client );
+	// init accounts, but only for clients with a cached session (map restart, map change)
+	// for first time connections, session retrieval/creation is done in ClientBegin for non
+	// newmod and at the end of auth for newmod
+	// this avoids polluting the db with new sessions when people who never fully join connect
+	if (IN_CLIENTNUM_RANGE(client->sess.sessionCacheNum)) {
+		G_InitClientSession(client);
+		G_InitClientAccount(client);
+		G_InitClientRaceRecordsCache(ent->client);
+		G_InitClientAimRecordsCache(ent->client);
+		TellPlayerToRateMap(ent->client);
+		TellPlayerToSetPositions(ent->client);
 	}
 
 	// set racemode state here using session data that was carried over
@@ -2789,6 +2820,8 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 	if (firstTime)
 		G_LogPrintf( "ClientConnect: %i (%s) from %s%s\n", clientNum, Info_ValueForKey(userinfo, "name") , Info_ValueForKey(userinfo, "ip"), client->sess.country[0] ? va(" (%s)", client->sess.country) : "");
 	ClientUserinfoChanged( clientNum );
+	if (client->stats)
+		InitClientStats(client); // re-initialize to make sure name is correct
 
 	// don't do the "xxx connected" messages if they were caried over from previous level
 	if ( firstTime ) {
@@ -2803,7 +2836,8 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
         ent->client->sess.nameChangeTime = getGlobalTime();
     }
 
-	if ( g_gametype.integer >= GT_TEAM &&
+	qboolean isBeginning = !!(!level.firstFrameTime || trap_Milliseconds() - level.firstFrameTime <= 1000);
+	if ( !isBeginning && g_gametype.integer >= GT_TEAM &&
 		client->sess.sessionTeam != TEAM_SPECTATOR ) {
 		BroadcastTeamChange( client, -1 );
 	}
@@ -2830,11 +2864,16 @@ void G_BroadcastServerFeatureList( int clientNum ) {
 		"ready \"Marks yourself as ready\" "
 		"ctfstats \"Shows stats for the current CTF game\" "
 		"toptimes \"Leaderboard of the fastest caps\" "
+		"topaim \"Leaderboard of top aim practice scores\" "
+		"pugstats \"CTF pug statistics\" "
 		"inkognito \"Hides whom you are following on the scoreboard\" "
 		"race \"Enters or leaves racemode\" "
 		"amtelemark \"Sets your teleport point\" "
 		"amtele \"Teleports back to telemark\" "
 		"amautospeed \"Enables speed upon teleporting\" "
+		"hideBots \"Hides aim practice bots\" "
+		"showBots \"Shows aim practice bots\" "
+		"toggleBots \"Toggles seeing aim practice bots\" "
 		"hideRacers \"Hides racers\" "
 		"showRacers \"Shows racers\" "
 		"toggleRacers \"Toggles seeing racers\"";
@@ -2857,20 +2896,27 @@ void G_BroadcastServerFeatureList( int clientNum ) {
 		"isd2 "
 		"vch2 "
 		"vchl "
+		"fsb "
 		"fdfa ";
 
 	static char locationsListConfigString[MAX_TOKEN_CHARS] = { 0 };
 
 	// lazy initialization of the locations strings
 
-	if ( level.locations.enhanced.numUnique && !*locationsListConfigString) {
+	if (*trap_kd_numunique() && !*locationsListConfigString) {
 		Q_strncpyz(locationsListConfigString, "locs", sizeof(locationsListConfigString) );
 
 		int i;
-		for ( i = 0; i < level.locations.enhanced.numUnique; ++i ) {
-			Q_strcat(locationsListConfigString, sizeof(locationsListConfigString), va( " \"%s\" %d", level.locations.enhanced.data[i].message, level.locations.enhanced.data[i].teamowner ) );
+		for ( i = 0; i < *trap_kd_numunique(); ++i) {
+			enhancedLocation_t *ptr = trap_kd_dataptr(i);
+			Q_strcat(locationsListConfigString, sizeof(locationsListConfigString), va( " \"%s\" %d", ptr->message, ptr->teamowner ) );
 		}
 	}
+
+	float minimum = Com_Clamp(6000, 99999, g_minimumCullDistance.value);
+	if (level.cullDistance < minimum)
+		level.cullDistance = minimum;
+	Q_strcat(featureListConfigString, sizeof(featureListConfigString), va("cull=%d ", (int)level.cullDistance));
 
 	if (g_improvedHoming.integer)
 		Q_strcat(featureListConfigString, sizeof(featureListConfigString), "rhom ");
@@ -2878,9 +2924,12 @@ void G_BroadcastServerFeatureList( int clientNum ) {
 	if (g_unlagged.integer)
 		Q_strcat(featureListConfigString, sizeof(featureListConfigString), "unlg ");
 
+	if (g_teamOverlayForce.integer)
+		Q_strcat(featureListConfigString, sizeof(featureListConfigString), "tolf ");
+
 	trap_SetConfigstring(CS_SERVERFEATURELIST, featureListConfigString);
 
-	if ( level.locations.enhanced.numUnique )
+	if (*trap_kd_numunique())
 		trap_SetConfigstring( CS_ENHANCEDLOCATIONS, locationsListConfigString);
 
 	qboolean gotCustomVote = qfalse;
@@ -2915,6 +2964,92 @@ void G_BroadcastServerFeatureList( int clientNum ) {
 	trap_SetConfigstring(CS_CUSTOMVOTES, gotCustomVote ? customVotesStr : "");
 }
 #endif
+
+void G_PrintWelcomeMessage(gclient_t* client) {
+	if (!client->account) {
+		return;
+	}
+
+	// capitalize the first letter of the account name
+	char* accountName = va("%s", client->account->name);
+	if (!VALIDSTRING(accountName))
+		return;
+	accountName[0] = toupper(accountName[0]);
+
+	// greet admins differently so that their superiority is acknowledged
+	if (!(client->account->flags & ACCOUNTFLAG_ADMIN)) {
+		OutOfBandPrint(client - level.clients, "Welcome back, %s!\n", accountName);
+	} else {
+		OutOfBandPrint(client - level.clients, "Welcome back, %s! You are logged in as an admin.\n", accountName);
+	}
+}
+
+void AutoLinkAccount(gclient_t *client, const char *sex) {
+	assert(client && VALIDSTRING(sex));
+
+	if (!level.autoLinksList.size)
+		return;
+
+	iterator_t iter;
+	ListIterate(&level.autoLinksList, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		autoLink_t *autoLink = IteratorNext(&iter);
+		if (Q_stricmp(autoLink->sex, sex))
+			continue;
+		if (autoLink->country[0] && (!client->sess.country[0] || Q_stricmp(autoLink->country, client->sess.country)))
+			continue;
+
+		// link them
+		accountReference_t acc = G_GetAccountByID(autoLink->accountId, qfalse);
+		if (!acc.ptr) {
+			Com_Printf("Warning: autolink attempt for account id %d failed! Does that account still exist?\n", autoLink->accountId);
+			continue;
+		}
+
+		if (G_LinkAccountToSession(client->session, acc.ptr)) {
+			Com_Printf("Client session for player %s^7 successfully autolinked to account '%s' (id: %d)\n", client->pers.netname, acc.ptr->name, acc.ptr->id);
+			trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
+		}
+		else {
+			Com_Printf("Failed to autolink client session for player %s^7 to account id %d!\n", client->pers.netname, autoLink->accountId);
+		}
+	}
+}
+
+void TellPlayerToRateMap(gclient_t *client) {
+	if (!g_vote_tierlist_reminders.integer)
+		return;
+
+	int clientNum = client - level.clients;
+	static qboolean toldToRate[MAX_CLIENTS] = { qfalse };
+
+	if (g_vote_tierlist.integer && clientNum >= 0 && clientNum < MAX_CLIENTS &&
+		!(g_entities[clientNum].r.svFlags & SVF_BOT) && client->account && !toldToRate[clientNum] && G_DBShouldTellPlayerToRateCurrentMap(client->account->id)) {
+		char mapShortName[MAX_QPATH] = { 0 };
+		GetShortNameForMapFileName(level.mapname, mapShortName, sizeof(mapShortName));
+		PrintIngame(clientNum, "*You have not yet rated this map. To rate this map, enter ^5tier set %s <rating>^7 in the console (valid tiers are S, A, B, C, F).\n", mapShortName);
+		toldToRate[clientNum] = qtrue;
+	}
+}
+
+void TellPlayerToSetPositions(gclient_t *client) {
+	if (!g_vote_teamgen_remindToSetPositions.integer)
+		return;
+
+	int clientNum = client - level.clients;
+	static qboolean toldToSet[MAX_CLIENTS] = { qfalse };
+
+	if (g_vote_teamgen.integer && clientNum >= 0 && clientNum < MAX_CLIENTS &&
+		!(g_entities[clientNum].r.svFlags & SVF_BOT) && client->account && !toldToSet[clientNum]) {
+
+		qboolean set = !!(client->account->validPref.first || client->account->validPref.second || client->account->validPref.third || client->account->validPref.avoid);
+
+		if (!set) {
+			PrintIngame(clientNum, "You have not set your position preferences. Enter ^5pos^7 in the console to specify which position(s) you want to play.\n");
+			toldToSet[clientNum] = qtrue;
+		}
+	}
+}
 
 #include "namespace_begin.h"
 void WP_SetSaber( int entNum, saberInfo_t *sabers, int saberNum, const char *saberName );
@@ -2992,11 +3127,43 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 	//assign the pointer for bg entity access
 	ent->playerState = &ent->client->ps;
 
+	trap_GetUserinfo(clientNum, userinfo, sizeof(userinfo));
+
+	// if we just connected and don't have a session yet, it means we didn't init it in ClientConnect
+	// and thus it's a first connection, so retrieve/create it here
+	if (!(ent->r.svFlags & SVF_BOT)
+		&& !client->session
+		&& client->pers.connected == CON_CONNECTING
+#ifdef NEWMOD_SUPPORT
+		// only do this here for non newmod clients
+		&& client->sess.auth == INVALID
+#endif
+		)
+	{
+		G_InitClientSession(client);
+		G_InitClientAccount(client);
+		G_InitClientRaceRecordsCache(client);
+		G_InitClientAimRecordsCache(client);
+		G_PrintWelcomeMessage(client);
+		if (!client->account) {
+			char *sex = Info_ValueForKey(userinfo, "sex");
+			if (VALIDSTRING(sex))
+				AutoLinkAccount(client, sex);
+		}
+		RestoreDisconnectedPlayerData(ent);
+	}
+
+	if ((ent->r.svFlags & SVF_BOT) && !client->stats)
+		InitClientStats(client);
+
+	TellPlayerToRateMap(client);
+	TellPlayerToSetPositions(client);
+
 	client->pers.connected = CON_CONNECTED;
 	client->pers.enterTime = level.time;
 	client->pers.teamState.state = TEAM_BEGIN;
-	client->accuracy_hits = 0;
-	client->accuracy_shots = 0;
+	if (client->stats)
+		client->stats->accuracy_hits = client->stats->accuracy_shots = 0;
 
 	// save eflags around this, because changing teams will
 	// cause this to happen with a valid entity, and we
@@ -3046,7 +3213,6 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 	}
 
 	// First time model setup for that player.
-	trap_GetUserinfo( clientNum, userinfo, sizeof(userinfo) );
 	modelname = Info_ValueForKey (userinfo, "model");
 	SetupGameGhoul2Model(ent, modelname, NULL);
 
@@ -3141,6 +3307,18 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 		}
 	}
 
+	if (ent->client->stats && (ent->client->sess.sessionTeam == TEAM_RED || ent->client->sess.sessionTeam == TEAM_BLUE)) {
+		if ((ent->client->stats->lastTeam == TEAM_RED || ent->client->stats->lastTeam == TEAM_BLUE) && ent->client->stats->lastTeam != ent->client->sess.sessionTeam) {
+			// they were previously ingame but have changed teams
+			// we need to assign them a new stats struct so that their stats are tracked separately per-team
+			ChangeStatsTeam(ent->client);
+		}
+
+		ent->client->stats->lastTeam = ent->client->sess.sessionTeam;
+	}
+
+	TeamGen_RemindPosition(ent);
+
 	G_LogPrintf( "ClientBegin: %i (%s)\n", clientNum, ent->client->pers.netname );
 
 	// count current clients and rank for scoreboard
@@ -3157,6 +3335,7 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 	if ( ent->client->sess.auth == PENDING ) {
 		trap_SendServerCommand( clientNum, va( "kls -1 -1 \"clannounce\" %d \"%s\"", NM_AUTH_PROTOCOL, level.publicKey.keyHex ) );
 		ent->client->sess.auth++;
+		ent->client->sess.clAnnounceSendTime = trap_Milliseconds();
 #ifdef _DEBUG
 		G_LogPrintf( "Sent clannounce packet to client %d\n", clientNum );
 #endif
@@ -3560,6 +3739,71 @@ void G_SetRaceMode( gentity_t *self, qboolean race ) {
 	G_UpdateRaceBitMasks( self->client );
 }
 
+void SetRacerForcePowers(gentity_t *ent) {
+	if (!ent || !ent->client) {
+		assert(qfalse);
+		return;
+	}
+
+	if (!ent->client->sess.inRacemode)
+		return;
+
+	ent->client->ps.fd.forcePowerLevel[FP_HEAL] = FORCE_LEVEL_0;
+	ent->client->ps.fd.forcePowersKnown &= ~(1 << FP_HEAL);
+	ent->client->ps.fd.forcePowerLevel[FP_LEVITATION] = FORCE_LEVEL_3;
+	ent->client->ps.fd.forcePowersKnown |= (1 << FP_LEVITATION);
+	ent->client->ps.fd.forcePowerLevel[FP_SPEED] = FORCE_LEVEL_3;
+	ent->client->ps.fd.forcePowersKnown |= (1 << FP_SPEED);
+	ent->client->ps.fd.forcePowerLevel[FP_PUSH] = FORCE_LEVEL_3;
+	ent->client->ps.fd.forcePowersKnown |= (1 << FP_PUSH);
+	ent->client->ps.fd.forcePowerLevel[FP_PULL] = FORCE_LEVEL_3;
+	ent->client->ps.fd.forcePowersKnown |= (1 << FP_PULL);
+	ent->client->ps.fd.forcePowerLevel[FP_TELEPATHY] = FORCE_LEVEL_0;
+	ent->client->ps.fd.forcePowersKnown &= ~(1 << FP_TELEPATHY);
+	ent->client->ps.fd.forcePowerLevel[FP_GRIP] = FORCE_LEVEL_0;
+	ent->client->ps.fd.forcePowersKnown &= ~(1 << FP_GRIP);
+	ent->client->ps.fd.forcePowerLevel[FP_LIGHTNING] = FORCE_LEVEL_0;
+	ent->client->ps.fd.forcePowersKnown &= ~(1 << FP_LIGHTNING);
+	if (ent->aimPracticeEntBeingUsed) {
+		ent->client->ps.fd.forcePowerLevel[FP_RAGE] = FORCE_LEVEL_0;
+		ent->client->ps.fd.forcePowersKnown &= ~(1 << FP_RAGE);
+		ent->client->ps.fd.forcePowerLevel[FP_PROTECT] = FORCE_LEVEL_0;
+		ent->client->ps.fd.forcePowersKnown &= ~(1 << FP_PROTECT);
+	}
+	else {
+		ent->client->ps.fd.forcePowerLevel[FP_RAGE] = FORCE_LEVEL_3;
+		ent->client->ps.fd.forcePowersKnown |= (1 << FP_RAGE);
+		ent->client->ps.fd.forcePowerLevel[FP_PROTECT] = FORCE_LEVEL_3;
+		ent->client->ps.fd.forcePowersKnown |= (1 << FP_PROTECT);
+	}
+	ent->client->ps.fd.forcePowerLevel[FP_ABSORB] = FORCE_LEVEL_0;
+	ent->client->ps.fd.forcePowersKnown &= ~(1 << FP_ABSORB);
+	ent->client->ps.fd.forcePowerLevel[FP_TEAM_HEAL] = FORCE_LEVEL_0;
+	ent->client->ps.fd.forcePowersKnown &= ~(1 << FP_TEAM_HEAL);
+	ent->client->ps.fd.forcePowerLevel[FP_TEAM_FORCE] = FORCE_LEVEL_0;
+	ent->client->ps.fd.forcePowersKnown &= ~(1 << FP_TEAM_FORCE);
+	ent->client->ps.fd.forcePowerLevel[FP_DRAIN] = FORCE_LEVEL_0;
+	ent->client->ps.fd.forcePowersKnown &= ~(1 << FP_DRAIN);
+	ent->client->ps.fd.forcePowerLevel[FP_SEE] = FORCE_LEVEL_0;
+	ent->client->ps.fd.forcePowersKnown &= ~(1 << FP_SEE);
+	ent->client->ps.fd.forcePowerLevel[FP_SABERTHROW] = FORCE_LEVEL_0;
+	ent->client->ps.fd.forcePowersKnown &= ~(1 << FP_SABERTHROW);
+
+	// let them choose if they have a saber or not
+	if (ent->client->ps.fd.forcePowerLevel[FP_SABER_OFFENSE] > FORCE_LEVEL_0) {
+		ent->client->ps.fd.forcePowerLevel[FP_SABER_OFFENSE] = FORCE_LEVEL_3;
+		ent->client->ps.fd.forcePowersKnown |= (1 << FP_SABER_OFFENSE);
+		ent->client->ps.fd.forcePowerLevel[FP_SABER_DEFENSE] = FORCE_LEVEL_3;
+		ent->client->ps.fd.forcePowersKnown |= (1 << FP_SABER_DEFENSE);
+	}
+	else {
+		ent->client->ps.fd.forcePowerLevel[FP_SABER_OFFENSE] = FORCE_LEVEL_0;
+		ent->client->ps.fd.forcePowersKnown &= ~(1 << FP_SABER_OFFENSE);
+		ent->client->ps.fd.forcePowerLevel[FP_SABER_DEFENSE] = FORCE_LEVEL_0;
+		ent->client->ps.fd.forcePowersKnown &= ~(1 << FP_SABER_DEFENSE);
+	}
+}
+
 /*
 ===========
 G_GiveRacemodeItemsAndStats
@@ -3583,7 +3827,7 @@ void G_GiveRacemodeItemsAndFullStats( gentity_t *ent ) {
 	int i;
 	for ( i = 0; i < AMMO_MAX; ++i ) {
 		if ( level.raceSpawnAmmo[i] ) {
-			ent->client->ps.ammo[i] = level.raceSpawnAmmo[i];
+			ent->client->ps.ammo[i] = 999;//level.raceSpawnAmmo[i]
 		}
 	}
 
@@ -3595,7 +3839,9 @@ void G_GiveRacemodeItemsAndFullStats( gentity_t *ent ) {
 	}
 
 	ent->client->ps.fd.forcePower = ent->client->ps.fd.forcePowerMax;
+	SetRacerForcePowers(ent);
 }
+
 
 /*
 ===========
@@ -3654,6 +3900,53 @@ void G_UpdateRaceBitMasks( gclient_t *client ) {
 
 /*
 ===========
+G_InitClientRaceRecords
+
+Attempts to cache records based on the session and ranks based on the account,
+for each race type.
+============
+*/
+
+void G_InitClientRaceRecordsCache(gclient_t* client) {
+	client->sess.canSubmitRaceTimes = qfalse;
+	memset(client->sess.cachedSessionRaceTimes, 0, sizeof(client->sess.cachedSessionRaceTimes));
+
+	qboolean errored = qfalse;
+	int numLoaded = 0;
+
+	// cache all the session-tied record times
+	if (client->session) {
+		client->sess.canSubmitRaceTimes = qtrue;
+
+		raceType_t type;
+		for (type = RACE_TYPE_STANDARD; type < NUM_RACE_TYPES; ++type) {
+			raceRecord_t record;
+			if (G_DBLoadRaceRecord(client->session->id, level.mapname, type, &record)) {
+				if (record.time)
+					++numLoaded;
+				client->sess.cachedSessionRaceTimes[type] = record.time;
+			} else {
+				errored = qtrue;
+				break;
+			}
+		}
+
+		if (numLoaded) {
+			Com_Printf("Loaded %d race records for client %d (session id: %d)\n", numLoaded, client - level.clients, client->session->id);
+		}
+	}
+
+	if (errored) {
+		Com_Printf("Failed to load race records for client %d\n", client - level.clients);
+		client->sess.canSubmitRaceTimes = qfalse;
+		memset(client->sess.cachedSessionRaceTimes, 0, sizeof(client->sess.cachedSessionRaceTimes));
+
+		return;
+	}
+}
+
+/*
+===========
 ClientSpawn
 
 Called every time a client is placed fresh in the world:
@@ -3661,6 +3954,7 @@ after the first ClientBegin, and after each respawn
 Initializes all non-persistant parts of playerState
 ============
 */
+extern int speedLoopSound;
 extern qboolean WP_HasForcePowers( const playerState_t *ps );
 void ClientSpawn(gentity_t *ent) {
 	int					index;
@@ -3671,6 +3965,7 @@ void ClientSpawn(gentity_t *ent) {
 	clientSession_t		savedSess;
 	session_t*			savedSession;
 	account_t*			savedAccount;
+	stats_t*			savedStats;
 	int					persistant[MAX_PERSISTANT];
 	gentity_t			*spawnPoint;
 	int					flags, gameFlags;
@@ -3693,8 +3988,6 @@ void ClientSpawn(gentity_t *ent) {
 
 	index = ent - g_entities;
 	client = ent->client;
-
-	client->touchedWaypoints = 0;
 
 	//first we want the userinfo so we can see if we should update this client's saber -rww
 	trap_GetUserinfo( index, userinfo, sizeof(userinfo) );
@@ -3912,15 +4205,19 @@ void ClientSpawn(gentity_t *ent) {
 
 	// clear everything but the persistant data
 
-	G_ResetTrail(ent);
+	if (ent - g_entities < MAX_CLIENTS)
+		G_ResetTrail(ent);
 
 	saved = client->pers;
 	savedSess = client->sess;
 	savedSession = client->session;
 	savedAccount = client->account;
+	savedStats = client->stats;
 	savedPing = client->ps.ping;
-	accuracy_hits = client->accuracy_hits;
-	accuracy_shots = client->accuracy_shots;
+	if (client->stats) {
+		accuracy_hits = client->stats->accuracy_hits;
+		accuracy_shots = client->stats->accuracy_shots;
+	}
 	for ( i = 0 ; i < MAX_PERSISTANT ; i++ ) {
 		persistant[i] = client->ps.persistant[i];
 	}
@@ -4005,6 +4302,11 @@ void ClientSpawn(gentity_t *ent) {
 	client->ps.fd = savedForce;
 
 	client->ps.duelIndex = ENTITYNUM_NONE;
+	client->rockPaperScissorsOtherClientNum = ENTITYNUM_NONE;
+	client->rockPaperScissorsChallengeTime = 0;
+	client->rockPaperScissorsStartTime = 0;
+	client->rockPaperScissorsBothChosenTime = 0;
+	client->rockPaperScissorsChoice = '\0';
 
 	//spawn with 100
 	client->ps.jetpackFuel = 100;
@@ -4014,9 +4316,12 @@ void ClientSpawn(gentity_t *ent) {
 	client->sess = savedSess;
 	client->session = savedSession;
 	client->account = savedAccount;
+	client->stats = savedStats;
 	client->ps.ping = savedPing;
-	client->accuracy_hits = accuracy_hits;
-	client->accuracy_shots = accuracy_shots;
+	if (client->stats) {
+		client->stats->accuracy_hits = accuracy_hits;
+		client->stats->accuracy_shots = accuracy_shots;
+	}
 	client->lastkilled_client = -1;
 
 	for ( i = 0 ; i < MAX_PERSISTANT ; i++ ) {
@@ -4419,6 +4724,25 @@ void ClientSpawn(gentity_t *ent) {
 		} else {
 			client->ps.weapon = WP_MELEE;
 		}
+		if (!(client->sess.racemodeFlags & RMF_DONTTELEWITHSPEED)) {
+			qboolean wasAlreadyActive = client->ps.fd.forcePowersActive & (1 << FP_SPEED);
+
+			WP_ForcePowerStart(ent, FP_SPEED, 0);
+			G_Sound(ent, CHAN_BODY, G_SoundIndex("sound/weapons/force/speed.wav"));
+			if (!wasAlreadyActive) { // only start the loop if it wasn't already active
+				G_Sound(ent, TRACK_CHANNEL_2, speedLoopSound);
+			}
+		}
+
+		client->ps.forceAllowDeactivateTime = level.time + 1500;
+	}
+	else if (InstagibEnabled() && client->sess.sessionTeam != TEAM_SPECTATOR) {
+		// default loadout for instagibber
+		client->ps.stats[STAT_WEAPONS] = (1 << WP_DISRUPTOR) | (1 << WP_MELEE);
+		client->ps.weapon = WP_DISRUPTOR;
+		client->ps.ammo[AMMO_POWERCELL] = 999;
+		ent->health = client->ps.stats[STAT_HEALTH] = 100;
+		client->ps.stats[STAT_ARMOR] = 0;
 	}
 	else if (InstagibEnabled() && client->sess.sessionTeam != TEAM_SPECTATOR) {
 		// default loadout for instagibber
@@ -4540,6 +4864,92 @@ void ClientSpawn(gentity_t *ent) {
 	trap_ICARUS_InitEnt( ent );
 }
 
+typedef struct {
+	node_t			node;
+	int				sessionId;
+	int				accountId;
+	team_t			team;
+	playerState_t	ps;
+	int				health;
+	int				armor;
+	int				boonTime;
+} disconnectedPlayerData_t;
+
+static qboolean DisconnectedPlayerMatches(genericNode_t *node, void *userData) {
+	disconnectedPlayerData_t *existing = (disconnectedPlayerData_t *)node;
+	disconnectedPlayerData_t *find = (disconnectedPlayerData_t *)userData;
+
+	if (!existing || !find)
+		return qfalse;
+
+	if (existing->sessionId == find->sessionId)
+		return qtrue;
+
+	if (existing->accountId != ACCOUNT_ID_UNLINKED && find->accountId == existing->accountId)
+		return qtrue;
+
+	return qfalse;
+}
+
+static qboolean IsDroppedRedFlag(gentity_t *ent) {
+	return !!(ent && ent->item && ent->think == Team_DroppedFlagThink && ent->item->giType == IT_TEAM && ent->item->giTag == PW_REDFLAG);
+}
+static qboolean IsDroppedBlueFlag(gentity_t *ent) {
+	return !!(ent && ent->item && ent->think == Team_DroppedFlagThink && ent->item->giType == IT_TEAM && ent->item->giTag == PW_BLUEFLAG);
+}
+static qboolean IsBoon(gentity_t *ent) {
+	return !!(ent && ent->item && !(ent->s.eFlags & EF_ITEMPLACEHOLDER) && ent->item->giType == IT_POWERUP && ent->item->giTag == PW_FORCE_BOON);
+}
+void RestoreDisconnectedPlayerData(gentity_t *ent) {
+	if (!g_autoPauseDisconnect.integer || g_autoPauseDisconnect.integer == 1 || g_cheats.integer || !ent || !ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED ||
+		!ent->client->session || (ent->r.svFlags & SVF_BOT) || ent->client->sess.clientType != CLIENT_TYPE_NORMAL || !PauseConditions())
+		return;
+
+	disconnectedPlayerData_t findMe = { 0 };
+	findMe.sessionId = ent->client->session->id;
+	findMe.accountId = ent->client->account ? ent->client->account->id : ACCOUNT_ID_UNLINKED;
+	disconnectedPlayerData_t *data = ListFind(&level.disconnectedPlayerList, DisconnectedPlayerMatches, &findMe, NULL);
+
+	if (!data)
+		return;
+
+	PrintIngame(-1, "Restoring %s^7's pre-disconnect state.\n", ent->client->pers.netname);
+
+	SetTeam(ent, data->team == TEAM_RED ? "r" : "b");
+
+	int commandTime = ent->client->ps.commandTime;
+	int pm_time = ent->client->ps.pm_time;
+	memcpy(&ent->client->ps, &data->ps, sizeof(playerState_t));
+	ent->client->ps.commandTime = ent->playerState->commandTime = commandTime;
+	ent->client->ps.pm_time = ent->playerState->pm_time = pm_time;
+	ent->client->ps.stats[STAT_HEALTH] = ent->health = data->health;
+	ent->client->ps.stats[STAT_ARMOR] = data->armor;
+	BG_PlayerStateToEntityState(&ent->client->ps, &ent->s, qfalse);
+
+	if (ent->client->ps.powerups[PW_REDFLAG] || ent->client->ps.powerups[PW_BLUEFLAG]) {
+		gentity_t *flagEnt = G_ClosestEntity(ent, ent->client->ps.powerups[PW_REDFLAG] ? IsDroppedRedFlag : IsDroppedBlueFlag);
+		if (flagEnt && flagEnt->touch) { // touch the flag we dropped
+			ent->client->canTouchPowerupsWhileGameIsPaused = qtrue;
+			flagEnt->touch(flagEnt, ent, NULL);
+			ent->client->canTouchPowerupsWhileGameIsPaused = qfalse;
+		}
+		else { // somehow the dropped flag is gone? take away our flag so there aren't two
+			ent->client->ps.powerups[PW_REDFLAG] = ent->client->ps.powerups[PW_BLUEFLAG] = 0;
+		}
+	}
+	if (data->boonTime) {
+		gentity_t *boonEnt = G_ClosestEntity(ent, IsBoon);
+		if (boonEnt) { // get the boon we dropped
+			ent->client->ps.powerups[PW_FORCE_BOON] = level.time + data->boonTime;
+			G_FreeEntity(boonEnt);
+		}
+		else { // somehow the dropped boon is gone? take away our boon so there aren't two
+			ent->client->ps.powerups[PW_FORCE_BOON] = 0;
+		}
+	}
+
+	ListRemove(&level.disconnectedPlayerList, data);
+}
 
 /*
 ===========
@@ -4567,7 +4977,274 @@ void ClientDisconnect( int clientNum ) {
 		return;
 	}
 
-	G_DBLogNickname( ent->client->sess.ip, ent->client->pers.netname, getGlobalTime() - ent->client->sess.nameChangeTime, ent->client->sess.auth == AUTHENTICATED ? ent->client->sess.cuidHash : "");
+	if (ent->client->account) {
+		// check whether they were part of any pug proposals so we can handle them leaving properly
+		iterator_t iter;
+		ListIterate(&level.pugProposalsList, &iter, qfalse);
+		while (IteratorHasNext(&iter)) {
+			pugProposal_t *set = IteratorNext(&iter);
+			set->votedYesClients &= ~(1 << clientNum);
+			set->votedToRerollClients &= ~(1 << clientNum);
+			set->votedToCancelClients &= ~(1 << clientNum);
+		}
+
+		if (level.activePugProposal) {
+			if (level.activePugProposal->suggested.valid && level.activePugProposal->suggestedVoteClients & (1 << clientNum))
+				level.activePugProposal->suggestedVoteClients &= ~(1 << clientNum);
+			if (level.activePugProposal->highestCaliber.valid && level.activePugProposal->highestCaliberVoteClients & (1 << clientNum))
+				level.activePugProposal->highestCaliberVoteClients &= ~(1 << clientNum);
+			if (level.activePugProposal->fairest.valid && level.activePugProposal->fairestVoteClients & (1 << clientNum))
+				level.activePugProposal->fairestVoteClients &= ~(1 << clientNum);
+			if (level.activePugProposal->desired.valid && level.activePugProposal->desiredVoteClients & (1 << clientNum))
+				level.activePugProposal->desiredVoteClients &= ~(1 << clientNum);
+
+			qboolean partOfActiveProposal = qfalse;
+			for (int i = 0; i < MAX_CLIENTS; i++) {
+				sortedClient_t *cl = level.activePugProposal->clients + i;
+				if (cl->accountName[0] && cl->accountId == ent->client->account->id) {
+					partOfActiveProposal = qtrue;
+					break;
+				}
+			}
+
+			if (partOfActiveProposal) {
+				// see if the act of them leaving allows a reroll/cancel vote to pass due to lowering the threshold for passing
+				if (level.activePugProposal->votedToRerollClients) {
+					int numEligibleConnected = 0, numEligibleMax = 0, numRerollVotesFromEligiblePlayers = 0;
+					qboolean gotEm[MAX_CLIENTS] = { qfalse };
+					for (int i = 0; i < MAX_CLIENTS; i++) {
+						sortedClient_t *cl = &level.activePugProposal->clients[i];
+						if (!cl->accountName[0])
+							continue; // not included in this set
+
+						++numEligibleMax;
+
+						// is this person actually connected?
+						for (int j = 0; j < MAX_CLIENTS; j++) {
+							gentity_t *other = &g_entities[j];
+							if (j == clientNum || !other->inuse || !other->client || !other->client->account || other->client->account->id != cl->accountId || gotEm[j])
+								continue;
+
+							// yes, they are connected
+							++numEligibleConnected;
+
+							// are they connected on any other clients? see if any of them have voted yes, and mark the duplicates so we know not to check them
+							qboolean votedToReroll = qfalse;
+							for (int k = 0; k < MAX_CLIENTS; k++) {
+								gentity_t *thirdEnt = &g_entities[k];
+								if (k == clientNum || !thirdEnt->inuse || !thirdEnt->client || !thirdEnt->client->account || thirdEnt->client->account->id != cl->accountId)
+									continue;
+								if (level.activePugProposal->votedToRerollClients & (1 << k))
+									votedToReroll = qtrue;
+								gotEm[k] = qtrue;
+							}
+
+							if (votedToReroll)
+								++numRerollVotesFromEligiblePlayers;
+
+							break;
+						}
+					}
+
+					if (numEligibleConnected > numEligibleMax)
+						numEligibleConnected = numEligibleMax; // sanity check
+					const int numRequired = (numEligibleConnected / 2) + 1;
+
+					if (numRerollVotesFromEligiblePlayers >= numRequired)
+						TeamGenerator_DoReroll(qfalse);
+				}
+
+				if (level.activePugProposal->votedToCancelClients) {
+					int numEligibleConnected = 0, numEligibleMax = 0, numCancelVotesFromEligiblePlayers = 0;
+					qboolean gotEm[MAX_CLIENTS] = { qfalse };
+					for (int i = 0; i < MAX_CLIENTS; i++) {
+						sortedClient_t *cl = &level.activePugProposal->clients[i];
+						if (!cl->accountName[0])
+							continue; // not included in this set
+
+						++numEligibleMax;
+
+						// is this person actually connected?
+						for (int j = 0; j < MAX_CLIENTS; j++) {
+							gentity_t *other = &g_entities[j];
+							if (j == clientNum || !other->inuse || !other->client || !other->client->account || other->client->account->id != cl->accountId || gotEm[j])
+								continue;
+
+							// yes, they are connected
+							++numEligibleConnected;
+
+							// are they connected on any other clients? see if any of them have voted yes, and mark the duplicates so we know not to check them
+							qboolean votedToCancel = qfalse;
+							for (int k = 0; k < MAX_CLIENTS; k++) {
+								gentity_t *thirdEnt = &g_entities[k];
+								if (k == clientNum || !thirdEnt->inuse || !thirdEnt->client || !thirdEnt->client->account || thirdEnt->client->account->id != cl->accountId)
+									continue;
+								if (level.activePugProposal->votedToCancelClients & (1 << k))
+									votedToCancel = qtrue;
+								gotEm[k] = qtrue;
+							}
+
+							if (votedToCancel)
+								++numCancelVotesFromEligiblePlayers;
+
+							break;
+						}
+					}
+
+					if (numEligibleConnected > numEligibleMax)
+						numEligibleConnected = numEligibleMax; // sanity check
+					const int numRequired = (numEligibleConnected / 2) + 1;
+
+					if (numCancelVotesFromEligiblePlayers >= numRequired)
+						TeamGenerator_DoCancel();
+				}
+			}
+		}
+
+		// remove them from any teams permutations they were on
+		ListIterate(&level.pugProposalsList, &iter, qfalse);
+		while (IteratorHasNext(&iter)) {
+			pugProposal_t *set = IteratorNext(&iter);
+			qboolean partOfPugProposal = qfalse;
+			for (int i = 0; i < MAX_CLIENTS; i++) {
+				sortedClient_t *cl = set->clients + i;
+				if (cl->accountName[0] && cl->accountId == ent->client->account->id) {
+					partOfPugProposal = qtrue;
+					break;
+				}
+			}
+
+			if (!partOfPugProposal)
+				continue;
+
+			if (set == level.activePugProposal) { // this is the current active proposal
+				int numValid = 0;
+				qboolean removedSuggested = qfalse, removedHighestCaliber = qfalse, removedFairest = qfalse, removedDesired = qfalse;
+				if (set->suggested.valid) {
+					++numValid;
+					if (set->suggested.teams[0].baseId == ent->client->account->id || set->suggested.teams[0].chaseId == ent->client->account->id ||
+						set->suggested.teams[0].offenseId1 == ent->client->account->id || set->suggested.teams[0].offenseId2 == ent->client->account->id ||
+						set->suggested.teams[1].baseId == ent->client->account->id || set->suggested.teams[1].chaseId == ent->client->account->id ||
+						set->suggested.teams[1].offenseId1 == ent->client->account->id || set->suggested.teams[1].offenseId2 == ent->client->account->id) {
+						set->suggested.valid = qfalse;
+						--numValid;
+						removedSuggested = qtrue;
+					}
+				}
+				if (set->highestCaliber.valid) {
+					++numValid;
+					if (set->highestCaliber.teams[0].baseId == ent->client->account->id || set->highestCaliber.teams[0].chaseId == ent->client->account->id ||
+						set->highestCaliber.teams[0].offenseId1 == ent->client->account->id || set->highestCaliber.teams[0].offenseId2 == ent->client->account->id ||
+						set->highestCaliber.teams[1].baseId == ent->client->account->id || set->highestCaliber.teams[1].chaseId == ent->client->account->id ||
+						set->highestCaliber.teams[1].offenseId1 == ent->client->account->id || set->highestCaliber.teams[1].offenseId2 == ent->client->account->id) {
+						set->highestCaliber.valid = qfalse;
+						--numValid;
+						removedHighestCaliber = qtrue;
+					}
+				}
+				if (set->fairest.valid) {
+					++numValid;
+					if (set->fairest.teams[0].baseId == ent->client->account->id || set->fairest.teams[0].chaseId == ent->client->account->id ||
+						set->fairest.teams[0].offenseId1 == ent->client->account->id || set->fairest.teams[0].offenseId2 == ent->client->account->id ||
+						set->fairest.teams[1].baseId == ent->client->account->id || set->fairest.teams[1].chaseId == ent->client->account->id ||
+						set->fairest.teams[1].offenseId1 == ent->client->account->id || set->fairest.teams[1].offenseId2 == ent->client->account->id) {
+						set->fairest.valid = qfalse;
+						--numValid;
+						removedFairest = qtrue;
+					}
+				}
+				if (set->desired.valid) {
+					++numValid;
+					if (set->desired.teams[0].baseId == ent->client->account->id || set->desired.teams[0].chaseId == ent->client->account->id ||
+						set->desired.teams[0].offenseId1 == ent->client->account->id || set->desired.teams[0].offenseId2 == ent->client->account->id ||
+						set->desired.teams[1].baseId == ent->client->account->id || set->desired.teams[1].chaseId == ent->client->account->id ||
+						set->desired.teams[1].offenseId1 == ent->client->account->id || set->desired.teams[1].offenseId2 == ent->client->account->id) {
+						set->desired.valid = qfalse;
+						--numValid;
+						removedDesired = qtrue;
+					}
+				}
+				if (numValid <= 0) { // no more valid teams permutations; destroy this set
+					TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; current active pug proposal (%d) terminated.", ent->client->account->name, set->num));
+					ListClear(&set->avoidedHashesList);
+					ListRemove(&level.pugProposalsList, set);
+					level.activePugProposal = NULL;
+					ListIterate(&level.pugProposalsList, &iter, qfalse);
+				}
+				else if (removedSuggested || removedHighestCaliber || removedFairest || removedDesired) { // we did remove at least one, there is at least one that is still valid
+					if (removedSuggested && removedHighestCaliber && removedFairest)
+						TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; teams proposals ^5%c^7, ^5%c^7, and ^5%c^7 invalidated.", ent->client->account->name, set->suggestedLetter, set->highestCaliberLetter, set->fairestLetter));
+					else if (removedSuggested && removedHighestCaliber && removedDesired)
+						TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; teams proposals ^5%c^7, ^5%c^7, and ^5%c^7 invalidated.", ent->client->account->name, set->suggestedLetter, set->highestCaliberLetter, set->desiredLetter));
+					else if (removedSuggested && removedFairest && removedDesired)
+						TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; teams proposals ^5%c^7, ^5%c^7, and ^5%c^7 invalidated.", ent->client->account->name, set->suggestedLetter, set->fairestLetter, set->desiredLetter));
+					else if (removedHighestCaliber && removedFairest && removedDesired)
+						TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; teams proposals ^5%c^7, ^5%c^7, and ^5%c^7 invalidated.", ent->client->account->name, set->highestCaliberLetter, set->fairestLetter, set->desiredLetter));
+					else if (removedSuggested && removedDesired)
+						TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; teams proposals ^5%c^7 and ^5%c^7 invalidated.", ent->client->account->name, set->suggestedLetter, set->desiredLetter));
+					else if (removedSuggested && removedHighestCaliber)
+						TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; teams proposals ^5%c^7 and ^5%c^7 invalidated.", ent->client->account->name, set->suggestedLetter, set->highestCaliberLetter));
+					else if (removedSuggested && removedFairest)
+						TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; teams proposals ^5%c^7 and ^5%c^7 invalidated.", ent->client->account->name, set->suggestedLetter, set->fairestLetter));
+					else if (removedHighestCaliber && removedFairest)
+						TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; teams proposals ^5%c^7 and ^5%c^7 invalidated.", ent->client->account->name, set->highestCaliberLetter, set->fairestLetter));
+					else if (removedHighestCaliber && removedDesired)
+						TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; teams proposals ^5%c^7 and ^5%c^7 invalidated.", ent->client->account->name, set->highestCaliberLetter, set->desiredLetter));
+					else if (removedFairest && removedDesired)
+						TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; teams proposals ^5%c^7 and ^5%c^7 invalidated.", ent->client->account->name, set->fairestLetter, set->desiredLetter));
+					else if (removedSuggested)
+						TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; teams proposal ^5%c^7 invalidated.", ent->client->account->name, set->suggestedLetter));
+					else if (removedHighestCaliber)
+						TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; teams proposal ^5%c^7 invalidated.", ent->client->account->name, set->highestCaliberLetter));
+					else if (removedFairest)
+						TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; teams proposal ^5%c^7 invalidated.", ent->client->account->name, set->fairestLetter));
+					else if (removedDesired)
+						TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; teams proposal ^5%c^7 invalidated.", ent->client->account->name, set->desiredLetter));
+				}
+			}
+			else { // this is not the active pug proposal
+				TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; inactive pug proposal %d terminated.", ent->client->account->name, set->num));
+				ListClear(&set->avoidedHashesList);
+				ListRemove(&level.pugProposalsList, set);
+				ListIterate(&level.pugProposalsList, &iter, qfalse);
+			}
+		}
+	}
+
+	if (ent->client->session) {
+		G_DBLogNickname(ent->client->session->id, ent->client->pers.netname, getGlobalTime() - ent->client->sess.nameChangeTime);
+
+		if (g_autoPauseDisconnect.integer && g_gametype.integer == GT_CTF && PauseConditions() &&
+			!(ent->r.svFlags & SVF_BOT) && ent->client->sess.clientType == CLIENT_TYPE_NORMAL &&
+			(ent->client->sess.sessionTeam == TEAM_RED || ent->client->sess.sessionTeam == TEAM_BLUE) &&
+			!g_cheats.integer) {
+			level.pause.state = PAUSE_PAUSED;
+			level.pause.time = level.time + 120000; // pause for 2 minutes
+			Q_strncpyz(level.pause.reason, va("%s^7 disconnected\n", ent->client->pers.netname), sizeof(level.pause.reason));
+			Com_Printf("Auto-pausing game: %s\n", level.pause.reason);
+
+			if (g_autoPauseDisconnect.integer != 1 && (!ent->client->ps.m_iVehicleNum || ent->client->ps.m_iVehicleNum == ENTITYNUM_NONE) &&
+				ent->health > 0 && !ent->client->ps.fallingToDeath) {
+				disconnectedPlayerData_t findMe = { 0 };
+				findMe.sessionId = ent->client->session->id;
+				findMe.accountId = ent->client->account ? ent->client->account->id : ACCOUNT_ID_UNLINKED;
+				disconnectedPlayerData_t *data = ListFind(&level.disconnectedPlayerList, DisconnectedPlayerMatches, &findMe, NULL);
+				if (!data)
+					data = ListAdd(&level.disconnectedPlayerList, sizeof(disconnectedPlayerData_t));
+				data->sessionId = ent->client->session->id;
+				data->accountId = ent->client->account ? ent->client->account->id : ACCOUNT_ID_UNLINKED;
+
+				data->team = ent->client->sess.sessionTeam;
+				data->health = ent->health;
+				data->armor = ent->client->ps.stats[STAT_ARMOR];
+				if (ent->client->ps.powerups[PW_FORCE_BOON] > level.time)
+					data->boonTime = ent->client->ps.powerups[PW_FORCE_BOON] - level.time;
+				else
+					data->boonTime = 0;
+				memcpy(&data->ps, &ent->client->ps, sizeof(playerState_t));
+			}
+		}
+	}
     ent->client->sess.nameChangeTime = getGlobalTime();
 
 	i = 0;
@@ -4621,7 +5298,7 @@ void ClientDisconnect( int clientNum ) {
 
 		// They don't get to take powerups with them!
 		// Especially important for stuff like CTF flags
-		TossClientItems( ent );
+		TossClientItems( ent, qfalse );
 	}
 
 	// leave racemode automatically first

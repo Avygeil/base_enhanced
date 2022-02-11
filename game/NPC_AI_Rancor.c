@@ -224,6 +224,9 @@ void Rancor_Swing( qboolean tryGrab )
 			continue;
 		}
 
+		if (radiusEnt->isAimPracticePack)
+			continue;
+
 		if ( (radiusEnt->client->ps.eFlags2&EF2_HELD_BY_MONSTER) )
 		{//can't be one already being held
 			continue;
@@ -338,6 +341,9 @@ void Rancor_Smash( void )
 			continue;
 		}
 
+		if (radiusEnt->isAimPracticePack)
+			continue;
+
 		if ( (radiusEnt->client->ps.eFlags2&EF2_HELD_BY_MONSTER) )
 		{//can't be one being held
 			continue;
@@ -400,6 +406,9 @@ void Rancor_Bite( void )
 			continue;
 		}
 
+		if (radiusEnt->isAimPracticePack)
+			continue;
+
 		if ( (radiusEnt->client->ps.eFlags2&EF2_HELD_BY_MONSTER) )
 		{//can't be one already being held
 			continue;
@@ -430,7 +439,7 @@ void Rancor_Bite( void )
 	}
 }
 //------------------------------
-extern void TossClientItems( gentity_t *self );
+extern void TossClientItems( gentity_t *self, qboolean canDropWeapons);
 void Rancor_Attack( float distance, qboolean doCharge )
 {
 	if ( !TIMER_Exists( NPC, "attacking" ) )
@@ -456,7 +465,7 @@ void Rancor_Attack( float distance, qboolean doCharge )
 					NPC_SetAnim( NPC->activator, SETANIM_TORSO, BOTH_FALLDEATH1, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD );
 					if ( NPC->activator->NPC )
 					{//no more thinking for you
-						TossClientItems( NPC );
+						TossClientItems( NPC, qtrue );
 						NPC->activator->NPC->nextBStateThink = Q3_INFINITE;
 					}
 				}

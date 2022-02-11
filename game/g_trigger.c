@@ -1254,6 +1254,14 @@ void hurt_touch( gentity_t *self, gentity_t *other, trace_t *trace ) {
 		return;
 	}
 
+	if (other->isAimPracticePack) {
+		return;
+	}
+
+	if (other->aimPracticeEntBeingUsed) {
+		return;
+	}
+
 	if ( self->damage == -1 && other && other->client && other->client->sess.inRacemode )
 	{
 		// racers get teleported to their telemark if they set one
@@ -1881,28 +1889,16 @@ void SP_trigger_asteroid_field(gentity_t *self)
     trap_LinkEntity(self);
 }
 
-CaptureRecordType FindCaptureTypeForRun( gclient_t *client ) {
-	if ( !level.mapCaptureRecords.enabled || level.mapCaptureRecords.readonly || !client->sess.inRacemode || client->runInvalid ) {
-		return CAPTURE_RECORD_INVALID;
+raceType_t FindCaptureTypeForRun( gclient_t *client ) {
+	if ( !level.racemodeRecordsEnabled || level.racemodeRecordsReadonly || !client->sess.inRacemode || client->runInvalid ) {
+		return RACE_TYPE_INVALID;
 	}
 
 	if ( client->usedWeapon ) {
-		return CAPTURE_RECORD_WEAPONS;
+		return RACE_TYPE_WEAPONS;
 	}
 
-	if ( !client->jumpedOrCrouched ) {
-		return CAPTURE_RECORD_WALK;
-	}
-
-	if ( !client->usedForwardOrBackward ) {
-		return CAPTURE_RECORD_AD;
-	}
-
-	if (client->touchedWaypoints == ALL_WAYPOINT_BITS) {
-		return CAPTURE_RECORD_WEEKLY;
-	}
-
-	return CAPTURE_RECORD_STANDARD;
+	return RACE_TYPE_STANDARD;
 }
 
 static qboolean IsProjectileTypeDeletedOnFlagTouch( gentity_t *ent ) {
@@ -1940,7 +1936,6 @@ static void RaceTrigger_Start( gentity_t *trigger, gentity_t *player, team_t fla
 	}
 
 	// reset the speed stats/timer for this run
-	client->touchedWaypoints = 0;
 	client->pers.fastcapTopSpeed = 0;
 	client->pers.fastcapDisplacement = 0;
 	client->pers.fastcapDisplacementSamples = 0;
@@ -2019,7 +2014,7 @@ static void RaceTrigger_Checkpoint( gentity_t *trigger, gentity_t *player ) {
 	client->pers.checkpointDebounceTime = level.time + 1000;
 }
 
-extern const char* GetShortNameForRecordType( CaptureRecordType type );
+extern const char* GetShortNameForRecordType( raceType_t type );
 static void RaceTrigger_Finish( gentity_t *trigger, gentity_t *player ) {
 	if ( !player->client ) {
 		return;
@@ -2042,66 +2037,110 @@ static void RaceTrigger_Finish( gentity_t *trigger, gentity_t *player ) {
 	// wait 1s before being able to take a flag so we don't pickup the other one instantly
 	client->pers.flagDebounceTime = level.time + 1000;
 
-	const CaptureRecordType captureRecordType = FindCaptureTypeForRun( client );
-	client->touchedWaypoints = 0; // we're done with this now, since it was checked in FindCaptureTypeForRun
+	const raceType_t type = FindCaptureTypeForRun( client );
 
-	if ( captureRecordType == CAPTURE_RECORD_INVALID ) {
+	if ( type == RACE_TYPE_INVALID ) {
 		return;
 	}
 
-	const int captureTime = G_GetAccurateTimerOnTrigger( &client->pers.teamState.flagsince, player, trigger );
+	// make a record struct out of all this
+	raceRecord_t record;
+	record.time = G_GetAccurateTimerOnTrigger(&client->pers.teamState.flagsince, player, trigger);;
+	record.date = time(NULL);
+	trap_Cvar_VariableStringBuffer("sv_matchid", record.extra.matchId, sizeof(record.extra.matchId));
+	Q_strncpyz(record.extra.playerName, client->pers.netname, sizeof(record.extra.playerName));
+	record.extra.clientId = player - g_entities;
+	record.extra.pickupTime = client->pers.flagTakeTime - level.startTime;
+	record.extra.whoseFlag = flagCarried;
+	record.extra.maxSpeed = (int)(client->pers.fastcapTopSpeed + 0.5f);
+	if (client->pers.fastcapDisplacementSamples)
+		record.extra.avgSpeed = (int)floorf(((client->pers.fastcapDisplacement * g_svfps.value) / client->pers.fastcapDisplacementSamples) + 0.5f);
+	else
+		record.extra.avgSpeed = record.extra.maxSpeed;
 
-	char matchId[SV_MATCHID_LEN];
-	trap_Cvar_VariableStringBuffer( "sv_matchid", matchId, sizeof( matchId ) ); // this requires a custom OpenJK build
+	int oldRank = 0;
+	int oldPBTime = 0;
+	int newRank = 0;
 
-	int thisRunMaxSpeed = ( int )( client->pers.fastcapTopSpeed + 0.5f );
-	int thisRunAvgSpeed;
+	// efficiency - it is impossible that any actual db update is made until we beat our own personal time
+	// cached, tied to the session (unless this is a new record).
+	if (client->session &&
+		client->sess.canSubmitRaceTimes &&
+		(record.time < client->sess.cachedSessionRaceTimes[type] || !client->sess.cachedSessionRaceTimes[type]))
+	{
+		// this update MAY OR MAY NOT lead to a new rank/pb, because multiple sessions can point to the same account.
+		// we could cache this, but we would need to rebuild the cache when hotlinking accounts etc, and this
+		// query isn't expensive anyway
+		if (client->account) {
+			G_DBGetAccountPersonalBest(client->account->id, level.mapname, type, &oldRank, &oldPBTime);
+		}
 
-	if ( client->pers.fastcapDisplacementSamples ) {
-		thisRunAvgSpeed = ( int )floorf( ( ( client->pers.fastcapDisplacement * g_svfps.value ) / client->pers.fastcapDisplacementSamples ) + 0.5f );
-	} else {
-		thisRunAvgSpeed = thisRunMaxSpeed;
+		// if our cached time is beaten (or first record), we know that we must ALWAYS write to db.
+		if (G_DBSaveRaceRecord(client->session->id, level.mapname, type, &record)) {
+			// success - update our cached time to reflect db
+			client->sess.cachedSessionRaceTimes[type] = record.time;
+
+			// also check for a new rank/pb
+			if (client->account) {
+				G_DBGetAccountPersonalBest(client->account->id, level.mapname, type, &newRank, NULL);
+			}
+		} else {
+			// failure - let them know their record couldn't be saved :sadcat:
+			trap_SendServerCommand(player - g_entities, "print \"An error occured in the database, your record was not saved.\n\"");
+		}
 	}
 
-	const int recordRank = G_DBAddCaptureTime( client->sess.ip, client->pers.netname,
-		client->sess.auth == AUTHENTICATED ? client->sess.cuidHash : "", player - g_entities,
-		matchId, captureTime, flagCarried, thisRunMaxSpeed, thisRunAvgSpeed, time( NULL ),
-		client->pers.flagTakeTime - level.startTime, captureRecordType, &level.mapCaptureRecords
-	);
-
 	int secs, millis;
-	PartitionedTimer( captureTime, NULL, &secs, &millis );
+	PartitionedTimer( record.time, NULL, &secs, &millis );
 
-	if ( recordRank ) {
-		// we just did a new capture record, broadcast it to racers
+	if (client->session && client->account &&
+		!(oldRank < 0 || oldPBTime < 0 || newRank < 0) &&
+		((!oldRank && newRank > 0) || (oldRank > 0 && oldPBTime > 0 && newRank > 0 && (newRank < oldRank || record.time < oldPBTime))))
+	{
+		// beat someone OR a personal best OR a new record
 
-		char rankString[16];
-		if ( recordRank == 1 ) Com_sprintf( rankString, sizeof( rankString ), S_COLOR_RED"rank:1" );
-		else Com_sprintf( rankString, sizeof( rankString ), S_COLOR_CYAN"rank:"S_COLOR_YELLOW"%d", recordRank );
+		char rankString[16] = { 0 };
 
-		G_PrintBasedOnRacemode( va( S_COLOR_CYAN"New"S_COLOR_CYAN S_COLOR_CYAN S_COLOR_CYAN" capture record by %s%s"S_COLOR_CYAN"!     %s     "S_COLOR_CYAN"type:"S_COLOR_YELLOW"%s     "S_COLOR_CYAN"topspeed:"S_COLOR_YELLOW"%d     "S_COLOR_CYAN"avg:"S_COLOR_YELLOW"%d     "S_COLOR_CYAN"time:"S_COLOR_YELLOW"%d.%03d",
-			NM_SerializeUIntToColor(client - level.clients), client->pers.netname, rankString, GetShortNameForRecordType( captureRecordType ), thisRunMaxSpeed, thisRunAvgSpeed, secs, millis
-		), qtrue );
+		if (newRank < oldRank) {
+			// we beat someone
+			Q_strcat(rankString, sizeof(rankString), va("%d -> ", oldRank));
+		}
+
+		if (newRank == 1) {
+			// rank 1, print in red :pog:
+			Q_strcat(rankString, sizeof(rankString), S_COLOR_RED);
+		}
+
+		Q_strcat(rankString, sizeof(rankString), va("%d", newRank));
+
+		G_PrintBasedOnRacemode(va(S_COLOR_CYAN"New capture record by "S_COLOR_WHITE"%s"S_COLOR_CYAN"!     "S_COLOR_CYAN"rank:"S_COLOR_YELLOW"%s     "S_COLOR_CYAN"type:"S_COLOR_YELLOW"%s     "S_COLOR_CYAN"topspeed:"S_COLOR_YELLOW"%d     "S_COLOR_CYAN"avg:"S_COLOR_YELLOW"%d     "S_COLOR_CYAN"time:"S_COLOR_YELLOW"%d.%03d",
+			client->account->name, rankString, GetShortNameForRecordType(type), record.extra.maxSpeed, record.extra.avgSpeed, secs, millis
+		), qtrue);
 
 		// play a sound to all racers
 
 		// same sounds as japro
 		int soundIndex;
-		if ( recordRank == 1 ) {
-			soundIndex = G_SoundIndex( "sound/chars/rosh_boss/misc/victory3" );
+		if (newRank == 1) {
+			soundIndex = G_SoundIndex("sound/chars/rosh_boss/misc/victory3");
 		} else {
-			soundIndex = G_SoundIndex( "sound/chars/rosh/misc/taunt1" );
+			soundIndex = G_SoundIndex("sound/chars/rosh/misc/taunt1");
 		}
 
-		gentity_t *te = G_Sound( player, CHAN_AUTO, soundIndex );
+		gentity_t* te = G_Sound(player, CHAN_AUTO, soundIndex);
 		te->r.svFlags |= SVF_BROADCAST; // broadcast so that all racers and racespectators can hear it
-	} else {
-		// not a record, but still print their time
-		G_PrintBasedOnRacemode( va( S_COLOR_WHITE"Run"S_COLOR_WHITE S_COLOR_WHITE S_COLOR_WHITE" completed by %s%s     "S_COLOR_CYAN"type:"S_COLOR_YELLOW"%s     "S_COLOR_CYAN"topspeed:"S_COLOR_YELLOW"%d     "S_COLOR_CYAN"avg:"S_COLOR_YELLOW"%d     "S_COLOR_CYAN"time:"S_COLOR_YELLOW"%d.%03d",
-			NM_SerializeUIntToColor(client - level.clients), client->pers.netname, GetShortNameForRecordType( captureRecordType ), thisRunMaxSpeed, thisRunAvgSpeed, secs, millis
-		), qtrue );
+	}
+	else
+	{
+		// error, or no account, etc... print just the time
 
-		G_Sound( player, CHAN_AUTO, G_SoundIndex( "sound/weapons/force/heal.wav" ) );
+		const char* name = client->session && client->account ? client->account->name : &client->pers.netname[0];
+
+		G_PrintBasedOnRacemode(va(S_COLOR_WHITE"Run completed by %s     "S_COLOR_CYAN"type:"S_COLOR_YELLOW"%s     "S_COLOR_CYAN"topspeed:"S_COLOR_YELLOW"%d     "S_COLOR_CYAN"avg:"S_COLOR_YELLOW"%d     "S_COLOR_CYAN"time:"S_COLOR_YELLOW"%d.%03d",
+			name, GetShortNameForRecordType(type), record.extra.maxSpeed, record.extra.avgSpeed, secs, millis
+		), qtrue);
+
+		G_Sound(player, CHAN_AUTO, G_SoundIndex("sound/weapons/force/heal.wav"));
 		// don't broadcast this sound, play it for other nearby clients and specs only
 	}
 }
@@ -2118,6 +2157,18 @@ void Touch_RaceTrigger( gentity_t *trigger, gentity_t *player, trace_t *trace ) 
 	}
 
 	if ( !client->sess.inRacemode ) {
+		return;
+	}
+
+	if (player->aimPracticeEntBeingUsed)
+		return;
+
+	if (player - g_entities < MAX_CLIENTS && client->pers.aimPracticePackBeingEdited) {
+		static qboolean shownMessage[MAX_CLIENTS] = { qfalse };
+		if (!shownMessage[player - g_entities]) {
+			PrintIngame(player - g_entities, "*Cannot pick up race flags while editing a pack. Enter ^5pack edit none^7 to stop editing a pack.\n");
+			shownMessage[player - g_entities] = qtrue;
+		}
 		return;
 	}
 

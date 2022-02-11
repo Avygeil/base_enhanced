@@ -239,6 +239,8 @@ static qboolean VEH_TurretFindEnemies( Vehicle_t *pVeh,
 		{
 			continue; // don't pull aggro on racers
 		}
+		else if (target->isAimPracticePack)
+			continue;
 		else if ( target->client->sess.sessionTeam == TEAM_SPECTATOR )
 		{
 			continue;

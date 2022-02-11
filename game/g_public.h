@@ -18,6 +18,8 @@
 // special server behaviors
 #define	SVF_NOCLIENT			0x00000001	// don't send entity to clients, even if it has effects
 
+#define SVF_COOLKIDSCLUB		0x00000002  // can only clip other entities that share this flag
+
 #define SVF_GHOST				0x00000004  // ignore while clipping entities in tracing
 
 #define SVF_BOT					0x00000008	// set if the entity is a bot
@@ -96,6 +98,9 @@ typedef struct {
 	// are represented by the first array index and the latter 32 clients are represented
 	// by the second array index.
 	int			broadcastClients[2];
+
+	qboolean	singleEntityCollision;
+	int			singleEntityThatCanCollide;
 
 } entityShared_t;
 
@@ -590,7 +595,18 @@ Ghoul2 Insert End
 	G_SEND_GET_REQUEST,
 	G_SEND_POST_REQUEST,
 	G_SEND_MULTIPART_POST_REQUEST,
-	G_GETCOUNTRY
+	G_GETCOUNTRY,
+	G_SQLITE3_PREPARE_V2,
+	G_SQLITE3_STEP,
+	G_SQLITE3_FINALIZE,
+	G_SQLITE3_EXEC,
+	G_KD_DATAPTR,
+	G_KD_NUMUNIQUE,
+	G_KD_CREATE,
+	G_KD_FREE,
+	G_KD_INSERTF,
+	G_KD_NEARESTF,
+	G_KD_RESFREE
 #endif
 
 } gameImport_t;

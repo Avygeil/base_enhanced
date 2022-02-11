@@ -3314,7 +3314,7 @@ qboolean BG_OutOfMemory ( void )
 #else // _XBOX
 
 #ifdef QAGAME
-#define MAX_POOL_SIZE	3000000 //1024000
+#define MAX_POOL_SIZE	6000000 //1024000
 #elif defined CGAME //don't need as much for cgame stuff. 2mb will be fine.
 #define MAX_POOL_SIZE	2048000
 #else //And for the ui the only thing we'll be using this for anyway is allocating anim data for g2 menu models

@@ -64,8 +64,8 @@ void DeathmatchScoreboardMessage( gentity_t *ent ) {
 
 		}
 
-		if( cl->accuracy_shots ) {
-			accuracy = cl->accuracy_hits * 100 / cl->accuracy_shots;
+		if( cl->stats && cl->stats->accuracy_shots ) {
+			accuracy = cl->stats->accuracy_hits * 100 / cl->stats->accuracy_shots;
 		}
 		else {
 			accuracy = 0;
@@ -73,8 +73,8 @@ void DeathmatchScoreboardMessage( gentity_t *ent ) {
 
 		//lower 16 bits say average return time
 		//higher 16 bits say how many times did player get the flag
-		statsMix = cl->pers.teamState.th;
-		statsMix |= ((cl->pers.teamState.te) << 16);
+		statsMix = cl->stats ? cl->stats->healed : 0;
+		statsMix |= ((cl->stats ? cl->stats->energizedAlly : 0) << 16);
 
 		// first 16 bits are unused
 		// next 10 bits are real ping
@@ -100,7 +100,7 @@ void DeathmatchScoreboardMessage( gentity_t *ent ) {
 			cl->ps.persistant[PERS_SCORE], ping, (level.time - cl->pers.enterTime)/60000,
 			specMix, g_entities[level.sortedClients[i]].s.powerups, accuracy, 
 			
-			cl->pers.teamState.fragcarrier, //this can be replaced
+			cl->stats ? cl->stats->fcKills : 0, //this can be replaced
 			                                       //but only here!
 												   //server uses this value
 			/*
@@ -111,8 +111,8 @@ void DeathmatchScoreboardMessage( gentity_t *ent ) {
 			statsMix,
 			*/
 
-			cl->pers.teamState.flaghold,
-			cl->pers.teamState.flagrecovery, 
+			cl->stats ? cl->stats->totalFlagHold : 0,
+			cl->stats ? cl->stats->rets : 0, 
 			cl->ps.persistant[PERS_DEFEND_COUNT], 
 			cl->ps.persistant[PERS_ASSIST_COUNT], 
 
@@ -686,6 +686,9 @@ void Cmd_Kill_f( gentity_t *ent ) {
         return;
     }
 
+	if (ent->client->rockPaperScissorsBothChosenTime)
+		return;
+
     //OSP: pause
     if ( level.pause.state != PAUSE_NONE && !ent->client->sess.inRacemode )
             return;
@@ -827,7 +830,7 @@ void SetTeam( gentity_t *ent, char *s ) {
 
 	//base enhanced fix, sometimes we come here with invalid 
 	//entity sloty and this procedure then creates fake player
-	if (!ent->inuse){
+	if (!ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED || !ent->client->stats) {
 		return;
 	}
 
@@ -990,9 +993,18 @@ void SetTeam( gentity_t *ent, char *s ) {
 		return;
 	}
 
+	if (client->rockPaperScissorsBothChosenTime)
+		return;
+
+	if (client->pers.connected != CON_CONNECTED)
+		return;
+
 	//
 	// execute the team change
 	//
+
+	if (team != TEAM_FREE)
+		client->pers.aimPracticePackBeingEdited = NULL;
 
 	// if the player was dead leave the body
 	if ( client->ps.stats[STAT_HEALTH] <= 0 && client->sess.sessionTeam != TEAM_SPECTATOR ) {
@@ -1024,6 +1036,15 @@ void SetTeam( gentity_t *ent, char *s ) {
 	client->sess.sessionTeam = team;
 	client->sess.spectatorState = specState;
 	client->sess.spectatorClient = specClient;
+	if (team == TEAM_RED || team == TEAM_BLUE) { // we are only concerned about which ingame team they were last on
+		if ((client->stats->lastTeam == TEAM_RED || client->stats->lastTeam == TEAM_BLUE) && client->stats->lastTeam != team) {
+			// they were previously ingame but have changed teams
+			// we need to assign them a new stats struct so that their stats are tracked separately per-team
+			ChangeStatsTeam(ent->client);
+		}
+
+		client->stats->lastTeam = team;
+	}
 
 	client->sess.teamLeader = qfalse;
 	if ( team == TEAM_RED || team == TEAM_BLUE ) {
@@ -1037,14 +1058,20 @@ void SetTeam( gentity_t *ent, char *s ) {
 		CheckTeamLeader( oldTeam );
 	}
 
+	if (team == TEAM_SPECTATOR || team == TEAM_FREE || team != oldTeam)
+		client->pers.killedAlliedFlagCarrier = qfalse;
+
 	//pending server commands overflow might cause that this
 	//client is no longer valid, lets check it for it here and few other places
 	if (!ent->inuse){
 		return;
 	}
 
-	client->touchedWaypoints = 0;
 	BroadcastTeamChange( client, oldTeam );
+
+	qboolean joinedOrLeftIngameTeam = !!(team == TEAM_RED || team == TEAM_BLUE || oldTeam == TEAM_RED || oldTeam == TEAM_BLUE);
+	if (joinedOrLeftIngameTeam && g_gametype.integer == GT_CTF && level.wasRestarted && !level.someoneWasAFK && level.pause.state != PAUSE_NONE)
+		ShowSubBalance();
 
 	//make a disappearing effect where they were before teleporting them to the appropriate spawn point,
 	//if we were not on the spec team
@@ -1072,6 +1099,21 @@ void SetTeam( gentity_t *ent, char *s ) {
 	//vote delay
 	if (team != oldTeam && oldTeam == TEAM_SPECTATOR){
 		client->lastJoinedTime = level.time;
+	}
+
+	client->rockPaperScissorsOtherClientNum = ENTITYNUM_NONE;
+	client->rockPaperScissorsChallengeTime = 0;
+	client->rockPaperScissorsStartTime = 0;
+	client->rockPaperScissorsBothChosenTime = 0;
+	client->rockPaperScissorsChoice = '\0';
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		if (g_entities[i].inuse && g_entities[i].client && g_entities[i].client->rockPaperScissorsOtherClientNum == ent - g_entities) {
+			g_entities[i].client->rockPaperScissorsOtherClientNum = ENTITYNUM_NONE;
+			g_entities[i].client->rockPaperScissorsChallengeTime = 0;
+			g_entities[i].client->rockPaperScissorsStartTime = 0;
+			g_entities[i].client->rockPaperScissorsBothChosenTime = 0;
+			g_entities[i].client->rockPaperScissorsChoice = '\0';
+		}
 	}
 }
 
@@ -1872,7 +1914,7 @@ static qboolean ChatLimitExceeded(gentity_t *ent, int mode) {
 	return exceeded;
 }
 
-static qboolean IsRacerOrSpectator(gentity_t *ent) {
+qboolean IsRacerOrSpectator(gentity_t *ent) {
 	if (g_gametype.integer != GT_CTF || !ent || !ent->client || ent->client->sess.sessionTeam == TEAM_RED || ent->client->sess.sessionTeam == TEAM_BLUE)
 		return qfalse;
 	return qtrue;
@@ -2078,7 +2120,7 @@ static void TokenizeTeamChat( gentity_t *ent, char *dest, const char *src, size_
 }
 
 void Cmd_CallVote_f(gentity_t *ent, int pause);
-void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText ) {
+void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, qboolean force ) {
 	int			j;
 	gentity_t	*other;
 	int			color;
@@ -2098,11 +2140,53 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText ) 
 		mode = SAY_ALL;
 	}
 
-	// allow typing "pause" in the chat to quickly call a pause vote
-	if (ent->client->sess.sessionTeam != TEAM_SPECTATOR && mode != SAY_TELL && !Q_stricmpn(chatText, "pause", 5) && strlen(chatText) <= 6 && g_quickPauseChat.integer) // allow a small typo at the end
-		Cmd_CallVote_f(ent, PAUSE_PAUSED);
-	else if (ent->client->sess.sessionTeam != TEAM_SPECTATOR && mode != SAY_TELL && !Q_stricmpn(chatText, "unpause", 7) && strlen(chatText) <= 8 && g_quickPauseChat.integer) // allow a small typo at the end
+	if (mode == SAY_TEAM && VALIDSTRING(chatText) && Q_stristrclean(chatText, "TE please or TH if i am fully energized and health is low"))
+		chatText = "^1$H ^5$F ^7$L";
+
+	// allow typing "pause" in the chat to instapause or call a pause vote
+	if (!Q_stricmpn(chatText, "pause", 5) && ent->client->sess.sessionTeam != TEAM_SPECTATOR && !ent->client->sess.inRacemode && mode != SAY_TELL && strlen(chatText) <= 6 && g_quickPauseChat.integer) {// allow a small typo at the end
+		// allow setting g_quickPauseChat to 2 for callvote-only mode
+		if (g_quickPauseChat.integer != 2 && ent->client->account && !(ent->client->account->flags & ACCOUNTFLAG_INSTAPAUSE_BLACKLIST)) {
+			// instapause
+			level.pause.state = PAUSE_PAUSED;
+			level.pause.time = level.time + 120000; // pause for 2 minutes
+			PrintIngame(-1, "Pause requested by %s^7.\n", ent->client->pers.netname);
+			Com_Printf("Pausing upon chat request by %s^7.\n", ent->client->pers.netname);
+		}
+		else {
+			// just call a vote
+			Cmd_CallVote_f(ent, PAUSE_PAUSED);
+		}
+	}
+	else if (!Q_stricmpn(chatText, "unpause", 7) && ent->client->sess.sessionTeam != TEAM_SPECTATOR && !ent->client->sess.inRacemode && mode != SAY_TELL && strlen(chatText) <= 8 && g_quickPauseChat.integer) { // allow a small typo at the end
+		// unpause isn't time-sensitive, so we always call a vote
 		Cmd_CallVote_f(ent, PAUSE_UNPAUSING);
+	}
+
+	if (!force && ent->client->account && ent->client->account->flags & ACCOUNTFLAG_ENTERSPAMMER) {
+		if (mode == SAY_ALL) {
+			if (ent->client->pers.chatBuffer[0])
+				Q_strcat(ent->client->pers.chatBuffer, sizeof(ent->client->pers.chatBuffer), " ");
+			Q_strcat(ent->client->pers.chatBuffer, sizeof(ent->client->pers.chatBuffer), chatText);
+			ent->client->pers.chatBufferCheckTime = trap_Milliseconds() + Com_Clampi(0, 10000, g_enterSpammerTime.integer * 1000);
+			return;
+		}
+		else if (mode == SAY_TEAM && IsRacerOrSpectator(ent)) {
+			if (ent->client->pers.specChatBuffer[0])
+				Q_strcat(ent->client->pers.specChatBuffer, sizeof(ent->client->pers.specChatBuffer), " ");
+			Q_strcat(ent->client->pers.specChatBuffer, sizeof(ent->client->pers.specChatBuffer), chatText);
+			ent->client->pers.specChatBufferCheckTime = trap_Milliseconds() + Com_Clampi(0, 10000, g_enterSpammerTime.integer * 1000);
+			return;
+		}
+	}
+
+	char *newMessage = NULL;
+	if (mode == SAY_ALL && *chatText == TEAMGEN_CHAT_COMMAND_CHARACTER && *(chatText + 1)) {
+		if (TeamGenerator_CheckForChatCommand(ent, chatText + 1, &newMessage))
+			return;
+		if (VALIDSTRING(newMessage))
+			chatText = newMessage;
+	}
 
 	switch ( mode ) {
 	default:
@@ -2241,7 +2325,7 @@ static void Cmd_Tell_f(gentity_t *ent, char *override) {
 		}
 	}
 
-	G_Say(ent, found, SAY_TELL, p);
+	G_Say(ent, found, SAY_TELL, p, qtrue);
 	// don't tell to the player self if it was already directed to this player
 	// also don't send the chat back to a bot
 	if (ent != found && !(ent->r.svFlags & SVF_BOT) /*UNCOMMENT, JUST FOR DEBUG NOW*/) {
@@ -2249,6 +2333,11 @@ static void Cmd_Tell_f(gentity_t *ent, char *override) {
 	}
 }
 
+static void MakeRockPaperScissorsChoice(gentity_t *ent, const char *cmd) {
+	if (!ent || !ent->client || !VALIDSTRING(cmd))
+		return;
+	ent->client->rockPaperScissorsChoice = tolower(*cmd);
+}
 
 /*
 ==================
@@ -2291,7 +2380,24 @@ static void Cmd_Say_f( gentity_t *ent, int mode, qboolean arg0 ) {
 		}
 	}
 
-	G_Say( ent, NULL, mode, p );
+	if (ent->client->rockPaperScissorsOtherClientNum < MAX_CLIENTS &&
+		ent->client->rockPaperScissorsStartTime && level.time - ent->client->rockPaperScissorsStartTime < ROCK_PAPER_SCISSORS_DURATION &&
+		!ent->client->rockPaperScissorsBothChosenTime &&
+		(!Q_stricmp(p, "r") || !Q_stricmp(p, "p") || !Q_stricmp(p, "s"))) {
+		MakeRockPaperScissorsChoice(ent, p);
+		return;
+	}
+
+	if (!Q_stricmp(p, "h") || !Q_stricmp(p, "heads")) {
+		ent->client->pers.cointossHeadsTime = trap_Milliseconds();
+		ent->client->pers.cointossTailsTime = 0;
+	}
+	else if (!Q_stricmp(p, "t") || !Q_stricmp(p, "tails")) {
+		ent->client->pers.cointossHeadsTime = 0;
+		ent->client->pers.cointossTailsTime = trap_Milliseconds();
+	}
+
+	G_Say( ent, NULL, mode, p, qfalse );
 }
 
 //siege voice command
@@ -2415,8 +2521,8 @@ void Cmd_GameCommand_f( gentity_t *ent ) {
 	if ( order < 0 || order >= sizeof(gc_orders)/sizeof(char *) ) {
 		return;
 	}
-	G_Say( ent, &g_entities[player], SAY_TELL, gc_orders[order] );
-	G_Say( ent, ent, SAY_TELL, gc_orders[order] );
+	G_Say( ent, &g_entities[player], SAY_TELL, gc_orders[order], qtrue );
+	G_Say( ent, ent, SAY_TELL, gc_orders[order], qtrue );
 }
 
 /*
@@ -2424,11 +2530,84 @@ void Cmd_GameCommand_f( gentity_t *ent ) {
 Cmd_Where_f
 ==================
 */
+#define DotProduct2D(a,b)	((a)[0]*(b)[0]+(a)[1]*(b)[1])
+extern qboolean isRedFlagstand(gentity_t *ent);
+extern qboolean isBlueFlagstand(gentity_t *ent);
+// gets your position relative to the flagstands
+// 0 == on top of your own fs
+// 1 == on top of the enemy fs
+// < 0 == "behind" your fs
+// > 1 == "behind" the enemy fs
+float GetCTFLocationValue(gentity_t *ent) {
+	if (!ent || !ent->client)
+		return 0;
+
+	static qboolean initialized = qfalse, valid = qfalse;
+	static float redFs[2] = { 0, 0 }, blueFs[2] = { 0, 0 };
+	if (!initialized) {
+		initialized = qtrue;
+		gentity_t temp;
+		VectorCopy(vec3_origin, temp.r.currentOrigin);
+		gentity_t *redFsEnt = G_ClosestEntity(&temp, isRedFlagstand);
+		gentity_t *blueFsEnt = G_ClosestEntity(&temp, isBlueFlagstand);
+		if (redFsEnt && blueFsEnt) {
+			valid = qtrue;
+			redFs[0] = redFsEnt->r.currentOrigin[0];
+			redFs[1] = redFsEnt->r.currentOrigin[1];
+			blueFs[0] = blueFsEnt->r.currentOrigin[0];
+			blueFs[1] = blueFsEnt->r.currentOrigin[1];
+		}
+	}
+
+	if (!valid)
+		return 0;
+
+	float *allyFs, *enemyFs;
+	if (ent->client->sess.sessionTeam == TEAM_RED) {
+		allyFs = &redFs[0];
+		enemyFs = &blueFs[0];
+	}
+	else {
+		allyFs = &blueFs[0];
+		enemyFs = &redFs[0];
+	}
+
+	float rPrime[2] = { ent->r.currentOrigin[0] - allyFs[0], ent->r.currentOrigin[1] - allyFs[1] };
+	float v[2] = { enemyFs[0] - allyFs[0], enemyFs[1] - allyFs[1] };
+	return DotProduct2D(v, rPrime) / DotProduct2D(v, v);
+}
+
 void Cmd_Where_f( gentity_t *ent ) {
 	if (!ent->client)
 		return;
 
-	trap_SendServerCommand( ent - g_entities, va( "print \"Origin: %s ; Yaw: %.2f degrees\n\"", vtos( ent->client->ps.origin ), ent->client->ps.viewangles[YAW] ) );
+	char *extra = "";
+	if (g_gametype.integer == GT_CTF) {
+#ifdef _DEBUG
+		extra = va("\nLocation value: %.3f", GetCTFLocationValue(ent));
+#endif
+		static qboolean initialized = qfalse, valid = qfalse;
+		static float redFs[2] = { 0, 0 }, blueFs[2] = { 0, 0 };
+		if (!initialized) {
+			initialized = qtrue;
+			gentity_t temp;
+			VectorCopy(vec3_origin, temp.r.currentOrigin);
+			gentity_t *redFsEnt = G_ClosestEntity(&temp, isRedFlagstand);
+			gentity_t *blueFsEnt = G_ClosestEntity(&temp, isBlueFlagstand);
+			if (redFsEnt && blueFsEnt) {
+				valid = qtrue;
+				redFs[0] = redFsEnt->r.currentOrigin[0];
+				redFs[1] = redFsEnt->r.currentOrigin[1];
+				blueFs[0] = blueFsEnt->r.currentOrigin[0];
+				blueFs[1] = blueFsEnt->r.currentOrigin[1];
+			}
+		}
+		if (valid) {
+			extra = va("%s\nDistance between flagstands: %d", extra, (int)Distance2D(redFs, blueFs));
+		}
+	}
+
+	trap_SendServerCommand( ent - g_entities, va( "print \"Origin: %s ; Yaw: %.3f degrees%s\n\"", vtos( ent->client->ps.origin ), ent->client->ps.viewangles[YAW], extra ) );
 }
 
 static const char *gameNames[] = {
@@ -2855,6 +3034,8 @@ void Cmd_CallVote_f( gentity_t *ent, int pause ) {
 		racersAllowCallvote = qtrue;
 	} else if ( !Q_stricmp( arg1, "map_random" ) ) {
 		racersAllowVote = qtrue;
+	} else if ( !Q_stricmp( arg1, "mapvote" ) ) {
+		racersAllowVote = qtrue;
 	} else if ( !Q_stricmp( arg1, "g_gametype" ) ) {
 		racersAllowVote = qtrue;
 	} else if ( !Q_stricmp( arg1, "kick" ) ) {
@@ -2889,7 +3070,7 @@ void Cmd_CallVote_f( gentity_t *ent, int pause ) {
 		trap_SendServerCommand( ent-g_entities, "print \"Vote commands are: map_restart, nextmap, map <mapname>, g_gametype <n>, "
 			"kick <player>, clientkick <clientnum>, g_doWarmup, timelimit <time>, fraglimit <frags>, "
 			"resetflags, q <question>, pause, unpause, endmatch, randomcapts, randomteams <numRedPlayers> <numBluePlayers>, "
-			"lockteams <numPlayers>, capturedifflimit <capLimit>, enableboon, disableboon, instagib.\n\"" );
+			"lockteams <numPlayers>, capturedifflimit <capLimit>, enableboon, disableboon, instagib, map_random, mapvote.\n\"" );
 		return;
 	}
 
@@ -3024,6 +3205,12 @@ void Cmd_CallVote_f( gentity_t *ent, int pause ) {
 			}
 		}
 
+		char liveVersion[MAX_QPATH] = { 0 };
+		if (g_vote_redirectMapVoteToLiveVersion.integer && Q_stricmpn(arg2, "mp/", 3) &&
+			G_DBGetLiveMapFilenameForAlias(arg2, liveVersion, sizeof(liveVersion)) && liveVersion[0]) {
+			Q_strncpyz(arg2, liveVersion, sizeof(arg2));
+		}
+
 		result = G_DoesMapSupportGametype(arg2, trap_Cvar_VariableIntegerValue("g_gametype"));
 		if (result)
 		{
@@ -3061,6 +3248,32 @@ void Cmd_CallVote_f( gentity_t *ent, int pause ) {
         }    
        
 		Com_sprintf( level.voteDisplayString, sizeof( level.voteDisplayString ), "map %s", mapName);
+	}
+	else if (!Q_stricmp(arg1, "mapvote")) {
+		if (!g_allow_vote_mapvote.integer || !g_vote_tierlist.integer) {
+			trap_SendServerCommand(ent - g_entities, "print \"Mapvote is disabled.\n\"");
+			return;
+		}
+
+		if (g_mapVoteThreshold.integer && clientsTotal >= g_mapVoteThreshold.integer && clientsInGame < g_mapVotePlayers.integer) {
+			// anti force map protection when the server is populated
+			trap_SendServerCommand(ent - g_entities, "print \"Not enough players in game to call this vote.\n\"");
+			return;
+		}
+
+		const int totalMapsToChoose = Com_Clampi(2, MAX_MULTIVOTE_MAPS, g_vote_tierlist_totalMaps.integer);
+		if ((g_vote_tierlist_s_max.integer + g_vote_tierlist_a_max.integer + g_vote_tierlist_b_max.integer +
+			g_vote_tierlist_c_max.integer + g_vote_tierlist_f_max.integer < totalMapsToChoose) ||
+			(g_vote_tierlist_s_min.integer + g_vote_tierlist_a_min.integer + g_vote_tierlist_b_min.integer +
+				g_vote_tierlist_c_min.integer + g_vote_tierlist_f_min.integer > totalMapsToChoose)) {
+			// we could just decrease the max, but let's just shame the idiots instead
+			PrintIngame(ent - g_entities, "This server is not properly configured for tierlist voting. Please notify the admins.\n");
+			Com_Printf("Error: min/max conflict with g_vote_tierlist_totalMaps! Unable to use tierlist voting.\n");
+			return;
+		}
+
+		Com_sprintf(level.voteDisplayString, sizeof(level.voteDisplayString), "New Map Vote (%d Maps)", totalMapsToChoose);
+		Com_sprintf(level.voteString, sizeof(level.voteString), "mapvote");
 	}
 	else if (!Q_stricmp(arg1, "map_random"))
 	{
@@ -3131,6 +3344,11 @@ void Cmd_CallVote_f( gentity_t *ent, int pause ) {
 			return;
 		}
 
+		if (ent->client->account && (ent->client->account->flags & ACCOUNTFLAG_VOTETROLL)) {
+			trap_SendServerCommand(ent - g_entities, "print \"Vote kick is disabled.\n\"");
+			return;
+		}
+
 		if ( n < 0 || n >= MAX_CLIENTS )
 		{
 			trap_SendServerCommand( ent-g_entities, va("print \"invalid client number %d.\n\"", n ) );
@@ -3153,6 +3371,11 @@ void Cmd_CallVote_f( gentity_t *ent, int pause ) {
 		// *CHANGE 22* - vote disabling
 		if (!g_allow_vote_kick.integer){
 			trap_SendServerCommand( ent-g_entities, "print \"Vote kick is disabled.\n\"" );
+			return;
+		}
+
+		if (ent->client->account && (ent->client->account->flags & ACCOUNTFLAG_VOTETROLL)) {
+			trap_SendServerCommand(ent - g_entities, "print \"Vote kick is disabled.\n\"");
 			return;
 		}
 
@@ -3315,6 +3538,11 @@ void Cmd_CallVote_f( gentity_t *ent, int pause ) {
 	}
 	else if ( !Q_stricmp( arg1, "lockteams" ) )
 	{
+		if (ent->client->account && (ent->client->account->flags & ACCOUNTFLAG_VOTETROLL)) {
+			trap_SendServerCommand(ent - g_entities, "print \"Lock teams is disabled.\n\"");
+			return;
+		}
+
 		// hacky param whitelist but we aren't going to do any parsing anyway
 		if ( argc >= 3 && ( !Q_stricmp( arg2, "0" ) || !Q_stricmpn( arg2, "r", 1 )
 			|| !Q_stricmp( arg2, "4s" ) || !Q_stricmp( arg2, "5s" ) ) ) {
@@ -3416,6 +3644,8 @@ void Cmd_CallVote_f( gentity_t *ent, int pause ) {
 	level.voteNo = 0;
 	level.lastVotingClient = ent-g_entities;
 	level.multiVoting = qfalse;
+	level.inRunoff = qfalse;
+	level.mapsThatCanBeVotedBits = 0;
 	level.multiVoteChoices = 0;
 	memset( &( level.multiVotes ), 0, sizeof( level.multiVotes ) );
 
@@ -3479,19 +3709,22 @@ void Cmd_Vote_f( gentity_t *ent, const char *forceVoteArg ) {
 		// multi map vote, only allow voting for valid choice ids
 		int voteId = atoi( msg );
 
-		if ( voteId <= 0 || voteId > level.multiVoteChoices ) {
-			trap_SendServerCommand( ent - g_entities, va( "print \"Invalid choice, please use /vote 1-%d from console\n\"", level.multiVoteChoices ) );
+		int integerBits = 8 * sizeof(int);
+		if ( voteId <= 0 || /*voteId > level.multiVoteChoices || */voteId > integerBits || !(level.mapsThatCanBeVotedBits & (1 << (voteId - 1))) ) {
+			trap_SendServerCommand( ent - g_entities, "print \"Invalid choice, please use /vote (number) from console\n\"" );
 			return;
 		}
 
 		// we maintain an internal array of choice ids, and only use voteYes to show how many people voted
 
 		if ( !( ent->client->mGameFlags & PSG_VOTED ) ) { // first vote
-			G_LogPrintf( "Client %i (%s) voted for choice %d\n", ent - g_entities, ent->client->pers.netname, voteId );
+			G_LogPrintf( "Client %i (%s) voted for choice %d%s\n", ent - g_entities, ent->client->pers.netname, voteId,
+				level.multiVoteMapShortNames[voteId][0] ? va(" (%s)", level.multiVoteMapShortNames[voteId - 1]) : "" );
 			level.voteYes++;
 			trap_SetConfigstring( CS_VOTE_YES, va( "%i", level.voteYes ) );
 		} else { // changing vote
-			G_LogPrintf( "Client %i (%s) changed their vote to choice %d\n", ent - g_entities, ent->client->pers.netname, voteId );
+			G_LogPrintf("Client %i (%s) changed their vote to choice %d%s\n", ent - g_entities, ent->client->pers.netname, voteId,
+				level.multiVoteMapShortNames[voteId][0] ? va(" (%s)", level.multiVoteMapShortNames[voteId - 1]) : "");
 		}
 		
 		level.multiVotes[ent - g_entities] = voteId;
@@ -3919,62 +4152,6 @@ static char* GetItemName(gentity_t* ent) {
 	return NULL;
 }
 
-// modified version of Team_GetLocation for use with waypoints
-// e.g. "red blaster ammo"
-static void GetSpecificWaypointName(gentity_t* waypoint, char* locationBuffer, size_t locationBufferSize) {
-	if (!waypoint || !locationBuffer) {
-		assert(qfalse);
-		return;
-	}
-
-	locationBuffer[0] = '\0';
-	vec3_t origin;
-	VectorCopy(waypoint->r.currentOrigin, origin);
-
-	if (!level.locations.enhanced.numUnique)
-		return;
-
-	// we should always have at most 1 result
-	void* nearest = kd_nearestf(level.locations.enhanced.lookupTree, origin);
-	if (nearest && kd_res_size(nearest) == 1) {
-		enhancedLocation_t* loc = (enhancedLocation_t*)kd_res_item_data(nearest);
-		if (loc) {
-			char* ownerStr;
-			if (loc->teamowner == TEAM_RED)
-				ownerStr = "red ";
-			else if (loc->teamowner == TEAM_BLUE)
-				ownerStr = "blue ";
-			else
-				ownerStr = "";
-			char* itemName = GetItemName(waypoint);
-			if (VALIDSTRING(itemName))
-				Com_sprintf(locationBuffer, locationBufferSize, "%s%s", ownerStr, itemName);
-		}
-	}
-
-	kd_res_free(nearest);
-}
-
-char* GetWaypointNames(void) {
-	static char result[256] = { 0 };
-	if (result[0])
-		return result;
-
-	if (!level.waypointsValid)
-		return "";
-
-	char locBufs[NUM_WAYPOINTS][32] = { 0 };
-	for (int i = 0; i < NUM_WAYPOINTS; i++)
-		GetSpecificWaypointName(level.waypoints[i], locBufs[i], sizeof(locBufs[i]));
-
-	if (locBufs[0][0] && locBufs[1][0] && locBufs[2][0]) {
-		Com_sprintf(result, sizeof(result), "%s, %s, %s", locBufs[0], locBufs[1], locBufs[2]);
-		return result;
-	}
-
-	return "";
-}
-
 // if one parameter is NULL, its value is added to the next non NULL parameter
 void PartitionedTimer( const int time, int *mins, int *secs, int *millis ) {
 	div_t qr;
@@ -4003,184 +4180,163 @@ void PartitionedTimer( const int time, int *mins, int *secs, int *millis ) {
 	}
 }
 
-const char* GetLongNameForRecordType( CaptureRecordType type ) {
+const char* GetLongNameForRecordType( raceType_t type ) {
 	switch ( type ) {
-	case CAPTURE_RECORD_STANDARD: return "Standard";
-	case CAPTURE_RECORD_WEAPONS: return "Weapons";
-	case CAPTURE_RECORD_WALK: return "Walk";
-	case CAPTURE_RECORD_AD: return "A/D";
-	case CAPTURE_RECORD_WEEKLY: return "Weekly Challenge";
-	case CAPTURE_RECORD_LASTWEEK: return "Last Week's Challenge";
-	default: return "Unknown";
+		case RACE_TYPE_STANDARD: return "Standard";
+		case RACE_TYPE_WEAPONS: return "Weapons";
+		default: return "Unknown";
 	}
 }
 
-const char* GetShortNameForRecordType( CaptureRecordType type ) {
+const char* GetShortNameForRecordType( raceType_t type ) {
 	switch ( type ) {
-		case CAPTURE_RECORD_STANDARD: return "std";
-		case CAPTURE_RECORD_WEAPONS: return "wpn";
-		case CAPTURE_RECORD_WALK: return "walk";
-		case CAPTURE_RECORD_AD: return "ad";
-		case CAPTURE_RECORD_WEEKLY: return "weekly";
-		case CAPTURE_RECORD_LASTWEEK: return "lastweek";
+		case RACE_TYPE_STANDARD: return "std";
+		case RACE_TYPE_WEAPONS: return "wpn";
 		default: return "unknown";
 	}
 }
 
-CaptureRecordType GetRecordTypeForShortName( const char *name ) {
+raceType_t GetRecordTypeForShortName( const char *name ) {
 	if ( !Q_stricmpn( name, "s", 1 ) ) {
-		return CAPTURE_RECORD_STANDARD;
+		return RACE_TYPE_STANDARD;
 	}
 
 	if ( !Q_stricmpn( name, "wea", 3 ) || !Q_stricmpn( name, "wp", 2 ) ) {
-		return CAPTURE_RECORD_WEAPONS;
+		return RACE_TYPE_WEAPONS;
 	}
 
-	if ( !Q_stricmpn( name, "wa", 2 ) ) {
-		return CAPTURE_RECORD_WALK;
-	}
-
-	if ( !Q_stricmpn( name, "a", 1 ) ) {
-		return CAPTURE_RECORD_AD;
-	}
-
-	if (!Q_stricmpn(name, "wee", 3) || !Q_stricmpn(name, "wk", 2)) {
-		return CAPTURE_RECORD_WEEKLY;
-	}
-
-	if (!Q_stricmpn(name, "la", 2) || !Q_stricmpn(name, "old", 3)) {
-		return CAPTURE_RECORD_LASTWEEK;
-	}
-
-	return CAPTURE_RECORD_INVALID;
+	return RACE_TYPE_INVALID;
 }
 
-static void copyTopNameCallback( void* context, const char* name, int duration ) {
-	Q_strncpyz( ( char* )context, name, MAX_NETNAME );
-}
-
-typedef struct {
-	int entNum;
-	qboolean hasPrinted;
-} BestTimeContext;
-
-typedef struct {
-	int entNum;
-	int currentRank;
-	qboolean hasPrinted;
-} LeaderboardContext;
-
-typedef BestTimeContext LatestTimeContext;
-
-static void printBestTimeCallback( void *context, const char *mapname, const CaptureRecordType type, const char *recordHolderName, const unsigned int recordHolderIpInt, const char *recordHolderCuid, const int bestTime, const time_t bestTimeDate ) {
-	BestTimeContext* thisContext = ( BestTimeContext* )context;
-
-	if ( !thisContext->hasPrinted ) {
-		// first time printing, show a header
-		trap_SendServerCommand( thisContext->entNum, va( "print \""S_COLOR_WHITE"Records for the "S_COLOR_YELLOW"%s "S_COLOR_WHITE"category:\n"S_COLOR_CYAN"           Map               Time           Date                 Name\n\"", GetLongNameForRecordType( type ) ) );
-	}
-
-	char identifier[MAX_NETNAME + 1] = { 0 };
-	G_DBListAliases( recordHolderIpInt, ( unsigned int )0xFFFFFFFF, 1, copyTopNameCallback, &identifier, recordHolderCuid );
-
-	// no name in db for this guy, use the one we stored
-	if ( !VALIDSTRING( identifier ) ) {
-		Q_strncpyz( identifier, recordHolderName, sizeof( identifier ) );
-	}
+static void PrintRaceRecordsCallback(void* context, const char* mapname, const raceType_t type, const int rank, const char* name, const raceRecord_t* record) {
+	gentity_t* ent = (gentity_t*)context;
+	
+	char nameString[64] = { 0 };
+	Q_strncpyz(nameString, name, sizeof(nameString));
+	int j;
+	for (j = Q_PrintStrlen(nameString); j < MAX_NAME_DISPLAYLENGTH; ++j)
+		Q_strcat(nameString, sizeof(nameString), " ");
 
 	int secs, millis;
-	PartitionedTimer( bestTime, NULL, &secs, &millis );
+	PartitionedTimer(record->time, NULL, &secs, &millis);
+
+	char timeString[8];
+	if (secs > 999) Com_sprintf(timeString, sizeof(timeString), "  >999 ");
+	else Com_sprintf(timeString, sizeof(timeString), "%3d.%03d", secs, millis);
+
+	char flagString[7];
+	Com_sprintf(flagString, sizeof(flagString), "%s%s", TeamColorString(record->extra.whoseFlag), TeamName(record->extra.whoseFlag));
+
+	char dateString[22];
+	time_t now = time(NULL);
+	if (now - record->date < 60 * 60 * 24) Q_strncpyz(dateString, S_COLOR_GREEN, sizeof(dateString));
+	else Q_strncpyz(dateString, S_COLOR_WHITE, sizeof(dateString));
+	G_FormatLocalDateFromEpoch(dateString + 2, sizeof(dateString) - 2, record->date);
+
+	trap_SendServerCommand(ent - g_entities, va(
+		"print \""S_COLOR_CYAN"%3d"S_COLOR_WHITE": "S_COLOR_WHITE"%s  "S_COLOR_YELLOW"%s   %-6s      "S_COLOR_YELLOW"%-6d      %-6d     %s\n\"",
+		rank, nameString, timeString, flagString, Com_Clampi(1, 99999999, record->extra.maxSpeed), Com_Clampi(1, 9999999, record->extra.avgSpeed), dateString
+	));
+}
+
+#define NUM_RECORDS_PER_PAGE 10
+
+static void SubCmd_TopTimes_Records(gentity_t* ent, const char* mapname, const raceType_t type, const int page) {
+	trap_SendServerCommand(ent - g_entities, va(
+		"print \""S_COLOR_WHITE"Records for the "S_COLOR_YELLOW"%s "S_COLOR_WHITE"category on "S_COLOR_YELLOW"%s"S_COLOR_WHITE":\n"
+		S_COLOR_CYAN"               Name              Time    Flag    Topspeed     Average           Date\n\"",
+		GetLongNameForRecordType(type), mapname)
+	);
+
+	pagination_t pagination;
+	pagination.numPerPage = NUM_RECORDS_PER_PAGE;
+	pagination.numPage = page;
+
+	G_DBListRaceRecords(mapname, type, pagination, PrintRaceRecordsCallback, ent);
+
+	trap_SendServerCommand(ent - g_entities, va("print \""S_COLOR_WHITE"Viewing page: %d\n\"", page));
+}
+
+static void PrintRaceTopCallback(void* context, const char* mapname, const raceType_t type, const char* name, const int captureTime, const time_t date) {
+	gentity_t* ent = (gentity_t*)context;
+
+	int secs, millis;
+	PartitionedTimer( captureTime, NULL, &secs, &millis );
 
 	char timeString[8];
 	if ( secs > 999 ) Com_sprintf( timeString, sizeof( timeString ), "  >999 " );
 	else Com_sprintf( timeString, sizeof( timeString ), "%3d.%03d", secs, millis );
 
-	char date[20];
+	char dateString[22];
 	time_t now = time( NULL );
-	if ( now - bestTimeDate < 60 * 60 * 24 ) Q_strncpyz( date, S_COLOR_GREEN, sizeof( date ) );
-	else Q_strncpyz( date, S_COLOR_WHITE, sizeof( date ) );
-	G_FormatLocalDateFromEpoch( date + 2, sizeof( date ) - 2, bestTimeDate );
+	if ( now - date < 60 * 60 * 24 ) Q_strncpyz(dateString, S_COLOR_GREEN, sizeof(dateString) );
+	else Q_strncpyz(dateString, S_COLOR_WHITE, sizeof(dateString) );
+	G_FormatLocalDateFromEpoch(dateString + 2, sizeof(dateString) - 2, date );
 
-	trap_SendServerCommand( thisContext->entNum, va(
-		"print \""S_COLOR_WHITE"%-25s  "S_COLOR_YELLOW"%s   %s   "S_COLOR_WHITE"%s\n\"", mapname, timeString, date, identifier
+	trap_SendServerCommand( ent - g_entities, va(
+		"print \""S_COLOR_WHITE"%-25s  "S_COLOR_YELLOW"%s   %s     "S_COLOR_WHITE"%s\n\"", mapname, timeString, dateString, name
 	) );
-
-	thisContext->hasPrinted = qtrue;
 }
 
-static void printLeaderboardCallback( void *context, const CaptureRecordType type, const unsigned int playerIpInt, const int golds, const int silvers, const int bronzes ) {
-	LeaderboardContext* thisContext = ( LeaderboardContext* )context;
+#define NUM_TOP_PER_PAGE 15
 
-	if ( !thisContext->hasPrinted ) {
-		// first time printing, show a header
-		trap_SendServerCommand( thisContext->entNum, va( "print \""S_COLOR_WHITE"Leaderboard for the "S_COLOR_YELLOW"%s "S_COLOR_WHITE"category:\n"S_COLOR_CYAN"               Name           Golds    Silvers   Bronzes\n\"", GetLongNameForRecordType( type ) ) );
-	}
+static void SubCmd_TopTimes_Maplist(gentity_t* ent, const raceType_t type, const int page) {
+	trap_SendServerCommand(ent - g_entities, va(
+		"print \""S_COLOR_WHITE"Records for the "S_COLOR_YELLOW"%s "S_COLOR_WHITE"category:\n"
+		S_COLOR_CYAN"           Map               Time           Date                 Name\n\"",
+		GetLongNameForRecordType(type))
+	);
 
-	// TODO: pair ip/cuid in the query
-	char nameString[64] = { 0 };
-	G_DBListAliases( playerIpInt, ( unsigned int )0xFFFFFFFF, 1, copyTopNameCallback, &nameString, NULL );
+	pagination_t pagination;
+	pagination.numPerPage = NUM_TOP_PER_PAGE;
+	pagination.numPage = page;
 
-	// TODO: fixme
-	if ( !VALIDSTRING( nameString ) ) {
-		Q_strncpyz( nameString, "^7Padawan", sizeof( nameString ) );
-	}
+	G_DBListRaceTop(type, pagination, PrintRaceTopCallback, ent);
 
-	{
-		// pad the name string with spaces here because printf padding will ignore colors
-
-		int spacesToAdd = g_maxNameLength.integer - Q_PrintStrlen( nameString );
-		int i;
-
-		for ( i = 0; i < sizeof( nameString ) && spacesToAdd > 0; ++i ) {
-			if ( nameString[i] == '\0' ) {
-				nameString[i] = ' '; // replace null terminators with spaces
-				--spacesToAdd;
-			}
-		}
-
-		nameString[sizeof( nameString ) - 1] = '\0'; // make sure it's still null terminated
-	}
-
-	trap_SendServerCommand( thisContext->entNum, va(
-		"print \""S_COLOR_CYAN"%3d"S_COLOR_WHITE": "S_COLOR_WHITE"%s  "S_COLOR_YELLOW"%2d        "S_COLOR_GREY"%2d        "S_COLOR_ORANGE"%2d\n\"",
-		thisContext->currentRank, nameString, golds, silvers, bronzes
-	) );
-
-	thisContext->hasPrinted = qtrue;
-	thisContext->currentRank++;
+	trap_SendServerCommand(ent - g_entities, va("print \""S_COLOR_WHITE"Viewing page: %d\n\"", page));
 }
 
-static void printLatestTimesCallback( void *context, const char *mapname, const int rank, const CaptureRecordType type, const char *recordHolderName, const unsigned int recordHolderIpInt, const char *recordHolderCuid, const int captureTime, const time_t captureTimeDate ) {
-	LatestTimeContext* thisContext = ( LatestTimeContext* )context;
-
-	if ( !thisContext->hasPrinted ) {
-		// first time printing, show a header
-		trap_SendServerCommand( thisContext->entNum, va( "print \""S_COLOR_WHITE"Latest records for the "S_COLOR_YELLOW"%s "S_COLOR_WHITE"category:\n"S_COLOR_CYAN"           Name              Rank     Time           Date                 Map\n\"", GetLongNameForRecordType( type ) ) );
-	}
+static void PrintRaceLeaderboardCallback(void* context, const raceType_t type, const int rank, const char* name, const int golds, const int silvers, const int bronzes) {
+	gentity_t* ent = (gentity_t*)context;
 
 	char nameString[64] = { 0 };
-	G_DBListAliases( recordHolderIpInt, ( unsigned int )0xFFFFFFFF, 1, copyTopNameCallback, &nameString, recordHolderCuid );
+	Q_strncpyz(nameString, name, sizeof(nameString));
+	int j;
+	for (j = Q_PrintStrlen(nameString); j < MAX_NAME_DISPLAYLENGTH; ++j)
+		Q_strcat(nameString, sizeof(nameString), " ");
 
-	// no name in db for this guy, use the one we stored
-	if ( !VALIDSTRING( nameString ) ) {
-		Q_strncpyz( nameString, recordHolderName, sizeof( nameString ) );
-	}
+	trap_SendServerCommand( ent - g_entities, va(
+		"print \""S_COLOR_CYAN"%3d"S_COLOR_WHITE": "S_COLOR_WHITE"%s    "S_COLOR_YELLOW"%2d        "S_COLOR_GREY"%2d        "S_COLOR_ORANGE"%2d\n\"",
+		rank, nameString, golds, silvers, bronzes
+	) );
+}
 
-	{
-		// pad the name string with spaces here because printf padding will ignore colors
+#define NUM_LEADERBOARD_PER_PAGE 10
 
-		int spacesToAdd = g_maxNameLength.integer - Q_PrintStrlen( nameString );
-		int i;
+static void SubCmd_TopTimes_Ranks(gentity_t* ent, const raceType_t type, const int page) {
+	trap_SendServerCommand(ent - g_entities, va(
+		"print \""S_COLOR_WHITE"Leaderboard for the "S_COLOR_YELLOW"%s "S_COLOR_WHITE"category:\n"
+		S_COLOR_CYAN"               Name             Golds    Silvers   Bronzes\n\"",
+		GetLongNameForRecordType(type))
+	);
 
-		for ( i = 0; i < sizeof( nameString ) && spacesToAdd > 0; ++i ) {
-			if ( nameString[i] == '\0' ) {
-				nameString[i] = ' '; // replace null terminators with spaces
-				--spacesToAdd;
-			}
-		}
+	pagination_t pagination;
+	pagination.numPerPage = NUM_LEADERBOARD_PER_PAGE;
+	pagination.numPage = page;
 
-		nameString[sizeof( nameString ) - 1] = '\0'; // make sure it's still null terminated
-	}
+	G_DBListRaceLeaderboard(type, pagination, PrintRaceLeaderboardCallback, ent);
+
+	trap_SendServerCommand(ent - g_entities, va("print \""S_COLOR_WHITE"Viewing page: %d\n\"", page));
+}
+
+static void PrintRaceLatestCallback(void* context, const char* mapname, const raceType_t type, const int rank, const char* name, const int captureTime, const time_t date) {
+	gentity_t* ent = (gentity_t*)context;
+
+	char nameString[64] = { 0 };
+	Q_strncpyz(nameString, name, sizeof(nameString));
+	int j;
+	for (j = Q_PrintStrlen(nameString); j < MAX_NAME_DISPLAYLENGTH; ++j)
+		Q_strcat(nameString, sizeof(nameString), " ");
 
 	// two chars for colors, max 2 for rank, 1 null terminator
 	char rankString[5];
@@ -4194,416 +4350,127 @@ static void printLatestTimesCallback( void *context, const char *mapname, const 
 	if ( secs > 999 ) Com_sprintf( timeString, sizeof( timeString ), "  >999 " );
 	else Com_sprintf( timeString, sizeof( timeString ), "%3d.%03d", secs, millis );
 
-	char date[20];
+	char dateString[22];
 	time_t now = time( NULL );
-	if ( now - captureTimeDate < 60 * 60 * 24 ) Q_strncpyz( date, S_COLOR_GREEN, sizeof( date ) );
-	else Q_strncpyz( date, S_COLOR_WHITE, sizeof( date ) );
-	G_FormatLocalDateFromEpoch( date + 2, sizeof( date ) - 2, captureTimeDate );
+	if ( now - date < 60 * 60 * 24 ) Q_strncpyz(dateString, S_COLOR_GREEN, sizeof(dateString) );
+	else Q_strncpyz(dateString, S_COLOR_WHITE, sizeof(dateString) );
+	G_FormatLocalDateFromEpoch(dateString + 2, sizeof(dateString) - 2, date );
 
-	trap_SendServerCommand( thisContext->entNum, va(
-		"print \""S_COLOR_WHITE"%s      %-4s    "S_COLOR_YELLOW"%s   %s   "S_COLOR_WHITE"%s\n\"", nameString, rankString, timeString, date, mapname
+	trap_SendServerCommand( ent - g_entities, va(
+		"print \""S_COLOR_WHITE"%s     "S_COLOR_YELLOW"%-4s   %-4s    "S_COLOR_YELLOW"%s   %s     "S_COLOR_WHITE"%s\n\"",
+		nameString, GetShortNameForRecordType(type), rankString, timeString, dateString, mapname
 	) );
-
-	thisContext->hasPrinted = qtrue;
 }
 
-#define DEMOARCHIVE_BASE_MATCH_URL	"http://demos.jactf.com/match.html#rpc=lookup&id=%s"
-#define MAPLIST_MAPS_PER_PAGE			15
-#define LEADERBOARD_PLAYERS_PER_PAGE	10
-#define LATEST_RECORDS_PER_PAGE			10
+#define NUM_LATEST_PER_PAGE 15
+
+static void SubCmd_TopTimes_Latest(gentity_t* ent, const int page) {
+	trap_SendServerCommand(ent - g_entities, va(
+		"print \""S_COLOR_WHITE"Latest records:\n"
+		S_COLOR_CYAN"           Name             Type   Rank     Time           Date                 Map\n\"")
+	);
+
+	pagination_t pagination;
+	pagination.numPerPage = NUM_LEADERBOARD_PER_PAGE;
+	pagination.numPage = page;
+
+	G_DBListRaceLatest(pagination, PrintRaceLatestCallback, ent);
+
+	trap_SendServerCommand(ent - g_entities, va("print \""S_COLOR_WHITE"Viewing page: %d\n\"", page));
+}
 
 void Cmd_TopTimes_f( gentity_t *ent ) {
 	if ( !ent || !ent->client ) {
 		return;
 	}
 
-	if ( !level.mapCaptureRecords.enabled ) {
+	if ( !level.racemodeRecordsEnabled ) {
 		trap_SendServerCommand( ent - g_entities, "print \"Capture records are disabled.\n\"" );
 		return;
 	}
 
-	if ( level.mapCaptureRecords.readonly ) {
-		trap_SendServerCommand( ent - g_entities, "print \""S_COLOR_YELLOW"WARNING: Server settings are non standard, new times won't be recorded!\n\"" );
+	if ( level.racemodeRecordsReadonly ) {
+		trap_SendServerCommand( ent - g_entities, "print \""S_COLOR_YELLOW"WARNING: Server settings were modified, capture records are read-only!\n\"" );
 	}
 
-	// assume standard by default
-	CaptureRecordType category = CAPTURE_RECORD_STANDARD;
+	// figure out the arguments to redirect the command:
+	// subcommand - [mapname - type - page]
+	// where the ones in [] can be in any order
+	
+	// default arguments
+	char subcommand[32] = { 0 };
+	qboolean gotMapname = qfalse;
+	char mapname[MAX_QPATH];
+	Q_strncpyz(mapname, level.mapname, sizeof(mapname));
+	qboolean gotType = qfalse;
+	raceType_t type = RACE_TYPE_STANDARD;
+	qboolean gotPage = qfalse;
+	int page = 1;
 
-	if ( trap_Argc() > 1 ) {
-		char buf[32];
-		trap_Argv( 1, buf, sizeof( buf ) );
+	if (trap_Argc() > 1) {
+		char buf[64];
+		trap_Argv(1, buf, sizeof(buf));
 
-		// special logic for subcommands
+		int startOptionalsAt = 1;
 
-		if ( !Q_stricmp( buf, "help" ) ) {
-			char *text =
-				S_COLOR_WHITE"Show records for the current map: "S_COLOR_CYAN"/toptimes [std | wpn | walk | ad | weekly | lastweek]\n"
-				S_COLOR_WHITE"List all map records: "S_COLOR_CYAN"/toptimes maplist [std | wpn | walk | ad | weekly | lastweek] [page]\n"
-				S_COLOR_WHITE"Show player leaderboard: "S_COLOR_CYAN"/toptimes ranks [std | wpn | walk | ad | weekly | lastweek] [page]\n"
-				S_COLOR_WHITE"Show latest records:" S_COLOR_CYAN"/toptimes latest [std | wpn | walk | ad | weekly | lastweek] [page]\n"
-				S_COLOR_WHITE"Get demo information of a specific rank on the current map:" S_COLOR_CYAN"/toptimes demo <rank> [std | wpn | walk | ad | weekly | lastweek]\n"
-				S_COLOR_WHITE"Show valid runs rules:" S_COLOR_CYAN"/toptimes rules <std | wpn | walk | ad | weekly>";
-
-			trap_SendServerCommand( ent - g_entities, va( "print \"%s\n\"", text ) );
-
-			return;
-		} else if ( !Q_stricmp( buf, "maplist" ) ) {
-			int page = 1;
-
-			if ( trap_Argc() > 2 ) {
-				trap_Argv( 2, buf, sizeof( buf ) );
-
-				// is the 2nd argument directly the page number?
-				if ( Q_isanumber( buf ) ) {
-					page = atoi( buf );
-					if ( page < 1 ) page = 1;
-				}
-				else {
-					// a movement type is being specified as 2nd argument
-					category = GetRecordTypeForShortName( buf );
-
-					if ( category == CAPTURE_RECORD_INVALID ) {
-						trap_SendServerCommand( ent - g_entities, "print \"Invalid category. Usage: /toptimes maplist [std | wpn | walk | ad | weekly | lastweek] [page]\n\"" );
-						return;
-					}
-
-					if ( trap_Argc() > 3 ) {
-						// 3rd argument must be the page number
-						trap_Argv( 3, buf, sizeof( buf ) );
-						page = atoi( buf );
-						if ( page < 1 ) page = 1;
-					}
-				}
-			}
-
-			BestTimeContext context;
-			context.entNum = ent - g_entities;
-			context.hasPrinted = qfalse;
-			G_DBListBestCaptureRecords( category, MAPLIST_MAPS_PER_PAGE, ( page - 1 ) * MAPLIST_MAPS_PER_PAGE, printBestTimeCallback, &context );
-
-			if ( context.hasPrinted ) {
-				trap_SendServerCommand( ent - g_entities, va( "print \"Viewing page %d.\nUsage: /toptimes maplist [std | wpn | walk | ad | weekly | lastweek] [page]\n\"", page ) );
-			}
-			else {
-				trap_SendServerCommand( ent - g_entities, "print \"There aren't this many records! Try a lower page number.\nUsage: /toptimes maplist [std | wpn | walk | ad | weekly | lastweek] [page]\n\"" );
-			}
-
-			return;
-		} else if ( !Q_stricmp( buf, "ranks" ) ) {
-			int page = 1;
-
-			if ( trap_Argc() > 2 ) {
-				trap_Argv( 2, buf, sizeof( buf ) );
-
-				// is the 2nd argument directly the page number?
-				if ( Q_isanumber( buf ) ) {
-					page = atoi( buf );
-					if ( page < 1 ) page = 1;
-				} else {
-					// a movement type is being specified as 2nd argument
-					category = GetRecordTypeForShortName( buf );
-
-					if ( category == CAPTURE_RECORD_INVALID ) {
-						trap_SendServerCommand( ent - g_entities, "print \"Invalid category. Usage: /toptimes ranks [std | wpn | walk | ad | weekly | lastweek] [page]\n\"" );
-						return;
-					}
-
-					if ( trap_Argc() > 3 ) {
-						// 3rd argument must be the page number
-						trap_Argv( 3, buf, sizeof( buf ) );
-						page = atoi( buf );
-						if ( page < 1 ) page = 1;
-					}
-				}
-			}
-
-			LeaderboardContext context;
-			context.entNum = ent - g_entities;
-			context.currentRank = 1 + ( page - 1 ) * LEADERBOARD_PLAYERS_PER_PAGE;
-			context.hasPrinted = qfalse;
-			G_DBGetCaptureRecordsLeaderboard( category, LEADERBOARD_PLAYERS_PER_PAGE, ( page - 1 ) * LEADERBOARD_PLAYERS_PER_PAGE, printLeaderboardCallback, &context );
-
-			if ( context.hasPrinted ) {
-				trap_SendServerCommand( ent - g_entities, va( "print \"Viewing page %d.\nUsage: /toptimes ranks [std | wpn | walk | ad | weekly | lastweek] [page]\n\"", page ) );
-			} else {
-				trap_SendServerCommand( ent - g_entities, "print \"There aren't this many players! Try a lower page number.\nUsage: /toptimes ranks [std | wpn | walk | ad | weekly | lastweek] [page]\n\"" );
-			}
-
-			return;
-		} else if ( !Q_stricmp( buf, "latest" ) ) {
-			int page = 1;
-
-			if ( trap_Argc() > 2 ) {
-				trap_Argv( 2, buf, sizeof( buf ) );
-
-				// is the 2nd argument directly the page number?
-				if ( Q_isanumber( buf ) ) {
-					page = atoi( buf );
-					if ( page < 1 ) page = 1;
-				}
-				else {
-					// a movement type is being specified as 2nd argument
-					category = GetRecordTypeForShortName( buf );
-
-					if ( category == CAPTURE_RECORD_INVALID ) {
-						trap_SendServerCommand( ent - g_entities, "print \"Invalid category. Usage: /toptimes latest [std | wpn | walk | ad | weekly | lastweek] [page]\n\"" );
-						return;
-					}
-
-					if ( trap_Argc() > 3 ) {
-						// 3rd argument must be the page number
-						trap_Argv( 3, buf, sizeof( buf ) );
-						page = atoi( buf );
-						if ( page < 1 ) page = 1;
-					}
-				}
-			}
-
-			LatestTimeContext context;
-			context.entNum = ent - g_entities;
-			context.hasPrinted = qfalse;
-			G_DBListLatestCaptureRecords( category, LATEST_RECORDS_PER_PAGE, ( page - 1 ) * LATEST_RECORDS_PER_PAGE, printLatestTimesCallback, &context );
-
-			if ( context.hasPrinted ) {
-				trap_SendServerCommand( ent - g_entities, va( "print \"Viewing page %d.\nUsage: /toptimes latest [std | wpn | walk | ad | weekly | lastweek] [page]\n\"", page ) );
-			}
-			else {
-				trap_SendServerCommand( ent - g_entities, "print \"There aren't this many records! Try a lower page number.\nUsage: /toptimes latest [std | wpn | walk | ad | weekly | lastweek] [page]\n\"" );
-			}
-
-			return;
-		} else if ( !Q_stricmp( buf, "demo" ) ) {
-			if ( trap_Argc() > 2 ) {
-				trap_Argv( 2, buf, sizeof( buf ) );
-				const int rank = atoi( buf );
-
-				if ( rank >= 1 && rank <= MAX_SAVED_RECORDS ) {
-
-					// do we have a movement type specified?
-					if ( trap_Argc() > 3 ) {
-						trap_Argv( 3, buf, sizeof( buf ) );
-						category = GetRecordTypeForShortName( buf );
-
-						if ( category == CAPTURE_RECORD_INVALID ) {
-							trap_SendServerCommand( ent - g_entities, "print \"Invalid category. Usage: /toptimes demo <rank> [std | wpn | walk | ad | weekly | lastweek]\n\"" );
-							return;
-						}
-					}
-
-					const CaptureRecord* thisRecord = &level.mapCaptureRecords.records[category][rank - 1];
-
-					if ( !thisRecord->captureTime ) {
-						trap_SendServerCommand( ent - g_entities, "print \"This rank does not exist for this category on this map\n\"" );
-						return;
-					}
-
-					if ( !VALIDSTRING( thisRecord->matchId ) ) {
-						trap_SendServerCommand( ent - g_entities, "print \"There is no demo associated with this rank in the database!\n\"" );
-						return;
-					}
-
-					const char* categoryName = GetLongNameForRecordType( category );
-
-					char nameString[64] = { 0 };
-					G_DBListAliases( thisRecord->recordHolderIpInt, ( unsigned int )0xFFFFFFFF, 1, copyTopNameCallback, &nameString, thisRecord->recordHolderCuid );
-
-					// no name in db for this guy, use the one we stored
-					if ( !VALIDSTRING( nameString ) ) {
-						Q_strncpyz( nameString, thisRecord->recordHolderName, sizeof( nameString ) );
-					}
-
-					int mins, secs;
-					PartitionedTimer( thisRecord->pickupLevelTime, &mins, &secs, NULL );
-
-					team_t playerTeam = OtherTeam( thisRecord->whoseFlag ); // the opposite of the captured flag's team
-
-					// print the demo info
-					trap_SendServerCommand( ent - g_entities, va(
-						"print \""S_COLOR_WHITE"Rank %i (%s"S_COLOR_WHITE") - "S_COLOR_YELLOW"%s\n"
-						""S_COLOR_WHITE"As %s (client %d) in team %s%s"S_COLOR_WHITE" @ "S_COLOR_CYAN"%d:%02d\n\"",
-						rank, nameString, categoryName, thisRecord->recordHolderName, thisRecord->recordHolderClientId, TeamColorString( playerTeam ), TeamName( playerTeam ), mins, secs
-					) );
-
-					// send the demo link as a chat message to this client only so it can be opened by newmod
-					trap_SendServerCommand( ent - g_entities, va( "chat \"^1Demo link^7\x19: " DEMOARCHIVE_BASE_MATCH_URL "\"\n", thisRecord->matchId ) );
-				} else {
-					trap_SendServerCommand( ent - g_entities, va( "print \"Rank must be a number between 1 and %i\n\"", MAX_SAVED_RECORDS ) );
-				}
-			} else {
-				trap_SendServerCommand( ent - g_entities, "print \"Usage: /toptimes demo <rank> [std | wpn | walk | ad | weekly | lastweek]\n\"" );
-			}
-
-			return;
-		} else if ( !Q_stricmp( buf, "rules" ) ) {
-			char *text;
-
-			if ( trap_Argc() > 2 ) {
-				trap_Argv( 2, buf, sizeof( buf ) );
-				category = GetRecordTypeForShortName( buf );
-
-				switch ( category ) {
-					case CAPTURE_RECORD_STANDARD:
-						text =
-							S_COLOR_WHITE"Standard type:\n"
-							S_COLOR_RED"* No self dmg (except from falling)\n"
-							S_COLOR_RED"* No dmg or force powers from others (except alt sniping)\n"
-							S_COLOR_GREEN"* All force powers allowed\n"
-							S_COLOR_CYAN"NB: Stand idle and wait to regen to 100 force to start over with no category";
-						break;
-					case CAPTURE_RECORD_WEAPONS:
-						text =
-							S_COLOR_WHITE"Weapons type:\n"
-							S_COLOR_GREEN"* Self dmg allowed (except dets/mines)\n"
-							S_COLOR_RED"* No dmg or force powers from others (except alt sniping)\n"
-							S_COLOR_GREEN"* All force powers allowed\n"
-							S_COLOR_CYAN"NB: Stand idle and wait to regen to 100 force to start over with no category";
-						break;
-					case CAPTURE_RECORD_WALK:
-						text =
-							S_COLOR_WHITE"Walk type:\n"
-							S_COLOR_RED"* No self dmg (except from falling)\n"
-							S_COLOR_RED"* No dmg or force powers from others (except alt sniping)\n"
-							S_COLOR_RED"* No jumping or rolling\n"
-							S_COLOR_GREEN"* All force powers allowed (except jump)\n"
-							S_COLOR_CYAN"NB: Stand idle and wait to regen to 100 force to start over with no category";
-						break;
-					case CAPTURE_RECORD_AD:
-						text =
-							S_COLOR_WHITE"A/D type:\n"
-							S_COLOR_RED"* No self dmg (except from falling)\n"
-							S_COLOR_RED"* No dmg or force powers from others (except alt sniping)\n"
-							S_COLOR_RED"* No moving with forward/backward\n"
-							S_COLOR_GREEN"* All force powers allowed\n"
-							S_COLOR_CYAN"NB: Stand idle and wait to regen to 100 force to start over with no category";
-						break;
-					case CAPTURE_RECORD_WEEKLY:
-					case CAPTURE_RECORD_LASTWEEK:
-						if (!g_enableRacemodeWaypoints.integer || !level.waypointsValid) {
-							text = "Weekly challenge mode is currently disabled.";
-						}
-						else {
-							char* waypointNames = GetWaypointNames();
-							text =
-								va(S_COLOR_WHITE"Weekly challenge type:\n"
-								S_COLOR_RED"* 3 randomly-generated waypoints are marked with lightning\n"
-								S_COLOR_RED"* After getting a flag, you must touch all 3 waypoints before capturing\n"
-								S_COLOR_GREEN"* Same rules as Standard otherwise apply\n"
-								S_COLOR_CYAN"* New waypoints are generated every Tuesday at 13:00\n"
-								S_COLOR_CYAN"NB: Stand idle and wait to regen to 100 force to start over with no category%s",
-									VALIDSTRING(waypointNames) ? va("\n"S_COLOR_WHITE"Current waypoints: %s", waypointNames) : "");
-						}
-						break;
-					default:
-						text = "Invalid category. Usage: /toptimes rules <std | wpn | walk | ad | weekly>";
-						break;
-				}
-			} else {
-				text = "Usage: /toptimes rules <std | wpn | walk | ad | weekly>";
-			}
-
-			trap_SendServerCommand( ent - g_entities, va( "print \"%s"S_COLOR_WHITE"\n\"", text ) );
-
-			return;
-		} else {
-
-			// not a subcommand, 1st argument is the movement type
-
-			category = GetRecordTypeForShortName( buf );
-
-			if ( category == CAPTURE_RECORD_INVALID ) {
-				trap_SendServerCommand( ent - g_entities, "print \"Invalid category. Usage: /toptimes maplist [std | wpn | walk | ad | weekly | lastweek] [page]\n\"" );
-				return;
-			}
-		}
-	}
-
-	if (category == CAPTURE_RECORD_WEEKLY && (!g_enableRacemodeWaypoints.integer || !level.waypointsValid)) {
-		trap_SendServerCommand(ent - g_entities, "print \"Weekly challenge mode is currently disabled.\n\"");
-		return;
-	}
-
-	const char* categoryName = GetLongNameForRecordType( category );
-
-	if ( !level.mapCaptureRecords.records[category][0].captureTime ) {
-		// there is no first record for that category
-		if (category == CAPTURE_RECORD_LASTWEEK)
-			trap_SendServerCommand(ent - g_entities, "print \"No Weekly Challenge records were set on this map last week!\n\"");
-		else
-			trap_SendServerCommand(ent - g_entities, va("print \"No record for the %s category on this map yet!\n\"", categoryName));
-
-		if (category == CAPTURE_RECORD_WEEKLY) {
-			char* waypointNames = GetWaypointNames();
-			if (VALIDSTRING(waypointNames))
-				trap_SendServerCommand(ent - g_entities, va("print \"Current waypoints: %s\n\"", waypointNames));
-		}
-		return;
-	}
-
-	trap_SendServerCommand( ent - g_entities, va( "print \""S_COLOR_WHITE"Records for the "S_COLOR_YELLOW"%s "S_COLOR_WHITE"category on "S_COLOR_YELLOW"%s"S_COLOR_WHITE":\n"S_COLOR_CYAN"             Name              Time    Flag    Topspeed     Average           Date\n\"", categoryName, level.mapCaptureRecords.mapname ) );
-
-	int i;
-
-	// print each record as a row
-	for ( i = 0; i < MAX_SAVED_RECORDS; ++i ) {
-		CaptureRecord *record = &level.mapCaptureRecords.records[category][i];
-
-		if ( !record->captureTime ) {
-			continue;
-		}
-
-		char nameString[64] = { 0 };
-		G_DBListAliases( record->recordHolderIpInt, ( unsigned int )0xFFFFFFFF, 1, copyTopNameCallback, &nameString, record->recordHolderCuid );
-
-		// no name in db for this guy, use the one we stored
-		if ( !VALIDSTRING( nameString ) ) {
-			Q_strncpyz( nameString, record->recordHolderName, sizeof( nameString ) );
-		}
-
+		if (!Q_stricmp(buf, "help") ||
+			!Q_stricmp(buf, "maplist") ||
+			!Q_stricmp(buf, "ranks") ||
+			!Q_stricmp(buf, "latest"))
 		{
-			// pad the name string with spaces here because printf padding will ignore colors
-
-			int spacesToAdd = g_maxNameLength.integer - Q_PrintStrlen( nameString );
-			int i;
-
-			for ( i = 0; i < sizeof( nameString ) && spacesToAdd > 0; ++i ) {
-				if ( nameString[i] == '\0' ) {
-					nameString[i] = ' '; // replace null terminators with spaces
-					--spacesToAdd;
-				}
-			}
-
-			nameString[sizeof( nameString ) - 1] = '\0'; // make sure it's still null terminated
+			// first arg is a subcommand
+			Q_strncpyz(subcommand, buf, sizeof(subcommand));
+			startOptionalsAt = 2;
 		}
 
-		int secs, millis;
-		PartitionedTimer( record->captureTime, NULL, &secs, &millis );
+		int i;
+		for (i = startOptionalsAt; i < trap_Argc() && i < 3 + startOptionalsAt; ++i) {
+			trap_Argv(i, buf, sizeof(buf));
 
-		char timeString[8];
-		if ( secs > 999 ) Com_sprintf( timeString, sizeof( timeString ), "  >999 " );
-		else Com_sprintf( timeString, sizeof( timeString ), "%3d.%03d", secs, millis );
-
-		char flagString[7];
-		Com_sprintf( flagString, sizeof( flagString ), "%s%s", TeamColorString( record->whoseFlag ), TeamName( record->whoseFlag ) );
-
-		char date[20];
-		time_t now = time( NULL );
-		if ( now - record->date < 60 * 60 * 24 ) Q_strncpyz( date, S_COLOR_GREEN, sizeof( date ) );
-		else Q_strncpyz( date, S_COLOR_WHITE, sizeof( date ) );
-		G_FormatLocalDateFromEpoch( date + 2, sizeof( date ) - 2, record->date );
-
-		trap_SendServerCommand( ent - g_entities, va(
-			"print \""S_COLOR_CYAN"%d"S_COLOR_WHITE": "S_COLOR_WHITE"%s  "S_COLOR_YELLOW"%s   %-6s      "S_COLOR_YELLOW"%-6d      %-6d     %s\n\"",
-			i + 1, nameString, timeString, flagString, Com_Clampi( 1, 99999999, record->maxSpeed ), Com_Clampi( 1, 9999999, record->avgSpeed ), date
-		) );
+			if (!gotPage) {
+				int testPage = atoi(buf);
+				if (testPage > 0 && testPage < 999) {
+					page = testPage;
+					gotPage = qtrue;
+					continue;
+				}
+			}
+			if (!gotType) {
+				raceType_t testType = GetRecordTypeForShortName(buf);
+				if (testType != RACE_TYPE_INVALID) {
+					type = testType;
+					continue;
+				}
+			}
+			if (!gotMapname) {
+				// assume it's a map name otherwise
+				Q_strncpyz(mapname, buf, sizeof(mapname));
+				gotMapname = qtrue;
+				continue;
+			}
+		}
 	}
+	
+	if (!Q_stricmp(subcommand, "help")) {
+		char* text =
+			S_COLOR_WHITE"Show records for the current map: "S_COLOR_CYAN"/toptimes [mapname] [std | wpn] [page]\n"
+			S_COLOR_WHITE"List all map records: "S_COLOR_CYAN"/toptimes maplist [std | wpn] [page]\n"
+			S_COLOR_WHITE"Show player leaderboard: "S_COLOR_CYAN"/toptimes ranks [std | wpn] [page]\n"
+			S_COLOR_WHITE"Show latest records:" S_COLOR_CYAN"/toptimes latest [page]";
 
-	if (category == CAPTURE_RECORD_WEEKLY) {
-		char* waypointNames = GetWaypointNames();
-		if (VALIDSTRING(waypointNames))
-			trap_SendServerCommand(ent - g_entities, va("print \"Current waypoints: %s\n\"", waypointNames));
+		trap_SendServerCommand(ent - g_entities, va("print \"%s\n\"", text));
+
+		return;
+	} else if (!Q_stricmp(subcommand, "maplist")) {
+		SubCmd_TopTimes_Maplist(ent, type, page);
+	} else if (!Q_stricmp(subcommand, "ranks")) {
+		SubCmd_TopTimes_Ranks(ent, type, page);
+	} else if (!Q_stricmp(subcommand, "latest")) {
+		SubCmd_TopTimes_Latest(ent, page);
+	} else {
+		SubCmd_TopTimes_Records(ent, mapname, type, page);
+		trap_SendServerCommand(ent - g_entities, "print \"For a list of all subcommands: /toptimes help\n\"");
 	}
-
-	trap_SendServerCommand( ent - g_entities, "print \"For a list of all subcommands: /toptimes help\n\"" );
 }
 
 #ifdef NEWMOD_SUPPORT
@@ -4618,12 +4485,8 @@ static qboolean StringIsOnlyNumbers(const char *s) {
 }
 
 static XXH32_hash_t GetVchatHash(const char *modName, const char *msg, const char *fileName) {
-	static char mapname[MAX_QPATH] = { 0 };
-	if (!mapname[0])
-		trap_Cvar_VariableStringBuffer("mapname", mapname, sizeof(mapname));
-
 	char buf[MAX_TOKEN_CHARS] = { 0 };
-	Com_sprintf(buf, sizeof(buf), "%s%s%s%s", mapname, modName, msg, fileName);
+	Com_sprintf(buf, sizeof(buf), "%s%s%s%s", level.mapname, modName, msg, fileName);
 	return XXH32(buf, strlen(buf), 0);
 }
 
@@ -4881,14 +4744,18 @@ void Cmd_Race_f( gentity_t *ent ) {
 
 		if ( !Q_stricmp( "help", s ) ) {
 			trap_SendServerCommand( ent - g_entities, "print \""
-				S_COLOR_WHITE"Racemode lets you travel the map in a different dimension.\n"
-				S_COLOR_WHITE"You can both submit fastcaps and spectate an ongoing pug while in racemode.\n"
+				S_COLOR_WHITE"Racemode lets you travel the map in a different dimension. You are invisible to ingame players.\n"
+				S_COLOR_WHITE"You can submit fastcaps, practice your aim, and spectate an ongoing pug while in racemode.\n"
 				S_COLOR_RED"=> "S_COLOR_WHITE"Type "S_COLOR_CYAN"/toptimes help "S_COLOR_WHITE"for more information about fastcaps\n"
+				S_COLOR_RED"=> "S_COLOR_WHITE"Type "S_COLOR_CYAN"/topaim help "S_COLOR_WHITE"for more information about aim practice\n"
+				S_COLOR_RED"=> "S_COLOR_CYAN"Pull "S_COLOR_WHITE"a bot to begin free aim training\n"
+				S_COLOR_RED"=> "S_COLOR_CYAN"Push "S_COLOR_WHITE"a bot to begin timed aim training\n"
 				S_COLOR_RED"=> "S_COLOR_WHITE"Press your "S_COLOR_YELLOW"Force Seeing "S_COLOR_WHITE"bind to toggle seeing in game players\n"
 				S_COLOR_RED"=> "S_COLOR_WHITE"Change the visibility of other racers with "S_COLOR_CYAN"/hideRacers"S_COLOR_WHITE", "S_COLOR_CYAN"/showRacers "S_COLOR_WHITE"or just "S_COLOR_CYAN"/toggleRacers\n"
+				S_COLOR_RED"=> "S_COLOR_WHITE"Change the visibility of aim practice bots with "S_COLOR_CYAN"/hideBots"S_COLOR_WHITE", "S_COLOR_CYAN"/showBots "S_COLOR_WHITE"or just "S_COLOR_CYAN"/toggleBots\n"
 				S_COLOR_YELLOW"NB: These previous three commands also work while in game and lets you see racers if you want to\n"
 				S_COLOR_RED"=> "S_COLOR_WHITE"Set your teleport point with "S_COLOR_CYAN"/amtelemark"S_COLOR_WHITE", and teleport to it with "S_COLOR_CYAN"/amtele\n"
-				S_COLOR_RED"=> "S_COLOR_WHITE"Automatically use speed when teleporting with "S_COLOR_CYAN"/amautospeed\n\"" );
+				S_COLOR_RED"=> "S_COLOR_WHITE"Automatically use speed when teleporting or restarting aim practice with "S_COLOR_CYAN"/amautospeed\n\"" );
 
 			return;
 		}
@@ -4921,7 +4788,6 @@ void Cmd_Race_f( gentity_t *ent ) {
 	}
 
 	ent->client->sess.inRacemode = oldInRacemode;
-	ent->client->touchedWaypoints = 0;
 
 	team_t newTeam = ent->client->sess.sessionTeam;
 
@@ -4996,6 +4862,62 @@ void Cmd_RacerVisibility_f( gentity_t *ent, int mode ) {
 		} else {
 			trap_SendServerCommand( ent - g_entities, "print \""S_COLOR_RED"Racers HIDDEN\n\"" );
 			client->sess.seeRacersWhileIngame = qfalse;
+		}
+	}
+}
+
+void Cmd_BotVisibility_f(gentity_t *ent, int mode) {
+	if (!ent || !ent->client) {
+		return;
+	}
+
+	gclient_t *client = ent->client;
+
+	// mode: 0 to hide, 1 to show, 2 to toggle
+	qboolean show;
+
+	if (client->sess.inRacemode) {
+		// in racemode, use the flag
+
+		if (mode == 0) {
+			show = qfalse;
+		}
+		else if (mode == 1) {
+			show = qtrue;
+		}
+		else {
+			show = client->sess.racemodeFlags & RMF_HIDEBOTS ? qtrue : qfalse;
+		}
+
+		if (show) {
+			trap_SendServerCommand(ent - g_entities, "print \""S_COLOR_GREEN"Aim practice bots VISIBLE\n\"");
+			client->sess.racemodeFlags &= ~RMF_HIDEBOTS;
+		}
+		else {
+			trap_SendServerCommand(ent - g_entities, "print \""S_COLOR_RED"Aim practice bots HIDDEN\n\"");
+			client->sess.racemodeFlags |= RMF_HIDEBOTS;
+		}
+	}
+	else {
+		// in game, use the separate variable
+
+		if (mode == 0) {
+			show = qfalse;
+		}
+		else if (mode == 1) {
+			show = qtrue;
+		}
+		else {
+			show = client->sess.seeAimBotsWhileIngame ? qfalse : qtrue;
+		}
+
+		if (show) {
+			trap_SendServerCommand(ent - g_entities, "print \""S_COLOR_GREEN"Aim practice bots VISIBLE\n\"");
+			client->sess.seeAimBotsWhileIngame = qtrue;
+		}
+		else {
+			trap_SendServerCommand(ent - g_entities, "print \""S_COLOR_RED"Aim practice bots HIDDEN\n\"");
+			client->sess.seeAimBotsWhileIngame = qfalse;
 		}
 	}
 }
@@ -5094,6 +5016,31 @@ void Cmd_Amtele_f( gentity_t *ent ) {
 		return;
 	}
 
+	if (ent->aimPracticeEntBeingUsed && ent->aimPracticeEntBeingUsed->isAimPracticePack) { // pressed amtele bind while doing aim practice
+		qboolean someoneElseUsingThisPack = qfalse;
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *thisEnt = &g_entities[i];
+			if (!thisEnt->inuse || !thisEnt->client || thisEnt->client->pers.connected != CON_CONNECTED ||
+				thisEnt == ent || !thisEnt->client->sess.inRacemode || thisEnt->aimPracticeEntBeingUsed != ent->aimPracticeEntBeingUsed) {
+				continue;
+			}
+			someoneElseUsingThisPack = qtrue;
+			break;
+		}
+
+		ent->numAimPracticeSpawns = 0;
+		ent->numTotalAimPracticeHits = 0;
+		memset(ent->numAimPracticeHitsOfWeapon, 0, sizeof(ent->numAimPracticeHitsOfWeapon));
+
+		if (someoneElseUsingThisPack) { // someone else is using this pack; just reset their stats and start on the next respawn
+			CenterPrintToPlayerAndFollowers(ent, "Restarting...");
+		}
+		else { // we are the only one using this pack; go ahead and restart it immediately so they don't have to wait
+			RandomizeAndRestartPack(ent->aimPracticeEntBeingUsed->isAimPracticePack);
+		}
+		return;
+	}
+
 	if ( client->sess.telemarkOrigin[0] == 0 &&
 		client->sess.telemarkOrigin[1] == 0 &&
 		client->sess.telemarkOrigin[2] == 0 &&
@@ -5124,12 +5071,12 @@ void Cmd_AmAutoSpeed_f( gentity_t *ent ) {
 		return;
 	}
 
-	if ( !( client->sess.racemodeFlags & RMF_TELEWITHSPEED ) ) {
-		trap_SendServerCommand( ent - g_entities, "print \""S_COLOR_GREEN"Auto speed on teleport ON\n\"" );
-		client->sess.racemodeFlags |= RMF_TELEWITHSPEED;
-	} else {
+	if ( !( client->sess.racemodeFlags & RMF_DONTTELEWITHSPEED) ) {
 		trap_SendServerCommand( ent - g_entities, "print \""S_COLOR_RED"Auto speed on teleport OFF\n\"" );
-		client->sess.racemodeFlags &= ~RMF_TELEWITHSPEED;
+		client->sess.racemodeFlags |= RMF_DONTTELEWITHSPEED;
+	} else {
+		trap_SendServerCommand( ent - g_entities, "print \""S_COLOR_GREEN"Auto speed on teleport ON\n\"" );
+		client->sess.racemodeFlags &= ~RMF_DONTTELEWITHSPEED;
 	}
 }
 
@@ -5425,6 +5372,97 @@ void Cmd_ToggleSaber_f(gentity_t *ent)
 	}
 }
 
+#define ROCK_PAPER_SCISSORS_CHALLENGE_VALID_DURATION	(10000)
+#define ROCK_PAPER_SCISSORS_CHALLENGE_COOLDOWN_TIME		(2000)
+static qboolean RockPaperScissors(gentity_t *ent) {
+	if (!g_rockPaperScissors.integer || level.intermissiontime || g_gametype.integer != GT_CTF)
+		return qfalse;
+
+	if (!ent || !ent->client || ent - g_entities >= MAX_CLIENTS || (ent->r.svFlags & SVF_BOT) || ent->health <= 0 || ent->client->sess.sessionTeam == TEAM_SPECTATOR ||
+		(ent->client->rockPaperScissorsOtherClientNum < MAX_CLIENTS && ent->client->rockPaperScissorsStartTime && level.time - ent->client->rockPaperScissorsStartTime < ROCK_PAPER_SCISSORS_DURATION) ||
+		ent->client->ps.saberInFlight || ent->aimPracticeEntBeingUsed || ent->client->rockPaperScissorsBothChosenTime || ent->client->ps.fallingToDeath)
+		return qfalse;
+
+	// make sure they are standing still
+	if (ent->client->ps.velocity[0] || ent->client->ps.velocity[1] || ent->client->ps.velocity[2])
+		return qfalse;
+
+	// don't allow it in live games
+	if (level.wasRestarted && !level.someoneWasAFK && level.numTeamTicks) {
+		float avgRed = (float)level.numRedPlayerTicks / (float)level.numTeamTicks;
+		float avgBlue = (float)level.numBluePlayerTicks / (float)level.numTeamTicks;
+
+		int avgRedInt = (int)lroundf(avgRed);
+		int avgBlueInt = (int)lroundf(avgBlue);
+
+		if (avgRedInt == avgBlueInt && avgRedInt + avgBlueInt >= 4 && fabs(avgRed - round(avgRed)) < 0.2f && fabs(avgBlue - round(avgBlue)) < 0.2f)
+			return qfalse;
+	}
+
+	trace_t tr;
+	vec3_t forward, fwdOrg;
+	AngleVectors(ent->client->ps.viewangles, forward, NULL, NULL);
+	const float duelrange = 1024;
+	fwdOrg[0] = ent->client->ps.origin[0] + forward[0] * duelrange;
+	fwdOrg[1] = ent->client->ps.origin[1] + forward[1] * duelrange;
+	fwdOrg[2] = (ent->client->ps.origin[2] + ent->client->ps.viewheight) + forward[2] * duelrange;
+
+	trap_Trace(&tr, ent->client->ps.origin, NULL, NULL, fwdOrg, ent->s.number, MASK_PLAYERSOLID);
+	if (tr.fraction == 1 || tr.entityNum >= MAX_CLIENTS)
+		return qfalse;
+
+	gentity_t *targ = &g_entities[tr.entityNum];
+
+	if (!targ || !targ->client || !targ->inuse ||
+		targ->health < 1 || targ->client->ps.stats[STAT_HEALTH] < 1 ||
+		targ->client->sess.sessionTeam == TEAM_SPECTATOR ||
+		targ->client->ps.duelInProgress ||
+		targ->client->ps.saberInFlight ||
+		targ->client->sess.inRacemode != ent->client->sess.inRacemode ||
+		(targ->r.svFlags & SVF_BOT) ||
+		targ->aimPracticeEntBeingUsed ||
+		targ->client->ps.fallingToDeath ||
+		targ->client->rockPaperScissorsBothChosenTime ||
+		(targ->client->rockPaperScissorsOtherClientNum < MAX_CLIENTS && targ->client->rockPaperScissorsStartTime && level.time - targ->client->rockPaperScissorsStartTime < ROCK_PAPER_SCISSORS_DURATION)
+		) {
+		return qfalse;
+	}
+
+	if (ent->client->rockPaperScissorsChallengeTime && level.time - ent->client->rockPaperScissorsChallengeTime < ROCK_PAPER_SCISSORS_CHALLENGE_COOLDOWN_TIME)
+		return qtrue;
+
+	//auto accept for testing, remove in release!
+	if (targ->client->rockPaperScissorsOtherClientNum == ent - g_entities &&
+		targ->client->rockPaperScissorsChallengeTime &&
+		level.time - targ->client->rockPaperScissorsChallengeTime < ROCK_PAPER_SCISSORS_CHALLENGE_VALID_DURATION) {
+		trap_SendServerCommand(ent - g_entities, "cp \"Enter ^5r^7, ^5p^7, or ^5s^7 in chat\"");
+		trap_SendServerCommand(targ - g_entities, "cp \"Enter ^5r^7, ^5p^7, or ^5s^7 in chat\"");
+
+		// don't print the exact same message for people following them, so that idiots don't try to type r/p/s in chat
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *thisEnt = &g_entities[i];
+			if (thisEnt == ent || thisEnt == targ || !thisEnt->inuse || !thisEnt->client || thisEnt->client->sess.spectatorState != SPECTATOR_FOLLOW)
+				continue;
+			if (thisEnt->client->sess.spectatorClient != ent - g_entities && thisEnt->client->sess.spectatorClient != targ - g_entities)
+				continue;
+			trap_SendServerCommand(thisEnt - g_entities, "cp \"Waiting for players to choose...\"");
+		}
+
+		ent->client->rockPaperScissorsStartTime = targ->client->rockPaperScissorsStartTime = level.time;
+	}
+	else {
+		CenterPrintToPlayerAndFollowers(targ, va("%s^7 has challenged you to rock paper scissors!", ent->client->pers.netname));
+		CenterPrintToPlayerAndFollowers(ent, va("You challenged %s^7 to rock paper scissors", targ->client->pers.netname));
+	}
+
+	ent->client->ps.forceHandExtend = HANDEXTEND_DUELCHALLENGE;
+	ent->client->ps.forceHandExtendTime = level.time + 1000;
+
+	ent->client->rockPaperScissorsOtherClientNum = targ - g_entities;
+	ent->client->rockPaperScissorsChallengeTime = level.time;
+	return qtrue;
+}
+
 extern vmCvar_t		d_saberStanceDebug;
 
 extern qboolean WP_SaberCanTurnOffSomeBlades( saberInfo_t *saber );
@@ -5437,6 +5475,9 @@ void Cmd_SaberAttackCycle_f(gentity_t *ent)
 	{
 		return;
 	}
+
+	if (RockPaperScissors(ent))
+		return;
 
 	if (ent->client->saber[0].model[0] && ent->client->saber[1].model[0])
 	{ //no cycling for akimbo
@@ -5462,7 +5503,8 @@ void Cmd_SaberAttackCycle_f(gentity_t *ent)
 				else
 				{
 					//turn it off
-					G_Sound(ent, CHAN_AUTO, ent->client->saber[1].soundOff);
+					if (ent->client->ps.weapon == WP_SABER)
+						G_Sound(ent, CHAN_AUTO, ent->client->saber[1].soundOff);
 					ent->client->ps.saberHolstered = 1;
 					//g_active should take care of this, but...
 					ent->client->ps.fd.saberAnimLevel = SS_FAST;
@@ -5518,7 +5560,8 @@ void Cmd_SaberAttackCycle_f(gentity_t *ent)
 			else
 			{
 				//turn second one off
-				G_Sound(ent, CHAN_AUTO, ent->client->saber[0].soundOff);
+				if (ent->client->ps.weapon == WP_SABER)
+					G_Sound(ent, CHAN_AUTO, ent->client->saber[0].soundOff);
 				ent->client->ps.saberHolstered = 1;
 				//g_active should take care of this, but...
 				if ( ent->client->saber[0].singleBladeStyle != SS_NONE )
@@ -5671,8 +5714,9 @@ static void Cmd_MapPool_f(gentity_t* ent) {
 		}
 
 		list_t mapList = { 0 };
+		void *ctxPtr = &mapList;
 		char poolLongName[64] = { 0 };
-		G_DBListMapsInPool( short_name, "", listMapsInPools, &mapList, (char *)poolLongName, sizeof(poolLongName));
+		G_DBListMapsInPool( short_name, "", listMapsInPools, (void **)&ctxPtr, (char *)poolLongName, sizeof(poolLongName), 0);
 
 		iterator_t iter;
 		ListIterate(&mapList, &iter, qfalse);
@@ -5685,11 +5729,11 @@ static void Cmd_MapPool_f(gentity_t* ent) {
 		}
 
 		if (numMaps) {
-			Table_DefineColumn(t, "Map", TableCallback_MapName, qtrue, 64);
-			Table_DefineColumn(t, "Weight", TableCallback_MapWeight, qtrue, 64);
+			Table_DefineColumn(t, "Map", TableCallback_MapName, NULL, qtrue, -1, 64);
+			Table_DefineColumn(t, "Weight", TableCallback_MapWeight, NULL, qtrue, -1, 64);
 
-			char buf[2048] = { 0 };
-			Table_WriteToBuffer(t, buf, sizeof(buf));
+			char buf[4096] = { 0 };
+			Table_WriteToBuffer(t, buf, sizeof(buf), qtrue, -1);
 			Q_strcat(buf, sizeof(buf), "\n");
 			PrintIngame(ent - g_entities, buf);
 		}
@@ -5715,11 +5759,11 @@ static void Cmd_MapPool_f(gentity_t* ent) {
 		}
 
 		if (numPools) {
-			Table_DefineColumn(t, "Short Name", TableCallback_PoolShortName, qtrue, 64);
-			Table_DefineColumn(t, "Long Name", TableCallback_PoolLongName, qtrue, 64);
+			Table_DefineColumn(t, "Short Name", TableCallback_PoolShortName, NULL, qtrue, -1, 64);
+			Table_DefineColumn(t, "Long Name", TableCallback_PoolLongName, NULL, qtrue, -1, 64);
 
-			char buf[2048] = { 0 };
-			Table_WriteToBuffer(t, buf, sizeof(buf));
+			char buf[4096] = { 0 };
+			Table_WriteToBuffer(t, buf, sizeof(buf), qtrue, -1);
 			Q_strcat(buf, sizeof(buf), "\n");
 			PrintIngame(ent - g_entities, buf);
 		}
@@ -5729,6 +5773,1089 @@ static void Cmd_MapPool_f(gentity_t* ent) {
         PrintIngame( ent - g_entities, va( "Found %i map pools.\n", numPools) );
 		PrintIngame(ent - g_entities, "To see a list of maps in a specific pool, use ^5pools <pool short name>^7\n");
 	}
+}
+
+const char *GetTierStringForTier(mapTier_t tier) {
+	switch (tier) {
+	case MAPTIER_S:	return "^6S TIER";
+	case MAPTIER_A:	return "^2A TIER";
+	case MAPTIER_B:	return "^3B TIER";
+	case MAPTIER_C:	return "^8C TIER";
+	case MAPTIER_F:	return "^0F TIER";
+	default:		return NULL;
+	}
+}
+
+const char *GetTierColorForTier(mapTier_t tier) {
+	switch (tier) {
+	case MAPTIER_S:	return "^6";
+	case MAPTIER_A:	return "^2";
+	case MAPTIER_B:	return "^3";
+	case MAPTIER_C:	return "^8";
+	case MAPTIER_F:	return "^0";
+	default:		return NULL;
+	}
+}
+
+mapTier_t GetMapTierForChar(char c) {
+	unsigned char u = tolower((unsigned char)c);
+	switch (u) {
+	case 's':	return MAPTIER_S;
+	case 'a':	return MAPTIER_A;
+	case 'b':	return MAPTIER_B;
+	case 'c':	return MAPTIER_C;
+	case 'f':	return MAPTIER_F;
+	default:	return MAPTIER_INVALID;
+	}
+}
+
+// get the casual nickname from a map filename
+// e.g. "mp/ctf_kejim" outputs "kejim"
+qboolean GetShortNameForMapFileName(const char *mapFileName, char *out, size_t outSize) {
+	if (!VALIDSTRING(mapFileName))
+		return qfalse;
+
+	const char *ptr = mapFileName;
+
+	if (!Q_stricmpn(mapFileName, "mp/", 3))
+		ptr += 3;
+	if (*ptr && !Q_stricmpn(ptr, "ctf_", 4))
+		ptr += 4;
+
+	if (*ptr) {
+		Q_strncpyz(out, ptr, outSize);
+		Q_strlwr(out);
+		return qtrue;
+	}
+	else {
+		return qfalse;
+	}
+}
+
+// attempts to find a map filename from a casually typed name
+// e.g. "kejim" and "ctf_kejim" both output "mp/ctf_kejim"
+qboolean GetMatchingMap(const char *in, char *out, size_t outSize) {
+	if (!VALIDSTRING(in) || !out || !outSize)
+		return qfalse;
+
+	char lowercase[MAX_QPATH] = { 0 };
+	Q_strncpyz(lowercase, in, sizeof(lowercase));
+	Q_strlwr(lowercase);
+
+	char *str = va("mp/ctf_%s", lowercase);
+	if (!G_DoesMapSupportGametype(str, GT_CTF)) { // returns 0 if it does
+		Q_strncpyz(out, str, outSize);
+		return qtrue;
+	}
+
+	str = va("ctf_%s", lowercase);
+	if (!G_DoesMapSupportGametype(str, GT_CTF)) { // returns 0 if it does
+		Q_strncpyz(out, str, outSize);
+		return qtrue;
+	}
+
+	str = va("mp/%s", lowercase);
+	if (!G_DoesMapSupportGametype(str, GT_CTF)) { // returns 0 if it does
+		Q_strncpyz(out, str, outSize);
+		return qtrue;
+	}
+
+	str = lowercase;
+	if (!G_DoesMapSupportGametype(str, GT_CTF)) { // returns 0 if it does
+		Q_strncpyz(out, str, outSize);
+		return qtrue;
+	}
+
+	return qfalse;
+}
+
+// e.g. an input of 2.12345 returns MAPTIER_C (2)
+mapTier_t MapTierForDouble(double average) {
+	if (average < 1.0 || average > 5.0) { // should be impossible
+		assert(qfalse);
+		return MAPTIER_INVALID;
+	}
+
+	// in case of a tie, round to the higher tier (idk, this was an arbitrary decision)
+
+	if (average < 1.5)
+		return MAPTIER_F;
+	else if (average < 2.5)
+		return MAPTIER_C;
+	else if (average < 3.5)
+		return MAPTIER_B;
+	else if (average < 4.5)
+		return MAPTIER_A;
+	else
+		return MAPTIER_S;
+}
+
+static void PrintTiersHelp(int clientNum, qboolean hasAccount) {
+	PrintIngame(clientNum, "Usage:\n" \
+		"^7tier list                         - view the current 4v4 tier list\n"
+		"^9tier community                    - view the overall community 4v4 tier list\n"
+		"\n"
+		"^7tier here                         - view ratings for the current map\n"
+		"^9tier [map]                        - view ratings for a particular map\n"
+		"\n"
+		"^7tier [account name/player name/#] - view someone's tier list\n"
+		"^9tier players                      - see which players have rated maps\n"
+		"^7tier stats                        - view stats about map tiers^7\n"
+		"\n"
+		"^9tier mylist                       - view your personal tier list\n"
+		"^7tier set [map] [tier]             - set a map's tier in your personal list\n"
+		"^9tier remove [map]                 - remove a map's tier from your personal list\n"
+		"^7tier reset <optional tier>        - reset your personal list (or just one tier)\n");
+	if (!hasAccount)
+		PrintIngame(clientNum, "^3You must have an account in order to create a tier list. Contact an admin for help setting up an account.^7\n");
+}
+
+static void Cmd_Tier_f(gentity_t *ent) {
+	assert(ent);
+	int clientNum = ent - g_entities;
+
+	if (!g_vote_tierlist.integer) {
+		PrintIngame(clientNum, "Tierlist is disabled.\n");
+		return;
+	}
+
+	int args = trap_Argc() - 1;
+
+	qboolean hasAccount = !!(ent->client && ent->client->account && VALIDSTRING(ent->client->account->name));
+
+	char arg1[MAX_STRING_CHARS], arg2[MAX_STRING_CHARS], arg3[MAX_STRING_CHARS];
+	trap_Argv(1, arg1, sizeof(arg1));
+	trap_Argv(2, arg2, sizeof(arg2));
+	trap_Argv(3, arg3, sizeof(arg3));
+
+	if (args <= 0 || !arg1[0] || isspace(arg1[0]) || !Q_stricmp(arg1, "help")) {
+		PrintTiersHelp(clientNum, hasAccount);
+		return;
+	}
+
+	qboolean tryingUnknownSubcommand = qfalse;
+
+	if (!Q_stricmp(arg1, "mylist")) {
+		if (!hasAccount) {
+			PrintIngame(clientNum, "^3You must have an account in order to use this feature. Contact an admin for help setting up an account.^7\n");
+			return;
+		}
+		printMyOwnList:; // lick my nuts
+		if (args > 1 && !Q_stricmp(arg2, "unrated")) {
+			if (!G_DBPrintPlayerUnratedList(ent->client->account->id, clientNum, "Maps you have not rated:"))
+				PrintIngame(clientNum, "There are no maps that you have not rated.\n");
+			return;
+		}
+		if (!G_DBPrintPlayerTierList(ent->client->account->id, clientNum, "Your tier list:"))
+			PrintIngame(clientNum, "You do not have a tier list. Enter ^5tier set [map] [tier]^7 to start rating maps.\n");
+		if (G_DBPrintPlayerUnratedList(ent->client->account->id, -1, NULL))
+			PrintIngame(clientNum, "Enter ^5tier mylist unrated^7 to see which maps you have not yet rated.\n");
+		PrintIngame(clientNum, "^3NOTE: ratings should be based on 4v4 gameplay only. Do not rate based on 5s, etc.!^7\n");
+	}
+	else if (!Q_stricmp(arg1, "community") || (!Q_stricmp(arg1, "list") && args > 1 && !Q_stricmp(arg2, "community"))) {
+		if (!G_DBPrintTiersOfAllMaps(clientNum, qfalse, "Community map ratings:")) {
+			PrintIngame(clientNum, "No maps have received ratings yet.\n");
+		}
+	}
+	else if ((!Q_stricmp(arg1, "list") || !Q_stricmp(arg1, "player")) && args > 1 && arg2[0] && !isspace(arg2[0])) {
+		tryFindPlayerFromNoArgs:; // blow my scrote
+		int accountId = -1;
+		char name[64] = { 0 };
+		char *getNameFrom = tryingUnknownSubcommand ? arg1 : arg2;
+		if (Q_isanumber(getNameFrom)) {
+			int num = atoi(getNameFrom);
+			if (num >= 0 && num < MAX_CLIENTS && g_entities[num].inuse && g_entities[num].client && g_entities[num].client->pers.connected != CON_DISCONNECTED) {
+				if (g_entities[num].client->account) {
+					accountId = g_entities[num].client->account->id;
+					Q_strncpyz(name, g_entities[num].client->pers.netname, sizeof(name));
+				}
+				else {
+					PrintIngame(clientNum, "%s^7 does not have a tier list.\n", g_entities[num].client->pers.netname);
+					return;
+				}
+			}
+			else {
+				if (tryingUnknownSubcommand)
+					PrintIngame(clientNum, "Unable to find any map, player, or subcommand matching '%s^7'\n", getNameFrom);
+				else
+					PrintIngame(clientNum, "Unable to find a player matching '%s^7'.\n", getNameFrom);
+				return;
+			}
+		}
+		else {
+			char lowercase[MAX_QPATH] = { 0 };
+			Q_strncpyz(lowercase, getNameFrom, sizeof(lowercase));
+			Q_strlwr(lowercase);
+			account_t account = { 0 };
+			if (G_DBGetAccountByName(lowercase, &account)) {
+				accountId = account.id;
+				Q_strncpyz(name, account.name, sizeof(name));
+			}
+			else {
+				gentity_t *found = G_FindClient(getNameFrom);
+				if (found && found->client) {
+					if (found->client->account) {
+						accountId = found->client->account->id;
+						Q_strncpyz(name, va("%s^7 (%s^7)", found->client->pers.netname, found->client->account->name), sizeof(name));
+					}
+					else {
+						PrintIngame(clientNum, "%s^7 does not have a tier list.\n", found->client->pers.netname);
+						return;
+					}
+				}
+				else {
+					if (tryingUnknownSubcommand)
+						PrintIngame(clientNum, "Unable to find any map, player, or subcommand matching '%s^7'\n", getNameFrom);
+					else
+						PrintIngame(clientNum, "Unable to find a player matching '%s^7'.\n", getNameFrom);
+					return;
+				}
+			}
+		}
+
+		if (accountId == -1)
+			return; // sanity check
+
+		if (hasAccount && accountId == ent->client->account->id)
+			goto printMyOwnList; // suck my fucking ballsack
+
+		char *getUnratedFrom;
+		if (tryingUnknownSubcommand && args > 1 && arg2[0] && !isspace(arg2[0]))
+			getUnratedFrom = arg2;
+		else if (args > 2 && arg3[0] && !isspace(arg3[0]))
+			getUnratedFrom = arg3;
+		else
+			getUnratedFrom = NULL;
+
+		if (VALIDSTRING(getUnratedFrom) && !Q_stricmp(getUnratedFrom, "unrated")) {
+			if (!G_DBPrintPlayerUnratedList(accountId, clientNum, va("Maps %s^7 has not rated:", name)))
+				PrintIngame(clientNum, "There are no maps that %s^7 has not rated.\n", name);
+			return;
+		}
+
+		char *prologue = strdup(va("%s^7's tier list:", name));
+		if (!G_DBPrintPlayerTierList(accountId, clientNum, prologue))
+			PrintIngame(clientNum, "%s^7 does not have a tier list.\n", name);
+		free(prologue);
+		if (G_DBPrintPlayerUnratedList(accountId, -1, NULL))
+			PrintIngame(clientNum, "Enter ^5tier %s^5 unrated^7 to see which maps %s^7 has not yet rated.\n", getNameFrom, name);
+	}
+	else if (!Q_stricmp(arg1, "players") || !Q_stricmp(arg1, "lists")) {
+		if (G_DBTierListPlayersWhoHaveRatedMaps(clientNum, "Players who have rated maps, in order of # of ratings given:")) {
+			PrintIngame(clientNum, "Enter ^5tier [name]^7 to view someone's tier list.\n");
+		}
+		else {
+			PrintIngame(clientNum, "No players have rated maps yet.\n");
+		}
+	}
+	else if (!Q_stricmp(arg1, "set") || !Q_stricmp(arg1, "add")) {
+		// set a map's tier in their list
+		if (!hasAccount) {
+			PrintIngame(clientNum, "^3You must have an account in order to use this feature. Contact an admin for help setting up an account.^7\n");
+			return;
+		}
+
+		if (args < 3 || !arg2[0] || isspace(arg2[0]) || !arg3[0] || isspace(arg3[0])) {
+			PrintIngame(clientNum, "Usage:   tier set [map] [tier]\nExample: ^5tier set kejim s^7 ==> sets mp/ctf_kejim to S tier in your list. Valid tiers are S, A, B, C, F.\n"
+			"^3NOTE: ratings should be based on 4v4 gameplay only. Do not rate based on 5s, etc.!^7\n");
+			return;
+		}
+
+		const char *enteredMap, *enteredTier;
+		if (strlen(arg2) == 1 && strlen(arg3) > 1) { // they typed the tier first and the map second
+			enteredTier = arg2;
+			enteredMap = arg3;
+		}
+		else { // they typed the map first and the tier second
+			enteredMap = arg2;
+			enteredTier = arg3;
+		}
+
+		mapTier_t tier = GetMapTierForChar(*enteredTier);
+		if (tier == MAPTIER_INVALID) {
+			PrintIngame(clientNum, "'%s^7' is not a valid tier. Valid tiers are S, A, B, C, F.\n", enteredTier);
+			return;
+		}
+
+		char mapFileName[MAX_QPATH] = { 0 };
+		if (!GetMatchingMap(enteredMap, mapFileName, sizeof(mapFileName))) {
+			PrintIngame(clientNum, "Unable to find any map matching '%s^7'\n", enteredMap);
+			return;
+		}
+
+		if (!G_DBTierlistMapIsWhitelisted(mapFileName)) {
+			PrintIngame(clientNum, "^5%s^7 (^9%s^7) is not eligible for tierlists.\n", enteredMap, mapFileName);
+			return;
+		}
+
+		mapTier_t existingTier = G_DBGetTierOfSingleMap(va("%d", ent->client->account->id), mapFileName, qfalse);
+		if (existingTier != MAPTIER_INVALID && existingTier == tier) {
+			// trying to move it to the tier it's already in
+			PrintIngame(clientNum, "^5%s^7 (^9%s^7) is already in %s^7.\n", enteredMap, mapFileName, GetTierStringForTier(tier));
+			return;
+		}
+
+		if (existingTier == MAPTIER_INVALID) {
+			// adding a map that is not already in a tier
+			qboolean result = G_DBAddMapToTierList(ent->client->account->id, mapFileName, tier);
+			if (result) {
+				PrintIngame(clientNum, "Added ^5%s^7 (^9%s^7) to %s^7.\n", enteredMap, mapFileName, GetTierStringForTier(tier));
+			}
+			else {
+				PrintIngame(clientNum, "Error adding ^5%s^7 (^9%s^7) to %s^7!\n", enteredMap, mapFileName, GetTierStringForTier(tier));
+				G_LogPrintf("Client %d (%s^7) encountered an error trying to add %s (%s) to %s^7\n", clientNum, ent->client->pers.netname, enteredMap, mapFileName, GetTierStringForTier(tier));
+			}
+		}
+		else {
+			// moving it from a different tier
+			qboolean result = G_DBAddMapToTierList(ent->client->account->id, mapFileName, tier);
+			if (result) {
+				PrintIngame(clientNum, "Moved ^5%s^7 (^9%s^7) to %s^7 (was in %s^7).\n", enteredMap, mapFileName, GetTierStringForTier(tier), GetTierStringForTier(existingTier));
+			}
+			else {
+				PrintIngame(clientNum, "Error moving ^5%s^7 (^9%s^7) to %s^7!\n", enteredMap, mapFileName, GetTierStringForTier(tier));
+				G_LogPrintf("Client %d (%s^7) encountered an error trying to move %s (%s) to %s^7\n", clientNum, ent->client->pers.netname, enteredMap, mapFileName, GetTierStringForTier(tier));
+			}
+		}
+	}
+	else if (!Q_stricmp(arg1, "remove") || !Q_stricmp(arg1, "delete")) {
+		// remove a map from their list
+		if (!hasAccount) {
+			PrintIngame(clientNum, "^3You must have an account in order to use this feature. Contact an admin for help setting up an account.^7\n");
+			return;
+		}
+
+		if (args < 2 || !arg2[0] || isspace(arg2[0])) {
+			PrintIngame(clientNum, "Usage:   tier remove [map]\nExample: ^5tier remove kejim^7 ==> removes mp/ctf_kejim from your list\n");
+			return;
+		}
+
+		char mapFileName[MAX_QPATH] = { 0 };
+		if (!GetMatchingMap(arg2, mapFileName, sizeof(mapFileName))) {
+			PrintIngame(clientNum, "Unable to find any map matching '%s^7'\n", arg2);
+			return;
+		}
+
+		mapTier_t existingTier = G_DBGetTierOfSingleMap(va("%d", ent->client->account->id), mapFileName, qfalse);
+		if (existingTier == MAPTIER_INVALID) {
+			PrintIngame(clientNum, "^5%s^7 (^9%s^7) is already not in your list.\n", arg2, mapFileName);
+			return;
+		}
+
+		qboolean result = G_DBRemoveMapFromTierList(ent->client->account->id, mapFileName);
+		if (result) {
+			PrintIngame(clientNum, "Removed ^5%s^7 (^9%s^7).\n", arg2, mapFileName);
+		}
+		else {
+			PrintIngame(clientNum, "Error removing ^5%s^7 (^9%s^7)!\n", arg2, mapFileName);
+			G_LogPrintf("Client %d (%s^7) encountered an error trying to remove %s (%s)\n", clientNum, ent->client->pers.netname, arg2, mapFileName);
+		}
+	}
+	else if (!Q_stricmp(arg1, "reset") || !Q_stricmp(arg1, "clear") || !Q_stricmp(arg1, "clr")) {
+		// reset their list, or just one particular tier
+		if (!hasAccount) {
+			PrintIngame(clientNum, "^3You must have an account in order to use this feature. Contact an admin for help setting up an account.^7\n");
+			return;
+		}
+
+		if (args >= 2 && arg2[0] && !isspace(arg2[0])) {
+			// reset a particular tier
+			mapTier_t tier = GetMapTierForChar(arg2[0]);
+			if (tier == MAPTIER_INVALID) {
+				PrintIngame(clientNum, "'%c^7' is not a valid tier. Valid tiers are S, A, B, F.\n", arg2[0]);
+				return;
+			}
+
+			if (G_DBClearTierListTier(ent->client->account->id, tier)) {
+				PrintIngame(clientNum, "Cleared all %s maps.\n", GetTierStringForTier(tier));
+			}
+			else {
+				PrintIngame(clientNum, "Error clearing %s maps!\n", GetTierStringForTier(tier));
+				G_LogPrintf("Client %d (%s^7) encountered an error trying to clear %s^7 maps\n", clientNum, ent->client->pers.netname, GetTierStringForTier(tier));
+			}
+		}
+		else {
+			// reset their entire list
+			if (G_DBClearTierList(ent->client->account->id)) {
+				PrintIngame(clientNum, "Your tier list has been completely reset.\n");
+			}
+			else {
+				PrintIngame(clientNum, "Error reseting your tier list!\n");
+				G_LogPrintf("Client %d (%s^7) encountered an error trying to clear their entire tier list\n", clientNum, ent->client->pers.netname);
+			}
+		}
+	}
+	else if (!Q_stricmp(arg1, "stats")) {
+		G_DBTierStats(clientNum);
+	}
+	else if (!Q_stricmp(arg1, "list") || !Q_stricmp(arg1, "ingame") || !Q_stricmp(arg1, "current")) {
+		if (!G_DBPrintTiersOfAllMaps(clientNum, qtrue, "Map ratings of current ingame players:")) {
+			int ingame;
+			CountPlayersIngame(NULL, &ingame, NULL);
+			if (!G_DBPrintTiersOfAllMaps(clientNum, qfalse, ingame > 0 ? "Not enough ratings from ingame players (requires at least 2).\nCommunity map ratings will be used:" :
+				"Community map ratings:")) {
+				PrintIngame(clientNum, "No maps have received ratings yet.\n");
+			}
+		}
+	}
+	else { // if we didn't match any of the preceding subcommands, assume it's a map or player name
+		char mapFileName[MAX_QPATH] = { 0 };
+		if (!Q_stricmp(arg1, "here") || !Q_stricmp(arg1, "map") || !Q_stricmp(arg1, "this")) { // view current map
+			char live[MAX_QPATH] = { 0 };
+			if (G_DBGetLiveMapNameForMapName(Cvar_VariableString("mapname"), live, sizeof(live)) && live[0])
+				Q_strncpyz(mapFileName, live, sizeof(mapFileName));
+			else
+				Q_strncpyz(mapFileName, Cvar_VariableString("mapname"), sizeof(mapFileName));
+		}
+		else { // view a specific map name
+			if (!GetMatchingMap(arg1, mapFileName, sizeof(mapFileName))) {
+				tryingUnknownSubcommand = qtrue;
+				goto tryFindPlayerFromNoArgs; // blow me fuckhead
+			}
+		}
+
+		char mapShortName[MAX_QPATH] = { 0 };
+		GetShortNameForMapFileName(mapFileName, mapShortName, sizeof(mapShortName));
+
+		if (!G_DBTierlistMapIsWhitelisted(mapFileName)) {
+			PrintIngame(clientNum, "^5%s^7 (^9%s^7) is not eligible for tierlists.\n", mapShortName, mapFileName);
+			return;
+		}
+
+		PrintIngame(clientNum, "Stats for ^5%s ^7(^9%s^7):\n", mapShortName, mapFileName);
+
+		int numPlays = G_DBNumTimesPlayedSingleMap(mapFileName);
+		PrintIngame(clientNum, "Matches played: %s\n", numPlays ? va("%d", numPlays) : "none");
+
+		mapTier_t currentTier = MAPTIER_INVALID;
+		char ingamePlayersStr[256] = { 0 };
+		int numIngame = GetAccountIdsStringOfIngamePlayers(ingamePlayersStr, sizeof(ingamePlayersStr));
+		if (numIngame >= 2)
+			currentTier = G_DBGetTierOfSingleMap(ingamePlayersStr, mapFileName, qtrue);
+		mapTier_t communityTier = G_DBGetTierOfSingleMap(NULL, mapFileName, qfalse);
+
+		if (currentTier == MAPTIER_INVALID) { // not enough people ingame have rated this map
+			if (numIngame) // only bother showing this "unrated" message if there are actually ingame players
+				PrintIngame(clientNum, "Current rating: unrated (requires at least 2 ratings from ingame players)\n");
+			PrintIngame(clientNum, "Community rating: %s\n", communityTier == MAPTIER_INVALID ? "unrated" : GetTierStringForTier(communityTier));
+		}
+		else {
+			// enough people have rated this map, so display that rating as well as the community rating
+			PrintIngame(clientNum, "Current rating: %s\n", currentTier == MAPTIER_INVALID ? "unrated" : GetTierStringForTier(currentTier));
+			PrintIngame(clientNum, "Community rating: %s\n", communityTier == MAPTIER_INVALID ? "unrated" : GetTierStringForTier(communityTier));
+		}
+
+		G_DBPrintAllPlayerRatingsForSingleMap(mapFileName, clientNum, NULL);
+	}
+}
+
+static ctfPlayerTier_t StringToPlayerRating(const char *s) {
+	if (!VALIDSTRING(s))
+		return PLAYERRATING_UNRATED;
+
+	qboolean high = qfalse, low = qfalse;
+	if (stristr(s, "h") || stristr(s, "+"))
+		high = qtrue;
+	else if (stristr(s, "l") || stristr(s, "-"))
+		low = qtrue;
+
+	ctfPlayerTier_t tier;
+	if (stristr(s, "s")) {
+		tier = PLAYERRATING_S;
+	}
+	else if (stristr(s, "a")) {
+		tier = PLAYERRATING_MID_A;
+		if (high)
+			++tier;
+		else if (low)
+			--tier;
+	}
+	else if (stristr(s, "b")) {
+		tier = PLAYERRATING_MID_B;
+		if (high)
+			++tier;
+		else if (low)
+			--tier;
+	}
+	else if (stristr(s, "c")) {
+		tier = PLAYERRATING_MID_C;
+		if (high)
+			++tier;
+		else if (low)
+			--tier;
+	}
+	else {
+		tier = PLAYERRATING_UNRATED;
+	}
+
+	return tier;
+}
+
+ctfPosition_t CtfPositionFromString(char *s) {
+	if (!VALIDSTRING(s))
+		return CTFPOSITION_UNKNOWN;
+
+	if (!Q_stricmp(s, "base") || !Q_stricmp(s, "bas") || !Q_stricmp(s, "b"))
+		return CTFPOSITION_BASE;
+
+	if (!Q_stricmp(s, "chase") || !Q_stricmp(s, "cha") || !Q_stricmp(s, "c"))
+		return CTFPOSITION_CHASE;
+
+	if (!Q_stricmp(s, "offense") || !Q_stricmp(s, "off") || !Q_stricmp(s, "o"))
+		return CTFPOSITION_OFFENSE;
+
+	return CTFPOSITION_UNKNOWN;
+}
+
+static void PrintRateHelp(int clientNum) {
+	OutOfBandPrint(clientNum, "Usage:\n" \
+		"^7rating [pos]                     - view a list of your ratings for a certain position\n"
+		"^9rating list                      - view lists of your ratings for all positions\n"
+		"\n"
+		"^7rating set [player] [pos] [tier] - set a player's rating on a certain position\n"
+		"^9rating remove [player] [pos]     - delete a player's rating on a certain position\n"
+		"^7rating reset [pos]               - delete all ratings for a certain position\n"
+		"^9rating reset all                  - delete all ratings\n"
+		"\n^7"
+		"  - Skill levels should be equivalent between positions; i.e. S tier base == S tier chase == S tier offense. Your ratings may skew higher or lower for some positions -- do not simply assign tiers based on a curve for each position.\n"
+		"  - Only rate players on positions you have observed them play at least once. Leave people unrated on positions you haven't seen them play.^7\n"
+		"  - Consider re-rating players over time as their skills develop.\n"
+		"  - Do not account for rust. Assume players are NOT rusty.\n");
+}
+
+static void Cmd_Rating_f(gentity_t *ent) {
+	if (!ent || !ent->client)
+		return;
+
+	// redirect non-allowed dudes to the tier command since this may be a mistype anyway
+	if (!ent->client->account || !(ent->client->account->flags & ACCOUNTFLAG_RATEPLAYERS)) {
+		Cmd_Tier_f(ent);
+		return;
+	}
+
+	int clientNum = ent - g_entities;
+	int args = trap_Argc() - 1;
+
+	if (!args) {
+		PrintRateHelp(clientNum);
+		return;
+	}
+
+	char arg1[MAX_STRING_CHARS] = { 0 }, arg2[MAX_STRING_CHARS] = { 0 }, arg3[MAX_STRING_CHARS] = { 0 }, arg4[MAX_STRING_CHARS] = { 0 };
+	trap_Argv(1, arg1, sizeof(arg1));
+	trap_Argv(2, arg2, sizeof(arg2));
+	trap_Argv(3, arg3, sizeof(arg3));
+	trap_Argv(4, arg4, sizeof(arg3));
+
+	if (!arg1[0]) {
+		PrintRateHelp(clientNum);
+		return;
+	}
+
+	if (!Q_stricmp(arg1, "reset")) {
+		ctfPosition_t pos = arg2[0] ? CtfPositionFromString(arg2) : CTFPOSITION_UNKNOWN;
+		if (!pos && Q_stricmp(arg2, "all")) {
+			OutOfBandPrint(clientNum, "Usage: rating reset [pos]\n");
+			return;
+		}
+		if (G_DBDeleteAllRatingsForPosition(ent->client->account->id, pos))
+			OutOfBandPrint(clientNum, va("Deleted all %s%sratings.\n", pos ? NameForPos(pos) : "", pos ? " " : ""));
+		else
+			OutOfBandPrint(clientNum, va("Error deleting all %s%sratings!\n", pos ? NameForPos(pos) : "", pos ? " " : ""));
+	}
+	else if (!Q_stricmp(arg1, "resetall")) {
+		if (G_DBDeleteAllRatingsForPosition(ent->client->account->id, CTFPOSITION_UNKNOWN))
+			OutOfBandPrint(clientNum, "Deleted all ratings.\n");
+		else
+			OutOfBandPrint(clientNum, "Error deleting all ratings!\n");
+	}
+	else if (CtfPositionFromString(arg1) == CTFPOSITION_BASE) {
+		G_DBListRatingPlayers(ent->client->account->id, clientNum, CTFPOSITION_BASE);
+		OutOfBandPrint(clientNum, "\n  - Skill levels should be equivalent between positions; i.e. S tier base == S tier chase == S tier offense. Your ratings may skew higher or lower for some positions -- do not simply assign tiers based on a curve for each position.\n"
+		"  - Only rate players on positions you have observed them play at least once. Leave people unrated on positions you haven't seen them play.^7\n"
+			"  - Consider re-rating players over time as their skills develop.\n"
+			"  - Do not account for rust. Assume players are NOT rusty.\n");
+	}
+	else if (CtfPositionFromString(arg1) == CTFPOSITION_CHASE) {
+		G_DBListRatingPlayers(ent->client->account->id, clientNum, CTFPOSITION_CHASE);
+		OutOfBandPrint(clientNum, "\n  - Skill levels should be equivalent between positions; i.e. S tier base == S tier chase == S tier offense. Your ratings may skew higher or lower for some positions -- do not simply assign tiers based on a curve for each position.\n"
+			"  - Only rate players on positions you have observed them play at least once. Leave people unrated on positions you haven't seen them play.^7\n"
+			"  - Consider re-rating players over time as their skills develop.\n"
+			"  - Do not account for rust. Assume players are NOT rusty.\n");
+	}
+	else if (CtfPositionFromString(arg1) == CTFPOSITION_OFFENSE) {
+		G_DBListRatingPlayers(ent->client->account->id, clientNum, CTFPOSITION_OFFENSE);
+		OutOfBandPrint(clientNum, "\n  - Skill levels should be equivalent between positions; i.e. S tier base == S tier chase == S tier offense. Your ratings may skew higher or lower for some positions -- do not simply assign tiers based on a curve for each position.\n"
+			"  - Only rate players on positions you have observed them play at least once. Leave people unrated on positions you haven't seen them play.^7\n"
+			"  - Consider re-rating players over time as their skills develop.\n"
+			"  - Do not account for rust. Assume players are NOT rusty.\n");
+	}
+	else if (!Q_stricmp(arg1, "all") || !Q_stricmp(arg1, "list")) {
+		G_DBListRatingPlayers(ent->client->account->id, clientNum, CTFPOSITION_BASE);
+		G_DBListRatingPlayers(ent->client->account->id, clientNum, CTFPOSITION_CHASE);
+		G_DBListRatingPlayers(ent->client->account->id, clientNum, CTFPOSITION_OFFENSE);
+		OutOfBandPrint(clientNum, "\n  - Skill levels should be equivalent between positions; i.e. S tier base == S tier chase == S tier offense. Your ratings may skew higher or lower for some positions -- do not simply assign tiers based on a curve for each position.\n"
+			"  - Only rate players on positions you have observed them play at least once. Leave people unrated on positions you haven't seen them play.^7\n"
+			"  - Consider re-rating players over time as their skills develop.\n"
+			"  - Do not account for rust. Assume players are NOT rusty.\n");
+	}
+	else if (!Q_stricmp(arg1, "set")) {
+		if (!arg2[0] || !arg3[0] || !arg4[0]) {
+			OutOfBandPrint(clientNum, "Usage: rating set [player] [pos] [tier]\n");
+			return;
+		}
+
+		account_t acc = { 0 };
+		qboolean found = G_DBGetAccountByName(arg2, &acc);
+		if (!found) {
+			OutOfBandPrint(clientNum, va("No account found matching '%s^7'. Try checking /rating list.\n", arg2));
+			return;
+		}
+
+		ctfPosition_t pos = CtfPositionFromString(arg3);
+		if (!pos) {
+			OutOfBandPrint(clientNum, va("'%s^7' is not a valid position. Positions can be base, chase, or offense.\n", arg3));
+			return;
+		}
+
+		char *tierStr = ConcatArgs(4);
+		ctfPlayerTier_t tier = StringToPlayerRating(tierStr);
+		if (!tier) {
+			OutOfBandPrint(clientNum, "'%s^7' is not a valid tier.\n", tierStr);
+			return;
+		}
+
+		if (G_DBSetPlayerRating(ent->client->account->id, acc.id, pos, tier))
+			OutOfBandPrint(clientNum, "Set ^5%s^7 %s to %s^7.\n", acc.name, NameForPos(pos), PlayerRatingToString(tier));
+		else
+			OutOfBandPrint(clientNum, "Error setting ^5%s^7 %s to %s^7.\n", acc.name, NameForPos(pos), PlayerRatingToString(tier));
+	}
+	else if (!Q_stricmp(arg1, "remove") || !Q_stricmp(arg1, "rem") || !Q_stricmp(arg1, "rm") || !Q_stricmp(arg1, "delete") || !Q_stricmp(arg1, "del")) {
+		if (!arg2[0] || !arg3[0]) {
+			OutOfBandPrint(clientNum, "Usage: rating remove [player] [pos]\n");
+			return;
+		}
+
+		account_t acc = { 0 };
+		qboolean found = G_DBGetAccountByName(arg2, &acc);
+		if (!found) {
+			OutOfBandPrint(clientNum, "No account found matching '%s^7'. Try checking /rate players.\n", arg2);
+			return;
+		}
+
+		ctfPosition_t pos = CtfPositionFromString(arg3);
+		if (!pos) {
+			OutOfBandPrint(clientNum, "'%s^7' is not a valid position.\n", arg3);
+			return;
+		}
+
+		if (G_DBRemovePlayerRating(ent->client->account->id, acc.id, pos))
+			OutOfBandPrint(clientNum, "Removed rating for %s on %s.\n", acc.name, NameForPos(pos));
+		else
+			OutOfBandPrint(clientNum, "Error removing rating for ^5%s^7 %s (they may have already been unrated).\n", acc.name, NameForPos(pos));
+	}
+	else {
+		OutOfBandPrint(clientNum, "Unknown subcommand '%s^7'\n", arg1);
+		PrintRateHelp(clientNum);
+	}
+}
+
+// returns qtrue if valid; qfalse if they set something dumb (like a pos set on multiple choice levels, or all three pos on second choice, etc)
+qboolean ValidateAndCopyPositionPreferences(const positionPreferences_t *in, positionPreferences_t *out) {
+	if (!in) {
+		assert(qfalse);
+		return qfalse;
+	}
+
+	positionPreferences_t temp = { 0 };
+	memcpy(&temp, in, sizeof(positionPreferences_t));
+
+	temp.first &= ALL_CTF_POSITIONS;
+	temp.second &= ALL_CTF_POSITIONS;
+	temp.third &= ALL_CTF_POSITIONS;
+	temp.avoid &= ALL_CTF_POSITIONS;
+
+	if (!temp.first && !temp.second && !temp.third && !temp.avoid) {
+		if (out)
+			memset(out, 0, sizeof(positionPreferences_t));
+		return qtrue;
+	}
+
+	qboolean inputValid = qtrue;
+
+	// has all three positions on first/second/third
+	// clear it out
+	if (temp.first == ALL_CTF_POSITIONS) {
+		temp.first = 0;
+		inputValid = qfalse;
+	}
+	if (temp.second == ALL_CTF_POSITIONS) {
+		temp.second = 0;
+		inputValid = qfalse;
+	}
+	if (temp.third == ALL_CTF_POSITIONS) {
+		temp.third = 0;
+		inputValid = qfalse;
+	}
+	if (temp.avoid == ALL_CTF_POSITIONS) {
+		temp.avoid = 0;
+		inputValid = qfalse;
+	}
+
+	// check that no positions repeat
+	for (int i = CTFPOSITION_BASE; i <= CTFPOSITION_OFFENSE; i++) {
+		int appearances = 0;
+		if (temp.first & (1 << i))
+			++appearances;
+		if (temp.second & (1 << i))
+			++appearances;
+		if (temp.third & (1 << i))
+			++appearances;
+		if (temp.avoid & (1 << i))
+			++appearances;
+
+		if (appearances > 1) {
+			temp.first &= ~(1 << i);
+			temp.second &= ~(1 << i);
+			temp.third &= ~(1 << i);
+			temp.avoid &= ~(1 << i);
+			inputValid = qfalse;
+		}
+	}
+
+	if (!temp.first && temp.second && !temp.third) {
+		// only second
+		// promote it to first
+		temp.first = temp.second;
+		temp.second = 0;
+		inputValid = qfalse;
+	}
+	else if (!temp.first && !temp.second && temp.third) {
+		// only third
+		// promote it to first
+		temp.first = temp.third;
+		temp.third = 0;
+		inputValid = qfalse;
+	}
+	else if (temp.first && !temp.second && temp.third) {
+		// only first and third
+		// promote third to second internally, but don't tell them it's invalid (since people may think of ties as being in the lower slot)
+		temp.second = temp.third;
+		temp.third = 0;
+		//inputValid = qfalse;
+	}
+
+	if (out)
+		memcpy(out, &temp, sizeof(positionPreferences_t));
+
+	return inputValid;
+}
+
+static void PrintPositionPreferences(gentity_t *ent) {
+	assert(ent && ent->client && ent->client->account);
+
+	positionPreferences_t *pref = &ent->client->account->expressedPref;
+
+	if (!pref->first && !pref->second && !pref->third && !pref->avoid) {
+		PrintIngame(ent - g_entities, "You have no position preferences.\n");
+		return;
+	}
+
+	char buf[MAX_STRING_CHARS] = "Your position preferences: \n^3 First choice:^7 ";
+
+	{
+		qboolean gotOne = qfalse;
+		for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+			if (pref->first & (1 << pos)) {
+				Q_strcat(buf, sizeof(buf), va("%s%s", gotOne ? ", " : "", NameForPos(pos)));
+				gotOne = qtrue;
+			}
+		}
+	}
+
+	{
+		Q_strcat(buf, sizeof(buf), "\n^9Second choice:^7 ");
+		qboolean gotOne = qfalse;
+		for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+			if (pref->second & (1 << pos)) {
+				Q_strcat(buf, sizeof(buf), va("%s%s", gotOne ? ", " : "", NameForPos(pos)));
+				gotOne = qtrue;
+			}
+		}
+	}
+
+	{
+		Q_strcat(buf, sizeof(buf), "\n^8 Third choice:^7 ");
+		qboolean gotOne = qfalse;
+		for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+			if (pref->third & (1 << pos)) {
+				Q_strcat(buf, sizeof(buf), va("%s%s", gotOne ? ", " : "", NameForPos(pos)));
+				gotOne = qtrue;
+			}
+		}
+	}
+
+	{
+		Q_strcat(buf, sizeof(buf), "\n^1        Avoid:^7 ");
+		qboolean gotOne = qfalse;
+		for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+			if (pref->avoid & (1 << pos)) {
+				Q_strcat(buf, sizeof(buf), va("%s%s", gotOne ? ", " : "", NameForPos(pos)));
+				gotOne = qtrue;
+			}
+		}
+	}
+
+	if (ValidateAndCopyPositionPreferences(pref, &ent->client->account->validPref))
+		Q_strcat(buf, sizeof(buf), "\n");
+	else
+		Q_strcat(buf, sizeof(buf), "\n^3NOTE:^7 your position preferences are currently invalid. Check that they make sense (e.g. not having a position in more than one tier, not *only* having second choice preferences, etc.)\n");
+
+	PrintIngame(ent - g_entities, buf);
+}
+
+static void PrintPosHelp(gentity_t *ent) {
+	assert(ent);
+	PrintIngame(ent - g_entities,
+		"Usage:  ^5pos [1/2/3/avoid/clear] <position>^7     (order doesn't matter)\n"
+		"Examples:\n"
+		"  ^7pos 1 base      - base is your first choice\n"
+		"  ^9pos 1 chase     - chase is ^2also^9 your first choice\n"
+		"  ^7pos 2 offense   - offense is your second choice\n"
+		"  ^9pos 3 chase     - chase is your third choice\n"
+		"  ^7pos avoid chase - you would like to avoid chase\n"
+		"  ^9pos clear base  - clear all preferences for base\n"
+		"  ^7pos clear       - clear all preferences\n"
+	);
+}
+
+static void Cmd_Pos_f(gentity_t *ent) {
+	if (!ent || !ent->client || ent->client->pers.connected != CON_CONNECTED)
+		return;
+
+	if (!ent->client->account) {
+		PrintIngame(ent - g_entities, "You must have an account in order to use this feature. Please contact an admin for help setting up an account.\n");
+		return;
+	}
+
+	if (trap_Argc() < 2) {
+		PrintPositionPreferences(ent);
+		PrintIngame(ent - g_entities, "Enter ^5pos help^7 for instructions on setting up position preferences.\n");
+		return;
+	}
+
+	char arg1[MAX_STRING_CHARS] = { 0 };
+	trap_Argv(1, arg1, sizeof(arg1));
+
+	positionPreferences_t *pref = &ent->client->account->expressedPref;
+
+	if (trap_Argc() < 3 || !arg1[0]) {
+		if (arg1[0] && (stristr(arg1, "cl") || stristr(arg1, "del") || stristr(arg1, "rm") || stristr(arg1, "rem"))) {
+			PrintIngame(ent - g_entities, "All preferences cleared.\n");
+			pref->first = pref->second = pref->third = 0;
+			ValidateAndCopyPositionPreferences(pref, &ent->client->account->validPref);
+			G_DBSetAccountProperties(ent->client->account);
+		}
+		else if (arg1[0] && stristr(arg1, "help")) {
+			PrintPosHelp(ent);
+		}
+		else if (arg1[0] && stristr(arg1, "list")) {
+			PrintPositionPreferences(ent);
+		}
+		else {
+			PrintPositionPreferences(ent);
+			PrintIngame(ent - g_entities, "Enter ^5pos help^7 for instructions on setting up position preferences.\n");
+		}
+		return;
+	}
+
+	char arg2[MAX_STRING_CHARS] = { 0 };
+	trap_Argv(2, arg2, sizeof(arg2));
+
+	if (!arg2[0]) {
+		PrintPositionPreferences(ent);
+		PrintPosHelp(ent);
+		return;
+	}
+
+	// allow typing the arguments in any order
+	char *intentionStr = NULL;
+	int pos = CtfPositionFromString(arg1);
+	if (pos) {
+		intentionStr = arg2;
+	}
+	else {
+		pos = CtfPositionFromString(arg2);
+		if (pos) {
+			intentionStr = arg1;
+		}
+		else {
+			PrintIngame(ent - g_entities, "You must enter a valid position.\n");
+			PrintPosHelp(ent);
+			return;
+		}
+	}
+	char posStr[16] = { 0 };
+	Com_sprintf(posStr, sizeof(posStr), "^5%s^7", NameForPos(pos));
+
+	assert(intentionStr);
+	enum {
+		INTENTION_UNKNOWN = 0,
+		INTENTION_FIRSTCHOICE,
+		INTENTION_SECONDCHOICE,
+		INTENTION_THIRDCHOICE,
+		INTENTION_AVOID,
+		INTENTION_CLEAR
+	} intention = INTENTION_UNKNOWN;
+	if (stristr(intentionStr, "1") || stristr(intentionStr, "pref") || stristr(intentionStr, "top"))
+		intention = INTENTION_FIRSTCHOICE;
+	else if (stristr(intentionStr, "2") || stristr(intentionStr, "sec"))
+		intention = INTENTION_SECONDCHOICE;
+	else if (stristr(intentionStr, "3") || stristr(intentionStr, "thi"))
+		intention = INTENTION_THIRDCHOICE;
+	else if (stristr(intentionStr, "av"))
+		intention = INTENTION_AVOID;
+	else if (stristr(intentionStr, "cl") || stristr(intentionStr, "rem") || stristr(intentionStr, "rm") || stristr(intentionStr, "del") || stristr(intentionStr, "res"))
+		intention = INTENTION_CLEAR;
+	if (!intention) {
+		PrintIngame(ent - g_entities, "You must enter what you want to do, e.g. '1', '2', '3', 'avoid', or 'clear'\n");
+		return;
+	}
+
+	if (intention == INTENTION_FIRSTCHOICE) {
+		if (pref->first & (1 << pos)) {
+			PrintIngame(ent - g_entities, "%s is already first choice.\n", posStr);
+			return;
+		}
+
+		qboolean printed = qfalse;
+
+		if (pref->second & (1 << pos)) {
+			PrintIngame(ent - g_entities, "%s changed from second choice to first choice.\n", posStr);
+			pref->second &= ~(1 << pos);
+			printed = qtrue;
+		}
+
+		if (pref->third & (1 << pos)) {
+			PrintIngame(ent - g_entities, "%s changed from third choice to first choice.\n", posStr);
+			pref->third &= ~(1 << pos);
+			printed = qtrue;
+		}
+
+		if (pref->avoid & (1 << pos)) {
+			PrintIngame(ent - g_entities, "%s changed from avoided to first choice.\n", posStr);
+			pref->avoid &= ~(1 << pos);
+			printed = qtrue;
+		}
+
+		pref->first |= (1 << pos);
+
+		if (!printed)
+			PrintIngame(ent - g_entities, "Set %s to first choice.\n", posStr);
+	}
+	else if (intention == INTENTION_SECONDCHOICE) {
+		if (pref->second & (1 << pos)) {
+			PrintIngame(ent - g_entities, "%s is already second choice.\n", posStr);
+			return;
+		}
+
+		qboolean printed = qfalse;
+
+		if (pref->first & (1 << pos)) {
+			PrintIngame(ent - g_entities, "%s changed from first choice to second choice.\n", posStr);
+			pref->first &= ~(1 << pos);
+			printed = qtrue;
+		}
+
+		if (pref->third & (1 << pos)) {
+			PrintIngame(ent - g_entities, "%s changed from third choice to second choice.\n", posStr);
+			pref->third &= ~(1 << pos);
+			printed = qtrue;
+		}
+
+		if (pref->avoid & (1 << pos)) {
+			PrintIngame(ent - g_entities, "%s changed from avoided to second choice.\n", posStr);
+			pref->avoid &= ~(1 << pos);
+			printed = qtrue;
+		}
+
+		pref->second |= (1 << pos);
+
+		if (!printed)
+			PrintIngame(ent - g_entities, "Set %s to second choice.\n", posStr);
+	}
+	else if (intention == INTENTION_THIRDCHOICE) {
+		if (pref->third & (1 << pos)) {
+			PrintIngame(ent - g_entities, "%s is already third choice.\n", posStr);
+			return;
+		}
+
+		qboolean printed = qfalse;
+
+		if (pref->first & (1 << pos)) {
+			PrintIngame(ent - g_entities, "%s changed from first choice to third choice.\n", posStr);
+			pref->first &= ~(1 << pos);
+			printed = qtrue;
+		}
+
+		if (pref->second & (1 << pos)) {
+			PrintIngame(ent - g_entities, "%s changed from second choice to third choice.\n", posStr);
+			pref->second &= ~(1 << pos);
+			printed = qtrue;
+		}
+
+		if (pref->avoid & (1 << pos)) {
+			PrintIngame(ent - g_entities, "%s changed from avoided to third choice.\n", posStr);
+			pref->avoid &= ~(1 << pos);
+			printed = qtrue;
+		}
+
+		pref->third |= (1 << pos);
+
+		if (!printed)
+			PrintIngame(ent - g_entities, "Set %s to third choice.\n", posStr);
+	}
+	else if (intention == INTENTION_AVOID) {
+		if (pref->avoid & (1 << pos)) {
+			PrintIngame(ent - g_entities, "%s is already avoided.\n", posStr);
+			return;
+		}
+
+		qboolean printed = qfalse;
+
+		if (pref->first & (1 << pos)) {
+			PrintIngame(ent - g_entities, "%s changed from first choice to avoided.\n", posStr);
+			pref->first &= ~(1 << pos);
+			printed = qtrue;
+		}
+
+		if (pref->second & (1 << pos)) {
+			PrintIngame(ent - g_entities, "%s changed from second choice to avoided.\n", posStr);
+			pref->second &= ~(1 << pos);
+			printed = qtrue;
+		}
+
+		if (pref->third & (1 << pos)) {
+			PrintIngame(ent - g_entities, "%s changed from third choice to avoided.\n", posStr);
+			pref->third &= ~(1 << pos);
+			printed = qtrue;
+		}
+
+		pref->avoid |= (1 << pos);
+
+		if (!printed)
+			PrintIngame(ent - g_entities, "Set %s to avoided.\n", posStr);
+	}
+	else /*if (intention == INTENTION_CLEAR)*/ {
+		PrintIngame(ent - g_entities, "Cleared all preferences for %s.\n", posStr);
+		pref->first &= ~(1 << pos);
+		pref->second &= ~(1 << pos);
+		pref->third &= ~(1 << pos);
+		pref->avoid &= ~(1 << pos);
+	}
+
+	ValidateAndCopyPositionPreferences(pref, &ent->client->account->validPref);
+	G_DBSetAccountProperties(ent->client->account);
 }
 
 #ifdef NEWMOD_SUPPORT
@@ -5815,7 +6942,12 @@ static void Cmd_Svauth_f( gentity_t *ent ) {
 			// now that this client is fully authenticated, init session and account
 			G_InitClientSession( ent->client );
 			G_InitClientAccount( ent->client );
-
+			G_InitClientRaceRecordsCache( ent->client );
+			G_InitClientAimRecordsCache(ent->client);
+			G_PrintWelcomeMessage( ent->client );
+			TellPlayerToRateMap( ent->client );
+			TellPlayerToSetPositions(ent->client);
+			RestoreDisconnectedPlayerData(ent);
 			ClientUserinfoChanged( ent - g_entities );
 
 			return;
@@ -5909,28 +7041,6 @@ void Cmd_VchatList_f(gentity_t* ent) {
 }
 #endif
 
-typedef struct
-{
-    int entNum;
-
-} AliasesContext;
-
-void listAliasesCallback( void* context,
-    const char* name,
-    int duration )
-{
-    AliasesContext* thisContext = (AliasesContext*)context;
-    trap_SendServerCommand( thisContext->entNum, va( "print \"  %s"S_COLOR_WHITE" (%i).\n\"", name, duration ) );
-}
-
-void singleAliasCallback( void* context,
-	const char* name,
-	int duration )
-{
-	AliasesContext* thisContext = ( AliasesContext* )context;
-	trap_SendServerCommand( thisContext->entNum, va( "print \""S_COLOR_WHITE"* %s"S_COLOR_WHITE"\"", name ) );
-}
-
 void Cmd_WhoIs_f( gentity_t* ent ) {
 	int clientNum = -1;
 	if (trap_Argc() >= 2) {
@@ -5954,330 +7064,210 @@ void Cmd_WhoIs_f( gentity_t* ent ) {
 		Table_DefineRow(t, &level.clients[i]);
 	}
 
-	Table_DefineColumn(t, "#", TableCallback_ClientNum, qfalse, 2);
-	Table_DefineColumn(t, "Name", TableCallback_Name, qtrue, g_maxNameLength.integer);
-	Table_DefineColumn(t, "Alias", TableCallback_Alias, qtrue, g_maxNameLength.integer);
-	Table_DefineColumn(t, "Country", TableCallback_Country, qtrue, 64);
+	Table_DefineColumn(t, "#", TableCallback_ClientNum, NULL, qfalse, -1, 2);
+	Table_DefineColumn(t, "Name", TableCallback_Name, NULL, qtrue, -1, MAX_NAME_DISPLAYLENGTH);
+	Table_DefineColumn(t, "Alias", TableCallback_Alias, NULL, qtrue, -1, MAX_NAME_DISPLAYLENGTH);
+	Table_DefineColumn(t, "Country", TableCallback_Country, NULL, qtrue, -1, 64);
+	Table_DefineColumn(t, "Notes", TableCallback_Notes, NULL, qtrue, -1, MAX_NAME_DISPLAYLENGTH);
 
-	char buf[MAX_STRING_CHARS] = { 0 };
-	Table_WriteToBuffer(t, buf, sizeof(buf));
+	char buf[4096] = { 0 };
+	Table_WriteToBuffer(t, buf, sizeof(buf), qtrue, -1);
 	Table_Destroy(t);
 
 	PrintIngame(ent - g_entities, buf);
 }
 
-#define MAX_STATS			16
-#define STATS_ROW_SEPARATOR	"-"
-
-typedef enum {
-	STAT_NONE = 0, // types after this are RIGHT aligned
-	STAT_BLANK, // only serves as caption, no value
-	STAT_INT,
-	STAT_DURATION,
-	STAT_INT_PAIR1,
-	STAT_LEFT_ALIGNED, // types after this are LEFT aligned
-	STAT_INT_PAIR2
-} StatType;
-
-typedef struct {
-	char *cols[MAX_STATS]; // column names, strlen gives the width so use spaces for larger cols
-	StatType types[MAX_STATS]; // type of data
-} StatsDesc;
-
-#define FORMAT_INT( i )				va( "%d", i )
-#define FORMAT_PAIRED_INT( i )		va( "%d"S_COLOR_WHITE"/", i )
-#define FORMAT_MINS_SECS( m, s )	va( "%dm%02ds", m, s )
-#define FORMAT_SECS( s )			va( "%ds", s )
-
-static char* GetFormattedValue( int value, StatType type ) {
-	switch ( type ) {
-	case STAT_INT: return FORMAT_INT( value );
-	case STAT_INT_PAIR1: return FORMAT_PAIRED_INT( value );
-	case STAT_INT_PAIR2: return FORMAT_INT( value );
-	case STAT_DURATION: {
-		int secs = value / 1000;
-		int mins = secs / 60;
-
-		// more or less than a minute?
-		if ( value >= 60000 ) {
-			secs %= 60;
-			return FORMAT_MINS_SECS( mins, secs );
-		} else {
-			return FORMAT_SECS( secs );
+void Cmd_PrintStats_f(gentity_t *ent) {
+	if (trap_Argc() < 2) {
+		Stats_Print(ent, "general", NULL, 0, qtrue, NULL);
+	}
+	else if (trap_Argc() == 2) {
+		char subcmd[MAX_STRING_CHARS] = { 0 };
+		trap_Argv(1, subcmd, sizeof(subcmd));
+		if (!Q_stricmpn(subcmd, "we", 2) || !Q_stricmpn(subcmd, "wpn", 3)) {
+			if (ent->client && (ent->client->sess.sessionTeam == TEAM_RED || ent->client->sess.sessionTeam == TEAM_BLUE))
+				Stats_Print(ent, subcmd, NULL, 0, qtrue, ent->client->stats); // ingame player with no args; just print himself
+			else
+				Stats_Print(ent, subcmd, NULL, 0, qtrue, NULL);
+		}
+		else {
+			Stats_Print(ent, subcmd, NULL, 0, qtrue, NULL);
 		}
 	}
-	default: return "0"; // should never happen
+	else {
+		char subcmd[MAX_STRING_CHARS] = { 0 };
+		trap_Argv(1, subcmd, sizeof(subcmd));
+
+		if (!Q_stricmpn(subcmd, "we", 2) || !Q_stricmpn(subcmd, "wpn", 3)) {
+			char weaponPlayerArg[MAX_STRING_CHARS] = { 0 };
+			trap_Argv(2, weaponPlayerArg, sizeof(weaponPlayerArg));
+			if (weaponPlayerArg[0]) {
+				if (!Q_stricmp(weaponPlayerArg, "all") || !Q_stricmp(weaponPlayerArg, "-1")) {
+					Stats_Print(ent, subcmd, NULL, 0, qtrue, NULL);
+				}
+				else {
+					stats_t *found = GetStatsFromString(weaponPlayerArg);
+					if (!found) {
+						PrintIngame(ent - g_entities, "Client %s^7 not found or ambiguous. Use client number or be more specific.\n", weaponPlayerArg);
+						return;
+					}
+					Stats_Print(ent, subcmd, NULL, 0, qtrue, found);
+				}
+			}
+			else {
+				if (ent->client && (ent->client->sess.sessionTeam == TEAM_RED || ent->client->sess.sessionTeam == TEAM_BLUE))
+					Stats_Print(ent, subcmd, NULL, 0, qtrue, ent->client->stats); // ingame player with no args; just print himself
+				else
+					Stats_Print(ent, subcmd, NULL, 0, qtrue, NULL);
+			}
+		}
+		else {
+			Stats_Print(ent, subcmd, NULL, 0, qtrue, NULL);
+		}
 	}
 }
 
-#define GetStatColor( s, b ) ( b && b == s ? S_COLOR_GREEN : S_COLOR_WHITE )
+static int AccountFromString(char *s, char *nameOut, size_t nameOutSize) {
+	if (!VALIDSTRING(s))
+		return -1;
 
-static void PrintClientStats( const int id, const char *name, StatsDesc desc, int *stats, int *bestStats, const int nameCols, char* outputBuffer, size_t outSize ) {
-	int i, nameLen = 0;
-	char s[MAX_STRING_CHARS];
-
-	nameLen = Q_PrintStrlen( name );
-
-	Com_sprintf( s, sizeof( s ), name );
-
-	// fill up the gaps left by the bigger names
-	if ( nameLen < nameCols ) {
-		for ( i = 0; i < nameCols - nameLen; ++i )
-			Q_strcat( s, sizeof( s ), " " );
+	int accountId = -1;
+	if (Q_isanumber(s)) {
+		int num = atoi(s);
+		if (num >= 0 && num < MAX_CLIENTS && g_entities[num].inuse && g_entities[num].client && g_entities[num].client->pers.connected != CON_DISCONNECTED) {
+			if (g_entities[num].client->account) {
+				Q_strncpyz(nameOut, g_entities[num].client->pers.netname, nameOutSize);
+				return g_entities[num].client->account->id;
+			}
+			else {
+				return -1;
+			}
+		}
+		else {
+			return -1;
+		}
 	}
-
-	// write all formatted stats
-	for ( i = 0; i < MAX_STATS && desc.types[i] > STAT_NONE; ++i ) {
-		Q_strcat( s, sizeof( s ), va( desc.types[i] > STAT_LEFT_ALIGNED ? "%s%-*s" : " %s%*s",
-			GetStatColor( stats[i], bestStats[i] ), // green if the best, white otherwise
-			Q_PrintStrlen( desc.cols[i] ) + ( desc.types[i] == STAT_INT_PAIR1 ? 3 : 0 ), // add 3 for the ^7/ of PAIR1 types
-			GetFormattedValue( stats[i], desc.types[i] ) ) // string-ified version of the type, will contain the slash for PAIR1
-			);
-	}
-
-	trap_SendServerCommand( id, va( "print \"%s\n\"", s ) );
-	if (outputBuffer) Q_strcat(outputBuffer, outSize, va("%s\n", s));
-}
-
-static void PrintTeamStats( const int id, const team_t team, const char teamColor, StatsDesc desc, void( *fillCallback )( gclient_t*, int* ), qboolean printHeader, char* outputBuffer, size_t outSize ) {
-	int i, j, nameLen = 0, maxNameLen = 0;
-	int stats[MAX_CLIENTS][MAX_STATS] = { { 0 } }, bestStats[MAX_STATS] = { 0 };
-	char header[MAX_STRING_CHARS], separator[MAX_STRING_CHARS];
-	gclient_t *client;
-	team_t otherTeam;
-
-	otherTeam = OtherTeam( team );
-
-	// loop over all clients to init stat values as well as the max name length
-	for ( i = 0; i < level.maxclients; ++i ) {
-		if ( !g_entities[i].inuse || !g_entities[i].client || g_entities[i].client->pers.connected != CON_CONNECTED ) {
-			continue;
+	else {
+		char lowercase[MAX_QPATH] = { 0 };
+		Q_strncpyz(lowercase, s, sizeof(lowercase));
+		Q_strlwr(lowercase);
+		account_t account = { 0 };
+		if (G_DBGetAccountByName(lowercase, &account)) {
+			Q_strncpyz(nameOut, account.name, nameOutSize);
+			return account.id;
 		}
-
-		client = g_entities[i].client;
-
-		// count both teams so the columns have the same size
-		if ( g_entities[i].client->sess.sessionTeam != team && g_entities[i].client->sess.sessionTeam != otherTeam ) {
-			continue;
-		}
-
-		nameLen = Q_PrintStrlen( client->pers.netname );
-
-		if ( nameLen > maxNameLen )
-			maxNameLen = nameLen;
-
-		// only fill stats for the current team
-		if ( client->sess.sessionTeam != team ) {
-			continue;
-		}
-
-		( *fillCallback )( client, stats[i] );
-
-		// compare them to the best stats and sum to the total stats
-		for ( j = 0; j < MAX_STATS && desc.types[j] > STAT_NONE; ++j ) {
-			if ( bestStats[j] < stats[i][j] ) {
-				bestStats[j] = stats[i][j];
+		else {
+			gentity_t *found = G_FindClient(s);
+			if (found && found->client) {
+				if (found->client->account) {
+					Q_strncpyz(nameOut, va("%s^7 (%s^7)", found->client->pers.netname, found->client->account->name), nameOutSize);
+					return found->client->account->id;
+				}
+				else {
+					return -1;
+				}
+			}
+			else {
+				return -1;
 			}
 		}
 	}
+}
 
-	// make sure there is room for the NAME column alone
-	if ( maxNameLen < 4 )
-		maxNameLen = 4;
+static void PrintPugStatsHelp(gentity_t *ent) {
+	assert(ent);
+	PrintIngame(ent - g_entities, "Usage:\n" \
+		"^7pugstats [pos]          - list the top players for a particular position\n"
+		"^9pugstats [player]       - view a player's overall winrates\n"
+		"^7pugstats [player] [pos] - view a player's stats and winrates on a position\n"
+		"^9pugstats players        - view a list of players with valid stats\n"
+		"\n"
+		"Arguments can be entered in any order.\n"
+		"You can use 'me' for player name.\n"
+		"Only matchups played >= 5 times are considered in winrates.\n");
+}
 
-	Com_sprintf( header, sizeof( header ), S_COLOR_CYAN"NAME" );
-
-	for ( i = 0; i < maxNameLen - 4; ++i )
-		Q_strcat( header, sizeof( header ), " " );
-
-	Com_sprintf( separator, sizeof( separator ), "^%c", teamColor );
-
-	for ( i = 0; i < maxNameLen; ++i )
-		Q_strcat( separator, sizeof( separator ), STATS_ROW_SEPARATOR );
-
-	// prepare header and dotted separators
-	for ( j = 0; j < MAX_STATS && desc.types[j] > STAT_NONE; ++j ) {
-		// left aligned names should follow a slash, so no space
-		if ( desc.types[j] < STAT_LEFT_ALIGNED ) {
-			Q_strcat( header, sizeof( header ), " " );
-			Q_strcat( separator, sizeof( separator ), " " );
-		}
-
-		Q_strcat( header, sizeof( header ), desc.cols[j] );
-
-		// only for PAIR1 types, append a slash in the name
-		if ( desc.types[j] == STAT_INT_PAIR1 ) {
-			Q_strcat( header, sizeof( header ), "/" );
-		}
-
-		// generate the dotted delimiter, adding a char for the slash of PAIR1 types
-		for ( i = 0; i < Q_PrintStrlen( desc.cols[j] ) + ( desc.types[j] == STAT_INT_PAIR1 ? 1 : 0 ); ++i ) {
-			Q_strcat( separator, sizeof( separator ), STATS_ROW_SEPARATOR );
-		}
+void Cmd_PugStats_f(gentity_t *ent) {
+	if (trap_Argc() < 2) {
+		PrintPugStatsHelp(ent);
+		return;
 	}
 
-	if ( printHeader ) {
-		trap_SendServerCommand( id, va( "print \"%s\n%s\n\"", header, separator ) );
-		if (outputBuffer) Q_strcat(outputBuffer, outSize, va("%s\n%s\n", header, separator));
-	} else {
-		trap_SendServerCommand( id, va( "print \"%s\n\"", separator ) );
-		if (outputBuffer) Q_strcat(outputBuffer, outSize, va("%s\n", separator));
+	char args[2][MAX_STRING_CHARS];
+	trap_Argv(1, args[0], sizeof(args[0]));
+	if (trap_Argc() >= 3)
+		trap_Argv(2, args[1], sizeof(args[1]));
+	else
+		args[1][0] = '\0';
+
+	if (!args[0][0]) {
+		PrintPugStatsHelp(ent);
+		return;
 	}
 
-	// send stats of everyone on the team
-	for ( i = 0; i < level.numConnectedClients; i++ ) {
-		client = &level.clients[level.sortedClients[i]];
+	int clientNum = ent - g_entities;
+	qboolean hasAccount = !!(ent->client && ent->client->account && VALIDSTRING(ent->client->account->name));
 
-		if ( !client || client->sess.sessionTeam != team )
+	if (!Q_stricmp(args[0], "players")) {
+		G_DBPrintPlayersWithStats(clientNum);
+		if (g_shouldReloadPlayerPugStats.integer)
+			PrintIngame(clientNum, "Note: there are pugstats updates currently pending. Pugstats may change on map restart/change.\n");
+		return;
+	}
+	
+	ctfPosition_t pos = CTFPOSITION_UNKNOWN;
+	int accountId = -1;
+	char name[MAX_NAME_LENGTH] = { 0 };
+	float *statPtr = NULL;
+
+	// loop through the arguments so that they can be written in any order
+	for (int i = 0; i < 2; i++) {
+		char *arg = args[i];
+		if (!VALIDSTRING(arg))
 			continue;
 
-		PrintClientStats( id, client->pers.netname, desc, stats[level.sortedClients[i]], bestStats, maxNameLen, outputBuffer, outSize );
-	}
-}
+		if (!pos && (pos = CtfPositionFromString(arg)))
+			continue;
 
-static const StatsDesc CtfStatsDesc = {
-	{
-		"SCORE", "CAP", "ASS", "DEF", "ACC", "FCKIL", "RET", "BOON", "TTLHOLD", "MAXHOLD",
-		"SAVES", "DMGDLT", "DMGTKN", "TOPSPD", "AVGSPD"
-	},
-	{
-		STAT_INT, STAT_INT, STAT_INT, STAT_INT, STAT_INT, STAT_INT, STAT_INT, STAT_INT, STAT_DURATION, STAT_DURATION,
-		STAT_INT, STAT_INT, STAT_INT, STAT_INT, STAT_INT
-	}
-};
-
-static void FillCtfStats( gclient_t *cl, int *values ) {
-	*values++ = cl->ps.persistant[PERS_SCORE];
-	*values++ = cl->ps.persistant[PERS_CAPTURES];
-	*values++ = cl->ps.persistant[PERS_ASSIST_COUNT];
-	*values++ = cl->ps.persistant[PERS_DEFEND_COUNT];
-	*values++ = cl->accuracy_shots ? cl->accuracy_hits * 100 / cl->accuracy_shots : 0;
-	*values++ = cl->pers.teamState.fragcarrier;
-	*values++ = cl->pers.teamState.flagrecovery;
-	*values++ = cl->pers.teamState.boonPickups;
-	*values++ = cl->pers.teamState.flaghold;
-	*values++ = cl->pers.teamState.longestFlaghold;
-	*values++ = cl->pers.teamState.saves;
-	*values++ = cl->pers.damageCaused;
-	*values++ = cl->pers.damageTaken;
-
-	int maxSpeed = ( int )( cl->pers.topSpeed + 0.5f );
-	int avgSpeed;
-
-	if ( cl->pers.displacementSamples ) {
-		avgSpeed = ( int )floorf( ( ( cl->pers.displacement * g_svfps.value ) / cl->pers.displacementSamples ) + 0.5f );
-	} else {
-		avgSpeed = maxSpeed;
-	}
-
-	*values++ = maxSpeed;
-	*values++ = avgSpeed;
-}
-
-static const StatsDesc ForceStatsDesc = {
-	{
-		"PUSH", "PULL", "HEALED", "NRGSED ALLY", "ENEMY", "ABSRBD", "PROTDMG", "PROTTIME"
-	},
-	{
-		STAT_INT_PAIR1, STAT_INT_PAIR2, STAT_INT, STAT_INT_PAIR1, STAT_INT_PAIR2, STAT_INT, STAT_INT, STAT_DURATION
-	}
-};
-
-static void FillForceStats( gclient_t *cl, int *values ) {
-	*values++ = cl->pers.push;
-	*values++ = cl->pers.pull;
-	*values++ = cl->pers.healed;
-	*values++ = cl->pers.energizedAlly;
-	*values++ = cl->pers.energizedEnemy;
-	*values++ = cl->pers.absorbed;
-	*values++ = cl->pers.protDmgAvoided;
-	*values++ = cl->pers.protTimeUsed;
-}
-
-#define ColorForTeam( team )		( team == TEAM_BLUE ? COLOR_BLUE : COLOR_RED )
-#define ScoreTextForTeam( team )	( team == TEAM_BLUE ? S_COLOR_BLUE"BLUE" : S_COLOR_RED"RED" )
-
-void PrintStatsTo( gentity_t *ent, const char *type, char* outputBuffer, size_t outSize ) {
-	qboolean winningIngame = qfalse, losingIngame = qfalse;
-	int id = ent ? ( ent - g_entities ) : -1, i;
-	const StatsDesc *desc;
-	void( *callback )( gclient_t*, int* );
-
-	if ( !VALIDSTRING( type ) ) {
-		return;
-	}
-
-	if ( g_gametype.integer != GT_CTF ) {
-		if ( id != -1 ) {
-			trap_SendServerCommand( id, "print \""S_COLOR_WHITE"Gametype is not CTF. Statistics aren't generated.\n\"" );
-		}
-
-		return;
-	}
-
-	team_t winningTeam = level.teamScores[TEAM_RED] > level.teamScores[TEAM_BLUE] ? TEAM_RED : TEAM_BLUE;
-	team_t losingTeam = OtherTeam( winningTeam );
-
-	for ( i = 0; i < level.maxclients; i++ ) {
-		if ( !g_entities[i].inuse || !g_entities[i].client ) {
+		if (accountId == -1 && !Q_stricmp(arg, "me")) {
+			if (!hasAccount) {
+				PrintIngame(clientNum, "^3You must have an account in order to view your own pugstats. Contact an admin for help setting up an account.^7\n");
+				return;
+			}
+			accountId = ent->client->account->id;
 			continue;
 		}
 
-		if ( g_entities[i].client->sess.sessionTeam == winningTeam ) {
-			winningIngame = qtrue;
-		} else if ( g_entities[i].client->sess.sessionTeam == losingTeam ) {
-			losingIngame = qtrue;
-		}
+		if (accountId == -1 && (accountId = AccountFromString(arg, name, sizeof(name))) != -1)
+			continue;
 
-		if ( winningIngame && losingIngame ) {
-			break;
-		}
-	}
-
-	if ( !winningIngame && !losingIngame ) {
-		if ( id != -1 ) {
-			trap_SendServerCommand( id, "print \""S_COLOR_WHITE"Nobody is playing. Statistics aren't generated.\n\"" );
-		}
-
+		PrintIngame(clientNum, "Unrecognized argument '%s^7'\n", arg);
+		PrintPugStatsHelp(ent);
 		return;
 	}
 
-	if ( !Q_stricmp( type, "general" ) ) {
-		desc = &CtfStatsDesc;
-		callback = &FillCtfStats;
+	if (!pos && accountId == -1)
+		return; // ???
 
-		// for general stats, also print the score
-		const char* s = va("%s: "S_COLOR_WHITE"%d    %s: "S_COLOR_WHITE"%d\n\n",
-			ScoreTextForTeam(winningTeam), level.teamScores[winningTeam],
-			ScoreTextForTeam(losingTeam), level.teamScores[losingTeam]);
-		trap_SendServerCommand( id, va( "print \"%s\"", s) );
-		if (outputBuffer) Q_strcat(outputBuffer, outSize, s);
-	} else if ( !Q_stricmp( type, "force" ) ) {
-		desc = &ForceStatsDesc;
-		callback = &FillForceStats;
-	} else {
-		if ( id != -1 ) {
-			trap_SendServerCommand( id, va( "print \""S_COLOR_WHITE"Unknown type \"%s"S_COLOR_WHITE"\". Usage: "S_COLOR_CYAN"/ctfstats <general | force>\n\"", type ) );
+	if (accountId != -1) {
+		PrintIngame(clientNum, "%s stats%s:\n", hasAccount && accountId == ent->client->account->id ? "Your" : va("%s^7's", name), pos ? va(" on ^6%s^7", NameForPos(pos)) : "");
+		G_DBPrintPerMapWinrates(accountId, pos, clientNum);
+		G_DBPrintWinrates(accountId, pos, clientNum); // if no pos, then force it to show all winrates
+		if (pos) {
+			if (!G_DBPrintPositionStatsForPlayer(accountId, pos, clientNum, name)) {
+				if (hasAccount && accountId == ent->client->account->id)
+					PrintIngame(clientNum, "You have no %s pugstats.\n", NameForPos(pos));
+				else
+					PrintIngame(clientNum, "%s^7 has no %s pugstats.\n", name, NameForPos(pos));
+			}
 		}
-
-		return;
+		if (g_shouldReloadPlayerPugStats.integer)
+			PrintIngame(clientNum, "Note: there are pugstats updates currently pending. Pugstats may change on map restart/change.\n");
 	}
-
-	// print the winning team first, and don't print stats of teams that have no players
-	if ( winningIngame ) PrintTeamStats( id, winningTeam, ColorForTeam( winningTeam ), *desc, callback, qtrue, outputBuffer, outSize );
-	if ( losingIngame ) PrintTeamStats( id, losingTeam, ColorForTeam( losingTeam ), *desc, callback, !winningIngame, outputBuffer, outSize );
-	trap_SendServerCommand( id, "print \"\n\"" );
-	if (outputBuffer) Q_strcat(outputBuffer, outSize, "\n");
-}
-
-void Cmd_PrintStats_f( gentity_t *ent ) {
-	if ( trap_Argc() < 2 ) { // display all types if none is specified, i guess
-		PrintStatsTo( ent, "general", NULL, 0 );
-		PrintStatsTo( ent, "force", NULL, 0 );
-	} else {
-		char subcmd[MAX_STRING_CHARS] = { 0 };
-		trap_Argv( 1, subcmd, sizeof( subcmd ) );
-		PrintStatsTo( ent, subcmd, NULL, 0 );
+	else {
+		G_DBPrintTopPlayersForPosition(pos, clientNum);
+		if (g_shouldReloadPlayerPugStats.integer)
+			PrintIngame(clientNum, "Note: there are pugstats updates currently pending. Pugstats may change on map restart/change.\n");
 	}
 }
 
@@ -6295,12 +7285,12 @@ void G_LoadHelpFile(const char *filename) {
 	len = trap_FS_FOpenFile( filename, &f, FS_READ );
 
 	if ( !f || !len ) {
-		trap_Printf( va( S_COLOR_YELLOW "Help file %s not found or empty, disabling /help\n", filename ) );
+		trap_Printf( va( S_COLOR_YELLOW "Help file %s not found or empty, disabling /help" S_COLOR_WHITE "\n", filename ) );
 		return;
 	}
 
 	if ( len > MAX_HELP_BYTES ) {
-		trap_Printf( va( S_COLOR_YELLOW "Help file %s is too large (%d bytes, max is %d), disabling /help\n", filename, len, MAX_HELP_BYTES ) );
+		trap_Printf( va( S_COLOR_YELLOW "Help file %s is too large (%d bytes, max is %d), disabling /help" S_COLOR_WHITE "\n", filename, len, MAX_HELP_BYTES ) );
 		trap_FS_FCloseFile( f );
 		return;
 	}
@@ -6349,8 +7339,17 @@ void Cmd_Help_f( gentity_t *ent ) {
 	}
 }
 
+void Cmd_RPS_f(gentity_t *ent) {
+	RockPaperScissors(ent);
+}
+
 void Cmd_EngageDuel_f(gentity_t *ent)
 {
+	if (g_rockPaperScissors.integer) {
+		RockPaperScissors(ent);
+		return;
+	}
+
 	trace_t tr;
 	vec3_t forward, fwdOrg;
 	int duelrange = (g_gametype.integer == GT_CTF) ? 1024 : 256;
@@ -6821,9 +7820,26 @@ void ClientCommand( int clientNum ) {
 			Cmd_ForceChanged_f (ent);
 			return;
 		}
-		else if ( !Q_stricmp( cmd, "ctfstats" ) )
+		else if ( !Q_stricmp( cmd, "ctfstats" ) || !Q_stricmp(cmd, "stats") || !Q_stricmp(cmd, "stat"))
 		{ // special case: we want people to read their other stats as suggested
 			Cmd_PrintStats_f( ent );
+			return;
+		}
+		else if (!Q_stricmp(cmd, "pugstats") || !Q_stricmp(cmd, "pug")) {
+			Cmd_PugStats_f(ent);
+			return;
+		}
+		else if (!Q_stricmp(cmd, "tier") || !Q_stricmp(cmd, "tiers") || !Q_stricmp(cmd, "tierlist") || !Q_stricmp(cmd, "tierlists") ||
+			!Q_stricmp(cmd, "teir") || !Q_stricmp(cmd, "teirs") || !Q_stricmp(cmd, "teirlist") || !Q_stricmp(cmd, "teirlists")) { // allow idiots to use it too
+			Cmd_Tier_f(ent);
+			return;
+		}
+		else if (!Q_stricmp(cmd, "rating")) {
+			Cmd_Rating_f(ent);
+			return;
+		}
+		else if (!Q_stricmp(cmd, "pos")) {
+			Cmd_Pos_f(ent);
 			return;
 		}
 		else if ( Q_stricmp( cmd, "whois" ) == 0 )
@@ -6834,6 +7850,11 @@ void ClientCommand( int clientNum ) {
 		else if ( !Q_stricmp( cmd, "toptimes" ) || !Q_stricmp( cmd, "fastcaps" ) )
 		{
 			Cmd_TopTimes_f( ent );
+			return;
+		}
+		else if (!Q_stricmp(cmd, "topaim") || !Q_stricmp(cmd, "topaims"))
+		{
+			Cmd_TopAim_f(ent);
 			return;
 		}
 #ifdef NEWMOD_SUPPORT
@@ -6858,23 +7879,23 @@ void ClientCommand( int clientNum ) {
 		return;
 	}
 
-	if (Q_stricmp (cmd, "give") == 0)
+	if (Q_stricmp(cmd, "give") == 0)
 	{
-		Cmd_Give_f (ent, 0);
+		Cmd_Give_f(ent, 0);
 	}
-	else if (Q_stricmp (cmd, "giveother") == 0)
+	else if (Q_stricmp(cmd, "giveother") == 0)
 	{ //for debugging pretty much
-		Cmd_Give_f (ent, 1);
+		Cmd_Give_f(ent, 1);
 	}
-	else if (Q_stricmp (cmd, "t_use") == 0 && CheatsOk(ent))
+	else if (Q_stricmp(cmd, "t_use") == 0 && CheatsOk(ent))
 	{ //debug use map object
 		if (trap_Argc() > 1)
 		{
 			char sArg[MAX_STRING_CHARS];
 			gentity_t *targ;
 
-			trap_Argv( 1, sArg, sizeof( sArg ) );
-			targ = G_Find( NULL, FOFS(targetname), sArg );
+			trap_Argv(1, sArg, sizeof(sArg));
+			targ = G_Find(NULL, FOFS(targetname), sArg);
 
 			while (targ)
 			{
@@ -6882,54 +7903,56 @@ void ClientCommand( int clientNum ) {
 				{
 					targ->use(targ, ent, ent);
 				}
-				targ = G_Find( targ, FOFS(targetname), sArg );
+				targ = G_Find(targ, FOFS(targetname), sArg);
 			}
 		}
 	}
-	else if (Q_stricmp (cmd, "god") == 0)
-		Cmd_God_f (ent);
-	else if (Q_stricmp (cmd, "notarget") == 0)
-		Cmd_Notarget_f (ent);
-	else if (Q_stricmp (cmd, "noclip") == 0)
-		Cmd_Noclip_f (ent);
-	else if ( Q_stricmp( cmd, "NPC" ) == 0 && CheatsOk(ent) )
+	else if (Q_stricmp(cmd, "god") == 0)
+		Cmd_God_f(ent);
+	else if (Q_stricmp(cmd, "notarget") == 0)
+		Cmd_Notarget_f(ent);
+	else if (Q_stricmp(cmd, "noclip") == 0)
+		Cmd_Noclip_f(ent);
+	else if (Q_stricmp(cmd, "NPC") == 0 && CheatsOk(ent))
 	{
-		Cmd_NPC_f( ent );
+		Cmd_NPC_f(ent);
 	}
-	else if (Q_stricmp (cmd, "kill") == 0)
-		Cmd_Kill_f (ent);
-	else if (Q_stricmp (cmd, "levelshot") == 0)
-		Cmd_LevelShot_f (ent);
-	else if (Q_stricmp (cmd, "follow") == 0)
-		Cmd_Follow_f (ent);
-	else if (Q_stricmp (cmd, "follownext") == 0)
-		Cmd_FollowCycle_f (ent, 1);
-	else if (Q_stricmp (cmd, "followprev") == 0)
-		Cmd_FollowCycle_f (ent, -1);
-	else if (Q_stricmp (cmd, "followflag") == 0)
-		Cmd_FollowFlag_f (ent);
+	else if (Q_stricmp(cmd, "kill") == 0)
+		Cmd_Kill_f(ent);
+	else if (Q_stricmp(cmd, "levelshot") == 0)
+		Cmd_LevelShot_f(ent);
+	else if (Q_stricmp(cmd, "follow") == 0)
+		Cmd_Follow_f(ent);
+	else if (Q_stricmp(cmd, "follownext") == 0)
+		Cmd_FollowCycle_f(ent, 1);
+	else if (Q_stricmp(cmd, "followprev") == 0)
+		Cmd_FollowCycle_f(ent, -1);
+	else if (Q_stricmp(cmd, "followflag") == 0)
+		Cmd_FollowFlag_f(ent);
 	else if (Q_stricmp(cmd, "followtarget") == 0)
 		Cmd_FollowTarget_f(ent);
-	else if (Q_stricmp (cmd, "team") == 0 || Q_stricmp(cmd, "join") == 0)
-		Cmd_Team_f (ent);
-	else if (Q_stricmp (cmd, "duelteam") == 0)
-		Cmd_DuelTeam_f (ent);
-	else if (Q_stricmp (cmd, "siegeclass") == 0)
-		Cmd_SiegeClass_f (ent);
-	else if ( Q_stricmp( cmd, "class" ) == 0 )
-		Cmd_Class_f( ent );
-	else if (Q_stricmp (cmd, "forcechanged") == 0)
-		Cmd_ForceChanged_f (ent);
-	else if (Q_stricmp (cmd, "where") == 0)
-		Cmd_Where_f (ent);
-	else if (Q_stricmp (cmd, "callvote") == 0)
-		Cmd_CallVote_f (ent, PAUSE_NONE);
+	else if (Q_stricmp(cmd, "team") == 0 || Q_stricmp(cmd, "join") == 0)
+		Cmd_Team_f(ent);
+	else if (Q_stricmp(cmd, "duelteam") == 0)
+		Cmd_DuelTeam_f(ent);
+	else if (Q_stricmp(cmd, "siegeclass") == 0)
+		Cmd_SiegeClass_f(ent);
+	else if (Q_stricmp(cmd, "class") == 0)
+		Cmd_Class_f(ent);
+	else if (Q_stricmp(cmd, "forcechanged") == 0)
+		Cmd_ForceChanged_f(ent);
+	else if (Q_stricmp(cmd, "where") == 0)
+		Cmd_Where_f(ent);
+	else if (!Q_stricmp(cmd, "pack"))
+		Cmd_Pack_f(ent);
+	else if (Q_stricmp(cmd, "callvote") == 0)
+		Cmd_CallVote_f(ent, PAUSE_NONE);
 	else if (!Q_stricmp(cmd, "pause"))
 		Cmd_CallVote_f(ent, PAUSE_PAUSED); // allow "pause" command as alias for "callvote pause"
 	else if (!Q_stricmp(cmd, "unpause"))
 		Cmd_CallVote_f(ent, PAUSE_UNPAUSING); // allow "unpause" command as alias for "callvote unpause"
-	else if (Q_stricmp (cmd, "vote") == 0)
-		Cmd_Vote_f (ent, NULL);
+	else if (Q_stricmp(cmd, "vote") == 0)
+		Cmd_Vote_f(ent, NULL);
 	else if (Q_stricmp(cmd, "ready") == 0 || !Q_stricmp(cmd, "readyup"))
 		Cmd_Ready_f(ent);
 	else if (!Q_stricmp(cmd, "mappool") || !Q_stricmp(cmd, "mappools") || !Q_stricmp(cmd, "listpool") || !Q_stricmp(cmd, "listpools") ||
@@ -6937,10 +7960,19 @@ void ClientCommand( int clientNum ) {
 		!Q_stricmp(cmd, "poolmap") || !Q_stricmp(cmd, "pool_map") || !Q_stricmp(cmd, "poollist") || !Q_stricmp(cmd, "pool_list") ||
 		!Q_stricmp(cmd, "poolmaps") || !Q_stricmp(cmd, "pool_maps") || !Q_stricmp(cmd, "pools") || !Q_stricmp(cmd, "pool")) // fuck off
 		Cmd_MapPool_f(ent);
+	else if (!Q_stricmp(cmd, "tier") || !Q_stricmp(cmd, "tiers") || !Q_stricmp(cmd, "tierlist") || !Q_stricmp(cmd, "tierlists") ||
+		!Q_stricmp(cmd, "teir") || !Q_stricmp(cmd, "teirs") || !Q_stricmp(cmd, "teirlist") || !Q_stricmp(cmd, "teirlists")) // allow idiots to use it too
+		Cmd_Tier_f(ent);
+	else if (!Q_stricmp(cmd, "rating"))
+		Cmd_Rating_f(ent);
+	else if (!Q_stricmp(cmd, "pos"))
+		Cmd_Pos_f(ent);
     else if ( Q_stricmp( cmd, "whois" ) == 0 )
         Cmd_WhoIs_f( ent );
-	else if (Q_stricmp(cmd, "ctfstats") == 0)
+	else if (Q_stricmp(cmd, "ctfstats") == 0 || Q_stricmp(cmd, "stats") == 0 || Q_stricmp(cmd, "stat") == 0)
 		Cmd_PrintStats_f(ent);
+	else if (!Q_stricmp(cmd, "pugstats") || !Q_stricmp(cmd, "pug"))
+		Cmd_PugStats_f(ent);
 	else if ( helpEnabled && ( Q_stricmp( cmd, "help" ) == 0 || Q_stricmp( cmd, "rules" ) == 0 ) )
 		Cmd_Help_f( ent );
 	else if (Q_stricmp (cmd, "gc") == 0)
@@ -6953,6 +7985,8 @@ void ClientCommand( int clientNum ) {
 		Cmd_TestCmd_f( ent );
 	else if ( !Q_stricmp(cmd, "toptimes") || !Q_stricmp( cmd, "fastcaps" ) )
 		Cmd_TopTimes_f( ent );
+	else if (!Q_stricmp(cmd, "topaim") || !Q_stricmp(cmd, "topaims"))
+		Cmd_TopAim_f(ent);
 	else if ( !Q_stricmp( cmd, "race" ) || !Q_stricmp( cmd, "ghost" ) )
 		Cmd_Race_f( ent );
 	else if ( !Q_stricmp(cmd, "hideRacers") )
@@ -6961,10 +7995,18 @@ void ClientCommand( int clientNum ) {
 		Cmd_RacerVisibility_f( ent, 1 );
 	else if ( !Q_stricmp( cmd, "toggleRacers" ) )
 		Cmd_RacerVisibility_f( ent, 2 );
+	else if (!Q_stricmp(cmd, "hideBots"))
+		Cmd_BotVisibility_f(ent, 0);
+	else if (!Q_stricmp(cmd, "showBots"))
+		Cmd_BotVisibility_f(ent, 1);
+	else if (!Q_stricmp(cmd, "toggleBots"))
+		Cmd_BotVisibility_f(ent, 2);
 	else if ( !Q_stricmp(cmd, "amtelemark") || !Q_stricmp( cmd, "telemark" ) )
 		Cmd_Amtelemark_f( ent );
 	else if ( !Q_stricmp(cmd, "amtele") || !Q_stricmp( cmd, "tele" ) )
 		Cmd_Amtele_f( ent );
+	else if (!Q_stricmp(cmd, "rps"))
+		Cmd_RPS_f(ent);
 	else if ( !Q_stricmp( cmd, "amautospeed" ) )
 		Cmd_AmAutoSpeed_f( ent );
 	else if ( !Q_stricmp( cmd, "emote" ) )
@@ -7006,6 +8048,18 @@ void ClientCommand( int clientNum ) {
 		}
 	}
 #ifdef _DEBUG
+	else if (!Q_stricmp(cmd, "ents")) {
+	char buf[8192] = { 0 };
+		for (int i = 0; i < MAX_GENTITIES; i++) {
+			gentity_t *printEnt = &g_entities[i];
+			if (printEnt->inuse && !printEnt->item && Q_stricmpn(printEnt->classname, "target_", 7) && Q_stricmpn(printEnt->classname, "trigger_", 8) &&
+				Q_stricmpn(printEnt->classname, "team_", 5) && Q_stricmpn(printEnt->classname, "info_", 5)) {
+				Q_strcat(buf, sizeof(buf), va("%d: %s svFlags: %d (%x)\n", i, printEnt->classname, printEnt->r.svFlags, printEnt->r.svFlags));
+			}
+		}
+		if (buf[0])
+			PrintIngame(ent - g_entities, buf);
+	}
 	else if (Q_stricmp(cmd, "relax") == 0 && CheatsOk( ent ))
 	{
 		if (ent->client->ps.eFlags & EF_RAG)

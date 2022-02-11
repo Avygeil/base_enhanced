@@ -8,6 +8,7 @@
 #include "bg_local.h"
 #include "bg_strap.h"
 #include "G2.h"
+#include "g_database.h"
 
 #ifdef QAGAME
 #include "g_local.h" //ahahahahhahahaha@$!$!
@@ -231,6 +232,12 @@ qboolean BG_KnockDownable(playerState_t *ps)
 	if (ps->emplacedIndex)
 	{ //using emplaced gun or eweb, can't be knocked down
 		return qfalse;
+	}
+
+	if (ps->clientNum >= 0 && ps->clientNum < MAX_GENTITIES) {
+		gentity_t *ent = &g_entities[ps->clientNum];
+		if (ent->inuse && ent->isAimPracticePack)
+			return qfalse;
 	}
 
 	//ok, I guess?
@@ -3627,65 +3634,67 @@ static void PM_CrashLand( void ) {
 	// want to take damage or play a crunch sound
 
 	if ( !(pml.groundTrace.surfaceFlags & SURF_NODAMAGE) )  {
-		if (delta > 7)
-		{
-			int delta_send = (int)delta;
-
-			if (delta_send > 600)
-			{ //will never need to know any value above this
-				delta_send = 600;
-			}
-
-			if (pm->ps->fd.forceJumpZStart)
+		if (pm->ps->clientNum < MAX_CLIENTS) { // eurghgh, workaround for bugged falling noises causing trampoline effect for the slot 0 player
+			if (delta > 7)
 			{
-				if ((int)pm->ps->origin[2] >= (int)pm->ps->fd.forceJumpZStart)
-				{ //was force jumping, landed on higher or same level as when force jump was started
-					if (delta_send > 8)
-					{
-						delta_send = 8;
-					}
+				int delta_send = (int)delta;
+
+				if (delta_send > 600)
+				{ //will never need to know any value above this
+					delta_send = 600;
 				}
-				else
+
+				if (pm->ps->fd.forceJumpZStart)
 				{
-					if (delta_send > 8)
-					{
-						int dif = ((int)pm->ps->fd.forceJumpZStart - (int)pm->ps->origin[2]);
-						int dmgLess = (forceJumpHeight[pm->ps->fd.forcePowerLevel[FP_LEVITATION]] - dif);
-
-						if (dmgLess < 0)
-						{
-							dmgLess = 0;
-						}
-
-						delta_send -= (dmgLess*0.3);
-
-						if (delta_send < 8)
+					if ((int)pm->ps->origin[2] >= (int)pm->ps->fd.forceJumpZStart)
+					{ //was force jumping, landed on higher or same level as when force jump was started
+						if (delta_send > 8)
 						{
 							delta_send = 8;
 						}
+					}
+					else
+					{
+						if (delta_send > 8)
+						{
+							int dif = ((int)pm->ps->fd.forceJumpZStart - (int)pm->ps->origin[2]);
+							int dmgLess = (forceJumpHeight[pm->ps->fd.forcePowerLevel[FP_LEVITATION]] - dif);
 
+							if (dmgLess < 0)
+							{
+								dmgLess = 0;
+							}
+
+							delta_send -= (dmgLess * 0.3);
+
+							if (delta_send < 8)
+							{
+								delta_send = 8;
+							}
+
+						}
 					}
 				}
-			}
 
-			if (didRoll)
-			{ //Add the appropriate event..
-				PM_AddEventWithParm( EV_ROLL, delta_send );
+				if (didRoll)
+				{ //Add the appropriate event..
+					PM_AddEventWithParm(EV_ROLL, delta_send);
+				}
+				else
+				{
+					PM_AddEventWithParm(EV_FALL, delta_send);
+				}
 			}
 			else
 			{
-				PM_AddEventWithParm( EV_FALL, delta_send );
-			}
-		}
-		else
-		{
-			if (didRoll)
-			{
-				PM_AddEventWithParm( EV_ROLL, 0 );
-			}
-			else
-			{
-				PM_AddEventWithParm( EV_FOOTSTEP, PM_FootstepForSurface() );
+				if (didRoll)
+				{
+					PM_AddEventWithParm(EV_ROLL, 0);
+				}
+				else
+				{
+					PM_AddEventWithParm(EV_FOOTSTEP, PM_FootstepForSurface());
+				}
 			}
 		}
 	}
@@ -5696,6 +5705,15 @@ void PM_RocketLock( float lockDist, qboolean vehicleLock )
 	}
 }
 
+static qboolean ConsumesAmmo(gentity_t *ent) {
+	if (!ent || !ent->client)
+		return qfalse;
+	if (ent->client->sess.inRacemode)
+		return qfalse;
+	else
+		return !InstagibEnabled();
+}
+
 //---------------------------------------
 static qboolean PM_DoChargedWeapons( qboolean vehicleRocketLock, bgEntity_t *veh )
 //---------------------------------------
@@ -5873,8 +5891,8 @@ static qboolean PM_DoChargedWeapons( qboolean vehicleRocketLock, bgEntity_t *veh
 			else if ((pm->cmd.serverTime - pm->ps->weaponChargeTime) < weaponData[pm->ps->weapon].altMaxCharge)
 			{
 				if (pm->ps->weaponChargeSubtractTime < pm->cmd.serverTime)
-				{ // no ammo reduction in instagib
-					if (!(InstagibEnabled() && g_entities[pm->ps->clientNum].client && !g_entities[pm->ps->clientNum].client->sess.inRacemode))
+				{
+					if (ConsumesAmmo(&g_entities[pm->ps->clientNum]))
 						pm->ps->ammo[weaponData[pm->ps->weapon].ammoIndex] -= weaponData[pm->ps->weapon].altChargeSub;
 					pm->ps->weaponChargeSubtractTime = pm->cmd.serverTime + weaponData[pm->ps->weapon].altChargeSubTime;
 				}
@@ -5910,6 +5928,7 @@ static qboolean PM_DoChargedWeapons( qboolean vehicleRocketLock, bgEntity_t *veh
 			{
 				if (pm->ps->weaponChargeSubtractTime < pm->cmd.serverTime)
 				{
+					if (ConsumesAmmo(&g_entities[pm->ps->clientNum]))
 					pm->ps->ammo[weaponData[pm->ps->weapon].ammoIndex] -= weaponData[pm->ps->weapon].chargeSub;
 					pm->ps->weaponChargeSubtractTime = pm->cmd.serverTime + weaponData[pm->ps->weapon].chargeSubTime;
 				}
@@ -7263,8 +7282,8 @@ static void PM_Weapon( void )
 
 	pm->ps->weaponstate = WEAPON_FIRING;
 
-	// take an ammo away if not infinite and not an instagibber
-	if ( pm->ps->clientNum < MAX_CLIENTS && pm->ps->ammo[ weaponData[pm->ps->weapon].ammoIndex ] != -1 && !(InstagibEnabled() && g_entities[pm->ps->clientNum].client && !g_entities[pm->ps->clientNum].client->sess.inRacemode))
+	// take an ammo away
+	if ( pm->ps->clientNum < MAX_CLIENTS && pm->ps->ammo[ weaponData[pm->ps->weapon].ammoIndex ] != -1 && ConsumesAmmo(&g_entities[pm->ps->clientNum]))
 	{
 		// enough energy to fire this weapon?
 		if ((pm->ps->ammo[weaponData[pm->ps->weapon].ammoIndex] - amount) >= 0) 
@@ -7665,6 +7684,9 @@ void PM_AdjustAttackStates( pmove_t *pm )
 	// disruptor should convert a main fire to an alt-fire if the gun is currently zoomed
 	if ( pm->ps->weapon == WP_DISRUPTOR)
 	{
+		if (pm->cmd.buttons & BUTTON_ATTACK && pm->ps->zoomMode == 1)
+			pm->ps->zoomLocked = qtrue; // fix scope bug
+
 		if ( pm->cmd.buttons & BUTTON_ATTACK && pm->ps->zoomMode == 1 && pm->ps->zoomLocked)
 		{
 			// converting the main fire to an alt-fire
@@ -9574,6 +9596,8 @@ void PmoveSingle (pmove_t *pmove) {
 	int savedGravity = 0;
 
 	pm = pmove;
+
+	DoAimPackPmove(pm);
 		
 	if (pm->ps->emplacedIndex)
 	{
@@ -9862,6 +9886,10 @@ void PmoveSingle (pmove_t *pmove) {
 	}
 
 	PM_CmdForSaberMoves(&pm->cmd);
+
+	gentity_t *pmEnt = &g_entities[pm->ps->clientNum];
+	if (pmEnt && pmEnt->isAimPracticePack)
+		pm->ps->speed = pm->ps->basespeed = g_speed.value;
 
 	BG_AdjustClientSpeed(pm->ps, &pm->cmd, pm->cmd.serverTime);
 

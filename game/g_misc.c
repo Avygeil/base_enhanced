@@ -46,7 +46,9 @@ void SP_info_b_e_location( gentity_t *self ) {
 		return;
 	}
 
-	if ( level.locations.enhanced.numUnique >= MAX_LOCATIONS ) {
+	Location_AddLocationEntityToList(self);
+
+	if (*trap_kd_numunique() >= MAX_LOCATIONS ) {
 		if ( !didwarn ) {
 			G_Printf( "Maximum info_b_e_locations hit (%d)! Remaining locations will be removed.\n", MAX_LOCATIONS );
 			didwarn = qtrue;
@@ -59,8 +61,8 @@ void SP_info_b_e_location( gentity_t *self ) {
 	enhancedLocation_t *loc = NULL;
 
 	// let's find if a handle for this location message already exists
-	for ( i = 0; i < level.locations.enhanced.numUnique; ++i ) {
-		enhancedLocation_t *thisLoc = &level.locations.enhanced.data[i];
+	for ( i = 0; i < *trap_kd_numunique(); ++i ) {
+		enhancedLocation_t *thisLoc = trap_kd_dataptr(i);
 
 		if ( !strcmp( self->message, thisLoc->message ) && self->s.teamowner == thisLoc->teamowner ) {
 			loc = thisLoc;
@@ -70,14 +72,15 @@ void SP_info_b_e_location( gentity_t *self ) {
 
 	// if there was no handle with this location message, create one now
 	if ( !loc ) {
-		loc = &level.locations.enhanced.data[level.locations.enhanced.numUnique++];
+		loc = trap_kd_dataptr(*trap_kd_numunique());
+		*trap_kd_numunique() += 1;
 		Q_strncpyz( loc->message, self->message, sizeof( loc->message ) );
 		Q_CleanStr( loc->message );
 		loc->teamowner = Com_Clampi( 0, 2, self->s.teamowner );
 	}
 
 	// add the location to the k-d tree, and point to the corresponding handle
-	kd_insertf( level.locations.enhanced.lookupTree, self->s.origin, loc );
+	trap_kd_insertf(self->s.origin, loc);
 	level.locations.enhanced.numTotal++;
 
 	G_FreeEntity( self );
@@ -291,7 +294,8 @@ void TeleportPlayer( gentity_t *player, vec3_t origin, vec3_t angles ) {
 		G_DeletePlayerProjectiles( player );
 	}
 
-	G_ResetTrail(player);
+	if (player - g_entities < MAX_CLIENTS)
+		G_ResetTrail(player);
 }
 
 

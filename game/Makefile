@@ -27,7 +27,7 @@ CONFIG = -O2 -DFINAL_BUILD -DNDEBUG -fno-stack-protector -U_FORTIFY_SOURCE -D_FO
 #CONFIG = -O0 -g -DFINAL_BUILD -DNDEBUG -D_GNU_SOURCE
 #CONFIG = -g3 -D_DEBUG -D_GNU_SOURCE
 INCLUDES = -I./ -I../include/
-DEFINES = -DMISSION_PACK -DQAGAME -D_JK2 -D__linux__ -D__GCC__
+DEFINES = -DMISSION_PACK -DQAGAME -D_JK2 -DSQLITE_ENABLE_JSON1 -D__linux__ -D__GCC__
 OPTIONS = -Wall -fno-strict-aliasing -m32 #-masm=intel
 FLAGS = $(INCLUDES) $(DEFINES) $(OPTIONS) $(CONFIG)
 LIBS = -pthread ../lib/libsodium.a
@@ -57,7 +57,8 @@ FILES =     ai_main.o               ai_util.o               ai_wpnav.o          
             NPC_sounds.o            NPC_spawn.o             NPC_stats.o             NPC_utils.o             q_math.o                q_shared.o  \
             sha1.o                  SpeederNPC.o            tri_coll_test.o         WalkerNPC.o             w_force.o               w_saber.o  \
             jp_engine.o             jp_enginehelper.o       g_crash.o               sqlite3.o               g_database.o            g_database_upgrade.o \
-			cJSON.o                 g_accounts.o            g_transfers.o           xxhash.o				collections.o			g_table.o
+			cJSON.o                 g_accounts.o            g_transfers.o           xxhash.o				collections.o			g_table.o				g_aim.o \
+			g_stats.o				g_teamgen.o				g_location.o
 			
 
 # "make"
