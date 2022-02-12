@@ -2599,7 +2599,7 @@ void G_DBTierStats(int clientNum) {
 		numRatings = sqlite3_column_int(statement, 0);
 	}
 
-	sqlite3_reset(statement);
+	trap_sqlite3_reset(statement);
 	rc = trap_sqlite3_prepare_v2(dbPtr, sqlTierStatsNumMaps, -1, &statement, 0);
 	rc = trap_sqlite3_step(statement);
 	int numMaps = 0;
@@ -2607,7 +2607,7 @@ void G_DBTierStats(int clientNum) {
 		numMaps = sqlite3_column_int(statement, 0);
 	}
 
-	sqlite3_reset(statement);
+	trap_sqlite3_reset(statement);
 	rc = trap_sqlite3_prepare_v2(dbPtr, sqlTierStatsNumPlayers, -1, &statement, 0);
 	rc = trap_sqlite3_step(statement);
 	int numPlayers = 0;
@@ -2615,7 +2615,7 @@ void G_DBTierStats(int clientNum) {
 		numPlayers = sqlite3_column_int(statement, 0);
 	}
 
-	sqlite3_reset(statement);
+	trap_sqlite3_reset(statement);
 	rc = trap_sqlite3_prepare_v2(dbPtr, sqlGetBestMaps, -1, &statement, 0);
 	rc = trap_sqlite3_step(statement);
 	char topMaps[10][MAX_QPATH] = { 0 };
@@ -2632,7 +2632,7 @@ void G_DBTierStats(int clientNum) {
 		rc = trap_sqlite3_step(statement);
 	}
 
-	sqlite3_reset(statement);
+	trap_sqlite3_reset(statement);
 	rc = trap_sqlite3_prepare_v2(dbPtr, sqlGetWorstMaps, -1, &statement, 0);
 	rc = trap_sqlite3_step(statement);
 	char worstMaps[10][MAX_QPATH] = { 0 };
@@ -2649,7 +2649,7 @@ void G_DBTierStats(int clientNum) {
 		rc = trap_sqlite3_step(statement);
 	}
 
-	sqlite3_reset(statement);
+	trap_sqlite3_reset(statement);
 	rc = trap_sqlite3_prepare_v2(dbPtr, sqlGetLowestVariance, -1, &statement, 0);
 	rc = trap_sqlite3_step(statement);
 	char leastControversialMaps[5][MAX_QPATH] = { 0 };
@@ -2667,7 +2667,7 @@ void G_DBTierStats(int clientNum) {
 		rc = trap_sqlite3_step(statement);
 	}
 
-	sqlite3_reset(statement);
+	trap_sqlite3_reset(statement);
 	rc = trap_sqlite3_prepare_v2(dbPtr, sqlGetHighestVariance, -1, &statement, 0);
 	rc = trap_sqlite3_step(statement);
 	char mostControversialMaps[5][MAX_QPATH] = { 0 };
@@ -2685,7 +2685,7 @@ void G_DBTierStats(int clientNum) {
 		rc = trap_sqlite3_step(statement);
 	}
 
-	sqlite3_reset(statement);
+	trap_sqlite3_reset(statement);
 	rc = trap_sqlite3_prepare_v2(dbPtr, sqlGetLeastConformingPlayers, -1, &statement, 0);
 	rc = trap_sqlite3_step(statement);
 	char leastConformingPlayers[5][MAX_QPATH] = { 0 };
@@ -2700,7 +2700,7 @@ void G_DBTierStats(int clientNum) {
 		rc = trap_sqlite3_step(statement);
 	}
 
-	sqlite3_reset(statement);
+	trap_sqlite3_reset(statement);
 	rc = trap_sqlite3_prepare_v2(dbPtr, sqlGetMostConformingPlayers, -1, &statement, 0);
 	rc = trap_sqlite3_step(statement);
 	char mostConformingPlayers[5][MAX_QPATH] = { 0 };
@@ -2715,7 +2715,7 @@ void G_DBTierStats(int clientNum) {
 		rc = trap_sqlite3_step(statement);
 	}
 
-	sqlite3_reset(statement);
+	trap_sqlite3_reset(statement);
 	rc = trap_sqlite3_prepare_v2(dbPtr, sqlGetMostPlayedMaps, -1, &statement, 0);
 	rc = trap_sqlite3_step(statement);
 	char mostPlayedMaps[10][MAX_QPATH] = { 0 };
@@ -2733,7 +2733,7 @@ void G_DBTierStats(int clientNum) {
 		rc = trap_sqlite3_step(statement);
 	}
 
-	sqlite3_reset(statement);
+	trap_sqlite3_reset(statement);
 	rc = trap_sqlite3_prepare_v2(dbPtr, sqlGetLeastPlayedMaps, -1, &statement, 0);
 	rc = trap_sqlite3_step(statement);
 	char leastPlayedMaps[10][MAX_QPATH] = { 0 };
@@ -2751,7 +2751,7 @@ void G_DBTierStats(int clientNum) {
 		rc = trap_sqlite3_step(statement);
 	}
 
-	sqlite3_reset(statement);
+	trap_sqlite3_reset(statement);
 	rc = trap_sqlite3_prepare_v2(dbPtr, sqlGetNumPlayedCount, -1, &statement, 0);
 	rc = trap_sqlite3_step(statement);
 	char overratedMapsStr[1024] = { 0 }, underratedMapsStr[1024] = { 0 };
@@ -2759,7 +2759,7 @@ void G_DBTierStats(int clientNum) {
 		int count = sqlite3_column_int(statement, 0);
 		const int numOverUnderratedToShow = 5;
 		if (count >= numOverUnderratedToShow * 2) {
-			sqlite3_reset(statement);
+			trap_sqlite3_reset(statement);
 			rc = trap_sqlite3_prepare_v2(dbPtr, sqlGetNumPlayed, -1, &statement, 0);
 			rc = trap_sqlite3_step(statement);
 
@@ -4037,7 +4037,7 @@ qboolean G_DBWritePugStats(void) {
 				continue;
 			}
 
-			sqlite3_reset(statement);
+			trap_sqlite3_reset(statement);
 			trap_sqlite3_prepare_v2(dbPtr, sqlAddPugPlayer, -1, &statement, 0);
 			int num = 1;
 			sqlite3_bind_int64(statement, num++, matchId);
@@ -4861,7 +4861,7 @@ static void RecalculatePerMapWinRates(void) {
 				rc = trap_sqlite3_step(statement);
 			}
 
-			sqlite3_reset(statement);
+			trap_sqlite3_reset(statement);
 		}
 	}
 
@@ -5696,7 +5696,7 @@ qboolean G_DBFixSwap_Fix(int recordId, int newPos) {
 	const int64_t matchId = sqlite3_column_int64(statement, 1);
 
 	// get the record in question
-	sqlite3_reset(statement);
+	trap_sqlite3_reset(statement);
 	rc = trap_sqlite3_prepare_v2(dbPtr, sqlGetParticularSwapRecord, -1, &statement, 0);
 	sqlite3_bind_int(statement, 1, recordId);
 	rc = trap_sqlite3_step(statement);
@@ -5780,7 +5780,7 @@ qboolean G_DBFixSwap_Fix(int recordId, int newPos) {
 	src->stats.gotEnergizedByAlly = sqlite3_column_int(statement, num++);
 
 	// see if there is a record that already exists in the desired position
-	sqlite3_reset(statement);
+	trap_sqlite3_reset(statement);
 	rc = trap_sqlite3_prepare_v2(dbPtr, sqlGetParticularFixSwapList, -1, &statement, 0);
 	sqlite3_bind_int(statement, 1, sessionId);
 	sqlite3_bind_int64(statement, 2, matchId);
@@ -5788,7 +5788,7 @@ qboolean G_DBFixSwap_Fix(int recordId, int newPos) {
 	rc = trap_sqlite3_step(statement);
 	if (rc != SQLITE_ROW) {
 		// there is no record already existing in the desired position; just change this one
-		sqlite3_reset(statement);
+		trap_sqlite3_reset(statement);
 		rc = trap_sqlite3_prepare_v2(dbPtr, sqlSimpleSwapUpdate, -1, &statement, 0);
 		sqlite3_bind_int(statement, 1, recordId);
 		sqlite3_bind_int(statement, 2, newPos);
@@ -5799,7 +5799,7 @@ qboolean G_DBFixSwap_Fix(int recordId, int newPos) {
 
 	// there is already a record existing the desired position; we have to merge them
 	// get the record that is already in the desired position
-	sqlite3_reset(statement);
+	trap_sqlite3_reset(statement);
 	rc = trap_sqlite3_prepare_v2(dbPtr, sqlGetParticularFixSwapList, -1, &statement, 0);
 	sqlite3_bind_int(statement, 1, sessionId);
 	sqlite3_bind_int64(statement, 2, matchId);
@@ -5914,7 +5914,7 @@ qboolean G_DBFixSwap_Fix(int recordId, int newPos) {
 	dest->stats.gotEnergizedByAlly = sqlite3_column_int(statement, num++) + src->stats.gotEnergizedByAlly;
 
 	// write the merged record to db
-	sqlite3_reset(statement);
+	trap_sqlite3_reset(statement);
 	rc = trap_sqlite3_prepare_v2(dbPtr, sqlUpdateSwap, -1, &statement, 0);
 	num = 1;
 	sqlite3_bind_int(statement, num++, totalDuration);
@@ -5995,7 +5995,7 @@ qboolean G_DBFixSwap_Fix(int recordId, int newPos) {
 	}
 
 	// finally, delete the old one
-	sqlite3_reset(statement);
+	trap_sqlite3_reset(statement);
 	rc = trap_sqlite3_prepare_v2(dbPtr, sqlDeleteSwap, -1, &statement, 0);
 	sqlite3_bind_int(statement, 1, recordId);
 	rc = trap_sqlite3_step(statement);
@@ -6077,7 +6077,7 @@ qboolean G_DBSetMapAlias(const char *filename, const char *alias, qboolean setLi
 		trap_sqlite3_prepare_v2(dbPtr, "UPDATE mapaliases SET islive = NULL WHERE alias = ?1;", -1, &statement, 0);
 		sqlite3_bind_text(statement, 1, alias, -1, SQLITE_STATIC);
 		trap_sqlite3_step(statement);
-		sqlite3_reset(statement);
+		trap_sqlite3_reset(statement);
 	}
 
 	trap_sqlite3_prepare_v2(dbPtr, va("INSERT INTO mapaliases (filename, alias, islive) VALUES (?1, ?2, %s);", setLive ? "TRUE" : "NULL"), -1, &statement, 0);
@@ -6115,12 +6115,12 @@ qboolean G_DBSetMapAliasLive(const char *filename, char *aliasOut, size_t aliasO
 		return qfalse;
 	}
 
-	sqlite3_reset(statement);
+	trap_sqlite3_reset(statement);
 	trap_sqlite3_prepare_v2(dbPtr, "UPDATE mapaliases SET islive = NULL WHERE alias = ?1;", -1, &statement, 0);
 	sqlite3_bind_text(statement, 1, alias, -1, SQLITE_STATIC);
 	trap_sqlite3_step(statement);
 	
-	sqlite3_reset(statement);
+	trap_sqlite3_reset(statement);
 	trap_sqlite3_prepare_v2(dbPtr, "UPDATE mapaliases SET islive = TRUE WHERE filename = ?1;", -1, &statement, 0);
 	sqlite3_bind_text(statement, 1, filename, -1, SQLITE_STATIC);
 	trap_sqlite3_step(statement);

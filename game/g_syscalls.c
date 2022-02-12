@@ -1579,6 +1579,10 @@ int trap_sqlite3_finalize(void *stmt) {
 	return syscall(G_SQLITE3_FINALIZE, stmt);
 }
 
+int trap_sqlite3_reset(void *stmt) {
+	return syscall(G_SQLITE3_RESET, stmt);
+}
+
 int trap_sqlite3_exec(void *unused, const char *sql, int (*callback)(void *, int, char **, char **), void *callbackarg, char **errmsg) {
 	return syscall(G_SQLITE3_EXEC, sql, callback, callbackarg, errmsg);
 }

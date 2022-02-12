@@ -3562,6 +3562,7 @@ void trap_GetCountry(const char *ipStr, char *outBuf, int outBufSize);
 int trap_sqlite3_prepare_v2(void *unused, const char *zSql, int nBytes, void **ppStmt, const char **pzTail);
 int trap_sqlite3_step(void *stmt);
 int trap_sqlite3_finalize(void *stmt);
+int trap_sqlite3_reset(void *stmt);
 int trap_sqlite3_exec(void *unused, const char *sql, int (*callback)(void *, int, char **, char **), void *callbackarg, char **errmsg);
 enhancedLocation_t *trap_kd_dataptr(int index);
 int *trap_kd_numunique(void);

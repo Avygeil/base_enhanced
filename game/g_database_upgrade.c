@@ -264,7 +264,7 @@ static qboolean UpgradeDBToVersion4(sqlite3* dbPtr) {
 		NormalizeName(name, cleanname, sizeof(cleanname), MAX_NAME_DISPLAYLENGTH);
 
 		if (ip_int && VALIDSTRING(name)) {
-			sqlite3_reset(statement2);
+			trap_sqlite3_reset(statement2);
 			sqlite3_bind_int(statement2, 1, ip_int);
 			sqlite3_bind_text(statement2, 2, cleanname, -1, 0);
 			sqlite3_bind_int(statement2, 3, 0);
@@ -275,7 +275,7 @@ static qboolean UpgradeDBToVersion4(sqlite3* dbPtr) {
 			}
 			trap_sqlite3_step(statement2);
 
-			sqlite3_reset(statement3);
+			trap_sqlite3_reset(statement3);
 			sqlite3_bind_int(statement3, 1, duration);
 			sqlite3_bind_int(statement3, 2, ip_int);
 			sqlite3_bind_text(statement3, 3, cleanname, -1, 0);
@@ -340,12 +340,12 @@ static qboolean UpgradeDBToVersion4(sqlite3* dbPtr) {
 				return qfalse;
 			}
 
-			sqlite3_reset(statement2);
+			trap_sqlite3_reset(statement2);
 			sqlite3_bind_int(statement2, 1, session.id);
 			sqlite3_bind_text(statement2, 2, name, -1, 0);
 			trap_sqlite3_step(statement2);
 
-			sqlite3_reset(statement3);
+			trap_sqlite3_reset(statement3);
 			sqlite3_bind_int(statement3, 1, duration);
 			sqlite3_bind_int(statement3, 2, session.id);
 			sqlite3_bind_text(statement3, 3, name, -1, 0);
@@ -431,7 +431,7 @@ static qboolean UpgradeDBToVersion4(sqlite3* dbPtr) {
 
 			char* extra = cJSON_PrintUnformatted(root2);
 
-			sqlite3_reset(statement2);
+			trap_sqlite3_reset(statement2);
 			sqlite3_bind_text(statement2, 1, mapname, -1, 0);
 			sqlite3_bind_int(statement2, 2, type);
 			sqlite3_bind_int(statement2, 3, session.id);
@@ -440,7 +440,7 @@ static qboolean UpgradeDBToVersion4(sqlite3* dbPtr) {
 			sqlite3_bind_text(statement2, 6, extra, -1, 0);
 			trap_sqlite3_step(statement2);
 
-			sqlite3_reset(statement3);
+			trap_sqlite3_reset(statement3);
 			sqlite3_bind_int(statement3, 1, capture_time);
 			sqlite3_bind_text(statement3, 2, mapname, -1, 0);
 			sqlite3_bind_int(statement3, 3, type);
