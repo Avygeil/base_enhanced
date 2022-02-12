@@ -48,6 +48,15 @@ void SP_info_b_e_location( gentity_t *self ) {
 
 	Location_AddLocationEntityToList(self);
 
+	if (g_lineOfSightLocations.integer && g_lineOfSightLocations_generate.integer) {
+		static qboolean printed = qfalse;
+		if (!printed) {
+			Com_Printf("Skipping full initialization of info_b_e_locations due to g_lineOfSightLocations and g_lineOfSightLocations_generate being enabled\n");
+			printed = qtrue;
+		}
+		return; // don't go any farther if we are generating
+	}
+
 	if (*trap_kd_numunique() >= MAX_LOCATIONS ) {
 		if ( !didwarn ) {
 			G_Printf( "Maximum info_b_e_locations hit (%d)! Remaining locations will be removed.\n", MAX_LOCATIONS );
