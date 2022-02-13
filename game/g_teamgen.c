@@ -1440,10 +1440,23 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 					}
 				}
 
-				// make sure any pos in their first/second preference is rated
+				// make sure their top preferences are rated
+				// one pos 1st and one pos 2nd = rate them both
+				// one pos 1st and two tied for 2nd = rate them all
+				// two poses tied for 1st and one 2nd = rate the ones tied for 1st
+				int topPrefsGotten = 0;
 				for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
-					if (client->posPrefs.first & (1 << pos) || client->posPrefs.second & (1 << pos))
+					if (client->posPrefs.first & (1 << pos)) {
 						algoPlayer->rating[pos] = positionRatings->rating[pos];
+						++topPrefsGotten;
+					}
+				}
+				if (topPrefsGotten < 2) {
+					for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+						if (client->posPrefs.second & (1 << pos)) {
+							algoPlayer->rating[pos] = positionRatings->rating[pos];
+						}
+					}
 				}
 			}
 			else if (type == TEAMGENERATORTYPE_HIGHESTRATING) {
@@ -1509,10 +1522,23 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 							}
 						}
 
-						// make sure any pos in their first/second preference is rated
+						// make sure their top preferences are rated
+						// one pos 1st and one pos 2nd = rate them both
+						// one pos 1st and two tied for 2nd = rate them all
+						// two poses tied for 1st and one 2nd = rate the ones tied for 1st
+						int topPrefsGotten = 0;
 						for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
-							if (client->posPrefs.first & (1 << pos) || client->posPrefs.second & (1 << pos))
+							if (client->posPrefs.first & (1 << pos)) {
 								algoPlayer->rating[pos] = positionRatings->rating[pos];
+								++topPrefsGotten;
+							}
+						}
+						if (topPrefsGotten < 2) {
+							for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+								if (client->posPrefs.second & (1 << pos)) {
+									algoPlayer->rating[pos] = positionRatings->rating[pos];
+								}
+							}
 						}
 					}
 				}
@@ -1525,10 +1551,23 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 						algoPlayer->posPrefs.second = (1 << mostPlayedPositions->secondMostPlayed);
 					}
 					
-					// make sure any pos in their first/second preference is rated
+					// make sure their top preferences are rated
+					// one pos 1st and one pos 2nd = rate them both
+					// one pos 1st and two tied for 2nd = rate them all
+					// two poses tied for 1st and one 2nd = rate the ones tied for 1st
+					int topPrefsGotten = 0;
 					for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
-						if (client->posPrefs.first & (1 << pos) || client->posPrefs.second & (1 << pos))
+						if (client->posPrefs.first & (1 << pos)) {
 							algoPlayer->rating[pos] = positionRatings->rating[pos];
+							++topPrefsGotten;
+						}
+					}
+					if (topPrefsGotten < 2) {
+						for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+							if (client->posPrefs.second & (1 << pos)) {
+								algoPlayer->rating[pos] = positionRatings->rating[pos];
+							}
+						}
 					}
 				}
 			}
@@ -1599,12 +1638,23 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 					}
 				}
 
-				// make sure any pos in their first/second preference is rated
+				// make sure their top preferences are rated
+				// one pos 1st and one pos 2nd = rate them both
+				// one pos 1st and two tied for 2nd = rate them all
+				// two poses tied for 1st and one 2nd = rate the ones tied for 1st
+				int topPrefsGotten = 0;
 				for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
-					if (type == TEAMGENERATORTYPE_DESIREDPOS && (client->posPrefs.avoid & (1 << pos)))
-						algoPlayer->rating[pos] = PlayerTierToRating(PLAYERRATING_UNRATED);
-					else if (client->posPrefs.first & (1 << pos) || client->posPrefs.second & (1 << pos))
+					if (client->posPrefs.first & (1 << pos)) {
 						algoPlayer->rating[pos] = positionRatings->rating[pos];
+						++topPrefsGotten;
+					}
+				}
+				if (topPrefsGotten < 2) {
+					for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+						if (client->posPrefs.second & (1 << pos)) {
+							algoPlayer->rating[pos] = positionRatings->rating[pos];
+						}
+					}
 				}
 			}
 
