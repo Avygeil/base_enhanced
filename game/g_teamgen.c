@@ -1656,6 +1656,14 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 						}
 					}
 				}
+
+				// unrate them on avoided pos in the appeasing pass
+				if (type == TEAMGENERATORTYPE_DESIREDPOS) {
+					for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+						if (client->posPrefs.avoid & (1 << pos))
+							algoPlayer->rating[pos] = PlayerTierToRating(PLAYERRATING_UNRATED);
+					}
+				}
 			}
 
 			// try to get them in their preferred positions if possible
