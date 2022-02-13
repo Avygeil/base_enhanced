@@ -6460,7 +6460,7 @@ static void Cmd_Rating_f(gentity_t *ent) {
 	}
 }
 
-// returns qtrue if valid; qfalse if they set something dumb (like a pos set on multiple choice levels, or all three pos on second choice, etc)
+// returns qtrue if valid; qfalse if they set something dumb (like a pos set on multiple choice levels, or all three pos on the same choice, etc)
 qboolean ValidateAndCopyPositionPreferences(const positionPreferences_t *in, positionPreferences_t *out) {
 	if (!in) {
 		assert(qfalse);
@@ -6539,10 +6539,18 @@ qboolean ValidateAndCopyPositionPreferences(const positionPreferences_t *in, pos
 	}
 	else if (temp.first && !temp.second && temp.third) {
 		// only first and third
-		// promote third to second internally, but don't tell them it's invalid (since people may think of ties as being in the lower slot)
+		// promote third to second
 		temp.second = temp.third;
 		temp.third = 0;
-		//inputValid = qfalse;
+		inputValid = qfalse;
+	}
+	else if (!temp.first && temp.second && temp.third) {
+		// only second and third
+		// promote them both up by one
+		temp.first = temp.second;
+		temp.second = temp.third;
+		temp.third = 0;
+		inputValid = qfalse;
 	}
 
 	if (out)
