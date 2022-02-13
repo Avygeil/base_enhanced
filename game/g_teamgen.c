@@ -1816,6 +1816,7 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 			lowestDiff = thisPermutation->diff;
 	}
 
+	qboolean printedFairest = qfalse;
 	int numPrinted = 0;
 	char lastLetter = 'a';
 	for (int i = 0; i < 4; i++) {
@@ -1834,12 +1835,14 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 		if (!i) {
 			if (thisPermutation->hash == set->highestCaliber.hash && (thisPermutation->diff < 0.00001 || thisPermutation->hash == set->fairest.hash || (set->fairest.valid && thisPermutation->diff == set->fairest.diff))) {
 				suggestionTypeStr = "Suggested, highest caliber, and fairest";
+				printedFairest = qtrue;
 			}
 			else if (thisPermutation->hash == set->highestCaliber.hash) {
 				suggestionTypeStr = "Suggested and highest caliber";
 			}
 			else if (fabs(thisPermutation->diff - lowestDiff) < 0.00001) {
 				suggestionTypeStr = "Suggested and fairest";
+				printedFairest = qtrue;
 			}
 			else {
 				suggestionTypeStr = "Suggested";
@@ -1853,6 +1856,7 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 			}
 			if (fabs(thisPermutation->diff - lowestDiff) < 0.00001) {
 				suggestionTypeStr = "Highest caliber and fairest";
+				printedFairest = qtrue;
 			}
 			else {
 				suggestionTypeStr = "Highest caliber";
@@ -1866,10 +1870,15 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 			}
 			// sanity check: don't bother calling it "fairest" if it's not the fairest option
 			// can happen eventually with enough rerolls
-			if (fabs(thisPermutation->diff - lowestDiff) < 0.00001)
-				suggestionTypeStr = "Fairest";
-			else
+			if (fabs(thisPermutation->diff - lowestDiff) < 0.00001) {
+				if (printedFairest)
+					suggestionTypeStr = "Additional fairest"; // don't write plain old "fairest" if we already printed one above that also said fairest (it would imply this is even fairer)
+				else
+					suggestionTypeStr = "Fairest";
+			}
+			else {
 				suggestionTypeStr = "Additional";
+			}
 			letter = set->fairestLetter = lastLetter++;
 		}
 		else if (i == 3) {
@@ -1879,7 +1888,7 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 				continue;
 			}
 			if (fabs(thisPermutation->diff - lowestDiff) < 0.00001)
-				suggestionTypeStr = "Appeasing and fairest";
+				suggestionTypeStr = "Appeasing and fairest"; // this is probably not actually possible
 			else
 				suggestionTypeStr = "Appeasing";
 			letter = set->desiredLetter = lastLetter++;
