@@ -72,6 +72,7 @@ void G_DBLoadDatabase( void *serverDbPtr )
 	// NOTE: this means g_database_schema.h must always reflect the latest version
 	if (!version) {
 		trap_sqlite3_exec(dbPtr, sqlCreateTables, 0, 0, 0);
+		version = DB_SCHEMA_VERSION;
 	}
 
 	if ( !G_DBUpgradeDatabaseSchema( version, dbPtr ) ) {

@@ -117,7 +117,7 @@ const char *const sqlCreateTables =
 "                                                                                                    \n"
 "CREATE TABLE IF NOT EXISTS [tierwhitelist] ( [map] TEXT COLLATE NOCASE NOT NULL PRIMARY KEY );      \n"
 "                                                                                                    \n"
-"CREATE TABLE CREATE TABLE IF NOT EXISTS [lastplayedmap] (                                           \n"
+"CREATE TABLE IF NOT EXISTS [lastplayedmap] (                                                        \n"
 "	[map] TEXT COLLATE NOCASE NOT NULL PRIMARY KEY,                                                  \n"
 "   [num] INTEGER NOT NULL DEFAULT 1,                                                                \n"
 "	[datetime] NOT NULL DEFAULT (strftime('%s', 'now')));                                            \n"
