@@ -1779,7 +1779,7 @@ static void mapSelectedCallback( void *context, char *mapname ) {
 		const char *arenaInfo = NULL;
 
 		char overrideMapName[MAX_QPATH] = { 0 };
-		if (G_DBGetLiveMapNameForMapName(mapname, overrideMapName, sizeof(overrideMapName)) && overrideMapName[0])
+		if (g_vote_printLiveVersionFullName.integer && G_DBGetLiveMapNameForMapName(mapname, overrideMapName, sizeof(overrideMapName)) && overrideMapName[0])
 			arenaInfo = G_GetArenaInfoByMap(overrideMapName);
 		if (!arenaInfo)
 			arenaInfo = G_GetArenaInfoByMap(mapname);
