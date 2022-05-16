@@ -3037,7 +3037,7 @@ void BeginIntermission(void) {
 		{
 			G_PostScoreboardToWebhook(statsBuf);
 			G_DBAddCurrentMapToPlayedMapsList();
-			if (avgRedInt == 4 && avgBlueInt == 4 && !InstagibEnabled()) { // only write stats to db in 4v4
+			if (avgRedInt == 4 && avgBlueInt == 4 && !InstagibEnabled() && level.teamScores[TEAM_RED] != level.teamScores[TEAM_BLUE]) { // only write stats to db in untied non-instagib 4v4
 				G_DBWritePugStats();
 				trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
 			}
