@@ -3033,6 +3033,8 @@ static int AccountFlagName2Bitflag(const char* flagName) {
 		return ACCOUNTFLAG_PERMABARRED;
 	} else if (!Q_stricmp(flagName, "HardPermaBarred")) {
 		return ACCOUNTFLAG_HARDPERMABARRED;
+	} else if (!Q_stricmp(flagName, "NoCount")) {
+		return ACCOUNTFLAG_RATEPLAYERS_NOCOUNT;
 	}
 
 	return 0;

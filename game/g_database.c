@@ -5302,7 +5302,7 @@ qboolean G_DBDeleteAllRatingsForPosition(int raterAccountId, ctfPosition_t pos) 
 
 // rounding ratings to the nearest tier allows teams to be much more flexible/interchangeable
 extern qboolean PlayerRatingAccountIdMatches(genericNode_t *node, void *userData);
-const char *const sqlGetAverageRatings = "WITH t AS (SELECT account_id, created_on FROM accounts) SELECT ratee_account_id, pos, CAST(round(avg(rating)) AS INTEGER) FROM playerratings JOIN accounts ON accounts.account_id = rater_account_id, t ON t.account_id = ratee_account_id WHERE accounts.flags & (1 << 6) != 0 GROUP BY ratee_account_id, pos;";
+const char *const sqlGetAverageRatings = "WITH t AS (SELECT account_id, created_on FROM accounts) SELECT ratee_account_id, pos, CAST(round(avg(rating)) AS INTEGER) FROM playerratings JOIN accounts ON accounts.account_id = rater_account_id, t ON t.account_id = ratee_account_id WHERE accounts.flags & (1 << 6) != 0 AND accounts.flags & (1 << 10) == 0 GROUP BY ratee_account_id, pos;";
 void G_DBGetPlayerRatings(void) {
 	int start = trap_Milliseconds();
 	ListClear(&level.ratingList);

@@ -1959,6 +1959,7 @@ typedef struct {
 #define ACCOUNTFLAG_INSTAPAUSE_BLACKLIST	( 1 << 7 )
 #define ACCOUNTFLAG_PERMABARRED				( 1 << 8 )
 #define ACCOUNTFLAG_HARDPERMABARRED			( 1 << 9 )
+#define ACCOUNTFLAG_RATEPLAYERS_NOCOUNT		( 1 << 10 )
 
 typedef void( *ListSessionsCallback )( void *ctx,
 	const sessionReference_t sessionRef,
