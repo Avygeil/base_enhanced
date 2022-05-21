@@ -210,6 +210,8 @@ static XXH32_hash_t HashPermutationOfTeams(permutationOfTeams_t *t) {
 	hashMe.numOnPreferredPos = 0.0;
 	hashMe.topTierImbalance = 0;
 	hashMe.bottomTierImbalance = 0;
+	hashMe.differenceBetweenOffenses = 0;
+	hashMe.differenceBetweenDefenses = 0;
 	return XXH32(&hashMe, sizeof(permutationOfTeams_t), 0);
 }
 
@@ -288,6 +290,16 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 	if (PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]) <= PLAYERRATING_HIGH_C) ++team2BottomTiers;
 	int bottomTierImbalance = abs(team1BottomTiers - team2BottomTiers);
 
+	double differenceBetweenDefenses, differenceBetweenOffenses;
+	{
+		double team1DefenseTotal = team1base->rating[CTFPOSITION_BASE] + team1chase->rating[CTFPOSITION_CHASE];
+		double team1OffenseTotal = team1offense1->rating[CTFPOSITION_OFFENSE] + team1offense2->rating[CTFPOSITION_OFFENSE];
+		double team2DefenseTotal = team2base->rating[CTFPOSITION_BASE] + team2chase->rating[CTFPOSITION_CHASE];
+		double team2OffenseTotal = team2offense1->rating[CTFPOSITION_OFFENSE] + team2offense2->rating[CTFPOSITION_OFFENSE];
+		differenceBetweenDefenses = fabs(team1DefenseTotal - team2DefenseTotal);
+		differenceBetweenOffenses = fabs(team1OffenseTotal - team2OffenseTotal);
+	}
+
 	// reward permutations that put people on preferred positions
 	int numOnPreferredPos = 0, numOnAvoidedPos = 0;
 	if (team1base->posPrefs.avoid & (1 << CTFPOSITION_BASE)) numOnAvoidedPos += 1; else if (team1base->posPrefs.first & (1 << CTFPOSITION_BASE)) numOnPreferredPos += 100; else if (team1base->posPrefs.second & (1 << CTFPOSITION_BASE)) numOnPreferredPos += 10; else if (team1base->posPrefs.third & (1 << CTFPOSITION_BASE)) numOnPreferredPos += 1;
@@ -299,7 +311,7 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 	if (team2offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team2offense1->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 100; else if (team2offense1->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 10; else if (team2offense1->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 1;
 	if (team2offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team2offense2->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 100; else if (team2offense2->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 10; else if (team2offense2->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 1;
 
-	TeamGen_DebugPrintf("Regular:%s%s</font>/%s%s</font>/%s%s</font>/%s%s</font> vs. %s%s</font>/%s%s</font>/%s%s</font>/%s%s</font><font color=black> : %0.3f vs. %0.3f raw, %0.2f vs. %0.2f relative, %d numOnPreferredPos, %d numAvoid, %d (%d/%d) bottom imbalance, %d (%d/%d) top imbalance, %0.3f total, %0.3f diff</font>",
+	TeamGen_DebugPrintf("Regular:%s%s</font>/%s%s</font>/%s%s</font>/%s%s</font> vs. %s%s</font>/%s%s</font>/%s%s</font>/%s%s</font><font color=black> : %0.3f vs. %0.3f raw, %0.2f vs. %0.2f relative, %d numOnPreferredPos, %d numAvoid, %d (%d/%d) bottom imbalance, %d (%d/%d) top imbalance, %0.2f off diff, %0.2f def diff, %0.3f total, %0.3f diff</font>",
 		team1base->posPrefs.avoid & (1 << CTFPOSITION_BASE) ? "<font color=red>" : team1base->posPrefs.first & (1 << CTFPOSITION_BASE) ? "<font color=darkgreen>" : team1base->posPrefs.second & (1 << CTFPOSITION_BASE) ? "<font color=silver>" : team1base->posPrefs.third & (1 << CTFPOSITION_BASE) ? "<font color=orange>" : "<font color=black>",
 		team1base->accountName,
 		team1chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE) ? "<font color=red>" : team1chase->posPrefs.first & (1 << CTFPOSITION_CHASE) ? "<font color=darkgreen>" : team1chase->posPrefs.second & (1 << CTFPOSITION_CHASE) ? "<font color=silver>" : team1chase->posPrefs.third & (1 << CTFPOSITION_CHASE) ? "<font color=orange>" : "<font color=black>",
@@ -328,6 +340,8 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 		topTierImbalance,
 		team1TopTiers,
 		team2TopTiers,
+		differenceBetweenOffenses,
+		differenceBetweenDefenses,
 		total,
 		diff);
 
@@ -372,11 +386,15 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 	// - it is equally fair and has an equal number of people on preferred pos, but has fewer people on avoided pos
 	// - it is equally fair and has an equal number of people on preferred and avoided pos, but has better balance of bottom tier players
 	// - it is equally fair and has an equal number of people on preferred and avoided pos and equal balance of bottom tier players, but has better balance of top tier players
+	// - equal fairness/preferred/avoided/bottom balance/top balance, but has a smaller difference between total offense ratings
+	// - equal fairness/preferred/avoided/bottom balance/top balance/offense difference, but has a smaller difference between total defense ratings
 	if (diff < context->best->diff ||
 		(diff == context->best->diff && numOnPreferredPos > context->best->numOnPreferredPos) ||
 		(diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos) ||
 		(diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance < context->best->bottomTierImbalance) ||
-		(diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)) {
+		(diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance) ||
+		(diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && differenceBetweenOffenses < context->best->differenceBetweenOffenses) ||
+		(diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && differenceBetweenOffenses == context->best->differenceBetweenOffenses && differenceBetweenDefenses < context->best->differenceBetweenDefenses)) {
 		if (diff < context->best->diff)
 			TeamGen_DebugPrintf(" <font color=purple>best so far (fairer)</font><br/>");
 		else if (diff == context->best->diff && numOnPreferredPos > context->best->numOnPreferredPos)
@@ -387,6 +405,10 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 			TeamGen_DebugPrintf(" <font color=purple>best so far (same fairness, preferred pos, and avoided pos, but better bottom tier balance)</font><br/>");
 		else if (diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)
 			TeamGen_DebugPrintf(" <font color=purple>best so far (same fairness, preferred pos, avoided pos, and bottom tier balance, but better top tier balance)</font><br/>");
+		else if (diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && differenceBetweenOffenses < context->best->differenceBetweenOffenses)
+			TeamGen_DebugPrintf(" <font color=purple>best so far (same fairness, preferred pos, avoided pos, bottom tier balance, and top tier balance, but better offense balance)</font><br/>");
+		else if (diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && differenceBetweenOffenses == context->best->differenceBetweenOffenses && differenceBetweenDefenses < context->best->differenceBetweenDefenses)
+			TeamGen_DebugPrintf(" <font color=purple>best so far (same fairness, preferred pos, avoided pos, bottom tier balance, top tier balance, and offense balance, but better defense balance)</font><br/>");
 		else
 			TeamGen_DebugPrintf("<font color=purple>???</font><br/>");
 
@@ -398,6 +420,8 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 			hashMe.numOnAvoidedPos = numOnAvoidedPos;
 			hashMe.topTierImbalance = topTierImbalance;
 			hashMe.bottomTierImbalance = bottomTierImbalance;
+			hashMe.differenceBetweenOffenses = differenceBetweenOffenses;
+			hashMe.differenceBetweenDefenses = differenceBetweenDefenses;
 			hashMe.teams[0].rawStrength = team1RawStrength;
 			hashMe.teams[1].rawStrength = team2RawStrength;
 			hashMe.teams[0].relativeStrength = team1RelativeStrength;
@@ -440,6 +464,8 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 		context->best->numOnAvoidedPos = numOnAvoidedPos;
 		context->best->topTierImbalance = topTierImbalance;
 		context->best->bottomTierImbalance = bottomTierImbalance;
+		context->best->differenceBetweenOffenses = differenceBetweenOffenses;
+		context->best->differenceBetweenDefenses = differenceBetweenDefenses;
 		context->best->teams[0].rawStrength = team1RawStrength;
 		context->best->teams[1].rawStrength = team2RawStrength;
 		context->best->teams[0].relativeStrength = team1RelativeStrength;
@@ -518,6 +544,16 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 	if (PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]) <= PLAYERRATING_HIGH_C) ++team2BottomTiers;
 	int bottomTierImbalance = abs(team1BottomTiers - team2BottomTiers);
 
+	double differenceBetweenDefenses, differenceBetweenOffenses;
+	{
+		double team1DefenseTotal = team1base->rating[CTFPOSITION_BASE] + team1chase->rating[CTFPOSITION_CHASE];
+		double team1OffenseTotal = team1offense1->rating[CTFPOSITION_OFFENSE] + team1offense2->rating[CTFPOSITION_OFFENSE];
+		double team2DefenseTotal = team2base->rating[CTFPOSITION_BASE] + team2chase->rating[CTFPOSITION_CHASE];
+		double team2OffenseTotal = team2offense1->rating[CTFPOSITION_OFFENSE] + team2offense2->rating[CTFPOSITION_OFFENSE];
+		differenceBetweenDefenses = fabs(team1DefenseTotal - team2DefenseTotal);
+		differenceBetweenOffenses = fabs(team1OffenseTotal - team2OffenseTotal);
+	}
+
 	// reward permutations that put people on preferred positions
 	int numOnPreferredPos = 0, numOnAvoidedPos = 0;
 	if (team1base->posPrefs.avoid & (1 << CTFPOSITION_BASE)) numOnAvoidedPos += 1; else if (team1base->posPrefs.first & (1 << CTFPOSITION_BASE)) numOnPreferredPos += 100; else if (team1base->posPrefs.second & (1 << CTFPOSITION_BASE)) numOnPreferredPos += 10; else if (team1base->posPrefs.third & (1 << CTFPOSITION_BASE)) numOnPreferredPos += 1;
@@ -529,7 +565,7 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 	if (team2offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team2offense1->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 100; else if (team2offense1->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 10; else if (team2offense1->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 1;
 	if (team2offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team2offense2->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 100; else if (team2offense2->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 10; else if (team2offense2->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 1;
 
-	TeamGen_DebugPrintf("Tryhard:%s%s</font>/%s%s</font>/%s%s</font>/%s%s</font> vs. %s%s</font>/%s%s</font>/%s%s</font>/%s%s</font><font color=black> : %0.3f vs. %0.3f raw, %0.2f vs. %0.2f relative, %d numOnPreferredPos, %d numAvoid, %d (%d/%d) bottom imbalance, %d (%d/%d) top imbalance, %0.3f total, %0.3f diff</font>",
+	TeamGen_DebugPrintf("Tryhard:%s%s</font>/%s%s</font>/%s%s</font>/%s%s</font> vs. %s%s</font>/%s%s</font>/%s%s</font>/%s%s</font><font color=black> : %0.3f vs. %0.3f raw, %0.2f vs. %0.2f relative, %d numOnPreferredPos, %d numAvoid, %d (%d/%d) bottom imbalance, %d (%d/%d) top imbalance, %0.2f off diff, %0.2f def diff, %0.3f total, %0.3f diff</font>",
 		team1base->posPrefs.avoid & (1 << CTFPOSITION_BASE) ? "<font color=red>" : team1base->posPrefs.first & (1 << CTFPOSITION_BASE) ? "<font color=darkgreen>" : team1base->posPrefs.second & (1 << CTFPOSITION_BASE) ? "<font color=silver>" : team1base->posPrefs.third & (1 << CTFPOSITION_BASE) ? "<font color=orange>" : "<font color=black>",
 		team1base->accountName,
 		team1chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE) ? "<font color=red>" : team1chase->posPrefs.first & (1 << CTFPOSITION_CHASE) ? "<font color=darkgreen>" : team1chase->posPrefs.second & (1 << CTFPOSITION_CHASE) ? "<font color=silver>" : team1chase->posPrefs.third & (1 << CTFPOSITION_CHASE) ? "<font color=orange>" : "<font color=black>",
@@ -558,6 +594,8 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 		topTierImbalance,
 		team1TopTiers,
 		team2TopTiers,
+		differenceBetweenOffenses,
+		differenceBetweenDefenses,
 		total,
 		diff);
 
@@ -610,12 +648,16 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 	// - it is equally high caliber, equally fair, and has an equal number of people on preferred pos, but has fewer people on avoided pos
 	// - it is equally high caliber, equally fair, and has an equal number of people on preferred and avoided pos, but has better balance of bottom tier players
 	// - it is equally high caliber, equally fair, has an equal number of people on preferred and avoided pos and equal balance of bottom tier players, but has better balance of top tier players
+	// - equal hc/fairness/preferred/avoided/bottom balance/top balance, but has a smaller difference between total offense ratings
+	// - equal hc/fairness/preferred/avoided/bottom balance/top balance/offense difference, but has a smaller difference between total defense ratings
 	if (total > currentBestCombinedStrength ||
 		(total == currentBestCombinedStrength && diff < context->best->diff) ||
 		(total == currentBestCombinedStrength && diff == context->best->diff && numOnPreferredPos > context->best->numOnPreferredPos) ||
 		(total == currentBestCombinedStrength && diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos) ||
 		(total == currentBestCombinedStrength && diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance < context->best->bottomTierImbalance) ||
-		(total == currentBestCombinedStrength && diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)) {
+		(total == currentBestCombinedStrength && diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance) ||
+		(total == currentBestCombinedStrength && diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && differenceBetweenOffenses < context->best->differenceBetweenOffenses) ||
+		(total == currentBestCombinedStrength && diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && differenceBetweenOffenses == context->best->differenceBetweenOffenses && differenceBetweenDefenses < context->best->differenceBetweenDefenses)) {
 		if (total > currentBestCombinedStrength)
 			TeamGen_DebugPrintf(" <font color=purple>best so far (combined strength better)</font><br/>");
 		else if (total == currentBestCombinedStrength && diff < context->best->diff)
@@ -628,6 +670,10 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 			TeamGen_DebugPrintf(" <font color=purple>best so far (combined strength, fairness, preferred pos, and avoided pos, but better bottom tier balance)</font><br/>");
 		else if (total == currentBestCombinedStrength && diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)
 			TeamGen_DebugPrintf(" <font color=purple>best so far (combined strength, fairness, preferred pos, avoided pos, and bottom tier balance, but better top tier balance)</font><br/>");
+		else if (total == currentBestCombinedStrength && diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && differenceBetweenOffenses < context->best->differenceBetweenOffenses)
+			TeamGen_DebugPrintf(" <font color=purple>best so far (combined strength, fairness, preferred pos, avoided pos, bottom tier balance, and top tier balance, but better offense balance)</font><br/>");
+		else if (total == currentBestCombinedStrength && diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && differenceBetweenOffenses == context->best->differenceBetweenOffenses && differenceBetweenDefenses < context->best->differenceBetweenDefenses)
+			TeamGen_DebugPrintf(" <font color=purple>best so far (combined strength, fairness, preferred pos, avoided pos, bottom tier balance, top tier balance, and offense balance, but better defense balance)</font><br/>");
 		else
 			TeamGen_DebugPrintf("<font color=purple>???</font><br/>");
 
@@ -639,6 +685,8 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 			hashMe.numOnAvoidedPos = numOnAvoidedPos;
 			hashMe.topTierImbalance = topTierImbalance;
 			hashMe.bottomTierImbalance = bottomTierImbalance;
+			hashMe.differenceBetweenOffenses = differenceBetweenOffenses;
+			hashMe.differenceBetweenDefenses = differenceBetweenDefenses;
 			hashMe.teams[0].rawStrength = team1RawStrength;
 			hashMe.teams[1].rawStrength = team2RawStrength;
 			hashMe.teams[0].relativeStrength = team1RelativeStrength;
@@ -681,6 +729,8 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 		context->best->numOnAvoidedPos = numOnAvoidedPos;
 		context->best->topTierImbalance = topTierImbalance;
 		context->best->bottomTierImbalance = bottomTierImbalance;
+		context->best->differenceBetweenOffenses = differenceBetweenOffenses;
+		context->best->differenceBetweenDefenses = differenceBetweenDefenses;
 		context->best->teams[0].rawStrength = team1RawStrength;
 		context->best->teams[1].rawStrength = team2RawStrength;
 		context->best->teams[0].relativeStrength = team1RelativeStrength;
@@ -1471,7 +1521,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 
 		// evaluate every possible permutation of teams for this teamgen type
 		permutationOfTeams_t try1 = { 0 }, try2 = { 0 };
-		try1.diff = try2.diff = 999999.999999;
+		try1.diff = try2.diff = try1.differenceBetweenOffenses = try1.differenceBetweenDefenses = try2.differenceBetweenOffenses = try2.differenceBetweenDefenses = 999999.999999;
 		PermutationCallback callback;
 		if (type == TEAMGENERATORTYPE_HIGHESTRATING)
 			callback = TryTeamPermutation_Tryhard;
@@ -1487,7 +1537,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 		if (!try1.valid) {
 			TeamGen_DebugPrintf("<font color=orange>==========No valid permutation for type %d; trying again without chase rule==========</font><br/>", type);
 			memset(&try1, 0, sizeof(try1));
-			try1.diff = 999999.999999;
+			try1.diff = try1.differenceBetweenOffenses = try1.differenceBetweenDefenses = 999999.999999;
 			thisGotten = PermuteTeams(&players[0], numEligible, &try1, callback, qfalse, &set->avoidedHashesList, qtrue);
 			if (thisGotten > gotten)
 				gotten = thisGotten;
@@ -1497,7 +1547,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 				allowSecondTry = qfalse;
 
 				memset(&try1, 0, sizeof(try1));
-				try1.diff = 999999.999999;
+				try1.diff = try1.differenceBetweenOffenses = try1.differenceBetweenDefenses = 999999.999999;
 				thisGotten = PermuteTeams(&players[0], numEligible, &try1, callback, qtrue, &set->avoidedHashesList, qfalse);
 				if (thisGotten > gotten)
 					gotten = thisGotten;
@@ -1505,7 +1555,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 				if (!try1.valid) {
 					TeamGen_DebugPrintf("<font color=orange>==========No valid permutation with chase rule but without banning avoided pos for type %d; trying again without chase rule AND without banning avoided pos==========</font><br/>", type);
 					memset(&try1, 0, sizeof(try1));
-					try1.diff = 999999.999999;
+					try1.diff = try1.differenceBetweenOffenses = try1.differenceBetweenDefenses = 999999.999999;
 					thisGotten = PermuteTeams(&players[0], numEligible, &try1, callback, qfalse, &set->avoidedHashesList, qfalse);
 					if (thisGotten > gotten)
 						gotten = thisGotten;
@@ -1525,7 +1575,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 				if (!try2.valid) {
 					TeamGen_DebugPrintf("<font color=orange>==========No valid permutation for type %d without banning avoided pos; trying again without chase rule==========</font><br/>", type);
 					memset(&try2, 0, sizeof(try2));
-					try2.diff = 999999.999999;
+					try2.diff = try2.differenceBetweenOffenses = try2.differenceBetweenDefenses = 999999.999999;
 					thisGotten = PermuteTeams(&players[0], numEligible, &try2, callback, qfalse, &set->avoidedHashesList, qfalse);
 					if (thisGotten > gotten)
 						gotten = thisGotten;
