@@ -1281,6 +1281,7 @@ void ShowSubBalance(void);
 qboolean TeamGenerator_PlayerIsPermaBarredButTemporarilyForcedPickable(gentity_t *ent);
 void TeamGen_ClearRemindPositions(void);
 void TeamGen_RemindPosition(gentity_t *ent);
+void TeamGen_AnnounceBreak(void);
 
 // this structure is cleared on each ClientSpawn(),
 // except for 'client->pers' and 'client->sess'
@@ -1943,6 +1944,8 @@ typedef struct {
 
 	float locationAccuracy;
 	qboolean generateLocationsWithInfo_b_e_locationsOnly;
+
+	int g_lastIntermissionStartTimeSettingAtRoundStart; // what g_lastIntermissionStartTime was at the start of this round (before we changed it to "")
 } level_locals_t;
 
 
@@ -3142,6 +3145,7 @@ extern vmCvar_t		g_vote_teamgen_minSecsSinceIntermission;
 extern vmCvar_t		g_vote_teamgen_enableAppeasing;
 extern vmCvar_t		g_vote_teamgen_remindPositions;
 extern vmCvar_t		g_vote_teamgen_remindToSetPositions;
+extern vmCvar_t		g_vote_teamgen_announceBreak;
 
 extern vmCvar_t		g_lastIntermissionStartTime;
 

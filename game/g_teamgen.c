@@ -2481,11 +2481,19 @@ qboolean TeamGenerator_PugStart(gentity_t *ent, char **newMessage) {
 		return TeamGenerator_VoteYesToPugProposal(ent, 0, set, newMessage);
 	}
 
-	if (g_vote_teamgen_minSecsSinceIntermission.integer && g_lastIntermissionStartTime.string[0] && Q_isanumber(g_lastIntermissionStartTime.string)) {
-		int minSecs = Com_Clampi(1, 60, g_vote_teamgen_minSecsSinceIntermission.integer);
-		qboolean intermissionOccurredRecently = !!(((int)time(NULL)) - g_lastIntermissionStartTime.integer < (g_lastIntermissionStartTime.integer + 30));
+	if (g_vote_teamgen_minSecsSinceIntermission.integer && level.g_lastIntermissionStartTimeSettingAtRoundStart) {
+		int minSecs = Com_Clampi(1, 600, g_vote_teamgen_minSecsSinceIntermission.integer);
+		qboolean intermissionOccurredRecently = !!(((int)time(NULL)) - level.g_lastIntermissionStartTimeSettingAtRoundStart < (level.g_lastIntermissionStartTimeSettingAtRoundStart + 600));
 		if (intermissionOccurredRecently && level.time - level.startTime < minSecs * 1000) {
-			char *waitUntilStr = (minSecs == 60) ? "1:00" : va("0:%02d", minSecs);
+			char *waitUntilStr;
+			if (minSecs >= 60) {
+				int minutes = minSecs / 60;
+				int seconds = minSecs % 60;
+				waitUntilStr = va("%d:%02d", minutes, seconds);
+			}
+			else {
+				waitUntilStr = va("0:%02d", minSecs);
+			}
 			TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("Please wait until at least %s before starting a new pug.", waitUntilStr));
 
 			// let the message through as a warning for people to rename
@@ -2512,6 +2520,48 @@ qboolean TeamGenerator_PugStart(gentity_t *ent, char **newMessage) {
 		Q_strncpyz(set->namesStr, namesStr, sizeof(set->namesStr));
 	TeamGenerator_QueueServerMessageInChat(-1, va("%s proposes pug with: %s. Enter ^5%c%d^7 in chat if you approve.", cleanname, namesStr, TEAMGEN_CHAT_COMMAND_CHARACTER, set->num));
 	return qfalse;
+}
+
+void TeamGen_AnnounceBreak(void) {
+	if (!g_vote_teamgen.integer || !g_vote_teamgen_announceBreak.integer || g_gametype.integer != GT_CTF || g_vote_teamgen_minSecsSinceIntermission.integer <= 0 ||
+		!level.g_lastIntermissionStartTimeSettingAtRoundStart)
+		return;
+
+	int minSecs = Com_Clampi(1, 600, g_vote_teamgen_minSecsSinceIntermission.integer);
+	if (minSecs < 60)
+		return; // don't bother if it's under a minute
+
+	qboolean intermissionOccurredRecently = !!(((int)time(NULL)) - level.g_lastIntermissionStartTimeSettingAtRoundStart < (level.g_lastIntermissionStartTimeSettingAtRoundStart + 600));
+	if (intermissionOccurredRecently && level.time - level.startTime < minSecs * 1000) {
+		char *waitUntilStr;
+		if (minSecs >= 60) {
+			int minutes = minSecs / 60;
+			int seconds = minSecs % 60;
+			waitUntilStr = va("%d:%02d", minutes, seconds);
+		}
+		else {
+			waitUntilStr = va("0:%02d", minSecs);
+		}
+
+		// trick idiots into actually looking at the message
+		char *cuteMessages[] = {
+			"Grab a coffee",
+			"Make some tea",
+			"Grab a snack",
+			"Take a piss",
+			"Move your 2015 VW Jetta",
+			"Answer a few emails",
+			"Eat some delicious kürtõs kalács",
+			"Fry an avocado omelette",
+			"Enjoy some exquisite fondue",
+			"Unwrap a slice of American cheese",
+			"Drink some hot milk with honey"
+		};
+		char *message = va("^2%s AFK break^7\n\n%s\nand be back by %s", waitUntilStr, cuteMessages[Q_irand(0, ARRAY_LEN(cuteMessages) - 1)], waitUntilStr);
+
+		int printDuration = minSecs >= 90 ? 90000 : minSecs * 1000;
+		G_GlobalTickedCenterPrint(message, printDuration, qtrue);
+	}
 }
 
 void TeamGenerator_DoReroll(qboolean forcedByServer) {

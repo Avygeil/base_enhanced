@@ -455,6 +455,7 @@ vmCvar_t	g_vote_teamgen_minSecsSinceIntermission;
 vmCvar_t	g_vote_teamgen_enableAppeasing;
 vmCvar_t	g_vote_teamgen_remindPositions;
 vmCvar_t	g_vote_teamgen_remindToSetPositions;
+vmCvar_t	g_vote_teamgen_announceBreak;
 
 vmCvar_t	g_lastIntermissionStartTime;
 
@@ -913,8 +914,13 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_teamgen_enableAppeasing, "g_vote_teamgen_enableAppeasing", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_remindPositions, "g_vote_teamgen_remindPositions", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_remindToSetPositions, "g_vote_teamgen_remindToSetPositions", "1", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_teamgen_announceBreak, "g_vote_teamgen_announceBreak", "1", CVAR_ARCHIVE, 0, qfalse },
 
+#ifdef _DEBUG
+	{ &g_lastIntermissionStartTime, "g_lastIntermissionStartTime", "", CVAR_TEMP, 0, qfalse },
+#else
 	{ &g_lastIntermissionStartTime, "g_lastIntermissionStartTime", "", CVAR_ROM | CVAR_TEMP, 0, qfalse },
+#endif
 
 	{ &d_debugCtfPosCalculation, "d_debugCtfPosCalculation", "0", CVAR_ARCHIVE, 0, qtrue },
 
@@ -1895,8 +1901,19 @@ void G_InitGame( int levelTime, int randomSeed, int restart, void *serverDbPtr )
 	TeamGen_Initialize();
 	G_DBGetPlayerRatings();
 
-	if (restart)
+	if (restart) {
+		// save g_lastIntermissionStartTime before we clear it
+		level.g_lastIntermissionStartTimeSettingAtRoundStart = g_lastIntermissionStartTime.string[0] ? g_lastIntermissionStartTime.integer : 0;
+
 		TeamGen_ClearRemindPositions();
+		TeamGen_AnnounceBreak();
+	}
+	else {
+		level.g_lastIntermissionStartTimeSettingAtRoundStart = 0;
+	}
+
+	// always clear g_lastIntermissionStartTime so that it can only happen once
+	trap_Cvar_Set("g_lastIntermissionStartTime", "");
 }
 
 
