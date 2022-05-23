@@ -2650,10 +2650,11 @@ void TeamGen_AnnounceBreak(void) {
 		waitUntilStr = va("0:%02d", minSecs);
 	}
 
-	char *message;
+	char *centerMessage;
 	int printDuration;
 	if (minSecs < 60) { // short break; just tell people to rename
-		message = "Go spec and rename if unpickable";
+		centerMessage = "Go spec and rename if unpickable";
+		PrintIngame(-1, "%s\n", centerMessage);
 		printDuration = minSecs >= 45 ? 45000 : minSecs * 1000;
 	}
 	else { // longer break; trick idiots into actually looking at the message
@@ -2670,10 +2671,11 @@ void TeamGen_AnnounceBreak(void) {
 			"Unwrap a slice of American cheese",
 			"Drink some hot milk with honey"
 		};
-		message = va("^2%s AFK break^7\n\n%s\nand be back by %s\n\nGo spec and rename if unpickable", waitUntilStr, cuteMessages[Q_irand(0, ARRAY_LEN(cuteMessages) - 1)], waitUntilStr);		
+		centerMessage = va("^2%s AFK break^7\n\n%s\nand be back by %s\n\nGo spec and rename if unpickable", waitUntilStr, cuteMessages[Q_irand(0, ARRAY_LEN(cuteMessages) - 1)], waitUntilStr);
+		PrintIngame(-1, "^2%s AFK break: %s and be back by %s\nGo spec and rename if unpickable\n", waitUntilStr, cuteMessages[Q_irand(0, ARRAY_LEN(cuteMessages) - 1)], waitUntilStr);
 		printDuration = minSecs >= 90 ? 90000 : minSecs * 1000;
 	}
-	G_GlobalTickedCenterPrint(message, printDuration, qtrue);
+	G_GlobalTickedCenterPrint(centerMessage, printDuration, qtrue);
 }
 
 void TeamGenerator_DoReroll(qboolean forcedByServer) {
