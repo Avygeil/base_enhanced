@@ -2655,7 +2655,7 @@ void TeamGen_AnnounceBreak(void) {
 
 	// don't spam it
 	static int lastPrint = 0;
-	if (lastPrint && trap_Milliseconds() - lastPrint < 1500)
+	if (lastPrint && trap_Milliseconds() - lastPrint < 2500)
 		return;
 
 	char *waitUntilStr;
