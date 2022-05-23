@@ -913,7 +913,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_teamgen_team_requiredVotes, "g_vote_teamgen_team_requiredVotes", "5", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_teamgen_subhelp, "g_vote_teamgen_subhelp", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_rustWeeks, "g_vote_teamgen_rustWeeks", "12", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
-	{ &g_vote_teamgen_minSecsSinceIntermission, "g_vote_teamgen_minSecsSinceIntermission", "40", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_teamgen_minSecsSinceIntermission, "g_vote_teamgen_minSecsSinceIntermission", "30", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_enableAppeasing, "g_vote_teamgen_enableAppeasing", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_remindPositions, "g_vote_teamgen_remindPositions", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_remindToSetPositions, "g_vote_teamgen_remindToSetPositions", "1", CVAR_ARCHIVE, 0, qfalse },
