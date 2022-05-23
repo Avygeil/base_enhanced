@@ -1761,6 +1761,7 @@ typedef struct {
 	char		multiVoteMapShortNames[MAX_MULTIVOTE_MAPS + 1][MAX_QPATH];
 	char		multiVoteMapFileNames[MAX_MULTIVOTE_MAPS + 1][MAX_QPATH];
 	int			mapsThatCanBeVotedBits;
+	qboolean		voteAutoPassOnExpiration;
 
 	// spawn variables
 	qboolean	spawning;				// the G_Spawn*() functions are valid
@@ -3149,6 +3150,7 @@ extern vmCvar_t		g_vote_teamgen_remindPositions;
 extern vmCvar_t		g_vote_teamgen_remindToSetPositions;
 extern vmCvar_t		g_vote_teamgen_announceBreak;
 extern vmCvar_t		g_vote_teamgen_autoRestartOnMapChange;
+extern vmCvar_t		g_vote_teamgen_autoMapVoteSeconds;
 
 extern vmCvar_t		g_lastIntermissionStartTime;
 extern vmCvar_t		g_lastTeamGenTime;

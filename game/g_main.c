@@ -457,6 +457,7 @@ vmCvar_t	g_vote_teamgen_remindPositions;
 vmCvar_t	g_vote_teamgen_remindToSetPositions;
 vmCvar_t	g_vote_teamgen_announceBreak;
 vmCvar_t	g_vote_teamgen_autoRestartOnMapChange;
+vmCvar_t	g_vote_teamgen_autoMapVoteSeconds;
 
 vmCvar_t	g_lastIntermissionStartTime;
 vmCvar_t	g_lastTeamGenTime;
@@ -918,6 +919,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_teamgen_remindToSetPositions, "g_vote_teamgen_remindToSetPositions", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_announceBreak, "g_vote_teamgen_announceBreak", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_autoRestartOnMapChange, "g_vote_teamgen_autoRestartOnMapChange", "1", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_teamgen_autoMapVoteSeconds, "g_vote_teamgen_autoMapVoteSeconds", "60", CVAR_ARCHIVE, 0, qfalse },
 
 #ifdef _DEBUG
 	{ &g_lastIntermissionStartTime, "g_lastIntermissionStartTime", "", CVAR_TEMP, 0, qfalse },
@@ -4469,13 +4471,24 @@ void CheckVote( void ) {
 					level.voteExecuteTime = level.time; // allow pause votes to take affect immediately
 				else
 					level.voteExecuteTime = level.time + 3000;
-			} else {
+			}
+			else if (level.voteAutoPassOnExpiration) {
+				trap_SendServerCommand(-1, "print \"Vote automatically passed.\n\"");
+
+				// log the vote
+				G_LogPrintf("Vote automatically passed. (Yes:%i No:%i All:%i g_minimumVotesCount:%i)\n", level.voteYes, level.voteNo, level.numVotingClients, g_minimumVotesCount.integer);
+
+				// set the delay
+				level.voteExecuteTime = level.time + 3000;
+			}
+			else {
 				trap_SendServerCommand( -1, va( "print \"%s\n\"", G_GetStringEdString( "MP_SVGAME", "VOTEFAILED" ) ) );
 
 				// log the vote
 				G_LogPrintf( "Vote timed out. (Yes:%i No:%i All:%i)\n", level.voteYes, level.voteNo, level.numVotingClients );
 			}
-		} else {
+		}
+		else {
 			if ( ( g_enforceEvenVotersCount.integer ) && ( level.numVotingClients % 2 == 1 ) ) {
 				if ( ( g_minVotersForEvenVotersCount.integer > 4 ) && ( level.numVotingClients >= g_minVotersForEvenVotersCount.integer ) ) {
 					if ( level.voteYes < level.numVotingClients / 2 + 2 ) {

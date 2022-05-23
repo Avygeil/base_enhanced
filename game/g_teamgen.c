@@ -2015,9 +2015,28 @@ static void ActivatePugProposal(pugProposal_t *set, qboolean forcedByServer) {
 		level.activePugProposal = set;
 		PrintTeamsProposalsInConsole(set);
 
-		char timeBuf[MAX_STRING_CHARS] = { 0 };
-		Com_sprintf(timeBuf, sizeof(timeBuf), "%d", (int)time(NULL));
-		trap_Cvar_Set("g_lastTeamGenTime", timeBuf);
+		if (level.autoStartPending) {
+			Com_Printf("The currently pending auto start was cancelled due to team generator changing the teams.\n");
+			level.autoStartPending = qfalse;
+		}
+
+		// kill any existing map vote if we decide to do a different pug proposal
+		if (level.voteTime && (!Q_stricmp(level.voteString, "mapvote") || level.multiVoting)) {
+			PrintIngame(-1, "Map vote automatically stopped due to pug proposal passing.\n");
+			level.voteAutoPassOnExpiration = qfalse;
+			level.multiVoting = qfalse;
+			level.inRunoff = qfalse;
+			level.multiVoteChoices = 0;
+			level.multiVoteHasWildcard = qfalse;
+			level.multivoteWildcardMapFileName[0] = '\0';
+			level.mapsThatCanBeVotedBits = 0;
+			memset(level.multiVotes, 0, sizeof(level.multiVotes));
+			memset(&level.multiVoteMapChars, 0, sizeof(level.multiVoteMapChars));
+			memset(&level.multiVoteMapShortNames, 0, sizeof(level.multiVoteMapShortNames));
+			memset(&level.multiVoteMapFileNames, 0, sizeof(level.multiVoteMapFileNames));
+			level.voteTime = 0;
+			trap_SetConfigstring(CS_VOTE_TIME, "");
+		}
 	}
 	else {
 		TeamGenerator_QueueServerMessageInChat(-1, va("Pug proposal %d %s (%s). However, unable to generate teams; pug proposal %d terminated.", set->num, forcedByServer ? "force passed by server" : "passed", set->namesStr, set->num));
@@ -2031,6 +2050,57 @@ static void ActivatePugProposal(pugProposal_t *set, qboolean forcedByServer) {
 #define SCOREBOARD_POSITION_SCORE_CHASE		(4000)
 #define SCOREBOARD_POSITION_SCORE_OFFENSE1	(2000)
 #define SCOREBOARD_POSITION_SCORE_OFFENSE2	(1000)
+
+extern void fixVoters(qboolean allowRacers);
+static void StartAutomaticTeamGenMapVote(void) {
+	if (g_vote_teamgen_autoMapVoteSeconds.integer <= 0)
+		return;
+
+	// just use tierlist system only since the pool system is dead at this point
+	if (!g_vote_tierlist.integer) {
+		Com_Printf("g_vote_tierlist is disabled; unable to automatically start map vote.\n");
+		return;
+	}
+
+	const int totalMapsToChoose = Com_Clampi(2, MAX_MULTIVOTE_MAPS, g_vote_tierlist_totalMaps.integer);
+	if ((g_vote_tierlist_s_max.integer + g_vote_tierlist_a_max.integer + g_vote_tierlist_b_max.integer +
+		g_vote_tierlist_c_max.integer + g_vote_tierlist_f_max.integer < totalMapsToChoose) ||
+		(g_vote_tierlist_s_min.integer + g_vote_tierlist_a_min.integer + g_vote_tierlist_b_min.integer +
+			g_vote_tierlist_c_min.integer + g_vote_tierlist_f_min.integer > totalMapsToChoose)) {
+		// we could just decrease the max, but let's just shame the idiots instead
+		Com_Printf("Error: min/max conflict with g_vote_tierlist_totalMaps! Unable to use tierlist voting.\n");
+		return;
+	}
+
+	int voteDurationSeconds = Com_Clampi(15, 300, g_vote_teamgen_autoMapVoteSeconds.integer);
+	Com_sprintf(level.voteDisplayString, sizeof(level.voteDisplayString), "New Map Vote (%d Maps) ^2(auto pass)^7", totalMapsToChoose);
+	Com_sprintf(level.voteString, sizeof(level.voteString), "mapvote");
+
+	level.voteTime = level.time + ((voteDurationSeconds - 30) * 1000);
+	level.voteAutoPassOnExpiration = qtrue;
+	level.voteYes = 0;
+	level.voteNo = 0;
+	//level.lastVotingClient
+	level.multiVoting = qfalse;
+	level.inRunoff = qfalse;
+	level.mapsThatCanBeVotedBits = 0;
+	level.multiVoting = qfalse;
+	level.inRunoff = qfalse;
+	level.multiVoteChoices = 0;
+	level.multiVoteHasWildcard = qfalse;
+	level.multivoteWildcardMapFileName[0] = '\0';
+	memset(level.multiVotes, 0, sizeof(level.multiVotes));
+	memset(&level.multiVoteMapChars, 0, sizeof(level.multiVoteMapChars));
+	memset(&level.multiVoteMapShortNames, 0, sizeof(level.multiVoteMapShortNames));
+	memset(&level.multiVoteMapFileNames, 0, sizeof(level.multiVoteMapFileNames));
+
+	fixVoters(qfalse);
+
+	trap_SetConfigstring(CS_VOTE_TIME, va("%i", level.voteTime));
+	trap_SetConfigstring(CS_VOTE_STRING, level.voteDisplayString);
+	trap_SetConfigstring(CS_VOTE_YES, va("%i", level.voteYes));
+	trap_SetConfigstring(CS_VOTE_NO, va("%i", level.voteNo));
+}
 
 void ActivateTeamsProposal(permutationOfTeams_t *permutation) {
 	assert(permutation);
@@ -2070,7 +2140,7 @@ void ActivateTeamsProposal(permutationOfTeams_t *permutation) {
 			}
 			forceteamed[j] = qtrue;
 
-			Com_sprintf(printMessage + (j * messageSize), messageSize, "^1Red team:^7 (%0.2f'/. relative strength)\n", permutation->teams[0].relativeStrength * 100.0);
+			Com_sprintf(printMessage + (j * messageSize), messageSize, "\n\n\n^1Red team:^7 (%0.2f'/. relative strength)\n", permutation->teams[0].relativeStrength * 100.0);
 			Q_strcat(printMessage + (j * messageSize), messageSize, va("%s %s\n", permutation->teams[0].baseId == ent->client->account->id ? "^5Base: ^3" : "^5Base: ^7", permutation->teams[0].baseName));
 			Q_strcat(printMessage + (j * messageSize), messageSize, va("%s %s\n", permutation->teams[0].chaseId == ent->client->account->id ? "^6Chase: ^3" : "^6Chase: ^7", permutation->teams[0].chaseName));
 			Q_strcat(printMessage + (j * messageSize), messageSize, va("%s %s^7, ", permutation->teams[0].offenseId1 == ent->client->account->id ? "^2Offense: ^3" : "^2Offense: ^7", permutation->teams[0].offense1Name));
@@ -2106,7 +2176,7 @@ void ActivateTeamsProposal(permutationOfTeams_t *permutation) {
 				ent->client->sess.canJoin = qfalse;
 			}
 		}
-		Com_sprintf(printMessage + (i * messageSize), messageSize, "^1Red team:^7 (%0.2f'/. relative strength)\n", permutation->teams[0].relativeStrength * 100.0);
+		Com_sprintf(printMessage + (i * messageSize), messageSize, "\n\n\n^1Red team:^7 (%0.2f'/. relative strength)\n", permutation->teams[0].relativeStrength * 100.0);
 		Q_strcat(printMessage + (i * messageSize), messageSize, va("^5Base: ^7 %s\n", permutation->teams[0].baseName));
 		Q_strcat(printMessage + (i * messageSize), messageSize, va("^6Chase: ^7 %s\n", permutation->teams[0].chaseName));
 		Q_strcat(printMessage + (i * messageSize), messageSize, va("^2Offense: ^7 %s^7, ", permutation->teams[0].offense1Name));
@@ -2128,6 +2198,12 @@ void ActivateTeamsProposal(permutationOfTeams_t *permutation) {
 		Com_Printf("The currently pending auto start was cancelled due to team generator changing the teams.\n");
 		level.autoStartPending = qfalse;
 	}
+
+	StartAutomaticTeamGenMapVote();
+
+	char timeBuf[MAX_STRING_CHARS] = { 0 };
+	Com_sprintf(timeBuf, sizeof(timeBuf), "%d", (int)time(NULL));
+	trap_Cvar_Set("g_lastTeamGenTime", timeBuf);
 }
 
 qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteStr, char **newMessage) {
@@ -3512,20 +3588,6 @@ void TeamGen_DoAutoRestart(void) {
 	// sanity check; never do auto rs more than 30 minutes after teamgen
 	qboolean teamgenHappenedRecently = !!(((int)time(NULL)) - level.g_lastTeamGenTimeSettingAtRoundStart < (level.g_lastTeamGenTimeSettingAtRoundStart + 1800));
 	if (!teamgenHappenedRecently)
-		return;
-
-	// make sure there are actually still people ingame
-	int numIngame = 0;
-	for (int i = 0; i < MAX_CLIENTS; i++) {
-		gentity_t *ent = &g_entities[i];
-		if (!ent->client || ent->client->pers.connected == CON_DISCONNECTED)
-			continue;
-
-		if (ent->client->sess.sessionTeam == TEAM_RED || ent->client->sess.sessionTeam == TEAM_BLUE)
-			++numIngame;
-	}
-
-	if (numIngame <= 4)
 		return;
 
 	Com_Printf("Auto start initiated.\n");

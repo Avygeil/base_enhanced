@@ -1065,6 +1065,7 @@ void Svcmd_VoteForce_f( qboolean pass ) {
 	if ( !level.multiVoting ) {
 		g_entities[level.lastVotingClient].client->lastCallvoteTime = level.time;
 	} else if ( !pass ) {
+		level.voteAutoPassOnExpiration = qfalse;
 		level.multiVoting = qfalse;
 		level.inRunoff = qfalse;
 		level.multiVoteChoices = 0;
@@ -1683,6 +1684,7 @@ static void StartMultiMapVote( const int numMaps, const qboolean hasWildcard, co
 		level.voteTime += timeChange;
 	}
 
+	level.voteAutoPassOnExpiration = qfalse;
 	level.voteYes = 0;
 	level.voteNo = 0;
 	// we don't set lastVotingClient since this isn't a "normal" vote
