@@ -2635,23 +2635,28 @@ void TeamGen_AnnounceBreak(void) {
 		!level.g_lastIntermissionStartTimeSettingAtRoundStart)
 		return;
 
-	int minSecs = Com_Clampi(1, 600, g_vote_teamgen_minSecsSinceIntermission.integer);
-	if (minSecs < 60)
-		return; // don't bother if it's under a minute
-
+	int minSecs = Com_Clampi(5, 600, g_vote_teamgen_minSecsSinceIntermission.integer);
 	qboolean intermissionOccurredRecently = !!(((int)time(NULL)) - level.g_lastIntermissionStartTimeSettingAtRoundStart < (level.g_lastIntermissionStartTimeSettingAtRoundStart + 600));
-	if (intermissionOccurredRecently && level.time - level.startTime < minSecs * 1000) {
-		char *waitUntilStr;
-		if (minSecs >= 60) {
-			int minutes = minSecs / 60;
-			int seconds = minSecs % 60;
-			waitUntilStr = va("%d:%02d", minutes, seconds);
-		}
-		else {
-			waitUntilStr = va("0:%02d", minSecs);
-		}
+	if (!intermissionOccurredRecently || !(level.time - level.startTime < minSecs * 1000))
+		return;
 
-		// trick idiots into actually looking at the message
+	char *waitUntilStr;
+	if (minSecs >= 60) {
+		int minutes = minSecs / 60;
+		int seconds = minSecs % 60;
+		waitUntilStr = va("%d:%02d", minutes, seconds);
+	}
+	else {
+		waitUntilStr = va("0:%02d", minSecs);
+	}
+
+	char *message;
+	int printDuration;
+	if (minSecs < 60) { // short break; just tell people to rename
+		message = "Go spec and rename if unpickable";
+		printDuration = minSecs >= 45 ? 45000 : minSecs * 1000;
+	}
+	else { // longer break; trick idiots into actually looking at the message
 		char *cuteMessages[] = {
 			"Grab a coffee",
 			"Make some tea",
@@ -2665,11 +2670,10 @@ void TeamGen_AnnounceBreak(void) {
 			"Unwrap a slice of American cheese",
 			"Drink some hot milk with honey"
 		};
-		char *message = va("^2%s AFK break^7\n\n%s\nand be back by %s", waitUntilStr, cuteMessages[Q_irand(0, ARRAY_LEN(cuteMessages) - 1)], waitUntilStr);
-
-		int printDuration = minSecs >= 90 ? 90000 : minSecs * 1000;
-		G_GlobalTickedCenterPrint(message, printDuration, qtrue);
+		message = va("^2%s AFK break^7\n\n%s\nand be back by %s\n\nGo spec and rename if unpickable", waitUntilStr, cuteMessages[Q_irand(0, ARRAY_LEN(cuteMessages) - 1)], waitUntilStr);		
+		printDuration = minSecs >= 90 ? 90000 : minSecs * 1000;
 	}
+	G_GlobalTickedCenterPrint(message, printDuration, qtrue);
 }
 
 void TeamGenerator_DoReroll(qboolean forcedByServer) {
