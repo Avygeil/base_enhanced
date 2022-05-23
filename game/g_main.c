@@ -456,8 +456,10 @@ vmCvar_t	g_vote_teamgen_enableAppeasing;
 vmCvar_t	g_vote_teamgen_remindPositions;
 vmCvar_t	g_vote_teamgen_remindToSetPositions;
 vmCvar_t	g_vote_teamgen_announceBreak;
+vmCvar_t	g_vote_teamgen_autoRestartOnMapChange;
 
 vmCvar_t	g_lastIntermissionStartTime;
+vmCvar_t	g_lastTeamGenTime;
 
 vmCvar_t	d_debugCtfPosCalculation;
 
@@ -915,11 +917,14 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_teamgen_remindPositions, "g_vote_teamgen_remindPositions", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_remindToSetPositions, "g_vote_teamgen_remindToSetPositions", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_announceBreak, "g_vote_teamgen_announceBreak", "1", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_teamgen_autoRestartOnMapChange, "g_vote_teamgen_autoRestartOnMapChange", "1", CVAR_ARCHIVE, 0, qfalse },
 
 #ifdef _DEBUG
 	{ &g_lastIntermissionStartTime, "g_lastIntermissionStartTime", "", CVAR_TEMP, 0, qfalse },
+	{ &g_lastTeamGenTime, "g_lastTeamGenTime", "", CVAR_TEMP, 0, qfalse },
 #else
 	{ &g_lastIntermissionStartTime, "g_lastIntermissionStartTime", "", CVAR_ROM | CVAR_TEMP, 0, qfalse },
+	{ &g_lastTeamGenTime, "g_lastTeamGenTime", "", CVAR_ROM | CVAR_TEMP, 0, qfalse },
 #endif
 
 	{ &d_debugCtfPosCalculation, "d_debugCtfPosCalculation", "0", CVAR_ARCHIVE, 0, qtrue },
@@ -1904,16 +1909,22 @@ void G_InitGame( int levelTime, int randomSeed, int restart, void *serverDbPtr )
 	if (restart) {
 		// save g_lastIntermissionStartTime before we clear it
 		level.g_lastIntermissionStartTimeSettingAtRoundStart = g_lastIntermissionStartTime.string[0] ? g_lastIntermissionStartTime.integer : 0;
+		level.g_lastTeamGenTimeSettingAtRoundStart = 0;
 
 		TeamGen_ClearRemindPositions();
 		TeamGen_AnnounceBreak();
 	}
 	else {
 		level.g_lastIntermissionStartTimeSettingAtRoundStart = 0;
+		level.g_lastTeamGenTimeSettingAtRoundStart = g_lastTeamGenTime.string[0] ? g_lastTeamGenTime.integer : 0;
+
+		if (g_lastTeamGenTime.integer)
+			TeamGen_DoAutoRestart();
 	}
 
-	// always clear g_lastIntermissionStartTime so that it can only happen once
+	// always clear these so that they can only happen once
 	trap_Cvar_Set("g_lastIntermissionStartTime", "");
+	trap_Cvar_Set("g_lastTeamGenTime", "");
 }
 
 
@@ -5767,6 +5778,22 @@ void G_RunFrame( int levelTime ) {
 		}
 	}
 #endif
+
+	// reset g_lastTeamGenTime if server is emptyish
+	if (g_lastTeamGenTime.integer) {
+		int numIngame = 0;
+		for (i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *ent = &g_entities[i];
+			if (!ent->client || ent->client->pers.connected == CON_DISCONNECTED)
+				continue;
+
+			if (ent->client->sess.sessionTeam == TEAM_RED || ent->client->sess.sessionTeam == TEAM_BLUE)
+				++numIngame;
+		}
+
+		if (numIngame <= 4)
+			trap_Cvar_Set("g_lastTeamGenTime", "");
+	}
 
 	// print any queued messages
 	if (level.queuedServerMessagesList.size > 0) {

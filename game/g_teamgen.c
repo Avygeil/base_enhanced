@@ -2014,6 +2014,10 @@ static void ActivatePugProposal(pugProposal_t *set, qboolean forcedByServer) {
 		set->passed = qtrue;
 		level.activePugProposal = set;
 		PrintTeamsProposalsInConsole(set);
+
+		char timeBuf[MAX_STRING_CHARS] = { 0 };
+		Com_sprintf(timeBuf, sizeof(timeBuf), "%d", (int)time(NULL));
+		trap_Cvar_Set("g_lastTeamGenTime", timeBuf);
 	}
 	else {
 		TeamGenerator_QueueServerMessageInChat(-1, va("Pug proposal %d %s (%s). However, unable to generate teams; pug proposal %d terminated.", set->num, forcedByServer ? "force passed by server" : "passed", set->namesStr, set->num));
@@ -3498,4 +3502,32 @@ void TeamGen_RemindPosition(gentity_t *ent) {
 
 	// clear so that we don't do it again
 	memset(&ent->client->sess.remindPositionOnMapChange, 0, sizeof(ent->client->sess.remindPositionOnMapChange));
+}
+
+void TeamGen_DoAutoRestart(void) {
+	if (!level.g_lastTeamGenTimeSettingAtRoundStart || !g_vote_teamgen_autoRestartOnMapChange.integer || !g_vote_teamgen.integer ||
+		!g_waitForAFK.integer || g_gametype.integer != GT_CTF)
+		return;
+
+	// sanity check; never do auto rs more than 30 minutes after teamgen
+	qboolean teamgenHappenedRecently = !!(((int)time(NULL)) - level.g_lastTeamGenTimeSettingAtRoundStart < (level.g_lastTeamGenTimeSettingAtRoundStart + 1800));
+	if (!teamgenHappenedRecently)
+		return;
+
+	// make sure there are actually still people ingame
+	int numIngame = 0;
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *ent = &g_entities[i];
+		if (!ent->client || ent->client->pers.connected == CON_DISCONNECTED)
+			continue;
+
+		if (ent->client->sess.sessionTeam == TEAM_RED || ent->client->sess.sessionTeam == TEAM_BLUE)
+			++numIngame;
+	}
+
+	if (numIngame <= 4)
+		return;
+
+	Com_Printf("Auto start initiated.\n");
+	level.autoStartPending = qtrue;
 }
