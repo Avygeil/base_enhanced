@@ -2343,6 +2343,31 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 		*newMessage = buf;
 	}
 
+	int numPermutationsWithEnoughVotesToPass = 0;
+	for (int i = 0; i < 4; i++) {
+		int *votesInt;
+		permutationOfTeams_t *permutation;
+		switch (i) {
+		case 0: permutation = &level.activePugProposal->suggested; votesInt = &level.activePugProposal->suggestedVoteClients; break;
+		case 1: permutation = &level.activePugProposal->highestCaliber; votesInt = &level.activePugProposal->highestCaliberVoteClients; break;
+		case 2: permutation = &level.activePugProposal->fairest; votesInt = &level.activePugProposal->fairestVoteClients; break;
+		case 3: permutation = &level.activePugProposal->desired; votesInt = &level.activePugProposal->desiredVoteClients; break;
+		}
+
+		if (!permutation->valid)
+			continue;
+
+		int numYesVotes = 0;
+		for (int j = 0; j < MAX_CLIENTS; j++) {
+			if (*votesInt & (1 << j))
+				++numYesVotes;
+		}
+
+		const int numRequired = g_vote_teamgen_team_requiredVotes.integer ? g_vote_teamgen_team_requiredVotes.integer : 5;
+		if (numYesVotes >= numRequired)
+			++numPermutationsWithEnoughVotesToPass;
+	}
+
 	int tiebreakerOrder[] = { 0, 1, 2, 3 };
 	srand(teamGenSeed);
 	FisherYatesShuffle(&tiebreakerOrder[0], 4, sizeof(int));
@@ -2372,7 +2397,10 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 		const int numRequired = g_vote_teamgen_team_requiredVotes.integer ? g_vote_teamgen_team_requiredVotes.integer : 5;
 
 		if (numYesVotes >= numRequired) {
-			TeamGenerator_QueueServerMessageInChat(-1, va("Teams proposal %c passed.", letter));
+			if (numPermutationsWithEnoughVotesToPass > 1)
+				TeamGenerator_QueueServerMessageInChat(-1, va("Teams proposal %c passed by random tiebreaker.", letter));
+			else
+				TeamGenerator_QueueServerMessageInChat(-1, va("Teams proposal %c passed.", letter));
 
 			char printMessage[1024] = { 0 };
 			Com_sprintf(printMessage, sizeof(printMessage), "*^1Red team:^7 (%0.2f'/. relative strength)\n", permutation->teams[0].relativeStrength * 100.0);
