@@ -5793,7 +5793,7 @@ void G_RunFrame( int levelTime ) {
 #endif
 
 	// reset g_lastTeamGenTime if server is emptyish
-	if (g_lastTeamGenTime.integer) {
+	if (g_lastTeamGenTime.integer && level.time - level.startTime >= 5000) {
 		int numIngame = 0;
 		for (i = 0; i < MAX_CLIENTS; i++) {
 			gentity_t *ent = &g_entities[i];
