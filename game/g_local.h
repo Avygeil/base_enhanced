@@ -1949,6 +1949,7 @@ typedef struct {
 
 	int g_lastIntermissionStartTimeSettingAtRoundStart; // what g_lastIntermissionStartTime was at the start of this round (before we changed it to "")
 	int g_lastTeamGenTimeSettingAtRoundStart; // what g_lastTeamGenTime was at the start of this round (before we changed it to "")
+	int shouldAnnounceBreak;
 } level_locals_t;
 
 

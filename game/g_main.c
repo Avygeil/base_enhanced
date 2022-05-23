@@ -1914,11 +1914,14 @@ void G_InitGame( int levelTime, int randomSeed, int restart, void *serverDbPtr )
 		level.g_lastTeamGenTimeSettingAtRoundStart = 0;
 
 		TeamGen_ClearRemindPositions();
-		TeamGen_AnnounceBreak();
+
+		if (level.g_lastIntermissionStartTimeSettingAtRoundStart)
+			level.shouldAnnounceBreak = qtrue;
 	}
 	else {
 		level.g_lastIntermissionStartTimeSettingAtRoundStart = 0;
 		level.g_lastTeamGenTimeSettingAtRoundStart = g_lastTeamGenTime.string[0] ? g_lastTeamGenTime.integer : 0;
+		level.shouldAnnounceBreak = qfalse;
 
 		if (g_lastTeamGenTime.integer)
 			TeamGen_DoAutoRestart();
@@ -5807,6 +5810,9 @@ void G_RunFrame( int levelTime ) {
 		if (numIngame <= 4)
 			trap_Cvar_Set("g_lastTeamGenTime", "");
 	}
+
+	if (level.shouldAnnounceBreak && level.time - level.startTime >= 500)
+		TeamGen_AnnounceBreak();
 
 	// print any queued messages
 	if (level.queuedServerMessagesList.size > 0) {

@@ -2635,9 +2635,27 @@ void TeamGen_AnnounceBreak(void) {
 		!level.g_lastIntermissionStartTimeSettingAtRoundStart)
 		return;
 
+	// sanity check; make sure a ton of time hasn't gone by since the end
 	int minSecs = Com_Clampi(5, 600, g_vote_teamgen_minSecsSinceIntermission.integer);
 	qboolean intermissionOccurredRecently = !!(((int)time(NULL)) - level.g_lastIntermissionStartTimeSettingAtRoundStart < (level.g_lastIntermissionStartTimeSettingAtRoundStart + 600));
 	if (!intermissionOccurredRecently || !(level.time - level.startTime < minSecs * 1000))
+		return;
+
+	// determine how long to show the message
+	int printDuration;
+	if (minSecs < 60)
+		printDuration = minSecs >= 45 ? 45000 : minSecs * 1000; // under 60s = show for max 45 seconds
+	else
+		printDuration = 60000; // over 60s = show for max 60 seconds
+
+	if (level.time - level.startTime >= printDuration) {
+		level.shouldAnnounceBreak = qfalse;
+		return;
+	}
+
+	// don't spam it
+	static int lastPrint = 0;
+	if (lastPrint && trap_Milliseconds() - lastPrint < 1500)
 		return;
 
 	char *waitUntilStr;
@@ -2650,32 +2668,87 @@ void TeamGen_AnnounceBreak(void) {
 		waitUntilStr = va("0:%02d", minSecs);
 	}
 
-	char *centerMessage;
-	int printDuration;
-	if (minSecs < 60) { // short break; just tell people to rename
-		centerMessage = "Go spec and rename if unpickable";
-		PrintIngame(-1, "%s\n", centerMessage);
-		printDuration = minSecs >= 45 ? 45000 : minSecs * 1000;
+	// for longer breaks, we try to get idiots to actually read the message and go AFK now rather than later
+	static char *cuteMessages[] = {
+		"Grab a coffee",
+		"Make some tea",
+		"Grab a snack",
+		"Take a piss",
+		"Move your 2015 VW Jetta",
+		"Answer a few emails",
+		"Eat some delicious kürtõs kalács",
+		"Fry an avocado omelette",
+		"Enjoy some exquisite fondue",
+		"Unwrap a slice of American cheese",
+		"Drink some hot milk with honey"
+	};
+	static int cuteMessageNum = -1;
+	if (cuteMessageNum == -1)
+		cuteMessageNum = Q_irand(0, ARRAY_LEN(cuteMessages) - 1);
+
+	const size_t messageSize = MAX_STRING_CHARS;
+	char *centerMessages = calloc(MAX_CLIENTS * messageSize, sizeof(char));
+
+	// build the unique centerprint string for each player, and print each player's unique console message
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *ent = &g_entities[i];
+		if (!ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED || !ent->client->account ||
+			ent->client->sess.clientType != CLIENT_TYPE_NORMAL || ent->client->pers.barredFromPugSelection) {
+			continue;
+		}
+
+		if (ent->client->account->flags & ACCOUNTFLAG_HARDPERMABARRED) {
+			continue; // don't print anything regardless of whether a hardpermabarred guy was temporarily marked pickable, since they can't change it in any case
+		}
+
+		if ((ent->client->account->flags & ACCOUNTFLAG_PERMABARRED) &&
+			(ent->client->pers.permaBarredDeclaredPickable || TeamGenerator_PlayerIsPermaBarredButTemporarilyForcedPickable(ent))) {
+			continue; // he has already been marked as pickable; don't print anything
+		}
+
+		qboolean hasSpecName = IsSpecName(ent->client->pers.netname);
+		qboolean isIngame = !!(ent->client->sess.sessionTeam == TEAM_RED || ent->client->sess.sessionTeam == TEAM_BLUE);
+
+		char pickabilityMessage[MAX_STRING_CHARS] = { 0 }, renameMessage[MAX_STRING_CHARS] = { 0 };
+		if (ent->client->account->flags & ACCOUNTFLAG_PERMABARRED) {
+			Com_sprintf(pickabilityMessage, sizeof(pickabilityMessage), "^1You are unpickable");
+			Com_sprintf(renameMessage, sizeof(renameMessage), "If you want to pug, enter %cpickable in chat", TEAMGEN_CHAT_COMMAND_CHARACTER);
+		}
+		else if (isIngame) { // ingame
+			Com_sprintf(pickabilityMessage, sizeof(pickabilityMessage), "^2You are pickable");
+
+			if (hasSpecName)
+				Com_sprintf(renameMessage, sizeof(renameMessage), "If you want to spec, go spec");
+			else
+				Com_sprintf(renameMessage, sizeof(renameMessage), "If you want to spec, go spec & rename");
+		}
+		else { // spec/racer
+			if (hasSpecName) {
+				Com_sprintf(pickabilityMessage, sizeof(pickabilityMessage), "^1You are unpickable");
+				Com_sprintf(renameMessage, sizeof(renameMessage), "If you want to pug, rename");
+			}
+			else {
+				Com_sprintf(pickabilityMessage, sizeof(pickabilityMessage), "^2You are pickable");
+				Com_sprintf(renameMessage, sizeof(renameMessage), "If you want to spec, rename");
+			}
+		}
+
+		if (minSecs < 60) { // short break; just tell people to rename
+			Com_sprintf(centerMessages + (i * messageSize), messageSize, "%s^7\n%s", pickabilityMessage, renameMessage);
+			if (!lastPrint) // only print the console message once
+				PrintIngame(i, "%s. ^7%s.\n", pickabilityMessage, renameMessage);
+		}
+		else { // longer break; trick idiots into actually looking at the message
+			Com_sprintf(centerMessages + (i * messageSize), messageSize, "^2%s AFK break^7\n\n%s\nand be back by %s\n\n%s^7\n%s", waitUntilStr, cuteMessages[Q_irand(0, ARRAY_LEN(cuteMessages) - 1)], waitUntilStr, pickabilityMessage, renameMessage);
+			if (!lastPrint) // only print the console message once
+				PrintIngame(i, "^2%s AFK break: %s and be back by %s\n%s. ^7%s.\n", waitUntilStr, cuteMessages[cuteMessageNum], waitUntilStr, pickabilityMessage, renameMessage);
+		}
 	}
-	else { // longer break; trick idiots into actually looking at the message
-		char *cuteMessages[] = {
-			"Grab a coffee",
-			"Make some tea",
-			"Grab a snack",
-			"Take a piss",
-			"Move your 2015 VW Jetta",
-			"Answer a few emails",
-			"Eat some delicious kürtõs kalács",
-			"Fry an avocado omelette",
-			"Enjoy some exquisite fondue",
-			"Unwrap a slice of American cheese",
-			"Drink some hot milk with honey"
-		};
-		centerMessage = va("^2%s AFK break^7\n\n%s\nand be back by %s\n\nGo spec and rename if unpickable", waitUntilStr, cuteMessages[Q_irand(0, ARRAY_LEN(cuteMessages) - 1)], waitUntilStr);
-		PrintIngame(-1, "^2%s AFK break: %s and be back by %s\nGo spec and rename if unpickable\n", waitUntilStr, cuteMessages[Q_irand(0, ARRAY_LEN(cuteMessages) - 1)], waitUntilStr);
-		printDuration = minSecs >= 90 ? 90000 : minSecs * 1000;
-	}
-	G_GlobalTickedCenterPrint(centerMessage, printDuration, qtrue);
+
+	G_UniqueTickedCenterPrint(centerMessages, messageSize, printDuration - (level.time - level.startTime), qtrue);
+	free(centerMessages);
+
+	lastPrint = trap_Milliseconds();
 }
 
 void TeamGenerator_DoReroll(qboolean forcedByServer) {
