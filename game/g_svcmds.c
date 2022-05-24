@@ -3777,8 +3777,8 @@ static void Svcmd_Pos_f(void) {
 	if (trap_Argc() < 3) {
 		Com_Printf(
 			"Usage:\n"
-			"pos view <account name> - view someone's position preferences\n"
-			"pos set <account name> <position> <1/2/3/avoid/clear>\n");
+			"pos view <account name>                          - view someone's position preferences\n"
+			"pos set <account name> <pos> <1/2/3/avoid/clear> - set someone's position preferences\n");
 		return;
 	}
 
@@ -3798,8 +3798,8 @@ static void Svcmd_Pos_f(void) {
 	if (!arg1[0] || !arg2[0]) {
 		Com_Printf(
 			"Usage:\n"
-			"pos view <account name> - view someone's position preferences\n"
-			"pos set <account name> <position> <1/2/3/avoid/clear>\n");
+			"pos view <account name>                          - view someone's position preferences\n"
+			"pos set <account name> <pos> <1/2/3/avoid/clear> - set someone's position preferences\n");
 		return;
 	}
 
@@ -3875,7 +3875,7 @@ static void Svcmd_Pos_f(void) {
 	}
 	else if (!Q_stricmp(arg1, "set") || !Q_stricmp(arg1, "change")) {
 		if (!arg3[0] || !CtfPositionFromString(arg3)) {
-			Com_Printf("Usage: pos set <account name> <position> <1/2/3/avoid/clear>\n");
+			Com_Printf("Usage: pos set <account name> <pos> <1/2/3/avoid/clear>\n");
 			return;
 		}
 
@@ -4069,8 +4069,8 @@ static void Svcmd_Pos_f(void) {
 	else {
 		Com_Printf(
 			"Usage:\n"
-			"pos view <account name> - view someone's position preferences\n"
-			"pos set <account name> <position> <1/2/3/avoid/clear>\n");
+			"pos view <account name>                          - view someone's position preferences\n"
+			"pos set <account name> <pos> <1/2/3/avoid/clear> - set someone's position preferences\n");
 		return;
 	}
 }
