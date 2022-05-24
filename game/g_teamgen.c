@@ -1800,7 +1800,7 @@ static char *GetNamesStringForPugProposal(const pugProposal_t *players) {
 	static char buf[MAX_CLIENTS * 32] = { 0 };
 	memset(buf, 0, sizeof(buf));
 
-	qboolean gotOne = qfalse;
+	int numGotten = 0;
 	for (int i = 0; i < MAX_CLIENTS; i++) {
 		const sortedClient_t *cl = &players->clients[i];
 		if (!cl->accountName[0])
@@ -1815,9 +1815,11 @@ static char *GetNamesStringForPugProposal(const pugProposal_t *players) {
 			}
 		}
 
-		Q_strcat(buf, sizeof(buf), va("%s%s%s", (gotOne ? ", " : ""), (gotOne && isLast ? "and " : ""), cl->accountName));
-		gotOne = qtrue;
+		Q_strcat(buf, sizeof(buf), va("%s%s%s", (numGotten ? ", " : ""), (numGotten && isLast ? "and " : ""), cl->accountName));
+		++numGotten;
 	}
+
+	Q_strcat(buf, sizeof(buf), va(" (%d players)", numGotten));
 
 	Q_StripColor(buf);
 	return buf;
