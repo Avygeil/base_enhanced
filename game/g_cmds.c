@@ -6615,10 +6615,23 @@ static void PrintPositionPreferences(gentity_t *ent) {
 		}
 	}
 
+	{
+		Q_strcat(buf, sizeof(buf), "\n^9      Unrated:^7 ");
+		qboolean gotOne = qfalse;
+		for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+			if (pref->first & (1 << pos) || pref->second & (1 << pos) || pref->third & (1 << pos) || pref->avoid & (1 << pos))
+				continue;
+			Q_strcat(buf, sizeof(buf), va("%s%s", gotOne ? ", " : "", NameForPos(pos)));
+			gotOne = qtrue;
+		}
+	}
+
 	if (ValidateAndCopyPositionPreferences(pref, &ent->client->account->validPref))
 		Q_strcat(buf, sizeof(buf), "\n");
 	else
-		Q_strcat(buf, sizeof(buf), "\n^3NOTE:^7 your position preferences are currently invalid. Check that they make sense (e.g. not having a position in more than one tier, not *only* having second choice preferences, etc.)\n");
+		Q_strcat(buf, sizeof(buf), "\n^3Warning:^7 your position preferences are currently invalid. Check that they make sense (e.g. not having a position in more than one tier, not *only* having second choice preferences, etc.)\n");
+
+	Q_strcat(buf, sizeof(buf), "\n^5Note: You do not need to set a preference for every position.^7 Leave a position unrated if you have no opinion on it (even rating a position as third choice may increase your chance of playing it, compared with not rating it at all).\n");
 
 	PrintIngame(ent - g_entities, buf);
 }
@@ -6635,6 +6648,7 @@ static void PrintPosHelp(gentity_t *ent) {
 		"  ^7pos avoid chase - you would like to avoid chase\n"
 		"  ^9pos clear base  - clear all preferences for base\n"
 		"  ^7pos clear       - clear all preferences\n"
+		"^5Note: You do not need to set a preference for every position.^7 Leave a position unrated if you have no opinion on it (even rating a position as third choice may increase your chance of playing it, compared with not rating it at all).\n"
 	);
 }
 
@@ -6724,7 +6738,7 @@ static void Cmd_Pos_f(gentity_t *ent) {
 		intention = INTENTION_THIRDCHOICE;
 	else if (stristr(intentionStr, "av"))
 		intention = INTENTION_AVOID;
-	else if (stristr(intentionStr, "cl") || stristr(intentionStr, "rem") || stristr(intentionStr, "rm") || stristr(intentionStr, "del") || stristr(intentionStr, "res"))
+	else if (stristr(intentionStr, "cl") || stristr(intentionStr, "rem") || stristr(intentionStr, "rm") || stristr(intentionStr, "del") || stristr(intentionStr, "res") || stristr(intentionStr, "0"))
 		intention = INTENTION_CLEAR;
 	if (!intention) {
 		PrintIngame(ent - g_entities, "You must enter what you want to do, e.g. '1', '2', '3', 'avoid', or 'clear'\n");

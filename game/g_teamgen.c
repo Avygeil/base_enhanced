@@ -1459,21 +1459,31 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 					}
 				}
 
-				// make sure their top preferences are rated
-				// one pos 1st and one pos 2nd = rate them both
-				// one pos 1st and two tied for 2nd = rate them all
-				// two poses tied for 1st and one 2nd = rate the ones tied for 1st
-				int topPrefsGotten = 0;
+				// make sure any positions they have put 1/2/3 are rated, even if we need to fabricate a low rating
 				for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
-					if (client->posPrefs.first & (1 << pos)) {
-						algoPlayer->rating[pos] = positionRatings->rating[pos];
-						++topPrefsGotten;
-					}
-				}
-				if (topPrefsGotten < 2) {
-					for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
-						if (client->posPrefs.second & (1 << pos)) {
+					if ((client->posPrefs.first & (1 << pos)) || (client->posPrefs.second & (1 << pos)) || (client->posPrefs.third & (1 << pos))) {
+						if (positionRatings->rating[pos] > 0) {
+							// they have a real rating on this pos
 							algoPlayer->rating[pos] = positionRatings->rating[pos];
+						}
+						else {
+							// they are interested in a pos they are unrated on; make up a rating based on their lowest legit rating
+							int lowestTier = 999;
+							for (int checkPos = CTFPOSITION_BASE; checkPos <= CTFPOSITION_OFFENSE; checkPos++) {
+								int tier = PlayerTierFromRating(positionRatings->rating[checkPos]);
+								if (tier != PLAYERRATING_UNRATED && tier < lowestTier)
+									lowestTier = tier;
+							}
+
+							if (lowestTier == 999) { // no legit rating whatsoever; just assume C-
+								algoPlayer->rating[pos] = PlayerTierToRating(PLAYERRATING_LOW_C);
+							}
+							else { // they have a legit rating on *some* position; reduce it by two minor tiers and use that for this position
+								int fabricatedTier = lowestTier - 2;
+								if (fabricatedTier < PLAYERRATING_LOW_C)
+									fabricatedTier = PLAYERRATING_LOW_C;
+								algoPlayer->rating[pos] = PlayerTierToRating(fabricatedTier);
+							}
 						}
 					}
 				}
