@@ -3762,6 +3762,319 @@ static void Svcmd_AutoRestartCancel_f(void) {
 	level.autoStartPending = qfalse;
 }
 
+static void NotifyPlayerOfAdminPosChange(account_t *account, const char *str) {
+	assert(account && str);
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *ent = &g_entities[i];
+		if (!ent->client || ent->client->pers.connected == CON_DISCONNECTED || !ent->client->account || ent->client->account != account)
+			continue;
+		PrintIngame(i, str);
+	}
+}
+
+// ent has a small penis
+static void Svcmd_Pos_f(void) {
+	if (trap_Argc() < 3) {
+		Com_Printf(
+			"Usage:\n"
+			"pos view <account name> - view someone's position preferences\n"
+			"pos set <account name> <position> <1/2/3/avoid/clear>\n");
+		return;
+	}
+
+	char arg1[MAX_ACCOUNTNAME_LEN] = { 0 }, arg2[MAX_STRING_CHARS] = { 0 }, arg3[MAX_STRING_CHARS] = { 0 }, arg4[MAX_STRING_CHARS] = { 0 };
+	trap_Argv(1, arg1, sizeof(arg1));
+	Q_strlwr(arg1);
+	if (trap_Argc() >= 3) {
+		trap_Argv(2, arg2, sizeof(arg2));
+		if (trap_Argc() >= 4) {
+			trap_Argv(3, arg3, sizeof(arg3));
+			if (trap_Argc() >= 5) {
+				trap_Argv(4, arg4, sizeof(arg4));
+			}
+		}
+	}
+
+	if (!arg1[0] || !arg2[0]) {
+		Com_Printf(
+			"Usage:\n"
+			"pos view <account name> - view someone's position preferences\n"
+			"pos set <account name> <position> <1/2/3/avoid/clear>\n");
+		return;
+	}
+
+	accountReference_t acc = G_GetAccountByName(arg2, qfalse);
+	if (!acc.ptr) {
+		G_Printf("Account '%s' does not exist.\n", arg2);
+		return;
+	}
+	positionPreferences_t *pref = &acc.ptr->expressedPref;
+
+	if (!Q_stricmp(arg1, "view") || !Q_stricmp(arg1, "list")) {
+		char buf[MAX_STRING_CHARS] = { 0 };
+		Com_sprintf(buf, sizeof(buf), "%s's position preferences: \n^3 First choice:^7 ", acc.ptr->name);
+
+		{
+			qboolean gotOne = qfalse;
+			for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+				if (pref->first & (1 << pos)) {
+					Q_strcat(buf, sizeof(buf), va("%s%s", gotOne ? ", " : "", NameForPos(pos)));
+					gotOne = qtrue;
+				}
+			}
+		}
+
+		{
+			Q_strcat(buf, sizeof(buf), "\n^9Second choice:^7 ");
+			qboolean gotOne = qfalse;
+			for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+				if (pref->second & (1 << pos)) {
+					Q_strcat(buf, sizeof(buf), va("%s%s", gotOne ? ", " : "", NameForPos(pos)));
+					gotOne = qtrue;
+				}
+			}
+		}
+
+		{
+			Q_strcat(buf, sizeof(buf), "\n^8 Third choice:^7 ");
+			qboolean gotOne = qfalse;
+			for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+				if (pref->third & (1 << pos)) {
+					Q_strcat(buf, sizeof(buf), va("%s%s", gotOne ? ", " : "", NameForPos(pos)));
+					gotOne = qtrue;
+				}
+			}
+		}
+
+		{
+			Q_strcat(buf, sizeof(buf), "\n^1        Avoid:^7 ");
+			qboolean gotOne = qfalse;
+			for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+				if (pref->avoid & (1 << pos)) {
+					Q_strcat(buf, sizeof(buf), va("%s%s", gotOne ? ", " : "", NameForPos(pos)));
+					gotOne = qtrue;
+				}
+			}
+		}
+
+		{
+			Q_strcat(buf, sizeof(buf), "\n^9      Unrated:^7 ");
+			qboolean gotOne = qfalse;
+			for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+				if (pref->first & (1 << pos) || pref->second & (1 << pos) || pref->third & (1 << pos) || pref->avoid & (1 << pos))
+					continue;
+				Q_strcat(buf, sizeof(buf), va("%s%s", gotOne ? ", " : "", NameForPos(pos)));
+				gotOne = qtrue;
+			}
+		}
+
+		Q_strcat(buf, sizeof(buf), "\n");
+		Com_Printf(buf);
+
+		return;
+	}
+	else if (!Q_stricmp(arg1, "set") || !Q_stricmp(arg1, "change")) {
+		if (!arg3[0] || !CtfPositionFromString(arg3)) {
+			Com_Printf("Usage: pos set <account name> <position> <1/2/3/avoid/clear>\n");
+			return;
+		}
+
+		const int pos = CtfPositionFromString(arg3);
+		const char *posStr = NameForPos(pos);
+
+		enum {
+			INTENTION_UNKNOWN = 0,
+			INTENTION_FIRSTCHOICE,
+			INTENTION_SECONDCHOICE,
+			INTENTION_THIRDCHOICE,
+			INTENTION_AVOID,
+			INTENTION_CLEAR
+		} intention = INTENTION_UNKNOWN;
+
+		if (stristr(arg4, "1") || stristr(arg4, "pref") || stristr(arg4, "top"))
+			intention = INTENTION_FIRSTCHOICE;
+		else if (stristr(arg4, "2") || stristr(arg4, "sec"))
+			intention = INTENTION_SECONDCHOICE;
+		else if (stristr(arg4, "3") || stristr(arg4, "thi"))
+			intention = INTENTION_THIRDCHOICE;
+		else if (stristr(arg4, "av"))
+			intention = INTENTION_AVOID;
+		else if (stristr(arg4, "cl") || stristr(arg4, "rem") || stristr(arg4, "rm") || stristr(arg4, "del") || stristr(arg4, "res") || stristr(arg4, "0"))
+			intention = INTENTION_CLEAR;
+
+		if (!intention) {
+			Com_Printf("'%s' is not a valid option. Enter 1/2/3/avoid/clear.\n", arg4);
+			return;
+		}
+
+		if (intention == INTENTION_FIRSTCHOICE) {
+			if (pref->first & (1 << pos)) {
+				Com_Printf("%s is already %s's first choice.\n", posStr, acc.ptr->name);
+				return;
+			}
+
+			qboolean printed = qfalse;
+
+			if (pref->second & (1 << pos)) {
+				Com_Printf("%s changed from %s's second choice to first choice.\n", posStr, acc.ptr->name);
+				NotifyPlayerOfAdminPosChange(acc.ptr, va("Your preference of %s was changed by admin from second choice to first choice.\n", posStr));
+				pref->second &= ~(1 << pos);
+				printed = qtrue;
+			}
+
+			if (pref->third & (1 << pos)) {
+				Com_Printf("%s changed from %s's third choice to first choice.\n", posStr, acc.ptr->name);
+				NotifyPlayerOfAdminPosChange(acc.ptr, va("Your preference of %s was changed by admin from third choice to first choice.\n", posStr));
+				pref->third &= ~(1 << pos);
+				printed = qtrue;
+			}
+
+			if (pref->avoid & (1 << pos)) {
+				Com_Printf("%s changed from avoided to %s's first choice.\n", posStr, acc.ptr->name);
+				NotifyPlayerOfAdminPosChange(acc.ptr, va("Your preference of %s was changed by admin from avoided to first choice.\n", posStr));
+				pref->avoid &= ~(1 << pos);
+				printed = qtrue;
+			}
+
+			pref->first |= (1 << pos);
+
+			if (!printed) {
+				Com_Printf("Set %s to %s's first choice.\n", posStr, acc.ptr->name);
+				NotifyPlayerOfAdminPosChange(acc.ptr, va("Your preference of %s was set by admin to first choice.\n", posStr));
+			}
+		}
+		else if (intention == INTENTION_SECONDCHOICE) {
+			if (pref->second & (1 << pos)) {
+				Com_Printf("%s is already %s's second choice.\n", posStr, acc.ptr->name);
+				return;
+			}
+
+			qboolean printed = qfalse;
+
+			if (pref->first & (1 << pos)) {
+				Com_Printf("%s changed from %s's first choice to second choice.\n", posStr, acc.ptr->name);
+				NotifyPlayerOfAdminPosChange(acc.ptr, va("Your preference of %s was changed by admin from first choice to second choice.\n", posStr));
+				pref->first &= ~(1 << pos);
+				printed = qtrue;
+			}
+
+			if (pref->third & (1 << pos)) {
+				Com_Printf("%s changed from %s's third choice to second choice.\n", posStr, acc.ptr->name);
+				NotifyPlayerOfAdminPosChange(acc.ptr, va("Your preference of %s was changed by admin from third choice to second choice.\n", posStr));
+				pref->third &= ~(1 << pos);
+				printed = qtrue;
+			}
+
+			if (pref->avoid & (1 << pos)) {
+				Com_Printf("%s changed from avoided to %s's second choice.\n", posStr, acc.ptr->name);
+				NotifyPlayerOfAdminPosChange(acc.ptr, va("Your preference of %s was changed by admin from avoided to second choice.\n", posStr));
+				pref->avoid &= ~(1 << pos);
+				printed = qtrue;
+			}
+
+			pref->second |= (1 << pos);
+
+			if (!printed) {
+				Com_Printf("Set %s to %s's second choice.\n", posStr, acc.ptr->name);
+				NotifyPlayerOfAdminPosChange(acc.ptr, va("Your preference of %s was set by admin to second choice.\n", posStr));
+			}
+		}
+		else if (intention == INTENTION_THIRDCHOICE) {
+			if (pref->third & (1 << pos)) {
+				Com_Printf("%s is already %s's third choice.\n", posStr, acc.ptr->name);
+				return;
+			}
+
+			qboolean printed = qfalse;
+
+			if (pref->first & (1 << pos)) {
+				Com_Printf("%s changed from %s's first choice to third choice.\n", posStr, acc.ptr->name);
+				NotifyPlayerOfAdminPosChange(acc.ptr, va("Your preference of %s was changed by admin from first choice to third choice.\n", posStr));
+				pref->first &= ~(1 << pos);
+				printed = qtrue;
+			}
+
+			if (pref->second & (1 << pos)) {
+				Com_Printf("%s changed from %s's second choice to third choice.\n", posStr, acc.ptr->name);
+				NotifyPlayerOfAdminPosChange(acc.ptr, va("Your preference of %s was changed by admin from second choice to third choice.\n", posStr));
+				pref->second &= ~(1 << pos);
+				printed = qtrue;
+			}
+
+			if (pref->avoid & (1 << pos)) {
+				Com_Printf("%s changed from avoided to %s's third choice.\n", posStr, acc.ptr->name);
+				NotifyPlayerOfAdminPosChange(acc.ptr, va("Your preference of %s was changed by admin from avoided to third choice.\n", posStr));
+				pref->avoid &= ~(1 << pos);
+				printed = qtrue;
+			}
+
+			pref->third |= (1 << pos);
+
+			if (!printed) {
+				Com_Printf("Set %s to %s's third choice.\n", posStr, acc.ptr->name);
+				NotifyPlayerOfAdminPosChange(acc.ptr, va("Your preference of %s was set by admin to third choice.\n", posStr));
+			}
+		}
+		else if (intention == INTENTION_AVOID) {
+			if (pref->avoid & (1 << pos)) {
+				Com_Printf("%s is already avoided by %s.\n", posStr, acc.ptr->name);
+				return;
+			}
+
+			qboolean printed = qfalse;
+
+			if (pref->first & (1 << pos)) {
+				Com_Printf("%s changed from %s's first choice to avoided.\n", posStr, acc.ptr->name);
+				NotifyPlayerOfAdminPosChange(acc.ptr, va("Your preference of %s was changed by admin from first choice to avoided.\n", posStr));
+				pref->first &= ~(1 << pos);
+				printed = qtrue;
+			}
+
+			if (pref->second & (1 << pos)) {
+				Com_Printf("%s changed from %s's second choice to avoided.\n", posStr, acc.ptr->name);
+				NotifyPlayerOfAdminPosChange(acc.ptr, va("Your preference of %s was changed by admin from second choice to avoided.\n", posStr));
+				pref->second &= ~(1 << pos);
+				printed = qtrue;
+			}
+
+			if (pref->third & (1 << pos)) {
+				Com_Printf("%s changed from %s's third choice to avoided.\n", posStr, acc.ptr->name);
+				NotifyPlayerOfAdminPosChange(acc.ptr, va("Your preference of %s was changed by admin from third choice to avoided.\n", posStr));
+				pref->third &= ~(1 << pos);
+				printed = qtrue;
+			}
+
+			pref->avoid |= (1 << pos);
+
+			if (!printed) {
+				Com_Printf("Set %s to avoided by %s.\n", posStr, acc.ptr->name);
+				NotifyPlayerOfAdminPosChange(acc.ptr, va("Your preference of %s was set by admin to avoided.\n", posStr));
+			}
+		}
+		else /*if (intention == INTENTION_CLEAR)*/ {
+			Com_Printf("Cleared all preferences for %s on %s.\n", acc.ptr->name, posStr);
+			NotifyPlayerOfAdminPosChange(acc.ptr, va("Your preference of %s was cleared by admin.\n", posStr));
+			pref->first &= ~(1 << pos);
+			pref->second &= ~(1 << pos);
+			pref->third &= ~(1 << pos);
+			pref->avoid &= ~(1 << pos);
+		}
+
+		if (!ValidateAndCopyPositionPreferences(pref, &acc.ptr->validPref))
+			Com_Printf("^3Warning^7: %s's position preferences are invalid. Check that they make sense (e.g. not having a position in more than one tier, not *only* having second choice preferences, etc.)\n", acc.ptr->name);
+		G_DBSetAccountProperties(acc.ptr);
+
+		return;
+	}
+	else {
+		Com_Printf(
+			"Usage:\n"
+			"pos view <account name> - view someone's position preferences\n"
+			"pos set <account name> <position> <1/2/3/avoid/clear>\n");
+		return;
+	}
+}
+
 static void Svcmd_CtfStats_f(void) {
 	char buf[16384] = { 0 };
 	if (trap_Argc() < 2) { // display all types if none is specified, i guess
@@ -4191,6 +4504,11 @@ qboolean	ConsoleCommand( void ) {
 
 	if (!Q_stricmp(cmd, "auto_restart_cancel")) {
 		Svcmd_AutoRestartCancel_f();
+		return qtrue;
+	}
+
+	if (!Q_stricmp(cmd, "pos")) {
+		Svcmd_Pos_f();
 		return qtrue;
 	}
 
