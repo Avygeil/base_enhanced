@@ -226,9 +226,21 @@ ctfPosition_t DetermineCTFPosition(stats_t *posGuy, qboolean enableDebugPrints) 
 		return posGuy->lastPosition;
 	}
 
-	// if i haven't been in the current block for 60+ seconds, reuse my last position
+	// if i haven't been in the current block for 120+ seconds, reuse my last position
 	if (posGuy->ticksNotPaused < g_svfps.integer * CTFPOSITION_MINIMUM_SECONDS) {
-		DebugCtfPosPrintf("%08x cl %d %s^7 (block %d): < 60 current block, so using lastPosition %s\n", posGuy, posGuy->clientNum, posGuy->name, posGuy->blockNum, NameForPos(posGuy->lastPosition));
+		DebugCtfPosPrintf("%08x cl %d %s^7 (block %d): < %d current block, so using lastPosition %s\n", posGuy, posGuy->clientNum, posGuy->name, posGuy->blockNum, CTFPOSITION_MINIMUM_SECONDS, NameForPos(posGuy->lastPosition));
+		return posGuy->lastPosition;
+	}
+
+	// if it's later into the match and i haven't been in the current block for 240+ seconds, reuse my last position
+	if (level.time - level.startTime >= CTFPOSITION_LATEGAME_THRESHOLD_MILLISECONDS && posGuy->ticksNotPaused < g_svfps.integer * CTFPOSITION_MINIMUM_SECONDS_LATEGAME) {
+		DebugCtfPosPrintf("%08x cl %d %s^7 (block %d): < %d current block (lategame), so using lastPosition %s\n", posGuy, posGuy->clientNum, posGuy->name, posGuy->blockNum, CTFPOSITION_MINIMUM_SECONDS_LATEGAME, NameForPos(posGuy->lastPosition));
+		return posGuy->lastPosition;
+	}
+
+	// assume that no swaps will occur at a certain point very late into the match
+	if (level.time - level.startTime >= CTFPOSITION_NOSWAPS_THRESHOLD_MILLISECONDS) {
+		DebugCtfPosPrintf("%08x cl %d %s^7 (block %d): beyond noswap threshold, so using lastPosition %s\n", posGuy, posGuy->clientNum, posGuy->name, posGuy->blockNum, NameForPos(posGuy->lastPosition));
 		return posGuy->lastPosition;
 	}
 

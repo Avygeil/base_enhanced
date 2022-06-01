@@ -954,9 +954,15 @@ typedef struct { //Should this store their g2 anim? for proper g2 sync?
 //#define DEBUGSTATSNAMES // uncomment this to see longer column names in stats
 
 #ifdef DEBUG_CTF_POSITION_STATS
-#define CTFPOSITION_MINIMUM_SECONDS		(60) // 60 seconds minimum for pos detection
+#define CTFPOSITION_MINIMUM_SECONDS						(60) // 60 seconds minimum for pos detection
+#define CTFPOSITION_MINIMUM_SECONDS_LATEGAME				(60) // 60 seconds minimum for pos detection
+#define CTFPOSITION_LATEGAME_THRESHOLD_MILLISECONDS		(600000) // start using the lategame minimum after this long
+#define CTFPOSITION_NOSWAPS_THRESHOLD_MILLISECONDS		(1200000) // don't detect any swaps after this long
 #else
-#define CTFPOSITION_MINIMUM_SECONDS		(120) // 120 seconds minimum for pos detection
+#define CTFPOSITION_MINIMUM_SECONDS						(120) // 120 seconds minimum for pos detection
+#define CTFPOSITION_MINIMUM_SECONDS_LATEGAME				(240) // 240 seconds minimum for pos detection after a certain point in the game
+#define CTFPOSITION_LATEGAME_THRESHOLD_MILLISECONDS		(600000) // start using the lategame minimum after this long
+#define CTFPOSITION_NOSWAPS_THRESHOLD_MILLISECONDS		(1200000) // don't detect any swaps after this long
 #endif
 
 #ifdef DEBUG_CTF_POSITION_STATS
