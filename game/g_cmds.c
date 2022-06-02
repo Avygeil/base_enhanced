@@ -2038,6 +2038,9 @@ static void WriteTextForToken( gentity_t *ent, const char token, char *buffer, s
 	case 'f': case 'F':
 		Com_sprintf( buffer, bufferSize, "%d", Com_Clampi( 0, 999, cl->ps.fd.forcePowersKnown == 0 ? 0 : cl->ps.fd.forcePower ) );
 		break;
+	case 'o': case 'O':
+		Com_sprintf(buffer, bufferSize, "%02d", Com_Clampi(0, 59, ((level.time - level.startTime + 30000) / 1000) % 60));
+		break;
 	case 'm': case 'M':
 		Com_sprintf( buffer, bufferSize, "%d", Com_Clampi( 0, 999, !weaponData[cl->ps.weapon].energyPerShot && !weaponData[cl->ps.weapon].energyPerShot ? 0 : cl->ps.ammo[weaponData[cl->ps.weapon].ammoIndex] ) );
 		break;
