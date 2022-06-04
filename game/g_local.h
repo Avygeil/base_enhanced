@@ -3161,6 +3161,8 @@ extern vmCvar_t		g_vote_teamgen_autoMapVoteSeconds;
 
 extern vmCvar_t		g_lastIntermissionStartTime;
 extern vmCvar_t		g_lastTeamGenTime;
+extern vmCvar_t		g_lastMapVotedMap;
+extern vmCvar_t		g_lastMapVotedTime;
 
 extern vmCvar_t		d_debugCtfPosCalculation;
 

@@ -2466,10 +2466,15 @@ void Svcmd_MapMultiVote_f() {
 	if (overrideMapName[0] && Q_stricmp(overrideMapName, selectedMapname)) {
 		Com_Printf("Overriding %s via map alias to %s\n", selectedMapname, overrideMapName);
 		Q_strncpyz(level.voteString, va("map %s", overrideMapName), sizeof(level.voteString));
+		trap_Cvar_Set("g_lastMapVotedMap", overrideMapName);
 	}
 	else {
 		Q_strncpyz(level.voteString, va("map %s", selectedMapname), sizeof(level.voteString));
+		trap_Cvar_Set("g_lastMapVotedMap", selectedMapname);
 	}
+	char timeBuf[MAX_STRING_CHARS] = { 0 };
+	Com_sprintf(timeBuf, sizeof(timeBuf), "%d", (int)time(NULL));
+	trap_Cvar_Set("g_lastMapVotedTime", timeBuf);
 	level.voteExecuteTime = level.time + 3000;
 	level.multiVoting = qfalse;
 	level.multiVoteHasWildcard = qfalse;

@@ -461,6 +461,8 @@ vmCvar_t	g_vote_teamgen_autoMapVoteSeconds;
 
 vmCvar_t	g_lastIntermissionStartTime;
 vmCvar_t	g_lastTeamGenTime;
+vmCvar_t	g_lastMapVotedMap;
+vmCvar_t	g_lastMapVotedTime;
 
 vmCvar_t	d_debugCtfPosCalculation;
 
@@ -924,9 +926,13 @@ static cvarTable_t		gameCvarTable[] = {
 #ifdef _DEBUG
 	{ &g_lastIntermissionStartTime, "g_lastIntermissionStartTime", "", CVAR_TEMP, 0, qfalse },
 	{ &g_lastTeamGenTime, "g_lastTeamGenTime", "", CVAR_TEMP, 0, qfalse },
+	{ &g_lastMapVotedMap, "g_lastMapVotedMap", "", CVAR_TEMP, 0, qfalse },
+	{ &g_lastMapVotedTime, "g_lastMapVotedTime", "", CVAR_TEMP, 0, qfalse },
 #else
 	{ &g_lastIntermissionStartTime, "g_lastIntermissionStartTime", "", CVAR_ROM | CVAR_TEMP, 0, qfalse },
 	{ &g_lastTeamGenTime, "g_lastTeamGenTime", "", CVAR_ROM | CVAR_TEMP, 0, qfalse },
+	{ &g_lastMapVotedMap, "g_lastMapVotedMap", "", CVAR_ROM | CVAR_TEMP, 0, qfalse },
+	{ &g_lastMapVotedTime, "g_lastMapVotedTime", "", CVAR_ROM | CVAR_TEMP, 0, qfalse },
 #endif
 
 	{ &d_debugCtfPosCalculation, "d_debugCtfPosCalculation", "0", CVAR_ARCHIVE, 0, qtrue },
@@ -3068,6 +3074,9 @@ void BeginIntermission(void) {
 			fabs(avgRed - round(avgRed)) < 0.1f &&
 			fabs(avgBlue - round(avgBlue)) < 0.1f)
 		{
+			// sanity check to make sure auto map vote works again after finishing a pug
+			trap_Cvar_Set("g_lastMapVotedMap", "");
+			trap_Cvar_Set("g_lastMapVotedTime", "");
 			G_PostScoreboardToWebhook(statsBuf);
 			G_DBAddCurrentMapToPlayedMapsList();
 			if (avgRedInt == 4 && avgBlueInt == 4 && !InstagibEnabled() && level.teamScores[TEAM_RED] != level.teamScores[TEAM_BLUE]) { // only write stats to db in untied non-instagib 4v4
@@ -6637,6 +6646,12 @@ void G_RunFrame( int levelTime ) {
 	if (g_notifyAFK.integer > 0 && !level.checkedForAFKs && level.firstFrameTime && (trap_Milliseconds() - level.firstFrameTime >= (g_notifyAFK.integer * 1000))) {
 		CheckForAFKs();
 		level.checkedForAFKs = qtrue;
+	}
+
+	// if we play at least 5 minutes of a live match, allow the auto map vote to happen again
+	if ((g_lastMapVotedMap.string[0] || g_lastMapVotedTime.string[0]) && level.time - level.startTime >= 300000 && PauseConditions()) {
+		trap_Cvar_Set("g_lastMapVotedMap", "");
+		trap_Cvar_Set("g_lastMapVotedTime", "");
 	}
 
     // report time wrapping 20 minutes ahead
