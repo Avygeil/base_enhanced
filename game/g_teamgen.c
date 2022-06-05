@@ -2068,6 +2068,13 @@ static void StartAutomaticTeamGenMapVote(void) {
 	if (g_vote_teamgen_autoMapVoteSeconds.integer <= 0)
 		return;
 
+	// try not to spam map votes if we voted somewhere and then changed teams without actually pugging there
+	if (g_lastMapVotedMap.string[0] && g_lastMapVotedTime.string[0] &&
+		!Q_stricmp(g_lastMapVotedMap.string, level.mapname) && Q_isanumber(g_lastMapVotedTime.string) &&
+		(int)time(NULL) - g_lastMapVotedTime.integer <= 1200) {
+		return;
+	}
+
 	// just use tierlist system only since the pool system is dead at this point
 	if (!g_vote_tierlist.integer) {
 		Com_Printf("g_vote_tierlist is disabled; unable to automatically start map vote.\n");
