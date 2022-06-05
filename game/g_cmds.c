@@ -3393,6 +3393,37 @@ void Cmd_CallVote_f( gentity_t *ent, int pause ) {
 		Com_sprintf ( level.voteString, sizeof(level.voteString ), "clientkick %d", clientid );
 		Com_sprintf ( level.voteDisplayString, sizeof(level.voteDisplayString), "kick %s%s", NM_SerializeUIntToColor(clientid), g_entities[clientid].client->pers.netname );
 	}
+	// add vote bar for pug barring
+	else if ( !Q_stricmp ( arg1, "bar" ) )
+	{
+		if (!g_allow_vote_pugbar.integer) {
+			trap_SendServerCommand(ent - g_entities, "print \"Vote bar is disabled.\n\"");
+			return;
+		}
+
+		if (g_pugbarVoteThreshold.integer) {
+			if (clientsTotal >= g_pugbarVoteThreshold.integer && clientsInGame < g_pugbarVotePlayers.integer) {
+				trap_SendServerCommand(ent - g_entities, "print \"Not enough players in game to call this vote.\n\"");
+				return;
+			}
+		}
+
+		int clientid = G_ClientNumberFromName(arg2);
+		if (clientid == -1)
+		{
+			clientid = G_ClientNumberFromStrippedName(arg2);
+
+			if (clientid == -1)
+			{
+				trap_SendServerCommand(ent - g_entities, va("print \"there is no client named '%s' currently on the server.\n\"", arg2));
+				return;
+			}
+		}
+
+		Com_sprintf ( level.voteString, sizeof(level.voteString), "pug bar %d", clientid );
+		Com_sprintf ( level.voteDisplayString, sizeof(level.voteDisplayString), "bar %s%s", NM_SerializeUIntToColor(clientid), g_entities[clientid].client->pers.netname );
+
+	}
 	else if ( !Q_stricmp( arg1, "nextmap" ) ) 
 	{
 		char	s[MAX_STRING_CHARS];

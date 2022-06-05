@@ -406,6 +406,7 @@ vmCvar_t	g_allow_vote_mapvote;
 vmCvar_t    g_allow_vote_warmup;
 vmCvar_t	g_allow_vote_boon;
 vmCvar_t	g_allow_vote_instagib;
+vmCvar_t	g_allow_vote_pugbar;
 vmCvar_t	g_default_capturedifflimit;
 vmCvar_t	g_enable_maprandom_wildcard;
 vmCvar_t	g_redirectDoWarmupVote;
@@ -479,6 +480,9 @@ vmCvar_t	g_callvotemaplimit;
 
 vmCvar_t	g_mapVotePlayers;
 vmCvar_t	g_mapVoteThreshold;
+
+vmCvar_t	g_pugbarVotePlayers;
+vmCvar_t	g_pugbarVoteThreshold;
 
 vmCvar_t	sv_privateclients;
 vmCvar_t	sv_passwordlessSpectators;
@@ -863,6 +867,7 @@ static cvarTable_t		gameCvarTable[] = {
     { &g_allow_vote_warmup, "g_allow_vote_warmup", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_allow_vote_boon, "g_allow_vote_boon", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_allow_vote_instagib, "g_allow_vote_instagib", "1", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_allow_vote_pugbar, "g_allow_vote_pugbar", "1", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_allowReady, "g_allowReady", "1", CVAR_ARCHIVE, 0, qtrue },
 
@@ -1010,6 +1015,9 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_mapVotePlayers,	"g_mapVotePlayers"	, "4"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_mapVoteThreshold,	"g_mapVoteThreshold", "10"	, CVAR_ARCHIVE, 0, qtrue },
+
+	{ &g_pugbarVotePlayers, "g_pugbarVotePlayers", "4" , CVAR_ARCHIVE, 0, qtrue },
+	{ &g_pugbarVoteThreshold, "g_pugbarVoteThreshold", "10", CVAR_ARCHIVE, 0, qtrue },
     
     { &sv_privateclients, "sv_privateclients", "0", CVAR_ARCHIVE | CVAR_SERVERINFO },
 	{ &sv_passwordlessSpectators, "sv_passwordlessSpectators", "0", CVAR_ARCHIVE | CVAR_SERVERINFO },

@@ -3092,6 +3092,7 @@ extern vmCvar_t     g_allow_vote_mapvote;
 extern vmCvar_t     g_allow_vote_warmup;
 extern vmCvar_t     g_allow_vote_boon;
 extern vmCvar_t     g_allow_vote_instagib;
+extern vmCvar_t		g_allow_vote_pugbar;
 extern vmCvar_t		g_default_capturedifflimit;
 extern vmCvar_t		g_enable_maprandom_wildcard;
 extern vmCvar_t		g_redirectDoWarmupVote;
@@ -3222,6 +3223,9 @@ extern vmCvar_t	   g_callvotemaplimit;
 
 extern vmCvar_t    g_mapVotePlayers;
 extern vmCvar_t    g_mapVoteThreshold;
+
+extern vmCvar_t    g_pugbarVotePlayers;
+extern vmCvar_t	   g_pugbarVoteThreshold;
 
 extern vmCvar_t	   sv_privateclients;
 extern vmCvar_t    sv_passwordlessSpectators;
