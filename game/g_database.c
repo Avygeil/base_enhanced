@@ -3275,6 +3275,19 @@ qboolean G_DBSelectTierlistMaps(MapSelectedCallback callback, void *context) {
 		free(temp);
 	}
 
+	// ensure ctf4 is always in the 4th slot because logic
+	if (numMapsPickedTotal >= 4) {
+		for (int i = 0; i < numMapsPickedTotal; i++) {
+			if (i == 3)
+				continue;
+			if (!Q_stricmp(chosenMapNames[i], "mp/ctf4") && chosenMapNames[3][0]) {
+				Q_strncpyz(chosenMapNames[i], chosenMapNames[3], sizeof(chosenMapNames[i]));
+				Q_strncpyz(chosenMapNames[3], "mp/ctf4", sizeof(chosenMapNames[3]));
+				break;
+			}
+		}
+	}
+
 	// run the callbacks
 	for (int i = 0; i < numMapsPickedTotal; i++) {
 		if (chosenMapNames[i][0])
