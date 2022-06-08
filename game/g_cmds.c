@@ -3648,6 +3648,7 @@ void Cmd_CallVote_f( gentity_t *ent, int pause ) {
 	level.voteNo = 0;
 	level.lastVotingClient = ent-g_entities;
 	level.multiVoting = qfalse;
+	level.runoffSurvivors = level.runoffLosers = 0llu;
 	level.inRunoff = qfalse;
 	level.mapsThatCanBeVotedBits = 0;
 	level.multiVoteChoices = 0;

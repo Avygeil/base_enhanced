@@ -1742,6 +1742,8 @@ typedef struct {
 	int			voteNo;
 	int			numVotingClients;		// set by fixVoters()
 	int			lastVotingClient;		//for delay purposes
+	unsigned long long runoffSurvivors;
+	unsigned long long runoffLosers;
 	qboolean	inRunoff;
 
 	qboolean	votingGametype;

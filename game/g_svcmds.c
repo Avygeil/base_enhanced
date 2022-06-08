@@ -1039,8 +1039,6 @@ void Svcmd_ShadowMute_f( void ) {
 	}
 }
 
-static unsigned long long runoffSurvivors = 0llu, runoffLosers = 0llu;
-
 void Svcmd_VoteForce_f( qboolean pass ) {
 	if ( !level.voteTime ) {
 		G_Printf("No vote in progress.\n");
@@ -1072,7 +1070,7 @@ void Svcmd_VoteForce_f( qboolean pass ) {
 		level.multiVoteHasWildcard = qfalse;
 		level.multivoteWildcardMapFileName[0] = '\0';
 		level.mapsThatCanBeVotedBits = 0;
-		runoffSurvivors = runoffLosers = 0llu;
+		level.runoffSurvivors = level.runoffLosers = 0llu;
 		memset( level.multiVotes, 0, sizeof( level.multiVotes ) );
 		memset(&level.multiVoteMapChars, 0, sizeof(level.multiVoteMapChars));
 		memset(&level.multiVoteMapShortNames, 0, sizeof(level.multiVoteMapShortNames));
@@ -1748,10 +1746,10 @@ static void mapSelectedCallback( void *context, char *mapname ) {
 
 	if (selection->numSelected == 1) {
 		for (int i = 0; i < MAX_CLIENTS; i++) {
-			if (runoffSurvivors & (1llu << (unsigned long long)i)) {
+			if (level.runoffSurvivors & (1llu << (unsigned long long)i)) {
 				Q_strncpyz(selection->printMessage[i], va("Runoff vote: waiting for other players to vote...\nMaps still in contention:"), sizeof(selection->printMessage[i]));
 			}
-			else if (runoffLosers & (1llu << (unsigned long long)i)) {
+			else if (level.runoffLosers & (1llu << (unsigned long long)i)) {
 				if (removedVotes[i]) {
 					char map[MAX_QPATH] = { 0 };
 					if (level.multivoteWildcardMapFileName[0] && !Q_stricmp(level.multiVoteMapFileNames[((int)removedVotes[i]) - 1], level.multivoteWildcardMapFileName))
@@ -1819,7 +1817,7 @@ static void mapSelectedCallback( void *context, char *mapname ) {
 	}
 
 	for (int i = 0; i < MAX_CLIENTS; i++) {
-		if (runoffSurvivors & (1llu << (unsigned long long)i)) {
+		if (level.runoffSurvivors & (1llu << (unsigned long long)i)) {
 			Q_strcat(selection->printMessage[i], sizeof(selection->printMessage[i]),
 				va("\n"S_COLOR_WHITE"%d - %s", thisMapVoteNum, mapDisplayName)
 			);
@@ -2057,7 +2055,7 @@ qboolean DoRunoff(void) {
 		if (level.multiVoteMapFileNames[i][0])
 			numChoices++;
 
-	runoffSurvivors = runoffLosers = 0llu;
+	level.runoffSurvivors = level.runoffLosers = 0llu;
 
 	// count the votes
 	qboolean gotAnyVote = qfalse;
@@ -2184,14 +2182,14 @@ qboolean DoRunoff(void) {
 		if (level.clients[i].pers.connected == CON_CONNECTED && voteId > 0 && voteId <= numChoices) {
 			if (!strchr(newMapChars, level.multiVoteMapChars[voteId - 1])) { // this guy's map was removed
 				level.clients[i].mGameFlags &= ~PSG_VOTED;
-				runoffLosers |= (1llu << (unsigned long long)i);
+				level.runoffLosers |= (1llu << (unsigned long long)i);
 				removedVotes[i] = level.multiVoteMapChars[level.multiVotes[i] - 1];
 				numRunoffLosers++;
 				G_LogPrintf("Client %d (%s) had their \"%s\" vote removed.\n", i, level.clients[i].pers.netname, level.multiVoteMapShortNames[((int)level.multiVoteMapChars[voteId - 1]) - 1]);
 			}
 			else { // this guy's map survived; his vote will be reinstated
 				reinstateVotes[i] = level.multiVoteMapChars[level.multiVotes[i] - 1];
-				runoffSurvivors |= (1llu << (unsigned long long)i);
+				level.runoffSurvivors |= (1llu << (unsigned long long)i);
 			}
 		}
 		if (numRemainingMaps > 1)
@@ -2224,7 +2222,7 @@ qboolean DoRunoff(void) {
 			for (int i = 0; i < MAX_CLIENTS; i++) {
 				if (level.clients[i].pers.connected != CON_CONNECTED || g_entities[i].r.svFlags & SVF_BOT)
 					continue;
-				if (runoffLosers & (1llu << (unsigned long long)i)) {
+				if (level.runoffLosers & (1llu << (unsigned long long)i)) {
 					if (numRunoffLosers == 1)
 						trap_SendServerCommand(i, va("print \"%s eliminated from contention. You may re-vote.\n\"", removedMapNamesStr));
 					else
@@ -2481,7 +2479,7 @@ void Svcmd_MapMultiVote_f() {
 	level.multiVoteChoices = 0;
 	level.multivoteWildcardMapFileName[0] = '\0';
 	level.mapsThatCanBeVotedBits = 0;
-	runoffSurvivors = runoffLosers = 0llu;
+	level.runoffSurvivors = level.runoffLosers = 0llu;
 	memset(level.multiVotes, 0, sizeof(level.multiVotes));
 	memset(&level.multiVoteMapChars, 0, sizeof(level.multiVoteMapChars));
 	memset(&level.multiVoteMapShortNames, 0, sizeof(level.multiVoteMapShortNames));
