@@ -1626,7 +1626,7 @@ static int NumPermutationsOfPlayer(int accountId, permutationOfTeams_t *p1, perm
 	return num;
 }
 
-#define NUM_TEAMGEN_ITERATIONS 32
+#define MAX_TEAMGEN_ITERATIONS 32
 
 // wrapper for calling GenerateTeams several times with the goal of finding the fairest distribution of player slots
 static qboolean GenerateTeamsIteratively(pugProposal_t *set, permutationOfTeams_t *mostPlayed, permutationOfTeams_t *highestCaliber, permutationOfTeams_t *fairest, permutationOfTeams_t *desired, uint64_t *numPermutations) {
@@ -1640,25 +1640,30 @@ static qboolean GenerateTeamsIteratively(pugProposal_t *set, permutationOfTeams_
 
 	// scale down the number of iterations if we have more people so that we don't have insanely long lag spikes (based on testing)
 	int numIterationsToDo;
-	switch ((int)numPlayers) {
-	case 9: case 10: case 11:		numIterationsToDo = 32;	break;
-	case 12:						numIterationsToDo = 16;	break;
-	case 13: case 14:				numIterationsToDo = 8;	break;
-	case 15:						numIterationsToDo = 6;	break;
-	case 16:						numIterationsToDo = 4;	break;
-	case 17:						numIterationsToDo = 2;	break;
-	default:							numIterationsToDo = 1;	break;
+	if (g_vote_teamgen_iterate.integer) {
+		switch ((int)numPlayers) {
+		case 9: case 10: case 11:		numIterationsToDo = 32;	break;
+		case 12:						numIterationsToDo = 16;	break;
+		case 13: case 14:				numIterationsToDo = 8;	break;
+		case 15:						numIterationsToDo = 6;	break;
+		case 16:						numIterationsToDo = 4;	break;
+		case 17:						numIterationsToDo = 2;	break;
+		default:							numIterationsToDo = 1;	break;
+		}
+	}
+	else {
+		numIterationsToDo = 1;
 	}
 
-	if (numIterationsToDo > NUM_TEAMGEN_ITERATIONS) {
+	if (numIterationsToDo > MAX_TEAMGEN_ITERATIONS) {
 		assert(qfalse); // idiot
-		numIterationsToDo = NUM_TEAMGEN_ITERATIONS;
+		numIterationsToDo = MAX_TEAMGEN_ITERATIONS;
 	}
 
 	unsigned int originalSeed = teamGenSeed;
-	static permutationOfTeams_t permutations[NUM_TEAMGEN_ITERATIONS][NUM_TEAMGENERATORTYPES];
+	static permutationOfTeams_t permutations[MAX_TEAMGEN_ITERATIONS][NUM_TEAMGENERATORTYPES];
 	memset(&permutations, 0, sizeof(permutations));
-	float sumOfSquares[NUM_TEAMGEN_ITERATIONS] = { 999999 };
+	float sumOfSquares[MAX_TEAMGEN_ITERATIONS] = { 999999 };
 
 	TeamGen_Initialize();
 
@@ -1666,7 +1671,7 @@ static qboolean GenerateTeamsIteratively(pugProposal_t *set, permutationOfTeams_
 	G_DBGetPlayerRatings();
 
 	int numEvaluated = 0;
-	for (int i = 0; i < NUM_TEAMGEN_ITERATIONS && i < numIterationsToDo; i++) {
+	for (int i = 0; i < MAX_TEAMGEN_ITERATIONS && i < numIterationsToDo; i++) {
 		// deterministically get a new seed for this set of permutations
 		teamGenSeed = originalSeed + (i * 29);
 
@@ -1713,7 +1718,7 @@ static qboolean GenerateTeamsIteratively(pugProposal_t *set, permutationOfTeams_
 	// pick the set of permutations with the lowest sum of squares
 	float lowestSumOfSquares = 999999999;
 	int bestIndex = -1;
-	for (int i = 0; i < NUM_TEAMGEN_ITERATIONS && i < numIterationsToDo && i < numEvaluated; i++) {
+	for (int i = 0; i < MAX_TEAMGEN_ITERATIONS && i < numIterationsToDo && i < numEvaluated; i++) {
 		if (sumOfSquares[i] < lowestSumOfSquares - 0.001f) { // treat numbers that are extremely close as equal
 			lowestSumOfSquares = sumOfSquares[i];
 			bestIndex = i;

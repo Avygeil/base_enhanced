@@ -458,6 +458,7 @@ vmCvar_t	g_vote_teamgen_remindToSetPositions;
 vmCvar_t	g_vote_teamgen_announceBreak;
 vmCvar_t	g_vote_teamgen_autoRestartOnMapChange;
 vmCvar_t	g_vote_teamgen_autoMapVoteSeconds;
+vmCvar_t	g_vote_teamgen_iterate;
 
 vmCvar_t	g_lastIntermissionStartTime;
 vmCvar_t	g_lastTeamGenTime;
@@ -922,6 +923,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_teamgen_announceBreak, "g_vote_teamgen_announceBreak", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_autoRestartOnMapChange, "g_vote_teamgen_autoRestartOnMapChange", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_autoMapVoteSeconds, "g_vote_teamgen_autoMapVoteSeconds", "60", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_teamgen_iterate, "g_vote_teamgen_iterate", "1", CVAR_ARCHIVE, 0, qfalse },
 
 #ifdef _DEBUG
 	{ &g_lastIntermissionStartTime, "g_lastIntermissionStartTime", "", CVAR_TEMP, 0, qfalse },
