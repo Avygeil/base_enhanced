@@ -390,6 +390,7 @@ typedef enum {
 	TEAMGENERATORTYPE_HIGHESTRATING,
 	TEAMGENERATORTYPE_FAIREST,
 	TEAMGENERATORTYPE_DESIREDPOS,
+	TEAMGENERATORTYPE_INCLUSIVE,
 	NUM_TEAMGENERATORTYPES
 } teamGeneratorType_t;
 void G_DBListRatingPlayers(int raterAccountId, int raterClientNum, ctfPosition_t pos);

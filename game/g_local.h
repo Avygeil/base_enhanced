@@ -1210,6 +1210,7 @@ typedef struct {
 	int numOnAvoidedPos;
 	int topTierImbalance;
 	int bottomTierImbalance;
+	int totalNumPermutations;
 } permutationOfTeams_t;
 
 typedef struct {
@@ -1234,11 +1235,11 @@ typedef struct {
 	int				votedToRerollClients;
 	int				votedToCancelClients;
 	qboolean		passed;
-	permutationOfTeams_t suggested, highestCaliber, fairest, desired;
+	permutationOfTeams_t suggested, highestCaliber, fairest, desired, inclusive;
 	uint64_t		numValidPermutationsChecked;
 	char			namesStr[1024];
-	char			suggestedLetter, highestCaliberLetter, fairestLetter, desiredLetter;
-	int				suggestedVoteClients, highestCaliberVoteClients, fairestVoteClients, desiredVoteClients;
+	char			suggestedLetter, highestCaliberLetter, fairestLetter, desiredLetter, inclusiveLetter;
+	int				suggestedVoteClients, highestCaliberVoteClients, fairestVoteClients, desiredVoteClients, inclusiveVoteClients;
 	list_t			avoidedHashesList;
 } pugProposal_t;
 
@@ -3155,6 +3156,7 @@ extern vmCvar_t		g_vote_teamgen_subhelp;
 extern vmCvar_t		g_vote_teamgen_rustWeeks;
 extern vmCvar_t		g_vote_teamgen_minSecsSinceIntermission;
 extern vmCvar_t		g_vote_teamgen_enableAppeasing;
+extern vmCvar_t		g_vote_teamgen_enableInclusive;
 extern vmCvar_t		g_vote_teamgen_remindPositions;
 extern vmCvar_t		g_vote_teamgen_remindToSetPositions;
 extern vmCvar_t		g_vote_teamgen_announceBreak;
