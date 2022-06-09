@@ -3264,6 +3264,11 @@ void TeamGenerator_DoReroll(qboolean forcedByServer) {
 		oldHashes.desired.hash = level.activePugProposal->desired.hash;
 		++numOld;
 	}
+	if (level.activePugProposal->inclusive.valid) {
+		oldHashes.inclusive.valid = qtrue;
+		oldHashes.inclusive.hash = level.activePugProposal->inclusive.hash;
+		++numOld;
+	}
 	assert(numOld);
 
 	//TeamGen_DebugPrintf("Reroll: %d numOld\n", numOld);
