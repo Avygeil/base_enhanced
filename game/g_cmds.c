@@ -6289,6 +6289,13 @@ static ctfPlayerTier_t StringToPlayerRating(const char *s) {
 		else if (low)
 			--tier;
 	}
+	else if (stristr(s, "d")) {
+		tier = PLAYERRATING_MID_D;
+		if (high)
+			++tier;
+		/*else if (low)
+			--tier;*/
+	}
 	else {
 		tier = PLAYERRATING_UNRATED;
 	}

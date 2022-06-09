@@ -5334,7 +5334,7 @@ void G_DBGetPlayerRatings(void) {
 		int averageTier = sqlite3_column_int(statement, 2);
 
 		qboolean isRusty = qfalse;
-		if (g_vote_teamgen_rustWeeks.integer > 0 && averageTier > PLAYERRATING_LOW_C) {
+		if (g_vote_teamgen_rustWeeks.integer > 0 && averageTier > PLAYERRATING_MID_D) {
 			rustyPlayer_t *found = ListFind(&level.rustyPlayersList, RustyPlayerMatches, &accountId, NULL);
 			if (found) {
 				averageTier -= 1;

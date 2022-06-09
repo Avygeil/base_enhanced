@@ -34,6 +34,8 @@ void TeamGen_Initialize(void) {
 
 double PlayerTierToRating(ctfPlayerTier_t tier) {
 	switch (tier) {
+	case PLAYERRATING_MID_D: return 0.4;
+	case PLAYERRATING_HIGH_D: return 0.45;
 	case PLAYERRATING_LOW_C: return 0.5;
 	case PLAYERRATING_MID_C: return 0.55;
 	case PLAYERRATING_HIGH_C: return 0.6;
@@ -60,11 +62,15 @@ ctfPlayerTier_t PlayerTierFromRating(double num) {
 	if (num >= 0.6 - 0.0001) return PLAYERRATING_HIGH_C;
 	if (num >= 0.55 - 0.0001) return PLAYERRATING_MID_C;
 	if (num >= 0.5 - 0.0001) return PLAYERRATING_LOW_C;
+	if (num >= 0.45 - 0.0001) return PLAYERRATING_HIGH_D;
+	if (num >= 0.4 - 0.0001) return PLAYERRATING_MID_D;
 	return PLAYERRATING_UNRATED;
 }
 
 char *PlayerRatingToString(ctfPlayerTier_t tier) {
 	switch (tier) {
+	case PLAYERRATING_MID_D: return "^1D";
+	case PLAYERRATING_HIGH_D: return "^1HIGH D";
 	case PLAYERRATING_LOW_C: return "^8LOW C";
 	case PLAYERRATING_MID_C: return "^8C";
 	case PLAYERRATING_HIGH_C: return "^8HIGH C";
@@ -82,6 +88,8 @@ char *PlayerRatingToString(ctfPlayerTier_t tier) {
 #ifdef DEBUG_GENERATETEAMS_PRINT
 static char *PlayerRatingToStringHTML(ctfPlayerTier_t tier) {
 	switch (tier) {
+	case PLAYERRATING_MID_D: return "<font color=red>D</font>";
+	case PLAYERRATING_HIGH_D: return "<font color=red>HIGH D</font>";
 	case PLAYERRATING_LOW_C: return "<font color=orange>LOW C</font>";
 	case PLAYERRATING_MID_C: return "<font color=orange>C</font>";
 	case PLAYERRATING_HIGH_C: return "<font color=orange>HIGH C</font>";
@@ -1248,9 +1256,8 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 					}
 				}
 				if (positionsWithHighestRating) {
-					if (PlayerTierFromRating(highestRating) == PLAYERRATING_LOW_C && mostPlayedPositions) {
-						// special case: their highest rating is a C, meaning they are C on any and all positions they have ratings on
-						// just assume that their most-played positions are higher caliber
+					if (PlayerTierFromRating(highestRating) <= PLAYERRATING_LOW_C && mostPlayedPositions) {
+						// special case for baddies; just assume that their most-played positions are higher caliber
 						algoPlayer->rating[mostPlayedPositions->mostPlayed] = positionRatings->rating[mostPlayedPositions->mostPlayed];
 						algoPlayer->rating[mostPlayedPositions->secondMostPlayed] = positionRatings->rating[mostPlayedPositions->secondMostPlayed];
 						algoPlayer->posPrefs.first = (1 << mostPlayedPositions->mostPlayed);
@@ -1431,8 +1438,8 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 							}
 							else { // they have a legit rating on *some* position; reduce it by two minor tiers and use that for this position
 								int fabricatedTier = lowestTier - 2;
-								if (fabricatedTier < PLAYERRATING_LOW_C)
-									fabricatedTier = PLAYERRATING_LOW_C;
+								if (fabricatedTier < PLAYERRATING_MID_D)
+									fabricatedTier = PLAYERRATING_MID_D;
 								algoPlayer->rating[pos] = PlayerTierToRating(fabricatedTier);
 							}
 						}
