@@ -4756,7 +4756,7 @@ qboolean PauseConditions(void) {
 #ifdef DEBUG_PAUSE
 	return qtrue;
 #else
-	if (!level.numTeamTicks)
+	if (!level.numTeamTicks || level.intermissionQueued || level.intermissiontime)
 		return qfalse;
 
 	float avgRed = (float)level.numRedPlayerTicks / (float)level.numTeamTicks;
