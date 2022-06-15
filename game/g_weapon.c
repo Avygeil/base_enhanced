@@ -1026,7 +1026,7 @@ void WP_DisruptorAltFire( gentity_t *ent )
 
 				tent = G_TempEntity( tr.endpos, EV_DISRUPTOR_HIT );
 				tent->s.eventParm = DirToByte( tr.plane.normal );
-				G_ApplyRaceBroadcastsToEvent( traceEnt, tent );
+				G_ApplyRaceBroadcastsToEvent( ent, tent );
 				if (traceEnt->client)
 				{
 					tent->s.weapon = 1;
