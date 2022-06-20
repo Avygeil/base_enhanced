@@ -4722,6 +4722,14 @@ int WP_DoSpecificPower( gentity_t *self, usercmd_t *ucmd, forcePowers_t forcepow
     if ( level.pause.state != PAUSE_NONE && self->client && !self->client->sess.inRacemode )
             return 0;
 
+	// allow th/te binds to work for either one
+	if (g_redirectWrongThTeBinds.integer) {
+		if (forcepower == FP_TEAM_HEAL && self && self->client && !(self->client->ps.fd.forcePowersKnown & (1 << FP_TEAM_HEAL)) && self->client->ps.fd.forcePowersKnown & (1 << FP_TEAM_FORCE))
+			forcepower = FP_TEAM_FORCE;
+		else if (forcepower == FP_TEAM_FORCE && self && self->client && !(self->client->ps.fd.forcePowersKnown & (1 << FP_TEAM_FORCE)) && self->client->ps.fd.forcePowersKnown & (1 << FP_TEAM_HEAL))
+			forcepower = FP_TEAM_HEAL;
+	}
+
 	// OVERRIDEFIXME
 	if ( !WP_ForcePowerAvailable( self, forcepower, 0 ) )
 	{

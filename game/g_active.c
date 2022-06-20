@@ -4230,10 +4230,18 @@ void ClientThink_real( gentity_t *ent ) {
 			ForceAbsorb(ent);
 			break;
 		case GENCMD_FORCE_HEALOTHER:
-			ForceTeamHeal(ent);
+			// allow th/te binds to work for either one
+			if (g_redirectWrongThTeBinds.integer && ent && ent->client && !(ent->client->ps.fd.forcePowersKnown & (1 << FP_TEAM_HEAL)) && ent->client->ps.fd.forcePowersKnown & (1 << FP_TEAM_FORCE))
+				ForceTeamForceReplenish(ent);
+			else
+				ForceTeamHeal(ent);
 			break;
 		case GENCMD_FORCE_FORCEPOWEROTHER:
-			ForceTeamForceReplenish(ent);
+			// allow th/te binds to work for either one
+			if (g_redirectWrongThTeBinds.integer && ent && ent->client && !(ent->client->ps.fd.forcePowersKnown & (1 << FP_TEAM_FORCE)) && ent->client->ps.fd.forcePowersKnown & (1 << FP_TEAM_HEAL))
+				ForceTeamHeal(ent);
+			else
+				ForceTeamForceReplenish(ent);
 			break;
 		case GENCMD_FORCE_SEEING:
 			// let racers toggle seeing in game players with force seeing

@@ -495,6 +495,7 @@ vmCvar_t	g_waitForAFKTimer;
 vmCvar_t	g_waitForAFKThreshold;
 vmCvar_t	g_waitForAFKMinPlayers;
 vmCvar_t	g_printCountry;
+vmCvar_t	g_redirectWrongThTeBinds;
 
 // nmckenzie: temporary way to show player healths in duels - some iface gfx in game would be better, of course.
 // DUEL_HEALTH
@@ -1049,6 +1050,7 @@ static cvarTable_t		gameCvarTable[] = {
 #endif
 
 	{ &g_printCountry, "g_printCountry", "1", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_redirectWrongThTeBinds, "g_redirectWrongThTeBinds", "1", CVAR_ARCHIVE, 0, qtrue },
 };
 
 // bk001129 - made static to avoid aliasing
