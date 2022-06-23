@@ -336,6 +336,8 @@ vmCvar_t	g_protectCallvoteHack;
 vmCvar_t    g_minimumVotesCount;
 vmCvar_t    g_fixPitKills;
 
+vmCvar_t	g_fixForceJumpAnimationLock;
+
 vmCvar_t	g_balanceSaber;
 vmCvar_t	g_balanceSeeing;
 
@@ -470,6 +472,8 @@ vmCvar_t	d_debugCtfPosCalculation;
 
 vmCvar_t	g_notFirstMap;
 vmCvar_t	g_shouldReloadPlayerPugStats;
+
+vmCvar_t	g_allowMoveDisable;
 
 vmCvar_t	g_rockPaperScissors;
 
@@ -795,6 +799,8 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_fixPitKills,	"g_fixPitKills"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
 
+	{ &g_fixForceJumpAnimationLock,	"g_fixForceJumpAnimationLock"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
+
 	{ &g_balanceSaber, "g_balanceSaber", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_balanceSeeing, "g_balanceSeeing", "0", CVAR_ARCHIVE, 0, qtrue },
 
@@ -944,6 +950,8 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_notFirstMap, "g_notFirstMap", "0", CVAR_ROM | CVAR_TEMP, 0, qfalse },
 	{ &g_shouldReloadPlayerPugStats, "g_shouldReloadPlayerPugStats", "0", CVAR_ROM | CVAR_TEMP, 0, qfalse },
+
+	{ &g_allowMoveDisable, "g_allowMoveDisable", "-1", CVAR_ARCHIVE | CVAR_SERVERINFO, 0, qtrue },
 
 	{ &g_rockPaperScissors, "g_rockPaperScissors", "0", CVAR_ARCHIVE, 0, qtrue },
 

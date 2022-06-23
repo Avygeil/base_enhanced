@@ -9799,6 +9799,7 @@ void PmoveSingle (pmove_t *pmove) {
 		pm->ps->legsAnim == BOTH_FORCELANDRIGHT1 ||
 		pm->ps->legsAnim == BOTH_FORCELANDLEFT1) 
 	{ //can't move while in a force land
+	if (!g_fixForceJumpAnimationLock.integer)
 		stiffenedUp = qtrue;
 	}
 

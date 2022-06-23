@@ -2078,6 +2078,21 @@ qboolean PM_InSecondaryStyle( void )
 	return qfalse;
 }
 
+qboolean ShittySaberMoveEnabled(int move) {
+	assert(move >= 0 && move < NUM_SHITTYSABERMOVES);
+
+	if (pm->ps->clientNum >= MAX_CLIENTS)
+		return qtrue;
+
+	if (g_allowMoveDisable.integer & (1 << move))
+		return qtrue;
+
+	if (level.clients[pm->ps->clientNum].sess.disableShittySaberMoves & (1 << move))
+		return qfalse;
+
+	return qtrue;
+}
+
 saberMoveName_t PM_SaberAttackForMovement(saberMoveName_t curmove)
 {
 	saberMoveName_t newmove = LS_NONE;
@@ -2173,12 +2188,12 @@ saberMoveName_t PM_SaberAttackForMovement(saberMoveName_t curmove)
 				AngleVectors( fwdAngles, NULL, right, NULL );
 				pm->ps->velocity[0] = pm->ps->velocity[1] = 0.0f; 
 				VectorMA( pm->ps->velocity, 190.0f, right, pm->ps->velocity );
-				if ( pm->ps->fd.saberAnimLevel == SS_STAFF )
+				if ( pm->ps->fd.saberAnimLevel == SS_STAFF && ShittySaberMoveEnabled(SHITTYSABERMOVE_BUTTERFLY) )
 				{
 					newmove = LS_BUTTERFLY_RIGHT;
 					pm->ps->velocity[2] = 350.0f;
 				}
-				else if ( allowCartwheels )
+				else if (pm->ps->fd.saberAnimLevel != SS_STAFF && allowCartwheels && ShittySaberMoveEnabled(SHITTYSABERMOVE_CARTWHEEL) )
 				{
 					PM_AddEvent( EV_JUMP );
 					pm->ps->velocity[2] = 300.0f;
@@ -2231,12 +2246,12 @@ saberMoveName_t PM_SaberAttackForMovement(saberMoveName_t curmove)
 				AngleVectors( fwdAngles, NULL, right, NULL );
 				pm->ps->velocity[0] = pm->ps->velocity[1] = 0.0f; 
 				VectorMA( pm->ps->velocity, -190.0f, right, pm->ps->velocity );
-				if ( pm->ps->fd.saberAnimLevel == SS_STAFF )
+				if ( pm->ps->fd.saberAnimLevel == SS_STAFF && ShittySaberMoveEnabled(SHITTYSABERMOVE_BUTTERFLY) )
 				{
 					newmove = LS_BUTTERFLY_LEFT;
 					pm->ps->velocity[2] = 250.0f;
 				}
-				else if ( allowCartwheels )
+				else if ( allowCartwheels && ShittySaberMoveEnabled(SHITTYSABERMOVE_CARTWHEEL) )
 				{
 					PM_AddEvent( EV_JUMP );
 					pm->ps->velocity[2] = 350.0f;
@@ -2281,7 +2296,8 @@ saberMoveName_t PM_SaberAttackForMovement(saberMoveName_t curmove)
 				pm->ps->weaponTime <= 0 &&
 				pm->ps->forceHandExtend == HANDEXTEND_NONE &&
 				(pm->cmd.buttons & BUTTON_ATTACK)&&
-				BG_EnoughForcePowerForMove(SABER_ALT_ATTACK_POWER_FB) )
+				BG_EnoughForcePowerForMove(SABER_ALT_ATTACK_POWER_FB) &&
+				ShittySaberMoveEnabled(SHITTYSABERMOVE_BUTTERFLY))
 			{ //DUAL/STAFF JUMP ATTACK
 				newmove = PM_SaberJumpAttackMove2();
 				if ( newmove != LS_A_T2B 
@@ -2297,7 +2313,8 @@ saberMoveName_t PM_SaberAttackForMovement(saberMoveName_t curmove)
 				(pm->cmd.upmove > 0 || (pm->ps->pm_flags & PMF_JUMP_HELD)) &&
 				!BG_InSpecialJump(pm->ps->legsAnim) &&
 				!BG_SaberInSpecialAttack(pm->ps->torsoAnim)&&
-				BG_EnoughForcePowerForMove(SABER_ALT_ATTACK_POWER_FB))
+				BG_EnoughForcePowerForMove(SABER_ALT_ATTACK_POWER_FB) &&
+				ShittySaberMoveEnabled(SHITTYSABERMOVE_DFA))
 			{ //FLIP AND DOWNWARD ATTACK
 
 				{
@@ -2316,7 +2333,8 @@ saberMoveName_t PM_SaberAttackForMovement(saberMoveName_t curmove)
 				PM_GroundDistance() < 32 &&
 				!BG_InSpecialJump(pm->ps->legsAnim) &&
 				!BG_SaberInSpecialAttack(pm->ps->torsoAnim)&&
-				BG_EnoughForcePowerForMove( SABER_ALT_ATTACK_POWER_FB ))
+				BG_EnoughForcePowerForMove( SABER_ALT_ATTACK_POWER_FB ) &&
+				ShittySaberMoveEnabled(SHITTYSABERMOVE_DFA))
 			{ //DFA
 				{
 					newmove = PM_SaberJumpAttackMove();
@@ -2332,7 +2350,8 @@ saberMoveName_t PM_SaberAttackForMovement(saberMoveName_t curmove)
 				(pm->ps->pm_flags & PMF_DUCKED) &&
 				pm->ps->weaponTime <= 0 &&
 				!BG_SaberInSpecialAttack(pm->ps->torsoAnim)&&
-				BG_EnoughForcePowerForMove(SABER_ALT_ATTACK_POWER_FB))
+				BG_EnoughForcePowerForMove(SABER_ALT_ATTACK_POWER_FB) &&
+				ShittySaberMoveEnabled(SHITTYSABERMOVE_LUNGE))
 			{ //LUNGE (weak)
 				newmove = PM_SaberLungeAttackMove( noSpecials );
 				if ( newmove != LS_A_T2B
@@ -2345,7 +2364,8 @@ saberMoveName_t PM_SaberAttackForMovement(saberMoveName_t curmove)
 			{
 				saberMoveName_t stabDownMove = PM_CheckStabDown();
 				if (stabDownMove != LS_NONE 
-					&& BG_EnoughForcePowerForMove(SABER_ALT_ATTACK_POWER_FB) )
+					&& BG_EnoughForcePowerForMove(SABER_ALT_ATTACK_POWER_FB) &&
+					ShittySaberMoveEnabled(SHITTYSABERMOVE_STAB))
 				{
 					newmove = stabDownMove;
 					BG_ForcePowerDrain(pm->ps, FP_GRIP, SABER_ALT_ATTACK_POWER_FB);
@@ -2369,11 +2389,12 @@ saberMoveName_t PM_SaberAttackForMovement(saberMoveName_t curmove)
 				!BG_SaberInAttack(pm->ps->saberMove) &&
 				pm->ps->weaponTime <= 0 &&
 				pm->ps->forceHandExtend == HANDEXTEND_NONE &&
-				(pm->cmd.buttons & BUTTON_ATTACK))
+				(pm->cmd.buttons & BUTTON_ATTACK) &&
+				ShittySaberMoveEnabled(SHITTYSABERMOVE_DFA))
 			{ //BACKFLIP ATTACK
 				newmove = PM_SaberBackflipAttackMove();
 			}
-			else if (PM_CanBackstab() && !BG_SaberInSpecialAttack(pm->ps->torsoAnim))
+			else if (PM_CanBackstab() && !BG_SaberInSpecialAttack(pm->ps->torsoAnim) && ShittySaberMoveEnabled(SHITTYSABERMOVE_STAB))
 			{ //BACKSTAB (attack varies by level)
 				if (pm->ps->fd.saberAnimLevel >= FORCE_LEVEL_2 && pm->ps->fd.saberAnimLevel != SS_STAFF)
 				{//medium and higher attacks
@@ -2427,7 +2448,8 @@ saberMoveName_t PM_SaberAttackForMovement(saberMoveName_t curmove)
 					|| newmove == LS_A_L2R  || newmove == LS_S_L2R )
 			&& PM_CanDoDualDoubleAttacks()
 			&& PM_CheckEnemyPresence( DIR_RIGHT, 100.0f )
-			&& PM_CheckEnemyPresence( DIR_LEFT, 100.0f ) )
+			&& PM_CheckEnemyPresence( DIR_LEFT, 100.0f ) &&
+			ShittySaberMoveEnabled(SHITTYSABERMOVE_STAB))
 		{//enemy both on left and right
 			newmove = LS_DUAL_LR;
 			//probably already moved, but...
@@ -2437,7 +2459,8 @@ saberMoveName_t PM_SaberAttackForMovement(saberMoveName_t curmove)
 					|| newmove == LS_A_BACK || newmove == LS_A_BACK_CR )
 			&& PM_CanDoDualDoubleAttacks()
 			&& PM_CheckEnemyPresence( DIR_FRONT, 100.0f )
-			&& PM_CheckEnemyPresence( DIR_BACK, 100.0f ) )
+			&& PM_CheckEnemyPresence( DIR_BACK, 100.0f ) &&
+			ShittySaberMoveEnabled(SHITTYSABERMOVE_STAB))
 		{//enemy both in front and back
 			newmove = LS_DUAL_FB;
 			//probably already moved, but...
@@ -2694,7 +2717,7 @@ void PM_WeaponLightsaber(void)
 			{
 				if ( BG_EnoughForcePowerForMove(SABER_ALT_ATTACK_POWER_FB) && !pm->ps->saberInFlight )
 				{
-					if ( PM_CanDoRollStab() )
+					if ( PM_CanDoRollStab() && ShittySaberMoveEnabled(SHITTYSABERMOVE_STAB) )
 					{
 						//make sure the saber is on for this move!
 						if ( pm->ps->saberHolstered == 2 )
@@ -3113,7 +3136,7 @@ weapChecks:
 		}
 	}
 
-	if ( PM_CanDoKata() )
+	if ( PM_CanDoKata() && ShittySaberMoveEnabled(SHITTYSABERMOVE_KATA) )
 	{
 		saberMoveName_t overrideMove = LS_INVALID;
 		saberInfo_t *saber1 = BG_MySaber( pm->ps->clientNum, 0 );

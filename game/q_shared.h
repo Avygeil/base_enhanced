@@ -355,6 +355,16 @@ typedef unsigned char 		byte;
 typedef unsigned short		word;
 typedef unsigned long		ulong;
 
+typedef enum {
+	SHITTYSABERMOVE_BUTTERFLY = 0,
+	SHITTYSABERMOVE_STAB,
+	SHITTYSABERMOVE_DFA,
+	SHITTYSABERMOVE_LUNGE,
+	SHITTYSABERMOVE_CARTWHEEL,
+	SHITTYSABERMOVE_KATA,
+	NUM_SHITTYSABERMOVES
+} shittySaberMove_t;
+
 typedef enum {qfalse, qtrue}	qboolean;
 #ifdef _XBOX
 #define	qboolean	int		//don't want strict type checking on the qboolean
