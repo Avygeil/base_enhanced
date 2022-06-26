@@ -2001,22 +2001,26 @@ static char* GetSuffixId( gentity_t *ent ) {
 	return buf;
 }
 
+#define NUM_SERIALIZE_BUFFERS	(4)
 char* NM_SerializeUIntToColor( const unsigned int n ) {
-	static char result[32] = { 0 };
+	static char result[NUM_SERIALIZE_BUFFERS][32] = { 0 };
+	static int index = -1;
 	char buf[32] = { 0 };
 	int i;
 
+	index = (index + 1) % NUM_SERIALIZE_BUFFERS;
+
 	Com_sprintf( buf, sizeof( buf ), "%o", n );
-	result[0] = '\0';
+	result[index][0] = '\0';
 
 	for ( i = 0; buf[i] != '\0'; ++i ) {
-		Q_strcat( result, sizeof( result ), va( "%c%c", Q_COLOR_ESCAPE, buf[i] ) );
+		Q_strcat( result[index], sizeof(result[index]), va("%c%c", Q_COLOR_ESCAPE, buf[i]));
 	}
 
 	if (debug_clientNumLog.integer)
-		G_LogPrintf("clientNumLog: client %u (%s) --> %s\n", n, level.clients[n].pers.netname, result);
+		G_LogPrintf("clientNumLog: client %u (%s) --> %s\n", n, level.clients[n].pers.netname, result[index]);
 
-	return &result[0];
+	return &result[index][0];
 }
 
 static void WriteTextForToken( gentity_t *ent, const char token, char *buffer, size_t bufferSize ) {

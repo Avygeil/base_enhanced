@@ -5121,9 +5121,9 @@ static void WaitForAFKs(void) {
 	else if (numAfks > 2)
 		Q_strncpyz(failReason, va("Waiting for %d players to unAFK", numAfks), sizeof(failReason));
 	else if (numAfks == 2)
-		Q_strncpyz(failReason, va("Waiting for %s^7\nand %s^7 to unAFK", level.clients[afkGuy1].pers.netname, level.clients[afkGuy2].pers.netname), sizeof(failReason));
+		Q_strncpyz(failReason, va("Waiting for %s%s^7\nand %s%s^7 to unAFK", NM_SerializeUIntToColor(afkGuy1), level.clients[afkGuy1].pers.netname, NM_SerializeUIntToColor(afkGuy2), level.clients[afkGuy2].pers.netname), sizeof(failReason));
 	else if (numAfks == 1)
-		Q_strncpyz(failReason, va("Waiting for %s^7 to %s", level.clients[afkGuy1].pers.netname, Q_stristrclean(level.clients[afkGuy1].pers.netname, "hannah") ? "hunAFK" : "unAFK"), sizeof(failReason));
+		Q_strncpyz(failReason, va("Waiting for %s%s^7 to %s", NM_SerializeUIntToColor(afkGuy1), level.clients[afkGuy1].pers.netname, Q_stristrclean(level.clients[afkGuy1].pers.netname, "hannah") ? "hunAFK" : "unAFK"), sizeof(failReason));
 
 	static int lastCenterPrintTime = 0;
 	if (currentCountdown) {
