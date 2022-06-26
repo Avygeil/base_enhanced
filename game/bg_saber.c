@@ -2084,7 +2084,7 @@ qboolean ShittySaberMoveEnabled(int move) {
 	if (pm->ps->clientNum >= MAX_CLIENTS)
 		return qtrue;
 
-	if (g_allowMoveDisable.integer & (1 << move))
+	if (!(g_allowMoveDisable.integer & (1 << move)))
 		return qtrue;
 
 	if (level.clients[pm->ps->clientNum].sess.disableShittySaberMoves & (1 << move))
