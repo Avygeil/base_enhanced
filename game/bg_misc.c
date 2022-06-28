@@ -2693,7 +2693,13 @@ void BG_TouchJumpPad( playerState_t *ps, entityState_t *jumppad ) {
 	// fix - no more jump draining force
 	ps->fd.forcePowersActive &= ~(1<<FP_LEVITATION);
 
-	if ( !g_bouncePadDoubleJump.integer ) {
+	// prevent the bug caused by g_bouncePadDoubleJump enabled + g_fixForceJumpAnimationLock enabled + holding space on jumppad
+	qboolean inShittyLandingAnimation = (ps->legsAnim == BOTH_FORCELAND1 ||
+		ps->legsAnim == BOTH_FORCELANDBACK1 ||
+		ps->legsAnim == BOTH_FORCELANDRIGHT1 ||
+		ps->legsAnim == BOTH_FORCELANDLEFT1);
+
+	if ( !g_bouncePadDoubleJump.integer || (inShittyLandingAnimation && g_fixForceJumpAnimationLock.integer) ) {
 		ps->pm_flags &= ~PMF_JUMP_HELD;
 	}
 }
