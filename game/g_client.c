@@ -2124,6 +2124,7 @@ void ClientUserinfoChanged( int clientNum ) {
 		if (strchr(s, 'd')) { client->sess.disableShittySaberMoves |= (1 << SHITTYSABERMOVE_LUNGE); }
 		if (strchr(s, 'e')) { client->sess.disableShittySaberMoves |= (1 << SHITTYSABERMOVE_CARTWHEEL); }
 		if (strchr(s, 'f')) { client->sess.disableShittySaberMoves |= (1 << SHITTYSABERMOVE_KATA); }
+		if (strchr(s, 'g')) { client->sess.disableShittySaberMoves |= (1 << SHITTYSABERMOVE_KICK); }
 
 		if (strchr(s, 'u')) {
 			client->sess.unlagged |= UNLAGGED_CLIENTINFO;
