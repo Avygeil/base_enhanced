@@ -5181,7 +5181,23 @@ void G_DBInitializePugStatsCache(void) {
 	int start, lastTime;
 	start = lastTime = trap_Milliseconds();
 
-	qboolean recalculate = (!level.wasRestarted && (g_shouldReloadPlayerPugStats.integer || !g_notFirstMap.integer));
+	qboolean recalculate = (!level.wasRestarted && ((g_shouldReloadPlayerPugStats.integer && g_recalculateStatsAfterPug.integer) || !g_notFirstMap.integer));
+
+	if (!recalculate) {
+		// also recalculate if server is empty
+		qboolean gotPlayer = qfalse;
+
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *ent = &g_entities[i];
+			if (ent->inuse && !(ent->r.svFlags & SVF_BOT) && ent->client && ent->client->pers.connected != CON_DISCONNECTED) {
+				gotPlayer = qtrue;
+				break;
+			}
+		}
+
+		if (!gotPlayer)
+			recalculate = qtrue;
+	}
 
 #if defined(_DEBUG) && defined(FAST_START)
 	Com_Printf("Debug build; using FAST_START.\n");

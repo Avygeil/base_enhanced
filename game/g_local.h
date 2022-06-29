@@ -3168,6 +3168,8 @@ extern vmCvar_t		g_vote_teamgen_autoRestartOnMapChange;
 extern vmCvar_t		g_vote_teamgen_autoMapVoteSeconds;
 extern vmCvar_t		g_vote_teamgen_iterate;
 
+extern vmCvar_t		g_recalculateStatsAfterPug;
+
 extern vmCvar_t		g_lastIntermissionStartTime;
 extern vmCvar_t		g_lastTeamGenTime;
 extern vmCvar_t		g_lastMapVotedMap;
