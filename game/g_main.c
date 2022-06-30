@@ -447,6 +447,7 @@ vmCvar_t	g_vote_mapCooldownMinutes;
 vmCvar_t	g_vote_runoffTimeModifier;
 vmCvar_t	g_vote_redirectMapVoteToLiveVersion;
 vmCvar_t	g_vote_printLiveVersionFullName;
+vmCvar_t	g_vote_overrideTrollVoters;
 
 vmCvar_t	g_vote_teamgen;
 vmCvar_t	g_vote_teamgen_pug_requiredVotes;
@@ -921,6 +922,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_teamgen, "g_vote_teamgen", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_redirectMapVoteToLiveVersion, "g_vote_redirectMapVoteToLiveVersion", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_printLiveVersionFullName, "g_vote_printLiveVersionFullName", "1", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_overrideTrollVoters, "g_vote_overrideTrollVoters", "1", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_vote_teamgen_pug_requiredVotes, "g_vote_teamgen_pug_requiredVotes", "4", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_teamgen_team_requiredVotes, "g_vote_teamgen_team_requiredVotes", "5", CVAR_ARCHIVE, 0, qtrue },
@@ -4397,7 +4399,7 @@ CheckVote
 ==================
 */
 extern void SiegeClearSwitchData(void);
-extern int* BuildVoteResults( int numChoices, int *numVotes, int *highestVoteCount );
+extern int* BuildVoteResults( int numChoices, int *numVotes, int *highestVoteCount, qboolean *dontEndDueToMajority);
 
 void CheckVote( void ) {
 	if ( level.voteExecuteTime && level.voteExecuteTime < level.time ) {
@@ -4556,7 +4558,8 @@ void CheckVote( void ) {
 	} else {
 		// special handler for multiple choices voting
 		int numVotes, highestVoteCount;
-		int *voteResults = BuildVoteResults( level.multiVoteChoices, &numVotes, &highestVoteCount );
+		qboolean dontEndDueToMajority = qfalse;
+		int *voteResults = BuildVoteResults( level.multiVoteChoices, &numVotes, &highestVoteCount, &dontEndDueToMajority);
 		free( voteResults );
 
 // the vote ends when a map has >50% majority, when everyone voted, or when the vote timed out
@@ -4564,7 +4567,7 @@ void CheckVote( void ) {
 			G_LogPrintf("Multi vote ended due to time (%d voters)\n", numVotes);
 			level.voteExecuteTime = level.time; // in this special case, execute it now. the delay is done in the svcmd
 		}
-		else if ( highestVoteCount >= ( ( level.numVotingClients / 2 ) + 1 )) {
+		else if ( !dontEndDueToMajority && highestVoteCount >= ( ( level.numVotingClients / 2 ) + 1 )) {
 			G_LogPrintf( "Multi vote ended due to majority vote (%d voters)\n", numVotes );
 			level.voteExecuteTime = level.time; // in this special case, execute it now. the delay is done in the svcmd
 		}
