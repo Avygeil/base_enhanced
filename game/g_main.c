@@ -3356,7 +3356,9 @@ void LogExit( const char *string ) {
 	gclient_t		*cl;
 	G_LogPrintf( "Exit: %s\n", string );
 
-	level.intermissionQueued = level.time;
+	// don't do delay when ending due to timelimit since it just feels janky and there's no frag to see
+	int delay = (VALIDSTRING(string) && !strcmp(string, "Timelimit hit.")) ? 0 : INTERMISSION_DELAY_TIME;
+	level.intermissionQueued = level.time + delay;
 
 
 	// this will keep the clients from playing any voice sounds
@@ -3935,7 +3937,7 @@ void CheckExitRules( void ) {
 	}
 
 	if ( level.intermissionQueued ) {
-		if ( level.time - level.intermissionQueued >= INTERMISSION_DELAY_TIME ) {
+		if ( level.time >= level.intermissionQueued ) {
 			level.intermissionQueued = 0;
 			BeginIntermission();
 		}
