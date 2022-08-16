@@ -172,6 +172,7 @@ vmCvar_t	g_webhookId;
 vmCvar_t	g_webhookToken;
 
 vmCvar_t	g_teamOverlayForce;
+vmCvar_t	g_teamOverlayForceAlignment;
 
 vmCvar_t	g_improvedHoming;
 vmCvar_t	g_improvedHomingThreshold;
@@ -980,6 +981,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_webhookToken, "g_webhookToken", "", CVAR_ARCHIVE, 0, qfalse },
 
 	{ &g_teamOverlayForce, "g_teamOverlayForce", "0", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
+	{ &g_teamOverlayForceAlignment, "g_teamOverlayForceAlignment", "0", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 
 	{ &g_teamPrivateDuels, "g_teamPrivateDuels", "0", CVAR_ARCHIVE, 0, qtrue },
 
@@ -5273,8 +5275,29 @@ void CheckSpecInfo(void) {
 			Q_strcat(playerString, sizeof(playerString), va(" mh=%d", bgSiegeClasses[cl->siegeClass].maxhealth));
 		if (g_gametype.integer == GT_SIEGE && cl->siegeClass != -1 && bgSiegeClasses[cl->siegeClass].maxarmor != 100)
 			Q_strcat(playerString, sizeof(playerString), va(" ma=%d", bgSiegeClasses[cl->siegeClass].maxarmor));
-		if (ent->s.powerups)
-			Q_strcat(playerString, sizeof(playerString), va(" p=%d", ent->s.powerups));
+		int p = ent->s.powerups;
+		if (g_teamOverlayForceAlignment.integer && g_gametype.integer != GT_SIEGE) {
+			if (ent->health > 0 && ent->client->ps.fd.forcePowersKnown) {
+				if (ent->client->ps.fd.forceSide == FORCE_LIGHTSIDE) {
+					p |= (1 << PW_FORCE_ENLIGHTENED_LIGHT);
+					p &= ~(1 << PW_FORCE_ENLIGHTENED_DARK);
+				}
+				else if (ent->client->ps.fd.forceSide == FORCE_DARKSIDE) {
+					p |= (1 << PW_FORCE_ENLIGHTENED_DARK);
+					p &= ~(1 << PW_FORCE_ENLIGHTENED_LIGHT);
+				}
+				else {
+					p &= ~(1 << PW_FORCE_ENLIGHTENED_LIGHT);
+					p &= ~(1 << PW_FORCE_ENLIGHTENED_DARK);
+				}
+			}
+			else {
+				p &= ~(1 << PW_FORCE_ENLIGHTENED_LIGHT);
+				p &= ~(1 << PW_FORCE_ENLIGHTENED_DARK);
+			}
+		}
+		if (p)
+			Q_strcat(playerString, sizeof(playerString), va(" p=%d", p));
 		Q_strcat(playerString, sizeof(playerString), "\"");
 
 		Q_strcat(totalString, sizeof(totalString), playerString);

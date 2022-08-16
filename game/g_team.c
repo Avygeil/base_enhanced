@@ -1483,6 +1483,28 @@ void TeamplayInfoMessage( gentity_t *ent ) {
 				a = player->client->ps.stats[STAT_ARMOR];
 				p = player->s.powerups;
 			}
+
+			if (g_teamOverlayForceAlignment.integer && g_gametype.integer != GT_SIEGE) {
+				if (player->health > 0 && player->client->ps.fd.forcePowersKnown) {
+					if (player->client->ps.fd.forceSide == FORCE_LIGHTSIDE) {
+						p |= (1 << PW_FORCE_ENLIGHTENED_LIGHT);
+						p &= ~(1 << PW_FORCE_ENLIGHTENED_DARK);
+					}
+					else if (player->client->ps.fd.forceSide == FORCE_DARKSIDE) {
+						p |= (1 << PW_FORCE_ENLIGHTENED_DARK);
+						p &= ~(1 << PW_FORCE_ENLIGHTENED_LIGHT);
+					}
+					else {
+						p &= ~(1 << PW_FORCE_ENLIGHTENED_LIGHT);
+						p &= ~(1 << PW_FORCE_ENLIGHTENED_DARK);
+					}
+				}
+				else {
+					p &= ~(1 << PW_FORCE_ENLIGHTENED_LIGHT);
+					p &= ~(1 << PW_FORCE_ENLIGHTENED_DARK);
+				}
+			}
+
 			if (a < 0) a = 0;
 
 			

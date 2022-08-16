@@ -2940,6 +2940,9 @@ void G_BroadcastServerFeatureList( int clientNum ) {
 	if (g_unlagged.integer)
 		Q_strcat(featureListConfigString, sizeof(featureListConfigString), "unlg ");
 
+	if (g_teamOverlayForceAlignment.integer && g_gametype.integer != GT_SIEGE)
+		Q_strcat(featureListConfigString, sizeof(featureListConfigString), "tola ");
+
 	if (g_teamOverlayForce.integer)
 		Q_strcat(featureListConfigString, sizeof(featureListConfigString), "tolf ");
 

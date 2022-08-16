@@ -95,10 +95,32 @@ void DeathmatchScoreboardMessage( gentity_t *ent ) {
 			realPing = Com_Clampi(-1, 999, cl->realPing);
 		specMix |= ((realPing & 0b1111111111) << 6);
 
+		int p = g_entities[level.sortedClients[i]].s.powerups;
+		if (g_teamOverlayForceAlignment.integer && g_gametype.integer != GT_SIEGE) {
+			if (g_entities[level.sortedClients[i]].health > 0 && g_entities[level.sortedClients[i]].client->ps.fd.forcePowersKnown) {
+				if (g_entities[level.sortedClients[i]].client->ps.fd.forceSide == FORCE_LIGHTSIDE) {
+					p |= (1 << PW_FORCE_ENLIGHTENED_LIGHT);
+					p &= ~(1 << PW_FORCE_ENLIGHTENED_DARK);
+				}
+				else if (g_entities[level.sortedClients[i]].client->ps.fd.forceSide == FORCE_DARKSIDE) {
+					p |= (1 << PW_FORCE_ENLIGHTENED_DARK);
+					p &= ~(1 << PW_FORCE_ENLIGHTENED_LIGHT);
+				}
+				else {
+					p &= ~(1 << PW_FORCE_ENLIGHTENED_LIGHT);
+					p &= ~(1 << PW_FORCE_ENLIGHTENED_DARK);
+				}
+			}
+			else {
+				p &= ~(1 << PW_FORCE_ENLIGHTENED_LIGHT);
+				p &= ~(1 << PW_FORCE_ENLIGHTENED_DARK);
+			}
+		}
+
 		Com_sprintf (entry, sizeof(entry),
 			" %i %i %i %i %i %i %i %i %i %i %i %i %i %i", level.sortedClients[i],
 			cl->ps.persistant[PERS_SCORE], ping, (level.time - cl->pers.enterTime)/60000,
-			specMix, g_entities[level.sortedClients[i]].s.powerups, accuracy, 
+			specMix, p, accuracy, 
 			
 			cl->stats ? cl->stats->fcKills : 0, //this can be replaced
 			                                       //but only here!
