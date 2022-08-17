@@ -96,24 +96,40 @@ void DeathmatchScoreboardMessage( gentity_t *ent ) {
 		specMix |= ((realPing & 0b1111111111) << 6);
 
 		int p = g_entities[level.sortedClients[i]].s.powerups;
+
 		if (g_teamOverlayForceAlignment.integer && g_gametype.integer != GT_SIEGE) {
-			if (g_entities[level.sortedClients[i]].health > 0 && g_entities[level.sortedClients[i]].client->ps.fd.forcePowersKnown) {
-				if (g_entities[level.sortedClients[i]].client->ps.fd.forceSide == FORCE_LIGHTSIDE) {
-					p |= (1 << PW_FORCE_ENLIGHTENED_LIGHT);
-					p &= ~(1 << PW_FORCE_ENLIGHTENED_DARK);
-				}
-				else if (g_entities[level.sortedClients[i]].client->ps.fd.forceSide == FORCE_DARKSIDE) {
-					p |= (1 << PW_FORCE_ENLIGHTENED_DARK);
-					p &= ~(1 << PW_FORCE_ENLIGHTENED_LIGHT);
+			// never send enemy force alignment
+			qboolean sendForceAlignment = qtrue;
+			if (g_gametype.integer >= GT_TEAM) {
+				if (ent && ent->client && ent->client->sess.sessionTeam == TEAM_RED && cl->sess.sessionTeam == TEAM_BLUE)
+					sendForceAlignment = qfalse;
+				else if (ent && ent->client && ent->client->sess.sessionTeam == TEAM_BLUE && cl->sess.sessionTeam == TEAM_RED)
+					sendForceAlignment = qfalse;
+			}
+			else {
+				if (ent && ent->client && ent->client->sess.sessionTeam == TEAM_FREE && cl->sess.sessionTeam == TEAM_FREE)
+					sendForceAlignment = qfalse;
+			}
+
+			if (sendForceAlignment) {
+				if (g_entities[level.sortedClients[i]].health > 0 && cl->ps.fd.forcePowersKnown) {
+					if (cl->ps.fd.forceSide == FORCE_LIGHTSIDE) {
+						p |= (1 << PW_FORCE_ENLIGHTENED_LIGHT);
+						p &= ~(1 << PW_FORCE_ENLIGHTENED_DARK);
+					}
+					else if (cl->ps.fd.forceSide == FORCE_DARKSIDE) {
+						p |= (1 << PW_FORCE_ENLIGHTENED_DARK);
+						p &= ~(1 << PW_FORCE_ENLIGHTENED_LIGHT);
+					}
+					else {
+						p &= ~(1 << PW_FORCE_ENLIGHTENED_LIGHT);
+						p &= ~(1 << PW_FORCE_ENLIGHTENED_DARK);
+					}
 				}
 				else {
 					p &= ~(1 << PW_FORCE_ENLIGHTENED_LIGHT);
 					p &= ~(1 << PW_FORCE_ENLIGHTENED_DARK);
 				}
-			}
-			else {
-				p &= ~(1 << PW_FORCE_ENLIGHTENED_LIGHT);
-				p &= ~(1 << PW_FORCE_ENLIGHTENED_DARK);
 			}
 		}
 
