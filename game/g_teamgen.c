@@ -3675,10 +3675,10 @@ qboolean TeamGenerator_CheckForChatCommand(gentity_t *ent, const char *s, char *
 		return qtrue;
 	}
 
-	if (!Q_stricmp(s, "start"))
+	if (!Q_stricmp(s, "start") || !Q_stricmp(s, "s"))
 		return TeamGenerator_PugStart(ent, newMessage);
 
-	if (!Q_stricmp(s, "reroll"))
+	if (!Q_stricmp(s, "reroll") || !Q_stricmp(s, "r"))
 		return TeamGenerator_VoteToReroll(ent, newMessage);
 
 	if (!Q_stricmp(s, "cancel"))
