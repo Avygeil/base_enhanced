@@ -3650,24 +3650,24 @@ qboolean TeamGenerator_CheckForChatCommand(gentity_t *ent, const char *s, char *
 		if (ent->client->account && (ent->client->account->flags & ACCOUNTFLAG_PERMABARRED) && !(ent->client->account->flags & ACCOUNTFLAG_HARDPERMABARRED)) {
 			PrintIngame(ent - g_entities,
 				"*Chat commands:\n"
-				"^7%cstart          - propose playing a pug with current non-spec players\n"
-				"^9%c[number]       - vote to approve a pug proposal\n"
-				"^7%c[ a | b | c | d ]  - vote to approve one or more teams proposals\n"
-				"^9%creroll         - vote to generate new teams proposals with the same players\n"
-				"^7%ccancel         - vote to generate new teams proposals with the same players\n"
-				"^9%clist           - show which players are part of each pug proposal\n"
-				"^7%cpickable       - declare yourself as pickable for pugs\n"
+				"^7%cstart             - propose playing a pug with current non-spec players\n"
+				"^9%c[number]          - vote to approve a pug proposal\n"
+				"^7%c[ a | b | c | d ] - vote to approve one or more teams proposals\n"
+				"^9%creroll            - vote to generate new teams proposals with the same players\n"
+				"^7%ccancel            - vote to generate new teams proposals with the same players\n"
+				"^9%clist              - show which players are part of each pug proposal\n"
+				"^7%cpickable          - declare yourself as pickable for pugs\n"
 				, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER);
 		}
 		else {
 			PrintIngame(ent - g_entities,
 				"*Chat commands:\n"
-				"^7%cstart          - propose playing a pug with current non-spec players\n"
-				"^9%c[number]       - vote to approve a pug proposal\n"
-				"^7%c[ a | b | c | d ]  - vote to approve one or more teams proposals\n"
-				"^9%creroll         - vote to generate new teams proposals with the same players\n"
-				"^7%ccancel         - vote to generate new teams proposals with the same players\n"
-				"^9%clist           - show which players are part of each pug proposal\n"
+				"^7%cstart             - propose playing a pug with current non-spec players\n"
+				"^9%c[number]          - vote to approve a pug proposal\n"
+				"^7%c[ a | b | c | d ] - vote to approve one or more teams proposals\n"
+				"^9%creroll            - vote to generate new teams proposals with the same players\n"
+				"^7%ccancel            - vote to generate new teams proposals with the same players\n"
+				"^9%clist              - show which players are part of each pug proposal\n"
 				"^7"
 				, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER);
 		}
