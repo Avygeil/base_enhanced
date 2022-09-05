@@ -1397,6 +1397,19 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 				sortedClient_t *cl = set->clients + j;
 				if (!cl->accountName[0])
 					continue;
+
+				// make sure this guy hasn't gone spec; we don't want to count him as left out
+				// if he decided to become a spectator after the pug proposal passed
+				if (cl->clientNum >= 0 && cl->clientNum < MAX_CLIENTS) {
+					gentity_t *checkSpec = &g_entities[cl->clientNum];
+					if (!checkSpec->inuse || !checkSpec->client || checkSpec->client->pers.connected == CON_DISCONNECTED ||
+						!checkSpec->client->account || checkSpec->client->sess.clientType != CLIENT_TYPE_NORMAL ||
+						TeamGenerator_PlayerIsBarredFromTeamGenerator(checkSpec) ||
+						(IsRacerOrSpectator(checkSpec) && IsSpecName(checkSpec->client->pers.netname))) {
+						continue;
+					}
+				}
+
 				int numPermutationsThisPlayer = NumPermutationsOfPlayer(cl->accountId, mostPlayed, highestCaliber, fairest, desired, inclusive);
 				if (!numPermutationsThisPlayer) {
 					gotPlayerWithZeroPermutations = qtrue;
@@ -1871,6 +1884,12 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 		}
 
 		free(players);
+
+		// fucking redundant sanity check to make sure we don't get inclusive if appeasing was generated
+		if (type == TEAMGENERATORTYPE_INCLUSIVE && desired && desired->valid) {
+			TeamGen_DebugPrintf("<font color=red>==========Discarding type %d since appeasing pass was valid.==========</font><br/>", type);
+			continue;
+		}
 
 		if (!thisPermutation->valid) {
 			// still couldn't get a valid permutation for this teamgen type, even without the chase rule
