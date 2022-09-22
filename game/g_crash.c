@@ -440,6 +440,7 @@ void Linux_Handler (int signo, siginfo_t * siginfo, void *context)
 	
 	fprintf(CrashLogFile, "Exception Address: 0x%08X \n", (unsigned int)(siginfo->si_addr));  
 
+#ifdef i386
 	fprintf(CrashLogFile, "\n-----------------------------------\n");
 	fprintf(CrashLogFile, "           Register Dump           \n");
 	fprintf(CrashLogFile, "-----------------------------------\n");
@@ -456,6 +457,7 @@ void Linux_Handler (int signo, siginfo_t * siginfo, void *context)
 		ucontext->uc_mcontext.gregs[REG_EIP], 
 		ucontext->uc_mcontext.gregs[REG_ESI], 
 		ucontext->uc_mcontext.gregs[REG_ESP] ); 
+#endif
 
 	Linux_PrintCallStack(CrashLogFile, context, 100);
 
