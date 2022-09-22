@@ -589,21 +589,27 @@ qboolean PatchEngine( void )
 
     Com_Printf("Patching engine.\n");
 
+#ifdef FULLSERVER_CONNECT_REPORT
 	memset(connectingIPLog, 0, sizeof(connectingIPLog));
+#endif
 
+#ifdef PATCH_ENGINE
 	//Place hooks
 	for ( i=0; i<numHooks; i++ ){
 		if (!PlaceHook( &hooks[i] )){
 			success = qfalse;
 		}
 	}
+#endif
 
+#ifdef PATCH_ENGINE
 	//Memory Overwrites
 	for ( i=0; i<numReplaces; i++ ){
 		if (!ReplaceMemory(&replaces[i])){
 			success = qfalse;
 		}
 	}
+#endif
 
 	enginePatched = qtrue;
 
@@ -622,19 +628,23 @@ qboolean UnpatchEngine( void )
 
     Com_Printf("Unpatching engine.\n");
 	
+#ifdef PATCH_ENGINE
 	//Remove hooks
 	for ( i=0; i<numHooks; i++ ){
 		if (!RemoveHook( &hooks[i] )){
 			success = qfalse;
 		}
 	}
+#endif
 
+#ifdef PATCH_ENGINE
 	//Memory Restores
 	for ( i=0; i<numReplaces; i++ ){
 		if (!RestoreMemory(&replaces[i])){
 			success = qfalse;
 		}
 	}
+#endif
 
 	enginePatched = qfalse;
 
