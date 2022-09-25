@@ -2952,6 +2952,12 @@ void G_BroadcastServerFeatureList( int clientNum ) {
 	if (g_fixForceJumpAnimationLock.integer)
 		Q_strcat(featureListConfigString, sizeof(featureListConfigString), "fjal ");
 
+	if (g_fixNoAmmoShootAnimation.integer)
+		Q_strcat(featureListConfigString, sizeof(featureListConfigString), "fnas ");
+
+	if (g_fix5AmmoSniping.integer)
+		Q_strcat(featureListConfigString, sizeof(featureListConfigString), "f5as ");
+
 	trap_SetConfigstring(CS_SERVERFEATURELIST, featureListConfigString);
 
 	if (*trap_kd_numunique())

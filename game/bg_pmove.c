@@ -7119,156 +7119,307 @@ static void PM_Weapon( void )
 		return;
 	}
 
-	if (pm->ps->weapon == WP_DISRUPTOR && pm->ps->zoomMode == 1)
-	{
-		PM_StartTorsoAnim( BOTH_ATTACK4 );
-	}
-	else if (pm->ps->weapon == WP_MELEE)
-	{ //special anims for standard melee attacks
-		//Alternate between punches and use the anim length as weapon time.
-		if (!pm->ps->m_iVehicleNum)
-		{ //if riding a vehicle don't do this stuff at all
-			if (pm->debugMelee &&
-				(pm->cmd.buttons & BUTTON_ATTACK) &&
-				(pm->cmd.buttons & BUTTON_ALT_ATTACK))
-			{ //ok, grapple time
+	if (g_fixNoAmmoShootAnimation.integer) {
+		if (pm->ps->weapon == WP_MELEE)
+		{ //special anims for standard melee attacks
+			//Alternate between punches and use the anim length as weapon time.
+			if (!pm->ps->m_iVehicleNum)
+			{ //if riding a vehicle don't do this stuff at all
+				if (pm->debugMelee &&
+					(pm->cmd.buttons & BUTTON_ATTACK) &&
+					(pm->cmd.buttons & BUTTON_ALT_ATTACK))
+				{ //ok, grapple time
 #if 0 //eh, I want to try turning the saber off, but can't do that reliably for prediction..
-				qboolean icandoit = qtrue;
-				if (pm->ps->weaponTime > 0)
-				{ //weapon busy
-					icandoit = qfalse;
-				}
-				if (pm->ps->forceHandExtend != HANDEXTEND_NONE)
-				{ //force power or knockdown or something
-					icandoit = qfalse;
-				}
-				if (pm->ps->weapon != WP_SABER && pm->ps->weapon != WP_MELEE)
-				{
-					icandoit = qfalse;
-				}
-
-				if (icandoit)
-				{
-					PM_SetAnim(SETANIM_BOTH, BOTH_KYLE_GRAB, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD, 0);
-					if (pm->ps->torsoAnim == BOTH_KYLE_GRAB)
-					{ //providing the anim set succeeded..
-						pm->ps->torsoTimer += 500; //make the hand stick out a little longer than it normally would
-						if (pm->ps->legsAnim == pm->ps->torsoAnim)
-						{
-							pm->ps->legsTimer = pm->ps->torsoTimer;
-						}
-						pm->ps->weaponTime = pm->ps->torsoTimer;
-						return;
+					qboolean icandoit = qtrue;
+					if (pm->ps->weaponTime > 0)
+					{ //weapon busy
+						icandoit = qfalse;
 					}
-				}
-#else
-	#ifdef QAGAME
-				if (pm_entSelf)
-				{
-					if (TryGrapple((gentity_t *)pm_entSelf))
+					if (pm->ps->forceHandExtend != HANDEXTEND_NONE)
+					{ //force power or knockdown or something
+						icandoit = qfalse;
+					}
+					if (pm->ps->weapon != WP_SABER && pm->ps->weapon != WP_MELEE)
 					{
-						return;
-					}
-				}
-	#else
-				return;
-	#endif
-#endif
-			}
-			else if (pm->debugMelee &&
-				(pm->cmd.buttons & BUTTON_ALT_ATTACK))
-			{ //kicks
-				if (!BG_KickingAnim(pm->ps->torsoAnim) &&
-					!BG_KickingAnim(pm->ps->legsAnim))
-				{
-					int kickMove = PM_KickMoveForConditions();
-					if (kickMove == LS_HILT_BASH)
-					{ //yeah.. no hilt to bash with!
-						kickMove = LS_KICK_F;
+						icandoit = qfalse;
 					}
 
-					if (kickMove != -1)
+					if (icandoit)
 					{
-						if ( pm->ps->groundEntityNum == ENTITYNUM_NONE )
-						{//if in air, convert kick to an in-air kick
-							float gDist = PM_GroundDistance();
-							//let's only allow air kicks if a certain distance from the ground
-							//it's silly to be able to do them right as you land.
-							//also looks wrong to transition from a non-complete flip anim...
-							if ((!BG_FlippingAnim( pm->ps->legsAnim ) || pm->ps->legsTimer <= 0) &&
-								gDist > 64.0f && //strict minimum
-								gDist > (-pm->ps->velocity[2])-64.0f //make sure we are high to ground relative to downward velocity as well
-								)
+						PM_SetAnim(SETANIM_BOTH, BOTH_KYLE_GRAB, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD, 0);
+						if (pm->ps->torsoAnim == BOTH_KYLE_GRAB)
+						{ //providing the anim set succeeded..
+							pm->ps->torsoTimer += 500; //make the hand stick out a little longer than it normally would
+							if (pm->ps->legsAnim == pm->ps->torsoAnim)
 							{
-								switch ( kickMove )
+								pm->ps->legsTimer = pm->ps->torsoTimer;
+							}
+							pm->ps->weaponTime = pm->ps->torsoTimer;
+							return;
+						}
+					}
+#else
+#ifdef QAGAME
+					if (pm_entSelf)
+					{
+						if (TryGrapple((gentity_t *)pm_entSelf))
+						{
+							return;
+						}
+					}
+#else
+					return;
+#endif
+#endif
+				}
+				else if (pm->debugMelee &&
+					(pm->cmd.buttons & BUTTON_ALT_ATTACK))
+				{ //kicks
+					if (!BG_KickingAnim(pm->ps->torsoAnim) &&
+						!BG_KickingAnim(pm->ps->legsAnim))
+					{
+						int kickMove = PM_KickMoveForConditions();
+						if (kickMove == LS_HILT_BASH)
+						{ //yeah.. no hilt to bash with!
+							kickMove = LS_KICK_F;
+						}
+
+						if (kickMove != -1)
+						{
+							if (pm->ps->groundEntityNum == ENTITYNUM_NONE)
+							{//if in air, convert kick to an in-air kick
+								float gDist = PM_GroundDistance();
+								//let's only allow air kicks if a certain distance from the ground
+								//it's silly to be able to do them right as you land.
+								//also looks wrong to transition from a non-complete flip anim...
+								if ((!BG_FlippingAnim(pm->ps->legsAnim) || pm->ps->legsTimer <= 0) &&
+									gDist > 64.0f && //strict minimum
+									gDist > (-pm->ps->velocity[2]) - 64.0f //make sure we are high to ground relative to downward velocity as well
+									)
 								{
-								case LS_KICK_F:
-									kickMove = LS_KICK_F_AIR;
-									break;
-								case LS_KICK_B:
-									kickMove = LS_KICK_B_AIR;
-									break;
-								case LS_KICK_R:
-									kickMove = LS_KICK_R_AIR;
-									break;
-								case LS_KICK_L:
-									kickMove = LS_KICK_L_AIR;
-									break;
-								default: //oh well, can't do any other kick move while in-air
+									switch (kickMove)
+									{
+									case LS_KICK_F:
+										kickMove = LS_KICK_F_AIR;
+										break;
+									case LS_KICK_B:
+										kickMove = LS_KICK_B_AIR;
+										break;
+									case LS_KICK_R:
+										kickMove = LS_KICK_R_AIR;
+										break;
+									case LS_KICK_L:
+										kickMove = LS_KICK_L_AIR;
+										break;
+									default: //oh well, can't do any other kick move while in-air
+										kickMove = -1;
+										break;
+									}
+								}
+								else
+								{ //off ground, but too close to ground
 									kickMove = -1;
-									break;
 								}
 							}
-							else
-							{ //off ground, but too close to ground
-								kickMove = -1;
-							}
 						}
-					}
 
-					if (kickMove != -1)
-					{
-						int kickAnim = saberMoveData[kickMove].animToUse;
-
-						if (kickAnim != -1)
+						if (kickMove != -1)
 						{
-							PM_SetAnim(SETANIM_BOTH, kickAnim, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD, 0);
-							if (pm->ps->legsAnim == kickAnim)
+							int kickAnim = saberMoveData[kickMove].animToUse;
+
+							if (kickAnim != -1)
 							{
-								pm->ps->weaponTime = pm->ps->legsTimer;
-								return;
+								PM_SetAnim(SETANIM_BOTH, kickAnim, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD, 0);
+								if (pm->ps->legsAnim == kickAnim)
+								{
+									pm->ps->weaponTime = pm->ps->legsTimer;
+									return;
+								}
 							}
 						}
 					}
-				}
 
-				//if got here then no move to do so put torso into leg idle or whatever
-				if (pm->ps->torsoAnim != pm->ps->legsAnim)
-				{
-					PM_SetAnim(SETANIM_BOTH, pm->ps->legsAnim, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD, 0);
+					//if got here then no move to do so put torso into leg idle or whatever
+					if (pm->ps->torsoAnim != pm->ps->legsAnim)
+					{
+						PM_SetAnim(SETANIM_BOTH, pm->ps->legsAnim, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD, 0);
+					}
+					pm->ps->weaponTime = 0;
+					return;
 				}
-				pm->ps->weaponTime = 0;
-				return;
-			}
-			else
-			{ //just punch
-				int desTAnim = BOTH_MELEE1;
-				if (pm->ps->torsoAnim == BOTH_MELEE1)
-				{
-					desTAnim = BOTH_MELEE2;
-				}
-				PM_StartTorsoAnim( desTAnim );
+				else
+				{ //just punch
+					int desTAnim = BOTH_MELEE1;
+					if (pm->ps->torsoAnim == BOTH_MELEE1)
+					{
+						desTAnim = BOTH_MELEE2;
+					}
+					PM_StartTorsoAnim(desTAnim);
 
-				if (pm->ps->torsoAnim == desTAnim)
-				{
-					pm->ps->weaponTime = pm->ps->torsoTimer;
+					if (pm->ps->torsoAnim == desTAnim)
+					{
+						pm->ps->weaponTime = pm->ps->torsoTimer;
+					}
 				}
 			}
 		}
+		else if (pm->ps->weapon == WP_DET_PACK) {
+			// special case; always allow detpack animations for cheesy fakeout tactics people use
+			PM_StartTorsoAnim(WeaponAttackAnim[pm->ps->weapon]);
+		}
 	}
-	else
-	{
-		PM_StartTorsoAnim( WeaponAttackAnim[pm->ps->weapon] );
+	else {
+		if (pm->ps->weapon == WP_DISRUPTOR && pm->ps->zoomMode == 1)
+		{
+			PM_StartTorsoAnim(BOTH_ATTACK4);
+		}
+		else if (pm->ps->weapon == WP_MELEE)
+		{ //special anims for standard melee attacks
+			//Alternate between punches and use the anim length as weapon time.
+			if (!pm->ps->m_iVehicleNum)
+			{ //if riding a vehicle don't do this stuff at all
+				if (pm->debugMelee &&
+					(pm->cmd.buttons & BUTTON_ATTACK) &&
+					(pm->cmd.buttons & BUTTON_ALT_ATTACK))
+				{ //ok, grapple time
+#if 0 //eh, I want to try turning the saber off, but can't do that reliably for prediction..
+					qboolean icandoit = qtrue;
+					if (pm->ps->weaponTime > 0)
+					{ //weapon busy
+						icandoit = qfalse;
+					}
+					if (pm->ps->forceHandExtend != HANDEXTEND_NONE)
+					{ //force power or knockdown or something
+						icandoit = qfalse;
+					}
+					if (pm->ps->weapon != WP_SABER && pm->ps->weapon != WP_MELEE)
+					{
+						icandoit = qfalse;
+					}
+
+					if (icandoit)
+					{
+						PM_SetAnim(SETANIM_BOTH, BOTH_KYLE_GRAB, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD, 0);
+						if (pm->ps->torsoAnim == BOTH_KYLE_GRAB)
+						{ //providing the anim set succeeded..
+							pm->ps->torsoTimer += 500; //make the hand stick out a little longer than it normally would
+							if (pm->ps->legsAnim == pm->ps->torsoAnim)
+							{
+								pm->ps->legsTimer = pm->ps->torsoTimer;
+							}
+							pm->ps->weaponTime = pm->ps->torsoTimer;
+							return;
+						}
+					}
+#else
+#ifdef QAGAME
+					if (pm_entSelf)
+					{
+						if (TryGrapple((gentity_t *)pm_entSelf))
+						{
+							return;
+						}
+					}
+#else
+					return;
+#endif
+#endif
+				}
+				else if (pm->debugMelee &&
+					(pm->cmd.buttons & BUTTON_ALT_ATTACK))
+				{ //kicks
+					if (!BG_KickingAnim(pm->ps->torsoAnim) &&
+						!BG_KickingAnim(pm->ps->legsAnim))
+					{
+						int kickMove = PM_KickMoveForConditions();
+						if (kickMove == LS_HILT_BASH)
+						{ //yeah.. no hilt to bash with!
+							kickMove = LS_KICK_F;
+						}
+
+						if (kickMove != -1)
+						{
+							if (pm->ps->groundEntityNum == ENTITYNUM_NONE)
+							{//if in air, convert kick to an in-air kick
+								float gDist = PM_GroundDistance();
+								//let's only allow air kicks if a certain distance from the ground
+								//it's silly to be able to do them right as you land.
+								//also looks wrong to transition from a non-complete flip anim...
+								if ((!BG_FlippingAnim(pm->ps->legsAnim) || pm->ps->legsTimer <= 0) &&
+									gDist > 64.0f && //strict minimum
+									gDist > (-pm->ps->velocity[2]) - 64.0f //make sure we are high to ground relative to downward velocity as well
+									)
+								{
+									switch (kickMove)
+									{
+									case LS_KICK_F:
+										kickMove = LS_KICK_F_AIR;
+										break;
+									case LS_KICK_B:
+										kickMove = LS_KICK_B_AIR;
+										break;
+									case LS_KICK_R:
+										kickMove = LS_KICK_R_AIR;
+										break;
+									case LS_KICK_L:
+										kickMove = LS_KICK_L_AIR;
+										break;
+									default: //oh well, can't do any other kick move while in-air
+										kickMove = -1;
+										break;
+									}
+								}
+								else
+								{ //off ground, but too close to ground
+									kickMove = -1;
+								}
+							}
+						}
+
+						if (kickMove != -1)
+						{
+							int kickAnim = saberMoveData[kickMove].animToUse;
+
+							if (kickAnim != -1)
+							{
+								PM_SetAnim(SETANIM_BOTH, kickAnim, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD, 0);
+								if (pm->ps->legsAnim == kickAnim)
+								{
+									pm->ps->weaponTime = pm->ps->legsTimer;
+									return;
+								}
+							}
+						}
+					}
+
+					//if got here then no move to do so put torso into leg idle or whatever
+					if (pm->ps->torsoAnim != pm->ps->legsAnim)
+					{
+						PM_SetAnim(SETANIM_BOTH, pm->ps->legsAnim, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD, 0);
+					}
+					pm->ps->weaponTime = 0;
+					return;
+				}
+				else
+				{ //just punch
+					int desTAnim = BOTH_MELEE1;
+					if (pm->ps->torsoAnim == BOTH_MELEE1)
+					{
+						desTAnim = BOTH_MELEE2;
+					}
+					PM_StartTorsoAnim(desTAnim);
+
+					if (pm->ps->torsoAnim == desTAnim)
+					{
+						pm->ps->weaponTime = pm->ps->torsoTimer;
+					}
+				}
+			}
+		}
+		else
+		{
+			PM_StartTorsoAnim(WeaponAttackAnim[pm->ps->weapon]);
+		}
 	}
 
 	if ( pm->cmd.buttons & BUTTON_ALT_ATTACK )
@@ -7286,7 +7437,10 @@ static void PM_Weapon( void )
 	if ( pm->ps->clientNum < MAX_CLIENTS && pm->ps->ammo[ weaponData[pm->ps->weapon].ammoIndex ] != -1 && ConsumesAmmo(&g_entities[pm->ps->clientNum]))
 	{
 		// enough energy to fire this weapon?
-		if ((pm->ps->ammo[weaponData[pm->ps->weapon].ammoIndex] - amount) >= 0) 
+		if (pm->ps->weapon == WP_DISRUPTOR && (pm->cmd.buttons & BUTTON_ALT_ATTACK) && pm->ps->ammo[weaponData[pm->ps->weapon].ammoIndex] == 5 && g_fix5AmmoSniping.integer) {
+			pm->ps->ammo[weaponData[pm->ps->weapon].ammoIndex] -= 5;
+		}
+		else if ((pm->ps->ammo[weaponData[pm->ps->weapon].ammoIndex] - amount) >= 0) 
 		{
 			pm->ps->ammo[weaponData[pm->ps->weapon].ammoIndex] -= amount;
 		}
@@ -7302,6 +7456,17 @@ static void PM_Weapon( void )
 				}
 			}
 			return;
+		}
+	}
+
+	if (g_fixNoAmmoShootAnimation.integer) {
+		if (pm->ps->weapon == WP_DISRUPTOR && pm->ps->zoomMode == 1)
+		{
+			PM_StartTorsoAnim(BOTH_ATTACK4);
+		}
+		else if (pm->ps->weapon != WP_DET_PACK) // we already handled detpacks above
+		{
+			PM_StartTorsoAnim(WeaponAttackAnim[pm->ps->weapon]);
 		}
 	}
 
