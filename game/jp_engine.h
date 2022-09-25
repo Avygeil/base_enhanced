@@ -12,6 +12,7 @@
 #include "q_shared.h"
 //#include "ui_shared.h"
 
+#ifdef i386
 #define PATCH_ENGINE
 #define HOOK_GETSTATUS_FIX
 #define HOOK_INFOBOOM_FIX
@@ -20,6 +21,7 @@
 #define HOOK_RCONExtensions
 #define HOOK_DoneDL
 #define HOOK_TIMEWARPPING_FIX
+#endif
 
 typedef struct hookEntry_s
 {
