@@ -7207,6 +7207,7 @@ static int AccountFromString(char *s, char *nameOut, size_t nameOutSize) {
 	if (!VALIDSTRING(s))
 		return -1;
 
+<<<<<<< HEAD
 	int accountId = -1;
 	if (Q_isanumber(s)) {
 		int num = atoi(s);
@@ -7248,6 +7249,114 @@ static int AccountFromString(char *s, char *nameOut, size_t nameOutSize) {
 			}
 		}
 	}
+=======
+
+	PrintCvar(autocfg_map);
+	PrintCvar(autocfg_unknown);
+	PrintCvar(g_allow_ready);
+	PrintCvar(g_allow_vote_cointoss);
+	PrintCvar(g_allow_vote_customTeams);
+	PrintCvar(g_allow_vote_forceclass);
+	PrintCvar(g_allow_vote_fraglimit);
+	PrintCvar(g_allow_vote_gametype);
+	PrintCvar(g_allow_vote_kick);
+	PrintCvar(g_allow_vote_killturrets);
+	PrintCvar(g_allow_vote_quickSpawns);
+	PrintCvar(g_allow_vote_lockteams);
+	PrintCvar(g_allow_vote_map);
+	PrintCvar(g_allow_vote_maprandom);
+	PrintCvar(g_allow_vote_nextpug);
+	PrintCvar(g_allow_vote_nextmap);
+	PrintCvar(g_allow_vote_pub);
+	PrintCvar(g_allow_vote_pug);
+	PrintCvar(g_allow_vote_q);
+	PrintCvar(g_allow_vote_randomcapts);
+	PrintCvar(g_allow_vote_randomteams);
+	PrintCvar(g_allow_vote_restart);
+	PrintCvar(g_allow_vote_timelimit);
+	PrintCvar(g_allow_vote_warmup);
+	PrintCvar(g_allow_vote_zombies);
+	PrintCvar(g_antiCallvoteTakeover);
+	PrintCvar(g_antiHothCodesLiftLame);
+	PrintCvar(g_antiHothHangarLiftLame);
+	PrintCvar(g_antiHothInfirmaryLiftLame);
+	PrintCvar(g_antiSelfMax);
+	PrintCvar(g_autoKorribanFloatingItems);
+	PrintCvar(g_autoKorribanSpam);
+	PrintCvar(g_autoPause999);
+	PrintCvar(g_autoPauseDisconnect);
+	PrintCvar(g_autoSpec);
+	PrintCvar(g_autoStats);
+	PrintCvar(g_antiLaming);
+	PrintCvar(g_autoResetCustomTeams);
+	PrintCvar(g_damageFixes);
+	PrintCvar(g_botAimbot);
+	PrintCvar(g_botJumping);
+	PrintCvar(g_breakRNG);
+	PrintCvar(g_coneReflectAngle);
+	PrintCvar(g_dismember);
+	PrintCvar(g_dispenserLifetime);
+	PrintCvar(g_emotes);
+	PrintCvar(g_enableCloak);
+	PrintCvar(g_siegeTiebreakEnd);
+	PrintCvar(g_fixDempSaberThrow);
+	PrintCvar(g_fixEweb);
+	PrintCvar(g_fixFallingSounds);
+	PrintCvar(g_fixGripKills);
+	PrintCvar(g_fixHothBunkerLift);
+	PrintCvar(g_fixHothDoorSounds);
+	PrintCvar(g_fixHothHangarTurrets);
+	PrintCvar(g_fixLiftkillTraps);
+	PrintCvar(g_fixPitKills);
+	PrintCvar(g_fixRancorCharge);
+	PrintCvar(g_fixShield);
+	PrintCvar(g_fixSiegeScoring);
+	PrintCvar(g_fixVoiceChat);
+	PrintCvar(g_flechetteSpread);
+	PrintCvar(g_floatingItems);
+	PrintCvar(g_forceDTechItems);
+	PrintCvar(g_friendlyFreeze);
+	PrintCvar(g_healWalkerWithAmmoCans);
+	PrintCvar(g_hothRebalance);
+	PrintCvar(g_hothHangarHack);
+	PrintCvar(g_improvedDisarm);
+	PrintCvar(g_improvedTeamchat);
+	PrintCvar(g_infiniteCharge);
+	PrintCvar(g_intermissionKnockbackNPCs);
+	PrintCvar(g_unlagged);
+#ifdef _DEBUG
+	PrintCvar(g_unlaggedDebug);
+	PrintCvar(g_unlaggedFactor);
+	PrintCvar(g_unlaggedMaxCompensation);
+	PrintCvar(g_unlaggedOffset);
+	PrintCvar(g_unlaggedSkeletonTime);
+#endif
+	PrintCvar(g_knockback);
+	PrintCvar(g_locationBasedDamage);
+	PrintCvar(g_moreTaunts);
+	PrintCvar(g_multiUseGenerators);
+	PrintCvar(g_multiVoteRNG);
+	PrintCvar(g_nextmapWarning);
+	PrintCvar(g_notifyNotLive);
+	PrintCvar(g_quickPauseChat);
+	PrintCvar(g_randomConeReflection);
+	PrintCvar(g_requireMoreCustomTeamVotes);
+	PrintCvar(g_rocketSurfing);
+	PrintCvar(g_runoffVote);
+	PrintCvar(g_saberDamageScale);
+	PrintCvar(g_sexyDisruptor);
+	PrintCvar(g_siegeHelp);
+	PrintCvar(g_siegeReflectionFix);
+	PrintCvar(g_specInfo);
+	PrintCvar(g_swoopKillPoints);
+	PrintCvar(g_techAmmoForAllWeapons);
+	PrintCvar(iLikeToDoorSpam);
+	PrintCvar(iLikeToMineSpam);
+	PrintCvar(iLikeToShieldSpam);
+	PrintCvar(g_improvedHoming);
+	PrintCvar(g_improvedHomingThreshold);
+	trap_SendServerCommand(ent - g_entities, va("print \"If the cvar you are looking for is not listed here, use regular ^5/serverstatus^7 command instead\n\""));
+>>>>>>> a5ebe9c (add g_fixDempSaberThrow)
 }
 
 static void PrintPugStatsHelp(gentity_t *ent) {
