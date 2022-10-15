@@ -533,6 +533,7 @@
 #define PILOT_NETWORK_REPLACEPOS 0x8079A53
 #endif
 
+#ifdef PATCH_ENGINE
 static hookEntry_t hooks[] =
 {//List of hooks to be placed
 	#ifdef HOOK_GETSTATUS_FIX
@@ -564,6 +565,7 @@ static hookEntry_t hooks[] =
 
 };
 TABLESIZE( hooks, numHooks );
+#endif
 
 static replaceEntry_t replaces[] =
 {//List of memory replaces to be placed
@@ -584,7 +586,6 @@ qboolean enginePatched = qfalse;
 
 qboolean PatchEngine( void )
 {
-	int i;
 	qboolean success = qtrue;
 
     Com_Printf("Patching engine.\n");
@@ -595,7 +596,7 @@ qboolean PatchEngine( void )
 
 #ifdef PATCH_ENGINE
 	//Place hooks
-	for ( i=0; i<numHooks; i++ ){
+	for ( int i=0; i<numHooks; i++ ){
 		if (!PlaceHook( &hooks[i] )){
 			success = qfalse;
 		}
@@ -604,7 +605,7 @@ qboolean PatchEngine( void )
 
 #ifdef PATCH_ENGINE
 	//Memory Overwrites
-	for ( i=0; i<numReplaces; i++ ){
+	for ( int i=0; i<numReplaces; i++ ){
 		if (!ReplaceMemory(&replaces[i])){
 			success = qfalse;
 		}
@@ -619,7 +620,6 @@ qboolean PatchEngine( void )
 
 qboolean UnpatchEngine( void )
 {
-	int i;
 	qboolean success = qtrue;
 
 	if (!enginePatched){
@@ -630,7 +630,7 @@ qboolean UnpatchEngine( void )
 	
 #ifdef PATCH_ENGINE
 	//Remove hooks
-	for ( i=0; i<numHooks; i++ ){
+	for ( int i=0; i<numHooks; i++ ){
 		if (!RemoveHook( &hooks[i] )){
 			success = qfalse;
 		}
@@ -639,7 +639,7 @@ qboolean UnpatchEngine( void )
 
 #ifdef PATCH_ENGINE
 	//Memory Restores
-	for ( i=0; i<numReplaces; i++ ){
+	for ( int i=0; i<numReplaces; i++ ){
 		if (!RestoreMemory(&replaces[i])){
 			success = qfalse;
 		}
