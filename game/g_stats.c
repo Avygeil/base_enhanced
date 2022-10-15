@@ -3248,7 +3248,8 @@ void SendMachineFriendlyStats(void) {
 				if (s->regionPercent[r]) { hasValidRegions = qtrue; break; }
 
 			machineFriendlyStats_t *mfs = ListAdd(&machineFriendlyStatsList, sizeof(machineFriendlyStats_t));
-#define MACHINEFRIENDLYSTATS_PROTOCOL	3
+#define MACHINEFRIENDLYSTATS_PROTOCOL	4
+			// 4 = fixed fc kill efficiency bug where fc pitkills counted as unreturned (inefficient) fc kills
 			// 3 = added got te stat after eff
 			Com_sprintf(mfs->buf, sizeof(mfs->buf),
 //#define DEBUG_PRINT_MACHINEFRIENDLYSTATS // uncomment to print in console
