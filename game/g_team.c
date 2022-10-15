@@ -400,7 +400,6 @@ void Team_FragBonuses(gentity_t *targ, gentity_t *inflictor, gentity_t *attacker
 		if (attacker->client && attacker->client->sess.sessionTeam == TEAM_RED && targ->client->sess.sessionTeam == TEAM_BLUE)
 			level.redPlayerWhoKilledBlueCarrierOfRedFlag = attacker->client->stats;
 		else if (attacker->client && attacker->client->sess.sessionTeam == TEAM_BLUE && targ->client->sess.sessionTeam == TEAM_RED)
-
 			level.bluePlayerWhoKilledRedCarrierOfBlueFlag = attacker->client->stats;
 
 		// the target had the flag, clear the hurt carrier
@@ -724,6 +723,19 @@ void Team_CaptureFlagSound( gentity_t *ent, int team ) {
 }
 
 void Team_ReturnFlag( int team ) {
+	if (team == TEAM_RED) {
+		if (level.redPlayerWhoKilledBlueCarrierOfRedFlag) {
+			level.redPlayerWhoKilledBlueCarrierOfRedFlag->fcKillsResultingInRets++;
+			level.redPlayerWhoKilledBlueCarrierOfRedFlag = NULL;
+		}
+	}
+	else if (team == TEAM_BLUE) {
+		if (level.bluePlayerWhoKilledRedCarrierOfBlueFlag) {
+			level.bluePlayerWhoKilledRedCarrierOfBlueFlag->fcKillsResultingInRets++;
+			level.bluePlayerWhoKilledRedCarrierOfBlueFlag = NULL;
+		}
+	}
+
 	Team_ReturnFlagSound(Team_ResetFlag(team), team);
 	if( team == TEAM_FREE ) {
 	}
