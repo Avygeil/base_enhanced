@@ -1462,7 +1462,7 @@ qboolean CheckPlayerInactivityTimer(gclient_t *client) {
 			G_LogPrintf("Client %i (%s) automatically voted YES due to not being AFK during auto-pass vote\n", client - level.clients, client->pers.netname);
 			level.voteYes++;
 			trap_SetConfigstring(CS_VOTE_YES, va("%i", level.voteYes));
-			trap_SendServerCommand(client - level.clients, "print \"Vote automatically cast.\n\"");
+			trap_SendServerCommand(client - level.clients, "print \"Vote automatically cast (not AFK).\n\"");
 			client->mGameFlags |= PSG_VOTED;
 		}
 	}
