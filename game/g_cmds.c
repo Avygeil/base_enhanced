@@ -2873,7 +2873,10 @@ void fixVoters(qboolean allowRacers){
 
 	for ( i = 0 ; i < level.maxclients ; i++ ) {
 		level.clients[i].mGameFlags &= ~PSG_VOTED;
+		level.clients[i].mGameFlags &= ~PSG_VOTEDNO;
+		level.clients[i].mGameFlags &= ~PSG_VOTEDYES;
         level.clients[i].mGameFlags &= ~PSG_CANVOTE;
+        level.clients[i].mGameFlags &= ~PSG_CALLEDVOTE;
 	}
 
 	for ( i = 0 ; i < level.maxclients ; i++ ) {
@@ -3700,6 +3703,8 @@ void Cmd_CallVote_f( gentity_t *ent, int pause ) {
 	fixVoters( racersAllowVote );
 
 	ent->client->mGameFlags |= PSG_VOTED;
+	ent->client->mGameFlags |= PSG_VOTEDYES;
+	ent->client->mGameFlags |= PSG_CALLEDVOTE;
 
 	trap_SetConfigstring( CS_VOTE_TIME, va("%i", level.voteTime ) );
 	trap_SetConfigstring( CS_VOTE_STRING, level.voteDisplayString );	
@@ -3719,10 +3724,7 @@ void Cmd_Vote_f( gentity_t *ent, const char *forceVoteArg ) {
 		trap_SendServerCommand( ent-g_entities, va("print \"%s\n\"", G_GetStringEdString("MP_SVGAME", "NOVOTEINPROG")) );
 		return;
 	}
-	if ( !level.multiVoting && ent->client->mGameFlags & PSG_VOTED ) {
-		trap_SendServerCommand( ent-g_entities, va("print \"%s\n\"", G_GetStringEdString("MP_SVGAME", "VOTEALREADY")) );
-		return;
-	}
+
 	if ( !(ent->client->mGameFlags & PSG_CANVOTE) ) {
 		trap_SendServerCommand( ent-g_entities, va("print \"%s\n\"", "You can't participate in this vote.") );
 		return;
@@ -3742,16 +3744,66 @@ void Cmd_Vote_f( gentity_t *ent, const char *forceVoteArg ) {
 	else
 		trap_Argv( 1, msg, sizeof( msg ) );
 
+	qboolean printVoteCast = qtrue;
+
 	if ( !level.multiVoting ) {
 		// not a special multi vote, use legacy behavior
-		if ( msg[0] == 'y' || msg[1] == 'Y' || msg[1] == '1' ) {
-			G_LogPrintf( "Client %i (%s) voted YES\n", ent - g_entities, ent->client->pers.netname );
+
+		if (!(ent->client->mGameFlags & PSG_CALLEDVOTE) && (ent->client->mGameFlags & PSG_VOTED) && (ent->client->mGameFlags & PSG_VOTEDNO) && (msg[0] == 'y' || msg[1] == 'Y' || msg[1] == '1')) {
+			G_LogPrintf("Client %i (%s) changed vote to YES\n", ent - g_entities, ent->client->pers.netname);
+			trap_SendServerCommand(ent - g_entities, "print \"Vote changed to yes.\n\"");
+			printVoteCast = qfalse;
+
 			level.voteYes++;
-			trap_SetConfigstring( CS_VOTE_YES, va( "%i", level.voteYes ) );
-		} else {
-			G_LogPrintf( "Client %i (%s) voted NO\n", ent - g_entities, ent->client->pers.netname );
+			level.voteNo--;
+
+			ent->client->mGameFlags |= PSG_VOTEDYES;
+			ent->client->mGameFlags &= ~PSG_VOTEDNO;
+
+			trap_SetConfigstring(CS_VOTE_YES, va("%i", level.voteYes));
+			trap_SetConfigstring(CS_VOTE_NO, va("%i", level.voteNo));
+		}
+		else if (!(ent->client->mGameFlags & PSG_CALLEDVOTE) && (ent->client->mGameFlags & PSG_VOTED) && (ent->client->mGameFlags & PSG_VOTEDYES) && !(msg[0] == 'y' || msg[1] == 'Y' || msg[1] == '1')) {
+			G_LogPrintf("Client %i (%s) changed vote to NO\n", ent - g_entities, ent->client->pers.netname);
+			trap_SendServerCommand(ent - g_entities, "print \"Vote changed to no.\n\"");
+			printVoteCast = qfalse;
+
+			level.voteYes--;
 			level.voteNo++;
-			trap_SetConfigstring( CS_VOTE_NO, va( "%i", level.voteNo ) );
+
+			ent->client->mGameFlags &= ~PSG_VOTEDYES;
+			ent->client->mGameFlags |= PSG_VOTEDNO;
+
+			trap_SetConfigstring(CS_VOTE_YES, va("%i", level.voteYes));
+			trap_SetConfigstring(CS_VOTE_NO, va("%i", level.voteNo));
+		}
+		else if (ent->client->mGameFlags & PSG_VOTED) {
+			if (ent->client->mGameFlags & PSG_CALLEDVOTE)
+				trap_SendServerCommand(ent - g_entities, "print \"You cannot change your vote because you called this vote.\n\"");
+			else if (ent->client->mGameFlags & PSG_VOTEDNO)
+				trap_SendServerCommand(ent - g_entities, "print \"You have already voted no.\n\"");
+			else if (ent->client->mGameFlags & PSG_VOTEDYES)
+				trap_SendServerCommand(ent - g_entities, "print \"You have already voted yes.\n\"");
+			else
+				trap_SendServerCommand(ent - g_entities, va("print \"%s\n\"", G_GetStringEdString("MP_SVGAME", "VOTEALREADY"))); // ???
+
+			return;
+		}
+		else {
+			if (msg[0] == 'y' || msg[1] == 'Y' || msg[1] == '1') {
+				G_LogPrintf("Client %i (%s) voted YES\n", ent - g_entities, ent->client->pers.netname);
+				level.voteYes++;
+				ent->client->mGameFlags |= PSG_VOTEDYES;
+				ent->client->mGameFlags &= ~PSG_VOTEDNO;
+				trap_SetConfigstring(CS_VOTE_YES, va("%i", level.voteYes));
+			}
+			else {
+				G_LogPrintf("Client %i (%s) voted NO\n", ent - g_entities, ent->client->pers.netname);
+				level.voteNo++;
+				ent->client->mGameFlags &= ~PSG_VOTEDYES;
+				ent->client->mGameFlags |= PSG_VOTEDNO;
+				trap_SetConfigstring(CS_VOTE_NO, va("%i", level.voteNo));
+			}
 		}
 	} else {
 		// multi map vote, only allow voting for valid choice ids
@@ -3778,7 +3830,8 @@ void Cmd_Vote_f( gentity_t *ent, const char *forceVoteArg ) {
 		level.multiVotes[ent - g_entities] = voteId;
 	}
 
-	trap_SendServerCommand( ent - g_entities, va( "print \"%s\n\"", G_GetStringEdString( "MP_SVGAME", "PLVOTECAST" ) ) );
+	if (printVoteCast)
+		trap_SendServerCommand( ent - g_entities, va( "print \"%s\n\"", G_GetStringEdString( "MP_SVGAME", "PLVOTECAST" ) ) );
 	ent->client->mGameFlags |= PSG_VOTED;
 
 	// a majority will be determined in CheckVote, which will also account

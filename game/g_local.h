@@ -762,6 +762,9 @@ typedef struct {
 #define	PSG_VOTED				(1<<0)		// already cast a vote
 #define PSG_TEAMVOTED			(1<<1)		// already cast a team vote
 #define PSG_CANVOTE			    (1<<2)		// this player can vote
+#define PSG_VOTEDNO				(1<<3)		// added in b_e
+#define PSG_VOTEDYES				(1<<4)		// added in b_e
+#define PSG_CALLEDVOTE			(1<<5)		// added in b_e
 
 //
 #define	MAX_VOTE_COUNT		3

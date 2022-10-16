@@ -4232,7 +4232,7 @@ void ClientSpawn(gentity_t *ent) {
 	// and never clear the voted flag
 	flags = ent->client->ps.eFlags & (EF_TELEPORT_BIT );
 	flags ^= EF_TELEPORT_BIT;
-	gameFlags = ent->client->mGameFlags & ( PSG_VOTED | PSG_TEAMVOTED | PSG_CANVOTE);
+	gameFlags = ent->client->mGameFlags & ( PSG_VOTED | PSG_TEAMVOTED | PSG_CANVOTE | PSG_VOTEDNO | PSG_VOTEDYES | PSG_CALLEDVOTE );
 
 	// clear everything but the persistant data
 

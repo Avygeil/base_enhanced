@@ -1464,6 +1464,8 @@ qboolean CheckPlayerInactivityTimer(gclient_t *client) {
 			trap_SetConfigstring(CS_VOTE_YES, va("%i", level.voteYes));
 			trap_SendServerCommand(client - level.clients, "print \"Vote automatically cast (not AFK).\n\"");
 			client->mGameFlags |= PSG_VOTED;
+			client->mGameFlags |= PSG_VOTEDYES;
+			client->mGameFlags &= ~PSG_VOTEDNO;
 		}
 	}
 
