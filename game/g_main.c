@@ -467,6 +467,7 @@ vmCvar_t	g_vote_teamgen_remindToSetPositions;
 vmCvar_t	g_vote_teamgen_announceBreak;
 vmCvar_t	g_vote_teamgen_autoRestartOnMapChange;
 vmCvar_t	g_vote_teamgen_autoMapVoteSeconds;
+vmCvar_t	g_vote_teamgen_autoMapVoteNonAfkAutoVoteYesSeconds;
 vmCvar_t	g_vote_teamgen_iterate;
 
 vmCvar_t	g_recalculateStatsAfterPug;
@@ -932,6 +933,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_redirectMapVoteToLiveVersion, "g_vote_redirectMapVoteToLiveVersion", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_printLiveVersionFullName, "g_vote_printLiveVersionFullName", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_overrideTrollVoters, "g_vote_overrideTrollVoters", "1", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_teamgen_autoMapVoteNonAfkAutoVoteYesSeconds, "g_vote_teamgen_autoMapVoteNonAfkAutoVoteYesSeconds", "5", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_vote_teamgen_pug_requiredVotes, "g_vote_teamgen_pug_requiredVotes", "4", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_teamgen_team_requiredVotes, "g_vote_teamgen_team_requiredVotes", "5", CVAR_ARCHIVE, 0, qtrue },
@@ -4592,6 +4594,7 @@ void CheckVote( void ) {
 		}
 	}
 
+	level.voteStartTime = 0;
 	level.voteTime = 0;
 	trap_SetConfigstring( CS_VOTE_TIME, "" );
 

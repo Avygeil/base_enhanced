@@ -836,6 +836,7 @@ typedef struct {
 	qboolean	hasDoneSomething; // for auto AFK detection
 
 	int			lastInputTime;
+	int			lastInputLevelTime;
 
 	gentity_t	*lastSpawnPoint;
 	int			lastSpawnTime;
@@ -1741,7 +1742,8 @@ typedef struct {
 	// voting state
 	char		voteString[MAX_STRING_CHARS];
 	char		voteDisplayString[MAX_STRING_CHARS];
-	int			voteTime;				// level.time vote was called
+	int			voteTime;				// level.time vote was called using base jka VOTE_TIME macro
+	int			voteStartTime;			// actual level.time vote was called
 	int			voteExecuteTime;		// time the vote is executed
 	int			voteYes;
 	int			voteNo;
@@ -3157,6 +3159,7 @@ extern vmCvar_t		g_vote_runoffTimeModifier;
 extern vmCvar_t		g_vote_redirectMapVoteToLiveVersion;
 extern vmCvar_t		g_vote_printLiveVersionFullName;
 extern vmCvar_t		g_vote_overrideTrollVoters;
+extern vmCvar_t		g_vote_teamgen_autoMapVoteNonAfkAutoVoteYesSeconds;
 
 extern vmCvar_t		g_vote_teamgen;
 extern vmCvar_t		g_vote_teamgen_pug_requiredVotes;

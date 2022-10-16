@@ -1453,6 +1453,18 @@ qboolean CheckPlayerInactivityTimer(gclient_t *client) {
 
 	if (IsInputting(client, qtrue, qtrue, qtrue)) {
 		client->pers.lastInputTime = getGlobalTime();
+		client->pers.lastInputLevelTime = level.time;
+	}
+
+	if (level.voteAutoPassOnExpiration && level.voteTime && level.voteStartTime && g_vote_teamgen_autoMapVoteNonAfkAutoVoteYesSeconds.integer > 0 && !client->sess.inRacemode) {
+		int msWait = g_vote_teamgen_autoMapVoteNonAfkAutoVoteYesSeconds.integer * 1000;
+		if (level.time - level.voteStartTime >= msWait && client->pers.lastInputLevelTime >= level.voteStartTime && !(client->mGameFlags & PSG_VOTED)) {
+			G_LogPrintf("Client %i (%s) automatically voted YES due to not being AFK during auto-pass vote\n", client - level.clients, client->pers.netname);
+			level.voteYes++;
+			trap_SetConfigstring(CS_VOTE_YES, va("%i", level.voteYes));
+			trap_SendServerCommand(client - level.clients, "print \"Vote automatically cast.\n\"");
+			client->mGameFlags |= PSG_VOTED;
+		}
 	}
 
 	// match start AFK detection

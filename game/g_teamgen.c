@@ -2525,6 +2525,7 @@ static void ActivatePugProposal(pugProposal_t *set, qboolean forcedByServer) {
 			memset(&level.multiVoteMapChars, 0, sizeof(level.multiVoteMapChars));
 			memset(&level.multiVoteMapShortNames, 0, sizeof(level.multiVoteMapShortNames));
 			memset(&level.multiVoteMapFileNames, 0, sizeof(level.multiVoteMapFileNames));
+			level.voteStartTime = 0;
 			level.voteTime = 0;
 			trap_SetConfigstring(CS_VOTE_TIME, "");
 		}
@@ -2570,10 +2571,14 @@ static void StartAutomaticTeamGenMapVote(void) {
 		return;
 	}
 
-	int voteDurationSeconds = Com_Clampi(15, 300, g_vote_teamgen_autoMapVoteSeconds.integer);
-	Com_sprintf(level.voteDisplayString, sizeof(level.voteDisplayString), "New Map Vote (%d Maps) ^2(auto pass)^7", totalMapsToChoose);
+	if (g_vote_teamgen_autoMapVoteNonAfkAutoVoteYesSeconds.integer > 0)
+		Com_sprintf(level.voteDisplayString, sizeof(level.voteDisplayString), "New Map Vote (%d Maps) ^2(auto vote)^7", totalMapsToChoose);
+	else
+		Com_sprintf(level.voteDisplayString, sizeof(level.voteDisplayString), "New Map Vote (%d Maps) ^2(auto pass)^7", totalMapsToChoose);
 	Com_sprintf(level.voteString, sizeof(level.voteString), "mapvote");
 
+	level.voteStartTime = level.time;
+	int voteDurationSeconds = Com_Clampi(15, 300, g_vote_teamgen_autoMapVoteSeconds.integer);
 	level.voteTime = level.time + ((voteDurationSeconds - 30) * 1000);
 	level.voteAutoPassOnExpiration = qtrue;
 	level.voteYes = 0;

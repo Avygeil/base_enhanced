@@ -1077,6 +1077,7 @@ void Svcmd_VoteForce_f( qboolean pass ) {
 		memset(&level.multiVoteMapFileNames, 0, sizeof(level.multiVoteMapFileNames));
 	}
 
+	level.voteStartTime = 0;
 	level.voteTime = 0;
 	trap_SetConfigstring( CS_VOTE_TIME, "" );
 }
@@ -1665,6 +1666,7 @@ static char reinstateVotes[MAX_CLIENTS] = { 0 }, removedVotes[MAX_CLIENTS] = { 0
 static void StartMultiMapVote( const int numMaps, const qboolean hasWildcard, const char *listOfMaps ) {
 	if ( level.voteTime ) {
 		// stop the current vote because we are going to replace it
+		level.voteStartTime = 0;
 		level.voteTime = 0;
 		g_entities[level.lastVotingClient].client->lastCallvoteTime = level.time;
 	}
@@ -1674,6 +1676,7 @@ static void StartMultiMapVote( const int numMaps, const qboolean hasWildcard, co
 	// start a "fake vote" so that we can use most of the logic that already exists
 	Com_sprintf( level.voteString, sizeof( level.voteString ), "map_multi_vote %s", listOfMaps );
 	Q_strncpyz( level.voteDisplayString, S_COLOR_RED"Vote for a map in console", sizeof( level.voteDisplayString ) );
+	level.voteStartTime = level.time;
 	level.voteTime = level.time;
 
 	if (g_vote_runoff.integer && g_vote_runoffTimeModifier.integer) { // allow shorter or longer time for runoff votes according to the cvar

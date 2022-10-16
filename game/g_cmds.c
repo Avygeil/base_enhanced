@@ -3684,6 +3684,7 @@ void Cmd_CallVote_f( gentity_t *ent, int pause ) {
 		ent-g_entities, ent->client->pers.netname, arg1, arg2);
 
 	// start the voting, the caller autoamtically votes yes
+	level.voteStartTime = level.time;
 	level.voteTime = level.time;
 	level.voteAutoPassOnExpiration = qfalse;
 	level.voteYes = 1;
