@@ -1209,7 +1209,7 @@ typedef struct {
 
 typedef struct {
 	qboolean valid;
-	double diff;
+	int iDiff;
 	XXH32_hash_t hash;
 	teamData_t teams[2];
 	int numOnPreferredPos;

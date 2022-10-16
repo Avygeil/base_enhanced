@@ -210,16 +210,17 @@ static XXH32_hash_t HashPermutationOfTeams(permutationOfTeams_t *t) {
 	if (!t)
 		return 0;
 
-	permutationOfTeams_t hashMe = { 0 };
-	memcpy(&hashMe, t, sizeof(permutationOfTeams_t));
-	//NormalizePermutationOfTeams(&hashMe);
+	static permutationOfTeams_t hashMe = { 0 };
+	memset(&hashMe, 0, sizeof(hashMe));
 
-	hashMe.valid = qfalse;
-	hashMe.hash = 0;
-	hashMe.totalNumPermutations = 0;
-	hashMe.numOnPreferredPos = 0.0;
-	hashMe.topTierImbalance = 0;
-	hashMe.bottomTierImbalance = 0;
+	// all we need to hash is the client ids on each position; the rest is superfluous
+	for (int i = 0; i < 2; i++) {
+		hashMe.teams[i].baseId = t->teams[i].baseId;
+		hashMe.teams[i].chaseId = t->teams[i].chaseId;
+		hashMe.teams[i].offenseId1 = t->teams[i].offenseId1;
+		hashMe.teams[i].offenseId2 = t->teams[i].offenseId2;
+	}
+
 	return XXH32(&hashMe, sizeof(permutationOfTeams_t), 0);
 }
 
@@ -262,6 +263,8 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 		return; // at least one player is invalid on their proposed position
 	}
 
+	++context->numPermutations;
+
 	if (context->banAvoidedPositions) {
 		if ((team1base->posPrefs.avoid & (1 << CTFPOSITION_BASE)) || (team1chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE)) || (team1offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) || (team1offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) ||
 			(team2base->posPrefs.avoid & (1 << CTFPOSITION_BASE)) || (team2chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE)) || (team2offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) || (team2offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE))) {
@@ -275,6 +278,7 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 	double team1RelativeStrength = team1RawStrength / total;
 	double team2RelativeStrength = team2RawStrength / total;
 	double diff = fabs(team1RelativeStrength - team2RelativeStrength);
+	int iDiff = (int)round(diff * 1000);
 
 	int team1TopTiers = 0, team2TopTiers = 0;
 	if (PlayerTierFromRating(team1base->rating[CTFPOSITION_BASE]) == PLAYERRATING_S) ++team1TopTiers;
@@ -382,20 +386,20 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 	// - it is equally fair and has an equal number of people on preferred pos, but has fewer people on avoided pos
 	// - it is equally fair and has an equal number of people on preferred and avoided pos, but has better balance of bottom tier players
 	// - it is equally fair and has an equal number of people on preferred and avoided pos and equal balance of bottom tier players, but has better balance of top tier players
-	if (diff < context->best->diff ||
-		(diff == context->best->diff && numOnPreferredPos > context->best->numOnPreferredPos) ||
-		(diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos) ||
-		(diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance < context->best->bottomTierImbalance) ||
-		(diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)) {
-		if (diff < context->best->diff)
+	if (iDiff < context->best->iDiff ||
+		(iDiff == context->best->iDiff && numOnPreferredPos > context->best->numOnPreferredPos) ||
+		(iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos) ||
+		(iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance < context->best->bottomTierImbalance) ||
+		(iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)) {
+		if (iDiff < context->best->iDiff)
 			TeamGen_DebugPrintf(" <font color=purple>best so far (fairer)</font><br/>");
-		else if (diff == context->best->diff && numOnPreferredPos > context->best->numOnPreferredPos)
+		else if (iDiff == context->best->iDiff && numOnPreferredPos > context->best->numOnPreferredPos)
 			TeamGen_DebugPrintf(" <font color=purple>best so far (same fairness, but more preferred pos)</font><br/>");
-		else if (diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos)
+		else if (iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos)
 			TeamGen_DebugPrintf(" <font color=purple>best so far (same fairness and preferred pos, but less on avoided pos)</font><br/>");
-		else if (diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance < context->best->bottomTierImbalance)
+		else if (iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance < context->best->bottomTierImbalance)
 			TeamGen_DebugPrintf(" <font color=purple>best so far (same fairness, preferred pos, and avoided pos, but better bottom tier balance)</font><br/>");
-		else if (diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)
+		else if (iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)
 			TeamGen_DebugPrintf(" <font color=purple>best so far (same fairness, preferred pos, avoided pos, and bottom tier balance, but better top tier balance)</font><br/>");
 		else
 			TeamGen_DebugPrintf("<font color=purple>???</font><br/>");
@@ -403,7 +407,7 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 		if (context->avoidedHashesList && context->avoidedHashesList->size > 0) {
 			permutationOfTeams_t hashMe = { 0 };
 			hashMe.valid = qtrue;
-			hashMe.diff = diff;
+			hashMe.iDiff = iDiff;
 			hashMe.numOnPreferredPos = numOnPreferredPos;
 			hashMe.numOnAvoidedPos = numOnAvoidedPos;
 			hashMe.topTierImbalance = topTierImbalance;
@@ -440,12 +444,13 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 			avoidedHash_t *avoided = ListFind(context->avoidedHashesList, HashMatchesAvoidedHash, &hash, NULL);
 			if (avoided) {
 				TeamGen_DebugPrintf("<font color=darkred>***MATCHES AVOIDED HASH; skipping</font><br/>");
+				--context->numPermutations;
 				return;
 			}
 		}
 
 		context->best->valid = qtrue;
-		context->best->diff = diff;
+		context->best->iDiff = iDiff;
 		context->best->numOnPreferredPos = numOnPreferredPos;
 		context->best->numOnAvoidedPos = numOnAvoidedPos;
 		context->best->topTierImbalance = topTierImbalance;
@@ -492,6 +497,8 @@ static void TryTeamPermutation_Inclusive(teamGeneratorContext_t *context, const 
 		return; // at least one player is invalid on their proposed position
 	}
 
+	++context->numPermutations;
+
 	if (context->banAvoidedPositions) {
 		if ((team1base->posPrefs.avoid & (1 << CTFPOSITION_BASE)) || (team1chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE)) || (team1offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) || (team1offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) ||
 			(team2base->posPrefs.avoid & (1 << CTFPOSITION_BASE)) || (team2chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE)) || (team2offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) || (team2offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE))) {
@@ -505,6 +512,7 @@ static void TryTeamPermutation_Inclusive(teamGeneratorContext_t *context, const 
 	double team1RelativeStrength = team1RawStrength / total;
 	double team2RelativeStrength = team2RawStrength / total;
 	double diff = fabs(team1RelativeStrength - team2RelativeStrength);
+	int iDiff = (int)round(diff * 1000);
 
 	int team1TopTiers = 0, team2TopTiers = 0;
 	if (PlayerTierFromRating(team1base->rating[CTFPOSITION_BASE]) == PLAYERRATING_S) ++team1TopTiers;
@@ -617,22 +625,22 @@ static void TryTeamPermutation_Inclusive(teamGeneratorContext_t *context, const 
 	// - it has equally low permutations and equal fairness and has an equal number of people on preferred and avoided pos, but has better balance of bottom tier players
 	// - it has equally low permutations and equal fairness and has an equal number of people on preferred and avoided pos and equal balance of bottom tier players, but has better balance of top tier players
 	if (totalNumPermutations < context->best->totalNumPermutations ||
-		(totalNumPermutations == context->best->totalNumPermutations && diff < context->best->diff) ||
-		(totalNumPermutations == context->best->totalNumPermutations && diff == context->best->diff && numOnPreferredPos > context->best->numOnPreferredPos) ||
-		(totalNumPermutations == context->best->totalNumPermutations && diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos) ||
-		(totalNumPermutations == context->best->totalNumPermutations && diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance < context->best->bottomTierImbalance) ||
-		(totalNumPermutations == context->best->totalNumPermutations && diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)) {
+		(totalNumPermutations == context->best->totalNumPermutations && iDiff < context->best->iDiff) ||
+		(totalNumPermutations == context->best->totalNumPermutations && iDiff == context->best->iDiff && numOnPreferredPos > context->best->numOnPreferredPos) ||
+		(totalNumPermutations == context->best->totalNumPermutations && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos) ||
+		(totalNumPermutations == context->best->totalNumPermutations && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance < context->best->bottomTierImbalance) ||
+		(totalNumPermutations == context->best->totalNumPermutations && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)) {
 		if (totalNumPermutations < context->best->totalNumPermutations)
 			TeamGen_DebugPrintf(" <font color=purple>best so far (fewer permutations)</font><br/>");
-		else if (totalNumPermutations == context->best->totalNumPermutations && diff < context->best->diff)
+		else if (totalNumPermutations == context->best->totalNumPermutations && iDiff < context->best->iDiff)
 			TeamGen_DebugPrintf(" <font color=purple>best so far (same permutations, but fairer)</font><br/>");
-		else if (totalNumPermutations == context->best->totalNumPermutations && diff == context->best->diff && numOnPreferredPos > context->best->numOnPreferredPos)
+		else if (totalNumPermutations == context->best->totalNumPermutations && iDiff == context->best->iDiff && numOnPreferredPos > context->best->numOnPreferredPos)
 			TeamGen_DebugPrintf(" <font color=purple>best so far (same permutations and fairness, but more preferred pos)</font><br/>");
-		else if (totalNumPermutations == context->best->totalNumPermutations && diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos)
+		else if (totalNumPermutations == context->best->totalNumPermutations && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos)
 			TeamGen_DebugPrintf(" <font color=purple>best so far (same permutations, fairness and preferred pos, but less on avoided pos)</font><br/>");
-		else if (totalNumPermutations == context->best->totalNumPermutations && diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance < context->best->bottomTierImbalance)
+		else if (totalNumPermutations == context->best->totalNumPermutations && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance < context->best->bottomTierImbalance)
 			TeamGen_DebugPrintf(" <font color=purple>best so far (same permutations, fairness, preferred pos, and avoided pos, but better bottom tier balance)</font><br/>");
-		else if (totalNumPermutations == context->best->totalNumPermutations && diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)
+		else if (totalNumPermutations == context->best->totalNumPermutations && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)
 			TeamGen_DebugPrintf(" <font color=purple>best so far (same permutations, fairness, preferred pos, avoided pos, and bottom tier balance, but better top tier balance)</font><br/>");
 		else
 			TeamGen_DebugPrintf("<font color=purple>???</font><br/>");
@@ -640,7 +648,7 @@ static void TryTeamPermutation_Inclusive(teamGeneratorContext_t *context, const 
 		if (context->avoidedHashesList && context->avoidedHashesList->size > 0) {
 			permutationOfTeams_t hashMe = { 0 };
 			hashMe.valid = qtrue;
-			hashMe.diff = diff;
+			hashMe.iDiff = iDiff;
 			hashMe.numOnPreferredPos = numOnPreferredPos;
 			hashMe.totalNumPermutations = totalNumPermutations;
 			hashMe.numOnAvoidedPos = numOnAvoidedPos;
@@ -678,12 +686,13 @@ static void TryTeamPermutation_Inclusive(teamGeneratorContext_t *context, const 
 			avoidedHash_t *avoided = ListFind(context->avoidedHashesList, HashMatchesAvoidedHash, &hash, NULL);
 			if (avoided) {
 				TeamGen_DebugPrintf("<font color=darkred>***MATCHES AVOIDED HASH; skipping</font><br/>");
+				--context->numPermutations;
 				return;
 			}
 		}
 
 		context->best->valid = qtrue;
-		context->best->diff = diff;
+		context->best->iDiff = iDiff;
 		context->best->numOnPreferredPos = numOnPreferredPos;
 		context->best->totalNumPermutations = totalNumPermutations;
 		context->best->numOnAvoidedPos = numOnAvoidedPos;
@@ -731,6 +740,8 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 		return; // at least one player is invalid on their proposed position
 	}
 
+	++context->numPermutations;
+
 	if (context->banAvoidedPositions) {
 		if ((team1base->posPrefs.avoid & (1 << CTFPOSITION_BASE)) || (team1chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE)) || (team1offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) || (team1offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) ||
 			(team2base->posPrefs.avoid & (1 << CTFPOSITION_BASE)) || (team2chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE)) || (team2offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) || (team2offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE))) {
@@ -741,9 +752,11 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 	double team1RawStrength = team1base->rating[CTFPOSITION_BASE] + team1chase->rating[CTFPOSITION_CHASE] + team1offense1->rating[CTFPOSITION_OFFENSE] + team1offense2->rating[CTFPOSITION_OFFENSE];
 	double team2RawStrength = team2base->rating[CTFPOSITION_BASE] + team2chase->rating[CTFPOSITION_CHASE] + team2offense1->rating[CTFPOSITION_OFFENSE] + team2offense2->rating[CTFPOSITION_OFFENSE];
 	double total = team1RawStrength + team2RawStrength;
+	int iTotal = (int)round(total * 1000);
 	double team1RelativeStrength = team1RawStrength / total;
 	double team2RelativeStrength = team2RawStrength / total;
 	double diff = fabs(team1RelativeStrength - team2RelativeStrength);
+	int iDiff = (int)round(diff * 1000);
 
 	int team1TopTiers = 0, team2TopTiers = 0;
 	if (PlayerTierFromRating(team1base->rating[CTFPOSITION_BASE]) == PLAYERRATING_S) ++team1TopTiers;
@@ -851,6 +864,7 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 	}
 
 	double currentBestCombinedStrength = context->best->teams[0].rawStrength + context->best->teams[1].rawStrength;
+	int iCurrentBestCombinedStrength = (int)round(currentBestCombinedStrength * 1000);
 
 	// this permutation will be favored over the previous permutation if:
 	// - it is higher caliber overall
@@ -859,23 +873,23 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 	// - it is equally high caliber, equally fair, and has an equal number of people on preferred pos, but has fewer people on avoided pos
 	// - it is equally high caliber, equally fair, and has an equal number of people on preferred and avoided pos, but has better balance of bottom tier players
 	// - it is equally high caliber, equally fair, has an equal number of people on preferred and avoided pos and equal balance of bottom tier players, but has better balance of top tier players
-	if (total > currentBestCombinedStrength ||
-		(total == currentBestCombinedStrength && diff < context->best->diff) ||
-		(total == currentBestCombinedStrength && diff == context->best->diff && numOnPreferredPos > context->best->numOnPreferredPos) ||
-		(total == currentBestCombinedStrength && diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos) ||
-		(total == currentBestCombinedStrength && diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance < context->best->bottomTierImbalance) ||
-		(total == currentBestCombinedStrength && diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)) {
-		if (total > currentBestCombinedStrength)
+	if (iTotal > iCurrentBestCombinedStrength ||
+		(iTotal == iCurrentBestCombinedStrength && iDiff < context->best->iDiff) ||
+		(iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && numOnPreferredPos > context->best->numOnPreferredPos) ||
+		(iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos) ||
+		(iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance < context->best->bottomTierImbalance) ||
+		(iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)) {
+		if (iTotal > iCurrentBestCombinedStrength)
 			TeamGen_DebugPrintf(" <font color=purple>best so far (combined strength better)</font><br/>");
-		else if (total == currentBestCombinedStrength && diff < context->best->diff)
+		else if (iTotal == iCurrentBestCombinedStrength && iDiff < context->best->iDiff)
 			TeamGen_DebugPrintf(" <font color=purple>best so far (combined strength equal, but fairer)</font><br/>");
-		else if (total == currentBestCombinedStrength && numOnPreferredPos > context->best->numOnPreferredPos)
+		else if (iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && numOnPreferredPos > context->best->numOnPreferredPos)
 			TeamGen_DebugPrintf(" <font color=purple>best so far (combined strength and fairness equal, but more preferred pos)</font><br/>");
-		else if (total == currentBestCombinedStrength && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos)
+		else if (iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos)
 			TeamGen_DebugPrintf(" <font color=purple>best so far (combined strength, fairness equal and preferred pos equal, but less on avoided pos)</font><br/>");
-		else if (total == currentBestCombinedStrength && diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance < context->best->bottomTierImbalance)
+		else if (iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance < context->best->bottomTierImbalance)
 			TeamGen_DebugPrintf(" <font color=purple>best so far (combined strength, fairness, preferred pos, and avoided pos, but better bottom tier balance)</font><br/>");
-		else if (total == currentBestCombinedStrength && diff == context->best->diff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)
+		else if (iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)
 			TeamGen_DebugPrintf(" <font color=purple>best so far (combined strength, fairness, preferred pos, avoided pos, and bottom tier balance, but better top tier balance)</font><br/>");
 		else
 			TeamGen_DebugPrintf("<font color=purple>???</font><br/>");
@@ -883,7 +897,7 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 		if (context->avoidedHashesList && context->avoidedHashesList->size > 0) {
 			permutationOfTeams_t hashMe = { 0 };
 			hashMe.valid = qtrue;
-			hashMe.diff = diff;
+			hashMe.iDiff = iDiff;
 			hashMe.numOnPreferredPos = numOnPreferredPos;
 			hashMe.numOnAvoidedPos = numOnAvoidedPos;
 			hashMe.topTierImbalance = topTierImbalance;
@@ -920,12 +934,13 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 			avoidedHash_t *avoided = ListFind(context->avoidedHashesList, HashMatchesAvoidedHash, &hash, NULL);
 			if (avoided) {
 				TeamGen_DebugPrintf("<font color=darkred>***MATCHES AVOIDED HASH; skipping</font><br/>");
+				--context->numPermutations;
 				return;
 			}
 		}
 
 		context->best->valid = qtrue;
-		context->best->diff = diff;
+		context->best->iDiff = iDiff;
 		context->best->numOnPreferredPos = numOnPreferredPos;
 		context->best->numOnAvoidedPos = numOnAvoidedPos;
 		context->best->topTierImbalance = topTierImbalance;
@@ -974,7 +989,6 @@ static void HandleTeam(permutationPlayer_t *playerArray, int *arr, teamGenerator
 	permutationPlayer_t *team2offense2Player = playerArray + *(arr + 4 + team2Off2);
 	PermutationCallback callback = (PermutationCallback)context->callback;
 	callback(context, team1basePlayer, team1chasePlayer, team1offense1Player, team1offense2Player, team2basePlayer, team2chasePlayer, team2offense1Player, team2offense2Player);
-	++context->numPermutations;
 }
 
 // we have an offense combination; iterate through each complete team
@@ -1398,6 +1412,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 				if (!cl->accountName[0])
 					continue;
 
+#ifndef DEBUG_GENERATETEAMS
 				// make sure this guy hasn't gone spec; we don't want to count him as left out
 				// if he decided to become a spectator after the pug proposal passed
 				if (cl->clientNum >= 0 && cl->clientNum < MAX_CLIENTS) {
@@ -1409,6 +1424,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 						continue;
 					}
 				}
+#endif
 
 				int numPermutationsThisPlayer = NumPermutationsOfPlayer(cl->accountId, mostPlayed, highestCaliber, fairest, desired, inclusive);
 				if (!numPermutationsThisPlayer) {
@@ -1799,7 +1815,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 
 		// evaluate every possible permutation of teams for this teamgen type
 		permutationOfTeams_t try1 = { 0 }, try2 = { 0 };
-		try1.diff = try2.diff = 999999.999999;
+		try1.iDiff = try2.iDiff = 999999999;
 		try1.totalNumPermutations = try2.totalNumPermutations = 999999;
 		PermutationCallback callback;
 		if (type == TEAMGENERATORTYPE_HIGHESTRATING)
@@ -1818,7 +1834,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 		if (!try1.valid) {
 			TeamGen_DebugPrintf("<font color=orange>==========No valid permutation for type %d; trying again without chase rule==========</font><br/>", type);
 			memset(&try1, 0, sizeof(try1));
-			try1.diff = 999999.999999;
+			try1.iDiff = 999999999;
 			try1.totalNumPermutations = 999999;
 			thisGotten = PermuteTeams(&players[0], numEligible, &try1, callback, qfalse, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qtrue);
 			if (thisGotten > gotten)
@@ -1829,7 +1845,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 				allowSecondTry = qfalse;
 
 				memset(&try1, 0, sizeof(try1));
-				try1.diff = 999999.999999;
+				try1.iDiff = 999999999;
 				try1.totalNumPermutations = 999999;
 				thisGotten = PermuteTeams(&players[0], numEligible, &try1, callback, qtrue, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qfalse);
 				if (thisGotten > gotten)
@@ -1838,7 +1854,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 				if (!try1.valid) {
 					TeamGen_DebugPrintf("<font color=orange>==========No valid permutation with chase rule but without banning avoided pos for type %d; trying again without chase rule AND without banning avoided pos==========</font><br/>", type);
 					memset(&try1, 0, sizeof(try1));
-					try1.diff = 999999.999999;
+					try1.iDiff = 999999999;
 					try1.totalNumPermutations = 999999;
 					thisGotten = PermuteTeams(&players[0], numEligible, &try1, callback, qfalse, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qfalse);
 					if (thisGotten > gotten)
@@ -1850,7 +1866,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 		// if the permutation banning avoided positions is not 50-50, try again without banning avoided pos
 		permutationOfTeams_t *thisPermutation;
 		if (allowSecondTry) {
-			if (type != TEAMGENERATORTYPE_DESIREDPOS && try1.valid && try1.diff > 0.00001) {
+			if (type != TEAMGENERATORTYPE_DESIREDPOS && try1.valid && try1.iDiff > 0) {
 				TeamGen_DebugPrintf("<font color=orange>==========Diff is > 0 for type %d; attempting without banning avoided pos==========</font><br/>", type);
 				thisGotten = PermuteTeams(&players[0], numEligible, &try2, callback, qtrue, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qfalse);
 				if (thisGotten > gotten)
@@ -1859,14 +1875,14 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 				if (!try2.valid) {
 					TeamGen_DebugPrintf("<font color=orange>==========No valid permutation for type %d without banning avoided pos; trying again without chase rule==========</font><br/>", type);
 					memset(&try2, 0, sizeof(try2));
-					try2.diff = 999999.999999;
+					try2.iDiff = 999999999;
 					try2.totalNumPermutations = 999999;
 					thisGotten = PermuteTeams(&players[0], numEligible, &try2, callback, qfalse, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qfalse);
 					if (thisGotten > gotten)
 						gotten = thisGotten;
 				}
 
-				if (try2.valid && try2.diff < try1.diff - 0.00001) {
+				if (try2.valid && try2.iDiff < try1.iDiff) {
 					thisPermutation = &try2;
 					TeamGen_DebugPrintf("<font color=orange>==========Allowing avoided pos is fairer for type %d; using that==========</font><br/>", type);
 				}
@@ -1955,24 +1971,24 @@ static qboolean GenerateTeamsIteratively(pugProposal_t *set, permutationOfTeams_
 	if (g_vote_teamgen_iterate.integer) {
 		if (g_vote_teamgen_enableInclusive.integer) { // we can afford reduce the number of iterations (causes more lag per iteration anyway)
 			switch ((int)numPlayers) {
-			case 9: case 10:				numIterationsToDo = 32;	break;
-			case 11:						numIterationsToDo = 16;	break;
-			case 12:						numIterationsToDo = 6;	break;
-			case 13:						numIterationsToDo = 4;	break;
-			case 14:						numIterationsToDo = 3;	break;
-			case 15:						numIterationsToDo = 2;	break;
-			default:							numIterationsToDo = 1;	break;
+			/*case 8: */case 9: case 10:	numIterationsToDo = 32;	break;
+			case 11:					numIterationsToDo = 16;	break;
+			case 12:					numIterationsToDo = 6;	break;
+			case 13:					numIterationsToDo = 4;	break;
+			case 14:					numIterationsToDo = 3;	break;
+			case 15:					numIterationsToDo = 2;	break;
+			default:						numIterationsToDo = 1;	break;
 			}
 		}
 		else {
 			switch ((int)numPlayers) {
-			case 9: case 10: case 11:		numIterationsToDo = 32;	break;
-			case 12:						numIterationsToDo = 16;	break;
-			case 13: case 14:				numIterationsToDo = 8;	break;
-			case 15:						numIterationsToDo = 6;	break;
-			case 16:						numIterationsToDo = 4;	break;
-			case 17:						numIterationsToDo = 2;	break;
-			default:							numIterationsToDo = 1;	break;
+			/*case 8: */case 9: case 10: case 11:	numIterationsToDo = 32;	break;
+			case 12:							numIterationsToDo = 16;	break;
+			case 13: case 14:					numIterationsToDo = 8;	break;
+			case 15:							numIterationsToDo = 6;	break;
+			case 16:							numIterationsToDo = 4;	break;
+			case 17:							numIterationsToDo = 2;	break;
+			default:								numIterationsToDo = 1;	break;
 			}
 		}
 	}
@@ -2040,7 +2056,7 @@ static qboolean GenerateTeamsIteratively(pugProposal_t *set, permutationOfTeams_
 
 		++numEvaluated;
 
-		if (sumOfSquares[i] <= 0)
+		if (sumOfSquares[i] <= 0 /*&& (int)numValidPermutations == 3*/)
 			break; // we got a perfect one; no need to keep iterating
 	}
 
@@ -2053,7 +2069,7 @@ static qboolean GenerateTeamsIteratively(pugProposal_t *set, permutationOfTeams_
 			lowestNumPermutations = numPermutationsPerIteration[i];
 			lowestSumOfSquares = sumOfSquares[i];
 			bestIndex = i;
-			if (sumOfSquares[i] <= 0)
+			if (sumOfSquares[i] <= 0 /*&& numPermutationsPerIteration[i] == 3*/)
 				break; // we got a perfect one; no need to keep iterating
 		}
 	}
@@ -2313,7 +2329,7 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 	FormatNumberToStringWithCommas(set->numValidPermutationsChecked, formattedNumber, sizeof(formattedNumber));
 	TeamGenerator_QueueServerMessageInConsole(-1, va("Team generator results for %s\n(%s valid permutations evaluated):\n", set->namesStr, formattedNumber));
 
-	double lowestDiff = 999999;
+	int lowestIDiff = 999999;
 	for (int i = 0; i < 5; i++) {
 		permutationOfTeams_t *thisPermutation;
 		switch (i) {
@@ -2323,8 +2339,8 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 		case 3: thisPermutation = &set->desired; break;
 		case 4: thisPermutation = &set->inclusive; break;
 		}
-		if (thisPermutation->valid && thisPermutation->diff < lowestDiff)
-			lowestDiff = thisPermutation->diff;
+		if (thisPermutation->valid && thisPermutation->iDiff < lowestIDiff)
+			lowestIDiff = thisPermutation->iDiff;
 	}
 
 	qboolean printedFairest = qfalse;
@@ -2342,17 +2358,26 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 		if (!thisPermutation->valid)
 			continue;
 
+		double thisCombinedStrength = thisPermutation->teams[0].rawStrength + thisPermutation->teams[1].rawStrength;
+		int iThisCombinedStrength = (int)round(thisCombinedStrength * 1000);
+
+		int iHcCombinedStrength = 0;
+		if (set->highestCaliber.valid) {
+			double hcCombinedStrength = set->highestCaliber.teams[0].rawStrength + set->highestCaliber.teams[1].rawStrength;
+			iHcCombinedStrength = (int)round(hcCombinedStrength * 1000);
+		}
+
 		char letter;
 		char *suggestionTypeStr;
 		if (!i) {
-			if (thisPermutation->hash == set->highestCaliber.hash && (thisPermutation->diff < 0.00001 || thisPermutation->hash == set->fairest.hash || (set->fairest.valid && thisPermutation->diff == set->fairest.diff))) {
+			if (((thisPermutation->hash == set->highestCaliber.hash) || (iThisCombinedStrength >= iHcCombinedStrength)) && (!thisPermutation->iDiff || thisPermutation->hash == set->fairest.hash || (set->fairest.valid && thisPermutation->iDiff == set->fairest.iDiff))) {
 				suggestionTypeStr = "Suggested, highest caliber, and fairest";
 				printedFairest = qtrue;
 			}
-			else if (thisPermutation->hash == set->highestCaliber.hash) {
+			else if ((thisPermutation->hash == set->highestCaliber.hash) || (iThisCombinedStrength >= iHcCombinedStrength)) {
 				suggestionTypeStr = "Suggested and highest caliber";
 			}
-			else if (fabs(thisPermutation->diff - lowestDiff) < 0.00001) {
+			else if (thisPermutation->iDiff == lowestIDiff) {
 				suggestionTypeStr = "Suggested and fairest";
 				printedFairest = qtrue;
 			}
@@ -2366,7 +2391,7 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 				thisPermutation->valid = qfalse;
 				continue;
 			}
-			if (fabs(thisPermutation->diff - lowestDiff) < 0.00001) {
+			if (thisPermutation->iDiff == lowestIDiff) {
 				suggestionTypeStr = "Highest caliber and fairest";
 				printedFairest = qtrue;
 			}
@@ -2382,14 +2407,25 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 			}
 			// sanity check: don't bother calling it "fairest" if it's not the fairest option
 			// can happen eventually with enough rerolls
-			if (fabs(thisPermutation->diff - lowestDiff) < 0.00001) {
-				if (printedFairest)
-					suggestionTypeStr = "Additional fairest"; // don't write plain old "fairest" if we already printed one above that also said fairest (it would imply this is even fairer)
-				else
-					suggestionTypeStr = "Fairest";
+			if (thisPermutation->iDiff == lowestIDiff) {
+				if (printedFairest) {
+					if ((thisPermutation->hash == set->highestCaliber.hash) || (iThisCombinedStrength >= iHcCombinedStrength))
+						suggestionTypeStr = "Additional fairest and highest caliber"; // don't write plain old "fairest" if we already printed one above that also said fairest (it would imply this is even fairer)
+					else
+						suggestionTypeStr = "Additional fairest"; // don't write plain old "fairest" if we already printed one above that also said fairest (it would imply this is even fairer)
+				}
+				else {
+					if ((thisPermutation->hash == set->highestCaliber.hash) || (iThisCombinedStrength >= iHcCombinedStrength))
+						suggestionTypeStr = "Fairest and highest caliber";
+					else
+						suggestionTypeStr = "Fairest";
+				}
 			}
 			else {
-				suggestionTypeStr = "Additional";
+				if ((thisPermutation->hash == set->highestCaliber.hash) || (iThisCombinedStrength >= iHcCombinedStrength))
+					suggestionTypeStr = "Additional and highest caliber";
+				else
+					suggestionTypeStr = "Additional";
 			}
 			letter = set->fairestLetter = lastLetter++;
 		}
@@ -2399,7 +2435,7 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 				thisPermutation->valid = qfalse;
 				continue;
 			}
-			if (fabs(thisPermutation->diff - lowestDiff) < 0.00001)
+			if (thisPermutation->iDiff == lowestIDiff)
 				suggestionTypeStr = "Appeasing and fairest"; // this is probably not actually possible
 			else
 				suggestionTypeStr = "Appeasing";
@@ -2411,7 +2447,7 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 				thisPermutation->valid = qfalse;
 				continue;
 			}
-			if (fabs(thisPermutation->diff - lowestDiff) < 0.00001)
+			if (thisPermutation->iDiff == lowestIDiff)
 				suggestionTypeStr = "Inclusive and fairest";
 			else
 				suggestionTypeStr = "Inclusive";
