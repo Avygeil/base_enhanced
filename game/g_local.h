@@ -3055,8 +3055,6 @@ extern vmCvar_t     g_hackLog;
 
 extern vmCvar_t     g_fixPitKills;
 
-extern vmCvar_t     g_fixDempSaberThrow;
-
 extern vmCvar_t		g_fixForceJumpAnimationLock;
 extern vmCvar_t		g_fixNoAmmoShootAnimation;
 extern vmCvar_t		g_fix5AmmoSniping;
