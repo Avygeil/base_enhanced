@@ -337,6 +337,8 @@ vmCvar_t	g_protectCallvoteHack;
 vmCvar_t    g_minimumVotesCount;
 vmCvar_t    g_fixPitKills;
 
+vmCvar_t    g_fixDempSaberThrow;
+
 vmCvar_t	g_fixForceJumpAnimationLock;
 vmCvar_t	g_fixNoAmmoShootAnimation;
 vmCvar_t	g_fix5AmmoSniping;
@@ -805,6 +807,8 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_cleverFakeDetection,	"g_cleverFakeDetection"	, "forcepowers"	, CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_fixPitKills,	"g_fixPitKills"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
+
+	{ &g_fixDempSaberThrow,	"g_fixDempSaberThrow"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_fixForceJumpAnimationLock,	"g_fixForceJumpAnimationLock"	, "1"	, CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 	{ &g_fixNoAmmoShootAnimation,	"g_fixNoAmmoShootAnimation"		, "1"	, CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },

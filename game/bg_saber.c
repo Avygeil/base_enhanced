@@ -2951,6 +2951,8 @@ void PM_WeaponLightsaber(void)
 		{
 			PM_SetAnim(SETANIM_TORSO, BOTH_SABERPULL, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD, 100);
 			pm->ps->torsoTimer = 1;
+			if (pm->ps->weaponTime > 0 && g_fixDempSaberThrow.integer)
+				pm->ps->weaponTime -= pml.msec;
 			return;
 		}
 	}
