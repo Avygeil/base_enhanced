@@ -1217,6 +1217,7 @@ typedef struct {
 	int topTierImbalance;
 	int bottomTierImbalance;
 	int totalNumPermutations;
+	int offenseDefenseDiff;
 } permutationOfTeams_t;
 
 typedef struct {
