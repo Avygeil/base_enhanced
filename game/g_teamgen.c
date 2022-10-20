@@ -331,11 +331,11 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 	{
 		double team1DefenseTotal = team1base->rating[CTFPOSITION_BASE] + team1chase->rating[CTFPOSITION_CHASE];
 		double team1OffenseTotal = team1offense1->rating[CTFPOSITION_OFFENSE] + team1offense2->rating[CTFPOSITION_OFFENSE];
-		team1OffenseDefenseDiff = (int)round(fabs(team1DefenseTotal - team1OffenseTotal) * 1000);
+		team1OffenseDefenseDiff = (int)round(fabs(team1DefenseTotal - team1OffenseTotal) * 10000);
 
 		double team2DefenseTotal = team2base->rating[CTFPOSITION_BASE] + team2chase->rating[CTFPOSITION_CHASE];
 		double team2OffenseTotal = team2offense1->rating[CTFPOSITION_OFFENSE] + team2offense2->rating[CTFPOSITION_OFFENSE];
-		team2OffenseDefenseDiff = (int)round(fabs(team2DefenseTotal - team2OffenseTotal) * 1000);
+		team2OffenseDefenseDiff = (int)round(fabs(team2DefenseTotal - team2OffenseTotal) * 10000);
 	}
 	int offenseDefenseDiff = team1OffenseDefenseDiff + team2OffenseDefenseDiff;
 
