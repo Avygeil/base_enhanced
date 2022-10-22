@@ -1656,7 +1656,14 @@ void ForceGrip( gentity_t *self )
 	tto[1] = tfrom[1] + fwd[1]*MAX_GRIP_DISTANCE;
 	tto[2] = tfrom[2] + fwd[2]*MAX_GRIP_DISTANCE;
 
+	qboolean compensate = self->client->sess.unlagged;
+	if (g_unlagged.integer && compensate)
+		G_TimeShiftAllClients(trap_Milliseconds() - (level.time - self->client->pers.cmd.serverTime), self, qfalse);
+
 	trap_Trace(&tr, tfrom, NULL, NULL, tto, self->s.number, MASK_PLAYERSOLID);
+
+	if (g_unlagged.integer && compensate)
+		G_UnTimeShiftAllClients(self, qfalse);
 
 	if ( tr.fraction != 1.0 &&
 		tr.entityNum != ENTITYNUM_NONE &&
