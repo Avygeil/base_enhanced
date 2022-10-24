@@ -3985,12 +3985,20 @@ void CheckExitRules( void ) {
 	{
 		if ( g_timelimit.integer && !level.warmupTime ) {
 			if ( level.time - level.startTime >= g_timelimit.integer*60000 ) {
-				trap_SendServerCommand( -1, va("print \"%s.\n\"",G_GetStringEdString("MP_SVGAME", "TIMELIMIT_HIT")));
+				
 				if (d_powerDuelPrint.integer)
 				{
 					Com_Printf("POWERDUEL WIN CONDITION: Timelimit hit (1)\n");
 				}
-				LogExit( "Timelimit hit." );
+
+				if (level.overtime) {
+					trap_SendServerCommand(-1, "print \"Overtime ended.\n\"");
+					LogExit("Overtime ended.");
+				}
+				else {
+					trap_SendServerCommand(-1, va("print \"%s.\n\"", G_GetStringEdString("MP_SVGAME", "TIMELIMIT_HIT")));
+					LogExit("Timelimit hit.");
+				}
 
 				if (g_gametype.integer == GT_CTF && g_accounts.integer){
 					// match log - accounts system
