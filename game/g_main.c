@@ -3968,6 +3968,11 @@ void CheckExitRules( void ) {
 			//log we came overtime
 			if ( level.time - level.startTime >= g_timelimit.integer*60000 ){
 				level.overtime = qtrue;
+				static qboolean announcedOvertime = qfalse;
+				if (level.wasRestarted && !announcedOvertime) {
+					trap_SendServerCommand(-1, "print \"Overtime started.\n\"");
+					announcedOvertime = qtrue;
+				}
 			}
 
 			// always wait for sudden death
