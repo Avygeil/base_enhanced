@@ -7464,7 +7464,7 @@ static void PM_Weapon( void )
 		{
 			PM_StartTorsoAnim(BOTH_ATTACK4);
 		}
-		else if (pm->ps->weapon != WP_DET_PACK) // we already handled detpacks above
+		else if (pm->ps->weapon != WP_DET_PACK && pm->ps->weapon != WP_MELEE) // we already handled detpacks and melee above
 		{
 			PM_StartTorsoAnim(WeaponAttackAnim[pm->ps->weapon]);
 		}
