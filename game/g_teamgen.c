@@ -178,9 +178,9 @@ typedef struct {
 static int SortTeamsInPermutationOfTeams(const void *a, const void *b) {
 	teamData_t *aa = (teamData_t *)a;
 	teamData_t *bb = (teamData_t *)b;
-	if (aa->relativeStrength > bb->relativeStrength)
+	if (aa->relativeStrength > bb->relativeStrength + 0.00001)
 		return -1;
-	if (bb->relativeStrength > aa->relativeStrength)
+	if (bb->relativeStrength > aa->relativeStrength + 0.00001)
 		return 1;
 	return strcmp(aa->baseName, bb->baseName);
 }
