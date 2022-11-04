@@ -553,6 +553,7 @@ typedef struct {
 	int			accountId;
 	char		sex[32];
 	char		country[32];
+	char		guid[33];
 } autoLink_t;
 
 typedef struct {
@@ -569,6 +570,7 @@ typedef struct {
 	struct {
 		char sex[32];
 		char country[32];
+		char guid[33];
 	} autoLink;
 	positionPreferences_t expressedPref, validPref;
 	int flags;

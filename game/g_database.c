@@ -251,9 +251,27 @@ static void ReadAccountProperties(const char *propertiesIn, account_t *accOut) {
 	cJSON *root = VALIDSTRING(propertiesIn) ? cJSON_Parse(propertiesIn) : NULL;
 	positionPreferences_t positionPreferences = { 0 };
 	if (root) {
+		qboolean gotSexOrGuidAutoLink = qfalse;
+
 		cJSON *autolink_sex = cJSON_GetObjectItemCaseSensitive(root, "autolink_sex");
 		if (cJSON_IsString(autolink_sex) && VALIDSTRING(autolink_sex->valuestring)) {
 			Q_strncpyz(accOut->autoLink.sex, autolink_sex->valuestring, sizeof(accOut->autoLink.sex));
+			gotSexOrGuidAutoLink = qtrue;
+		}
+		else {
+			accOut->autoLink.sex[0] = '\0';
+		}
+
+		cJSON *autolink_guid = cJSON_GetObjectItemCaseSensitive(root, "autolink_guid");
+		if (cJSON_IsString(autolink_guid) && VALIDSTRING(autolink_guid->valuestring)) {
+			Q_strncpyz(accOut->autoLink.guid, autolink_guid->valuestring, sizeof(accOut->autoLink.guid));
+			gotSexOrGuidAutoLink = qtrue;
+		}
+		else {
+			accOut->autoLink.guid[0] = '\0';
+		}
+
+		if (gotSexOrGuidAutoLink) {
 			cJSON *autolink_country = cJSON_GetObjectItemCaseSensitive(root, "autolink_country");
 			if (cJSON_IsString(autolink_country) && VALIDSTRING(autolink_country->valuestring))
 				Q_strncpyz(accOut->autoLink.country, autolink_country->valuestring, sizeof(accOut->autoLink.country));
@@ -261,7 +279,7 @@ static void ReadAccountProperties(const char *propertiesIn, account_t *accOut) {
 				accOut->autoLink.country[0] = '\0';
 		}
 		else {
-			accOut->autoLink.sex[0] = accOut->autoLink.country[0] = '\0';
+			accOut->autoLink.sex[0] = accOut->autoLink.guid[0] = accOut->autoLink.country[0] = '\0';
 		}
 
 		{
@@ -635,11 +653,22 @@ void G_DBSetAccountProperties(account_t *account)
 	if (root) {
 		qboolean print = qfalse;
 
+		qboolean gotSexOrGuidAutoLink = qfalse;
 		if (account->autoLink.sex[0]) {
 			cJSON_AddStringToObject(root, "autolink_sex", account->autoLink.sex);
+			print = qtrue;
+			gotSexOrGuidAutoLink = qtrue;
+		}
+
+		if (account->autoLink.guid[0]) {
+			cJSON_AddStringToObject(root, "autolink_guid", account->autoLink.guid);
+			print = qtrue;
+			gotSexOrGuidAutoLink = qtrue;
+		}
+
+		if (gotSexOrGuidAutoLink) {
 			if (account->autoLink.country[0])
 				cJSON_AddStringToObject(root, "autolink_country", account->autoLink.country);
-			print = qtrue;
 		}
 
 		if (account->expressedPref.first) {
@@ -697,11 +726,14 @@ void G_DBCacheAutoLinks(void) {
 		account_t acc = { 0 };
 		ReadAccountProperties(properties, &acc);
 
-		if (acc.autoLink.sex[0]) {
+		if (acc.autoLink.sex[0] || acc.autoLink.guid[0]) {
 			++gotten;
 			autoLink_t *add = ListAdd(&level.autoLinksList, sizeof(autoLink_t));
 			add->accountId = accountId;
-			Q_strncpyz(add->sex, acc.autoLink.sex, sizeof(add->sex));
+			if (acc.autoLink.sex[0])
+				Q_strncpyz(add->sex, acc.autoLink.sex, sizeof(add->sex));
+			if (acc.autoLink.guid[0])
+				Q_strncpyz(add->guid, acc.autoLink.guid, sizeof(add->guid));
 			if (acc.autoLink.country[0])
 				Q_strncpyz(add->country, acc.autoLink.country, sizeof(add->country));
 		}

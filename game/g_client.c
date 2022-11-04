@@ -3015,8 +3015,8 @@ void G_PrintWelcomeMessage(gclient_t* client) {
 	}
 }
 
-void AutoLinkAccount(gclient_t *client, const char *sex) {
-	assert(client && VALIDSTRING(sex));
+void AutoLinkAccount(gclient_t *client, const char *sex, const char *guid) {
+	assert(client && (VALIDSTRING(sex) || VALIDSTRING(guid)));
 
 	if (!level.autoLinksList.size)
 		return;
@@ -3025,7 +3025,10 @@ void AutoLinkAccount(gclient_t *client, const char *sex) {
 	ListIterate(&level.autoLinksList, &iter, qfalse);
 	while (IteratorHasNext(&iter)) {
 		autoLink_t *autoLink = IteratorNext(&iter);
-		if (Q_stricmp(autoLink->sex, sex))
+		assert(autoLink->guid[0] || autoLink->sex[0]);
+		if (autoLink->guid[0] && (!VALIDSTRING(guid) || Q_stricmp(autoLink->guid, guid)))
+			continue;
+		if (autoLink->sex[0] && (!VALIDSTRING(sex) || Q_stricmp(autoLink->sex, sex)))
 			continue;
 		if (autoLink->country[0] && (!client->sess.country[0] || Q_stricmp(autoLink->country, client->sess.country)))
 			continue;
@@ -3178,8 +3181,9 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 		G_PrintWelcomeMessage(client);
 		if (!client->account) {
 			char *sex = Info_ValueForKey(userinfo, "sex");
-			if (VALIDSTRING(sex))
-				AutoLinkAccount(client, sex);
+			char *guid = Info_ValueForKey(userinfo, "ja_guid");
+			if (VALIDSTRING(sex) || VALIDSTRING(guid))
+				AutoLinkAccount(client, sex, guid);
 		}
 		RestoreDisconnectedPlayerData(ent);
 	}

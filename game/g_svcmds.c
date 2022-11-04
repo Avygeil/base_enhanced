@@ -3341,7 +3341,7 @@ void Svcmd_Account_f( void ) {
 				acc.ptr->name,
 				acc.ptr->id,
 				timestamp,
-				acc.ptr->autoLink.sex[0] ? va("^3Autolink:^7 %s%s^7\n", acc.ptr->autoLink.sex, acc.ptr->autoLink.country[0] ? va(", %s", acc.ptr->autoLink.country) : "") : "",
+				(acc.ptr->autoLink.sex[0] || acc.ptr->autoLink.guid[0]) ? va("^3Autolink:^7 sex %s guid %s country %s^7\n", acc.ptr->autoLink.sex[0] ? acc.ptr->autoLink.sex : "none", acc.ptr->autoLink.guid[0] ? acc.ptr->autoLink.guid : "none", acc.ptr->autoLink.country[0] ? acc.ptr->autoLink.country : "none") : "",
 				flagsStr
 			);
 
@@ -3422,8 +3422,8 @@ void Svcmd_Account_f( void ) {
 			}
 
 		} else if ( !Q_stricmp( s, "autolink" ) ) {
-			if (trap_Argc() < 4) {
-				G_Printf("Usage:^3 account autolink <username> <sex> [country]^7\n");
+			if (trap_Argc() < 6) {
+				G_Printf("Usage:^3 account autolink <username> [sex] [ja_guid] [country]^7 (at least 1 of sex/guid required, country optional, use 0 to omit an argument)\nExample: account autolink broseph 0 ASDFASDF 0\nNote: only use this for repeatedly problematic people\n");
 				return;
 			}
 			char username[MAX_ACCOUNTNAME_LEN];
@@ -3439,21 +3439,41 @@ void Svcmd_Account_f( void ) {
 			char sex[32] = { 0 };
 			trap_Argv(3, sex, sizeof(sex));
 			if (!sex[0]) {
-				G_Printf("Usage:^3 account autolink <username> <sex> [country]^7\n");
+				G_Printf("Usage:^3 account autolink <username> [sex] [ja_guid] [country]^7 (at least 1 of sex/guid required, country optional, use 0 to omit an argument)\nExample: account autolink broseph 0 ASDFASDF 0\nNote: only use this for repeatedly problematic people\n");
 				return;
 			}
 
-			Q_strncpyz(acc.ptr->autoLink.sex, sex, sizeof(acc.ptr->autoLink.sex));
+			qboolean gotSexOrGuid = qfalse;
+			if (strcmp(sex, "0"))
+				gotSexOrGuid = qtrue;
 
-			if (trap_Argc() >= 5) {
-				char *country = ConcatArgs(4);
-				if (VALIDSTRING(country))
-					Q_strncpyz(acc.ptr->autoLink.country, country, sizeof(acc.ptr->autoLink.country));
+			char guid[33] = { 0 };
+			trap_Argv(4, guid, sizeof(guid));
+			if (!guid[0]) {
+				G_Printf("Usage:^3 account autolink <username> [sex] [ja_guid] [country]^7 (at least 1 of sex/guid required, country optional, use 0 to omit an argument)\nExample: account autolink broseph 0 ASDFASDF 0\nNote: only use this for repeatedly problematic people\n");
+				return;
 			}
+
+			if (strcmp(guid, "0"))
+				gotSexOrGuid = qtrue;
+
+			if (!gotSexOrGuid) {
+				G_Printf("Usage:^3 account autolink <username> [sex] [ja_guid] [country]^7 (at least 1 of sex/guid required, country optional, use 0 to omit an argument)\nExample: account autolink broseph 0 ASDFASDF 0\nNote: only use this for repeatedly problematic people\n");
+				return;
+			}
+
+			if (sex[0] && strcmp(sex, "0"))
+				Q_strncpyz(acc.ptr->autoLink.sex, sex, sizeof(acc.ptr->autoLink.sex));
+			if (guid[0] && strcmp(guid, "0"))
+				Q_strncpyz(acc.ptr->autoLink.guid, guid, sizeof(acc.ptr->autoLink.guid));
+
+			char *country = ConcatArgs(5);
+			if (VALIDSTRING(country) && strcmp(country, "0"))
+				Q_strncpyz(acc.ptr->autoLink.country, country, sizeof(acc.ptr->autoLink.country));
 
 			G_DBSetAccountProperties(acc.ptr);
 			G_DBCacheAutoLinks();
-			G_Printf("Created autolink for %s with sex %s%s\n", acc.ptr->name, acc.ptr->autoLink.sex, acc.ptr->autoLink.country[0] ? va(" and country %s", acc.ptr->autoLink.country) : "");
+			G_Printf("Created autolink for %s with sex %s, guid %s, country %s\n", acc.ptr->name, acc.ptr->autoLink.sex[0] ? acc.ptr->autoLink.sex : "none", acc.ptr->autoLink.guid[0] ? acc.ptr->autoLink.guid : "none", acc.ptr->autoLink.country[0] ? acc.ptr->autoLink.country : "none");
 		} else if (!Q_stricmp(s, "unautolink")) {
 			if (trap_Argc() < 3) {
 				G_Printf("Usage:^3 account autolink <username>^7\n");

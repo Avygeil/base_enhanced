@@ -112,13 +112,49 @@ static qboolean AutoLinkSession( gclient_t* client, session_t* session ) {
 
 #ifdef NEWMOD_SUPPORT
 
-	// for now, the only unambiguous and foolproof way of autolinking is by using newmod ids
+	// first try to link with newmod id
 	if ( client->sess.auth == AUTHENTICATED && VALIDSTRING( client->sess.cuidHash ) ) {
 		pagination_t pagination;
 		pagination.numPerPage = INT_MAX;
 		pagination.numPage = 1;
 
 		G_DBListSessionsForInfo( "cuid_hash2", client->sess.cuidHash, pagination, GetLatestAccountId, &existingAccountId);
+
+		// then try to link with autolinks
+		if (existingAccountId <= 0 && level.autoLinksList.size) {
+			char userinfo[MAX_INFO_VALUE] = { 0 };
+			trap_GetUserinfo(client - level.clients, userinfo, sizeof(userinfo));
+			char *sex = Info_ValueForKey(userinfo, "sex");
+			char *guid = Info_ValueForKey(userinfo, "ja_guid");
+
+			if (VALIDSTRING(sex) || VALIDSTRING(guid)) {
+				iterator_t iter;
+				ListIterate(&level.autoLinksList, &iter, qfalse);
+				while (IteratorHasNext(&iter)) {
+					autoLink_t *autoLink = IteratorNext(&iter);
+					assert(autoLink->guid[0] || autoLink->sex[0]);
+					if (autoLink->guid[0] && (!VALIDSTRING(guid) || Q_stricmp(autoLink->guid, guid)))
+						continue;
+					if (autoLink->sex[0] && (!VALIDSTRING(sex) || Q_stricmp(autoLink->sex, sex)))
+						continue;
+					if (autoLink->country[0] && (!client->sess.country[0] || Q_stricmp(autoLink->country, client->sess.country)))
+						continue;
+
+					// link them
+					accountReference_t acc = G_GetAccountByID(autoLink->accountId, qfalse);
+					if (!acc.ptr) {
+						Com_Printf("Warning: new client session autolink attempt for account id %d failed! Does that account still exist?\n", autoLink->accountId);
+						continue;
+					}
+
+					if (G_LinkAccountToSession(session, acc.ptr)) {
+						Com_Printf("New client session for player %s^7 successfully autolinked to account '%s' (id: %d)\n", client->pers.netname, acc.ptr->name, acc.ptr->id);
+						trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
+						return qtrue;
+					}
+				}
+			}
+		}
 	}
 
 #endif
