@@ -4238,6 +4238,7 @@ void DoGripAction(gentity_t *self, forcePowers_t forcePower)
 	
 	trap_Trace(&tr, self->client->ps.origin, NULL, NULL, gripEnt->client->ps.origin, self->s.number, MASK_PLAYERSOLID);
 
+	// fun fact, this line never actually does anything because if the victim were absorbing, we would have returned a few lines above (based raven coders)
 	gripLevel = WP_AbsorbConversion(gripEnt, gripEnt->client->ps.fd.forcePowerLevel[FP_ABSORB], self, FP_GRIP, self->client->ps.fd.forcePowerLevel[FP_GRIP], forcePowerNeeded[self->client->ps.fd.forcePowerLevel[FP_GRIP]][FP_GRIP]);
 
 	if (gripLevel == -1)
