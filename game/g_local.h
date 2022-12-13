@@ -1547,6 +1547,8 @@ struct gclient_s {
 	char rockPaperScissorsChoice;
 
 	qboolean canTouchPowerupsWhileGameIsPaused;
+
+	int grippedAnAbsorberTime;
 };
 
 //Interest points
@@ -3200,6 +3202,7 @@ extern vmCvar_t		g_rockPaperScissors;
 
 extern vmCvar_t		g_gripBuff;
 extern vmCvar_t		g_gripRefreshRate;
+extern vmCvar_t		g_gripAbsorbFix;
 
 extern vmCvar_t		g_minimumCullDistance;
 

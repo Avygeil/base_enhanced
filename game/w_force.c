@@ -30,6 +30,8 @@ int ysalamiriLoopSound = 0;
 
 #define FORCE_VELOCITY_DAMAGE 0
 
+#define GRIP_DEBOUNCE_TIME (3000)
+
 int ForceShootDrain( gentity_t *self );
 
 gentity_t *G_PreDefSound(gentity_t *ent, int pdSound)
@@ -714,7 +716,7 @@ void WP_SpawnInitForcePowers( gentity_t *ent )
 #include "namespace_begin.h"
 extern qboolean BG_InKnockDown( int anim ); //bg_pmove.c
 #include "namespace_end.h"
-
+int WP_AbsorbConversion(gentity_t *attacked, int atdAbsLevel, gentity_t *attacker, int atPower, int atPowerLevel, int atForceSpent);
 int ForcePowerUsableOn(gentity_t *attacker, gentity_t *other, forcePowers_t forcePower)
 {
 	if (other && other->isAimPracticePack) {
@@ -751,11 +753,14 @@ int ForcePowerUsableOn(gentity_t *attacker, gentity_t *other, forcePowers_t forc
 			//play sound indicating that attack was absorbed
 			if (other->client->forcePowerSoundDebounce < level.time)
 			{
-				gentity_t *abSound = G_PreDefSound(other, PDSOUND_ABSORBHIT);
-				abSound->s.trickedentindex = other->s.number;
-				other->client->forcePowerSoundDebounce = level.time + 400;
+				if (!g_gripAbsorbFix.integer) { // base behavior
+					gentity_t *abSound = G_PreDefSound(other, PDSOUND_ABSORBHIT);
+					abSound->s.trickedentindex = other->s.number;
+					other->client->forcePowerSoundDebounce = level.time + 400;
+				}
+
 			}
-			return 0;
+			return g_gripAbsorbFix.integer ? -1 : 0; // return -1 so we know that the reason it failed is absorb
 		}
 		else if (other && other->client &&
 			other->client->ps.weapon == WP_SABER &&
@@ -1422,7 +1427,7 @@ void ForceTeamHeal( gentity_t *self )
 	{
 		ent = &g_entities[i];
 
-		if (ent && ent->client && self != ent && OnSameTeam(self, ent) && ent->client->ps.stats[STAT_HEALTH] < ent->client->ps.stats[STAT_MAX_HEALTH] && ent->client->ps.stats[STAT_HEALTH] > 0 && ForcePowerUsableOn(self, ent, FP_TEAM_HEAL) &&
+		if (ent && ent->client && self != ent && OnSameTeam(self, ent) && ent->client->ps.stats[STAT_HEALTH] < ent->client->ps.stats[STAT_MAX_HEALTH] && ent->client->ps.stats[STAT_HEALTH] > 0 && ForcePowerUsableOn(self, ent, FP_TEAM_HEAL) > 0 &&
 			trap_InPVS(self->client->ps.origin, ent->client->ps.origin))
 		{
 			VectorSubtract(self->client->ps.origin, ent->client->ps.origin, a);
@@ -1539,7 +1544,7 @@ void ForceTeamForceReplenish( gentity_t *self )
 
 		if (ent && ent->client && self != ent && OnSameTeam(self, ent)
 			&& ent->client->ps.stats[STAT_HEALTH] > 0 /* *CHANGE 60* try to TE only living mates */
-			&& ent->client->ps.fd.forcePower < 100 && ForcePowerUsableOn(self, ent, FP_TEAM_FORCE) &&
+			&& ent->client->ps.fd.forcePower < 100 && ForcePowerUsableOn(self, ent, FP_TEAM_FORCE) > 0 &&
 			trap_InPVS(self->client->ps.origin, ent->client->ps.origin))
 		{
 			VectorSubtract(self->client->ps.origin, ent->client->ps.origin, a);
@@ -1665,33 +1670,62 @@ void ForceGrip( gentity_t *self )
 	if (g_unlagged.integer && compensate)
 		G_UnTimeShiftAllClients(self, qfalse);
 
-	if ( tr.fraction != 1.0 &&
+	int usable = 0;
+	if (tr.fraction != 1.0 &&
 		tr.entityNum != ENTITYNUM_NONE &&
 		g_entities[tr.entityNum].client &&
 		!g_entities[tr.entityNum].client->ps.fd.forceGripCripple &&
-		g_entities[tr.entityNum].client->ps.fd.forceGripBeingGripped < level.time &&
-		ForcePowerUsableOn(self, &g_entities[tr.entityNum], FP_GRIP) &&
-		(g_friendlyFire.integer || !OnSameTeam(self, &g_entities[tr.entityNum])) &&
-		Distance(self->client->ps.origin, g_entities[tr.entityNum].client->ps.origin) <= MAX_GRIP_DISTANCE) //don't grip someone who's still crippled
-	{
-		if (g_entities[tr.entityNum].s.number < MAX_CLIENTS && g_entities[tr.entityNum].client->ps.m_iVehicleNum)
-		{ //a player on a vehicle
-			gentity_t *vehEnt = &g_entities[g_entities[tr.entityNum].client->ps.m_iVehicleNum];
-			if (vehEnt->inuse && vehEnt->client && vehEnt->m_pVehicle)
-			{
-				if (vehEnt->m_pVehicle->m_pVehicleInfo->type == VH_SPEEDER ||
-					vehEnt->m_pVehicle->m_pVehicleInfo->type == VH_ANIMAL)
-				{ //push the guy off
-					vehEnt->m_pVehicle->m_pVehicleInfo->Eject(vehEnt->m_pVehicle, (bgEntity_t *)&g_entities[tr.entityNum], qfalse);
+		g_entities[tr.entityNum].client->ps.fd.forceGripBeingGripped < level.time) {
+
+		usable = ForcePowerUsableOn(self, &g_entities[tr.entityNum], FP_GRIP);
+
+		if (usable > 0 &&
+			(g_friendlyFire.integer || !OnSameTeam(self, &g_entities[tr.entityNum])) &&
+			Distance(self->client->ps.origin, g_entities[tr.entityNum].client->ps.origin) <= MAX_GRIP_DISTANCE) //don't grip someone who's still crippled
+		{
+			if (g_entities[tr.entityNum].s.number < MAX_CLIENTS && g_entities[tr.entityNum].client->ps.m_iVehicleNum)
+			{ //a player on a vehicle
+				gentity_t *vehEnt = &g_entities[g_entities[tr.entityNum].client->ps.m_iVehicleNum];
+				if (vehEnt->inuse && vehEnt->client && vehEnt->m_pVehicle)
+				{
+					if (vehEnt->m_pVehicle->m_pVehicleInfo->type == VH_SPEEDER ||
+						vehEnt->m_pVehicle->m_pVehicleInfo->type == VH_ANIMAL)
+					{ //push the guy off
+						vehEnt->m_pVehicle->m_pVehicleInfo->Eject(vehEnt->m_pVehicle, (bgEntity_t *)&g_entities[tr.entityNum], qfalse);
+					}
 				}
 			}
-		}
-		self->client->ps.fd.forceGripEntityNum = tr.entityNum;
-		g_entities[tr.entityNum].client->ps.fd.forceGripStarted = level.time;
-		self->client->ps.fd.forceGripDamageDebounceTime = 0;
+			self->client->ps.fd.forceGripEntityNum = tr.entityNum;
+			g_entities[tr.entityNum].client->ps.fd.forceGripStarted = level.time;
+			self->client->ps.fd.forceGripDamageDebounceTime = 0;
 
-		self->client->ps.forceHandExtend = HANDEXTEND_FORCE_HOLD;
-		self->client->ps.forceHandExtendTime = level.time + 5000;
+			self->client->ps.forceHandExtend = HANDEXTEND_FORCE_HOLD;
+			self->client->ps.forceHandExtendTime = level.time + 5000;
+		}
+		else {
+			self->client->ps.fd.forceGripEntityNum = ENTITYNUM_NONE;
+
+			if (usable == -1 && g_gripAbsorbFix.integer) {
+				// we failed to *start* a new grip because the person we aimed at was absorbing
+				// absorb the force points
+
+				if (!self->client->grippedAnAbsorberTime || level.time - self->client->grippedAnAbsorberTime >= GRIP_DEBOUNCE_TIME) {
+					// fix for base jka grip behavior allowing you to freely attempt to grip absorbers with impunity
+					// drain 30 force when trying to grip an absorber,
+					// but only every 3 seconds. allow you to keep trying to grip people in the meantime.
+
+					// set the cooldown on absorption
+					self->client->grippedAnAbsorberTime = level.time;
+
+					// absorb the force (this also plays the sound/effect)
+					WP_AbsorbConversion(&g_entities[tr.entityNum], g_entities[tr.entityNum].client->ps.fd.forcePowerLevel[FP_ABSORB], self, FP_GRIP, self->client->ps.fd.forcePowerLevel[FP_GRIP], 30);
+
+					// dock the force from the user
+					BG_ForcePowerDrain(&self->client->ps, FP_GRIP, GRIP_DRAIN_AMOUNT);
+				}
+			}
+			return;
+		}
 	}
 	else
 	{
@@ -1959,7 +1993,7 @@ void ForceLightningDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, vec
 				}
 				return;
 			}
-			if (ForcePowerUsableOn(self, traceEnt, FP_LIGHTNING))
+			if (ForcePowerUsableOn(self, traceEnt, FP_LIGHTNING) > 0)
 			{
 				int	dmg = Q_irand(1,2);
 				
@@ -2212,7 +2246,7 @@ void ForceDrainDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, vec3_t 
 					traceEnt->s.genericenemyindex = level.time + 2000;
 				}
 			}
-			if (ForcePowerUsableOn(self, traceEnt, FP_DRAIN))
+			if (ForcePowerUsableOn(self, traceEnt, FP_DRAIN) > 0)
 			{
 				int modPowerLevel = -1;
 				int	dmg = 0; 
@@ -2987,7 +3021,7 @@ void ForceTelepathy(gentity_t *self)
 				{ //only bother with arc rules if the victim is a client
 					entityList[e] = ENTITYNUM_NONE;
 				}
-				else if (!ForcePowerUsableOn(self, ent, FP_TELEPATHY))
+				else if (ForcePowerUsableOn(self, ent, FP_TELEPATHY) <= 0)
 				{
 					entityList[e] = ENTITYNUM_NONE;
 				}
@@ -3399,14 +3433,14 @@ void ForceThrow( gentity_t *self, qboolean pull )
 
 			if (pull)
 			{
-				if (!ForcePowerUsableOn(self, &g_entities[tr.entityNum], FP_PULL))
+				if (ForcePowerUsableOn(self, &g_entities[tr.entityNum], FP_PULL) <= 0)
 				{
 					return;
 				}
 			}
 			else
 			{
-				if (!ForcePowerUsableOn(self, &g_entities[tr.entityNum], FP_PUSH))
+				if (ForcePowerUsableOn(self, &g_entities[tr.entityNum], FP_PUSH) <= 0)
 				{
 					return;
 				}
@@ -3457,7 +3491,7 @@ void ForceThrow( gentity_t *self, qboolean pull )
 				vectoangles(a, a);
 
 				if (ent->client && !InFieldOfVision(self->client->ps.viewangles, visionArc, a) &&
-					ForcePowerUsableOn(self, ent, powerUse))
+					ForcePowerUsableOn(self, ent, powerUse) > 0)
 				{ //only bother with arc rules if the victim is a client
 					entityList[e] = ENTITYNUM_NONE;
 				}
@@ -3465,14 +3499,14 @@ void ForceThrow( gentity_t *self, qboolean pull )
 				{
 					if (pull)
 					{
-						if (!ForcePowerUsableOn(self, ent, FP_PULL))
+						if (ForcePowerUsableOn(self, ent, FP_PULL) <= 0)
 						{
 							entityList[e] = ENTITYNUM_NONE;
 						}
 					}
 					else
 					{
-						if (!ForcePowerUsableOn(self, ent, FP_PUSH))
+						if (ForcePowerUsableOn(self, ent, FP_PUSH) <= 0)
 						{
 							entityList[e] = ENTITYNUM_NONE;
 						}
@@ -4066,7 +4100,7 @@ void WP_ForcePowerStop( gentity_t *self, forcePowers_t forcePower )
 		}
 		break;
 	case FP_GRIP:
-		self->client->ps.fd.forceGripUseTime = level.time + 3000;
+		self->client->ps.fd.forceGripUseTime = level.time + GRIP_DEBOUNCE_TIME;
 		if (self->client->ps.fd.forcePowerLevel[FP_GRIP] > FORCE_LEVEL_1 &&
 			g_entities[self->client->ps.fd.forceGripEntityNum].client &&
 			g_entities[self->client->ps.fd.forceGripEntityNum].health > 0 &&
@@ -4173,16 +4207,31 @@ void DoGripAction(gentity_t *self, forcePowers_t forcePower)
 
 	gripEnt = &g_entities[self->client->ps.fd.forceGripEntityNum];
 
-	if (!gripEnt || !gripEnt->client || !gripEnt->inuse || gripEnt->health < 1 || !ForcePowerUsableOn(self, gripEnt, FP_GRIP))
+	if (!gripEnt || !gripEnt->client || !gripEnt->inuse || gripEnt->health < 1)
 	{
 		WP_ForcePowerStop(self, forcePower);
 		self->client->ps.fd.forceGripEntityNum = ENTITYNUM_NONE;
 
 		if (gripEnt && gripEnt->client && gripEnt->inuse)
-		{
 			gripEnt->client->ps.forceGripChangeMovetype = PM_NORMAL;
-		}
 		return;
+	}
+	else {
+		int usable = ForcePowerUsableOn(self, gripEnt, FP_GRIP);
+		if (usable <= 0) {
+			if (usable == -1 && g_gripAbsorbFix.integer) {
+				// we failed to *continue* gripping because the victim began using absorb mid-grip
+				// do not absorb force power here, but do start the "gripped an absorber" cooldown
+				// so that we don't absorb force points from the ForceGrip function immediately afterwards
+				self->client->grippedAnAbsorberTime = level.time;
+			}
+			WP_ForcePowerStop(self, forcePower);
+			self->client->ps.fd.forceGripEntityNum = ENTITYNUM_NONE;
+
+			if (gripEnt && gripEnt->client && gripEnt->inuse)
+				gripEnt->client->ps.forceGripChangeMovetype = PM_NORMAL;
+			return;
+		}
 	}
 
 	VectorSubtract(gripEnt->client->ps.origin, self->client->ps.origin, a);
