@@ -4224,6 +4224,11 @@ void DoGripAction(gentity_t *self, forcePowers_t forcePower)
 				// do not absorb force power here, but do start the "gripped an absorber" cooldown
 				// so that we don't absorb force points from the ForceGrip function immediately afterwards
 				self->client->grippedAnAbsorberTime = level.time;
+
+				// also play the sound/effect
+				gentity_t *abSound = G_PreDefSound(gripEnt, PDSOUND_ABSORBHIT);
+				abSound->s.trickedentindex = gripEnt->s.number;
+				gripEnt->client->forcePowerSoundDebounce = level.time + 400;
 			}
 			WP_ForcePowerStop(self, forcePower);
 			self->client->ps.fd.forceGripEntityNum = ENTITYNUM_NONE;
