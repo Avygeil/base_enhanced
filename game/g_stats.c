@@ -921,6 +921,35 @@ const char *CtfStatsTableCallback_GotDrained(void *rowContext, void *columnConte
 	return FormatStatInt(stats->isTotal, stats->gotDrained, bestStats[stats->lastTeam].gotDrained, bestStats[OtherTeam(stats->lastTeam)].gotDrained, 4);
 }
 
+const char *CtfStatsTableCallback_Grips(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	stats_t *stats = rowContext;
+	return FormatStatInt(stats->isTotal, stats->grips, bestStats[stats->lastTeam].grips, bestStats[OtherTeam(stats->lastTeam)].grips, 2);
+}
+
+const char *CtfStatsTableCallback_GotGripped(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	stats_t *stats = rowContext;
+	return FormatStatInt(stats->isTotal, stats->gotGripped, bestStats[stats->lastTeam].gotGripped, bestStats[OtherTeam(stats->lastTeam)].gotGripped, 2);
+}
+
+const char *CtfStatsTableCallback_DarkPercent(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	stats_t *stats = rowContext;
+	if (!stats->forceSamples)
+		return " ";
+	return FormatStatInt(stats->isTotal, stats->darkPercent, bestStats[stats->lastTeam].darkPercent, bestStats[OtherTeam(stats->lastTeam)].darkPercent, 3);
+}
+
 const char *CtfStatsTableCallback_HealthPickedUp(void *rowContext, void *columnContext) {
 	if (!rowContext) {
 		assert(qfalse);
@@ -1221,6 +1250,10 @@ static void CheckBestStats(stats_t *player, statsTableType_t type, stats_t *weap
 		CheckBest(rageTimeUsed);
 		CheckBest(drain);
 		CheckBest(gotDrained);
+		CheckBest(grips);
+		CheckBest(gotGripped);
+		player->darkPercent = player->forceSamples ? player->darkForceSamples * 100 / player->forceSamples : 0;
+		CheckBest(darkPercent);
 		int allRegionsTime = 0;
 		for (ctfRegion_t region = CTFREGION_FLAGSTAND; region <= CTFREGION_ENEMYFLAGSTAND; region++) {
 			allRegionsTime += player->regionTime[region];
@@ -1414,6 +1447,12 @@ void AddStatsToTotal(stats_t *player, stats_t *total, statsTableType_t type, sta
 		AddStatToTotal(rageTimeUsed);
 		AddStatToTotal(drain);
 		AddStatToTotal(gotDrained);
+		AddStatToTotal(grips);
+		AddStatToTotal(gotGripped);
+		AddStatToTotal(forceSamples);
+		AddStatToTotal(darkForceSamples);
+		total->darkPercent = total->forceSamples ? total->darkForceSamples * 100 / total->forceSamples : 0;
+		
 		int allRegionsTime = 0;
 		for (ctfRegion_t region = CTFREGION_FLAGSTAND; region <= CTFREGION_ENEMYFLAGSTAND; region++) {
 			AddStatToTotal(regionTime[region]);
@@ -2027,6 +2066,9 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 		Table_DefineColumn(t, "^5Rage", CtfStatsTableCallback_RageTime, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^1Drn", CtfStatsTableCallback_Drain, NULL, qfalse, -1, 32);
 		Table_DefineColumn(t, "^1Drnd", CtfStatsTableCallback_GotDrained, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^1Gr", CtfStatsTableCallback_Grips, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^1Gd", CtfStatsTableCallback_GotGripped, NULL, qfalse, -1, 32);
+		Table_DefineColumn(t, "^1Drk", CtfStatsTableCallback_DarkPercent, NULL, qfalse, -1, 32);
 		ctfRegion_t region = CTFREGION_FLAGSTAND;
 		Table_DefineColumn(t, "^5Fs", CtfStatsTableCallback_CtfRegionPercent, &region, qfalse, -1, 32);
 		++region;
@@ -2240,6 +2282,9 @@ static statsHelp_t helps[] = { // important: make sure any new stats do not conf
 	{ STATS_TABLE_GENERAL, "^5Rage", "Rage time", "Total duration you had rage activated"},
 	{ STATS_TABLE_GENERAL, "^1Drn", "Drain", "Force power gained by draining enemies"},
 	{ STATS_TABLE_GENERAL, "^1Drnd", "Drained", "Force power given to enemies by drain"},
+	{ STATS_TABLE_GENERAL, "^1Gr", "Grips", "Number of times you gripped enemies"},
+	{ STATS_TABLE_GENERAL, "^1Gd", "Gripped", "Number of times you were gripped by enemies"},
+	{ STATS_TABLE_GENERAL, "^1Drk", "Dark force use", "Percentage of the match using dark side force"},
 	{ STATS_TABLE_GENERAL, "^5Fs", "Allied flagstand time", "Percentage of the match spent in the 20 percent of the map closest to your flagstand"},
 	{ STATS_TABLE_GENERAL, "^5Bas", "Allied base time", "Percentage of the match spent in the 20 percent of the map between your flagstand and mid"},
 	{ STATS_TABLE_GENERAL, "^5Mid", "Mid time", "Percentage of the match spent in the middle 20 percent of the map"},
@@ -3248,7 +3293,8 @@ void SendMachineFriendlyStats(void) {
 				if (s->regionPercent[r]) { hasValidRegions = qtrue; break; }
 
 			machineFriendlyStats_t *mfs = ListAdd(&machineFriendlyStatsList, sizeof(machineFriendlyStats_t));
-#define MACHINEFRIENDLYSTATS_PROTOCOL	4
+#define MACHINEFRIENDLYSTATS_PROTOCOL	5
+			// 5 = added grips, gripped, dark percent
 			// 4 = fixed fc kill efficiency bug where fc pitkills counted as unreturned (inefficient) fc kills
 			// 3 = added got te stat after eff
 			Com_sprintf(mfs->buf, sizeof(mfs->buf),
@@ -3268,7 +3314,7 @@ void SendMachineFriendlyStats(void) {
 				/*boon->*/" %d" /*push->*/" %d" /*pull->*/" %d" /*heal->*/" %d" /*TE->*/" %d"
 				/*te eff->*/" %d" /*te received->*/" %d" /*enemy nrg->*/" %d" /*absorb->*/" %d"
 				/*protdmg->*/" %d" /*prottime->*/" %d" /*rage->*/" %d"
-				/*drain->*/" %d" /*drained->*/" %d"
+				/*drain->*/" %d" /*drained->*/" %d" /*grips->*/" %d" /*gripped->*/" %d" /*dark->*/" %d"
 				/*fs->*/" %d" /*base->*/" %d" /*mid->*/" %d" /*enemy base->*/" %d" /*enemy fs->*/" %d"
 				/*name->*/" %s"
 #ifdef DEBUG_PRINT_MACHINEFRIENDLYSTATS
@@ -3320,6 +3366,9 @@ void SendMachineFriendlyStats(void) {
 				s->rageTimeUsed,
 				s->drain,
 				s->gotDrained,
+				s->grips,
+				s->gotGripped,
+				s->darkPercent,
 				hasValidRegions ? s->regionPercent[CTFREGION_FLAGSTAND] : -1, // basically null but we can preserve the format
 				hasValidRegions ? s->regionPercent[CTFREGION_BASE] : -1, // basically null but we can preserve the format
 				hasValidRegions ? s->regionPercent[CTFREGION_MID] : -1, // basically null but we can preserve the format

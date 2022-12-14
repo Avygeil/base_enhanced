@@ -1699,6 +1699,14 @@ void ForceGrip( gentity_t *self )
 			g_entities[tr.entityNum].client->ps.fd.forceGripStarted = level.time;
 			self->client->ps.fd.forceGripDamageDebounceTime = 0;
 
+			if ((self->client->sess.sessionTeam == TEAM_RED && g_entities[tr.entityNum].client->sess.sessionTeam == TEAM_BLUE) ||
+				(self->client->sess.sessionTeam == TEAM_BLUE && g_entities[tr.entityNum].client->sess.sessionTeam == TEAM_RED)) {
+				if (self->client->stats)
+					self->client->stats->grips++;
+				if (g_entities[tr.entityNum].client->stats)
+					g_entities[tr.entityNum].client->stats->gotGripped++;
+			}
+
 			self->client->ps.forceHandExtend = HANDEXTEND_FORCE_HOLD;
 			self->client->ps.forceHandExtendTime = level.time + 5000;
 		}

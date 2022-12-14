@@ -1132,6 +1132,11 @@ typedef struct {
 	int			rageTimeUsed;
 	int			drain;
 	int			gotDrained;
+	int			grips;
+	int			gotGripped;
+	int			forceSamples;
+	int			darkForceSamples;
+	int			darkPercent; // this is only calculated on demand; don't just randomly read this (imagine getters in C)
 
 	list_t		teammatePositioningList; // record of positioning for people i was ingame with
 

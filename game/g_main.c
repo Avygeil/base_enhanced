@@ -6553,6 +6553,9 @@ void G_RunFrame( int levelTime ) {
 						// only track overall displacement if you are actually ingame
 						ent->client->stats->displacement += xyspeed / g_svfps.value;
 						ent->client->stats->displacementSamples++;
+						ent->client->stats->forceSamples++;
+						if (ent->client->ps.fd.forceSide == FORCE_DARKSIDE)
+							ent->client->stats->darkForceSamples++;
 						if (g_gametype.integer == GT_CTF) {
 							ctfRegion_t region = GetCTFRegion(ent);
 							if (region != CTFREGION_INVALID)
