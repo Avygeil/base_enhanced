@@ -18,7 +18,7 @@ typedef struct pagination_s {
 void G_DBLoadDatabase( void *serverDbPtr );
 void G_DBUnloadDatabase( void );
 
-qboolean G_DBUpgradeDatabaseSchema( int versionFrom, void* db );
+qboolean G_DBUpgradeDatabaseSchema( int versionFrom, void* db, qboolean *didUpgrade );
 
 // =========== ACCOUNTS ========================================================
 

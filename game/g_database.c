@@ -8,6 +8,8 @@
 
 static sqlite3* dbPtr = NULL;
 
+static qboolean didUpgrade = qfalse;
+
 static void ErrorCallback( void* ctx, int code, const char* msg ) {
 	Com_Printf( "SQL error (code %d): %s\n", code, msg );
 }
@@ -75,7 +77,7 @@ void G_DBLoadDatabase( void *serverDbPtr )
 		version = DB_SCHEMA_VERSION;
 	}
 
-	if ( !G_DBUpgradeDatabaseSchema( version, dbPtr ) ) {
+	if ( !G_DBUpgradeDatabaseSchema( version, dbPtr, &didUpgrade ) ) {
 		// don't let server load if an upgrade failed
 
 		/*if (dbPtr != diskDb) {
@@ -5229,8 +5231,13 @@ void G_DBInitializePugStatsCache(void) {
 	qboolean recalculate = (!level.wasRestarted && ((g_shouldReloadPlayerPugStats.integer && g_recalculateStatsAfterPug.integer) || !g_notFirstMap.integer));
 
 #if defined(_DEBUG) && defined(FAST_START)
-	Com_Printf("Debug build; using FAST_START. Will use cached stats/winrates instead of recalculating.\n");
-	recalculate = qfalse;
+	if (didUpgrade) {
+		Com_Printf("Debug build with FAST_START, but performed database upgrade, so recalculating.\n");
+	}
+	else {
+		Com_Printf("Debug build; using FAST_START. Will use cached stats/winrates instead of recalculating.\n");
+		recalculate = qfalse;
+	}
 #endif
 
 	if (recalculate) {

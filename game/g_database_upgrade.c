@@ -1633,7 +1633,7 @@ static qboolean UpgradeDB( int versionTo, sqlite3* dbPtr ) {
 	return qfalse;
 }
 
-qboolean G_DBUpgradeDatabaseSchema( int versionFrom, void* db ) {
+qboolean G_DBUpgradeDatabaseSchema( int versionFrom, void* db, qboolean *didUpgrade ) {
 	if (versionFrom == DB_SCHEMA_VERSION) {
 		// already up-to-date
 		return qtrue;
@@ -1655,6 +1655,8 @@ qboolean G_DBUpgradeDatabaseSchema( int versionFrom, void* db ) {
 		}
 
 		Com_Printf("Database upgrade successful\n");
+		if (didUpgrade)
+			*didUpgrade = qtrue;
 	}
 	
 	return qtrue;
