@@ -5129,10 +5129,9 @@ static void WaitForAFKs(void) {
 		else
 			numBlue++;
 
-		int afkThreshold;
 		if (ent->client->account && (ent->client->account->flags & ACCOUNTFLAG_AFKTROLL)) {
 			// LS has to actually move every 3 seconds
-			afkThreshold = g_waitForAFKThresholdTroll.integer;
+			int afkThreshold = g_waitForAFKThresholdTroll.integer;
 			if (afkThreshold <= 0)
 				afkThreshold = WAITFORAFK_AFK_DEFAULT_TROLL;
 			afkThreshold = Com_Clampi(WAITFORAFK_AFK_MIN, WAITFORAFK_AFK_MAX, afkThreshold);
@@ -5147,7 +5146,7 @@ static void WaitForAFKs(void) {
 		}
 		else {
 			// players with brains merely have to do any input every 5 seconds
-			afkThreshold = g_waitForAFKThreshold.integer;
+			int afkThreshold = g_waitForAFKThreshold.integer;
 			if (afkThreshold <= 0)
 				afkThreshold = WAITFORAFK_AFK_DEFAULT;
 			afkThreshold = Com_Clampi(WAITFORAFK_AFK_MIN, WAITFORAFK_AFK_MAX, afkThreshold);
