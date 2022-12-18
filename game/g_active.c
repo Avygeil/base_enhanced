@@ -1372,6 +1372,18 @@ int getGlobalTime()
 	return (int)time(0);
 }
 
+qboolean IsMoving(const gclient_t *client) {
+	if (!client) {
+		assert(qfalse);
+		return qfalse;
+	}
+
+	if (client->pers.cmd.forwardmove || client->pers.cmd.rightmove || client->pers.cmd.upmove)
+		return qtrue;
+
+	return qfalse;
+}
+
 qboolean IsInputting(const gclient_t *client, qboolean checkPressingButtons, qboolean checkMovingMouse, qboolean checkPressingChatButton) {
 	if (!client) {
 		assert(qfalse);
@@ -1450,6 +1462,11 @@ Returns qfalse if the client is dropped/force specced
 */
 qboolean CheckPlayerInactivityTimer(gclient_t *client) {
     qboolean active = qtrue;
+
+	if (IsMoving(client)) {
+		client->pers.lastMoveTime = getGlobalTime();
+		client->pers.lastMoveLevelTime = level.time;
+	}
 
 	if (IsInputting(client, qtrue, qtrue, qtrue)) {
 		client->pers.lastInputTime = getGlobalTime();

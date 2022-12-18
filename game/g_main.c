@@ -507,6 +507,7 @@ vmCvar_t	g_notifyAFK;
 vmCvar_t	g_waitForAFK;
 vmCvar_t	g_waitForAFKTimer;
 vmCvar_t	g_waitForAFKThreshold;
+vmCvar_t	g_waitForAFKThresholdTroll;
 vmCvar_t	g_waitForAFKMinPlayers;
 vmCvar_t	g_printCountry;
 vmCvar_t	g_redirectWrongThTeBinds;
@@ -1065,6 +1066,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_waitForAFKTimer, "g_waitForAFKTimer", "10", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_waitForAFKThreshold, "g_waitForAFKThreshold", "5", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_waitForAFKThresholdTroll, "g_waitForAFKThresholdTroll", "3", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_waitForAFKMinPlayers, "g_waitForAFKMinPlayers", "6", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_unlagged, "g_unlagged", "0", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
@@ -1573,7 +1575,10 @@ static void CheckForAFKs(void) {
 		else if (ent->client->sess.sessionTeam == TEAM_BLUE)
 			numBlue++;
 
-		if (!ent->client->pers.hasDoneSomething) {
+		// make sure LS took more than a couple steps
+		const float AFKTROLL_DISPLACEMENT_THRESHOLD = 800.0f;
+
+		if (!ent->client->pers.hasDoneSomething || (ent->client->account && (ent->client->account->flags & ACCOUNTFLAG_AFKTROLL) && ent->client->stats && ent->client->stats->displacement < AFKTROLL_DISPLACEMENT_THRESHOLD)) {
 			// this guy is afk
 			if (clientNumAfk == CLIENTNUMAFK_NONE)
 				clientNumAfk = i; // he's the only one afk (so far)
@@ -5111,10 +5116,7 @@ static void WaitForAFKs(void) {
 	int numRed = 0, numBlue = 0, numAfks = 0;
 	int afkGuy1 = -1, afkGuy2 = -1;
 	int now = getGlobalTime();
-	int afkThreshold = g_waitForAFKThreshold.integer;
-	if (afkThreshold <= 0)
-		afkThreshold = WAITFORAFK_AFK_DEFAULT;
-	afkThreshold = Com_Clampi(WAITFORAFK_AFK_MIN, WAITFORAFK_AFK_MAX, afkThreshold);
+
 	for (int i = 0; i < MAX_CLIENTS; i++) {
 		gentity_t *ent = &g_entities[i];
 		if (!ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED)
@@ -5127,12 +5129,36 @@ static void WaitForAFKs(void) {
 		else
 			numBlue++;
 
-		if (now - ent->client->pers.lastInputTime > afkThreshold) {
-			if (!numAfks)
-				afkGuy1 = i;
-			else if (numAfks == 1)
-				afkGuy2 = i;
-			numAfks++;
+		int afkThreshold;
+		if (ent->client->account && (ent->client->account->flags & ACCOUNTFLAG_AFKTROLL)) {
+			// LS has to actually move every 3 seconds
+			afkThreshold = g_waitForAFKThresholdTroll.integer;
+			if (afkThreshold <= 0)
+				afkThreshold = WAITFORAFK_AFK_DEFAULT_TROLL;
+			afkThreshold = Com_Clampi(WAITFORAFK_AFK_MIN, WAITFORAFK_AFK_MAX, afkThreshold);
+
+			if (now - ent->client->pers.lastMoveTime > afkThreshold) {
+				if (!numAfks)
+					afkGuy1 = i;
+				else if (numAfks == 1)
+					afkGuy2 = i;
+				numAfks++;
+			}
+		}
+		else {
+			// players with brains merely have to do any input every 5 seconds
+			afkThreshold = g_waitForAFKThreshold.integer;
+			if (afkThreshold <= 0)
+				afkThreshold = WAITFORAFK_AFK_DEFAULT;
+			afkThreshold = Com_Clampi(WAITFORAFK_AFK_MIN, WAITFORAFK_AFK_MAX, afkThreshold);
+
+			if (now - ent->client->pers.lastInputTime > afkThreshold) {
+				if (!numAfks)
+					afkGuy1 = i;
+				else if (numAfks == 1)
+					afkGuy2 = i;
+				numAfks++;
+			}
 		}
 	}
 

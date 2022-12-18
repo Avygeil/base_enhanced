@@ -843,6 +843,9 @@ typedef struct {
 	int			lastInputTime;
 	int			lastInputLevelTime;
 
+	int			lastMoveTime;
+	int			lastMoveLevelTime;
+
 	gentity_t	*lastSpawnPoint;
 	int			lastSpawnTime;
 	gentity_t	*lastKiller;
@@ -1993,6 +1996,7 @@ typedef struct {
 #define ACCOUNTFLAG_PERMABARRED				( 1 << 8 )
 #define ACCOUNTFLAG_HARDPERMABARRED			( 1 << 9 )
 #define ACCOUNTFLAG_RATEPLAYERS_NOCOUNT		( 1 << 10 )
+#define ACCOUNTFLAG_AFKTROLL					( 1 << 11 )
 
 typedef void( *ListSessionsCallback )( void *ctx,
 	const sessionReference_t sessionRef,
@@ -3277,6 +3281,7 @@ extern vmCvar_t		g_notifyAFK;
 #define WAITFORAFK_AFK_MIN				(1)
 #define WAITFORAFK_AFK_MAX				(30)
 #define WAITFORAFK_AFK_DEFAULT			(5)
+#define WAITFORAFK_AFK_DEFAULT_TROLL		(3)
 
 #define WAITFORAFK_COUNTDOWN_MIN		(3)
 #define WAITFORAFK_COUNTDOWN_MAX		(30)
@@ -3288,6 +3293,7 @@ extern vmCvar_t		g_notifyAFK;
 extern vmCvar_t		g_waitForAFK;
 extern vmCvar_t		g_waitForAFKTimer;
 extern vmCvar_t		g_waitForAFKThreshold;
+extern vmCvar_t		g_waitForAFKThresholdTroll;
 extern vmCvar_t		g_waitForAFKMinPlayers;
 extern vmCvar_t		g_printCountry;
 extern vmCvar_t		g_redirectWrongThTeBinds;

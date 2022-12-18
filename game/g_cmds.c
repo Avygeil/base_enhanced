@@ -8190,6 +8190,10 @@ void ClientCommand( int clientNum ) {
 		if (buf[0])
 			PrintIngame(ent - g_entities, buf);
 	}
+	else if (!Q_stricmp(cmd, "displacement")) {
+		if (ent->client->stats)
+			PrintIngame(ent - g_entities, "Displacement: %.3f\n", ent->client->stats->displacement);
+	}
 	else if (Q_stricmp(cmd, "relax") == 0 && CheatsOk( ent ))
 	{
 		if (ent->client->ps.eFlags & EF_RAG)

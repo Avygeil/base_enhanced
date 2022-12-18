@@ -3183,6 +3183,8 @@ static int AccountFlagName2Bitflag(const char* flagName) {
 		return ACCOUNTFLAG_HARDPERMABARRED;
 	} else if (!Q_stricmp(flagName, "NoCount")) {
 		return ACCOUNTFLAG_RATEPLAYERS_NOCOUNT;
+	} else if (!Q_stricmp(flagName, "AfkTroll")) {
+		return ACCOUNTFLAG_AFKTROLL;
 	}
 
 	return 0;
@@ -3201,6 +3203,7 @@ const char* AccountBitflag2FlagName(int bitflag) {
 		case ACCOUNTFLAG_INSTAPAUSE_BLACKLIST: return "InstapauseBlacklist";
 		case ACCOUNTFLAG_PERMABARRED: return "PermaBarred";
 		case ACCOUNTFLAG_HARDPERMABARRED: return "HardPermaBarred";
+		case ACCOUNTFLAG_AFKTROLL: return "AfkTroll";
 		default: return NULL;
 	}
 }
