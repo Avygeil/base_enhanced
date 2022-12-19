@@ -1066,7 +1066,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_waitForAFKTimer, "g_waitForAFKTimer", "10", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_waitForAFKThreshold, "g_waitForAFKThreshold", "5", CVAR_ARCHIVE, 0, qtrue },
-	{ &g_waitForAFKThresholdTroll, "g_waitForAFKThresholdTroll", "3", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_waitForAFKThresholdTroll, "g_waitForAFKThresholdTroll", "2", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_waitForAFKMinPlayers, "g_waitForAFKMinPlayers", "6", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_unlagged, "g_unlagged", "0", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
