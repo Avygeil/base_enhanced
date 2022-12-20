@@ -1730,6 +1730,8 @@ char	*Q_strlwr( char *s1 );
 char	*Q_strupr( char *s1 );
 char	*Q_strrchr( const char* string, int c );
 const char *Q_stristrclean(const char *haystack, const char *needle);
+int Q_stricmpnclean(const char *s1, const char *s2, int n);
+int Q_stricmpclean(const char *s1, const char *s2);
 
 // buffer size safe library replacements
 void	Q_strncpyz( char *dest, const char *src, int destsize );

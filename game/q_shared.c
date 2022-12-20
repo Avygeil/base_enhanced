@@ -844,6 +844,31 @@ int Q_stricmp (const char *s1, const char *s2) {
 	return (s1 && s2) ? Q_stricmpn (s1, s2, 99999) : -1;
 }
 
+int Q_stricmpnclean(const char *s1, const char *s2, int n) {
+	if (!s1) {
+		if (!s2)
+			return 0;
+		else
+			return -1;
+	}
+	else if (!s2) {
+		return 1;
+	}
+
+	char *t1 = strdup(s1); Q_CleanStr(t1);
+	char *t2 = strdup(s2); Q_CleanStr(t2);
+
+	int result = Q_stricmpn(t1, t2, n);
+
+	free(t1);
+	free(t2);
+
+	return result;
+}
+
+int Q_stricmpclean(const char *s1, const char *s2) {
+	return Q_stricmpnclean(s1, s2, 99999);
+}
 
 char *Q_strlwr( char *s1 ) {
     char	*s;

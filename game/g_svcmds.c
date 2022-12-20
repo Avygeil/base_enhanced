@@ -3185,6 +3185,8 @@ static int AccountFlagName2Bitflag(const char* flagName) {
 		return ACCOUNTFLAG_RATEPLAYERS_NOCOUNT;
 	} else if (!Q_stricmp(flagName, "AfkTroll")) {
 		return ACCOUNTFLAG_AFKTROLL;
+	} else if (!Q_stricmp(flagName, "EloBotSelfHost")) {
+		return ACCOUNTFLAG_ELOBOTSELFHOST;
 	}
 
 	return 0;
@@ -3204,6 +3206,7 @@ const char* AccountBitflag2FlagName(int bitflag) {
 		case ACCOUNTFLAG_PERMABARRED: return "PermaBarred";
 		case ACCOUNTFLAG_HARDPERMABARRED: return "HardPermaBarred";
 		case ACCOUNTFLAG_AFKTROLL: return "AfkTroll";
+		case ACCOUNTFLAG_ELOBOTSELFHOST: return "EloBotSelfHost";
 		default: return NULL;
 	}
 }
@@ -3319,11 +3322,12 @@ void Svcmd_Account_f( void ) {
 			G_FormatLocalDateFromEpoch( timestamp, sizeof( timestamp ), acc.ptr->creationDate );
 
 			char flagsStr[64] = { 0 };
-			for ( int bitflag = 1; bitflag <= sizeof( int ) * 8; ++bitflag ) {
-				if ( !( acc.ptr->flags & bitflag ) )
+			for ( int i = 0; i < sizeof( int ) * 8; i++ ) {
+				int bit = (1 << i);
+
+				if ( !( acc.ptr->flags & bit ) )
 					continue;
-				
-				const char* flagName = AccountBitflag2FlagName( bitflag );
+				const char* flagName = AccountBitflag2FlagName(bit);
 
 				if ( !VALIDSTRING( flagName ) )
 					continue;

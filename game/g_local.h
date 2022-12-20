@@ -1997,6 +1997,7 @@ typedef struct {
 #define ACCOUNTFLAG_HARDPERMABARRED			( 1 << 9 )
 #define ACCOUNTFLAG_RATEPLAYERS_NOCOUNT		( 1 << 10 )
 #define ACCOUNTFLAG_AFKTROLL					( 1 << 11 )
+#define ACCOUNTFLAG_ELOBOTSELFHOST			( 1 << 12 )
 
 typedef void( *ListSessionsCallback )( void *ctx,
 	const sessionReference_t sessionRef,

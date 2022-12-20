@@ -1408,6 +1408,9 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 			(IsRacerOrSpectator(ent) && IsSpecName(ent->client->pers.netname)))
 			continue;
 
+		if (ent->client->account->flags & ACCOUNTFLAG_ELOBOTSELFHOST && !Q_stricmpclean(ent->client->pers.netname, "elo BOT"))
+			continue;
+
 		qboolean thisPlayerIsPartOfSet = qfalse;
 		for (int j = 0; j < MAX_CLIENTS; j++) {
 			sortedClient_t *cl = set->clients + j;
@@ -1425,7 +1428,8 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 			if (other == ent || !other->inuse || !other->client || other->client->pers.connected == CON_DISCONNECTED)
 				continue;
 
-			if (other->client->account && other->client->account->id == ent->client->account->id) {
+			if (other->client->account && other->client->account->id == ent->client->account->id &&
+				!(other->client->account->flags & ACCOUNTFLAG_ELOBOTSELFHOST && !Q_stricmpclean(other->client->pers.netname, "elo BOT"))) {
 				someoneElseIngameSharesMyAccount = qtrue;
 				break;
 			}
@@ -1540,6 +1544,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 					gentity_t *checkSpec = &g_entities[cl->clientNum];
 					if (!checkSpec->inuse || !checkSpec->client || checkSpec->client->pers.connected == CON_DISCONNECTED ||
 						!checkSpec->client->account || checkSpec->client->sess.clientType != CLIENT_TYPE_NORMAL ||
+						(checkSpec->client->account->flags & ACCOUNTFLAG_ELOBOTSELFHOST && !Q_stricmpclean(checkSpec->client->pers.netname, "elo BOT")) ||
 						TeamGenerator_PlayerIsBarredFromTeamGenerator(checkSpec) ||
 						(IsRacerOrSpectator(checkSpec) && IsSpecName(checkSpec->client->pers.netname))) {
 						continue;
@@ -2281,13 +2286,17 @@ void GetCurrentPickablePlayers(sortedClient_t *sortedClientsOut, int *numEligibl
 			(IsRacerOrSpectator(ent) && IsSpecName(ent->client->pers.netname)))
 			continue;
 
+		if (ent->client->account->flags & ACCOUNTFLAG_ELOBOTSELFHOST && !Q_stricmpclean(ent->client->pers.netname, "elo BOT"))
+			continue;
+
 		qboolean someoneElseIngameSharesMyAccount = qfalse;
 		for (int j = 0; j < MAX_CLIENTS; j++) {
 			gentity_t *other = &g_entities[j];
 			if (other == ent || !other->inuse || !other->client || other->client->pers.connected == CON_DISCONNECTED)
 				continue;
 
-			if (other->client->account && other->client->account->id == ent->client->account->id) {
+			if (other->client->account && other->client->account->id == ent->client->account->id &&
+				!(other->client->account->flags & ACCOUNTFLAG_ELOBOTSELFHOST && !Q_stricmpclean(other->client->pers.netname, "elo BOT"))) {
 				someoneElseIngameSharesMyAccount = qtrue;
 				break;
 			}
@@ -2789,6 +2798,9 @@ void ActivateTeamsProposal(permutationOfTeams_t *permutation) {
 			if (!ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED || !ent->client->account || ent->client->account->id != accountNum)
 				continue;
 
+			if (ent->client->account->flags & ACCOUNTFLAG_ELOBOTSELFHOST && !Q_stricmpclean(ent->client->pers.netname, "elo BOT"))
+				continue;
+
 			G_SetRaceMode(ent, qfalse);
 			if (ent->client->sess.canJoin) {
 				SetTeam(ent, teamStr);
@@ -2871,6 +2883,11 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 
 	if (!ent->client->account) {
 		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You do not have an account, so you cannot vote for team proposals. Please contact an admin for help setting up an account.");
+		return qtrue;
+	}
+
+	if ((ent->client->account->flags & ACCOUNTFLAG_ELOBOTSELFHOST) && !Q_stricmpclean(ent->client->pers.netname, "elo BOT")) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You have either modded elo bot to cheese the system or this is a bug which you should report.");
 		return qtrue;
 	}
 
@@ -3101,6 +3118,11 @@ qboolean TeamGenerator_VoteYesToPugProposal(gentity_t *ent, int num, pugProposal
 		return qtrue;
 	}
 
+	if ((ent->client->account->flags & ACCOUNTFLAG_ELOBOTSELFHOST) && !Q_stricmpclean(ent->client->pers.netname, "elo BOT")) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You have either modded elo bot to cheese the system or this is a bug which you should report.");
+		return qtrue;
+	}
+
 	if (!setOptional && num <= 0) {
 		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "Invalid pug proposal number.");
 		return qtrue;
@@ -3205,6 +3227,11 @@ qboolean TeamGenerator_PugStart(gentity_t *ent, char **newMessage) {
 
 	if (!ent->client->account) {
 		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You do not have an account, so you cannot start pug proposals. Please contact an admin for help setting up an account.");
+		return qtrue;
+	}
+
+	if ((ent->client->account->flags & ACCOUNTFLAG_ELOBOTSELFHOST) && !Q_stricmpclean(ent->client->pers.netname, "elo BOT")) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You have either modded elo bot to cheese the system or this is a bug which you should report.");
 		return qtrue;
 	}
 
@@ -3524,6 +3551,11 @@ qboolean TeamGenerator_VoteToReroll(gentity_t *ent, char **newMessage) {
 		return qtrue;
 	}
 
+	if ((ent->client->account->flags & ACCOUNTFLAG_ELOBOTSELFHOST) && !Q_stricmpclean(ent->client->pers.netname, "elo BOT")) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You have either modded elo bot to cheese the system or this is a bug which you should report.");
+		return qtrue;
+	}
+
 	if (!level.activePugProposal) {
 		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "No pug proposal is currently active.");
 		return qtrue;
@@ -3635,6 +3667,11 @@ qboolean TeamGenerator_VoteToCancel(gentity_t *ent, char **newMessage) {
 
 	if (!ent->client->account) {
 		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You do not have an account, so you cannot vote for pug proposals. Please contact an admin for help setting up an account.");
+		return qtrue;
+	}
+
+	if ((ent->client->account->flags & ACCOUNTFLAG_ELOBOTSELFHOST) && !Q_stricmpclean(ent->client->pers.netname, "elo BOT")) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You have either modded elo bot to cheese the system or this is a bug which you should report.");
 		return qtrue;
 	}
 
@@ -3764,6 +3801,11 @@ void TeamGenerator_PrintPlayersInPugProposals(gentity_t *ent) {
 static qboolean TeamGenerator_PermabarredPlayerMarkAsPickable(gentity_t *ent, char **newMessage) {
 	assert(ent);
 	if (!ent->client->account) {
+		return qtrue;
+	}
+
+	if ((ent->client->account->flags & ACCOUNTFLAG_ELOBOTSELFHOST) && !Q_stricmpclean(ent->client->pers.netname, "elo BOT")) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You have either modded elo bot to cheese the system or this is a bug which you should report.");
 		return qtrue;
 	}
 
