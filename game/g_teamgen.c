@@ -3159,6 +3159,35 @@ qboolean TeamGenerator_VoteYesToPugProposal(gentity_t *ent, int num, pugProposal
 		return qtrue;
 	}
 
+	// prevent people from trolling live pugs
+	qboolean pugIsLive = qfalse;
+	static qboolean pugWasLive = qfalse;
+	if (level.wasRestarted && !level.someoneWasAFK && level.numTeamTicks && g_vote_teamgen_preventStartDuringPug.integer) {
+		int numCurrentlyIngame = 0;
+		CountPlayers(NULL, NULL, NULL, NULL, NULL, &numCurrentlyIngame, NULL);
+
+		float avgRed = (float)level.numRedPlayerTicks / (float)level.numTeamTicks;
+		float avgBlue = (float)level.numBluePlayerTicks / (float)level.numTeamTicks;
+		int avgRedInt = (int)lroundf(avgRed);
+		int avgBlueInt = (int)lroundf(avgBlue);
+
+		// specs cannot vote during live pugs
+		if (numCurrentlyIngame >= 6 &&
+			avgRedInt == avgBlueInt &&
+			avgRedInt + avgBlueInt >= 4 &&
+			fabs(avgRed - round(avgRed)) < 0.2f &&
+			fabs(avgBlue - round(avgBlue)) < 0.2f) {
+
+			pugIsLive = pugWasLive = qtrue;
+
+			if (IsRacerOrSpectator(ent)) {
+				TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("Cannot vote from %s while there is currently an ongoing match.", ent->client->sess.inRacemode ? "racemode" : "spec"));
+				return qtrue;
+			}
+
+		}
+	}
+
 	// check whether they have another client connected and voted yes on it
 	qboolean votedYesOnAnotherClient = qfalse;
 	if (!(set->votedYesClients & (1 << ent - g_entities))) {
@@ -3202,7 +3231,9 @@ qboolean TeamGenerator_VoteYesToPugProposal(gentity_t *ent, int num, pugProposal
 		}
 	}
 
-	const int numRequired = g_vote_teamgen_pug_requiredVotes.integer ? g_vote_teamgen_pug_requiredVotes.integer : 5;
+	int numRequired = g_vote_teamgen_pug_requiredVotes.integer ? g_vote_teamgen_pug_requiredVotes.integer : 4;
+	if (pugIsLive && numRequired == 4 && g_vote_teamgen_preventStartDuringPug.integer)
+		numRequired = 5; // require 5 votes instead of 4 if vote is called during live pug
 
 	if (newMessage) {
 		static char buf[MAX_STRING_CHARS] = { 0 };
@@ -3210,7 +3241,7 @@ qboolean TeamGenerator_VoteYesToPugProposal(gentity_t *ent, int num, pugProposal
 		*newMessage = buf;
 	}
 
-	if (doVote && numYesVotesFromEligiblePlayers >= numRequired)
+	if (numYesVotesFromEligiblePlayers >= numRequired && (doVote || (pugWasLive && !pugIsLive)))
 		ActivatePugProposal(set, qfalse);
 
 	return qfalse;
@@ -3261,17 +3292,28 @@ qboolean TeamGenerator_PugStart(gentity_t *ent, char **newMessage) {
 		return qtrue;
 	}
 
-	// prevent spectators from trolling ingame puggers
-	if (IsRacerOrSpectator(ent) && level.wasRestarted && !level.someoneWasAFK && level.numTeamTicks) {
+	// prevent people from trolling live pugs
+	if (level.wasRestarted && !level.someoneWasAFK && level.numTeamTicks && g_vote_teamgen_preventStartDuringPug.integer) {
+		int numCurrentlyIngame = 0;
+		CountPlayers(NULL, NULL, NULL, NULL, NULL, &numCurrentlyIngame, NULL);
+
 		float avgRed = (float)level.numRedPlayerTicks / (float)level.numTeamTicks;
 		float avgBlue = (float)level.numBluePlayerTicks / (float)level.numTeamTicks;
 		int avgRedInt = (int)lroundf(avgRed);
 		int avgBlueInt = (int)lroundf(avgBlue);
-		if (avgRedInt == avgBlueInt &&
+		int duration = level.time - level.startTime;
+
+		// ingame players can only start before 10:00 has elapsed; specs cannot start
+		if (numCurrentlyIngame >= 6 &&
+			avgRedInt == avgBlueInt &&
 			avgRedInt + avgBlueInt >= 4 &&
+			(duration > 600000 || IsRacerOrSpectator(ent)) &&
 			fabs(avgRed - round(avgRed)) < 0.2f &&
 			fabs(avgBlue - round(avgBlue)) < 0.2f) {
-			TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("You cannot currently start a pug from %s because there is an ongoing match.", ent->client->sess.inRacemode ? "racemode" : "spec"));
+
+			TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("There is currently an ongoing match.%s",
+				IsRacerOrSpectator(ent) ? "" : " Consider calling an endmatch vote."));
+
 			return qtrue;
 		}
 	}

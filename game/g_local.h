@@ -2235,6 +2235,8 @@ qboolean IsSpecName(const char *name);
 void SV_Tell(int clientNum, const char *text);
 void SV_Say(const char *text);
 
+void CountPlayers(int *total, int *red, int *blue, int *free, int *spec, int *redOrBlue, int *freeOrSpec);
+
 //
 // g_object.c
 //
@@ -3193,6 +3195,7 @@ extern vmCvar_t		g_vote_teamgen_announceBreak;
 extern vmCvar_t		g_vote_teamgen_autoRestartOnMapChange;
 extern vmCvar_t		g_vote_teamgen_autoMapVoteSeconds;
 extern vmCvar_t		g_vote_teamgen_iterate;
+extern vmCvar_t		g_vote_teamgen_preventStartDuringPug;
 
 extern vmCvar_t		g_recalculateStatsAfterPug;
 

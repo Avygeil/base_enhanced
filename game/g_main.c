@@ -469,6 +469,7 @@ vmCvar_t	g_vote_teamgen_autoRestartOnMapChange;
 vmCvar_t	g_vote_teamgen_autoMapVoteSeconds;
 vmCvar_t	g_vote_teamgen_autoMapVoteNonAfkAutoVoteYesSeconds;
 vmCvar_t	g_vote_teamgen_iterate;
+vmCvar_t	g_vote_teamgen_preventStartDuringPug;
 
 vmCvar_t	g_recalculateStatsAfterPug;
 
@@ -950,6 +951,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_teamgen_autoRestartOnMapChange, "g_vote_teamgen_autoRestartOnMapChange", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_autoMapVoteSeconds, "g_vote_teamgen_autoMapVoteSeconds", "60", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_iterate, "g_vote_teamgen_iterate", "1", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_teamgen_preventStartDuringPug, "g_vote_teamgen_preventStartDuringPug", "1", CVAR_ARCHIVE, 0, qfalse },
 
 	{ &g_recalculateStatsAfterPug, "g_recalculateStatsAfterPug", "0", CVAR_ARCHIVE, 0, qfalse },
 
