@@ -2206,6 +2206,44 @@ void ClientUserinfoChanged( int clientNum ) {
 				}
                 client->sess.nameChangeTime = getGlobalTime();
 
+				// print messages for idiots needlessly renaming + reconnecting to avoid teamgen
+				static qboolean printedMessage[MAX_CLIENTS] = { qfalse };
+				if (level.pugProposalsList.size > 0 && client->account && g_vote_teamgen.integer && !printedMessage[clientNum]) {
+					qboolean printMessage = qfalse;
+
+					iterator_t iter;
+					ListIterate(&level.pugProposalsList, &iter, qfalse);
+					while (IteratorHasNext(&iter)) {
+						const pugProposal_t *p = IteratorNext(&iter);
+
+						int peopleInThisPugIncludingOurGuy = 0;
+						qboolean ourGuyIsInThisPug = qfalse;
+
+						for (int i = 0; i < MAX_CLIENTS; i++) {
+							const sortedClient_t *cl = &p->clients[i];
+							if (!cl->accountName[0])
+								continue;
+
+							++peopleInThisPugIncludingOurGuy;
+
+							if (Q_stricmp(cl->accountName, client->account->name))
+								continue;
+
+							ourGuyIsInThisPug = qtrue;
+						}
+
+						if (peopleInThisPugIncludingOurGuy >= 9 && ourGuyIsInThisPug) {
+							printMessage = qtrue;
+							break;
+						}
+					}
+
+					if (printMessage && IsSpecName(client->pers.netname) && !IsSpecName(oldname)) {
+						TeamGenerator_QueueServerMessageInChat(clientNum, "You are now unpickable. You don't need to reconnect to avoid selection.");
+						printedMessage[clientNum] = qtrue;
+					}
+				}
+
 				//make heartbeat soon - accounts system
 				//if (nextHeartBeatTime > level.time + 5000){
 				//	nextHeartBeatTime = level.time + 5000;
