@@ -3271,7 +3271,8 @@ void CountPlayers(int *total, int *red, int *blue, int *free, int *spec, int *re
 		if (!ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED || (ent->r.svFlags & SVF_BOT))
 			continue;
 
-		++(*total);
+		if (total)
+			++(*total);
 
 		switch (ent->client->sess.sessionTeam) {
 		case TEAM_FREE:

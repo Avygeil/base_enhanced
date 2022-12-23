@@ -3420,8 +3420,7 @@ qboolean TeamGenerator_VoteYesToPugProposal(gentity_t *ent, int num, pugProposal
 
 		// specs cannot vote during live pugs
 		if (numCurrentlyIngame >= 6 &&
-			avgRedInt == avgBlueInt &&
-			avgRedInt + avgBlueInt >= 4 &&
+			avgRedInt == 4 && avgBlueInt == 4 &&
 			fabs(avgRed - round(avgRed)) < 0.2f &&
 			fabs(avgBlue - round(avgBlue)) < 0.2f) {
 
@@ -3552,8 +3551,7 @@ qboolean TeamGenerator_PugStart(gentity_t *ent, char **newMessage) {
 
 		// ingame players can only start before 10:00 has elapsed; specs cannot start
 		if (numCurrentlyIngame >= 6 &&
-			avgRedInt == avgBlueInt &&
-			avgRedInt + avgBlueInt >= 4 &&
+			avgRedInt == 4 && avgBlueInt == 4 &&
 			(duration > 600000 || IsRacerOrSpectator(ent)) &&
 			fabs(avgRed - round(avgRed)) < 0.2f &&
 			fabs(avgBlue - round(avgBlue)) < 0.2f) {
