@@ -3266,6 +3266,21 @@ void SV_Say(const char *text) {
 
 // counts connected non-bot players (not adapted properly for siege)
 void CountPlayers(int *total, int *red, int *blue, int *free, int *spec, int *redOrBlue, int *freeOrSpec) {
+	if (total)
+		*total = 0;
+	if (red)
+		*red = 0;
+	if (blue)
+		*blue = 0;
+	if (free)
+		*free = 0;
+	if (spec)
+		*spec = 0;
+	if (redOrBlue)
+		*redOrBlue = 0;
+	if (freeOrSpec)
+		*freeOrSpec = 0;
+
 	for (int i = 0; i < MAX_CLIENTS; i++) {
 		gentity_t *ent = &g_entities[i];
 		if (!ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED || (ent->r.svFlags & SVF_BOT))
