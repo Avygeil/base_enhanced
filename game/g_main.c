@@ -470,6 +470,7 @@ vmCvar_t	g_vote_teamgen_autoMapVoteSeconds;
 vmCvar_t	g_vote_teamgen_autoMapVoteNonAfkAutoVoteYesSeconds;
 vmCvar_t	g_vote_teamgen_iterate;
 vmCvar_t	g_vote_teamgen_preventStartDuringPug;
+vmCvar_t	g_vote_teamgen_banLastPlayedPermutation;
 
 vmCvar_t	g_recalculateStatsAfterPug;
 
@@ -477,6 +478,12 @@ vmCvar_t	g_lastIntermissionStartTime;
 vmCvar_t	g_lastTeamGenTime;
 vmCvar_t	g_lastMapVotedMap;
 vmCvar_t	g_lastMapVotedTime;
+
+vmCvar_t	g_bannedPermutationHash;
+vmCvar_t	g_bannedPermutationTime;
+vmCvar_t	g_lastSelectedPermutationHash;
+vmCvar_t	g_lastSelectedPermutationTime;
+vmCvar_t	g_lastSelectedPositionlessPermutation;
 
 vmCvar_t	d_debugCtfPosCalculation;
 
@@ -952,6 +959,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_teamgen_autoMapVoteSeconds, "g_vote_teamgen_autoMapVoteSeconds", "60", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_iterate, "g_vote_teamgen_iterate", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_preventStartDuringPug, "g_vote_teamgen_preventStartDuringPug", "1", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_teamgen_banLastPlayedPermutation, "g_vote_teamgen_banLastPlayedPermutation", "1", CVAR_ARCHIVE, 0, qfalse },
 
 	{ &g_recalculateStatsAfterPug, "g_recalculateStatsAfterPug", "0", CVAR_ARCHIVE, 0, qfalse },
 
@@ -971,6 +979,12 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_notFirstMap, "g_notFirstMap", "0", CVAR_ROM | CVAR_TEMP, 0, qfalse },
 	{ &g_shouldReloadPlayerPugStats, "g_shouldReloadPlayerPugStats", "0", CVAR_ROM | CVAR_TEMP, 0, qfalse },
+
+	{ &g_bannedPermutationHash, "g_bannedPermutationHash", "", CVAR_ROM | CVAR_TEMP, 0, qfalse },
+	{ &g_bannedPermutationTime, "g_bannedPermutationTime", "", CVAR_ROM | CVAR_TEMP, 0, qfalse },
+	{ &g_lastSelectedPermutationHash, "g_lastSelectedPermutationHash", "", CVAR_ROM | CVAR_TEMP, 0, qfalse },
+	{ &g_lastSelectedPermutationTime, "g_lastSelectedPermutationTime", "", CVAR_ROM | CVAR_TEMP, 0, qfalse },
+	{ &g_lastSelectedPositionlessPermutation, "g_lastSelectedPositionlessPermutation", "", CVAR_ROM | CVAR_TEMP, 0, qfalse },
 
 	{ &g_allowMoveDisable, "g_allowMoveDisable", "-1", CVAR_ARCHIVE | CVAR_SERVERINFO, 0, qtrue },
 
@@ -3090,6 +3104,9 @@ void BeginIntermission(void) {
 		int avgBlueInt = (int)lroundf(avgBlue);
 
 		int durationMins = (level.time - level.startTime) / 60000;
+
+		if (level.wasRestarted && durationMins >= 5 && avgRedInt == 4 && avgBlueInt == 4)
+			TeamGenerator_MatchComplete();
 
 		// a pug is considered live if:
 		// * the level was map_restarted

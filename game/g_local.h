@@ -1307,6 +1307,7 @@ void TeamGen_ClearRemindPositions(void);
 void TeamGen_RemindPosition(gentity_t *ent);
 void TeamGen_AnnounceBreak(void);
 void TeamGen_DoAutoRestart(void);
+void TeamGenerator_MatchComplete(void);
 
 // this structure is cleared on each ClientSpawn(),
 // except for 'client->pers' and 'client->sess'
@@ -3196,6 +3197,7 @@ extern vmCvar_t		g_vote_teamgen_autoRestartOnMapChange;
 extern vmCvar_t		g_vote_teamgen_autoMapVoteSeconds;
 extern vmCvar_t		g_vote_teamgen_iterate;
 extern vmCvar_t		g_vote_teamgen_preventStartDuringPug;
+extern vmCvar_t		g_vote_teamgen_banLastPlayedPermutation;
 
 extern vmCvar_t		g_recalculateStatsAfterPug;
 
@@ -3203,6 +3205,12 @@ extern vmCvar_t		g_lastIntermissionStartTime;
 extern vmCvar_t		g_lastTeamGenTime;
 extern vmCvar_t		g_lastMapVotedMap;
 extern vmCvar_t		g_lastMapVotedTime;
+
+extern vmCvar_t	g_bannedPermutationHash;
+extern vmCvar_t	g_bannedPermutationTime;
+extern vmCvar_t	g_lastSelectedPermutationHash;
+extern vmCvar_t	g_lastSelectedPermutationTime;
+extern vmCvar_t	g_lastSelectedPositionlessPermutation;
 
 extern vmCvar_t		d_debugCtfPosCalculation;
 

@@ -192,7 +192,7 @@ static void NormalizePermutationOfTeams(permutationOfTeams_t *p) {
 	// stronger team (or team with base name alphabetically first) goes first
 	qsort(p->teams, 2, sizeof(teamData_t), SortTeamsInPermutationOfTeams);
 
-	// offense player with name alphabetically first goes first
+	// offense player with name alphabetically first goes first within each team
 	for (int i = 0; i < 2; i++) {
 		teamData_t *team = &p->teams[i];
 		if (strcmp(team->offense1Name, team->offense2Name) > 0) {
@@ -2665,6 +2665,34 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 static void ActivatePugProposal(pugProposal_t *set, qboolean forcedByServer) {
 	assert(set);
 
+	// first, check if we have a banned permutation
+	if (g_vote_teamgen_banLastPlayedPermutation.integer) {
+		if (g_bannedPermutationTime.string[0]) { // if we have a banned permutation...
+			if (getGlobalTime() - atoi(g_bannedPermutationTime.string) < 7200) { // ...that was banned within the last two hours...
+				if (g_bannedPermutationHash.string[0]) { // ...use it
+					Com_DebugPrintf("Adding g_bannedPermutationHash %s to avoided hashes list.\n", g_bannedPermutationHash.string);
+					avoidedHash_t *bannedHash = ListAdd(&set->avoidedHashesList, sizeof(avoidedHash_t));
+					bannedHash->hash = strtoul(g_bannedPermutationHash.string, NULL, 10);
+					// we don't unban here
+				}
+				else {
+					Com_DebugPrintf("g_bannedPermutationTime set but g_bannedPermutationHash is not set?\n");
+					trap_Cvar_Set("g_bannedPermutationTime", "");
+				}
+			}
+			else {
+				Com_DebugPrintf("g_bannedPermutationTime and g_bannedPermutationHash both set, but time has expired.\n");
+				trap_Cvar_Set("g_bannedPermutationTime", "");
+				trap_Cvar_Set("g_bannedPermutationHash", "");
+			}
+		}
+		else {
+			Com_DebugPrintf("g_bannedPermutationTime is not set.\n");
+			trap_Cvar_Set("g_bannedPermutationHash", "");
+		}
+	}
+
+	// then go ahead and generate teams
 	if (GenerateTeamsIteratively(set, &set->suggested, &set->highestCaliber, &set->fairest, &set->desired, &set->inclusive, &set->numValidPermutationsChecked)) {
 		TeamGenerator_QueueServerMessageInChat(-1, va("Pug proposal %d %s (%s). Check console for teams proposals.", set->num, forcedByServer ? "force passed by server" : "passed", set->namesStr));
 		set->passed = qtrue;
@@ -2771,6 +2799,224 @@ static void StartAutomaticTeamGenMapVote(void) {
 	trap_SetConfigstring(CS_VOTE_NO, va("%i", level.voteNo));
 }
 
+static int SimpleHashSort(const void *a, const void *b) {
+	XXH32_hash_t aa = *((XXH32_hash_t *)a);
+	XXH32_hash_t bb = *((XXH32_hash_t *)b);
+	if (aa > bb)
+		return -1;
+	if (bb > aa)
+		return 1;
+	return 0;
+}
+
+typedef struct {
+	node_t			node;
+	char			name[MAX_ACCOUNTNAME_LEN];
+} gotAccount_t;
+
+static qboolean AccountMatches(genericNode_t *node, void *userData) {
+	const gotAccount_t *existing = (const gotAccount_t *)node;
+	const gotAccount_t *thisGuy = (const gotAccount_t *)userData;
+
+	if (existing && thisGuy && !Q_stricmp(existing->name, thisGuy->name))
+		return qtrue;
+
+	return qfalse;
+}
+
+// returns a hash for a set of four players on one team and four players on another team
+// we normalize the order so that order of accounts doesn't matter and team 1/team 2 doesn't matter
+static XXH32_hash_t HashPositionlessPermutation(const char *team1Account1, const char *team1Account2, const char *team1Account3, const char *team1Account4,
+	const char *team2Account1, const char *team2Account2, const char *team2Account3, const char *team2Account4) {
+	XXH32_hash_t hashes[2][4];
+	memset(hashes, 0, sizeof(hashes));
+
+	// hash each account name
+	hashes[0][0] = XXH32(team1Account1, strlen(team1Account1), 0);
+	hashes[0][1] = XXH32(team1Account2, strlen(team1Account2), 0);
+	hashes[0][2] = XXH32(team1Account3, strlen(team1Account3), 0);
+	hashes[0][3] = XXH32(team1Account4, strlen(team1Account4), 0);
+	hashes[1][0] = XXH32(team2Account1, strlen(team2Account1), 0);
+	hashes[1][1] = XXH32(team2Account2, strlen(team2Account2), 0);
+	hashes[1][2] = XXH32(team2Account3, strlen(team2Account3), 0);
+	hashes[1][3] = XXH32(team2Account4, strlen(team2Account4), 0);
+
+	// sort the names within each team
+	qsort(hashes[0], 4, sizeof(XXH32_hash_t), SimpleHashSort);
+	qsort(hashes[1], 4, sizeof(XXH32_hash_t), SimpleHashSort);
+
+	// hash and sort both entire teams
+	XXH32_hash_t teamHashes[2];
+	teamHashes[0] = XXH32(hashes[0], sizeof(XXH32_hash_t) * 4, 0);
+	teamHashes[1] = XXH32(hashes[1], sizeof(XXH32_hash_t) * 4, 0);
+	qsort(teamHashes, 2, sizeof(XXH32_hash_t), SimpleHashSort);
+
+	// finally, hash the sorted pair of teams
+	XXH32_hash_t overallHash = XXH32(teamHashes, sizeof(teamHashes), 0);
+	Com_DebugPrintf("HashPositionlessPermutation: got %u\n", overallHash);
+	return overallHash;
+}
+
+// called when a teamgen permutation (a/b/c/d) is passed.
+// we remember the hashes including and excluding positions so that when we complete
+// a pug within the next two hours we can compare to see if the list of players in each team
+// matches what we voted
+static void RememberSelectedPermutation(const permutationOfTeams_t *permutation) {
+	assert(permutation);
+	XXH32_hash_t hash = HashPositionlessPermutation(permutation->teams[0].baseName, permutation->teams[0].chaseName, permutation->teams[0].offense1Name, permutation->teams[0].offense2Name,
+		permutation->teams[1].baseName, permutation->teams[1].chaseName, permutation->teams[1].offense1Name, permutation->teams[1].offense2Name);
+	trap_Cvar_Set("g_lastSelectedPositionlessPermutation", va("%u", hash));
+	trap_Cvar_Set("g_lastSelectedPermutationHash", va("%u", permutation->hash));
+	trap_Cvar_Set("g_lastSelectedPermutationTime", va("%d", getGlobalTime()));
+}
+
+// called at the end of a restarted 4v4 match of at least 5 minutes' length
+// if the list of players in each team (irrespective of red/blue and positions) is the same as
+// the teamgen teams we voted on, then that set of teams/positions will be banned until
+// a new set of teams is played, two hours elapse, or the server is restarted
+void TeamGenerator_MatchComplete(void) {
+	if (!g_lastSelectedPermutationHash.string[0] || !g_lastSelectedPermutationTime.string[0] || !g_lastSelectedPositionlessPermutation.string[0]) {
+		Com_DebugPrintf("TeamGenerator_MatchComplete: empty cvar(s), so unbanning anything banned and returning (g_lastSelectedPermutationHash %s, g_lastSelectedPermutationTime %s, g_lastSelectedPositionlessPermutation %s)\n",
+			g_lastSelectedPermutationHash.string, g_lastSelectedPermutationTime.string, g_lastSelectedPositionlessPermutation.string);
+
+		// clear everything
+		trap_Cvar_Set("g_lastSelectedPermutationHash", "");
+		trap_Cvar_Set("g_lastSelectedPermutationTime", "");
+		trap_Cvar_Set("g_lastSelectedPositionlessPermutation", "");
+		trap_Cvar_Set("g_bannedPermutationHash", "");
+		trap_Cvar_Set("g_bannedPermutationTime", "");
+		return;
+	}
+
+	if (getGlobalTime() - atoi(g_lastSelectedPermutationTime.string) >= 7200) {
+		Com_DebugPrintf("TeamGenerator_MatchComplete: too long has elapsed since voting teams. Unbanning anything banned and returning.\n");
+
+		// clear everything
+		trap_Cvar_Set("g_lastSelectedPermutationHash", "");
+		trap_Cvar_Set("g_lastSelectedPermutationTime", "");
+		trap_Cvar_Set("g_lastSelectedPositionlessPermutation", "");
+		trap_Cvar_Set("g_bannedPermutationHash", "");
+		trap_Cvar_Set("g_bannedPermutationTime", "");
+		return;
+	}
+
+	// first, count how many players we have
+	list_t redPlayersList = { 0 }, bluePlayersList = { 0 };
+	qboolean invalid = qfalse;
+	for (int i = 0; i < 2; i++) {
+		iterator_t iter;
+		ListIterate(!i ? &level.savedStatsList : &level.statsList, &iter, qfalse);
+		while (IteratorHasNext(&iter)) {
+			stats_t *found = IteratorNext(&iter);
+
+			if (!StatsValid(found) || found->isBot || (found->lastTeam != TEAM_RED && found->lastTeam != TEAM_BLUE))
+				continue;
+
+			if (found->ticksNotPaused * (1000 / g_svfps.integer) < 60000)
+				continue; // ignore troll joiners ingame for less than a minute
+
+			list_t *myTeamList, *otherTeamList;
+
+			if (found->lastTeam == TEAM_RED) {
+				myTeamList = &redPlayersList;
+				otherTeamList = &bluePlayersList;
+			}
+			else {
+				myTeamList = &bluePlayersList;
+				otherTeamList = &redPlayersList;
+			}
+
+			gotAccount_t *gotPlayer = NULL;
+			gotPlayer = ListFind(otherTeamList, AccountMatches, found, NULL);
+			if (gotPlayer) { // same player on both teams???
+				invalid = qtrue;
+				break;
+			}
+
+			gotPlayer = ListFind(myTeamList, AccountMatches, found, NULL);
+			if (gotPlayer) // already got this guy
+				continue;
+
+			// add this guy to the relevant list
+			gotAccount_t *add = ListAdd(myTeamList, sizeof(gotAccount_t));
+			Q_strncpyz(add->name, found->accountName, sizeof(add->name));
+		}
+
+		if (invalid)
+			break;
+	}
+
+	Com_DebugPrintf("TeamGenerator_MatchComplete: red %d, blue %d, invalid %d\n", redPlayersList.size, bluePlayersList.size, (int)invalid);
+
+	// we only care about 4v4 with no subs
+	if (invalid || redPlayersList.size != 4 || bluePlayersList.size != 4) {
+		ListClear(&redPlayersList);
+		ListClear(&bluePlayersList);
+
+		// clear everything
+		trap_Cvar_Set("g_lastSelectedPermutationHash", "");
+		trap_Cvar_Set("g_lastSelectedPermutationTime", "");
+		trap_Cvar_Set("g_lastSelectedPositionlessPermutation", "");
+		trap_Cvar_Set("g_bannedPermutationHash", "");
+		trap_Cvar_Set("g_bannedPermutationTime", "");
+		return;
+	}
+
+	// work through each linked list, feeding each account name to the hasher
+	// todo: clean up this ugly mess
+	char names[2][4][MAX_ACCOUNTNAME_LEN];
+	memset(names, 0, sizeof(names));
+	gotAccount_t *ptr = ((gotAccount_t *)redPlayersList.head);
+	assert(ptr);
+	Q_strncpyz(names[0][0], ptr->name, MAX_ACCOUNTNAME_LEN);
+	ptr = (gotAccount_t *)(ptr->node.next);
+	Q_strncpyz(names[0][1], ptr->name, MAX_ACCOUNTNAME_LEN);
+	ptr = (gotAccount_t *)(ptr->node.next);
+	Q_strncpyz(names[0][2], ptr->name, MAX_ACCOUNTNAME_LEN);
+	ptr = (gotAccount_t *)(ptr->node.next);
+	Q_strncpyz(names[0][3], ptr->name, MAX_ACCOUNTNAME_LEN);
+
+	ptr = ((gotAccount_t *)bluePlayersList.head);
+	assert(ptr);
+	Q_strncpyz(names[1][0], ptr->name, MAX_ACCOUNTNAME_LEN);
+	ptr = (gotAccount_t *)(ptr->node.next);
+	Q_strncpyz(names[1][1], ptr->name, MAX_ACCOUNTNAME_LEN);
+	ptr = (gotAccount_t *)(ptr->node.next);
+	Q_strncpyz(names[1][2], ptr->name, MAX_ACCOUNTNAME_LEN);
+	ptr = (gotAccount_t *)(ptr->node.next);
+	Q_strncpyz(names[1][3], ptr->name, MAX_ACCOUNTNAME_LEN);
+
+	// hash it and compare with the positionless hash we voted on
+	XXH32_hash_t thisHash = HashPositionlessPermutation(names[0][0], names[0][1], names[0][2], names[0][3], names[1][0], names[1][1], names[1][2], names[1][3]);
+	XXH32_hash_t oldHash = strtoul(g_lastSelectedPositionlessPermutation.string, NULL, 10);
+
+	if (thisHash == oldHash) {
+		// we just completed a pug with the same set of teams that we last generated, irrespective of pos
+		// (we don't evaluate whether the positions matched, since pos detection isn't guaranteed to be accurate).
+		// we will now ban the permutation we (most likely) just played, including pos.
+		// also note the time so that this ban expires after a while.
+		Com_DebugPrintf("TeamGenerator_MatchComplete: hashes match (%u), so banning g_lastSelectedPermutationHash %s. global time is %d.\n",
+			thisHash, g_lastSelectedPermutationHash.string, getGlobalTime());
+		trap_Cvar_Set("g_bannedPermutationHash", g_lastSelectedPermutationHash.string);
+		trap_Cvar_Set("g_bannedPermutationTime", va("%d", getGlobalTime()));
+	}
+	else {
+		// we did NOT play the same teams we voted on; unban anything banned
+		Com_DebugPrintf("TeamGenerator_MatchComplete: hashes don't match (thisHash %u, oldHash %u), so not banning anything.\n",
+			thisHash, oldHash);
+		trap_Cvar_Set("g_bannedPermutationHash", "");
+		trap_Cvar_Set("g_bannedPermutationTime", "");
+	}
+
+	// in any case, we are completely finished with the teamgen vote at this point
+	trap_Cvar_Set("g_lastSelectedPermutationHash", "");
+	trap_Cvar_Set("g_lastSelectedPermutationTime", "");
+	trap_Cvar_Set("g_lastSelectedPositionlessPermutation", "");
+
+	ListClear(&redPlayersList);
+	ListClear(&bluePlayersList);
+}
+
 void ActivateTeamsProposal(permutationOfTeams_t *permutation) {
 	assert(permutation);
 
@@ -2871,6 +3117,7 @@ void ActivateTeamsProposal(permutationOfTeams_t *permutation) {
 		level.autoStartPending = qfalse;
 	}
 
+	RememberSelectedPermutation(permutation);
 	StartAutomaticTeamGenMapVote();
 
 	char timeBuf[MAX_STRING_CHARS] = { 0 };
