@@ -2670,24 +2670,24 @@ static void ActivatePugProposal(pugProposal_t *set, qboolean forcedByServer) {
 		if (g_bannedPermutationTime.string[0]) { // if we have a banned permutation...
 			if (getGlobalTime() - atoi(g_bannedPermutationTime.string) < 7200) { // ...that was banned within the last two hours...
 				if (g_bannedPermutationHash.string[0]) { // ...use it
-					Com_DebugPrintf("Adding g_bannedPermutationHash %s to avoided hashes list.\n", g_bannedPermutationHash.string);
+					if (d_debugBanPermutation.integer) { Com_Printf("d_debugBanPermutation: ActivatePugProposal: Adding g_bannedPermutationHash %s to avoided hashes list.\n", g_bannedPermutationHash.string); }
 					avoidedHash_t *bannedHash = ListAdd(&set->avoidedHashesList, sizeof(avoidedHash_t));
 					bannedHash->hash = strtoul(g_bannedPermutationHash.string, NULL, 10);
 					// we don't unban here
 				}
 				else {
-					Com_DebugPrintf("g_bannedPermutationTime set but g_bannedPermutationHash is not set?\n");
+					if (d_debugBanPermutation.integer) { Com_Printf("d_debugBanPermutation: ActivatePugProposal: g_bannedPermutationTime set but g_bannedPermutationHash is not set?\n"); }
 					trap_Cvar_Set("g_bannedPermutationTime", "");
 				}
 			}
 			else {
-				Com_DebugPrintf("g_bannedPermutationTime and g_bannedPermutationHash both set, but time has expired.\n");
+				if (d_debugBanPermutation.integer) { Com_Printf("d_debugBanPermutation: ActivatePugProposal: g_bannedPermutationTime and g_bannedPermutationHash both set, but time has expired.\n"); }
 				trap_Cvar_Set("g_bannedPermutationTime", "");
 				trap_Cvar_Set("g_bannedPermutationHash", "");
 			}
 		}
 		else {
-			Com_DebugPrintf("g_bannedPermutationTime is not set.\n");
+			if (d_debugBanPermutation.integer) { Com_Printf("d_debugBanPermutation: ActivatePugProposal: g_bannedPermutationTime is not set.\n"); }
 			trap_Cvar_Set("g_bannedPermutationHash", "");
 		}
 	}
@@ -2853,7 +2853,7 @@ static XXH32_hash_t HashPositionlessPermutation(const char *team1Account1, const
 
 	// finally, hash the sorted pair of teams
 	XXH32_hash_t overallHash = XXH32(teamHashes, sizeof(teamHashes), 0);
-	Com_DebugPrintf("HashPositionlessPermutation: got %u\n", overallHash);
+	if (d_debugBanPermutation.integer) { Com_Printf("d_debugBanPermutation: HashPositionlessPermutation: got %u\n", overallHash); }
 	return overallHash;
 }
 
@@ -2876,8 +2876,10 @@ static void RememberSelectedPermutation(const permutationOfTeams_t *permutation)
 // a new set of teams is played, two hours elapse, or the server is restarted
 void TeamGenerator_MatchComplete(void) {
 	if (!g_lastSelectedPermutationHash.string[0] || !g_lastSelectedPermutationTime.string[0] || !g_lastSelectedPositionlessPermutation.string[0]) {
-		Com_DebugPrintf("TeamGenerator_MatchComplete: empty cvar(s), so unbanning anything banned and returning (g_lastSelectedPermutationHash %s, g_lastSelectedPermutationTime %s, g_lastSelectedPositionlessPermutation %s)\n",
-			g_lastSelectedPermutationHash.string, g_lastSelectedPermutationTime.string, g_lastSelectedPositionlessPermutation.string);
+		if (d_debugBanPermutation.integer) {
+			Com_Printf("d_debugBanPermutation: TeamGenerator_MatchComplete: empty cvar(s), so unbanning anything banned and returning (g_lastSelectedPermutationHash %s, g_lastSelectedPermutationTime %s, g_lastSelectedPositionlessPermutation %s)\n",
+				g_lastSelectedPermutationHash.string, g_lastSelectedPermutationTime.string, g_lastSelectedPositionlessPermutation.string);
+		}
 
 		// clear everything
 		trap_Cvar_Set("g_lastSelectedPermutationHash", "");
@@ -2889,7 +2891,7 @@ void TeamGenerator_MatchComplete(void) {
 	}
 
 	if (getGlobalTime() - atoi(g_lastSelectedPermutationTime.string) >= 7200) {
-		Com_DebugPrintf("TeamGenerator_MatchComplete: too long has elapsed since voting teams. Unbanning anything banned and returning.\n");
+		if (d_debugBanPermutation.integer) { Com_Printf("d_debugBanPermutation: TeamGenerator_MatchComplete: too long has elapsed since voting teams. Unbanning anything banned and returning.\n"); }
 
 		// clear everything
 		trap_Cvar_Set("g_lastSelectedPermutationHash", "");
@@ -2946,7 +2948,7 @@ void TeamGenerator_MatchComplete(void) {
 			break;
 	}
 
-	Com_DebugPrintf("TeamGenerator_MatchComplete: red %d, blue %d, invalid %d\n", redPlayersList.size, bluePlayersList.size, (int)invalid);
+	if (d_debugBanPermutation.integer) { Com_Printf("d_debugBanPermutation: TeamGenerator_MatchComplete: red %d, blue %d, invalid %d\n", redPlayersList.size, bluePlayersList.size, (int)invalid); }
 
 	// we only care about 4v4 with no subs
 	if (invalid || redPlayersList.size != 4 || bluePlayersList.size != 4) {
@@ -2995,15 +2997,19 @@ void TeamGenerator_MatchComplete(void) {
 		// (we don't evaluate whether the positions matched, since pos detection isn't guaranteed to be accurate).
 		// we will now ban the permutation we (most likely) just played, including pos.
 		// also note the time so that this ban expires after a while.
-		Com_DebugPrintf("TeamGenerator_MatchComplete: hashes match (%u), so banning g_lastSelectedPermutationHash %s. global time is %d.\n",
-			thisHash, g_lastSelectedPermutationHash.string, getGlobalTime());
+		if (d_debugBanPermutation.integer) {
+			Com_Printf("d_debugBanPermutation: TeamGenerator_MatchComplete: hashes match (%u), so banning g_lastSelectedPermutationHash %s. global time is %d.\n",
+				thisHash, g_lastSelectedPermutationHash.string, getGlobalTime());
+		}
 		trap_Cvar_Set("g_bannedPermutationHash", g_lastSelectedPermutationHash.string);
 		trap_Cvar_Set("g_bannedPermutationTime", va("%d", getGlobalTime()));
 	}
 	else {
 		// we did NOT play the same teams we voted on; unban anything banned
-		Com_DebugPrintf("TeamGenerator_MatchComplete: hashes don't match (thisHash %u, oldHash %u), so not banning anything.\n",
-			thisHash, oldHash);
+		if (d_debugBanPermutation.integer) {
+			Com_Printf("d_debugBanPermutation: TeamGenerator_MatchComplete: hashes don't match (thisHash %u, oldHash %u), so not banning anything.\n",
+				thisHash, oldHash);
+		}
 		trap_Cvar_Set("g_bannedPermutationHash", "");
 		trap_Cvar_Set("g_bannedPermutationTime", "");
 	}

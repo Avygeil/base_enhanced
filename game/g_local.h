@@ -3199,6 +3199,8 @@ extern vmCvar_t		g_vote_teamgen_iterate;
 extern vmCvar_t		g_vote_teamgen_preventStartDuringPug;
 extern vmCvar_t		g_vote_teamgen_banLastPlayedPermutation;
 
+extern vmCvar_t		d_debugBanPermutation;
+
 extern vmCvar_t		g_recalculateStatsAfterPug;
 
 extern vmCvar_t		g_lastIntermissionStartTime;

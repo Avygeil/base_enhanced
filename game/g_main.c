@@ -472,6 +472,8 @@ vmCvar_t	g_vote_teamgen_iterate;
 vmCvar_t	g_vote_teamgen_preventStartDuringPug;
 vmCvar_t	g_vote_teamgen_banLastPlayedPermutation;
 
+vmCvar_t	d_debugBanPermutation;
+
 vmCvar_t	g_recalculateStatsAfterPug;
 
 vmCvar_t	g_lastIntermissionStartTime;
@@ -538,7 +540,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ NULL, "gamename", GAMEVERSION , CVAR_SERVERINFO | CVAR_ROM, 0, qfalse  },
 	{ NULL, "gamedate", __DATE__ , CVAR_ROM, 0, qfalse  },
 	//TODO: autogenerate gameversion
-	{ NULL, "gameversion", "22w51b" , CVAR_SERVERINFO | CVAR_ROM, 0, qfalse  },
+	{ NULL, "gameversion", "23w01a" , CVAR_SERVERINFO | CVAR_ROM, 0, qfalse  },
 	{ &g_restarted, "g_restarted", "0", CVAR_ROM, 0, qfalse  },
 	{ NULL, "sv_mapname", "", CVAR_SERVERINFO | CVAR_ROM, 0, qfalse  },
 
@@ -960,6 +962,8 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_teamgen_iterate, "g_vote_teamgen_iterate", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_preventStartDuringPug, "g_vote_teamgen_preventStartDuringPug", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_banLastPlayedPermutation, "g_vote_teamgen_banLastPlayedPermutation", "1", CVAR_ARCHIVE, 0, qfalse },
+
+	{ &d_debugBanPermutation, "d_debugBanPermutation", "0", CVAR_ARCHIVE, 0, qfalse },
 
 	{ &g_recalculateStatsAfterPug, "g_recalculateStatsAfterPug", "0", CVAR_ARCHIVE, 0, qfalse },
 
