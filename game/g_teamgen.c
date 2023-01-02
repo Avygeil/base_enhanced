@@ -2816,9 +2816,9 @@ typedef struct {
 
 static qboolean AccountMatches(genericNode_t *node, void *userData) {
 	const gotAccount_t *existing = (const gotAccount_t *)node;
-	const gotAccount_t *thisGuy = (const gotAccount_t *)userData;
+	const stats_t *thisGuy = (const stats_t *)userData;
 
-	if (existing && thisGuy && !Q_stricmp(existing->name, thisGuy->name))
+	if (existing && thisGuy && !Q_stricmp(existing->name, thisGuy->accountName))
 		return qtrue;
 
 	return qfalse;
