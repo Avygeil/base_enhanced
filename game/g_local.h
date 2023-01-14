@@ -816,10 +816,16 @@ typedef struct {
 	//special chat limit variables
 	int         chatSentCount;
 	int         chatSentTime;
+	int         chatsentTick;
+	int         chatAllowedTick;
 	int			teamChatSentCount;
 	int			teamChatSentTime;
+	int			teamChatsentTick;
+	int			teamChatAllowedTick;
 	int			voiceChatSentCount;
 	int			voiceChatSentTime;
+	int			voiceChatsentTick;
+	int			voiceChatAllowedTick;
 
 	// force stats
 	int			protsince;
@@ -2856,6 +2862,10 @@ extern	vmCvar_t	g_allowNPC;
 extern	vmCvar_t	g_chatLimit;
 extern	vmCvar_t	g_teamChatLimit;
 extern	vmCvar_t	g_voiceChatLimit;
+
+extern	vmCvar_t	g_chatTickWaitMinimum;
+extern	vmCvar_t	g_teamChatTickWaitMinimum;
+extern	vmCvar_t	g_voiceChatTickWaitMinimum;
 
 extern	vmCvar_t	g_armBreakage;
 

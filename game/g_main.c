@@ -60,6 +60,10 @@ vmCvar_t	g_chatLimit;
 vmCvar_t	g_teamChatLimit;
 vmCvar_t	g_voiceChatLimit;
 
+vmCvar_t	g_chatTickWaitMinimum;
+vmCvar_t	g_teamChatTickWaitMinimum;
+vmCvar_t	g_voiceChatTickWaitMinimum;
+
 vmCvar_t	g_allowNPC;
 
 vmCvar_t	g_armBreakage;
@@ -571,8 +575,12 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_duelShields, "g_duelShields", "25", CVAR_ARCHIVE, 0, qtrue  },
 
 	{ &g_chatLimit, "g_chatLimit", "3", CVAR_ARCHIVE, 0, qtrue  },
-	{ &g_teamChatLimit, "g_teamChatLimit", "5", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_teamChatLimit, "g_teamChatLimit", "30", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_voiceChatLimit, "g_voiceChatLimit", "3", CVAR_ARCHIVE, 0, qtrue },
+
+	{ &g_chatTickWaitMinimum, "g_chatTickWaitMinimum", "0", CVAR_ARCHIVE, 0, qtrue  },
+	{ &g_teamChatTickWaitMinimum, "g_teamChatTickWaitMinimum", "1", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_voiceChatTickWaitMinimum, "g_voiceChatTickWaitMinimum", "0", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_allowNPC, "g_allowNPC", "1", CVAR_ARCHIVE, 0, qtrue  },
 

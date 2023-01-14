@@ -1919,32 +1919,80 @@ static qboolean ChatLimitExceeded(gentity_t *ent, int mode) {
 	if (!ent || !ent->client)
 		return qfalse;
 
-	int *sentTime, *sentCount, *limit;
+	int *sentTime, *sentCount, *sentTick, *allowedTick;
+	int limit, tickWaitMinimum;
 
 	if ( mode == -1 && ent->client->sess.canJoin ) { // -1 is voice chat
 		sentTime = &ent->client->pers.voiceChatSentTime;
 		sentCount = &ent->client->pers.voiceChatSentCount;
-		limit = &g_voiceChatLimit.integer;
-	} else if (mode == SAY_TEAM && ent->client->sess.canJoin) { // using teamchat
+		sentTick = &ent->client->pers.voiceChatsentTick;
+		allowedTick = &ent->client->pers.voiceChatAllowedTick;
+
+		limit = g_voiceChatLimit.integer;
+		tickWaitMinimum = g_voiceChatTickWaitMinimum.integer;
+	} else if (mode == SAY_TEAM && ent->client->sess.canJoin && !IsRacerOrSpectator(ent)) { // using teamchat while ingame
 		sentTime = &ent->client->pers.teamChatSentTime;
 		sentCount = &ent->client->pers.teamChatSentCount;
-		limit = &g_teamChatLimit.integer;
+		sentTick = &ent->client->pers.teamChatsentTick;
+		allowedTick = &ent->client->pers.teamChatAllowedTick;
+
+		limit = g_teamChatLimit.integer;
+		tickWaitMinimum = g_teamChatTickWaitMinimum.integer;
 	} else { // using all chat OR private chat (or anything for passwordless)
 		sentTime = &ent->client->pers.chatSentTime;
 		sentCount = &ent->client->pers.chatSentCount;
-		limit = &g_chatLimit.integer;
+		sentTick = &ent->client->pers.chatsentTick;
+		allowedTick = &ent->client->pers.chatAllowedTick;
+
+		limit = g_chatLimit.integer;
+		tickWaitMinimum = g_chatTickWaitMinimum.integer;
 	}
 
 	qboolean exceeded = qfalse;
 
-	if ( !ent->client->sess.canJoin ) { // for passwordless specs, apply a more strict anti spam with a permanent lock, just like sv_floodprotect
+	// first, check to make sure binds aren't simply held down, regardless of number of messages
+	if (tickWaitMinimum && g_svfps.integer >= 30) {
+		if (*allowedTick && level.framenum < *allowedTick) {
+			// cooldown still running, can't send yet
+			//Com_DebugPrintf("4 -- level.time %d level.framenum %d sentTime %d sentCount %d sentTick %d allowedTick %d\n", level.time, level.framenum, *sentTime, *sentCount, *sentTick, *allowedTick);
+			exceeded = qtrue;
+		}
+		else if (*sentTick && level.framenum - *sentTick < 2) {
+			// this message came within one tick of the previous one, which means this idiot is just holding down a bind. put them on cooldown
+			//Com_DebugPrintf("5 -- level.time %d level.framenum %d sentTime %d sentCount %d sentTick %d allowedTick %d\n", level.time, level.framenum, *sentTime, *sentCount, *sentTick, *allowedTick);
+			exceeded = qtrue;
+			const int delay = 16; // idk
+			*allowedTick = level.framenum + delay;
+			if (limit > 3)
+				limit = 3;
+			//*sentTick = level.framenum;
+		}
+		else {
+			// okay
+			//Com_DebugPrintf("6 -- level.time %d level.framenum %d sentTime %d sentCount %d sentTick %d allowedTick %d\n", level.time, level.framenum, *sentTime, *sentCount, *sentTick, *allowedTick);
+			*sentTick = level.framenum;
+		}
+	}
+
+	qboolean forceExceeded = exceeded;
+
+	// second, look at how many messages have been sent recently
+	if (!ent->client->sess.canJoin && IsRacerOrSpectator(ent) && !ent->client->account) { // for passwordless specs, apply a more strict anti spam with a permanent lock, just like sv_floodprotect
+		//Com_DebugPrintf("1 -- level.time %d level.framenum %d sentTime %d sentCount %d sentTick %d allowedTick %d\n", level.time, level.framenum, *sentTime, *sentCount, *sentTick, *allowedTick);
 		exceeded = level.time - *sentTime < 1000;
-	} else if ( *limit > 0 && *sentTime && (level.time - *sentTime) < 1000 ) { // we are in tracking second for current user, check limit
-		exceeded = *sentCount >= *limit;
-		++*sentCount;
-	} else { // this is the first and only message that has been sent in the last second
+	}
+	else if (limit > 0 && *sentTime && (level.time - *sentTime) < 1000) { // we are in tracking second for current user, check limit
+		//Com_DebugPrintf("2 -- level.time %d level.framenum %d sentTime %d sentCount %d sentTick %d allowedTick %d\n", level.time, level.framenum, *sentTime, *sentCount, *sentTick, *allowedTick);
+		exceeded = *sentCount >= limit;
+		++(*sentCount);
+	}
+	else { // this is the first and only message that has been sent in the last second
+		//Com_DebugPrintf("3 -- level.time %d level.framenum %d sentTime %d sentCount %d sentTick %d allowedTick %d\n", level.time, level.framenum, *sentTime, *sentCount, *sentTick, *allowedTick);
 		*sentCount = 1;
 	}
+
+	if (forceExceeded)
+		exceeded = qtrue;
 
 	// in any case, reset the timer so people have to unpress their spam binds while blocked to be unblocked
 	*sentTime = level.time;
@@ -7075,6 +7123,8 @@ static void Cmd_Svauth_f( gentity_t *ent ) {
 			G_InitClientRaceRecordsCache( ent->client );
 			G_InitClientAimRecordsCache(ent->client);
 			G_PrintWelcomeMessage( ent->client );
+			if (ent->client->account)
+				ent->client->sess.canJoin = qtrue; // assume anyone with an account can join
 			TellPlayerToRateMap( ent->client );
 			TellPlayerToSetPositions(ent->client);
 			RestoreDisconnectedPlayerData(ent);

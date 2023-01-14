@@ -3223,6 +3223,8 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 			if (VALIDSTRING(sex) || VALIDSTRING(guid))
 				AutoLinkAccount(client, sex, guid);
 		}
+		if (client->account)
+			client->sess.canJoin = qtrue; // assume anyone with an account can join
 		RestoreDisconnectedPlayerData(ent);
 	}
 
@@ -4987,7 +4989,7 @@ void RestoreDisconnectedPlayerData(gentity_t *ent) {
 		return;
 
 	PrintIngame(-1, "Restoring %s^7's pre-disconnect state.\n", ent->client->pers.netname);
-
+	ent->client->sess.canJoin = qtrue;
 	SetTeam(ent, data->team == TEAM_RED ? "r" : "b");
 
 	int commandTime = ent->client->ps.commandTime;
