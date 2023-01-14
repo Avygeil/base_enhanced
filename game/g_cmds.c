@@ -8131,7 +8131,12 @@ void ClientCommand( int clientNum ) {
 		Cmd_CallVote_f(ent, PAUSE_PAUSED); // allow "pause" command as alias for "callvote pause"
 	else if (!Q_stricmp(cmd, "unpause"))
 		Cmd_CallVote_f(ent, PAUSE_UNPAUSING); // allow "unpause" command as alias for "callvote unpause"
-	else if (Q_stricmp(cmd, "vote") == 0)
+	else if (Q_stricmp(cmd, "vote") == 0 ||
+		!Q_stricmp(cmd, "votre") ||
+		!Q_stricmp(cmd, "vortre") ||
+		!Q_stricmp(cmd, "vorte") ||
+		!Q_stricmp(cmd, "vortr") ||
+		!Q_stricmp(cmd, "voter")) // get fucked shitty french typos
 		Cmd_Vote_f(ent, NULL);
 	else if (Q_stricmp(cmd, "ready") == 0 || !Q_stricmp(cmd, "readyup"))
 		Cmd_Ready_f(ent);
