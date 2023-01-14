@@ -6803,6 +6803,7 @@ static void PrintPosHelp(gentity_t *ent) {
 		"  ^7pos avoid chase - you would like to avoid chase\n"
 		"  ^9pos clear base  - clear all preferences for base\n"
 		"  ^7pos clear       - clear all preferences\n"
+		"  ^9pos [name/#]    - view someone else's preferences\n"
 		"^5Note: You do not need to set a preference for every position.^7 Leave a position unrated if you have no opinion on it (even rating a position as third choice may increase your chance of playing it, compared with not rating it at all).\n"
 	);
 }
@@ -6824,13 +6825,15 @@ static void Cmd_Pos_f(gentity_t *ent) {
 
 	char arg1[MAX_STRING_CHARS] = { 0 };
 	trap_Argv(1, arg1, sizeof(arg1));
+	char arg2[MAX_STRING_CHARS] = { 0 };
+	trap_Argv(2, arg2, sizeof(arg2));
 
 	positionPreferences_t *pref = &ent->client->account->expressedPref;
 
 	if (trap_Argc() < 3 || !arg1[0]) {
 		if (arg1[0] && (stristr(arg1, "cl") || stristr(arg1, "del") || stristr(arg1, "rm") || stristr(arg1, "rem"))) {
 			PrintIngame(ent - g_entities, "All preferences cleared.\n");
-			pref->first = pref->second = pref->third = 0;
+			pref->first = pref->second = pref->third = pref->avoid = 0;
 			ValidateAndCopyPositionPreferences(pref, &ent->client->account->validPref);
 			G_DBSetAccountProperties(ent->client->account);
 		}
@@ -6840,15 +6843,144 @@ static void Cmd_Pos_f(gentity_t *ent) {
 		else if (arg1[0] && stristr(arg1, "list")) {
 			PrintPositionPreferences(ent);
 		}
+		else if (arg1[0] && !arg2[0]) {
+			int accountId = -1;
+			char name[64] = { 0 };
+			if (Q_isanumber(arg1)) {
+				int num = atoi(arg1);
+				if (num >= 0 && num < MAX_CLIENTS && g_entities[num].inuse && g_entities[num].client && g_entities[num].client->pers.connected != CON_DISCONNECTED) {
+					if (g_entities[num].client->account) {
+						accountId = g_entities[num].client->account->id;
+						Q_strncpyz(name, va("%s^7 (%s^7)", g_entities[num].client->pers.netname, g_entities[num].client->account->name), sizeof(name));
+					}
+					else {
+						PrintIngame(ent - g_entities, "%s^7 does not have any pos preferences.\n", g_entities[num].client->pers.netname);
+						PrintIngame(ent - g_entities, "Enter ^5pos help^7 for instructions on setting up position preferences.\n");
+						return;
+					}
+				}
+				else {
+					PrintIngame(ent - g_entities, "Unable to find a player matching '%s^7'.\n", arg1);
+					PrintIngame(ent - g_entities, "Enter ^5pos help^7 for instructions on setting up position preferences.\n");
+					return;
+				}
+			}
+			else {
+				char lowercase[MAX_QPATH] = { 0 };
+				Q_strncpyz(lowercase, arg1, sizeof(lowercase));
+				Q_strlwr(lowercase);
+				account_t account = { 0 };
+				if (G_DBGetAccountByName(lowercase, &account)) {
+					accountId = account.id;
+					Q_strncpyz(name, account.name, sizeof(name));
+				}
+				else {
+					gentity_t *found = G_FindClient(arg1);
+					if (found && found->client) {
+						if (found->client->account) {
+							accountId = found->client->account->id;
+							Q_strncpyz(name, va("%s^7 (%s^7)", found->client->pers.netname, found->client->account->name), sizeof(name));
+						}
+						else {
+							PrintIngame(ent - g_entities, "%s^7 does not have any pos preferences.\n", found->client->pers.netname);
+							PrintIngame(ent - g_entities, "Enter ^5pos help^7 for instructions on setting up position preferences.\n");
+							return;
+						}
+					}
+					else {
+						PrintIngame(ent - g_entities, "Unable to find a player matching '%s^7'.\n", arg1);
+						PrintIngame(ent - g_entities, "Enter ^5pos help^7 for instructions on setting up position preferences.\n");
+						return;
+					}
+				}
+			}
+
+			if (accountId == -1)
+				return;
+
+			accountReference_t acc = G_GetAccountByID(accountId, qfalse);
+			if (!acc.ptr)
+				return;
+
+			if (ent->client->account && ent->client->account->id == accountId) { // entered their own name?
+				PrintPositionPreferences(ent);
+				PrintIngame(ent - g_entities, "Enter ^5pos help^7 for instructions on setting up position preferences.\n");
+				return;
+			}
+
+			pref = &acc.ptr->expressedPref;
+
+			if (!name[0])
+				Q_strncpyz(name, acc.ptr->name, sizeof(name));
+
+			char buf[MAX_STRING_CHARS] = { 0 };
+			Com_sprintf(buf, sizeof(buf), "%s^7's position preferences: \n^3 First choice:^7 ", name);
+
+			{
+				qboolean gotOne = qfalse;
+				for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+					if (pref->first & (1 << pos)) {
+						Q_strcat(buf, sizeof(buf), va("%s%s", gotOne ? ", " : "", NameForPos(pos)));
+						gotOne = qtrue;
+					}
+				}
+			}
+
+			{
+				Q_strcat(buf, sizeof(buf), "\n^9Second choice:^7 ");
+				qboolean gotOne = qfalse;
+				for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+					if (pref->second & (1 << pos)) {
+						Q_strcat(buf, sizeof(buf), va("%s%s", gotOne ? ", " : "", NameForPos(pos)));
+						gotOne = qtrue;
+					}
+				}
+			}
+
+			{
+				Q_strcat(buf, sizeof(buf), "\n^8 Third choice:^7 ");
+				qboolean gotOne = qfalse;
+				for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+					if (pref->third & (1 << pos)) {
+						Q_strcat(buf, sizeof(buf), va("%s%s", gotOne ? ", " : "", NameForPos(pos)));
+						gotOne = qtrue;
+					}
+				}
+			}
+
+			{
+				Q_strcat(buf, sizeof(buf), "\n^1        Avoid:^7 ");
+				qboolean gotOne = qfalse;
+				for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+					if (pref->avoid & (1 << pos)) {
+						Q_strcat(buf, sizeof(buf), va("%s%s", gotOne ? ", " : "", NameForPos(pos)));
+						gotOne = qtrue;
+					}
+				}
+			}
+
+			{
+				Q_strcat(buf, sizeof(buf), "\n^9      Unrated:^7 ");
+				qboolean gotOne = qfalse;
+				for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+					if (pref->first & (1 << pos) || pref->second & (1 << pos) || pref->third & (1 << pos) || pref->avoid & (1 << pos))
+						continue;
+					Q_strcat(buf, sizeof(buf), va("%s%s", gotOne ? ", " : "", NameForPos(pos)));
+					gotOne = qtrue;
+				}
+			}
+
+			Q_strcat(buf, sizeof(buf), "\n");
+			PrintIngame(ent - g_entities, buf);
+			PrintIngame(ent - g_entities, "Enter ^5pos help^7 for instructions on setting up position preferences.\n");
+		}
 		else {
 			PrintPositionPreferences(ent);
 			PrintIngame(ent - g_entities, "Enter ^5pos help^7 for instructions on setting up position preferences.\n");
 		}
+
 		return;
 	}
-
-	char arg2[MAX_STRING_CHARS] = { 0 };
-	trap_Argv(2, arg2, sizeof(arg2));
 
 	if (!arg2[0]) {
 		PrintPositionPreferences(ent);
