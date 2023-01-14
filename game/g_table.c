@@ -151,8 +151,11 @@ const char *TableCallback_Alias(void *rowContext, void *columnContext) {
 		return NULL;
 
 	// use the account name if they have one
-	if (cl->account && cl->account->name[0])
+	if (cl->account && cl->account->name[0]) {
+		if ((cl->account->flags & (ACCOUNTFLAG_ELOBOTSELFHOST)) && cl->pers.netname[0] && !strcmp(cl->pers.netname, "^7elo BOT"))
+			return NULL;
 		return cl->account->name;
+	}
 
 	// fall back to the old nicknames system otherwise
 	if (!cl->session)
