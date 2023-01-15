@@ -2029,8 +2029,24 @@ static void G_SayTo( gentity_t *ent, gentity_t *other, int mode, int color, cons
 	}
 
 	// if this guy is shadow muted, don't let anyone see his messages except himself and other shadow muted clients
-	if ( ent->client->sess.shadowMuted && ent != other && !other->client->sess.shadowMuted ) {
+	if ( ent->client && ent->client->sess.shadowMuted && ent != other && !other->client->sess.shadowMuted ) {
 		return;
+	}
+
+	// prevent certain individuals from jebaiting their fc into sking by writing "get" while someone else has the flag
+	if (ent->client && ent->client->account && (ent->client->account->flags & ACCOUNTFLAG_GETTROLL) && mode == SAY_TEAM &&
+		ent != other && g_gametype.integer == GT_CTF && !IsRacerOrSpectator(ent) && level.wasRestarted &&
+		Q_stristrclean(message, "get") && !HasFlag(ent) && level.pause.state == PAUSE_NONE) {
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *thisGuy = &g_entities[i];
+			if (!thisGuy->inuse || !thisGuy->client || thisGuy == ent || thisGuy->client->pers.connected != CON_CONNECTED)
+				continue;
+			if (thisGuy->client->sess.sessionTeam != ent->client->sess.sessionTeam)
+				continue;
+			if (!HasFlag(thisGuy))
+				continue;
+			return;
+		}
 	}
 
 	if (VALIDSTRING(message)) {

@@ -3187,6 +3187,8 @@ static int AccountFlagName2Bitflag(const char* flagName) {
 		return ACCOUNTFLAG_AFKTROLL;
 	} else if (!Q_stricmp(flagName, "EloBotSelfHost")) {
 		return ACCOUNTFLAG_ELOBOTSELFHOST;
+	} else if (!Q_stricmp(flagName, "GetTroll")) {
+		return ACCOUNTFLAG_GETTROLL;
 	}
 
 	return 0;
@@ -3207,6 +3209,7 @@ const char* AccountBitflag2FlagName(int bitflag) {
 		case ACCOUNTFLAG_HARDPERMABARRED: return "HardPermaBarred";
 		case ACCOUNTFLAG_AFKTROLL: return "AfkTroll";
 		case ACCOUNTFLAG_ELOBOTSELFHOST: return "EloBotSelfHost";
+		case ACCOUNTFLAG_GETTROLL: return "GetTroll";
 		default: return NULL;
 	}
 }

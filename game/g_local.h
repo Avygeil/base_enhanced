@@ -1994,17 +1994,18 @@ typedef struct {
 //
 #define ACCOUNTFLAG_ADMIN					( 1 << 0 )
 #define ACCOUNTFLAG_RCONLOG					( 1 << 1 )
-#define ACCOUNTFLAG_ENTERSPAMMER			( 1 << 2 )
+#define ACCOUNTFLAG_ENTERSPAMMER				( 1 << 2 )
 #define ACCOUNTFLAG_AIMPACKEDITOR			( 1 << 3 )
-#define ACCOUNTFLAG_AIMPACKADMIN			( 1 << 4 )
+#define ACCOUNTFLAG_AIMPACKADMIN				( 1 << 4 )
 #define ACCOUNTFLAG_VOTETROLL				( 1 << 5 )
 #define ACCOUNTFLAG_RATEPLAYERS				( 1 << 6 )
-#define ACCOUNTFLAG_INSTAPAUSE_BLACKLIST	( 1 << 7 )
+#define ACCOUNTFLAG_INSTAPAUSE_BLACKLIST		( 1 << 7 )
 #define ACCOUNTFLAG_PERMABARRED				( 1 << 8 )
 #define ACCOUNTFLAG_HARDPERMABARRED			( 1 << 9 )
 #define ACCOUNTFLAG_RATEPLAYERS_NOCOUNT		( 1 << 10 )
 #define ACCOUNTFLAG_AFKTROLL					( 1 << 11 )
 #define ACCOUNTFLAG_ELOBOTSELFHOST			( 1 << 12 )
+#define ACCOUNTFLAG_GETTROLL					( 1 << 13 )
 
 typedef void( *ListSessionsCallback )( void *ctx,
 	const sessionReference_t sessionRef,
