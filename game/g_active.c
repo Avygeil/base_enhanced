@@ -2162,10 +2162,9 @@ static qboolean IsClientBroadcastToOtherClient( gentity_t *self, gentity_t *othe
 		}
 	}
 
-	// broadcast this client to everyone using force sight if we are in distance
-	// duo: removed fov check, i was told to keep distance check for gameplay reasons
+	// broadcast this client to everyone using force sight if we are in distance/field of view
 	if ( ( other->client->ps.fd.forcePowersActive & ( 1 << FP_SEE ) ) ) {
-		if ( dist < MAX_FORCE_SIGHT_DISTANCE ) {
+		if ( dist < MAX_FORCE_SIGHT_DISTANCE && InFieldOfVision( other->client->ps.viewangles, MAX_FORCE_SIGHT_FOV, angles ) ) {
 			return qtrue;
 		}
 	}
