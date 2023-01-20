@@ -5078,11 +5078,13 @@ void ShowSubBalance(void) {
 	}
 }
 
-void TeamGen_ClearRemindPositions(void) {
+void TeamGen_ClearRemindPositions(qboolean clearIncesstantlyRemindedGuys) {
 	for (int i = 0; i < MAX_CLIENTS; i++) {
 		gentity_t *ent = &g_entities[i];
 		if (!ent->inuse || !ent->client)
 			continue;
+		if (!clearIncesstantlyRemindedGuys && ent->client->account && (ent->client->account->flags & ACCOUNTFLAG_REMINDPOSINCESSANTLY))
+			continue; // we don't clear out reminders for idiots until match ends
 		memset(&ent->client->sess.remindPositionOnMapChange, 0, sizeof(ent->client->sess.remindPositionOnMapChange));
 	}
 }
@@ -5095,13 +5097,22 @@ void TeamGen_RemindPosition(gentity_t *ent) {
 	if (!ent || !ent->client || !ent->client->sess.remindPositionOnMapChange.valid)
 		return;
 
-	if (!level.wasRestarted) {
-		ent->client->ps.persistant[PERS_SCORE] = ent->client->sess.remindPositionOnMapChange.score;
-		TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("Your position: %s", NameForPos(ent->client->sess.remindPositionOnMapChange.pos)));
-	}
+	if (ent->client->account && ent->client->account->flags & ACCOUNTFLAG_REMINDPOSINCESSANTLY) {
+		if (!level.wasRestarted)
+			ent->client->ps.persistant[PERS_SCORE] = ent->client->sess.remindPositionOnMapChange.score;
 
-	// clear so that we don't do it again
-	memset(&ent->client->sess.remindPositionOnMapChange, 0, sizeof(ent->client->sess.remindPositionOnMapChange));
+		for (int i = 0; i < 3; i++)
+			TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("Your position: %s", NameForPos(ent->client->sess.remindPositionOnMapChange.pos)));
+	}
+	else {
+		if (!level.wasRestarted) {
+			ent->client->ps.persistant[PERS_SCORE] = ent->client->sess.remindPositionOnMapChange.score;
+			TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("Your position: %s", NameForPos(ent->client->sess.remindPositionOnMapChange.pos)));
+		}
+
+		// clear so that we don't do it again
+		memset(&ent->client->sess.remindPositionOnMapChange, 0, sizeof(ent->client->sess.remindPositionOnMapChange));
+	}
 }
 
 void TeamGen_DoAutoRestart(void) {

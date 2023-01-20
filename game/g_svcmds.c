@@ -3189,6 +3189,8 @@ static int AccountFlagName2Bitflag(const char* flagName) {
 		return ACCOUNTFLAG_ELOBOTSELFHOST;
 	} else if (!Q_stricmp(flagName, "GetTroll")) {
 		return ACCOUNTFLAG_GETTROLL;
+	} else if (!Q_stricmp(flagName, "RemindPosIncessantly")) {
+		return ACCOUNTFLAG_REMINDPOSINCESSANTLY;
 	}
 
 	return 0;
@@ -3210,6 +3212,7 @@ const char* AccountBitflag2FlagName(int bitflag) {
 		case ACCOUNTFLAG_AFKTROLL: return "AfkTroll";
 		case ACCOUNTFLAG_ELOBOTSELFHOST: return "EloBotSelfHost";
 		case ACCOUNTFLAG_GETTROLL: return "GetTroll";
+		case ACCOUNTFLAG_REMINDPOSINCESSANTLY: return "RemindPosIncessantly";
 		default: return NULL;
 	}
 }

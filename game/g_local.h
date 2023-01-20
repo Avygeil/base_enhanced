@@ -1325,7 +1325,7 @@ void TeamGen_Initialize(void);
 ctfPlayerTier_t GetPlayerTierForPlayerOnPosition(int accountId, ctfPosition_t pos, qboolean assumeLowTierIfUnrated);
 void ShowSubBalance(void);
 qboolean TeamGenerator_PlayerIsPermaBarredButTemporarilyForcedPickable(gentity_t *ent);
-void TeamGen_ClearRemindPositions(void);
+void TeamGen_ClearRemindPositions(qboolean clearIncesstantlyRemindedGuys);
 void TeamGen_RemindPosition(gentity_t *ent);
 void TeamGen_AnnounceBreak(void);
 void TeamGen_DoAutoRestart(void);
@@ -2024,6 +2024,7 @@ typedef struct {
 #define ACCOUNTFLAG_AFKTROLL					( 1 << 11 )
 #define ACCOUNTFLAG_ELOBOTSELFHOST			( 1 << 12 )
 #define ACCOUNTFLAG_GETTROLL					( 1 << 13 )
+#define ACCOUNTFLAG_REMINDPOSINCESSANTLY		( 1 << 14 )
 
 typedef void( *ListSessionsCallback )( void *ctx,
 	const sessionReference_t sessionRef,

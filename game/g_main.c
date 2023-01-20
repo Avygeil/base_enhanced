@@ -1991,7 +1991,7 @@ void G_InitGame( int levelTime, int randomSeed, int restart, void *serverDbPtr )
 		level.g_lastIntermissionStartTimeSettingAtRoundStart = g_lastIntermissionStartTime.string[0] ? g_lastIntermissionStartTime.integer : 0;
 		level.g_lastTeamGenTimeSettingAtRoundStart = 0;
 
-		TeamGen_ClearRemindPositions();
+		TeamGen_ClearRemindPositions(qfalse);
 
 		if (level.g_lastIntermissionStartTimeSettingAtRoundStart)
 			level.shouldAnnounceBreak = qtrue;
@@ -3165,6 +3165,8 @@ void BeginIntermission(void) {
 	}
 
 	free(statsBuf);
+
+	TeamGen_ClearRemindPositions(qtrue);
 }
 
 qboolean DuelLimitHit(void)
