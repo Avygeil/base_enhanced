@@ -1319,7 +1319,7 @@ qboolean TeamGenerator_VoteYesToPugProposal(gentity_t *ent, int num, pugProposal
 void TeamGenerator_QueueServerMessageInChat(int clientNum, const char *msg);
 void TeamGenerator_QueueServerMessageInConsole(int clientNum, const char *msg);
 qboolean TeamGenerator_CheckForChatCommand(gentity_t *ent, const char *s, char **newMessage);
-qboolean TeamGenerator_PlayerIsBarredFromTeamGenerator(gentity_t *ent);
+barReason_t TeamGenerator_PlayerIsBarredFromTeamGenerator(gentity_t *ent);
 void Svcmd_Pug_f(void);
 void TeamGen_Initialize(void);
 ctfPlayerTier_t GetPlayerTierForPlayerOnPosition(int accountId, ctfPosition_t pos, qboolean assumeLowTierIfUnrated);
