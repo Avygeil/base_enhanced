@@ -3083,6 +3083,7 @@ extern vmCvar_t		g_specInfo;
 
 extern vmCvar_t     g_strafejump_mod;
 
+extern vmCvar_t		g_fixSense;
 extern vmCvar_t     g_antiWallhack;
 extern vmCvar_t		g_wallhackMaxTraces;
 

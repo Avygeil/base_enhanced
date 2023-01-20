@@ -391,6 +391,7 @@ vmCvar_t	g_specInfo;
 
 vmCvar_t     g_strafejump_mod;
 
+vmCvar_t	g_fixSense;
 vmCvar_t	g_antiWallhack;
 vmCvar_t	g_wallhackMaxTraces;
 
@@ -881,7 +882,7 @@ static cvarTable_t		gameCvarTable[] = {
 #endif
 	{ &g_strafejump_mod,	"g_strafejump_mod"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
 
-
+	{ &g_fixSense,		"g_fixSense",		"1",		CVAR_ARCHIVE, 0, qtrue },
 	{ &g_antiWallhack,	"g_antiWallhack"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_wallhackMaxTraces,	"g_wallhackMaxTraces"	, "1000"	, CVAR_ARCHIVE, 0, qtrue },
 

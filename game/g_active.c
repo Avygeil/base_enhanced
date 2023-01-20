@@ -2162,9 +2162,25 @@ static qboolean IsClientBroadcastToOtherClient( gentity_t *self, gentity_t *othe
 		}
 	}
 
-	// broadcast this client to everyone using force sight if we are in distance/field of view
-	if ( ( other->client->ps.fd.forcePowersActive & ( 1 << FP_SEE ) ) ) {
-		if ( dist < MAX_FORCE_SIGHT_DISTANCE && InFieldOfVision( other->client->ps.viewangles, MAX_FORCE_SIGHT_FOV, angles ) ) {
+	if (!g_fixSense.integer) {
+		// broadcast this client to everyone using force sight if we are in distance/field of view
+		if ((other->client->ps.fd.forcePowersActive & (1 << FP_SEE))) {
+			if (dist < MAX_FORCE_SIGHT_DISTANCE && InFieldOfVision(other->client->ps.viewangles, MAX_FORCE_SIGHT_FOV, angles)) {
+				return qtrue;
+			}
+		}
+	}
+	else if (g_fixSense.integer == 1) {
+		// broadcast this client to everyone using force sight if we are in distance
+		if ((other->client->ps.fd.forcePowersActive & (1 << FP_SEE))) {
+			if (dist < MAX_FORCE_SIGHT_DISTANCE) {
+				return qtrue;
+			}
+		}
+	}
+	else {
+		// broadcast this client to everyone using force sight
+		if ((other->client->ps.fd.forcePowersActive & (1 << FP_SEE))) {
 			return qtrue;
 		}
 	}
