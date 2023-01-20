@@ -785,6 +785,13 @@ typedef struct
 	int  mapsCount;
 } MapPool;
 
+typedef enum {
+	BARREASON_NOTBARRED = 0,
+	BARREASON_BARREDBYADMIN,
+	BARREASON_BARREDBYACCOUNTFLAG,
+	BARREASON_BARREDBYVOTE
+} barReason_t;
+
 // client data that stays across multiple respawns, but is cleared
 // on each level change or team change at ClientBegin()
 typedef struct {
@@ -869,7 +876,7 @@ typedef struct {
 	int			cointossHeadsTime;
 	int			cointossTailsTime;
 
-	qboolean	barredFromPugSelection;
+	barReason_t	barredFromPugSelection;
 
 	qboolean permaBarredDeclaredPickable;
 
@@ -1245,8 +1252,17 @@ typedef struct {
 } sortedClient_t;
 
 typedef struct {
+	node_t	node;
+	int		accountId;
+	char	accountName[MAX_ACCOUNTNAME_LEN];
+	int		votedYesClients;
+	int		voteNum;
+} barVote_t;
+
+typedef struct {
 	node_t		node;
 	int			accountId;
+	barReason_t	reason;
 } barredOrForcedPickablePlayer_t;
 
 typedef struct {
@@ -1970,6 +1986,8 @@ typedef struct {
 	pugProposal_t *activePugProposal;
 	list_t queuedServerMessagesList;
 	list_t autoLinksList;
+	list_t barVoteList;
+	list_t unbarVoteList;
 
 	double lastRelativeStrength[4];
 	int lastPlayerTickAddedTime;
@@ -3209,6 +3227,8 @@ extern vmCvar_t		g_vote_teamgen_autoMapVoteSeconds;
 extern vmCvar_t		g_vote_teamgen_iterate;
 extern vmCvar_t		g_vote_teamgen_preventStartDuringPug;
 extern vmCvar_t		g_vote_teamgen_banLastPlayedPermutation;
+extern vmCvar_t		g_vote_teamgen_enableBarVote;
+extern vmCvar_t		g_vote_teamgen_barVoteStartsNewPug;
 
 extern vmCvar_t		d_debugBanPermutation;
 

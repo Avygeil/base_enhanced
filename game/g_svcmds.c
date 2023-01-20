@@ -4362,6 +4362,33 @@ static void Svcmd_DebugTicks_f(void) {
 		}
 	}
 }
+
+void Svcmd_LinkByName_f(void) {
+	int numLinked = 0, numAlreadyLinked = 0;
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *ent = &g_entities[i];
+		if (!ent->inuse || !ent->client)
+			continue;
+
+		if (ent->client->account) {
+			++numAlreadyLinked;
+			continue;
+		}
+
+		char *clean = strdup(ent->client->pers.netname);
+		Q_CleanStr(clean);
+		accountReference_t acc = G_GetAccountByName(clean, qfalse);
+		free(clean);
+
+		if (!acc.ptr)
+			continue;
+
+		trap_SendConsoleCommand(EXEC_APPEND, va("session linkingame %d %s\n", i, acc.ptr->name));
+		Com_Printf("Linked client %d to %s\n", i, acc.ptr->name);
+		++numLinked;
+	}
+	Com_Printf("Linked %d clients. %d clients were already linked.\n", numLinked, numAlreadyLinked);
+}
 #endif
 
 /*
@@ -4696,6 +4723,11 @@ qboolean	ConsoleCommand( void ) {
 #ifdef _DEBUG
 	if (!Q_stricmp(cmd, "debugticks")) {
 		Svcmd_DebugTicks_f();
+		return qtrue;
+	}
+
+	if (!Q_stricmp(cmd, "linkbyname")) {
+		Svcmd_LinkByName_f();
 		return qtrue;
 	}
 #endif

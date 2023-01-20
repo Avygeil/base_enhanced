@@ -5055,6 +5055,18 @@ void ClientDisconnect( int clientNum ) {
 	if (ent->client->account) {
 		// check whether they were part of any pug proposals so we can handle them leaving properly
 		iterator_t iter;
+		ListIterate(&level.barVoteList, &iter, qfalse);
+		while (IteratorHasNext(&iter)) {
+			barVote_t *barVote = IteratorNext(&iter);
+			barVote->votedYesClients &= ~(1 << clientNum);
+		}
+
+		ListIterate(&level.unbarVoteList, &iter, qfalse);
+		while (IteratorHasNext(&iter)) {
+			barVote_t *barVote = IteratorNext(&iter);
+			barVote->votedYesClients &= ~(1 << clientNum);
+		}
+
 		ListIterate(&level.pugProposalsList, &iter, qfalse);
 		while (IteratorHasNext(&iter)) {
 			pugProposal_t *set = IteratorNext(&iter);

@@ -126,12 +126,12 @@ qboolean TeamGenerator_PlayerIsPermaBarredButTemporarilyForcedPickable(gentity_t
 	return qfalse;
 }
 
-qboolean TeamGenerator_PlayerIsBarredFromTeamGenerator(gentity_t *ent) {
+barReason_t TeamGenerator_PlayerIsBarredFromTeamGenerator(gentity_t *ent) {
 	if (!ent || !ent->client)
-		return qfalse;
+		return BARREASON_NOTBARRED;
 
 	if (ent->client->pers.barredFromPugSelection)
-		return qtrue;
+		return ent->client->pers.barredFromPugSelection;
 
 	if (ent->client->account) {
 		if ((ent->client->account->flags & ACCOUNTFLAG_HARDPERMABARRED) || (ent->client->account->flags & ACCOUNTFLAG_PERMABARRED)) {
@@ -146,12 +146,12 @@ qboolean TeamGenerator_PlayerIsBarredFromTeamGenerator(gentity_t *ent) {
 				}
 			}
 			if (forcedPickableByAdmin)
-				return qfalse;
+				return BARREASON_NOTBARRED;
 
 			if (!(ent->client->account->flags & ACCOUNTFLAG_HARDPERMABARRED) && ent->client->pers.permaBarredDeclaredPickable)
-				return qfalse;
+				return BARREASON_NOTBARRED;
 			
-			return qtrue;
+			return BARREASON_BARREDBYACCOUNTFLAG;
 		}
 
 		iterator_t iter;
@@ -159,11 +159,11 @@ qboolean TeamGenerator_PlayerIsBarredFromTeamGenerator(gentity_t *ent) {
 		while (IteratorHasNext(&iter)) {
 			barredOrForcedPickablePlayer_t *bp = IteratorNext(&iter);
 			if (bp->accountId == ent->client->account->id)
-				return qtrue;
+				return bp->reason;
 		}
 	}
 
-	return qfalse;
+	return BARREASON_NOTBARRED;
 }
 
 typedef struct {
@@ -3948,6 +3948,397 @@ qboolean TeamGenerator_VoteToReroll(gentity_t *ent, char **newMessage) {
 	return qfalse;
 }
 
+qboolean BarVoteMatchesAccountId(genericNode_t *node, void *userData) {
+	const barVote_t *existing = (const barVote_t *)node;
+	int id = *((int *)userData);
+	if (existing && existing->accountId == id)
+		return qtrue;
+	return qfalse;
+}
+
+qboolean TeamGenerator_VoteToBar(gentity_t *ent, const char *voteStr, char **newMessage) {
+	assert(ent && ent->client);
+
+	if (!g_vote_teamgen_enableBarVote.integer) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "Bar vote is disabled.");
+		return qtrue;
+	}
+
+	if (!ent->client->account) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You do not have an account, so you cannot vote to bar players. Please contact an admin for help setting up an account.");
+		return qtrue;
+	}
+
+	if ((ent->client->account->flags & ACCOUNTFLAG_ELOBOTSELFHOST) && !Q_stricmpclean(ent->client->pers.netname, "elo BOT")) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You have either modded elo bot to cheese the system or this is a bug which you should report.");
+		return qtrue;
+	}
+
+	if (!VALIDSTRING(voteStr) || strlen(voteStr) < 5) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("Usage: %cbar [account name]", TEAMGEN_CHAT_COMMAND_CHARACTER));
+		return qtrue;
+	}
+
+	const char *accountName = voteStr + 4;
+	accountReference_t acc = G_GetAccountByName(accountName, qtrue);
+	if (!acc.ptr) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("No connected player found for account '%s'. Make sure to use account name from /whois, not ingame name.", accountName));
+		return qtrue;
+	}
+
+	if (acc.ptr == ent->client->account) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You cannot vote to bar yourself.");
+		return qtrue;
+	}
+
+	gentity_t *someoneConnectedOnThisAccount = NULL;
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *thisEnt = &g_entities[i];
+		if (!thisEnt->inuse || !thisEnt->client || thisEnt->client->pers.connected == CON_DISCONNECTED || thisEnt->client->account != acc.ptr)
+			continue;
+		someoneConnectedOnThisAccount = thisEnt;
+		break;
+		// we don't need to check for multiple entities since each one should be barred if any are barred
+	}
+	if (!someoneConnectedOnThisAccount) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("No connected player found for account '%s'. Make sure to use account name from /whois, not ingame name.", accountName));
+		return qtrue;
+	}
+
+	// already barred?
+	if (TeamGenerator_PlayerIsBarredFromTeamGenerator(someoneConnectedOnThisAccount)) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("%s is already barred.", acc.ptr->name));
+		return qtrue;
+	}
+
+	// make sure at least 5 people are connected
+	int numEligible = 0;
+	{
+		qboolean gotEm[MAX_CLIENTS] = { qfalse };
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *thisEnt = &g_entities[i];
+			if (!thisEnt->inuse || !thisEnt->client || thisEnt->client->pers.connected == CON_DISCONNECTED ||
+				!thisEnt->client->account || thisEnt->client->sess.clientType != CLIENT_TYPE_NORMAL || gotEm[i])
+				continue;
+
+			if (thisEnt->client->account->flags & ACCOUNTFLAG_ELOBOTSELFHOST && !Q_stricmpclean(thisEnt->client->pers.netname, "elo BOT"))
+				continue;
+
+			++numEligible;
+
+			qboolean votedToBar = qfalse;
+			for (int k = 0; k < MAX_CLIENTS; k++) {
+				gentity_t *checkEnt = &g_entities[k];
+				if (!checkEnt->inuse || !checkEnt->client || checkEnt->client->pers.connected == CON_DISCONNECTED ||
+					!checkEnt->client->account || thisEnt->client->sess.clientType != CLIENT_TYPE_NORMAL || checkEnt->client->account->id != thisEnt->client->account->id)
+					continue;
+				gotEm[k] = qtrue;
+			}
+		}
+	}
+
+	const int numRequired = g_vote_teamgen_enableBarVote.integer;
+	const int numRequiredToBeConnected = numRequired;
+	if (numEligible < numRequiredToBeConnected) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("At least %d players must be connected to vote to bar someone.", numRequiredToBeConnected));
+		return qtrue;
+	}
+
+	// check whether this bar vote already exists
+	qboolean doVote = qtrue;
+	barVote_t *barVote = ListFind(&level.barVoteList, BarVoteMatchesAccountId, &acc.ptr->id, NULL);
+	if (barVote) {
+		// this vote already exists; see if we already voted on it
+		qboolean votedToBarOnAnotherClient = qfalse;
+		if (!(barVote->votedYesClients & (1 << ent - g_entities))) {
+			for (int i = 0; i < MAX_CLIENTS; i++) {
+				gentity_t *other = &g_entities[i];
+				if (other == ent || !other->inuse || !other->client || !other->client->account)
+					continue;
+				if (other->client->account->id != ent->client->account->id)
+					continue;
+				if (barVote->votedYesClients & (1 << other - g_entities)) {
+					votedToBarOnAnotherClient = qtrue;
+					break;
+				}
+			}
+		}
+
+		if (votedToBarOnAnotherClient || barVote->votedYesClients & (1 << ent - g_entities)) {
+			TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("You have already voted to bar %s.", barVote->accountName));
+			doVote = qfalse;
+		}
+	}
+	else {
+		// doesn't exist yet; create it
+		barVote = ListAdd(&level.barVoteList, sizeof(barVote_t));
+		barVote->accountId = acc.ptr->id;
+		Q_strncpyz(barVote->accountName, acc.ptr->name, sizeof(barVote->accountName));
+	}
+
+	if (doVote)
+		barVote->votedYesClients |= (1 << (ent - g_entities));
+
+	// check how many votes we are now up to
+	int numBarVotesFromEligiblePlayers = 0;
+	{
+		qboolean gotEm[MAX_CLIENTS] = { qfalse };
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *thisEnt = &g_entities[i];
+			if (!thisEnt->inuse || !thisEnt->client || thisEnt->client->pers.connected == CON_DISCONNECTED ||
+				!thisEnt->client->account || thisEnt->client->sess.clientType != CLIENT_TYPE_NORMAL || gotEm[i])
+				continue;
+
+			if (thisEnt->client->account->flags & ACCOUNTFLAG_ELOBOTSELFHOST && !Q_stricmpclean(thisEnt->client->pers.netname, "elo BOT"))
+				continue;
+
+			qboolean votedToBar = qfalse;
+			for (int k = 0; k < MAX_CLIENTS; k++) {
+				gentity_t *checkEnt = &g_entities[k];
+				if (!checkEnt->inuse || !checkEnt->client || checkEnt->client->pers.connected == CON_DISCONNECTED ||
+					!checkEnt->client->account || thisEnt->client->sess.clientType != CLIENT_TYPE_NORMAL || checkEnt->client->account->id != thisEnt->client->account->id)
+					continue;
+				if (barVote->votedYesClients & (1 << k))
+					votedToBar = qtrue;
+				gotEm[k] = qtrue;
+			}
+
+			if (votedToBar)
+				++numBarVotesFromEligiblePlayers;
+		}
+	}
+
+	// print the message
+	if (newMessage) {
+		static char buf[MAX_STRING_CHARS] = { 0 };
+		Com_sprintf(buf, sizeof(buf), "%cbar %s   ^%c(%d/%d)",
+			TEAMGEN_CHAT_COMMAND_CHARACTER, barVote->accountName, doVote ? '7' : '9', numBarVotesFromEligiblePlayers, numRequired);
+		*newMessage = buf;
+	}
+
+	// if we have enough votes, do the barring
+	if (numBarVotesFromEligiblePlayers >= numRequired) {
+		barredOrForcedPickablePlayer_t *add = ListAdd(&level.barredPlayersList, sizeof(barredOrForcedPickablePlayer_t));
+		add->accountId = barVote->accountId;
+		add->reason = BARREASON_BARREDBYVOTE;
+
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			if (!g_entities[i].inuse || !g_entities[i].client || !g_entities[i].client->account || g_entities[i].client->account->id != barVote->accountId)
+				continue;
+			g_entities[i].client->pers.barredFromPugSelection = BARREASON_BARREDBYVOTE;
+			ClientUserinfoChanged(i);
+		}
+
+		TeamGenerator_QueueServerMessageInChat(-1, va("%s^7 was barred from team generation by vote.", barVote->accountName));
+		ListRemove(&level.barVoteList, barVote);
+
+		// automatically start and pass a new pug if we aren't in the middle of one
+		if (g_vote_teamgen_barVoteStartsNewPug.integer) {
+			int numCurrentlyIngame = 0;
+			CountPlayers(NULL, NULL, NULL, NULL, NULL, &numCurrentlyIngame, NULL);
+
+			float avgRed = level.numTeamTicks ? (float)level.numRedPlayerTicks / (float)level.numTeamTicks : 0;
+			float avgBlue = level.numTeamTicks ? (float)level.numBluePlayerTicks / (float)level.numTeamTicks : 0;
+
+			qboolean inPug = !!(level.wasRestarted && !level.someoneWasAFK && level.numTeamTicks && numCurrentlyIngame >= 6 &&
+				fabs(avgRed - round(avgRed)) < 0.2f && fabs(avgBlue - round(avgBlue)) < 0.2f);
+
+			if (!inPug) {
+				Com_Printf("Attempting to automatically start pug due to passed bar vote.\n");
+				trap_SendConsoleCommand(EXEC_APPEND, "pug startpass\n");
+			}
+		}
+	}
+
+	return qfalse;
+}
+
+qboolean TeamGenerator_VoteToUnbar(gentity_t *ent, const char *voteStr, char **newMessage) {
+	assert(ent && ent->client);
+
+	if (!g_vote_teamgen_enableBarVote.integer) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "Bar vote is disabled.");
+		return qtrue;
+	}
+
+	if (!ent->client->account) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You do not have an account, so you cannot vote to bar players. Please contact an admin for help setting up an account.");
+		return qtrue;
+	}
+
+	if ((ent->client->account->flags & ACCOUNTFLAG_ELOBOTSELFHOST) && !Q_stricmpclean(ent->client->pers.netname, "elo BOT")) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You have either modded elo bot to cheese the system or this is a bug which you should report.");
+		return qtrue;
+	}
+
+	if (!VALIDSTRING(voteStr) || strlen(voteStr) < 7) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("Usage: %cunbar [account name]", TEAMGEN_CHAT_COMMAND_CHARACTER));
+		return qtrue;
+	}
+
+	const char *accountName = voteStr + 6;
+	accountReference_t acc = G_GetAccountByName(accountName, qtrue);
+	if (!acc.ptr) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("No connected player found for account '%s'. Make sure to use account name from /whois, not ingame name.", accountName));
+		return qtrue;
+	}
+
+	gentity_t *someoneConnectedOnThisAccount = NULL;
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *thisEnt = &g_entities[i];
+		if (!thisEnt->inuse || !thisEnt->client || thisEnt->client->pers.connected == CON_DISCONNECTED || thisEnt->client->account != acc.ptr)
+			continue;
+		someoneConnectedOnThisAccount = thisEnt;
+		break;
+		// we don't need to check for multiple entities since each one should be barred if any are barred
+	}
+	if (!someoneConnectedOnThisAccount) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("No connected player found for account '%s'. Make sure to use account name from /whois, not ingame name.", accountName));
+		return qtrue;
+	}
+
+	// already barred?
+	barReason_t barReason = TeamGenerator_PlayerIsBarredFromTeamGenerator(someoneConnectedOnThisAccount);
+	if (!barReason) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("%s is not barred.", acc.ptr->name));
+		return qtrue;
+	}
+	else if (barReason != BARREASON_BARREDBYVOTE) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("%s was not barred by vote, so they cannot be unbarred by vote.", acc.ptr->name));
+		return qtrue;
+	}
+
+	// make sure at least 5 people are connected
+	int numEligible = 0;
+	{
+		qboolean gotEm[MAX_CLIENTS] = { qfalse };
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *thisEnt = &g_entities[i];
+			if (!thisEnt->inuse || !thisEnt->client || thisEnt->client->pers.connected == CON_DISCONNECTED ||
+				!thisEnt->client->account || thisEnt->client->sess.clientType != CLIENT_TYPE_NORMAL || gotEm[i])
+				continue;
+
+			if (thisEnt->client->account->flags & ACCOUNTFLAG_ELOBOTSELFHOST && !Q_stricmpclean(thisEnt->client->pers.netname, "elo BOT"))
+				continue;
+
+			++numEligible;
+
+			qboolean votedToBar = qfalse;
+			for (int k = 0; k < MAX_CLIENTS; k++) {
+				gentity_t *checkEnt = &g_entities[k];
+				if (!checkEnt->inuse || !checkEnt->client || checkEnt->client->pers.connected == CON_DISCONNECTED ||
+					!checkEnt->client->account || thisEnt->client->sess.clientType != CLIENT_TYPE_NORMAL || checkEnt->client->account->id != thisEnt->client->account->id)
+					continue;
+				gotEm[k] = qtrue;
+			}
+		}
+	}
+
+	const int numRequired = g_vote_teamgen_enableBarVote.integer;
+	const int numRequiredToBeConnected = numRequired;
+	if (numEligible < numRequiredToBeConnected) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("At least %d players must be connected to vote to unbar someone.", numRequiredToBeConnected));
+		return qtrue;
+	}
+
+	// check whether this bar vote already exists
+	qboolean doVote = qtrue;
+	barVote_t *barVote = ListFind(&level.unbarVoteList, BarVoteMatchesAccountId, &acc.ptr->id, NULL);
+	if (barVote) {
+		// this vote already exists; see if we already voted on it
+		qboolean votedToBarOnAnotherClient = qfalse;
+		if (!(barVote->votedYesClients & (1 << ent - g_entities))) {
+			for (int i = 0; i < MAX_CLIENTS; i++) {
+				gentity_t *other = &g_entities[i];
+				if (other == ent || !other->inuse || !other->client || !other->client->account)
+					continue;
+				if (other->client->account->id != ent->client->account->id)
+					continue;
+				if (barVote->votedYesClients & (1 << other - g_entities)) {
+					votedToBarOnAnotherClient = qtrue;
+					break;
+				}
+			}
+		}
+
+		if (votedToBarOnAnotherClient || barVote->votedYesClients & (1 << ent - g_entities)) {
+			TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("You have already voted to unbar %s.", barVote->accountName));
+			doVote = qfalse;
+		}
+	}
+	else {
+		// doesn't exist yet; create it
+		barVote = ListAdd(&level.unbarVoteList, sizeof(barVote_t));
+		barVote->accountId = acc.ptr->id;
+		Q_strncpyz(barVote->accountName, acc.ptr->name, sizeof(barVote->accountName));
+	}
+
+	if (doVote)
+		barVote->votedYesClients |= (1 << (ent - g_entities));
+
+	// check how many votes we are now up to
+	int numBarVotesFromEligiblePlayers = 0;
+	{
+		qboolean gotEm[MAX_CLIENTS] = { qfalse };
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *thisEnt = &g_entities[i];
+			if (!thisEnt->inuse || !thisEnt->client || thisEnt->client->pers.connected == CON_DISCONNECTED ||
+				!thisEnt->client->account || thisEnt->client->sess.clientType != CLIENT_TYPE_NORMAL || gotEm[i])
+				continue;
+
+			if (thisEnt->client->account->flags & ACCOUNTFLAG_ELOBOTSELFHOST && !Q_stricmpclean(thisEnt->client->pers.netname, "elo BOT"))
+				continue;
+
+			qboolean votedToBar = qfalse;
+			for (int k = 0; k < MAX_CLIENTS; k++) {
+				gentity_t *checkEnt = &g_entities[k];
+				if (!checkEnt->inuse || !checkEnt->client || checkEnt->client->pers.connected == CON_DISCONNECTED ||
+					!checkEnt->client->account || thisEnt->client->sess.clientType != CLIENT_TYPE_NORMAL || checkEnt->client->account->id != thisEnt->client->account->id)
+					continue;
+				if (barVote->votedYesClients & (1 << k))
+					votedToBar = qtrue;
+				gotEm[k] = qtrue;
+			}
+
+			if (votedToBar)
+				++numBarVotesFromEligiblePlayers;
+		}
+	}
+
+	// print the message
+	if (newMessage) {
+		static char buf[MAX_STRING_CHARS] = { 0 };
+		Com_sprintf(buf, sizeof(buf), "%cunbar %s   ^%c(%d/%d)",
+			TEAMGEN_CHAT_COMMAND_CHARACTER, barVote->accountName, doVote ? '7' : '9', numBarVotesFromEligiblePlayers, numRequired);
+		*newMessage = buf;
+	}
+
+	// if we have enough votes, do the barring
+	if (numBarVotesFromEligiblePlayers >= numRequired) {
+		iterator_t iter;
+		ListIterate(&level.barredPlayersList, &iter, qfalse);
+		while (IteratorHasNext(&iter)) {
+			barredOrForcedPickablePlayer_t *bp = IteratorNext(&iter);
+			if (bp->accountId == barVote->accountId) {
+				ListRemove(&level.barredPlayersList, bp);
+			}
+			ListIterate(&level.barredPlayersList, &iter, qfalse);
+		}
+
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			if (!g_entities[i].inuse || !g_entities[i].client || !g_entities[i].client->account || g_entities[i].client->account->id != barVote->accountId)
+				continue;
+			g_entities[i].client->pers.barredFromPugSelection = BARREASON_NOTBARRED;
+			ClientUserinfoChanged(i);
+		}
+
+		TeamGenerator_QueueServerMessageInChat(-1, va("%s^7 was unbarred from team generation by vote.", barVote->accountName));
+		ListRemove(&level.unbarVoteList, barVote);
+	}
+
+	return qfalse;
+}
+
 void TeamGenerator_DoCancel(void) {
 	TeamGenerator_QueueServerMessageInChat(-1, va("Active pug proposal %d canceled (%s).", level.activePugProposal->num, level.activePugProposal->namesStr));
 	ListClear(&level.activePugProposal->avoidedHashesList);
@@ -4151,10 +4542,11 @@ qboolean TeamGenerator_CheckForChatCommand(gentity_t *ent, const char *s, char *
 				"^9%c[number]          - vote to approve a pug proposal\n"
 				"^7%c[ a | b | c | d ] - vote to approve one or more teams proposals\n"
 				"^9%creroll            - vote to generate new teams proposals with the same players\n"
+				"%s"
 				"^7%ccancel            - vote to generate new teams proposals with the same players\n"
 				"^9%clist              - show which players are part of each pug proposal\n"
 				"^7%cpickable          - declare yourself as pickable for pugs\n"
-				, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER);
+				, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, g_vote_teamgen_enableBarVote.integer ? va("^7%cbar [player]      - vote to bar a player\n^9%cunbar [player]    - vote to unbar a player\n", TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER) : "", TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER);
 		}
 		else {
 			PrintIngame(ent - g_entities,
@@ -4163,10 +4555,10 @@ qboolean TeamGenerator_CheckForChatCommand(gentity_t *ent, const char *s, char *
 				"^9%c[number]          - vote to approve a pug proposal\n"
 				"^7%c[ a | b | c | d ] - vote to approve one or more teams proposals\n"
 				"^9%creroll            - vote to generate new teams proposals with the same players\n"
+				"%s"
 				"^7%ccancel            - vote to generate new teams proposals with the same players\n"
-				"^9%clist              - show which players are part of each pug proposal\n"
-				"^7"
-				, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER);
+				"^9%clist              - show which players are part of each pug proposal^7\n"
+				, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, g_vote_teamgen_enableBarVote.integer ? va("^7%cbar [player]      - vote to bar a player\n^9%cunbar [player]    - vote to unbar a player\n", TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER) : "", TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER);
 		}
 		SV_Tell(ent - g_entities, "See console for chat command help.");
 		return qtrue;
@@ -4177,6 +4569,12 @@ qboolean TeamGenerator_CheckForChatCommand(gentity_t *ent, const char *s, char *
 
 	if (!Q_stricmp(s, "reroll") || !Q_stricmp(s, "r"))
 		return TeamGenerator_VoteToReroll(ent, newMessage);
+
+	if (!Q_stricmpn(s, "bar", 3) && (strlen(s) <= 3 || isspace(*(s + 3))))
+		return TeamGenerator_VoteToBar(ent, s, newMessage);
+
+	if (!Q_stricmpn(s, "unbar", 5) && (strlen(s) <= 5 || isspace(*(s + 5))))
+		return TeamGenerator_VoteToUnbar(ent, s, newMessage);
 
 	if (!Q_stricmp(s, "cancel"))
 		return TeamGenerator_VoteToCancel(ent, newMessage);
@@ -4257,6 +4655,7 @@ static void PrintPugHelp(void) {
 		"^7pug bar [player name/#]   - bars a player from team generation for the rest of the current round\n"
 		"^9pug unbar [player name/#] - unbars a player\n"
 		"^7pug list                  - list the players in each pug proposal\n"
+		"You can see a list of vote-related cvars by entering ^5cvarlist g_vote^7\n"
 		"%s",
 		!g_vote_teamgen.integer ? "^3Note: team generator is currently disabled! Enable with g_vote_teamgen.^7\n" : ""
 	);
@@ -4391,6 +4790,7 @@ void Svcmd_Pug_f(void) {
 		}
 
 		if (found->client->pers.barredFromPugSelection) {
+			qboolean printed = qfalse;
 			if (found->client->account) {
 				qboolean foundInList = qfalse;
 				iterator_t iter;
@@ -4399,6 +4799,11 @@ void Svcmd_Pug_f(void) {
 					barredOrForcedPickablePlayer_t *bp = IteratorNext(&iter);
 					if (bp->accountId == found->client->account->id) {
 						foundInList = qtrue;
+						if (bp->reason == BARREASON_BARREDBYVOTE) {
+							bp->reason = BARREASON_BARREDBYADMIN;
+							Com_Printf("%s^7 was already barred by vote; they are now barred by admin (so their bar cannot be removed by vote).\n", name);
+							printed = qtrue;
+						}
 						break;
 					}
 				}
@@ -4406,17 +4811,20 @@ void Svcmd_Pug_f(void) {
 				if (!foundInList) { // barred in client->pers but not list; add them to list
 					barredOrForcedPickablePlayer_t *add = ListAdd(&level.barredPlayersList, sizeof(barredOrForcedPickablePlayer_t));
 					add->accountId = found->client->account->id;
+					add->reason = BARREASON_BARREDBYADMIN;
 				}
 			}
-			Com_Printf("%s^7 is already barred.\n", name);
+			if (!printed)
+				Com_Printf("%s^7 is already barred.\n", name);
 			return;
 		}
 
-		found->client->pers.barredFromPugSelection = qtrue;
+		found->client->pers.barredFromPugSelection = BARREASON_BARREDBYADMIN;
 		if (found->client->account) {
 			Com_Printf("Barred player %s^7.\n", name);
 			barredOrForcedPickablePlayer_t *add = ListAdd(&level.barredPlayersList, sizeof(barredOrForcedPickablePlayer_t));
 			add->accountId = found->client->account->id;
+			add->reason = BARREASON_BARREDBYADMIN;
 		}
 		else {
 			Com_Printf("Barred player %s^7. Since they do not have an account, they will need to be barred again if they reconnect to circumvent the bar before the current map ends.\n", name);
@@ -4424,7 +4832,7 @@ void Svcmd_Pug_f(void) {
 
 		ClientUserinfoChanged(found - g_entities);
 
-		TeamGenerator_QueueServerMessageInChat(-1, va("%s^7 barred from team generation by server.", name));
+		TeamGenerator_QueueServerMessageInChat(-1, va("%s^7 was barred from team generation by admin.", name));
 	}
 	else if (!Q_stricmp(arg1, "unbar")) {
 		if (!arg2[0]) {
@@ -4488,7 +4896,7 @@ void Svcmd_Pug_f(void) {
 			return;
 		}
 
-		found->client->pers.barredFromPugSelection = qfalse;
+		found->client->pers.barredFromPugSelection = BARREASON_NOTBARRED;
 		ClientUserinfoChanged(found - g_entities);
 
 		TeamGenerator_QueueServerMessageInChat(-1, va("%s^7 unbarred from team generation by server.", name));
