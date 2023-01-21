@@ -3026,6 +3026,8 @@ void TeamGenerator_MatchComplete(void) {
 void ActivateTeamsProposal(permutationOfTeams_t *permutation) {
 	assert(permutation);
 
+	TeamGen_ClearRemindPositions();
+
 	const size_t messageSize = MAX_STRING_CHARS;
 	char *printMessage = calloc(MAX_CLIENTS * messageSize, sizeof(char));
 
@@ -5078,15 +5080,9 @@ void ShowSubBalance(void) {
 	}
 }
 
-void TeamGen_ClearRemindPositions(qboolean clearIncesstantlyRemindedGuys) {
-	for (int i = 0; i < MAX_CLIENTS; i++) {
-		gentity_t *ent = &g_entities[i];
-		if (!ent->inuse || !ent->client)
-			continue;
-		if (!clearIncesstantlyRemindedGuys && ent->client->account && (ent->client->account->flags & ACCOUNTFLAG_REMINDPOSINCESSANTLY))
-			continue; // we don't clear out reminders for idiots until match ends
-		memset(&ent->client->sess.remindPositionOnMapChange, 0, sizeof(ent->client->sess.remindPositionOnMapChange));
-	}
+void TeamGen_ClearRemindPositions(void) {
+	for (int i = 0; i < MAX_CLIENTS; i++)
+		memset(&level.clients[i].sess.remindPositionOnMapChange, 0, sizeof(level.clients[i].sess.remindPositionOnMapChange));
 }
 
 // sets people's scores again if they change maps
@@ -5094,25 +5090,34 @@ void TeamGen_RemindPosition(gentity_t *ent) {
 	if (!g_vote_teamgen_remindPositions.integer)
 		return;
 
-	if (!ent || !ent->client || !ent->client->sess.remindPositionOnMapChange.valid)
+	if (!ent || !ent->client || !ent->client->sess.remindPositionOnMapChange.valid || IsRacerOrSpectator(ent))
 		return;
 
-	if (ent->client->account && ent->client->account->flags & ACCOUNTFLAG_REMINDPOSINCESSANTLY) {
-		if (!level.wasRestarted)
-			ent->client->ps.persistant[PERS_SCORE] = ent->client->sess.remindPositionOnMapChange.score;
+	const char *posStr = va("Your position: %s", NameForPos(ent->client->sess.remindPositionOnMapChange.pos));
 
+	// send message
+	if (ent->client->account && (ent->client->account->flags & ACCOUNTFLAG_REMINDPOSINCESSANTLY)) {
 		for (int i = 0; i < 3; i++)
-			TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("Your position: %s", NameForPos(ent->client->sess.remindPositionOnMapChange.pos)));
+			TeamGenerator_QueueServerMessageInChat(ent - g_entities, posStr);
+		trap_SendServerCommand(ent - g_entities, va("cp \"%s\n\n\n\n\n\n\n\n\"", posStr)); // centerprint too, get fucked idiot
 	}
 	else {
-		if (!level.wasRestarted) {
-			ent->client->ps.persistant[PERS_SCORE] = ent->client->sess.remindPositionOnMapChange.score;
-			TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("Your position: %s", NameForPos(ent->client->sess.remindPositionOnMapChange.pos)));
+		if (g_vote_teamgen_remindPositions.integer == 1) {
+			// g_vote_teamgen_remindPositions 1 == (default) always remind pos, even on map restarts
+			TeamGenerator_QueueServerMessageInChat(ent - g_entities, posStr);
 		}
-
-		// clear so that we don't do it again
-		memset(&ent->client->sess.remindPositionOnMapChange, 0, sizeof(ent->client->sess.remindPositionOnMapChange));
+		else {
+			// g_vote_teamgen_remindPositions 2 == only remind pos on map changes (not restarts)
+			if (!level.wasRestarted)
+				TeamGenerator_QueueServerMessageInChat(ent - g_entities, posStr);
+		}
 	}
+
+	// set score if not restarted
+	if (!level.wasRestarted)
+		ent->client->ps.persistant[PERS_SCORE] = ent->client->sess.remindPositionOnMapChange.score;
+
+	// we no longer clear out the reminders from this function
 }
 
 void TeamGen_DoAutoRestart(void) {

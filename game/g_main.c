@@ -1991,8 +1991,6 @@ void G_InitGame( int levelTime, int randomSeed, int restart, void *serverDbPtr )
 		level.g_lastIntermissionStartTimeSettingAtRoundStart = g_lastIntermissionStartTime.string[0] ? g_lastIntermissionStartTime.integer : 0;
 		level.g_lastTeamGenTimeSettingAtRoundStart = 0;
 
-		TeamGen_ClearRemindPositions(qfalse);
-
 		if (level.g_lastIntermissionStartTimeSettingAtRoundStart)
 			level.shouldAnnounceBreak = qtrue;
 	}
@@ -3166,7 +3164,7 @@ void BeginIntermission(void) {
 
 	free(statsBuf);
 
-	TeamGen_ClearRemindPositions(qtrue);
+	TeamGen_ClearRemindPositions();
 }
 
 qboolean DuelLimitHit(void)
@@ -5959,6 +5957,19 @@ void G_RunFrame( int levelTime ) {
 
 	if (level.shouldAnnounceBreak && level.time - level.startTime >= 500)
 		TeamGen_AnnounceBreak();
+
+	{ // periodically check if less than 6 are ingame, in which case we clear reminded pos
+		static int clearRemindersTime = 30000;
+		if (level.time - level.startTime >= clearRemindersTime) {
+			int numIngame = 0;
+			CountPlayers(NULL, NULL, NULL, NULL, NULL, &numIngame, NULL);
+
+			if (numIngame < 6)
+				TeamGen_ClearRemindPositions();
+
+			clearRemindersTime = (level.time - level.startTime) + 10000;
+		}
+	}
 
 	// print any queued messages
 	if (level.queuedServerMessagesList.size > 0) {

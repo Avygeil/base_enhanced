@@ -1325,7 +1325,7 @@ void TeamGen_Initialize(void);
 ctfPlayerTier_t GetPlayerTierForPlayerOnPosition(int accountId, ctfPosition_t pos, qboolean assumeLowTierIfUnrated);
 void ShowSubBalance(void);
 qboolean TeamGenerator_PlayerIsPermaBarredButTemporarilyForcedPickable(gentity_t *ent);
-void TeamGen_ClearRemindPositions(qboolean clearIncesstantlyRemindedGuys);
+void TeamGen_ClearRemindPositions(void);
 void TeamGen_RemindPosition(gentity_t *ent);
 void TeamGen_AnnounceBreak(void);
 void TeamGen_DoAutoRestart(void);
