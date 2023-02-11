@@ -6632,7 +6632,7 @@ static void Cmd_Rating_f(gentity_t *ent) {
 	}
 }
 
-// returns qtrue if valid; qfalse if they set something dumb (like a pos set on multiple choice levels, or all three pos on the same choice, etc)
+// returns qtrue if valid; qfalse if they set something dumb (like a pos set on multiple choice levels, or all three pos on the second choice, etc)
 qboolean ValidateAndCopyPositionPreferences(const positionPreferences_t *in, positionPreferences_t *out) {
 	if (!in) {
 		assert(qfalse);
@@ -6655,12 +6655,8 @@ qboolean ValidateAndCopyPositionPreferences(const positionPreferences_t *in, pos
 
 	qboolean inputValid = qtrue;
 
-	// has all three positions on first/second/third
+	// has all three positions on second/third
 	// clear it out
-	if (temp.first == ALL_CTF_POSITIONS) {
-		temp.first = 0;
-		inputValid = qfalse;
-	}
 	if (temp.second == ALL_CTF_POSITIONS) {
 		temp.second = 0;
 		inputValid = qfalse;
