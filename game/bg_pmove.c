@@ -5512,6 +5512,12 @@ void PM_BeginWeaponChange( int weapon ) {
 	{
 		pm->ps->zoomMode = 0;
 		pm->ps->zoomTime = pm->ps->commandTime;
+		if (g_fixSniperSwitch.integer) {
+			pm->ps->zoomFov = 0;
+			pm->ps->zoomLocked = qfalse;
+			pm->ps->zoomLockTime = 0;
+			pm->ps->weaponTime = 1000; // yes, this stacks with the 200ms below
+		}
 	}
 
 	PM_AddEventWithParm( EV_CHANGE_WEAPON, weapon );

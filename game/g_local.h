@@ -3109,6 +3109,7 @@ extern vmCvar_t     g_fixDempSaberThrow;
 extern vmCvar_t		g_fixForceJumpAnimationLock;
 extern vmCvar_t		g_fixNoAmmoShootAnimation;
 extern vmCvar_t		g_fix5AmmoSniping;
+extern vmCvar_t		g_fixSniperSwitch;
 
 // flags for g_balanceSaber
 #define SB_KICK				(1<<0) // kick with all sabers
