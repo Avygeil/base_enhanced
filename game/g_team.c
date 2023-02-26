@@ -1545,6 +1545,10 @@ void CheckTeamStatus(void) {
     //OSP: pause
     if ( level.pause.state != PAUSE_NONE ) // doesn't affect racers due to TEAM_FREE
             return;
+
+	if (level.intermissiontime)
+		return; // don't spam teamoverlay updates during intermission
+
 	int updateRate = Com_Clampi(1, 1000, g_teamOverlayUpdateRate.integer);
 	if (level.time - level.lastTeamLocationTime > updateRate) {
 
