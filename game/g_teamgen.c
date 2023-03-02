@@ -4148,8 +4148,24 @@ qboolean TeamGenerator_VoteToBar(gentity_t *ent, const char *voteStr, char **new
 				fabs(avgRed - round(avgRed)) < 0.2f && fabs(avgBlue - round(avgBlue)) < 0.2f);
 
 			if (!inPug) {
-				Com_Printf("Attempting to automatically start pug due to passed bar vote.\n");
-				trap_SendConsoleCommand(EXEC_APPEND, "pug startpass\n");
+				qboolean activePugProposalWithOurGuy = qfalse;
+				if (level.activePugProposal) {
+					for (int i = 0; i < MAX_CLIENTS; i++) {
+						const sortedClient_t *cl = &level.activePugProposal->clients[i];
+						if (!cl->accountName[0] || Q_stricmp(cl->accountName, barVote->accountName))
+							continue;
+						activePugProposalWithOurGuy = qtrue;
+						break;
+					}
+				}
+
+				if (activePugProposalWithOurGuy) {
+					Com_Printf("Attempting to automatically start pug due to passed bar vote.\n");
+					trap_SendConsoleCommand(EXEC_APPEND, "pug startpass\n");
+				}
+				else {
+					Com_Printf("Not attempting to automatically start pug due to passed bar vote because barred player is not in active pug proposal.\n");
+				}
 			}
 		}
 	}
