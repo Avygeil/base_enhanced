@@ -3998,6 +3998,8 @@ qboolean TeamGenerator_VoteToBar(gentity_t *ent, const char *voteStr, char **new
 		gentity_t *thisEnt = &g_entities[i];
 		if (!thisEnt->inuse || !thisEnt->client || thisEnt->client->pers.connected == CON_DISCONNECTED || thisEnt->client->account != acc.ptr)
 			continue;
+		if ((acc.ptr->flags & ACCOUNTFLAG_ELOBOTSELFHOST) && !Q_stricmpclean(thisEnt->client->pers.netname, "elo BOT"))
+			continue;
 		someoneConnectedOnThisAccount = thisEnt;
 		break;
 		// we don't need to check for multiple entities since each one should be barred if any are barred
@@ -4189,6 +4191,8 @@ qboolean TeamGenerator_VoteToUnbar(gentity_t *ent, const char *voteStr, char **n
 	for (int i = 0; i < MAX_CLIENTS; i++) {
 		gentity_t *thisEnt = &g_entities[i];
 		if (!thisEnt->inuse || !thisEnt->client || thisEnt->client->pers.connected == CON_DISCONNECTED || thisEnt->client->account != acc.ptr)
+			continue;
+		if ((acc.ptr->flags & ACCOUNTFLAG_ELOBOTSELFHOST) && !Q_stricmpclean(thisEnt->client->pers.netname, "elo BOT"))
 			continue;
 		someoneConnectedOnThisAccount = thisEnt;
 		break;
