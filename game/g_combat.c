@@ -2527,6 +2527,12 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 			attacker->client->pers.killedAlliedFlagCarrier = qtrue;
 	}
 
+	qboolean creditFlagReturn = qfalse;
+	if (g_gametype.integer == GT_CTF && !self->client->sess.inRacemode && attacker &&
+		attacker->client && attacker->client->sess.sessionTeam == OtherTeam(self->client->sess.sessionTeam) && attacker->client->stats) {
+		creditFlagReturn = qtrue;
+	}
+
 	// if I committed suicide, the flag does not fall, it returns.
 	if (meansOfDeath == MOD_SUICIDE && !self->client->sess.inRacemode) { // for racemode clients, powerup reset will be done later
 		if ( self->client->ps.powerups[PW_NEUTRALFLAG] ) {		// only happens in One Flag CTF
@@ -2536,10 +2542,14 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 		else if ( self->client->ps.powerups[PW_REDFLAG] ) {		// only happens in standard CTF
 			Team_ReturnFlag( TEAM_RED );
 			self->client->ps.powerups[PW_REDFLAG] = 0;
+			if (creditFlagReturn)
+				attacker->client->stats->rets++;
 		}
 		else if ( self->client->ps.powerups[PW_BLUEFLAG] ) {	// only happens in standard CTF
 			Team_ReturnFlag( TEAM_BLUE );
 			self->client->ps.powerups[PW_BLUEFLAG] = 0;
+			if (creditFlagReturn)
+				attacker->client->stats->rets++;
 		}
 	}
 
@@ -2557,9 +2567,13 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 		}
 		else if ( self->client->ps.powerups[PW_REDFLAG] ) {		// only happens in standard CTF
 			Team_ReturnFlag( TEAM_RED );
+			if (creditFlagReturn)
+				attacker->client->stats->rets++;
 		}
 		else if ( self->client->ps.powerups[PW_BLUEFLAG] ) {	// only happens in standard CTF
 			Team_ReturnFlag( TEAM_BLUE );
+			if (creditFlagReturn)
+				attacker->client->stats->rets++;
 		}
 	}
 
