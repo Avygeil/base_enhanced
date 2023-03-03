@@ -4136,7 +4136,9 @@ qboolean TeamGenerator_VoteToBar(gentity_t *ent, const char *voteStr, char **new
 		TeamGenerator_QueueServerMessageInChat(-1, va("%s^7 was barred from team generation by vote.", barVote->accountName));
 		ListRemove(&level.barVoteList, barVote);
 
-		// automatically start and pass a new pug if we aren't in the middle of one
+		// automatically start and pass a new pug if:
+		// - we aren't in the middle of one, AND
+		// - either the guy is part of the currently active pug proposal, or he is ingame
 		if (g_vote_teamgen_barVoteStartsNewPug.integer) {
 			int numCurrentlyIngame = 0;
 			CountPlayers(NULL, NULL, NULL, NULL, NULL, &numCurrentlyIngame, NULL);
@@ -4148,18 +4150,40 @@ qboolean TeamGenerator_VoteToBar(gentity_t *ent, const char *voteStr, char **new
 				fabs(avgRed - round(avgRed)) < 0.2f && fabs(avgBlue - round(avgBlue)) < 0.2f);
 
 			if (!inPug) {
-				qboolean activePugProposalWithOurGuy = qfalse;
+				qboolean shouldStartNewProposal = qfalse;
+
+				// is he in the currently active pug proposal?
 				if (level.activePugProposal) {
 					for (int i = 0; i < MAX_CLIENTS; i++) {
 						const sortedClient_t *cl = &level.activePugProposal->clients[i];
 						if (!cl->accountName[0] || Q_stricmp(cl->accountName, barVote->accountName))
 							continue;
-						activePugProposalWithOurGuy = qtrue;
+
+						// this guy is in the currently active pug proposal
+						shouldStartNewProposal = qtrue;
 						break;
 					}
 				}
 
-				if (activePugProposalWithOurGuy) {
+				// is he on a team?
+				if (!shouldStartNewProposal) {
+					for (int i = 0; i < MAX_CLIENTS; i++) {
+						gentity_t *testGuy = &g_entities[i];
+						if (!testGuy->inuse || !testGuy->client || testGuy->client->pers.connected != CON_CONNECTED)
+							continue;
+						if (!testGuy->client->account || Q_stricmp(testGuy->client->account->name, barVote->accountName))
+							continue;
+						if (IsRacerOrSpectator(testGuy))
+							continue;
+
+						// this guy is connected and on a team
+						shouldStartNewProposal = qtrue;
+						break;
+					}
+				}
+
+				// if either was true, start and pass new proposal
+				if (shouldStartNewProposal) {
 					Com_Printf("Attempting to automatically start pug due to passed bar vote.\n");
 					trap_SendConsoleCommand(EXEC_APPEND, "pug startpass\n");
 				}
