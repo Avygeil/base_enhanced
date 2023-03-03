@@ -7824,10 +7824,13 @@ void PM_AdjustAttackStates( pmove_t *pm )
 				pm->ps->zoomTime = pm->ps->commandTime;
 				pm->ps->zoomLocked = qfalse;
 				PM_AddEvent(EV_DISRUPTOR_ZOOMSOUND);
-				if (g_fixSniperSwitch.integer)
+				if (g_fixSniperSwitch.integer) {
 					SetCanDisruptTime(&pm->ps->holocronBits, 1000);
-				else
+					pm->ps->weaponTime = 200; // equivalent to weapon change
+				}
+				else {
 					pm->ps->weaponTime = 1000;
+				}
 			}
 		}
 		else if ( !(pm->cmd.buttons & BUTTON_ALT_ATTACK ) && pm->ps->zoomLockTime < pm->cmd.serverTime)
