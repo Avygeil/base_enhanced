@@ -824,17 +824,50 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 			{
 				if (ent->s.weapon == WP_FLECHETTE && (ent->s.eFlags & EF_ALT_FIRING)) 
 				{
-					/* fix: there are rare situations where flechette did
-					explode by timeout AND by impact in the very same frame, then here
-					ent->think was set to G_FreeEntity, so the folowing think 
-					did invalidate this entity, BUT it would be reused later in this 
-					function for explosion event. This, then, would set ent->freeAfterEvent
-					to qtrue, so event later, when reusing this entity by using G_InitEntity(),
-					it would have this freeAfterEvent set AND this would in case of dropped
-					item erase it from game immeadiately. THIS for example caused
-					very rare flag dissappearing bug.	 */
-					if (ent->think == WP_flechette_alt_blow)
-						ent->think(ent);
+					if (g_fixGolanDamage.integer) { // do audio/visual explosion effect and apply single-target damage directly to the target
+						if (ent->think == WP_flechette_alt_blow) {
+							// effect
+							ent->takedamage = qfalse;
+							vec3_t v;
+							v[0] = ent->s.time == -2 ? 0 : 1;
+							v[1] = 0;
+							v[2] = 0;
+							gentity_t *te = G_PlayEffect(EFFECT_EXPLOSION_FLECHETTE, ent->r.currentOrigin, v);
+							G_ApplyRaceBroadcastsToEvent(ent, te);
+							ent->think = G_FreeEntity;
+							ent->nextthink = level.time;
+
+							if (g_fixGolanDamage.integer == 1) { // g_fixGolanDamage 1 == knockback everyone at this stage
+								// splash knockback without damage
+								if (ent->activator)
+									G_RadiusDamageKnockbackOnly(ent->r.currentOrigin, ent->activator, ent->splashDamage, ent->splashRadius, ent, ent, ent->methodOfDeath/*MOD_LT_SPLASH*/);
+
+								// single-target damage without knockback
+								G_Damage(other, ent, &g_entities[ent->r.ownerNum], velocity,
+									/*ent->s.origin*/ent->r.currentOrigin, ent->damage,
+									DAMAGE_HALF_ABSORB | DAMAGE_NO_KNOCKBACK, ent->methodOfDeath);
+							}
+							else { // g_fixGolanDamage 2 == only knockback the target at this stage
+								// single-target damage with knockback
+								G_Damage(other, ent, &g_entities[ent->r.ownerNum], velocity,
+									/*ent->s.origin*/ent->r.currentOrigin, ent->damage,
+									DAMAGE_HALF_ABSORB, ent->methodOfDeath);
+							}
+						}
+					}
+					else { // legacy behavior
+						/* fix: there are rare situations where flechette did
+						explode by timeout AND by impact in the very same frame, then here
+						ent->think was set to G_FreeEntity, so the folowing think
+						did invalidate this entity, BUT it would be reused later in this
+						function for explosion event. This, then, would set ent->freeAfterEvent
+						to qtrue, so event later, when reusing this entity by using G_InitEntity(),
+						it would have this freeAfterEvent set AND this would in case of dropped
+						item erase it from game immeadiately. THIS for example caused
+						very rare flag dissappearing bug.	 */
+						if (ent->think == WP_flechette_alt_blow)
+							ent->think(ent);
+					}
 				}
 				else
 				{

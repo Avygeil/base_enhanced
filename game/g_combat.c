@@ -4613,6 +4613,8 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 		targ->client->ps.otherKillerDebounceTime = level.time + 25000;
 	}
 
+	if (dflags & DAMAGE_KNOCKBACK_ONLY)
+		return;
 	
 	if ( (g_trueJedi.integer || g_gametype.integer == GT_SIEGE)
 		&& client )
@@ -5597,11 +5599,17 @@ qboolean G_RadiusDamage ( vec3_t origin, gentity_t *attacker, float damage, floa
 				attacker->s.eType == ET_NPC && attacker->s.NPC_class == CLASS_VEHICLE &&
 				attacker->m_pVehicle && attacker->m_pVehicle->m_pPilot)
 			{ //say my pilot did it.
-				G_Damage (ent, NULL, (gentity_t *)attacker->m_pVehicle->m_pPilot, dir, origin, (int)points, DAMAGE_RADIUS, mod);
+				if (g_locationBasedDamage_splash.integer)
+					G_Damage (ent, NULL, (gentity_t *)attacker->m_pVehicle->m_pPilot, dir, origin, (int)points, DAMAGE_RADIUS, mod);
+				else
+					G_Damage (ent, NULL, (gentity_t *)attacker->m_pVehicle->m_pPilot, dir, origin, (int)points, DAMAGE_RADIUS | DAMAGE_NO_HIT_LOC, mod);
 			}
 			else
 			{
-				G_Damage (ent, NULL, attacker, dir, origin, (int)points, DAMAGE_RADIUS, mod);
+				if (g_locationBasedDamage_splash.integer)
+					G_Damage (ent, NULL, attacker, dir, origin, (int)points, DAMAGE_RADIUS, mod);
+				else
+					G_Damage (ent, NULL, attacker, dir, origin, (int)points, DAMAGE_RADIUS | DAMAGE_NO_HIT_LOC, mod);
 			}
 
 			if (ent && ent->client && roastPeople && missile &&
@@ -5613,6 +5621,147 @@ qboolean G_RadiusDamage ( vec3_t origin, gentity_t *attacker, float damage, floa
 				evEnt->s.weapon = WP_ROCKET_LAUNCHER; //always say it's rocket so we make the right mark
 
 				G_ApplyRaceBroadcastsToEvent( ent, evEnt );
+
+				//Try to place the decal by going from the missile location to the location of the person that was hit
+				VectorCopy(missile->r.currentOrigin, evEnt->s.origin);
+				VectorCopy(ent->r.currentOrigin, evEnt->s.origin2);
+
+				//it's hacky, but we want to move it up so it's more likely to hit
+				//the torso.
+				if (missile->r.currentOrigin[2] < ent->r.currentOrigin[2])
+				{ //move it up less so the decal is placed lower on the model then
+					evEnt->s.origin2[2] += 8;
+				}
+				else
+				{
+					evEnt->s.origin2[2] += 24;
+				}
+
+				//Special col check
+				evEnt->s.eventParm = 1;
+			}
+		}
+	}
+
+	return hitClient;
+}
+
+qboolean G_RadiusDamageKnockbackOnly(vec3_t origin, gentity_t *attacker, float damage, float radius,
+	gentity_t *ignore, gentity_t *missile, int mod) {
+	float		points, dist;
+	gentity_t *ent;
+	int			entityList[MAX_GENTITIES];
+	int			numListedEntities;
+	vec3_t		mins, maxs;
+	vec3_t		v;
+	vec3_t		dir;
+	int			i, e;
+	qboolean	hitClient = qfalse;
+	qboolean	roastPeople = qfalse;
+
+	if (radius < 1) {
+		radius = 1;
+	}
+
+	for (i = 0; i < 3; i++) {
+		mins[i] = origin[i] - radius;
+		maxs[i] = origin[i] + radius;
+	}
+
+	numListedEntities = trap_EntitiesInBox(mins, maxs, entityList, MAX_GENTITIES);
+
+	for (e = 0; e < numListedEntities; e++) {
+		ent = &g_entities[entityList[e]];
+
+		if (ent == ignore)
+			continue;
+		if (!ent->takedamage)
+			continue;
+		if (ent->isAimPracticePack)
+			continue; // no splash damaging aim practice bots
+
+		// racemode radius dmg
+
+		if (!attacker || !attacker->client) {
+			// world explosion, don't dmg racers or race projectiles by default
+			if (ent->client && ent->client->sess.inRacemode) continue;
+			else if (ent->r.ownerNum >= 0 && ent->r.ownerNum < MAX_CLIENTS && level.clients[ent->r.ownerNum].sess.inRacemode) continue;
+		}
+
+		if (missile) {
+			// missiles fired from racemode can only dmg the racer that fired them
+			if (missile->parent && missile->parent->client && missile->parent->client->sess.inRacemode && missile->parent != ent) continue;
+			if (missile->r.ownerNum >= 0 && missile->r.ownerNum < MAX_CLIENTS && level.clients[missile->r.ownerNum].sess.inRacemode && &g_entities[missile->r.ownerNum] != ent) continue;
+		}
+
+		if (ent->client) {
+			if (ent->client->sess.inRacemode) {
+				// client hit is in racemode, only allow if attacker is self
+				if (attacker != ent) continue;
+			}
+			else {
+				// client hit is not in racemode, only allow if attacker is not a racer
+				if (attacker && attacker->client && attacker->client->sess.inRacemode) continue;
+			}
+		}
+
+		// find the distance from the edge of the bounding box
+		for (i = 0; i < 3; i++) {
+			if (origin[i] < ent->r.absmin[i]) {
+				v[i] = ent->r.absmin[i] - origin[i];
+			}
+			else if (origin[i] > ent->r.absmax[i]) {
+				v[i] = origin[i] - ent->r.absmax[i];
+			}
+			else {
+				v[i] = 0;
+			}
+		}
+
+		dist = VectorLength(v);
+		if (dist >= radius) {
+			continue;
+		}
+
+		if (ent->health <= 0)
+			continue;
+
+		points = damage * (1.0 - dist / radius);
+
+		if (CanDamage(ent, origin)) {
+			if (attacker && LogAccuracyHit(ent, attacker)) {
+				hitClient = qtrue;
+			}
+			VectorSubtract(ent->r.currentOrigin, origin, dir);
+			// push the center of mass higher than the origin so players
+			// get knocked into the air more
+			dir[2] += 24;
+			if (attacker && attacker->inuse && attacker->client &&
+				attacker->s.eType == ET_NPC && attacker->s.NPC_class == CLASS_VEHICLE &&
+				attacker->m_pVehicle && attacker->m_pVehicle->m_pPilot)
+			{ //say my pilot did it.
+				if (g_locationBasedDamage_splash.integer)
+					G_Damage(ent, NULL, (gentity_t *)attacker->m_pVehicle->m_pPilot, dir, origin, (int)points, DAMAGE_RADIUS | DAMAGE_KNOCKBACK_ONLY, mod);
+				else
+					G_Damage(ent, NULL, (gentity_t *)attacker->m_pVehicle->m_pPilot, dir, origin, (int)points, DAMAGE_RADIUS | DAMAGE_NO_HIT_LOC | DAMAGE_KNOCKBACK_ONLY, mod);
+			}
+			else
+			{
+				if (g_locationBasedDamage_splash.integer)
+					G_Damage(ent, NULL, attacker, dir, origin, (int)points, DAMAGE_RADIUS | DAMAGE_KNOCKBACK_ONLY, mod);
+				else
+					G_Damage(ent, NULL, attacker, dir, origin, (int)points, DAMAGE_RADIUS | DAMAGE_NO_HIT_LOC | DAMAGE_KNOCKBACK_ONLY, mod);
+			}
+
+			if (ent && ent->client && roastPeople && missile &&
+				!VectorCompare(ent->r.currentOrigin, missile->r.currentOrigin))
+			{ //the thing calling this function can create burn marks on people, so create an event to do so
+				gentity_t *evEnt = G_TempEntity(ent->r.currentOrigin, EV_GHOUL2_MARK);
+
+				evEnt->s.otherEntityNum = ent->s.number; //the entity the mark should be placed on
+				evEnt->s.weapon = WP_ROCKET_LAUNCHER; //always say it's rocket so we make the right mark
+
+				G_ApplyRaceBroadcastsToEvent(ent, evEnt);
 
 				//Try to place the decal by going from the missile location to the location of the person that was hit
 				VectorCopy(missile->r.currentOrigin, evEnt->s.origin);

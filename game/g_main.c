@@ -347,6 +347,8 @@ vmCvar_t	g_fixForceJumpAnimationLock;
 vmCvar_t	g_fixNoAmmoShootAnimation;
 vmCvar_t	g_fix5AmmoSniping;
 vmCvar_t	g_fixSniperSwitch;
+vmCvar_t	g_fixGolanDamage;
+vmCvar_t	g_locationBasedDamage_splash;
 
 vmCvar_t	g_balanceSaber;
 vmCvar_t	g_balanceSeeing;
@@ -838,6 +840,8 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_fixNoAmmoShootAnimation,	"g_fixNoAmmoShootAnimation"		, "1"	, CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 	{ &g_fix5AmmoSniping,	"g_fix5AmmoSniping"		, "1"	, CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 	{ &g_fixSniperSwitch,	"g_fixSniperSwitch"		, "0"	, CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
+	{ &g_fixGolanDamage,	"g_fixGolanDamage"		, "0"	, CVAR_ARCHIVE, 0, qtrue },
+	{ &g_locationBasedDamage_splash,	"g_locationBasedDamage_splash"		, "1"	, CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_balanceSaber, "g_balanceSaber", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_balanceSeeing, "g_balanceSeeing", "0", CVAR_ARCHIVE, 0, qtrue },
