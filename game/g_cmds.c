@@ -2242,18 +2242,20 @@ static qboolean ChatMessageShouldPause(const char *s) {
 	if (!Q_stricmpn(s, "need to pause", 13) && len <= 14) // lg brain
 		return qtrue;
 
-	if (!Q_stricmpn(s, "sec", 3) && len <= 4) { // stricter requirement since this is so short
-		const unsigned char c = (unsigned) *(s + 3);
-		if (!c || isspace(c) || ispunct(c) || c == '\\' || c == '\'' || c == '~' || c == '`')
+	if (PauseConditions()) { // stricter requirement since people type these normally
+		if (!Q_stricmpn(s, "sec", 3) && len <= 4) { // stricter requirement since this is so short
+			const unsigned char c = (unsigned)*(s + 3);
+			if (!c || isspace(c) || ispunct(c) || c == '\\' || c == '\'' || c == '~' || c == '`')
+				return qtrue;
+			return qfalse;
+		}
+
+		if (!Q_stricmpn(s, "1sec", 4) && len <= 5)
 			return qtrue;
-		return qfalse;
+
+		if (!Q_stricmpn(s, "1 sec", 5) && len <= 6)
+			return qtrue;
 	}
-
-	if (!Q_stricmpn(s, "1sec", 4) && len <= 5)
-		return qtrue;
-
-	if (!Q_stricmpn(s, "1 sec", 5) && len <= 6)
-		return qtrue;
 
 	return qfalse;
 }
