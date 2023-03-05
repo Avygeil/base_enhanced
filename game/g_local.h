@@ -1989,6 +1989,8 @@ typedef struct {
 	list_t barVoteList;
 	list_t unbarVoteList;
 
+	int teamPermutationsShownTime;
+
 	double lastRelativeStrength[4];
 	int lastPlayerTickAddedTime;
 	list_t rustyPlayersList;

@@ -2660,6 +2660,8 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 		va("You can vote to reroll the teams proposals by entering ^5%creroll^7\n"
 		"You can vote to cancel the pug proposal by entering ^5%ccancel^7\n",
 		TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER));
+
+	level.teamPermutationsShownTime = trap_Milliseconds();
 }
 
 static void ActivatePugProposal(pugProposal_t *set, qboolean forcedByServer) {
@@ -3148,6 +3150,11 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 
 	if (!level.activePugProposal) {
 		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "No pug proposal is currently active.");
+		return qtrue;
+	}
+
+	if (level.teamPermutationsShownTime && trap_Milliseconds() - level.teamPermutationsShownTime < 500) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "The teams proposals have just changed. Please check the new teams proposals.");
 		return qtrue;
 	}
 
@@ -3853,6 +3860,11 @@ qboolean TeamGenerator_VoteToReroll(gentity_t *ent, char **newMessage) {
 
 	if (!level.activePugProposal) {
 		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "No pug proposal is currently active.");
+		return qtrue;
+	}
+
+	if (level.teamPermutationsShownTime && trap_Milliseconds() - level.teamPermutationsShownTime < 500) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "The teams proposals have just changed. Please check the new teams proposals.");
 		return qtrue;
 	}
 
