@@ -984,6 +984,18 @@ static void LinkLegacyLocations(void) {
 	G_Printf("Linked %d legacy locations\n", level.locations.legacy.num);
 }
 
+qboolean Location_EnhancedLocationsFileExists(void) {
+	static qboolean initialized = qfalse, exists = qfalse;
+
+	if (!initialized) {
+		if (FileExists(va("maps/%s.enhancedlocations", level.mapname)))
+			exists = qtrue;
+		initialized = qtrue;
+	}
+
+	return exists;
+}
+
 static qboolean LinkLineOfSightLocations(void) {
 	char fileName[MAX_QPATH];
 	Com_sprintf(fileName, sizeof(fileName), "maps/%s.enhancedlocations", level.mapname);

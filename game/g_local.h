@@ -2166,6 +2166,7 @@ void Location_AddLocationEntityToList(gentity_t *ent);
 int Team_GetLocation(gentity_t *ent, char *locationBuffer, size_t locationBufferSize);
 void G_LinkLocations(void);
 void Location_SetTreePtr(void **kdtreePtr);
+qboolean Location_EnhancedLocationsFileExists(void);
 
 //
 // g_utils.c

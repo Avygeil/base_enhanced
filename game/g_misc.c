@@ -56,6 +56,15 @@ void SP_info_b_e_location( gentity_t *self ) {
 		}
 		return; // don't go any farther if we are generating
 	}
+	
+	if (Location_EnhancedLocationsFileExists()) {
+		static qboolean printed = qfalse;
+		if (!printed) {
+			Com_Printf("Skipping full initialization of info_b_e_locations due to .enhancedlocations file existing\n");
+			printed = qtrue;
+		}
+		return; // don't go any farther if we have a .enhancedlocations file
+	}
 
 	if (*trap_kd_numunique() >= MAX_LOCATIONS ) {
 		if ( !didwarn ) {
