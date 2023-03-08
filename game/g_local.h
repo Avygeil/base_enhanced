@@ -404,7 +404,7 @@ struct gentity_s {
 	int			nextthink;
 	void		(*think)(gentity_t *self);
 	void		(*reached)(gentity_t *self);	// movers call this when hitting endpoint
-	void		(*blocked)(gentity_t *self, gentity_t *other);
+	void		(*blocked)(gentity_t *self, gentity_t *other, gentity_t *blockedBy);
 	void		(*touch)(gentity_t *self, gentity_t *other, trace_t *trace);
 	void		(*use)(gentity_t *self, gentity_t *other, gentity_t *activator);
 	void		(*pain)(gentity_t *self, gentity_t *attacker, int damage);
@@ -3108,6 +3108,7 @@ extern vmCvar_t     g_quietrcon;
 extern vmCvar_t     g_hackLog;
 
 extern vmCvar_t     g_fixPitKills;
+extern vmCvar_t     g_fixLiftKills;
 
 extern vmCvar_t     g_fixDempSaberThrow;
 

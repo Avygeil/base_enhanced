@@ -549,7 +549,7 @@ void anglerCallback( gentity_t *ent )
 }
 
 void MatchTeam( gentity_t *teamLeader, int moverState, int time );
-void Blocked_Mover( gentity_t *ent, gentity_t *other );
+void Blocked_Mover(gentity_t *ent, gentity_t *other, gentity_t *blockedBy);
 
 /*
 =============
@@ -584,7 +584,7 @@ void moverCallback( gentity_t *ent )
 
 }
 
-void Blocked_Mover( gentity_t *ent, gentity_t *other )
+void Blocked_Mover(gentity_t *ent, gentity_t *other, gentity_t *blockedBy)
 {
 	// remove anything other than a client -- no longer the case
 
