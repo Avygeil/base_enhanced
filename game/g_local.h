@@ -1879,6 +1879,12 @@ typedef struct {
             int state;              //OSP: paused state of the match
             int time;
 			char reason[128];
+			int pauserChoice;
+			struct {
+				qboolean valid;
+				int clientNum;
+				int accountId;
+			} pauserClient;
     } pause;
 
     /*struct
@@ -2104,6 +2110,7 @@ qboolean IsRacerOrSpectator(gentity_t *ent);
 ctfPosition_t CtfPositionFromString(char *s);
 float GetCTFLocationValue(gentity_t *ent);
 qboolean ValidateAndCopyPositionPreferences(const positionPreferences_t *in, positionPreferences_t *out);
+qboolean IsInstapauser(gentity_t *ent);
 
 //
 // g_items.c
@@ -3196,6 +3203,7 @@ extern vmCvar_t    g_raceEmotes;
 extern vmCvar_t		g_ragersCanCounterPushPull;
 extern vmCvar_t		g_autoPause999;
 extern vmCvar_t		g_autoPauseDisconnect;
+extern vmCvar_t		g_quickPauseMute;
 extern vmCvar_t		g_enterSpammerTime;
 extern vmCvar_t		g_quickPauseChat;
 

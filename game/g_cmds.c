@@ -2260,6 +2260,19 @@ static qboolean ChatMessageShouldPause(const char *s) {
 	return qfalse;
 }
 
+qboolean IsInstapauser(gentity_t *ent) {
+	if (!g_quickPauseMute.integer || level.pause.state == PAUSE_NONE || !level.pause.pauserClient.valid)
+		return qfalse;
+
+	if (level.pause.pauserClient.clientNum == ent - g_entities)
+		return qtrue;
+
+	if (ent->client && ent->client->account && ent->client->account->id == level.pause.pauserClient.accountId)
+		return qtrue;
+
+	return qfalse;
+}
+
 void Cmd_CallVote_f(gentity_t *ent, int pause);
 void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, qboolean force ) {
 	int			j;
@@ -2285,14 +2298,29 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, q
 		chatText = "^1$H ^5$F ^7$L";
 
 	// allow typing "pause" in the chat to instapause or call a pause vote
+	qboolean forceMessage = qfalse;
 	if (ChatMessageShouldPause(chatText) && ent->client->sess.sessionTeam != TEAM_SPECTATOR && !ent->client->sess.inRacemode && mode != SAY_TELL && g_quickPauseChat.integer) {// allow a small typo at the end
 		// allow setting g_quickPauseChat to 2 for callvote-only mode
 		if (g_quickPauseChat.integer != 2 && ent->client->account && !(ent->client->account->flags & ACCOUNTFLAG_INSTAPAUSE_BLACKLIST)) {
 			// instapause
+			if (g_quickPauseMute.integer && !level.pause.pauserChoice) {
+				level.pause.time = level.time + 10000; // pause for 10 seconds
+				level.pause.pauserClient.clientNum = ent - g_entities;
+				level.pause.pauserClient.valid = qtrue;
+				level.pause.pauserClient.accountId = ent->client->account->id;
+			}
+			else if (g_quickPauseMute.integer && level.pause.pauserChoice && level.pause.pauserClient.valid &&
+				level.pause.pauserClient.clientNum == ent - g_entities && level.pause.state != PAUSE_NONE) {
+				chatText = "I need to extend the pause a bit longer. Thank you for your continued patience. I sincerely apologize.";
+				level.pause.time = level.time + 120000; // pause for 2 minutes
+			}
+			else {
+				level.pause.time = level.time + 120000; // pause for 2 minutes
+			}
 			level.pause.state = PAUSE_PAUSED;
-			level.pause.time = level.time + 120000; // pause for 2 minutes
 			PrintIngame(-1, "Pause requested by %s^7.\n", ent->client->pers.netname);
 			Com_Printf("Pausing upon chat request by %s^7.\n", ent->client->pers.netname);
+			forceMessage = qtrue;
 		}
 		else {
 			// just call a vote
@@ -2302,6 +2330,7 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, q
 	else if (!Q_stricmpn(chatText, "unpause", 7) && ent->client->sess.sessionTeam != TEAM_SPECTATOR && !ent->client->sess.inRacemode && mode != SAY_TELL && strlen(chatText) <= 8 && g_quickPauseChat.integer) { // allow a small typo at the end
 		// unpause isn't time-sensitive, so we always call a vote
 		Cmd_CallVote_f(ent, PAUSE_UNPAUSING);
+		forceMessage = qtrue;
 	}
 
 	if (!force && ent->client->account && ent->client->account->flags & ACCOUNTFLAG_ENTERSPAMMER) {
@@ -2327,6 +2356,40 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, q
 			return;
 		if (VALIDSTRING(newMessage))
 			chatText = newMessage;
+	}
+
+	if (!forceMessage && IsInstapauser(ent)) {
+		if (level.pause.pauserChoice) {
+			SV_Tell(ent - g_entities, "You cannot chat during your own pause.");
+			return;
+		}
+
+		char *reason = NULL;
+		if (*chatText == '1') {
+			level.pause.pauserChoice = 1;
+			reason = "a minute or less";
+			level.pause.time = level.time + 60000; // pause for 1 minutes
+			level.pause.state = PAUSE_PAUSED;
+		}
+		else if (*chatText == '2') {
+			level.pause.pauserChoice = 2;
+			reason = "a couple minutes";
+			level.pause.time = level.time + 120000; // pause for 2 minutes
+			level.pause.state = PAUSE_PAUSED;
+		}
+		else if (*chatText == '3') {
+			level.pause.pauserChoice = 3;
+			reason = "several minutes";
+			level.pause.time = level.time + 180000; // pause for 3 minutes
+			level.pause.state = PAUSE_PAUSED;
+		}
+
+		if (!VALIDSTRING(reason)) {
+			SV_Tell(ent - g_entities, "You cannot chat during your own pause.");
+			return;
+		}
+
+		chatText = va("I'm terribly sorry. I unfortunately need to pause for %s. Thank you for your patience.", reason);
 	}
 
 	switch ( mode ) {
@@ -3655,6 +3718,11 @@ void Cmd_CallVote_f( gentity_t *ent, int pause ) {
 		return;
 	}
 
+	if (IsInstapauser(ent)) {
+		PrintIngame(ent - g_entities, "You cannot call this vote during your own pause.\n");
+		return;
+	}
+
 		NormalizeName(ConcatArgs(2), arg2, sizeof(arg2), sizeof(arg2));
 		PurgeStringedTrolling(arg2, arg2, sizeof(arg2));
 		Com_sprintf( level.voteString, sizeof( level.voteString ), ";" );
@@ -4755,6 +4823,11 @@ void Cmd_Vchat_f(gentity_t *sender) {
 	XXH32_hash_t expectedHash = GetVchatHash(modName, msg, fileName);
 	if (hash != expectedHash)
 		return;
+
+	if (IsInstapauser(sender)) {
+		SV_Tell(sender - g_entities, "You cannot chat during your own pause.");
+		return;
+	}
 
 	// convert global teamwork vchats and teamwork vchats among specs to memes
 	if (type == VCHATTYPE_TEAMWORK && (!teamOnly || sender->client->sess.sessionTeam == TEAM_SPECTATOR || sender->client->sess.sessionTeam == TEAM_FREE))

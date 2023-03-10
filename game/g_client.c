@@ -2188,6 +2188,12 @@ void ClientUserinfoChanged( int clientNum ) {
 				trap_SetUserinfo( clientNum, userinfo );	
 				strcpy ( client->pers.netname, oldname );
 			}
+			else if (IsInstapauser(ent)) {
+				PrintIngame(clientNum, "You cannot rename during your own pause.\n");
+				Info_SetValueForKey(userinfo, "name", oldname);
+				trap_SetUserinfo(clientNum, userinfo);
+				strcpy(client->pers.netname, oldname);
+			}
 			else
 			{		
 				trap_SendServerCommand( -1, va("print \"%s" S_COLOR_WHITE " %s %s\n\"", oldname, G_GetStringEdString("MP_SVGAME", "PLRENAME"), client->pers.netname) );

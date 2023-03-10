@@ -169,6 +169,7 @@ vmCvar_t	g_raceEmotes;
 vmCvar_t	g_ragersCanCounterPushPull;
 vmCvar_t	g_autoPause999;
 vmCvar_t	g_autoPauseDisconnect;
+vmCvar_t	g_quickPauseMute;
 vmCvar_t	g_enterSpammerTime;
 vmCvar_t	g_quickPauseChat;
 
@@ -1028,6 +1029,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_ragersCanCounterPushPull, "g_ragersCanCounterPushPull", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_autoPause999, "g_autoPause999", "5", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_autoPauseDisconnect, "g_autoPauseDisconnect", "2", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_quickPauseMute, "g_quickPauseMute", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_enterSpammerTime, "g_enterSpammerTime", "3", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_quickPauseChat, "g_quickPauseChat", "1", CVAR_ARCHIVE, 0, qtrue },
 
@@ -6231,12 +6233,18 @@ void G_RunFrame( int levelTime ) {
 					}
 
 					int pauseSecondsRemaining = (int)ceilf((level.pause.time - level.time) / 1000.0f);
-					if (level.pause.reason[0])
-						trap_SendServerCommand(j, va("cp \"The match has been auto-paused. (%s%d^7)\n%s\n\"",
-							pauseSecondsRemaining <= 10 ? S_COLOR_RED : S_COLOR_WHITE, pauseSecondsRemaining, level.pause.reason));
-					else
-						trap_SendServerCommand(j, va("cp \"The match has been paused. (%s%d^7)\n\"",
+					if (g_quickPauseMute.integer && level.pause.pauserClient.valid && j == level.pause.pauserClient.clientNum && !level.pause.pauserChoice) {
+						trap_SendServerCommand(j, va("cp \"How long do you need?\n^1Enter a choice in chat. ^7(%s%d^7)\n^51 ^7- A minute or less\n^52 ^7- A couple minutes\n^53 ^7- Several minutes\n\n\n\n\"",
 							pauseSecondsRemaining <= 10 ? S_COLOR_RED : S_COLOR_WHITE, pauseSecondsRemaining));
+					}
+					else {
+						if (level.pause.reason[0])
+							trap_SendServerCommand(j, va("cp \"The match has been auto-paused. (%s%d^7)\n%s\n\"",
+								pauseSecondsRemaining <= 10 ? S_COLOR_RED : S_COLOR_WHITE, pauseSecondsRemaining, level.pause.reason));
+						else
+							trap_SendServerCommand(j, va("cp \"The match has been paused. (%s%d^7)\n\"",
+								pauseSecondsRemaining <= 10 ? S_COLOR_RED : S_COLOR_WHITE, pauseSecondsRemaining));
+					}
 				}
 
 				lastMsgTime = level.time;
@@ -6261,7 +6269,13 @@ void G_RunFrame( int levelTime ) {
 						continue;
 					}
 
-					trap_SendServerCommand( j, va( "cp \"MATCH IS UNPAUSING\nin %.0f...\n\"", ceil( ( level.pause.time - level.time ) / 1000.0f ) ) );
+					if (g_quickPauseMute.integer && level.pause.pauserClient.valid && j == level.pause.pauserClient.clientNum && !level.pause.pauserChoice) {
+						trap_SendServerCommand(j, va("cp \"How long do you need?\n^1GAME IS UNPAUSING, ENTER A CHOICE IN CHAT! ^7(^1%.0f^7)\n^51 ^7- A minute or less\n^52 ^7- A couple minutes\n^53 ^7- Several minutes\n\n\n\n\"",
+							ceil((level.pause.time - level.time) / 1000.0f)));
+					}
+					else {
+						trap_SendServerCommand(j, va("cp \"MATCH IS UNPAUSING\nin %.0f...\n\"", ceil((level.pause.time - level.time) / 1000.0f)));
+					}
 				}
 				
 				lastMsgTime = level.time;
@@ -6285,6 +6299,8 @@ void G_RunFrame( int levelTime ) {
 				}
 				
 				level.pause.state = PAUSE_NONE;
+				level.pause.pauserChoice = 0;
+				level.pause.pauserClient.valid = qfalse;
             }
     }
 
