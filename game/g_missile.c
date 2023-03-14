@@ -844,20 +844,20 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 										G_RadiusDamageKnockbackOnly(ent->r.currentOrigin, ent->activator, ent->splashDamage, ent->splashRadius, ent, ent, ent->methodOfDeath/*MOD_LT_SPLASH*/);
 								}
 
-								// single-target damage without knockback
+								// single-target damage with knockback
 								G_Damage(other, ent, &g_entities[ent->r.ownerNum], velocity,
 									/*ent->s.origin*/ent->r.currentOrigin, ent->damage,
-									DAMAGE_HALF_ABSORB | DAMAGE_NO_KNOCKBACK, ent->methodOfDeath);
+									DAMAGE_HALF_ABSORB, ent->methodOfDeath);
 							}
 							else if (g_fixGolanDamage.integer == 2) { // g_fixGolanDamage 2 == knockback everyone at this stage
 								// splash knockback without damage
 								if (ent->activator)
 									G_RadiusDamageKnockbackOnly(ent->r.currentOrigin, ent->activator, ent->splashDamage, ent->splashRadius, ent, ent, ent->methodOfDeath/*MOD_LT_SPLASH*/);
 
-								// single-target damage without knockback
+								// single-target damage with knockback
 								G_Damage(other, ent, &g_entities[ent->r.ownerNum], velocity,
 									/*ent->s.origin*/ent->r.currentOrigin, ent->damage,
-									DAMAGE_HALF_ABSORB | DAMAGE_NO_KNOCKBACK, ent->methodOfDeath);
+									DAMAGE_HALF_ABSORB, ent->methodOfDeath);
 							}
 							else { // g_fixGolanDamage 3 == only knockback the target at this stage
 								// single-target damage with knockback
