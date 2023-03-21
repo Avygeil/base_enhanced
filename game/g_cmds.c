@@ -7470,6 +7470,75 @@ void Cmd_VchatList_f(gentity_t* ent) {
 }
 #endif
 
+#define MAX_CHANGES_CHUNKS		4
+#define CHANGES_CHUNK_SIZE		1000
+#define MAX_CHANGES_SIZE		(MAX_CHANGES_CHUNKS * CHANGES_CHUNK_SIZE)
+void Cmd_Changes_f(gentity_t *ent) {
+	static char changes[MAX_CHANGES_SIZE] = { 0 }, map[MAX_CVAR_VALUE_STRING] = { 0 };
+	static qboolean lookedForChanges = qfalse;
+	static size_t len = 0;
+
+	if (!lookedForChanges) {
+		lookedForChanges = qtrue;
+		fileHandle_t f;
+		vmCvar_t	mapname;
+		trap_Cvar_Register(&mapname, "mapname", "", CVAR_SERVERINFO | CVAR_ROM);
+		Q_strncpyz(map, mapname.string, sizeof(map));
+		len = trap_FS_FOpenFile(va("maps/%s.changes", mapname.string), &f, FS_READ);
+		if (f) {
+			trap_FS_Read(changes, len, f);
+			trap_FS_FCloseFile(f);
+			if (len >= MAX_CHANGES_SIZE)
+				G_LogPrintf("Warning: changelog for map %s is too long (%d chars, should be less than %d)\n", map, len, sizeof(changes));
+		}
+	}
+
+	if (!changes[0] || !len) {
+		trap_SendServerCommand(ent - g_entities, va("print \"No changelog could be found for %s.\n\"", map));
+		return;
+	}
+
+	trap_SendServerCommand(ent - g_entities, va("print \"Changelog for %s"S_COLOR_WHITE":\n\"", map));
+
+	char fixed[MAX_CHANGES_SIZE] = { 0 };
+	char *r = changes, *w = fixed;
+	int remaining = MAX_CHANGES_SIZE - 1;
+	while (*r) {
+		if (*r == '%' && r - changes && isdigit(*(r - 1)) && remaining > 8) {
+			Q_strncpyz(w, " percent", remaining);
+			remaining -= 8;
+			w += 8;
+		}
+		else if (*r == '%' && remaining > 7) {
+			Q_strncpyz(w, "percent", remaining);
+			remaining -= 7;
+			w += 7;
+		}
+		else {
+			*w = *r;
+			remaining--;
+			w++;
+		}
+		r++;
+	}
+	len = strlen(fixed);
+
+	if (len <= CHANGES_CHUNK_SIZE) { // no chunking necessary
+		trap_SendServerCommand(ent - g_entities, va("print \"%s"S_COLOR_WHITE"\n\"", fixed));
+	}
+	else { // chunk it
+		int i, chunks = len / CHANGES_CHUNK_SIZE;
+		if (len % CHANGES_CHUNK_SIZE > 0)
+			chunks++;
+		for (i = 0; i < chunks && i < MAX_CHANGES_CHUNKS; i++) {
+			char thisChunk[CHANGES_CHUNK_SIZE + 1];
+			Q_strncpyz(thisChunk, fixed + (i * CHANGES_CHUNK_SIZE), sizeof(thisChunk));
+			if (thisChunk[0])
+				trap_SendServerCommand(ent - g_entities, va("print \"%s%s\"", thisChunk, i == chunks - 1 ? S_COLOR_WHITE"\n" : "")); // add ^7 and line break for last one
+		}
+	}
+}
+
 void Cmd_WhoIs_f( gentity_t* ent ) {
 	int clientNum = -1;
 	if (trap_Argc() >= 2) {
@@ -8276,6 +8345,10 @@ void ClientCommand( int clientNum ) {
 			Cmd_WhoIs_f( ent );
 			return;
 		}
+		else if (!Q_stricmp(cmd, "changes")) {
+			Cmd_Changes_f(ent);
+			return;
+		}
 		else if ( !Q_stricmp( cmd, "toptimes" ) || !Q_stricmp( cmd, "fastcaps" ) )
 		{
 			Cmd_TopTimes_f( ent );
@@ -8401,8 +8474,10 @@ void ClientCommand( int clientNum ) {
 		Cmd_Rating_f(ent);
 	else if (!Q_stricmp(cmd, "pos"))
 		Cmd_Pos_f(ent);
-    else if ( Q_stricmp( cmd, "whois" ) == 0 )
-        Cmd_WhoIs_f( ent );
+	else if (Q_stricmp(cmd, "whois") == 0)
+		Cmd_WhoIs_f(ent);
+	else if (!Q_stricmp(cmd, "changes"))
+		Cmd_Changes_f(ent);
 	else if (Q_stricmp(cmd, "ctfstats") == 0 || Q_stricmp(cmd, "stats") == 0 || Q_stricmp(cmd, "stat") == 0)
 		Cmd_PrintStats_f(ent);
 	else if (!Q_stricmp(cmd, "pugstats") || !Q_stricmp(cmd, "pug"))
