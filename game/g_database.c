@@ -57,7 +57,11 @@ void G_DBLoadDatabase( void *serverDbPtr )
 
 	// register trace callback if needed
 	if ( g_traceSQL.integer ) {
+#if 1
+		Com_Error(ERR_FATAL, "tracesql needs to use trap calls for sqlite3_trace_v2, sqlite3_expanded_sql, and sqlite3_free (not yet implemented)");
+#else
 		sqlite3_trace_v2( dbPtr, SQLITE_TRACE_STMT | SQLITE_TRACE_PROFILE, TraceCallback, NULL );
+#endif
 	}
 
 	// more db options
