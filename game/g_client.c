@@ -2097,6 +2097,9 @@ void ClientUserinfoChanged( int clientNum ) {
 
 	// check for local client
 	s = Info_ValueForKey( userinfo, "ip" );
+	char country[256] = { 0 };
+	if (VALIDSTRING(s))
+		trap_GetCountry(s, country, sizeof(country));
 	if ( !strcmp( s, "localhost" ) ) {
 		client->pers.localClient = qtrue;
 	}
@@ -2509,6 +2512,23 @@ void ClientUserinfoChanged( int clientNum ) {
 				// they only need to see it once for it to be set
 				G_SendConfigstring( clientNum, CS_SYSTEMINFO, va( "\\sex\\%d", guidHash ) );
 				G_SendConfigstring( clientNum, CS_SYSTEMINFO, NULL );
+			}
+
+			if (g_fixSexIds.integer) {
+				unsigned int overrideIp = DB_GetOverrideIP(guidHash, country);
+				if (overrideIp) {
+					SHA1Context ctx;
+					SHA1Reset(&ctx);
+					SHA1Input(&ctx, (unsigned char *)&overrideIp, sizeof(overrideIp));
+
+					if (SHA1Result(&ctx) == 1) {
+						ipHash = ctx.Message_Digest[0];
+					}
+					else {
+						Com_Printf("hashing override ip failed! just using account num itself\n");
+						ipHash = (int)overrideIp;
+					}
+				}
 			}
 		}
 		totalHash = ((unsigned long long int) ipHash) << 32 | (((unsigned long long int) guidHash) & 0xFFFFFFFF);

@@ -6271,3 +6271,30 @@ qboolean G_DBGetLiveMapNameForMapName(const char *filename, char *result, size_t
 	trap_sqlite3_finalize(statement);
 	return qfalse;
 }
+
+// since non-nm id is comprised of sex+ip, and some idiots have consistent sex but inconsistent ip,
+// this is a workaround for them having inconsistent id by forcing the sex+ip combination
+// to just use their account number instead of their actual ip
+// (an alternative implementation would be to use their most-used ip in the sex+ip combination)
+unsigned int DB_GetOverrideIP(int sex, const char *country) {
+	assert(sex);
+	iterator_t iter;
+	ListIterate(&level.autoLinksList, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		autoLink_t *autoLink = IteratorNext(&iter);
+		if (!autoLink->sex[0] || !Q_isanumber(autoLink->sex))
+			continue;
+
+		int autoLinkSex = atoi(autoLink->sex);
+		if (autoLinkSex != sex)
+			continue;
+
+		if (autoLink->country[0] && (!VALIDSTRING(country) || Q_stricmp(country, autoLink->country)))
+			continue;
+
+		Com_Printf("Using override IP (account id %d) based on autolink for sex %d%s\n", autoLink->accountId, sex, autoLink->country[0] ? va(" and country %s", autoLink->country) : "");
+		return (unsigned int)autoLink->accountId;
+	}
+
+	return 0u;
+}
