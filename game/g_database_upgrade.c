@@ -1786,6 +1786,95 @@ static qboolean UpgradeDBToVersion20(sqlite3 *dbPtr) {
 	return trap_sqlite3_exec(dbPtr, v20Upgrade, NULL, NULL, NULL) == SQLITE_OK;
 }
 
+const char *const v21Upgrade =
+"DROP VIEW num_played_view; \n"
+"CREATE VIEW IF NOT EXISTS num_played_view AS \n"
+"WITH \n"
+"    t AS ( \n"
+"        SELECT \n"
+"            map, \n"
+"            AVG(tier) avgTier \n"
+"        FROM \n"
+"            tierlistmaps \n"
+"        GROUP BY \n"
+"            tierlistmaps.map \n"
+"    ), \n"
+"    combined_play_counts AS ( \n"
+"        SELECT \n"
+"            COALESCE(mapaliases.filename, lastplayedmaporalias.map) AS map, \n"
+"            SUM(lastplayedmaporalias.num) AS numPlayed \n"
+"        FROM \n"
+"            lastplayedmaporalias \n"
+"            LEFT JOIN mapaliases ON lastplayedmaporalias.map = mapaliases.alias \n"
+"        GROUP BY \n"
+"            COALESCE(mapaliases.filename, lastplayedmaporalias.map) \n"
+"    ) \n"
+"SELECT \n"
+"    i.map, \n"
+"    COALESCE(combined_play_counts.numPlayed, 0) numPlayed, \n"
+"    t.avgTier \n"
+"FROM \n"
+"    tierwhitelist i \n"
+"    LEFT JOIN combined_play_counts ON i.map = combined_play_counts.map \n"
+"    LEFT JOIN t ON t.map = i.map \n"
+"GROUP BY \n"
+"    i.map;"
+" \n"
+"DROP VIEW [lastplayedmaporalias]; \n"
+"CREATE VIEW IF NOT EXISTS [lastplayedmaporalias] AS \n"
+"WITH map_alias_mapping AS ( \n"
+"    SELECT \n"
+"        filename AS map, \n"
+"        COALESCE(alias, filename) AS map_alias \n"
+"    FROM \n"
+"        mapaliases \n"
+"    UNION ALL \n"
+"    SELECT \n"
+"        map, \n"
+"        map \n"
+"    FROM \n"
+"        lastplayedmap \n"
+"    WHERE \n"
+"        map NOT IN (SELECT alias FROM mapaliases) \n"
+"), \n"
+"combined_maps AS ( \n"
+"    SELECT \n"
+"        map_alias_mapping.map_alias AS map, \n"
+"        MAX(lastplayedmap.datetime) AS datetime, \n"
+"        SUM(lastplayedmap.num) AS num \n"
+"    FROM \n"
+"        map_alias_mapping \n"
+"        JOIN lastplayedmap ON map_alias_mapping.map = lastplayedmap.map \n"
+"    GROUP BY \n"
+"        map_alias_mapping.map_alias \n"
+"), \n"
+"original_to_alias_mapping AS ( \n"
+"    SELECT \n"
+"        filename AS original_map, \n"
+"        COALESCE(alias, filename) AS alias_map \n"
+"    FROM \n"
+"        mapaliases \n"
+"    UNION ALL \n"
+"    SELECT \n"
+"        map, \n"
+"        map \n"
+"    FROM \n"
+"        lastplayedmap \n"
+"    WHERE \n"
+"        map NOT IN (SELECT filename FROM mapaliases) \n"
+") \n"
+"SELECT \n"
+"    original_to_alias_mapping.original_map AS map, \n"
+"    combined_maps.num, \n"
+"    combined_maps.datetime \n"
+"FROM \n"
+"    original_to_alias_mapping \n"
+"    JOIN combined_maps ON original_to_alias_mapping.alias_map = combined_maps.map;";
+
+static qboolean UpgradeDBToVersion21(sqlite3 *dbPtr) {
+	return trap_sqlite3_exec(dbPtr, v21Upgrade, NULL, NULL, NULL) == SQLITE_OK;
+}
+
 // =============================================================================
 
 static qboolean UpgradeDB( int versionTo, sqlite3* dbPtr ) {
@@ -1811,6 +1900,7 @@ static qboolean UpgradeDB( int versionTo, sqlite3* dbPtr ) {
 		case 18: return UpgradeDBToVersion18(dbPtr);
 		case 19: return UpgradeDBToVersion19(dbPtr);
 		case 20: return UpgradeDBToVersion20(dbPtr);
+		case 21: return UpgradeDBToVersion21(dbPtr);
 ;		default:
 			Com_Printf( "ERROR: Unsupported database upgrade routine\n" );
 	}
