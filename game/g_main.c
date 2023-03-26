@@ -1744,7 +1744,7 @@ void G_InitGame( int levelTime, int randomSeed, int restart, void *serverDbPtr )
 
 	// set some level globals
 	memset( &level, 0, sizeof( level ) );
-	LoadPepper();
+	
 	level.time = levelTime;
 	level.startTime = levelTime;
 
@@ -1826,7 +1826,12 @@ void G_InitGame( int levelTime, int randomSeed, int restart, void *serverDbPtr )
 #ifdef NEWMOD_SUPPORT
 	level.nmAuthEnabled = qfalse;
 
-	if ( g_enableNmAuth.integer && Crypto_Init( G_Printf ) != CRYPTO_ERROR ) {
+	if (Crypto_Init(G_Printf) == CRYPTO_ERROR) {
+		Com_Error(ERR_FATAL, "Crypto_Init failed!");
+		return;
+	}
+
+	if ( g_enableNmAuth.integer ) {
 		if ( Crypto_LoadKeysFromFiles( &level.publicKey, PUBLIC_KEY_FILENAME, &level.secretKey, SECRET_KEY_FILENAME ) != CRYPTO_ERROR ) {
 			// got the keys, all is good
 			G_Printf( "Loaded crypto key files from disk successfully\n" );
@@ -1845,6 +1850,8 @@ void G_InitGame( int levelTime, int randomSeed, int restart, void *serverDbPtr )
 		G_Printf( S_COLOR_RED"Newmod auth support is not active. Some functionality will be unavailable for these clients.\n" );
 	}
 #endif
+
+	LoadPepper();
 
 	// accounts system
 	//initDB();
