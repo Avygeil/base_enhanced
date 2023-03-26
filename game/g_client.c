@@ -2442,8 +2442,6 @@ void ClientUserinfoChanged( int clientNum ) {
 	strcpy(c1, Info_ValueForKey( userinfo, "color1" ));
 	strcpy(c2, Info_ValueForKey( userinfo, "color2" ));
 
-	uint32_t ip = 0u;
-
 	// send over a subset of the userinfo keys so other clients can
 	// print scoreboards, display models, and play custom sounds
 	if ( ent->r.svFlags & SVF_BOT ) {
@@ -2503,17 +2501,11 @@ void ClientUserinfoChanged( int clientNum ) {
 				G_SendConfigstring( clientNum, CS_SYSTEMINFO, va( "\\sex\\%d", guidHash ) );
 				G_SendConfigstring( clientNum, CS_SYSTEMINFO, NULL );
 			}
-
-			if (g_fixSexIds.integer) {
-				uint32_t overrideIp = DB_GetOverrideIP(guidHash, country);
-				ip = overrideIp;
-			}
 		}
 
 		sha3_context c;
 		sha3_Init512(&c);
-		if (!ip)
-			getIpFromString(client->sess.ipString, &ip);
+		uint32_t ip = getIpFromString(client->sess.ipString, &ip);
 		sha3_Update(&c, &ip, sizeof(ip));
 		sha3_Update(&c, &level.pepper, PEPPER_CHARS);
 		uint32_t ipHash;

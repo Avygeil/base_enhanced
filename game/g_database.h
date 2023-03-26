@@ -419,6 +419,4 @@ qboolean G_DBGetLiveMapFilenameForAlias(const char *alias, char *result, size_t 
 qboolean G_DBGetAliasForMapName(const char *filename, char *result, size_t resultSize, qboolean *isliveOut);
 qboolean G_DBGetLiveMapNameForMapName(const char *filename, char *result, size_t resultSize);
 
-unsigned int DB_GetOverrideIP(int sex, const char *country);
-
 #endif //G_DATABASE_H

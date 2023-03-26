@@ -3364,7 +3364,6 @@ extern vmCvar_t		g_waitForAFKThresholdTroll;
 extern vmCvar_t		g_waitForAFKMinPlayers;
 extern vmCvar_t		g_printCountry;
 extern vmCvar_t		g_redirectWrongThTeBinds;
-extern vmCvar_t		g_fixSexIds;
 
 int validateAccount(const char* username, const char* password, int num);
 void unregisterUser(const char* username);
