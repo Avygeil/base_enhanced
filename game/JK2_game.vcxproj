@@ -65,6 +65,7 @@
     <ClInclude Include="q_shared.h" />
     <ClInclude Include="say.h" />
     <ClInclude Include="sha1.h" />
+    <ClInclude Include="sha3.h" />
     <ClInclude Include="sqlite3.h" />
     <ClInclude Include="surfaceflags.h" />
     <ClInclude Include="syn.h" />
@@ -179,6 +180,7 @@
     <ClCompile Include="q_math.c" />
     <ClCompile Include="q_shared.c" />
     <ClCompile Include="sha1.c" />
+    <ClCompile Include="sha3.c" />
     <ClCompile Include="SpeederNPC.c" />
     <ClCompile Include="sqlite3.c">
       <BrowseInformation Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</BrowseInformation>

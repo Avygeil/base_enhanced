@@ -1658,6 +1658,36 @@ void WP_SaberLoadParms( void );
 void BG_VehicleLoadParms( void );
 #include "namespace_end.h"
 
+static void LoadPepper(void) {
+	fileHandle_t f = 0;
+	int len = trap_FS_FOpenFile("pepper.bin", &f, FS_READ);
+
+	if (!f) {
+		Com_Error(ERR_FATAL, "Unable to acquire file handle on pepper");
+		return;
+	}
+
+	if (len != PEPPER_CHARS) {
+		trap_FS_FCloseFile(f);
+		trap_FS_FOpenFile("pepper.bin", &f, FS_WRITE);
+		unsigned char arr[PEPPER_CHARS];
+		for (int i = 0; i < 32; i++) {
+			unsigned char rand_val = 0;
+			for (int j = 0; j < 8; j += 7) {
+				rand_val |= (rand() & 0x7f) << j;
+			}
+			arr[i] = rand_val;
+		}
+		memcpy(level.pepper, arr, PEPPER_CHARS);
+		trap_FS_Write(arr, PEPPER_CHARS, f);		
+	}
+	else {
+		trap_FS_Read(&level.pepper, len, f);
+	}
+
+	trap_FS_FCloseFile(f);
+}
+
 /*
 ============
 G_InitGame
@@ -1716,6 +1746,7 @@ void G_InitGame( int levelTime, int randomSeed, int restart, void *serverDbPtr )
 
 	// set some level globals
 	memset( &level, 0, sizeof( level ) );
+	LoadPepper();
 	level.time = levelTime;
 	level.startTime = levelTime;
 

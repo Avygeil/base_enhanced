@@ -7,6 +7,7 @@
 
 //#include "accounts.h"
 #include "sha1.h"
+#include "sha3.h"
 
 // g_client.c -- client functions that don't happen every frame
 
@@ -2441,6 +2442,8 @@ void ClientUserinfoChanged( int clientNum ) {
 	strcpy(c1, Info_ValueForKey( userinfo, "color1" ));
 	strcpy(c2, Info_ValueForKey( userinfo, "color2" ));
 
+	uint32_t ip = 0u;
+
 	// send over a subset of the userinfo keys so other clients can
 	// print scoreboards, display models, and play custom sounds
 	if ( ent->r.svFlags & SVF_BOT ) {
@@ -2450,21 +2453,8 @@ void ClientUserinfoChanged( int clientNum ) {
 			Info_ValueForKey( userinfo, "skill" ), teamTask, teamLeader, className, saberName, saber2Name, client->sess.duelTeam, client->sess.siegeDesiredTeam );
 	} else {
 		// compute and send a uniqueid
-		int ipHash = 0, guidHash = 0;
-		unsigned long long int totalHash;
+		uint32_t guidHash = 0u;
 		SHA1Context ctx;
-		SHA1Reset( &ctx );
-
-		{
-            unsigned int ip = 0;
-			getIpFromString( client->sess.ipString, &ip );
-			SHA1Input( &ctx, (unsigned char *)&ip, sizeof( ip ) );
-		}
-
-		if ( SHA1Result( &ctx ) == 1 ) {
-			ipHash = ctx.Message_Digest[0];
-		}
-		guidHash = 0;
 		// openjk clients send over a (theoretically) consistent guid so we can track them across ip changes
 		value = Info_ValueForKey( userinfo, "ja_guid" );
 		if ( value && *value ) {
@@ -2490,7 +2480,7 @@ void ClientUserinfoChanged( int clientNum ) {
 					if ( value && *value ) {
 						// player previously had an id but the guid didn't stick, try to set it again
 						char *endptr = NULL;
-						unsigned long long int prevHash = Q_strtoull( value, &endptr, 10 );
+						uint64_t prevHash = Q_strtoull( value, &endptr, 10 );
 						if ( *endptr == '\0' ) {
 							if ( prevHash == ULLONG_MAX && errno == ERANGE ) {
 								// parsed, but value was out of range
@@ -2515,24 +2505,22 @@ void ClientUserinfoChanged( int clientNum ) {
 			}
 
 			if (g_fixSexIds.integer) {
-				unsigned int overrideIp = DB_GetOverrideIP(guidHash, country);
-				if (overrideIp) {
-					SHA1Context ctx;
-					SHA1Reset(&ctx);
-					SHA1Input(&ctx, (unsigned char *)&overrideIp, sizeof(overrideIp));
-
-					if (SHA1Result(&ctx) == 1) {
-						ipHash = ctx.Message_Digest[0];
-					}
-					else {
-						Com_Printf("hashing override ip failed! just using account num itself\n");
-						ipHash = (int)overrideIp;
-					}
-				}
+				uint32_t overrideIp = DB_GetOverrideIP(guidHash, country);
+				ip = overrideIp;
 			}
 		}
-		totalHash = ((unsigned long long int) ipHash) << 32 | (((unsigned long long int) guidHash) & 0xFFFFFFFF);
+
+		sha3_context c;
+		sha3_Init512(&c);
+		if (!ip)
+			getIpFromString(client->sess.ipString, &ip);
+		sha3_Update(&c, &ip, sizeof(ip));
+		sha3_Update(&c, &level.pepper, PEPPER_CHARS);
+		uint32_t ipHash;
+		memcpy(&ipHash, sha3_Finalize(&c), sizeof(ipHash));
+		uint64_t totalHash = ((uint64_t) ipHash) << 32 | (((uint64_t) guidHash) & 0xFFFFFFFF);
 		G_LogPrintf( "Client %d (%s) has unique id %llu\n", clientNum, client->pers.netname, totalHash );
+
 		if (g_gametype.integer == GT_SIEGE)
 		{ //more crap to send
 			s = va("n\\%s\\t\\%i\\model\\%s\\c1\\%s\\c2\\%s\\c5\\%i\\hc\\%i\\w\\%i\\l\\%i\\tt\\%d\\tl\\%d\\siegeclass\\%s\\st\\%s\\st2\\%s\\dt\\%i\\sdt\\%i\\id\\%llu\\ct\\%d",
