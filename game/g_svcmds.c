@@ -2135,7 +2135,7 @@ qboolean DoRunoff(void) {
 			for (int i = 0; i < numChoices; i++) {
 				rememberedMultivoteMap_t *remember = ListAdd(&level.rememberedMultivoteMapsList, sizeof(rememberedMultivoteMap_t));
 				Q_strncpyz(remember->mapFilename, level.multiVoteMapFileNames[i], sizeof(remember->mapFilename));
-				remember->forceInclude = !!(numVotesForMap[i] > 0 && numVotesForMap[i] == highestNumVotes);
+				remember->forceInclude = !!(numVotesForMap[i] > 1 && numVotesForMap[i] == highestNumVotes);
 				if (remember->forceInclude)
 					remember->position = i; // note position of map that will survive the reroll, so we can put it in the same place after the reroll
 			}
@@ -2150,7 +2150,7 @@ qboolean DoRunoff(void) {
 					level.successfulRerollVoters |= (1llu << (unsigned long long)i);
 				}
 				else if (voteId > 0) {
-					if (numVotesForMap[voteId - 1] > 0 && numVotesForMap[voteId - 1] == highestNumVotes) {
+					if (numVotesForMap[voteId - 1] > 1 && numVotesForMap[voteId - 1] == highestNumVotes) {
 						reinstateVotes[i] = level.multiVoteMapChars[level.multiVotes[i] - 1];
 						level.survivingRerollMapVoters |= (1llu << (unsigned long long)i);
 					}
