@@ -3401,6 +3401,18 @@ qboolean G_DBSelectTierlistMaps(MapSelectedCallback callback, void *context) {
 		}
 	}
 
+	// try to put remembered maps into their previous slots (trumps ctf4 check)
+	// this is important because if someone's map survives the reroll, they will auto vote for that map (that slot) again after the reroll
+	if (level.mapsRerolled && level.rememberedMultivoteMapsList.size > 0) {
+		for (int i = 0; i < numMapsPickedTotal; i++) {
+			rememberedMultivoteMap_t *remembered = ListFind(&level.rememberedMultivoteMapsList, RememberedMapMatches, chosenMapNames[i], NULL);
+			if (remembered && remembered->forceInclude && remembered->position != i) {
+				Q_strncpyz(chosenMapNames[i], chosenMapNames[remembered->position], sizeof(chosenMapNames[i]));
+				Q_strncpyz(chosenMapNames[remembered->position], remembered->mapFilename, sizeof(chosenMapNames[remembered->position]));
+			}
+		}
+	}
+
 	// run the callbacks
 	for (int i = 0; i < numMapsPickedTotal; i++) {
 		if (chosenMapNames[i][0])

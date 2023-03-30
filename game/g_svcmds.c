@@ -1774,8 +1774,10 @@ static void mapSelectedCallback( void *context, char *mapname ) {
 			else {
 				if (level.successfulRerollVoters & (1llu << (unsigned long long)i))
 					Q_strncpyz(selection->printMessage[i], va("%s%sote for a map%s:", level.mapsRerolled ? "^2Map choices rerolled^7\n" : "", level.inRunoff ? "Runoff v" : "V", g_vote_rng.integer ? " to increase its probability" : ""), sizeof(selection->printMessage[i]));
-				else
+				else if (level.survivingRerollMapVoters & (1llu << (unsigned long long)i))
 					Q_strncpyz(selection->printMessage[i], va("%s%sote for a map%s:", level.mapsRerolled ? "^6Map choices rerolled^7\n" : "", level.inRunoff ? "Runoff v" : "V", g_vote_rng.integer ? " to increase its probability" : ""), sizeof(selection->printMessage[i]));
+				else
+					Q_strncpyz(selection->printMessage[i], va("%s%sote for a map%s:", level.mapsRerolled ? "^2Map choices rerolled^7\n" : "", level.inRunoff ? "Runoff v" : "V", g_vote_rng.integer ? " to increase its probability" : ""), sizeof(selection->printMessage[i]));
 			}
 		}
 	}
@@ -2134,16 +2136,28 @@ qboolean DoRunoff(void) {
 				rememberedMultivoteMap_t *remember = ListAdd(&level.rememberedMultivoteMapsList, sizeof(rememberedMultivoteMap_t));
 				Q_strncpyz(remember->mapFilename, level.multiVoteMapFileNames[i], sizeof(remember->mapFilename));
 				remember->forceInclude = !!(numVotesForMap[i] > 0 && numVotesForMap[i] == highestNumVotes);
+				if (remember->forceInclude)
+					remember->position = i; // note position of map that will survive the reroll, so we can put it in the same place after the reroll
 			}
 
-			// note the victors and losers so we can display unique messages to people
+			// note the victors and losers so we can display unique messages to people,
+			// and so we can reinstate votes of people whose map is going to survive the reroll
+			memset(&reinstateVotes, 0, sizeof(reinstateVotes));
 			unsigned long long failedNonRerollers = 0llu;
 			for (int i = 0; i < MAX_CLIENTS; ++i) {
 				int voteId = level.multiVotes[i];
-				if (voteId == -1)
+				if (voteId == -1) {
 					level.successfulRerollVoters |= (1llu << (unsigned long long)i);
-				else if (voteId > 0)
-					failedNonRerollers |= (1llu << (unsigned long long)i);
+				}
+				else if (voteId > 0) {
+					if (numVotesForMap[voteId - 1] > 0 && numVotesForMap[voteId - 1] == highestNumVotes) {
+						reinstateVotes[i] = level.multiVoteMapChars[level.multiVotes[i] - 1];
+						level.survivingRerollMapVoters |= (1llu << (unsigned long long)i);
+					}
+					else {
+						failedNonRerollers |= (1llu << (unsigned long long)i);
+					}
+				}
 			}
 
 			// reset
@@ -2169,6 +2183,8 @@ qboolean DoRunoff(void) {
 					continue;
 				if (failedNonRerollers & (1llu << (unsigned long long)i))
 					trap_SendServerCommand(i, va("print \"Map choices rerolled. You must re-vote.\n\""));
+				else if (level.survivingRerollMapVoters & (1llu << (unsigned long long)i))
+					trap_SendServerCommand(i, va("print \"Map choices rerolled.\n\""));
 				else
 					trap_SendServerCommand(i, va("print \"Map choices rerolled. You may re-vote.\n\""));
 			}
@@ -2183,7 +2199,6 @@ qboolean DoRunoff(void) {
 			++level.runoffRoundsCompletedIncludingRerollRound;
 			Com_Printf("Completed reroll round without reroll.\n");
 
-			memset(&reinstateVotes, 0, sizeof(reinstateVotes));
 			int numFailedRerollers = 0;
 			for (int i = 0; i < MAX_CLIENTS; i++) {
 				int voteId = level.multiVotes[i];

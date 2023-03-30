@@ -1791,6 +1791,7 @@ typedef struct {
 	unsigned long long runoffSurvivors;
 	unsigned long long runoffLosers;
 	unsigned long long successfulRerollVoters;
+	unsigned long long survivingRerollMapVoters;
 	int			runoffRoundsCompletedIncludingRerollRound;
 	qboolean	mapsRerolled;
 	qboolean	inRunoff;
@@ -2549,6 +2550,7 @@ typedef struct {
 	node_t		node;
 	char		mapFilename[MAX_QPATH];
 	qboolean	forceInclude;
+	int			position;
 } rememberedMultivoteMap_t;
 
 //
