@@ -1948,6 +1948,19 @@ static void FilterAccountIdString(char *string) {
 	*out = '\0';
 }
 
+static qboolean RememberedMapMatches(genericNode_t *node, void *userData) {
+	const rememberedMultivoteMap_t *remembered = (const rememberedMultivoteMap_t *)node;
+	const char *checkMap = (const char *)userData;
+
+	if (!remembered || !checkMap)
+		return qfalse;
+
+	if (!Q_stricmp(remembered->mapFilename, checkMap))
+		return qtrue;
+
+	return qfalse;
+}
+
 // Versatile method to retrieve a tier list in the form of a malloc'd list_t pointer, with several customizable parameters.
 // commaSeparatedAccountIds: null for zero accounts, e.g. "1" for one account, e.g. "1,2,3,4" for multiple accounts.
 // singleMapFileName: null for all maps; otherwise specify a map to just check one specific map.
@@ -2040,10 +2053,26 @@ static list_t *GetTierList(const char *commaSeparatedAccountIds, const char *sin
 	memset(mapsList, 0, sizeof(list_t));
 	int numGotten = 0;
 
+	qboolean needToForceInclude = qfalse;
 	while (rc == SQLITE_ROW) {
 		const char *mapFileName = (const char *)sqlite3_column_text(statement, 0);
 		double average = sqlite3_column_double(statement, 1);
 		mapTier_t tier = MapTierForDouble(average);
+
+		// check if map is banned right now
+		rememberedMultivoteMap_t *remembered = ListFind(&level.rememberedMultivoteMapsList, RememberedMapMatches, (char *)mapFileName, NULL);
+		if (remembered) {
+			if (remembered->forceInclude && (tier == MAPTIER_S || tier == MAPTIER_A)) {
+				Com_DebugPrintf("Forcibly including %s due to being remembered as included map\n", mapFileName);
+				needToForceInclude = qtrue;
+			}
+			else {
+				Com_DebugPrintf("Forcibly excluding %s due to being remembered as excluded map\n", mapFileName);
+				rc = trap_sqlite3_step(statement);
+				continue;
+			}
+		}
+
 		if (VALIDSTRING(mapFileName) && tier >= MAPTIER_F && tier <= MAPTIER_S) {
 			mapTierData_t *data = (mapTierData_t *)ListAdd(mapsList, sizeof(mapTierData_t));
 			data->tier = tier;
@@ -2059,6 +2088,44 @@ static list_t *GetTierList(const char *commaSeparatedAccountIds, const char *sin
 	if (!numGotten) {
 		ListClear(mapsList);
 		return NULL;
+	}
+
+	if (needToForceInclude) {
+		list_t temp = { 0 };
+		ListCopy(mapsList, &temp, sizeof(mapTierData_t));
+		ListClear(mapsList);
+
+		// add the force included ones to the top of the list
+		{
+			iterator_t iter;
+			ListIterate(&temp, &iter, qfalse);
+			while (IteratorHasNext(&iter)) {
+				mapTierData_t *data = (mapTierData_t *)IteratorNext(&iter);
+				rememberedMultivoteMap_t *remembered = ListFind(&level.rememberedMultivoteMapsList, RememberedMapMatches, data->mapFileName, NULL);
+				if (!(remembered && remembered->forceInclude && (data->tier == MAPTIER_S || data->tier == MAPTIER_A)))
+					continue;
+				mapTierData_t *add = (mapTierData_t *)ListAdd(mapsList, sizeof(mapTierData_t));
+				add->tier = data->tier;
+				Q_strncpyz(add->mapFileName, data->mapFileName, sizeof(add->mapFileName));
+			}
+		}
+
+		// add all the others
+		{
+			iterator_t iter;
+			ListIterate(&temp, &iter, qfalse);
+			while (IteratorHasNext(&iter)) {
+				mapTierData_t *data = (mapTierData_t *)IteratorNext(&iter);
+				rememberedMultivoteMap_t *remembered = ListFind(&level.rememberedMultivoteMapsList, RememberedMapMatches, data->mapFileName, NULL);
+				if (remembered && remembered->forceInclude && (data->tier == MAPTIER_S || data->tier == MAPTIER_A))
+					continue;
+				mapTierData_t *add = (mapTierData_t *)ListAdd(mapsList, sizeof(mapTierData_t));
+				add->tier = data->tier;
+				Q_strncpyz(add->mapFileName, data->mapFileName, sizeof(add->mapFileName));
+			}
+		}
+
+		ListClear(&temp);
 	}
 
 	return mapsList;
@@ -3182,14 +3249,22 @@ qboolean G_DBSelectTierlistMaps(MapSelectedCallback callback, void *context) {
 			case MAPTIER_F: checkOrder[0] = MAPTIER_C; checkOrder[1] = MAPTIER_B; checkOrder[2] = MAPTIER_A; checkOrder[3] = MAPTIER_S; break;
 			}
 			for (int i = 0; i < 4; i++) {
-				while (min[t] - info.numMapsOfTier[t] > 0 && info.numMapsOfTier[checkOrder[i]] > max[checkOrder[i]] && max[checkOrder[i]] + 1 < MAX_MULTIVOTE_MAPS) {
+				int deficit = min[t] - info.numMapsOfTier[t];
+				while (deficit > 0 && min[checkOrder[i]] < info.numMapsOfTier[checkOrder[i]] && min[checkOrder[i]] + 1 < MAX_MULTIVOTE_MAPS) {
 					// we found a tier in the priority list that's not using all of its existent maps; allow it to use additional map(s)
 					if (g_vote_tierlist_debug.integer)
-						G_LogPrintf("Adding to the maximum of %s^7 to compensate.\n", GetTierStringForTier(checkOrder[i]));
-					++max[checkOrder[i]];
+						G_LogPrintf("Adding to the minimum of %s^7 to compensate for %s^7.\n", GetTierStringForTier(checkOrder[i]), GetTierStringForTier(t));
+					++min[checkOrder[i]];
+
+					// make sure we didn't exceed max for this tier by setting max higher if needed
+					if (min[checkOrder[i]] > max[checkOrder[i]])
+						max[checkOrder[i]] = min[checkOrder[i]];
+
+					--deficit;
+
 					--min[t];
 				}
-				if (min[t] - info.numMapsOfTier[t] <= 0)
+				if (deficit <= 0)
 					break; // we're good, move on to check the next tier
 			}
 		}

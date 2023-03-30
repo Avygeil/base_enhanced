@@ -1070,11 +1070,14 @@ void Svcmd_VoteForce_f( qboolean pass ) {
 		level.multiVoteHasWildcard = qfalse;
 		level.multivoteWildcardMapFileName[0] = '\0';
 		level.mapsThatCanBeVotedBits = 0;
-		level.runoffSurvivors = level.runoffLosers = 0llu;
+		level.runoffSurvivors = level.runoffLosers = level.successfulRerollVoters = 0llu;
 		memset( level.multiVotes, 0, sizeof( level.multiVotes ) );
 		memset(&level.multiVoteMapChars, 0, sizeof(level.multiVoteMapChars));
 		memset(&level.multiVoteMapShortNames, 0, sizeof(level.multiVoteMapShortNames));
 		memset(&level.multiVoteMapFileNames, 0, sizeof(level.multiVoteMapFileNames));
+		ListClear(&level.rememberedMultivoteMapsList);
+		level.runoffRoundsCompletedIncludingRerollRound = 0;
+		level.mapsRerolled = qfalse;
 	}
 
 	level.voteStartTime = 0;
@@ -1675,7 +1678,7 @@ static void StartMultiMapVote( const int numMaps, const qboolean hasWildcard, co
 
 	// start a "fake vote" so that we can use most of the logic that already exists
 	Com_sprintf( level.voteString, sizeof( level.voteString ), "map_multi_vote %s", listOfMaps );
-	Q_strncpyz( level.voteDisplayString, S_COLOR_RED"Vote for a map in console", sizeof( level.voteDisplayString ) );
+	Q_strncpyz( level.voteDisplayString, S_COLOR_RED"Vote for a map in console", sizeof(level.voteDisplayString));
 	level.voteStartTime = level.time;
 	level.voteTime = level.time;
 
@@ -1753,7 +1756,7 @@ static void mapSelectedCallback( void *context, char *mapname ) {
 				Q_strncpyz(selection->printMessage[i], va("Runoff vote: waiting for other players to vote...\nMaps still in contention:"), sizeof(selection->printMessage[i]));
 			}
 			else if (level.runoffLosers & (1llu << (unsigned long long)i)) {
-				if (removedVotes[i]) {
+				if (removedVotes[i] > 0) {
 					char map[MAX_QPATH] = { 0 };
 					if (level.multivoteWildcardMapFileName[0] && !Q_stricmp(level.multiVoteMapFileNames[((int)removedVotes[i]) - 1], level.multivoteWildcardMapFileName))
 						Q_strncpyz(map, "Random map", sizeof(map));
@@ -1761,12 +1764,19 @@ static void mapSelectedCallback( void *context, char *mapname ) {
 						Q_strncpyz(map, level.multiVoteMapShortNames[((int)removedVotes[i]) - 1], sizeof(map));
 					Q_strncpyz(selection->printMessage[i], va("Runoff vote:\n"S_COLOR_RED"%s"S_COLOR_RED" was eliminated\n"S_COLOR_YELLOW"Please vote again"S_COLOR_WHITE, map), sizeof(selection->printMessage[i]));
 				}
+				else if (removedVotes[i] == -1) {
+					Q_strncpyz(selection->printMessage[i], "Runoff vote:\n"S_COLOR_RED"Reroll"S_COLOR_RED" was eliminated\n"S_COLOR_YELLOW"Please vote again"S_COLOR_WHITE, sizeof(selection->printMessage[i]));
+				}
 				else {
 					Q_strncpyz(selection->printMessage[i], va("Runoff vote: "S_COLOR_YELLOW"please vote again"S_COLOR_WHITE), sizeof(selection->printMessage[i]));
 				}
 			}
-			else
-				Q_strncpyz(selection->printMessage[i], va("%sote for a map%s:", level.inRunoff ? "Runoff v" : "V", g_vote_rng.integer ? " to increase its probability" : ""), sizeof(selection->printMessage[i]));
+			else {
+				if (level.successfulRerollVoters & (1llu << (unsigned long long)i))
+					Q_strncpyz(selection->printMessage[i], va("%s%sote for a map%s:", level.mapsRerolled ? "^2Map choices rerolled^7\n" : "", level.inRunoff ? "Runoff v" : "V", g_vote_rng.integer ? " to increase its probability" : ""), sizeof(selection->printMessage[i]));
+				else
+					Q_strncpyz(selection->printMessage[i], va("%s%sote for a map%s:", level.mapsRerolled ? "^6Map choices rerolled^7\n" : "", level.inRunoff ? "Runoff v" : "V", g_vote_rng.integer ? " to increase its probability" : ""), sizeof(selection->printMessage[i]));
+			}
 		}
 	}
 
@@ -1914,8 +1924,14 @@ void Svcmd_MapRandom_f()
 
 		// print in console and do a global prioritized center print
 		for (int i = 0; i < MAX_CLIENTS; i++) {
+			if (g_vote_runoffRerollOption.integer && !level.runoffRoundsCompletedIncludingRerollRound && !stristr(context->printMessage[i], "\n"S_COLOR_MAGENTA"/vote r "S_COLOR_WHITE" - Reroll choices"))
+				Q_strcat(context->printMessage[i], sizeof(context->printMessage[i]), "\n"S_COLOR_MAGENTA"/vote r "S_COLOR_WHITE" - Reroll choices");
+
 			if (!level.inRunoff) // don't spam the console for non-first rounds
 				trap_SendServerCommand(i, va("print \"%s\n\"", context->printMessage[i]));
+
+			// prepend newlines after printing in console but before centerprinting
+			Com_sprintf(context->printMessage[i], sizeof(context->printMessage[i]), "\n\n%s", context->printMessage[i]);
 		}
 		G_UniqueTickedCenterPrint(context->printMessage, sizeof(context->printMessage[0]), 15000, qtrue); // give them 15s to see the options
 
@@ -2009,8 +2025,14 @@ void Svcmd_MapVote_f(const char *overrideMaps) {
 
 	// print in console and do a global prioritized center print
 	for (int i = 0; i < MAX_CLIENTS; i++) {
+		if (g_vote_runoffRerollOption.integer && !level.runoffRoundsCompletedIncludingRerollRound && !stristr(context->printMessage[i], "\n"S_COLOR_MAGENTA"/vote r "S_COLOR_WHITE" - Reroll choices"))
+			Q_strcat(context->printMessage[i], sizeof(context->printMessage[i]), "\n"S_COLOR_MAGENTA"/vote r "S_COLOR_WHITE" - Reroll choices");
+
 		if (!level.inRunoff) // don't spam the console for non-first rounds
 			trap_SendServerCommand(i, va("print \"%s\n\"", context->printMessage[i]));
+
+		// prepend newlines after printing in console but before centerprinting
+		Com_sprintf(context->printMessage[i], sizeof(context->printMessage[i]), "\n\n%s", context->printMessage[i]);
 	}
 	G_UniqueTickedCenterPrint(context->printMessage, sizeof(context->printMessage[0]), 15000, qtrue); // give them 15s to see the options
 
@@ -2058,20 +2080,24 @@ qboolean DoRunoff(void) {
 		if (level.multiVoteMapFileNames[i][0])
 			numChoices++;
 
-	level.runoffSurvivors = level.runoffLosers = 0llu;
+	level.runoffSurvivors = level.runoffLosers = level.successfulRerollVoters = 0llu;
 
 	// count the votes
-	qboolean gotAnyVote = qfalse;
-	int numVotesForMap[64] = { 0 };
+	int numVoters = qfalse;
+	int numVotesForMap[64] = { 0 }, numVotesToReroll = 0;
 	for (int i = 0; i < MAX_CLIENTS; ++i) {
 		int voteId = level.multiVotes[i];
 		if (voteId > 0 && voteId <= numChoices) {
 			numVotesForMap[voteId - 1]++;
-			gotAnyVote = qtrue;
+			numVoters++;
+		}
+		else if (g_vote_runoffRerollOption.integer && voteId == -1 && !level.runoffRoundsCompletedIncludingRerollRound) {
+			numVotesToReroll++;
+			numVoters++;
 		}
 	}
 
-	if (!gotAnyVote)
+	if (!numVoters)
 		return qfalse; // nobody has voted whatsoever; don't do anything
 
 	// determine the highest and lowest numbers
@@ -2094,6 +2120,108 @@ qboolean DoRunoff(void) {
 				numMapsTiedForLast++;
 			}
 		}
+	}
+
+	// if reroll is enabled and ANY person voted for it, we handle all of that here and then return
+	if (g_vote_runoffRerollOption.integer && !level.runoffRoundsCompletedIncludingRerollRound && numVotesToReroll) {
+		if (numVotesToReroll > highestNumVotes && numVotesToReroll > (numVoters / 2)) {
+			// reroll has a majority (not just plurality); do it
+
+			// note both:
+			// - maps tied for the most votes, so we can make sure they are still part of the list after rerolling (provided S or A tier)
+			// - all other maps, so we can make sure they are NOT part of the list after rerolling
+			for (int i = 0; i < numChoices; i++) {
+				rememberedMultivoteMap_t *remember = ListAdd(&level.rememberedMultivoteMapsList, sizeof(rememberedMultivoteMap_t));
+				Q_strncpyz(remember->mapFilename, level.multiVoteMapFileNames[i], sizeof(remember->mapFilename));
+				remember->forceInclude = !!(numVotesForMap[i] > 0 && numVotesForMap[i] == highestNumVotes);
+			}
+
+			// note the victors and losers so we can display unique messages to people
+			unsigned long long failedNonRerollers = 0llu;
+			for (int i = 0; i < MAX_CLIENTS; ++i) {
+				int voteId = level.multiVotes[i];
+				if (voteId == -1)
+					level.successfulRerollVoters |= (1llu << (unsigned long long)i);
+				else if (voteId > 0)
+					failedNonRerollers |= (1llu << (unsigned long long)i);
+			}
+
+			// reset
+			G_GlobalTickedCenterPrint("", 0, qfalse);
+			g_entities[level.lastVotingClient].client->lastCallvoteTime = level.time;
+			level.voteAutoPassOnExpiration = qfalse;
+			level.multiVoting = qfalse;
+			level.inRunoff = qfalse;
+			level.multiVoteChoices = 0;
+			level.multiVoteHasWildcard = qfalse;
+			level.multivoteWildcardMapFileName[0] = '\0';
+			level.mapsThatCanBeVotedBits = 0;
+			level.runoffSurvivors = level.runoffLosers/* = level.successfulRerollVoters*/ = 0llu;
+			memset(level.multiVotes, 0, sizeof(level.multiVotes));
+			memset(&level.multiVoteMapChars, 0, sizeof(level.multiVoteMapChars));
+			memset(&level.multiVoteMapShortNames, 0, sizeof(level.multiVoteMapShortNames));
+			level.voteStartTime = 0;
+			level.voteTime = 0;
+			trap_SetConfigstring(CS_VOTE_TIME, "");
+
+			for (int i = 0; i < MAX_CLIENTS; i++) {
+				if (level.clients[i].pers.connected != CON_CONNECTED || g_entities[i].r.svFlags & SVF_BOT)
+					continue;
+				if (failedNonRerollers & (1llu << (unsigned long long)i))
+					trap_SendServerCommand(i, va("print \"Map choices rerolled. You must re-vote.\n\""));
+				else
+					trap_SendServerCommand(i, va("print \"Map choices rerolled. You may re-vote.\n\""));
+			}
+
+			// start new vote
+			++level.runoffRoundsCompletedIncludingRerollRound;
+			level.mapsRerolled = qtrue;
+			Com_Printf("Map choices rerolled.\n");
+			Svcmd_MapVote_f(NULL);
+		}
+		else {
+			++level.runoffRoundsCompletedIncludingRerollRound;
+			Com_Printf("Completed reroll round without reroll.\n");
+
+			memset(&reinstateVotes, 0, sizeof(reinstateVotes));
+			int numFailedRerollers = 0;
+			for (int i = 0; i < MAX_CLIENTS; i++) {
+				int voteId = level.multiVotes[i];
+				if (voteId == -1) { // this guy's reroll vote was removed
+					level.clients[i].mGameFlags &= ~PSG_VOTED;
+					level.runoffLosers |= (1llu << (unsigned long long)i);
+					removedVotes[i] = -1;
+					numFailedRerollers++;
+					G_LogPrintf("Client %d (%s) had their \"%s\" reroll vote removed.\n", i, level.clients[i].pers.netname, level.multiVoteMapShortNames[((int)level.multiVoteMapChars[voteId - 1]) - 1]);
+				}
+				else { // this guy's map survived; his vote will be reinstated
+					reinstateVotes[i] = level.multiVoteMapChars[level.multiVotes[i] - 1];
+					level.runoffSurvivors |= (1llu << (unsigned long long)i);
+				}
+			}
+
+			for (int i = 0; i < MAX_CLIENTS; i++) {
+				if (level.clients[i].pers.connected != CON_CONNECTED || g_entities[i].r.svFlags & SVF_BOT)
+					continue;
+				if (level.runoffLosers & (1llu << (unsigned long long)i)) {
+					if (numFailedRerollers == 1)
+						trap_SendServerCommand(i, va("print \"Reroll option eliminated. You may re-vote.\n\""));
+					else
+						trap_SendServerCommand(i, va("print \"Reroll option eliminated. You and %d other player%s may re-vote.\n\"", numFailedRerollers - 1, numFailedRerollers - 1 == 1 ? "" : "s"));
+				}
+				else {
+					trap_SendServerCommand(i, va("print \"Reroll option eliminated. %d player%s may re-vote.\n\"", numFailedRerollers, numFailedRerollers == 1 ? "" : "s"));
+				}
+			}
+
+			// start the next round of voting
+			level.multiVoting = qfalse;
+			level.inRunoff = qtrue;
+			++level.runoffRoundsCompletedIncludingRerollRound;
+			Svcmd_MapVote_f(level.multiVoteMapChars);
+			return qtrue;
+		}
+		return qtrue;
 	}
 
 	if (!numMapsNOTTiedForFirst && numMapsTiedForFirst == 2) {
@@ -2239,6 +2367,7 @@ qboolean DoRunoff(void) {
 		// start the next round of voting
 		level.multiVoting = qfalse;
 		level.inRunoff = qtrue;
+		++level.runoffRoundsCompletedIncludingRerollRound;
 		Svcmd_MapVote_f(newMapChars);
 		return qtrue;
 	}
@@ -2251,7 +2380,7 @@ qboolean DoRunoff(void) {
 
 // allocates an array of length numChoices containing the sorted results from level.multiVoteChoices
 // don't forget to FREE THE RESULT
-int* BuildVoteResults( int numChoices, int *numVotes, int *highestVoteCount, qboolean *dontEndDueToMajority) {
+int* BuildVoteResults( int numChoices, int *numVotes, int *highestVoteCount, qboolean *dontEndDueToMajority, int *numRerollVotes) {
 	if (level.inRunoff) {
 		numChoices = 0;
 		for (int i = 0; i < MAX_MULTIVOTE_MAPS; i++)
@@ -2415,7 +2544,12 @@ int* BuildVoteResults( int numChoices, int *numVotes, int *highestVoteCount, qbo
 			if ( highestVoteCount && voteResults[voteId - 1] > *highestVoteCount ) {
 				*highestVoteCount = voteResults[voteId - 1];
 			}
-		} else if ( voteId ) { // shouldn't happen since we check that in /vote...
+		} 
+		else if (g_vote_runoffRerollOption.integer && voteId == -1) {
+			if (numVotes) (*numVotes)++;
+			if (numRerollVotes) (*numRerollVotes)++;
+		}
+		else if ( voteId ) { // shouldn't happen since we check that in /vote...
 			G_LogPrintf( "Invalid multi vote id for client %d: %d\n", i, voteId );
 		}
 	}
@@ -2546,7 +2680,7 @@ void Svcmd_MapMultiVote_f() {
 
 	// get the results and pick a map
 	int numVotes, highestVoteCount;
-	int *voteResults = BuildVoteResults( level.multiVoteChoices, &numVotes, &highestVoteCount, NULL );
+	int *voteResults = BuildVoteResults( level.multiVoteChoices, &numVotes, &highestVoteCount, NULL, NULL );
 
 	char selectedMapname[MAX_MAP_NAME];
 	qboolean hasWildcard = level.multiVoteHasWildcard; // changes based on result (since the wildcard vote can only either pass or be discarded)
@@ -2622,7 +2756,7 @@ void Svcmd_MapMultiVote_f() {
 	level.multiVoteChoices = 0;
 	level.multivoteWildcardMapFileName[0] = '\0';
 	level.mapsThatCanBeVotedBits = 0;
-	level.runoffSurvivors = level.runoffLosers = 0llu;
+	level.runoffSurvivors = level.runoffLosers = level.successfulRerollVoters = 0llu;
 	memset(level.multiVotes, 0, sizeof(level.multiVotes));
 	memset(&level.multiVoteMapChars, 0, sizeof(level.multiVoteMapChars));
 	memset(&level.multiVoteMapShortNames, 0, sizeof(level.multiVoteMapShortNames));

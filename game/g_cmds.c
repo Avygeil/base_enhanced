@@ -3858,7 +3858,7 @@ void Cmd_CallVote_f( gentity_t *ent, int pause ) {
 	level.voteNo = 0;
 	level.lastVotingClient = ent-g_entities;
 	level.multiVoting = qfalse;
-	level.runoffSurvivors = level.runoffLosers = 0llu;
+	level.runoffSurvivors = level.runoffLosers = level.successfulRerollVoters = 0llu;
 	level.inRunoff = qfalse;
 	level.mapsThatCanBeVotedBits = 0;
 	level.multiVoteChoices = 0;
@@ -3973,25 +3973,40 @@ void Cmd_Vote_f( gentity_t *ent, const char *forceVoteArg ) {
 		// multi map vote, only allow voting for valid choice ids
 		int voteId = atoi( msg );
 
-		int integerBits = 8 * sizeof(int);
-		if ( voteId <= 0 || /*voteId > level.multiVoteChoices || */voteId > integerBits || !(level.mapsThatCanBeVotedBits & (1 << (voteId - 1))) ) {
-			trap_SendServerCommand( ent - g_entities, "print \"Invalid choice, please use /vote (number) from console\n\"" );
-			return;
-		}
+		if (g_vote_runoffRerollOption.integer && !level.runoffRoundsCompletedIncludingRerollRound && !Q_stricmp(msg, "r")) {
+			level.multiVotes[ent - g_entities] = -1;
 
-		// we maintain an internal array of choice ids, and only use voteYes to show how many people voted
-
-		if ( !( ent->client->mGameFlags & PSG_VOTED ) ) { // first vote
-			G_LogPrintf( "Client %i (%s) voted for choice %d%s\n", ent - g_entities, ent->client->pers.netname, voteId,
-				level.multiVoteMapShortNames[voteId][0] ? va(" (%s)", level.multiVoteMapShortNames[voteId - 1]) : "" );
-			level.voteYes++;
-			trap_SetConfigstring( CS_VOTE_YES, va( "%i", level.voteYes ) );
-		} else { // changing vote
-			G_LogPrintf("Client %i (%s) changed their vote to choice %d%s\n", ent - g_entities, ent->client->pers.netname, voteId,
-				level.multiVoteMapShortNames[voteId][0] ? va(" (%s)", level.multiVoteMapShortNames[voteId - 1]) : "");
+			if (!(ent->client->mGameFlags & PSG_VOTED)) { // first vote
+				G_LogPrintf("Client %i (%s) voted to reroll\n", ent - g_entities, ent->client->pers.netname);
+				level.voteYes++;
+				trap_SetConfigstring(CS_VOTE_YES, va("%i", level.voteYes));
+			}
+			else { // changing vote
+				G_LogPrintf("Client %i (%s) changed their vote to reroll\n", ent - g_entities, ent->client->pers.netname);
+			}
 		}
-		
-		level.multiVotes[ent - g_entities] = voteId;
+		else {
+			int integerBits = 8 * sizeof(int);
+			if (voteId <= 0 || /*voteId > level.multiVoteChoices || */voteId > integerBits || !(level.mapsThatCanBeVotedBits & (1 << (voteId - 1)))) {
+				trap_SendServerCommand(ent - g_entities, "print \"Invalid choice, please use /vote (number) from console\n\"");
+				return;
+			}
+
+			// we maintain an internal array of choice ids, and only use voteYes to show how many people voted
+
+			if (!(ent->client->mGameFlags & PSG_VOTED)) { // first vote
+				G_LogPrintf("Client %i (%s) voted for choice %d%s\n", ent - g_entities, ent->client->pers.netname, voteId,
+					level.multiVoteMapShortNames[voteId][0] ? va(" (%s)", level.multiVoteMapShortNames[voteId - 1]) : "");
+				level.voteYes++;
+				trap_SetConfigstring(CS_VOTE_YES, va("%i", level.voteYes));
+			}
+			else { // changing vote
+				G_LogPrintf("Client %i (%s) changed their vote to choice %d%s\n", ent - g_entities, ent->client->pers.netname, voteId,
+					level.multiVoteMapShortNames[voteId][0] ? va(" (%s)", level.multiVoteMapShortNames[voteId - 1]) : "");
+			}
+
+			level.multiVotes[ent - g_entities] = voteId;
+		}
 	}
 
 	if (printVoteCast)

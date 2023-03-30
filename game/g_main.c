@@ -464,6 +464,7 @@ vmCvar_t	g_vote_runoffTimeModifier;
 vmCvar_t	g_vote_redirectMapVoteToLiveVersion;
 vmCvar_t	g_vote_printLiveVersionFullName;
 vmCvar_t	g_vote_overrideTrollVoters;
+vmCvar_t	g_vote_runoffRerollOption;
 
 vmCvar_t	g_vote_teamgen;
 vmCvar_t	g_vote_teamgen_pug_requiredVotes;
@@ -967,6 +968,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_printLiveVersionFullName, "g_vote_printLiveVersionFullName", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_overrideTrollVoters, "g_vote_overrideTrollVoters", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_teamgen_autoMapVoteNonAfkAutoVoteYesSeconds, "g_vote_teamgen_autoMapVoteNonAfkAutoVoteYesSeconds", "5", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_runoffRerollOption, "g_vote_runoffRerollOption", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 
 	{ &g_vote_teamgen_pug_requiredVotes, "g_vote_teamgen_pug_requiredVotes", "4", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_teamgen_team_requiredVotes, "g_vote_teamgen_team_requiredVotes", "5", CVAR_ARCHIVE, 0, qtrue },
@@ -2158,6 +2160,8 @@ void G_ShutdownGame( int restart ) {
 	ListClear(&level.disconnectedPlayerList);
 
 	ListClear(&level.info_b_e_locationsList);
+
+	ListClear(&level.rememberedMultivoteMapsList);
 
 	iterator_t iter;
 	ListIterate(&level.statsList, &iter, qfalse);
@@ -4517,7 +4521,7 @@ CheckVote
 ==================
 */
 extern void SiegeClearSwitchData(void);
-extern int* BuildVoteResults( int numChoices, int *numVotes, int *highestVoteCount, qboolean *dontEndDueToMajority);
+extern int* BuildVoteResults( int numChoices, int *numVotes, int *highestVoteCount, qboolean *dontEndDueToMajority, int *numRerollVotes);
 
 void CheckVote( void ) {
 	if ( level.voteExecuteTime && level.voteExecuteTime < level.time ) {
@@ -4675,26 +4679,33 @@ void CheckVote( void ) {
 		g_entities[level.lastVotingClient].client->lastCallvoteTime = level.time;
 	} else {
 		// special handler for multiple choices voting
-		int numVotes, highestVoteCount;
+		int numVotes = 0, highestVoteCount = 0, numRerollVotes = 0;
 		qboolean dontEndDueToMajority = qfalse;
-		int *voteResults = BuildVoteResults( level.multiVoteChoices, &numVotes, &highestVoteCount, &dontEndDueToMajority);
+		int *voteResults = BuildVoteResults( level.multiVoteChoices, &numVotes, &highestVoteCount, &dontEndDueToMajority, &numRerollVotes);
 		free( voteResults );
 
-// the vote ends when a map has >50% majority, when everyone voted, or when the vote timed out
-		if (level.time - level.voteTime >= VOTE_TIME && !DoRunoff()) {
-			G_LogPrintf("Multi vote ended due to time (%d voters)\n", numVotes);
-			level.voteExecuteTime = level.time; // in this special case, execute it now. the delay is done in the svcmd
-		}
-		else if ( !dontEndDueToMajority && highestVoteCount >= ( ( level.numVotingClients / 2 ) + 1 )) {
-			G_LogPrintf( "Multi vote ended due to majority vote (%d voters)\n", numVotes );
-			level.voteExecuteTime = level.time; // in this special case, execute it now. the delay is done in the svcmd
-		}
-		else if (numVotes >= level.numVotingClients && !DoRunoff()) {
-			G_LogPrintf("Multi vote ended due to everyone voted, no majority, and no runoff (%d voters)\n", numVotes);
-			level.voteExecuteTime = level.time; // in this special case, execute it now. the delay is done in the svcmd
+		if (numRerollVotes >= ((level.numVotingClients / 2) + 1)) {
+			DoRunoff();
+			return;
 		}
 		else {
-			return;
+
+			// the vote ends when a map has >50% majority, when everyone voted, or when the vote timed out
+			if (level.time - level.voteTime >= VOTE_TIME && !DoRunoff()) {
+				G_LogPrintf("Multi vote ended due to time (%d voters)\n", numVotes);
+				level.voteExecuteTime = level.time; // in this special case, execute it now. the delay is done in the svcmd
+			}
+			else if (!dontEndDueToMajority && highestVoteCount >= ((level.numVotingClients / 2) + 1)) {
+				G_LogPrintf("Multi vote ended due to majority vote (%d voters)\n", numVotes);
+				level.voteExecuteTime = level.time; // in this special case, execute it now. the delay is done in the svcmd
+			}
+			else if (numVotes >= level.numVotingClients && !DoRunoff()) {
+				G_LogPrintf("Multi vote ended due to everyone voted, no majority, and no runoff (%d voters)\n", numVotes);
+				level.voteExecuteTime = level.time; // in this special case, execute it now. the delay is done in the svcmd
+			}
+			else {
+				return;
+			}
 		}
 	}
 

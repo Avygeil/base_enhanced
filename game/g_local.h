@@ -1790,6 +1790,9 @@ typedef struct {
 	int			lastVotingClient;		//for delay purposes
 	unsigned long long runoffSurvivors;
 	unsigned long long runoffLosers;
+	unsigned long long successfulRerollVoters;
+	int			runoffRoundsCompletedIncludingRerollRound;
+	qboolean	mapsRerolled;
 	qboolean	inRunoff;
 
 	qboolean	votingGametype;
@@ -1954,6 +1957,7 @@ typedef struct {
 	list_t			cachedPositionStats;
 	list_t			cachedPositionStatsRaw;
 	list_t			info_b_e_locationsList;
+	list_t			rememberedMultivoteMapsList;
 
 #ifdef NEWMOD_SUPPORT
 	qboolean nmAuthEnabled;
@@ -2541,6 +2545,11 @@ void getStringFromIp( unsigned int ip, char* buffer, int size );
 void G_Status(void);
 qboolean MapExistsQuick(const char *mapFileName);
 const char *AccountBitflag2FlagName(int bitflag);
+typedef struct {
+	node_t		node;
+	char		mapFilename[MAX_QPATH];
+	qboolean	forceInclude;
+} rememberedMultivoteMap_t;
 
 //
 // g_weapon.c
@@ -3232,6 +3241,7 @@ extern vmCvar_t		g_vote_redirectMapVoteToLiveVersion;
 extern vmCvar_t		g_vote_printLiveVersionFullName;
 extern vmCvar_t		g_vote_overrideTrollVoters;
 extern vmCvar_t		g_vote_teamgen_autoMapVoteNonAfkAutoVoteYesSeconds;
+extern vmCvar_t		g_vote_runoffRerollOption;
 
 extern vmCvar_t		g_vote_teamgen;
 extern vmCvar_t		g_vote_teamgen_pug_requiredVotes;

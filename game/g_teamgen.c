@@ -2711,7 +2711,7 @@ static void ActivatePugProposal(pugProposal_t *set, qboolean forcedByServer) {
 			PrintIngame(-1, "Map vote automatically stopped due to pug proposal passing.\n");
 			level.voteAutoPassOnExpiration = qfalse;
 			level.multiVoting = qfalse;
-			level.runoffSurvivors = level.runoffLosers = 0llu;
+			level.runoffSurvivors = level.runoffLosers = level.successfulRerollVoters = 0llu;
 			level.inRunoff = qfalse;
 			level.multiVoteChoices = 0;
 			level.multiVoteHasWildcard = qfalse;
@@ -2781,7 +2781,7 @@ static void StartAutomaticTeamGenMapVote(void) {
 	level.voteNo = 0;
 	//level.lastVotingClient
 	level.multiVoting = qfalse;
-	level.runoffSurvivors = level.runoffLosers = 0llu;
+	level.runoffSurvivors = level.runoffLosers = level.successfulRerollVoters = 0llu;
 	level.inRunoff = qfalse;
 	level.mapsThatCanBeVotedBits = 0;
 	level.inRunoff = qfalse;
