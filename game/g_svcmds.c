@@ -1777,7 +1777,7 @@ static void mapSelectedCallback( void *context, char *mapname ) {
 				else if (level.survivingRerollMapVoters & (1llu << (unsigned long long)i))
 					Q_strncpyz(selection->printMessage[i], va("%s%sote for a map%s:", level.mapsRerolled ? "^6Map choices rerolled^7\n" : "", level.inRunoff ? "Runoff v" : "V", g_vote_rng.integer ? " to increase its probability" : ""), sizeof(selection->printMessage[i]));
 				else
-					Q_strncpyz(selection->printMessage[i], va("%s%sote for a map%s:", level.mapsRerolled ? "^2Map choices rerolled^7\n" : "", level.inRunoff ? "Runoff v" : "V", g_vote_rng.integer ? " to increase its probability" : ""), sizeof(selection->printMessage[i]));
+					Q_strncpyz(selection->printMessage[i], va("%s%sote for a map%s:", level.mapsRerolled ? "^1Map choices rerolled^7\n" : "", level.inRunoff ? "Runoff v" : "V", g_vote_rng.integer ? " to increase its probability" : ""), sizeof(selection->printMessage[i]));
 			}
 		}
 	}
