@@ -3104,10 +3104,16 @@ void TellPlayerToRateMap(gclient_t *client) {
 	int clientNum = client - level.clients;
 	static qboolean toldToRate[MAX_CLIENTS] = { qfalse };
 
+	char mapFileName[MAX_QPATH] = { 0 };
+	if (!G_DBGetLiveMapNameForMapName(level.mapname, mapFileName, sizeof(mapFileName)) || mapFileName[0])
+		Q_strncpyz(mapFileName, level.mapname, sizeof(mapFileName));
+
 	if (g_vote_tierlist.integer && clientNum >= 0 && clientNum < MAX_CLIENTS &&
-		!(g_entities[clientNum].r.svFlags & SVF_BOT) && client->account && !toldToRate[clientNum] && G_DBShouldTellPlayerToRateCurrentMap(client->account->id)) {
+		!(g_entities[clientNum].r.svFlags & SVF_BOT) && client->account && !toldToRate[clientNum] && G_DBShouldTellPlayerToRateCurrentMap(client->account->id, mapFileName)) {
+
 		char mapShortName[MAX_QPATH] = { 0 };
-		GetShortNameForMapFileName(level.mapname, mapShortName, sizeof(mapShortName));
+		GetShortNameForMapFileName(mapFileName, mapShortName, sizeof(mapShortName));
+		TrimMapVersion(mapShortName, mapShortName, sizeof(mapShortName));
 		PrintIngame(clientNum, "*You have not yet rated this map. To rate this map, enter ^5tier set %s <rating>^7 in the console (valid tiers are S, A, B, C, F).\n", mapShortName);
 		toldToRate[clientNum] = qtrue;
 	}

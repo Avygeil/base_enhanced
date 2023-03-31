@@ -2132,7 +2132,25 @@ static list_t *GetTierList(const char *commaSeparatedAccountIds, const char *sin
 }
 
 const char *sqlTierlistMapIsWhitelisted = "SELECT COUNT(*) FROM tierwhitelist WHERE map = ?1;";
-qboolean G_DBTierlistMapIsWhitelisted(const char *mapName) {
+const char *sqlTierlistMapIsWhitelistedAnyVersion =
+"WITH relevant_maps AS ("
+"SELECT filename "
+"FROM mapaliases "
+"WHERE alias = ("
+"SELECT alias "
+"FROM mapaliases "
+"WHERE filename = ?1"
+") OR filename = ?1"
+") "
+"SELECT COUNT(*), tw.map AS whitelisted_filename, "
+"COALESCE((SELECT filename FROM mapaliases WHERE islive = 1 AND alias = (SELECT alias FROM mapaliases WHERE filename = ?1)), tw.map) AS live_filename "
+"FROM tierwhitelist tw "
+"WHERE tw.map IN (SELECT filename FROM relevant_maps);";
+
+
+qboolean G_DBTierlistMapIsWhitelisted(const char *mapName, qboolean anyVersion,
+	char *whitelistedFilenameOut, size_t whitelistedFilenameOutSize,
+	char *liveFilenameOut, size_t liveFilenameOutSize) {
 	if (!VALIDSTRING(mapName))
 		return qfalse;
 
@@ -2141,13 +2159,36 @@ qboolean G_DBTierlistMapIsWhitelisted(const char *mapName) {
 	if (!mapFileName[0])
 		return qfalse;
 
-	sqlite3_stmt *statement;
-	trap_sqlite3_prepare_v2(dbPtr, sqlTierlistMapIsWhitelisted, -1, &statement, 0);
-	sqlite3_bind_text(statement, 1, mapFileName, -1, 0);
-	int rc = trap_sqlite3_step(statement);
 	qboolean found = qfalse;
-	if (rc == SQLITE_ROW)
-		found = !!(sqlite3_column_int(statement, 0));
+	sqlite3_stmt *statement;
+
+	if (whitelistedFilenameOut && whitelistedFilenameOutSize)
+		*whitelistedFilenameOut = '\0';
+	if (liveFilenameOut && liveFilenameOutSize)
+		*liveFilenameOut = '\0';
+
+	if (anyVersion) {
+		trap_sqlite3_prepare_v2(dbPtr, sqlTierlistMapIsWhitelistedAnyVersion, -1, &statement, 0);
+		sqlite3_bind_text(statement, 1, mapFileName, -1, 0);
+		int rc = trap_sqlite3_step(statement);
+		if (rc == SQLITE_ROW)
+			found = !!(sqlite3_column_int(statement, 0));
+
+		const char *whitelistedFilename = sqlite3_column_text(statement, 1);
+		if (VALIDSTRING(whitelistedFilename) && whitelistedFilenameOut && whitelistedFilenameOutSize)
+			Q_strncpyz(whitelistedFilenameOut, whitelistedFilename, whitelistedFilenameOutSize);
+
+		const char *liveFilename = sqlite3_column_text(statement, 2);
+		if (VALIDSTRING(liveFilename) && liveFilenameOut && liveFilenameOutSize)
+			Q_strncpyz(liveFilenameOut, liveFilename, liveFilenameOutSize);
+	}
+	else {
+		trap_sqlite3_prepare_v2(dbPtr, sqlTierlistMapIsWhitelisted, -1, &statement, 0);
+		sqlite3_bind_text(statement, 1, mapFileName, -1, 0);
+		int rc = trap_sqlite3_step(statement);
+		if (rc == SQLITE_ROW)
+			found = !!(sqlite3_column_int(statement, 0));
+	}
 
 	trap_sqlite3_finalize(statement);
 
@@ -2491,16 +2532,40 @@ static list_t *GetMapsNotRatedByPlayerList(int accountId) {
 	return mapsList;
 }
 
-const char *sqlShouldTellPlayerToRateCurrentMap = "SELECT COUNT(*) FROM tierwhitelist WHERE map = ?1 AND map NOT IN (SELECT map FROM tierlistmaps WHERE account_id = ?2);";
+const char *sqlShouldTellPlayerToRateCurrentMap =
+"WITH relevant_maps AS ("
+"SELECT filename "
+"FROM mapaliases "
+"WHERE alias = ("
+"SELECT alias "
+"FROM mapaliases "
+"WHERE filename = ?1"
+") OR filename = ?1 "
+"UNION "
+"SELECT ?1"
+") "
+"SELECT CASE "
+"WHEN EXISTS ("
+"SELECT 1 "
+"FROM tierwhitelist "
+"WHERE map IN (SELECT filename FROM relevant_maps)"
+") AND NOT EXISTS ("
+"SELECT 1 "
+"FROM tierlistmaps tlm "
+"WHERE tlm.account_id = ?2 AND tlm.map IN (SELECT filename FROM relevant_maps)"
+") THEN 1 "
+"ELSE 0 "
+"END;";
+
 // whitelisted and not rated by this player ==> qtrue
 // not whitelisted, or IS rated by this player ==> qfalse
-qboolean G_DBShouldTellPlayerToRateCurrentMap(int accountId) {
+qboolean G_DBShouldTellPlayerToRateCurrentMap(int accountId, const char *overrideMap) {
 	if (accountId == ACCOUNT_ID_UNLINKED)
 		return qfalse;
 
 	sqlite3_stmt *statement;
 	int rc = trap_sqlite3_prepare_v2(dbPtr, sqlShouldTellPlayerToRateCurrentMap, -1, &statement, 0);
-	sqlite3_bind_text(statement, 1, level.mapname, -1, 0);
+	sqlite3_bind_text(statement, 1, VALIDSTRING(overrideMap) ? overrideMap : level.mapname, -1, 0);
 	sqlite3_bind_int(statement, 2, accountId);
 	rc = trap_sqlite3_step(statement);
 

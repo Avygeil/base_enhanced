@@ -6117,6 +6117,46 @@ qboolean GetShortNameForMapFileName(const char *mapFileName, char *out, size_t o
 	}
 }
 
+// trims e.g. "_v69" from a string and writes to the supplied output buffer
+void TrimMapVersion(const char *input, char *output, size_t length) {
+	char *copy = strdup(input);
+
+	// find last underscore
+	const char *underscore = strrchr(copy, '_');
+
+	if (!underscore) { // no underscore; just copy input
+		Q_strncpyz(output, copy, length);
+		free(copy);
+		return;
+	}
+
+	// check if the underscore is followed by 'v' and one or more digits
+	const char *v = underscore + 1;
+	if (*v != 'v' && *v != 'V') {
+		Q_strncpyz(output, copy, length);
+		free(copy);
+		return;
+	}
+
+	v++;
+	while (isdigit(*v))
+		v++;
+
+	if (v == underscore + 1) { // no digits after underscore; just copy input
+		Q_strncpyz(output, copy, length);
+		free(copy);
+		return;
+	}
+
+	// write to buffer
+	size_t writeLen = underscore - copy;
+	if (writeLen >= length)
+		writeLen = length - 1;
+	strncpy(output, copy, writeLen);
+	output[writeLen] = '\0';
+	free(copy);
+}
+
 // attempts to find a map filename from a casually typed name
 // e.g. "kejim" and "ctf_kejim" both output "mp/ctf_kejim"
 qboolean GetMatchingMap(const char *in, char *out, size_t outSize) {
@@ -6368,38 +6408,39 @@ static void Cmd_Tier_f(gentity_t *ent) {
 			return;
 		}
 
-		if (!G_DBTierlistMapIsWhitelisted(mapFileName)) {
+		char whitelistedFileName[MAX_QPATH] = { 0 }, liveFileName[MAX_QPATH] = { 0 };
+		if (!G_DBTierlistMapIsWhitelisted(mapFileName, qtrue, whitelistedFileName, sizeof(whitelistedFileName), liveFileName, sizeof(liveFileName))) {
 			PrintIngame(clientNum, "^5%s^7 (^9%s^7) is not eligible for tierlists.\n", enteredMap, mapFileName);
 			return;
 		}
 
-		mapTier_t existingTier = G_DBGetTierOfSingleMap(va("%d", ent->client->account->id), mapFileName, qfalse);
+		mapTier_t existingTier = G_DBGetTierOfSingleMap(va("%d", ent->client->account->id), whitelistedFileName, qfalse);
 		if (existingTier != MAPTIER_INVALID && existingTier == tier) {
 			// trying to move it to the tier it's already in
-			PrintIngame(clientNum, "^5%s^7 (^9%s^7) is already in %s^7.\n", enteredMap, mapFileName, GetTierStringForTier(tier));
+			PrintIngame(clientNum, "^5%s^7 (^9%s^7) is already in %s^7.\n", enteredMap, liveFileName, GetTierStringForTier(tier));
 			return;
 		}
 
 		if (existingTier == MAPTIER_INVALID) {
 			// adding a map that is not already in a tier
-			qboolean result = G_DBAddMapToTierList(ent->client->account->id, mapFileName, tier);
+			qboolean result = G_DBAddMapToTierList(ent->client->account->id, whitelistedFileName, tier);
 			if (result) {
-				PrintIngame(clientNum, "Added ^5%s^7 (^9%s^7) to %s^7.\n", enteredMap, mapFileName, GetTierStringForTier(tier));
+				PrintIngame(clientNum, "Added ^5%s^7 (^9%s^7) to %s^7.\n", enteredMap, liveFileName, GetTierStringForTier(tier));
 			}
 			else {
-				PrintIngame(clientNum, "Error adding ^5%s^7 (^9%s^7) to %s^7!\n", enteredMap, mapFileName, GetTierStringForTier(tier));
-				G_LogPrintf("Client %d (%s^7) encountered an error trying to add %s (%s) to %s^7\n", clientNum, ent->client->pers.netname, enteredMap, mapFileName, GetTierStringForTier(tier));
+				PrintIngame(clientNum, "Error adding ^5%s^7 (^9%s^7) to %s^7!\n", enteredMap, liveFileName, GetTierStringForTier(tier));
+				G_LogPrintf("Client %d (%s^7) encountered an error trying to add %s (%s) to %s^7\n", clientNum, ent->client->pers.netname, enteredMap, liveFileName, GetTierStringForTier(tier));
 			}
 		}
 		else {
 			// moving it from a different tier
-			qboolean result = G_DBAddMapToTierList(ent->client->account->id, mapFileName, tier);
+			qboolean result = G_DBAddMapToTierList(ent->client->account->id, whitelistedFileName, tier);
 			if (result) {
-				PrintIngame(clientNum, "Moved ^5%s^7 (^9%s^7) to %s^7 (was in %s^7).\n", enteredMap, mapFileName, GetTierStringForTier(tier), GetTierStringForTier(existingTier));
+				PrintIngame(clientNum, "Moved ^5%s^7 (^9%s^7) to %s^7 (was in %s^7).\n", enteredMap, liveFileName, GetTierStringForTier(tier), GetTierStringForTier(existingTier));
 			}
 			else {
-				PrintIngame(clientNum, "Error moving ^5%s^7 (^9%s^7) to %s^7!\n", enteredMap, mapFileName, GetTierStringForTier(tier));
-				G_LogPrintf("Client %d (%s^7) encountered an error trying to move %s (%s) to %s^7\n", clientNum, ent->client->pers.netname, enteredMap, mapFileName, GetTierStringForTier(tier));
+				PrintIngame(clientNum, "Error moving ^5%s^7 (^9%s^7) to %s^7!\n", enteredMap, liveFileName, GetTierStringForTier(tier));
+				G_LogPrintf("Client %d (%s^7) encountered an error trying to move %s (%s) to %s^7\n", clientNum, ent->client->pers.netname, enteredMap, liveFileName, GetTierStringForTier(tier));
 			}
 		}
 	}
@@ -6421,19 +6462,24 @@ static void Cmd_Tier_f(gentity_t *ent) {
 			return;
 		}
 
+		char liveFileName[MAX_QPATH] = { 0 };
+		G_DBGetLiveMapNameForMapName(mapFileName, liveFileName, sizeof(liveFileName));
+		if (!liveFileName[0])
+			Q_strncpyz(liveFileName, mapFileName, sizeof(liveFileName));
+
 		mapTier_t existingTier = G_DBGetTierOfSingleMap(va("%d", ent->client->account->id), mapFileName, qfalse);
 		if (existingTier == MAPTIER_INVALID) {
-			PrintIngame(clientNum, "^5%s^7 (^9%s^7) is already not in your list.\n", arg2, mapFileName);
+			PrintIngame(clientNum, "^5%s^7 (^9%s^7) is already not in your list.\n", arg2, liveFileName);
 			return;
 		}
 
 		qboolean result = G_DBRemoveMapFromTierList(ent->client->account->id, mapFileName);
 		if (result) {
-			PrintIngame(clientNum, "Removed ^5%s^7 (^9%s^7).\n", arg2, mapFileName);
+			PrintIngame(clientNum, "Removed ^5%s^7 (^9%s^7).\n", arg2, liveFileName);
 		}
 		else {
-			PrintIngame(clientNum, "Error removing ^5%s^7 (^9%s^7)!\n", arg2, mapFileName);
-			G_LogPrintf("Client %d (%s^7) encountered an error trying to remove %s (%s)\n", clientNum, ent->client->pers.netname, arg2, mapFileName);
+			PrintIngame(clientNum, "Error removing ^5%s^7 (^9%s^7)!\n", arg2, liveFileName);
+			G_LogPrintf("Client %d (%s^7) encountered an error trying to remove %s (%s)\n", clientNum, ent->client->pers.netname, arg2, liveFileName);
 		}
 	}
 	else if (!Q_stricmp(arg1, "reset") || !Q_stricmp(arg1, "clear") || !Q_stricmp(arg1, "clr")) {
@@ -6501,23 +6547,25 @@ static void Cmd_Tier_f(gentity_t *ent) {
 
 		char mapShortName[MAX_QPATH] = { 0 };
 		GetShortNameForMapFileName(mapFileName, mapShortName, sizeof(mapShortName));
+		TrimMapVersion(mapShortName, mapShortName, sizeof(mapShortName));
 
-		if (!G_DBTierlistMapIsWhitelisted(mapFileName)) {
+		char whitelistedFileName[MAX_QPATH] = { 0 }, liveFileName[MAX_QPATH] = { 0 };
+		if (!G_DBTierlistMapIsWhitelisted(mapFileName, qtrue, whitelistedFileName, sizeof(whitelistedFileName), liveFileName, sizeof(liveFileName))) {
 			PrintIngame(clientNum, "^5%s^7 (^9%s^7) is not eligible for tierlists.\n", mapShortName, mapFileName);
 			return;
 		}
 
-		PrintIngame(clientNum, "Stats for ^5%s ^7(^9%s^7):\n", mapShortName, mapFileName);
+		PrintIngame(clientNum, "Stats for ^5%s ^7(^9%s^7):\n", mapShortName, liveFileName);
 
-		int numPlays = G_DBNumTimesPlayedSingleMap(mapFileName);
+		int numPlays = G_DBNumTimesPlayedSingleMap(whitelistedFileName);
 		PrintIngame(clientNum, "Matches played: %s\n", numPlays ? va("%d", numPlays) : "none");
 
 		mapTier_t currentTier = MAPTIER_INVALID;
 		char ingamePlayersStr[256] = { 0 };
 		int numIngame = GetAccountIdsStringOfIngamePlayers(ingamePlayersStr, sizeof(ingamePlayersStr));
 		if (numIngame >= 2)
-			currentTier = G_DBGetTierOfSingleMap(ingamePlayersStr, mapFileName, qtrue);
-		mapTier_t communityTier = G_DBGetTierOfSingleMap(NULL, mapFileName, qfalse);
+			currentTier = G_DBGetTierOfSingleMap(ingamePlayersStr, whitelistedFileName, qtrue);
+		mapTier_t communityTier = G_DBGetTierOfSingleMap(NULL, whitelistedFileName, qfalse);
 
 		if (currentTier == MAPTIER_INVALID) { // not enough people ingame have rated this map
 			if (numIngame) // only bother showing this "unrated" message if there are actually ingame players
@@ -6530,7 +6578,7 @@ static void Cmd_Tier_f(gentity_t *ent) {
 			PrintIngame(clientNum, "Community rating: %s\n", communityTier == MAPTIER_INVALID ? "unrated" : GetTierStringForTier(communityTier));
 		}
 
-		G_DBPrintAllPlayerRatingsForSingleMap(mapFileName, clientNum, NULL);
+		G_DBPrintAllPlayerRatingsForSingleMap(whitelistedFileName, clientNum, NULL);
 	}
 }
 

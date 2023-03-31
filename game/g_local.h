@@ -2104,6 +2104,7 @@ gentity_t *G_GetDuelWinner(gclient_t *client);
 const char *GetTierStringForTier(mapTier_t tier);
 const char *GetTierColorForTier(mapTier_t tier);
 qboolean GetShortNameForMapFileName(const char *mapFileName, char *out, size_t outSize);
+void TrimMapVersion(const char *input, char *output, size_t length);
 qboolean GetMatchingMap(const char *in, char *out, size_t outSize);
 mapTier_t MapTierForDouble(double average);
 typedef struct {

@@ -280,9 +280,11 @@ qboolean G_DBPrintTiersOfAllMaps(int printClientNum, qboolean useIngamePlayers, 
 qboolean G_DBAddMapToTierWhitelist(const char *mapFileName);
 qboolean G_DBRemoveMapFromTierWhitelist(const char *mapFileName);
 list_t *G_DBGetTierWhitelistedMaps(void);
-qboolean G_DBTierlistMapIsWhitelisted(const char *mapName);
+qboolean G_DBTierlistMapIsWhitelisted(const char *mapName, qboolean anyVersion,
+	char *whitelistedFilenameOut, size_t whitelistedFilenameOutSize,
+	char *liveFilenameOut, size_t liveFilenameOutSize);
 qboolean G_DBSelectTierlistMaps(MapSelectedCallback callback, void *context);
-qboolean G_DBShouldTellPlayerToRateCurrentMap(int accountId);
+qboolean G_DBShouldTellPlayerToRateCurrentMap(int accountId, const char *overrideMap);
 int G_GetNumberOfMapsRatedByPlayer(int accountId);
 qboolean G_DBPrintPlayerUnratedList(int accountId, int printClientNum, const char *successPrologueMessage);
 mapTier_t G_DBGetTierOfSingleMap(const char *optionalAccountIdsStr, const char *mapFileName, qboolean requireMultipleVotes);
