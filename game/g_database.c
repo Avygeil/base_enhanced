@@ -2421,7 +2421,8 @@ static qboolean PrintAllPlayerRatingsForSingleMap(int printClientNum, list_t *pl
 		const char *colorStr = "^7";
 		for (int i = 0; i < MAX_CLIENTS; i++) {
 			gentity_t *ent = &g_entities[i];
-			if (ent->inuse && ent->client && ent->client->pers.connected != CON_DISCONNECTED && ent->client->account && ent->client->account->id == data->accountId) {
+			if (ent->inuse && ent->client && ent->client->pers.connected != CON_DISCONNECTED && ent->client->account && ent->client->account->id == data->accountId &&
+				!(ent->client->account->flags & ACCOUNTFLAG_ELOBOTSELFHOST && !Q_stricmpclean(ent->client->pers.netname, "elo BOT"))) {
 				switch (ent->client->sess.sessionTeam) {
 				case TEAM_RED: colorStr = "^1"; break;
 				case TEAM_BLUE: colorStr = "^4"; break;
@@ -3096,7 +3097,8 @@ qboolean G_DBTierListPlayersWhoHaveRatedMaps(int clientNum, const char *successP
 			const char *colorStr = "^7";
 			for (int i = 0; i < MAX_CLIENTS; i++) {
 				gentity_t *ent = &g_entities[i];
-				if (ent->inuse && ent->client && ent->client->pers.connected != CON_DISCONNECTED && ent->client->account && ent->client->account->id == accountId) {
+				if (ent->inuse && ent->client && ent->client->pers.connected != CON_DISCONNECTED && ent->client->account && ent->client->account->id == accountId &&
+					!(ent->client->account->flags & ACCOUNTFLAG_ELOBOTSELFHOST && !Q_stricmpclean(ent->client->pers.netname, "elo BOT"))) {
 					switch (ent->client->sess.sessionTeam) {
 					case TEAM_RED: colorStr = "^1"; break;
 					case TEAM_BLUE: colorStr = "^4"; break;
@@ -5279,7 +5281,8 @@ void G_DBPrintPlayersWithStats(int printClientNum) {
 		const char *colorStr = "^7";
 		for (int i = 0; i < MAX_CLIENTS; i++) {
 			gentity_t *ent = &g_entities[i];
-			if (ent->inuse && ent->client && ent->client->pers.connected != CON_DISCONNECTED && ent->client->account && ent->client->account->id == accountId) {
+			if (ent->inuse && ent->client && ent->client->pers.connected != CON_DISCONNECTED && ent->client->account && ent->client->account->id == accountId &&
+				!(ent->client->account->flags & ACCOUNTFLAG_ELOBOTSELFHOST && !Q_stricmpclean(ent->client->pers.netname, "elo BOT"))) {
 				switch (ent->client->sess.sessionTeam) {
 				case TEAM_RED: colorStr = "^1"; break;
 				case TEAM_BLUE: colorStr = "^4"; break;
