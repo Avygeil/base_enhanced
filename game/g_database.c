@@ -2141,11 +2141,17 @@ const char *sqlTierlistMapIsWhitelistedAnyVersion =
 "FROM mapaliases "
 "WHERE filename = ?1"
 ") OR filename = ?1"
+" UNION "
+"SELECT ?1"
 ") "
-"SELECT COUNT(*), tw.map AS whitelisted_filename, "
-"COALESCE((SELECT filename FROM mapaliases WHERE islive = 1 AND alias = (SELECT alias FROM mapaliases WHERE filename = ?1)), tw.map) AS live_filename "
+"SELECT COUNT(*), COALESCE(tw.map, ?1) AS whitelisted_filename, "
+"COALESCE((SELECT filename FROM mapaliases WHERE islive = 1 AND alias = (SELECT alias FROM mapaliases WHERE filename = ?1)), ?1) AS live_filename "
 "FROM tierwhitelist tw "
-"WHERE tw.map IN (SELECT filename FROM relevant_maps);";
+"WHERE tw.map IN (SELECT filename FROM relevant_maps) "
+"UNION "
+"SELECT 0, ?1, ?1 "
+"WHERE NOT EXISTS (SELECT * FROM tierwhitelist WHERE map IN (SELECT filename FROM relevant_maps));";
+
 
 
 qboolean G_DBTierlistMapIsWhitelisted(const char *mapName, qboolean anyVersion,
@@ -2174,13 +2180,15 @@ qboolean G_DBTierlistMapIsWhitelisted(const char *mapName, qboolean anyVersion,
 		if (rc == SQLITE_ROW)
 			found = !!(sqlite3_column_int(statement, 0));
 
-		const char *whitelistedFilename = sqlite3_column_text(statement, 1);
-		if (VALIDSTRING(whitelistedFilename) && whitelistedFilenameOut && whitelistedFilenameOutSize)
-			Q_strncpyz(whitelistedFilenameOut, whitelistedFilename, whitelistedFilenameOutSize);
+		if (found) {
+			const char *whitelistedFilename = sqlite3_column_text(statement, 1);
+			if (VALIDSTRING(whitelistedFilename) && whitelistedFilenameOut && whitelistedFilenameOutSize)
+				Q_strncpyz(whitelistedFilenameOut, whitelistedFilename, whitelistedFilenameOutSize);
 
-		const char *liveFilename = sqlite3_column_text(statement, 2);
-		if (VALIDSTRING(liveFilename) && liveFilenameOut && liveFilenameOutSize)
-			Q_strncpyz(liveFilenameOut, liveFilename, liveFilenameOutSize);
+			const char *liveFilename = sqlite3_column_text(statement, 2);
+			if (VALIDSTRING(liveFilename) && liveFilenameOut && liveFilenameOutSize)
+				Q_strncpyz(liveFilenameOut, liveFilename, liveFilenameOutSize);
+		}
 	}
 	else {
 		trap_sqlite3_prepare_v2(dbPtr, sqlTierlistMapIsWhitelisted, -1, &statement, 0);
