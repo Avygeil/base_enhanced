@@ -1756,7 +1756,7 @@ static void mapSelectedCallback( void *context, char *mapname ) {
 				Q_strncpyz(selection->printMessage[i], va("Runoff vote: waiting for other players to vote...\nMaps still in contention:"), sizeof(selection->printMessage[i]));
 			}
 			else if (level.runoffLosers & (1llu << (unsigned long long)i)) {
-				if (removedVotes[i] > 0) {
+				if (removedVotes[i] > 0 && removedVotes[i] != 0xFF) {
 					char map[MAX_QPATH] = { 0 };
 					if (level.multivoteWildcardMapFileName[0] && !Q_stricmp(level.multiVoteMapFileNames[((int)removedVotes[i]) - 1], level.multivoteWildcardMapFileName))
 						Q_strncpyz(map, "Random map", sizeof(map));
@@ -1764,7 +1764,7 @@ static void mapSelectedCallback( void *context, char *mapname ) {
 						Q_strncpyz(map, level.multiVoteMapShortNames[((int)removedVotes[i]) - 1], sizeof(map));
 					Q_strncpyz(selection->printMessage[i], va("Runoff vote:\n"S_COLOR_RED"%s"S_COLOR_RED" was eliminated\n"S_COLOR_YELLOW"Please vote again"S_COLOR_WHITE, map), sizeof(selection->printMessage[i]));
 				}
-				else if (removedVotes[i] == -1) {
+				else if (removedVotes[i] == 0xFF) {
 					Q_strncpyz(selection->printMessage[i], "Runoff vote:\n"S_COLOR_RED"Reroll"S_COLOR_RED" was eliminated\n"S_COLOR_YELLOW"Please vote again"S_COLOR_WHITE, sizeof(selection->printMessage[i]));
 				}
 				else {
@@ -2130,14 +2130,17 @@ qboolean DoRunoff(void) {
 			// reroll has a majority (not just plurality); do it
 
 			// note both:
-			// - maps tied for the most votes, so we can make sure they are still part of the list after rerolling (provided S or A tier)
-			// - all other maps, so we can make sure they are NOT part of the list after rerolling
+			// - a maximum of one map tied for the most votes, so we can make sure it is still part of the list after rerolling (provided S or A tier) - forceInclude qtrue
+			// - all other maps, so we can make sure they are NOT part of the list after rerolling - forceInclude qfalse
+			int survivorIndex = -1;
 			for (int i = 0; i < numChoices; i++) {
 				rememberedMultivoteMap_t *remember = ListAdd(&level.rememberedMultivoteMapsList, sizeof(rememberedMultivoteMap_t));
 				Q_strncpyz(remember->mapFilename, level.multiVoteMapFileNames[i], sizeof(remember->mapFilename));
-				remember->forceInclude = !!(numVotesForMap[i] > 1 && numVotesForMap[i] == highestNumVotes);
-				if (remember->forceInclude)
+				remember->forceInclude = !!(numVotesForMap[i] > 1 && numVotesForMap[i] == highestNumVotes && survivorIndex == -1);
+				if (remember->forceInclude) {
 					remember->position = i; // note position of map that will survive the reroll, so we can put it in the same place after the reroll
+					survivorIndex = i;
+				}
 			}
 
 			// note the victors and losers so we can display unique messages to people,
@@ -2150,7 +2153,7 @@ qboolean DoRunoff(void) {
 					level.successfulRerollVoters |= (1llu << (unsigned long long)i);
 				}
 				else if (voteId > 0) {
-					if (numVotesForMap[voteId - 1] > 1 && numVotesForMap[voteId - 1] == highestNumVotes) {
+					if (numVotesForMap[voteId - 1] > 1 && numVotesForMap[voteId - 1] == highestNumVotes && survivorIndex == voteId - 1) {
 						reinstateVotes[i] = level.multiVoteMapChars[level.multiVotes[i] - 1];
 						level.survivingRerollMapVoters |= (1llu << (unsigned long long)i);
 					}
@@ -2205,7 +2208,7 @@ qboolean DoRunoff(void) {
 				if (voteId == -1) { // this guy's reroll vote was removed
 					level.clients[i].mGameFlags &= ~PSG_VOTED;
 					level.runoffLosers |= (1llu << (unsigned long long)i);
-					removedVotes[i] = -1;
+					removedVotes[i] = 0xFF;
 					numFailedRerollers++;
 					G_LogPrintf("Client %d (%s) had their \"%s\" reroll vote removed.\n", i, level.clients[i].pers.netname, level.multiVoteMapShortNames[((int)level.multiVoteMapChars[voteId - 1]) - 1]);
 				}

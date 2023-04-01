@@ -459,6 +459,7 @@ vmCvar_t	g_vote_tierlist_f_max;
 vmCvar_t	g_vote_tierlist_totalMaps;
 vmCvar_t	g_vote_tierlist_debug;
 vmCvar_t	g_vote_tierlist_reminders;
+vmCvar_t	g_vote_tierlist_fixShittyPools;
 vmCvar_t	g_vote_rng;
 vmCvar_t	g_vote_runoff;
 vmCvar_t	g_vote_mapCooldownMinutes;
@@ -955,7 +956,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_tierlist_a_min, "g_vote_tierlist_a_min", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_tierlist_a_max, "g_vote_tierlist_a_max", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_tierlist_b_min, "g_vote_tierlist_b_min", "1", CVAR_ARCHIVE, 0, qtrue },
-	{ &g_vote_tierlist_b_max, "g_vote_tierlist_b_max", "1", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_tierlist_b_max, "g_vote_tierlist_b_max", "2", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_tierlist_c_min, "g_vote_tierlist_c_min", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_tierlist_c_max, "g_vote_tierlist_c_max", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_tierlist_f_min, "g_vote_tierlist_f_min", "0", CVAR_ARCHIVE, 0, qtrue },
@@ -963,6 +964,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_tierlist_totalMaps, "g_vote_tierlist_totalMaps", "5", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_tierlist_debug, "g_vote_tierlist_debug", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_tierlist_reminders, "g_vote_tierlist_reminders", "1", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_tierlist_fixShittyPools, "g_vote_tierlist_fixShittyPools", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_rng, "g_vote_rng", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_runoff, "g_vote_runoff", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_mapCooldownMinutes, "g_vote_mapCooldownMinutes", "60", CVAR_ARCHIVE, 0, qtrue },

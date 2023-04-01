@@ -2095,7 +2095,7 @@ static list_t *GetTierList(const char *commaSeparatedAccountIds, const char *sin
 		ListCopy(mapsList, &temp, sizeof(mapTierData_t));
 		ListClear(mapsList);
 
-		// add the force included ones to the top of the list
+		// add the force included one to the top of the list
 		{
 			iterator_t iter;
 			ListIterate(&temp, &iter, qfalse);
@@ -3452,6 +3452,547 @@ qboolean G_DBSelectTierlistMaps(MapSelectedCallback callback, void *context) {
 			continueOuterLoop:; // you bitch
 		}
 	}
+
+	if (g_vote_tierlist_fixShittyPools.integer && numMapsPickedTotal >= 5) {
+		// get a randomly ordered list of top 6 maps (except for those on cooldown)
+		sqlite3_stmt *statement;
+		list_t top6Maps = { 0 };
+		trap_sqlite3_prepare_v2(dbPtr, "WITH topmaps AS (SELECT num_played_view.map map, lastplayedmaporalias.num num, lastplayedmaporalias.datetime lasttimeplayed FROM num_played_view LEFT JOIN lastplayedmaporalias ON lastplayedmaporalias.map = num_played_view.map ORDER BY num DESC LIMIT 6) SELECT map FROM topmaps WHERE num IS NULL OR strftime('%s', 'now') - lasttimeplayed > ? ORDER BY RANDOM();", -1, &statement, 0);
+		const int cooldownSeconds = g_vote_mapCooldownMinutes.integer > 0 ? g_vote_mapCooldownMinutes.integer * 60 : 0;
+		sqlite3_bind_int(statement, 1, cooldownSeconds);
+		int rc = trap_sqlite3_step(statement);
+		while (rc == SQLITE_ROW) {
+			const char *map = (const char *)sqlite3_column_text(statement, 0);
+			if (MapExistsQuick(map)) {
+				rememberedMultivoteMap_t *add = ListAdd(&top6Maps, sizeof(rememberedMultivoteMap_t));
+				Q_strncpyz(add->mapFilename, map, sizeof(add->mapFilename));
+			}
+			rc = trap_sqlite3_step(statement);
+		}
+
+		// get a randomly ordered list of top 10 maps (except for those on cooldown)
+		trap_sqlite3_reset(statement);
+		list_t top10Maps = { 0 };
+		trap_sqlite3_prepare_v2(dbPtr, "WITH topmaps AS (SELECT num_played_view.map map, lastplayedmaporalias.num num, lastplayedmaporalias.datetime lasttimeplayed FROM num_played_view LEFT JOIN lastplayedmaporalias ON lastplayedmaporalias.map = num_played_view.map ORDER BY num DESC LIMIT 10) SELECT map FROM topmaps WHERE num IS NULL OR strftime('%s', 'now') - lasttimeplayed > ? ORDER BY RANDOM();", -1, &statement, 0);
+		sqlite3_bind_int(statement, 1, cooldownSeconds);
+		rc = trap_sqlite3_step(statement);
+		while (rc == SQLITE_ROW) {
+			const char *map = (const char *)sqlite3_column_text(statement, 0);
+			if (MapExistsQuick(map)) {
+				rememberedMultivoteMap_t *add = ListAdd(&top10Maps, sizeof(rememberedMultivoteMap_t));
+				Q_strncpyz(add->mapFilename, map, sizeof(add->mapFilename));
+			}
+			rc = trap_sqlite3_step(statement);
+		}
+
+		// take stock of what we have chosen
+		int numTop6MapsChosen = 0, numTop10MapsChosen = 0;
+		for (int i = 0; i < numMapsPickedTotal; i++) {
+			qboolean isTop6Map = !!(ListFind(&top6Maps, RememberedMapMatches, chosenMapNames[i], NULL));
+			if (isTop6Map) {
+				if (g_vote_tierlist_debug.integer)
+					G_LogPrintf("g_vote_tierlist_fixShittyPools: %s is a top 6 map, and by extension a top 10 map\n", chosenMapNames[i]);
+				numTop6MapsChosen++;
+			}
+
+			qboolean isTop10Map = !!(ListFind(&top10Maps, RememberedMapMatches, chosenMapNames[i], NULL));
+			if (isTop10Map) {
+				if (g_vote_tierlist_debug.integer && !isTop6Map)
+					G_LogPrintf("g_vote_tierlist_fixShittyPools: %s is a top 10 map\n", chosenMapNames[i]);
+				numTop10MapsChosen++;
+			}
+		}
+
+		if (g_vote_tierlist_debug.integer) {
+			G_LogPrintf("g_vote_tierlist_fixShittyPools: tentatively selected %d top 10 map%s, including %d top 6 map%s. top10Maps.size is %d, top6Maps.size is %d.\n",
+				numTop10MapsChosen, numTop10MapsChosen == 1 ? "" : "s", numTop6MapsChosen, numTop6MapsChosen == 1 ? "" : "s", top10Maps.size, top6Maps.size);
+		}
+
+		assert(top10Maps.size >= top6Maps.size);
+
+		if (numTop6MapsChosen >= 2) {
+			// do nothing
+		}
+		else if (numTop6MapsChosen >= 1 && numTop10MapsChosen >= 2) {
+			// do nothing
+		}
+		else if (numTop6MapsChosen == 1 && numTop10MapsChosen == 1) {
+			// pick something other than the lone top 6 map and change it to a top 10 map
+			if (top10Maps.size >= 2) {
+				for (int i = numMapsPickedTotal - 1; i >= 0; i--) {
+					qboolean isTop6Map = !!(ListFind(&top6Maps, RememberedMapMatches, chosenMapNames[i], NULL));
+					rememberedMultivoteMap_t *remembered = ListFind(&level.rememberedMultivoteMapsList, RememberedMapMatches, chosenMapNames[i], NULL);
+					qboolean isForceIncludedMap = !!(remembered && remembered->forceInclude);
+
+					if (isTop6Map || isForceIncludedMap)
+						continue;
+
+					rememberedMultivoteMap_t *addMap = (rememberedMultivoteMap_t *)top10Maps.head;
+					qboolean thisMapAlreadyChosen, suitableMapFound = qfalse;
+
+					do {
+						thisMapAlreadyChosen = qfalse;
+
+						for (int j = 0; j < numMapsPickedTotal; j++) {
+							if (!Q_stricmp(addMap->mapFilename, chosenMapNames[j])) {
+								thisMapAlreadyChosen = qtrue;
+								break;
+							}
+						}
+
+						if (!thisMapAlreadyChosen) { // make sure the map we are going to sub in wasn't already rerolled out
+							rememberedMultivoteMap_t *addMapRemembered = ListFind(&level.rememberedMultivoteMapsList, RememberedMapMatches, addMap->mapFilename, NULL);
+							qboolean addMapIsRememberedToBeForceExcluded = !!(addMapRemembered && !addMapRemembered->forceInclude);
+							if (addMapIsRememberedToBeForceExcluded)
+								thisMapAlreadyChosen = qtrue;
+						}
+
+						// If the current map is already chosen and there's a next map, move to the next map
+						if (thisMapAlreadyChosen && addMap->node.next) {
+							addMap = addMap->node.next;
+						}
+						else {
+							// If the map isn't chosen, update newMapFound and break out of the loop
+							if (!thisMapAlreadyChosen) {
+								suitableMapFound = qtrue;
+							}
+							break; // Break out of the loop in any case
+						}
+					} while (1); // Keep looping until we break out
+
+
+					if (suitableMapFound) {
+						if (g_vote_tierlist_debug.integer) {
+							char newShortName[MAX_QPATH] = { 0 }, oldShortName[MAX_QPATH] = { 0 };
+							GetShortNameForMapFileName(addMap->mapFilename, newShortName, sizeof(newShortName));
+							GetShortNameForMapFileName(chosenMapNames[i], oldShortName, sizeof(oldShortName));
+							G_LogPrintf("g_vote_tierlist_fixShittyPools: swapping in top 10 map %s in place of %s\n",
+								newShortName, oldShortName);
+						}
+
+						Q_strncpyz(chosenMapNames[i], addMap->mapFilename, sizeof(chosenMapNames[i]));
+					}
+					else {
+						if (g_vote_tierlist_debug.integer) {
+							char oldShortName[MAX_QPATH] = { 0 };
+							GetShortNameForMapFileName(chosenMapNames[i], oldShortName, sizeof(oldShortName));
+							G_LogPrintf("g_vote_tierlist_fixShittyPools: no suitable top 10 map to sub in for %s!\n", oldShortName);
+						}
+					}
+
+					break;
+				}
+			}
+		}
+		else if (!numTop6MapsChosen && numTop10MapsChosen >= 2) {
+			// pick anything and change it to a top 6 map
+			if (top6Maps.size >= 1) {
+				for (int i = numMapsPickedTotal - 1; i >= 0; i--) {
+					rememberedMultivoteMap_t *remembered = ListFind(&level.rememberedMultivoteMapsList, RememberedMapMatches, chosenMapNames[i], NULL);
+					qboolean isForceIncludedMap = !!(remembered && remembered->forceInclude);
+
+					if (isForceIncludedMap)
+						continue;
+
+					rememberedMultivoteMap_t *addMap = (rememberedMultivoteMap_t *)top6Maps.head;
+					qboolean thisMapAlreadyChosen, suitableMapFound = qfalse;
+
+					do {
+						thisMapAlreadyChosen = qfalse;
+
+						for (int j = 0; j < numMapsPickedTotal; j++) {
+							if (!Q_stricmp(addMap->mapFilename, chosenMapNames[j])) {
+								thisMapAlreadyChosen = qtrue;
+								break;
+							}
+						}
+
+						if (!thisMapAlreadyChosen) { // make sure the map we are going to sub in wasn't already rerolled out
+							rememberedMultivoteMap_t *addMapRemembered = ListFind(&level.rememberedMultivoteMapsList, RememberedMapMatches, addMap->mapFilename, NULL);
+							qboolean addMapIsRememberedToBeForceExcluded = !!(addMapRemembered && !addMapRemembered->forceInclude);
+							if (addMapIsRememberedToBeForceExcluded)
+								thisMapAlreadyChosen = qtrue;
+						}
+
+						// If the current map is already chosen and there's a next map, move to the next map
+						if (thisMapAlreadyChosen && addMap->node.next) {
+							addMap = addMap->node.next;
+						}
+						else {
+							// If the map isn't chosen, update newMapFound and break out of the loop
+							if (!thisMapAlreadyChosen) {
+								suitableMapFound = qtrue;
+							}
+							break; // Break out of the loop in any case
+						}
+					} while (1); // Keep looping until we break out
+
+					if (suitableMapFound) {
+						if (g_vote_tierlist_debug.integer) {
+							char newShortName[MAX_QPATH] = { 0 }, oldShortName[MAX_QPATH] = { 0 };
+							GetShortNameForMapFileName(addMap->mapFilename, newShortName, sizeof(newShortName));
+							GetShortNameForMapFileName(chosenMapNames[i], oldShortName, sizeof(oldShortName));
+							G_LogPrintf("g_vote_tierlist_fixShittyPools: swapping in top 6 map %s in place of %s\n",
+								newShortName, oldShortName);
+						}
+
+						Q_strncpyz(chosenMapNames[i], addMap->mapFilename, sizeof(chosenMapNames[i]));
+					}
+					else {
+						if (g_vote_tierlist_debug.integer) {
+							char oldShortName[MAX_QPATH] = { 0 };
+							GetShortNameForMapFileName(chosenMapNames[i], oldShortName, sizeof(oldShortName));
+							G_LogPrintf("g_vote_tierlist_fixShittyPools: no suitable top 6 map to sub in for %s!\n", oldShortName);
+						}
+					}
+
+					break;
+				}
+			}
+		}
+		else if (!numTop6MapsChosen && numTop10MapsChosen == 1) {
+			// pick something other than the lone top 10 map and change it to a top 6 map
+			if (top6Maps.size >= 1) {
+				for (int i = numMapsPickedTotal - 1; i >= 0; i--) {
+					qboolean isTop10Map = !!(ListFind(&top10Maps, RememberedMapMatches, chosenMapNames[i], NULL));
+					rememberedMultivoteMap_t *remembered = ListFind(&level.rememberedMultivoteMapsList, RememberedMapMatches, chosenMapNames[i], NULL);
+					qboolean isForceIncludedMap = !!(remembered && remembered->forceInclude);
+
+					if (isTop10Map || isForceIncludedMap)
+						continue;
+
+					rememberedMultivoteMap_t *addMap = (rememberedMultivoteMap_t *)top6Maps.head;
+					qboolean thisMapAlreadyChosen, suitableMapFound = qfalse;
+
+					do {
+						thisMapAlreadyChosen = qfalse;
+
+						for (int j = 0; j < numMapsPickedTotal; j++) {
+							if (!Q_stricmp(addMap->mapFilename, chosenMapNames[j])) {
+								thisMapAlreadyChosen = qtrue;
+								break;
+							}
+						}
+
+						if (!thisMapAlreadyChosen) { // make sure the map we are going to sub in wasn't already rerolled out
+							rememberedMultivoteMap_t *addMapRemembered = ListFind(&level.rememberedMultivoteMapsList, RememberedMapMatches, addMap->mapFilename, NULL);
+							qboolean addMapIsRememberedToBeForceExcluded = !!(addMapRemembered && !addMapRemembered->forceInclude);
+							if (addMapIsRememberedToBeForceExcluded)
+								thisMapAlreadyChosen = qtrue;
+						}
+
+						// If the current map is already chosen and there's a next map, move to the next map
+						if (thisMapAlreadyChosen && addMap->node.next) {
+							addMap = addMap->node.next;
+						}
+						else {
+							// If the map isn't chosen, update newMapFound and break out of the loop
+							if (!thisMapAlreadyChosen) {
+								suitableMapFound = qtrue;
+							}
+							break; // Break out of the loop in any case
+						}
+					} while (1); // Keep looping until we break out
+
+					if (suitableMapFound) {
+						if (g_vote_tierlist_debug.integer) {
+							char newShortName[MAX_QPATH] = { 0 }, oldShortName[MAX_QPATH] = { 0 };
+							GetShortNameForMapFileName(addMap->mapFilename, newShortName, sizeof(newShortName));
+							GetShortNameForMapFileName(chosenMapNames[i], oldShortName, sizeof(oldShortName));
+							G_LogPrintf("g_vote_tierlist_fixShittyPools: swapping in top 6 map %s in place of %s\n",
+								newShortName, oldShortName);
+						}
+
+						Q_strncpyz(chosenMapNames[i], addMap->mapFilename, sizeof(chosenMapNames[i]));
+					}
+					else {
+						if (g_vote_tierlist_debug.integer) {
+							char oldShortName[MAX_QPATH] = { 0 };
+							GetShortNameForMapFileName(chosenMapNames[i], oldShortName, sizeof(oldShortName));
+							G_LogPrintf("g_vote_tierlist_fixShittyPools: no suitable top 6 map to sub in for %s!\n", oldShortName);
+						}
+					}
+
+					break;
+				}
+			}
+			else if (top10Maps.size >= 2) {
+				// edge case: one top 10 map chosen, and no top 6 maps are available at all
+				// pick something other than the lone top 10 map and change it to (another) top 10 map
+				for (int i = numMapsPickedTotal - 1; i >= 0; i--) {
+					qboolean isTop10Map = !!(ListFind(&top10Maps, RememberedMapMatches, chosenMapNames[i], NULL));
+					rememberedMultivoteMap_t *remembered = ListFind(&level.rememberedMultivoteMapsList, RememberedMapMatches, chosenMapNames[i], NULL);
+					qboolean isForceIncludedMap = !!(remembered && remembered->forceInclude);
+
+					if (isTop10Map || isForceIncludedMap)
+						continue;
+
+					rememberedMultivoteMap_t *addMap = (rememberedMultivoteMap_t *)top10Maps.head;
+					qboolean thisMapAlreadyChosen, suitableMapFound = qfalse;
+
+					do {
+						thisMapAlreadyChosen = qfalse;
+
+						for (int j = 0; j < numMapsPickedTotal; j++) {
+							if (!Q_stricmp(addMap->mapFilename, chosenMapNames[j])) {
+								thisMapAlreadyChosen = qtrue;
+								break;
+							}
+						}
+
+						if (!thisMapAlreadyChosen) { // make sure the map we are going to sub in wasn't already rerolled out
+							rememberedMultivoteMap_t *addMapRemembered = ListFind(&level.rememberedMultivoteMapsList, RememberedMapMatches, addMap->mapFilename, NULL);
+							qboolean addMapIsRememberedToBeForceExcluded = !!(addMapRemembered && !addMapRemembered->forceInclude);
+							if (addMapIsRememberedToBeForceExcluded)
+								thisMapAlreadyChosen = qtrue;
+						}
+
+						// If the current map is already chosen and there's a next map, move to the next map
+						if (thisMapAlreadyChosen && addMap->node.next) {
+							addMap = addMap->node.next;
+						}
+						else {
+							// If the map isn't chosen, update newMapFound and break out of the loop
+							if (!thisMapAlreadyChosen) {
+								suitableMapFound = qtrue;
+							}
+							break; // Break out of the loop in any case
+						}
+					} while (1); // Keep looping until we break out
+
+
+					if (suitableMapFound) {
+						if (g_vote_tierlist_debug.integer) {
+							char newShortName[MAX_QPATH] = { 0 }, oldShortName[MAX_QPATH] = { 0 };
+							GetShortNameForMapFileName(addMap->mapFilename, newShortName, sizeof(newShortName));
+							GetShortNameForMapFileName(chosenMapNames[i], oldShortName, sizeof(oldShortName));
+							G_LogPrintf("g_vote_tierlist_fixShittyPools: swapping in top 10 map %s in place of %s\n",
+								newShortName, oldShortName);
+						}
+
+						Q_strncpyz(chosenMapNames[i], addMap->mapFilename, sizeof(chosenMapNames[i]));
+					}
+					else {
+						if (g_vote_tierlist_debug.integer) {
+							char oldShortName[MAX_QPATH] = { 0 };
+							GetShortNameForMapFileName(chosenMapNames[i], oldShortName, sizeof(oldShortName));
+							G_LogPrintf("g_vote_tierlist_fixShittyPools: no suitable top 10 map to sub in for %s!\n", oldShortName);
+						}
+					}
+
+					break;
+				}
+			}
+		}
+		else if (!numTop6MapsChosen && !numTop10MapsChosen) {
+			// change one map to a top 6 map and another to a top 10 map
+			if (top6Maps.size >= 1 && top10Maps.size >= 2) {
+				qboolean canTryTop6Map = qtrue;
+				int numFixed = 0;
+				for (int i = numMapsPickedTotal - 1; i >= 0; i--) {
+					rememberedMultivoteMap_t *remembered = ListFind(&level.rememberedMultivoteMapsList, RememberedMapMatches, chosenMapNames[i], NULL);
+					qboolean isForceIncludedMap = !!(remembered && remembered->forceInclude);
+
+					if (isForceIncludedMap)
+						continue;
+
+					if (!numFixed && canTryTop6Map) {
+						rememberedMultivoteMap_t *addMap = (rememberedMultivoteMap_t *)top6Maps.head;
+						qboolean thisMapAlreadyChosen, suitableMapFound = qfalse;
+
+						do {
+							thisMapAlreadyChosen = qfalse;
+
+							for (int j = 0; j < numMapsPickedTotal; j++) {
+								if (!Q_stricmp(addMap->mapFilename, chosenMapNames[j])) {
+									thisMapAlreadyChosen = qtrue;
+									break;
+								}
+							}
+
+							if (!thisMapAlreadyChosen) { // make sure the map we are going to sub in wasn't already rerolled out
+								rememberedMultivoteMap_t *addMapRemembered = ListFind(&level.rememberedMultivoteMapsList, RememberedMapMatches, addMap->mapFilename, NULL);
+								qboolean addMapIsRememberedToBeForceExcluded = !!(addMapRemembered && !addMapRemembered->forceInclude);
+								if (addMapIsRememberedToBeForceExcluded)
+									thisMapAlreadyChosen = qtrue;
+							}
+
+							// If the current map is already chosen and there's a next map, move to the next map
+							if (thisMapAlreadyChosen && addMap->node.next) {
+								addMap = addMap->node.next;
+							}
+							else {
+								// If the map isn't chosen, update newMapFound and break out of the loop
+								if (!thisMapAlreadyChosen) {
+									suitableMapFound = qtrue;
+								}
+								break; // Break out of the loop in any case
+							}
+						} while (1); // Keep looping until we break out
+
+						if (suitableMapFound) {
+							if (g_vote_tierlist_debug.integer) {
+								char newShortName[MAX_QPATH] = { 0 }, oldShortName[MAX_QPATH] = { 0 };
+								GetShortNameForMapFileName(addMap->mapFilename, newShortName, sizeof(newShortName));
+								GetShortNameForMapFileName(chosenMapNames[i], oldShortName, sizeof(oldShortName));
+								G_LogPrintf("g_vote_tierlist_fixShittyPools: swapping in top 6 map %s in place of %s\n",
+									newShortName, oldShortName);
+							}
+
+							Q_strncpyz(chosenMapNames[i], addMap->mapFilename, sizeof(chosenMapNames[i]));
+							++numFixed;
+						}
+						else {
+							if (g_vote_tierlist_debug.integer) {
+								char oldShortName[MAX_QPATH] = { 0 };
+								GetShortNameForMapFileName(chosenMapNames[i], oldShortName, sizeof(oldShortName));
+								G_LogPrintf("g_vote_tierlist_fixShittyPools: no suitable top 6 map to sub in for %s!\n", oldShortName);
+							}
+							// since there was no top 6 map, try subbing in two top 10 maps instead
+							i = numMapsPickedTotal; // the for loop will decrement this to numMapsPickedTotal - 1, so it's okay
+							canTryTop6Map = qfalse;
+						}
+
+						// break;
+					}
+					else if (numFixed < 2) {
+						rememberedMultivoteMap_t *addMap = (rememberedMultivoteMap_t *)top10Maps.head;
+						qboolean thisMapAlreadyChosen, suitableMapFound = qfalse;
+
+						do {
+							thisMapAlreadyChosen = qfalse;
+
+							for (int j = 0; j < numMapsPickedTotal; j++) {
+								if (!Q_stricmp(addMap->mapFilename, chosenMapNames[j])) {
+									thisMapAlreadyChosen = qtrue;
+									break;
+								}
+							}
+
+							if (!thisMapAlreadyChosen) { // make sure the map we are going to sub in wasn't already rerolled out
+								rememberedMultivoteMap_t *addMapRemembered = ListFind(&level.rememberedMultivoteMapsList, RememberedMapMatches, addMap->mapFilename, NULL);
+								qboolean addMapIsRememberedToBeForceExcluded = !!(addMapRemembered && !addMapRemembered->forceInclude);
+								if (addMapIsRememberedToBeForceExcluded)
+									thisMapAlreadyChosen = qtrue;
+							}
+
+							// If the current map is already chosen and there's a next map, move to the next map
+							if (thisMapAlreadyChosen && addMap->node.next) {
+								addMap = addMap->node.next;
+							}
+							else {
+								// If the map isn't chosen, update newMapFound and break out of the loop
+								if (!thisMapAlreadyChosen) {
+									suitableMapFound = qtrue;
+								}
+								break; // Break out of the loop in any case
+							}
+						} while (1); // Keep looping until we break out
+
+						if (suitableMapFound) {
+							if (g_vote_tierlist_debug.integer) {
+								char newShortName[MAX_QPATH] = { 0 }, oldShortName[MAX_QPATH] = { 0 };
+								GetShortNameForMapFileName(addMap->mapFilename, newShortName, sizeof(newShortName));
+								GetShortNameForMapFileName(chosenMapNames[i], oldShortName, sizeof(oldShortName));
+								G_LogPrintf("g_vote_tierlist_fixShittyPools: swapping in top 10 map %s in place of %s\n",
+									newShortName, oldShortName);
+							}
+
+							Q_strncpyz(chosenMapNames[i], addMap->mapFilename, sizeof(chosenMapNames[i]));
+							++numFixed;
+						}
+						else {
+							if (g_vote_tierlist_debug.integer) {
+								char oldShortName[MAX_QPATH] = { 0 };
+								GetShortNameForMapFileName(chosenMapNames[i], oldShortName, sizeof(oldShortName));
+								G_LogPrintf("g_vote_tierlist_fixShittyPools: no suitable top 10 map to sub in for %s!\n", oldShortName);
+							}
+						}
+
+						break;
+					}
+
+					//break;
+				}
+			}
+			else if (top10Maps.size >= 2) {
+				// edge case: no top 10 maps chosen, and no top 6 maps are available at all
+				// try to put in two top 10 maps
+				int numFixed = 0;
+				for (int i = numMapsPickedTotal - 1; i >= 0; i--) {
+					rememberedMultivoteMap_t *remembered = ListFind(&level.rememberedMultivoteMapsList, RememberedMapMatches, chosenMapNames[i], NULL);
+					qboolean isForceIncludedMap = !!(remembered && remembered->forceInclude);
+
+					if (isForceIncludedMap)
+						continue;
+
+					if (numFixed < 2) {
+						rememberedMultivoteMap_t *addMap = (rememberedMultivoteMap_t *)top10Maps.head;
+						qboolean thisMapAlreadyChosen, suitableMapFound = qfalse;
+
+						do {
+							thisMapAlreadyChosen = qfalse;
+
+							for (int j = 0; j < numMapsPickedTotal; j++) {
+								if (!Q_stricmp(addMap->mapFilename, chosenMapNames[j])) {
+									thisMapAlreadyChosen = qtrue;
+									break;
+								}
+							}
+
+							if (!thisMapAlreadyChosen) { // make sure the map we are going to sub in wasn't already rerolled out
+								rememberedMultivoteMap_t *addMapRemembered = ListFind(&level.rememberedMultivoteMapsList, RememberedMapMatches, addMap->mapFilename, NULL);
+								qboolean addMapIsRememberedToBeForceExcluded = !!(addMapRemembered && !addMapRemembered->forceInclude);
+								if (addMapIsRememberedToBeForceExcluded)
+									thisMapAlreadyChosen = qtrue;
+							}
+
+							// If the current map is already chosen and there's a next map, move to the next map
+							if (thisMapAlreadyChosen && addMap->node.next) {
+								addMap = addMap->node.next;
+							}
+							else {
+								// If the map isn't chosen, update newMapFound and break out of the loop
+								if (!thisMapAlreadyChosen) {
+									suitableMapFound = qtrue;
+								}
+								break; // Break out of the loop in any case
+							}
+						} while (1); // Keep looping until we break out
+
+						if (suitableMapFound) {
+							if (g_vote_tierlist_debug.integer) {
+								char newShortName[MAX_QPATH] = { 0 }, oldShortName[MAX_QPATH] = { 0 };
+								GetShortNameForMapFileName(addMap->mapFilename, newShortName, sizeof(newShortName));
+								GetShortNameForMapFileName(chosenMapNames[i], oldShortName, sizeof(oldShortName));
+								G_LogPrintf("g_vote_tierlist_fixShittyPools: swapping in top 10 map %s in place of %s\n",
+									newShortName, oldShortName);
+							}
+
+							Q_strncpyz(chosenMapNames[i], addMap->mapFilename, sizeof(chosenMapNames[i]));
+							++numFixed;
+						}
+						else {
+							if (g_vote_tierlist_debug.integer) {
+								char oldShortName[MAX_QPATH] = { 0 };
+								GetShortNameForMapFileName(chosenMapNames[i], oldShortName, sizeof(oldShortName));
+								G_LogPrintf("g_vote_tierlist_fixShittyPools: no suitable top 10 map to sub in for %s!\n", oldShortName);
+							}
+						}
+
+						//break;
+					}
+
+					//break;
+				}
+			}
+		}
+
+
+		ListClear(&top6Maps);
+		ListClear(&top10Maps);
+		trap_sqlite3_finalize(statement);
+	}
 	
 	// fisher-yates shuffle so that the maps don't appear in order of their tiers,
 	// preventing people from simply being biased toward the maps appearing at the top
@@ -3476,7 +4017,7 @@ qboolean G_DBSelectTierlistMaps(MapSelectedCallback callback, void *context) {
 		}
 	}
 
-	// try to put remembered maps into their previous slots (trumps ctf4 check)
+	// try to put the force included map into its previous slot (trumps ctf4 check)
 	// this is important because if someone's map survives the reroll, they will auto vote for that map (that slot) again after the reroll
 	if (level.mapsRerolled && level.rememberedMultivoteMapsList.size > 0) {
 		for (int i = 0; i < numMapsPickedTotal; i++) {
@@ -3484,6 +4025,7 @@ qboolean G_DBSelectTierlistMaps(MapSelectedCallback callback, void *context) {
 			if (remembered && remembered->forceInclude && remembered->position != i) {
 				Q_strncpyz(chosenMapNames[i], chosenMapNames[remembered->position], sizeof(chosenMapNames[i]));
 				Q_strncpyz(chosenMapNames[remembered->position], remembered->mapFilename, sizeof(chosenMapNames[remembered->position]));
+				break; // maximum of one, so no need to keep going
 			}
 		}
 	}
