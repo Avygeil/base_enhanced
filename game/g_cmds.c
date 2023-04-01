@@ -4293,6 +4293,9 @@ void Cmd_Ignore_f( gentity_t *ent )
 		return;
 	}
 
+	if (!g_allowIgnore.integer)
+		return;
+
 	if (trap_Argc() < 2)
 	{
 		trap_SendServerCommand( ent-g_entities, 
