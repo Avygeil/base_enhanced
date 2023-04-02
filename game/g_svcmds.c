@@ -1662,7 +1662,7 @@ void Svcmd_AccountPrintAll_f(){
 */
 
 extern void fixVoters(qboolean allowRacers);
-
+#define REMOVEDVOTE_REROLLVOTE	(69)
 static char reinstateVotes[MAX_CLIENTS] = { 0 }, removedVotes[MAX_CLIENTS] = { 0 };
 
 // starts a multiple choices vote using some of the binary voting logic
@@ -1756,7 +1756,7 @@ static void mapSelectedCallback( void *context, char *mapname ) {
 				Q_strncpyz(selection->printMessage[i], va("Runoff vote: waiting for other players to vote...\nMaps still in contention:"), sizeof(selection->printMessage[i]));
 			}
 			else if (level.runoffLosers & (1llu << (unsigned long long)i)) {
-				if (removedVotes[i] > 0 && removedVotes[i] != 0xFF) {
+				if (removedVotes[i] > 0 && removedVotes[i] != REMOVEDVOTE_REROLLVOTE) {
 					char map[MAX_QPATH] = { 0 };
 					if (level.multivoteWildcardMapFileName[0] && !Q_stricmp(level.multiVoteMapFileNames[((int)removedVotes[i]) - 1], level.multivoteWildcardMapFileName))
 						Q_strncpyz(map, "Random map", sizeof(map));
@@ -1764,7 +1764,7 @@ static void mapSelectedCallback( void *context, char *mapname ) {
 						Q_strncpyz(map, level.multiVoteMapShortNames[((int)removedVotes[i]) - 1], sizeof(map));
 					Q_strncpyz(selection->printMessage[i], va("Runoff vote:\n"S_COLOR_RED"%s"S_COLOR_RED" was eliminated\n"S_COLOR_YELLOW"Please vote again"S_COLOR_WHITE, map), sizeof(selection->printMessage[i]));
 				}
-				else if (removedVotes[i] == 0xFF) {
+				else if (removedVotes[i] == REMOVEDVOTE_REROLLVOTE) {
 					Q_strncpyz(selection->printMessage[i], "Runoff vote:\n"S_COLOR_RED"Reroll"S_COLOR_RED" was eliminated\n"S_COLOR_YELLOW"Please vote again"S_COLOR_WHITE, sizeof(selection->printMessage[i]));
 				}
 				else {
@@ -2208,7 +2208,7 @@ qboolean DoRunoff(void) {
 				if (voteId == -1) { // this guy's reroll vote was removed
 					level.clients[i].mGameFlags &= ~PSG_VOTED;
 					level.runoffLosers |= (1llu << (unsigned long long)i);
-					removedVotes[i] = 0xFF;
+					removedVotes[i] = REMOVEDVOTE_REROLLVOTE;
 					numFailedRerollers++;
 					G_LogPrintf("Client %d (%s) had their \"%s\" reroll vote removed.\n", i, level.clients[i].pers.netname, level.multiVoteMapShortNames[((int)level.multiVoteMapChars[voteId - 1]) - 1]);
 				}
