@@ -4713,23 +4713,23 @@ qboolean	ConsoleCommand( void ) {
     //OSP: pause
     if ( !Q_stricmp( cmd, "pause" ) )
     {
-        //if ( level.pause.state == PAUSE_NONE ) {
+		if (!level.intermissiontime && !level.intermissionQueued) {
 			char durationStr[4];
 			int duration;
 
-			trap_Argv(1,durationStr,sizeof(durationStr));
+			trap_Argv(1, durationStr, sizeof(durationStr));
 			duration = atoi(durationStr);
-				
+
 			if (duration == 0) // 2 minutes default
-				duration = 2*60;
+				duration = 2 * 60;
 			else if (duration < 0) // second minimum
 				duration = 1;
-			else if ( duration > 5*60) // 5 minutes max
-				duration = 5*60;
+			else if (duration > 5 * 60) // 5 minutes max
+				duration = 5 * 60;
 
-            level.pause.state = PAUSE_PAUSED;
-			level.pause.time = level.time + duration*1000; // 5 seconds
-		//}
+			level.pause.state = PAUSE_PAUSED;
+			level.pause.time = level.time + duration * 1000; // 5 seconds
+		}
 
         return qtrue;
     } 
