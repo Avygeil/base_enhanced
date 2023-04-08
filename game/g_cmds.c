@@ -7646,7 +7646,7 @@ void Cmd_Verify_f(gentity_t *verifier) {
 		return;
 	}
 
-	if (!(g_allowVerify.integer & (1 << 1))) {
+	if (!(g_allowVerify.integer & (1 << 0))) {
 		PrintIngame(verifier - g_entities, "Verify is disabled.\n");
 		return;
 	}
