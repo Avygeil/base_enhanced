@@ -3343,6 +3343,8 @@ static int AccountFlagName2Bitflag(const char* flagName) {
 		return ACCOUNTFLAG_GETTROLL;
 	} else if (!Q_stricmp(flagName, "RemindPosIncessantly")) {
 		return ACCOUNTFLAG_REMINDPOSINCESSANTLY;
+	} else if (!Q_stricmp(flagName, "VerificationLord")) {
+		return ACCOUNTFLAG_VERIFICATIONLORD;
 	}
 
 	return 0;
@@ -3365,6 +3367,7 @@ const char* AccountBitflag2FlagName(int bitflag) {
 		case ACCOUNTFLAG_ELOBOTSELFHOST: return "EloBotSelfHost";
 		case ACCOUNTFLAG_GETTROLL: return "GetTroll";
 		case ACCOUNTFLAG_REMINDPOSINCESSANTLY: return "RemindPosIncessantly";
+		case ACCOUNTFLAG_VERIFICATIONLORD: return "VerificationLord";
 		default: return NULL;
 	}
 }
@@ -3935,6 +3938,7 @@ void Svcmd_Session_f( void ) {
 			}
 
 			if ( G_LinkAccountToSession( client->session, acc.ptr ) ) {
+				client->sess.verifiedByVerifyCommand = qfalse;
 				G_Printf( "Client session successfully linked to account '%s' (id: %d)\n", acc.ptr->name, acc.ptr->id );
 				trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
 			} else {
@@ -4013,6 +4017,7 @@ void Svcmd_Session_f( void ) {
 			acc.online = qtrue;
 
 			if ( G_UnlinkAccountFromSession( client->session ) ) {
+				client->sess.verifiedByVerifyCommand = qfalse;
 				G_Printf( "Client session successfully unlinked from account '%s' (id: %d)\n", acc.ptr->name, acc.ptr->id );
 				trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
 			} else {

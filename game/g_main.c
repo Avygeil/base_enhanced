@@ -437,6 +437,8 @@ vmCvar_t	g_hackLog;
 
 vmCvar_t	g_allowReady;
 
+vmCvar_t	g_allowVerify;
+
 vmCvar_t    g_restart_countdown;
 
 vmCvar_t    g_enableBoon;
@@ -928,6 +930,8 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_allow_vote_instagib, "g_allow_vote_instagib", "1", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_allowReady, "g_allowReady", "1", CVAR_ARCHIVE, 0, qtrue },
+
+	{ &g_allowVerify, "g_allowVerify", "-1", CVAR_ARCHIVE, 0, qfalse },
 
 	{ &g_default_capturedifflimit, "g_default_capturedifflimit", "10", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_enable_maprandom_wildcard, "g_enable_maprandom_wildcard", "1", CVAR_ARCHIVE, 0, qtrue },

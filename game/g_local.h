@@ -751,6 +751,8 @@ typedef struct {
 		int			pos;
 		int			score;
 	} remindPositionOnMapChange;
+
+	qboolean verifiedByVerifyCommand;
 } clientSession_t;
 
 // race flags
@@ -2041,6 +2043,7 @@ typedef struct {
 #define ACCOUNTFLAG_ELOBOTSELFHOST			( 1 << 12 )
 #define ACCOUNTFLAG_GETTROLL					( 1 << 13 )
 #define ACCOUNTFLAG_REMINDPOSINCESSANTLY		( 1 << 14 )
+#define ACCOUNTFLAG_VERIFICATIONLORD			( 1 << 15 )
 
 typedef void( *ListSessionsCallback )( void *ctx,
 	const sessionReference_t sessionRef,
@@ -3204,6 +3207,8 @@ extern vmCvar_t		g_redirectPoolVoteToTierListVote;
 extern vmCvar_t     g_restart_countdown;
 
 extern vmCvar_t		g_allowReady;
+
+extern vmCvar_t		g_allowVerify;
 
 extern vmCvar_t	g_accounts;
 extern vmCvar_t	g_accountsFile;

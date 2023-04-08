@@ -7641,6 +7641,162 @@ void Cmd_WhoIs_f( gentity_t* ent ) {
 	PrintIngame(ent - g_entities, buf);
 }
 
+void Cmd_Verify_f(gentity_t *verifier) {
+	if (!verifier || !verifier->client || !verifier->client->account || !(verifier->client->account->flags & ACCOUNTFLAG_VERIFICATIONLORD)) {
+		return;
+	}
+
+	if (!(g_allowVerify.integer & (1 << 1))) {
+		PrintIngame(verifier - g_entities, "Verify is disabled.\n");
+		return;
+	}
+
+	if (trap_Argc() < 3) {
+		PrintIngame(verifier - g_entities, "Usage: verify <#> <account name>\n");
+		return;
+	}
+
+	char clientNumStr[4] = { 0 };
+	trap_Argv(1, clientNumStr, sizeof(clientNumStr));
+
+	if (!clientNumStr[0]) {
+		PrintIngame(verifier - g_entities, "Usage: verify <#> <account name>\n");
+		return;
+	}
+
+	const int clientId = atoi(clientNumStr);
+	if (!IN_CLIENTNUM_RANGE(clientId) ||
+		!g_entities[clientId].inuse ||
+		level.clients[clientId].pers.connected != CON_CONNECTED) {
+		PrintIngame(verifier - g_entities, "You must enter a valid client ID of a connected client\n");
+		return;
+	}
+
+	gclient_t *client = &level.clients[clientId];
+	char username[MAX_ACCOUNTNAME_LEN];
+	trap_Argv(2, username, sizeof(username));
+
+	if (!username[0]) {
+		PrintIngame(verifier - g_entities, "Usage: verify <#> <account name>\n");
+		return;
+	}
+
+	Q_strlwr(username);
+
+	if (client->account) {
+		PrintIngame(verifier - g_entities, "This session is already linked to %s.\n", client->account->name);
+		return;
+	}
+
+	if (!client->session) {
+		PrintIngame(verifier - g_entities, "Unable to find client session!\n");
+		return;
+	}
+
+	accountReference_t acc = G_GetAccountByName(username, qfalse);
+
+	if (!acc.ptr) {
+		PrintIngame(verifier - g_entities, "No account found with name '%s'.\n", username);
+		return;
+	}
+
+	if ((acc.ptr->flags & ACCOUNTFLAG_ADMIN) ||
+		(acc.ptr->flags & ACCOUNTFLAG_RCONLOG)) {
+		PrintIngame(verifier - g_entities, "Account %s cannot be verified except by rcon.\n", username);
+		return;
+	}
+
+	if (G_LinkAccountToSession(client->session, acc.ptr)) {
+		client->sess.verifiedByVerifyCommand = qtrue;
+		PrintIngame(verifier - g_entities, "Verified client %d (%s^7) as account %s.\n", clientId, client->pers.netname, username);
+		char *s = va("verify: session %d/client %d (%s^7) linked by verifier client %d (%s) to account '%s^7' (id: %d)\n",
+			client->session->id, clientId, client->pers.netname, verifier - g_entities, verifier->client->account->name, acc.ptr->name, acc.ptr->id);
+		G_Printf(s);
+		PrintBasedOnAccountFlags(ACCOUNTFLAG_ADMIN, s);
+		trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
+	}
+	else {
+		G_Printf("verify: client %d (%s) failed to link client %d to account %s!\n", verifier - g_entities, verifier->client->account->name, clientId, username);
+	}
+}
+
+void Cmd_Unverify_f(gentity_t *verifier) {
+	if (!verifier || !verifier->client || !verifier->client->account || !(verifier->client->account->flags & ACCOUNTFLAG_VERIFICATIONLORD)) {
+		return;
+	}
+
+	if (!(g_allowVerify.integer & (1 << 1))) {
+		PrintIngame(verifier - g_entities, "Unverify is disabled.\n");
+		return;
+	}
+
+	if (trap_Argc() < 2) {
+		PrintIngame(verifier - g_entities, "Usage: unverify <#>\n");
+		return;
+	}
+
+	char clientNumStr[4] = { 0 };
+	trap_Argv(1, clientNumStr, sizeof(clientNumStr));
+
+	if (!clientNumStr[0]) {
+		PrintIngame(verifier - g_entities, "Usage: unverify <#>\n");
+		return;
+	}
+
+	const int clientId = atoi(clientNumStr);
+	if (!IN_CLIENTNUM_RANGE(clientId) ||
+		!g_entities[clientId].inuse ||
+		level.clients[clientId].pers.connected != CON_CONNECTED) {
+		PrintIngame(verifier - g_entities, "You must enter a valid client ID of a connected client\n");
+		return;
+	}
+
+	gclient_t *client = &level.clients[clientId];
+	if (client == verifier->client)
+		return; // attempting to unverify self?
+
+	if (!client->account) {
+		PrintIngame(verifier - g_entities, "Client %d (%s^7) is already not verified.\n", clientId, client->pers.netname);
+		return;
+	}
+
+	if (!client->session) {
+		PrintIngame(verifier - g_entities, "Unable to find client session!\n");
+		return;
+	}
+
+	if (!client->sess.verifiedByVerifyCommand) {
+		PrintIngame(verifier - g_entities, "Unable to unverify accounts you did not verify.\n");
+		return;
+	}
+
+	if ((client->account->flags & ACCOUNTFLAG_ADMIN) ||
+		(client->account->flags & ACCOUNTFLAG_RCONLOG)) {
+		PrintIngame(verifier - g_entities, "Account %s cannot be unverified except by rcon.\n", client->account->name);
+		return;
+	}
+
+	// save a reference so we can print the name even after unlinking
+	accountReference_t acc;
+	acc.ptr = client->account;
+	acc.online = qtrue;
+	int sessionId = client->session->id;
+
+	if (G_UnlinkAccountFromSession(client->session)) {
+		client->sess.verifiedByVerifyCommand = qfalse;
+		PrintIngame(verifier - g_entities, "Unverified client %d (%s^7).\n", clientId, client->pers.netname);
+		char *s = va("unverify: session %d/client %d (%s^7) unlinked by verifier client %d (%s^7)\n",
+			sessionId, clientId, client->pers.netname, verifier - g_entities, verifier->client->pers.netname);
+		G_Printf(s);
+		PrintBasedOnAccountFlags(ACCOUNTFLAG_ADMIN, s);
+		trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
+	}
+	else {
+		G_Printf("unverify: client %d (%s) failed to unlink client %d!\n", verifier - g_entities, verifier->client->pers.netname, clientId);
+	}
+
+}
+
 void Cmd_PrintStats_f(gentity_t *ent) {
 	if (trap_Argc() < 2) {
 		Stats_Print(ent, "general", NULL, 0, qtrue, NULL);
@@ -8411,6 +8567,14 @@ void ClientCommand( int clientNum ) {
 			Cmd_WhoIs_f( ent );
 			return;
 		}
+		else if (!Q_stricmp(cmd, "verify")) {
+			Cmd_Verify_f(ent);
+			return;
+		}
+		else if (!Q_stricmp(cmd, "unverify")) {
+			Cmd_Unverify_f(ent);
+			return;
+		}
 		else if (!Q_stricmp(cmd, "changes")) {
 			Cmd_Changes_f(ent);
 			return;
@@ -8542,6 +8706,10 @@ void ClientCommand( int clientNum ) {
 		Cmd_Pos_f(ent);
 	else if (Q_stricmp(cmd, "whois") == 0)
 		Cmd_WhoIs_f(ent);
+	else if (!Q_stricmp(cmd, "verify"))
+		Cmd_Verify_f(ent);
+	else if (!Q_stricmp(cmd, "unverify"))
+		Cmd_Unverify_f(ent);
 	else if (!Q_stricmp(cmd, "changes"))
 		Cmd_Changes_f(ent);
 	else if (Q_stricmp(cmd, "ctfstats") == 0 || Q_stricmp(cmd, "stats") == 0 || Q_stricmp(cmd, "stat") == 0)
