@@ -836,6 +836,7 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 	int iTotal = (int)round(total * 10000);
 	double team1RelativeStrength = team1RawStrength / total;
 	double team2RelativeStrength = team2RawStrength / total;
+	double diffPercentage = fabs(team1RelativeStrength - team2RelativeStrength);
 	double diff = round(fabs(team1RawStrength - team2RawStrength) / PLAYERRATING_DECIMAL_INCREMENT);
 	int iDiff = (int)diff;
 
@@ -933,7 +934,7 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 		team1OffenseDefenseDiff,
 		team2OffenseDefenseDiff);
 
-	if (diff >= 0.04) {
+	if (diffPercentage >= 0.04) {
 		TeamGen_DebugPrintf(" difference too great.<br/>");
 		return;
 	}
