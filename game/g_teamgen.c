@@ -453,6 +453,7 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 			hashMe.numOnAvoidedPos = numOnAvoidedPos;
 			hashMe.topTierImbalance = topTierImbalance;
 			hashMe.bottomTierImbalance = bottomTierImbalance;
+			//set totalSkill
 			hashMe.teams[0].rawStrength = team1RawStrength;
 			hashMe.teams[1].rawStrength = team2RawStrength;
 			hashMe.teams[0].relativeStrength = team1RelativeStrength;
@@ -497,6 +498,7 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 		context->best->numOnAvoidedPos = numOnAvoidedPos;
 		context->best->topTierImbalance = topTierImbalance;
 		context->best->bottomTierImbalance = bottomTierImbalance;
+		//set totalSkill
 		context->best->teams[0].rawStrength = team1RawStrength;
 		context->best->teams[1].rawStrength = team2RawStrength;
 		context->best->teams[0].relativeStrength = team1RelativeStrength;
@@ -734,6 +736,7 @@ static void TryTeamPermutation_Inclusive(teamGeneratorContext_t *context, const 
 			hashMe.numOnAvoidedPos = numOnAvoidedPos;
 			hashMe.topTierImbalance = topTierImbalance;
 			hashMe.bottomTierImbalance = bottomTierImbalance;
+			//set totalSkill
 			hashMe.teams[0].rawStrength = team1RawStrength;
 			hashMe.teams[1].rawStrength = team2RawStrength;
 			hashMe.teams[0].relativeStrength = team1RelativeStrength;
@@ -779,6 +782,7 @@ static void TryTeamPermutation_Inclusive(teamGeneratorContext_t *context, const 
 		context->best->numOnAvoidedPos = numOnAvoidedPos;
 		context->best->topTierImbalance = topTierImbalance;
 		context->best->bottomTierImbalance = bottomTierImbalance;
+		//set totalSkill
 		context->best->teams[0].rawStrength = team1RawStrength;
 		context->best->teams[1].rawStrength = team2RawStrength;
 		context->best->teams[0].relativeStrength = team1RelativeStrength;
@@ -1022,6 +1026,7 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 			hashMe.numOnAvoidedPos = numOnAvoidedPos;
 			hashMe.topTierImbalance = topTierImbalance;
 			hashMe.bottomTierImbalance = bottomTierImbalance;
+			//set totalSkill
 			hashMe.teams[0].rawStrength = team1RawStrength;
 			hashMe.teams[1].rawStrength = team2RawStrength;
 			hashMe.teams[0].relativeStrength = team1RelativeStrength;
@@ -1066,6 +1071,7 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 		context->best->numOnAvoidedPos = numOnAvoidedPos;
 		context->best->topTierImbalance = topTierImbalance;
 		context->best->bottomTierImbalance = bottomTierImbalance;
+		context->best->totalSkill = iTotal;
 		context->best->teams[0].rawStrength = team1RawStrength;
 		context->best->teams[1].rawStrength = team2RawStrength;
 		context->best->teams[0].relativeStrength = team1RelativeStrength;
@@ -1300,6 +1306,7 @@ static uint64_t PermuteTeams(permutationPlayer_t *playerArray, int numEligible, 
 	context.numPermutations = 0;
 	context.banAvoidedPositions = banAvoidedPositions;
 	context.best->offenseDefenseDiff = 0;
+	context.best->totalSkill = 0;
 	if (avoidedHashesList && avoidedHashesList->size > 0)
 		context.avoidedHashesList = avoidedHashesList;
 	else
@@ -1993,7 +2000,39 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 		// if the permutation banning avoided positions is not 50-50, try again without banning avoided pos
 		permutationOfTeams_t *thisPermutation;
 		if (allowSecondTry) {
-			if (type != TEAMGENERATORTYPE_DESIREDPOS && try1.valid && try1.iDiff > 0) {
+			if (type == TEAMGENERATORTYPE_HIGHESTRATING && try1.valid) {
+				TeamGen_DebugPrintf("<font color=orange>==========Attempting HC type %d without banning avoided pos to see if we can do better==========</font><br/>", type);
+				thisGotten = PermuteTeams(&players[0], numEligible, &try2, callback, qtrue, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qfalse);
+				if (thisGotten > gotten)
+					gotten = thisGotten;
+
+				if (!try2.valid) {
+					TeamGen_DebugPrintf("<font color=orange>==========No valid permutation for HC type %d without banning avoided pos; trying again without chase rule==========</font><br/>", type);
+					memset(&try2, 0, sizeof(try2));
+					try2.iDiff = 999999999;
+					try2.totalNumPermutations = 999999;
+					try2.totalSkill = 0;
+					thisGotten = PermuteTeams(&players[0], numEligible, &try2, callback, qfalse, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qfalse);
+					if (thisGotten > gotten)
+						gotten = thisGotten;
+				}
+
+				if (try2.valid) {
+					if (try2.totalSkill > try1.totalSkill || (try2.totalSkill == try1.totalSkill && try2.iDiff < try1.iDiff)) {
+						thisPermutation = &try2;
+						TeamGen_DebugPrintf("<font color=orange>==========Second pass on type %d with banned avoided pos yields higher skill or fairer result; using avoided pos banned permutation==========</font><br/>", type);
+					}
+					else {
+						thisPermutation = &try1;
+						TeamGen_DebugPrintf("<font color=orange>==========Unable to get valid permutation for second pass on type %d; using avoided pos banned permutation==========</font><br/>", type);
+					}
+				}
+				else {
+					thisPermutation = &try1;
+					TeamGen_DebugPrintf("<font color=orange>==========Unable to get valid permutation for second pass on type %d; using avoided pos banned permutation==========</font><br/>", type);
+				}
+			}
+			else if (type != TEAMGENERATORTYPE_DESIREDPOS && try1.valid && try1.iDiff > 0) {
 				TeamGen_DebugPrintf("<font color=orange>==========Diff is > 0 for type %d; attempting without banning avoided pos==========</font><br/>", type);
 				thisGotten = PermuteTeams(&players[0], numEligible, &try2, callback, qtrue, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qfalse);
 				if (thisGotten > gotten)
@@ -2081,16 +2120,59 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 	return !!(gotValid);
 }
 
+#if 0
+// program to calculate lowest possible sum of squares
+#include <stdio.h>
+#include <math.h>
+#include <float.h>
+
+double calculate_lowest_sum_of_squares(int num_players, int total_slots) {
+	double expected_slots = (double)total_slots / num_players;
+
+	int slots_per_player = total_slots / num_players;
+	int extra_slots = total_slots % num_players;
+
+	double sum_of_squares = 0.0;
+
+	for (int i = 0; i < num_players; i++) {
+		int actual_slots = slots_per_player + (i < extra_slots ? 1 : 0);
+		double diff = actual_slots - expected_slots;
+		sum_of_squares += diff * diff;
+	}
+
+	return sum_of_squares;
+}
+
+int main() {
+	int min_players = 8;
+	int max_players = 32;
+
+	printf("For 3 sets of 8 players (24 slots):\n");
+	for (int num_players = min_players; num_players <= max_players; num_players++) {
+		double lowest_sum_of_squares = calculate_lowest_sum_of_squares(num_players, 24);
+		printf("The lowest possible sum of squares for %d players is: %.*g\n", num_players, DBL_DIG, lowest_sum_of_squares);
+	}
+
+	printf("\nFor 4 sets of 8 players (32 slots):\n");
+	for (int num_players = min_players; num_players <= max_players; num_players++) {
+		double lowest_sum_of_squares = calculate_lowest_sum_of_squares(num_players, 32);
+		printf("The lowest possible sum of squares for %d players is: %.*g\n", num_players, DBL_DIG, lowest_sum_of_squares);
+	}
+
+	return 0;
+}
+#endif
+
 #define MAX_TEAMGEN_ITERATIONS 32
 
 // wrapper for calling GenerateTeams several times with the goal of finding the fairest distribution of player slots
 static qboolean GenerateTeamsIteratively(pugProposal_t *set, permutationOfTeams_t *mostPlayed, permutationOfTeams_t *highestCaliber, permutationOfTeams_t *fairest, permutationOfTeams_t *desired, permutationOfTeams_t *inclusive, uint64_t *numPermutations) {
-	float numPlayers = 0.0f;
+	double numPlayers = 0.0f;
 	for (int j = 0; j < MAX_CLIENTS; j++) {
 		sortedClient_t *cl = set->clients + j;
 		if (!cl->accountName[0])
 			continue;
-		numPlayers += 1.0f;
+		numPlayers += 1.0;
 	}
 
 	// scale down the number of iterations if we have more people so that we don't have insanely long lag spikes (based on testing)
@@ -2131,7 +2213,7 @@ static qboolean GenerateTeamsIteratively(pugProposal_t *set, permutationOfTeams_
 	unsigned int originalSeed = teamGenSeed;
 	static permutationOfTeams_t permutations[MAX_TEAMGEN_ITERATIONS][NUM_TEAMGENERATORTYPES];
 	memset(&permutations, 0, sizeof(permutations));
-	float sumOfSquares[MAX_TEAMGEN_ITERATIONS] = { 999999 };
+	double sumOfSquares[MAX_TEAMGEN_ITERATIONS] = { 999999 };
 	int numPermutationsPerIteration[MAX_TEAMGEN_ITERATIONS] = { 0 };
 
 	TeamGen_Initialize();
@@ -2149,11 +2231,11 @@ static qboolean GenerateTeamsIteratively(pugProposal_t *set, permutationOfTeams_
 		GenerateTeams(set, &permutations[i][0], &permutations[i][1], &permutations[i][2], &permutations[i][3], &permutations[i][4], numPermutations);
 
 		// calculate the ideal number of slots per player
-		float numValidPermutations = 0.0f;
+		double numValidPermutations = 0.0;
 		for (int j = 0; j < NUM_TEAMGENERATORTYPES; j++) { if (permutations[i][j].valid) { numValidPermutations += 1.0f; } };
 
-		float numSlots = (numValidPermutations * 8.0f);
-		float goal = numSlots / numPlayers;
+		double numSlots = (numValidPermutations * 8.0);
+		double goal = numSlots / numPlayers;
 
 		numPermutationsPerIteration[i] = (int)numValidPermutations;
 
@@ -2162,16 +2244,16 @@ static qboolean GenerateTeamsIteratively(pugProposal_t *set, permutationOfTeams_
 #endif
 
 		// calculate the sum of squares for this set of permutations (lower number == more fair distribution)
-		float sum = 0.0f;
+		double sum = 0.0;
 		for (int j = 0; j < MAX_CLIENTS; j++) {
 			sortedClient_t *cl = set->clients + j;
 			if (!cl->accountName[0])
 				continue;
-			float numPermutationsThisPlayer = (float)NumPermutationsOfPlayer(cl->accountId, &permutations[i][0], &permutations[i][1], &permutations[i][2], &permutations[i][3], &permutations[i][4]);
+			double numPermutationsThisPlayer = (double)NumPermutationsOfPlayer(cl->accountId, &permutations[i][0], &permutations[i][1], &permutations[i][2], &permutations[i][3], &permutations[i][4]);
 #ifdef DEBUG_GENERATETEAMS
 			Com_Printf("/%d/", (int)numPermutationsThisPlayer); // print the number of permutations each player is part of
 #endif
-			float addMe = (numPermutationsThisPlayer - goal) * (numPermutationsThisPlayer - goal);
+			double addMe = (numPermutationsThisPlayer - goal) * (numPermutationsThisPlayer - goal);
 			sum += addMe;
 		}
 
@@ -2183,12 +2265,44 @@ static qboolean GenerateTeamsIteratively(pugProposal_t *set, permutationOfTeams_
 
 		++numEvaluated;
 
-		if (sumOfSquares[i] <= 0 /*&& (int)numValidPermutations == 3*/)
+		// pre-calculated most even possible distribution of player slots
+		// (fairest of both 3- and 4-permutation distributions)
+		double perfection;
+		switch ((int)numPlayers) {
+		case 8: perfection = 0;						break;
+		case 9: perfection = 2;						break;
+		case 10: perfection = 1.6;					break;
+		case 11: perfection = 0.909090909090909;	break;
+		case 12: perfection = 0;					break;
+		case 13: perfection = 1.69230769230769;		break;
+		case 14: perfection = 2.85714285714286;		break;
+		case 15: perfection = 1.73333333333333;		break;
+		case 16: perfection = 0;					break;
+		case 17: perfection = 1.76470588235294;		break;
+		case 18: perfection = 3.11111111111111;		break;
+		case 19: perfection = 3.68421052631579;		break;
+		case 20: perfection = 3.2;					break;
+		case 21: perfection = 2.57142857142857;		break;
+		case 22: perfection = 1.81818181818182;		break;
+		case 23: perfection = 0.956521739130435;	break;
+		case 24: perfection = 0;					break;
+		case 25: perfection = 0.96;					break;
+		case 26: perfection = 1.84615384615385;		break;
+		case 27: perfection = 2.66666666666667;		break;
+		case 28: perfection = 3.42857142857142;		break;
+		case 29: perfection = 2.68965517241379;		break;
+		case 30: perfection = 1.86666666666667;		break;
+		case 31: perfection = 0.967741935483872;	break;
+		case 32: perfection = 0;					break;
+		default: assert(qfalse); perfection = 0;	break;
+		}
+
+		if (sumOfSquares[i] - 0.0001 <= perfection /*&& (int)numValidPermutations == 3*/)
 			break; // we got a perfect one; no need to keep iterating
 	}
 
 	// pick the set of permutations with the fewest number of permutations (3 == didn't need inclusive pass to begin with), or the lowest sum of squares
-	float lowestSumOfSquares = 999999999;
+	double lowestSumOfSquares = 999999999;
 	int lowestNumPermutations = 999999999;
 	int bestIndex = -1;
 	for (int i = 0; i < MAX_TEAMGEN_ITERATIONS && i < numIterationsToDo && i < numEvaluated; i++) {
