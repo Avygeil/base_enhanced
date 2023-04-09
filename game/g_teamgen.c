@@ -1951,6 +1951,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 		permutationOfTeams_t try1 = { 0 }, try2 = { 0 };
 		try1.iDiff = try2.iDiff = 999999999;
 		try1.totalNumPermutations = try2.totalNumPermutations = 999999;
+		try1.totalSkill = try2.totalSkill = 0;
 		PermutationCallback callback;
 		if (type == TEAMGENERATORTYPE_HIGHESTRATING)
 			callback = TryTeamPermutation_Tryhard;
@@ -1970,6 +1971,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 			memset(&try1, 0, sizeof(try1));
 			try1.iDiff = 999999999;
 			try1.totalNumPermutations = 999999;
+			try1.totalSkill = 0;
 			thisGotten = PermuteTeams(&players[0], numEligible, &try1, callback, qfalse, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qtrue);
 			if (thisGotten > gotten)
 				gotten = thisGotten;
@@ -1981,6 +1983,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 				memset(&try1, 0, sizeof(try1));
 				try1.iDiff = 999999999;
 				try1.totalNumPermutations = 999999;
+				try1.totalSkill = 0;
 				thisGotten = PermuteTeams(&players[0], numEligible, &try1, callback, qtrue, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qfalse);
 				if (thisGotten > gotten)
 					gotten = thisGotten;
@@ -1990,6 +1993,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 					memset(&try1, 0, sizeof(try1));
 					try1.iDiff = 999999999;
 					try1.totalNumPermutations = 999999;
+					try1.totalSkill = 0;
 					thisGotten = PermuteTeams(&players[0], numEligible, &try1, callback, qfalse, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qfalse);
 					if (thisGotten > gotten)
 						gotten = thisGotten;
@@ -2043,6 +2047,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 					memset(&try2, 0, sizeof(try2));
 					try2.iDiff = 999999999;
 					try2.totalNumPermutations = 999999;
+					try2.totalSkill = 0;
 					thisGotten = PermuteTeams(&players[0], numEligible, &try2, callback, qfalse, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qfalse);
 					if (thisGotten > gotten)
 						gotten = thisGotten;
