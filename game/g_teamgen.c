@@ -2028,7 +2028,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 					}
 					else {
 						thisPermutation = &try1;
-						TeamGen_DebugPrintf("<font color=orange>==========Unable to get valid permutation for second pass on type %d; using avoided pos banned permutation==========</font><br/>", type);
+						TeamGen_DebugPrintf("<font color=orange>==========Unable to do better on second pass for type %d; using avoided pos banned permutation==========</font><br/>", type);
 					}
 				}
 				else {
