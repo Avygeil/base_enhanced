@@ -235,6 +235,7 @@ typedef struct {
 	uint64_t numPermutations;
 	list_t *avoidedHashesList;
 	qboolean banAvoidedPositions;
+	int type;
 } teamGeneratorContext_t;
 
 typedef struct {
@@ -1137,12 +1138,17 @@ static void HandleOffenseCombination(permutationPlayer_t *playerArray, int *c, i
 		}
 	}
 
-	HandleTeam(playerArray, arr, context, c[1], c[2], c[3], c[4]);
-	HandleTeam(playerArray, arr, context, c[1], c[3], c[2], c[4]);
-	HandleTeam(playerArray, arr, context, c[1], c[4], c[2], c[3]);
-	HandleTeam(playerArray, arr, context, c[2], c[3], c[1], c[4]);
-	HandleTeam(playerArray, arr, context, c[2], c[4], c[1], c[3]);
-	HandleTeam(playerArray, arr, context, c[3], c[4], c[1], c[2]);
+	int orders[6][4] = {
+	{1, 2, 3, 4}, {1, 3, 2, 4}, {1, 4, 2, 3}, {2, 3, 1, 4},
+	{2, 4, 1, 3}, {3, 4, 1, 2}
+	};
+
+	srand(teamGenSeed + context->type);
+	FisherYatesShuffle(&orders[0][0], 6, sizeof(orders[0]));
+	srand(time(NULL));
+
+	for (int i = 0; i < 6; i++)
+		HandleTeam(playerArray, arr, context, c[orders[i][0]], c[orders[i][1]], c[orders[i][2]], c[orders[i][3]]);
 }
 
 // helper function so that GetOffenseCombinations can pick from the players who aren't already on defense
@@ -1233,18 +1239,20 @@ static void GetOffenseCombinations(permutationPlayer_t *playerArray, int *arr, t
 static void HandleDefenseCombination(permutationPlayer_t *playerArray, int *c, int t, int *accountNums, teamGeneratorContext_t *context) {
 	int *arr = (int *)malloc(context->numEligible * sizeof(int));
 	memcpy(arr, accountNums, context->numEligible * sizeof(int));
-	GetOffenseCombinations(playerArray, arr, context, c[1], c[2], c[3], c[4]);
-	GetOffenseCombinations(playerArray, arr, context, c[2], c[1], c[3], c[4]);
-	GetOffenseCombinations(playerArray, arr, context, c[1], c[2], c[4], c[3]);
-	GetOffenseCombinations(playerArray, arr, context, c[2], c[1], c[4], c[3]);
-	GetOffenseCombinations(playerArray, arr, context, c[1], c[3], c[2], c[4]);
-	GetOffenseCombinations(playerArray, arr, context, c[3], c[1], c[2], c[4]);
-	GetOffenseCombinations(playerArray, arr, context, c[1], c[3], c[4], c[2]);
-	GetOffenseCombinations(playerArray, arr, context, c[3], c[1], c[4], c[2]);
-	GetOffenseCombinations(playerArray, arr, context, c[1], c[4], c[2], c[3]);
-	GetOffenseCombinations(playerArray, arr, context, c[4], c[1], c[2], c[3]);
-	GetOffenseCombinations(playerArray, arr, context, c[1], c[4], c[3], c[2]);
-	GetOffenseCombinations(playerArray, arr, context, c[4], c[1], c[3], c[2]);
+
+	int orders[12][4] = {
+		{1, 2, 3, 4}, {2, 1, 3, 4}, {1, 2, 4, 3}, {2, 1, 4, 3},
+		{1, 3, 2, 4}, {3, 1, 2, 4}, {1, 3, 4, 2}, {3, 1, 4, 2},
+		{1, 4, 2, 3}, {4, 1, 2, 3}, {1, 4, 3, 2}, {4, 1, 3, 2}
+	};
+
+	srand(teamGenSeed + context->type);
+	FisherYatesShuffle(&orders[0][0], 12, sizeof(orders[0]));
+	srand(time(NULL));
+
+	for (int i = 0; i < 12; i++)
+		GetOffenseCombinations(playerArray, arr, context, c[orders[i][0]], c[orders[i][1]], c[orders[i][2]], c[orders[i][3]]);
+
 	free(arr);
 }
 
@@ -1289,7 +1297,7 @@ for each combination of 4 defenders:
 
 Returns the number of valid permutations evaluated.
 */
-static uint64_t PermuteTeams(permutationPlayer_t *playerArray, int numEligible, permutationOfTeams_t *bestOut, PermutationCallback callback, qboolean enforceChaseRule, list_t *avoidedHashesList, qboolean banAvoidedPositions) {
+static uint64_t PermuteTeams(permutationPlayer_t *playerArray, int numEligible, permutationOfTeams_t *bestOut, PermutationCallback callback, qboolean enforceChaseRule, list_t *avoidedHashesList, qboolean banAvoidedPositions, int type) {
 #ifdef DEBUG_GENERATETEAMS
 	clock_t start = clock();
 #endif
@@ -1307,6 +1315,7 @@ static uint64_t PermuteTeams(permutationPlayer_t *playerArray, int numEligible, 
 	context.banAvoidedPositions = banAvoidedPositions;
 	context.best->offenseDefenseDiff = 0;
 	context.best->totalSkill = 0;
+	context.type = type;
 	if (avoidedHashesList && avoidedHashesList->size > 0)
 		context.avoidedHashesList = avoidedHashesList;
 	else
@@ -1961,7 +1970,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 			callback = TryTeamPermutation;
 		TeamGen_DebugPrintf("<font color=darkgreen>==========Permuting teams with type %d==========</font><br/>", type);
 
-		uint64_t thisGotten = PermuteTeams(&players[0], numEligible, &try1, callback, qtrue, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qtrue);
+		uint64_t thisGotten = PermuteTeams(&players[0], numEligible, &try1, callback, qtrue, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qtrue, type);
 		if (thisGotten > gotten)
 			gotten = thisGotten;
 
@@ -1972,7 +1981,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 			try1.iDiff = 999999999;
 			try1.totalNumPermutations = 999999;
 			try1.totalSkill = 0;
-			thisGotten = PermuteTeams(&players[0], numEligible, &try1, callback, qfalse, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qtrue);
+			thisGotten = PermuteTeams(&players[0], numEligible, &try1, callback, qfalse, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qtrue, type);
 			if (thisGotten > gotten)
 				gotten = thisGotten;
 
@@ -1984,7 +1993,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 				try1.iDiff = 999999999;
 				try1.totalNumPermutations = 999999;
 				try1.totalSkill = 0;
-				thisGotten = PermuteTeams(&players[0], numEligible, &try1, callback, qtrue, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qfalse);
+				thisGotten = PermuteTeams(&players[0], numEligible, &try1, callback, qtrue, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qfalse, type);
 				if (thisGotten > gotten)
 					gotten = thisGotten;
 
@@ -1994,7 +2003,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 					try1.iDiff = 999999999;
 					try1.totalNumPermutations = 999999;
 					try1.totalSkill = 0;
-					thisGotten = PermuteTeams(&players[0], numEligible, &try1, callback, qfalse, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qfalse);
+					thisGotten = PermuteTeams(&players[0], numEligible, &try1, callback, qfalse, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qfalse, type);
 					if (thisGotten > gotten)
 						gotten = thisGotten;
 				}
@@ -2006,7 +2015,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 		if (allowSecondTry) {
 			if (type == TEAMGENERATORTYPE_HIGHESTRATING && try1.valid) {
 				TeamGen_DebugPrintf("<font color=orange>==========Attempting HC type %d without banning avoided pos to see if we can do better==========</font><br/>", type);
-				thisGotten = PermuteTeams(&players[0], numEligible, &try2, callback, qtrue, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qfalse);
+				thisGotten = PermuteTeams(&players[0], numEligible, &try2, callback, qtrue, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qfalse, type);
 				if (thisGotten > gotten)
 					gotten = thisGotten;
 
@@ -2016,7 +2025,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 					try2.iDiff = 999999999;
 					try2.totalNumPermutations = 999999;
 					try2.totalSkill = 0;
-					thisGotten = PermuteTeams(&players[0], numEligible, &try2, callback, qfalse, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qfalse);
+					thisGotten = PermuteTeams(&players[0], numEligible, &try2, callback, qfalse, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qfalse, type);
 					if (thisGotten > gotten)
 						gotten = thisGotten;
 				}
@@ -2038,7 +2047,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 			}
 			else if (type != TEAMGENERATORTYPE_DESIREDPOS && try1.valid && try1.iDiff > 0) {
 				TeamGen_DebugPrintf("<font color=orange>==========Diff is > 0 for type %d; attempting without banning avoided pos==========</font><br/>", type);
-				thisGotten = PermuteTeams(&players[0], numEligible, &try2, callback, qtrue, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qfalse);
+				thisGotten = PermuteTeams(&players[0], numEligible, &try2, callback, qtrue, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qfalse, type);
 				if (thisGotten > gotten)
 					gotten = thisGotten;
 
@@ -2048,7 +2057,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 					try2.iDiff = 999999999;
 					try2.totalNumPermutations = 999999;
 					try2.totalSkill = 0;
-					thisGotten = PermuteTeams(&players[0], numEligible, &try2, callback, qfalse, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qfalse);
+					thisGotten = PermuteTeams(&players[0], numEligible, &try2, callback, qfalse, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qfalse, type);
 					if (thisGotten > gotten)
 						gotten = thisGotten;
 				}
@@ -2709,6 +2718,34 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 			if (!ent->inuse || !ent->client)
 				continue;
 			int accId = ent->client->account ? ent->client->account->id : -1;
+#ifdef _DEBUG
+			TeamGenerator_QueueServerMessageInConsole(i, va("%s%s teams: ^5enter %c%c in chat if you approve\nTotal strength: %.2f\n^1Red team:^7 %.2f'/. relative strength, %.2f raw strength\n    ^5Base: %s%s\n    ^6Chase: %s%s\n    ^2Offense: %s%s^7, %s%s^7\n^4Blue team:^7 %.2f'/. relative strength, %.2f raw strength\n    ^5Base: %s%s\n    ^6Chase: %s%s\n    ^2Offense: %s%s^7, %s%s^7\n",
+				numPrinted ? "\n" : "",
+				suggestionTypeStr,
+				TEAMGEN_CHAT_COMMAND_CHARACTER,
+				letter,
+				thisPermutation->teams[0].rawStrength + thisPermutation->teams[1].rawStrength,
+				thisPermutation->teams[0].relativeStrength * 100.0,
+				thisPermutation->teams[0].rawStrength,
+				thisPermutation->teams[0].baseId == accId ? "^3" : "^7",
+				thisPermutation->teams[0].baseName,
+				thisPermutation->teams[0].chaseId == accId ? "^3" : "^7",
+				thisPermutation->teams[0].chaseName,
+				thisPermutation->teams[0].offenseId1 == accId ? "^3" : "^7",
+				thisPermutation->teams[0].offense1Name,
+				thisPermutation->teams[0].offenseId2 == accId ? "^3" : "^7",
+				thisPermutation->teams[0].offense2Name,
+				thisPermutation->teams[1].relativeStrength * 100.0,
+				thisPermutation->teams[1].rawStrength,
+				thisPermutation->teams[1].baseId == accId ? "^3" : "^7",
+				thisPermutation->teams[1].baseName,
+				thisPermutation->teams[1].chaseId == accId ? "^3" : "^7",
+				thisPermutation->teams[1].chaseName,
+				thisPermutation->teams[1].offenseId1 == accId ? "^3" : "^7",
+				thisPermutation->teams[1].offense1Name,
+				thisPermutation->teams[1].offenseId2 == accId ? "^3" : "^7",
+				thisPermutation->teams[1].offense2Name));
+#else
 			TeamGenerator_QueueServerMessageInConsole(i, va("%s%s teams: ^5enter %c%c in chat if you approve\n^1Red team:^7 %.2f'/. relative strength\n    ^5Base: %s%s\n    ^6Chase: %s%s\n    ^2Offense: %s%s^7, %s%s^7\n^4Blue team:^7 %.2f'/. relative strength\n    ^5Base: %s%s\n    ^6Chase: %s%s\n    ^2Offense: %s%s^7, %s%s^7\n",
 				numPrinted ? "\n" : "",
 				suggestionTypeStr,
@@ -2732,8 +2769,29 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 				thisPermutation->teams[1].offense1Name,
 				thisPermutation->teams[1].offenseId2 == accId ? "^3" : "^7",
 				thisPermutation->teams[1].offense2Name));
+#endif
 		}
-	
+
+#ifdef _DEBUG
+		Com_Printf("%s%s teams: ^5enter %c%c in chat if you approve\nTotal strength: %.2f\n^1Red team:^7 %.2f'/. relative strength, %.2f raw strength\n    ^5Base: ^7%s\n    ^6Chase: ^7%s\n    ^2Offense: ^7%s^7, %s^7\n^4Blue team:^7 %.2f'/. relative strength, %.2f raw strength\n    ^5Base: ^7%s\n    ^6Chase: ^7%s\n    ^2Offense: ^7%s^7, %s^7\n",
+			numPrinted ? "\n" : "",
+			suggestionTypeStr,
+			TEAMGEN_CHAT_COMMAND_CHARACTER,
+			letter,
+			thisPermutation->teams[0].rawStrength + thisPermutation->teams[1].rawStrength,
+			thisPermutation->teams[0].relativeStrength * 100.0,
+			thisPermutation->teams[0].rawStrength,
+			thisPermutation->teams[0].baseName,
+			thisPermutation->teams[0].chaseName,
+			thisPermutation->teams[0].offense1Name,
+			thisPermutation->teams[0].offense2Name,
+			thisPermutation->teams[1].relativeStrength * 100.0,
+			thisPermutation->teams[1].rawStrength,
+			thisPermutation->teams[1].baseName,
+			thisPermutation->teams[1].chaseName,
+			thisPermutation->teams[1].offense1Name,
+			thisPermutation->teams[1].offense2Name);
+#else
 		Com_Printf("%s%s teams: ^5enter %c%c in chat if you approve\n^1Red team:^7 %.2f'/. relative strength\n    ^5Base: ^7%s\n    ^6Chase: ^7%s\n    ^2Offense: ^7%s^7, %s^7\n^4Blue team:^7 %.2f'/. relative strength\n    ^5Base: ^7%s\n    ^6Chase: ^7%s\n    ^2Offense: ^7%s^7, %s^7\n",
 			numPrinted ? "\n" : "",
 			suggestionTypeStr,
@@ -2749,6 +2807,7 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 			thisPermutation->teams[1].chaseName,
 			thisPermutation->teams[1].offense1Name,
 			thisPermutation->teams[1].offense2Name);
+#endif
 
 		++numPrinted;
 	}
