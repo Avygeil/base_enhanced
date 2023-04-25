@@ -497,6 +497,9 @@ struct gentity_s {
 	int			numTotalAimPracticeHits;
 	int			numAimPracticeHitsOfWeapon[WP_NUM_WEAPONS];
 	int			aimPracticeStartTime;
+
+	gentity_t *entThatCausedMeToDrop;
+	int iDroppedTime;
 };
 
 #define DAMAGEREDIRECT_HEAD		1
@@ -2150,7 +2153,7 @@ void RespawnItem( gentity_t *ent );
 
 void UseHoldableItem( gentity_t *ent );
 void PrecacheItem (gitem_t *it);
-gentity_t *Drop_Item( gentity_t *ent, gitem_t *item, float angle );
+gentity_t *Drop_Item( gentity_t *ent, gitem_t *item, float angle, gentity_t *whoCausedDrop);
 gentity_t *LaunchItem( gitem_t *item, vec3_t origin, vec3_t velocity );
 void SetRespawn (gentity_t *ent, float delay);
 void G_SpawnItem (gentity_t *ent, gitem_t *item);
@@ -2398,7 +2401,7 @@ qboolean G_RadiusDamage (vec3_t origin, gentity_t *attacker, float damage, float
 qboolean G_RadiusDamageKnockbackOnly (vec3_t origin, gentity_t *attacker, float damage, float radius, gentity_t *ignore, gentity_t *missile, int mod);
 void body_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int damage, int meansOfDeath );
 void TossClientWeapon(gentity_t *self, vec3_t direction, float speed);
-void TossClientItems( gentity_t *self, qboolean canDropWeapons );
+void TossClientItems( gentity_t *self, qboolean canDropWeapons, gentity_t *whoCausedDrop);
 void TossClientCubes( gentity_t *self );
 void ExplodeDeath( gentity_t *self );
 void G_CheckForDismemberment(gentity_t *ent, gentity_t *enemy, vec3_t point, int damage, int deathAnim, qboolean postDeath);
@@ -3144,6 +3147,7 @@ extern vmCvar_t		g_fix5AmmoSniping;
 extern vmCvar_t		g_fixSniperSwitch;
 extern vmCvar_t		g_fixGolanDamage;
 extern vmCvar_t		g_locationBasedDamage_splash;
+extern vmCvar_t		g_fixFlagPickup;
 
 extern vmCvar_t		g_allowIgnore;
 

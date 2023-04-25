@@ -5416,7 +5416,7 @@ void ClientDisconnect( int clientNum ) {
 
 		// They don't get to take powerups with them!
 		// Especially important for stuff like CTF flags
-		TossClientItems( ent, qfalse );
+		TossClientItems( ent, qfalse, ent );
 	}
 
 	// leave racemode automatically first

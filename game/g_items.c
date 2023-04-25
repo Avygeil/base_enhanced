@@ -2530,8 +2530,6 @@ void Touch_Item (gentity_t *ent, gentity_t *other, trace_t *trace) {
 		}
 	}
 
-	G_LogPrintf( "Item: %i %s\n", other->s.number, ent->item->classname );
-
 	predict = other->client->pers.predictItemPickup;
 
 	// call the item-specific pickup function
@@ -2591,6 +2589,9 @@ void Touch_Item (gentity_t *ent, gentity_t *other, trace_t *trace) {
 	if ( !respawn ) {
 		return;
 	}
+
+	// duo: moved this down here so that it doesn't print if the respawn function returned 0
+	G_LogPrintf("Item: %i %s\n", other->s.number, ent->item->classname);
 
 	// play the normal pickup sound
 	if (predict) {
@@ -2788,7 +2789,7 @@ Drop_Item
 Spawns an item and tosses it forward
 ================
 */
-gentity_t *Drop_Item( gentity_t *ent, gitem_t *item, float angle ) {
+gentity_t *Drop_Item( gentity_t *ent, gitem_t *item, float angle, gentity_t *whoCausedDrop) {
 	vec3_t	velocity;
 	vec3_t	angles;
 
@@ -2800,7 +2801,12 @@ gentity_t *Drop_Item( gentity_t *ent, gitem_t *item, float angle ) {
 	VectorScale( velocity, 150, velocity );
 	velocity[2] += 200 + crandom() * 50;
 	
-	return LaunchItem( item, ent->s.pos.trBase, velocity );
+	gentity_t *drop = LaunchItem( item, ent->s.pos.trBase, velocity );
+
+	drop->iDroppedTime = level.time;
+	drop->entThatCausedMeToDrop = whoCausedDrop;
+
+	return drop;
 }
 
 

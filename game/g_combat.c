@@ -431,7 +431,7 @@ TossClientItems
 Toss the weapon and powerups for the killed player
 =================
 */
-void TossClientItems( gentity_t *self, qboolean canDropWeapons ) {
+void TossClientItems( gentity_t *self, qboolean canDropWeapons, gentity_t *whoCausedDrop ) {
 	gitem_t		*item;
 	int			weapon;
 	float		angle;
@@ -481,7 +481,7 @@ void TossClientItems( gentity_t *self, qboolean canDropWeapons ) {
 		te->s.eventParm = self->s.number;
 
 		// spawn the item
-		Drop_Item( self, item, 0 );
+		Drop_Item( self, item, 0, whoCausedDrop );
 	}
 
 	// drop all the powerups if not in teamplay
@@ -496,7 +496,7 @@ void TossClientItems( gentity_t *self, qboolean canDropWeapons ) {
 					continue;
 				}
 
-				drop = Drop_Item( self, item, angle );
+				drop = Drop_Item( self, item, angle, whoCausedDrop );
 				// decide how many seconds it has left
 				drop->count = ( self->client->ps.powerups[ i ] - level.time ) / 1000;
 				if ( drop->count < 1 ) {
@@ -2558,7 +2558,7 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 	if ( !( contents & CONTENTS_NODROP ) && !self->client->ps.fallingToDeath) {
 		if (self->s.eType != ET_NPC)
 		{
-			TossClientItems( self, qtrue );
+			TossClientItems( self, qtrue, attacker );
 		}
 	}
 	else if ( !self->client->sess.inRacemode ) {

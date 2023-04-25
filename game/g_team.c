@@ -806,8 +806,99 @@ void Team_DroppedFlagThink(gentity_t *ent) {
 Team_DroppedFlagThink
 ==============
 */
+
+// where did these come from, and why the FUCK is one axis different lmfao dank sil code
 static vec3_t	minFlagRange = { 50, 36, 36 };
 static vec3_t	maxFlagRange = { 44, 36, 36 };
+
+// just use all 36s i guess
+static vec3_t	fixedFlagRange = { 36, 36, 36 };
+#define FLAGPICKUP_TIE_DISTANCE_THRESHOLD	(1)
+
+// cleaner approach to checking who is closest to a flag and thus gets to pick it up
+gentity_t *WhoGetsToPickUpTheFlag(gentity_t *flagEnt, int flagColor) {
+	assert(flagEnt);
+
+	vec3_t mins, maxs;
+	VectorSubtract(flagEnt->s.pos.trBase, fixedFlagRange, mins);
+	VectorAdd(flagEnt->s.pos.trBase, fixedFlagRange, maxs);
+
+	int	touchEntityNums[MAX_GENTITIES];
+	int num = trap_EntitiesInBox(mins, maxs, touchEntityNums, MAX_GENTITIES);
+
+	float lowestDistance = 999999999;
+	int lowestDistanceEntNum = -1;
+	int numEntitiesTiedForLowestDistance = 0;
+	int32_t allEntitiesTiedForLowestDistance = 0;
+
+	// loop through every player who is close to this flag
+	for (int i = 0; i < num; i++) {
+		const int touchEntityClientNum = touchEntityNums[i];
+		if (touchEntityClientNum >= MAX_CLIENTS)
+			continue; // not a player
+
+		gentity_t *touchEnt = (g_entities + touchEntityClientNum);
+
+		if (!touchEnt || !touchEnt->inuse || !touchEnt->client || touchEnt->isAimPracticePack)
+			continue; // not a player
+
+		if (touchEnt->health < 1 || touchEnt->client->sess.inRacemode || touchEnt->client->sess.sessionTeam == TEAM_SPECTATOR)
+			continue; // dead or not ingame
+		
+		const int enemyFlagPowerup = touchEnt->client->sess.sessionTeam == TEAM_RED ? PW_BLUEFLAG : PW_REDFLAG;
+		qboolean isDropped = !!(flagEnt->flags & FL_DROPPED_ITEM);
+		qboolean hasFlag = !!(touchEnt->client->ps.powerups[enemyFlagPowerup]);
+		qboolean touchingOwnFlag = !!(touchEnt->client->sess.sessionTeam == flagColor);
+		if (!isDropped && !hasFlag && touchingOwnFlag)
+			continue; // non-fcs can't "compete" to touch their own flag that is still at the flagstand
+
+		float dist = Distance(flagEnt->s.pos.trBase, touchEnt->client->ps.origin);
+		if (dist < lowestDistance) {
+			// this player is closer to the flag than any previously checked player
+			if (dist < lowestDistance - FLAGPICKUP_TIE_DISTANCE_THRESHOLD) {
+				// and is actually closer by a decent amount
+				numEntitiesTiedForLowestDistance = 1;
+				allEntitiesTiedForLowestDistance = (1 << touchEntityClientNum);
+			}
+			else {
+				// but is only closer by a tiny amount. consider him tied
+				++numEntitiesTiedForLowestDistance;
+				allEntitiesTiedForLowestDistance |= (1 << touchEntityClientNum);
+			}
+
+			lowestDistance = dist;
+			lowestDistanceEntNum = touchEntityClientNum;
+		}
+		else if (fabs(dist - lowestDistance) < FLAGPICKUP_TIE_DISTANCE_THRESHOLD) {
+			// this player's distance to the flag is very very close to at least one previously checked player's distance to the flag. consider him tied
+			++numEntitiesTiedForLowestDistance;
+			allEntitiesTiedForLowestDistance |= (1 << touchEntityClientNum);
+
+			//lowestDistance = dist;
+			//lowestDistanceEntNum = touchEntityNums[i];
+		}
+	}
+
+	if (numEntitiesTiedForLowestDistance > 1) {
+		// multiple players are very similar distances from the flag
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			if (!(allEntitiesTiedForLowestDistance & (1 << i)))
+				continue; // you aren't one of them
+
+			if ((flagEnt->flags & FL_DROPPED_ITEM) && level.time - flagEnt->iDroppedTime < 100 && flagEnt->entThatCausedMeToDrop == &g_entities[i])
+				return &g_entities[i]; // tie goes to the player who just killed the fc very recently, causing this flag to drop
+		}
+
+		return NULL; // it's a tie and none of the tied players just killed the fc very recently; don't give the flag to anyone yet
+	}
+
+	// one player; he gets the flag
+	if (lowestDistanceEntNum != -1)
+		return &g_entities[lowestDistanceEntNum];
+
+	return NULL; // ???
+}
+
 
 int Team_TouchEnemyFlag( gentity_t *ent, gentity_t *other, int team );
 int Team_TouchOurFlag( gentity_t *ent, gentity_t *other, int team ) {
@@ -860,52 +951,55 @@ int Team_TouchOurFlag( gentity_t *ent, gentity_t *other, int team ) {
 		return 0;
 	}
 
-	VectorSubtract( ent->s.pos.trBase, minFlagRange, mins );
-	VectorAdd( ent->s.pos.trBase, maxFlagRange, maxs );
+	if (!g_fixFlagPickup.integer) {
+		VectorSubtract(ent->s.pos.trBase, minFlagRange, mins);
+		VectorAdd(ent->s.pos.trBase, maxFlagRange, maxs);
 
-	num = trap_EntitiesInBox( mins, maxs, touch, MAX_GENTITIES );
+		num = trap_EntitiesInBox(mins, maxs, touch, MAX_GENTITIES);
 
-	dist = Distance(ent->s.pos.trBase, other->client->ps.origin);
-		
-	if (other->client->sess.sessionTeam == TEAM_RED){
-		enemyTeam = TEAM_BLUE;
-	} else {
-		enemyTeam = TEAM_RED;
-	}	
+		dist = Distance(ent->s.pos.trBase, other->client->ps.origin);
 
-	for ( j=0 ; j<num ; j++ ) {
-		enemy = (g_entities + touch[j]);
-
-		if (!enemy || !enemy->inuse || !enemy->client){
-			continue;
+		if (other->client->sess.sessionTeam == TEAM_RED) {
+			enemyTeam = TEAM_BLUE;
+		}
+		else {
+			enemyTeam = TEAM_RED;
 		}
 
-		// clients in racemode don't interact with flags
-		if ( enemy->client->sess.inRacemode ) {
-			continue;
-		}
+		for (j = 0; j < num; j++) {
+			enemy = (g_entities + touch[j]);
 
-		if (enemy->isAimPracticePack)
-			continue;
+			if (!enemy || !enemy->inuse || !enemy->client) {
+				continue;
+			}
 
-		//check if its alive
-		if (enemy->health < 1)
-			continue;		// dead people can't pickup
+			// clients in racemode don't interact with flags
+			if (enemy->client->sess.inRacemode) {
+				continue;
+			}
 
-		//ignore specs
-		if (enemy->client->sess.sessionTeam == TEAM_SPECTATOR)
-			continue;
+			if (enemy->isAimPracticePack)
+				continue;
 
-		//check if this is enemy
-		if ((enemy->client->sess.sessionTeam != TEAM_RED && enemy->client->sess.sessionTeam != TEAM_BLUE) ||
-			enemy->client->sess.sessionTeam != enemyTeam){
-			continue;
-		}
-			
-		//check if enemy is closer to our flag than us
-		enemyDist = Distance(ent->s.pos.trBase,enemy->client->ps.origin);
-		if (enemyDist < dist){
-			return Team_TouchEnemyFlag( ent, enemy, team );
+			//check if its alive
+			if (enemy->health < 1)
+				continue;		// dead people can't pickup
+
+			//ignore specs
+			if (enemy->client->sess.sessionTeam == TEAM_SPECTATOR)
+				continue;
+
+			//check if this is enemy
+			if ((enemy->client->sess.sessionTeam != TEAM_RED && enemy->client->sess.sessionTeam != TEAM_BLUE) ||
+				enemy->client->sess.sessionTeam != enemyTeam) {
+				continue;
+			}
+
+			//check if enemy is closer to our flag than us
+			enemyDist = Distance(ent->s.pos.trBase, enemy->client->ps.origin);
+			if (enemyDist < dist) {
+				return Team_TouchEnemyFlag(ent, enemy, team);
+			}
 		}
 	}
 
@@ -1032,53 +1126,56 @@ int Team_TouchEnemyFlag( gentity_t *ent, gentity_t *other, int team ) {
 	gentity_t*	enemy;
 	float enemyDist, dist;
 
-	//fix capture condition v2
-	VectorSubtract( ent->s.pos.trBase, minFlagRange, mins );
-	VectorAdd( ent->s.pos.trBase, maxFlagRange, maxs );
+	if (!g_fixFlagPickup.integer) {
+		//fix capture condition v2
+		VectorSubtract(ent->s.pos.trBase, minFlagRange, mins);
+		VectorAdd(ent->s.pos.trBase, maxFlagRange, maxs);
 
-	num = trap_EntitiesInBox( mins, maxs, touch, MAX_GENTITIES );
+		num = trap_EntitiesInBox(mins, maxs, touch, MAX_GENTITIES);
 
-	dist = Distance(ent->s.pos.trBase, other->client->ps.origin);
+		dist = Distance(ent->s.pos.trBase, other->client->ps.origin);
 
-	if (other->client->sess.sessionTeam == TEAM_RED){
-		ourFlag   = PW_REDFLAG;
-	} else {
-		ourFlag   = PW_BLUEFLAG;
-	}		
-
-	for(j = 0; j < num; ++j){
-		enemy = (g_entities + touch[j]);
-
-		if (!enemy || !enemy->inuse || !enemy->client){
-			continue;
+		if (other->client->sess.sessionTeam == TEAM_RED) {
+			ourFlag = PW_REDFLAG;
+		}
+		else {
+			ourFlag = PW_BLUEFLAG;
 		}
 
-		// clients in racemode don't interact with flags
-		if ( enemy->client->sess.inRacemode ) {
-			continue;
+		for (j = 0; j < num; ++j) {
+			enemy = (g_entities + touch[j]);
+
+			if (!enemy || !enemy->inuse || !enemy->client) {
+				continue;
+			}
+
+			// clients in racemode don't interact with flags
+			if (enemy->client->sess.inRacemode) {
+				continue;
+			}
+
+			if (enemy->isAimPracticePack)
+				continue;
+
+			//ignore specs
+			if (enemy->client->sess.sessionTeam == TEAM_SPECTATOR)
+				continue;
+
+			//check if its alive
+			if (enemy->health < 1)
+				continue;		// dead people can't pick up items
+
+			//lets check if he has our flag
+			if (!enemy->client->ps.powerups[ourFlag])
+				continue;
+
+			//check if enemy is closer to our flag than us
+			enemyDist = Distance(ent->s.pos.trBase, enemy->client->ps.origin);
+			if (enemyDist < dist) {
+				return Team_TouchOurFlag(ent, enemy, team);
+			}
 		}
-
-		if (enemy->isAimPracticePack)
-			continue;
-
-		//ignore specs
-		if (enemy->client->sess.sessionTeam == TEAM_SPECTATOR)
-			continue;
-
-		//check if its alive
-		if (enemy->health < 1)
-			continue;		// dead people can't pick up items
-
-		//lets check if he has our flag
-		if (!enemy->client->ps.powerups[ourFlag])
-			continue;
-
-		//check if enemy is closer to our flag than us
-		enemyDist = Distance(ent->s.pos.trBase,enemy->client->ps.origin);
-		if (enemyDist < dist){
-			return Team_TouchOurFlag( ent, enemy, team );
-		}
-		}		
+	}
 
 	PrintCTFMessage(other->s.number, team, CTFMESSAGE_PLAYER_GOT_FLAG);
 	++other->client->stats->numFlagHolds;
@@ -1162,10 +1259,23 @@ int Pickup_Team( gentity_t *ent, gentity_t *other ) {
 		return 0;
 	}
 	// GT_CTF
-	if( team == cl->sess.sessionTeam) {
-		return Team_TouchOurFlag( ent, other, team );
+
+	if (g_fixFlagPickup.integer) {
+		gentity_t *pickerUpper = WhoGetsToPickUpTheFlag(ent, team);
+		if (pickerUpper && pickerUpper->client) {
+			if (pickerUpper->client->sess.sessionTeam == team)
+				return Team_TouchOurFlag(ent, pickerUpper, team);
+			else
+				return Team_TouchEnemyFlag(ent, pickerUpper, team);
+		}
+		return 0;
 	}
-	return Team_TouchEnemyFlag( ent, other, team );
+	else {
+		if (team == cl->sess.sessionTeam) {
+			return Team_TouchOurFlag(ent, other, team);
+		}
+		return Team_TouchEnemyFlag(ent, other, team);
+	}
 }
 
 gentity_t *oldSpawn = NULL;
