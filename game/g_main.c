@@ -5294,6 +5294,9 @@ static void WaitForAFKs(void) {
 	else if (numAfks == 1)
 		Q_strncpyz(failReason, va("Waiting for %s%s^7 to %s", NM_SerializeUIntToColor(afkGuy1), level.clients[afkGuy1].pers.netname, Q_stristrclean(level.clients[afkGuy1].pers.netname, "hannah") ? "hunAFK" : "unAFK"), sizeof(failReason));
 
+	if (failReason[0] && level.time - level.startTime < 15000 && level.pause.state == PAUSE_NONE)
+		Q_strncpyz(failReason, " ", sizeof(failReason));
+
 	static int lastCenterPrintTime = 0;
 	if (currentCountdown) {
 		if (failReason[0]) {
