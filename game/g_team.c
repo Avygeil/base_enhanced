@@ -812,7 +812,7 @@ static vec3_t	minFlagRange = { 50, 36, 36 };
 static vec3_t	maxFlagRange = { 44, 36, 36 };
 
 // should approximate normal pickup range
-static vec3_t	fixedFlagRange = { 44, 44, 36 };
+static vec3_t	fixedFlagRange = { 44, 44, 44 };
 #define FLAGPICKUP_TIE_DISTANCE_THRESHOLD	(1)
 
 // cleaner approach to checking who is closest to a flag and thus gets to pick it up
