@@ -1747,7 +1747,10 @@ void G_InitGame( int levelTime, int randomSeed, int restart, void *serverDbPtr )
 	G_Printf ("gamename: %s\n", GAMEVERSION);
 	G_Printf ("gamedate: %s\n", __DATE__);
 
+#if 0
+	// per teh, this has been manually commented out in builds for months; adding #if 0 to eliminate that need
 	srand( randomSeed );
+#endif
 
 	G_RegisterCvars();
 
