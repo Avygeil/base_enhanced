@@ -816,7 +816,7 @@ static vec3_t	fixedFlagRange = { 36, 36, 36 };
 #define FLAGPICKUP_TIE_DISTANCE_THRESHOLD	(1)
 
 // cleaner approach to checking who is closest to a flag and thus gets to pick it up
-gentity_t *WhoGetsToPickUpTheFlag(gentity_t *flagEnt, int flagColor) {
+gentity_t *WhoGetsToPickUpTheFlag(gentity_t *flagEnt, int flagColor, gentity_t *whoTriggered) {
 	assert(flagEnt);
 
 	vec3_t mins, maxs;
@@ -830,6 +830,15 @@ gentity_t *WhoGetsToPickUpTheFlag(gentity_t *flagEnt, int flagColor) {
 	int lowestDistanceEntNum = -1;
 	int numEntitiesTiedForLowestDistance = 0;
 	int32_t allEntitiesTiedForLowestDistance = 0;
+
+	char buf[MAX_STRING_CHARS] = { 0 };
+	if (d_debugFixFlagPickup.integer) {
+		Com_sprintf(buf, sizeof(buf), "[%d] %d %s %s flag touch: ",
+			level.time - level.startTime,
+			whoTriggered ? whoTriggered - g_entities : -1,
+			whoTriggered && whoTriggered->client ? whoTriggered->client->pers.netname : "",
+			flagColor == TEAM_RED ? "Red" : "Blue");
+	}
 
 	// loop through every player who is close to this flag
 	for (int i = 0; i < num; i++) {
@@ -853,6 +862,10 @@ gentity_t *WhoGetsToPickUpTheFlag(gentity_t *flagEnt, int flagColor) {
 			continue; // non-fcs can't "compete" to touch their own flag that is still at the flagstand
 
 		float dist = Distance(flagEnt->s.pos.trBase, touchEnt->client->ps.origin);
+
+		if (d_debugFixFlagPickup.integer)
+			Q_strcat(buf, sizeof(buf), va("(%d %s %.6f", touchEnt - g_entities, touchEnt->client->pers.netname, dist));
+
 		if (dist < lowestDistance) {
 			// this player is closer to the flag than any previously checked player
 			if (dist < lowestDistance - FLAGPICKUP_TIE_DISTANCE_THRESHOLD) {
@@ -864,6 +877,9 @@ gentity_t *WhoGetsToPickUpTheFlag(gentity_t *flagEnt, int flagColor) {
 				// but is only closer by a tiny amount. consider him tied
 				++numEntitiesTiedForLowestDistance;
 				allEntitiesTiedForLowestDistance |= (1 << touchEntityClientNum);
+
+				if (d_debugFixFlagPickup.integer)
+					Q_strcat(buf, sizeof(buf), "*");
 			}
 
 			lowestDistance = dist;
@@ -874,9 +890,15 @@ gentity_t *WhoGetsToPickUpTheFlag(gentity_t *flagEnt, int flagColor) {
 			++numEntitiesTiedForLowestDistance;
 			allEntitiesTiedForLowestDistance |= (1 << touchEntityClientNum);
 
+			if (d_debugFixFlagPickup.integer)
+				Q_strcat(buf, sizeof(buf), "*");
+
 			//lowestDistance = dist;
 			//lowestDistanceEntNum = touchEntityNums[i];
 		}
+
+		if (d_debugFixFlagPickup.integer)
+			Q_strcat(buf, sizeof(buf), ")");
 	}
 
 	if (numEntitiesTiedForLowestDistance > 1) {
@@ -885,16 +907,42 @@ gentity_t *WhoGetsToPickUpTheFlag(gentity_t *flagEnt, int flagColor) {
 			if (!(allEntitiesTiedForLowestDistance & (1 << i)))
 				continue; // you aren't one of them
 
-			if ((flagEnt->flags & FL_DROPPED_ITEM) && level.time - flagEnt->iDroppedTime < 100 && flagEnt->entThatCausedMeToDrop == &g_entities[i])
-				return &g_entities[i]; // tie goes to the player who just killed the fc very recently, causing this flag to drop
+			if ((flagEnt->flags & FL_DROPPED_ITEM) && level.time - flagEnt->iDroppedTime < 100 && flagEnt->entThatCausedMeToDrop == &g_entities[i]) {
+				gentity_t *fcKiller = &g_entities[i];
+
+				if (d_debugFixFlagPickup.integer) {
+					Q_strcat(buf, sizeof(buf), va("[%d %s fckiller tiebreaker]\n", fcKiller - g_entities, fcKiller->client->pers.netname));
+					G_LogPrintf(buf);
+				}
+
+				return fcKiller; // tie goes to the player who just killed the fc very recently, causing this flag to drop
+			}
+		}
+
+		if (d_debugFixFlagPickup.integer) {
+			Q_strcat(buf, sizeof(buf), "[tie]\n");
+			G_LogPrintf(buf);
 		}
 
 		return NULL; // it's a tie and none of the tied players just killed the fc very recently; don't give the flag to anyone yet
 	}
 
 	// one player; he gets the flag
-	if (lowestDistanceEntNum != -1)
-		return &g_entities[lowestDistanceEntNum];
+	if (lowestDistanceEntNum != -1) {
+		gentity_t *lowestDistanceGuy = &g_entities[lowestDistanceEntNum];
+
+		if (d_debugFixFlagPickup.integer) {
+			Q_strcat(buf, sizeof(buf), va("[%d %s]\n", lowestDistanceGuy - g_entities, lowestDistanceGuy->client->pers.netname));
+			G_LogPrintf(buf);
+		}
+
+		return lowestDistanceGuy;
+	}
+
+	if (d_debugFixFlagPickup.integer) {
+		Q_strcat(buf, sizeof(buf), "[?]\n");
+		G_LogPrintf(buf);
+	}
 
 	return NULL; // ???
 }
@@ -1261,7 +1309,7 @@ int Pickup_Team( gentity_t *ent, gentity_t *other ) {
 	// GT_CTF
 
 	if (g_fixFlagPickup.integer) {
-		gentity_t *pickerUpper = WhoGetsToPickUpTheFlag(ent, team);
+		gentity_t *pickerUpper = WhoGetsToPickUpTheFlag(ent, team, other);
 		if (pickerUpper && pickerUpper->client) {
 			if (pickerUpper->client->sess.sessionTeam == team)
 				return Team_TouchOurFlag(ent, pickerUpper, team);
