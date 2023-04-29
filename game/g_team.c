@@ -811,8 +811,8 @@ Team_DroppedFlagThink
 static vec3_t	minFlagRange = { 50, 36, 36 };
 static vec3_t	maxFlagRange = { 44, 36, 36 };
 
-// just use all 36s i guess
-static vec3_t	fixedFlagRange = { 36, 36, 36 };
+// should approximate normal pickup range
+static vec3_t	fixedFlagRange = { 44, 44, 36 };
 #define FLAGPICKUP_TIE_DISTANCE_THRESHOLD	(1)
 
 // cleaner approach to checking who is closest to a flag and thus gets to pick it up
@@ -841,12 +841,15 @@ gentity_t *WhoGetsToPickUpTheFlag(gentity_t *flagEnt, int flagColor, gentity_t *
 	}
 
 	// loop through every player who is close to this flag
+	qboolean gotTriggerer = qfalse;
 	for (int i = 0; i < num; i++) {
 		const int touchEntityClientNum = touchEntityNums[i];
 		if (touchEntityClientNum >= MAX_CLIENTS)
 			continue; // not a player
 
 		gentity_t *touchEnt = (g_entities + touchEntityClientNum);
+		if (touchEnt == whoTriggered)
+			gotTriggerer = qtrue;
 
 		if (!touchEnt || !touchEnt->inuse || !touchEnt->client || touchEnt->isAimPracticePack)
 			continue; // not a player
@@ -899,6 +902,67 @@ gentity_t *WhoGetsToPickUpTheFlag(gentity_t *flagEnt, int flagColor, gentity_t *
 
 		if (d_debugFixFlagPickup.integer)
 			Q_strcat(buf, sizeof(buf), ")");
+	}
+
+	// sanity check: always make sure we check the guy who triggered this in the first place
+	if (!gotTriggerer) {
+		for (int i = 0; i < 1; i++) {
+			gentity_t *touchEnt = whoTriggered;
+
+			if (!touchEnt || !touchEnt->inuse || !touchEnt->client || touchEnt->isAimPracticePack)
+				continue; // not a player
+
+			const int touchEntityClientNum = whoTriggered - g_entities;
+
+			if (touchEnt->health < 1 || touchEnt->client->sess.inRacemode || touchEnt->client->sess.sessionTeam == TEAM_SPECTATOR)
+				continue; // dead or not ingame
+
+			const int enemyFlagPowerup = touchEnt->client->sess.sessionTeam == TEAM_RED ? PW_BLUEFLAG : PW_REDFLAG;
+			qboolean isDropped = !!(flagEnt->flags & FL_DROPPED_ITEM);
+			qboolean hasFlag = !!(touchEnt->client->ps.powerups[enemyFlagPowerup]);
+			qboolean touchingOwnFlag = !!(touchEnt->client->sess.sessionTeam == flagColor);
+			if (!isDropped && !hasFlag && touchingOwnFlag)
+				continue; // non-fcs can't "compete" to touch their own flag that is still at the flagstand
+
+			float dist = Distance(flagEnt->s.pos.trBase, touchEnt->client->ps.origin);
+
+			if (d_debugFixFlagPickup.integer)
+				Q_strcat(buf, sizeof(buf), va("(%d %s %.6f", touchEnt - g_entities, touchEnt->client->pers.netname, dist));
+
+			if (dist < lowestDistance) {
+				// this player is closer to the flag than any previously checked player
+				if (dist < lowestDistance - FLAGPICKUP_TIE_DISTANCE_THRESHOLD) {
+					// and is actually closer by a decent amount
+					numEntitiesTiedForLowestDistance = 1;
+					allEntitiesTiedForLowestDistance = (1 << touchEntityClientNum);
+				}
+				else {
+					// but is only closer by a tiny amount. consider him tied
+					++numEntitiesTiedForLowestDistance;
+					allEntitiesTiedForLowestDistance |= (1 << touchEntityClientNum);
+
+					if (d_debugFixFlagPickup.integer)
+						Q_strcat(buf, sizeof(buf), "*");
+				}
+
+				lowestDistance = dist;
+				lowestDistanceEntNum = touchEntityClientNum;
+			}
+			else if (fabs(dist - lowestDistance) < FLAGPICKUP_TIE_DISTANCE_THRESHOLD) {
+				// this player's distance to the flag is very very close to at least one previously checked player's distance to the flag. consider him tied
+				++numEntitiesTiedForLowestDistance;
+				allEntitiesTiedForLowestDistance |= (1 << touchEntityClientNum);
+
+				if (d_debugFixFlagPickup.integer)
+					Q_strcat(buf, sizeof(buf), "*");
+
+				//lowestDistance = dist;
+				//lowestDistanceEntNum = touchEntityNums[i];
+			}
+
+			if (d_debugFixFlagPickup.integer)
+				Q_strcat(buf, sizeof(buf), ")");
+		}
 	}
 
 	if (numEntitiesTiedForLowestDistance > 1) {
@@ -999,7 +1063,7 @@ int Team_TouchOurFlag( gentity_t *ent, gentity_t *other, int team ) {
 		return 0;
 	}
 
-	if (!g_fixFlagPickup.integer) {
+	if (!g_fixFlagPickup.integer || (other && other->client && other->client->sess.inRacemode)) {
 		VectorSubtract(ent->s.pos.trBase, minFlagRange, mins);
 		VectorAdd(ent->s.pos.trBase, maxFlagRange, maxs);
 
@@ -1174,7 +1238,7 @@ int Team_TouchEnemyFlag( gentity_t *ent, gentity_t *other, int team ) {
 	gentity_t*	enemy;
 	float enemyDist, dist;
 
-	if (!g_fixFlagPickup.integer) {
+	if (!g_fixFlagPickup.integer || (other && other->client && other->client->sess.inRacemode)) {
 		//fix capture condition v2
 		VectorSubtract(ent->s.pos.trBase, minFlagRange, mins);
 		VectorAdd(ent->s.pos.trBase, maxFlagRange, maxs);
@@ -1308,7 +1372,7 @@ int Pickup_Team( gentity_t *ent, gentity_t *other ) {
 	}
 	// GT_CTF
 
-	if (g_fixFlagPickup.integer) {
+	if (g_fixFlagPickup.integer && !(other && other->client && other->client->sess.inRacemode)) {
 		gentity_t *pickerUpper = WhoGetsToPickUpTheFlag(ent, team, other);
 		if (pickerUpper && pickerUpper->client) {
 			if (pickerUpper->client->sess.sessionTeam == team)
