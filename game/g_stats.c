@@ -2461,12 +2461,14 @@ static char *GetCapturesString() {
 		return NULL;
 
 	Table *t = Table_Initialize(qfalse);
-	Table_DefineRow(t, (void *)TEAM_RED);
-	Table_DefineRow(t, (void *)TEAM_BLUE);
+	team_t winningTeam = level.teamScores[TEAM_BLUE] > level.teamScores[TEAM_RED] ? TEAM_BLUE : TEAM_RED; // red if tied to match scoreboard order
+	team_t losingTeam = OtherTeam(winningTeam);
+	Table_DefineRow(t, (void *)winningTeam);
+	Table_DefineRow(t, (void *)losingTeam);
 
-	Table_DefineColumn(t, "", CapCallback, (void *)0xDEADBEEF, qtrue, -1, 8);
+	Table_DefineColumn(t, "", CapCallback, (void *)0xDEADBEEF, qfalse, -1, 8);
 	for (int i = 0; i < level.captureList.size; i++)
-		Table_DefineColumn(t, "0:00", CapCallback, (void *)i, qtrue, -1, 8);
+		Table_DefineColumn(t, "0:00", CapCallback, (void *)i, qfalse, -1, 8);
 
 	const size_t bufSize = 8192;
 	char *buf = calloc(bufSize, sizeof(char));
