@@ -137,7 +137,7 @@ void AliasPrint(void *context, const char *name, int duration) {
 		return;
 	}
 	AliasContext *writeContext = (AliasContext *)context;
-	Q_strncpyz(writeContext->buf, va("^7%s", name), sizeof(writeContext->buf));
+	Com_sprintf(writeContext->buf, sizeof(writeContext->buf), "^7%s", name);
 }
 
 const char *TableCallback_Alias(void *rowContext, void *columnContext) {
@@ -377,34 +377,45 @@ static void WriteColumnHeader(Table *t, char *buf, size_t bufSize, int customHea
 	ListIterate(&t->columnList, &iter, qfalse);
 	while (IteratorHasNext(&iter)) {
 		ColumnData *column = (ColumnData *)IteratorNext(&iter);
-		Q_strcat(buf, bufSize, va("%s", column->title));
+		Q_strcat(buf, bufSize, column->title);
 		int printLen = Q_PrintStrlen(column->title);
 		int numSpaces = (column->longestPrintLen - Q_PrintStrlen(column->title)) + 1;
 		for (int i = 0; i < numSpaces; i++)
 			Q_strcat(buf, bufSize, " ");
 
 		if (IteratorHasNext(&iter) && column->dividerColor >= 0 && column->dividerColor <= 9) {
-			Q_strcat(buf, bufSize, va("^%d| ^7", column->dividerColor));
+			char dividerBuf[16] = { 0 };
+			Com_sprintf(dividerBuf, sizeof(dividerBuf), "^%d| ^7", column->dividerColor);
+			Q_strcat(buf, bufSize, dividerBuf);
 		}
 	}
 	Q_strcat(buf, bufSize, "\n");
 
 	// print the minus signs
 	ListIterate(&t->columnList, &iter, qfalse);
-	if (customHeaderColor >= 0 && customHeaderColor <= 9)
-		Q_strcat(buf, bufSize, va("^%d", customHeaderColor));
-	else
+	if (customHeaderColor >= 0 && customHeaderColor <= 9) {
+		char customHeaderBuf[16] = { 0 };
+		Com_sprintf(customHeaderBuf, sizeof(customHeaderBuf), "^%d", customHeaderColor);
+		Q_strcat(buf, bufSize, customHeaderBuf);
+	}
+	else {
 		Q_strcat(buf, bufSize, "^9");
+	}
+
 	while (IteratorHasNext(&iter)) {
 		ColumnData *column = (ColumnData *)IteratorNext(&iter);
 		for (int i = 0; i < column->longestPrintLen; i++)
 			Q_strcat(buf, bufSize, "-");
 		Q_strcat(buf, bufSize, " ");
 		if (IteratorHasNext(&iter) && column->dividerColor >= 0 && column->dividerColor <= 9) {
-			if (customHeaderColor == column->dividerColor)
+			if (customHeaderColor == column->dividerColor) {
 				Q_strcat(buf, bufSize, "| ");
-			else
-				Q_strcat(buf, bufSize, va("^%d| ^%d", column->dividerColor, customHeaderColor));
+			}
+			else {
+				char dividerBuf[16] = { 0 };
+				Com_sprintf(dividerBuf, sizeof(dividerBuf), "^%d| ^%d", column->dividerColor, customHeaderColor);
+				Q_strcat(buf, bufSize, dividerBuf);
+			}
 		}
 	}
 	Q_strcat(buf, bufSize, "^7\n");
@@ -426,8 +437,11 @@ static void WriteCell(Table *t, RowData *row, ColumnData *column, qboolean grey,
 				Q_strcat(buf, bufSize, " ");
 		}
 		if (!lastColumn) {
-			if (column->dividerColor >= 0 && column->dividerColor <= 9)
-				Q_strcat(buf, bufSize, va("^%d| ", column->dividerColor));
+			if (column->dividerColor >= 0 && column->dividerColor <= 9) {
+				char dividerBuf[16] = { 0 };
+				Com_sprintf(dividerBuf, sizeof(dividerBuf), "^%d| ", column->dividerColor);
+				Q_strcat(buf, bufSize, dividerBuf);
+			}
 		}
 	}
 	else { // " text nextThing"
@@ -438,10 +452,14 @@ static void WriteCell(Table *t, RowData *row, ColumnData *column, qboolean grey,
 		if (VALIDSTRING(row->str[column->columnId]))
 			Q_strcat(buf, bufSize, row->str[column->columnId]);
 		if (!lastColumn) {
-			if (column->dividerColor >= 0 && column->dividerColor <= 9)
-				Q_strcat(buf, bufSize, va(" ^%d| ", column->dividerColor));
-			else
+			if (column->dividerColor >= 0 && column->dividerColor <= 9) {
+				char dividerBuf[16] = { 0 };
+				Com_sprintf(dividerBuf, sizeof(dividerBuf), " ^%d| ", column->dividerColor);
+				Q_strcat(buf, bufSize, dividerBuf);
+			}
+			else {
 				Q_strcat(buf, bufSize, " ");
+			}
 		}
 	}
 }
@@ -456,10 +474,14 @@ static void WriteHorizontalRule(Table *t, char *buf, size_t bufSize, int customC
 	iterator_t iter;
 	ListIterate(&t->columnList, &iter, qfalse);
 
-	if (customColor >= 0 && customColor <= 9)
-		Q_strcat(buf, bufSize, va("^%d", customColor));
-	else
+	if (customColor >= 0 && customColor <= 9) {
+		char colorBuf[16] = { 0 };
+		Com_sprintf(colorBuf, sizeof(colorBuf), "^%d", customColor);
+		Q_strcat(buf, bufSize, colorBuf);
+	}
+	else {
 		Q_strcat(buf, bufSize, "^9");
+	}
 
 	while (IteratorHasNext(&iter)) {
 		ColumnData *column = (ColumnData *)IteratorNext(&iter);
@@ -470,10 +492,14 @@ static void WriteHorizontalRule(Table *t, char *buf, size_t bufSize, int customC
 		Q_strcat(buf, bufSize, " ");
 
 		if (IteratorHasNext(&iter) && column->dividerColor >= 0 && column->dividerColor <= 9) {
-			if (column->dividerColor == customColor)
+			if (column->dividerColor == customColor) {
 				Q_strcat(buf, bufSize, "| ");
-			else
-				Q_strcat(buf, bufSize, va("^%d| ^%d", column->dividerColor, customColor));
+			}
+			else {
+				char dividerBuf[16] = { 0 };
+				Com_sprintf(dividerBuf, sizeof(dividerBuf), "^%d| ^%d", column->dividerColor, customColor);
+				Q_strcat(buf, bufSize, dividerBuf);
+			}
 		}
 	}
 }

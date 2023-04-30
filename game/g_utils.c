@@ -3317,3 +3317,57 @@ void CountPlayers(int *total, int *red, int *blue, int *free, int *spec, int *re
 		}
 	}
 }
+
+// takes an integer of milliseconds and gives you a formatted string
+// forceColon: if qtrue, prepends ":" for times under one minute
+// zeroMinutes: if qtrue, prepends "0:" for times under one minute
+// zeroPadSeconds: if qtrue, prepends a zero for times under ten seconds ("05" instead of "5")
+// fractionalDigits: number of digits after the decimal point to print (can be zero)
+char *ParseMillisecondsToString(int msIn, qboolean forceColon, qboolean zeroMinutes, qboolean zeroPadSeconds, unsigned int fractionalDigits) {
+	static char result[32] = { 0 };
+	memset(&result, 0, sizeof(result));
+	qboolean negative = msIn < 0 ? qtrue : qfalse;
+	int msAbs = abs(msIn), d, h, m, s, ms;
+	if (msAbs < 60000) { // seconds
+		s = msAbs / 1000;
+		ms = msAbs - (1000 * s);
+		Q_strncpyz(result, zeroPadSeconds ? va("%02i", s) : va("%i", s), sizeof(result));
+		if (zeroMinutes)
+			Q_strncpyz(result, va("0:%s", result), sizeof(result));
+		else if (forceColon)
+			Q_strncpyz(result, va(":%s", result), sizeof(result));
+	}
+	else if (msAbs < 3600000) { // minutes:seconds
+		m = msAbs / 60000;
+		s = (msAbs % 60000) / 1000;
+		ms = (msAbs % 60000) - (1000 * s);
+		Q_strncpyz(result, va("%i:%02i", m, s), sizeof(result));
+	}
+	else if (msAbs < 86400000) { // hours:minutes:seconds
+		h = msAbs / 3600000;
+		m = (msAbs % 3600000) / 60000;
+		s = (msAbs % 60000) / 1000;
+		ms = (msAbs % 60000) - (1000 * s);
+		Q_strncpyz(result, va("%i:%02i:%02i", h, m, s), sizeof(result));
+	}
+	else { // days:hours:minutes:seconds
+		d = msAbs / 86400000;
+		h = (msAbs % 86400000) / 3600000;
+		m = (msAbs % 3600000) / 60000;
+		s = (msAbs % 60000) / 1000;
+		ms = (msAbs % 60000) - (1000 * s);
+		Q_strncpyz(result, va("%i:%i:%02i:%02i", d, h, m, s), sizeof(result));
+	}
+
+	char frac[16] = { 0 };
+	if (fractionalDigits > 0 && fractionalDigits < ARRAY_LEN(frac)) {
+		Q_strncpyz(frac, va(".%03i", ms), sizeof(frac));
+		frac[fractionalDigits + 1] = '\0';
+		Q_strcat(result, sizeof(result), frac);
+	}
+
+	if (negative)
+		Q_strncpyz(result, va("-%s", result), sizeof(result));
+
+	return result;
+}

@@ -1131,6 +1131,13 @@ int Team_TouchOurFlag( gentity_t *ent, gentity_t *other, int team ) {
 
 	PrintCTFMessage( other->s.number, team, CTFMESSAGE_PLAYER_CAPTURED_FLAG );
 	level.redPlayerWhoKilledBlueCarrierOfRedFlag = level.bluePlayerWhoKilledRedCarrierOfBlueFlag = NULL;
+	if (level.captureList.size < 50) {
+		capture_t *add = ListAdd(&level.captureList, sizeof(capture_t));
+		add->capturingTeam = other->client->sess.sessionTeam;
+		add->time = level.time - level.startTime;
+		//if (other->client->session) add->sessionId = other->client->session->id;
+		//Q_strncpyz(add->name, other->client->pers.netname, sizeof(add->name));
+	}
 
 	cl->ps.powerups[enemy_flag] = 0;
 	

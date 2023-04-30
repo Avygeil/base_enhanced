@@ -1717,6 +1717,14 @@ typedef struct {
 } mostPlayedPos_t;
 
 typedef struct {
+	node_t			node;
+	int				time;
+	int				capturingTeam;
+	//int				sessionId;
+	//char			name[MAX_NAME_LENGTH];
+} capture_t;
+
+typedef struct {
 	struct gclient_s	*clients;		// [maxclients]
 
 	struct gentity_s	*gentities;
@@ -2012,6 +2020,8 @@ typedef struct {
 	int lastPlayerTickAddedTime;
 	list_t rustyPlayersList;
 
+	list_t captureList;
+
 	struct {
 		qboolean valid;
 		float value;
@@ -2289,6 +2299,7 @@ void SV_Tell(int clientNum, const char *text);
 void SV_Say(const char *text);
 
 void CountPlayers(int *total, int *red, int *blue, int *free, int *spec, int *redOrBlue, int *freeOrSpec);
+char *ParseMillisecondsToString(int msIn, qboolean forceColon, qboolean zeroMinutes, qboolean zeroPadSeconds, unsigned int fractionalDigits);
 
 //
 // g_object.c
@@ -2903,6 +2914,7 @@ extern	vmCvar_t	g_trueJedi;
 
 extern	vmCvar_t	g_autoMapCycle;
 extern	vmCvar_t	g_autoStats;
+extern	vmCvar_t	g_statsCaptureTimes;
 extern	vmCvar_t	g_dmflags;
 extern	vmCvar_t	g_maxForceRank;
 extern	vmCvar_t	g_forceBasedTeams;

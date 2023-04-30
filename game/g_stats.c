@@ -2414,6 +2414,73 @@ static qboolean PrintHelpForIndividualStat(const char *query, int id) {
 	return qtrue;
 }
 
+const char *CapCallback(void *rowContext, void *columnContext) {
+	int team = (int)rowContext;
+	int num = (int)columnContext;
+	
+	if (num == 0xDEADBEEF) {
+		if (team == TEAM_RED)
+			return "^1Red caps:";
+		else
+			return "^4Blue caps:";
+	}
+
+	iterator_t iter;
+	ListIterate(&level.captureList, &iter, qfalse);
+	int iterated = 0;
+	int myScore = 0, enemyScore = 0;
+	while (IteratorHasNext(&iter)) {
+		const capture_t *cap = IteratorNext(&iter);
+
+		if (cap->capturingTeam == team)
+			++myScore;
+		else
+			++enemyScore;
+
+		if (iterated++ == num) {
+			if (team != cap->capturingTeam)
+				return NULL;
+
+			int scoreDiff = myScore - enemyScore;
+			char scoreDiffBuf[32] = { 0 };
+			if (!scoreDiff)
+				Com_sprintf(scoreDiffBuf, sizeof(scoreDiffBuf), "=");
+			else
+				Com_sprintf(scoreDiffBuf, sizeof(scoreDiffBuf), "%s%d", scoreDiff > 0 ? "+" : "", scoreDiff);
+
+			return va("^7%s^9(%s)", ParseMillisecondsToString(cap->time, qtrue, qtrue, qtrue, 0), scoreDiffBuf);
+		}
+	}
+
+	return NULL;
+}
+
+// free the result!
+static char *GetCapturesString() {
+	if (!g_statsCaptureTimes.integer || level.captureList.size <= 0)
+		return NULL;
+
+	Table *t = Table_Initialize(qfalse);
+	Table_DefineRow(t, (void *)TEAM_RED);
+	Table_DefineRow(t, (void *)TEAM_BLUE);
+
+	Table_DefineColumn(t, "", CapCallback, (void *)0xDEADBEEF, qtrue, -1, 8);
+	for (int i = 0; i < level.captureList.size; i++)
+		Table_DefineColumn(t, "0:00", CapCallback, (void *)i, qtrue, -1, 8);
+
+	const size_t bufSize = 8192;
+	char *buf = calloc(bufSize, sizeof(char));
+	buf[0] = '\n'; // prepend newline
+	Table_WriteToBuffer(t, buf + 1, bufSize - 1, qfalse, -1);
+
+	// remove final newline
+	int len = strlen(buf);
+	if (len > 0 && buf[len - 1] == '\n')
+		buf[len - 1] = '\0';
+
+	return buf;
+}
+
 void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t outSize, qboolean announce, stats_t *weaponStatsPtr) {
 	if (!VALIDSTRING(type))
 		return;
@@ -2445,14 +2512,21 @@ void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t ou
 			timeStr = va("%d:%02d", mins, secs % 60);
 		else
 			timeStr = va("0:%02d", secs);
-		const char *s = va("%s: "S_COLOR_WHITE"%d    %s: "S_COLOR_WHITE"%d\n%s%s\n\n",
+
+		const size_t preambleSize = 8192;
+		char *preamble = calloc(preambleSize, sizeof(char));
+		char *capsStr = GetCapturesString();
+		Com_sprintf(preamble, preambleSize, "%s: "S_COLOR_WHITE"%d    %s: "S_COLOR_WHITE"%d\n%s%s%s\n",
 			ScoreTextForTeam(winningTeam), level.teamScores[winningTeam],
 			ScoreTextForTeam(losingTeam), level.teamScores[losingTeam],
 			timeStr,
-			level.intermissiontime ? "" : " elapsed");
+			level.intermissiontime ? "" : " elapsed",
+			capsStr ? capsStr : "\n");
+		if (capsStr)
+			free(capsStr);
 
 		if (outputBuffer) {
-			Q_strncpyz(outputBuffer, s, outSize);
+			Q_strncpyz(outputBuffer, preamble, outSize);
 			int len = strlen(outputBuffer);
 			PrintTeamStats(id, outputBuffer + len, outSize - len, announce, STATS_TABLE_GENERAL, NULL);
 			len = strlen(outputBuffer);
@@ -2460,10 +2534,12 @@ void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t ou
 		}
 		else {
 			if (announce)
-				PrintIngame(id, s);
+				PrintIngame(id, preamble);
 			PrintTeamStats(id, NULL, 0, announce, STATS_TABLE_GENERAL, NULL);
 			PrintTeamStats(id, NULL, 0, announce, STATS_TABLE_FORCE, NULL);
 		}
+
+		free(preamble);
 	}
 	else if (!Q_stricmpn(type, "da", 2) || !Q_stricmpn(type, "dmg", 3)) { // damage stats
 		if (outputBuffer) {

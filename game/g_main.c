@@ -49,6 +49,7 @@ vmCvar_t	g_MaxHolocronCarry;
 vmCvar_t	g_ff_objectives;
 vmCvar_t	g_autoMapCycle;
 vmCvar_t	g_autoStats;
+vmCvar_t	g_statsCaptureTimes;
 vmCvar_t	g_dmflags;
 vmCvar_t	g_maxForceRank;
 vmCvar_t	g_forceBasedTeams;
@@ -582,6 +583,7 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_autoMapCycle, "g_autoMapCycle", "0", CVAR_ARCHIVE | CVAR_NORESTART, 0, qtrue },
 	{ &g_autoStats, "g_autoStats", "1", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_statsCaptureTimes, "g_statsCaptureTimes", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_dmflags, "dmflags", "0", CVAR_SERVERINFO | CVAR_ARCHIVE, 0, qtrue  },
 	
 	{ &g_maxForceRank, "g_maxForceRank", "6", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse  },
@@ -2239,6 +2241,7 @@ void G_ShutdownGame( int restart ) {
 	ListClear(&level.rustyPlayersList);
 	ListClear(&level.barVoteList);
 	ListClear(&level.unbarVoteList);
+	ListClear(&level.captureList);
 
 	UnpatchEngine();
 }
