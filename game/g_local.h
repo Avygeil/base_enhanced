@@ -2820,7 +2820,7 @@ qboolean HasSetSaberOnly(void);
 void WP_ForcePowerStop( gentity_t *self, forcePowers_t forcePower );
 void WP_ForcePowerStart( gentity_t *self, forcePowers_t forcePower, int overrideAmt );
 void WP_SaberPositionUpdate( gentity_t *self, usercmd_t *ucmd );
-int WP_SaberCanBlock(gentity_t *self, gentity_t* other, vec3_t point, int dflags, int mod, qboolean projectile, int attackStr);
+int WP_SaberCanBlock(gentity_t *self, gentity_t* other, vec3_t point, int dflags, int mod, qboolean projectile, int attackStr, vec_t *overrideAngleCalculationSpot);
 void WP_SaberInitBladeData( gentity_t *ent );
 void WP_InitForcePowers( gentity_t *ent );
 void WP_SpawnInitForcePowers( gentity_t *ent );

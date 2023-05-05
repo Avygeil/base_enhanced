@@ -105,6 +105,9 @@ vmCvar_t	g_optvehtrace;
 vmCvar_t	g_locationBasedDamage;
 
 vmCvar_t	g_fixSaberDefense;
+// 1 = angle-based blocking for disrupts
+// 2 = also fix projectile blocking
+
 vmCvar_t	g_saberDefense1Angle;
 vmCvar_t	g_saberDefense2Angle;
 vmCvar_t	g_saberDefense3Angle;

@@ -621,6 +621,13 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 		return;
 	}
 
+	vec3_t overrideSpot;
+	qboolean overrideSpotSet = qfalse;
+	if (g_fixSaberDefense.integer >= 2) {
+		VectorMA(ent->s.pos.trBase, -0.1f, ent->s.pos.trDelta, overrideSpot);
+		overrideSpotSet = qtrue;
+	}
+
 	if (other->takedamage && other->client &&
 		ent->s.weapon != WP_ROCKET_LAUNCHER &&
 		ent->s.weapon != WP_THERMAL &&
@@ -633,7 +640,7 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 		ent->methodOfDeath != MOD_CONC_ALT &&
 		other->client->ps.saberBlockTime < level.time &&
 		!isKnockedSaber &&
-		WP_SaberCanBlock(other, ent, ent->r.currentOrigin, 0, 0, qtrue, 0))
+		WP_SaberCanBlock(other, ent, ent->r.currentOrigin, 0, 0, qtrue, 0, overrideSpotSet ? (vec_t*)&overrideSpot : NULL))
 	{ //only block one projectile per 200ms (to prevent giant swarms of projectiles being blocked)
 		vec3_t fwd;
 		gentity_t *te;
@@ -1028,6 +1035,7 @@ void G_RunMissile( gentity_t *ent ) {
 	trace_t		tr;
 	int			passent = ENTITYNUM_NONE;
 	qboolean	isKnockedSaber = qfalse;
+	const int adjustedClipMask = g_fixSaberDefense.integer >= 2 ? (ent->clipmask & ~CONTENTS_LIGHTSABER) : ent->clipmask;
 
 	VectorSet(groundSpot, 0, 0, 0);
 
@@ -1065,7 +1073,7 @@ void G_RunMissile( gentity_t *ent ) {
 	// trace a line from the previous position to the current position
 	if (d_projectileGhoul2Collision.integer)
 	{
-		trap_G2Trace(&tr, ent->r.currentOrigin, ent->r.mins, ent->r.maxs, origin, passent, ent->clipmask, G2TRFLAG_DOGHOULTRACE | G2TRFLAG_GETSURFINDEX | G2TRFLAG_THICK | G2TRFLAG_HITCORPSES, g_g2TraceLod.integer);
+		trap_G2Trace(&tr, ent->r.currentOrigin, ent->r.mins, ent->r.maxs, origin, passent, adjustedClipMask, G2TRFLAG_DOGHOULTRACE | G2TRFLAG_GETSURFINDEX | G2TRFLAG_THICK | G2TRFLAG_HITCORPSES, g_g2TraceLod.integer);
 
 		if (tr.fraction != 1.0 && tr.entityNum < ENTITYNUM_WORLD)
 		{
@@ -1085,12 +1093,12 @@ void G_RunMissile( gentity_t *ent ) {
 		}
 		else
 		{
-			trap_Trace( &tr, ent->r.currentOrigin, ent->r.mins, ent->r.maxs, origin, passent, ent->clipmask );
+			trap_Trace( &tr, ent->r.currentOrigin, ent->r.mins, ent->r.maxs, origin, passent, adjustedClipMask);
 		}
 
 	if ( tr.startsolid || tr.allsolid ) {
 		// make sure the tr.entityNum is set to the entity we're stuck in
-		trap_Trace( &tr, ent->r.currentOrigin, ent->r.mins, ent->r.maxs, ent->r.currentOrigin, passent, ent->clipmask );
+		trap_Trace( &tr, ent->r.currentOrigin, ent->r.mins, ent->r.maxs, ent->r.currentOrigin, passent, adjustedClipMask);
 		tr.fraction = 0;
 	}
 	else {
@@ -1113,7 +1121,7 @@ void G_RunMissile( gentity_t *ent ) {
 
 		VectorCopy(ent->r.currentOrigin, lowerOrg);
 		lowerOrg[2] -= 1;
-		trap_Trace( &trG, ent->r.currentOrigin, ent->r.mins, ent->r.maxs, lowerOrg, passent, ent->clipmask );
+		trap_Trace( &trG, ent->r.currentOrigin, ent->r.mins, ent->r.maxs, lowerOrg, passent, adjustedClipMask);
 
 		VectorCopy(trG.endpos, groundSpot);
 
