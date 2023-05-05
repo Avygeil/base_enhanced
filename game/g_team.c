@@ -1571,13 +1571,6 @@ gentity_t *SelectRandomTeamSpawnPoint( gclient_t *client, int teamstate, team_t 
 	gentity_t *spawnMeNearThisGuy = NULL;
 	int boost = (client && client->account && g_boost.integer) ? client->account->flags & (ACCOUNTFLAG_BOOST_SPAWNFCBOOST | ACCOUNTFLAG_BOOST_SPAWNGERBOOST) : 0;
 	int numRed = 0, numBlue = 0;
-#ifndef _DEBUG
-	if (boost) {
-		CountPlayers(NULL, &numRed, &numBlue, NULL, NULL, NULL, NULL);
-		if (numRed != numBlue || numRed + numBlue < 6 || !level.wasRestarted)
-			boost = qfalse;
-	}
-#endif
 
 	ctfPosition_t pos = CTFPOSITION_UNKNOWN;
 	if (boost)
