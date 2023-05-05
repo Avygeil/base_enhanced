@@ -1386,44 +1386,159 @@ void WP_AddToClientBitflags(gentity_t *ent, int entNum)
 	}
 }
 
-void ForceTeamHeal( gentity_t *self )
+void ShouldUseTHTE(gentity_t *target, qboolean *doTEOut, qboolean *doTHOut) {
+	if (!target || !target->client || (!doTEOut && !doTHOut)) {
+		assert(qfalse);
+		return;
+	}
+
+	const int fp = target->client->ps.fd.forcePower;
+	int hp = target->health;
+	const qboolean speedActive = !!(target->client->ps.fd.forcePowersActive & (1 << FP_SPEED));
+	const qboolean hasFlag = HasFlag(target);
+	const qboolean hasRage = !!(target->client->ps.fd.forcePowersKnown & (1 << FP_RAGE));
+	const qboolean rageActive = !!(hasRage && target->client->ps.fd.forcePowersActive & (1 << FP_RAGE));
+
+	qboolean gotHealthPack = qfalse, healthPackIsSuperClose = qfalse;
+	for (int i = MAX_CLIENTS; i < MAX_GENTITIES; i++) {
+		const gentity_t *thisEnt = &g_entities[i];
+		if (!thisEnt->inuse || !thisEnt->item || (thisEnt->item->giType != IT_HEALTH && thisEnt->item->giType != IT_ARMOR))
+			continue;
+		if (thisEnt->s.eFlags & EF_NODRAW)
+			continue; // waiting to respawn
+		float dist = Distance2D(target->client->ps.origin, thisEnt->s.origin);
+		if (dist > 800)
+			continue;
+		//int value = (thisEnt->item->giType == IT_ARMOR && thisEnt->item->giTag == 2) ? 100 : 25;
+		//PrintIngame(-1, "Distance to %s: %d\n", thisEnt->item->giType == IT_ARMOR ? "armor" : "healthpack", (int)dist);
+
+		gotHealthPack = qtrue;
+		if (dist <= 400)
+			healthPackIsSuperClose = qtrue;
+	}
+
+	if (gotHealthPack) {
+		if (healthPackIsSuperClose)
+			hp += 25; // consider us slightly higher hp if the health pack is very close
+		else
+			hp += 20;
+	}
+
+	qboolean doTE = qfalse, doTH = qfalse;
+
+	if (hp <= 5) {
+		doTH = qtrue;
+	}
+	else if (hp <= 20) {
+		if (fp <= 55)
+			doTE = qtrue;
+		else
+			doTH = qtrue;
+	}
+	else if (hp <= 65) {
+		if (fp <= 65) {
+			doTE = qtrue;
+		}
+		else {
+			if (speedActive || (hasFlag && hasRage && rageActive))
+				doTH = qtrue;
+		}
+	}
+	else {
+		if (fp <= 65) {
+			doTE = qtrue;
+		}
+		else if (fp < 75) {
+			if (speedActive || (hasFlag && hasRage && rageActive))
+				doTE = qtrue;
+		}
+	}
+
+	if (doTEOut)
+		*doTEOut = doTE;
+	if (doTHOut)
+		*doTHOut = doTH;
+}
+
+// don't th/te a single target if our fc is kinda near
+// e.g. don't spawn and te some random guy who happens to be next to you
+// when you could walk for a couple seconds and then te your fc
+qboolean DoesntHaveFlagButMyFCIsKindaNear(gentity_t *self, gentity_t *target) {
+	if (!self || !self->client || !target || !target->client) {
+		assert(qfalse);
+		return qfalse;
+	}
+
+	if (target->health <= 0 || HasFlag(target))
+		return qfalse;
+
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *thisEnt = &g_entities[i];
+		if (thisEnt == self || thisEnt == target)
+			continue;
+		if (!thisEnt->inuse || !thisEnt->client || thisEnt->client->pers.connected != CON_CONNECTED || !HasFlag(thisEnt))
+			continue;
+		if (thisEnt->health <= 0 || IsRacerOrSpectator(thisEnt) || thisEnt->client->sess.sessionTeam != self->client->sess.sessionTeam)
+			continue;
+
+		// this guy is an allied fc
+		float dist = Distance2D(self->client->ps.origin, thisEnt->client->ps.origin);
+		if (dist > 2000)
+			continue; // but he's far away
+
+		// he's close
+		qboolean shouldTEFC = qfalse, shouldTHFC = qfalse;
+		ShouldUseTHTE(thisEnt, &shouldTEFC, &shouldTHFC);
+		if (!shouldTEFC && !shouldTHFC)
+			continue; // but he doesn't need th or te
+
+		// this allied fc is close and needs th/te. don't allow teing/thing someone else
+		return qtrue;
+	}
+
+	return qfalse;
+}
+
+void ForceTeamHeal( gentity_t *self, qboolean redirectedTE )
 {
 	if (self->isAimPracticePack)
 		return;
 	float radius = 256;
-	int i = 0;
 	gentity_t *ent;
 	vec3_t a;
 	int numpl = 0;
 	int pl[MAX_CLIENTS];
 	int healthadd = 0;
-	gentity_t *te = NULL;
+	gentity_t *te = NULL, *te2 = NULL;
+	qboolean boost = !!(self->client->account && self->client->account->flags & ACCOUNTFLAG_BOOST_THTESWITCHBOOST && g_boost.integer);
 
 	if ( self->health <= 0 )
 	{
 		return;
 	}
 
-	if ( !WP_ForcePowerUsable( self, FP_TEAM_HEAL ) )
+	const int evaluateThisForcePower = redirectedTE ? FP_TEAM_FORCE : FP_TEAM_HEAL;
+
+	if ( !WP_ForcePowerUsable( self, evaluateThisForcePower) )
 	{
 		return;
 	}
 
-	if (self->client->ps.fd.forcePowerDebounce[FP_TEAM_HEAL] >= level.time)
+	if (self->client->ps.fd.forcePowerDebounce[evaluateThisForcePower] >= level.time)
 	{
 		return;
 	}
 
-	if (self->client->ps.fd.forcePowerLevel[FP_TEAM_HEAL] == FORCE_LEVEL_2)
+	if (self->client->ps.fd.forcePowerLevel[evaluateThisForcePower] == FORCE_LEVEL_2)
 	{
 		radius *= 1.5;
 	}
-	if (self->client->ps.fd.forcePowerLevel[FP_TEAM_HEAL] == FORCE_LEVEL_3)
+	if (self->client->ps.fd.forcePowerLevel[evaluateThisForcePower] == FORCE_LEVEL_3)
 	{
 		radius *= 2;
 	}
 
-	while (i < MAX_CLIENTS)
+	for (int i = 0; i < MAX_CLIENTS; i++)
 	{
 		ent = &g_entities[i];
 
@@ -1438,14 +1553,54 @@ void ForceTeamHeal( gentity_t *self )
 				numpl++;
 			}
 		}
+	}
 
-		i++;
+	if (boost && numpl == 1 && DoesntHaveFlagButMyFCIsKindaNear(self, &g_entities[pl[0]]))
+		return;
+
+	qboolean canEnergizeOnly = qfalse;
+	if (numpl < 1)
+	{
+		if (!boost || redirectedTE)
+			return;
+		canEnergizeOnly = qtrue;
+		numpl = 0;
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			ent = &g_entities[i];
+
+			if (ent && ent->client && self != ent && OnSameTeam(self, ent) && /*ent->client->ps.stats[STAT_HEALTH] < ent->client->ps.stats[STAT_MAX_HEALTH] && */ent->client->ps.stats[STAT_HEALTH] > 0 && ForcePowerUsableOn(self, ent, FP_TEAM_HEAL) > 0 &&
+				trap_InPVS(self->client->ps.origin, ent->client->ps.origin))
+			{
+				VectorSubtract(self->client->ps.origin, ent->client->ps.origin, a);
+
+				if (VectorLength(a) <= radius)
+				{
+					pl[numpl] = i;
+					numpl++;
+				}
+			}
+		}
 	}
 
 	if (numpl < 1)
-	{
 		return;
+
+	if (boost && numpl == 1 && !redirectedTE) {
+		qboolean doTE = qfalse, doTH = qfalse;
+		ShouldUseTHTE(&g_entities[pl[0]], &doTE, &doTH);
+
+		if (doTE) {
+			//PrintIngame(-1, "^5Team energize\n");
+			ForceTeamForceReplenish(self, qtrue);
+			return;
+		}
+		else if (!doTH) {
+			return;
+		}
 	}
+
+	if (canEnergizeOnly)
+		return;
 
 	//this entity will definitely use TH, log it
 
@@ -1462,10 +1617,9 @@ void ForceTeamHeal( gentity_t *self )
 		healthadd = 25;
 	}
 
-	self->client->ps.fd.forcePowerDebounce[FP_TEAM_HEAL] = level.time + 2000;
-	i = 0;
+	self->client->ps.fd.forcePowerDebounce[evaluateThisForcePower] = level.time + 2000;
 
-	while (i < numpl)
+	for (int i = 0; i < numpl; i++)
 	{
 		if (g_entities[pl[i]].client->ps.stats[STAT_HEALTH] > 0 &&
 			g_entities[pl[i]].health > 0)
@@ -1486,59 +1640,77 @@ void ForceTeamHeal( gentity_t *self )
 			//At this point we know we got one, so add him into the collective event client bitflag
 			if (!te)
 			{
-				te = G_TempEntity( self->client->ps.origin, EV_TEAM_POWER);
-				te->s.eventParm = 1; //eventParm 1 is heal, eventParm 2 is force regen
-				G_ApplyRaceBroadcastsToEvent( self, te );
+				if (redirectedTE) {
+					// play real effect for everyone else
+					te = G_TempEntity(self->client->ps.origin, EV_TEAM_POWER);
+					te->s.eventParm = 1; //eventParm 1 is heal, eventParm 2 is force regen
+					G_ApplyRaceBroadcastsToEvent(self, te);
+					te->r.broadcastClients[1] |= (1 << (self - g_entities));
+
+					// play the effect for the power the guy thought he used for himself lmao
+					te2 = G_TempEntity(self->client->ps.origin, EV_TEAM_POWER);
+					te2->s.eventParm = 2; //eventParm 1 is heal, eventParm 2 is force regen
+					te2->r.svFlags |= SVF_SINGLECLIENT;
+					te2->r.singleClient = self - g_entities;
+				}
+				else {
+					te = G_TempEntity(self->client->ps.origin, EV_TEAM_POWER);
+					te->s.eventParm = 1; //eventParm 1 is heal, eventParm 2 is force regen
+					G_ApplyRaceBroadcastsToEvent(self, te);
+				}
 
 				//since we had an extra check above, do the drain now because we got at least one guy
-				BG_ForcePowerDrain( &self->client->ps, FP_TEAM_HEAL, forcePowerNeeded[self->client->ps.fd.forcePowerLevel[FP_TEAM_HEAL]][FP_TEAM_HEAL] );
+				BG_ForcePowerDrain( &self->client->ps, FP_TEAM_HEAL, forcePowerNeeded[self->client->ps.fd.forcePowerLevel[evaluateThisForcePower]][FP_TEAM_HEAL] );
 			}
 
 			WP_AddToClientBitflags(te, pl[i]);
+			if (te2)
+				WP_AddToClientBitflags(te2, pl[i]);
+
 			//Now cramming it all into one event.. doing this many g_sound events at once was a Bad Thing.
 		}
-		i++;
 	}
 }
 
-void ForceTeamForceReplenish( gentity_t *self )
+void ForceTeamForceReplenish( gentity_t *self, qboolean redirectedTH )
 {
 	if (self->isAimPracticePack)
 		return;
 	float radius = 256;
-	int i = 0;
 	gentity_t *ent;
 	vec3_t a;
 	int numpl = 0;
 	int pl[MAX_CLIENTS];
 	int poweradd = 0;
-	gentity_t *te = NULL;
+	gentity_t *te = NULL, *te2 = NULL;
+	qboolean boost = !!(self->client->account && self->client->account->flags & ACCOUNTFLAG_BOOST_THTESWITCHBOOST && g_boost.integer);
+	const int evaluateThisForcePower = redirectedTH ? FP_TEAM_HEAL : FP_TEAM_FORCE;
 
 	if ( self->health <= 0 )
 	{
 		return;
 	}
 
-	if ( !WP_ForcePowerUsable( self, FP_TEAM_FORCE ) )
+	if ( !WP_ForcePowerUsable( self, evaluateThisForcePower) )
 	{
 		return;
 	}
 
-	if (self->client->ps.fd.forcePowerDebounce[FP_TEAM_FORCE] >= level.time)
+	if (self->client->ps.fd.forcePowerDebounce[evaluateThisForcePower] >= level.time)
 	{
 		return;
 	}
 
-	if (self->client->ps.fd.forcePowerLevel[FP_TEAM_FORCE] == FORCE_LEVEL_2)
+	if (self->client->ps.fd.forcePowerLevel[evaluateThisForcePower] == FORCE_LEVEL_2)
 	{
 		radius *= 1.5;
 	}
-	if (self->client->ps.fd.forcePowerLevel[FP_TEAM_FORCE] == FORCE_LEVEL_3)
+	if (self->client->ps.fd.forcePowerLevel[evaluateThisForcePower] == FORCE_LEVEL_3)
 	{
 		radius *= 2;
 	}
 
-	while (i < MAX_CLIENTS)
+	for (int i = 0; i < MAX_CLIENTS; i++)
 	{
 		ent = &g_entities[i];
 
@@ -1555,14 +1727,58 @@ void ForceTeamForceReplenish( gentity_t *self )
 				numpl++;
 			}
 		}
+	}
 
-		i++;
+	if (boost && numpl == 1 && DoesntHaveFlagButMyFCIsKindaNear(self, &g_entities[pl[0]]))
+		return;
+
+	qboolean canHealOnly = qfalse;
+	if (numpl < 1)
+	{
+		if (!boost || redirectedTH)
+			return;
+
+		canHealOnly = qtrue;
+		numpl = 0;
+		for (int i = 0; i < MAX_CLIENTS; i++)
+		{
+			ent = &g_entities[i];
+
+			if (ent && ent->client && self != ent && OnSameTeam(self, ent)
+				&& ent->client->ps.stats[STAT_HEALTH] > 0 /* *CHANGE 60* try to TE only living mates */
+				/*&& ent->client->ps.fd.forcePower < 100*/ && ForcePowerUsableOn(self, ent, FP_TEAM_FORCE) > 0 &&
+				trap_InPVS(self->client->ps.origin, ent->client->ps.origin))
+			{
+				VectorSubtract(self->client->ps.origin, ent->client->ps.origin, a);
+
+				if (VectorLength(a) <= radius)
+				{
+					pl[numpl] = i;
+					numpl++;
+				}
+			}
+		}
 	}
 
 	if (numpl < 1)
-	{
 		return;
+
+	if (boost && numpl == 1 && !redirectedTH) {
+		qboolean doTE = qfalse, doTH = qfalse;
+		ShouldUseTHTE(&g_entities[pl[0]], &doTE, &doTH);
+
+		if (doTH) {
+			//PrintIngame(-1, "^2Team heal\n");
+			ForceTeamHeal(self, qtrue);
+			return;
+		}
+		else if (!doTE) {
+			return;
+		}
 	}
+
+	if (canHealOnly)
+		return;
 
 	//this entity will definitely use TE, log it
 	//++self->client->pers.teamState.te;
@@ -1579,14 +1795,12 @@ void ForceTeamForceReplenish( gentity_t *self )
 	{
 		poweradd = 25;
 	}
-	self->client->ps.fd.forcePowerDebounce[FP_TEAM_FORCE] = level.time + 2000;
+	self->client->ps.fd.forcePowerDebounce[evaluateThisForcePower] = level.time + 2000;
 
-	BG_ForcePowerDrain( &self->client->ps, FP_TEAM_FORCE, forcePowerNeeded[self->client->ps.fd.forcePowerLevel[FP_TEAM_FORCE]][FP_TEAM_FORCE] );
-
-	i = 0;
+	BG_ForcePowerDrain( &self->client->ps, FP_TEAM_FORCE, forcePowerNeeded[self->client->ps.fd.forcePowerLevel[evaluateThisForcePower]][FP_TEAM_FORCE] );
 
 	int highestAmountEnergizedForAnyone = 0;
-	while (i < numpl)
+	for (int i = 0; i < numpl; i++)
 	{
 		// using TE on this ally
 		if ( self && self->client ) {
@@ -1605,15 +1819,30 @@ void ForceTeamForceReplenish( gentity_t *self )
 		//At this point we know we got one, so add him into the collective event client bitflag
 		if (!te)
 		{
-			te = G_TempEntity( self->client->ps.origin, EV_TEAM_POWER);
-			te->s.eventParm = 2; //eventParm 1 is heal, eventParm 2 is force regen
-			G_ApplyRaceBroadcastsToEvent( self, te );
+			if (redirectedTH) {
+				// play real effect for everyone else
+				te = G_TempEntity(self->client->ps.origin, EV_TEAM_POWER);
+				te->s.eventParm = 2; //eventParm 1 is heal, eventParm 2 is force regen
+				G_ApplyRaceBroadcastsToEvent(self, te);
+				te->r.broadcastClients[1] |= (1 << (self - g_entities));
+
+				// play the effect for the power the guy thought he used for himself lmao
+				te2 = G_TempEntity(self->client->ps.origin, EV_TEAM_POWER);
+				te2->s.eventParm = 1; //eventParm 1 is heal, eventParm 2 is force regen
+				te2->r.svFlags |= SVF_SINGLECLIENT;
+				te2->r.singleClient = self - g_entities;
+			}
+			else {
+				te = G_TempEntity(self->client->ps.origin, EV_TEAM_POWER);
+				te->s.eventParm = 2; //eventParm 1 is heal, eventParm 2 is force regen
+				G_ApplyRaceBroadcastsToEvent(self, te);
+			}
 		}
 
 		WP_AddToClientBitflags(te, pl[i]);
+		if (te2)
+			WP_AddToClientBitflags(te2, pl[i]);
 		//Now cramming it all into one event.. doing this many g_sound events at once was a Bad Thing.
-		
-		i++;
 	}
 
 	++self->client->stats->numEnergizes;
@@ -1621,6 +1850,52 @@ void ForceTeamForceReplenish( gentity_t *self )
 	float thisEnergizeEfficiency = Com_Clamp(0.0f, 1.0f, ((float)highestAmountEnergizedForAnyone / (float)poweradd)); // e.g. 50/50 and 33/33 are treated the same (1.0)
 	self->client->stats->normalizedEnergizeAmounts += thisEnergizeEfficiency;
 }
+
+void AutoTHTE(gentity_t *self) {
+	if (!self || !self->client || self->health <= 0 || self->client->pers.connected != CON_CONNECTED || IsRacerOrSpectator(self) || g_gametype.integer < GT_TEAM)
+		return;
+
+	qboolean canTE = WP_ForcePowerUsable(self, FP_TEAM_FORCE);
+	qboolean canTH = WP_ForcePowerUsable(self, FP_TEAM_HEAL);
+	if (!canTE && !canTH)
+		return;
+
+	int level;
+	if (canTE)
+		level = self->client->ps.fd.forcePowerLevel[FP_TEAM_FORCE];
+	else
+		level = self->client->ps.fd.forcePowerLevel[FP_TEAM_HEAL];
+
+	float radius = 256;
+	if (level == 2)
+		radius *= 1.5;
+	if (level == FORCE_LEVEL_3)
+		radius *= 2;
+
+	int numpl = 0;
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *ent = &g_entities[i];
+
+		if (ent && ent->client && self != ent && OnSameTeam(self, ent) &&
+			ent->client->ps.stats[STAT_HEALTH] > 0 &&
+			trap_InPVS(self->client->ps.origin, ent->client->ps.origin)) {
+			vec3_t a;
+			VectorSubtract(self->client->ps.origin, ent->client->ps.origin, a);
+
+			if (VectorLength(a) <= radius) {
+				numpl++;
+			}
+		}
+	}
+
+	if (numpl == 1) {
+		if (canTE)
+			ForceTeamForceReplenish(self, qfalse);
+		else
+			ForceTeamHeal(self, qfalse);
+	}
+}
+
 
 void ForceGrip( gentity_t *self )
 {
@@ -4922,7 +5197,7 @@ int WP_DoSpecificPower( gentity_t *self, usercmd_t *ucmd, forcePowers_t forcepow
 		{ //need to release before we can use nonhold powers again
 			break;
 		}
-		ForceTeamHeal(self);
+		ForceTeamHeal(self, qfalse);
 		self->client->ps.fd.forceButtonNeedRelease = 1;
 		break;
 	case FP_TEAM_FORCE:
@@ -4931,7 +5206,7 @@ int WP_DoSpecificPower( gentity_t *self, usercmd_t *ucmd, forcePowers_t forcepow
 		{ //need to release before we can use nonhold powers again
 			break;
 		}
-		ForceTeamForceReplenish(self);
+		ForceTeamForceReplenish(self, qfalse);
 		self->client->ps.fd.forceButtonNeedRelease = 1;
 		break;
 	case FP_DRAIN:

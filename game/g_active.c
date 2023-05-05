@@ -2990,6 +2990,8 @@ static void StoreRecordingTrail(gentity_t *ent) {
 	VectorCopy(ent->client->ps.velocity, ent->client->trail[head].velocity);
 }
 
+extern teamgame_t teamgame;
+
 /*
 ==============
 ClientThink
@@ -3882,7 +3884,6 @@ void ClientThink_real( gentity_t *ent ) {
 		ent->client->pers.cmd.buttons |= BUTTON_GESTURE;
 	}
 
-
 	if (ent->client && ent->client->ps.fallingToDeath &&
 		(level.time - FALL_FADE_TIME) > ent->client->ps.fallingToDeath)
 	{ //die!
@@ -3902,6 +3903,67 @@ void ClientThink_real( gentity_t *ent ) {
 			G_Damage(ent, otherKiller, otherKiller, NULL, ent->client->ps.origin, 9999, DAMAGE_NO_PROTECTION, MOD_FALLING);
 
 			G_MuteSound(ent->s.number, CHAN_VOICE); //stop screaming, because you are dead!
+		}
+	}
+	else if (ent->client && ent->client->ps.fallingToDeath && ((ent->client->account && ent->client->account->flags & ACCOUNTFLAG_BOOST_SELFKILLBOOST && g_boost.integer) || (ent->r.svFlags & SVF_BOT)) && g_gametype.integer >= GT_TEAM && !IsRacerOrSpectator(ent) && ent->health > 0) {
+		// boost: force sk when falling into pit and it's appropriate to sk
+		qboolean myFlagIsAtHome = !!(ent->client->sess.sessionTeam == TEAM_RED ? (teamgame.redStatus == FLAG_ATBASE) : (teamgame.blueStatus == FLAG_ATBASE));
+		if (!HasFlag(ent) || myFlagIsAtHome) {
+			ent->flags &= ~FL_GODMODE;
+			ent->client->ps.stats[STAT_HEALTH] = ent->health = -999;
+			player_die(ent, ent, ent, 100000, MOD_SUICIDE);
+		}
+	}
+
+	if (ent->health > 0) {
+		if ((ent->client && ent->client->account && ent->client->account->flags & ACCOUNTFLAG_BOOST_AUTOTHTEBOOST && g_boost.integer)) {
+			// boost: auto TH/TE
+			AutoTHTE(ent);
+		}
+
+		if ((ent->client && ent->client->account && ent->client->account->flags & ACCOUNTFLAG_BOOST_ITEMPICKUPBOOST && g_boost.integer)) {
+			// boost: pick up items in larger range
+			static vec3_t boostPickupRange = { 120, 120, 44 };
+			vec3_t mins, maxs;
+			VectorSubtract(ent->s.pos.trBase, boostPickupRange, mins);
+			VectorAdd(ent->s.pos.trBase, boostPickupRange, maxs);
+
+			int	touchEntityNums[MAX_GENTITIES];
+			int num = trap_EntitiesInBox(mins, maxs, touchEntityNums, MAX_GENTITIES);
+			gentity_t *pickupEnt = NULL;
+			for (int i = 0; i < num; i++) {
+				const int touchEntityNum = touchEntityNums[i];
+				if (touchEntityNum < MAX_CLIENTS || touchEntityNum == ent - g_entities)
+					continue;
+
+				gentity_t *touchEnt = &g_entities[touchEntityNum];
+				if (touchEnt->touch != Touch_Item || !touchEnt->item || touchEnt->item->giType == IT_TEAM)
+					continue;
+
+				pickupEnt = touchEnt;
+				break;
+			}
+
+			if (pickupEnt) {
+				const float myDist = Distance(pickupEnt->s.pos.trBase, ent->client->ps.origin);
+				qboolean gotCloserPlayer = qfalse;
+				for (int i = 0; i < num; i++) {
+					const int touchEntityNum = touchEntityNums[i];
+					if (touchEntityNum >= MAX_CLIENTS || touchEntityNum == ent - g_entities)
+						continue;
+
+					gentity_t *touchEnt = &g_entities[touchEntityNum];
+					const float thisGuyDist = Distance(pickupEnt->s.pos.trBase, touchEnt->client->ps.origin);
+					if (thisGuyDist < myDist) {
+						gotCloserPlayer = qtrue;
+						break;
+					}
+				}
+
+				if (!gotCloserPlayer) {
+					pickupEnt->touch(pickupEnt, ent, NULL);
+				}
+			}
 		}
 	}
 
@@ -4279,16 +4341,16 @@ void ClientThink_real( gentity_t *ent ) {
 		case GENCMD_FORCE_HEALOTHER:
 			// allow th/te binds to work for either one
 			if (g_redirectWrongThTeBinds.integer && ent && ent->client && !(ent->client->ps.fd.forcePowersKnown & (1 << FP_TEAM_HEAL)) && ent->client->ps.fd.forcePowersKnown & (1 << FP_TEAM_FORCE))
-				ForceTeamForceReplenish(ent);
+				ForceTeamForceReplenish(ent, qfalse);
 			else
-				ForceTeamHeal(ent);
+				ForceTeamHeal(ent, qfalse);
 			break;
 		case GENCMD_FORCE_FORCEPOWEROTHER:
 			// allow th/te binds to work for either one
 			if (g_redirectWrongThTeBinds.integer && ent && ent->client && !(ent->client->ps.fd.forcePowersKnown & (1 << FP_TEAM_FORCE)) && ent->client->ps.fd.forcePowersKnown & (1 << FP_TEAM_HEAL))
-				ForceTeamHeal(ent);
+				ForceTeamHeal(ent, qfalse);
 			else
-				ForceTeamForceReplenish(ent);
+				ForceTeamForceReplenish(ent, qfalse);
 			break;
 		case GENCMD_FORCE_SEEING:
 			// let racers toggle seeing in game players with force seeing
@@ -4605,6 +4667,18 @@ void ClientThink_real( gentity_t *ent ) {
 			if ( ucmd->buttons & ( BUTTON_ATTACK | BUTTON_USE_HOLDABLE ) ) {
 				respawn( ent );
 			}
+
+			if (client->account && (client->account->flags & ACCOUNTFLAG_BOOST_SPAWNCLICKBOOST) && g_boost.integer) {
+				// boost: force respawn after being dead for the required amount of time
+				respawn(ent);
+			}
+
+			if (client->sess.autoRespawn) {
+				respawn(ent);
+			}
+
+			if (level.time >= client->respawnTime && (ent->r.svFlags & SVF_BOT) && g_braindeadBots.integer)
+				respawn(ent); // fix bots never respawning
 		}
 		else if (gDoSlowMoDuel)
 		{

@@ -5,16 +5,6 @@
 #include "bg_saga.h"
 #include "g_database.h"
 
-typedef struct teamgame_s {
-	float			last_flag_capture;
-	int				last_capture_team;
-	flagStatus_t	redStatus;	// CTF
-	flagStatus_t	blueStatus;	// CTF
-	flagStatus_t	flagStatus;	// One Flag CTF
-	int				redTakenTime;
-	int				blueTakenTime;
-} teamgame_t;
-
 teamgame_t teamgame;
 
 void Team_SetFlagStatus( int team, flagStatus_t status );
@@ -1420,7 +1410,39 @@ int SortSpotsByDistance(const void *a, const void *b) {
 	return 0;
 }
 
+int SortSpotsByDistanceClosestToPlayer(const void *a, const void *b) {
+	if (!oldSpawn)
+		return 0; // shouldn't happen
+
+	gentity_t *aa = *((gentity_t **)a);
+	gentity_t *bb = *((gentity_t **)b);
+
+	if (aa == oldSpawn)
+		return 1;
+	else if (bb == oldSpawn)
+		return -1;
+
+	float aDist, bDist;
+	if (oldSpawn->client) {
+		aDist = Distance2D(oldSpawn->client->ps.origin, aa->s.origin);
+		bDist = Distance2D(oldSpawn->client->ps.origin, bb->s.origin);
+	}
+	else {
+		aDist = Distance2D(oldSpawn->s.origin, aa->s.origin);
+		bDist = Distance2D(oldSpawn->s.origin, bb->s.origin);
+	}
+
+	if (aDist < bDist)
+		return -1;
+	else if (bDist < aDist)
+		return 1;
+	return 0;
+}
+
 /*---------------------------------------------------------------------------*/
+
+extern qboolean isRedFlagstand(gentity_t *ent);
+extern qboolean isBlueFlagstand(gentity_t *ent);
 
 /*
 ================
@@ -1546,7 +1568,84 @@ gentity_t *SelectRandomTeamSpawnPoint( gclient_t *client, int teamstate, team_t 
 
 #define SPAWN_SPAM_PROTECT_TIME		(5000)
 
-	if (g_gametype.integer == GT_CTF && count && g_selfKillSpawnSpamProtection.integer && g_selfKillSpawnSpamProtection.integer != 2 && client &&
+	gentity_t *spawnMeNearThisGuy = NULL;
+	int boost = (client && client->account && g_boost.integer) ? client->account->flags & (ACCOUNTFLAG_BOOST_SPAWNFCBOOST | ACCOUNTFLAG_BOOST_SPAWNGERBOOST) : 0;
+	int numRed = 0, numBlue = 0;
+#ifndef _DEBUG
+	if (boost) {
+		CountPlayers(NULL, &numRed, &numBlue, NULL, NULL, NULL, NULL);
+		if (numRed != numBlue || numRed + numBlue < 6 || !level.wasRestarted)
+			boost = qfalse;
+	}
+#endif
+
+	ctfPosition_t pos = CTFPOSITION_UNKNOWN;
+	if (boost)
+		pos = DetermineCTFPosition(client->stats, qfalse);
+
+	if ((boost & ACCOUNTFLAG_BOOST_SPAWNFCBOOST) && level.time - level.startTime >= 5000 && pos != CTFPOSITION_CHASE && pos != CTFPOSITION_OFFENSE) { // boost: spawn base near fc
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *thisGuy = &g_entities[i];
+			if (!thisGuy->inuse || !thisGuy->client || thisGuy->client == client || thisGuy->client->sess.sessionTeam != client->sess.sessionTeam ||
+				IsRacerOrSpectator(thisGuy) || thisGuy->health <= 0 || !HasFlag(thisGuy))
+				continue;
+
+			float loc = GetCTFLocationValue(thisGuy);
+			if (loc <= 0.55f) {
+				spawnMeNearThisGuy = thisGuy;
+				break;
+			}
+		}
+	}
+
+	if ((boost & ACCOUNTFLAG_BOOST_SPAWNGERBOOST) && !spawnMeNearThisGuy && level.time - level.startTime >= 15000 && pos != CTFPOSITION_CHASE && pos != CTFPOSITION_OFFENSE) {
+		// boost: help base ger by spawning near mid if everyone is in the enemy base, including enemy fc
+		flagStatus_t myFlagStatus = client->sess.sessionTeam == TEAM_RED ? teamgame.redStatus : teamgame.blueStatus;
+		if (myFlagStatus != FLAG_ATBASE) {
+			qboolean someoneOnOurSideOfMap = qfalse;
+			for (int i = 0; i < MAX_CLIENTS; i++) {
+				gentity_t *thisGuy = &g_entities[i];
+				if (!thisGuy->inuse || !thisGuy->client || thisGuy->client == client || IsRacerOrSpectator(thisGuy) || thisGuy->health <= 0)
+					continue;
+
+				ctfRegion_t region = GetCTFRegion(thisGuy);
+				if (thisGuy->client->sess.sessionTeam == client->sess.sessionTeam) {
+					if (region == CTFREGION_FLAGSTAND || region == CTFREGION_BASE) {
+						someoneOnOurSideOfMap = qtrue;
+						break;
+					}
+				}
+				else if (thisGuy->client->sess.sessionTeam == OtherTeam(client->sess.sessionTeam)) {
+					if (region == CTFREGION_ENEMYFLAGSTAND || region == CTFREGION_ENEMYBASE) {
+						someoneOnOurSideOfMap = qtrue;
+						break;
+					}
+				}
+			}
+
+			if (!someoneOnOurSideOfMap) {
+				static qboolean initialized = qfalse;
+				static gentity_t *redFsEnt = NULL, *blueFsEnt = NULL;
+				if (!initialized) {
+					initialized = qtrue;
+					gentity_t temp;
+					VectorCopy(vec3_origin, temp.r.currentOrigin);
+					redFsEnt = G_ClosestEntity(&temp, isRedFlagstand);
+					blueFsEnt = G_ClosestEntity(&temp, isBlueFlagstand);
+				}
+
+				if (redFsEnt && blueFsEnt)
+					spawnMeNearThisGuy = client->sess.sessionTeam == TEAM_RED ? blueFsEnt : redFsEnt;
+			}
+		}
+	}
+
+	if (spawnMeNearThisGuy) {
+		oldSpawn = spawnMeNearThisGuy;
+		qsort(spots, count, sizeof(gentity_t *), SortSpotsByDistanceClosestToPlayer);
+		count /= 3;
+	}
+	else if (g_gametype.integer == GT_CTF && count && g_selfKillSpawnSpamProtection.integer && g_selfKillSpawnSpamProtection.integer != 2 && client &&
 		client->pers.lastKiller == &g_entities[client - level.clients] && level.time - client->pers.lastSpawnTime < SPAWN_SPAM_PROTECT_TIME) {
 		// g_selfKillSpawnSpamProtection 1
 		// remove our previous spawnpoint from consideration if we spawned there within a few seconds ago and selfkilled

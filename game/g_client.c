@@ -2130,6 +2130,11 @@ void ClientUserinfoChanged( int clientNum ) {
 		if (strchr(s, 'f')) { client->sess.disableShittySaberMoves |= (1 << SHITTYSABERMOVE_KATA); }
 		if (strchr(s, 'g')) { client->sess.disableShittySaberMoves |= (1 << SHITTYSABERMOVE_KICK); }
 
+		if (strchr(s, 'r'))
+			client->sess.autoRespawn = qtrue;
+		else
+			client->sess.autoRespawn = qfalse;
+
 		if (strchr(s, 'u')) {
 			client->sess.unlagged |= UNLAGGED_CLIENTINFO;
 			client->sess.unlagged &= ~UNLAGGED_COMMAND;

@@ -736,6 +736,7 @@ typedef struct {
 #define UNLAGGED_COMMAND		(1 << 1)
 	int		unlagged;
 	qboolean	basementNeckbeardsTriggered;
+	qboolean autoRespawn;
 
 	qboolean disableShittySaberMoves;
 
@@ -2058,6 +2059,14 @@ typedef struct {
 #define ACCOUNTFLAG_GETTROLL					( 1 << 13 )
 #define ACCOUNTFLAG_REMINDPOSINCESSANTLY		( 1 << 14 )
 #define ACCOUNTFLAG_VERIFICATIONLORD			( 1 << 15 )
+#define ACCOUNTFLAG_BOOST_SPAWNFCBOOST				( 1 << 16 )
+#define ACCOUNTFLAG_BOOST_SPAWNGERBOOST				( 1 << 17 )
+#define ACCOUNTFLAG_BOOST_SPAWNCLICKBOOST				( 1 << 18 )
+#define ACCOUNTFLAG_BOOST_AUTOTHTEBOOST				( 1 << 19 )
+#define ACCOUNTFLAG_BOOST_SELFKILLBOOST				( 1 << 20 )
+#define ACCOUNTFLAG_BOOST_THTESWITCHBOOST			( 1 << 21 )
+#define ACCOUNTFLAG_BOOST_ITEMPICKUPBOOST			( 1 << 22 )
+#define ACCOUNTFLAG_BOOST_PROJECTILEAIMBOTBOOST		( 1 << 23 )
 
 typedef void( *ListSessionsCallback )( void *ctx,
 	const sessionReference_t sessionRef,
@@ -2741,6 +2750,15 @@ void Table_WriteToBuffer(Table *t, char *buf, size_t bufSize, qboolean showHeade
 //
 // g_team.c
 //
+typedef struct teamgame_s {
+	float			last_flag_capture;
+	int				last_capture_team;
+	flagStatus_t	redStatus;	// CTF
+	flagStatus_t	blueStatus;	// CTF
+	flagStatus_t	flagStatus;	// One Flag CTF
+	int				redTakenTime;
+	int				blueTakenTime;
+} teamgame_t;
 qboolean OnSameTeam( gentity_t *ent1, gentity_t *ent2 );
 void Team_CheckDroppedItem( gentity_t *dropped );
 
@@ -2814,12 +2832,13 @@ void ForceRage( gentity_t *self );
 void ForceGrip( gentity_t *self );
 void ForceProtect( gentity_t *self );
 void ForceAbsorb( gentity_t *self );
-void ForceTeamHeal( gentity_t *self );
-void ForceTeamForceReplenish( gentity_t *self );
+void ForceTeamHeal( gentity_t *self, qboolean redirectedTE );
+void ForceTeamForceReplenish( gentity_t *self, qboolean redirectedTH );
 void ForceSeeing( gentity_t *self );
 void ForceThrow( gentity_t *self, qboolean pull );
 void ForceTelepathy(gentity_t *self);
 qboolean Jedi_DodgeEvasion( gentity_t *self, gentity_t *shooter, trace_t *tr, int hitLoc );
+void AutoTHTE(gentity_t *self);
 
 // g_log.c
 void QDECL G_LogPrintf( const char *fmt, ... );
@@ -3117,6 +3136,8 @@ extern vmCvar_t		g_duplicateNamesId;
 extern vmCvar_t		g_droppedFlagSpawnProtectionRadius;
 extern vmCvar_t		g_droppedFlagSpawnProtectionDuration;
 extern vmCvar_t		g_selfKillSpawnSpamProtection;
+
+extern vmCvar_t		g_boost;
 
 #ifdef NEWMOD_SUPPORT
 extern vmCvar_t		g_netUnlock;

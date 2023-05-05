@@ -3345,6 +3345,22 @@ static int AccountFlagName2Bitflag(const char* flagName) {
 		return ACCOUNTFLAG_REMINDPOSINCESSANTLY;
 	} else if (!Q_stricmp(flagName, "VerificationLord")) {
 		return ACCOUNTFLAG_VERIFICATIONLORD;
+	} else if (!Q_stricmp(flagName, "SpawnFCBoost")) {
+		return ACCOUNTFLAG_BOOST_SPAWNFCBOOST;
+	} else if (!Q_stricmp(flagName, "SpawnGerBoost")) {
+		return ACCOUNTFLAG_BOOST_SPAWNGERBOOST;
+	} else if (!Q_stricmp(flagName, "SpawnClickBoost")) {
+		return ACCOUNTFLAG_BOOST_SPAWNCLICKBOOST;
+	} else if (!Q_stricmp(flagName, "AutoTHTEBoost")) {
+		return ACCOUNTFLAG_BOOST_AUTOTHTEBOOST;
+	} else if (!Q_stricmp(flagName, "SelfkillBoost")) {
+		return ACCOUNTFLAG_BOOST_SELFKILLBOOST;
+	} else if (!Q_stricmp(flagName, "THTESwitchBoost")) {
+		return ACCOUNTFLAG_BOOST_THTESWITCHBOOST;
+	} else if (!Q_stricmp(flagName, "ItemPickupBoost")) {
+		return ACCOUNTFLAG_BOOST_ITEMPICKUPBOOST;
+	} else if (!Q_stricmp(flagName, "ProjectileAimbotBoost")) {
+		return ACCOUNTFLAG_BOOST_PROJECTILEAIMBOTBOOST;
 	}
 
 	return 0;
@@ -3368,6 +3384,14 @@ const char* AccountBitflag2FlagName(int bitflag) {
 		case ACCOUNTFLAG_GETTROLL: return "GetTroll";
 		case ACCOUNTFLAG_REMINDPOSINCESSANTLY: return "RemindPosIncessantly";
 		case ACCOUNTFLAG_VERIFICATIONLORD: return "VerificationLord";
+		case ACCOUNTFLAG_BOOST_SPAWNFCBOOST: return "SpawnFCBoost";
+		case ACCOUNTFLAG_BOOST_SPAWNGERBOOST: return "SpawnGerBoost";
+		case ACCOUNTFLAG_BOOST_SPAWNCLICKBOOST: return "SpawnClickBoost";
+		case ACCOUNTFLAG_BOOST_AUTOTHTEBOOST: return "AutoTHTEBoost";
+		case ACCOUNTFLAG_BOOST_SELFKILLBOOST: return "SelfkillBoost";
+		case ACCOUNTFLAG_BOOST_THTESWITCHBOOST: return "THTESwitchBoost";
+		case ACCOUNTFLAG_BOOST_ITEMPICKUPBOOST: return "ItemPickupBoost";
+		case ACCOUNTFLAG_BOOST_PROJECTILEAIMBOTBOOST: return "ProjectileAimbotBoost";
 		default: return NULL;
 	}
 }
@@ -3537,7 +3561,7 @@ void Svcmd_Account_f( void ) {
 
 			if ( trap_Argc() < 4 ) {
 				G_Printf( "Usage:^3 account toggleflag <username> <flag>^7\n" );
-				G_Printf( "Available flags: Admin, VerboseRcon, AimPackEditor, AimPackAdmin, VoteTroll, InstapauseBlacklist\n" );
+				G_Printf( "Available flags: Admin, VerboseRcon, AimPackEditor, AimPackAdmin, VoteTroll, InstapauseBlacklist, PermaBarred, HardPermaBarred, AfkTroll, EloBotSelfHost, GetTroll, RemindPosIncessantly, VerificationLord, SpawnFCBoost, SpawnGerBoost, SpawnClickBoost, AutoTHTEBoost, SelfkillBoost, THTESwitchBoost, ItemPickupBoost, ProjectileAimbotBoost\n" );
 				return;
 			}
 
@@ -3564,7 +3588,7 @@ void Svcmd_Account_f( void ) {
 			if ( !( acc.ptr->flags & flag ) ) {
 				// we are enabling the flag
 				if ( G_SetAccountFlags( acc.ptr, flag, qtrue ) ) {
-					G_Printf( "Flag '%s' enabled for account '%s' (id: %d)\n", flagName, acc.ptr->name, acc.ptr->id );
+					G_Printf( "Flag '%s' ^2enabled^7 for account '%s' (id: %d)\n", flagName, acc.ptr->name, acc.ptr->id );
 					if (flag == ACCOUNTFLAG_PERMABARRED || flag == ACCOUNTFLAG_HARDPERMABARRED) { // refresh userinfo of anyone connected on this account
 						for (int i = 0; i < MAX_CLIENTS; i++) {
 							if (g_entities[i].inuse && g_entities[i].client && g_entities[i].client->pers.connected == CON_CONNECTED && g_entities[i].client->account && g_entities[i].client->account->id == acc.ptr->id)
@@ -3577,7 +3601,7 @@ void Svcmd_Account_f( void ) {
 			} else {
 				// we are disabling the flag
 				if ( G_SetAccountFlags( acc.ptr, flag, qfalse ) ) {
-					G_Printf( "Flag '%s' disabled for account '%s' (id: %d)\n", flagName, acc.ptr->name, acc.ptr->id );
+					G_Printf( "Flag '%s' ^1disabled^7 for account '%s' (id: %d)\n", flagName, acc.ptr->name, acc.ptr->id );
 					if (flag == ACCOUNTFLAG_PERMABARRED || flag == ACCOUNTFLAG_HARDPERMABARRED) { // refresh userinfo of anyone connected on this account
 						for (int i = 0; i < MAX_CLIENTS; i++) {
 							if (g_entities[i].inuse && g_entities[i].client && g_entities[i].client->pers.connected == CON_CONNECTED && g_entities[i].client->account && g_entities[i].client->account->id == acc.ptr->id)

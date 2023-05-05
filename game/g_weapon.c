@@ -177,6 +177,227 @@ float WP_SpeedOfMissileForWeapon( int wp, qboolean alt_fire )
 	return 500;
 }
 
+extern void CalcEntitySpot(const gentity_t *ent, const spot_t spot, vec3_t point);
+static qboolean InFOVFloat(gentity_t *ent, gentity_t *from, double hFOV, double vFOV)
+{
+	vec3_t	eyes;
+	vec3_t	spot;
+	vec3_t	deltaVector;
+	vec3_t	angles, fromAngles;
+	vec3_t	deltaAngles;
+
+	if (from->client)
+	{
+		if (!VectorCompare(from->client->renderInfo.eyeAngles, vec3_origin))
+		{//Actual facing of tag_head!
+			//NOTE: Stasis aliens may have a problem with this?
+			VectorCopy(from->client->renderInfo.eyeAngles, fromAngles);
+		}
+		else
+		{
+			VectorCopy(from->client->ps.viewangles, fromAngles);
+		}
+	}
+	else
+	{
+		VectorCopy(from->s.angles, fromAngles);
+	}
+
+	CalcEntitySpot(from, SPOT_HEAD_LEAN, eyes);
+
+	CalcEntitySpot(ent, SPOT_ORIGIN, spot);
+	VectorSubtract(spot, eyes, deltaVector);
+
+	vectoangles(deltaVector, angles);
+	deltaAngles[PITCH] = AngleDelta(fromAngles[PITCH], angles[PITCH]);
+	deltaAngles[YAW] = AngleDelta(fromAngles[YAW], angles[YAW]);
+	if (fabs(deltaAngles[PITCH]) <= vFOV && fabs(deltaAngles[YAW]) <= hFOV)
+	{
+		return qtrue;
+	}
+
+	CalcEntitySpot(ent, SPOT_HEAD, spot);
+	VectorSubtract(spot, eyes, deltaVector);
+	vectoangles(deltaVector, angles);
+	deltaAngles[PITCH] = AngleDelta(fromAngles[PITCH], angles[PITCH]);
+	deltaAngles[YAW] = AngleDelta(fromAngles[YAW], angles[YAW]);
+	if (fabs(deltaAngles[PITCH]) <= vFOV && fabs(deltaAngles[YAW]) <= hFOV)
+	{
+		return qtrue;
+	}
+
+	CalcEntitySpot(ent, SPOT_LEGS, spot);
+	VectorSubtract(spot, eyes, deltaVector);
+	vectoangles(deltaVector, angles);
+	deltaAngles[PITCH] = AngleDelta(fromAngles[PITCH], angles[PITCH]);
+	deltaAngles[YAW] = AngleDelta(fromAngles[YAW], angles[YAW]);
+	if (fabs(deltaAngles[PITCH]) <= vFOV && fabs(deltaAngles[YAW]) <= hFOV)
+	{
+		return qtrue;
+	}
+
+	return qfalse;
+}
+
+static gentity_t *PlayerThatPlayerIsAimingClosestTo(gentity_t *ent) {
+	// check who is eligible to be followed
+	qboolean valid[MAX_CLIENTS] = { qfalse }, gotValid = qfalse;
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *thisEnt = &g_entities[i];
+		if (thisEnt == ent || !thisEnt->inuse || !thisEnt->client || thisEnt->client->pers.connected != CON_CONNECTED || IsRacerOrSpectator(thisEnt))
+			continue;
+		if (thisEnt->client->sess.sessionTeam != OtherTeam(ent->client->sess.sessionTeam))
+			continue;
+		if (thisEnt->health <= 0 || thisEnt->client->ps.pm_type == PM_SPECTATOR || thisEnt->client->tempSpectate >= level.time)
+			continue; // this guy is dead
+		if (!InFOVFloat(&g_entities[i], ent, 180, 90))
+			continue;
+		valid[i] = qtrue;
+		gotValid = qtrue;
+	}
+	if (!gotValid)
+		return NULL;
+
+	// check for aiming directly at someone
+	trace_t tr;
+	vec3_t start, end, fwd;
+	VectorCopy(ent->client->ps.origin, start);
+	AngleVectors(ent->client->ps.viewangles, fwd, NULL, NULL);
+	VectorMA(start, 2000, fwd, end);
+	start[2] += ent->client->ps.viewheight;
+	trap_G2Trace(&tr, start, NULL, NULL, end, ent->s.number, MASK_SHOT, G2TRFLAG_DOGHOULTRACE | G2TRFLAG_GETSURFINDEX | G2TRFLAG_THICK | G2TRFLAG_HITCORPSES, g_g2TraceLod.integer);
+	if (tr.entityNum >= 0 && tr.entityNum < MAX_CLIENTS && valid[tr.entityNum])
+		return &g_entities[tr.entityNum];
+
+	// see who was closest to where we aimed
+	float closestDistance = 2000;
+	gentity_t *closestPlayer = NULL;
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		if (!valid[i])
+			continue;
+		gentity_t *thisEnt = &g_entities[i];
+		float dist = Distance(ent->client->ps.origin, thisEnt->client->ps.origin);
+		if (dist < closestDistance) {
+			dist = closestDistance;
+			closestPlayer = thisEnt;
+		}
+	}
+
+	if (closestPlayer)
+		return closestPlayer;
+
+	return NULL;
+}
+
+static void CorrectBoostedAim(gentity_t *ent, vec3_t muzzle, vec3_t vec, float projectileSpeed, int weapon, qboolean altFire, float size) {
+	if (!ent || !ent->client || !ent->client->account || !(ent->client->account->flags & ACCOUNTFLAG_BOOST_PROJECTILEAIMBOTBOOST) || !g_boost.integer)
+		return;
+
+	gentity_t *target = PlayerThatPlayerIsAimingClosestTo(ent);
+	if (!target)
+		return;
+
+	vec3_t enemyPos, shooterPos;
+	VectorCopy(target->r.currentOrigin, enemyPos);
+	VectorCopy(muzzle, shooterPos);
+
+	// get mins/maxs so we don't shoot ourself
+	vec3_t mins, maxs;
+	VectorSet(maxs, size, size, size);
+	VectorScale(maxs, -1, mins);
+
+	// aim splash weapons at feet if target isn't in air
+	if (target->client->ps.groundEntityNum != ENTITYNUM_NONE && (weapon == WP_ROCKET_LAUNCHER || weapon == WP_CONCUSSION || weapon == WP_THERMAL || (altFire && weapon == WP_REPEATER)))
+		enemyPos[2] -= 18;
+
+	if (weapon == WP_THERMAL || (altFire && weapon == WP_REPEATER)) { // quick and dirty approximation for arced weapons
+		vec3_t diffVec, enemyVelocity, estimatedEnemyPos;
+		float horizontalDistance, heightDifference, timeToImpact;
+
+		VectorCopy(target->s.pos.trDelta, enemyVelocity);
+		VectorSubtract(enemyPos, shooterPos, diffVec);
+		horizontalDistance = sqrt(diffVec[0] * diffVec[0] + diffVec[1] * diffVec[1]);
+		timeToImpact = horizontalDistance / projectileSpeed;
+
+		float linearScale, exponentialScale;
+		if (weapon == WP_REPEATER) {
+			linearScale = 0.00015f;
+			exponentialScale = 0.000000000125f;
+		}
+		else {
+			linearScale = 0.000075f;
+			exponentialScale = 0.00000000025f;
+		}
+
+		float distanceFactor = linearScale + exponentialScale * pow(horizontalDistance, 2);
+		timeToImpact *= (1 + distanceFactor);
+		VectorMA(enemyPos, timeToImpact, enemyVelocity, estimatedEnemyPos);
+		VectorSubtract(estimatedEnemyPos, shooterPos, diffVec);
+
+		heightDifference = diffVec[2];
+		float linearScaleHeight, exponentialScaleHeight;
+		if (heightDifference > 0) { // target is higher
+			if (weapon == WP_REPEATER) {
+				linearScaleHeight = 0.0f;
+				exponentialScaleHeight = 0.0015f;
+			}
+			else {
+				linearScaleHeight = 0.0f;
+				exponentialScaleHeight = 0.005f;
+			}
+		}
+		else { // target is lower
+			if (weapon == WP_REPEATER) {
+				linearScaleHeight = 0.0f;
+				exponentialScaleHeight = 0.0003f;
+			}
+			else {
+				linearScaleHeight = 0.0f;
+				exponentialScaleHeight = 0.0003f;
+			}
+		}
+
+		float heightFactor = linearScaleHeight + exponentialScaleHeight * pow(heightDifference, 2);
+		float yawAngle = atan2(diffVec[1], diffVec[0]);
+		float pitchAngle = atan((heightDifference + heightFactor) / horizontalDistance + horizontalDistance * distanceFactor);
+
+		vec3_t possiblyFinalVec;
+		possiblyFinalVec[0] = cos(pitchAngle) * cos(yawAngle);
+		possiblyFinalVec[1] = cos(pitchAngle) * sin(yawAngle);
+		possiblyFinalVec[2] = sin(pitchAngle);
+
+		// make sure you don't shoot yourself
+		trace_t trace;
+		vec3_t endPoint;
+		VectorMA(shooterPos, 150, possiblyFinalVec, endPoint);
+		trap_Trace(&trace, shooterPos, mins, maxs, endPoint, ent->s.number, MASK_SHOT);
+		if ((trace.fraction == 1.0f && !trace.startsolid) || trace.entityNum == target->s.number)
+			VectorCopy(possiblyFinalVec, vec);
+	}
+	else { // straight line weapons
+		vec3_t diffVec, enemyVel, adjustedEnemyVel, predictedPos;
+		float distance, timeToImpact;
+
+		VectorCopy(target->s.pos.trDelta, enemyVel);
+		VectorScale(enemyVel, 1, adjustedEnemyVel);
+		VectorSubtract(enemyPos, shooterPos, diffVec);
+		distance = VectorLength(diffVec);
+		timeToImpact = distance / projectileSpeed;
+		VectorMA(enemyPos, timeToImpact, adjustedEnemyVel, predictedPos);
+		vec3_t possiblyFinalVec;
+		VectorSubtract(predictedPos, shooterPos, possiblyFinalVec);
+		VectorNormalize(possiblyFinalVec);
+
+		// make sure you don't shoot yourself
+		trace_t trace;
+		vec3_t endPoint;
+		VectorMA(shooterPos, 150, possiblyFinalVec, endPoint);
+		trap_Trace(&trace, shooterPos, mins, maxs, endPoint, ent->s.number, MASK_SHOT);
+		if ((trace.fraction == 1.0f && !trace.startsolid) || trace.entityNum == target->s.number)
+			VectorCopy(possiblyFinalVec, vec);
+	}
+}
+
 //-----------------------------------------------------------------------------
 void W_TraceSetStart( gentity_t *ent, vec3_t start, vec3_t mins, vec3_t maxs )
 //-----------------------------------------------------------------------------
@@ -236,12 +457,19 @@ static void WP_FireBryarPistol( gentity_t *ent, qboolean altFire )
 //---------------------------------------------------------
 {
 	int damage = BRYAR_PISTOL_DAMAGE;
-	int count;
+
+	float boostSize = 0;
+	if (altFire) {
+		int count = Com_Clampi(1, 5, (level.time - ent->client->ps.weaponChargeTime) / BRYAR_CHARGE_UNIT);
+		boostSize = BRYAR_ALT_SIZE * (count * 0.5);
+	}
+
+	CorrectBoostedAim(ent, muzzle, forward, BRYAR_PISTOL_VEL, WP_BRYAR_PISTOL, altFire, boostSize);
 	gentity_t	*missile = CreateMissile( muzzle, forward, BRYAR_PISTOL_VEL, 10000, ent, altFire );
 
 	missile->classname = "bryar_proj";
 	missile->s.weapon = WP_BRYAR_PISTOL;
-
+	int count;
 	if ( altFire )
 	{
 		float boxSize = 0;
@@ -368,6 +596,7 @@ void WP_FireBlasterMissile( gentity_t *ent, vec3_t start, vec3_t dir, qboolean a
 		damage = 10;
 	}
 
+	CorrectBoostedAim(ent, start, dir, velocity, WP_BLASTER, altFire, 0);
 	missile = CreateMissile( start, dir, velocity, 10000, ent, altFire );
 
 	missile->classname = "blaster_proj";
@@ -1131,6 +1360,7 @@ static void WP_BowcasterAltFire( gentity_t *ent )
 {
 	int	damage	= BOWCASTER_DAMAGE;
 
+	CorrectBoostedAim(ent, muzzle, forward, BOWCASTER_VELOCITY, WP_BOWCASTER, qtrue, BOWCASTER_SIZE);
 	gentity_t *missile = CreateMissile( muzzle, forward, BOWCASTER_VELOCITY, 10000, ent, qfalse);
 
 	missile->classname = "bowcaster_proj";
@@ -1209,6 +1439,7 @@ static void WP_BowcasterMainFire( gentity_t *ent )
 		// create a range of different velocities
 		vel = BOWCASTER_VELOCITY * ( crandom() * BOWCASTER_VEL_RANGE + 1.0f );
 
+		CorrectBoostedAim(ent, muzzle, forward, vel, WP_BOWCASTER, qfalse, BOWCASTER_SIZE);
 		vectoangles( forward, angs );
 
 		// add some slop to the alt-fire direction
@@ -1265,6 +1496,7 @@ static void WP_RepeaterMainFire( gentity_t *ent, vec3_t dir )
 {
 	int	damage	= REPEATER_DAMAGE;
 
+	CorrectBoostedAim(ent, muzzle, dir, REPEATER_VELOCITY, WP_REPEATER, qfalse, 0);
 	gentity_t *missile = CreateMissile( muzzle, dir, REPEATER_VELOCITY, 10000, ent, qfalse );
 
 	missile->classname = "repeater_proj";
@@ -1285,6 +1517,7 @@ static void WP_RepeaterAltFire( gentity_t *ent )
 {
 	int	damage	= REPEATER_ALT_DAMAGE;
 
+	CorrectBoostedAim(ent, muzzle, forward, REPEATER_ALT_VELOCITY, WP_REPEATER, qtrue, REPEATER_ALT_SIZE);
 	gentity_t *missile = CreateMissile( muzzle, forward, REPEATER_ALT_VELOCITY, 10000, ent, qtrue );
 
 	missile->classname = "repeater_alt_proj";
@@ -1350,6 +1583,7 @@ static void WP_DEMP2_MainFire( gentity_t *ent )
 {
 	int	damage	= DEMP2_DAMAGE;
 
+	CorrectBoostedAim(ent, muzzle, forward, DEMP2_VELOCITY, WP_DEMP2, qfalse, DEMP2_SIZE);
 	gentity_t *missile = CreateMissile( muzzle, forward, DEMP2_VELOCITY, 10000, ent, qfalse);
 
 	missile->classname = "demp2_proj";
@@ -1679,6 +1913,7 @@ static void WP_FlechetteMainFire( gentity_t *ent )
 
 	for (i = 0; i < FLECHETTE_SHOTS; i++ )
 	{
+		CorrectBoostedAim(ent, muzzle, forward, FLECHETTE_VEL, WP_FLECHETTE , qfalse, FLECHETTE_SIZE);
 		vectoangles( forward, angs );
 
 		if ( g_flechetteSpread.integer ) {
@@ -1841,6 +2076,7 @@ static void WP_FlechetteAltFire( gentity_t *self )
 	vec3_t  maxs = { 6.0f, 6.0f, 6.0f };
 	int i;
 
+	CorrectBoostedAim(self, muzzle, forward, 700 + 0.5f * 700, WP_FLECHETTE, qtrue, ROCKET_SIZE/*same*/);
 	vectoangles( forward, angs );
 	VectorCopy( muzzle, start );
 
@@ -2071,6 +2307,7 @@ static void WP_FireRocket( gentity_t *ent, qboolean altFire )
 		vel *= 0.5f;
 	}
 
+	CorrectBoostedAim(ent, muzzle, forward, vel, WP_ROCKET_LAUNCHER, altFire, ROCKET_SIZE);
 	missile = CreateMissile( muzzle, forward, vel, 30000, ent, altFire );
 
 	if (altFire) {
@@ -2250,7 +2487,25 @@ gentity_t *WP_FireThermalDetonator( gentity_t *ent, qboolean altFire )
 	gentity_t	*bolt;
 	vec3_t		dir, start;
 	float chargeAmount = 1.0f; // default of full charge
+
+	if (ent->client)
+	{
+		chargeAmount = level.time - ent->client->ps.weaponChargeTime;
+	}
+
+	// get charge amount
+	chargeAmount = chargeAmount / (float)TD_VELOCITY;
+
+	if (chargeAmount > 1.0f)
+	{
+		chargeAmount = 1.0f;
+	}
+	else if (chargeAmount < TD_MIN_CHARGE)
+	{
+		chargeAmount = TD_MIN_CHARGE;
+	}
 	
+	CorrectBoostedAim(ent, muzzle, forward, TD_VELOCITY * chargeAmount, WP_THERMAL, altFire, REPEATER_ALT_SIZE/*same*/);
 	VectorCopy( forward, dir );
 	VectorCopy( muzzle, start );
 
@@ -2269,23 +2524,6 @@ gentity_t *WP_FireThermalDetonator( gentity_t *ent, qboolean altFire )
 	bolt->clipmask = MASK_SHOT;
 
 	W_TraceSetStart( ent, start, bolt->r.mins, bolt->r.maxs );//make sure our start point isn't on the other side of a wall
-
-	if ( ent->client )
-	{
-		chargeAmount = level.time - ent->client->ps.weaponChargeTime;
-	}
-
-	// get charge amount
-	chargeAmount = chargeAmount / (float)TD_VELOCITY;
-
-	if ( chargeAmount > 1.0f )
-	{
-		chargeAmount = 1.0f;
-	}
-	else if ( chargeAmount < TD_MIN_CHARGE )
-	{
-		chargeAmount = TD_MIN_CHARGE;
-	}
 
 	// normal ones bounce, alt ones explode on impact
 	bolt->genericValue5 = level.time + TD_TIME; // How long 'til she blows
@@ -3560,6 +3798,7 @@ static void WP_FireConcussion( gentity_t *ent )
 	VectorCopy( muzzle, start );
 	WP_TraceSetStart( ent, start, vec3_origin, vec3_origin );//make sure our start point isn't on the other side of a wall
 
+	CorrectBoostedAim(ent, muzzle, forward, vel, WP_CONCUSSION, qfalse, ROCKET_SIZE);
 	missile = CreateMissile( start, forward, vel, 10000, ent, qfalse );
 
 	missile->classname = "conc_proj";

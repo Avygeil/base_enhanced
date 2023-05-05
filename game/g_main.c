@@ -393,6 +393,8 @@ vmCvar_t	g_droppedFlagSpawnProtectionRadius;
 vmCvar_t	g_droppedFlagSpawnProtectionDuration;
 vmCvar_t	g_selfKillSpawnSpamProtection;
 
+vmCvar_t	g_boost;
+
 #ifdef NEWMOD_SUPPORT
 vmCvar_t	g_netUnlock;
 vmCvar_t	g_nmFlags;
@@ -897,6 +899,8 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_droppedFlagSpawnProtectionRadius, "g_droppedFlagSpawnProtectionRadius", "1024", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_droppedFlagSpawnProtectionDuration, "g_droppedFlagSpawnProtectionDuration", "10000", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_selfKillSpawnSpamProtection, "g_selfKillSpawnSpamProtection", "1", CVAR_ARCHIVE, 0, qtrue },
+
+	{ &g_boost, "g_boost", "1", CVAR_ARCHIVE, 0, qfalse },
 
 #ifdef NEWMOD_SUPPORT
 	{ &g_netUnlock, "g_netUnlock", "1", CVAR_ARCHIVE, 0, qtrue },
@@ -5302,7 +5306,7 @@ static void WaitForAFKs(void) {
 	else if (numAfks == 1)
 		Q_strncpyz(failReason, va("Waiting for %s%s^7 to %s", NM_SerializeUIntToColor(afkGuy1), level.clients[afkGuy1].pers.netname, Q_stristrclean(level.clients[afkGuy1].pers.netname, "hannah") ? "hunAFK" : "unAFK"), sizeof(failReason));
 
-	if (failReason[0] && level.time - level.startTime < 15000 && level.pause.state == PAUSE_NONE)
+	if (failReason[0] && level.time - level.startTime < 30000 && level.pause.state == PAUSE_NONE)
 		Q_strncpyz(failReason, " ", sizeof(failReason));
 
 	static int lastCenterPrintTime = 0;

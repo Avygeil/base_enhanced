@@ -3227,8 +3227,9 @@ int *GetDamageTakenStatOfType(stats_t *attacker, stats_t *victim, meansOfDeathCa
 extern qboolean isRedFlagstand(gentity_t *ent);
 extern qboolean isBlueFlagstand(gentity_t *ent);
 ctfRegion_t GetCTFRegion(gentity_t *ent) {
-	if (g_gametype.integer != GT_CTF || !ent || (ent->client->sess.sessionTeam != TEAM_RED && ent->client->sess.sessionTeam != TEAM_BLUE))
+	if (g_gametype.integer != GT_CTF || !ent || (ent->client->sess.sessionTeam != TEAM_RED && ent->client->sess.sessionTeam != TEAM_BLUE)) {
 		return CTFREGION_INVALID;
+	}
 
 	static gentity_t *redFs = NULL, *blueFs = NULL;
 	static float diffBetweenFlags = 0.0f;
@@ -3244,8 +3245,9 @@ ctfRegion_t GetCTFRegion(gentity_t *ent) {
 		initialized = qtrue;
 	}
 
-	if (!redFs || !blueFs)
+	if (!redFs || !blueFs) {
 		return CTFREGION_INVALID;
+	}
 
 	team_t team = ent->client->sess.sessionTeam;
 
@@ -3253,8 +3255,9 @@ ctfRegion_t GetCTFRegion(gentity_t *ent) {
 	float enemyDist = Distance2D(ent->r.currentOrigin, team == TEAM_RED ? blueFs->r.currentOrigin : redFs->r.currentOrigin);
 	//PrintIngame(ent - g_entities, "^2Ally^7 FS dist: %d - ^8Enemy^7 FS dist: %d - Ratio: %.2f\n", (int)allyDist, (int)enemyDist, allyDist / enemyDist);
 
-	if (allyDist == enemyDist)
+	if (allyDist == enemyDist) {
 		return CTFREGION_MID;
+	}
 
 	if (allyDist < enemyDist) {
 		float diff = allyDist / enemyDist;
