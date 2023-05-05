@@ -250,7 +250,7 @@ static gentity_t *PlayerThatPlayerIsAimingClosestTo(gentity_t *ent) {
 			continue;
 		if (thisEnt->health <= 0 || thisEnt->client->ps.pm_type == PM_SPECTATOR || thisEnt->client->tempSpectate >= level.time)
 			continue; // this guy is dead
-		if (!InFOVFloat(&g_entities[i], ent, 180, 90))
+		if (!InFOVFloat(&g_entities[i], ent, 45.0f, 45.0f))
 			continue;
 		valid[i] = qtrue;
 		gotValid = qtrue;
@@ -278,7 +278,7 @@ static gentity_t *PlayerThatPlayerIsAimingClosestTo(gentity_t *ent) {
 		gentity_t *thisEnt = &g_entities[i];
 		float dist = Distance(ent->client->ps.origin, thisEnt->client->ps.origin);
 		if (dist < closestDistance) {
-			dist = closestDistance;
+			closestDistance = dist;
 			closestPlayer = thisEnt;
 		}
 	}
