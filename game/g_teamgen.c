@@ -4419,16 +4419,6 @@ qboolean TeamGenerator_MemeFuckVote(gentity_t *ent, const char *voteStr, char **
 		return qtrue;
 	}
 
-	if (!ent->client->account) {
-		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You do not have an account, so you cannot vote to fuck. Please contact an admin for help setting up an account.");
-		return qtrue;
-	}
-
-	if ((ent->client->account->flags & ACCOUNTFLAG_ELOBOTSELFHOST) && !Q_stricmpclean(ent->client->pers.netname, "elo BOT")) {
-		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You have either modded elo bot to cheese the system or this is a bug which you should report.");
-		return qtrue;
-	}
-
 	if (!VALIDSTRING(voteStr) || strlen(voteStr) < 6) {
 		TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("Usage: %cfuck [subject of the fucking]", TEAMGEN_CHAT_COMMAND_CHARACTER));
 		return qtrue;
@@ -4505,9 +4495,9 @@ qboolean TeamGenerator_MemeFuckVote(gentity_t *ent, const char *voteStr, char **
 		if (!(fuckVote->votedYesClients & (1 << ent - g_entities))) {
 			for (int i = 0; i < MAX_CLIENTS; i++) {
 				gentity_t *other = &g_entities[i];
-				if (other == ent || !other->inuse || !other->client || !other->client->account)
+				if (other == ent || !other->inuse || !other->client)
 					continue;
-				if (other->client->account->id != ent->client->account->id)
+				if (other->client->account && ent->client->account && other->client->account->id != ent->client->account->id)
 					continue;
 				if (fuckVote->votedYesClients & (1 << other - g_entities)) {
 					votedToFuckOnAnotherClient = qtrue;
@@ -4541,18 +4531,14 @@ qboolean TeamGenerator_MemeFuckVote(gentity_t *ent, const char *voteStr, char **
 		qboolean gotEm[MAX_CLIENTS] = { qfalse };
 		for (int i = 0; i < MAX_CLIENTS; i++) {
 			gentity_t *thisEnt = &g_entities[i];
-			if (!thisEnt->inuse || !thisEnt->client || thisEnt->client->pers.connected == CON_DISCONNECTED ||
-				!thisEnt->client->account || thisEnt->client->sess.clientType != CLIENT_TYPE_NORMAL || gotEm[i])
-				continue;
-
-			if (thisEnt->client->account->flags & ACCOUNTFLAG_ELOBOTSELFHOST && !Q_stricmpclean(thisEnt->client->pers.netname, "elo BOT"))
+			if (!thisEnt->inuse || !thisEnt->client || thisEnt->client->pers.connected == CON_DISCONNECTED || gotEm[i])
 				continue;
 
 			qboolean votedToFuck = qfalse;
 			for (int k = 0; k < MAX_CLIENTS; k++) {
 				gentity_t *checkEnt = &g_entities[k];
 				if (!checkEnt->inuse || !checkEnt->client || checkEnt->client->pers.connected == CON_DISCONNECTED ||
-					!checkEnt->client->account || thisEnt->client->sess.clientType != CLIENT_TYPE_NORMAL || checkEnt->client->account->id != thisEnt->client->account->id)
+					(thisEnt->client->account && checkEnt->client->account && checkEnt->client->account->id != thisEnt->client->account->id))
 					continue;
 				if (fuckVote->votedYesClients & (1 << k))
 					votedToFuck = qtrue;
