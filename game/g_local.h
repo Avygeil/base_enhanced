@@ -1266,6 +1266,14 @@ typedef struct {
 	int		voteNum;
 } barVote_t;
 
+#define MAX_FUCK_LENGTH		(65)
+typedef struct {
+	node_t	node;
+	char	fucked[MAX_FUCK_LENGTH];
+	int		votedYesClients;
+	qboolean	done;
+} fuckVote_t;
+
 typedef struct {
 	node_t		node;
 	int			accountId;
@@ -2014,6 +2022,7 @@ typedef struct {
 	list_t autoLinksList;
 	list_t barVoteList;
 	list_t unbarVoteList;
+	list_t fuckVoteList;
 
 	int teamPermutationsShownTime;
 
@@ -3312,6 +3321,7 @@ extern vmCvar_t		g_vote_teamgen_banLastPlayedPermutation;
 extern vmCvar_t		g_vote_teamgen_enableBarVote;
 extern vmCvar_t		g_vote_teamgen_barVoteStartsNewPug;
 extern vmCvar_t		g_vote_teamgen_unvote;
+extern vmCvar_t		g_vote_teamgen_fuck;
 
 extern vmCvar_t		d_debugBanPermutation;
 

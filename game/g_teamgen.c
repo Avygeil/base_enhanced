@@ -4402,6 +4402,186 @@ qboolean BarVoteMatchesAccountId(genericNode_t *node, void *userData) {
 	return qfalse;
 }
 
+qboolean FuckVoteMatchesString(genericNode_t *node, void *userData) {
+	const fuckVote_t *existing = (const fuckVote_t *)node;
+	const char *newStr = (const char *)userData;
+	if (existing && !Q_stricmp(existing->fucked, newStr))
+		return qtrue;
+	return qfalse;
+}
+
+
+qboolean TeamGenerator_MemeFuckVote(gentity_t *ent, const char *voteStr, char **newMessage) {
+	assert(ent && ent->client);
+
+	if (g_vote_teamgen_fuck.integer <= 0) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "Fuck vote is disabled.");
+		return qtrue;
+	}
+
+	if (!ent->client->account) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You do not have an account, so you cannot vote to fuck. Please contact an admin for help setting up an account.");
+		return qtrue;
+	}
+
+	if ((ent->client->account->flags & ACCOUNTFLAG_ELOBOTSELFHOST) && !Q_stricmpclean(ent->client->pers.netname, "elo BOT")) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You have either modded elo bot to cheese the system or this is a bug which you should report.");
+		return qtrue;
+	}
+
+	if (!VALIDSTRING(voteStr) || strlen(voteStr) < 6) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("Usage: %cfuck [subject of the fucking]", TEAMGEN_CHAT_COMMAND_CHARACTER));
+		return qtrue;
+	}
+
+	const char *fucked = voteStr + 5;
+
+	char filtered[MAX_FUCK_LENGTH] = { 0 };
+	assert(sizeof(filtered) == MAX_FUCK_LENGTH);
+	assert(MAX_FUCK_LENGTH < MAX_SAY_TEXT);
+	if (strlen(fucked) > MAX_FUCK_LENGTH - 1) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("Your message is too long. The limit is %d characters.", MAX_FUCK_LENGTH - 1));
+		return qtrue;
+	}
+
+	Q_strncpyz(filtered, fucked, sizeof(filtered));
+	Q_StripColor(filtered);
+
+	if (!filtered[0]) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("Usage: %cfuck [subject of the fucking]", TEAMGEN_CHAT_COMMAND_CHARACTER));
+		return qtrue;
+	}
+
+	// condense consecutive spaces
+	int r = 0, w = 0;
+	qboolean previousSpace = qfalse;
+	while (filtered[r] != '\0') {
+		if (filtered[r] != ' ') {
+			filtered[w++] = filtered[r];
+			previousSpace = qfalse;
+		}
+		else if (!previousSpace) {
+			filtered[w++] = filtered[r];
+			previousSpace = qtrue;
+		}
+		r++;
+	}
+	filtered[w] = '\0';
+
+	// trim trailing space
+	int len = strlen(filtered);
+	if (len && filtered[len - 1] == ' ')
+		filtered[len - 1] = '\0';
+
+	// trim leading space
+	if (filtered[0] == ' ')
+		memmove(filtered, filtered + 1, strlen(filtered));
+
+	qboolean gotAlphaNumeric = qfalse;
+	for (char *p = filtered; *p; p++) {
+		const char c = *p;
+		if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) {
+			gotAlphaNumeric = qtrue;
+			break;
+		}
+	}
+
+	if (!filtered[0] || !gotAlphaNumeric) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("Usage: %cfuck [subject of the fucking]", TEAMGEN_CHAT_COMMAND_CHARACTER));
+		return qtrue;
+	}
+
+	// check whether this fuck vote already exists
+	qboolean doVote = qtrue;
+	fuckVote_t *fuckVote = ListFind(&level.fuckVoteList, FuckVoteMatchesString, filtered, NULL);
+	if (fuckVote) {
+		if (fuckVote->done) {
+			TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("%s has already been fucked.", fuckVote->fucked));
+			return qtrue;
+		}
+
+		// this vote already exists; see if we already voted on it
+		qboolean votedToFuckOnAnotherClient = qfalse;
+		if (!(fuckVote->votedYesClients & (1 << ent - g_entities))) {
+			for (int i = 0; i < MAX_CLIENTS; i++) {
+				gentity_t *other = &g_entities[i];
+				if (other == ent || !other->inuse || !other->client || !other->client->account)
+					continue;
+				if (other->client->account->id != ent->client->account->id)
+					continue;
+				if (fuckVote->votedYesClients & (1 << other - g_entities)) {
+					votedToFuckOnAnotherClient = qtrue;
+					break;
+				}
+			}
+		}
+
+		if (votedToFuckOnAnotherClient || fuckVote->votedYesClients & (1 << ent - g_entities)) {
+			TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("You have already voted to fuck %s.", fuckVote->fucked));
+			doVote = qfalse;
+		}
+	}
+	else {
+		// doesn't exist yet; create it
+		if (level.fuckVoteList.size >= g_vote_teamgen_fuck.integer) {
+			TeamGenerator_QueueServerMessageInChat(ent - g_entities, "The limit of fuck votes has been reached.");
+			return qtrue;
+		}
+
+		fuckVote = ListAdd(&level.fuckVoteList, sizeof(fuckVote_t));
+		Q_strncpyz(fuckVote->fucked, filtered, sizeof(fuckVote->fucked));
+	}
+
+	if (doVote)
+		fuckVote->votedYesClients |= (1 << (ent - g_entities));
+
+	// check how many votes we are now up to
+	int numFuckVotesFromEligiblePlayers = 0;
+	{
+		qboolean gotEm[MAX_CLIENTS] = { qfalse };
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *thisEnt = &g_entities[i];
+			if (!thisEnt->inuse || !thisEnt->client || thisEnt->client->pers.connected == CON_DISCONNECTED ||
+				!thisEnt->client->account || thisEnt->client->sess.clientType != CLIENT_TYPE_NORMAL || gotEm[i])
+				continue;
+
+			if (thisEnt->client->account->flags & ACCOUNTFLAG_ELOBOTSELFHOST && !Q_stricmpclean(thisEnt->client->pers.netname, "elo BOT"))
+				continue;
+
+			qboolean votedToFuck = qfalse;
+			for (int k = 0; k < MAX_CLIENTS; k++) {
+				gentity_t *checkEnt = &g_entities[k];
+				if (!checkEnt->inuse || !checkEnt->client || checkEnt->client->pers.connected == CON_DISCONNECTED ||
+					!checkEnt->client->account || thisEnt->client->sess.clientType != CLIENT_TYPE_NORMAL || checkEnt->client->account->id != thisEnt->client->account->id)
+					continue;
+				if (fuckVote->votedYesClients & (1 << k))
+					votedToFuck = qtrue;
+				gotEm[k] = qtrue;
+			}
+
+			if (votedToFuck)
+				++numFuckVotesFromEligiblePlayers;
+		}
+	}
+
+	// print the message
+	const int numRequired = g_vote_teamgen_team_requiredVotes.integer;
+	if (newMessage) {
+		static char buf[MAX_STRING_CHARS] = { 0 };
+		Com_sprintf(buf, sizeof(buf), "%cfuck %s   ^%c(%d/%d)",
+			TEAMGEN_CHAT_COMMAND_CHARACTER, fuckVote->fucked, doVote ? '7' : '9', numFuckVotesFromEligiblePlayers, numRequired);
+		*newMessage = buf;
+	}
+
+	// if we have enough votes, do the fucking
+	if (numFuckVotesFromEligiblePlayers >= numRequired) {
+		fuckVote->done = qtrue;
+		TeamGenerator_QueueServerMessageInChat(-1, va("^7Fuck %s.", fuckVote->fucked));
+	}
+
+	return qfalse;
+}
+
 qboolean TeamGenerator_VoteToBar(gentity_t *ent, const char *voteStr, char **newMessage) {
 	assert(ent && ent->client);
 
@@ -5073,6 +5253,9 @@ qboolean TeamGenerator_CheckForChatCommand(gentity_t *ent, const char *s, char *
 		TeamGenerator_PrintPlayersInPugProposals(ent);
 		return qtrue;
 	}
+
+	if (!Q_stricmpn(s, "fuck", 4) && (strlen(s) <= 4 || isspace(*(s + 4))))
+		return TeamGenerator_MemeFuckVote(ent, s, newMessage);
 
 	if (!Q_stricmp(s, "pickable"))
 		return TeamGenerator_PermabarredPlayerMarkAsPickable(ent, newMessage);

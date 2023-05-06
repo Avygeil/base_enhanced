@@ -499,6 +499,7 @@ vmCvar_t	g_vote_teamgen_banLastPlayedPermutation;
 vmCvar_t	g_vote_teamgen_enableBarVote;
 vmCvar_t	g_vote_teamgen_barVoteStartsNewPug;
 vmCvar_t	g_vote_teamgen_unvote;
+vmCvar_t	g_vote_teamgen_fuck;
 
 vmCvar_t	d_debugBanPermutation;
 
@@ -1012,6 +1013,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_teamgen_enableBarVote, "g_vote_teamgen_enableBarVote", "5", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_barVoteStartsNewPug, "g_vote_teamgen_barVoteStartsNewPug", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_unvote, "g_vote_teamgen_unvote", "1", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_teamgen_fuck, "g_vote_teamgen_fuck", "10", CVAR_ARCHIVE, 0, qfalse },
 
 	{ &d_debugBanPermutation, "d_debugBanPermutation", "0", CVAR_ARCHIVE, 0, qfalse },
 
@@ -2251,6 +2253,7 @@ void G_ShutdownGame( int restart ) {
 	ListClear(&level.barVoteList);
 	ListClear(&level.unbarVoteList);
 	ListClear(&level.captureList);
+	ListClear(&level.fuckVoteList);
 
 	UnpatchEngine();
 }
