@@ -3551,6 +3551,253 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 	return qfalse;
 }
 
+qboolean TeamGenerator_UnvoteForTeamPermutations(gentity_t *ent, const char *voteStr, char **newMessage, const char *completeVoteStr) {
+	assert(ent && VALIDSTRING(voteStr));
+
+	if (!ent->client->account) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You do not have an account, so you cannot vote for team proposals. Please contact an admin for help setting up an account.");
+		return qtrue;
+	}
+
+	if ((ent->client->account->flags & ACCOUNTFLAG_ELOBOTSELFHOST) && !Q_stricmpclean(ent->client->pers.netname, "elo BOT")) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You have either modded elo bot to cheese the system or this is a bug which you should report.");
+		return qtrue;
+	}
+
+	if (!level.activePugProposal) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "No pug proposal is currently active.");
+		return qtrue;
+	}
+
+	if (!g_vote_teamgen_unvote.integer) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "Unvoting is disabled.");
+		return qtrue;
+	}
+
+	if (level.teamPermutationsShownTime && trap_Milliseconds() - level.teamPermutationsShownTime < 500) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "The teams proposals have just changed. Please check the new teams proposals.");
+		return qtrue;
+	}
+
+	char existingNoVotes[5] = { 0 };
+	char newNoVotes[5] = { 0 };
+	for (const char *p = voteStr; *p && p - voteStr < 4; p++) {
+		const char lower = tolower((unsigned)*p);
+		int *votesInt;
+		permutationOfTeams_t *permutation;
+		if (level.activePugProposal->suggested.valid && level.activePugProposal->suggestedLetter == lower) {
+			votesInt = &level.activePugProposal->suggestedVoteClients;
+			permutation = &level.activePugProposal->suggested;
+		}
+		else if (level.activePugProposal->highestCaliber.valid && level.activePugProposal->highestCaliberLetter == lower) {
+			votesInt = &level.activePugProposal->highestCaliberVoteClients;
+			permutation = &level.activePugProposal->highestCaliber;
+		}
+		else if (level.activePugProposal->fairest.valid && level.activePugProposal->fairestLetter == lower) {
+			votesInt = &level.activePugProposal->fairestVoteClients;
+			permutation = &level.activePugProposal->fairest;
+		}
+		else if (level.activePugProposal->desired.valid && level.activePugProposal->desiredLetter == lower) {
+			votesInt = &level.activePugProposal->desiredVoteClients;
+			permutation = &level.activePugProposal->desired;
+		}
+		else if (level.activePugProposal->inclusive.valid && level.activePugProposal->inclusiveLetter == lower) {
+			votesInt = &level.activePugProposal->inclusiveVoteClients;
+			permutation = &level.activePugProposal->inclusive;
+		}
+		else {
+			TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("Invalid pug proposal letter '%c'.", *p));
+			continue;
+		}
+
+		if (!permutation->valid) {
+			TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("Invalid pug proposal letter '%c'.", *p));
+			continue;
+		}
+
+		int clientsIVotedYesOn = 0;
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *other = &g_entities[i];
+			if (/*other == ent || */!other->inuse || !other->client || !other->client->account)
+				continue;
+			if (other->client->account->id != ent->client->account->id)
+				continue;
+			if (*votesInt & (1 << other - g_entities))
+				clientsIVotedYesOn |= (1 << i);
+		}
+
+		qboolean allowedToVote = qfalse;
+		if (permutation->teams[0].baseId == ent->client->account->id || permutation->teams[0].chaseId == ent->client->account->id ||
+			permutation->teams[0].offenseId1 == ent->client->account->id || permutation->teams[0].offenseId2 == ent->client->account->id ||
+			permutation->teams[1].baseId == ent->client->account->id || permutation->teams[1].chaseId == ent->client->account->id ||
+			permutation->teams[1].offenseId1 == ent->client->account->id || permutation->teams[1].offenseId2 == ent->client->account->id) {
+			allowedToVote = qtrue;
+		}
+
+		if (!allowedToVote) {
+			TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("You cannot vote on teams proposal %c because you are not part of it.", lower));
+			continue;
+		}
+
+		if (!clientsIVotedYesOn) {
+			Q_strcat(existingNoVotes, sizeof(existingNoVotes), va("%c", lower));
+			continue;
+		}
+
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *other = &g_entities[i];
+			if (/*other == ent || */!other->inuse || !other->client || !other->client->account)
+				continue;
+			if (other->client->account->id != ent->client->account->id)
+				continue;
+			if (*votesInt & (1 << other - g_entities))
+				*votesInt &= ~(1 << i);
+		}
+
+		Q_strcat(newNoVotes, sizeof(newNoVotes), va("%c", lower));
+	}
+
+	if (!existingNoVotes[0] && !newNoVotes[0])
+		return qtrue;
+
+	char existingNoVotesMessage[64] = { 0 };
+	if (existingNoVotes[0])
+		Com_sprintf(existingNoVotesMessage, sizeof(existingNoVotesMessage), "You have already not voted for teams proposal%s %s.", strlen(existingNoVotes) > 1 ? "s" : "", existingNoVotes);
+
+	if (!newNoVotes[0]) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, existingNoVotesMessage);
+		return qtrue; // avoid spamming chat with un messages that don't do anything
+	}
+
+	if (strlen(newNoVotes) > 1) {
+		Com_Printf("%s^7 unvoted for teams proposals %s.\n", ent->client->pers.netname, newNoVotes);
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("Vote undone for teams proposals %s.%s%s", newNoVotes, existingNoVotes[0] ? " " : "", existingNoVotes[0] ? existingNoVotesMessage : ""));
+	}
+	else {
+		Com_Printf("%s^7 unvoted for teams proposal %s.\n", ent->client->pers.netname, newNoVotes);
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("Vote undone for teams proposal %s.%s%s", newNoVotes, existingNoVotes[0] ? " " : "", existingNoVotes[0] ? existingNoVotesMessage : ""));
+	}
+
+	if (newMessage) {
+		static char buf[MAX_STRING_CHARS] = { 0 };
+		Com_sprintf(buf, sizeof(buf), "%c%s  ", TEAMGEN_CHAT_COMMAND_CHARACTER, completeVoteStr);
+		for (int i = 0; i < 5; i++) {
+			char letter;
+			int *votesInt;
+			permutationOfTeams_t *permutation;
+			switch (i) {
+			case 0: permutation = &level.activePugProposal->suggested; votesInt = &level.activePugProposal->suggestedVoteClients; letter = level.activePugProposal->suggestedLetter; break;
+			case 1: permutation = &level.activePugProposal->highestCaliber; votesInt = &level.activePugProposal->highestCaliberVoteClients; letter = level.activePugProposal->highestCaliberLetter; break;
+			case 2: permutation = &level.activePugProposal->fairest; votesInt = &level.activePugProposal->fairestVoteClients; letter = level.activePugProposal->fairestLetter; break;
+			case 3: permutation = &level.activePugProposal->desired; votesInt = &level.activePugProposal->desiredVoteClients; letter = level.activePugProposal->desiredLetter; break;
+			case 4: permutation = &level.activePugProposal->inclusive; votesInt = &level.activePugProposal->inclusiveVoteClients; letter = level.activePugProposal->inclusiveLetter; break;
+			}
+
+			if (!permutation->valid)
+				continue;
+
+			int numYesVotes = 0;
+			for (int j = 0; j < MAX_CLIENTS; j++) {
+				if (*votesInt & (1 << j))
+					++numYesVotes;
+			}
+
+			// color white if they unvoted for it just now
+			char color = '9';
+			if (newNoVotes[0] && strchr(newNoVotes, letter))
+				color = '7';
+
+			const int numRequired = g_vote_teamgen_team_requiredVotes.integer ? g_vote_teamgen_team_requiredVotes.integer : 5;
+			Q_strcat(buf, sizeof(buf), va(" ^%c(%c: %d/%d)", color, letter, numYesVotes, numRequired));
+		}
+		*newMessage = buf;
+	}
+
+	int numPermutationsWithEnoughVotesToPass = 0;
+	for (int i = 0; i < 5; i++) {
+		int *votesInt;
+		permutationOfTeams_t *permutation;
+		switch (i) {
+		case 0: permutation = &level.activePugProposal->suggested; votesInt = &level.activePugProposal->suggestedVoteClients; break;
+		case 1: permutation = &level.activePugProposal->highestCaliber; votesInt = &level.activePugProposal->highestCaliberVoteClients; break;
+		case 2: permutation = &level.activePugProposal->fairest; votesInt = &level.activePugProposal->fairestVoteClients; break;
+		case 3: permutation = &level.activePugProposal->desired; votesInt = &level.activePugProposal->desiredVoteClients; break;
+		case 4: permutation = &level.activePugProposal->inclusive; votesInt = &level.activePugProposal->inclusiveVoteClients; break;
+		}
+
+		if (!permutation->valid)
+			continue;
+
+		int numYesVotes = 0;
+		for (int j = 0; j < MAX_CLIENTS; j++) {
+			if (*votesInt & (1 << j))
+				++numYesVotes;
+		}
+
+		const int numRequired = g_vote_teamgen_team_requiredVotes.integer ? g_vote_teamgen_team_requiredVotes.integer : 5;
+		if (numYesVotes >= numRequired)
+			++numPermutationsWithEnoughVotesToPass;
+	}
+
+	int tiebreakerOrder[] = { 0, 1, 2, 3, 4 };
+	srand(teamGenSeed);
+	FisherYatesShuffle(&tiebreakerOrder[0], 5, sizeof(int));
+	srand(time(NULL));
+
+	for (int i = 0; i < 5; i++) {
+		int j = tiebreakerOrder[i];
+		char letter;
+		int *votesInt;
+		permutationOfTeams_t *permutation;
+		switch (j) {
+		case 0: permutation = &level.activePugProposal->suggested; votesInt = &level.activePugProposal->suggestedVoteClients; letter = level.activePugProposal->suggestedLetter; break;
+		case 1: permutation = &level.activePugProposal->highestCaliber; votesInt = &level.activePugProposal->highestCaliberVoteClients; letter = level.activePugProposal->highestCaliberLetter; break;
+		case 2: permutation = &level.activePugProposal->fairest; votesInt = &level.activePugProposal->fairestVoteClients; letter = level.activePugProposal->fairestLetter; break;
+		case 3: permutation = &level.activePugProposal->desired; votesInt = &level.activePugProposal->desiredVoteClients; letter = level.activePugProposal->desiredLetter; break;
+		case 4: permutation = &level.activePugProposal->inclusive; votesInt = &level.activePugProposal->inclusiveVoteClients; letter = level.activePugProposal->inclusiveLetter; break;
+		}
+
+		if (!permutation->valid)
+			continue;
+
+		int numYesVotes = 0;
+		for (int j = 0; j < MAX_CLIENTS; j++) {
+			if (*votesInt & (1 << j))
+				++numYesVotes;
+		}
+
+		const int numRequired = g_vote_teamgen_team_requiredVotes.integer ? g_vote_teamgen_team_requiredVotes.integer : 5;
+
+		if (numYesVotes >= numRequired) {
+			if (numPermutationsWithEnoughVotesToPass > 1)
+				TeamGenerator_QueueServerMessageInChat(-1, va("Teams proposal %c passed by random tiebreaker.", letter));
+			else
+				TeamGenerator_QueueServerMessageInChat(-1, va("Teams proposal %c passed.", letter));
+
+			char printMessage[1024] = { 0 };
+			Com_sprintf(printMessage, sizeof(printMessage), "*^1Red team:^7 (%0.2f'/. relative strength)\n", permutation->teams[0].relativeStrength * 100.0);
+			Q_strcat(printMessage, sizeof(printMessage), va("^5Base: ^7 %s\n", permutation->teams[0].baseName));
+			Q_strcat(printMessage, sizeof(printMessage), va("^6Chase: ^7 %s\n", permutation->teams[0].chaseName));
+			Q_strcat(printMessage, sizeof(printMessage), va("^2Offense: ^7 %s^7, ", permutation->teams[0].offense1Name));
+			Q_strcat(printMessage, sizeof(printMessage), va("%s\n\n", permutation->teams[0].offense2Name));
+			Q_strcat(printMessage, sizeof(printMessage), va("^4Blue team:^7 (%0.2f'/. relative strength)\n", permutation->teams[1].relativeStrength * 100.0));
+			Q_strcat(printMessage, sizeof(printMessage), va("^5Base: ^7 %s\n", permutation->teams[1].baseName));
+			Q_strcat(printMessage, sizeof(printMessage), va("^6Chase: ^7 %s\n", permutation->teams[1].chaseName));
+			Q_strcat(printMessage, sizeof(printMessage), va("^2Offense: ^7 %s^7, ", permutation->teams[1].offense1Name));
+			Q_strcat(printMessage, sizeof(printMessage), va("^7%s\n\n", permutation->teams[1].offense2Name));
+			TeamGenerator_QueueServerMessageInConsole(-1, printMessage);
+
+			ActivateTeamsProposal(permutation);
+			ListClear(&level.activePugProposal->avoidedHashesList);
+			ListRemove(&level.pugProposalsList, level.activePugProposal);
+			level.activePugProposal = NULL;
+			break;
+		}
+	}
+
+	return qfalse;
+}
+
 qboolean TeamGenerator_VoteYesToPugProposal(gentity_t *ent, int num, pugProposal_t *setOptional, char **newMessage) {
 	assert(ent && ent->client);
 
@@ -3797,11 +4044,17 @@ qboolean TeamGenerator_PugStart(gentity_t *ent, char **newMessage) {
 	char cleanname[32];
 	Q_strncpyz(cleanname, name, sizeof(cleanname));
 	Q_StripColor(cleanname);
-
 	char *namesStr = GetNamesStringForPugProposal(set);
 	if (VALIDSTRING(namesStr))
 		Q_strncpyz(set->namesStr, namesStr, sizeof(set->namesStr));
 	TeamGenerator_QueueServerMessageInChat(-1, va("%s proposes pug with: %s. Enter ^5%c%d^7 in chat if you approve.", cleanname, namesStr, TEAMGEN_CHAT_COMMAND_CHARACTER, set->num));
+
+	if (newMessage) {
+		static char buf[MAX_STRING_CHARS] = { 0 };
+		Com_sprintf(buf, sizeof(buf), "%cstart", TEAMGEN_CHAT_COMMAND_CHARACTER);
+		*newMessage = buf;
+	}
+
 	return qfalse;
 }
 
@@ -4839,6 +5092,39 @@ qboolean TeamGenerator_CheckForChatCommand(gentity_t *ent, const char *s, char *
 		}
 		if (!invalidVote)
 			return TeamGenerator_VoteForTeamPermutations(ent, s, newMessage);
+	}
+
+	if (!Q_stricmpn(s, "un", 2) && strlen(s) > 2) {
+		qboolean invalidVote = qfalse;
+		for (const char *p = s + 2; *p; p++) {
+			char lowered = tolower((unsigned)*p);
+			if (lowered != 'a' && lowered != 'b' && lowered != 'c' && lowered != 'd') {
+				invalidVote = qtrue;
+				break;
+			}
+			if (p > (s + 2) && lowered == tolower((unsigned)*(p - 1))) {
+				invalidVote = qtrue; // aaa or something
+				break;
+			}
+		}
+		if (!invalidVote)
+			return TeamGenerator_UnvoteForTeamPermutations(ent, s + 2, newMessage, s);
+	}
+	else if (!Q_stricmpn(s, "hun", 3) && strlen(s) > 3) {
+		qboolean invalidVote = qfalse;
+		for (const char *p = s + 3; *p; p++) {
+			char lowered = tolower((unsigned)*p);
+			if (lowered != 'a' && lowered != 'b' && lowered != 'c' && lowered != 'd') {
+				invalidVote = qtrue;
+				break;
+			}
+			if (p > (s + 3) && lowered == tolower((unsigned)*(p - 1))) {
+				invalidVote = qtrue; // aaa or something
+				break;
+			}
+		}
+		if (!invalidVote)
+			return TeamGenerator_UnvoteForTeamPermutations(ent, s + 3, newMessage, s);
 	}
 
 	if (atoi(s))

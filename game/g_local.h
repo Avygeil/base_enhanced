@@ -3311,6 +3311,7 @@ extern vmCvar_t		g_vote_teamgen_preventStartDuringPug;
 extern vmCvar_t		g_vote_teamgen_banLastPlayedPermutation;
 extern vmCvar_t		g_vote_teamgen_enableBarVote;
 extern vmCvar_t		g_vote_teamgen_barVoteStartsNewPug;
+extern vmCvar_t		g_vote_teamgen_unvote;
 
 extern vmCvar_t		d_debugBanPermutation;
 
