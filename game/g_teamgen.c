@@ -3743,10 +3743,10 @@ qboolean TeamGenerator_PugStart(gentity_t *ent, char **newMessage) {
 		int avgBlueInt = (int)lroundf(avgBlue);
 		int duration = level.time - level.startTime;
 
-		// ingame players can only start before 10:00 has elapsed; specs cannot start
+		// ingame players can only start before 5:00 has elapsed; specs cannot start
 		if (numCurrentlyIngame >= 6 &&
 			avgRedInt == 4 && avgBlueInt == 4 &&
-			(duration > 600000 || IsRacerOrSpectator(ent)) &&
+			(duration > (60 * 1000 * 5) || IsRacerOrSpectator(ent)) &&
 			fabs(avgRed - round(avgRed)) < 0.2f &&
 			fabs(avgBlue - round(avgBlue)) < 0.2f) {
 

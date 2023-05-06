@@ -3204,7 +3204,7 @@ void BeginIntermission(void) {
 
 		// a pug is considered live if:
 		// * the level was map_restarted
-		// * the match lasted at least 10 mins
+		// * the match lasted at least 5 mins
 		// * the average rounded integer number of players in each team is equal
 		// * the sum of these average integers is >= 4 (at least 2s)
 		// * both averages are within +/- 0.1 of their rounded values
@@ -3220,7 +3220,7 @@ void BeginIntermission(void) {
 		}
 #else
 		if (level.wasRestarted &&
-			durationMins >= 10 &&
+			durationMins >= 5 &&
 			avgRedInt == avgBlueInt &&
 			avgRedInt + avgBlueInt >= 4 &&
 			fabs(avgRed - round(avgRed)) < 0.1f &&
