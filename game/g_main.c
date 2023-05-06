@@ -647,7 +647,7 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_instagib, "g_instagib", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_instagibRespawnTime, "g_instagibRespawnTime", "5", CVAR_ARCHIVE, 0, qtrue },
-	{ &g_instagibRespawnMinPlayers, "g_instagibRespawnMinPlayers", "4", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_instagibRespawnMinPlayers, "g_instagibRespawnMinPlayers", "0", CVAR_ARCHIVE, 0, qtrue },
 
     { &g_allowHighPingDuelist, "g_allowHighPingDuelist", "1", 0, 0, qtrue },
 
