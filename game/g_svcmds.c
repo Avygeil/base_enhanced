@@ -3506,7 +3506,7 @@ void Svcmd_Account_f( void ) {
 			char timestamp[32];
 			G_FormatLocalDateFromEpoch( timestamp, sizeof( timestamp ), acc.ptr->creationDate );
 
-			char flagsStr[64] = { 0 };
+			char flagsStr[MAX_STRING_CHARS] = { 0 };
 			for ( int i = 0; i < sizeof( int ) * 8; i++ ) {
 				int bit = (1 << i);
 

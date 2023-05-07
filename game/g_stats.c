@@ -2448,7 +2448,10 @@ const char *CapCallback(void *rowContext, void *columnContext) {
 			else
 				Com_sprintf(scoreDiffBuf, sizeof(scoreDiffBuf), "%s%d", scoreDiff > 0 ? "+" : "", scoreDiff);
 
-			return va("^7%s^9(%s)", ParseMillisecondsToString(cap->time, qtrue, qtrue, qtrue, 0), scoreDiffBuf);
+			static char buf[32] = { 0 };
+			memset(&buf, 0, sizeof(buf));
+			Com_sprintf(buf, sizeof(buf), "^7%s^9(%s)", ParseMillisecondsToString(cap->time, qtrue, qtrue, qtrue, 0), scoreDiffBuf);
+			return buf;
 		}
 	}
 
@@ -2509,11 +2512,11 @@ void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t ou
 		int ms = level.intermissiontime ? (level.intermissiontime - level.startTime) : (level.time - level.startTime);
 		int secs = ms / 1000;
 		int mins = secs / 60;
-		char *timeStr;
+		char timeStr[32] = { 0 };
 		if (ms >= 60000)
-			timeStr = va("%d:%02d", mins, secs % 60);
+			Com_sprintf(timeStr, sizeof(timeStr), "%d:%02d", mins, secs % 60);
 		else
-			timeStr = va("0:%02d", secs);
+			Com_sprintf(timeStr, sizeof(timeStr), "0:%02d", secs);
 
 		const size_t preambleSize = 8192;
 		char *preamble = calloc(preambleSize, sizeof(char));
@@ -2528,6 +2531,8 @@ void Stats_Print(gentity_t *ent, const char *type, char *outputBuffer, size_t ou
 			free(capsStr);
 
 		if (outputBuffer) {
+			if (announce)
+				PrintIngame(id, preamble);
 			Q_strncpyz(outputBuffer, preamble, outSize);
 			int len = strlen(outputBuffer);
 			PrintTeamStats(id, outputBuffer + len, outSize - len, announce, STATS_TABLE_GENERAL, NULL);

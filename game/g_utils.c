@@ -2815,7 +2815,9 @@ void PrintIngame(int clientNum, const char *msg, ...) {
 		// prepend with the color we ended the last chunk in, if applicable
 		qboolean prependedColor = qfalse;
 		if (iterationIndex > 0 && endColor >= '0' && endColor <= '9') {
-			Q_strcat(buf, sizeof(buf), va("^%c", endColor));
+			char endColorBuf[3] = { 0 };
+			Com_sprintf(endColorBuf, sizeof(endColorBuf), "^%c", endColor);
+			Q_strcat(buf, sizeof(buf), endColorBuf);
 			prependedColor = qtrue;
 		}
 
