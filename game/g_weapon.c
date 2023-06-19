@@ -239,7 +239,7 @@ static qboolean InFOVFloat(gentity_t *ent, gentity_t *from, double hFOV, double 
 	return qfalse;
 }
 
-static gentity_t *PlayerThatPlayerIsAimingClosestTo(gentity_t *ent, float hFOV, float maxDistance, qboolean trace) {
+static gentity_t *PlayerThatPlayerIsAimingClosestTo(gentity_t *ent) {
 	// check who is eligible to be followed
 	qboolean valid[MAX_CLIENTS] = { qfalse }, gotValid = qfalse;
 	for (int i = 0; i < MAX_CLIENTS; i++) {
@@ -250,7 +250,7 @@ static gentity_t *PlayerThatPlayerIsAimingClosestTo(gentity_t *ent, float hFOV, 
 			continue;
 		if (thisEnt->health <= 0 || thisEnt->client->ps.pm_type == PM_SPECTATOR || thisEnt->client->tempSpectate >= level.time)
 			continue; // this guy is dead
-		if (!InFOVFloat(&g_entities[i], ent, hFOV, 45.0f))
+		if (!InFOVFloat(&g_entities[i], ent, 45.0f, 45.0f))
 			continue;
 		valid[i] = qtrue;
 		gotValid = qtrue;
@@ -259,20 +259,18 @@ static gentity_t *PlayerThatPlayerIsAimingClosestTo(gentity_t *ent, float hFOV, 
 		return NULL;
 
 	// check for aiming directly at someone
-	if (trace) {
-		trace_t tr;
-		vec3_t start, end, fwd;
-		VectorCopy(ent->client->ps.origin, start);
-		AngleVectors(ent->client->ps.viewangles, fwd, NULL, NULL);
-		VectorMA(start, maxDistance, fwd, end);
-		start[2] += ent->client->ps.viewheight;
-		trap_G2Trace(&tr, start, NULL, NULL, end, ent->s.number, MASK_SHOT, G2TRFLAG_DOGHOULTRACE | G2TRFLAG_GETSURFINDEX | G2TRFLAG_THICK | G2TRFLAG_HITCORPSES, g_g2TraceLod.integer);
-		if (tr.entityNum >= 0 && tr.entityNum < MAX_CLIENTS && valid[tr.entityNum])
-			return &g_entities[tr.entityNum];
-	}
+	trace_t tr;
+	vec3_t start, end, fwd;
+	VectorCopy(ent->client->ps.origin, start);
+	AngleVectors(ent->client->ps.viewangles, fwd, NULL, NULL);
+	VectorMA(start, 2000, fwd, end);
+	start[2] += ent->client->ps.viewheight;
+	trap_G2Trace(&tr, start, NULL, NULL, end, ent->s.number, MASK_SHOT, G2TRFLAG_DOGHOULTRACE | G2TRFLAG_GETSURFINDEX | G2TRFLAG_THICK | G2TRFLAG_HITCORPSES, g_g2TraceLod.integer);
+	if (tr.entityNum >= 0 && tr.entityNum < MAX_CLIENTS && valid[tr.entityNum])
+		return &g_entities[tr.entityNum];
 
 	// see who was closest to where we aimed
-	float closestDistance = maxDistance;
+	float closestDistance = 2000;
 	gentity_t *closestPlayer = NULL;
 	for (int i = 0; i < MAX_CLIENTS; i++) {
 		if (!valid[i])
@@ -295,12 +293,9 @@ static void CorrectBoostedAim(gentity_t *ent, vec3_t muzzle, vec3_t vec, float p
 	if (!ent || !ent->client || !ent->client->account || !(ent->client->account->flags & ACCOUNTFLAG_BOOST_PROJECTILEAIMBOTBOOST) || !g_boost.integer)
 		return;
 
-	gentity_t *target = PlayerThatPlayerIsAimingClosestTo(ent, 60.0f, 2000.0f, qtrue); // initial sweep for enemies
-	if (!target) {
-		target = PlayerThatPlayerIsAimingClosestTo(ent, 90.0f, 500.0f, qfalse); // fallback wider angle sweep for closeby enemies
-		if (!target)
-			return;
-	}
+	gentity_t *target = PlayerThatPlayerIsAimingClosestTo(ent);
+	if (!target)
+		return;
 
 	vec3_t enemyPos, shooterPos;
 	VectorCopy(target->r.currentOrigin, enemyPos);
