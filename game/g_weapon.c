@@ -295,9 +295,9 @@ static void CorrectBoostedAim(gentity_t *ent, vec3_t muzzle, vec3_t vec, float p
 	if (!ent || !ent->client || !ent->client->account || !(ent->client->account->flags & ACCOUNTFLAG_BOOST_PROJECTILEAIMBOTBOOST) || !g_boost.integer)
 		return;
 
-	gentity_t *target = PlayerThatPlayerIsAimingClosestTo(ent, 60.0f, 2000.0f, qtrue); // initial sweep for enemies
+	gentity_t *target = PlayerThatPlayerIsAimingClosestTo(ent, 45.0f, 2000.0f, qtrue); // initial sweep for enemies
 	if (!target) {
-		target = PlayerThatPlayerIsAimingClosestTo(ent, 90.0f, 500.0f, qfalse); // fallback wider angle sweep for closeby enemies
+		target = PlayerThatPlayerIsAimingClosestTo(ent, 60.0f, 500.0f, qfalse); // fallback wider angle sweep for closeby enemies
 		if (!target)
 			return;
 	}
