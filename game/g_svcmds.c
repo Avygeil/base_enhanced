@@ -3361,6 +3361,8 @@ static int AccountFlagName2Bitflag(const char* flagName) {
 		return ACCOUNTFLAG_BOOST_ITEMPICKUPBOOST;
 	} else if (!Q_stricmp(flagName, "ProjectileAimbotBoost")) {
 		return ACCOUNTFLAG_BOOST_PROJECTILEAIMBOTBOOST;
+	} else if (!Q_stricmp(flagName, "HunGaslight")) {
+		return ACCOUNTFLAG_HUN_GASLIGHT;
 	}
 
 	return 0;

@@ -2076,6 +2076,7 @@ typedef struct {
 #define ACCOUNTFLAG_BOOST_THTESWITCHBOOST			( 1 << 21 )
 #define ACCOUNTFLAG_BOOST_ITEMPICKUPBOOST			( 1 << 22 )
 #define ACCOUNTFLAG_BOOST_PROJECTILEAIMBOTBOOST		( 1 << 23 )
+#define ACCOUNTFLAG_HUN_GASLIGHT					( 1 << 24 )
 
 typedef void( *ListSessionsCallback )( void *ctx,
 	const sessionReference_t sessionRef,

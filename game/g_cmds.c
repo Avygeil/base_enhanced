@@ -2275,6 +2275,7 @@ qboolean IsInstapauser(gentity_t *ent) {
 
 void Cmd_CallVote_f(gentity_t *ent, int pause);
 void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, qboolean force ) {
+	assert(ent && ent->client);
 	int			j;
 	gentity_t	*other;
 	int			color;
@@ -2356,6 +2357,25 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, q
 			return;
 		if (VALIDSTRING(newMessage))
 			chatText = newMessage;
+	}
+
+	static char gaslightBuf[MAX_SAY_TEXT] = { 0 };
+	if (!force && ent->client->account && (ent->client->account->flags & ACCOUNTFLAG_HUN_GASLIGHT) && mode == SAY_ALL &&
+		VALIDSTRING(chatText) && *chatText != '?' && Q_irand(1, 50) == 22 && !strstr(chatText, "://")) {
+		int len = strlen(chatText);
+		if (len >= 3 && len <= 140 && *(chatText + (len - 1)) != 'ú') {
+			int numPlayers = 0;
+			CountPlayers(&numPlayers, NULL, NULL, NULL, NULL, NULL, NULL);
+			if (numPlayers >= 5) {
+				static int lastGaslightTime = 0;
+				int now = trap_Milliseconds();
+				if (now - lastGaslightTime >= 300000) {
+					lastGaslightTime = now;
+					Com_sprintf(gaslightBuf, sizeof(gaslightBuf), "%sú", chatText);
+					chatText = gaslightBuf;
+				}
+			}
+		}
 	}
 
 	if (!forceMessage && IsInstapauser(ent)) {
