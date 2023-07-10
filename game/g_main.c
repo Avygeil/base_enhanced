@@ -6047,7 +6047,10 @@ void G_RunFrame( int levelTime ) {
 			trap_Cvar_Set("g_lastTeamGenTime", "");
 	}
 
-	if (level.shouldAnnounceBreak && level.time - level.startTime >= 500)
+	if (level.time - level.startTime >= 2000)
+		TeamGen_CheckForUnbarLS();
+
+	if (level.shouldAnnounceBreak && level.time - level.startTime >= 3000)
 		TeamGen_AnnounceBreak();
 
 	{ // periodically check if less than 6 are ingame, in which case we clear reminded pos

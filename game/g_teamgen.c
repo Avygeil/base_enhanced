@@ -111,7 +111,7 @@ qboolean TeamGenerator_PlayerIsPermaBarredButTemporarilyForcedPickable(gentity_t
 	if (!ent || !ent->client || !ent->client->account)
 		return qfalse;
 
-	if (!(ent->client->account->flags & ACCOUNTFLAG_HARDPERMABARRED) && !(ent->client->account->flags & ACCOUNTFLAG_PERMABARRED))
+	if (!(ent->client->account->flags & ACCOUNTFLAG_HARDPERMABARRED) && !(ent->client->account->flags & ACCOUNTFLAG_PERMABARRED) && !(ent->client->account->flags & ACCOUNTFLAG_LSAFKTROLL))
 		return qfalse;
 
 	qboolean forcedPickableByAdmin = qfalse;
@@ -130,11 +130,14 @@ barReason_t TeamGenerator_PlayerIsBarredFromTeamGenerator(gentity_t *ent) {
 	if (!ent || !ent->client)
 		return BARREASON_NOTBARRED;
 
+	if (ent->client->account && (ent->client->account->flags & ACCOUNTFLAG_LSAFKTROLL) && IsRacerOrSpectator(ent) && IsSpecName(ent->client->pers.netname))
+		return BARREASON_NOTBARRED; // don't show him as barred, since he will show as spec anyway
+
 	if (ent->client->pers.barredFromPugSelection)
 		return ent->client->pers.barredFromPugSelection;
 
 	if (ent->client->account) {
-		if ((ent->client->account->flags & ACCOUNTFLAG_HARDPERMABARRED) || (ent->client->account->flags & ACCOUNTFLAG_PERMABARRED)) {
+		if ((ent->client->account->flags & ACCOUNTFLAG_HARDPERMABARRED) || (ent->client->account->flags & ACCOUNTFLAG_PERMABARRED) || (ent->client->account->flags & ACCOUNTFLAG_LSAFKTROLL)) {
 			qboolean forcedPickableByAdmin = qfalse;
 			iterator_t iter;
 			ListIterate(&level.forcedPickablePermabarredPlayersList, &iter, qfalse);
@@ -4058,6 +4061,58 @@ qboolean TeamGenerator_PugStart(gentity_t *ent, char **newMessage) {
 	return qfalse;
 }
 
+void TeamGen_CheckForUnbarLS(void) {
+	int numConnectedWithAccount = 0, numLS = 0;
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *ent = &g_entities[i];
+		if (!ent->client || ent->client->pers.connected == CON_DISCONNECTED || !ent->client->account)
+			continue;
+		if (ent->client->pers.connected == CON_CONNECTING)
+			return; // don't do it while someone is still loading the map
+		++numConnectedWithAccount;
+		if (ent->client->account->flags & ACCOUNTFLAG_LSAFKTROLL &&
+			!(ent->client->account->flags & ACCOUNTFLAG_PERMABARRED) && !(ent->client->account->flags & ACCOUNTFLAG_HARDPERMABARRED)) {
+			++numLS;
+		}
+	}
+
+	if (!numLS || !numConnectedWithAccount || numConnectedWithAccount - numLS >= 8)
+		return;
+
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *ent = &g_entities[i];
+		if (!ent->client || ent->client->pers.connected == CON_DISCONNECTED || !ent->client->account || !(ent->client->account->flags & ACCOUNTFLAG_LSAFKTROLL) ||
+			ent->client->account->flags & ACCOUNTFLAG_PERMABARRED || ent->client->account->flags & ACCOUNTFLAG_HARDPERMABARRED) {
+			continue;
+		}
+
+		qboolean foundForcedPickable = qfalse;
+		iterator_t iter;
+		ListIterate(&level.forcedPickablePermabarredPlayersList, &iter, qfalse);
+		while (IteratorHasNext(&iter)) {
+			barredOrForcedPickablePlayer_t *bp = IteratorNext(&iter);
+			if (bp->accountId == ent->client->account->id) {
+				foundForcedPickable = qtrue;
+				break;
+			}
+		}
+
+		if (foundForcedPickable)
+			continue;
+
+		Com_Printf("Client %d (%s^7) is %s with the LS afk troll flag and there are less than 8 non-LSs. They are now temporarily forced to be pickable.\n",
+			i, ent->client->pers.netname, ent->client->account->name);
+		//TeamGenerator_QueueServerMessageInChat(-1, va("%s^7 temporarily forced to be pickable for team generation by server.", ent->client->account->name));
+		barredOrForcedPickablePlayer_t *add = ListAdd(&level.forcedPickablePermabarredPlayersList, sizeof(barredOrForcedPickablePlayer_t));
+		add->accountId = ent->client->account->id;
+
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			if (g_entities[i].inuse && g_entities[i].client && g_entities[i].client->pers.connected == CON_CONNECTED && g_entities[i].client->account && g_entities[i].client->account->id == ent->client->account->id)
+				ClientUserinfoChanged(i);
+		}
+	}
+}
+
 void TeamGen_AnnounceBreak(void) {
 	if (!g_vote_teamgen.integer || !g_vote_teamgen_announceBreak.integer || g_gametype.integer != GT_CTF || g_vote_teamgen_minSecsSinceIntermission.integer <= 0 ||
 		!level.g_lastIntermissionStartTimeSettingAtRoundStart)
@@ -4118,6 +4173,7 @@ void TeamGen_AnnounceBreak(void) {
 	char *centerMessages = calloc(MAX_CLIENTS * messageSize, sizeof(char));
 
 	// build the unique centerprint string for each player, and print each player's unique console message
+	static qboolean forcedClientInfoUpdateForBarredGuy[MAX_CLIENTS] = { qfalse };
 	for (int i = 0; i < MAX_CLIENTS; i++) {
 		gentity_t *ent = &g_entities[i];
 		if (!ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED || !ent->client->account ||
@@ -4126,21 +4182,63 @@ void TeamGen_AnnounceBreak(void) {
 		}
 
 		if (ent->client->account->flags & ACCOUNTFLAG_HARDPERMABARRED) {
+			if (!forcedClientInfoUpdateForBarredGuy[i]) {
+				forcedClientInfoUpdateForBarredGuy[i] = qtrue;
+				ClientUserinfoChanged(i);
+			}
 			continue; // don't print anything regardless of whether a hardpermabarred guy was temporarily marked pickable, since they can't change it in any case
 		}
 
 		if ((ent->client->account->flags & ACCOUNTFLAG_PERMABARRED) &&
 			(ent->client->pers.permaBarredDeclaredPickable || TeamGenerator_PlayerIsPermaBarredButTemporarilyForcedPickable(ent))) {
+			if (!forcedClientInfoUpdateForBarredGuy[i]) {
+				forcedClientInfoUpdateForBarredGuy[i] = qtrue;
+				ClientUserinfoChanged(i);
+			}
 			continue; // he has already been marked as pickable; don't print anything
 		}
 
 		qboolean hasSpecName = IsSpecName(ent->client->pers.netname);
 		qboolean isIngame = !!(ent->client->sess.sessionTeam == TEAM_RED || ent->client->sess.sessionTeam == TEAM_BLUE);
-
 		char pickabilityMessage[MAX_STRING_CHARS] = { 0 }, renameMessage[MAX_STRING_CHARS] = { 0 };
+
 		if (ent->client->account->flags & ACCOUNTFLAG_PERMABARRED) {
+			if (!forcedClientInfoUpdateForBarredGuy[i]) {
+				forcedClientInfoUpdateForBarredGuy[i] = qtrue;
+				ClientUserinfoChanged(i);
+			}
 			Com_sprintf(pickabilityMessage, sizeof(pickabilityMessage), "^1You are unpickable");
-			Com_sprintf(renameMessage, sizeof(renameMessage), "If you want to pug, enter %cpickable in chat", TEAMGEN_CHAT_COMMAND_CHARACTER);
+			Com_sprintf(renameMessage, sizeof(renameMessage), "If you want to pug, enter ^3%cpickable^7 in chat", TEAMGEN_CHAT_COMMAND_CHARACTER);
+		}
+		else if (ent->client->account->flags & ACCOUNTFLAG_LSAFKTROLL) {
+			if (!forcedClientInfoUpdateForBarredGuy[i]) {
+				forcedClientInfoUpdateForBarredGuy[i] = qtrue;
+				ClientUserinfoChanged(i);
+			}
+			if (ent->client->pers.permaBarredDeclaredPickable || TeamGenerator_PlayerIsPermaBarredButTemporarilyForcedPickable(ent)) {
+				if (isIngame) { // ingame
+					Com_sprintf(pickabilityMessage, sizeof(pickabilityMessage), "^2You are pickable");
+
+					if (hasSpecName)
+						Com_sprintf(renameMessage, sizeof(renameMessage), "If you want to spec, go spec");
+					else
+						Com_sprintf(renameMessage, sizeof(renameMessage), "If you want to spec, go spec & rename");
+				}
+				else { // spec/racer
+					if (hasSpecName) {
+						Com_sprintf(pickabilityMessage, sizeof(pickabilityMessage), "^1You are unpickable");
+						Com_sprintf(renameMessage, sizeof(renameMessage), "If you want to pug, rename");
+					}
+					else {
+						Com_sprintf(pickabilityMessage, sizeof(pickabilityMessage), "^2You are pickable");
+						Com_sprintf(renameMessage, sizeof(renameMessage), "If you want to spec, rename");
+					}
+				}
+			}
+			else {
+				Com_sprintf(pickabilityMessage, sizeof(pickabilityMessage), "^1You are unpickable");
+				Com_sprintf(renameMessage, sizeof(renameMessage), "Mivel több mint 9 játékos van, írd be a ^3%cpickable^7 parancsot, ha pugozni szeretnél.", TEAMGEN_CHAT_COMMAND_CHARACTER);
+			}
 		}
 		else if (isIngame) { // ingame
 			Com_sprintf(pickabilityMessage, sizeof(pickabilityMessage), "^2You are pickable");
@@ -5149,7 +5247,7 @@ static qboolean TeamGenerator_PermabarredPlayerMarkAsPickable(gentity_t *ent, ch
 		return qtrue;
 	}
 
-	if (!(ent->client->account->flags & ACCOUNTFLAG_PERMABARRED) && !(ent->client->account->flags & ACCOUNTFLAG_HARDPERMABARRED)) {
+	if (!(ent->client->account->flags & ACCOUNTFLAG_PERMABARRED) && !(ent->client->account->flags & ACCOUNTFLAG_HARDPERMABARRED) && !(ent->client->account->flags & ACCOUNTFLAG_LSAFKTROLL)) {
 		return qtrue;
 	}
 
@@ -5191,7 +5289,7 @@ qboolean TeamGenerator_CheckForChatCommand(gentity_t *ent, const char *s, char *
 
 
 	if (!Q_stricmp(s, "help")) {
-		if (ent->client->account && (ent->client->account->flags & ACCOUNTFLAG_PERMABARRED) && !(ent->client->account->flags & ACCOUNTFLAG_HARDPERMABARRED)) {
+		if (ent->client->account && (ent->client->account->flags & ACCOUNTFLAG_PERMABARRED || ent->client->account->flags & ACCOUNTFLAG_LSAFKTROLL) && !(ent->client->account->flags & ACCOUNTFLAG_HARDPERMABARRED)) {
 			PrintIngame(ent - g_entities,
 				"*Chat commands:\n"
 				"^7%cstart             - propose playing a pug with current non-spec players\n"
@@ -5445,7 +5543,7 @@ void Svcmd_Pug_f(void) {
 
 		char *name = found->client->account ? found->client->account->name : found->client->pers.netname;
 
-		if (found->client->account && ((found->client->account->flags & ACCOUNTFLAG_PERMABARRED) || (found->client->account->flags & ACCOUNTFLAG_HARDPERMABARRED))) {
+		if (found->client->account && ((found->client->account->flags & ACCOUNTFLAG_PERMABARRED) || (found->client->account->flags & ACCOUNTFLAG_HARDPERMABARRED) || (found->client->account->flags & ACCOUNTFLAG_LSAFKTROLL))) {
 			qboolean wasForcedPickable = qfalse;
 			iterator_t iter;
 			ListIterate(&level.forcedPickablePermabarredPlayersList, &iter, qfalse);
@@ -5540,7 +5638,7 @@ void Svcmd_Pug_f(void) {
 
 		char *name = found->client->account ? found->client->account->name : found->client->pers.netname;
 
-		if (found->client->account && ((found->client->account->flags & ACCOUNTFLAG_PERMABARRED) || (found->client->account->flags & ACCOUNTFLAG_HARDPERMABARRED))) {
+		if (found->client->account && ((found->client->account->flags & ACCOUNTFLAG_PERMABARRED) || (found->client->account->flags & ACCOUNTFLAG_HARDPERMABARRED) || (found->client->account->flags & ACCOUNTFLAG_LSAFKTROLL))) {
 			qboolean foundForcedPickable = qfalse;
 			iterator_t iter;
 			ListIterate(&level.forcedPickablePermabarredPlayersList, &iter, qfalse);

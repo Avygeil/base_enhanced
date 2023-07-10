@@ -2536,11 +2536,16 @@ void ClientUserinfoChanged( int clientNum ) {
 			s = va( "%s\\cid\\%s", s, client->sess.cuidHash );
 		}
 
-		if (TeamGenerator_PlayerIsBarredFromTeamGenerator(ent)) {
-			s = va("%s\\bftg\\1", s);
-		}
-		else if (TeamGenerator_PlayerIsPermaBarredButTemporarilyForcedPickable(ent)) {
-			s = va("%s\\bftg\\2", s);
+		if (level.time - level.startTime >= 3000) {
+			if (ent->client && ent->client->account && (ent->client->account->flags & ACCOUNTFLAG_LSAFKTROLL) && IsRacerOrSpectator(ent) && IsSpecName(ent->client->pers.netname)) {
+				// don't show him as barred, since he will show as spec anyway
+			}
+			else if (TeamGenerator_PlayerIsBarredFromTeamGenerator(ent)) {
+				s = va("%s\\bftg\\1", s);
+			}
+			else if (TeamGenerator_PlayerIsPermaBarredButTemporarilyForcedPickable(ent)) {
+				s = va("%s\\bftg\\2", s);
+			}
 		}
 #endif
 	}

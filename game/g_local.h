@@ -1345,6 +1345,7 @@ void TeamGen_RemindPosition(gentity_t *ent);
 void TeamGen_AnnounceBreak(void);
 void TeamGen_DoAutoRestart(void);
 void TeamGenerator_MatchComplete(void);
+void TeamGen_CheckForUnbarLS(void);
 
 // this structure is cleared on each ClientSpawn(),
 // except for 'client->pers' and 'client->sess'
@@ -2077,6 +2078,7 @@ typedef struct {
 #define ACCOUNTFLAG_BOOST_ITEMPICKUPBOOST			( 1 << 22 )
 #define ACCOUNTFLAG_BOOST_PROJECTILEAIMBOTBOOST		( 1 << 23 )
 #define ACCOUNTFLAG_HUN_GASLIGHT					( 1 << 24 )
+#define ACCOUNTFLAG_LSAFKTROLL						( 1 << 25 )
 
 typedef void( *ListSessionsCallback )( void *ctx,
 	const sessionReference_t sessionRef,
