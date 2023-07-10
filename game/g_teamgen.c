@@ -4237,7 +4237,7 @@ void TeamGen_AnnounceBreak(void) {
 			}
 			else {
 				Com_sprintf(pickabilityMessage, sizeof(pickabilityMessage), "^1You are unpickable");
-				Com_sprintf(renameMessage, sizeof(renameMessage), "Mivel több mint 9 játékos van, írd be a ^3%cpickable^7 parancsot, ha pugozni szeretnél.", TEAMGEN_CHAT_COMMAND_CHARACTER);
+				Com_sprintf(renameMessage, sizeof(renameMessage), "Mivel több mint 8 játékos van, írd be a ^3%cpickable^7 parancsot, ha pugozni szeretnél.", TEAMGEN_CHAT_COMMAND_CHARACTER);
 			}
 		}
 		else if (isIngame) { // ingame
