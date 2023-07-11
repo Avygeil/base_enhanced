@@ -2273,6 +2273,52 @@ qboolean IsInstapauser(gentity_t *ent) {
 	return qfalse;
 }
 
+char *ReplaceString(const char *orig, char *rep, char *with) {
+	char *result; // the return string
+	char *ins;    // the next insert point
+	char *tmp;    // varies
+	int len_rep;  // length of rep (the string to remove)
+	int len_with; // length of with (the string to replace rep with)
+	int len_front; // distance between rep and end of last rep
+	int count;    // number of replacements
+
+	// sanity checks and initialization
+	if (!orig || !rep)
+		return NULL;
+	len_rep = strlen(rep);
+	if (len_rep == 0)
+		return NULL; // empty rep causes infinite loop during count
+	if (!with)
+		with = "";
+	len_with = strlen(with);
+
+	// count the number of replacements needed
+	ins = (char *)orig;
+	for (count = 0; tmp = strstr(ins, rep); ++count) {
+		ins = tmp + len_rep;
+	}
+
+	tmp = result = malloc(strlen(orig) + (len_with - len_rep) * count + 1);
+
+	if (!result)
+		return NULL;
+
+	// first time through the loop, all the variable are set correctly
+	// from here on,
+	//    tmp points to the end of the result string
+	//    ins points to the next occurrence of rep in orig
+	//    orig points to the remainder of orig after "end of rep"
+	while (count--) {
+		ins = strstr(orig, rep);
+		len_front = ins - orig;
+		tmp = strncpy(tmp, orig, len_front) + len_front;
+		tmp = strcpy(tmp, with) + len_with;
+		orig += len_front + len_rep; // move to next "end of rep"
+	}
+	strcpy(tmp, orig);
+	return result;
+}
+
 void Cmd_CallVote_f(gentity_t *ent, int pause);
 void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, qboolean force ) {
 	assert(ent && ent->client);
@@ -2297,6 +2343,21 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, q
 
 	if (mode == SAY_TEAM && VALIDSTRING(chatText) && Q_stristrclean(chatText, "TE please or TH if i am fully energized and health is low"))
 		chatText = "^1$H ^5$F ^7$L";
+
+	char *fixedMessage = NULL;
+	if (VALIDSTRING(chatText)) {
+		char *found = (char *)Q_stristrclean(chatText, "onasi");
+		if (found && !strstr(chatText, "://")) {
+			if (!stristr(chatText, "onasi"))
+				Q_StripColor((char *)chatText);
+			fixedMessage = ReplaceString(chatText, "onasi", "hannah");
+			if (VALIDSTRING(fixedMessage)) {
+				if (strlen(fixedMessage) >= MAX_SAY_TEXT)
+					*(fixedMessage + MAX_SAY_TEXT - 1) = '\0';
+				chatText = fixedMessage;
+			}
+		}
+	}
 
 	// allow typing "pause" in the chat to instapause or call a pause vote
 	qboolean forceMessage = qfalse;
@@ -2340,6 +2401,8 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, q
 				Q_strcat(ent->client->pers.chatBuffer, sizeof(ent->client->pers.chatBuffer), " ");
 			Q_strcat(ent->client->pers.chatBuffer, sizeof(ent->client->pers.chatBuffer), chatText);
 			ent->client->pers.chatBufferCheckTime = trap_Milliseconds() + Com_Clampi(0, 10000, g_enterSpammerTime.integer * 1000);
+			if (fixedMessage)
+				free(fixedMessage);
 			return;
 		}
 		else if (mode == SAY_TEAM && IsRacerOrSpectator(ent)) {
@@ -2347,14 +2410,19 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, q
 				Q_strcat(ent->client->pers.specChatBuffer, sizeof(ent->client->pers.specChatBuffer), " ");
 			Q_strcat(ent->client->pers.specChatBuffer, sizeof(ent->client->pers.specChatBuffer), chatText);
 			ent->client->pers.specChatBufferCheckTime = trap_Milliseconds() + Com_Clampi(0, 10000, g_enterSpammerTime.integer * 1000);
+			if (fixedMessage)
+				free(fixedMessage);
 			return;
 		}
 	}
 
 	char *newMessage = NULL;
 	if (mode == SAY_ALL && *chatText == TEAMGEN_CHAT_COMMAND_CHARACTER && *(chatText + 1)) {
-		if (TeamGenerator_CheckForChatCommand(ent, chatText + 1, &newMessage))
+		if (TeamGenerator_CheckForChatCommand(ent, chatText + 1, &newMessage)) {
+			if (fixedMessage)
+				free(fixedMessage);
 			return;
+		}
 		if (VALIDSTRING(newMessage))
 			chatText = newMessage;
 	}
@@ -2381,6 +2449,8 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, q
 	if (!forceMessage && IsInstapauser(ent)) {
 		if (level.pause.pauserChoice) {
 			SV_Tell(ent - g_entities, "You cannot chat during your own pause.");
+			if (fixedMessage)
+				free(fixedMessage);
 			return;
 		}
 
@@ -2406,6 +2476,8 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, q
 
 		if (!VALIDSTRING(reason)) {
 			SV_Tell(ent - g_entities, "You cannot chat during your own pause.");
+			if (fixedMessage)
+				free(fixedMessage);
 			return;
 		}
 
@@ -2460,6 +2532,8 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, q
 
 	if ( target ) {
 		G_SayTo( ent, target, mode, color, name, text, locMsg );
+		if (fixedMessage)
+			free(fixedMessage);
 		return;
 	}
 
@@ -2471,6 +2545,9 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, q
 		other = &g_entities[j];
 		G_SayTo( ent, other, mode, color, name, text, locMsg );
 	}
+
+	if (fixedMessage)
+		free(fixedMessage);
 }
 
 /*
