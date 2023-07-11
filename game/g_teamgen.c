@@ -4061,6 +4061,50 @@ qboolean TeamGenerator_PugStart(gentity_t *ent, char **newMessage) {
 	return qfalse;
 }
 
+void TeamGen_WarnLS(void) {
+	int numConnectedWithAccount = 0, numLS = 0;
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *ent = &g_entities[i];
+		if (!ent->client || ent->client->pers.connected == CON_DISCONNECTED || !ent->client->account)
+			continue;
+		++numConnectedWithAccount;
+		if (ent->client->account->flags & ACCOUNTFLAG_LSAFKTROLL &&
+			!(ent->client->account->flags & ACCOUNTFLAG_PERMABARRED) && !(ent->client->account->flags & ACCOUNTFLAG_HARDPERMABARRED)) {
+			++numLS;
+		}
+	}
+
+	if (numLS && numConnectedWithAccount && numConnectedWithAccount - numLS < 8)
+		return;
+
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *ent = &g_entities[i];
+		if (!ent->inuse || !ent->client || !ent->client->account || !(ent->client->account->flags & ACCOUNTFLAG_LSAFKTROLL) || 
+			(ent->client->account->flags & ACCOUNTFLAG_PERMABARRED) || (ent->client->account->flags & ACCOUNTFLAG_HARDPERMABARRED) || ent->client->pers.connected != CON_CONNECTED)
+			continue;
+
+		if (ent->client->pers.warnedLS)
+			continue;
+
+		if (level.wasRestarted && g_gametype.integer >= GT_TEAM && (ent->client->sess.sessionTeam == TEAM_RED || ent->client->sess.sessionTeam == TEAM_BLUE))
+			continue;
+
+		if (TeamGenerator_PlayerIsPermaBarredButTemporarilyForcedPickable(ent))
+			continue;
+
+		if (IsRacerOrSpectator(ent) && IsSpecName(ent->client->pers.netname))
+			continue;
+
+		ent->client->pers.warnedLS = qtrue;
+		for (int j = 0; j < MAX_CLIENTS; j++) {
+			gentity_t *secondEnt = &g_entities[j];
+			if (!secondEnt->inuse || !secondEnt->client || !secondEnt->client->account || secondEnt->client->account != ent->client->account || secondEnt->client->pers.connected != CON_CONNECTED)
+				continue;
+			TeamGenerator_QueueServerMessageInChat(j, va("^7Mivel több mint 8 játékos van, írd be a ^3%cpickable^7 parancsot, ha pugozni szeretnél.", TEAMGEN_CHAT_COMMAND_CHARACTER));
+		}
+	}
+}
+
 void TeamGen_CheckForUnbarLS(void) {
 	int numConnectedWithAccount = 0, numLS = 0;
 	for (int i = 0; i < MAX_CLIENTS; i++) {

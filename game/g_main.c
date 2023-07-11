@@ -6047,8 +6047,11 @@ void G_RunFrame( int levelTime ) {
 			trap_Cvar_Set("g_lastTeamGenTime", "");
 	}
 
-	if (level.time - level.startTime >= 2000)
+	if (level.time - level.startTime >= 2000) {
 		TeamGen_CheckForUnbarLS();
+		if (level.time - level.startTime >= 3000)
+			TeamGen_WarnLS();
+	}
 
 	if (level.shouldAnnounceBreak && level.time - level.startTime >= 3000)
 		TeamGen_AnnounceBreak();

@@ -886,6 +886,8 @@ typedef struct {
 
 	qboolean permaBarredDeclaredPickable;
 
+	qboolean warnedLS;
+
 } clientPersistant_t;
 
 typedef struct renderInfo_s
@@ -1346,6 +1348,7 @@ void TeamGen_AnnounceBreak(void);
 void TeamGen_DoAutoRestart(void);
 void TeamGenerator_MatchComplete(void);
 void TeamGen_CheckForUnbarLS(void);
+void TeamGen_WarnLS(void);
 
 // this structure is cleared on each ClientSpawn(),
 // except for 'client->pers' and 'client->sess'
