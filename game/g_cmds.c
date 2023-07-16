@@ -7677,6 +7677,11 @@ void Cmd_Changes_f(gentity_t *ent) {
 			remaining -= 7;
 			w += 7;
 		}
+		else if (*r == '"' && remaining > 2) {
+			Q_strncpyz(w, "''", remaining);
+			remaining -= 2;
+			w += 2;
+		}
 		else {
 			*w = *r;
 			remaining--;
