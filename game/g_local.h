@@ -3329,6 +3329,8 @@ extern vmCvar_t		g_vote_teamgen_barVoteStartsNewPug;
 extern vmCvar_t		g_vote_teamgen_unvote;
 extern vmCvar_t		g_vote_teamgen_fuck;
 
+extern vmCvar_t		g_broadcastCtfPos;
+
 extern vmCvar_t		d_debugBanPermutation;
 
 extern vmCvar_t		g_recalculateStatsAfterPug;

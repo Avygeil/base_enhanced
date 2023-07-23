@@ -2294,7 +2294,7 @@ char *ReplaceString(const char *orig, char *rep, char *with) {
 
 	// count the number of replacements needed
 	ins = (char *)orig;
-	for (count = 0; tmp = strstr(ins, rep); ++count) {
+	for (count = 0; tmp = stristr(ins, rep); ++count) {
 		ins = tmp + len_rep;
 	}
 
@@ -2309,7 +2309,7 @@ char *ReplaceString(const char *orig, char *rep, char *with) {
 	//    ins points to the next occurrence of rep in orig
 	//    orig points to the remainder of orig after "end of rep"
 	while (count--) {
-		ins = strstr(orig, rep);
+		ins = stristr(orig, rep);
 		len_front = ins - orig;
 		tmp = strncpy(tmp, orig, len_front) + len_front;
 		tmp = strcpy(tmp, with) + len_with;
@@ -2630,7 +2630,23 @@ static void Cmd_Tell_f(gentity_t *ent, char *override) {
 	// don't tell to the player self if it was already directed to this player
 	// also don't send the chat back to a bot
 	if (ent != found && !(ent->r.svFlags & SVF_BOT) /*UNCOMMENT, JUST FOR DEBUG NOW*/) {
+		char *fixedMessage = NULL;
+		if (VALIDSTRING(p)) {
+			char *found = (char *)Q_stristrclean(p, "onasi");
+			if (found && !strstr(p, "://")) {
+				if (!stristr(p, "onasi"))
+					Q_StripColor((char *)p);
+				fixedMessage = ReplaceString(p, "onasi", "hannah");
+				if (VALIDSTRING(fixedMessage)) {
+					if (strlen(fixedMessage) >= MAX_SAY_TEXT)
+						*(fixedMessage + MAX_SAY_TEXT - 1) = '\0';
+					p = fixedMessage;
+				}
+			}
+		}
 		G_SayTo(ent, ent, SAY_TELL, COLOR_MAGENTA, va("--> "EC"[%s%c%c"EC"]"EC": ", found->client->pers.netname, Q_COLOR_ESCAPE, COLOR_WHITE), p, NULL);
+		if (fixedMessage)
+			free(fixedMessage);
 	}
 }
 

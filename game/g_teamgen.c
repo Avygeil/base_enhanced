@@ -3239,6 +3239,10 @@ void ActivateTeamsProposal(permutationOfTeams_t *permutation) {
 			if (ent->client->account->flags & ACCOUNTFLAG_ELOBOTSELFHOST && !Q_stricmpclean(ent->client->pers.netname, "elo BOT"))
 				continue;
 
+			ent->client->sess.remindPositionOnMapChange.valid = qtrue;
+			ent->client->sess.remindPositionOnMapChange.pos = pos;
+			ent->client->sess.remindPositionOnMapChange.score = score;
+
 			G_SetRaceMode(ent, qfalse);
 			if (ent->client->sess.canJoin) {
 				SetTeam(ent, teamStr);
@@ -3263,10 +3267,6 @@ void ActivateTeamsProposal(permutationOfTeams_t *permutation) {
 
 			// silly little hack to put them on the scoreboard in the order we printed their names
 			ent->client->ps.persistant[PERS_SCORE] = score;
-
-			ent->client->sess.remindPositionOnMapChange.valid = qtrue;
-			ent->client->sess.remindPositionOnMapChange.pos = pos;
-			ent->client->sess.remindPositionOnMapChange.score = score;
 		}
 	}
 
@@ -3315,6 +3315,8 @@ void ActivateTeamsProposal(permutationOfTeams_t *permutation) {
 	char timeBuf[MAX_STRING_CHARS] = { 0 };
 	Com_sprintf(timeBuf, sizeof(timeBuf), "%d", (int)time(NULL));
 	trap_Cvar_Set("g_lastTeamGenTime", timeBuf);
+
+	// not necessary to update clientinfo for g_broadcastCtfPos here since SetTeam does it
 }
 
 qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteStr, char **newMessage) {
@@ -5913,8 +5915,21 @@ void ShowSubBalance(void) {
 }
 
 void TeamGen_ClearRemindPositions(void) {
-	for (int i = 0; i < MAX_CLIENTS; i++)
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		qboolean update = qfalse;
+
+		if (level.clients[i].sess.remindPositionOnMapChange.valid && level.clients[i].sess.remindPositionOnMapChange.pos)
+			update = qtrue;
+
 		memset(&level.clients[i].sess.remindPositionOnMapChange, 0, sizeof(level.clients[i].sess.remindPositionOnMapChange));
+
+		if (g_broadcastCtfPos.integer && update) {
+			gentity_t *ent = &g_entities[i];
+			if (!ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED)
+				continue;
+			ClientUserinfoChanged(i);
+		}
+	}
 }
 
 // sets people's scores again if they change maps

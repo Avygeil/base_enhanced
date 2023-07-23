@@ -2547,6 +2547,17 @@ void ClientUserinfoChanged( int clientNum ) {
 				s = va("%s\\bftg\\2", s);
 			}
 		}
+
+		if (g_broadcastCtfPos.integer && g_gametype.integer == GT_CTF && ent->client->sess.remindPositionOnMapChange.valid && ent->client->sess.remindPositionOnMapChange.pos != CTFPOSITION_UNKNOWN && !IsRacerOrSpectator(ent)) {
+			char posBitflag = '\0';
+			if (ent->client->sess.remindPositionOnMapChange.pos == CTFPOSITION_BASE)
+				posBitflag = '1';
+			else if (ent->client->sess.remindPositionOnMapChange.pos == CTFPOSITION_CHASE)
+				posBitflag = '2';
+			else if (ent->client->sess.remindPositionOnMapChange.pos == CTFPOSITION_OFFENSE)
+				posBitflag = '4';
+			s = va("%s\\nf\\%c", s, posBitflag);
+		}
 #endif
 	}
 
