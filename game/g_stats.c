@@ -2800,26 +2800,6 @@ void FinalizeCTFPositions(void) {
 	}
 
 	RecalculateTeamBalance();
-
-	if (g_broadcastCtfPos.integer) { // force an update so the broadcasted positions are correct
-		int numWithRemindedPos = 0;
-		for (int i = 0; i < MAX_CLIENTS; i++) {
-			gentity_t *ent = &g_entities[i];
-			if (!ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED)
-				continue;
-			if (ent->client->sess.remindPositionOnMapChange.valid && ent->client->sess.remindPositionOnMapChange.pos != CTFPOSITION_UNKNOWN)
-				++numWithRemindedPos;
-		}
-
-		if (numWithRemindedPos < 8) { // only do it if we don't have reminded pos, since reminded pos are more accurate
-			for (int i = 0; i < MAX_CLIENTS; i++) {
-				gentity_t *ent = &g_entities[i];
-				if (!ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED)
-					continue;
-				ClientUserinfoChanged(i);
-			}
-		}
-	}
 }
 
 // moves some current stats into the archive (level.savedStatsList) and then resets the current stats
