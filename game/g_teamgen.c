@@ -3210,14 +3210,16 @@ void TeamGenerator_MatchComplete(void) {
 void ActivateTeamsProposal(permutationOfTeams_t *permutation) {
 	assert(permutation);
 
-	TeamGen_ClearRemindPositions();
+	TeamGen_ClearRemindPositions(qfalse);
 
 	const size_t messageSize = MAX_STRING_CHARS;
 	char *printMessage = calloc(MAX_CLIENTS * messageSize, sizeof(char));
 
+	qboolean actuallyChangedTeam[MAX_CLIENTS] = { qfalse };
 	qboolean forceteamed[MAX_CLIENTS] = { qfalse };
 	for (int i = 0; i < 8; i++) {
 		int accountNum, score;
+		team_t destinationTeam = i < 4 ? TEAM_RED : TEAM_BLUE;
 		char *teamStr = i < 4 ? "r" : "b";
 		ctfPosition_t pos;
 		switch (i) {
@@ -3238,6 +3240,9 @@ void ActivateTeamsProposal(permutationOfTeams_t *permutation) {
 
 			if (ent->client->account->flags & ACCOUNTFLAG_ELOBOTSELFHOST && !Q_stricmpclean(ent->client->pers.netname, "elo BOT"))
 				continue;
+
+			if (ent->client->sess.sessionTeam != destinationTeam)
+				actuallyChangedTeam[j] = qtrue;
 
 			ent->client->sess.remindPositionOnMapChange.valid = qtrue;
 			ent->client->sess.remindPositionOnMapChange.pos = pos;
@@ -3285,6 +3290,7 @@ void ActivateTeamsProposal(permutationOfTeams_t *permutation) {
 				SetTeam(ent, "s");
 				ent->client->sess.canJoin = qfalse;
 			}
+			actuallyChangedTeam[i] = qtrue;
 		}
 		Com_sprintf(printMessage + (i * messageSize), messageSize, "\n\n\n^1Red team:^7 (%0.2f'/. relative strength)\n", permutation->teams[0].relativeStrength * 100.0);
 		Q_strcat(printMessage + (i * messageSize), messageSize, va("^5Base: ^7 %s\n", permutation->teams[0].baseName));
@@ -3316,7 +3322,16 @@ void ActivateTeamsProposal(permutationOfTeams_t *permutation) {
 	Com_sprintf(timeBuf, sizeof(timeBuf), "%d", (int)time(NULL));
 	trap_Cvar_Set("g_lastTeamGenTime", timeBuf);
 
-	// not necessary to update clientinfo for g_broadcastCtfPos here since SetTeam does it
+	// update clientinfo for anyone else that wasn't forceteamed above
+	// (clientinfo for people who were forceteamed already got updated above in SetTeam)
+	if (g_broadcastCtfPos.integer) {
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *ent = &g_entities[i];
+			if (!ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED || actuallyChangedTeam[i])
+				continue;
+			ClientUserinfoChanged(i);
+		}
+	}
 }
 
 qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteStr, char **newMessage) {
@@ -5914,7 +5929,7 @@ void ShowSubBalance(void) {
 	}
 }
 
-void TeamGen_ClearRemindPositions(void) {
+void TeamGen_ClearRemindPositions(qboolean refreshClientinfo) {
 	for (int i = 0; i < MAX_CLIENTS; i++) {
 		qboolean update = qfalse;
 
@@ -5923,7 +5938,7 @@ void TeamGen_ClearRemindPositions(void) {
 
 		memset(&level.clients[i].sess.remindPositionOnMapChange, 0, sizeof(level.clients[i].sess.remindPositionOnMapChange));
 
-		if (g_broadcastCtfPos.integer && update) {
+		if (g_broadcastCtfPos.integer && refreshClientinfo && update) {
 			gentity_t *ent = &g_entities[i];
 			if (!ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED)
 				continue;

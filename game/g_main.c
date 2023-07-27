@@ -571,7 +571,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ NULL, "gamename", GAMEVERSION , CVAR_SERVERINFO | CVAR_ROM, 0, qfalse  },
 	{ NULL, "gamedate", __DATE__ , CVAR_ROM, 0, qfalse  },
 	//TODO: autogenerate gameversion
-	{ NULL, "gameversion", "23w29a" , CVAR_SERVERINFO | CVAR_ROM, 0, qfalse  },
+	{ NULL, "gameversion", "23w30a" , CVAR_SERVERINFO | CVAR_ROM, 0, qfalse  },
 	{ &g_restarted, "g_restarted", "0", CVAR_ROM, 0, qfalse  },
 	{ NULL, "sv_mapname", "", CVAR_SERVERINFO | CVAR_ROM, 0, qfalse  },
 
@@ -1017,7 +1017,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_teamgen_unvote, "g_vote_teamgen_unvote", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_fuck, "g_vote_teamgen_fuck", "10", CVAR_ARCHIVE, 0, qfalse },
 
-	{ &g_broadcastCtfPos, "g_broadcastCtfPos", "1", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_broadcastCtfPos, "g_broadcastCtfPos", "0", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
 
 	{ &d_debugBanPermutation, "d_debugBanPermutation", "0", CVAR_ARCHIVE, 0, qfalse },
 
@@ -3250,7 +3250,7 @@ void BeginIntermission(void) {
 
 	free(statsBuf);
 
-	TeamGen_ClearRemindPositions();
+	TeamGen_ClearRemindPositions(qtrue);
 }
 
 qboolean DuelLimitHit(void)
@@ -6067,7 +6067,7 @@ void G_RunFrame( int levelTime ) {
 			CountPlayers(NULL, NULL, NULL, NULL, NULL, &numIngame, NULL);
 
 			if (numIngame < 6)
-				TeamGen_ClearRemindPositions();
+				TeamGen_ClearRemindPositions(qtrue);
 
 			clearRemindersTime = (level.time - level.startTime) + 10000;
 		}
