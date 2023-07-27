@@ -2996,7 +2996,7 @@ static void RunFakeFCOverlay(gentity_t *ent) {
 		g_gametype.integer == GT_CTF && ent - g_entities < MAX_CLIENTS && !ent->client->sess.inRacemode && !IsFreeSpec(ent)) {
 		// send the systeminfo periodically if also using smod
 		int now = trap_Milliseconds();
-		const int FAKEOVERLAY_SYSTEMINFO_SPAM_TIME = 6000; // every couple minutes idk
+		const int FAKEOVERLAY_SYSTEMINFO_SPAM_TIME = 120000; // every couple minutes idk
 		if (ent->client->account->flags & ACCOUNTFLAG_SMODTROLL && (!ent->client->pers.lastFakeOverlaySysteminfoSpamTime || now - ent->client->pers.lastFakeOverlaySysteminfoSpamTime >= FAKEOVERLAY_SYSTEMINFO_SPAM_TIME)) {
 			G_SendConfigstring(ent - g_entities, CS_SYSTEMINFO, "\\cg_drawCtfBaseBar\\0");
 			G_SendConfigstring(ent - g_entities, CS_SYSTEMINFO, NULL);
