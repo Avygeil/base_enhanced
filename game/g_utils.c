@@ -3373,3 +3373,9 @@ char *ParseMillisecondsToString(int msIn, qboolean forceColon, qboolean zeroMinu
 
 	return result;
 }
+
+qboolean IsFreeSpec(gentity_t *ent) {
+	if (ent && ent->client && ent->client->sess.sessionTeam == TEAM_SPECTATOR && !(ent->client->ps.pm_flags & PMF_FOLLOW))
+		return qtrue;
+	return qfalse;
+}

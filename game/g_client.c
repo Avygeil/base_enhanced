@@ -2002,7 +2002,7 @@ Creates and sends the server command necessary to update the CS index for the
 given client
 ===============
 */
-static void G_SendConfigstring( int clientNum, int configstringNum, char *extra )
+void G_SendConfigstring( int clientNum, int configstringNum, char *extra )
 {
 	if ( clientNum < 0 || clientNum >= MAX_CLIENTS )
 		return;

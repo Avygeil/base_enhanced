@@ -3365,6 +3365,10 @@ static int AccountFlagName2Bitflag(const char* flagName) {
 		return ACCOUNTFLAG_HUN_GASLIGHT;
 	} else if (!Q_stricmp(flagName, "LSAfkTroll")) {
 		return ACCOUNTFLAG_LSAFKTROLL;
+	} else if (!Q_stricmp(flagName, "FakeFCOverlay")) {
+		return ACCOUNTFLAG_FAKEFCOVERLAY;
+	} else if (!Q_stricmp(flagName, "SmodTroll")) {
+		return ACCOUNTFLAG_SMODTROLL;
 	}
 
 	return 0;
@@ -3397,6 +3401,8 @@ const char* AccountBitflag2FlagName(int bitflag) {
 		case ACCOUNTFLAG_BOOST_ITEMPICKUPBOOST: return "ItemPickupBoost";
 		case ACCOUNTFLAG_BOOST_PROJECTILEAIMBOTBOOST: return "ProjectileAimbotBoost";
 		case ACCOUNTFLAG_LSAFKTROLL: return "LSAfkTroll";
+		case ACCOUNTFLAG_FAKEFCOVERLAY: return "FakeFCOverlay";
+		case ACCOUNTFLAG_SMODTROLL: return "SmodTroll";
 		default: return NULL;
 	}
 }

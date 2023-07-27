@@ -2990,6 +2990,83 @@ static void StoreRecordingTrail(gentity_t *ent) {
 	VectorCopy(ent->client->ps.velocity, ent->client->trail[head].velocity);
 }
 
+static void RunFakeFCOverlay(gentity_t *ent) {
+	if (ent->client && ent->client->account && ent->client->account->flags & ACCOUNTFLAG_FAKEFCOVERLAY &&
+		g_gametype.integer == GT_CTF && ent - g_entities < MAX_CLIENTS && !ent->client->sess.inRacemode && !IsFreeSpec(ent)) {
+		// send the systeminfo periodically if also using smod
+		int now = trap_Milliseconds();
+		const int FAKEOVERLAY_SYSTEMINFO_SPAM_TIME = 6000; // every couple minutes idk
+		if (ent->client->account->flags & ACCOUNTFLAG_SMODTROLL && (!ent->client->pers.lastFakeOverlaySysteminfoSpamTime || now - ent->client->pers.lastFakeOverlaySysteminfoSpamTime >= FAKEOVERLAY_SYSTEMINFO_SPAM_TIME)) {
+			G_SendConfigstring(ent - g_entities, CS_SYSTEMINFO, "\\cg_drawCtfBaseBar\\0");
+			G_SendConfigstring(ent - g_entities, CS_SYSTEMINFO, NULL);
+			ent->client->pers.lastFakeOverlaySysteminfoSpamTime = now;
+		}
+
+		// check for a teammate with flag
+		gentity_t *teammateWithFlag = NULL;
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *thisEnt = &g_entities[i];
+			if (!thisEnt->inuse || !thisEnt->client || thisEnt->client->pers.connected != CON_CONNECTED)
+				continue;
+			if (!HasFlag(thisEnt))
+				continue;
+			if (thisEnt->client->sess.sessionTeam != ent->client->ps.persistant[PERS_TEAM] || thisEnt == ent)
+				continue;
+			if (ent->client->sess.sessionTeam == TEAM_SPECTATOR && ent->client->sess.spectatorClient == thisEnt - g_entities)
+				continue;
+
+			teammateWithFlag = thisEnt;
+			break;
+		}
+
+		// build the message
+		char msg[MAX_STRING_CHARS] = { 0 };
+		static char lastMsg[MAX_CLIENTS][MAX_STRING_CHARS] = { 0 };
+		char location[MAX_STRING_CHARS] = { 0 };
+		static char lastLocation[MAX_CLIENTS][MAX_STRING_CHARS] = { 0 };
+		if (teammateWithFlag) {
+			Team_GetLocation(teammateWithFlag, location, sizeof(location));
+			Com_sprintf(msg, sizeof(msg), "cp \"\n\n\n\n\n\n\n\n\n\n\n\n\n%s^7\n^1%d   ^5%d\n%s\"", // 13 newlines to get to bottom of screen-ish
+				teammateWithFlag->client->pers.netname,
+				teammateWithFlag->client->ps.stats[STAT_HEALTH],
+				teammateWithFlag->client->ps.fd.forcePower,
+				VALIDSTRING(location) ? location : "");
+		}
+
+		// decide whether to send an update
+		// send an update if there's no current global centerprint (e.g. vote for a map message),
+		// and either the fc/fc location has changed or someone has the flag and it's been 500ms since the last update
+		qboolean currentGlobalPrint = (level.globalCenterPrint.sendUntilTime && level.time < level.globalCenterPrint.sendUntilTime);
+		static gentity_t *lastTeammateWithFlag[MAX_CLIENTS] = { NULL };
+		qboolean fcChanged = (teammateWithFlag != lastTeammateWithFlag[ent - g_entities]);
+		qboolean locationChanged = strcmp(location, lastLocation[ent - g_entities]);
+
+		const int FAKEOVERLAY_SPAM_TIME = 500;
+		qboolean cooldownSatisfied = (!ent->client->pers.lastFakeOverlaySpamTime || now - ent->client->pers.lastFakeOverlaySpamTime >= FAKEOVERLAY_SPAM_TIME);
+
+		qboolean send = qfalse;
+		if (!currentGlobalPrint && (fcChanged || locationChanged || (teammateWithFlag && cooldownSatisfied)))
+			send = qtrue;
+
+		// don't send if the message is unchanged and it's been less than 2000ms since the last update (avoid spamming duplicates)
+		const int FAKEOVERLAY_DUPLICATE_SPAM_TIME = 2000;
+		qboolean longCooldownSatisfied = (!ent->client->pers.lastFakeOverlaySpamTime || now - ent->client->pers.lastFakeOverlaySpamTime >= FAKEOVERLAY_DUPLICATE_SPAM_TIME);
+		qboolean messageChanged = (fcChanged || locationChanged || strcmp(msg, lastMsg[ent - g_entities]));
+		if (!messageChanged && !longCooldownSatisfied)
+			send = qfalse;
+
+		if (send) {
+			trap_SendServerCommand(ent - g_entities, teammateWithFlag ? msg : "cp \"\"");
+
+			// set cooldown and note current fc/location/message for next time
+			lastTeammateWithFlag[ent - g_entities] = teammateWithFlag;
+			ent->client->pers.lastFakeOverlaySpamTime = now;
+			memcpy(lastMsg[ent - g_entities], msg, sizeof(lastMsg[ent - g_entities]));
+			memcpy(lastLocation[ent - g_entities], location, sizeof(lastLocation[ent - g_entities]));
+		}
+	}
+}
+
 extern teamgame_t teamgame;
 
 /*
@@ -3190,6 +3267,8 @@ void ClientThink_real( gentity_t *ent ) {
 			return;
 		}
 	}
+
+	RunFakeFCOverlay(ent);
 
 	// spectators don't do much
 	if ( client->sess.sessionTeam == TEAM_SPECTATOR || client->tempSpectate > level.time ) {

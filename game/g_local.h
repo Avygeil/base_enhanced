@@ -887,6 +887,8 @@ typedef struct {
 	qboolean permaBarredDeclaredPickable;
 
 	qboolean warnedLS;
+	int lastFakeOverlaySpamTime;
+	int lastFakeOverlaySysteminfoSpamTime;
 
 } clientPersistant_t;
 
@@ -2082,6 +2084,8 @@ typedef struct {
 #define ACCOUNTFLAG_BOOST_PROJECTILEAIMBOTBOOST		( 1 << 23 )
 #define ACCOUNTFLAG_HUN_GASLIGHT					( 1 << 24 )
 #define ACCOUNTFLAG_LSAFKTROLL						( 1 << 25 )
+#define ACCOUNTFLAG_FAKEFCOVERLAY					( 1 << 26 )
+#define ACCOUNTFLAG_SMODTROLL						( 1 << 27 )
 
 typedef void( *ListSessionsCallback )( void *ctx,
 	const sessionReference_t sessionRef,
@@ -2324,6 +2328,8 @@ void SV_Say(const char *text);
 
 void CountPlayers(int *total, int *red, int *blue, int *free, int *spec, int *redOrBlue, int *freeOrSpec);
 char *ParseMillisecondsToString(int msIn, qboolean forceColon, qboolean zeroMinutes, qboolean zeroPadSeconds, unsigned int fractionalDigits);
+
+qboolean IsFreeSpec(gentity_t *ent);
 
 //
 // g_object.c
@@ -2574,6 +2580,7 @@ extern gentity_t *gJMSaberEnt;
 void TellPlayerToRateMap(gclient_t *client);
 void TellPlayerToSetPositions(gclient_t *client);
 void RestoreDisconnectedPlayerData(gentity_t *ent);
+void G_SendConfigstring(int clientNum, int configstringNum, char *extra);
 
 //
 // g_svcmds.c
