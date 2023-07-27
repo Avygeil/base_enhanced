@@ -483,6 +483,19 @@ ctfPosition_t DetermineCTFPosition(stats_t *posGuy, qboolean enableDebugPrints) 
 	return pos;
 }
 
+ctfPosition_t GetRemindedPosOrDeterminedPos(gentity_t *ent) {
+	if (!ent || !ent->client || g_gametype.integer != GT_CTF)
+		return CTFPOSITION_UNKNOWN;
+
+	if (ent->client->sess.remindPositionOnMapChange.valid && ent->client->sess.remindPositionOnMapChange.pos != CTFPOSITION_UNKNOWN)
+		return ent->client->sess.remindPositionOnMapChange.pos;
+
+	if (ent->client->stats)
+		return DetermineCTFPosition(ent->client->stats, qfalse);
+
+	return CTFPOSITION_UNKNOWN;
+}
+
 const char *GetPositionStringForStats(stats_t *stats) {
 	if (!stats)
 		return NULL;

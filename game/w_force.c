@@ -1510,7 +1510,7 @@ void ForceTeamHeal( gentity_t *self, qboolean redirectedTE )
 	int pl[MAX_CLIENTS];
 	int healthadd = 0;
 	gentity_t *te = NULL, *te2 = NULL;
-	qboolean boost = !!(self->client->account && self->client->account->flags & ACCOUNTFLAG_BOOST_THTESWITCHBOOST && g_boost.integer);
+	qboolean baseBoost = !!(self->client->account && self->client->account->flags & ACCOUNTFLAG_BOOST_BASEAUTOTHTEBOOST && g_boost.integer && GetRemindedPosOrDeterminedPos(self) == CTFPOSITION_BASE);
 
 	if ( self->health <= 0 )
 	{
@@ -1555,13 +1555,13 @@ void ForceTeamHeal( gentity_t *self, qboolean redirectedTE )
 		}
 	}
 
-	if (boost && numpl == 1 && DoesntHaveFlagButMyFCIsKindaNear(self, &g_entities[pl[0]]))
+	if (baseBoost && numpl == 1 && DoesntHaveFlagButMyFCIsKindaNear(self, &g_entities[pl[0]]))
 		return;
 
 	qboolean canEnergizeOnly = qfalse;
 	if (numpl < 1)
 	{
-		if (!boost || redirectedTE)
+		if (!baseBoost || redirectedTE)
 			return;
 		canEnergizeOnly = qtrue;
 		numpl = 0;
@@ -1585,7 +1585,7 @@ void ForceTeamHeal( gentity_t *self, qboolean redirectedTE )
 	if (numpl < 1)
 		return;
 
-	if (boost && numpl == 1 && !redirectedTE) {
+	if (baseBoost && numpl == 1 && !redirectedTE) {
 		qboolean doTE = qfalse, doTH = qfalse;
 		ShouldUseTHTE(&g_entities[pl[0]], &doTE, &doTH);
 
@@ -1683,7 +1683,7 @@ void ForceTeamForceReplenish( gentity_t *self, qboolean redirectedTH )
 	int pl[MAX_CLIENTS];
 	int poweradd = 0;
 	gentity_t *te = NULL, *te2 = NULL;
-	qboolean boost = !!(self->client->account && self->client->account->flags & ACCOUNTFLAG_BOOST_THTESWITCHBOOST && g_boost.integer);
+	qboolean baseBoost = !!(self->client->account && self->client->account->flags & ACCOUNTFLAG_BOOST_BASEAUTOTHTEBOOST && g_boost.integer && GetRemindedPosOrDeterminedPos(self) == CTFPOSITION_BASE);
 	const int evaluateThisForcePower = redirectedTH ? FP_TEAM_HEAL : FP_TEAM_FORCE;
 
 	if ( self->health <= 0 )
@@ -1729,13 +1729,13 @@ void ForceTeamForceReplenish( gentity_t *self, qboolean redirectedTH )
 		}
 	}
 
-	if (boost && numpl == 1 && DoesntHaveFlagButMyFCIsKindaNear(self, &g_entities[pl[0]]))
+	if (baseBoost && numpl == 1 && DoesntHaveFlagButMyFCIsKindaNear(self, &g_entities[pl[0]]))
 		return;
 
 	qboolean canHealOnly = qfalse;
 	if (numpl < 1)
 	{
-		if (!boost || redirectedTH)
+		if (!baseBoost || redirectedTH)
 			return;
 
 		canHealOnly = qtrue;
@@ -1763,7 +1763,7 @@ void ForceTeamForceReplenish( gentity_t *self, qboolean redirectedTH )
 	if (numpl < 1)
 		return;
 
-	if (boost && numpl == 1 && !redirectedTH) {
+	if (baseBoost && numpl == 1 && !redirectedTH) {
 		qboolean doTE = qfalse, doTH = qfalse;
 		ShouldUseTHTE(&g_entities[pl[0]], &doTE, &doTH);
 
@@ -1852,7 +1852,19 @@ void ForceTeamForceReplenish( gentity_t *self, qboolean redirectedTH )
 }
 
 void AutoTHTE(gentity_t *self) {
-	if (!self || !self->client || self->health <= 0 || self->client->pers.connected != CON_CONNECTED || IsRacerOrSpectator(self) || g_gametype.integer < GT_TEAM)
+	assert(self && self->client && self->client->account && g_boost.integer);
+	if (self->health <= 0 || self->client->pers.connected != CON_CONNECTED || IsRacerOrSpectator(self) || g_gametype.integer != GT_CTF)
+		return;
+
+	ctfPosition_t pos = GetRemindedPosOrDeterminedPos(self);
+	if (!pos)
+		return;
+
+	if (pos == CTFPOSITION_BASE && !(self->client->account->flags & ACCOUNTFLAG_BOOST_BASEAUTOTHTEBOOST))
+		return;
+	if (pos == CTFPOSITION_CHASE && !(self->client->account->flags & ACCOUNTFLAG_BOOST_CHASEAUTOTHTEBOOST))
+		return;
+	if (pos == CTFPOSITION_OFFENSE && !(self->client->account->flags & ACCOUNTFLAG_BOOST_OFFENSEAUTOTHTEBOOST))
 		return;
 
 	qboolean canTE = WP_ForcePowerUsable(self, FP_TEAM_FORCE);
@@ -1860,19 +1872,20 @@ void AutoTHTE(gentity_t *self) {
 	if (!canTE && !canTH)
 		return;
 
-	int level;
+	int forcePowerLevel;
 	if (canTE)
-		level = self->client->ps.fd.forcePowerLevel[FP_TEAM_FORCE];
+		forcePowerLevel = self->client->ps.fd.forcePowerLevel[FP_TEAM_FORCE];
 	else
-		level = self->client->ps.fd.forcePowerLevel[FP_TEAM_HEAL];
+		forcePowerLevel = self->client->ps.fd.forcePowerLevel[FP_TEAM_HEAL];
 
 	float radius = 256;
-	if (level == 2)
+	if (forcePowerLevel == 2)
 		radius *= 1.5;
-	if (level == FORCE_LEVEL_3)
+	else if (forcePowerLevel == 3)
 		radius *= 2;
 
 	int numpl = 0;
+	gentity_t *target = NULL;
 	for (int i = 0; i < MAX_CLIENTS; i++) {
 		gentity_t *ent = &g_entities[i];
 
@@ -1884,15 +1897,51 @@ void AutoTHTE(gentity_t *self) {
 
 			if (VectorLength(a) <= radius) {
 				numpl++;
+				target = ent;
 			}
 		}
 	}
 
-	if (numpl == 1) {
-		if (canTE)
-			ForceTeamForceReplenish(self, qfalse);
-		else
+	if (!numpl)
+		return;
+
+	if (pos == CTFPOSITION_BASE) {
+		if (/*canTE && */level.time - level.startTime <= 5000) {
+			ForceTeamForceReplenish(self, /*qfalse*/qtrue);
+		}
+		else {
+			if (numpl == 1) {
+				if (canTE)
+					ForceTeamForceReplenish(self, qfalse);
+				else
+					ForceTeamHeal(self, qfalse);
+			}
+		}
+	}
+	else if (pos == CTFPOSITION_CHASE && numpl == 1 && canTH && target && target->health <= 60 && HasFlag(target)) {
+		float loc = GetCTFLocationValue(target);
+		if (loc <= 0.4f)
 			ForceTeamHeal(self, qfalse);
+	}
+	else if (pos == CTFPOSITION_OFFENSE && numpl == 1 && target && target->client && HasFlag(target)) {
+		if (canTE && level.time - level.startTime <= 5000) {
+			ForceTeamForceReplenish(self, qfalse);
+		}
+		else {
+			float loc = GetCTFLocationValue(target);
+			if (loc <= 0.4f) {
+				if (canTH && target->health <= 60)
+					ForceTeamHeal(self, qfalse);
+				else if (canTE && target->client->ps.fd.forcePower <= 50)
+					ForceTeamForceReplenish(self, qfalse);
+			}
+			else {
+				if (canTH && target->health <= 60 && target->client->ps.fd.forcePower >= 40)
+					ForceTeamHeal(self, qfalse);
+				else if (canTE && target->health >= 40 && target->client->ps.fd.forcePower <= 50)
+					ForceTeamForceReplenish(self, qfalse);
+			}
+		}
 	}
 }
 

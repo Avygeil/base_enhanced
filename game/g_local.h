@@ -1084,6 +1084,7 @@ void ChangeToNextStatsBlockIfNeeded(void);
 char *NameForPos(ctfPosition_t pos);
 void SendMachineFriendlyStats(void);
 void RecalculateTeamBalance(void);
+ctfPosition_t GetRemindedPosOrDeterminedPos(gentity_t *ent);
 
 typedef struct {
 	node_t		node;
@@ -2077,15 +2078,17 @@ typedef struct {
 #define ACCOUNTFLAG_BOOST_SPAWNFCBOOST				( 1 << 16 )
 #define ACCOUNTFLAG_BOOST_SPAWNGERBOOST				( 1 << 17 )
 #define ACCOUNTFLAG_BOOST_SPAWNCLICKBOOST				( 1 << 18 )
-#define ACCOUNTFLAG_BOOST_AUTOTHTEBOOST				( 1 << 19 )
+#define ACCOUNTFLAG_BOOST_BASEAUTOTHTEBOOST				( 1 << 19 )
 #define ACCOUNTFLAG_BOOST_SELFKILLBOOST				( 1 << 20 )
-#define ACCOUNTFLAG_BOOST_THTESWITCHBOOST			( 1 << 21 )
+//#define ACCOUNTFLAG_BOOST_BASETHTESWITCHBOOST			( 1 << 21 )
 #define ACCOUNTFLAG_BOOST_ITEMPICKUPBOOST			( 1 << 22 )
 #define ACCOUNTFLAG_BOOST_PROJECTILEAIMBOTBOOST		( 1 << 23 )
 #define ACCOUNTFLAG_HUN_GASLIGHT					( 1 << 24 )
 #define ACCOUNTFLAG_LSAFKTROLL						( 1 << 25 )
 #define ACCOUNTFLAG_FAKEFCOVERLAY					( 1 << 26 )
 #define ACCOUNTFLAG_SMODTROLL						( 1 << 27 )
+#define ACCOUNTFLAG_BOOST_OFFENSEAUTOTHTEBOOST			( 1 << 28 )
+#define ACCOUNTFLAG_BOOST_CHASEAUTOTHTEBOOST				( 1 << 29 )
 
 typedef void( *ListSessionsCallback )( void *ctx,
 	const sessionReference_t sessionRef,

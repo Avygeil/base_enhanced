@@ -3996,7 +3996,7 @@ void ClientThink_real( gentity_t *ent ) {
 	}
 
 	if (ent->health > 0) {
-		if ((ent->client && ent->client->account && ent->client->account->flags & ACCOUNTFLAG_BOOST_AUTOTHTEBOOST && g_boost.integer)) {
+		if ((ent->client && ent->client->account && g_boost.integer)) {
 			// boost: auto TH/TE
 			AutoTHTE(ent);
 		}

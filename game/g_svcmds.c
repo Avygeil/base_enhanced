@@ -3351,12 +3351,12 @@ static int AccountFlagName2Bitflag(const char* flagName) {
 		return ACCOUNTFLAG_BOOST_SPAWNGERBOOST;
 	} else if (!Q_stricmp(flagName, "SpawnClickBoost")) {
 		return ACCOUNTFLAG_BOOST_SPAWNCLICKBOOST;
-	} else if (!Q_stricmp(flagName, "AutoTHTEBoost")) {
-		return ACCOUNTFLAG_BOOST_AUTOTHTEBOOST;
+	} else if (!Q_stricmp(flagName, "BaseAutoTHTEBoost")) {
+		return ACCOUNTFLAG_BOOST_BASEAUTOTHTEBOOST;
 	} else if (!Q_stricmp(flagName, "SelfkillBoost")) {
 		return ACCOUNTFLAG_BOOST_SELFKILLBOOST;
-	} else if (!Q_stricmp(flagName, "THTESwitchBoost")) {
-		return ACCOUNTFLAG_BOOST_THTESWITCHBOOST;
+	/*} else if (!Q_stricmp(flagName, "BaseTHTESwitchBoost")) {
+		return ACCOUNTFLAG_BOOST_BASETHTESWITCHBOOST;*/
 	} else if (!Q_stricmp(flagName, "ItemPickupBoost")) {
 		return ACCOUNTFLAG_BOOST_ITEMPICKUPBOOST;
 	} else if (!Q_stricmp(flagName, "ProjectileAimbotBoost")) {
@@ -3369,6 +3369,10 @@ static int AccountFlagName2Bitflag(const char* flagName) {
 		return ACCOUNTFLAG_FAKEFCOVERLAY;
 	} else if (!Q_stricmp(flagName, "SmodTroll")) {
 		return ACCOUNTFLAG_SMODTROLL;
+	} else if (!Q_stricmp(flagName, "OffenseAutoTHTEBoost")) {
+		return ACCOUNTFLAG_BOOST_OFFENSEAUTOTHTEBOOST;
+	} else if (!Q_stricmp(flagName, "ChaseAutoTHTEBoost")) {
+		return ACCOUNTFLAG_BOOST_CHASEAUTOTHTEBOOST;
 	}
 
 	return 0;
@@ -3395,14 +3399,16 @@ const char* AccountBitflag2FlagName(int bitflag) {
 		case ACCOUNTFLAG_BOOST_SPAWNFCBOOST: return "SpawnFCBoost";
 		case ACCOUNTFLAG_BOOST_SPAWNGERBOOST: return "SpawnGerBoost";
 		case ACCOUNTFLAG_BOOST_SPAWNCLICKBOOST: return "SpawnClickBoost";
-		case ACCOUNTFLAG_BOOST_AUTOTHTEBOOST: return "AutoTHTEBoost";
+		case ACCOUNTFLAG_BOOST_BASEAUTOTHTEBOOST: return "BaseAutoTHTEBoost";
 		case ACCOUNTFLAG_BOOST_SELFKILLBOOST: return "SelfkillBoost";
-		case ACCOUNTFLAG_BOOST_THTESWITCHBOOST: return "THTESwitchBoost";
+		//case ACCOUNTFLAG_BOOST_BASETHTESWITCHBOOST: return "THTESwitchBoost";
 		case ACCOUNTFLAG_BOOST_ITEMPICKUPBOOST: return "ItemPickupBoost";
 		case ACCOUNTFLAG_BOOST_PROJECTILEAIMBOTBOOST: return "ProjectileAimbotBoost";
 		case ACCOUNTFLAG_LSAFKTROLL: return "LSAfkTroll";
 		case ACCOUNTFLAG_FAKEFCOVERLAY: return "FakeFCOverlay";
 		case ACCOUNTFLAG_SMODTROLL: return "SmodTroll";
+		case ACCOUNTFLAG_BOOST_OFFENSEAUTOTHTEBOOST: return "OffenseAutoTHTEBoost";
+		case ACCOUNTFLAG_BOOST_CHASEAUTOTHTEBOOST: return "ChaseAutoTHTEBoost";
 		default: return NULL;
 	}
 }
