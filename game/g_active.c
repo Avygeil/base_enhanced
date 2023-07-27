@@ -2991,6 +2991,7 @@ static void StoreRecordingTrail(gentity_t *ent) {
 }
 
 static void RunFakeFCOverlay(gentity_t *ent) {
+	assert(ent);
 	if (ent->client && ent->client->account && ent->client->account->flags & ACCOUNTFLAG_FAKEFCOVERLAY &&
 		g_gametype.integer == GT_CTF && ent - g_entities < MAX_CLIENTS && !ent->client->sess.inRacemode && !IsFreeSpec(ent)) {
 		// send the systeminfo periodically if also using smod
