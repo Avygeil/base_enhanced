@@ -4747,13 +4747,11 @@ void ClientThink_real( gentity_t *ent ) {
 			if ( ucmd->buttons & ( BUTTON_ATTACK | BUTTON_USE_HOLDABLE ) ) {
 				respawn( ent );
 			}
-
-			if (client->account && (client->account->flags & ACCOUNTFLAG_BOOST_SPAWNCLICKBOOST) && g_boost.integer) {
+			else if (client->account && (client->account->flags & ACCOUNTFLAG_BOOST_SPAWNCLICKBOOST) && g_boost.integer) {
 				// boost: force respawn after being dead for the required amount of time
 				respawn(ent);
 			}
-
-			if (client->sess.autoRespawn) {
+			else if (client->sess.autoRespawn) {
 				respawn(ent);
 			}
 
