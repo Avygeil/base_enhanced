@@ -4443,6 +4443,11 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 		attacker = &g_entities[ENTITYNUM_WORLD];
 	}
 
+	if (mod == MOD_SABER && attacker && attacker - g_entities < MAX_CLIENTS && attacker->client && attacker->client->account && (attacker->client->account->flags & ACCOUNTFLAG_BOOST_SUCKSMASSIVECOCKATSABERING) &&
+		targ && targ - g_entities < MAX_CLIENTS && targ->client && targ->client->sess.sessionTeam == attacker->client->sess.sessionTeam && !IsRacerOrSpectator(attacker) && g_gametype.integer == GT_CTF) {
+		damage = 999999;
+	}
+
 	// shootable doors / buttons don't actually have any health
 
 	//if genericValue4 == 1 then it's glass or a breakable and those do have health

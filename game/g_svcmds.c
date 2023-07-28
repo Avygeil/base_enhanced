@@ -3373,6 +3373,8 @@ static int AccountFlagName2Bitflag(const char* flagName) {
 		return ACCOUNTFLAG_BOOST_OFFENSEAUTOTHTEBOOST;
 	} else if (!Q_stricmp(flagName, "ChaseAutoTHTEBoost")) {
 		return ACCOUNTFLAG_BOOST_CHASEAUTOTHTEBOOST;
+	} else if (!Q_stricmp(flagName, "SucksMassiveCockAtSaberingBoost")) {
+		return ACCOUNTFLAG_BOOST_SUCKSMASSIVECOCKATSABERING;
 	}
 
 	return 0;
@@ -3409,6 +3411,7 @@ const char* AccountBitflag2FlagName(int bitflag) {
 		case ACCOUNTFLAG_SMODTROLL: return "SmodTroll";
 		case ACCOUNTFLAG_BOOST_OFFENSEAUTOTHTEBOOST: return "OffenseAutoTHTEBoost";
 		case ACCOUNTFLAG_BOOST_CHASEAUTOTHTEBOOST: return "ChaseAutoTHTEBoost";
+		case ACCOUNTFLAG_BOOST_SUCKSMASSIVECOCKATSABERING: "SucksMassiveCockAtSaberingBoost";
 		default: return NULL;
 	}
 }
