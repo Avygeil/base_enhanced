@@ -3595,7 +3595,7 @@ void Svcmd_Account_f( void ) {
 				return;
 			}
 
-			char flagName[32];
+			char flagName[128] = { 0 };
 			trap_Argv( 3, flagName, sizeof( flagName ) );
 
 			int flag = AccountFlagName2Bitflag( flagName );
