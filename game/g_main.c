@@ -6060,13 +6060,13 @@ void G_RunFrame( int levelTime ) {
 	if (level.shouldAnnounceBreak && level.time - level.startTime >= 3000)
 		TeamGen_AnnounceBreak();
 
-	{ // periodically check if less than 6 are ingame, in which case we clear reminded pos
+	{ // periodically check if 4 or less ingame, in which case we clear reminded pos
 		static int clearRemindersTime = 30000;
 		if (level.time - level.startTime >= clearRemindersTime) {
 			int numIngame = 0;
 			CountPlayers(NULL, NULL, NULL, NULL, NULL, &numIngame, NULL);
 
-			if (numIngame < 6)
+			if (numIngame <= 4)
 				TeamGen_ClearRemindPositions(qtrue);
 
 			clearRemindersTime = (level.time - level.startTime) + 10000;
