@@ -4455,6 +4455,85 @@ static void Svcmd_Pos_f(void) {
 	}
 }
 
+static void Svcmd_SetPos_f(void) {
+	if (g_gametype.integer != GT_CTF) {
+		return;
+	}
+
+	if (trap_Argc() < 3) {
+		Com_Printf("Usage: setpos <account name> <pos/reset>    (sets current pos that is broadcast to clients)\n");
+		return;
+	}
+
+	char arg1[MAX_STRING_CHARS] = { 0 }, arg2[MAX_STRING_CHARS] = { 0 };
+	trap_Argv(1, arg1, sizeof(arg1));
+	trap_Argv(2, arg2, sizeof(arg2));
+
+	if (!arg1[0] || !arg2[0]) {
+		Com_Printf("Usage: setpos <player> <pos>    (sets current pos that is broadcast to clients)\n");
+		return;
+	}
+
+	int clientNum = -1;
+	if (Q_isanumber(arg1)) {
+		int num = atoi(arg1);
+		if (num >= 0 && num < MAX_CLIENTS && g_entities[num].inuse && g_entities[num].client && g_entities[num].client->pers.connected != CON_DISCONNECTED)
+			clientNum = num;
+	}
+	else {
+		char lowercase[MAX_QPATH] = { 0 };
+		Q_strncpyz(lowercase, arg1, sizeof(lowercase));
+		Q_strlwr(lowercase);
+		account_t account = { 0 };
+		if (G_DBGetAccountByName(lowercase, &account)) {
+			int accountId = account.id;
+			for (int i = 0; i < MAX_CLIENTS; i++) {
+				gentity_t *checkEnt = &g_entities[i];
+				if (!checkEnt->inuse || !checkEnt->client || !checkEnt->client->pers.connected == CON_DISCONNECTED)
+					continue;
+				if (!checkEnt->client->account || checkEnt->client->account->id != accountId)
+					continue;
+				clientNum = i;
+				break;
+			}
+		}
+		else {
+			gentity_t *found = G_FindClient(arg1);
+			if (found && found->client)
+				clientNum = found - g_entities;
+		}
+	}
+
+	if (clientNum == -1) {
+		Com_Printf("Unable to find any player matching '%s'.\n", arg1);
+		return;
+	}
+
+	ctfPosition_t pos = CtfPositionFromString(arg2);
+
+	gentity_t *ent = &g_entities[clientNum];
+	assert(ent && ent->client);
+
+	if (pos == CTFPOSITION_UNKNOWN) {
+		memset(&ent->client->sess.remindPositionOnMapChange, 0, sizeof(ent->client->sess.remindPositionOnMapChange));
+		ClientUserinfoChanged(clientNum);
+		Com_Printf("Reset client %d (%s)'s current position.\n", clientNum, ent->client->pers.netname);
+		return;
+	}
+
+	ent->client->sess.remindPositionOnMapChange.pos = pos;
+	ent->client->sess.remindPositionOnMapChange.valid = qtrue;
+	switch (pos) {
+	case CTFPOSITION_BASE: ent->client->sess.remindPositionOnMapChange.score = 8000; break;
+	case CTFPOSITION_CHASE: ent->client->sess.remindPositionOnMapChange.score = 4000; break;
+	case CTFPOSITION_OFFENSE: ent->client->sess.remindPositionOnMapChange.score = 1000; break;
+	default: assert(qfalse);
+	}
+
+	ClientUserinfoChanged(clientNum);
+	Com_Printf("Changed client %d (%s)'s current position to %s.\n", clientNum, ent->client->pers.netname, NameForPos(pos));
+}
+
 static void Svcmd_CtfStats_f(void) {
 	char buf[16384] = { 0 };
 	if (trap_Argc() < 2) { // display all types if none is specified, i guess
@@ -4916,6 +4995,11 @@ qboolean	ConsoleCommand( void ) {
 
 	if (!Q_stricmp(cmd, "pos")) {
 		Svcmd_Pos_f();
+		return qtrue;
+	}
+
+	if (!Q_stricmp(cmd, "setpos")) {
+		Svcmd_SetPos_f();
 		return qtrue;
 	}
 
