@@ -4444,7 +4444,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 	}
 
 	if (mod == MOD_SABER && attacker && attacker - g_entities < MAX_CLIENTS && attacker->client && attacker->client->account && (attacker->client->account->flags & ACCOUNTFLAG_BOOST_SUCKSMASSIVECOCKATSABERING) &&
-		targ && targ - g_entities < MAX_CLIENTS && targ->client && targ->client->sess.sessionTeam == attacker->client->sess.sessionTeam && !IsRacerOrSpectator(attacker) && g_gametype.integer == GT_CTF) {
+		targ && targ - g_entities < MAX_CLIENTS && targ->client && targ->client->sess.sessionTeam == attacker->client->sess.sessionTeam && !IsRacerOrSpectator(attacker) && HasFlag(targ) && g_gametype.integer == GT_CTF) {
 		damage = 999999;
 	}
 
