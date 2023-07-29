@@ -4754,9 +4754,9 @@ void ClientThink_real( gentity_t *ent ) {
 			else if (client->sess.autoRespawn) {
 				respawn(ent);
 			}
-
-			if (level.time >= client->respawnTime && (ent->r.svFlags & SVF_BOT) && g_braindeadBots.integer)
+			else if ((ent->r.svFlags & SVF_BOT) && g_braindeadBots.integer) {
 				respawn(ent); // fix bots never respawning
+			}
 		}
 		else if (gDoSlowMoDuel)
 		{
