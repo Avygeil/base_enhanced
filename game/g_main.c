@@ -397,6 +397,7 @@ vmCvar_t	g_droppedFlagSpawnProtectionDuration;
 vmCvar_t	g_selfKillSpawnSpamProtection;
 
 vmCvar_t	g_boost;
+vmCvar_t	g_spawnboost_default;
 
 #ifdef NEWMOD_SUPPORT
 vmCvar_t	g_netUnlock;
@@ -908,6 +909,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_selfKillSpawnSpamProtection, "g_selfKillSpawnSpamProtection", "1", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_boost, "g_boost", "1", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_spawnboost_default, "g_spawnboost_default", "0.333", CVAR_ARCHIVE, 0, qfalse },
 
 #ifdef NEWMOD_SUPPORT
 	{ &g_netUnlock, "g_netUnlock", "1", CVAR_ARCHIVE, 0, qtrue },

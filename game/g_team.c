@@ -1439,11 +1439,15 @@ int SortSpotsByDistanceClosestToPlayer(const void *a, const void *b) {
 	return 0;
 }
 
-#define FCSPAWNBOOSTMULTIPLIER_DEFAULT	(0.333f)
-
 static float GetFcSpawnBoostMultiplier(gentity_t *ent) {
+	float defaultValue;
+	if (g_spawnboost_default.string[0] && Q_isanumber(g_spawnboost_default.string))
+		defaultValue = g_spawnboost_default.value;
+	else
+		defaultValue = 0.333f;
+
 	if (!ent || !ent->client)
-		return FCSPAWNBOOSTMULTIPLIER_DEFAULT;
+		return defaultValue;
 
 	static char cvarName[MAX_QPATH * 2] = { 0 };
 	if (!cvarName[0]) {
@@ -1454,13 +1458,13 @@ static float GetFcSpawnBoostMultiplier(gentity_t *ent) {
 	}
 
 	if (!cvarName[0])
-		return FCSPAWNBOOSTMULTIPLIER_DEFAULT;
+		return defaultValue;
 	
 	char buf[MAX_STRING_CHARS] = { 0 };
 	trap_Cvar_VariableStringBuffer(cvarName, buf, sizeof(buf));
 
 	if (!buf[0] || !Q_isanumber(buf))
-		return FCSPAWNBOOSTMULTIPLIER_DEFAULT;
+		return defaultValue;
 
 	float multiplier = atof(buf);
 	//Com_DebugPrintf("Per %s, using multiplier %0.3f\n", cvarName, multiplier);

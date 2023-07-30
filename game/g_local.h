@@ -3164,6 +3164,7 @@ extern vmCvar_t		g_droppedFlagSpawnProtectionDuration;
 extern vmCvar_t		g_selfKillSpawnSpamProtection;
 
 extern vmCvar_t		g_boost;
+extern vmCvar_t		g_spawnboost_default;
 
 #ifdef NEWMOD_SUPPORT
 extern vmCvar_t		g_netUnlock;
