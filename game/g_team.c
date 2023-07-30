@@ -1439,6 +1439,35 @@ int SortSpotsByDistanceClosestToPlayer(const void *a, const void *b) {
 	return 0;
 }
 
+#define FCSPAWNBOOSTMULTIPLIER_DEFAULT	(0.333f)
+
+static float GetFcSpawnBoostMultiplier(gentity_t *ent) {
+	if (!ent || !ent->client)
+		return FCSPAWNBOOSTMULTIPLIER_DEFAULT;
+
+	static char cvarName[MAX_QPATH * 2] = { 0 };
+	if (!cvarName[0]) {
+		char shortName[MAX_QPATH] = { 0 };
+		GetShortNameForMapFileName(level.mapname, shortName, sizeof(shortName));
+		TrimMapVersion(shortName, shortName, sizeof(shortName));
+		Com_sprintf(cvarName, sizeof(cvarName), "g_spawnboost_%s", shortName);
+	}
+
+	if (!cvarName[0])
+		return FCSPAWNBOOSTMULTIPLIER_DEFAULT;
+	
+	char buf[MAX_STRING_CHARS] = { 0 };
+	trap_Cvar_VariableStringBuffer(cvarName, buf, sizeof(buf));
+
+	if (!buf[0] || !Q_isanumber(buf))
+		return FCSPAWNBOOSTMULTIPLIER_DEFAULT;
+
+	float multiplier = atof(buf);
+	//Com_DebugPrintf("Per %s, using multiplier %0.3f\n", cvarName, multiplier);
+
+	return multiplier;
+}
+
 /*---------------------------------------------------------------------------*/
 
 extern qboolean isRedFlagstand(gentity_t *ent);
@@ -1636,7 +1665,10 @@ gentity_t *SelectRandomTeamSpawnPoint( gclient_t *client, int teamstate, team_t 
 	if (spawnMeNearThisGuy) {
 		oldSpawn = spawnMeNearThisGuy;
 		qsort(spots, count, sizeof(gentity_t *), SortSpotsByDistanceClosestToPlayer);
-		count /= 3;
+		float multiplier = GetFcSpawnBoostMultiplier(spawnMeNearThisGuy);
+		const int originalCount = count;
+		count = (int)round((float)count * multiplier);
+		count = Com_Clampi(1, originalCount, count);
 	}
 	else if (g_gametype.integer == GT_CTF && count && g_selfKillSpawnSpamProtection.integer && g_selfKillSpawnSpamProtection.integer != 2 && client &&
 		client->pers.lastKiller == &g_entities[client - level.clients] && level.time - client->pers.lastSpawnTime < SPAWN_SPAM_PROTECT_TIME) {
