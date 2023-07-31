@@ -4655,9 +4655,15 @@ qboolean TeamGenerator_MemeFuckVote(gentity_t *ent, const char *voteStr, char **
 		if (!(fuckVote->votedYesClients & (1 << ent - g_entities))) {
 			for (int i = 0; i < MAX_CLIENTS; i++) {
 				gentity_t *other = &g_entities[i];
-				if (other == ent || !other->inuse || !other->client)
+				if (other == ent || !other->inuse || !other->client || other->client->pers.connected != CON_CONNECTED)
 					continue;
 				if (other->client->account && ent->client->account && other->client->account->id != ent->client->account->id)
+					continue;
+				if (!ent->client->account && !other->client->account)
+					continue;
+				if (ent->client->account && !other->client->account)
+					continue;
+				if (!ent->client->account && other->client->account)
 					continue;
 				if (fuckVote->votedYesClients & (1 << other - g_entities)) {
 					votedToFuckOnAnotherClient = qtrue;
@@ -4696,14 +4702,20 @@ qboolean TeamGenerator_MemeFuckVote(gentity_t *ent, const char *voteStr, char **
 		qboolean gotEm[MAX_CLIENTS] = { qfalse };
 		for (int i = 0; i < MAX_CLIENTS; i++) {
 			gentity_t *thisEnt = &g_entities[i];
-			if (!thisEnt->inuse || !thisEnt->client || thisEnt->client->pers.connected == CON_DISCONNECTED || gotEm[i])
+			if (!thisEnt->inuse || !thisEnt->client || thisEnt->client->pers.connected != CON_CONNECTED || gotEm[i])
 				continue;
 
 			qboolean votedToFuck = qfalse;
 			for (int k = 0; k < MAX_CLIENTS; k++) {
 				gentity_t *checkEnt = &g_entities[k];
-				if (!checkEnt->inuse || !checkEnt->client || checkEnt->client->pers.connected == CON_DISCONNECTED ||
+				if (!checkEnt->inuse || !checkEnt->client || checkEnt->client->pers.connected != CON_CONNECTED ||
 					(thisEnt->client->account && checkEnt->client->account && checkEnt->client->account->id != thisEnt->client->account->id))
+					continue;
+				if (!thisEnt->client->account && !checkEnt->client->account)
+					continue;
+				if (thisEnt->client->account && !checkEnt->client->account)
+					continue;
+				if (!thisEnt->client->account && checkEnt->client->account)
 					continue;
 				if (fuckVote->votedYesClients & (1 << k))
 					votedToFuck = qtrue;
