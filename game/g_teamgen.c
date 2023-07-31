@@ -4641,9 +4641,10 @@ qboolean TeamGenerator_MemeFuckVote(gentity_t *ent, const char *voteStr, char **
 	}
 
 	// check whether this fuck vote already exists
-	qboolean doVote = qtrue;
+	qboolean doVote = qtrue, voteIsNew;
 	fuckVote_t *fuckVote = ListFind(&level.fuckVoteList, FuckVoteMatchesString, filtered, NULL);
 	if (fuckVote) {
+		voteIsNew = qfalse;
 		if (fuckVote->done) {
 			TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("%s has already been fucked.", fuckVote->fucked));
 			return qtrue;
@@ -4671,6 +4672,8 @@ qboolean TeamGenerator_MemeFuckVote(gentity_t *ent, const char *voteStr, char **
 		}
 	}
 	else {
+		voteIsNew = qtrue;
+
 		// doesn't exist yet; create it
 		if (level.fuckVoteList.size >= g_vote_teamgen_fuck.integer) {
 			TeamGenerator_QueueServerMessageInChat(ent - g_entities, "The limit of fuck votes has been reached.");
@@ -4686,7 +4689,10 @@ qboolean TeamGenerator_MemeFuckVote(gentity_t *ent, const char *voteStr, char **
 
 	// check how many votes we are now up to
 	int numFuckVotesFromEligiblePlayers = 0;
-	{
+	if (voteIsNew) {
+		numFuckVotesFromEligiblePlayers = 1; // sanity check
+	}
+	else {
 		qboolean gotEm[MAX_CLIENTS] = { qfalse };
 		for (int i = 0; i < MAX_CLIENTS; i++) {
 			gentity_t *thisEnt = &g_entities[i];
