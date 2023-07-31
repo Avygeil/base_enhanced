@@ -4722,8 +4722,15 @@ qboolean TeamGenerator_MemeFuckVote(gentity_t *ent, const char *voteStr, char **
 				gotEm[k] = qtrue;
 			}
 
-			if (votedToFuck)
+			if (fuckVote->votedYesClients & (1 << i))
+				votedToFuck = qtrue;
+			else if (thisEnt == ent)
+				votedToFuck = qtrue;
+
+			if (votedToFuck) {
 				++numFuckVotesFromEligiblePlayers;
+				gotEm[i] = qtrue;
+			}
 		}
 	}
 
