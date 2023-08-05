@@ -2146,6 +2146,7 @@ void ClientUserinfoChanged( int clientNum ) {
 	else {
 		client->sess.unlagged &= ~UNLAGGED_CLIENTINFO;
 		client->sess.disableShittySaberMoves = 0;
+		client->sess.autoRespawn = qfalse;
 	}
 
 	// passwordless spectators - check for password change
