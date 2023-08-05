@@ -2102,6 +2102,9 @@ G_ShutdownGame
 void G_ShutdownGame( int restart ) {
 	trap_Cvar_Set("g_notFirstMap", "1");
 
+	if (level.shouldClearRemindPositionsAtEnd)
+		TeamGen_ClearRemindPositions(qtrue);
+
 	int i = 0;
 	gentity_t *ent;
 
@@ -3252,7 +3255,7 @@ void BeginIntermission(void) {
 
 	free(statsBuf);
 
-	TeamGen_ClearRemindPositions(qtrue);
+	level.shouldClearRemindPositionsAtEnd = qtrue;
 }
 
 qboolean DuelLimitHit(void)

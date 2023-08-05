@@ -2051,6 +2051,8 @@ typedef struct {
 	int g_lastTeamGenTimeSettingAtRoundStart; // what g_lastTeamGenTime was at the start of this round (before we changed it to "")
 	int shouldAnnounceBreak;
 
+	qboolean shouldClearRemindPositionsAtEnd;
+
 #define PEPPER_CHARS	(32)
 	unsigned char pepper[PEPPER_CHARS];
 } level_locals_t;
