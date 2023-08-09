@@ -503,6 +503,7 @@ vmCvar_t	g_vote_teamgen_unvote;
 vmCvar_t	g_vote_teamgen_fuck;
 
 vmCvar_t	g_broadcastCtfPos;
+vmCvar_t	g_broadcastGivenThTe;
 
 vmCvar_t	d_debugBanPermutation;
 
@@ -1020,6 +1021,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_teamgen_fuck, "g_vote_teamgen_fuck", "10", CVAR_ARCHIVE, 0, qfalse },
 
 	{ &g_broadcastCtfPos, "g_broadcastCtfPos", "0", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
+	{ &g_broadcastGivenThTe, "g_broadcastGivenThTe", "1", CVAR_ARCHIVE, 0, qfalse },
 
 	{ &d_debugBanPermutation, "d_debugBanPermutation", "0", CVAR_ARCHIVE, 0, qfalse },
 

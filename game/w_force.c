@@ -1618,6 +1618,8 @@ void ForceTeamHeal( gentity_t *self, qboolean redirectedTE )
 	}
 
 	self->client->ps.fd.forcePowerDebounce[evaluateThisForcePower] = level.time + 2000;
+	if (g_broadcastGivenThTe.integer)
+		trap_SendServerCommand(self - g_entities, "kls -1 -1 \"ygt\" \"1\"");
 
 	for (int i = 0; i < numpl; i++)
 	{
@@ -1796,6 +1798,8 @@ void ForceTeamForceReplenish( gentity_t *self, qboolean redirectedTH )
 		poweradd = 25;
 	}
 	self->client->ps.fd.forcePowerDebounce[evaluateThisForcePower] = level.time + 2000;
+	if (g_broadcastGivenThTe.integer)
+		trap_SendServerCommand(self - g_entities, "lchat \"ygt\"");
 
 	BG_ForcePowerDrain( &self->client->ps, FP_TEAM_FORCE, forcePowerNeeded[self->client->ps.fd.forcePowerLevel[evaluateThisForcePower]][FP_TEAM_FORCE] );
 
