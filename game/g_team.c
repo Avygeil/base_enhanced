@@ -1896,9 +1896,6 @@ void TeamplayInfoMessage( gentity_t *ent ) {
 }
 
 void CheckTeamStatus(void) {
-	int i;
-	gentity_t *ent;
-
     //OSP: pause
     if ( level.pause.state != PAUSE_NONE ) // doesn't affect racers due to TEAM_FREE
             return;
@@ -1907,39 +1904,55 @@ void CheckTeamStatus(void) {
 		return; // don't spam teamoverlay updates during intermission
 
 	int updateRate = Com_Clampi(1, 1000, g_teamOverlayUpdateRate.integer);
-	if (level.time - level.lastTeamLocationTime > updateRate) {
 
-		level.lastTeamLocationTime = level.time;
+	qboolean updated[TEAM_NUM_TEAMS] = { qfalse };
 
-		for (i = 0; i < g_maxclients.integer; i++) {
-			ent = g_entities + i;
+	for (int i = 0; i < g_maxclients.integer; i++) {
+		gentity_t *ent = g_entities + i;
 
-			if ( !ent->client )
-			{
-				continue;
-			}
+		if (!ent->client || ent->client->pers.connected != CON_CONNECTED)
+			continue;
 
-			if ( ent->client->pers.connected != CON_CONNECTED ) {
-				continue;
-			}
+		if (!(ent->inuse && (ent->client->sess.sessionTeam == TEAM_RED || ent->client->sess.sessionTeam == TEAM_BLUE)))
+			continue;
+		
+		if (level.time - level.lastTeamLocationTime[ent->client->sess.sessionTeam] < updateRate)
+			continue;
 
-			if (ent->inuse && (ent->client->sess.sessionTeam == TEAM_RED ||	ent->client->sess.sessionTeam == TEAM_BLUE)) {
-				ent->client->pers.teamState.location = Team_GetLocation( ent, NULL, 0 );
-			}
-		}
-
-		for (i = 0; i < g_maxclients.integer; i++) {
-			ent = g_entities + i;
-
-			if ( !ent->client || ent->client->pers.connected != CON_CONNECTED ) {
-				continue;
-			}
-
-			if (ent->inuse && (ent->client->ps.persistant[PERS_TEAM] == TEAM_RED ||	ent->client->ps.persistant[PERS_TEAM] == TEAM_BLUE) && !ent->client->isLagging) {
-				TeamplayInfoMessage( ent );
-			}
-		}
+		ent->client->pers.teamState.location = Team_GetLocation( ent, NULL, 0 );
 	}
+
+	for (int i = 0; i < g_maxclients.integer; i++) {
+		gentity_t *ent = g_entities + i;
+
+		if (!ent->client || ent->client->pers.connected != CON_CONNECTED)
+			continue;
+
+		if (!(ent->inuse && (ent->client->ps.persistant[PERS_TEAM] == TEAM_RED || ent->client->ps.persistant[PERS_TEAM] == TEAM_BLUE) && !ent->client->isLagging))
+			continue;
+
+		if (level.time - level.lastTeamLocationTime[ent->client->sess.sessionTeam] < updateRate)
+			continue;
+
+		TeamplayInfoMessage( ent );
+		updated[ent->client->ps.persistant[PERS_TEAM]] = qtrue;
+		Com_DebugPrintf("%d - CheckTeamStatus: client %d (team %d) - sending update (last update was %d)\n",
+			level.time, i, ent->client->ps.persistant[PERS_TEAM], level.lastTeamLocationTime[ent->client->ps.persistant[PERS_TEAM]]);
+	}
+
+	for (int i = 0; i < TEAM_NUM_TEAMS; i++) {
+		if (updated[i])
+			level.lastTeamLocationTime[i] = level.time;
+	}
+}
+
+void ImmediatelyUpdateTeamOverlay(team_t team) {
+	assert(team >= TEAM_FREE && team < TEAM_NUM_TEAMS);
+
+	if (!g_teamOverlayFcForceUpdate.integer)
+		return;
+
+	level.lastTeamLocationTime[team] = 0;
 }
 
 /*-----------------------------------------------------------------*/

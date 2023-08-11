@@ -223,6 +223,7 @@ vmCvar_t	g_customVote10_label;
 vmCvar_t	g_teamPrivateDuels;
 
 vmCvar_t	g_teamOverlayUpdateRate;
+vmCvar_t	g_teamOverlayFcForceUpdate;
 vmCvar_t	debug_clientNumLog;
 
 #ifndef FINAL_BUILD
@@ -1080,6 +1081,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_teamPrivateDuels, "g_teamPrivateDuels", "0", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_teamOverlayUpdateRate, "g_teamOverlayUpdateRate", "250", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_teamOverlayFcForceUpdate, "g_teamOverlayFcForceUpdate", "1", CVAR_ARCHIVE, 0, qfalse },
 
 	{ &debug_clientNumLog, "debug_clientNumLog", "0", CVAR_ARCHIVE, 0, qtrue},
 
