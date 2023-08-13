@@ -4788,6 +4788,11 @@ qboolean TeamGenerator_VoteToBar(gentity_t *ent, const char *voteStr, char **new
 		return qtrue;
 	}
 
+	if (IsRacerOrSpectator(ent) && IsSpecName(ent->client->pers.netname)) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You are not pickable, so you cannot vote to bar.");
+		return qtrue;
+	}
+
 	gentity_t *someoneConnectedOnThisAccount = NULL;
 	for (int i = 0; i < MAX_CLIENTS; i++) {
 		gentity_t *thisEnt = &g_entities[i];
@@ -5012,6 +5017,11 @@ qboolean TeamGenerator_VoteToUnbar(gentity_t *ent, const char *voteStr, char **n
 
 	if (!VALIDSTRING(voteStr) || strlen(voteStr) < 7) {
 		TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("Usage: %cunbar [account name]", TEAMGEN_CHAT_COMMAND_CHARACTER));
+		return qtrue;
+	}
+
+	if (IsRacerOrSpectator(ent) && IsSpecName(ent->client->pers.netname)) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You are not pickable, so you cannot vote to unbar.");
 		return qtrue;
 	}
 
