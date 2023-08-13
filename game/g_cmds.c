@@ -7826,6 +7826,25 @@ void Cmd_Verify_f(gentity_t *verifier) {
 
 	if (G_LinkAccountToSession(client->session, acc.ptr)) {
 		client->sess.verifiedByVerifyCommand = qtrue;
+
+		if (g_gametype.integer == GT_CTF) {
+			char posBuf[8] = { 0 };
+			G_DBGetMetadata(va("remindpos_account_%d", acc.ptr->id), posBuf, sizeof(posBuf));
+			if (posBuf[0]) {
+				int pos = atoi(posBuf);
+				assert(pos >= CTFPOSITION_BASE && pos <= CTFPOSITION_OFFENSE);
+				Com_DebugPrintf("Restored client %d position %d from database\n", client - level.clients, pos);
+				client->sess.remindPositionOnMapChange.pos = pos;
+				client->sess.remindPositionOnMapChange.valid = qtrue;
+				switch (pos) {
+				case CTFPOSITION_BASE: client->sess.remindPositionOnMapChange.score = 8000; break;
+				case CTFPOSITION_CHASE: client->sess.remindPositionOnMapChange.score = 4000; break;
+				case CTFPOSITION_OFFENSE: client->sess.remindPositionOnMapChange.score = 1000; break;
+				default: assert(qfalse);
+				}
+			}
+		}
+
 		PrintIngame(verifier - g_entities, "Verified client %d (%s^7) as account %s.\n", clientId, client->pers.netname, username);
 		char *s = va("verify: session %d/client %d (%s^7) linked by verifier client %d (%s) to account '%s^7' (id: %d)\n",
 			client->session->id, clientId, client->pers.netname, verifier - g_entities, verifier->client->account->name, acc.ptr->name, acc.ptr->id);

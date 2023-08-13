@@ -5013,7 +5013,28 @@ static qboolean IsBoon(gentity_t *ent) {
 	return !!(ent && ent->item && !(ent->s.eFlags & EF_ITEMPLACEHOLDER) && ent->item->giType == IT_POWERUP && ent->item->giTag == PW_FORCE_BOON);
 }
 void RestoreDisconnectedPlayerData(gentity_t *ent) {
-	if (!g_autoPauseDisconnect.integer || g_autoPauseDisconnect.integer == 1 || g_cheats.integer || !ent || !ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED ||
+	if (!ent || !ent->client)
+		return;
+
+	if (ent->client->account && g_gametype.integer == GT_CTF) {
+		char posBuf[8] = { 0 };
+		G_DBGetMetadata(va("remindpos_account_%d", ent->client->account->id), posBuf, sizeof(posBuf));
+		if (posBuf[0]) {
+			int pos = atoi(posBuf);
+			assert(pos >= CTFPOSITION_BASE && pos <= CTFPOSITION_OFFENSE);
+			Com_DebugPrintf("Restored client %d position %d from database\n", ent - g_entities, pos);
+			ent->client->sess.remindPositionOnMapChange.pos = pos;
+			ent->client->sess.remindPositionOnMapChange.valid = qtrue;
+			switch (pos) {
+			case CTFPOSITION_BASE: ent->client->sess.remindPositionOnMapChange.score = 8000; break;
+			case CTFPOSITION_CHASE: ent->client->sess.remindPositionOnMapChange.score = 4000; break;
+			case CTFPOSITION_OFFENSE: ent->client->sess.remindPositionOnMapChange.score = 1000; break;
+			default: assert(qfalse);
+			}
+		}
+	}
+
+	if (!g_autoPauseDisconnect.integer || g_autoPauseDisconnect.integer == 1 || g_cheats.integer || !ent->inuse || ent->client->pers.connected != CON_CONNECTED ||
 		!ent->client->session || (ent->r.svFlags & SVF_BOT) || ent->client->sess.clientType != CLIENT_TYPE_NORMAL || !PauseConditions())
 		return;
 

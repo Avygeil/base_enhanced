@@ -1936,8 +1936,6 @@ void CheckTeamStatus(void) {
 
 		TeamplayInfoMessage( ent );
 		updated[ent->client->ps.persistant[PERS_TEAM]] = qtrue;
-		Com_DebugPrintf("%d - CheckTeamStatus: client %d (team %d) - sending update (last update was %d)\n",
-			level.time, i, ent->client->ps.persistant[PERS_TEAM], level.lastTeamLocationTime[ent->client->ps.persistant[PERS_TEAM]]);
 	}
 
 	for (int i = 0; i < TEAM_NUM_TEAMS; i++) {

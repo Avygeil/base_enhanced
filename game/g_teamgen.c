@@ -3247,6 +3247,7 @@ void ActivateTeamsProposal(permutationOfTeams_t *permutation) {
 			ent->client->sess.remindPositionOnMapChange.valid = qtrue;
 			ent->client->sess.remindPositionOnMapChange.pos = pos;
 			ent->client->sess.remindPositionOnMapChange.score = score;
+			G_DBSetMetadata(va("remindpos_account_%d", accountNum), va("%d", pos));
 
 			G_SetRaceMode(ent, qfalse);
 			if (ent->client->sess.canJoin) {
@@ -5955,6 +5956,8 @@ void ShowSubBalance(void) {
 }
 
 void TeamGen_ClearRemindPositions(qboolean refreshClientinfo) {
+	G_DBDeleteMetadataStartingWith("remindpos_account_");
+
 	for (int i = 0; i < MAX_CLIENTS; i++) {
 		qboolean update = qfalse;
 

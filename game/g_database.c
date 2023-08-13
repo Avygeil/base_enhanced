@@ -95,6 +95,9 @@ void G_DBLoadDatabase( void *serverDbPtr )
 
 	G_DBSetMetadata( "schema_version", DB_SCHEMA_VERSION_STR );
 
+	if (!g_notFirstMap.integer)
+		G_DBDeleteMetadataStartingWith("remindpos_account_");
+
 	// optimize the db if needed
 
 	G_DBGetMetadata( "last_optimize", s, sizeof( s ) );
@@ -140,6 +143,12 @@ const char* const sqlGetMetadata =
 const char* const sqlSetMetadata =
 "INSERT OR REPLACE INTO metadata (key, value) VALUES( ?1, ?2 );                ";
 
+const char *const sqlDeleteMetadata =
+"DELETE FROM metadata WHERE key = ?1;                ";
+
+const char *const sqlDeleteMetadataStartingWith =
+"DELETE FROM metadata WHERE key LIKE ?1 || '%';";
+
 void G_DBGetMetadata( const char *key,
 	char *outValue,
 	size_t outValueBufSize )
@@ -176,6 +185,32 @@ void G_DBSetMetadata( const char *key,
 	trap_sqlite3_step( statement );
 
 	trap_sqlite3_finalize( statement );
+}
+
+void G_DBDeleteMetadata(const char *key)
+{
+	sqlite3_stmt *statement;
+
+	trap_sqlite3_prepare_v2(dbPtr, sqlDeleteMetadata, -1, &statement, 0);
+
+	sqlite3_bind_text(statement, 1, key, -1, SQLITE_STATIC);
+
+	trap_sqlite3_step(statement);
+
+	trap_sqlite3_finalize(statement);
+}
+
+void G_DBDeleteMetadataStartingWith(const char *key)
+{
+	sqlite3_stmt *statement;
+
+	trap_sqlite3_prepare_v2(dbPtr, sqlDeleteMetadataStartingWith, -1, &statement, 0);
+
+	sqlite3_bind_text(statement, 1, key, -1, SQLITE_STATIC);
+
+	trap_sqlite3_step(statement);
+
+	trap_sqlite3_finalize(statement);
 }
 
 // =========== ACCOUNTS ========================================================

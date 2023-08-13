@@ -1064,7 +1064,7 @@ FIXME: make this buffer size safe someday
 ============
 */
 #define	MAX_VA_STRING	32000
-#define MAX_VA_BUFFERS 64
+#define MAX_VA_BUFFERS 128
 
 char * QDECL va(const char *format, ...)
 {

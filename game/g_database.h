@@ -90,6 +90,10 @@ void G_DBGetMetadata( const char *key,
 void G_DBSetMetadata( const char *key,
 	const char *value );
 
+void G_DBDeleteMetadata(const char *key);
+
+void G_DBDeleteMetadataStartingWith(const char *key);
+
 // =========== NICKNAMES =======================================================
 
 typedef struct nicknameEntry_s {
