@@ -2979,7 +2979,8 @@ void G_BroadcastServerFeatureList( int clientNum ) {
 		"vchl "
 		"fsb "
 		"fdfa "
-		"ori ";
+		"ori "
+		"acl ";
 
 	static char locationsListConfigString[MAX_TOKEN_CHARS] = { 0 };
 
