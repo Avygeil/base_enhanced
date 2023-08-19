@@ -2099,6 +2099,15 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 		}
 	}
 
+	static int teltiTelefrags = 0;
+	if (g_gametype.integer == GT_CTF && meansOfDeath == MOD_TELEFRAG && !Q_stricmp(level.mapname, "mp/ctf_telti") &&
+		level.time - level.startTime <= 10000) {
+		if (++teltiTelefrags >= 2) {
+			trap_SendConsoleCommand(EXEC_APPEND, "map_restart 10\n");
+			teltiTelefrags = -999999;
+		}
+	}
+
 	self->client->ps.emplacedIndex = 0;
 
 	G_BreakArm(self, 0); //unbreak anything we have broken
