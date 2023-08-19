@@ -1509,7 +1509,7 @@ void ForceTeamHeal( gentity_t *self, qboolean redirectedTE )
 	int numpl = 0;
 	int pl[MAX_CLIENTS];
 	int healthadd = 0;
-	gentity_t *te = NULL, *te2 = NULL;
+	gentity_t *te = NULL;
 	qboolean baseBoost = !!(self->client->account && self->client->account->flags & ACCOUNTFLAG_BOOST_BASEAUTOTHTEBOOST && g_boost.integer && GetRemindedPosOrDeterminedPos(self) == CTFPOSITION_BASE);
 
 	if ( self->health <= 0 )
@@ -1618,8 +1618,16 @@ void ForceTeamHeal( gentity_t *self, qboolean redirectedTE )
 	}
 
 	self->client->ps.fd.forcePowerDebounce[evaluateThisForcePower] = level.time + 2000;
-	if (g_broadcastGivenThTe.integer)
-		trap_SendServerCommand(self - g_entities, "kls -1 -1 \"ygt\" \"1\"");
+	if (g_broadcastGivenThTe.integer) {
+		const char *str = "kls -1 -1 \"ygt\" \"1\"";
+		trap_SendServerCommand(self - g_entities, str);
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *thisEnt = &g_entities[i];
+			if (thisEnt == self || !thisEnt->inuse || !thisEnt->client || thisEnt->client->sess.spectatorState != SPECTATOR_FOLLOW || thisEnt->client->sess.spectatorClient != self - g_entities)
+				continue;
+			trap_SendServerCommand(i, str);
+		}
+	}
 
 	for (int i = 0; i < numpl; i++)
 	{
@@ -1642,32 +1650,15 @@ void ForceTeamHeal( gentity_t *self, qboolean redirectedTE )
 			//At this point we know we got one, so add him into the collective event client bitflag
 			if (!te)
 			{
-				if (redirectedTE) {
-					// play real effect for everyone else
-					te = G_TempEntity(self->client->ps.origin, EV_TEAM_POWER);
-					te->s.eventParm = 1; //eventParm 1 is heal, eventParm 2 is force regen
-					G_ApplyRaceBroadcastsToEvent(self, te);
-					te->r.broadcastClients[1] |= (1 << (self - g_entities));
-
-					// play the effect for the power the guy thought he used for himself lmao
-					te2 = G_TempEntity(self->client->ps.origin, EV_TEAM_POWER);
-					te2->s.eventParm = 2; //eventParm 1 is heal, eventParm 2 is force regen
-					te2->r.svFlags |= SVF_SINGLECLIENT;
-					te2->r.singleClient = self - g_entities;
-				}
-				else {
-					te = G_TempEntity(self->client->ps.origin, EV_TEAM_POWER);
-					te->s.eventParm = 1; //eventParm 1 is heal, eventParm 2 is force regen
-					G_ApplyRaceBroadcastsToEvent(self, te);
-				}
+				te = G_TempEntity(self->client->ps.origin, EV_TEAM_POWER);
+				te->s.eventParm = 1; //eventParm 1 is heal, eventParm 2 is force regen
+				G_ApplyRaceBroadcastsToEvent(self, te);
 
 				//since we had an extra check above, do the drain now because we got at least one guy
 				BG_ForcePowerDrain( &self->client->ps, FP_TEAM_HEAL, forcePowerNeeded[self->client->ps.fd.forcePowerLevel[evaluateThisForcePower]][FP_TEAM_HEAL] );
 			}
 
 			WP_AddToClientBitflags(te, pl[i]);
-			if (te2)
-				WP_AddToClientBitflags(te2, pl[i]);
 
 			//Now cramming it all into one event.. doing this many g_sound events at once was a Bad Thing.
 		}
@@ -1684,7 +1675,7 @@ void ForceTeamForceReplenish( gentity_t *self, qboolean redirectedTH )
 	int numpl = 0;
 	int pl[MAX_CLIENTS];
 	int poweradd = 0;
-	gentity_t *te = NULL, *te2 = NULL;
+	gentity_t *te = NULL;
 	qboolean baseBoost = !!(self->client->account && self->client->account->flags & ACCOUNTFLAG_BOOST_BASEAUTOTHTEBOOST && g_boost.integer && GetRemindedPosOrDeterminedPos(self) == CTFPOSITION_BASE);
 	const int evaluateThisForcePower = redirectedTH ? FP_TEAM_HEAL : FP_TEAM_FORCE;
 
@@ -1798,8 +1789,16 @@ void ForceTeamForceReplenish( gentity_t *self, qboolean redirectedTH )
 		poweradd = 25;
 	}
 	self->client->ps.fd.forcePowerDebounce[evaluateThisForcePower] = level.time + 2000;
-	if (g_broadcastGivenThTe.integer)
-		trap_SendServerCommand(self - g_entities, "lchat \"ygt\"");
+	if (g_broadcastGivenThTe.integer) {
+		const char *str = "lchat \"ygt\"";
+		trap_SendServerCommand(self - g_entities, str);
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *thisEnt = &g_entities[i];
+			if (thisEnt == self || !thisEnt->inuse || !thisEnt->client || thisEnt->client->sess.spectatorState != SPECTATOR_FOLLOW || thisEnt->client->sess.spectatorClient != self - g_entities)
+				continue;
+			trap_SendServerCommand(i, str);
+		}
+	}
 
 	BG_ForcePowerDrain( &self->client->ps, FP_TEAM_FORCE, forcePowerNeeded[self->client->ps.fd.forcePowerLevel[evaluateThisForcePower]][FP_TEAM_FORCE] );
 
@@ -1823,29 +1822,12 @@ void ForceTeamForceReplenish( gentity_t *self, qboolean redirectedTH )
 		//At this point we know we got one, so add him into the collective event client bitflag
 		if (!te)
 		{
-			if (redirectedTH) {
-				// play real effect for everyone else
-				te = G_TempEntity(self->client->ps.origin, EV_TEAM_POWER);
-				te->s.eventParm = 2; //eventParm 1 is heal, eventParm 2 is force regen
-				G_ApplyRaceBroadcastsToEvent(self, te);
-				te->r.broadcastClients[1] |= (1 << (self - g_entities));
-
-				// play the effect for the power the guy thought he used for himself lmao
-				te2 = G_TempEntity(self->client->ps.origin, EV_TEAM_POWER);
-				te2->s.eventParm = 1; //eventParm 1 is heal, eventParm 2 is force regen
-				te2->r.svFlags |= SVF_SINGLECLIENT;
-				te2->r.singleClient = self - g_entities;
-			}
-			else {
-				te = G_TempEntity(self->client->ps.origin, EV_TEAM_POWER);
-				te->s.eventParm = 2; //eventParm 1 is heal, eventParm 2 is force regen
-				G_ApplyRaceBroadcastsToEvent(self, te);
-			}
+			te = G_TempEntity(self->client->ps.origin, EV_TEAM_POWER);
+			te->s.eventParm = 2; //eventParm 1 is heal, eventParm 2 is force regen
+			G_ApplyRaceBroadcastsToEvent(self, te);
 		}
 
 		WP_AddToClientBitflags(te, pl[i]);
-		if (te2)
-			WP_AddToClientBitflags(te2, pl[i]);
 		//Now cramming it all into one event.. doing this many g_sound events at once was a Bad Thing.
 	}
 
