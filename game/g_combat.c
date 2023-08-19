@@ -5218,9 +5218,6 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 		&& mod > MOD_UNKNOWN && mod <= MOD_FORCE_DARK) {
 		// TODO: do we want other kinds of damage?
 
-		if (g_gametype.integer == GT_CTF && HasFlag(targ) && !IsRacerOrSpectator(targ) && (take >= 30 || take >= (targ->health / 2)) && targ->health - take > 0)
-			ImmediatelyUpdateTeamOverlay(targ->client->sess.sessionTeam);
-
 		// cap the damage stat change to the target's health + armor
 		// e.g. if you do 100 damage to someone with 1 hp, then count it as only 1 damage instead of 100
 		int damageStatIncrease = take + asave;

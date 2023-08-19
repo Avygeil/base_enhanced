@@ -1787,7 +1787,7 @@ typedef struct {
 	qboolean	autoStartPending;		// auto_start was executed; we want to restart
 
 	int			teamScores[TEAM_NUM_TEAMS];
-	int			lastTeamLocationTime[TEAM_NUM_TEAMS];		// last time of client team location update
+	int			lastTeamLocationTime;		// last time of client team location update
 
 	qboolean	newSession;				// don't use any old session data, because
 										// we changed gametype
@@ -2789,7 +2789,6 @@ typedef struct teamgame_s {
 } teamgame_t;
 qboolean OnSameTeam( gentity_t *ent1, gentity_t *ent2 );
 void Team_CheckDroppedItem( gentity_t *dropped );
-void ImmediatelyUpdateTeamOverlay(team_t team);
 
 //
 // g_mem.c
@@ -3424,7 +3423,6 @@ extern vmCvar_t    g_customVote10_label;
 extern vmCvar_t	   debug_clientNumLog;
 
 extern vmCvar_t    g_teamOverlayUpdateRate;
-extern vmCvar_t    g_teamOverlayFcForceUpdate;
 
 extern vmCvar_t	   g_rconpassword;
 

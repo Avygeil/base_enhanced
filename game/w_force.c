@@ -1639,9 +1639,6 @@ void ForceTeamHeal( gentity_t *self, qboolean redirectedTE )
 
 			g_entities[pl[i]].health = g_entities[pl[i]].client->ps.stats[STAT_HEALTH];
 
-			if (g_gametype.integer == GT_CTF && HasFlag(&g_entities[pl[i]]) && !IsRacerOrSpectator(&g_entities[pl[i]]))
-				ImmediatelyUpdateTeamOverlay(self->client->sess.sessionTeam);
-
 			//At this point we know we got one, so add him into the collective event client bitflag
 			if (!te)
 			{
@@ -1675,9 +1672,6 @@ void ForceTeamHeal( gentity_t *self, qboolean redirectedTE )
 			//Now cramming it all into one event.. doing this many g_sound events at once was a Bad Thing.
 		}
 	}
-
-	if (g_gametype.integer == GT_CTF && HasFlag(self) && !IsRacerOrSpectator(self))
-		ImmediatelyUpdateTeamOverlay(self->client->sess.sessionTeam);
 }
 
 void ForceTeamForceReplenish( gentity_t *self, qboolean redirectedTH )
@@ -1826,9 +1820,6 @@ void ForceTeamForceReplenish( gentity_t *self, qboolean redirectedTH )
 			g_entities[pl[i]].client->ps.fd.forcePower = 100;
 		}
 
-		if (g_gametype.integer == GT_CTF && HasFlag(&g_entities[pl[i]]) && !IsRacerOrSpectator(&g_entities[pl[i]]))
-			ImmediatelyUpdateTeamOverlay(self->client->sess.sessionTeam);
-
 		//At this point we know we got one, so add him into the collective event client bitflag
 		if (!te)
 		{
@@ -1862,9 +1853,6 @@ void ForceTeamForceReplenish( gentity_t *self, qboolean redirectedTH )
 
 	float thisEnergizeEfficiency = Com_Clamp(0.0f, 1.0f, ((float)highestAmountEnergizedForAnyone / (float)poweradd)); // e.g. 50/50 and 33/33 are treated the same (1.0)
 	self->client->stats->normalizedEnergizeAmounts += thisEnergizeEfficiency;
-
-	if (g_gametype.integer == GT_CTF && HasFlag(self) && !IsRacerOrSpectator(self))
-		ImmediatelyUpdateTeamOverlay(self->client->sess.sessionTeam);
 }
 
 void AutoTHTE(gentity_t *self) {
@@ -2070,9 +2058,6 @@ void ForceGrip( gentity_t *self )
 
 					// dock the force from the user
 					BG_ForcePowerDrain(&self->client->ps, FP_GRIP, GRIP_DRAIN_AMOUNT);
-
-					if (g_gametype.integer == GT_CTF && HasFlag(self) && !IsRacerOrSpectator(self))
-						ImmediatelyUpdateTeamOverlay(self->client->sess.sessionTeam);
 				}
 			}
 			return;
@@ -2120,9 +2105,6 @@ void ForceSpeed( gentity_t *self, int forceDuration )
 	WP_ForcePowerStart( self, FP_SPEED, forceDuration );
 	G_Sound( self, CHAN_BODY, G_SoundIndex("sound/weapons/force/speed.wav") );
 	G_Sound( self, TRACK_CHANNEL_2, speedLoopSound );
-	
-	if (g_gametype.integer == GT_CTF && HasFlag(self) && !IsRacerOrSpectator(self))
-		ImmediatelyUpdateTeamOverlay(self->client->sess.sessionTeam);
 }
 
 void ForceSeeing( gentity_t *self )
@@ -2152,9 +2134,6 @@ void ForceSeeing( gentity_t *self )
 
 	G_Sound( self, CHAN_AUTO, G_SoundIndex("sound/weapons/force/see.wav") );
 	G_Sound( self, TRACK_CHANNEL_5, seeLoopSound );
-
-	if (g_gametype.integer == GT_CTF && HasFlag(self) && !IsRacerOrSpectator(self))
-		ImmediatelyUpdateTeamOverlay(self->client->sess.sessionTeam);
 }
 
 void ForceProtect( gentity_t *self )
@@ -2193,9 +2172,6 @@ void ForceProtect( gentity_t *self )
 	WP_ForcePowerStart( self, FP_PROTECT, 0 );
 	G_PreDefSound(self, PDSOUND_PROTECT);
 	G_Sound( self, TRACK_CHANNEL_3, protectLoopSound );
-
-	if (g_gametype.integer == GT_CTF && HasFlag(self) && !IsRacerOrSpectator(self))
-		ImmediatelyUpdateTeamOverlay(self->client->sess.sessionTeam);
 }
 
 void ForceAbsorb( gentity_t *self )
@@ -2234,9 +2210,6 @@ void ForceAbsorb( gentity_t *self )
 	WP_ForcePowerStart( self, FP_ABSORB, 0 );
 	G_PreDefSound(self, PDSOUND_ABSORB);
 	G_Sound( self, TRACK_CHANNEL_3, absorbLoopSound );
-
-	if (g_gametype.integer == GT_CTF && HasFlag(self) && !IsRacerOrSpectator(self))
-		ImmediatelyUpdateTeamOverlay(self->client->sess.sessionTeam);
 }
 
 void ForceRage( gentity_t *self )
@@ -2288,9 +2261,6 @@ void ForceRage( gentity_t *self )
 
 	G_Sound( self, TRACK_CHANNEL_4, G_SoundIndex("sound/weapons/force/rage.wav") );
 	G_Sound( self, TRACK_CHANNEL_3, rageLoopSound );
-
-	if (g_gametype.integer == GT_CTF && HasFlag(self) && !IsRacerOrSpectator(self))
-		ImmediatelyUpdateTeamOverlay(self->client->sess.sessionTeam);
 }
 
 void ForceLightning( gentity_t *self )
