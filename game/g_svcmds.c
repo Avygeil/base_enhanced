@@ -3375,6 +3375,8 @@ static int AccountFlagName2Bitflag(const char* flagName) {
 		return ACCOUNTFLAG_BOOST_CHASEAUTOTHTEBOOST;
 	} else if (!Q_stricmp(flagName, "SucksMassiveCockAtSaberingBoost")) {
 		return ACCOUNTFLAG_BOOST_SUCKSMASSIVECOCKATSABERING;
+	} else if (!Q_stricmp(flagName, "FixIdioticForceConfig")) {
+		return ACCOUNTFLAG_BOOST_FIXIDIOTICFORCECONFIG;
 	}
 
 	return 0;
@@ -3411,7 +3413,8 @@ const char* AccountBitflag2FlagName(int bitflag) {
 		case ACCOUNTFLAG_SMODTROLL: return "SmodTroll";
 		case ACCOUNTFLAG_BOOST_OFFENSEAUTOTHTEBOOST: return "OffenseAutoTHTEBoost";
 		case ACCOUNTFLAG_BOOST_CHASEAUTOTHTEBOOST: return "ChaseAutoTHTEBoost";
-		case ACCOUNTFLAG_BOOST_SUCKSMASSIVECOCKATSABERING: "SucksMassiveCockAtSaberingBoost";
+		case ACCOUNTFLAG_BOOST_SUCKSMASSIVECOCKATSABERING: return "SucksMassiveCockAtSaberingBoost";
+		case ACCOUNTFLAG_BOOST_FIXIDIOTICFORCECONFIG: return "FixIdioticForceConfig";
 		default: return NULL;
 	}
 }

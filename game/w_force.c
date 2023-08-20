@@ -287,6 +287,12 @@ void WP_InitForcePowers( gentity_t *ent )
 
 	Q_strncpyz( forcePowers, Info_ValueForKey (userinfo, "forcepowers"), sizeof( forcePowers ) );
 
+	if (ent && ent->client && ent->client->account && (ent->client->account->flags & ACCOUNTFLAG_BOOST_FIXIDIOTICFORCECONFIG)) {
+		// fix ls using attack 2 instead of def
+		if (!Q_stricmp(forcePowers, "7-1-033330000333003210"))
+			Q_strncpyz(forcePowers, "7-1-033330000333003120", sizeof(forcePowers));
+	}
+
     /* *CHANGE 7c* anti force crash */
     temp = gaCheckForceString(forcePowers);
     if (temp != forcePowers && !(ent->r.svFlags & SVF_BOT)) {

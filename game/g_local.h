@@ -2092,6 +2092,7 @@ typedef struct {
 #define ACCOUNTFLAG_BOOST_OFFENSEAUTOTHTEBOOST			( 1 << 28 )
 #define ACCOUNTFLAG_BOOST_CHASEAUTOTHTEBOOST				( 1 << 29 )
 #define ACCOUNTFLAG_BOOST_SUCKSMASSIVECOCKATSABERING	( 1 << 30 )
+#define ACCOUNTFLAG_BOOST_FIXIDIOTICFORCECONFIG	( 1 << 31 )
 
 typedef void( *ListSessionsCallback )( void *ctx,
 	const sessionReference_t sessionRef,
