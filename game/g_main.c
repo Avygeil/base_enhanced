@@ -6131,6 +6131,9 @@ void G_RunFrame( int levelTime ) {
 						ingameDudeWithoutRemindedPos->client->sess.remindPositionOnMapChange.pos = newPos;
 						ingameDudeWithoutRemindedPos->client->sess.remindPositionOnMapChange.valid = qtrue;
 
+						if (ingameDudeWithoutRemindedPos->client->account)
+							G_DBSetMetadata(va("remindpos_account_%d", ingameDudeWithoutRemindedPos->client->account->id), va("%d", newPos));
+
 						// refreshing clientinfo here generally shouldn't be a lag issue because
 						// it's unlikely the subbing guy would sub in and everyone starts playing that fast
 						if (g_broadcastCtfPos.integer /*&& !level.wasRestarted*/)
