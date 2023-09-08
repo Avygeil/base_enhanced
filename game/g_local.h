@@ -3345,6 +3345,7 @@ extern vmCvar_t		g_vote_teamgen_unvote;
 extern vmCvar_t		g_vote_teamgen_fuck;
 
 extern vmCvar_t		g_broadcastCtfPos;
+extern vmCvar_t		g_assignMissingCtfPos;
 extern vmCvar_t		g_broadcastGivenThTe;
 
 extern vmCvar_t		d_debugBanPermutation;
