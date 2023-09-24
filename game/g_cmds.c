@@ -2319,6 +2319,82 @@ char *ReplaceString(const char *orig, char *rep, char *with) {
 	return result;
 }
 
+static qboolean IsSlur(const char *start, const char *slurFromList) {
+	if (!VALIDSTRING(start) || !VALIDSTRING(slurFromList))
+		return qfalse;
+
+	static const char charMap[256] = {
+		/* 0x00 */ 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+		/* 0x08 */ 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F,
+		/* 0x10 */ 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+		/* 0x18 */ 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F,
+		/* 0x20 */ ' ',  '!',  '"',  '#',  '$',  '%',  '&',  '\'',
+		/* 0x28 */ '(',  ')',  '*',  '+',  ',',  '-',  '.',  '/',
+		/* 0x30 */ '0',  '1',  '2',  '3',  '4',  '5',  '6',  '7',
+		/* 0x38 */ '8',  '9',  ':',  ';',  '<',  '=',  '>',  '?',
+		/* 0x40 */ '@',  'a',  'b',  'c',  'd',  'e',  'f',  'g',
+		/* 0x48 */ 'h',  'i',  'j',  'k',  'l',  'm',  'n',  'o',
+		/* 0x50 */ 'p',  'q',  'r',  's',  't',  'u',  'v',  'w',
+		/* 0x58 */ 'x',  'y',  'z',  '[',  '\\', ']',  '^',  '_',
+		/* 0x60 */ '`',  'a',  'b',  'c',  'd',  'e',  'f',  'g',
+		/* 0x68 */ 'h',  'i',  'j',  'k',  'l',  'm',  'n',  'o',
+		/* 0x70 */ 'p',  'q',  'r',  's',  't',  'u',  'v',  'w',
+		/* 0x78 */ 'x',  'y',  'z',  '{',  '|',  '}',  '~',  0x7F,
+		/* 0x80 */ 0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87,
+		/* 0x88 */ 0x88, 0x89, 0x8A, 0x8B, 0x8C, 0x8D, 0x8E, 0x8F,
+		/* 0x90 */ 0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97,
+		/* 0x98 */ 0x98, 0x99, 0x9A, 0x9B, 0x9C, 0x9D, 0x9E, 0x9F,
+		/* 0xA0 */ 0xA0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xA7,
+		/* 0xA8 */ 0xA8, 0xA9, 0xAA, 0xAB, 0xAC, 0xAD, 0xAE, 0xAF,
+		/* 0xB0 */ 0xB0, 0xB1, 0xB2, 0xB3, 0xB4, 0xB5, 0xB6, 0xB7,
+		/* 0xB8 */ 0xB8, 0xB9, 0xBA, 0xBB, 0xBC, 0xBD, 0xBE, 0xBF,
+		/* 0xC0 */ 'a',  'a',  'a',  'a',  'e',  'a',  'a',  'c',
+		/* 0xC8 */ 'e',  'e',  'e',  'e',  'i',  'i',  'i',  'i',
+		/* 0xD0 */ 'd',  'n',  'o',  'o',  'o',  'o',  'o',  0xD7,
+		/* 0xD8 */ 'o',  'u',  'u',  'u',  'u',  'y',  0xDE, 0xDF,
+		/* 0xE0 */ 'a',  'a',  'a',  'a',  'e',  'a',  'a',  'c',
+		/* 0xE8 */ 'e',  'e',  'e',  'e',  'i',  'i',  'i',  'i',
+		/* 0xF0 */ 'o',  'n',  'o',  'o',  'o',  'o',  'o',  0xF7,
+		/* 0xF8 */ 'o',  'u',  'u',  'u',  'u',  'y',  0xFE, 0xFF
+	};
+
+
+	// compare each character, using the map for possible substitutions
+	while (*start && *slurFromList) {
+		char mappedChar = charMap[(unsigned char)*start];
+
+		if (*slurFromList != mappedChar)
+			return qfalse;
+
+		++start;
+		++slurFromList;
+	}
+
+	// If we reached the end of the pattern string, it's a match
+	return (!*slurFromList);
+}
+
+qboolean HasSlur(const char *str) {
+	if (!VALIDSTRING(str))
+		return qfalse;
+
+	iterator_t iter;
+	ListIterate(&level.slurList, &iter, qfalse);
+
+	while (IteratorHasNext(&iter)) {
+		slur_t *slur = IteratorNext(&iter);
+		const char *start = str;
+
+		while (*start) {
+			if (IsSlur(start, slur->text))
+				return qtrue;
+			++start;
+		}
+	}
+
+	return qfalse;
+}
+
 void Cmd_CallVote_f(gentity_t *ent, int pause);
 void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, qboolean force ) {
 	assert(ent && ent->client);
@@ -2356,6 +2432,17 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, q
 					*(fixedMessage + MAX_SAY_TEXT - 1) = '\0';
 				chatText = fixedMessage;
 			}
+		}
+	}
+
+	if (g_filterSlurs.integer && level.slurList.size > 0) {
+		if (HasSlur(chatText)) {
+			G_LogPrintf("Filtered slur %s from player %d (%s): %s\n",
+				mode == SAY_TELL ? va("DM to player %d (%s)", target ? target - g_entities : -1, target && target->client ? target->client->pers.netname : "") : (mode == SAY_TEAM ? "teamchat" : "chat"),
+				ent - g_entities,
+				ent->client ? ent->client->pers.netname : "",
+				chatText);
+			return;
 		}
 	}
 

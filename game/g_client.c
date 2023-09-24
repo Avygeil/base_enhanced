@@ -2164,6 +2164,10 @@ void ClientUserinfoChanged( int clientNum ) {
 	PurgeStringedTrolling(client->pers.netname, client->pers.netname, sizeof(client->pers.netname));
 	Q_strncpyz ( oldname, client->pers.netname, sizeof( oldname ) );
 	s = Info_ValueForKey (userinfo, "name");
+	if (g_filterSlurs.integer && level.slurList.size > 0 && HasSlur(s)) {
+		G_LogPrintf("Filtered slur name from player %d: %s\n", clientNum, s);
+		s = DEFAULT_NAME;
+	}
 
 #if 0
 	if (IsEmpty(s)){ 

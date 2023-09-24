@@ -502,6 +502,8 @@ vmCvar_t	g_vote_teamgen_barVoteStartsNewPug;
 vmCvar_t	g_vote_teamgen_unvote;
 vmCvar_t	g_vote_teamgen_fuck;
 
+vmCvar_t	g_filterSlurs;
+
 vmCvar_t	g_broadcastCtfPos;
 vmCvar_t	g_assignMissingCtfPos;
 vmCvar_t	g_broadcastGivenThTe;
@@ -1020,6 +1022,8 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_teamgen_barVoteStartsNewPug, "g_vote_teamgen_barVoteStartsNewPug", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_unvote, "g_vote_teamgen_unvote", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_fuck, "g_vote_teamgen_fuck", "10", CVAR_ARCHIVE, 0, qfalse },
+
+	{ &g_filterSlurs, "g_filterSlurs", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
 
 	{ &g_broadcastCtfPos, "g_broadcastCtfPos", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
 	{ &g_assignMissingCtfPos, "g_assignMissingCtfPos", "1", CVAR_ARCHIVE, 0, qfalse },
@@ -1722,6 +1726,68 @@ static void LoadPepper(void) {
 	trap_FS_FCloseFile(f);
 }
 
+void InitSlurs(void) {
+	if (!g_filterSlurs.integer)
+		return;
+
+	const char *filename = "slurs.txt";
+	fileHandle_t f;
+	int len;
+
+	len = trap_FS_FOpenFile(filename, &f, FS_READ);
+	if (!f) {
+		Com_Printf("No %s file found.\n", filename);
+		return;
+	}
+
+	char *buf = malloc(len + 1);
+	trap_FS_Read(buf, len, f);
+	buf[len] = 0;
+	trap_FS_FCloseFile(f);
+
+	char *start = buf, *end = NULL;
+	while (VALIDSTRING(start)) {
+		// find the end of the line
+		end = start;
+		while (*end && *end != '\n' && *end != '\r')
+			++end;
+
+		// check if line is empty or just whitespace
+		qboolean isEmpty = qtrue;
+		for (char *ptr = start; ptr < end; ++ptr) {
+			if (!isspace((unsigned)*ptr)) {
+				isEmpty = qfalse;
+				break;
+			}
+		}
+
+		if (!isEmpty) {
+			// add to list
+			*end = '\0';
+			slur_t *slur = (slur_t *)ListAdd(&level.slurList, sizeof(slur_t));
+			slur->text = strdup(start);
+			for (unsigned char *p = slur->text; *p; p++)
+				*p = (unsigned char)(tolower(*p));
+		}
+
+		// move to the next line
+		start = end + 1;
+		if (start - buf >= len)  // exceeded buffer?
+			break;
+
+		while (*start == '\n' || *start == '\r') {
+			++start;
+			if (start - buf >= len)  // exceeded buffer?
+				break;
+		}
+	}
+
+	free(buf);
+
+	Com_Printf("%d slurs loaded.\n", level.slurList.size);
+}
+
+
 /*
 ============
 G_InitGame
@@ -2091,6 +2157,8 @@ void G_InitGame( int levelTime, int randomSeed, int restart, void *serverDbPtr )
 			TeamGen_DoAutoRestart();
 	}
 
+	InitSlurs();
+
 	// always clear these so that they can only happen once
 	trap_Cvar_Set("g_lastIntermissionStartTime", "");
 	trap_Cvar_Set("g_lastTeamGenTime", "");
@@ -2267,6 +2335,14 @@ void G_ShutdownGame( int restart ) {
 	ListClear(&level.unbarVoteList);
 	ListClear(&level.captureList);
 	ListClear(&level.fuckVoteList);
+
+	ListIterate(&level.slurList, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		slur_t *slur = IteratorNext(&iter);
+		if (slur->text)
+			free(slur->text);
+	}
+	ListClear(&level.slurList);
 
 	UnpatchEngine();
 }

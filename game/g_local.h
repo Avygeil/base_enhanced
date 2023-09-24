@@ -1979,6 +1979,8 @@ typedef struct {
 	list_t			bluePlayerTickList;
 	list_t			disconnectedPlayerList;
 
+	list_t			slurList;
+
 	list_t			statsList;
 	list_t			savedStatsList;
 	stats_t			npcStatsDummy; // so we don't have to spam `if (client->stats)` everywhere before setting stats, just have all NPCs share one stats pointer
@@ -2172,6 +2174,7 @@ ctfPosition_t CtfPositionFromString(char *s);
 float GetCTFLocationValue(gentity_t *ent);
 qboolean ValidateAndCopyPositionPreferences(const positionPreferences_t *in, positionPreferences_t *out);
 qboolean IsInstapauser(gentity_t *ent);
+qboolean HasSlur(const char *str);
 
 //
 // g_items.c
@@ -2657,6 +2660,12 @@ typedef struct
 //
 // g_main.c
 //
+#define SLUR_SIZE	(32)
+typedef struct {
+	node_t node;
+	char *text;
+} slur_t;
+
 extern vmCvar_t g_ff_objectives;
 extern qboolean gDoSlowMoDuel;
 extern int gSlowMoDuelTime;
@@ -3343,6 +3352,8 @@ extern vmCvar_t		g_vote_teamgen_enableBarVote;
 extern vmCvar_t		g_vote_teamgen_barVoteStartsNewPug;
 extern vmCvar_t		g_vote_teamgen_unvote;
 extern vmCvar_t		g_vote_teamgen_fuck;
+
+extern vmCvar_t		g_filterSlurs;
 
 extern vmCvar_t		g_broadcastCtfPos;
 extern vmCvar_t		g_assignMissingCtfPos;
