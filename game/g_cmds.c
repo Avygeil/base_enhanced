@@ -2330,8 +2330,8 @@ static qboolean IsSlur(const char *start, const char *slurFromList) {
 		/* 0x18 */ 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F,
 		/* 0x20 */ ' ',  '!',  '"',  '#',  '$',  '%',  '&',  '\'',
 		/* 0x28 */ '(',  ')',  '*',  '+',  ',',  '-',  '.',  '/',
-		/* 0x30 */ '0',  '1',  '2',  '3',  '4',  '5',  '6',  '7',
-		/* 0x38 */ '8',  '9',  ':',  ';',  '<',  '=',  '>',  '?',
+		/* 0x30 */ 'o',  'i',  'z',  'e',  'a',  's',  'b',  't',
+		/* 0x38 */ 'b',  'g',  ':',  ';',  '<',  '=',  '>',  '?',
 		/* 0x40 */ '@',  'a',  'b',  'c',  'd',  'e',  'f',  'g',
 		/* 0x48 */ 'h',  'i',  'j',  'k',  'l',  'm',  'n',  'o',
 		/* 0x50 */ 'p',  'q',  'r',  's',  't',  'u',  'v',  'w',
@@ -3925,6 +3925,12 @@ void Cmd_CallVote_f( gentity_t *ent, int pause ) {
 
 		NormalizeName(ConcatArgs(2), arg2, sizeof(arg2), sizeof(arg2));
 		PurgeStringedTrolling(arg2, arg2, sizeof(arg2));
+
+		if (g_filterSlurs.integer && level.slurList.size > 0 && HasSlur(arg2)) {
+			G_LogPrintf("Filtered slur poll from player %d (%s): %s\n", ent - g_entities, ent->client ? ent->client->pers.netname : "", arg2);
+			return;
+		}
+
 		Com_sprintf( level.voteString, sizeof( level.voteString ), ";" );
 		Com_sprintf( level.voteDisplayString, sizeof( level.voteDisplayString ), "Poll: %s", arg2 );
 	} 
