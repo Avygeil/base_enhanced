@@ -823,11 +823,12 @@ gentity_t *WhoGetsToPickUpTheFlag(gentity_t *flagEnt, int flagColor, gentity_t *
 
 	char buf[MAX_STRING_CHARS] = { 0 };
 	if (d_debugFixFlagPickup.integer) {
-		Com_sprintf(buf, sizeof(buf), "[%d] %d %s %s flag touch: ",
+		Com_sprintf(buf, sizeof(buf), "[%d] %d %s %s flag touch: flag coords %f %f %f",
 			level.time - level.startTime,
 			whoTriggered ? whoTriggered - g_entities : -1,
 			whoTriggered && whoTriggered->client ? whoTriggered->client->pers.netname : "",
-			flagColor == TEAM_RED ? "Red" : "Blue");
+			flagColor == TEAM_RED ? "Red" : "Blue",
+			flagEnt->s.pos.trBase[0], flagEnt->s.pos.trBase[1], flagEnt->s.pos.trBase[2]);
 	}
 
 	// loop through every player who is close to this flag
@@ -857,7 +858,8 @@ gentity_t *WhoGetsToPickUpTheFlag(gentity_t *flagEnt, int flagColor, gentity_t *
 		float dist = Distance(flagEnt->s.pos.trBase, touchEnt->client->ps.origin);
 
 		if (d_debugFixFlagPickup.integer)
-			Q_strcat(buf, sizeof(buf), va("(%d %s %.6f", touchEnt - g_entities, touchEnt->client->pers.netname, dist));
+			Q_strcat(buf, sizeof(buf), va("(%d %s %.6f with coords %f %f %f", touchEnt - g_entities, touchEnt->client->pers.netname, dist,
+				touchEnt->client->ps.origin[0], touchEnt->client->ps.origin[1], touchEnt->client->ps.origin[2]));
 
 		if (dist < lowestDistance) {
 			// this player is closer to the flag than any previously checked player
@@ -917,7 +919,8 @@ gentity_t *WhoGetsToPickUpTheFlag(gentity_t *flagEnt, int flagColor, gentity_t *
 			float dist = Distance(flagEnt->s.pos.trBase, touchEnt->client->ps.origin);
 
 			if (d_debugFixFlagPickup.integer)
-				Q_strcat(buf, sizeof(buf), va("(%d %s %.6f", touchEnt - g_entities, touchEnt->client->pers.netname, dist));
+				Q_strcat(buf, sizeof(buf), va("(sanity check %d %s %.6f with coords %f %f %f", touchEnt - g_entities, touchEnt->client->pers.netname, dist,
+					touchEnt->client->ps.origin[0], touchEnt->client->ps.origin[1], touchEnt->client->ps.origin[2]));
 
 			if (dist < lowestDistance) {
 				// this player is closer to the flag than any previously checked player
