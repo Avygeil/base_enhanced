@@ -824,7 +824,7 @@ gentity_t *WhoGetsToPickUpTheFlag(gentity_t *flagEnt, int flagColor, gentity_t *
 	char buf[MAX_STRING_CHARS] = { 0 };
 	if (d_debugFixFlagPickup.integer) {
 		Com_sprintf(buf, sizeof(buf), "[%d] %d %s %s flag touch: flag coords %.6f %.6f %.6f",
-			level.time - level.startTime,
+			trap_Milliseconds(),
 			whoTriggered ? whoTriggered - g_entities : -1,
 			whoTriggered && whoTriggered->client ? whoTriggered->client->pers.netname : "",
 			flagColor == TEAM_RED ? "Red" : "Blue",
@@ -858,8 +858,8 @@ gentity_t *WhoGetsToPickUpTheFlag(gentity_t *flagEnt, int flagColor, gentity_t *
 		float dist = Distance(flagEnt->s.pos.trBase, touchEnt->client->ps.origin);
 
 		if (d_debugFixFlagPickup.integer)
-			Q_strcat(buf, sizeof(buf), va("(%d %s %.6f with coords %.6f %.6f %.6f", touchEnt - g_entities, touchEnt->client->pers.netname, dist,
-				touchEnt->client->ps.origin[0], touchEnt->client->ps.origin[1], touchEnt->client->ps.origin[2]));
+			Q_strcat(buf, sizeof(buf), va("(%d %s %.6f with coords %.6f %.6f %.6f lastthink %d", touchEnt - g_entities, touchEnt->client->pers.netname, dist,
+				touchEnt->client->ps.origin[0], touchEnt->client->ps.origin[1], touchEnt->client->ps.origin[2], level.lastThinkRealTime[i]));
 
 		if (dist < lowestDistance) {
 			// this player is closer to the flag than any previously checked player
@@ -919,8 +919,8 @@ gentity_t *WhoGetsToPickUpTheFlag(gentity_t *flagEnt, int flagColor, gentity_t *
 			float dist = Distance(flagEnt->s.pos.trBase, touchEnt->client->ps.origin);
 
 			if (d_debugFixFlagPickup.integer)
-				Q_strcat(buf, sizeof(buf), va("(sanity check %d %s %.6f with coords %.6f %.6f %.6f", touchEnt - g_entities, touchEnt->client->pers.netname, dist,
-					touchEnt->client->ps.origin[0], touchEnt->client->ps.origin[1], touchEnt->client->ps.origin[2]));
+				Q_strcat(buf, sizeof(buf), va("(sanity %d %s %.6f with coords %.6f %.6f %.6f, lastthink %d", touchEnt - g_entities, touchEnt->client->pers.netname, dist,
+					touchEnt->client->ps.origin[0], touchEnt->client->ps.origin[1], touchEnt->client->ps.origin[2], level.lastThinkRealTime[i]));
 
 			if (dist < lowestDistance) {
 				// this player is closer to the flag than any previously checked player
