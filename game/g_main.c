@@ -870,7 +870,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_fixSniperSwitch,	"g_fixSniperSwitch"		, "0"	, CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 	{ &g_fixGolanDamage,	"g_fixGolanDamage"		, "0"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_locationBasedDamage_splash,	"g_locationBasedDamage_splash"		, "1"	, CVAR_ARCHIVE, 0, qtrue },
-	{ &g_fixFlagPickup,	"g_fixFlagPickup"		, "1"	, CVAR_ARCHIVE, 0, qtrue },
+	{ &g_fixFlagPickup,	"g_fixFlagPickup"		, "0"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &d_debugFixFlagPickup,	"d_debugFixFlagPickup"		, "0"	, CVAR_ARCHIVE, 0, qfalse },
 
 	{ &g_allowIgnore, "g_allowIgnore", "0", CVAR_ARCHIVE, 0, qfalse },
