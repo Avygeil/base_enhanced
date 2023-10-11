@@ -2602,12 +2602,14 @@ qboolean G_TeleportRacerToTelemark( gentity_t *ent ) {
 	// drop them to floor
 	trace_t tr;
 	vec3_t down, mins, maxs;
+#if 0
 	VectorSet( mins, -15, -15, DEFAULT_MINS_2 );
 	VectorSet( maxs, 15, 15, DEFAULT_MAXS_2 );
 	VectorCopy( client->sess.telemarkOrigin, down );
 	down[2] -= 32768;
 	trap_Trace( &tr, client->sess.telemarkOrigin, mins, maxs, down, client->ps.clientNum, MASK_PLAYERSOLID );
 	neworigin[2] = ( int )tr.endpos[2];
+#endif
 
 	trap_UnlinkEntity( ent );
 

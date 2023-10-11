@@ -859,7 +859,7 @@ gentity_t *WhoGetsToPickUpTheFlag(gentity_t *flagEnt, int flagColor, gentity_t *
 
 		if (d_debugFixFlagPickup.integer)
 			Q_strcat(buf, sizeof(buf), va("(%d %s %.6f with coords %.6f %.6f %.6f lastthink %d", touchEnt - g_entities, touchEnt->client->pers.netname, dist,
-				touchEnt->client->ps.origin[0], touchEnt->client->ps.origin[1], touchEnt->client->ps.origin[2], level.lastThinkRealTime[i]));
+				touchEnt->client->ps.origin[0], touchEnt->client->ps.origin[1], touchEnt->client->ps.origin[2], level.lastThinkRealTime[touchEntityClientNum]));
 
 		if (dist < lowestDistance) {
 			// this player is closer to the flag than any previously checked player
@@ -920,7 +920,7 @@ gentity_t *WhoGetsToPickUpTheFlag(gentity_t *flagEnt, int flagColor, gentity_t *
 
 			if (d_debugFixFlagPickup.integer)
 				Q_strcat(buf, sizeof(buf), va("(sanity %d %s %.6f with coords %.6f %.6f %.6f, lastthink %d", touchEnt - g_entities, touchEnt->client->pers.netname, dist,
-					touchEnt->client->ps.origin[0], touchEnt->client->ps.origin[1], touchEnt->client->ps.origin[2], level.lastThinkRealTime[i]));
+					touchEnt->client->ps.origin[0], touchEnt->client->ps.origin[1], touchEnt->client->ps.origin[2], level.lastThinkRealTime[touchEntityClientNum]));
 
 			if (dist < lowestDistance) {
 				// this player is closer to the flag than any previously checked player
