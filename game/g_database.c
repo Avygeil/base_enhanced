@@ -6065,7 +6065,7 @@ void G_DBListRatingPlayers(int raterAccountId, int raterClientNum, ctfPosition_t
 	ListClear(&playerList);
 
 	char combined[8192] = { 0 };
-	for (int i = PLAYERRATING_S; i >= PLAYERRATING_UNRATED; i--)
+	for (int i = PLAYERRATING_HIGH_S; i >= PLAYERRATING_UNRATED; i--)
 		Q_strcat(combined, sizeof(combined), va("%s\n", ratingStr[i]));
 
 	OutOfBandPrint(raterClientNum, "Your ^5%s^7 ratings:\n%s", NameForPos(pos), combined);
@@ -6130,7 +6130,7 @@ void G_DBGetPlayerRatings(void) {
 		int averageTier = sqlite3_column_int(statement, 2);
 
 		qboolean isRusty = qfalse;
-		if (g_vote_teamgen_rustWeeks.integer > 0 && averageTier > PLAYERRATING_MID_D) {
+		if (g_vote_teamgen_rustWeeks.integer > 0 && averageTier > PLAYERRATING_MID_G) {
 			rustyPlayer_t *found = ListFind(&level.rustyPlayersList, RustyPlayerMatches, &accountId, NULL);
 			if (found) {
 				averageTier -= 1;

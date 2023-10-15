@@ -36,6 +36,12 @@ void TeamGen_Initialize(void) {
 
 double PlayerTierToRating(ctfPlayerTier_t tier) {
 	switch (tier) {
+	case PLAYERRATING_MID_G: return 0.1;
+	case PLAYERRATING_HIGH_G: return 0.15;
+	case PLAYERRATING_LOW_F: return 0.2;
+	case PLAYERRATING_MID_F: return 0.25;
+	case PLAYERRATING_HIGH_F: return 0.3;
+	case PLAYERRATING_LOW_D: return 0.35;
 	case PLAYERRATING_MID_D: return 0.4;
 	case PLAYERRATING_HIGH_D: return 0.45;
 	case PLAYERRATING_LOW_C: return 0.5;
@@ -47,14 +53,18 @@ double PlayerTierToRating(ctfPlayerTier_t tier) {
 	case PLAYERRATING_LOW_A: return 0.8;
 	case PLAYERRATING_MID_A: return 0.85;
 	case PLAYERRATING_HIGH_A: return 0.9;
-	case PLAYERRATING_S: return 1.0;
+	case PLAYERRATING_LOW_S: return 0.95;
+	case PLAYERRATING_MID_S: return 1.0;
+	case PLAYERRATING_HIGH_S: return 1.05;
 	default: return 0.0;
 	}
 }
 
 ctfPlayerTier_t PlayerTierFromRating(double num) {
 	// stupid >= hack to account for imprecision
-	if (num >= 1.0 - 0.00001) return PLAYERRATING_S;
+	if (num >= 1.05 - 0.00001) return PLAYERRATING_HIGH_S;
+	if (num >= 1.0 - 0.00001) return PLAYERRATING_MID_S;
+	if (num >= 0.95 - 0.00001) return PLAYERRATING_LOW_S;
 	if (num >= 0.90 - 0.00001) return PLAYERRATING_HIGH_A;
 	if (num >= 0.85 - 0.00001) return PLAYERRATING_MID_A;
 	if (num >= 0.80 - 0.00001) return PLAYERRATING_LOW_A;
@@ -66,11 +76,23 @@ ctfPlayerTier_t PlayerTierFromRating(double num) {
 	if (num >= 0.5 - 0.0001) return PLAYERRATING_LOW_C;
 	if (num >= 0.45 - 0.0001) return PLAYERRATING_HIGH_D;
 	if (num >= 0.4 - 0.0001) return PLAYERRATING_MID_D;
+	if (num >= 0.35 - 0.0001) return PLAYERRATING_LOW_D;
+	if (num >= 0.3 - 0.0001) return PLAYERRATING_HIGH_F;
+	if (num >= 0.25 - 0.0001) return PLAYERRATING_MID_F;
+	if (num >= 0.2 - 0.0001) return PLAYERRATING_LOW_F;
+	if (num >= 0.15 - 0.0001) return PLAYERRATING_HIGH_G;
+	if (num >= 0.1 - 0.0001) return PLAYERRATING_MID_G;
 	return PLAYERRATING_UNRATED;
 }
 
 char *PlayerRatingToString(ctfPlayerTier_t tier) {
 	switch (tier) {
+	case PLAYERRATING_MID_G: return "^0G";
+	case PLAYERRATING_HIGH_G: return "^0HIGH G";
+	case PLAYERRATING_LOW_F: return "^0LOW F";
+	case PLAYERRATING_MID_F: return "^0F";
+	case PLAYERRATING_HIGH_F: return "^0HIGH F";
+	case PLAYERRATING_LOW_D: return "^1LOW D";
 	case PLAYERRATING_MID_D: return "^1D";
 	case PLAYERRATING_HIGH_D: return "^1HIGH D";
 	case PLAYERRATING_LOW_C: return "^8LOW C";
@@ -82,7 +104,9 @@ char *PlayerRatingToString(ctfPlayerTier_t tier) {
 	case PLAYERRATING_LOW_A: return "^2LOW A";
 	case PLAYERRATING_MID_A: return "^2A";
 	case PLAYERRATING_HIGH_A: return "^2HIGH A";
-	case PLAYERRATING_S: return "^6S";
+	case PLAYERRATING_LOW_S: return "^6LOW S";
+	case PLAYERRATING_MID_S: return "^6S";
+	case PLAYERRATING_HIGH_S: return "^6HIGH S";
 	default: return "^9UNRATED";
 	}
 }
@@ -90,6 +114,12 @@ char *PlayerRatingToString(ctfPlayerTier_t tier) {
 #ifdef DEBUG_GENERATETEAMS_PRINT
 static char *PlayerRatingToStringHTML(ctfPlayerTier_t tier) {
 	switch (tier) {
+	case PLAYERRATING_MID_G: return "<font color=red>G</font>";
+	case PLAYERRATING_HIGH_G: return "<font color=red>HIGH G</font>";
+	case PLAYERRATING_LOW_F: return "<font color=red>LOW F</font>";
+	case PLAYERRATING_MID_F: return "<font color=red>F</font>";
+	case PLAYERRATING_HIGH_F: return "<font color=red>HIGH F</font>";
+	case PLAYERRATING_LOW_D: return "<font color=red>LOW D</font>";
 	case PLAYERRATING_MID_D: return "<font color=red>D</font>";
 	case PLAYERRATING_HIGH_D: return "<font color=red>HIGH D</font>";
 	case PLAYERRATING_LOW_C: return "<font color=orange>LOW C</font>";
@@ -101,7 +131,9 @@ static char *PlayerRatingToStringHTML(ctfPlayerTier_t tier) {
 	case PLAYERRATING_LOW_A: return "<font color=green>LOW A</font>";
 	case PLAYERRATING_MID_A: return "<font color=green>A</font>";
 	case PLAYERRATING_HIGH_A: return "<font color=green>HIGH A</font>";
-	case PLAYERRATING_S: return "<font color=purple>S</font>";
+	case PLAYERRATING_LOW_S: return "<font color=purple>LOW S</font>";
+	case PLAYERRATING_MID_S: return "<font color=purple>S</font>";
+	case PLAYERRATING_HIGH_S: return "<font color=purple>HIGH S</font>";
 	default: return "<font color=black>UNRATED</font>";
 	}
 }
@@ -288,14 +320,14 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 	int iDiff = (int)diff;
 
 	int team1TopTiers = 0, team2TopTiers = 0;
-	if (PlayerTierFromRating(team1base->rating[CTFPOSITION_BASE]) == PLAYERRATING_S) ++team1TopTiers;
-	if (PlayerTierFromRating(team1chase->rating[CTFPOSITION_CHASE]) == PLAYERRATING_S) ++team1TopTiers;
-	if (PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) == PLAYERRATING_S) ++team1TopTiers;
-	if (PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]) == PLAYERRATING_S) ++team1TopTiers;
-	if (PlayerTierFromRating(team2base->rating[CTFPOSITION_BASE]) == PLAYERRATING_S) ++team2TopTiers;
-	if (PlayerTierFromRating(team2chase->rating[CTFPOSITION_CHASE]) == PLAYERRATING_S) ++team2TopTiers;
-	if (PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) == PLAYERRATING_S) ++team2TopTiers;
-	if (PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]) == PLAYERRATING_S) ++team2TopTiers;
+	if (PlayerTierFromRating(team1base->rating[CTFPOSITION_BASE]) >= PLAYERRATING_LOW_S) ++team1TopTiers;
+	if (PlayerTierFromRating(team1chase->rating[CTFPOSITION_CHASE]) >= PLAYERRATING_LOW_S) ++team1TopTiers;
+	if (PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) >= PLAYERRATING_LOW_S) ++team1TopTiers;
+	if (PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]) >= PLAYERRATING_LOW_S) ++team1TopTiers;
+	if (PlayerTierFromRating(team2base->rating[CTFPOSITION_BASE]) >= PLAYERRATING_LOW_S) ++team2TopTiers;
+	if (PlayerTierFromRating(team2chase->rating[CTFPOSITION_CHASE]) >= PLAYERRATING_LOW_S) ++team2TopTiers;
+	if (PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) >= PLAYERRATING_LOW_S) ++team2TopTiers;
+	if (PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]) >= PLAYERRATING_LOW_S) ++team2TopTiers;
 	int topTierImbalance = abs(team1TopTiers - team2TopTiers);
 
 	int team1BottomTiers = 0, team2BottomTiers = 0;
@@ -394,7 +426,7 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 			int maxDiff;
 			if (team1ChaseTier <= PLAYERRATING_LOW_B)
 				maxDiff = 2;
-			else if (highestTeam2OffenseTier == PLAYERRATING_S)
+			else if (highestTeam2OffenseTier >= PLAYERRATING_LOW_S)
 				maxDiff = 3;
 			else
 				maxDiff = 4;
@@ -410,7 +442,7 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 			int maxDiff;
 			if (team2ChaseTier <= PLAYERRATING_LOW_B)
 				maxDiff = 2;
-			else if (highestTeam1OffenseTier == PLAYERRATING_S)
+			else if (highestTeam1OffenseTier >= PLAYERRATING_LOW_S)
 				maxDiff = 3;
 			else
 				maxDiff = 4;
@@ -563,14 +595,14 @@ static void TryTeamPermutation_Inclusive(teamGeneratorContext_t *context, const 
 	int iDiff = (int)diff;
 
 	int team1TopTiers = 0, team2TopTiers = 0;
-	if (PlayerTierFromRating(team1base->rating[CTFPOSITION_BASE]) == PLAYERRATING_S) ++team1TopTiers;
-	if (PlayerTierFromRating(team1chase->rating[CTFPOSITION_CHASE]) == PLAYERRATING_S) ++team1TopTiers;
-	if (PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) == PLAYERRATING_S) ++team1TopTiers;
-	if (PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]) == PLAYERRATING_S) ++team1TopTiers;
-	if (PlayerTierFromRating(team2base->rating[CTFPOSITION_BASE]) == PLAYERRATING_S) ++team2TopTiers;
-	if (PlayerTierFromRating(team2chase->rating[CTFPOSITION_CHASE]) == PLAYERRATING_S) ++team2TopTiers;
-	if (PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) == PLAYERRATING_S) ++team2TopTiers;
-	if (PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]) == PLAYERRATING_S) ++team2TopTiers;
+	if (PlayerTierFromRating(team1base->rating[CTFPOSITION_BASE]) >= PLAYERRATING_LOW_S) ++team1TopTiers;
+	if (PlayerTierFromRating(team1chase->rating[CTFPOSITION_CHASE]) >= PLAYERRATING_LOW_S) ++team1TopTiers;
+	if (PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) >= PLAYERRATING_LOW_S) ++team1TopTiers;
+	if (PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]) >= PLAYERRATING_LOW_S) ++team1TopTiers;
+	if (PlayerTierFromRating(team2base->rating[CTFPOSITION_BASE]) >= PLAYERRATING_LOW_S) ++team2TopTiers;
+	if (PlayerTierFromRating(team2chase->rating[CTFPOSITION_CHASE]) >= PLAYERRATING_LOW_S) ++team2TopTiers;
+	if (PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) >= PLAYERRATING_LOW_S) ++team2TopTiers;
+	if (PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]) >= PLAYERRATING_LOW_S) ++team2TopTiers;
 	int topTierImbalance = abs(team1TopTiers - team2TopTiers);
 
 	int team1BottomTiers = 0, team2BottomTiers = 0;
@@ -669,7 +701,7 @@ static void TryTeamPermutation_Inclusive(teamGeneratorContext_t *context, const 
 			int maxDiff;
 			if (team1ChaseTier <= PLAYERRATING_LOW_B)
 				maxDiff = 2;
-			else if (highestTeam2OffenseTier == PLAYERRATING_S)
+			else if (highestTeam2OffenseTier >= PLAYERRATING_LOW_S)
 				maxDiff = 3;
 			else
 				maxDiff = 4;
@@ -685,7 +717,7 @@ static void TryTeamPermutation_Inclusive(teamGeneratorContext_t *context, const 
 			int maxDiff;
 			if (team2ChaseTier <= PLAYERRATING_LOW_B)
 				maxDiff = 2;
-			else if (highestTeam1OffenseTier == PLAYERRATING_S)
+			else if (highestTeam1OffenseTier >= PLAYERRATING_LOW_S)
 				maxDiff = 3;
 			else
 				maxDiff = 4;
@@ -849,14 +881,14 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 	int iDiff = (int)diff;
 
 	int team1TopTiers = 0, team2TopTiers = 0;
-	if (PlayerTierFromRating(team1base->rating[CTFPOSITION_BASE]) == PLAYERRATING_S) ++team1TopTiers;
-	if (PlayerTierFromRating(team1chase->rating[CTFPOSITION_CHASE]) == PLAYERRATING_S) ++team1TopTiers;
-	if (PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) == PLAYERRATING_S) ++team1TopTiers;
-	if (PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]) == PLAYERRATING_S) ++team1TopTiers;
-	if (PlayerTierFromRating(team2base->rating[CTFPOSITION_BASE]) == PLAYERRATING_S) ++team2TopTiers;
-	if (PlayerTierFromRating(team2chase->rating[CTFPOSITION_CHASE]) == PLAYERRATING_S) ++team2TopTiers;
-	if (PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) == PLAYERRATING_S) ++team2TopTiers;
-	if (PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]) == PLAYERRATING_S) ++team2TopTiers;
+	if (PlayerTierFromRating(team1base->rating[CTFPOSITION_BASE]) >= PLAYERRATING_LOW_S) ++team1TopTiers;
+	if (PlayerTierFromRating(team1chase->rating[CTFPOSITION_CHASE]) >= PLAYERRATING_LOW_S) ++team1TopTiers;
+	if (PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) >= PLAYERRATING_LOW_S) ++team1TopTiers;
+	if (PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]) >= PLAYERRATING_LOW_S) ++team1TopTiers;
+	if (PlayerTierFromRating(team2base->rating[CTFPOSITION_BASE]) >= PLAYERRATING_LOW_S) ++team2TopTiers;
+	if (PlayerTierFromRating(team2chase->rating[CTFPOSITION_CHASE]) >= PLAYERRATING_LOW_S) ++team2TopTiers;
+	if (PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) >= PLAYERRATING_LOW_S) ++team2TopTiers;
+	if (PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]) >= PLAYERRATING_LOW_S) ++team2TopTiers;
 	int topTierImbalance = abs(team1TopTiers - team2TopTiers);
 
 	int team1BottomTiers = 0, team2BottomTiers = 0;
@@ -960,7 +992,7 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 			int maxDiff;
 			if (team1ChaseTier <= PLAYERRATING_LOW_B)
 				maxDiff = 2;
-			else if (highestTeam2OffenseTier == PLAYERRATING_S)
+			else if (highestTeam2OffenseTier >= PLAYERRATING_LOW_S)
 				maxDiff = 3;
 			else
 				maxDiff = 4;
@@ -976,7 +1008,7 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 			int maxDiff;
 			if (team2ChaseTier <= PLAYERRATING_LOW_B)
 				maxDiff = 2;
-			else if (highestTeam1OffenseTier == PLAYERRATING_S)
+			else if (highestTeam1OffenseTier >= PLAYERRATING_LOW_S)
 				maxDiff = 3;
 			else
 				maxDiff = 4;

@@ -6824,7 +6824,11 @@ static ctfPlayerTier_t StringToPlayerRating(const char *s) {
 
 	ctfPlayerTier_t tier;
 	if (stristr(s, "s")) {
-		tier = PLAYERRATING_S;
+		tier = PLAYERRATING_MID_S;
+		if (high)
+			++tier;
+		else if (low)
+			--tier;
 	}
 	else if (stristr(s, "a")) {
 		tier = PLAYERRATING_MID_A;
@@ -6849,6 +6853,20 @@ static ctfPlayerTier_t StringToPlayerRating(const char *s) {
 	}
 	else if (stristr(s, "d")) {
 		tier = PLAYERRATING_MID_D;
+		if (high)
+			++tier;
+		else if (low)
+			--tier;
+	}
+	else if (stristr(s, "f")) {
+		tier = PLAYERRATING_MID_F;
+		if (high)
+			++tier;
+		else if (low)
+			--tier;
+	}
+	else if (stristr(s, "g")) {
+		tier = PLAYERRATING_MID_G;
 		if (high)
 			++tier;
 		/*else if (low)
