@@ -389,6 +389,7 @@ vmCvar_t	z_debug9;
 
 vmCvar_t    g_enforceEvenVotersCount;
 vmCvar_t    g_minVotersForEvenVotersCount;
+vmCvar_t	g_losingTeamEndmatchTeamvote;
 
 vmCvar_t	g_duplicateNamesId;
 
@@ -905,6 +906,7 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_enforceEvenVotersCount, "g_enforceEvenVotersCount", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_minVotersForEvenVotersCount, "g_minVotersForEvenVotersCount", "7", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_losingTeamEndmatchTeamvote, "g_losingTeamEndmatchTeamvote", "2", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_duplicateNamesId, "g_duplicateNamesId", "1", CVAR_ARCHIVE, 0, qtrue },
 

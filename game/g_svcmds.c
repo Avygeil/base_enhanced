@@ -1080,6 +1080,7 @@ void Svcmd_VoteForce_f( qboolean pass ) {
 		level.mapsRerolled = qfalse;
 	}
 
+	level.onlyThisTeamCanVote = 0;
 	level.voteStartTime = 0;
 	level.voteTime = 0;
 	trap_SetConfigstring( CS_VOTE_TIME, "" );
@@ -2179,6 +2180,7 @@ qboolean DoRunoff(void) {
 			memset(&level.multiVoteMapShortNames, 0, sizeof(level.multiVoteMapShortNames));
 			level.voteStartTime = 0;
 			level.voteTime = 0;
+			level.onlyThisTeamCanVote = 0;
 			trap_SetConfigstring(CS_VOTE_TIME, "");
 
 			for (int i = 0; i < MAX_CLIENTS; i++) {
@@ -2235,6 +2237,7 @@ qboolean DoRunoff(void) {
 			// start the next round of voting
 			level.multiVoting = qfalse;
 			level.inRunoff = qtrue;
+			level.onlyThisTeamCanVote = 0;
 			++level.runoffRoundsCompletedIncludingRerollRound;
 			Svcmd_MapVote_f(level.multiVoteMapChars);
 			return qtrue;
@@ -2385,6 +2388,7 @@ qboolean DoRunoff(void) {
 		// start the next round of voting
 		level.multiVoting = qfalse;
 		level.inRunoff = qtrue;
+		level.onlyThisTeamCanVote = 0;
 		++level.runoffRoundsCompletedIncludingRerollRound;
 		Svcmd_MapVote_f(newMapChars);
 		return qtrue;
@@ -2781,6 +2785,7 @@ void Svcmd_MapMultiVote_f() {
 	memset(&level.multiVoteMapFileNames, 0, sizeof(level.multiVoteMapFileNames));
 	level.inRunoff = qfalse;
 	memset( level.multiVotes, 0, sizeof( level.multiVotes ) );
+	level.onlyThisTeamCanVote = 0;
 }
 
 void Svcmd_SpecAll_f() {

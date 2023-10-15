@@ -2905,6 +2905,7 @@ static void ActivatePugProposal(pugProposal_t *set, qboolean forcedByServer) {
 			memset(&level.multiVoteMapFileNames, 0, sizeof(level.multiVoteMapFileNames));
 			level.voteStartTime = 0;
 			level.voteTime = 0;
+			level.onlyThisTeamCanVote = 0;
 			trap_SetConfigstring(CS_VOTE_TIME, "");
 		}
 	}
@@ -2970,6 +2971,7 @@ static void StartAutomaticTeamGenMapVote(void) {
 	level.multiVoteChoices = 0;
 	level.multiVoteHasWildcard = qfalse;
 	level.multivoteWildcardMapFileName[0] = '\0';
+	level.onlyThisTeamCanVote = 0;
 	memset(level.multiVotes, 0, sizeof(level.multiVotes));
 	memset(&level.multiVoteMapChars, 0, sizeof(level.multiVoteMapChars));
 	memset(&level.multiVoteMapShortNames, 0, sizeof(level.multiVoteMapShortNames));

@@ -3245,21 +3245,15 @@ void fixVoters(qboolean allowRacers){
 				continue;
 			}
 
-			if ( level.clients[i].sess.sessionTeam != TEAM_SPECTATOR || g_gametype.integer == GT_DUEL || g_gametype.integer == GT_POWERDUEL )
-			{
-                /*
-				// decide if this should be auto-followed     
-				if ( level.clients[i].pers.connected == CON_CONNECTED )
-				{
-                */
-					if ( !(g_entities[i].r.svFlags & SVF_BOT) )
-					{
-						level.clients[i].mGameFlags |= PSG_CANVOTE;
-						level.numVotingClients++;
-					}
-                    /*
-				}
-                */
+			if ( level.clients[i].sess.sessionTeam != TEAM_SPECTATOR || g_gametype.integer == GT_DUEL || g_gametype.integer == GT_POWERDUEL ) {
+				if (g_entities[i].r.svFlags & SVF_BOT)
+					continue;
+
+				if (level.onlyThisTeamCanVote && g_gametype.integer >= GT_TEAM && g_gametype.integer != GT_SIEGE && !Q_stricmp(level.voteString, "endmatch") && level.clients[i].sess.sessionTeam != level.onlyThisTeamCanVote)
+					continue;
+
+				level.clients[i].mGameFlags |= PSG_CANVOTE;
+				level.numVotingClients++;
 			}
 		}
 	}
@@ -3551,6 +3545,8 @@ void Cmd_CallVote_f( gentity_t *ent, int pause ) {
 		Q_strncpyz(arg1, "g_gametype", sizeof(arg1));
 		Q_strncpyz(arg2, "8", sizeof(arg2));
 	}
+
+	qboolean onlyThisTeamCanVoteWasSet = qfalse;
 
 	// special case for g_gametype, check for bad values
 	if ( !Q_stricmp( arg1, "g_gametype" ) )
@@ -3951,8 +3947,34 @@ void Cmd_CallVote_f( gentity_t *ent, int pause ) {
 	}
 	else if ( !Q_stricmp( arg1, "endmatch" )) 
 	{
-		Com_sprintf( level.voteString, sizeof( level.voteString ), "%s", arg1 );
-		Com_sprintf( level.voteDisplayString, sizeof( level.voteDisplayString ), "End Match" );
+		int numRed, numBlue;
+		CountPlayers(NULL, &numRed, &numBlue, NULL, NULL, NULL, NULL);
+		if (g_losingTeamEndmatchTeamvote.integer > 0 && numRed >= 3 && numBlue >= 3 && numRed == numBlue && level.teamScores[TEAM_RED] != level.teamScores[TEAM_BLUE] &&
+			abs(level.teamScores[TEAM_RED] - level.teamScores[TEAM_BLUE]) >= g_losingTeamEndmatchTeamvote.integer &&
+			g_gametype.integer >= GT_TEAM && g_gametype.integer != GT_SIEGE) {
+
+			const int losingTeam = level.teamScores[TEAM_RED] < level.teamScores[TEAM_BLUE] ? TEAM_RED : TEAM_BLUE;
+			if (ent->client->sess.sessionTeam != losingTeam) {
+				if (g_losingTeamEndmatchTeamvote.integer == 1)
+					PrintIngame(ent - g_entities, "You cannot call endmatch votes while winning.\n");
+				else
+					PrintIngame(ent - g_entities, "You cannot call endmatch votes while winning by %d+ points.\n", g_losingTeamEndmatchTeamvote.integer);
+
+				return;
+			}
+
+			Com_sprintf(level.voteString, sizeof(level.voteString), "%s", arg1);
+
+			const char *losingTeamStr = losingTeam == TEAM_RED ? "^1red" : "^4blue";
+			Com_sprintf(level.voteDisplayString, sizeof(level.voteDisplayString), "End Match (only %s^7 team can vote)", losingTeamStr);
+
+			level.onlyThisTeamCanVote = losingTeam;
+			onlyThisTeamCanVoteWasSet = qtrue;
+		}
+		else {
+			Com_sprintf(level.voteString, sizeof(level.voteString), "%s", arg1);
+			Com_sprintf(level.voteDisplayString, sizeof(level.voteDisplayString), "End Match");
+		}
 	}
 	else if ( !Q_stricmp( arg1, "lockteams" ) )
 	{
@@ -4068,6 +4090,8 @@ void Cmd_CallVote_f( gentity_t *ent, int pause ) {
 	level.inRunoff = qfalse;
 	level.mapsThatCanBeVotedBits = 0;
 	level.multiVoteChoices = 0;
+	if (!onlyThisTeamCanVoteWasSet)
+		level.onlyThisTeamCanVote = 0;
 	memset( &( level.multiVotes ), 0, sizeof( level.multiVotes ) );
 
 	fixVoters( racersAllowVote );
