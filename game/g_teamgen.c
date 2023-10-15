@@ -2905,7 +2905,6 @@ static void ActivatePugProposal(pugProposal_t *set, qboolean forcedByServer) {
 			memset(&level.multiVoteMapFileNames, 0, sizeof(level.multiVoteMapFileNames));
 			level.voteStartTime = 0;
 			level.voteTime = 0;
-			level.onlyThisTeamCanVote = 0;
 			trap_SetConfigstring(CS_VOTE_TIME, "");
 		}
 	}
@@ -2922,7 +2921,6 @@ static void ActivatePugProposal(pugProposal_t *set, qboolean forcedByServer) {
 #define SCOREBOARD_POSITION_SCORE_OFFENSE1	(2000)
 #define SCOREBOARD_POSITION_SCORE_OFFENSE2	(1000)
 
-extern void fixVoters(qboolean allowRacers);
 static void StartAutomaticTeamGenMapVote(void) {
 	if (g_vote_teamgen_autoMapVoteSeconds.integer <= 0)
 		return;
@@ -2971,13 +2969,12 @@ static void StartAutomaticTeamGenMapVote(void) {
 	level.multiVoteChoices = 0;
 	level.multiVoteHasWildcard = qfalse;
 	level.multivoteWildcardMapFileName[0] = '\0';
-	level.onlyThisTeamCanVote = 0;
 	memset(level.multiVotes, 0, sizeof(level.multiVotes));
 	memset(&level.multiVoteMapChars, 0, sizeof(level.multiVoteMapChars));
 	memset(&level.multiVoteMapShortNames, 0, sizeof(level.multiVoteMapShortNames));
 	memset(&level.multiVoteMapFileNames, 0, sizeof(level.multiVoteMapFileNames));
 
-	fixVoters(qfalse);
+	fixVoters(qfalse, 0);
 
 	trap_SetConfigstring(CS_VOTE_TIME, va("%i", level.voteTime));
 	trap_SetConfigstring(CS_VOTE_STRING, level.voteDisplayString);

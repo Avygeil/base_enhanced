@@ -3225,7 +3225,7 @@ int G_ClientNumberFromStrippedName ( const char* name )
 //
 //}
 
-void fixVoters(qboolean allowRacers){
+void fixVoters(qboolean allowRacers, int onlyThisTeamCanVote){
 	int i;
 
 	level.numVotingClients = 0;
@@ -3249,7 +3249,7 @@ void fixVoters(qboolean allowRacers){
 				if (g_entities[i].r.svFlags & SVF_BOT)
 					continue;
 
-				if (level.onlyThisTeamCanVote && g_gametype.integer >= GT_TEAM && g_gametype.integer != GT_SIEGE && !Q_stricmp(level.voteString, "endmatch") && level.clients[i].sess.sessionTeam != level.onlyThisTeamCanVote)
+				if (onlyThisTeamCanVote && g_gametype.integer >= GT_TEAM && g_gametype.integer != GT_SIEGE && !Q_stricmp(level.voteString, "endmatch") && level.clients[i].sess.sessionTeam != onlyThisTeamCanVote)
 					continue;
 
 				level.clients[i].mGameFlags |= PSG_CANVOTE;
@@ -3546,7 +3546,7 @@ void Cmd_CallVote_f( gentity_t *ent, int pause ) {
 		Q_strncpyz(arg2, "8", sizeof(arg2));
 	}
 
-	qboolean onlyThisTeamCanVoteWasSet = qfalse;
+	int onlyThisTeamCanVote = 0;
 
 	// special case for g_gametype, check for bad values
 	if ( !Q_stricmp( arg1, "g_gametype" ) )
@@ -3968,8 +3968,7 @@ void Cmd_CallVote_f( gentity_t *ent, int pause ) {
 			const char *losingTeamStr = losingTeam == TEAM_RED ? "^1red" : "^4blue";
 			Com_sprintf(level.voteDisplayString, sizeof(level.voteDisplayString), "End Match (only %s^7 team can vote)", losingTeamStr);
 
-			level.onlyThisTeamCanVote = losingTeam;
-			onlyThisTeamCanVoteWasSet = qtrue;
+			onlyThisTeamCanVote = losingTeam;
 		}
 		else {
 			Com_sprintf(level.voteString, sizeof(level.voteString), "%s", arg1);
@@ -4090,11 +4089,9 @@ void Cmd_CallVote_f( gentity_t *ent, int pause ) {
 	level.inRunoff = qfalse;
 	level.mapsThatCanBeVotedBits = 0;
 	level.multiVoteChoices = 0;
-	if (!onlyThisTeamCanVoteWasSet)
-		level.onlyThisTeamCanVote = 0;
 	memset( &( level.multiVotes ), 0, sizeof( level.multiVotes ) );
 
-	fixVoters( racersAllowVote );
+	fixVoters( racersAllowVote, onlyThisTeamCanVote);
 
 	ent->client->mGameFlags |= PSG_VOTED;
 	ent->client->mGameFlags |= PSG_VOTEDYES;

@@ -1848,7 +1848,6 @@ typedef struct {
 	char		multiVoteMapFileNames[MAX_MULTIVOTE_MAPS + 1][MAX_QPATH];
 	int			mapsThatCanBeVotedBits;
 	qboolean		voteAutoPassOnExpiration;
-	int			onlyThisTeamCanVote;
 
 	// spawn variables
 	qboolean	spawning;				// the G_Spawn*() functions are valid
@@ -2176,6 +2175,7 @@ float GetCTFLocationValue(gentity_t *ent);
 qboolean ValidateAndCopyPositionPreferences(const positionPreferences_t *in, positionPreferences_t *out);
 qboolean IsInstapauser(gentity_t *ent);
 qboolean HasSlur(const char *str);
+void fixVoters(qboolean allowRacers, int onlyThisTeamCanVote);
 
 //
 // g_items.c
