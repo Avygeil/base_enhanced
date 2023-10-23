@@ -3187,6 +3187,7 @@ extern vmCvar_t		g_selfKillSpawnSpamProtection;
 
 extern vmCvar_t		g_boost;
 extern vmCvar_t		g_spawnboost_default;
+extern vmCvar_t		g_spawnboost_losIdealDistance;
 
 #ifdef NEWMOD_SUPPORT
 extern vmCvar_t		g_netUnlock;

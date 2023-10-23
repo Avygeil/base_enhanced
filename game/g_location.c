@@ -300,14 +300,14 @@ static void GenerateProximityLocations(void) {
 	}
 }
 
-static qboolean IsPointVisible(vec3_t org1, vec3_t org2)
+qboolean IsPointVisible(vec3_t org1, vec3_t org2)
 {
 	trace_t tr;
 	trap_Trace(&tr, org1, NULL, NULL, org2, ENTITYNUM_NONE, MASK_SOLID);
 	return !!(tr.fraction == 1);
 }
 
-static qboolean StartsSolid(vec3_t point) {
+qboolean StartsSolid(vec3_t point) {
 	trace_t tr;
 	trap_Trace(&tr, point, NULL, NULL, point, ENTITYNUM_NONE, MASK_SOLID);
 	return !!(tr.startsolid);
@@ -316,7 +316,7 @@ static qboolean StartsSolid(vec3_t point) {
 #define DotProduct2D(a,b)	((a)[0]*(b)[0]+(a)[1]*(b)[1])
 extern qboolean isRedFlagstand(gentity_t *ent);
 extern qboolean isBlueFlagstand(gentity_t *ent);
-static qboolean PointsAreOnOppositeSidesOfMap(vec3_t pointA, vec3_t pointB) {
+qboolean PointsAreOnOppositeSidesOfMap(vec3_t pointA, vec3_t pointB) {
 	static qboolean initialized = qfalse, valid = qfalse;
 	static float redFs[2] = { 0, 0 }, blueFs[2] = { 0, 0 };
 	if (!initialized) {

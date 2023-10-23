@@ -4062,6 +4062,22 @@ void G_InitClientRaceRecordsCache(gclient_t* client) {
 	}
 }
 
+extern float CalculateYawFromPointToPoint(vec3_t source, vec3_t target);
+
+static void SetClientFacingPoint(gentity_t *ent, vec3_t spawnPoint, vec3_t targetPoint) {
+
+	const float yaw = CalculateYawFromPointToPoint(spawnPoint, targetPoint);
+
+	vec3_t newViewAngle;
+	newViewAngle[0] = ent->client->ps.viewangles[0];
+	newViewAngle[1] = yaw;
+	newViewAngle[2] = ent->client->ps.viewangles[2];
+
+	SetClientViewAngle(ent, newViewAngle);
+}
+
+
+
 /*
 ===========
 ClientSpawn
@@ -4877,7 +4893,36 @@ void ClientSpawn(gentity_t *ent) {
 	client->ps.pm_flags |= PMF_RESPAWNED;
 
 	trap_GetUsercmd( client - level.clients, &ent->client->pers.cmd );
-	SetClientViewAngle( ent, spawn_angles );
+	if (client->account && (client->account->flags & ACCOUNTFLAG_BOOST_SPAWNFCBOOST) && g_spawnboost_losIdealDistance.integer > 0 && client->stats &&
+		g_gametype.integer == GT_CTF && g_boost.integer && level.time - level.startTime >= 5000) {
+
+		ctfPosition_t pos = DetermineCTFPosition(client->stats, qfalse);
+		if (pos != CTFPOSITION_CHASE && pos != CTFPOSITION_OFFENSE) {
+			gentity_t *fc = NULL;
+			for (int i = 0; i < MAX_CLIENTS; i++) {
+				gentity_t *thisGuy = &g_entities[i];
+				if (!thisGuy->inuse || !thisGuy->client || thisGuy->client == client || thisGuy->client->sess.sessionTeam != client->sess.sessionTeam ||
+					IsRacerOrSpectator(thisGuy) || thisGuy->health <= 0 || !HasFlag(thisGuy))
+					continue;
+
+				float loc = GetCTFLocationValue(thisGuy);
+				if (loc <= 0.55f) {
+					fc = thisGuy;
+					break;
+				}
+			}
+			if (fc)
+				SetClientFacingPoint(ent, spawn_origin, fc->client->ps.origin);
+			else
+				SetClientViewAngle(ent, spawn_angles);
+		}
+		else {
+			SetClientViewAngle(ent, spawn_angles);
+		}
+	}
+	else {
+		SetClientViewAngle(ent, spawn_angles);
+	}
 
 	if ( ent->client->sess.sessionTeam == TEAM_SPECTATOR ) {
 

@@ -1475,6 +1475,421 @@ static float GetFcSpawnBoostMultiplier(gentity_t *ent) {
 	return multiplier;
 }
 
+#define SQRT2 (1.4142135623730951)
+
+#define SPAWNFCBOOST_IDEAL_XYDISTANCE				(g_spawnboost_losIdealDistance.integer)		// ideal xy distance we'd like to spawn from the fc
+#define SPAWNFCBOOST_LOS_Z_ADD						(16)		// slight z-axis boost from the actual point we should use as a reference point for line of sight to fc
+#define SPAWNFCBOOST_GRID_INCREMENT					(256)		// how many units away from a weapon/ammo/health we'd like to evaluate for potentially spawning
+#define SPAWNFCBOOST_GRID_RESOLUTION				(3)			// how many increments of SPAWNFCBOOST_GRID_INCREMENT away from the weapon/health/ammo to evaluate (in both X and Y dimensions)
+#define SPAWNFCBOOST_PITCHECK_DISTANCE_INCREMENT	(80)		// how far away from potential spawnpoints we check to see if we will pit (if we step forward this distance toward the fc)
+#define SPAWNFCBOOST_NUM_PIT_CHECKS					(3)			// how many increments of SPAWNFCBOOST_PITCHECK_DISTANCE_INCREMENT we check
+#define SPAWNFCBOOST_OURSIDEOFTHEMAP_THRESHOLD		(0.4f)		// cap on how far towards enemy side of the map we are allowed to spawn; 0.5 is mid
+#define SPAWNFCBOOST_SIMILARDISTANCE_THRESHOLD		(160)		// near zero, always prefer more ideal points even if only closer by a little; higher = more randomness for points similarly distant from ideal
+#define SPAWNFCBOOST_WEAPON_MINDISTANCE_THRESHOLD	(0)			// minimum distance to weapon/ammo/health being evaluated for spawning nearby
+#define SPAWNFCBOOST_WEAPON_MAXDISTANCE_THRESHOLD	(SPAWNFCBOOST_IDEAL_XYDISTANCE + ((SPAWNFCBOOST_GRID_INCREMENT * SPAWNFCBOOST_GRID_RESOLUTION) * SQRT2) + 1)		// maximum distance to weapon/ammo/health being evaluated for spawning nearby
+
+extern qboolean PointsAreOnOppositeSidesOfMap(vec3_t pointA, vec3_t pointB);
+
+#ifdef SPAWNFCBOOST_DEBUG
+#define SpawnFcBoostDebugPrintf(...)	Com_Printf(__VA_ARGS__)
+#else
+#define SpawnFcBoostDebugPrintf(...)	do {} while (0)
+#endif
+
+typedef struct {
+	node_t		node;
+	gentity_t	*entity;
+} listEnt_t;
+
+float CalculateYawFromPointToPoint(vec3_t source, vec3_t target) {
+	float deltaY = target[1] - source[1];
+	float deltaX = target[0] - source[0];
+
+	float yaw = atan2(deltaY, deltaX) * (180.0 / M_PI);
+
+	return yaw;
+}
+
+static qboolean SpawningAtPointWouldTelefrag(vec3_t point) {
+	int			i, num;
+	int			touch[MAX_GENTITIES];
+	gentity_t *hit;
+	vec3_t		mins, maxs;
+
+	vec3_t	playerMins = { -15, -15, DEFAULT_MINS_2 };
+	vec3_t	playerMaxs = { 15, 15, DEFAULT_MAXS_2 };
+
+	VectorAdd(point, playerMins, mins);
+	VectorAdd(point, playerMaxs, maxs);
+
+	// spawn logic can move player a bit above, we need to be more strict
+	maxs[2] += 9;
+
+	num = trap_EntitiesInBox(mins, maxs, touch, MAX_GENTITIES);
+
+	for (i = 0; i < num; i++) {
+		hit = &g_entities[touch[i]];
+		//if ( hit->client && hit->client->ps.stats[STAT_HEALTH] > 0 ) {
+		if (hit->client && !hit->client->sess.inRacemode) {
+			return qtrue;
+		}
+
+	}
+
+	return qfalse;
+}
+
+extern qboolean isRedFlagstand(gentity_t *ent);
+extern qboolean isBlueFlagstand(gentity_t *ent);
+#define DotProduct2D(a,b)	((a)[0]*(b)[0]+(a)[1]*(b)[1])
+static float GetCTFLocationValueOfPoint(vec3_t point, int team) {
+	static qboolean initialized = qfalse, valid = qfalse;
+	static float redFs[2] = { 0, 0 }, blueFs[2] = { 0, 0 };
+	if (!initialized) {
+		initialized = qtrue;
+		gentity_t temp;
+		VectorCopy(vec3_origin, temp.r.currentOrigin);
+		gentity_t *redFsEnt = G_ClosestEntity(&temp, isRedFlagstand);
+		gentity_t *blueFsEnt = G_ClosestEntity(&temp, isBlueFlagstand);
+		if (redFsEnt && blueFsEnt) {
+			valid = qtrue;
+			redFs[0] = redFsEnt->r.currentOrigin[0];
+			redFs[1] = redFsEnt->r.currentOrigin[1];
+			blueFs[0] = blueFsEnt->r.currentOrigin[0];
+			blueFs[1] = blueFsEnt->r.currentOrigin[1];
+		}
+	}
+
+	if (!valid)
+		return 0;
+
+	float *allyFs, *enemyFs;
+	if (team == TEAM_RED) {
+		allyFs = &redFs[0];
+		enemyFs = &blueFs[0];
+	}
+	else {
+		allyFs = &blueFs[0];
+		enemyFs = &redFs[0];
+	}
+
+	float rPrime[2] = { point[0] - allyFs[0], point[1] - allyFs[1] };
+	float v[2] = { enemyFs[0] - allyFs[0], enemyFs[1] - allyFs[1] };
+	return DotProduct2D(v, rPrime) / DotProduct2D(v, v);
+}
+
+typedef struct {
+	int x;
+	int y;
+} gridPoint_t;
+
+qboolean WillPitOrStartSolidOrBeOnTriggerIfMoveToPoint(vec3_t startingPoint, float distance, vec3_t towardPoint, vec3_t mins, vec3_t maxs) {
+	trace_t tr;
+	vec3_t down, movedPoint;
+	const float yaw = CalculateYawFromPointToPoint(startingPoint, towardPoint);
+	const float yawInRadians = yaw * (M_PI / 180.0);
+	movedPoint[0] = startingPoint[0] + cos(yawInRadians) * distance;
+	movedPoint[1] = startingPoint[1] + sin(yawInRadians) * distance;
+	movedPoint[2] = startingPoint[2];
+
+	VectorCopy(movedPoint, down);
+	down[2] -= 32768;
+	trap_Trace(&tr, movedPoint, mins, maxs, down, ENTITYNUM_NONE, MASK_PLAYERSOLID);
+
+	return (tr.startsolid || fabs(tr.endpos[2] - movedPoint[2]) > 50 || (tr.entityNum != ENTITYNUM_NONE && (g_entities[tr.entityNum].r.contents == CONTENTS_TRIGGER || !Q_stricmp(g_entities[tr.entityNum].classname, "trigger_hurt") || !Q_stricmp(g_entities[tr.entityNum].classname, "trigger_push") || !Q_stricmp(g_entities[tr.entityNum].classname, "func_door") || !Q_stricmp(g_entities[tr.entityNum].classname, "func_plat"))));
+}
+
+#ifdef SPAWNFCBOOST_DEBUG
+extern int logTraces, numLoggedTraces;
+#endif
+
+#if 0
+vec3_t fcPosition = { 0 };
+
+int compareWeapons(const void *a, const void *b) {
+	const gentity_t *weaponA = *(const gentity_t **)a;
+	const gentity_t *weaponB = *(const gentity_t **)b;
+
+	float distA = Distance2D(weaponA->s.origin, fcPosition);
+	float distB = Distance2D(weaponB->s.origin, fcPosition);
+
+	float deltaA = fabs(distA - SPAWNFCBOOST_IDEAL_XYDISTANCE);
+	float deltaB = fabs(distB - SPAWNFCBOOST_IDEAL_XYDISTANCE);
+
+	if (fabs(deltaA - deltaB) < 400.0f) {
+		return 0;
+	}
+
+	return (deltaA < deltaB) ? -1 : 1;
+}
+#endif
+
+static qboolean IsPointVisiblePlayersolid(vec3_t org1, vec3_t org2, int fcNum)
+{
+	trace_t tr;
+	trap_Trace(&tr, org1, NULL, NULL, org2, fcNum, MASK_PLAYERSOLID);
+	return !!(tr.fraction == 1);
+}
+
+// try to find a spot for this guy to respawn where he can see his flag carrier from a moderate distance
+static gentity_t *GetSpawnFcBoostLocation(gentity_t *fc) {
+#ifdef SPAWNFCBOOST_DEBUG
+	logTraces = 1;
+	numLoggedTraces = 0;
+#endif
+
+	if (!fc || !fc->client) {
+		assert(qfalse);
+		return NULL;
+	}
+
+	// get nearby weapons
+	int weaponArraySize = 16, numWeapons = 0;
+	gentity_t **filteredWeaponsArray = malloc(weaponArraySize * sizeof(gentity_t *));
+
+	// loop through weapons/items in a random order and assemble a list of those close-ish to the fc
+	int indices[MAX_GENTITIES - MAX_CLIENTS];
+	for (int i = 0; i < MAX_GENTITIES - MAX_CLIENTS; ++i)
+		indices[i] = i + MAX_CLIENTS;
+
+	FisherYatesShuffle(indices, MAX_GENTITIES - MAX_CLIENTS, sizeof(int));
+
+	for (int i = 0; i < MAX_GENTITIES - MAX_CLIENTS; ++i) {
+		int shuffled_index = indices[i];
+		gentity_t *weap = &g_entities[shuffled_index];
+		if (!weap->item || (weap->item->giType != IT_WEAPON && weap->item->giType != IT_AMMO && weap->item->giType != IT_ARMOR && weap->item->giType != IT_HEALTH && weap->item->giType != IT_TEAM))
+			continue;
+
+		float dist = Distance(weap->s.origin, fc->client->ps.origin);
+		if (dist > SPAWNFCBOOST_WEAPON_MAXDISTANCE_THRESHOLD)
+			continue;
+		if (dist < SPAWNFCBOOST_WEAPON_MINDISTANCE_THRESHOLD)
+			continue;
+		if (PointsAreOnOppositeSidesOfMap(weap->s.origin, fc->client->ps.origin))
+			continue;
+		if (GetCTFLocationValueOfPoint(weap->s.origin, fc->client->sess.sessionTeam) >= 0.5f)
+			continue;
+
+#if 0
+		SpawnFcBoostDebugPrintf("GetSpawnFcBoostLocation: checking item entity %d\n", shuffled_index);
+		// try tracing to fc with the weapon itself; saves computing traces for an entire grid that maybe can't see the fc below
+		// if performance isn't a concern, this check can be deleted
+		vec3_t losPoint;
+		VectorCopy(weap->s.origin, losPoint);
+		losPoint[2] += SPAWNFCBOOST_LOS_Z_ADD;
+		if (!IsPointVisiblePlayersolid(losPoint, fc->client->ps.origin))
+			continue;
+		SpawnFcBoostDebugPrintf("GetSpawnFcBoostLocation: got visible %s at %d %d %d\n", weap->classname, (int)weap->s.origin[0], (int)weap->s.origin[1], (int)weap->s.origin[2]);
+#else
+		SpawnFcBoostDebugPrintf("GetSpawnFcBoostLocation: got %s at %d %d %d\n", weap->classname, (int)weap->s.origin[0], (int)weap->s.origin[1], (int)weap->s.origin[2]);
+#endif
+
+
+		// add to array
+		if (numWeapons >= weaponArraySize) {
+			// Reallocate array
+			weaponArraySize *= 2;
+			filteredWeaponsArray = realloc(filteredWeaponsArray, weaponArraySize * sizeof(gentity_t *));
+		}
+		filteredWeaponsArray[numWeapons] = weap;
+		numWeapons++;
+	}
+
+	if (!numWeapons) {
+		free(filteredWeaponsArray);
+		return NULL;
+	}
+
+#if 0
+	// roughly sort the weapons by closeness to the ideal
+	VectorCopy(fc->client->ps.origin, fcPosition);
+	qsort(filteredWeaponsArray, numWeapons, sizeof(gentity_t *), compareWeapons);
+	SpawnFcBoostDebugPrintf("GetSpawnFcBoostLocation: sorted weapons array:");
+	for (int i = 0; i < numWeapons; i++)
+		SpawnFcBoostDebugPrintf(" %s (%d)", filteredWeaponsArray[i]->classname, (int)fabs(SPAWNFCBOOST_IDEAL_XYDISTANCE - Distance2D(filteredWeaponsArray[i]->s.origin, fc->client->ps.origin)));
+	SpawnFcBoostDebugPrintf("\n");
+#endif
+
+	// loop through the weapons we got and evaluate random spots around the weapon
+	// we check to see if we would be pitted spawning there, if we have line of sight to the fc from them, if we would telefrag someone here, etc
+	// we do this by drawing a grid of points around the weapon, which we check in a random order
+	
+	// first, set up the grid
+	const int x_min = -SPAWNFCBOOST_GRID_RESOLUTION, x_max = SPAWNFCBOOST_GRID_RESOLUTION;
+	const int y_min = -SPAWNFCBOOST_GRID_RESOLUTION, y_max = SPAWNFCBOOST_GRID_RESOLUTION;
+	const int x_range = x_max - x_min + 1;
+	const int y_range = y_max - y_min + 1;
+	int total_points = x_range * y_range;
+	gridPoint_t *gridPoints = malloc(total_points * sizeof(gridPoint_t));
+	int idx = 0;
+	for (int i = x_min; i <= x_max; ++i) {
+		for (int j = y_min; j <= y_max; ++j) {
+			gridPoints[idx].x = i;
+			gridPoints[idx].y = j;
+			++idx;
+		}
+	}
+
+	// ...loop through the weapons/items...
+	qboolean gotBestPoint = qfalse;
+	vec3_t bestPointOrigin;
+	float bestPointDeltaFromIdeal = 999999999;
+#ifdef SPAWNFCBOOST_DEBUG
+	char bestName[64] = { 0 };
+	int bestX = 0, bestY = 0;
+#endif
+#if 0
+	int pitPointsArraySize = 16, numPitPoints = 0;
+	gridPoint_t *pitPoints = malloc(pitPointsArraySize * sizeof(gridPoint_t));
+#endif
+	for (int weapIdx = 0; weapIdx < numWeapons; ++weapIdx) {
+		gentity_t *weap = filteredWeaponsArray[weapIdx];
+
+		FisherYatesShuffle(gridPoints, total_points, sizeof(gridPoint_t)); // randomize the grid order anew for each weapon/item
+
+		// ...iterate through the grid around this particular weapon
+		for (int k = 0; k < total_points; ++k) {
+			int i = gridPoints[k].x;
+			int j = gridPoints[k].y;
+			if (!i && !j)
+				continue; // skip the exact weapon spot itself, (0, 0)
+
+			vec3_t point;
+			VectorCopy(weap->s.origin, point);
+			point[0] += (i * SPAWNFCBOOST_GRID_INCREMENT);
+			point[1] += (j * SPAWNFCBOOST_GRID_INCREMENT);
+
+			SpawnFcBoostDebugPrintf("GetSpawnFcBoostLocation: evaluating %s with grid point (%d, %d)\n", weap->classname, i, j);
+
+			// we now have a point somewhere around a weapon/item. perform the various checks to see if this is a good spot to spawn.
+
+			if (GetCTFLocationValueOfPoint(point, fc->client->sess.sessionTeam) > SPAWNFCBOOST_OURSIDEOFTHEMAP_THRESHOLD) {
+				SpawnFcBoostDebugPrintf("GetSpawnFcBoostLocation: on other side of map\n");
+				continue;
+			}
+
+			float dist2d = Distance2D(point, fc->client->ps.origin);
+			float deltaFromIdeal = fabs(dist2d - SPAWNFCBOOST_IDEAL_XYDISTANCE);
+			SpawnFcBoostDebugPrintf("GetSpawnFcBoostLocation: has dist2d %d, delta from ideal %d\n", (int)dist2d, (int)deltaFromIdeal);
+
+			// if we already have a point that's better than this one by at least the threshold, don't bother checking this one
+			if (gotBestPoint && deltaFromIdeal >= bestPointDeltaFromIdeal - SPAWNFCBOOST_SIMILARDISTANCE_THRESHOLD) {
+				SpawnFcBoostDebugPrintf("GetSpawnFcBoostLocation: not worth checking since delta from ideal not that much better than current best\n");
+				continue;
+			}
+
+#if 0
+			qboolean closeToAlreadyPittedPoint = qfalse;
+			if (numPitPoints > 0) {
+				for (int i2 = 0; i2 < numPitPoints; ++i2) {
+					float dx = point[0] - pitPoints[i2].x;
+					float dy = point[1] - pitPoints[i2].y;
+					if (sqrt(dx * dx + dy * dy) < 50.0f) {
+						closeToAlreadyPittedPoint = qtrue;
+						break;
+					}
+				}
+			}
+			if (closeToAlreadyPittedPoint) {
+				SpawnFcBoostDebugPrintf("GetSpawnFcBoostLocation: close to already pitted point\n");
+				continue;
+			}
+#endif
+
+			// check whether we'll pit in this spot and whether this is in a wall
+			trace_t tr;
+			vec3_t down, mins, maxs;
+			VectorSet(mins, -15, -15, DEFAULT_MINS_2);
+			VectorSet(maxs, 15, 15, DEFAULT_MAXS_2);
+			VectorCopy(point, down);
+			down[2] -= 32768;
+			trap_Trace(&tr, point, mins, maxs, down, ENTITYNUM_NONE, MASK_PLAYERSOLID | CONTENTS_TRIGGER);
+			if (tr.startsolid ||
+				fabs(tr.endpos[2] - point[2]) > 50 ||
+				(tr.entityNum != ENTITYNUM_NONE && (g_entities[tr.entityNum].r.contents == CONTENTS_TRIGGER || !Q_stricmp(g_entities[tr.entityNum].classname, "trigger_hurt") || !Q_stricmp(g_entities[tr.entityNum].classname, "trigger_push") || !Q_stricmp(g_entities[tr.entityNum].classname, "func_door") || !Q_stricmp(g_entities[tr.entityNum].classname, "func_plat")))) {
+				SpawnFcBoostDebugPrintf("GetSpawnFcBoostLocation: insta pits, starts solid, or above a trigger\n");
+#if 0
+				if (numPitPoints >= pitPointsArraySize) {
+					pitPointsArraySize *= 2;
+					pitPoints = realloc(pitPoints, pitPointsArraySize * sizeof(gridPoint_t));
+				}
+				pitPoints[numPitPoints].x = i;
+				pitPoints[numPitPoints].y = j;
+				++numPitPoints;
+#endif
+				continue; // pit or otherwise too high from solid ground
+			}
+
+			// check line of sight to fc from a little bit above the trace's endpoint
+			vec3_t losPoint, fcLosPoint;
+			VectorCopy(tr.endpos, losPoint);
+			VectorCopy(fc->client->ps.origin, fcLosPoint);
+			losPoint[2] += SPAWNFCBOOST_LOS_Z_ADD;
+			fcLosPoint[2] += SPAWNFCBOOST_LOS_Z_ADD;
+			if (!IsPointVisiblePlayersolid(fcLosPoint, losPoint, fc - g_entities)) {
+				SpawnFcBoostDebugPrintf("GetSpawnFcBoostLocation: no LoS\n");
+				continue;
+			}
+
+			// check a couple spots in front of the point to see whether we'll pit if we take a few steps
+			qboolean continueToNextPoint = qfalse;
+			for (int pitCheckNum = 1; pitCheckNum <= SPAWNFCBOOST_NUM_PIT_CHECKS; pitCheckNum++) {
+				if (WillPitOrStartSolidOrBeOnTriggerIfMoveToPoint(tr.endpos, SPAWNFCBOOST_PITCHECK_DISTANCE_INCREMENT * pitCheckNum, fc->client->ps.origin, mins, maxs)) {
+					SpawnFcBoostDebugPrintf("GetSpawnFcBoostLocation: will pit/startsolid/be on trigger if you take a few steps (check #%d)\n", pitCheckNum);
+					continueToNextPoint = qtrue;
+					break;
+				}
+			}
+			if (continueToNextPoint)
+				continue;
+
+			// check if we would telefrag here
+			if (SpawningAtPointWouldTelefrag(tr.endpos)) {
+				SpawnFcBoostDebugPrintf("GetSpawnFcBoostLocation: would telefrag\n");
+				continue;
+			}
+
+			gotBestPoint = qtrue;
+			VectorCopy(tr.endpos, bestPointOrigin);
+			bestPointDeltaFromIdeal = deltaFromIdeal;
+			SpawnFcBoostDebugPrintf("GetSpawnFcBoostLocation: this is the new current best (delta from ideal: %d)\n", (int)deltaFromIdeal);
+#ifdef SPAWNFCBOOST_DEBUG
+			bestX = i;
+			bestY = j;
+			Q_strncpyz(bestName, weap->classname, sizeof(bestName));
+#endif
+
+			// if this is pretty close to the ideal, then don't bother checking other points around this weapon (saves computing unnecessary traces)
+			// if performance isn't a concern, this check can be deleted
+			if (fabs(dist2d - SPAWNFCBOOST_IDEAL_XYDISTANCE) <= 256)
+				goto nextWeapon;
+		}
+		nextWeapon:;
+	}
+
+#if 0
+	free(pitPoints);
+#endif
+	free(gridPoints);
+	free(filteredWeaponsArray);
+
+	if (!gotBestPoint)
+		return NULL;
+
+	// slightly hacky, create a temp entity with this origin since the spawnpoint code all uses entities (info_team_red or whatever) rather than points
+	gentity_t *te = G_TempEntity(bestPointOrigin, EV_SCOREPLUM/*idk*/);
+	te->r.svFlags &= ~SVF_BROADCAST;
+	te->r.svFlags |= SVF_NOCLIENT;
+	VectorCopy(bestPointOrigin, te->s.origin);
+	SpawnFcBoostDebugPrintf("Finished spawn FC boost check. Winner: %s (%d, %d) with delta %d. Performed %d traces.\n", bestName, bestX, bestY, (int)bestPointDeltaFromIdeal, numLoggedTraces);
+#ifdef SPAWNFCBOOST_DEBUG
+	logTraces = 0;
+#endif
+	return te;
+
+	return NULL;
+}
+
 /*---------------------------------------------------------------------------*/
 
 extern qboolean isRedFlagstand(gentity_t *ent);
@@ -1624,6 +2039,12 @@ gentity_t *SelectRandomTeamSpawnPoint( gclient_t *client, int teamstate, team_t 
 				spawnMeNearThisGuy = thisGuy;
 				break;
 			}
+		}
+
+		if (spawnMeNearThisGuy && g_spawnboost_losIdealDistance.integer > 0) {
+			gentity_t *spawnBoostEnt = GetSpawnFcBoostLocation(spawnMeNearThisGuy);
+			if (spawnBoostEnt)
+				return spawnBoostEnt;
 		}
 	}
 

@@ -190,7 +190,14 @@ void trap_SetBrushModel( gentity_t *ent, const char *name ) {
 	syscall( G_SET_BRUSH_MODEL, ent, name );
 }
 
+#ifdef SPAWNFCBOOST_DEBUG
+int logTraces = 0, numLoggedTraces = 0;
+#endif
+
 void trap_Trace( trace_t *results, const vec3_t start, const vec3_t mins, const vec3_t maxs, const vec3_t end, int passEntityNum, int contentmask ) {
+#ifdef SPAWNFCBOOST_DEBUG
+	++numLoggedTraces;
+#endif
 	syscall( G_TRACE, results, start, mins, maxs, end, passEntityNum, contentmask, 0, 10 );
 }
 
