@@ -1253,6 +1253,7 @@ typedef struct {
 	int totalNumPermutations;
 	int offenseDefenseDiff;
 	int totalSkill;
+	int numSatisfiedCyds;
 } permutationOfTeams_t;
 
 typedef struct {
@@ -1294,11 +1295,11 @@ typedef struct {
 	int				votedToRerollClients;
 	int				votedToCancelClients;
 	qboolean		passed;
-	permutationOfTeams_t suggested, highestCaliber, fairest, desired, inclusive;
+	permutationOfTeams_t suggested, highestCaliber, fairest, desired, inclusive, semiDesired;
 	uint64_t		numValidPermutationsChecked;
 	char			namesStr[1024];
-	char			suggestedLetter, highestCaliberLetter, fairestLetter, desiredLetter, inclusiveLetter;
-	int				suggestedVoteClients, highestCaliberVoteClients, fairestVoteClients, desiredVoteClients, inclusiveVoteClients;
+	char			suggestedLetter, highestCaliberLetter, fairestLetter, desiredLetter, inclusiveLetter, semiDesiredLetter;
+	int				suggestedVoteClients, highestCaliberVoteClients, fairestVoteClients, desiredVoteClients, inclusiveVoteClients, semiDesiredVoteClients;
 	list_t			avoidedHashesList;
 } pugProposal_t;
 

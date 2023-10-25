@@ -5375,6 +5375,18 @@ void ClientDisconnect( int clientNum ) {
 						slot4Letter = set->inclusiveLetter;
 					}
 				}
+				if (set->semiDesired.valid) {
+					++numValid;
+					if (set->semiDesired.teams[0].baseId == ent->client->account->id || set->semiDesired.teams[0].chaseId == ent->client->account->id ||
+						set->semiDesired.teams[0].offenseId1 == ent->client->account->id || set->semiDesired.teams[0].offenseId2 == ent->client->account->id ||
+						set->semiDesired.teams[1].baseId == ent->client->account->id || set->semiDesired.teams[1].chaseId == ent->client->account->id ||
+						set->semiDesired.teams[1].offenseId1 == ent->client->account->id || set->semiDesired.teams[1].offenseId2 == ent->client->account->id) {
+						set->semiDesired.valid = qfalse;
+						--numValid;
+						removedSlot4 = qtrue;
+						slot4Letter = set->semiDesiredLetter;
+					}
+				}
 				if (numValid <= 0) { // no more valid teams permutations; destroy this set
 					TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; current active pug proposal (%d) terminated.", ent->client->account->name, set->num));
 					ListClear(&set->avoidedHashesList);
