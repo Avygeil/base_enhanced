@@ -66,6 +66,8 @@ vmCvar_t	g_chatTickWaitMinimum;
 vmCvar_t	g_teamChatTickWaitMinimum;
 vmCvar_t	g_voiceChatTickWaitMinimum;
 
+vmCvar_t	g_eloBotRelegateToDms;
+
 vmCvar_t	g_allowNPC;
 
 vmCvar_t	g_armBreakage;
@@ -616,6 +618,8 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_chatTickWaitMinimum, "g_chatTickWaitMinimum", "0", CVAR_ARCHIVE, 0, qtrue  },
 	{ &g_teamChatTickWaitMinimum, "g_teamChatTickWaitMinimum", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_voiceChatTickWaitMinimum, "g_voiceChatTickWaitMinimum", "0", CVAR_ARCHIVE, 0, qtrue },
+
+	{ &g_eloBotRelegateToDms, "g_eloBotRelegateToDms", "1", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_allowNPC, "g_allowNPC", "1", CVAR_ARCHIVE, 0, qtrue  },
 

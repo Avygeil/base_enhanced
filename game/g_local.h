@@ -2999,6 +2999,8 @@ extern	vmCvar_t	g_chatTickWaitMinimum;
 extern	vmCvar_t	g_teamChatTickWaitMinimum;
 extern	vmCvar_t	g_voiceChatTickWaitMinimum;
 
+extern	vmCvar_t	g_eloBotRelegateToDms;
+
 extern	vmCvar_t	g_armBreakage;
 
 extern	vmCvar_t	g_saberLocking;

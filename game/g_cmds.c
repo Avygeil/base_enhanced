@@ -2571,6 +2571,29 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, q
 		chatText = va("I'm terribly sorry. I unfortunately need to pause for %s. Thank you for your patience.", reason);
 	}
 
+#define ELOBOT_COMMAND_PREFIX	('!')
+	if (chatText && *chatText == ELOBOT_COMMAND_PREFIX && g_eloBotRelegateToDms.integer && (mode == SAY_ALL || mode == SAY_TEAM)) {
+		if (!Q_stricmpn(chatText + 1, "who", 3) || !Q_stricmpn(chatText + 1, "elos", 4) || !Q_stricmpn(chatText + 1, "teams", 5) || !Q_stricmpn(chatText + 1, "a", 1)) {
+			for (int i = 0; i < MAX_CLIENTS; i++) {
+				gentity_t *eloBotEnt = &g_entities[i];
+
+				if (!eloBotEnt->inuse || !eloBotEnt->client || eloBotEnt->client->pers.connected == CON_DISCONNECTED || eloBotEnt == ent)
+					continue;
+
+				if (eloBotEnt->client->sess.nmVer[0] || Q_stricmpclean(eloBotEnt->client->pers.netname, "elo BOT"))
+					continue;
+
+				G_Say(ent, eloBotEnt, SAY_TELL, chatText, qtrue);
+				G_SayTo(ent, ent, SAY_TELL, COLOR_MAGENTA, va("--> "EC"[%s%c%c"EC"]"EC": ", eloBotEnt->client->pers.netname, Q_COLOR_ESCAPE, COLOR_WHITE), chatText, NULL);
+
+				if (fixedMessage)
+					free(fixedMessage);
+
+				return;
+			}
+		}
+	}
+
 	switch ( mode ) {
 	default:
 	case SAY_ALL:
