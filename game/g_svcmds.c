@@ -3583,7 +3583,7 @@ void Svcmd_Account_f( void ) {
 
 			if ( trap_Argc() < 4 ) {
 				G_Printf( "Usage:^3 account toggleflag <username> <flag>^7\n" );
-				G_Printf( "Available flags: Admin, VerboseRcon, AimPackEditor, AimPackAdmin, VoteTroll, InstapauseBlacklist, PermaBarred, HardPermaBarred, AfkTroll, EloBotSelfHost, GetTroll, RemindPosIncessantly, VerificationLord, SpawnFCBoost, SpawnGerBoost, SpawnClickBoost, AutoTHTEBoost, SelfkillBoost, THTESwitchBoost, ItemPickupBoost, ProjectileAimbotBoost, LSAfkTroll\n" );
+				G_Printf( "Available flags: Admin, VerboseRcon, AimPackEditor, AimPackAdmin, VoteTroll, InstapauseBlacklist, PermaBarred, HardPermaBarred, AfkTroll, EloBotSelfHost, GetTroll, RemindPosIncessantly, VerificationLord, SpawnFCBoost, SpawnGerBoost, SpawnClickBoost, BaseAutoTHTEBoost, ChaseAutoTHTEBoost, OffenseAutoTHTEBoost, SelfkillBoost, THTESwitchBoost, ItemPickupBoost, ProjectileAimbotBoost, LSAfkTroll\n" );
 				return;
 			}
 

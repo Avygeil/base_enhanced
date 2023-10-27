@@ -3985,7 +3985,7 @@ void ClientThink_real( gentity_t *ent ) {
 			G_MuteSound(ent->s.number, CHAN_VOICE); //stop screaming, because you are dead!
 		}
 	}
-	else if (ent->client && ent->client->ps.fallingToDeath && ((ent->client->account && ent->client->account->flags & ACCOUNTFLAG_BOOST_SELFKILLBOOST && g_boost.integer) || (ent->r.svFlags & SVF_BOT)) && g_gametype.integer >= GT_TEAM && !IsRacerOrSpectator(ent) && ent->health > 0) {
+	else if (ent->client && ent->client->ps.fallingToDeath && level.pause.state == PAUSE_NONE && ((ent->client->account && ent->client->account->flags & ACCOUNTFLAG_BOOST_SELFKILLBOOST && g_boost.integer) || (ent->r.svFlags & SVF_BOT)) && g_gametype.integer >= GT_TEAM && !IsRacerOrSpectator(ent) && ent->health > 0) {
 		// boost: force sk when falling into pit and it's appropriate to sk
 		qboolean myFlagIsAtHome = !!(ent->client->sess.sessionTeam == TEAM_RED ? (teamgame.redStatus == FLAG_ATBASE) : (teamgame.blueStatus == FLAG_ATBASE));
 		if (!HasFlag(ent) || myFlagIsAtHome) {
@@ -3995,7 +3995,7 @@ void ClientThink_real( gentity_t *ent ) {
 		}
 	}
 
-	if (ent->health > 0) {
+	if (ent->health > 0 && level.pause.state == PAUSE_NONE) {
 		if ((ent->client && ent->client->account && g_boost.integer)) {
 			// boost: auto TH/TE
 			AutoTHTE(ent);
