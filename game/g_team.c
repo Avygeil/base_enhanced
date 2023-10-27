@@ -1478,6 +1478,7 @@ static float GetFcSpawnBoostMultiplier(gentity_t *ent) {
 #define SQRT2 (1.4142135623730951)
 
 #define SPAWNFCBOOST_IDEAL_XYDISTANCE				(g_spawnboost_losIdealDistance.integer)		// ideal xy distance we'd like to spawn from the fc
+#define SPAWNFCBOOST_VELOCITY_COEFFICIENT			(0.25f)		// how much to scale fc's velocity by when evaluating his position (if he's moving quickly)
 #define SPAWNFCBOOST_LOS_Z_ADD						(16)		// slight z-axis boost from the actual point we should use as a reference point for line of sight to fc
 #define SPAWNFCBOOST_GRID_INCREMENT					(256)		// how many units away from a weapon/ammo/health we'd like to evaluate for potentially spawning
 #define SPAWNFCBOOST_GRID_RESOLUTION				(3)			// how many increments of SPAWNFCBOOST_GRID_INCREMENT away from the weapon/health/ammo to evaluate (in both X and Y dimensions)
@@ -1643,6 +1644,33 @@ static gentity_t *GetSpawnFcBoostLocation(gentity_t *fc) {
 		return NULL;
 	}
 
+	// if fc is moving quickly, try to trace to where the fc will be shortly instead of where the fc is right now
+	vec3_t fcOrigin;
+	VectorCopy(fc->client->ps.origin, fcOrigin);
+	float fcXySpeed = sqrt(fc->client->ps.velocity[0] * fc->client->ps.velocity[0] + fc->client->ps.velocity[1] * fc->client->ps.velocity[1]);
+	qboolean gotFastGuy = qfalse;
+	if (fcXySpeed >= 600) {
+		fcOrigin[0] += fc->client->ps.velocity[0] * SPAWNFCBOOST_VELOCITY_COEFFICIENT;
+		fcOrigin[1] += fc->client->ps.velocity[1] * SPAWNFCBOOST_VELOCITY_COEFFICIENT;
+		SpawnFcBoostDebugPrintf("GetSpawnFcBoostLocation: added velocity[0] %d to ps.origin[0] %d for new value %d\n", (int)fc->client->ps.velocity[0], (int)fc->client->ps.origin[0], (int)fcOrigin[0]);
+		SpawnFcBoostDebugPrintf("GetSpawnFcBoostLocation: added velocity[1] %d to ps.origin[1] %d for new value %d\n", (int)fc->client->ps.velocity[1], (int)fc->client->ps.origin[1], (int)fcOrigin[1]);
+		gotFastGuy = qtrue;
+	}
+	if (fabs(fc->client->ps.velocity[2]) >= 400) {
+		fcOrigin[2] += fc->client->ps.velocity[2] * SPAWNFCBOOST_VELOCITY_COEFFICIENT;
+		SpawnFcBoostDebugPrintf("GetSpawnFcBoostLocation: added velocity[2] %d to ps.origin[2] %d for new value %d\n", (int)fc->client->ps.velocity[2], (int)fc->client->ps.origin[2], (int)fcOrigin[2]);
+		gotFastGuy = qtrue;
+	}
+	if (gotFastGuy) {
+		trace_t tr;
+		vec3_t mins, maxs;
+		VectorSet(mins, -15, -15, DEFAULT_MINS_2);
+		VectorSet(maxs, 15, 15, DEFAULT_MAXS_2);
+		trap_Trace(&tr, fc->client->ps.origin, mins, maxs, fcOrigin, fc - g_entities, MASK_PLAYERSOLID);
+		if (!tr.startsolid)
+			VectorCopy(tr.endpos, fcOrigin);
+	}
+
 	// get nearby weapons
 	int weaponArraySize = 16, numWeapons = 0;
 	gentity_t **filteredWeaponsArray = malloc(weaponArraySize * sizeof(gentity_t *));
@@ -1660,12 +1688,12 @@ static gentity_t *GetSpawnFcBoostLocation(gentity_t *fc) {
 		if (!weap->item || (weap->item->giType != IT_WEAPON && weap->item->giType != IT_AMMO && weap->item->giType != IT_ARMOR && weap->item->giType != IT_HEALTH && weap->item->giType != IT_TEAM))
 			continue;
 
-		float dist = Distance(weap->s.origin, fc->client->ps.origin);
+		float dist = Distance(weap->s.origin, fcOrigin);
 		if (dist > SPAWNFCBOOST_WEAPON_MAXDISTANCE_THRESHOLD)
 			continue;
 		if (dist < SPAWNFCBOOST_WEAPON_MINDISTANCE_THRESHOLD)
 			continue;
-		if (PointsAreOnOppositeSidesOfMap(weap->s.origin, fc->client->ps.origin))
+		if (PointsAreOnOppositeSidesOfMap(weap->s.origin, fcOrigin))
 			continue;
 		if (GetCTFLocationValueOfPoint(weap->s.origin, fc->client->sess.sessionTeam) >= 0.5f)
 			continue;
@@ -1677,7 +1705,7 @@ static gentity_t *GetSpawnFcBoostLocation(gentity_t *fc) {
 		vec3_t losPoint;
 		VectorCopy(weap->s.origin, losPoint);
 		losPoint[2] += SPAWNFCBOOST_LOS_Z_ADD;
-		if (!IsPointVisiblePlayersolid(losPoint, fc->client->ps.origin))
+		if (!IsPointVisiblePlayersolid(losPoint, fcOrigin))
 			continue;
 		SpawnFcBoostDebugPrintf("GetSpawnFcBoostLocation: got visible %s at %d %d %d\n", weap->classname, (int)weap->s.origin[0], (int)weap->s.origin[1], (int)weap->s.origin[2]);
 #else
@@ -1702,11 +1730,11 @@ static gentity_t *GetSpawnFcBoostLocation(gentity_t *fc) {
 
 #if 0
 	// roughly sort the weapons by closeness to the ideal
-	VectorCopy(fc->client->ps.origin, fcPosition);
+	VectorCopy(fcOrigin, fcPosition);
 	qsort(filteredWeaponsArray, numWeapons, sizeof(gentity_t *), compareWeapons);
 	SpawnFcBoostDebugPrintf("GetSpawnFcBoostLocation: sorted weapons array:");
 	for (int i = 0; i < numWeapons; i++)
-		SpawnFcBoostDebugPrintf(" %s (%d)", filteredWeaponsArray[i]->classname, (int)fabs(SPAWNFCBOOST_IDEAL_XYDISTANCE - Distance2D(filteredWeaponsArray[i]->s.origin, fc->client->ps.origin)));
+		SpawnFcBoostDebugPrintf(" %s (%d)", filteredWeaponsArray[i]->classname, (int)fabs(SPAWNFCBOOST_IDEAL_XYDISTANCE - Distance2D(filteredWeaponsArray[i]->s.origin, fcOrigin)));
 	SpawnFcBoostDebugPrintf("\n");
 #endif
 
@@ -1768,7 +1796,7 @@ static gentity_t *GetSpawnFcBoostLocation(gentity_t *fc) {
 				continue;
 			}
 
-			float dist2d = Distance2D(point, fc->client->ps.origin);
+			float dist2d = Distance2D(point, fcOrigin);
 			float deltaFromIdeal = fabs(dist2d - SPAWNFCBOOST_IDEAL_XYDISTANCE);
 			SpawnFcBoostDebugPrintf("GetSpawnFcBoostLocation: has dist2d %d, delta from ideal %d\n", (int)dist2d, (int)deltaFromIdeal);
 
@@ -1823,7 +1851,7 @@ static gentity_t *GetSpawnFcBoostLocation(gentity_t *fc) {
 			// check line of sight to fc from a little bit above the trace's endpoint
 			vec3_t losPoint, fcLosPoint;
 			VectorCopy(tr.endpos, losPoint);
-			VectorCopy(fc->client->ps.origin, fcLosPoint);
+			VectorCopy(fcOrigin, fcLosPoint);
 			losPoint[2] += SPAWNFCBOOST_LOS_Z_ADD;
 			fcLosPoint[2] += SPAWNFCBOOST_LOS_Z_ADD;
 			if (!IsPointVisiblePlayersolid(fcLosPoint, losPoint, fc - g_entities)) {
@@ -1834,7 +1862,7 @@ static gentity_t *GetSpawnFcBoostLocation(gentity_t *fc) {
 			// check a couple spots in front of the point to see whether we'll pit if we take a few steps
 			qboolean continueToNextPoint = qfalse;
 			for (int pitCheckNum = 1; pitCheckNum <= SPAWNFCBOOST_NUM_PIT_CHECKS; pitCheckNum++) {
-				if (WillPitOrStartSolidOrBeOnTriggerIfMoveToPoint(tr.endpos, SPAWNFCBOOST_PITCHECK_DISTANCE_INCREMENT * pitCheckNum, fc->client->ps.origin, mins, maxs)) {
+				if (WillPitOrStartSolidOrBeOnTriggerIfMoveToPoint(tr.endpos, SPAWNFCBOOST_PITCHECK_DISTANCE_INCREMENT * pitCheckNum, fcOrigin, mins, maxs)) {
 					SpawnFcBoostDebugPrintf("GetSpawnFcBoostLocation: will pit/startsolid/be on trigger if you take a few steps (check #%d)\n", pitCheckNum);
 					continueToNextPoint = qtrue;
 					break;
