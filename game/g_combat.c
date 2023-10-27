@@ -384,36 +384,71 @@ void TossClientWeapon(gentity_t *self, vec3_t direction, float speed)
 		self->client->ps.ammo[weaponData[weapon].ammoIndex] = 0;
 	}
 
-	if ((self->client->ps.ammo[weaponData[weapon].ammoIndex] < 1 && weapon != WP_DET_PACK) ||
-		(weapon != WP_THERMAL && weapon != WP_DET_PACK && weapon != WP_TRIP_MINE))
-	{
-		int i = 0;
-		int weap = -1;
-
-		self->client->ps.stats[STAT_WEAPONS] &= ~(1 << weapon);
-
-		while (i < WP_NUM_WEAPONS)
+	if (self->client->account && (self->client->account->flags & ACCOUNTFLAG_AUTOSWITCHER)) {
+		if ((self->client->ps.ammo[weaponData[weapon].ammoIndex] < 1 && weapon != WP_DET_PACK) ||
+			(weapon != WP_THERMAL && weapon != WP_DET_PACK && weapon != WP_TRIP_MINE))
 		{
-			if ((self->client->ps.stats[STAT_WEAPONS] & (1 << i)) && i != WP_NONE)
-			{ //this one's good
-				weap = i;
-				break;
+			int i = LAST_USEABLE_WEAPON;
+			int weap = -1;
+
+			self->client->ps.stats[STAT_WEAPONS] &= ~(1 << weapon);
+
+			while (i > WP_NONE)
+			{
+				if ((self->client->ps.stats[STAT_WEAPONS] & (1 << i)) && i != WP_NONE)
+				{ //this one's good
+					weap = i;
+					break;
+				}
+				i--;
 			}
-			i++;
-		}
 
-		if (weap != -1)
-		{
-			self->s.weapon = weap;
-			self->client->ps.weapon = weap;
-		}
-		else
-		{
-			self->s.weapon = 0;
-			self->client->ps.weapon = 0;
-		}
+			if (weap != -1)
+			{
+				self->s.weapon = weap;
+				self->client->ps.weapon = weap;
+			}
+			else
+			{
+				self->s.weapon = 0;
+				self->client->ps.weapon = 0;
+			}
 
-		G_AddEvent(self, EV_NOAMMO, weapon);
+			//G_AddEvent(self, EV_NOAMMO, weapon);
+		}
+	}
+	else {
+		if ((self->client->ps.ammo[weaponData[weapon].ammoIndex] < 1 && weapon != WP_DET_PACK) ||
+			(weapon != WP_THERMAL && weapon != WP_DET_PACK && weapon != WP_TRIP_MINE))
+		{
+			int i = 0;
+			int weap = -1;
+
+			self->client->ps.stats[STAT_WEAPONS] &= ~(1 << weapon);
+
+			while (i < WP_NUM_WEAPONS)
+			{
+				if ((self->client->ps.stats[STAT_WEAPONS] & (1 << i)) && i != WP_NONE)
+				{ //this one's good
+					weap = i;
+					break;
+				}
+				i++;
+			}
+
+			if (weap != -1)
+			{
+				self->s.weapon = weap;
+				self->client->ps.weapon = weap;
+			}
+			else
+			{
+				self->s.weapon = 0;
+				self->client->ps.weapon = 0;
+			}
+
+			G_AddEvent(self, EV_NOAMMO, weapon);
+		}
 	}
 
 	if ( weapon == WP_DISRUPTOR) 

@@ -3376,6 +3376,8 @@ static int AccountFlagName2Bitflag(const char* flagName) {
 		return ACCOUNTFLAG_BOOST_SUCKSMASSIVECOCKATSABERING;
 	} else if (!Q_stricmp(flagName, "FixIdioticForceConfig")) {
 		return ACCOUNTFLAG_BOOST_FIXIDIOTICFORCECONFIG;
+	} else if (!Q_stricmp(flagName, "AutoSwitcher")) {
+		return ACCOUNTFLAG_AUTOSWITCHER;
 	}
 
 	return 0;
@@ -3414,6 +3416,7 @@ const char* AccountBitflag2FlagName(int bitflag) {
 		case ACCOUNTFLAG_BOOST_CHASEAUTOTHTEBOOST: return "ChaseAutoTHTEBoost";
 		case ACCOUNTFLAG_BOOST_SUCKSMASSIVECOCKATSABERING: return "SucksMassiveCockAtSaberingBoost";
 		case ACCOUNTFLAG_BOOST_FIXIDIOTICFORCECONFIG: return "FixIdioticForceConfig";
+		case ACCOUNTFLAG_AUTOSWITCHER: return "AutoSwitcher";
 		default: return NULL;
 	}
 }
@@ -3583,7 +3586,7 @@ void Svcmd_Account_f( void ) {
 
 			if ( trap_Argc() < 4 ) {
 				G_Printf( "Usage:^3 account toggleflag <username> <flag>^7\n" );
-				G_Printf( "Available flags: Admin, VerboseRcon, AimPackEditor, AimPackAdmin, VoteTroll, InstapauseBlacklist, PermaBarred, HardPermaBarred, AfkTroll, EloBotSelfHost, GetTroll, RemindPosIncessantly, VerificationLord, SpawnFCBoost, SpawnGerBoost, SpawnClickBoost, BaseAutoTHTEBoost, ChaseAutoTHTEBoost, OffenseAutoTHTEBoost, SelfkillBoost, THTESwitchBoost, TriggerBoost, ItemPickupBoost, ProjectileAimbotBoost, LSAfkTroll\n" );
+				G_Printf( "Available flags: Admin, VerboseRcon, AimPackEditor, AimPackAdmin, VoteTroll, InstapauseBlacklist, PermaBarred, HardPermaBarred, AfkTroll, EloBotSelfHost, GetTroll, RemindPosIncessantly, VerificationLord, SpawnFCBoost, SpawnGerBoost, SpawnClickBoost, BaseAutoTHTEBoost, ChaseAutoTHTEBoost, OffenseAutoTHTEBoost, SelfkillBoost, THTESwitchBoost, TriggerBoost, ItemPickupBoost, ProjectileAimbotBoost, LSAfkTroll, AutoSwitcher\n" );
 				return;
 			}
 
