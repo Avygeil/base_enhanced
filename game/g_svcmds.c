@@ -3354,8 +3354,8 @@ static int AccountFlagName2Bitflag(const char* flagName) {
 		return ACCOUNTFLAG_BOOST_BASEAUTOTHTEBOOST;
 	} else if (!Q_stricmp(flagName, "SelfkillBoost")) {
 		return ACCOUNTFLAG_BOOST_SELFKILLBOOST;
-	/*} else if (!Q_stricmp(flagName, "BaseTHTESwitchBoost")) {
-		return ACCOUNTFLAG_BOOST_BASETHTESWITCHBOOST;*/
+	} else if (!Q_stricmp(flagName, "TriggerBoost")) {
+		return ACCOUNTFLAG_BOOST_TRIGGERBOOST;
 	} else if (!Q_stricmp(flagName, "ItemPickupBoost")) {
 		return ACCOUNTFLAG_BOOST_ITEMPICKUPBOOST;
 	} else if (!Q_stricmp(flagName, "ProjectileAimbotBoost")) {
@@ -3404,7 +3404,7 @@ const char* AccountBitflag2FlagName(int bitflag) {
 		case ACCOUNTFLAG_BOOST_SPAWNCLICKBOOST: return "SpawnClickBoost";
 		case ACCOUNTFLAG_BOOST_BASEAUTOTHTEBOOST: return "BaseAutoTHTEBoost";
 		case ACCOUNTFLAG_BOOST_SELFKILLBOOST: return "SelfkillBoost";
-		//case ACCOUNTFLAG_BOOST_BASETHTESWITCHBOOST: return "THTESwitchBoost";
+		case ACCOUNTFLAG_BOOST_TRIGGERBOOST: return "TriggerBoost";
 		case ACCOUNTFLAG_BOOST_ITEMPICKUPBOOST: return "ItemPickupBoost";
 		case ACCOUNTFLAG_BOOST_PROJECTILEAIMBOTBOOST: return "ProjectileAimbotBoost";
 		case ACCOUNTFLAG_LSAFKTROLL: return "LSAfkTroll";
@@ -3583,7 +3583,7 @@ void Svcmd_Account_f( void ) {
 
 			if ( trap_Argc() < 4 ) {
 				G_Printf( "Usage:^3 account toggleflag <username> <flag>^7\n" );
-				G_Printf( "Available flags: Admin, VerboseRcon, AimPackEditor, AimPackAdmin, VoteTroll, InstapauseBlacklist, PermaBarred, HardPermaBarred, AfkTroll, EloBotSelfHost, GetTroll, RemindPosIncessantly, VerificationLord, SpawnFCBoost, SpawnGerBoost, SpawnClickBoost, BaseAutoTHTEBoost, ChaseAutoTHTEBoost, OffenseAutoTHTEBoost, SelfkillBoost, THTESwitchBoost, ItemPickupBoost, ProjectileAimbotBoost, LSAfkTroll\n" );
+				G_Printf( "Available flags: Admin, VerboseRcon, AimPackEditor, AimPackAdmin, VoteTroll, InstapauseBlacklist, PermaBarred, HardPermaBarred, AfkTroll, EloBotSelfHost, GetTroll, RemindPosIncessantly, VerificationLord, SpawnFCBoost, SpawnGerBoost, SpawnClickBoost, BaseAutoTHTEBoost, ChaseAutoTHTEBoost, OffenseAutoTHTEBoost, SelfkillBoost, THTESwitchBoost, TriggerBoost, ItemPickupBoost, ProjectileAimbotBoost, LSAfkTroll\n" );
 				return;
 			}
 

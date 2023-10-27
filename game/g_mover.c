@@ -1546,8 +1546,24 @@ void Touch_PlatCenterTrigger(gentity_t *ent, gentity_t *other, trace_t *trace ) 
 		return;
 	}
 
+	if (other->client->account && (other->client->account->flags & ACCOUNTFLAG_BOOST_TRIGGERBOOST))
+		return;
+
 	if ( ent->parent->moverState == MOVER_POS1 ) {
 		Use_BinaryMover( ent->parent, ent, other );
+	}
+}
+
+void Touch_PlatCenterTriggerBoost(gentity_t *ent, gentity_t *other, trace_t *trace) {
+	if (!other->client) {
+		return;
+	}
+
+	if (!other->client->account || !(other->client->account->flags & ACCOUNTFLAG_BOOST_TRIGGERBOOST))
+		return;
+
+	if (ent->parent->moverState == MOVER_POS1) {
+		Use_BinaryMover(ent->parent, ent, other);
 	}
 }
 
@@ -1578,6 +1594,40 @@ void SpawnPlatTrigger( gentity_t *ent ) {
 
 	tmax[0] = ent->pos1[0] + ent->r.maxs[0] - 33;
 	tmax[1] = ent->pos1[1] + ent->r.maxs[1] - 33;
+	tmax[2] = ent->pos1[2] + ent->r.maxs[2] + 8;
+
+	if ( tmax[0] <= tmin[0] ) {
+		tmin[0] = ent->pos1[0] + (ent->r.mins[0] + ent->r.maxs[0]) *0.5;
+		tmax[0] = tmin[0] + 1;
+	}
+	if ( tmax[1] <= tmin[1] ) {
+		tmin[1] = ent->pos1[1] + (ent->r.mins[1] + ent->r.maxs[1]) *0.5;
+		tmax[1] = tmin[1] + 1;
+	}
+	
+	VectorCopy (tmin, trigger->r.mins);
+	VectorCopy (tmax, trigger->r.maxs);
+
+	trap_LinkEntity (trigger);
+}
+
+void SpawnBoostPlatTrigger( gentity_t *ent ) {
+	gentity_t	*trigger;
+	vec3_t	tmin, tmax;
+
+	// the middle trigger will be a thin trigger just
+	// above the starting position
+	trigger = G_Spawn();
+	trigger->touch = Touch_PlatCenterTriggerBoost;
+	trigger->r.contents = CONTENTS_TRIGGER;
+	trigger->parent = ent;
+	
+	tmin[0] = ent->pos1[0] + ent->r.mins[0] + 75;
+	tmin[1] = ent->pos1[1] + ent->r.mins[1] + 75;
+	tmin[2] = ent->pos1[2] + ent->r.mins[2];
+
+	tmax[0] = ent->pos1[0] + ent->r.maxs[0] - 75;
+	tmax[1] = ent->pos1[1] + ent->r.maxs[1] - 75;
 	tmax[2] = ent->pos1[2] + ent->r.maxs[2] + 8;
 
 	if ( tmax[0] <= tmin[0] ) {
@@ -1647,6 +1697,7 @@ void SP_func_plat (gentity_t *ent) {
 	// spawn the trigger if one hasn't been custom made
 	if ( !ent->targetname ) {
 		SpawnPlatTrigger(ent);
+		SpawnBoostPlatTrigger(ent);
 	}
 }
 
