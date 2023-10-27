@@ -3193,6 +3193,8 @@ extern vmCvar_t		g_boost;
 extern vmCvar_t		g_spawnboost_default;
 extern vmCvar_t		g_spawnboost_losIdealDistance;
 
+extern vmCvar_t		g_infiniteCharge;
+
 #ifdef NEWMOD_SUPPORT
 extern vmCvar_t		g_netUnlock;
 #define NMF_KICK			(1 << 0)

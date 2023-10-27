@@ -6474,7 +6474,7 @@ static void PM_Weapon( void )
 		{
 			int timeDif = (pm->cmd.serverTime - pm->ps->weaponChargeTime);
 
-			if (timeDif > MAX_WEAPON_CHARGE_TIME)
+			if (g_infiniteCharge.integer != 2 && timeDif > MAX_WEAPON_CHARGE_TIME)
 			{
 				pm->cmd.buttons &= ~BUTTON_ALT_ATTACK;
 			}
@@ -6484,7 +6484,7 @@ static void PM_Weapon( void )
 		{
 			int timeDif = (pm->cmd.serverTime - pm->ps->weaponChargeTime);
 
-			if (timeDif > MAX_WEAPON_CHARGE_TIME)
+			if (g_infiniteCharge.integer != 2 && timeDif > MAX_WEAPON_CHARGE_TIME)
 			{
 				pm->cmd.buttons &= ~BUTTON_ATTACK;
 			}
@@ -6784,53 +6784,119 @@ static void PM_Weapon( void )
 	}
 
 	// check for item using
-	if ( pm->cmd.buttons & BUTTON_USE_HOLDABLE ) {
-		BG_ClearRocketLock( pm->ps ); //test
-		if ( ! ( pm->ps->pm_flags & PMF_USE_ITEM_HELD ) ) 
-        {
-            //riding a vehicle, can't use holdable items, this button operates as the weapon link/unlink toggle
-            if (pm_entSelf->s.NPC_class==CLASS_VEHICLE || !pm->ps->m_iVehicleNum)
-            {
- 			    if (pm->ps->stats[STAT_HOLDABLE_ITEM])
-			    {
-			        if (!PM_ItemUsable(pm->ps, 0))
-			        {
-				        pm->ps->pm_flags |= PMF_USE_ITEM_HELD;
-			        }
-			        else
-			        {
-				        if (pm->ps->stats[STAT_HOLDABLE_ITEMS] & (1 << bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag))
-				        {
-					        if (bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag != HI_BINOCULARS &&
-						        bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag != HI_JETPACK &&
-						        bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag != HI_HEALTHDISP &&
-						        bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag != HI_AMMODISP &&
-						        bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag != HI_CLOAK &&
-						        bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag != HI_EWEB)
-					        { //never use up the binoculars or jetpack or dispensers or cloak or ...
-						        pm->ps->stats[STAT_HOLDABLE_ITEMS] -= (1 << bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag);
-					        }
 
-				            pm->ps->pm_flags |= PMF_USE_ITEM_HELD;
-				            PM_AddEvent( EV_USE_ITEM0 + bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag );
+	if (!g_infiniteCharge.integer) {
+		if (pm->cmd.buttons & BUTTON_USE_HOLDABLE) {
+			BG_ClearRocketLock(pm->ps); //test
+			if (!(pm->ps->pm_flags & PMF_USE_ITEM_HELD))
+			{
+				//riding a vehicle, can't use holdable items, this button operates as the weapon link/unlink toggle
+				if (pm_entSelf->s.NPC_class == CLASS_VEHICLE || !pm->ps->m_iVehicleNum)
+				{
+					if (pm->ps->stats[STAT_HOLDABLE_ITEM])
+					{
+						if (!PM_ItemUsable(pm->ps, 0))
+						{
+							pm->ps->pm_flags |= PMF_USE_ITEM_HELD;
+						}
+						else
+						{
+							if (pm->ps->stats[STAT_HOLDABLE_ITEMS] & (1 << bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag))
+							{
+								if (bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag != HI_BINOCULARS &&
+									bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag != HI_JETPACK &&
+									bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag != HI_HEALTHDISP &&
+									bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag != HI_AMMODISP &&
+									bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag != HI_CLOAK &&
+									bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag != HI_EWEB)
+								{ //never use up the binoculars or jetpack or dispensers or cloak or ...
+									pm->ps->stats[STAT_HOLDABLE_ITEMS] -= (1 << bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag);
+								}
 
-				            if (bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag != HI_BINOCULARS &&
-					            bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag != HI_JETPACK &&
-					            bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag != HI_HEALTHDISP &&
-					            bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag != HI_AMMODISP &&
-					            bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag != HI_CLOAK &&
-					            bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag != HI_EWEB)
-				            {
-					            pm->ps->stats[STAT_HOLDABLE_ITEM] = 0;
-					            BG_CycleInven(pm->ps, 1);
-				            }
-				        }
-			        }
-			    }  
-            }  
+								pm->ps->pm_flags |= PMF_USE_ITEM_HELD;
+								PM_AddEvent(EV_USE_ITEM0 + bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag);
+
+								if (bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag != HI_BINOCULARS &&
+									bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag != HI_JETPACK &&
+									bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag != HI_HEALTHDISP &&
+									bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag != HI_AMMODISP &&
+									bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag != HI_CLOAK &&
+									bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag != HI_EWEB)
+								{
+									pm->ps->stats[STAT_HOLDABLE_ITEM] = 0;
+									BG_CycleInven(pm->ps, 1);
+								}
+							}
+						}
+					}
+				}
+			}
 		}
-	} else {
-		pm->ps->pm_flags &= ~PMF_USE_ITEM_HELD;
+		else {
+			pm->ps->pm_flags &= ~PMF_USE_ITEM_HELD;
+		}
+	}
+	else {
+		// check for item using
+		if (pm->cmd.buttons & BUTTON_USE_HOLDABLE) {
+			BG_ClearRocketLock(pm->ps); //test
+			if (!(pm->ps->pm_flags & PMF_USE_ITEM_HELD)) {
+
+				if (pm_entSelf->s.NPC_class != CLASS_VEHICLE
+					&& pm->ps->m_iVehicleNum)
+				{//riding a vehicle, can't use holdable items, this button operates as the weapon link/unlink toggle
+					return;
+				}
+
+				if (!pm->ps->stats[STAT_HOLDABLE_ITEM])
+				{
+					return;
+				}
+
+				if (!PM_ItemUsable(pm->ps, 0))
+				{
+					pm->ps->pm_flags |= PMF_USE_ITEM_HELD;
+					return;
+				}
+				else
+				{
+					if (pm->ps->stats[STAT_HOLDABLE_ITEMS] & (1 << bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag))
+					{
+						if (bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag != HI_BINOCULARS &&
+							bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag != HI_JETPACK &&
+							bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag != HI_HEALTHDISP &&
+							bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag != HI_AMMODISP &&
+							bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag != HI_CLOAK &&
+							bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag != HI_EWEB)
+						{ //never use up the binoculars or jetpack or dispensers or cloak or ...
+							pm->ps->stats[STAT_HOLDABLE_ITEMS] -= (1 << bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag);
+						}
+					}
+					else
+					{
+						return; //this should not happen...
+					}
+
+					pm->ps->pm_flags |= PMF_USE_ITEM_HELD;
+					PM_AddEvent(EV_USE_ITEM0 + bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag);
+
+					if (bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag != HI_BINOCULARS &&
+						bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag != HI_JETPACK &&
+						bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag != HI_HEALTHDISP &&
+						bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag != HI_AMMODISP &&
+						bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag != HI_CLOAK &&
+						bg_itemlist[pm->ps->stats[STAT_HOLDABLE_ITEM]].giTag != HI_EWEB)
+					{
+						pm->ps->stats[STAT_HOLDABLE_ITEM] = 0;
+						BG_CycleInven(pm->ps, 1);
+					}
+				}
+				return;
+			}
+		}
+		else {
+			pm->ps->pm_flags &= ~PMF_USE_ITEM_HELD;
+		}
 	}
 
 	if (killAfterItem)

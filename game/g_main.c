@@ -403,6 +403,8 @@ vmCvar_t	g_boost;
 vmCvar_t	g_spawnboost_default;
 vmCvar_t	g_spawnboost_losIdealDistance;
 
+vmCvar_t	g_infiniteCharge;
+
 #ifdef NEWMOD_SUPPORT
 vmCvar_t	g_netUnlock;
 vmCvar_t	g_nmFlags;
@@ -922,6 +924,8 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_boost, "g_boost", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_spawnboost_default, "g_spawnboost_default", "0.333", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_spawnboost_losIdealDistance, "g_spawnboost_losIdealDistance", "1400", CVAR_ARCHIVE, 0, qfalse },
+
+	{ &g_infiniteCharge, "g_infiniteCharge", "2", CVAR_ARCHIVE, 0, qtrue },
 
 #ifdef NEWMOD_SUPPORT
 	{ &g_netUnlock, "g_netUnlock", "1", CVAR_ARCHIVE, 0, qtrue },
