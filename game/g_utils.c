@@ -3020,7 +3020,7 @@ void ExitAimTraining(gentity_t *ent) {
 	G_GiveRacemodeItemsAndFullStats(ent);
 }
 
-void PrintBasedOnAccountFlags(uint64_t flags, const char *msg) {
+void PrintBasedOnAccountFlags(int64_t flags, const char *msg) {
 	static qboolean recursion = qfalse;
 
 	for (int i = 0; i < MAX_CLIENTS; i++) {

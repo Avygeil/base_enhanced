@@ -68,7 +68,7 @@ void G_DBListSessionsForInfo( const char* key,
 	void* ctx );
 
 void G_DBSetAccountFlags( account_t* account,
-	const uint64_t flags );
+	const int64_t flags );
 
 void G_DBSetAccountProperties(account_t *account);
 void G_DBCacheAutoLinks(void);

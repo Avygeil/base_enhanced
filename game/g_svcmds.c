@@ -3311,7 +3311,7 @@ static void FormatAccountSessionList( void *ctx, const sessionReference_t sessio
 	Q_strcat( out->format, sizeof( out->format ), va( S_COLOR_WHITE"(hash: %llx)\n", sessionRef.ptr->hash ) );
 }
 
-static uint64_t AccountFlagName2Bitflag(const char* flagName) {
+static int64_t AccountFlagName2Bitflag(const char* flagName) {
 	if (!Q_stricmp(flagName, "Admin")) {
 		return ACCOUNTFLAG_ADMIN;
 	} else if (!Q_stricmp(flagName, "VerboseRcon")) {
@@ -3385,7 +3385,7 @@ static uint64_t AccountFlagName2Bitflag(const char* flagName) {
 
 #define NUM_SESSIONS_PER_WHOIS_PAGE 5
 
-const char* AccountBitflag2FlagName(uint64_t bitflag) {
+const char* AccountBitflag2FlagName(int64_t bitflag) {
 	switch (bitflag) {
 		case ACCOUNTFLAG_ADMIN: return "Admin";
 		case ACCOUNTFLAG_RCONLOG: return "VerboseRcon";
@@ -3532,8 +3532,8 @@ void Svcmd_Account_f( void ) {
 			G_FormatLocalDateFromEpoch( timestamp, sizeof( timestamp ), acc.ptr->creationDate );
 
 			char flagsStr[MAX_STRING_CHARS] = { 0 };
-			for ( uint64_t i = 0; i < sizeof( i ) * 8; i++ ) {
-				uint64_t bit = (1llu << i);
+			for ( int64_t i = 0; i < sizeof( i ) * 8; i++ ) {
+				int64_t bit = (1ll << i);
 
 				if ( !( acc.ptr->flags & bit ) )
 					continue;
@@ -3603,7 +3603,7 @@ void Svcmd_Account_f( void ) {
 			char flagName[128] = { 0 };
 			trap_Argv( 3, flagName, sizeof( flagName ) );
 
-			uint64_t flag = AccountFlagName2Bitflag( flagName );
+			int64_t flag = AccountFlagName2Bitflag( flagName );
 
 			if ( !flag ) {
 				G_Printf( "Unknown account flag name '%s'\n", flagName );

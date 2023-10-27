@@ -576,7 +576,7 @@ typedef struct {
 		char guid[33];
 	} autoLink;
 	positionPreferences_t expressedPref, validPref;
-	uint64_t flags;
+	int64_t flags;
 } account_t;
 
 #define MAX_SESSIONINFO_LEN		256
@@ -2104,7 +2104,7 @@ typedef struct {
 #define ACCOUNTFLAG_BOOST_CHASEAUTOTHTEBOOST				( 1 << 29 )
 #define ACCOUNTFLAG_BOOST_SUCKSMASSIVECOCKATSABERING	( 1 << 30 )
 #define ACCOUNTFLAG_BOOST_FIXIDIOTICFORCECONFIG	( 1 << 31 )
-#define ACCOUNTFLAG_AUTOSWITCHER					( 1llu << 32 )
+#define ACCOUNTFLAG_AUTOSWITCHER					( 1ll << 32ll )
 
 typedef void( *ListSessionsCallback )( void *ctx,
 	const sessionReference_t sessionRef,
@@ -2126,7 +2126,7 @@ void G_ListSessionsForAccount( account_t* account, int numPerPage, int page, Lis
 void G_ListSessionsForInfo( const char* key, const char* value, int numPerPage, int page, ListSessionsCallback callback, void* ctx );
 qboolean G_SessionInfoHasString( const session_t* session, const char* key );
 void G_GetStringFromSessionInfo( const session_t* session, const char* key, char* outValue, size_t outValueSize );
-qboolean G_SetAccountFlags( account_t* account, const uint64_t flags, qboolean flagsEnabled );
+qboolean G_SetAccountFlags( account_t* account, const int64_t flags, qboolean flagsEnabled );
 
 //
 // g_transfers.c
@@ -2340,7 +2340,7 @@ qboolean HasFlag(gentity_t *ent);
 void PlayAimPracticeBotPainSound(gentity_t *npc, gentity_t *player);
 void CenterPrintToPlayerAndFollowers(gentity_t *ent, const char *s);
 void ExitAimTraining(gentity_t *ent);
-void PrintBasedOnAccountFlags(uint64_t flags, const char *msg);
+void PrintBasedOnAccountFlags(int64_t flags, const char *msg);
 void FisherYatesShuffle(void *firstItem, size_t numItems, size_t itemSize);
 void FormatNumberToStringWithCommas(uint64_t n, char *out, size_t outSize);
 qboolean IsSpecName(const char *name);
@@ -2616,7 +2616,7 @@ qboolean getIpPortFromString( const char* from, unsigned int* ip, int* port );
 void getStringFromIp( unsigned int ip, char* buffer, int size );
 void G_Status(void);
 qboolean MapExistsQuick(const char *mapFileName);
-const char *AccountBitflag2FlagName(uint64_t bitflag);
+const char *AccountBitflag2FlagName(int64_t bitflag);
 typedef struct {
 	node_t		node;
 	char		mapFilename[MAX_QPATH];
