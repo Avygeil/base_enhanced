@@ -1488,6 +1488,7 @@ static float GetFcSpawnBoostMultiplier(gentity_t *ent) {
 #define SPAWNFCBOOST_SIMILARDISTANCE_THRESHOLD		(160)		// near zero, always prefer more ideal points even if only closer by a little; higher = more randomness for points similarly distant from ideal
 #define SPAWNFCBOOST_WEAPON_MINDISTANCE_THRESHOLD	(0)			// minimum distance to weapon/ammo/health being evaluated for spawning nearby
 #define SPAWNFCBOOST_WEAPON_MAXDISTANCE_THRESHOLD	(SPAWNFCBOOST_IDEAL_XYDISTANCE + ((SPAWNFCBOOST_GRID_INCREMENT * SPAWNFCBOOST_GRID_RESOLUTION) * SQRT2) + 1)		// maximum distance to weapon/ammo/health being evaluated for spawning nearby
+#define SPAWNFCBOOST_FCZDELTA_THRESHOLD				(500)		// start applying a penalty to deltaFromIdeal for spawnpoints this much vertically underneath the fc
 
 extern qboolean PointsAreOnOppositeSidesOfMap(vec3_t pointA, vec3_t pointB);
 
@@ -1798,6 +1799,10 @@ static gentity_t *GetSpawnFcBoostLocation(gentity_t *fc) {
 
 			float dist2d = Distance2D(point, fcOrigin);
 			float deltaFromIdeal = fabs(dist2d - SPAWNFCBOOST_IDEAL_XYDISTANCE);
+			if (fcOrigin[2] - SPAWNFCBOOST_FCZDELTA_THRESHOLD >= point[2]) {
+				SpawnFcBoostDebugPrintf("GetSpawnFcBoostLocation: point[2] %d is %d lower than fcOrigin[2] %d (>= %d), so penalizing deltaFromIdeal\n", (int)point[2], (int)(fcOrigin[2] - point[2]), (int)fcOrigin[2], SPAWNFCBOOST_FCZDELTA_THRESHOLD);
+				deltaFromIdeal += (fcOrigin[2] - point[2]); // penalize points much higher than the fc
+			}
 			SpawnFcBoostDebugPrintf("GetSpawnFcBoostLocation: has dist2d %d, delta from ideal %d\n", (int)dist2d, (int)deltaFromIdeal);
 
 			// if we already have a point that's better than this one by at least the threshold, don't bother checking this one
