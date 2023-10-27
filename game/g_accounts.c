@@ -697,9 +697,9 @@ void G_GetStringFromSessionInfo( const session_t* session, const char* key, char
 	cJSON_Delete( root );
 }
 
-qboolean G_SetAccountFlags( account_t* account, const int flags, qboolean flagsEnabled ) {
-	const int oldFlags = account->flags;
-	int newFlags = oldFlags;
+qboolean G_SetAccountFlags( account_t* account, const uint64_t flags, qboolean flagsEnabled ) {
+	const uint64_t oldFlags = account->flags;
+	uint64_t newFlags = oldFlags;
 
 	if (flagsEnabled) {
 		newFlags |= flags;

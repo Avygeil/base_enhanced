@@ -239,6 +239,7 @@ static qboolean InFOVFloat(gentity_t *ent, gentity_t *from, double hFOV, double 
 	return qfalse;
 }
 
+extern qboolean G_IsMindTricked(forcedata_t *fd, int client);
 static gentity_t *PlayerThatPlayerIsAimingClosestTo(gentity_t *ent, float hFOV, float maxDistance, qboolean trace) {
 	// check who is eligible to be followed
 	qboolean valid[MAX_CLIENTS] = { qfalse }, gotValid = qfalse;
@@ -250,7 +251,9 @@ static gentity_t *PlayerThatPlayerIsAimingClosestTo(gentity_t *ent, float hFOV, 
 			continue;
 		if (thisEnt->health <= 0 || thisEnt->client->ps.pm_type == PM_SPECTATOR || thisEnt->client->tempSpectate >= level.time)
 			continue; // this guy is dead
-		if (!InFOVFloat(&g_entities[i], ent, hFOV, 45.0f))
+		if (!InFOVFloat(thisEnt, ent, hFOV, 45.0f))
+			continue;
+		if (G_IsMindTricked(&thisEnt->client->ps.fd, ent - g_entities))
 			continue;
 		valid[i] = qtrue;
 		gotValid = qtrue;

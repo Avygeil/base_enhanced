@@ -370,7 +370,7 @@ qboolean G_DBGetAccountByID( const int id,
 	if ( rc == SQLITE_ROW ) {
 		const char* name = ( const char* )sqlite3_column_text( statement, 0 );
 		const int created_on = sqlite3_column_int( statement, 1 );
-		const int flags = sqlite3_column_int( statement, 3 );
+		const uint64_t flags = sqlite3_column_int64( statement, 3 );
 
 		account->id = id;
 		Q_strncpyz( account->name, name, sizeof( account->name ) );
@@ -413,7 +413,7 @@ qboolean G_DBGetAccountByName( const char* name,
 		const int account_id = sqlite3_column_int( statement, 0 );
 		const char* name = ( const char* )sqlite3_column_text( statement, 1 );
 		const int created_on = sqlite3_column_int( statement, 2 );
-		const int flags = sqlite3_column_int( statement, 4 );
+		const uint64_t flags = sqlite3_column_int64( statement, 4 );
 
 		account->id = account_id;
 		Q_strncpyz( account->name, name, sizeof( account->name ) );
@@ -668,7 +668,7 @@ void G_DBListSessionsForInfo( const char* key,
 }
 
 void G_DBSetAccountFlags( account_t* account,
-	const int flags )
+	const uint64_t flags )
 {
 	sqlite3_stmt* statement;
 
