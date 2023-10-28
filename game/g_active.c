@@ -493,12 +493,12 @@ except for "skip"
 #define UNLAGGED_FACTOR_NPC			(0.5)
 #define UNLAGGED_MAX_COMPENSATION	(500)
 void G_TimeShiftAllClients(int time, gentity_t *skip, qboolean timeshiftAnims) {
-	if (!skip->client)
-		return;
-	if (skip->r.svFlags & SVF_BOT)
-		return;
-	if (skip->s.eType == ET_NPC)
-		return;
+	if (skip) {
+		if (skip->r.svFlags & SVF_BOT)
+			return;
+		if (skip->s.eType == ET_NPC)
+			return;
+	}
 
 #ifdef _DEBUG
 	if (g_unlaggedDebug.integer)
@@ -549,7 +549,7 @@ void G_TimeShiftAllClients(int time, gentity_t *skip, qboolean timeshiftAnims) {
 		PrintIngame(-1, "%d, now %d, diff %d\n", time, now, now - time);
 #endif
 
-	if (skip->client->sess.inRacemode) {
+	if (skip && skip->client && skip->client->sess.inRacemode) {
 		for (int i = MAX_CLIENTS; i < MAX_GENTITIES; i++) {
 			gentity_t *ent = &g_entities[i];
 			if (ent->client && ent->inuse && ent->isAimPracticePack && ent->NPC) {
@@ -619,14 +619,14 @@ except for "skip"
 =======================
 */
 void G_UnTimeShiftAllClients(gentity_t *skip, qboolean timeshiftAnims) {
-	if (!skip->client)
-		return;
-	if (skip->r.svFlags & SVF_BOT)
-		return;
-	if (skip->s.eType == ET_NPC)
-		return;
+	if (skip) {
+		if (skip->r.svFlags & SVF_BOT)
+			return;
+		if (skip->s.eType == ET_NPC)
+			return;
+	}
 
-	if (skip->client->sess.inRacemode) {
+	if (skip && skip->client && skip->client->sess.inRacemode) {
 		for (int i = MAX_CLIENTS; i < MAX_GENTITIES; i++) {
 			gentity_t *ent = &g_entities[i];
 			if (ent->client && ent->inuse && ent->isAimPracticePack && ent->NPC) {

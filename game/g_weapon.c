@@ -239,6 +239,29 @@ static qboolean InFOVFloat(gentity_t *ent, gentity_t *from, double hFOV, double 
 	return qfalse;
 }
 
+static qboolean AimbotterHadLineOfSightToTarget(gentity_t *shooter, gentity_t *victim, int msAgo) {
+	assert(shooter && victim);
+
+	if (msAgo > 0)
+		G_TimeShiftAllClients(trap_Milliseconds() - msAgo, NULL, qfalse);
+
+	trace_t tr;
+	vec3_t start, end;
+	VectorCopy(shooter->r.currentOrigin, start);
+	VectorCopy(victim->r.currentOrigin, end);
+	start[2] += (shooter->client->ps.viewheight / 2);
+	end[2] += (victim->client->ps.viewheight / 2);
+	trap_G2Trace(&tr, start, NULL, NULL, end, shooter->s.number, MASK_SHOT, G2TRFLAG_DOGHOULTRACE | G2TRFLAG_GETSURFINDEX | G2TRFLAG_THICK | G2TRFLAG_HITCORPSES, g_g2TraceLod.integer);
+
+	if (msAgo > 0)
+		G_UnTimeShiftAllClients(NULL, qfalse);
+
+	if (tr.entityNum != victim - g_entities || tr.startsolid)
+		return qfalse; // couldn't trace to the target
+
+	return qtrue;
+}
+
 extern qboolean G_IsMindTricked(forcedata_t *fd, int client);
 static gentity_t *PlayerThatPlayerIsAimingClosestTo(gentity_t *ent, float hFOV, float maxDistance, qboolean trace) {
 	// check who is eligible to be followed
@@ -251,10 +274,17 @@ static gentity_t *PlayerThatPlayerIsAimingClosestTo(gentity_t *ent, float hFOV, 
 			continue;
 		if (thisEnt->health <= 0 || thisEnt->client->ps.pm_type == PM_SPECTATOR || thisEnt->client->tempSpectate >= level.time)
 			continue; // this guy is dead
+		if (thisEnt->client->pers.lastSpawnTime >= level.time - 2000)
+			continue; // target can't get aimbotted within 2s of spawning
 		if (!InFOVFloat(thisEnt, ent, hFOV, 45.0f))
 			continue;
 		if (G_IsMindTricked(&thisEnt->client->ps.fd, ent - g_entities))
 			continue;
+		if (!AimbotterHadLineOfSightToTarget(ent, thisEnt, 1000))
+			continue; // didn't have line of sight to target 1s ago
+		if (!AimbotterHadLineOfSightToTarget(ent, thisEnt, 0))
+			continue; // doesn't have line of sight to target right now
+
 		valid[i] = qtrue;
 		gotValid = qtrue;
 	}
@@ -298,6 +328,9 @@ static void CorrectBoostedAim(gentity_t *ent, vec3_t muzzle, vec3_t vec, float p
 	if (!ent || !ent->client || !ent->client->account || !(ent->client->account->flags & ACCOUNTFLAG_BOOST_PROJECTILEAIMBOTBOOST) || !g_boost.integer)
 		return;
 
+	if (ent->client->pers.lastSpawnTime >= level.time - 2000)
+		return; // aimbotter spawned too recently
+
 	gentity_t *target = PlayerThatPlayerIsAimingClosestTo(ent, 45.0f, 2000.0f, qtrue); // initial sweep for enemies
 	if (!target) {
 		target = PlayerThatPlayerIsAimingClosestTo(ent, 60.0f, 500.0f, qfalse); // fallback wider angle sweep for closeby enemies
@@ -314,15 +347,105 @@ static void CorrectBoostedAim(gentity_t *ent, vec3_t muzzle, vec3_t vec, float p
 	VectorSet(maxs, size, size, size);
 	VectorScale(maxs, -1, mins);
 
-	// aim splash weapons at feet if target isn't in air
-	if (target->client->ps.groundEntityNum != ENTITYNUM_NONE && (weapon == WP_ROCKET_LAUNCHER || weapon == WP_CONCUSSION || weapon == WP_THERMAL || (altFire && weapon == WP_REPEATER)))
-		enemyPos[2] -= 18;
+	// get enemy velocity
+	vec3_t enemyVelocity;
+#if 0
+		// current velocity
+		VectorCopy(target->s.pos.trDelta, enemyVelocity);
+#else
+		// rewind to get the enemy's velocity shortly before shooting
+		int now = trap_Milliseconds();
+
+#define PROJECTILEAIMBOT_ORIGIN_DELTATIME_1				(250)
+#define PROJECTILEAIMBOT_ORIGIN_DELTATIME_DIFF			(33)
+#define PROJECTILEAIMBOT_ORIGIN_DELTATIME_2				(PROJECTILEAIMBOT_ORIGIN_DELTATIME_1 - PROJECTILEAIMBOT_ORIGIN_DELTATIME_DIFF)
+#define PROJECTILEAIMBOT_ORIGIN_DELTATIMEDIFF_SECONDS	(PROJECTILEAIMBOT_ORIGIN_DELTATIME_DIFF / 1000.0f)
+
+		// get their origin 250ms ago
+		G_TimeShiftClient(target, now - PROJECTILEAIMBOT_ORIGIN_DELTATIME_1, qfalse);
+		vec3_t pos1;
+		VectorCopy(target->r.currentOrigin, pos1);
+		G_UnTimeShiftClient(target, qfalse);
+
+		// get their origin 217ms ago
+		G_TimeShiftClient(target, now - PROJECTILEAIMBOT_ORIGIN_DELTATIME_2, qfalse);
+		vec3_t pos2;
+		VectorCopy(target->r.currentOrigin, pos2);
+		G_UnTimeShiftClient(target, qfalse);
+
+		// calculate their velocity 250ms ago using these
+		enemyVelocity[0] = (pos2[0] - pos1[0]) / PROJECTILEAIMBOT_ORIGIN_DELTATIMEDIFF_SECONDS;
+		enemyVelocity[1] = (pos2[1] - pos1[1]) / PROJECTILEAIMBOT_ORIGIN_DELTATIMEDIFF_SECONDS;
+		enemyVelocity[2] = (pos2[2] - pos1[2]) / PROJECTILEAIMBOT_ORIGIN_DELTATIMEDIFF_SECONDS;
+#endif
+
+		{
+			int noise = 0;
+			if (target->client->ps.groundEntityNum != ENTITYNUM_NONE) {
+				// target is on the ground
+				if (weapon == WP_ROCKET_LAUNCHER || weapon == WP_CONCUSSION || weapon == WP_THERMAL || (altFire && weapon == WP_REPEATER))
+					enemyPos[2] -= 18; // aim splash weapons at feet
+			}
+			else {
+				// target is in the air
+				noise += 1;
+			}
+
+			if (ent->client->ps.groundEntityNum == ENTITYNUM_NONE)
+				noise += 1;
+			if (ent->client->pers.lastSpawnTime >= level.time - 3000)
+				noise += 1;
+
+			int enemyXyVel = sqrt(enemyVelocity[0] * enemyVelocity[0] + enemyVelocity[1] * enemyVelocity[1]);
+			if (enemyXyVel >= 1500)
+				noise += 6;
+			else if (enemyXyVel >= 1250)
+				noise += 5;
+			else if (enemyXyVel >= 1000)
+				noise += 4;
+			else if (enemyXyVel >= 750)
+				noise += 3;
+			else if (enemyXyVel >= 500)
+				noise += 2;
+			else if (enemyXyVel > 0)
+				noise += 1;
+
+			int enemyZVel = fabs(enemyVelocity[2]);
+			if (enemyZVel >= 750)
+				noise += 3;
+			else if (enemyZVel >= 500)
+				noise += 2;
+
+			float dist = Distance2D(ent->client->ps.origin, target->client->ps.origin);
+			if (dist >= 2000)
+				noise += 2;
+			else if (dist >= 1000)
+				noise += 1;
+			else if (dist <= 128)
+				noise -= 1;
+
+			if (!AimbotterHadLineOfSightToTarget(ent, target, 2000))
+				noise += 1;
+
+			int rng = Q_irand(1, 10);
+			if (rng == 1)
+				noise += 2;
+			else if (rng <= 3)
+				noise += 1;
+
+#define PROJECTILEAIMBOT_NOISE_COEFFICIENT		(5)
+			float enemyPosNoiseRange = noise * PROJECTILEAIMBOT_NOISE_COEFFICIENT;
+			if (noise > 0) {
+				enemyPos[0] = Q_irand(enemyPos[0] - enemyPosNoiseRange, enemyPos[0] + enemyPosNoiseRange);
+				enemyPos[1] = Q_irand(enemyPos[1] - enemyPosNoiseRange, enemyPos[1] + enemyPosNoiseRange);
+				//enemyPos[2] = Q_irand(enemyPos[2] - enemyPosNoiseRange, enemyPos[2] + enemyPosNoiseRange);
+			}
+		}
 
 	if (weapon == WP_THERMAL || (altFire && weapon == WP_REPEATER)) { // quick and dirty approximation for arced weapons
-		vec3_t diffVec, enemyVelocity, estimatedEnemyPos;
+		vec3_t diffVec, estimatedEnemyPos;
 		float horizontalDistance, heightDifference, timeToImpact;
 
-		VectorCopy(target->s.pos.trDelta, enemyVelocity);
 		VectorSubtract(enemyPos, shooterPos, diffVec);
 		horizontalDistance = sqrt(diffVec[0] * diffVec[0] + diffVec[1] * diffVec[1]);
 		timeToImpact = horizontalDistance / projectileSpeed;
@@ -383,15 +506,13 @@ static void CorrectBoostedAim(gentity_t *ent, vec3_t muzzle, vec3_t vec, float p
 			VectorCopy(possiblyFinalVec, vec);
 	}
 	else { // straight line weapons
-		vec3_t diffVec, enemyVel, adjustedEnemyVel, predictedPos;
+		vec3_t diffVec, predictedPos;
 		float distance, timeToImpact;
 
-		VectorCopy(target->s.pos.trDelta, enemyVel);
-		VectorScale(enemyVel, 1, adjustedEnemyVel);
 		VectorSubtract(enemyPos, shooterPos, diffVec);
 		distance = VectorLength(diffVec);
 		timeToImpact = distance / projectileSpeed;
-		VectorMA(enemyPos, timeToImpact, adjustedEnemyVel, predictedPos);
+		VectorMA(enemyPos, timeToImpact, enemyVelocity, predictedPos);
 		vec3_t possiblyFinalVec;
 		VectorSubtract(predictedPos, shooterPos, possiblyFinalVec);
 		VectorNormalize(possiblyFinalVec);
