@@ -4750,33 +4750,33 @@ void DoGripAction(gentity_t *self, forcePowers_t forcePower)
 	}
 }
 
-qboolean G_IsMindTricked(forcedata_t *fd, int client)
+qboolean G_IsMindTricked(forcedata_t *victimFd, int mindTricker)
 {
 	int checkIn;
 	int trickIndex1, trickIndex2, trickIndex3, trickIndex4;
 	int sub = 0;
 
-	if (!fd)
+	if (!victimFd)
 	{
 		return qfalse;
 	}
 
-	trickIndex1 = fd->forceMindtrickTargetIndex;
-	trickIndex2 = fd->forceMindtrickTargetIndex2;
-	trickIndex3 = fd->forceMindtrickTargetIndex3;
-	trickIndex4 = fd->forceMindtrickTargetIndex4;
+	trickIndex1 = victimFd->forceMindtrickTargetIndex;
+	trickIndex2 = victimFd->forceMindtrickTargetIndex2;
+	trickIndex3 = victimFd->forceMindtrickTargetIndex3;
+	trickIndex4 = victimFd->forceMindtrickTargetIndex4;
 
-	if (client > 47)
+	if (mindTricker > 47)
 	{
 		checkIn = trickIndex4;
 		sub = 48;
 	}
-	else if (client > 31)
+	else if (mindTricker > 31)
 	{
 		checkIn = trickIndex3;
 		sub = 32;
 	}
-	else if (client > 15)
+	else if (mindTricker > 15)
 	{
 		checkIn = trickIndex2;
 		sub = 16;
@@ -4786,7 +4786,7 @@ qboolean G_IsMindTricked(forcedata_t *fd, int client)
 		checkIn = trickIndex1;
 	}
 
-	if (checkIn & (1 << (client-sub)))
+	if (checkIn & (1 << (mindTricker -sub)))
 	{
 		return qtrue;
 	}

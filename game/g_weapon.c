@@ -262,7 +262,7 @@ static qboolean AimbotterHadLineOfSightToTarget(gentity_t *shooter, gentity_t *v
 	return qtrue;
 }
 
-extern qboolean G_IsMindTricked(forcedata_t *fd, int client);
+extern qboolean G_IsMindTricked(forcedata_t *victimFd, int mindTricker);
 static gentity_t *PlayerThatPlayerIsAimingClosestTo(gentity_t *ent, float hFOV, float maxDistance, qboolean trace) {
 	// check who is eligible to be followed
 	qboolean valid[MAX_CLIENTS] = { qfalse }, gotValid = qfalse;

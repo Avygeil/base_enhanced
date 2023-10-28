@@ -1373,6 +1373,92 @@ qboolean PM_AdjustAnglesForWallRunUpFlipAlt( usercmd_t *ucmd )
 	return qtrue;
 }
 
+extern qboolean G_IsMindTricked(forcedata_t *victimFd, int mindTricker);
+static void PM_DoJumpSound(void) {
+	if (!g_mindTrickBuff.integer || !(pm->ps->fd.forcePowersActive & (1 << FP_TELEPATHY))) {
+		PM_AddEvent(EV_JUMP);
+		return;
+	}
+
+	gentity_t *te = G_TempEntity(vec3_origin, EV_JUMP);
+	te->s.number = pm->ps->clientNum;
+	G_ApplyRaceBroadcastsToEvent(&g_entities[pm->ps->clientNum], te);
+
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *ent = &g_entities[i];
+		if (!ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED || i == pm->ps->clientNum)
+			continue;
+
+		if (g_gametype.integer >= GT_TEAM && ent->client->sess.sessionTeam == g_entities[pm->ps->clientNum].client->sess.sessionTeam)
+			continue;
+
+		qboolean isMindTricked = G_IsMindTricked(&ent->client->ps.fd, pm->ps->clientNum);
+		qboolean isFollowingSomeoneWhoIsMindtricked = ent->client->sess.sessionTeam == TEAM_SPECTATOR &&
+			ent->client->sess.spectatorState == SPECTATOR_FOLLOW && G_IsMindTricked(&ent->client->ps.fd, pm->ps->clientNum);
+
+		if (isMindTricked || isFollowingSomeoneWhoIsMindtricked)
+			te->r.broadcastClients[1] |= (1 << i);
+	}
+}
+
+static void PM_DoRollSound(int delta_send) {
+	if (!g_mindTrickBuff.integer || !(pm->ps->fd.forcePowersActive & (1 << FP_TELEPATHY))) {
+		PM_AddEventWithParm(EV_ROLL, delta_send);
+		return;
+	}
+
+	gentity_t *te = G_TempEntity(vec3_origin, EV_ROLL);
+	te->s.number = pm->ps->clientNum;
+	G_ApplyRaceBroadcastsToEvent(&g_entities[pm->ps->clientNum], te);
+
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *ent = &g_entities[i];
+		if (!ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED || i == pm->ps->clientNum)
+			continue;
+
+		if (g_gametype.integer >= GT_TEAM && ent->client->sess.sessionTeam == g_entities[pm->ps->clientNum].client->sess.sessionTeam)
+			continue;
+
+		qboolean isMindTricked = G_IsMindTricked(&ent->client->ps.fd, pm->ps->clientNum);
+		qboolean isFollowingSomeoneWhoIsMindtricked = ent->client->sess.sessionTeam == TEAM_SPECTATOR &&
+			ent->client->sess.spectatorState == SPECTATOR_FOLLOW && G_IsMindTricked(&ent->client->ps.fd, pm->ps->clientNum);
+
+		if (isMindTricked || isFollowingSomeoneWhoIsMindtricked)
+			te->r.broadcastClients[1] |= (1 << i);
+	}
+
+	te->s.eventParm = delta_send;
+}
+
+static void PM_DoFallSound(int delta_send) {
+	if (!g_mindTrickBuff.integer || !(pm->ps->fd.forcePowersActive & (1 << FP_TELEPATHY))) {
+		PM_AddEventWithParm(EV_FALL, delta_send);
+		return;
+	}
+
+	gentity_t *te = G_TempEntity(vec3_origin, EV_FALL);
+	te->s.number = pm->ps->clientNum;
+	G_ApplyRaceBroadcastsToEvent(&g_entities[pm->ps->clientNum], te);
+
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *ent = &g_entities[i];
+		if (!ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED || i == pm->ps->clientNum)
+			continue;
+
+		if (g_gametype.integer >= GT_TEAM && ent->client->sess.sessionTeam == g_entities[pm->ps->clientNum].client->sess.sessionTeam)
+			continue;
+
+		qboolean isMindTricked = G_IsMindTricked(&ent->client->ps.fd, pm->ps->clientNum);
+		qboolean isFollowingSomeoneWhoIsMindtricked = ent->client->sess.sessionTeam == TEAM_SPECTATOR &&
+			ent->client->sess.spectatorState == SPECTATOR_FOLLOW && G_IsMindTricked(&ent->client->ps.fd, pm->ps->clientNum);
+
+		if (isMindTricked || isFollowingSomeoneWhoIsMindtricked)
+			te->r.broadcastClients[1] |= (1 << i);
+	}
+
+	te->s.eventParm = delta_send;
+}
+
 qboolean PM_AdjustAngleForWallRunUp( playerState_t *ps, usercmd_t *ucmd, qboolean doMove )
 {
 	if ( ps->legsAnim == BOTH_FORCEWALLRUNFLIP_START )
@@ -1409,7 +1495,7 @@ qboolean PM_AdjustAngleForWallRunUp( playerState_t *ps, usercmd_t *ucmd, qboolea
 				pm->ps->velocity[2] += 400;
 				PM_SetAnim(SETANIM_BOTH, BOTH_FORCEWALLRUNFLIP_ALT, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD, 0);
 				pm->ps->pm_flags |= PMF_JUMP_HELD;
-				PM_AddEvent(EV_JUMP);
+				PM_DoJumpSound();
 				ucmd->upmove = 0;
 				return qfalse;
 			}
@@ -1475,7 +1561,7 @@ qboolean PM_AdjustAngleForWallRunUp( playerState_t *ps, usercmd_t *ucmd, qboolea
 			ps->pm_flags |= PMF_JUMP_HELD;
 
 			//FIXME do I need this in mp?
-			PM_AddEvent(EV_JUMP);
+			PM_DoJumpSound();
 			ucmd->upmove = 0;
 		}
 
@@ -1647,7 +1733,7 @@ float forceJumpHeightMax[NUM_FORCE_POWER_LEVELS] =
 void PM_GrabWallForJump( int anim )
 {//NOTE!!! assumes an appropriate anim is being passed in!!!
 	PM_SetAnim( SETANIM_BOTH, anim, SETANIM_FLAG_RESTART|SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD, 0 );
-	PM_AddEvent( EV_JUMP );//make sound for grab
+	PM_DoJumpSound();;//make sound for grab
 	pm->ps->pm_flags |= PMF_STUCK_TO_WALL;
 }
 
@@ -2318,7 +2404,7 @@ static qboolean PM_CheckJump( void )
 						//FIXME: do damage to traceEnt, like above?
 						//ha ha, so silly with your silly jumpy fally flags.
 						pm->cmd.upmove = 0;
-						PM_AddEvent( EV_JUMP );
+						PM_DoJumpSound();
 					}
 				}
 				if ( pm->cmd.upmove != 0 )
@@ -2500,7 +2586,7 @@ static qboolean PM_CheckJump( void )
 	pm->ps->groundEntityNum = ENTITYNUM_NONE;
 	PM_SetForceJumpZStart(pm->ps->origin[2]);
 
-	PM_AddEvent( EV_JUMP );
+	PM_DoJumpSound();
 
 	//Set the animations
 	if ( pm->ps->gravity > 0 && !BG_InSpecialJump( pm->ps->legsAnim ) )
@@ -3678,18 +3764,18 @@ static void PM_CrashLand( void ) {
 
 				if (didRoll)
 				{ //Add the appropriate event..
-					PM_AddEventWithParm(EV_ROLL, delta_send);
+					PM_DoRollSound(delta_send);
 				}
 				else
 				{
-					PM_AddEventWithParm(EV_FALL, delta_send);
+					PM_DoFallSound(delta_send);
 				}
 			}
 			else
 			{
 				if (didRoll)
 				{
-					PM_AddEventWithParm(EV_ROLL, 0);
+					PM_DoRollSound(0);
 				}
 				else
 				{
@@ -5084,7 +5170,7 @@ static void PM_Footsteps( void ) {
 			pm->ps->legsTimer = 0;
 			pm->ps->legsAnim = 0;
 			PM_SetAnim(SETANIM_BOTH,rolled,SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD, 150);
-			PM_AddEventWithParm( EV_ROLL, 0 );
+			PM_DoRollSound(0);
 			pm->maxs[2] = pm->ps->crouchheight;
 			pm->ps->viewheight = DEFAULT_VIEWHEIGHT;
 			pm->ps->pm_flags &= ~PMF_DUCKED;
@@ -9256,7 +9342,7 @@ static ID_INLINE void PM_CmdForSaberMoves(usercmd_t *ucmd)
 						pm->ps->velocity[2] = 250;
 						pm->ps->fd.forceJumpZStart = pm->ps->origin[2];//so we don't take damage if we land at same height
 						//FIXME: NPCs yell?
-						PM_AddEvent(EV_JUMP);
+						PM_DoJumpSound();
 					}
 				}
 				else
@@ -9320,7 +9406,7 @@ static ID_INLINE void PM_CmdForSaberMoves(usercmd_t *ucmd)
 					}
 					pm->ps->fd.forceJumpZStart = pm->ps->origin[2];//so we don't take damage if we land at same height
 					//FIXME: NPCs yell?
-					PM_AddEvent(EV_JUMP);
+					PM_DoJumpSound();
 				}
 				else
 				{//FIXME: if this is the second jump, maybe we should just stop the anim?
@@ -9360,7 +9446,7 @@ static ID_INLINE void PM_CmdForSaberMoves(usercmd_t *ucmd)
 				pm->ps->fd.forceJumpZStart = pm->ps->origin[2]; //so we don't take damage if we land at same height
 
 				//FIXME: NPCs yell?
-				PM_AddEvent(EV_JUMP);
+				PM_DoJumpSound();
 				ucmd->upmove = 0; //clear any actual jump command
 			}
 		}
@@ -9828,7 +9914,7 @@ void PM_MoveForKata(usercmd_t *ucmd)
 				pm->ps->velocity[2] = 250;
 				pm->ps->fd.forceJumpZStart = pm->ps->origin[2];//so we don't take damage if we land at same height
 				//FIXME: NPCs yell?
-				PM_AddEvent(EV_JUMP);
+				PM_DoJumpSound();
 			}
 		}
 	}
