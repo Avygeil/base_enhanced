@@ -2669,7 +2669,7 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, q
 				continue;
 			if (thisEnt->health <= 0)
 				continue;
-			if (thisEnt->client->sess.remindPositionOnMapChange.valid && (thisEnt->client->sess.remindPositionOnMapChange.pos == CTFPOSITION_OFFENSE || thisEnt->client->sess.remindPositionOnMapChange.pos == CTFPOSITION_CHASE))
+			if (GetRemindedPosOrDeterminedPos(thisEnt) != CTFPOSITION_BASE)
 				continue;
 			float dist = Distance(ent->client->ps.origin, thisEnt->client->ps.origin);
 			if (thisEnt->client->ps.fd.forcePower >= 25 && (thisEnt->client->pers.lastForcedToSkTime >= level.time - 5000 || thisEnt->client->pers.lastSpawnTime >= level.time - 4000) && dist <= 2000)
