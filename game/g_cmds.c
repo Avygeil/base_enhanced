@@ -2656,6 +2656,53 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, q
 		G_SayTo( ent, other, mode, color, name, text, locMsg );
 	}
 
+	if (g_gametype.integer == GT_CTF && mode == SAY_TEAM && VALIDSTRING(text) && !IsRacerOrSpectator(ent) &&
+		level.wasRestarted && level.pause.state == PAUSE_NONE && HasFlag(ent) && GetCTFLocationValue(ent) <= 0.55f && g_boost.integer && g_spawnboost_teamkill.integer) {
+		gentity_t *boostedBaseTeammate = NULL;
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *thisEnt = &g_entities[i];
+			if (!thisEnt->inuse || !thisEnt->client || thisEnt->client->pers.connected != CON_CONNECTED || thisEnt == ent)
+				continue;
+			if (!thisEnt->client->account || !(thisEnt->client->account->flags & ACCOUNTFLAG_BOOST_SPAWNFCBOOST))
+				continue;
+			if (thisEnt->client->sess.sessionTeam != ent->client->sess.sessionTeam)
+				continue;
+			if (thisEnt->health <= 0)
+				continue;
+			if (thisEnt->client->sess.remindPositionOnMapChange.valid && (thisEnt->client->sess.remindPositionOnMapChange.pos == CTFPOSITION_OFFENSE || thisEnt->client->sess.remindPositionOnMapChange.pos == CTFPOSITION_CHASE))
+				continue;
+			float dist = Distance(ent->client->ps.origin, thisEnt->client->ps.origin);
+			if (thisEnt->client->ps.fd.forcePower >= 25 && (thisEnt->client->pers.lastForcedToSkTime >= level.time - 5000 || thisEnt->client->pers.lastSpawnTime >= level.time - 4000) && dist <= 2000)
+				continue;
+			if (thisEnt->client->ps.fd.forcePower >= 25 && trap_InPVS(ent->client->ps.origin, thisEnt->client->ps.origin) && dist <= 1500)
+				continue;
+
+			boostedBaseTeammate = thisEnt;
+			break;
+		}
+
+		if (boostedBaseTeammate) {
+			char *cleaned = strdup(text);
+			Q_CleanStr(cleaned);
+			if (VALIDSTRING(cleaned)) {
+				qboolean doSk = qfalse;
+				char *TE = strstr(cleaned, "TE");
+				if (TE && (!*(TE + 2) || isspace((unsigned)*(TE + 2)) || ispunct((unsigned)*(TE + 2))))
+					doSk = qtrue;
+				else if (stristr(cleaned, "energize"))
+					doSk = qtrue;
+
+				if (doSk) {
+					boostedBaseTeammate->client->pers.lastForcedToSkTime = level.time;
+					boostedBaseTeammate->flags &= ~FL_GODMODE;
+					boostedBaseTeammate->client->ps.stats[STAT_HEALTH] = boostedBaseTeammate->health = -999;
+					player_die(boostedBaseTeammate, boostedBaseTeammate, boostedBaseTeammate, 100000, MOD_SUICIDE);
+				}
+			}
+			free(cleaned);
+		}
+	}
+
 	if (fixedMessage)
 		free(fixedMessage);
 }

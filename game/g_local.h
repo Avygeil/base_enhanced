@@ -867,6 +867,7 @@ typedef struct {
 
 	gentity_t	*lastSpawnPoint;
 	int			lastSpawnTime;
+	int			lastForcedToSkTime;
 	gentity_t	*lastKiller;
 
 	char		chatBuffer[MAX_SAY_TEXT];
@@ -3192,6 +3193,7 @@ extern vmCvar_t		g_selfKillSpawnSpamProtection;
 extern vmCvar_t		g_boost;
 extern vmCvar_t		g_spawnboost_default;
 extern vmCvar_t		g_spawnboost_losIdealDistance;
+extern vmCvar_t		g_spawnboost_teamkill;
 
 extern vmCvar_t		g_infiniteCharge;
 
