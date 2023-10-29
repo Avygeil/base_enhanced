@@ -4027,13 +4027,12 @@ void ClientThink_real( gentity_t *ent ) {
 			if (pickupEnt) {
 				const float myDist = Distance(pickupEnt->s.pos.trBase, ent->client->ps.origin);
 				qboolean gotCloserPlayer = qfalse;
-				for (int i = 0; i < num; i++) {
-					const int touchEntityNum = touchEntityNums[i];
-					if (touchEntityNum >= MAX_CLIENTS || touchEntityNum == ent - g_entities)
+				for (int i = 0; i < MAX_CLIENTS; i++) {
+					gentity_t *closerGuy = &g_entities[i];
+					if (!closerGuy->inuse || !closerGuy->client || closerGuy->client->pers.connected != CON_CONNECTED || closerGuy->health <= 0 || IsRacerOrSpectator(closerGuy) || closerGuy == ent)
 						continue;
 
-					gentity_t *touchEnt = &g_entities[touchEntityNum];
-					const float thisGuyDist = Distance(pickupEnt->s.pos.trBase, touchEnt->client->ps.origin);
+					const float thisGuyDist = Distance(pickupEnt->s.pos.trBase, closerGuy->client->ps.origin);
 					if (thisGuyDist < myDist) {
 						gotCloserPlayer = qtrue;
 						break;
