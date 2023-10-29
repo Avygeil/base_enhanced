@@ -937,7 +937,7 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_botAimbot, "g_botAimbot", "0", CVAR_ARCHIVE, 0, qtrue },
 
-	{ &g_infiniteCharge, "g_infiniteCharge", "2", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_infiniteCharge, "g_infiniteCharge", "0", CVAR_ARCHIVE, 0, qtrue },
 
 #ifdef NEWMOD_SUPPORT
 	{ &g_netUnlock, "g_netUnlock", "1", CVAR_ARCHIVE, 0, qtrue },
