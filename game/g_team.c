@@ -2058,9 +2058,9 @@ gentity_t *SelectRandomTeamSpawnPoint( gclient_t *client, int teamstate, team_t 
 
 	ctfPosition_t pos = CTFPOSITION_UNKNOWN;
 	if (boost)
-		pos = DetermineCTFPosition(client->stats, qfalse);
+		pos = GetRemindedPosOrDeterminedPos(&g_entities[client - level.clients]);
 
-	if ((boost & ACCOUNTFLAG_BOOST_SPAWNFCBOOST) && level.time - level.startTime >= 5000 && pos != CTFPOSITION_CHASE && pos != CTFPOSITION_OFFENSE) { // boost: spawn base near fc
+	if ((boost & ACCOUNTFLAG_BOOST_SPAWNFCBOOST) && level.time - level.startTime >= 5000 && pos == CTFPOSITION_BASE) { // boost: spawn base near fc
 		for (int i = 0; i < MAX_CLIENTS; i++) {
 			gentity_t *thisGuy = &g_entities[i];
 			if (!thisGuy->inuse || !thisGuy->client || thisGuy->client == client || thisGuy->client->sess.sessionTeam != client->sess.sessionTeam ||
@@ -2081,7 +2081,7 @@ gentity_t *SelectRandomTeamSpawnPoint( gclient_t *client, int teamstate, team_t 
 		}
 	}
 
-	if ((boost & ACCOUNTFLAG_BOOST_SPAWNGERBOOST) && !spawnMeNearThisGuy && level.time - level.startTime >= 15000 && pos != CTFPOSITION_CHASE && pos != CTFPOSITION_OFFENSE) {
+	if ((boost & ACCOUNTFLAG_BOOST_SPAWNGERBOOST) && !spawnMeNearThisGuy && level.time - level.startTime >= 15000 && pos == CTFPOSITION_BASE) {
 		// boost: help base ger by spawning near mid if everyone is in the enemy base, including enemy fc
 		flagStatus_t myFlagStatus = client->sess.sessionTeam == TEAM_RED ? teamgame.redStatus : teamgame.blueStatus;
 		if (myFlagStatus != FLAG_ATBASE) {

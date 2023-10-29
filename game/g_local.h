@@ -3195,6 +3195,7 @@ extern vmCvar_t		g_boost;
 extern vmCvar_t		g_spawnboost_default;
 extern vmCvar_t		g_spawnboost_losIdealDistance;
 extern vmCvar_t		g_spawnboost_teamkill;
+extern vmCvar_t		g_spawnboost_autosk;
 extern vmCvar_t		g_aimbotBoost_hitscan;
 
 extern vmCvar_t		g_botAimbot;

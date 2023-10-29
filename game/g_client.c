@@ -4898,7 +4898,7 @@ void ClientSpawn(gentity_t *ent) {
 	client->ps.pm_flags |= PMF_RESPAWNED;
 
 	trap_GetUsercmd( client - level.clients, &ent->client->pers.cmd );
-	if (client->account && (client->account->flags & ACCOUNTFLAG_BOOST_SPAWNFCBOOST) && g_spawnboost_losIdealDistance.integer > 0 && client->stats &&
+	if (client->account && (client->account->flags & ACCOUNTFLAG_BOOST_SPAWNFCBOOST) && GetRemindedPosOrDeterminedPos(ent) == CTFPOSITION_BASE && g_spawnboost_losIdealDistance.integer > 0 && client->stats &&
 		g_gametype.integer == GT_CTF && g_boost.integer && level.time - level.startTime >= 5000) {
 
 		ctfPosition_t pos = DetermineCTFPosition(client->stats, qfalse);
