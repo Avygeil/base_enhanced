@@ -324,18 +324,41 @@ static gentity_t *PlayerThatPlayerIsAimingClosestTo(gentity_t *ent, float hFOV, 
 	return NULL;
 }
 
-static void CorrectBoostedAim(gentity_t *ent, vec3_t muzzle, vec3_t vec, float projectileSpeed, int weapon, qboolean altFire, float size) {
-	if (!ent || !ent->client || !ent->client->account || !(ent->client->account->flags & ACCOUNTFLAG_BOOST_PROJECTILEAIMBOTBOOST) || !g_boost.integer)
-		return;
+// returns qfalse if the shot should not be fired whatsoever; qtrue otherwise
+static qboolean CorrectBoostedAim(gentity_t *ent, vec3_t muzzle, vec3_t vec, float projectileSpeed, int weapon, qboolean altFire, float size) {
+	if (!ent || !ent->client || !ent->client->account || !(ent->client->account->flags & ACCOUNTFLAG_BOOST_PROJECTILEAIMBOTBOOST) || !g_boost.integer || IsRacerOrSpectator(ent))
+		return qtrue;
 
 	if (ent->client->pers.lastSpawnTime >= level.time - 2000)
-		return; // aimbotter spawned too recently
+		return qtrue; // aimbotter spawned too recently
 
 	gentity_t *target = PlayerThatPlayerIsAimingClosestTo(ent, 45.0f, 2000.0f, qtrue); // initial sweep for enemies
 	if (!target) {
 		target = PlayerThatPlayerIsAimingClosestTo(ent, 60.0f, 500.0f, qfalse); // fallback wider angle sweep for closeby enemies
-		if (!target)
-			return;
+		if (!target) {
+			float closestAllyInFovDistance = 999999, closestEnemyDistance = 999999;
+			for (int i = 0; i < MAX_CLIENTS; i++) {
+				gentity_t *closeGuy = &g_entities[i];
+				if (!closeGuy->inuse || !closeGuy->client || closeGuy->client->pers.connected != CON_CONNECTED || IsRacerOrSpectator(closeGuy) || closeGuy->health <= 0 || closeGuy == ent)
+					continue;
+
+				float dist = Distance(ent->client->ps.origin, closeGuy->client->ps.origin);
+
+				if (closeGuy->client->sess.sessionTeam == ent->client->sess.sessionTeam) {
+					if (dist < closestAllyInFovDistance && InFOVFloat(closeGuy, ent, 60, 60))
+						closestAllyInFovDistance = dist;
+				}
+				else if (closeGuy->client->sess.sessionTeam == OtherTeam(ent->client->sess.sessionTeam)) {
+					if (dist < closestEnemyDistance)
+						closestEnemyDistance = dist;
+				}
+			}
+
+			if (closestAllyInFovDistance <= 210 && closestEnemyDistance >= 1200)
+				return qfalse; // don't allow the extra shot
+
+			return qtrue;
+		}
 	}
 
 	vec3_t enemyPos, shooterPos;
@@ -525,6 +548,8 @@ static void CorrectBoostedAim(gentity_t *ent, vec3_t muzzle, vec3_t vec, float p
 		if ((trace.fraction == 1.0f && !trace.startsolid) || trace.entityNum == target->s.number)
 			VectorCopy(possiblyFinalVec, vec);
 	}
+
+	return qtrue;
 }
 
 //-----------------------------------------------------------------------------
@@ -593,7 +618,8 @@ static void WP_FireBryarPistol( gentity_t *ent, qboolean altFire )
 		boostSize = BRYAR_ALT_SIZE * (count * 0.5);
 	}
 
-	CorrectBoostedAim(ent, muzzle, forward, BRYAR_PISTOL_VEL, WP_BRYAR_PISTOL, altFire, boostSize);
+	if (!CorrectBoostedAim(ent, muzzle, forward, BRYAR_PISTOL_VEL, WP_BRYAR_PISTOL, altFire, boostSize))
+		return;
 	gentity_t	*missile = CreateMissile( muzzle, forward, BRYAR_PISTOL_VEL, 10000, ent, altFire );
 
 	missile->classname = "bryar_proj";
@@ -725,7 +751,8 @@ void WP_FireBlasterMissile( gentity_t *ent, vec3_t start, vec3_t dir, qboolean a
 		damage = 10;
 	}
 
-	CorrectBoostedAim(ent, start, dir, velocity, WP_BLASTER, altFire, 0);
+	if (!CorrectBoostedAim(ent, start, dir, velocity, WP_BLASTER, altFire, 0))
+		return;
 	missile = CreateMissile( start, dir, velocity, 10000, ent, altFire );
 
 	missile->classname = "blaster_proj";
@@ -1489,7 +1516,8 @@ static void WP_BowcasterAltFire( gentity_t *ent )
 {
 	int	damage	= BOWCASTER_DAMAGE;
 
-	CorrectBoostedAim(ent, muzzle, forward, BOWCASTER_VELOCITY, WP_BOWCASTER, qtrue, BOWCASTER_SIZE);
+	if (!CorrectBoostedAim(ent, muzzle, forward, BOWCASTER_VELOCITY, WP_BOWCASTER, qtrue, BOWCASTER_SIZE))
+		return;
 	gentity_t *missile = CreateMissile( muzzle, forward, BOWCASTER_VELOCITY, 10000, ent, qfalse);
 
 	missile->classname = "bowcaster_proj";
@@ -1568,7 +1596,8 @@ static void WP_BowcasterMainFire( gentity_t *ent )
 		// create a range of different velocities
 		vel = BOWCASTER_VELOCITY * ( crandom() * BOWCASTER_VEL_RANGE + 1.0f );
 
-		CorrectBoostedAim(ent, muzzle, forward, vel, WP_BOWCASTER, qfalse, BOWCASTER_SIZE);
+		if (!CorrectBoostedAim(ent, muzzle, forward, vel, WP_BOWCASTER, qfalse, BOWCASTER_SIZE))
+			return;
 		vectoangles( forward, angs );
 
 		// add some slop to the alt-fire direction
@@ -1625,7 +1654,8 @@ static void WP_RepeaterMainFire( gentity_t *ent, vec3_t dir )
 {
 	int	damage	= REPEATER_DAMAGE;
 
-	CorrectBoostedAim(ent, muzzle, dir, REPEATER_VELOCITY, WP_REPEATER, qfalse, 0);
+	if (!CorrectBoostedAim(ent, muzzle, dir, REPEATER_VELOCITY, WP_REPEATER, qfalse, 0))
+		return;
 	gentity_t *missile = CreateMissile( muzzle, dir, REPEATER_VELOCITY, 10000, ent, qfalse );
 
 	missile->classname = "repeater_proj";
@@ -1646,7 +1676,8 @@ static void WP_RepeaterAltFire( gentity_t *ent )
 {
 	int	damage	= REPEATER_ALT_DAMAGE;
 
-	CorrectBoostedAim(ent, muzzle, forward, REPEATER_ALT_VELOCITY, WP_REPEATER, qtrue, REPEATER_ALT_SIZE);
+	if (!CorrectBoostedAim(ent, muzzle, forward, REPEATER_ALT_VELOCITY, WP_REPEATER, qtrue, REPEATER_ALT_SIZE))
+		return;
 	gentity_t *missile = CreateMissile( muzzle, forward, REPEATER_ALT_VELOCITY, 10000, ent, qtrue );
 
 	missile->classname = "repeater_alt_proj";
@@ -1712,7 +1743,8 @@ static void WP_DEMP2_MainFire( gentity_t *ent )
 {
 	int	damage	= DEMP2_DAMAGE;
 
-	CorrectBoostedAim(ent, muzzle, forward, DEMP2_VELOCITY, WP_DEMP2, qfalse, DEMP2_SIZE);
+	if (!CorrectBoostedAim(ent, muzzle, forward, DEMP2_VELOCITY, WP_DEMP2, qfalse, DEMP2_SIZE))
+		return;
 	gentity_t *missile = CreateMissile( muzzle, forward, DEMP2_VELOCITY, 10000, ent, qfalse);
 
 	missile->classname = "demp2_proj";
@@ -2042,7 +2074,8 @@ static void WP_FlechetteMainFire( gentity_t *ent )
 
 	for (i = 0; i < FLECHETTE_SHOTS; i++ )
 	{
-		CorrectBoostedAim(ent, muzzle, forward, FLECHETTE_VEL, WP_FLECHETTE , qfalse, FLECHETTE_SIZE);
+		if (!CorrectBoostedAim(ent, muzzle, forward, FLECHETTE_VEL, WP_FLECHETTE, qfalse, FLECHETTE_SIZE))
+			return;
 		vectoangles( forward, angs );
 
 		if ( g_flechetteSpread.integer ) {
@@ -2205,7 +2238,8 @@ static void WP_FlechetteAltFire( gentity_t *self )
 	vec3_t  maxs = { 6.0f, 6.0f, 6.0f };
 	int i;
 
-	CorrectBoostedAim(self, muzzle, forward, 700 + 0.5f * 700, WP_FLECHETTE, qtrue, ROCKET_SIZE/*same*/);
+	if (!CorrectBoostedAim(self, muzzle, forward, 700 + 0.5f * 700, WP_FLECHETTE, qtrue, ROCKET_SIZE/*same*/))
+		return;
 	vectoangles( forward, angs );
 	VectorCopy( muzzle, start );
 
@@ -2436,7 +2470,8 @@ static void WP_FireRocket( gentity_t *ent, qboolean altFire )
 		vel *= 0.5f;
 	}
 
-	CorrectBoostedAim(ent, muzzle, forward, vel, WP_ROCKET_LAUNCHER, altFire, ROCKET_SIZE);
+	if (!CorrectBoostedAim(ent, muzzle, forward, vel, WP_ROCKET_LAUNCHER, altFire, ROCKET_SIZE))
+		return;
 	missile = CreateMissile( muzzle, forward, vel, 30000, ent, altFire );
 
 	if (altFire) {
@@ -2634,7 +2669,8 @@ gentity_t *WP_FireThermalDetonator( gentity_t *ent, qboolean altFire )
 		chargeAmount = TD_MIN_CHARGE;
 	}
 	
-	CorrectBoostedAim(ent, muzzle, forward, TD_VELOCITY * chargeAmount, WP_THERMAL, altFire, REPEATER_ALT_SIZE/*same*/);
+	if (!CorrectBoostedAim(ent, muzzle, forward, TD_VELOCITY * chargeAmount, WP_THERMAL, altFire, REPEATER_ALT_SIZE/*same*/))
+		return NULL;
 	VectorCopy( forward, dir );
 	VectorCopy( muzzle, start );
 
@@ -3927,7 +3963,8 @@ static void WP_FireConcussion( gentity_t *ent )
 	VectorCopy( muzzle, start );
 	WP_TraceSetStart( ent, start, vec3_origin, vec3_origin );//make sure our start point isn't on the other side of a wall
 
-	CorrectBoostedAim(ent, muzzle, forward, vel, WP_CONCUSSION, qfalse, ROCKET_SIZE);
+	if (!CorrectBoostedAim(ent, muzzle, forward, vel, WP_CONCUSSION, qfalse, ROCKET_SIZE))
+		return;
 	missile = CreateMissile( start, forward, vel, 10000, ent, qfalse );
 
 	missile->classname = "conc_proj";
