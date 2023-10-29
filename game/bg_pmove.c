@@ -7960,7 +7960,7 @@ void PM_AdjustAttackStates( pmove_t *pm )
 			pm->cmd.upmove <= 0 && !pm->cmd.forwardmove && !pm->cmd.rightmove*/)
 		{
 			// We just pressed the alt-fire key
-			if ( !pm->ps->zoomMode && pm->ps->pm_type != PM_DEAD )
+			if ( !pm->ps->zoomMode && pm->ps->pm_type != PM_DEAD && !(g_entities[pm->ps->clientNum].client && g_entities[pm->ps->clientNum].client->account && g_entities[pm->ps->clientNum].client->account->flags & ACCOUNTFLAG_BOOST_AIMBOTBOOST))
 			{
 				// not already zooming, so do it now
 				pm->ps->zoomMode = 1;

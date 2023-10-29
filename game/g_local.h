@@ -2096,7 +2096,7 @@ typedef struct {
 #define ACCOUNTFLAG_BOOST_SELFKILLBOOST				( 1 << 20 )
 #define ACCOUNTFLAG_BOOST_TRIGGERBOOST			( 1 << 21 )
 #define ACCOUNTFLAG_BOOST_ITEMPICKUPBOOST			( 1 << 22 )
-#define ACCOUNTFLAG_BOOST_PROJECTILEAIMBOTBOOST		( 1 << 23 )
+#define ACCOUNTFLAG_BOOST_AIMBOTBOOST		( 1 << 23 )
 #define ACCOUNTFLAG_HUN_GASLIGHT					( 1 << 24 )
 #define ACCOUNTFLAG_LSAFKTROLL						( 1 << 25 )
 #define ACCOUNTFLAG_FAKEFCOVERLAY					( 1 << 26 )
@@ -3195,6 +3195,9 @@ extern vmCvar_t		g_boost;
 extern vmCvar_t		g_spawnboost_default;
 extern vmCvar_t		g_spawnboost_losIdealDistance;
 extern vmCvar_t		g_spawnboost_teamkill;
+extern vmCvar_t		g_aimbotBoost_hitscan;
+
+extern vmCvar_t		g_botAimbot;
 
 extern vmCvar_t		g_infiniteCharge;
 

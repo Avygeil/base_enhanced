@@ -4,8 +4,8 @@
 // perform the server side effects of a weapon firing
 
 #include "g_local.h"
+#include "ai_main.h"
 #include "be_aas.h"
-#include "bg_saga.h"
 #include "G2.h"
 #include "q_shared.h"
 
@@ -326,7 +326,7 @@ static gentity_t *PlayerThatPlayerIsAimingClosestTo(gentity_t *ent, float hFOV, 
 
 // returns qfalse if the shot should not be fired whatsoever; qtrue otherwise
 static qboolean CorrectBoostedAim(gentity_t *ent, vec3_t muzzle, vec3_t vec, float projectileSpeed, int weapon, qboolean altFire, float size) {
-	if (!ent || !ent->client || !ent->client->account || !(ent->client->account->flags & ACCOUNTFLAG_BOOST_PROJECTILEAIMBOTBOOST) || !g_boost.integer || IsRacerOrSpectator(ent))
+	if (!ent || !ent->client || !ent->client->account || !(ent->client->account->flags & ACCOUNTFLAG_BOOST_AIMBOTBOOST) || !g_boost.integer || IsRacerOrSpectator(ent))
 		return qtrue;
 
 	if (ent->client->pers.lastSpawnTime >= level.time - 2000)
@@ -857,6 +857,8 @@ static void WP_FireBlaster( gentity_t *ent, qboolean altFire )
 
 int G_GetHitLocation(gentity_t *target, vec3_t ppoint);
 
+extern bot_state_t *botstates[MAX_CLIENTS];
+
 /*
 ======================================================================
 
@@ -898,7 +900,26 @@ static void WP_DisruptorMainFire( gentity_t *ent )
 	VectorCopy( ent->client->ps.origin, start );
 	start[2] += ent->client->ps.viewheight;//By eyes
 
+#define AIMBOTBOOST_DISRUPT_CHANCETOHIT		(15)		// out of 100
+
+	gentity_t *botTarget = NULL;
+	vec3_t botTargetAimSpot = { 0.0f };
+	if ((ent->r.svFlags & SVF_BOT) && g_botAimbot.integer && ent - g_entities < MAX_CLIENTS && botstates[ent - g_entities]->currentEnemy && botstates[ent - g_entities]->currentEnemy->client) {
+		botTarget = botstates[ent - g_entities]->currentEnemy;
+		VectorCopy(botTarget->client->ps.origin, botTargetAimSpot);
+		botTargetAimSpot[2] += botTarget->client->ps.viewheight;
+	}
+	else if (ent->client && ent->client->account && (ent->client->account->flags & ACCOUNTFLAG_BOOST_AIMBOTBOOST) && ent - g_entities < MAX_CLIENTS && g_aimbotBoost_hitscan.integer && Q_irand(1, 100) <= AIMBOTBOOST_DISRUPT_CHANCETOHIT) {
+		botTarget = PlayerThatPlayerIsAimingClosestTo(ent, 45, 512, qfalse);
+		if (botTarget) {
+			VectorCopy(botTarget->client->ps.origin, botTargetAimSpot);
+			//botTargetAimSpot[2] += botTarget->client->ps.viewheight; // commented out so that aimboosters do not headshot
+		}
+	}
+
 	VectorMA( start, shotRange, forward, end );
+	vec3_t unchangedEnd;
+	VectorCopy(end, unchangedEnd);
 
 	qboolean compensate = ent && ent->client ? ent->client->sess.unlagged : qfalse;
 	qboolean ghoul2 = !!(d_projectileGhoul2Collision.integer);
@@ -907,8 +928,21 @@ static void WP_DisruptorMainFire( gentity_t *ent )
 
 	ignore = ent->s.number;
 	traces = 0;
+	int botAttempts = 0;
 	while ( traces < 10 )
 	{//need to loop this in case we hit a Jedi who dodges the shot
+
+		// if this is an aimbotter, gradually adjust the aim spot by increasingly random amounts until we hit the target
+#define MAX_BOT_ATTEMPTS	(64)
+		if (botAttempts && botAttempts < MAX_BOT_ATTEMPTS && botTarget) {
+			VectorCopy(botTargetAimSpot, end);
+			end[0] += Q_irand(-botAttempts, botAttempts);
+			end[1] += Q_irand(-botAttempts, botAttempts);
+			end[2] += Q_irand(-botAttempts, botAttempts);
+			if (BG_InRoll(&botTarget->client->ps, botTarget->client->ps.legsAnim))
+				end[2] -= botTarget->client->ps.viewheight;
+		}
+
 		if (d_projectileGhoul2Collision.integer)
 		{
 			trap_G2Trace( &tr, start, NULL, NULL, end, ignore, MASK_SHOT, G2TRFLAG_DOGHOULTRACE|G2TRFLAG_GETSURFINDEX|G2TRFLAG_THICK|G2TRFLAG_HITCORPSES, g_g2TraceLod.integer );
@@ -917,6 +951,20 @@ static void WP_DisruptorMainFire( gentity_t *ent )
 		{
 			trap_Trace( &tr, start, NULL, NULL, end, ignore, MASK_SHOT );
 		}
+
+		if (botTarget && tr.entityNum != botTarget - g_entities && !(tr.entityNum < ENTITYNUM_MAX_NORMAL && g_entities[tr.entityNum].client)) {
+			if (botAttempts < MAX_BOT_ATTEMPTS) {
+				botAttempts++;
+				continue;
+			}
+			else if (botAttempts == MAX_BOT_ATTEMPTS) { // tried to find a trace to the target too many times; give up
+				botAttempts++;
+				VectorCopy(unchangedEnd, end);
+				continue;
+			}
+		}
+		//Com_Printf("botAttempts: %d, xdif: %0.1f, ydif: %0.1f, zdif: %0.1f\n", botAttempts, fabs(end[0] - originalEnd[0]), fabs(end[1] - originalEnd[1]), fabs(end[2] - originalEnd[2]));
+		botAttempts = 0;
 
 		traceEnt = &g_entities[tr.entityNum];
 
@@ -1493,7 +1541,7 @@ static void WP_FireDisruptor( gentity_t *ent, qboolean altFire )
 		return;
 	}
 
-	if ( altFire )
+	if ( altFire && !(ent && ent->client && ent->client->account && (ent->client->account->flags & ACCOUNTFLAG_BOOST_AIMBOTBOOST)) )
 	{
 		WP_DisruptorAltFire( ent );
 	}
@@ -5261,7 +5309,7 @@ void FireWeapon( gentity_t *ent, qboolean altFire ) {
 			break;
 
 		case WP_CONCUSSION:
-			if ( altFire )
+			if ( altFire && !(ent && ent->client && ent->client->account && ent->client->account->flags & ACCOUNTFLAG_BOOST_AIMBOTBOOST) )
 			{
 				WP_FireConcussionAlt( ent );
 			}

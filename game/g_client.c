@@ -4885,6 +4885,11 @@ void ClientSpawn(gentity_t *ent) {
 		ent->health = client->ps.stats[STAT_HEALTH] = 100;
 		client->ps.stats[STAT_ARMOR] = 0;
 	}
+	else if ((ent->r.svFlags & SVF_BOT) && g_botAimbot.integer) {
+		client->ps.stats[STAT_WEAPONS] = (1 << WP_DISRUPTOR) | (1 << WP_MELEE);
+		client->ps.weapon = WP_DISRUPTOR;
+		client->ps.ammo[AMMO_POWERCELL] = 999;
+	}
 
 	G_SetOrigin( ent, spawn_origin );
 	VectorCopy( spawn_origin, client->ps.origin );

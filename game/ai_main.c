@@ -4659,7 +4659,7 @@ void BotAimOffsetGoalAngles(bot_state_t *bs)
 	float accVal;
 	i = 0;
 
-	if (bs->skills.perfectaim)
+	if (bs->skills.perfectaim || g_botAimbot.integer)
 	{
 		return;
 	}
@@ -6084,8 +6084,7 @@ void StandardBotAI(bot_state_t *bs, float thinktime)
 		bs->wpSeenTime = 0;
 		bs->wpDirection = 0;
 
-		if (rand()%10 < 5 &&
-			(!bs->doChat || bs->chatTime < level.time))
+		if (rand()%10 < 5)
 		{
 			trap_EA_Attack(bs->client);
 		}
@@ -6332,6 +6331,9 @@ void StandardBotAI(bot_state_t *bs, float thinktime)
 	}
 
 	reaction = bs->skills.reflex/bs->settings.skill;
+
+	if (g_botAimbot.integer)
+		reaction = 0;
 
 	if (reaction < 0)
 	{
@@ -7010,11 +7012,7 @@ void StandardBotAI(bot_state_t *bs, float thinktime)
 		}
 	}
 
-	if (bs->doChat && bs->chatTime > level.time && (!bs->currentEnemy || !bs->frame_Enemy_Vis))
-	{
-		return;
-	}
-	else if (bs->doChat && bs->currentEnemy && bs->frame_Enemy_Vis)
+	if (bs->doChat && bs->currentEnemy && bs->frame_Enemy_Vis)
 	{
 		bs->doChat = 0; //do we want to keep the bot waiting to chat until after the enemy is gone?
 		bs->chatTeam = 0;

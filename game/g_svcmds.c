@@ -3358,8 +3358,8 @@ static int64_t AccountFlagName2Bitflag(const char* flagName) {
 		return ACCOUNTFLAG_BOOST_TRIGGERBOOST;
 	} else if (!Q_stricmp(flagName, "ItemPickupBoost")) {
 		return ACCOUNTFLAG_BOOST_ITEMPICKUPBOOST;
-	} else if (!Q_stricmp(flagName, "ProjectileAimbotBoost")) {
-		return ACCOUNTFLAG_BOOST_PROJECTILEAIMBOTBOOST;
+	} else if (!Q_stricmp(flagName, "AimbotBoost")) {
+		return ACCOUNTFLAG_BOOST_AIMBOTBOOST;
 	} else if (!Q_stricmp(flagName, "HunGaslight")) {
 		return ACCOUNTFLAG_HUN_GASLIGHT;
 	} else if (!Q_stricmp(flagName, "LSAfkTroll")) {
@@ -3408,7 +3408,7 @@ const char* AccountBitflag2FlagName(int64_t bitflag) {
 		case ACCOUNTFLAG_BOOST_SELFKILLBOOST: return "SelfkillBoost";
 		case ACCOUNTFLAG_BOOST_TRIGGERBOOST: return "TriggerBoost";
 		case ACCOUNTFLAG_BOOST_ITEMPICKUPBOOST: return "ItemPickupBoost";
-		case ACCOUNTFLAG_BOOST_PROJECTILEAIMBOTBOOST: return "ProjectileAimbotBoost";
+		case ACCOUNTFLAG_BOOST_AIMBOTBOOST: return "AimbotBoost";
 		case ACCOUNTFLAG_LSAFKTROLL: return "LSAfkTroll";
 		case ACCOUNTFLAG_FAKEFCOVERLAY: return "FakeFCOverlay";
 		case ACCOUNTFLAG_SMODTROLL: return "SmodTroll";
@@ -3586,7 +3586,7 @@ void Svcmd_Account_f( void ) {
 
 			if ( trap_Argc() < 4 ) {
 				G_Printf( "Usage:^3 account toggleflag <username> <flag>^7\n" );
-				G_Printf( "Available flags: Admin, VerboseRcon, AimPackEditor, AimPackAdmin, VoteTroll, InstapauseBlacklist, PermaBarred, HardPermaBarred, AfkTroll, EloBotSelfHost, GetTroll, RemindPosIncessantly, VerificationLord, SpawnFCBoost, SpawnGerBoost, SpawnClickBoost, BaseAutoTHTEBoost, ChaseAutoTHTEBoost, OffenseAutoTHTEBoost, SelfkillBoost, THTESwitchBoost, TriggerBoost, ItemPickupBoost, ProjectileAimbotBoost, LSAfkTroll, AutoSwitcher\n" );
+				G_Printf( "Available flags: Admin, VerboseRcon, AimPackEditor, AimPackAdmin, VoteTroll, InstapauseBlacklist, PermaBarred, HardPermaBarred, AfkTroll, EloBotSelfHost, GetTroll, RemindPosIncessantly, VerificationLord, SpawnFCBoost, SpawnGerBoost, SpawnClickBoost, BaseAutoTHTEBoost, ChaseAutoTHTEBoost, OffenseAutoTHTEBoost, SelfkillBoost, THTESwitchBoost, TriggerBoost, ItemPickupBoost, AimbotBoost, LSAfkTroll, AutoSwitcher\n" );
 				return;
 			}
 
