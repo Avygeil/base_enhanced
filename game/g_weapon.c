@@ -1541,7 +1541,7 @@ static void WP_FireDisruptor( gentity_t *ent, qboolean altFire )
 		return;
 	}
 
-	if ( altFire && !(ent && ent->client && ent->client->account && (ent->client->account->flags & ACCOUNTFLAG_BOOST_AIMBOTBOOST)) )
+	if ( altFire && !(ent && ent->client && ent->client->account && (ent->client->account->flags & ACCOUNTFLAG_BOOST_AIMBOTBOOST) && g_aimbotBoost_hitscan.integer) )
 	{
 		WP_DisruptorAltFire( ent );
 	}
@@ -5309,7 +5309,7 @@ void FireWeapon( gentity_t *ent, qboolean altFire ) {
 			break;
 
 		case WP_CONCUSSION:
-			if ( altFire && !(ent && ent->client && ent->client->account && ent->client->account->flags & ACCOUNTFLAG_BOOST_AIMBOTBOOST) )
+			if ( altFire && !(ent && ent->client && ent->client->account && (ent->client->account->flags & ACCOUNTFLAG_BOOST_AIMBOTBOOST) && g_aimbotBoost_hitscan.integer) )
 			{
 				WP_FireConcussionAlt( ent );
 			}
