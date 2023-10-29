@@ -240,6 +240,9 @@ qboolean InFOVFloat(gentity_t *ent, gentity_t *from, double hFOV, double vFOV)
 }
 
 static qboolean AimbotterHadLineOfSightToTarget(gentity_t *shooter, gentity_t *victim, int msAgo) {
+#if 1
+	return qtrue;
+#else
 	assert(shooter && victim);
 
 	if (msAgo > 0) {
@@ -262,6 +265,7 @@ static qboolean AimbotterHadLineOfSightToTarget(gentity_t *shooter, gentity_t *v
 		return qfalse; // couldn't trace to the target
 
 	return qtrue;
+#endif
 }
 
 extern qboolean G_IsMindTricked(forcedata_t *victimFd, int mindTricker);
@@ -282,8 +286,8 @@ static gentity_t *PlayerThatPlayerIsAimingClosestTo(gentity_t *ent, float hFOV, 
 			continue;
 		if (G_IsMindTricked(&thisEnt->client->ps.fd, ent - g_entities))
 			continue;
-		if (!AimbotterHadLineOfSightToTarget(ent, thisEnt, 500))
-			continue; // didn't have line of sight to target 0.5s ago
+		if (!AimbotterHadLineOfSightToTarget(ent, thisEnt, 1000))
+			continue; // didn't have line of sight to target 1s ago
 		if (!AimbotterHadLineOfSightToTarget(ent, thisEnt, 0))
 			continue; // doesn't have line of sight to target right now
 
@@ -448,6 +452,9 @@ static qboolean CorrectBoostedAim(gentity_t *ent, vec3_t muzzle, vec3_t vec, flo
 				noise += 1;
 			else if (dist <= 128)
 				noise -= 1;
+
+			if (!AimbotterHadLineOfSightToTarget(ent, target, 2000))
+				noise += 1;
 
 			int rng = Q_irand(1, 10);
 			if (rng == 1)
