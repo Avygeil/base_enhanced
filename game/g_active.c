@@ -491,7 +491,6 @@ except for "skip"
 */
 #define UNLAGGED_FACTOR				(0.25)
 #define UNLAGGED_FACTOR_NPC			(0.5)
-#define UNLAGGED_MAX_COMPENSATION	(500)
 void G_TimeShiftAllClients(int time, gentity_t *skip, qboolean timeshiftAnims) {
 	if (skip) {
 		if (skip->r.svFlags & SVF_BOT)

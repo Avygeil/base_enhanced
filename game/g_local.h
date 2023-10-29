@@ -2721,6 +2721,7 @@ void PurgeStringedTrolling(char *in, char *out, int outSize);
 //
 // g_active.c
 //
+#define UNLAGGED_MAX_COMPENSATION	(500)
 void G_CheckClientTimeouts	( gentity_t *ent );
 void ClientThink			( int clientNum, usercmd_t *ucmd );
 void ClientEndFrame			( gentity_t *ent );
