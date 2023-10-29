@@ -178,7 +178,7 @@ float WP_SpeedOfMissileForWeapon( int wp, qboolean alt_fire )
 }
 
 extern void CalcEntitySpot(const gentity_t *ent, const spot_t spot, vec3_t point);
-static qboolean InFOVFloat(gentity_t *ent, gentity_t *from, double hFOV, double vFOV)
+qboolean InFOVFloat(gentity_t *ent, gentity_t *from, double hFOV, double vFOV)
 {
 	vec3_t	eyes;
 	vec3_t	spot;

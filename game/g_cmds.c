@@ -2671,10 +2671,14 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, q
 				continue;
 			if (GetRemindedPosOrDeterminedPos(thisEnt) != CTFPOSITION_BASE)
 				continue;
-			float dist = Distance(ent->client->ps.origin, thisEnt->client->ps.origin);
-			if (thisEnt->client->ps.fd.forcePower >= 25 && (thisEnt->client->pers.lastForcedToSkTime >= level.time - 5000 || thisEnt->client->pers.lastSpawnTime >= level.time - 4000) && dist <= 2000)
+			if (thisEnt->client->pers.lastSpawnTime >= level.time - 2000)
 				continue;
-			if (thisEnt->client->ps.fd.forcePower >= 25 && trap_InPVS(ent->client->ps.origin, thisEnt->client->ps.origin) && dist <= 1500)
+			if (thisEnt->client->pers.lastForcedToSkTime >= level.time - 4000)
+				continue;
+			float dist = Distance(ent->client->ps.origin, thisEnt->client->ps.origin);
+			if (thisEnt->client->ps.fd.forcePower >= 25 && dist <= 1800 && InFOVFloat(ent, thisEnt, 60, 60) && trap_InPVS(ent->client->ps.origin, thisEnt->client->ps.origin))
+				continue;
+			if (thisEnt->client->ps.fd.forcePower >= 25 && trap_InPVS(ent->client->ps.origin, thisEnt->client->ps.origin) && dist <= 512)
 				continue;
 
 			boostedBaseTeammate = thisEnt;
