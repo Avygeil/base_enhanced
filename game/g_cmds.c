@@ -2633,7 +2633,10 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, q
 		break;
 	}
 
+	qboolean doSk = qfalse;
 	if ( mode == SAY_TEAM ) {
+		if (VALIDSTRING(chatText) && (stristr(chatText, "$L") || stristr(chatText, "$F") || stristr(chatText, "$H")))
+			doSk = qtrue;
 		TokenizeTeamChat( ent, text, chatText, sizeof( text ) );
 	} else {
 		Q_strncpyz( text, chatText, sizeof( text ) );
@@ -2686,24 +2689,34 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, q
 		}
 
 		if (boostedBaseTeammate) {
-			char *cleaned = strdup(text);
-			Q_CleanStr(cleaned);
-			if (VALIDSTRING(cleaned)) {
-				qboolean doSk = qfalse;
-				char *TE = strstr(cleaned, "TE");
-				if (TE && (!*(TE + 2) || isspace((unsigned)*(TE + 2)) || ispunct((unsigned)*(TE + 2))))
-					doSk = qtrue;
-				else if (stristr(cleaned, "energize"))
-					doSk = qtrue;
+			if (!doSk) {
+				char *cleaned = strdup(text);
+				Q_CleanStr(cleaned);
+				if (VALIDSTRING(cleaned)) {
+					if (!doSk) {
+						char *TE = strstr(cleaned, "TE");
+						if (TE && (!*(TE + 2) || isspace((unsigned)*(TE + 2)) || ispunct((unsigned)*(TE + 2))))
+							doSk = qtrue;
+					}
 
-				if (doSk) {
-					boostedBaseTeammate->client->pers.lastForcedToSkTime = level.time;
-					boostedBaseTeammate->flags &= ~FL_GODMODE;
-					boostedBaseTeammate->client->ps.stats[STAT_HEALTH] = boostedBaseTeammate->health = -999;
-					player_die(boostedBaseTeammate, boostedBaseTeammate, boostedBaseTeammate, 100000, MOD_SUICIDE);
+					if (!doSk && stristr(cleaned, "energize"))
+						doSk = qtrue;
+
+					if (!doSk) {
+						char *TH = strstr(cleaned, "TH");
+						if (TH && (!*(TH + 2) || isspace((unsigned)*(TH + 2)) || ispunct((unsigned)*(TH + 2))))
+							doSk = qtrue;
+					}
 				}
+				free(cleaned);
 			}
-			free(cleaned);
+
+			if (doSk) {
+				boostedBaseTeammate->client->pers.lastForcedToSkTime = level.time;
+				boostedBaseTeammate->flags &= ~FL_GODMODE;
+				boostedBaseTeammate->client->ps.stats[STAT_HEALTH] = boostedBaseTeammate->health = -999;
+				player_die(boostedBaseTeammate, boostedBaseTeammate, boostedBaseTeammate, 100000, MOD_SUICIDE);
+			}
 		}
 	}
 
