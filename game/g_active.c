@@ -3101,6 +3101,13 @@ static qboolean HasFireableWeapon(gentity_t *ent) {
 	return qfalse; // never found one
 }
 
+static qboolean IsDefaultWeapon(int weapon) {
+	switch (weapon) {
+	case WP_MELEE: case WP_SABER: case WP_BRYAR_PISTOL: return qtrue;
+	default: return qfalse;
+	}
+}
+
 /*
 ==============
 ClientThink
@@ -4078,7 +4085,7 @@ void ClientThink_real( gentity_t *ent ) {
 
 		// boost: sk if no force, no guns, and fc is in base in need of th/te
 		if (ent->client && ent->client->account && ent->client->account->flags & ACCOUNTFLAG_BOOST_SPAWNFCBOOST && g_boost.integer && g_spawnboost_autosk.integer &&
-			ent->client->ps.fd.forcePower < 10 && !HasFireableWeapon(ent) && GetRemindedPosOrDeterminedPos(ent) == CTFPOSITION_BASE) {
+			ent->client->ps.fd.forcePower < 15 && (IsDefaultWeapon(ent->client->ps.weapon) || !HasFireableWeapon(ent)) && GetRemindedPosOrDeterminedPos(ent) == CTFPOSITION_BASE) {
 			gentity_t *fc = NULL;
 			for (int i = 0; i < MAX_CLIENTS; i++) {
 				gentity_t *thisGuy = &g_entities[i];
@@ -4095,9 +4102,9 @@ void ClientThink_real( gentity_t *ent ) {
 
 			if (fc) {
 				qboolean fcNeedsTh = qfalse, fcNeedsTe = qfalse;
-				if (fc->health <= 60)
+				if (fc->health <= 65)
 					fcNeedsTh = qtrue;
-				else if (fc->client->ps.fd.forcePower <= 60)
+				else if (fc->client->ps.fd.forcePower <= 65)
 					fcNeedsTe = qtrue;
 				else if (!(fc->client->ps.fd.forcePowersActive & (1 << FP_SPEED)))
 					fcNeedsTe = qtrue;
