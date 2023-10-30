@@ -749,7 +749,7 @@ void Cmd_Kill_f( gentity_t *ent ) {
 
 	// don't allow boosted dude to sk with the flag in most cases
 	if (g_gametype.integer == GT_CTF && ent->client && ent->client->account && (ent->client->account->flags & ACCOUNTFLAG_BOOST_SELFKILLBOOST) &&
-		HasFlag(ent) && !IsRacerOrSpectator(ent) && g_boost.integer) {
+		HasFlag(ent) && !IsRacerOrSpectator(ent) && g_boost.integer && level.wasRestarted) {
 
 		static qboolean flagstandsInitialized = qfalse, flagstandsValid = qfalse;
 		static vec3_t redFs, blueFs;
