@@ -4060,7 +4060,7 @@ void ClientThink_real( gentity_t *ent ) {
 				qboolean gotCloserPlayer = qfalse;
 				for (int i = 0; i < MAX_CLIENTS; i++) {
 					gentity_t *closerGuy = &g_entities[i];
-					if (!closerGuy->inuse || !closerGuy->client || closerGuy->client->pers.connected != CON_CONNECTED || closerGuy->health <= 0 || IsRacerOrSpectator(closerGuy) || closerGuy == ent)
+					if (!closerGuy->inuse || !closerGuy->client || closerGuy->client->pers.connected != CON_CONNECTED || closerGuy->health <= 0 || IsRacerOrSpectator(closerGuy) || closerGuy == ent || closerGuy->client->ps.fallingToDeath)
 						continue;
 
 					const float thisGuyDist = Distance(pickupEnt->s.pos.trBase, closerGuy->client->ps.origin);
@@ -4083,7 +4083,7 @@ void ClientThink_real( gentity_t *ent ) {
 			for (int i = 0; i < MAX_CLIENTS; i++) {
 				gentity_t *thisGuy = &g_entities[i];
 				if (!thisGuy->inuse || !thisGuy->client || thisGuy->client == client || thisGuy->client->sess.sessionTeam != client->sess.sessionTeam ||
-					IsRacerOrSpectator(thisGuy) || thisGuy->health <= 0 || !HasFlag(thisGuy))
+					IsRacerOrSpectator(thisGuy) || thisGuy->health <= 0 || !HasFlag(thisGuy) || thisGuy->client->ps.fallingToDeath)
 					continue;
 
 				float loc = GetCTFLocationValue(thisGuy);

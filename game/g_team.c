@@ -2064,7 +2064,7 @@ gentity_t *SelectRandomTeamSpawnPoint( gclient_t *client, int teamstate, team_t 
 		for (int i = 0; i < MAX_CLIENTS; i++) {
 			gentity_t *thisGuy = &g_entities[i];
 			if (!thisGuy->inuse || !thisGuy->client || thisGuy->client == client || thisGuy->client->sess.sessionTeam != client->sess.sessionTeam ||
-				IsRacerOrSpectator(thisGuy) || thisGuy->health <= 0 || !HasFlag(thisGuy))
+				IsRacerOrSpectator(thisGuy) || thisGuy->health <= 0 || !HasFlag(thisGuy) || thisGuy->client->ps.fallingToDeath)
 				continue;
 
 			float loc = GetCTFLocationValue(thisGuy);
@@ -2088,7 +2088,7 @@ gentity_t *SelectRandomTeamSpawnPoint( gclient_t *client, int teamstate, team_t 
 			qboolean someoneOnOurSideOfMap = qfalse;
 			for (int i = 0; i < MAX_CLIENTS; i++) {
 				gentity_t *thisGuy = &g_entities[i];
-				if (!thisGuy->inuse || !thisGuy->client || thisGuy->client == client || IsRacerOrSpectator(thisGuy) || thisGuy->health <= 0)
+				if (!thisGuy->inuse || !thisGuy->client || thisGuy->client == client || IsRacerOrSpectator(thisGuy) || thisGuy->health <= 0 || thisGuy->client->ps.fallingToDeath)
 					continue;
 
 				ctfRegion_t region = GetCTFRegion(thisGuy);

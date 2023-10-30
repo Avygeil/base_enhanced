@@ -1482,7 +1482,7 @@ qboolean DoesntHaveFlagButMyFCIsKindaNear(gentity_t *self, gentity_t *target) {
 		gentity_t *thisEnt = &g_entities[i];
 		if (thisEnt == self || thisEnt == target)
 			continue;
-		if (!thisEnt->inuse || !thisEnt->client || thisEnt->client->pers.connected != CON_CONNECTED || !HasFlag(thisEnt))
+		if (!thisEnt->inuse || !thisEnt->client || thisEnt->client->pers.connected != CON_CONNECTED || !HasFlag(thisEnt) || thisEnt->client->ps.fallingToDeath)
 			continue;
 		if (thisEnt->health <= 0 || IsRacerOrSpectator(thisEnt) || thisEnt->client->sess.sessionTeam != self->client->sess.sessionTeam)
 			continue;

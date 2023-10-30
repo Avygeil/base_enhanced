@@ -274,7 +274,7 @@ static gentity_t *PlayerThatPlayerIsAimingClosestTo(gentity_t *ent, float hFOV, 
 	qboolean valid[MAX_CLIENTS] = { qfalse }, gotValid = qfalse;
 	for (int i = 0; i < MAX_CLIENTS; i++) {
 		gentity_t *thisEnt = &g_entities[i];
-		if (thisEnt == ent || !thisEnt->inuse || !thisEnt->client || thisEnt->client->pers.connected != CON_CONNECTED || IsRacerOrSpectator(thisEnt))
+		if (thisEnt == ent || !thisEnt->inuse || !thisEnt->client || thisEnt->client->pers.connected != CON_CONNECTED || IsRacerOrSpectator(thisEnt) || thisEnt->client->ps.fallingToDeath)
 			continue;
 		if (thisEnt->client->sess.sessionTeam != OtherTeam(ent->client->sess.sessionTeam))
 			continue;

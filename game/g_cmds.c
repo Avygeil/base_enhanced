@@ -704,6 +704,8 @@ void Cmd_TeamTask_f( gentity_t *ent ) {
 }
 
 
+extern qboolean isRedFlagstand(gentity_t *ent);
+extern qboolean isBlueFlagstand(gentity_t *ent);
 
 /*
 =================
@@ -742,6 +744,94 @@ void Cmd_Kill_f( gentity_t *ent ) {
 		{
 			trap_SendServerCommand( ent-g_entities, va("print \"%s\n\"", G_GetStringEdString("MP_SVGAME", "ATTEMPTDUELKILL")) );
 			return;
+		}
+	}
+
+	// don't allow boosted dude to sk with the flag in most cases
+	if (g_gametype.integer == GT_CTF && ent->client && ent->client->account && (ent->client->account->flags & ACCOUNTFLAG_BOOST_SELFKILLBOOST) &&
+		HasFlag(ent) && !IsRacerOrSpectator(ent) && g_boost.integer) {
+
+		static qboolean flagstandsInitialized = qfalse, flagstandsValid = qfalse;
+		static vec3_t redFs, blueFs;
+		if (!flagstandsInitialized) {
+			flagstandsInitialized = qtrue;
+			gentity_t temp;
+			VectorCopy(vec3_origin, temp.r.currentOrigin);
+			gentity_t *redFsEnt = G_ClosestEntity(&temp, isRedFlagstand);
+			gentity_t *blueFsEnt = G_ClosestEntity(&temp, isBlueFlagstand);
+			if (redFsEnt && blueFsEnt) {
+				flagstandsValid = qtrue;
+				VectorCopy(redFsEnt->r.currentOrigin, redFs);
+				VectorCopy(blueFsEnt->r.currentOrigin, blueFs);
+			}
+		}
+
+		if (flagstandsValid) {
+			vec3_t enemyFs;
+			if (ent->client->sess.sessionTeam == TEAM_RED)
+				VectorCopy(blueFs, enemyFs);
+			else if (ent->client->sess.sessionTeam == TEAM_BLUE)
+				VectorCopy(redFs, enemyFs);
+			else
+				return;
+
+			float closestAllyDistanceToEnemyFs = 999999, closestEnemyDistanceToEnemyFs = 999999;
+			gentity_t *closestAllyToEnemyFs = NULL;
+			float closestAllyDistanceToMe = 999999;
+			gentity_t *closestAllyToMe = NULL;
+			float enemyFcDistanceToEnemyFs = 999999;
+			gentity_t *enemyFc = NULL;
+			for (int i = 0; i < MAX_CLIENTS; i++) {
+				gentity_t *otherGuy = &g_entities[i];
+				if (!otherGuy->inuse || !otherGuy->client || otherGuy->client->pers.connected != CON_CONNECTED || otherGuy == ent || IsRacerOrSpectator(otherGuy) || otherGuy->health <= 0 || otherGuy->client->ps.fallingToDeath)
+					continue;
+
+				float otherGuyDistToEnemyFs = Distance(otherGuy->r.currentOrigin, enemyFs);
+				if (otherGuy->client->sess.sessionTeam == ent->client->sess.sessionTeam) {
+					if (otherGuyDistToEnemyFs < closestAllyDistanceToEnemyFs) {
+						closestAllyDistanceToEnemyFs = otherGuyDistToEnemyFs;
+						closestAllyToEnemyFs = otherGuy;
+					}
+
+					float otherGuyDistToMe = Distance(otherGuy->r.currentOrigin, ent->r.currentOrigin);
+					if (otherGuyDistToMe < closestAllyDistanceToMe) {
+						closestAllyDistanceToMe = otherGuyDistToMe;
+						closestAllyToMe = otherGuy;
+					}
+				}
+				else if (otherGuy->client->sess.sessionTeam == OtherTeam(ent->client->sess.sessionTeam)) {
+					if (otherGuyDistToEnemyFs < closestEnemyDistanceToEnemyFs)
+						closestEnemyDistanceToEnemyFs = otherGuyDistToEnemyFs;
+
+					if (HasFlag(otherGuy)) {
+						enemyFcDistanceToEnemyFs = otherGuyDistToEnemyFs;
+						enemyFc = otherGuy;
+					}
+				}
+			}
+
+			if (closestAllyDistanceToMe <= 200 && closestAllyToMe && closestAllyToMe->health >= 40) {
+				// 40hp+ ally seems to be trying to take from me
+				// block the sk
+				return;
+			}
+			else if (enemyFcDistanceToEnemyFs <= 400 && (enemyFcDistanceToEnemyFs <= closestAllyDistanceToEnemyFs + 50 || (closestAllyToEnemyFs && closestAllyToEnemyFs->health < 20))) {
+				// enemy fc is on their fs ready to cap and no 20hp+ ally is closer to their fs
+				// block the sk
+				return;
+			}
+			else if (closestAllyDistanceToEnemyFs <= 250 && closestEnemyDistanceToEnemyFs >= 1200 && closestAllyToEnemyFs && closestAllyToEnemyFs->health >= 60) {
+				// 60hp+ camper has freerun
+				// allow the sk
+			}
+			else if (GetCTFLocationValue(ent) <= 0.5f) {
+				// i'm in my base
+				// block the sk
+				return;
+			}
+			else {
+				// otherwise allow the sk
+			}
 		}
 	}
 
@@ -2660,7 +2750,7 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, q
 	}
 
 	if (g_gametype.integer == GT_CTF && mode == SAY_TEAM && VALIDSTRING(text) && !IsRacerOrSpectator(ent) &&
-		level.wasRestarted && level.pause.state == PAUSE_NONE && HasFlag(ent) && GetCTFLocationValue(ent) <= 0.55f && g_boost.integer && g_spawnboost_teamkill.integer) {
+		level.wasRestarted && level.pause.state == PAUSE_NONE && HasFlag(ent) && GetCTFLocationValue(ent) <= 0.55f && g_boost.integer && g_spawnboost_teamkill.integer && !ent->client->ps.fallingToDeath) {
 		gentity_t *boostedBaseTeammate = NULL;
 		for (int i = 0; i < MAX_CLIENTS; i++) {
 			gentity_t *thisEnt = &g_entities[i];
