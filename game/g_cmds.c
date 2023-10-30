@@ -773,7 +773,7 @@ void Cmd_Kill_f( gentity_t *ent ) {
 			else if (ent->client->sess.sessionTeam == TEAM_BLUE)
 				VectorCopy(redFs, enemyFs);
 			else
-				return;
+				assert(qfalse); // should never happen due to IsRacerOrSpectator call above
 
 			float closestAllyDistanceToEnemyFs = 999999, closestEnemyDistanceToEnemyFs = 999999;
 			gentity_t *closestAllyToEnemyFs = NULL;
