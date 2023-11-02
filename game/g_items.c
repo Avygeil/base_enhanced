@@ -2925,6 +2925,16 @@ void FinishSpawningItem( gentity_t *ent ) {
 		}
 	}
 
+	if (ent->item->giType == IT_HOLDABLE && !g_enableMemePickups.integer) {
+		G_FreeEntity(ent);
+		return;
+	}
+
+	if (ent->item->giType == IT_AMMO && ent->item->giTag == AMMO_BLASTER && !Q_stricmp(level.mapname, "mp/ctf4")) {
+		G_FreeEntity(ent);
+		return;
+	}
+
 	if (g_gametype.integer == GT_DUEL || g_gametype.integer == GT_POWERDUEL)
 	{
 		if ( ent->item->giType == IT_ARMOR ||

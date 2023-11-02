@@ -999,7 +999,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_dlURL,	"g_dlURL"	, ""	, CVAR_SYSTEMINFO, 0, qtrue },
 
 	{ &g_enableBoon,	"g_enableBoon"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
-	{ &g_enableMemePickups,	"g_enableMemePickups", "1"	, CVAR_LATCH, 0, qtrue },
+	{ &g_enableMemePickups,	"g_enableMemePickups", "0"	, CVAR_LATCH, 0, qtrue },
 
 	{ &g_vote_tierlist, "g_vote_tierlist", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_tierlist_s_min, "g_vote_tierlist_s_min", "3", CVAR_ARCHIVE, 0, qtrue },
