@@ -2930,7 +2930,7 @@ void FinishSpawningItem( gentity_t *ent ) {
 		return;
 	}
 
-	if (ent->item->giType == IT_AMMO && ent->item->giTag == AMMO_BLASTER && !Q_stricmp(level.mapname, "mp/ctf4")) {
+	if (ent->item->giType == IT_AMMO && ent->item->giTag == AMMO_BLASTER && !g_enableMemePickups.integer && !Q_stricmp(level.mapname, "mp/ctf4")) {
 		G_FreeEntity(ent);
 		return;
 	}
