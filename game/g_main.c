@@ -405,6 +405,7 @@ vmCvar_t	g_spawnboost_losIdealDistance;
 vmCvar_t	g_spawnboost_teamkill;
 vmCvar_t	g_spawnboost_autosk;
 vmCvar_t	g_aimbotBoost_hitscan;
+vmCvar_t	g_boost_maxDarkTh;
 
 vmCvar_t	g_botAimbot;
 
@@ -936,6 +937,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_spawnboost_teamkill, "g_spawnboost_teamkill", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_spawnboost_autosk, "g_spawnboost_autosk", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_aimbotBoost_hitscan, "g_aimbotBoost_hitscan", "1", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_boost_maxDarkTh, "g_boost_maxDarkTh", "35", CVAR_ARCHIVE, 0, qfalse },
 
 	{ &g_botAimbot, "g_botAimbot", "0", CVAR_ARCHIVE, 0, qtrue },
 

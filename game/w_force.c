@@ -1612,7 +1612,10 @@ void ForceTeamHeal( gentity_t *self, qboolean redirectedTE )
 
 	if (numpl == 1)
 	{
-		healthadd = 50;
+		if (self->client->ps.fd.forceSide == FORCE_DARKSIDE && baseBoost)
+			healthadd = Com_Clampi(1, 50, g_boost_maxDarkTh.integer);
+		else
+			healthadd = 50;
 	}
 	else if (numpl == 2)
 	{
