@@ -3991,17 +3991,6 @@ void ClientThink_real( gentity_t *ent ) {
 		ent->client->pers.cmd.buttons |= BUTTON_GESTURE;
 	}
 
-	qboolean pitting = qfalse;
-	if (g_gametype.integer >= GT_TEAM && ent->client) {
-		if (ent->client->ps.fallingToDeath)
-			pitting = qtrue;
-
-		char locStr[64] = { 0 };
-		Team_GetLocation(ent, locStr, sizeof(locStr));
-		if (locStr[0] && !Q_stricmp(locStr, "Pit"))
-			pitting = qtrue;
-	}
-
 	if (ent->client && ent->client->ps.fallingToDeath &&
 		(level.time - FALL_FADE_TIME) > ent->client->ps.fallingToDeath)
 	{ //die!
@@ -4023,10 +4012,43 @@ void ClientThink_real( gentity_t *ent ) {
 			G_MuteSound(ent->s.number, CHAN_VOICE); //stop screaming, because you are dead!
 		}
 	}
-	else if (ent->client && pitting && level.pause.state == PAUSE_NONE && ((ent->client->account && ent->client->account->flags & ACCOUNTFLAG_BOOST_SELFKILLBOOST && g_boost.integer) || (ent->r.svFlags & SVF_BOT)) && g_gametype.integer >= GT_TEAM && !IsRacerOrSpectator(ent) && ent->health > 0) {
+	else if (ent->client && level.pause.state == PAUSE_NONE && ((ent->client->account && ent->client->account->flags & ACCOUNTFLAG_BOOST_SELFKILLBOOST && g_boost.integer) || (ent->r.svFlags & SVF_BOT)) && g_gametype.integer >= GT_TEAM && !IsRacerOrSpectator(ent) && ent->health > 0) {
 		// boost: force sk when falling into pit and it's appropriate to sk
 		qboolean myFlagIsAtHome = !!(ent->client->sess.sessionTeam == TEAM_RED ? (teamgame.redStatus == FLAG_ATBASE) : (teamgame.blueStatus == FLAG_ATBASE));
-		if (!HasFlag(ent) || myFlagIsAtHome) {
+
+		qboolean doSk = qfalse;
+		if (HasFlag(ent)) {
+			// has flag: only sk if actually fading to black and flag is at home
+			if (ent->client->ps.fallingToDeath && myFlagIsAtHome)
+				doSk = qtrue;
+		}
+		else {
+			// doesn't have flag: sk if actually fading or in pit location generally
+			if (ent->client->ps.fallingToDeath) {
+				doSk = qtrue;
+			}
+			else {
+				char locBuf[64] = { 0 };
+				Team_GetLocation(ent, locBuf, sizeof(locBuf));
+				if (locBuf[0] && !Q_stricmp(locBuf, "Pit")) {
+
+					// sanity check: don't sk if the "Pit" location is the sole location in the map
+					static qboolean secondLocationExists = qfalse, initialized = qfalse;
+					if (!initialized) {
+						initialized = qtrue;
+						char testBuf[64] = { 0 };
+						trap_GetConfigstring(CS_LOCATIONS + 1, testBuf, sizeof(testBuf));
+						if (testBuf[0])
+							secondLocationExists = qtrue;
+					}
+
+					if (secondLocationExists)
+						doSk = qtrue;
+				}
+			}
+		}
+
+		if (doSk) {
 			ent->flags &= ~FL_GODMODE;
 			ent->client->ps.stats[STAT_HEALTH] = ent->health = -999;
 			player_die(ent, ent, ent, 100000, MOD_SUICIDE);
