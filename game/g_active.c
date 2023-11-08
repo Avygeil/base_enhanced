@@ -4061,11 +4061,18 @@ void ClientThink_real( gentity_t *ent ) {
 			AutoTHTE(ent);
 		}
 
-		if (ent->client && ent->client->account && ent->client->account->flags & ACCOUNTFLAG_BOOST_FIXINSTAYAW && g_boost.integer && level.pause.state == PAUSE_NONE &&
-			ent->client->pers.lastSpawnTime >= level.time - 250) {
-			if (fabs(AngleDelta(ent->client->ps.viewangles[YAW], ent->client->spawnFacingAngles[YAW])) >= 45.0f) {
-				SetClientViewAngle(ent, ent->client->spawnFacingAngles);
-				BG_PlayerStateToEntityState(&client->ps, &ent->s, qtrue);
+		if (ent->client && ent->client->account && ent->client->account->flags & ACCOUNTFLAG_BOOST_FIXINSTAYAW && g_boost.integer && level.pause.state == PAUSE_NONE) {
+			if (ent->client->pers.lastSpawnTime >= level.time - 250) {
+				if (fabs(AngleDelta(ent->client->ps.viewangles[YAW], ent->client->spawnFacingAngles[YAW])) >= 45.0f) {
+					SetClientViewAngle(ent, ent->client->spawnFacingAngles);
+					BG_PlayerStateToEntityState(&client->ps, &ent->s, qtrue);
+				}
+			}
+			else if (ent->client->pers.lastSpawnTime >= level.time - 500) {
+				if (fabs(AngleDelta(ent->client->ps.viewangles[YAW], ent->client->spawnFacingAngles[YAW])) >= 75.0f) {
+					SetClientViewAngle(ent, ent->client->spawnFacingAngles);
+					BG_PlayerStateToEntityState(&client->ps, &ent->s, qtrue);
+				}
 			}
 		}
 
