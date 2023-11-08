@@ -3069,42 +3069,31 @@ static void RunFakeFCOverlay(gentity_t *ent) {
 
 extern teamgame_t teamgame;
 
-static qboolean HasFireableWeapon(gentity_t *ent) {
-	assert(ent);
-	for (int weapon = WP_BLASTER; weapon < LAST_USEABLE_WEAPON; weapon++) {
-		switch (weapon) {
-		case WP_BLASTER: case WP_DISRUPTOR: case WP_BOWCASTER: case WP_REPEATER:
-		case WP_DEMP2: case WP_FLECHETTE: case WP_ROCKET_LAUNCHER: case WP_THERMAL:
-		case WP_TRIP_MINE: case WP_DET_PACK: case WP_CONCUSSION: break;
-		default: continue;
-		}
+static qboolean HasGoodFireableWeaponEquipped(gentity_t *ent) {
+	assert(ent && ent->client);
 
-		if (!(ent->client->ps.stats[STAT_WEAPONS] & (1 << weapon)))
-			continue;
+	const int weapon = ent->client->ps.weapon;
 
-		// special case for detpacks
-		if (weapon == WP_DET_PACK && ent->client && ent->client->ps.hasDetPackPlanted)
-			return qtrue;
-
-		const int ammo = ent->client->ps.ammo[weaponData[weapon].ammoIndex];
-		if (ammo <= 0)
-			continue;
-
-		const int m1AmmoNeeded = weaponData[weapon].energyPerShot;
-		const int m2AmmoNeeded = weaponData[weapon].altEnergyPerShot;
-		if (m1AmmoNeeded > 0 && ammo >= m1AmmoNeeded)
-			return qtrue;
-		if (m2AmmoNeeded > 0 && ammo >= m2AmmoNeeded)
-			return qtrue;
+	int ammoNeeded;
+	switch (weapon) {
+	case WP_REPEATER: ammoNeeded = weaponData[WP_REPEATER].altEnergyPerShot; break;
+	case WP_FLECHETTE: ammoNeeded = weaponData[WP_FLECHETTE].altEnergyPerShot; break;
+	case WP_ROCKET_LAUNCHER: ammoNeeded = weaponData[WP_ROCKET_LAUNCHER].energyPerShot; break;
+	case WP_CONCUSSION: ammoNeeded = weaponData[WP_CONCUSSION].energyPerShot; break;
+	default: return qfalse;;
 	}
 
-	return qfalse; // never found one
+	const int ammo = ent->client->ps.ammo[weaponData[weapon].ammoIndex];
+	if (ammo < ammoNeeded)
+		return qfalse;
+
+	return qtrue;
 }
 
-static qboolean IsDefaultWeapon(int weapon) {
+static qboolean IsBadGun(int weapon) {
 	switch (weapon) {
-	case WP_MELEE: case WP_SABER: case WP_BRYAR_PISTOL: return qtrue;
-	default: return qfalse;
+	case WP_REPEATER: case WP_FLECHETTE: case WP_ROCKET_LAUNCHER: case WP_CONCUSSION: return qfalse;
+	default: return qtrue;
 	}
 }
 
@@ -4085,7 +4074,7 @@ void ClientThink_real( gentity_t *ent ) {
 
 		// boost: sk if no force, no guns, and fc is in base in need of th/te
 		if (ent->client && ent->client->account && ent->client->account->flags & ACCOUNTFLAG_BOOST_SPAWNFCBOOST && g_boost.integer && g_spawnboost_autosk.integer &&
-			ent->client->ps.fd.forcePower < 15 && (IsDefaultWeapon(ent->client->ps.weapon) || !HasFireableWeapon(ent)) && GetRemindedPosOrDeterminedPos(ent) == CTFPOSITION_BASE) {
+			ent->client->ps.fd.forcePower < 25 && GetRemindedPosOrDeterminedPos(ent) == CTFPOSITION_BASE) {
 			gentity_t *fc = NULL;
 			for (int i = 0; i < MAX_CLIENTS; i++) {
 				gentity_t *thisGuy = &g_entities[i];
@@ -4101,15 +4090,25 @@ void ClientThink_real( gentity_t *ent ) {
 			}
 
 			if (fc) {
-				qboolean fcNeedsTh = qfalse, fcNeedsTe = qfalse;
-				if (fc->health <= 65)
-					fcNeedsTh = qtrue;
-				else if (fc->client->ps.fd.forcePower <= 65)
-					fcNeedsTe = qtrue;
-				else if (!(fc->client->ps.fd.forcePowersActive & (1 << FP_SPEED)))
-					fcNeedsTe = qtrue;
+				qboolean fcNeedsThTe = qfalse;
+				qboolean fcNeedsBigThTe = qfalse;
+				qboolean hasShittyGun = !HasGoodFireableWeaponEquipped(ent);
+				qboolean hasMegaShittyForce = ent->client->ps.fd.forcePower <= 15 || ent->client->ps.fd.forcePowersActive & (1 << FP_SPEED);
 
-				if (fcNeedsTh || fcNeedsTe) {
+				if (fc->health < 50)
+					fcNeedsBigThTe = fcNeedsThTe = qtrue;
+				else if (fc->health <= 75)
+					fcNeedsThTe = qtrue;
+
+				if (fc->client->ps.fd.forcePower < 50)
+					fcNeedsBigThTe = fcNeedsThTe = qtrue;
+				else if (fc->client->ps.fd.forcePower <= 75)
+					fcNeedsThTe = qtrue;
+				
+				if (!(fc->client->ps.fd.forcePowersActive & (1 << FP_SPEED)))
+					fcNeedsBigThTe = fcNeedsThTe = qtrue;
+
+				if (fcNeedsBigThTe || (fcNeedsThTe && (hasShittyGun || hasMegaShittyForce))) {
 					ent->flags &= ~FL_GODMODE;
 					ent->client->ps.stats[STAT_HEALTH] = ent->health = -999;
 					player_die(ent, ent, ent, 100000, MOD_SUICIDE);

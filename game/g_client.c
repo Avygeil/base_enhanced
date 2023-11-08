@@ -2130,6 +2130,11 @@ void ClientUserinfoChanged( int clientNum ) {
 		if (strchr(s, 'f')) { client->sess.disableShittySaberMoves |= (1 << SHITTYSABERMOVE_KATA); }
 		if (strchr(s, 'g')) { client->sess.disableShittySaberMoves |= (1 << SHITTYSABERMOVE_KICK); }
 
+		if (strchr(s, 'h'))
+			client->sess.autoThOnSk = qtrue;
+		else
+			client->sess.autoThOnSk = qfalse;
+
 		if (strchr(s, 'r'))
 			client->sess.autoRespawn = qtrue;
 		else
@@ -2147,6 +2152,7 @@ void ClientUserinfoChanged( int clientNum ) {
 		client->sess.unlagged &= ~UNLAGGED_CLIENTINFO;
 		client->sess.disableShittySaberMoves = 0;
 		client->sess.autoRespawn = qfalse;
+		client->sess.autoThOnSk = qfalse;
 	}
 
 	// passwordless spectators - check for password change

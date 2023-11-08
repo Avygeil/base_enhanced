@@ -703,7 +703,6 @@ void Cmd_TeamTask_f( gentity_t *ent ) {
 	ClientUserinfoChanged(client);
 }
 
-
 extern qboolean isRedFlagstand(gentity_t *ent);
 extern qboolean isBlueFlagstand(gentity_t *ent);
 
@@ -831,6 +830,22 @@ void Cmd_Kill_f( gentity_t *ent ) {
 			}
 			else {
 				// otherwise allow the sk
+			}
+		}
+	}
+
+	if (ent->client->ps.fd.forcePowersKnown & (1 << FP_TEAM_FORCE) && g_allowSkAutoThTe.integer & (1 << 0)) {
+		ForceTeamForceReplenish(ent, qfalse);
+	}
+	else if (ent->client->ps.fd.forcePowersKnown & (1 << FP_TEAM_HEAL) && g_allowSkAutoThTe.integer & (1 << 1)) {
+		if (ent->client->sess.autoThOnSk) {
+			ForceTeamHeal(ent, qfalse);
+		}
+		else if (trap_Argc() >= 2) {
+			char arg[MAX_STRING_CHARS] = { 0 };
+			trap_Argv(1, arg, sizeof(arg));
+			if (arg[0] && !Q_stricmp(arg, "th")) {
+				ForceTeamHeal(ent, qfalse);
 			}
 		}
 	}

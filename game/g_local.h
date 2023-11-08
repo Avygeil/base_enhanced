@@ -737,6 +737,7 @@ typedef struct {
 	int		unlagged;
 	qboolean	basementNeckbeardsTriggered;
 	qboolean autoRespawn;
+	qboolean autoThOnSk;
 
 	qboolean disableShittySaberMoves;
 
@@ -3413,6 +3414,8 @@ extern vmCvar_t		g_gripRefreshRate;
 extern vmCvar_t		g_gripAbsorbFix;
 
 extern vmCvar_t		g_mindTrickBuff;
+
+extern vmCvar_t		g_allowSkAutoThTe;
 
 extern vmCvar_t		g_minimumCullDistance;
 

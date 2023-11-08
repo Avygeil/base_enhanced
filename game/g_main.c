@@ -549,6 +549,8 @@ vmCvar_t	g_gripAbsorbFix;
 
 vmCvar_t	g_mindTrickBuff;
 
+vmCvar_t	g_allowSkAutoThTe;
+
 vmCvar_t	g_minimumCullDistance;
 
 vmCvar_t	g_callvotedelay;
@@ -1089,6 +1091,8 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_gripAbsorbFix, "g_gripAbsorbFix", "0", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_mindTrickBuff, "g_mindTrickBuff", "0", CVAR_ARCHIVE, 0, qtrue },
+
+	{ &g_allowSkAutoThTe, "g_allowSkAutoThTe", "-1", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_minimumCullDistance, "g_minimumCullDistance", "10000", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 
