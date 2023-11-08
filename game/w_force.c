@@ -1878,6 +1878,7 @@ void AutoTHTE(gentity_t *self) {
 
 	int numpl = 0;
 	gentity_t *target = NULL;
+	qboolean targetSpawnedRecently = qfalse;
 	for (int i = 0; i < MAX_CLIENTS; i++) {
 		gentity_t *ent = &g_entities[i];
 
@@ -1890,6 +1891,9 @@ void AutoTHTE(gentity_t *self) {
 			if (VectorLength(a) <= radius) {
 				numpl++;
 				target = ent;
+
+				if (ent->client->pers.lastSpawnTime >= level.time - 500)
+					targetSpawnedRecently = qtrue; // try not to te people who sk instantly after they spawn
 			}
 		}
 	}
@@ -1902,7 +1906,7 @@ void AutoTHTE(gentity_t *self) {
 			ForceTeamForceReplenish(self, /*qfalse*/qtrue);
 		}
 		else {
-			if (numpl == 1) {
+			if (numpl == 1 && !targetSpawnedRecently) {
 				if (canTE)
 					ForceTeamForceReplenish(self, qfalse);
 				else

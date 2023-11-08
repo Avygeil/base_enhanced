@@ -3991,6 +3991,17 @@ void ClientThink_real( gentity_t *ent ) {
 		ent->client->pers.cmd.buttons |= BUTTON_GESTURE;
 	}
 
+	qboolean pitting = qfalse;
+	if (g_gametype.integer >= GT_TEAM && ent->client) {
+		if (ent->client->ps.fallingToDeath)
+			pitting = qtrue;
+
+		char locStr[64] = { 0 };
+		Team_GetLocation(ent, locStr, sizeof(locStr));
+		if (locStr[0] && !Q_stricmp(locStr, "Pit"))
+			pitting = qtrue;
+	}
+
 	if (ent->client && ent->client->ps.fallingToDeath &&
 		(level.time - FALL_FADE_TIME) > ent->client->ps.fallingToDeath)
 	{ //die!
@@ -4012,7 +4023,7 @@ void ClientThink_real( gentity_t *ent ) {
 			G_MuteSound(ent->s.number, CHAN_VOICE); //stop screaming, because you are dead!
 		}
 	}
-	else if (ent->client && ent->client->ps.fallingToDeath && level.pause.state == PAUSE_NONE && ((ent->client->account && ent->client->account->flags & ACCOUNTFLAG_BOOST_SELFKILLBOOST && g_boost.integer) || (ent->r.svFlags & SVF_BOT)) && g_gametype.integer >= GT_TEAM && !IsRacerOrSpectator(ent) && ent->health > 0) {
+	else if (ent->client && pitting && level.pause.state == PAUSE_NONE && ((ent->client->account && ent->client->account->flags & ACCOUNTFLAG_BOOST_SELFKILLBOOST && g_boost.integer) || (ent->r.svFlags & SVF_BOT)) && g_gametype.integer >= GT_TEAM && !IsRacerOrSpectator(ent) && ent->health > 0) {
 		// boost: force sk when falling into pit and it's appropriate to sk
 		qboolean myFlagIsAtHome = !!(ent->client->sess.sessionTeam == TEAM_RED ? (teamgame.redStatus == FLAG_ATBASE) : (teamgame.blueStatus == FLAG_ATBASE));
 		if (!HasFlag(ent) || myFlagIsAtHome) {
@@ -4074,7 +4085,7 @@ void ClientThink_real( gentity_t *ent ) {
 
 		// boost: sk if no force, no guns, and fc is in base in need of th/te
 		if (ent->client && ent->client->account && ent->client->account->flags & ACCOUNTFLAG_BOOST_SPAWNFCBOOST && g_boost.integer && g_spawnboost_autosk.integer &&
-			ent->client->ps.fd.forcePower < 25 && GetRemindedPosOrDeterminedPos(ent) == CTFPOSITION_BASE) {
+			GetRemindedPosOrDeterminedPos(ent) == CTFPOSITION_BASE) {
 			gentity_t *fc = NULL;
 			for (int i = 0; i < MAX_CLIENTS; i++) {
 				gentity_t *thisGuy = &g_entities[i];
@@ -4089,10 +4100,12 @@ void ClientThink_real( gentity_t *ent ) {
 				}
 			}
 
+			qboolean doSk = qfalse;
 			if (fc) {
 				qboolean fcNeedsThTe = qfalse;
 				qboolean fcNeedsBigThTe = qfalse;
 				qboolean hasShittyGun = !HasGoodFireableWeaponEquipped(ent);
+				qboolean notEnoughForceToTe = ent->client->ps.fd.forcePower < 25;
 				qboolean hasMegaShittyForce = ent->client->ps.fd.forcePower <= 15 || ent->client->ps.fd.forcePowersActive & (1 << FP_SPEED);
 
 				if (fc->health < 50)
@@ -4108,11 +4121,17 @@ void ClientThink_real( gentity_t *ent ) {
 				if (!(fc->client->ps.fd.forcePowersActive & (1 << FP_SPEED)))
 					fcNeedsBigThTe = fcNeedsThTe = qtrue;
 
-				if (fcNeedsBigThTe || (fcNeedsThTe && (hasShittyGun || hasMegaShittyForce))) {
-					ent->flags &= ~FL_GODMODE;
-					ent->client->ps.stats[STAT_HEALTH] = ent->health = -999;
-					player_die(ent, ent, ent, 100000, MOD_SUICIDE);
-				}
+				if (notEnoughForceToTe && (fcNeedsBigThTe || (fcNeedsThTe && (hasShittyGun || hasMegaShittyForce))))
+					doSk = qtrue;
+			}
+			else if (teamgame.redStatus == FLAG_ATBASE && teamgame.blueStatus == FLAG_ATBASE && GetCTFLocationValue(ent) >= 0.66f) {
+				doSk = qtrue;
+			}
+
+			if (doSk) {
+				ent->flags &= ~FL_GODMODE;
+				ent->client->ps.stats[STAT_HEALTH] = ent->health = -999;
+				player_die(ent, ent, ent, 100000, MOD_SUICIDE);
 			}
 		}
 	}
