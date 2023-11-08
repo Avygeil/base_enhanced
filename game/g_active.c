@@ -4085,7 +4085,7 @@ void ClientThink_real( gentity_t *ent ) {
 
 		// boost: sk if no force, no guns, and fc is in base in need of th/te
 		if (ent->client && ent->client->account && ent->client->account->flags & ACCOUNTFLAG_BOOST_SPAWNFCBOOST && g_boost.integer && g_spawnboost_autosk.integer &&
-			GetRemindedPosOrDeterminedPos(ent) == CTFPOSITION_BASE) {
+			level.wasRestarted && GetRemindedPosOrDeterminedPos(ent) == CTFPOSITION_BASE) {
 			gentity_t *fc = NULL;
 			for (int i = 0; i < MAX_CLIENTS; i++) {
 				gentity_t *thisGuy = &g_entities[i];
