@@ -4935,6 +4935,8 @@ void ClientSpawn(gentity_t *ent) {
 		SetClientViewAngle(ent, spawn_angles);
 	}
 
+	VectorCopy(client->ps.viewangles, client->spawnFacingAngles);
+
 	if ( ent->client->sess.sessionTeam == TEAM_SPECTATOR ) {
 
 	} else {

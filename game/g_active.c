@@ -4061,6 +4061,14 @@ void ClientThink_real( gentity_t *ent ) {
 			AutoTHTE(ent);
 		}
 
+		if (ent->client && ent->client->account && ent->client->account->flags & ACCOUNTFLAG_BOOST_FIXINSTAYAW && g_boost.integer && level.pause.state == PAUSE_NONE &&
+			ent->client->pers.lastSpawnTime >= level.time - 100) {
+			if (fabs(AngleDelta(ent->client->ps.viewangles[YAW], ent->client->spawnFacingAngles[YAW])) >= 75.0f) {
+				SetClientViewAngle(ent, ent->client->spawnFacingAngles);
+				BG_PlayerStateToEntityState(&client->ps, &ent->s, qtrue);
+			}
+		}
+
 		if ((ent->client && ent->client->account && ent->client->account->flags & ACCOUNTFLAG_BOOST_ITEMPICKUPBOOST && g_boost.integer)) {
 			// boost: pick up items in larger range
 			static vec3_t boostPickupRange = { 120, 120, 44 };

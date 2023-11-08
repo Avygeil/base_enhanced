@@ -1613,6 +1613,8 @@ struct gclient_s {
 	qboolean canTouchPowerupsWhileGameIsPaused;
 
 	int grippedAnAbsorberTime;
+
+	vec3_t spawnFacingAngles;
 };
 
 //Interest points
@@ -2107,6 +2109,7 @@ typedef struct {
 #define ACCOUNTFLAG_BOOST_SUCKSMASSIVECOCKATSABERING	( 1 << 30 )
 #define ACCOUNTFLAG_BOOST_FIXIDIOTICFORCECONFIG	( 1 << 31 )
 #define ACCOUNTFLAG_AUTOSWITCHER					( 1ll << 32ll )
+#define ACCOUNTFLAG_BOOST_FIXINSTAYAW					( 1ll << 33ll )
 
 typedef void( *ListSessionsCallback )( void *ctx,
 	const sessionReference_t sessionRef,
