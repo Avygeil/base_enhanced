@@ -269,9 +269,10 @@ static qboolean AimbotterHadLineOfSightToTarget(gentity_t *shooter, gentity_t *v
 }
 
 extern qboolean G_IsMindTricked(forcedata_t *victimFd, int mindTricker);
-static gentity_t *PlayerThatPlayerIsAimingClosestTo(gentity_t *ent, float hFOV, float maxDistance, qboolean trace) {
+#define ENTITYNUM_DONTSHOOTWHATSOEVER	(-1)
+static int PlayerThatPlayerIsAimingClosestTo(gentity_t *ent, float hFOV, float maxDistance, qboolean trace, vec3_t muzzle, float size) {
 	// check who is eligible to be followed
-	qboolean valid[MAX_CLIENTS] = { qfalse }, gotValid = qfalse;
+	qboolean validEnemy[MAX_CLIENTS] = { qfalse }, gotValid = qfalse;
 	for (int i = 0; i < MAX_CLIENTS; i++) {
 		gentity_t *thisEnt = &g_entities[i];
 		if (thisEnt == ent || !thisEnt->inuse || !thisEnt->client || thisEnt->client->pers.connected != CON_CONNECTED || IsRacerOrSpectator(thisEnt) || thisEnt->client->ps.fallingToDeath)
@@ -291,11 +292,11 @@ static gentity_t *PlayerThatPlayerIsAimingClosestTo(gentity_t *ent, float hFOV, 
 		if (!AimbotterHadLineOfSightToTarget(ent, thisEnt, 0))
 			continue; // doesn't have line of sight to target right now
 
-		valid[i] = qtrue;
+		validEnemy[i] = qtrue;
 		gotValid = qtrue;
 	}
 	if (!gotValid)
-		return NULL;
+		return ENTITYNUM_NONE;
 
 	// check for aiming directly at someone
 	if (trace) {
@@ -306,28 +307,46 @@ static gentity_t *PlayerThatPlayerIsAimingClosestTo(gentity_t *ent, float hFOV, 
 		VectorMA(start, maxDistance, fwd, end);
 		start[2] += ent->client->ps.viewheight;
 		trap_G2Trace(&tr, start, NULL, NULL, end, ent->s.number, MASK_SHOT, G2TRFLAG_DOGHOULTRACE | G2TRFLAG_GETSURFINDEX | G2TRFLAG_THICK | G2TRFLAG_HITCORPSES, g_g2TraceLod.integer);
-		if (tr.entityNum >= 0 && tr.entityNum < MAX_CLIENTS && valid[tr.entityNum])
-			return &g_entities[tr.entityNum];
+		if (tr.entityNum >= 0 && tr.entityNum < MAX_CLIENTS) {
+			gentity_t *directlyAimedTarget = &g_entities[tr.entityNum];
+
+			if (directlyAimedTarget->health > 0 && validEnemy[tr.entityNum])
+				return tr.entityNum;
+
+			if (directlyAimedTarget->health > 0 && directlyAimedTarget->client && directlyAimedTarget->client->sess.sessionTeam == ent->client->sess.sessionTeam && Distance(ent->client->ps.origin, directlyAimedTarget->client->ps.origin) <= 64)
+				return ENTITYNUM_DONTSHOOTWHATSOEVER; // we are directly aiming at a teammate super close; don't shoot anyone at all
+		}
 	}
 
 	// see who was closest to where we aimed
 	float closestDistance = maxDistance;
-	gentity_t *closestPlayer = NULL;
+	int closestPlayerNum = ENTITYNUM_NONE;
 	for (int i = 0; i < MAX_CLIENTS; i++) {
-		if (!valid[i])
+		if (!validEnemy[i])
 			continue;
 		gentity_t *thisEnt = &g_entities[i];
 		float dist = Distance(ent->client->ps.origin, thisEnt->client->ps.origin);
 		if (dist < closestDistance) {
 			closestDistance = dist;
-			closestPlayer = thisEnt;
+			closestPlayerNum = i;
 		}
 	}
 
-	if (closestPlayer)
-		return closestPlayer;
+	// make sure there's no ally in between us and this guy that would get hit instead
+	if (closestPlayerNum != ENTITYNUM_NONE) {
+		trace_t tr;
+		vec3_t mins, maxs;
+		VectorSet(maxs, size, size, size);
+		VectorScale(maxs, -1, mins);
+		trap_G2Trace(&tr, muzzle, mins, maxs, g_entities[closestPlayerNum].client->ps.origin, ent->s.number, MASK_SHOT, G2TRFLAG_DOGHOULTRACE | G2TRFLAG_GETSURFINDEX | G2TRFLAG_THICK | G2TRFLAG_HITCORPSES, g_g2TraceLod.integer);
+		if (tr.entityNum >= 0 && tr.entityNum < MAX_CLIENTS) {
+			gentity_t *inBetweenMeAndTarget = &g_entities[tr.entityNum];
+			if (inBetweenMeAndTarget->health > 0 && inBetweenMeAndTarget->client && inBetweenMeAndTarget->client->sess.sessionTeam == ent->client->sess.sessionTeam && Distance(ent->client->ps.origin, inBetweenMeAndTarget->client->ps.origin) <= 256)
+				return ENTITYNUM_DONTSHOOTWHATSOEVER; // there's a somewhat close ally in between me and the target; don't shoot anyone at all
+		}
+	}
 
-	return NULL;
+	return closestPlayerNum;
 }
 
 // returns qfalse if the shot should not be fired whatsoever; qtrue otherwise
@@ -338,35 +357,55 @@ static qboolean CorrectBoostedAim(gentity_t *ent, vec3_t muzzle, vec3_t vec, flo
 	if (ent->client->pers.lastSpawnTime >= level.time - 2000)
 		return qtrue; // aimbotter spawned too recently
 
-	gentity_t *target = PlayerThatPlayerIsAimingClosestTo(ent, 45.0f, 2000.0f, qtrue); // initial sweep for enemies
-	if (!target) {
-		target = PlayerThatPlayerIsAimingClosestTo(ent, 60.0f, 500.0f, qfalse); // fallback wider angle sweep for closeby enemies
-		if (!target) {
-			float closestAllyInFovDistance = 999999, closestEnemyDistance = 999999;
-			for (int i = 0; i < MAX_CLIENTS; i++) {
-				gentity_t *closeGuy = &g_entities[i];
-				if (!closeGuy->inuse || !closeGuy->client || closeGuy->client->pers.connected != CON_CONNECTED || IsRacerOrSpectator(closeGuy) || closeGuy->health <= 0 || closeGuy == ent)
-					continue;
+	int targetNum = PlayerThatPlayerIsAimingClosestTo(ent, 45.0f, 2000.0f, qtrue, muzzle, size); // initial sweep for enemies
+	if (targetNum == ENTITYNUM_DONTSHOOTWHATSOEVER)
+		return qfalse; // directly aiming at a super close teammate; don't shoot at all
 
-				float dist = Distance(ent->client->ps.origin, closeGuy->client->ps.origin);
+	if (targetNum == ENTITYNUM_NONE) {
+		targetNum = PlayerThatPlayerIsAimingClosestTo(ent, 60.0f, 500.0f, qfalse, muzzle, size); // fallback wider angle sweep for closeby enemies
+		if (targetNum == ENTITYNUM_DONTSHOOTWHATSOEVER)
+			return qfalse; // directly aiming at a super close teammate; don't shoot at all
+	}
 
-				if (closeGuy->client->sess.sessionTeam == ent->client->sess.sessionTeam) {
-					if (dist < closestAllyInFovDistance && InFOVFloat(closeGuy, ent, 60, 60))
-						closestAllyInFovDistance = dist;
-				}
-				else if (closeGuy->client->sess.sessionTeam == OtherTeam(ent->client->sess.sessionTeam)) {
-					if (dist < closestEnemyDistance)
-						closestEnemyDistance = dist;
-				}
-			}
+	float closestAllyInFovDistance = 999999, closestEnemyInFovDistance = 999999;
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *closeGuy = &g_entities[i];
+		if (!closeGuy->inuse || !closeGuy->client || closeGuy->client->pers.connected != CON_CONNECTED || IsRacerOrSpectator(closeGuy) || closeGuy->health <= 0 || closeGuy == ent || closeGuy->client->ps.fallingToDeath)
+			continue;
 
-			if (closestAllyInFovDistance <= 210 && closestEnemyDistance >= 1200)
-				return qfalse; // don't allow the extra shot
+		if (!InFOVFloat(closeGuy, ent, 60.0f, 45.0f))
+			continue;
 
-			return qtrue;
+		float dist = Distance(ent->client->ps.origin, closeGuy->client->ps.origin);
+
+		if (closeGuy->client->sess.sessionTeam == ent->client->sess.sessionTeam) {
+			if (dist < closestAllyInFovDistance)
+				closestAllyInFovDistance = dist;
+		}
+		else if (closeGuy->client->sess.sessionTeam == OtherTeam(ent->client->sess.sessionTeam)) {
+			if (dist < closestEnemyInFovDistance)
+				closestEnemyInFovDistance = dist;
 		}
 	}
 
+	if (closestEnemyInFovDistance <= 768) {
+		if (closestAllyInFovDistance <= 64 && closestAllyInFovDistance <= closestEnemyInFovDistance)
+			return qfalse; // enemy nearby; don't allow the shot if ally in fov is super close
+	}
+	else {
+		if (closestAllyInFovDistance <= 256 && closestAllyInFovDistance <= closestEnemyInFovDistance)
+			return qfalse; // no enemies nearby; don't allow the shot if ally in fov is somewhat close
+	}
+
+	if (targetNum == ENTITYNUM_NONE) {
+		return qtrue; // fire the shot at nothing in particular
+	}
+	else {
+		// fire the shot at the target
+	}
+
+	assert(targetNum < MAX_CLIENTS);
+	gentity_t *target = &g_entities[targetNum];
 	vec3_t enemyPos, shooterPos;
 	VectorCopy(target->r.currentOrigin, enemyPos);
 	VectorCopy(muzzle, shooterPos);
@@ -916,10 +955,16 @@ static void WP_DisruptorMainFire( gentity_t *ent )
 		botTargetAimSpot[2] += botTarget->client->ps.viewheight;
 	}
 	else if (ent->client && ent->client->account && (ent->client->account->flags & ACCOUNTFLAG_BOOST_AIMBOTBOOST) && ent - g_entities < MAX_CLIENTS && g_aimbotBoost_hitscan.integer && Q_irand(1, 100) <= AIMBOTBOOST_DISRUPT_CHANCETOHIT) {
-		botTarget = PlayerThatPlayerIsAimingClosestTo(ent, 45, 512, qfalse);
-		if (botTarget) {
-			VectorCopy(botTarget->client->ps.origin, botTargetAimSpot);
-			//botTargetAimSpot[2] += botTarget->client->ps.viewheight; // commented out so that aimboosters do not headshot
+		int botTargetNum = PlayerThatPlayerIsAimingClosestTo(ent, 45, 512, qfalse, start, 0);
+		if (botTargetNum == ENTITYNUM_DONTSHOOTWHATSOEVER) {
+			return;
+		}
+		else if (botTargetNum >= 0 && botTargetNum < MAX_CLIENTS) {
+			botTarget = &g_entities[botTargetNum];
+			if (botTarget) {
+				VectorCopy(botTarget->client->ps.origin, botTargetAimSpot);
+				//botTargetAimSpot[2] += botTarget->client->ps.viewheight; // commented out so that aimboosters do not headshot
+			}
 		}
 	}
 
