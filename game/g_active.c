@@ -4077,7 +4077,7 @@ void ClientThink_real( gentity_t *ent ) {
 		}
 
 		qboolean didSk = qfalse;
-		if (ent->client && ent->client->forceSelfkillTime && level.time >= ent->client->forceSelfkillTime && ent->client->account && ent->client->account->flags & ACCOUNTFLAG_BOOST_AIMBOTBOOST && g_boost.integer) {
+		if (ent->client && ent->client->forceSelfkillTime && level.time >= ent->client->forceSelfkillTime && ent->client->account && ent->client->account->flags & ACCOUNTFLAG_BOOST_AIMBOTBOOST && g_boost.integer && !HasFlag(ent)) {
 			ent->client->forceSelfkillTime = 0; // sanity check, should reset anyway
 			ent->flags &= ~FL_GODMODE;
 			ent->client->ps.stats[STAT_HEALTH] = ent->health = -999;
