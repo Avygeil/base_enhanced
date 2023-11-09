@@ -3634,7 +3634,7 @@ void drop_charge (gentity_t *self, vec3_t start, vec3_t dir)
 	trap_LinkEntity(bolt);
 
 	// boost: auto detkill if close enemy and no close allies
-	if (self->client && self->client->account && self->client->account->flags & ACCOUNTFLAG_BOOST_AIMBOTBOOST && g_boost.integer) {
+	if (self->client && self->client->account && self->client->account->flags & ACCOUNTFLAG_BOOST_AIMBOTBOOST && g_boost.integer && !HasFlag(self) && !IsRacerOrSpectator(self)) {
 		float closestAllyDist = 999999, closestEnemyDist = 999999;
 		for (int i = 0; i < MAX_CLIENTS; i++) {
 			gentity_t *thisEnt = &g_entities[i];
