@@ -1615,6 +1615,8 @@ struct gclient_s {
 	int grippedAnAbsorberTime;
 
 	vec3_t spawnFacingAngles;
+
+	int forceSelfkillTime;
 };
 
 //Interest points

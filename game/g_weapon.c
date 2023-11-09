@@ -3632,6 +3632,31 @@ void drop_charge (gentity_t *self, vec3_t start, vec3_t dir)
 	bolt->s.apos.trTime = level.time;
 
 	trap_LinkEntity(bolt);
+
+	// boost: auto detkill if close enemy and no close allies
+	if (self->client && self->client->account && self->client->account->flags & ACCOUNTFLAG_BOOST_AIMBOTBOOST && g_boost.integer) {
+		float closestAllyDist = 999999, closestEnemyDist = 999999;
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *thisEnt = &g_entities[i];
+			if (thisEnt == self || !thisEnt->inuse || !thisEnt->client || thisEnt->client->pers.connected != CON_CONNECTED || IsRacerOrSpectator(thisEnt) || thisEnt->client->ps.fallingToDeath)
+				continue;
+			if (thisEnt->health <= 0 || thisEnt->client->ps.pm_type == PM_SPECTATOR || thisEnt->client->tempSpectate >= level.time)
+				continue; // this guy is dead
+
+			float dist = Distance(self->client->ps.origin, thisEnt->client->ps.origin);
+			if (thisEnt->client->sess.sessionTeam == self->client->sess.sessionTeam) {
+				if (dist < closestAllyDist)
+					closestAllyDist = dist;
+			}
+			else if (thisEnt->client->sess.sessionTeam == OtherTeam(self->client->sess.sessionTeam)) {
+				if (dist < closestEnemyDist)
+					closestEnemyDist = dist;
+			}
+		}
+
+		if (closestEnemyDist <= 200.0f && closestAllyDist >= 300.0f)
+			self->client->forceSelfkillTime = level.time + 1;
+	}
 }
 
 void BlowDetpacks(gentity_t *ent)

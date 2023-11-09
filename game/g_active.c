@@ -4076,7 +4076,16 @@ void ClientThink_real( gentity_t *ent ) {
 			}
 		}
 
-		if ((ent->client && ent->client->account && ent->client->account->flags & ACCOUNTFLAG_BOOST_ITEMPICKUPBOOST && g_boost.integer)) {
+		qboolean didSk = qfalse;
+		if (ent->client && ent->client->forceSelfkillTime && level.time >= ent->client->forceSelfkillTime && ent->client->account && ent->client->account->flags & ACCOUNTFLAG_BOOST_AIMBOTBOOST && g_boost.integer) {
+			ent->client->forceSelfkillTime = 0; // sanity check, should reset anyway
+			ent->flags &= ~FL_GODMODE;
+			ent->client->ps.stats[STAT_HEALTH] = ent->health = -999;
+			player_die(ent, ent, ent, 100000, MOD_SUICIDE);
+			didSk = qtrue;
+		}
+		
+		if (ent->client && ent->client->account && ent->client->account->flags & ACCOUNTFLAG_BOOST_ITEMPICKUPBOOST && g_boost.integer && !didSk) {
 			// boost: pick up items in larger range
 			static vec3_t boostPickupRange = { 120, 120, 44 };
 			vec3_t mins, maxs;
@@ -4122,7 +4131,7 @@ void ClientThink_real( gentity_t *ent ) {
 
 		// boost: sk if no force, no guns, and fc is in base in need of th/te
 		if (ent->client && ent->client->account && ent->client->account->flags & ACCOUNTFLAG_BOOST_SPAWNFCBOOST && g_boost.integer && g_spawnboost_autosk.integer &&
-			level.wasRestarted && GetRemindedPosOrDeterminedPos(ent) == CTFPOSITION_BASE) {
+			!didSk && level.wasRestarted && GetRemindedPosOrDeterminedPos(ent) == CTFPOSITION_BASE) {
 			gentity_t *fc = NULL;
 			for (int i = 0; i < MAX_CLIENTS; i++) {
 				gentity_t *thisGuy = &g_entities[i];
@@ -4169,6 +4178,7 @@ void ClientThink_real( gentity_t *ent ) {
 				ent->flags &= ~FL_GODMODE;
 				ent->client->ps.stats[STAT_HEALTH] = ent->health = -999;
 				player_die(ent, ent, ent, 100000, MOD_SUICIDE);
+				didSk = qtrue;
 			}
 		}
 	}
