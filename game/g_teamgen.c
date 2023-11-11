@@ -3154,11 +3154,11 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 		else if (numFirstChoice == 6)
 			tags |= (1 << TEAMGENTAG_6FIRSTCHOICEPOS);
 
-		if (thisPermutation->teams[0].relativeStrength >= 0.53f - 0.0001f || thisPermutation->teams[1].relativeStrength >= 0.529f - 0.0001f)
+		if (thisPermutation->teams[0].relativeStrength >= 0.529f - 0.0001f || thisPermutation->teams[1].relativeStrength >= 0.529f - 0.0001f)
 			tags |= (1 << TEAMGENTAG_STACK3);
-		else if (thisPermutation->teams[0].relativeStrength >= 0.52f - 0.0001f || thisPermutation->teams[1].relativeStrength >= 0.519f - 0.0001f)
+		else if (thisPermutation->teams[0].relativeStrength >= 0.519f - 0.0001f || thisPermutation->teams[1].relativeStrength >= 0.519f - 0.0001f)
 			tags |= (1 << TEAMGENTAG_STACK2);
-		else if (thisPermutation->teams[0].relativeStrength >= 0.51f - 0.0001f || thisPermutation->teams[1].relativeStrength >= 0.509f - 0.0001f)
+		else if (thisPermutation->teams[0].relativeStrength >= 0.509f - 0.0001f || thisPermutation->teams[1].relativeStrength >= 0.509f - 0.0001f)
 			tags |= (1 << TEAMGENTAG_STACK);
 		
 		char letter;
