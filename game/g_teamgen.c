@@ -288,6 +288,10 @@ qboolean HashMatchesAvoidedHash(genericNode_t *node, void *userData) {
 	return qfalse;
 }
 
+#define PREFERREDPOS_VALUE_FIRSTCHOICE		(100)
+#define PREFERREDPOS_VALUE_SECONDCHOICE		(10)
+#define PREFERREDPOS_VALUE_THIRDCHOICE		(1)
+
 typedef void(*PermutationCallback)(teamGeneratorContext_t *, const permutationPlayer_t *, const permutationPlayer_t *,
 	const permutationPlayer_t *, const permutationPlayer_t *,
 	const permutationPlayer_t *, const permutationPlayer_t *,
@@ -355,14 +359,14 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 
 	// reward permutations that put people on preferred positions
 	int numOnPreferredPos = 0, numOnAvoidedPos = 0;
-	if (team1base->posPrefs.avoid & (1 << CTFPOSITION_BASE)) numOnAvoidedPos += 1; else if (team1base->posPrefs.first & (1 << CTFPOSITION_BASE)) numOnPreferredPos += 100; else if (team1base->posPrefs.second & (1 << CTFPOSITION_BASE)) numOnPreferredPos += 10; else if (team1base->posPrefs.third & (1 << CTFPOSITION_BASE)) numOnPreferredPos += 1;
-	if (team1chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE)) numOnAvoidedPos += 1; else if (team1chase->posPrefs.first & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += 100; else if (team1chase->posPrefs.second & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += 10; else if (team1chase->posPrefs.third & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += 1;
-	if (team1offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team1offense1->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 100; else if (team1offense1->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 10; else if (team1offense1->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 1;
-	if (team1offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team1offense2->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 100; else if (team1offense2->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 10; else if (team1offense2->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 1;
-	if (team2base->posPrefs.avoid & (1 << CTFPOSITION_BASE)) numOnAvoidedPos += 1; else if (team2base->posPrefs.first & (1 << CTFPOSITION_BASE)) numOnPreferredPos += 100; else if (team2base->posPrefs.second & (1 << CTFPOSITION_BASE)) numOnPreferredPos += 10; else if (team2base->posPrefs.third & (1 << CTFPOSITION_BASE)) numOnPreferredPos += 1;
-	if (team2chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE)) numOnAvoidedPos += 1; else if (team2chase->posPrefs.first & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += 100; else if (team2chase->posPrefs.second & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += 10; else if (team2chase->posPrefs.third & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += 1;
-	if (team2offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team2offense1->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 100; else if (team2offense1->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 10; else if (team2offense1->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 1;
-	if (team2offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team2offense2->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 100; else if (team2offense2->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 10; else if (team2offense2->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 1;
+	if (team1base->posPrefs.avoid & (1 << CTFPOSITION_BASE)) numOnAvoidedPos += 1; else if (team1base->posPrefs.first & (1 << CTFPOSITION_BASE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team1base->posPrefs.second & (1 << CTFPOSITION_BASE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team1base->posPrefs.third & (1 << CTFPOSITION_BASE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+	if (team1chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE)) numOnAvoidedPos += 1; else if (team1chase->posPrefs.first & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team1chase->posPrefs.second & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team1chase->posPrefs.third & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+	if (team1offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team1offense1->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team1offense1->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team1offense1->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+	if (team1offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team1offense2->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team1offense2->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team1offense2->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+	if (team2base->posPrefs.avoid & (1 << CTFPOSITION_BASE)) numOnAvoidedPos += 1; else if (team2base->posPrefs.first & (1 << CTFPOSITION_BASE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team2base->posPrefs.second & (1 << CTFPOSITION_BASE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team2base->posPrefs.third & (1 << CTFPOSITION_BASE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+	if (team2chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE)) numOnAvoidedPos += 1; else if (team2chase->posPrefs.first & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team2chase->posPrefs.second & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team2chase->posPrefs.third & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+	if (team2offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team2offense1->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team2offense1->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team2offense1->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+	if (team2offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team2offense2->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team2offense2->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team2offense2->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
 
 	int team1OffenseDefenseDiff = 0, team2OffenseDefenseDiff = 0;
 	{
@@ -548,6 +552,16 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 		context->best->teams[1].chaseId = team2chase->accountId;
 		context->best->teams[1].offenseId1 = team2offense1->accountId;
 		context->best->teams[1].offenseId2 = team2offense2->accountId;
+		float lowestPlayerRating = 999999;
+		if (team1base->rating[CTFPOSITION_BASE] < lowestPlayerRating) lowestPlayerRating = team1base->rating[CTFPOSITION_BASE];
+		if (team1chase->rating[CTFPOSITION_CHASE] < lowestPlayerRating) lowestPlayerRating = team1chase->rating[CTFPOSITION_CHASE];
+		if (team1offense1->rating[CTFPOSITION_OFFENSE] < lowestPlayerRating) lowestPlayerRating = team1offense1->rating[CTFPOSITION_OFFENSE];
+		if (team1offense2->rating[CTFPOSITION_OFFENSE] < lowestPlayerRating) lowestPlayerRating = team1offense2->rating[CTFPOSITION_OFFENSE];
+		if (team2base->rating[CTFPOSITION_BASE] < lowestPlayerRating) lowestPlayerRating = team2base->rating[CTFPOSITION_BASE];
+		if (team2chase->rating[CTFPOSITION_CHASE] < lowestPlayerRating) lowestPlayerRating = team2chase->rating[CTFPOSITION_CHASE];
+		if (team2offense1->rating[CTFPOSITION_OFFENSE] < lowestPlayerRating) lowestPlayerRating = team2offense1->rating[CTFPOSITION_OFFENSE];
+		if (team2offense2->rating[CTFPOSITION_OFFENSE] < lowestPlayerRating) lowestPlayerRating = team2offense2->rating[CTFPOSITION_OFFENSE];
+		context->best->lowestPlayerRating = lowestPlayerRating;
 		for (int i = 0; i < 2; i++) {
 			memset(context->best->teams[i].baseName, 0, MAX_NAME_LENGTH);
 			memset(context->best->teams[i].chaseName, 0, MAX_NAME_LENGTH);
@@ -630,14 +644,14 @@ static void TryTeamPermutation_SemiAppeasing(teamGeneratorContext_t *context, co
 
 	// reward permutations that put people on preferred positions
 	int numOnPreferredPos = 0, numOnAvoidedPos = 0;
-	if (team1base->posPrefs.avoid & (1 << CTFPOSITION_BASE)) numOnAvoidedPos += 1; else if (team1base->posPrefs.first & (1 << CTFPOSITION_BASE)) numOnPreferredPos += 100; else if (team1base->posPrefs.second & (1 << CTFPOSITION_BASE)) numOnPreferredPos += 10; else if (team1base->posPrefs.third & (1 << CTFPOSITION_BASE)) numOnPreferredPos += 1;
-	if (team1chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE)) numOnAvoidedPos += 1; else if (team1chase->posPrefs.first & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += 100; else if (team1chase->posPrefs.second & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += 10; else if (team1chase->posPrefs.third & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += 1;
-	if (team1offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team1offense1->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 100; else if (team1offense1->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 10; else if (team1offense1->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 1;
-	if (team1offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team1offense2->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 100; else if (team1offense2->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 10; else if (team1offense2->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 1;
-	if (team2base->posPrefs.avoid & (1 << CTFPOSITION_BASE)) numOnAvoidedPos += 1; else if (team2base->posPrefs.first & (1 << CTFPOSITION_BASE)) numOnPreferredPos += 100; else if (team2base->posPrefs.second & (1 << CTFPOSITION_BASE)) numOnPreferredPos += 10; else if (team2base->posPrefs.third & (1 << CTFPOSITION_BASE)) numOnPreferredPos += 1;
-	if (team2chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE)) numOnAvoidedPos += 1; else if (team2chase->posPrefs.first & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += 100; else if (team2chase->posPrefs.second & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += 10; else if (team2chase->posPrefs.third & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += 1;
-	if (team2offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team2offense1->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 100; else if (team2offense1->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 10; else if (team2offense1->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 1;
-	if (team2offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team2offense2->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 100; else if (team2offense2->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 10; else if (team2offense2->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 1;
+	if (team1base->posPrefs.avoid & (1 << CTFPOSITION_BASE)) numOnAvoidedPos += 1; else if (team1base->posPrefs.first & (1 << CTFPOSITION_BASE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team1base->posPrefs.second & (1 << CTFPOSITION_BASE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team1base->posPrefs.third & (1 << CTFPOSITION_BASE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+	if (team1chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE)) numOnAvoidedPos += 1; else if (team1chase->posPrefs.first & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team1chase->posPrefs.second & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team1chase->posPrefs.third & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+	if (team1offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team1offense1->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team1offense1->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team1offense1->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+	if (team1offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team1offense2->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team1offense2->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team1offense2->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+	if (team2base->posPrefs.avoid & (1 << CTFPOSITION_BASE)) numOnAvoidedPos += 1; else if (team2base->posPrefs.first & (1 << CTFPOSITION_BASE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team2base->posPrefs.second & (1 << CTFPOSITION_BASE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team2base->posPrefs.third & (1 << CTFPOSITION_BASE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+	if (team2chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE)) numOnAvoidedPos += 1; else if (team2chase->posPrefs.first & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team2chase->posPrefs.second & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team2chase->posPrefs.third & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+	if (team2offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team2offense1->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team2offense1->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team2offense1->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+	if (team2offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team2offense2->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team2offense2->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team2offense2->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
 
 	int team1OffenseDefenseDiff = 0, team2OffenseDefenseDiff = 0;
 	{
@@ -838,6 +852,16 @@ static void TryTeamPermutation_SemiAppeasing(teamGeneratorContext_t *context, co
 		context->best->teams[1].chaseId = team2chase->accountId;
 		context->best->teams[1].offenseId1 = team2offense1->accountId;
 		context->best->teams[1].offenseId2 = team2offense2->accountId;
+		float lowestPlayerRating = 999999;
+		if (team1base->rating[CTFPOSITION_BASE] < lowestPlayerRating) lowestPlayerRating = team1base->rating[CTFPOSITION_BASE];
+		if (team1chase->rating[CTFPOSITION_CHASE] < lowestPlayerRating) lowestPlayerRating = team1chase->rating[CTFPOSITION_CHASE];
+		if (team1offense1->rating[CTFPOSITION_OFFENSE] < lowestPlayerRating) lowestPlayerRating = team1offense1->rating[CTFPOSITION_OFFENSE];
+		if (team1offense2->rating[CTFPOSITION_OFFENSE] < lowestPlayerRating) lowestPlayerRating = team1offense2->rating[CTFPOSITION_OFFENSE];
+		if (team2base->rating[CTFPOSITION_BASE] < lowestPlayerRating) lowestPlayerRating = team2base->rating[CTFPOSITION_BASE];
+		if (team2chase->rating[CTFPOSITION_CHASE] < lowestPlayerRating) lowestPlayerRating = team2chase->rating[CTFPOSITION_CHASE];
+		if (team2offense1->rating[CTFPOSITION_OFFENSE] < lowestPlayerRating) lowestPlayerRating = team2offense1->rating[CTFPOSITION_OFFENSE];
+		if (team2offense2->rating[CTFPOSITION_OFFENSE] < lowestPlayerRating) lowestPlayerRating = team2offense2->rating[CTFPOSITION_OFFENSE];
+		context->best->lowestPlayerRating = lowestPlayerRating;
 		for (int i = 0; i < 2; i++) {
 			memset(context->best->teams[i].baseName, 0, MAX_NAME_LENGTH);
 			memset(context->best->teams[i].chaseName, 0, MAX_NAME_LENGTH);
@@ -921,14 +945,14 @@ static void TryTeamPermutation_Inclusive(teamGeneratorContext_t *context, const 
 
 	// reward permutations that put people on preferred positions
 	int numOnPreferredPos = 0, numOnAvoidedPos = 0;
-	if (team1base->posPrefs.avoid & (1 << CTFPOSITION_BASE)) numOnAvoidedPos += 1; else if (team1base->posPrefs.first & (1 << CTFPOSITION_BASE)) numOnPreferredPos += 100; else if (team1base->posPrefs.second & (1 << CTFPOSITION_BASE)) numOnPreferredPos += 10; else if (team1base->posPrefs.third & (1 << CTFPOSITION_BASE)) numOnPreferredPos += 1;
-	if (team1chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE)) numOnAvoidedPos += 1; else if (team1chase->posPrefs.first & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += 100; else if (team1chase->posPrefs.second & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += 10; else if (team1chase->posPrefs.third & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += 1;
-	if (team1offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team1offense1->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 100; else if (team1offense1->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 10; else if (team1offense1->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 1;
-	if (team1offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team1offense2->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 100; else if (team1offense2->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 10; else if (team1offense2->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 1;
-	if (team2base->posPrefs.avoid & (1 << CTFPOSITION_BASE)) numOnAvoidedPos += 1; else if (team2base->posPrefs.first & (1 << CTFPOSITION_BASE)) numOnPreferredPos += 100; else if (team2base->posPrefs.second & (1 << CTFPOSITION_BASE)) numOnPreferredPos += 10; else if (team2base->posPrefs.third & (1 << CTFPOSITION_BASE)) numOnPreferredPos += 1;
-	if (team2chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE)) numOnAvoidedPos += 1; else if (team2chase->posPrefs.first & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += 100; else if (team2chase->posPrefs.second & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += 10; else if (team2chase->posPrefs.third & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += 1;
-	if (team2offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team2offense1->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 100; else if (team2offense1->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 10; else if (team2offense1->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 1;
-	if (team2offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team2offense2->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 100; else if (team2offense2->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 10; else if (team2offense2->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 1;
+	if (team1base->posPrefs.avoid & (1 << CTFPOSITION_BASE)) numOnAvoidedPos += 1; else if (team1base->posPrefs.first & (1 << CTFPOSITION_BASE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team1base->posPrefs.second & (1 << CTFPOSITION_BASE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team1base->posPrefs.third & (1 << CTFPOSITION_BASE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+	if (team1chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE)) numOnAvoidedPos += 1; else if (team1chase->posPrefs.first & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team1chase->posPrefs.second & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team1chase->posPrefs.third & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+	if (team1offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team1offense1->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team1offense1->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team1offense1->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+	if (team1offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team1offense2->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team1offense2->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team1offense2->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+	if (team2base->posPrefs.avoid & (1 << CTFPOSITION_BASE)) numOnAvoidedPos += 1; else if (team2base->posPrefs.first & (1 << CTFPOSITION_BASE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team2base->posPrefs.second & (1 << CTFPOSITION_BASE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team2base->posPrefs.third & (1 << CTFPOSITION_BASE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+	if (team2chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE)) numOnAvoidedPos += 1; else if (team2chase->posPrefs.first & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team2chase->posPrefs.second & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team2chase->posPrefs.third & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+	if (team2offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team2offense1->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team2offense1->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team2offense1->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+	if (team2offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team2offense2->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team2offense2->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team2offense2->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
 
 	int team1OffenseDefenseDiff = 0, team2OffenseDefenseDiff = 0;
 	{
@@ -1123,6 +1147,16 @@ static void TryTeamPermutation_Inclusive(teamGeneratorContext_t *context, const 
 		context->best->teams[1].chaseId = team2chase->accountId;
 		context->best->teams[1].offenseId1 = team2offense1->accountId;
 		context->best->teams[1].offenseId2 = team2offense2->accountId;
+		float lowestPlayerRating = 999999;
+		if (team1base->rating[CTFPOSITION_BASE] < lowestPlayerRating) lowestPlayerRating = team1base->rating[CTFPOSITION_BASE];
+		if (team1chase->rating[CTFPOSITION_CHASE] < lowestPlayerRating) lowestPlayerRating = team1chase->rating[CTFPOSITION_CHASE];
+		if (team1offense1->rating[CTFPOSITION_OFFENSE] < lowestPlayerRating) lowestPlayerRating = team1offense1->rating[CTFPOSITION_OFFENSE];
+		if (team1offense2->rating[CTFPOSITION_OFFENSE] < lowestPlayerRating) lowestPlayerRating = team1offense2->rating[CTFPOSITION_OFFENSE];
+		if (team2base->rating[CTFPOSITION_BASE] < lowestPlayerRating) lowestPlayerRating = team2base->rating[CTFPOSITION_BASE];
+		if (team2chase->rating[CTFPOSITION_CHASE] < lowestPlayerRating) lowestPlayerRating = team2chase->rating[CTFPOSITION_CHASE];
+		if (team2offense1->rating[CTFPOSITION_OFFENSE] < lowestPlayerRating) lowestPlayerRating = team2offense1->rating[CTFPOSITION_OFFENSE];
+		if (team2offense2->rating[CTFPOSITION_OFFENSE] < lowestPlayerRating) lowestPlayerRating = team2offense2->rating[CTFPOSITION_OFFENSE];
+		context->best->lowestPlayerRating = lowestPlayerRating;
 		for (int i = 0; i < 2; i++) {
 			memset(context->best->teams[i].baseName, 0, MAX_NAME_LENGTH);
 			memset(context->best->teams[i].chaseName, 0, MAX_NAME_LENGTH);
@@ -1207,14 +1241,14 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 
 	// reward permutations that put people on preferred positions
 	int numOnPreferredPos = 0, numOnAvoidedPos = 0;
-	if (team1base->posPrefs.avoid & (1 << CTFPOSITION_BASE)) numOnAvoidedPos += 1; else if (team1base->posPrefs.first & (1 << CTFPOSITION_BASE)) numOnPreferredPos += 100; else if (team1base->posPrefs.second & (1 << CTFPOSITION_BASE)) numOnPreferredPos += 10; else if (team1base->posPrefs.third & (1 << CTFPOSITION_BASE)) numOnPreferredPos += 1;
-	if (team1chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE)) numOnAvoidedPos += 1; else if (team1chase->posPrefs.first & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += 100; else if (team1chase->posPrefs.second & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += 10; else if (team1chase->posPrefs.third & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += 1;
-	if (team1offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team1offense1->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 100; else if (team1offense1->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 10; else if (team1offense1->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 1;
-	if (team1offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team1offense2->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 100; else if (team1offense2->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 10; else if (team1offense2->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 1;
-	if (team2base->posPrefs.avoid & (1 << CTFPOSITION_BASE)) numOnAvoidedPos += 1; else if (team2base->posPrefs.first & (1 << CTFPOSITION_BASE)) numOnPreferredPos += 100; else if (team2base->posPrefs.second & (1 << CTFPOSITION_BASE)) numOnPreferredPos += 10; else if (team2base->posPrefs.third & (1 << CTFPOSITION_BASE)) numOnPreferredPos += 1;
-	if (team2chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE)) numOnAvoidedPos += 1; else if (team2chase->posPrefs.first & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += 100; else if (team2chase->posPrefs.second & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += 10; else if (team2chase->posPrefs.third & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += 1;
-	if (team2offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team2offense1->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 100; else if (team2offense1->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 10; else if (team2offense1->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 1;
-	if (team2offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team2offense2->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 100; else if (team2offense2->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 10; else if (team2offense2->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += 1;
+	if (team1base->posPrefs.avoid & (1 << CTFPOSITION_BASE)) numOnAvoidedPos += 1; else if (team1base->posPrefs.first & (1 << CTFPOSITION_BASE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team1base->posPrefs.second & (1 << CTFPOSITION_BASE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team1base->posPrefs.third & (1 << CTFPOSITION_BASE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+	if (team1chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE)) numOnAvoidedPos += 1; else if (team1chase->posPrefs.first & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team1chase->posPrefs.second & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team1chase->posPrefs.third & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+	if (team1offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team1offense1->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team1offense1->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team1offense1->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+	if (team1offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team1offense2->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team1offense2->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team1offense2->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+	if (team2base->posPrefs.avoid & (1 << CTFPOSITION_BASE)) numOnAvoidedPos += 1; else if (team2base->posPrefs.first & (1 << CTFPOSITION_BASE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team2base->posPrefs.second & (1 << CTFPOSITION_BASE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team2base->posPrefs.third & (1 << CTFPOSITION_BASE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+	if (team2chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE)) numOnAvoidedPos += 1; else if (team2chase->posPrefs.first & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team2chase->posPrefs.second & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team2chase->posPrefs.third & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+	if (team2offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team2offense1->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team2offense1->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team2offense1->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+	if (team2offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team2offense2->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team2offense2->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team2offense2->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
 
 	int team1OffenseDefenseDiff = 0, team2OffenseDefenseDiff = 0;
 	{
@@ -1412,6 +1446,16 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 		context->best->teams[1].chaseId = team2chase->accountId;
 		context->best->teams[1].offenseId1 = team2offense1->accountId;
 		context->best->teams[1].offenseId2 = team2offense2->accountId;
+		float lowestPlayerRating = 999999;
+		if (team1base->rating[CTFPOSITION_BASE] < lowestPlayerRating) lowestPlayerRating = team1base->rating[CTFPOSITION_BASE];
+		if (team1chase->rating[CTFPOSITION_CHASE] < lowestPlayerRating) lowestPlayerRating = team1chase->rating[CTFPOSITION_CHASE];
+		if (team1offense1->rating[CTFPOSITION_OFFENSE] < lowestPlayerRating) lowestPlayerRating = team1offense1->rating[CTFPOSITION_OFFENSE];
+		if (team1offense2->rating[CTFPOSITION_OFFENSE] < lowestPlayerRating) lowestPlayerRating = team1offense2->rating[CTFPOSITION_OFFENSE];
+		if (team2base->rating[CTFPOSITION_BASE] < lowestPlayerRating) lowestPlayerRating = team2base->rating[CTFPOSITION_BASE];
+		if (team2chase->rating[CTFPOSITION_CHASE] < lowestPlayerRating) lowestPlayerRating = team2chase->rating[CTFPOSITION_CHASE];
+		if (team2offense1->rating[CTFPOSITION_OFFENSE] < lowestPlayerRating) lowestPlayerRating = team2offense1->rating[CTFPOSITION_OFFENSE];
+		if (team2offense2->rating[CTFPOSITION_OFFENSE] < lowestPlayerRating) lowestPlayerRating = team2offense2->rating[CTFPOSITION_OFFENSE];
+		context->best->lowestPlayerRating = lowestPlayerRating;
 		for (int i = 0; i < 2; i++) {
 			memset(context->best->teams[i].baseName, 0, MAX_NAME_LENGTH);
 			memset(context->best->teams[i].chaseName, 0, MAX_NAME_LENGTH);
@@ -2980,6 +3024,24 @@ void TeamGenerator_QueueServerMessageInConsole(int clientNum, const char *msg) {
 	add->serverFrameNum = level.framenum;
 }
 
+enum {
+	TEAMGENTAG_FAIR = 0,
+	TEAMGENTAG_FAIREST,
+	TEAMGENTAG_TIEDFORMOSTHC,
+	TEAMGENTAG_MOSTHC,
+	TEAMGENTAG_HC,
+	TEAMGENTAG_HC2,
+	TEAMGENTAG_HC3,
+	TEAMGENTAG_STACK,
+	TEAMGENTAG_STACK2,
+	TEAMGENTAG_STACK3,
+	TEAMGENTAG_6FIRSTCHOICEPOS,
+	TEAMGENTAG_7FIRSTCHOICEPOS,
+	TEAMGENTAG_8FIRSTCHOICEPOS,
+	TEAMGENTAG_NOAVOIDS,
+	NUM_TEAMGENTAGS
+};
+
 static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 	assert(set);
 	char formattedNumber[64] = { 0 };
@@ -3001,6 +3063,46 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 			lowestIDiff = thisPermutation->iDiff;
 	}
 
+	int iHighestCombinedStrength = 0;
+	for (int i = 0; i < NUM_TEAMGENERATORTYPES; i++) {
+		permutationOfTeams_t *thisPermutation;
+		switch (i) {
+		case TEAMGENERATORTYPE_MOSTPLAYED: thisPermutation = &set->suggested; break;
+		case TEAMGENERATORTYPE_HIGHESTRATING: thisPermutation = &set->highestCaliber; break;
+		case TEAMGENERATORTYPE_FAIREST: thisPermutation = &set->fairest; break;
+		case TEAMGENERATORTYPE_INCLUSIVE: thisPermutation = &set->inclusive; break;
+		case TEAMGENERATORTYPE_DESIREDPOS: thisPermutation = &set->desired; break;
+		case TEAMGENERATORTYPE_SEMIDESIREDPOS: thisPermutation = &set->semiDesired; break;
+		}
+		if (!thisPermutation->valid)
+			continue;
+
+		double combinedStrength = thisPermutation->teams[0].rawStrength + thisPermutation->teams[1].rawStrength;
+		int thisCombinedStrength = (int)round(combinedStrength * 10000);
+		if (thisCombinedStrength > iHighestCombinedStrength)
+			iHighestCombinedStrength = thisCombinedStrength;
+	}
+
+	int numTiedForHighestCombinedStrength = 0;
+	for (int i = 0; i < NUM_TEAMGENERATORTYPES; i++) {
+		permutationOfTeams_t *thisPermutation;
+		switch (i) {
+		case TEAMGENERATORTYPE_MOSTPLAYED: thisPermutation = &set->suggested; break;
+		case TEAMGENERATORTYPE_HIGHESTRATING: thisPermutation = &set->highestCaliber; break;
+		case TEAMGENERATORTYPE_FAIREST: thisPermutation = &set->fairest; break;
+		case TEAMGENERATORTYPE_INCLUSIVE: thisPermutation = &set->inclusive; break;
+		case TEAMGENERATORTYPE_DESIREDPOS: thisPermutation = &set->desired; break;
+		case TEAMGENERATORTYPE_SEMIDESIREDPOS: thisPermutation = &set->semiDesired; break;
+		}
+		if (!thisPermutation->valid)
+			continue;
+
+		double combinedStrength = thisPermutation->teams[0].rawStrength + thisPermutation->teams[1].rawStrength;
+		int thisCombinedStrength = (int)round(combinedStrength * 10000);
+		if (thisCombinedStrength == iHighestCombinedStrength)
+			++numTiedForHighestCombinedStrength;
+	}
+
 	qboolean printedFairest = qfalse;
 	int numPrinted = 0;
 	char lastLetter = 'a';
@@ -3020,29 +3122,47 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 		double thisCombinedStrength = thisPermutation->teams[0].rawStrength + thisPermutation->teams[1].rawStrength;
 		int iThisCombinedStrength = (int)round(thisCombinedStrength * 10000);
 
-		int iHcCombinedStrength = 0;
-		if (set->highestCaliber.valid) {
-			double hcCombinedStrength = set->highestCaliber.teams[0].rawStrength + set->highestCaliber.teams[1].rawStrength;
-			iHcCombinedStrength = (int)round(hcCombinedStrength * 10000);
+		int tags = 0;
+
+		if (iThisCombinedStrength == iHighestCombinedStrength) {
+			if (numTiedForHighestCombinedStrength > 1)
+				tags |= (1 << TEAMGENTAG_TIEDFORMOSTHC);
+			else
+				tags |= (1 << TEAMGENTAG_MOSTHC);
 		}
 
+		if (thisPermutation->lowestPlayerRating >= PlayerTierToRating(PLAYERRATING_MID_A) - 0.0001)
+			tags |= (1 << TEAMGENTAG_HC3);
+		else if (thisPermutation->lowestPlayerRating >= PlayerTierToRating(PLAYERRATING_LOW_A) - 0.0001)
+			tags |= (1 << TEAMGENTAG_HC2);
+		else if (thisPermutation->lowestPlayerRating >= PlayerTierToRating(PLAYERRATING_MID_B) - 0.0001)
+			tags |= (1 << TEAMGENTAG_HC);
+
+		if (!thisPermutation->iDiff)
+			tags |= (1 << TEAMGENTAG_FAIR);
+		else if (thisPermutation->iDiff == lowestIDiff)
+			tags |= (1 << TEAMGENTAG_FAIREST);
+
+		if (!thisPermutation->numOnAvoidedPos)
+			tags |= (1 << TEAMGENTAG_NOAVOIDS);
+
+		const int numFirstChoice = thisPermutation->numOnPreferredPos / PREFERREDPOS_VALUE_FIRSTCHOICE;
+		if (numFirstChoice == 8)
+			tags |= (1 << TEAMGENTAG_8FIRSTCHOICEPOS);
+		else if (numFirstChoice == 7)
+			tags |= (1 << TEAMGENTAG_7FIRSTCHOICEPOS);
+		else if (numFirstChoice == 6)
+			tags |= (1 << TEAMGENTAG_6FIRSTCHOICEPOS);
+
+		if (thisPermutation->teams[0].relativeStrength >= 0.53f - 0.0001f || thisPermutation->teams[1].relativeStrength >= 0.529f - 0.0001f)
+			tags |= (1 << TEAMGENTAG_STACK3);
+		else if (thisPermutation->teams[0].relativeStrength >= 0.52f - 0.0001f || thisPermutation->teams[1].relativeStrength >= 0.519f - 0.0001f)
+			tags |= (1 << TEAMGENTAG_STACK2);
+		else if (thisPermutation->teams[0].relativeStrength >= 0.51f - 0.0001f || thisPermutation->teams[1].relativeStrength >= 0.509f - 0.0001f)
+			tags |= (1 << TEAMGENTAG_STACK);
+		
 		char letter;
-		char *suggestionTypeStr;
 		if (i == TEAMGENERATORTYPE_MOSTPLAYED) {
-			if (((thisPermutation->hash == set->highestCaliber.hash) || (iThisCombinedStrength >= iHcCombinedStrength)) && (!thisPermutation->iDiff || thisPermutation->hash == set->fairest.hash || (set->fairest.valid && thisPermutation->iDiff == set->fairest.iDiff))) {
-				suggestionTypeStr = "Suggested, highest caliber, and fairest";
-				printedFairest = qtrue;
-			}
-			else if ((thisPermutation->hash == set->highestCaliber.hash) || (iThisCombinedStrength >= iHcCombinedStrength)) {
-				suggestionTypeStr = "Suggested and highest caliber";
-			}
-			else if (thisPermutation->iDiff == lowestIDiff) {
-				suggestionTypeStr = "Suggested and fairest";
-				printedFairest = qtrue;
-			}
-			else {
-				suggestionTypeStr = "Suggested";
-			}
 			letter = set->suggestedLetter = lastLetter++;
 		}
 		else if (i == TEAMGENERATORTYPE_HIGHESTRATING) {
@@ -3050,41 +3170,12 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 				thisPermutation->valid = qfalse;
 				continue;
 			}
-			if (thisPermutation->iDiff == lowestIDiff) {
-				suggestionTypeStr = "Highest caliber and fairest";
-				printedFairest = qtrue;
-			}
-			else {
-				suggestionTypeStr = "Highest caliber";
-			}
 			letter = set->highestCaliberLetter = lastLetter++;
 		}
 		else if (i == TEAMGENERATORTYPE_FAIREST) {
 			if ((thisPermutation->hash == set->suggested.hash && set->suggested.valid) || (thisPermutation->hash == set->highestCaliber.hash && set->highestCaliber.valid)) {
 				thisPermutation->valid = qfalse;
 				continue;
-			}
-			// sanity check: don't bother calling it "fairest" if it's not the fairest option
-			// can happen eventually with enough rerolls
-			if (thisPermutation->iDiff == lowestIDiff) {
-				if (printedFairest) {
-					if ((thisPermutation->hash == set->highestCaliber.hash) || (iThisCombinedStrength >= iHcCombinedStrength))
-						suggestionTypeStr = "Additional fairest and highest caliber"; // don't write plain old "fairest" if we already printed one above that also said fairest (it would imply this is even fairer)
-					else
-						suggestionTypeStr = "Additional fairest"; // don't write plain old "fairest" if we already printed one above that also said fairest (it would imply this is even fairer)
-				}
-				else {
-					if ((thisPermutation->hash == set->highestCaliber.hash) || (iThisCombinedStrength >= iHcCombinedStrength))
-						suggestionTypeStr = "Fairest and highest caliber";
-					else
-						suggestionTypeStr = "Fairest";
-				}
-			}
-			else {
-				if ((thisPermutation->hash == set->highestCaliber.hash) || (iThisCombinedStrength >= iHcCombinedStrength))
-					suggestionTypeStr = "Additional and highest caliber";
-				else
-					suggestionTypeStr = "Additional";
 			}
 			letter = set->fairestLetter = lastLetter++;
 		}
@@ -3094,10 +3185,6 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 				thisPermutation->valid = qfalse;
 				continue;
 			}
-			if (thisPermutation->iDiff == lowestIDiff)
-				suggestionTypeStr = "Inclusive and fairest";
-			else
-				suggestionTypeStr = "Inclusive";
 			letter = set->inclusiveLetter = lastLetter++;
 		}
 		else if (i == TEAMGENERATORTYPE_DESIREDPOS) {
@@ -3106,10 +3193,6 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 				thisPermutation->valid = qfalse;
 				continue;
 			}
-			if (thisPermutation->iDiff == lowestIDiff)
-				suggestionTypeStr = "Appeasing and fairest"; // this is probably not actually possible
-			else
-				suggestionTypeStr = "Appeasing";
 			letter = set->desiredLetter = lastLetter++;
 		}
 		else if (i == TEAMGENERATORTYPE_SEMIDESIREDPOS) {
@@ -3118,12 +3201,44 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 				thisPermutation->valid = qfalse;
 				continue;
 			}
-			if (thisPermutation->iDiff == lowestIDiff)
-				suggestionTypeStr = "Semi-appeasing and fairest";
-			else
-				suggestionTypeStr = "Semi-appeasing";
 			letter = set->semiDesiredLetter = lastLetter++;
 		}
+
+		char suggestionTypeStr[MAX_STRING_CHARS] = { 0 };
+
+		if (tags & (1 << TEAMGENTAG_STACK3))
+			Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^1[ULTRA OMEGA STACK!!!]" : va("%s ^1[ULTRA OMEGA STACK!!!]", suggestionTypeStr));
+		else if (tags & (1 << TEAMGENTAG_STACK2))
+			Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^1[MEGA STACK!!]" : va("%s ^1[MEGA STACK!!]", suggestionTypeStr));
+		else if (tags & (1 << TEAMGENTAG_STACK))
+			Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^8[possible stack!]" : va("%s ^8[possible stack!]", suggestionTypeStr));
+		
+		if (tags & (1 << TEAMGENTAG_FAIR))
+			Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^2[even]" : va("%s ^2[even]", suggestionTypeStr));
+		else if (tags & (1 << TEAMGENTAG_FAIREST))
+			Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^2[most even]" : va("%s ^2[most even]", suggestionTypeStr));
+
+		if (tags & (1 << TEAMGENTAG_TIEDFORMOSTHC))
+			Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^3[tied for most HC]" : va("%s ^3[tied for most HC]", suggestionTypeStr));
+		else if (tags & (1 << TEAMGENTAG_MOSTHC))
+			Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^3[most HC]" : va("%s ^3[most HC]", suggestionTypeStr));
+
+		if (tags & (1 << TEAMGENTAG_HC3))
+			Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^6[ULTRA OMEGA HC!!!]" : va("%s ^6[ULTRA OMEGA HC!!!]", suggestionTypeStr));
+		else if (tags & (1 << TEAMGENTAG_HC2))
+			Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^6[MEGA HC!!]" : va("%s ^6[MEGA HC!!]", suggestionTypeStr));
+		else if (tags & (1 << TEAMGENTAG_HC))
+			Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^6[HC!]" : va("%s ^6[HC!]", suggestionTypeStr));
+
+		if (tags & (1 << TEAMGENTAG_NOAVOIDS))
+			Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^7[no avoids]" : va("%s ^7[no avoids]", suggestionTypeStr));
+
+		if (tags & (1 << TEAMGENTAG_8FIRSTCHOICEPOS))
+			Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^7[8 1st choices]" : va("%s ^7[8 1st choices]", suggestionTypeStr));
+		else if (tags & (1 << TEAMGENTAG_7FIRSTCHOICEPOS))
+			Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^7[7 1st choices]" : va("%s ^7[7 1st choices]", suggestionTypeStr));
+		else if (tags & (1 << TEAMGENTAG_6FIRSTCHOICEPOS))
+			Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^7[6 1st choices]" : va("%s ^7[6 1st choices]", suggestionTypeStr));
 
 		for (int i = 0; i < MAX_CLIENTS; i++) {
 			gentity_t *ent = &g_entities[i];
@@ -3131,11 +3246,12 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 				continue;
 			int accId = ent->client->account ? ent->client->account->id : -1;
 #ifdef _DEBUG
-			TeamGenerator_QueueServerMessageInConsole(i, va("%s%s teams: ^5enter %c%c in chat if you approve\nTotal strength: %.2f\n^1Red team:^7 %.2f'/. relative strength, %.2f raw strength\n    ^5Base: %s%s\n    ^6Chase: %s%s\n    ^2Offense: %s%s^7, %s%s^7\n^4Blue team:^7 %.2f'/. relative strength, %.2f raw strength\n    ^5Base: %s%s\n    ^6Chase: %s%s\n    ^2Offense: %s%s^7, %s%s^7\n",
+			TeamGenerator_QueueServerMessageInConsole(i, va("%sChoice ^5%c%c^7:%s%s^7\nTotal strength: %.2f\n^1Red team:^7 %.2f'/. relative strength, %.2f raw strength\n    ^5Base: %s%s\n    ^6Chase: %s%s\n    ^2Offense: %s%s^7, %s%s^7\n^4Blue team:^7 %.2f'/. relative strength, %.2f raw strength\n    ^5Base: %s%s\n    ^6Chase: %s%s\n    ^2Offense: %s%s^7, %s%s^7\n",
 				numPrinted ? "\n" : "",
-				suggestionTypeStr,
 				TEAMGEN_CHAT_COMMAND_CHARACTER,
 				letter,
+				suggestionTypeStr[0] ? "   " : "",
+				suggestionTypeStr,
 				thisPermutation->teams[0].rawStrength + thisPermutation->teams[1].rawStrength,
 				thisPermutation->teams[0].relativeStrength * 100.0,
 				thisPermutation->teams[0].rawStrength,
@@ -3158,11 +3274,12 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 				thisPermutation->teams[1].offenseId2 == accId ? "^3" : "^7",
 				thisPermutation->teams[1].offense2Name));
 #else
-			TeamGenerator_QueueServerMessageInConsole(i, va("%s%s teams: ^5enter %c%c in chat if you approve\n^1Red team:^7 %.2f'/. relative strength\n    ^5Base: %s%s\n    ^6Chase: %s%s\n    ^2Offense: %s%s^7, %s%s^7\n^4Blue team:^7 %.2f'/. relative strength\n    ^5Base: %s%s\n    ^6Chase: %s%s\n    ^2Offense: %s%s^7, %s%s^7\n",
+			TeamGenerator_QueueServerMessageInConsole(i, va("%sChoice ^5%c%c^7:%s%s^7\n^1Red team:^7 %.2f'/. relative strength\n    ^5Base: %s%s\n    ^6Chase: %s%s\n    ^2Offense: %s%s^7, %s%s^7\n^4Blue team:^7 %.2f'/. relative strength\n    ^5Base: %s%s\n    ^6Chase: %s%s\n    ^2Offense: %s%s^7, %s%s^7\n",
 				numPrinted ? "\n" : "",
-				suggestionTypeStr,
 				TEAMGEN_CHAT_COMMAND_CHARACTER,
 				letter,
+				suggestionTypeStr[0] ? "   " : "",
+				suggestionTypeStr,
 				thisPermutation->teams[0].relativeStrength * 100.0,
 				thisPermutation->teams[0].baseId == accId ? "^3" : "^7",
 				thisPermutation->teams[0].baseName,
@@ -3185,11 +3302,12 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 		}
 
 #ifdef _DEBUG
-		Com_Printf("%s%s teams: ^5enter %c%c in chat if you approve\nTotal strength: %.2f\n^1Red team:^7 %.2f'/. relative strength, %.2f raw strength\n    ^5Base: ^7%s\n    ^6Chase: ^7%s\n    ^2Offense: ^7%s^7, %s^7\n^4Blue team:^7 %.2f'/. relative strength, %.2f raw strength\n    ^5Base: ^7%s\n    ^6Chase: ^7%s\n    ^2Offense: ^7%s^7, %s^7\n",
+		Com_Printf("%sChoice ^5%c%c^7:%s%s^7\nTotal strength: %.2f\n^1Red team:^7 %.2f'/. relative strength, %.2f raw strength\n    ^5Base: ^7%s\n    ^6Chase: ^7%s\n    ^2Offense: ^7%s^7, %s^7\n^4Blue team:^7 %.2f'/. relative strength, %.2f raw strength\n    ^5Base: ^7%s\n    ^6Chase: ^7%s\n    ^2Offense: ^7%s^7, %s^7\n",
 			numPrinted ? "\n" : "",
-			suggestionTypeStr,
 			TEAMGEN_CHAT_COMMAND_CHARACTER,
 			letter,
+			suggestionTypeStr[0] ? "   " : "",
+			suggestionTypeStr,
 			thisPermutation->teams[0].rawStrength + thisPermutation->teams[1].rawStrength,
 			thisPermutation->teams[0].relativeStrength * 100.0,
 			thisPermutation->teams[0].rawStrength,
@@ -3204,11 +3322,12 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 			thisPermutation->teams[1].offense1Name,
 			thisPermutation->teams[1].offense2Name);
 #else
-		Com_Printf("%s%s teams: ^5enter %c%c in chat if you approve\n^1Red team:^7 %.2f'/. relative strength\n    ^5Base: ^7%s\n    ^6Chase: ^7%s\n    ^2Offense: ^7%s^7, %s^7\n^4Blue team:^7 %.2f'/. relative strength\n    ^5Base: ^7%s\n    ^6Chase: ^7%s\n    ^2Offense: ^7%s^7, %s^7\n",
+		Com_Printf("%sChoice ^5%c%c^7:%s%s^7\n^1Red team:^7 %.2f'/. relative strength\n    ^5Base: ^7%s\n    ^6Chase: ^7%s\n    ^2Offense: ^7%s^7, %s^7\n^4Blue team:^7 %.2f'/. relative strength\n    ^5Base: ^7%s\n    ^6Chase: ^7%s\n    ^2Offense: ^7%s^7, %s^7\n",
 			numPrinted ? "\n" : "",
-			suggestionTypeStr,
 			TEAMGEN_CHAT_COMMAND_CHARACTER,
 			letter,
+			suggestionTypeStr[0] ? "   " : "",
+			suggestionTypeStr,
 			thisPermutation->teams[0].relativeStrength * 100.0,
 			thisPermutation->teams[0].baseName,
 			thisPermutation->teams[0].chaseName,

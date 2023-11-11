@@ -1256,6 +1256,7 @@ typedef struct {
 	int offenseDefenseDiff;
 	int totalSkill;
 	int numSatisfiedCyds;
+	float lowestPlayerRating;
 } permutationOfTeams_t;
 
 typedef struct {
