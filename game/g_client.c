@@ -5066,10 +5066,10 @@ static qboolean DisconnectedPlayerMatches(genericNode_t *node, void *userData) {
 	return qfalse;
 }
 
-static qboolean IsDroppedRedFlag(gentity_t *ent) {
+qboolean IsDroppedRedFlag(gentity_t *ent) {
 	return !!(ent && ent->item && ent->think == Team_DroppedFlagThink && ent->item->giType == IT_TEAM && ent->item->giTag == PW_REDFLAG);
 }
-static qboolean IsDroppedBlueFlag(gentity_t *ent) {
+qboolean IsDroppedBlueFlag(gentity_t *ent) {
 	return !!(ent && ent->item && ent->think == Team_DroppedFlagThink && ent->item->giType == IT_TEAM && ent->item->giTag == PW_BLUEFLAG);
 }
 static qboolean IsBoon(gentity_t *ent) {

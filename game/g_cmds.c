@@ -706,6 +706,61 @@ void Cmd_TeamTask_f( gentity_t *ent ) {
 extern qboolean isRedFlagstand(gentity_t *ent);
 extern qboolean isBlueFlagstand(gentity_t *ent);
 
+extern qboolean IsDroppedRedFlag(gentity_t *ent);
+extern qboolean IsDroppedBlueFlag(gentity_t *ent);
+
+// doesn't check for hp, fp of either player, same team, etc; just distance and PVS
+qboolean InRangeAndPVSForTE(gentity_t *energizer, gentity_t *energizee) {
+	if (!energizer || !energizer->client || !energizee || !energizee->client) {
+		assert(qfalse);
+		return qfalse;
+	}
+
+	float radius;
+	switch (energizer->client->ps.fd.forcePowerLevel[FP_TEAM_FORCE]) {
+	case 1: radius = 256; break;
+	case 2: radius = 256 * 1.5; break;
+	case 3: radius = 256 * 2; break;
+	default: return qfalse;
+	}
+
+	if (Distance(energizer->client->ps.origin, energizee->client->ps.origin) > radius)
+		return qfalse;
+
+	if (!trap_InPVS(energizer->client->ps.origin, energizee->client->ps.origin))
+		return qfalse;
+
+	return qtrue;
+}
+
+qboolean IsUsingForcePowerThatBlocksForceRegen(gentity_t *ent) {
+	if (!ent || !ent->client) {
+		assert(qfalse);
+		return qfalse;
+	}
+
+	if (ent->client->ps.fd.forcePowersActive & (1 << FP_SPEED))
+		return qtrue;
+	if (ent->client->ps.fd.forcePowersActive & (1 << FP_RAGE))
+		return qtrue;
+	if (ent->client->ps.fd.forcePowersActive & (1 << FP_ABSORB))
+		return qtrue;
+	if (ent->client->ps.fd.forcePowersActive & (1 << FP_PROTECT))
+		return qtrue;
+	if (ent->client->ps.fd.forcePowersActive & (1 << FP_SEE))
+		return qtrue;
+	if (ent->client->ps.fd.forcePowersActive & (1 << FP_LIGHTNING))
+		return qtrue;
+	if (ent->client->ps.fd.forcePowersActive & (1 << FP_TELEPATHY))
+		return qtrue;
+	/*if (ent->client->ps.fd.forcePowersActive & (1 << FP_DRAIN))
+		return qtrue;*/
+
+	// doesn't check for bullshit like ysalimari, holding korriban crystals, etc
+
+	return qfalse;
+}
+
 /*
 =================
 Cmd_Kill_f
@@ -748,7 +803,7 @@ void Cmd_Kill_f( gentity_t *ent ) {
 
 	// don't allow boosted dude to sk with the flag in most cases
 	if (g_gametype.integer == GT_CTF && ent->client && ent->client->account && (ent->client->account->flags & ACCOUNTFLAG_BOOST_SELFKILLBOOST) &&
-		HasFlag(ent) && !IsRacerOrSpectator(ent) && g_boost.integer && level.wasRestarted) {
+		!IsRacerOrSpectator(ent) && g_boost.integer && level.wasRestarted) {
 
 		static qboolean flagstandsInitialized = qfalse, flagstandsValid = qfalse;
 		static vec3_t redFs, blueFs;
@@ -766,70 +821,120 @@ void Cmd_Kill_f( gentity_t *ent ) {
 		}
 
 		if (flagstandsValid) {
-			vec3_t enemyFs;
-			if (ent->client->sess.sessionTeam == TEAM_RED)
-				VectorCopy(blueFs, enemyFs);
-			else if (ent->client->sess.sessionTeam == TEAM_BLUE)
-				VectorCopy(redFs, enemyFs);
-			else
-				assert(qfalse); // should never happen due to IsRacerOrSpectator call above
+			if (HasFlag(ent)) {
+				vec3_t enemyFs;
+				if (ent->client->sess.sessionTeam == TEAM_RED)
+					VectorCopy(blueFs, enemyFs);
+				else if (ent->client->sess.sessionTeam == TEAM_BLUE)
+					VectorCopy(redFs, enemyFs);
+				else
+					assert(qfalse); // should never happen due to IsRacerOrSpectator call above
 
-			float closestAllyDistanceToEnemyFs = 999999, closestEnemyDistanceToEnemyFs = 999999;
-			gentity_t *closestAllyToEnemyFs = NULL;
-			float closestAllyDistanceToMe = 999999;
-			gentity_t *closestAllyToMe = NULL;
-			float enemyFcDistanceToEnemyFs = 999999;
-			gentity_t *enemyFc = NULL;
-			for (int i = 0; i < MAX_CLIENTS; i++) {
-				gentity_t *otherGuy = &g_entities[i];
-				if (!otherGuy->inuse || !otherGuy->client || otherGuy->client->pers.connected != CON_CONNECTED || otherGuy == ent || IsRacerOrSpectator(otherGuy) || otherGuy->health <= 0 || otherGuy->client->ps.fallingToDeath)
-					continue;
+				float closestAllyDistanceToEnemyFs = 999999, closestEnemyDistanceToEnemyFs = 999999;
+				gentity_t *closestAllyToEnemyFs = NULL;
+				float closestAllyDistanceToMe = 999999;
+				gentity_t *closestAllyToMe = NULL;
+				float enemyFcDistanceToEnemyFs = 999999;
+				gentity_t *enemyFc = NULL;
+				for (int i = 0; i < MAX_CLIENTS; i++) {
+					gentity_t *otherGuy = &g_entities[i];
+					if (!otherGuy->inuse || !otherGuy->client || otherGuy->client->pers.connected != CON_CONNECTED || otherGuy == ent || IsRacerOrSpectator(otherGuy) || otherGuy->health <= 0 || otherGuy->client->ps.fallingToDeath)
+						continue;
 
-				float otherGuyDistToEnemyFs = Distance(otherGuy->r.currentOrigin, enemyFs);
-				if (otherGuy->client->sess.sessionTeam == ent->client->sess.sessionTeam) {
-					if (otherGuyDistToEnemyFs < closestAllyDistanceToEnemyFs) {
-						closestAllyDistanceToEnemyFs = otherGuyDistToEnemyFs;
-						closestAllyToEnemyFs = otherGuy;
+					float otherGuyDistToEnemyFs = Distance(otherGuy->r.currentOrigin, enemyFs);
+					if (otherGuy->client->sess.sessionTeam == ent->client->sess.sessionTeam) {
+						if (otherGuyDistToEnemyFs < closestAllyDistanceToEnemyFs) {
+							closestAllyDistanceToEnemyFs = otherGuyDistToEnemyFs;
+							closestAllyToEnemyFs = otherGuy;
+						}
+
+						float otherGuyDistToMe = Distance(otherGuy->r.currentOrigin, ent->r.currentOrigin);
+						if (otherGuyDistToMe < closestAllyDistanceToMe) {
+							closestAllyDistanceToMe = otherGuyDistToMe;
+							closestAllyToMe = otherGuy;
+						}
 					}
+					else if (otherGuy->client->sess.sessionTeam == OtherTeam(ent->client->sess.sessionTeam)) {
+						if (otherGuyDistToEnemyFs < closestEnemyDistanceToEnemyFs)
+							closestEnemyDistanceToEnemyFs = otherGuyDistToEnemyFs;
 
-					float otherGuyDistToMe = Distance(otherGuy->r.currentOrigin, ent->r.currentOrigin);
-					if (otherGuyDistToMe < closestAllyDistanceToMe) {
-						closestAllyDistanceToMe = otherGuyDistToMe;
-						closestAllyToMe = otherGuy;
+						if (HasFlag(otherGuy)) {
+							enemyFcDistanceToEnemyFs = otherGuyDistToEnemyFs;
+							enemyFc = otherGuy;
+						}
 					}
 				}
-				else if (otherGuy->client->sess.sessionTeam == OtherTeam(ent->client->sess.sessionTeam)) {
-					if (otherGuyDistToEnemyFs < closestEnemyDistanceToEnemyFs)
-						closestEnemyDistanceToEnemyFs = otherGuyDistToEnemyFs;
 
-					if (HasFlag(otherGuy)) {
-						enemyFcDistanceToEnemyFs = otherGuyDistToEnemyFs;
-						enemyFc = otherGuy;
-					}
+				if (closestAllyDistanceToMe <= 200 && closestAllyToMe && closestAllyToMe->health >= 40) {
+					// 40hp+ ally seems to be trying to take from me
+					// block the sk
+					return;
+				}
+				else if (enemyFcDistanceToEnemyFs <= 400 && (enemyFcDistanceToEnemyFs <= closestAllyDistanceToEnemyFs + 50 || (closestAllyToEnemyFs && closestAllyToEnemyFs->health < 20))) {
+					// enemy fc is on their fs ready to cap and no 20hp+ ally is closer to their fs
+					// block the sk
+					return;
+				}
+				else if (closestAllyDistanceToEnemyFs <= 250 && closestEnemyDistanceToEnemyFs >= 1200 && closestAllyToEnemyFs && closestAllyToEnemyFs->health >= 60) {
+					// 60hp+ camper has freerun
+					// allow the sk
+				}
+				else if (GetCTFLocationValue(ent) <= 0.5f) {
+					// i'm in my base
+					// block the sk
+					return;
+				}
+				else {
+					// otherwise allow the sk
 				}
 			}
+			
+			if (!ent->client->ps.fallingToDeath) {
+				// sigh...check for certain situations where he shouldn't sk despite not having the flag
 
-			if (closestAllyDistanceToMe <= 200 && closestAllyToMe && closestAllyToMe->health >= 40) {
-				// 40hp+ ally seems to be trying to take from me
-				// block the sk
-				return;
-			}
-			else if (enemyFcDistanceToEnemyFs <= 400 && (enemyFcDistanceToEnemyFs <= closestAllyDistanceToEnemyFs + 50 || (closestAllyToEnemyFs && closestAllyToEnemyFs->health < 20))) {
-				// enemy fc is on their fs ready to cap and no 20hp+ ally is closer to their fs
-				// block the sk
-				return;
-			}
-			else if (closestAllyDistanceToEnemyFs <= 250 && closestEnemyDistanceToEnemyFs >= 1200 && closestAllyToEnemyFs && closestAllyToEnemyFs->health >= 60) {
-				// 60hp+ camper has freerun
-				// allow the sk
-			}
-			else if (GetCTFLocationValue(ent) <= 0.5f) {
-				// i'm in my base
-				// block the sk
-				return;
-			}
-			else {
-				// otherwise allow the sk
+				float distanceToClosestDroppedFlag = 999999;
+				for (int i = MAX_CLIENTS; i < MAX_GENTITIES; i++) {
+					gentity_t *thisEnt = &g_entities[i];
+					if (!IsDroppedRedFlag(thisEnt) && !IsDroppedBlueFlag(thisEnt))
+						continue;
+
+					float dist = Distance(thisEnt->r.currentOrigin, ent->client->ps.origin);
+					if (dist < distanceToClosestDroppedFlag)
+						distanceToClosestDroppedFlag = dist;
+				}
+
+				if (distanceToClosestDroppedFlag <= 400) {
+					// i'm close to a dropped flag (of either team)
+					return;
+				}
+
+				if (!HasFlag(ent) && ent->client->ps.fd.forceSide == FORCE_DARKSIDE || (ent->client->account->flags & ACCOUNTFLAG_BOOST_BASEAUTOTHTEBOOST && GetRemindedPosOrDeterminedPos(ent) == CTFPOSITION_BASE)) {
+					gentity_t *myFc = NULL;
+					for (int i = 0; i < MAX_CLIENTS; i++) {
+						gentity_t *otherGuy = &g_entities[i];
+						if (!otherGuy->inuse || !otherGuy->client || otherGuy->client->pers.connected != CON_CONNECTED || otherGuy == ent || IsRacerOrSpectator(otherGuy) || otherGuy->health <= 0 || otherGuy->client->ps.fallingToDeath)
+							continue;
+						if (!HasFlag(otherGuy))
+							continue;
+						if (otherGuy->client->sess.sessionTeam != ent->client->sess.sessionTeam)
+							continue;
+						myFc = otherGuy;
+						break;
+					}
+
+					if (myFc) {
+						const qboolean fcNeedsTe = (myFc->client->ps.fd.forcePower <= 75);
+						const int myForce = ent->client->ps.fd.forcePower;
+						const qboolean myForceIsRecharging = !IsUsingForcePowerThatBlocksForceRegen(ent);
+						const qboolean inTERangeOfMyFc = InRangeAndPVSForTE(ent, myFc);
+
+						// note: assumes 25 force cost to TE
+						if (fcNeedsTe && inTERangeOfMyFc && (myForce >= 25 || myForce >= 20 && myForceIsRecharging)) {
+							// i'm close to an fc who needs te and i can imminently TE them
+							return;
+						}
+					}
+				}
 			}
 		}
 	}

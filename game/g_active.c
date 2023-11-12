@@ -3097,6 +3097,9 @@ static qboolean IsBadGun(int weapon) {
 	}
 }
 
+extern qboolean IsDroppedRedFlag(gentity_t *ent);
+extern qboolean IsDroppedBlueFlag(gentity_t *ent);
+
 /*
 ==============
 ClientThink
@@ -4101,7 +4104,7 @@ void ClientThink_real( gentity_t *ent ) {
 					continue;
 
 				gentity_t *touchEnt = &g_entities[touchEntityNum];
-				if (touchEnt->touch != Touch_Item || !touchEnt->item || touchEnt->item->giType == IT_TEAM)
+				if (touchEnt->touch != Touch_Item || !touchEnt->item)
 					continue;
 
 				pickupEnt = touchEnt;
@@ -4110,21 +4113,48 @@ void ClientThink_real( gentity_t *ent ) {
 
 			if (pickupEnt) {
 				const float myDist = Distance(pickupEnt->s.pos.trBase, ent->client->ps.origin);
-				qboolean gotCloserPlayer = qfalse;
-				for (int i = 0; i < MAX_CLIENTS; i++) {
-					gentity_t *closerGuy = &g_entities[i];
-					if (!closerGuy->inuse || !closerGuy->client || closerGuy->client->pers.connected != CON_CONNECTED || closerGuy->health <= 0 || IsRacerOrSpectator(closerGuy) || closerGuy == ent || closerGuy->client->ps.fallingToDeath)
-						continue;
+				if (pickupEnt->item->giType == IT_TEAM) {
+					if (IsDroppedRedFlag(pickupEnt) || IsDroppedBlueFlag(pickupEnt)) {
+						// suck up nearby dropped flags if and only if there's nobody else even remotely nearby
+						qboolean canSuction = qtrue;
+						for (int i = 0; i < MAX_CLIENTS; i++) {
+							gentity_t *otherGuy = &g_entities[i];
+							if (!otherGuy->inuse || !otherGuy->client || otherGuy->client->pers.connected != CON_CONNECTED || otherGuy->health <= 0 || IsRacerOrSpectator(otherGuy) || otherGuy == ent || otherGuy->client->ps.fallingToDeath)
+								continue;
 
-					const float thisGuyDist = Distance(pickupEnt->s.pos.trBase, closerGuy->client->ps.origin);
-					if (thisGuyDist < myDist) {
-						gotCloserPlayer = qtrue;
-						break;
+							const float thisGuyDist = Distance(pickupEnt->s.pos.trBase, otherGuy->client->ps.origin);
+							if (thisGuyDist < myDist || thisGuyDist <= 700) {
+								canSuction = qfalse;
+								break;
+							}
+						}
+
+						if (canSuction) {
+							pickupEnt->touch(pickupEnt, ent, NULL);
+						}
+					}
+					else {
+						// we don't do anything for non-dropped flags
 					}
 				}
+				else {
+					// suck up nearby items if and only if there's nobody else closer to it
+					qboolean gotCloserPlayer = qfalse;
+					for (int i = 0; i < MAX_CLIENTS; i++) {
+						gentity_t *closerGuy = &g_entities[i];
+						if (!closerGuy->inuse || !closerGuy->client || closerGuy->client->pers.connected != CON_CONNECTED || closerGuy->health <= 0 || IsRacerOrSpectator(closerGuy) || closerGuy == ent || closerGuy->client->ps.fallingToDeath)
+							continue;
 
-				if (!gotCloserPlayer) {
-					pickupEnt->touch(pickupEnt, ent, NULL);
+						const float thisGuyDist = Distance(pickupEnt->s.pos.trBase, closerGuy->client->ps.origin);
+						if (thisGuyDist < myDist) {
+							gotCloserPlayer = qtrue;
+							break;
+						}
+					}
+
+					if (!gotCloserPlayer) {
+						pickupEnt->touch(pickupEnt, ent, NULL);
+					}
 				}
 			}
 		}
