@@ -222,6 +222,11 @@ ctfPosition_t DetermineCTFPosition(stats_t *posGuy, qboolean enableDebugPrints) 
 		return posGuy->lastPosition;
 	}
 
+	if (posGuy->remindedPosition && g_stats_useTeamgenPos.integer) {
+		DebugCtfPosPrintf("%08x cl %d %s^7 (block %d): using reminded position %s\n", posGuy, posGuy->clientNum, posGuy->name, posGuy->blockNum, NameForPos(posGuy->remindedPosition));
+		return posGuy->remindedPosition;
+	}
+
 	// if i haven't been in the current block for 120+ seconds, reuse my last position
 	if (posGuy->ticksNotPaused < g_svfps.integer * CTFPOSITION_MINIMUM_SECONDS) {
 		DebugCtfPosPrintf("%08x cl %d %s^7 (block %d): < %d current block, so using lastPosition %s\n", posGuy, posGuy->clientNum, posGuy->name, posGuy->blockNum, CTFPOSITION_MINIMUM_SECONDS, NameForPos(posGuy->lastPosition));

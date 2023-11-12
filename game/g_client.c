@@ -5088,6 +5088,8 @@ void RestoreDisconnectedPlayerData(gentity_t *ent) {
 			Com_DebugPrintf("Restored client %d position %d from database\n", ent - g_entities, pos);
 			ent->client->sess.remindPositionOnMapChange.pos = pos;
 			ent->client->sess.remindPositionOnMapChange.valid = qtrue;
+			if (ent->client->stats)
+				ent->client->stats->remindedPosition = pos;
 			switch (pos) {
 			case CTFPOSITION_BASE: ent->client->sess.remindPositionOnMapChange.score = 8000; break;
 			case CTFPOSITION_CHASE: ent->client->sess.remindPositionOnMapChange.score = 4000; break;

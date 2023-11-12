@@ -3774,6 +3774,8 @@ void ActivateTeamsProposal(permutationOfTeams_t *permutation) {
 			ent->client->sess.remindPositionOnMapChange.valid = qtrue;
 			ent->client->sess.remindPositionOnMapChange.pos = pos;
 			ent->client->sess.remindPositionOnMapChange.score = score;
+			if (ent->client->stats)
+				ent->client->stats->remindedPosition = pos;
 			G_DBSetMetadata(va("remindpos_account_%d", accountNum), va("%d", pos));
 
 			G_SetRaceMode(ent, qfalse);
@@ -6503,6 +6505,8 @@ void TeamGen_ClearRemindPositions(qboolean refreshClientinfo) {
 			update = qtrue;
 
 		memset(&level.clients[i].sess.remindPositionOnMapChange, 0, sizeof(level.clients[i].sess.remindPositionOnMapChange));
+		if (level.clients[i].stats)
+			level.clients[i].stats->remindedPosition = CTFPOSITION_UNKNOWN;
 
 		if (g_broadcastCtfPos.integer && refreshClientinfo && update) {
 			gentity_t *ent = &g_entities[i];

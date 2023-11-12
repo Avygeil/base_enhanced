@@ -1189,6 +1189,8 @@ typedef struct {
 	ctfPosition_t	lastPosition; // may be valid or unknown
 	ctfPosition_t	finalPosition; // set only when confirmed; overrides everything else if set
 
+	ctfPosition_t	remindedPosition; // new change to just use the guy's assigned position
+
 	int			lastTickIngameTime; // the last time they were ingame and it wasn't paused
 } stats_t;
 
@@ -2994,6 +2996,7 @@ extern	vmCvar_t	g_trueJedi;
 extern	vmCvar_t	g_autoMapCycle;
 extern	vmCvar_t	g_autoStats;
 extern	vmCvar_t	g_statsCaptureTimes;
+extern	vmCvar_t	g_stats_useTeamgenPos;
 extern	vmCvar_t	g_dmflags;
 extern	vmCvar_t	g_maxForceRank;
 extern	vmCvar_t	g_forceBasedTeams;

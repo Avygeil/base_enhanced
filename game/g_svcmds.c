@@ -4001,6 +4001,8 @@ void Svcmd_Session_f( void ) {
 						Com_DebugPrintf("Restored client %d position %d from database\n", client - level.clients, pos);
 						client->sess.remindPositionOnMapChange.pos = pos;
 						client->sess.remindPositionOnMapChange.valid = qtrue;
+						if (client->stats)
+							client->stats->remindedPosition = pos;
 						switch (pos) {
 						case CTFPOSITION_BASE: client->sess.remindPositionOnMapChange.score = 8000; break;
 						case CTFPOSITION_CHASE: client->sess.remindPositionOnMapChange.score = 4000; break;
@@ -4488,7 +4490,7 @@ static void Svcmd_SetPos_f(void) {
 	}
 
 	if (trap_Argc() < 3) {
-		Com_Printf("Usage: setpos <account name> <pos/reset>    (sets current pos that is broadcast to clients)\n");
+		Com_Printf("Usage: setpos <account name> <pos/reset>    (sets current pos that is broadcast to clients and used for various serverside things)\n");
 		return;
 	}
 
@@ -4497,7 +4499,7 @@ static void Svcmd_SetPos_f(void) {
 	trap_Argv(2, arg2, sizeof(arg2));
 
 	if (!arg1[0] || !arg2[0]) {
-		Com_Printf("Usage: setpos <player> <pos>    (sets current pos that is broadcast to clients)\n");
+		Com_Printf("Usage: setpos <player> <pos>    (sets current pos that is broadcast to clients and used for various serverside things)\n");
 		return;
 	}
 
@@ -4553,6 +4555,8 @@ static void Svcmd_SetPos_f(void) {
 
 	ent->client->sess.remindPositionOnMapChange.pos = pos;
 	ent->client->sess.remindPositionOnMapChange.valid = qtrue;
+	if (ent->client->stats)
+		ent->client->stats->remindedPosition = pos;
 	switch (pos) {
 	case CTFPOSITION_BASE: ent->client->sess.remindPositionOnMapChange.score = 8000; break;
 	case CTFPOSITION_CHASE: ent->client->sess.remindPositionOnMapChange.score = 4000; break;

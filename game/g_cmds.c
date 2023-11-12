@@ -8152,6 +8152,8 @@ void Cmd_Verify_f(gentity_t *verifier) {
 				Com_DebugPrintf("Restored client %d position %d from database\n", client - level.clients, pos);
 				client->sess.remindPositionOnMapChange.pos = pos;
 				client->sess.remindPositionOnMapChange.valid = qtrue;
+				if (client->stats)
+					client->stats->remindedPosition = pos;
 				switch (pos) {
 				case CTFPOSITION_BASE: client->sess.remindPositionOnMapChange.score = 8000; break;
 				case CTFPOSITION_CHASE: client->sess.remindPositionOnMapChange.score = 4000; break;
