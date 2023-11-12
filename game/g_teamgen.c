@@ -4416,16 +4416,8 @@ qboolean TeamGenerator_VoteYesToPugProposal(gentity_t *ent, int num, pugProposal
 		int numCurrentlyIngame = 0;
 		CountPlayers(NULL, NULL, NULL, NULL, NULL, &numCurrentlyIngame, NULL);
 
-		float avgRed = (float)level.numRedPlayerTicks / (float)level.numTeamTicks;
-		float avgBlue = (float)level.numBluePlayerTicks / (float)level.numTeamTicks;
-		int avgRedInt = (int)lroundf(avgRed);
-		int avgBlueInt = (int)lroundf(avgBlue);
-
 		// specs cannot vote during live pugs
-		if (numCurrentlyIngame >= 6 &&
-			avgRedInt == 4 && avgBlueInt == 4 &&
-			fabs(avgRed - round(avgRed)) < 0.2f &&
-			fabs(avgBlue - round(avgBlue)) < 0.2f) {
+		if (numCurrentlyIngame >= 6 && IsLivePug(0) == 4) {
 
 			pugIsLive = pugWasLive = qtrue;
 
@@ -4546,18 +4538,10 @@ qboolean TeamGenerator_PugStart(gentity_t *ent, char **newMessage) {
 		int numCurrentlyIngame = 0;
 		CountPlayers(NULL, NULL, NULL, NULL, NULL, &numCurrentlyIngame, NULL);
 
-		float avgRed = (float)level.numRedPlayerTicks / (float)level.numTeamTicks;
-		float avgBlue = (float)level.numBluePlayerTicks / (float)level.numTeamTicks;
-		int avgRedInt = (int)lroundf(avgRed);
-		int avgBlueInt = (int)lroundf(avgBlue);
 		int duration = level.time - level.startTime;
 
 		// ingame players can only start before 5:00 has elapsed; specs cannot start
-		if (numCurrentlyIngame >= 6 &&
-			avgRedInt == 4 && avgBlueInt == 4 &&
-			(duration > (60 * 1000 * 5) || IsRacerOrSpectator(ent)) &&
-			fabs(avgRed - round(avgRed)) < 0.2f &&
-			fabs(avgBlue - round(avgBlue)) < 0.2f) {
+		if (numCurrentlyIngame >= 6 && IsLivePug(0) == 4 && (duration > (60 * 1000 * 5) || IsRacerOrSpectator(ent))) {
 
 			TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("There is currently an ongoing match.%s",
 				IsRacerOrSpectator(ent) ? "" : " Consider calling an endmatch vote."));
@@ -6381,11 +6365,7 @@ void ShowSubBalance(void) {
 	if (!g_vote_teamgen_subhelp.integer || !level.wasRestarted || level.someoneWasAFK || (level.time - level.startTime) < (CTFPOSITION_MINIMUM_SECONDS * 1000) || !level.numTeamTicks || level.pause.state == PAUSE_NONE)
 		return;
 
-	float avgRed = (float)level.numRedPlayerTicks / (float)level.numTeamTicks;
-	float avgBlue = (float)level.numBluePlayerTicks / (float)level.numTeamTicks;
-	int avgRedInt = (int)lroundf(avgRed);
-	int avgBlueInt = (int)lroundf(avgBlue);
-	if (avgRedInt != 4 || avgBlueInt != 4)
+	if (IsLivePug(0) != 4)
 		return;
 
 	int missingPositions = 8, numRacersOrSpectators = 0, numRed = 0, numBlue = 0;

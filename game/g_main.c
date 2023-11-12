@@ -3224,6 +3224,57 @@ void FindIntermissionPoint( void ) {
 
 }
 
+// a pug is considered live if:
+// * the level was map_restarted
+// * the average rounded integer number of players in each team is equal
+// * the sum of these average integers is >= 4 (at least 2s)
+// * both averages are within +/- 0.1 of their rounded values
+// (accounts for subs, ragequits, random joins... 0.1 represents 2 mins of a 20 mins pug)
+// we lock in the result at 18 minutes to account for scores of idiots joining in the last couple minutes, as long as at least one person is still ingame
+// if live, returns the number of players per team; else returns 0
+int IsLivePug(int ofAtLeastThisMinutes) {
+	assert(ofAtLeastThisMinutes < 18);
+
+	if (g_gametype.integer != GT_CTF || !level.wasRestarted || !level.numTeamTicks)
+		return 0;
+
+	static qboolean didConfirmation = qfalse;
+	static int confirmedPlayersPerTeam = 0;
+
+	if (didConfirmation) {
+		if (confirmedPlayersPerTeam > 0) {
+			int ingamePlayers = 0;
+			CountPlayers(NULL, NULL, NULL, NULL, NULL, &ingamePlayers, NULL);
+			return ingamePlayers > 0;
+		}
+		else {
+			return 0;
+		}
+	}
+
+	float avgRed = (float)level.numRedPlayerTicks / (float)level.numTeamTicks;
+	float avgBlue = (float)level.numBluePlayerTicks / (float)level.numTeamTicks;
+
+	int avgRedInt = (int)lroundf(avgRed);
+	int avgBlueInt = (int)lroundf(avgBlue);
+
+	int durationMins = (level.time - level.startTime) / 60000;
+
+	qboolean isLive = (!(ofAtLeastThisMinutes > 0 && durationMins < ofAtLeastThisMinutes) &&
+		avgRedInt == avgBlueInt &&
+		avgRedInt + avgBlueInt >= 4 &&
+		fabs(avgRed - round(avgRed)) < 0.1f &&
+		fabs(avgBlue - round(avgBlue)) < 0.1f);
+
+	// lock in the result at 18 minutes
+	if (durationMins >= 18) {
+		didConfirmation = qtrue;
+		confirmedPlayersPerTeam = isLive ? avgRedInt : 0;
+	}
+
+	return isLive ? avgRedInt : 0;
+}
+
 qboolean DuelLimitHit(void);
 
 /*
@@ -3316,16 +3367,10 @@ void BeginIntermission(void) {
 	Com_sprintf(timeBuf, sizeof(timeBuf), "%d", (int)time(NULL));
 	trap_Cvar_Set("g_lastIntermissionStartTime", timeBuf);
 
+	int isLivePugNumPlayersPerTeam = IsLivePug(5);
+
 	if (level.numTeamTicks) {
-		float avgRed = (float)level.numRedPlayerTicks / (float)level.numTeamTicks;
-		float avgBlue = (float)level.numBluePlayerTicks / (float)level.numTeamTicks;
-
-		int avgRedInt = (int)lroundf(avgRed);
-		int avgBlueInt = (int)lroundf(avgBlue);
-
-		int durationMins = (level.time - level.startTime) / 60000;
-
-		if (level.wasRestarted && durationMins >= 5 && avgRedInt == 4 && avgBlueInt == 4)
+		if (isLivePugNumPlayersPerTeam == 4)
 			TeamGenerator_MatchComplete();
 
 		// a pug is considered live if:
@@ -3339,25 +3384,19 @@ void BeginIntermission(void) {
 		if (level.wasRestarted) {
 			G_PostScoreboardToWebhook(statsBuf);
 			G_DBAddCurrentMapToPlayedMapsList();
-			if (avgRedInt == 4 && avgBlueInt == 4 && !InstagibEnabled()) { // only write stats to db in 4v4
+			if (isLivePugNumPlayersPerTeam == 4 && !InstagibEnabled()) { // only write stats to db in 4v4
 				G_DBWritePugStats();
 				trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
 			}
 		}
 #else
-		if (level.wasRestarted &&
-			durationMins >= 5 &&
-			avgRedInt == avgBlueInt &&
-			avgRedInt + avgBlueInt >= 4 &&
-			fabs(avgRed - round(avgRed)) < 0.1f &&
-			fabs(avgBlue - round(avgBlue)) < 0.1f)
-		{
+		if (isLivePugNumPlayersPerTeam) {
 			// sanity check to make sure auto map vote works again after finishing a pug
 			trap_Cvar_Set("g_lastMapVotedMap", "");
 			trap_Cvar_Set("g_lastMapVotedTime", "");
 			G_PostScoreboardToWebhook(statsBuf);
 			G_DBAddCurrentMapToPlayedMapsList();
-			if (avgRedInt == 4 && avgBlueInt == 4 && !InstagibEnabled() && level.teamScores[TEAM_RED] != level.teamScores[TEAM_BLUE]) { // only write stats to db in untied non-instagib 4v4
+			if (isLivePugNumPlayersPerTeam == 4 && !InstagibEnabled() && level.teamScores[TEAM_RED] != level.teamScores[TEAM_BLUE]) { // only write stats to db in untied non-instagib 4v4
 				G_DBWritePugStats();
 				trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
 			}

@@ -6095,16 +6095,8 @@ static qboolean RockPaperScissors(gentity_t *ent) {
 		return qfalse;
 
 	// don't allow it in live games
-	if (level.wasRestarted && !level.someoneWasAFK && level.numTeamTicks) {
-		float avgRed = (float)level.numRedPlayerTicks / (float)level.numTeamTicks;
-		float avgBlue = (float)level.numBluePlayerTicks / (float)level.numTeamTicks;
-
-		int avgRedInt = (int)lroundf(avgRed);
-		int avgBlueInt = (int)lroundf(avgBlue);
-
-		if (avgRedInt == avgBlueInt && avgRedInt + avgBlueInt >= 4 && fabs(avgRed - round(avgRed)) < 0.2f && fabs(avgBlue - round(avgBlue)) < 0.2f)
-			return qfalse;
-	}
+	if (level.wasRestarted && !level.someoneWasAFK)
+		return qfalse;
 
 	trace_t tr;
 	vec3_t forward, fwdOrg;

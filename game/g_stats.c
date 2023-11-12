@@ -217,11 +217,7 @@ ctfPosition_t DetermineCTFPosition(stats_t *posGuy, qboolean enableDebugPrints) 
 	}
 
 	// we only care about 4v4
-	float avgRed = (float)level.numRedPlayerTicks / (float)level.numTeamTicks;
-	float avgBlue = (float)level.numBluePlayerTicks / (float)level.numTeamTicks;
-	int avgRedInt = (int)lroundf(avgRed);
-	int avgBlueInt = (int)lroundf(avgBlue);
-	if (avgRedInt != 4 || avgBlueInt != 4) {
+	if (IsLivePug(0) != 4) {
 		DebugCtfPosPrintf("%08x cl %d %s^7 (block %d): not 4v4, so using lastPosition %s\n", posGuy, posGuy->clientNum, posGuy->name, posGuy->blockNum, NameForPos(posGuy->lastPosition));
 		return posGuy->lastPosition;
 	}
@@ -3052,12 +3048,8 @@ void ChangeToNextStatsBlockIfNeeded(void) {
 		return;
 
 	// try to verify that this is a legit pug
-	float avgRed = (float)level.numRedPlayerTicks / (float)level.numTeamTicks;
-	float avgBlue = (float)level.numBluePlayerTicks / (float)level.numTeamTicks;
-	int avgRedInt = (int)lroundf(avgRed);
-	int avgBlueInt = (int)lroundf(avgBlue);
 	int durationMins = (level.time - level.startTime) / 60000;
-	if (durationMins >= 120 || avgRedInt != avgBlueInt || avgRedInt + avgBlueInt < 8 || fabs(avgRed - round(avgRed)) >= 0.1f || fabs(avgBlue - round(avgBlue)) >= 0.1f)
+	if (durationMins >= 120 || !IsLivePug(0))
 		return;
 
 	int newBlockNum = (level.time - level.startTime) / STATS_BLOCK_DURATION_MS;

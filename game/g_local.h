@@ -2706,6 +2706,7 @@ void QDECL G_Error( const char *fmt, ... );
 const char *G_GetStringEdString(char *refSection, char *refName);
 void G_ApplyRaceBroadcastsToEvent( gentity_t *parent, gentity_t *ev );
 qboolean InstagibEnabled(void);
+int IsLivePug(int ofAtLeastThisMinutes);
 
 //
 // g_client.c
