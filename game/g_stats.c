@@ -204,13 +204,6 @@ ctfPosition_t DetermineCTFPosition(stats_t *posGuy, qboolean enableDebugPrints) 
 		return posGuy->finalPosition;
 	}
 
-	if (!level.wasRestarted || level.someoneWasAFK ||
-		(level.time - level.startTime) < (CTFPOSITION_MINIMUM_SECONDS * 1000) || !StatsValid(posGuy) ||
-		posGuy->lastTeam == TEAM_SPECTATOR || posGuy->lastTeam == TEAM_FREE) {
-		DebugCtfPosPrintf("%08x cl %d %s^7 (block %d): restart/afk/< 60/invalid/spec/free, so using lastPosition %s\n", posGuy, posGuy->clientNum, posGuy->name, posGuy->blockNum, NameForPos(posGuy->lastPosition));
-		return posGuy->lastPosition;
-	}
-
 	if (!level.numTeamTicks) { // prevent divide by zero
 		DebugCtfPosPrintf("%08x cl %d %s^7 (block %d): no level.numTeamTicks, so using lastPosition %s\n", posGuy, posGuy->clientNum, posGuy->name, posGuy->blockNum, NameForPos(posGuy->lastPosition));
 		return posGuy->lastPosition;
@@ -225,6 +218,13 @@ ctfPosition_t DetermineCTFPosition(stats_t *posGuy, qboolean enableDebugPrints) 
 	if (posGuy->remindedPosition && g_stats_useTeamgenPos.integer) {
 		DebugCtfPosPrintf("%08x cl %d %s^7 (block %d): using reminded position %s\n", posGuy, posGuy->clientNum, posGuy->name, posGuy->blockNum, NameForPos(posGuy->remindedPosition));
 		return posGuy->remindedPosition;
+	}
+
+	if (!level.wasRestarted || level.someoneWasAFK ||
+		(level.time - level.startTime) < (CTFPOSITION_MINIMUM_SECONDS * 1000) || !StatsValid(posGuy) ||
+		posGuy->lastTeam == TEAM_SPECTATOR || posGuy->lastTeam == TEAM_FREE) {
+		DebugCtfPosPrintf("%08x cl %d %s^7 (block %d): restart/afk/< 60/invalid/spec/free, so using lastPosition %s\n", posGuy, posGuy->clientNum, posGuy->name, posGuy->blockNum, NameForPos(posGuy->lastPosition));
+		return posGuy->lastPosition;
 	}
 
 	// if i haven't been in the current block for 120+ seconds, reuse my last position
@@ -2936,6 +2936,7 @@ void InitClientStats(gclient_t *cl) {
 		stats->sessionId = stats->isBot ? cl - level.clients : cl->session->id;
 		stats->clientNum = cl - level.clients;
 		stats->blockNum = level.statBlock;
+
 		if (cl->account && VALIDSTRING(cl->account->name))
 			Q_strncpyz(stats->accountName, cl->account->name, sizeof(stats->accountName));
 		else
@@ -2965,6 +2966,9 @@ void InitClientStats(gclient_t *cl) {
 	else
 		stats->accountName[0] = '\0';
 	Q_strncpyz(stats->name, cl->pers.netname, sizeof(stats->name));
+
+	if (cl->sess.remindPositionOnMapChange.valid && cl->sess.remindPositionOnMapChange.pos)
+		stats->remindedPosition = cl->sess.remindPositionOnMapChange.pos;
 
 	cl->stats = stats;
 }
@@ -3041,6 +3045,10 @@ void ChangeStatsTeam(gclient_t *cl) {
 	else
 		stats->accountName[0] = '\0';
 	Q_strncpyz(stats->name, cl->pers.netname, sizeof(stats->name));
+
+	// i guess we should carry over their reminded pos too
+	if (cl->sess.remindPositionOnMapChange.valid && cl->sess.remindPositionOnMapChange.pos)
+		stats->remindedPosition = cl->sess.remindPositionOnMapChange.pos;
 
 	cl->stats = stats;
 }
