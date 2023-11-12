@@ -9975,6 +9975,26 @@ void PmoveSingle (pmove_t *pmove) {
 		}
 	}
 
+	// don't allow aimbotters to fire certain modes of certain guns
+	if (pm->ps->clientNum < MAX_CLIENTS && g_entities[pm->ps->clientNum].client &&
+		g_entities[pm->ps->clientNum].client->account && g_entities[pm->ps->clientNum].client->account->flags & ACCOUNTFLAG_BOOST_AIMBOTBOOST && g_boost.integer) {
+		// ban m2 for these guns
+		if (pm->cmd.buttons & BUTTON_ALT_ATTACK) {
+			if (pm->ps->weapon == WP_DISRUPTOR || pm->ps->weapon == WP_ROCKET_LAUNCHER || pm->ps->weapon == WP_CONCUSSION) {
+				pm->cmd.buttons &= ~BUTTON_ALT_ATTACK;
+				pm->cmd.buttons |= BUTTON_ATTACK;
+			}
+		}
+		
+		// ban m1 for these guns
+		if (pm->cmd.buttons & BUTTON_ATTACK) {
+			if (pm->ps->weapon == WP_BLASTER || pm->ps->weapon == WP_TRIP_MINE || pm->ps->weapon == WP_THERMAL) {
+				pm->cmd.buttons &= ~BUTTON_ATTACK;
+				pm->cmd.buttons |= BUTTON_ALT_ATTACK;
+			}
+		}
+	}
+
 	//set up these "global" bg ents
 	pm_entSelf = PM_BGEntForNum(pm->ps->clientNum);
 	if (pm->ps->m_iVehicleNum)
