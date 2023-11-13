@@ -3247,7 +3247,7 @@ int IsLivePug(int ofAtLeastThisMinutes) {
 		if (confirmedPlayersPerTeam > 0) {
 			int ingamePlayers = 0;
 			CountPlayers(NULL, NULL, NULL, NULL, NULL, &ingamePlayers, NULL);
-			return ingamePlayers > 0;
+			return ingamePlayers > 0 ? confirmedPlayersPerTeam : 0;
 		}
 		else {
 			return 0;
