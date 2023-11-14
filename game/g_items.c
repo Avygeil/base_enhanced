@@ -2919,7 +2919,7 @@ void FinishSpawningItem( gentity_t *ent ) {
 	}
 
 	if (ent->item->giType == IT_WEAPON && !g_enableMemePickups.integer) {
-		if (ent->item->giTag == WP_MELEE || ent->item->giTag == WP_SABER || ent->item->giTag == WP_BRYAR_PISTOL || ent->item->giTag == WP_STUN_BATON) {
+		if (ent->item->giTag == WP_MELEE || ent->item->giTag == WP_SABER || ent->item->giTag == WP_BRYAR_PISTOL || ent->item->giTag == WP_STUN_BATON || ent->item->giTag == WP_BRYAR_OLD) {
 			G_FreeEntity(ent);
 			return;
 		}
