@@ -361,6 +361,9 @@ vmCvar_t	g_fixGolanDamage;
 vmCvar_t	g_locationBasedDamage_splash;
 vmCvar_t	g_fixFlagPickup;
 vmCvar_t	d_debugFixFlagPickup;
+vmCvar_t	g_fixFreshWeaponAmmo;
+vmCvar_t	g_fixPulledWeaponAmmo;
+vmCvar_t	g_fixSpawnBlasterAmmo;
 
 vmCvar_t	g_allowIgnore;
 
@@ -892,6 +895,9 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_locationBasedDamage_splash,	"g_locationBasedDamage_splash"		, "1"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_fixFlagPickup,	"g_fixFlagPickup"		, "0"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &d_debugFixFlagPickup,	"d_debugFixFlagPickup"		, "0"	, CVAR_ARCHIVE, 0, qfalse },
+	{ &g_fixFreshWeaponAmmo,	"g_fixFreshWeaponAmmo"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
+	{ &g_fixPulledWeaponAmmo,	"g_fixPulledWeaponAmmo"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
+	{ &g_fixSpawnBlasterAmmo,	"g_fixSpawnBlasterAmmo"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_allowIgnore, "g_allowIgnore", "0", CVAR_ARCHIVE, 0, qfalse },
 

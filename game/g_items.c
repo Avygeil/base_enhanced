@@ -2227,28 +2227,46 @@ int Pickup_Weapon (gentity_t *ent, gentity_t *other) {
 
 	if ( ent->count < 0 ) {
 		quantity = 0; // None for you, sir!
-	} else {
-		if ( ent->count ) {
+	}
+	else {
+		if (ent->count) {
 			quantity = ent->count;
-		} else {
+		}
+		else {
 			quantity = ent->item->quantity;
 		}
 
 		// dropped items and teamplay weapons always have full ammo
-		if ( ! (ent->flags & FL_DROPPED_ITEM) && g_gametype.integer != GT_TEAM ) {
+		if (!(ent->flags & FL_DROPPED_ITEM) && g_gametype.integer != GT_TEAM) {
 			// respawning rules
 
-			// New method:  If the player has less than half the minimum, give them the minimum, else add 1/2 the min.
+			if (!g_fixFreshWeaponAmmo.integer) {
+				// broken base behavior lmao
+				// New method:  If the player has less than half the minimum, give them the minimum, else add 1/2 the min.
 
-			// drop the quantity if the already have over the minimum
-			if ( other->client->ps.ammo[ ent->item->giTag ] < quantity*0.5 ) {
-				quantity = quantity - other->client->ps.ammo[ ent->item->giTag ];
-			} else {
-				quantity = quantity*0.5;		// only add half the value.
+				// drop the quantity if the already have over the minimum
+				if (other->client->ps.ammo[ent->item->giTag] < quantity * 0.5) {
+					quantity = quantity - other->client->ps.ammo[ent->item->giTag];
+				}
+				else {
+					quantity = quantity * 0.5;		// only add half the value.
+				}
+
 			}
-
+			else if (g_fixFreshWeaponAmmo.integer == 1) {
+				// give just the full amount
+			}
+			else {
+				// fixed version of intended base behavior
+				if (other->client->ps.ammo[weaponData[ent->item->giTag].ammoIndex] < quantity * 0.5) {
+					quantity = quantity - other->client->ps.ammo[weaponData[ent->item->giTag].ammoIndex];
+				}
+				else {
+					quantity = quantity * 0.5;		// only add half the value.
+				}
 			}
 		}
+	}
 
 	// add the weapon
 	other->client->ps.stats[STAT_WEAPONS] |= ( 1 << ent->item->giTag );

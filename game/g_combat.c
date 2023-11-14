@@ -380,7 +380,23 @@ void TossClientWeapon(gentity_t *self, vec3_t direction, float speed)
 
 	if (self->client->ps.ammo[weaponData[weapon].ammoIndex] < 0)
 	{
-		launched->count -= (-self->client->ps.ammo[weaponData[weapon].ammoIndex]);
+		if (!g_fixPulledWeaponAmmo.integer) {
+			// give the pulled weapon shitty ammo
+			launched->count += self->client->ps.ammo[weaponData[weapon].ammoIndex];
+		}
+		else if (g_fixPulledWeaponAmmo.integer == 1) {
+			// give the pulled weapon default ammo
+		}
+		else {
+			// new option for half ammo i guess idk
+			if (weapon != WP_CONCUSSION) {
+				launched->count += self->client->ps.ammo[weaponData[weapon].ammoIndex];
+
+				int minAmmo = ceilf(((float)bg_itemlist[BG_GetItemIndexByTag(weapon, IT_WEAPON)].quantity) * 0.5f);
+				if (launched->count < minAmmo)
+					launched->count = minAmmo;
+			}
+		}
 		self->client->ps.ammo[weaponData[weapon].ammoIndex] = 0;
 	}
 

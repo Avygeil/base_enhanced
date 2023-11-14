@@ -3258,6 +3258,9 @@ extern vmCvar_t		g_fixGolanDamage;
 extern vmCvar_t		g_locationBasedDamage_splash;
 extern vmCvar_t		g_fixFlagPickup;
 extern vmCvar_t		d_debugFixFlagPickup;
+extern vmCvar_t		g_fixFreshWeaponAmmo;
+extern vmCvar_t		g_fixPulledWeaponAmmo;
+extern vmCvar_t		g_fixSpawnBlasterAmmo;
 
 extern vmCvar_t		g_allowIgnore;
 
