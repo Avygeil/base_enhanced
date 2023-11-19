@@ -272,6 +272,11 @@ vmCvar_t	pmove_float;
 
 vmCvar_t	g_flechetteSpread;
 
+vmCvar_t	d_bowcasterRework_enable;
+vmCvar_t	d_bowcasterRework_primaryBoltDamage;
+vmCvar_t	d_bowcasterRework_velocityAdd;
+vmCvar_t	d_bowcasterRework_spreadMultiplier;
+
 vmCvar_t	g_defaultMapFFA;
 vmCvar_t	g_defaultMapDuel;
 vmCvar_t	g_defaultMapSiege;
@@ -517,6 +522,7 @@ vmCvar_t	g_vote_teamgen_enableBarVote;
 vmCvar_t	g_vote_teamgen_barVoteStartsNewPug;
 vmCvar_t	g_vote_teamgen_unvote;
 vmCvar_t	g_vote_teamgen_fuck;
+vmCvar_t	g_vote_teamgen_new8PlayerAlgo;
 
 vmCvar_t	g_filterSlurs;
 
@@ -792,6 +798,11 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_flechetteSpread, "g_flechetteSpread", "0", CVAR_ARCHIVE, 0, qtrue },
 
+	{ &d_bowcasterRework_enable, "d_bowcasterRework_enable", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &d_bowcasterRework_primaryBoltDamage, "d_bowcasterRework_primaryBoltDamage", "14", CVAR_ARCHIVE, 0, qtrue },
+	{ &d_bowcasterRework_velocityAdd, "d_bowcasterRework_velocityAdd", "650", CVAR_ARCHIVE, 0, qtrue },
+	{ &d_bowcasterRework_spreadMultiplier, "d_bowcasterRework_spreadMultiplier", "1.0", CVAR_ARCHIVE, 0, qtrue },
+
 	{ &g_defaultMapFFA, "g_defaultMapFFA", "", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_defaultMapDuel, "g_defaultMapDuel", "", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_defaultMapSiege, "g_defaultMapSiege", "", CVAR_ARCHIVE, 0, qtrue },
@@ -1058,6 +1069,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_teamgen_barVoteStartsNewPug, "g_vote_teamgen_barVoteStartsNewPug", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_unvote, "g_vote_teamgen_unvote", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_fuck, "g_vote_teamgen_fuck", "10", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_teamgen_new8PlayerAlgo, "g_vote_teamgen_new8PlayerAlgo", "1", CVAR_ARCHIVE, 0, qfalse },
 
 	{ &g_filterSlurs, "g_filterSlurs", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
 

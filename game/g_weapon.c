@@ -1615,9 +1615,16 @@ static void WP_BowcasterAltFire( gentity_t *ent )
 {
 	int	damage	= BOWCASTER_DAMAGE;
 
-	if (!CorrectBoostedAim(ent, muzzle, forward, BOWCASTER_VELOCITY, WP_BOWCASTER, qtrue, BOWCASTER_SIZE))
+	float vel = BOWCASTER_VELOCITY;
+	if (ent && d_bowcasterRework_enable.integer) {
+		float playerVelocity = sqrt(ent->s.pos.trDelta[0] * ent->s.pos.trDelta[0] + ent->s.pos.trDelta[1] * ent->s.pos.trDelta[1]);
+		vel += playerVelocity;
+		vel += d_bowcasterRework_velocityAdd.value;
+	}
+
+	if (!CorrectBoostedAim(ent, muzzle, forward, vel, WP_BOWCASTER, qtrue, BOWCASTER_SIZE))
 		return;
-	gentity_t *missile = CreateMissile( muzzle, forward, BOWCASTER_VELOCITY, 10000, ent, qfalse);
+	gentity_t *missile = CreateMissile( muzzle, forward, vel, 10000, ent, qfalse);
 
 	missile->classname = "bowcaster_proj";
 	missile->s.weapon = WP_BOWCASTER;
@@ -1639,87 +1646,165 @@ static void WP_BowcasterMainFire( gentity_t *ent )
 //---------------------------------------------------------
 {
 	int			damage	= BOWCASTER_DAMAGE, count;
-	float		vel;
 	vec3_t		angs, dir;
 	gentity_t	*missile;
-	int i;
 
-	if (!ent->client)
-	{
-		count = 1;
+	if (d_bowcasterRework_enable.integer) {
+		if (!ent->client)
+			count = 1;
+		else
+			count = Com_Clampi(1, 5, (level.time - ent->client->ps.weaponChargeTime) / BOWCASTER_CHARGE_UNIT);
+
+		if (d_bowcasterRework_primaryBoltDamage.integer > 0) {
+			damage = d_bowcasterRework_primaryBoltDamage.integer;
+		}
+		else {
+			if (count <= 1)
+				damage = 50;
+			else if (count == 2)
+				damage = 45;
+			else if (count == 3)
+				damage = 40;
+			else if (count == 4)
+				damage = 35;
+			else
+				damage = 30;
+		}
+
+		const float offsetAngle = random() * 2 * M_PI; // random angle to spin the whole pie by
+
+		for (int i = 0; i < count; i++) {
+			float vel = BOWCASTER_VELOCITY + d_bowcasterRework_velocityAdd.value;
+			if (ent) {
+				float playerVelocity = sqrt(ent->s.pos.trDelta[0] * ent->s.pos.trDelta[0] + ent->s.pos.trDelta[1] * ent->s.pos.trDelta[1]);
+				vel += playerVelocity;
+			}
+
+			if (!CorrectBoostedAim(ent, muzzle, forward, vel, WP_BOWCASTER, qfalse, BOWCASTER_SIZE))
+				return;
+			vectoangles(forward, angs);
+
+			// adjust spread radius to be within the middle third of the radius
+			float innerRadius = BOWCASTER_ALT_SPREAD * d_bowcasterRework_spreadMultiplier.value * 0.2f / 3;
+			float outerRadius = BOWCASTER_ALT_SPREAD * d_bowcasterRework_spreadMultiplier.value * 0.2f * 2 / 3;
+			float spreadRadius = innerRadius + random() * (outerRadius - innerRadius);
+
+			float angleRange = 2 * M_PI / count; // total angle range divided by the number of shots
+			float minAngle = angleRange * i; // minimum angle for this shot's range
+
+			// adjust spread angle to be within the middle third of the slice
+			float angleThird = angleRange / 3;
+			float spreadAngle = minAngle + angleThird + random() * angleThird;
+
+			// spin the pie randomly
+			spreadAngle += offsetAngle;
+
+			// convert polar to cartesian
+			float pitchOffset = spreadRadius * cos(spreadAngle);
+			float yawOffset = spreadRadius * sin(spreadAngle);
+
+			// apply the spread to this shot
+			angs[PITCH] += pitchOffset;
+			angs[YAW] += yawOffset;
+
+			AngleVectors(angs, dir, NULL, NULL);
+
+			missile = CreateMissile(muzzle, dir, vel, 10000, ent, qtrue);
+
+			missile->classname = "bowcaster_alt_proj";
+			missile->s.weapon = WP_BOWCASTER;
+
+			VectorSet(missile->r.maxs, BOWCASTER_SIZE, BOWCASTER_SIZE, BOWCASTER_SIZE);
+			VectorScale(missile->r.maxs, -1, missile->r.mins);
+
+			missile->damage = damage;
+			missile->dflags = DAMAGE_DEATH_KNOCKBACK;
+			missile->methodOfDeath = MOD_BOWCASTER;
+			missile->clipmask = MASK_SHOT | CONTENTS_LIGHTSABER;
+
+			// we don't want it to bounce
+			missile->bounceCount = 0;
+		}
 	}
-	else
-	{
-		count = ( level.time - ent->client->ps.weaponChargeTime ) / BOWCASTER_CHARGE_UNIT;
-	}
+	else {
 
-	if ( count < 1 )
-	{
-		count = 1;
-	}
-	else if ( count > 5 )
-	{
-		count = 5;
-	}
+		if (!ent->client)
+		{
+			count = 1;
+		}
+		else
+		{
+			count = (level.time - ent->client->ps.weaponChargeTime) / BOWCASTER_CHARGE_UNIT;
+		}
 
-	if ( !(count & 1 ))
-	{
-		// if we aren't odd, knock us down a level
-		count--;
-	}
+		if (count < 1)
+		{
+			count = 1;
+		}
+		else if (count > 5)
+		{
+			count = 5;
+		}
 
-	//scale the damage down based on how many are about to be fired
-	if (count <= 1)
-	{
-		damage = 50;
-	}
-	else if (count == 2)
-	{
-		damage = 45;
-	}
-	else if (count == 3)
-	{
-		damage = 40;
-	}
-	else if (count == 4)
-	{
-		damage = 35;
-	}
-	else
-	{
-		damage = 30;
-	}
+		if (!(count & 1))
+		{
+			// if we aren't odd, knock us down a level
+			count--;
+		}
 
-	for (i = 0; i < count; i++ )
-	{
-		// create a range of different velocities
-		vel = BOWCASTER_VELOCITY * ( crandom() * BOWCASTER_VEL_RANGE + 1.0f );
+		//scale the damage down based on how many are about to be fired
+		if (count <= 1)
+		{
+			damage = 50;
+		}
+		else if (count == 2)
+		{
+			damage = 45;
+		}
+		else if (count == 3)
+		{
+			damage = 40;
+		}
+		else if (count == 4)
+		{
+			damage = 35;
+		}
+		else
+		{
+			damage = 30;
+		}
 
-		if (!CorrectBoostedAim(ent, muzzle, forward, vel, WP_BOWCASTER, qfalse, BOWCASTER_SIZE))
-			return;
-		vectoangles( forward, angs );
+		for (int i = 0; i < count; i++)
+		{
+			// create a range of different velocities
+			float vel = BOWCASTER_VELOCITY * (crandom() * BOWCASTER_VEL_RANGE + 1.0f);
 
-		// add some slop to the alt-fire direction
-		angs[PITCH] += crandom() * BOWCASTER_ALT_SPREAD * 0.2f;
-		angs[YAW]	+= ((i+0.5f) * BOWCASTER_ALT_SPREAD - count * 0.5f * BOWCASTER_ALT_SPREAD );
-		
-		AngleVectors( angs, dir, NULL, NULL );
+			if (!CorrectBoostedAim(ent, muzzle, forward, vel, WP_BOWCASTER, qfalse, BOWCASTER_SIZE))
+				return;
+			vectoangles(forward, angs);
 
-		missile = CreateMissile( muzzle, dir, vel, 10000, ent, qtrue );
+			// add some slop to the alt-fire direction
+			angs[PITCH] += crandom() * BOWCASTER_ALT_SPREAD * 0.2f;
+			angs[YAW] += ((i + 0.5f) * BOWCASTER_ALT_SPREAD - count * 0.5f * BOWCASTER_ALT_SPREAD);
 
-		missile->classname = "bowcaster_alt_proj";
-		missile->s.weapon = WP_BOWCASTER;
+			AngleVectors(angs, dir, NULL, NULL);
 
-		VectorSet( missile->r.maxs, BOWCASTER_SIZE, BOWCASTER_SIZE, BOWCASTER_SIZE );
-		VectorScale( missile->r.maxs, -1, missile->r.mins );
+			missile = CreateMissile(muzzle, dir, vel, 10000, ent, qtrue);
 
-		missile->damage = damage;
-		missile->dflags = DAMAGE_DEATH_KNOCKBACK;
-		missile->methodOfDeath = MOD_BOWCASTER;
-		missile->clipmask = MASK_SHOT | CONTENTS_LIGHTSABER;
+			missile->classname = "bowcaster_alt_proj";
+			missile->s.weapon = WP_BOWCASTER;
 
-		// we don't want it to bounce
-		missile->bounceCount = 0;
+			VectorSet(missile->r.maxs, BOWCASTER_SIZE, BOWCASTER_SIZE, BOWCASTER_SIZE);
+			VectorScale(missile->r.maxs, -1, missile->r.mins);
+
+			missile->damage = damage;
+			missile->dflags = DAMAGE_DEATH_KNOCKBACK;
+			missile->methodOfDeath = MOD_BOWCASTER;
+			missile->clipmask = MASK_SHOT | CONTENTS_LIGHTSABER;
+
+			// we don't want it to bounce
+			missile->bounceCount = 0;
+		}
 	}
 }
 

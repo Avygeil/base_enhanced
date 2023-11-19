@@ -3144,6 +3144,11 @@ extern	vmCvar_t	pmove_float;
 
 extern	vmCvar_t	g_flechetteSpread;
 
+extern vmCvar_t	d_bowcasterRework_enable;
+extern vmCvar_t	d_bowcasterRework_primaryBoltDamage;
+extern vmCvar_t	d_bowcasterRework_velocityAdd;
+extern vmCvar_t	d_bowcasterRework_spreadMultiplier;
+
 extern vmCvar_t		g_defaultMapFFA;
 extern vmCvar_t		g_defaultMapDuel;
 extern vmCvar_t		g_defaultMapSiege;
@@ -3392,6 +3397,7 @@ extern vmCvar_t		g_vote_teamgen_enableBarVote;
 extern vmCvar_t		g_vote_teamgen_barVoteStartsNewPug;
 extern vmCvar_t		g_vote_teamgen_unvote;
 extern vmCvar_t		g_vote_teamgen_fuck;
+extern vmCvar_t		g_vote_teamgen_new8PlayerAlgo;
 
 extern vmCvar_t		g_filterSlurs;
 
