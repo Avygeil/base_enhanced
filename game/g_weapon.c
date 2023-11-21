@@ -1620,6 +1620,7 @@ static void WP_BowcasterAltFire( gentity_t *ent )
 		float playerVelocity = sqrt(ent->s.pos.trDelta[0] * ent->s.pos.trDelta[0] + ent->s.pos.trDelta[1] * ent->s.pos.trDelta[1]);
 		vel += playerVelocity;
 		vel += d_bowcasterRework_velocityAdd.value;
+		damage = 25;
 	}
 
 	if (!CorrectBoostedAim(ent, muzzle, forward, vel, WP_BOWCASTER, qtrue, BOWCASTER_SIZE))
