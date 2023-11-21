@@ -670,7 +670,7 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 		}
 
 		AngleVectors(other->client->ps.viewangles, fwd, NULL, NULL);
-		if (otherDefLevel == FORCE_LEVEL_1)
+		if (otherDefLevel == FORCE_LEVEL_1 || (ent->s.weapon == WP_BOWCASTER && d_bowcasterRework_enable.integer))
 		{
 			//if def is only level 1, instead of deflecting the shot it should just die here
 		}
@@ -682,6 +682,7 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 		{
 			G_ReflectMissile(other, ent, fwd, g_randomConeReflection.integer & CONE_REFLECT_SDEF);
 		}
+		
 		other->client->ps.saberBlockTime = level.time + (350 - (otherDefLevel*100)); 
 
 		//For jedi AI
@@ -689,7 +690,13 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 
 		if (otherDefLevel == FORCE_LEVEL_3)
 		{
-			other->client->ps.saberBlockTime = 0; //^_^
+			if (ent->s.weapon == WP_BOWCASTER && d_bowcasterRework_enable.integer) {
+				other->client->ps.saberBlockTime = level.time + 150;
+				goto killProj;
+			}
+			else {
+				other->client->ps.saberBlockTime = 0; //^_^
+			}
 		}
 
 		if (otherDefLevel == FORCE_LEVEL_1)

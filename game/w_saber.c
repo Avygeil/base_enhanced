@@ -5731,7 +5731,7 @@ void WP_SaberStartMissileBlockCheck( gentity_t *self, usercmd_t *ucmd  )
 				}
 			}
 		}
-		else//player
+		else if (!(g_fixSaberDefense.integer >= 2))//player
 		{
 			gentity_t *owner = &g_entities[incoming->r.ownerNum];
 

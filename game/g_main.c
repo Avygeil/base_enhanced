@@ -6200,6 +6200,15 @@ void G_RunFrame( int levelTime ) {
 	static int lastMsgTime = 0;
 
 	forcePowerNeeded[FORCE_LEVEL_3][FP_GRIP] = g_gripBuff.integer ? 32 : 60;
+	
+	if (d_bowcasterRework_enable.integer) {
+		weaponData[WP_BOWCASTER].maxCharge = 1100;
+		weaponData[WP_BOWCASTER].chargeSubTime = 500;
+	}
+	else {
+		weaponData[WP_BOWCASTER].maxCharge = 1700;
+		weaponData[WP_BOWCASTER].chargeSubTime = 400;
+	}
 
 #ifdef NEWMOD_SUPPORT
 	for (i = 0; i < MAX_CLIENTS; i++) {
