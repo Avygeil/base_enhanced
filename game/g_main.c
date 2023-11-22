@@ -798,10 +798,10 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_flechetteSpread, "g_flechetteSpread", "0", CVAR_ARCHIVE, 0, qtrue },
 
-	{ &d_bowcasterRework_enable, "d_bowcasterRework_enable", "0", CVAR_ARCHIVE, 0, qtrue },
-	{ &d_bowcasterRework_primaryBoltDamage, "d_bowcasterRework_primaryBoltDamage", "14", CVAR_ARCHIVE, 0, qtrue },
+	{ &d_bowcasterRework_enable, "d_bowcasterRework_enable", "0", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
+	{ &d_bowcasterRework_primaryBoltDamage, "d_bowcasterRework_primaryBoltDamage", "20", CVAR_ARCHIVE, 0, qtrue },
 	{ &d_bowcasterRework_velocityAdd, "d_bowcasterRework_velocityAdd", "650", CVAR_ARCHIVE, 0, qtrue },
-	{ &d_bowcasterRework_spreadMultiplier, "d_bowcasterRework_spreadMultiplier", "1.0", CVAR_ARCHIVE, 0, qtrue },
+	{ &d_bowcasterRework_spreadMultiplier, "d_bowcasterRework_spreadMultiplier", "2.0", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_defaultMapFFA, "g_defaultMapFFA", "", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_defaultMapDuel, "g_defaultMapDuel", "", CVAR_ARCHIVE, 0, qtrue },
@@ -2207,6 +2207,15 @@ void G_InitGame( int levelTime, int randomSeed, int restart, void *serverDbPtr )
 
 		if (g_lastTeamGenTime.integer)
 			TeamGen_DoAutoRestart();
+	}
+
+	if (d_bowcasterRework_enable.integer) {
+		weaponData[WP_BOWCASTER].maxCharge = 1100;
+		weaponData[WP_BOWCASTER].chargeSubTime = 500;
+	}
+	else {
+		weaponData[WP_BOWCASTER].maxCharge = 1700;
+		weaponData[WP_BOWCASTER].chargeSubTime = 400;
 	}
 
 	InitSlurs();
@@ -6200,15 +6209,6 @@ void G_RunFrame( int levelTime ) {
 	static int lastMsgTime = 0;
 
 	forcePowerNeeded[FORCE_LEVEL_3][FP_GRIP] = g_gripBuff.integer ? 32 : 60;
-	
-	if (d_bowcasterRework_enable.integer) {
-		weaponData[WP_BOWCASTER].maxCharge = 1100;
-		weaponData[WP_BOWCASTER].chargeSubTime = 500;
-	}
-	else {
-		weaponData[WP_BOWCASTER].maxCharge = 1700;
-		weaponData[WP_BOWCASTER].chargeSubTime = 400;
-	}
 
 #ifdef NEWMOD_SUPPORT
 	for (i = 0; i < MAX_CLIENTS; i++) {

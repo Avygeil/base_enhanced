@@ -3038,6 +3038,14 @@ void G_BroadcastServerFeatureList( int clientNum ) {
 	if (g_fixSniperSwitch.integer)
 		Q_strcat(featureListConfigString, sizeof(featureListConfigString), "fss ");
 
+	if (d_bowcasterRework_enable.integer)
+		Q_strcat(featureListConfigString, sizeof(featureListConfigString), "bwr ");
+
+	// remove trailing space
+	int len = strlen(featureListConfigString);
+	if (len > 0 && featureListConfigString[len - 1] == ' ')
+		featureListConfigString[len - 1] = '\0';
+
 	trap_SetConfigstring(CS_SERVERFEATURELIST, featureListConfigString);
 
 	if (*trap_kd_numunique())
