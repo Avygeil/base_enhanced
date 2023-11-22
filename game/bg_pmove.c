@@ -1684,7 +1684,7 @@ qboolean PM_AdjustAngleForWallJump( playerState_t *ps, usercmd_t *ucmd, qboolean
 			ps->velocity[2] = BG_ForceWallJumpStrength();
 			ps->pm_flags |= PMF_JUMP_HELD;
 			ps->fd.forceJumpSound = 1; //this is a stupid thing, i should fix it.
-			if (ps->origin[2] < ps->fd.forceJumpZStart)
+			if (ps->origin[2] < ps->fd.forceJumpZStart || (!ps->fd.forceJumpZStart && g_fixWallgrab.integer))
 			{
 				ps->fd.forceJumpZStart = ps->origin[2];
 			}

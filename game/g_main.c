@@ -358,6 +358,7 @@ vmCvar_t    g_fixLiftKills;
 
 vmCvar_t    g_fixDempSaberThrow;
 
+vmCvar_t	g_fixWallgrab;
 vmCvar_t	g_fixForceJumpAnimationLock;
 vmCvar_t	g_fixNoAmmoShootAnimation;
 vmCvar_t	g_fix5AmmoSniping;
@@ -898,6 +899,7 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_fixDempSaberThrow,	"g_fixDempSaberThrow"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
 
+	{ &g_fixWallgrab,	"g_fixWallgrab"	, "1"	, CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 	{ &g_fixForceJumpAnimationLock,	"g_fixForceJumpAnimationLock"	, "1"	, CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 	{ &g_fixNoAmmoShootAnimation,	"g_fixNoAmmoShootAnimation"		, "1"	, CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 	{ &g_fix5AmmoSniping,	"g_fix5AmmoSniping"		, "1"	, CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
