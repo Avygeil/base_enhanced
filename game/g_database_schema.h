@@ -546,6 +546,7 @@ const char *const sqlCreateTables =
 "[ratee_account_id] INTEGER NOT NULL, "
 "[pos] INTEGER NOT NULL, "
 "[rating] INTEGER NOT NULL, "
+"[datetime] INTEGER, "
 "FOREIGN KEY([rater_account_id]) REFERENCES accounts([account_id]) ON DELETE CASCADE, "
 "FOREIGN KEY([ratee_account_id]) REFERENCES accounts([account_id]) ON DELETE CASCADE, "
 "UNIQUE([rater_account_id], [ratee_account_id], [pos]) "

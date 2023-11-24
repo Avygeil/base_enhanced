@@ -6071,7 +6071,7 @@ void G_DBListRatingPlayers(int raterAccountId, int raterClientNum, ctfPosition_t
 	OutOfBandPrint(raterClientNum, "Your ^5%s^7 ratings:\n%s", NameForPos(pos), combined);
 }
 
-const char *const sqlSetPlayerRating = "INSERT OR REPLACE INTO playerratings(rater_account_id, ratee_account_id, pos, rating) VALUES (?,?,?,?);";
+const char *const sqlSetPlayerRating = "INSERT OR REPLACE INTO playerratings(rater_account_id, ratee_account_id, pos, rating, datetime) VALUES (?,?,?,?,strftime('%s', 'now'));";
 qboolean G_DBSetPlayerRating(int raterAccountId, int rateeAccountId, ctfPosition_t pos, ctfPlayerTier_t tier) {
 	sqlite3_stmt *statement;
 	trap_sqlite3_prepare_v2(dbPtr, sqlSetPlayerRating, -1, &statement, 0);
