@@ -4042,30 +4042,36 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 	char newVotes[NUM_TEAMGENERATORTYPES] = { 0 };
 	for (const char *p = voteStr; *p && p - voteStr < 4; p++) {
 		const char lower = tolower((unsigned)*p);
-		int *votesInt;
+		int *votesIntRed, *votesIntBlue;
 		permutationOfTeams_t *permutation;
 		if (level.activePugProposal->suggested.valid && level.activePugProposal->suggestedLetter == lower) {
-			votesInt = &level.activePugProposal->suggestedVoteClients;
+			votesIntRed = &level.activePugProposal->suggestedVoteClientsRed;
+			votesIntBlue = &level.activePugProposal->suggestedVoteClientsBlue;
 			permutation = &level.activePugProposal->suggested;
 		}
 		else if (level.activePugProposal->highestCaliber.valid && level.activePugProposal->highestCaliberLetter == lower) {
-			votesInt = &level.activePugProposal->highestCaliberVoteClients;
+			votesIntRed = &level.activePugProposal->highestCaliberVoteClientsRed;
+			votesIntBlue = &level.activePugProposal->highestCaliberVoteClientsBlue;
 			permutation = &level.activePugProposal->highestCaliber;
 		}
 		else if (level.activePugProposal->fairest.valid && level.activePugProposal->fairestLetter == lower) {
-			votesInt = &level.activePugProposal->fairestVoteClients;
+			votesIntRed = &level.activePugProposal->fairestVoteClientsRed;
+			votesIntBlue = &level.activePugProposal->fairestVoteClientsBlue;
 			permutation = &level.activePugProposal->fairest;
 		}
 		else if (level.activePugProposal->inclusive.valid && level.activePugProposal->inclusiveLetter == lower) {
-			votesInt = &level.activePugProposal->inclusiveVoteClients;
+			votesIntRed = &level.activePugProposal->inclusiveVoteClientsRed;
+			votesIntBlue = &level.activePugProposal->inclusiveVoteClientsBlue;
 			permutation = &level.activePugProposal->inclusive;
 		}
 		else if (level.activePugProposal->desired.valid && level.activePugProposal->desiredLetter == lower) {
-			votesInt = &level.activePugProposal->desiredVoteClients;
+			votesIntRed = &level.activePugProposal->desiredVoteClientsRed;
+			votesIntBlue = &level.activePugProposal->desiredVoteClientsBlue;
 			permutation = &level.activePugProposal->desired;
 		}
 		else if (level.activePugProposal->semiDesired.valid && level.activePugProposal->semiDesiredLetter == lower) {
-			votesInt = &level.activePugProposal->semiDesiredVoteClients;
+			votesIntRed = &level.activePugProposal->semiDesiredVoteClientsRed;
+			votesIntBlue = &level.activePugProposal->semiDesiredVoteClientsBlue;
 			permutation = &level.activePugProposal->semiDesired;
 		}
 		else {
@@ -4079,14 +4085,14 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 		}
 
 		qboolean votedYesOnAnotherClient = qfalse;
-		if (!(*votesInt & (1 << ent - g_entities))) {
+		if (!(*votesIntRed & (1 << ent - g_entities)) && !(*votesIntBlue & (1 << ent - g_entities))) {
 			for (int i = 0; i < MAX_CLIENTS; i++) {
 				gentity_t *other = &g_entities[i];
 				if (other == ent || !other->inuse || !other->client || !other->client->account)
 					continue;
 				if (other->client->account->id != ent->client->account->id)
 					continue;
-				if (*votesInt & (1 << other - g_entities)) {
+				if (*votesIntRed & (1 << other - g_entities) || *votesIntBlue & (1 << other - g_entities)) {
 					votedYesOnAnotherClient = qtrue;
 					break;
 				}
@@ -4106,11 +4112,14 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 			continue;
 		}
 
-		if (votedYesOnAnotherClient || *votesInt & (1 << ent - g_entities)) { // already voted for this
+		if (votedYesOnAnotherClient || *votesIntRed & (1 << ent - g_entities) || *votesIntBlue & (1 << ent - g_entities)) { // already voted for this
 			Q_strcat(oldVotes, sizeof(oldVotes), va("%c", lower));
 		}
 		else { // a new vote
-			*votesInt |= (1 << (ent - g_entities));
+			if (permutation->teams[0].baseId == ent->client->account->id || permutation->teams[0].chaseId == ent->client->account->id || permutation->teams[0].offenseId1 == ent->client->account->id || permutation->teams[0].offenseId2 == ent->client->account->id)
+				*votesIntRed |= (1 << (ent - g_entities));
+			else
+				*votesIntBlue |= (1 << (ent - g_entities));
 			Q_strcat(newVotes, sizeof(newVotes), va("%c", lower));
 		}
 	}
@@ -4141,24 +4150,63 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 		Com_sprintf(buf, sizeof(buf), "%c%s  ", TEAMGEN_CHAT_COMMAND_CHARACTER, voteStr);
 		for (int i = 0; i < NUM_TEAMGENERATORTYPES; i++) {
 			char letter;
-			int *votesInt;
+			int *votesIntRed, *votesIntBlue;
 			permutationOfTeams_t *permutation;
 			switch (i) {
-			case TEAMGENERATORTYPE_MOSTPLAYED: permutation = &level.activePugProposal->suggested; votesInt = &level.activePugProposal->suggestedVoteClients; letter = level.activePugProposal->suggestedLetter; break;
-			case TEAMGENERATORTYPE_HIGHESTRATING: permutation = &level.activePugProposal->highestCaliber; votesInt = &level.activePugProposal->highestCaliberVoteClients; letter = level.activePugProposal->highestCaliberLetter; break;
-			case TEAMGENERATORTYPE_FAIREST: permutation = &level.activePugProposal->fairest; votesInt = &level.activePugProposal->fairestVoteClients; letter = level.activePugProposal->fairestLetter; break;
-			case TEAMGENERATORTYPE_INCLUSIVE: permutation = &level.activePugProposal->inclusive; votesInt = &level.activePugProposal->inclusiveVoteClients; letter = level.activePugProposal->inclusiveLetter; break;
-			case TEAMGENERATORTYPE_DESIREDPOS: permutation = &level.activePugProposal->desired; votesInt = &level.activePugProposal->desiredVoteClients; letter = level.activePugProposal->desiredLetter; break;
-			case TEAMGENERATORTYPE_SEMIDESIREDPOS: permutation = &level.activePugProposal->semiDesired; votesInt = &level.activePugProposal->semiDesiredVoteClients; letter = level.activePugProposal->semiDesiredLetter; break;
+			case TEAMGENERATORTYPE_MOSTPLAYED:
+				permutation = &level.activePugProposal->suggested;
+				votesIntRed = &level.activePugProposal->suggestedVoteClientsRed;
+				votesIntBlue = &level.activePugProposal->suggestedVoteClientsBlue;
+				letter = level.activePugProposal->suggestedLetter;
+				break;
+
+			case TEAMGENERATORTYPE_HIGHESTRATING:
+				permutation = &level.activePugProposal->highestCaliber;
+				votesIntRed = &level.activePugProposal->highestCaliberVoteClientsRed;
+				votesIntBlue = &level.activePugProposal->highestCaliberVoteClientsBlue;
+				letter = level.activePugProposal->highestCaliberLetter;
+				break;
+
+			case TEAMGENERATORTYPE_FAIREST:
+				permutation = &level.activePugProposal->fairest;
+				votesIntRed = &level.activePugProposal->fairestVoteClientsRed;
+				votesIntBlue = &level.activePugProposal->fairestVoteClientsBlue;
+				letter = level.activePugProposal->fairestLetter;
+				break;
+
+			case TEAMGENERATORTYPE_INCLUSIVE:
+				permutation = &level.activePugProposal->inclusive;
+				votesIntRed = &level.activePugProposal->inclusiveVoteClientsRed;
+				votesIntBlue = &level.activePugProposal->inclusiveVoteClientsBlue;
+				letter = level.activePugProposal->inclusiveLetter;
+				break;
+
+			case TEAMGENERATORTYPE_DESIREDPOS:
+				permutation = &level.activePugProposal->desired;
+				votesIntRed = &level.activePugProposal->desiredVoteClientsRed;
+				votesIntBlue = &level.activePugProposal->desiredVoteClientsBlue;
+				letter = level.activePugProposal->desiredLetter;
+				break;
+
+			case TEAMGENERATORTYPE_SEMIDESIREDPOS:
+				permutation = &level.activePugProposal->semiDesired;
+				votesIntRed = &level.activePugProposal->semiDesiredVoteClientsRed;
+				votesIntBlue = &level.activePugProposal->semiDesiredVoteClientsBlue;
+				letter = level.activePugProposal->semiDesiredLetter;
+				break;
+
+			default: assert(qfalse); break;
 			}
 
 			if (!permutation->valid)
 				continue;
 
-			int numYesVotes = 0;
+			int numYesVotesRed = 0, numYesVotesBlue = 0;
 			for (int j = 0; j < MAX_CLIENTS; j++) {
-				if (*votesInt & (1 << j))
-					++numYesVotes;
+				if (*votesIntRed & (1 << j))
+					++numYesVotesRed;
+				else if (*votesIntBlue & (1 << j))
+					++numYesVotesBlue;
 			}
 
 			// color white if they voted for it just now
@@ -4167,36 +4215,75 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 				color = '7';
 
 			const int numRequired = g_vote_teamgen_team_requiredVotes.integer ? g_vote_teamgen_team_requiredVotes.integer : 5;
-			Q_strcat(buf, sizeof(buf), va(" ^%c(%c: %d/%d)", color, letter, numYesVotes, numRequired));
+			Q_strcat(buf, sizeof(buf), va(" ^%c(%c: %d/%d)", color, letter, numYesVotesRed + numYesVotesBlue, numRequired));
 		}
 		*newMessage = buf;
 	}
 
 	int numPermutationsWithEnoughVotesToPass = 0;
 	for (int i = 0; i < NUM_TEAMGENERATORTYPES; i++) {
-		int *votesInt;
+		int *votesIntRed, *votesIntBlue;
 		permutationOfTeams_t *permutation;
 		switch (i) {
-		case TEAMGENERATORTYPE_MOSTPLAYED: permutation = &level.activePugProposal->suggested; votesInt = &level.activePugProposal->suggestedVoteClients; break;
-		case TEAMGENERATORTYPE_HIGHESTRATING: permutation = &level.activePugProposal->highestCaliber; votesInt = &level.activePugProposal->highestCaliberVoteClients; break;
-		case TEAMGENERATORTYPE_FAIREST: permutation = &level.activePugProposal->fairest; votesInt = &level.activePugProposal->fairestVoteClients; break;
-		case TEAMGENERATORTYPE_INCLUSIVE: permutation = &level.activePugProposal->inclusive; votesInt = &level.activePugProposal->inclusiveVoteClients; break;
-		case TEAMGENERATORTYPE_DESIREDPOS: permutation = &level.activePugProposal->desired; votesInt = &level.activePugProposal->desiredVoteClients; break;
-		case TEAMGENERATORTYPE_SEMIDESIREDPOS: permutation = &level.activePugProposal->semiDesired; votesInt = &level.activePugProposal->semiDesiredVoteClients; break;
+		case TEAMGENERATORTYPE_MOSTPLAYED:
+			permutation = &level.activePugProposal->suggested;
+			votesIntRed = &level.activePugProposal->suggestedVoteClientsRed;
+			votesIntBlue = &level.activePugProposal->suggestedVoteClientsBlue;
+			break;
+
+		case TEAMGENERATORTYPE_HIGHESTRATING:
+			permutation = &level.activePugProposal->highestCaliber;
+			votesIntRed = &level.activePugProposal->highestCaliberVoteClientsRed;
+			votesIntBlue = &level.activePugProposal->highestCaliberVoteClientsBlue;
+			break;
+
+		case TEAMGENERATORTYPE_FAIREST:
+			permutation = &level.activePugProposal->fairest;
+			votesIntRed = &level.activePugProposal->fairestVoteClientsRed;
+			votesIntBlue = &level.activePugProposal->fairestVoteClientsBlue;
+			break;
+
+		case TEAMGENERATORTYPE_INCLUSIVE:
+			permutation = &level.activePugProposal->inclusive;
+			votesIntRed = &level.activePugProposal->inclusiveVoteClientsRed;
+			votesIntBlue = &level.activePugProposal->inclusiveVoteClientsBlue;
+			break;
+
+		case TEAMGENERATORTYPE_DESIREDPOS:
+			permutation = &level.activePugProposal->desired;
+			votesIntRed = &level.activePugProposal->desiredVoteClientsRed;
+			votesIntBlue = &level.activePugProposal->desiredVoteClientsBlue;
+			break;
+
+		case TEAMGENERATORTYPE_SEMIDESIREDPOS:
+			permutation = &level.activePugProposal->semiDesired;
+			votesIntRed = &level.activePugProposal->semiDesiredVoteClientsRed;
+			votesIntBlue = &level.activePugProposal->semiDesiredVoteClientsBlue;
+			break;
+
+		default: assert(qfalse); break;
 		}
 
 		if (!permutation->valid)
 			continue;
 
-		int numYesVotes = 0;
+		int numYesVotesRed = 0, numYesVotesBlue = 0;
 		for (int j = 0; j < MAX_CLIENTS; j++) {
-			if (*votesInt & (1 << j))
-				++numYesVotes;
+			if (*votesIntRed & (1 << j))
+				++numYesVotesRed;
+			else if (*votesIntBlue & (1 << j))
+				++numYesVotesBlue;
 		}
 
 		const int numRequired = g_vote_teamgen_team_requiredVotes.integer ? g_vote_teamgen_team_requiredVotes.integer : 5;
-		if (numYesVotes >= numRequired)
-			++numPermutationsWithEnoughVotesToPass;
+		if (g_vote_teamgen_require2VotesOnEachTeam.integer) {
+			if (numYesVotesRed + numYesVotesBlue >= numRequired && numYesVotesRed >= 2 && numYesVotesBlue >= 2)
+				++numPermutationsWithEnoughVotesToPass;
+		}
+		else {
+			if (numYesVotesRed + numYesVotesBlue >= numRequired)
+				++numPermutationsWithEnoughVotesToPass;
+		}
 	}
 
 	int tiebreakerOrder[] = { TEAMGENERATORTYPE_MOSTPLAYED, TEAMGENERATORTYPE_HIGHESTRATING, TEAMGENERATORTYPE_FAIREST, TEAMGENERATORTYPE_INCLUSIVE, TEAMGENERATORTYPE_DESIREDPOS, TEAMGENERATORTYPE_SEMIDESIREDPOS };
@@ -4207,29 +4294,77 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 	for (int i = 0; i < NUM_TEAMGENERATORTYPES; i++) {
 		int j = tiebreakerOrder[i];
 		char letter;
-		int *votesInt;
+		int *votesIntRed, *votesIntBlue;
 		permutationOfTeams_t *permutation;
 		switch (j) {
-		case TEAMGENERATORTYPE_MOSTPLAYED: permutation = &level.activePugProposal->suggested; votesInt = &level.activePugProposal->suggestedVoteClients; letter = level.activePugProposal->suggestedLetter; break;
-		case TEAMGENERATORTYPE_HIGHESTRATING: permutation = &level.activePugProposal->highestCaliber; votesInt = &level.activePugProposal->highestCaliberVoteClients; letter = level.activePugProposal->highestCaliberLetter; break;
-		case TEAMGENERATORTYPE_FAIREST: permutation = &level.activePugProposal->fairest; votesInt = &level.activePugProposal->fairestVoteClients; letter = level.activePugProposal->fairestLetter; break;
-		case TEAMGENERATORTYPE_INCLUSIVE: permutation = &level.activePugProposal->inclusive; votesInt = &level.activePugProposal->inclusiveVoteClients; letter = level.activePugProposal->inclusiveLetter; break;
-		case TEAMGENERATORTYPE_DESIREDPOS: permutation = &level.activePugProposal->desired; votesInt = &level.activePugProposal->desiredVoteClients; letter = level.activePugProposal->desiredLetter; break;
-		case TEAMGENERATORTYPE_SEMIDESIREDPOS: permutation = &level.activePugProposal->semiDesired; votesInt = &level.activePugProposal->semiDesiredVoteClients; letter = level.activePugProposal->semiDesiredLetter; break;
+		case TEAMGENERATORTYPE_MOSTPLAYED:
+			permutation = &level.activePugProposal->suggested;
+			votesIntRed = &level.activePugProposal->suggestedVoteClientsRed;
+			votesIntBlue = &level.activePugProposal->suggestedVoteClientsBlue;
+			letter = level.activePugProposal->suggestedLetter;
+			break;
+
+		case TEAMGENERATORTYPE_HIGHESTRATING:
+			permutation = &level.activePugProposal->highestCaliber;
+			votesIntRed = &level.activePugProposal->highestCaliberVoteClientsRed;
+			votesIntBlue = &level.activePugProposal->highestCaliberVoteClientsBlue;
+			letter = level.activePugProposal->highestCaliberLetter;
+			break;
+
+		case TEAMGENERATORTYPE_FAIREST:
+			permutation = &level.activePugProposal->fairest;
+			votesIntRed = &level.activePugProposal->fairestVoteClientsRed;
+			votesIntBlue = &level.activePugProposal->fairestVoteClientsBlue;
+			letter = level.activePugProposal->fairestLetter;
+			break;
+
+		case TEAMGENERATORTYPE_INCLUSIVE:
+			permutation = &level.activePugProposal->inclusive;
+			votesIntRed = &level.activePugProposal->inclusiveVoteClientsRed;
+			votesIntBlue = &level.activePugProposal->inclusiveVoteClientsBlue;
+			letter = level.activePugProposal->inclusiveLetter;
+			break;
+
+		case TEAMGENERATORTYPE_DESIREDPOS:
+			permutation = &level.activePugProposal->desired;
+			votesIntRed = &level.activePugProposal->desiredVoteClientsRed;
+			votesIntBlue = &level.activePugProposal->desiredVoteClientsBlue;
+			letter = level.activePugProposal->desiredLetter;
+			break;
+
+		case TEAMGENERATORTYPE_SEMIDESIREDPOS:
+			permutation = &level.activePugProposal->semiDesired;
+			votesIntRed = &level.activePugProposal->semiDesiredVoteClientsRed;
+			votesIntBlue = &level.activePugProposal->semiDesiredVoteClientsBlue;
+			letter = level.activePugProposal->semiDesiredLetter;
+			break;
+
+		default: assert(qfalse); break;
 		}
 
 		if (!permutation->valid)
 			continue;
 
-		int numYesVotes = 0;
+		int numYesVotesRed = 0, numYesVotesBlue = 0;
 		for (int j = 0; j < MAX_CLIENTS; j++) {
-			if (*votesInt & (1 << j))
-				++numYesVotes;
+			if (*votesIntRed & (1 << j))
+				++numYesVotesRed;
+			else if (*votesIntBlue & (1 << j))
+				++numYesVotesBlue;
 		}
 
 		const int numRequired = g_vote_teamgen_team_requiredVotes.integer ? g_vote_teamgen_team_requiredVotes.integer : 5;
+		qboolean thisOnePasses = qfalse;
+		if (g_vote_teamgen_require2VotesOnEachTeam.integer) {
+			if (numYesVotesRed + numYesVotesBlue >= numRequired && numYesVotesRed >= 2 && numYesVotesBlue >= 2)
+				thisOnePasses = qtrue;
+		}
+		else {
+			if (numYesVotesRed + numYesVotesBlue >= numRequired)
+				thisOnePasses = qtrue;
+		}
 
-		if (numYesVotes >= numRequired) {
+		if (thisOnePasses) {
 			if (numPermutationsWithEnoughVotesToPass > 1)
 				TeamGenerator_QueueServerMessageInChat(-1, va("Teams proposal %c passed by random tiebreaker.", letter));
 			else
@@ -4291,30 +4426,36 @@ qboolean TeamGenerator_UnvoteForTeamPermutations(gentity_t *ent, const char *vot
 	char newNoVotes[NUM_TEAMGENERATORTYPES] = { 0 };
 	for (const char *p = voteStr; *p && p - voteStr < 4; p++) {
 		const char lower = tolower((unsigned)*p);
-		int *votesInt;
+		int *votesIntRed, *votesIntBlue;
 		permutationOfTeams_t *permutation;
 		if (level.activePugProposal->suggested.valid && level.activePugProposal->suggestedLetter == lower) {
-			votesInt = &level.activePugProposal->suggestedVoteClients;
+			votesIntRed = &level.activePugProposal->suggestedVoteClientsRed;
+			votesIntBlue = &level.activePugProposal->suggestedVoteClientsBlue;
 			permutation = &level.activePugProposal->suggested;
 		}
 		else if (level.activePugProposal->highestCaliber.valid && level.activePugProposal->highestCaliberLetter == lower) {
-			votesInt = &level.activePugProposal->highestCaliberVoteClients;
+			votesIntRed = &level.activePugProposal->highestCaliberVoteClientsRed;
+			votesIntBlue = &level.activePugProposal->highestCaliberVoteClientsBlue;
 			permutation = &level.activePugProposal->highestCaliber;
 		}
 		else if (level.activePugProposal->fairest.valid && level.activePugProposal->fairestLetter == lower) {
-			votesInt = &level.activePugProposal->fairestVoteClients;
+			votesIntRed = &level.activePugProposal->fairestVoteClientsRed;
+			votesIntBlue = &level.activePugProposal->fairestVoteClientsBlue;
 			permutation = &level.activePugProposal->fairest;
 		}
 		else if (level.activePugProposal->inclusive.valid && level.activePugProposal->inclusiveLetter == lower) {
-			votesInt = &level.activePugProposal->inclusiveVoteClients;
+			votesIntRed = &level.activePugProposal->inclusiveVoteClientsRed;
+			votesIntBlue = &level.activePugProposal->inclusiveVoteClientsBlue;
 			permutation = &level.activePugProposal->inclusive;
 		}
 		else if (level.activePugProposal->desired.valid && level.activePugProposal->desiredLetter == lower) {
-			votesInt = &level.activePugProposal->desiredVoteClients;
+			votesIntRed = &level.activePugProposal->desiredVoteClientsRed;
+			votesIntBlue = &level.activePugProposal->desiredVoteClientsBlue;
 			permutation = &level.activePugProposal->desired;
 		}
 		else if (level.activePugProposal->semiDesired.valid && level.activePugProposal->semiDesiredLetter == lower) {
-			votesInt = &level.activePugProposal->semiDesiredVoteClients;
+			votesIntRed = &level.activePugProposal->semiDesiredVoteClientsRed;
+			votesIntBlue = &level.activePugProposal->semiDesiredVoteClientsBlue;
 			permutation = &level.activePugProposal->semiDesired;
 		}
 		else {
@@ -4334,7 +4475,7 @@ qboolean TeamGenerator_UnvoteForTeamPermutations(gentity_t *ent, const char *vot
 				continue;
 			if (other->client->account->id != ent->client->account->id)
 				continue;
-			if (*votesInt & (1 << other - g_entities))
+			if (*votesIntRed & (1 << other - g_entities) || *votesIntBlue & (1 << other - g_entities))
 				clientsIVotedYesOn |= (1 << i);
 		}
 
@@ -4362,8 +4503,10 @@ qboolean TeamGenerator_UnvoteForTeamPermutations(gentity_t *ent, const char *vot
 				continue;
 			if (other->client->account->id != ent->client->account->id)
 				continue;
-			if (*votesInt & (1 << other - g_entities))
-				*votesInt &= ~(1 << i);
+			if (*votesIntRed & (1 << other - g_entities))
+				*votesIntRed &= ~(1 << i);
+			/*else*/ if (*votesIntBlue & (1 << other - g_entities))
+				*votesIntBlue &= ~(1 << i);
 		}
 
 		Q_strcat(newNoVotes, sizeof(newNoVotes), va("%c", lower));
@@ -4395,24 +4538,63 @@ qboolean TeamGenerator_UnvoteForTeamPermutations(gentity_t *ent, const char *vot
 		Com_sprintf(buf, sizeof(buf), "%c%s  ", TEAMGEN_CHAT_COMMAND_CHARACTER, completeVoteStr);
 		for (int i = 0; i < NUM_TEAMGENERATORTYPES; i++) {
 			char letter;
-			int *votesInt;
+			int *votesIntRed, *votesIntBlue;
 			permutationOfTeams_t *permutation;
 			switch (i) {
-			case TEAMGENERATORTYPE_MOSTPLAYED: permutation = &level.activePugProposal->suggested; votesInt = &level.activePugProposal->suggestedVoteClients; letter = level.activePugProposal->suggestedLetter; break;
-			case TEAMGENERATORTYPE_HIGHESTRATING: permutation = &level.activePugProposal->highestCaliber; votesInt = &level.activePugProposal->highestCaliberVoteClients; letter = level.activePugProposal->highestCaliberLetter; break;
-			case TEAMGENERATORTYPE_FAIREST: permutation = &level.activePugProposal->fairest; votesInt = &level.activePugProposal->fairestVoteClients; letter = level.activePugProposal->fairestLetter; break;
-			case TEAMGENERATORTYPE_INCLUSIVE: permutation = &level.activePugProposal->inclusive; votesInt = &level.activePugProposal->inclusiveVoteClients; letter = level.activePugProposal->inclusiveLetter; break;
-			case TEAMGENERATORTYPE_DESIREDPOS: permutation = &level.activePugProposal->desired; votesInt = &level.activePugProposal->desiredVoteClients; letter = level.activePugProposal->desiredLetter; break;
-			case TEAMGENERATORTYPE_SEMIDESIREDPOS: permutation = &level.activePugProposal->semiDesired; votesInt = &level.activePugProposal->semiDesiredVoteClients; letter = level.activePugProposal->semiDesiredLetter; break;
+			case TEAMGENERATORTYPE_MOSTPLAYED:
+				permutation = &level.activePugProposal->suggested;
+				votesIntRed = &level.activePugProposal->suggestedVoteClientsRed;
+				votesIntBlue = &level.activePugProposal->suggestedVoteClientsBlue;
+				letter = level.activePugProposal->suggestedLetter;
+				break;
+
+			case TEAMGENERATORTYPE_HIGHESTRATING:
+				permutation = &level.activePugProposal->highestCaliber;
+				votesIntRed = &level.activePugProposal->highestCaliberVoteClientsRed;
+				votesIntBlue = &level.activePugProposal->highestCaliberVoteClientsBlue;
+				letter = level.activePugProposal->highestCaliberLetter;
+				break;
+
+			case TEAMGENERATORTYPE_FAIREST:
+				permutation = &level.activePugProposal->fairest;
+				votesIntRed = &level.activePugProposal->fairestVoteClientsRed;
+				votesIntBlue = &level.activePugProposal->fairestVoteClientsBlue;
+				letter = level.activePugProposal->fairestLetter;
+				break;
+
+			case TEAMGENERATORTYPE_INCLUSIVE:
+				permutation = &level.activePugProposal->inclusive;
+				votesIntRed = &level.activePugProposal->inclusiveVoteClientsRed;
+				votesIntBlue = &level.activePugProposal->inclusiveVoteClientsBlue;
+				letter = level.activePugProposal->inclusiveLetter;
+				break;
+
+			case TEAMGENERATORTYPE_DESIREDPOS:
+				permutation = &level.activePugProposal->desired;
+				votesIntRed = &level.activePugProposal->desiredVoteClientsRed;
+				votesIntBlue = &level.activePugProposal->desiredVoteClientsBlue;
+				letter = level.activePugProposal->desiredLetter;
+				break;
+
+			case TEAMGENERATORTYPE_SEMIDESIREDPOS:
+				permutation = &level.activePugProposal->semiDesired;
+				votesIntRed = &level.activePugProposal->semiDesiredVoteClientsRed;
+				votesIntBlue = &level.activePugProposal->semiDesiredVoteClientsBlue;
+				letter = level.activePugProposal->semiDesiredLetter;
+				break;
+
+			default: assert(qfalse); break;
 			}
 
 			if (!permutation->valid)
 				continue;
 
-			int numYesVotes = 0;
+			int numYesVotesRed = 0, numYesVotesBlue = 0;
 			for (int j = 0; j < MAX_CLIENTS; j++) {
-				if (*votesInt & (1 << j))
-					++numYesVotes;
+				if (*votesIntRed & (1 << j))
+					++numYesVotesRed;
+				else if (*votesIntBlue & (1 << j))
+					++numYesVotesBlue;
 			}
 
 			// color white if they unvoted for it just now
@@ -4421,36 +4603,75 @@ qboolean TeamGenerator_UnvoteForTeamPermutations(gentity_t *ent, const char *vot
 				color = '7';
 
 			const int numRequired = g_vote_teamgen_team_requiredVotes.integer ? g_vote_teamgen_team_requiredVotes.integer : 5;
-			Q_strcat(buf, sizeof(buf), va(" ^%c(%c: %d/%d)", color, letter, numYesVotes, numRequired));
+			Q_strcat(buf, sizeof(buf), va(" ^%c(%c: %d/%d)", color, letter, numYesVotesRed + numYesVotesBlue, numRequired));
 		}
 		*newMessage = buf;
 	}
 
 	int numPermutationsWithEnoughVotesToPass = 0;
 	for (int i = 0; i < NUM_TEAMGENERATORTYPES; i++) {
-		int *votesInt;
+		int *votesIntRed, *votesIntBlue;
 		permutationOfTeams_t *permutation;
 		switch (i) {
-		case TEAMGENERATORTYPE_MOSTPLAYED: permutation = &level.activePugProposal->suggested; votesInt = &level.activePugProposal->suggestedVoteClients; break;
-		case TEAMGENERATORTYPE_HIGHESTRATING: permutation = &level.activePugProposal->highestCaliber; votesInt = &level.activePugProposal->highestCaliberVoteClients; break;
-		case TEAMGENERATORTYPE_FAIREST: permutation = &level.activePugProposal->fairest; votesInt = &level.activePugProposal->fairestVoteClients; break;
-		case TEAMGENERATORTYPE_INCLUSIVE: permutation = &level.activePugProposal->inclusive; votesInt = &level.activePugProposal->inclusiveVoteClients; break;
-		case TEAMGENERATORTYPE_DESIREDPOS: permutation = &level.activePugProposal->desired; votesInt = &level.activePugProposal->desiredVoteClients; break;
-		case TEAMGENERATORTYPE_SEMIDESIREDPOS: permutation = &level.activePugProposal->semiDesired; votesInt = &level.activePugProposal->semiDesiredVoteClients; break;
+		case TEAMGENERATORTYPE_MOSTPLAYED:
+			permutation = &level.activePugProposal->suggested;
+			votesIntRed = &level.activePugProposal->suggestedVoteClientsRed;
+			votesIntBlue = &level.activePugProposal->suggestedVoteClientsBlue;
+			break;
+
+		case TEAMGENERATORTYPE_HIGHESTRATING:
+			permutation = &level.activePugProposal->highestCaliber;
+			votesIntRed = &level.activePugProposal->highestCaliberVoteClientsRed;
+			votesIntBlue = &level.activePugProposal->highestCaliberVoteClientsBlue;
+			break;
+
+		case TEAMGENERATORTYPE_FAIREST:
+			permutation = &level.activePugProposal->fairest;
+			votesIntRed = &level.activePugProposal->fairestVoteClientsRed;
+			votesIntBlue = &level.activePugProposal->fairestVoteClientsBlue;
+			break;
+
+		case TEAMGENERATORTYPE_INCLUSIVE:
+			permutation = &level.activePugProposal->inclusive;
+			votesIntRed = &level.activePugProposal->inclusiveVoteClientsRed;
+			votesIntBlue = &level.activePugProposal->inclusiveVoteClientsBlue;
+			break;
+
+		case TEAMGENERATORTYPE_DESIREDPOS:
+			permutation = &level.activePugProposal->desired;
+			votesIntRed = &level.activePugProposal->desiredVoteClientsRed;
+			votesIntBlue = &level.activePugProposal->desiredVoteClientsBlue;
+			break;
+
+		case TEAMGENERATORTYPE_SEMIDESIREDPOS:
+			permutation = &level.activePugProposal->semiDesired;
+			votesIntRed = &level.activePugProposal->semiDesiredVoteClientsRed;
+			votesIntBlue = &level.activePugProposal->semiDesiredVoteClientsBlue;
+			break;
+
+		default: assert(qfalse); break;
 		}
 
 		if (!permutation->valid)
 			continue;
 
-		int numYesVotes = 0;
+		int numYesVotesRed = 0, numYesVotesBlue = 0;
 		for (int j = 0; j < MAX_CLIENTS; j++) {
-			if (*votesInt & (1 << j))
-				++numYesVotes;
+			if (*votesIntRed & (1 << j))
+				++numYesVotesRed;
+			else if (*votesIntBlue & (1 << j))
+				++numYesVotesBlue;
 		}
 
 		const int numRequired = g_vote_teamgen_team_requiredVotes.integer ? g_vote_teamgen_team_requiredVotes.integer : 5;
-		if (numYesVotes >= numRequired)
-			++numPermutationsWithEnoughVotesToPass;
+		if (g_vote_teamgen_require2VotesOnEachTeam.integer) {
+			if (numYesVotesRed + numYesVotesBlue >= numRequired && numYesVotesRed >= 2 && numYesVotesBlue >= 2)
+				++numPermutationsWithEnoughVotesToPass;
+		}
+		else {
+			if (numYesVotesRed + numYesVotesBlue >= numRequired)
+				++numPermutationsWithEnoughVotesToPass;
+		}
 	}
 
 	int tiebreakerOrder[] = { TEAMGENERATORTYPE_MOSTPLAYED, TEAMGENERATORTYPE_HIGHESTRATING, TEAMGENERATORTYPE_FAIREST, TEAMGENERATORTYPE_INCLUSIVE, TEAMGENERATORTYPE_DESIREDPOS, TEAMGENERATORTYPE_SEMIDESIREDPOS };
@@ -4461,29 +4682,77 @@ qboolean TeamGenerator_UnvoteForTeamPermutations(gentity_t *ent, const char *vot
 	for (int i = 0; i < NUM_TEAMGENERATORTYPES; i++) {
 		int j = tiebreakerOrder[i];
 		char letter;
-		int *votesInt;
+		int *votesIntRed, *votesIntBlue;
 		permutationOfTeams_t *permutation;
 		switch (j) {
-		case TEAMGENERATORTYPE_MOSTPLAYED: permutation = &level.activePugProposal->suggested; votesInt = &level.activePugProposal->suggestedVoteClients; letter = level.activePugProposal->suggestedLetter; break;
-		case TEAMGENERATORTYPE_HIGHESTRATING: permutation = &level.activePugProposal->highestCaliber; votesInt = &level.activePugProposal->highestCaliberVoteClients; letter = level.activePugProposal->highestCaliberLetter; break;
-		case TEAMGENERATORTYPE_FAIREST: permutation = &level.activePugProposal->fairest; votesInt = &level.activePugProposal->fairestVoteClients; letter = level.activePugProposal->fairestLetter; break;
-		case TEAMGENERATORTYPE_INCLUSIVE: permutation = &level.activePugProposal->inclusive; votesInt = &level.activePugProposal->inclusiveVoteClients; letter = level.activePugProposal->inclusiveLetter; break;
-		case TEAMGENERATORTYPE_DESIREDPOS: permutation = &level.activePugProposal->desired; votesInt = &level.activePugProposal->desiredVoteClients; letter = level.activePugProposal->desiredLetter; break;
-		case TEAMGENERATORTYPE_SEMIDESIREDPOS: permutation = &level.activePugProposal->semiDesired; votesInt = &level.activePugProposal->semiDesiredVoteClients; letter = level.activePugProposal->semiDesiredLetter; break;
+		case TEAMGENERATORTYPE_MOSTPLAYED:
+			permutation = &level.activePugProposal->suggested;
+			votesIntRed = &level.activePugProposal->suggestedVoteClientsRed;
+			votesIntBlue = &level.activePugProposal->suggestedVoteClientsBlue;
+			letter = level.activePugProposal->suggestedLetter;
+			break;
+
+		case TEAMGENERATORTYPE_HIGHESTRATING:
+			permutation = &level.activePugProposal->highestCaliber;
+			votesIntRed = &level.activePugProposal->highestCaliberVoteClientsRed;
+			votesIntBlue = &level.activePugProposal->highestCaliberVoteClientsBlue;
+			letter = level.activePugProposal->highestCaliberLetter;
+			break;
+
+		case TEAMGENERATORTYPE_FAIREST:
+			permutation = &level.activePugProposal->fairest;
+			votesIntRed = &level.activePugProposal->fairestVoteClientsRed;
+			votesIntBlue = &level.activePugProposal->fairestVoteClientsBlue;
+			letter = level.activePugProposal->fairestLetter;
+			break;
+
+		case TEAMGENERATORTYPE_INCLUSIVE:
+			permutation = &level.activePugProposal->inclusive;
+			votesIntRed = &level.activePugProposal->inclusiveVoteClientsRed;
+			votesIntBlue = &level.activePugProposal->inclusiveVoteClientsBlue;
+			letter = level.activePugProposal->inclusiveLetter;
+			break;
+
+		case TEAMGENERATORTYPE_DESIREDPOS:
+			permutation = &level.activePugProposal->desired;
+			votesIntRed = &level.activePugProposal->desiredVoteClientsRed;
+			votesIntBlue = &level.activePugProposal->desiredVoteClientsBlue;
+			letter = level.activePugProposal->desiredLetter;
+			break;
+
+		case TEAMGENERATORTYPE_SEMIDESIREDPOS:
+			permutation = &level.activePugProposal->semiDesired;
+			votesIntRed = &level.activePugProposal->semiDesiredVoteClientsRed;
+			votesIntBlue = &level.activePugProposal->semiDesiredVoteClientsBlue;
+			letter = level.activePugProposal->semiDesiredLetter;
+			break;
+
+		default: assert(qfalse); break;
 		}
 
 		if (!permutation->valid)
 			continue;
 
-		int numYesVotes = 0;
+		int numYesVotesRed = 0, numYesVotesBlue = 0;
 		for (int j = 0; j < MAX_CLIENTS; j++) {
-			if (*votesInt & (1 << j))
-				++numYesVotes;
+			if (*votesIntRed & (1 << j))
+				++numYesVotesRed;
+			else if (*votesIntBlue & (1 << j))
+				++numYesVotesBlue;
 		}
 
 		const int numRequired = g_vote_teamgen_team_requiredVotes.integer ? g_vote_teamgen_team_requiredVotes.integer : 5;
+		qboolean thisOnePasses = qfalse;
+		if (g_vote_teamgen_require2VotesOnEachTeam.integer) {
+			if (numYesVotesRed + numYesVotesBlue >= numRequired && numYesVotesRed >= 2 && numYesVotesBlue >= 2)
+				thisOnePasses = qtrue;
+		}
+		else {
+			if (numYesVotesRed + numYesVotesBlue >= numRequired)
+				thisOnePasses = qtrue;
+		}
 
-		if (numYesVotes >= numRequired) {
+		if (thisOnePasses) {
 			if (numPermutationsWithEnoughVotesToPass > 1)
 				TeamGenerator_QueueServerMessageInChat(-1, va("Teams proposal %c passed by random tiebreaker.", letter));
 			else
@@ -5109,7 +5378,15 @@ void TeamGenerator_DoReroll(qboolean forcedByServer) {
 	if (bestSeed) {
 		//TeamGen_DebugPrintf("Reroll: setting teamGenSeed to bestSeed %u\n", bestSeed);
 		teamGenSeed = bestSeed;
-		level.activePugProposal->suggestedVoteClients = level.activePugProposal->highestCaliberVoteClients = level.activePugProposal->fairestVoteClients = level.activePugProposal->desiredVoteClients = 0;
+		level.activePugProposal->suggestedVoteClientsRed =
+			level.activePugProposal->suggestedVoteClientsBlue =
+			level.activePugProposal->highestCaliberVoteClientsRed =
+			level.activePugProposal->highestCaliberVoteClientsBlue =
+			level.activePugProposal->fairestVoteClientsRed =
+			level.activePugProposal->fairestVoteClientsBlue =
+			level.activePugProposal->desiredVoteClientsRed =
+			level.activePugProposal->desiredVoteClientsBlue = 0;
+
 		TeamGenerator_QueueServerMessageInChat(-1, va("Pug proposal %d rerolled%s (%s). Check console for new teams proposals.", level.activePugProposal->num, forcedByServer ? " by server" : "", level.activePugProposal->namesStr));
 		PrintTeamsProposalsInConsole(level.activePugProposal);
 	}

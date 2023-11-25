@@ -524,6 +524,7 @@ vmCvar_t	g_vote_teamgen_barVoteStartsNewPug;
 vmCvar_t	g_vote_teamgen_unvote;
 vmCvar_t	g_vote_teamgen_fuck;
 vmCvar_t	g_vote_teamgen_new8PlayerAlgo;
+vmCvar_t	g_vote_teamgen_require2VotesOnEachTeam;
 
 vmCvar_t	g_filterSlurs;
 
@@ -1072,6 +1073,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_teamgen_unvote, "g_vote_teamgen_unvote", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_fuck, "g_vote_teamgen_fuck", "10", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_new8PlayerAlgo, "g_vote_teamgen_new8PlayerAlgo", "1", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_teamgen_require2VotesOnEachTeam, "g_vote_teamgen_require2VotesOnEachTeam", "1", CVAR_ARCHIVE, 0, qfalse },
 
 	{ &g_filterSlurs, "g_filterSlurs", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
 

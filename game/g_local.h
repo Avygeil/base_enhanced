@@ -1304,7 +1304,8 @@ typedef struct {
 	uint64_t		numValidPermutationsChecked;
 	char			namesStr[1024];
 	char			suggestedLetter, highestCaliberLetter, fairestLetter, desiredLetter, inclusiveLetter, semiDesiredLetter;
-	int				suggestedVoteClients, highestCaliberVoteClients, fairestVoteClients, desiredVoteClients, inclusiveVoteClients, semiDesiredVoteClients;
+	int				suggestedVoteClientsRed, highestCaliberVoteClientsRed, fairestVoteClientsRed, desiredVoteClientsRed, inclusiveVoteClientsRed, semiDesiredVoteClientsRed;
+	int				suggestedVoteClientsBlue, highestCaliberVoteClientsBlue, fairestVoteClientsBlue, desiredVoteClientsBlue, inclusiveVoteClientsBlue, semiDesiredVoteClientsBlue;
 	list_t			avoidedHashesList;
 } pugProposal_t;
 
@@ -3399,6 +3400,7 @@ extern vmCvar_t		g_vote_teamgen_barVoteStartsNewPug;
 extern vmCvar_t		g_vote_teamgen_unvote;
 extern vmCvar_t		g_vote_teamgen_fuck;
 extern vmCvar_t		g_vote_teamgen_new8PlayerAlgo;
+extern vmCvar_t		g_vote_teamgen_require2VotesOnEachTeam;
 
 extern vmCvar_t		g_filterSlurs;
 

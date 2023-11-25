@@ -5210,16 +5210,27 @@ void ClientDisconnect( int clientNum ) {
 		}
 
 		if (level.activePugProposal) {
-			if (level.activePugProposal->suggested.valid && level.activePugProposal->suggestedVoteClients & (1 << clientNum))
-				level.activePugProposal->suggestedVoteClients &= ~(1 << clientNum);
-			if (level.activePugProposal->highestCaliber.valid && level.activePugProposal->highestCaliberVoteClients & (1 << clientNum))
-				level.activePugProposal->highestCaliberVoteClients &= ~(1 << clientNum);
-			if (level.activePugProposal->fairest.valid && level.activePugProposal->fairestVoteClients & (1 << clientNum))
-				level.activePugProposal->fairestVoteClients &= ~(1 << clientNum);
-			if (level.activePugProposal->desired.valid && level.activePugProposal->desiredVoteClients & (1 << clientNum))
-				level.activePugProposal->desiredVoteClients &= ~(1 << clientNum);
-			if (level.activePugProposal->inclusive.valid && level.activePugProposal->inclusiveVoteClients & (1 << clientNum))
-				level.activePugProposal->inclusiveVoteClients &= ~(1 << clientNum);
+			if (level.activePugProposal->suggested.valid && level.activePugProposal->suggestedVoteClientsRed & (1 << clientNum))
+				level.activePugProposal->suggestedVoteClientsRed &= ~(1 << clientNum);
+			if (level.activePugProposal->highestCaliber.valid && level.activePugProposal->highestCaliberVoteClientsRed & (1 << clientNum))
+				level.activePugProposal->highestCaliberVoteClientsRed &= ~(1 << clientNum);
+			if (level.activePugProposal->fairest.valid && level.activePugProposal->fairestVoteClientsRed & (1 << clientNum))
+				level.activePugProposal->fairestVoteClientsRed &= ~(1 << clientNum);
+			if (level.activePugProposal->desired.valid && level.activePugProposal->desiredVoteClientsRed & (1 << clientNum))
+				level.activePugProposal->desiredVoteClientsRed &= ~(1 << clientNum);
+			if (level.activePugProposal->inclusive.valid && level.activePugProposal->inclusiveVoteClientsRed & (1 << clientNum))
+				level.activePugProposal->inclusiveVoteClientsRed &= ~(1 << clientNum);
+
+			if (level.activePugProposal->suggested.valid && level.activePugProposal->suggestedVoteClientsBlue & (1 << clientNum))
+				level.activePugProposal->suggestedVoteClientsBlue &= ~(1 << clientNum);
+			if (level.activePugProposal->highestCaliber.valid && level.activePugProposal->highestCaliberVoteClientsBlue & (1 << clientNum))
+				level.activePugProposal->highestCaliberVoteClientsBlue &= ~(1 << clientNum);
+			if (level.activePugProposal->fairest.valid && level.activePugProposal->fairestVoteClientsBlue & (1 << clientNum))
+				level.activePugProposal->fairestVoteClientsBlue &= ~(1 << clientNum);
+			if (level.activePugProposal->desired.valid && level.activePugProposal->desiredVoteClientsBlue & (1 << clientNum))
+				level.activePugProposal->desiredVoteClientsBlue &= ~(1 << clientNum);
+			if (level.activePugProposal->inclusive.valid && level.activePugProposal->inclusiveVoteClientsBlue & (1 << clientNum))
+				level.activePugProposal->inclusiveVoteClientsBlue &= ~(1 << clientNum);
 
 			qboolean partOfActiveProposal = qfalse;
 			for (int i = 0; i < MAX_CLIENTS; i++) {
