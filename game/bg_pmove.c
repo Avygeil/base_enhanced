@@ -1795,7 +1795,7 @@ static qboolean PM_CheckJump( void )
 		}
 	}
 
-	if (pm->ps->groundEntityNum != ENTITYNUM_NONE || pm->ps->origin[2] < pm->ps->fd.forceJumpZStart)
+	if (pm->ps->groundEntityNum != ENTITYNUM_NONE || pm->ps->origin[2] < pm->ps->fd.forceJumpZStart || (!pm->ps->fd.forceJumpZStart && g_fixWallgrab.integer))
 	{
 		pm->ps->fd.forcePowersActive &= ~(1<<FP_LEVITATION);
 	}
@@ -2492,7 +2492,7 @@ static qboolean PM_CheckJump( void )
 					&& pm->ps->fd.forcePowerLevel[FP_LEVITATION] > FORCE_LEVEL_2//level 3 jump or better
 					//&& WP_ForcePowerAvailable( pm->gent, FP_LEVITATION, 10 )//have enough force power to do another one
 					&& BG_CanUseFPNow(pm->gametype, pm->ps, pm->cmd.serverTime, FP_LEVITATION)
-					&& (pm->ps->origin[2]-pm->ps->fd.forceJumpZStart) < (forceJumpHeightMax[FORCE_LEVEL_3]-(BG_ForceWallJumpStrength()/2.0f)) //can fit at least one more wall jump in (yes, using "magic numbers"... for now)
+					&& ((!pm->ps->fd.forceJumpZStart && g_fixWallgrab.integer) || (pm->ps->origin[2]-pm->ps->fd.forceJumpZStart) < (forceJumpHeightMax[FORCE_LEVEL_3]-(BG_ForceWallJumpStrength()/2.0f))) //can fit at least one more wall jump in (yes, using "magic numbers"... for now)
 					//&& (pm->ps->legsAnim == BOTH_JUMP1 || pm->ps->legsAnim == BOTH_INAIR1 ) )//not in a flip or spin or anything
 					)
 			{//see if we're pushing at a wall and jump off it if so
