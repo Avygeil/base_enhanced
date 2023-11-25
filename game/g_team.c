@@ -1442,12 +1442,13 @@ int SortSpotsByDistanceClosestToPlayer(const void *a, const void *b) {
 	return 0;
 }
 
+#define DEFAULT_SPAWNBOOST_MULTIPLIER	(0.333f)
 static float GetFcSpawnBoostMultiplier(gentity_t *ent) {
 	float defaultValue;
 	if (g_spawnboost_default.string[0] && Q_isanumber(g_spawnboost_default.string))
 		defaultValue = g_spawnboost_default.value;
 	else
-		defaultValue = 0.333f;
+		defaultValue = DEFAULT_SPAWNBOOST_MULTIPLIER;
 
 	if (!ent || !ent->client)
 		return defaultValue;
@@ -1477,7 +1478,8 @@ static float GetFcSpawnBoostMultiplier(gentity_t *ent) {
 
 #define SQRT2 (1.4142135623730951)
 
-#define SPAWNFCBOOST_IDEAL_XYDISTANCE				(g_spawnboost_losIdealDistance.integer)		// ideal xy distance we'd like to spawn from the fc
+#define SPAWNFCBOOST_NERFEDMAP_IDEAL_XYADD			(200)		// if we're on a map where the g_spawnboost_[mapname] cvar is set, add this much to the ideal xy distance (i.e., we try to spawn farther from the fc on maps like dosuun)
+#define SPAWNFCBOOST_IDEAL_XYDISTANCE				(g_spawnboost_losIdealDistance.integer + (isNerfedMap ? SPAWNFCBOOST_NERFEDMAP_IDEAL_XYADD : 0))		// ideal xy distance we'd like to spawn from the fc
 #define SPAWNFCBOOST_VELOCITY_COEFFICIENT			(0.25f)		// how much to scale fc's velocity by when evaluating his position (if he's moving quickly)
 #define SPAWNFCBOOST_LOS_Z_ADD						(16)		// slight z-axis boost from the actual point we should use as a reference point for line of sight to fc
 #define SPAWNFCBOOST_GRID_INCREMENT					(256)		// how many units away from a weapon/ammo/health we'd like to evaluate for potentially spawning
@@ -1643,6 +1645,13 @@ static gentity_t *GetSpawnFcBoostLocation(gentity_t *fc) {
 	if (!fc || !fc->client) {
 		assert(qfalse);
 		return NULL;
+	}
+
+	qboolean isNerfedMap = qfalse;
+	{
+		float multiplier = GetFcSpawnBoostMultiplier(fc);
+		if (multiplier > DEFAULT_SPAWNBOOST_MULTIPLIER + 0.0001f)
+			isNerfedMap = qtrue;
 	}
 
 	// if fc is moving quickly, try to trace to where the fc will be shortly instead of where the fc is right now
