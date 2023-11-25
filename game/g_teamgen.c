@@ -2021,11 +2021,16 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 	}
 
 	// try to get the best possible teams using a few different approaches
-	qboolean gotValid = qfalse;
+#define MAX_TEAMGENERATORTYPES_PER_SET	(4)
+	int numValid = 0;
 	uint64_t gotten = 0llu;
 	list_t listOfAvoidedHashesPlusHashesGottenOnThisGeneration = { 0 };
 	ListCopy(&set->avoidedHashesList, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, sizeof(avoidedHash_t));
 	for (int type = TEAMGENERATORTYPE_FIRST; type < NUM_TEAMGENERATORTYPES; type++) {
+		if (numValid >= MAX_TEAMGENERATORTYPES_PER_SET) {
+			TeamGen_DebugPrintf("<font color=red>==========Breaking rather than trying type %d because we've already reached %d valid types</font><br/>", type, MAX_TEAMGENERATORTYPES_PER_SET);
+			break;
+		}
 
 		// we only do the desired pass if and only if it's enabled and there isn't an a/b/c option with nobody on avoided pos
 		if (type == TEAMGENERATORTYPE_DESIREDPOS) {
@@ -2651,23 +2656,48 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 		NormalizePermutationOfTeams(thisPermutation);
 		thisPermutation->hash = HashPermutationOfTeams(thisPermutation);
 
-		switch (type) {
-		case TEAMGENERATORTYPE_MOSTPLAYED:
-			if (mostPlayed) memcpy(mostPlayed, thisPermutation, sizeof(permutationOfTeams_t)); break;
-		case TEAMGENERATORTYPE_HIGHESTRATING:
-			if (highestCaliber) memcpy(highestCaliber, thisPermutation, sizeof(permutationOfTeams_t)); break;
-		case TEAMGENERATORTYPE_FAIREST:
-			if (fairest) memcpy(fairest, thisPermutation, sizeof(permutationOfTeams_t)); break;
-		case TEAMGENERATORTYPE_INCLUSIVE:
-			if (inclusive) memcpy(inclusive, thisPermutation, sizeof(permutationOfTeams_t)); break;
-		case TEAMGENERATORTYPE_DESIREDPOS:
-			if (desired) memcpy(desired, thisPermutation, sizeof(permutationOfTeams_t)); break;
-		case TEAMGENERATORTYPE_SEMIDESIREDPOS:
-			if (semiDesired) memcpy(semiDesired, thisPermutation, sizeof(permutationOfTeams_t)); break;
+		// sanity double check for whether this hash matches one we already got for a previous type (shouldn't really happen)
+		int weAlreadyGotThisHash = -1;
+		for (int compareType = TEAMGENERATORTYPE_FIRST; compareType < type; compareType++) {
+			permutationOfTeams_t **compare = NULL;
+
+			switch (compareType) {
+			case TEAMGENERATORTYPE_MOSTPLAYED:     compare = &mostPlayed; break;
+			case TEAMGENERATORTYPE_HIGHESTRATING:  compare = &highestCaliber; break;
+			case TEAMGENERATORTYPE_FAIREST:        compare = &fairest; break;
+			case TEAMGENERATORTYPE_INCLUSIVE:      compare = &inclusive; break;
+			case TEAMGENERATORTYPE_DESIREDPOS:     compare = &desired; break;
+			case TEAMGENERATORTYPE_SEMIDESIREDPOS: compare = &semiDesired; break;
+			}
+
+			if (compare && *compare && (*compare)->valid && (*compare)->hash == thisPermutation->hash) {
+				weAlreadyGotThisHash = compareType;
+				break;
+			}
 		}
-		gotValid = qtrue;
-		avoidedHash_t *avoid = ListAdd(&listOfAvoidedHashesPlusHashesGottenOnThisGeneration, sizeof(avoidedHash_t));
-		avoid->hash = thisPermutation->hash;
+		if (weAlreadyGotThisHash != -1) {
+			TeamGen_DebugPrintf("<font color=red>==========For type %d: we already got this hash back on type %d. Not using it.==========</font><br/>", type, weAlreadyGotThisHash);
+			continue;
+		}
+
+		// copy this permutation to the appropriate supplied pointer
+		permutationOfTeams_t **target = NULL;
+		switch (type) {
+		case TEAMGENERATORTYPE_MOSTPLAYED:     target = &mostPlayed; break;
+		case TEAMGENERATORTYPE_HIGHESTRATING:  target = &highestCaliber; break;
+		case TEAMGENERATORTYPE_FAIREST:        target = &fairest; break;
+		case TEAMGENERATORTYPE_INCLUSIVE:      target = &inclusive; break;
+		case TEAMGENERATORTYPE_DESIREDPOS:     target = &desired; break;
+		case TEAMGENERATORTYPE_SEMIDESIREDPOS: target = &semiDesired; break;
+		default: assert(qfalse);
+		}
+		if (target && *target) {
+			memcpy(*target, thisPermutation, sizeof(permutationOfTeams_t));
+			avoidedHash_t *avoid = ListAdd(&listOfAvoidedHashesPlusHashesGottenOnThisGeneration, sizeof(avoidedHash_t));
+			avoid->hash = thisPermutation->hash;
+			++numValid;
+		}
+
 	}
 	if (numPermutations)
 		*numPermutations = gotten;
@@ -2688,7 +2718,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 
 	ListClear(&listOfAvoidedHashesPlusHashesGottenOnThisGeneration);
 
-	return !!(gotValid);
+	return !!(numValid);
 }
 
 #if 0
