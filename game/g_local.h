@@ -881,6 +881,8 @@ typedef struct {
 
 	aimPracticePack_t	*aimPracticePackBeingEdited; // which pack this player is currently editing (if any)
 
+	float		lastSpawnFcBoostSpawnDistanceFromFcDeltaFromIdeal;
+
 	int			cointossHeadsTime;
 	int			cointossTailsTime;
 

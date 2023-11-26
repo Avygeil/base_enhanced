@@ -1479,7 +1479,8 @@ static float GetFcSpawnBoostMultiplier(gentity_t *ent) {
 #define SQRT2 (1.4142135623730951)
 
 #define SPAWNFCBOOST_NERFEDMAP_IDEAL_XYADD			(200)		// if we're on a map where the g_spawnboost_[mapname] cvar is set, add this much to the ideal xy distance (i.e., we try to spawn farther from the fc on maps like dosuun)
-#define SPAWNFCBOOST_IDEAL_XYDISTANCE				(g_spawnboost_losIdealDistance.integer + (isNerfedMap ? SPAWNFCBOOST_NERFEDMAP_IDEAL_XYADD : 0))		// ideal xy distance we'd like to spawn from the fc
+#define SPAWNFCBOOST_IDEAL_XYDISTANCE				(g_spawnboost_losIdealDistance.integer + compensateIdeal + (isNerfedMap ? SPAWNFCBOOST_NERFEDMAP_IDEAL_XYADD : 0))		// ideal xy distance we'd like to spawn from the fc
+#define SPAWNFCBOOST_IDEAL_XYDISTANCE_UNCOMPENSATED		(g_spawnboost_losIdealDistance.integer + (isNerfedMap ? SPAWNFCBOOST_NERFEDMAP_IDEAL_XYADD : 0))		// ideal xy distance we'd like to spawn from the fc, not including compensation
 #define SPAWNFCBOOST_VELOCITY_COEFFICIENT			(0.25f)		// how much to scale fc's velocity by when evaluating his position (if he's moving quickly)
 #define SPAWNFCBOOST_LOS_Z_ADD						(16)		// slight z-axis boost from the actual point we should use as a reference point for line of sight to fc
 #define SPAWNFCBOOST_GRID_INCREMENT					(256)		// how many units away from a weapon/ammo/health we'd like to evaluate for potentially spawning
@@ -1490,7 +1491,7 @@ static float GetFcSpawnBoostMultiplier(gentity_t *ent) {
 #define SPAWNFCBOOST_SIMILARDISTANCE_THRESHOLD		(160)		// near zero, always prefer more ideal points even if only closer by a little; higher = more randomness for points similarly distant from ideal
 #define SPAWNFCBOOST_WEAPON_MINDISTANCE_THRESHOLD	(0)			// minimum distance to weapon/ammo/health being evaluated for spawning nearby
 #define SPAWNFCBOOST_WEAPON_MAXDISTANCE_THRESHOLD	(SPAWNFCBOOST_IDEAL_XYDISTANCE + ((SPAWNFCBOOST_GRID_INCREMENT * SPAWNFCBOOST_GRID_RESOLUTION) * SQRT2) + 1)		// maximum distance to weapon/ammo/health being evaluated for spawning nearby
-#define SPAWNFCBOOST_FCZDELTA_THRESHOLD				(500)		// start applying a penalty to deltaFromIdeal for spawnpoints this much vertically underneath the fc
+#define SPAWNFCBOOST_FCZDELTA_THRESHOLD				(500)		// start applying a penalty to absDeltaFromIdeal for spawnpoints this much vertically underneath the fc
 
 extern qboolean PointsAreOnOppositeSidesOfMap(vec3_t pointA, vec3_t pointB);
 
@@ -1636,7 +1637,7 @@ static qboolean IsPointVisiblePlayersolid(vec3_t org1, vec3_t org2, int fcNum)
 }
 
 // try to find a spot for this guy to respawn where he can see his flag carrier from a moderate distance
-static gentity_t *GetSpawnFcBoostLocation(gentity_t *fc) {
+static gentity_t *GetSpawnFcBoostLocation(gclient_t *spawningGuy, gentity_t *fc) {
 #ifdef SPAWNFCBOOST_DEBUG
 	logTraces = 1;
 	numLoggedTraces = 0;
@@ -1650,8 +1651,19 @@ static gentity_t *GetSpawnFcBoostLocation(gentity_t *fc) {
 	qboolean isNerfedMap = qfalse;
 	{
 		float multiplier = GetFcSpawnBoostMultiplier(fc);
-		if (multiplier > DEFAULT_SPAWNBOOST_MULTIPLIER + 0.0001f)
+		if (multiplier > DEFAULT_SPAWNBOOST_MULTIPLIER + 0.0001f) {
 			isNerfedMap = qtrue;
+			SpawnFcBoostDebugPrintf("GetSpawnFcBoostLocation: nerfed map (multiplier: %0.3f)\n", multiplier);
+		}
+	}
+
+	// try to compensate for the last spawn, e.g. if we spawned +500 from ideal last time then we'll try to spawn -500 from ideal this time
+	// if we do set this, we'll zero out the stored value at the end of this function (preventing you from just bouncing
+	// between +500 and -500 endlessly throughout the match, which would be dumb)
+	float compensateIdeal = 0;
+	if (spawningGuy && spawningGuy->pers.lastSpawnFcBoostSpawnDistanceFromFcDeltaFromIdeal) {
+		compensateIdeal = 0 - spawningGuy->pers.lastSpawnFcBoostSpawnDistanceFromFcDeltaFromIdeal;
+		SpawnFcBoostDebugPrintf("GetSpawnFcBoostLocation: last delta was %d, so setting compensateIdeal to %d.\n", (int)spawningGuy->pers.lastSpawnFcBoostSpawnDistanceFromFcDeltaFromIdeal, (int)compensateIdeal);
 	}
 
 	// if fc is moving quickly, try to trace to where the fc will be shortly instead of where the fc is right now
@@ -1771,7 +1783,7 @@ static gentity_t *GetSpawnFcBoostLocation(gentity_t *fc) {
 	// ...loop through the weapons/items...
 	qboolean gotBestPoint = qfalse;
 	vec3_t bestPointOrigin;
-	float bestPointDeltaFromIdeal = 999999999;
+	float bestPointDeltaFromTrueIdeal = 999999999, bestPointAbsDeltaFromIdeal = 999999999;
 #ifdef SPAWNFCBOOST_DEBUG
 	char bestName[64] = { 0 };
 	int bestX = 0, bestY = 0;
@@ -1807,16 +1819,17 @@ static gentity_t *GetSpawnFcBoostLocation(gentity_t *fc) {
 			}
 
 			float dist2d = Distance2D(point, fcOrigin);
-			float deltaFromIdeal = fabs(dist2d - SPAWNFCBOOST_IDEAL_XYDISTANCE);
+			float absDeltaFromIdeal = fabs(dist2d - SPAWNFCBOOST_IDEAL_XYDISTANCE);
+			float deltaFromTrueIdeal = dist2d - SPAWNFCBOOST_IDEAL_XYDISTANCE_UNCOMPENSATED;
 			if (fcOrigin[2] - SPAWNFCBOOST_FCZDELTA_THRESHOLD >= point[2]) {
-				SpawnFcBoostDebugPrintf("GetSpawnFcBoostLocation: point[2] %d is %d lower than fcOrigin[2] %d (>= %d), so penalizing deltaFromIdeal\n", (int)point[2], (int)(fcOrigin[2] - point[2]), (int)fcOrigin[2], SPAWNFCBOOST_FCZDELTA_THRESHOLD);
-				deltaFromIdeal += (fcOrigin[2] - point[2]); // penalize points much higher than the fc
+				SpawnFcBoostDebugPrintf("GetSpawnFcBoostLocation: point[2] %d is %d lower than fcOrigin[2] %d (>= %d), so penalizing abs delta from ideal\n", (int)point[2], (int)(fcOrigin[2] - point[2]), (int)fcOrigin[2], SPAWNFCBOOST_FCZDELTA_THRESHOLD);
+				absDeltaFromIdeal += (fcOrigin[2] - point[2]); // penalize points much higher than the fc
 			}
-			SpawnFcBoostDebugPrintf("GetSpawnFcBoostLocation: has dist2d %d, delta from ideal %d\n", (int)dist2d, (int)deltaFromIdeal);
+			SpawnFcBoostDebugPrintf("GetSpawnFcBoostLocation: has dist2d %d, delta from ideal %d\n", (int)dist2d, (int)absDeltaFromIdeal);
 
 			// if we already have a point that's better than this one by at least the threshold, don't bother checking this one
-			if (gotBestPoint && deltaFromIdeal >= bestPointDeltaFromIdeal - SPAWNFCBOOST_SIMILARDISTANCE_THRESHOLD) {
-				SpawnFcBoostDebugPrintf("GetSpawnFcBoostLocation: not worth checking since delta from ideal not that much better than current best\n");
+			if (gotBestPoint && absDeltaFromIdeal >= bestPointAbsDeltaFromIdeal - SPAWNFCBOOST_SIMILARDISTANCE_THRESHOLD) {
+				SpawnFcBoostDebugPrintf("GetSpawnFcBoostLocation: not worth checking since abs delta from ideal not that much better than current best\n");
 				continue;
 			}
 
@@ -1893,8 +1906,9 @@ static gentity_t *GetSpawnFcBoostLocation(gentity_t *fc) {
 
 			gotBestPoint = qtrue;
 			VectorCopy(tr.endpos, bestPointOrigin);
-			bestPointDeltaFromIdeal = deltaFromIdeal;
-			SpawnFcBoostDebugPrintf("GetSpawnFcBoostLocation: this is the new current best (delta from ideal: %d)\n", (int)deltaFromIdeal);
+			bestPointAbsDeltaFromIdeal = absDeltaFromIdeal;
+			bestPointDeltaFromTrueIdeal = deltaFromTrueIdeal;
+			SpawnFcBoostDebugPrintf("GetSpawnFcBoostLocation: this is the new current best (abs delta from ideal: %d)\n", (int)absDeltaFromIdeal);
 #ifdef SPAWNFCBOOST_DEBUG
 			bestX = i;
 			bestY = j;
@@ -1923,10 +1937,19 @@ static gentity_t *GetSpawnFcBoostLocation(gentity_t *fc) {
 	te->r.svFlags &= ~SVF_BROADCAST;
 	te->r.svFlags |= SVF_NOCLIENT;
 	VectorCopy(bestPointOrigin, te->s.origin);
-	SpawnFcBoostDebugPrintf("Finished spawn FC boost check. Winner: %s (%d, %d) with delta %d. Performed %d traces.\n", bestName, bestX, bestY, (int)bestPointDeltaFromIdeal, numLoggedTraces);
+
+	if (compensateIdeal)
+		spawningGuy->pers.lastSpawnFcBoostSpawnDistanceFromFcDeltaFromIdeal = 0; // we compensated, so clear it out for a fresh start next time
+	else
+		spawningGuy->pers.lastSpawnFcBoostSpawnDistanceFromFcDeltaFromIdeal = bestPointDeltaFromTrueIdeal; // we didn't compensate, so note the delta to compensate next time
+	
+	SpawnFcBoostDebugPrintf("Finished spawn FC boost check. Winner: %s (%d, %d) with delta %d and true delta %d. Performed %d traces.\n", bestName, bestX, bestY, (int)bestPointAbsDeltaFromIdeal, (int)bestPointDeltaFromTrueIdeal, numLoggedTraces);
 #ifdef SPAWNFCBOOST_DEBUG
 	logTraces = 0;
 #endif
+
+
+
 	return te;
 
 	return NULL;
@@ -2084,7 +2107,7 @@ gentity_t *SelectRandomTeamSpawnPoint( gclient_t *client, int teamstate, team_t 
 		}
 
 		if (spawnMeNearThisGuy && g_spawnboost_losIdealDistance.integer > 0) {
-			gentity_t *spawnBoostEnt = GetSpawnFcBoostLocation(spawnMeNearThisGuy);
+			gentity_t *spawnBoostEnt = GetSpawnFcBoostLocation(client, spawnMeNearThisGuy);
 			if (spawnBoostEnt)
 				return spawnBoostEnt;
 		}
