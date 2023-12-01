@@ -801,7 +801,7 @@ void Cmd_Kill_f( gentity_t *ent ) {
 		}
 	}
 
-	// don't allow boosted dude to sk with the flag in most cases
+	// don't allow boosted dude to sk with the flag in some cases
 	if (g_gametype.integer == GT_CTF && ent->client && ent->client->account && (ent->client->account->flags & ACCOUNTFLAG_BOOST_SELFKILLBOOST) &&
 		!IsRacerOrSpectator(ent) && g_boost.integer && level.wasRestarted) {
 
@@ -865,13 +865,13 @@ void Cmd_Kill_f( gentity_t *ent ) {
 					}
 				}
 
-				if (closestAllyDistanceToMe <= 200 && closestAllyToMe && closestAllyToMe->health >= 40) {
+				/*if (closestAllyDistanceToMe <= 200 && closestAllyToMe && closestAllyToMe->health >= 40) {
 					// 40hp+ ally seems to be trying to take from me
 					// block the sk
 					return;
 				}
-				else if (enemyFcDistanceToEnemyFs <= 400 && (enemyFcDistanceToEnemyFs <= closestAllyDistanceToEnemyFs + 50 || (closestAllyToEnemyFs && closestAllyToEnemyFs->health < 20))) {
-					// enemy fc is on their fs ready to cap and no 20hp+ ally is closer to their fs
+				else */if (enemyFcDistanceToEnemyFs <= 300 && (enemyFcDistanceToEnemyFs <= closestAllyDistanceToEnemyFs + 150 || (closestAllyToEnemyFs && closestAllyToEnemyFs->health < 20))) {
+					// enemy fc is on their fs ready to cap and no 20hp+ ally is closer to their fs by a decent distance
 					// block the sk
 					return;
 				}
@@ -879,7 +879,7 @@ void Cmd_Kill_f( gentity_t *ent ) {
 					// 60hp+ camper has freerun
 					// allow the sk
 				}
-				else if (GetCTFLocationValue(ent) <= 0.5f) {
+				else if (GetCTFLocationValue(ent) <= 0.4f) {
 					// i'm in my base
 					// block the sk
 					return;
