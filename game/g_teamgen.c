@@ -459,6 +459,294 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 	}
 
 	qboolean isBest = qfalse;
+	// this permutation will be favored over the previous permutation if:
+	// - it is fairer
+	// - it is equally fair, but has more people on preferred pos
+	// - it is equally fair and has an equal number of people on preferred pos, but has fewer people on avoided pos
+	// - it is equally fair and has an equal number of people on preferred and avoided pos, but has better balance of bottom tier players
+	// - it is equally fair and has an equal number of people on preferred and avoided pos and equal balance of bottom tier players, but has better balance of top tier players
+	if (iDiff < context->best->iDiff ||
+		(iDiff == context->best->iDiff && numOnPreferredPos > context->best->numOnPreferredPos) ||
+		(iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos) ||
+		(iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance < context->best->bottomTierImbalance) ||
+		(iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)) {
+			
+		if (iDiff < context->best->iDiff)
+			TeamGen_DebugPrintf(" <font color=purple>best so far (fairer)</font><br/>");
+		else if (iDiff == context->best->iDiff && numOnPreferredPos > context->best->numOnPreferredPos)
+			TeamGen_DebugPrintf(" <font color=purple>best so far (same fairness, but more preferred pos)</font><br/>");
+		else if (iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos)
+			TeamGen_DebugPrintf(" <font color=purple>best so far (same fairness and preferred pos, but less on avoided pos)</font><br/>");
+		else if (iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance < context->best->bottomTierImbalance)
+			TeamGen_DebugPrintf(" <font color=purple>best so far (same fairness, preferred pos, and avoided pos, but better bottom tier balance)</font><br/>");
+		else if (iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)
+			TeamGen_DebugPrintf(" <font color=purple>best so far (same fairness, preferred pos, avoided pos, and bottom tier balance, but better top tier balance)</font><br/>");
+		else
+			TeamGen_DebugPrintf("<font color=purple>???</font><br/>");
+
+		isBest = qtrue;
+	}
+
+	if (isBest) {
+		if (context->avoidedHashesList && context->avoidedHashesList->size > 0) {
+			permutationOfTeams_t hashMe = { 0 };
+			hashMe.valid = qtrue;
+			hashMe.iDiff = iDiff;
+			hashMe.offenseDefenseDiff = offenseDefenseDiff;
+			hashMe.numOnPreferredPos = numOnPreferredPos;
+			hashMe.numOnAvoidedPos = numOnAvoidedPos;
+			hashMe.topTierImbalance = topTierImbalance;
+			hashMe.bottomTierImbalance = bottomTierImbalance;
+			//set totalSkill
+			hashMe.teams[0].rawStrength = team1RawStrength;
+			hashMe.teams[1].rawStrength = team2RawStrength;
+			hashMe.teams[0].relativeStrength = team1RelativeStrength;
+			hashMe.teams[1].relativeStrength = team2RelativeStrength;
+			hashMe.teams[0].baseId = team1base->accountId;
+			hashMe.teams[0].chaseId = team1chase->accountId;
+			hashMe.teams[0].offenseId1 = team1offense1->accountId;
+			hashMe.teams[0].offenseId2 = team1offense2->accountId;
+			hashMe.teams[1].baseId = team2base->accountId;
+			hashMe.teams[1].chaseId = team2chase->accountId;
+			hashMe.teams[1].offenseId1 = team2offense1->accountId;
+			hashMe.teams[1].offenseId2 = team2offense2->accountId;
+			for (int i = 0; i < 2; i++) {
+				memset(hashMe.teams[i].baseName, 0, MAX_NAME_LENGTH);
+				memset(hashMe.teams[i].chaseName, 0, MAX_NAME_LENGTH);
+				memset(hashMe.teams[i].offense1Name, 0, MAX_NAME_LENGTH);
+				memset(hashMe.teams[i].offense2Name, 0, MAX_NAME_LENGTH);
+			}
+			Q_strncpyz(hashMe.teams[0].baseName, team1base->accountName, MAX_NAME_LENGTH);
+			Q_strncpyz(hashMe.teams[0].chaseName, team1chase->accountName, MAX_NAME_LENGTH);
+			Q_strncpyz(hashMe.teams[0].offense1Name, team1offense1->accountName, MAX_NAME_LENGTH);
+			Q_strncpyz(hashMe.teams[0].offense2Name, team1offense2->accountName, MAX_NAME_LENGTH);
+			Q_strncpyz(hashMe.teams[1].baseName, team2base->accountName, MAX_NAME_LENGTH);
+			Q_strncpyz(hashMe.teams[1].chaseName, team2chase->accountName, MAX_NAME_LENGTH);
+			Q_strncpyz(hashMe.teams[1].offense1Name, team2offense1->accountName, MAX_NAME_LENGTH);
+			Q_strncpyz(hashMe.teams[1].offense2Name, team2offense2->accountName, MAX_NAME_LENGTH);
+
+			NormalizePermutationOfTeams(&hashMe);
+			XXH32_hash_t hash = HashPermutationOfTeams(&hashMe);
+			avoidedHash_t *avoided = ListFind(context->avoidedHashesList, HashMatchesAvoidedHash, &hash, NULL);
+			if (avoided) {
+				TeamGen_DebugPrintf("<font color=darkred>***MATCHES AVOIDED HASH; skipping</font><br/>");
+				--context->numPermutations;
+				return;
+			}
+		}
+
+		context->best->valid = qtrue;
+		context->best->iDiff = iDiff;
+		context->best->offenseDefenseDiff = offenseDefenseDiff;
+		context->best->numOnPreferredPos = numOnPreferredPos;
+		context->best->numOnAvoidedPos = numOnAvoidedPos;
+		context->best->topTierImbalance = topTierImbalance;
+		context->best->bottomTierImbalance = bottomTierImbalance;
+		//set totalSkill
+		context->best->teams[0].rawStrength = team1RawStrength;
+		context->best->teams[1].rawStrength = team2RawStrength;
+		context->best->teams[0].relativeStrength = team1RelativeStrength;
+		context->best->teams[1].relativeStrength = team2RelativeStrength;
+		context->best->teams[0].baseId = team1base->accountId;
+		context->best->teams[0].chaseId = team1chase->accountId;
+		context->best->teams[0].offenseId1 = team1offense1->accountId;
+		context->best->teams[0].offenseId2 = team1offense2->accountId;
+		context->best->teams[1].baseId = team2base->accountId;
+		context->best->teams[1].chaseId = team2chase->accountId;
+		context->best->teams[1].offenseId1 = team2offense1->accountId;
+		context->best->teams[1].offenseId2 = team2offense2->accountId;
+		float lowestPlayerRating = 999999;
+		if (team1base->rating[CTFPOSITION_BASE] < lowestPlayerRating) lowestPlayerRating = team1base->rating[CTFPOSITION_BASE];
+		if (team1chase->rating[CTFPOSITION_CHASE] < lowestPlayerRating) lowestPlayerRating = team1chase->rating[CTFPOSITION_CHASE];
+		if (team1offense1->rating[CTFPOSITION_OFFENSE] < lowestPlayerRating) lowestPlayerRating = team1offense1->rating[CTFPOSITION_OFFENSE];
+		if (team1offense2->rating[CTFPOSITION_OFFENSE] < lowestPlayerRating) lowestPlayerRating = team1offense2->rating[CTFPOSITION_OFFENSE];
+		if (team2base->rating[CTFPOSITION_BASE] < lowestPlayerRating) lowestPlayerRating = team2base->rating[CTFPOSITION_BASE];
+		if (team2chase->rating[CTFPOSITION_CHASE] < lowestPlayerRating) lowestPlayerRating = team2chase->rating[CTFPOSITION_CHASE];
+		if (team2offense1->rating[CTFPOSITION_OFFENSE] < lowestPlayerRating) lowestPlayerRating = team2offense1->rating[CTFPOSITION_OFFENSE];
+		if (team2offense2->rating[CTFPOSITION_OFFENSE] < lowestPlayerRating) lowestPlayerRating = team2offense2->rating[CTFPOSITION_OFFENSE];
+		context->best->lowestPlayerRating = lowestPlayerRating;
+		for (int i = 0; i < 2; i++) {
+			memset(context->best->teams[i].baseName, 0, MAX_NAME_LENGTH);
+			memset(context->best->teams[i].chaseName, 0, MAX_NAME_LENGTH);
+			memset(context->best->teams[i].offense1Name, 0, MAX_NAME_LENGTH);
+			memset(context->best->teams[i].offense2Name, 0, MAX_NAME_LENGTH);
+		}
+		Q_strncpyz(context->best->teams[0].baseName, team1base->accountName, MAX_NAME_LENGTH);
+		Q_strncpyz(context->best->teams[0].chaseName, team1chase->accountName, MAX_NAME_LENGTH);
+		Q_strncpyz(context->best->teams[0].offense1Name, team1offense1->accountName, MAX_NAME_LENGTH);
+		Q_strncpyz(context->best->teams[0].offense2Name, team1offense2->accountName, MAX_NAME_LENGTH);
+		Q_strncpyz(context->best->teams[1].baseName, team2base->accountName, MAX_NAME_LENGTH);
+		Q_strncpyz(context->best->teams[1].chaseName, team2chase->accountName, MAX_NAME_LENGTH);
+		Q_strncpyz(context->best->teams[1].offense1Name, team2offense1->accountName, MAX_NAME_LENGTH);
+		Q_strncpyz(context->best->teams[1].offense2Name, team2offense2->accountName, MAX_NAME_LENGTH);
+	}
+	else {
+		TeamGen_DebugPrintf("<br/>");
+	}
+}
+
+static void TryTeamPermutation_Fairest(teamGeneratorContext_t *context, const permutationPlayer_t *team1base, const permutationPlayer_t *team1chase,
+	const permutationPlayer_t *team1offense1, const permutationPlayer_t *team1offense2,
+	const permutationPlayer_t *team2base, const permutationPlayer_t *team2chase,
+	const permutationPlayer_t *team2offense1, const permutationPlayer_t *team2offense2) {
+
+	if (!team1base->rating[CTFPOSITION_BASE] || !team1chase->rating[CTFPOSITION_CHASE] || !team1offense1->rating[CTFPOSITION_OFFENSE] || !team1offense2->rating[CTFPOSITION_OFFENSE] ||
+		!team2base->rating[CTFPOSITION_BASE] || !team2chase->rating[CTFPOSITION_CHASE] || !team2offense1->rating[CTFPOSITION_OFFENSE] || !team2offense2->rating[CTFPOSITION_OFFENSE]) {
+		return; // at least one player is invalid on their proposed position
+	}
+
+	++context->numPermutations;
+
+	if (context->banAvoidedPositions) {
+		if ((team1base->posPrefs.avoid & (1 << CTFPOSITION_BASE)) || (team1chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE)) || (team1offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) || (team1offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) ||
+			(team2base->posPrefs.avoid & (1 << CTFPOSITION_BASE)) || (team2chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE)) || (team2offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) || (team2offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE))) {
+			return;
+		}
+	}
+
+	double team1RawStrength = team1base->rating[CTFPOSITION_BASE] + team1chase->rating[CTFPOSITION_CHASE] + team1offense1->rating[CTFPOSITION_OFFENSE] + team1offense2->rating[CTFPOSITION_OFFENSE];
+	double team2RawStrength = team2base->rating[CTFPOSITION_BASE] + team2chase->rating[CTFPOSITION_CHASE] + team2offense1->rating[CTFPOSITION_OFFENSE] + team2offense2->rating[CTFPOSITION_OFFENSE];
+	double total = team1RawStrength + team2RawStrength;
+	double team1RelativeStrength = team1RawStrength / total;
+	double team2RelativeStrength = team2RawStrength / total;
+	double diff = round(fabs(team1RawStrength - team2RawStrength) / PLAYERRATING_DECIMAL_INCREMENT);
+	int iDiff = (int)diff;
+
+	int team1TopTiers = 0, team2TopTiers = 0;
+	if (PlayerTierFromRating(team1base->rating[CTFPOSITION_BASE]) >= PLAYERRATING_LOW_S) ++team1TopTiers;
+	if (PlayerTierFromRating(team1chase->rating[CTFPOSITION_CHASE]) >= PLAYERRATING_LOW_S) ++team1TopTiers;
+	if (PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) >= PLAYERRATING_LOW_S) ++team1TopTiers;
+	if (PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]) >= PLAYERRATING_LOW_S) ++team1TopTiers;
+	if (PlayerTierFromRating(team2base->rating[CTFPOSITION_BASE]) >= PLAYERRATING_LOW_S) ++team2TopTiers;
+	if (PlayerTierFromRating(team2chase->rating[CTFPOSITION_CHASE]) >= PLAYERRATING_LOW_S) ++team2TopTiers;
+	if (PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) >= PLAYERRATING_LOW_S) ++team2TopTiers;
+	if (PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]) >= PLAYERRATING_LOW_S) ++team2TopTiers;
+	int topTierImbalance = abs(team1TopTiers - team2TopTiers);
+
+	int team1BottomTiers = 0, team2BottomTiers = 0;
+	if (PlayerTierFromRating(team1base->rating[CTFPOSITION_BASE]) <= PLAYERRATING_HIGH_C) ++team1BottomTiers;
+	if (PlayerTierFromRating(team1chase->rating[CTFPOSITION_CHASE]) <= PLAYERRATING_HIGH_C) ++team1BottomTiers;
+	if (PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) <= PLAYERRATING_HIGH_C) ++team1BottomTiers;
+	if (PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]) <= PLAYERRATING_HIGH_C) ++team1BottomTiers;
+	if (PlayerTierFromRating(team2base->rating[CTFPOSITION_BASE]) <= PLAYERRATING_HIGH_C) ++team2BottomTiers;
+	if (PlayerTierFromRating(team2chase->rating[CTFPOSITION_CHASE]) <= PLAYERRATING_HIGH_C) ++team2BottomTiers;
+	if (PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) <= PLAYERRATING_HIGH_C) ++team2BottomTiers;
+	if (PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]) <= PLAYERRATING_HIGH_C) ++team2BottomTiers;
+	int bottomTierImbalance = abs(team1BottomTiers - team2BottomTiers);
+
+	int team1GarbageTiers = 0, team2GarbageTiers = 0;
+	if (PlayerTierFromRating(team1base->rating[CTFPOSITION_BASE]) <= PLAYERRATING_LOW_C) ++team1GarbageTiers;
+	if (PlayerTierFromRating(team1chase->rating[CTFPOSITION_CHASE]) <= PLAYERRATING_LOW_C) ++team1GarbageTiers;
+	if (PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) <= PLAYERRATING_LOW_C) ++team1GarbageTiers;
+	if (PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]) <= PLAYERRATING_LOW_C) ++team1GarbageTiers;
+	if (PlayerTierFromRating(team2base->rating[CTFPOSITION_BASE]) <= PLAYERRATING_LOW_C) ++team2GarbageTiers;
+	if (PlayerTierFromRating(team2chase->rating[CTFPOSITION_CHASE]) <= PLAYERRATING_LOW_C) ++team2GarbageTiers;
+	if (PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) <= PLAYERRATING_LOW_C) ++team2GarbageTiers;
+	if (PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]) <= PLAYERRATING_LOW_C) ++team2GarbageTiers;
+	int garbageTierImbalance = abs(team1GarbageTiers - team2GarbageTiers);
+
+	// reward permutations that put people on preferred positions
+	int numOnPreferredPos = 0, numOnAvoidedPos = 0;
+	if (team1base->posPrefs.avoid & (1 << CTFPOSITION_BASE)) numOnAvoidedPos += 1; else if (team1base->posPrefs.first & (1 << CTFPOSITION_BASE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team1base->posPrefs.second & (1 << CTFPOSITION_BASE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team1base->posPrefs.third & (1 << CTFPOSITION_BASE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+	if (team1chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE)) numOnAvoidedPos += 1; else if (team1chase->posPrefs.first & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team1chase->posPrefs.second & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team1chase->posPrefs.third & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+	if (team1offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team1offense1->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team1offense1->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team1offense1->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+	if (team1offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team1offense2->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team1offense2->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team1offense2->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+	if (team2base->posPrefs.avoid & (1 << CTFPOSITION_BASE)) numOnAvoidedPos += 1; else if (team2base->posPrefs.first & (1 << CTFPOSITION_BASE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team2base->posPrefs.second & (1 << CTFPOSITION_BASE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team2base->posPrefs.third & (1 << CTFPOSITION_BASE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+	if (team2chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE)) numOnAvoidedPos += 1; else if (team2chase->posPrefs.first & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team2chase->posPrefs.second & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team2chase->posPrefs.third & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+	if (team2offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team2offense1->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team2offense1->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team2offense1->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+	if (team2offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team2offense2->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team2offense2->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team2offense2->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+
+	int team1OffenseDefenseDiff = 0, team2OffenseDefenseDiff = 0;
+	{
+		double team1DefenseTotal = team1base->rating[CTFPOSITION_BASE] + team1chase->rating[CTFPOSITION_CHASE];
+		double team1OffenseTotal = team1offense1->rating[CTFPOSITION_OFFENSE] + team1offense2->rating[CTFPOSITION_OFFENSE];
+		team1OffenseDefenseDiff = (int)round(fabs(team1DefenseTotal - team1OffenseTotal) * 10000);
+
+		double team2DefenseTotal = team2base->rating[CTFPOSITION_BASE] + team2chase->rating[CTFPOSITION_CHASE];
+		double team2OffenseTotal = team2offense1->rating[CTFPOSITION_OFFENSE] + team2offense2->rating[CTFPOSITION_OFFENSE];
+		team2OffenseDefenseDiff = (int)round(fabs(team2DefenseTotal - team2OffenseTotal) * 10000);
+	}
+	int offenseDefenseDiff = team1OffenseDefenseDiff + team2OffenseDefenseDiff;
+
+	TeamGen_DebugPrintf("Regular:%s%s</font>/%s%s</font>/%s%s</font>/%s%s</font> vs. %s%s</font>/%s%s</font>/%s%s</font>/%s%s</font><font color=black> : %0.3f vs. %0.3f raw, %0.2f vs. %0.2f relative, %d numOnPreferredPos, %d numAvoid, %d (%d/%d) garbage imbalance, %d (%d/%d) bottom imbalance, %d (%d/%d) top imbalance, %0.3f total, %0.3f diff, offense/defense diff %d (%d/%d)</font>",
+		team1base->posPrefs.avoid & (1 << CTFPOSITION_BASE) ? "<font color=red>" : team1base->posPrefs.first & (1 << CTFPOSITION_BASE) ? "<font color=darkgreen>" : team1base->posPrefs.second & (1 << CTFPOSITION_BASE) ? "<font color=silver>" : team1base->posPrefs.third & (1 << CTFPOSITION_BASE) ? "<font color=orange>" : "<font color=black>",
+		team1base->accountName,
+		team1chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE) ? "<font color=red>" : team1chase->posPrefs.first & (1 << CTFPOSITION_CHASE) ? "<font color=darkgreen>" : team1chase->posPrefs.second & (1 << CTFPOSITION_CHASE) ? "<font color=silver>" : team1chase->posPrefs.third & (1 << CTFPOSITION_CHASE) ? "<font color=orange>" : "<font color=black>",
+		team1chase->accountName,
+		team1offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE) ? "<font color=red>" : team1offense1->posPrefs.first & (1 << CTFPOSITION_OFFENSE) ? "<font color=darkgreen>" : team1offense1->posPrefs.second & (1 << CTFPOSITION_OFFENSE) ? "<font color=silver>" : team1offense1->posPrefs.third & (1 << CTFPOSITION_OFFENSE) ? "<font color=orange>" : "<font color=black>",
+		team1offense1->accountName,
+		team1offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE) ? "<font color=red>" : team1offense2->posPrefs.first & (1 << CTFPOSITION_OFFENSE) ? "<font color=darkgreen>" : team1offense2->posPrefs.second & (1 << CTFPOSITION_OFFENSE) ? "<font color=silver>" : team1offense2->posPrefs.third & (1 << CTFPOSITION_OFFENSE) ? "<font color=orange>" : "<font color=black>",
+		team1offense2->accountName,
+		team2base->posPrefs.avoid & (1 << CTFPOSITION_BASE) ? "<font color=red>" : team2base->posPrefs.first & (1 << CTFPOSITION_BASE) ? "<font color=darkgreen>" : team2base->posPrefs.second & (1 << CTFPOSITION_BASE) ? "<font color=silver>" : team2base->posPrefs.third & (1 << CTFPOSITION_BASE) ? "<font color=orange>" : "<font color=black>",
+		team2base->accountName,
+		team2chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE) ? "<font color=red>" : team2chase->posPrefs.first & (1 << CTFPOSITION_CHASE) ? "<font color=darkgreen>" : team2chase->posPrefs.second & (1 << CTFPOSITION_CHASE) ? "<font color=silver>" : team2chase->posPrefs.third & (1 << CTFPOSITION_CHASE) ? "<font color=orange>" : "<font color=black>",
+		team2chase->accountName,
+		team2offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE) ? "<font color=red>" : team2offense1->posPrefs.first & (1 << CTFPOSITION_OFFENSE) ? "<font color=darkgreen>" : team2offense1->posPrefs.second & (1 << CTFPOSITION_OFFENSE) ? "<font color=silver>" : team2offense1->posPrefs.third & (1 << CTFPOSITION_OFFENSE) ? "<font color=orange>" : "<font color=black>",
+		team2offense1->accountName,
+		team2offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE) ? "<font color=red>" : team2offense2->posPrefs.first & (1 << CTFPOSITION_OFFENSE) ? "<font color=darkgreen>" : team2offense2->posPrefs.second & (1 << CTFPOSITION_OFFENSE) ? "<font color=silver>" : team2offense2->posPrefs.third & (1 << CTFPOSITION_OFFENSE) ? "<font color=orange>" : "<font color=black>",
+		team2offense2->accountName,
+		team1RawStrength,
+		team2RawStrength,
+		team1RelativeStrength * 100,
+		team2RelativeStrength * 100,
+		numOnPreferredPos,
+		numOnAvoidedPos,
+		garbageTierImbalance,
+		team1GarbageTiers,
+		team2GarbageTiers,
+		bottomTierImbalance,
+		team1BottomTiers,
+		team2BottomTiers,
+		topTierImbalance,
+		team1TopTiers,
+		team2TopTiers,
+		total,
+		diff,
+		offenseDefenseDiff,
+		team1OffenseDefenseDiff,
+		team2OffenseDefenseDiff);
+
+	if (garbageTierImbalance >= 2) {
+		TeamGen_DebugPrintf(" garbage imbalance too great (>= 2).<br/>");
+		return;
+	}
+
+	if (context->enforceChaseRule) {
+		// make sure each chase isn't too much worse than the best opposing offense
+		{
+			ctfPlayerTier_t team1ChaseTier = PlayerTierFromRating(team1chase->rating[CTFPOSITION_CHASE]);
+			ctfPlayerTier_t highestTeam2OffenseTier = PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) > PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]) ? PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) : PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]);
+			int maxDiff;
+			if (team1ChaseTier <= PLAYERRATING_LOW_B)
+				maxDiff = 2;
+			else if (highestTeam2OffenseTier >= PLAYERRATING_LOW_S)
+				maxDiff = 3;
+			else
+				maxDiff = 4;
+			if (highestTeam2OffenseTier - team1ChaseTier > maxDiff) {
+				TeamGen_DebugPrintf(" unbalanced team 1 chase vs. team 2 offense %d - %d == %d<br/>", highestTeam2OffenseTier, team1ChaseTier, highestTeam2OffenseTier - team1ChaseTier);
+				return;
+			}
+		}
+
+		{
+			ctfPlayerTier_t team2ChaseTier = PlayerTierFromRating(team2chase->rating[CTFPOSITION_CHASE]);
+			ctfPlayerTier_t highestTeam1OffenseTier = PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) > PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]) ? PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) : PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]);
+			int maxDiff;
+			if (team2ChaseTier <= PLAYERRATING_LOW_B)
+				maxDiff = 2;
+			else if (highestTeam1OffenseTier >= PLAYERRATING_LOW_S)
+				maxDiff = 3;
+			else
+				maxDiff = 4;
+			if (highestTeam1OffenseTier - team2ChaseTier > maxDiff) {
+				TeamGen_DebugPrintf(" unbalanced team 2 chase vs. team 1 offense %d - %d == %d<br/>", highestTeam1OffenseTier, team2ChaseTier, highestTeam1OffenseTier - team2ChaseTier);
+				return;
+			}
+		}
+	}
+
+	qboolean isBest = qfalse;
 	if (context->numEligible == 8 && g_vote_teamgen_new8PlayerAlgo.integer) {
 		// This permutation will be favored over the previous permutation if:
 		// - It is fairer (lesser iDiff).
@@ -505,7 +793,7 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 			(iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos) ||
 			(iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance < context->best->bottomTierImbalance) ||
 			(iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)) {
-			
+
 			if (iDiff < context->best->iDiff)
 				TeamGen_DebugPrintf(" <font color=purple>best so far (fairer)</font><br/>");
 			else if (iDiff == context->best->iDiff && numOnPreferredPos > context->best->numOnPreferredPos)
@@ -793,77 +1081,41 @@ static void TryTeamPermutation_SemiAppeasing(teamGeneratorContext_t *context, co
 	if (team2offense2->numPermutationsIn > 0 && !team2offense2->numPermutationsInAndNonAvoidedPos && !(team2offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE))) ++numSatisfiedCyds;
 
 	qboolean isBest = qfalse;
-	if (context->numEligible == 8 && g_vote_teamgen_new8PlayerAlgo.integer) {
-		// This permutation will be favored over the previous permutation if:
-		// - It has a higher number of satisfied cyds (greater numSatisfiedCyds).
-		// - It has the same number of satisfied cyds but is fairer (lesser iDiff).
-		// - It has equal number of satisfied cyds and fairness, but a better balance of bottom tier players (lesser bottomTierImbalance).
-		// - It has equal satisfied cyds, fairness, and bottom tier balance, but a better balance of top tier players (lesser topTierImbalance).
-		// - It has equal satisfied cyds, fairness, and tier balances, but a lower offense-defense difference (lesser offenseDefenseDiff).
-		// - It has equal satisfied cyds, fairness, tier balances, and offense-defense difference, but more players in preferred positions (greater numOnPreferredPos).
-		// - It has equal satisfied cyds, fairness, tier balances, offense-defense difference, and number of players in preferred positions, but fewer players in avoided positions (lesser numOnAvoidedPos).
 
-		if (numSatisfiedCyds > context->best->numSatisfiedCyds ||
-			(numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff < context->best->iDiff) ||
-			(numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && bottomTierImbalance < context->best->bottomTierImbalance) ||
-			(numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance) ||
-			(numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && offenseDefenseDiff < context->best->offenseDefenseDiff) ||
-			(numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && offenseDefenseDiff == context->best->offenseDefenseDiff && numOnPreferredPos > context->best->numOnPreferredPos) ||
-			(numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && offenseDefenseDiff == context->best->offenseDefenseDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos)) {
+	// this permutation will be favored over the previous permutation if:
+	// - the number of cyds (people in a/b/c, on avoided pos in a/b/c only, and not on avoided pos here) is higher
+	// - equal cyds, but fairer
+	// - equal cyds and fairness, but has more people on preferred pos
+	// - equal cyds and fairness and number of people on preferred pos, but has fewer people on avoided pos
+	// - equal cyds and fairness and number of people on preferred and avoided pos, but has better balance of bottom tier players
+	// - equal cyds and fairness and number of people on preferred and avoided pos and equal balance of bottom tier players, but has better balance of top tier players
+	// - (8 players only) equal cyds and fairness and number of people on preferred and avoided pos and equal balance of bottom and top tier players, but better offense-defense diff
+	if (numSatisfiedCyds > context->best->numSatisfiedCyds ||
+		(numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff < context->best->iDiff) ||
+		(numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numOnPreferredPos > context->best->numOnPreferredPos) ||
+		(numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos) ||
+		(numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance < context->best->bottomTierImbalance) ||
+		(numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance) ||
+		(numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && (context->numEligible == 8 && offenseDefenseDiff < context->best->offenseDefenseDiff))) {
 
-			if (numSatisfiedCyds > context->best->numSatisfiedCyds)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (increased number of satisfied cyds)</font><br/>");
-			else if (numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff < context->best->iDiff)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (equal satisfied cyds, improved fairness)</font><br/>");
-			else if (numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && bottomTierImbalance < context->best->bottomTierImbalance)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (same satisfied cyds and fairness, better bottom tier balance)</font><br/>");
-			else if (numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (same satisfied cyds, fairness, and bottom tier balance, improved top tier balance)</font><br/>");
-			else if (numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && offenseDefenseDiff < context->best->offenseDefenseDiff)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (same satisfied cyds, fairness, and tier balances, lower offense-defense difference)</font><br/>");
-			else if (numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && offenseDefenseDiff == context->best->offenseDefenseDiff && numOnPreferredPos > context->best->numOnPreferredPos)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (equal satisfied cyds, fairness, tier balances, and offense-defense diff, but more in preferred positions)</font><br/>");
-			else if (numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && offenseDefenseDiff == context->best->offenseDefenseDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (equal satisfied cyds, fairness, tier balances, offense-defense diff, and preferred pos count, but fewer in avoided positions)</font><br/>");
-			else
-				TeamGen_DebugPrintf("<font color=purple>???</font><br/>");
+		if (numSatisfiedCyds > context->best->numSatisfiedCyds)
+			TeamGen_DebugPrintf(" <font color=purple>best so far (more satisfied cyds)</font><br/>");
+		else if (numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff < context->best->iDiff)
+			TeamGen_DebugPrintf(" <font color=purple>best so far (same satisfied cyds, but fairer)</font><br/>");
+		else if (numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numOnPreferredPos > context->best->numOnPreferredPos)
+			TeamGen_DebugPrintf(" <font color=purple>best so far (same satisfied cyds and fairness, but more preferred pos)</font><br/>");
+		else if (numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos)
+			TeamGen_DebugPrintf(" <font color=purple>best so far (same satisfied cyds, fairness and preferred pos, but less on avoided pos)</font><br/>");
+		else if (numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance < context->best->bottomTierImbalance)
+			TeamGen_DebugPrintf(" <font color=purple>best so far (same satisfied cyds, fairness, preferred pos, and avoided pos, but better bottom tier balance)</font><br/>");
+		else if (numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)
+			TeamGen_DebugPrintf(" <font color=purple>best so far (same satisfied cyds, fairness, preferred pos, avoided pos, and bottom tier balance, but better top tier balance)</font><br/>");
+		else if (numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && (context->numEligible == 8 && offenseDefenseDiff < context->best->offenseDefenseDiff))
+			TeamGen_DebugPrintf(" <font color=purple>best so far (same satisfied cyds, fairness, preferred pos, avoided pos, bottom and top tier balance, but 8 players and lower offense-defense diff)</font><br/>");
+		else
+			TeamGen_DebugPrintf("<font color=purple>???</font><br/>");
 
-
-			isBest = qtrue;
-		}
-	}
-	else {
-		// this permutation will be favored over the previous permutation if:
-		// - the number of cyds (people in a/b/c, on avoided pos in a/b/c only, and not on avoided pos here) is higher
-		// - equal cyds, but fairer
-		// - equal cyds and fairness, but has more people on preferred pos
-		// - equal cyds and fairness and number of people on preferred pos, but has fewer people on avoided pos
-		// - equal cyds and fairness and number of people on preferred and avoided pos, but has better balance of bottom tier players
-		// - equal cyds and fairness and number of people on preferred and avoided pos and equal balance of bottom tier players, but has better balance of top tier players
-		if (numSatisfiedCyds > context->best->numSatisfiedCyds ||
-			(numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff < context->best->iDiff) ||
-			(numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numOnPreferredPos > context->best->numOnPreferredPos) ||
-			(numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos) ||
-			(numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance < context->best->bottomTierImbalance) ||
-			(numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)) {
-
-			if (numSatisfiedCyds > context->best->numSatisfiedCyds)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (more satisfied cyds)</font><br/>");
-			else if (numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff < context->best->iDiff)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (same satisfied cyds, but fairer)</font><br/>");
-			else if (numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numOnPreferredPos > context->best->numOnPreferredPos)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (same satisfied cyds and fairness, but more preferred pos)</font><br/>");
-			else if (numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (same satisfied cyds, fairness and preferred pos, but less on avoided pos)</font><br/>");
-			else if (numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance < context->best->bottomTierImbalance)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (same satisfied cyds, fairness, preferred pos, and avoided pos, but better bottom tier balance)</font><br/>");
-			else if (numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (same satisfied cyds, fairness, preferred pos, avoided pos, and bottom tier balance, but better top tier balance)</font><br/>");
-			else
-				TeamGen_DebugPrintf("<font color=purple>???</font><br/>");
-
-			isBest = qtrue;
-		}
+		isBest = qtrue;
 	}
 	
 	if (isBest) {
@@ -2513,13 +2765,15 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 		try1.totalSkill = try2.totalSkill = 0;
 		PermutationCallback callback;
 		if (type == TEAMGENERATORTYPE_HIGHESTRATING)
-			callback = TryTeamPermutation_Tryhard;
+			callback = TryTeamPermutation_Tryhard; // prefer hc
+		else if (type == TEAMGENERATORTYPE_FAIREST)
+			callback = TryTeamPermutation_Fairest; // prefer fairness followed by balance considerations
 		else if (type == TEAMGENERATORTYPE_INCLUSIVE)
-			callback = TryTeamPermutation_Inclusive;
+			callback = TryTeamPermutation_Inclusive; // prefer including people not in a/b/c
 		else if (type == TEAMGENERATORTYPE_SEMIDESIREDPOS)
-			callback = TryTeamPermutation_SemiAppeasing;
+			callback = TryTeamPermutation_SemiAppeasing; // prefer getting people only on avoids in a/b/c onto non-avoids
 		else
-			callback = TryTeamPermutation;
+			callback = TryTeamPermutation; // prefer fairness followed by desired positions
 		TeamGen_DebugPrintf("<font color=darkgreen>==========Permuting teams with type %d==========</font><br/>", type);
 
 		uint64_t thisGotten = PermuteTeams(&players[0], numEligible, &try1, callback, qtrue, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qtrue, type);
