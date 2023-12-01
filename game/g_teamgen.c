@@ -3375,7 +3375,7 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 			Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^3[most HC]" : va("%s ^3[most HC]", suggestionTypeStr));
 
 		if (i == TEAMGENERATORTYPE_HIGHESTRATING && (tags & (1 << TEAMGENTAG_MOSTHC) || tags & (1 << TEAMGENTAG_TIEDFORMOSTHC)))
-			Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^3[spec/capt]" : va("%s ^3[spec/capt]", suggestionTypeStr));
+			Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^5[spec/capt]" : va("%s ^5[spec/capt]", suggestionTypeStr));
 
 		if (tags & (1 << TEAMGENTAG_HC3))
 			Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^6[ULTRA OMEGA HC!!!]" : va("%s ^6[ULTRA OMEGA HC!!!]", suggestionTypeStr));
