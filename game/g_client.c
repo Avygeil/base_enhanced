@@ -5218,6 +5218,8 @@ void ClientDisconnect( int clientNum ) {
 				level.activePugProposal->fairestVoteClientsRed &= ~(1 << clientNum);
 			if (level.activePugProposal->desired.valid && level.activePugProposal->desiredVoteClientsRed & (1 << clientNum))
 				level.activePugProposal->desiredVoteClientsRed &= ~(1 << clientNum);
+			if (level.activePugProposal->desired.valid && level.activePugProposal->semiDesiredVoteClientsRed & (1 << clientNum))
+				level.activePugProposal->semiDesiredVoteClientsRed &= ~(1 << clientNum);
 			if (level.activePugProposal->inclusive.valid && level.activePugProposal->inclusiveVoteClientsRed & (1 << clientNum))
 				level.activePugProposal->inclusiveVoteClientsRed &= ~(1 << clientNum);
 
@@ -5229,6 +5231,8 @@ void ClientDisconnect( int clientNum ) {
 				level.activePugProposal->fairestVoteClientsBlue &= ~(1 << clientNum);
 			if (level.activePugProposal->desired.valid && level.activePugProposal->desiredVoteClientsBlue & (1 << clientNum))
 				level.activePugProposal->desiredVoteClientsBlue &= ~(1 << clientNum);
+			if (level.activePugProposal->desired.valid && level.activePugProposal->semiDesiredVoteClientsBlue & (1 << clientNum))
+				level.activePugProposal->semiDesiredVoteClientsBlue &= ~(1 << clientNum);
 			if (level.activePugProposal->inclusive.valid && level.activePugProposal->inclusiveVoteClientsBlue & (1 << clientNum))
 				level.activePugProposal->inclusiveVoteClientsBlue &= ~(1 << clientNum);
 

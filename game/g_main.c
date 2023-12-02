@@ -408,6 +408,8 @@ vmCvar_t	g_duplicateNamesId;
 vmCvar_t	g_droppedFlagSpawnProtectionRadius;
 vmCvar_t	g_droppedFlagSpawnProtectionDuration;
 vmCvar_t	g_selfKillSpawnSpamProtection;
+vmCvar_t	g_killedAntiHannahSpawnRadius;
+vmCvar_t	g_canSpawnInTeRangeOfFc;
 
 vmCvar_t	g_boost;
 vmCvar_t	g_spawnboost_default;
@@ -952,6 +954,8 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_droppedFlagSpawnProtectionRadius, "g_droppedFlagSpawnProtectionRadius", "1024", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_droppedFlagSpawnProtectionDuration, "g_droppedFlagSpawnProtectionDuration", "10000", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_selfKillSpawnSpamProtection, "g_selfKillSpawnSpamProtection", "1", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_killedAntiHannahSpawnRadius, "g_killedAntiHannahSpawnRadius", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_canSpawnInTeRangeOfFc, "g_canSpawnInTeRangeOfFc", "1", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_boost, "g_boost", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_spawnboost_default, "g_spawnboost_default", "0.333", CVAR_ARCHIVE, 0, qfalse },

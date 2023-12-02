@@ -2846,6 +2846,13 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 	}
 
 	self->client->pers.lastKiller = attacker;
+	
+	if (self && self - g_entities < MAX_CLIENTS && attacker && attacker - g_entities < MAX_CLIENTS &&
+		self->client && attacker->client && self->client->sess.sessionTeam == OtherTeam(attacker->client->sess.sessionTeam) &&
+		!IsRacerOrSpectator(self) && g_gametype.integer == GT_CTF && !self->client->ps.fallingToDeath) {
+		self->client->pers.lastKilledByEnemyTime = level.time;
+		VectorCopy(self->client->ps.origin, self->client->pers.lastKilledByEnemyLocation);
+	}
 
 	self->client->rockPaperScissorsOtherClientNum = ENTITYNUM_NONE;
 	self->client->rockPaperScissorsChallengeTime = 0;

@@ -5946,7 +5946,9 @@ void TeamGenerator_DoReroll(qboolean forcedByServer) {
 			level.activePugProposal->fairestVoteClientsRed =
 			level.activePugProposal->fairestVoteClientsBlue =
 			level.activePugProposal->desiredVoteClientsRed =
-			level.activePugProposal->desiredVoteClientsBlue = 0;
+			level.activePugProposal->desiredVoteClientsBlue =
+			level.activePugProposal->semiDesiredVoteClientsRed =
+			level.activePugProposal->semiDesiredVoteClientsBlue = 0;
 
 		TeamGenerator_QueueServerMessageInChat(-1, va("Pug proposal %d rerolled%s (%s). Check console for new teams proposals.", level.activePugProposal->num, forcedByServer ? " by server" : "", level.activePugProposal->namesStr));
 		PrintTeamsProposalsInConsole(level.activePugProposal);

@@ -1833,6 +1833,22 @@ static gentity_t *GetSpawnFcBoostLocation(gclient_t *spawningGuy, gentity_t *fc)
 				continue;
 			}
 
+			if (!g_canSpawnInTeRangeOfFc.integer) {
+				if (Distance(point, fc->client->ps.origin/*not fcOrigin*/) <= 512 && trap_InPVS(point, fc->client->ps.origin/*not fcOrigin*/)) {
+					SpawnFcBoostDebugPrintf("GetSpawnFcBoostLocation: skipping because !g_canSpawnInTeRangeOfFc and in te range\n");
+					continue;
+				}
+			}
+
+			if (g_killedAntiHannahSpawnRadius.integer > 0) {
+				if (spawningGuy && spawningGuy->pers.lastKilledByEnemyTime && level.time - spawningGuy->pers.lastKilledByEnemyTime < 3500) {
+					if (Distance(spawningGuy->pers.lastKilledByEnemyLocation, point) < g_killedAntiHannahSpawnRadius.value) {
+						SpawnFcBoostDebugPrintf("GetSpawnFcBoostLocation: skipping because g_killedAntiHannahSpawnRadius and too close to killed lastKilledByEnemyLocation\n");
+						continue;
+					}
+				}
+			}
+
 #if 0
 			qboolean closeToAlreadyPittedPoint = qfalse;
 			if (numPitPoints > 0) {
@@ -2163,27 +2179,90 @@ gentity_t *SelectRandomTeamSpawnPoint( gclient_t *client, int teamstate, team_t 
 		count = (int)round((float)count * multiplier);
 		count = Com_Clampi(1, originalCount, count);
 	}
-	else if (g_gametype.integer == GT_CTF && count && g_selfKillSpawnSpamProtection.integer && g_selfKillSpawnSpamProtection.integer != 2 && client &&
-		client->pers.lastKiller == &g_entities[client - level.clients] && level.time - client->pers.lastSpawnTime < SPAWN_SPAM_PROTECT_TIME) {
-		// g_selfKillSpawnSpamProtection 1
-		// remove our previous spawnpoint from consideration if we spawned there within a few seconds ago and selfkilled
-		for (int i = 0; i < count; i++) {
-			if (spots[i] != client->pers.lastSpawnPoint)
-				continue;
+	else {
+		if (g_gametype.integer == GT_CTF && count > 1 && !g_canSpawnInTeRangeOfFc.integer) {
+			gentity_t *fc = NULL;
+			for (int i = 0; i < MAX_CLIENTS; i++) {
+				gentity_t *thisGuy = &g_entities[i];
+				if (!thisGuy->inuse || !thisGuy->client || thisGuy->client == client || thisGuy->client->sess.sessionTeam != client->sess.sessionTeam ||
+					IsRacerOrSpectator(thisGuy) || thisGuy->health <= 0 || !HasFlag(thisGuy) || thisGuy->client->ps.fallingToDeath)
+					continue;
+				fc = thisGuy;
+				break;
+			}
 
-			if (i + 1 < count) // if there are more spots, shift the array
-				memmove(spots + i, spots + i + 1, (count - i - 1) * sizeof(gentity_t *));
-			--count;
-			break;
+			if (fc) {
+				int numToRemove = 0;
+				for (int i = 0; i < count; i++) {
+					if (Distance(spots[i]->s.origin, fc->client->ps.origin) <= 512 && trap_InPVS(spots[i]->s.origin, fc->client->ps.origin)) {
+						if (count - ++numToRemove == 1)
+							break;
+					}
+				}
+
+				//Com_DebugPrintf("Removing %d spawns near FC\n", numToRemove);
+
+				if (count - numToRemove >= 1) {
+					for (int i = 0; i < count; ) {
+						if (Distance(spots[i]->s.origin, fc->client->ps.origin) <= 512 && trap_InPVS(spots[i]->s.origin, fc->client->ps.origin)) {
+							if (i + 1 < count) // if there are more spots, shift the array
+								memmove(spots + i, spots + i + 1, (count - i - 1) * sizeof(gentity_t *));
+							--count;
+						}
+						else {
+							++i;
+						}
+					}
+				}
+			}
 		}
-	}
-	else if (g_gametype.integer == GT_CTF && count > 1 && g_selfKillSpawnSpamProtection.integer == 2 && client &&
-		client->pers.lastKiller == &g_entities[client - level.clients] && level.time - client->pers.lastSpawnTime < SPAWN_SPAM_PROTECT_TIME && client->pers.lastSpawnPoint) {
-		// g_selfKillSpawnSpamProtection 2
-		// remove the 50% of spawns closest to our last spawn point
-		oldSpawn = client->pers.lastSpawnPoint;
-		qsort(spots, count, sizeof(gentity_t *), SortSpotsByDistance);
-		count /= 2;
+		
+		if (g_gametype.integer == GT_CTF && count > 1 && g_killedAntiHannahSpawnRadius.integer > 0 && client &&
+			client->pers.lastKilledByEnemyTime && level.time - client->pers.lastKilledByEnemyTime < 3500) {
+			int numToRemove = 0;
+			for (int i = 0; i < count; i++) {
+				if (Distance(client->pers.lastKilledByEnemyLocation, spots[i]->s.origin) < g_killedAntiHannahSpawnRadius.value)
+					++numToRemove;
+			}
+
+			//Com_DebugPrintf("Removing %d spawns near spot last killed by\n", numToRemove);
+
+			if (count - numToRemove >= 1) {
+				for (int i = 0; i < count; ) {
+					if (Distance(client->pers.lastKilledByEnemyLocation, spots[i]->s.origin) < g_killedAntiHannahSpawnRadius.value) {
+						if (i + 1 < count) // if there are more spots, shift the array
+							memmove(spots + i, spots + i + 1, (count - i - 1) * sizeof(gentity_t *));
+						--count;
+					}
+					else {
+						++i;
+					}
+				}
+			}
+		}
+
+		if (g_gametype.integer == GT_CTF && count > 1 && g_selfKillSpawnSpamProtection.integer && g_selfKillSpawnSpamProtection.integer != 2 && client &&
+			client->pers.lastKiller == &g_entities[client - level.clients] && level.time - client->pers.lastSpawnTime < SPAWN_SPAM_PROTECT_TIME) {
+			// g_selfKillSpawnSpamProtection 1
+			// remove our previous spawnpoint from consideration if we spawned there within a few seconds ago and selfkilled
+			for (int i = 0; i < count; i++) {
+				if (spots[i] != client->pers.lastSpawnPoint)
+					continue;
+
+				if (i + 1 < count) // if there are more spots, shift the array
+					memmove(spots + i, spots + i + 1, (count - i - 1) * sizeof(gentity_t *));
+				--count;
+				break;
+			}
+		}
+		else if (g_gametype.integer == GT_CTF && count > 1 && g_selfKillSpawnSpamProtection.integer == 2 && client &&
+			client->pers.lastKiller == &g_entities[client - level.clients] && level.time - client->pers.lastSpawnTime < SPAWN_SPAM_PROTECT_TIME && client->pers.lastSpawnPoint) {
+			// g_selfKillSpawnSpamProtection 2
+			// remove the 50% of spawns closest to our last spawn point
+			oldSpawn = client->pers.lastSpawnPoint;
+			qsort(spots, count, sizeof(gentity_t *), SortSpotsByDistance);
+			count /= 2;
+		}
 	}
 
 	if ( !count ) {	// no valid spot

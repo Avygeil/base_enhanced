@@ -871,6 +871,9 @@ typedef struct {
 	int			lastForcedToSkTime;
 	gentity_t	*lastKiller;
 
+	vec3_t		lastKilledByEnemyLocation;
+	int			lastKilledByEnemyTime;
+
 	char		chatBuffer[MAX_SAY_TEXT];
 	int			chatBufferCheckTime;
 
@@ -3210,6 +3213,8 @@ extern vmCvar_t		g_duplicateNamesId;
 extern vmCvar_t		g_droppedFlagSpawnProtectionRadius;
 extern vmCvar_t		g_droppedFlagSpawnProtectionDuration;
 extern vmCvar_t		g_selfKillSpawnSpamProtection;
+extern vmCvar_t		g_killedAntiHannahSpawnRadius;
+extern vmCvar_t		g_canSpawnInTeRangeOfFc;
 
 extern vmCvar_t		g_boost;
 extern vmCvar_t		g_spawnboost_default;
