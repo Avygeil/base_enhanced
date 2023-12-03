@@ -4113,7 +4113,7 @@ void SetFakeForceAlignmentOfBoostedBase(gentity_t *ent, int forceTheirAlignmentT
 	}
 
 	if (forceTheirAlignmentToThis == FORCE_DARKSIDE) {
-		PrintIngame(ent - g_entities, "Forcibly setting fake force alignment to ^5light^7.\n");
+		PrintIngame(ent - g_entities, "Forcibly setting fake force alignment to ^1dark^7.\n");
 		ent->client->fakeForceAlignment = FAKEFORCEALIGNMENT_DARK;
 		return;
 	}
