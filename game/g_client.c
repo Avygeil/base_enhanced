@@ -4094,7 +4094,10 @@ static void SetClientFacingPoint(gentity_t *ent, vec3_t spawnPoint, vec3_t targe
 }
 
 void SetFakeForceAlignmentOfBoostedBase(gentity_t *ent, int forceTheirAlignmentToThis) {
-	assert(ent && ent->client);
+	if (!ent || !ent->client) {
+		assert(qfalse);
+		return;
+	}
 
 	if (!g_boost_fakeAlignment.integer ||
 		!ent->client->account || !(ent->client->account->flags & ACCOUNTFLAG_BOOST_BASEAUTOTHTEBOOST) || GetRemindedPosOrDeterminedPos(ent) != CTFPOSITION_BASE ||
