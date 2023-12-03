@@ -1626,6 +1626,13 @@ struct gclient_s {
 	vec3_t spawnFacingAngles;
 
 	int forceSelfkillTime;
+
+	enum {
+		FAKEFORCEALIGNMENT_NONE = 0,
+		FAKEFORCEALIGNMENT_WHATEVER,
+		FAKEFORCEALIGNMENT_DARK,
+		FAKEFORCEALIGNMENT_LIGHT
+	} fakeForceAlignment;
 };
 
 //Interest points
@@ -2368,6 +2375,8 @@ char *ParseMillisecondsToString(int msIn, qboolean forceColon, qboolean zeroMinu
 
 qboolean IsFreeSpec(gentity_t *ent);
 
+gentity_t *GetFC(int team, gentity_t *exclude, qboolean limitLocation, float onlyAtThisCtfLocationAndBelow);
+
 //
 // g_object.c
 //
@@ -2619,6 +2628,7 @@ void TellPlayerToRateMap(gclient_t *client);
 void TellPlayerToSetPositions(gclient_t *client);
 void RestoreDisconnectedPlayerData(gentity_t *ent);
 void G_SendConfigstring(int clientNum, int configstringNum, char *extra);
+void SetFakeForceAlignmentOfBoostedBase(gentity_t *ent, int forceTheirAlignmentToThis);
 
 //
 // g_svcmds.c
@@ -2907,6 +2917,7 @@ void ForceThrow( gentity_t *self, qboolean pull );
 void ForceTelepathy(gentity_t *self);
 qboolean Jedi_DodgeEvasion( gentity_t *self, gentity_t *shooter, trace_t *tr, int hitLoc );
 void AutoTHTE(gentity_t *self);
+void ShouldUseTHTE(gentity_t *target, qboolean *doTEOut, qboolean *doTHOut, int fakeForceAlignment);
 
 // g_log.c
 void QDECL G_LogPrintf( const char *fmt, ... );
@@ -3223,6 +3234,8 @@ extern vmCvar_t		g_spawnboost_teamkill;
 extern vmCvar_t		g_spawnboost_autosk;
 extern vmCvar_t		g_aimbotBoost_hitscan;
 extern vmCvar_t		g_boost_maxDarkTh;
+extern vmCvar_t		g_boost_fakeAlignment;
+extern vmCvar_t		g_boost_setFakeAlignmentOnSpawn;
 
 extern vmCvar_t		g_botAimbot;
 

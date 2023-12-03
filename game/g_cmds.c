@@ -908,7 +908,7 @@ void Cmd_Kill_f( gentity_t *ent ) {
 					return;
 				}
 
-				if (!HasFlag(ent) && ent->client->ps.fd.forceSide == FORCE_DARKSIDE || (ent->client->account->flags & ACCOUNTFLAG_BOOST_BASEAUTOTHTEBOOST && GetRemindedPosOrDeterminedPos(ent) == CTFPOSITION_BASE)) {
+				if (!HasFlag(ent) && ent->client->fakeForceAlignment != FAKEFORCEALIGNMENT_LIGHT && (ent->client->account->flags & ACCOUNTFLAG_BOOST_BASEAUTOTHTEBOOST && GetRemindedPosOrDeterminedPos(ent) == CTFPOSITION_BASE)) {
 					gentity_t *myFc = NULL;
 					for (int i = 0; i < MAX_CLIENTS; i++) {
 						gentity_t *otherGuy = &g_entities[i];

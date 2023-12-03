@@ -3379,3 +3379,26 @@ qboolean IsFreeSpec(gentity_t *ent) {
 		return qtrue;
 	return qfalse;
 }
+
+// if exclude is set, will return NULL if fc is exclude
+// if limitLocation is qtrue, then will return NULL if fc is at ctf location >= onlyAtThisCtfLocationAndBelow (e.g. 0.5 to not return fcs on enemy side of map)
+gentity_t *GetFC(int team, gentity_t *exclude, qboolean limitLocation, float onlyAtThisCtfLocationAndBelow) {
+	if (g_gametype.integer != GT_CTF)
+		return NULL;
+	if (team != TEAM_RED && team != TEAM_BLUE)
+		return NULL;
+
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *thisGuy = &g_entities[i];
+		if (!thisGuy->inuse || !thisGuy->client || (exclude && thisGuy == exclude) || thisGuy->client->sess.sessionTeam != team ||
+			IsRacerOrSpectator(thisGuy) || thisGuy->health <= 0 || !HasFlag(thisGuy) || thisGuy->client->ps.fallingToDeath)
+			continue;
+
+		if (limitLocation && GetCTFLocationValue(thisGuy) > onlyAtThisCtfLocationAndBelow)
+			continue;
+
+		return thisGuy;
+	}
+
+	return NULL;
+}

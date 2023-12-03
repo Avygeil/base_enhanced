@@ -1392,7 +1392,7 @@ void WP_AddToClientBitflags(gentity_t *ent, int entNum)
 	}
 }
 
-void ShouldUseTHTE(gentity_t *target, qboolean *doTEOut, qboolean *doTHOut) {
+void ShouldUseTHTE(gentity_t *target, qboolean *doTEOut, qboolean *doTHOut, int fakeForceAlignment) {
 	if (!target || !target->client || (!doTEOut && !doTHOut)) {
 		assert(qfalse);
 		return;
@@ -1432,31 +1432,41 @@ void ShouldUseTHTE(gentity_t *target, qboolean *doTEOut, qboolean *doTHOut) {
 
 	qboolean doTE = qfalse, doTH = qfalse;
 
-	if (hp <= 5) {
-		doTH = qtrue;
-	}
-	else if (hp <= 20) {
-		if (fp <= 55)
-			doTE = qtrue;
-		else
+	if (fakeForceAlignment == FAKEFORCEALIGNMENT_LIGHT) {
+		if (hp <= 75)
 			doTH = qtrue;
 	}
-	else if (hp <= 65) {
-		if (fp <= 65) {
+	else if (fakeForceAlignment == FAKEFORCEALIGNMENT_DARK) {
+		if (fp <= 75)
 			doTE = qtrue;
-		}
-		else {
-			if (speedActive || (hasFlag && hasRage && rageActive))
-				doTH = qtrue;
-		}
 	}
 	else {
-		if (fp <= 65) {
-			doTE = qtrue;
+		if (hp <= 5) {
+			doTH = qtrue;
 		}
-		else if (fp < 75) {
-			if (speedActive || (hasFlag && hasRage && rageActive))
+		else if (hp <= 20) {
+			if (fp <= 55)
 				doTE = qtrue;
+			else
+				doTH = qtrue;
+		}
+		else if (hp <= 65) {
+			if (fp <= 65) {
+				doTE = qtrue;
+			}
+			else {
+				if (speedActive || (hasFlag && hasRage && rageActive))
+					doTH = qtrue;
+			}
+		}
+		else {
+			if (fp <= 65) {
+				doTE = qtrue;
+			}
+			else if (fp < 75) {
+				if (speedActive || (hasFlag && hasRage && rageActive))
+					doTE = qtrue;
+			}
 		}
 	}
 
@@ -1479,22 +1489,22 @@ qboolean DoesntHaveFlagButMyFCIsKindaNear(gentity_t *self, gentity_t *target) {
 		return qfalse;
 
 	for (int i = 0; i < MAX_CLIENTS; i++) {
-		gentity_t *thisEnt = &g_entities[i];
-		if (thisEnt == self || thisEnt == target)
+		gentity_t *fc = &g_entities[i];
+		if (fc == self || fc == target)
 			continue;
-		if (!thisEnt->inuse || !thisEnt->client || thisEnt->client->pers.connected != CON_CONNECTED || !HasFlag(thisEnt) || thisEnt->client->ps.fallingToDeath)
+		if (!fc->inuse || !fc->client || fc->client->pers.connected != CON_CONNECTED || !HasFlag(fc) || fc->client->ps.fallingToDeath)
 			continue;
-		if (thisEnt->health <= 0 || IsRacerOrSpectator(thisEnt) || thisEnt->client->sess.sessionTeam != self->client->sess.sessionTeam)
+		if (fc->health <= 0 || IsRacerOrSpectator(fc) || fc->client->sess.sessionTeam != self->client->sess.sessionTeam)
 			continue;
 
 		// this guy is an allied fc
-		float dist = Distance2D(self->client->ps.origin, thisEnt->client->ps.origin);
+		float dist = Distance2D(self->client->ps.origin, fc->client->ps.origin);
 		if (dist > 2000)
 			continue; // but he's far away
 
 		// he's close
 		qboolean shouldTEFC = qfalse, shouldTHFC = qfalse;
-		ShouldUseTHTE(thisEnt, &shouldTEFC, &shouldTHFC);
+		ShouldUseTHTE(fc, &shouldTEFC, &shouldTHFC, self->client->fakeForceAlignment);
 		if (!shouldTEFC && !shouldTHFC)
 			continue; // but he doesn't need th or te
 
@@ -1523,7 +1533,18 @@ void ForceTeamHeal( gentity_t *self, qboolean redirectedTE )
 		return;
 	}
 
-	const int evaluateThisForcePower = redirectedTE ? FP_TEAM_FORCE : FP_TEAM_HEAL;
+	if (baseBoost && self->client->fakeForceAlignment == FAKEFORCEALIGNMENT_DARK) {
+		gentity_t *fc = GetFC(self->client->sess.sessionTeam, self, qfalse, 0);
+		if (fc) {
+			qboolean shouldTe = qfalse;
+			ShouldUseTHTE(fc, &shouldTe, NULL, FAKEFORCEALIGNMENT_DARK);
+			if (shouldTe)
+				ForceTeamForceReplenish(self, qtrue);
+		}
+		return;
+	}
+
+	const int evaluateThisForcePower = (self->client->ps.fd.forcePowersKnown & (1 << FP_TEAM_HEAL)) ? FP_TEAM_HEAL : FP_TEAM_FORCE;
 
 	if ( !WP_ForcePowerUsable( self, evaluateThisForcePower) )
 	{
@@ -1593,7 +1614,7 @@ void ForceTeamHeal( gentity_t *self, qboolean redirectedTE )
 
 	if (baseBoost && numpl == 1 && !redirectedTE) {
 		qboolean doTE = qfalse, doTH = qfalse;
-		ShouldUseTHTE(&g_entities[pl[0]], &doTE, &doTH);
+		ShouldUseTHTE(&g_entities[pl[0]], &doTE, &doTH, self->client->fakeForceAlignment);
 
 		if (doTE) {
 			//PrintIngame(-1, "^5Team energize\n");
@@ -1609,6 +1630,8 @@ void ForceTeamHeal( gentity_t *self, qboolean redirectedTE )
 		return;
 
 	//this entity will definitely use TH, log it
+
+	SetFakeForceAlignmentOfBoostedBase(self, FORCE_LIGHTSIDE);
 
 	if (numpl == 1)
 	{
@@ -1686,13 +1709,24 @@ void ForceTeamForceReplenish( gentity_t *self, qboolean redirectedTH )
 	int poweradd = 0;
 	gentity_t *te = NULL;
 	qboolean baseBoost = !!(self->client->account && self->client->account->flags & ACCOUNTFLAG_BOOST_BASEAUTOTHTEBOOST && g_boost.integer && GetRemindedPosOrDeterminedPos(self) == CTFPOSITION_BASE);
-	const int evaluateThisForcePower = redirectedTH ? FP_TEAM_HEAL : FP_TEAM_FORCE;
 
 	if ( self->health <= 0 )
 	{
 		return;
 	}
 
+	if (baseBoost && self->client->fakeForceAlignment == FAKEFORCEALIGNMENT_LIGHT) {
+		gentity_t *fc = GetFC(self->client->sess.sessionTeam, self, qfalse, 0);
+		if (fc) {
+			qboolean shouldTh = qfalse;
+			ShouldUseTHTE(fc, NULL, &shouldTh, FAKEFORCEALIGNMENT_LIGHT);
+			if (shouldTh)
+				ForceTeamHeal(self, qtrue);
+		}
+		return;
+	}
+
+	const int evaluateThisForcePower = (self->client->ps.fd.forcePowersKnown & (1 << FP_TEAM_FORCE)) ? FP_TEAM_FORCE : FP_TEAM_HEAL;
 	if ( !WP_ForcePowerUsable( self, evaluateThisForcePower) )
 	{
 		return;
@@ -1767,7 +1801,7 @@ void ForceTeamForceReplenish( gentity_t *self, qboolean redirectedTH )
 
 	if (baseBoost && numpl == 1 && !redirectedTH) {
 		qboolean doTE = qfalse, doTH = qfalse;
-		ShouldUseTHTE(&g_entities[pl[0]], &doTE, &doTH);
+		ShouldUseTHTE(&g_entities[pl[0]], &doTE, &doTH, self->client->fakeForceAlignment);
 
 		if (doTH) {
 			//PrintIngame(-1, "^2Team heal\n");
@@ -1784,6 +1818,8 @@ void ForceTeamForceReplenish( gentity_t *self, qboolean redirectedTH )
 
 	//this entity will definitely use TE, log it
 	//++self->client->pers.teamState.te;
+
+	SetFakeForceAlignmentOfBoostedBase(self, FORCE_DARKSIDE);
 
 	if (numpl == 1)
 	{

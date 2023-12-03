@@ -4093,7 +4093,72 @@ static void SetClientFacingPoint(gentity_t *ent, vec3_t spawnPoint, vec3_t targe
 	SetClientViewAngle(ent, newViewAngle);
 }
 
+void SetFakeForceAlignmentOfBoostedBase(gentity_t *ent, int forceTheirAlignmentToThis) {
+	assert(ent && ent->client);
 
+	if (!g_boost_fakeAlignment.integer ||
+		!ent->client->account || !(ent->client->account->flags & ACCOUNTFLAG_BOOST_BASEAUTOTHTEBOOST) || GetRemindedPosOrDeterminedPos(ent) != CTFPOSITION_BASE ||
+		ent->client->pers.connected != CON_CONNECTED || !ent->inuse || IsRacerOrSpectator(ent)) {
+		ent->client->fakeForceAlignment = FAKEFORCEALIGNMENT_NONE;
+		return;
+	}
+
+	if (forceTheirAlignmentToThis == FORCE_LIGHTSIDE) {
+		PrintIngame(ent - g_entities, "Forcibly setting fake force alignment to ^5light^7.\n");
+		ent->client->fakeForceAlignment = FAKEFORCEALIGNMENT_LIGHT;
+		return;
+	}
+
+	if (forceTheirAlignmentToThis == FORCE_DARKSIDE) {
+		PrintIngame(ent - g_entities, "Forcibly setting fake force alignment to ^5light^7.\n");
+		ent->client->fakeForceAlignment = FAKEFORCEALIGNMENT_DARK;
+		return;
+	}
+
+	gentity_t *fc = NULL;
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *thisGuy = &g_entities[i];
+		if (!thisGuy->inuse || !thisGuy->client || thisGuy == ent || thisGuy->client->sess.sessionTeam != ent->client->sess.sessionTeam ||
+			IsRacerOrSpectator(thisGuy) || thisGuy->health <= 0 || !HasFlag(thisGuy) || thisGuy->client->ps.fallingToDeath)
+			continue;
+
+		float loc = GetCTFLocationValue(thisGuy);
+		if (loc <= 0.55f) {
+			fc = thisGuy;
+			break;
+		}
+	}
+
+	if (fc) {
+		qboolean doTE = qfalse, doTH = qfalse;
+		ShouldUseTHTE(fc, &doTE, &doTH, FAKEFORCEALIGNMENT_NONE);
+
+		if (doTE) {
+			ent->client->fakeForceAlignment = FAKEFORCEALIGNMENT_DARK;
+#ifdef FAKEFORCEALIGNMENT_DEBUG
+			PrintIngame(ent - g_entities, "Setting fake force alignment to ^1dark^7.\n");
+#endif
+		}
+		else if (doTH) {
+			ent->client->fakeForceAlignment = FAKEFORCEALIGNMENT_LIGHT;
+#ifdef FAKEFORCEALIGNMENT_DEBUG
+			PrintIngame(ent - g_entities, "Setting fake force alignment to ^5light^7.\n");
+#endif
+		}
+		else {
+			ent->client->fakeForceAlignment = FAKEFORCEALIGNMENT_WHATEVER;
+#ifdef FAKEFORCEALIGNMENT_DEBUG
+			PrintIngame(ent - g_entities, "Setting fake force alignment to whatever.\n");
+#endif
+		}
+	}
+	else {
+		ent->client->fakeForceAlignment = FAKEFORCEALIGNMENT_WHATEVER;
+#ifdef FAKEFORCEALIGNMENT_DEBUG
+		PrintIngame(ent - g_entities, "Setting fake force alignment to whatever.\n");
+#endif
+	}
+}
 
 /*
 ===========
@@ -4947,6 +5012,9 @@ void ClientSpawn(gentity_t *ent) {
 	}
 
 	VectorCopy(client->ps.viewangles, client->spawnFacingAngles);
+
+	if (g_boost_setFakeAlignmentOnSpawn.integer)
+		SetFakeForceAlignmentOfBoostedBase(ent, 0);
 
 	if ( ent->client->sess.sessionTeam == TEAM_SPECTATOR ) {
 

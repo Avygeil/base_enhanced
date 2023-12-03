@@ -4160,8 +4160,8 @@ void ClientThink_real( gentity_t *ent ) {
 		}
 
 		// boost: sk if no force, no guns, and fc is in base in need of th/te
-		if (ent->client && ent->client->account && ent->client->account->flags & ACCOUNTFLAG_BOOST_SPAWNFCBOOST && g_boost.integer && g_spawnboost_autosk.integer &&
-			!didSk && level.wasRestarted && GetRemindedPosOrDeterminedPos(ent) == CTFPOSITION_BASE) {
+		if (ent->client && ent->client->account && ent->client->account->flags & ACCOUNTFLAG_BOOST_SPAWNFCBOOST &&
+			g_boost.integer && g_spawnboost_autosk.integer && !didSk && level.wasRestarted && GetRemindedPosOrDeterminedPos(ent) == CTFPOSITION_BASE) {
 			gentity_t *fc = NULL;
 			for (int i = 0; i < MAX_CLIENTS; i++) {
 				gentity_t *thisGuy = &g_entities[i];
@@ -4178,29 +4178,41 @@ void ClientThink_real( gentity_t *ent ) {
 
 			qboolean doSk = qfalse;
 			if (fc) {
-				qboolean fcNeedsThTe = qfalse;
-				qboolean fcNeedsBigThTe = qfalse;
+				qboolean fcNeedsTh = qfalse, fcNeedsTe = qfalse;
+				qboolean fcNeedsBigTh = qfalse, fcNeedsBigTe = qfalse;
 				qboolean hasShittyGun = !HasGoodFireableWeaponEquipped(ent);
-				qboolean notEnoughForceToTe = ent->client->ps.fd.forcePower < 25;
+				qboolean notEnoughForceToT = ent->client->ps.fd.forcePower < 25;
 				qboolean hasMegaShittyForce = ent->client->ps.fd.forcePower <= 15 || ent->client->ps.fd.forcePowersActive & (1 << FP_SPEED);
 
 				if (fc->health < 50)
-					fcNeedsBigThTe = fcNeedsThTe = qtrue;
+					fcNeedsBigTh = fcNeedsTh = qtrue;
 				else if (fc->health <= 75)
-					fcNeedsThTe = qtrue;
+					fcNeedsTh = qtrue;
 
 				if (fc->client->ps.fd.forcePower < 50)
-					fcNeedsBigThTe = fcNeedsThTe = qtrue;
+					fcNeedsBigTe = fcNeedsTe = qtrue;
 				else if (fc->client->ps.fd.forcePower <= 75)
-					fcNeedsThTe = qtrue;
-				
-				if (!(fc->client->ps.fd.forcePowersActive & (1 << FP_SPEED)))
-					fcNeedsBigThTe = fcNeedsThTe = qtrue;
+					fcNeedsTe = qtrue;
 
-				if (notEnoughForceToTe && (fcNeedsBigThTe || (fcNeedsThTe && (hasShittyGun || hasMegaShittyForce))))
+				if (!(fc->client->ps.fd.forcePowersActive & (1 << FP_SPEED)))
+					fcNeedsBigTe = fcNeedsTe = qtrue;
+
+				qboolean fcNeedsBigThOrTe = (fcNeedsBigTh || fcNeedsBigTe);
+				qboolean fcNeedsThOrTe = (fcNeedsTh || fcNeedsTe);
+
+				if (notEnoughForceToT && (fcNeedsBigThOrTe || (fcNeedsThOrTe && (hasShittyGun || hasMegaShittyForce))))
 					doSk = qtrue;
+
+				if (!doSk && ent->client->account->flags & ACCOUNTFLAG_BOOST_BASEAUTOTHTEBOOST && (ent->client->fakeForceAlignment == FAKEFORCEALIGNMENT_LIGHT || ent->client->fakeForceAlignment == FAKEFORCEALIGNMENT_DARK)) {
+					// we don't need to sk by virtue of not having fp,
+					// BUT we might possibly need to sk by virtue of being the wrong force alignment.
+					if (ent->client->fakeForceAlignment == FAKEFORCEALIGNMENT_LIGHT && fcNeedsBigTe && !fcNeedsTh)
+						doSk = qtrue;
+					else if (ent->client->fakeForceAlignment == FAKEFORCEALIGNMENT_DARK && fcNeedsBigTh && !fcNeedsTe)
+						doSk = qtrue;
+				}
 			}
-			else if (teamgame.redStatus == FLAG_ATBASE && teamgame.blueStatus == FLAG_ATBASE && GetCTFLocationValue(ent) >= 0.66f) {
+			else if (ent->client->account->flags & ACCOUNTFLAG_BOOST_SPAWNFCBOOST && teamgame.redStatus == FLAG_ATBASE && teamgame.blueStatus == FLAG_ATBASE && GetCTFLocationValue(ent) >= 0.66f) {
 				doSk = qtrue;
 			}
 
