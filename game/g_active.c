@@ -4184,9 +4184,35 @@ void ClientThink_real( gentity_t *ent ) {
 				qboolean notEnoughForceToT = ent->client->ps.fd.forcePower < 25;
 				qboolean hasMegaShittyForce = ent->client->ps.fd.forcePower <= 15 || ent->client->ps.fd.forcePowersActive & (1 << FP_SPEED);
 
-				if (fc->health < 50)
+				int fcHealth = fc->health;
+				qboolean gotHealthPack = qfalse, healthPackIsSuperClose = qfalse;
+				for (int i = MAX_CLIENTS; i < MAX_GENTITIES; i++) {
+					const gentity_t *medpack = &g_entities[i];
+					if (!medpack->inuse || !medpack->item || (medpack->item->giType != IT_HEALTH && medpack->item->giType != IT_ARMOR))
+						continue;
+					if (medpack->s.eFlags & EF_NODRAW)
+						continue; // waiting to respawn
+					float dist = Distance2D(ent->client->ps.origin, medpack->s.origin);
+					if (dist > 800)
+						continue;
+
+					gotHealthPack = qtrue;
+					if (dist <= 400) {
+						healthPackIsSuperClose = qtrue;
+						break;
+					}
+				}
+
+				if (gotHealthPack) {
+					if (healthPackIsSuperClose)
+						fcHealth += 25; // consider us slightly higher hp if the health pack is very close
+					else
+						fcHealth += 20;
+				}
+
+				if (fcHealth < 50)
 					fcNeedsBigTh = fcNeedsTh = qtrue;
-				else if (fc->health <= 75)
+				else if (fcHealth <= 75)
 					fcNeedsTh = qtrue;
 
 				if (fc->client->ps.fd.forcePower < 50)

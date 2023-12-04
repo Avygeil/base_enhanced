@@ -1407,20 +1407,22 @@ void ShouldUseTHTE(gentity_t *target, qboolean *doTEOut, qboolean *doTHOut, int 
 
 	qboolean gotHealthPack = qfalse, healthPackIsSuperClose = qfalse;
 	for (int i = MAX_CLIENTS; i < MAX_GENTITIES; i++) {
-		const gentity_t *thisEnt = &g_entities[i];
-		if (!thisEnt->inuse || !thisEnt->item || (thisEnt->item->giType != IT_HEALTH && thisEnt->item->giType != IT_ARMOR))
+		const gentity_t *medpack = &g_entities[i];
+		if (!medpack->inuse || !medpack->item || (medpack->item->giType != IT_HEALTH && medpack->item->giType != IT_ARMOR))
 			continue;
-		if (thisEnt->s.eFlags & EF_NODRAW)
+		if (medpack->s.eFlags & EF_NODRAW)
 			continue; // waiting to respawn
-		float dist = Distance2D(target->client->ps.origin, thisEnt->s.origin);
+		float dist = Distance2D(target->client->ps.origin, medpack->s.origin);
 		if (dist > 800)
 			continue;
-		//int value = (thisEnt->item->giType == IT_ARMOR && thisEnt->item->giTag == 2) ? 100 : 25;
-		//PrintIngame(-1, "Distance to %s: %d\n", thisEnt->item->giType == IT_ARMOR ? "armor" : "healthpack", (int)dist);
+		//int value = (medpack->item->giType == IT_ARMOR && medpack->item->giTag == 2) ? 100 : 25;
+		//PrintIngame(-1, "Distance to %s: %d\n", medpack->item->giType == IT_ARMOR ? "armor" : "healthpack", (int)dist);
 
 		gotHealthPack = qtrue;
-		if (dist <= 400)
+		if (dist <= 400) {
 			healthPackIsSuperClose = qtrue;
+			break;
+		}
 	}
 
 	if (gotHealthPack) {
