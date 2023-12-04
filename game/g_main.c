@@ -418,6 +418,7 @@ vmCvar_t	g_spawnboost_teamkill;
 vmCvar_t	g_spawnboost_autosk;
 vmCvar_t	g_aimbotBoost_hitscan;
 vmCvar_t	g_boost_maxDarkTh;
+vmCvar_t	g_boost_fakeAlignment;
 vmCvar_t	g_boost_setFakeAlignmentOnSpawn;
 
 vmCvar_t	g_botAimbot;
@@ -564,6 +565,7 @@ vmCvar_t	g_gripRefreshRate;
 vmCvar_t	g_gripAbsorbFix;
 
 vmCvar_t	g_mindTrickBuff;
+vmCvar_t	g_drainRework;
 
 vmCvar_t	g_allowSkAutoThTe;
 
@@ -1124,6 +1126,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_gripAbsorbFix, "g_gripAbsorbFix", "0", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_mindTrickBuff, "g_mindTrickBuff", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_drainRework, "g_drainRework", "0", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 
 	{ &g_allowSkAutoThTe, "g_allowSkAutoThTe", "-1", CVAR_ARCHIVE, 0, qtrue },
 

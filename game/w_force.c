@@ -838,10 +838,31 @@ qboolean WP_ForcePowerAvailable( gentity_t *self, forcePowers_t forcePower, int 
 	{
 		return qtrue;
 	}
-	if ((forcePower == FP_DRAIN || forcePower == FP_LIGHTNING) &&
-		self->client->ps.fd.forcePower >= 25)
-	{ //it's ok then, drain/lightning are actually duration
+	if (forcePower == FP_LIGHTNING && self->client->ps.fd.forcePower >= 25)
 		return qtrue;
+	if (forcePower == FP_DRAIN) {
+		if (!g_drainRework.integer) {
+			if (self->client->ps.fd.forcePower >= 25)
+				return qtrue;
+		}
+		else {
+			if (g_drainRework.integer >= 2) {
+				if (self->client->ps.fd.forcePower >= 5)
+					return qtrue;
+				return qfalse;
+			}
+			else {
+				int forceCost;
+				switch (self->client->ps.fd.forcePowerLevel[FP_DRAIN]) {
+				case 3: forceCost = 33; break;
+				case 2: forceCost = 22; break;
+				default: forceCost = 11; break;
+				}
+				if (self->client->ps.fd.forcePower >= forceCost)
+					return qtrue;
+				return qfalse;
+			}
+		}
 	}
 	if ( self->client->ps.fd.forcePower < drain )
 	{
@@ -1447,13 +1468,13 @@ void ShouldUseTHTE(gentity_t *target, qboolean *doTEOut, qboolean *doTHOut, int 
 			doTH = qtrue;
 		}
 		else if (hp <= 20) {
-			if (fp <= 55)
+			if (fp <= 55 && !(target->client->drainDebuffTime >= level.time && g_drainRework.integer))
 				doTE = qtrue;
 			else
 				doTH = qtrue;
 		}
 		else if (hp <= 65) {
-			if (fp <= 65) {
+			if (fp <= 65 && !(target->client->drainDebuffTime >= level.time && g_drainRework.integer)) {
 				doTE = qtrue;
 			}
 			else {
@@ -1471,6 +1492,9 @@ void ShouldUseTHTE(gentity_t *target, qboolean *doTEOut, qboolean *doTHOut, int 
 			}
 		}
 	}
+
+	if (target->client->drainDebuffTime >= level.time && g_drainRework.integer)
+		doTE = qfalse;
 
 	if (doTEOut)
 		*doTEOut = doTE;
@@ -1572,7 +1596,7 @@ void ForceTeamHeal( gentity_t *self, qboolean redirectedTE )
 		ent = &g_entities[i];
 
 		if (ent && ent->client && self != ent && OnSameTeam(self, ent) && ent->client->ps.stats[STAT_HEALTH] < ent->client->ps.stats[STAT_MAX_HEALTH] && ent->client->ps.stats[STAT_HEALTH] > 0 && ForcePowerUsableOn(self, ent, FP_TEAM_HEAL) > 0 &&
-			trap_InPVS(self->client->ps.origin, ent->client->ps.origin))
+			trap_InPVS(self->client->ps.origin, ent->client->ps.origin) /*&& !(target->client->drainDebuffTime >= level.time && g_drainRework.integer)*/ )
 		{
 			VectorSubtract(self->client->ps.origin, ent->client->ps.origin, a);
 
@@ -1598,7 +1622,7 @@ void ForceTeamHeal( gentity_t *self, qboolean redirectedTE )
 			ent = &g_entities[i];
 
 			if (ent && ent->client && self != ent && OnSameTeam(self, ent) && /*ent->client->ps.stats[STAT_HEALTH] < ent->client->ps.stats[STAT_MAX_HEALTH] && */ent->client->ps.stats[STAT_HEALTH] > 0 && ForcePowerUsableOn(self, ent, FP_TEAM_HEAL) > 0 &&
-				trap_InPVS(self->client->ps.origin, ent->client->ps.origin))
+				trap_InPVS(self->client->ps.origin, ent->client->ps.origin) && !(ent->client->drainDebuffTime >= level.time && g_drainRework.integer))
 			{
 				VectorSubtract(self->client->ps.origin, ent->client->ps.origin, a);
 
@@ -1755,7 +1779,8 @@ void ForceTeamForceReplenish( gentity_t *self, qboolean redirectedTH )
 		if (ent && ent->client && self != ent && OnSameTeam(self, ent)
 			&& ent->client->ps.stats[STAT_HEALTH] > 0 /* *CHANGE 60* try to TE only living mates */
 			&& ent->client->ps.fd.forcePower < 100 && ForcePowerUsableOn(self, ent, FP_TEAM_FORCE) > 0 &&
-			trap_InPVS(self->client->ps.origin, ent->client->ps.origin))
+			trap_InPVS(self->client->ps.origin, ent->client->ps.origin) &&
+			!(g_drainRework.integer && ent->client->drainDebuffTime >= level.time))
 		{
 			VectorSubtract(self->client->ps.origin, ent->client->ps.origin, a);
 
@@ -1785,7 +1810,8 @@ void ForceTeamForceReplenish( gentity_t *self, qboolean redirectedTH )
 			if (ent && ent->client && self != ent && OnSameTeam(self, ent)
 				&& ent->client->ps.stats[STAT_HEALTH] > 0 /* *CHANGE 60* try to TE only living mates */
 				/*&& ent->client->ps.fd.forcePower < 100*/ && ForcePowerUsableOn(self, ent, FP_TEAM_FORCE) > 0 &&
-				trap_InPVS(self->client->ps.origin, ent->client->ps.origin))
+				trap_InPVS(self->client->ps.origin, ent->client->ps.origin)/* &&
+				!(g_drainRework.integer && ent->client->drainDebuffTime >= level.time)*/)
 			{
 				VectorSubtract(self->client->ps.origin, ent->client->ps.origin, a);
 
@@ -2579,7 +2605,7 @@ void ForceDrain( gentity_t *self )
 		return;
 	}
 
-	if ( self->client->ps.fd.forcePower < 25 || !WP_ForcePowerUsable( self, FP_DRAIN ) )
+	if ( (self->client->ps.fd.forcePower < 25 && !g_drainRework.integer) || (self->client->ps.fd.forcePower < 5 && g_drainRework.integer) || !WP_ForcePowerUsable( self, FP_DRAIN ) )
 	{
 		return;
 	}
@@ -2588,18 +2614,32 @@ void ForceDrain( gentity_t *self )
 		return;
 	}
 
+	if (g_drainRework.integer >= 2) {
+		int selfdmg;
+		switch (self->client->ps.fd.forcePowerLevel[FP_DRAIN]) {
+		case 3: selfdmg = 15; break;
+		case 2: selfdmg = 10; break;
+		default: selfdmg = 5; break;
+		}
+		if (self->health <= selfdmg)
+			return;
+	}
+
 	self->client->ps.forceHandExtend = HANDEXTEND_FORCE_HOLD;
 	self->client->ps.forceHandExtendTime = level.time + 20000;
 
 	G_Sound( self, CHAN_BODY, G_SoundIndex("sound/weapons/force/drain.wav") );
 	
-	WP_ForcePowerStart( self, FP_DRAIN, 500 );
+	if (!g_drainRework.integer)
+		WP_ForcePowerStart( self, FP_DRAIN, 500 );
+	else
+		WP_ForcePowerStart( self, FP_DRAIN, 1 );
 }
 
 void ForceDrainDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, vec3_t impactPoint )
 {
 	gentity_t *tent;
-
+	int actualForceDrainedFromTarget = 0;
 	self->client->dangerTime = level.time;
 	self->client->ps.eFlags &= ~EF_INVULNERABLE;
 	self->client->invulnerableTimer = 0;
@@ -2621,15 +2661,24 @@ void ForceDrainDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, vec3_t 
 				int	dmg = 0; 
 				if (self->client->ps.fd.forcePowerLevel[FP_DRAIN] == FORCE_LEVEL_1)
 				{
-					dmg = 2; //because it's one-shot
+					if (!g_drainRework.integer)
+						dmg = 2; //because it's one-shot
+					else
+						dmg = 11;
 				}
 				else if (self->client->ps.fd.forcePowerLevel[FP_DRAIN] == FORCE_LEVEL_2)
 				{
-					dmg = 3;
+					if (!g_drainRework.integer)
+						dmg = 3;
+					else
+						dmg = 22;
 				}
 				else if (self->client->ps.fd.forcePowerLevel[FP_DRAIN] == FORCE_LEVEL_3)
 				{
-					dmg = 4;
+					if (!g_drainRework.integer)
+						dmg = 4;
+					else
+						dmg = 33;
 				}
 			
 				if (traceEnt->client)
@@ -2639,22 +2688,28 @@ void ForceDrainDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, vec3_t 
 
 				if (modPowerLevel != -1)
 				{
-					if (!modPowerLevel)
-					{
+					if (!g_drainRework.integer) {
+						if (!modPowerLevel)
+						{
+							dmg = 0;
+						}
+						else if (modPowerLevel == 1)
+						{
+							dmg = 1;
+						}
+						else if (modPowerLevel == 2)
+						{
+							dmg = 2;
+						}
+					}
+					else {
 						dmg = 0;
-					}
-					else if (modPowerLevel == 1)
-					{
-						dmg = 1;
-					}
-					else if (modPowerLevel == 2)
-					{
-						dmg = 2;
 					}
 				}
 
 				if (dmg)
 				{
+					actualForceDrainedFromTarget = dmg;
 					traceEnt->client->ps.fd.forcePower -= (dmg);
 
 					if (traceEnt->client->sess.sessionTeam == OtherTeam(self->client->sess.sessionTeam) && traceEnt->client->stats && self->client->stats) {
@@ -2664,27 +2719,49 @@ void ForceDrainDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, vec3_t 
 				}
 				if (traceEnt->client->ps.fd.forcePower < 0)
 				{
+					actualForceDrainedFromTarget -= abs(traceEnt->client->ps.fd.forcePower);
 					traceEnt->client->ps.fd.forcePower = 0;
 				}
 
-				if (self->client->ps.stats[STAT_HEALTH] < self->client->ps.stats[STAT_MAX_HEALTH] &&
-					self->health > 0 && self->client->ps.stats[STAT_HEALTH] > 0)
-				{
-					self->health += dmg;
-					if (self->health > self->client->ps.stats[STAT_MAX_HEALTH])
+				if (!g_drainRework.integer) {
+					if (self->client->ps.stats[STAT_HEALTH] < self->client->ps.stats[STAT_MAX_HEALTH] &&
+						self->health > 0 && self->client->ps.stats[STAT_HEALTH] > 0)
 					{
-						self->health = self->client->ps.stats[STAT_MAX_HEALTH];
+						self->health += dmg;
+						if (self->health > self->client->ps.stats[STAT_MAX_HEALTH])
+						{
+							self->health = self->client->ps.stats[STAT_MAX_HEALTH];
+						}
+						self->client->ps.stats[STAT_HEALTH] = self->health;
 					}
+				}
+				else if (g_drainRework.integer == 1) {
+					self->health += actualForceDrainedFromTarget;
 					self->client->ps.stats[STAT_HEALTH] = self->health;
 				}
+				else {
+					int restoredForce = (int)roundf(((float)actualForceDrainedFromTarget) * 0.6f);
+					self->client->ps.fd.forcePower += restoredForce;
+					if (self->client->ps.fd.forcePower > 100)
+						self->client->ps.fd.forcePower = 100;
+				}
 
-				traceEnt->client->ps.fd.forcePowerRegenDebounceTime = level.time + 800; //don't let the client being drained get force power back right away
+				if (!g_drainRework.integer) {
+					traceEnt->client->ps.fd.forcePowerRegenDebounceTime = level.time + 800; //don't let the client being drained get force power back right away
+				}
+				else {
+					const int debuffDuration = 1000 * self->client->ps.fd.forcePowerLevel[FP_DRAIN];
+					traceEnt->client->ps.fd.forcePowerRegenDebounceTime = level.time + debuffDuration;
+					traceEnt->client->drainDebuffTime = level.time + debuffDuration;
+				}
 
 				if (traceEnt->client->forcePowerSoundDebounce < level.time)
 				{
 					tent = G_TempEntity( impactPoint, EV_FORCE_DRAINED);
 					tent->s.eventParm = DirToByte(dir);
 					tent->s.owner = traceEnt->s.number;
+					if (g_drainRework.integer)
+						tent->s.time = 3000;
 					G_ApplyRaceBroadcastsToEvent( traceEnt, tent );
 
 					traceEnt->client->forcePowerSoundDebounce = level.time + 400;
@@ -2708,8 +2785,11 @@ int ForceShootDrain( gentity_t *self )
 	AngleVectors( self->client->ps.viewangles, forward, NULL, NULL );
 	VectorNormalize( forward );
 
-	if ( self->client->ps.fd.forcePowerLevel[FP_DRAIN] > FORCE_LEVEL_2 )
+	if ( self->client->ps.fd.forcePowerLevel[FP_DRAIN] > FORCE_LEVEL_2 && !g_drainRework.integer )
 	{//arc
+		qboolean compensate = self->client->sess.unlagged;
+		if (g_unlagged.integer && compensate)
+			G_TimeShiftAllClients(trap_Milliseconds() - (level.time - self->client->pers.cmd.serverTime), self, qfalse);
 		vec3_t	center, mins, maxs, dir, ent_org, size, v;
 		float	radius = MAX_DRAIN_DISTANCE, dot, dist;
 		gentity_t	*entityList[MAX_GENTITIES];
@@ -2806,31 +2886,76 @@ int ForceShootDrain( gentity_t *self )
 			ForceDrainDamage( self, traceEnt, dir, ent_org );
 			gotOneOrMore = 1;
 		}
+		if (g_unlagged.integer && compensate)
+			G_UnTimeShiftAllClients(self, qfalse);
 	}
 	else
 	{//trace-line
-		VectorMA( self->client->ps.origin, 2048, forward, end );
+		int range = !g_drainRework.integer ? 2048 : 512;
+		VectorMA( self->client->ps.origin, range, forward, end );
+
+		vec3_t mins, maxs;
+#if 0
+		if (!g_drainRework.integer) {
+#endif
+			VectorCopy(vec3_origin, mins);
+			VectorCopy(vec3_origin, maxs);
+#if 0
+		}
+		else { // slightly bigger trace bounds i guess
+			mins[0] = mins[1] = mins[2] = -1 * 3;
+			maxs[0] = maxs[1] = maxs[2] = 3;
+		}
+#endif
+
 		qboolean compensate = self->client->sess.unlagged;
 		if (g_unlagged.integer && compensate)
 			G_TimeShiftAllClients(trap_Milliseconds() - (level.time - self->client->pers.cmd.serverTime), self, qfalse);
-		trap_Trace( &tr, self->client->ps.origin, vec3_origin, vec3_origin, end, self->s.number, MASK_SHOT );
+
+		trap_Trace( &tr, self->client->ps.origin, mins, maxs, end, self->s.number, MASK_SHOT );
+
 		if (g_unlagged.integer && compensate)
 			G_UnTimeShiftAllClients(self, qfalse);
+
 		if ( tr.entityNum == ENTITYNUM_NONE || tr.fraction == 1.0 || tr.allsolid || tr.startsolid || !g_entities[tr.entityNum].client || !g_entities[tr.entityNum].inuse )
 		{
-			return 0;
+			if (!g_drainRework.integer)
+				return 0;
 		}
-		
-		traceEnt = &g_entities[tr.entityNum];
-		ForceDrainDamage( self, traceEnt, forward, tr.endpos );
-		gotOneOrMore = 1;
+		else {
+			traceEnt = &g_entities[tr.entityNum];
+			ForceDrainDamage(self, traceEnt, forward, tr.endpos);
+			gotOneOrMore = 1;
+		}
 	}
 
 	self->client->ps.activeForcePass = self->client->ps.fd.forcePowerLevel[FP_DRAIN] + FORCE_LEVEL_3;
 
-	BG_ForcePowerDrain( &self->client->ps, FP_DRAIN, 5 ); //used to be 1, but this did, too, anger the God of Balance.
+	if (g_drainRework.integer < 2) {
+		if (!g_drainRework.integer)
+			BG_ForcePowerDrain(&self->client->ps, FP_DRAIN, 5); //used to be 1, but this did, too, anger the God of Balance.
+		else {
+			int forceCost;
+			switch (self->client->ps.fd.forcePowerLevel[FP_DRAIN]) {
+			case 3: forceCost = 33; break;
+			case 2: forceCost = 22; break;
+			default: forceCost = 11; break;
+			}
+			BG_ForcePowerDrain(&self->client->ps, FP_DRAIN, forceCost);
+		}
+	}
+	else {
+		int selfdmg;
+		switch (self->client->ps.fd.forcePowerLevel[FP_DRAIN]) {
+		case 3: selfdmg = 15; break;
+		case 2: selfdmg = 10; break;
+		default: selfdmg = 5; break;
+		}
+		G_Damage(self, self, self, NULL, NULL, selfdmg, DAMAGE_NO_PROTECTION | DAMAGE_NO_ARMOR | DAMAGE_NO_SELF_PROTECTION, MOD_SUICIDE);
+	}
 
-	self->client->ps.fd.forcePowerRegenDebounceTime = level.time + 500;
+	if (!g_drainRework.integer)
+		self->client->ps.fd.forcePowerRegenDebounceTime = level.time + 500;
 
 	return gotOneOrMore;
 }
@@ -4542,13 +4667,18 @@ void WP_ForcePowerStop( gentity_t *self, forcePowers_t forcePower )
 		}
 		break;
 	case FP_DRAIN:
-		if ( self->client->ps.fd.forcePowerLevel[FP_DRAIN] < FORCE_LEVEL_2 )
-		{//don't do it again for 3 seconds, minimum...
-			self->client->ps.fd.forcePowerDebounce[FP_DRAIN] = level.time + 3000;
+		if (!g_drainRework.integer) {
+			if (self->client->ps.fd.forcePowerLevel[FP_DRAIN] < FORCE_LEVEL_2)
+			{//don't do it again for 3 seconds, minimum...
+				self->client->ps.fd.forcePowerDebounce[FP_DRAIN] = level.time + 3000;
+			}
+			else
+			{
+				self->client->ps.fd.forcePowerDebounce[FP_DRAIN] = level.time + 1500;
+			}
 		}
-		else
-		{
-			self->client->ps.fd.forcePowerDebounce[FP_DRAIN] = level.time + 1500;
+		else {
+			self->client->ps.fd.forcePowerDebounce[FP_DRAIN] = level.time + 500;
 		}
 
 		if (self->client->ps.forceHandExtend == HANDEXTEND_FORCE_HOLD)
@@ -5052,7 +5182,7 @@ static void WP_ForcePowerRun( gentity_t *self, forcePowers_t forcePower, usercmd
 			break;
 		}
 
-		if ( self->client->ps.fd.forcePowerLevel[FP_DRAIN] > FORCE_LEVEL_1 )
+		if ( self->client->ps.fd.forcePowerLevel[FP_DRAIN] > FORCE_LEVEL_1 && !g_drainRework.integer )
 		{//higher than level 1
 			if ( (cmd->buttons & BUTTON_FORCE_DRAIN) || ((cmd->buttons & BUTTON_FORCEPOWER) && self->client->ps.fd.forcePowerSelected == FP_DRAIN) )
 			{//holding it keeps it going
@@ -5061,7 +5191,7 @@ static void WP_ForcePowerRun( gentity_t *self, forcePowers_t forcePower, usercmd
 		}
 		// OVERRIDEFIXME
 		if ( !WP_ForcePowerAvailable( self, forcePower, 0 ) || self->client->ps.fd.forcePowerDuration[FP_DRAIN] < level.time ||
-			self->client->ps.fd.forcePower < 25)
+			((!g_drainRework.integer && self->client->ps.fd.forcePower < 25) ||(g_drainRework.integer && self->client->ps.fd.forcePower < 5)))
 		{
 			WP_ForcePowerStop( self, forcePower );
 		}

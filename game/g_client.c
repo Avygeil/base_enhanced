@@ -3044,6 +3044,9 @@ void G_BroadcastServerFeatureList( int clientNum ) {
 	if (g_fixWallgrab.integer)
 		Q_strcat(featureListConfigString, sizeof(featureListConfigString), "fwg ");
 
+	if (g_drainRework.integer)
+		Q_strcat(featureListConfigString, sizeof(featureListConfigString), "rwd ");
+
 	// remove trailing space
 	int len = strlen(featureListConfigString);
 	if (len > 0 && featureListConfigString[len - 1] == ' ')

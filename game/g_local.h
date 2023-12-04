@@ -1633,6 +1633,8 @@ struct gclient_s {
 		FAKEFORCEALIGNMENT_DARK,
 		FAKEFORCEALIGNMENT_LIGHT
 	} fakeForceAlignment;
+
+	int drainDebuffTime;
 };
 
 //Interest points
@@ -3457,6 +3459,7 @@ extern vmCvar_t		g_gripRefreshRate;
 extern vmCvar_t		g_gripAbsorbFix;
 
 extern vmCvar_t		g_mindTrickBuff;
+extern vmCvar_t		g_drainRework;
 
 extern vmCvar_t		g_allowSkAutoThTe;
 
