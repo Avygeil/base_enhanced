@@ -3164,7 +3164,7 @@ static char *confirmedSpecWords[] = {
 	"@eating", "@nothere", "speconly", "spec only", "backlater", "back later", "playlater", "play later", "puglater", "pug later", "skillofspecoldwoman",
 	"obserwator", "rotatceps", "specman", "ragespec", "onlyspec", "speconly", "specafew", "specafk", "afkspec", "afkandspec", "specandafk", "speccy",
 	"specdonis", "speceating", "specdinner", "specdindin", "specgaycular", "speclord", "specleo", "specmode", "spec mode", "specpete", "specpolice",
-	"specrickses", "specspec", "skilloflonelyoldspec", "specalways", "spec always", "specone", "spec one", "touchpad",
+	"specrickses", "specspec", "skilloflonelyoldspec", "specalways", "spec always", "specone", "spec one", "touchpad", "specuntilhannahwins", "specsr",
 	NULL
 };
 
