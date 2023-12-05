@@ -2737,6 +2737,8 @@ void ForceDrainDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, vec3_t 
 				}
 				else if (g_drainRework.integer == 1) {
 					self->health += actualForceDrainedFromTarget;
+					if (self->health > 125)
+						self->health = 125;
 					self->client->ps.stats[STAT_HEALTH] = self->health;
 				}
 				else {
