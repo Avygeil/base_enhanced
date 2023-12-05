@@ -2750,12 +2750,14 @@ void ForceDrainDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, vec3_t 
 					traceEnt->client->ps.fd.forcePowerRegenDebounceTime = level.time + 800; //don't let the client being drained get force power back right away
 				}
 				else {
-					const int debuffDuration = 1000 * self->client->ps.fd.forcePowerLevel[FP_DRAIN];
-					traceEnt->client->ps.fd.forcePowerRegenDebounceTime = level.time + debuffDuration;
-					traceEnt->client->drainDebuffTime = level.time + debuffDuration;
+					if (dmg) {
+						const int debuffDuration = 1000 * self->client->ps.fd.forcePowerLevel[FP_DRAIN];
+						traceEnt->client->ps.fd.forcePowerRegenDebounceTime = level.time + debuffDuration;
+						traceEnt->client->drainDebuffTime = level.time + debuffDuration;
+					}
 				}
 
-				if (traceEnt->client->forcePowerSoundDebounce < level.time)
+				if (traceEnt->client->forcePowerSoundDebounce < level.time && !(g_drainRework.integer && !dmg))
 				{
 					tent = G_TempEntity( impactPoint, EV_FORCE_DRAINED);
 					tent->s.eventParm = DirToByte(dir);
