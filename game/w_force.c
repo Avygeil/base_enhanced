@@ -2748,14 +2748,14 @@ void ForceDrainDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, vec3_t 
 						self->client->ps.fd.forcePower = 100;
 				}
 
+				const int reworkDebuffDuration = 1000 * self->client->ps.fd.forcePowerLevel[FP_DRAIN];
 				if (!g_drainRework.integer) {
 					traceEnt->client->ps.fd.forcePowerRegenDebounceTime = level.time + 800; //don't let the client being drained get force power back right away
 				}
 				else {
 					if (dmg) {
-						const int debuffDuration = 1000 * self->client->ps.fd.forcePowerLevel[FP_DRAIN];
-						traceEnt->client->ps.fd.forcePowerRegenDebounceTime = level.time + debuffDuration;
-						traceEnt->client->drainDebuffTime = level.time + debuffDuration;
+						traceEnt->client->ps.fd.forcePowerRegenDebounceTime = level.time + reworkDebuffDuration;
+						traceEnt->client->drainDebuffTime = level.time + reworkDebuffDuration;
 					}
 				}
 
@@ -2765,7 +2765,7 @@ void ForceDrainDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, vec3_t 
 					tent->s.eventParm = DirToByte(dir);
 					tent->s.owner = traceEnt->s.number;
 					if (g_drainRework.integer)
-						tent->s.time = 3000;
+						tent->s.time = reworkDebuffDuration;
 					G_ApplyRaceBroadcastsToEvent( traceEnt, tent );
 
 					traceEnt->client->forcePowerSoundDebounce = level.time + 400;
