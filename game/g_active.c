@@ -4232,7 +4232,7 @@ void ClientThink_real( gentity_t *ent ) {
 				if (!doSk && ent->client->account->flags & ACCOUNTFLAG_BOOST_BASEAUTOTHTEBOOST && (ent->client->fakeForceAlignment == FAKEFORCEALIGNMENT_LIGHT || ent->client->fakeForceAlignment == FAKEFORCEALIGNMENT_DARK)) {
 					// we don't need to sk by virtue of not having fp,
 					// BUT we might possibly need to sk by virtue of being the wrong force alignment.
-					if (ent->client->fakeForceAlignment == FAKEFORCEALIGNMENT_LIGHT && fcNeedsBigTe && !fcNeedsTh)
+					if (ent->client->fakeForceAlignment == FAKEFORCEALIGNMENT_LIGHT && fcNeedsTe && !fcNeedsBigTh)
 						doSk = qtrue;
 					else if (ent->client->fakeForceAlignment == FAKEFORCEALIGNMENT_DARK && fcNeedsBigTh && !fcNeedsTe)
 						doSk = qtrue;
