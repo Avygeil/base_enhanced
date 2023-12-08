@@ -2626,7 +2626,10 @@ void ForceDrain( gentity_t *self )
 	}
 
 	self->client->ps.forceHandExtend = HANDEXTEND_FORCE_HOLD;
-	self->client->ps.forceHandExtendTime = level.time + 20000;
+	if (!g_drainRework.integer)
+		self->client->ps.forceHandExtendTime = level.time + 20000;
+	else
+		self->client->ps.forceHandExtendTime = level.time + 500;
 
 	G_Sound( self, CHAN_BODY, G_SoundIndex("sound/weapons/force/drain.wav") );
 	
@@ -2789,6 +2792,11 @@ int ForceShootDrain( gentity_t *self )
 	AngleVectors( self->client->ps.viewangles, forward, NULL, NULL );
 	VectorNormalize( forward );
 
+	vec3_t start;
+	VectorCopy(self->client->ps.origin, start);
+	if (g_drainRework.integer)
+		start[2] += self->client->ps.viewheight;
+
 	if ( self->client->ps.fd.forcePowerLevel[FP_DRAIN] > FORCE_LEVEL_2 && !g_drainRework.integer )
 	{//arc
 		qboolean compensate = self->client->sess.unlagged;
@@ -2874,13 +2882,13 @@ int ForceShootDrain( gentity_t *self )
 			}
 		
 			//in PVS?
-			if ( !traceEnt->r.bmodel && !trap_InPVS( ent_org, self->client->ps.origin ) )
+			if ( !traceEnt->r.bmodel && !trap_InPVS( ent_org, start) )
 			{//must be in PVS
 				continue;
 			}
 
 			//Now check and see if we can actually hit it
-			trap_Trace( &tr, self->client->ps.origin, vec3_origin, vec3_origin, ent_org, self->s.number, MASK_SHOT );
+			trap_Trace( &tr, start, vec3_origin, vec3_origin, ent_org, self->s.number, MASK_SHOT );
 			if ( tr.fraction < 1.0f && tr.entityNum != traceEnt->s.number )
 			{//must have clear LOS
 				continue;
@@ -2896,27 +2904,23 @@ int ForceShootDrain( gentity_t *self )
 	else
 	{//trace-line
 		int range = !g_drainRework.integer ? 2048 : 512;
-		VectorMA( self->client->ps.origin, range, forward, end );
+		VectorMA(start, range, forward, end );
 
 		vec3_t mins, maxs;
-#if 0
 		if (!g_drainRework.integer) {
-#endif
 			VectorCopy(vec3_origin, mins);
 			VectorCopy(vec3_origin, maxs);
-#if 0
 		}
 		else { // slightly bigger trace bounds i guess
 			mins[0] = mins[1] = mins[2] = -1 * 3;
 			maxs[0] = maxs[1] = maxs[2] = 3;
 		}
-#endif
 
 		qboolean compensate = self->client->sess.unlagged;
 		if (g_unlagged.integer && compensate)
 			G_TimeShiftAllClients(trap_Milliseconds() - (level.time - self->client->pers.cmd.serverTime), self, qfalse);
 
-		trap_Trace( &tr, self->client->ps.origin, mins, maxs, end, self->s.number, MASK_SHOT );
+		trap_Trace( &tr, start, mins, maxs, end, self->s.number, MASK_SHOT );
 
 		if (g_unlagged.integer && compensate)
 			G_UnTimeShiftAllClients(self, qfalse);
@@ -4685,7 +4689,7 @@ void WP_ForcePowerStop( gentity_t *self, forcePowers_t forcePower )
 			self->client->ps.fd.forcePowerDebounce[FP_DRAIN] = level.time + 500;
 		}
 
-		if (self->client->ps.forceHandExtend == HANDEXTEND_FORCE_HOLD)
+		if (self->client->ps.forceHandExtend == HANDEXTEND_FORCE_HOLD && !(g_drainRework.integer && level.time < self->client->ps.forceHandExtendTime))
 		{
 			self->client->ps.forceHandExtendTime = 0; //reset hand position
 		}
