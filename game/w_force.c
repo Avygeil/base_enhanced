@@ -2639,7 +2639,8 @@ void ForceDrain( gentity_t *self )
 		WP_ForcePowerStart( self, FP_DRAIN, 1 );
 }
 
-void ForceDrainDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, vec3_t impactPoint )
+// returns amount of force drained from the target
+int ForceDrainDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, vec3_t impactPoint )
 {
 	gentity_t *tent;
 	int actualForceDrainedFromTarget = 0;
@@ -2776,6 +2777,8 @@ void ForceDrainDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, vec3_t 
 			}
 		}
 	}
+
+	return actualForceDrainedFromTarget;
 }
 
 int ForceShootDrain( gentity_t *self )
@@ -2929,11 +2932,21 @@ int ForceShootDrain( gentity_t *self )
 		{
 			if (!g_drainRework.integer)
 				return 0;
+			else
+				self->s.userInt1 = self->client->ps.userInt1 = /*self->s.userInt2 = self->client->ps.userInt2 =*/ 0;
 		}
 		else {
 			traceEnt = &g_entities[tr.entityNum];
-			ForceDrainDamage(self, traceEnt, forward, tr.endpos);
+			int actualAmountDrained = ForceDrainDamage(self, traceEnt, forward, tr.endpos);
 			gotOneOrMore = 1;
+
+			if (g_drainRework.integer) {
+				self->s.userInt1 = self->client->ps.userInt1 = 1;
+				/*if (actualAmountDrained > 0)
+					self->s.userInt2 = self->client->ps.userInt2 = 1;
+				else
+					self->s.userInt2 = self->client->ps.userInt2 = 0;*/
+			}
 		}
 	}
 
