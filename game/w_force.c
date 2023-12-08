@@ -854,9 +854,9 @@ qboolean WP_ForcePowerAvailable( gentity_t *self, forcePowers_t forcePower, int 
 			else {
 				int forceCost;
 				switch (self->client->ps.fd.forcePowerLevel[FP_DRAIN]) {
-				case 3: forceCost = 33; break;
-				case 2: forceCost = 22; break;
-				default: forceCost = 11; break;
+				case 3: forceCost = 25; break;
+				case 2: forceCost = 17; break;
+				default: forceCost = 8; break;
 				}
 				if (self->client->ps.fd.forcePower >= forceCost)
 					return qtrue;
@@ -2617,9 +2617,9 @@ void ForceDrain( gentity_t *self )
 	if (g_drainRework.integer >= 2) {
 		int selfdmg;
 		switch (self->client->ps.fd.forcePowerLevel[FP_DRAIN]) {
-		case 3: selfdmg = 15; break;
-		case 2: selfdmg = 10; break;
-		default: selfdmg = 5; break;
+		case 3: selfdmg = 20; break;
+		case 2: selfdmg = 13; break;
+		default: selfdmg = 7; break;
 		}
 		if (self->health <= selfdmg)
 			return;
@@ -2945,9 +2945,9 @@ int ForceShootDrain( gentity_t *self )
 		else {
 			int forceCost;
 			switch (self->client->ps.fd.forcePowerLevel[FP_DRAIN]) {
-			case 3: forceCost = 33; break;
-			case 2: forceCost = 22; break;
-			default: forceCost = 11; break;
+			case 3: forceCost = 25; break;
+			case 2: forceCost = 17; break;
+			default: forceCost = 8; break;
 			}
 			BG_ForcePowerDrain(&self->client->ps, FP_DRAIN, forceCost);
 		}
@@ -2955,9 +2955,9 @@ int ForceShootDrain( gentity_t *self )
 	else {
 		int selfdmg;
 		switch (self->client->ps.fd.forcePowerLevel[FP_DRAIN]) {
-		case 3: selfdmg = 15; break;
-		case 2: selfdmg = 10; break;
-		default: selfdmg = 5; break;
+		case 3: selfdmg = 20; break;
+		case 2: selfdmg = 13; break;
+		default: selfdmg = 7; break;
 		}
 		G_Damage(self, self, self, NULL, NULL, selfdmg, DAMAGE_NO_PROTECTION | DAMAGE_NO_ARMOR | DAMAGE_NO_SELF_PROTECTION, MOD_SUICIDE);
 	}
