@@ -3751,11 +3751,12 @@ enum {
 	NUM_TEAMGENTAGS
 };
 
-static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
+// clientNum -1 for everyone
+void PrintTeamsProposalsInConsole(pugProposal_t *set, int clientNum) {
 	assert(set);
 	char formattedNumber[64] = { 0 };
 	FormatNumberToStringWithCommas(set->numValidPermutationsChecked, formattedNumber, sizeof(formattedNumber));
-	TeamGenerator_QueueServerMessageInConsole(-1, va("Team generator results for %s\n(%s valid permutations evaluated):\n", set->namesStr, formattedNumber));
+	TeamGenerator_QueueServerMessageInConsole(clientNum, va("Team generator results for %s\n(%s valid permutations evaluated):\n", set->namesStr, formattedNumber));
 
 	int lowestIDiff = 999999;
 	for (int i = 0; i < NUM_TEAMGENERATORTYPES; i++) {
@@ -3956,6 +3957,8 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 			gentity_t *ent = &g_entities[i];
 			if (!ent->inuse || !ent->client)
 				continue;
+			if (clientNum != -1 && i != clientNum)
+				continue;
 			int accId = ent->client->account ? ent->client->account->id : -1;
 #ifdef _DEBUG
 			TeamGenerator_QueueServerMessageInConsole(i, va("%sChoice ^5%c%c^7:%s%s^7\nTotal strength: %.2f\n^1Red team:^7 %.2f'/. relative strength, %.2f raw strength\n    ^5Base: %s%s\n    ^6Chase: %s%s\n    ^2Offense: %s%s^7, %s%s^7\n^4Blue team:^7 %.2f'/. relative strength, %.2f raw strength\n    ^5Base: %s%s\n    ^6Chase: %s%s\n    ^2Offense: %s%s^7, %s%s^7\n",
@@ -4013,77 +4016,80 @@ static void PrintTeamsProposalsInConsole(pugProposal_t *set) {
 #endif
 		}
 
+		if (clientNum == -1) {
 #ifdef _DEBUG
-		Com_Printf("%sChoice ^5%c%c^7:%s%s^7\nTotal strength: %.2f\n^1Red team:^7 %.2f'/. relative strength, %.2f raw strength\n    ^5Base: ^7%s\n    ^6Chase: ^7%s\n    ^2Offense: ^7%s^7, %s^7\n^4Blue team:^7 %.2f'/. relative strength, %.2f raw strength\n    ^5Base: ^7%s\n    ^6Chase: ^7%s\n    ^2Offense: ^7%s^7, %s^7\n",
-			numPrinted ? "\n" : "",
-			TEAMGEN_CHAT_COMMAND_CHARACTER,
-			letter,
-			suggestionTypeStr[0] ? "   " : "",
-			suggestionTypeStr,
-			thisPermutation->teams[0].rawStrength + thisPermutation->teams[1].rawStrength,
-			thisPermutation->teams[0].relativeStrength * 100.0,
-			thisPermutation->teams[0].rawStrength,
-			thisPermutation->teams[0].baseName,
-			thisPermutation->teams[0].chaseName,
-			thisPermutation->teams[0].offense1Name,
-			thisPermutation->teams[0].offense2Name,
-			thisPermutation->teams[1].relativeStrength * 100.0,
-			thisPermutation->teams[1].rawStrength,
-			thisPermutation->teams[1].baseName,
-			thisPermutation->teams[1].chaseName,
-			thisPermutation->teams[1].offense1Name,
-			thisPermutation->teams[1].offense2Name);
+			Com_Printf("%sChoice ^5%c%c^7:%s%s^7\nTotal strength: %.2f\n^1Red team:^7 %.2f'/. relative strength, %.2f raw strength\n    ^5Base: ^7%s\n    ^6Chase: ^7%s\n    ^2Offense: ^7%s^7, %s^7\n^4Blue team:^7 %.2f'/. relative strength, %.2f raw strength\n    ^5Base: ^7%s\n    ^6Chase: ^7%s\n    ^2Offense: ^7%s^7, %s^7\n",
+				numPrinted ? "\n" : "",
+				TEAMGEN_CHAT_COMMAND_CHARACTER,
+				letter,
+				suggestionTypeStr[0] ? "   " : "",
+				suggestionTypeStr,
+				thisPermutation->teams[0].rawStrength + thisPermutation->teams[1].rawStrength,
+				thisPermutation->teams[0].relativeStrength * 100.0,
+				thisPermutation->teams[0].rawStrength,
+				thisPermutation->teams[0].baseName,
+				thisPermutation->teams[0].chaseName,
+				thisPermutation->teams[0].offense1Name,
+				thisPermutation->teams[0].offense2Name,
+				thisPermutation->teams[1].relativeStrength * 100.0,
+				thisPermutation->teams[1].rawStrength,
+				thisPermutation->teams[1].baseName,
+				thisPermutation->teams[1].chaseName,
+				thisPermutation->teams[1].offense1Name,
+				thisPermutation->teams[1].offense2Name);
 #else
-		Com_Printf("%sChoice ^5%c%c^7:%s%s^7\n^1Red team:^7 %.2f'/. relative strength\n    ^5Base: ^7%s\n    ^6Chase: ^7%s\n    ^2Offense: ^7%s^7, %s^7\n^4Blue team:^7 %.2f'/. relative strength\n    ^5Base: ^7%s\n    ^6Chase: ^7%s\n    ^2Offense: ^7%s^7, %s^7\n",
-			numPrinted ? "\n" : "",
-			TEAMGEN_CHAT_COMMAND_CHARACTER,
-			letter,
-			suggestionTypeStr[0] ? "   " : "",
-			suggestionTypeStr,
-			thisPermutation->teams[0].relativeStrength * 100.0,
-			thisPermutation->teams[0].baseName,
-			thisPermutation->teams[0].chaseName,
-			thisPermutation->teams[0].offense1Name,
-			thisPermutation->teams[0].offense2Name,
-			thisPermutation->teams[1].relativeStrength * 100.0,
-			thisPermutation->teams[1].baseName,
-			thisPermutation->teams[1].chaseName,
-			thisPermutation->teams[1].offense1Name,
-			thisPermutation->teams[1].offense2Name);
+			Com_Printf("%sChoice ^5%c%c^7:%s%s^7\n^1Red team:^7 %.2f'/. relative strength\n    ^5Base: ^7%s\n    ^6Chase: ^7%s\n    ^2Offense: ^7%s^7, %s^7\n^4Blue team:^7 %.2f'/. relative strength\n    ^5Base: ^7%s\n    ^6Chase: ^7%s\n    ^2Offense: ^7%s^7, %s^7\n",
+				numPrinted ? "\n" : "",
+				TEAMGEN_CHAT_COMMAND_CHARACTER,
+				letter,
+				suggestionTypeStr[0] ? "   " : "",
+				suggestionTypeStr,
+				thisPermutation->teams[0].relativeStrength * 100.0,
+				thisPermutation->teams[0].baseName,
+				thisPermutation->teams[0].chaseName,
+				thisPermutation->teams[0].offense1Name,
+				thisPermutation->teams[0].offense2Name,
+				thisPermutation->teams[1].relativeStrength * 100.0,
+				thisPermutation->teams[1].baseName,
+				thisPermutation->teams[1].chaseName,
+				thisPermutation->teams[1].offense1Name,
+				thisPermutation->teams[1].offense2Name);
 #endif
+		}
 
 		++numPrinted;
 	}
 
 	if (numPrinted == 4) {
-		TeamGenerator_QueueServerMessageInConsole(-1,
+		TeamGenerator_QueueServerMessageInConsole(clientNum,
 			va("Vote to approve a teams proposal by entering e.g. ^5%ca^7, ^5%cb^7, ^5%cc^7, or ^5%cd^7\n"
 				"You can approve of multiple teams proposals simultaneously by entering e.g. ^5%cab^7\n",
 				TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER));
 	}
 	else if (numPrinted == 3) {
-		TeamGenerator_QueueServerMessageInConsole(-1,
+		TeamGenerator_QueueServerMessageInConsole(clientNum,
 			va("Vote to approve a teams proposal by entering e.g. ^5%ca^7, ^5%cb^7, or ^5%cc^7\n"
 			"You can approve of multiple teams proposals simultaneously by entering e.g. ^5%cab^7\n",
 			TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER));
 	}
 	else if (numPrinted == 2) {
-		TeamGenerator_QueueServerMessageInConsole(-1,
+		TeamGenerator_QueueServerMessageInConsole(clientNum,
 			va("Vote to approve a teams proposal by entering ^5%ca^7 or ^5%cb^7\n"
 			"You can approve of both teams proposals simultaneously by entering ^5%cab^7\n",
 			TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER));
 	}
 	else if (numPrinted == 1) {
-		TeamGenerator_QueueServerMessageInConsole(-1,
+		TeamGenerator_QueueServerMessageInConsole(clientNum,
 			va("Vote to approve the teams proposal by entering ^5%ca^7\n", TEAMGEN_CHAT_COMMAND_CHARACTER));
 	}
 
-	TeamGenerator_QueueServerMessageInConsole(-1,
+	TeamGenerator_QueueServerMessageInConsole(clientNum,
 		va("You can vote to reroll the teams proposals by entering ^5%creroll^7\n"
 		"You can vote to cancel the pug proposal by entering ^5%ccancel^7\n",
 		TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER));
 
-	level.teamPermutationsShownTime = trap_Milliseconds();
+	if (clientNum == -1)
+		level.teamPermutationsShownTime = trap_Milliseconds();
 }
 
 static void ActivatePugProposal(pugProposal_t *set, qboolean forcedByServer) {
@@ -4121,7 +4127,7 @@ static void ActivatePugProposal(pugProposal_t *set, qboolean forcedByServer) {
 		TeamGenerator_QueueServerMessageInChat(-1, va("Pug proposal %d %s (%s). Check console for teams proposals.", set->num, forcedByServer ? "force passed by server" : "passed", set->namesStr));
 		set->passed = qtrue;
 		level.activePugProposal = set;
-		PrintTeamsProposalsInConsole(set);
+		PrintTeamsProposalsInConsole(set, -1);
 
 		if (level.autoStartPending) {
 			Com_Printf("The currently pending auto start was cancelled due to team generator changing the teams.\n");
@@ -5951,7 +5957,7 @@ void TeamGenerator_DoReroll(qboolean forcedByServer) {
 			level.activePugProposal->semiDesiredVoteClientsBlue = 0;
 
 		TeamGenerator_QueueServerMessageInChat(-1, va("Pug proposal %d rerolled%s (%s). Check console for new teams proposals.", level.activePugProposal->num, forcedByServer ? " by server" : "", level.activePugProposal->namesStr));
-		PrintTeamsProposalsInConsole(level.activePugProposal);
+		PrintTeamsProposalsInConsole(level.activePugProposal, -1);
 	}
 	else {
 		TeamGenerator_QueueServerMessageInChat(-1, va("Failed to generate different teams when rerolling pug proposal %d%s (%s). Voting will continue for the existing teams.", level.activePugProposal->num, forcedByServer ? " by server" : "", level.activePugProposal->namesStr));

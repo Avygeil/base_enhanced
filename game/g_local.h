@@ -1372,6 +1372,7 @@ void TeamGen_DoAutoRestart(void);
 void TeamGenerator_MatchComplete(void);
 void TeamGen_CheckForUnbarLS(void);
 void TeamGen_WarnLS(void);
+void PrintTeamsProposalsInConsole(pugProposal_t *set, int clientNum);
 
 // this structure is cleared on each ClientSpawn(),
 // except for 'client->pers' and 'client->sess'
