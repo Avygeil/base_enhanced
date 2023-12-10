@@ -2325,11 +2325,23 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 
 	self->client->ps.fd.forceDeactivateAll = 1;
 
-	if (g_fixPitKills.integer && ((self == attacker || !attacker->client) &&
+	qboolean isBumpKill = qfalse;
+	if (g_fixBumpKills.integer && ((self == attacker || !attacker->client) &&
+		(/*meansOfDeath == MOD_CRUSH || */meansOfDeath == MOD_FALLING || meansOfDeath == MOD_TRIGGER_HURT || meansOfDeath == MOD_UNKNOWN ||
+			(meansOfDeath == MOD_SUICIDE &&
+				//(self->client->ps.fallingToDeath || self->client->ps.origin[2] < self->client->ps.fd.forceJumpZStart || self->client->ps.velocity[2] < -600))) &&
+				(self->client->ps.fallingToDeath || ((self->client->ps.velocity[2] < -400/*-600*/ || self->client->ps.origin[2] < self->client->ps.fd.forceJumpZStart || (!self->client->ps.fd.forceJumpZStart && self->client->ps.velocity[2] < 0)) && isAbovePit(self))))) &&
+		self->client->bumpedByEnt))
+	{
+		attacker = self->client->bumpedByEnt;
+		isBumpKill = qtrue;
+	}
+
+	if (!isBumpKill && g_fixPitKills.integer && ((self == attacker || !attacker->client) &&
 		(meansOfDeath == MOD_CRUSH || meansOfDeath == MOD_FALLING || meansOfDeath == MOD_TRIGGER_HURT || meansOfDeath == MOD_UNKNOWN ||
-		(meansOfDeath == MOD_SUICIDE && 
-		//(self->client->ps.fallingToDeath || self->client->ps.origin[2] < self->client->ps.fd.forceJumpZStart || self->client->ps.velocity[2] < -600))) &&
-		(self->client->ps.fallingToDeath || ((self->client->ps.velocity[2] < -400/*-600*/ || self->client->ps.origin[2] < self->client->ps.fd.forceJumpZStart) && isAbovePit(self)) ))) &&
+			(meansOfDeath == MOD_SUICIDE &&
+				//(self->client->ps.fallingToDeath || self->client->ps.origin[2] < self->client->ps.fd.forceJumpZStart || self->client->ps.velocity[2] < -600))) &&
+				(self->client->ps.fallingToDeath || ((self->client->ps.velocity[2] < -400/*-600*/ || self->client->ps.origin[2] < self->client->ps.fd.forceJumpZStart || (!self->client->ps.fd.forceJumpZStart && self->client->ps.velocity[2] < 0)) && isAbovePit(self))))) &&
 		self->client->ps.otherKillerTime > level.time))
 	{
 		attacker = &g_entities[self->client->ps.otherKiller];
@@ -2415,6 +2427,8 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 		ent->s.otherEntityNum2 = killer;
 		ent->r.svFlags = SVF_BROADCAST;	// send to everyone
 		ent->s.isJediMaster = wasJediMaster;
+		if (isBumpKill)
+			ent->s.userInt1 = 1; // so custom clients know to use a special obituary message
 		G_ApplyRaceBroadcastsToEvent( self, ent );
 	}
 

@@ -1636,6 +1636,8 @@ struct gclient_s {
 	} fakeForceAlignment;
 
 	int drainDebuffTime;
+
+	gentity_t *bumpedByEnt;
 };
 
 //Interest points
@@ -3276,6 +3278,7 @@ extern vmCvar_t     g_hackLog;
 
 extern vmCvar_t     g_fixPitKills;
 extern vmCvar_t     g_fixLiftKills;
+extern vmCvar_t		g_fixBumpKills;
 
 extern vmCvar_t     g_fixDempSaberThrow;
 

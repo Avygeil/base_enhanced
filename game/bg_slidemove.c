@@ -693,6 +693,8 @@ qboolean	PM_SlideMove( qboolean gravity ) {
 				pm->ps->clientNum, pm->tracemask);
 		}
 
+		if (pm->ps->clientNum < MAX_CLIENTS && trace.entityNum < MAX_CLIENTS && pm->ps->groundEntityNum == ENTITYNUM_NONE && g_fixBumpKills.integer && g_entities[pm->ps->clientNum].client)
+			g_entities[pm->ps->clientNum].client->bumpedByEnt = &g_entities[trace.entityNum];
 
 		if (pm->ps->clientNum >= MAX_CLIENTS)
 		{

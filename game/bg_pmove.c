@@ -4067,6 +4067,8 @@ static void PM_GroundTrace( void ) {
 		}
 	}
 
+	if (g_fixBumpKills.integer && !pm->ps->fallingToDeath && g_entities[pm->ps->clientNum].client && !(g_entities[pm->ps->clientNum].client->bumpedByEnt && g_entities[pm->ps->clientNum].client->bumpedByEnt - g_entities == trace.entityNum))
+		g_entities[pm->ps->clientNum].client->bumpedByEnt = NULL;
 	pm->ps->groundEntityNum = trace.entityNum;
 	pm->ps->lastOnGround = pm->cmd.serverTime;
 
