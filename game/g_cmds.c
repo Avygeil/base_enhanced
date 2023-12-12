@@ -2218,6 +2218,12 @@ qboolean IsRacerOrSpectator(gentity_t *ent) {
 	return qtrue;
 }
 
+qboolean ClientIsRacerOrSpectator(gclient_t *client) {
+	if (g_gametype.integer != GT_CTF || !client || client->sess.sessionTeam == TEAM_RED || client->sess.sessionTeam == TEAM_BLUE)
+		return qfalse;
+	return qtrue;
+}
+
 static void G_SayTo( gentity_t *ent, gentity_t *other, int mode, int color, const char *name, const char *message, char *locMsg )
 {
 	if (!other) {

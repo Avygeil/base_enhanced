@@ -275,6 +275,10 @@ struct gentity_s {
 	char			*targetname;
 	char			*classname;			// set in QuakeEd
 
+	char			*spawnname;
+	char			*nextspawns;
+	int				initialspawnpriority;
+
 	//rww - and yet more things to share. This is because the nav code is in the exe because it's all C++.
 	int				waypoint;			//Set once per frame, if you've moved, and if someone asks
 	int				lastWaypoint;		//To make sure you don't double-back
@@ -2208,6 +2212,7 @@ typedef struct {
 } mapTierData_t;
 char *ConcatArgs(int start);
 qboolean IsRacerOrSpectator(gentity_t *ent);
+qboolean ClientIsRacerOrSpectator(gclient_t *client);
 ctfPosition_t CtfPositionFromString(char *s);
 float GetCTFLocationValue(gentity_t *ent);
 qboolean ValidateAndCopyPositionPreferences(const positionPreferences_t *in, positionPreferences_t *out);
@@ -3450,6 +3455,7 @@ extern vmCvar_t	g_lastSelectedPermutationTime;
 extern vmCvar_t	g_lastSelectedPositionlessPermutation;
 
 extern vmCvar_t		d_debugCtfPosCalculation;
+extern vmCvar_t		d_debugSpawns;
 
 extern vmCvar_t		g_notFirstMap;
 extern vmCvar_t		g_shouldReloadPlayerPugStats;

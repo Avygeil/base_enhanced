@@ -553,6 +553,7 @@ vmCvar_t	g_lastSelectedPermutationTime;
 vmCvar_t	g_lastSelectedPositionlessPermutation;
 
 vmCvar_t	d_debugCtfPosCalculation;
+vmCvar_t	d_debugSpawns;
 
 vmCvar_t	g_notFirstMap;
 vmCvar_t	g_shouldReloadPlayerPugStats;
@@ -1109,6 +1110,7 @@ static cvarTable_t		gameCvarTable[] = {
 #endif
 
 	{ &d_debugCtfPosCalculation, "d_debugCtfPosCalculation", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &d_debugSpawns, "d_debugSpawns", "0", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_notFirstMap, "g_notFirstMap", "0", CVAR_ROM | CVAR_TEMP, 0, qfalse },
 	{ &g_shouldReloadPlayerPugStats, "g_shouldReloadPlayerPugStats", "0", CVAR_ROM | CVAR_TEMP, 0, qfalse },

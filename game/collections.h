@@ -132,6 +132,12 @@ void			ListClear( list_t *list );
 // The other list does not need to be empty.
 void			ListCopy(list_t *old, list_t *new, size_t elementSize);
 
+// Returns -1, 0, or 1 based on whether the first element is less than, equal to, or greater than the second.
+typedef int (*SortCallback)(genericNode_t *, genericNode_t *, void *userData);
+
+// Sorts a given list using a merge sort algorithm.
+void ListSort(list_t *list, SortCallback compare, void *userData);
+
 /*
 ==================
 QUEUES

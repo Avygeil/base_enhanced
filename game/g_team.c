@@ -1976,6 +1976,201 @@ static gentity_t *GetSpawnFcBoostLocation(gclient_t *spawningGuy, gentity_t *fc)
 extern qboolean isRedFlagstand(gentity_t *ent);
 extern qboolean isBlueFlagstand(gentity_t *ent);
 
+typedef struct {
+	node_t		node;
+	gentity_t	*ent;
+	char		nickname[128];
+	int			priority;
+} spawnpoint_t;
+
+int CompareInitialSpawnPriority(genericNode_t *a, genericNode_t *b, void *userData) {
+	const spawnpoint_t *aa_spawn = (const spawnpoint_t *)a;
+	const spawnpoint_t *bb_spawn = (const spawnpoint_t *)b;
+	const gentity_t *aa = aa_spawn->ent;
+	const gentity_t *bb = bb_spawn->ent;
+
+	const int aPriority = aa_spawn->priority;
+	const int bPriority = bb_spawn->priority;
+
+	if (aPriority < bPriority)
+		return -1; // a first
+
+	if (bPriority > aPriority)
+		return 1;  // b first
+
+	const int team = *((int *)userData);
+
+	static qboolean initializedFlagstands = qfalse;
+	static gentity_t *redFS = NULL, *blueFS = NULL;
+	if (!initializedFlagstands) {
+		for (int i = MAX_CLIENTS; i < MAX_GENTITIES; i++) {
+			gentity_t *flagstand = &g_entities[i];
+			if (!Q_stricmp(flagstand->classname, "team_ctf_redflag"))
+				redFS = flagstand;
+			else if (!Q_stricmp(flagstand->classname, "team_ctf_blueflag"))
+				blueFS = flagstand;
+		}
+
+		initializedFlagstands = qtrue;
+#if 1
+		srand(time(NULL)); // so that client numbers don't determine which spot you spawn in
+#endif
+	}
+
+	if ((team == TEAM_RED && !redFS) || (team == TEAM_BLUE && !blueFS))
+		return 0;
+
+	gentity_t *myFS;
+	if (team == TEAM_RED)
+		myFS = redFS;
+	else if (team == TEAM_BLUE)
+		myFS = blueFS;
+	else
+		return 0;
+
+	float a2dDistFromFS = Distance2D(aa->r.currentOrigin, myFS->r.currentOrigin);
+	float b2dDistFromFS = Distance2D(bb->r.currentOrigin, myFS->r.currentOrigin);
+
+	if (fabs(a2dDistFromFS - b2dDistFromFS) < 10) {
+	// randomize the order of spots that are roughly equidistant from the fs
+#if 1
+		if (rand() % 2)
+			return 1;
+		return -1;
+#else
+		// treat spots that are roughly equidistant from the fs as equal
+		return 0;
+#endif
+	}
+
+	if (a2dDistFromFS < b2dDistFromFS)
+		return -1; // a first
+
+	if (a2dDistFromFS > b2dDistFromFS)
+		return 1;  // b first
+
+	return 0; // order doesn't matter
+}
+
+int CompareSpawns(genericNode_t *a, genericNode_t *b, void *userData) {
+	const spawnpoint_t *aa_spawn = (const spawnpoint_t *)a;
+	const spawnpoint_t *bb_spawn = (const spawnpoint_t *)b;
+	const gentity_t *aa = aa_spawn->ent;
+	const gentity_t *bb = bb_spawn->ent;
+
+
+	vec3_t *oldSpawnOrigin = (vec3_t *)userData;
+
+	float a2dDistFromOldSpawn = Distance2D(aa->r.currentOrigin, *oldSpawnOrigin);
+	float b2dDistFromOldSpawn = Distance2D(bb->r.currentOrigin, *oldSpawnOrigin);
+
+	if (a2dDistFromOldSpawn < b2dDistFromOldSpawn)
+		return -1; // a first
+
+	if (a2dDistFromOldSpawn > b2dDistFromOldSpawn)
+		return 1;  // b first
+
+	return 0; // order doesn't matter
+}
+
+qboolean TooCloseToDroppedFlag(gentity_t *spawnPoint) {
+	for (int i = MAX_CLIENTS; i < MAX_GENTITIES; ++i) {
+		gentity_t *flag = &g_entities[i];
+
+		if (!flag->inuse || !flag->item)
+			continue;
+		
+		if (flag->item->giTag != PW_REDFLAG && flag->item->giTag != PW_BLUEFLAG && flag->item->giTag != PW_NEUTRALFLAG)
+			continue;
+		
+		if (!(flag->flags & FL_DROPPED_ITEM))
+			continue;
+
+		int flagDroppedTime = flag->nextthink - 30000;
+		if (level.time > flagDroppedTime + Com_Clampi(1000, 30000, g_droppedFlagSpawnProtectionDuration.integer))
+			continue;
+
+		float radiusSquared = (float)(g_droppedFlagSpawnProtectionRadius.integer * g_droppedFlagSpawnProtectionRadius.integer);
+		if (DistanceSquared(spawnPoint->s.origin, flag->r.currentOrigin) <= radiusSquared && trap_InPVS(spawnPoint->s.origin, flag->r.currentOrigin))
+			return qtrue;
+	}
+
+	return qfalse;
+}
+
+qboolean TooCloseToAlliedFlagCarrier(gentity_t *spawnPoint, int team) {
+	gentity_t *fc = NULL;
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *thisGuy = &g_entities[i];
+		if (!thisGuy->inuse || !thisGuy->client || thisGuy->client->sess.sessionTeam != team ||
+			IsRacerOrSpectator(thisGuy) || thisGuy->health <= 0 || !HasFlag(thisGuy) || thisGuy->client->ps.fallingToDeath) {
+			continue;
+		}
+		fc = thisGuy;
+		break;
+	}
+
+	if (!fc || Distance(spawnPoint->s.origin, fc->client->ps.origin) > 512 || !trap_InPVS(spawnPoint->s.origin, fc->client->ps.origin)) {
+		return qfalse;
+	}
+
+	return qtrue;
+}
+
+qboolean TooCloseToWhereJustKilledByEnemy(gentity_t *spawnPoint, gclient_t *client) {
+	assert(client);
+
+	if (client->pers.lastKilledByEnemyTime && level.time - client->pers.lastKilledByEnemyTime < 3000) {
+		if (Distance(client->pers.lastKilledByEnemyLocation, spawnPoint->s.origin) < g_killedAntiHannahSpawnRadius.value &&
+			trap_InPVS(client->pers.lastKilledByEnemyLocation, spawnPoint->s.origin)) {
+			return qtrue;
+		}
+	}
+
+	return qfalse;
+}
+
+static void SpawnDebugPrintf(const char *msg, ...) {
+	if (d_debugSpawns.integer) {
+		va_list		argptr;
+		char		text[4096] = { 0 };
+
+		va_start(argptr, msg);
+		vsnprintf(text, sizeof(text), msg, argptr);
+		va_end(argptr);
+
+		G_Printf("%s", text);
+	}
+}
+
+static void GetSpawnPointNickname(gentity_t *spawn, char *dest, size_t destSize) {
+	assert(spawn && dest && destSize);
+	*dest = '\0';
+
+	if (VALIDSTRING(spawn->spawnname)) {
+		Q_strncpyz(dest, spawn->spawnname, destSize);
+		return;
+	}
+
+	float lowestDistance = 999999;
+	gentity_t *lowestDistanceEnt = NULL;
+	for (int i = MAX_CLIENTS; i < MAX_GENTITIES; i++) {
+		gentity_t *nearbyEnt = &g_entities[i];
+		if (!nearbyEnt->inuse || !nearbyEnt->item || nearbyEnt->item->giType == IT_AMMO)
+			continue;
+		if (!trap_InPVS(nearbyEnt->r.currentOrigin, spawn->r.currentOrigin))
+			continue;
+		float dist = Distance(spawn->r.currentOrigin, nearbyEnt->r.currentOrigin);
+		if (dist < lowestDistance - 0.0001f) {
+			lowestDistance = dist;
+			lowestDistanceEnt = nearbyEnt;
+		}
+	}
+	
+	if (lowestDistanceEnt)
+		Com_sprintf(dest, destSize, "%s {%d %d %d}", lowestDistanceEnt->classname, (int)spawn->r.currentOrigin[0], (int)spawn->r.currentOrigin[1], (int)spawn->r.currentOrigin[2]);
+}
+
 /*
 ================
 SelectRandomDeathmatchSpawnPoint
@@ -1984,7 +2179,9 @@ go to a random point that doesn't telefrag
 ================
 */
 #define	MAX_TEAM_SPAWN_POINTS	32
+#define SPAWN_SPAM_PROTECT_TIME		(5000)
 gentity_t *SelectRandomTeamSpawnPoint( gclient_t *client, int teamstate, team_t team, int siegeClass ) {
+	assert(client);
 	gentity_t	*spot;
 	int			count;
 	int			selection;
@@ -2027,241 +2224,384 @@ gentity_t *SelectRandomTeamSpawnPoint( gclient_t *client, int teamstate, team_t 
 
 	spot = NULL;
 
-	while ((spot = G_Find (spot, FOFS(classname), classname)) != NULL) {
-		if ( SpotWouldTelefrag( spot ) ) {
-			continue;
-		}
-
-		if (mustBeEnabled && !spot->genericValue1)
-		{ //siege point that's not enabled, can't use it
-			continue;
-		}
-
-		spots[ count ] = spot;
-		if (++count == MAX_TEAM_SPAWN_POINTS)
-			break;
-	}
-
-	// in ctf, rule out spawns that are too close to recently dropped flags if enabled
-	if ( g_gametype.integer == GT_CTF && count && g_droppedFlagSpawnProtectionRadius.integer > 0 ) {
-		int i;
-
-		// look for any dropped flag here and remove matching spawns instead of
-		// not adding them in the loop above (saves building an array of dropped flags,
-		// since there can theoretically be more than 2)
-		for ( i = 0; i < level.num_entities; ++i ) {
-			gentity_t* ent = &g_entities[i];
-
-			if ( !ent->inuse || !ent->item ) {
-				continue;
-			}
-
-			if ( ent->item->giTag != PW_REDFLAG &&
-				ent->item->giTag != PW_BLUEFLAG &&
-				ent->item->giTag != PW_NEUTRALFLAG ) {
-				continue;
-			}
-
-			if ( !( ent->flags & FL_DROPPED_ITEM ) ) {
-				continue;
-			}
-
-			// this is a dropped flag
-
-			// hack: nextthink is always level.time + 30000 at the time the flag was dropped
-			int flagDroppedTime = ent->nextthink - 30000;
-
-			// g_droppedFlagSpawnProtectionDuration is the time in ms during which dropped flags prevent nearby spawns
-			// (minimum 1s, maximum 30s which is the time it takes the flag to respawn)
-			if ( level.time > flagDroppedTime + Com_Clampi( 1000, 30000, g_droppedFlagSpawnProtectionDuration.integer ) ) {
-				continue;
-			}
-
-			// this dropped flag still prevents spawns -- check all spawns against it			
-			const float radiusSquared = ( float )( g_droppedFlagSpawnProtectionRadius.integer * g_droppedFlagSpawnProtectionRadius.integer );
-
-			int j = 0;
-			while ( j < count ) {
-				if ( DistanceSquared( spots[j]->s.origin, ent->r.currentOrigin ) > radiusSquared ) {
-					++j;
-					continue;
-				}
-
-				// this spawn is close enough, remove it from the array of candidates
-
-				if ( j + 1 < count ) { // if there are more spots, shift the array
-					memmove( spots + j, spots + j + 1, ( count - j - 1 ) * sizeof( gentity_t* ) );
-				}
-
-				--count;
-			}
-		}
-	}
-
-#define SPAWN_SPAM_PROTECT_TIME		(5000)
-
 	gentity_t *spawnMeNearThisGuy = NULL;
 	int boost = (client && client->account && g_boost.integer) ? client->account->flags & (ACCOUNTFLAG_BOOST_SPAWNFCBOOST | ACCOUNTFLAG_BOOST_SPAWNGERBOOST) : 0;
-	int numRed = 0, numBlue = 0;
 
 	ctfPosition_t pos = CTFPOSITION_UNKNOWN;
-	if (boost)
+	if (boost) {
 		pos = GetRemindedPosOrDeterminedPos(&g_entities[client - level.clients]);
 
-	if ((boost & ACCOUNTFLAG_BOOST_SPAWNFCBOOST) && level.time - level.startTime >= 5000 && pos == CTFPOSITION_BASE) { // boost: spawn base near fc
-		for (int i = 0; i < MAX_CLIENTS; i++) {
-			gentity_t *thisGuy = &g_entities[i];
-			if (!thisGuy->inuse || !thisGuy->client || thisGuy->client == client || thisGuy->client->sess.sessionTeam != client->sess.sessionTeam ||
-				IsRacerOrSpectator(thisGuy) || thisGuy->health <= 0 || !HasFlag(thisGuy) || thisGuy->client->ps.fallingToDeath)
-				continue;
-
-			float loc = GetCTFLocationValue(thisGuy);
-			if (loc <= 0.55f) {
-				spawnMeNearThisGuy = thisGuy;
-				break;
-			}
-		}
-
-		if (spawnMeNearThisGuy && g_spawnboost_losIdealDistance.integer > 0) {
-			gentity_t *spawnBoostEnt = GetSpawnFcBoostLocation(client, spawnMeNearThisGuy);
-			if (spawnBoostEnt)
-				return spawnBoostEnt;
-		}
-	}
-
-	if ((boost & ACCOUNTFLAG_BOOST_SPAWNGERBOOST) && !spawnMeNearThisGuy && level.time - level.startTime >= 15000 && pos == CTFPOSITION_BASE) {
-		// boost: help base ger by spawning near mid if everyone is in the enemy base, including enemy fc
-		flagStatus_t myFlagStatus = client->sess.sessionTeam == TEAM_RED ? teamgame.redStatus : teamgame.blueStatus;
-		if (myFlagStatus != FLAG_ATBASE) {
-			qboolean someoneOnOurSideOfMap = qfalse;
-			for (int i = 0; i < MAX_CLIENTS; i++) {
-				gentity_t *thisGuy = &g_entities[i];
-				if (!thisGuy->inuse || !thisGuy->client || thisGuy->client == client || IsRacerOrSpectator(thisGuy) || thisGuy->health <= 0 || thisGuy->client->ps.fallingToDeath)
-					continue;
-
-				ctfRegion_t region = GetCTFRegion(thisGuy);
-				if (thisGuy->client->sess.sessionTeam == client->sess.sessionTeam) {
-					if (region == CTFREGION_FLAGSTAND || region == CTFREGION_BASE) {
-						someoneOnOurSideOfMap = qtrue;
-						break;
-					}
-				}
-				else if (thisGuy->client->sess.sessionTeam == OtherTeam(client->sess.sessionTeam)) {
-					if (region == CTFREGION_ENEMYFLAGSTAND || region == CTFREGION_ENEMYBASE) {
-						someoneOnOurSideOfMap = qtrue;
-						break;
-					}
-				}
-			}
-
-			if (!someoneOnOurSideOfMap) {
-				static qboolean initialized = qfalse;
-				static gentity_t *redFsEnt = NULL, *blueFsEnt = NULL;
-				if (!initialized) {
-					initialized = qtrue;
-					gentity_t temp;
-					VectorCopy(vec3_origin, temp.r.currentOrigin);
-					redFsEnt = G_ClosestEntity(&temp, isRedFlagstand);
-					blueFsEnt = G_ClosestEntity(&temp, isBlueFlagstand);
-				}
-
-				if (redFsEnt && blueFsEnt)
-					spawnMeNearThisGuy = client->sess.sessionTeam == TEAM_RED ? blueFsEnt : redFsEnt;
-			}
-		}
-	}
-
-	if (spawnMeNearThisGuy) {
-		oldSpawn = spawnMeNearThisGuy;
-		qsort(spots, count, sizeof(gentity_t *), SortSpotsByDistanceClosestToPlayer);
-		float multiplier = GetFcSpawnBoostMultiplier(spawnMeNearThisGuy);
-		const int originalCount = count;
-		count = (int)round((float)count * multiplier);
-		count = Com_Clampi(1, originalCount, count);
-	}
-	else {
-		if (g_gametype.integer == GT_CTF && count > 1 && g_selfKillSpawnSpamProtection.integer && g_selfKillSpawnSpamProtection.integer != 2 && client &&
-			client->pers.lastKiller == &g_entities[client - level.clients] && level.time - client->pers.lastSpawnTime < SPAWN_SPAM_PROTECT_TIME) {
-			// g_selfKillSpawnSpamProtection 1
-			// remove our previous spawnpoint from consideration if we spawned there within a few seconds ago and selfkilled
-			for (int i = 0; i < count; i++) {
-				if (spots[i] != client->pers.lastSpawnPoint)
-					continue;
-
-				if (i + 1 < count) // if there are more spots, shift the array
-					memmove(spots + i, spots + i + 1, (count - i - 1) * sizeof(gentity_t *));
-				--count;
-				break;
-			}
-		}
-		else if (g_gametype.integer == GT_CTF && count > 1 && g_selfKillSpawnSpamProtection.integer == 2 && client &&
-			client->pers.lastKiller == &g_entities[client - level.clients] && level.time - client->pers.lastSpawnTime < SPAWN_SPAM_PROTECT_TIME && client->pers.lastSpawnPoint) {
-			// g_selfKillSpawnSpamProtection 2
-			// remove the 50% of spawns closest to our last spawn point
-			oldSpawn = client->pers.lastSpawnPoint;
-			qsort(spots, count, sizeof(gentity_t *), SortSpotsByDistance);
-			count /= 2;
-		}
-
-		if (g_gametype.integer == GT_CTF && count > 1 && !g_canSpawnInTeRangeOfFc.integer) {
-			gentity_t *fc = NULL;
+		if ((boost & ACCOUNTFLAG_BOOST_SPAWNFCBOOST) && level.time - level.startTime >= 5000 && pos == CTFPOSITION_BASE) { // boost: spawn base near fc
 			for (int i = 0; i < MAX_CLIENTS; i++) {
 				gentity_t *thisGuy = &g_entities[i];
 				if (!thisGuy->inuse || !thisGuy->client || thisGuy->client == client || thisGuy->client->sess.sessionTeam != client->sess.sessionTeam ||
 					IsRacerOrSpectator(thisGuy) || thisGuy->health <= 0 || !HasFlag(thisGuy) || thisGuy->client->ps.fallingToDeath)
 					continue;
-				fc = thisGuy;
-				break;
+
+				float loc = GetCTFLocationValue(thisGuy);
+				if (loc <= 0.55f) {
+					spawnMeNearThisGuy = thisGuy;
+					break;
+				}
 			}
 
-			if (fc) {
-				int numToRemove = 0;
-				for (int i = 0; i < count; i++) {
-					if (Distance(spots[i]->s.origin, fc->client->ps.origin) <= 512 && trap_InPVS(spots[i]->s.origin, fc->client->ps.origin)) {
-						if (count - ++numToRemove == 1)
+			if (spawnMeNearThisGuy && g_spawnboost_losIdealDistance.integer > 0) {
+				gentity_t *spawnBoostEnt = GetSpawnFcBoostLocation(client, spawnMeNearThisGuy);
+				if (spawnBoostEnt)
+					return spawnBoostEnt;
+			}
+		}
+
+		if ((boost & ACCOUNTFLAG_BOOST_SPAWNGERBOOST) && !spawnMeNearThisGuy && level.time - level.startTime >= 15000 && pos == CTFPOSITION_BASE) {
+			// boost: help base ger by spawning near mid if everyone is in the enemy base, including enemy fc
+			flagStatus_t myFlagStatus = client->sess.sessionTeam == TEAM_RED ? teamgame.redStatus : teamgame.blueStatus;
+			if (myFlagStatus != FLAG_ATBASE) {
+				qboolean someoneOnOurSideOfMap = qfalse;
+				for (int i = 0; i < MAX_CLIENTS; i++) {
+					gentity_t *thisGuy = &g_entities[i];
+					if (!thisGuy->inuse || !thisGuy->client || thisGuy->client == client || IsRacerOrSpectator(thisGuy) || thisGuy->health <= 0 || thisGuy->client->ps.fallingToDeath)
+						continue;
+
+					ctfRegion_t region = GetCTFRegion(thisGuy);
+					if (thisGuy->client->sess.sessionTeam == client->sess.sessionTeam) {
+						if (region == CTFREGION_FLAGSTAND || region == CTFREGION_BASE) {
+							someoneOnOurSideOfMap = qtrue;
 							break;
+						}
+					}
+					else if (thisGuy->client->sess.sessionTeam == OtherTeam(client->sess.sessionTeam)) {
+						if (region == CTFREGION_ENEMYFLAGSTAND || region == CTFREGION_ENEMYBASE) {
+							someoneOnOurSideOfMap = qtrue;
+							break;
+						}
 					}
 				}
 
-				//Com_DebugPrintf("Removing %d spawns near FC\n", numToRemove);
-
-				if (count - numToRemove >= 1) {
-					for (int i = 0; i < count; ) {
-						if (Distance(spots[i]->s.origin, fc->client->ps.origin) <= 512 && trap_InPVS(spots[i]->s.origin, fc->client->ps.origin)) {
-							if (i + 1 < count) // if there are more spots, shift the array
-								memmove(spots + i, spots + i + 1, (count - i - 1) * sizeof(gentity_t *));
-							--count;
-						}
-						else {
-							++i;
-						}
+				if (!someoneOnOurSideOfMap) {
+					static qboolean initialized = qfalse;
+					static gentity_t *redFsEnt = NULL, *blueFsEnt = NULL;
+					if (!initialized) {
+						initialized = qtrue;
+						gentity_t temp;
+						VectorCopy(vec3_origin, temp.r.currentOrigin);
+						redFsEnt = G_ClosestEntity(&temp, isRedFlagstand);
+						blueFsEnt = G_ClosestEntity(&temp, isBlueFlagstand);
 					}
+
+					if (redFsEnt && blueFsEnt)
+						spawnMeNearThisGuy = client->sess.sessionTeam == TEAM_RED ? blueFsEnt : redFsEnt;
 				}
 			}
 		}
 
-		if (g_gametype.integer == GT_CTF && count > 1 && g_killedAntiHannahSpawnRadius.integer > 0 && client &&
-			client->pers.lastKilledByEnemyTime && level.time - client->pers.lastKilledByEnemyTime < 3500) {
-			int numToRemove = 0;
-			for (int i = 0; i < count; i++) {
-				if (Distance(client->pers.lastKilledByEnemyLocation, spots[i]->s.origin) < g_killedAntiHannahSpawnRadius.value)
-					++numToRemove;
-			}
+		if (spawnMeNearThisGuy) {
+			oldSpawn = spawnMeNearThisGuy;
+			qsort(spots, count, sizeof(gentity_t *), SortSpotsByDistanceClosestToPlayer);
+			float multiplier = GetFcSpawnBoostMultiplier(spawnMeNearThisGuy);
+			const int originalCount = count;
+			count = (int)round((float)count * multiplier);
+			count = Com_Clampi(1, originalCount, count);
+			selection = rand() % count;
+			return spots[selection];
+		}
+	}
 
-			//Com_DebugPrintf("Removing %d spawns near spot last killed by\n", numToRemove);
+	if (g_gametype.integer == GT_CTF && !ClientIsRacerOrSpectator(client)) {
+		if (teamstate == TEAM_BEGIN) {
+			list_t possibleSpawnsList = { 0 };
 
-			if (count - numToRemove >= 1) {
-				for (int i = 0; i < count; ) {
-					if (Distance(client->pers.lastKilledByEnemyLocation, spots[i]->s.origin) < g_killedAntiHannahSpawnRadius.value) {
-						if (i + 1 < count) // if there are more spots, shift the array
-							memmove(spots + i, spots + i + 1, (count - i - 1) * sizeof(gentity_t *));
-						--count;
-					}
-					else {
-						++i;
-					}
+			// create the initial list of possible spawns
+			qboolean gotAnyWithPrioritySet = qfalse, gotAnyWithPriorityNotSet = qfalse;
+			for (int i = MAX_CLIENTS; i < MAX_GENTITIES; i++) {
+				gentity_t *thisEnt = &g_entities[i];
+				if (!VALIDSTRING(thisEnt->classname) || Q_stricmp(thisEnt->classname, classname))
+					continue;
+
+				spawnpoint_t *add = ListAdd(&possibleSpawnsList, sizeof(spawnpoint_t));
+				add->ent = thisEnt;
+				if (thisEnt->initialspawnpriority > 0) {
+					add->priority = thisEnt->initialspawnpriority;
+					gotAnyWithPrioritySet = qtrue;
+				}
+				else {
+					add->priority = 999999;
+					gotAnyWithPriorityNotSet = qtrue;
 				}
 			}
+
+			if (gotAnyWithPrioritySet && gotAnyWithPriorityNotSet)
+				SpawnDebugPrintf("Warning: idiot mapmaker used initial spawns with initialspawnpriority both set and not set!\n");
+
+			if (possibleSpawnsList.size >= 1) {
+				ListSort(&possibleSpawnsList, CompareInitialSpawnPriority, &team);
+
+				iterator_t iter;
+				ListIterate(&possibleSpawnsList, &iter, qfalse);
+				while (IteratorHasNext(&iter)) {
+					spawnpoint_t *element = IteratorNext(&iter);
+					if (SpotWouldTelefrag(element->ent))
+						continue;
+
+					// this one is the lowest priority that won't telefrag; choose it
+					gentity_t *returnSpawnPoint = element->ent;
+					ListClear(&possibleSpawnsList);
+					return returnSpawnPoint;
+				}
+
+				// if we got here, it's impossible to spawn at an initial spawnpoint without telefragging someone
+				// just spawn at the first spot i guess
+				ListIterate(&possibleSpawnsList, &iter, qfalse);
+				while (IteratorHasNext(&iter)) {
+					spawnpoint_t *element = IteratorNext(&iter);
+					gentity_t *returnSpawnPoint = element->ent;
+					ListClear(&possibleSpawnsList);
+					return returnSpawnPoint;
+				}
+			}
+			else { // no possible spawns???
+				SpawnDebugPrintf("No possible spawns!\n");
+				ListClear(&possibleSpawnsList);
+				return G_Find(NULL, FOFS(classname), classname);
+			}
+		}
+		else {
+			char lastSpawnName[128] = { 0 };
+			if (client->pers.lastSpawnPoint)
+				GetSpawnPointNickname(client->pers.lastSpawnPoint, lastSpawnName, sizeof(lastSpawnName));
+			else
+				Q_strncpyz(lastSpawnName, "none", sizeof(lastSpawnName));
+			SpawnDebugPrintf("Spawn logic at %d (%d) for player %d (%s) with last spawnpoint %s trying for classname %s with lastSpawnTime %d, lastKiller %d, lastKilledByEnemyTime %d, lastKilledByEnemyLocation %d %d %d\n",
+				level.time,
+				level.time - level.startTime,
+				client - level.clients,
+				client->pers.netname,
+				lastSpawnName,
+				classname,
+				client->pers.lastSpawnTime,
+				client->pers.lastKiller ? client->pers.lastKiller - g_entities : -1,
+				client->pers.lastKilledByEnemyTime,
+				(int)client->pers.lastKilledByEnemyLocation[0],
+				(int)client->pers.lastKilledByEnemyLocation[1],
+				(int)client->pers.lastKilledByEnemyLocation[2]);
+			list_t possibleSpawnsList = { 0 };
+
+			// create the initial list of possible spawns
+			for (int i = MAX_CLIENTS; i < MAX_GENTITIES; i++) {
+				gentity_t *thisEnt = &g_entities[i];
+				if (!VALIDSTRING(thisEnt->classname) || Q_stricmp(thisEnt->classname, classname))
+					continue;
+
+				char thisName[128] = { 0 };
+				GetSpawnPointNickname(thisEnt, thisName, sizeof(thisName));
+
+				// if we have a whitelist and this isn't in the whitelist, then don't add it
+				if (g_selfKillSpawnSpamProtection.integer && client->pers.lastSpawnPoint &&
+					level.time - client->pers.lastSpawnTime < SPAWN_SPAM_PROTECT_TIME && VALIDSTRING(client->pers.lastSpawnPoint->nextspawns) &&
+					(!client->pers.lastKiller ||
+						client->pers.lastKiller - g_entities == client - level.clients ||
+						client->pers.lastKiller - g_entities == ENTITYNUM_NONE ||
+						client->pers.lastKiller - g_entities == ENTITYNUM_WORLD)) {
+					if (!VALIDSTRING(thisEnt->spawnname) || !stristr(client->pers.lastSpawnPoint->nextspawns, thisEnt->spawnname)) {
+						SpawnDebugPrintf("%s cannot be added to possible spawns list since it isn't whitelisted by the last spawn (%s)", thisName, lastSpawnName);
+						if (client->pers.lastSpawnPoint)
+							SpawnDebugPrintf(" (2D distance from last spawn point (%s): %f)\n", lastSpawnName, Distance2D(thisEnt->r.currentOrigin, client->pers.lastSpawnPoint->r.currentOrigin));
+						else
+							SpawnDebugPrintf("\n");
+						continue;
+					}
+				}
+
+				spawnpoint_t *add = ListAdd(&possibleSpawnsList, sizeof(spawnpoint_t));
+				add->ent = thisEnt;
+				Q_strncpyz(add->nickname, thisName, sizeof(add->nickname));
+				SpawnDebugPrintf("Adding %s to possible spawns list", thisName);
+				if (client->pers.lastSpawnPoint)
+					SpawnDebugPrintf(" (2D distance from last spawn point (%s): %f)\n", lastSpawnName, Distance2D(thisEnt->r.currentOrigin, client->pers.lastSpawnPoint->r.currentOrigin));
+				else
+					SpawnDebugPrintf("\n");
+			}
+
+			if (possibleSpawnsList.size <= 0) { // no possible spawns???
+				SpawnDebugPrintf("No possible spawns!\n");
+				ListClear(&possibleSpawnsList);
+				return G_Find(NULL, FOFS(classname), classname);
+			}
+
+			// if we DON'T have a whitelist, then delete the 50% of spawns that are closest to our last one
+			if (g_selfKillSpawnSpamProtection.integer && client->pers.lastSpawnPoint &&
+				level.time - client->pers.lastSpawnTime < SPAWN_SPAM_PROTECT_TIME && !VALIDSTRING(client->pers.lastSpawnPoint->nextspawns) &&
+				(!client->pers.lastKiller ||
+					client->pers.lastKiller - g_entities == client - level.clients ||
+					client->pers.lastKiller - g_entities == ENTITYNUM_NONE ||
+					client->pers.lastKiller - g_entities == ENTITYNUM_WORLD)) {
+				ListSort(&possibleSpawnsList, CompareSpawns, client->pers.lastSpawnPoint->r.currentOrigin);
+
+				const int goalSize = Com_Clampi(1, MAX_TEAM_SPAWN_POINTS, possibleSpawnsList.size - (possibleSpawnsList.size / 2));
+				while (possibleSpawnsList.size > goalSize) {
+					gentity_t *headEnt = ((spawnpoint_t *)(possibleSpawnsList.head))->ent;
+					char *headNickname = ((spawnpoint_t *)(possibleSpawnsList.head))->nickname;
+					SpawnDebugPrintf("No whitelist; removing %s from the list based on 2D distance from last spawn point (%s) %f\n", headNickname, lastSpawnName, Distance2D(headEnt->r.currentOrigin, client->pers.lastSpawnPoint->r.currentOrigin));
+					ListRemove(&possibleSpawnsList, possibleSpawnsList.head);
+				}
+			}
+
+			assert(possibleSpawnsList.size >= 1);
+			const int originalPossibleSpawnsListSize = possibleSpawnsList.size;
+			SpawnDebugPrintf("Possible spawns list has size %d. Possible spawns are:\n", possibleSpawnsList.size);
+			iterator_t iter;
+			ListIterate(&possibleSpawnsList, &iter, qfalse);
+			while (IteratorHasNext(&iter)) {
+				spawnpoint_t *element = (spawnpoint_t *)IteratorNext(&iter);
+				if (client->pers.lastSpawnPoint && level.time - client->pers.lastSpawnTime < SPAWN_SPAM_PROTECT_TIME && !VALIDSTRING(client->pers.lastSpawnPoint->nextspawns))
+					SpawnDebugPrintf("%s (2D distance from last spawn point (%s): %f)\n", element->nickname, lastSpawnName, Distance2D(element->ent->r.currentOrigin, client->pers.lastSpawnPoint->r.currentOrigin));
+				else
+					SpawnDebugPrintf("%s\n", element->nickname);
+			}
+
+			// at this point, we either have a list containing all and only the whitelisted spawnpoints given our previous one,
+			// OR we have a list containing only the 50% of spawns farthest from our last spawn
+			// we can now begin paring down the spawnpoints that are invalid for one reason or another.
+
+			// filter out telefrag spawnpoints
+			ListIterate(&possibleSpawnsList, &iter, qfalse);
+			while (IteratorHasNext(&iter)) {
+				spawnpoint_t *element = (spawnpoint_t *)iter.current;
+				genericNode_t *nextNode = iter.current ? ((node_t *)iter.current)->next : NULL; // store the next node before removal
+
+				if (SpotWouldTelefrag(element->ent)) {
+					if (possibleSpawnsList.size > 1) {
+						SpawnDebugPrintf("Removing %s from the list since it would telefrag\n", element->nickname);
+						IteratorRemove(&iter); // remove the current node
+						iter.current = nextNode; // manually set iter.current to the next node
+					}
+					else {
+						SpawnDebugPrintf("%s would telefrag, but removing it would remove the last spawn, so keeping it\n", element->nickname);
+					}
+				}
+
+				if (iter.current != nextNode)
+					IteratorNext(&iter); // only call IteratorNext if we haven't removed the current node
+			}
+
+
+			// filter out spawnpoints too close to a dropped flag
+			if (g_droppedFlagSpawnProtectionRadius.integer > 0) {
+				for (int i = MAX_CLIENTS; i < MAX_GENTITIES; ++i) {
+					gentity_t *flag = &g_entities[i];
+					if (!flag->inuse || !flag->item)
+						continue;
+					if (flag->item->giTag != PW_REDFLAG && flag->item->giTag != PW_BLUEFLAG && flag->item->giTag != PW_NEUTRALFLAG)
+						continue;
+					if (!(flag->flags & FL_DROPPED_ITEM))
+						continue;
+					SpawnDebugPrintf("Dropped flag at %d %d %d\n", (int)flag->r.currentOrigin[0], (int)flag->r.currentOrigin[1], (int)flag->r.currentOrigin[2]);
+				}
+
+				ListIterate(&possibleSpawnsList, &iter, qfalse);
+				while (IteratorHasNext(&iter)) {
+					spawnpoint_t *element = (spawnpoint_t *)iter.current;
+					genericNode_t *nextNode = iter.current ? ((node_t *)iter.current)->next : NULL; // store the next node before removal
+
+					if (TooCloseToDroppedFlag(element->ent)) {
+						if (possibleSpawnsList.size > 1) {
+							SpawnDebugPrintf("Removing %s from the list since it is too close to a dropped flag\n", element->nickname);
+							IteratorRemove(&iter); // remove the current node
+							iter.current = nextNode; // manually set iter.current to the next node
+						}
+						else {
+							SpawnDebugPrintf("%s is too close to a dropped flag, but removing it would remove the last spawn, so keeping it\n", element->nickname);
+						}
+					}
+
+					if (iter.current != nextNode)
+						IteratorNext(&iter); // only call IteratorNext if we haven't removed the current node
+				}
+			}
+
+
+			// filter out spawnpoints too close to an allied flag carrier
+			if (!g_canSpawnInTeRangeOfFc.integer) {
+				gentity_t *fc = GetFC(team, NULL, qfalse, 0);
+				if (fc)
+					SpawnDebugPrintf("FC is player %d (%s) at %d %d %d\n", fc - g_entities, fc->client ? fc->client->pers.netname : "", (int)fc->r.currentOrigin[0], (int)fc->r.currentOrigin[1], (int)fc->r.currentOrigin[2]);
+				ListIterate(&possibleSpawnsList, &iter, qfalse);
+				while (IteratorHasNext(&iter)) {
+					spawnpoint_t *element = (spawnpoint_t *)iter.current;
+					genericNode_t *nextNode = iter.current ? ((node_t *)iter.current)->next : NULL; // store the next node before removal
+
+					if (TooCloseToAlliedFlagCarrier(element->ent, client->sess.sessionTeam)) {
+						if (possibleSpawnsList.size > 1) {
+							SpawnDebugPrintf("Removing %s from the list since it is too close to an allied flag carrier\n", element->nickname);
+							IteratorRemove(&iter); // remove the current node
+							iter.current = nextNode; // manually set iter.current to the next node
+						}
+						else {
+							SpawnDebugPrintf("%s is too close to an allied flag carrier, but removing it would remove the last spawn, so keeping it\n", element->nickname);
+						}
+					}
+
+					if (iter.current != nextNode)
+						IteratorNext(&iter); // only call IteratorNext if we haven't removed the current node
+				}
+			}
+
+
+			// filter out spawnpoints too close to where i was just killed by an enemy
+			if (g_killedAntiHannahSpawnRadius.integer > 0) {
+				ListIterate(&possibleSpawnsList, &iter, qfalse);
+				while (IteratorHasNext(&iter)) {
+					spawnpoint_t *element = (spawnpoint_t *)iter.current;
+					genericNode_t *nextNode = iter.current ? ((node_t *)iter.current)->next : NULL; // store the next node before removal
+
+					if (TooCloseToWhereJustKilledByEnemy(element->ent, client)) {
+						if (possibleSpawnsList.size > 1) {
+							SpawnDebugPrintf("Removing %s from the list since it is too close to where just killed by enemy (threshold: %d)\n", element->nickname, g_killedAntiHannahSpawnRadius.integer);
+							IteratorRemove(&iter); // remove the current node
+							iter.current = nextNode; // manually set iter.current to the next node
+						}
+						else {
+							SpawnDebugPrintf("%s is too close to where just killed by enemy, but removing it would remove the last spawn, so keeping it (threshold: %d)\n", element->nickname, g_killedAntiHannahSpawnRadius.integer);
+						}
+					}
+
+					if (iter.current != nextNode)
+						IteratorNext(&iter); // only call IteratorNext if we haven't removed the current node
+				}
+			}
+
+
+			// we have finally filtered down the list; there is now at least 1 and possibly more valid spawnpoints.
+			// pick a random one from the list and return it
+			assert(possibleSpawnsList.size >= 1);
+			if (possibleSpawnsList.size != originalPossibleSpawnsListSize) {
+				SpawnDebugPrintf("After filtering, spawns list has size %d. Possible spawns are:\n", possibleSpawnsList.size);
+				iterator_t iter;
+				ListIterate(&possibleSpawnsList, &iter, qfalse);
+				while (IteratorHasNext(&iter)) {
+					spawnpoint_t *element = (spawnpoint_t *)IteratorNext(&iter);
+					SpawnDebugPrintf("%s\n", element->nickname);
+				}
+			}
+
+			const int randomIndex = rand() % possibleSpawnsList.size;
+			SpawnDebugPrintf("Randomly chosen index: %d\n", randomIndex);
+			spawnpoint_t *chosenSpawnPoint = NULL;
+			int currentIndex = 0;
+
+			// find the one with the random index
+			ListIterate(&possibleSpawnsList, &iter, qfalse);
+			while (IteratorHasNext(&iter) && currentIndex <= randomIndex) {
+				chosenSpawnPoint = (spawnpoint_t *)IteratorNext(&iter);
+				if (currentIndex == randomIndex) {
+					SpawnDebugPrintf("Spawnpoint with randomly chosen index %d is %s\n", randomIndex, chosenSpawnPoint->nickname);
+					break;
+				}
+				currentIndex++;
+			}
+
+			gentity_t *returnSpawnPoint = chosenSpawnPoint->ent;
+			ListClear(&possibleSpawnsList);
+			return returnSpawnPoint;
 		}
 	}
 

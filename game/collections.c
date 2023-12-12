@@ -198,14 +198,100 @@ genericNode_t* IteratorNext( iterator_t *iter ) {
 	return node;
 }
 
-void IteratorRemove( iterator_t *iter ) {
-	if ( iter->current == NULL ) {
+void IteratorRemove(iterator_t *iter) {
+	if (iter->current == NULL) {
 		return;
 	}
 
-	node_t *node = ( node_t* )iter->current;
+	node_t *node = (node_t *)iter->current;
 	iter->current = !iter->reverse ? node->next : node->prev;
 
-	// currently, you can only iterate lists. makes it more simple
-	ListRemove( iter->parent.parentList, node );
+	ListRemove(iter->parent.parentList, node);
+}
+
+#if 0
+int ExampleComparatorFunction(genericNode_t *a, genericNode_t *b, void *userData) {
+	myDataType_t *aa = (myDataType_t *)a;
+	myDataType_t *bb = (myDataType_t *)b;
+
+	if (aa->myField < bb->myField)
+		return -1; // a first
+
+	if (aa->myField > bb->myField)
+		return 1;  // b first
+
+	return 0; // order doesn't matter
+}
+#endif
+
+static genericNode_t *MergeSortedList(genericNode_t *first, genericNode_t *second, SortCallback compare, void *userData) {
+	if (!first)
+		return second;
+	if (!second)
+		return first;
+
+	if (compare(first, second, userData) <= 0) {
+		((node_t *)first)->next = MergeSortedList(((node_t *)first)->next, second, compare, userData);
+
+		((node_t *)first)->prev = NULL;
+
+		if (((node_t *)first)->next)
+			((node_t *)((node_t *)first)->next)->prev = first;
+
+		return first;
+	}
+	else {
+		((node_t *)second)->next = MergeSortedList(first, ((node_t *)second)->next, compare, userData);
+
+		((node_t *)second)->prev = NULL;
+
+		if (((node_t *)second)->next)
+			((node_t *)((node_t *)second)->next)->prev = second;
+
+		return second;
+	}
+}
+
+static genericNode_t *SplitList(genericNode_t *head) {
+	genericNode_t *fast = head, *slow = head;
+
+	while (((node_t *)fast)->next && ((node_t *)((node_t *)fast)->next)->next) {
+		fast = ((node_t *)((node_t *)fast)->next)->next;
+		slow = ((node_t *)slow)->next;
+	}
+
+	genericNode_t *secondHalf = ((node_t *)slow)->next;
+
+	((node_t *)slow)->next = NULL;
+
+	if (secondHalf)
+		((node_t *)secondHalf)->prev = NULL;
+
+	return secondHalf;
+}
+
+static genericNode_t *MergeSortHelper(genericNode_t *head, SortCallback compare, void *userData) {
+	if (!head || !((node_t *)head)->next)
+		return head;
+
+	genericNode_t *second = SplitList(head);
+
+	// dank recursive divide and conquer
+	head = MergeSortHelper(head, compare, userData);
+	second = MergeSortHelper(second, compare, userData);
+
+	// merge the two sorted halves
+	return MergeSortedList(head, second, compare, userData);
+}
+
+void ListSort(list_t *list, SortCallback compare, void *userData) {
+	if (!list || !list->head || !((node_t *)list->head)->next)
+		return;
+
+	list->head = MergeSortHelper(list->head, compare, userData);
+
+	node_t *current = (node_t *)list->head;
+	while (current && current->next)
+		current = current->next;
+	list->tail = current;
 }

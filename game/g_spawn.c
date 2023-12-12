@@ -79,6 +79,9 @@ BG_field_t fields[] = {
 	{"NPC_target4", FOFS(target4), F_LSTRING},//NPC_spawner only
 	{"NPC_type", FOFS(NPC_type), F_LSTRING},
 	{"targetname", FOFS(targetname), F_LSTRING},
+	{"spawnname", FOFS(spawnname), F_LSTRING},
+	{"nextspawns", FOFS(nextspawns), F_LSTRING},
+	{"initialspawnpriority", FOFS(initialspawnpriority), F_INT},
 	{"message", FOFS(message), F_LSTRING},
 	{"team", FOFS(team), F_LSTRING},
 	{"wait", FOFS(wait), F_FLOAT},
