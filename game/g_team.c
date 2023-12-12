@@ -2091,7 +2091,7 @@ qboolean TooCloseToDroppedFlag(gentity_t *spawnPoint) {
 			continue;
 
 		float radiusSquared = (float)(g_droppedFlagSpawnProtectionRadius.integer * g_droppedFlagSpawnProtectionRadius.integer);
-		if (DistanceSquared(spawnPoint->s.origin, flag->r.currentOrigin) <= radiusSquared && trap_InPVS(spawnPoint->s.origin, flag->r.currentOrigin))
+		if (DistanceSquared(spawnPoint->r.currentOrigin, flag->r.currentOrigin) <= radiusSquared && trap_InPVS(spawnPoint->r.currentOrigin, flag->r.currentOrigin))
 			return qtrue;
 	}
 
@@ -2110,7 +2110,7 @@ qboolean TooCloseToAlliedFlagCarrier(gentity_t *spawnPoint, int team) {
 		break;
 	}
 
-	if (!fc || Distance(spawnPoint->s.origin, fc->client->ps.origin) > 512 || !trap_InPVS(spawnPoint->s.origin, fc->client->ps.origin)) {
+	if (!fc || Distance(spawnPoint->r.currentOrigin, fc->client->ps.origin) > 512 || !trap_InPVS(spawnPoint->r.currentOrigin, fc->client->ps.origin)) {
 		return qfalse;
 	}
 
@@ -2120,9 +2120,9 @@ qboolean TooCloseToAlliedFlagCarrier(gentity_t *spawnPoint, int team) {
 qboolean TooCloseToWhereJustKilledByEnemy(gentity_t *spawnPoint, gclient_t *client) {
 	assert(client);
 
-	if (client->pers.lastKilledByEnemyTime && level.time - client->pers.lastKilledByEnemyTime < 3000) {
-		if (Distance(client->pers.lastKilledByEnemyLocation, spawnPoint->s.origin) < g_killedAntiHannahSpawnRadius.value &&
-			trap_InPVS(client->pers.lastKilledByEnemyLocation, spawnPoint->s.origin)) {
+	if (client->pers.lastKilledByEnemyTime && level.time - client->pers.lastKilledByEnemyTime < 2500) {
+		if (Distance(client->pers.lastKilledByEnemyLocation, spawnPoint->r.currentOrigin) < g_killedAntiHannahSpawnRadius.value &&
+			trap_InPVS(client->pers.lastKilledByEnemyLocation, spawnPoint->r.currentOrigin)) {
 			return qtrue;
 		}
 	}
