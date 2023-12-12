@@ -2147,6 +2147,9 @@ static void GetSpawnPointNickname(gentity_t *spawn, char *dest, size_t destSize)
 	assert(spawn && dest && destSize);
 	*dest = '\0';
 
+	if (!d_debugSpawns.integer)
+		return; // just save overhead since we won't be printing them to the log anyway i guess
+
 	if (VALIDSTRING(spawn->spawnname)) {
 		Q_strncpyz(dest, spawn->spawnname, destSize);
 		return;
@@ -2436,7 +2439,11 @@ gentity_t *SelectRandomTeamSpawnPoint( gclient_t *client, int teamstate, team_t 
 					client->pers.lastKiller - g_entities == ENTITYNUM_WORLD)) {
 				ListSort(&possibleSpawnsList, CompareSpawns, client->pers.lastSpawnPoint->r.currentOrigin);
 
-				const int goalSize = Com_Clampi(1, MAX_TEAM_SPAWN_POINTS, possibleSpawnsList.size - (possibleSpawnsList.size / 2));
+#if 1
+				const int goalSize = Com_Clampi(1, MAX_TEAM_SPAWN_POINTS, possibleSpawnsList.size / 2); // e.g. 7 total spawns ==> goalSize of 3 (remove 4 spawns)
+#else
+				const int goalSize = Com_Clampi(1, MAX_TEAM_SPAWN_POINTS, possibleSpawnsList.size - (possibleSpawnsList.size / 2)); // e.g. 7 total spawns ==> goalSize of 4 (remove 3 spawns)
+#endif
 				while (possibleSpawnsList.size > goalSize) {
 					gentity_t *headEnt = ((spawnpoint_t *)(possibleSpawnsList.head))->ent;
 					char *headNickname = ((spawnpoint_t *)(possibleSpawnsList.head))->nickname;

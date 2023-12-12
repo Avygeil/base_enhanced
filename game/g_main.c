@@ -1110,7 +1110,7 @@ static cvarTable_t		gameCvarTable[] = {
 #endif
 
 	{ &d_debugCtfPosCalculation, "d_debugCtfPosCalculation", "0", CVAR_ARCHIVE, 0, qtrue },
-	{ &d_debugSpawns, "d_debugSpawns", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &d_debugSpawns, "d_debugSpawns", "0", CVAR_ARCHIVE, 0, qfalse },
 
 	{ &g_notFirstMap, "g_notFirstMap", "0", CVAR_ROM | CVAR_TEMP, 0, qfalse },
 	{ &g_shouldReloadPlayerPugStats, "g_shouldReloadPlayerPugStats", "0", CVAR_ROM | CVAR_TEMP, 0, qfalse },
