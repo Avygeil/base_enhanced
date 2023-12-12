@@ -466,6 +466,10 @@ qboolean CheckAccuracyAndAirshot(gentity_t *missile, gentity_t *victim, qboolean
 
 		if (isSurfedRocket && CountsForAirshotStat(missile)) {
 			++missileOwner->client->stats->airs;
+			if (victim - g_entities < MAX_CLIENTS) {
+				missileOwner->client->lastAiredOtherClientTime[victim - g_entities] = level.time;
+				missileOwner->client->lastAiredOtherClientMeansOfDeath[victim - g_entities] = missile->methodOfDeath;
+			}
 		}
 		else if (victim->playerState->groundEntityNum == ENTITYNUM_NONE && CountsForAirshotStat(missile)) {
 			// hit while in air; make sure the victim is decently in the air though (not just 1 nanometer from the gorund)
@@ -477,8 +481,13 @@ qboolean CheckAccuracyAndAirshot(gentity_t *missile, gentity_t *victim, qboolean
 			VectorSubtract(victim->r.currentOrigin, tr.endpos, down);
 			float groundDist = VectorLength(down);
 #define AIRSHOT_GROUND_DISTANCE_THRESHOLD (50.0f)
-			if (groundDist >= AIRSHOT_GROUND_DISTANCE_THRESHOLD)
+			if (groundDist >= AIRSHOT_GROUND_DISTANCE_THRESHOLD) {
 				++missileOwner->client->stats->airs;
+				if (victim - g_entities < MAX_CLIENTS) {
+					missileOwner->client->lastAiredOtherClientTime[victim - g_entities] = level.time;
+					missileOwner->client->lastAiredOtherClientMeansOfDeath[victim - g_entities] = missile->methodOfDeath;
+				}
+			}
 			//PrintIngame(-1, "Ground distance is %0.2f\n", groundDist);
 		}
 	}

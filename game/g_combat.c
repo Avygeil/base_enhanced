@@ -2347,6 +2347,30 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 		attacker = &g_entities[self->client->ps.otherKiller];
 	}
 
+	qboolean isAirFrag = qfalse;
+	if (self && self->client && self - g_entities < MAX_CLIENTS &&
+		attacker && attacker->client && attacker - g_entities < MAX_CLIENTS &&
+		attacker->client->lastAiredOtherClientTime[self - g_entities] && level.time - attacker->client->lastAiredOtherClientTime[self - g_entities] <= 50 &&
+		attacker->client->lastAiredOtherClientMeansOfDeath[self - g_entities] == meansOfDeath) {
+
+		qboolean isValidMeansOfDeathForAirFrag = qfalse;
+		switch (meansOfDeath) {
+		case MOD_BOWCASTER:
+		case MOD_REPEATER_ALT:
+		case MOD_FLECHETTE_ALT_SPLASH:
+		case MOD_ROCKET:
+		case MOD_THERMAL:
+		case MOD_CONC:
+		case MOD_ROCKET_HOMING:
+		case MOD_BRYAR_PISTOL_ALT:
+			isValidMeansOfDeathForAirFrag = qtrue;
+			break;
+		}
+
+		if (isValidMeansOfDeathForAirFrag)
+			isAirFrag = qtrue;
+	}
+
 	// check for an almost capture
 	CheckAlmostCapture( self, attacker );
 
@@ -2427,8 +2451,13 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 		ent->s.otherEntityNum2 = killer;
 		ent->r.svFlags = SVF_BROADCAST;	// send to everyone
 		ent->s.isJediMaster = wasJediMaster;
+
+		// support custom client mod obituary messages
 		if (isBumpKill)
-			ent->s.userInt1 = 1; // so custom clients know to use a special obituary message
+			ent->s.userInt1 = 1;
+		if (isAirFrag)
+			ent->s.userInt2 = 1;
+
 		G_ApplyRaceBroadcastsToEvent( self, ent );
 	}
 

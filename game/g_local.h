@@ -1389,12 +1389,12 @@ struct gclient_s {
 	clientSession_t		sess;
 
 	// accounts
-	session_t* session;
-	account_t* account;
-	stats_t* stats;
+	session_t *session;
+	account_t *account;
+	stats_t *stats;
 
 	saberInfo_t	saber[MAX_SABERS];
-	void		*weaponGhoul2[MAX_SABERS];
+	void *weaponGhoul2[MAX_SABERS];
 
 	int			tossableItemDebounce;
 
@@ -1417,8 +1417,8 @@ struct gclient_s {
 	qboolean	noclip;
 
 	int			lastCmdTime;		// level.time of last usercmd_t, for EF_CONNECTION
-									// we can't just use pers.lastCommand.time, because
-									// of the g_sycronousclients case
+	// we can't just use pers.lastCommand.time, because
+	// of the g_sycronousclients case
 	int			lastRealCmdTime;
 	int			buttons;
 	int			oldbuttons;
@@ -1455,7 +1455,7 @@ struct gclient_s {
 	int			lastKillTime;		// for multiple kill rewards
 
 	qboolean	fireHeld;			// used for hook
-	gentity_t	*hook;				// grapple hook if out
+	gentity_t *hook;				// grapple hook if out
 
 	int			switchTeamTime;		// time the player switched teams
 
@@ -1467,7 +1467,7 @@ struct gclient_s {
 	// like health / armor countdowns and regeneration
 	int			timeResidual;
 
-	char		*areabits;
+	char *areabits;
 
 	int			g2LastSurfaceHit; //index of surface hit during the most recent ghoul2 collision performed on this client.
 	int			g2LastSurfaceTime; //time when the surface index was set (to make sure it's up to date)
@@ -1532,12 +1532,12 @@ struct gclient_s {
 	//mostly NPC stuff:
 	npcteam_t	playerTeam;
 	npcteam_t	enemyTeam;
-	char		*squadname;
-	gentity_t	*team_leader;
-	gentity_t	*leader;
-	gentity_t	*follower;
+	char *squadname;
+	gentity_t *team_leader;
+	gentity_t *leader;
+	gentity_t *follower;
 	int			numFollowers;
-	gentity_t	*formationGoal;
+	gentity_t *formationGoal;
 	int			nextFormGoal;
 	class_t		NPC_class;
 
@@ -1642,6 +1642,9 @@ struct gclient_s {
 	int drainDebuffTime;
 
 	gentity_t *bumpedByEnt;
+
+	int lastAiredOtherClientTime[MAX_CLIENTS];
+	int lastAiredOtherClientMeansOfDeath[MAX_CLIENTS];
 };
 
 //Interest points

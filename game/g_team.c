@@ -2576,7 +2576,6 @@ gentity_t *SelectRandomTeamSpawnPoint( gclient_t *client, int teamstate, team_t 
 				}
 			}
 
-
 			// we have finally filtered down the list; there is now at least 1 and possibly more valid spawnpoints.
 			// pick a random one from the list and return it
 			assert(possibleSpawnsList.size >= 1);
