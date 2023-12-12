@@ -3397,7 +3397,8 @@ void SendMachineFriendlyStats(void) {
 				if (s->regionPercent[r]) { hasValidRegions = qtrue; break; }
 
 			machineFriendlyStats_t *mfs = ListAdd(&machineFriendlyStatsList, sizeof(machineFriendlyStats_t));
-#define MACHINEFRIENDLYSTATS_PROTOCOL	5
+#define MACHINEFRIENDLYSTATS_PROTOCOL	6
+			// 6 = bumps now count toward pitkills and fckills
 			// 5 = added grips, gripped, dark percent
 			// 4 = fixed fc kill efficiency bug where fc pitkills counted as unreturned (inefficient) fc kills
 			// 3 = added got te stat after eff

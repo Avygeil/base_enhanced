@@ -446,6 +446,43 @@ static qboolean CountsForAirshotStat(gentity_t *missile) {
 	}
 }
 
+qboolean LogAccuracyHitSameTeamOkay(gentity_t *target, gentity_t *attacker) {
+	if (!target->takedamage) {
+		return qfalse;
+	}
+
+	if (target == attacker) {
+		return qfalse;
+	}
+
+	if (!target->client) {
+		return qfalse;
+	}
+
+	if (!attacker)
+	{
+		return qfalse;
+	}
+
+	if (!attacker->client) {
+		return qfalse;
+	}
+
+	if (target->client->ps.stats[STAT_HEALTH] <= 0) {
+		return qfalse;
+	}
+
+	/*if (OnSameTeam(target, attacker)) {
+		return qfalse;
+	}*/
+
+	if (target->client->sess.inRacemode || attacker->client->sess.inRacemode) {
+		return qfalse;
+	}
+
+	return qtrue;
+}
+
 qboolean CheckAccuracyAndAirshot(gentity_t *missile, gentity_t *victim, qboolean isSurfedRocket) {
 	qboolean hitClient = qfalse;
 
@@ -455,17 +492,20 @@ qboolean CheckAccuracyAndAirshot(gentity_t *missile, gentity_t *victim, qboolean
 	if (!missileOwner->inuse || !missileOwner->client || !missileOwner->client->stats)
 		return qfalse;
 
-	if (LogAccuracyHit(victim, missileOwner) && !missile->isReflected) {
+	if (LogAccuracyHitSameTeamOkay(victim, missileOwner) && !missile->isReflected) {
 		accuracyCategory_t acc = AccuracyCategoryForProjectile(missile);
-		if (acc != ACC_INVALID) {
-			if (acc != ACC_PISTOL_ALT) // pistol does not count in overall accuracy
-				missileOwner->client->stats->accuracy_hits++;
-			missileOwner->client->stats->accuracy_hitsOfType[acc]++;
+		if (!OnSameTeam(victim, missileOwner)) {
+			if (acc != ACC_INVALID) {
+				if (acc != ACC_PISTOL_ALT) // pistol does not count in overall accuracy
+					missileOwner->client->stats->accuracy_hits++;
+				missileOwner->client->stats->accuracy_hitsOfType[acc]++;
+			}
 		}
 		hitClient = qtrue;
 
 		if (isSurfedRocket && CountsForAirshotStat(missile)) {
-			++missileOwner->client->stats->airs;
+			if (!OnSameTeam(victim, missileOwner))
+				++missileOwner->client->stats->airs;
 			if (victim - g_entities < MAX_CLIENTS) {
 				missileOwner->client->lastAiredOtherClientTime[victim - g_entities] = level.time;
 				missileOwner->client->lastAiredOtherClientMeansOfDeath[victim - g_entities] = missile->methodOfDeath;
@@ -482,7 +522,8 @@ qboolean CheckAccuracyAndAirshot(gentity_t *missile, gentity_t *victim, qboolean
 			float groundDist = VectorLength(down);
 #define AIRSHOT_GROUND_DISTANCE_THRESHOLD (50.0f)
 			if (groundDist >= AIRSHOT_GROUND_DISTANCE_THRESHOLD) {
-				++missileOwner->client->stats->airs;
+				if (!OnSameTeam(victim, missileOwner))
+					++missileOwner->client->stats->airs;
 				if (victim - g_entities < MAX_CLIENTS) {
 					missileOwner->client->lastAiredOtherClientTime[victim - g_entities] = level.time;
 					missileOwner->client->lastAiredOtherClientMeansOfDeath[victim - g_entities] = missile->methodOfDeath;
