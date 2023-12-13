@@ -2453,9 +2453,9 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 		ent->s.isJediMaster = wasJediMaster;
 
 		// support custom client mod obituary messages
-		if (isBumpKill)
+		if (isBumpKill && g_fixBumpKills.integer)
 			ent->s.userInt1 = 1;
-		if (isAirFrag)
+		if (isAirFrag && g_creditAirKills.integer)
 			ent->s.userInt2 = 1;
 
 		G_ApplyRaceBroadcastsToEvent( self, ent );
