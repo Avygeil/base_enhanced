@@ -2493,6 +2493,7 @@ gentity_t *SelectRandomTeamSpawnPoint( gclient_t *client, int teamstate, team_t 
 
 			// filter out spawnpoints too close to a dropped flag
 			if (g_droppedFlagSpawnProtectionRadius.integer > 0) {
+				qboolean droppedFlagExists = qfalse;
 				for (int i = MAX_CLIENTS; i < MAX_GENTITIES; ++i) {
 					gentity_t *flag = &g_entities[i];
 					if (!flag->inuse || !flag->item)
@@ -2502,26 +2503,29 @@ gentity_t *SelectRandomTeamSpawnPoint( gclient_t *client, int teamstate, team_t 
 					if (!(flag->flags & FL_DROPPED_ITEM))
 						continue;
 					SpawnDebugPrintf("Dropped flag at %d %d %d\n", (int)flag->r.currentOrigin[0], (int)flag->r.currentOrigin[1], (int)flag->r.currentOrigin[2]);
+					droppedFlagExists = qtrue;
 				}
 
-				ListIterate(&possibleSpawnsList, &iter, qfalse);
-				while (IteratorHasNext(&iter)) {
-					spawnpoint_t *element = (spawnpoint_t *)iter.current;
-					genericNode_t *nextNode = iter.current ? ((node_t *)iter.current)->next : NULL; // store the next node before removal
+				if (droppedFlagExists) {
+					ListIterate(&possibleSpawnsList, &iter, qfalse);
+					while (IteratorHasNext(&iter)) {
+						spawnpoint_t *element = (spawnpoint_t *)iter.current;
+						genericNode_t *nextNode = iter.current ? ((node_t *)iter.current)->next : NULL; // store the next node before removal
 
-					if (TooCloseToDroppedFlag(element->ent)) {
-						if (possibleSpawnsList.size > 1) {
-							SpawnDebugPrintf("Removing %s from the list since it is too close to a dropped flag\n", element->nickname);
-							IteratorRemove(&iter); // remove the current node
-							iter.current = nextNode; // manually set iter.current to the next node
+						if (TooCloseToDroppedFlag(element->ent)) {
+							if (possibleSpawnsList.size > 1) {
+								SpawnDebugPrintf("Removing %s from the list since it is too close to a dropped flag\n", element->nickname);
+								IteratorRemove(&iter); // remove the current node
+								iter.current = nextNode; // manually set iter.current to the next node
+							}
+							else {
+								SpawnDebugPrintf("%s is too close to a dropped flag, but removing it would remove the last spawn, so keeping it\n", element->nickname);
+							}
 						}
-						else {
-							SpawnDebugPrintf("%s is too close to a dropped flag, but removing it would remove the last spawn, so keeping it\n", element->nickname);
-						}
+
+						if (iter.current != nextNode)
+							IteratorNext(&iter); // only call IteratorNext if we haven't removed the current node
 					}
-
-					if (iter.current != nextNode)
-						IteratorNext(&iter); // only call IteratorNext if we haven't removed the current node
 				}
 			}
 
@@ -2529,50 +2533,54 @@ gentity_t *SelectRandomTeamSpawnPoint( gclient_t *client, int teamstate, team_t 
 			// filter out spawnpoints too close to an allied flag carrier
 			if (!g_canSpawnInTeRangeOfFc.integer) {
 				gentity_t *fc = GetFC(team, NULL, qfalse, 0);
-				if (fc)
+				if (fc) {
 					SpawnDebugPrintf("FC is player %d (%s) at %d %d %d\n", fc - g_entities, fc->client ? fc->client->pers.netname : "", (int)fc->r.currentOrigin[0], (int)fc->r.currentOrigin[1], (int)fc->r.currentOrigin[2]);
-				ListIterate(&possibleSpawnsList, &iter, qfalse);
-				while (IteratorHasNext(&iter)) {
-					spawnpoint_t *element = (spawnpoint_t *)iter.current;
-					genericNode_t *nextNode = iter.current ? ((node_t *)iter.current)->next : NULL; // store the next node before removal
+					ListIterate(&possibleSpawnsList, &iter, qfalse);
+					while (IteratorHasNext(&iter)) {
+						spawnpoint_t *element = (spawnpoint_t *)iter.current;
+						genericNode_t *nextNode = iter.current ? ((node_t *)iter.current)->next : NULL; // store the next node before removal
 
-					if (TooCloseToAlliedFlagCarrier(element->ent, client->sess.sessionTeam)) {
-						if (possibleSpawnsList.size > 1) {
-							SpawnDebugPrintf("Removing %s from the list since it is too close to an allied flag carrier\n", element->nickname);
-							IteratorRemove(&iter); // remove the current node
-							iter.current = nextNode; // manually set iter.current to the next node
+						if (TooCloseToAlliedFlagCarrier(element->ent, client->sess.sessionTeam)) {
+							if (possibleSpawnsList.size > 1) {
+								SpawnDebugPrintf("Removing %s from the list since it is too close to an allied flag carrier\n", element->nickname);
+								IteratorRemove(&iter); // remove the current node
+								iter.current = nextNode; // manually set iter.current to the next node
+							}
+							else {
+								SpawnDebugPrintf("%s is too close to an allied flag carrier, but removing it would remove the last spawn, so keeping it\n", element->nickname);
+							}
 						}
-						else {
-							SpawnDebugPrintf("%s is too close to an allied flag carrier, but removing it would remove the last spawn, so keeping it\n", element->nickname);
-						}
+
+						if (iter.current != nextNode)
+							IteratorNext(&iter); // only call IteratorNext if we haven't removed the current node
 					}
-
-					if (iter.current != nextNode)
-						IteratorNext(&iter); // only call IteratorNext if we haven't removed the current node
 				}
 			}
 
 
 			// filter out spawnpoints too close to where i was just killed by an enemy
 			if (g_killedAntiHannahSpawnRadius.integer > 0) {
-				ListIterate(&possibleSpawnsList, &iter, qfalse);
-				while (IteratorHasNext(&iter)) {
-					spawnpoint_t *element = (spawnpoint_t *)iter.current;
-					genericNode_t *nextNode = iter.current ? ((node_t *)iter.current)->next : NULL; // store the next node before removal
+				if (client->pers.lastKilledByEnemyTime && level.time - client->pers.lastKilledByEnemyTime < 2500) {
+					SpawnDebugPrintf("lastKilledByEnemyTime %d and %d - %d < 2500 (%d)\n", client->pers.lastKilledByEnemyTime, level.time, client->pers.lastKilledByEnemyTime, level.time - client->pers.lastKilledByEnemyTime);
+					ListIterate(&possibleSpawnsList, &iter, qfalse);
+					while (IteratorHasNext(&iter)) {
+						spawnpoint_t *element = (spawnpoint_t *)iter.current;
+						genericNode_t *nextNode = iter.current ? ((node_t *)iter.current)->next : NULL; // store the next node before removal
 
-					if (TooCloseToWhereJustKilledByEnemy(element->ent, client)) {
-						if (possibleSpawnsList.size > 1) {
-							SpawnDebugPrintf("Removing %s from the list since it is too close to where just killed by enemy (threshold: %d)\n", element->nickname, g_killedAntiHannahSpawnRadius.integer);
-							IteratorRemove(&iter); // remove the current node
-							iter.current = nextNode; // manually set iter.current to the next node
+						if (TooCloseToWhereJustKilledByEnemy(element->ent, client)) {
+							if (possibleSpawnsList.size > 1) {
+								SpawnDebugPrintf("Removing %s from the list since it is too close to where just killed by enemy (threshold: %d)\n", element->nickname, g_killedAntiHannahSpawnRadius.integer);
+								IteratorRemove(&iter); // remove the current node
+								iter.current = nextNode; // manually set iter.current to the next node
+							}
+							else {
+								SpawnDebugPrintf("%s is too close to where just killed by enemy, but removing it would remove the last spawn, so keeping it (threshold: %d)\n", element->nickname, g_killedAntiHannahSpawnRadius.integer);
+							}
 						}
-						else {
-							SpawnDebugPrintf("%s is too close to where just killed by enemy, but removing it would remove the last spawn, so keeping it (threshold: %d)\n", element->nickname, g_killedAntiHannahSpawnRadius.integer);
-						}
+
+						if (iter.current != nextNode)
+							IteratorNext(&iter); // only call IteratorNext if we haven't removed the current node
 					}
-
-					if (iter.current != nextNode)
-						IteratorNext(&iter); // only call IteratorNext if we haven't removed the current node
 				}
 			}
 
