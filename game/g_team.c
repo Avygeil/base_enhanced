@@ -2150,6 +2150,9 @@ static void GetSpawnPointNickname(gentity_t *spawn, char *dest, size_t destSize)
 	if (!d_debugSpawns.integer)
 		return; // just save overhead since we won't be printing them to the log anyway i guess
 
+	if (d_debugSpawns.integer == 2)
+		Com_Printf("GetSpawnPointNickname: spawn->spawnname is %s\n", spawn->spawnname);
+
 	if (VALIDSTRING(spawn->spawnname)) {
 		Q_strncpyz(dest, spawn->spawnname, destSize);
 		return;
