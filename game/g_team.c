@@ -2432,16 +2432,21 @@ gentity_t *SelectRandomTeamSpawnPoint( gclient_t *client, int teamstate, team_t 
 				iterator_t iter;
 				ListIterate(&possibleSpawnsList, &iter, qfalse);
 				while (IteratorHasNext(&iter)) {
-					spawnpoint_t *element = (spawnpoint_t *)IteratorNext(&iter);
+					spawnpoint_t *element = (spawnpoint_t *)iter.current;
+					genericNode_t *nextNode = iter.current ? ((node_t *)iter.current)->next : NULL; // store the next node before removal
+
 					if (!VALIDSTRING(element->ent->spawnname) || !stristr(client->pers.lastSpawnPoint->nextspawns, element->ent->spawnname)) {
 						SpawnDebugPrintf("Removing %s from possible spawns list since it isn't whitelisted by last spawn (%s)\n", element->nickname, lastSpawnName);
-						IteratorRemove(&iter);
+						IteratorRemove(&iter); // remove the current node
+						iter.current = nextNode; // manually set iter.current to the next node
 					}
 					else {
-						IteratorNext(&iter);
+						if (iter.current != nextNode)
+							IteratorNext(&iter); // only call IteratorNext if we haven't removed the current node
 					}
 				}
 			}
+
 
 			// if we DON'T have a whitelist, then delete the 50% of spawns that are closest to our last one
 			if (!(boost && spawnMeNearThisEntity) && g_selfKillSpawnSpamProtection.integer && client->pers.lastSpawnPoint &&
