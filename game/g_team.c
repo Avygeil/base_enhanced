@@ -2059,15 +2059,15 @@ int CompareSpawns(genericNode_t *a, genericNode_t *b, void *userData) {
 	const gentity_t *bb = bb_spawn->ent;
 
 
-	vec3_t *oldSpawnOrigin = (vec3_t *)userData;
+	vec3_t *comparisonPoint = (vec3_t *)userData;
 
-	float a2dDistFromOldSpawn = Distance2D(aa->r.currentOrigin, *oldSpawnOrigin);
-	float b2dDistFromOldSpawn = Distance2D(bb->r.currentOrigin, *oldSpawnOrigin);
+	float a2dDistFromComparisonPoint = Distance2D(aa->r.currentOrigin, *comparisonPoint);
+	float b2dDistFromComparisonPoint = Distance2D(bb->r.currentOrigin, *comparisonPoint);
 
-	if (a2dDistFromOldSpawn < b2dDistFromOldSpawn)
+	if (a2dDistFromComparisonPoint < b2dDistFromComparisonPoint)
 		return -1; // a first
 
-	if (a2dDistFromOldSpawn > b2dDistFromOldSpawn)
+	if (a2dDistFromComparisonPoint > b2dDistFromComparisonPoint)
 		return 1;  // b first
 
 	return 0; // order doesn't matter
@@ -2188,10 +2188,7 @@ go to a random point that doesn't telefrag
 #define SPAWN_SPAM_PROTECT_TIME		(5000)
 gentity_t *SelectRandomTeamSpawnPoint( gclient_t *client, int teamstate, team_t team, int siegeClass ) {
 	assert(client);
-	gentity_t	*spot;
-	int			count;
 	int			selection;
-	gentity_t	*spots[MAX_TEAM_SPAWN_POINTS];
 	char		*classname;
 	qboolean	mustBeEnabled = qfalse;
 
@@ -2226,11 +2223,8 @@ gentity_t *SelectRandomTeamSpawnPoint( gclient_t *client, int teamstate, team_t 
 				return NULL;
 		}
 	}
-	count = 0;
 
-	spot = NULL;
-
-	gentity_t *spawnMeNearThisGuy = NULL;
+	gentity_t *spawnMeNearThisEntity = NULL;
 	int boost = (client && client->account && g_boost.integer) ? client->account->flags & (ACCOUNTFLAG_BOOST_SPAWNFCBOOST | ACCOUNTFLAG_BOOST_SPAWNGERBOOST) : 0;
 
 	ctfPosition_t pos = CTFPOSITION_UNKNOWN;
@@ -2246,19 +2240,19 @@ gentity_t *SelectRandomTeamSpawnPoint( gclient_t *client, int teamstate, team_t 
 
 				float loc = GetCTFLocationValue(thisGuy);
 				if (loc <= 0.55f) {
-					spawnMeNearThisGuy = thisGuy;
+					spawnMeNearThisEntity = thisGuy;
 					break;
 				}
 			}
 
-			if (spawnMeNearThisGuy && g_spawnboost_losIdealDistance.integer > 0) {
-				gentity_t *spawnBoostEnt = GetSpawnFcBoostLocation(client, spawnMeNearThisGuy);
+			if (spawnMeNearThisEntity && g_spawnboost_losIdealDistance.integer > 0) {
+				gentity_t *spawnBoostEnt = GetSpawnFcBoostLocation(client, spawnMeNearThisEntity);
 				if (spawnBoostEnt)
 					return spawnBoostEnt;
 			}
 		}
 
-		if ((boost & ACCOUNTFLAG_BOOST_SPAWNGERBOOST) && !spawnMeNearThisGuy && level.time - level.startTime >= 15000 && pos == CTFPOSITION_BASE) {
+		if ((boost & ACCOUNTFLAG_BOOST_SPAWNGERBOOST) && !spawnMeNearThisEntity && level.time - level.startTime >= 15000 && pos == CTFPOSITION_BASE) {
 			// boost: help base ger by spawning near mid if everyone is in the enemy base, including enemy fc
 			flagStatus_t myFlagStatus = client->sess.sessionTeam == TEAM_RED ? teamgame.redStatus : teamgame.blueStatus;
 			if (myFlagStatus != FLAG_ATBASE) {
@@ -2295,20 +2289,9 @@ gentity_t *SelectRandomTeamSpawnPoint( gclient_t *client, int teamstate, team_t 
 					}
 
 					if (redFsEnt && blueFsEnt)
-						spawnMeNearThisGuy = client->sess.sessionTeam == TEAM_RED ? blueFsEnt : redFsEnt;
+						spawnMeNearThisEntity = client->sess.sessionTeam == TEAM_RED ? blueFsEnt : redFsEnt;
 				}
 			}
-		}
-
-		if (spawnMeNearThisGuy) {
-			oldSpawn = spawnMeNearThisGuy;
-			qsort(spots, count, sizeof(gentity_t *), SortSpotsByDistanceClosestToPlayer);
-			float multiplier = GetFcSpawnBoostMultiplier(spawnMeNearThisGuy);
-			const int originalCount = count;
-			count = (int)round((float)count * multiplier);
-			count = Com_Clampi(1, originalCount, count);
-			selection = rand() % count;
-			return spots[selection];
 		}
 	}
 
@@ -2376,9 +2359,10 @@ gentity_t *SelectRandomTeamSpawnPoint( gclient_t *client, int teamstate, team_t 
 				GetSpawnPointNickname(client->pers.lastSpawnPoint, lastSpawnName, sizeof(lastSpawnName));
 			else
 				Q_strncpyz(lastSpawnName, "none", sizeof(lastSpawnName));
-			SpawnDebugPrintf("Spawn logic at %d (%d) for player %d (%s) with last spawnpoint %s trying for classname %s with lastSpawnTime %d, lastKiller %d, lastKilledByEnemyTime %d, lastKilledByEnemyLocation %d %d %d\n",
+			SpawnDebugPrintf("Spawn logic at %d (%d) for %splayer %d (%s) with last spawnpoint %s trying for classname %s with lastSpawnTime %d, lastKiller %d, lastKilledByEnemyTime %d, lastKilledByEnemyLocation %d %d %d\n",
 				level.time,
 				level.time - level.startTime,
+				boost && spawnMeNearThisEntity ? "boosted" : "",
 				client - level.clients,
 				client->pers.netname,
 				lastSpawnName,
@@ -2397,30 +2381,11 @@ gentity_t *SelectRandomTeamSpawnPoint( gclient_t *client, int teamstate, team_t 
 				if (!VALIDSTRING(thisEnt->classname) || Q_stricmp(thisEnt->classname, classname))
 					continue;
 
-				char thisName[128] = { 0 };
-				GetSpawnPointNickname(thisEnt, thisName, sizeof(thisName));
-
-				// if we have a whitelist and this isn't in the whitelist, then don't add it
-				if (g_selfKillSpawnSpamProtection.integer && client->pers.lastSpawnPoint &&
-					level.time - client->pers.lastSpawnTime < SPAWN_SPAM_PROTECT_TIME && VALIDSTRING(client->pers.lastSpawnPoint->nextspawns) &&
-					(!client->pers.lastKiller ||
-						client->pers.lastKiller - g_entities == client - level.clients ||
-						client->pers.lastKiller - g_entities == ENTITYNUM_NONE ||
-						client->pers.lastKiller - g_entities == ENTITYNUM_WORLD)) {
-					if (!VALIDSTRING(thisEnt->spawnname) || !stristr(client->pers.lastSpawnPoint->nextspawns, thisEnt->spawnname)) {
-						SpawnDebugPrintf("%s cannot be added to possible spawns list since it isn't whitelisted by the last spawn (%s)", thisName, lastSpawnName);
-						if (client->pers.lastSpawnPoint)
-							SpawnDebugPrintf(" (2D distance from last spawn point (%s): %f)\n", lastSpawnName, Distance2D(thisEnt->r.currentOrigin, client->pers.lastSpawnPoint->r.currentOrigin));
-						else
-							SpawnDebugPrintf("\n");
-						continue;
-					}
-				}
-
 				spawnpoint_t *add = ListAdd(&possibleSpawnsList, sizeof(spawnpoint_t));
 				add->ent = thisEnt;
-				Q_strncpyz(add->nickname, thisName, sizeof(add->nickname));
-				SpawnDebugPrintf("Adding %s to possible spawns list", thisName);
+				GetSpawnPointNickname(thisEnt, add->nickname, sizeof(add->nickname));
+
+				SpawnDebugPrintf("Adding %s to possible spawns list", add->nickname);
 				if (client->pers.lastSpawnPoint)
 					SpawnDebugPrintf(" (2D distance from last spawn point (%s): %f)\n", lastSpawnName, Distance2D(thisEnt->r.currentOrigin, client->pers.lastSpawnPoint->r.currentOrigin));
 				else
@@ -2433,8 +2398,30 @@ gentity_t *SelectRandomTeamSpawnPoint( gclient_t *client, int teamstate, team_t 
 				return G_Find(NULL, FOFS(classname), classname);
 			}
 
+			// remove non-whitelisted spawn points, if applicable
+			if (!(boost && spawnMeNearThisEntity) && g_selfKillSpawnSpamProtection.integer && client->pers.lastSpawnPoint &&
+				level.time - client->pers.lastSpawnTime < SPAWN_SPAM_PROTECT_TIME && VALIDSTRING(client->pers.lastSpawnPoint->nextspawns) &&
+				(!client->pers.lastKiller ||
+					client->pers.lastKiller - g_entities == client - level.clients ||
+					client->pers.lastKiller - g_entities == ENTITYNUM_NONE ||
+					client->pers.lastKiller - g_entities == ENTITYNUM_WORLD)) {
+
+				iterator_t iter;
+				ListIterate(&possibleSpawnsList, &iter, qfalse);
+				while (IteratorHasNext(&iter)) {
+					spawnpoint_t *element = (spawnpoint_t *)IteratorNext(&iter);
+					if (!VALIDSTRING(element->ent->spawnname) || !stristr(client->pers.lastSpawnPoint->nextspawns, element->ent->spawnname)) {
+						SpawnDebugPrintf("Removing %s from possible spawns list since it isn't whitelisted by last spawn (%s)\n", element->nickname, lastSpawnName);
+						IteratorRemove(&iter);
+					}
+					else {
+						IteratorNext(&iter);
+					}
+				}
+			}
+
 			// if we DON'T have a whitelist, then delete the 50% of spawns that are closest to our last one
-			if (g_selfKillSpawnSpamProtection.integer && client->pers.lastSpawnPoint &&
+			if (!(boost && spawnMeNearThisEntity) && g_selfKillSpawnSpamProtection.integer && client->pers.lastSpawnPoint &&
 				level.time - client->pers.lastSpawnTime < SPAWN_SPAM_PROTECT_TIME && !VALIDSTRING(client->pers.lastSpawnPoint->nextspawns) &&
 				(!client->pers.lastKiller ||
 					client->pers.lastKiller - g_entities == client - level.clients ||
@@ -2451,6 +2438,23 @@ gentity_t *SelectRandomTeamSpawnPoint( gclient_t *client, int teamstate, team_t 
 					gentity_t *headEnt = ((spawnpoint_t *)(possibleSpawnsList.head))->ent;
 					char *headNickname = ((spawnpoint_t *)(possibleSpawnsList.head))->nickname;
 					SpawnDebugPrintf("No whitelist; removing %s from the list based on 2D distance from last spawn point (%s) %f\n", headNickname, lastSpawnName, Distance2D(headEnt->r.currentOrigin, client->pers.lastSpawnPoint->r.currentOrigin));
+					ListRemove(&possibleSpawnsList, possibleSpawnsList.head);
+				}
+			}
+
+			// boosted guy: delete the 50% of spawnpoints closest to some entity
+			if (boost && spawnMeNearThisEntity) {
+				ListSort(&possibleSpawnsList, CompareSpawns, spawnMeNearThisEntity->r.currentOrigin);
+
+#if 1
+				const int goalSize = Com_Clampi(1, MAX_TEAM_SPAWN_POINTS, possibleSpawnsList.size / 2); // e.g. 7 total spawns ==> goalSize of 3 (remove 4 spawns)
+#else
+				const int goalSize = Com_Clampi(1, MAX_TEAM_SPAWN_POINTS, possibleSpawnsList.size - (possibleSpawnsList.size / 2)); // e.g. 7 total spawns ==> goalSize of 4 (remove 3 spawns)
+#endif
+				while (possibleSpawnsList.size > goalSize) {
+					gentity_t *headEnt = ((spawnpoint_t *)(possibleSpawnsList.head))->ent;
+					char *headNickname = ((spawnpoint_t *)(possibleSpawnsList.head))->nickname;
+					SpawnDebugPrintf("(Boost) no whitelist; removing %s from the list based on 2D distance from entity %d (%s) %f\n", headNickname, spawnMeNearThisEntity - g_entities, VALIDSTRING(spawnMeNearThisEntity->classname) ? spawnMeNearThisEntity->classname : "", Distance2D(headEnt->r.currentOrigin, spawnMeNearThisEntity->r.currentOrigin));
 					ListRemove(&possibleSpawnsList, possibleSpawnsList.head);
 				}
 			}
@@ -2622,8 +2626,27 @@ gentity_t *SelectRandomTeamSpawnPoint( gclient_t *client, int teamstate, team_t 
 		}
 	}
 
-	if ( !count ) {	// no valid spot
-		return G_Find( NULL, FOFS(classname), classname);
+	gentity_t *spot = NULL;
+	gentity_t *spots[MAX_TEAM_SPAWN_POINTS] = { NULL };
+	int count = 0;
+
+	while ((spot = G_Find(spot, FOFS(classname), classname)) != NULL) {
+		if (SpotWouldTelefrag(spot)) {
+			continue;
+		}
+
+		if (mustBeEnabled && !spot->genericValue1)
+		{ //siege point that's not enabled, can't use it
+			continue;
+		}
+
+		spots[count] = spot;
+		if (++count == MAX_TEAM_SPAWN_POINTS)
+			break;
+	}
+
+	if (!count) {	// no valid spot
+		return G_Find(NULL, FOFS(classname), classname);
 	}
 
 	if (g_gametype.integer == GT_SIEGE && siegeClass >= 0 &&
