@@ -2052,6 +2052,7 @@ int CompareInitialSpawnPriority(genericNode_t *a, genericNode_t *b, void *userDa
 	return 0; // order doesn't matter
 }
 
+// puts closer ones first
 int CompareSpawns(genericNode_t *a, genericNode_t *b, void *userData) {
 	const spawnpoint_t *aa_spawn = (const spawnpoint_t *)a;
 	const spawnpoint_t *bb_spawn = (const spawnpoint_t *)b;
@@ -2068,6 +2069,28 @@ int CompareSpawns(genericNode_t *a, genericNode_t *b, void *userData) {
 		return -1; // a first
 
 	if (a2dDistFromComparisonPoint > b2dDistFromComparisonPoint)
+		return 1;  // b first
+
+	return 0; // order doesn't matter
+}
+
+// puts farther away ones first
+int CompareSpawnsReverseOrder(genericNode_t *a, genericNode_t *b, void *userData) {
+	const spawnpoint_t *aa_spawn = (const spawnpoint_t *)a;
+	const spawnpoint_t *bb_spawn = (const spawnpoint_t *)b;
+	const gentity_t *aa = aa_spawn->ent;
+	const gentity_t *bb = bb_spawn->ent;
+
+
+	vec3_t *comparisonPoint = (vec3_t *)userData;
+
+	float a2dDistFromComparisonPoint = Distance2D(aa->r.currentOrigin, *comparisonPoint);
+	float b2dDistFromComparisonPoint = Distance2D(bb->r.currentOrigin, *comparisonPoint);
+
+	if (a2dDistFromComparisonPoint > b2dDistFromComparisonPoint)
+		return -1; // a first
+
+	if (a2dDistFromComparisonPoint < b2dDistFromComparisonPoint)
 		return 1;  // b first
 
 	return 0; // order doesn't matter
@@ -2362,7 +2385,7 @@ gentity_t *SelectRandomTeamSpawnPoint( gclient_t *client, int teamstate, team_t 
 			SpawnDebugPrintf("Spawn logic at %d (%d) for %splayer %d (%s) with last spawnpoint %s trying for classname %s with lastSpawnTime %d, lastKiller %d, lastKilledByEnemyTime %d, lastKilledByEnemyLocation %d %d %d\n",
 				level.time,
 				level.time - level.startTime,
-				boost && spawnMeNearThisEntity ? "boosted" : "",
+				boost && spawnMeNearThisEntity ? "boosted " : "",
 				client - level.clients,
 				client->pers.netname,
 				lastSpawnName,
@@ -2442,9 +2465,9 @@ gentity_t *SelectRandomTeamSpawnPoint( gclient_t *client, int teamstate, team_t 
 				}
 			}
 
-			// boosted guy: delete the 50% of spawnpoints closest to some entity
+			// boosted guy: delete the 50% of spawnpoints farthest form some entity (fc, fs, etc)
 			if (boost && spawnMeNearThisEntity) {
-				ListSort(&possibleSpawnsList, CompareSpawns, spawnMeNearThisEntity->r.currentOrigin);
+				ListSort(&possibleSpawnsList, CompareSpawnsReverseOrder, spawnMeNearThisEntity->r.currentOrigin);
 
 #if 1
 				const int goalSize = Com_Clampi(1, MAX_TEAM_SPAWN_POINTS, possibleSpawnsList.size / 2); // e.g. 7 total spawns ==> goalSize of 3 (remove 4 spawns)
