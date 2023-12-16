@@ -967,7 +967,7 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_boost, "g_boost", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_spawnboost_default, "g_spawnboost_default", "0.333", CVAR_ARCHIVE, 0, qfalse },
-	{ &g_spawnboost_losIdealDistance, "g_spawnboost_losIdealDistance", "1400", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_spawnboost_losIdealDistance, "g_spawnboost_losIdealDistance", "1550", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_spawnboost_teamkill, "g_spawnboost_teamkill", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_spawnboost_autosk, "g_spawnboost_autosk", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_aimbotBoost_hitscan, "g_aimbotBoost_hitscan", "1", CVAR_ARCHIVE, 0, qfalse },
