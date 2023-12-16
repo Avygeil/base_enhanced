@@ -492,9 +492,9 @@ qboolean CheckAccuracyAndAirshot(gentity_t *missile, gentity_t *victim, qboolean
 	if (!missileOwner->inuse || !missileOwner->client || !missileOwner->client->stats)
 		return qfalse;
 
-	if (LogAccuracyHitSameTeamOkay(victim, missileOwner) && !missile->isReflected) {
+	if (LogAccuracyHitSameTeamOkay(victim, missileOwner)) {
 		accuracyCategory_t acc = AccuracyCategoryForProjectile(missile);
-		if (!OnSameTeam(victim, missileOwner)) {
+		if (!OnSameTeam(victim, missileOwner) && !missile->isReflected) {
 			if (acc != ACC_INVALID) {
 				if (acc != ACC_PISTOL_ALT) // pistol does not count in overall accuracy
 					missileOwner->client->stats->accuracy_hits++;
