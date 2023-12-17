@@ -4115,13 +4115,17 @@ void SetFakeForceAlignmentOfBoostedBase(gentity_t *ent, int forceTheirAlignmentT
 	}
 
 	if (forceTheirAlignmentToThis == FORCE_LIGHTSIDE) {
+#ifdef FAKEFORCEALIGNMENT_DEBUG
 		PrintIngame(ent - g_entities, "Forcibly setting fake force alignment to ^5light^7.\n");
+#endif
 		ent->client->fakeForceAlignment = FAKEFORCEALIGNMENT_LIGHT;
 		return;
 	}
 
 	if (forceTheirAlignmentToThis == FORCE_DARKSIDE) {
+#ifdef FAKEFORCEALIGNMENT_DEBUG
 		PrintIngame(ent - g_entities, "Forcibly setting fake force alignment to ^1dark^7.\n");
+#endif
 		ent->client->fakeForceAlignment = FAKEFORCEALIGNMENT_DARK;
 		return;
 	}
