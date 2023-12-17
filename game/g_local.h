@@ -1326,6 +1326,14 @@ typedef struct {
 	int				serverFrameNum;
 } queuedServerMessage_t;
 
+typedef struct {
+	node_t			node;
+	char			*text;
+	int				fromClientNum;
+	int				toClientNum;
+	int				when;
+} queuedChatMessage_t;
+
 typedef enum {
 	PLAYERRATING_UNRATED = 0,
 	PLAYERRATING_MID_G,
@@ -1362,6 +1370,8 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 qboolean TeamGenerator_VoteYesToPugProposal(gentity_t *ent, int num, pugProposal_t *setOptional, char **newMessage);
 void TeamGenerator_QueueServerMessageInChat(int clientNum, const char *msg);
 void TeamGenerator_QueueServerMessageInConsole(int clientNum, const char *msg);
+void TeamGenerator_QueueChatMessage(int fromClientNum, int toClientNum, const char *msg, int when);
+qboolean TeamGenerator_PrintBalance(gentity_t *sendTo, gentity_t *sendFrom);
 qboolean TeamGenerator_CheckForChatCommand(gentity_t *ent, const char *s, char **newMessage);
 barReason_t TeamGenerator_PlayerIsBarredFromTeamGenerator(gentity_t *ent);
 void Svcmd_Pug_f(void);
@@ -2071,6 +2081,7 @@ typedef struct {
 	list_t forcedPickablePermabarredPlayersList;
 	pugProposal_t *activePugProposal;
 	list_t queuedServerMessagesList;
+	list_t queuedChatMessagesList;
 	list_t autoLinksList;
 	list_t barVoteList;
 	list_t unbarVoteList;
@@ -3045,8 +3056,6 @@ extern	vmCvar_t	g_chatTickWaitMinimum;
 extern	vmCvar_t	g_teamChatTickWaitMinimum;
 extern	vmCvar_t	g_voiceChatTickWaitMinimum;
 
-extern	vmCvar_t	g_eloBotRelegateToDms;
-
 extern	vmCvar_t	g_armBreakage;
 
 extern	vmCvar_t	g_saberLocking;
@@ -3463,6 +3472,8 @@ extern vmCvar_t		d_debugSpawns;
 
 extern vmCvar_t		g_notFirstMap;
 extern vmCvar_t		g_shouldReloadPlayerPugStats;
+extern vmCvar_t		r_rngNum;
+extern vmCvar_t		r_rngNumSet;
 
 extern vmCvar_t		g_allowMoveDisable;
 

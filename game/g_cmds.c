@@ -2224,7 +2224,7 @@ qboolean ClientIsRacerOrSpectator(gclient_t *client) {
 	return qtrue;
 }
 
-static void G_SayTo( gentity_t *ent, gentity_t *other, int mode, int color, const char *name, const char *message, char *locMsg )
+void G_SayTo( gentity_t *ent, gentity_t *other, int mode, int color, const char *name, const char *message, char *locMsg )
 {
 	if (!other) {
 		return;
@@ -2294,7 +2294,7 @@ static void G_SayTo( gentity_t *ent, gentity_t *other, int mode, int color, cons
 	}
 }
 
-static char* GetSuffixId( gentity_t *ent ) {
+char* GetSuffixId( gentity_t *ent ) {
 	int i;
 	gentity_t *other;
 	static char buf[16];
@@ -2625,6 +2625,14 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, q
 	char		location[64];
 	char		*locMsg = NULL;
 
+	if (!Q_stricmpnclean(ent->client->pers.netname, "elo BOT", 7)) {
+		if (mode != SAY_ALL)
+			return;
+
+		mode = SAY_TELL;
+		target = ent;
+	}
+
 	// Check chat limit regardless of g_chatLimit since it now encapsulates
 	// passwordless specs chat limit
 	if ( ChatLimitExceeded( ent, mode ) ) {
@@ -2789,27 +2797,51 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, q
 		chatText = va("I'm terribly sorry. I unfortunately need to pause for %s. Thank you for your patience.", reason);
 	}
 
-#define ELOBOT_COMMAND_PREFIX	('!')
-	if (chatText && *chatText == ELOBOT_COMMAND_PREFIX && g_eloBotRelegateToDms.integer && (mode == SAY_ALL || mode == SAY_TEAM)) {
-		if (!Q_stricmpn(chatText + 1, "who", 3) || !Q_stricmpn(chatText + 1, "elos", 4) || !Q_stricmpn(chatText + 1, "teams", 5) || !Q_stricmpn(chatText + 1, "a", 1)) {
-			for (int i = 0; i < MAX_CLIENTS; i++) {
-				gentity_t *eloBotEnt = &g_entities[i];
+	if (VALIDSTRING(chatText) && (!Q_stricmpn(chatText, "!who", 4) || !Q_stricmpn(chatText, "!elos", 5) || !Q_stricmpn(chatText, "!a", 2))) {
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *eloBotEnt = &g_entities[i];
+			if (!eloBotEnt->inuse || !eloBotEnt->client || eloBotEnt->client->pers.connected == CON_DISCONNECTED || eloBotEnt == ent)
+				continue;
+			if (eloBotEnt->client->sess.nmVer[0] || Q_stricmpnclean(eloBotEnt->client->pers.netname, "elo BOT", 7))
+				continue;
 
-				if (!eloBotEnt->inuse || !eloBotEnt->client || eloBotEnt->client->pers.connected == CON_DISCONNECTED || eloBotEnt == ent)
-					continue;
+			G_SayTo(ent, ent, SAY_TELL, COLOR_MAGENTA, va("--> "EC"[%s%c%c"EC"]"EC": ", eloBotEnt->client->pers.netname, Q_COLOR_ESCAPE, COLOR_WHITE), chatText, NULL);
+			TeamGenerator_QueueChatMessage(eloBotEnt - g_entities, ent - g_entities, "Communication with player database failed!", trap_Milliseconds() + 850 + Q_irand(-50, 150));
 
-				if (eloBotEnt->client->sess.nmVer[0] || Q_stricmpclean(eloBotEnt->client->pers.netname, "elo BOT"))
-					continue;
+			if (fixedMessage)
+				free(fixedMessage);
 
-				G_Say(ent, eloBotEnt, SAY_TELL, chatText, qtrue);
-				G_SayTo(ent, ent, SAY_TELL, COLOR_MAGENTA, va("--> "EC"[%s%c%c"EC"]"EC": ", eloBotEnt->client->pers.netname, Q_COLOR_ESCAPE, COLOR_WHITE), chatText, NULL);
-
-				if (fixedMessage)
-					free(fixedMessage);
-
-				return;
-			}
+			return;
 		}
+
+		if (fixedMessage)
+			free(fixedMessage);
+
+		return;
+	}
+
+	if (VALIDSTRING(chatText) && !Q_stricmpn(chatText, "!teams", 6)) {
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *eloBotEnt = &g_entities[i];
+			if (!eloBotEnt->inuse || !eloBotEnt->client || eloBotEnt->client->pers.connected == CON_DISCONNECTED || eloBotEnt == ent)
+				continue;
+			if (eloBotEnt->client->sess.nmVer[0] || Q_stricmpnclean(eloBotEnt->client->pers.netname, "elo BOT", 7))
+				continue;
+
+			G_SayTo(ent, ent, SAY_TELL, COLOR_MAGENTA, va("--> "EC"[%s%c%c"EC"]"EC": ", eloBotEnt->client->pers.netname, Q_COLOR_ESCAPE, COLOR_WHITE), chatText, NULL);
+			if (!TeamGenerator_PrintBalance(ent, eloBotEnt))
+				TeamGenerator_QueueChatMessage(eloBotEnt - g_entities, ent - g_entities, "Communication with player database failed!", trap_Milliseconds() + 850 + Q_irand(-50, 150));
+
+			if (fixedMessage)
+				free(fixedMessage);
+
+			return;
+		}
+
+		if (fixedMessage)
+			free(fixedMessage);
+
+		return;
 	}
 
 	switch ( mode ) {
@@ -2954,6 +2986,9 @@ static void Cmd_Tell_f(gentity_t *ent, char *override) {
 	gentity_t* found = NULL;
 	char *p;
 	int len;
+
+	if (ent && ent->client && !Q_stricmpnclean(ent->client->pers.netname, "elo BOT", 7))
+		return;
 
 	if (!override && trap_Argc() < 3)
 	{

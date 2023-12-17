@@ -67,8 +67,6 @@ vmCvar_t	g_chatTickWaitMinimum;
 vmCvar_t	g_teamChatTickWaitMinimum;
 vmCvar_t	g_voiceChatTickWaitMinimum;
 
-vmCvar_t	g_eloBotRelegateToDms;
-
 vmCvar_t	g_allowNPC;
 
 vmCvar_t	g_armBreakage;
@@ -558,6 +556,8 @@ vmCvar_t	d_debugSpawns;
 
 vmCvar_t	g_notFirstMap;
 vmCvar_t	g_shouldReloadPlayerPugStats;
+vmCvar_t	r_rngNum;
+vmCvar_t	r_rngNumSet;
 
 vmCvar_t	g_allowMoveDisable;
 
@@ -651,8 +651,6 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_chatTickWaitMinimum, "g_chatTickWaitMinimum", "0", CVAR_ARCHIVE, 0, qtrue  },
 	{ &g_teamChatTickWaitMinimum, "g_teamChatTickWaitMinimum", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_voiceChatTickWaitMinimum, "g_voiceChatTickWaitMinimum", "0", CVAR_ARCHIVE, 0, qtrue },
-
-	{ &g_eloBotRelegateToDms, "g_eloBotRelegateToDms", "1", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_allowNPC, "g_allowNPC", "1", CVAR_ARCHIVE, 0, qtrue  },
 
@@ -1116,6 +1114,8 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_notFirstMap, "g_notFirstMap", "0", CVAR_ROM | CVAR_TEMP, 0, qfalse },
 	{ &g_shouldReloadPlayerPugStats, "g_shouldReloadPlayerPugStats", "0", CVAR_ROM | CVAR_TEMP, 0, qfalse },
+	{ &r_rngNum, "r_rngNum", "0", CVAR_ROM | CVAR_TEMP, 0, qfalse },
+	{ &r_rngNumSet, "r_rngNumSet", "0", CVAR_ROM | CVAR_TEMP, 0, qfalse },
 
 	{ &g_bannedPermutationHash, "g_bannedPermutationHash", "", CVAR_ROM | CVAR_TEMP, 0, qfalse },
 	{ &g_bannedPermutationTime, "g_bannedPermutationTime", "", CVAR_ROM | CVAR_TEMP, 0, qfalse },
@@ -1993,6 +1993,7 @@ void G_InitGame( int levelTime, int randomSeed, int restart, void *serverDbPtr )
 
 	if (restart && !g_wasIntermission.integer)
 		level.wasRestarted = qtrue;
+
 	trap_Cvar_Set("g_wasIntermission", "0");
 
 	if (!restart)
@@ -2410,6 +2411,14 @@ void G_ShutdownGame( int restart ) {
 			free(msg->text);
 	}
 	ListClear(&level.queuedServerMessagesList);
+
+	ListIterate(&level.queuedChatMessagesList, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		queuedChatMessage_t *msg = IteratorNext(&iter);
+		if (msg->text)
+			free(msg->text);
+	}
+	ListClear(&level.queuedChatMessagesList);
 	ListClear(&level.autoLinksList);
 	ListClear(&level.rustyPlayersList);
 	ListClear(&level.barVoteList);
@@ -3449,6 +3458,7 @@ void BeginIntermission(void) {
 				G_DBWritePugStats();
 				trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
 			}
+			trap_Cvar_Set("r_rngNum", va("%d", Q_irand(-25, 25)));
 		}
 #endif
 	}
@@ -6209,6 +6219,9 @@ static void RunRockPaperScissors(void) {
 	}
 }
 
+extern char *GetSuffixId(gentity_t *ent);
+void G_SayTo(gentity_t *ent, gentity_t *other, int mode, int color, const char *name, const char *message, char *locMsg);
+
 extern int forcePowerNeeded[NUM_FORCE_POWER_LEVELS][NUM_FORCE_POWERS];
 extern void WP_AddToClientBitflags(gentity_t* ent, int entNum);
 void G_RunFrame( int levelTime ) {
@@ -6370,6 +6383,34 @@ void G_RunFrame( int levelTime ) {
 
 			ListRemove(&level.queuedServerMessagesList, msg);
 			ListIterate(&level.queuedServerMessagesList, &iter, qfalse);
+		}
+	}
+
+	// print any queued chats
+	if (level.queuedChatMessagesList.size > 0) {
+		iterator_t iter;
+		ListIterate(&level.queuedChatMessagesList, &iter, qfalse);
+		int now = trap_Milliseconds();
+		while (IteratorHasNext(&iter)) {
+			queuedChatMessage_t *msg = IteratorNext(&iter);
+			if (now < msg->when)
+				continue;
+
+			if (VALIDSTRING(msg->text)) {
+				gentity_t *fromEnt = &g_entities[msg->fromClientNum];
+				gentity_t *toEnt = &g_entities[msg->toClientNum];
+				if (fromEnt && toEnt && fromEnt->client && toEnt->client) {
+					char name[64] = { 0 };
+					Com_sprintf(name, sizeof(name), "\x19[%s^7%s\x19]\x19: ", fromEnt->client->pers.netname, GetSuffixId(fromEnt));
+					G_SayTo(fromEnt, toEnt, SAY_TELL, COLOR_MAGENTA, name, msg->text, NULL);
+				}
+			}
+
+			if (msg->text)
+				free(msg->text);
+
+			ListRemove(&level.queuedChatMessagesList, msg);
+			ListIterate(&level.queuedChatMessagesList, &iter, qfalse);
 		}
 	}
 

@@ -3722,6 +3722,17 @@ void TeamGenerator_QueueServerMessageInChat(int clientNum, const char *msg) {
 	add->serverFrameNum = level.framenum;
 }
 
+void TeamGenerator_QueueChatMessage(int fromClientNum, int toClientNum, const char *msg, int when) {
+	if (!VALIDSTRING(msg) || fromClientNum < 0 || fromClientNum >= MAX_CLIENTS || toClientNum < 0 || toClientNum >= MAX_CLIENTS)
+		return;
+
+	queuedChatMessage_t *add = ListAdd(&level.queuedChatMessagesList, sizeof(queuedServerMessage_t));
+	add->fromClientNum = fromClientNum;
+	add->toClientNum = toClientNum;
+	add->text = strdup(msg);
+	add->when = when;
+}
+
 void TeamGenerator_QueueServerMessageInConsole(int clientNum, const char *msg) {
 	if (!VALIDSTRING(msg))
 		return;
@@ -7490,6 +7501,122 @@ void ShowSubBalance(void) {
 				numRacersOrSpectators ? "substituting another player or " : "", TEAMGEN_CHAT_COMMAND_CHARACTER));
 		}
 	}
+}
+
+qboolean TeamGenerator_PrintBalance(gentity_t *sendTo, gentity_t *sendFrom) {
+	if (!level.numTeamTicks || !sendTo || !sendTo->client || !sendFrom || !sendFrom->client)
+		return qfalse;
+
+	int numOnTeam[TEAM_NUM_TEAMS] = { 0 };
+	int posCount[TEAM_NUM_TEAMS][CTFPOSITION_OFFENSE + 1] = { {0} };
+	double teamTotal[TEAM_NUM_TEAMS] = { 0 };
+
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *ent = &g_entities[i];
+		if (!ent->inuse || !ent->client || !ent->client->account)
+			continue;
+
+		const int team = ent->client->sess.sessionTeam;
+		if (team != TEAM_RED && team != TEAM_BLUE)
+			continue;
+
+		int pos = GetRemindedPosOrDeterminedPos(ent);
+		if (!pos)
+			return qfalse;
+
+		++posCount[team][pos];
+		teamTotal[team] += PlayerTierToRating(GetPlayerTierForPlayerOnPosition(ent->client->account->id, pos, qtrue));
+		++numOnTeam[team];
+	}
+
+	if (numOnTeam[TEAM_RED] != 4 || numOnTeam[TEAM_BLUE] != 4)
+		return qfalse;
+
+	if (posCount[TEAM_RED][CTFPOSITION_BASE] != 1 || posCount[TEAM_RED][CTFPOSITION_CHASE] != 1 || posCount[TEAM_RED][CTFPOSITION_OFFENSE] != 2 ||
+		posCount[TEAM_BLUE][CTFPOSITION_BASE] != 1 || posCount[TEAM_BLUE][CTFPOSITION_CHASE] != 1 || posCount[TEAM_BLUE][CTFPOSITION_OFFENSE] != 2) {
+		return qfalse;
+	}
+
+	teamTotal[TEAM_RED] = round(teamTotal[TEAM_RED] / 0.05) * 0.05;
+	teamTotal[TEAM_BLUE] = round(teamTotal[TEAM_BLUE] / 0.05) * 0.05;
+
+	double totalOfBothTeams = teamTotal[TEAM_RED] + teamTotal[TEAM_BLUE];
+	totalOfBothTeams = round(totalOfBothTeams / 0.05) * 0.05;
+	if (!totalOfBothTeams)
+		return qfalse;
+
+	double relativeStrength[TEAM_NUM_TEAMS];
+	relativeStrength[TEAM_RED] = teamTotal[TEAM_RED] / totalOfBothTeams;
+	relativeStrength[TEAM_BLUE] = teamTotal[TEAM_BLUE] / totalOfBothTeams;
+
+	double mappedAverageOfBothTeamsStrength;
+	{
+		double s = PlayerTierToRating(PLAYERRATING_MID_S);
+		double d = PlayerTierToRating(PLAYERRATING_MID_D);
+		const double sMapped = 3000, dMapped = 900;
+		assert(s > d);
+
+		double averageOfBothTeamsStrength = totalOfBothTeams * 0.5;
+		if (averageOfBothTeamsStrength >= s * 4) {
+			mappedAverageOfBothTeamsStrength = sMapped;
+		}
+		else if (averageOfBothTeamsStrength <= d * 4) {
+			mappedAverageOfBothTeamsStrength = dMapped;
+		}
+		else {
+			double slope = (sMapped - dMapped) / ((s * 4) - (d * 4));
+			mappedAverageOfBothTeamsStrength = dMapped + slope * (averageOfBothTeamsStrength - (d * 4));
+		}
+	}
+
+	int mappedTeamNumber[TEAM_NUM_TEAMS];
+	if (fabs(relativeStrength[TEAM_RED] - 0.5) <= 0.00001 && fabs(relativeStrength[TEAM_BLUE] - 0.5) <= 0.00001) {
+		mappedTeamNumber[TEAM_RED] = mappedTeamNumber[TEAM_BLUE] = (int)round(mappedAverageOfBothTeamsStrength);
+	}
+	else {
+		mappedTeamNumber[TEAM_RED] = (int)round((mappedAverageOfBothTeamsStrength * 2.0) * relativeStrength[TEAM_RED]);
+		mappedTeamNumber[TEAM_BLUE] = (int)round((mappedAverageOfBothTeamsStrength * 2.0) * relativeStrength[TEAM_BLUE]);
+
+		double adjustmentRed = (mappedAverageOfBothTeamsStrength - mappedTeamNumber[TEAM_RED]) / 2.0;
+		mappedTeamNumber[TEAM_RED] = (int)round(mappedTeamNumber[TEAM_RED] + adjustmentRed);
+		double adjustmentBlue = (mappedAverageOfBothTeamsStrength - mappedTeamNumber[TEAM_BLUE]) / 2.0;
+		mappedTeamNumber[TEAM_BLUE] = (int)round(mappedTeamNumber[TEAM_BLUE] + adjustmentBlue);
+
+		if (relativeStrength[TEAM_RED] - relativeStrength[TEAM_BLUE] > 0.00001 && mappedTeamNumber[TEAM_RED] < mappedTeamNumber[TEAM_BLUE])
+			mappedTeamNumber[TEAM_RED] = mappedTeamNumber[TEAM_BLUE];
+		else if (relativeStrength[TEAM_BLUE] - relativeStrength[TEAM_RED] > 0.00001 && mappedTeamNumber[TEAM_BLUE] < mappedTeamNumber[TEAM_RED])
+			mappedTeamNumber[TEAM_BLUE] = mappedTeamNumber[TEAM_RED];
+	}
+
+	int rng;
+	if (r_rngNumSet.integer) {
+		rng = r_rngNum.integer;
+	}
+	else {
+		int generated = Q_irand(-25, 25);
+		trap_Cvar_Set("r_rngNum", va("%d", generated));
+		trap_Cvar_Set("r_rngNumSet", "1");
+		rng = generated;
+	}
+	mappedTeamNumber[TEAM_RED] += rng;
+	mappedTeamNumber[TEAM_BLUE] += rng;
+
+	if (!(mappedTeamNumber[TEAM_RED] % 5) && !(mappedTeamNumber[TEAM_BLUE] % 5) && mappedTeamNumber[TEAM_RED] != mappedTeamNumber[TEAM_BLUE]) {
+		mappedTeamNumber[TEAM_RED] += 1;
+		mappedTeamNumber[TEAM_BLUE] += 1;
+	}
+
+
+	char msg[256] = { 0 };
+	Com_sprintf(msg, sizeof(msg),
+		"^1Red: ^1%d^6, ^4Blue: ^4%d^6, Win probability ^6%.2f",
+		mappedTeamNumber[TEAM_RED],
+		mappedTeamNumber[TEAM_BLUE],
+		fabs(relativeStrength[TEAM_RED] - relativeStrength[TEAM_BLUE]) <= 0.0001 ? 0.50 :
+		round((relativeStrength[TEAM_RED] > relativeStrength[TEAM_BLUE] ? relativeStrength[TEAM_RED] : relativeStrength[TEAM_BLUE]) * 100) / 100.0);
+
+	TeamGenerator_QueueChatMessage(sendFrom - g_entities, sendTo - g_entities, msg, trap_Milliseconds() + 850 + Q_irand(-50, 150));
+	return qtrue;
 }
 
 void TeamGen_ClearRemindPositions(qboolean refreshClientinfo) {
