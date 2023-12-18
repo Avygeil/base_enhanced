@@ -1304,6 +1304,8 @@ int vmMain( int command, int arg0, int arg1, int arg2, int arg3, int arg4, int a
 		return 0;
 	case GAME_CLIENT_BEGIN:
 		ClientBegin( arg0, qtrue );
+		if (level.activePugProposal && g_vote_teamgen.integer)
+			PrintTeamsProposalsInConsole(level.activePugProposal, arg0);
 		return 0;
 	case GAME_CLIENT_COMMAND:
 		ClientCommand( arg0 );

@@ -3465,9 +3465,6 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 
 	G_ClearClientLog(clientNum);
 
-	if (level.activePugProposal && g_vote_teamgen.integer)
-		PrintTeamsProposalsInConsole(level.activePugProposal, clientNum);
-
 #ifdef NEWMOD_SUPPORT
 	G_BroadcastServerFeatureList( clientNum );
 
