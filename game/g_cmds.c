@@ -2353,6 +2353,7 @@ static void WriteTextForToken( gentity_t *ent, const char token, char *buffer, s
 	gclient_t *cl = ent->client;
 
 	char *s = NULL;
+	int weapon = WP_NONE;
 
 	switch ( token ) {
 	case 'h': case 'H':
@@ -2386,7 +2387,11 @@ static void WriteTextForToken( gentity_t *ent, const char token, char *buffer, s
 			Team_GetLocation(ent, buffer, bufferSize, qtrue);
 		break;
 	case 'w': case 'W':
-		switch (cl->ps.weapon) {
+		if (ent->health > 0 && !(ent->client && ent->client->ps.pm_type == PM_SPECTATOR))
+			weapon = ent->client->ps.weapon;
+		else
+			weapon = ent->client->pers.weaponLastDiedWith;
+		switch (weapon) {
 		case WP_STUN_BATON:			s = "Stun Baton";			break;
 		case WP_MELEE:				s = "Melee";				break;
 		case WP_SABER:				s = "Saber";				break;
@@ -2403,7 +2408,7 @@ static void WriteTextForToken( gentity_t *ent, const char token, char *buffer, s
 		case WP_DET_PACK:			s = "Detpacks";				break;
 		case WP_CONCUSSION:			s = "Concussion";			break;
 		case WP_EMPLACED_GUN:		s = "Emplaced";				break;
-		default:					s = "Jesus";				break;
+		default:					return;
 		}
 		Com_sprintf(buffer, bufferSize, s);
 		break;

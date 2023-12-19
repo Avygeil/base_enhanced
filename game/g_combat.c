@@ -2036,6 +2036,9 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 		}
 	}
 
+	if (self->client)
+		self->client->pers.weaponLastDiedWith = self->client->ps.weapon;
+
 	self->aimPracticeEntBeingUsed = NULL;
 	self->aimPracticeMode = AIMPRACTICEMODE_NONE;
 	self->numAimPracticeSpawns = 0;

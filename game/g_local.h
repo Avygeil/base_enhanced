@@ -905,6 +905,8 @@ typedef struct {
 	qboolean diedInPit;
 	vec3_t lastDeathLocation;
 
+	int weaponLastDiedWith;
+
 } clientPersistant_t;
 
 typedef struct renderInfo_s
