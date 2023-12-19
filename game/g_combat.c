@@ -2353,8 +2353,8 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 	qboolean isAirFrag = qfalse;
 	if (self && self->client && self - g_entities < MAX_CLIENTS &&
 		attacker && attacker->client && attacker - g_entities < MAX_CLIENTS &&
-		attacker->client->lastAiredOtherClientTime[self - g_entities] && level.time - attacker->client->lastAiredOtherClientTime[self - g_entities] <= 50 &&
-		attacker->client->lastAiredOtherClientMeansOfDeath[self - g_entities] == meansOfDeath) {
+		attacker->client->pers.lastAiredOtherClientTime[self - g_entities] && level.time - attacker->client->pers.lastAiredOtherClientTime[self - g_entities] <= 50 &&
+		attacker->client->pers.lastAiredOtherClientMeansOfDeath[self - g_entities] == meansOfDeath) {
 
 		qboolean isValidMeansOfDeathForAirFrag = qfalse;
 		switch (meansOfDeath) {

@@ -507,8 +507,8 @@ qboolean CheckAccuracyAndAirshot(gentity_t *missile, gentity_t *victim, qboolean
 			if (!OnSameTeam(victim, missileOwner))
 				++missileOwner->client->stats->airs;
 			if (victim - g_entities < MAX_CLIENTS) {
-				missileOwner->client->lastAiredOtherClientTime[victim - g_entities] = level.time;
-				missileOwner->client->lastAiredOtherClientMeansOfDeath[victim - g_entities] = missile->methodOfDeath;
+				missileOwner->client->pers.lastAiredOtherClientTime[victim - g_entities] = level.time;
+				missileOwner->client->pers.lastAiredOtherClientMeansOfDeath[victim - g_entities] = missile->methodOfDeath;
 			}
 		}
 		else if (victim->playerState->groundEntityNum == ENTITYNUM_NONE && CountsForAirshotStat(missile)) {
@@ -525,8 +525,8 @@ qboolean CheckAccuracyAndAirshot(gentity_t *missile, gentity_t *victim, qboolean
 				if (!OnSameTeam(victim, missileOwner))
 					++missileOwner->client->stats->airs;
 				if (victim - g_entities < MAX_CLIENTS) {
-					missileOwner->client->lastAiredOtherClientTime[victim - g_entities] = level.time;
-					missileOwner->client->lastAiredOtherClientMeansOfDeath[victim - g_entities] = missile->methodOfDeath;
+					missileOwner->client->pers.lastAiredOtherClientTime[victim - g_entities] = level.time;
+					missileOwner->client->pers.lastAiredOtherClientMeansOfDeath[victim - g_entities] = missile->methodOfDeath;
 				}
 			}
 			//PrintIngame(-1, "Ground distance is %0.2f\n", groundDist);

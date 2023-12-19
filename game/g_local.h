@@ -907,6 +907,9 @@ typedef struct {
 
 	int weaponLastDiedWith;
 
+	int lastAiredOtherClientTime[MAX_CLIENTS];
+	int lastAiredOtherClientMeansOfDeath[MAX_CLIENTS];
+
 } clientPersistant_t;
 
 typedef struct renderInfo_s
@@ -1658,9 +1661,6 @@ struct gclient_s {
 	int drainDebuffTime;
 
 	gentity_t *bumpedByEnt;
-
-	int lastAiredOtherClientTime[MAX_CLIENTS];
-	int lastAiredOtherClientMeansOfDeath[MAX_CLIENTS];
 };
 
 //Interest points
