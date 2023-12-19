@@ -2900,7 +2900,7 @@ void CheckTeamStatus(void) {
 			}
 
 			if (ent->inuse && (ent->client->sess.sessionTeam == TEAM_RED ||	ent->client->sess.sessionTeam == TEAM_BLUE)) {
-				ent->client->pers.teamState.location = Team_GetLocation( ent, NULL, 0 );
+				ent->client->pers.teamState.location = Team_GetLocation( ent, NULL, 0, qtrue );
 			}
 		}
 

@@ -901,6 +901,10 @@ typedef struct {
 	int lastFakeOverlaySpamTime;
 	int lastFakeOverlaySysteminfoSpamTime;
 
+	qboolean hasDied;
+	qboolean diedInPit;
+	vec3_t lastDeathLocation;
+
 } clientPersistant_t;
 
 typedef struct renderInfo_s
@@ -2292,7 +2296,9 @@ typedef struct {
 } info_b_e_location_listItem_t;
 void Location_ResetLookupTree(void);
 void Location_AddLocationEntityToList(gentity_t *ent);
-int Team_GetLocation(gentity_t *ent, char *locationBuffer, size_t locationBufferSize);
+int Team_GetLocation(gentity_t *ent, char *locationBuffer, size_t locationBufferSize, qboolean forcePitIfFallingToDeath);
+int GetLocationPlayerIsAimingAt(gentity_t *ent, char *locationBuffer, size_t locationBufferSize);
+int GetLocationOfLastPlayerDeath(gentity_t *ent, char *locationBuffer, size_t locationBufferSize);
 void G_LinkLocations(void);
 void Location_SetTreePtr(void **kdtreePtr);
 qboolean Location_EnhancedLocationsFileExists(void);

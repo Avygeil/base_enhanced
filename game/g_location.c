@@ -1213,7 +1213,7 @@ Returns the configstring index of the location, or 0 if no location could be fou
 If locationBuffer is not NULL, the location string will be directly written there.
 ============
 */
-int Team_GetLocation(gentity_t *ent, char *locationBuffer, size_t locationBufferSize) {
+int Team_GetLocation(gentity_t *ent, char *locationBuffer, size_t locationBufferSize, qboolean forcePitIfFallingToDeath) {
 	vec3_t origin;
 	VectorCopy(ent->r.currentOrigin, origin);
 
@@ -1231,7 +1231,7 @@ int Team_GetLocation(gentity_t *ent, char *locationBuffer, size_t locationBuffer
 
 		if (nearest && kd_res_size(nearest) == 1) {
 			enhancedLocation_t *loc;
-			if (ent->client && ent->client->ps.fallingToDeath && pitLocationIndex != -1)
+			if (ent->client && ent->client->ps.fallingToDeath && pitLocationIndex != -1 && forcePitIfFallingToDeath)
 				loc = trap_kd_dataptr(pitLocationIndex);
 			else
 				loc = (enhancedLocation_t *)kd_res_item_data(nearest);
@@ -1280,6 +1280,194 @@ int Team_GetLocation(gentity_t *ent, char *locationBuffer, size_t locationBuffer
 			}
 
 			if (!trap_InPVS(origin, loc->origin)) {
+				continue;
+			}
+
+			bestlen = len;
+			best = loc;
+		}
+
+		if (best) {
+			if (locationBuffer) {
+				if (best->count) {
+					Com_sprintf(locationBuffer, locationBufferSize, "%c%c%s" S_COLOR_WHITE, Q_COLOR_ESCAPE, best->count + '0', best->message);
+				}
+				else {
+					Com_sprintf(locationBuffer, locationBufferSize, "%s", best->message);
+				}
+			}
+
+			return best->cs_index;
+		}
+	}
+
+	return 0;
+}
+
+int GetLocationPlayerIsAimingAt(gentity_t *ent, char *locationBuffer, size_t locationBufferSize) {
+	if (locationBuffer)
+		locationBuffer[0] = '\0';
+
+	if (!ent || !ent->client) {
+		assert(qfalse);
+		return 0;
+	}
+
+	trace_t tr;
+	vec3_t start, end, forward;
+	VectorCopy(ent->client->ps.origin, start);
+	AngleVectors(ent->client->ps.viewangles, forward, NULL, NULL);
+	VectorMA(start, 16384, forward, end);
+	start[2] += ent->client->ps.viewheight;
+	trap_Trace(&tr, start, NULL, NULL, end, ent - g_entities, MASK_SOLID);
+
+	if (*trap_kd_numunique()) {
+		// using enhanced locations
+		int		resultIndex = 0;
+		void *nearest;
+
+		// we should always have at most 1 result
+		nearest = trap_kd_nearestf(tr.endpos);
+
+		if (nearest && kd_res_size(nearest) == 1) {
+			enhancedLocation_t *loc = (enhancedLocation_t *)kd_res_item_data(nearest);
+
+			if (loc) {
+				if (locationBuffer && ent->client) {
+					// we aren't writing to configstrings here, so we can format the team dynamically
+					if (loc->teamowner) {
+						if (ent->client->ps.persistant[PERS_TEAM] == loc->teamowner) {
+							Com_sprintf(locationBuffer, locationBufferSize, "Our %s", loc->message);
+						}
+						else {
+							Com_sprintf(locationBuffer, locationBufferSize, "Enemy %s", loc->message);
+						}
+					}
+					else {
+						Q_strncpyz(locationBuffer, loc->message, locationBufferSize);
+					}
+				}
+
+				resultIndex = loc->cs_index;
+			}
+		}
+
+		if (nearest)
+			trap_kd_res_free(nearest);
+
+		return resultIndex;
+	}
+	else if (level.locations.legacy.num) {
+		// using legacy locations
+		legacyLocation_t *loc, *best;
+		vec_t				bestlen, len;
+		int					i;
+
+		best = NULL;
+		bestlen = 3 * 8192.0 * 8192.0;
+
+		for (i = 0; i < level.locations.legacy.num; i++) {
+			loc = &level.locations.legacy.data[i];
+
+			len = DistanceSquared(tr.endpos, loc->origin);
+
+			if (len > bestlen) {
+				continue;
+			}
+
+			if (!trap_InPVS(tr.endpos, loc->origin)) {
+				continue;
+			}
+
+			bestlen = len;
+			best = loc;
+		}
+
+		if (best) {
+			if (locationBuffer) {
+				if (best->count) {
+					Com_sprintf(locationBuffer, locationBufferSize, "%c%c%s" S_COLOR_WHITE, Q_COLOR_ESCAPE, best->count + '0', best->message);
+				}
+				else {
+					Com_sprintf(locationBuffer, locationBufferSize, "%s", best->message);
+				}
+			}
+
+			return best->cs_index;
+		}
+	}
+
+	return 0;
+}
+
+int GetLocationOfLastPlayerDeath(gentity_t *ent, char *locationBuffer, size_t locationBufferSize) {
+	if (locationBuffer)
+		locationBuffer[0] = '\0';
+
+	if (!ent || !ent->client) {
+		assert(qfalse);
+		return 0;
+	}
+
+	if (!ent->client->pers.hasDied) {
+		return 0;
+	}
+
+	if (*trap_kd_numunique()) {
+		// using enhanced locations
+		int		resultIndex = 0;
+		void *nearest;
+
+		// we should always have at most 1 result
+		nearest = trap_kd_nearestf(ent->client->pers.lastDeathLocation);
+
+		if (nearest && kd_res_size(nearest) == 1) {
+			enhancedLocation_t *loc = (enhancedLocation_t *)kd_res_item_data(nearest);
+
+			if (loc) {
+				if (locationBuffer && ent->client) {
+					// we aren't writing to configstrings here, so we can format the team dynamically
+					if (loc->teamowner) {
+						if (ent->client->ps.persistant[PERS_TEAM] == loc->teamowner) {
+							Com_sprintf(locationBuffer, locationBufferSize, "%sOur %s", ent->client->pers.diedInPit ? "Pit near " : "", loc->message);
+						}
+						else {
+							Com_sprintf(locationBuffer, locationBufferSize, "%sEnemy %s", ent->client->pers.diedInPit ? "Pit near " : "", loc->message);
+						}
+					}
+					else {
+						Com_sprintf(locationBuffer, locationBufferSize, "%s%s", ent->client->pers.diedInPit ? "Pit near " : "", loc->message);
+					}
+				}
+
+				resultIndex = loc->cs_index;
+			}
+		}
+
+		if (nearest)
+			trap_kd_res_free(nearest);
+
+		return resultIndex;
+	}
+	else if (level.locations.legacy.num) {
+		// using legacy locations
+		legacyLocation_t *loc, *best;
+		vec_t				bestlen, len;
+		int					i;
+
+		best = NULL;
+		bestlen = 3 * 8192.0 * 8192.0;
+
+		for (i = 0; i < level.locations.legacy.num; i++) {
+			loc = &level.locations.legacy.data[i];
+
+			len = DistanceSquared(ent->client->pers.lastDeathLocation, loc->origin);
+
+			if (len > bestlen) {
+				continue;
+			}
+
+			if (!trap_InPVS(ent->client->pers.lastDeathLocation, loc->origin)) {
 				continue;
 			}
 

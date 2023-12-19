@@ -2897,6 +2897,45 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 		VectorCopy(self->client->ps.origin, self->client->pers.lastKilledByEnemyLocation);
 	}
 
+	// save death location
+	if (self && self - g_entities < MAX_CLIENTS && !IsRacerOrSpectator(self)) {
+		self->client->pers.hasDied = qtrue;
+		char locBuf[64] = { 0 };
+		Team_GetLocation(self, locBuf, sizeof(locBuf), qtrue);
+
+		if (locBuf[0] && !Q_stricmp(locBuf, "Pit")) {
+			// died in a pit
+			// try to incrementally check upwards to use their first non-pit location
+			// so that we can say e.g. "Pit near Our Repeater" instead of simply "Pit"
+			float originalZ = self->r.currentOrigin[2];  // save the original Z coord
+			qboolean gotNonPitLocation = qfalse;
+
+			for (int i = 200; i <= 2000; i += 200) {
+				self->r.currentOrigin[2] = originalZ + i;  // increment Z
+				Team_GetLocation(self, locBuf, sizeof(locBuf), qfalse);
+
+				if (locBuf[0] && Q_stricmp(locBuf, "Pit")) {
+					VectorCopy(self->r.currentOrigin, self->client->pers.lastDeathLocation);  // we got a non-pit location; use it
+					self->client->pers.diedInPit = qtrue; // so that we know to say "Pit near <wherever>"
+					gotNonPitLocation = qtrue;
+					break;
+				}
+			}
+
+			self->r.currentOrigin[2] = originalZ; // restore original Z
+
+			if (!gotNonPitLocation) {
+				self->client->pers.diedInPit = qfalse; // avoid saying "Pit near Pit"
+				VectorCopy(self->r.currentOrigin, self->client->pers.lastDeathLocation);
+			}
+		}
+		else {
+			// didn't die in a pit, just use their current location
+			VectorCopy(self->r.currentOrigin, self->client->pers.lastDeathLocation);
+			self->client->pers.diedInPit = qfalse;
+		}
+	}
+
 	self->client->rockPaperScissorsOtherClientNum = ENTITYNUM_NONE;
 	self->client->rockPaperScissorsChallengeTime = 0;
 	self->client->rockPaperScissorsStartTime = 0;

@@ -5672,7 +5672,7 @@ void CheckSpecInfo(void) {
 		if (cl->ps.stats[STAT_ARMOR] > 0 && ent->health > 0  && !(g_gametype.integer == GT_SIEGE && ent->client->tempSpectate && ent->client->tempSpectate >= level.time))
 			Q_strcat(playerString, sizeof(playerString), va(" a=%d", cl->ps.stats[STAT_ARMOR]));
 		Q_strcat(playerString, sizeof(playerString), va(" f=%d", !cl->ps.fd.forcePowersKnown ? -1 : cl->ps.fd.forcePower));
-		Q_strcat(playerString, sizeof(playerString), va(" l=%d", g_gametype.integer < GT_TEAM ? Team_GetLocation(ent, NULL, 0) : cl->pers.teamState.location));
+		Q_strcat(playerString, sizeof(playerString), va(" l=%d", g_gametype.integer < GT_TEAM ? Team_GetLocation(ent, NULL, 0, qtrue) : cl->pers.teamState.location));
 		if (g_gametype.integer == GT_SIEGE && cl->siegeClass != -1 && bgSiegeClasses[cl->siegeClass].maxhealth != 100)
 			Q_strcat(playerString, sizeof(playerString), va(" mh=%d", bgSiegeClasses[cl->siegeClass].maxhealth));
 		if (g_gametype.integer == GT_SIEGE && cl->siegeClass != -1 && bgSiegeClasses[cl->siegeClass].maxarmor != 100)

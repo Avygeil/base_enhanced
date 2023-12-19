@@ -3025,7 +3025,7 @@ static void RunFakeFCOverlay(gentity_t *ent) {
 		char location[MAX_STRING_CHARS] = { 0 };
 		static char lastLocation[MAX_CLIENTS][MAX_STRING_CHARS] = { 0 };
 		if (teammateWithFlag) {
-			Team_GetLocation(teammateWithFlag, location, sizeof(location));
+			Team_GetLocation(teammateWithFlag, location, sizeof(location), qtrue);
 			Com_sprintf(msg, sizeof(msg), "cp \"\n\n\n\n\n\n\n\n\n\n\n\n\n%s^7\n^1%d   ^5%d\n%s\"", // 13 newlines to get to bottom of screen-ish
 				teammateWithFlag->client->pers.netname,
 				teammateWithFlag->client->ps.stats[STAT_HEALTH],
@@ -4032,7 +4032,7 @@ void ClientThink_real( gentity_t *ent ) {
 			}
 			else {
 				char locBuf[64] = { 0 };
-				Team_GetLocation(ent, locBuf, sizeof(locBuf));
+				Team_GetLocation(ent, locBuf, sizeof(locBuf), qtrue);
 				if (locBuf[0] && !Q_stricmp(locBuf, "Pit")) {
 
 					// sanity check: don't sk if the "Pit" location is the sole location in the map

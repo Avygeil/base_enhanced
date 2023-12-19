@@ -2352,6 +2352,8 @@ static void WriteTextForToken( gentity_t *ent, const char token, char *buffer, s
 
 	gclient_t *cl = ent->client;
 
+	char *s = NULL;
+
 	switch ( token ) {
 	case 'h': case 'H':
 		Com_sprintf( buffer, bufferSize, "%d", Com_Clampi( 0, 999, cl->ps.stats[STAT_HEALTH] ) );
@@ -2366,10 +2368,44 @@ static void WriteTextForToken( gentity_t *ent, const char token, char *buffer, s
 		Com_sprintf(buffer, bufferSize, "%02d", Com_Clampi(0, 59, ((level.time - level.startTime + 30000) / 1000) % 60));
 		break;
 	case 'm': case 'M':
-		Com_sprintf( buffer, bufferSize, "%d", Com_Clampi( 0, 999, !weaponData[cl->ps.weapon].energyPerShot && !weaponData[cl->ps.weapon].energyPerShot ? 0 : cl->ps.ammo[weaponData[cl->ps.weapon].ammoIndex] ) );
+		if ((!weaponData[cl->ps.weapon].energyPerShot && !weaponData[cl->ps.weapon].altEnergyPerShot) || cl->ps.stats[STAT_HEALTH] <= 0 || (g_gametype.integer == GT_SIEGE && cl->tempSpectate > level.time))
+			Com_sprintf(buffer, bufferSize, "0");
+		else
+			Com_sprintf(buffer, bufferSize, "%d", Com_Clampi(0, 999, cl->ps.ammo[weaponData[cl->ps.weapon].ammoIndex]));
 		break;
 	case 'l': case 'L':
-		Team_GetLocation( ent, buffer, bufferSize );
+		Team_GetLocation( ent, buffer, bufferSize, qtrue );
+		break;
+	case 't': case 'T':
+		GetLocationPlayerIsAimingAt(ent, buffer, bufferSize);
+		break;
+	case 'd': case 'D':
+		if (ent->client->pers.hasDied)
+			GetLocationOfLastPlayerDeath(ent, buffer, bufferSize);
+		else
+			Team_GetLocation(ent, buffer, bufferSize, qtrue);
+		break;
+	case 'w': case 'W':
+		switch (cl->ps.weapon) {
+		case WP_STUN_BATON:			s = "Stun Baton";			break;
+		case WP_MELEE:				s = "Melee";				break;
+		case WP_SABER:				s = "Saber";				break;
+		case WP_BRYAR_PISTOL:	case WP_BRYAR_OLD:				s = "Pistol";	break;
+		case WP_BLASTER:			s = "Blaster";				break;
+		case WP_DISRUPTOR:			s = "Disruptor";			break;
+		case WP_BOWCASTER:			s = "Bowcaster";			break;
+		case WP_REPEATER:			s = "Repeater";				break;
+		case WP_DEMP2:				s = "Demp";					break;
+		case WP_FLECHETTE:			s = "Golan";				break;
+		case WP_ROCKET_LAUNCHER:	s = "Rockets";	break;
+		case WP_THERMAL:			s = "Thermals";				break;
+		case WP_TRIP_MINE:			s = "Mines";				break;
+		case WP_DET_PACK:			s = "Detpacks";				break;
+		case WP_CONCUSSION:			s = "Concussion";			break;
+		case WP_EMPLACED_GUN:		s = "Emplaced";				break;
+		default:					s = "Jesus";				break;
+		}
+		Com_sprintf(buffer, bufferSize, s);
 		break;
 	default: return;
 	}
@@ -2853,7 +2889,7 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, q
 		break;
 	case SAY_TEAM:
 		G_LogPrintf( "sayteam: %i %s: %s\n", ent-g_entities, ent->client->pers.netname, chatText );
-		if (Team_GetLocation(ent, location, sizeof(location)))
+		if (Team_GetLocation(ent, location, sizeof(location), qtrue))
 		{
 			Com_sprintf (name, sizeof(name), EC"(%s%c%c%s"EC")"EC": ", 
 				ent->client->pers.netname, Q_COLOR_ESCAPE, COLOR_WHITE, GetSuffixId( ent ) );
@@ -2873,7 +2909,7 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, q
 
 		if (target && g_gametype.integer >= GT_TEAM &&
 			target->client->sess.sessionTeam == ent->client->sess.sessionTeam &&
-			Team_GetLocation(ent, location, sizeof(location)))
+			Team_GetLocation(ent, location, sizeof(location), qtrue))
 		{
 			
 			locMsg = location;
@@ -5434,7 +5470,7 @@ void Cmd_Vchat_f(gentity_t *sender) {
 #if 0 // disable locations in ctf
 	// get his location (disable this section to never send locations)
 	if ( g_gametype.integer >= GT_TEAM )
-		senderLocation = Team_GetLocation( sender, chatLocation, sizeof( chatLocation ) );
+		senderLocation = Team_GetLocation( sender, chatLocation, sizeof( chatLocation ), qtrue );
 #endif
 
 	char chatSenderName[64] = { 0 };
