@@ -32,6 +32,8 @@ int ysalamiriLoopSound = 0;
 
 #define GRIP_DEBOUNCE_TIME (3000)
 
+#define RAGE_RECOVERY_TIME	(10000)
+
 int ForceShootDrain( gentity_t *self );
 
 gentity_t *G_PreDefSound(gentity_t *ent, int pdSound)
@@ -143,6 +145,126 @@ const int mindTrickTime[NUM_FORCE_POWER_LEVELS] =
 	15000
 };
 
+// use null sendTo to send to the player himself and all his followers
+void SendForceTimers(gentity_t *user, gentity_t *sendTo) {
+	assert(user && user->client);
+
+	if (!g_sendForceTimers.integer)
+		return;
+
+	char commandBuf[MAX_STRING_CHARS] = { 0 };
+	Com_sprintf(commandBuf, sizeof(commandBuf), "kls -1 -1 fpt %d", user - g_entities);
+	qboolean gotOne = qfalse;
+
+	for (int i = FP_FIRST; i < NUM_FORCE_POWERS; i++) {
+		const int fpLevel = Com_Clampi(1, 3, user->client->ps.fd.forcePowerLevel[i]);
+		int duration;
+		switch (i) {
+		case FP_SABER_OFFENSE:
+			duration = RAGE_RECOVERY_TIME; break;
+		case FP_SPEED:
+			switch (fpLevel) {
+			case 1: duration = 10000; break;
+			case 2: duration = 15000; break;
+			case 3: duration = 20000; break;
+			}
+			break;
+		case FP_TELEPATHY:
+			switch (fpLevel) {
+			case 1: duration = 20000; break;
+			case 2: duration = 25000; break;
+			case 3: duration = 30000; break;
+			}
+			break;
+		case FP_PROTECT:
+			duration = 20000; break;
+		case FP_ABSORB:
+			duration = 20000; break;
+		case FP_RAGE:
+			switch (fpLevel) {
+			case 1: duration = 8000; break;
+			case 2: duration = 14000; break;
+			case 3: duration = 20000; break;
+			}
+			break;
+		case FP_SEE:
+			switch (fpLevel) {
+			case 1: duration = 10000; break;
+			case 2: duration = 20000; break;
+			case 3: duration = 30000; break;
+			}
+			break;
+		default: continue;
+		}
+
+		if (i == FP_SABER_OFFENSE) {
+			if (user->client->rageRecoveryActiveUntil > level.time - level.startTime) {
+				Q_strcat(commandBuf, sizeof(commandBuf), va(" %d %d %d", i, duration, user->client->rageRecoveryActiveUntil));
+				gotOne = qtrue;
+			}
+		}
+		else {
+			if (user->client->forcePowerActiveUntil[i] > level.time - level.startTime) {
+				Q_strcat(commandBuf, sizeof(commandBuf), va(" %d %d %d", i, duration, user->client->forcePowerActiveUntil[i]));
+				gotOne = qtrue;
+			}
+		}
+	}
+
+	if (!gotOne)
+		Com_sprintf(commandBuf, sizeof(commandBuf), "kls -1 -1 sfpt %d", user - g_entities);
+
+	if (sendTo) {
+		trap_SendServerCommand(sendTo - g_entities, commandBuf);
+		//Com_DebugPrintf("SendForceTimers [%d]-[%d]=[%d]: sent to client %d: %s\n", level.time, level.startTime, level.time - level.startTime, sendTo - g_entities, commandBuf);
+	}
+	else {
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *sendToPlayerAndFollowers = &g_entities[i];
+			if (!sendToPlayerAndFollowers->inuse || !sendToPlayerAndFollowers->client || sendToPlayerAndFollowers->client->pers.connected != CON_CONNECTED)
+				continue;
+			if (sendToPlayerAndFollowers == user) {
+			}
+			else if (sendToPlayerAndFollowers->client->sess.sessionTeam == TEAM_SPECTATOR && sendToPlayerAndFollowers->client->sess.spectatorState == SPECTATOR_FOLLOW && sendToPlayerAndFollowers->client->sess.spectatorClient == user - g_entities) {
+			}
+			else {
+				continue;
+			}
+
+			trap_SendServerCommand(i, commandBuf);
+			//Com_DebugPrintf("StartForceTimer [%d]-[%d]=[%d]: sent to client %d: %s\n", level.time, level.startTime, level.time - level.startTime, i, commandBuf);
+		}
+	}
+}
+
+// use FP_SABER_OFFENSE for postrage (shitty hack)
+static void StartForceTimer(gentity_t *user, int forcePower, int duration) {
+	assert(user && user->client && forcePower >= FP_FIRST && forcePower < NUM_FORCE_POWERS);
+
+	switch (forcePower) {
+	case FP_SABER_OFFENSE: case FP_SPEED: case FP_TELEPATHY: case FP_PROTECT: case FP_ABSORB: case FP_RAGE: case FP_SEE: break;
+	default: assert(qfalse); return;
+	}
+
+	int activeUntil;
+	if (duration > 0) {
+		activeUntil = (level.time - level.startTime) + duration;
+		if (forcePower == FP_SABER_OFFENSE) {
+			user->client->rageRecoveryActiveUntil = activeUntil;
+			user->client->forcePowerActiveUntil[FP_RAGE] = 0; // shitty hack, starting rage recovery stops rage
+		}
+		else {
+			user->client->forcePowerActiveUntil[forcePower] = activeUntil;
+			if (forcePower == FP_RAGE)
+				user->client->rageRecoveryActiveUntil = 0; // inverse of above shitty hack
+		}
+	}
+	else {
+		activeUntil = user->client->forcePowerActiveUntil[forcePower] = 0;
+	}
+
+	SendForceTimers(user, NULL);
+}
 
 /* *CHANGE 7a* anti force crash */
 // default force
@@ -1177,6 +1299,8 @@ void WP_ForcePowerStart( gentity_t *self, forcePowers_t forcePower, int override
 			duration = overrideAmt;
 		}
 
+		StartForceTimer(self, (int)forcePower, duration);
+
 		self->client->ps.fd.forcePowersActive |= ( 1 << forcePower );
 		break;
 	case FP_PUSH:
@@ -1206,6 +1330,8 @@ void WP_ForcePowerStart( gentity_t *self, forcePowers_t forcePower, int override
 		{
 			break;
 		}
+
+		StartForceTimer(self, (int)forcePower, duration);
 
 		self->client->ps.fd.forcePowersActive |= ( 1 << forcePower );
 		break;
@@ -1242,7 +1368,7 @@ void WP_ForcePowerStart( gentity_t *self, forcePowers_t forcePower, int override
 		{
 			break;
 		}
-
+		StartForceTimer(self, (int)forcePower, duration);
 		self->client->ps.fd.forcePowersActive |= ( 1 << forcePower );
 		self->client->pers.ragesince = level.time; // force stats
 		break;
@@ -1252,12 +1378,14 @@ void WP_ForcePowerStart( gentity_t *self, forcePowers_t forcePower, int override
 		duration = 20000;
 		self->client->ps.fd.forcePowersActive |= ( 1 << forcePower );
 		self->client->pers.protsince = level.time; // force stats
+		StartForceTimer(self, (int)forcePower, duration);
 		break;
 	case FP_ABSORB:
 		hearable = qtrue;
 		hearDist = 256;
 		duration = 20000;
 		self->client->ps.fd.forcePowersActive |= ( 1 << forcePower );
+		StartForceTimer(self, (int)forcePower, duration);
 		break;
 	case FP_TEAM_HEAL:
 		hearable = qtrue;
@@ -1295,7 +1423,7 @@ void WP_ForcePowerStart( gentity_t *self, forcePowers_t forcePower, int override
 		{
 			break;
 		}
-
+		StartForceTimer(self, (int)forcePower, duration);
 		self->client->ps.fd.forcePowersActive |= ( 1 << forcePower );
 		break;
 	case FP_SABER_OFFENSE:
@@ -4592,6 +4720,7 @@ void WP_ForcePowerStop( gentity_t *self, forcePowers_t forcePower )
 		if (wasActive & (1 << FP_SPEED))
 		{
 			G_MuteSound(self->client->ps.fd.killSoundEntIndex[TRACK_CHANNEL_2-50], CHAN_VOICE);
+			StartForceTimer(self, (int)forcePower, 0);
 		}
 		break;
 	case FP_PUSH:
@@ -4602,6 +4731,7 @@ void WP_ForcePowerStop( gentity_t *self, forcePowers_t forcePower )
 		if (wasActive & (1 << FP_TELEPATHY))
 		{
 			G_Sound( self, CHAN_AUTO, G_SoundIndex("sound/weapons/force/distractstop.wav") );
+			StartForceTimer(self, (int)forcePower, 0);
 		}
 		self->client->ps.fd.forceMindtrickTargetIndex = 0;
 		self->client->ps.fd.forceMindtrickTargetIndex2 = 0;
@@ -4612,6 +4742,7 @@ void WP_ForcePowerStop( gentity_t *self, forcePowers_t forcePower )
 		if (wasActive & (1 << FP_SEE))
 		{
 			G_MuteSound(self->client->ps.fd.killSoundEntIndex[TRACK_CHANNEL_5-50], CHAN_VOICE);
+			StartForceTimer(self, (int)forcePower, 0);
 		}
 		break;
 	case FP_GRIP:
@@ -4661,7 +4792,8 @@ void WP_ForcePowerStop( gentity_t *self, forcePowers_t forcePower )
 		self->client->ps.activeForcePass = 0;
 		break;
 	case FP_RAGE:
-		self->client->ps.fd.forceRageRecoveryTime = level.time + 10000;
+		self->client->ps.fd.forceRageRecoveryTime = level.time + RAGE_RECOVERY_TIME;
+		StartForceTimer(self, FP_SABER_OFFENSE, RAGE_RECOVERY_TIME);
 		if (wasActive & (1 << FP_RAGE))
 		{
 			G_MuteSound(self->client->ps.fd.killSoundEntIndex[TRACK_CHANNEL_3-50], CHAN_VOICE);
@@ -4675,12 +4807,14 @@ void WP_ForcePowerStop( gentity_t *self, forcePowers_t forcePower )
 		if (wasActive & (1 << FP_ABSORB))
 		{
 			G_MuteSound(self->client->ps.fd.killSoundEntIndex[TRACK_CHANNEL_3-50], CHAN_VOICE);
+			StartForceTimer(self, (int)forcePower, 0);
 		}
 		break;
 	case FP_PROTECT:
 		if (wasActive & (1 << FP_PROTECT))
 		{
 			G_MuteSound(self->client->ps.fd.killSoundEntIndex[TRACK_CHANNEL_3-50], CHAN_VOICE);
+			StartForceTimer(self, (int)forcePower, 0);
 
 			if ( self->client->pers.protsince && self->client->pers.protsince < level.time ) {
 				self->client->stats->protTimeUsed += level.time - self->client->pers.protsince;

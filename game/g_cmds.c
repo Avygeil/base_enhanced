@@ -3395,6 +3395,13 @@ void Cmd_Where_f( gentity_t *ent ) {
 	trap_SendServerCommand( ent - g_entities, va( "print \"Origin: %s ; Yaw: %.3f degrees%s\n\"", vtos( ent->client->ps.origin ), ent->client->ps.viewangles[YAW], extra ) );
 }
 
+#ifdef _DEBUG
+void Cmd_When_f(gentity_t *ent) {
+	PrintIngame(ent - g_entities, "trap_Milliseconds(): %d. level.time: %d. level.startTime: %d. level.time - level.startTime: %d.\n",
+		trap_Milliseconds(), level.time, level.startTime, level.time - level.startTime);
+}
+#endif
+
 static const char *gameNames[] = {
 	"Free For All",
 	"Holocron FFA",
@@ -9319,6 +9326,10 @@ void ClientCommand( int clientNum ) {
 		Cmd_ForceChanged_f(ent);
 	else if (Q_stricmp(cmd, "where") == 0)
 		Cmd_Where_f(ent);
+#ifdef _DEBUG
+	else if (Q_stricmp(cmd, "when") == 0)
+		Cmd_When_f(ent);
+#endif
 	else if (!Q_stricmp(cmd, "pack"))
 		Cmd_Pack_f(ent);
 	else if (Q_stricmp(cmd, "callvote") == 0)

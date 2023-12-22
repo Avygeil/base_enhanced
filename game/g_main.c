@@ -570,6 +570,8 @@ vmCvar_t	g_gripAbsorbFix;
 vmCvar_t	g_mindTrickBuff;
 vmCvar_t	g_drainRework;
 
+vmCvar_t	g_sendForceTimers;
+
 vmCvar_t	g_allowSkAutoThTe;
 
 vmCvar_t	g_minimumCullDistance;
@@ -1133,6 +1135,8 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_mindTrickBuff, "g_mindTrickBuff", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_drainRework, "g_drainRework", "0", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
+
+	{ &g_sendForceTimers, "g_sendForceTimers", "1", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_allowSkAutoThTe, "g_allowSkAutoThTe", "-1", CVAR_ARCHIVE, 0, qtrue },
 

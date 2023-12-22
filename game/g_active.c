@@ -5129,6 +5129,12 @@ void SpectatorClientEndFrame( gentity_t *ent ) {
 				ent->client->ps.eFlags = cl->ps.eFlags;
 				ent->client->ps = cl->ps;
 
+				if (clientNum != ent->client->sess.lastSpectatorClient || ent->client->sess.spectatorState != ent->client->sess.lastSpectatorState)
+					SendForceTimers(&g_entities[clientNum], ent);
+
+				ent->client->sess.lastSpectatorClient = clientNum;
+				ent->client->sess.lastSpectatorState = ent->client->sess.spectatorState;
+
 				if (ent->client->sess.isInkognito 
 					|| originalPing == -1
 					|| originalPing == 999){
@@ -5161,6 +5167,8 @@ void SpectatorClientEndFrame( gentity_t *ent ) {
 	} else {
 		ent->client->ps.pm_flags &= ~PMF_SCOREBOARD;
 	}
+
+	ent->client->sess.lastSpectatorState = ent->client->sess.spectatorState;
 }
 
 qboolean PauseConditions(void) {

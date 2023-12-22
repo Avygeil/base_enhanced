@@ -2036,14 +2036,18 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 		}
 	}
 
-	if (self->client)
+	if (self->client) {
 		self->client->pers.weaponLastDiedWith = self->client->ps.weapon;
+		memset(self->client->forcePowerActiveUntil, 0, sizeof(self->client->forcePowerActiveUntil));
+		self->client->rageRecoveryActiveUntil = 0;
+	}
 
 	self->aimPracticeEntBeingUsed = NULL;
 	self->aimPracticeMode = AIMPRACTICEMODE_NONE;
 	self->numAimPracticeSpawns = 0;
 	self->numTotalAimPracticeHits = 0;
 	memset(self->numAimPracticeHitsOfWeapon, 0, sizeof(self->numAimPracticeHitsOfWeapon));
+
 
 	if (self->s.eType == ET_NPC &&
 		self->s.NPC_class == CLASS_VEHICLE &&

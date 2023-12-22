@@ -5236,6 +5236,8 @@ void RestoreDisconnectedPlayerData(gentity_t *ent) {
 			ent->client->ps.powerups[PW_FORCE_BOON] = 0;
 		}
 	}
+	
+	SendForceTimers(ent, NULL);
 
 	ListRemove(&level.disconnectedPlayerList, data);
 }

@@ -666,7 +666,9 @@ typedef struct {
 	team_t		sessionTeam;
 	int			spectatorTime;		// for determining next-in-line to play
 	spectatorState_t	spectatorState;
+	spectatorState_t	lastSpectatorState;
 	int			spectatorClient;	// for chasecam and follow mode
+	int			lastSpectatorClient;
 	int			wins, losses;		// tournament stats
 	int			selectedFP;			// check against this, if doesn't match value in playerstate then update userinfo
 	int			saberLevel;			// similar to above method, but for current saber attack level
@@ -1661,6 +1663,12 @@ struct gclient_s {
 	int drainDebuffTime;
 
 	gentity_t *bumpedByEnt;
+
+	int lastAiredOtherClientTime[MAX_CLIENTS];
+	int lastAiredOtherClientMeansOfDeath[MAX_CLIENTS];
+
+	int forcePowerActiveUntil[NUM_FORCE_POWERS];
+	int rageRecoveryActiveUntil;
 };
 
 //Interest points
@@ -2950,6 +2958,7 @@ void ForceTelepathy(gentity_t *self);
 qboolean Jedi_DodgeEvasion( gentity_t *self, gentity_t *shooter, trace_t *tr, int hitLoc );
 void AutoTHTE(gentity_t *self);
 void ShouldUseTHTE(gentity_t *target, qboolean *doTEOut, qboolean *doTHOut, int fakeForceAlignment);
+void SendForceTimers(gentity_t *user, gentity_t *sendTo);
 
 // g_log.c
 void QDECL G_LogPrintf( const char *fmt, ... );
@@ -3493,6 +3502,8 @@ extern vmCvar_t		g_gripAbsorbFix;
 
 extern vmCvar_t		g_mindTrickBuff;
 extern vmCvar_t		g_drainRework;
+
+extern vmCvar_t		g_sendForceTimers;
 
 extern vmCvar_t		g_allowSkAutoThTe;
 
