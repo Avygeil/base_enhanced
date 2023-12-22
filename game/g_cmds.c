@@ -8041,6 +8041,9 @@ char *ParseItemName(const char *input) {
 	else if (stristr(input, "med") || stristr(input, "health")) {
 		return "item_medpak_instant";
 	}
+	else if (!Q_stricmpn(input, "ys", 2) || stristr(input, "mari") || stristr(input, "miri")) {
+		return "item_ysalimari";
+	}
 	return NULL;
 }
 
