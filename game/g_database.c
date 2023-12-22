@@ -7016,3 +7016,152 @@ qboolean G_DBGetLiveMapNameForMapName(const char *filename, char *result, size_t
 	return qfalse;
 }
 
+extern qboolean canSpawnItemStartsolid;
+extern qboolean G_CallSpawn(gentity_t *ent);
+void DB_LoadAddedItems(void) {
+	const char *const sqlLoadAddedItems = "SELECT itemtype, COALESCE(owner_account_id, -1) AS owner_account_id, originX, originY, originZ FROM addeditems WHERE mapname = ?;";
+	ListClear(&level.addedItemsList);
+
+	sqlite3_stmt *statement;
+	int rc = trap_sqlite3_prepare_v2(dbPtr, sqlLoadAddedItems, -1, &statement, NULL);
+	if (rc != SQLITE_OK) {
+		Com_Printf("DB_LoadAddedItems: failed to prepare statement!\n");
+		return;
+	}
+
+	sqlite3_bind_text(statement, 1, level.mapname, -1, SQLITE_STATIC);
+
+	rc = trap_sqlite3_step(statement);
+	int loadedItemsCount = 0;
+	while (rc == SQLITE_ROW) {
+		if (loadedItemsCount >= ADDEDITEM_LIMIT_PER_MAP) {
+			Com_Printf("DB_LoadAddedItems: reached limit of %d; discontinuing adding items.\n", ADDEDITEM_LIMIT_PER_MAP);
+			break;
+		}
+
+		addedItem_t *newItem = ListAdd(&level.addedItemsList, sizeof(addedItem_t));
+
+		newItem->id = level.addedItemsList.size - 1;
+
+		const char *itemType = (const char *)sqlite3_column_text(statement, 0);
+		Q_strncpyz(newItem->itemType, itemType, sizeof(newItem->itemType));
+		gentity_t *itemEnt = G_Spawn();
+		itemEnt->classname = newItem->itemType;
+
+		newItem->ownerAccountId = sqlite3_column_int(statement, 1);
+
+		vec3_t origin;
+		origin[0] = sqlite3_column_double(statement, 2);
+		origin[1] = sqlite3_column_double(statement, 3);
+		origin[2] = sqlite3_column_double(statement, 4);
+		VectorCopy(origin, itemEnt->s.origin);
+		VectorCopy(origin, itemEnt->s.pos.trBase);
+		VectorCopy(origin, itemEnt->r.currentOrigin);
+
+		newItem->saved = qtrue;
+
+		if (!G_CallSpawn(itemEnt)) {
+			G_FreeEntity(itemEnt);
+			Com_Printf("DB_LoadAddedItems: unable to spawn %s (%f, %f, %f)!\n", itemType, origin[0], origin[1], origin[2]);
+			ListRemove(&level.addedItemsList, newItem);
+			continue;
+		}
+
+		canSpawnItemStartsolid = qtrue;
+		FinishSpawningItem(itemEnt);
+		canSpawnItemStartsolid = qfalse;
+
+		newItem->ent = itemEnt;
+
+		++loadedItemsCount;
+
+		rc = trap_sqlite3_step(statement);
+	}
+
+	trap_sqlite3_finalize(statement);
+
+	if (loadedItemsCount > 0) {
+		Com_Printf("DB_LoadAddedItems: loaded %d added items from the database.\n", loadedItemsCount);
+		SaveRegisteredItems(); // prevent bugged out clientside models e.g. if you put a conc on a non-conc map
+	}
+	else {
+		Com_Printf("DB_LoadAddedItems: no added items.\n");
+	}
+}
+
+
+qboolean DB_SaveAddedItem(addedItem_t *item) {
+	if (!item || !VALIDSTRING(item->itemType) || !level.mapname[0] || !item->ent) {
+		assert(qfalse);
+		return qfalse;
+	}
+
+	const char *sql = "INSERT OR REPLACE INTO addeditems (mapname, itemtype, owner_account_id, originX, originY, originZ) VALUES (?, ?, ?, ?, ?, ?);";
+	sqlite3_stmt *stmt;
+	int rc = trap_sqlite3_prepare_v2(dbPtr, sql, -1, &stmt, NULL);
+
+	if (rc != SQLITE_OK) {
+		Com_Printf("DB_SaveAddedItem: Failed to prepare statement\n");
+		return qfalse;
+	}
+
+	sqlite3_bind_text(stmt, 1, level.mapname, -1, SQLITE_STATIC);
+	sqlite3_bind_text(stmt, 2, item->itemType, -1, SQLITE_STATIC);
+	sqlite3_bind_int(stmt, 3, item->ownerAccountId);
+	sqlite3_bind_double(stmt, 4, item->ent->r.currentOrigin[0]);
+	sqlite3_bind_double(stmt, 5, item->ent->r.currentOrigin[1]);
+	sqlite3_bind_double(stmt, 6, item->ent->r.currentOrigin[2]);
+
+	rc = trap_sqlite3_step(stmt);
+	if (rc != SQLITE_DONE) {
+		Com_Printf("DB_SaveAddedItem: Failed to execute statement\n");
+		trap_sqlite3_finalize(stmt);
+		return qfalse;
+	}
+
+	trap_sqlite3_finalize(stmt);
+	return qtrue;
+}
+
+qboolean DB_DeleteAddedItem(addedItem_t *item) {
+	if (!item) {
+		assert(qfalse);
+		return qfalse;
+	}
+
+	const char *sqlDelete =
+		"DELETE FROM addeditems "
+		"WHERE rowid = ("
+		"SELECT rowid FROM addeditems "
+		"WHERE itemtype = ?1 "
+		"ORDER BY "
+		"((originX - ?2) * (originX - ?2)) + "
+		"((originY - ?3) * (originY - ?3)) + "
+		"((originZ - ?4) * (originZ - ?4)) "
+		"LIMIT 1"
+		");";
+
+	sqlite3_stmt *statement;
+	int rc = trap_sqlite3_prepare_v2(dbPtr, sqlDelete, -1, &statement, NULL);
+	if (rc != SQLITE_OK) {
+		Com_Printf("DB_DeleteAddedItem: Failed to prepare delete statement\n");
+		return qfalse;
+	}
+
+	sqlite3_bind_text(statement, 1, item->ent->classname, -1, SQLITE_STATIC);
+
+	sqlite3_bind_double(statement, 2, item->ent->r.currentOrigin[0]);
+	sqlite3_bind_double(statement, 3, item->ent->r.currentOrigin[1]);
+	sqlite3_bind_double(statement, 4, item->ent->r.currentOrigin[2]);
+
+	rc = trap_sqlite3_step(statement);
+	trap_sqlite3_finalize(statement);
+
+	if (rc != SQLITE_DONE) {
+		Com_Printf("DB_DeleteAddedItem: Failed to execute delete statement\n");
+		return qfalse;
+	}
+
+	return qtrue;
+}
+

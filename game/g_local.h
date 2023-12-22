@@ -2106,6 +2106,8 @@ typedef struct {
 
 	list_t captureList;
 
+	list_t addedItemsList;
+
 	struct {
 		qboolean valid;
 		float value;
@@ -2162,6 +2164,7 @@ typedef struct {
 #define ACCOUNTFLAG_BOOST_FIXIDIOTICFORCECONFIG	( 1 << 31 )
 #define ACCOUNTFLAG_AUTOSWITCHER					( 1ll << 32ll )
 #define ACCOUNTFLAG_BOOST_FIXINSTAYAW					( 1ll << 33ll )
+#define ACCOUNTFLAG_ITEMLORD					( 1ll << 34ll )
 
 typedef void( *ListSessionsCallback )( void *ctx,
 	const sessionReference_t sessionRef,
@@ -2283,6 +2286,17 @@ void Touch_Item (gentity_t *ent, gentity_t *other, trace_t *trace);
 void ClearRegisteredItems( void );
 void RegisterItem( gitem_t *item );
 void SaveRegisteredItems( void );
+
+typedef struct {
+	node_t		node;
+	int			id;
+	gentity_t	*ent;
+	qboolean	saved;
+	int			ownerAccountId;
+	char		itemType[64];
+} addedItem_t;
+
+#define ADDEDITEM_LIMIT_PER_MAP (128)
 
 //
 // g_location.c
@@ -3461,6 +3475,8 @@ extern vmCvar_t		g_vote_teamgen_new8PlayerAlgo;
 extern vmCvar_t		g_vote_teamgen_require2VotesOnEachTeam;
 
 extern vmCvar_t		g_filterSlurs;
+
+extern vmCvar_t		g_addItems;
 
 extern vmCvar_t		g_broadcastCtfPos;
 extern vmCvar_t		g_assignMissingCtfPos;

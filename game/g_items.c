@@ -2849,6 +2849,7 @@ Traces down to find where an item should rest, instead of letting them
 free fall from their spawn points
 ================
 */
+qboolean canSpawnItemStartsolid = qfalse;
 void FinishSpawningItem( gentity_t *ent ) {
 	trace_t		tr;
 	vec3_t		dest;
@@ -3018,7 +3019,7 @@ void FinishSpawningItem( gentity_t *ent ) {
 
 		VectorSet( dest, ent->s.origin[0], ent->s.origin[1], ent->s.origin[2] - 4096 );
 		trap_Trace( &tr, ent->s.origin, ent->r.mins, ent->r.maxs, dest, ent->s.number, MASK_SOLID );
-		if ( tr.startsolid ) {
+		if ( tr.startsolid && !canSpawnItemStartsolid) {
 			G_Printf ("FinishSpawningItem: %s startsolid at %s\n", ent->classname, vtos(ent->s.origin));
 			G_FreeEntity( ent );
 			return;

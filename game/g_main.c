@@ -532,6 +532,8 @@ vmCvar_t	g_vote_teamgen_require2VotesOnEachTeam;
 
 vmCvar_t	g_filterSlurs;
 
+vmCvar_t	g_addItems;
+
 vmCvar_t	g_broadcastCtfPos;
 vmCvar_t	g_assignMissingCtfPos;
 vmCvar_t	g_broadcastGivenThTe;
@@ -1090,6 +1092,8 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_teamgen_require2VotesOnEachTeam, "g_vote_teamgen_require2VotesOnEachTeam", "1", CVAR_ARCHIVE, 0, qfalse },
 
 	{ &g_filterSlurs, "g_filterSlurs", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
+
+	{ &g_addItems, "g_addItems", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
 
 	{ &g_broadcastCtfPos, "g_broadcastCtfPos", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
 	{ &g_assignMissingCtfPos, "g_assignMissingCtfPos", "1", CVAR_ARCHIVE, 0, qfalse },
@@ -2203,6 +2207,9 @@ void G_InitGame( int levelTime, int randomSeed, int restart, void *serverDbPtr )
 	G_DBInitializePugStatsCache();
 	G_DBCacheAutoLinks();
 	
+	if (g_addItems.integer)
+		DB_LoadAddedItems();
+
 	LoadAimPacks();
 
 	// only enable racemode records in ctf
@@ -2431,6 +2438,7 @@ void G_ShutdownGame( int restart ) {
 	ListClear(&level.unbarVoteList);
 	ListClear(&level.captureList);
 	ListClear(&level.fuckVoteList);
+	ListClear(&level.addedItemsList);
 
 	ListIterate(&level.slurList, &iter, qfalse);
 	while (IteratorHasNext(&iter)) {

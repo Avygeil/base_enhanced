@@ -7976,6 +7976,429 @@ static void Cmd_Pos_f(gentity_t *ent) {
 	G_DBSetAccountProperties(ent->client->account);
 }
 
+char *ParseItemName(const char *input) {
+	if (!VALIDSTRING(input)) {
+		return NULL;
+	}
+	else if (stristr(input, "pow") || stristr(input, "cell")) {
+		return "ammo_powercell";
+	}
+	else if (stristr(input, "metal") || stristr(input, "bolt")) {
+		return "ammo_metallic_bolts";
+	}
+	else if (stristr(input, "amm")) {
+		if (stristr(input, "blast") || stristr(input, "e11"))
+			return "ammo_blaster";
+		else if (stristr(input, "disr") || stristr(input, "snip") || stristr(input, "tenl") || stristr(input, "bow") || stristr(input, "cast") || stristr(input, "demp"))
+			return "ammo_powercell";
+		else if (stristr(input, "rep") || stristr(input, "gol") || stristr(input, "conc"))
+			return "ammo_metallic_bolts";
+		else if (stristr(input, "roc"))
+			return "ammo_rockets";
+		else if (stristr(input, "therm"))
+			return "ammo_thermal";
+		else if (stristr(input, "detp"))
+			return "ammo_detpack";
+		else if (stristr(input, "min"))
+			return "ammo_tripmine";
+	}
+	else if (stristr(input, "blast") || stristr(input, "e11")) {
+		return "weapon_blaster";
+	}
+	else if (stristr(input, "disr") || stristr(input, "snip") || stristr(input, "tenl")) {
+		return "weapon_disruptor";
+	}
+	else if (stristr(input, "bow") || stristr(input, "cast")) {
+		return "weapon_bowcaster";
+	}
+	else if (stristr(input, "rep")) {
+		return "weapon_repeater";
+	}
+	else if (stristr(input, "gol")) {
+		return "weapon_flechette";
+	}
+	else if (stristr(input, "roc")) {
+		return "weapon_rocket_launcher";
+	}
+	else if (stristr(input, "conc")) {
+		return "weapon_concussion_rifle";
+	}
+	else if (stristr(input, "ther")) {
+		return "weapon_thermal";
+	}
+	else if (stristr(input, "min")) {
+		return "weapon_trip_mine";
+	}
+	else if (stristr(input, "detp")) {
+		return "weapon_det_pack";
+	}
+	else if (stristr(input, "armor") || stristr(input, "shield") || stristr(input, "sheild")) {
+		if (stristr(input, "large") || stristr(input, "big"))
+			return "item_shield_lrg_instant";
+		else
+			return "item_shield_sm_instant";
+	}
+	else if (stristr(input, "med") || stristr(input, "health")) {
+		return "item_medpak_instant";
+	}
+	return NULL;
+}
+
+const char *TableCallback_AddedItemId(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	addedItem_t *item = rowContext;
+	return va("%d", item->id);
+}
+
+const char *TableCallback_AddedItemName(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	addedItem_t *item = rowContext;
+	if (!item->ent) {
+		assert(qfalse);
+		return NULL;
+	}
+	return va("%s", item->ent->classname);
+}
+
+const char *TableCallback_AddedItemCreator(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	addedItem_t *item = rowContext;
+	if (item->ownerAccountId == ACCOUNT_ID_UNLINKED)
+		return NULL;
+
+	account_t account = { 0 };
+	G_DBGetAccountByID(item->ownerAccountId, &account);
+	if (account.id == ACCOUNT_ID_UNLINKED)
+		return NULL;
+
+	return va("%s", account.name);
+}
+
+const char *TableCallback_AddedItemSaved(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	addedItem_t *item = rowContext;
+	return item->saved ? "Yes" : "^1No";
+}
+
+const char *TableCallback_AddedItemCoordinate(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	addedItem_t *item = rowContext;
+	if (!item->ent) {
+		assert(qfalse);
+		return NULL;
+	}
+	int axis = (int)columnContext;
+	assert(axis >= 0 && axis <= 2);
+	return va("%d", (int)roundf(item->ent->r.currentOrigin[axis]));
+}
+
+const char *TableCallback_AddedItemDistanceToEntity(void *rowContext, void *columnContext) {
+	if (!rowContext || !columnContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	addedItem_t *item = rowContext;
+	if (!item->ent) {
+		assert(qfalse);
+		return NULL;
+	}
+	gentity_t *otherEnt = (gentity_t *)columnContext;
+	return va("%d", (int)roundf(Distance(item->ent->r.currentOrigin, otherEnt->r.currentOrigin)));
+}
+
+extern qboolean G_CallSpawn(gentity_t *ent);
+extern qboolean canSpawnItemStartsolid;
+static void Cmd_Item_f(gentity_t *player) {
+	assert(player);
+
+	if (!g_addItems.integer) {
+		PrintIngame(player - g_entities, "Add items is disabled.\n");
+		return;
+	}
+
+	if (!player->client || !player->client->account || !(player->client->account->flags & ACCOUNTFLAG_ITEMLORD)) {
+		PrintIngame(player - g_entities, "You do not have permission to use this command.\n");
+		return;
+	}
+
+	if (IsLivePug(0)) {
+		PrintIngame(player - g_entities, "You cannot use this command during live pugs.\n");
+		return;
+	}
+
+	const int args = trap_Argc();
+	char arg1[MAX_STRING_CHARS];
+
+	if (args < 2) {
+		PrintIngame(player - g_entities,
+			"Usage:\n" \
+			"^7item list                             - list all added items\n" \
+			"^9item add <item name> [optional x y z] - add a new item (optionally with coordinates)\n" \
+			"^7item delete <item id>                 - delete an added item\n" \
+			"^9item save <item id>                   - save an added item\n");
+		return;
+	}
+
+	trap_Argv(1, arg1, sizeof(arg1));
+
+	if (!Q_stricmp(arg1, "list") || !Q_stricmp(arg1, "view")) {
+		if (level.addedItemsList.size <= 0) {
+			PrintIngame(player - g_entities, "There are no items.\n");
+			return;
+		}
+		else {
+			PrintIngame(player - g_entities, "There are %d added items on %s:^7\n", level.addedItemsList.size, level.mapname);
+
+			Table *t = Table_Initialize(qtrue);
+
+			iterator_t iter;
+			ListIterate(&level.addedItemsList, &iter, qfalse);
+			while (IteratorHasNext(&iter)) {
+				addedItem_t *item = (addedItem_t *)IteratorNext(&iter);
+				Table_DefineRow(t, item);
+			}
+
+			Table_DefineColumn(t, "Id#", TableCallback_AddedItemId, NULL, qfalse, -1, 64);
+			Table_DefineColumn(t, "Name", TableCallback_AddedItemName, NULL, qtrue, -1, 64);
+			Table_DefineColumn(t, "Creator", TableCallback_AddedItemCreator, NULL, qtrue, -1, 64);
+			Table_DefineColumn(t, "Saved", TableCallback_AddedItemSaved, NULL, qtrue, -1, 64);
+			Table_DefineColumn(t, "X", TableCallback_AddedItemCoordinate, (void *)0, qtrue, -1, 64);
+			Table_DefineColumn(t, "Y", TableCallback_AddedItemCoordinate, (void *)1, qtrue, -1, 64);
+			Table_DefineColumn(t, "Z", TableCallback_AddedItemCoordinate, (void *)2, qtrue, -1, 64);
+
+			gentity_t temp;
+			VectorCopy(vec3_origin, temp.r.currentOrigin);
+			gentity_t *redFsEnt = G_ClosestEntity(&temp, isRedFlagstand);
+			if (redFsEnt)
+				Table_DefineColumn(t, "Dist/^1red^7 FS", TableCallback_AddedItemDistanceToEntity, redFsEnt, qtrue, -1, 64);
+
+			gentity_t *blueFsEnt = G_ClosestEntity(&temp, isBlueFlagstand);
+			if (blueFsEnt)
+				Table_DefineColumn(t, "Dist/^4blue^7 FS", TableCallback_AddedItemDistanceToEntity, blueFsEnt, qtrue, -1, 64);
+
+			const size_t bufSize = 16384;
+			char *buf = malloc(bufSize);
+			Table_WriteToBuffer(t, buf, bufSize, qtrue, -1);
+			Table_Destroy(t);
+
+			PrintIngame(player - g_entities, buf);
+			free(buf);
+		}
+	}
+	else if (!Q_stricmp(arg1, "save")) {
+		if (args < 3) {
+			PrintIngame(player - g_entities, "Usage: item save <item id>\n");
+			return;
+		}
+
+		char itemIdBuf[MAX_STRING_CHARS];
+		trap_Argv(2, itemIdBuf, sizeof(itemIdBuf));
+		if (!Q_isanumber(itemIdBuf)) {
+			PrintIngame(player - g_entities, "Usage: item save <item id>\n");
+			return;
+		}
+		int enteredId = atoi(itemIdBuf);
+
+		if (level.addedItemsList.size <= 0) {
+			PrintIngame(player - g_entities, "There are no items. Make some items first.\n");
+			return;
+		}
+
+		iterator_t iter;
+		ListIterate(&level.addedItemsList, &iter, qfalse);
+		addedItem_t *found = NULL;
+		while (IteratorHasNext(&iter)) {
+			addedItem_t *item = (addedItem_t *)IteratorNext(&iter);
+			if (item->id == enteredId) {
+				found = item;
+				break;
+			}
+		}
+
+		if (!found) {
+			PrintIngame(player - g_entities, "No item found with id %d\n", enteredId);
+			return;
+		}
+
+		if (found->saved) {
+			PrintIngame(player - g_entities, "Item %d (%s at %d, %d, %d) is already saved.\n", found->id, found->ent->classname, (int)roundf(found->ent->r.currentOrigin[0]), (int)roundf(found->ent->r.currentOrigin[1]), (int)roundf(found->ent->r.currentOrigin[2]));
+			return;
+		}
+
+		if (DB_SaveAddedItem(found)) {
+			PrintBasedOnAccountFlags(ACCOUNTFLAG_ITEMLORD, va("%s saved item %d (%s at %d, %d, %d) to database.\n", player->client->account->name, found->id, found->ent->classname, (int)roundf(found->ent->r.currentOrigin[0]), (int)roundf(found->ent->r.currentOrigin[1]), (int)roundf(found->ent->r.currentOrigin[2])));
+			found->saved = qtrue;
+		}
+		else {
+			PrintBasedOnAccountFlags(ACCOUNTFLAG_ITEMLORD, va("%s encountered an error saving item %d (%s at %d, %d, %d) to database!\n", player->client->account->name, found->id, found->ent->classname, (int)roundf(found->ent->r.currentOrigin[0]), (int)roundf(found->ent->r.currentOrigin[1]), (int)roundf(found->ent->r.currentOrigin[2])));
+		}
+	}
+	else if (!Q_stricmp(arg1, "new") || !Q_stricmp(arg1, "create") || !Q_stricmp(arg1, "make") || !Q_stricmp(arg1, "spawn") || !Q_stricmp(arg1, "add")) {
+		if (args < 3 || args == 4 || args == 5) {
+			PrintIngame(player - g_entities, "Usage: item new <item name> [optional x y z, otherwise uses your location]\n");
+			return;
+		}
+
+		if (level.addedItemsList.size >= ADDEDITEM_LIMIT_PER_MAP) {
+			PrintIngame(player - g_entities, "There are too many added items (limit: %d).\n", ADDEDITEM_LIMIT_PER_MAP);
+			return;
+		}
+
+		char itemNameInput[MAX_STRING_CHARS];
+		trap_Argv(2, itemNameInput, sizeof(itemNameInput));
+		const char *itemName = ParseItemName(itemNameInput);
+		if (!VALIDSTRING(itemName)) {
+			PrintIngame(player - g_entities, "\"%s\" is not a valid item name.\n", itemNameInput);
+			return;
+		}
+
+		vec3_t origin;
+		if (args > 3) {
+			char xCoordBuf[64], yCoordBuf[64], zCoordBuf[64];
+			trap_Argv(3, xCoordBuf, sizeof(xCoordBuf));
+			trap_Argv(4, yCoordBuf, sizeof(yCoordBuf));
+			trap_Argv(5, zCoordBuf, sizeof(zCoordBuf));
+
+			if (!Q_isanumber(xCoordBuf) || !Q_isanumber(yCoordBuf) || !Q_isanumber(zCoordBuf)) {
+				PrintIngame(player - g_entities, "Coordinates must be numbers.\n");
+				return;
+			}
+
+			origin[0] = atof(xCoordBuf);
+			origin[1] = atof(yCoordBuf);
+			origin[2] = atof(zCoordBuf);
+		}
+		else {
+			VectorCopy(player->r.currentOrigin, origin);
+		}
+
+		gentity_t *itemEnt = G_Spawn();
+		VectorCopy(origin, itemEnt->s.origin);
+		VectorCopy(origin, itemEnt->s.pos.trBase);
+		VectorCopy(origin, itemEnt->r.currentOrigin);
+		itemEnt->classname = (char *)itemName;
+
+		if (!G_CallSpawn(itemEnt)) {
+			G_FreeEntity(itemEnt);
+			PrintIngame(player - g_entities, "Error spawning item!\n");
+			return;
+		}
+
+		if (player->client->ps.groundEntityNum == ENTITYNUM_NONE)
+			itemEnt->spawnflags |= 1; // ITMSF_SUSPEND from g_items.c; allow it to be in the air
+
+		canSpawnItemStartsolid = qtrue;
+		FinishSpawningItem(itemEnt);
+		canSpawnItemStartsolid = qfalse;
+
+		itemEnt->s.eFlags |= EF_NODRAW;
+		itemEnt->r.svFlags |= SVF_NOCLIENT;
+		itemEnt->r.contents = 0;
+		itemEnt->nextthink = level.time + 1000;
+		itemEnt->think = RespawnItem;
+
+		int id = 0;
+		if (level.addedItemsList.size) {
+			iterator_t iter;
+			ListIterate(&level.addedItemsList, &iter, qfalse);
+			while (IteratorHasNext(&iter)) {
+				addedItem_t *thisItem = IteratorNext(&iter);
+				if (thisItem->id > id)
+					id = thisItem->id;
+			}
+			++id;
+		}
+
+		addedItem_t *add = ListAdd(&level.addedItemsList, sizeof(addedItem_t));
+		add->ent = itemEnt;
+		add->id = id;
+		add->ownerAccountId = player->client->account->id;
+		Q_strncpyz(add->itemType, itemName, sizeof(add->itemType));
+		itemEnt->classname = add->itemType;
+		static qboolean printedWarning = qfalse;
+		if (printedWarning) {
+			PrintBasedOnAccountFlags(ACCOUNTFLAG_ITEMLORD, va("%s added %s with id %d at %d, %d, %d.\n", player->client->account->name, itemEnt->classname, id, (int)roundf(itemEnt->r.currentOrigin[0]), (int)roundf(itemEnt->r.currentOrigin[1]), (int)roundf(itemEnt->r.currentOrigin[2])));
+		}
+		else {
+			PrintBasedOnAccountFlags(ACCOUNTFLAG_ITEMLORD, va("%s added %s with id %d at %d, %d, %d. Items are not saved after map change/restart unless you enter ^5item save^7.\n", player->client->account->name, itemEnt->classname, id, (int)roundf(itemEnt->r.currentOrigin[0]), (int)roundf(itemEnt->r.currentOrigin[1]), (int)roundf(itemEnt->r.currentOrigin[2])));
+			printedWarning = qtrue;
+		}
+	}
+	else if (!Q_stricmpn(arg1, "del", 3) || !Q_stricmpn(arg1, "rem", 3) || !Q_stricmpn(arg1, "rm", 2)) {
+		if (args < 3) {
+			PrintIngame(player - g_entities, "Usage: item delete <item id>\n");
+			return;
+		}
+
+		char itemIdBuf[MAX_STRING_CHARS];
+		trap_Argv(2, itemIdBuf, sizeof(itemIdBuf));
+		if (!Q_isanumber(itemIdBuf)) {
+			PrintIngame(player - g_entities, "Usage: item delete <item id>\n");
+			return;
+		}
+		int enteredId = atoi(itemIdBuf);
+
+		if (level.addedItemsList.size <= 0) {
+			PrintIngame(player - g_entities, "There are no items. Make some items first.\n");
+			return;
+		}
+
+		iterator_t iter;
+		ListIterate(&level.addedItemsList, &iter, qfalse);
+		addedItem_t *found = NULL;
+		while (IteratorHasNext(&iter)) {
+			addedItem_t *item = (addedItem_t *)IteratorNext(&iter);
+			if (item->id == enteredId) {
+				found = item;
+				break;
+			}
+		}
+
+		if (!found) {
+			PrintIngame(player - g_entities, "No item found with id %d\n", enteredId);
+			return;
+		}
+
+		if (found->saved) {
+			if (DB_DeleteAddedItem(found))
+				PrintBasedOnAccountFlags(ACCOUNTFLAG_ITEMLORD, va("%s successfully deleted saved item %d (%s at %d, %d, %d) from database.\n", player->client->account->name, found->id, found->ent->classname, (int)roundf(found->ent->r.currentOrigin[0]), (int)roundf(found->ent->r.currentOrigin[1]), (int)roundf(found->ent->r.currentOrigin[2])));
+			else
+					PrintBasedOnAccountFlags(ACCOUNTFLAG_ITEMLORD, va("%s encountered an error deleting saved item %d (%s at %d, %d, %d) from database!\n", player->client->account->name, found->id, found->ent->classname, (int)roundf(found->ent->r.currentOrigin[0]), (int)roundf(found->ent->r.currentOrigin[1]), (int)roundf(found->ent->r.currentOrigin[2])));
+		}
+		else {
+			PrintBasedOnAccountFlags(ACCOUNTFLAG_ITEMLORD, va("%s deleted usaved item %d (%s at %d, %d, %d).\n", player->client->account->name, found->id, found->ent->classname, (int)roundf(found->ent->r.currentOrigin[0]), (int)roundf(found->ent->r.currentOrigin[1]), (int)roundf(found->ent->r.currentOrigin[2])));
+		}
+
+		G_FreeEntity(found->ent);
+		ListRemove(&level.addedItemsList, found);
+	}
+	else {
+		PrintIngame(player - g_entities,
+			"Usage:\n" \
+			"^7item list                             - list all added items\n" \
+			"^9item add <item name> [optional x y z] - add a new item (optionally with coordinates)\n" \
+			"^7item delete <item id>                 - delete an added item\n" \
+			"^9item save <item id>                   - save an added item\n");
+		return;
+	}
+}
+
+
 #ifdef NEWMOD_SUPPORT
 static void Cmd_Svauth_f( gentity_t *ent ) {
 	if ( trap_Argc() < 2 ) {
@@ -9359,6 +9782,8 @@ void ClientCommand( int clientNum ) {
 		Cmd_Rating_f(ent);
 	else if (!Q_stricmp(cmd, "pos"))
 		Cmd_Pos_f(ent);
+	else if (!Q_stricmp(cmd, "item"))
+		Cmd_Item_f(ent);
 	else if (Q_stricmp(cmd, "whois") == 0)
 		Cmd_WhoIs_f(ent);
 	else if (!Q_stricmp(cmd, "verify"))

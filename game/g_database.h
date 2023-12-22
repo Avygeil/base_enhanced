@@ -4,8 +4,8 @@
 #include "g_local.h"
 
 #define DB_FILENAME				"enhanced.db"
-#define DB_SCHEMA_VERSION		23
-#define DB_SCHEMA_VERSION_STR	"23"
+#define DB_SCHEMA_VERSION		24
+#define DB_SCHEMA_VERSION_STR	"24"
 #define DB_OPTIMIZE_INTERVAL	( 60*60*3 ) // every 3 hours
 #define DB_VACUUM_INTERVAL		( 60*60*24*7 ) // every week
 
@@ -425,5 +425,9 @@ qboolean G_DBSetMapAliasLive(const char *filename, char *aliasOut, size_t aliasO
 qboolean G_DBGetLiveMapFilenameForAlias(const char *alias, char *result, size_t resultSize);
 qboolean G_DBGetAliasForMapName(const char *filename, char *result, size_t resultSize, qboolean *isliveOut);
 qboolean G_DBGetLiveMapNameForMapName(const char *filename, char *result, size_t resultSize);
+
+void DB_LoadAddedItems(void);
+qboolean DB_SaveAddedItem(addedItem_t *item);
+qboolean DB_DeleteAddedItem(addedItem_t *item);
 
 #endif //G_DATABASE_H

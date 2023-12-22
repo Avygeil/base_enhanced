@@ -602,4 +602,14 @@ const char *const sqlCreateTables =
 "    combined_maps.datetime \n"
 "FROM \n"
 "    original_to_alias_mapping \n"
-"    JOIN combined_maps ON original_to_alias_mapping.alias_map = combined_maps.map;";
+"    JOIN combined_maps ON original_to_alias_mapping.alias_map = combined_maps.map; "
+""
+"CREATE TABLE addeditems ("
+"    mapname TEXT NOT NULL,"
+"    itemtype TEXT NOT NULL,"
+"    owner_account_id INTEGER,"
+"    originX REAL NOT NULL,"
+"    originY REAL NOT NULL,"
+"    originZ REAL NOT NULL,"
+"    FOREIGN KEY (owner_account_id) REFERENCES accounts(account_id) ON DELETE CASCADE"
+");";
