@@ -1664,9 +1664,6 @@ struct gclient_s {
 
 	gentity_t *bumpedByEnt;
 
-	int lastAiredOtherClientTime[MAX_CLIENTS];
-	int lastAiredOtherClientMeansOfDeath[MAX_CLIENTS];
-
 	int forcePowerActiveUntil[NUM_FORCE_POWERS];
 	int rageRecoveryActiveUntil;
 };
