@@ -8316,7 +8316,10 @@ static void Cmd_Item_f(gentity_t *player) {
 			origin[2] = atof(zCoordBuf);
 		}
 		else {
-			VectorCopy(player->r.currentOrigin, origin);
+			if (player->client->ps.pm_type == PM_SPECTATOR)
+				VectorCopy(player->client->ps.origin, origin);
+			else
+				VectorCopy(player->r.currentOrigin, origin);
 		}
 
 		gentity_t *itemEnt = G_Spawn();
@@ -8331,7 +8334,7 @@ static void Cmd_Item_f(gentity_t *player) {
 			return;
 		}
 
-		if (player->client->ps.groundEntityNum == ENTITYNUM_NONE)
+		if (player->client->ps.groundEntityNum == ENTITYNUM_NONE || player->client->ps.pm_type == PM_SPECTATOR)
 			itemEnt->spawnflags |= 1; // ITMSF_SUSPEND from g_items.c; allow it to be in the air
 
 		canSpawnItemStartsolid = qtrue;
