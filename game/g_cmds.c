@@ -8044,6 +8044,32 @@ char *ParseItemName(const char *input) {
 	return NULL;
 }
 
+char *ValidateUserTypedItem(const char *input) {
+	// parse what the user typed in
+	char *parsedInput = ParseItemName(input);
+	if (!parsedInput)
+		return NULL;
+
+	// if the whitelist is empty, return the result from above
+	if (!g_addItemsWhitelist.string[0] || g_addItemsWhitelist.string[0] == '0')
+		return parsedInput;
+
+	// parse each item in the whitelist and see if the one the user typed is whitelisted
+	char *whitelistCopy = strdup(g_addItemsWhitelist.string);
+	char *token = strtok(whitelistCopy, " ");
+	while (token) {
+		char *parsedWhitelistItem = ParseItemName(token);
+		if (parsedWhitelistItem && !strcmp(parsedInput, parsedWhitelistItem)) {
+			free(whitelistCopy);
+			return parsedInput;
+		}
+		token = strtok(NULL, " ");
+	}
+	free(whitelistCopy);
+
+	return NULL; // not whitelisted
+}
+
 const char *TableCallback_AddedItemId(void *rowContext, void *columnContext) {
 	if (!rowContext) {
 		assert(qfalse);
@@ -8261,9 +8287,12 @@ static void Cmd_Item_f(gentity_t *player) {
 
 		char itemNameInput[MAX_STRING_CHARS];
 		trap_Argv(2, itemNameInput, sizeof(itemNameInput));
-		const char *itemName = ParseItemName(itemNameInput);
+		const char *itemName = ValidateUserTypedItem(itemNameInput);
 		if (!VALIDSTRING(itemName)) {
-			PrintIngame(player - g_entities, "\"%s\" is not a valid item name.\n", itemNameInput);
+			if (g_addItemsWhitelist.string[0] && g_addItemsWhitelist.string[0] != '0')
+				PrintIngame(player - g_entities, "'%s' is an invalid or impermissible item name. Permissible items: %s\n", itemNameInput, g_addItemsWhitelist.string);
+			else
+				PrintIngame(player - g_entities, "'%s' is an invalid item name.\n", itemNameInput);
 			return;
 		}
 

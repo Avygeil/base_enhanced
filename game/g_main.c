@@ -533,6 +533,7 @@ vmCvar_t	g_vote_teamgen_require2VotesOnEachTeam;
 vmCvar_t	g_filterSlurs;
 
 vmCvar_t	g_addItems;
+vmCvar_t	g_addItemsWhitelist;
 
 vmCvar_t	g_broadcastCtfPos;
 vmCvar_t	g_assignMissingCtfPos;
@@ -1094,6 +1095,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_filterSlurs, "g_filterSlurs", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
 
 	{ &g_addItems, "g_addItems", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
+	{ &g_addItemsWhitelist, "g_addItemsWhitelist", "", CVAR_ARCHIVE, 0, qfalse },
 
 	{ &g_broadcastCtfPos, "g_broadcastCtfPos", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
 	{ &g_assignMissingCtfPos, "g_assignMissingCtfPos", "1", CVAR_ARCHIVE, 0, qfalse },

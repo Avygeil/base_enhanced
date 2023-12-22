@@ -3477,6 +3477,7 @@ extern vmCvar_t		g_vote_teamgen_require2VotesOnEachTeam;
 extern vmCvar_t		g_filterSlurs;
 
 extern vmCvar_t		g_addItems;
+extern vmCvar_t		g_addItemsWhitelist;
 
 extern vmCvar_t		g_broadcastCtfPos;
 extern vmCvar_t		g_assignMissingCtfPos;
