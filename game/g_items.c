@@ -3,6 +3,7 @@
 #include "g_local.h"
 #include "G2.h"
 #include "q_shared.h"
+#include "g_database.h"
 
 /*
 
@@ -2850,6 +2851,8 @@ free fall from their spawn points
 ================
 */
 qboolean canSpawnItemStartsolid = qfalse;
+qboolean doneSpawningBaseItems = qfalse;
+extern char *ParseItemName(const char *input);
 void FinishSpawningItem( gentity_t *ent ) {
 	trace_t		tr;
 	vec3_t		dest;
@@ -3032,6 +3035,26 @@ void FinishSpawningItem( gentity_t *ent ) {
 		ent->s.groundEntityNum = tr.entityNum;
 
 		G_SetOrigin( ent, tr.endpos );
+	}
+
+	if (ent->isBaseItem && ParseItemName(ent->classname)) {
+		changedItem_t *add = ListAdd(&level.baseItemsList, sizeof(changedItem_t));
+		add->ent = ent;
+		Q_strncpyz(add->itemType, ent->classname, sizeof(add->itemType));
+		VectorCopy(ent->s.origin, add->origin);
+		add->id = ent - g_entities; // the id number of the changedItem_t in level.baseItemsList is simply the original item's entity number (ent - g_entities)
+		add->isSuspended = !!(ent->spawnflags & ITMSF_SUSPEND);
+		if (g_deleteBaseItems.integer && DB_BaseItemIsDeleted(add, &add->baseItemDeleterId)) {
+			Com_Printf("FinishSpawningItem: automatically freeing base item entity %d (%s at %d %d %d)\n", ent - g_entities, ent->classname, (int)ent->s.origin[0], (int)ent->s.origin[1], (int)ent->s.origin[2]);
+			G_FreeEntity(ent);
+			add->baseItemDeleted = qtrue;
+			add->ent = NULL;
+			return;
+		}
+		else {
+			add->baseItemDeleted = qfalse;
+			add->baseItemDeleterId = ACCOUNT_ID_UNLINKED;
+		}
 	}
 
 	// team slaves and targeted items aren't present at start
@@ -3235,6 +3258,7 @@ void G_SpawnItem (gentity_t *ent, gitem_t *item) {
 	// spawns until the third frame so they can ride trains
 	ent->nextthink = level.time + FRAMETIME * 2;
 	ent->think = FinishSpawningItem;
+	ent->isBaseItem = doneSpawningBaseItems ? qfalse : qtrue;
 
 	ent->physicsBounce = 0.50;		// items are bouncy
 

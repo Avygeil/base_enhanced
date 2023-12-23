@@ -612,4 +612,14 @@ const char *const sqlCreateTables =
 "    originY REAL NOT NULL,"
 "    originZ REAL NOT NULL,"
 "    FOREIGN KEY (owner_account_id) REFERENCES accounts(account_id) ON DELETE CASCADE"
-");";
+"); "
+""
+"CREATE TABLE deletedbaseitems ("
+"    mapname TEXT NOT NULL,"
+"    itemtype TEXT NOT NULL,"
+"    owner_account_id INTEGER,"
+"    originX REAL NOT NULL,"
+"    originY REAL NOT NULL,"
+"    originZ REAL NOT NULL,"
+"    FOREIGN KEY (owner_account_id) REFERENCES accounts(account_id) ON DELETE CASCADE"
+"); ";

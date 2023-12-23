@@ -7039,16 +7039,16 @@ void DB_LoadAddedItems(void) {
 			break;
 		}
 
-		addedItem_t *newItem = ListAdd(&level.addedItemsList, sizeof(addedItem_t));
+		changedItem_t *newItem = ListAdd(&level.addedItemsList, sizeof(changedItem_t));
 
-		newItem->id = level.addedItemsList.size - 1;
+		newItem->id = MAX_GENTITIES + level.addedItemsList.size - 1;
 
 		const char *itemType = (const char *)sqlite3_column_text(statement, 0);
 		Q_strncpyz(newItem->itemType, itemType, sizeof(newItem->itemType));
 		gentity_t *itemEnt = G_Spawn();
 		itemEnt->classname = newItem->itemType;
 
-		newItem->ownerAccountId = sqlite3_column_int(statement, 1);
+		newItem->addedItemCreatorId = sqlite3_column_int(statement, 1);
 
 		vec3_t origin;
 		origin[0] = sqlite3_column_double(statement, 2);
@@ -7058,7 +7058,7 @@ void DB_LoadAddedItems(void) {
 		VectorCopy(origin, itemEnt->s.pos.trBase);
 		VectorCopy(origin, itemEnt->r.currentOrigin);
 
-		newItem->saved = qtrue;
+		newItem->addedItemSaved = qtrue;
 
 		if (!G_CallSpawn(itemEnt)) {
 			G_FreeEntity(itemEnt);
@@ -7090,7 +7090,7 @@ void DB_LoadAddedItems(void) {
 }
 
 
-qboolean DB_SaveAddedItem(addedItem_t *item) {
+qboolean DB_SaveAddedItem(changedItem_t *item) {
 	if (!item || !VALIDSTRING(item->itemType) || !level.mapname[0] || !item->ent) {
 		assert(qfalse);
 		return qfalse;
@@ -7107,7 +7107,7 @@ qboolean DB_SaveAddedItem(addedItem_t *item) {
 
 	sqlite3_bind_text(stmt, 1, level.mapname, -1, SQLITE_STATIC);
 	sqlite3_bind_text(stmt, 2, item->itemType, -1, SQLITE_STATIC);
-	sqlite3_bind_int(stmt, 3, item->ownerAccountId);
+	sqlite3_bind_int(stmt, 3, item->addedItemCreatorId);
 	sqlite3_bind_double(stmt, 4, item->ent->r.currentOrigin[0]);
 	sqlite3_bind_double(stmt, 5, item->ent->r.currentOrigin[1]);
 	sqlite3_bind_double(stmt, 6, item->ent->r.currentOrigin[2]);
@@ -7123,7 +7123,7 @@ qboolean DB_SaveAddedItem(addedItem_t *item) {
 	return qtrue;
 }
 
-qboolean DB_DeleteAddedItem(addedItem_t *item) {
+qboolean DB_DeleteAddedItem(changedItem_t *item) {
 	if (!item) {
 		assert(qfalse);
 		return qfalse;
@@ -7159,6 +7159,116 @@ qboolean DB_DeleteAddedItem(addedItem_t *item) {
 
 	if (rc != SQLITE_DONE) {
 		Com_Printf("DB_DeleteAddedItem: Failed to execute delete statement\n");
+		return qfalse;
+	}
+
+	return qtrue;
+}
+
+qboolean DB_BaseItemIsDeleted(changedItem_t *item, int *deleterAccountIdOut) {
+	if (!item || !deleterAccountIdOut) {
+		assert(qfalse);
+		return qfalse;
+	}
+
+	const char *sqlCheckDeleted =
+		"SELECT owner_account_id FROM deletedbaseitems "
+		"WHERE mapname = ?1 AND itemtype = ?2 AND "
+		"originX BETWEEN ?3 - 1 AND ?3 + 1 AND "
+		"originY BETWEEN ?4 - 1 AND ?4 + 1 AND "
+		"originZ BETWEEN ?5 - 1 AND ?5 + 1 LIMIT 1;";
+
+	sqlite3_stmt *statement;
+	int rc = trap_sqlite3_prepare_v2(dbPtr, sqlCheckDeleted, -1, &statement, NULL);
+	if (rc != SQLITE_OK) {
+		Com_Printf("DB_BaseItemIsDeleted: failed to prepare check statement\n");
+		return qfalse;
+	}
+
+	sqlite3_bind_text(statement, 1, level.mapname, -1, SQLITE_STATIC);
+	sqlite3_bind_text(statement, 2, item->itemType, -1, SQLITE_STATIC);
+	sqlite3_bind_double(statement, 3, item->origin[0]);
+	sqlite3_bind_double(statement, 4, item->origin[1]);
+	sqlite3_bind_double(statement, 5, item->origin[2]);
+
+	rc = trap_sqlite3_step(statement);
+
+	if (rc == SQLITE_ROW) {
+		if (deleterAccountIdOut)
+			*deleterAccountIdOut = sqlite3_column_int(statement, 0);
+		trap_sqlite3_finalize(statement);
+		return qtrue;
+	}
+
+	trap_sqlite3_finalize(statement);
+	return qfalse;
+}
+
+
+qboolean DB_DeleteBaseItem(changedItem_t *item) {
+	if (!item || !VALIDSTRING(item->itemType) || !level.mapname[0]) {
+		assert(qfalse);
+		return qfalse;
+	}
+
+	const char *sql = "INSERT INTO deletedbaseitems (mapname, itemtype, owner_account_id, originX, originY, originZ) VALUES (?, ?, ?, ?, ?, ?);";
+	sqlite3_stmt *stmt;
+	int rc = trap_sqlite3_prepare_v2(dbPtr, sql, -1, &stmt, NULL);
+
+	if (rc != SQLITE_OK) {
+		Com_Printf("DB_DeleteBaseItem: failed to prepare statement\n");
+		return qfalse;
+	}
+
+	sqlite3_bind_text(stmt, 1, level.mapname, -1, SQLITE_STATIC);
+	sqlite3_bind_text(stmt, 2, item->itemType, -1, SQLITE_STATIC);
+	sqlite3_bind_int(stmt, 3, item->baseItemDeleterId);
+	sqlite3_bind_double(stmt, 4, item->origin[0]);
+	sqlite3_bind_double(stmt, 5, item->origin[1]);
+	sqlite3_bind_double(stmt, 6, item->origin[2]);
+
+	rc = trap_sqlite3_step(stmt);
+	trap_sqlite3_finalize(stmt);
+
+	if (rc != SQLITE_DONE) {
+		Com_Printf("DB_DeleteBaseItem: failed to execute statement\n");
+		return qfalse;
+	}
+
+	return qtrue;
+}
+
+qboolean DB_UndeleteBaseItem(changedItem_t *item) {
+	if (!item || !VALIDSTRING(item->itemType) || !level.mapname[0]) {
+		assert(qfalse);
+		return qfalse;
+	}
+
+	const char *sqlUndelete =
+		"DELETE FROM deletedbaseitems "
+		"WHERE mapname = ?1 AND itemtype = ?2 AND "
+		"owner_account_id = ?3 AND "
+		"originX = ?4 AND originY = ?5 AND originZ = ?6";
+
+	sqlite3_stmt *statement;
+	int rc = trap_sqlite3_prepare_v2(dbPtr, sqlUndelete, -1, &statement, NULL);
+	if (rc != SQLITE_OK) {
+		Com_Printf("DB_UndeleteBaseItem: failed to prepare undelete statement\n");
+		return qfalse;
+	}
+
+	sqlite3_bind_text(statement, 1, level.mapname, -1, SQLITE_STATIC);
+	sqlite3_bind_text(statement, 2, item->itemType, -1, SQLITE_STATIC);
+	sqlite3_bind_int(statement, 3, item->baseItemDeleterId);
+	sqlite3_bind_double(statement, 4, item->origin[0]);
+	sqlite3_bind_double(statement, 5, item->origin[1]);
+	sqlite3_bind_double(statement, 6, item->origin[2]);
+
+	rc = trap_sqlite3_step(statement);
+	trap_sqlite3_finalize(statement);
+
+	if (rc != SQLITE_DONE) {
+		Com_Printf("DB_UndeleteBaseItem: failed to execute undelete statement\n");
 		return qfalse;
 	}
 

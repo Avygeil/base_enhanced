@@ -8014,7 +8014,7 @@ char *ParseItemName(const char *input) {
 	else if (stristr(input, "rep")) {
 		return "weapon_repeater";
 	}
-	else if (stristr(input, "gol")) {
+	else if (stristr(input, "gol") || stristr(input, "flec")) {
 		return "weapon_flechette";
 	}
 	else if (stristr(input, "roc")) {
@@ -8029,11 +8029,11 @@ char *ParseItemName(const char *input) {
 	else if (stristr(input, "min")) {
 		return "weapon_trip_mine";
 	}
-	else if (stristr(input, "detp")) {
+	else if (stristr(input, "detp") || stristr(input, "det_p")) {
 		return "weapon_det_pack";
 	}
 	else if (stristr(input, "armor") || stristr(input, "shield") || stristr(input, "sheild")) {
-		if (stristr(input, "large") || stristr(input, "big"))
+		if (stristr(input, "large") || stristr(input, "big") || stristr(input, "lrg"))
 			return "item_shield_lrg_instant";
 		else
 			return "item_shield_sm_instant";
@@ -8047,18 +8047,18 @@ char *ParseItemName(const char *input) {
 	return NULL;
 }
 
-char *ValidateUserTypedItem(const char *input) {
+char *ValidateUserTypedItem(const char *input, const char *whitelist) {
 	// parse what the user typed in
 	char *parsedInput = ParseItemName(input);
 	if (!parsedInput)
 		return NULL;
 
 	// if the whitelist is empty, return the result from above
-	if (!g_addItemsWhitelist.string[0] || g_addItemsWhitelist.string[0] == '0')
+	if (!VALIDSTRING(whitelist) || *whitelist == '0')
 		return parsedInput;
 
 	// parse each item in the whitelist and see if the one the user typed is whitelisted
-	char *whitelistCopy = strdup(g_addItemsWhitelist.string);
+	char *whitelistCopy = strdup(whitelist);
 	char *token = strtok(whitelistCopy, " ");
 	while (token) {
 		char *parsedWhitelistItem = ParseItemName(token);
@@ -8073,92 +8073,104 @@ char *ValidateUserTypedItem(const char *input) {
 	return NULL; // not whitelisted
 }
 
-const char *TableCallback_AddedItemId(void *rowContext, void *columnContext) {
+const char *TableCallback_ItemId(void *rowContext, void *columnContext) {
 	if (!rowContext) {
 		assert(qfalse);
 		return NULL;
 	}
-	addedItem_t *item = rowContext;
+	changedItem_t *item = rowContext;
 	return va("%d", item->id);
 }
 
-const char *TableCallback_AddedItemName(void *rowContext, void *columnContext) {
+const char *TableCallback_ItemName(void *rowContext, void *columnContext) {
 	if (!rowContext) {
 		assert(qfalse);
 		return NULL;
 	}
-	addedItem_t *item = rowContext;
-	if (!item->ent) {
-		assert(qfalse);
-		return NULL;
-	}
-	return va("%s", item->ent->classname);
+	changedItem_t *item = rowContext;
+	return va("%s", item->itemType);
 }
 
-const char *TableCallback_AddedItemCreator(void *rowContext, void *columnContext) {
+const char *TableCallback_ItemOwner(void *rowContext, void *columnContext) {
 	if (!rowContext) {
 		assert(qfalse);
 		return NULL;
 	}
-	addedItem_t *item = rowContext;
-	if (item->ownerAccountId == ACCOUNT_ID_UNLINKED)
+	changedItem_t *item = rowContext;
+	if (item->addedItemCreatorId == ACCOUNT_ID_UNLINKED)
 		return NULL;
 
 	account_t account = { 0 };
-	G_DBGetAccountByID(item->ownerAccountId, &account);
+	G_DBGetAccountByID(item->addedItemCreatorId, &account);
 	if (account.id == ACCOUNT_ID_UNLINKED)
 		return NULL;
 
 	return va("%s", account.name);
 }
 
-const char *TableCallback_AddedItemSaved(void *rowContext, void *columnContext) {
+const char *TableCallback_ItemDeleted(void *rowContext, void *columnContext) {
 	if (!rowContext) {
 		assert(qfalse);
 		return NULL;
 	}
-	addedItem_t *item = rowContext;
-	return item->saved ? "Yes" : "^1No";
+	changedItem_t *item = rowContext;
+	if (!item->baseItemDeleted)
+		return "No";
+
+	account_t account = { 0 };
+	G_DBGetAccountByID(item->baseItemDeleterId, &account);
+	if (account.id == ACCOUNT_ID_UNLINKED)
+		return "^1by <unknown>";
+
+	return va("^1by %s", account.name);
 }
 
-const char *TableCallback_AddedItemCoordinate(void *rowContext, void *columnContext) {
+const char *TableCallback_ItemSaved(void *rowContext, void *columnContext) {
 	if (!rowContext) {
 		assert(qfalse);
 		return NULL;
 	}
-	addedItem_t *item = rowContext;
-	if (!item->ent) {
+	changedItem_t *item = rowContext;
+	return item->addedItemSaved ? "Yes" : "^1No";
+}
+
+const char *TableCallback_ItemCoordinateSuspended(void *rowContext, void *columnContext) {
+	if (!rowContext) {
 		assert(qfalse);
 		return NULL;
 	}
+	changedItem_t *item = rowContext;
+	return item->isSuspended ? "Air" : "Ground";
+}
+
+const char *TableCallback_ItemCoordinate(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	changedItem_t *item = rowContext;
+
 	int axis = (int)columnContext;
 	assert(axis >= 0 && axis <= 2);
-	return va("%d", (int)roundf(item->ent->r.currentOrigin[axis]));
+
+	return va("%d", (int)roundf(item->origin[axis]));
 }
 
-const char *TableCallback_AddedItemDistanceToEntity(void *rowContext, void *columnContext) {
+const char *TableCallback_ItemDistanceToEntity(void *rowContext, void *columnContext) {
 	if (!rowContext || !columnContext) {
 		assert(qfalse);
 		return NULL;
 	}
-	addedItem_t *item = rowContext;
-	if (!item->ent) {
-		assert(qfalse);
-		return NULL;
-	}
+	changedItem_t *item = rowContext;
+
 	gentity_t *otherEnt = (gentity_t *)columnContext;
-	return va("%d", (int)roundf(Distance(item->ent->r.currentOrigin, otherEnt->r.currentOrigin)));
+	return va("%d", (int)roundf(Distance(item->origin, otherEnt->r.currentOrigin)));
 }
 
 extern qboolean G_CallSpawn(gentity_t *ent);
 extern qboolean canSpawnItemStartsolid;
 static void Cmd_Item_f(gentity_t *player) {
 	assert(player);
-
-	if (!g_addItems.integer) {
-		PrintIngame(player - g_entities, "Add items is disabled.\n");
-		return;
-	}
 
 	if (!player->client || !player->client->account || !(player->client->account->flags & ACCOUNTFLAG_ITEMLORD)) {
 		PrintIngame(player - g_entities, "You do not have permission to use this command.\n");
@@ -8170,116 +8182,241 @@ static void Cmd_Item_f(gentity_t *player) {
 		return;
 	}
 
+	if (InstagibEnabled()) {
+		PrintIngame(player - g_entities, "You cannot use this command during instagib.\n");
+		return;
+	}
+
 	const int args = trap_Argc();
 	char arg1[MAX_STRING_CHARS];
 
 	if (args < 2) {
 		PrintIngame(player - g_entities,
 			"Usage:\n" \
-			"^7item list                             - list all added items\n" \
-			"^9item add <item name> [optional x y z] - add a new item (optionally with coordinates)\n" \
-			"^7item delete <item id>                 - delete an added item\n" \
-			"^9item save <item id>                   - save an added item\n");
+			"^7item list                                                   - list added items\n" \
+			"^9item list base                                              - list base items, including deleted ones\n" \
+			"^7item add <item name> [optional air/ground] [optional x y z] - add item\n" \
+			"^9item save <added item id | all>                             - save added item(s)\n" \
+			"^7item delete <item id | allbase | alladded | all>            - delete item(s)\n" \
+			"^9item undelete <base item id | all>                          - undelete base item(s)^7\n"
+		);
 		return;
 	}
 
 	trap_Argv(1, arg1, sizeof(arg1));
 
 	if (!Q_stricmp(arg1, "list") || !Q_stricmp(arg1, "view")) {
-		if (level.addedItemsList.size <= 0) {
-			PrintIngame(player - g_entities, "There are no items.\n");
-			return;
+		qboolean listBaseItems = qfalse;
+		if (args > 2) {
+			char baseArgBuf[MAX_STRING_CHARS];
+			trap_Argv(2, baseArgBuf, sizeof(baseArgBuf));
+			if (!Q_stricmpn(baseArgBuf, "bas", 3))
+				listBaseItems = qtrue;
 		}
-		else {
-			PrintIngame(player - g_entities, "There are %d added items on %s:^7\n", level.addedItemsList.size, level.mapname);
 
-			Table *t = Table_Initialize(qtrue);
-
-			iterator_t iter;
-			ListIterate(&level.addedItemsList, &iter, qfalse);
-			while (IteratorHasNext(&iter)) {
-				addedItem_t *item = (addedItem_t *)IteratorNext(&iter);
-				Table_DefineRow(t, item);
+		if (listBaseItems) {
+			if (!g_deleteBaseItems.integer) {
+				PrintIngame(player - g_entities, "Deleted base items system is disabled.\n");
+				return;
 			}
 
-			Table_DefineColumn(t, "Id#", TableCallback_AddedItemId, NULL, qfalse, -1, 64);
-			Table_DefineColumn(t, "Name", TableCallback_AddedItemName, NULL, qtrue, -1, 64);
-			Table_DefineColumn(t, "Creator", TableCallback_AddedItemCreator, NULL, qtrue, -1, 64);
-			Table_DefineColumn(t, "Saved", TableCallback_AddedItemSaved, NULL, qtrue, -1, 64);
-			Table_DefineColumn(t, "X", TableCallback_AddedItemCoordinate, (void *)0, qtrue, -1, 64);
-			Table_DefineColumn(t, "Y", TableCallback_AddedItemCoordinate, (void *)1, qtrue, -1, 64);
-			Table_DefineColumn(t, "Z", TableCallback_AddedItemCoordinate, (void *)2, qtrue, -1, 64);
+			if (level.baseItemsList.size <= 0) {
+				PrintIngame(player - g_entities, "There are no base items.\nTo view added items, enter ^5item list^7.\n");
+				return;
+			}
+			else {
+				PrintIngame(player - g_entities, "There are %d base items on %s:^7\n", level.baseItemsList.size, level.mapname);
 
-			gentity_t temp;
-			VectorCopy(vec3_origin, temp.r.currentOrigin);
-			gentity_t *redFsEnt = G_ClosestEntity(&temp, isRedFlagstand);
-			if (redFsEnt)
-				Table_DefineColumn(t, "Dist/^1red^7 FS", TableCallback_AddedItemDistanceToEntity, redFsEnt, qtrue, -1, 64);
+				Table *t = Table_Initialize(qtrue);
 
-			gentity_t *blueFsEnt = G_ClosestEntity(&temp, isBlueFlagstand);
-			if (blueFsEnt)
-				Table_DefineColumn(t, "Dist/^4blue^7 FS", TableCallback_AddedItemDistanceToEntity, blueFsEnt, qtrue, -1, 64);
+				iterator_t iter;
+				ListIterate(&level.baseItemsList, &iter, qfalse);
+				while (IteratorHasNext(&iter)) {
+					changedItem_t *item = (changedItem_t *)IteratorNext(&iter);
+					Table_DefineRow(t, item);
+				}
 
-			const size_t bufSize = 16384;
-			char *buf = malloc(bufSize);
-			Table_WriteToBuffer(t, buf, bufSize, qtrue, -1);
-			Table_Destroy(t);
+				Table_DefineColumn(t, "Id #", TableCallback_ItemId, NULL, qfalse, -1, 64);
+				Table_DefineColumn(t, "Name", TableCallback_ItemName, NULL, qtrue, -1, 64);
+				Table_DefineColumn(t, "Deleted", TableCallback_ItemDeleted, NULL, qtrue, -1, 64);
+				Table_DefineColumn(t, "X", TableCallback_ItemCoordinate, (void *)0, qtrue, -1, 64);
+				Table_DefineColumn(t, "Y", TableCallback_ItemCoordinate, (void *)1, qtrue, -1, 64);
+				Table_DefineColumn(t, "Z", TableCallback_ItemCoordinate, (void *)2, qtrue, -1, 64);
 
-			PrintIngame(player - g_entities, buf);
-			free(buf);
+				gentity_t temp;
+				VectorCopy(vec3_origin, temp.r.currentOrigin);
+				gentity_t *redFsEnt = G_ClosestEntity(&temp, isRedFlagstand);
+				if (redFsEnt)
+					Table_DefineColumn(t, "Dist/^1red^7 FS", TableCallback_ItemDistanceToEntity, redFsEnt, qtrue, -1, 64);
+
+				gentity_t *blueFsEnt = G_ClosestEntity(&temp, isBlueFlagstand);
+				if (blueFsEnt)
+					Table_DefineColumn(t, "Dist/^4blue^7 FS", TableCallback_ItemDistanceToEntity, blueFsEnt, qtrue, -1, 64);
+
+				Table_DefineColumn(t, "Air/ground", TableCallback_ItemCoordinateSuspended, NULL, qtrue, -1, 64);
+
+				const size_t bufSize = 16384;
+				char *buf = malloc(bufSize);
+				Table_WriteToBuffer(t, buf, bufSize, qtrue, -1);
+				Table_Destroy(t);
+
+				PrintIngame(player - g_entities, buf);
+				free(buf);
+
+				PrintIngame(player - g_entities, "To view added items, enter ^5item list^7.\n");
+			}
+		}
+		else {
+			if (!g_addItems.integer) {
+				PrintIngame(player - g_entities, "Added items system is disabled.\n");
+				return;
+			}
+
+			if (level.addedItemsList.size <= 0) {
+				PrintIngame(player - g_entities, "There are no added items.\nTo view base items, enter ^5item list base^7.\n");
+				return;
+			}
+			else {
+				PrintIngame(player - g_entities, "There are %d added items on %s:^7\n", level.addedItemsList.size, level.mapname);
+
+				Table *t = Table_Initialize(qtrue);
+
+				iterator_t iter;
+				ListIterate(&level.addedItemsList, &iter, qfalse);
+				while (IteratorHasNext(&iter)) {
+					changedItem_t *item = (changedItem_t *)IteratorNext(&iter);
+					Table_DefineRow(t, item);
+				}
+
+				Table_DefineColumn(t, "Id #", TableCallback_ItemId, NULL, qfalse, -1, 64);
+				Table_DefineColumn(t, "Name", TableCallback_ItemName, NULL, qtrue, -1, 64);
+				Table_DefineColumn(t, "Creator", TableCallback_ItemOwner, NULL, qtrue, -1, 64);
+				Table_DefineColumn(t, "Saved", TableCallback_ItemSaved, NULL, qtrue, -1, 64);
+				Table_DefineColumn(t, "X", TableCallback_ItemCoordinate, (void *)0, qtrue, -1, 64);
+				Table_DefineColumn(t, "Y", TableCallback_ItemCoordinate, (void *)1, qtrue, -1, 64);
+				Table_DefineColumn(t, "Z", TableCallback_ItemCoordinate, (void *)2, qtrue, -1, 64);
+
+				gentity_t temp;
+				VectorCopy(vec3_origin, temp.r.currentOrigin);
+				gentity_t *redFsEnt = G_ClosestEntity(&temp, isRedFlagstand);
+				if (redFsEnt)
+					Table_DefineColumn(t, "Dist/^1red^7 FS", TableCallback_ItemDistanceToEntity, redFsEnt, qtrue, -1, 64);
+
+				gentity_t *blueFsEnt = G_ClosestEntity(&temp, isBlueFlagstand);
+				if (blueFsEnt)
+					Table_DefineColumn(t, "Dist/^4blue^7 FS", TableCallback_ItemDistanceToEntity, blueFsEnt, qtrue, -1, 64);
+
+				Table_DefineColumn(t, "Air/ground", TableCallback_ItemCoordinateSuspended, NULL, qtrue, -1, 64);
+
+				const size_t bufSize = 16384;
+				char *buf = malloc(bufSize);
+				Table_WriteToBuffer(t, buf, bufSize, qtrue, -1);
+				Table_Destroy(t);
+
+				PrintIngame(player - g_entities, buf);
+				free(buf);
+
+				PrintIngame(player - g_entities, "To view base items, enter ^5item list base^7.\n");
+			}
 		}
 	}
 	else if (!Q_stricmp(arg1, "save")) {
+		if (!g_addItems.integer) {
+			PrintIngame(player - g_entities, "Saving added items is disabled.\n");
+			return;
+		}
+
 		if (args < 3) {
-			PrintIngame(player - g_entities, "Usage: item save <item id>\n");
+			PrintIngame(player - g_entities, "Usage: item save <added item id>\n");
 			return;
 		}
 
 		char itemIdBuf[MAX_STRING_CHARS];
 		trap_Argv(2, itemIdBuf, sizeof(itemIdBuf));
-		if (!Q_isanumber(itemIdBuf)) {
-			PrintIngame(player - g_entities, "Usage: item save <item id>\n");
-			return;
-		}
-		int enteredId = atoi(itemIdBuf);
 
-		if (level.addedItemsList.size <= 0) {
-			PrintIngame(player - g_entities, "There are no items. Make some items first.\n");
-			return;
-		}
+		if (!Q_stricmpn(itemIdBuf, "all", 3)) {
+			int numNotSaved = 0, savedCount = 0, errorCount = 0;
 
-		iterator_t iter;
-		ListIterate(&level.addedItemsList, &iter, qfalse);
-		addedItem_t *found = NULL;
-		while (IteratorHasNext(&iter)) {
-			addedItem_t *item = (addedItem_t *)IteratorNext(&iter);
-			if (item->id == enteredId) {
-				found = item;
-				break;
+			if (level.addedItemsList.size <= 0) {
+				PrintIngame(player - g_entities, "There are no added items. Add some items first.\n");
+				return;
 			}
-		}
 
-		if (!found) {
-			PrintIngame(player - g_entities, "No item found with id %d\n", enteredId);
-			return;
-		}
+			iterator_t iter;
+			ListIterate(&level.addedItemsList, &iter, qfalse);
 
-		if (found->saved) {
-			PrintIngame(player - g_entities, "Item %d (%s at %d, %d, %d) is already saved.\n", found->id, found->ent->classname, (int)roundf(found->ent->r.currentOrigin[0]), (int)roundf(found->ent->r.currentOrigin[1]), (int)roundf(found->ent->r.currentOrigin[2]));
-			return;
-		}
+			while (IteratorHasNext(&iter)) {
+				changedItem_t *item = (changedItem_t *)IteratorNext(&iter);
+				if (item->addedItemSaved)
+					continue;
 
-		if (DB_SaveAddedItem(found)) {
-			PrintBasedOnAccountFlags(ACCOUNTFLAG_ITEMLORD, va("%s saved item %d (%s at %d, %d, %d) to database.\n", player->client->account->name, found->id, found->ent->classname, (int)roundf(found->ent->r.currentOrigin[0]), (int)roundf(found->ent->r.currentOrigin[1]), (int)roundf(found->ent->r.currentOrigin[2])));
-			found->saved = qtrue;
+				++numNotSaved;
+
+				if (DB_SaveAddedItem(item)) {
+					item->addedItemSaved = qtrue;
+					++savedCount;
+				}
+				else {
+					PrintIngame(player - g_entities, "Error saving added item %d (%s) to database!\n", item->id, item->itemType);
+					++errorCount;
+				}
+			}
+
+			if (numNotSaved)
+				PrintBasedOnAccountFlags(ACCOUNTFLAG_ITEMLORD, va("%s saved %d of %d unsaved added items to the database. Encountered %d errors.\n", player->client->account->name, savedCount, numNotSaved, errorCount));
+			else
+				PrintIngame(player - g_entities, "All added items are already saved.\n");
 		}
 		else {
-			PrintBasedOnAccountFlags(ACCOUNTFLAG_ITEMLORD, va("%s encountered an error saving item %d (%s at %d, %d, %d) to database!\n", player->client->account->name, found->id, found->ent->classname, (int)roundf(found->ent->r.currentOrigin[0]), (int)roundf(found->ent->r.currentOrigin[1]), (int)roundf(found->ent->r.currentOrigin[2])));
+			if (!Q_isanumber(itemIdBuf)) {
+				PrintIngame(player - g_entities, "Usage: item save <added item id>\n");
+				return;
+			}
+			int enteredId = atoi(itemIdBuf);
+
+			if (level.addedItemsList.size <= 0) {
+				PrintIngame(player - g_entities, "There are no added items. Add some items first.\n");
+				return;
+			}
+
+			iterator_t iter;
+			ListIterate(&level.addedItemsList, &iter, qfalse);
+			changedItem_t *found = NULL;
+			while (IteratorHasNext(&iter)) {
+				changedItem_t *item = (changedItem_t *)IteratorNext(&iter);
+				if (item->id == enteredId) {
+					found = item;
+					break;
+				}
+			}
+
+			if (!found) {
+				PrintIngame(player - g_entities, "No added item found with id %d\n", enteredId);
+				return;
+			}
+
+			if (found->addedItemSaved) {
+				PrintIngame(player - g_entities, "Added item %d (%s at %d, %d, %d) is already saved.\n", found->id, found->itemType, (int)roundf(found->origin[0]), (int)roundf(found->origin[1]), (int)roundf(found->origin[2]));
+				return;
+			}
+
+			if (DB_SaveAddedItem(found)) {
+				PrintBasedOnAccountFlags(ACCOUNTFLAG_ITEMLORD, va("%s saved added item %d (%s at %d, %d, %d) to database.\n", player->client->account->name, found->id, found->itemType, (int)roundf(found->origin[0]), (int)roundf(found->origin[1]), (int)roundf(found->origin[2])));
+				found->addedItemSaved = qtrue;
+			}
+			else {
+				PrintBasedOnAccountFlags(ACCOUNTFLAG_ITEMLORD, va("%s encountered an error saving added item %d (%s at %d, %d, %d) to database!\n", player->client->account->name, found->id, found->itemType, (int)roundf(found->origin[0]), (int)roundf(found->origin[1]), (int)roundf(found->origin[2])));
+			}
 		}
 	}
 	else if (!Q_stricmp(arg1, "new") || !Q_stricmp(arg1, "create") || !Q_stricmp(arg1, "make") || !Q_stricmp(arg1, "spawn") || !Q_stricmp(arg1, "add")) {
-		if (args < 3 || args == 4 || args == 5) {
-			PrintIngame(player - g_entities, "Usage: item new <item name> [optional x y z, otherwise uses your location]\n");
+		if (!g_addItems.integer) {
+			PrintIngame(player - g_entities, "Adding items is disabled.\n");
+			return;
+		}
+
+		if (args == 2 || args == 5 || args == 6) {
+			PrintIngame(player - g_entities, "Usage: item new <item name> [optional air/ground] [optional x y z, otherwise uses your location]\n");
 			return;
 		}
 
@@ -8290,7 +8427,7 @@ static void Cmd_Item_f(gentity_t *player) {
 
 		char itemNameInput[MAX_STRING_CHARS];
 		trap_Argv(2, itemNameInput, sizeof(itemNameInput));
-		const char *itemName = ValidateUserTypedItem(itemNameInput);
+		const char *itemName = ValidateUserTypedItem(itemNameInput, g_addItemsWhitelist.string);
 		if (!VALIDSTRING(itemName)) {
 			if (g_addItemsWhitelist.string[0] && g_addItemsWhitelist.string[0] != '0')
 				PrintIngame(player - g_entities, "'%s' is an invalid or impermissible item name. Permissible items: %s\n", itemNameInput, g_addItemsWhitelist.string);
@@ -8299,12 +8436,22 @@ static void Cmd_Item_f(gentity_t *player) {
 			return;
 		}
 
+		qboolean forceGround = qfalse, forceSuspended = qfalse;
+		if (args >= 4) {
+			char airGroundBuf[64];
+			trap_Argv(3, airGroundBuf, sizeof(airGroundBuf));
+			if (strchr(airGroundBuf, 'a'))
+				forceGround = qtrue;
+			else if (strchr(airGroundBuf, 'g'))
+				forceSuspended = qtrue;
+		}
+
 		vec3_t origin;
-		if (args > 3) {
+		if (args >= 7) {
 			char xCoordBuf[64], yCoordBuf[64], zCoordBuf[64];
-			trap_Argv(3, xCoordBuf, sizeof(xCoordBuf));
-			trap_Argv(4, yCoordBuf, sizeof(yCoordBuf));
-			trap_Argv(5, zCoordBuf, sizeof(zCoordBuf));
+			trap_Argv(4, xCoordBuf, sizeof(xCoordBuf));
+			trap_Argv(5, yCoordBuf, sizeof(yCoordBuf));
+			trap_Argv(6, zCoordBuf, sizeof(zCoordBuf));
 
 			if (!Q_isanumber(xCoordBuf) || !Q_isanumber(yCoordBuf) || !Q_isanumber(zCoordBuf)) {
 				PrintIngame(player - g_entities, "Coordinates must be numbers.\n");
@@ -8330,11 +8477,27 @@ static void Cmd_Item_f(gentity_t *player) {
 
 		if (!G_CallSpawn(itemEnt)) {
 			G_FreeEntity(itemEnt);
-			PrintIngame(player - g_entities, "Error spawning item!\n");
+			PrintIngame(player - g_entities, "Error spawning added item!\n");
 			return;
 		}
 
-		if (player->client->ps.groundEntityNum == ENTITYNUM_NONE || player->client->ps.pm_type == PM_SPECTATOR)
+		qboolean suspended;
+		if (forceSuspended) {
+			suspended = qtrue;
+		}
+		else if (forceGround) {
+			suspended = qfalse;
+		}
+		else { // try to determine automatically whether it should be suspended
+			if (args < 7 && player->client->ps.groundEntityNum == ENTITYNUM_NONE)
+				suspended = qtrue;
+			else if (args < 7 && player->client->ps.pm_type == PM_SPECTATOR)
+				suspended = qtrue;
+			else
+				suspended = qfalse;
+		}
+
+		if (suspended)
 			itemEnt->spawnflags |= 1; // ITMSF_SUSPEND from g_items.c; allow it to be in the air
 
 		canSpawnItemStartsolid = qtrue;
@@ -8347,30 +8510,32 @@ static void Cmd_Item_f(gentity_t *player) {
 		itemEnt->nextthink = level.time + 1000;
 		itemEnt->think = RespawnItem;
 
-		int id = 0;
+		int id = MAX_GENTITIES;
 		if (level.addedItemsList.size) {
 			iterator_t iter;
 			ListIterate(&level.addedItemsList, &iter, qfalse);
 			while (IteratorHasNext(&iter)) {
-				addedItem_t *thisItem = IteratorNext(&iter);
+				changedItem_t *thisItem = IteratorNext(&iter);
 				if (thisItem->id > id)
 					id = thisItem->id;
 			}
 			++id;
 		}
 
-		addedItem_t *add = ListAdd(&level.addedItemsList, sizeof(addedItem_t));
+		changedItem_t *add = ListAdd(&level.addedItemsList, sizeof(changedItem_t));
 		add->ent = itemEnt;
 		add->id = id;
-		add->ownerAccountId = player->client->account->id;
+		add->isSuspended = suspended;
+		VectorCopy(origin, add->origin);
+		add->addedItemCreatorId = player->client->account->id;
 		Q_strncpyz(add->itemType, itemName, sizeof(add->itemType));
 		itemEnt->classname = add->itemType;
 		static qboolean printedWarning = qfalse;
 		if (printedWarning) {
-			PrintBasedOnAccountFlags(ACCOUNTFLAG_ITEMLORD, va("%s added %s with id %d at %d, %d, %d.\n", player->client->account->name, itemEnt->classname, id, (int)roundf(itemEnt->r.currentOrigin[0]), (int)roundf(itemEnt->r.currentOrigin[1]), (int)roundf(itemEnt->r.currentOrigin[2])));
+			PrintBasedOnAccountFlags(ACCOUNTFLAG_ITEMLORD, va("%s added %s with id %d at %d, %d, %d.\n", player->client->account->name, add->itemType, id, (int)roundf(add->origin[0]), (int)roundf(add->origin[1]), (int)roundf(add->origin[2])));
 		}
 		else {
-			PrintBasedOnAccountFlags(ACCOUNTFLAG_ITEMLORD, va("%s added %s with id %d at %d, %d, %d. Items are not saved after map change/restart unless you enter ^5item save^7.\n", player->client->account->name, itemEnt->classname, id, (int)roundf(itemEnt->r.currentOrigin[0]), (int)roundf(itemEnt->r.currentOrigin[1]), (int)roundf(itemEnt->r.currentOrigin[2])));
+			PrintBasedOnAccountFlags(ACCOUNTFLAG_ITEMLORD, va("%s added %s with id %d at %d, %d, %d. Items are not saved after map change/restart unless you enter ^5item save^7.\n", player->client->account->name, add->itemType, id, (int)roundf(add->origin[0]), (int)roundf(add->origin[1]), (int)roundf(add->origin[2])));
 			printedWarning = qtrue;
 		}
 	}
@@ -8382,53 +8547,363 @@ static void Cmd_Item_f(gentity_t *player) {
 
 		char itemIdBuf[MAX_STRING_CHARS];
 		trap_Argv(2, itemIdBuf, sizeof(itemIdBuf));
-		if (!Q_isanumber(itemIdBuf)) {
-			PrintIngame(player - g_entities, "Usage: item delete <item id>\n");
-			return;
-		}
-		int enteredId = atoi(itemIdBuf);
 
-		if (level.addedItemsList.size <= 0) {
-			PrintIngame(player - g_entities, "There are no items. Make some items first.\n");
-			return;
-		}
+		qboolean deleteAllBase = !Q_stricmpn(itemIdBuf, "allbase", 7);
+		qboolean deleteAllAdded = !Q_stricmpn(itemIdBuf, "alladded", 8);
+		qboolean deleteAll = !Q_stricmpn(itemIdBuf, "all", 3) && !deleteAllAdded && !deleteAllBase;
+		if (deleteAllBase || deleteAllAdded || deleteAll) {
+			if (deleteAllBase || deleteAll) {
+				if (!g_deleteBaseItems.integer) {
+					PrintIngame(player - g_entities, "Deleting base items is disabled.\n");
+				}
+				else {
+					if (level.baseItemsList.size <= 0) {
+						PrintIngame(player - g_entities, "No base items available to delete.\n");
+					}
+					else {
+						int nonDeletedBaseItemCount = 0, deletedCount = 0, errorCount = 0;
+						iterator_t iter;
+						ListIterate(&level.baseItemsList, &iter, qfalse);
 
-		iterator_t iter;
-		ListIterate(&level.addedItemsList, &iter, qfalse);
-		addedItem_t *found = NULL;
-		while (IteratorHasNext(&iter)) {
-			addedItem_t *item = (addedItem_t *)IteratorNext(&iter);
-			if (item->id == enteredId) {
-				found = item;
-				break;
+						while (IteratorHasNext(&iter)) {
+							changedItem_t *item = (changedItem_t *)IteratorNext(&iter);
+
+							if (item->baseItemDeleted)
+								continue;
+
+							++nonDeletedBaseItemCount;
+
+							if (g_deleteBaseItemsWhitelist.string[0] && g_deleteBaseItemsWhitelist.string[0] != '0') {
+								char *whitelistResult = ValidateUserTypedItem(item->itemType, g_deleteBaseItemsWhitelist.string);
+								if (!VALIDSTRING(whitelistResult)) {
+									PrintIngame(player - g_entities, "Base item %d (%s) is not allowed to be deleted based on whitelist.\n", item->id, item->itemType);
+									++errorCount;
+									continue;
+								}
+							}
+
+							G_FreeEntity(item->ent);
+							item->baseItemDeleted = qtrue;
+							item->baseItemDeleterId = player->client->account->id;
+							item->ent = NULL;
+
+							if (!DB_DeleteBaseItem(item)) {
+								PrintIngame(player - g_entities, "Error in database operation for deleting base item %d (%s).\n", item->id, item->itemType);
+								++errorCount;
+							}
+							else {
+								++deletedCount;
+							}
+						}
+
+						if (nonDeletedBaseItemCount == 0)
+							PrintIngame(player - g_entities, "There are no non-deleted base items to delete.\n");
+						else if (deletedCount > 0 || errorCount > 0)
+							PrintBasedOnAccountFlags(ACCOUNTFLAG_ITEMLORD, va("%s deleted %d base items. Encountered %d errors.\n", player->client->account->name, deletedCount, errorCount));
+					}
+				}
 			}
-		}
 
-		if (!found) {
-			PrintIngame(player - g_entities, "No item found with id %d\n", enteredId);
-			return;
-		}
 
-		if (found->saved) {
-			if (DB_DeleteAddedItem(found))
-				PrintBasedOnAccountFlags(ACCOUNTFLAG_ITEMLORD, va("%s successfully deleted saved item %d (%s at %d, %d, %d) from database.\n", player->client->account->name, found->id, found->ent->classname, (int)roundf(found->ent->r.currentOrigin[0]), (int)roundf(found->ent->r.currentOrigin[1]), (int)roundf(found->ent->r.currentOrigin[2])));
-			else
-					PrintBasedOnAccountFlags(ACCOUNTFLAG_ITEMLORD, va("%s encountered an error deleting saved item %d (%s at %d, %d, %d) from database!\n", player->client->account->name, found->id, found->ent->classname, (int)roundf(found->ent->r.currentOrigin[0]), (int)roundf(found->ent->r.currentOrigin[1]), (int)roundf(found->ent->r.currentOrigin[2])));
+
+			if (deleteAllAdded || deleteAll) {
+				if (!g_addItems.integer) {
+					PrintIngame(player - g_entities, "Deleting added items is disabled.\n");
+				}
+				else {
+					if (level.addedItemsList.size <= 0) {
+						PrintIngame(player - g_entities, "No added items available to delete.\n");
+					}
+					else {
+						int deletedCount = 0, errorCount = 0;
+						iterator_t iter;
+						ListIterate(&level.addedItemsList, &iter, qfalse);
+
+						while (IteratorHasNext(&iter)) {
+							changedItem_t *item = (changedItem_t *)IteratorNext(&iter);
+
+							if (item->addedItemSaved) {
+								if (!DB_DeleteAddedItem(item)) {
+									PrintIngame(player - g_entities, "Error deleting saved added item %d (%s) from database.\n", item->id, item->itemType);
+									++errorCount;
+								}
+								else {
+									++deletedCount;
+								}
+							}
+							else {
+								++deletedCount;
+							}
+
+							G_FreeEntity(item->ent);
+							ListRemove(&level.addedItemsList, item);
+						}
+
+						if (deletedCount > 0 || errorCount > 0)
+							PrintBasedOnAccountFlags(ACCOUNTFLAG_ITEMLORD, va("%s deleted %d added items. Encountered %d errors.\n", player->client->account->name, deletedCount, errorCount));
+					}
+				}
+			}
+
 		}
 		else {
-			PrintBasedOnAccountFlags(ACCOUNTFLAG_ITEMLORD, va("%s deleted usaved item %d (%s at %d, %d, %d).\n", player->client->account->name, found->id, found->ent->classname, (int)roundf(found->ent->r.currentOrigin[0]), (int)roundf(found->ent->r.currentOrigin[1]), (int)roundf(found->ent->r.currentOrigin[2])));
+			if (!Q_isanumber(itemIdBuf)) {
+				PrintIngame(player - g_entities, "Usage: item delete <item id>\n");
+				return;
+			}
+			int enteredId = atoi(itemIdBuf);
+
+			if (enteredId < MAX_GENTITIES) { // deleting a base item
+				if (level.baseItemsList.size <= 0) {
+					PrintIngame(player - g_entities, "No item found with id %d.\n", enteredId);
+					return;
+				}
+
+				iterator_t iter;
+				ListIterate(&level.baseItemsList, &iter, qfalse);
+				changedItem_t *found = NULL;
+				while (IteratorHasNext(&iter)) {
+					changedItem_t *item = (changedItem_t *)IteratorNext(&iter);
+					if (item->id == enteredId) {
+						found = item;
+						break;
+					}
+				}
+
+				if (!found) {
+					PrintIngame(player - g_entities, "No item found with id %d.\n", enteredId);
+					return;
+				}
+
+				if (!g_deleteBaseItems.integer) {
+					PrintIngame(player - g_entities, "Deleting base items is disabled.\n");
+					return;
+				}
+
+				if (found->baseItemDeleted) {
+					PrintIngame(player - g_entities, "Base item %d (%s at %d %d %d) was already deleted. To undelete it, enter ^5item undelete %d^7.\n", found->id, found->itemType, (int)roundf(found->origin[0]), (int)roundf(found->origin[1]), (int)roundf(found->origin[2]), found->id);
+					return;
+				}
+
+				if (g_deleteBaseItemsWhitelist.string[0] && g_deleteBaseItemsWhitelist.string[0] != '0') {
+					char *whitelistResult = ValidateUserTypedItem(found->itemType, g_deleteBaseItemsWhitelist.string);
+					if (!VALIDSTRING(whitelistResult)) {
+						PrintIngame(player - g_entities, "The selected base item is of an invalid or impermissible type for deletion. Permissible base items for deletion: %s\n", g_deleteBaseItemsWhitelist.string);
+						return;
+					}
+				}
+
+				G_FreeEntity(found->ent);
+				found->baseItemDeleted = qtrue;
+				found->baseItemDeleterId = player->client->account->id;
+				found->ent = NULL;
+
+				if (DB_DeleteBaseItem(found))
+					PrintBasedOnAccountFlags(ACCOUNTFLAG_ITEMLORD, va("%s successfully deleted base item %d (%s at %d, %d, %d).\n", player->client->account->name, found->id, found->itemType, (int)roundf(found->origin[0]), (int)roundf(found->origin[1]), (int)roundf(found->origin[2])));
+				else
+					PrintBasedOnAccountFlags(ACCOUNTFLAG_ITEMLORD, va("%s encountered an error deleting base item %d (%s at %d, %d, %d)!\n", player->client->account->name, found->id, found->itemType, (int)roundf(found->origin[0]), (int)roundf(found->origin[1]), (int)roundf(found->origin[2])));
+			}
+			else { // deleting an added item
+				if (level.addedItemsList.size <= 0) {
+					PrintIngame(player - g_entities, "No item found with id %d.\n", enteredId);
+					return;
+				}
+
+				iterator_t iter;
+				ListIterate(&level.addedItemsList, &iter, qfalse);
+				changedItem_t *found = NULL;
+				while (IteratorHasNext(&iter)) {
+					changedItem_t *item = (changedItem_t *)IteratorNext(&iter);
+					if (item->id == enteredId) {
+						found = item;
+						break;
+					}
+				}
+
+				if (!found) {
+					PrintIngame(player - g_entities, "No item found with id %d.\n", enteredId);
+					return;
+				}
+
+				if (!g_addItems.integer) {
+					PrintIngame(player - g_entities, "Deleting added items is disabled.\n");
+					return;
+				}
+
+				if (found->addedItemSaved) {
+					if (DB_DeleteAddedItem(found))
+						PrintBasedOnAccountFlags(ACCOUNTFLAG_ITEMLORD, va("%s successfully deleted saved item %d (%s at %d, %d, %d) from database.\n", player->client->account->name, found->id, found->itemType, (int)roundf(found->origin[0]), (int)roundf(found->origin[1]), (int)roundf(found->origin[2])));
+					else
+						PrintBasedOnAccountFlags(ACCOUNTFLAG_ITEMLORD, va("%s encountered an error deleting saved item %d (%s at %d, %d, %d) from database!\n", player->client->account->name, found->id, found->itemType, (int)roundf(found->origin[0]), (int)roundf(found->origin[1]), (int)roundf(found->origin[2])));
+				}
+				else {
+					PrintBasedOnAccountFlags(ACCOUNTFLAG_ITEMLORD, va("%s deleted usaved item %d (%s at %d, %d, %d).\n", player->client->account->name, found->id, found->itemType, (int)roundf(found->origin[0]), (int)roundf(found->origin[1]), (int)roundf(found->origin[2])));
+				}
+
+				G_FreeEntity(found->ent);
+				ListRemove(&level.addedItemsList, found);
+			}
+		}
+	}
+	else if (!Q_stricmpn(arg1, "und", 3) || !Q_stricmpn(arg1, "unr", 3)) {
+		if (!g_deleteBaseItems.integer) {
+			PrintIngame(player - g_entities, "Undeleting base items is disabled.\n");
+			return;
 		}
 
-		G_FreeEntity(found->ent);
-		ListRemove(&level.addedItemsList, found);
+		if (args < 3) {
+			PrintIngame(player - g_entities, "Usage: item undelete <base item id>\n");
+			return;
+		}
+
+		char itemIdBuf[MAX_STRING_CHARS];
+		trap_Argv(2, itemIdBuf, sizeof(itemIdBuf));
+
+		if (!Q_stricmpn(itemIdBuf, "all", 3)) {
+			if (level.baseItemsList.size <= 0) {
+				PrintIngame(player - g_entities, "No base items available to undelete.\n");
+				return;
+			}
+
+			int numAvailableToUndelete = 0, undeletedCount = 0, errorCount = 0;
+			iterator_t iter;
+			ListIterate(&level.baseItemsList, &iter, qfalse);
+
+			while (IteratorHasNext(&iter)) {
+				changedItem_t *item = (changedItem_t *)IteratorNext(&iter);
+				if (!item->baseItemDeleted)
+					continue;
+
+				++numAvailableToUndelete;
+				gentity_t *itemEnt = G_Spawn();
+				VectorCopy(item->origin, itemEnt->s.origin);
+				VectorCopy(item->origin, itemEnt->s.pos.trBase);
+				VectorCopy(item->origin, itemEnt->r.currentOrigin);
+				itemEnt->classname = (char *)item->itemType;
+
+				if (!G_CallSpawn(itemEnt)) {
+					G_FreeEntity(itemEnt);
+					PrintIngame(player - g_entities, "Error spawning newly undeleted base item %d (%s)!\n", item->id, item->itemType);
+					++errorCount;
+					continue;
+				}
+
+				if (item->isSuspended)
+					itemEnt->spawnflags |= 1;
+
+				canSpawnItemStartsolid = qtrue;
+				FinishSpawningItem(itemEnt);
+				canSpawnItemStartsolid = qfalse;
+
+				itemEnt->s.eFlags |= EF_NODRAW;
+				itemEnt->r.svFlags |= SVF_NOCLIENT;
+				itemEnt->r.contents = 0;
+				itemEnt->nextthink = level.time + 1000;
+				itemEnt->think = RespawnItem;
+
+				item->baseItemDeleted = qfalse;
+				item->baseItemDeleterId = ACCOUNT_ID_UNLINKED;
+				item->ent = itemEnt;
+
+				if (DB_UndeleteBaseItem(item)) {
+					++undeletedCount;
+				}
+				else {
+					PrintIngame(player - g_entities, "Error in database operation for undeleting base item %d (%s).\n", item->id, item->itemType);
+					++errorCount;
+				}
+			}
+
+			if (numAvailableToUndelete)
+				PrintBasedOnAccountFlags(ACCOUNTFLAG_ITEMLORD, va("%s successfully undeleted %d base items. Encountered %d errors.\n", player->client->account->name, undeletedCount, errorCount));
+			else
+				PrintIngame(player - g_entities, "No base items available to undelete.\n");
+		}
+		else {
+			if (!Q_isanumber(itemIdBuf)) {
+				PrintIngame(player - g_entities, "Usage: item undelete <base item id>\n");
+				return;
+			}
+			int enteredId = atoi(itemIdBuf);
+
+			if (enteredId >= MAX_GENTITIES) {
+				PrintIngame(player - g_entities, "This command is for undeleting base items only.\n");
+				return;
+			}
+
+			if (level.baseItemsList.size <= 0) {
+				PrintIngame(player - g_entities, "No base item found with id %d.\n", enteredId);
+				return;
+			}
+
+			iterator_t iter;
+			ListIterate(&level.baseItemsList, &iter, qfalse);
+			changedItem_t *found = NULL;
+			while (IteratorHasNext(&iter)) {
+				changedItem_t *item = (changedItem_t *)IteratorNext(&iter);
+				if (item->id == enteredId) {
+					found = item;
+					break;
+				}
+			}
+
+			if (!found) {
+				PrintIngame(player - g_entities, "No base item found with id %d.\n", enteredId);
+				return;
+			}
+
+			if (!found->baseItemDeleted) {
+				PrintIngame(player - g_entities, "Base item %d (%s at %d %d %d) is not deleted. To delete it, enter ^5item delete %d^7.\n", found->id, found->itemType, (int)roundf(found->origin[0]), (int)roundf(found->origin[1]), (int)roundf(found->origin[2]), found->id);
+				return;
+			}
+
+			gentity_t *itemEnt = G_Spawn();
+			// NOTE: the new entity might have a different entity number (itemEnt - g_entities) from the original,
+			// but the changedItem_t in level.baseItemsList retains its original id (the entity number of the original entity)
+			VectorCopy(found->origin, itemEnt->s.origin);
+			VectorCopy(found->origin, itemEnt->s.pos.trBase);
+			VectorCopy(found->origin, itemEnt->r.currentOrigin);
+			itemEnt->classname = (char *)found->itemType;
+
+			if (!G_CallSpawn(itemEnt)) {
+				G_FreeEntity(itemEnt);
+				PrintIngame(player - g_entities, "Error spawning undeleted item!\n");
+				return;
+			}
+
+			if (found->isSuspended)
+				itemEnt->spawnflags |= 1; // ITMSF_SUSPEND from g_items.c; allow it to be in the air
+
+			canSpawnItemStartsolid = qtrue;
+			FinishSpawningItem(itemEnt);
+			canSpawnItemStartsolid = qfalse;
+
+			itemEnt->s.eFlags |= EF_NODRAW;
+			itemEnt->r.svFlags |= SVF_NOCLIENT;
+			itemEnt->r.contents = 0;
+			itemEnt->nextthink = level.time + 1000;
+			itemEnt->think = RespawnItem;
+
+			found->baseItemDeleted = qfalse;
+			found->baseItemDeleterId = ACCOUNT_ID_UNLINKED;
+			found->ent = itemEnt;
+
+			if (DB_UndeleteBaseItem(found))
+				PrintBasedOnAccountFlags(ACCOUNTFLAG_ITEMLORD, va("%s successfully undeleted base item %d (%s at %d, %d, %d).\n", player->client->account->name, found->id, found->itemType, (int)roundf(found->origin[0]), (int)roundf(found->origin[1]), (int)roundf(found->origin[2])));
+			else
+				PrintBasedOnAccountFlags(ACCOUNTFLAG_ITEMLORD, va("%s encountered an error undeleting base item %d (%s at %d, %d, %d)!\n", player->client->account->name, found->id, found->itemType, (int)roundf(found->origin[0]), (int)roundf(found->origin[1]), (int)roundf(found->origin[2])));
+		}
 	}
 	else {
 		PrintIngame(player - g_entities,
 			"Usage:\n" \
-			"^7item list                             - list all added items\n" \
-			"^9item add <item name> [optional x y z] - add a new item (optionally with coordinates)\n" \
-			"^7item delete <item id>                 - delete an added item\n" \
-			"^9item save <item id>                   - save an added item\n");
+			"^7item list                                                   - list added items\n" \
+			"^9item list base                                              - list base items, including deleted ones\n" \
+			"^7item add <item name> [optional air/ground] [optional x y z] - add item\n" \
+			"^9item save <added item id | all>                             - save added item(s)\n" \
+			"^7item delete <item id | allbase | alladded>                  - delete item(s)\n" \
+			"^9item undelete <base item id | all>                          - undelete base item(s)^7\n"
+		);
 		return;
 	}
 }

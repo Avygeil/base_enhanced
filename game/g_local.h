@@ -490,6 +490,7 @@ struct gentity_s {
 	gentity_t	*twin;
 
 	aimPracticePack_t	*isAimPracticePack;
+	qboolean isBaseItem;
 
 	gentity_t	*aimPracticeEntBeingUsed;
 	enum {
@@ -2107,6 +2108,7 @@ typedef struct {
 	list_t captureList;
 
 	list_t addedItemsList;
+	list_t baseItemsList;
 
 	struct {
 		qboolean valid;
@@ -2288,13 +2290,21 @@ void RegisterItem( gitem_t *item );
 void SaveRegisteredItems( void );
 
 typedef struct {
-	node_t		node;
-	int			id;
-	gentity_t	*ent;
-	qboolean	saved;
-	int			ownerAccountId;
-	char		itemType[64];
-} addedItem_t;
+	node_t			node;
+	int				id;
+	gentity_t		*ent;
+	union {
+		qboolean	addedItemSaved;
+		qboolean	baseItemDeleted;
+	};
+	union {
+		int			addedItemCreatorId;
+		int			baseItemDeleterId;
+	};
+	char			itemType[64];
+	vec3_t			origin;
+	qboolean		isSuspended;
+} changedItem_t;
 
 #define ADDEDITEM_LIMIT_PER_MAP (128)
 
@@ -3478,6 +3488,8 @@ extern vmCvar_t		g_filterSlurs;
 
 extern vmCvar_t		g_addItems;
 extern vmCvar_t		g_addItemsWhitelist;
+extern vmCvar_t		g_deleteBaseItems;
+extern vmCvar_t		g_deleteBaseItemsWhitelist;
 
 extern vmCvar_t		g_broadcastCtfPos;
 extern vmCvar_t		g_assignMissingCtfPos;

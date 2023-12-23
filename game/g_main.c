@@ -534,6 +534,8 @@ vmCvar_t	g_filterSlurs;
 
 vmCvar_t	g_addItems;
 vmCvar_t	g_addItemsWhitelist;
+vmCvar_t	g_deleteBaseItems;
+vmCvar_t	g_deleteBaseItemsWhitelist;
 
 vmCvar_t	g_broadcastCtfPos;
 vmCvar_t	g_assignMissingCtfPos;
@@ -1096,6 +1098,8 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_addItems, "g_addItems", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
 	{ &g_addItemsWhitelist, "g_addItemsWhitelist", "", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_deleteBaseItems, "g_deleteBaseItems", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
+	{ &g_deleteBaseItemsWhitelist, "g_deleteBaseItemsWhitelist", "", CVAR_ARCHIVE, 0, qfalse },
 
 	{ &g_broadcastCtfPos, "g_broadcastCtfPos", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
 	{ &g_assignMissingCtfPos, "g_assignMissingCtfPos", "1", CVAR_ARCHIVE, 0, qfalse },
@@ -1885,6 +1889,7 @@ extern void G_LoadVoteMapsPools(void);
 extern void InitUnhandledExceptionFilter();
 extern void G_LoadHelpFile( const char *filename );
 extern const char *G_GetArenaInfoByMap( char *map );
+extern qboolean doneSpawningBaseItems;
 
 void G_InitGame( int levelTime, int randomSeed, int restart, void *serverDbPtr ) {
 	int					i;
@@ -2113,7 +2118,9 @@ void G_InitGame( int levelTime, int randomSeed, int restart, void *serverDbPtr )
 	navCalculatePaths	= ( trap_Nav_Load( mapname.string, ckSum.integer ) == qfalse );
 
 	// parse the key/value pairs and spawn gentities
+	doneSpawningBaseItems = qfalse; // should already be qfalse but whatever
 	G_SpawnEntitiesFromString(qfalse);
+	doneSpawningBaseItems = qtrue;
 
 	// general initialization
 	G_FindTeams();
@@ -2441,6 +2448,7 @@ void G_ShutdownGame( int restart ) {
 	ListClear(&level.captureList);
 	ListClear(&level.fuckVoteList);
 	ListClear(&level.addedItemsList);
+	ListClear(&level.baseItemsList);
 
 	ListIterate(&level.slurList, &iter, qfalse);
 	while (IteratorHasNext(&iter)) {
