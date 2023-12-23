@@ -7247,8 +7247,9 @@ qboolean DB_UndeleteBaseItem(changedItem_t *item) {
 	const char *sqlUndelete =
 		"DELETE FROM deletedbaseitems "
 		"WHERE mapname = ?1 AND itemtype = ?2 AND "
-		"owner_account_id = ?3 AND "
-		"originX = ?4 AND originY = ?5 AND originZ = ?6";
+		"originX BETWEEN ?3 - 1 AND ?3 + 1 AND "
+		"originY BETWEEN ?4 - 1 AND ?4 + 1 AND "
+		"originZ BETWEEN ?5 - 1 AND ?5 + 1";
 
 	sqlite3_stmt *statement;
 	int rc = trap_sqlite3_prepare_v2(dbPtr, sqlUndelete, -1, &statement, NULL);
@@ -7259,10 +7260,9 @@ qboolean DB_UndeleteBaseItem(changedItem_t *item) {
 
 	sqlite3_bind_text(statement, 1, level.mapname, -1, SQLITE_STATIC);
 	sqlite3_bind_text(statement, 2, item->itemType, -1, SQLITE_STATIC);
-	sqlite3_bind_int(statement, 3, item->baseItemDeleterId);
-	sqlite3_bind_double(statement, 4, item->origin[0]);
-	sqlite3_bind_double(statement, 5, item->origin[1]);
-	sqlite3_bind_double(statement, 6, item->origin[2]);
+	sqlite3_bind_double(statement, 3, item->origin[0]);
+	sqlite3_bind_double(statement, 4, item->origin[1]);
+	sqlite3_bind_double(statement, 5, item->origin[2]);
 
 	rc = trap_sqlite3_step(statement);
 	trap_sqlite3_finalize(statement);
