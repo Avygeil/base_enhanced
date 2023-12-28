@@ -5654,36 +5654,37 @@ char *EncodeForceLoadout(gclient_t *cl) {
 	static char encodedString[5];
 
 	encodedString[0] =
-		(isDark << 7) |
-		(forcePowerLevels[FP_LEVITATION] << 5) |
-		(forcePowerLevels[FP_SPEED] << 3) |
-		(forcePowerLevels[FP_PUSH] << 1) |
-		0x01; // forced 1 bit
+		0x80 |
+		(isDark << 6) |
+		(forcePowerLevels[FP_LEVITATION] << 4) |
+		(forcePowerLevels[FP_SPEED] << 2) |
+		(forcePowerLevels[FP_PUSH]);
 
 	encodedString[1] =
-		(forcePowerLevels[FP_PULL] << 6) |
-		(forcePowerLevels[FP_SEE] << 4) |
-		(forcePowerLevels[FP_SABER_DEFENSE] << 2) |
-		((forcePowerLevels[FP_SABER_OFFENSE] & 0x02) << 1) |
-		0x01; // forced 1 bit
+		0x80 |
+		(forcePowerLevels[FP_PULL] << 5) |
+		(forcePowerLevels[FP_SEE] << 3) |
+		(forcePowerLevels[FP_SABER_DEFENSE] << 1) |
+		((forcePowerLevels[FP_SABER_OFFENSE] & 0x02) >> 1);
 
 	encodedString[2] =
-		((forcePowerLevels[FP_SABER_OFFENSE] & 0x01) << 7) |
-		(forcePowerLevels[FP_SABERTHROW] << 5) |
-		((!isDark ? forcePowerLevels[FP_ABSORB] : forcePowerLevels[FP_GRIP]) & 0x03) << 3 |
-		((!isDark ? forcePowerLevels[FP_PROTECT] : forcePowerLevels[FP_LIGHTNING]) & 0x03) << 1 |
-		0x01; // forced 1 bit
+		0x80 |
+		((forcePowerLevels[FP_SABER_OFFENSE] & 0x01) << 6) |
+		(forcePowerLevels[FP_SABERTHROW] << 4) |
+		(((!isDark ? forcePowerLevels[FP_ABSORB] : forcePowerLevels[FP_GRIP]) & 0x03) << 2) |
+		((!isDark ? forcePowerLevels[FP_PROTECT] : forcePowerLevels[FP_LIGHTNING]) & 0x03);
 
 	encodedString[3] =
-		((!isDark ? forcePowerLevels[FP_HEAL] : forcePowerLevels[FP_DRAIN]) << 6) |
-		((!isDark ? forcePowerLevels[FP_TELEPATHY] : forcePowerLevels[FP_RAGE]) << 4) |
-		((!isDark ? forcePowerLevels[FP_TEAM_HEAL] : forcePowerLevels[FP_TEAM_FORCE]) & 0x03) << 2 |
-		0x01; // forced 1 bit
+		0x80 |
+		((!isDark ? forcePowerLevels[FP_HEAL] : forcePowerLevels[FP_DRAIN]) << 5) |
+		((!isDark ? forcePowerLevels[FP_TELEPATHY] : forcePowerLevels[FP_RAGE]) << 3) |
+		(((!isDark ? forcePowerLevels[FP_TEAM_HEAL] : forcePowerLevels[FP_TEAM_FORCE]) & 0x03) << 1);
 
 	encodedString[4] = '\0';
 
 	return encodedString;
 }
+
 
 #define MAX_SPECINFO_PLAYERS_PER_TEAM	8
 #define MAX_SPECINFO_PLAYERS			(MAX_SPECINFO_PLAYERS_PER_TEAM * 2)
