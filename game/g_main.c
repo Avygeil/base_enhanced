@@ -185,6 +185,8 @@ vmCvar_t	g_webhookToken;
 vmCvar_t	g_teamOverlayForce;
 vmCvar_t	g_teamOverlayForceAlignment;
 
+vmCvar_t	g_broadcastForceLoadouts;
+
 vmCvar_t	g_improvedHoming;
 vmCvar_t	g_improvedHomingThreshold;
 vmCvar_t	d_debugImprovedHoming;
@@ -1168,6 +1170,8 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_teamOverlayForce, "g_teamOverlayForce", "0", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 	{ &g_teamOverlayForceAlignment, "g_teamOverlayForceAlignment", "0", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
+
+	{ &g_broadcastForceLoadouts, "g_broadcastForceLoadouts", "1", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_teamPrivateDuels, "g_teamPrivateDuels", "0", CVAR_ARCHIVE, 0, qtrue },
 
@@ -5638,6 +5642,49 @@ extern int gImperialCountdown;
 extern int gRebelCountdown;
 
 #ifdef NEWMOD_SUPPORT
+
+// write a force loadout in four characters
+char *EncodeForceLoadout(gclient_t *cl) {
+	assert(cl);
+
+	int isDark = (cl->ps.fd.forceSide == FORCE_DARKSIDE);
+	int forcePowerLevels[NUM_FORCE_POWERS];
+	memcpy(forcePowerLevels, cl->ps.fd.forcePowerLevel, sizeof(forcePowerLevels));
+
+	static char encodedString[5];
+
+	encodedString[0] =
+		(isDark << 7) |
+		(forcePowerLevels[FP_LEVITATION] << 5) |
+		(forcePowerLevels[FP_SPEED] << 3) |
+		(forcePowerLevels[FP_PUSH] << 1) |
+		0x01; // forced 1 bit
+
+	encodedString[1] =
+		(forcePowerLevels[FP_PULL] << 6) |
+		(forcePowerLevels[FP_SEE] << 4) |
+		(forcePowerLevels[FP_SABER_DEFENSE] << 2) |
+		((forcePowerLevels[FP_SABER_OFFENSE] & 0x02) << 1) |
+		0x01; // forced 1 bit
+
+	encodedString[2] =
+		((forcePowerLevels[FP_SABER_OFFENSE] & 0x01) << 7) |
+		(forcePowerLevels[FP_SABERTHROW] << 5) |
+		((!isDark ? forcePowerLevels[FP_ABSORB] : forcePowerLevels[FP_GRIP]) & 0x03) << 3 |
+		((!isDark ? forcePowerLevels[FP_PROTECT] : forcePowerLevels[FP_LIGHTNING]) & 0x03) << 1 |
+		0x01; // forced 1 bit
+
+	encodedString[3] =
+		((!isDark ? forcePowerLevels[FP_HEAL] : forcePowerLevels[FP_DRAIN]) << 6) |
+		((!isDark ? forcePowerLevels[FP_TELEPATHY] : forcePowerLevels[FP_RAGE]) << 4) |
+		((!isDark ? forcePowerLevels[FP_TEAM_HEAL] : forcePowerLevels[FP_TEAM_FORCE]) & 0x03) << 2 |
+		0x01; // forced 1 bit
+
+	encodedString[4] = '\0';
+
+	return encodedString;
+}
+
 #define MAX_SPECINFO_PLAYERS_PER_TEAM	8
 #define MAX_SPECINFO_PLAYERS			(MAX_SPECINFO_PLAYERS_PER_TEAM * 2)
 void CheckSpecInfo(void) {
@@ -5699,6 +5746,8 @@ void CheckSpecInfo(void) {
 			Q_strcat(playerString, sizeof(playerString), va(" mh=%d", bgSiegeClasses[cl->siegeClass].maxhealth));
 		if (g_gametype.integer == GT_SIEGE && cl->siegeClass != -1 && bgSiegeClasses[cl->siegeClass].maxarmor != 100)
 			Q_strcat(playerString, sizeof(playerString), va(" ma=%d", bgSiegeClasses[cl->siegeClass].maxarmor));
+		if (cl->ps.fd.forcePowersKnown && g_broadcastForceLoadouts.integer)
+			Q_strcat(playerString, sizeof(playerString), va(" fl=%s", EncodeForceLoadout(cl)));
 		int p = ent->s.powerups;
 		if (g_teamOverlayForceAlignment.integer && g_gametype.integer != GT_SIEGE) {
 			if (ent->health > 0 && ent->client->ps.fd.forcePowersKnown) {
