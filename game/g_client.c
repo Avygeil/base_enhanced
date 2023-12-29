@@ -4172,6 +4172,8 @@ void SetFakeForceAlignmentOfBoostedBase(gentity_t *ent, int forceTheirAlignmentT
 	}
 }
 
+extern char *EncodeForceLoadout(gclient_t *cl);
+
 /*
 ===========
 ClientSpawn
@@ -5090,6 +5092,19 @@ void ClientSpawn(gentity_t *ent) {
 	{
 		client->playerTeam = ent->s.teamowner = NPCTEAM_PLAYER;
 		client->enemyTeam = NPCTEAM_ENEMY;
+	}
+
+	if (g_broadcastForceLoadouts.integer && ent - g_entities < MAX_CLIENTS && g_gametype.integer != GT_SIEGE) {
+		char cmdStr[MAX_STRING_CHARS] = { 0 };
+		Com_sprintf(cmdStr, sizeof(cmdStr), "kls -1 -1 sgc \"ufl n=%d f=%s\"", ent - g_entities, EncodeForceLoadout(ent->client));
+		trap_SendServerCommand(ent - g_entities, cmdStr);
+
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *thisEnt = &g_entities[i];
+			if (thisEnt == ent || !thisEnt->inuse || !thisEnt->client || thisEnt->client->sess.spectatorState != SPECTATOR_FOLLOW || thisEnt->client->sess.spectatorClient != ent - g_entities)
+				continue;
+			trap_SendServerCommand(thisEnt - g_entities, cmdStr);
+		}
 	}
 
 	//Disabled. At least for now. Not sure if I'll want to do it or not eventually.

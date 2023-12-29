@@ -5747,7 +5747,7 @@ void CheckSpecInfo(void) {
 			Q_strcat(playerString, sizeof(playerString), va(" mh=%d", bgSiegeClasses[cl->siegeClass].maxhealth));
 		if (g_gametype.integer == GT_SIEGE && cl->siegeClass != -1 && bgSiegeClasses[cl->siegeClass].maxarmor != 100)
 			Q_strcat(playerString, sizeof(playerString), va(" ma=%d", bgSiegeClasses[cl->siegeClass].maxarmor));
-		if (cl->ps.fd.forcePowersKnown && g_broadcastForceLoadouts.integer)
+		if (cl->ps.fd.forcePowersKnown && g_broadcastForceLoadouts.integer && g_gametype.integer != GT_SIEGE)
 			Q_strcat(playerString, sizeof(playerString), va(" fl=%s", EncodeForceLoadout(cl)));
 		int p = ent->s.powerups;
 		if (g_teamOverlayForceAlignment.integer && g_gametype.integer != GT_SIEGE) {

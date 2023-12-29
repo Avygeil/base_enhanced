@@ -281,8 +281,6 @@ char* gaCheckForceString(char* s) {
 	return s;	
 }
 
-extern char *EncodeForceLoadout(gclient_t *cl);
-
 void WP_InitForcePowers( gentity_t *ent )
 {
 	int i;
@@ -721,19 +719,6 @@ void WP_InitForcePowers( gentity_t *ent )
 		i++;
 	}
 	ent->client->ps.fd.forceUsingAdded = 0;
-
-	if (g_broadcastForceLoadouts.integer && ent - g_entities < MAX_CLIENTS) {
-		char cmdStr[MAX_STRING_CHARS] = { 0 };
-		Com_sprintf(cmdStr, sizeof(cmdStr), "kls -1 -1 sgc \"ufl n=%d f=%s\"", ent - g_entities, EncodeForceLoadout(ent->client));
-		trap_SendServerCommand(ent - g_entities, cmdStr);
-
-		for (int i = 0; i < MAX_CLIENTS; i++) {
-			gentity_t *thisEnt = &g_entities[i];
-			if (thisEnt == ent || !thisEnt->inuse || !thisEnt->client || thisEnt->client->sess.spectatorState != SPECTATOR_FOLLOW || thisEnt->client->sess.spectatorClient != ent - g_entities)
-				continue;
-			trap_SendServerCommand(thisEnt - g_entities, cmdStr);
-		}
-	}
 }
 
 void WP_SpawnInitForcePowers( gentity_t *ent )
