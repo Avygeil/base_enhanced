@@ -1973,9 +1973,23 @@ static qboolean isAbovePit(gentity_t *ent){
 	VectorCopy(ent->client->ps.origin, under);
 	under[2] -= 4096;
 
-	trap_Trace(&result, ent->client->ps.origin, NULL, NULL, 
-		under, ent->client->ps.clientNum, 
-		(CONTENTS_SOLID|CONTENTS_TERRAIN|CONTENTS_TRIGGER));  
+#if 0
+	// is this needed?
+	if (g_fixLava.integer) {
+		trap_Trace(&result, ent->client->ps.origin, NULL, NULL,
+			under, ent->client->ps.clientNum,
+			(CONTENTS_SOLID | CONTENTS_TERRAIN | CONTENTS_TRIGGER | CONTENTS_LAVA | CONTENTS_SLIME));
+	}
+	else {
+		trap_Trace(&result, ent->client->ps.origin, NULL, NULL,
+			under, ent->client->ps.clientNum,
+			(CONTENTS_SOLID | CONTENTS_TERRAIN | CONTENTS_TRIGGER));
+	}
+#else
+	trap_Trace(&result, ent->client->ps.origin, NULL, NULL,
+		under, ent->client->ps.clientNum,
+		(CONTENTS_SOLID | CONTENTS_TERRAIN | CONTENTS_TRIGGER));
+#endif
 
 	if (result.fraction == 1)
 		return qfalse;

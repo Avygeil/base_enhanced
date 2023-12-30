@@ -827,17 +827,37 @@ void P_WorldEffects( gentity_t *ent ) {
 		if (ent->health > 0
 			&& ent->pain_debounce_time <= level.time	) {
 
-			if ( envirosuit ) {
-				G_AddEvent( ent, EV_POWERUP_BATTLESUIT, 0 );
-			} else {
-				if (ent->watertype & CONTENTS_LAVA) {
-					G_Damage (ent, NULL, NULL, NULL, NULL, 
-						30*waterlevel, 0, MOD_LAVA);
+			if (g_fixLava.integer) {
+				if (ent->NPC) { // kill it now
+					vec3_t vDir;
+					VectorSet(vDir, 0, 1, 0);
+					G_Damage(ent, ent, ent, vDir, ent->client->ps.origin, Q3_INFINITE, 0, MOD_FALLING);
 				}
+				else {
+					if (!ent->client->ps.fallingToDeath) {
+						ent->client->ps.fallingToDeath = level.time;
+						ent->client->ps.otherKillerTime = level.time + 20000;
+						ent->client->ps.otherKillerDebounceTime = level.time + 10000;
+						ent->client->ps.eFlags |= EF_RAG;
+						Jetpack_Off(ent);
+						G_EntitySound(ent, CHAN_VOICE, G_SoundIndex("*falling1.wav"));
+					}
+				}
+			}
+			else {
+				if (envirosuit) {
+					G_AddEvent(ent, EV_POWERUP_BATTLESUIT, 0);
+				}
+				else {
+					if (ent->watertype & CONTENTS_LAVA) {
+						G_Damage(ent, NULL, NULL, NULL, NULL,
+							30 * waterlevel, 0, MOD_LAVA);
+					}
 
-				if (ent->watertype & CONTENTS_SLIME) {
-					G_Damage (ent, NULL, NULL, NULL, NULL, 
-						10*waterlevel, 0, MOD_SLIME);
+					if (ent->watertype & CONTENTS_SLIME) {
+						G_Damage(ent, NULL, NULL, NULL, NULL,
+							10 * waterlevel, 0, MOD_SLIME);
+					}
 				}
 			}
 		}

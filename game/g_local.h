@@ -3332,6 +3332,7 @@ extern vmCvar_t     g_quietrcon;
 extern vmCvar_t     g_hackLog;
 
 extern vmCvar_t     g_fixPitKills;
+extern vmCvar_t     g_fixLava;
 extern vmCvar_t     g_fixLiftKills;
 extern vmCvar_t		g_fixBumpKills;
 extern vmCvar_t		g_creditAirKills;
