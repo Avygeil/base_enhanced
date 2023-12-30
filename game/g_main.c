@@ -7127,7 +7127,7 @@ void G_RunFrame( int levelTime ) {
 						}
 					}
 
-					if (ent->client->sess.sessionTeam == TEAM_RED || ent->client->sess.sessionTeam == TEAM_BLUE) {
+					if (ent->client->stats && (ent->client->sess.sessionTeam == TEAM_RED || ent->client->sess.sessionTeam == TEAM_BLUE)) {
 						// only track overall displacement if you are actually ingame
 						ent->client->stats->displacement += xyspeed / g_svfps.value;
 						ent->client->stats->displacementSamples++;
@@ -7141,7 +7141,7 @@ void G_RunFrame( int levelTime ) {
 						}
 					}
 
-					if ( xyspeed > ent->client->stats->topSpeed ) {
+					if ( ent->client->stats && xyspeed > ent->client->stats->topSpeed ) {
 						ent->client->stats->topSpeed = xyspeed;
 					}
 
