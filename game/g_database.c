@@ -3488,38 +3488,38 @@ qboolean G_DBSelectTierlistMaps(MapSelectedCallback callback, void *context) {
 		}
 	}
 
-	if (g_vote_tierlist_fixShittyPools.integer && numMapsPickedTotal >= 5) {
-		// get a randomly ordered list of top 6 maps (except for those on cooldown)
-		sqlite3_stmt *statement;
-		list_t top6Maps = { 0 };
-		trap_sqlite3_prepare_v2(dbPtr, "WITH topmaps AS (SELECT num_played_view.map map, lastplayedmaporalias.num num, lastplayedmaporalias.datetime lasttimeplayed FROM num_played_view LEFT JOIN lastplayedmaporalias ON lastplayedmaporalias.map = num_played_view.map ORDER BY num DESC LIMIT 6) SELECT map FROM topmaps WHERE num IS NULL OR strftime('%s', 'now') - lasttimeplayed > ? ORDER BY RANDOM();", -1, &statement, 0);
-		const int cooldownSeconds = g_vote_mapCooldownMinutes.integer > 0 ? g_vote_mapCooldownMinutes.integer * 60 : 0;
-		sqlite3_bind_int(statement, 1, cooldownSeconds);
-		int rc = trap_sqlite3_step(statement);
-		while (rc == SQLITE_ROW) {
-			const char *map = (const char *)sqlite3_column_text(statement, 0);
-			if (MapExistsQuick(map)) {
-				rememberedMultivoteMap_t *add = ListAdd(&top6Maps, sizeof(rememberedMultivoteMap_t));
-				Q_strncpyz(add->mapFilename, map, sizeof(add->mapFilename));
-			}
-			rc = trap_sqlite3_step(statement);
+	// get a randomly ordered list of top 6 maps (except for those on cooldown)
+	list_t top6Maps = { 0 };
+	sqlite3_stmt *statement;
+	trap_sqlite3_prepare_v2(dbPtr, "WITH topmaps AS (SELECT num_played_view.map map, lastplayedmaporalias.num num, lastplayedmaporalias.datetime lasttimeplayed FROM num_played_view LEFT JOIN lastplayedmaporalias ON lastplayedmaporalias.map = num_played_view.map ORDER BY num DESC LIMIT 6) SELECT map FROM topmaps WHERE num IS NULL OR strftime('%s', 'now') - lasttimeplayed > ? ORDER BY RANDOM();", -1, &statement, 0);
+	const int cooldownSeconds = g_vote_mapCooldownMinutes.integer > 0 ? g_vote_mapCooldownMinutes.integer * 60 : 0;
+	sqlite3_bind_int(statement, 1, cooldownSeconds);
+	int rc = trap_sqlite3_step(statement);
+	while (rc == SQLITE_ROW) {
+		const char *map = (const char *)sqlite3_column_text(statement, 0);
+		if (MapExistsQuick(map)) {
+			rememberedMultivoteMap_t *add = ListAdd(&top6Maps, sizeof(rememberedMultivoteMap_t));
+			Q_strncpyz(add->mapFilename, map, sizeof(add->mapFilename));
 		}
-
-		// get a randomly ordered list of top 10 maps (except for those on cooldown)
-		trap_sqlite3_reset(statement);
-		list_t top10Maps = { 0 };
-		trap_sqlite3_prepare_v2(dbPtr, "WITH topmaps AS (SELECT num_played_view.map map, lastplayedmaporalias.num num, lastplayedmaporalias.datetime lasttimeplayed FROM num_played_view LEFT JOIN lastplayedmaporalias ON lastplayedmaporalias.map = num_played_view.map ORDER BY num DESC LIMIT 10) SELECT map FROM topmaps WHERE num IS NULL OR strftime('%s', 'now') - lasttimeplayed > ? ORDER BY RANDOM();", -1, &statement, 0);
-		sqlite3_bind_int(statement, 1, cooldownSeconds);
 		rc = trap_sqlite3_step(statement);
-		while (rc == SQLITE_ROW) {
-			const char *map = (const char *)sqlite3_column_text(statement, 0);
-			if (MapExistsQuick(map)) {
-				rememberedMultivoteMap_t *add = ListAdd(&top10Maps, sizeof(rememberedMultivoteMap_t));
-				Q_strncpyz(add->mapFilename, map, sizeof(add->mapFilename));
-			}
-			rc = trap_sqlite3_step(statement);
-		}
+	}
 
+	// get a randomly ordered list of top 10 maps (except for those on cooldown)
+	list_t top10Maps = { 0 };
+	trap_sqlite3_reset(statement);
+	trap_sqlite3_prepare_v2(dbPtr, "WITH topmaps AS (SELECT num_played_view.map map, lastplayedmaporalias.num num, lastplayedmaporalias.datetime lasttimeplayed FROM num_played_view LEFT JOIN lastplayedmaporalias ON lastplayedmaporalias.map = num_played_view.map ORDER BY num DESC LIMIT 10) SELECT map FROM topmaps WHERE num IS NULL OR strftime('%s', 'now') - lasttimeplayed > ? ORDER BY RANDOM();", -1, &statement, 0);
+	sqlite3_bind_int(statement, 1, cooldownSeconds);
+	rc = trap_sqlite3_step(statement);
+	while (rc == SQLITE_ROW) {
+		const char *map = (const char *)sqlite3_column_text(statement, 0);
+		if (MapExistsQuick(map)) {
+			rememberedMultivoteMap_t *add = ListAdd(&top10Maps, sizeof(rememberedMultivoteMap_t));
+			Q_strncpyz(add->mapFilename, map, sizeof(add->mapFilename));
+		}
+		rc = trap_sqlite3_step(statement);
+	}
+
+	if (g_vote_tierlist_fixShittyPools.integer && numMapsPickedTotal >= 5) {
 		// take stock of what we have chosen
 		int numTop6MapsChosen = 0, numTop10MapsChosen = 0;
 		for (int i = 0; i < numMapsPickedTotal; i++) {
@@ -4022,12 +4022,82 @@ qboolean G_DBSelectTierlistMaps(MapSelectedCallback callback, void *context) {
 				}
 			}
 		}
-
-
-		ListClear(&top6Maps);
-		ListClear(&top10Maps);
-		trap_sqlite3_finalize(statement);
 	}
+
+	// force a beta map to be included among the choices by replacing one of the selected maps
+	if (g_vote_betaMapForceInclude.string[0] && g_vote_betaMapForceInclude.string[0] != '0' && MapExistsQuick(g_vote_betaMapForceInclude.string) && numMapsPickedTotal > 0) {
+		// initial check 1: check if the beta map is already among the choices and thus doesn't need to be subbed in
+		qboolean betaMapAlreadyIncluded = qfalse;
+		for (int i = 0; i < numMapsPickedTotal; i++) {
+			if (!Q_stricmp(chosenMapNames[i], g_vote_betaMapForceInclude.string)) {
+				betaMapAlreadyIncluded = qtrue;
+				break;
+			}
+		}
+
+		// initial check 2: make sure the beta map wasn't already rerolled out
+		rememberedMultivoteMap_t *betaMapRemembered = ListFind(&level.rememberedMultivoteMapsList, RememberedMapMatches, g_vote_betaMapForceInclude.string, NULL);
+		qboolean betaMapIsRememberedToBeForceExcluded = !!(betaMapRemembered && !betaMapRemembered->forceInclude);
+
+		// initial check 3: make sure the beta map isn't on cooldown
+		qboolean betaMapIsOnCooldown = qfalse;
+		if (g_vote_mapCooldownMinutes.integer > 0) {
+			trap_sqlite3_reset(statement);
+			trap_sqlite3_prepare_v2(dbPtr, "SELECT ?1 AS map WHERE NOT EXISTS (SELECT 1 FROM lastplayedmaporalias WHERE map = ?1) OR EXISTS (SELECT 1 FROM lastplayedmaporalias WHERE map = ?1 AND (strftime('%s', 'now') - lastplayedmaporalias.datetime > ?2));", -1, &statement, 0);
+			sqlite3_bind_text(statement, 1, g_vote_betaMapForceInclude.string, -1, SQLITE_STATIC);
+			sqlite3_bind_int(statement, 2, cooldownSeconds);
+			rc = trap_sqlite3_step(statement);
+			betaMapIsOnCooldown = !(rc == SQLITE_ROW); // if we got a row then either the map doesn't exist in lastplayedmaporalias or it does exist but wasn't played within the last XX minutes
+		}
+
+		if (g_vote_tierlist_debug.integer) {
+			char betaShortName[MAX_QPATH] = { 0 };
+			GetShortNameForMapFileName(g_vote_betaMapForceInclude.string, betaShortName, sizeof(betaShortName));
+			G_LogPrintf("g_vote_betaMapForceInclude: for beta map %s: betaMapAlreadyIncluded %d, betaMapIsRememberedToBeForceExcluded %d, betaMapIsOnCooldown %d\n",
+				betaShortName, (int)betaMapAlreadyIncluded, (int)betaMapIsRememberedToBeForceExcluded, (int)betaMapIsOnCooldown);
+		}
+
+		if (!betaMapAlreadyIncluded && !betaMapIsRememberedToBeForceExcluded && !betaMapIsOnCooldown) {
+			// loop through the selected maps in three passes:
+			// first pass: can replace anything that isn't a top 10 map
+			// second pass: can replace anything that isn't a top 6 map
+			// third pass: can replace anything
+			// this means we avoid replacing top maps if possible but if it's not possible then we replace anyway
+			qboolean didReplacement = qfalse;
+			for (int pass = 0; pass < 3 && !didReplacement; pass++) {
+				for (int i = numMapsPickedTotal - 1; i >= 0 && !didReplacement; i--) {
+					// skip over maps that survived rerolls (is this necessary?)
+					rememberedMultivoteMap_t *remembered = ListFind(&level.rememberedMultivoteMapsList, RememberedMapMatches, chosenMapNames[i], NULL);
+					if (remembered && remembered->forceInclude)
+						continue;
+
+					// skip top maps if possible
+					qboolean isTop6Map = !!(ListFind(&top6Maps, RememberedMapMatches, chosenMapNames[i], NULL));
+					qboolean isTop10Map = !!(ListFind(&top10Maps, RememberedMapMatches, chosenMapNames[i], NULL));
+					if (pass == 0 && (isTop6Map || isTop10Map))
+						continue;
+					if (pass == 1 && isTop6Map)
+						continue;
+
+					// replace this map
+					if (g_vote_tierlist_debug.integer) {
+						char newShortName[MAX_QPATH] = { 0 }, oldShortName[MAX_QPATH] = { 0 };
+						GetShortNameForMapFileName(g_vote_betaMapForceInclude.string, newShortName, sizeof(newShortName));
+						GetShortNameForMapFileName(chosenMapNames[i], oldShortName, sizeof(oldShortName));
+						G_LogPrintf("g_vote_betaMapForceInclude: on pass %d, swapping in map %s in place of %s\n", pass, newShortName, oldShortName);
+					}
+
+					Q_strncpyz(chosenMapNames[i], g_vote_betaMapForceInclude.string, sizeof(chosenMapNames[i]));
+					didReplacement = qtrue;
+				}
+			}
+		}
+	}
+
+	ListClear(&top6Maps);
+	ListClear(&top10Maps);
+
+	trap_sqlite3_finalize(statement);
 	
 	// fisher-yates shuffle so that the maps don't appear in order of their tiers,
 	// preventing people from simply being biased toward the maps appearing at the top

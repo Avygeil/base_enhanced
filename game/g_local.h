@@ -3452,6 +3452,7 @@ extern vmCvar_t		g_vote_tierlist_totalMaps;
 extern vmCvar_t		g_vote_tierlist_debug;
 extern vmCvar_t		g_vote_tierlist_reminders;
 extern vmCvar_t		g_vote_tierlist_fixShittyPools;
+extern vmCvar_t		g_vote_betaMapForceInclude;
 extern vmCvar_t		g_vote_rng;
 extern vmCvar_t		g_vote_runoff;
 extern vmCvar_t		g_vote_mapCooldownMinutes;
