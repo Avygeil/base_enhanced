@@ -147,7 +147,10 @@ const int mindTrickTime[NUM_FORCE_POWER_LEVELS] =
 
 // use null sendTo to send to the player himself and all his followers
 void SendForceTimers(gentity_t *user, gentity_t *sendTo) {
-	assert(user && user->client);
+	if (!user || !user->client) {
+		assert(qfalse);
+		return;
+	}
 
 	if (!g_sendForceTimers.integer)
 		return;
@@ -163,6 +166,8 @@ void SendForceTimers(gentity_t *user, gentity_t *sendTo) {
 		case FP_SABER_OFFENSE:
 			duration = RAGE_RECOVERY_TIME; break;
 		case FP_SPEED:
+			if (user->client->sess.inRacemode)
+				continue; // no speed timers in racemode
 			switch (fpLevel) {
 			case 1: duration = 10000; break;
 			case 2: duration = 15000; break;
