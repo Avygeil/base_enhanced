@@ -19,6 +19,18 @@ extern vmCvar_t		g_saberRestrictForce;
 extern qboolean BG_FullBodyTauntAnim( int anim );
 #include "namespace_end.h"
 
+#define DRAIN_REWORK1_FORCECOST_LEVEL3	(25)
+#define DRAIN_REWORK1_FORCECOST_LEVEL2	(17)
+#define DRAIN_REWORK1_FORCECOST_LEVEL1	(8)
+
+#define DRAIN_REWORK2_SELFDMG_LEVEL3	(30)
+#define DRAIN_REWORK2_SELFDMG_LEVEL2	(20)
+#define DRAIN_REWORK2_SELFDMG_LEVEL1	(11)
+
+#define DRAIN_REWORK2_MINIMUMFORCE		(10)
+
+#define DRAIN_REWORK_COOLDOWN			(1000)
+
 extern bot_state_t *botstates[MAX_CLIENTS];
 
 int speedLoopSound = 0;
@@ -973,16 +985,16 @@ qboolean WP_ForcePowerAvailable( gentity_t *self, forcePowers_t forcePower, int 
 		}
 		else {
 			if (g_drainRework.integer >= 2) {
-				if (self->client->ps.fd.forcePower >= 5)
+				if (self->client->ps.fd.forcePower >= DRAIN_REWORK2_MINIMUMFORCE)
 					return qtrue;
 				return qfalse;
 			}
 			else {
 				int forceCost;
 				switch (self->client->ps.fd.forcePowerLevel[FP_DRAIN]) {
-				case 3: forceCost = 25; break;
-				case 2: forceCost = 17; break;
-				default: forceCost = 8; break;
+				case 3: forceCost = DRAIN_REWORK1_FORCECOST_LEVEL3; break;
+				case 2: forceCost = DRAIN_REWORK1_FORCECOST_LEVEL2; break;
+				default: forceCost = DRAIN_REWORK1_FORCECOST_LEVEL1; break;
 				}
 				if (self->client->ps.fd.forcePower >= forceCost)
 					return qtrue;
@@ -1063,6 +1075,9 @@ qboolean WP_ForcePowerUsable( gentity_t *self, forcePowers_t forcePower )
 	{
 		return qfalse;
 	}
+
+	if (forcePower == FP_DRAIN && self->client->drainDebuffTime > level.time && g_drainRework.integer && g_drainRework.integer != 1)
+		return qfalse;
 
 	if ( g_debugMelee.integer )
 	{
@@ -2737,7 +2752,7 @@ void ForceDrain( gentity_t *self )
 		return;
 	}
 
-	if ( (self->client->ps.fd.forcePower < 25 && !g_drainRework.integer) || (self->client->ps.fd.forcePower < 5 && g_drainRework.integer) || !WP_ForcePowerUsable( self, FP_DRAIN ) )
+	if ( (self->client->ps.fd.forcePower < 25 && !g_drainRework.integer) || (self->client->ps.fd.forcePower < DRAIN_REWORK2_MINIMUMFORCE && g_drainRework.integer) || !WP_ForcePowerUsable( self, FP_DRAIN ) )
 	{
 		return;
 	}
@@ -2749,9 +2764,9 @@ void ForceDrain( gentity_t *self )
 	if (g_drainRework.integer >= 2) {
 		int selfdmg;
 		switch (self->client->ps.fd.forcePowerLevel[FP_DRAIN]) {
-		case 3: selfdmg = 20; break;
-		case 2: selfdmg = 13; break;
-		default: selfdmg = 7; break;
+		case 3: selfdmg = DRAIN_REWORK2_SELFDMG_LEVEL3; break;
+		case 2: selfdmg = DRAIN_REWORK2_SELFDMG_LEVEL2; break;
+		default: selfdmg = DRAIN_REWORK2_SELFDMG_LEVEL1; break;
 		}
 		if (self->health <= selfdmg)
 			return;
@@ -2761,7 +2776,7 @@ void ForceDrain( gentity_t *self )
 	if (!g_drainRework.integer)
 		self->client->ps.forceHandExtendTime = level.time + 20000;
 	else
-		self->client->ps.forceHandExtendTime = level.time + 500;
+		self->client->ps.forceHandExtendTime = level.time + DRAIN_REWORK_COOLDOWN;
 
 	G_Sound( self, CHAN_BODY, G_SoundIndex("sound/weapons/force/drain.wav") );
 	
@@ -2771,7 +2786,7 @@ void ForceDrain( gentity_t *self )
 		WP_ForcePowerStart( self, FP_DRAIN, 1 );
 }
 
-// returns amount of force drained from the target
+// returns amount of force drained from the target (-1 if it was absorbed)
 int ForceDrainDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, vec3_t impactPoint )
 {
 	gentity_t *tent;
@@ -2779,6 +2794,7 @@ int ForceDrainDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, vec3_t i
 	self->client->dangerTime = level.time;
 	self->client->ps.eFlags &= ~EF_INVULNERABLE;
 	self->client->invulnerableTimer = 0;
+	qboolean absorbed = qfalse;
 
 	if ( traceEnt && traceEnt->takedamage )
 	{
@@ -2819,7 +2835,10 @@ int ForceDrainDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, vec3_t i
 			
 				if (traceEnt->client)
 				{
-					modPowerLevel = WP_AbsorbConversion(traceEnt, traceEnt->client->ps.fd.forcePowerLevel[FP_ABSORB], self, FP_DRAIN, self->client->ps.fd.forcePowerLevel[FP_DRAIN], 1);
+					modPowerLevel = WP_AbsorbConversion(traceEnt, traceEnt->client->ps.fd.forcePowerLevel[FP_ABSORB], self, FP_DRAIN, self->client->ps.fd.forcePowerLevel[FP_DRAIN],
+						!g_drainRework.integer ? 1 : dmg);
+					if (modPowerLevel != -1)
+						absorbed = qtrue;
 				}
 
 				if (modPowerLevel != -1)
@@ -2909,6 +2928,9 @@ int ForceDrainDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, vec3_t i
 			}
 		}
 	}
+
+	if (absorbed)
+		return -1;
 
 	return actualForceDrainedFromTarget;
 }
@@ -3073,11 +3095,11 @@ int ForceShootDrain( gentity_t *self )
 			gotOneOrMore = 1;
 
 			if (g_drainRework.integer) {
-				self->s.userInt1 = self->client->ps.userInt1 = 1;
-				/*if (actualAmountDrained > 0)
-					self->s.userInt2 = self->client->ps.userInt2 = 1;
+				self->s.userInt1 = self->client->ps.userInt1 = 1; // hit
+				if (actualAmountDrained == -1)
+					self->s.userInt2 = self->client->ps.userInt2 = 1; // absorbed
 				else
-					self->s.userInt2 = self->client->ps.userInt2 = 0;*/
+					self->s.userInt2 = self->client->ps.userInt2 = 0; // not absorbed
 			}
 		}
 	}
@@ -3090,9 +3112,9 @@ int ForceShootDrain( gentity_t *self )
 		else {
 			int forceCost;
 			switch (self->client->ps.fd.forcePowerLevel[FP_DRAIN]) {
-			case 3: forceCost = 25; break;
-			case 2: forceCost = 17; break;
-			default: forceCost = 8; break;
+			case 3: forceCost = DRAIN_REWORK1_FORCECOST_LEVEL3; break;
+			case 2: forceCost = DRAIN_REWORK1_FORCECOST_LEVEL2; break;
+			default: forceCost = DRAIN_REWORK1_FORCECOST_LEVEL1; break;
 			}
 			BG_ForcePowerDrain(&self->client->ps, FP_DRAIN, forceCost);
 		}
@@ -3100,9 +3122,9 @@ int ForceShootDrain( gentity_t *self )
 	else {
 		int selfdmg;
 		switch (self->client->ps.fd.forcePowerLevel[FP_DRAIN]) {
-		case 3: selfdmg = 20; break;
-		case 2: selfdmg = 13; break;
-		default: selfdmg = 7; break;
+		case 3: selfdmg = DRAIN_REWORK2_SELFDMG_LEVEL3; break;
+		case 2: selfdmg = DRAIN_REWORK2_SELFDMG_LEVEL2; break;
+		default: selfdmg = DRAIN_REWORK2_SELFDMG_LEVEL1; break;
 		}
 		G_Damage(self, self, self, NULL, NULL, selfdmg, DAMAGE_NO_PROTECTION | DAMAGE_NO_ARMOR | DAMAGE_NO_SELF_PROTECTION, MOD_SUICIDE);
 	}
@@ -4837,7 +4859,7 @@ void WP_ForcePowerStop( gentity_t *self, forcePowers_t forcePower )
 			}
 		}
 		else {
-			self->client->ps.fd.forcePowerDebounce[FP_DRAIN] = level.time + 500;
+			self->client->ps.fd.forcePowerDebounce[FP_DRAIN] = level.time + DRAIN_REWORK_COOLDOWN;
 		}
 
 		if (self->client->ps.forceHandExtend == HANDEXTEND_FORCE_HOLD && !(g_drainRework.integer && level.time < self->client->ps.forceHandExtendTime))
@@ -5350,7 +5372,7 @@ static void WP_ForcePowerRun( gentity_t *self, forcePowers_t forcePower, usercmd
 		}
 		// OVERRIDEFIXME
 		if ( !WP_ForcePowerAvailable( self, forcePower, 0 ) || self->client->ps.fd.forcePowerDuration[FP_DRAIN] < level.time ||
-			((!g_drainRework.integer && self->client->ps.fd.forcePower < 25) ||(g_drainRework.integer && self->client->ps.fd.forcePower < 5)))
+			((!g_drainRework.integer && self->client->ps.fd.forcePower < 25) ||(g_drainRework.integer && self->client->ps.fd.forcePower < DRAIN_REWORK2_MINIMUMFORCE)))
 		{
 			WP_ForcePowerStop( self, forcePower );
 		}
