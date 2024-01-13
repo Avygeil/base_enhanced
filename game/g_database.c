@@ -4025,72 +4025,104 @@ qboolean G_DBSelectTierlistMaps(MapSelectedCallback callback, void *context) {
 	}
 
 	// force a beta map to be included among the choices by replacing one of the selected maps
-	if (g_vote_betaMapForceInclude.string[0] && g_vote_betaMapForceInclude.string[0] != '0' && MapExistsQuick(g_vote_betaMapForceInclude.string) && numMapsPickedTotal > 0) {
-		// initial check 1: check if the beta map is already among the choices and thus doesn't need to be subbed in
-		qboolean betaMapAlreadyIncluded = qfalse;
-		for (int i = 0; i < numMapsPickedTotal; i++) {
-			if (!Q_stricmp(chosenMapNames[i], g_vote_betaMapForceInclude.string)) {
-				betaMapAlreadyIncluded = qtrue;
-				break;
-			}
+	if (g_vote_betaMapForceInclude.string[0] && g_vote_betaMapForceInclude.string[0] != '0' && numMapsPickedTotal > 0) {
+#define MAX_BETA_MAPS	(256)
+		char betaMaps[MAX_BETA_MAPS][MAX_QPATH];
+		int numBetaMaps = 0;
+
+		// split the cvar into individual map names
+		char *betaMapsSplit = strdup(g_vote_betaMapForceInclude.string);
+		char *token = strtok(betaMapsSplit, ",");
+		while (token != NULL && numBetaMaps < MAX_BETA_MAPS) {
+			Q_strncpyz(betaMaps[numBetaMaps], token, sizeof(betaMaps[numBetaMaps]));
+			numBetaMaps++;
+			token = strtok(NULL, ",");
 		}
+		free(betaMapsSplit);
 
-		// initial check 2: make sure the beta map wasn't already rerolled out
-		rememberedMultivoteMap_t *betaMapRemembered = ListFind(&level.rememberedMultivoteMapsList, RememberedMapMatches, g_vote_betaMapForceInclude.string, NULL);
-		qboolean betaMapIsRememberedToBeForceExcluded = !!(betaMapRemembered && !betaMapRemembered->forceInclude);
+		// randomize the order
+		FisherYatesShuffle(betaMaps, numBetaMaps, sizeof(betaMaps[0]));
 
-		// initial check 3: make sure the beta map isn't on cooldown
-		qboolean betaMapIsOnCooldown = qfalse;
-		if (g_vote_mapCooldownMinutes.integer > 0) {
-			trap_sqlite3_reset(statement);
-			trap_sqlite3_prepare_v2(dbPtr, "SELECT ?1 AS map WHERE NOT EXISTS (SELECT 1 FROM lastplayedmaporalias WHERE map = ?1) OR EXISTS (SELECT 1 FROM lastplayedmaporalias WHERE map = ?1 AND (strftime('%s', 'now') - lastplayedmaporalias.datetime > ?2));", -1, &statement, 0);
-			sqlite3_bind_text(statement, 1, g_vote_betaMapForceInclude.string, -1, SQLITE_STATIC);
-			sqlite3_bind_int(statement, 2, cooldownSeconds);
-			rc = trap_sqlite3_step(statement);
-			betaMapIsOnCooldown = !(rc == SQLITE_ROW); // if we got a row then either the map doesn't exist in lastplayedmaporalias or it does exist but wasn't played within the last XX minutes
-		}
+		// iterate through the shuffled list of beta maps and select the first one that is available
+		for (int i = 0; i < numBetaMaps; i++) {
+			char *selectedBetaMap = betaMaps[i];
+			if (!MapExistsQuick(betaMaps[i]))
+				continue;
 
-		if (g_vote_tierlist_debug.integer) {
-			char betaShortName[MAX_QPATH] = { 0 };
-			GetShortNameForMapFileName(g_vote_betaMapForceInclude.string, betaShortName, sizeof(betaShortName));
-			G_LogPrintf("g_vote_betaMapForceInclude: for beta map %s: betaMapAlreadyIncluded %d, betaMapIsRememberedToBeForceExcluded %d, betaMapIsOnCooldown %d\n",
-				betaShortName, (int)betaMapAlreadyIncluded, (int)betaMapIsRememberedToBeForceExcluded, (int)betaMapIsOnCooldown);
-		}
-
-		if (!betaMapAlreadyIncluded && !betaMapIsRememberedToBeForceExcluded && !betaMapIsOnCooldown) {
-			// loop through the selected maps in three passes:
-			// first pass: can replace anything that isn't a top 10 map
-			// second pass: can replace anything that isn't a top 6 map
-			// third pass: can replace anything
-			// this means we avoid replacing top maps if possible but if it's not possible then we replace anyway
-			qboolean didReplacement = qfalse;
-			for (int pass = 0; pass < 3 && !didReplacement; pass++) {
-				for (int i = numMapsPickedTotal - 1; i >= 0 && !didReplacement; i--) {
-					// skip over maps that survived rerolls (is this necessary?)
-					rememberedMultivoteMap_t *remembered = ListFind(&level.rememberedMultivoteMapsList, RememberedMapMatches, chosenMapNames[i], NULL);
-					if (remembered && remembered->forceInclude)
-						continue;
-
-					// skip top maps if possible
-					qboolean isTop6Map = !!(ListFind(&top6Maps, RememberedMapMatches, chosenMapNames[i], NULL));
-					qboolean isTop10Map = !!(ListFind(&top10Maps, RememberedMapMatches, chosenMapNames[i], NULL));
-					if (pass == 0 && (isTop6Map || isTop10Map))
-						continue;
-					if (pass == 1 && isTop6Map)
-						continue;
-
-					// replace this map
-					if (g_vote_tierlist_debug.integer) {
-						char newShortName[MAX_QPATH] = { 0 }, oldShortName[MAX_QPATH] = { 0 };
-						GetShortNameForMapFileName(g_vote_betaMapForceInclude.string, newShortName, sizeof(newShortName));
-						GetShortNameForMapFileName(chosenMapNames[i], oldShortName, sizeof(oldShortName));
-						G_LogPrintf("g_vote_betaMapForceInclude: on pass %d, swapping in map %s in place of %s\n", pass, newShortName, oldShortName);
-					}
-
-					Q_strncpyz(chosenMapNames[i], g_vote_betaMapForceInclude.string, sizeof(chosenMapNames[i]));
-					didReplacement = qtrue;
+			// initial check 1: check if this one is already among the choices and thus doesn't need to be subbed in
+			qboolean betaMapAlreadyIncluded = qfalse;
+			for (int i = 0; i < numMapsPickedTotal; i++) {
+				if (!Q_stricmp(chosenMapNames[i], selectedBetaMap)) {
+					betaMapAlreadyIncluded = qtrue;
+					break;
 				}
 			}
+
+			// initial check 2: make sure this one wasn't already rerolled out
+			qboolean betaMapIsRememberedToBeForceExcluded = qfalse;
+			rememberedMultivoteMap_t *betaMapRemembered = ListFind(&level.rememberedMultivoteMapsList, RememberedMapMatches, selectedBetaMap, NULL);
+			if (betaMapRemembered && !betaMapRemembered->forceInclude)
+				betaMapIsRememberedToBeForceExcluded = qtrue;
+
+			// initial check 3: make sure this one isn't on cooldown
+			qboolean betaMapIsOnCooldown = qfalse;
+			if (g_vote_mapCooldownMinutes.integer > 0) {
+				trap_sqlite3_reset(statement);
+				trap_sqlite3_prepare_v2(dbPtr, "SELECT ?1 AS map WHERE NOT EXISTS (SELECT 1 FROM lastplayedmaporalias WHERE map = ?1) OR EXISTS (SELECT 1 FROM lastplayedmaporalias WHERE map = ?1 AND (strftime('%s', 'now') - lastplayedmaporalias.datetime > ?2));", -1, &statement, 0);
+				sqlite3_bind_text(statement, 1, selectedBetaMap, -1, SQLITE_STATIC);
+				sqlite3_bind_int(statement, 2, cooldownSeconds);
+				int rc = trap_sqlite3_step(statement);
+				betaMapIsOnCooldown = !(rc == SQLITE_ROW);
+			}
+
+			
+			if (g_vote_tierlist_debug.integer) {
+				char betaShortName[MAX_QPATH] = { 0 };
+				GetShortNameForMapFileName(selectedBetaMap, betaShortName, sizeof(betaShortName));
+				G_LogPrintf("g_vote_betaMapForceInclude: for beta map %s: betaMapAlreadyIncluded %d, betaMapIsRememberedToBeForceExcluded %d, betaMapIsOnCooldown %d\n",
+					betaShortName, (int)betaMapAlreadyIncluded, (int)betaMapIsRememberedToBeForceExcluded, (int)betaMapIsOnCooldown);
+			}
+
+			qboolean didReplacement = qfalse;
+			if (!betaMapAlreadyIncluded && !betaMapIsRememberedToBeForceExcluded && !betaMapIsOnCooldown) {
+				// if we got here, we have a valid beta map and we're going to replace one of the chosen maps with it
+
+				// loop through the selected maps in three passes:
+				// first pass: can replace anything that isn't a top 10 map
+				// second pass: can replace anything that isn't a top 6 map
+				// third pass: can replace anything
+				// this means we avoid replacing top maps if possible but if it's not possible then we replace anyway
+				for (int pass = 0; pass < 3 && !didReplacement; pass++) {
+					for (int i = numMapsPickedTotal - 1; i >= 0 && !didReplacement; i--) {
+						// skip over maps that survived rerolls (is this necessary?)
+						rememberedMultivoteMap_t *remembered = ListFind(&level.rememberedMultivoteMapsList, RememberedMapMatches, chosenMapNames[i], NULL);
+						if (remembered && remembered->forceInclude)
+							continue;
+
+						// skip top maps if possible
+						qboolean isTop6Map = !!(ListFind(&top6Maps, RememberedMapMatches, chosenMapNames[i], NULL));
+						qboolean isTop10Map = !!(ListFind(&top10Maps, RememberedMapMatches, chosenMapNames[i], NULL));
+						if (pass == 0 && (isTop6Map || isTop10Map))
+							continue;
+						if (pass == 1 && isTop6Map)
+							continue;
+
+						// replace this map
+						if (g_vote_tierlist_debug.integer) {
+							char newShortName[MAX_QPATH] = { 0 }, oldShortName[MAX_QPATH] = { 0 };
+							GetShortNameForMapFileName(selectedBetaMap, newShortName, sizeof(newShortName));
+							GetShortNameForMapFileName(chosenMapNames[i], oldShortName, sizeof(oldShortName));
+							G_LogPrintf("g_vote_betaMapForceInclude: on pass %d, swapping in map %s in place of %s\n", pass, newShortName, oldShortName);
+						}
+
+						Q_strncpyz(chosenMapNames[i], selectedBetaMap, sizeof(chosenMapNames[i]));
+						didReplacement = qtrue;
+					}
+				}
+			}
+
+			if (didReplacement)
+				break;
 		}
 	}
 
