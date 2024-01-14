@@ -199,6 +199,7 @@ vmCvar_t	g_unlaggedSkeletonTime;
 vmCvar_t	g_unlaggedFactor;
 vmCvar_t	g_unlaggedOffset;
 vmCvar_t	g_unlaggedDebug;
+vmCvar_t	g_unlaggedFix;
 #endif
 
 vmCvar_t	g_customVotes;
@@ -1258,6 +1259,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_unlaggedFactor, "g_unlaggedFactor", "0.25", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_unlaggedOffset, "g_unlaggedOffset", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_unlaggedDebug, "g_unlaggedDebug", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_unlaggedFix, "g_unlaggedFix", "1", CVAR_ARCHIVE, 0, qtrue },
 #endif
 
 	{ &g_printCountry, "g_printCountry", "1", CVAR_ARCHIVE, 0, qtrue },
