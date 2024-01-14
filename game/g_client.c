@@ -4536,6 +4536,7 @@ void ClientSpawn(gentity_t *ent) {
 	client->rockPaperScissorsStartTime = 0;
 	client->rockPaperScissorsBothChosenTime = 0;
 	client->rockPaperScissorsChoice = '\0';
+	ent->s.userInt1 = ent->s.userInt2 = ent->s.userInt3 = client->ps.userInt1 = client->ps.userInt2 = client->ps.userInt3 = 0; // sanity check
 
 	//spawn with 100
 	client->ps.jetpackFuel = 100;

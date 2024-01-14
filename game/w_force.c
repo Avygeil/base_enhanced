@@ -3087,7 +3087,7 @@ int ForceShootDrain( gentity_t *self )
 			if (!g_drainRework.integer)
 				return 0;
 			else
-				self->s.userInt1 = self->client->ps.userInt1 = /*self->s.userInt2 = self->client->ps.userInt2 =*/ 0;
+				self->s.userInt1 = self->client->ps.userInt1 = self->s.userInt2 = self->client->ps.userInt2 = 0;
 		}
 		else {
 			traceEnt = &g_entities[tr.entityNum];
@@ -3096,7 +3096,7 @@ int ForceShootDrain( gentity_t *self )
 
 			if (g_drainRework.integer) {
 				self->s.userInt1 = self->client->ps.userInt1 = 1; // hit
-				if (actualAmountDrained == -1)
+				if (actualAmountDrained == -1 && traceEnt && traceEnt->client && (traceEnt->client->ps.fd.forcePowersActive & (1 << FP_ABSORB)))
 					self->s.userInt2 = self->client->ps.userInt2 = 1; // absorbed
 				else
 					self->s.userInt2 = self->client->ps.userInt2 = 0; // not absorbed
