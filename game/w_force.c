@@ -1747,11 +1747,31 @@ void ForceTeamHeal( gentity_t *self, qboolean redirectedTE )
 		{
 			VectorSubtract(self->client->ps.origin, ent->client->ps.origin, a);
 
-			if (VectorLength(a) <= radius)
-			{
-				pl[numpl] = i;
-				numpl++;
+			if (VectorLength(a) > radius)
+				continue;
+
+			if (level.usesAbseil) {
+				// see if we can trace to an abseil brush
+				trace_t tr;
+				trap_Trace(&tr, self->client->ps.origin, NULL, NULL, ent->client->ps.origin, self->s.number, CONTENTS_ABSEIL);
+				if (tr.fraction != 1) {
+					// we hit an abseil brush
+					// see if we have LoS to the target, which would trump the abseil trace result
+					vec3_t from, to;
+					from[0] = self->client->ps.origin[0];
+					from[1] = self->client->ps.origin[1];
+					from[2] = self->client->ps.origin[2] + self->client->ps.viewheight;
+					to[0] = ent->client->ps.origin[0];
+					to[1] = ent->client->ps.origin[1];
+					to[2] = ent->client->ps.origin[2] + ent->client->ps.viewheight;
+					trap_Trace(&tr, from, NULL, NULL, to, self->s.number, MASK_PLAYERSOLID);
+					if (tr.entityNum != ent->s.number)
+						continue; // no LoS or something else blocking it
+				}
 			}
+
+			pl[numpl] = i;
+			numpl++;
 		}
 	}
 
@@ -1773,11 +1793,31 @@ void ForceTeamHeal( gentity_t *self, qboolean redirectedTE )
 			{
 				VectorSubtract(self->client->ps.origin, ent->client->ps.origin, a);
 
-				if (VectorLength(a) <= radius)
-				{
-					pl[numpl] = i;
-					numpl++;
+				if (VectorLength(a) > radius)
+					continue;
+
+				if (level.usesAbseil) {
+					// see if we can trace to an abseil brush
+					trace_t tr;
+					trap_Trace(&tr, self->client->ps.origin, NULL, NULL, ent->client->ps.origin, self->s.number, CONTENTS_ABSEIL);
+					if (tr.fraction != 1) {
+						// we hit an abseil brush
+						// see if we have LoS to the target, which would trump the abseil trace result
+						vec3_t from, to;
+						from[0] = self->client->ps.origin[0];
+						from[1] = self->client->ps.origin[1];
+						from[2] = self->client->ps.origin[2] + self->client->ps.viewheight;
+						to[0] = ent->client->ps.origin[0];
+						to[1] = ent->client->ps.origin[1];
+						to[2] = ent->client->ps.origin[2] + ent->client->ps.viewheight;
+						trap_Trace(&tr, from, NULL, NULL, to, self->s.number, MASK_PLAYERSOLID);
+						if (tr.entityNum != ent->s.number)
+							continue; // no LoS or something else blocking it
+					}
 				}
+
+				pl[numpl] = i;
+				numpl++;
 			}
 		}
 	}
@@ -1931,11 +1971,31 @@ void ForceTeamForceReplenish( gentity_t *self, qboolean redirectedTH )
 		{
 			VectorSubtract(self->client->ps.origin, ent->client->ps.origin, a);
 
-			if (VectorLength(a) <= radius)
-			{
-				pl[numpl] = i;
-				numpl++;
+			if (VectorLength(a) > radius)
+				continue;
+
+			if (level.usesAbseil) {
+				// see if we can trace to an abseil brush
+				trace_t tr;
+				trap_Trace(&tr, self->client->ps.origin, NULL, NULL, ent->client->ps.origin, self->s.number, CONTENTS_ABSEIL);
+				if (tr.fraction != 1) {
+					// we hit an abseil brush
+					// see if we have LoS to the target, which would trump the abseil trace result
+					vec3_t from, to;
+					from[0] = self->client->ps.origin[0];
+					from[1] = self->client->ps.origin[1];
+					from[2] = self->client->ps.origin[2] + self->client->ps.viewheight;
+					to[0] = ent->client->ps.origin[0];
+					to[1] = ent->client->ps.origin[1];
+					to[2] = ent->client->ps.origin[2] + ent->client->ps.viewheight;
+					trap_Trace(&tr, from, NULL, NULL, to, self->s.number, MASK_PLAYERSOLID);
+					if (tr.entityNum != ent->s.number)
+						continue; // no LoS or something else blocking it
+				}
 			}
+
+			pl[numpl] = i;
+			numpl++;
 		}
 	}
 
@@ -1962,11 +2022,31 @@ void ForceTeamForceReplenish( gentity_t *self, qboolean redirectedTH )
 			{
 				VectorSubtract(self->client->ps.origin, ent->client->ps.origin, a);
 
-				if (VectorLength(a) <= radius)
-				{
-					pl[numpl] = i;
-					numpl++;
+				if (VectorLength(a) > radius)
+					continue;
+
+				if (level.usesAbseil) {
+					// see if we can trace to an abseil brush
+					trace_t tr;
+					trap_Trace(&tr, self->client->ps.origin, NULL, NULL, ent->client->ps.origin, self->s.number, CONTENTS_ABSEIL);
+					if (tr.fraction != 1) {
+						// we hit an abseil brush
+						// see if we have LoS to the target, which would trump the abseil trace result
+						vec3_t from, to;
+						from[0] = self->client->ps.origin[0];
+						from[1] = self->client->ps.origin[1];
+						from[2] = self->client->ps.origin[2] + self->client->ps.viewheight;
+						to[0] = ent->client->ps.origin[0];
+						to[1] = ent->client->ps.origin[1];
+						to[2] = ent->client->ps.origin[2] + ent->client->ps.viewheight;
+						trap_Trace(&tr, from, NULL, NULL, to, self->s.number, MASK_PLAYERSOLID);
+						if (tr.entityNum != ent->s.number)
+							continue; // no LoS or something else blocking it
+					}
 				}
+
+				pl[numpl] = i;
+				numpl++;
 			}
 		}
 	}
@@ -2102,13 +2182,34 @@ void AutoTHTE(gentity_t *self) {
 			vec3_t a;
 			VectorSubtract(self->client->ps.origin, ent->client->ps.origin, a);
 
-			if (VectorLength(a) <= radius) {
-				numpl++;
-				target = ent;
+			if (VectorLength(a) > radius)
+				continue;
 
-				if (ent->client->pers.lastSpawnTime >= level.time - 500)
-					targetSpawnedRecently = qtrue; // try not to te people who sk instantly after they spawn
+			if (level.usesAbseil) {
+				// see if we can trace to an abseil brush
+				trace_t tr;
+				trap_Trace(&tr, self->client->ps.origin, NULL, NULL, ent->client->ps.origin, self->s.number, CONTENTS_ABSEIL);
+				if (tr.fraction != 1) {
+					// we hit an abseil brush
+					// see if we have LoS to the target, which would trump the abseil trace result
+					vec3_t from, to;
+					from[0] = self->client->ps.origin[0];
+					from[1] = self->client->ps.origin[1];
+					from[2] = self->client->ps.origin[2] + self->client->ps.viewheight;
+					to[0] = ent->client->ps.origin[0];
+					to[1] = ent->client->ps.origin[1];
+					to[2] = ent->client->ps.origin[2] + ent->client->ps.viewheight;
+					trap_Trace(&tr, from, NULL, NULL, to, self->s.number, MASK_PLAYERSOLID);
+					if (tr.entityNum != ent->s.number)
+						continue; // no LoS or something else blocking it
+				}
 			}
+
+			numpl++;
+			target = ent;
+
+			if (ent->client->pers.lastSpawnTime >= level.time - 500)
+				targetSpawnedRecently = qtrue; // try not to te people who sk instantly after they spawn
 		}
 	}
 

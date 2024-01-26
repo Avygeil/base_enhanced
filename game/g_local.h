@@ -2126,6 +2126,24 @@ typedef struct {
 
 #define PEPPER_CHARS	(32)
 	unsigned char pepper[PEPPER_CHARS];
+
+	/*new optional system for mapmakers to block TH/TE in certain spots
+	(e.g. detailed brushes where there shouldn't be TH/TE for gameplay reasons)
+	to do this, use surfaceparm abseil brushes and set usesAbseil 1 in worldspawn
+	example shader:
+	textures/mymap/thteblocker
+	{
+		qer_nocarve
+		qer_trans	0.5
+		q3map_nolightmap
+		surfaceparm	nodraw
+		surfaceparm	nonsolid
+		surfaceparm	nonopaque
+		surfaceparm	trans
+		surfaceparm abseil
+	}
+	*/
+	qboolean usesAbseil;
 } level_locals_t;
 
 

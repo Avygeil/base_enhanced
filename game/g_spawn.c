@@ -1266,6 +1266,9 @@ void SP_worldspawn( void )
 	int			i;
 	int			lengthRed, lengthBlue, lengthGreen;
 
+	G_SpawnInt("usesAbseil", "0", &i);
+	level.usesAbseil = !!i;
+
 	//I want to "cull" entities out of net sends to clients to reduce
 	//net traffic on our larger open maps -rww
 	G_SpawnFloat("distanceCull", "6000.0", &level.cullDistance);
