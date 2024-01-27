@@ -199,8 +199,8 @@ vmCvar_t	g_unlaggedSkeletonTime;
 vmCvar_t	g_unlaggedFactor;
 vmCvar_t	g_unlaggedOffset;
 vmCvar_t	g_unlaggedDebug;
-vmCvar_t	g_unlaggedFix;
 #endif
+vmCvar_t	g_unlaggedFix;
 
 vmCvar_t	g_customVotes;
 vmCvar_t	g_customVote1_command;
