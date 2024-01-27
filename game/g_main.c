@@ -278,6 +278,7 @@ vmCvar_t	d_bowcasterRework_primaryBoltDamage;
 vmCvar_t	d_bowcasterRework_altBoltDamage;
 vmCvar_t	d_bowcasterRework_velocityAdd;
 vmCvar_t	d_bowcasterRework_spreadMultiplier;
+vmCvar_t	d_bowcasterRework_playerVelocityFactor;
 
 vmCvar_t	g_defaultMapFFA;
 vmCvar_t	g_defaultMapDuel;
@@ -824,6 +825,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &d_bowcasterRework_altBoltDamage, "d_bowcasterRework_altBoltDamage", "15", CVAR_ARCHIVE, 0, qtrue },
 	{ &d_bowcasterRework_velocityAdd, "d_bowcasterRework_velocityAdd", "650", CVAR_ARCHIVE, 0, qtrue },
 	{ &d_bowcasterRework_spreadMultiplier, "d_bowcasterRework_spreadMultiplier", "2.0", CVAR_ARCHIVE, 0, qtrue },
+	{ &d_bowcasterRework_playerVelocityFactor, "d_bowcasterRework_playerVelocityFactor", "1", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_defaultMapFFA, "g_defaultMapFFA", "", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_defaultMapDuel, "g_defaultMapDuel", "", CVAR_ARCHIVE, 0, qtrue },

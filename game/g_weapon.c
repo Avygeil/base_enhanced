@@ -1618,7 +1618,8 @@ static void WP_BowcasterAltFire( gentity_t *ent )
 	float vel = BOWCASTER_VELOCITY;
 	if (ent && d_bowcasterRework_enable.integer) {
 		float playerVelocity = sqrt(ent->s.pos.trDelta[0] * ent->s.pos.trDelta[0] + ent->s.pos.trDelta[1] * ent->s.pos.trDelta[1]);
-		vel += playerVelocity;
+		if (d_bowcasterRework_playerVelocityFactor.value)
+			vel += (playerVelocity * d_bowcasterRework_playerVelocityFactor.value);
 		vel += d_bowcasterRework_velocityAdd.value;
 		damage = d_bowcasterRework_altBoltDamage.integer;
 	}
@@ -1676,9 +1677,9 @@ static void WP_BowcasterMainFire( gentity_t *ent )
 
 		for (int i = 0; i < count; i++) {
 			float vel = BOWCASTER_VELOCITY + d_bowcasterRework_velocityAdd.value;
-			if (ent) {
+			if (ent && d_bowcasterRework_playerVelocityFactor.value) {
 				float playerVelocity = sqrt(ent->s.pos.trDelta[0] * ent->s.pos.trDelta[0] + ent->s.pos.trDelta[1] * ent->s.pos.trDelta[1]);
-				vel += playerVelocity;
+				vel += (playerVelocity * d_bowcasterRework_playerVelocityFactor.value);
 			}
 
 			if (!CorrectBoostedAim(ent, muzzle, forward, vel, WP_BOWCASTER, qfalse, BOWCASTER_SIZE))
