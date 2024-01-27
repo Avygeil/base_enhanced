@@ -275,6 +275,7 @@ vmCvar_t	g_flechetteSpread;
 
 vmCvar_t	d_bowcasterRework_enable;
 vmCvar_t	d_bowcasterRework_primaryBoltDamage;
+vmCvar_t	d_bowcasterRework_altBoltDamage;
 vmCvar_t	d_bowcasterRework_velocityAdd;
 vmCvar_t	d_bowcasterRework_spreadMultiplier;
 
@@ -819,7 +820,8 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_flechetteSpread, "g_flechetteSpread", "0", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &d_bowcasterRework_enable, "d_bowcasterRework_enable", "0", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
-	{ &d_bowcasterRework_primaryBoltDamage, "d_bowcasterRework_primaryBoltDamage", "20", CVAR_ARCHIVE, 0, qtrue },
+	{ &d_bowcasterRework_primaryBoltDamage, "d_bowcasterRework_primaryBoltDamage", "10", CVAR_ARCHIVE, 0, qtrue },
+	{ &d_bowcasterRework_altBoltDamage, "d_bowcasterRework_altBoltDamage", "15", CVAR_ARCHIVE, 0, qtrue },
 	{ &d_bowcasterRework_velocityAdd, "d_bowcasterRework_velocityAdd", "650", CVAR_ARCHIVE, 0, qtrue },
 	{ &d_bowcasterRework_spreadMultiplier, "d_bowcasterRework_spreadMultiplier", "2.0", CVAR_ARCHIVE, 0, qtrue },
 

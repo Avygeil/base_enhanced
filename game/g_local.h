@@ -3264,6 +3264,7 @@ extern	vmCvar_t	g_flechetteSpread;
 
 extern vmCvar_t	d_bowcasterRework_enable;
 extern vmCvar_t	d_bowcasterRework_primaryBoltDamage;
+extern vmCvar_t	d_bowcasterRework_altBoltDamage;
 extern vmCvar_t	d_bowcasterRework_velocityAdd;
 extern vmCvar_t	d_bowcasterRework_spreadMultiplier;
 
