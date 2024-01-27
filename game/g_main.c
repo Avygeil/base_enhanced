@@ -1259,8 +1259,8 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_unlaggedFactor, "g_unlaggedFactor", "0.25", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_unlaggedOffset, "g_unlaggedOffset", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_unlaggedDebug, "g_unlaggedDebug", "0", CVAR_ARCHIVE, 0, qtrue },
-	{ &g_unlaggedFix, "g_unlaggedFix", "0", CVAR_ARCHIVE, 0, qtrue },
 #endif
+	{ &g_unlaggedFix, "g_unlaggedFix", "0", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_printCountry, "g_printCountry", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_redirectWrongThTeBinds, "g_redirectWrongThTeBinds", "1", CVAR_ARCHIVE, 0, qtrue },
