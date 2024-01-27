@@ -4848,12 +4848,7 @@ void ClientThink_real( gentity_t *ent ) {
 			break;
 		case GENCMD_SABERATTACKCYCLE:
 		{
-			int delay = 300;
-			if (qtrue) { // faster single saber switching
-				if (!(ent->client->saber[0].singleBladeStyle || (ent->client->saber[1].model && ent->client->saber[1].model[0]))) // single
-					delay = 100;
-			}
-			if (ent->client->genCmdDebounce[GENCMD_DELAY_SABERSWITCH] > level.time - delay)
+			if (ent->client->genCmdDebounce[GENCMD_DELAY_SABERSWITCH] > level.time - 100)
 				break;
 		}
 		ent->client->genCmdDebounce[GENCMD_DELAY_SABERSWITCH] = level.time;
