@@ -4631,8 +4631,9 @@ void ClientThink_real( gentity_t *ent ) {
 				if (ent->client->genCmdDebounce[GENCMD_DELAY_DUEL] > level.time - 300)
 					break;
 				ent->client->genCmdDebounce[GENCMD_DELAY_DUEL] = level.time;
-				break;
+				Cmd_EngageDuel_f(ent);
 			}
+			break;
 		case GENCMD_FORCE_HEAL:
 			if (ent->client->genCmdDebounce[GENCMD_DELAY_HEAL] > level.time - 300)
 				break;
