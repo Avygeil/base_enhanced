@@ -4056,6 +4056,14 @@ qboolean G_DBSelectTierlistMaps(MapSelectedCallback callback, void *context) {
 					betaMapAlreadyIncluded = qtrue;
 					break;
 				}
+
+				// also check the live version of each choice
+				char liveFilename[MAX_QPATH] = { 0 };
+				G_DBGetLiveMapNameForMapName(chosenMapNames[i], liveFilename, sizeof(liveFilename));
+				if (liveFilename[0] && !Q_stricmp(liveFilename, selectedBetaMap)) {
+					betaMapAlreadyIncluded = qtrue;
+					break;
+				}
 			}
 
 			// initial check 2: make sure this one wasn't already rerolled out
