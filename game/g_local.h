@@ -3269,6 +3269,7 @@ extern vmCvar_t	d_bowcasterRework_altBoltDamage;
 extern vmCvar_t	d_bowcasterRework_velocityAdd;
 extern vmCvar_t	d_bowcasterRework_spreadMultiplier;
 extern vmCvar_t	d_bowcasterRework_playerVelocityFactor;
+extern vmCvar_t	d_bowcasterRework_softSaberPierce;
 
 extern vmCvar_t		g_defaultMapFFA;
 extern vmCvar_t		g_defaultMapDuel;

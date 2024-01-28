@@ -739,8 +739,12 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 		other->client->ps.saberEventFlags |= SEF_DEFLECTED;
 
 		if (ent->s.weapon == WP_BOWCASTER && d_bowcasterRework_enable.integer) {
-			if (otherDefLevel == FORCE_LEVEL_3)
-				other->client->ps.saberBlockTime = 0; //^_^
+			if (otherDefLevel == FORCE_LEVEL_3) {
+				if (d_bowcasterRework_softSaberPierce.integer)
+					other->client->ps.saberBlockTime = level.time + 150;
+				else
+					other->client->ps.saberBlockTime = 0; //^_^
+			}
 			goto killProj;
 		}
 
