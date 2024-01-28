@@ -203,8 +203,22 @@ void G_BounceMissile( gentity_t *ent, trace_t *trace ) {
 	// reflect the velocity on the trace plane
 	hitTime = level.previousTime + ( level.time - level.previousTime ) * trace->fraction;
 	BG_EvaluateTrajectoryDelta( &ent->s.pos, hitTime, velocity );
-	dot = DotProduct( velocity, trace->plane.normal );
-	VectorMA( velocity, -2*dot, trace->plane.normal, ent->s.pos.trDelta );
+
+	if (ent->s.weapon == WP_BOWCASTER && d_bowcasterRework_backwardsBounce.integer) {
+		VectorScale(velocity, -1, velocity);
+
+		if (d_bowcasterRework_backwardsBounceSpread.value) {
+			velocity[0] += ((rand() % 2 == 0 ? -1 : 1) * d_bowcasterRework_backwardsBounceSpread.value * ((float)rand() / (float)(RAND_MAX)));
+			velocity[1] += ((rand() % 2 == 0 ? -1 : 1) * d_bowcasterRework_backwardsBounceSpread.value * ((float)rand() / (float)(RAND_MAX)));
+			velocity[2] += ((rand() % 2 == 0 ? -1 : 1) * d_bowcasterRework_backwardsBounceSpread.value * ((float)rand() / (float)(RAND_MAX)));
+		}
+
+		VectorCopy(velocity, ent->s.pos.trDelta);
+	}
+	else {
+		dot = DotProduct(velocity, trace->plane.normal);
+		VectorMA(velocity, -2 * dot, trace->plane.normal, ent->s.pos.trDelta);
+	}
 
 	if ( ent->flags & FL_BOUNCE_SHRAPNEL ) 
 	{
@@ -717,6 +731,15 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 			{
 				otherDefLevel = 0;
 			}
+		}
+
+		if (ent->s.weapon == WP_BOWCASTER && d_bowcasterRework_knockbackSaberPierce.value) {
+			vec3_t velocity;
+			BG_EvaluateTrajectoryDelta(&ent->s.pos, level.time, velocity);
+			if (VectorLength(velocity) == 0) {
+				velocity[2] = 1;	// stepped on a grenade
+			}
+			G_Damage(other, ent, &g_entities[ent->r.ownerNum], velocity, /*ent->s.origin*/ent->r.currentOrigin, ent->damage * d_bowcasterRework_knockbackSaberPierce.value, DAMAGE_KNOCKBACK_ONLY, ent->methodOfDeath);
 		}
 
 		AngleVectors(other->client->ps.viewangles, fwd, NULL, NULL);

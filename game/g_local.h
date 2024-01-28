@@ -3270,6 +3270,15 @@ extern vmCvar_t	d_bowcasterRework_velocityAdd;
 extern vmCvar_t	d_bowcasterRework_spreadMultiplier;
 extern vmCvar_t	d_bowcasterRework_playerVelocityFactor;
 extern vmCvar_t	d_bowcasterRework_softSaberPierce;
+extern vmCvar_t	d_bowcasterRework_secondRing;
+extern vmCvar_t	d_bowcasterRework_secondRingSpreadMultiplier;
+extern vmCvar_t	d_bowcasterRework_primaryNumBolts;
+extern vmCvar_t	d_bowcasterRework_secondRingNumBolts;
+extern vmCvar_t	d_bowcasterRework_primaryBounces;
+extern vmCvar_t	d_bowcasterRework_backwardsBounce;
+extern vmCvar_t	d_bowcasterRework_backwardsBounceSpread;
+extern vmCvar_t	d_bowcasterRework_knockbackSaberPierce;
+extern vmCvar_t	d_bowcasterRework_knockbackMultiplier;
 
 extern vmCvar_t		g_defaultMapFFA;
 extern vmCvar_t		g_defaultMapDuel;

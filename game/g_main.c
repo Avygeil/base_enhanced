@@ -280,6 +280,15 @@ vmCvar_t	d_bowcasterRework_velocityAdd;
 vmCvar_t	d_bowcasterRework_spreadMultiplier;
 vmCvar_t	d_bowcasterRework_playerVelocityFactor;
 vmCvar_t	d_bowcasterRework_softSaberPierce;
+vmCvar_t	d_bowcasterRework_secondRing;
+vmCvar_t	d_bowcasterRework_secondRingSpreadMultiplier;
+vmCvar_t	d_bowcasterRework_primaryNumBolts;
+vmCvar_t	d_bowcasterRework_secondRingNumBolts;
+vmCvar_t	d_bowcasterRework_primaryBounces;
+vmCvar_t	d_bowcasterRework_backwardsBounce;
+vmCvar_t	d_bowcasterRework_backwardsBounceSpread;
+vmCvar_t	d_bowcasterRework_knockbackSaberPierce;
+vmCvar_t	d_bowcasterRework_knockbackMultiplier;
 
 vmCvar_t	g_defaultMapFFA;
 vmCvar_t	g_defaultMapDuel;
@@ -829,6 +838,15 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &d_bowcasterRework_spreadMultiplier, "d_bowcasterRework_spreadMultiplier", "2.0", CVAR_ARCHIVE, 0, qtrue },
 	{ &d_bowcasterRework_playerVelocityFactor, "d_bowcasterRework_playerVelocityFactor", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &d_bowcasterRework_softSaberPierce, "d_bowcasterRework_softSaberPierce", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &d_bowcasterRework_secondRing, "d_bowcasterRework_secondRing", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &d_bowcasterRework_secondRingSpreadMultiplier, "d_bowcasterRework_secondRingSpreadMultiplier", "4.0", CVAR_ARCHIVE, 0, qtrue },
+	{ &d_bowcasterRework_primaryNumBolts, "d_bowcasterRework_primaryNumBolts", "5", CVAR_ARCHIVE, 0, qtrue },
+	{ &d_bowcasterRework_secondRingNumBolts, "d_bowcasterRework_secondRingNumBolts", "5", CVAR_ARCHIVE, 0, qtrue },
+	{ &d_bowcasterRework_primaryBounces, "d_bowcasterRework_primaryBounces", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &d_bowcasterRework_backwardsBounce, "d_bowcasterRework_backwardsBounce", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &d_bowcasterRework_backwardsBounceSpread, "d_bowcasterRework_backwardsBounceSpread", "100", CVAR_ARCHIVE, 0, qtrue },
+	{ &d_bowcasterRework_knockbackSaberPierce, "d_bowcasterRework_knockbackSaberPierce", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &d_bowcasterRework_knockbackMultiplier, "d_bowcasterRework_knockbackMultiplier", "1", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_defaultMapFFA, "g_defaultMapFFA", "", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_defaultMapDuel, "g_defaultMapDuel", "", CVAR_ARCHIVE, 0, qtrue },

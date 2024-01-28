@@ -1689,7 +1689,7 @@ static void WP_BowcasterMainFire( gentity_t *ent )
 		if (!ent->client)
 			count = 1;
 		else
-			count = Com_Clampi(1, 5, (level.time - ent->client->ps.weaponChargeTime) / BOWCASTER_CHARGE_UNIT);
+			count = Com_Clampi(1, d_bowcasterRework_primaryNumBolts.integer, (level.time - ent->client->ps.weaponChargeTime) / (BOWCASTER_CHARGE_UNIT / (d_bowcasterRework_primaryNumBolts.integer / 5.0)));
 
 		if (d_bowcasterRework_primaryBoltDamage.integer > 0) {
 			damage = d_bowcasterRework_primaryBoltDamage.integer;
@@ -1758,8 +1758,69 @@ static void WP_BowcasterMainFire( gentity_t *ent )
 			missile->methodOfDeath = MOD_BOWCASTER;
 			missile->clipmask = MASK_SHOT | CONTENTS_LIGHTSABER;
 
-			// we don't want it to bounce
-			missile->bounceCount = 0;
+			missile->bounceCount = d_bowcasterRework_primaryBounces.integer;
+			if (missile->bounceCount)
+				missile->flags |= FL_BOUNCE;
+		}
+
+		if (d_bowcasterRework_secondRing.integer) {
+			if (!ent->client)
+				count = 1;
+			else
+				count = Com_Clampi(1, d_bowcasterRework_secondRingNumBolts.integer, (level.time - ent->client->ps.weaponChargeTime) / (BOWCASTER_CHARGE_UNIT / (d_bowcasterRework_secondRingNumBolts.integer / 5.0)));
+			for (int i = 0; i < count; i++) {
+				float vel = BOWCASTER_VELOCITY + d_bowcasterRework_velocityAdd.value;
+				if (ent && d_bowcasterRework_playerVelocityFactor.value) {
+					float playerVelocity = sqrt(ent->s.pos.trDelta[0] * ent->s.pos.trDelta[0] + ent->s.pos.trDelta[1] * ent->s.pos.trDelta[1]);
+					vel += (playerVelocity * d_bowcasterRework_playerVelocityFactor.value);
+				}
+
+				if (!CorrectBoostedAim(ent, muzzle, forward, vel, WP_BOWCASTER, qfalse, BOWCASTER_SIZE))
+					return;
+				vectoangles(forward, angs);
+
+				// adjust spread radius to be within the middle third of the radius
+				float innerRadius = BOWCASTER_ALT_SPREAD * d_bowcasterRework_secondRingSpreadMultiplier.value * 0.2f / 3;
+				float outerRadius = BOWCASTER_ALT_SPREAD * d_bowcasterRework_secondRingSpreadMultiplier.value * 0.2f * 2 / 3;
+				float spreadRadius = innerRadius + random() * (outerRadius - innerRadius);
+
+				float angleRange = 2 * M_PI / count; // total angle range divided by the number of shots
+				float minAngle = angleRange * i; // minimum angle for this shot's range
+
+				// adjust spread angle to be within the middle third of the slice
+				float angleThird = angleRange / 3;
+				float spreadAngle = minAngle + angleThird + random() * angleThird;
+
+				// spin the pie randomly
+				spreadAngle += offsetAngle + (M_PI / 2);
+
+				// convert polar to cartesian
+				float pitchOffset = spreadRadius * cos(spreadAngle);
+				float yawOffset = spreadRadius * sin(spreadAngle);
+
+				// apply the spread to this shot
+				angs[PITCH] += pitchOffset;
+				angs[YAW] += yawOffset;
+
+				AngleVectors(angs, dir, NULL, NULL);
+
+				missile = CreateMissile(muzzle, dir, vel, 10000, ent, qtrue);
+
+				missile->classname = "bowcaster_alt_proj";
+				missile->s.weapon = WP_BOWCASTER;
+
+				VectorSet(missile->r.maxs, BOWCASTER_SIZE, BOWCASTER_SIZE, BOWCASTER_SIZE);
+				VectorScale(missile->r.maxs, -1, missile->r.mins);
+
+				missile->damage = damage;
+				missile->dflags = DAMAGE_DEATH_KNOCKBACK;
+				missile->methodOfDeath = MOD_BOWCASTER;
+				missile->clipmask = MASK_SHOT | CONTENTS_LIGHTSABER;
+
+				missile->bounceCount = d_bowcasterRework_primaryBounces.integer;
+				if (missile->bounceCount)
+					missile->flags |= FL_BOUNCE;
+			}
 		}
 	}
 	else {
