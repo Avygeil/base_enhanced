@@ -5256,6 +5256,7 @@ extern void proxMineThink(gentity_t *ent);
 extern void SiegeItemThink( gentity_t *ent );
 extern void pas_think(gentity_t *ent);
 extern void thermalThinkStandard(gentity_t *ent);
+extern void DownedSaberThink(gentity_t *saberent);
 
 void G_RunThink (gentity_t *ent) {
 	int	thinktime;
@@ -5281,6 +5282,10 @@ void G_RunThink (gentity_t *ent) {
 		// another special case, thermal primaries
 		if (ent->think == thermalThinkStandard)
 			ent->genericValue5 += level.time - level.previousTime;
+
+		// saberthrow
+		if (VALIDSTRING(ent->classname) && !strcmp(ent->classname, "lightsaber") && ent->s.pos.trTime && ent->think != DownedSaberThink)
+			ent->s.pos.trTime += level.time - level.previousTime;
 	}
 
 	thinktime = ent->nextthink;
