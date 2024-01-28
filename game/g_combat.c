@@ -4757,7 +4757,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 		}
 		else
 		{
-			if (mod == WP_BOWCASTER && d_bowcasterRework_knockbackMultiplier.value != 1)
+			if (mod == MOD_BOWCASTER && d_bowcasterRework_knockbackMultiplier.value != 1)
 				VectorScale (dir, g_knockback.value * d_bowcasterRework_knockbackMultiplier.value * (float)knockback / mass, kvel);
 			else
 				VectorScale (dir, g_knockback.value * (float)knockback / mass, kvel);
