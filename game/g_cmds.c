@@ -8177,7 +8177,7 @@ static void Cmd_Item_f(gentity_t *player) {
 		return;
 	}
 
-	if (IsLivePug(0)) {
+	if (IsLivePug(0) && !level.someoneWasAFK) {
 		PrintIngame(player - g_entities, "You cannot use this command during live pugs.\n");
 		return;
 	}
