@@ -1169,7 +1169,7 @@ void G_RunMissile( gentity_t *ent ) {
 		goto passthrough;
 	}
 
-	trap_LinkEntity( ent );
+	trap_LinkEntity(ent);
 
 	if (ent->s.weapon == G2_MODEL_PART && !ent->bounceCount)
 	{

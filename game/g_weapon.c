@@ -154,6 +154,18 @@ static	vec3_t	muzzle;
 #define ATST_SIDE_ALT_ROCKET_SIZE			5
 #define ATST_SIDE_ALT_ROCKET_SPLASH_SCALE	0.5f	// scales splash for NPC's
 
+// modifies the collision properties of every rocket in the world
+void SetRocketContents(int contents) {
+	for (int i = MAX_CLIENTS; i < ENTITYNUM_MAX_NORMAL; i++) {
+		gentity_t *ent = &g_entities[i];
+		if (!ent->inuse || !VALIDSTRING(ent->classname) || Q_stricmp(ent->classname, "rocket_proj"))
+			continue;
+		if (ent->parent && IsRacerOrSpectator(ent->parent))
+			continue; // never affect racemode rockets
+		ent->r.contents = contents;
+	}
+}
+
 extern qboolean G_BoxInBounds( vec3_t point, vec3_t mins, vec3_t maxs, vec3_t boundsMins, vec3_t boundsMaxs );
 extern qboolean G_HeavyMelee( gentity_t *attacker );
 extern void Jedi_Decloak( gentity_t *self );
@@ -994,6 +1006,10 @@ static void WP_DisruptorMainFire( gentity_t *ent )
 				end[2] -= botTarget->client->ps.viewheight;
 		}
 
+		// hack to include rockets in the trace
+		if (g_rocketHPFix.integer == 2)
+			SetRocketContents(MASK_SHOT);
+
 		if (d_projectileGhoul2Collision.integer)
 		{
 			trap_G2Trace( &tr, start, NULL, NULL, end, ignore, MASK_SHOT, G2TRFLAG_DOGHOULTRACE|G2TRFLAG_GETSURFINDEX|G2TRFLAG_THICK|G2TRFLAG_HITCORPSES, g_g2TraceLod.integer );
@@ -1002,6 +1018,9 @@ static void WP_DisruptorMainFire( gentity_t *ent )
 		{
 			trap_Trace( &tr, start, NULL, NULL, end, ignore, MASK_SHOT );
 		}
+
+		if (g_rocketHPFix.integer == 2)
+			SetRocketContents(0);
 
 		if (botTarget && tr.entityNum != botTarget - g_entities && !(tr.entityNum < ENTITYNUM_MAX_NORMAL && g_entities[tr.entityNum].client)) {
 			if (botAttempts < MAX_BOT_ATTEMPTS) {
@@ -1154,7 +1173,10 @@ static void WP_DisruptorMainFire( gentity_t *ent )
 				hits++;
 			} 
 
-			G_Damage( traceEnt, ent, ent, forward, tr.endpos, damage, DAMAGE_NORMAL, MOD_DISRUPTOR );
+			if (g_rocketHPFix.integer == 2 && VALIDSTRING(traceEnt->classname) && !Q_stricmp(traceEnt->classname, "rocket_proj"))
+				G_Damage(traceEnt, ent, ent, forward, tr.endpos, 9999999, DAMAGE_NORMAL, MOD_DISRUPTOR);
+			else
+				G_Damage( traceEnt, ent, ent, forward, tr.endpos, damage, DAMAGE_NORMAL, MOD_DISRUPTOR );
 			
 			tent = G_TempEntity( tr.endpos, EV_DISRUPTOR_HIT );
 			tent->s.eventParm = DirToByte( tr.plane.normal );
@@ -1301,6 +1323,10 @@ void WP_DisruptorAltFire( gentity_t *ent )
 	{
 		VectorMA( start, shotRange, forward, end );
 
+		// hack to include rockets in the trace
+		if (g_rocketHPFix.integer == 2)
+			SetRocketContents(MASK_SHOT);
+
 		if (d_projectileGhoul2Collision.integer)
 		{
 			trap_G2Trace( &tr, start, NULL, NULL, end, skip, MASK_SHOT, G2TRFLAG_DOGHOULTRACE|G2TRFLAG_GETSURFINDEX|G2TRFLAG_THICK|G2TRFLAG_HITCORPSES, g_g2TraceLod.integer );
@@ -1309,6 +1335,9 @@ void WP_DisruptorAltFire( gentity_t *ent )
 		{
 			trap_Trace( &tr, start, NULL, NULL, end, skip, MASK_SHOT );
 		}
+
+		if (g_rocketHPFix.integer == 2)
+			SetRocketContents(0);
 
 		traceEnt = &g_entities[tr.entityNum];
 
@@ -1481,7 +1510,12 @@ void WP_DisruptorAltFire( gentity_t *ent )
 					VectorCopy(traceEnt->client->ps.viewangles, preAng);
 				}
 
-				G_Damage( traceEnt, ent, ent, forward, tr.endpos, damage, DAMAGE_NO_KNOCKBACK, MOD_DISRUPTOR_SNIPER );
+				if (g_rocketHPFix.integer == 2 && VALIDSTRING(traceEnt->classname) && !Q_stricmp(traceEnt->classname, "rocket_proj")) {
+					G_Damage(traceEnt, ent, ent, forward, tr.endpos, 9999999, DAMAGE_NO_KNOCKBACK, MOD_DISRUPTOR_SNIPER);
+				}
+				else {
+					G_Damage(traceEnt, ent, ent, forward, tr.endpos, damage, DAMAGE_NO_KNOCKBACK, MOD_DISRUPTOR_SNIPER);
+				}
 
 				// if the shot killed him, save the death animation so that we can use it after unshifting
 				if (g_unlagged.integer && compensate && preHealth > 0 && traceEnt->health <= 0 && traceEnt->client && numKilled < 16) {
@@ -2727,12 +2761,20 @@ static void WP_FireRocket( gentity_t *ent, qboolean altFire )
 		missile->splashMethodOfDeath = MOD_ROCKET_SPLASH;
 	}
 //===testing being able to shoot rockets out of the air==================================
-	missile->health = 10;
+	if (g_rocketHPFix.integer) {
+		missile->health = 999999;
+		missile->r.contents = 0;
+	}
+	else {
+		missile->health = 10;
+		missile->r.contents = MASK_SHOT;
+	}
+
 	missile->takedamage = qtrue;
+
 	if (ent && ent->client && ent->client->sess.inRacemode)
 		missile->r.contents = 0; // don't allow people to surf on racer rockets
-	else
-		missile->r.contents = MASK_SHOT;
+
 	missile->die = RocketDie;
 //===testing being able to shoot rockets out of the air==================================
 	
@@ -4524,7 +4566,7 @@ void WP_TouchVehMissile( gentity_t *ent, gentity_t *other, trace_t *trace )
 extern qboolean CheckAccuracyAndAirshot(gentity_t *missile, gentity_t *victim, qboolean isSurfedRocket);
 void WP_TouchRocket( gentity_t *ent, gentity_t *other, trace_t *trace )
 {
-	if ( ent )
+	if ( ent && ent->s.eType == ET_MISSILE && ent->die )
 	{
 		CheckAccuracyAndAirshot(ent, other, qtrue);
 		ent->die( ent, NULL, NULL, ROCKET_DAMAGE, MOD_ROCKET_HOMING );

@@ -662,7 +662,12 @@ qboolean	PM_SlideMove( qboolean gravity ) {
 		VectorMA( pm->ps->origin, time_left, pm->ps->velocity, end );
 
 		// see if we can make it there
+		// hack to include rockets in the trace
+		if (!g_rocketSurfing.integer && g_rocketHPFix.integer)
+			SetRocketContents(MASK_SHOT);
 		pm->trace( &trace, pm->ps->origin, pm->mins, pm->maxs, end, pm->ps->clientNum, pm->tracemask);
+		if (!g_rocketSurfing.integer && g_rocketHPFix.integer)
+			SetRocketContents(0);
 		
 		if (trace.allsolid) {
 			// entity is completely trapped in another solid

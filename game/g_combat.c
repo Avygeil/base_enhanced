@@ -4677,6 +4677,15 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 		}
 	}
 
+	if (g_rocketHPFix.integer &&
+		targ && VALIDSTRING(targ->classname) && !Q_stricmp(targ->classname, "rocket_proj") &&
+		attacker && attacker - g_entities < MAX_CLIENTS && attacker->client) {
+		if (g_rocketHPFix.integer == 1)
+			return;
+		if (g_rocketHPFix.integer == 2 && mod != MOD_DISRUPTOR && mod != MOD_DISRUPTOR_SNIPER)
+			return;
+	}
+
 	if ( !dir ) {
 		dflags |= DAMAGE_NO_KNOCKBACK;
 	} else {

@@ -376,6 +376,7 @@ vmCvar_t	d_debugFixFlagPickup;
 vmCvar_t	g_fixFreshWeaponAmmo;
 vmCvar_t	g_fixPulledWeaponAmmo;
 vmCvar_t	g_fixSpawnBlasterAmmo;
+vmCvar_t	g_rocketHPFix;
 
 vmCvar_t	g_allowIgnore;
 
@@ -937,6 +938,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_fixFreshWeaponAmmo,	"g_fixFreshWeaponAmmo"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_fixPulledWeaponAmmo,	"g_fixPulledWeaponAmmo"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_fixSpawnBlasterAmmo,	"g_fixSpawnBlasterAmmo"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
+	{ &g_rocketHPFix,	"g_rocketHPFix"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_allowIgnore, "g_allowIgnore", "0", CVAR_ARCHIVE, 0, qfalse },
 
@@ -7400,6 +7402,17 @@ void G_RunFrame( int levelTime ) {
 	WaitForAFKs();
 
 	PeriodicallyRecalculateTeamBalance();
+
+	if (g_rocketHPFix.integer) {
+		for (int i = MAX_CLIENTS; i < ENTITYNUM_MAX_NORMAL; i++) {
+			gentity_t *ent = &g_entities[i];
+			if (!ent->inuse || !VALIDSTRING(ent->classname) || Q_stricmp(ent->classname, "rocket_proj"))
+				continue;
+			if (ent->parent && IsRacerOrSpectator(ent->parent))
+				continue; // never affect racemode rockets
+			ent->s.solid = 2294531; // what the fuck?
+		}
+	}
 
 	if (!level.firstFrameTime)
 		level.firstFrameTime = trap_Milliseconds();

@@ -5906,6 +5906,10 @@ static GAME_INLINE qboolean CheckThrownSaberDamaged(gentity_t *saberent, gentity
 		ent->s.number != saberent->s.number && (noDCheck ||trap_InPVS(ent->r.currentOrigin, saberent->r.currentOrigin)))
 	{ //hit a non-client
 
+		if (g_rocketHPFix.integer && ent->inuse && VALIDSTRING(ent->classname) && !Q_stricmp(ent->classname, "rocket_proj")) {
+			return qfalse;
+		}
+
 		if (noDCheck)
 		{
 			veclen = 0;

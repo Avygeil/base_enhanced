@@ -2701,6 +2701,7 @@ void CalcMuzzlePoint ( gentity_t *ent, vec3_t forward, vec3_t right, vec3_t up, 
 void SnapVectorTowards( vec3_t v, vec3_t to );
 qboolean CheckGauntletAttack( gentity_t *ent );
 qboolean InFOVFloat(gentity_t *ent, gentity_t *from, double hFOV, double vFOV);
+void SetRocketContents(int contents);
 
 
 //
@@ -3394,6 +3395,7 @@ extern vmCvar_t		d_debugFixFlagPickup;
 extern vmCvar_t		g_fixFreshWeaponAmmo;
 extern vmCvar_t		g_fixPulledWeaponAmmo;
 extern vmCvar_t		g_fixSpawnBlasterAmmo;
+extern vmCvar_t		g_rocketHPFix;
 
 extern vmCvar_t		g_allowIgnore;
 
