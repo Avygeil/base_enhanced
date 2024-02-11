@@ -3382,6 +3382,8 @@ static int64_t AccountFlagName2Bitflag(const char* flagName) {
 		return ACCOUNTFLAG_BOOST_FIXINSTAYAW;
 	} else if (!Q_stricmp(flagName, "ItemLord")) {
 		return ACCOUNTFLAG_ITEMLORD;
+	} else if (!Q_stricmp(flagName, "InstaVoteTroll")) {
+		return ACCOUNTFLAG_INSTAVOTETROLL;
 	}
 
 	return 0;
@@ -3423,6 +3425,7 @@ const char* AccountBitflag2FlagName(int64_t bitflag) {
 		case ACCOUNTFLAG_AUTOSWITCHER: return "AutoSwitcher";
 		case ACCOUNTFLAG_BOOST_FIXINSTAYAW: return "FixInstaYawBoost";
 		case ACCOUNTFLAG_ITEMLORD: return "ItemLord";
+		case ACCOUNTFLAG_INSTAVOTETROLL: return "InstaVoteTroll";
 		default: return NULL;
 	}
 }

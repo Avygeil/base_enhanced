@@ -4612,8 +4612,23 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 	}
 
 	if (level.teamPermutationsShownTime && trap_Milliseconds() - level.teamPermutationsShownTime < 500) {
-		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "The teams proposals have just changed. Please check the new teams proposals.");
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "Please read the teams proposals before voting.");
 		return qtrue;
+	}
+
+	if (g_vote_teamgen_readBeforeVotingMilliseconds.integer > 0) {
+		if (level.teamPermutationsShownTime && trap_Milliseconds() - level.teamPermutationsShownTime < g_vote_teamgen_readBeforeVotingMilliseconds.integer) {
+			TeamGenerator_QueueServerMessageInChat(ent - g_entities, "Please take the time to read the teams proposals before voting.");
+			ent->client->pers.triedToInstaVote = qtrue;
+			return qtrue;
+		}
+	}
+
+	if (g_vote_teamgen_readBeforeVotingMillisecondsJawa.integer > 0 && ((ent->client->account->flags & ACCOUNTFLAG_INSTAVOTETROLL) || ent->client->pers.triedToInstaVote)) {
+		if (level.teamPermutationsShownTime && trap_Milliseconds() - level.teamPermutationsShownTime < g_vote_teamgen_readBeforeVotingMillisecondsJawa.integer) {
+			TeamGenerator_QueueServerMessageInChat(ent - g_entities, "Please take the time to read the teams proposals before voting.");
+			return qtrue;
+		}
 	}
 
 	char oldVotes[NUM_TEAMGENERATORTYPES] = { 0 };

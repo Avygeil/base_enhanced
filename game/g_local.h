@@ -913,6 +913,8 @@ typedef struct {
 	int lastAiredOtherClientTime[MAX_CLIENTS];
 	int lastAiredOtherClientMeansOfDeath[MAX_CLIENTS];
 
+	qboolean triedToInstaVote;
+
 } clientPersistant_t;
 
 typedef struct renderInfo_s
@@ -2208,6 +2210,7 @@ typedef struct {
 #define ACCOUNTFLAG_AUTOSWITCHER					( 1ll << 32ll )
 #define ACCOUNTFLAG_BOOST_FIXINSTAYAW					( 1ll << 33ll )
 #define ACCOUNTFLAG_ITEMLORD					( 1ll << 34ll )
+#define ACCOUNTFLAG_INSTAVOTETROLL					( 1ll << 35ll )
 
 typedef void( *ListSessionsCallback )( void *ctx,
 	const sessionReference_t sessionRef,
@@ -3540,6 +3543,8 @@ extern vmCvar_t		g_vote_teamgen_unvote;
 extern vmCvar_t		g_vote_teamgen_fuck;
 extern vmCvar_t		g_vote_teamgen_new8PlayerAlgo;
 extern vmCvar_t		g_vote_teamgen_require2VotesOnEachTeam;
+extern vmCvar_t		g_vote_teamgen_readBeforeVotingMilliseconds;
+extern vmCvar_t		g_vote_teamgen_readBeforeVotingMillisecondsJawa;
 
 extern vmCvar_t		g_filterSlurs;
 
