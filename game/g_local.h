@@ -3412,6 +3412,8 @@ extern vmCvar_t		g_rocketHPFix;
 
 extern vmCvar_t		g_allowIgnore;
 
+extern vmCvar_t		g_fixRoll;
+
 // flags for g_balanceSaber
 #define SB_KICK				(1<<0) // kick with all sabers
 #define SB_BACKFLIP			(1<<1) // backflip with all sabers

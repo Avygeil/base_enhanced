@@ -390,6 +390,8 @@ vmCvar_t	g_rocketHPFix;
 
 vmCvar_t	g_allowIgnore;
 
+vmCvar_t	g_fixRoll;
+
 vmCvar_t	g_balanceSaber;
 vmCvar_t	g_balanceSeeing;
 
@@ -963,6 +965,8 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_rocketHPFix,	"g_rocketHPFix"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_allowIgnore, "g_allowIgnore", "0", CVAR_ARCHIVE, 0, qfalse },
+
+	{ &g_fixRoll,	"g_fixRoll"		, "1"	, CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_balanceSaber, "g_balanceSaber", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_balanceSeeing, "g_balanceSeeing", "0", CVAR_ARCHIVE, 0, qtrue },
