@@ -2966,90 +2966,6 @@ void G_DBTierStats(int clientNum) {
 		rc = trap_sqlite3_step(statement);
 	}
 
-	trap_sqlite3_reset(statement);
-	rc = trap_sqlite3_prepare_v2(dbPtr, sqlGetNumPlayedCount, -1, &statement, 0);
-	rc = trap_sqlite3_step(statement);
-	char overratedMapsStr[1024] = { 0 }, underratedMapsStr[1024] = { 0 };
-	if (rc == SQLITE_ROW) {
-		int count = sqlite3_column_int(statement, 0);
-		const int numOverUnderratedToShow = 5;
-		if (count >= numOverUnderratedToShow * 2) {
-			trap_sqlite3_reset(statement);
-			rc = trap_sqlite3_prepare_v2(dbPtr, sqlGetNumPlayed, -1, &statement, 0);
-			rc = trap_sqlite3_step(statement);
-
-			char **mapArray = calloc(count, sizeof(char*));
-			double *ratingArray = calloc(count, sizeof(double));
-			double *numPlayedArray = calloc(count, sizeof(double));
-			int index = 0;
-			while (rc == SQLITE_ROW) {
-				char *mapFileName = strdup(sqlite3_column_text(statement, 0));
-				*(mapArray + index) = mapFileName;
-
-				double numPlayed = sqlite3_column_double(statement, 1);
-				*(numPlayedArray + index) = numPlayed;
-
-				double average = sqlite3_column_double(statement, 2);
-				*(ratingArray + index) = average;
-
-				rc = trap_sqlite3_step(statement);
-				++index;
-			}
-
-			double coeffs[] = { 0, 0, 0, 0 };
-			if (PolynomialFit(ratingArray, numPlayedArray, count, 3, &coeffs[0])) {
-				//Com_Printf("Coeffs: %f, %f, %f, %f\n", coeffs[0], coeffs[1], coeffs[2], coeffs[3]);
-
-				ratedMap_t *ratedMaps = calloc(count, sizeof(ratedMap_t));
-				for (int i = 0; i < count; i++) {
-					double x = *(ratingArray + i);
-					double numPlayedActual = *(numPlayedArray + i);
-					double expected = coeffs[0] + (coeffs[1] * x) + (coeffs[2] * x * x) + (coeffs[3] * x * x * x);
-					double diff = expected - numPlayedActual;
-					//Com_Printf("%s (rating %lf): numPlayed is %d, expected %lf (diff %lf)\n", *(mapArray + i), x, (int)numPlayedActual, expected, diff);
-					(ratedMaps + i)->rating = x;
-					(ratedMaps + i)->numPlayed = numPlayedActual;
-					(ratedMaps + i)->expected = expected;
-					(ratedMaps + i)->diff = diff;
-					Q_strncpyz((ratedMaps + i)->mapFileName, *(mapArray + i), sizeof((ratedMaps + i)->mapFileName));
-				}
-
-				qsort(ratedMaps, count, sizeof(ratedMap_t), RatedMapCompareFunc);
-
-				Com_sprintf(underratedMapsStr, sizeof(underratedMapsStr), "  ^2Most underrated^7 %d maps: ", numOverUnderratedToShow);
-				for (int i = 0; i < numOverUnderratedToShow; i++) {
-					char mapShortName[MAX_QPATH] = { 0 };
-					GetShortNameForMapFileName((ratedMaps + i)->mapFileName, mapShortName, sizeof(mapShortName));
-					Q_strcat(underratedMapsStr, sizeof(underratedMapsStr), va("%s%s%s^7 (+%0.1f)",
-						i == 0 ? "" : ", ",
-						GetTierColorForTier(MapTierForDouble((ratedMaps + i)->rating)),
-						mapShortName,
-						fabs((ratedMaps + i)->diff)));
-				}
-				Q_strcat(underratedMapsStr, sizeof(underratedMapsStr), "\n");
-
-				Com_sprintf(overratedMapsStr, sizeof(overratedMapsStr), "  ^1Most overrated^7 %d maps: ", numOverUnderratedToShow);
-				for (int i = count - 1; i > (count - numOverUnderratedToShow - 1); i--) {
-					char mapShortName[MAX_QPATH] = { 0 };
-					GetShortNameForMapFileName((ratedMaps + i)->mapFileName, mapShortName, sizeof(mapShortName));
-					Q_strcat(overratedMapsStr, sizeof(overratedMapsStr), va("%s%s%s^7 (-%0.1f)",
-						i == count - 1 ? "" : ", ",
-						GetTierColorForTier(MapTierForDouble((ratedMaps + i)->rating)),
-						mapShortName,
-						(ratedMaps + i)->diff));
-				}
-				Q_strcat(overratedMapsStr, sizeof(overratedMapsStr), "\n");
-
-				free(ratedMaps);
-				for (int i = 0; i < count; i++)
-					free(*(mapArray + i));
-				free(mapArray);
-				free(ratingArray);
-				free(numPlayedArray);
-			}
-		}
-	}
-
 	PrintIngame(clientNum, "There are %d map ratings across %d maps from %d players.\n", numRatings, numMaps, numPlayers);
 
 	if (numTopMaps || numWorstMaps)
@@ -3081,13 +2997,6 @@ void G_DBTierStats(int clientNum) {
 			Q_strcat(leastPlayedStr, sizeof(leastPlayedStr), va("%s%s^7", i ? "^7, " : "", leastPlayedMaps[i]));
 		PrintIngame(clientNum, "  ^1Least played^7 %d maps: %s\n", numLeastPlayedMaps, leastPlayedStr);
 	}
-
-	if (overratedMapsStr[0] || underratedMapsStr[0])
-		PrintIngame(clientNum, "\nBy difference between # of pugs and expected # of pugs based on average rating:\n");
-	if (underratedMapsStr[0])
-		PrintIngame(clientNum, underratedMapsStr);
-	if (overratedMapsStr[0])
-		PrintIngame(clientNum, overratedMapsStr);
 
 	if (numLeastControversial || numMostControversial)
 		PrintIngame(clientNum, "\nBy standard deviation:\n");
