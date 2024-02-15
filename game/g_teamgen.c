@@ -4138,6 +4138,19 @@ static void ActivatePugProposal(pugProposal_t *set, qboolean forcedByServer) {
 		TeamGenerator_QueueServerMessageInChat(-1, va("Pug proposal %d %s (%s). Check console for teams proposals.", set->num, forcedByServer ? "force passed by server" : "passed", set->namesStr));
 		set->passed = qtrue;
 		level.activePugProposal = set;
+
+		// remove any other passed proposals - this fixes the following edge case:
+		// pass a proposal with 8 guys -> 9th connects and you pass a new one -> 9th guy leaves -> you try to start with the original 8 again and it says this proposal has already passed
+		iterator_t iter;
+		ListIterate(&level.pugProposalsList, &iter, qfalse);
+		while (IteratorHasNext(&iter)) {
+			pugProposal_t *p = IteratorNext(&iter);
+			if (p->passed && p != set) {
+				ListRemove(&level.pugProposalsList, p);
+				ListIterate(&level.pugProposalsList, &iter, qfalse);
+			}
+		}
+
 		PrintTeamsProposalsInConsole(set, -1);
 
 		if (level.autoStartPending) {
