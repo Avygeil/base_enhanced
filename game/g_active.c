@@ -3152,6 +3152,9 @@ void ClientThink_real( gentity_t *ent ) {
 
 	client = ent->client;
 
+	if (client->pers.cmd.buttons & BUTTON_TALK)
+		client->pers.chatboxUpTime = trap_Milliseconds();
+
 	if (ent - g_entities < MAX_CLIENTS)
 		level.lastThinkRealTime[ent - g_entities] = trap_Milliseconds();
 

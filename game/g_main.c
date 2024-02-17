@@ -551,6 +551,7 @@ vmCvar_t	g_vote_teamgen_new8PlayerAlgo;
 vmCvar_t	g_vote_teamgen_require2VotesOnEachTeam;
 vmCvar_t	g_vote_teamgen_readBeforeVotingMilliseconds;
 vmCvar_t	g_vote_teamgen_readBeforeVotingMillisecondsJawa;
+vmCvar_t	g_vote_teamgen_preventBindsWith8PlayersMilliseconds;
 
 vmCvar_t	g_filterSlurs;
 
@@ -1134,6 +1135,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_teamgen_require2VotesOnEachTeam, "g_vote_teamgen_require2VotesOnEachTeam", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_readBeforeVotingMilliseconds, "g_vote_teamgen_readBeforeVotingMilliseconds", "5000", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_readBeforeVotingMillisecondsJawa, "g_vote_teamgen_readBeforeVotingMillisecondsJawa", "10000", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_teamgen_preventBindsWith8PlayersMilliseconds, "g_vote_teamgen_preventBindsWith8PlayersMilliseconds", "50", CVAR_ARCHIVE, 0, qfalse },
 
 	{ &g_filterSlurs, "g_filterSlurs", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
 

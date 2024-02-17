@@ -4644,6 +4644,21 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 		}
 	}
 
+	if (g_vote_teamgen_preventBindsWith8PlayersMilliseconds.integer > 0) {
+		int numPlayers = 0;
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			if (level.activePugProposal->clients[i].accountName[0])
+				++numPlayers;
+		}
+
+		if (numPlayers == 8) {
+			if (trap_Milliseconds() - ent->client->pers.chatboxUpTime >= g_vote_teamgen_preventBindsWith8PlayersMilliseconds.integer) {
+				TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You cannot use vote binds when there are exactly 8 players.");
+				return qtrue;
+			}
+		}
+	}
+
 	char oldVotes[NUM_TEAMGENERATORTYPES] = { 0 };
 	char newVotes[NUM_TEAMGENERATORTYPES] = { 0 };
 	for (const char *p = voteStr; *p && p - voteStr < 4; p++) {
