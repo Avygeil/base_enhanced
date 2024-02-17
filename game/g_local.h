@@ -3550,6 +3550,8 @@ extern vmCvar_t		g_vote_teamgen_require2VotesOnEachTeam;
 extern vmCvar_t		g_vote_teamgen_readBeforeVotingMilliseconds;
 extern vmCvar_t		g_vote_teamgen_readBeforeVotingMillisecondsJawa;
 extern vmCvar_t		g_vote_teamgen_preventBindsWith8PlayersMilliseconds;
+extern vmCvar_t		g_vote_teamgen_acdImbalanceCapWithoutReroll;
+extern vmCvar_t		g_vote_teamgen_acdImbalanceCapWithOneReroll;
 
 extern vmCvar_t		g_filterSlurs;
 

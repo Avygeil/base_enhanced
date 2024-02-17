@@ -18,6 +18,7 @@ trap_FS_Write(tempStr, strlen(tempStr), debugFile);	\
 #define TeamGen_DebugPrintf(...)	do {} while (0)
 #endif
 
+static int rerollNum = 0;
 static unsigned int teamGenSeed = 0u;
 
 #ifdef _DEBUG
@@ -272,6 +273,7 @@ typedef struct {
 	list_t *avoidedHashesList;
 	qboolean banAvoidedPositions;
 	int type;
+	qboolean enforceImbalanceCaps;
 } teamGeneratorContext_t;
 
 typedef struct {
@@ -321,6 +323,7 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 	double total = team1RawStrength + team2RawStrength;
 	double team1RelativeStrength = team1RawStrength / total;
 	double team2RelativeStrength = team2RawStrength / total;
+	double diffPercentage = fabs(team1RelativeStrength - team2RelativeStrength);
 	double diff = round(fabs(team1RawStrength - team2RawStrength) / PLAYERRATING_DECIMAL_INCREMENT);
 	int iDiff = (int)diff;
 
@@ -417,6 +420,25 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 		offenseDefenseDiff,
 		team1OffenseDefenseDiff,
 		team2OffenseDefenseDiff);
+
+	if (context->enforceImbalanceCaps) {
+		if (!rerollNum && g_vote_teamgen_acdImbalanceCapWithoutReroll.value > 0) {
+			double cap = g_vote_teamgen_acdImbalanceCapWithoutReroll.value;
+			cap = (round(cap * 10000) / 10000.0) + 0.00001;
+			if (diffPercentage >= cap) {
+				TeamGen_DebugPrintf(" difference too great (without reroll).<br/>");
+				return;
+			}
+		}
+		else if (rerollNum == 1 && g_vote_teamgen_acdImbalanceCapWithOneReroll.value > 0) {
+			double cap = g_vote_teamgen_acdImbalanceCapWithOneReroll.value;
+			cap = (round(cap * 10000) / 10000.0) + 0.00001;
+			if (diffPercentage >= cap) {
+				TeamGen_DebugPrintf(" difference too great (with one reroll).<br/>");
+				return;
+			}
+		}
+	}
 
 	if (garbageTierImbalance >= 2) {
 		TeamGen_DebugPrintf(" garbage imbalance too great (>= 2).<br/>");
@@ -907,6 +929,7 @@ static void TryTeamPermutation_Fairest(teamGeneratorContext_t *context, const pe
 	double total = team1RawStrength + team2RawStrength;
 	double team1RelativeStrength = team1RawStrength / total;
 	double team2RelativeStrength = team2RawStrength / total;
+	double diffPercentage = fabs(team1RelativeStrength - team2RelativeStrength);
 	double diff = round(fabs(team1RawStrength - team2RawStrength) / PLAYERRATING_DECIMAL_INCREMENT);
 	int iDiff = (int)diff;
 
@@ -1003,6 +1026,25 @@ static void TryTeamPermutation_Fairest(teamGeneratorContext_t *context, const pe
 		offenseDefenseDiff,
 		team1OffenseDefenseDiff,
 		team2OffenseDefenseDiff);
+
+	if (context->enforceImbalanceCaps) {
+		if (!rerollNum && g_vote_teamgen_acdImbalanceCapWithoutReroll.value > 0) {
+			double cap = g_vote_teamgen_acdImbalanceCapWithoutReroll.value;
+			cap = (round(cap * 10000) / 10000.0) + 0.00001;
+			if (diffPercentage >= cap) {
+				TeamGen_DebugPrintf(" difference too great (without reroll).<br/>");
+				return;
+			}
+		}
+		else if (rerollNum == 1 && g_vote_teamgen_acdImbalanceCapWithOneReroll.value > 0) {
+			double cap = g_vote_teamgen_acdImbalanceCapWithOneReroll.value;
+			cap = (round(cap * 10000) / 10000.0) + 0.00001;
+			if (diffPercentage >= cap) {
+				TeamGen_DebugPrintf(" difference too great (with one reroll).<br/>");
+				return;
+			}
+		}
+	}
 
 	if (garbageTierImbalance >= 2) {
 		TeamGen_DebugPrintf(" garbage imbalance too great (>= 2).<br/>");
@@ -1231,6 +1273,7 @@ static void TryTeamPermutation_SemiAppeasing(teamGeneratorContext_t *context, co
 	double total = team1RawStrength + team2RawStrength;
 	double team1RelativeStrength = team1RawStrength / total;
 	double team2RelativeStrength = team2RawStrength / total;
+	double diffPercentage = fabs(team1RelativeStrength - team2RelativeStrength);
 	double diff = round(fabs(team1RawStrength - team2RawStrength) / PLAYERRATING_DECIMAL_INCREMENT);
 	int iDiff = (int)diff;
 
@@ -1327,6 +1370,25 @@ static void TryTeamPermutation_SemiAppeasing(teamGeneratorContext_t *context, co
 		offenseDefenseDiff,
 		team1OffenseDefenseDiff,
 		team2OffenseDefenseDiff);
+
+	if (context->enforceImbalanceCaps) {
+		if (!rerollNum && g_vote_teamgen_acdImbalanceCapWithoutReroll.value > 0) {
+			double cap = g_vote_teamgen_acdImbalanceCapWithoutReroll.value;
+			cap = (round(cap * 10000) / 10000.0) + 0.00001;
+			if (diffPercentage >= cap) {
+				TeamGen_DebugPrintf(" difference too great (without reroll).<br/>");
+				return;
+			}
+		}
+		else if (rerollNum == 1 && g_vote_teamgen_acdImbalanceCapWithOneReroll.value > 0) {
+			double cap = g_vote_teamgen_acdImbalanceCapWithOneReroll.value;
+			cap = (round(cap * 10000) / 10000.0) + 0.00001;
+			if (diffPercentage >= cap) {
+				TeamGen_DebugPrintf(" difference too great (with one reroll).<br/>");
+				return;
+			}
+		}
+	}
 
 	if (garbageTierImbalance >= 2) {
 		TeamGen_DebugPrintf(" garbage imbalance too great (>= 2).<br/>");
@@ -1540,6 +1602,7 @@ static void TryTeamPermutation_Inclusive(teamGeneratorContext_t *context, const 
 	double total = team1RawStrength + team2RawStrength;
 	double team1RelativeStrength = team1RawStrength / total;
 	double team2RelativeStrength = team2RawStrength / total;
+	double diffPercentage = fabs(team1RelativeStrength - team2RelativeStrength);
 	double diff = round(fabs(team1RawStrength - team2RawStrength) / PLAYERRATING_DECIMAL_INCREMENT);
 	int iDiff = (int)diff;
 
@@ -1636,6 +1699,25 @@ static void TryTeamPermutation_Inclusive(teamGeneratorContext_t *context, const 
 		offenseDefenseDiff,
 		team1OffenseDefenseDiff,
 		team2OffenseDefenseDiff);
+
+	if (context->enforceImbalanceCaps) {
+		if (!rerollNum && g_vote_teamgen_acdImbalanceCapWithoutReroll.value > 0) {
+			double cap = g_vote_teamgen_acdImbalanceCapWithoutReroll.value;
+			cap = (round(cap * 10000) / 10000.0) + 0.00001;
+			if (diffPercentage >= cap) {
+				TeamGen_DebugPrintf(" difference too great (without reroll).<br/>");
+				return;
+			}
+		}
+		else if (rerollNum == 1 && g_vote_teamgen_acdImbalanceCapWithOneReroll.value > 0) {
+			double cap = g_vote_teamgen_acdImbalanceCapWithOneReroll.value;
+			cap = (round(cap * 10000) / 10000.0) + 0.00001;
+			if (diffPercentage >= cap) {
+				TeamGen_DebugPrintf(" difference too great (with one reroll).<br/>");
+				return;
+			}
+		}
+	}
 
 	if (garbageTierImbalance >= 2) {
 		TeamGen_DebugPrintf(" garbage imbalance too great (>= 2).<br/>");
@@ -1930,9 +2012,11 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 		team1OffenseDefenseDiff,
 		team2OffenseDefenseDiff);
 
-	if (diffPercentage >= 0.04) {
-		TeamGen_DebugPrintf(" difference too great.<br/>");
-		return;
+	if (rerollNum < 2) {
+		if (diffPercentage >= 0.04) {
+			TeamGen_DebugPrintf(" difference too great.<br/>");
+			return;
+		}
 	}
 
 	if (garbageTierImbalance >= 2) {
@@ -2339,7 +2423,7 @@ for each combination of 4 defenders:
 
 Returns the number of valid permutations evaluated.
 */
-static uint64_t PermuteTeams(permutationPlayer_t *playerArray, int numEligible, permutationOfTeams_t *bestOut, PermutationCallback callback, qboolean enforceChaseRule, list_t *avoidedHashesList, qboolean banAvoidedPositions, int type) {
+static uint64_t PermuteTeams(permutationPlayer_t *playerArray, int numEligible, permutationOfTeams_t *bestOut, PermutationCallback callback, qboolean enforceChaseRule, list_t *avoidedHashesList, qboolean banAvoidedPositions, int type, qboolean enforceImbalanceCaps) {
 #ifdef DEBUG_GENERATETEAMS
 	clock_t start = clock();
 #endif
@@ -2358,6 +2442,7 @@ static uint64_t PermuteTeams(permutationPlayer_t *playerArray, int numEligible, 
 	context.best->offenseDefenseDiff = 0;
 	context.best->totalSkill = 0;
 	context.type = type;
+	context.enforceImbalanceCaps = enforceImbalanceCaps;
 	if (avoidedHashesList && avoidedHashesList->size > 0)
 		context.avoidedHashesList = avoidedHashesList;
 	else
@@ -2435,7 +2520,7 @@ static int NumPermutationsOfPlayer(int accountId, permutationOfTeams_t *p1, perm
 	return num;
 }
 
-static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlayed, permutationOfTeams_t *highestCaliber, permutationOfTeams_t *fairest, permutationOfTeams_t *desired, permutationOfTeams_t *inclusive, permutationOfTeams_t *semiDesired, uint64_t *numPermutations) {
+static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlayed, permutationOfTeams_t *highestCaliber, permutationOfTeams_t *fairest, permutationOfTeams_t *desired, permutationOfTeams_t *inclusive, permutationOfTeams_t *semiDesired, uint64_t *numPermutations, qboolean enforceImbalanceCaps) {
 	assert(set);
 #ifdef DEBUG_GENERATETEAMS
 	clock_t start = clock();
@@ -3074,9 +3159,9 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 			callback = TryTeamPermutation_SemiAppeasing; // prefer getting people only on avoids in a/b/c onto non-avoids
 		else
 			callback = TryTeamPermutation; // prefer fairness followed by desired positions
-		TeamGen_DebugPrintf("<font color=darkgreen>==========Permuting teams with type %d==========</font><br/>", type);
+		TeamGen_DebugPrintf("<font color=darkgreen>==========Permuting teams with type %d and enforceImbalanceCaps %d==========</font><br/>", type, enforceImbalanceCaps);
 
-		uint64_t thisGotten = PermuteTeams(&players[0], numEligible, &try1, callback, qtrue, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qtrue, type);
+		uint64_t thisGotten = PermuteTeams(&players[0], numEligible, &try1, callback, qtrue, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qtrue, type, enforceImbalanceCaps);
 		if (thisGotten > gotten)
 			gotten = thisGotten;
 
@@ -3091,7 +3176,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 			try1.iDiff = 999999999;
 			try1.totalNumPermutations = 999999;
 			try1.totalSkill = 0;
-			thisGotten = PermuteTeams(&players[0], numEligible, &try1, callback, qfalse, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qtrue, type);
+			thisGotten = PermuteTeams(&players[0], numEligible, &try1, callback, qfalse, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qtrue, type, enforceImbalanceCaps);
 			if (thisGotten > gotten)
 				gotten = thisGotten;
 
@@ -3103,7 +3188,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 				try1.iDiff = 999999999;
 				try1.totalNumPermutations = 999999;
 				try1.totalSkill = 0;
-				thisGotten = PermuteTeams(&players[0], numEligible, &try1, callback, qtrue, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qfalse, type);
+				thisGotten = PermuteTeams(&players[0], numEligible, &try1, callback, qtrue, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qfalse, type, enforceImbalanceCaps);
 				if (thisGotten > gotten)
 					gotten = thisGotten;
 
@@ -3113,7 +3198,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 					try1.iDiff = 999999999;
 					try1.totalNumPermutations = 999999;
 					try1.totalSkill = 0;
-					thisGotten = PermuteTeams(&players[0], numEligible, &try1, callback, qfalse, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qfalse, type);
+					thisGotten = PermuteTeams(&players[0], numEligible, &try1, callback, qfalse, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qfalse, type, enforceImbalanceCaps);
 					if (thisGotten > gotten)
 						gotten = thisGotten;
 				}
@@ -3125,7 +3210,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 		if (allowSecondTry) {
 			if (type == TEAMGENERATORTYPE_HIGHESTRATING && try1.valid) {
 				TeamGen_DebugPrintf("<font color=orange>==========Attempting HC type %d without banning avoided pos to see if we can do better==========</font><br/>", type);
-				thisGotten = PermuteTeams(&players[0], numEligible, &try2, callback, qtrue, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qfalse, type);
+				thisGotten = PermuteTeams(&players[0], numEligible, &try2, callback, qtrue, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qfalse, type, enforceImbalanceCaps);
 				if (thisGotten > gotten)
 					gotten = thisGotten;
 
@@ -3135,7 +3220,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 					try2.iDiff = 999999999;
 					try2.totalNumPermutations = 999999;
 					try2.totalSkill = 0;
-					thisGotten = PermuteTeams(&players[0], numEligible, &try2, callback, qfalse, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qfalse, type);
+					thisGotten = PermuteTeams(&players[0], numEligible, &try2, callback, qfalse, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qfalse, type, enforceImbalanceCaps);
 					if (thisGotten > gotten)
 						gotten = thisGotten;
 				}
@@ -3157,7 +3242,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 			}
 			else if (type != TEAMGENERATORTYPE_DESIREDPOS && try1.valid && try1.iDiff > 0) {
 				TeamGen_DebugPrintf("<font color=orange>==========Diff is > 0 for type %d; attempting without banning avoided pos==========</font><br/>", type);
-				thisGotten = PermuteTeams(&players[0], numEligible, &try2, callback, qtrue, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qfalse, type);
+				thisGotten = PermuteTeams(&players[0], numEligible, &try2, callback, qtrue, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qfalse, type, enforceImbalanceCaps);
 				if (thisGotten > gotten)
 					gotten = thisGotten;
 
@@ -3167,7 +3252,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 					try2.iDiff = 999999999;
 					try2.totalNumPermutations = 999999;
 					try2.totalSkill = 0;
-					thisGotten = PermuteTeams(&players[0], numEligible, &try2, callback, qfalse, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qfalse, type);
+					thisGotten = PermuteTeams(&players[0], numEligible, &try2, callback, qfalse, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qfalse, type, enforceImbalanceCaps);
 					if (thisGotten > gotten)
 						gotten = thisGotten;
 				}
@@ -3257,6 +3342,12 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 		}
 
 	}
+
+	if (!numValid && enforceImbalanceCaps) {
+		TeamGen_DebugPrintf("<font color=blue>!!!!!!!!Did not get any valid permutations, retrying without enforcing imbalance caps!!!!!!!!</font><br/>");
+		return GenerateTeams(set, mostPlayed, highestCaliber, fairest, desired, inclusive, semiDesired, numPermutations, qfalse);
+	}
+
 	if (numPermutations)
 		*numPermutations = gotten;
 
@@ -3387,7 +3478,7 @@ static qboolean GenerateTeamsIteratively(pugProposal_t *set, permutationOfTeams_
 		teamGenSeed = originalSeed + (i * 29);
 
 		// generate them according to this seed
-		GenerateTeams(set, &permutations[i][0], &permutations[i][1], &permutations[i][2], &permutations[i][3], &permutations[i][4], &permutations[i][5], numPermutations);
+		GenerateTeams(set, &permutations[i][0], &permutations[i][1], &permutations[i][2], &permutations[i][3], &permutations[i][4], &permutations[i][5], numPermutations, qtrue);
 
 		// calculate the ideal number of slots per player
 		double numValidPermutations = 0.0;
@@ -3944,7 +4035,7 @@ void PrintTeamsProposalsInConsole(pugProposal_t *set, int clientNum) {
 		else if (tags & (1 << TEAMGENTAG_MOSTHC))
 			Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^3[most HC]" : va("%s ^3[most HC]", suggestionTypeStr));
 
-		if (i == TEAMGENERATORTYPE_HIGHESTRATING && (tags & (1 << TEAMGENTAG_MOSTHC) || tags & (1 << TEAMGENTAG_TIEDFORMOSTHC)))
+		if (!rerollNum && i == TEAMGENERATORTYPE_HIGHESTRATING && (tags & (1 << TEAMGENTAG_MOSTHC) || tags & (1 << TEAMGENTAG_TIEDFORMOSTHC)))
 			Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^5[spec/capt]" : va("%s ^5[spec/capt]", suggestionTypeStr));
 
 		if (tags & (1 << TEAMGENTAG_HC3))
@@ -4134,6 +4225,7 @@ static void ActivatePugProposal(pugProposal_t *set, qboolean forcedByServer) {
 	}
 
 	// then go ahead and generate teams
+	rerollNum = 0;
 	if (GenerateTeamsIteratively(set, &set->suggested, &set->highestCaliber, &set->fairest, &set->desired, &set->inclusive, &set->semiDesired, &set->numValidPermutationsChecked)) {
 		TeamGenerator_QueueServerMessageInChat(-1, va("Pug proposal %d %s (%s). Check console for teams proposals.", set->num, forcedByServer ? "force passed by server" : "passed", set->namesStr));
 		set->passed = qtrue;
@@ -5952,7 +6044,8 @@ void TeamGenerator_DoReroll(qboolean forcedByServer) {
 	unsigned int bestNumDifferent = 0u, bestSeed = 0u;
 	unsigned int originalSeed = teamGenSeed;
 
-	// generate teams up to 8 times. the seed that generates the most new permutations will be chosen.
+	// we used to reroll up to 8 times, but with GenerateTeamsIteratively we now only need to do it once
+	++rerollNum;
 #ifdef DEBUG_GENERATETEAMS_PRINT
 	inReroll = qtrue;
 #endif
