@@ -2279,6 +2279,8 @@ void ClientUserinfoChanged( int clientNum ) {
 		}
 	}
 
+	client->pers.hasSpecName = IsSpecName(client->pers.netname);
+
 	// set model
 	Q_strncpyz( model, Info_ValueForKey (userinfo, "model"), sizeof( model ) );
 

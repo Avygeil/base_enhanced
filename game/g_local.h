@@ -803,7 +803,8 @@ typedef enum {
 	BARREASON_NOTBARRED = 0,
 	BARREASON_BARREDBYADMIN,
 	BARREASON_BARREDBYACCOUNTFLAG,
-	BARREASON_BARREDBYVOTE
+	BARREASON_BARREDBYVOTE,
+	UNBARREASON_LS
 } barReason_t;
 
 // client data that stays across multiple respawns, but is cleared
@@ -816,6 +817,7 @@ typedef struct {
 	qboolean	predictItemPickup;	// based on cg_predictItems userinfo
 	qboolean	pmoveFixed;			//
 	char		netname[MAX_NETNAME];
+	qboolean	hasSpecName;
 	int			netnameTime;				// Last time the name was changed
 	int			maxHealth;			// for handicapping
 	int			enterTime;			// level.time the client entered the game
@@ -1422,6 +1424,7 @@ void TeamGen_AnnounceBreak(void);
 void TeamGen_DoAutoRestart(void);
 void TeamGenerator_MatchComplete(void);
 void TeamGen_CheckForUnbarLS(void);
+void TeamGen_CheckForRebarLS(void);
 void TeamGen_WarnLS(void);
 void PrintTeamsProposalsInConsole(pugProposal_t *set, int clientNum);
 

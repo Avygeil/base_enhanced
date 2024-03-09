@@ -5740,19 +5740,22 @@ qboolean TeamGenerator_PugStart(gentity_t *ent, char **newMessage) {
 }
 
 void TeamGen_WarnLS(void) {
-	int numConnectedWithAccount = 0, numLS = 0;
+	int numNonLSConnectedWithAccountAndNotSpecNamedOrBarred = 0, numLS = 0;
 	for (int i = 0; i < MAX_CLIENTS; i++) {
 		gentity_t *ent = &g_entities[i];
-		if (!ent->client || ent->client->pers.connected == CON_DISCONNECTED || !ent->client->account)
+		if (!ent->client || ent->client->pers.connected == CON_DISCONNECTED || !ent->client->account || IsSpecName(ent->client->pers.netname))
 			continue;
-		++numConnectedWithAccount;
 		if (ent->client->account->flags & ACCOUNTFLAG_LSAFKTROLL &&
 			!(ent->client->account->flags & ACCOUNTFLAG_PERMABARRED) && !(ent->client->account->flags & ACCOUNTFLAG_HARDPERMABARRED)) {
 			++numLS;
+			continue;
 		}
+		if (TeamGenerator_PlayerIsBarredFromTeamGenerator(ent))
+			continue;
+		++numNonLSConnectedWithAccountAndNotSpecNamedOrBarred;
 	}
 
-	if (numLS && numConnectedWithAccount && numConnectedWithAccount - numLS < 8)
+	if (!(numLS && numNonLSConnectedWithAccountAndNotSpecNamedOrBarred && numNonLSConnectedWithAccountAndNotSpecNamedOrBarred + numLS > 8))
 		return;
 
 	for (int i = 0; i < MAX_CLIENTS; i++) {
@@ -5770,7 +5773,7 @@ void TeamGen_WarnLS(void) {
 		if (TeamGenerator_PlayerIsPermaBarredButTemporarilyForcedPickable(ent))
 			continue;
 
-		if (IsRacerOrSpectator(ent) && IsSpecName(ent->client->pers.netname))
+		if (IsRacerOrSpectator(ent) && ent->client->pers.hasSpecName)
 			continue;
 
 		ent->client->pers.warnedLS = qtrue;
@@ -5779,26 +5782,40 @@ void TeamGen_WarnLS(void) {
 			if (!secondEnt->inuse || !secondEnt->client || !secondEnt->client->account || secondEnt->client->account != ent->client->account || secondEnt->client->pers.connected != CON_CONNECTED)
 				continue;
 			TeamGenerator_QueueServerMessageInChat(j, va("^7Mivel több mint 8 játékos van, írd be a ^3%cpickable^7 parancsot, ha pugozni szeretnél.", TEAMGEN_CHAT_COMMAND_CHARACTER));
+			ClientUserinfoChanged(j);
 		}
 	}
 }
 
+// if there are 8 but only with LS, unbar him
 void TeamGen_CheckForUnbarLS(void) {
-	int numConnectedWithAccount = 0, numLS = 0;
+	int numNonLSConnectedWithAccountAndNotSpecNamedOrBarred = 0, numLS = 0;
 	for (int i = 0; i < MAX_CLIENTS; i++) {
 		gentity_t *ent = &g_entities[i];
 		if (!ent->client || ent->client->pers.connected == CON_DISCONNECTED || !ent->client->account)
 			continue;
+
 		if (ent->client->pers.connected == CON_CONNECTING)
 			return; // don't do it while someone is still loading the map
-		++numConnectedWithAccount;
+
+		if (ent->client->pers.hasSpecName)
+			continue;
+
 		if (ent->client->account->flags & ACCOUNTFLAG_LSAFKTROLL &&
 			!(ent->client->account->flags & ACCOUNTFLAG_PERMABARRED) && !(ent->client->account->flags & ACCOUNTFLAG_HARDPERMABARRED)) {
+			if (ent->client->pers.barredFromPugSelection == BARREASON_BARREDBYADMIN || ent->client->pers.barredFromPugSelection == BARREASON_BARREDBYVOTE)
+				return; // he was manually barred; don't auto unbar him
 			++numLS;
+			continue;
 		}
+
+		if (TeamGenerator_PlayerIsBarredFromTeamGenerator(ent))
+			continue;
+
+		++numNonLSConnectedWithAccountAndNotSpecNamedOrBarred;
 	}
 
-	if (!numLS || !numConnectedWithAccount || numConnectedWithAccount - numLS >= 8)
+	if (!numLS || !numNonLSConnectedWithAccountAndNotSpecNamedOrBarred || numNonLSConnectedWithAccountAndNotSpecNamedOrBarred + numLS >= 9)
 		return;
 
 	for (int i = 0; i < MAX_CLIENTS; i++) {
@@ -5827,13 +5844,69 @@ void TeamGen_CheckForUnbarLS(void) {
 		//TeamGenerator_QueueServerMessageInChat(-1, va("%s^7 temporarily forced to be pickable for team generation by server.", ent->client->account->name));
 		barredOrForcedPickablePlayer_t *add = ListAdd(&level.forcedPickablePermabarredPlayersList, sizeof(barredOrForcedPickablePlayer_t));
 		add->accountId = ent->client->account->id;
+		add->reason = UNBARREASON_LS;
 
-		for (int i = 0; i < MAX_CLIENTS; i++) {
-			if (g_entities[i].inuse && g_entities[i].client && g_entities[i].client->pers.connected == CON_CONNECTED && g_entities[i].client->account && g_entities[i].client->account->id == ent->client->account->id)
-				ClientUserinfoChanged(i);
+		for (int j = 0; j < MAX_CLIENTS; j++) {
+			gentity_t *otherEnt = &g_entities[j];
+			if (otherEnt->inuse && otherEnt->client && otherEnt->client->pers.connected == CON_CONNECTED && otherEnt->client->account && otherEnt->client->account->id == ent->client->account->id)
+				ClientUserinfoChanged(j);
 		}
 	}
 }
+
+// if there are 8 without LS, bar him
+void TeamGen_CheckForRebarLS(void) {
+	int numNonLSConnectedWithAccountAndNotSpecNamedOrBarred = 0, numLS = 0;
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *ent = &g_entities[i];
+		if (!ent->client || ent->client->pers.connected == CON_DISCONNECTED || !ent->client->account)
+			continue;
+
+		if (ent->client->pers.connected == CON_CONNECTING)
+			return; // don't do it while someone is still loading the map
+
+		if (ent->client->pers.hasSpecName)
+			continue;
+
+		if (ent->client->account->flags & ACCOUNTFLAG_LSAFKTROLL &&
+			!(ent->client->account->flags & ACCOUNTFLAG_PERMABARRED) && !(ent->client->account->flags & ACCOUNTFLAG_HARDPERMABARRED)) {
+			if (ent->client->pers.permaBarredDeclaredPickable && !(ent->client->pers.barredFromPugSelection == BARREASON_BARREDBYADMIN || ent->client->pers.barredFromPugSelection == BARREASON_BARREDBYVOTE))
+				return; // he did ?pickable and wasn't manually barred; don't auto rebar him
+			++numLS;
+			continue;
+		}
+
+		if (TeamGenerator_PlayerIsBarredFromTeamGenerator(ent))
+			continue;
+
+		++numNonLSConnectedWithAccountAndNotSpecNamedOrBarred;
+	}
+
+	if (!numLS || numNonLSConnectedWithAccountAndNotSpecNamedOrBarred + numLS <= 8)
+		return; // not enough non-LSs to rebar LS
+
+	// rebar LS if he was previously made pickable due to not enough players
+	iterator_t iter;
+	ListIterate(&level.forcedPickablePermabarredPlayersList, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		barredOrForcedPickablePlayer_t *bp = IteratorNext(&iter);
+		if (bp->reason == UNBARREASON_LS) {
+			Com_Printf("Rebarring LS with account ID %d due to sufficient player count.\n", bp->accountId);
+			ListRemove(&level.forcedPickablePermabarredPlayersList, bp);
+
+			for (int i = 0; i < MAX_CLIENTS; i++) {
+				gentity_t *ent = &g_entities[i];
+				if (ent->inuse && ent->client && ent->client->pers.connected == CON_CONNECTED && ent->client->account && ent->client->account->flags & ACCOUNTFLAG_LSAFKTROLL) {
+					ent->client->pers.warnedLS = qfalse;
+					ClientUserinfoChanged(i);
+				}
+			}
+
+			ListIterate(&level.forcedPickablePermabarredPlayersList, &iter, qfalse);
+		}
+	}
+}
+
 
 void TeamGen_AnnounceBreak(void) {
 	if (!g_vote_teamgen.integer || !g_vote_teamgen_announceBreak.integer || g_gametype.integer != GT_CTF || g_vote_teamgen_minSecsSinceIntermission.integer <= 0 ||

@@ -1378,6 +1378,7 @@ void SetNameQuick( gentity_t *ent, char *s, int renameDelay ) {
 	ClientUserinfoChanged( ent->s.number );
 	// TODO: display something else than "5 seconds" to the player
 	ent->client->pers.netnameTime = level.time + ( renameDelay < 0 ? 0 : renameDelay );
+	ent->client->pers.hasSpecName = IsSpecName(ent->client->pers.netname);
 }
 
 /*
