@@ -3566,6 +3566,7 @@ extern vmCvar_t		g_deleteBaseItemsWhitelist;
 extern vmCvar_t		g_broadcastCtfPos;
 extern vmCvar_t		g_assignMissingCtfPos;
 extern vmCvar_t		g_broadcastGivenThTe;
+extern vmCvar_t		g_broadcastCapturerHealthArmorForce;
 
 extern vmCvar_t		d_debugBanPermutation;
 

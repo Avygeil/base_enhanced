@@ -115,6 +115,19 @@ void PrintCTFMessage(int plIndex, int teamIndex, int ctfMessage)
 		} else if ( teamIndex == TEAM_BLUE ) {
 			te->s.time = level.blueTeamRunFlaghold;
 		}
+
+		// send the hp/armor/force of the capturer as unused event parameter
+		if (plIndex >= 0 && plIndex < MAX_CLIENTS && g_broadcastCapturerHealthArmorForce.integer) {
+			gentity_t *ent = &g_entities[plIndex];
+			if (ent->inuse && ent->client && ent->health > 0) {
+				int health = Com_Clampi(0, 999, ent->health);
+				int armor = Com_Clampi(0, 999, ent->client->ps.stats[STAT_ARMOR]);
+				int force = ent->client->ps.fd.forcePowersKnown ? Com_Clampi(0, 100, ent->client->ps.fd.forcePower) : 0;
+
+				uint32_t packed = ((health & 0x3FF) << 22) | ((armor & 0x3FF) << 12) | (force & 0x3FF);
+				te->s.emplacedOwner = *(int *)&packed;
+			}
+		}
 	}
 
 	G_ApplyRaceBroadcastsToEvent( NULL, te );

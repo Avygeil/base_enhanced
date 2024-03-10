@@ -565,6 +565,7 @@ vmCvar_t	g_deleteBaseItemsWhitelist;
 vmCvar_t	g_broadcastCtfPos;
 vmCvar_t	g_assignMissingCtfPos;
 vmCvar_t	g_broadcastGivenThTe;
+vmCvar_t	g_broadcastCapturerHealthArmorForce;
 
 vmCvar_t	d_debugBanPermutation;
 
@@ -1157,6 +1158,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_broadcastCtfPos, "g_broadcastCtfPos", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
 	{ &g_assignMissingCtfPos, "g_assignMissingCtfPos", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_broadcastGivenThTe, "g_broadcastGivenThTe", "1", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_broadcastCapturerHealthArmorForce, "g_broadcastCapturerHealthArmorForce", "1", CVAR_ARCHIVE, 0, qfalse },
 
 	{ &d_debugBanPermutation, "d_debugBanPermutation", "0", CVAR_ARCHIVE, 0, qfalse },
 
