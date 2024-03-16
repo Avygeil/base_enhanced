@@ -1380,6 +1380,7 @@ static void PM_DoJumpSound(void) {
 		return;
 	}
 
+#if 0
 	gentity_t *te = G_TempEntity(vec3_origin, EV_JUMP);
 	te->s.number = pm->ps->clientNum;
 	G_ApplyRaceBroadcastsToEvent(&g_entities[pm->ps->clientNum], te);
@@ -1399,6 +1400,7 @@ static void PM_DoJumpSound(void) {
 		if (isMindTricked || isFollowingSomeoneWhoIsMindtricked)
 			te->r.broadcastClients[1] |= (1 << i);
 	}
+#endif
 }
 
 static void PM_DoRollSound(int delta_send) {
@@ -1407,6 +1409,7 @@ static void PM_DoRollSound(int delta_send) {
 		return;
 	}
 
+#if 0
 	gentity_t *te = G_TempEntity(vec3_origin, EV_ROLL);
 	te->s.number = pm->ps->clientNum;
 	G_ApplyRaceBroadcastsToEvent(&g_entities[pm->ps->clientNum], te);
@@ -1428,6 +1431,7 @@ static void PM_DoRollSound(int delta_send) {
 	}
 
 	te->s.eventParm = delta_send;
+#endif
 }
 
 static void PM_DoFallSound(int delta_send) {
