@@ -3547,18 +3547,20 @@ static qboolean GenerateTeamsIteratively(pugProposal_t *set, permutationOfTeams_
 		default: assert(qfalse); perfection = 0;	break;
 		}
 
-		if (sumOfSquares[i] - 0.0001 <= perfection)
+		if (sumOfSquares[i] - 0.0001 <= perfection /*&& (int)numValidPermutations == 3*/)
 			break; // we got a perfect one; no need to keep iterating
 	}
 
 	// pick the set of permutations with the fewest number of permutations (3 == didn't need inclusive pass to begin with), or the lowest sum of squares
 	double lowestSumOfSquares = 999999999;
+	int lowestNumPermutations = 999999999;
 	int bestIndex = -1;
 	for (int i = 0; i < MAX_TEAMGEN_ITERATIONS && i < numIterationsToDo && i < numEvaluated; i++) {
-		if (sumOfSquares[i] < lowestSumOfSquares - 0.001f) {
+		if (numPermutationsPerIteration[i] < lowestNumPermutations || (numPermutationsPerIteration[i] == lowestNumPermutations && sumOfSquares[i] < lowestSumOfSquares - 0.001f)) {
+			lowestNumPermutations = numPermutationsPerIteration[i];
 			lowestSumOfSquares = sumOfSquares[i];
 			bestIndex = i;
-			if (sumOfSquares[i] <= 0.00001)
+			if (sumOfSquares[i] <= 0 /*&& numPermutationsPerIteration[i] == 3*/)
 				break; // we got a perfect one; no need to keep iterating
 		}
 	}
