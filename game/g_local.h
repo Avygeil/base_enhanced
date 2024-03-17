@@ -3530,7 +3530,6 @@ extern vmCvar_t		g_vote_runoffRerollOption;
 
 extern vmCvar_t		g_vote_teamgen;
 extern vmCvar_t		g_vote_teamgen_pug_requiredVotes;
-extern vmCvar_t		g_vote_teamgen_team_requiredVotes;
 extern vmCvar_t		g_vote_teamgen_subhelp;
 extern vmCvar_t		g_vote_teamgen_rustWeeks;
 extern vmCvar_t		g_vote_teamgen_minSecsSinceIntermission;
@@ -3555,6 +3554,7 @@ extern vmCvar_t		g_vote_teamgen_readBeforeVotingMillisecondsJawa;
 extern vmCvar_t		g_vote_teamgen_preventBindsWith8PlayersMilliseconds;
 extern vmCvar_t		g_vote_teamgen_acdImbalanceCapWithoutReroll;
 extern vmCvar_t		g_vote_teamgen_acdImbalanceCapWithOneReroll;
+extern vmCvar_t		g_vote_teamgen_dynamicVoteRequirement;
 
 extern vmCvar_t		g_filterSlurs;
 

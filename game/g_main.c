@@ -528,7 +528,6 @@ vmCvar_t	g_vote_runoffRerollOption;
 
 vmCvar_t	g_vote_teamgen;
 vmCvar_t	g_vote_teamgen_pug_requiredVotes;
-vmCvar_t	g_vote_teamgen_team_requiredVotes;
 vmCvar_t	g_vote_teamgen_subhelp;
 vmCvar_t	g_vote_teamgen_rustWeeks;
 vmCvar_t	g_vote_teamgen_minSecsSinceIntermission;
@@ -554,6 +553,7 @@ vmCvar_t	g_vote_teamgen_readBeforeVotingMillisecondsJawa;
 vmCvar_t	g_vote_teamgen_preventBindsWith8PlayersMilliseconds;
 vmCvar_t	g_vote_teamgen_acdImbalanceCapWithoutReroll;
 vmCvar_t	g_vote_teamgen_acdImbalanceCapWithOneReroll;
+vmCvar_t	g_vote_teamgen_dynamicVoteRequirement;
 
 vmCvar_t	g_filterSlurs;
 
@@ -1122,7 +1122,6 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_runoffRerollOption, "g_vote_runoffRerollOption", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 
 	{ &g_vote_teamgen_pug_requiredVotes, "g_vote_teamgen_pug_requiredVotes", "4", CVAR_ARCHIVE, 0, qtrue },
-	{ &g_vote_teamgen_team_requiredVotes, "g_vote_teamgen_team_requiredVotes", "5", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_teamgen_subhelp, "g_vote_teamgen_subhelp", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_rustWeeks, "g_vote_teamgen_rustWeeks", "12", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
 	{ &g_vote_teamgen_minSecsSinceIntermission, "g_vote_teamgen_minSecsSinceIntermission", "30", CVAR_ARCHIVE, 0, qfalse },
@@ -1147,6 +1146,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_teamgen_preventBindsWith8PlayersMilliseconds, "g_vote_teamgen_preventBindsWith8PlayersMilliseconds", "50", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_acdImbalanceCapWithoutReroll, "g_vote_teamgen_acdImbalanceCapWithoutReroll", "0.018", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_acdImbalanceCapWithOneReroll, "g_vote_teamgen_acdImbalanceCapWithOneReroll", "0.038", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_teamgen_dynamicVoteRequirement, "g_vote_teamgen_dynamicVoteRequirement", "1", CVAR_ARCHIVE, 0, qfalse },
 
 	{ &g_filterSlurs, "g_filterSlurs", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
 

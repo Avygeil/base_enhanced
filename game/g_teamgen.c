@@ -4734,18 +4734,15 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 		}
 	}
 
-	if (g_vote_teamgen_preventBindsWith8PlayersMilliseconds.integer > 0) {
-		int numPlayers = 0;
-		for (int i = 0; i < MAX_CLIENTS; i++) {
-			if (level.activePugProposal->clients[i].accountName[0])
-				++numPlayers;
-		}
-
-		if (numPlayers == 8) {
-			if (trap_Milliseconds() - ent->client->pers.chatboxUpTime >= g_vote_teamgen_preventBindsWith8PlayersMilliseconds.integer) {
-				TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You cannot use vote binds when there are exactly 8 players.");
-				return qtrue;
-			}
+	int numPlayers = 0;
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		if (level.activePugProposal->clients[i].accountName[0])
+			++numPlayers;
+	}
+	if (g_vote_teamgen_preventBindsWith8PlayersMilliseconds.integer > 0 && numPlayers == 8) {
+		if (trap_Milliseconds() - ent->client->pers.chatboxUpTime >= g_vote_teamgen_preventBindsWith8PlayersMilliseconds.integer) {
+			TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You cannot use vote binds when there are exactly 8 players.");
+			return qtrue;
 		}
 	}
 
@@ -4925,7 +4922,19 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 			if (newVotes[0] && strchr(newVotes, letter))
 				color = '7';
 
-			const int numRequired = g_vote_teamgen_team_requiredVotes.integer ? g_vote_teamgen_team_requiredVotes.integer : 5;
+			int numRequired;
+			if (g_vote_teamgen_dynamicVoteRequirement.integer) {
+				if (permutation->teams[0].relativeStrength >= 0.519f - 0.0001f || permutation->teams[1].relativeStrength >= 0.519f - 0.0001f)
+					numRequired = 7;
+				else if (permutation->iDiff > 0 || numPlayers > 8)
+					numRequired = 6;
+				else
+					numRequired = 5;
+			}
+			else {
+				numRequired = 5;
+			}
+
 			Q_strcat(buf, sizeof(buf), va(" ^%c(%c: %d/%d)", color, letter, numYesVotesRed + numYesVotesBlue, numRequired));
 		}
 		*newMessage = buf;
@@ -4986,7 +4995,19 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 				++numYesVotesBlue;
 		}
 
-		const int numRequired = g_vote_teamgen_team_requiredVotes.integer ? g_vote_teamgen_team_requiredVotes.integer : 5;
+		int numRequired;
+		if (g_vote_teamgen_dynamicVoteRequirement.integer) {
+			if (permutation->teams[0].relativeStrength >= 0.519f - 0.0001f || permutation->teams[1].relativeStrength >= 0.519f - 0.0001f)
+				numRequired = 7;
+			else if (permutation->iDiff > 0 || numPlayers > 8)
+				numRequired = 6;
+			else
+				numRequired = 5;
+		}
+		else {
+			numRequired = 5;
+		}
+
 		if (g_vote_teamgen_require2VotesOnEachTeam.integer) {
 			if (numYesVotesRed + numYesVotesBlue >= numRequired && numYesVotesRed >= 2 && numYesVotesBlue >= 2)
 				++numPermutationsWithEnoughVotesToPass;
@@ -5064,7 +5085,18 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 				++numYesVotesBlue;
 		}
 
-		const int numRequired = g_vote_teamgen_team_requiredVotes.integer ? g_vote_teamgen_team_requiredVotes.integer : 5;
+		int numRequired;
+		if (g_vote_teamgen_dynamicVoteRequirement.integer) {
+			if (permutation->teams[0].relativeStrength >= 0.519f - 0.0001f || permutation->teams[1].relativeStrength >= 0.519f - 0.0001f)
+				numRequired = 7;
+			else if (permutation->iDiff > 0 || numPlayers > 8)
+				numRequired = 6;
+			else
+				numRequired = 5;
+		}
+		else {
+			numRequired = 5;
+		}
 		qboolean thisOnePasses = qfalse;
 		if (g_vote_teamgen_require2VotesOnEachTeam.integer) {
 			if (numYesVotesRed + numYesVotesBlue >= numRequired && numYesVotesRed >= 2 && numYesVotesBlue >= 2)
@@ -5131,6 +5163,12 @@ qboolean TeamGenerator_UnvoteForTeamPermutations(gentity_t *ent, const char *vot
 	if (level.teamPermutationsShownTime && trap_Milliseconds() - level.teamPermutationsShownTime < 500) {
 		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "The teams proposals have just changed. Please check the new teams proposals.");
 		return qtrue;
+	}
+
+	int numPlayers = 0;
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		if (level.activePugProposal->clients[i].accountName[0])
+			++numPlayers;
 	}
 
 	char existingNoVotes[NUM_TEAMGENERATORTYPES] = { 0 };
@@ -5313,7 +5351,18 @@ qboolean TeamGenerator_UnvoteForTeamPermutations(gentity_t *ent, const char *vot
 			if (newNoVotes[0] && strchr(newNoVotes, letter))
 				color = '7';
 
-			const int numRequired = g_vote_teamgen_team_requiredVotes.integer ? g_vote_teamgen_team_requiredVotes.integer : 5;
+			int numRequired;
+			if (g_vote_teamgen_dynamicVoteRequirement.integer) {
+				if (permutation->teams[0].relativeStrength >= 0.519f - 0.0001f || permutation->teams[1].relativeStrength >= 0.519f - 0.0001f)
+					numRequired = 7;
+				else if (permutation->iDiff > 0 || numPlayers > 8)
+					numRequired = 6;
+				else
+					numRequired = 5;
+			}
+			else {
+				numRequired = 5;
+			}
 			Q_strcat(buf, sizeof(buf), va(" ^%c(%c: %d/%d)", color, letter, numYesVotesRed + numYesVotesBlue, numRequired));
 		}
 		*newMessage = buf;
@@ -5374,7 +5423,18 @@ qboolean TeamGenerator_UnvoteForTeamPermutations(gentity_t *ent, const char *vot
 				++numYesVotesBlue;
 		}
 
-		const int numRequired = g_vote_teamgen_team_requiredVotes.integer ? g_vote_teamgen_team_requiredVotes.integer : 5;
+		int numRequired;
+		if (g_vote_teamgen_dynamicVoteRequirement.integer) {
+			if (permutation->teams[0].relativeStrength >= 0.519f - 0.0001f || permutation->teams[1].relativeStrength >= 0.519f - 0.0001f)
+				numRequired = 7;
+			else if (permutation->iDiff > 0 || numPlayers > 8)
+				numRequired = 6;
+			else
+				numRequired = 5;
+		}
+		else {
+			numRequired = 5;
+		}
 		if (g_vote_teamgen_require2VotesOnEachTeam.integer) {
 			if (numYesVotesRed + numYesVotesBlue >= numRequired && numYesVotesRed >= 2 && numYesVotesBlue >= 2)
 				++numPermutationsWithEnoughVotesToPass;
@@ -5452,7 +5512,18 @@ qboolean TeamGenerator_UnvoteForTeamPermutations(gentity_t *ent, const char *vot
 				++numYesVotesBlue;
 		}
 
-		const int numRequired = g_vote_teamgen_team_requiredVotes.integer ? g_vote_teamgen_team_requiredVotes.integer : 5;
+		int numRequired;
+		if (g_vote_teamgen_dynamicVoteRequirement.integer) {
+			if (permutation->teams[0].relativeStrength >= 0.519f - 0.0001f || permutation->teams[1].relativeStrength >= 0.519f - 0.0001f)
+				numRequired = 7;
+			else if (permutation->iDiff > 0 || numPlayers > 8)
+				numRequired = 6;
+			else
+				numRequired = 5;
+		}
+		else {
+			numRequired = 5;
+		}
 		qboolean thisOnePasses = qfalse;
 		if (g_vote_teamgen_require2VotesOnEachTeam.integer) {
 			if (numYesVotesRed + numYesVotesBlue >= numRequired && numYesVotesRed >= 2 && numYesVotesBlue >= 2)
@@ -6485,7 +6556,7 @@ qboolean TeamGenerator_MemeFuckVote(gentity_t *ent, const char *voteStr, char **
 	}
 
 	// print the message
-	const int numRequired = g_vote_teamgen_team_requiredVotes.integer;
+	const int numRequired = 5;
 	if (newMessage) {
 		static char buf[MAX_STRING_CHARS] = { 0 };
 		Com_sprintf(buf, sizeof(buf), "%cfuck %s   ^%c(%d/%d)",
