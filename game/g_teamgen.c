@@ -3556,7 +3556,9 @@ static qboolean GenerateTeamsIteratively(pugProposal_t *set, permutationOfTeams_
 	int lowestNumPermutations = 999999999;
 	int bestIndex = -1;
 	for (int i = 0; i < MAX_TEAMGEN_ITERATIONS && i < numIterationsToDo && i < numEvaluated; i++) {
-		if (numPermutationsPerIteration[i] < lowestNumPermutations || (numPermutationsPerIteration[i] == lowestNumPermutations && sumOfSquares[i] < lowestSumOfSquares - 0.001f)) {
+		if (sumOfSquares[i] < lowestSumOfSquares - 0.001 || // fairer
+			(numPermutationsPerIteration[i] < lowestNumPermutations && numPermutationsPerIteration[i] >= 3 && fabs(sumOfSquares[i] - lowestSumOfSquares) <= 0.001) // equally fair but fewer permutations (with at least 3 permutations)
+			) {
 			lowestNumPermutations = numPermutationsPerIteration[i];
 			lowestSumOfSquares = sumOfSquares[i];
 			bestIndex = i;
