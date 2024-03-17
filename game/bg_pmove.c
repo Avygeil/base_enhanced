@@ -1440,6 +1440,7 @@ static void PM_DoFallSound(int delta_send) {
 		return;
 	}
 
+#if 0
 	gentity_t *te = G_TempEntity(vec3_origin, EV_FALL);
 	te->s.number = pm->ps->clientNum;
 	G_ApplyRaceBroadcastsToEvent(&g_entities[pm->ps->clientNum], te);
@@ -1461,6 +1462,7 @@ static void PM_DoFallSound(int delta_send) {
 	}
 
 	te->s.eventParm = delta_send;
+#endif
 }
 
 qboolean PM_AdjustAngleForWallRunUp( playerState_t *ps, usercmd_t *ucmd, qboolean doMove )
