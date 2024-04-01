@@ -5434,6 +5434,8 @@ void ClientEndFrame( gentity_t *ent ) {
 				ent->client->saberKnockedTime += time_delta;
 			if (ent->client->homingLockTime)
 				ent->client->homingLockTime += time_delta;
+			if (ent->client->ps.fallingToDeath)
+				ent->client->ps.fallingToDeath += time_delta;
 
 			// update force powers durations
 			for(i=0;i < NUM_FORCE_POWERS;++i) {
