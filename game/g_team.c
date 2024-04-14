@@ -2262,6 +2262,7 @@ gentity_t *SelectRandomTeamSpawnPoint( gclient_t *client, int teamstate, team_t 
 
 	gentity_t *spawnMeNearThisEntity = NULL;
 	int boost = (client && client->account && g_boost.integer) ? client->account->flags & (ACCOUNTFLAG_BOOST_SPAWNFCBOOST | ACCOUNTFLAG_BOOST_SPAWNGERBOOST) : 0;
+	qboolean softSpawnOverride = qfalse; // only rule out the 33% farthest spawns rather than the 50% farthest spawns
 
 	ctfPosition_t pos = CTFPOSITION_UNKNOWN;
 	if (boost) {
@@ -2326,6 +2327,22 @@ gentity_t *SelectRandomTeamSpawnPoint( gclient_t *client, int teamstate, team_t 
 
 					if (redFsEnt && blueFsEnt)
 						spawnMeNearThisEntity = client->sess.sessionTeam == TEAM_RED ? blueFsEnt : redFsEnt;
+				}
+			}
+			else {
+				gentity_t *myFcOnMySideOfMap = GetFC(client->sess.sessionTeam, &g_entities[client - level.clients], qtrue, 0.55f);
+				if (!myFcOnMySideOfMap) {
+					static qboolean initialized = qfalse;
+					static gentity_t *redFsEnt = NULL, *blueFsEnt = NULL;
+					if (!initialized) {
+						initialized = qtrue;
+						gentity_t temp;
+						VectorCopy(vec3_origin, temp.r.currentOrigin);
+						redFsEnt = G_ClosestEntity(&temp, isRedFlagstand);
+						blueFsEnt = G_ClosestEntity(&temp, isBlueFlagstand);
+					}
+					spawnMeNearThisEntity = client->sess.sessionTeam == TEAM_RED ? redFsEnt : blueFsEnt;
+					softSpawnOverride = qtrue;
 				}
 			}
 		}
@@ -2487,11 +2504,17 @@ gentity_t *SelectRandomTeamSpawnPoint( gclient_t *client, int teamstate, team_t 
 			if (boost && spawnMeNearThisEntity) {
 				ListSort(&possibleSpawnsList, CompareSpawnsReverseOrder, spawnMeNearThisEntity->r.currentOrigin);
 
+				int goalSize;
+				if (softSpawnOverride) {
+					goalSize = Com_Clampi(1, MAX_TEAM_SPAWN_POINTS, (possibleSpawnsList.size / 3) * 2); // e.g. 9 total spawns ==> goalSize of 6 (remove 3 spawns)
+				}
+				else {
 #if 1
-				const int goalSize = Com_Clampi(1, MAX_TEAM_SPAWN_POINTS, possibleSpawnsList.size / 2); // e.g. 7 total spawns ==> goalSize of 3 (remove 4 spawns)
+					goalSize = Com_Clampi(1, MAX_TEAM_SPAWN_POINTS, possibleSpawnsList.size / 2); // e.g. 9 total spawns ==> goalSize of 4 (remove 5 spawns)
 #else
-				const int goalSize = Com_Clampi(1, MAX_TEAM_SPAWN_POINTS, possibleSpawnsList.size - (possibleSpawnsList.size / 2)); // e.g. 7 total spawns ==> goalSize of 4 (remove 3 spawns)
+					goalSize = Com_Clampi(1, MAX_TEAM_SPAWN_POINTS, possibleSpawnsList.size - (possibleSpawnsList.size / 2)); // e.g. 9 total spawns ==> goalSize of 5 (remove 4 spawns)
 #endif
+				}
 				while (possibleSpawnsList.size > goalSize) {
 					gentity_t *headEnt = ((spawnpoint_t *)(possibleSpawnsList.head))->ent;
 					char *headNickname = ((spawnpoint_t *)(possibleSpawnsList.head))->nickname;
