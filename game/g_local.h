@@ -3598,6 +3598,7 @@ extern vmCvar_t		g_rockPaperScissors;
 extern vmCvar_t		g_gripBuff;
 extern vmCvar_t		g_gripRefreshRate;
 extern vmCvar_t		g_gripAbsorbFix;
+extern vmCvar_t		g_fixGripDistanceCheck;
 
 extern vmCvar_t		g_mindTrickBuff;
 extern vmCvar_t		g_drainRework;

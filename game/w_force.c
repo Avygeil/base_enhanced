@@ -5038,7 +5038,7 @@ void DoGripAction(gentity_t *self, forcePowers_t forcePower)
 		return;
 	}
 
-	if (VectorLength(a) > MAX_GRIP_DISTANCE)
+	if (!g_fixGripDistanceCheck.integer && VectorLength(a) > MAX_GRIP_DISTANCE)
 	{
 		WP_ForcePowerStop(self, forcePower);
 		return;
