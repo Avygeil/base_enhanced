@@ -3602,6 +3602,7 @@ extern vmCvar_t		g_fixGripDistanceCheck;
 
 extern vmCvar_t		g_mindTrickBuff;
 extern vmCvar_t		g_drainRework;
+extern vmCvar_t		g_fixForceTimers;
 
 extern vmCvar_t		g_sendForceTimers;
 

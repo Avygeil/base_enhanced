@@ -601,6 +601,7 @@ vmCvar_t	g_fixGripDistanceCheck;
 
 vmCvar_t	g_mindTrickBuff;
 vmCvar_t	g_drainRework;
+vmCvar_t	g_fixForceTimers;
 
 vmCvar_t	g_sendForceTimers;
 
@@ -1202,6 +1203,7 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_mindTrickBuff, "g_mindTrickBuff", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_drainRework, "g_drainRework", "0", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
+	{ &g_fixForceTimers, "g_fixForceTimers", "1", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_sendForceTimers, "g_sendForceTimers", "1", CVAR_ARCHIVE, 0, qtrue },
 

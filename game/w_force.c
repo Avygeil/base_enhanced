@@ -157,6 +157,17 @@ const int mindTrickTime[NUM_FORCE_POWER_LEVELS] =
 	15000
 };
 
+extern int g_LastFrameTime;
+static int FixDuration(int duration) {
+	if (!g_fixForceTimers.integer)
+		return duration;
+
+	const int frameTime = 1000 / g_svfps.integer;
+	const int fixedDuration = duration + ((frameTime - (duration % frameTime)) % frameTime);
+	const int timeSinceLastFrame = level.time - g_LastFrameTime;
+	return fixedDuration - timeSinceLastFrame;
+}
+
 // use null sendTo to send to the player himself and all his followers
 void SendForceTimers(gentity_t *user, gentity_t *sendTo) {
 	if (!user || !user->client) {
@@ -266,6 +277,7 @@ static void StartForceTimer(gentity_t *user, int forcePower, int duration) {
 	int activeUntil;
 	if (duration > 0) {
 		activeUntil = (level.time - level.startTime) + duration;
+
 		if (forcePower == FP_SABER_OFFENSE) {
 			user->client->rageRecoveryActiveUntil = activeUntil;
 			user->client->forcePowerActiveUntil[FP_RAGE] = 0; // shitty hack, starting rage recovery stops rage
@@ -1318,6 +1330,7 @@ void WP_ForcePowerStart( gentity_t *self, forcePowers_t forcePower, int override
 			duration = overrideAmt;
 		}
 
+		duration = FixDuration(duration);
 		StartForceTimer(self, (int)forcePower, duration);
 
 		self->client->ps.fd.forcePowersActive |= ( 1 << forcePower );
@@ -1350,6 +1363,7 @@ void WP_ForcePowerStart( gentity_t *self, forcePowers_t forcePower, int override
 			break;
 		}
 
+		duration = FixDuration(duration);
 		StartForceTimer(self, (int)forcePower, duration);
 
 		self->client->ps.fd.forcePowersActive |= ( 1 << forcePower );
@@ -1387,6 +1401,7 @@ void WP_ForcePowerStart( gentity_t *self, forcePowers_t forcePower, int override
 		{
 			break;
 		}
+		duration = FixDuration(duration);
 		StartForceTimer(self, (int)forcePower, duration);
 		self->client->ps.fd.forcePowersActive |= ( 1 << forcePower );
 		self->client->pers.ragesince = level.time; // force stats
@@ -1397,6 +1412,7 @@ void WP_ForcePowerStart( gentity_t *self, forcePowers_t forcePower, int override
 		duration = 20000;
 		self->client->ps.fd.forcePowersActive |= ( 1 << forcePower );
 		self->client->pers.protsince = level.time; // force stats
+		duration = FixDuration(duration);
 		StartForceTimer(self, (int)forcePower, duration);
 		break;
 	case FP_ABSORB:
@@ -1404,6 +1420,7 @@ void WP_ForcePowerStart( gentity_t *self, forcePowers_t forcePower, int override
 		hearDist = 256;
 		duration = 20000;
 		self->client->ps.fd.forcePowersActive |= ( 1 << forcePower );
+		duration = FixDuration(duration);
 		StartForceTimer(self, (int)forcePower, duration);
 		break;
 	case FP_TEAM_HEAL:
@@ -1442,6 +1459,7 @@ void WP_ForcePowerStart( gentity_t *self, forcePowers_t forcePower, int override
 		{
 			break;
 		}
+		duration = FixDuration(duration);
 		StartForceTimer(self, (int)forcePower, duration);
 		self->client->ps.fd.forcePowersActive |= ( 1 << forcePower );
 		break;
@@ -4919,8 +4937,8 @@ void WP_ForcePowerStop( gentity_t *self, forcePowers_t forcePower )
 		self->client->ps.activeForcePass = 0;
 		break;
 	case FP_RAGE:
-		self->client->ps.fd.forceRageRecoveryTime = level.time + RAGE_RECOVERY_TIME;
-		StartForceTimer(self, FP_SABER_OFFENSE, RAGE_RECOVERY_TIME);
+		self->client->ps.fd.forceRageRecoveryTime = level.time + FixDuration(RAGE_RECOVERY_TIME);
+		StartForceTimer(self, FP_SABER_OFFENSE, FixDuration(RAGE_RECOVERY_TIME));
 		if (wasActive & (1 << FP_RAGE))
 		{
 			G_MuteSound(self->client->ps.fd.killSoundEntIndex[TRACK_CHANNEL_3-50], CHAN_VOICE);
@@ -6598,13 +6616,25 @@ void WP_ForcePowersUpdate( gentity_t *self, usercmd_t *ucmd )
 	{
 		if ( self->client->ps.fd.forcePowerDuration[i] )
 		{
-			if ( self->client->ps.fd.forcePowerDuration[i] < level.time && !( i == FP_SPEED && self->client->sess.inRacemode ) )
-			{
-				if ( (self->client->ps.fd.forcePowersActive&( 1 << i )) )
-				{//turn it off
-					WP_ForcePowerStop( self, (forcePowers_t)i );
+			if (g_fixForceTimers.integer) {
+				if (self->client->ps.fd.forcePowerDuration[i] <= level.time && !(i == FP_SPEED && self->client->sess.inRacemode))
+				{
+					if ((self->client->ps.fd.forcePowersActive & (1 << i)))
+					{//turn it off
+						WP_ForcePowerStop(self, (forcePowers_t)i);
+					}
+					self->client->ps.fd.forcePowerDuration[i] = 0;
 				}
-				self->client->ps.fd.forcePowerDuration[i] = 0;
+			}
+			else {
+				if (self->client->ps.fd.forcePowerDuration[i] < level.time && !(i == FP_SPEED && self->client->sess.inRacemode))
+				{
+					if ((self->client->ps.fd.forcePowersActive & (1 << i)))
+					{//turn it off
+						WP_ForcePowerStop(self, (forcePowers_t)i);
+					}
+					self->client->ps.fd.forcePowerDuration[i] = 0;
+				}
 			}
 		}
 		if ( (self->client->ps.fd.forcePowersActive&( 1 << i )) )
