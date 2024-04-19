@@ -8015,6 +8015,9 @@ char *ParseItemName(const char *input) {
 	else if (stristr(input, "rep")) {
 		return "weapon_repeater";
 	}
+	else if (stristr(input, "demp")) {
+		return "weapon_demp2";
+	}
 	else if (stristr(input, "gol") || stristr(input, "flec")) {
 		return "weapon_flechette";
 	}
