@@ -387,6 +387,7 @@ vmCvar_t	g_fixFreshWeaponAmmo;
 vmCvar_t	g_fixPulledWeaponAmmo;
 vmCvar_t	g_fixSpawnBlasterAmmo;
 vmCvar_t	g_rocketHPFix;
+vmCvar_t	g_fixDisarmWeaponPreference;
 
 vmCvar_t	g_allowIgnore;
 
@@ -975,6 +976,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_fixPulledWeaponAmmo,	"g_fixPulledWeaponAmmo"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_fixSpawnBlasterAmmo,	"g_fixSpawnBlasterAmmo"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_rocketHPFix,	"g_rocketHPFix"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
+	{ &g_fixDisarmWeaponPreference,	"g_fixDisarmWeaponPreference"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_allowIgnore, "g_allowIgnore", "0", CVAR_ARCHIVE, 0, qfalse },
 

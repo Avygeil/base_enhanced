@@ -3414,6 +3414,7 @@ extern vmCvar_t		g_fixFreshWeaponAmmo;
 extern vmCvar_t		g_fixPulledWeaponAmmo;
 extern vmCvar_t		g_fixSpawnBlasterAmmo;
 extern vmCvar_t		g_rocketHPFix;
+extern vmCvar_t		g_fixDisarmWeaponPreference;
 
 extern vmCvar_t		g_allowIgnore;
 

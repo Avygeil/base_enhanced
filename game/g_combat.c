@@ -425,11 +425,21 @@ void TossClientWeapon(gentity_t *self, vec3_t direction, float speed)
 
 		self->client->ps.stats[STAT_WEAPONS] &= ~(1 << weapon);
 
-		for (int i = 0; i < ARRAY_LEN(weaponOrder); i++) {
-			const int currentWeapon = weaponOrder[i];
-			if ((self->client->ps.stats[STAT_WEAPONS] & (1 << currentWeapon)) && currentWeapon != WP_NONE) {
-				weap = currentWeapon;
-				break;
+		if (g_fixDisarmWeaponPreference.integer) {
+			for (int i = 0; i < ARRAY_LEN(weaponOrder); i++) {
+				const int currentWeapon = weaponOrder[i];
+				if ((self->client->ps.stats[STAT_WEAPONS] & (1 << currentWeapon)) && currentWeapon != WP_NONE) {
+					weap = currentWeapon;
+					break;
+				}
+			}
+		}
+		else {
+			for (int i = 0; i < WP_NUM_WEAPONS; i++) {
+				if ((self->client->ps.stats[STAT_WEAPONS] & (1 << i)) && i != WP_NONE) {
+					weap = i;
+					break;
+				}
 			}
 		}
 
