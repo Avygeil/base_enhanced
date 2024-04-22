@@ -611,6 +611,7 @@ const char *const sqlCreateTables =
 "    originX REAL NOT NULL,"
 "    originY REAL NOT NULL,"
 "    originZ REAL NOT NULL,"
+"    suspended INTEGER NOT NULL DEFAULT 0,"
 "    FOREIGN KEY (owner_account_id) REFERENCES accounts(account_id) ON DELETE CASCADE"
 "); "
 ""

@@ -8467,10 +8467,18 @@ static void Cmd_Item_f(gentity_t *player) {
 			origin[2] = atof(zCoordBuf);
 		}
 		else {
-			if (player->client->ps.pm_type == PM_SPECTATOR)
+			if (player->client->ps.pm_type == PM_SPECTATOR) {
 				VectorCopy(player->client->ps.origin, origin);
-			else
+			}
+			else if (player->client->sess.sessionTeam == TEAM_SPECTATOR && player->client->sess.spectatorState == SPECTATOR_FOLLOW &&
+				player->client->sess.spectatorClient >= 0 && player->client->sess.spectatorClient < MAX_CLIENTS &&
+				g_entities[player->client->sess.spectatorClient].inuse && g_entities[player->client->sess.spectatorClient].client &&
+				g_entities[player->client->sess.spectatorClient].client->pers.connected == CON_CONNECTED) {
+				VectorCopy(g_entities[player->client->sess.spectatorClient].r.currentOrigin, origin);
+			}
+			else {
 				VectorCopy(player->r.currentOrigin, origin);
+			}
 		}
 
 		gentity_t *itemEnt = G_Spawn();

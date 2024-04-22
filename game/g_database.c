@@ -7038,7 +7038,7 @@ qboolean G_DBGetLiveMapNameForMapName(const char *filename, char *result, size_t
 extern qboolean canSpawnItemStartsolid;
 extern qboolean G_CallSpawn(gentity_t *ent);
 void DB_LoadAddedItems(void) {
-	const char *const sqlLoadAddedItems = "SELECT itemtype, COALESCE(owner_account_id, -1) AS owner_account_id, originX, originY, originZ FROM addeditems WHERE mapname = ?;";
+	const char *const sqlLoadAddedItems = "SELECT itemtype, COALESCE(owner_account_id, -1) AS owner_account_id, originX, originY, originZ, suspended FROM addeditems WHERE mapname = ?;";
 	ListClear(&level.addedItemsList);
 
 	sqlite3_stmt *statement;
@@ -7077,6 +7077,8 @@ void DB_LoadAddedItems(void) {
 		VectorCopy(origin, itemEnt->s.pos.trBase);
 		VectorCopy(origin, itemEnt->r.currentOrigin);
 
+		newItem->isSuspended = sqlite3_column_int(statement, 5);
+
 		newItem->addedItemSaved = qtrue;
 
 		if (!G_CallSpawn(itemEnt)) {
@@ -7085,6 +7087,9 @@ void DB_LoadAddedItems(void) {
 			ListRemove(&level.addedItemsList, newItem);
 			continue;
 		}
+
+		if (newItem->isSuspended)
+			itemEnt->spawnflags |= 1; // ITMSF_SUSPEND from g_items.c; allow it to be in the air
 
 		canSpawnItemStartsolid = qtrue;
 		FinishSpawningItem(itemEnt);
@@ -7115,7 +7120,7 @@ qboolean DB_SaveAddedItem(changedItem_t *item) {
 		return qfalse;
 	}
 
-	const char *sql = "INSERT OR REPLACE INTO addeditems (mapname, itemtype, owner_account_id, originX, originY, originZ) VALUES (?, ?, ?, ?, ?, ?);";
+	const char *sql = "INSERT OR REPLACE INTO addeditems (mapname, itemtype, owner_account_id, originX, originY, originZ, suspended) VALUES (?, ?, ?, ?, ?, ?, ?);";
 	sqlite3_stmt *stmt;
 	int rc = trap_sqlite3_prepare_v2(dbPtr, sql, -1, &stmt, NULL);
 
@@ -7130,6 +7135,7 @@ qboolean DB_SaveAddedItem(changedItem_t *item) {
 	sqlite3_bind_double(stmt, 4, item->ent->r.currentOrigin[0]);
 	sqlite3_bind_double(stmt, 5, item->ent->r.currentOrigin[1]);
 	sqlite3_bind_double(stmt, 6, item->ent->r.currentOrigin[2]);
+	sqlite3_bind_int(stmt, 7, item->isSuspended);
 
 	rc = trap_sqlite3_step(stmt);
 	if (rc != SQLITE_DONE) {
