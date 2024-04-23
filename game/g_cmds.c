@@ -7278,14 +7278,16 @@ ctfPosition_t CtfPositionFromString(char *s) {
 
 static void PrintRateHelp(int clientNum) {
 	OutOfBandPrint(clientNum, "Usage:\n" \
-		"^7rating [pos]                     - view a list of your ratings for a certain position\n"
-		"^9rating list                      - view lists of your ratings for all positions\n"
+		"^7rating [pos]                           - view a list of your ratings for a certain position\n"
+		"^9rating list                            - view lists of your ratings for all positions\n"
 		"\n"
-		"^7rating set [player] [pos] [tier] - set a player's rating on a certain position\n"
-		"^9rating remove [player] [pos]     - delete a player's rating on a certain position\n"
-		"^7rating reset [pos]               - delete all ratings for a certain position\n"
-		"^9rating reset all                  - delete all ratings\n"
-		"\n^7"
+		"^7rating set [player] [pos] [tier]       - set a player's rating on a certain position\n"
+		"^9rating remove [player] [pos]           - delete a player's rating on a certain position\n"
+		"^7rating reset [pos]                     - delete all ratings for a certain position\n"
+		"^9rating reset all                       - delete all ratings\n"
+		"\n"
+		"^7rating winrate [player] [pos] <# days> - view winrate since X days ago (leave blank for last rated date)\n"
+		"\n"
 		"  - Skill levels should be equivalent between positions; i.e. S tier base == S tier chase == S tier offense. Your ratings may skew higher or lower for some positions -- do not simply assign tiers based on a curve for each position.\n"
 		"  - Only rate players on positions you have observed them play at least once. Leave people unrated on positions you haven't seen them play.^7\n"
 		"  - Consider re-rating players over time as their skills develop.\n"
@@ -7337,6 +7339,36 @@ static void Cmd_Rating_f(gentity_t *ent) {
 			OutOfBandPrint(clientNum, "Deleted all ratings.\n");
 		else
 			OutOfBandPrint(clientNum, "Error deleting all ratings!\n");
+	}
+	else if (stristr(arg1, "winrate")) {
+		if (!arg2[0] || !arg3[0]) {
+			OutOfBandPrint(clientNum, "Usage: rating winrate [player] [pos] <# days (leave blank for last rated date)>\n");
+			return;
+		}
+
+		account_t acc = { 0 };
+		qboolean found = G_DBGetAccountByName(arg2, &acc);
+		if (!found) {
+			OutOfBandPrint(clientNum, va("No account found matching '%s^7'. Try checking /rating list.\n", arg2));
+			return;
+		}
+
+		ctfPosition_t pos = CtfPositionFromString(arg3);
+		if (!pos) {
+			OutOfBandPrint(clientNum, va("'%s^7' is not a valid position. Positions can be base, chase, or offense.\n", arg3));
+			return;
+		}
+
+		if (arg4[0]) {
+			if (!Q_isanumber(arg4) || atoi(arg4) <= 0) {
+				OutOfBandPrint(clientNum, va("'%s^7' is not a valid number of days. Specify or leave blank for last rated date.\n", arg4));
+				return;
+			}
+			G_DBGetWinrateSince(acc.name, acc.id, pos, arg4, ent - g_entities);
+		}
+		else {
+			G_DBGetWinrateSince(acc.name, acc.id, pos, NULL, ent - g_entities);
+		}
 	}
 	else if (CtfPositionFromString(arg1) == CTFPOSITION_BASE) {
 		G_DBListRatingPlayers(ent->client->account->id, clientNum, CTFPOSITION_BASE);

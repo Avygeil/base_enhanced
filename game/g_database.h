@@ -405,6 +405,7 @@ qboolean G_DBRemovePlayerRating(int raterAccountId, int rateeAccountId, ctfPosit
 qboolean G_DBDeleteAllRatingsForPosition(int raterAccountId, ctfPosition_t pos);
 qboolean G_DBSetPlayerRating(int raterAccountId, int rateeAccountId, ctfPosition_t pos, ctfPlayerTier_t tier);
 void G_DBGetPlayerRatings(void);
+qboolean G_DBGetWinrateSince(const char *name, const int accountId, const ctfPosition_t pos, const char *daysStr, const int raterClientNum);
 
 void G_DBFixSwap_List(void);
 qboolean G_DBFixSwap_Fix(int recordId, int newPos);

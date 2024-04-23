@@ -6181,6 +6181,144 @@ void G_DBGetPlayerRatings(void) {
 	Com_Printf("Recalculated player ratings (took %d ms)\n", finish - start);
 }
 
+void EpochToHumanReadable(double epochTime, char *buffer, size_t bufferSize) {
+	time_t rawtime = (time_t)epochTime;
+	struct tm *timeinfo = localtime(&rawtime);
+	strftime(buffer, bufferSize, "%Y-%m-%d %H:%M:%S", timeinfo);
+}
+
+const char *winrateWithDays =
+" WITH TimeWindow AS ("
+"   SELECT CAST(strftime('%s', 'now') AS REAL) - ?3 AS start_of_window"
+" ),"
+" RelevantRecords AS ("
+"     SELECT ptp.match_id, ptp.session_id, ptp.team, ptp.pos, ptp.duration"
+"     FROM playerpugteampos ptp"
+"     INNER JOIN sessions s ON ptp.session_id = s.session_id"
+"     JOIN filteredpugslist fp ON ptp.match_id = fp.match_id"
+"     WHERE s.account_id = ?1"
+" ),"
+" MaxDurationRecords AS ("
+"     SELECT match_id, session_id, team, pos, MAX(duration) as max_duration"
+"     FROM RelevantRecords"
+"     GROUP BY match_id"
+" ),"
+" FilteredByPosition AS ("
+"     SELECT *"
+"     FROM MaxDurationRecords"
+"     WHERE pos = ?2"
+" ),"
+" WinningMatches AS ("
+"     SELECT count(*) AS wins"
+"     FROM FilteredByPosition fbp"
+"     JOIN pugs p ON fbp.match_id = p.match_id"
+"     WHERE fbp.team = p.win_team"
+" ),"
+" TotalMatches AS ("
+"     SELECT count(*) AS total"
+"     FROM FilteredByPosition"
+" )"
+" SELECT "
+"     (SELECT total FROM TotalMatches) AS number_of_pugs,"
+"     (SELECT wins FROM WinningMatches) AS number_of_wins,"
+"     (SELECT IFNULL(wins, 0) FROM WinningMatches) * 1.0 / (SELECT total FROM TotalMatches) AS winrate,"
+"     (SELECT start_of_window FROM TimeWindow) AS start_of_window;";
+const char *winrateSinceRated =
+" WITH LatestRating AS ("
+"     SELECT MAX(CAST(datetime AS REAL)) AS last_rated"
+"     FROM playerratings"
+"     WHERE ratee_account_id = ?1 AND pos = ?2"
+" ),"
+" FilteredPugs AS ("
+"     SELECT match_id"
+"     FROM pugs"
+"     WHERE CAST(datetime AS REAL) >= COALESCE((SELECT last_rated FROM LatestRating), CAST('0' AS REAL)) "
+"     AND red_score != blue_score"
+" ),"
+" TimeWindow AS ("
+"     SELECT COALESCE((SELECT last_rated FROM LatestRating), CAST(strftime('%s', 'now') AS REAL)) AS start_of_window"
+" ),"
+" RelevantRecords AS ("
+"     SELECT ptp.match_id, ptp.session_id, ptp.team, ptp.pos, ptp.duration"
+"     FROM playerpugteampos ptp"
+"     INNER JOIN sessions s ON ptp.session_id = s.session_id"
+"     JOIN FilteredPugs fp ON ptp.match_id = fp.match_id"
+"     WHERE s.account_id = ?1"
+" ),"
+" MaxDurationRecords AS ("
+"     SELECT match_id, session_id, team, pos, MAX(duration) as max_duration"
+"     FROM RelevantRecords"
+"     GROUP BY match_id"
+" ),"
+" FilteredByPosition AS ("
+"     SELECT *"
+"     FROM MaxDurationRecords"
+"     WHERE pos = ?2"
+" ),"
+" WinningMatches AS ("
+"     SELECT count(*) AS wins"
+"     FROM FilteredByPosition fbp"
+"     JOIN pugs p ON fbp.match_id = p.match_id"
+"     WHERE fbp.team = p.win_team"
+" ),"
+" TotalMatches AS ("
+"     SELECT count(*) AS total"
+"     FROM FilteredByPosition"
+" )"
+" SELECT "
+"     (SELECT total FROM TotalMatches) AS number_of_pugs,"
+"     (SELECT wins FROM WinningMatches) AS number_of_wins,"
+"     (SELECT IFNULL(wins, 0) FROM WinningMatches) * 1.0 / (SELECT total FROM TotalMatches) AS winrate,"
+"     (SELECT start_of_window FROM TimeWindow) AS start_of_window;";
+qboolean G_DBGetWinrateSince(const char *name, const int accountId, const ctfPosition_t pos, const char *daysStr, const int raterClientNum) {
+
+	if (VALIDSTRING(daysStr)) {
+		trap_sqlite3_exec(dbPtr, "DROP TABLE IF EXISTS filteredpugslist;", NULL, NULL, NULL);
+		sqlite3_stmt *statement;
+		const char *sql = "CREATE TEMPORARY TABLE filteredpugslist AS "
+			"SELECT match_id FROM pugs "
+			"WHERE CAST(datetime AS REAL) >= (CAST(strftime('%s', 'now') AS REAL) - ?) "
+			"AND red_score != blue_score;";
+		trap_sqlite3_prepare_v2(dbPtr, sql, -1, &statement, NULL);
+		double daysInSeconds = atof(daysStr) * 86400; // convert days to seconds
+		sqlite3_bind_double(statement, 1, daysInSeconds);
+		trap_sqlite3_step(statement);
+		trap_sqlite3_finalize(statement);
+	}
+
+	sqlite3_stmt *statement;
+	trap_sqlite3_prepare_v2(dbPtr, VALIDSTRING(daysStr) ? winrateWithDays : winrateSinceRated, -1, &statement, NULL);
+	sqlite3_bind_int(statement, 1, accountId);
+	sqlite3_bind_int(statement, 2, pos);
+	int rc = trap_sqlite3_step(statement);
+	if (rc == SQLITE_ROW) {
+		int total_matches = sqlite3_column_int(statement, 0);
+		int wins = sqlite3_column_int(statement, 1);
+		float winrate = (float)sqlite3_column_double(statement, 2);
+
+		char sinceStr[256] = { 0 };
+		if (VALIDSTRING(daysStr)) {
+			double daysInSeconds = atof(daysStr) * 86400; // convert days to seconds
+			double since = time(NULL) - daysInSeconds;
+			EpochToHumanReadable(since, sinceStr, sizeof(sinceStr));
+			OutOfBandPrint(raterClientNum, "^5%s %s ^7since ^3%s days ago^7 (%s):   ^5%d^7 matches, ^5%d^7 wins, ^5%g^7'/. winrate\n", name, NameForPos(pos), daysStr, sinceStr, total_matches, wins, winrate * 100.0);
+		}
+		else {
+			double date = sqlite3_column_double(statement, 3);
+			EpochToHumanReadable(date, sinceStr, sizeof(sinceStr));
+			double secondsDifference = difftime(time(NULL), (time_t)date);
+			double days = secondsDifference / (24 * 3600);
+			OutOfBandPrint(raterClientNum, "^5%s %s ^7since ^6last rated %.1f days ago^7 (on (%s)):   ^5%d^7 matches, ^5%d^7 wins, ^5%g^7'/. winrate\n", name, NameForPos(pos), days, sinceStr, total_matches, wins, winrate * 100.0);
+		}
+	}
+	else {
+		OutOfBandPrint(raterClientNum, "No records found.\n");
+	}
+
+	trap_sqlite3_finalize(statement);
+	return rc == SQLITE_ROW ? qtrue : qfalse;
+}
+
 extern qboolean MostPlayedPosMatches(genericNode_t *node, void *userData);
 const char *const sqlGetMostPlayedPos = "SELECT account_id, pos, RANK() OVER (PARTITION BY account_id ORDER BY pugs_played DESC, wins DESC) FROM accountstats;";
 static void GetMostPlayedPositions(void) {
