@@ -8504,9 +8504,9 @@ static void Cmd_Item_f(gentity_t *player) {
 		if (args >= 4) {
 			char airGroundBuf[64];
 			trap_Argv(3, airGroundBuf, sizeof(airGroundBuf));
-			if (strchr(airGroundBuf, 'a'))
+			if (strchr(airGroundBuf, 'g'))
 				forceGround = qtrue;
-			else if (strchr(airGroundBuf, 'g'))
+			else if (strchr(airGroundBuf, 'a'))
 				forceSuspended = qtrue;
 		}
 
@@ -8529,6 +8529,16 @@ static void Cmd_Item_f(gentity_t *player) {
 		else {
 			if (player->client->ps.pm_type == PM_SPECTATOR) {
 				VectorCopy(player->client->ps.origin, origin);
+				if (forceGround) {
+					trace_t tr;
+					vec3_t down, mins, maxs;
+					VectorSet(mins, -15, -15, DEFAULT_MINS_2);
+					VectorSet(maxs, 15, 15, DEFAULT_MAXS_2);
+					VectorCopy(player->client->ps.origin, down);
+					down[2] -= 32768;
+					trap_Trace(&tr, player->client->ps.origin, mins, maxs, down, player - g_entities, MASK_PLAYERSOLID);
+					origin[2] = tr.endpos[2];
+				}
 			}
 			else if (player->client->sess.sessionTeam == TEAM_SPECTATOR && player->client->sess.spectatorState == SPECTATOR_FOLLOW &&
 				player->client->sess.spectatorClient >= 0 && player->client->sess.spectatorClient < MAX_CLIENTS &&
