@@ -3218,6 +3218,7 @@ extern	vmCvar_t	g_timelimit;
 extern	vmCvar_t	g_nonLiveMatchesCanEnd;
 extern	vmCvar_t	g_capturelimit;
 extern	vmCvar_t	g_capturedifflimit;
+extern	vmCvar_t	g_preventCapBm;
 extern	vmCvar_t	d_saberInterpolate;
 extern	vmCvar_t	g_friendlyFire;
 extern	vmCvar_t	g_friendlySaber;

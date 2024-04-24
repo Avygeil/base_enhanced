@@ -143,6 +143,7 @@ vmCvar_t	g_timelimit;
 vmCvar_t	g_nonLiveMatchesCanEnd;
 vmCvar_t	g_capturelimit;
 vmCvar_t	g_capturedifflimit;
+vmCvar_t	g_preventCapBm;
 vmCvar_t	d_saberInterpolate;
 vmCvar_t	g_friendlyFire;
 vmCvar_t	g_friendlySaber;
@@ -769,6 +770,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_nonLiveMatchesCanEnd, "g_nonLiveMatchesCanEnd", "1", CVAR_ARCHIVE, 0, qtrue },
     { &g_capturelimit, "capturelimit", "0", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_NORESTART, 0, qtrue },
     { &g_capturedifflimit, "capturedifflimit", "10", CVAR_SERVERINFO | CVAR_ARCHIVE | CVAR_NORESTART, 0, qtrue },
+    { &g_preventCapBm, "g_preventCapBm", "1", CVAR_ARCHIVE, 0, qfalse },
 
     { &g_synchronousClients, "g_synchronousClients", "0", CVAR_SYSTEMINFO, 0, qfalse },
 	{ &g_forceClientUpdateRate, "g_forceClientUpdateRate", "200", CVAR_ARCHIVE, 0, qfalse },

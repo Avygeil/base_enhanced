@@ -761,6 +761,8 @@ qboolean IsUsingForcePowerThatBlocksForceRegen(gentity_t *ent) {
 	return qfalse;
 }
 
+extern teamgame_t teamgame;
+extern int Team_TouchOurFlag(gentity_t *ent, gentity_t *other, int team);
 /*
 =================
 Cmd_Kill_f
@@ -936,6 +938,32 @@ void Cmd_Kill_f( gentity_t *ent ) {
 							return;
 						}
 					}
+				}
+			}
+		}
+	}
+
+	// prevent endy intentionally stalling out matches by sking with flag on own stand while one under caplimit
+	if (g_preventCapBm.integer && g_capturedifflimit.integer > 1 && g_gametype.integer == GT_CTF && !IsRacerOrSpectator(ent) && HasFlag(ent) &&
+		level.teamScores[ent->client->sess.sessionTeam] == level.teamScores[OtherTeam(ent->client->sess.sessionTeam)] + (g_capturedifflimit.integer - 1) &&
+		level.wasRestarted && level.numPlayingClients >= 4 && !level.intermissiontime && !ent->client->ps.fallingToDeath) {
+		const int flagStatus = ent->client->sess.sessionTeam == TEAM_RED ? teamgame.redStatus : teamgame.blueStatus;
+		if (flagStatus == FLAG_ATBASE) {
+			static qboolean flagstandsInitialized = qfalse;
+			static gentity_t *redFs, *blueFs;
+			if (!flagstandsInitialized) {
+				flagstandsInitialized = qtrue;
+				gentity_t temp;
+				VectorCopy(vec3_origin, temp.r.currentOrigin);
+				redFs = G_ClosestEntity(&temp, isRedFlagstand);
+				blueFs = G_ClosestEntity(&temp, isBlueFlagstand);
+			}
+			if (redFs && blueFs) {
+				gentity_t *myFlag = ent->client->sess.sessionTeam == TEAM_RED ? redFs : blueFs;
+				float dist = Distance(ent->r.currentOrigin, myFlag->r.currentOrigin);
+				if (dist <= 256) {
+					Team_TouchOurFlag(myFlag, ent, ent->client->sess.sessionTeam);
+					return;
 				}
 			}
 		}
