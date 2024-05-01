@@ -27,7 +27,7 @@ extern qboolean BG_FullBodyTauntAnim( int anim );
 #define DRAIN_REWORK2_SELFDMG_LEVEL2	(20)
 #define DRAIN_REWORK2_SELFDMG_LEVEL1	(11)
 
-#define DRAIN_REWORK2_MINIMUMFORCE		(10)
+#define DRAIN_REWORK2_MINIMUMFORCE		(0)
 
 #define DRAIN_REWORK_COOLDOWN			(1000)
 
