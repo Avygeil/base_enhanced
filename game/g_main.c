@@ -389,6 +389,7 @@ vmCvar_t	g_fixPulledWeaponAmmo;
 vmCvar_t	g_fixSpawnBlasterAmmo;
 vmCvar_t	g_rocketHPFix;
 vmCvar_t	g_fixDisarmWeaponPreference;
+vmCvar_t	g_homingUses1Ammo;
 
 vmCvar_t	g_allowIgnore;
 
@@ -981,6 +982,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_fixSpawnBlasterAmmo,	"g_fixSpawnBlasterAmmo"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_rocketHPFix,	"g_rocketHPFix"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_fixDisarmWeaponPreference,	"g_fixDisarmWeaponPreference"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
+	{ &g_homingUses1Ammo,	"g_homingUses1Ammo"	, "0"	, CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 
 	{ &g_allowIgnore, "g_allowIgnore", "0", CVAR_ARCHIVE, 0, qfalse },
 
@@ -6387,6 +6389,7 @@ void G_RunFrame( int levelTime ) {
 	static int lastMsgTime = 0;
 
 	forcePowerNeeded[FORCE_LEVEL_3][FP_GRIP] = g_gripBuff.integer ? 32 : 60;
+	weaponData[WP_ROCKET_LAUNCHER].altEnergyPerShot = g_homingUses1Ammo.integer ? 1 : 2;
 
 #ifdef NEWMOD_SUPPORT
 	for (i = 0; i < MAX_CLIENTS; i++) {

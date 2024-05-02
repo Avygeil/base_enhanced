@@ -3037,6 +3037,9 @@ void G_BroadcastServerFeatureList( int clientNum ) {
 	if (g_fix5AmmoSniping.integer)
 		Q_strcat(featureListConfigString, sizeof(featureListConfigString), "f5as ");
 
+	if (g_homingUses1Ammo.integer)
+		Q_strcat(featureListConfigString, sizeof(featureListConfigString), "h1a ");
+
 	if (g_fixSniperSwitch.integer)
 		Q_strcat(featureListConfigString, sizeof(featureListConfigString), "fss ");
 
