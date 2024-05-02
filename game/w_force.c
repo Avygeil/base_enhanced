@@ -3022,7 +3022,7 @@ int ForceDrainDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, vec3_t i
 						self->client->ps.fd.forcePower = 100;
 				}
 
-				const int reworkDebuffDuration = 1000 * self->client->ps.fd.forcePowerLevel[FP_DRAIN];
+				const int reworkDebuffDuration = 1333 * self->client->ps.fd.forcePowerLevel[FP_DRAIN];
 				if (!g_drainRework.integer) {
 					traceEnt->client->ps.fd.forcePowerRegenDebounceTime = level.time + 800; //don't let the client being drained get force power back right away
 				}
