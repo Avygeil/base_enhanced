@@ -1753,7 +1753,7 @@ qboolean HaveLOSToTarget(gentity_t *self, gentity_t *ent) {
 			if (tr.entityNum != ent->s.number) {
 				if (tr.entityNum < MAX_CLIENTS) {
 					// recursive call to check if the entity blocking LOS has LOS to the target
-					if (HaveLOSToTarget(ent, &g_entities[tr.entityNum])) {
+					if (HaveLOSToTarget(&g_entities[tr.entityNum], ent)) {
 						//Com_DebugPrintf("HaveLOSToTarget(%s, %s): got LOS from recursive check from %s\n", self->client->pers.netname, ent->client->pers.netname, g_entities[tr.entityNum].client ? g_entities[tr.entityNum].client->pers.netname : "");
 						return qtrue;
 					}
