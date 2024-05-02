@@ -3606,6 +3606,7 @@ extern vmCvar_t		g_protectNerf;
 extern vmCvar_t		g_mindTrickBuff;
 extern vmCvar_t		g_drainRework;
 extern vmCvar_t		g_fixForceTimers;
+extern vmCvar_t		g_thTeRequiresLOS;
 
 extern vmCvar_t		g_sendForceTimers;
 

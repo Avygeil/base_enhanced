@@ -1706,6 +1706,73 @@ qboolean DoesntHaveFlagButMyFCIsKindaNear(gentity_t *self, gentity_t *target) {
 	return qfalse;
 }
 
+qboolean HaveLOSToTarget(gentity_t *self, gentity_t *ent) {
+	if (!self || !self->client || !ent || !ent->client)
+		return qfalse;
+
+	//Com_DebugPrintf("HaveLOSToTarget(%s, %s): beginning...\n", self->client->pers.netname, ent->client->pers.netname);
+	for (int i = 0; i < 3; i++) {
+		vec3_t from;
+		from[0] = self->client->ps.origin[0];
+		from[1] = self->client->ps.origin[1];
+		switch (i) {
+		case 0:
+			from[2] = self->client->ps.origin[2];
+			break;
+		case 1:
+			if (self->client->ps.pm_flags & PMF_DUCKED || self->client->ps.pm_flags & PMF_ROLLING)
+				continue;
+			from[2] = self->client->ps.origin[2] + 0.5 * self->client->ps.viewheight;
+			break;
+		case 2:
+			from[2] = self->client->ps.origin[2] + self->client->ps.viewheight;
+			break;
+		}
+
+		for (int j = 0; j < 3; j++) {
+			vec3_t to;
+			to[0] = ent->client->ps.origin[0];
+			to[1] = ent->client->ps.origin[1];
+
+			switch (j) {
+			case 0:
+				to[2] = ent->client->ps.origin[2];
+				break;
+			case 1:
+				if (ent->client->ps.pm_flags & PMF_DUCKED || ent->client->ps.pm_flags & PMF_ROLLING)
+					continue;
+				to[2] = ent->client->ps.origin[2] + 0.5 * ent->client->ps.viewheight;
+				break;
+			case 2:
+				to[2] = ent->client->ps.origin[2] + ent->client->ps.viewheight;
+				break;
+			}
+
+			trace_t tr;
+			trap_Trace(&tr, from, NULL, NULL, to, self->s.number, MASK_PLAYERSOLID);
+			if (tr.entityNum != ent->s.number) {
+				if (tr.entityNum < MAX_CLIENTS) {
+					// recursive call to check if the entity blocking LOS has LOS to the target
+					if (HaveLOSToTarget(ent, &g_entities[tr.entityNum])) {
+						//Com_DebugPrintf("HaveLOSToTarget(%s, %s): got LOS from recursive check from %s\n", self->client->pers.netname, ent->client->pers.netname, g_entities[tr.entityNum].client ? g_entities[tr.entityNum].client->pers.netname : "");
+						return qtrue;
+					}
+				}
+
+				continue;
+			}
+
+			//Com_DebugPrintf("HaveLOSToTarget(%s, %s): got LOS from i %d, j %d\n", self->client->pers.netname, ent->client->pers.netname, i, j);
+			return qtrue;
+		}
+	}
+
+	//Com_DebugPrintf("HaveLOSToTarget(%s, %s): failed\n", self->client->pers.netname, ent->client->pers.netname);
+	return qfalse;
+}
+
+
+
 void ForceTeamHeal( gentity_t *self, qboolean redirectedTE )
 {
 	if (self->isAimPracticePack)
@@ -1773,19 +1840,14 @@ void ForceTeamHeal( gentity_t *self, qboolean redirectedTE )
 				trace_t tr;
 				trap_Trace(&tr, self->client->ps.origin, NULL, NULL, ent->client->ps.origin, self->s.number, CONTENTS_ABSEIL);
 				if (tr.fraction != 1) {
-					// we hit an abseil brush
-					// see if we have LoS to the target, which would trump the abseil trace result
-					vec3_t from, to;
-					from[0] = self->client->ps.origin[0];
-					from[1] = self->client->ps.origin[1];
-					from[2] = self->client->ps.origin[2] + self->client->ps.viewheight;
-					to[0] = ent->client->ps.origin[0];
-					to[1] = ent->client->ps.origin[1];
-					to[2] = ent->client->ps.origin[2] + ent->client->ps.viewheight;
-					trap_Trace(&tr, from, NULL, NULL, to, self->s.number, MASK_PLAYERSOLID);
-					if (tr.entityNum != ent->s.number)
-						continue; // no LoS or something else blocking it
+					if (!HaveLOSToTarget(self, ent))
+						continue;
 				}
+			}
+
+			if (g_thTeRequiresLOS.integer) {
+				if (!HaveLOSToTarget(self, ent))
+					continue;
 			}
 
 			pl[numpl] = i;
@@ -1819,19 +1881,14 @@ void ForceTeamHeal( gentity_t *self, qboolean redirectedTE )
 					trace_t tr;
 					trap_Trace(&tr, self->client->ps.origin, NULL, NULL, ent->client->ps.origin, self->s.number, CONTENTS_ABSEIL);
 					if (tr.fraction != 1) {
-						// we hit an abseil brush
-						// see if we have LoS to the target, which would trump the abseil trace result
-						vec3_t from, to;
-						from[0] = self->client->ps.origin[0];
-						from[1] = self->client->ps.origin[1];
-						from[2] = self->client->ps.origin[2] + self->client->ps.viewheight;
-						to[0] = ent->client->ps.origin[0];
-						to[1] = ent->client->ps.origin[1];
-						to[2] = ent->client->ps.origin[2] + ent->client->ps.viewheight;
-						trap_Trace(&tr, from, NULL, NULL, to, self->s.number, MASK_PLAYERSOLID);
-						if (tr.entityNum != ent->s.number)
-							continue; // no LoS or something else blocking it
+						if (!HaveLOSToTarget(self, ent))
+							continue;
 					}
+				}
+
+				if (g_thTeRequiresLOS.integer) {
+					if (!HaveLOSToTarget(self, ent))
+						continue;
 				}
 
 				pl[numpl] = i;
@@ -1997,19 +2054,14 @@ void ForceTeamForceReplenish( gentity_t *self, qboolean redirectedTH )
 				trace_t tr;
 				trap_Trace(&tr, self->client->ps.origin, NULL, NULL, ent->client->ps.origin, self->s.number, CONTENTS_ABSEIL);
 				if (tr.fraction != 1) {
-					// we hit an abseil brush
-					// see if we have LoS to the target, which would trump the abseil trace result
-					vec3_t from, to;
-					from[0] = self->client->ps.origin[0];
-					from[1] = self->client->ps.origin[1];
-					from[2] = self->client->ps.origin[2] + self->client->ps.viewheight;
-					to[0] = ent->client->ps.origin[0];
-					to[1] = ent->client->ps.origin[1];
-					to[2] = ent->client->ps.origin[2] + ent->client->ps.viewheight;
-					trap_Trace(&tr, from, NULL, NULL, to, self->s.number, MASK_PLAYERSOLID);
-					if (tr.entityNum != ent->s.number)
-						continue; // no LoS or something else blocking it
+					if (!HaveLOSToTarget(self, ent))
+						continue;
 				}
+			}
+
+			if (g_thTeRequiresLOS.integer) {
+				if (!HaveLOSToTarget(self, ent))
+					continue;
 			}
 
 			pl[numpl] = i;
@@ -2048,19 +2100,14 @@ void ForceTeamForceReplenish( gentity_t *self, qboolean redirectedTH )
 					trace_t tr;
 					trap_Trace(&tr, self->client->ps.origin, NULL, NULL, ent->client->ps.origin, self->s.number, CONTENTS_ABSEIL);
 					if (tr.fraction != 1) {
-						// we hit an abseil brush
-						// see if we have LoS to the target, which would trump the abseil trace result
-						vec3_t from, to;
-						from[0] = self->client->ps.origin[0];
-						from[1] = self->client->ps.origin[1];
-						from[2] = self->client->ps.origin[2] + self->client->ps.viewheight;
-						to[0] = ent->client->ps.origin[0];
-						to[1] = ent->client->ps.origin[1];
-						to[2] = ent->client->ps.origin[2] + ent->client->ps.viewheight;
-						trap_Trace(&tr, from, NULL, NULL, to, self->s.number, MASK_PLAYERSOLID);
-						if (tr.entityNum != ent->s.number)
-							continue; // no LoS or something else blocking it
+						if (!HaveLOSToTarget(self, ent))
+							continue;
 					}
+				}
+
+				if (g_thTeRequiresLOS.integer) {
+					if (!HaveLOSToTarget(self, ent))
+						continue;
 				}
 
 				pl[numpl] = i;
@@ -2208,19 +2255,14 @@ void AutoTHTE(gentity_t *self) {
 				trace_t tr;
 				trap_Trace(&tr, self->client->ps.origin, NULL, NULL, ent->client->ps.origin, self->s.number, CONTENTS_ABSEIL);
 				if (tr.fraction != 1) {
-					// we hit an abseil brush
-					// see if we have LoS to the target, which would trump the abseil trace result
-					vec3_t from, to;
-					from[0] = self->client->ps.origin[0];
-					from[1] = self->client->ps.origin[1];
-					from[2] = self->client->ps.origin[2] + self->client->ps.viewheight;
-					to[0] = ent->client->ps.origin[0];
-					to[1] = ent->client->ps.origin[1];
-					to[2] = ent->client->ps.origin[2] + ent->client->ps.viewheight;
-					trap_Trace(&tr, from, NULL, NULL, to, self->s.number, MASK_PLAYERSOLID);
-					if (tr.entityNum != ent->s.number)
-						continue; // no LoS or something else blocking it
+					if (!HaveLOSToTarget(self, ent))
+						continue;
 				}
+			}
+
+			if (g_thTeRequiresLOS.integer) {
+				if (!HaveLOSToTarget(self, ent))
+					continue;
 			}
 
 			numpl++;
