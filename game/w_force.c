@@ -1823,6 +1823,10 @@ void ForceTeamHeal( gentity_t *self, qboolean redirectedTE )
 		radius *= 2;
 	}
 
+	qboolean compensate = self->client->sess.unlagged;
+	if (g_unlagged.integer && compensate)
+		G_TimeShiftAllClients(trap_Milliseconds() - (level.time - self->client->pers.cmd.serverTime), self, qfalse);
+
 	for (int i = 0; i < MAX_CLIENTS; i++)
 	{
 		ent = &g_entities[i];
@@ -1855,14 +1859,20 @@ void ForceTeamHeal( gentity_t *self, qboolean redirectedTE )
 		}
 	}
 
-	if (baseBoost && numpl == 1 && DoesntHaveFlagButMyFCIsKindaNear(self, &g_entities[pl[0]]))
+	if (baseBoost && numpl == 1 && DoesntHaveFlagButMyFCIsKindaNear(self, &g_entities[pl[0]])) {
+		if (g_unlagged.integer && compensate)
+			G_UnTimeShiftAllClients(self, qfalse);
 		return;
+	}
 
 	qboolean canEnergizeOnly = qfalse;
 	if (numpl < 1)
 	{
-		if (!baseBoost || redirectedTE)
+		if (!baseBoost || redirectedTE) {
+			if (g_unlagged.integer && compensate)
+				G_UnTimeShiftAllClients(self, qfalse);
 			return;
+		}
 		canEnergizeOnly = qtrue;
 		numpl = 0;
 		for (int i = 0; i < MAX_CLIENTS; i++) {
@@ -1896,6 +1906,9 @@ void ForceTeamHeal( gentity_t *self, qboolean redirectedTE )
 			}
 		}
 	}
+
+	if (g_unlagged.integer && compensate)
+		G_UnTimeShiftAllClients(self, qfalse);
 
 	if (numpl < 1)
 		return;
@@ -2034,6 +2047,9 @@ void ForceTeamForceReplenish( gentity_t *self, qboolean redirectedTH )
 		radius *= 2;
 	}
 
+	qboolean compensate = self->client->sess.unlagged;
+	if (g_unlagged.integer && compensate)
+		G_TimeShiftAllClients(trap_Milliseconds() - (level.time - self->client->pers.cmd.serverTime), self, qfalse);
 	for (int i = 0; i < MAX_CLIENTS; i++)
 	{
 		ent = &g_entities[i];
@@ -2069,14 +2085,20 @@ void ForceTeamForceReplenish( gentity_t *self, qboolean redirectedTH )
 		}
 	}
 
-	if (baseBoost && numpl == 1 && DoesntHaveFlagButMyFCIsKindaNear(self, &g_entities[pl[0]]))
+	if (baseBoost && numpl == 1 && DoesntHaveFlagButMyFCIsKindaNear(self, &g_entities[pl[0]])) {
+		if (g_unlagged.integer && compensate)
+			G_UnTimeShiftAllClients(self, qfalse);
 		return;
+	}
 
 	qboolean canHealOnly = qfalse;
 	if (numpl < 1)
 	{
-		if (!baseBoost || redirectedTH)
+		if (!baseBoost || redirectedTH) {
+			if (g_unlagged.integer && compensate)
+				G_UnTimeShiftAllClients(self, qfalse);
 			return;
+		}
 
 		canHealOnly = qtrue;
 		numpl = 0;
@@ -2115,6 +2137,9 @@ void ForceTeamForceReplenish( gentity_t *self, qboolean redirectedTH )
 			}
 		}
 	}
+
+	if (g_unlagged.integer && compensate)
+		G_UnTimeShiftAllClients(self, qfalse);
 
 	if (numpl < 1)
 		return;
@@ -2235,6 +2260,10 @@ void AutoTHTE(gentity_t *self) {
 	else if (forcePowerLevel == 3)
 		radius *= 2;
 
+	/*qboolean compensate = self->client->sess.unlagged;
+	if (g_unlagged.integer && compensate)
+		G_TimeShiftAllClients(trap_Milliseconds() - (level.time - self->client->pers.cmd.serverTime), self, qfalse);*/
+
 	int numpl = 0;
 	gentity_t *target = NULL;
 	qboolean targetSpawnedRecently = qfalse;
@@ -2272,6 +2301,9 @@ void AutoTHTE(gentity_t *self) {
 				targetSpawnedRecently = qtrue; // try not to te people who sk instantly after they spawn
 		}
 	}
+
+	/*if (g_unlagged.integer && compensate)
+		G_UnTimeShiftAllClients(self, qfalse);*/
 
 	if (!numpl)
 		return;
