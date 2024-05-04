@@ -834,6 +834,8 @@ forceteam <player> <team>
 ===================
 */
 void	Svcmd_ForceTeam_f( void ) {
+	if (level.intermissiontime)
+		return;
 	gentity_t	*ent;
 	gclient_t	*cl;
 	char		str[MAX_TOKEN_CHARS];
