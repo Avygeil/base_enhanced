@@ -1240,6 +1240,21 @@ typedef struct {
 	ctfPosition_t	remindedPosition; // new change to just use the guy's assigned position
 
 	int			lastTickIngameTime; // the last time they were ingame and it wasn't paused
+
+	struct { // d_logTEData fields
+		int		numTEs;
+		int		numTEsWithLOS;
+		int		amountTE;
+		int		amountTEWithLOS;
+		int		numTEsFC;
+		int		numTEsFCWithLOS;
+		int		amountTEFC;
+		int		amountTEFCWithLOS;
+		int		numTEsChase;
+		int		numTEsChaseWithLOS;
+		int		amountTEChase;
+		int		amountTEChaseWithLOS;
+	} teData;
 } stats_t;
 
 typedef struct {
@@ -3608,6 +3623,7 @@ extern vmCvar_t		g_mindTrickBuff;
 extern vmCvar_t		g_drainRework;
 extern vmCvar_t		g_fixForceTimers;
 extern vmCvar_t		g_thTeRequiresLOS;
+extern vmCvar_t		d_logTEData;
 
 extern vmCvar_t		g_sendForceTimers;
 

@@ -1921,6 +1921,31 @@ static qboolean UpgradeDBToVersion26(sqlite3 *dbPtr) {
 	return trap_sqlite3_exec(dbPtr, v26Upgrade, NULL, NULL, NULL) == SQLITE_OK;
 }
 
+const char *const v27Upgrade = "CREATE TABLE tedata (match_id INTEGER NOT NULL, "
+"session_id INTEGER NOT NULL, "
+"team INTEGER NOT NULL, "
+"pos INTEGER, "
+"time INTEGER NOT NULL, "
+"numEnergizes INTEGER NOT NULL, "
+"energizedAlly INTEGER NOT NULL, "
+"numTEs INTEGER NOT NULL, "
+"numTEsWithLOS INTEGER NOT NULL, "
+"amountTE INTEGER NOT NULL, "
+"amountTEWithLOS INTEGER NOT NULL, "
+"numTEsFC INTEGER NOT NULL, "
+"numTEsFCWithLOS INTEGER NOT NULL, "
+"amountTEFC INTEGER NOT NULL, "
+"amountTEFCWithLOS INTEGER NOT NULL, "
+"numTEsChase INTEGER NOT NULL, "
+"numTEsChaseWithLOS INTEGER NOT NULL, "
+"amountTEChase INTEGER NOT NULL, "
+"amountTEChaseWithLOS INTEGER NOT NULL, "
+"FOREIGN KEY (match_id) REFERENCES pugs(match_id) ON DELETE CASCADE); ";
+
+static qboolean UpgradeDBToVersion27(sqlite3 *dbPtr) {
+	return trap_sqlite3_exec(dbPtr, v27Upgrade, NULL, NULL, NULL) == SQLITE_OK;
+}
+
 // =============================================================================
 
 static qboolean UpgradeDB( int versionTo, sqlite3* dbPtr ) {
@@ -1952,6 +1977,7 @@ static qboolean UpgradeDB( int versionTo, sqlite3* dbPtr ) {
 		case 24: return UpgradeDBToVersion24(dbPtr);
 		case 25: return UpgradeDBToVersion25(dbPtr);
 		case 26: return UpgradeDBToVersion26(dbPtr);
+		case 27: return UpgradeDBToVersion27(dbPtr);
 ;		default:
 			Com_Printf( "ERROR: Unsupported database upgrade routine\n" );
 	}

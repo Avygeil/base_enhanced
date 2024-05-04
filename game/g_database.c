@@ -4944,6 +4944,60 @@ qboolean G_DBWritePugStats(void) {
 					s->ticksNotPaused * (1000 / g_svfps.integer),
 					s->name);
 			}
+
+			if (d_logTEData.integer && s->numEnergizes) {
+				const char *sqlLogTeData =
+					"INSERT INTO tedata ("
+					"    match_id, "
+					"    session_id, "
+					"    team, "
+					"    pos, "
+					"    time, "
+					"    numEnergizes, "
+					"    energizedAlly, "
+					"    numTEs, "
+					"    numTEsWithLOS, "
+					"    amountTE, "
+					"    amountTEWithLOS, "
+					"    numTEsFC, "
+					"    numTEsFCWithLOS, "
+					"    amountTEFC, "
+					"    amountTEFCWithLOS, "
+					"    numTEsChase, "
+					"    numTEsChaseWithLOS, "
+					"    amountTEChase, "
+					"    amountTEChaseWithLOS"
+					") VALUES ("
+					"    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?"
+					");";
+				trap_sqlite3_reset(statement);
+				trap_sqlite3_prepare_v2(dbPtr, sqlLogTeData, -1, &statement, 0);
+				int teDataNum = 1;
+				sqlite3_bind_int64(statement, teDataNum++, matchId);
+				sqlite3_bind_int(statement, teDataNum++, found->sessionId);
+				sqlite3_bind_int(statement, teDataNum++, found->lastTeam);
+				sqlite3_bind_int(statement, teDataNum++, found->finalPosition);
+				sqlite3_bind_int(statement, teDataNum++, s->ticksNotPaused * (1000 / g_svfps.integer));
+				sqlite3_bind_int(statement, teDataNum++, s->numEnergizes);
+				sqlite3_bind_int(statement, teDataNum++, s->energizedAlly);
+				sqlite3_bind_int(statement, teDataNum++, s->teData.numTEs);
+				sqlite3_bind_int(statement, teDataNum++, s->teData.numTEsWithLOS);
+				sqlite3_bind_int(statement, teDataNum++, s->teData.amountTE);
+				sqlite3_bind_int(statement, teDataNum++, s->teData.amountTEWithLOS);
+				sqlite3_bind_int(statement, teDataNum++, s->teData.numTEsFC);
+				sqlite3_bind_int(statement, teDataNum++, s->teData.numTEsFCWithLOS);
+				sqlite3_bind_int(statement, teDataNum++, s->teData.amountTEFC);
+				sqlite3_bind_int(statement, teDataNum++, s->teData.amountTEFCWithLOS);
+				sqlite3_bind_int(statement, teDataNum++, s->teData.numTEsChase);
+				sqlite3_bind_int(statement, teDataNum++, s->teData.numTEsChaseWithLOS);
+				sqlite3_bind_int(statement, teDataNum++, s->teData.amountTEChase);
+				sqlite3_bind_int(statement, teDataNum++, s->teData.amountTEChaseWithLOS);
+				rc = trap_sqlite3_step(statement);
+				if (rc == SQLITE_DONE)
+					Com_Printf("d_logTEData: wrote for %s^7 to db\n", s->name);
+				else
+					Com_Printf("d_logTEData: failed to write for %s^7 to db!\n", s->name);
+			}
 		}
 	}
 	ListClear(&gotPlayerAtPosOnTeamList);

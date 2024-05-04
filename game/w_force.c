@@ -2202,6 +2202,33 @@ void ForceTeamForceReplenish( gentity_t *self, qboolean redirectedTH )
 			g_entities[pl[i]].client->stats->gotEnergizedByAlly += thisGuyActualAmountEnergized;
 			if (thisGuyActualAmountEnergized > highestAmountEnergizedForAnyone)
 				highestAmountEnergizedForAnyone = thisGuyActualAmountEnergized;
+
+			if (d_logTEData.integer && numpl == 1 && level.wasRestarted) { // log TE data for single-target TEs
+				const qboolean hasLOS = HaveLOSToTarget(self, &g_entities[pl[i]]);
+				++self->client->stats->teData.numTEs;
+				self->client->stats->teData.amountTE += thisGuyActualAmountEnergized;
+				if (hasLOS) {
+					++self->client->stats->teData.numTEsWithLOS;
+					self->client->stats->teData.amountTEWithLOS += thisGuyActualAmountEnergized;
+				}
+
+				if (HasFlag(&g_entities[pl[i]])) {
+					++self->client->stats->teData.numTEsFC;
+					self->client->stats->teData.amountTEFC += thisGuyActualAmountEnergized;
+					if (hasLOS) {
+						++self->client->stats->teData.numTEsFCWithLOS;
+						self->client->stats->teData.amountTEFCWithLOS += thisGuyActualAmountEnergized;
+					}
+				}
+				else if (GetRemindedPosOrDeterminedPos(&g_entities[pl[i]]) == CTFPOSITION_CHASE) {
+					++self->client->stats->teData.numTEsChase;
+					self->client->stats->teData.amountTEChase += thisGuyActualAmountEnergized;
+					if (hasLOS) {
+						++self->client->stats->teData.numTEsChaseWithLOS;
+						self->client->stats->teData.amountTEChaseWithLOS += thisGuyActualAmountEnergized;
+					}
+				}
+			}
 		}
 		g_entities[pl[i]].client->ps.fd.forcePower += poweradd;
 		if (g_entities[pl[i]].client->ps.fd.forcePower > 100)

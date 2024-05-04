@@ -1445,6 +1445,20 @@ void AddStatsToTotal(stats_t *player, stats_t *total, statsTableType_t type, sta
 			total->averageSpeed = (int)(total->topSpeed + 0.5f);
 	}
 	else if (type == STATS_TABLE_FORCE) {
+		if (d_logTEData.integer) {
+			AddStatToTotal(teData.numTEs);
+			AddStatToTotal(teData.amountTE);
+			AddStatToTotal(teData.numTEsWithLOS);
+			AddStatToTotal(teData.amountTEWithLOS);
+			AddStatToTotal(teData.numTEsFC);
+			AddStatToTotal(teData.amountTEFC);
+			AddStatToTotal(teData.numTEsFCWithLOS);
+			AddStatToTotal(teData.amountTEFCWithLOS);
+			AddStatToTotal(teData.numTEsChase);
+			AddStatToTotal(teData.amountTEChase);
+			AddStatToTotal(teData.numTEsChaseWithLOS);
+			AddStatToTotal(teData.amountTEChaseWithLOS);
+		}
 		AddStatToTotal(boonPickups);
 		AddStatToTotal(push);
 		AddStatToTotal(pull);
