@@ -31,7 +31,7 @@ static	vec3_t	muzzle;
 #define DISRUPTOR_MAIN_DAMAGE_SIEGE		50
 #define DISRUPTOR_NPC_MAIN_DAMAGE_CUT	0.25f
 
-#define DISRUPTOR_ALT_DAMAGE			100 //125
+#define DISRUPTOR_ALT_DAMAGE			100
 #define DISRUPTOR_NPC_ALT_DAMAGE_CUT	0.2f
 #define DISRUPTOR_ALT_TRACES			3		// can go through a max of 3 damageable(sp?) entities
 #define DISRUPTOR_CHARGE_UNIT			50.0f	// distruptor charging gives us one more unit every 50ms--if you change this, you'll have to do the same in bg_pmove
@@ -1271,46 +1271,88 @@ void WP_DisruptorAltFire( gentity_t *ent )
 		}
 	}
 
-	damage = DISRUPTOR_ALT_DAMAGE-30;
+	if (g_lowChargeSnipeNerf.integer) {
+		float chargeTime;
+		if (ent->client) {
+			VectorCopy(ent->client->ps.origin, start);
+			start[2] += ent->client->ps.viewheight;
+			chargeTime = (level.time - ent->client->ps.weaponChargeTime);
+			if (chargeTime > 1500)
+				chargeTime = 1500;
+		}
+		else {
+			VectorCopy(ent->r.currentOrigin, start);
+			start[2] += 24;
+			chargeTime = 100;
+		}
 
-	if (ent->client)
-	{
-		VectorCopy( ent->client->ps.origin, start );
-		start[2] += ent->client->ps.viewheight;//By eyes
+		const float syncPoint = 500;
+		const float baseSyncPointDamage = 70 + (min(max((syncPoint / 50) * 2, 1), 60));
+		const float newZeroChargeDamage = 50;
 
-		count = ( level.time - ent->client->ps.weaponChargeTime ) / DISRUPTOR_CHARGE_UNIT;
+		if (chargeTime < 250) {
+			damage = newZeroChargeDamage;
+		}
+		else if (chargeTime < syncPoint) {
+			float normalizedCharge = chargeTime / syncPoint;
+			damage = (int)(newZeroChargeDamage + (baseSyncPointDamage - newZeroChargeDamage) * pow(normalizedCharge, 0.75));
+		}
+		else {
+			damage = Com_Clampi(newZeroChargeDamage, 130, (int)(baseSyncPointDamage + ((130 - baseSyncPointDamage) * (chargeTime - syncPoint) / 1000)));
+		}
+
+		if (chargeTime < 250)
+			traces = 1;
+		else if (chargeTime < 500)
+			traces = 2;
+		else
+			traces = 3;
 	}
-	else
-	{
-		VectorCopy( ent->r.currentOrigin, start );
-		start[2] += 24;
+	else {
+		damage = DISRUPTOR_ALT_DAMAGE - 30;
 
-		count = ( 100 ) / DISRUPTOR_CHARGE_UNIT;
+		if (ent->client)
+		{
+			VectorCopy(ent->client->ps.origin, start);
+			start[2] += ent->client->ps.viewheight;//By eyes
+
+			count = (level.time - ent->client->ps.weaponChargeTime) / DISRUPTOR_CHARGE_UNIT;
+		}
+		else
+		{
+			VectorCopy(ent->r.currentOrigin, start);
+			start[2] += 24;
+
+			count = (100) / DISRUPTOR_CHARGE_UNIT;
+		}
+
+		count *= 2;
+
+		if (count < 1)
+		{
+			count = 1;
+		}
+		else if (count >= maxCount)
+		{
+			count = maxCount;
+			fullCharge = qtrue;
+		}
+
+		// more powerful charges go through more things
+		if (count < 10)
+		{
+			traces = 1;
+		}
+		else if (count < 20)
+		{
+			traces = 2;
+		}
+
+		damage += count;
 	}
 
-	count *= 2;
-
-	if ( count < 1 )
-	{
-		count = 1;
-	}
-	else if ( count >= maxCount )
-	{
-		count = maxCount;
-		fullCharge = qtrue;
-	}
-
-	// more powerful charges go through more things
-	if ( count < 10 )
-	{
-		traces = 1;
-	}
-	else if ( count < 20 )
-	{
-		traces = 2;
-	}
-
-	damage += count;
+	if (d_debugSnipeDamage.integer && ent->client)
+		PrintIngame(-1, "(Nerf %s^7) charged for %d ms, damage is %d, traces is %d\n", g_lowChargeSnipeNerf.integer ? "^2on" : "^1off", level.time - ent->client->ps.weaponChargeTime, damage, traces);
 	
 	skip = ent->s.number;
 
