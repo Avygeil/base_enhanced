@@ -391,6 +391,7 @@ vmCvar_t	g_rocketHPFix;
 vmCvar_t	g_fixDisarmWeaponPreference;
 vmCvar_t	g_homingUses1Ammo;
 vmCvar_t	g_lowChargeSnipeNerf;
+vmCvar_t	g_fixWeaponChargeTime;
 vmCvar_t	d_debugSnipeDamage;
 
 vmCvar_t	g_allowIgnore;
@@ -987,6 +988,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_fixDisarmWeaponPreference,	"g_fixDisarmWeaponPreference"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_homingUses1Ammo,	"g_homingUses1Ammo"	, "0"	, CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 	{ &g_lowChargeSnipeNerf,	"g_lowChargeSnipeNerf"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
+	{ &g_fixWeaponChargeTime,	"g_fixWeaponChargeTime"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &d_debugSnipeDamage,	"d_debugSnipeDamage"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_allowIgnore, "g_allowIgnore", "0", CVAR_ARCHIVE, 0, qfalse },

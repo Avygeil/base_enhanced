@@ -671,7 +671,14 @@ static void WP_FireBryarPistol( gentity_t *ent, qboolean altFire )
 
 	float boostSize = 0;
 	if (altFire) {
-		int count = Com_Clampi(1, 5, (level.time - ent->client->ps.weaponChargeTime) / BRYAR_CHARGE_UNIT);
+		int chargeTime;
+		if (g_fixWeaponChargeTime.integer)
+			chargeTime = (ent->client->pers.cmd.serverTime - ent->client->ps.weaponChargeTime);
+		else
+			chargeTime = (level.time - ent->client->ps.weaponChargeTime);
+		if (chargeTime < 1)
+			chargeTime = 1;
+		int count = Com_Clampi(1, 5, (chargeTime) / BRYAR_CHARGE_UNIT);
 		boostSize = BRYAR_ALT_SIZE * (count * 0.5);
 	}
 
@@ -686,7 +693,14 @@ static void WP_FireBryarPistol( gentity_t *ent, qboolean altFire )
 	{
 		float boxSize = 0;
 
-		count = ( level.time - ent->client->ps.weaponChargeTime ) / BRYAR_CHARGE_UNIT;
+		int chargeTime;
+		if (g_fixWeaponChargeTime.integer)
+			chargeTime = (ent->client->pers.cmd.serverTime - ent->client->ps.weaponChargeTime);
+		else
+			chargeTime = (level.time - ent->client->ps.weaponChargeTime);
+		if (chargeTime < 1)
+			chargeTime = 1;
+		count = ( chargeTime ) / BRYAR_CHARGE_UNIT;
 
 		if ( count < 1 )
 		{
@@ -1274,12 +1288,17 @@ void WP_DisruptorAltFire( gentity_t *ent )
 		}
 	}
 
+	float chargeTime;
 	if (g_lowChargeSnipeNerf.integer) {
-		float chargeTime;
 		if (ent->client) {
 			VectorCopy(ent->client->ps.origin, start);
 			start[2] += ent->client->ps.viewheight;
-			chargeTime = (level.time - ent->client->ps.weaponChargeTime);
+			if (g_fixWeaponChargeTime.integer)
+				chargeTime = (ent->client->pers.cmd.serverTime - ent->client->ps.weaponChargeTime);
+			else
+				chargeTime = (level.time - ent->client->ps.weaponChargeTime);
+			if (chargeTime < 1)
+				chargeTime = 1;
 			if (chargeTime > 1500)
 				chargeTime = 1500;
 		}
@@ -1319,7 +1338,17 @@ void WP_DisruptorAltFire( gentity_t *ent )
 			VectorCopy(ent->client->ps.origin, start);
 			start[2] += ent->client->ps.viewheight;//By eyes
 
-			count = (level.time - ent->client->ps.weaponChargeTime) / DISRUPTOR_CHARGE_UNIT;
+			if (g_fixWeaponChargeTime.integer)
+				chargeTime = (ent->client->pers.cmd.serverTime - ent->client->ps.weaponChargeTime);
+			else
+				chargeTime = (level.time - ent->client->ps.weaponChargeTime);
+			if (chargeTime < 1)
+				chargeTime = 1;
+
+			if (g_fixWeaponChargeTime.integer)
+				count = (ent->client->pers.cmd.serverTime - ent->client->ps.weaponChargeTime) / DISRUPTOR_CHARGE_UNIT;
+			else
+				count = (level.time - ent->client->ps.weaponChargeTime) / DISRUPTOR_CHARGE_UNIT;
 		}
 		else
 		{
@@ -1327,6 +1356,7 @@ void WP_DisruptorAltFire( gentity_t *ent )
 			start[2] += 24;
 
 			count = (100) / DISRUPTOR_CHARGE_UNIT;
+			chargeTime = 100;
 		}
 
 		count *= 2;
@@ -1355,7 +1385,7 @@ void WP_DisruptorAltFire( gentity_t *ent )
 	}
 
 	if (d_debugSnipeDamage.integer && ent->client)
-		PrintIngame(-1, "(Nerf %s^7) charged for %d ms, damage is %d, traces is %d\n", g_lowChargeSnipeNerf.integer ? "^2on" : "^1off", level.time - ent->client->ps.weaponChargeTime, damage, traces);
+		PrintIngame(-1, "(Nerf %s^7) charged for %d ms, damage is %d, traces is %d\n", g_lowChargeSnipeNerf.integer ? "^2on" : "^1off", (int)chargeTime, damage, traces);
 	
 	skip = ent->s.number;
 
@@ -1730,11 +1760,19 @@ static void WP_BowcasterMainFire( gentity_t *ent )
 	vec3_t		angs, dir;
 	gentity_t	*missile;
 
+	int chargeTime;
+	if (g_fixWeaponChargeTime.integer)
+		chargeTime = (ent->client->pers.cmd.serverTime - ent->client->ps.weaponChargeTime);
+	else
+		chargeTime = (level.time - ent->client->ps.weaponChargeTime);
+	if (chargeTime < 1)
+		chargeTime = 1;
+
 	if (d_bowcasterRework_enable.integer) {
 		if (!ent->client)
 			count = 1;
 		else
-			count = Com_Clampi(1, d_bowcasterRework_primaryNumBolts.integer, (level.time - ent->client->ps.weaponChargeTime) / (BOWCASTER_CHARGE_UNIT / (d_bowcasterRework_primaryNumBolts.integer / 5.0)));
+			count = Com_Clampi(1, d_bowcasterRework_primaryNumBolts.integer, (chargeTime) / (BOWCASTER_CHARGE_UNIT / (d_bowcasterRework_primaryNumBolts.integer / 5.0)));
 
 		if (d_bowcasterRework_primaryBoltDamage.integer > 0) {
 			damage = d_bowcasterRework_primaryBoltDamage.integer;
@@ -1812,7 +1850,7 @@ static void WP_BowcasterMainFire( gentity_t *ent )
 			if (!ent->client)
 				count = 1;
 			else
-				count = Com_Clampi(1, d_bowcasterRework_secondRingNumBolts.integer, (level.time - ent->client->ps.weaponChargeTime) / (BOWCASTER_CHARGE_UNIT / (d_bowcasterRework_secondRingNumBolts.integer / 5.0)));
+				count = Com_Clampi(1, d_bowcasterRework_secondRingNumBolts.integer, (chargeTime) / (BOWCASTER_CHARGE_UNIT / (d_bowcasterRework_secondRingNumBolts.integer / 5.0)));
 			for (int i = 0; i < count; i++) {
 				float vel = BOWCASTER_VELOCITY + d_bowcasterRework_velocityAdd.value;
 				if (ent && d_bowcasterRework_playerVelocityFactor.value) {
@@ -1876,7 +1914,7 @@ static void WP_BowcasterMainFire( gentity_t *ent )
 		}
 		else
 		{
-			count = (level.time - ent->client->ps.weaponChargeTime) / BOWCASTER_CHARGE_UNIT;
+			count = (chargeTime) / BOWCASTER_CHARGE_UNIT;
 		}
 
 		if (count < 1)
@@ -2292,7 +2330,14 @@ static void WP_DEMP2_AltFire( gentity_t *ent )
 
 	VectorMA( start, DEMP2_ALT_RANGE, forward, end );
 
-	count = ( level.time - ent->client->ps.weaponChargeTime ) / DEMP2_CHARGE_UNIT;
+	int chargeTime;
+	if (g_fixWeaponChargeTime.integer)
+		chargeTime = (ent->client->pers.cmd.serverTime - ent->client->ps.weaponChargeTime);
+	else
+		chargeTime = (level.time - ent->client->ps.weaponChargeTime);
+	if (chargeTime < 1)
+		chargeTime = 1;
+	count = (chargeTime) / DEMP2_CHARGE_UNIT;
 
 	origcount = count;
 
@@ -2986,9 +3031,17 @@ gentity_t *WP_FireThermalDetonator( gentity_t *ent, qboolean altFire )
 	vec3_t		dir, start;
 	float chargeAmount = 1.0f; // default of full charge
 
+	int chargeTime;
+	if (g_fixWeaponChargeTime.integer)
+		chargeTime = (ent->client->pers.cmd.serverTime - ent->client->ps.weaponChargeTime);
+	else
+		chargeTime = (level.time - ent->client->ps.weaponChargeTime);
+	if (chargeTime < 1)
+		chargeTime = 1;
+
 	if (ent->client)
 	{
-		chargeAmount = level.time - ent->client->ps.weaponChargeTime;
+		chargeAmount = chargeTime;
 	}
 
 	// get charge amount
