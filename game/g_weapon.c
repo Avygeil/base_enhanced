@@ -1243,6 +1243,9 @@ qboolean G_CanDisruptify(gentity_t *ent)
 	return qfalse;
 }
 
+#define maxOf(a,b) (((a) > (b)) ? (a) : (b))
+#define minOf(a,b) (((a) < (b)) ? (a) : (b))
+
 //---------------------------------------------------------
 void WP_DisruptorAltFire( gentity_t *ent )
 //---------------------------------------------------------
@@ -1287,7 +1290,7 @@ void WP_DisruptorAltFire( gentity_t *ent )
 		}
 
 		const float syncPoint = 500;
-		const float baseSyncPointDamage = 70 + (min(max((syncPoint / 50) * 2, 1), 60));
+		const float baseSyncPointDamage = 70 + (minOf(maxOf((syncPoint / 50) * 2, 1), 60));
 		const float newZeroChargeDamage = 50;
 
 		if (chargeTime < 250) {
