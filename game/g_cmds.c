@@ -3398,7 +3398,7 @@ void Cmd_Where_f( gentity_t *ent ) {
 	char *extra = "";
 	if (g_gametype.integer == GT_CTF) {
 #ifdef _DEBUG
-		extra = va("\nLocation value: %.3f", GetCTFLocationValue(ent));
+		extra = va("\nLocation value: %g", GetCTFLocationValue(ent));
 #endif
 		static qboolean initialized = qfalse, valid = qfalse;
 		static float redFs[2] = { 0, 0 }, blueFs[2] = { 0, 0 };
@@ -3421,7 +3421,7 @@ void Cmd_Where_f( gentity_t *ent ) {
 		}
 	}
 
-	trap_SendServerCommand( ent - g_entities, va( "print \"Origin: %s ; Yaw: %.3f degrees%s\n\"", vtos( ent->client->ps.origin ), ent->client->ps.viewangles[YAW], extra ) );
+	trap_SendServerCommand( ent - g_entities, va( "print \"Origin: %g, %g, %g ; Yaw: %g degrees%s\n\"", ent->client->ps.origin[0], ent->client->ps.origin[1], ent->client->ps.origin[2], ent->client->ps.viewangles[YAW], extra));
 }
 
 #ifdef _DEBUG
