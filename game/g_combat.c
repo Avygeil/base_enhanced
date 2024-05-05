@@ -5322,7 +5322,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 				else if (targ->client->ps.fd.forcePowerLevel[FP_PROTECT] == FORCE_LEVEL_3)
 				{
 					famt = 0.25;
-					hamt = g_protectNerf.integer ? 0.70 : 0.80;
+					hamt = g_protect3DamageReduction.value;
 
 					if (maxtake > 400)
 					{

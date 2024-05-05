@@ -604,7 +604,7 @@ vmCvar_t	g_gripBuff;
 vmCvar_t	g_gripRefreshRate;
 vmCvar_t	g_gripAbsorbFix;
 vmCvar_t	g_fixGripDistanceCheck;
-vmCvar_t	g_protectNerf;
+vmCvar_t	g_protect3DamageReduction;
 
 vmCvar_t	g_mindTrickBuff;
 vmCvar_t	g_drainRework;
@@ -1215,7 +1215,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_gripRefreshRate, "g_gripRefreshRate", "300", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_gripAbsorbFix, "g_gripAbsorbFix", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_fixGripDistanceCheck, "g_fixGripDistanceCheck", "1", CVAR_ARCHIVE, 0, qtrue },
-	{ &g_protectNerf, "g_protectNerf", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_protect3DamageReduction, "g_protect3DamageReduction", "0.80", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_mindTrickBuff, "g_mindTrickBuff", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_drainRework, "g_drainRework", "0", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
