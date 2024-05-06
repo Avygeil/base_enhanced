@@ -1712,6 +1712,9 @@ struct gclient_s {
 
 	int forcePowerActiveUntil[NUM_FORCE_POWERS];
 	int rageRecoveryActiveUntil;
+
+	int disarmed;
+	int forcingDisarmedNoAttack;
 };
 
 //Interest points
@@ -3435,6 +3438,7 @@ extern vmCvar_t		g_homingUses1Ammo;
 extern vmCvar_t		g_lowChargeSnipeNerf;
 extern vmCvar_t		g_fixWeaponChargeTime;
 extern vmCvar_t		d_debugSnipeDamage;
+extern vmCvar_t		g_fixDisarmFiring;
 
 extern vmCvar_t		g_allowIgnore;
 

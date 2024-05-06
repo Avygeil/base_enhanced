@@ -400,6 +400,9 @@ void TossClientWeapon(gentity_t *self, vec3_t direction, float speed)
 		self->client->ps.ammo[weaponData[weapon].ammoIndex] = 0;
 	}
 
+	if (g_fixDisarmFiring.integer)
+		self->client->disarmed = trap_Milliseconds();
+
 	int weaponOrder[] = {
 		WP_CONCUSSION,
 		WP_ROCKET_LAUNCHER,

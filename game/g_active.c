@@ -3379,6 +3379,57 @@ void ClientThink_real( gentity_t *ent ) {
 		client->ps.eFlags &= ~EF_JETPACK;
 	}
 
+	if (g_fixDisarmFiring.integer && g_gametype.integer != GT_SIEGE) {
+		const qboolean m1 = !!(ucmd->buttons & BUTTON_ATTACK);
+		const qboolean m2 = !!(ucmd->buttons & BUTTON_ALT_ATTACK);
+		if (ent->health > 0 && client->ps.pm_type != PM_DEAD) {
+			if (client->disarmed && trap_Milliseconds() - client->disarmed < 5000 && (m1 || m2)) {
+				if ((client->ps.weapon == WP_BRYAR_PISTOL && m2 && !m1) ||
+					(client->ps.weapon == WP_BOWCASTER && m1 && !m2) ||
+					(client->ps.weapon == WP_DEMP2 && m2 && !m1) ||
+					(client->ps.weapon == WP_BRYAR_OLD && m2 && !m1)) {
+					// these ones are fine
+					//PrintIngame(ent - g_entities, "^0g_fixDisarmFiring: using permitted weapon\n");
+					client->forcingDisarmedNoAttack = 0;
+				}
+				else {
+					// cancel their mouse button, and continue doing this on subsequent thinks until the mouse button is actually physically released or until 5 real seconds pass
+					client->forcingDisarmedNoAttack = trap_Milliseconds();
+					ucmd->buttons &= ~(BUTTON_ATTACK | BUTTON_ALT_ATTACK);
+					//PrintIngame(ent - g_entities, "^1g_fixDisarmFiring: forcingDisarmedNoAttack = %d\n", trap_Milliseconds());
+				}
+			}
+			else if (client->forcingDisarmedNoAttack) {
+				if ((client->ps.weapon == WP_BRYAR_PISTOL && m2 && !m1) ||
+					(client->ps.weapon == WP_BOWCASTER && m1 && !m2) ||
+					(client->ps.weapon == WP_DEMP2 && m2 && !m1) ||
+					(client->ps.weapon == WP_BRYAR_OLD && m2 && !m1)) {
+					// these ones are fine
+					//PrintIngame(ent - g_entities, "^2g_fixDisarmFiring: using permitted weapon\n");
+					client->forcingDisarmedNoAttack = 0;
+				}
+				else if (trap_Milliseconds() - client->forcingDisarmedNoAttack < 5000) {
+					if (!m1 && !m2) {
+						client->forcingDisarmedNoAttack = 0; // they actually physically released mouse button; stop canceling attack
+						//PrintIngame(ent - g_entities, "^3g_fixDisarmFiring: forcingDisarmedNoAttack = 0\n");
+					}
+					else {
+						ucmd->buttons &= ~(BUTTON_ATTACK | BUTTON_ALT_ATTACK); // they have not yet released; cancel the attack
+						//PrintIngame(ent - g_entities, "^4g_fixDisarmFiring: ucmd->buttons removing attack buttons\n");
+					}
+				}
+				else {
+					//PrintIngame(ent - g_entities, "^5g_fixDisarmFiring: forcingDisarmedNoAttack = 0\n");
+					client->forcingDisarmedNoAttack = 0;
+				}
+			}
+			client->disarmed = 0;
+		}
+		else { // sanity check to clear these when dead
+			client->disarmed = client->forcingDisarmedNoAttack = 0;
+		}
+	}
+
     //OSP: pause
     if ( level.pause.state != PAUSE_NONE && !client->sess.inRacemode && !ent->isAimPracticePack ) {
         ucmd->buttons = 0;
