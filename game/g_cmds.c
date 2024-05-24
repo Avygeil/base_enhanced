@@ -2738,6 +2738,8 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, q
 				ent - g_entities,
 				ent->client ? ent->client->pers.netname : "",
 				chatText);
+			if (fixedMessage)
+				free(fixedMessage);
 			return;
 		}
 	}
