@@ -1794,11 +1794,13 @@ qboolean HaveLOSToTarget(gentity_t *self, gentity_t *ent) {
 				if (tr.entityNum < MAX_CLIENTS) {
 					// recursive call to check if the entity blocking LOS has LOS to the target
 					if (HaveLOSToTarget(&g_entities[tr.entityNum], ent)) {
-						PrintIngame(self - g_entities, "got LOS from recursive check on i %d, j%d\n", i, j);
+						if (d_debugThTeLOS.integer)
+							PrintIngame(self - g_entities, "got LOS from recursive check on i %d, j%d\n", i, j);
 						return qtrue;
 					}
 				}
-				PrintIngame(self - g_entities, "^1i %d, j %d...^7", i, j);
+				if (d_debugThTeLOS.integer)
+					PrintIngame(self - g_entities, "^1i %d, j %d...^7", i, j);
 				continue;
 			}
 
