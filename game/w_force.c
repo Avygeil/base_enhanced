@@ -1021,7 +1021,7 @@ qboolean WP_ForcePowerAvailable( gentity_t *self, forcePowers_t forcePower, int 
 	if ( self->client->ps.fd.forcePower < drain )
 	{
 		if (d_debugThTeLOS.integer && forcePower == FP_TEAM_FORCE)
-			PrintIngame(self - g_entities, "(%d) WP_ForcePowerAvailable: error 19\n", level.time - level.startTime);
+			PrintIngame(self - g_entities, "(%d) WP_ForcePowerAvailable: error 19 (not enough force power: %d < %d, overrideAmt %d, forcePowerNeeded %d)\n", level.time - level.startTime, self->client->ps.fd.forcePower, drain, overrideAmt, forcePowerNeeded[self->client->ps.fd.forcePowerLevel[forcePower]][forcePower]);
 		return qfalse;
 	}
 	return qtrue;
