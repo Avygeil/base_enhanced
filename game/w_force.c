@@ -1710,7 +1710,8 @@ qboolean HaveLOSToTarget(gentity_t *self, gentity_t *ent) {
 	if (!self || !self->client || !ent || !ent->client)
 		return qfalse;
 
-	//Com_DebugPrintf("HaveLOSToTarget(%s, %s): beginning...\n", self->client->pers.netname, ent->client->pers.netname);
+	if (d_debugThTeLOS.integer)
+		PrintIngame(self - g_entities, "(%d) Checking LOS to %s:", level.time - level.startTime, ent->client->pers.netname);
 	for (int i = 0; i < 3; i++) {
 		vec3_t from;
 		from[0] = self->client->ps.origin[0];
@@ -1754,20 +1755,22 @@ qboolean HaveLOSToTarget(gentity_t *self, gentity_t *ent) {
 				if (tr.entityNum < MAX_CLIENTS) {
 					// recursive call to check if the entity blocking LOS has LOS to the target
 					if (HaveLOSToTarget(&g_entities[tr.entityNum], ent)) {
-						//Com_DebugPrintf("HaveLOSToTarget(%s, %s): got LOS from recursive check from %s\n", self->client->pers.netname, ent->client->pers.netname, g_entities[tr.entityNum].client ? g_entities[tr.entityNum].client->pers.netname : "");
+						PrintIngame(self - g_entities, "got LOS from recursive check on i %d, j%d\n", i, j);
 						return qtrue;
 					}
 				}
-
+				PrintIngame(self - g_entities, "^1i %d, j %d...^7", i, j);
 				continue;
 			}
 
-			//Com_DebugPrintf("HaveLOSToTarget(%s, %s): got LOS from i %d, j %d\n", self->client->pers.netname, ent->client->pers.netname, i, j);
+			if (d_debugThTeLOS.integer)
+				PrintIngame(self - g_entities, "^2got LOS from i %d, j %d^7\n", i, j);
 			return qtrue;
 		}
 	}
 
-	//Com_DebugPrintf("HaveLOSToTarget(%s, %s): failed\n", self->client->pers.netname, ent->client->pers.netname);
+	if (d_debugThTeLOS.integer)
+		PrintIngame(self - g_entities, "^1failed!^7\n");
 	return qfalse;
 }
 
@@ -1824,16 +1827,19 @@ void ForceTeamHeal( gentity_t *self, qboolean redirectedTE )
 	}
 
 	qboolean compensate = self->client->sess.unlagged;
-	if (g_unlagged.integer && compensate)
+	if (g_thTeUnlagged.integer && g_unlagged.integer && compensate)
 		G_TimeShiftAllClients(trap_Milliseconds() - (level.time - self->client->pers.cmd.serverTime), self, qfalse);
 
 	for (int i = 0; i < MAX_CLIENTS; i++)
 	{
 		ent = &g_entities[i];
 
-		if (ent && ent->client && self != ent && OnSameTeam(self, ent) && ent->client->ps.stats[STAT_HEALTH] < ent->client->ps.stats[STAT_MAX_HEALTH] && ent->client->ps.stats[STAT_HEALTH] > 0 && ForcePowerUsableOn(self, ent, FP_TEAM_HEAL) > 0 &&
-			trap_InPVS(self->client->ps.origin, ent->client->ps.origin) /*&& !(target->client->drainDebuffTime >= level.time && g_drainRework.integer)*/ )
+		if (ent && ent->client && self != ent && OnSameTeam(self, ent) && ent->client->ps.stats[STAT_HEALTH] < ent->client->ps.stats[STAT_MAX_HEALTH] && ent->client->ps.stats[STAT_HEALTH] > 0 && ForcePowerUsableOn(self, ent, FP_TEAM_HEAL) > 0 /*&& !(target->client->drainDebuffTime >= level.time && g_drainRework.integer)*/ )
 		{
+			if (!g_thTeRequiresLOS.integer && !trap_InPVS(self->client->ps.origin, ent->client->ps.origin)) {
+				continue;
+			}
+
 			VectorSubtract(self->client->ps.origin, ent->client->ps.origin, a);
 
 			if (VectorLength(a) > radius)
@@ -1860,7 +1866,7 @@ void ForceTeamHeal( gentity_t *self, qboolean redirectedTE )
 	}
 
 	if (baseBoost && numpl == 1 && DoesntHaveFlagButMyFCIsKindaNear(self, &g_entities[pl[0]])) {
-		if (g_unlagged.integer && compensate)
+		if (g_thTeUnlagged.integer && g_unlagged.integer && compensate)
 			G_UnTimeShiftAllClients(self, qfalse);
 		return;
 	}
@@ -1869,7 +1875,7 @@ void ForceTeamHeal( gentity_t *self, qboolean redirectedTE )
 	if (numpl < 1)
 	{
 		if (!baseBoost || redirectedTE) {
-			if (g_unlagged.integer && compensate)
+			if (g_thTeUnlagged.integer && g_unlagged.integer && compensate)
 				G_UnTimeShiftAllClients(self, qfalse);
 			return;
 		}
@@ -1907,7 +1913,7 @@ void ForceTeamHeal( gentity_t *self, qboolean redirectedTE )
 		}
 	}
 
-	if (g_unlagged.integer && compensate)
+	if (g_thTeUnlagged.integer && g_unlagged.integer && compensate)
 		G_UnTimeShiftAllClients(self, qfalse);
 
 	if (numpl < 1)
@@ -2030,11 +2036,15 @@ void ForceTeamForceReplenish( gentity_t *self, qboolean redirectedTH )
 	const int evaluateThisForcePower = (self->client->ps.fd.forcePowersKnown & (1 << FP_TEAM_FORCE)) ? FP_TEAM_FORCE : FP_TEAM_HEAL;
 	if ( !WP_ForcePowerUsable( self, evaluateThisForcePower) )
 	{
+		if (d_debugThTeLOS.integer)
+			PrintIngame(self - g_entities, "(%d) ^8TE is not usable.\n", level.time - level.startTime);
 		return;
 	}
 
 	if (self->client->ps.fd.forcePowerDebounce[evaluateThisForcePower] >= level.time)
 	{
+		if (d_debugThTeLOS.integer)
+			PrintIngame(self - g_entities, "(%d) ^6TE is on cooldown.\n", level.time - level.startTime);
 		return;
 	}
 
@@ -2048,7 +2058,7 @@ void ForceTeamForceReplenish( gentity_t *self, qboolean redirectedTH )
 	}
 
 	qboolean compensate = self->client->sess.unlagged;
-	if (g_unlagged.integer && compensate)
+	if (g_thTeUnlagged.integer && g_unlagged.integer && compensate)
 		G_TimeShiftAllClients(trap_Milliseconds() - (level.time - self->client->pers.cmd.serverTime), self, qfalse);
 	for (int i = 0; i < MAX_CLIENTS; i++)
 	{
@@ -2057,13 +2067,21 @@ void ForceTeamForceReplenish( gentity_t *self, qboolean redirectedTH )
 		if (ent && ent->client && self != ent && OnSameTeam(self, ent)
 			&& ent->client->ps.stats[STAT_HEALTH] > 0 /* *CHANGE 60* try to TE only living mates */
 			&& ent->client->ps.fd.forcePower < 100 && ForcePowerUsableOn(self, ent, FP_TEAM_FORCE) > 0 &&
-			trap_InPVS(self->client->ps.origin, ent->client->ps.origin) &&
 			!(g_drainRework.integer && ent->client->drainDebuffTime >= level.time))
 		{
+			if (!g_thTeRequiresLOS.integer && !trap_InPVS(self->client->ps.origin, ent->client->ps.origin)) {
+				if (d_debugThTeLOS.integer)
+					PrintIngame(self - g_entities, "(%d) %s^7 ^1is not within PVS.^7\n", level.time - level.startTime, ent->client->pers.netname);
+				continue;
+			}
+
 			VectorSubtract(self->client->ps.origin, ent->client->ps.origin, a);
 
-			if (VectorLength(a) > radius)
+			if (VectorLength(a) > radius) {
+				if (d_debugThTeLOS.integer)
+					PrintIngame(self - g_entities, "(%d) %s^7 ^1is too far away.^7\n", level.time - level.startTime, ent->client->pers.netname);
 				continue;
+			}
 
 			if (level.usesAbseil) {
 				// see if we can trace to an abseil brush
@@ -2076,8 +2094,11 @@ void ForceTeamForceReplenish( gentity_t *self, qboolean redirectedTH )
 			}
 
 			if (g_thTeRequiresLOS.integer) {
-				if (!HaveLOSToTarget(self, ent))
+				if (!HaveLOSToTarget(self, ent)) {
+					if (d_debugThTeLOS.integer)
+						PrintIngame(self - g_entities, "(%d) %s^7 ^1no line of sight.^7\n", level.time - level.startTime, ent->client->pers.netname);
 					continue;
+				}
 			}
 
 			pl[numpl] = i;
@@ -2086,7 +2107,7 @@ void ForceTeamForceReplenish( gentity_t *self, qboolean redirectedTH )
 	}
 
 	if (baseBoost && numpl == 1 && DoesntHaveFlagButMyFCIsKindaNear(self, &g_entities[pl[0]])) {
-		if (g_unlagged.integer && compensate)
+		if (g_thTeUnlagged.integer && g_unlagged.integer && compensate)
 			G_UnTimeShiftAllClients(self, qfalse);
 		return;
 	}
@@ -2095,7 +2116,7 @@ void ForceTeamForceReplenish( gentity_t *self, qboolean redirectedTH )
 	if (numpl < 1)
 	{
 		if (!baseBoost || redirectedTH) {
-			if (g_unlagged.integer && compensate)
+			if (g_thTeUnlagged.integer && g_unlagged.integer && compensate)
 				G_UnTimeShiftAllClients(self, qfalse);
 			return;
 		}
@@ -2138,7 +2159,7 @@ void ForceTeamForceReplenish( gentity_t *self, qboolean redirectedTH )
 		}
 	}
 
-	if (g_unlagged.integer && compensate)
+	if (g_thTeUnlagged.integer && g_unlagged.integer && compensate)
 		G_UnTimeShiftAllClients(self, qfalse);
 
 	if (numpl < 1)
@@ -2288,7 +2309,7 @@ void AutoTHTE(gentity_t *self) {
 		radius *= 2;
 
 	/*qboolean compensate = self->client->sess.unlagged;
-	if (g_unlagged.integer && compensate)
+	if (g_thTeUnlagged.integer && g_unlagged.integer && compensate)
 		G_TimeShiftAllClients(trap_Milliseconds() - (level.time - self->client->pers.cmd.serverTime), self, qfalse);*/
 
 	int numpl = 0;
@@ -2329,7 +2350,7 @@ void AutoTHTE(gentity_t *self) {
 		}
 	}
 
-	/*if (g_unlagged.integer && compensate)
+	/*if (g_thTeUnlagged.integer && g_unlagged.integer && compensate)
 		G_UnTimeShiftAllClients(self, qfalse);*/
 
 	if (!numpl)

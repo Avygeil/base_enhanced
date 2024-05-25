@@ -3630,6 +3630,8 @@ extern vmCvar_t		g_mindTrickBuff;
 extern vmCvar_t		g_drainRework;
 extern vmCvar_t		g_fixForceTimers;
 extern vmCvar_t		g_thTeRequiresLOS;
+extern vmCvar_t		d_debugThTeLOS;
+extern vmCvar_t		g_thTeUnlagged;
 extern vmCvar_t		d_logTEData;
 
 extern vmCvar_t		g_sendForceTimers;

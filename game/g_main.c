@@ -611,6 +611,8 @@ vmCvar_t	g_mindTrickBuff;
 vmCvar_t	g_drainRework;
 vmCvar_t	g_fixForceTimers;
 vmCvar_t	g_thTeRequiresLOS;
+vmCvar_t	d_debugThTeLOS;
+vmCvar_t	g_thTeUnlagged;
 vmCvar_t	d_logTEData;
 
 vmCvar_t	g_sendForceTimers;
@@ -1223,6 +1225,8 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_drainRework, "g_drainRework", "0", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 	{ &g_fixForceTimers, "g_fixForceTimers", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_thTeRequiresLOS, "g_thTeRequiresLOS", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &d_debugThTeLOS, "d_debugThTeLOS", "0", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_thTeUnlagged, "g_thTeUnlagged", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &d_logTEData, "d_logTEData", "0", CVAR_ARCHIVE, 0, qfalse },
 
 	{ &g_sendForceTimers, "g_sendForceTimers", "1", CVAR_ARCHIVE, 0, qtrue },
