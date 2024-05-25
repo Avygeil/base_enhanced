@@ -999,6 +999,8 @@ qboolean WP_ForcePowerAvailable( gentity_t *self, forcePowers_t forcePower, int 
 			if (g_drainRework.integer >= 2) {
 				if (self->client->ps.fd.forcePower >= DRAIN_REWORK2_MINIMUMFORCE)
 					return qtrue;
+				if (d_debugThTeLOS.integer && forcePower == FP_TEAM_FORCE)
+					PrintIngame(self - g_entities, "(%d) WP_ForcePowerAvailable: error 17\n", level.time - level.startTime);
 				return qfalse;
 			}
 			else {
@@ -1010,12 +1012,16 @@ qboolean WP_ForcePowerAvailable( gentity_t *self, forcePowers_t forcePower, int 
 				}
 				if (self->client->ps.fd.forcePower >= forceCost)
 					return qtrue;
+				if (d_debugThTeLOS.integer && forcePower == FP_TEAM_FORCE)
+					PrintIngame(self - g_entities, "(%d) WP_ForcePowerAvailable: error 18\n", level.time - level.startTime);
 				return qfalse;
 			}
 		}
 	}
 	if ( self->client->ps.fd.forcePower < drain )
 	{
+		if (d_debugThTeLOS.integer && forcePower == FP_TEAM_FORCE)
+			PrintIngame(self - g_entities, "(%d) WP_ForcePowerAvailable: error 19\n", level.time - level.startTime);
 		return qfalse;
 	}
 	return qtrue;
@@ -1034,39 +1040,55 @@ qboolean WP_ForcePowerInUse( gentity_t *self, forcePowers_t forcePower )
 qboolean WP_ForcePowerUsable( gentity_t *self, forcePowers_t forcePower )
 {
 	if (InstagibEnabled() && forcePower != FP_LEVITATION) { // you can only use force jump in instagib
+		if (d_debugThTeLOS.integer && forcePower == FP_TEAM_FORCE)
+			PrintIngame(self - g_entities, "(%d) WP_ForcePowerUsable: error 1\n", level.time - level.startTime);
 		return qfalse;
 	}
 	if (BG_HasYsalamiri(g_gametype.integer, &self->client->ps))
 	{
+		if (d_debugThTeLOS.integer && forcePower == FP_TEAM_FORCE)
+			PrintIngame(self - g_entities, "(%d) WP_ForcePowerUsable: error 2\n", level.time - level.startTime);
 		return qfalse;
 	}
 
 	if (self->health <= 0 || self->client->ps.stats[STAT_HEALTH] <= 0 ||
 		(self->client->ps.eFlags & EF_DEAD))
 	{
+		if (d_debugThTeLOS.integer && forcePower == FP_TEAM_FORCE)
+			PrintIngame(self - g_entities, "(%d) WP_ForcePowerUsable: error 3\n", level.time - level.startTime);
 		return qfalse;
 	}
 
 	if (self->client->ps.pm_flags & PMF_FOLLOW)
 	{ //specs can't use powers through people
+		if (d_debugThTeLOS.integer && forcePower == FP_TEAM_FORCE)
+			PrintIngame(self - g_entities, "(%d) WP_ForcePowerUsable: error 14\n", level.time - level.startTime);
 		return qfalse;
 	}
 	if (self->client->sess.sessionTeam == TEAM_SPECTATOR)
 	{
+		if (d_debugThTeLOS.integer && forcePower == FP_TEAM_FORCE)
+			PrintIngame(self - g_entities, "(%d) WP_ForcePowerUsable: error 5\n", level.time - level.startTime);
 		return qfalse;
 	}
 	if (self->client->tempSpectate >= level.time)
 	{
+		if (d_debugThTeLOS.integer && forcePower == FP_TEAM_FORCE)
+			PrintIngame(self - g_entities, "(%d) WP_ForcePowerUsable: error 6\n", level.time - level.startTime);
 		return qfalse;
 	}
 
 	if (!BG_CanUseFPNow(g_gametype.integer, &self->client->ps, level.time, forcePower))
 	{
+		if (d_debugThTeLOS.integer && forcePower == FP_TEAM_FORCE)
+			PrintIngame(self - g_entities, "(%d) WP_ForcePowerUsable: error 7\n", level.time - level.startTime);
 		return qfalse;
 	}
 
 	if ( !(self->client->ps.fd.forcePowersKnown & ( 1 << forcePower )) )
 	{//don't know this power
+		if (d_debugThTeLOS.integer && forcePower == FP_TEAM_FORCE)
+			PrintIngame(self - g_entities, "(%d) WP_ForcePowerUsable: error 8\n", level.time - level.startTime);
 		return qfalse;
 	}
 	
@@ -1074,22 +1096,31 @@ qboolean WP_ForcePowerUsable( gentity_t *self, forcePowers_t forcePower )
 	{//already using this power
 		if (forcePower != FP_LEVITATION)
 		{
+			if (d_debugThTeLOS.integer && forcePower == FP_TEAM_FORCE)
+				PrintIngame(self - g_entities, "(%d) WP_ForcePowerUsable: error 9\n", level.time - level.startTime);
 			return qfalse;
 		}
 	}
 
 	if (forcePower == FP_LEVITATION && self->client->fjDidJump)
 	{
+		if (d_debugThTeLOS.integer && forcePower == FP_TEAM_FORCE)
+			PrintIngame(self - g_entities, "(%d) WP_ForcePowerUsable: error 10\n", level.time - level.startTime);
 		return qfalse;
 	}
 
 	if (!self->client->ps.fd.forcePowerLevel[forcePower])
 	{
+		if (d_debugThTeLOS.integer && forcePower == FP_TEAM_FORCE)
+			PrintIngame(self - g_entities, "(%d) WP_ForcePowerUsable: error 11\n", level.time - level.startTime);
 		return qfalse;
 	}
 
-	if (forcePower == FP_DRAIN && self->client->drainDebuffTime > level.time && g_drainRework.integer && g_drainRework.integer != 1)
+	if (forcePower == FP_DRAIN && self->client->drainDebuffTime > level.time && g_drainRework.integer && g_drainRework.integer != 1) {
+		if (d_debugThTeLOS.integer && forcePower == FP_TEAM_FORCE)
+			PrintIngame(self - g_entities, "(%d) WP_ForcePowerUsable: error 12\n", level.time - level.startTime);
 		return qfalse;
+	}
 
 	if ( g_debugMelee.integer )
 	{
@@ -1103,6 +1134,8 @@ qboolean WP_ForcePowerUsable( gentity_t *self, forcePowers_t forcePower )
 			case FP_SABER_OFFENSE:
 			case FP_SABER_DEFENSE:
 			case FP_SABERTHROW:
+				if (d_debugThTeLOS.integer && forcePower == FP_TEAM_FORCE)
+					PrintIngame(self - g_entities, "(%d) WP_ForcePowerUsable: error 13\n", level.time - level.startTime);
 				return qfalse;
 				break;
 			}
@@ -1123,6 +1156,8 @@ qboolean WP_ForcePowerUsable( gentity_t *self, forcePowers_t forcePower )
 				case FP_GRIP:
 				case FP_LIGHTNING:
 				case FP_DRAIN:
+					if (d_debugThTeLOS.integer && forcePower == FP_TEAM_FORCE)
+						PrintIngame(self - g_entities, "(%d) WP_ForcePowerUsable: error 14\n", level.time - level.startTime);
 					return qfalse;
 					break;
 				}
@@ -1134,6 +1169,8 @@ qboolean WP_ForcePowerUsable( gentity_t *self, forcePowers_t forcePower )
 		{//this saber requires the use of two hands OR our other hand is using an active saber too
 			if ( (self->client->saber[0].forceRestrictions&(1<<forcePower)) )
 			{//this power is verboten when using this saber
+				if (d_debugThTeLOS.integer && forcePower == FP_TEAM_FORCE)
+					PrintIngame(self - g_entities, "(%d) WP_ForcePowerUsable: error 15\n", level.time - level.startTime);
 				return qfalse;
 			}
 		}
@@ -1157,6 +1194,8 @@ qboolean WP_ForcePowerUsable( gentity_t *self, forcePowers_t forcePower )
 			}
 			if ( (self->client->saber[1].forceRestrictions&(1<<forcePower)) )
 			{//this power is verboten when using this saber
+				if (d_debugThTeLOS.integer && forcePower == FP_TEAM_FORCE)
+					PrintIngame(self - g_entities, "(%d) WP_ForcePowerUsable: error 16\n", level.time - level.startTime);
 				return qfalse;
 			}
 		}

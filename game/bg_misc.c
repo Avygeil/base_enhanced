@@ -1811,21 +1811,29 @@ qboolean BG_CanUseFPNow(int gametype, playerState_t *ps, int time, forcePowers_t
 {
 	if (BG_HasYsalamiri(gametype, ps))
 	{
+		if (d_debugThTeLOS.integer && power == FP_TEAM_FORCE)
+			PrintIngame(ps->clientNum, "(%d) BG_CanUseFPNow: error 19\n", level.time - level.startTime);
 		return qfalse;
 	}
 
 	if ( ps->forceRestricted || ps->trueNonJedi )
 	{
+		if (d_debugThTeLOS.integer && power == FP_TEAM_FORCE)
+			PrintIngame(ps->clientNum, "(%d) BG_CanUseFPNow: error 20\n", level.time - level.startTime);
 		return qfalse;
 	}
 
 	if (ps->weapon == WP_EMPLACED_GUN)
 	{ //can't use any of your powers while on an emplaced weapon
+		if (d_debugThTeLOS.integer && power == FP_TEAM_FORCE)
+			PrintIngame(ps->clientNum, "(%d) BG_CanUseFPNow: error 21\n", level.time - level.startTime);
 		return qfalse;
 	}
 
 	if (ps->m_iVehicleNum)
 	{ //can't use powers while riding a vehicle (this may change, I don't know)
+		if (d_debugThTeLOS.integer && power == FP_TEAM_FORCE)
+			PrintIngame(ps->clientNum, "(%d) BG_CanUseFPNow: error 22\n", level.time - level.startTime);
 		return qfalse;
 	}
 
@@ -1833,6 +1841,8 @@ qboolean BG_CanUseFPNow(int gametype, playerState_t *ps, int time, forcePowers_t
 	{
 		if (g_gametype.integer == GT_CTF ){
 			if (power != FP_LEVITATION){ //jump only in captain pistol duel
+				if (d_debugThTeLOS.integer && power == FP_TEAM_FORCE)
+					PrintIngame(ps->clientNum, "(%d) BG_CanUseFPNow: error 23\n", level.time - level.startTime);
 				return qfalse;
 			}
 		} else {
@@ -1841,6 +1851,8 @@ qboolean BG_CanUseFPNow(int gametype, playerState_t *ps, int time, forcePowers_t
 			{
 				if (!ps->saberLockFrame || power != FP_PUSH)
 				{
+					if (d_debugThTeLOS.integer && power == FP_TEAM_FORCE)
+						PrintIngame(ps->clientNum, "(%d) BG_CanUseFPNow: error 24\n", level.time - level.startTime);
 					return qfalse;
 				}
 			}
@@ -1851,12 +1863,16 @@ qboolean BG_CanUseFPNow(int gametype, playerState_t *ps, int time, forcePowers_t
 	{
 		if (power != FP_PUSH)
 		{
+			if (d_debugThTeLOS.integer && power == FP_TEAM_FORCE)
+				PrintIngame(ps->clientNum, "(%d) BG_CanUseFPNow: error 25\n", level.time - level.startTime);
 			return qfalse;
 		}
 	}
 
 	if (ps->fallingToDeath)
 	{
+		if (d_debugThTeLOS.integer && power == FP_TEAM_FORCE)
+			PrintIngame(ps->clientNum, "(%d) BG_CanUseFPNow: error 26\n", level.time - level.startTime);
 		return qfalse;
 	}
 
@@ -1870,6 +1886,8 @@ qboolean BG_CanUseFPNow(int gametype, playerState_t *ps, int time, forcePowers_t
 		case FP_GRIP:
 		case FP_LIGHTNING:
 		case FP_DRAIN:
+			if (d_debugThTeLOS.integer && power == FP_TEAM_FORCE)
+				PrintIngame(ps->clientNum, "(%d) BG_CanUseFPNow: error 27\n", level.time - level.startTime);
 			return qfalse;
 		default:
 			break;
