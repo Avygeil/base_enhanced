@@ -2462,6 +2462,7 @@ void ClientUserinfoChanged( int clientNum ) {
 
 	// send over a subset of the userinfo keys so other clients can
 	// print scoreboards, display models, and play custom sounds
+	client->sess.isOpenJkDerivate = qfalse;
 	if ( ent->r.svFlags & SVF_BOT ) {
 		s = va("n\\%s\\t\\%i\\model\\%s\\c1\\%s\\c2\\%s\\c5\\%i\\hc\\%i\\w\\%i\\l\\%i\\skill\\%s\\tt\\%d\\tl\\%d\\siegeclass\\%s\\st\\%s\\st2\\%s\\dt\\%i\\sdt\\%i",
 			client->pers.netname, team, model,  c1, c2, cosmetics,
@@ -2479,6 +2480,7 @@ void ClientUserinfoChanged( int clientNum ) {
 			SHA1Input( &ctx, (unsigned char *)value, (unsigned int)strlen(value) );
 			if ( SHA1Result( &ctx ) == 1 ) {
 				guidHash = ctx.Message_Digest[0];
+				client->sess.isOpenJkDerivate = qtrue;
 				G_LogPrintf( "Client %d (OpenJK) reports guid %d (userinfo %s)\n", clientNum, guidHash, userinfo );
 			}
 		} else {

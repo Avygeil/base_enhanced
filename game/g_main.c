@@ -573,6 +573,7 @@ vmCvar_t	g_broadcastCtfPos;
 vmCvar_t	g_assignMissingCtfPos;
 vmCvar_t	g_broadcastGivenThTe;
 vmCvar_t	g_broadcastCapturerHealthArmorForce;
+vmCvar_t	g_outOfBandDMs;
 
 vmCvar_t	d_debugBanPermutation;
 
@@ -1180,6 +1181,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_assignMissingCtfPos, "g_assignMissingCtfPos", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_broadcastGivenThTe, "g_broadcastGivenThTe", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_broadcastCapturerHealthArmorForce, "g_broadcastCapturerHealthArmorForce", "1", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_outOfBandDMs, "g_outOfBandDMs", "1", CVAR_ARCHIVE, 0, qfalse },
 
 	{ &d_debugBanPermutation, "d_debugBanPermutation", "0", CVAR_ARCHIVE, 0, qfalse },
 
@@ -6381,7 +6383,7 @@ static void RunRockPaperScissors(void) {
 }
 
 extern char *GetSuffixId(gentity_t *ent);
-void G_SayTo(gentity_t *ent, gentity_t *other, int mode, int color, const char *name, const char *message, char *locMsg);
+void G_SayTo(gentity_t *ent, gentity_t *other, int mode, int color, const char *name, const char *message, char *locMsg, qboolean outOfBandOk);
 
 extern int forcePowerNeeded[NUM_FORCE_POWER_LEVELS][NUM_FORCE_POWERS];
 extern void WP_AddToClientBitflags(gentity_t* ent, int entNum);
@@ -6565,7 +6567,7 @@ void G_RunFrame( int levelTime ) {
 				if (fromEnt && toEnt && fromEnt->client && toEnt->client) {
 					char name[64] = { 0 };
 					Com_sprintf(name, sizeof(name), "\x19[%s^7%s\x19]\x19: ", fromEnt->client->pers.netname, GetSuffixId(fromEnt));
-					G_SayTo(fromEnt, toEnt, SAY_TELL, COLOR_MAGENTA, name, msg->text, NULL);
+					G_SayTo(fromEnt, toEnt, SAY_TELL, COLOR_MAGENTA, name, msg->text, NULL, qfalse;
 				}
 			}
 

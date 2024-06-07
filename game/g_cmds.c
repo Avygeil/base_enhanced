@@ -2253,7 +2253,26 @@ qboolean ClientIsRacerOrSpectator(gclient_t *client) {
 	return qtrue;
 }
 
-void G_SayTo( gentity_t *ent, gentity_t *other, int mode, int color, const char *name, const char *message, char *locMsg )
+static qboolean ShouldSendOutOfBandDM(const char *version) {
+	if (!VALIDSTRING(version))
+		return qfalse;
+
+	int major, minor, revision;
+	int scanned = sscanf(version, "%d.%d.%d%*s", &major, &minor, &revision);
+	if (scanned != 3)
+		return qfalse;
+
+	if (major > 1)
+		return qtrue;
+	if (major == 1 && minor > 11)
+		return qtrue;
+	if (major == 1 && minor == 11 && revision > 3)
+		return qtrue;
+
+	return qfalse;
+}
+
+void G_SayTo( gentity_t *ent, gentity_t *other, int mode, int color, const char *name, const char *message, char *locMsg, qboolean outOfBandOk)
 {
 	if (!other) {
 		return;
@@ -2307,20 +2326,24 @@ void G_SayTo( gentity_t *ent, gentity_t *other, int mode, int color, const char 
 		}
 	}
 
-	//They've requested I take this out.
+	const qboolean outOfBand = (mode == SAY_TELL && outOfBandOk && g_outOfBandDMs.integer && other->client->sess.isOpenJkDerivate && ShouldSendOutOfBandDM(other->client->sess.nmVer));
 
-	if (locMsg && g_enableChatLocations.integer)
-	{
-		trap_SendServerCommand( other-g_entities, va("%s \"%s\" \"%s\" \"%c\" \"%s\" \"%i\"", 
+	char *msg;
+	if (locMsg && g_enableChatLocations.integer && !outOfBand) {
+		msg = va("%s \"%s\" \"%s\" \"%c\" \"%s\" \"%i\"", 
 			mode == SAY_TEAM ? "ltchat" : "lchat",
-			name, locMsg, color, message, ent - g_entities));
+			name, locMsg, color, message, ent - g_entities);
 	}
+	else {
+		msg = va("%s%s\"%s%c%c%s\" \"%i\"",
+			mode == SAY_TEAM ? "tchat" : "chat", outOfBand ? "\n" : " ",
+			name, Q_COLOR_ESCAPE, color, message, ent - g_entities);
+	}
+
+	if (outOfBand)
+		trap_OutOfBandPrint(other - g_entities, msg);
 	else
-	{
-		trap_SendServerCommand( other-g_entities, va("%s \"%s%c%c%s\" \"%i\"", 
-			mode == SAY_TEAM ? "tchat" : "chat",
-			name, Q_COLOR_ESCAPE, color, message, ent - g_entities));
-	}
+		trap_SendServerCommand(other - g_entities, msg);
 }
 
 char* GetSuffixId( gentity_t *ent ) {
@@ -2877,7 +2900,7 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, q
 			if (eloBotEnt->client->sess.nmVer[0] || Q_stricmpnclean(eloBotEnt->client->pers.netname, "elo BOT", 7))
 				continue;
 
-			G_SayTo(ent, ent, SAY_TELL, COLOR_MAGENTA, va("--> "EC"[%s%c%c"EC"]"EC": ", eloBotEnt->client->pers.netname, Q_COLOR_ESCAPE, COLOR_WHITE), chatText, NULL);
+			G_SayTo(ent, ent, SAY_TELL, COLOR_MAGENTA, va("--> "EC"[%s%c%c"EC"]"EC": ", eloBotEnt->client->pers.netname, Q_COLOR_ESCAPE, COLOR_WHITE), chatText, NULL, qfalse);
 			TeamGenerator_QueueChatMessage(eloBotEnt - g_entities, ent - g_entities, "Communication with player database failed!", trap_Milliseconds() + 850 + Q_irand(-50, 150));
 
 			if (fixedMessage)
@@ -2900,7 +2923,7 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, q
 			if (eloBotEnt->client->sess.nmVer[0] || Q_stricmpnclean(eloBotEnt->client->pers.netname, "elo BOT", 7))
 				continue;
 
-			G_SayTo(ent, ent, SAY_TELL, COLOR_MAGENTA, va("--> "EC"[%s%c%c"EC"]"EC": ", eloBotEnt->client->pers.netname, Q_COLOR_ESCAPE, COLOR_WHITE), chatText, NULL);
+			G_SayTo(ent, ent, SAY_TELL, COLOR_MAGENTA, va("--> "EC"[%s%c%c"EC"]"EC": ", eloBotEnt->client->pers.netname, Q_COLOR_ESCAPE, COLOR_WHITE), chatText, NULL, qfalse);
 			if (!TeamGenerator_PrintBalance(ent, eloBotEnt))
 				TeamGenerator_QueueChatMessage(eloBotEnt - g_entities, ent - g_entities, "Communication with player database failed!", trap_Milliseconds() + 850 + Q_irand(-50, 150));
 
@@ -2966,7 +2989,7 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, q
 
 
 	if ( target ) {
-		G_SayTo( ent, target, mode, color, name, text, locMsg );
+		G_SayTo( ent, target, mode, color, name, text, locMsg, qtrue );
 		if (fixedMessage)
 			free(fixedMessage);
 		return;
@@ -2978,7 +3001,7 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, q
 	// send it to all the apropriate clients
 	for (j = 0; j < level.maxclients; j++) {
 		other = &g_entities[j];
-		G_SayTo( ent, other, mode, color, name, text, locMsg );
+		G_SayTo( ent, other, mode, color, name, text, locMsg, qfalse );
 	}
 
 	if (g_gametype.integer == GT_CTF && mode == SAY_TEAM && VALIDSTRING(text) && !IsRacerOrSpectator(ent) &&
@@ -3143,7 +3166,7 @@ static void Cmd_Tell_f(gentity_t *ent, char *override) {
 				}
 			}
 		}
-		G_SayTo(ent, ent, SAY_TELL, COLOR_MAGENTA, va("--> "EC"[%s%c%c"EC"]"EC": ", found->client->pers.netname, Q_COLOR_ESCAPE, COLOR_WHITE), p, NULL);
+		G_SayTo(ent, ent, SAY_TELL, COLOR_MAGENTA, va("--> "EC"[%s%c%c"EC"]"EC": ", found->client->pers.netname, Q_COLOR_ESCAPE, COLOR_WHITE), p, NULL, qtrue);
 		if (fixedMessage)
 			free(fixedMessage);
 	}
