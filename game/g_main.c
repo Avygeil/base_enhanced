@@ -6567,7 +6567,7 @@ void G_RunFrame( int levelTime ) {
 				if (fromEnt && toEnt && fromEnt->client && toEnt->client) {
 					char name[64] = { 0 };
 					Com_sprintf(name, sizeof(name), "\x19[%s^7%s\x19]\x19: ", fromEnt->client->pers.netname, GetSuffixId(fromEnt));
-					G_SayTo(fromEnt, toEnt, SAY_TELL, COLOR_MAGENTA, name, msg->text, NULL, qfalse;
+					G_SayTo(fromEnt, toEnt, SAY_TELL, COLOR_MAGENTA, name, msg->text, NULL, qfalse);
 				}
 			}
 
