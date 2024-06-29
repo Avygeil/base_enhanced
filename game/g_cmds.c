@@ -803,6 +803,57 @@ void Cmd_Kill_f( gentity_t *ent ) {
 		}
 	}
 
+	if (g_vote_freezeUntilVote.integer & (1 << 2) && ent->client->pers.connected == CON_CONNECTED) {
+		if (level.voteTime && level.multiVoting && (ent->client->mGameFlags & PSG_CANVOTE) && !(ent->client->mGameFlags & PSG_VOTED) && (g_vote_freezeUntilVote.integer & (1 << 0))) {
+			return;
+		}
+		if (level.activePugProposal && ent->client->account && (g_vote_freezeUntilVote.integer & (1 << 1))) {
+			qboolean partOfActiveProposal = qfalse;
+			for (int i = 0; i < MAX_CLIENTS; i++) {
+				sortedClient_t *cl = level.activePugProposal->clients + i;
+				if (cl->accountName[0] && cl->accountId == ent->client->account->id) {
+					partOfActiveProposal = qtrue;
+					break;
+				}
+			}
+
+			if (partOfActiveProposal) {
+				qboolean hasVoted = qfalse;
+				if (level.activePugProposal->suggested.valid && level.activePugProposal->suggestedVoteClientsRed & (1 << ent->s.number))
+					hasVoted = qtrue;
+				else if (level.activePugProposal->highestCaliber.valid && level.activePugProposal->highestCaliberVoteClientsRed & (1 << ent->s.number))
+					hasVoted = qtrue;
+				else if (level.activePugProposal->fairest.valid && level.activePugProposal->fairestVoteClientsRed & (1 << ent->s.number))
+					hasVoted = qtrue;
+				else if (level.activePugProposal->desired.valid && level.activePugProposal->desiredVoteClientsRed & (1 << ent->s.number))
+					hasVoted = qtrue;
+				else if (level.activePugProposal->desired.valid && level.activePugProposal->semiDesiredVoteClientsRed & (1 << ent->s.number))
+					hasVoted = qtrue;
+				else if (level.activePugProposal->inclusive.valid && level.activePugProposal->inclusiveVoteClientsRed & (1 << ent->s.number))
+					hasVoted = qtrue;
+				else if (level.activePugProposal->suggested.valid && level.activePugProposal->suggestedVoteClientsBlue & (1 << ent->s.number))
+					hasVoted = qtrue;
+				else if (level.activePugProposal->highestCaliber.valid && level.activePugProposal->highestCaliberVoteClientsBlue & (1 << ent->s.number))
+					hasVoted = qtrue;
+				else if (level.activePugProposal->fairest.valid && level.activePugProposal->fairestVoteClientsBlue & (1 << ent->s.number))
+					hasVoted = qtrue;
+				else if (level.activePugProposal->desired.valid && level.activePugProposal->desiredVoteClientsBlue & (1 << ent->s.number))
+					hasVoted = qtrue;
+				else if (level.activePugProposal->desired.valid && level.activePugProposal->semiDesiredVoteClientsBlue & (1 << ent->s.number))
+					hasVoted = qtrue;
+				else if (level.activePugProposal->inclusive.valid && level.activePugProposal->inclusiveVoteClientsBlue & (1 << ent->s.number))
+					hasVoted = qtrue;
+				else if (level.activePugProposal->votedToRerollClients & (1 << ent->s.number))
+					hasVoted = qtrue;
+				else if (level.activePugProposal->votedToCancelClients & (1 << ent->s.number))
+					hasVoted = qtrue;
+
+				if (!hasVoted)
+					return;
+			}
+		}
+	}
+
 	// don't allow boosted dude to sk with the flag in some cases
 	if (g_gametype.integer == GT_CTF && ent->client && ent->client->account && (ent->client->account->flags & ACCOUNTFLAG_BOOST_SELFKILLBOOST) &&
 		!IsRacerOrSpectator(ent) && g_boost.integer && level.wasRestarted) {

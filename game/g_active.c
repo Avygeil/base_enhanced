@@ -3430,8 +3430,96 @@ void ClientThink_real( gentity_t *ent ) {
 		}
 	}
 
+	int frozen = 0;
+	if (g_vote_freezeUntilVote.integer && !ent->isAimPracticePack && client->pers.connected == CON_CONNECTED) {
+		if (level.voteTime && level.multiVoting && (ent->client->mGameFlags & PSG_CANVOTE) && !(ent->client->mGameFlags & PSG_VOTED) && (g_vote_freezeUntilVote.integer & (1 << 0))) {
+			frozen |= 1;
+		}
+		if (level.activePugProposal && client->account && (g_vote_freezeUntilVote.integer & (1 << 1))) {
+			qboolean partOfActiveProposal = qfalse;
+			for (int i = 0; i < MAX_CLIENTS; i++) {
+				sortedClient_t *cl = level.activePugProposal->clients + i;
+				if (cl->accountName[0] && cl->accountId == client->account->id) {
+					partOfActiveProposal = qtrue;
+					break;
+				}
+			}
+
+			if (partOfActiveProposal) {
+				qboolean hasVoted = qfalse;
+				if (level.activePugProposal->suggested.valid && level.activePugProposal->suggestedVoteClientsRed & (1 << ent->s.number))
+					hasVoted = qtrue;
+				else if (level.activePugProposal->highestCaliber.valid && level.activePugProposal->highestCaliberVoteClientsRed & (1 << ent->s.number))
+					hasVoted = qtrue;
+				else if (level.activePugProposal->fairest.valid && level.activePugProposal->fairestVoteClientsRed & (1 << ent->s.number))
+					hasVoted = qtrue;
+				else if (level.activePugProposal->desired.valid && level.activePugProposal->desiredVoteClientsRed & (1 << ent->s.number))
+					hasVoted = qtrue;
+				else if (level.activePugProposal->desired.valid && level.activePugProposal->semiDesiredVoteClientsRed & (1 << ent->s.number))
+					hasVoted = qtrue;
+				else if (level.activePugProposal->inclusive.valid && level.activePugProposal->inclusiveVoteClientsRed & (1 << ent->s.number))
+					hasVoted = qtrue;
+				else if (level.activePugProposal->suggested.valid && level.activePugProposal->suggestedVoteClientsBlue & (1 << ent->s.number))
+					hasVoted = qtrue;
+				else if (level.activePugProposal->highestCaliber.valid && level.activePugProposal->highestCaliberVoteClientsBlue & (1 << ent->s.number))
+					hasVoted = qtrue;
+				else if (level.activePugProposal->fairest.valid && level.activePugProposal->fairestVoteClientsBlue & (1 << ent->s.number))
+					hasVoted = qtrue;
+				else if (level.activePugProposal->desired.valid && level.activePugProposal->desiredVoteClientsBlue & (1 << ent->s.number))
+					hasVoted = qtrue;
+				else if (level.activePugProposal->desired.valid && level.activePugProposal->semiDesiredVoteClientsBlue & (1 << ent->s.number))
+					hasVoted = qtrue;
+				else if (level.activePugProposal->inclusive.valid && level.activePugProposal->inclusiveVoteClientsBlue & (1 << ent->s.number))
+					hasVoted = qtrue;
+				else if (level.activePugProposal->votedToRerollClients & (1 << ent->s.number))
+					hasVoted = qtrue;
+				else if (level.activePugProposal->votedToCancelClients & (1 << ent->s.number))
+					hasVoted = qtrue;
+
+				if (!hasVoted)
+					frozen |= 2;
+			}
+		}
+	}
+
+	static int toldCantMoveTime[MAX_GENTITIES] = { 0 };
+	static int firstToldCantMoveTime[MAX_GENTITIES] = { 0 };
+	if (frozen) {
+		const int now = trap_Milliseconds();
+		if (!toldCantMoveTime[ent->s.number] || now - toldCantMoveTime[ent->s.number] >= 15000) {
+			toldCantMoveTime[ent->s.number] = now;
+			firstToldCantMoveTime[ent->s.number] = now;
+		}
+		else {
+			if (now - firstToldCantMoveTime[ent->s.number] >= 60000 && now - toldCantMoveTime[ent->s.number] >= 1000) {
+				if ((frozen & 2) && !(frozen & 1))
+					trap_SendServerCommand(ent->s.number, "cp \"^1VOTA ^2VOTA ^3VOTA ^4VOTA ^5VOTA ^6VOTA ^7VOTA ^8VOTA ^9VOTA ^0VOTA\n^1VOTA ^2VOTA ^3VOTA ^4VOTA ^5VOTA ^6VOTA ^7VOTA ^8VOTA ^9VOTA ^0VOTA\"");
+				else
+					TeamGenerator_QueueServerMessageInChat(ent->s.number, "^1VOTA ^2VOTA ^3VOTA ^4VOTA ^5VOTA ^6VOTA ^7VOTA ^8VOTA ^9VOTA ^0VOTA ^1VOTA ^2VOTA ^3VOTA ^4VOTA ^5VOTA ^6VOTA ^7VOTA ^8VOTA ^9VOTA ^0VOTA");
+				toldCantMoveTime[ent->s.number] = now;
+			}
+			else if (now - firstToldCantMoveTime[ent->s.number] >= 30000 && now - toldCantMoveTime[ent->s.number] >= 3000) {
+				if ((frozen & 2) && !(frozen & 1))
+					trap_SendServerCommand(ent->s.number, "cp \"VOTE!\"");
+				else
+					TeamGenerator_QueueServerMessageInChat(ent->s.number, "VOTE!");
+				toldCantMoveTime[ent->s.number] = now;
+			}
+			else if (now - toldCantMoveTime[ent->s.number] >= 10000) {
+				if ((frozen & 2) && !(frozen & 1))
+					trap_SendServerCommand(ent->s.number, "cp \"Vote, and you will be unfrozen.\"");
+				else
+					TeamGenerator_QueueServerMessageInChat(ent->s.number, "Vote, and you will be unfrozen.");
+				toldCantMoveTime[ent->s.number] = now;
+			}
+		}
+	}
+	else {
+		toldCantMoveTime[ent->s.number] = firstToldCantMoveTime[ent->s.number] = 0;
+	}
+
     //OSP: pause
-    if ( level.pause.state != PAUSE_NONE && !client->sess.inRacemode && !ent->isAimPracticePack ) {
+    if ( frozen || (level.pause.state != PAUSE_NONE && !client->sess.inRacemode && !ent->isAimPracticePack)) {
         ucmd->buttons = 0;
         ucmd->forwardmove = 0;
         ucmd->rightmove = 0;

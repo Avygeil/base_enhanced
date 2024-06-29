@@ -561,6 +561,7 @@ vmCvar_t	g_vote_teamgen_preventBindsWith8PlayersMilliseconds;
 vmCvar_t	g_vote_teamgen_acdImbalanceCapWithoutReroll;
 vmCvar_t	g_vote_teamgen_acdImbalanceCapWithOneReroll;
 vmCvar_t	g_vote_teamgen_dynamicVoteRequirement;
+vmCvar_t	g_vote_freezeUntilVote;
 
 vmCvar_t	g_filterSlurs;
 
@@ -1169,6 +1170,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_teamgen_acdImbalanceCapWithoutReroll, "g_vote_teamgen_acdImbalanceCapWithoutReroll", "0.018", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_acdImbalanceCapWithOneReroll, "g_vote_teamgen_acdImbalanceCapWithOneReroll", "0.038", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_dynamicVoteRequirement, "g_vote_teamgen_dynamicVoteRequirement", "1", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_freezeUntilVote, "g_vote_freezeUntilVote", "-1", CVAR_ARCHIVE, 0, qfalse },
 
 	{ &g_filterSlurs, "g_filterSlurs", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
 
