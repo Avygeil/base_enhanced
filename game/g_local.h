@@ -3583,6 +3583,7 @@ extern vmCvar_t		g_vote_teamgen_acdImbalanceCapWithoutReroll;
 extern vmCvar_t		g_vote_teamgen_acdImbalanceCapWithOneReroll;
 extern vmCvar_t		g_vote_teamgen_dynamicVoteRequirement;
 extern vmCvar_t		g_vote_freezeUntilVote;
+extern vmCvar_t		g_vote_lessPlayedMapsDisfavoredInRunoffEliminations;
 
 extern vmCvar_t		g_filterSlurs;
 

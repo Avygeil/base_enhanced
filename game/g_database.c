@@ -3207,6 +3207,38 @@ int GetAccountIdsStringOfIngamePlayers(char *outBuf, size_t outBufSize) {
 
 #define MAX_TIERLIST_RNG_TRIES	(8192) // prevent infinite loop
 
+// note: this probably only works properly with e.g. mp/ctf_illimiran inputs, not ctf_illimiran_v2 alias map filenames
+qboolean DB_IsTopMap(const char *mapFilename, int num) {
+	if (!VALIDSTRING(mapFilename)) {
+		assert(qfalse);
+		return qfalse;
+	}
+
+	sqlite3_stmt *statement;
+	qboolean result = qfalse;
+
+	const char *sql = "SELECT map FROM ("
+		"SELECT num_played_view.map AS map "
+		"FROM num_played_view "
+		"ORDER BY num_played_view.numPlayed DESC "
+		"LIMIT ?1"
+		") topmaps "
+		"WHERE topmaps.map = ?2";
+
+	trap_sqlite3_prepare_v2(dbPtr, sql, -1, &statement, NULL);
+	sqlite3_bind_int(statement, 1, num);
+	sqlite3_bind_text(statement, 2, mapFilename, -1, SQLITE_STATIC);
+
+	int rc = trap_sqlite3_step(statement);
+	if (rc == SQLITE_ROW) {
+		result = qtrue;
+	}
+
+	trap_sqlite3_finalize(statement);
+
+	return result;
+}
+
 // This function selects maps for the multivote, just like G_DBSelectMapsFromPool does for pools.
 // We try to do it using solely ratings from ingame players, but if we can't do that, we fall back to
 // using community ratings. We do a bunch of checks at the beginning to make the potentially chaotic/horrible

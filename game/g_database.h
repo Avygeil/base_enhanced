@@ -434,5 +434,6 @@ qboolean DB_BaseItemIsDeleted(changedItem_t *item, int *deleterAccountIdOut);
 qboolean DB_DeleteBaseItem(changedItem_t *item);
 qboolean DB_UndeleteBaseItem(changedItem_t *item);
 
+qboolean DB_IsTopMap(const char *mapFilename, int num);
 
 #endif //G_DATABASE_H

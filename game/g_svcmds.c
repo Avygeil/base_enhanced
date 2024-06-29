@@ -2292,14 +2292,46 @@ qboolean DoRunoff(void) {
 	// if needed, randomly remove one map from the chopping block and add the others
 	int numOnChoppingBlock = strlen(choppingBlock);
 	if (numOnChoppingBlock > 0) {
-		for (int i = numOnChoppingBlock - 1; i >= 1; i--) { // fisher-yates
-			int j = rand() % (i + 1);
-			int temp = choppingBlock[i];
-			choppingBlock[i] = choppingBlock[j];
-			choppingBlock[j] = temp;
+		// try to remove a less played map rather than a random one
+		int leastPlayedCount = INT_MAX;
+		int leastPlayedIndex = -1;
+		if (g_vote_lessPlayedMapsDisfavoredInRunoffEliminations.integer > 0 && numOnChoppingBlock > 1) {
+			for (int i = 0; i < numOnChoppingBlock; i++) {
+				int mapIndex = strchr(level.multiVoteMapChars, choppingBlock[i]) - level.multiVoteMapChars;
+				if (mapIndex >= 0 && mapIndex < MAX_MULTIVOTE_MAPS && level.multiVoteMapFileNames[mapIndex][0]) {
+					const char *mapFilename = level.multiVoteMapFileNames[mapIndex];
+					int playCount = G_DBNumTimesPlayedSingleMap(mapFilename);
+					if (playCount < leastPlayedCount && !DB_IsTopMap(mapFilename, g_vote_lessPlayedMapsDisfavoredInRunoffEliminations.integer)) {
+						leastPlayedCount = playCount;
+						leastPlayedIndex = i;
+					}
+				}
+			}
 		}
-		choppingBlock[numOnChoppingBlock - 1] = '\0';
-		Q_strcat(newMapChars, sizeof(newMapChars), choppingBlock);
+
+		if (leastPlayedIndex >= 0) {
+			// remove a specific least played map by copying to newChoppingBlock
+			char newChoppingBlock[MAX_MULTIVOTE_MAPS + 1] = { 0 };
+			int newChoppingBlockIndex = 0;
+			for (int i = 0; i < numOnChoppingBlock; i++) {
+				if (i != leastPlayedIndex) {
+					newChoppingBlock[newChoppingBlockIndex++] = choppingBlock[i];
+				}
+			}
+			// concatenate remaining maps to newMapChars
+			Q_strcat(newMapChars, sizeof(newMapChars), newChoppingBlock);
+		}
+		else {
+			// no valid least played map found, fallback to random removal: put them in a random order and null out the last one
+			for (int i = numOnChoppingBlock - 1; i >= 1; i--) { // fisher-yates
+				int j = rand() % (i + 1);
+				int temp = choppingBlock[i];
+				choppingBlock[i] = choppingBlock[j];
+				choppingBlock[j] = temp;
+			}
+			choppingBlock[numOnChoppingBlock - 1] = '\0';
+			Q_strcat(newMapChars, sizeof(newMapChars), choppingBlock);
+		}
 	}
 
 	// re-order the remaining maps to match the original order
