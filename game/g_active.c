@@ -3455,7 +3455,7 @@ void ClientThink_real( gentity_t *ent ) {
 					hasVoted = qtrue;
 				else if (level.activePugProposal->desired.valid && level.activePugProposal->desiredVoteClientsRed & (1 << ent->s.number))
 					hasVoted = qtrue;
-				else if (level.activePugProposal->desired.valid && level.activePugProposal->semiDesiredVoteClientsRed & (1 << ent->s.number))
+				else if (level.activePugProposal->semiDesired.valid && level.activePugProposal->semiDesiredVoteClientsRed & (1 << ent->s.number))
 					hasVoted = qtrue;
 				else if (level.activePugProposal->inclusive.valid && level.activePugProposal->inclusiveVoteClientsRed & (1 << ent->s.number))
 					hasVoted = qtrue;
@@ -3467,7 +3467,7 @@ void ClientThink_real( gentity_t *ent ) {
 					hasVoted = qtrue;
 				else if (level.activePugProposal->desired.valid && level.activePugProposal->desiredVoteClientsBlue & (1 << ent->s.number))
 					hasVoted = qtrue;
-				else if (level.activePugProposal->desired.valid && level.activePugProposal->semiDesiredVoteClientsBlue & (1 << ent->s.number))
+				else if (level.activePugProposal->semiDesired.valid && level.activePugProposal->semiDesiredVoteClientsBlue & (1 << ent->s.number))
 					hasVoted = qtrue;
 				else if (level.activePugProposal->inclusive.valid && level.activePugProposal->inclusiveVoteClientsBlue & (1 << ent->s.number))
 					hasVoted = qtrue;
