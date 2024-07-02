@@ -2148,6 +2148,7 @@ typedef struct {
 	list_t barVoteList;
 	list_t unbarVoteList;
 	list_t fuckVoteList;
+	list_t goVoteList;
 
 	int teamPermutationsShownTime;
 

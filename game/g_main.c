@@ -1162,7 +1162,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_teamgen_enableBarVote, "g_vote_teamgen_enableBarVote", "5", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_barVoteStartsNewPug, "g_vote_teamgen_barVoteStartsNewPug", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_unvote, "g_vote_teamgen_unvote", "1", CVAR_ARCHIVE, 0, qfalse },
-	{ &g_vote_teamgen_fuck, "g_vote_teamgen_fuck", "10", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_teamgen_fuck, "g_vote_teamgen_fuck", "100", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_new8PlayerAlgo, "g_vote_teamgen_new8PlayerAlgo", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_require2VotesOnEachTeam, "g_vote_teamgen_require2VotesOnEachTeam", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_readBeforeVotingMilliseconds, "g_vote_teamgen_readBeforeVotingMilliseconds", "5000", CVAR_ARCHIVE, 0, qfalse },
@@ -2539,6 +2539,7 @@ void G_ShutdownGame( int restart ) {
 	ListClear(&level.unbarVoteList);
 	ListClear(&level.captureList);
 	ListClear(&level.fuckVoteList);
+	ListClear(&level.goVoteList);
 	ListClear(&level.addedItemsList);
 	ListClear(&level.baseItemsList);
 
