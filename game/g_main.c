@@ -423,6 +423,7 @@ vmCvar_t	z_debug6;
 vmCvar_t	z_debug7;
 vmCvar_t	z_debug8;
 vmCvar_t	z_debug9;
+vmCvar_t	z_debugPause;
 #endif
 
 vmCvar_t    g_enforceEvenVotersCount;
@@ -1026,6 +1027,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &z_debug7, "z_debug7", "", 0, 0, qtrue },
 	{ &z_debug8, "z_debug8", "", 0, 0, qtrue },
 	{ &z_debug9, "z_debug9", "", 0, 0, qtrue },
+	{ &z_debugPause, "z_debugPause", "0", 0, 0, qtrue },
 #endif
 
 	{ &g_minimumVotesCount, "g_minimumVotesCount", "0", CVAR_ARCHIVE, 0, qtrue },
@@ -6810,15 +6812,17 @@ void G_RunFrame( int levelTime ) {
 							pauseSecondsRemaining <= 10 ? S_COLOR_RED : S_COLOR_WHITE, pauseSecondsRemaining));
 					}
 					else {
-						if (level.pause.reason[0])
+						if (level.pause.reason[0]) {
 							trap_SendServerCommand(j, va("cp \"The match has been auto-paused. (%s%d^7)\n%s\n\"",
 								pauseSecondsRemaining <= 10 ? S_COLOR_RED : S_COLOR_WHITE, pauseSecondsRemaining, level.pause.reason));
-						else
+						}
+						else {
 							trap_SendServerCommand(j, va("cp \"The match has been paused. (%s%d^7)\n\"",
 								pauseSecondsRemaining <= 10 ? S_COLOR_RED : S_COLOR_WHITE, pauseSecondsRemaining));
+						}
 					}
 				}
-
+				trap_SendServerCommand(-1, "lchat \"pause\"");
 				lastMsgTime = level.time;
             }
 
@@ -6849,11 +6853,18 @@ void G_RunFrame( int levelTime ) {
 						trap_SendServerCommand(j, va("cp \"MATCH IS UNPAUSING\nin %.0f...\n\"", ceil((level.pause.time - level.time) / 1000.0f)));
 					}
 				}
-				
+				trap_SendServerCommand(-1, "lchat \"pause\"");
 				lastMsgTime = level.time;
             }
 
             if ( level.time > level.pause.time ) {
+				for (int i = 0; i < MAX_GENTITIES; i++) { // reset all entities' pause angles
+					gentity_t *ent = &g_entities[i];
+					ent->lockPauseAngles = qfalse;
+					ent->pauseAngles[0] = ent->pauseAngles[1] = ent->pauseAngles[2] = 0;
+					ent->pauseViewAngles[0] = ent->pauseViewAngles[1] = ent->pauseViewAngles[2] = 0;
+				}
+
 				int j;
 				for ( j = 0; j < level.maxclients; ++j ) {
 					if ( !g_entities[j].inuse || !g_entities[j].client ) {
@@ -6870,11 +6881,25 @@ void G_RunFrame( int levelTime ) {
 					ListClear(&level.disconnectedPlayerList);
 				}
 				
+				trap_SendServerCommand(-1, "lchat \"unpause\"");
 				level.pause.state = PAUSE_NONE;
 				level.pause.pauserChoice = 0;
 				level.pause.pauserClient.valid = qfalse;
             }
     }
+
+	if (level.pause.state != PAUSE_NONE) { // lock angles during pause
+		for (int i = 0; i < MAX_GENTITIES; i++) {
+			gentity_t *ent = &g_entities[i];
+			if (ent->lockPauseAngles && ent->inuse && !IsRacerOrSpectator(ent)) {
+				VectorCopy(ent->pauseAngles, ent->s.angles);
+				if (ent->client) {
+					VectorCopy(ent->pauseViewAngles, ent->client->ps.viewangles);
+					SetClientViewAngle(ent, ent->client->ps.viewangles);
+				}
+			}
+		}
+	}
 
 	if (g_allowNPC.integer)
 	{

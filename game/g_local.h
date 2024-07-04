@@ -505,6 +505,10 @@ struct gentity_s {
 
 	gentity_t *entThatCausedMeToDrop;
 	int iDroppedTime;
+
+	qboolean	lockPauseAngles;
+	vec3_t		pauseAngles;
+	vec3_t		pauseViewAngles;
 };
 
 #define DAMAGEREDIRECT_HEAD		1
@@ -920,6 +924,8 @@ typedef struct {
 	qboolean triedToInstaVote;
 
 	int chatboxUpTime;
+
+	gentity_t *onLiftDuringPause;
 
 } clientPersistant_t;
 
@@ -2885,7 +2891,7 @@ void ClientThink			( int clientNum, usercmd_t *ucmd );
 void ClientEndFrame			( gentity_t *ent );
 void G_RunClient			( gentity_t *ent );
 qboolean IsInputting(const gclient_t *client, qboolean checkPressingButtons, qboolean checkMovingMouse, qboolean checkPressingChatButton);
-
+void DoPauseStartChecks(void);
 typedef enum {
 	NMTAUNT_ANGER1 = 100, //gloat
 	NMTAUNT_ANGER2,
@@ -3486,6 +3492,7 @@ extern vmCvar_t		z_debug6;
 extern vmCvar_t		z_debug7;
 extern vmCvar_t		z_debug8;
 extern vmCvar_t		z_debug9;
+extern vmCvar_t		z_debugPause;
 #endif
 
 extern vmCvar_t     g_allow_vote_gametype;

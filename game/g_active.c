@@ -5450,6 +5450,56 @@ qboolean PauseConditions(void) {
 
 extern void G_Say(gentity_t *ent, gentity_t *target, int mode, const char *chatText, qboolean force);
 extern qboolean IsRacerOrSpectator(gentity_t *ent);
+
+void DoPauseStartChecks(void) {
+	// note angles of vehicles so that people can't unfairly spin around during pause
+	for (int i = 0; i < MAX_GENTITIES; i++) {
+		gentity_t *ent = &g_entities[i];
+		if (i < MAX_CLIENTS) {
+			if (ent->inuse && ent->client && !IsRacerOrSpectator(ent)) {
+				ent->lockPauseAngles = qtrue;
+				VectorCopy(ent->s.angles, ent->pauseAngles);
+				VectorCopy(ent->client->ps.viewangles, ent->pauseViewAngles);
+			}
+		}
+		else {
+			if (ent->inuse && ent->m_pVehicle && ent->m_pVehicle->m_pPilot && ((gentity_t *)ent->m_pVehicle->m_pPilot)->inuse && ((gentity_t *)ent->m_pVehicle->m_pPilot)->client &&
+				!IsRacerOrSpectator(((gentity_t *)ent->m_pVehicle->m_pPilot))) {
+				ent->lockPauseAngles = qtrue;
+				VectorCopy(ent->s.angles, ent->pauseAngles);
+				if (ent->client)
+					VectorCopy(ent->client->ps.viewangles, ent->pauseViewAngles);
+			}
+		}
+	}
+
+	// note clients who are on lifts
+	for (int i = 0; i < MAX_CLIENTS; i++)
+		level.clients[i].pers.onLiftDuringPause = NULL;
+
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *ent = &g_entities[i];
+
+		if (!ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED)
+			continue;
+		if (ent->client->ps.groundEntityNum == ENTITYNUM_NONE || ent->client->ps.groundEntityNum == ENTITYNUM_WORLD)
+			continue;
+		if (IsRacerOrSpectator(ent))
+			continue;
+		if (ent->client->ps.pm_type == PM_SPECTATOR)
+			continue;
+
+		gentity_t *groundEnt = &g_entities[ent->client->ps.groundEntityNum];
+
+		if (groundEnt->client)
+			continue;
+		if (!groundEnt->blocked)
+			continue;
+
+		ent->client->pers.onLiftDuringPause = groundEnt;
+	}
+}
+
 /*
 ==============
 ClientEndFrame
@@ -5503,6 +5553,7 @@ void ClientEndFrame( gentity_t *ent ) {
 				PauseConditions()) {
 				level.pause.state = PAUSE_PAUSED;
 				level.pause.time = level.time + 120000; // pause for 2 minutes
+				DoPauseStartChecks();
 				Q_strncpyz(level.pause.reason, va("%s^7 is 999\n", ent->client->pers.netname), sizeof(level.pause.reason));
 				Com_Printf("Auto-pausing game: %s\n", level.pause.reason);
 			}

@@ -5162,6 +5162,10 @@ typedef struct {
 	int				health;
 	int				armor;
 	int				boonTime;
+	qboolean		lockPauseAngles;
+	vec3_t			pauseAngles;
+	vec3_t			pauseViewAngles;
+	gentity_t		*onLiftDuringPause;
 } disconnectedPlayerData_t;
 
 static qboolean DisconnectedPlayerMatches(genericNode_t *node, void *userData) {
@@ -5213,9 +5217,14 @@ void RestoreDisconnectedPlayerData(gentity_t *ent) {
 		}
 	}
 
+#ifdef _DEBUG
+	if (!z_debugPause.integer)
+		return;
+#else
 	if (!g_autoPauseDisconnect.integer || g_autoPauseDisconnect.integer == 1 || g_cheats.integer || !ent->inuse || ent->client->pers.connected != CON_CONNECTED ||
 		!ent->client->session || (ent->r.svFlags & SVF_BOT) || ent->client->sess.clientType != CLIENT_TYPE_NORMAL || !PauseConditions())
 		return;
+#endif
 
 	disconnectedPlayerData_t findMe = { 0 };
 	findMe.sessionId = ent->client->session->id;
@@ -5236,6 +5245,11 @@ void RestoreDisconnectedPlayerData(gentity_t *ent) {
 	ent->client->ps.pm_time = ent->playerState->pm_time = pm_time;
 	ent->client->ps.stats[STAT_HEALTH] = ent->health = data->health;
 	ent->client->ps.stats[STAT_ARMOR] = data->armor;
+	ent->lockPauseAngles = data->lockPauseAngles;
+	VectorCopy(data->pauseAngles, ent->pauseAngles);
+	VectorCopy(data->pauseViewAngles, ent->pauseViewAngles);
+	if (data->onLiftDuringPause && data->onLiftDuringPause->inuse)
+		ent->client->pers.onLiftDuringPause = data->onLiftDuringPause;
 	BG_PlayerStateToEntityState(&ent->client->ps, &ent->s, qfalse);
 
 	if (ent->client->ps.powerups[PW_REDFLAG] || ent->client->ps.powerups[PW_BLUEFLAG]) {
@@ -5583,12 +5597,17 @@ void ClientDisconnect( int clientNum ) {
 	if (ent->client->session) {
 		G_DBLogNickname(ent->client->session->id, ent->client->pers.netname, getGlobalTime() - ent->client->sess.nameChangeTime);
 
+#ifdef _DEBUG
+		if (z_debugPause.integer) {
+#else
 		if (g_autoPauseDisconnect.integer && g_gametype.integer == GT_CTF && PauseConditions() &&
 			!(ent->r.svFlags & SVF_BOT) && ent->client->sess.clientType == CLIENT_TYPE_NORMAL &&
 			(ent->client->sess.sessionTeam == TEAM_RED || ent->client->sess.sessionTeam == TEAM_BLUE) &&
 			!g_cheats.integer) {
+#endif
 			level.pause.state = PAUSE_PAUSED;
 			level.pause.time = level.time + 120000; // pause for 2 minutes
+			DoPauseStartChecks();
 			Q_strncpyz(level.pause.reason, va("%s^7 disconnected\n", ent->client->pers.netname), sizeof(level.pause.reason));
 			Com_Printf("Auto-pausing game: %s\n", level.pause.reason);
 
@@ -5610,6 +5629,11 @@ void ClientDisconnect( int clientNum ) {
 					data->boonTime = ent->client->ps.powerups[PW_FORCE_BOON] - level.time;
 				else
 					data->boonTime = 0;
+				data->lockPauseAngles = ent->lockPauseAngles;
+				VectorCopy(ent->pauseAngles, data->pauseAngles);
+				VectorCopy(ent->pauseViewAngles, data->pauseViewAngles);
+				if (ent->client->pers.onLiftDuringPause && ent->client->pers.onLiftDuringPause->inuse)
+					data->onLiftDuringPause = ent->client->pers.onLiftDuringPause;
 				memcpy(&data->ps, &ent->client->ps, sizeof(playerState_t));
 			}
 		}

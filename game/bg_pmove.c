@@ -3833,6 +3833,26 @@ static int PM_CorrectAllSolid( trace_t *trace ) {
 		}
 	}
 
+	// fix liftkill when unpausing while riding lift
+	if (pm->ps->clientNum < MAX_CLIENTS && g_entities[pm->ps->clientNum].client &&
+		g_entities[pm->ps->clientNum].client->pers.onLiftDuringPause && !IsRacerOrSpectator(&g_entities[pm->ps->clientNum])) {
+		for (int k = 0; k < 64; k++) {
+			VectorCopy(pm->ps->origin, point);
+			point[2] += (float)k;
+			pm->trace(trace, point, pm->mins, pm->maxs, point, pm->ps->clientNum, pm->tracemask);
+			if (!trace->allsolid) {
+				/*point[0] = pm->ps->origin[0];
+				point[1] = pm->ps->origin[1];
+				point[2] = pm->ps->origin[2] - 0.25;
+
+				pm->trace(trace, pm->ps->origin, pm->mins, pm->maxs, point, pm->ps->clientNum, pm->tracemask);*/
+				pml.groundTrace = *trace;
+				VectorCopy(point, pm->ps->origin);
+				return qtrue;
+			}
+		}
+	}
+
 	pm->ps->groundEntityNum = ENTITYNUM_NONE;
 	pml.groundPlane = qfalse;
 	pml.walking = qfalse;
@@ -10993,6 +11013,18 @@ void Pmove (pmove_t *pmove) {
 		pmove->cmd.serverTime = pmove->ps->commandTime + msec;
 
 		PmoveSingle( pmove );
+
+		if (level.pause.state != PAUSE_NONE) { // lock angles during pause
+			gentity_t *ent = &g_entities[pm->ps->clientNum];
+			if (ent->lockPauseAngles && !IsRacerOrSpectator(ent)) {
+				PM_SetPMViewAngle(pm->ps, ent->pauseAngles, &pm->cmd);
+				VectorCopy(ent->pauseAngles, ent->s.angles);
+				if (ent->client) {
+					VectorCopy(ent->pauseViewAngles, ent->client->ps.viewangles);
+					SetClientViewAngle(ent, ent->client->ps.viewangles);
+				}
+			}
+		}
 
 		if ( pmove->ps->pm_flags & PMF_JUMP_HELD ) {
 			pmove->cmd.upmove = 20;

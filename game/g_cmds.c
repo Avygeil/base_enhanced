@@ -2838,6 +2838,8 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, q
 			else {
 				level.pause.time = level.time + 120000; // pause for 2 minutes
 			}
+			if (level.pause.state == PAUSE_NONE)
+				DoPauseStartChecks();
 			level.pause.state = PAUSE_PAUSED;
 			PrintIngame(-1, "Pause requested by %s^7.\n", ent->client->pers.netname);
 			Com_Printf("Pausing upon chat request by %s^7.\n", ent->client->pers.netname);
