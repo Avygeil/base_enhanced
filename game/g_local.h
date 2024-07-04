@@ -3448,6 +3448,7 @@ extern vmCvar_t		g_lowChargeSnipeNerf;
 extern vmCvar_t		g_fixWeaponChargeTime;
 extern vmCvar_t		d_debugSnipeDamage;
 extern vmCvar_t		g_fixDisarmFiring;
+extern vmCvar_t		g_fixCorpseSniping;
 
 extern vmCvar_t		g_allowIgnore;
 
