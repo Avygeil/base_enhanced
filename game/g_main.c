@@ -395,6 +395,7 @@ vmCvar_t	g_fixWeaponChargeTime;
 vmCvar_t	d_debugSnipeDamage;
 vmCvar_t	g_fixDisarmFiring;
 vmCvar_t	g_fixCorpseSniping;
+vmCvar_t	g_fixReconnectCorpses;
 
 vmCvar_t	g_allowIgnore;
 
@@ -1000,6 +1001,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &d_debugSnipeDamage,	"d_debugSnipeDamage"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_fixDisarmFiring,	"g_fixDisarmFiring"	, "1"	, CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 	{ &g_fixCorpseSniping,	"g_fixCorpseSniping"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
+	{ &g_fixReconnectCorpses,	"g_fixReconnectCorpses"	, "1"	, CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 
 	{ &g_allowIgnore, "g_allowIgnore", "0", CVAR_ARCHIVE, 0, qfalse },
 
