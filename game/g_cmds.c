@@ -2890,7 +2890,7 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, q
 
 	static char gaslightBuf[MAX_SAY_TEXT] = { 0 };
 	if (!force && ent->client->account && (ent->client->account->flags & ACCOUNTFLAG_HUN_GASLIGHT) && mode == SAY_ALL &&
-		VALIDSTRING(chatText) && *chatText != '?' && Q_irand(1, 50) == 22 && !strstr(chatText, "://")) {
+		VALIDSTRING(chatText) && *chatText != '?' && Q_irand(1, 50) == 22 && !strstr(chatText, "://") && !stristr(ent->client->account->name, "duo")) {
 		int len = strlen(chatText);
 		if (len >= 3 && len <= 140 && *(chatText + (len - 1)) != 'ú') {
 			int numPlayers = 0;

@@ -1699,6 +1699,8 @@ static void StartMultiMapVote( const int numMaps, const qboolean hasWildcard, co
 	level.multiVoteChoices = numMaps;
 	memset( &( level.multiVotes ), 0, sizeof( level.multiVotes ) );
 
+	fixVoters( qfalse, 0 ); // racers can never vote in multi map votes
+
 	// now reinstate votes, if needed
 	for (int i = 0; i < MAX_CLIENTS; i++) {
 		if (!reinstateVotes[i] || level.clients[i].pers.connected != CON_CONNECTED ||
@@ -1716,7 +1718,6 @@ static void StartMultiMapVote( const int numMaps, const qboolean hasWildcard, co
 	}
 	memset(&reinstateVotes, 0, sizeof(reinstateVotes));
 
-	fixVoters( qfalse, 0 ); // racers can never vote in multi map votes
 
 	trap_SetConfigstring( CS_VOTE_TIME, va( "%i", level.voteTime ) );
 	trap_SetConfigstring( CS_VOTE_STRING, level.voteDisplayString );
