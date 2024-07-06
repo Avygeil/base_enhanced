@@ -4660,6 +4660,9 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 			return;
 		}
 
+		if (client->ps.fallingToDeath && client->pers.fakeFallFadeToBlack && g_vote_fadeToBlack.integer)
+			return;
+
 		// we aren't checking this in FireWeapon because firing has no impact on our run until it changes our trajectory
 		// this should catch all weapons (except conc alt)
 		if ( targ == attacker && mod != MOD_FALLING && mod != MOD_DISRUPTOR_SNIPER && mod != MOD_TRIP_MINE_SPLASH &&

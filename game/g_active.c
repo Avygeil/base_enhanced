@@ -1310,6 +1310,9 @@ void G_MoverTouchPushTriggers( gentity_t *ent, vec3_t oldOrg )
 	}
 }
 
+static int toldCantMoveTime[MAX_GENTITIES] = { 0 };
+static int firstToldCantMoveTime[MAX_GENTITIES] = { 0 };
+
 /*
 =================
 SpectatorThink
@@ -1321,10 +1324,134 @@ void SpectatorThink( gentity_t *ent, usercmd_t *ucmd ) {
 
 	client = ent->client;
 
+	int frozen = 0;
+	if (g_vote_freezeUntilVote.integer && !ent->isAimPracticePack && client->pers.connected == CON_CONNECTED && !level.intermissionQueued && !level.intermissiontime) {
+		if (level.voteTime && level.multiVoting && (ent->client->mGameFlags & PSG_CANVOTE) && !(ent->client->mGameFlags & PSG_VOTED) && (g_vote_freezeUntilVote.integer & (1 << 0))) {
+			frozen |= 1;
+		}
+		if (level.activePugProposal && client->account && (g_vote_freezeUntilVote.integer & (1 << 1))) {
+			qboolean partOfActiveProposal = qfalse;
+			for (int i = 0; i < MAX_CLIENTS; i++) {
+				sortedClient_t *cl = level.activePugProposal->clients + i;
+				if (cl->accountName[0] && cl->accountId == client->account->id) {
+					partOfActiveProposal = qtrue;
+					break;
+				}
+			}
+
+			if (partOfActiveProposal) {
+				qboolean hasVoted = qfalse;
+				if (level.activePugProposal->suggested.valid && level.activePugProposal->suggestedVoteClientsRed & (1 << ent->s.number))
+					hasVoted = qtrue;
+				else if (level.activePugProposal->highestCaliber.valid && level.activePugProposal->highestCaliberVoteClientsRed & (1 << ent->s.number))
+					hasVoted = qtrue;
+				else if (level.activePugProposal->fairest.valid && level.activePugProposal->fairestVoteClientsRed & (1 << ent->s.number))
+					hasVoted = qtrue;
+				else if (level.activePugProposal->desired.valid && level.activePugProposal->desiredVoteClientsRed & (1 << ent->s.number))
+					hasVoted = qtrue;
+				else if (level.activePugProposal->semiDesired.valid && level.activePugProposal->semiDesiredVoteClientsRed & (1 << ent->s.number))
+					hasVoted = qtrue;
+				else if (level.activePugProposal->inclusive.valid && level.activePugProposal->inclusiveVoteClientsRed & (1 << ent->s.number))
+					hasVoted = qtrue;
+				else if (level.activePugProposal->suggested.valid && level.activePugProposal->suggestedVoteClientsBlue & (1 << ent->s.number))
+					hasVoted = qtrue;
+				else if (level.activePugProposal->highestCaliber.valid && level.activePugProposal->highestCaliberVoteClientsBlue & (1 << ent->s.number))
+					hasVoted = qtrue;
+				else if (level.activePugProposal->fairest.valid && level.activePugProposal->fairestVoteClientsBlue & (1 << ent->s.number))
+					hasVoted = qtrue;
+				else if (level.activePugProposal->desired.valid && level.activePugProposal->desiredVoteClientsBlue & (1 << ent->s.number))
+					hasVoted = qtrue;
+				else if (level.activePugProposal->semiDesired.valid && level.activePugProposal->semiDesiredVoteClientsBlue & (1 << ent->s.number))
+					hasVoted = qtrue;
+				else if (level.activePugProposal->inclusive.valid && level.activePugProposal->inclusiveVoteClientsBlue & (1 << ent->s.number))
+					hasVoted = qtrue;
+				else if (level.activePugProposal->votedToRerollClients & (1 << ent->s.number))
+					hasVoted = qtrue;
+				else if (level.activePugProposal->votedToCancelClients & (1 << ent->s.number))
+					hasVoted = qtrue;
+
+				if (!hasVoted)
+					frozen |= 2;
+			}
+		}
+	}
+
+	if (frozen) {
+		const int now = trap_Milliseconds();
+		if (!toldCantMoveTime[ent->s.number] || now - toldCantMoveTime[ent->s.number] >= 15000) {
+			toldCantMoveTime[ent->s.number] = now;
+			firstToldCantMoveTime[ent->s.number] = now;
+		}
+		else {
+			if (now - firstToldCantMoveTime[ent->s.number] >= 60000 && now - toldCantMoveTime[ent->s.number] >= 1000) {
+				if ((frozen & 2) && !(frozen & 1))
+					trap_SendServerCommand(ent->s.number, "cp \"^1VOTA ^2VOTA ^3VOTA ^4VOTA ^5VOTA ^6VOTA ^7VOTA ^8VOTA ^9VOTA ^0VOTA\n^1VOTA ^2VOTA ^3VOTA ^4VOTA ^5VOTA ^6VOTA ^7VOTA ^8VOTA ^9VOTA ^0VOTA\"");
+				else
+					TeamGenerator_QueueServerMessageInChat(ent->s.number, "^1VOTA ^2VOTA ^3VOTA ^4VOTA ^5VOTA ^6VOTA ^7VOTA ^8VOTA ^9VOTA ^0VOTA ^1VOTA ^2VOTA ^3VOTA ^4VOTA ^5VOTA ^6VOTA ^7VOTA ^8VOTA ^9VOTA ^0VOTA");
+				toldCantMoveTime[ent->s.number] = now;
+
+				if (g_vote_fadeToBlack.integer <= 4) {
+					if (!client->ps.fallingToDeath)
+						client->ps.fallingToDeath = level.time - 2000;
+					client->pers.fakeFallFadeToBlack = qtrue;
+				}
+			}
+			else if (now - firstToldCantMoveTime[ent->s.number] >= 30000 && now - toldCantMoveTime[ent->s.number] >= 3000) {
+				if ((frozen & 2) && !(frozen & 1))
+					trap_SendServerCommand(ent->s.number, "cp \"VOTE!\"");
+				else
+					TeamGenerator_QueueServerMessageInChat(ent->s.number, "VOTE!");
+				toldCantMoveTime[ent->s.number] = now;
+
+				if (g_vote_fadeToBlack.integer <= 3) {
+					if (!client->ps.fallingToDeath)
+						client->ps.fallingToDeath = level.time - 2000;
+					client->pers.fakeFallFadeToBlack = qtrue;
+				}
+			}
+			else if (now - toldCantMoveTime[ent->s.number] >= 10000) {
+				if ((frozen & 2) && !(frozen & 1))
+					trap_SendServerCommand(ent->s.number, "cp \"Vote, and you will be unfrozen.\"");
+				else
+					TeamGenerator_QueueServerMessageInChat(ent->s.number, "Vote, and you will be unfrozen.");
+				toldCantMoveTime[ent->s.number] = now;
+
+				if (g_vote_fadeToBlack.integer <= 2) {
+					if (!client->ps.fallingToDeath)
+						client->ps.fallingToDeath = level.time - 2000;
+					client->pers.fakeFallFadeToBlack = qtrue;
+				}
+			}
+		}
+
+		if (g_vote_fadeToBlack.integer == 1) {
+			if (!client->ps.fallingToDeath)
+				client->ps.fallingToDeath = level.time - 2000;
+			client->pers.fakeFallFadeToBlack = qtrue;
+		}
+	}
+	else {
+		toldCantMoveTime[ent->s.number] = firstToldCantMoveTime[ent->s.number] = 0;
+		if (client->pers.fakeFallFadeToBlack) {
+			client->pers.fakeFallFadeToBlack = qfalse;
+			client->ps.fallingToDeath = 0;
+		}
+	}
+
+	if (frozen && client->sess.spectatorState != SPECTATOR_FOLLOW) {
+		ucmd->buttons = 0;
+		ucmd->forwardmove = 0;
+		ucmd->rightmove = 0;
+		ucmd->upmove = 0;
+		ucmd->generic_cmd = 0;
+		client->ps.speed = 0;
+		client->ps.basespeed = 0;
+	}
+
 	if ( client->sess.spectatorState != SPECTATOR_FOLLOW ) {
 		client->ps.pm_type = PM_SPECTATOR;
-		client->ps.speed = 400;	// faster than normal
-		client->ps.basespeed = 400;
+		client->ps.speed = frozen ? 0 : 400;	// faster than normal
+		client->ps.basespeed = frozen ? 0 : 400;
 
 		//hmm, shouldn't have an anim if you're a spectator, make sure
 		//it gets cleared.
@@ -1341,7 +1468,7 @@ void SpectatorThink( gentity_t *ent, usercmd_t *ucmd ) {
 		pm.trace = trap_Trace;
 		pm.pointcontents = trap_PointContents;
 
-		pm.noSpecMove = g_noSpecMove.integer;
+		pm.noSpecMove = frozen ? 1 : g_noSpecMove.integer;
 
 		pm.animations = NULL;
 		pm.nonHumanoid = qfalse;
@@ -1370,22 +1497,22 @@ void SpectatorThink( gentity_t *ent, usercmd_t *ucmd ) {
 	if (client->tempSpectate < level.time)
 	{
 		// attack button cycles through spectators
-		if ( ( client->buttons & BUTTON_ATTACK ) && ! ( client->oldbuttons & BUTTON_ATTACK ) ) {
+		if ( ( client->buttons & BUTTON_ATTACK ) && ! ( client->oldbuttons & BUTTON_ATTACK ) && !frozen) {
 Cmd_FollowCycle_f(ent, 1);
 		}
  else if (client->sess.spectatorState == SPECTATOR_FOLLOW &&
- (client->buttons & BUTTON_ALT_ATTACK) && !(client->oldbuttons & BUTTON_ALT_ATTACK)) {
+ (client->buttons & BUTTON_ALT_ATTACK) && !(client->oldbuttons & BUTTON_ALT_ATTACK) && !frozen) {
  Cmd_FollowCycle_f(ent, -1);
 		}
- else if (ucmd->generic_cmd == GENCMD_SABERATTACKCYCLE) {
+ else if (ucmd->generic_cmd == GENCMD_SABERATTACKCYCLE && !frozen) {
  // saberattackcycle cycles flag carriers
  Cmd_FollowFlag_f(ent);
 		}
- else if ((client->buttons & BUTTON_USE) && !(client->oldbuttons & BUTTON_USE)) {
+ else if ((client->buttons & BUTTON_USE) && !(client->oldbuttons & BUTTON_USE) && !frozen) {
  Cmd_FollowTarget_f(ent);
 		}
 
-		if (client->sess.spectatorState == SPECTATOR_FOLLOW && (ucmd->upmove > 0))
+		if (client->sess.spectatorState == SPECTATOR_FOLLOW && (ucmd->upmove > 0) && !frozen)
 		{ //jump now removes you from follow mode
 			StopFollowing(ent);
 		}
@@ -3431,7 +3558,7 @@ void ClientThink_real( gentity_t *ent ) {
 	}
 
 	int frozen = 0;
-	if (g_vote_freezeUntilVote.integer && !ent->isAimPracticePack && client->pers.connected == CON_CONNECTED) {
+	if (g_vote_freezeUntilVote.integer && !ent->isAimPracticePack && client->pers.connected == CON_CONNECTED && !level.intermissionQueued && !level.intermissiontime) {
 		if (level.voteTime && level.multiVoting && (ent->client->mGameFlags & PSG_CANVOTE) && !(ent->client->mGameFlags & PSG_VOTED) && (g_vote_freezeUntilVote.integer & (1 << 0))) {
 			frozen |= 1;
 		}
@@ -3482,8 +3609,6 @@ void ClientThink_real( gentity_t *ent ) {
 		}
 	}
 
-	static int toldCantMoveTime[MAX_GENTITIES] = { 0 };
-	static int firstToldCantMoveTime[MAX_GENTITIES] = { 0 };
 	if (frozen) {
 		const int now = trap_Milliseconds();
 		if (!toldCantMoveTime[ent->s.number] || now - toldCantMoveTime[ent->s.number] >= 15000) {
@@ -3497,6 +3622,12 @@ void ClientThink_real( gentity_t *ent ) {
 				else
 					TeamGenerator_QueueServerMessageInChat(ent->s.number, "^1VOTA ^2VOTA ^3VOTA ^4VOTA ^5VOTA ^6VOTA ^7VOTA ^8VOTA ^9VOTA ^0VOTA ^1VOTA ^2VOTA ^3VOTA ^4VOTA ^5VOTA ^6VOTA ^7VOTA ^8VOTA ^9VOTA ^0VOTA");
 				toldCantMoveTime[ent->s.number] = now;
+
+				if (g_vote_fadeToBlack.integer <= 4) {
+					if (!client->ps.fallingToDeath)
+						client->ps.fallingToDeath = level.time - 2000;
+					client->pers.fakeFallFadeToBlack = qtrue;
+				}
 			}
 			else if (now - firstToldCantMoveTime[ent->s.number] >= 30000 && now - toldCantMoveTime[ent->s.number] >= 3000) {
 				if ((frozen & 2) && !(frozen & 1))
@@ -3504,6 +3635,12 @@ void ClientThink_real( gentity_t *ent ) {
 				else
 					TeamGenerator_QueueServerMessageInChat(ent->s.number, "VOTE!");
 				toldCantMoveTime[ent->s.number] = now;
+
+				if (g_vote_fadeToBlack.integer <= 3) {
+					if (!client->ps.fallingToDeath)
+						client->ps.fallingToDeath = level.time - 2000;
+					client->pers.fakeFallFadeToBlack = qtrue;
+				}
 			}
 			else if (now - toldCantMoveTime[ent->s.number] >= 10000) {
 				if ((frozen & 2) && !(frozen & 1))
@@ -3511,11 +3648,27 @@ void ClientThink_real( gentity_t *ent ) {
 				else
 					TeamGenerator_QueueServerMessageInChat(ent->s.number, "Vote, and you will be unfrozen.");
 				toldCantMoveTime[ent->s.number] = now;
+
+				if (g_vote_fadeToBlack.integer <= 2) {
+					if (!client->ps.fallingToDeath)
+						client->ps.fallingToDeath = level.time - 2000;
+					client->pers.fakeFallFadeToBlack = qtrue;
+				}
 			}
+		}
+
+		if (g_vote_fadeToBlack.integer == 1) {
+			if (!client->ps.fallingToDeath)
+				client->ps.fallingToDeath = level.time - 2000;
+			client->pers.fakeFallFadeToBlack = qtrue;
 		}
 	}
 	else {
 		toldCantMoveTime[ent->s.number] = firstToldCantMoveTime[ent->s.number] = 0;
+		if (client->pers.fakeFallFadeToBlack) {
+			client->pers.fakeFallFadeToBlack = qfalse;
+			client->ps.fallingToDeath = 0;
+		}
 	}
 
     //OSP: pause
@@ -4165,7 +4318,7 @@ void ClientThink_real( gentity_t *ent ) {
 		ent->client->pers.cmd.buttons |= BUTTON_GESTURE;
 	}
 
-	if (ent->client && ent->client->ps.fallingToDeath &&
+	if (ent->client && ent->client->ps.fallingToDeath && !(ent->client->pers.fakeFallFadeToBlack && g_vote_fadeToBlack.integer) &&
 		(level.time - FALL_FADE_TIME) > ent->client->ps.fallingToDeath)
 	{ //die!
 		if (ent->health > 0)
@@ -4222,7 +4375,7 @@ void ClientThink_real( gentity_t *ent ) {
 			}
 		}
 
-		if (doSk) {
+		if (doSk && !(ent->client->ps.fallingToDeath && ent->client->pers.fakeFallFadeToBlack && g_vote_fadeToBlack.integer)) {
 			ent->flags &= ~FL_GODMODE;
 			ent->client->ps.stats[STAT_HEALTH] = ent->health = -999;
 			player_die(ent, ent, ent, 100000, MOD_SUICIDE);

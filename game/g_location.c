@@ -1231,7 +1231,7 @@ int Team_GetLocation(gentity_t *ent, char *locationBuffer, size_t locationBuffer
 
 		if (nearest && kd_res_size(nearest) == 1) {
 			enhancedLocation_t *loc;
-			if (ent->client && ent->client->ps.fallingToDeath && pitLocationIndex != -1 && forcePitIfFallingToDeath)
+			if (ent->client && ent->client->ps.fallingToDeath && !(ent->client->pers.fakeFallFadeToBlack && g_vote_fadeToBlack.integer) && pitLocationIndex != -1 && forcePitIfFallingToDeath)
 				loc = trap_kd_dataptr(pitLocationIndex);
 			else
 				loc = (enhancedLocation_t *)kd_res_item_data(nearest);

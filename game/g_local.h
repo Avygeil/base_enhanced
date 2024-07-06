@@ -925,6 +925,8 @@ typedef struct {
 
 	gentity_t *onLiftDuringPause;
 
+	qboolean	fakeFallFadeToBlack;
+
 } clientPersistant_t;
 
 typedef struct renderInfo_s
@@ -3593,6 +3595,7 @@ extern vmCvar_t		g_vote_teamgen_acdImbalanceCapWithOneReroll;
 extern vmCvar_t		g_vote_teamgen_dynamicVoteRequirement;
 extern vmCvar_t		g_vote_freezeUntilVote;
 extern vmCvar_t		g_vote_lessPlayedMapsDisfavoredInRunoffEliminations;
+extern vmCvar_t		g_vote_fadeToBlack;
 
 extern vmCvar_t		g_filterSlurs;
 

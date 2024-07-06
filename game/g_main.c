@@ -567,6 +567,7 @@ vmCvar_t	g_vote_teamgen_acdImbalanceCapWithOneReroll;
 vmCvar_t	g_vote_teamgen_dynamicVoteRequirement;
 vmCvar_t	g_vote_freezeUntilVote;
 vmCvar_t	g_vote_lessPlayedMapsDisfavoredInRunoffEliminations;
+vmCvar_t	g_vote_fadeToBlack;
 
 vmCvar_t	g_filterSlurs;
 
@@ -1181,6 +1182,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_teamgen_dynamicVoteRequirement, "g_vote_teamgen_dynamicVoteRequirement", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_freezeUntilVote, "g_vote_freezeUntilVote", "-1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_lessPlayedMapsDisfavoredInRunoffEliminations, "g_vote_lessPlayedMapsDisfavoredInRunoffEliminations", "10", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_fadeToBlack, "g_vote_fadeToBlack", "3", CVAR_ARCHIVE, 0, qfalse },
 
 	{ &g_filterSlurs, "g_filterSlurs", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
 
