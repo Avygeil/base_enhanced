@@ -4263,6 +4263,7 @@ static void ActivatePugProposal(pugProposal_t *set, qboolean forcedByServer) {
 			level.multiVoteHasWildcard = qfalse;
 			level.multivoteWildcardMapFileName[0] = '\0';
 			level.mapsThatCanBeVotedBits = 0;
+			level.multiVoteTimeExtensions = 0;
 			memset(level.multiVotes, 0, sizeof(level.multiVotes));
 			memset(&level.multiVoteMapChars, 0, sizeof(level.multiVoteMapChars));
 			memset(&level.multiVoteMapShortNames, 0, sizeof(level.multiVoteMapShortNames));
@@ -4331,6 +4332,7 @@ static void StartAutomaticTeamGenMapVote(void) {
 	level.mapsThatCanBeVotedBits = 0;
 	level.inRunoff = qfalse;
 	level.multiVoteChoices = 0;
+	level.multiVoteTimeExtensions = 0;
 	level.multiVoteHasWildcard = qfalse;
 	level.multivoteWildcardMapFileName[0] = '\0';
 	memset(level.multiVotes, 0, sizeof(level.multiVotes));

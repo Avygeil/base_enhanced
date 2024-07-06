@@ -1072,6 +1072,7 @@ void Svcmd_VoteForce_f( qboolean pass ) {
 		level.multiVoteHasWildcard = qfalse;
 		level.multivoteWildcardMapFileName[0] = '\0';
 		level.mapsThatCanBeVotedBits = 0;
+		level.multiVoteTimeExtensions = 0;
 		level.runoffSurvivors = level.runoffLosers = level.successfulRerollVoters = 0llu;
 		memset( level.multiVotes, 0, sizeof( level.multiVotes ) );
 		memset(&level.multiVoteMapChars, 0, sizeof(level.multiVoteMapChars));
@@ -2175,6 +2176,7 @@ qboolean DoRunoff(void) {
 			level.multiVoteHasWildcard = qfalse;
 			level.multivoteWildcardMapFileName[0] = '\0';
 			level.mapsThatCanBeVotedBits = 0;
+			//level.multiVoteTimeExtensions = 0;
 			level.runoffSurvivors = level.runoffLosers/* = level.successfulRerollVoters*/ = 0llu;
 			memset(level.multiVotes, 0, sizeof(level.multiVotes));
 			memset(&level.multiVoteMapChars, 0, sizeof(level.multiVoteMapChars));
@@ -2808,6 +2810,7 @@ void Svcmd_MapMultiVote_f() {
 	level.multiVoteChoices = 0;
 	level.multivoteWildcardMapFileName[0] = '\0';
 	level.mapsThatCanBeVotedBits = 0;
+	level.multiVoteTimeExtensions = 0;
 	level.runoffSurvivors = level.runoffLosers = level.successfulRerollVoters = 0llu;
 	memset(level.multiVotes, 0, sizeof(level.multiVotes));
 	memset(&level.multiVoteMapChars, 0, sizeof(level.multiVoteMapChars));

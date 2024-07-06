@@ -4584,6 +4584,7 @@ void Cmd_CallVote_f( gentity_t *ent, int pause ) {
 	level.inRunoff = qfalse;
 	level.mapsThatCanBeVotedBits = 0;
 	level.multiVoteChoices = 0;
+	level.multiVoteTimeExtensions = 0;
 	memset( &( level.multiVotes ), 0, sizeof( level.multiVotes ) );
 
 	fixVoters( racersAllowVote, onlyThisTeamCanVote);
