@@ -571,6 +571,7 @@ vmCvar_t	g_vote_fadeToBlack;
 vmCvar_t	g_vote_mapVoteExtensions_maxExtensions;
 vmCvar_t	g_vote_mapVoteExtension_ifUnderThisManyVotes;
 vmCvar_t	g_vote_mapVoteExtension_extensionDuration;
+vmCvar_t	g_vote_audioMotivation;
 
 vmCvar_t	g_filterSlurs;
 
@@ -1189,6 +1190,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_mapVoteExtensions_maxExtensions, "g_vote_mapVoteExtensions_maxExtensions", "2", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_mapVoteExtension_ifUnderThisManyVotes, "g_vote_mapVoteExtension_ifUnderThisManyVotes", "4", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_mapVoteExtension_extensionDuration, "g_vote_mapVoteExtension_extensionDuration", "30", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_audioMotivation, "g_vote_audioMotivation", "1", CVAR_ARCHIVE, 0, qfalse },
 
 	{ &g_filterSlurs, "g_filterSlurs", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
 

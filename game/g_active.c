@@ -1395,6 +1395,49 @@ void SpectatorThink( gentity_t *ent, usercmd_t *ucmd ) {
 						client->ps.fallingToDeath = level.time - 2000;
 					client->pers.fakeFallFadeToBlack = qtrue;
 				}
+
+				if (g_vote_audioMotivation.integer) {
+					int index = G_SoundIndex("sound/chars/r2d2/misc/pain100");
+					if (index) {
+						gentity_t *te = G_Sound(ent, CHAN_AUTO, index);
+						te->r.svFlags |= SVF_SINGLECLIENT;
+						te->r.singleClient = ent->s.number;
+						te->r.svFlags &= ~SVF_BROADCAST;
+					}
+
+
+					index = G_SoundIndex("sound/chars/tusken/misc/anger1");
+					if (index) {
+						gentity_t *te = G_Sound(ent, CHAN_AUTO, index);
+						te->r.svFlags |= SVF_SINGLECLIENT;
+						te->r.singleClient = ent->s.number;
+						te->r.svFlags &= ~SVF_BROADCAST;
+					}
+
+					index = G_SoundIndex("sound/chars/howler/howl");
+					if (index) {
+						gentity_t *te = G_Sound(ent, CHAN_AUTO, index);
+						te->r.svFlags |= SVF_SINGLECLIENT;
+						te->r.singleClient = ent->s.number;
+						te->r.svFlags &= ~SVF_BROADCAST;
+					}
+
+					index = G_SoundIndex("sound/chars/howler/misc/pain100");
+					if (index) {
+						gentity_t *te = G_Sound(ent, CHAN_AUTO, index);
+						te->r.svFlags |= SVF_SINGLECLIENT;
+						te->r.singleClient = ent->s.number;
+						te->r.svFlags &= ~SVF_BROADCAST;
+					}
+
+					index = G_SoundIndex("sound/chars/howler/misc/death1");
+					if (index) {
+						gentity_t *te = G_Sound(ent, CHAN_AUTO, index);
+						te->r.svFlags |= SVF_SINGLECLIENT;
+						te->r.singleClient = ent->s.number;
+						te->r.svFlags &= ~SVF_BROADCAST;
+					}
+				}
 			}
 			else if (now - firstToldCantMoveTime[ent->s.number] >= 30000 && now - toldCantMoveTime[ent->s.number] >= 3000) {
 				if ((frozen & 2) && !(frozen & 1))
@@ -3627,6 +3670,49 @@ void ClientThink_real( gentity_t *ent ) {
 					if (!client->ps.fallingToDeath)
 						client->ps.fallingToDeath = level.time - 2000;
 					client->pers.fakeFallFadeToBlack = qtrue;
+				}
+
+				if (g_vote_audioMotivation.integer) {
+					int index = G_SoundIndex("sound/chars/r2d2/misc/pain100");
+					if (index) {
+						gentity_t *te = G_Sound(ent, CHAN_AUTO, index);
+						te->r.svFlags |= SVF_SINGLECLIENT;
+						te->r.singleClient = ent->s.number;
+						te->r.svFlags &= ~SVF_BROADCAST;
+					}
+
+
+					index = G_SoundIndex("sound/chars/tusken/misc/anger1");
+					if (index) {
+						gentity_t *te = G_Sound(ent, CHAN_AUTO, index);
+						te->r.svFlags |= SVF_SINGLECLIENT;
+						te->r.singleClient = ent->s.number;
+						te->r.svFlags &= ~SVF_BROADCAST;
+					}
+
+					index = G_SoundIndex("sound/chars/howler/howl");
+					if (index) {
+						gentity_t *te = G_Sound(ent, CHAN_AUTO, index);
+						te->r.svFlags |= SVF_SINGLECLIENT;
+						te->r.singleClient = ent->s.number;
+						te->r.svFlags &= ~SVF_BROADCAST;
+					}
+
+					index = G_SoundIndex("sound/chars/howler/misc/pain100");
+					if (index) {
+						gentity_t *te = G_Sound(ent, CHAN_AUTO, index);
+						te->r.svFlags |= SVF_SINGLECLIENT;
+						te->r.singleClient = ent->s.number;
+						te->r.svFlags &= ~SVF_BROADCAST;
+					}
+
+					index = G_SoundIndex("sound/chars/howler/misc/death1");
+					if (index) {
+						gentity_t *te = G_Sound(ent, CHAN_AUTO, index);
+						te->r.svFlags |= SVF_SINGLECLIENT;
+						te->r.singleClient = ent->s.number;
+						te->r.svFlags &= ~SVF_BROADCAST;
+					}
 				}
 			}
 			else if (now - firstToldCantMoveTime[ent->s.number] >= 30000 && now - toldCantMoveTime[ent->s.number] >= 3000) {
