@@ -57,8 +57,6 @@ extern vec3_t gPainPoint;
 #define MAX_USERNAME_SIZE 32 //username size	16
 #define MAX_PASSWORD	16
 
-#define BODY_QUEUE_SIZE		32
-
 #ifndef Q3INFINITE
 #define Q3INFINITE			1000000
 #endif
@@ -2004,7 +2002,7 @@ typedef struct {
 	vec3_t		intermission_angle;
 
 	int			bodyQueIndex;			// dead bodies
-	gentity_t	*bodyQue[BODY_QUEUE_SIZE];
+	gentity_t	*bodyQue[MAX_GENTITIES];
 	int			portalSequence;
 
 	alertEvent_t	alertEvents[ MAX_ALERT_EVENTS ];
@@ -3450,6 +3448,7 @@ extern vmCvar_t		d_debugSnipeDamage;
 extern vmCvar_t		g_fixDisarmFiring;
 extern vmCvar_t		g_fixCorpseSniping;
 extern vmCvar_t		g_fixReconnectCorpses;
+extern vmCvar_t		g_corpseLimit;
 
 extern vmCvar_t		g_allowIgnore;
 
