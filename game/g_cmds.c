@@ -5642,8 +5642,58 @@ void Cmd_Vchat_f(gentity_t *sender) {
 		Com_sprintf( chatSenderName, sizeof( chatSenderName ), "%s%c%c"EC": ", sender->client->pers.netname, Q_COLOR_ESCAPE, COLOR_WHITE );
 	}
 
-	int i;
-	for ( i = 0; i < MAX_CLIENTS; i++ ) {
+	if (g_gametype.integer == GT_CTF && type == VCHATTYPE_TEAMWORK && teamOnly && !IsRacerOrSpectator(sender) &&
+		level.wasRestarted && level.pause.state == PAUSE_NONE && HasFlag(sender) && GetCTFLocationValue(sender) <= 0.55f && g_boost.integer && g_spawnboost_teamkill.integer && !sender->client->ps.fallingToDeath) {
+		gentity_t *boostedBaseTeammate = NULL;
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *thisEnt = &g_entities[i];
+			if (!thisEnt->inuse || !thisEnt->client || thisEnt->client->pers.connected != CON_CONNECTED || thisEnt == sender)
+				continue;
+			if (!thisEnt->client->account || !(thisEnt->client->account->flags & ACCOUNTFLAG_BOOST_SPAWNFCBOOST))
+				continue;
+			if (thisEnt->client->sess.sessionTeam != sender->client->sess.sessionTeam)
+				continue;
+			if (thisEnt->health <= 0)
+				continue;
+			if (GetRemindedPosOrDeterminedPos(thisEnt) != CTFPOSITION_BASE)
+				continue;
+			if (thisEnt->client->pers.lastSpawnTime >= level.time - 500)
+				continue;
+			if (thisEnt->client->ps.fd.forcePower >= 25 && (thisEnt->client->pers.lastSpawnTime >= level.time - 2000 || thisEnt->client->pers.lastForcedToSkTime >= level.time - 3000) && InFOVFloat(sender, thisEnt, 60, 60))
+				continue;
+			float dist = Distance(sender->client->ps.origin, thisEnt->client->ps.origin);
+			if (thisEnt->client->ps.fd.forcePower >= 25 && dist <= 1800 && InFOVFloat(sender, thisEnt, 45, 60) && trap_InPVS(sender->client->ps.origin, thisEnt->client->ps.origin))
+				continue;
+			if (thisEnt->client->ps.fd.forcePower >= 25 && trap_InPVS(sender->client->ps.origin, thisEnt->client->ps.origin) && dist <= 512)
+				continue;
+
+			boostedBaseTeammate = thisEnt;
+			break;
+		}
+
+		if (boostedBaseTeammate) {
+			qboolean doSk = qfalse;
+			if (!doSk) {
+				if (VALIDSTRING(msg)) {
+					if (!doSk && stristr(msg, "need support"))
+						doSk = qtrue;
+					if (!doSk && stristr(msg, "need healing"))
+						doSk = qtrue;
+					if (!doSk && stristr(msg, "cover me"))
+						doSk = qtrue;
+				}
+			}
+
+			if (doSk) {
+				boostedBaseTeammate->client->pers.lastForcedToSkTime = level.time;
+				boostedBaseTeammate->flags &= ~FL_GODMODE;
+				boostedBaseTeammate->client->ps.stats[STAT_HEALTH] = boostedBaseTeammate->health = -999;
+				player_die(boostedBaseTeammate, boostedBaseTeammate, boostedBaseTeammate, 100000, MOD_SUICIDE);
+			}
+		}
+	}
+
+	for ( int i = 0; i < MAX_CLIENTS; i++ ) {
 		gclient_t *cl = &level.clients[i];
 		if ( cl->pers.connected != CON_CONNECTED )
 			continue;
