@@ -1467,7 +1467,7 @@ void SpectatorThink( gentity_t *ent, usercmd_t *ucmd ) {
 			}
 		}
 
-		if (g_vote_fadeToBlack.integer == 1) {
+		if (g_vote_fadeToBlack.integer == 1 || (client->account && (client->account->flags & ACCOUNTFLAG_NONVOTINGMEMER))) {
 			if (!client->ps.fallingToDeath)
 				client->ps.fallingToDeath = level.time - 2000;
 			client->pers.fakeFallFadeToBlack = qtrue;

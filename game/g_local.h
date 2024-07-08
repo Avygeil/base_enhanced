@@ -2244,6 +2244,7 @@ typedef struct {
 #define ACCOUNTFLAG_BOOST_FIXINSTAYAW					( 1ll << 33ll )
 #define ACCOUNTFLAG_ITEMLORD					( 1ll << 34ll )
 #define ACCOUNTFLAG_INSTAVOTETROLL					( 1ll << 35ll )
+#define ACCOUNTFLAG_NONVOTINGMEMER					( 1ll << 36ll )
 
 typedef void( *ListSessionsCallback )( void *ctx,
 	const sessionReference_t sessionRef,
