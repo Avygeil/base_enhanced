@@ -10913,6 +10913,10 @@ void PmoveSingle (pmove_t *pmove) {
 		PM_Footsteps();
 	}
 
+	// wallbug fix
+	if ((pm->ps->persistant[PERS_TEAM] != TEAM_SPECTATOR) && pm->ps->stats[STAT_RACEMODE] && VectorCompare(pm->ps->origin, pml.previous_origin))
+		VectorClear(pm->ps->velocity);
+
 	// entering / leaving water splashes
 	PM_WaterEvents();
 
