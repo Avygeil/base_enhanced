@@ -3603,6 +3603,7 @@ extern vmCvar_t		g_vote_mapVoteExtensions_maxExtensions;
 extern vmCvar_t		g_vote_mapVoteExtension_ifUnderThisManyVotes;
 extern vmCvar_t		g_vote_mapVoteExtension_extensionDuration;
 extern vmCvar_t		g_vote_audioMotivation;
+extern vmCvar_t		g_vote_notifyTeammatesOfMapChoice;
 
 extern vmCvar_t		g_filterSlurs;
 

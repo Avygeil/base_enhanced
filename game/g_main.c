@@ -572,6 +572,7 @@ vmCvar_t	g_vote_mapVoteExtensions_maxExtensions;
 vmCvar_t	g_vote_mapVoteExtension_ifUnderThisManyVotes;
 vmCvar_t	g_vote_mapVoteExtension_extensionDuration;
 vmCvar_t	g_vote_audioMotivation;
+vmCvar_t	g_vote_notifyTeammatesOfMapChoice;
 
 vmCvar_t	g_filterSlurs;
 
@@ -1187,10 +1188,11 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_freezeUntilVote, "g_vote_freezeUntilVote", "-1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_lessPlayedMapsDisfavoredInRunoffEliminations, "g_vote_lessPlayedMapsDisfavoredInRunoffEliminations", "10", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_fadeToBlack, "g_vote_fadeToBlack", "3", CVAR_ARCHIVE, 0, qfalse },
-	{ &g_vote_mapVoteExtensions_maxExtensions, "g_vote_mapVoteExtensions_maxExtensions", "2", CVAR_ARCHIVE, 0, qfalse },
-	{ &g_vote_mapVoteExtension_ifUnderThisManyVotes, "g_vote_mapVoteExtension_ifUnderThisManyVotes", "4", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_mapVoteExtensions_maxExtensions, "g_vote_mapVoteExtensions_maxExtensions", "4", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_mapVoteExtension_ifUnderThisManyVotes, "g_vote_mapVoteExtension_ifUnderThisManyVotes", "5", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_mapVoteExtension_extensionDuration, "g_vote_mapVoteExtension_extensionDuration", "30", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_audioMotivation, "g_vote_audioMotivation", "1", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_notifyTeammatesOfMapChoice, "g_vote_notifyTeammatesOfMapChoice", "1", CVAR_ARCHIVE, 0, qfalse },
 
 	{ &g_filterSlurs, "g_filterSlurs", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
 
@@ -4907,7 +4909,7 @@ CheckVote
 ==================
 */
 extern void SiegeClearSwitchData(void);
-extern int* BuildVoteResults( int numChoices, int *numVotes, int *highestVoteCount, qboolean *dontEndDueToMajority, int *numRerollVotes);
+extern int* BuildVoteResults( int numChoices, int *numVotes, int *highestVoteCount, qboolean *dontEndDueToMajority, int *numRerollVotes, qboolean canChangeAfkVotes);
 
 void CheckVote( void ) {
 	if ( level.voteExecuteTime && level.voteExecuteTime < level.time ) {
@@ -5067,7 +5069,7 @@ void CheckVote( void ) {
 		// special handler for multiple choices voting
 		int numVotes = 0, highestVoteCount = 0, numRerollVotes = 0;
 		qboolean dontEndDueToMajority = qfalse;
-		int *voteResults = BuildVoteResults( level.multiVoteChoices, &numVotes, &highestVoteCount, &dontEndDueToMajority, &numRerollVotes);
+		int *voteResults = BuildVoteResults( level.multiVoteChoices, &numVotes, &highestVoteCount, &dontEndDueToMajority, &numRerollVotes, qfalse);
 		free( voteResults );
 
 		if (numRerollVotes >= ((level.numVotingClients / 2) + 1)) {
@@ -5097,20 +5099,29 @@ void CheckVote( void ) {
 					PrintIngame(-1, "Extending vote time because only %d players have voted.\n", numCombinedVotesAndRerollVotes);
 				return;
 			}
-			else if (level.time - level.voteTime >= VOTE_TIME && !DoRunoff()) {
-				G_LogPrintf("Multi vote ended due to time (%d voters, %d reroll voters)\n", numVotes, numRerollVotes);
-				level.voteExecuteTime = level.time; // in this special case, execute it now. the delay is done in the svcmd
-			}
-			else if (!dontEndDueToMajority && highestVoteCount >= ((level.numVotingClients / 2) + 1)) {
-				G_LogPrintf("Multi vote ended due to majority vote (%d voters, %d reroll voters)\n", numVotes, numRerollVotes);
-				level.voteExecuteTime = level.time; // in this special case, execute it now. the delay is done in the svcmd
-			}
-			else if (numVotes >= level.numVotingClients && !DoRunoff()) {
-				G_LogPrintf("Multi vote ended due to everyone voted, no majority, and no runoff (%d voters, %d reroll voters)\n", numVotes, numRerollVotes);
-				level.voteExecuteTime = level.time; // in this special case, execute it now. the delay is done in the svcmd
-			}
 			else {
-				return;
+				const qboolean canChangeAfkVotes = (level.time - level.voteTime >= VOTE_TIME);
+				if (canChangeAfkVotes) {
+					// build vote results again if we're out of time, possibly changing afk votes this tiem
+					voteResults = BuildVoteResults(level.multiVoteChoices, &numVotes, &highestVoteCount, &dontEndDueToMajority, &numRerollVotes, qtrue);
+					free(voteResults);
+				}
+
+				if (level.time - level.voteTime >= VOTE_TIME && !DoRunoff()) {
+					G_LogPrintf("Multi vote ended due to time (%d voters, %d reroll voters)\n", numVotes, numRerollVotes);
+					level.voteExecuteTime = level.time; // in this special case, execute it now. the delay is done in the svcmd
+				}
+				else if (!dontEndDueToMajority && highestVoteCount >= ((level.numVotingClients / 2) + 1)) {
+					G_LogPrintf("Multi vote ended due to majority vote (%d voters, %d reroll voters)\n", numVotes, numRerollVotes);
+					level.voteExecuteTime = level.time; // in this special case, execute it now. the delay is done in the svcmd
+				}
+				else if (numVotes >= level.numVotingClients && !DoRunoff()) {
+					G_LogPrintf("Multi vote ended due to everyone voted, no majority, and no runoff (%d voters, %d reroll voters)\n", numVotes, numRerollVotes);
+					level.voteExecuteTime = level.time; // in this special case, execute it now. the delay is done in the svcmd
+				}
+				else {
+					return;
+				}
 			}
 		}
 	}

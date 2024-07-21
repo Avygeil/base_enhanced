@@ -2434,7 +2434,7 @@ qboolean DoRunoff(void) {
 
 // allocates an array of length numChoices containing the sorted results from level.multiVoteChoices
 // don't forget to FREE THE RESULT
-int* BuildVoteResults( int numChoices, int *numVotes, int *highestVoteCount, qboolean *dontEndDueToMajority, int *numRerollVotes) {
+int* BuildVoteResults( int numChoices, int *numVotes, int *highestVoteCount, qboolean *dontEndDueToMajority, int *numRerollVotes, qboolean canChangeAfkVotes) {
 	if (level.inRunoff) {
 		numChoices = 0;
 		for (int i = 0; i < MAX_MULTIVOTE_MAPS; i++)
@@ -2443,13 +2443,25 @@ int* BuildVoteResults( int numChoices, int *numVotes, int *highestVoteCount, qbo
 	}
 	int *voteResults = calloc( numChoices, sizeof( *voteResults ) ); // voteResults[i] = how many votes for the i-th choice
 
+	// ensure that afk voter correction never happens if we are still rerolling
+	qboolean someoneVotedToReroll = qfalse;
+	for (int i = 0; i < MAX_CLIENTS; ++i) {
+		int voteId = level.multiVotes[i];
+		if (voteId == -1 && g_vote_runoffRerollOption.integer) {
+			someoneVotedToReroll = qtrue;
+			break;
+		}
+	}
+	if (someoneVotedToReroll)
+		canChangeAfkVotes = qfalse;
+
 	// fix troll cases in 4v4 which one team has 4 map A voters,
 	// and the other team has 3 map B voters and either the last guy is a treasonous map A voter or he didn't vote at all
 	if (g_vote_overrideTrollVoters.integer) {
 		int numRedPlayers = 0, numBluePlayers = 0, numRedVotes = 0, numBlueVotes = 0, numMapsVotedByRedTeam = 0, numMapsVotedByBlueTeam = 0, highestVoteCountRedTeam = 0, highestVoteCountBlueTeam = 0;
 		int mapIdWithHighestVoteCountRedTeam = 0, mapIdWithHighestVoteCountBlueTeam = 0;
 		/*int secondPlaceMapIdRedTeam = 0, secondPlaceMapIdBlueTeam = 0;*/
-		qboolean mapHas6OrMoreVotes = qfalse;
+		qboolean mapHas5OrMoreVotes = qfalse, mapHas6OrMoreVotes = qfalse;
 		{
 			int numVotesForMap[32] = { 0 }, numVotesForMapRedTeam[32] = { 0 }, numVotesForMapBlueTeam[32] = { 0 };
 			int mapBitsVotedByRedTeam = 0, mapBitsVotedByBlueTeam = 0;
@@ -2468,8 +2480,13 @@ int* BuildVoteResults( int numChoices, int *numVotes, int *highestVoteCount, qbo
 
 				int voteId = level.multiVotes[i];
 				if (voteId > 0 && voteId <= numChoices) {
-					if (++numVotesForMap[voteId] >= 6) {
-						mapHas6OrMoreVotes = qtrue;
+					++numVotesForMap[voteId];
+					if (numVotesForMap[voteId] >= 5) {
+						mapHas5OrMoreVotes = qtrue;
+						break;
+					}
+					if (numVotesForMap[voteId] >= 6) {
+						mapHas6OrMoreVotes = mapHas5OrMoreVotes = qtrue;
 						break;
 					}
 
@@ -2535,7 +2552,7 @@ int* BuildVoteResults( int numChoices, int *numVotes, int *highestVoteCount, qbo
 					}
 
 					level.multiVotes[i] = mapIdWithHighestVoteCountBlueTeam;
-					Com_Printf("Automatically changed client %d troll non-vote to vote for map %d with team\n", i, mapIdWithHighestVoteCountBlueTeam);
+					Com_Printf("[Vote scenario 1] Automatically changed client %d troll non-vote to vote for map %d with team\n", i, mapIdWithHighestVoteCountBlueTeam);
 					break;
 				}
 			}
@@ -2549,7 +2566,7 @@ int* BuildVoteResults( int numChoices, int *numVotes, int *highestVoteCount, qbo
 					}
 
 					level.multiVotes[i] = mapIdWithHighestVoteCountRedTeam;
-					Com_Printf("Automatically changed client %d troll non-vote to vote for map %d with team\n", i, mapIdWithHighestVoteCountRedTeam);
+					Com_Printf("[Vote scenario 1] Automatically changed client %d troll non-vote to vote for map %d with team\n", i, mapIdWithHighestVoteCountRedTeam);
 					break;
 				}
 			}
@@ -2563,7 +2580,7 @@ int* BuildVoteResults( int numChoices, int *numVotes, int *highestVoteCount, qbo
 					}
 
 					level.multiVotes[i] = mapIdWithHighestVoteCountBlueTeam;
-					Com_Printf("Automatically changed client %d troll vote to map %d with team\n", i, mapIdWithHighestVoteCountBlueTeam);
+					Com_Printf("[Vote scenario 1] Automatically changed client %d troll vote to map %d with team\n", i, mapIdWithHighestVoteCountBlueTeam);
 					break;
 				}
 			}
@@ -2577,11 +2594,110 @@ int* BuildVoteResults( int numChoices, int *numVotes, int *highestVoteCount, qbo
 					}
 
 					level.multiVotes[i] = mapIdWithHighestVoteCountRedTeam;
-					Com_Printf("Automatically changed client %d troll vote to map %d with team\n", i, mapIdWithHighestVoteCountRedTeam);
+					Com_Printf("[Vote scenario 1] Automatically changed client %d troll vote to map %d with team\n", i, mapIdWithHighestVoteCountRedTeam);
 					break;
 				}
 			}
 		}
+		else if (!mapHas6OrMoreVotes && numRedPlayers == 4 && numBluePlayers == 4 && numRedVotes + numBlueVotes == 6 && canChangeAfkVotes) {
+			if (numRedVotes == 4 && numMapsVotedByRedTeam == 1 && numBlueVotes == 2 && numMapsVotedByBlueTeam == 1) {
+				for (int i = 0; i < MAX_CLIENTS; i++) {
+					gentity_t *ent = &g_entities[i];
+					if (!ent->inuse || !ent->client || !ent->client->pers.connected || ent->client->sess.sessionTeam != TEAM_BLUE ||
+						!(ent->client->mGameFlags & PSG_CANVOTE) ||
+						level.multiVotes[i] == mapIdWithHighestVoteCountBlueTeam) {
+						continue;
+					}
+
+					level.multiVotes[i] = mapIdWithHighestVoteCountBlueTeam;
+					Com_Printf("[Vote scenario 2] Automatically changed client %d troll non-vote to vote for map %d with team\n", i, mapIdWithHighestVoteCountBlueTeam);
+				}
+			}
+			else if (numBlueVotes == 4 && numMapsVotedByBlueTeam == 1 && numRedVotes == 2 && numMapsVotedByRedTeam == 1) {
+				for (int i = 0; i < MAX_CLIENTS; i++) {
+					gentity_t *ent = &g_entities[i];
+					if (!ent->inuse || !ent->client || !ent->client->pers.connected || ent->client->sess.sessionTeam != TEAM_RED ||
+						!(ent->client->mGameFlags & PSG_CANVOTE) ||
+						level.multiVotes[i] == mapIdWithHighestVoteCountRedTeam) {
+						continue;
+					}
+
+					level.multiVotes[i] = mapIdWithHighestVoteCountRedTeam;
+					Com_Printf("[Vote scenario 2] Automatically changed client %d troll non-vote to vote for map %d with team\n", i, mapIdWithHighestVoteCountRedTeam);
+				}
+			}
+		}
+		else if (!mapHas5OrMoreVotes && numRedPlayers == 4 && numBluePlayers == 4 && numRedVotes + numBlueVotes == 5 && canChangeAfkVotes) {
+			if (numRedVotes == 3 && numMapsVotedByRedTeam == 1 && numBlueVotes == 2 && numMapsVotedByBlueTeam == 1) {
+				for (int i = 0; i < MAX_CLIENTS; i++) {
+					gentity_t *ent = &g_entities[i];
+					if (!ent->inuse || !ent->client || !ent->client->pers.connected || !(ent->client->mGameFlags & PSG_CANVOTE)) {
+						continue;
+					}
+
+					if (ent->client->sess.sessionTeam == TEAM_RED && level.multiVotes[i] != mapIdWithHighestVoteCountRedTeam) {
+						level.multiVotes[i] = mapIdWithHighestVoteCountRedTeam;
+						Com_Printf("[Vote scenario 3] Automatically changed client %d non-vote to vote for map %d with team\n", i, mapIdWithHighestVoteCountRedTeam);
+					}
+					else if (ent->client->sess.sessionTeam == TEAM_BLUE && level.multiVotes[i] != mapIdWithHighestVoteCountBlueTeam) {
+						level.multiVotes[i] = mapIdWithHighestVoteCountBlueTeam;
+						Com_Printf("[Vote scenario 3] Automatically changed client %d non-vote to vote for map %d with team\n", i, mapIdWithHighestVoteCountBlueTeam);
+					}
+				}
+			}
+			else if (numBlueVotes == 3 && numMapsVotedByBlueTeam == 1 && numRedVotes == 2 && numMapsVotedByRedTeam == 1) {
+				for (int i = 0; i < MAX_CLIENTS; i++) {
+					gentity_t *ent = &g_entities[i];
+					if (!ent->inuse || !ent->client || !ent->client->pers.connected || !(ent->client->mGameFlags & PSG_CANVOTE)) {
+						continue;
+					}
+
+					if (ent->client->sess.sessionTeam == TEAM_RED && level.multiVotes[i] != mapIdWithHighestVoteCountRedTeam) {
+						level.multiVotes[i] = mapIdWithHighestVoteCountRedTeam;
+						Com_Printf("[Vote scenario 3] Automatically changed client %d non-vote to vote for map %d with team\n", i, mapIdWithHighestVoteCountRedTeam);
+					}
+					else if (ent->client->sess.sessionTeam == TEAM_BLUE && level.multiVotes[i] != mapIdWithHighestVoteCountBlueTeam) {
+						level.multiVotes[i] = mapIdWithHighestVoteCountBlueTeam;
+						Com_Printf("[Vote scenario 3] Automatically changed client %d non-vote to vote for map %d with team\n", i, mapIdWithHighestVoteCountBlueTeam);
+					}
+				}
+			}
+			else if (numRedVotes == 4 && numMapsVotedByRedTeam == 1 && numBlueVotes == 1 && numMapsVotedByBlueTeam == 1) {
+				for (int i = 0; i < MAX_CLIENTS; i++) {
+					gentity_t *ent = &g_entities[i];
+					if (!ent->inuse || !ent->client || !ent->client->pers.connected || !(ent->client->mGameFlags & PSG_CANVOTE)) {
+						continue;
+					}
+
+					if (ent->client->sess.sessionTeam == TEAM_RED && level.multiVotes[i] != mapIdWithHighestVoteCountRedTeam) {
+						level.multiVotes[i] = mapIdWithHighestVoteCountRedTeam;
+						Com_Printf("[Vote scenario 3] Automatically changed client %d non-vote to vote for map %d with team\n", i, mapIdWithHighestVoteCountRedTeam);
+					}
+					else if (ent->client->sess.sessionTeam == TEAM_BLUE && level.multiVotes[i] != mapIdWithHighestVoteCountBlueTeam) {
+						level.multiVotes[i] = mapIdWithHighestVoteCountBlueTeam;
+						Com_Printf("[Vote scenario 3] Automatically changed client %d non-vote to vote for map %d with team\n", i, mapIdWithHighestVoteCountBlueTeam);
+					}
+				}
+			}
+			else if (numBlueVotes == 4 && numMapsVotedByBlueTeam == 1 && numRedVotes == 1 && numMapsVotedByRedTeam == 1) {
+				for (int i = 0; i < MAX_CLIENTS; i++) {
+					gentity_t *ent = &g_entities[i];
+					if (!ent->inuse || !ent->client || !ent->client->pers.connected || !(ent->client->mGameFlags & PSG_CANVOTE)) {
+						continue;
+					}
+
+					if (ent->client->sess.sessionTeam == TEAM_RED && level.multiVotes[i] != mapIdWithHighestVoteCountRedTeam) {
+						level.multiVotes[i] = mapIdWithHighestVoteCountRedTeam;
+						Com_Printf("[Vote scenario 3] Automatically changed client %d non-vote to vote for map %d with team\n", i, mapIdWithHighestVoteCountRedTeam);
+					}
+					else if (ent->client->sess.sessionTeam == TEAM_BLUE && level.multiVotes[i] != mapIdWithHighestVoteCountBlueTeam) {
+						level.multiVotes[i] = mapIdWithHighestVoteCountBlueTeam;
+						Com_Printf("[Vote scenario 3] Automatically changed client %d non-vote to vote for map %d with team\n", i, mapIdWithHighestVoteCountBlueTeam);
+					}
+				}
+			}
+		}
+
 	}
 
 	if ( numVotes ) *numVotes = 0;
@@ -2734,7 +2850,7 @@ void Svcmd_MapMultiVote_f() {
 
 	// get the results and pick a map
 	int numVotes, highestVoteCount;
-	int *voteResults = BuildVoteResults( level.multiVoteChoices, &numVotes, &highestVoteCount, NULL, NULL );
+	int *voteResults = BuildVoteResults( level.multiVoteChoices, &numVotes, &highestVoteCount, NULL, NULL, qtrue/*i guess?*/);
 
 	char selectedMapname[MAX_MAP_NAME];
 	qboolean hasWildcard = level.multiVoteHasWildcard; // changes based on result (since the wildcard vote can only either pass or be discarded)
@@ -2775,10 +2891,72 @@ void Svcmd_MapMultiVote_f() {
 			}
 		}
 
-		Q_strcat( resultString, sizeof( resultString ), va( "\n%s%s - %d vote%s",
-			!Q_stricmp(mapname, selectedMapname) ? S_COLOR_GREEN : S_COLOR_WHITE, // the selected map is green
-			mapDisplayName, numVotesForThisMap, numVotesForThisMap != 1 ? "s" : "" )
-		);
+		int numRedVotesForThisMap = 0, numBlueVotesForThisMap = 0;
+		for (int j = 0; j < MAX_CLIENTS; ++j) {
+			if (level.multiVotes[j] != i + 1)
+				continue;
+
+			gentity_t *thisVoter = &g_entities[j];
+
+			if (thisVoter->inuse && thisVoter->client && thisVoter->client->pers.connected == CON_CONNECTED && !IsRacerOrSpectator(thisVoter) && thisVoter->client->sess.sessionTeam == TEAM_RED)
+				++numRedVotesForThisMap;
+			else if (thisVoter->inuse && thisVoter->client && thisVoter->client->pers.connected == CON_CONNECTED && !IsRacerOrSpectator(thisVoter) && thisVoter->client->sess.sessionTeam == TEAM_BLUE)
+				++numBlueVotesForThisMap;
+			else if (thisVoter->inuse && thisVoter->client && thisVoter->client->pers.connected == CON_CONNECTED && IsRacerOrSpectator(thisVoter) && thisVoter->client->stats && thisVoter->client->stats->lastTeam == TEAM_RED)
+				++numRedVotesForThisMap; // try to acccount for idiots who go spec (does their vote even count though?)
+			else if (thisVoter->inuse && thisVoter->client && thisVoter->client->pers.connected == CON_CONNECTED && IsRacerOrSpectator(thisVoter) && thisVoter->client->stats && thisVoter->client->stats->lastTeam == TEAM_BLUE)
+				++numBlueVotesForThisMap; // try to acccount for idiots who go spec (does their vote even count though?)
+			// else...
+		}
+
+		const char *colorStr = !Q_stricmp(mapname, selectedMapname) ? "^2" : "^7"; // the selected map is green
+		const char *pluralStr = numVotesForThisMap != 1 ? "s" : "";
+		if (numVotesForThisMap) {
+			if (numRedVotesForThisMap && numBlueVotesForThisMap && numRedVotesForThisMap + numBlueVotesForThisMap == numVotesForThisMap) {
+				Q_strcat(resultString, sizeof(resultString), va("\n%s%s - ^1%d^7+^4%d%s vote%s",
+					colorStr,
+					mapDisplayName,
+					numRedVotesForThisMap,
+					numBlueVotesForThisMap,
+					colorStr,
+					pluralStr)
+				);
+			}
+			else if (numRedVotesForThisMap && numRedVotesForThisMap == numVotesForThisMap) {
+				Q_strcat(resultString, sizeof(resultString), va("\n%s%s - ^1%d%s vote%s",
+					colorStr,
+					mapDisplayName,
+					numVotesForThisMap,
+					colorStr,
+					pluralStr)
+				);
+			}
+			else if (numBlueVotesForThisMap && numBlueVotesForThisMap == numVotesForThisMap) {
+				Q_strcat(resultString, sizeof(resultString), va("\n%s%s - ^4%d%s vote%s",
+					colorStr,
+					mapDisplayName,
+					numVotesForThisMap,
+					colorStr,
+					pluralStr)
+				);
+			}
+			else { // ???
+				Q_strcat(resultString, sizeof(resultString), va("\n%s%s - %d vote%s",
+					colorStr,
+					mapDisplayName,
+					numVotesForThisMap,
+					pluralStr)
+				);
+			}
+		}
+		else {
+			Q_strcat(resultString, sizeof(resultString), va("\n%s%s - %d vote%s",
+				colorStr,
+				mapDisplayName,
+				numVotesForThisMap,
+				pluralStr)
+			);
+		}
 	}
 
 	free( voteResults );
