@@ -2327,6 +2327,7 @@ qboolean ValidateAndCopyPositionPreferences(const positionPreferences_t *in, pos
 qboolean IsInstapauser(gentity_t *ent);
 qboolean HasSlur(const char *str);
 void fixVoters(qboolean allowRacers, int onlyThisTeamCanVote);
+void NotifyTeammatesOfVote(gentity_t *voter, char *text);
 
 //
 // g_items.c

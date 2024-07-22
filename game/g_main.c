@@ -5079,11 +5079,10 @@ void CheckVote( void ) {
 		else {
 
 			// the vote ends when a map has >50% majority, when everyone voted, or when the vote timed out
-			const int numCombinedVotesAndRerollVotes = numVotes + numRerollVotes;
 			if (level.time - level.voteTime >= VOTE_TIME - 500 && level.numVotingClients >= 7 &&
-				g_vote_mapVoteExtension_ifUnderThisManyVotes.integer > 0 && numCombinedVotesAndRerollVotes < g_vote_mapVoteExtension_ifUnderThisManyVotes.integer &&
+				g_vote_mapVoteExtension_ifUnderThisManyVotes.integer > 0 && numVotes < g_vote_mapVoteExtension_ifUnderThisManyVotes.integer &&
 				g_vote_mapVoteExtensions_maxExtensions.integer > 0 && level.multiVoteTimeExtensions < g_vote_mapVoteExtensions_maxExtensions.integer) {
-				G_LogPrintf("Extending multi vote time due to lack of participation (%d voters, %d reroll voters)\n", numVotes, numRerollVotes);
+				G_LogPrintf("Extending multi vote time due to lack of participation (%d total voters, including %d reroll voters)\n", numVotes, numRerollVotes);
 				++level.multiVoteTimeExtensions;
 				level.voteTime = level.time;
 				int timeChange = Com_Clampi(15, 120, g_vote_mapVoteExtension_extensionDuration.integer);
@@ -5091,12 +5090,12 @@ void CheckVote( void ) {
 				timeChange -= VOTE_TIME;
 				level.voteTime += timeChange;
 				trap_SetConfigstring(CS_VOTE_TIME, va("%i", level.voteTime));
-				if (!numCombinedVotesAndRerollVotes)
+				if (!numVotes)
 					PrintIngame(-1, "Extending vote time because nobody has voted.\n");
-				else if (numCombinedVotesAndRerollVotes == 1)
+				else if (numVotes == 1)
 					PrintIngame(-1, "Extending vote time because only 1 player has voted.\n");
 				else
-					PrintIngame(-1, "Extending vote time because only %d players have voted.\n", numCombinedVotesAndRerollVotes);
+					PrintIngame(-1, "Extending vote time because only %d players have voted.\n", numVotes);
 				return;
 			}
 			else {

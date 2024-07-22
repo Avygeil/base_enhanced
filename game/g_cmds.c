@@ -4599,6 +4599,39 @@ void Cmd_CallVote_f( gentity_t *ent, int pause ) {
 	trap_SetConfigstring( CS_VOTE_NO, va("%i", level.voteNo ) );	
 }
 
+// make sure to prepend text with a space, if needed
+void NotifyTeammatesOfVote(gentity_t *voter, char *text) {
+	if (!g_vote_notifyTeammatesOfMapChoice.integer || g_gametype.integer != GT_CTF)
+		return;
+
+	if (!VALIDSTRING(text) || !voter || !voter->client) {
+		assert(qfalse);
+		return;
+	}
+
+	char posStr[MAX_STRING_CHARS] = { 0 };
+	const ctfPosition_t myPos = GetRemindedPosOrDeterminedPos(voter);
+	if (myPos != CTFPOSITION_UNKNOWN)
+		Com_sprintf(posStr, sizeof(posStr), " (%s)", NameForPos(myPos));
+
+	char textCopied[MAX_STRING_CHARS] = { 0 };
+	Q_strncpyz(textCopied, text, sizeof(textCopied));
+
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *recipient = &g_entities[i];
+		if (!recipient->inuse || !recipient->client || recipient->client->pers.connected == CON_DISCONNECTED || recipient->client->sess.sessionTeam != voter->client->sess.sessionTeam)
+			continue;
+
+		char buf[MAX_STRING_CHARS] = { 0 };
+		Com_sprintf(buf, sizeof(buf), "^5%s^5%s%s^5.",
+			voter->client->account && VALIDSTRING(voter->client->account->name) ? voter->client->account->name : voter->client->pers.netname,
+			posStr[0] ? posStr : "",
+			textCopied);
+
+		TeamGenerator_QueueServerMessageInChat(i, buf);
+	}
+}
+
 /*
 ==================
 Cmd_Vote_f
@@ -4702,36 +4735,12 @@ void Cmd_Vote_f( gentity_t *ent, const char *forceVoteArg ) {
 				level.voteYes++;
 				trap_SetConfigstring(CS_VOTE_YES, va("%i", level.voteYes));
 
-				if (g_vote_notifyTeammatesOfMapChoice.integer) {
-					for (int i = 0; i < MAX_CLIENTS; i++) {
-						gentity_t *recipient = &g_entities[i];
-						if (!recipient->inuse || !recipient->client || recipient->client->pers.connected == CON_DISCONNECTED || recipient->client->sess.sessionTeam != ent->client->sess.sessionTeam)
-							continue;
-
-						const ctfPosition_t myPos = GetRemindedPosOrDeterminedPos(ent);
-						TeamGenerator_QueueServerMessageInChat(i, va("^5%s^5%s voted to ^6reroll",
-							ent->client->account && VALIDSTRING(ent->client->account->name) ? ent->client->account->name : ent->client->pers.netname,
-							myPos != CTFPOSITION_UNKNOWN ? va(" (%s)", NameForPos(myPos)) : ""
-						));
-					}
-				}
+				NotifyTeammatesOfVote(ent, " voted to ^6reroll");
 			}
 			else { // changing vote
 				G_LogPrintf("Client %i (%s) changed their vote to reroll\n", ent - g_entities, ent->client->pers.netname);
 
-				if (g_vote_notifyTeammatesOfMapChoice.integer && level.multiVotes[ent - g_entities] != voteId) {
-					for (int i = 0; i < MAX_CLIENTS; i++) {
-						gentity_t *recipient = &g_entities[i];
-						if (!recipient->inuse || !recipient->client || recipient->client->pers.connected == CON_DISCONNECTED || recipient->client->sess.sessionTeam != ent->client->sess.sessionTeam)
-							continue;
-
-						const ctfPosition_t myPos = GetRemindedPosOrDeterminedPos(ent);
-						TeamGenerator_QueueServerMessageInChat(i, va("^5%s^5%s changed vote to ^6reroll",
-							ent->client->account && VALIDSTRING(ent->client->account->name) ? ent->client->account->name : ent->client->pers.netname,
-							myPos != CTFPOSITION_UNKNOWN ? va(" (%s)", NameForPos(myPos)) : ""
-						));
-					}
-				}
+				NotifyTeammatesOfVote(ent, " changed vote to ^6reroll");
 			}
 
 			level.multiVotes[ent - g_entities] = -1;
@@ -4751,41 +4760,19 @@ void Cmd_Vote_f( gentity_t *ent, const char *forceVoteArg ) {
 				level.voteYes++;
 				trap_SetConfigstring(CS_VOTE_YES, va("%i", level.voteYes));
 
-				if (g_vote_notifyTeammatesOfMapChoice.integer) {
-					for (int i = 0; i < MAX_CLIENTS; i++) {
-						gentity_t *recipient = &g_entities[i];
-						if (!recipient->inuse || !recipient->client || recipient->client->pers.connected == CON_DISCONNECTED || recipient->client->sess.sessionTeam != ent->client->sess.sessionTeam)
-							continue;
-
-						const ctfPosition_t myPos = GetRemindedPosOrDeterminedPos(ent);
-						TeamGenerator_QueueServerMessageInChat(i, va("^5%s^5%s voted ^6%d^5%s",
-							ent->client->account && VALIDSTRING(ent->client->account->name) ? ent->client->account->name : ent->client->pers.netname,
-							myPos != CTFPOSITION_UNKNOWN ? va(" (%s)", NameForPos(myPos)) : "",
-							voteId,
-							level.multiVoteMapShortNames[voteId - 1][0] ? va(" - %s", level.multiVoteMapShortNames[voteId - 1]) : ""
-						));
-					}
-				}
+				NotifyTeammatesOfVote(ent, va(" voted ^6%d^5%s",
+					voteId,
+					level.multiVoteMapShortNames[voteId - 1][0] ? va(" - %s", level.multiVoteMapShortNames[voteId - 1]) : ""
+					));
 			}
 			else { // changing vote
 				G_LogPrintf("Client %i (%s) changed their vote to choice %d%s\n", ent - g_entities, ent->client->pers.netname, voteId,
 					level.multiVoteMapShortNames[voteId][0] ? va(" (%s)", level.multiVoteMapShortNames[voteId - 1]) : "");
 
-				if (g_vote_notifyTeammatesOfMapChoice.integer && level.multiVotes[ent - g_entities] != voteId) {
-					for (int i = 0; i < MAX_CLIENTS; i++) {
-						gentity_t *recipient = &g_entities[i];
-						if (!recipient->inuse || !recipient->client || recipient->client->pers.connected == CON_DISCONNECTED || recipient->client->sess.sessionTeam != ent->client->sess.sessionTeam)
-							continue;
-
-						const ctfPosition_t myPos = GetRemindedPosOrDeterminedPos(ent);
-						TeamGenerator_QueueServerMessageInChat(i, va("^5%s^5%s changed vote to ^6%d^5%s",
-							ent->client->account && VALIDSTRING(ent->client->account->name) ? ent->client->account->name : ent->client->pers.netname,
-							myPos != CTFPOSITION_UNKNOWN ? va(" (%s)", NameForPos(myPos)) : "",
-							voteId,
-							level.multiVoteMapShortNames[voteId - 1][0] ? va(" - %s", level.multiVoteMapShortNames[voteId - 1]) : ""
-						));
-					}
-				}
+				NotifyTeammatesOfVote(ent, va(" changed vote to ^6%d^5%s",
+					voteId,
+					level.multiVoteMapShortNames[voteId - 1][0] ? va(" - %s", level.multiVoteMapShortNames[voteId - 1]) : ""
+				));
 			}
 
 			level.multiVotes[ent - g_entities] = voteId;
