@@ -2779,11 +2779,9 @@ static void PickRandomMultiMap( const int *voteResults, int numChoices, const in
 				numChoices++;
 	}
 
-	int i;
-
 	if ( highestVoteCount >= ( numVotingClients / 2 ) + 1 ) {
 		// one map has a >50% majority, find it and pass it
-		for ( i = 0; i < numChoices; ++i ) {
+		for ( int i = 0; i < numChoices; ++i ) {
 			if ( voteResults[i] == highestVoteCount ) {
 				if (level.inRunoff)
 					Q_strncpyz(out, level.multiVoteMapFileNames[i], outSize);
@@ -2803,7 +2801,7 @@ static void PickRandomMultiMap( const int *voteResults, int numChoices, const in
 		// if nobody voted, just give all maps a weight of 1, ie the same probability
 		udf = malloc( sizeof( *udf ) * numChoices );
 
-		for ( i = 0; i < numChoices; ++i ) {
+		for ( int i = 0; i < numChoices; ++i ) {
 			udf[i] = i + 1;
 		}
 
@@ -2812,7 +2810,7 @@ static void PickRandomMultiMap( const int *voteResults, int numChoices, const in
 		if (!g_vote_rng.integer) {
 			// check if there is a single map with the most votes, in which case we simply choose that one
 			int numWithHighestVoteCount = 0, mapWithHighestVoteCount = -1;
-			for (i = 0; i < numChoices; i++) {
+			for (int i = 0; i < numChoices; i++) {
 				if (voteResults[i] == highestVoteCount) {
 					numWithHighestVoteCount++;
 					mapWithHighestVoteCount = i;
@@ -2830,8 +2828,7 @@ static void PickRandomMultiMap( const int *voteResults, int numChoices, const in
 		// make it an array where each item appears as many times as they were voted, thus giving weight (0 votes = 0%)
 		int items = numVotes, currentItem = 0;
 		udf = malloc( sizeof( *udf ) * items );
-
-		for ( i = 0; i < numChoices; ++i ) {
+		for ( int i = 0; i < numChoices; ++i ) {
 			if (g_vote_rng.integer) {
 				// 1. special case for wildcard vote: if it has the highest amount of votes, it either passed with >50% majority earlier,
 				// or if we got here it could be tied with other votes for the highest amount of votes: for this case, rule out all
@@ -2848,18 +2845,139 @@ static void PickRandomMultiMap( const int *voteResults, int numChoices, const in
 				}
 			}
 			else {
+				// rng is disabled
+				// simply rule out vote counts that are not tied for most votes
 				if (voteResults[i] < highestVoteCount) {
-					// rng is disabled; simply rule out vote counts that are not tied for most votes
 					items -= voteResults[i];
 					udf = realloc(udf, sizeof(*udf) * items);
 					continue;
 				}
 			}
 
-			int j;
-
-			for ( j = 0; j < voteResults[i]; ++j ) {
+			for (int j = 0; j < voteResults[i]; ++j) {
 				udf[currentItem++] = i + 1;
+			}
+		}
+
+		if (g_vote_underdogTeamMapVoteTiebreakerThreshold.string[0] && (double)(g_vote_underdogTeamMapVoteTiebreakerThreshold.value) > 0.5) {
+			int underdogTeam = 0;
+
+			int missingPositions = 8, numRed = 0, numBlue = 0;
+			int base[4], chase[4], offense1[4], offense2[4];
+			memset(base, -1, sizeof(base));
+			memset(chase, -1, sizeof(chase));
+			memset(offense1, -1, sizeof(offense1));
+			memset(offense2, -1, sizeof(offense2));
+			for (int i = 0; i < MAX_CLIENTS; i++) {
+				gentity_t *ent = &g_entities[i];
+				if (!ent->inuse || !ent->client || !ent->client->account || ent->client->pers.connected != CON_CONNECTED)
+					continue;
+				if (IsRacerOrSpectator(ent))
+					continue;
+
+				if (ent->client->sess.sessionTeam == TEAM_RED)
+					++numRed;
+				else if (ent->client->sess.sessionTeam == TEAM_BLUE)
+					++numBlue;
+				else
+					continue;
+
+				const int team = ent->client->sess.sessionTeam;
+				const int pos = GetRemindedPosOrDeterminedPos(ent);
+				if (pos == CTFPOSITION_BASE && base[team] == -1) {
+					base[team] = ent->client->account->id;
+					--missingPositions;
+				}
+				else if (pos == CTFPOSITION_CHASE && chase[team] == -1) {
+					chase[team] = ent->client->account->id;
+					--missingPositions;
+				}
+				else if (pos == CTFPOSITION_OFFENSE) {
+					if (offense1[team] == -1) {
+						offense1[team] = ent->client->account->id;
+						--missingPositions;
+					}
+					else if (offense2[team] == -1) {
+						offense2[team] = ent->client->account->id;
+						--missingPositions;
+					}
+				}
+			}
+
+			if (!missingPositions && numRed == 4 && numBlue == 4) {
+				G_DBGetPlayerRatings();
+				double teamTotal[4] = { 0 };
+				for (int t = TEAM_RED; t <= TEAM_BLUE; t++) {
+					teamTotal[t] += PlayerTierToRating(GetPlayerTierForPlayerOnPosition(base[t], CTFPOSITION_BASE, qtrue));
+					teamTotal[t] += PlayerTierToRating(GetPlayerTierForPlayerOnPosition(chase[t], CTFPOSITION_CHASE, qtrue));
+					teamTotal[t] += PlayerTierToRating(GetPlayerTierForPlayerOnPosition(offense1[t], CTFPOSITION_OFFENSE, qtrue));
+					teamTotal[t] += PlayerTierToRating(GetPlayerTierForPlayerOnPosition(offense2[t], CTFPOSITION_OFFENSE, qtrue));
+				}
+
+				double totalOfBothTeams = teamTotal[TEAM_RED] + teamTotal[TEAM_BLUE];
+				if (totalOfBothTeams) { // prevent divide by zero
+					double relativeStrength[4];
+					relativeStrength[TEAM_RED] = teamTotal[TEAM_RED] / totalOfBothTeams;
+					relativeStrength[TEAM_BLUE] = teamTotal[TEAM_BLUE] / totalOfBothTeams;
+
+					if (relativeStrength[TEAM_BLUE] >= (double)(g_vote_underdogTeamMapVoteTiebreakerThreshold.value) - 0.0001) {
+						Com_Printf("Giving red team tiebreaker advantage because %g < %g\n", relativeStrength[TEAM_RED], relativeStrength[TEAM_BLUE]);
+						underdogTeam = TEAM_RED;
+					}
+					else if (relativeStrength[TEAM_RED] >= (double)(g_vote_underdogTeamMapVoteTiebreakerThreshold.value) - 0.0001) {
+						Com_Printf("Giving blue team tiebreaker advantage because %g < %g\n", relativeStrength[TEAM_BLUE], relativeStrength[TEAM_RED]);
+						underdogTeam = TEAM_BLUE;
+					}
+				}
+			}
+
+			if (underdogTeam) {
+				Com_Printf("Underdog team detected: %d\n", underdogTeam);
+
+				// Determine the highest number of votes from the underdog team for maps not eliminated
+				int highestUnderdogVotes = 0;
+				int underdogVotes[MAX_MULTIVOTE_MAPS] = { 0 };
+
+				// Count the votes for each map from the underdog team
+				for (int j = 0; j < MAX_CLIENTS; ++j) {
+					gentity_t *ent = &g_entities[j];
+					if (ent->inuse && ent->client && ent->client->sess.sessionTeam == underdogTeam) {
+						int voteId = level.multiVotes[j];
+						if (voteId > 0 && voteId <= numChoices) {
+							underdogVotes[voteId - 1]++;
+							Com_Printf("Underdog client %d (team %d) voted for map %d\n", j, underdogTeam, voteId);
+						}
+					}
+				}
+
+				// Determine the highest number of votes from the underdog team
+				for (int i = 0; i < numChoices; ++i) {
+					int mapIndex = udf[i] - 1;
+					if (underdogVotes[mapIndex] > highestUnderdogVotes) {
+						highestUnderdogVotes = underdogVotes[mapIndex];
+					}
+				}
+				Com_Printf("Highest votes from underdog team: %d\n", highestUnderdogVotes);
+
+				// Eliminate maps that don't have the highest number of votes from the underdog team
+				if (highestUnderdogVotes > 0) {
+					int newItems = 0;
+					for (int i = 0; i < items; ++i) {
+						int mapIndex = udf[i] - 1;
+						if (underdogVotes[mapIndex] == highestUnderdogVotes) {
+							udf[newItems++] = udf[i];
+						}
+						else {
+							Com_Printf("Vote for map %d eliminated; votes for it from underdog team: %d\n", udf[i], underdogVotes[mapIndex]);
+						}
+					}
+
+					if (newItems > 0) {
+						Com_DebugPrintf("Reallocating udf array to size %d\n", newItems);
+						items = newItems;
+						udf = realloc(udf, sizeof(*udf) * items);
+					}
+				}
 			}
 		}
 

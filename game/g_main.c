@@ -574,6 +574,7 @@ vmCvar_t	g_vote_mapVoteExtension_ifUnderThisManyVotes;
 vmCvar_t	g_vote_mapVoteExtension_extensionDuration;
 vmCvar_t	g_vote_audioMotivation;
 vmCvar_t	g_vote_notifyTeammatesOfMapChoice;
+vmCvar_t	g_vote_underdogTeamMapVoteTiebreakerThreshold;
 
 vmCvar_t	g_filterSlurs;
 
@@ -1195,6 +1196,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_mapVoteExtension_extensionDuration, "g_vote_mapVoteExtension_extensionDuration", "30", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_audioMotivation, "g_vote_audioMotivation", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_notifyTeammatesOfMapChoice, "g_vote_notifyTeammatesOfMapChoice", "1", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_underdogTeamMapVoteTiebreakerThreshold, "g_vote_underdogTeamMapVoteTiebreakerThreshold", "0.519", CVAR_ARCHIVE, 0, qfalse },
 
 	{ &g_filterSlurs, "g_filterSlurs", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
 
