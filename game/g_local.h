@@ -926,6 +926,7 @@ typedef struct {
 	gentity_t *onLiftDuringPause;
 
 	qboolean	fakeFallFadeToBlack;
+	int			pressedSpeedWhileDeadTime;
 
 } clientPersistant_t;
 
@@ -3455,6 +3456,7 @@ extern vmCvar_t		g_fixDisarmFiring;
 extern vmCvar_t		g_fixCorpseSniping;
 extern vmCvar_t		g_fixReconnectCorpses;
 extern vmCvar_t		g_corpseLimit;
+extern vmCvar_t		g_preActivateSpeedWhileDead;
 
 extern vmCvar_t		g_allowIgnore;
 

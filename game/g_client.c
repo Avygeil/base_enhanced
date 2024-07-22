@@ -5168,6 +5168,13 @@ void ClientSpawn(gentity_t *ent) {
 	//rww - make sure client has a valid icarus instance
 	trap_ICARUS_FreeEnt( ent );
 	trap_ICARUS_InitEnt( ent );
+
+	if (client->pers.pressedSpeedWhileDeadTime && (level.time - level.startTime) - client->pers.pressedSpeedWhileDeadTime <= 1000 &&
+		ent - g_entities < MAX_CLIENTS && !(ent->r.svFlags & SVF_BOT) && g_preActivateSpeedWhileDead.integer &&
+		client->ps.fd.forcePowerLevel[FP_SPEED] > 0 && !(client->ps.fd.forcePowersActive & (1 << FP_SPEED))) {
+		client->pers.pressedSpeedWhileDeadTime = 0;
+		ForceSpeed(ent, 0);
+	}
 }
 
 typedef struct {

@@ -397,6 +397,7 @@ vmCvar_t	g_fixDisarmFiring;
 vmCvar_t	g_fixCorpseSniping;
 vmCvar_t	g_fixReconnectCorpses;
 vmCvar_t	g_corpseLimit;
+vmCvar_t	g_preActivateSpeedWhileDead;
 
 vmCvar_t	g_allowIgnore;
 
@@ -1010,6 +1011,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_fixCorpseSniping,	"g_fixCorpseSniping"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_fixReconnectCorpses,	"g_fixReconnectCorpses"	, "1"	, CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 	{ &g_corpseLimit,	"g_corpseLimit"	, "8"	, CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
+	{ &g_preActivateSpeedWhileDead,	"g_preActivateSpeedWhileDead"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_allowIgnore, "g_allowIgnore", "0", CVAR_ARCHIVE, 0, qfalse },
 
