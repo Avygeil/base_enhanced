@@ -3975,6 +3975,7 @@ void PrintTeamsProposalsInConsole(pugProposal_t *set, int clientNum) {
 		else if (thisPermutation->teams[0].relativeStrength >= 0.509f - 0.0001f || thisPermutation->teams[1].relativeStrength >= 0.509f - 0.0001f)
 			tags |= (1 << TEAMGENTAG_STACK);
 
+#ifdef PRINT_UNDERDOG_TIEBREAKER
 		int underdogTeam = 0;
 		if (g_vote_underdogTeamMapVoteTiebreakerThreshold.string[0] && (double)(g_vote_underdogTeamMapVoteTiebreakerThreshold.value) > 0.5) {
 			if (thisPermutation->teams[0].relativeStrength >= (double)(g_vote_underdogTeamMapVoteTiebreakerThreshold.value) - 0.0001)
@@ -3982,6 +3983,7 @@ void PrintTeamsProposalsInConsole(pugProposal_t *set, int clientNum) {
 			else if (thisPermutation->teams[1].relativeStrength >= (double)(g_vote_underdogTeamMapVoteTiebreakerThreshold.value) - 0.0001)
 				underdogTeam = TEAM_RED; // shouldn't really happen
 		}
+#endif
 		
 		char letter;
 		if (i == TEAMGENERATORTYPE_MOSTPLAYED) {
@@ -4035,10 +4037,12 @@ void PrintTeamsProposalsInConsole(pugProposal_t *set, int clientNum) {
 		else if (tags & (1 << TEAMGENTAG_STACK))
 			Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^8[possible stack!]" : va("%s ^8[possible stack!]", suggestionTypeStr));
 
+#ifdef PRINT_UNDERDOG_TIEBREAKER
 		if (underdogTeam == TEAM_RED)
 			Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^1[Map vote tie goes to red]" : va("%s ^1[Map vote tie goes to red]", suggestionTypeStr));
 		else if (underdogTeam == TEAM_BLUE)
 			Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^4[Map vote tie goes to blue]" : va("%s ^4[Map vote tie goes to blue]", suggestionTypeStr));
+#endif
 		
 		if (tags & (1 << TEAMGENTAG_FAIR))
 			Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^2[even]" : va("%s ^2[even]", suggestionTypeStr));
