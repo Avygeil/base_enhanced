@@ -4766,13 +4766,15 @@ void Cmd_Vote_f( gentity_t *ent, const char *forceVoteArg ) {
 					));
 			}
 			else { // changing vote
-				G_LogPrintf("Client %i (%s) changed their vote to choice %d%s\n", ent - g_entities, ent->client->pers.netname, voteId,
-					level.multiVoteMapShortNames[voteId][0] ? va(" (%s)", level.multiVoteMapShortNames[voteId - 1]) : "");
+				if (level.multiVotes[ent - g_entities] != voteId) {
+					G_LogPrintf("Client %i (%s) changed their vote to choice %d%s\n", ent - g_entities, ent->client->pers.netname, voteId,
+						level.multiVoteMapShortNames[voteId][0] ? va(" (%s)", level.multiVoteMapShortNames[voteId - 1]) : "");
 
-				NotifyTeammatesOfVote(ent, va(" changed vote to ^6%d^5%s",
-					voteId,
-					level.multiVoteMapShortNames[voteId - 1][0] ? va(" - %s", level.multiVoteMapShortNames[voteId - 1]) : ""
-				));
+					NotifyTeammatesOfVote(ent, va(" changed vote to ^6%d^5%s",
+						voteId,
+						level.multiVoteMapShortNames[voteId - 1][0] ? va(" - %s", level.multiVoteMapShortNames[voteId - 1]) : ""
+					));
+				}
 			}
 
 			level.multiVotes[ent - g_entities] = voteId;
