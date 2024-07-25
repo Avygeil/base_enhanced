@@ -3608,6 +3608,7 @@ extern vmCvar_t		g_vote_mapVoteExtension_extensionDuration;
 extern vmCvar_t		g_vote_audioMotivation;
 extern vmCvar_t		g_vote_notifyTeammatesOfMapChoice;
 extern vmCvar_t		g_vote_underdogTeamMapVoteTiebreakerThreshold;
+extern vmCvar_t		g_vote_fuckRequiredVotes;
 
 extern vmCvar_t		g_filterSlurs;
 

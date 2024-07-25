@@ -6579,7 +6579,10 @@ qboolean TeamGenerator_MemeFuckVote(gentity_t *ent, const char *voteStr, char **
 	}
 
 	// print the message
-	const int numRequired = 5;
+	int numRequired = Com_Clampi(3, MAX_CLIENTS, g_vote_fuckRequiredVotes.integer);
+	if (!Q_stricmp(fuckVote->fucked, "duo"))
+		numRequired = 8;
+
 	if (newMessage) {
 		static char buf[MAX_STRING_CHARS] = { 0 };
 		Com_sprintf(buf, sizeof(buf), "%cfuck %s   ^%c(%d/%d)",
@@ -6761,7 +6764,7 @@ qboolean TeamGenerator_MemeGoVote(gentity_t *ent, const char *voteStr, char **ne
 	}
 
 	// print the message
-	const int numRequired = 5;
+	int numRequired = Com_Clampi(3, MAX_CLIENTS, g_vote_fuckRequiredVotes.integer);
 	if (newMessage) {
 		static char buf[MAX_STRING_CHARS] = { 0 };
 		Com_sprintf(buf, sizeof(buf), "%cgo %s   ^%c(%d/%d)",
