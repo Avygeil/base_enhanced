@@ -6583,6 +6583,9 @@ qboolean TeamGenerator_MemeFuckVote(gentity_t *ent, const char *voteStr, char **
 	if (!Q_stricmp(fuckVote->fucked, "duo"))
 		numRequired = 8;
 
+	if (!Q_stricmp(fuckVote->fucked, "hannah"))
+		numRequired = 1;
+
 	if (newMessage) {
 		static char buf[MAX_STRING_CHARS] = { 0 };
 		Com_sprintf(buf, sizeof(buf), "%cfuck %s   ^%c(%d/%d)",
