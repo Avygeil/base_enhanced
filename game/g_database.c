@@ -6216,7 +6216,38 @@ qboolean G_DBDeleteAllRatingsForPosition(int raterAccountId, ctfPosition_t pos) 
 
 // rounding ratings to the nearest tier allows teams to be much more flexible/interchangeable
 extern qboolean PlayerRatingAccountIdMatches(genericNode_t *node, void *userData);
-const char *const sqlGetAverageRatings = "WITH t AS (SELECT account_id, created_on FROM accounts) SELECT ratee_account_id, pos, CAST(round(avg(rating)) AS INTEGER) FROM playerratings JOIN accounts ON accounts.account_id = rater_account_id, t ON t.account_id = ratee_account_id WHERE accounts.flags & (1 << 6) != 0 AND accounts.flags & (1 << 10) == 0 GROUP BY ratee_account_id, pos;";
+const char *const sqlGetAverageRatings =
+"WITH t AS ( "
+"    SELECT account_id, created_on FROM accounts "
+"), "
+"ratings AS ( "
+"    SELECT ratee_account_id, pos, rating "
+"    FROM playerratings "
+"    JOIN accounts ON accounts.account_id = rater_account_id "
+"    WHERE accounts.flags & (1 << 6) != 0 "
+"    AND accounts.flags & (1 << 10) == 0 "
+"), "
+"default_ratings AS ( "
+"    SELECT account_id AS ratee_account_id, 3 AS pos, 4 AS rating "
+"    FROM accounts a "
+"    WHERE NOT EXISTS ( "
+"        SELECT 1 "
+"        FROM playerratings pr "
+"        WHERE pr.ratee_account_id = a.account_id "
+"    ) "
+") "
+"SELECT "
+"    r.ratee_account_id, "
+"    r.pos, "
+"    CAST(round(avg(r.rating)) AS INTEGER) AS avg_rating "
+"FROM ( "
+"    SELECT ratee_account_id, pos, rating FROM ratings "
+"    UNION ALL "
+"    SELECT ratee_account_id, pos, rating FROM default_ratings "
+") r "
+"JOIN t ON t.account_id = r.ratee_account_id "
+"GROUP BY r.ratee_account_id, r.pos;";
+
 void G_DBGetPlayerRatings(void) {
 	int start = trap_Milliseconds();
 	ListClear(&level.ratingList);
