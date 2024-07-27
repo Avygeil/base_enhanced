@@ -7388,7 +7388,12 @@ static qboolean TeamGenerator_PermabarredPlayerMarkAsPickable(gentity_t *ent, ch
 
 	if (newMessage) {
 		static char *idiotMsg = "I am pickable. I apologize for my inconsiderate habit of not spec naming. I also cut in line at grocery stores and piss all over the toilet at work.";
-		*newMessage = idiotMsg;
+		static char *chadMsg = "I am pickable.";
+
+		if (ent->client->account->flags & ACCOUNTFLAG_ADMIN)
+			*newMessage = chadMsg;
+		else
+			*newMessage = idiotMsg;
 	}
 
 	ent->client->pers.permaBarredDeclaredPickable = qtrue;
