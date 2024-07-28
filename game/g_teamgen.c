@@ -6580,8 +6580,8 @@ qboolean TeamGenerator_MemeFuckVote(gentity_t *ent, const char *voteStr, char **
 
 	// print the message
 	int numRequired = Com_Clampi(3, MAX_CLIENTS, g_vote_fuckRequiredVotes.integer);
-	if (!Q_stricmp(fuckVote->fucked, "duo"))
-		numRequired = 8;
+	if (!Q_stricmpn(fuckVote->fucked, "duo", 3))
+		numRequired = 16;
 
 	if (!Q_stricmp(fuckVote->fucked, "hannah"))
 		numRequired = 1;
