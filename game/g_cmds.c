@@ -1542,6 +1542,11 @@ void Cmd_Team_f( gentity_t *ent ) {
 		return;
 	}
 
+	if (level.voteTime && level.multiVoting && g_vote_preventSwitchingTeamsDuringMapVote.integer) {
+		PrintIngame(ent - g_entities, "Cannot switch teams during a map vote.\n");
+		return;
+	}
+
 	if ( ent->client->switchTeamTime > level.time ) {
 		trap_SendServerCommand( ent-g_entities, va("print \"%s\n\"", G_GetStringEdString("MP_SVGAME", "NOSWITCH")) );
 		return;
@@ -2011,6 +2016,13 @@ void Cmd_Follow_f( gentity_t *ent ) {
 		return;
 	}
 
+	if (ent->client->sess.sessionTeam != TEAM_SPECTATOR) {
+		if (level.voteTime && level.multiVoting && g_vote_preventSwitchingTeamsDuringMapVote.integer) {
+			PrintIngame(ent - g_entities, "Cannot switch teams during a map vote.\n");
+			return;
+		}
+	}
+
 	// if they are playing a tournement game, count as a loss
 	if ( (g_gametype.integer == GT_DUEL || g_gametype.integer == GT_POWERDUEL)
 		&& ent->client->sess.sessionTeam == TEAM_FREE ) {
@@ -2045,6 +2057,14 @@ void Cmd_FollowCycle_f( gentity_t *ent, int dir ) {
 		//WTF???
 		ent->client->sess.losses++;
 	}
+
+	if (ent->client->sess.sessionTeam != TEAM_SPECTATOR) {
+		if (level.voteTime && level.multiVoting && g_vote_preventSwitchingTeamsDuringMapVote.integer) {
+			PrintIngame(ent - g_entities, "Cannot switch teams during a map vote.\n");
+			return;
+		}
+	}
+
 	// first set them to spectator
 	if ( ent->client->sess.spectatorState == SPECTATOR_NOT ) {
 		if ( ent->client->sess.inRacemode ) {
@@ -2099,6 +2119,13 @@ void Cmd_FollowFlag_f( gentity_t *ent )
 	int		clientnum;
 	int		original;
 
+	if (ent->client->sess.sessionTeam != TEAM_SPECTATOR) {
+		if (level.voteTime && level.multiVoting && g_vote_preventSwitchingTeamsDuringMapVote.integer) {
+			PrintIngame(ent - g_entities, "Cannot switch teams during a map vote.\n");
+			return;
+		}
+	}
+
 	// first set them to spectator
 	if ( ent->client->sess.spectatorState == SPECTATOR_NOT ) {
 		SetTeam( ent, "spectator" );
@@ -2144,6 +2171,13 @@ void Cmd_FollowFlag_f( gentity_t *ent )
 }
 
 void Cmd_FollowTarget_f(gentity_t *ent) {
+	if (ent->client->sess.sessionTeam != TEAM_SPECTATOR) {
+		if (level.voteTime && level.multiVoting && g_vote_preventSwitchingTeamsDuringMapVote.integer) {
+			PrintIngame(ent - g_entities, "Cannot switch teams during a map vote.\n");
+			return;
+		}
+	}
+	
 	// first set them to spectator
 	if (ent->client->sess.spectatorState == SPECTATOR_NOT) {
 		SetTeam(ent, "spectator");

@@ -576,6 +576,7 @@ vmCvar_t	g_vote_audioMotivation;
 vmCvar_t	g_vote_notifyTeammatesOfMapChoice;
 vmCvar_t	g_vote_underdogTeamMapVoteTiebreakerThreshold;
 vmCvar_t	g_vote_fuckRequiredVotes;
+vmCvar_t	g_vote_preventSwitchingTeamsDuringMapVote;
 
 vmCvar_t	g_filterSlurs;
 
@@ -1199,6 +1200,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_notifyTeammatesOfMapChoice, "g_vote_notifyTeammatesOfMapChoice", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_underdogTeamMapVoteTiebreakerThreshold, "g_vote_underdogTeamMapVoteTiebreakerThreshold", "0.519", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_fuckRequiredVotes, "g_vote_fuckRequiredVotes", "3", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_preventSwitchingTeamsDuringMapVote, "g_vote_preventSwitchingTeamsDuringMapVote", "1", CVAR_ARCHIVE, 0, qfalse },
 
 	{ &g_filterSlurs, "g_filterSlurs", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
 
