@@ -2012,9 +2012,20 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 		team1OffenseDefenseDiff,
 		team2OffenseDefenseDiff);
 
-	if (rerollNum < 2) {
-		if (diffPercentage >= 0.04) {
-			TeamGen_DebugPrintf(" difference too great.<br/>");
+	// start with a high cap, then shrink it, then raise it again
+	if ((!rerollNum || rerollNum == 2) && g_vote_teamgen_bImbalanceCapWith0OrTwoRerolls.value > 0) {
+		double cap = g_vote_teamgen_bImbalanceCapWith0OrTwoRerolls.value;
+		cap = (round(cap * 10000) / 10000.0) + 0.00001;
+		if (diffPercentage >= cap) {
+			TeamGen_DebugPrintf(" difference too great (without reroll).<br/>");
+			return;
+		}
+	}
+	else if (rerollNum == 1 && g_vote_teamgen_bImbalanceCapWithOneReroll.value > 0) {
+		double cap = g_vote_teamgen_bImbalanceCapWithOneReroll.value;
+		cap = (round(cap * 10000) / 10000.0) + 0.00001;
+		if (diffPercentage >= cap) {
+			TeamGen_DebugPrintf(" difference too great (with one reroll).<br/>");
 			return;
 		}
 	}
@@ -4081,7 +4092,7 @@ void PrintTeamsProposalsInConsole(pugProposal_t *set, int clientNum) {
 			if (clientNum != -1 && i != clientNum)
 				continue;
 			int accId = ent->client->account ? ent->client->account->id : -1;
-#ifdef _DEBUG
+#ifdef DEBUG_GENERATETEAMS
 			TeamGenerator_QueueServerMessageInConsole(i, va("%sChoice ^5%c%c^7:%s%s^7\nTotal strength: %.2f\n^1Red team:^7 %.2f'/. relative strength, %.2f raw strength\n    ^5Base: %s%s\n    ^6Chase: %s%s\n    ^2Offense: %s%s^7, %s%s^7\n^4Blue team:^7 %.2f'/. relative strength, %.2f raw strength\n    ^5Base: %s%s\n    ^6Chase: %s%s\n    ^2Offense: %s%s^7, %s%s^7\n",
 				numPrinted ? "\n" : "",
 				TEAMGEN_CHAT_COMMAND_CHARACTER,
@@ -4138,7 +4149,7 @@ void PrintTeamsProposalsInConsole(pugProposal_t *set, int clientNum) {
 		}
 
 		if (clientNum == -1) {
-#ifdef _DEBUG
+#ifdef DEBUG_GENERATETEAMS
 			Com_Printf("%sChoice ^5%c%c^7:%s%s^7\nTotal strength: %.2f\n^1Red team:^7 %.2f'/. relative strength, %.2f raw strength\n    ^5Base: ^7%s\n    ^6Chase: ^7%s\n    ^2Offense: ^7%s^7, %s^7\n^4Blue team:^7 %.2f'/. relative strength, %.2f raw strength\n    ^5Base: ^7%s\n    ^6Chase: ^7%s\n    ^2Offense: ^7%s^7, %s^7\n",
 				numPrinted ? "\n" : "",
 				TEAMGEN_CHAT_COMMAND_CHARACTER,

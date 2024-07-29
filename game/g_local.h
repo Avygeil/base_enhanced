@@ -3504,6 +3504,7 @@ extern vmCvar_t		z_debug6;
 extern vmCvar_t		z_debug7;
 extern vmCvar_t		z_debug8;
 extern vmCvar_t		z_debug9;
+extern vmCvar_t		z_debugOther;
 extern vmCvar_t		z_debugPause;
 #endif
 
@@ -3599,6 +3600,8 @@ extern vmCvar_t		g_vote_teamgen_require2VotesOnEachTeam;
 extern vmCvar_t		g_vote_teamgen_readBeforeVotingMilliseconds;
 extern vmCvar_t		g_vote_teamgen_readBeforeVotingMillisecondsJawa;
 extern vmCvar_t		g_vote_teamgen_preventBindsWith8PlayersMilliseconds;
+extern vmCvar_t		g_vote_teamgen_bImbalanceCapWith0OrTwoRerolls;
+extern vmCvar_t		g_vote_teamgen_bImbalanceCapWithOneReroll;
 extern vmCvar_t		g_vote_teamgen_acdImbalanceCapWithoutReroll;
 extern vmCvar_t		g_vote_teamgen_acdImbalanceCapWithOneReroll;
 extern vmCvar_t		g_vote_teamgen_dynamicVoteRequirement;

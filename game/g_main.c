@@ -427,6 +427,7 @@ vmCvar_t	z_debug6;
 vmCvar_t	z_debug7;
 vmCvar_t	z_debug8;
 vmCvar_t	z_debug9;
+vmCvar_t	z_debugOther;
 vmCvar_t	z_debugPause;
 #endif
 
@@ -563,6 +564,8 @@ vmCvar_t	g_vote_teamgen_require2VotesOnEachTeam;
 vmCvar_t	g_vote_teamgen_readBeforeVotingMilliseconds;
 vmCvar_t	g_vote_teamgen_readBeforeVotingMillisecondsJawa;
 vmCvar_t	g_vote_teamgen_preventBindsWith8PlayersMilliseconds;
+vmCvar_t	g_vote_teamgen_bImbalanceCapWith0OrTwoRerolls;
+vmCvar_t	g_vote_teamgen_bImbalanceCapWithOneReroll;
 vmCvar_t	g_vote_teamgen_acdImbalanceCapWithoutReroll;
 vmCvar_t	g_vote_teamgen_acdImbalanceCapWithOneReroll;
 vmCvar_t	g_vote_teamgen_dynamicVoteRequirement;
@@ -1045,6 +1048,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &z_debug7, "z_debug7", "", 0, 0, qtrue },
 	{ &z_debug8, "z_debug8", "", 0, 0, qtrue },
 	{ &z_debug9, "z_debug9", "", 0, 0, qtrue },
+	{ &z_debugOther, "z_debugOther", "", 0, 0, qtrue },
 	{ &z_debugPause, "z_debugPause", "0", 0, 0, qtrue },
 #endif
 
@@ -1188,8 +1192,10 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_teamgen_readBeforeVotingMilliseconds, "g_vote_teamgen_readBeforeVotingMilliseconds", "5000", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_readBeforeVotingMillisecondsJawa, "g_vote_teamgen_readBeforeVotingMillisecondsJawa", "10000", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_preventBindsWith8PlayersMilliseconds, "g_vote_teamgen_preventBindsWith8PlayersMilliseconds", "50", CVAR_ARCHIVE, 0, qfalse },
-	{ &g_vote_teamgen_acdImbalanceCapWithoutReroll, "g_vote_teamgen_acdImbalanceCapWithoutReroll", "0.018", CVAR_ARCHIVE, 0, qfalse },
-	{ &g_vote_teamgen_acdImbalanceCapWithOneReroll, "g_vote_teamgen_acdImbalanceCapWithOneReroll", "0.038", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_teamgen_bImbalanceCapWith0OrTwoRerolls, "g_vote_teamgen_bImbalanceCapWith0OrTwoRerolls", "0.0382", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_teamgen_bImbalanceCapWithOneReroll, "g_vote_teamgen_bImbalanceCapWithOneReroll", "0.0182", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_teamgen_acdImbalanceCapWithoutReroll, "g_vote_teamgen_acdImbalanceCapWithoutReroll", "0.0182", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_teamgen_acdImbalanceCapWithOneReroll, "g_vote_teamgen_acdImbalanceCapWithOneReroll", "0.0382", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_dynamicVoteRequirement, "g_vote_teamgen_dynamicVoteRequirement", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_freezeUntilVote, "g_vote_freezeUntilVote", "-1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_lessPlayedMapsDisfavoredInRunoffEliminations, "g_vote_lessPlayedMapsDisfavoredInRunoffEliminations", "10", CVAR_ARCHIVE, 0, qfalse },
