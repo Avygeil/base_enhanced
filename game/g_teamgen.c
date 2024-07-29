@@ -5699,8 +5699,39 @@ qboolean TeamGenerator_VoteYesToPugProposal(gentity_t *ent, int num, pugProposal
 		}
 	}
 
-	int numRequired = g_vote_teamgen_pug_requiredVotes.integer ? g_vote_teamgen_pug_requiredVotes.integer : 4;
-	if (pugIsLive && numRequired == 4 && g_vote_teamgen_preventStartDuringPug.integer)
+	int numRequired = 4;
+
+	if (g_vote_teamgen_autoAdjustRequiredPugVotes.integer) {
+		// count number of players ingame with pos
+		int numIngameWithPos = 0;
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *ingameWithPos = &g_entities[i];
+			if (!ingameWithPos->client || ingameWithPos->client->pers.connected != CON_CONNECTED)
+				continue;
+			if (IsRacerOrSpectator(ingameWithPos) || GetRemindedPosOrDeterminedPos(ingameWithPos) == CTFPOSITION_UNKNOWN)
+				continue;
+			++numIngameWithPos;
+		}
+
+		// count number of pickable players
+		int numPickable = 0;
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *pickable = &g_entities[i];
+			if (!pickable->client || pickable->client->pers.connected != CON_CONNECTED || !pickable->client->account)
+				continue;
+			if (pickable->client->pers.hasSpecName)
+				continue;
+			if (TeamGenerator_PlayerIsBarredFromTeamGenerator(pickable))
+				continue;
+			++numPickable;
+		}
+
+		if (numIngameWithPos >= 6 && numPickable >= 12) {
+			numRequired = (numPickable - 8) + 1; // e.g. with 16 pickables, require 9 to re?start
+		}
+	}
+
+	if (pugIsLive && numRequired < 5 && g_vote_teamgen_preventStartDuringPug.integer)
 		numRequired = 5; // require 5 votes instead of 4 if vote is called during live pug
 
 	if (newMessage) {
@@ -6964,8 +6995,8 @@ qboolean TeamGenerator_VoteToBar(gentity_t *ent, const char *voteStr, char **new
 			ClientUserinfoChanged(i);
 		}
 
-		TeamGenerator_QueueServerMessageInChat(-1, va("%s^7 was barred from team generation by vote.", barVote->accountName));
-		ListRemove(&level.barVoteList, barVote);
+		char announcementBuf[MAX_STRING_CHARS] = { 0 };
+		Com_sprintf(announcementBuf, sizeof(announcementBuf), "%s^7 was barred from team generation by vote.", barVote->accountName);
 
 		// automatically start and pass a new pug if:
 		// - we aren't in the middle of one, AND
@@ -6980,7 +7011,11 @@ qboolean TeamGenerator_VoteToBar(gentity_t *ent, const char *voteStr, char **new
 			qboolean inPug = !!(level.wasRestarted && !level.someoneWasAFK && level.numTeamTicks && numCurrentlyIngame >= 6 &&
 				fabs(avgRed - round(avgRed)) < 0.2f && fabs(avgBlue - round(avgBlue)) < 0.2f);
 
-			if (!inPug) {
+			if (inPug) {
+				TeamGenerator_QueueServerMessageInChat(-1, announcementBuf);
+				ListRemove(&level.barVoteList, barVote);
+			}
+			else {
 				qboolean shouldStartNewProposal = qfalse;
 
 				// is he in the currently active pug proposal?
@@ -7013,15 +7048,54 @@ qboolean TeamGenerator_VoteToBar(gentity_t *ent, const char *voteStr, char **new
 					}
 				}
 
+				// however, if 12+ connected and 6+ ingame with pos, don't auto start
+				if (shouldStartNewProposal && g_vote_teamgen_barVoteDoesntStartNewPugIfManyPlayers.integer) {
+					// count number of players ingame with pos
+					int numIngameWithPos = 0;
+					for (int i = 0; i < MAX_CLIENTS; i++) {
+						gentity_t *ingameWithPos = &g_entities[i];
+						if (!ingameWithPos->client || ingameWithPos->client->pers.connected != CON_CONNECTED)
+							continue;
+						if (IsRacerOrSpectator(ingameWithPos) || GetRemindedPosOrDeterminedPos(ingameWithPos) == CTFPOSITION_UNKNOWN)
+							continue;
+						++numIngameWithPos;
+					}
+
+					// count number of pickable players
+					int numPickable = 0;
+					for (int i = 0; i < MAX_CLIENTS; i++) {
+						gentity_t *pickable = &g_entities[i];
+						if (!pickable->client || pickable->client->pers.connected != CON_CONNECTED || !pickable->client->account)
+							continue;
+						if (pickable->client->pers.hasSpecName)
+							continue;
+						if (TeamGenerator_PlayerIsBarredFromTeamGenerator(pickable))
+							continue;
+						++numPickable;
+					}
+
+					if (numIngameWithPos >= 6 && numPickable >= 12) {
+						shouldStartNewProposal = qfalse;
+					}
+				}
+
 				// if either was true, start and pass new proposal
 				if (shouldStartNewProposal) {
 					Com_Printf("Attempting to automatically start pug due to passed bar vote.\n");
+					TeamGenerator_QueueServerMessageInChat(-1, va("%s Automatically passing a new pug proposal.", announcementBuf));
+					ListRemove(&level.barVoteList, barVote);
 					trap_SendConsoleCommand(EXEC_APPEND, "pug startpass\n");
 				}
 				else {
-					Com_Printf("Not attempting to automatically start pug due to passed bar vote because barred player is not in active pug proposal.\n");
+					Com_Printf("NOT attempting to automatically start pug due to passed bar vote.\n");
+					TeamGenerator_QueueServerMessageInChat(-1, announcementBuf);
+					ListRemove(&level.barVoteList, barVote);
 				}
 			}
+		}
+		else {
+			TeamGenerator_QueueServerMessageInChat(-1, announcementBuf);
+			ListRemove(&level.barVoteList, barVote);
 		}
 	}
 

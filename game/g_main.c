@@ -539,7 +539,6 @@ vmCvar_t	g_vote_overrideTrollVoters;
 vmCvar_t	g_vote_runoffRerollOption;
 
 vmCvar_t	g_vote_teamgen;
-vmCvar_t	g_vote_teamgen_pug_requiredVotes;
 vmCvar_t	g_vote_teamgen_subhelp;
 vmCvar_t	g_vote_teamgen_rustWeeks;
 vmCvar_t	g_vote_teamgen_minSecsSinceIntermission;
@@ -556,6 +555,7 @@ vmCvar_t	g_vote_teamgen_preventStartDuringPug;
 vmCvar_t	g_vote_teamgen_banLastPlayedPermutation;
 vmCvar_t	g_vote_teamgen_enableBarVote;
 vmCvar_t	g_vote_teamgen_barVoteStartsNewPug;
+vmCvar_t	g_vote_teamgen_barVoteDoesntStartNewPugIfManyPlayers;
 vmCvar_t	g_vote_teamgen_unvote;
 vmCvar_t	g_vote_teamgen_fuck;
 vmCvar_t	g_vote_teamgen_new8PlayerAlgo;
@@ -577,6 +577,7 @@ vmCvar_t	g_vote_notifyTeammatesOfMapChoice;
 vmCvar_t	g_vote_underdogTeamMapVoteTiebreakerThreshold;
 vmCvar_t	g_vote_fuckRequiredVotes;
 vmCvar_t	g_vote_preventSwitchingTeamsDuringMapVote;
+vmCvar_t	g_vote_teamgen_autoAdjustRequiredPugVotes;
 
 vmCvar_t	g_filterSlurs;
 
@@ -1164,7 +1165,6 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_teamgen_autoMapVoteNonAfkAutoVoteYesSeconds, "g_vote_teamgen_autoMapVoteNonAfkAutoVoteYesSeconds", "5", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_runoffRerollOption, "g_vote_runoffRerollOption", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 
-	{ &g_vote_teamgen_pug_requiredVotes, "g_vote_teamgen_pug_requiredVotes", "4", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_teamgen_subhelp, "g_vote_teamgen_subhelp", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_rustWeeks, "g_vote_teamgen_rustWeeks", "12", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
 	{ &g_vote_teamgen_minSecsSinceIntermission, "g_vote_teamgen_minSecsSinceIntermission", "30", CVAR_ARCHIVE, 0, qfalse },
@@ -1180,6 +1180,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_teamgen_banLastPlayedPermutation, "g_vote_teamgen_banLastPlayedPermutation", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_enableBarVote, "g_vote_teamgen_enableBarVote", "5", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_barVoteStartsNewPug, "g_vote_teamgen_barVoteStartsNewPug", "1", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_teamgen_barVoteDoesntStartNewPugIfManyPlayers, "g_vote_teamgen_barVoteDoesntStartNewPugIfManyPlayers", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_unvote, "g_vote_teamgen_unvote", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_fuck, "g_vote_teamgen_fuck", "100", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_new8PlayerAlgo, "g_vote_teamgen_new8PlayerAlgo", "1", CVAR_ARCHIVE, 0, qfalse },
@@ -1201,6 +1202,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_underdogTeamMapVoteTiebreakerThreshold, "g_vote_underdogTeamMapVoteTiebreakerThreshold", "0.519", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_fuckRequiredVotes, "g_vote_fuckRequiredVotes", "3", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_preventSwitchingTeamsDuringMapVote, "g_vote_preventSwitchingTeamsDuringMapVote", "1", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_teamgen_autoAdjustRequiredPugVotes, "g_vote_teamgen_autoAdjustRequiredPugVotes", "1", CVAR_ARCHIVE, 0, qfalse },
 
 	{ &g_filterSlurs, "g_filterSlurs", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
 

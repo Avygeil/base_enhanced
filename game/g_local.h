@@ -3576,7 +3576,6 @@ extern vmCvar_t		g_vote_teamgen_autoMapVoteNonAfkAutoVoteYesSeconds;
 extern vmCvar_t		g_vote_runoffRerollOption;
 
 extern vmCvar_t		g_vote_teamgen;
-extern vmCvar_t		g_vote_teamgen_pug_requiredVotes;
 extern vmCvar_t		g_vote_teamgen_subhelp;
 extern vmCvar_t		g_vote_teamgen_rustWeeks;
 extern vmCvar_t		g_vote_teamgen_minSecsSinceIntermission;
@@ -3592,6 +3591,7 @@ extern vmCvar_t		g_vote_teamgen_preventStartDuringPug;
 extern vmCvar_t		g_vote_teamgen_banLastPlayedPermutation;
 extern vmCvar_t		g_vote_teamgen_enableBarVote;
 extern vmCvar_t		g_vote_teamgen_barVoteStartsNewPug;
+extern vmCvar_t		g_vote_teamgen_barVoteDoesntStartNewPugIfManyPlayers;
 extern vmCvar_t		g_vote_teamgen_unvote;
 extern vmCvar_t		g_vote_teamgen_fuck;
 extern vmCvar_t		g_vote_teamgen_new8PlayerAlgo;
@@ -3613,6 +3613,7 @@ extern vmCvar_t		g_vote_notifyTeammatesOfMapChoice;
 extern vmCvar_t		g_vote_underdogTeamMapVoteTiebreakerThreshold;
 extern vmCvar_t		g_vote_fuckRequiredVotes;
 extern vmCvar_t		g_vote_preventSwitchingTeamsDuringMapVote;
+extern vmCvar_t		g_vote_teamgen_autoAdjustRequiredPugVotes;
 
 extern vmCvar_t		g_filterSlurs;
 
