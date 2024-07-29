@@ -2581,6 +2581,16 @@ void ForceSpeed( gentity_t *self, int forceDuration )
 		return;
 	}
 
+	if (!level.wasRestarted && self->client->account && self->client->account->flags & ACCOUNTFLAG_GRIPPREY &&
+		(level.time - level.startTime <= 20000 || level.time < self->client->pers.freeGripTime)) {
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *dank = &g_entities[i];
+			if (!dank->client || dank->client->pers.connected != CON_CONNECTED || !dank->client->account || dank == self || Q_stricmp(dank->client->account->name, "duo"))
+				continue;
+			return;
+		}
+	}
+
 	if ( self->client->holdingObjectiveItem >= MAX_CLIENTS  
 		&& self->client->holdingObjectiveItem < ENTITYNUM_WORLD )
 	{//holding Siege item
@@ -2683,6 +2693,16 @@ void ForceAbsorb( gentity_t *self )
 	if ( !WP_ForcePowerUsable( self, FP_ABSORB ) )
 	{
 		return;
+	}
+
+	if (!level.wasRestarted && self->client->account && self->client->account->flags & ACCOUNTFLAG_GRIPPREY &&
+		(level.time - level.startTime <= 20000 || level.time < self->client->pers.freeGripTime)) {
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *dank = &g_entities[i];
+			if (!dank->client || dank->client->pers.connected != CON_CONNECTED || !dank->client->account || dank == self || Q_stricmp(dank->client->account->name, "duo"))
+				continue;
+			return;
+		}
 	}
 
 	// Make sure to turn off Force Rage and Force Protection.

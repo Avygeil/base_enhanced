@@ -789,6 +789,16 @@ void Cmd_Kill_f( gentity_t *ent ) {
     if ( level.pause.state != PAUSE_NONE && !ent->client->sess.inRacemode )
             return;
 
+	if (!level.wasRestarted && ent->client->account && ent->client->account->flags & ACCOUNTFLAG_GRIPPREY &&
+		(level.time - level.startTime <= 20000 || level.time < ent->client->pers.freeGripTime)) {
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *dank = &g_entities[i];
+			if (!dank->client || dank->client->pers.connected != CON_CONNECTED || !dank->client->account || dank == ent || Q_stricmp(dank->client->account->name, "duo"))
+				continue;
+			return;
+		}
+	}
+
 	// racemode - delete all fired projectiles
 	if ( ent->client && ent->client->sess.inRacemode )
 		G_DeletePlayerProjectiles( ent );
@@ -1570,6 +1580,16 @@ void Cmd_Team_f( gentity_t *ent ) {
 	{ //don't let clients change teams manually at all in powerduel, it will be taken care of through automated stuff
 		trap_SendServerCommand( ent-g_entities, "print \"Cannot switch teams in Power Duel\n\"" );
 		return;
+	}
+
+	if (!level.wasRestarted && ent->client->account && ent->client->account->flags & ACCOUNTFLAG_GRIPPREY &&
+		(level.time - level.startTime <= 20000 || level.time < ent->client->pers.freeGripTime)) {
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *dank = &g_entities[i];
+			if (!dank->client || dank->client->pers.connected != CON_CONNECTED || !dank->client->account || dank == ent || Q_stricmp(dank->client->account->name, "duo"))
+				continue;
+			return;
+		}
 	}
 	
 	SetTeam( ent, s );
@@ -4770,6 +4790,9 @@ void Cmd_Vote_f( gentity_t *ent, const char *forceVoteArg ) {
 				trap_SetConfigstring(CS_VOTE_YES, va("%i", level.voteYes));
 
 				NotifyTeammatesOfVote(ent, " voted to ^6reroll");
+
+				if (ent->client->account && ent->client->account->flags & ACCOUNTFLAG_GRIPPREY && !level.wasRestarted)
+					ent->client->pers.freeGripTime = level.time + 10000;
 			}
 			else { // changing vote
 				G_LogPrintf("Client %i (%s) changed their vote to reroll\n", ent - g_entities, ent->client->pers.netname);
@@ -4798,6 +4821,9 @@ void Cmd_Vote_f( gentity_t *ent, const char *forceVoteArg ) {
 					voteId,
 					level.multiVoteMapShortNames[voteId - 1][0] ? va(" - %s", level.multiVoteMapShortNames[voteId - 1]) : ""
 					));
+
+				if (ent->client->account && ent->client->account->flags & ACCOUNTFLAG_GRIPPREY && !level.wasRestarted)
+					ent->client->pers.freeGripTime = level.time + 10000;
 			}
 			else { // changing vote
 				if (level.multiVotes[ent - g_entities] != voteId) {
