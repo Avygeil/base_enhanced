@@ -3618,6 +3618,7 @@ extern vmCvar_t		g_vote_fuckRequiredVotes;
 extern vmCvar_t		g_vote_preventSwitchingTeamsDuringMapVote;
 extern vmCvar_t		g_vote_teamgen_autoAdjustRequiredPugVotes;
 extern vmCvar_t		g_vote_teamgen_sumOfSquaresTiebreaker;
+extern vmCvar_t		g_vote_teamgen_aDietB;
 
 extern vmCvar_t		g_filterSlurs;
 
