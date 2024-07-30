@@ -5365,6 +5365,8 @@ void ClientDisconnect( int clientNum ) {
 				level.activePugProposal->semiDesiredVoteClientsRed &= ~(1 << clientNum);
 			if (level.activePugProposal->inclusive.valid && level.activePugProposal->inclusiveVoteClientsRed & (1 << clientNum))
 				level.activePugProposal->inclusiveVoteClientsRed &= ~(1 << clientNum);
+			if (level.activePugProposal->firstChoice.valid && level.activePugProposal->firstChoiceVoteClientsRed & (1 << clientNum))
+				level.activePugProposal->firstChoiceVoteClientsRed &= ~(1 << clientNum);
 
 			if (level.activePugProposal->suggested.valid && level.activePugProposal->suggestedVoteClientsBlue & (1 << clientNum))
 				level.activePugProposal->suggestedVoteClientsBlue &= ~(1 << clientNum);
@@ -5378,6 +5380,8 @@ void ClientDisconnect( int clientNum ) {
 				level.activePugProposal->semiDesiredVoteClientsBlue &= ~(1 << clientNum);
 			if (level.activePugProposal->inclusive.valid && level.activePugProposal->inclusiveVoteClientsBlue & (1 << clientNum))
 				level.activePugProposal->inclusiveVoteClientsBlue &= ~(1 << clientNum);
+			if (level.activePugProposal->firstChoice.valid && level.activePugProposal->firstChoiceVoteClientsBlue & (1 << clientNum))
+				level.activePugProposal->firstChoiceVoteClientsBlue &= ~(1 << clientNum);
 
 			qboolean partOfActiveProposal = qfalse;
 			for (int i = 0; i < MAX_CLIENTS; i++) {
@@ -5569,6 +5573,18 @@ void ClientDisconnect( int clientNum ) {
 						--numValid;
 						removedSlot4 = qtrue;
 						slot4Letter = set->semiDesiredLetter;
+					}
+				}
+				if (set->firstChoice.valid) {
+					++numValid;
+					if (set->firstChoice.teams[0].baseId == ent->client->account->id || set->firstChoice.teams[0].chaseId == ent->client->account->id ||
+						set->firstChoice.teams[0].offenseId1 == ent->client->account->id || set->firstChoice.teams[0].offenseId2 == ent->client->account->id ||
+						set->firstChoice.teams[1].baseId == ent->client->account->id || set->firstChoice.teams[1].chaseId == ent->client->account->id ||
+						set->firstChoice.teams[1].offenseId1 == ent->client->account->id || set->firstChoice.teams[1].offenseId2 == ent->client->account->id) {
+						set->firstChoice.valid = qfalse;
+						--numValid;
+						removedSlot4 = qtrue;
+						slot4Letter = set->firstChoiceLetter;
 					}
 				}
 				if (numValid <= 0) { // no more valid teams permutations; destroy this set

@@ -544,6 +544,7 @@ vmCvar_t	g_vote_teamgen_subhelp;
 vmCvar_t	g_vote_teamgen_rustWeeks;
 vmCvar_t	g_vote_teamgen_minSecsSinceIntermission;
 vmCvar_t	g_vote_teamgen_enableAppeasing;
+vmCvar_t	g_vote_teamgen_enableFirstChoice;
 vmCvar_t	g_vote_teamgen_enableInclusive;
 vmCvar_t	g_vote_teamgen_remindPositions;
 vmCvar_t	g_vote_teamgen_remindToSetPositions;
@@ -1175,6 +1176,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_teamgen_rustWeeks, "g_vote_teamgen_rustWeeks", "12", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
 	{ &g_vote_teamgen_minSecsSinceIntermission, "g_vote_teamgen_minSecsSinceIntermission", "30", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_enableAppeasing, "g_vote_teamgen_enableAppeasing", "1", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_teamgen_enableFirstChoice, "g_vote_teamgen_enableFirstChoice", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_enableInclusive, "g_vote_teamgen_enableInclusive", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_remindPositions, "g_vote_teamgen_remindPositions", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_remindToSetPositions, "g_vote_teamgen_remindToSetPositions", "1", CVAR_ARCHIVE, 0, qfalse },

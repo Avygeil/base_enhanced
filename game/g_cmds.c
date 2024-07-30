@@ -841,6 +841,8 @@ void Cmd_Kill_f( gentity_t *ent ) {
 					hasVoted = qtrue;
 				else if (level.activePugProposal->inclusive.valid && level.activePugProposal->inclusiveVoteClientsRed & (1 << ent->s.number))
 					hasVoted = qtrue;
+				else if (level.activePugProposal->firstChoice.valid && level.activePugProposal->firstChoiceVoteClientsRed & (1 << ent->s.number))
+					hasVoted = qtrue;
 				else if (level.activePugProposal->suggested.valid && level.activePugProposal->suggestedVoteClientsBlue & (1 << ent->s.number))
 					hasVoted = qtrue;
 				else if (level.activePugProposal->highestCaliber.valid && level.activePugProposal->highestCaliberVoteClientsBlue & (1 << ent->s.number))
@@ -852,6 +854,8 @@ void Cmd_Kill_f( gentity_t *ent ) {
 				else if (level.activePugProposal->desired.valid && level.activePugProposal->semiDesiredVoteClientsBlue & (1 << ent->s.number))
 					hasVoted = qtrue;
 				else if (level.activePugProposal->inclusive.valid && level.activePugProposal->inclusiveVoteClientsBlue & (1 << ent->s.number))
+					hasVoted = qtrue;
+				else if (level.activePugProposal->firstChoice.valid && level.activePugProposal->firstChoiceVoteClientsBlue & (1 << ent->s.number))
 					hasVoted = qtrue;
 				else if (level.activePugProposal->votedToRerollClients & (1 << ent->s.number))
 					hasVoted = qtrue;

@@ -210,6 +210,8 @@ typedef struct {
 	positionPreferences_t posPrefs;
 	int numPermutationsIn;
 	int numPermutationsInAndNonAvoidedPos;
+	int numPermutationsInOnFirstChoicePos;
+	qboolean notOnFirstChoiceInAbc;
 } permutationPlayer_t;
 
 static int SortTeamsInPermutationOfTeams(const void *a, const void *b) {
@@ -1439,6 +1441,10 @@ static void TryTeamPermutation_SemiAppeasing(teamGeneratorContext_t *context, co
 	if (team2chase->numPermutationsIn > 0 && !team2chase->numPermutationsInAndNonAvoidedPos && !(team2chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE))) ++numSatisfiedCyds;
 	if (team2offense1->numPermutationsIn > 0 && !team2offense1->numPermutationsInAndNonAvoidedPos && !(team2offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE))) ++numSatisfiedCyds;
 	if (team2offense2->numPermutationsIn > 0 && !team2offense2->numPermutationsInAndNonAvoidedPos && !(team2offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE))) ++numSatisfiedCyds;
+	if (!numSatisfiedCyds) {
+		TeamGen_DebugPrintf("No satisfied cyds!\n");
+		return;
+	}
 
 	qboolean isBest = qfalse;
 
@@ -1478,6 +1484,339 @@ static void TryTeamPermutation_SemiAppeasing(teamGeneratorContext_t *context, co
 		isBest = qtrue;
 	}
 	
+	if (isBest) {
+		if (context->avoidedHashesList && context->avoidedHashesList->size > 0) {
+			permutationOfTeams_t hashMe = { 0 };
+			hashMe.valid = qtrue;
+			hashMe.iDiff = iDiff;
+			hashMe.offenseDefenseDiff = offenseDefenseDiff;
+			hashMe.numOnPreferredPos = numOnPreferredPos;
+			hashMe.numOnAvoidedPos = numOnAvoidedPos;
+			hashMe.topTierImbalance = topTierImbalance;
+			hashMe.bottomTierImbalance = bottomTierImbalance;
+			//set totalSkill
+			hashMe.teams[0].rawStrength = team1RawStrength;
+			hashMe.teams[1].rawStrength = team2RawStrength;
+			hashMe.teams[0].relativeStrength = team1RelativeStrength;
+			hashMe.teams[1].relativeStrength = team2RelativeStrength;
+			hashMe.teams[0].baseId = team1base->accountId;
+			hashMe.teams[0].chaseId = team1chase->accountId;
+			hashMe.teams[0].offenseId1 = team1offense1->accountId;
+			hashMe.teams[0].offenseId2 = team1offense2->accountId;
+			hashMe.teams[1].baseId = team2base->accountId;
+			hashMe.teams[1].chaseId = team2chase->accountId;
+			hashMe.teams[1].offenseId1 = team2offense1->accountId;
+			hashMe.teams[1].offenseId2 = team2offense2->accountId;
+			for (int i = 0; i < 2; i++) {
+				memset(hashMe.teams[i].baseName, 0, MAX_NAME_LENGTH);
+				memset(hashMe.teams[i].chaseName, 0, MAX_NAME_LENGTH);
+				memset(hashMe.teams[i].offense1Name, 0, MAX_NAME_LENGTH);
+				memset(hashMe.teams[i].offense2Name, 0, MAX_NAME_LENGTH);
+			}
+			Q_strncpyz(hashMe.teams[0].baseName, team1base->accountName, MAX_NAME_LENGTH);
+			Q_strncpyz(hashMe.teams[0].chaseName, team1chase->accountName, MAX_NAME_LENGTH);
+			Q_strncpyz(hashMe.teams[0].offense1Name, team1offense1->accountName, MAX_NAME_LENGTH);
+			Q_strncpyz(hashMe.teams[0].offense2Name, team1offense2->accountName, MAX_NAME_LENGTH);
+			Q_strncpyz(hashMe.teams[1].baseName, team2base->accountName, MAX_NAME_LENGTH);
+			Q_strncpyz(hashMe.teams[1].chaseName, team2chase->accountName, MAX_NAME_LENGTH);
+			Q_strncpyz(hashMe.teams[1].offense1Name, team2offense1->accountName, MAX_NAME_LENGTH);
+			Q_strncpyz(hashMe.teams[1].offense2Name, team2offense2->accountName, MAX_NAME_LENGTH);
+			//numSatisfiedCyds
+
+			NormalizePermutationOfTeams(&hashMe);
+			XXH32_hash_t hash = HashPermutationOfTeams(&hashMe);
+			avoidedHash_t *avoided = ListFind(context->avoidedHashesList, HashMatchesAvoidedHash, &hash, NULL);
+			if (avoided) {
+				TeamGen_DebugPrintf("<font color=darkred>***MATCHES AVOIDED HASH; skipping</font><br/>");
+				--context->numPermutations;
+				return;
+			}
+		}
+
+		context->best->valid = qtrue;
+		context->best->iDiff = iDiff;
+		context->best->offenseDefenseDiff = offenseDefenseDiff;
+		context->best->numOnPreferredPos = numOnPreferredPos;
+		context->best->numOnAvoidedPos = numOnAvoidedPos;
+		context->best->topTierImbalance = topTierImbalance;
+		context->best->bottomTierImbalance = bottomTierImbalance;
+		//set totalSkill
+		context->best->teams[0].rawStrength = team1RawStrength;
+		context->best->teams[1].rawStrength = team2RawStrength;
+		context->best->teams[0].relativeStrength = team1RelativeStrength;
+		context->best->teams[1].relativeStrength = team2RelativeStrength;
+		context->best->teams[0].baseId = team1base->accountId;
+		context->best->teams[0].chaseId = team1chase->accountId;
+		context->best->teams[0].offenseId1 = team1offense1->accountId;
+		context->best->teams[0].offenseId2 = team1offense2->accountId;
+		context->best->teams[1].baseId = team2base->accountId;
+		context->best->teams[1].chaseId = team2chase->accountId;
+		context->best->teams[1].offenseId1 = team2offense1->accountId;
+		context->best->teams[1].offenseId2 = team2offense2->accountId;
+		float lowestPlayerRating = 999999;
+		if (team1base->rating[CTFPOSITION_BASE] < lowestPlayerRating) lowestPlayerRating = team1base->rating[CTFPOSITION_BASE];
+		if (team1chase->rating[CTFPOSITION_CHASE] < lowestPlayerRating) lowestPlayerRating = team1chase->rating[CTFPOSITION_CHASE];
+		if (team1offense1->rating[CTFPOSITION_OFFENSE] < lowestPlayerRating) lowestPlayerRating = team1offense1->rating[CTFPOSITION_OFFENSE];
+		if (team1offense2->rating[CTFPOSITION_OFFENSE] < lowestPlayerRating) lowestPlayerRating = team1offense2->rating[CTFPOSITION_OFFENSE];
+		if (team2base->rating[CTFPOSITION_BASE] < lowestPlayerRating) lowestPlayerRating = team2base->rating[CTFPOSITION_BASE];
+		if (team2chase->rating[CTFPOSITION_CHASE] < lowestPlayerRating) lowestPlayerRating = team2chase->rating[CTFPOSITION_CHASE];
+		if (team2offense1->rating[CTFPOSITION_OFFENSE] < lowestPlayerRating) lowestPlayerRating = team2offense1->rating[CTFPOSITION_OFFENSE];
+		if (team2offense2->rating[CTFPOSITION_OFFENSE] < lowestPlayerRating) lowestPlayerRating = team2offense2->rating[CTFPOSITION_OFFENSE];
+		context->best->lowestPlayerRating = lowestPlayerRating;
+		for (int i = 0; i < 2; i++) {
+			memset(context->best->teams[i].baseName, 0, MAX_NAME_LENGTH);
+			memset(context->best->teams[i].chaseName, 0, MAX_NAME_LENGTH);
+			memset(context->best->teams[i].offense1Name, 0, MAX_NAME_LENGTH);
+			memset(context->best->teams[i].offense2Name, 0, MAX_NAME_LENGTH);
+		}
+		Q_strncpyz(context->best->teams[0].baseName, team1base->accountName, MAX_NAME_LENGTH);
+		Q_strncpyz(context->best->teams[0].chaseName, team1chase->accountName, MAX_NAME_LENGTH);
+		Q_strncpyz(context->best->teams[0].offense1Name, team1offense1->accountName, MAX_NAME_LENGTH);
+		Q_strncpyz(context->best->teams[0].offense2Name, team1offense2->accountName, MAX_NAME_LENGTH);
+		Q_strncpyz(context->best->teams[1].baseName, team2base->accountName, MAX_NAME_LENGTH);
+		Q_strncpyz(context->best->teams[1].chaseName, team2chase->accountName, MAX_NAME_LENGTH);
+		Q_strncpyz(context->best->teams[1].offense1Name, team2offense1->accountName, MAX_NAME_LENGTH);
+		Q_strncpyz(context->best->teams[1].offense2Name, team2offense2->accountName, MAX_NAME_LENGTH);
+		context->best->numSatisfiedCyds = numSatisfiedCyds;
+	}
+	else {
+		TeamGen_DebugPrintf("<br/>");
+	}
+}
+
+static void TryTeamPermutation_FirstChoice(teamGeneratorContext_t *context, const permutationPlayer_t *team1base, const permutationPlayer_t *team1chase,
+	const permutationPlayer_t *team1offense1, const permutationPlayer_t *team1offense2,
+	const permutationPlayer_t *team2base, const permutationPlayer_t *team2chase,
+	const permutationPlayer_t *team2offense1, const permutationPlayer_t *team2offense2) {
+
+	if (!team1base->rating[CTFPOSITION_BASE] || !team1chase->rating[CTFPOSITION_CHASE] || !team1offense1->rating[CTFPOSITION_OFFENSE] || !team1offense2->rating[CTFPOSITION_OFFENSE] ||
+		!team2base->rating[CTFPOSITION_BASE] || !team2chase->rating[CTFPOSITION_CHASE] || !team2offense1->rating[CTFPOSITION_OFFENSE] || !team2offense2->rating[CTFPOSITION_OFFENSE]) {
+		return; // at least one player is invalid on their proposed position
+	}
+
+	++context->numPermutations;
+
+	if (context->banAvoidedPositions) {
+		if ((team1base->posPrefs.avoid & (1 << CTFPOSITION_BASE)) || (team1chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE)) || (team1offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) || (team1offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) ||
+			(team2base->posPrefs.avoid & (1 << CTFPOSITION_BASE)) || (team2chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE)) || (team2offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) || (team2offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE))) {
+			return;
+		}
+	}
+
+	double team1RawStrength = team1base->rating[CTFPOSITION_BASE] + team1chase->rating[CTFPOSITION_CHASE] + team1offense1->rating[CTFPOSITION_OFFENSE] + team1offense2->rating[CTFPOSITION_OFFENSE];
+	double team2RawStrength = team2base->rating[CTFPOSITION_BASE] + team2chase->rating[CTFPOSITION_CHASE] + team2offense1->rating[CTFPOSITION_OFFENSE] + team2offense2->rating[CTFPOSITION_OFFENSE];
+	double total = team1RawStrength + team2RawStrength;
+	double team1RelativeStrength = team1RawStrength / total;
+	double team2RelativeStrength = team2RawStrength / total;
+	double diffPercentage = fabs(team1RelativeStrength - team2RelativeStrength);
+	double diff = round(fabs(team1RawStrength - team2RawStrength) / PLAYERRATING_DECIMAL_INCREMENT);
+	int iDiff = (int)diff;
+
+	int team1TopTiers = 0, team2TopTiers = 0;
+	if (PlayerTierFromRating(team1base->rating[CTFPOSITION_BASE]) >= PLAYERRATING_LOW_S) ++team1TopTiers;
+	if (PlayerTierFromRating(team1chase->rating[CTFPOSITION_CHASE]) >= PLAYERRATING_LOW_S) ++team1TopTiers;
+	if (PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) >= PLAYERRATING_LOW_S) ++team1TopTiers;
+	if (PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]) >= PLAYERRATING_LOW_S) ++team1TopTiers;
+	if (PlayerTierFromRating(team2base->rating[CTFPOSITION_BASE]) >= PLAYERRATING_LOW_S) ++team2TopTiers;
+	if (PlayerTierFromRating(team2chase->rating[CTFPOSITION_CHASE]) >= PLAYERRATING_LOW_S) ++team2TopTiers;
+	if (PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) >= PLAYERRATING_LOW_S) ++team2TopTiers;
+	if (PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]) >= PLAYERRATING_LOW_S) ++team2TopTiers;
+	int topTierImbalance = abs(team1TopTiers - team2TopTiers);
+
+	int team1BottomTiers = 0, team2BottomTiers = 0;
+	if (PlayerTierFromRating(team1base->rating[CTFPOSITION_BASE]) <= PLAYERRATING_HIGH_C) ++team1BottomTiers;
+	if (PlayerTierFromRating(team1chase->rating[CTFPOSITION_CHASE]) <= PLAYERRATING_HIGH_C) ++team1BottomTiers;
+	if (PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) <= PLAYERRATING_HIGH_C) ++team1BottomTiers;
+	if (PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]) <= PLAYERRATING_HIGH_C) ++team1BottomTiers;
+	if (PlayerTierFromRating(team2base->rating[CTFPOSITION_BASE]) <= PLAYERRATING_HIGH_C) ++team2BottomTiers;
+	if (PlayerTierFromRating(team2chase->rating[CTFPOSITION_CHASE]) <= PLAYERRATING_HIGH_C) ++team2BottomTiers;
+	if (PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) <= PLAYERRATING_HIGH_C) ++team2BottomTiers;
+	if (PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]) <= PLAYERRATING_HIGH_C) ++team2BottomTiers;
+	int bottomTierImbalance = abs(team1BottomTiers - team2BottomTiers);
+
+	int team1GarbageTiers = 0, team2GarbageTiers = 0;
+	if (PlayerTierFromRating(team1base->rating[CTFPOSITION_BASE]) <= PLAYERRATING_LOW_C) ++team1GarbageTiers;
+	if (PlayerTierFromRating(team1chase->rating[CTFPOSITION_CHASE]) <= PLAYERRATING_LOW_C) ++team1GarbageTiers;
+	if (PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) <= PLAYERRATING_LOW_C) ++team1GarbageTiers;
+	if (PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]) <= PLAYERRATING_LOW_C) ++team1GarbageTiers;
+	if (PlayerTierFromRating(team2base->rating[CTFPOSITION_BASE]) <= PLAYERRATING_LOW_C) ++team2GarbageTiers;
+	if (PlayerTierFromRating(team2chase->rating[CTFPOSITION_CHASE]) <= PLAYERRATING_LOW_C) ++team2GarbageTiers;
+	if (PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) <= PLAYERRATING_LOW_C) ++team2GarbageTiers;
+	if (PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]) <= PLAYERRATING_LOW_C) ++team2GarbageTiers;
+	int garbageTierImbalance = abs(team1GarbageTiers - team2GarbageTiers);
+
+	// reward permutations that put people on preferred positions
+	int numOnPreferredPos = 0, numOnAvoidedPos = 0;
+	if (team1base->posPrefs.avoid & (1 << CTFPOSITION_BASE)) numOnAvoidedPos += 1; else if (team1base->posPrefs.first & (1 << CTFPOSITION_BASE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team1base->posPrefs.second & (1 << CTFPOSITION_BASE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team1base->posPrefs.third & (1 << CTFPOSITION_BASE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+	if (team1chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE)) numOnAvoidedPos += 1; else if (team1chase->posPrefs.first & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team1chase->posPrefs.second & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team1chase->posPrefs.third & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+	if (team1offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team1offense1->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team1offense1->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team1offense1->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+	if (team1offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team1offense2->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team1offense2->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team1offense2->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+	if (team2base->posPrefs.avoid & (1 << CTFPOSITION_BASE)) numOnAvoidedPos += 1; else if (team2base->posPrefs.first & (1 << CTFPOSITION_BASE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team2base->posPrefs.second & (1 << CTFPOSITION_BASE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team2base->posPrefs.third & (1 << CTFPOSITION_BASE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+	if (team2chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE)) numOnAvoidedPos += 1; else if (team2chase->posPrefs.first & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team2chase->posPrefs.second & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team2chase->posPrefs.third & (1 << CTFPOSITION_CHASE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+	if (team2offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team2offense1->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team2offense1->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team2offense1->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+	if (team2offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE)) numOnAvoidedPos += 1; else if (team2offense2->posPrefs.first & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_FIRSTCHOICE; else if (team2offense2->posPrefs.second & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_SECONDCHOICE; else if (team2offense2->posPrefs.third & (1 << CTFPOSITION_OFFENSE)) numOnPreferredPos += PREFERREDPOS_VALUE_THIRDCHOICE;
+
+	int team1OffenseDefenseDiff = 0, team2OffenseDefenseDiff = 0;
+	{
+		double team1DefenseTotal = team1base->rating[CTFPOSITION_BASE] + team1chase->rating[CTFPOSITION_CHASE];
+		double team1OffenseTotal = team1offense1->rating[CTFPOSITION_OFFENSE] + team1offense2->rating[CTFPOSITION_OFFENSE];
+		team1OffenseDefenseDiff = (int)round(fabs(team1DefenseTotal - team1OffenseTotal) * 10000);
+
+		double team2DefenseTotal = team2base->rating[CTFPOSITION_BASE] + team2chase->rating[CTFPOSITION_CHASE];
+		double team2OffenseTotal = team2offense1->rating[CTFPOSITION_OFFENSE] + team2offense2->rating[CTFPOSITION_OFFENSE];
+		team2OffenseDefenseDiff = (int)round(fabs(team2DefenseTotal - team2OffenseTotal) * 10000);
+	}
+	int offenseDefenseDiff = team1OffenseDefenseDiff + team2OffenseDefenseDiff;
+
+	TeamGen_DebugPrintf("SemiAppeasing:%s%s</font>/%s%s</font>/%s%s</font>/%s%s</font> vs. %s%s</font>/%s%s</font>/%s%s</font>/%s%s</font><font color=black> : %0.3f vs. %0.3f raw, %0.2f vs. %0.2f relative, %d numOnPreferredPos, %d numAvoid, %d (%d/%d) garbage imbalance, %d (%d/%d) bottom imbalance, %d (%d/%d) top imbalance, %0.3f total, %0.3f diff, offense/defense diff %d (%d/%d)</font>",
+		team1base->posPrefs.avoid & (1 << CTFPOSITION_BASE) ? "<font color=red>" : team1base->posPrefs.first & (1 << CTFPOSITION_BASE) ? "<font color=darkgreen>" : team1base->posPrefs.second & (1 << CTFPOSITION_BASE) ? "<font color=silver>" : team1base->posPrefs.third & (1 << CTFPOSITION_BASE) ? "<font color=orange>" : "<font color=black>",
+		team1base->accountName,
+		team1chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE) ? "<font color=red>" : team1chase->posPrefs.first & (1 << CTFPOSITION_CHASE) ? "<font color=darkgreen>" : team1chase->posPrefs.second & (1 << CTFPOSITION_CHASE) ? "<font color=silver>" : team1chase->posPrefs.third & (1 << CTFPOSITION_CHASE) ? "<font color=orange>" : "<font color=black>",
+		team1chase->accountName,
+		team1offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE) ? "<font color=red>" : team1offense1->posPrefs.first & (1 << CTFPOSITION_OFFENSE) ? "<font color=darkgreen>" : team1offense1->posPrefs.second & (1 << CTFPOSITION_OFFENSE) ? "<font color=silver>" : team1offense1->posPrefs.third & (1 << CTFPOSITION_OFFENSE) ? "<font color=orange>" : "<font color=black>",
+		team1offense1->accountName,
+		team1offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE) ? "<font color=red>" : team1offense2->posPrefs.first & (1 << CTFPOSITION_OFFENSE) ? "<font color=darkgreen>" : team1offense2->posPrefs.second & (1 << CTFPOSITION_OFFENSE) ? "<font color=silver>" : team1offense2->posPrefs.third & (1 << CTFPOSITION_OFFENSE) ? "<font color=orange>" : "<font color=black>",
+		team1offense2->accountName,
+		team2base->posPrefs.avoid & (1 << CTFPOSITION_BASE) ? "<font color=red>" : team2base->posPrefs.first & (1 << CTFPOSITION_BASE) ? "<font color=darkgreen>" : team2base->posPrefs.second & (1 << CTFPOSITION_BASE) ? "<font color=silver>" : team2base->posPrefs.third & (1 << CTFPOSITION_BASE) ? "<font color=orange>" : "<font color=black>",
+		team2base->accountName,
+		team2chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE) ? "<font color=red>" : team2chase->posPrefs.first & (1 << CTFPOSITION_CHASE) ? "<font color=darkgreen>" : team2chase->posPrefs.second & (1 << CTFPOSITION_CHASE) ? "<font color=silver>" : team2chase->posPrefs.third & (1 << CTFPOSITION_CHASE) ? "<font color=orange>" : "<font color=black>",
+		team2chase->accountName,
+		team2offense1->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE) ? "<font color=red>" : team2offense1->posPrefs.first & (1 << CTFPOSITION_OFFENSE) ? "<font color=darkgreen>" : team2offense1->posPrefs.second & (1 << CTFPOSITION_OFFENSE) ? "<font color=silver>" : team2offense1->posPrefs.third & (1 << CTFPOSITION_OFFENSE) ? "<font color=orange>" : "<font color=black>",
+		team2offense1->accountName,
+		team2offense2->posPrefs.avoid & (1 << CTFPOSITION_OFFENSE) ? "<font color=red>" : team2offense2->posPrefs.first & (1 << CTFPOSITION_OFFENSE) ? "<font color=darkgreen>" : team2offense2->posPrefs.second & (1 << CTFPOSITION_OFFENSE) ? "<font color=silver>" : team2offense2->posPrefs.third & (1 << CTFPOSITION_OFFENSE) ? "<font color=orange>" : "<font color=black>",
+		team2offense2->accountName,
+		team1RawStrength,
+		team2RawStrength,
+		team1RelativeStrength * 100,
+		team2RelativeStrength * 100,
+		numOnPreferredPos,
+		numOnAvoidedPos,
+		garbageTierImbalance,
+		team1GarbageTiers,
+		team2GarbageTiers,
+		bottomTierImbalance,
+		team1BottomTiers,
+		team2BottomTiers,
+		topTierImbalance,
+		team1TopTiers,
+		team2TopTiers,
+		total,
+		diff,
+		offenseDefenseDiff,
+		team1OffenseDefenseDiff,
+		team2OffenseDefenseDiff);
+
+	if (context->enforceImbalanceCaps) {
+		if (!rerollNum && g_vote_teamgen_acdImbalanceCapWithoutReroll.value > 0) {
+			double cap = g_vote_teamgen_acdImbalanceCapWithoutReroll.value;
+			cap = (round(cap * 10000) / 10000.0) + 0.00001;
+			if (diffPercentage >= cap) {
+				TeamGen_DebugPrintf(" difference too great (without reroll).<br/>");
+				return;
+			}
+		}
+		else if (rerollNum == 1 && g_vote_teamgen_acdImbalanceCapWithOneReroll.value > 0) {
+			double cap = g_vote_teamgen_acdImbalanceCapWithOneReroll.value;
+			cap = (round(cap * 10000) / 10000.0) + 0.00001;
+			if (diffPercentage >= cap) {
+				TeamGen_DebugPrintf(" difference too great (with one reroll).<br/>");
+				return;
+			}
+		}
+	}
+
+	if (garbageTierImbalance >= 2) {
+		TeamGen_DebugPrintf(" garbage imbalance too great (>= 2).<br/>");
+		return;
+	}
+
+	if (context->enforceChaseRule) {
+		// make sure each chase isn't too much worse than the best opposing offense
+		{
+			ctfPlayerTier_t team1ChaseTier = PlayerTierFromRating(team1chase->rating[CTFPOSITION_CHASE]);
+			ctfPlayerTier_t highestTeam2OffenseTier = PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) > PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]) ? PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) : PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]);
+			int maxDiff;
+			if (team1ChaseTier <= PLAYERRATING_LOW_B)
+				maxDiff = 2;
+			else if (highestTeam2OffenseTier >= PLAYERRATING_LOW_S)
+				maxDiff = 3;
+			else
+				maxDiff = 4;
+			if (highestTeam2OffenseTier - team1ChaseTier > maxDiff) {
+				TeamGen_DebugPrintf(" unbalanced team 1 chase vs. team 2 offense %d - %d == %d<br/>", highestTeam2OffenseTier, team1ChaseTier, highestTeam2OffenseTier - team1ChaseTier);
+				return;
+			}
+		}
+
+		{
+			ctfPlayerTier_t team2ChaseTier = PlayerTierFromRating(team2chase->rating[CTFPOSITION_CHASE]);
+			ctfPlayerTier_t highestTeam1OffenseTier = PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) > PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]) ? PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) : PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]);
+			int maxDiff;
+			if (team2ChaseTier <= PLAYERRATING_LOW_B)
+				maxDiff = 2;
+			else if (highestTeam1OffenseTier >= PLAYERRATING_LOW_S)
+				maxDiff = 3;
+			else
+				maxDiff = 4;
+			if (highestTeam1OffenseTier - team2ChaseTier > maxDiff) {
+				TeamGen_DebugPrintf(" unbalanced team 2 chase vs. team 1 offense %d - %d == %d<br/>", highestTeam1OffenseTier, team2ChaseTier, highestTeam1OffenseTier - team2ChaseTier);
+				return;
+			}
+		}
+	}
+
+	int numSatisfiedCyds = 0;
+	if (team1base->notOnFirstChoiceInAbc && (team1base->posPrefs.first & (1 << CTFPOSITION_BASE))) ++numSatisfiedCyds;
+	if (team1chase->notOnFirstChoiceInAbc && (team1chase->posPrefs.first & (1 << CTFPOSITION_CHASE))) ++numSatisfiedCyds;
+	if (team1offense1->notOnFirstChoiceInAbc && (team1offense1->posPrefs.first & (1 << CTFPOSITION_OFFENSE))) ++numSatisfiedCyds;
+	if (team1offense2->notOnFirstChoiceInAbc && (team1offense2->posPrefs.first & (1 << CTFPOSITION_OFFENSE))) ++numSatisfiedCyds;
+	if (team2base->notOnFirstChoiceInAbc && (team2base->posPrefs.first & (1 << CTFPOSITION_BASE))) ++numSatisfiedCyds;
+	if (team2chase->notOnFirstChoiceInAbc && (team2chase->posPrefs.first & (1 << CTFPOSITION_CHASE))) ++numSatisfiedCyds;
+	if (team2offense1->notOnFirstChoiceInAbc && (team2offense1->posPrefs.first & (1 << CTFPOSITION_OFFENSE))) ++numSatisfiedCyds;
+	if (team2offense2->notOnFirstChoiceInAbc && (team2offense2->posPrefs.first & (1 << CTFPOSITION_OFFENSE))) ++numSatisfiedCyds;
+	if (!numSatisfiedCyds) {
+		TeamGen_DebugPrintf("No satisfied cyds!\n");
+		return;
+	}
+
+	qboolean isBest = qfalse;
+
+	// this permutation will be favored over the previous permutation if:
+	// - the number of cyds (people in a/b/c, on avoided pos in a/b/c only, and not on avoided pos here) is higher
+	// - equal cyds, but fairer
+	// - equal cyds and fairness, but has more people on preferred pos
+	// - equal cyds and fairness and number of people on preferred pos, but has fewer people on avoided pos
+	// - equal cyds and fairness and number of people on preferred and avoided pos, but has better balance of bottom tier players
+	// - equal cyds and fairness and number of people on preferred and avoided pos and equal balance of bottom tier players, but has better balance of top tier players
+	// - (8 players only) equal cyds and fairness and number of people on preferred and avoided pos and equal balance of bottom and top tier players, but better offense-defense diff
+	if (numSatisfiedCyds > context->best->numSatisfiedCyds ||
+		(numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff < context->best->iDiff) ||
+		(numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numOnPreferredPos > context->best->numOnPreferredPos) ||
+		(numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos) ||
+		(numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance < context->best->bottomTierImbalance) ||
+		(numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance) ||
+		(numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && (context->numEligible == 8 && offenseDefenseDiff < context->best->offenseDefenseDiff))) {
+
+		if (numSatisfiedCyds > context->best->numSatisfiedCyds)
+			TeamGen_DebugPrintf(" <font color=purple>best so far (more satisfied cyds)</font><br/>");
+		else if (numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff < context->best->iDiff)
+			TeamGen_DebugPrintf(" <font color=purple>best so far (same satisfied cyds, but fairer)</font><br/>");
+		else if (numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numOnPreferredPos > context->best->numOnPreferredPos)
+			TeamGen_DebugPrintf(" <font color=purple>best so far (same satisfied cyds and fairness, but more preferred pos)</font><br/>");
+		else if (numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos)
+			TeamGen_DebugPrintf(" <font color=purple>best so far (same satisfied cyds, fairness and preferred pos, but less on avoided pos)</font><br/>");
+		else if (numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance < context->best->bottomTierImbalance)
+			TeamGen_DebugPrintf(" <font color=purple>best so far (same satisfied cyds, fairness, preferred pos, and avoided pos, but better bottom tier balance)</font><br/>");
+		else if (numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)
+			TeamGen_DebugPrintf(" <font color=purple>best so far (same satisfied cyds, fairness, preferred pos, avoided pos, and bottom tier balance, but better top tier balance)</font><br/>");
+		else if (numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && (context->numEligible == 8 && offenseDefenseDiff < context->best->offenseDefenseDiff))
+			TeamGen_DebugPrintf(" <font color=purple>best so far (same satisfied cyds, fairness, preferred pos, avoided pos, bottom and top tier balance, but 8 players and lower offense-defense diff)</font><br/>");
+		else
+			TeamGen_DebugPrintf("<font color=purple>???</font><br/>");
+
+		isBest = qtrue;
+	}
+
 	if (isBest) {
 		if (context->avoidedHashesList && context->avoidedHashesList->size > 0) {
 			permutationOfTeams_t hashMe = { 0 };
@@ -2933,7 +3272,7 @@ static double WeightOfPlayer(int accountId, permutationOfTeams_t *p1, permutatio
 	return 0;
 }
 
-static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlayed, permutationOfTeams_t *highestCaliber, permutationOfTeams_t *fairest, permutationOfTeams_t *desired, permutationOfTeams_t *inclusive, permutationOfTeams_t *semiDesired, uint64_t *numPermutations, qboolean enforceImbalanceCaps) {
+static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlayed, permutationOfTeams_t *highestCaliber, permutationOfTeams_t *fairest, permutationOfTeams_t *desired, permutationOfTeams_t *inclusive, permutationOfTeams_t *semiDesired, permutationOfTeams_t *firstChoice, uint64_t *numPermutations, qboolean enforceImbalanceCaps) {
 	assert(set);
 #ifdef DEBUG_GENERATETEAMS
 	clock_t start = clock();
@@ -3113,6 +3452,36 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 				zeroOnAvoidedPosExists = qtrue;
 			}
 
+#ifdef DEBUG_GENERATETEAMS
+			for (int j = 0; j < MAX_CLIENTS; j++) {
+				sortedClient_t *cl = set->clients + j;
+				if (!cl->accountName[0])
+					continue;
+
+				if (mostPlayed && mostPlayed->valid) {
+					int pos = PermutationHasPlayer(cl->accountId, mostPlayed);
+					if (pos != CTFPOSITION_UNKNOWN) {
+						if (cl->posPrefs.avoid & (1 << pos))
+							Com_Printf("Player %s has %s on avoid in ?a\n", cl->accountName, NameForPos(pos));
+					}
+				}
+				if (highestCaliber && highestCaliber->valid) {
+					int pos = PermutationHasPlayer(cl->accountId, highestCaliber);
+					if (pos != CTFPOSITION_UNKNOWN) {
+						if (cl->posPrefs.avoid & (1 << pos))
+							Com_Printf("Player %s has %s on avoid in ?b\n", cl->accountName, NameForPos(pos));
+			}
+		}
+				if (fairest && fairest->valid) {
+					int pos = PermutationHasPlayer(cl->accountId, fairest);
+					if (pos != CTFPOSITION_UNKNOWN) {
+						if (cl->posPrefs.avoid & (1 << pos))
+							Com_Printf("Player %s has %s on avoid in ?c\n", cl->accountName, NameForPos(pos));
+					}
+				}
+	}
+#endif
+
 			if (zeroOnAvoidedPosExists)
 				continue;
 		}
@@ -3155,6 +3524,71 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 
 			if (!gotPlayerWithZeroPermutations)
 				continue; // no need to do inclusive pass if everybody is in at least one permutation
+		}
+
+		if (type == TEAMGENERATORTYPE_FIRSTCHOICE) {
+			if (!g_vote_teamgen_enableFirstChoice.integer)
+				continue;
+
+			if ((desired && desired->valid) || (semiDesired && semiDesired->valid) || (inclusive && inclusive->valid))
+				continue; // never do first choice if the desired slot is already in use
+
+			if (!(mostPlayed && mostPlayed->valid) && !(highestCaliber && highestCaliber->valid) && !(fairest && fairest->valid))
+				continue;
+
+			int numPlayers = 0;
+			qboolean gotPlayerWithNoFirstChoice = qfalse;
+			for (int j = 0; j < MAX_CLIENTS; j++) {
+				sortedClient_t *cl = set->clients + j;
+				if (!cl->accountName[0])
+					continue;
+
+#ifndef DEBUG_GENERATETEAMS
+				// make sure this guy hasn't gone spec; we don't want to count him as left out
+				// if he decided to become a spectator after the pug proposal passed
+				if (cl->clientNum >= 0 && cl->clientNum < MAX_CLIENTS) {
+					gentity_t *checkSpec = &g_entities[cl->clientNum];
+					if (!checkSpec->inuse || !checkSpec->client || checkSpec->client->pers.connected == CON_DISCONNECTED ||
+						!checkSpec->client->account || checkSpec->client->sess.clientType != CLIENT_TYPE_NORMAL ||
+						(checkSpec->client->account->flags & ACCOUNTFLAG_ELOBOTSELFHOST && !Q_stricmpclean(checkSpec->client->pers.netname, "elo BOT")) ||
+						TeamGenerator_PlayerIsBarredFromTeamGenerator(checkSpec) ||
+						(IsRacerOrSpectator(checkSpec) && IsSpecName(checkSpec->client->pers.netname))) {
+						continue;
+					}
+				}
+#endif
+
+				if (mostPlayed && mostPlayed->valid) {
+					int pos = PermutationHasPlayer(cl->accountId, mostPlayed);
+					if (pos != CTFPOSITION_UNKNOWN) {
+						if (cl->posPrefs.first & (1 << pos))
+							continue;
+					}
+				}
+				if (highestCaliber && highestCaliber->valid) {
+					int pos = PermutationHasPlayer(cl->accountId, highestCaliber);
+					if (pos != CTFPOSITION_UNKNOWN) {
+						if (cl->posPrefs.first & (1 << pos))
+							continue;
+					}
+				}
+				if (fairest && fairest->valid) {
+					int pos = PermutationHasPlayer(cl->accountId, fairest);
+					if (pos != CTFPOSITION_UNKNOWN) {
+						if (cl->posPrefs.first & (1 << pos))
+							continue;
+					}
+				}
+
+				// if we got here, this guy was not on a first choice in a/b/c
+				gotPlayerWithNoFirstChoice = qtrue;
+#ifdef DEBUG_GENERATETEAMS
+				Com_Printf("Player %s has no first choice in a/b/c\n", cl->accountName);
+#endif
+			}
+
+			if (!gotPlayerWithNoFirstChoice)
+				continue; // no need to do first choice pass if everybody has a first choice
 		}
 		
 		srand(teamGenSeed + (type * 100));
@@ -3386,7 +3820,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 					}
 				}
 			}
-			else if (type == TEAMGENERATORTYPE_FAIREST || type == TEAMGENERATORTYPE_DESIREDPOS || type == TEAMGENERATORTYPE_SEMIDESIREDPOS || type == TEAMGENERATORTYPE_INCLUSIVE) {
+			else if (type == TEAMGENERATORTYPE_FAIREST || type == TEAMGENERATORTYPE_DESIREDPOS || type == TEAMGENERATORTYPE_SEMIDESIREDPOS || type == TEAMGENERATORTYPE_INCLUSIVE || type == TEAMGENERATORTYPE_FIRSTCHOICE) {
 				// get every pos they play, with preference for their most played and second most played
 				memcpy(algoPlayer->rating, positionRatings->rating, sizeof(algoPlayer->rating));
 
@@ -3494,19 +3928,74 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 			// try to get them in their preferred positions if possible
 			if (okayToUsePreference) {
 				if (client->posPrefs.first) {
-					if (algoPlayer->posPrefs.first)
-						algoPlayer->posPrefs.second = algoPlayer->posPrefs.first; // demote computer-determined first choice to second
-					algoPlayer->posPrefs.first = client->posPrefs.first;
+					// if client has a first preference, handle demotions and assignments
+					if (algoPlayer->posPrefs.first) {
+						if (algoPlayer->posPrefs.second) {
+							if (algoPlayer->posPrefs.third) {
+								// there's an existing third preference
+							}
+							algoPlayer->posPrefs.third = algoPlayer->posPrefs.second; // demote second to third
+						}
+						algoPlayer->posPrefs.second = algoPlayer->posPrefs.first; // demote first to second
+					}
+					algoPlayer->posPrefs.first = client->posPrefs.first; // assign client's first preference
 
 					if (client->posPrefs.second) {
-						if (algoPlayer->posPrefs.second)
-							algoPlayer->posPrefs.third = algoPlayer->posPrefs.second; // demote computer-determined second choice to third
-						algoPlayer->posPrefs.second = client->posPrefs.second;
+						if (algoPlayer->posPrefs.second) {
+							if (algoPlayer->posPrefs.third) {
+								// there's an existing third preference
+							}
+							algoPlayer->posPrefs.third = algoPlayer->posPrefs.second; // demote second to third
+						}
+						algoPlayer->posPrefs.second = client->posPrefs.second; // assign client's second preference
 
-						if (client->posPrefs.third)
-							algoPlayer->posPrefs.third = client->posPrefs.third;
+						if (client->posPrefs.third) {
+							algoPlayer->posPrefs.third = client->posPrefs.third; // assign client's third preference
+						}
 					}
 				}
+
+				if (client->posPrefs.first) {
+					// if client has a first preference, handle demotions and assignments
+					if (algoPlayer->posPrefs.first) {
+						if (algoPlayer->posPrefs.second) {
+							if (algoPlayer->posPrefs.third) {
+								// there's an existing third preference
+							}
+							algoPlayer->posPrefs.third = algoPlayer->posPrefs.second; // demote second to third
+						}
+						algoPlayer->posPrefs.second = algoPlayer->posPrefs.first; // demote first to second
+					}
+					algoPlayer->posPrefs.first = client->posPrefs.first; // assign client's first preference
+
+					if (client->posPrefs.second) {
+						if (algoPlayer->posPrefs.second) {
+							if (algoPlayer->posPrefs.third) {
+								// there's an existing third preference
+							}
+							algoPlayer->posPrefs.third = algoPlayer->posPrefs.second; // demote second to third
+						}
+						algoPlayer->posPrefs.second = client->posPrefs.second; // assign client's second preference
+
+						if (client->posPrefs.third) {
+							algoPlayer->posPrefs.third = client->posPrefs.third; // assign client's third preference
+						}
+					}
+				}
+
+				// sanity check to ensure no bitwise conflicts in preferences
+				for (int j = 0; j <= 2; j++) {
+					if ((algoPlayer->posPrefs.first & (1 << j)) != 0) {
+						// cancel out the bit from second and third if present
+						algoPlayer->posPrefs.second &= ~(1 << j);
+						algoPlayer->posPrefs.third &= ~(1 << j);
+					}
+					if ((algoPlayer->posPrefs.second & (1 << j)) != 0) {
+						// cancel out the bit from third if present
+						algoPlayer->posPrefs.third &= ~(1 << j);
+					}
+				}
+
 				if (client->posPrefs.avoid)
 					algoPlayer->posPrefs.avoid = client->posPrefs.avoid;
 			}
@@ -3553,6 +4042,38 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 					++algoPlayer->numPermutationsInAndNonAvoidedPos;
 			}
 		}
+		else if (type == TEAMGENERATORTYPE_FIRSTCHOICE) {
+			for (int j = 0; j < numEligible; j++) {
+				permutationPlayer_t *algoPlayer = players + j;
+				if (!algoPlayer->accountName[0])
+					continue;
+
+				if (mostPlayed && mostPlayed->valid) {
+					int pos = PermutationHasPlayer(algoPlayer->accountId, mostPlayed);
+					if (pos != CTFPOSITION_UNKNOWN) {
+						if (algoPlayer->posPrefs.first & (1 << pos))
+							continue;
+					}
+				}
+				if (highestCaliber && highestCaliber->valid) {
+					int pos = PermutationHasPlayer(algoPlayer->accountId, highestCaliber);
+					if (pos != CTFPOSITION_UNKNOWN) {
+						if (algoPlayer->posPrefs.first & (1 << pos))
+							continue;
+					}
+				}
+				if (fairest && fairest->valid) {
+					int pos = PermutationHasPlayer(algoPlayer->accountId, fairest);
+					if (pos != CTFPOSITION_UNKNOWN) {
+						if (algoPlayer->posPrefs.first & (1 << pos))
+							continue;
+					}
+				}
+
+				// if we got here, this guy was not on a first choice in a/b/c
+				algoPlayer->notOnFirstChoiceInAbc = qtrue;
+			}
+		}
 
 		// evaluate every possible permutation of teams for this teamgen type
 		permutationOfTeams_t try1 = { 0 }, try2 = { 0 };
@@ -3560,20 +4081,62 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 		try1.totalNumPermutations = try2.totalNumPermutations = 999999;
 		try1.totalSkill = try2.totalSkill = 0;
 		PermutationCallback callback;
-		if (type == TEAMGENERATORTYPE_HIGHESTRATING)
+		if (type == TEAMGENERATORTYPE_HIGHESTRATING) {
 			callback = TryTeamPermutation_Tryhard; // prefer hc
-		else if (type == TEAMGENERATORTYPE_FAIREST)
+#ifdef DEBUG_GENERATETEAMS
+			Com_Printf("Using TryTeamPermutation_Tryhard\n");
+			TeamGen_DebugPrintf("<font color=darkgreen>==========Using TryTeamPermutation_Tryhard==========</font><br/>");
+#endif
+		}
+		else if (type == TEAMGENERATORTYPE_FAIREST) {
 			callback = TryTeamPermutation_Fairest; // prefer fairness followed by pos prefs followed by balance considerations
-		else if (type == TEAMGENERATORTYPE_INCLUSIVE)
+#ifdef DEBUG_GENERATETEAMS
+			Com_Printf("Using TryTeamPermutation_Fairest\n");
+			TeamGen_DebugPrintf("<font color=darkgreen>==========Using TryTeamPermutation_Fairest==========</font><br/>");
+#endif
+		}
+		else if (type == TEAMGENERATORTYPE_INCLUSIVE) {
 			callback = TryTeamPermutation_Inclusive; // prefer including people not in a/b/c
-		else if (type == TEAMGENERATORTYPE_DESIREDPOS)
+#ifdef DEBUG_GENERATETEAMS
+			Com_Printf("Using TryTeamPermutation_Inclusive\n");
+			TeamGen_DebugPrintf("<font color=darkgreen>==========Using TryTeamPermutation_Inclusive==========</font><br/>");
+#endif
+		}
+		else if (type == TEAMGENERATORTYPE_DESIREDPOS) {
 			callback = TryTeamPermutation_Appeasing; // same as regular method, but require no avoids and 50-50
-		else if (type == TEAMGENERATORTYPE_SEMIDESIREDPOS)
+#ifdef DEBUG_GENERATETEAMS
+			Com_Printf("Using TryTeamPermutation_Appeasing\n");
+			TeamGen_DebugPrintf("<font color=darkgreen>==========Using TryTeamPermutation_Appeasing==========</font><br/>");
+#endif
+		}
+		else if (type == TEAMGENERATORTYPE_SEMIDESIREDPOS) {
 			callback = TryTeamPermutation_SemiAppeasing; // prefer getting people only on avoids in a/b/c onto non-avoids
-		else if (g_vote_teamgen_aDietB.integer)
+#ifdef DEBUG_GENERATETEAMS
+			Com_Printf("Using TryTeamPermutation_SemiAppeasing\n");
+			TeamGen_DebugPrintf("<font color=darkgreen>==========Using TryTeamPermutation_SemiAppeasing==========</font><br/>");
+#endif
+		}
+		else if (type == TEAMGENERATORTYPE_FIRSTCHOICE) {
+			callback = TryTeamPermutation_FirstChoice;
+#ifdef DEBUG_GENERATETEAMS
+			Com_Printf("Using TryTeamPermutation_FirstChoice\n");
+			TeamGen_DebugPrintf("<font color=darkgreen>==========Using TryTeamPermutation_FirstChoice==========</font><br/>");
+#endif
+		}
+		else if (g_vote_teamgen_aDietB.integer) {
 			callback = TryTeamPermutation_SemiTryhard; // prefer fairness followed by hc
-		else
+#ifdef DEBUG_GENERATETEAMS
+			Com_Printf("Using TryTeamPermutation_SemiTryhard\n");
+			TeamGen_DebugPrintf("<font color=darkgreen>==========Using TryTeamPermutation_SemiTryhard==========</font><br/>");
+#endif
+		}
+		else {
 			callback = TryTeamPermutation; // prefer fairness followed by pos prefs
+#ifdef DEBUG_GENERATETEAMS
+			Com_Printf("Using TryTeamPermutation\n");
+			TeamGen_DebugPrintf("<font color=darkgreen>==========Using TryTeamPermutation==========</font><br/>");
+#endif
+		}
 		TeamGen_DebugPrintf("<font color=darkgreen>==========Permuting teams with type %d and enforceImbalanceCaps %d==========</font><br/>", type, enforceImbalanceCaps);
 
 		uint64_t thisGotten = PermuteTeams(&players[0], numEligible, &try1, callback, qtrue, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qtrue, type, enforceImbalanceCaps);
@@ -3704,6 +4267,10 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 			TeamGen_DebugPrintf("<font color=red>==========Discarding extraneous type %d.==========</font><br/>", type);
 			continue;
 		}
+		else if (type == TEAMGENERATORTYPE_FIRSTCHOICE && ((inclusive && inclusive->valid) || (desired && desired->valid) || (semiDesired && semiDesired->valid))) {
+			TeamGen_DebugPrintf("<font color=red>==========Discarding extraneous type %d.==========</font><br/>", type);
+			continue;
+		}
 
 		if (!thisPermutation->valid) {
 			// still couldn't get a valid permutation for this teamgen type, even without the chase rule
@@ -3720,12 +4287,13 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 			permutationOfTeams_t **compare = NULL;
 
 			switch (compareType) {
-			case TEAMGENERATORTYPE_MOSTPLAYED:     compare = &mostPlayed; break;
-			case TEAMGENERATORTYPE_HIGHESTRATING:  compare = &highestCaliber; break;
-			case TEAMGENERATORTYPE_FAIREST:        compare = &fairest; break;
-			case TEAMGENERATORTYPE_INCLUSIVE:      compare = &inclusive; break;
-			case TEAMGENERATORTYPE_DESIREDPOS:     compare = &desired; break;
-			case TEAMGENERATORTYPE_SEMIDESIREDPOS: compare = &semiDesired; break;
+			case TEAMGENERATORTYPE_MOSTPLAYED:		compare = &mostPlayed; break;
+			case TEAMGENERATORTYPE_HIGHESTRATING:	compare = &highestCaliber; break;
+			case TEAMGENERATORTYPE_FAIREST:			compare = &fairest; break;
+			case TEAMGENERATORTYPE_INCLUSIVE:		compare = &inclusive; break;
+			case TEAMGENERATORTYPE_DESIREDPOS:		compare = &desired; break;
+			case TEAMGENERATORTYPE_SEMIDESIREDPOS:	compare = &semiDesired; break;
+			case TEAMGENERATORTYPE_FIRSTCHOICE:		compare = &firstChoice; break;
 			}
 
 			if (compare && *compare && (*compare)->valid && (*compare)->hash == thisPermutation->hash) {
@@ -3741,12 +4309,13 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 		// copy this permutation to the appropriate supplied pointer
 		permutationOfTeams_t **target = NULL;
 		switch (type) {
-		case TEAMGENERATORTYPE_MOSTPLAYED:     target = &mostPlayed; break;
-		case TEAMGENERATORTYPE_HIGHESTRATING:  target = &highestCaliber; break;
-		case TEAMGENERATORTYPE_FAIREST:        target = &fairest; break;
-		case TEAMGENERATORTYPE_INCLUSIVE:      target = &inclusive; break;
-		case TEAMGENERATORTYPE_DESIREDPOS:     target = &desired; break;
-		case TEAMGENERATORTYPE_SEMIDESIREDPOS: target = &semiDesired; break;
+		case TEAMGENERATORTYPE_MOSTPLAYED:		target = &mostPlayed; break;
+		case TEAMGENERATORTYPE_HIGHESTRATING:	target = &highestCaliber; break;
+		case TEAMGENERATORTYPE_FAIREST:			target = &fairest; break;
+		case TEAMGENERATORTYPE_INCLUSIVE:		target = &inclusive; break;
+		case TEAMGENERATORTYPE_DESIREDPOS:		target = &desired; break;
+		case TEAMGENERATORTYPE_SEMIDESIREDPOS:	target = &semiDesired; break;
+		case TEAMGENERATORTYPE_FIRSTCHOICE:		target = &firstChoice; break;
 		default: assert(qfalse);
 		}
 		if (target && *target) {
@@ -3760,7 +4329,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 
 	if (!numValid && enforceImbalanceCaps) {
 		TeamGen_DebugPrintf("<font color=blue>!!!!!!!!Did not get any valid permutations, retrying without enforcing imbalance caps!!!!!!!!</font><br/>");
-		return GenerateTeams(set, mostPlayed, highestCaliber, fairest, desired, inclusive, semiDesired, numPermutations, qfalse);
+		return GenerateTeams(set, mostPlayed, highestCaliber, fairest, desired, inclusive, semiDesired, firstChoice, numPermutations, qfalse);
 	}
 
 	if (numPermutations)
@@ -3831,7 +4400,7 @@ int main() {
 #define MAX_TEAMGEN_ITERATIONS 32
 
 // wrapper for calling GenerateTeams several times with the goal of finding the fairest distribution of player slots
-static qboolean GenerateTeamsIteratively(pugProposal_t *set, permutationOfTeams_t *mostPlayed, permutationOfTeams_t *highestCaliber, permutationOfTeams_t *fairest, permutationOfTeams_t *desired, permutationOfTeams_t *inclusive, permutationOfTeams_t *semiDesired, uint64_t *numPermutations) {
+static qboolean GenerateTeamsIteratively(pugProposal_t *set, permutationOfTeams_t *mostPlayed, permutationOfTeams_t *highestCaliber, permutationOfTeams_t *fairest, permutationOfTeams_t *desired, permutationOfTeams_t *inclusive, permutationOfTeams_t *semiDesired, permutationOfTeams_t *firstChoice, uint64_t *numPermutations) {
 	double numPlayers = 0.0f;
 	for (int j = 0; j < MAX_CLIENTS; j++) {
 		sortedClient_t *cl = set->clients + j;
@@ -3894,7 +4463,7 @@ static qboolean GenerateTeamsIteratively(pugProposal_t *set, permutationOfTeams_
 		teamGenSeed = originalSeed + (i * 29);
 
 		// generate them according to this seed
-		GenerateTeams(set, &permutations[i][0], &permutations[i][1], &permutations[i][2], &permutations[i][3], &permutations[i][4], &permutations[i][5], numPermutations, qtrue);
+		GenerateTeams(set, &permutations[i][0], &permutations[i][1], &permutations[i][2], &permutations[i][3], &permutations[i][4], &permutations[i][5], &permutations[i][6], numPermutations, qtrue);
 
 		// calculate the ideal number of slots per player
 		double numValidPermutations = 0.0;
@@ -4038,6 +4607,12 @@ static qboolean GenerateTeamsIteratively(pugProposal_t *set, permutationOfTeams_
 			memcpy(semiDesired, &permutations[bestIndex][5], sizeof(permutationOfTeams_t));
 			avoidedHash_t *avoid = ListAdd(&set->avoidedHashesList, sizeof(avoidedHash_t));
 			avoid->hash = semiDesired->hash;
+			gotValid = qtrue;
+		}
+		if (firstChoice && permutations[bestIndex][6].valid) {
+			memcpy(firstChoice, &permutations[bestIndex][6], sizeof(permutationOfTeams_t));
+			avoidedHash_t *avoid = ListAdd(&set->avoidedHashesList, sizeof(avoidedHash_t));
+			avoid->hash = firstChoice->hash;
 			gotValid = qtrue;
 		}
 		return gotValid;
@@ -4302,6 +4877,7 @@ void PrintTeamsProposalsInConsole(pugProposal_t *set, int clientNum) {
 		case TEAMGENERATORTYPE_INCLUSIVE: thisPermutation = &set->inclusive; break;
 		case TEAMGENERATORTYPE_DESIREDPOS: thisPermutation = &set->desired; break;
 		case TEAMGENERATORTYPE_SEMIDESIREDPOS: thisPermutation = &set->semiDesired; break;
+		case TEAMGENERATORTYPE_FIRSTCHOICE: thisPermutation = &set->firstChoice; break;
 		}
 		if (thisPermutation->valid && thisPermutation->iDiff < lowestIDiff)
 			lowestIDiff = thisPermutation->iDiff;
@@ -4317,6 +4893,7 @@ void PrintTeamsProposalsInConsole(pugProposal_t *set, int clientNum) {
 		case TEAMGENERATORTYPE_INCLUSIVE: thisPermutation = &set->inclusive; break;
 		case TEAMGENERATORTYPE_DESIREDPOS: thisPermutation = &set->desired; break;
 		case TEAMGENERATORTYPE_SEMIDESIREDPOS: thisPermutation = &set->semiDesired; break;
+		case TEAMGENERATORTYPE_FIRSTCHOICE: thisPermutation = &set->firstChoice; break;
 		}
 		if (!thisPermutation->valid)
 			continue;
@@ -4337,6 +4914,7 @@ void PrintTeamsProposalsInConsole(pugProposal_t *set, int clientNum) {
 		case TEAMGENERATORTYPE_INCLUSIVE: thisPermutation = &set->inclusive; break;
 		case TEAMGENERATORTYPE_DESIREDPOS: thisPermutation = &set->desired; break;
 		case TEAMGENERATORTYPE_SEMIDESIREDPOS: thisPermutation = &set->semiDesired; break;
+		case TEAMGENERATORTYPE_FIRSTCHOICE: thisPermutation = &set->firstChoice; break;
 		}
 		if (!thisPermutation->valid)
 			continue;
@@ -4359,6 +4937,7 @@ void PrintTeamsProposalsInConsole(pugProposal_t *set, int clientNum) {
 		case TEAMGENERATORTYPE_INCLUSIVE: thisPermutation = &set->inclusive; break;
 		case TEAMGENERATORTYPE_DESIREDPOS: thisPermutation = &set->desired; break;
 		case TEAMGENERATORTYPE_SEMIDESIREDPOS: thisPermutation = &set->semiDesired; break;
+		case TEAMGENERATORTYPE_FIRSTCHOICE: thisPermutation = &set->firstChoice; break;
 		}
 		if (!thisPermutation->valid)
 			continue;
@@ -4456,6 +5035,14 @@ void PrintTeamsProposalsInConsole(pugProposal_t *set, int clientNum) {
 				continue;
 			}
 			letter = set->semiDesiredLetter = lastLetter++;
+		}
+		else if (i == TEAMGENERATORTYPE_FIRSTCHOICE) {
+			if ((thisPermutation->hash == set->suggested.hash && set->suggested.valid) || (thisPermutation->hash == set->highestCaliber.hash && set->highestCaliber.valid) ||
+				(thisPermutation->hash == set->fairest.hash && set->fairest.valid)) {
+				thisPermutation->valid = qfalse;
+				continue;
+			}
+			letter = set->firstChoiceLetter = lastLetter++;
 		}
 
 		char suggestionTypeStr[MAX_STRING_CHARS] = { 0 };
@@ -4677,7 +5264,7 @@ static void ActivatePugProposal(pugProposal_t *set, qboolean forcedByServer) {
 
 	// then go ahead and generate teams
 	rerollNum = 0;
-	if (GenerateTeamsIteratively(set, &set->suggested, &set->highestCaliber, &set->fairest, &set->desired, &set->inclusive, &set->semiDesired, &set->numValidPermutationsChecked)) {
+	if (GenerateTeamsIteratively(set, &set->suggested, &set->highestCaliber, &set->fairest, &set->desired, &set->inclusive, &set->semiDesired, &set->firstChoice, &set->numValidPermutationsChecked)) {
 		TeamGenerator_QueueServerMessageInChat(-1, va("Pug proposal %d %s (%s). Check console for teams proposals.", set->num, forcedByServer ? "force passed by server" : "passed", set->namesStr));
 		set->passed = qtrue;
 		level.activePugProposal = set;
@@ -5237,6 +5824,11 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 			votesIntBlue = &level.activePugProposal->semiDesiredVoteClientsBlue;
 			permutation = &level.activePugProposal->semiDesired;
 		}
+		else if (level.activePugProposal->firstChoice.valid && level.activePugProposal->firstChoiceLetter == lower) {
+			votesIntRed = &level.activePugProposal->firstChoiceVoteClientsRed;
+			votesIntBlue = &level.activePugProposal->firstChoiceVoteClientsBlue;
+			permutation = &level.activePugProposal->firstChoice;
+		}
 		else {
 			TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("Invalid pug proposal letter '%c'.", *p));
 			continue;
@@ -5358,6 +5950,13 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 				letter = level.activePugProposal->semiDesiredLetter;
 				break;
 
+			case TEAMGENERATORTYPE_FIRSTCHOICE:
+				permutation = &level.activePugProposal->firstChoice;
+				votesIntRed = &level.activePugProposal->firstChoiceVoteClientsRed;
+				votesIntBlue = &level.activePugProposal->firstChoiceVoteClientsBlue;
+				letter = level.activePugProposal->firstChoiceLetter;
+				break;
+
 			default: assert(qfalse); break;
 			}
 
@@ -5436,6 +6035,12 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 			votesIntBlue = &level.activePugProposal->semiDesiredVoteClientsBlue;
 			break;
 
+		case TEAMGENERATORTYPE_FIRSTCHOICE:
+			permutation = &level.activePugProposal->firstChoice;
+			votesIntRed = &level.activePugProposal->firstChoiceVoteClientsRed;
+			votesIntBlue = &level.activePugProposal->firstChoiceVoteClientsBlue;
+			break;
+
 		default: assert(qfalse); break;
 		}
 
@@ -5473,7 +6078,7 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 		}
 	}
 
-	int tiebreakerOrder[] = { TEAMGENERATORTYPE_MOSTPLAYED, TEAMGENERATORTYPE_HIGHESTRATING, TEAMGENERATORTYPE_FAIREST, TEAMGENERATORTYPE_INCLUSIVE, TEAMGENERATORTYPE_DESIREDPOS, TEAMGENERATORTYPE_SEMIDESIREDPOS };
+	int tiebreakerOrder[] = { TEAMGENERATORTYPE_MOSTPLAYED, TEAMGENERATORTYPE_HIGHESTRATING, TEAMGENERATORTYPE_FAIREST, TEAMGENERATORTYPE_INCLUSIVE, TEAMGENERATORTYPE_DESIREDPOS, TEAMGENERATORTYPE_SEMIDESIREDPOS, TEAMGENERATORTYPE_FIRSTCHOICE };
 	srand(teamGenSeed);
 	FisherYatesShuffle(&tiebreakerOrder[0], NUM_TEAMGENERATORTYPES, sizeof(int));
 	srand(time(NULL));
@@ -5524,6 +6129,13 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 			votesIntRed = &level.activePugProposal->semiDesiredVoteClientsRed;
 			votesIntBlue = &level.activePugProposal->semiDesiredVoteClientsBlue;
 			letter = level.activePugProposal->semiDesiredLetter;
+			break;
+
+		case TEAMGENERATORTYPE_FIRSTCHOICE:
+			permutation = &level.activePugProposal->firstChoice;
+			votesIntRed = &level.activePugProposal->firstChoiceVoteClientsRed;
+			votesIntBlue = &level.activePugProposal->firstChoiceVoteClientsBlue;
+			letter = level.activePugProposal->firstChoiceLetter;
 			break;
 
 		default: assert(qfalse); break;
@@ -5662,6 +6274,11 @@ qboolean TeamGenerator_UnvoteForTeamPermutations(gentity_t *ent, const char *vot
 			votesIntBlue = &level.activePugProposal->semiDesiredVoteClientsBlue;
 			permutation = &level.activePugProposal->semiDesired;
 		}
+		else if (level.activePugProposal->firstChoice.valid && level.activePugProposal->firstChoiceLetter == lower) {
+			votesIntRed = &level.activePugProposal->firstChoiceVoteClientsRed;
+			votesIntBlue = &level.activePugProposal->firstChoiceVoteClientsBlue;
+			permutation = &level.activePugProposal->firstChoice;
+		}
 		else {
 			TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("Invalid pug proposal letter '%c'.", *p));
 			continue;
@@ -5787,6 +6404,13 @@ qboolean TeamGenerator_UnvoteForTeamPermutations(gentity_t *ent, const char *vot
 				letter = level.activePugProposal->semiDesiredLetter;
 				break;
 
+			case TEAMGENERATORTYPE_FIRSTCHOICE:
+				permutation = &level.activePugProposal->firstChoice;
+				votesIntRed = &level.activePugProposal->firstChoiceVoteClientsRed;
+				votesIntBlue = &level.activePugProposal->firstChoiceVoteClientsBlue;
+				letter = level.activePugProposal->firstChoiceLetter;
+				break;
+
 			default: assert(qfalse); break;
 			}
 
@@ -5864,6 +6488,12 @@ qboolean TeamGenerator_UnvoteForTeamPermutations(gentity_t *ent, const char *vot
 			votesIntBlue = &level.activePugProposal->semiDesiredVoteClientsBlue;
 			break;
 
+		case TEAMGENERATORTYPE_FIRSTCHOICE:
+			permutation = &level.activePugProposal->firstChoice;
+			votesIntRed = &level.activePugProposal->firstChoiceVoteClientsRed;
+			votesIntBlue = &level.activePugProposal->firstChoiceVoteClientsBlue;
+			break;
+
 		default: assert(qfalse); break;
 		}
 
@@ -5900,7 +6530,7 @@ qboolean TeamGenerator_UnvoteForTeamPermutations(gentity_t *ent, const char *vot
 		}
 	}
 
-	int tiebreakerOrder[] = { TEAMGENERATORTYPE_MOSTPLAYED, TEAMGENERATORTYPE_HIGHESTRATING, TEAMGENERATORTYPE_FAIREST, TEAMGENERATORTYPE_INCLUSIVE, TEAMGENERATORTYPE_DESIREDPOS, TEAMGENERATORTYPE_SEMIDESIREDPOS };
+	int tiebreakerOrder[] = { TEAMGENERATORTYPE_MOSTPLAYED, TEAMGENERATORTYPE_HIGHESTRATING, TEAMGENERATORTYPE_FAIREST, TEAMGENERATORTYPE_INCLUSIVE, TEAMGENERATORTYPE_DESIREDPOS, TEAMGENERATORTYPE_SEMIDESIREDPOS, TEAMGENERATORTYPE_FIRSTCHOICE };
 	srand(teamGenSeed);
 	FisherYatesShuffle(&tiebreakerOrder[0], NUM_TEAMGENERATORTYPES, sizeof(int));
 	srand(time(NULL));
@@ -5951,6 +6581,13 @@ qboolean TeamGenerator_UnvoteForTeamPermutations(gentity_t *ent, const char *vot
 			votesIntRed = &level.activePugProposal->semiDesiredVoteClientsRed;
 			votesIntBlue = &level.activePugProposal->semiDesiredVoteClientsBlue;
 			letter = level.activePugProposal->semiDesiredLetter;
+			break;
+
+		case TEAMGENERATORTYPE_FIRSTCHOICE:
+			permutation = &level.activePugProposal->firstChoice;
+			votesIntRed = &level.activePugProposal->firstChoiceVoteClientsRed;
+			votesIntBlue = &level.activePugProposal->firstChoiceVoteClientsBlue;
+			letter = level.activePugProposal->firstChoiceLetter;
 			break;
 
 		default: assert(qfalse); break;
@@ -6664,6 +7301,11 @@ void TeamGenerator_DoReroll(qboolean forcedByServer) {
 		oldHashes.semiDesired.hash = level.activePugProposal->semiDesired.hash;
 		++numOld;
 	}
+	if (level.activePugProposal->firstChoice.valid) {
+		oldHashes.firstChoice.valid = qtrue;
+		oldHashes.firstChoice.hash = level.activePugProposal->firstChoice.hash;
+		++numOld;
+	}
 	assert(numOld);
 
 	//TeamGen_DebugPrintf("Reroll: %d numOld\n", numOld);
@@ -6681,7 +7323,7 @@ void TeamGenerator_DoReroll(qboolean forcedByServer) {
 		teamGenSeed = startTime + (i * 69);
 		srand(teamGenSeed);
 
-		qboolean result = GenerateTeamsIteratively(level.activePugProposal, &level.activePugProposal->suggested, &level.activePugProposal->highestCaliber, &level.activePugProposal->fairest, &level.activePugProposal->desired, &level.activePugProposal->inclusive, &level.activePugProposal->semiDesired , &level.activePugProposal->numValidPermutationsChecked);
+		qboolean result = GenerateTeamsIteratively(level.activePugProposal, &level.activePugProposal->suggested, &level.activePugProposal->highestCaliber, &level.activePugProposal->fairest, &level.activePugProposal->desired, &level.activePugProposal->inclusive, &level.activePugProposal->semiDesired, &level.activePugProposal->firstChoice, &level.activePugProposal->numValidPermutationsChecked);
 		if (!result) {
 			//TeamGen_DebugPrintf("Reroll: i %d (%u) failed\n", i, teamGenSeed);
 			break; // ??? this should not happen. somehow we failed to generate any teams at all.
@@ -6699,6 +7341,8 @@ void TeamGenerator_DoReroll(qboolean forcedByServer) {
 		if (level.activePugProposal->inclusive.valid && oldHashes.inclusive.valid && oldHashes.inclusive.hash != level.activePugProposal->inclusive.hash)
 			++gotNewTeams;
 		if (level.activePugProposal->semiDesired.valid && oldHashes.semiDesired.valid && oldHashes.semiDesired.hash != level.activePugProposal->semiDesired.hash)
+			++gotNewTeams;
+		if (level.activePugProposal->firstChoice.valid && oldHashes.firstChoice.valid && oldHashes.firstChoice.hash != level.activePugProposal->firstChoice.hash)
 			++gotNewTeams;
 
 		//TeamGen_DebugPrintf("Reroll: i %d (%u) has %d new teams\n", i, teamGenSeed, gotNewTeams);
@@ -6729,7 +7373,10 @@ void TeamGenerator_DoReroll(qboolean forcedByServer) {
 			level.activePugProposal->desiredVoteClientsRed =
 			level.activePugProposal->desiredVoteClientsBlue =
 			level.activePugProposal->semiDesiredVoteClientsRed =
-			level.activePugProposal->semiDesiredVoteClientsBlue = 0;
+			level.activePugProposal->semiDesiredVoteClientsBlue =
+			level.activePugProposal->firstChoiceVoteClientsRed =
+			level.activePugProposal->firstChoiceVoteClientsBlue =
+			0;
 
 		TeamGenerator_QueueServerMessageInChat(-1, va("Pug proposal %d rerolled%s (%s). Check console for new teams proposals.", level.activePugProposal->num, forcedByServer ? " by server" : "", level.activePugProposal->namesStr));
 		PrintTeamsProposalsInConsole(level.activePugProposal, -1);
