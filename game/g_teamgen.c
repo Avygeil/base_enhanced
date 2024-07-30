@@ -3870,9 +3870,12 @@ static char *GetNamesStringForPugProposal(const pugProposal_t *players) {
 		++numGotten;
 	}
 
-	Q_strcat(buf, sizeof(buf), va(" (%d players)", numGotten));
-
 	Q_StripColor(buf);
+	if (numGotten >= 12)
+		Q_strcat(buf, sizeof(buf), va(" ^1(%d players - server will lag during computation!)", numGotten));
+	else
+		Q_strcat(buf, sizeof(buf), va(" (%d players)", numGotten));
+
 	return buf;
 }
 
@@ -5925,7 +5928,7 @@ qboolean TeamGenerator_PugStart(gentity_t *ent, char **newMessage) {
 	char *namesStr = GetNamesStringForPugProposal(set);
 	if (VALIDSTRING(namesStr))
 		Q_strncpyz(set->namesStr, namesStr, sizeof(set->namesStr));
-	TeamGenerator_QueueServerMessageInChat(-1, va("%s proposes pug with: %s. Enter ^5%c%d^7 in chat if you approve.", cleanname, namesStr, TEAMGEN_CHAT_COMMAND_CHARACTER, set->num));
+	TeamGenerator_QueueServerMessageInChat(-1, va("%s proposes pug with: %s^7. Enter ^5%c%d^7 in chat if you approve.", cleanname, namesStr, TEAMGEN_CHAT_COMMAND_CHARACTER, set->num));
 
 	if (newMessage) {
 		static char buf[MAX_STRING_CHARS] = { 0 };
@@ -7711,7 +7714,7 @@ static void TeamGenerator_ServerCommand_Start(qboolean forcePass) {
 		Q_strncpyz(set->namesStr, namesStr, sizeof(set->namesStr));
 
 	if (!forcePass)
-		TeamGenerator_QueueServerMessageInChat(-1, va("Server proposes pug with: %s. Enter ^5%c%d^7 in chat if you approve.", namesStr, TEAMGEN_CHAT_COMMAND_CHARACTER, set->num));
+		TeamGenerator_QueueServerMessageInChat(-1, va("Server proposes pug with: %s^7. Enter ^5%c%d^7 in chat if you approve.", namesStr, TEAMGEN_CHAT_COMMAND_CHARACTER, set->num));
 	else
 		ActivatePugProposal(set, qtrue);
 
