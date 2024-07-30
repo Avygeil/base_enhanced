@@ -2531,6 +2531,54 @@ static int NumPermutationsOfPlayer(int accountId, permutationOfTeams_t *p1, perm
 	return num;
 }
 
+static double WeightOfPlayer(int accountId, permutationOfTeams_t *p1, permutationOfTeams_t *p2, permutationOfTeams_t *p3, permutationOfTeams_t *p4, permutationOfTeams_t *p5, permutationOfTeams_t *p6) {
+	playerRating_t findMe = { 0 };
+	findMe.accountId = accountId;
+	playerRating_t *ratings = ListFind(&level.ratingList, PlayerRatingAccountIdMatches, &findMe, NULL);
+	if (!ratings)
+		return 0;
+
+	int num = 0;
+	if (PermutationHasPlayer(accountId, p1))
+		++num;
+	if (PermutationHasPlayer(accountId, p2))
+		++num;
+	if (PermutationHasPlayer(accountId, p3))
+		++num;
+	if (PermutationHasPlayer(accountId, p4))
+		++num;
+	if (PermutationHasPlayer(accountId, p5))
+		++num;
+	if (PermutationHasPlayer(accountId, p6))
+		++num;
+
+	if (num) {
+		double totalRating = 0;
+		double numRatings = 0;
+
+		if (ratings->rating[CTFPOSITION_BASE]) {
+			totalRating += ratings->rating[CTFPOSITION_BASE];
+			++numRatings;
+		}
+		if (ratings->rating[CTFPOSITION_CHASE]) {
+			totalRating += ratings->rating[CTFPOSITION_CHASE];
+			++numRatings;
+		}
+		if (ratings->rating[CTFPOSITION_OFFENSE]) {
+			totalRating += ratings->rating[CTFPOSITION_OFFENSE];
+			++numRatings;
+		}
+
+		if (!numRatings)
+			return 0;
+
+		double averageRatingOfPlayer = totalRating / numRatings;
+		return averageRatingOfPlayer * num;
+	}
+
+	return 0;
+}
+
 static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlayed, permutationOfTeams_t *highestCaliber, permutationOfTeams_t *fairest, permutationOfTeams_t *desired, permutationOfTeams_t *inclusive, permutationOfTeams_t *semiDesired, uint64_t *numPermutations, qboolean enforceImbalanceCaps) {
 	assert(set);
 #ifdef DEBUG_GENERATETEAMS
@@ -3476,6 +3524,7 @@ static qboolean GenerateTeamsIteratively(pugProposal_t *set, permutationOfTeams_
 	memset(&permutations, 0, sizeof(permutations));
 	double sumOfSquares[MAX_TEAMGEN_ITERATIONS] = { 999999 };
 	int numPermutationsPerIteration[MAX_TEAMGEN_ITERATIONS] = { 0 };
+	double weight[MAX_TEAMGEN_ITERATIONS] = { 0 };
 
 	TeamGen_Initialize();
 
@@ -3501,7 +3550,7 @@ static qboolean GenerateTeamsIteratively(pugProposal_t *set, permutationOfTeams_
 		numPermutationsPerIteration[i] = (int)numValidPermutations;
 
 #ifdef DEBUG_GENERATETEAMS
-		Com_Printf("Iteration %d has ", i);
+		Com_Printf("Iteration %02d has ", i);
 #endif
 
 		// calculate the sum of squares for this set of permutations (lower number == more fair distribution)
@@ -3512,69 +3561,83 @@ static qboolean GenerateTeamsIteratively(pugProposal_t *set, permutationOfTeams_
 				continue;
 			double numPermutationsThisPlayer = (double)NumPermutationsOfPlayer(cl->accountId, &permutations[i][0], &permutations[i][1], &permutations[i][2], &permutations[i][3], &permutations[i][4], &permutations[i][5]);
 #ifdef DEBUG_GENERATETEAMS
-			Com_Printf("/%d/", (int)numPermutationsThisPlayer); // print the number of permutations each player is part of
+			Com_Printf("/%s %d/", cl->accountName, (int)numPermutationsThisPlayer); // print the number of permutations each player is part of
 #endif
 			double addMe = (numPermutationsThisPlayer - goal) * (numPermutationsThisPlayer - goal);
 			sum += addMe;
+
+			if (g_vote_teamgen_sumOfSquaresTiebreaker.integer) {
+				double thisPlayerWeight = WeightOfPlayer(cl->accountId, &permutations[i][0], &permutations[i][1], &permutations[i][2], &permutations[i][3], &permutations[i][4], &permutations[i][5]);
+				weight[i] += thisPlayerWeight;
+			}
 		}
 
 #ifdef DEBUG_GENERATETEAMS
-		Com_Printf(" ; sum of squares %f (%d permutations)\n", sum, (int)numValidPermutations);
+		Com_Printf(" ; sum of squares %f (%d permutations); weight %g\n", sum, (int)numValidPermutations, weight[i]);
 #endif
 
 		sumOfSquares[i] = sum;
 
 		++numEvaluated;
 
-		// pre-calculated most even possible distribution of player slots
-		// (fairest of both 3- and 4-permutation distributions)
-		double perfection;
-		switch ((int)numPlayers) {
-		case 8: perfection = 0;						break;
-		case 9: perfection = 2;						break;
-		case 10: perfection = 1.6;					break;
-		case 11: perfection = 0.909090909090909;	break;
-		case 12: perfection = 0;					break;
-		case 13: perfection = 1.69230769230769;		break;
-		case 14: perfection = 2.85714285714286;		break;
-		case 15: perfection = 1.73333333333333;		break;
-		case 16: perfection = 0;					break;
-		case 17: perfection = 1.76470588235294;		break;
-		case 18: perfection = 3.11111111111111;		break;
-		case 19: perfection = 3.68421052631579;		break;
-		case 20: perfection = 3.2;					break;
-		case 21: perfection = 2.57142857142857;		break;
-		case 22: perfection = 1.81818181818182;		break;
-		case 23: perfection = 0.956521739130435;	break;
-		case 24: perfection = 0;					break;
-		case 25: perfection = 0.96;					break;
-		case 26: perfection = 1.84615384615385;		break;
-		case 27: perfection = 2.66666666666667;		break;
-		case 28: perfection = 3.42857142857142;		break;
-		case 29: perfection = 2.68965517241379;		break;
-		case 30: perfection = 1.86666666666667;		break;
-		case 31: perfection = 0.967741935483872;	break;
-		case 32: perfection = 0;					break;
-		default: assert(qfalse); perfection = 0;	break;
-		}
+		if (!g_vote_teamgen_sumOfSquaresTiebreaker.integer) {
+			// pre-calculated most even possible distribution of player slots
+			// (fairest of both 3- and 4-permutation distributions)
+			double perfection;
+			switch ((int)numPlayers) {
+			case 8: perfection = 0;						break;
+			case 9: perfection = 2;						break;
+			case 10: perfection = 1.6;					break;
+			case 11: perfection = 0.909090909090909;	break;
+			case 12: perfection = 0;					break;
+			case 13: perfection = 1.69230769230769;		break;
+			case 14: perfection = 2.85714285714286;		break;
+			case 15: perfection = 1.73333333333333;		break;
+			case 16: perfection = 0;					break;
+			case 17: perfection = 1.76470588235294;		break;
+			case 18: perfection = 3.11111111111111;		break;
+			case 19: perfection = 3.68421052631579;		break;
+			case 20: perfection = 3.2;					break;
+			case 21: perfection = 2.57142857142857;		break;
+			case 22: perfection = 1.81818181818182;		break;
+			case 23: perfection = 0.956521739130435;	break;
+			case 24: perfection = 0;					break;
+			case 25: perfection = 0.96;					break;
+			case 26: perfection = 1.84615384615385;		break;
+			case 27: perfection = 2.66666666666667;		break;
+			case 28: perfection = 3.42857142857142;		break;
+			case 29: perfection = 2.68965517241379;		break;
+			case 30: perfection = 1.86666666666667;		break;
+			case 31: perfection = 0.967741935483872;	break;
+			case 32: perfection = 0;					break;
+			default: assert(qfalse); perfection = 0;	break;
+			}
 
-		if (sumOfSquares[i] - 0.0001 <= perfection /*&& (int)numValidPermutations == 3*/)
-			break; // we got a perfect one; no need to keep iterating
+			if (sumOfSquares[i] - 0.0001 <= perfection /*&& (int)numValidPermutations == 3*/)
+				break; // we got a perfect one; no need to keep iterating
+		}
 	}
 
 	// pick the set of permutations with the fewest number of permutations (3 == didn't need inclusive pass to begin with), or the lowest sum of squares
 	double lowestSumOfSquares = 999999999;
 	int lowestNumPermutations = 999999999;
 	int bestIndex = -1;
+	double weightOfLowestSumOfSquares = 0;
 	for (int i = 0; i < MAX_TEAMGEN_ITERATIONS && i < numIterationsToDo && i < numEvaluated; i++) {
 		if (sumOfSquares[i] < lowestSumOfSquares - 0.001 || // fairer
-			(numPermutationsPerIteration[i] < lowestNumPermutations && numPermutationsPerIteration[i] >= 3 && fabs(sumOfSquares[i] - lowestSumOfSquares) <= 0.001) // equally fair but fewer permutations (with at least 3 permutations)
+			(g_vote_teamgen_sumOfSquaresTiebreaker.integer && fabs(sumOfSquares[i] - lowestSumOfSquares) <= 0.001 && weight[i] > weightOfLowestSumOfSquares + 0.0001) // weightier
 			) {
 			lowestNumPermutations = numPermutationsPerIteration[i];
 			lowestSumOfSquares = sumOfSquares[i];
 			bestIndex = i;
-			if (sumOfSquares[i] <= 0 /*&& numPermutationsPerIteration[i] == 3*/)
-				break; // we got a perfect one; no need to keep iterating
+
+			if (g_vote_teamgen_sumOfSquaresTiebreaker.integer) {
+				weightOfLowestSumOfSquares = weight[i];
+			}
+			else {
+				if (sumOfSquares[i] <= 0 /*&& numPermutationsPerIteration[i] == 3*/)
+					break; // we got a perfect one; no need to keep iterating
+			}
 		}
 	}
 
