@@ -1,8 +1,8 @@
 #include "g_local.h"
 #include "g_database.h"
 
-//#define DEBUG_GENERATETEAMS // uncomment to set players to be put into teams with z_debugX cvars
-//#define DEBUG_GENERATETEAMS_PRINT // uncomment to generate log file
+#define DEBUG_GENERATETEAMS // uncomment to set players to be put into teams with z_debugX cvars
+#define DEBUG_GENERATETEAMS_PRINT // uncomment to generate log file
 
 #ifdef DEBUG_GENERATETEAMS_PRINT
 static fileHandle_t debugFile = 0;
@@ -2101,31 +2101,63 @@ static void TryTeamPermutation_Inclusive(teamGeneratorContext_t *context, const 
 	int totalNumPermutations = team1base->numPermutationsIn + team1chase->numPermutationsIn + team1offense1->numPermutationsIn + team1offense2->numPermutationsIn +
 		team2base->numPermutationsIn + team2chase->numPermutationsIn + team2offense1->numPermutationsIn + team2offense2->numPermutationsIn;
 
+	// make sure we get in people who are in 0 permutations
+	if (!team1base->numPermutationsIn)
+		totalNumPermutations -= 1000;
+	if (!team1chase->numPermutationsIn)
+		totalNumPermutations -= 1000;
+	if (!team1offense1->numPermutationsIn)
+		totalNumPermutations -= 1000;
+	if (!team1offense2->numPermutationsIn)
+		totalNumPermutations -= 1000;
+	if (!team2base->numPermutationsIn)
+		totalNumPermutations -= 1000;
+	if (!team2chase->numPermutationsIn)
+		totalNumPermutations -= 1000;
+	if (!team2offense1->numPermutationsIn)
+		totalNumPermutations -= 1000;
+	if (!team2offense2->numPermutationsIn)
+		totalNumPermutations -= 1000;
+
+	int numSatisfiedCyds = 0;
+	if (team1base->notOnFirstChoiceInAbc && (team1base->posPrefs.first & (1 << CTFPOSITION_BASE))) ++numSatisfiedCyds;
+	if (team1chase->notOnFirstChoiceInAbc && (team1chase->posPrefs.first & (1 << CTFPOSITION_CHASE))) ++numSatisfiedCyds;
+	if (team1offense1->notOnFirstChoiceInAbc && (team1offense1->posPrefs.first & (1 << CTFPOSITION_OFFENSE))) ++numSatisfiedCyds;
+	if (team1offense2->notOnFirstChoiceInAbc && (team1offense2->posPrefs.first & (1 << CTFPOSITION_OFFENSE))) ++numSatisfiedCyds;
+	if (team2base->notOnFirstChoiceInAbc && (team2base->posPrefs.first & (1 << CTFPOSITION_BASE))) ++numSatisfiedCyds;
+	if (team2chase->notOnFirstChoiceInAbc && (team2chase->posPrefs.first & (1 << CTFPOSITION_CHASE))) ++numSatisfiedCyds;
+	if (team2offense1->notOnFirstChoiceInAbc && (team2offense1->posPrefs.first & (1 << CTFPOSITION_OFFENSE))) ++numSatisfiedCyds;
+	if (team2offense2->notOnFirstChoiceInAbc && (team2offense2->posPrefs.first & (1 << CTFPOSITION_OFFENSE))) ++numSatisfiedCyds;
+
 	// this permutation will be favored over the previous permutation if:
 	// - it has a lower number of permutations
-	// - it has equally low permutations, but is fairer
-	// - it has equally low permutations and equal fairness, but has more people on preferred pos
-	// - it has equally low permutations and equal fairness and has an equal number of people on preferred pos, but has fewer people on avoided pos
-	// - it has equally low permutations and equal fairness and has an equal number of people on preferred and avoided pos, but has better balance of bottom tier players
-	// - it has equally low permutations and equal fairness and has an equal number of people on preferred and avoided pos and equal balance of bottom tier players, but has better balance of top tier players
+	// - it has equally low permutations, but has more satisfied cyds
+	// - it has equally low permutations and equal cyds, but is fairer
+	// - it has equally low permutations, equal cyds and fairness, but has more people on preferred pos
+	// - it has equally low permutations, equal cyds and fairness and has an equal number of people on preferred pos, but has fewer people on avoided pos
+	// - it has equally low permutations, equal cyds and fairness and has an equal number of people on preferred and avoided pos, but has better balance of bottom tier players
+	// - it has equally low permutations, equal cyds and fairness and has an equal number of people on preferred and avoided pos and equal balance of bottom tier players, but has better balance of top tier players
 	if (totalNumPermutations < context->best->totalNumPermutations ||
-		(totalNumPermutations == context->best->totalNumPermutations && iDiff < context->best->iDiff) ||
-		(totalNumPermutations == context->best->totalNumPermutations && iDiff == context->best->iDiff && numOnPreferredPos > context->best->numOnPreferredPos) ||
-		(totalNumPermutations == context->best->totalNumPermutations && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos) ||
-		(totalNumPermutations == context->best->totalNumPermutations && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance < context->best->bottomTierImbalance) ||
-		(totalNumPermutations == context->best->totalNumPermutations && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)) {
+		(totalNumPermutations == context->best->totalNumPermutations && numSatisfiedCyds > context->best->numSatisfiedCyds) ||
+		(totalNumPermutations == context->best->totalNumPermutations && numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff < context->best->iDiff) ||
+		(totalNumPermutations == context->best->totalNumPermutations && numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numOnPreferredPos > context->best->numOnPreferredPos) ||
+		(totalNumPermutations == context->best->totalNumPermutations && numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos) ||
+		(totalNumPermutations == context->best->totalNumPermutations && numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance < context->best->bottomTierImbalance) ||
+		(totalNumPermutations == context->best->totalNumPermutations && numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)) {
 		if (totalNumPermutations < context->best->totalNumPermutations)
 			TeamGen_DebugPrintf(" <font color=purple>best so far (fewer permutations)</font><br/>");
-		else if (totalNumPermutations == context->best->totalNumPermutations && iDiff < context->best->iDiff)
-			TeamGen_DebugPrintf(" <font color=purple>best so far (same permutations, but fairer)</font><br/>");
-		else if (totalNumPermutations == context->best->totalNumPermutations && iDiff == context->best->iDiff && numOnPreferredPos > context->best->numOnPreferredPos)
-			TeamGen_DebugPrintf(" <font color=purple>best so far (same permutations and fairness, but more preferred pos)</font><br/>");
-		else if (totalNumPermutations == context->best->totalNumPermutations && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos)
-			TeamGen_DebugPrintf(" <font color=purple>best so far (same permutations, fairness and preferred pos, but less on avoided pos)</font><br/>");
-		else if (totalNumPermutations == context->best->totalNumPermutations && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance < context->best->bottomTierImbalance)
-			TeamGen_DebugPrintf(" <font color=purple>best so far (same permutations, fairness, preferred pos, and avoided pos, but better bottom tier balance)</font><br/>");
-		else if (totalNumPermutations == context->best->totalNumPermutations && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)
-			TeamGen_DebugPrintf(" <font color=purple>best so far (same permutations, fairness, preferred pos, avoided pos, and bottom tier balance, but better top tier balance)</font><br/>");
+		else if (totalNumPermutations == context->best->totalNumPermutations && numSatisfiedCyds > context->best->numSatisfiedCyds)
+			TeamGen_DebugPrintf(" <font color=purple>best so far (same permutations, but more cyds)</font><br/>");
+		else if (totalNumPermutations == context->best->totalNumPermutations && numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff < context->best->iDiff)
+			TeamGen_DebugPrintf(" <font color=purple>best so far (same permutations and cyds, but fairer)</font><br/>");
+		else if (totalNumPermutations == context->best->totalNumPermutations && numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numOnPreferredPos > context->best->numOnPreferredPos)
+			TeamGen_DebugPrintf(" <font color=purple>best so far (same permutations, cyds, and fairness, but more preferred pos)</font><br/>");
+		else if (totalNumPermutations == context->best->totalNumPermutations && numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos)
+			TeamGen_DebugPrintf(" <font color=purple>best so far (same permutations, cyds, fairness and preferred pos, but less on avoided pos)</font><br/>");
+		else if (totalNumPermutations == context->best->totalNumPermutations && numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance < context->best->bottomTierImbalance)
+			TeamGen_DebugPrintf(" <font color=purple>best so far (same permutations, cyds, fairness, preferred pos, and avoided pos, but better bottom tier balance)</font><br/>");
+		else if (totalNumPermutations == context->best->totalNumPermutations && numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)
+			TeamGen_DebugPrintf(" <font color=purple>best so far (same permutations, cyds, fairness, preferred pos, avoided pos, and bottom tier balance, but better top tier balance)</font><br/>");
 		else
 			TeamGen_DebugPrintf("<font color=purple>???</font><br/>");
 
@@ -2222,6 +2254,7 @@ static void TryTeamPermutation_Inclusive(teamGeneratorContext_t *context, const 
 		Q_strncpyz(context->best->teams[1].chaseName, team2chase->accountName, MAX_NAME_LENGTH);
 		Q_strncpyz(context->best->teams[1].offense1Name, team2offense1->accountName, MAX_NAME_LENGTH);
 		Q_strncpyz(context->best->teams[1].offense2Name, team2offense2->accountName, MAX_NAME_LENGTH);
+		context->best->numSatisfiedCyds = numSatisfiedCyds;
 	}
 	else {
 		TeamGen_DebugPrintf("<br/>");
@@ -3526,9 +3559,36 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 
 				int numPermutationsThisPlayer = NumPermutationsOfPlayer(cl->accountId, mostPlayed, highestCaliber, fairest, desired, inclusive, semiDesired);
 				if (!numPermutationsThisPlayer) {
+					Com_Printf("Player %s is in no permutations\n", cl->accountName);
 					gotPlayerWithZeroPermutations = qtrue;
-					break;
 				}
+
+				if (mostPlayed && mostPlayed->valid) {
+					int pos = PermutationHasPlayer(cl->accountId, mostPlayed);
+					if (pos != CTFPOSITION_UNKNOWN) {
+						if (cl->posPrefs.first & (1 << pos))
+							continue;
+					}
+				}
+				if (highestCaliber && highestCaliber->valid) {
+					int pos = PermutationHasPlayer(cl->accountId, highestCaliber);
+					if (pos != CTFPOSITION_UNKNOWN) {
+						if (cl->posPrefs.first & (1 << pos))
+							continue;
+					}
+				}
+				if (fairest && fairest->valid) {
+					int pos = PermutationHasPlayer(cl->accountId, fairest);
+					if (pos != CTFPOSITION_UNKNOWN) {
+						if (cl->posPrefs.first & (1 << pos))
+							continue;
+					}
+				}
+
+				// if we got here, this guy was not on a first choice in a/b/c
+#ifdef DEBUG_GENERATETEAMS
+				Com_Printf("Player %s has no first choice in a/b/c\n", cl->accountName);
+#endif
 			}
 
 			if (!gotPlayerWithZeroPermutations)
@@ -4028,6 +4088,37 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 					continue;
 
 				algoPlayer->numPermutationsIn = NumPermutationsOfPlayer(algoPlayer->accountId, mostPlayed, highestCaliber, fairest, NULL, NULL, NULL);
+			}
+
+			for (int j = 0; j < numEligible; j++) {
+				permutationPlayer_t *algoPlayer = players + j;
+				if (!algoPlayer->accountName[0])
+					continue;
+
+				if (mostPlayed && mostPlayed->valid) {
+					int pos = PermutationHasPlayer(algoPlayer->accountId, mostPlayed);
+					if (pos != CTFPOSITION_UNKNOWN) {
+						if (algoPlayer->posPrefs.first & (1 << pos))
+							continue;
+					}
+				}
+				if (highestCaliber && highestCaliber->valid) {
+					int pos = PermutationHasPlayer(algoPlayer->accountId, highestCaliber);
+					if (pos != CTFPOSITION_UNKNOWN) {
+						if (algoPlayer->posPrefs.first & (1 << pos))
+							continue;
+					}
+				}
+				if (fairest && fairest->valid) {
+					int pos = PermutationHasPlayer(algoPlayer->accountId, fairest);
+					if (pos != CTFPOSITION_UNKNOWN) {
+						if (algoPlayer->posPrefs.first & (1 << pos))
+							continue;
+					}
+				}
+
+				// if we got here, this guy was not on a first choice in a/b/c
+				algoPlayer->notOnFirstChoiceInAbc = qtrue;
 			}
 		}
 		else if (type == TEAMGENERATORTYPE_SEMIDESIREDPOS) {
