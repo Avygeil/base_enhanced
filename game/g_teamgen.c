@@ -3559,7 +3559,9 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 
 				int numPermutationsThisPlayer = NumPermutationsOfPlayer(cl->accountId, mostPlayed, highestCaliber, fairest, desired, inclusive, semiDesired);
 				if (!numPermutationsThisPlayer) {
+#ifdef DEBUG_GENERATETEAMS
 					Com_Printf("Player %s is in no permutations\n", cl->accountName);
+#endif
 					gotPlayerWithZeroPermutations = qtrue;
 				}
 
