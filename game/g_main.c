@@ -1198,7 +1198,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_teamgen_readBeforeVotingMillisecondsJawa, "g_vote_teamgen_readBeforeVotingMillisecondsJawa", "10000", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_preventBindsWith8PlayersMilliseconds, "g_vote_teamgen_preventBindsWith8PlayersMilliseconds", "50", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_bImbalanceCapWith0OrTwoRerolls, "g_vote_teamgen_bImbalanceCapWith0OrTwoRerolls", "0.0382", CVAR_ARCHIVE, 0, qfalse },
-	{ &g_vote_teamgen_bImbalanceCapWithOneReroll, "g_vote_teamgen_bImbalanceCapWithOneReroll", "0.0182", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_teamgen_bImbalanceCapWithOneReroll, "g_vote_teamgen_bImbalanceCapWithOneReroll", "0.0382", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_acdImbalanceCapWithoutReroll, "g_vote_teamgen_acdImbalanceCapWithoutReroll", "0.0182", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_acdImbalanceCapWithOneReroll, "g_vote_teamgen_acdImbalanceCapWithOneReroll", "0.0382", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_dynamicVoteRequirement, "g_vote_teamgen_dynamicVoteRequirement", "1", CVAR_ARCHIVE, 0, qfalse },
