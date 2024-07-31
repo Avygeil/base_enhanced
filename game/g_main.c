@@ -584,6 +584,7 @@ vmCvar_t	g_vote_preventSwitchingTeamsDuringMapVote;
 vmCvar_t	g_vote_teamgen_autoAdjustRequiredPugVotes;
 vmCvar_t	g_vote_teamgen_sumOfSquaresTiebreaker;
 vmCvar_t	g_vote_teamgen_aDietB;
+vmCvar_t	g_vote_teamgen_displayCaliber;
 
 vmCvar_t	g_filterSlurs;
 
@@ -1215,6 +1216,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_teamgen_autoAdjustRequiredPugVotes, "g_vote_teamgen_autoAdjustRequiredPugVotes", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_sumOfSquaresTiebreaker, "g_vote_teamgen_sumOfSquaresTiebreaker", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_aDietB, "g_vote_teamgen_aDietB", "1", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_teamgen_displayCaliber, "g_vote_teamgen_displayCaliber", "1", CVAR_ARCHIVE, 0, qfalse },
 
 	{ &g_filterSlurs, "g_filterSlurs", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
 

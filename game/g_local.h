@@ -1332,7 +1332,7 @@ typedef struct {
 	int offenseDefenseDiff;
 	int totalSkill;
 	int numSatisfiedCyds;
-	float lowestPlayerRating;
+	double lowestPlayerRating;
 } permutationOfTeams_t;
 
 typedef struct {
@@ -3620,6 +3620,7 @@ extern vmCvar_t		g_vote_preventSwitchingTeamsDuringMapVote;
 extern vmCvar_t		g_vote_teamgen_autoAdjustRequiredPugVotes;
 extern vmCvar_t		g_vote_teamgen_sumOfSquaresTiebreaker;
 extern vmCvar_t		g_vote_teamgen_aDietB;
+extern vmCvar_t		g_vote_teamgen_displayCaliber;
 
 extern vmCvar_t		g_filterSlurs;
 

@@ -3413,7 +3413,16 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 	uint64_t gotten = 0llu;
 	list_t listOfAvoidedHashesPlusHashesGottenOnThisGeneration = { 0 };
 	ListCopy(&set->avoidedHashesList, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, sizeof(avoidedHash_t));
-	for (int type = TEAMGENERATORTYPE_FIRST; type < NUM_TEAMGENERATORTYPES; type++) {
+	for (int typeIter = TEAMGENERATORTYPE_FIRST; typeIter < NUM_TEAMGENERATORTYPES; typeIter++) {
+
+		// hack to swap computation of ?b to be before ?a so that if there's a permutation that's the most HC *and* is 50-50, ?b grabs it rather than ?a
+		teamGeneratorType_t type;
+		switch (typeIter) {
+		case TEAMGENERATORTYPE_MOSTPLAYED: type = TEAMGENERATORTYPE_HIGHESTRATING; break;
+		case TEAMGENERATORTYPE_HIGHESTRATING: type = TEAMGENERATORTYPE_MOSTPLAYED; break;
+		default: type = typeIter; break;
+		}
+
 		if (numValid >= MAX_TEAMGENERATORTYPES_PER_SET) {
 			TeamGen_DebugPrintf("<font color=red>==========Breaking rather than trying type %d because we've already reached %d valid types</font><br/>", type, MAX_TEAMGENERATORTYPES_PER_SET);
 			break;
@@ -3627,7 +3636,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 			algoPlayer->accountId = findMe.accountId;
 			Q_strncpyz(algoPlayer->accountName, client->accountName, sizeof(algoPlayer->accountName));
 			algoPlayer->clientNum = client->clientNum;
-			if (type == TEAMGENERATORTYPE_MOSTPLAYED) {
+			if (type == TEAMGENERATORTYPE_MOSTPLAYED && !g_vote_teamgen_aDietB.integer) {
 				// get their most played and second most played pos
 				if (mostPlayedPositions) {
 					algoPlayer->rating[mostPlayedPositions->mostPlayed] = positionRatings->rating[mostPlayedPositions->mostPlayed];
@@ -3709,7 +3718,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 					}
 				}
 			}
-			else if (type == TEAMGENERATORTYPE_HIGHESTRATING) {
+			else if (type == TEAMGENERATORTYPE_HIGHESTRATING || (type == TEAMGENERATORTYPE_MOSTPLAYED && g_vote_teamgen_aDietB.integer)) {
 				// get their highest rated pos
 				double highestRating = 0.0;
 				int positionsWithHighestRating = 0;
@@ -4186,7 +4195,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 		// if the permutation banning avoided positions is not 50-50, try again without banning avoided pos
 		permutationOfTeams_t *thisPermutation;
 		if (allowSecondTry) {
-			if (type == TEAMGENERATORTYPE_HIGHESTRATING && try1.valid) {
+			if ((type == TEAMGENERATORTYPE_HIGHESTRATING || (type == TEAMGENERATORTYPE_MOSTPLAYED && g_vote_teamgen_aDietB.integer)) && try1.valid) {
 				TeamGen_DebugPrintf("<font color=orange>==========Attempting HC type %d without banning avoided pos to see if we can do better==========</font><br/>", type);
 				thisGotten = PermuteTeams(&players[0], numEligible, &try2, callback, qtrue, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, qfalse, type, enforceImbalanceCaps);
 				if (thisGotten > gotten)
@@ -4206,7 +4215,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 				if (try2.valid) {
 					if (try2.totalSkill > try1.totalSkill || (try2.totalSkill == try1.totalSkill && try2.iDiff < try1.iDiff)) {
 						thisPermutation = &try2;
-						TeamGen_DebugPrintf("<font color=orange>==========Second pass on type %d with banned avoided pos yields higher skill or fairer result; using avoided pos banned permutation==========</font><br/>", type);
+						TeamGen_DebugPrintf("<font color=orange>==========Second pass on type %d with banned avoided pos yields higher skill or fairer result; using avoided pos unbanned permutation==========</font><br/>", type);
 					}
 					else {
 						thisPermutation = &try1;
@@ -4281,9 +4290,11 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 		NormalizePermutationOfTeams(thisPermutation);
 		thisPermutation->hash = HashPermutationOfTeams(thisPermutation);
 
-		// sanity double check for whether this hash matches one we already got for a previous type (shouldn't really happen)
+		// sanity double check for whether this hash matches one we already got for a previously evaluated type (shouldn't really happen)
 		int weAlreadyGotThisHash = -1;
-		for (int compareType = TEAMGENERATORTYPE_FIRST; compareType < type; compareType++) {
+		for (int compareType = TEAMGENERATORTYPE_FIRST; compareType < /*type*/NUM_TEAMGENERATORTYPES; compareType++) {
+			if (compareType == type)
+				continue;
 			permutationOfTeams_t **compare = NULL;
 
 			switch (compareType) {
@@ -4945,6 +4956,19 @@ void PrintTeamsProposalsInConsole(pugProposal_t *set, int clientNum) {
 		double thisCombinedStrength = thisPermutation->teams[0].rawStrength + thisPermutation->teams[1].rawStrength;
 		int iThisCombinedStrength = (int)round(thisCombinedStrength * 10000);
 
+		double thisAverageStrength = (thisCombinedStrength / 8.0);
+		double alpha, beta;
+		if (thisAverageStrength - thisPermutation->lowestPlayerRating >= (PLAYERRATING_DECIMAL_INCREMENT * 5) - 0.0001) {
+			alpha = 70.0;
+			beta = 30.0;
+		}
+		else {
+			alpha = 85.0;
+			beta = 15.0;
+		}
+		int rawCaliber = (int)round(((thisAverageStrength)*alpha) + (thisPermutation->lowestPlayerRating * beta) + 15.0);
+		int caliber = 10 - ((100 - rawCaliber) / 5);
+
 		int tags = 0;
 
 		if (iThisCombinedStrength == iHighestCombinedStrength) {
@@ -4993,7 +5017,7 @@ void PrintTeamsProposalsInConsole(pugProposal_t *set, int clientNum) {
 				underdogTeam = TEAM_RED; // shouldn't really happen
 		}
 #endif
-		
+
 		char letter;
 		if (i == TEAMGENERATORTYPE_MOSTPLAYED) {
 			letter = set->suggestedLetter = lastLetter++;
@@ -5060,28 +5084,38 @@ void PrintTeamsProposalsInConsole(pugProposal_t *set, int clientNum) {
 		else if (underdogTeam == TEAM_BLUE)
 			Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^4[Map vote tie goes to blue]" : va("%s ^4[Map vote tie goes to blue]", suggestionTypeStr));
 #endif
-		
+
 		if (tags & (1 << TEAMGENTAG_FAIR))
 			Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^2[even]" : va("%s ^2[even]", suggestionTypeStr));
 		else if (tags & (1 << TEAMGENTAG_FAIREST))
 			Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^2[most even]" : va("%s ^2[most even]", suggestionTypeStr));
 
-		if (tags & (1 << TEAMGENTAG_TIEDFORMOSTHC))
-			Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^3[tied for most HC]" : va("%s ^3[tied for most HC]", suggestionTypeStr));
-		else if (tags & (1 << TEAMGENTAG_MOSTHC))
-			Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^3[most HC]" : va("%s ^3[most HC]", suggestionTypeStr));
+
+		if (g_vote_teamgen_displayCaliber.integer) {
+#ifdef DEBUG_GENERATETEAMS
+			Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? va("^6[c%d - %d raw, %g avg, %g lowest, %g alpha, %g beta]", caliber, rawCaliber, thisAverageStrength, thisPermutation->lowestPlayerRating, alpha, beta) : va("%s ^6[c%d - %d raw, %g avg, %g lowest, %g alpha, %g beta]", suggestionTypeStr, caliber, rawCaliber, thisAverageStrength, thisPermutation->lowestPlayerRating, alpha, beta));
+#else
+			Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? va("^6[c%d]", caliber) : va("%s ^6[c%d]", suggestionTypeStr, caliber));
+#endif
+		}
+		else {
+			if (tags & (1 << TEAMGENTAG_TIEDFORMOSTHC))
+				Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^3[tied for most HC]" : va("%s ^3[tied for most HC]", suggestionTypeStr));
+			else if (tags & (1 << TEAMGENTAG_MOSTHC))
+				Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^3[most HC]" : va("%s ^3[most HC]", suggestionTypeStr));
 
 #if 0
-		if (!rerollNum && i == TEAMGENERATORTYPE_HIGHESTRATING && (tags & (1 << TEAMGENTAG_MOSTHC) || tags & (1 << TEAMGENTAG_TIEDFORMOSTHC)))
-			Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^5[spec/capt]" : va("%s ^5[spec/capt]", suggestionTypeStr));
+			if (!rerollNum && i == TEAMGENERATORTYPE_HIGHESTRATING && (tags & (1 << TEAMGENTAG_MOSTHC) || tags & (1 << TEAMGENTAG_TIEDFORMOSTHC)))
+				Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^5[spec/capt]" : va("%s ^5[spec/capt]", suggestionTypeStr));
 #endif
 
-		if (tags & (1 << TEAMGENTAG_HC3))
-			Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^6[ULTRA OMEGA HC!!!]" : va("%s ^6[ULTRA OMEGA HC!!!]", suggestionTypeStr));
-		else if (tags & (1 << TEAMGENTAG_HC2))
-			Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^6[MEGA HC!!]" : va("%s ^6[MEGA HC!!]", suggestionTypeStr));
-		else if (tags & (1 << TEAMGENTAG_HC))
-			Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^6[HC!]" : va("%s ^6[HC!]", suggestionTypeStr));
+			if (tags & (1 << TEAMGENTAG_HC3))
+				Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^6[ULTRA OMEGA HC!!!]" : va("%s ^6[ULTRA OMEGA HC!!!]", suggestionTypeStr));
+			else if (tags & (1 << TEAMGENTAG_HC2))
+				Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^6[MEGA HC!!]" : va("%s ^6[MEGA HC!!]", suggestionTypeStr));
+			else if (tags & (1 << TEAMGENTAG_HC))
+				Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^6[HC!]" : va("%s ^6[HC!]", suggestionTypeStr));
+		}
 
 		if (tags & (1 << TEAMGENTAG_NOAVOIDS))
 			Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^7[no avoids]" : va("%s ^7[no avoids]", suggestionTypeStr));
