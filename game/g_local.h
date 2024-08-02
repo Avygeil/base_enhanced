@@ -1332,6 +1332,7 @@ typedef struct {
 	int offenseDefenseDiff;
 	int totalSkill;
 	int numSatisfiedCyds;
+	int numSatisfiedLgs;
 	double lowestPlayerRating;
 } permutationOfTeams_t;
 
