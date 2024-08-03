@@ -3689,8 +3689,6 @@ static int64_t AccountFlagName2Bitflag(const char* flagName) {
 		return ACCOUNTFLAG_INSTAVOTETROLL;
 	} else if (!Q_stricmp(flagName, "NonVotingMemer")) {
 		return ACCOUNTFLAG_NONVOTINGMEMER;
-	} else if (!Q_stricmp(flagName, "GripPrey")) {
-		return ACCOUNTFLAG_GRIPPREY;
 	}
 
 	return 0;
@@ -3734,7 +3732,6 @@ const char* AccountBitflag2FlagName(int64_t bitflag) {
 		case ACCOUNTFLAG_ITEMLORD: return "ItemLord";
 		case ACCOUNTFLAG_INSTAVOTETROLL: return "InstaVoteTroll";
 		case ACCOUNTFLAG_NONVOTINGMEMER: return "NonVotingMemer";
-		case ACCOUNTFLAG_GRIPPREY: return "GripPrey";
 		default: return NULL;
 	}
 }

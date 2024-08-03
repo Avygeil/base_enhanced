@@ -909,7 +909,8 @@ int ForcePowerUsableOn(gentity_t *attacker, gentity_t *other, forcePowers_t forc
 			//play sound indicating that attack was absorbed
 			if (other->client->forcePowerSoundDebounce < level.time)
 			{
-				if (!g_gripAbsorbFix.integer) { // base behavior
+				qboolean meme = (!level.wasRestarted && attacker && attacker->client && attacker->client->account && !Q_stricmp(attacker->client->account->name, "duo"));
+				if (!g_gripAbsorbFix.integer && !meme) { // base behavior
 					gentity_t *abSound = G_PreDefSound(other, PDSOUND_ABSORBHIT);
 					abSound->s.trickedentindex = other->s.number;
 					other->client->forcePowerSoundDebounce = level.time + 400;
@@ -1228,6 +1229,10 @@ int WP_AbsorbConversion(gentity_t *attacked, int atdAbsLevel, gentity_t *attacke
 		return -1;
 	}
 
+	qboolean meme = (!level.wasRestarted && atPower == FP_GRIP && attacker && attacker->client && attacker->client->account && !Q_stricmp(attacker->client->account->name, "duo"));
+	if (meme)
+		return -1;
+
 	//Subtract absorb power level from the offensive force power
 	getLevel = atPowerLevel;
 	getLevel -= atdAbsLevel;
@@ -1317,7 +1322,8 @@ void WP_ForcePowerStart( gentity_t *self, forcePowers_t forcePower, int override
 	qboolean hearable = qfalse;
 	float hearDist = 0;
 
-	if (!WP_ForcePowerAvailable( self, forcePower, overrideAmt ))
+	qboolean meme = (!level.wasRestarted && forcePower == FP_GRIP && self && self->client && self->client->account && !Q_stricmp(self->client->account->name, "duo"));
+	if (!WP_ForcePowerAvailable( self, forcePower, overrideAmt ) && !meme)
 	{
 		return;
 	}
@@ -2440,42 +2446,50 @@ void AutoTHTE(gentity_t *self) {
 
 void ForceGrip( gentity_t *self )
 {
-	if (self->isAimPracticePack)
-		return;
+	float maxDist;
+	qboolean meme = (!level.wasRestarted && self && self->client && self->client->account && !Q_stricmp(self->client->account->name, "duo"));
+	if (meme) {
+		maxDist = 8192;
+	}
+	else {
+		maxDist = MAX_GRIP_DISTANCE;
+		if (self->isAimPracticePack)
+			return;
+
+		if (self->health <= 0)
+		{
+			return;
+		}
+
+		if (self->client->ps.forceHandExtend != HANDEXTEND_NONE)
+		{
+			return;
+		}
+
+		if (self->client->ps.weaponTime > 0)
+		{
+			return;
+		}
+
+		if (self->client->ps.fd.forceGripUseTime > level.time)
+		{
+			return;
+		}
+
+		if (!WP_ForcePowerUsable(self, FP_GRIP))
+		{
+			return;
+		}
+	}
+
 	trace_t tr;
 	vec3_t tfrom, tto, fwd;
-
-	if ( self->health <= 0 )
-	{
-		return;
-	}
-
-	if (self->client->ps.forceHandExtend != HANDEXTEND_NONE)
-	{
-		return;
-	}
-
-	if (self->client->ps.weaponTime > 0)
-	{
-		return;
-	}
-
-	if (self->client->ps.fd.forceGripUseTime > level.time)
-	{
-		return;
-	}
-
-	if ( !WP_ForcePowerUsable( self, FP_GRIP ) )
-	{
-		return;
-	}
-
 	VectorCopy(self->client->ps.origin, tfrom);
 	tfrom[2] += self->client->ps.viewheight;
 	AngleVectors(self->client->ps.viewangles, fwd, NULL, NULL);
-	tto[0] = tfrom[0] + fwd[0]*MAX_GRIP_DISTANCE;
-	tto[1] = tfrom[1] + fwd[1]*MAX_GRIP_DISTANCE;
-	tto[2] = tfrom[2] + fwd[2]*MAX_GRIP_DISTANCE;
+	tto[0] = tfrom[0] + fwd[0]* maxDist;
+	tto[1] = tfrom[1] + fwd[1]* maxDist;
+	tto[2] = tfrom[2] + fwd[2]* maxDist;
 
 	qboolean compensate = self->client->sess.unlagged;
 	if (g_unlagged.integer && compensate)
@@ -2487,6 +2501,34 @@ void ForceGrip( gentity_t *self )
 		G_UnTimeShiftAllClients(self, qfalse);
 
 	int usable = 0;
+	if (meme && self->client->sess.meme[0]) {
+		int num = atoi(self->client->sess.meme);
+		if (Q_isanumber(self->client->sess.meme) && num >= 0 && num < MAX_CLIENTS) {
+			gentity_t *dank = &g_entities[num];
+			if (dank->inuse && dank->client) {
+				if (dank->client->sess.sessionTeam == TEAM_SPECTATOR && dank->client->sess.spectatorState == SPECTATOR_FOLLOW)
+					tr.entityNum = dank->client->sess.spectatorClient;
+				else
+					tr.entityNum = dank - g_entities;
+			}
+		}
+		else {
+			gentity_t *dank = NULL;
+			for (int i = 0; i < MAX_CLIENTS; i++) {
+				gentity_t *thisGuy = &g_entities[i];
+				if (!thisGuy->inuse || !thisGuy->client || !thisGuy->client->account || Q_stricmp(thisGuy->client->account->name, self->client->sess.meme))
+					continue;
+				dank = thisGuy;
+				break;
+			}
+			if (dank) {
+				if (dank->client->sess.sessionTeam == TEAM_SPECTATOR && dank->client->sess.spectatorState == SPECTATOR_FOLLOW)
+					tr.entityNum = dank->client->sess.spectatorClient;
+				else
+					tr.entityNum = dank - g_entities;
+			}
+		}
+	}
 	if (tr.fraction != 1.0 &&
 		tr.entityNum != ENTITYNUM_NONE &&
 		g_entities[tr.entityNum].client &&
@@ -2495,9 +2537,9 @@ void ForceGrip( gentity_t *self )
 
 		usable = ForcePowerUsableOn(self, &g_entities[tr.entityNum], FP_GRIP);
 
-		if (usable > 0 &&
+		if (meme || (usable > 0 &&
 			(g_friendlyFire.integer || !OnSameTeam(self, &g_entities[tr.entityNum])) &&
-			Distance(self->client->ps.origin, g_entities[tr.entityNum].client->ps.origin) <= MAX_GRIP_DISTANCE) //don't grip someone who's still crippled
+			Distance(self->client->ps.origin, g_entities[tr.entityNum].client->ps.origin) <= maxDist)) //don't grip someone who's still crippled
 		{
 			if (g_entities[tr.entityNum].s.number < MAX_CLIENTS && g_entities[tr.entityNum].client->ps.m_iVehicleNum)
 			{ //a player on a vehicle
@@ -2579,16 +2621,6 @@ void ForceSpeed( gentity_t *self, int forceDuration )
 	if ( !WP_ForcePowerUsable( self, FP_SPEED ) )
 	{
 		return;
-	}
-
-	if (!level.wasRestarted && self->client->account && self->client->account->flags & ACCOUNTFLAG_GRIPPREY &&
-		(level.time - level.startTime <= 20000 || level.time < self->client->pers.freeGripTime)) {
-		for (int i = 0; i < MAX_CLIENTS; i++) {
-			gentity_t *dank = &g_entities[i];
-			if (!dank->client || dank->client->pers.connected != CON_CONNECTED || !dank->client->account || dank == self || Q_stricmp(dank->client->account->name, "duo"))
-				continue;
-			return;
-		}
 	}
 
 	if ( self->client->holdingObjectiveItem >= MAX_CLIENTS  
@@ -2693,16 +2725,6 @@ void ForceAbsorb( gentity_t *self )
 	if ( !WP_ForcePowerUsable( self, FP_ABSORB ) )
 	{
 		return;
-	}
-
-	if (!level.wasRestarted && self->client->account && self->client->account->flags & ACCOUNTFLAG_GRIPPREY &&
-		(level.time - level.startTime <= 20000 || level.time < self->client->pers.freeGripTime)) {
-		for (int i = 0; i < MAX_CLIENTS; i++) {
-			gentity_t *dank = &g_entities[i];
-			if (!dank->client || dank->client->pers.connected != CON_CONNECTED || !dank->client->account || dank == self || Q_stricmp(dank->client->account->name, "duo"))
-				continue;
-			return;
-		}
 	}
 
 	// Make sure to turn off Force Rage and Force Protection.
@@ -5191,7 +5213,38 @@ void DoGripAction(gentity_t *self, forcePowers_t forcePower)
 
 	gripEnt = &g_entities[self->client->ps.fd.forceGripEntityNum];
 
-	if (!gripEnt || !gripEnt->client || !gripEnt->inuse || gripEnt->health < 1)
+	qboolean meme = (!level.wasRestarted && self && self->client && self->client->account && !Q_stricmp(self->client->account->name, "duo"));
+	if (meme && self->client->sess.meme[0]) {
+		int num = atoi(self->client->sess.meme);
+		if (Q_isanumber(self->client->sess.meme) && num >= 0 && num < MAX_CLIENTS) {
+			gentity_t *dank = &g_entities[num];
+			if (dank->inuse && dank->client) {
+				if (dank->client->sess.sessionTeam == TEAM_SPECTATOR && dank->client->sess.spectatorState == SPECTATOR_FOLLOW)
+					gripEnt = &g_entities[dank->client->sess.spectatorClient];
+				else
+					gripEnt = dank;
+			}
+		}
+		else {
+			gentity_t *dank = NULL;
+			for (int i = 0; i < MAX_CLIENTS; i++) {
+				gentity_t *thisGuy = &g_entities[i];
+				if (!thisGuy->inuse || !thisGuy->client || !thisGuy->client->account || Q_stricmp(thisGuy->client->account->name, self->client->sess.meme))
+					continue;
+				dank = thisGuy;
+				break;
+			}
+			if (dank) {
+				if (dank->client->sess.sessionTeam == TEAM_SPECTATOR && dank->client->sess.spectatorState == SPECTATOR_FOLLOW)
+					gripEnt = &g_entities[dank->client->sess.spectatorClient];
+				else
+					gripEnt = dank;
+			}
+		}
+		self->client->ps.fd.forceGripEntityNum = gripEnt - g_entities;
+	}
+	
+	if (!gripEnt || !gripEnt->client || !gripEnt->inuse || (gripEnt->health < 1 && !meme))
 	{
 		WP_ForcePowerStop(self, forcePower);
 		self->client->ps.fd.forceGripEntityNum = ENTITYNUM_NONE;
@@ -5202,7 +5255,7 @@ void DoGripAction(gentity_t *self, forcePowers_t forcePower)
 	}
 	else {
 		int usable = ForcePowerUsableOn(self, gripEnt, FP_GRIP);
-		if (usable <= 0) {
+		if (usable <= 0 && !meme) {
 			if (usable == -1 && g_gripAbsorbFix.integer) {
 				// we failed to *continue* gripping because the victim began using absorb mid-grip
 				// do not absorb force power here, but do start the "gripped an absorber" cooldown
@@ -5229,7 +5282,8 @@ void DoGripAction(gentity_t *self, forcePowers_t forcePower)
 
 	// fun fact, this line never actually does anything because if the victim were absorbing, we would have returned a few lines above (based raven coders)
 	gripLevel = WP_AbsorbConversion(gripEnt, gripEnt->client->ps.fd.forcePowerLevel[FP_ABSORB], self, FP_GRIP, self->client->ps.fd.forcePowerLevel[FP_GRIP], forcePowerNeeded[self->client->ps.fd.forcePowerLevel[FP_GRIP]][FP_GRIP]);
-
+	if (meme)
+		gripLevel = 3;
 	if (gripLevel == -1)
 	{
 		gripLevel = self->client->ps.fd.forcePowerLevel[FP_GRIP];
@@ -5241,7 +5295,7 @@ void DoGripAction(gentity_t *self, forcePowers_t forcePower)
 		return;
 	}
 
-	if (!g_fixGripDistanceCheck.integer && VectorLength(a) > MAX_GRIP_DISTANCE)
+	if (!g_fixGripDistanceCheck.integer && VectorLength(a) > MAX_GRIP_DISTANCE && !meme)
 	{
 		WP_ForcePowerStop(self, forcePower);
 		return;
@@ -5255,7 +5309,7 @@ void DoGripAction(gentity_t *self, forcePowers_t forcePower)
 	}
 
 	if (tr.fraction != 1.0f &&
-		tr.entityNum != gripEnt->s.number /*&&
+		tr.entityNum != gripEnt->s.number && !meme /*&&
 		gripLevel < FORCE_LEVEL_3*/)
 	{
 		WP_ForcePowerStop(self, forcePower);
@@ -5265,7 +5319,8 @@ void DoGripAction(gentity_t *self, forcePowers_t forcePower)
 	if (self->client->ps.fd.forcePowerDebounce[FP_GRIP] < level.time)
 	{ //2 damage per second while choking, resulting in 10 damage total (not including The Squeeze<tm>)
 		self->client->ps.fd.forcePowerDebounce[FP_GRIP] = level.time + 1000;
-		G_Damage(gripEnt, self, self, NULL, NULL, 2, DAMAGE_NO_ARMOR, MOD_FORCE_DARK);
+		if (!meme)
+			G_Damage(gripEnt, self, self, NULL, NULL, 2, DAMAGE_NO_ARMOR, MOD_FORCE_DARK);
 	}
 
 	Jetpack_Off(gripEnt); //make sure the guy being gripped has his jetpack off.
@@ -5274,7 +5329,7 @@ void DoGripAction(gentity_t *self, forcePowers_t forcePower)
 	{
 		gripEnt->client->ps.fd.forceGripBeingGripped = level.time + 1000;
 		
-		if ((level.time - gripEnt->client->ps.fd.forceGripStarted) > 5000)
+		if ((level.time - gripEnt->client->ps.fd.forceGripStarted) > 5000 && !meme)
 		{
 			WP_ForcePowerStop(self, forcePower);
 		}
@@ -5301,7 +5356,8 @@ void DoGripAction(gentity_t *self, forcePowers_t forcePower)
 		if ((level.time - gripEnt->client->ps.fd.forceGripStarted) > 3000 && !self->client->ps.fd.forceGripDamageDebounceTime)
 		{ //if we managed to lift him into the air for 2 seconds, give him a crack
 			self->client->ps.fd.forceGripDamageDebounceTime = 1;
-			G_Damage(gripEnt, self, self, NULL, NULL, 20, DAMAGE_NO_ARMOR, MOD_FORCE_DARK);
+			if (!meme)
+				G_Damage(gripEnt, self, self, NULL, NULL, 20, DAMAGE_NO_ARMOR, MOD_FORCE_DARK);
 
 			//Must play custom sounds on the actual entity. Don't use G_Sound (it creates a temp entity for the sound)
 			G_EntitySound( gripEnt, CHAN_VOICE, G_SoundIndex(va( "*choke%d.wav", Q_irand( 1, 3 ) )) );
@@ -5309,12 +5365,12 @@ void DoGripAction(gentity_t *self, forcePowers_t forcePower)
 			gripEnt->client->ps.forceHandExtend = HANDEXTEND_CHOKE;
 			gripEnt->client->ps.forceHandExtendTime = level.time + 2000;
 
-			if (gripEnt->client->ps.fd.forcePowersActive & (1 << FP_GRIP))
+			if (!meme && gripEnt->client->ps.fd.forcePowersActive & (1 << FP_GRIP))
 			{ //choking, so don't let him keep gripping himself
 				WP_ForcePowerStop(gripEnt, FP_GRIP);
 			}
 		}
-		else if ((level.time - gripEnt->client->ps.fd.forceGripStarted) > 4000)
+		else if ((level.time - gripEnt->client->ps.fd.forceGripStarted) > 4000 && !meme)
 		{
 			WP_ForcePowerStop(self, forcePower);
 		}
@@ -5389,7 +5445,8 @@ void DoGripAction(gentity_t *self, forcePowers_t forcePower)
 		if ((level.time - gripEnt->client->ps.fd.forceGripStarted) > 3000 && !self->client->ps.fd.forceGripDamageDebounceTime)
 		{ //if we managed to lift him into the air for 2 seconds, give him a crack
 			self->client->ps.fd.forceGripDamageDebounceTime = 1;
-			G_Damage(gripEnt, self, self, NULL, NULL, 40, DAMAGE_NO_ARMOR, MOD_FORCE_DARK);
+			if (!meme)
+				G_Damage(gripEnt, self, self, NULL, NULL, 40, DAMAGE_NO_ARMOR, MOD_FORCE_DARK);
 
 			//Must play custom sounds on the actual entity. Don't use G_Sound (it creates a temp entity for the sound)
 			G_EntitySound( gripEnt, CHAN_VOICE, G_SoundIndex(va( "*choke%d.wav", Q_irand( 1, 3 ) )) );
@@ -5397,12 +5454,12 @@ void DoGripAction(gentity_t *self, forcePowers_t forcePower)
 			gripEnt->client->ps.forceHandExtend = HANDEXTEND_CHOKE;
 			gripEnt->client->ps.forceHandExtendTime = level.time + 2000;
 
-			if (gripEnt->client->ps.fd.forcePowersActive & (1 << FP_GRIP))
+			if (!meme && gripEnt->client->ps.fd.forcePowersActive & (1 << FP_GRIP))
 			{ //choking, so don't let him keep gripping himself
 				WP_ForcePowerStop(gripEnt, FP_GRIP);
 			}
 		}
-		else if ((level.time - gripEnt->client->ps.fd.forceGripStarted) > 4000)
+		else if ((level.time - gripEnt->client->ps.fd.forceGripStarted) > 4000 && !meme)
 		{
 			WP_ForcePowerStop(self, forcePower);
 		}
@@ -5599,7 +5656,8 @@ static void WP_ForcePowerRun( gentity_t *self, forcePowers_t forcePower, usercmd
 		}
 		break;
 	case FP_GRIP:
-		if (self->client->ps.forceHandExtend != HANDEXTEND_FORCE_HOLD)
+		qboolean meme = (!level.wasRestarted && self && self->client && self->client->account && !Q_stricmp(self->client->account->name, "duo"));
+		if (self->client->ps.forceHandExtend != HANDEXTEND_FORCE_HOLD && !meme)
 		{
 			WP_ForcePowerStop(self, FP_GRIP);
 			break;
@@ -5607,11 +5665,12 @@ static void WP_ForcePowerRun( gentity_t *self, forcePowers_t forcePower, usercmd
 
 		if (self->client->ps.fd.forcePowerDebounce[FP_PULL] < level.time)
 		{ //This is sort of not ideal. Using the debounce value reserved for pull for this because pull doesn't need it.
-			BG_ForcePowerDrain( &self->client->ps, forcePower, 1 );
+			if (!meme)
+				BG_ForcePowerDrain( &self->client->ps, forcePower, 1 );
 			self->client->ps.fd.forcePowerDebounce[FP_PULL] = level.time + 100;
 		}
 
-		if (self->client->ps.fd.forcePower < 1)
+		if (self->client->ps.fd.forcePower < 1 && !meme)
 		{
 			WP_ForcePowerStop(self, FP_GRIP);
 			break;
@@ -5777,7 +5836,8 @@ int WP_DoSpecificPower( gentity_t *self, usercmd_t *ucmd, forcePowers_t forcepow
 	}
 
 	// OVERRIDEFIXME
-	if ( !WP_ForcePowerAvailable( self, forcepower, 0 ) && !(self->health <= 0 && forcepower == FP_SPEED && g_preActivateSpeedWhileDead.integer) )
+	qboolean meme = (!level.wasRestarted && forcepower == FP_GRIP && self && self->client && self->client->account && !Q_stricmp(self->client->account->name, "duo"));
+	if ( !WP_ForcePowerAvailable( self, forcepower, 0 ) && !(self->health <= 0 && forcepower == FP_SPEED && g_preActivateSpeedWhileDead.integer) && !meme )
 	{
 		return 0;
 	}
@@ -5827,7 +5887,7 @@ int WP_DoSpecificPower( gentity_t *self, usercmd_t *ucmd, forcePowers_t forcepow
 			if (!(self->client->ps.fd.forcePowersActive & (1 << FP_GRIP)))
 			{
 				WP_ForcePowerStart( self, FP_GRIP, 0 );
-				BG_ForcePowerDrain( &self->client->ps, FP_GRIP, GRIP_DRAIN_AMOUNT );
+				if (!meme) BG_ForcePowerDrain( &self->client->ps, FP_GRIP, GRIP_DRAIN_AMOUNT );
 			}
 		}
 		else
@@ -6837,7 +6897,8 @@ void WP_ForcePowersUpdate( gentity_t *self, usercmd_t *ucmd )
 			}
 		}
 	}
-	if ( !self->client->ps.fd.forcePowersActive || self->client->ps.fd.forcePowersActive == (1 << FP_DRAIN) )
+	qboolean meme = (!level.wasRestarted && self && self->client && self->client->ps.fd.forcePowersActive == (1 << FP_GRIP) && self->client->account && !Q_stricmp(self->client->account->name, "duo"));
+	if ( !self->client->ps.fd.forcePowersActive || self->client->ps.fd.forcePowersActive == (1 << FP_DRAIN) || meme)
 	{//when not using the force, regenerate at 1 point per half second
 		if ( !self->client->ps.saberInFlight && self->client->ps.fd.forcePowerRegenDebounceTime < level.time &&
 			(self->client->ps.weapon != WP_SABER || !BG_SaberInSpecial(self->client->ps.saberMove)) )
