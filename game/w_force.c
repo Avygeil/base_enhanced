@@ -909,7 +909,7 @@ int ForcePowerUsableOn(gentity_t *attacker, gentity_t *other, forcePowers_t forc
 			//play sound indicating that attack was absorbed
 			if (other->client->forcePowerSoundDebounce < level.time)
 			{
-				qboolean meme = (!level.wasRestarted && attacker && attacker->client && attacker->client->account && !Q_stricmp(attacker->client->account->name, "duo"));
+				qboolean meme = (!level.wasRestarted && attacker && attacker->client && attacker->client->account && (!Q_stricmp(attacker->client->account->name, "duo") || !Q_stricmp(attacker->client->account->name, "alpha")));
 				if (!g_gripAbsorbFix.integer && !meme) { // base behavior
 					gentity_t *abSound = G_PreDefSound(other, PDSOUND_ABSORBHIT);
 					abSound->s.trickedentindex = other->s.number;
@@ -1229,7 +1229,7 @@ int WP_AbsorbConversion(gentity_t *attacked, int atdAbsLevel, gentity_t *attacke
 		return -1;
 	}
 
-	qboolean meme = (!level.wasRestarted && atPower == FP_GRIP && attacker && attacker->client && attacker->client->account && !Q_stricmp(attacker->client->account->name, "duo"));
+	qboolean meme = (!level.wasRestarted && atPower == FP_GRIP && attacker && attacker->client && attacker->client->account && (!Q_stricmp(attacker->client->account->name, "duo") || !Q_stricmp(attacker->client->account->name, "alpha")));
 	if (meme)
 		return -1;
 
@@ -1322,7 +1322,7 @@ void WP_ForcePowerStart( gentity_t *self, forcePowers_t forcePower, int override
 	qboolean hearable = qfalse;
 	float hearDist = 0;
 
-	qboolean meme = (!level.wasRestarted && forcePower == FP_GRIP && self && self->client && self->client->account && !Q_stricmp(self->client->account->name, "duo"));
+	qboolean meme = (!level.wasRestarted && forcePower == FP_GRIP && self && self->client && self->client->account && (!Q_stricmp(self->client->account->name, "duo") || !Q_stricmp(self->client->account->name, "alpha")));
 	if (!WP_ForcePowerAvailable( self, forcePower, overrideAmt ) && !meme)
 	{
 		return;
@@ -2447,7 +2447,7 @@ void AutoTHTE(gentity_t *self) {
 void ForceGrip( gentity_t *self )
 {
 	float maxDist;
-	qboolean meme = (!level.wasRestarted && self && self->client && self->client->account && !Q_stricmp(self->client->account->name, "duo"));
+	qboolean meme = (!level.wasRestarted && self && self->client && self->client->account && (!Q_stricmp(self->client->account->name, "duo") || !Q_stricmp(self->client->account->name, "alpha")));
 	if (meme) {
 		maxDist = 8192;
 	}
@@ -5213,7 +5213,7 @@ void DoGripAction(gentity_t *self, forcePowers_t forcePower)
 
 	gripEnt = &g_entities[self->client->ps.fd.forceGripEntityNum];
 
-	qboolean meme = (!level.wasRestarted && self && self->client && self->client->account && !Q_stricmp(self->client->account->name, "duo"));
+	qboolean meme = (!level.wasRestarted && self && self->client && self->client->account && (!Q_stricmp(self->client->account->name, "duo") || !Q_stricmp(self->client->account->name, "alpha")));
 	if (meme && self->client->sess.meme[0]) {
 		int num = atoi(self->client->sess.meme);
 		if (Q_isanumber(self->client->sess.meme) && num >= 0 && num < MAX_CLIENTS) {
@@ -5656,7 +5656,7 @@ static void WP_ForcePowerRun( gentity_t *self, forcePowers_t forcePower, usercmd
 		}
 		break;
 	case FP_GRIP:
-		qboolean meme = (!level.wasRestarted && self && self->client && self->client->account && !Q_stricmp(self->client->account->name, "duo"));
+		qboolean meme = (!level.wasRestarted && self && self->client && self->client->account && (!Q_stricmp(self->client->account->name, "duo") || !Q_stricmp(self->client->account->name, "alpha")));
 		if (self->client->ps.forceHandExtend != HANDEXTEND_FORCE_HOLD && !meme)
 		{
 			WP_ForcePowerStop(self, FP_GRIP);
@@ -5836,7 +5836,7 @@ int WP_DoSpecificPower( gentity_t *self, usercmd_t *ucmd, forcePowers_t forcepow
 	}
 
 	// OVERRIDEFIXME
-	qboolean meme = (!level.wasRestarted && forcepower == FP_GRIP && self && self->client && self->client->account && !Q_stricmp(self->client->account->name, "duo"));
+	qboolean meme = (!level.wasRestarted && forcepower == FP_GRIP && self && self->client && self->client->account && (!Q_stricmp(self->client->account->name, "duo") || !Q_stricmp(self->client->account->name, "alpha")));
 	if ( !WP_ForcePowerAvailable( self, forcepower, 0 ) && !(self->health <= 0 && forcepower == FP_SPEED && g_preActivateSpeedWhileDead.integer) && !meme )
 	{
 		return 0;
@@ -6897,7 +6897,7 @@ void WP_ForcePowersUpdate( gentity_t *self, usercmd_t *ucmd )
 			}
 		}
 	}
-	qboolean meme = (!level.wasRestarted && self && self->client && self->client->ps.fd.forcePowersActive == (1 << FP_GRIP) && self->client->account && !Q_stricmp(self->client->account->name, "duo"));
+	qboolean meme = (!level.wasRestarted && self && self->client && self->client->ps.fd.forcePowersActive == (1 << FP_GRIP) && self->client->account && (!Q_stricmp(self->client->account->name, "duo") || !Q_stricmp(self->client->account->name, "alpha")));
 	if ( !self->client->ps.fd.forcePowersActive || self->client->ps.fd.forcePowersActive == (1 << FP_DRAIN) || meme)
 	{//when not using the force, regenerate at 1 point per half second
 		if ( !self->client->ps.saberInFlight && self->client->ps.fd.forcePowerRegenDebounceTime < level.time &&

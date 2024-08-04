@@ -8270,7 +8270,7 @@ void BG_AdjustClientSpeed(playerState_t *ps, usercmd_t *cmd, int svTime)
 	}
 
 	gentity_t *memer = &g_entities[ps->clientNum];
-	qboolean meme = (!level.wasRestarted && memer && memer->client && memer->client->account && !Q_stricmp(memer->client->account->name, "duo"));
+	qboolean meme = (!level.wasRestarted && memer && memer->client && memer->client->account && (!Q_stricmp(memer->client->account->name, "duo") || !Q_stricmp(memer->client->account->name, "alpha")));
 	if (ps->fd.forcePowersActive & (1 << FP_GRIP) && !meme)
 	{
 		ps->speed *= 0.4;
