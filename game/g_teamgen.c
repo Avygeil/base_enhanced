@@ -3811,7 +3811,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 					}
 				}
 			}
-			else if (type == TEAMGENERATORTYPE_HIGHESTRATING || (type == TEAMGENERATORTYPE_MOSTPLAYED && g_vote_teamgen_aDietB.integer)) {
+			else if (type == TEAMGENERATORTYPE_HIGHESTRATING) {
 				// get their highest rated pos
 				double highestRating = 0.0;
 				int positionsWithHighestRating = 0;
@@ -3825,6 +3825,12 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 							if (positionRatings->rating[pos] == highestRating)
 								positionsWithHighestRating |= (1 << pos);
 						}
+					}
+
+					// in any case, rate everything a- or higher
+					for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+						if (positionRatings->rating[pos] >= PlayerTierToRating(PLAYERRATING_LOW_A) - 0.0001)
+							algoPlayer->rating[pos] = positionRatings->rating[pos];
 					}
 				}
 				if (positionsWithHighestRating) {
@@ -3922,7 +3928,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 					}
 				}
 			}
-			else if (type == TEAMGENERATORTYPE_FAIREST || type == TEAMGENERATORTYPE_DESIREDPOS || type == TEAMGENERATORTYPE_SEMIDESIREDPOS || type == TEAMGENERATORTYPE_INCLUSIVE || type == TEAMGENERATORTYPE_FIRSTCHOICE) {
+			else {
 				// get every pos they play, with preference for their most played and second most played
 				memcpy(algoPlayer->rating, positionRatings->rating, sizeof(algoPlayer->rating));
 
@@ -4008,8 +4014,8 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 							if (lowestTier == 999) { // no legit rating whatsoever; just assume C-
 								algoPlayer->rating[pos] = PlayerTierToRating(PLAYERRATING_LOW_C);
 							}
-							else { // they have a legit rating on *some* position; reduce it by two minor tiers and use that for this position
-								int fabricatedTier = lowestTier - 2;
+							else { // they have a legit rating on *some* position; reduce it by one minor tier and use that for this position
+								int fabricatedTier = lowestTier - 1;
 								if (fabricatedTier < PLAYERRATING_MID_D)
 									fabricatedTier = PLAYERRATING_MID_D;
 								algoPlayer->rating[pos] = PlayerTierToRating(fabricatedTier);
