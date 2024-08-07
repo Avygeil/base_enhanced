@@ -2616,6 +2616,187 @@ void ClientUserinfoChanged( int clientNum ) {
 	}
 }
 
+char *strtokstr(char *str, const char *delim) {
+	static char *static_str = NULL;
+	if (str) static_str = str;
+
+	if (!static_str) return NULL;
+
+	char *token_start = static_str;
+	char *ptr = strstr(static_str, delim);
+
+	if (ptr) {
+		*ptr = '\0';
+		static_str = ptr + strlen(delim);
+	}
+	else {
+		static_str = NULL;
+	}
+
+	return token_start;
+}
+
+qboolean wildcard_match(const char *str, const char *pattern) {
+	const char *s = str;
+	const char *p = pattern;
+	const char *asterisk = NULL;
+	const char *ss = NULL;
+
+	while (*s) {
+		if (*p == '\\' && (*(p + 1) == '*' || *(p + 1) == '\\')) {
+			p++;
+			if (*p == *s) {
+				p++;
+				s++;
+			}
+			else {
+				return qfalse;
+			}
+		}
+		else if (*p == '*' && *(p + 1) == '*') {
+			p += 2;
+			if (*p == '*') { // Triple asterisk case
+				asterisk = p;
+				ss = s;
+				p++; // Skip the literal asterisk
+			}
+			else if (*p == '\\' && *(p + 1) == '*') { // Escaped asterisk case
+				p++;
+				if (*p == *s) {
+					p++;
+					s++;
+				}
+				else {
+					return qfalse;
+				}
+			}
+			else {
+				asterisk = p;
+				ss = s;
+			}
+		}
+		else if (*p == '*') {
+			p++;
+			asterisk = p;
+			ss = s;
+		}
+		else if (*p == *s) {
+			p++;
+			s++;
+		}
+		else if (asterisk) {
+			p = asterisk;
+			s = ++ss;
+		}
+		else {
+			return qfalse;
+		}
+	}
+
+	while (*p == '*' || (*p == '\\' && (*(p + 1) == '*' || *(p + 1) == '\\'))) {
+		if (*p == '\\') p++;
+		p++;
+	}
+
+	return !*p;
+}
+
+static qboolean FilterUserinfo(char *userinfo, char *reasonOut, size_t reasonOutSize) {
+	if (!level.filtersList.size || !g_filterUsers.integer) {
+		return qfalse;
+	}
+
+	iterator_t iter;
+	ListIterate(&level.filtersList, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		filter_t *filter = IteratorNext(&iter);
+		if (!VALIDSTRING(filter->filterText)) {
+			Com_Printf("FilterUserinfo: empty filter text for id %d!\n", filter->id);
+			continue;
+		}
+
+		char filterTextCopy[MAX_STRING_CHARS];
+		Q_strncpyz(filterTextCopy, filter->filterText, sizeof(filterTextCopy));
+
+		char userinfoCopy[MAX_STRING_CHARS];
+		Q_strncpyz(userinfoCopy, userinfo, sizeof(userinfoCopy));
+
+		const qboolean matchAll = qtrue, wildcards = qtrue; // saving previous draft code in case we want to change it
+
+		qboolean match = matchAll ? qtrue : qfalse;
+		qboolean foundMatch = qfalse;
+
+		// Split filter text into key/value pairs using quadruple backslashes
+		char *filterPair = strtok(filterTextCopy, "\\\\\\\\");
+		char *filterPairs[MAX_STRING_CHARS];
+		int numFilterPairs = 0;
+
+		while (filterPair && numFilterPairs < MAX_STRING_CHARS - 1) {
+			filterPairs[numFilterPairs++] = filterPair;
+			filterPair = strtok(NULL, "\\\\\\\\");
+		}
+		filterPairs[numFilterPairs] = NULL;
+
+		// Iterate through userinfo key/value pairs
+		char *userKey = strtok(userinfoCopy, "\\");
+		while (userKey) {
+			char *userValue = strtok(NULL, "\\");
+
+			if (!userValue) break; // No value for the key, end of userinfo
+
+			for (int i = 0; i < numFilterPairs; i += 2) {
+				char *filterKey = filterPairs[i];
+				char *filterValue = filterPairs[i + 1];
+
+				if (!Q_stricmp(filterKey, userKey)) {
+					if (wildcards) {
+						if (wildcard_match(userValue, filterValue)) {
+							foundMatch = qtrue;
+							if (!matchAll) {
+								break;
+							}
+						}
+						else if (matchAll) {
+							match = qfalse;
+							break;
+						}
+					}
+					else {
+						if (!Q_stricmp(userValue, filterValue)) {
+							foundMatch = qtrue;
+							if (!matchAll) {
+								break;
+							}
+						}
+						else if (matchAll) {
+							match = qfalse;
+							break;
+						}
+					}
+				}
+			}
+
+			userKey = strtok(NULL, "\\");
+		}
+
+		if ((matchAll && match) || (!matchAll && foundMatch)) {
+			if (reasonOut && reasonOutSize > 0) {
+				time_t currentTime;
+				time(&currentTime);
+				if (difftime(currentTime, filter->lastFiltered) > 8.0)
+					++filter->count; // only increment count if it's not just someone sitting on the load screen racking these up
+				time(&filter->lastFiltered);
+				UpdateFilter(filter);
+				Com_Printf("Filtering client based on filter %s\n", filter->filterText);
+				Q_strncpyz(reasonOut, "You are banned from this server.", reasonOutSize);
+			}
+			return qtrue;
+		}
+	}
+
+	return qfalse;
+}
+
 
 /*
 ===========
@@ -2654,6 +2835,8 @@ char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 	ent = &g_entities[ clientNum ];
 
 	trap_GetUserinfo( clientNum, userinfo, sizeof( userinfo ) );
+	if (FilterUserinfo(userinfo, reason, sizeof(reason)))
+		return reason;
 
 	// check to see if they are on the banned IP list
 	value = Info_ValueForKey (userinfo, "ip");

@@ -1946,6 +1946,12 @@ static qboolean UpgradeDBToVersion27(sqlite3 *dbPtr) {
 	return trap_sqlite3_exec(dbPtr, v27Upgrade, NULL, NULL, NULL) == SQLITE_OK;
 }
 
+const char *const v28Upgrade = "CREATE TABLE filters ([id] INTEGER PRIMARY KEY AUTOINCREMENT, [filter_text] TEXT NOT NULL, [created_at] DEFAULT NULL, [description] TEXT, [count] INTEGER NOT NULL DEFAULT 0, [last_filtered] DEFAULT NULL); ";
+
+static qboolean UpgradeDBToVersion28(sqlite3 *dbPtr) {
+	return trap_sqlite3_exec(dbPtr, v28Upgrade, NULL, NULL, NULL) == SQLITE_OK;
+}
+
 // =============================================================================
 
 static qboolean UpgradeDB( int versionTo, sqlite3* dbPtr ) {
@@ -1978,6 +1984,7 @@ static qboolean UpgradeDB( int versionTo, sqlite3* dbPtr ) {
 		case 25: return UpgradeDBToVersion25(dbPtr);
 		case 26: return UpgradeDBToVersion26(dbPtr);
 		case 27: return UpgradeDBToVersion27(dbPtr);
+		case 28: return UpgradeDBToVersion28(dbPtr);
 ;		default:
 			Com_Printf( "ERROR: Unsupported database upgrade routine\n" );
 	}

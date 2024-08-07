@@ -587,6 +587,8 @@ vmCvar_t	g_vote_teamgen_aDietB;
 vmCvar_t	g_vote_teamgen_displayCaliber;
 
 vmCvar_t	g_filterSlurs;
+vmCvar_t	g_filterUsers;
+vmCvar_t	g_lockdown;
 
 vmCvar_t	g_addItems;
 vmCvar_t	g_addItemsWhitelist;
@@ -1219,6 +1221,8 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_teamgen_displayCaliber, "g_vote_teamgen_displayCaliber", "1", CVAR_ARCHIVE, 0, qfalse },
 
 	{ &g_filterSlurs, "g_filterSlurs", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
+	{ &g_filterUsers, "g_filterUsers", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
+	{ &g_lockdown, "g_lockdown", "0", CVAR_ARCHIVE, 0, qfalse },
 
 	{ &g_addItems, "g_addItems", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
 	{ &g_addItemsWhitelist, "g_addItemsWhitelist", "", CVAR_ARCHIVE, 0, qfalse },
@@ -2357,6 +2361,8 @@ void G_InitGame( int levelTime, int randomSeed, int restart, void *serverDbPtr )
 
 	LoadAimPacks();
 
+	DB_LoadFilters();
+
 	// only enable racemode records in ctf
 	level.racemodeRecordsEnabled = g_gametype.integer == GT_CTF && g_enableRacemode.integer;
 	level.topAimRecordsEnabled = g_gametype.integer == GT_CTF && g_enableAimPractice.integer;
@@ -2398,6 +2404,9 @@ void G_InitGame( int levelTime, int randomSeed, int restart, void *serverDbPtr )
 	}
 
 	InitSlurs();
+
+	if (g_lockdown.integer)
+		Com_Printf("^3Warning: g_lockdown is enabled!^7\n");
 
 	// always clear these so that they can only happen once
 	trap_Cvar_Set("g_lastIntermissionStartTime", "");
@@ -2586,6 +2595,8 @@ void G_ShutdownGame( int restart ) {
 	ListClear(&level.goVoteList);
 	ListClear(&level.addedItemsList);
 	ListClear(&level.baseItemsList);
+
+	ListClear(&level.filtersList);
 
 	ListIterate(&level.slurList, &iter, qfalse);
 	while (IteratorHasNext(&iter)) {

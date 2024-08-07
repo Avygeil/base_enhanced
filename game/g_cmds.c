@@ -1510,6 +1510,9 @@ Cmd_Team_f
 */
 void Cmd_Race_f( gentity_t *ent );
 void Cmd_Team_f( gentity_t *ent ) {
+	if (g_lockdown.integer && !ent->client->account)
+		return;
+
 	int			oldTeam;
 	char		s[MAX_TOKEN_CHARS];
 
@@ -2361,6 +2364,30 @@ static qboolean ShouldSendOutOfBandDM(const char *version) {
 	return qfalse;
 }
 
+qboolean ChatShouldBeBlockedByShadowmute(gclient_t *sender, gclient_t *recipient) {
+	if (!sender || !recipient)
+		return qfalse;
+
+	qboolean senderShadowmuted = qfalse;
+	if (sender->sess.shadowMuted)
+		senderShadowmuted = qtrue;
+	else if (g_lockdown.integer && !sender->account)
+		senderShadowmuted = qtrue;
+
+	qboolean recipientShadowmuted = qfalse;
+	if (recipient->sess.shadowMuted)
+		recipientShadowmuted = qtrue;
+	else if (g_lockdown.integer && !recipient->account)
+		recipientShadowmuted = qtrue;
+
+	if (senderShadowmuted) {
+		if (recipientShadowmuted)
+			return qfalse;
+		return qtrue;
+	}
+	return qfalse;
+}
+
 void G_SayTo( gentity_t *ent, gentity_t *other, int mode, int color, const char *name, const char *message, char *locMsg, qboolean outOfBandOk)
 {
 	if (!other) {
@@ -2384,7 +2411,7 @@ void G_SayTo( gentity_t *ent, gentity_t *other, int mode, int color, const char 
 	}
 
 	// if this guy is shadow muted, don't let anyone see his messages except himself and other shadow muted clients
-	if ( ent->client && ent->client->sess.shadowMuted && ent != other && !other->client->sess.shadowMuted ) {
+	if (ChatShouldBeBlockedByShadowmute(ent->client, other->client)) {
 		return;
 	}
 
@@ -5790,7 +5817,7 @@ void Cmd_Vchat_f(gentity_t *sender) {
 			continue;
 		}
 
-		if (sender->client != cl && sender->client->sess.shadowMuted && !cl->sess.shadowMuted) {
+		if (sender->client != cl && ChatShouldBeBlockedByShadowmute(sender->client, cl)) {
 			// the sender is shadowmuted and this recipient is not shadowmuted
 			continue;
 		}
@@ -5876,6 +5903,9 @@ void Cmd_Race_f( gentity_t *ent ) {
 	if ( !ent || !ent->client ) {
 		return;
 	}
+
+	if (g_lockdown.integer && !ent->client->account)
+		return;
 
 	if ( g_gametype.integer != GT_CTF ) {
 		return;

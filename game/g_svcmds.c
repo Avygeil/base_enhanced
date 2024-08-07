@@ -4923,6 +4923,210 @@ static void Svcmd_CtfStats_f(void) {
 	}
 }
 
+extern void EpochToHumanReadable(double epochTime, char *buffer, size_t bufferSize);
+
+const char *TableCallback_FilterID(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	filter_t *filter = rowContext;
+	return va("%d", filter->id);
+}
+
+const char *TableCallback_FilterText(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	filter_t *filter = rowContext;
+	return filter->filterText;
+}
+
+const char *TableCallback_FilterCreatedAt(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	filter_t *filter = rowContext;
+	static char createdAtStr[128] = { 0 };
+	time_t rawtime = filter->createdAt;
+	struct tm *timeinfo = localtime(&rawtime);
+	strftime(createdAtStr, sizeof(createdAtStr), "%Y-%m-%d %H:%M:%S", timeinfo);
+	return createdAtStr;
+}
+
+const char *TableCallback_FilterTimesFiltered(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	filter_t *filter = rowContext;
+	return va("%d", filter->count);
+}
+
+const char *TableCallback_FilterLastFiltered(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	filter_t *filter = rowContext;
+	if (!filter->count)
+		return "Never";
+	static char lastFilteredStr[128] = { 0 };
+	time_t rawtime = filter->lastFiltered;
+	struct tm *timeinfo = localtime(&rawtime);
+	strftime(lastFilteredStr, sizeof(lastFilteredStr), "%Y-%m-%d %H:%M:%S", timeinfo);
+	return lastFilteredStr;
+}
+
+const char *TableCallback_FilterDescription(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	filter_t *filter = rowContext;
+	return filter->description;
+}
+
+static void Svcmd_Filter_f(void) {
+	if (!g_filterUsers.integer) {
+		Com_Printf("g_filterUsers is disabled.\n");
+		return;
+	}
+
+	if (trap_Argc() < 2) {
+		Com_Printf("^7Usage:\n"
+			"^7filter list                                - list all loaded filters\n"
+			"^9filter add [filter] <optional description> - add a new filter\n"
+			"^7filter delete [id]                         - delete a filter\n"
+			"Enter ^5filter add^7 with no arguments for additional help.\n");
+		return;
+	}
+
+	char subcommand[MAX_STRING_CHARS] = { 0 };
+	trap_Argv(1, subcommand, sizeof(subcommand));
+
+	if (!Q_stricmp(subcommand, "list") || !Q_stricmp(subcommand, "status")) {
+		if (!level.filtersList.size) {
+			Com_Printf("No filters loaded.\n");
+			return;
+		}
+
+		iterator_t iter;
+		ListIterate(&level.filtersList, &iter, qfalse);
+		Table *t = Table_Initialize(qtrue);
+		int numFilters = 0;
+
+		while (IteratorHasNext(&iter)) {
+			filter_t *filter = (filter_t *)IteratorNext(&iter);
+			Table_DefineRow(t, filter);
+			numFilters++;
+		}
+
+		if (numFilters) {
+			Table_DefineColumn(t, "ID", TableCallback_FilterID, NULL, qtrue, -1, 16);
+			Table_DefineColumn(t, "Created", TableCallback_FilterCreatedAt, NULL, qtrue, -1, 64);
+			Table_DefineColumn(t, "Hits", TableCallback_FilterTimesFiltered, NULL, qtrue, -1, 32);
+			Table_DefineColumn(t, "Last hit", TableCallback_FilterLastFiltered, NULL, qtrue, -1, 64);
+			Table_DefineColumn(t, "Description", TableCallback_FilterDescription, NULL, qtrue, -1, 128);
+			Table_DefineColumn(t, "Filter text", TableCallback_FilterText, NULL, qtrue, -1, MAX_STRING_CHARS);
+
+			char *buf = calloc(16384, sizeof(char));
+			Table_WriteToBuffer(t, buf, 16384, qtrue, -1);
+			Q_strcat(buf, 16384, "\n");
+			Com_Printf(buf);
+			free(buf);
+		}
+		Table_Destroy(t);
+	}
+	else if (!Q_stricmp(subcommand, "add") || !Q_stricmp(subcommand, "new") || !Q_stricmp(subcommand, "create") || !Q_stricmp(subcommand, "save")) {
+		if (trap_Argc() < 3) {
+			Com_Printf("Usage: filter add [filter] <optional description>\n");
+			Com_Printf("Use ^5rcon userinfo^7 to get userinfo. Separate multiple required key/values with quadruple backslashes. Use * for wildcards (including 0, 1, or 2+ chars)\n");
+			Com_Printf("Example usage: ^5filter add name\\f*cker\\\\\\\\model\\kyle annoying chat spammer^7\n");
+			return;
+		}
+
+		char filterText[MAX_STRING_CHARS] = { 0 };
+		trap_Argv(2, filterText, sizeof(filterText));
+		if (!VALIDSTRING(filterText)) {
+			Com_Printf("Usage: filter add [filter] <optional description>\n");
+			Com_Printf("Use ^5rcon userinfo^7 to get userinfo. Separate multiple required key/values with quadruple backslashes. Use * for wildcards (including 0, 1, or 2+ chars)\n");
+			Com_Printf("Example usage: ^5filter add name\\f*cker\\\\\\\\model\\kyle annoying chat spammer^7\n");
+			return;
+		}
+
+		if (!strchr(filterText, '\\')) {
+			Com_Printf("Make sure you include a backslash.\n");
+			return;
+		}
+			
+		char description[MAX_STRING_CHARS] = { 0 };
+		if (trap_Argc() >= 4)
+			Q_strncpyz(description, ConcatArgs(3), sizeof(description));
+
+		filter_t *newFilter = ListAdd(&level.filtersList, sizeof(filter_t));
+		Q_strncpyz(newFilter->filterText, filterText, sizeof(newFilter->filterText));
+		if (description[0]) {
+			Q_strncpyz(newFilter->description, description, sizeof(newFilter->description));
+		}
+		time(&newFilter->createdAt);
+
+		int newFilterId = -1;
+		if (SaveNewFilter(newFilter, &newFilterId)) {
+			newFilter->id = newFilterId;
+			Com_Printf("Successfully added new filter with ID %d.\n", newFilterId);
+		}
+		else {
+			Com_Printf("Failed to add filter.\n");
+			ListRemove(&level.filtersList, newFilter);
+		}
+	}
+	else if (!Q_stricmpn(subcommand, "del", 3) || !Q_stricmpn(subcommand, "rem", 3) || !Q_stricmpn(subcommand, "rm", 2)) {
+		if (trap_Argc() < 3) {
+			Com_Printf("^7Usage: filter delete [id]\n");
+			return;
+		}
+
+		char idStr[MAX_STRING_CHARS] = { 0 };
+		trap_Argv(2, idStr, sizeof(idStr));
+		if (!Q_isanumber(idStr)) {
+			Com_Printf("^7Usage: filter delete [id]\n");
+			return;
+		}
+		int filterId = atoi(idStr);
+		iterator_t iter;
+		ListIterate(&level.filtersList, &iter, qfalse);
+		qboolean found = qfalse;
+		while (IteratorHasNext(&iter)) {
+			filter_t *filter = IteratorNext(&iter);
+			if (filter->id == filterId) {
+				found = qtrue;
+				ListRemove(&level.filtersList, filter);
+			}
+		}
+
+		if (found) {
+			if (DeleteFilter(filterId))
+				Com_Printf("Filter with ID %d successfully deleted from database.\n", filterId);
+			else
+				Com_Printf("Error deleting ID %d from database!\n", filterId);
+		}
+		else {
+			Com_Printf("Filter not found.\n");
+		}
+	}
+	else {
+		Com_Printf("^7Usage:\n"
+			"^7filter list                                - list all loaded filters\n"
+			"^9filter add [filter] <optional description> - add a new filter\n"
+			"^7filter delete [id]                         - delete a filter\n"
+			"Enter ^5filter add^7 with no arguments for additional help.\n");
+	}
+}
+
+
 #ifdef _DEBUG
 // test tick tracking for discord webhook
 static void Svcmd_DebugTicks_f(void) {
@@ -5355,6 +5559,11 @@ qboolean	ConsoleCommand( void ) {
 
 	if (!Q_stricmp(cmd, "ctfstats") || !Q_stricmp(cmd, "stats")) {
 		Svcmd_CtfStats_f();
+		return qtrue;
+	}
+
+	if (!Q_stricmp(cmd, "filter")) {
+		Svcmd_Filter_f();
 		return qtrue;
 	}
 

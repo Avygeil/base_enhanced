@@ -7555,3 +7555,173 @@ qboolean DB_UndeleteBaseItem(changedItem_t *item) {
 	return qtrue;
 }
 
+void DB_LoadFilters(void) {
+	if (!g_filterUsers.integer) {
+		Com_Printf("DB_LoadFilters: g_filterUsers is disabled, so not loading filters.\n");
+		return;
+	}
+	const char *const sqlLoadFilters = "SELECT id, filter_text, created_at, description, count, last_filtered FROM filters ORDER BY id ASC;";
+	ListClear(&level.filtersList);
+
+	sqlite3_stmt *statement;
+	int rc = trap_sqlite3_prepare_v2(dbPtr, sqlLoadFilters, -1, &statement, NULL);
+	if (rc != SQLITE_OK) {
+		Com_Printf("DB_LoadFilters: failed to prepare statement!\n");
+		return;
+	}
+
+	int loadedFiltersCount = 0;
+	rc = trap_sqlite3_step(statement);
+	while (rc == SQLITE_ROW) {
+		filter_t *newFilter = ListAdd(&level.filtersList, sizeof(filter_t));
+
+		newFilter->id = sqlite3_column_int(statement, 0);
+		const char *filterText = (const char *)sqlite3_column_text(statement, 1);
+		if (VALIDSTRING(filterText)) {
+			Q_strncpyz(newFilter->filterText, filterText, sizeof(newFilter->filterText));
+		}
+		else {
+			Com_Printf("DB_LoadFilters: empty filter text!\n");
+			ListRemove(&level.filtersList, newFilter);
+			continue;
+		}
+
+		newFilter->createdAt = sqlite3_column_int64(statement, 2);
+		newFilter->count = sqlite3_column_int(statement, 3);
+		newFilter->lastFiltered = sqlite3_column_int64(statement, 4);
+
+		const char *description = (const char *)sqlite3_column_text(statement, 3);
+		if (VALIDSTRING(description))
+			Q_strncpyz(newFilter->description, description, sizeof(newFilter->description));
+
+		++loadedFiltersCount;
+
+		rc = trap_sqlite3_step(statement);
+	}
+
+	trap_sqlite3_finalize(statement);
+
+	if (loadedFiltersCount > 0)
+		Com_Printf("DB_LoadFilters: loaded %d filters from the database.\n", loadedFiltersCount);
+	else
+		Com_Printf("DB_LoadFilters: no loaded filters.\n");
+}
+
+qboolean UpdateFilter(filter_t *filter) {
+	if (!filter || filter->id <= 0) {
+		assert(qfalse);
+		return qfalse;
+	}
+
+	const char *sqlUpdate = "UPDATE filters SET count = ?, last_filtered = ? WHERE id = ?;";
+	sqlite3_stmt *stmt;
+	int rc;
+
+	rc = trap_sqlite3_prepare_v2(dbPtr, sqlUpdate, -1, &stmt, NULL);
+	if (rc != SQLITE_OK) {
+		Com_Printf("UpdateFilter: Failed to prepare update statement\n");
+		return qfalse;
+	}
+
+	sqlite3_bind_int(stmt, 1, filter->count);
+	sqlite3_bind_int64(stmt, 2, filter->lastFiltered);
+	sqlite3_bind_int(stmt, 3, filter->id);
+
+	rc = trap_sqlite3_step(stmt);
+	if (rc != SQLITE_DONE) {
+		Com_Printf("UpdateFilter: Failed to execute update statement\n");
+		trap_sqlite3_finalize(stmt);
+		return qfalse;
+	}
+
+	trap_sqlite3_finalize(stmt);
+
+	return qtrue;
+}
+
+qboolean SaveNewFilter(filter_t *filter, int *newFilterId) {
+	if (!filter || !VALIDSTRING(filter->filterText)) {
+		assert(qfalse);
+		return qfalse;
+	}
+
+	const char *sqlInsert = "INSERT INTO filters (filter_text, description, created_at) VALUES (?, ?, ?);";
+	sqlite3_stmt *stmt;
+	int rc;
+
+	rc = trap_sqlite3_prepare_v2(dbPtr, sqlInsert, -1, &stmt, NULL);
+	if (rc != SQLITE_OK) {
+		Com_Printf("SaveNewFilter: Failed to prepare insert statement\n");
+		return qfalse;
+	}
+
+	sqlite3_bind_text(stmt, 1, filter->filterText, -1, SQLITE_STATIC);
+	if (VALIDSTRING(filter->description)) {
+		sqlite3_bind_text(stmt, 2, filter->description, -1, SQLITE_STATIC);
+	}
+	else {
+		sqlite3_bind_null(stmt, 2);
+	}
+	sqlite3_bind_int64(stmt, 3, filter->createdAt);
+
+	rc = trap_sqlite3_step(stmt);
+	if (rc != SQLITE_DONE) {
+		Com_Printf("SaveNewFilter: Failed to execute insert statement\n");
+		trap_sqlite3_finalize(stmt);
+		return qfalse;
+	}
+
+	// get the ID of the newly created filter (yes, there is a C func for this, no i'm not updating the engine to add a trap call for it)
+	if (newFilterId) {
+		trap_sqlite3_reset(stmt);
+		const char *sqlSelectId = "SELECT id FROM filters WHERE rowid = last_insert_rowid();";
+		rc = trap_sqlite3_prepare_v2(dbPtr, sqlSelectId, -1, &stmt, NULL);
+		if (rc != SQLITE_OK) {
+			Com_Printf("SaveNewFilter: Failed to prepare select ID statement\n");
+			return qfalse;
+		}
+
+		rc = trap_sqlite3_step(stmt);
+		if (rc == SQLITE_ROW) {
+			*newFilterId = sqlite3_column_int(stmt, 0);
+		}
+		else {
+			Com_Printf("SaveNewFilter: Failed to fetch new filter ID\n");
+			trap_sqlite3_finalize(stmt);
+			return qfalse;
+		}
+	}
+	
+	trap_sqlite3_finalize(stmt);
+
+	return qtrue;
+}
+
+
+// note: does not delete from list
+qboolean DeleteFilter(int filterId) {
+	if (filterId <= 0) {
+		assert(qfalse);
+		return qfalse;
+	}
+
+	const char *sqlDelete = "DELETE FROM filters WHERE id = ?;";
+	sqlite3_stmt *statement;
+	int rc = trap_sqlite3_prepare_v2(dbPtr, sqlDelete, -1, &statement, NULL);
+	if (rc != SQLITE_OK) {
+		Com_Printf("DeleteFilter: Failed to prepare delete statement\n");
+		return qfalse;
+	}
+
+	sqlite3_bind_int(statement, 1, filterId);
+
+	rc = trap_sqlite3_step(statement);
+	trap_sqlite3_finalize(statement);
+
+	if (rc != SQLITE_DONE) {
+		Com_Printf("DeleteFilter: Failed to execute delete statement\n");
+		return qfalse;
+	}
+
+	return qtrue;
+}

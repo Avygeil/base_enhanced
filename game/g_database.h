@@ -4,8 +4,8 @@
 #include "g_local.h"
 
 #define DB_FILENAME				"enhanced.db"
-#define DB_SCHEMA_VERSION		27
-#define DB_SCHEMA_VERSION_STR	"27"
+#define DB_SCHEMA_VERSION		28
+#define DB_SCHEMA_VERSION_STR	"28"
 #define DB_OPTIMIZE_INTERVAL	( 60*60*3 ) // every 3 hours
 #define DB_VACUUM_INTERVAL		( 60*60*24*7 ) // every week
 
@@ -436,5 +436,10 @@ qboolean DB_DeleteBaseItem(changedItem_t *item);
 qboolean DB_UndeleteBaseItem(changedItem_t *item);
 
 qboolean DB_IsTopMap(const char *mapFilename, int num);
+
+void DB_LoadFilters(void);
+qboolean UpdateFilter(filter_t *filter);
+qboolean SaveNewFilter(filter_t *filter, int *newFilterId);
+qboolean DeleteFilter(int filterId);
 
 #endif //G_DATABASE_H

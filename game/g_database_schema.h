@@ -644,4 +644,6 @@ const char *const sqlCreateTables =
 "numTEsChaseWithLOS INTEGER NOT NULL, "
 "amountTEChase INTEGER NOT NULL, "
 "amountTEChaseWithLOS INTEGER NOT NULL, "
-"FOREIGN KEY (match_id) REFERENCES pugs(match_id) ON DELETE CASCADE); ";
+"FOREIGN KEY (match_id) REFERENCES pugs(match_id) ON DELETE CASCADE); "
+" "
+"CREATE TABLE filters ([id] INTEGER PRIMARY KEY AUTOINCREMENT, [filter_text] TEXT NOT NULL, [created_at] DEFAULT NULL, [description] TEXT, [count] INTEGER NOT NULL DEFAULT 0, [last_filtered] DEFAULT NULL); ";

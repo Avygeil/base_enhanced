@@ -217,6 +217,16 @@ typedef struct {
 	char						ownerAccountName[64];
 } aimPracticePackMetaData_t;
 
+typedef struct {
+	node_t						node;
+	int							id;
+	char						filterText[MAX_STRING_CHARS];
+	time_t						createdAt;
+	int							count;
+	time_t						lastFiltered;
+	char						description[MAX_STRING_CHARS];
+} filter_t;
+
 // main
 void LoadAimPacks(void);
 void SaveDeleteAndFreeAimPacks(void);
@@ -2174,6 +2184,8 @@ typedef struct {
 	list_t addedItemsList;
 	list_t baseItemsList;
 
+	list_t filtersList;
+
 	struct {
 		qboolean valid;
 		float value;
@@ -3625,6 +3637,8 @@ extern vmCvar_t		g_vote_teamgen_aDietB;
 extern vmCvar_t		g_vote_teamgen_displayCaliber;
 
 extern vmCvar_t		g_filterSlurs;
+extern vmCvar_t		g_filterUsers;
+extern vmCvar_t		g_lockdown;
 
 extern vmCvar_t		g_addItems;
 extern vmCvar_t		g_addItemsWhitelist;
