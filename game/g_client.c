@@ -2717,14 +2717,11 @@ static qboolean FilterUserinfo(char *userinfo, char *reasonOut, size_t reasonOut
 
 		char filterTextCopy[MAX_STRING_CHARS];
 		Q_strncpyz(filterTextCopy, filter->filterText, sizeof(filterTextCopy));
+		Q_strlwr(filterTextCopy);
 
 		char userinfoCopy[MAX_STRING_CHARS];
 		Q_strncpyz(userinfoCopy, userinfo, sizeof(userinfoCopy));
-
-		const qboolean matchAll = qtrue, wildcards = qtrue; // saving previous draft code in case we want to change it
-
-		qboolean match = matchAll ? qtrue : qfalse;
-		qboolean foundMatch = qfalse;
+		Q_strlwr(userinfoCopy);
 
 		// Split filter text into key/value pairs using quadruple backslashes
 		char *filterPair = strtok(filterTextCopy, "\\\\\\\\");
@@ -2739,6 +2736,7 @@ static qboolean FilterUserinfo(char *userinfo, char *reasonOut, size_t reasonOut
 
 		// Iterate through userinfo key/value pairs
 		char *userKey = strtok(userinfoCopy, "\\");
+		int matches = 0;
 		while (userKey) {
 			char *userValue = strtok(NULL, "\\");
 
@@ -2749,29 +2747,8 @@ static qboolean FilterUserinfo(char *userinfo, char *reasonOut, size_t reasonOut
 				char *filterValue = filterPairs[i + 1];
 
 				if (!Q_stricmp(filterKey, userKey)) {
-					if (wildcards) {
-						if (wildcard_match(userValue, filterValue)) {
-							foundMatch = qtrue;
-							if (!matchAll) {
-								break;
-							}
-						}
-						else if (matchAll) {
-							match = qfalse;
-							break;
-						}
-					}
-					else {
-						if (!Q_stricmp(userValue, filterValue)) {
-							foundMatch = qtrue;
-							if (!matchAll) {
-								break;
-							}
-						}
-						else if (matchAll) {
-							match = qfalse;
-							break;
-						}
+					if (wildcard_match(userValue, filterValue)) {
+						matches += 2;
 					}
 				}
 			}
@@ -2779,7 +2756,7 @@ static qboolean FilterUserinfo(char *userinfo, char *reasonOut, size_t reasonOut
 			userKey = strtok(NULL, "\\");
 		}
 
-		if ((matchAll && match) || (!matchAll && foundMatch)) {
+		if (matches >= numFilterPairs) {
 			if (reasonOut && reasonOutSize > 0) {
 				time_t currentTime;
 				time(&currentTime);
