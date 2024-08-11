@@ -5587,6 +5587,7 @@ static void WP_UpdateMindtrickEnts(gentity_t *self)
 
 static void WP_ForcePowerRun( gentity_t *self, forcePowers_t forcePower, usercmd_t *cmd )
 {
+	qboolean meme;
 	switch( (int)forcePower )
 	{
 	case FP_HEAL:
@@ -5656,7 +5657,7 @@ static void WP_ForcePowerRun( gentity_t *self, forcePowers_t forcePower, usercmd
 		}
 		break;
 	case FP_GRIP:
-		qboolean meme = (!level.wasRestarted && self && self->client && self->client->account && (!Q_stricmp(self->client->account->name, "duo") || !Q_stricmp(self->client->account->name, "alpha")));
+		meme = (!level.wasRestarted && self && self->client && self->client->account && (!Q_stricmp(self->client->account->name, "duo") || !Q_stricmp(self->client->account->name, "alpha")));
 		if (self->client->ps.forceHandExtend != HANDEXTEND_FORCE_HOLD && !meme)
 		{
 			WP_ForcePowerStop(self, FP_GRIP);
