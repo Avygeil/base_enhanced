@@ -9511,7 +9511,7 @@ void Cmd_WhoIs_f( gentity_t* ent ) {
 		clientNum = found - g_entities;
 	}
 
-	Table *t = Table_Initialize(qfalse);
+	Table *t = Table_Initialize(qtrue);
 
 	for (int i = 0; i < level.maxclients; i++) {
 		if (!level.clients[i].pers.connected || (clientNum != -1 && i != clientNum))

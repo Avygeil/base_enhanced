@@ -1329,6 +1329,10 @@ typedef struct {
 	char chaseName[MAX_NAME_LENGTH];
 	char offense1Name[MAX_NAME_LENGTH];
 	char offense2Name[MAX_NAME_LENGTH];
+	double baseRating;
+	double chaseRating;
+	double offense1Rating;
+	double offense2Rating;
 } teamData_t;
 
 typedef struct {
@@ -3518,7 +3522,8 @@ extern vmCvar_t		z_debug6;
 extern vmCvar_t		z_debug7;
 extern vmCvar_t		z_debug8;
 extern vmCvar_t		z_debug9;
-extern vmCvar_t		z_debugOther;
+extern vmCvar_t		z_debugOther1;
+extern vmCvar_t		z_debugOther2;
 extern vmCvar_t		z_debugPause;
 #endif
 

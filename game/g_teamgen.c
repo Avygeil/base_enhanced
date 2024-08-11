@@ -235,13 +235,22 @@ static void NormalizePermutationOfTeams(permutationOfTeams_t *p) {
 	for (int i = 0; i < 2; i++) {
 		teamData_t *team = &p->teams[i];
 		if (strcmp(team->offense1Name, team->offense2Name) > 0) {
-			int temp = team->offenseId1;
-			team->offenseId1 = team->offenseId2;
-			team->offenseId2 = temp;
-			char tempBuf[MAX_NAME_LENGTH] = { 0 };
-			Q_strncpyz(tempBuf, team->offense1Name, MAX_NAME_LENGTH);
-			Q_strncpyz(team->offense1Name, team->offense2Name, MAX_NAME_LENGTH);
-			Q_strncpyz(team->offense2Name, tempBuf, MAX_NAME_LENGTH);
+			{
+				int temp = team->offenseId1;
+				team->offenseId1 = team->offenseId2;
+				team->offenseId2 = temp;
+			}
+			{
+				char tempBuf[MAX_NAME_LENGTH] = { 0 };
+				Q_strncpyz(tempBuf, team->offense1Name, MAX_NAME_LENGTH);
+				Q_strncpyz(team->offense1Name, team->offense2Name, MAX_NAME_LENGTH);
+				Q_strncpyz(team->offense2Name, tempBuf, MAX_NAME_LENGTH);
+			}
+			{
+				double temp = team->offense1Rating;
+				team->offense1Rating = team->offense2Rating;
+				team->offense2Rating = temp;
+			}
 		}
 	}
 }
@@ -579,6 +588,15 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 		context->best->teams[1].chaseId = team2chase->accountId;
 		context->best->teams[1].offenseId1 = team2offense1->accountId;
 		context->best->teams[1].offenseId2 = team2offense2->accountId;
+		context->best->teams[0].baseRating = team1base->rating[CTFPOSITION_BASE];
+		context->best->teams[0].chaseRating = team1chase->rating[CTFPOSITION_CHASE];
+		context->best->teams[0].offense1Rating = team1offense1->rating[CTFPOSITION_OFFENSE];
+		context->best->teams[0].offense2Rating = team1offense2->rating[CTFPOSITION_OFFENSE];
+		context->best->teams[1].baseRating = team2base->rating[CTFPOSITION_BASE];
+		context->best->teams[1].chaseRating = team2chase->rating[CTFPOSITION_CHASE];
+		context->best->teams[1].offense1Rating = team2offense1->rating[CTFPOSITION_OFFENSE];
+		context->best->teams[1].offense2Rating = team2offense2->rating[CTFPOSITION_OFFENSE];
+
 		float lowestPlayerRating = 999999;
 		if (team1base->rating[CTFPOSITION_BASE] < lowestPlayerRating) lowestPlayerRating = team1base->rating[CTFPOSITION_BASE];
 		if (team1chase->rating[CTFPOSITION_CHASE] < lowestPlayerRating) lowestPlayerRating = team1chase->rating[CTFPOSITION_CHASE];
@@ -890,6 +908,14 @@ static void TryTeamPermutation_Appeasing(teamGeneratorContext_t *context, const 
 		context->best->teams[1].chaseId = team2chase->accountId;
 		context->best->teams[1].offenseId1 = team2offense1->accountId;
 		context->best->teams[1].offenseId2 = team2offense2->accountId;
+		context->best->teams[0].baseRating = team1base->rating[CTFPOSITION_BASE];
+		context->best->teams[0].chaseRating = team1chase->rating[CTFPOSITION_CHASE];
+		context->best->teams[0].offense1Rating = team1offense1->rating[CTFPOSITION_OFFENSE];
+		context->best->teams[0].offense2Rating = team1offense2->rating[CTFPOSITION_OFFENSE];
+		context->best->teams[1].baseRating = team2base->rating[CTFPOSITION_BASE];
+		context->best->teams[1].chaseRating = team2chase->rating[CTFPOSITION_CHASE];
+		context->best->teams[1].offense1Rating = team2offense1->rating[CTFPOSITION_OFFENSE];
+		context->best->teams[1].offense2Rating = team2offense2->rating[CTFPOSITION_OFFENSE];
 		float lowestPlayerRating = 999999;
 		if (team1base->rating[CTFPOSITION_BASE] < lowestPlayerRating) lowestPlayerRating = team1base->rating[CTFPOSITION_BASE];
 		if (team1chase->rating[CTFPOSITION_CHASE] < lowestPlayerRating) lowestPlayerRating = team1chase->rating[CTFPOSITION_CHASE];
@@ -1235,6 +1261,14 @@ static void TryTeamPermutation_Fairest(teamGeneratorContext_t *context, const pe
 		context->best->teams[1].chaseId = team2chase->accountId;
 		context->best->teams[1].offenseId1 = team2offense1->accountId;
 		context->best->teams[1].offenseId2 = team2offense2->accountId;
+		context->best->teams[0].baseRating = team1base->rating[CTFPOSITION_BASE];
+		context->best->teams[0].chaseRating = team1chase->rating[CTFPOSITION_CHASE];
+		context->best->teams[0].offense1Rating = team1offense1->rating[CTFPOSITION_OFFENSE];
+		context->best->teams[0].offense2Rating = team1offense2->rating[CTFPOSITION_OFFENSE];
+		context->best->teams[1].baseRating = team2base->rating[CTFPOSITION_BASE];
+		context->best->teams[1].chaseRating = team2chase->rating[CTFPOSITION_CHASE];
+		context->best->teams[1].offense1Rating = team2offense1->rating[CTFPOSITION_OFFENSE];
+		context->best->teams[1].offense2Rating = team2offense2->rating[CTFPOSITION_OFFENSE];
 		float lowestPlayerRating = 999999;
 		if (team1base->rating[CTFPOSITION_BASE] < lowestPlayerRating) lowestPlayerRating = team1base->rating[CTFPOSITION_BASE];
 		if (team1chase->rating[CTFPOSITION_CHASE] < lowestPlayerRating) lowestPlayerRating = team1chase->rating[CTFPOSITION_CHASE];
@@ -1581,6 +1615,14 @@ static void TryTeamPermutation_SemiAppeasing(teamGeneratorContext_t *context, co
 		context->best->teams[1].chaseId = team2chase->accountId;
 		context->best->teams[1].offenseId1 = team2offense1->accountId;
 		context->best->teams[1].offenseId2 = team2offense2->accountId;
+		context->best->teams[0].baseRating = team1base->rating[CTFPOSITION_BASE];
+		context->best->teams[0].chaseRating = team1chase->rating[CTFPOSITION_CHASE];
+		context->best->teams[0].offense1Rating = team1offense1->rating[CTFPOSITION_OFFENSE];
+		context->best->teams[0].offense2Rating = team1offense2->rating[CTFPOSITION_OFFENSE];
+		context->best->teams[1].baseRating = team2base->rating[CTFPOSITION_BASE];
+		context->best->teams[1].chaseRating = team2chase->rating[CTFPOSITION_CHASE];
+		context->best->teams[1].offense1Rating = team2offense1->rating[CTFPOSITION_OFFENSE];
+		context->best->teams[1].offense2Rating = team2offense2->rating[CTFPOSITION_OFFENSE];
 		float lowestPlayerRating = 999999;
 		if (team1base->rating[CTFPOSITION_BASE] < lowestPlayerRating) lowestPlayerRating = team1base->rating[CTFPOSITION_BASE];
 		if (team1chase->rating[CTFPOSITION_CHASE] < lowestPlayerRating) lowestPlayerRating = team1chase->rating[CTFPOSITION_CHASE];
@@ -1915,6 +1957,14 @@ static void TryTeamPermutation_FirstChoice(teamGeneratorContext_t *context, cons
 		context->best->teams[1].chaseId = team2chase->accountId;
 		context->best->teams[1].offenseId1 = team2offense1->accountId;
 		context->best->teams[1].offenseId2 = team2offense2->accountId;
+		context->best->teams[0].baseRating = team1base->rating[CTFPOSITION_BASE];
+		context->best->teams[0].chaseRating = team1chase->rating[CTFPOSITION_CHASE];
+		context->best->teams[0].offense1Rating = team1offense1->rating[CTFPOSITION_OFFENSE];
+		context->best->teams[0].offense2Rating = team1offense2->rating[CTFPOSITION_OFFENSE];
+		context->best->teams[1].baseRating = team2base->rating[CTFPOSITION_BASE];
+		context->best->teams[1].chaseRating = team2chase->rating[CTFPOSITION_CHASE];
+		context->best->teams[1].offense1Rating = team2offense1->rating[CTFPOSITION_OFFENSE];
+		context->best->teams[1].offense2Rating = team2offense2->rating[CTFPOSITION_OFFENSE];
 		float lowestPlayerRating = 999999;
 		if (team1base->rating[CTFPOSITION_BASE] < lowestPlayerRating) lowestPlayerRating = team1base->rating[CTFPOSITION_BASE];
 		if (team1chase->rating[CTFPOSITION_CHASE] < lowestPlayerRating) lowestPlayerRating = team1chase->rating[CTFPOSITION_CHASE];
@@ -2259,6 +2309,14 @@ static void TryTeamPermutation_Inclusive(teamGeneratorContext_t *context, const 
 		context->best->teams[1].chaseId = team2chase->accountId;
 		context->best->teams[1].offenseId1 = team2offense1->accountId;
 		context->best->teams[1].offenseId2 = team2offense2->accountId;
+		context->best->teams[0].baseRating = team1base->rating[CTFPOSITION_BASE];
+		context->best->teams[0].chaseRating = team1chase->rating[CTFPOSITION_CHASE];
+		context->best->teams[0].offense1Rating = team1offense1->rating[CTFPOSITION_OFFENSE];
+		context->best->teams[0].offense2Rating = team1offense2->rating[CTFPOSITION_OFFENSE];
+		context->best->teams[1].baseRating = team2base->rating[CTFPOSITION_BASE];
+		context->best->teams[1].chaseRating = team2chase->rating[CTFPOSITION_CHASE];
+		context->best->teams[1].offense1Rating = team2offense1->rating[CTFPOSITION_OFFENSE];
+		context->best->teams[1].offense2Rating = team2offense2->rating[CTFPOSITION_OFFENSE];
 		float lowestPlayerRating = 999999;
 		if (team1base->rating[CTFPOSITION_BASE] < lowestPlayerRating) lowestPlayerRating = team1base->rating[CTFPOSITION_BASE];
 		if (team1chase->rating[CTFPOSITION_CHASE] < lowestPlayerRating) lowestPlayerRating = team1chase->rating[CTFPOSITION_CHASE];
@@ -2614,6 +2672,14 @@ static void TryTeamPermutation_SemiTryhard(teamGeneratorContext_t *context, cons
 		context->best->teams[1].chaseId = team2chase->accountId;
 		context->best->teams[1].offenseId1 = team2offense1->accountId;
 		context->best->teams[1].offenseId2 = team2offense2->accountId;
+		context->best->teams[0].baseRating = team1base->rating[CTFPOSITION_BASE];
+		context->best->teams[0].chaseRating = team1chase->rating[CTFPOSITION_CHASE];
+		context->best->teams[0].offense1Rating = team1offense1->rating[CTFPOSITION_OFFENSE];
+		context->best->teams[0].offense2Rating = team1offense2->rating[CTFPOSITION_OFFENSE];
+		context->best->teams[1].baseRating = team2base->rating[CTFPOSITION_BASE];
+		context->best->teams[1].chaseRating = team2chase->rating[CTFPOSITION_CHASE];
+		context->best->teams[1].offense1Rating = team2offense1->rating[CTFPOSITION_OFFENSE];
+		context->best->teams[1].offense2Rating = team2offense2->rating[CTFPOSITION_OFFENSE];
 		float lowestPlayerRating = 999999;
 		if (team1base->rating[CTFPOSITION_BASE] < lowestPlayerRating) lowestPlayerRating = team1base->rating[CTFPOSITION_BASE];
 		if (team1chase->rating[CTFPOSITION_CHASE] < lowestPlayerRating) lowestPlayerRating = team1chase->rating[CTFPOSITION_CHASE];
@@ -2967,6 +3033,14 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 		context->best->teams[1].chaseId = team2chase->accountId;
 		context->best->teams[1].offenseId1 = team2offense1->accountId;
 		context->best->teams[1].offenseId2 = team2offense2->accountId;
+		context->best->teams[0].baseRating = team1base->rating[CTFPOSITION_BASE];
+		context->best->teams[0].chaseRating = team1chase->rating[CTFPOSITION_CHASE];
+		context->best->teams[0].offense1Rating = team1offense1->rating[CTFPOSITION_OFFENSE];
+		context->best->teams[0].offense2Rating = team1offense2->rating[CTFPOSITION_OFFENSE];
+		context->best->teams[1].baseRating = team2base->rating[CTFPOSITION_BASE];
+		context->best->teams[1].chaseRating = team2chase->rating[CTFPOSITION_CHASE];
+		context->best->teams[1].offense1Rating = team2offense1->rating[CTFPOSITION_OFFENSE];
+		context->best->teams[1].offense2Rating = team2offense2->rating[CTFPOSITION_OFFENSE];
 		float lowestPlayerRating = 999999;
 		if (team1base->rating[CTFPOSITION_BASE] < lowestPlayerRating) lowestPlayerRating = team1base->rating[CTFPOSITION_BASE];
 		if (team1chase->rating[CTFPOSITION_CHASE] < lowestPlayerRating) lowestPlayerRating = team1chase->rating[CTFPOSITION_CHASE];
@@ -5032,6 +5106,120 @@ enum {
 	NUM_TEAMGENTAGS
 };
 
+static int ConvertCaliber(double raw) {
+	if (raw < 45)
+		return 1;
+	if (raw >= 45 && raw < 60)
+		return 2;
+	if (raw >= 60 && raw < 70)
+		return 3;
+	if (raw >= 70 && raw < 75)
+		return 4;
+	if (raw >= 75 && raw < 80)
+		return 5;
+	if (raw >= 80 && raw < 85)
+		return 6;
+	if (raw >= 85 && raw < 90)
+		return 7;
+	if (raw >= 90 && raw < 95)
+		return 8;
+	if (raw >= 95 && raw < 100)
+		return 9;
+	return 10 + (int)((raw - 100) / 5);
+}
+
+// returns 0 if invalid
+int GetCaliber(permutationOfTeams_t *p) {
+	if (!p || !p->valid) {
+		assert(qfalse);
+		return 0;
+	}
+
+	double totalRating = p->teams[0].rawStrength + p->teams[1].rawStrength;
+	Com_DebugPrintf("\n\nTotal rating: %g\n", totalRating);
+	double averageRating = (totalRating / 8.0);
+	Com_DebugPrintf("Average Rating: %g\n", averageRating);
+	if (!averageRating) {
+		assert(qfalse);
+		return 0; // prevent division by zero
+	}
+
+	const double A = 5;
+	Com_DebugPrintf("A (Penalty Exponent): %g\n", A);
+	double HC_base = (averageRating - PlayerTierToRating(PLAYERRATING_MID_G)) / (PlayerTierToRating(PLAYERRATING_HIGH_S) - PlayerTierToRating(PLAYERRATING_MID_G));
+	Com_DebugPrintf("HC_base: %g\n", HC_base);
+
+	double penalty = 0.0;
+	for (int i = 0; i < 8; i++) {
+		double rating;
+		switch (i) {
+#if 0
+		case 0: rating = (double)trap_Cvar_VariableValue("z_debugRating1"); break;
+		case 1: rating = (double)trap_Cvar_VariableValue("z_debugRating2"); break;
+		case 2: rating = (double)trap_Cvar_VariableValue("z_debugRating3"); break;
+		case 3: rating = (double)trap_Cvar_VariableValue("z_debugRating4"); break;
+		case 4: rating = (double)trap_Cvar_VariableValue("z_debugRating5"); break;
+		case 5: rating = (double)trap_Cvar_VariableValue("z_debugRating6"); break;
+		case 6: rating = (double)trap_Cvar_VariableValue("z_debugRating7"); break;
+		case 7: rating = (double)trap_Cvar_VariableValue("z_debugRating8"); break;
+#else
+		case 0: rating = p->teams[0].baseRating; break;
+		case 1: rating = p->teams[0].chaseRating; break;
+		case 2: rating = p->teams[0].offense1Rating; break;
+		case 3: rating = p->teams[0].offense2Rating; break;
+		case 4: rating = p->teams[1].baseRating; break;
+		case 5: rating = p->teams[1].chaseRating; break;
+		case 6: rating = p->teams[1].offense1Rating; break;
+		case 7: rating = p->teams[1].offense2Rating; break;
+#endif
+		default: assert(qfalse);
+		}
+		double deviation = averageRating - rating;
+		if (deviation + 0.0001 < PLAYERRATING_DECIMAL_INCREMENT)
+			deviation = 0; // disregard very low deviation
+
+		if (deviation > 0) {
+			double deviationExponent = -A * (deviation / averageRating);
+			double eToTheExponent = pow(2.71828182846, deviationExponent);
+			double additionalPenalty = (1 - eToTheExponent);
+			double oldPenalty = penalty;
+			penalty += additionalPenalty;
+			Com_DebugPrintf("Player %d Rating: %g, Deviation: %g, Exponent %g, e^exponent: %g, additional penalty %g, adding this to penalty %g gives new penalty %g\n",
+				i + 1, rating, deviation, deviationExponent, eToTheExponent, additionalPenalty, oldPenalty, penalty);
+		}
+		else {
+			Com_DebugPrintf("Player %d Rating: %g, Deviation: %g\n", i + 1, rating, deviation);
+		}
+	}
+
+	Com_DebugPrintf("Dividing penalty %g by 8: penalty is now %g\n", penalty, penalty / 8);
+	penalty /= 8;
+
+	double HC_normalized = HC_base * (1 - penalty);
+	Com_DebugPrintf("HC_normalized: %g\n", HC_normalized);
+
+	// todo: calculate these dynamically
+	const double B = 126.67;
+	const double C = 0;
+
+	double HC = (B * HC_normalized) + C;
+
+	Com_DebugPrintf("Caliber calculation: (%g x %g) + %g = final result of %g\n", B, HC_normalized, C, HC);
+
+	double HC_without_penalty = (B * HC_base) + C;
+	Com_DebugPrintf("Caliber with no penalty: %g\n", HC_without_penalty);
+	Com_DebugPrintf("Converted without penalty: %d\n", ConvertCaliber(HC_without_penalty));
+	Com_DebugPrintf("Penalty accounted for: %g\n", (HC_without_penalty - HC));
+	Com_DebugPrintf("Caliber with penalty: %g\n", HC);
+
+	int converted = ConvertCaliber(HC);
+
+	Com_DebugPrintf("Converted: %d\n", converted);
+
+	return converted;
+}
+
+
 // clientNum -1 for everyone
 void PrintTeamsProposalsInConsole(pugProposal_t *set, int clientNum) {
 	assert(set);
@@ -5117,18 +5305,7 @@ void PrintTeamsProposalsInConsole(pugProposal_t *set, int clientNum) {
 		double thisCombinedStrength = thisPermutation->teams[0].rawStrength + thisPermutation->teams[1].rawStrength;
 		int iThisCombinedStrength = (int)round(thisCombinedStrength * 10000);
 
-		double thisAverageStrength = (thisCombinedStrength / 8.0);
-		double alpha, beta;
-		if (thisAverageStrength - thisPermutation->lowestPlayerRating >= (PLAYERRATING_DECIMAL_INCREMENT * 5) - 0.0001) {
-			alpha = 70.0;
-			beta = 30.0;
-		}
-		else {
-			alpha = 85.0;
-			beta = 15.0;
-		}
-		int rawCaliber = (int)round(((thisAverageStrength)*alpha) + (thisPermutation->lowestPlayerRating * beta) + 15.0);
-		int caliber = 10 - ((100 - rawCaliber) / 5);
+		int caliber = GetCaliber(thisPermutation);
 
 		int tags = 0;
 
@@ -5252,12 +5429,8 @@ void PrintTeamsProposalsInConsole(pugProposal_t *set, int clientNum) {
 			Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^2[most even]" : va("%s ^2[most even]", suggestionTypeStr));
 
 
-		if (g_vote_teamgen_displayCaliber.integer) {
-#ifdef DEBUG_GENERATETEAMS
-			Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? va("^6[c%d - %d raw, %g avg, %g lowest, %g alpha, %g beta]", caliber, rawCaliber, thisAverageStrength, thisPermutation->lowestPlayerRating, alpha, beta) : va("%s ^6[c%d - %d raw, %g avg, %g lowest, %g alpha, %g beta]", suggestionTypeStr, caliber, rawCaliber, thisAverageStrength, thisPermutation->lowestPlayerRating, alpha, beta));
-#else
+		if (g_vote_teamgen_displayCaliber.integer && caliber > 0) { // caliber 0 is invalid
 			Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? va("^6[c%d]", caliber) : va("%s ^6[c%d]", suggestionTypeStr, caliber));
-#endif
 		}
 		else {
 			if (tags & (1 << TEAMGENTAG_TIEDFORMOSTHC))

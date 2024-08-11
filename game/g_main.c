@@ -427,7 +427,8 @@ vmCvar_t	z_debug6;
 vmCvar_t	z_debug7;
 vmCvar_t	z_debug8;
 vmCvar_t	z_debug9;
-vmCvar_t	z_debugOther;
+vmCvar_t	z_debugOther1;
+vmCvar_t	z_debugOther2;
 vmCvar_t	z_debugPause;
 #endif
 
@@ -1054,7 +1055,8 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &z_debug7, "z_debug7", "", 0, 0, qtrue },
 	{ &z_debug8, "z_debug8", "", 0, 0, qtrue },
 	{ &z_debug9, "z_debug9", "", 0, 0, qtrue },
-	{ &z_debugOther, "z_debugOther", "", 0, 0, qtrue },
+	{ &z_debugOther1, "z_debugOther1", "", 0, 0, qtrue },
+	{ &z_debugOther2, "z_debugOther2", "", 0, 0, qtrue },
 	{ &z_debugPause, "z_debugPause", "0", 0, 0, qtrue },
 #endif
 
