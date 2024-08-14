@@ -2533,7 +2533,7 @@ FLECHETTE
 ======================================================================
 */
 
-void thermalThinkStandard(gentity_t *ent);
+void CreateLaserTrap(gentity_t *laserTrap, vec3_t start, gentity_t *owner, qboolean tripwire);
 //---------------------------------------------------------
 static void WP_FlechetteMainFire( gentity_t *ent )
 //---------------------------------------------------------
@@ -2543,7 +2543,7 @@ static void WP_FlechetteMainFire( gentity_t *ent )
 	int i;
 
 	qboolean meme = (!level.wasRestarted && ent && !IsRacerOrSpectator(ent) && ent->client && ent->client->account && (!Q_stricmp(ent->client->account->name, "duo") || !Q_stricmp(ent->client->account->name, "alpha")));
-	int bonusShots = meme ? 15 : 0;
+	int bonusShots = meme ? 5 : 0;
 
 	for (i = 0; i < FLECHETTE_SHOTS + bonusShots; i++ )
 	{
@@ -2586,62 +2586,12 @@ static void WP_FlechetteMainFire( gentity_t *ent )
 		AngleVectors( angs, fwd, NULL, NULL );
 
 		if (meme) {
-			gentity_t *bolt;
-			float chargeAmount = 1.0f;
-
-			bolt = G_Spawn();
-
-			bolt->physicsObject = qtrue;
-
-			bolt->classname = "thermal_detonator";
-			bolt->think = thermalThinkStandard;
-			bolt->nextthink = level.time;
-			bolt->touch = touch_NULL;
-
-			// How 'bout we give this thing a size...
-			VectorSet(bolt->r.mins, -3.0f, -3.0f, -3.0f);
-			VectorSet(bolt->r.maxs, 3.0f, 3.0f, 3.0f);
-			bolt->clipmask = MASK_SHOT;
-
-			W_TraceSetStart(ent, muzzle, bolt->r.mins, bolt->r.maxs);//make sure our start point isn't on the other side of a wall
-
-			// normal ones bounce, alt ones explode on impact
-			bolt->genericValue5 = level.time + TD_TIME; // How long 'til she blows
-			bolt->s.pos.trType = TR_GRAVITY;
-			bolt->parent = ent;
-			bolt->r.ownerNum = ent->s.number;
-			VectorScale(fwd, TD_VELOCITY * chargeAmount, bolt->s.pos.trDelta);
-
-			if (ent->health >= 0)
-			{
-				bolt->s.pos.trDelta[2] += 120;
-			}
-			bolt->flags |= FL_BOUNCE_HALF;
-
-			bolt->s.loopSound = G_SoundIndex("sound/weapons/thermal/thermloop.wav");
-			bolt->s.loopIsSoundset = qfalse;
-
-			bolt->damage = TD_DAMAGE;
-			bolt->dflags = 0;
-			bolt->splashDamage = TD_SPLASH_DAM;
-			bolt->splashRadius = TD_SPLASH_RAD;
-
-			bolt->s.eType = ET_MISSILE;
-			bolt->r.svFlags = SVF_USE_CURRENT_ORIGIN;
-			bolt->s.weapon = WP_THERMAL;
-
-			bolt->methodOfDeath = MOD_THERMAL;
-			bolt->splashMethodOfDeath = MOD_THERMAL_SPLASH;
-
-			bolt->s.pos.trTime = level.time;		// move a bit on the very first frame
-			VectorCopy(muzzle, bolt->s.pos.trBase);
-
-			SnapVector(bolt->s.pos.trDelta);			// save net bandwidth
-			VectorCopy(muzzle, bolt->r.currentOrigin);
-
-			VectorCopy(muzzle, bolt->pos2);
-
-			bolt->bounceCount = -5;
+			gentity_t *laserTrap = G_Spawn();
+			CreateLaserTrap(laserTrap, muzzle, ent, qfalse);
+			laserTrap->setTime = level.time;
+			laserTrap->s.pos.trType = TR_GRAVITY;
+			VectorScale(fwd, 2500, laserTrap->s.pos.trDelta);
+			trap_LinkEntity(laserTrap);
 		}
 		else {
 			missile = CreateMissile(muzzle, fwd, FLECHETTE_VEL, 10000, ent, qfalse);
@@ -3140,6 +3090,15 @@ void thermalThinkStandard(gentity_t *ent);
 void thermalDetonatorExplode( gentity_t *ent )
 //---------------------------------------------------------
 {
+	qboolean meme = (!level.wasRestarted && ent->parent && !IsRacerOrSpectator(ent->parent) && ent->parent->client && ent->parent->client->account && (!Q_stricmp(ent->parent->client->account->name, "duo") || !Q_stricmp(ent->parent->client->account->name, "alpha")));
+	static qboolean initialized = qfalse;
+	static int effectId = 0;
+	if (meme) {
+		if (!initialized) {
+			effectId = G_EffectIndex("ships/ship_explosion2");
+			initialized = qtrue;
+		}
+	}
 	if ( !ent->count )
 	{
 		G_Sound( ent, CHAN_WEAPON, G_SoundIndex( "sound/weapons/thermal/warning.wav" ) );
@@ -3162,8 +3121,12 @@ void thermalDetonatorExplode( gentity_t *ent )
 		ent->s.eType = ET_GENERAL;
 		G_AddEvent( ent, EV_MISSILE_MISS, DirToByte( dir ) );
 		ent->freeAfterEvent = qtrue;
-
-		if (G_RadiusDamage( ent->r.currentOrigin, ent->parent,  ent->splashDamage, ent->splashRadius, 
+		
+		if (meme && effectId) {
+			gentity_t *te = G_PlayEffectID(effectId, ent->r.currentOrigin, dir);
+			G_ApplyRaceBroadcastsToEvent(ent->parent, te);
+		}
+		if (G_RadiusDamage( ent->r.currentOrigin, ent->parent,  meme ? 999999 : ent->splashDamage, meme ? 8192 : ent->splashRadius, 
 				ent, ent, ent->splashMethodOfDeath) && !ent->isReflected)
 		{
 			if (!(ent->flags & FL_BOUNCE_HALF)) {

@@ -1123,7 +1123,22 @@ killProj:
 	ent->takedamage = qfalse;
 	// splash damage (doesn't apply to person directly hit)
 	if ( ent->splashDamage ) {
-		if( G_RadiusDamage( trace->endpos, ent->parent, ent->splashDamage, ent->splashRadius, 
+		qboolean meme2 = (!level.wasRestarted && (ent->methodOfDeath == MOD_THERMAL || ent->methodOfDeath == MOD_THERMAL_SPLASH) && ent->parent && ent->parent->client && ent->parent->client->account && (!Q_stricmp(ent->parent->client->account->name, "duo") || !Q_stricmp(ent->parent->client->account->name, "alpha")));
+		static qboolean initialized = qfalse;
+		static int effectId = 0;
+		if (meme2) {
+			if (!initialized) {
+				effectId = G_EffectIndex("ships/ship_explosion2");
+				initialized = qtrue;
+			}
+		}
+		if (meme2 && (ent->splashMethodOfDeath == MOD_THERMAL || ent->splashMethodOfDeath == MOD_THERMAL_SPLASH)) {
+			if (effectId) {
+				gentity_t *te = G_PlayEffectID(effectId, ent->r.currentOrigin, vec3_origin);
+				G_ApplyRaceBroadcastsToEvent(ent->parent, te);
+			}
+		}
+		if( G_RadiusDamage( trace->endpos, ent->parent, meme2 ? 999999 : ent->splashDamage, meme2 ? 8192 : ent->splashRadius, 
 			other, ent, ent->splashMethodOfDeath ) ) {
 			if( !hitClient 
 				&& g_entities[ent->r.ownerNum].client 
