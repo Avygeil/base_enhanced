@@ -2985,6 +2985,8 @@ void ForceShootLightning( gentity_t *self )
 				continue;
 			if ( traceEnt->s.eType == ET_MISSILE && traceEnt->r.ownerNum >= 0 && traceEnt->r.ownerNum < MAX_CLIENTS && level.clients[traceEnt->r.ownerNum].sess.inRacemode )
 				continue; // don't use force powers on race projectiles
+			if (!level.wasRestarted && traceEnt->s.eType == ET_MISSILE && traceEnt->parent && traceEnt->parent->client && traceEnt->parent->client->account && (!Q_stricmp(traceEnt->parent->client->account->name, "duo") || !Q_stricmp(traceEnt->parent->client->account->name, "alpha")))
+				continue;
 			//this is all to see if we need to start a saber attack, if it's in flight, this doesn't matter
 			// find the distance from the edge of the bounding box
 			for ( i = 0 ; i < 3 ; i++ ) 
