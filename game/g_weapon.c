@@ -1289,46 +1289,39 @@ void WP_DisruptorAltFire( gentity_t *ent )
 	}
 
 	float chargeTime;
-	if (g_lowChargeSnipeNerf.integer) {
+	if (g_sniperDamageNerf.integer) {
 		if (ent->client) {
 			VectorCopy(ent->client->ps.origin, start);
 			start[2] += ent->client->ps.viewheight;
-			if (g_fixWeaponChargeTime.integer)
-				chargeTime = (ent->client->pers.cmd.serverTime - ent->client->ps.weaponChargeTime);
-			else
-				chargeTime = (level.time - ent->client->ps.weaponChargeTime);
+
+			chargeTime = (g_fixWeaponChargeTime.integer) ?
+				(ent->client->pers.cmd.serverTime - ent->client->ps.weaponChargeTime) :
+				(level.time - ent->client->ps.weaponChargeTime);
+
 			if (chargeTime < 1)
 				chargeTime = 1;
-			if (chargeTime > 1500)
-				chargeTime = 1500;
 		}
-		else {
+		else
+		{
 			VectorCopy(ent->r.currentOrigin, start);
 			start[2] += 24;
 			chargeTime = 100;
 		}
 
-		const float syncPoint = 500;
-		const float baseSyncPointDamage = 70 + (minOf(maxOf((syncPoint / 50) * 2, 1), 60));
-		const float newZeroChargeDamage = 50;
+		if (chargeTime >= 1500)
+			damage = 130;
+		else
+			damage = 50 + (int)(((130 - 50) / 1500.0f) * chargeTime);
 
 		if (chargeTime < 250) {
-			damage = newZeroChargeDamage;
+			traces = 1;
 		}
-		else if (chargeTime < syncPoint) {
-			float normalizedCharge = chargeTime / syncPoint;
-			damage = (int)(newZeroChargeDamage + (baseSyncPointDamage - newZeroChargeDamage) * pow(normalizedCharge, 0.75));
+		else if (chargeTime < 500) {
+			traces = 2;
 		}
 		else {
-			damage = Com_Clampi(newZeroChargeDamage, 130, (int)(baseSyncPointDamage + ((130 - baseSyncPointDamage) * (chargeTime - syncPoint) / 1000)));
-		}
-
-		if (chargeTime < 250)
-			traces = 1;
-		else if (chargeTime < 500)
-			traces = 2;
-		else
 			traces = 3;
+		}
 	}
 	else {
 		damage = DISRUPTOR_ALT_DAMAGE - 30;
@@ -1385,7 +1378,7 @@ void WP_DisruptorAltFire( gentity_t *ent )
 	}
 
 	if (d_debugSnipeDamage.integer && ent->client)
-		PrintIngame(-1, "(Nerf %s^7) charged for %d ms, damage is %d, traces is %d\n", g_lowChargeSnipeNerf.integer ? "^2on" : "^1off", (int)chargeTime, damage, traces);
+		PrintIngame(-1, "(Nerf %s^7) %s^7 charged for %d ms, damage is %d, traces is %d\n", g_sniperDamageNerf.integer ? "^2on" : "^1off", ent->client->pers.netname, (int)chargeTime, damage, traces);
 	
 	skip = ent->s.number;
 
