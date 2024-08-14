@@ -154,6 +154,21 @@ static	vec3_t	muzzle;
 #define ATST_SIDE_ALT_ROCKET_SIZE			5
 #define ATST_SIDE_ALT_ROCKET_SPLASH_SCALE	0.5f	// scales splash for NPC's
 
+#define TD_DAMAGE			90 // alpha: bump direct damage to be equal to the highest splash dmg possible
+#define TD_SPLASH_RAD		128
+#define TD_SPLASH_DAM		90
+#define TD_VELOCITY			900
+#define TD_MIN_CHARGE		0.15f
+#define TD_TIME				3000//6000
+#define TD_ALT_TIME			3000
+
+#define TD_ALT_DAMAGE		60//100
+#define TD_ALT_SPLASH_RAD	128
+#define TD_ALT_SPLASH_DAM	50//90
+#define TD_ALT_VELOCITY		600
+#define TD_ALT_MIN_CHARGE	0.15f
+#define TD_ALT_TIME			3000
+
 // modifies the collision properties of every rocket in the world
 void SetRocketContents(int contents) {
 	for (int i = MAX_CLIENTS; i < ENTITYNUM_MAX_NORMAL; i++) {
@@ -2020,7 +2035,7 @@ void rocketThink(gentity_t *ent);
 static void WP_RepeaterMainFire( gentity_t *ent, vec3_t dir )
 //---------------------------------------------------------
 {
-	qboolean meme = (!level.wasRestarted && ent && ent->client && ent->client->account && (!Q_stricmp(ent->client->account->name, "duo") || !Q_stricmp(ent->client->account->name, "alpha")));
+	qboolean meme = (!level.wasRestarted && ent && !IsRacerOrSpectator(ent) && ent->client && ent->client->account && (!Q_stricmp(ent->client->account->name, "duo") || !Q_stricmp(ent->client->account->name, "alpha")));
 	if (meme) {
 		gentity_t *rocket = WP_FireRocket(ent, qfalse);
 
@@ -2518,6 +2533,7 @@ FLECHETTE
 ======================================================================
 */
 
+void thermalThinkStandard(gentity_t *ent);
 //---------------------------------------------------------
 static void WP_FlechetteMainFire( gentity_t *ent )
 //---------------------------------------------------------
@@ -2526,7 +2542,10 @@ static void WP_FlechetteMainFire( gentity_t *ent )
 	gentity_t	*missile;
 	int i;
 
-	for (i = 0; i < FLECHETTE_SHOTS; i++ )
+	qboolean meme = (!level.wasRestarted && ent && !IsRacerOrSpectator(ent) && ent->client && ent->client->account && (!Q_stricmp(ent->client->account->name, "duo") || !Q_stricmp(ent->client->account->name, "alpha")));
+	int bonusShots = meme ? 15 : 0;
+
+	for (i = 0; i < FLECHETTE_SHOTS + bonusShots; i++ )
 	{
 		if (!CorrectBoostedAim(ent, muzzle, forward, FLECHETTE_VEL, WP_FLECHETTE, qfalse, FLECHETTE_SIZE))
 			return;
@@ -2559,25 +2578,90 @@ static void WP_FlechetteMainFire( gentity_t *ent )
 			}
 		}
 
+		if (meme && i >= FLECHETTE_SHOTS) {
+			angs[PITCH] += crandom() * FLECHETTE_SPREAD;
+			angs[YAW] += crandom() * FLECHETTE_SPREAD;
+		}
+
 		AngleVectors( angs, fwd, NULL, NULL );
 
-		missile = CreateMissile( muzzle, fwd, FLECHETTE_VEL, 10000, ent, qfalse);
+		if (meme) {
+			gentity_t *bolt;
+			float chargeAmount = 1.0f;
 
-		missile->classname = "flech_proj";
-		missile->s.weapon = WP_FLECHETTE;
+			bolt = G_Spawn();
 
-		VectorSet( missile->r.maxs, FLECHETTE_SIZE, FLECHETTE_SIZE, FLECHETTE_SIZE );
-		VectorScale( missile->r.maxs, -1, missile->r.mins );
+			bolt->physicsObject = qtrue;
 
-		missile->damage = FLECHETTE_DAMAGE;
-		missile->dflags = DAMAGE_DEATH_KNOCKBACK;
-		missile->methodOfDeath = MOD_FLECHETTE;
-		missile->clipmask = MASK_SHOT | CONTENTS_LIGHTSABER;
+			bolt->classname = "thermal_detonator";
+			bolt->think = thermalThinkStandard;
+			bolt->nextthink = level.time;
+			bolt->touch = touch_NULL;
 
-		// we don't want it to bounce forever
-		missile->bounceCount = Q_irand(5,8);
+			// How 'bout we give this thing a size...
+			VectorSet(bolt->r.mins, -3.0f, -3.0f, -3.0f);
+			VectorSet(bolt->r.maxs, 3.0f, 3.0f, 3.0f);
+			bolt->clipmask = MASK_SHOT;
 
-		missile->flags |= FL_BOUNCE_SHRAPNEL;
+			W_TraceSetStart(ent, muzzle, bolt->r.mins, bolt->r.maxs);//make sure our start point isn't on the other side of a wall
+
+			// normal ones bounce, alt ones explode on impact
+			bolt->genericValue5 = level.time + TD_TIME; // How long 'til she blows
+			bolt->s.pos.trType = TR_GRAVITY;
+			bolt->parent = ent;
+			bolt->r.ownerNum = ent->s.number;
+			VectorScale(fwd, TD_VELOCITY * chargeAmount, bolt->s.pos.trDelta);
+
+			if (ent->health >= 0)
+			{
+				bolt->s.pos.trDelta[2] += 120;
+			}
+			bolt->flags |= FL_BOUNCE_HALF;
+
+			bolt->s.loopSound = G_SoundIndex("sound/weapons/thermal/thermloop.wav");
+			bolt->s.loopIsSoundset = qfalse;
+
+			bolt->damage = TD_DAMAGE;
+			bolt->dflags = 0;
+			bolt->splashDamage = TD_SPLASH_DAM;
+			bolt->splashRadius = TD_SPLASH_RAD;
+
+			bolt->s.eType = ET_MISSILE;
+			bolt->r.svFlags = SVF_USE_CURRENT_ORIGIN;
+			bolt->s.weapon = WP_THERMAL;
+
+			bolt->methodOfDeath = MOD_THERMAL;
+			bolt->splashMethodOfDeath = MOD_THERMAL_SPLASH;
+
+			bolt->s.pos.trTime = level.time;		// move a bit on the very first frame
+			VectorCopy(muzzle, bolt->s.pos.trBase);
+
+			SnapVector(bolt->s.pos.trDelta);			// save net bandwidth
+			VectorCopy(muzzle, bolt->r.currentOrigin);
+
+			VectorCopy(muzzle, bolt->pos2);
+
+			bolt->bounceCount = -5;
+		}
+		else {
+			missile = CreateMissile(muzzle, fwd, FLECHETTE_VEL, 10000, ent, qfalse);
+
+			missile->classname = "flech_proj";
+			missile->s.weapon = WP_FLECHETTE;
+
+			VectorSet(missile->r.maxs, FLECHETTE_SIZE, FLECHETTE_SIZE, FLECHETTE_SIZE);
+			VectorScale(missile->r.maxs, -1, missile->r.mins);
+
+			missile->damage = FLECHETTE_DAMAGE;
+			missile->dflags = DAMAGE_DEATH_KNOCKBACK;
+			missile->methodOfDeath = MOD_FLECHETTE;
+			missile->clipmask = MASK_SHOT | CONTENTS_LIGHTSABER;
+
+			// we don't want it to bounce forever
+			missile->bounceCount = Q_irand(5, 8);
+
+			missile->flags |= FL_BOUNCE_SHRAPNEL;
+		}
 	}
 }
 
@@ -2766,7 +2850,7 @@ void rocketThink( gentity_t *ent )
 	int i;
 	float vel = (ent->spawnflags&1)?ent->speed:ROCKET_VELOCITY;
 
-	qboolean meme = (!level.wasRestarted && ent->methodOfDeath == MOD_ROCKET_HOMING && ent->parent && ent->parent->client && ent->parent->client->account && (!Q_stricmp(ent->parent->client->account->name, "duo") || !Q_stricmp(ent->parent->client->account->name, "alpha")));
+	qboolean meme = (!level.wasRestarted && ent->methodOfDeath == MOD_ROCKET_HOMING && ent->parent && !IsRacerOrSpectator(ent->parent) && ent->parent->client && ent->parent->client->account && (!Q_stricmp(ent->parent->client->account->name, "duo") || !Q_stricmp(ent->parent->client->account->name, "alpha")));
 
 	if ( ent->genericValue1 && ent->genericValue1 < level.time )
 	{//time's up, we're done, remove us
@@ -3049,21 +3133,6 @@ THERMAL DETONATOR
 
 ======================================================================
 */
-
-#define TD_DAMAGE			90 // alpha: bump direct damage to be equal to the highest splash dmg possible
-#define TD_SPLASH_RAD		128
-#define TD_SPLASH_DAM		90
-#define TD_VELOCITY			900
-#define TD_MIN_CHARGE		0.15f
-#define TD_TIME				3000//6000
-#define TD_ALT_TIME			3000
-
-#define TD_ALT_DAMAGE		60//100
-#define TD_ALT_SPLASH_RAD	128
-#define TD_ALT_SPLASH_DAM	50//90
-#define TD_ALT_VELOCITY		600
-#define TD_ALT_MIN_CHARGE	0.15f
-#define TD_ALT_TIME			3000
 
 void thermalThinkStandard(gentity_t *ent);
 
