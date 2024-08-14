@@ -517,6 +517,8 @@ struct gentity_s {
 	qboolean	lockPauseAngles;
 	vec3_t		pauseAngles;
 	vec3_t		pauseViewAngles;
+
+	qboolean	hasLOS[MAX_GENTITIES];
 };
 
 #define DAMAGEREDIRECT_HEAD		1
@@ -3082,6 +3084,7 @@ qboolean Jedi_DodgeEvasion( gentity_t *self, gentity_t *shooter, trace_t *tr, in
 void AutoTHTE(gentity_t *self);
 void ShouldUseTHTE(gentity_t *target, qboolean *doTEOut, qboolean *doTHOut, int fakeForceAlignment);
 void SendForceTimers(gentity_t *user, gentity_t *sendTo);
+qboolean HaveLOSToTarget(gentity_t *self, gentity_t *ent);
 
 // g_log.c
 void QDECL G_LogPrintf( const char *fmt, ... );
@@ -3568,6 +3571,7 @@ extern vmCvar_t		g_autoPauseDisconnect;
 extern vmCvar_t		g_quickPauseMute;
 extern vmCvar_t		g_enterSpammerTime;
 extern vmCvar_t		g_quickPauseChat;
+extern vmCvar_t		g_pauseVelocityLines;
 
 extern vmCvar_t		g_vote_tierlist;
 extern vmCvar_t		g_vote_tierlist_s_min;

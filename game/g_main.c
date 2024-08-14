@@ -179,6 +179,7 @@ vmCvar_t	g_autoPauseDisconnect;
 vmCvar_t	g_quickPauseMute;
 vmCvar_t	g_enterSpammerTime;
 vmCvar_t	g_quickPauseChat;
+vmCvar_t	g_pauseVelocityLines;
 
 vmCvar_t	g_webhookId;
 vmCvar_t	g_webhookToken;
@@ -1301,6 +1302,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_quickPauseMute, "g_quickPauseMute", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_enterSpammerTime, "g_enterSpammerTime", "3", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_quickPauseChat, "g_quickPauseChat", "1", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_pauseVelocityLines, "g_pauseVelocityLines", "1", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_webhookId, "g_webhookId", "", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_webhookToken, "g_webhookToken", "", CVAR_ARCHIVE, 0, qfalse },
@@ -6474,7 +6476,7 @@ static void RunRockPaperScissors(void) {
 
 extern char *GetSuffixId(gentity_t *ent);
 void G_SayTo(gentity_t *ent, gentity_t *other, int mode, int color, const char *name, const char *message, char *locMsg, qboolean outOfBandOk);
-
+extern void G_TestLine(vec3_t start, vec3_t end, int color, int time);
 extern int forcePowerNeeded[NUM_FORCE_POWER_LEVELS][NUM_FORCE_POWERS];
 extern void WP_AddToClientBitflags(gentity_t* ent, int entNum);
 void G_RunFrame( int levelTime ) {
@@ -6953,6 +6955,7 @@ void G_RunFrame( int levelTime ) {
 					ent->lockPauseAngles = qfalse;
 					ent->pauseAngles[0] = ent->pauseAngles[1] = ent->pauseAngles[2] = 0;
 					ent->pauseViewAngles[0] = ent->pauseViewAngles[1] = ent->pauseViewAngles[2] = 0;
+					memset(ent->hasLOS, 0, sizeof(ent->hasLOS));
 				}
 
 				int j;
@@ -6979,6 +6982,16 @@ void G_RunFrame( int levelTime ) {
     }
 
 	if (level.pause.state != PAUSE_NONE) { // lock angles during pause
+		static int lastAngleTime = 0;
+		const int now = trap_Milliseconds();
+		qboolean doAngle = qfalse;
+#define PAUSE_VELOCITY_LINE_TIME	(1000)
+#define PAUSE_VELOCITY_LINE_BUFFER	(50)
+		if (g_pauseVelocityLines.integer && !level.intermissiontime && (!lastAngleTime || now - lastAngleTime >= (PAUSE_VELOCITY_LINE_TIME - PAUSE_VELOCITY_LINE_BUFFER)) && level.pause.time - level.time > PAUSE_VELOCITY_LINE_TIME) {
+			lastAngleTime = now;
+			doAngle = qtrue;
+		}
+
 		for (int i = 0; i < MAX_GENTITIES; i++) {
 			gentity_t *ent = &g_entities[i];
 			if (ent->lockPauseAngles && ent->inuse && !IsRacerOrSpectator(ent)) {
@@ -6986,6 +6999,54 @@ void G_RunFrame( int levelTime ) {
 				if (ent->client) {
 					VectorCopy(ent->pauseViewAngles, ent->client->ps.viewangles);
 					SetClientViewAngle(ent, ent->client->ps.viewangles);
+
+					if (doAngle && ent->health > 0 && (ent->client->ps.velocity[0] || ent->client->ps.velocity[1] || ent->client->ps.velocity[2])) {
+						vec3_t end;
+						VectorMA(ent->client->ps.origin, 0.25f, ent->client->ps.velocity, end); // make the line a little shorter
+						gentity_t *te;
+						te = G_TempEntity(ent->client->ps.origin, EV_TESTLINE);
+						te->s.saberInFlight = qtrue; // to identify this type of line i guess
+						VectorCopy(ent->client->ps.origin, te->s.origin);
+						VectorCopy(end, te->s.origin2);
+						te->s.time2 = PAUSE_VELOCITY_LINE_TIME;
+						if (ent->client->sess.sessionTeam == TEAM_RED)
+							te->s.weapon = 0xffffff; // blue color
+						else if (ent->client->sess.sessionTeam == TEAM_BLUE)
+							te->s.weapon = 4; // red color
+
+						te->r.svFlags |= SVF_BROADCAST;
+						for (int j = 0; j < MAX_CLIENTS; j++) {
+							gentity_t *otherEnt = &g_entities[j];
+							if (!otherEnt->inuse || !otherEnt->client || otherEnt->client->pers.connected != CON_CONNECTED) {
+								//te->r.broadcastClients[1] |= (1 << j);
+								continue;
+							}
+
+							if (otherEnt->client->sess.sessionTeam == TEAM_SPECTATOR && otherEnt->client->sess.spectatorState != SPECTATOR_FOLLOW) // freespecs receive all lines
+								continue;
+
+							gentity_t *LOSEnt;
+							if (otherEnt->client->sess.sessionTeam == TEAM_SPECTATOR && otherEnt->client->sess.spectatorState == SPECTATOR_FOLLOW &&
+								g_entities[otherEnt->client->sess.spectatorClient].inuse && g_entities[otherEnt->client->sess.spectatorClient].client &&
+								g_entities[otherEnt->client->sess.spectatorClient].client->pers.connected == CON_CONNECTED) {
+								LOSEnt = &g_entities[otherEnt->client->sess.spectatorClient]; // the person followed by the player
+							}
+							else {
+								LOSEnt = otherEnt; // the player
+							}
+
+							if (LOSEnt == ent)  // you always get your own line
+								continue;
+
+							if (LOSEnt->client->sess.inRacemode) { // racers don't receive lines
+								te->r.broadcastClients[1] |= (1 << j);
+								continue;
+							}
+
+							if (!LOSEnt->hasLOS[i]) // no line if no LOS
+								te->r.broadcastClients[1] |= (1 << j);
+						}
+					}
 				}
 			}
 		}

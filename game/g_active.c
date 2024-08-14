@@ -5707,6 +5707,12 @@ void DoPauseStartChecks(void) {
 				ent->lockPauseAngles = qtrue;
 				VectorCopy(ent->s.angles, ent->pauseAngles);
 				VectorCopy(ent->client->ps.viewangles, ent->pauseViewAngles);
+				for (int j = 0; j < MAX_CLIENTS; j++) {
+					gentity_t *otherEnt = &g_entities[j];
+					if (i == j || IsRacerOrSpectator(otherEnt))
+						continue;
+					ent->hasLOS[j] = HaveLOSToTarget(ent, otherEnt);
+				}
 			}
 		}
 		else {
