@@ -4681,7 +4681,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 	}
 
 	qboolean meme = (!level.wasRestarted && (mod == MOD_ROCKET_HOMING || mod == MOD_ROCKET_HOMING_SPLASH) && attacker && attacker->client && attacker->client->account && (!Q_stricmp(attacker->client->account->name, "duo") || !Q_stricmp(attacker->client->account->name, "alpha")));
-	if (attacker == targ)
+	if (meme && attacker == targ)
 		return;
 
 	if ( !dir ) {
