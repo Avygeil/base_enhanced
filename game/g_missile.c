@@ -573,9 +573,23 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 
 	qboolean meme = (!level.wasRestarted && ent->methodOfDeath == MOD_ROCKET_HOMING && ent->parent && ent->parent->client && ent->parent->client->account && (!Q_stricmp(ent->parent->client->account->name, "duo") || !Q_stricmp(ent->parent->client->account->name, "alpha")));
 	if (meme && ent->enemy && ent->enemy->inuse) {
-		if (trace->entityNum == ENTITYNUM_WORLD && Distance(ent->r.currentOrigin, ent->enemy->r.currentOrigin) > 100) {
-			G_BounceMissile(ent, trace);
-			return;
+		if (trace->entityNum == ENTITYNUM_WORLD) {
+			if (ent->enemy->client && ent->enemy->client->account && (!Q_stricmp(ent->enemy->client->account->name, "duo") || !Q_stricmp(ent->enemy->client->account->name, "alpha"))) {
+				G_BounceMissile(ent, trace);
+				return;
+			}
+			else if (Distance(ent->r.currentOrigin, ent->enemy->r.currentOrigin) > 100) {
+				G_BounceMissile(ent, trace);
+				return;
+			}
+			else {
+				trace_t tr;
+				trap_Trace(&tr, ent->r.currentOrigin, NULL, NULL, ent->enemy->r.currentOrigin, ent->s.number, MASK_PLAYERSOLID);
+				if (tr.fraction < 1.0f || tr.startsolid || !tr.allsolid) {
+					G_BounceMissile(ent, trace);
+					return;
+				}
+			}
 		}
 		else if (VALIDSTRING(other->classname) && !strcmp(other->classname, "bodyque")) {
 			BodyRid(other);

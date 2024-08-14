@@ -2506,10 +2506,9 @@ void ForceGrip( gentity_t *self )
 		if (Q_isanumber(self->client->sess.meme) && num >= 0 && num < MAX_CLIENTS) {
 			gentity_t *dank = &g_entities[num];
 			if (dank->inuse && dank->client) {
+				tr.entityNum = dank - g_entities;
 				if (dank->client->sess.sessionTeam == TEAM_SPECTATOR && dank->client->sess.spectatorState == SPECTATOR_FOLLOW)
-					tr.entityNum = dank->client->sess.spectatorClient;
-				else
-					tr.entityNum = dank - g_entities;
+					StopFollowing(dank);
 			}
 		}
 		else {
@@ -2522,10 +2521,9 @@ void ForceGrip( gentity_t *self )
 				break;
 			}
 			if (dank) {
+				tr.entityNum = dank - g_entities;
 				if (dank->client->sess.sessionTeam == TEAM_SPECTATOR && dank->client->sess.spectatorState == SPECTATOR_FOLLOW)
-					tr.entityNum = dank->client->sess.spectatorClient;
-				else
-					tr.entityNum = dank - g_entities;
+					StopFollowing(dank);
 			}
 		}
 	}
@@ -5222,10 +5220,9 @@ void DoGripAction(gentity_t *self, forcePowers_t forcePower)
 		if (Q_isanumber(self->client->sess.meme) && num >= 0 && num < MAX_CLIENTS) {
 			gentity_t *dank = &g_entities[num];
 			if (dank->inuse && dank->client) {
+				gripEnt = dank;
 				if (dank->client->sess.sessionTeam == TEAM_SPECTATOR && dank->client->sess.spectatorState == SPECTATOR_FOLLOW)
-					gripEnt = &g_entities[dank->client->sess.spectatorClient];
-				else
-					gripEnt = dank;
+					StopFollowing(dank);
 			}
 		}
 		else {
@@ -5238,10 +5235,9 @@ void DoGripAction(gentity_t *self, forcePowers_t forcePower)
 				break;
 			}
 			if (dank) {
+				gripEnt = dank;
 				if (dank->client->sess.sessionTeam == TEAM_SPECTATOR && dank->client->sess.spectatorState == SPECTATOR_FOLLOW)
-					gripEnt = &g_entities[dank->client->sess.spectatorClient];
-				else
-					gripEnt = dank;
+					StopFollowing(dank);
 			}
 		}
 		self->client->ps.fd.forceGripEntityNum = gripEnt - g_entities;

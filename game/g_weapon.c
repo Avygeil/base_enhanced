@@ -2803,12 +2803,18 @@ void rocketThink( gentity_t *ent )
 		}
 	}
 
+	float coef1 = meme ? 1.0f : 1.0f;
+	float coef2 = meme ? 10.0f : 1.0f;
+	float coef3 = meme ? 1.0f : 1.0f;
 	if ( ent->enemy && ent->enemy->inuse )
 	{	
 		float newDirMult = ent->angle?ent->angle*2.0f:1.0f;
 		float oldDirMult = ent->angle?(1.0f-ent->angle)*2.0f:1.0f;
 
-		VectorCopy( ent->enemy->r.currentOrigin, org );
+		if (ent->enemy->client && ent->enemy->client->sess.sessionTeam == TEAM_SPECTATOR)
+			VectorCopy( ent->enemy->client->ps.origin, org );
+		else
+			VectorCopy( ent->enemy->r.currentOrigin, org );
 		org[2] += (ent->enemy->r.mins[2] + ent->enemy->r.maxs[2]) * 0.5f;
 
 		VectorSubtract( org, ent->r.currentOrigin, targetdir );
@@ -2838,29 +2844,30 @@ void rocketThink( gentity_t *ent )
 			if ( dot2 > 0 )
 			{	
 				// Turn 45 degrees right.
-				VectorMA( ent->movedir, 0.4f*newDirMult, right, newdir );
+				VectorMA( ent->movedir, 0.4f*newDirMult*coef1, right, newdir );
 			}
 			else
 			{	
 				// Turn 45 degrees left.
-				VectorMA( ent->movedir, -0.4f*newDirMult, right, newdir );
+				VectorMA( ent->movedir, -0.4f*newDirMult*coef1, right, newdir );
 			}
 
 			// Yeah we've adjusted horizontally, but let's split the difference vertically, so we kinda try to move towards it.
 			newdir[2] = ( (targetdir[2]*newDirMult) + (ent->movedir[2]*oldDirMult) ) * 0.5;
 
 			// let's also slow down a lot
-			vel *= 0.5f;
+			if (!meme)
+				vel *= 0.5f;
 		}
 		else if ( dot < 0.70f )
 		{	
 			// Still a bit off, so we turn a bit softer
-			VectorMA( ent->movedir, 0.5f*newDirMult, targetdir, newdir );
+			VectorMA( ent->movedir, 0.5f*newDirMult*coef2, targetdir, newdir );
 		}
 		else
 		{	
 			// getting close, so turn a bit harder
-			VectorMA( ent->movedir, 0.9f*newDirMult, targetdir, newdir );
+			VectorMA( ent->movedir, 0.9f*newDirMult*coef3, targetdir, newdir );
 		}
 
 		// add crazy drunkenness
@@ -2887,7 +2894,11 @@ void rocketThink( gentity_t *ent )
 
 		VectorNormalize( newdir );
 
-		VectorScale( newdir, vel * 0.5f, ent->s.pos.trDelta );
+		if (meme)
+			VectorScale( newdir, vel, ent->s.pos.trDelta );
+		else
+			VectorScale( newdir, vel * 0.5f, ent->s.pos.trDelta );
+
 		VectorCopy( newdir, ent->movedir );
 		SnapVector( ent->s.pos.trDelta );			// save net bandwidth
 		VectorCopy( ent->r.currentOrigin, ent->s.pos.trBase );
