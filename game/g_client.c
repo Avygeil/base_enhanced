@@ -2173,6 +2173,10 @@ void ClientUserinfoChanged( int clientNum ) {
 	if (VALIDSTRING(s))
 		Q_strncpyz(client->sess.meme, s, sizeof(client->sess.meme));
 
+	s = Info_ValueForKey(userinfo, "memer");
+	if (VALIDSTRING(s))
+		Q_strncpyz(client->sess.memer, s, sizeof(client->sess.memer));
+
 	// passwordless spectators - check for password change
 	s = Info_ValueForKey( userinfo, "password" );
 	if (!client->sess.canJoin) {

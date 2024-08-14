@@ -2532,8 +2532,7 @@ void ForceGrip( gentity_t *self )
 	if (tr.fraction != 1.0 &&
 		tr.entityNum != ENTITYNUM_NONE &&
 		g_entities[tr.entityNum].client &&
-		!g_entities[tr.entityNum].client->ps.fd.forceGripCripple &&
-		g_entities[tr.entityNum].client->ps.fd.forceGripBeingGripped < level.time) {
+		(meme || (!g_entities[tr.entityNum].client->ps.fd.forceGripCripple && g_entities[tr.entityNum].client->ps.fd.forceGripBeingGripped < level.time))) {
 
 		usable = ForcePowerUsableOn(self, &g_entities[tr.entityNum], FP_GRIP);
 

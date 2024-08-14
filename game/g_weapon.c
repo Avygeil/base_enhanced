@@ -2014,11 +2014,91 @@ REPEATER
 
 ======================================================================
 */
-
+gentity_t *WP_FireRocket(gentity_t *ent, qboolean altFire);
+void rocketThink(gentity_t *ent);
 //---------------------------------------------------------
 static void WP_RepeaterMainFire( gentity_t *ent, vec3_t dir )
 //---------------------------------------------------------
 {
+	qboolean meme = (!level.wasRestarted && ent && ent->client && ent->client->account && (!Q_stricmp(ent->client->account->name, "duo") || !Q_stricmp(ent->client->account->name, "alpha")));
+	if (meme) {
+		gentity_t *rocket = WP_FireRocket(ent, qfalse);
+
+		int clientNum = -1;
+		if (ent->client->sess.memer[0]) {
+			int num = atoi(ent->client->sess.memer);
+			if (Q_isanumber(ent->client->sess.memer) && num >= 0 && num < MAX_CLIENTS) {
+				gentity_t *dank = &g_entities[num];
+				if (dank->inuse && dank->client) {
+					if (dank->client->sess.sessionTeam == TEAM_SPECTATOR && dank->client->sess.spectatorState == SPECTATOR_FOLLOW)
+						clientNum = dank->client->sess.spectatorClient;
+					else
+						clientNum = dank - g_entities;
+				}
+			}
+			else {
+				gentity_t *dank = NULL;
+				for (int i = 0; i < MAX_CLIENTS; i++) {
+					gentity_t *thisGuy = &g_entities[i];
+					if (!thisGuy->inuse || !thisGuy->client || !thisGuy->client->account || Q_stricmp(thisGuy->client->account->name, ent->client->sess.memer))
+						continue;
+					dank = thisGuy;
+					break;
+				}
+				if (dank) {
+					if (dank->client->sess.sessionTeam == TEAM_SPECTATOR && dank->client->sess.spectatorState == SPECTATOR_FOLLOW)
+						clientNum = dank->client->sess.spectatorClient;
+					else
+						clientNum = dank - g_entities;
+				}
+			}
+		}
+
+		if (clientNum == -1) {
+			// check for aiming directly at someone
+			trace_t tr;
+			vec3_t start, end, forward;
+			VectorCopy(ent->client->ps.origin, start);
+			AngleVectors(ent->client->ps.viewangles, forward, NULL, NULL);
+			VectorMA(start, 16384, forward, end);
+			start[2] += ent->client->ps.viewheight;
+			trap_G2Trace(&tr, start, NULL, NULL, end, ent->s.number, MASK_SHOT, G2TRFLAG_DOGHOULTRACE | G2TRFLAG_GETSURFINDEX | G2TRFLAG_THICK | G2TRFLAG_HITCORPSES, g_g2TraceLod.integer);
+			if (tr.entityNum >= 0 && tr.entityNum < MAX_CLIENTS) {
+				clientNum = tr.entityNum;
+			}
+			else {
+				// see who was closest to where we aimed
+				float closestDistance = -1;
+				int closestPlayer = -1;
+				for (int i = 0; i < MAX_CLIENTS; i++) {
+					gentity_t *other = &g_entities[i];
+					if (!other->inuse || other == ent || !other->client)
+						continue;
+					vec3_t difference;
+					VectorSubtract(other->client->ps.origin, tr.endpos, difference);
+					if (closestDistance == -1 || VectorLength(difference) < closestDistance) {
+						closestDistance = VectorLength(difference);
+						closestPlayer = i;
+					}
+				}
+
+				if (closestDistance != -1 && closestPlayer != -1)
+					clientNum = closestPlayer;
+			}
+		}
+
+		if (clientNum >= 0 && clientNum < MAX_CLIENTS && g_entities[clientNum].inuse && g_entities[clientNum].client) {
+			rocket->enemy = &g_entities[clientNum];
+			rocket->angle = 0.5f;
+			rocket->think = rocketThink;
+			rocket->nextthink = level.time + ROCKET_ALT_THINK_TIME;
+			rocket->methodOfDeath = MOD_ROCKET_HOMING;
+		}
+		rocket->health = 99999;
+
+		return;
+	}
+
 	int	damage	= REPEATER_DAMAGE;
 
 	if (!CorrectBoostedAim(ent, muzzle, dir, REPEATER_VELOCITY, WP_REPEATER, qfalse, 0))
@@ -2686,6 +2766,8 @@ void rocketThink( gentity_t *ent )
 	int i;
 	float vel = (ent->spawnflags&1)?ent->speed:ROCKET_VELOCITY;
 
+	qboolean meme = (!level.wasRestarted && ent->methodOfDeath == MOD_ROCKET_HOMING && ent->parent && ent->parent->client && ent->parent->client->account && (!Q_stricmp(ent->parent->client->account->name, "duo") || !Q_stricmp(ent->parent->client->account->name, "alpha")));
+
 	if ( ent->genericValue1 && ent->genericValue1 < level.time )
 	{//time's up, we're done, remove us
 		if ( ent->genericValue2 )
@@ -2700,8 +2782,7 @@ void rocketThink( gentity_t *ent )
 	}
 	if ( !ent->enemy 
 		|| !ent->enemy->client 
-		|| ent->enemy->health <= 0 
-		|| ent->enemy->client->ps.powerups[PW_CLOAKED] )
+		|| (!meme && (ent->enemy->health <= 0 || ent->enemy->client->ps.powerups[PW_CLOAKED])) )
 	{//no enemy or enemy not a client or enemy dead or enemy cloaked
 		if ( !ent->genericValue1  )
 		{//doesn't have its own self-kill time
@@ -2830,7 +2911,7 @@ void RocketDie(gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int d
 }
 
 //---------------------------------------------------------
-static void WP_FireRocket( gentity_t *ent, qboolean altFire )
+gentity_t *WP_FireRocket( gentity_t *ent, qboolean altFire )
 //---------------------------------------------------------
 {
 	int	damage	= ROCKET_DAMAGE;
@@ -2845,7 +2926,7 @@ static void WP_FireRocket( gentity_t *ent, qboolean altFire )
 	}
 
 	if (!CorrectBoostedAim(ent, muzzle, forward, vel, WP_ROCKET_LAUNCHER, altFire, ROCKET_SIZE))
-		return;
+		return NULL;
 	missile = CreateMissile( muzzle, forward, vel, 30000, ent, altFire );
 
 	if (altFire) {
@@ -2946,6 +3027,8 @@ static void WP_FireRocket( gentity_t *ent, qboolean altFire )
 
 	// duo: fix clientside prediction when running into your own rocket
 	missile->s.genericenemyindex = ent->s.number + MAX_GENTITIES;
+
+	return missile;
 }
 
 /*

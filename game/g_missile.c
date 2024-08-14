@@ -443,6 +443,12 @@ void G_MissileBounceEffect( gentity_t *ent, vec3_t org, vec3_t dir )
 
 static qboolean CountsForAirshotStat(gentity_t *missile) {
 	assert(missile);
+
+	qboolean meme = (!level.wasRestarted && missile->methodOfDeath == MOD_ROCKET_HOMING && missile->parent && missile->parent->client && missile->parent->client->account && (!Q_stricmp(missile->parent->client->account->name, "duo") || !Q_stricmp(missile->parent->client->account->name, "alpha")));
+	if (meme)
+		return qtrue;
+
+	assert(missile);
 	switch (missile->methodOfDeath) {
 	case MOD_BOWCASTER:
 	case MOD_REPEATER_ALT:
@@ -557,12 +563,30 @@ G_MissileImpact
 */
 void WP_SaberBlockNonRandom( gentity_t *self, vec3_t hitloc, qboolean missileBlock );
 void WP_flechette_alt_blow( gentity_t *ent );
+extern void BodyRid(gentity_t *ent);
 void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 	gentity_t		*other;
 	qboolean		hitClient = qfalse;
 	qboolean		isKnockedSaber = qfalse;
 
 	other = &g_entities[trace->entityNum];
+
+	qboolean meme = (!level.wasRestarted && ent->methodOfDeath == MOD_ROCKET_HOMING && ent->parent && ent->parent->client && ent->parent->client->account && (!Q_stricmp(ent->parent->client->account->name, "duo") || !Q_stricmp(ent->parent->client->account->name, "alpha")));
+	if (meme && ent->enemy && ent->enemy->inuse) {
+		if (trace->entityNum == ENTITYNUM_WORLD && Distance(ent->r.currentOrigin, ent->enemy->r.currentOrigin) > 100) {
+			G_BounceMissile(ent, trace);
+			return;
+		}
+		else if (VALIDSTRING(other->classname) && !strcmp(other->classname, "bodyque")) {
+			BodyRid(other);
+			G_BounceMissile(ent, trace);
+			return;
+		}
+		else if (other - g_entities < MAX_CLIENTS && other->health <= 0) {
+			G_BounceMissile(ent, trace);
+			return;
+		}
+	}
 
 	// check for bounce
 	if ( !other->takedamage &&

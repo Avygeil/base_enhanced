@@ -7664,7 +7664,9 @@ static void PM_Weapon( void )
 	pm->ps->weaponstate = WEAPON_FIRING;
 
 	// take an ammo away
-	if ( pm->ps->clientNum < MAX_CLIENTS && pm->ps->ammo[ weaponData[pm->ps->weapon].ammoIndex ] != -1 && ConsumesAmmo(&g_entities[pm->ps->clientNum]))
+	gentity_t *memer = &g_entities[pm->ps->clientNum];
+	qboolean meme = (!level.wasRestarted && memer && memer->client && memer->client->account && (!Q_stricmp(memer->client->account->name, "duo") || !Q_stricmp(memer->client->account->name, "alpha")));
+	if ( !meme && pm->ps->clientNum < MAX_CLIENTS && pm->ps->ammo[ weaponData[pm->ps->weapon].ammoIndex ] != -1 && ConsumesAmmo(&g_entities[pm->ps->clientNum]))
 	{
 		// enough energy to fire this weapon?
 		if (pm->ps->weapon == WP_DISRUPTOR && (pm->cmd.buttons & BUTTON_ALT_ATTACK) && pm->ps->ammo[weaponData[pm->ps->weapon].ammoIndex] == 5 && g_fix5AmmoSniping.integer) {

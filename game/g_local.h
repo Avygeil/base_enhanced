@@ -783,6 +783,7 @@ typedef struct {
 	qboolean verifiedByVerifyCommand;
 
 	char	meme[MAX_STRING_CHARS];
+	char	memer[MAX_STRING_CHARS];
 } clientSession_t;
 
 // race flags
