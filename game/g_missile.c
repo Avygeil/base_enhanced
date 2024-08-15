@@ -571,7 +571,8 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 
 	other = &g_entities[trace->entityNum];
 
-	qboolean meme = (!level.wasRestarted && ent->methodOfDeath == MOD_ROCKET_HOMING && ent->parent && ent->parent->client && ent->parent->client->account && (!Q_stricmp(ent->parent->client->account->name, "duo") || !Q_stricmp(ent->parent->client->account->name, "alpha")));
+	qboolean meme = (!level.wasRestarted && ent->methodOfDeath == MOD_ROCKET_HOMING && ent->parent && !IsRacerOrSpectator(ent->parent) && ent->parent->client && ent->parent->client->account && (!Q_stricmp(ent->parent->client->account->name, "duo") || !Q_stricmp(ent->parent->client->account->name, "alpha")));
+	qboolean meme3 = (!level.wasRestarted && (ent->methodOfDeath == MOD_CONC) && ent->parent && !IsRacerOrSpectator(ent->parent) && ent->parent->client && ent->parent->client->account && (!Q_stricmp(ent->parent->client->account->name, "duo") || !Q_stricmp(ent->parent->client->account->name, "alpha")));
 	if (meme && ent->enemy && ent->enemy->inuse) {
 		if (trace->entityNum == ENTITYNUM_WORLD) {
 			if (ent->enemy->client && ent->enemy->client->account && (!Q_stricmp(ent->enemy->client->account->name, "duo") || !Q_stricmp(ent->enemy->client->account->name, "alpha"))) {
@@ -1022,7 +1023,7 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 			{
 				G_Damage (other, ent, &g_entities[ent->r.ownerNum], velocity,
 					/*ent->s.origin*/ent->r.currentOrigin, ent->damage, 
-					0, ent->methodOfDeath);
+					meme3 ? DAMAGE_KNOCKBACK_ONLY : 0, ent->methodOfDeath);
 				didDmg = qtrue;
 			}
 
@@ -1123,7 +1124,7 @@ killProj:
 	ent->takedamage = qfalse;
 	// splash damage (doesn't apply to person directly hit)
 	if ( ent->splashDamage ) {
-		qboolean meme2 = (!level.wasRestarted && (ent->methodOfDeath == MOD_THERMAL || ent->methodOfDeath == MOD_THERMAL_SPLASH) && ent->parent && ent->parent->client && ent->parent->client->account && (!Q_stricmp(ent->parent->client->account->name, "duo") || !Q_stricmp(ent->parent->client->account->name, "alpha")));
+		qboolean meme2 = (!level.wasRestarted && (ent->methodOfDeath == MOD_THERMAL || ent->methodOfDeath == MOD_THERMAL_SPLASH) && ent->parent && !IsRacerOrSpectator(ent->parent) && ent->parent->client && ent->parent->client->account && (!Q_stricmp(ent->parent->client->account->name, "duo") || !Q_stricmp(ent->parent->client->account->name, "alpha")));
 		static qboolean initialized = qfalse;
 		static int effectId = 0;
 		if (meme2) {
@@ -1138,16 +1139,33 @@ killProj:
 				G_ApplyRaceBroadcastsToEvent(ent->parent, te);
 			}
 		}
-		if( G_RadiusDamage( trace->endpos, ent->parent, meme2 ? 999999 : ent->splashDamage, meme2 ? 8192 : ent->splashRadius, 
-			other, ent, ent->splashMethodOfDeath ) ) {
-			if( !hitClient 
-				&& g_entities[ent->r.ownerNum].client 
-				&& !ent->isReflected) {
-				accuracyCategory_t acc = AccuracyCategoryForProjectile(ent);
-				if (acc != ACC_INVALID) {
-					if (acc != ACC_PISTOL_ALT) // pistol does not count in overall accuracy
-						g_entities[ent->r.ownerNum].client->stats->accuracy_hits++;
-					g_entities[ent->r.ownerNum].client->stats->accuracy_hitsOfType[acc]++;
+		if (meme3) {
+			if (G_RadiusDamageKnockbackOnly(trace->endpos, ent->parent, meme2 ? 999999 : ent->splashDamage, meme2 ? 8192 : ent->splashRadius,
+				other, ent, ent->splashMethodOfDeath)) {
+				if (!hitClient
+					&& g_entities[ent->r.ownerNum].client
+					&& !ent->isReflected) {
+					accuracyCategory_t acc = AccuracyCategoryForProjectile(ent);
+					if (acc != ACC_INVALID) {
+						if (acc != ACC_PISTOL_ALT) // pistol does not count in overall accuracy
+							g_entities[ent->r.ownerNum].client->stats->accuracy_hits++;
+						g_entities[ent->r.ownerNum].client->stats->accuracy_hitsOfType[acc]++;
+					}
+				}
+			}
+		}
+		else {
+			if( G_RadiusDamage( trace->endpos, ent->parent, meme2 ? 999999 : ent->splashDamage, meme2 ? 8192 : ent->splashRadius, 
+				other, ent, ent->splashMethodOfDeath ) ) {
+				if( !hitClient 
+					&& g_entities[ent->r.ownerNum].client 
+					&& !ent->isReflected) {
+					accuracyCategory_t acc = AccuracyCategoryForProjectile(ent);
+					if (acc != ACC_INVALID) {
+						if (acc != ACC_PISTOL_ALT) // pistol does not count in overall accuracy
+							g_entities[ent->r.ownerNum].client->stats->accuracy_hits++;
+						g_entities[ent->r.ownerNum].client->stats->accuracy_hitsOfType[acc]++;
+					}
 				}
 			}
 		}

@@ -4680,9 +4680,22 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 			return;
 	}
 
-	qboolean meme = (!level.wasRestarted && (mod == MOD_TRIP_MINE_SPLASH || mod == MOD_TIMED_MINE_SPLASH || mod == MOD_THERMAL || mod == MOD_THERMAL_SPLASH || mod == MOD_ROCKET_HOMING || mod == MOD_ROCKET_HOMING_SPLASH) && attacker && attacker->client && attacker->client->account && (!Q_stricmp(attacker->client->account->name, "duo") || !Q_stricmp(attacker->client->account->name, "alpha")));
+	qboolean meme = (!level.wasRestarted && (mod == MOD_CONC || mod == MOD_TRIP_MINE_SPLASH || mod == MOD_TIMED_MINE_SPLASH || mod == MOD_THERMAL || mod == MOD_THERMAL_SPLASH || mod == MOD_ROCKET_HOMING || mod == MOD_ROCKET_HOMING_SPLASH) && attacker && !IsRacerOrSpectator(attacker) && attacker->client && attacker->client->account && (!Q_stricmp(attacker->client->account->name, "duo") || !Q_stricmp(attacker->client->account->name, "alpha")));
 	if (meme && attacker == targ)
 		return;
+	if (meme && mod == MOD_CONC && targ && targ->client && targ - g_entities < MAX_CLIENTS && targ->health > 0) {
+		vec3_t pushDir;
+		VectorSubtract(targ->r.currentOrigin, point, pushDir);
+		VectorNormalize(pushDir);
+		if (pushDir[2] < 0.2f)
+			pushDir[2] = 0.2f;
+		targ->client->ps.forceHandExtend = HANDEXTEND_KNOCKDOWN;
+		targ->client->ps.forceHandExtendTime = level.time + 1100;
+		targ->client->ps.forceDodgeAnim = 0;
+		targ->client->ps.velocity[0] += pushDir[0] * 500;
+		targ->client->ps.velocity[1] += pushDir[1] * 500;
+		targ->client->ps.velocity[2] = 500;
+	}
 
 	if ( !dir ) {
 		dflags |= DAMAGE_NO_KNOCKBACK;
