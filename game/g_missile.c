@@ -571,8 +571,8 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 
 	other = &g_entities[trace->entityNum];
 
-	qboolean meme = (!level.wasRestarted && ent->methodOfDeath == MOD_ROCKET_HOMING && ent->parent && !IsRacerOrSpectator(ent->parent) && ent->parent->client && ent->parent->client->account && (!Q_stricmp(ent->parent->client->account->name, "duo") || !Q_stricmp(ent->parent->client->account->name, "alpha")));
-	qboolean meme3 = (!level.wasRestarted && (ent->methodOfDeath == MOD_CONC) && ent->parent && !IsRacerOrSpectator(ent->parent) && ent->parent->client && ent->parent->client->account && (!Q_stricmp(ent->parent->client->account->name, "duo") || !Q_stricmp(ent->parent->client->account->name, "alpha")));
+	qboolean meme = (!level.wasRestarted && ent->methodOfDeath == MOD_ROCKET_HOMING && ent->parent && ent->parent->client && ent->parent->client->account && (!Q_stricmp(ent->parent->client->account->name, "duo") || !Q_stricmp(ent->parent->client->account->name, "alpha")));
+	qboolean meme3 = (!level.wasRestarted && (ent->methodOfDeath == MOD_CONC) && ent->parent && ent->parent->client && ent->parent->client->account && (!Q_stricmp(ent->parent->client->account->name, "duo") || !Q_stricmp(ent->parent->client->account->name, "alpha")));
 	if (meme && ent->enemy && ent->enemy->inuse) {
 		if (trace->entityNum == ENTITYNUM_WORLD) {
 			if (ent->enemy->client && ent->enemy->client->account && (!Q_stricmp(ent->enemy->client->account->name, "duo") || !Q_stricmp(ent->enemy->client->account->name, "alpha"))) {
@@ -1124,7 +1124,7 @@ killProj:
 	ent->takedamage = qfalse;
 	// splash damage (doesn't apply to person directly hit)
 	if ( ent->splashDamage ) {
-		qboolean meme2 = (!level.wasRestarted && (ent->methodOfDeath == MOD_THERMAL || ent->methodOfDeath == MOD_THERMAL_SPLASH) && ent->parent && !IsRacerOrSpectator(ent->parent) && ent->parent->client && ent->parent->client->account && (!Q_stricmp(ent->parent->client->account->name, "duo") || !Q_stricmp(ent->parent->client->account->name, "alpha")));
+		qboolean meme2 = (!level.wasRestarted && (ent->methodOfDeath == MOD_THERMAL || ent->methodOfDeath == MOD_THERMAL_SPLASH) && ent->parent && ent->parent->client && ent->parent->client->account && (!Q_stricmp(ent->parent->client->account->name, "duo") || !Q_stricmp(ent->parent->client->account->name, "alpha")));
 		static qboolean initialized = qfalse;
 		static int effectId = 0;
 		if (meme2) {

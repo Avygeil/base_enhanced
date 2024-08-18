@@ -4,8 +4,8 @@
 #include "g_local.h"
 
 #define DB_FILENAME				"enhanced.db"
-#define DB_SCHEMA_VERSION		28
-#define DB_SCHEMA_VERSION_STR	"28"
+#define DB_SCHEMA_VERSION		29
+#define DB_SCHEMA_VERSION_STR	"29"
 #define DB_OPTIMIZE_INTERVAL	( 60*60*3 ) // every 3 hours
 #define DB_VACUUM_INTERVAL		( 60*60*24*7 ) // every week
 
@@ -441,5 +441,14 @@ void DB_LoadFilters(void);
 qboolean UpdateFilter(filter_t *filter);
 qboolean SaveNewFilter(filter_t *filter, int *newFilterId);
 qboolean DeleteFilter(int filterId);
+
+typedef struct {
+	node_t node;
+	int raterAccountId;
+	ctfPosition_t pos;
+	int rating;
+	double datetime;
+} playerRatingHistoryEntry_t;
+list_t *G_DBGetPlayerRatingHistory(int rateeAccountId, ctfPosition_t pos, int raterAccountId);
 
 #endif //G_DATABASE_H

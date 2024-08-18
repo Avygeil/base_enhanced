@@ -7569,6 +7569,35 @@ ctfPosition_t CtfPositionFromString(char *s) {
 	return CTFPOSITION_UNKNOWN;
 }
 
+const char *TableCallback_RatingDate(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+
+	playerRatingHistoryEntry_t *entry = rowContext;
+	if (entry->datetime) {
+		static char timeStr[128] = { 0 };
+		time_t rawtime = entry->datetime;
+		struct tm *timeinfo = localtime(&rawtime);
+		strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", timeinfo);
+		return timeStr;
+	}
+	else {
+		return "(Precedes date logging)";
+	}
+}
+
+const char *TableCallback_RatingRating(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+
+	playerRatingHistoryEntry_t *entry = rowContext;
+	return PlayerRatingToString(entry->rating);
+}
+
 static void PrintRateHelp(int clientNum) {
 	OutOfBandPrint(clientNum, "Usage:\n" \
 		"^7rating [pos]                           - view a list of your ratings for a certain position\n"
@@ -7580,6 +7609,7 @@ static void PrintRateHelp(int clientNum) {
 		"^9rating reset all                       - delete all ratings\n"
 		"\n"
 		"^7rating winrate [player] [pos] <# days> - view winrate since X days ago (leave blank for last rated date)\n"
+		"^9rating history [player] [pos]          - view rating history^7\n"
 		"\n"
 		"  - Skill levels should be equivalent between positions; i.e. S tier base == S tier chase == S tier offense. Your ratings may skew higher or lower for some positions -- do not simply assign tiers based on a curve for each position.\n"
 		"  - Only rate players on positions you have observed them play at least once. Leave people unrated on positions you haven't seen them play.^7\n"
@@ -7661,6 +7691,51 @@ static void Cmd_Rating_f(gentity_t *ent) {
 		}
 		else {
 			G_DBGetWinrateSince(acc.name, acc.id, pos, NULL, ent - g_entities);
+		}
+	}
+	else if (!Q_stricmp(arg1, "history")) {
+		if (!arg2[0] || !arg3[0]) {
+			OutOfBandPrint(clientNum, "Usage: rating history [player] [pos]\n");
+			return;
+		}
+
+		account_t acc = { 0 };
+		qboolean found = G_DBGetAccountByName(arg2, &acc);
+		if (!found) {
+			OutOfBandPrint(clientNum, va("No account found matching '%s^7'. Try checking /rating list.\n", arg2));
+			return;
+		}
+
+		ctfPosition_t pos = CtfPositionFromString(arg3);
+		if (!pos) {
+			OutOfBandPrint(clientNum, va("'%s^7' is not a valid position. Positions can be base, chase, or offense.\n", arg3));
+			return;
+		}
+
+		list_t *historyList = G_DBGetPlayerRatingHistory(acc.id, pos, ent->client->account->id);
+		if (historyList && historyList->size > 0) {
+			Table *t = Table_Initialize(qtrue);
+
+			iterator_t iter;
+			ListIterate(historyList, &iter, qfalse);
+			while (IteratorHasNext(&iter)) {
+				playerRatingHistoryEntry_t *entry = (playerRatingHistoryEntry_t *)IteratorNext(&iter);
+				Table_DefineRow(t, entry);
+			}
+
+			Table_DefineColumn(t, "Date", TableCallback_RatingDate, NULL, qtrue, -1, 64);
+			Table_DefineColumn(t, "Rating", TableCallback_RatingRating, NULL, qtrue, -1, 64);
+
+			char buf[4096] = { 0 };
+			Table_WriteToBuffer(t, buf, sizeof(buf), qtrue, -1);
+			OutOfBandPrint(clientNum, "Rating history for ^5%s^7 on ^5%s^7:\n%s", acc.name, NameForPos(pos), buf);
+			Table_Destroy(t);
+
+			ListClear(historyList);
+			free(historyList);
+		}
+		else {
+			OutOfBandPrint(clientNum, "No rating history found for ^5%s^7 on ^5%s^7.\n", acc.name, NameForPos(pos));
 		}
 	}
 	else if (CtfPositionFromString(arg1) == CTFPOSITION_BASE) {

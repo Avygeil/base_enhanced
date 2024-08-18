@@ -6177,6 +6177,7 @@ void G_DBListRatingPlayers(int raterAccountId, int raterClientNum, ctfPosition_t
 }
 
 const char *const sqlSetPlayerRating = "INSERT OR REPLACE INTO playerratings(rater_account_id, ratee_account_id, pos, rating, datetime) VALUES (?,?,?,?,strftime('%s', 'now'));";
+const char *const sqlSetPlayerRating2 = "INSERT INTO playerratingshistory(rater_account_id, ratee_account_id, pos, rating, datetime) VALUES (?,?,?,?,strftime('%s', 'now'));";
 qboolean G_DBSetPlayerRating(int raterAccountId, int rateeAccountId, ctfPosition_t pos, ctfPlayerTier_t tier) {
 	sqlite3_stmt *statement;
 	trap_sqlite3_prepare_v2(dbPtr, sqlSetPlayerRating, -1, &statement, 0);
@@ -6185,6 +6186,15 @@ qboolean G_DBSetPlayerRating(int raterAccountId, int rateeAccountId, ctfPosition
 	sqlite3_bind_int(statement, 3, pos);
 	sqlite3_bind_int(statement, 4, tier);
 	int rc = trap_sqlite3_step(statement);
+
+	trap_sqlite3_reset(statement);
+	trap_sqlite3_prepare_v2(dbPtr, sqlSetPlayerRating2, -1, &statement, 0);
+	sqlite3_bind_int(statement, 1, raterAccountId);
+	sqlite3_bind_int(statement, 2, rateeAccountId);
+	sqlite3_bind_int(statement, 3, pos);
+	sqlite3_bind_int(statement, 4, tier);
+	rc = trap_sqlite3_step(statement);
+
 	trap_sqlite3_finalize(statement);
 	return !!(rc == SQLITE_DONE);
 }
@@ -7724,4 +7734,40 @@ qboolean DeleteFilter(int filterId) {
 	}
 
 	return qtrue;
+}
+
+const char *const sqlGetPlayerRatingHistory =
+"SELECT rating, IFNULL(datetime, 0) "
+"FROM playerratingshistory "
+"WHERE ratee_account_id = ?1 AND pos = ?2 AND rater_account_id = ?3 "
+"ORDER BY datetime IS NULL DESC, datetime ASC;";
+
+// warning: you must ListClear and free the result if non-null!
+list_t *G_DBGetPlayerRatingHistory(int rateeAccountId, ctfPosition_t pos, int raterAccountId) {
+	sqlite3_stmt *statement;
+	trap_sqlite3_prepare_v2(dbPtr, sqlGetPlayerRatingHistory, -1, &statement, 0);
+	sqlite3_bind_int(statement, 1, rateeAccountId);
+	sqlite3_bind_int(statement, 2, pos);
+	sqlite3_bind_int(statement, 3, raterAccountId);
+
+	list_t *historyList = malloc(sizeof(list_t));
+	memset(historyList, 0, sizeof(list_t));
+
+	int rc = trap_sqlite3_step(statement);
+	while (rc == SQLITE_ROW) {
+		playerRatingHistoryEntry_t *entry = (playerRatingHistoryEntry_t *)ListAdd(historyList, sizeof(playerRatingHistoryEntry_t));
+		entry->rating = sqlite3_column_int(statement, 0);
+		entry->datetime = sqlite3_column_double(statement, 1);
+
+		rc = trap_sqlite3_step(statement);
+	}
+
+	trap_sqlite3_finalize(statement);
+
+	if (historyList->size == 0) {
+		free(historyList);
+		return NULL;
+	}
+
+	return historyList;
 }

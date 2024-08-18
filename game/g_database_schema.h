@@ -646,4 +646,17 @@ const char *const sqlCreateTables =
 "amountTEChaseWithLOS INTEGER NOT NULL, "
 "FOREIGN KEY (match_id) REFERENCES pugs(match_id) ON DELETE CASCADE); "
 " "
-"CREATE TABLE filters ([id] INTEGER PRIMARY KEY AUTOINCREMENT, [filter_text] TEXT NOT NULL, [created_at] DEFAULT NULL, [description] TEXT, [count] INTEGER NOT NULL DEFAULT 0, [last_filtered] DEFAULT NULL); ";
+"CREATE TABLE filters ([id] INTEGER PRIMARY KEY AUTOINCREMENT, [filter_text] TEXT NOT NULL, [created_at] DEFAULT NULL, [description] TEXT, [count] INTEGER NOT NULL DEFAULT 0, [last_filtered] DEFAULT NULL); "
+" "
+"CREATE TABLE IF NOT EXISTS [playerratingshistory] ( "
+"[rating_id] INTEGER PRIMARY KEY AUTOINCREMENT, "
+"[rater_account_id] INTEGER NOT NULL, "
+"[ratee_account_id] INTEGER NOT NULL, "
+"[pos] INTEGER NOT NULL, "
+"[rating] INTEGER NOT NULL, "
+"[datetime] INTEGER, "
+"FOREIGN KEY([rater_account_id]) REFERENCES accounts([account_id]) ON DELETE CASCADE, "
+"FOREIGN KEY([ratee_account_id]) REFERENCES accounts([account_id]) ON DELETE CASCADE "
+"); "
+" "
+;

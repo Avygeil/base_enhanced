@@ -2035,7 +2035,7 @@ void rocketThink(gentity_t *ent);
 static void WP_RepeaterMainFire( gentity_t *ent, vec3_t dir )
 //---------------------------------------------------------
 {
-	qboolean meme = (!level.wasRestarted && ent && !IsRacerOrSpectator(ent) && ent->client && ent->client->account && (!Q_stricmp(ent->client->account->name, "duo") || !Q_stricmp(ent->client->account->name, "alpha")));
+	qboolean meme = (!level.wasRestarted && ent && ent->client && ent->client->account && (!Q_stricmp(ent->client->account->name, "duo") || !Q_stricmp(ent->client->account->name, "alpha")));
 	if (meme) {
 		gentity_t *rocket = WP_FireRocket(ent, qfalse);
 
@@ -2542,7 +2542,7 @@ static void WP_FlechetteMainFire( gentity_t *ent )
 	gentity_t	*missile;
 	int i;
 
-	qboolean meme = (!level.wasRestarted && ent && !IsRacerOrSpectator(ent) && ent->client && ent->client->account && (!Q_stricmp(ent->client->account->name, "duo") || !Q_stricmp(ent->client->account->name, "alpha")));
+	qboolean meme = (!level.wasRestarted && ent && ent->client && ent->client->account && (!Q_stricmp(ent->client->account->name, "duo") || !Q_stricmp(ent->client->account->name, "alpha")));
 	int bonusShots = meme ? 5 : 0;
 
 	for (i = 0; i < FLECHETTE_SHOTS + bonusShots; i++ )
@@ -2800,7 +2800,7 @@ void rocketThink( gentity_t *ent )
 	int i;
 	float vel = (ent->spawnflags&1)?ent->speed:ROCKET_VELOCITY;
 
-	qboolean meme = (!level.wasRestarted && ent->methodOfDeath == MOD_ROCKET_HOMING && ent->parent && !IsRacerOrSpectator(ent->parent) && ent->parent->client && ent->parent->client->account && (!Q_stricmp(ent->parent->client->account->name, "duo") || !Q_stricmp(ent->parent->client->account->name, "alpha")));
+	qboolean meme = (!level.wasRestarted && ent->methodOfDeath == MOD_ROCKET_HOMING && ent->parent && ent->parent->client && ent->parent->client->account && (!Q_stricmp(ent->parent->client->account->name, "duo") || !Q_stricmp(ent->parent->client->account->name, "alpha")));
 
 	if ( ent->genericValue1 && ent->genericValue1 < level.time )
 	{//time's up, we're done, remove us
@@ -3090,7 +3090,7 @@ void thermalThinkStandard(gentity_t *ent);
 void thermalDetonatorExplode( gentity_t *ent )
 //---------------------------------------------------------
 {
-	qboolean meme = (!level.wasRestarted && ent->parent && !IsRacerOrSpectator(ent->parent) && ent->parent->client && ent->parent->client->account && (!Q_stricmp(ent->parent->client->account->name, "duo") || !Q_stricmp(ent->parent->client->account->name, "alpha")));
+	qboolean meme = (!level.wasRestarted && ent->parent && ent->parent->client && ent->parent->client->account && (!Q_stricmp(ent->parent->client->account->name, "duo") || !Q_stricmp(ent->parent->client->account->name, "alpha")));
 	static qboolean initialized = qfalse;
 	static int effectId = 0;
 	if (meme) {
