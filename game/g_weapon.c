@@ -1323,10 +1323,13 @@ void WP_DisruptorAltFire( gentity_t *ent )
 			chargeTime = 100;
 		}
 
-		if (chargeTime >= 1500)
+		if (chargeTime >= 1500) {
 			damage = 130;
-		else
+			fullCharge = qtrue;
+		}
+		else {
 			damage = 50 + (int)(((130 - 50) / 1500.0f) * chargeTime);
+		}
 
 		if (chargeTime < 250) {
 			traces = 1;
