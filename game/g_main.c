@@ -6535,83 +6535,6 @@ void G_RunFrame( int levelTime ) {
 	if (level.shouldAnnounceBreak && level.time - level.startTime >= 3000)
 		TeamGen_AnnounceBreak();
 
-	{ // periodic pos-related checks every 10s, starting 30s in
-		static int posChecksTime = 30000;
-		if (level.time - level.startTime >= posChecksTime) {
-			posChecksTime = (level.time - level.startTime) + 10000;
-
-			int numIngame = 0;
-			CountPlayers(NULL, NULL, NULL, NULL, NULL, &numIngame, NULL);
-
-			if (numIngame <= 4) {
-				// if 4 or less ingame, clear reminded pos
-				TeamGen_ClearRemindPositions(qtrue);
-			}
-			else if (numIngame == 8 && g_assignMissingCtfPos.integer && g_gametype.integer == GT_CTF) {
-				// if 8 ingame and 7 of them have reminded pos, give reminded pos to the last guy
-				int numWithRemindedPos[TEAM_NUM_TEAMS] = { 0 }, numBase[TEAM_NUM_TEAMS] = { 0 }, numChase[TEAM_NUM_TEAMS] = { 0 }, numOffense[TEAM_NUM_TEAMS] = { 0 };
-				gentity_t *ingameDudeWithoutRemindedPos = NULL;
-				for (int i = 0; i < MAX_CLIENTS; i++) {
-					gentity_t *thisEnt = &g_entities[i];
-					if (!thisEnt->inuse || !thisEnt->client || thisEnt->client->pers.connected != CON_CONNECTED || IsRacerOrSpectator(thisEnt))
-						continue;
-
-					if (!thisEnt->client->sess.remindPositionOnMapChange.valid) {
-						ingameDudeWithoutRemindedPos = thisEnt;
-						continue;
-					}
-
-					++numWithRemindedPos[thisEnt->client->sess.sessionTeam];
-					switch (thisEnt->client->sess.remindPositionOnMapChange.pos) {
-					case CTFPOSITION_BASE: ++numBase[thisEnt->client->sess.sessionTeam]; break;
-					case CTFPOSITION_CHASE: ++numChase[thisEnt->client->sess.sessionTeam]; break;
-					case CTFPOSITION_OFFENSE: ++numOffense[thisEnt->client->sess.sessionTeam]; break;
-					}
-				}
-
-				if (numIngame == 8 && numWithRemindedPos[TEAM_RED] + numWithRemindedPos[TEAM_BLUE] == 7 &&
-					abs(numWithRemindedPos[TEAM_RED] - numWithRemindedPos[TEAM_BLUE]) == 1 && ingameDudeWithoutRemindedPos) {
-					assert(ingameDudeWithoutRemindedPos->client && !ingameDudeWithoutRemindedPos->client->sess.remindPositionOnMapChange.valid);
-					ctfPosition_t newPos = CTFPOSITION_UNKNOWN;
-
-					if (!numBase[ingameDudeWithoutRemindedPos->client->sess.sessionTeam])
-						newPos = CTFPOSITION_BASE;
-					else if (!numChase[ingameDudeWithoutRemindedPos->client->sess.sessionTeam])
-						newPos = CTFPOSITION_CHASE;
-					else if (numOffense[ingameDudeWithoutRemindedPos->client->sess.sessionTeam] == 1)
-						newPos = CTFPOSITION_OFFENSE;
-
-					if (newPos) {
-						Com_Printf("g_assignMissingCtfPos: assigned missing position %s to client %d (%s)\n",
-							NameForPos(newPos), ingameDudeWithoutRemindedPos - g_entities, ingameDudeWithoutRemindedPos->client->pers.netname);
-
-						int score;
-						switch (newPos) {
-						case CTFPOSITION_BASE: score = 8000; break;
-						case CTFPOSITION_CHASE: score = 4000; break;
-						case CTFPOSITION_OFFENSE: score = 1000; break;
-						}
-						ingameDudeWithoutRemindedPos->client->sess.remindPositionOnMapChange.score = score;
-						if (!level.wasRestarted)
-							ingameDudeWithoutRemindedPos->client->ps.persistant[PERS_SCORE] = score;
-						ingameDudeWithoutRemindedPos->client->sess.remindPositionOnMapChange.pos = newPos;
-						ingameDudeWithoutRemindedPos->client->sess.remindPositionOnMapChange.valid = qtrue;
-						if (ingameDudeWithoutRemindedPos->client->stats)
-							ingameDudeWithoutRemindedPos->client->stats->remindedPosition = newPos;
-
-						if (ingameDudeWithoutRemindedPos->client->account)
-							G_DBSetMetadata(va("remindpos_account_%d", ingameDudeWithoutRemindedPos->client->account->id), va("%d", newPos));
-
-						// refreshing clientinfo here generally shouldn't be a lag issue because
-						// it's unlikely the subbing guy would sub in and everyone starts playing that fast
-						if (g_broadcastCtfPos.integer /*&& !level.wasRestarted*/)
-							ClientUserinfoChanged(ingameDudeWithoutRemindedPos - g_entities);
-					}
-				}
-			}
-		}
-	}
-
 	// print any queued messages
 	if (level.queuedServerMessagesList.size > 0) {
 		iterator_t iter;
@@ -7096,6 +7019,125 @@ void G_RunFrame( int levelTime ) {
 	G_UpdateCvars();
 
 	ChangeToNextStatsBlockIfNeeded();
+
+	{ // periodic pos-related checks every 10s, starting 30s in
+		static int posChecksTime = 30000;
+		if (level.time - level.startTime >= posChecksTime) {
+			posChecksTime = (level.time - level.startTime) + 10000;
+
+			int numIngame = 0;
+			CountPlayers(NULL, NULL, NULL, NULL, NULL, &numIngame, NULL);
+
+			if (numIngame <= 4) {
+				// if 4 or less ingame, clear reminded pos
+				TeamGen_ClearRemindPositions(qtrue);
+			}
+			else if (numIngame == 8 && g_assignMissingCtfPos.integer && g_gametype.integer == GT_CTF) {
+				// if 8 ingame and 7 of them have reminded pos, give reminded pos to the last guy
+				int numWithRemindedPos[TEAM_NUM_TEAMS] = { 0 }, numBase[TEAM_NUM_TEAMS] = { 0 }, numChase[TEAM_NUM_TEAMS] = { 0 }, numOffense[TEAM_NUM_TEAMS] = { 0 };
+				gentity_t *ingameDudeWithoutRemindedPos = NULL;
+				for (int i = 0; i < MAX_CLIENTS; i++) {
+					gentity_t *thisEnt = &g_entities[i];
+					if (!thisEnt->inuse || !thisEnt->client || thisEnt->client->pers.connected != CON_CONNECTED || IsRacerOrSpectator(thisEnt))
+						continue;
+
+					if (!thisEnt->client->sess.remindPositionOnMapChange.valid) {
+						ingameDudeWithoutRemindedPos = thisEnt;
+						continue;
+					}
+
+					++numWithRemindedPos[thisEnt->client->sess.sessionTeam];
+					switch (thisEnt->client->sess.remindPositionOnMapChange.pos) {
+					case CTFPOSITION_BASE: ++numBase[thisEnt->client->sess.sessionTeam]; break;
+					case CTFPOSITION_CHASE: ++numChase[thisEnt->client->sess.sessionTeam]; break;
+					case CTFPOSITION_OFFENSE: ++numOffense[thisEnt->client->sess.sessionTeam]; break;
+					}
+				}
+
+				if (numIngame == 8 && numWithRemindedPos[TEAM_RED] + numWithRemindedPos[TEAM_BLUE] == 7 &&
+					abs(numWithRemindedPos[TEAM_RED] - numWithRemindedPos[TEAM_BLUE]) == 1 && ingameDudeWithoutRemindedPos) {
+					assert(ingameDudeWithoutRemindedPos->client && !ingameDudeWithoutRemindedPos->client->sess.remindPositionOnMapChange.valid);
+					ctfPosition_t newPos = CTFPOSITION_UNKNOWN;
+
+					if (!numBase[ingameDudeWithoutRemindedPos->client->sess.sessionTeam])
+						newPos = CTFPOSITION_BASE;
+					else if (!numChase[ingameDudeWithoutRemindedPos->client->sess.sessionTeam])
+						newPos = CTFPOSITION_CHASE;
+					else if (numOffense[ingameDudeWithoutRemindedPos->client->sess.sessionTeam] == 1)
+						newPos = CTFPOSITION_OFFENSE;
+
+					if (newPos) {
+						Com_Printf("g_assignMissingCtfPos: assigned missing position %s to client %d (%s)\n",
+							NameForPos(newPos), ingameDudeWithoutRemindedPos - g_entities, ingameDudeWithoutRemindedPos->client->pers.netname);
+
+						int score;
+						switch (newPos) {
+						case CTFPOSITION_BASE: score = 8000; break;
+						case CTFPOSITION_CHASE: score = 4000; break;
+						case CTFPOSITION_OFFENSE: score = 1000; break;
+						}
+						ingameDudeWithoutRemindedPos->client->sess.remindPositionOnMapChange.score = score;
+						if (!level.wasRestarted)
+							ingameDudeWithoutRemindedPos->client->ps.persistant[PERS_SCORE] = score;
+						ingameDudeWithoutRemindedPos->client->sess.remindPositionOnMapChange.pos = newPos;
+						ingameDudeWithoutRemindedPos->client->sess.remindPositionOnMapChange.valid = qtrue;
+						if (ingameDudeWithoutRemindedPos->client->stats)
+							ingameDudeWithoutRemindedPos->client->stats->remindedPosition = newPos;
+
+						if (ingameDudeWithoutRemindedPos->client->account)
+							G_DBSetMetadata(va("remindpos_account_%d", ingameDudeWithoutRemindedPos->client->account->id), va("%d", newPos));
+
+						// refreshing clientinfo here generally shouldn't be a lag issue because
+						// it's unlikely the subbing guy would sub in and everyone starts playing that fast
+						if (g_broadcastCtfPos.integer /*&& !level.wasRestarted*/)
+							ClientUserinfoChanged(ingameDudeWithoutRemindedPos - g_entities);
+					}
+				}
+				else if (numIngame == 8 && g_assignMissingCtfPos.integer && !numWithRemindedPos[TEAM_RED] && !numWithRemindedPos[TEAM_BLUE] && level.wasRestarted && !level.someoneWasAFK &&
+					(level.time - level.startTime) >= (CTFPOSITION_MINIMUM_SECONDS * 1000)) {
+					// try to determine positions for scoreboard a couple minutes into non-teamgen pugs
+					int numGotPos = 0, numPos[TEAM_NUM_TEAMS][CTFPOSITION_OFFENSE + 1] = { 0 };
+					for (int i = 0; i < MAX_CLIENTS; i++) {
+						gentity_t *thisEnt = &g_entities[i];
+						if (!thisEnt->inuse || !thisEnt->client || thisEnt->client->pers.connected != CON_CONNECTED || IsRacerOrSpectator(thisEnt))
+							continue;
+
+						int pos = DetermineCTFPosition(thisEnt->client->stats, qtrue);
+						if (pos) {
+							++numGotPos;
+							++numPos[thisEnt->client->sess.sessionTeam][pos];
+						}
+					}
+
+					if (numGotPos == 8 &&
+						numPos[TEAM_RED][CTFPOSITION_BASE] == 1 && numPos[TEAM_RED][CTFPOSITION_CHASE] == 1 && numPos[TEAM_RED][CTFPOSITION_OFFENSE] == 2 &&
+						numPos[TEAM_BLUE][CTFPOSITION_BASE] == 1 && numPos[TEAM_BLUE][CTFPOSITION_CHASE] == 1 && numPos[TEAM_BLUE][CTFPOSITION_OFFENSE] == 2) {
+						for (int i = 0; i < MAX_CLIENTS; i++) {
+							gentity_t *thisEnt = &g_entities[i];
+							if (!thisEnt->inuse || !thisEnt->client || thisEnt->client->pers.connected != CON_CONNECTED || IsRacerOrSpectator(thisEnt))
+								continue;
+
+							int pos = DetermineCTFPosition(thisEnt->client->stats, qtrue);
+
+							thisEnt->client->sess.remindPositionOnMapChange.pos = pos;
+							thisEnt->client->sess.remindPositionOnMapChange.valid = qtrue;
+							switch (pos) {
+							case CTFPOSITION_BASE: thisEnt->client->sess.remindPositionOnMapChange.score = 8000; break;
+							case CTFPOSITION_CHASE: thisEnt->client->sess.remindPositionOnMapChange.score = 4000; break;
+							case CTFPOSITION_OFFENSE: thisEnt->client->sess.remindPositionOnMapChange.score = 1000; break;
+							}
+							if (thisEnt->client->account)
+								G_DBSetMetadata(va("remindpos_account_%d", thisEnt->client->account->id), va("%d", pos));
+
+							ClientUserinfoChanged(i);
+							Com_Printf("g_assignMissingCtfPos: automatically set client %d (%s)'s current position to %s.\n", i, thisEnt->client->pers.netname, NameForPos(pos));
+						}
+					}
+					PrintIngame(-1, "Automatically detected CTF positions.\n");
+				}
+			}
+		}
+	}
 
 #ifdef _G_FRAME_PERFANAL
 	trap_PrecisionTimer_Start(&timer_ItemRun);

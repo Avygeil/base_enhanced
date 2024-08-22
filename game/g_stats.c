@@ -371,7 +371,7 @@ ctfPosition_t DetermineCTFPosition(stats_t *posGuy, qboolean enableDebugPrints) 
 	DebugCtfPosPrintf("base = %s^7 (%0.3f), chase = %s^7 (%0.3f), offense1 = %s^7 (%0.3f), offense2 = %s^7 (%0.3f)\n", base->stats->name, base->average, chase->stats->name, chase->average, offense1->stats->name, offense1->average, offense2->stats->name, offense2->average);
 
 	// edge case: chase and base average positions are extremely close together
-	if (chase->average - base->average < 0.03f) {
+	if (chase->average - base->average < 0.08f) {
 		DebugCtfPosPrintf("chase and base average positions are extremely close together\n");
 		if (chase->lastPosition == CTFPOSITION_BASE && base->lastPosition == CTFPOSITION_CHASE &&
 			!chase->forcePos && !base->forcePos) {
@@ -390,9 +390,9 @@ ctfPosition_t DetermineCTFPosition(stats_t *posGuy, qboolean enableDebugPrints) 
 	}
 
 	// edge case: chase and offense average positions are extremely close together
-	if (offense1->average - chase->average < 0.03f) {
+	if (offense1->average - chase->average < 0.08f) {
 		DebugCtfPosPrintf("chase and offense1 average positions are extremely close together\n");
-		if (offense2->average - chase->average < 0.03f) { // also include the other offense player
+		if (offense2->average - chase->average < 0.08f) { // also include the other offense player
 			DebugCtfPosPrintf("chase and offense2 average positions are also extremely close together\n");
 			if (chase->lastPosition == CTFPOSITION_OFFENSE && offense1->lastPosition == CTFPOSITION_CHASE &&
 				!chase->forcePos && !offense1->forcePos) {
