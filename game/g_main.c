@@ -7094,7 +7094,7 @@ void G_RunFrame( int levelTime ) {
 					}
 				}
 				else if (numIngame == 8 && g_assignMissingCtfPos.integer && !numWithRemindedPos[TEAM_RED] && !numWithRemindedPos[TEAM_BLUE] && level.wasRestarted && !level.someoneWasAFK &&
-					(level.time - level.startTime) >= (CTFPOSITION_MINIMUM_SECONDS * 1000)) {
+					(level.time - level.startTime) >= (CTFPOSITION_MINIMUM_SECONDS * 1000) && IsLivePug(0)) {
 					// try to determine positions for scoreboard a couple minutes into non-teamgen pugs
 					int numGotPos = 0, numPos[TEAM_NUM_TEAMS][CTFPOSITION_OFFENSE + 1] = { 0 };
 					for (int i = 0; i < MAX_CLIENTS; i++) {
@@ -7120,6 +7120,8 @@ void G_RunFrame( int levelTime ) {
 							int pos = DetermineCTFPosition(thisEnt->client->stats, qtrue);
 
 							thisEnt->client->sess.remindPositionOnMapChange.pos = pos;
+							if (thisEnt->client->stats)
+								thisEnt->client->stats->remindedPosition = pos;
 							thisEnt->client->sess.remindPositionOnMapChange.valid = qtrue;
 							switch (pos) {
 							case CTFPOSITION_BASE: thisEnt->client->sess.remindPositionOnMapChange.score = 8000; break;
