@@ -1996,22 +1996,20 @@ typedef struct {
 	int			priority;
 } spawnpoint_t;
 
-int CompareInitialSpawnPriority(genericNode_t *a, genericNode_t *b, void *userData) {
+typedef struct {
+	team_t			team;
+	ctfPosition_t	pos;
+} SpawnpointComparisonContext;
+
+int SortSpawnsByDistanceToFS(genericNode_t *a, genericNode_t *b, void *userData) {
+	assert(a && b && userData);
+
 	const spawnpoint_t *aa_spawn = (const spawnpoint_t *)a;
 	const spawnpoint_t *bb_spawn = (const spawnpoint_t *)b;
 	const gentity_t *aa = aa_spawn->ent;
 	const gentity_t *bb = bb_spawn->ent;
 
-	const int aPriority = aa_spawn->priority;
-	const int bPriority = bb_spawn->priority;
-
-	if (aPriority < bPriority)
-		return -1; // a first
-
-	if (bPriority > aPriority)
-		return 1;  // b first
-
-	const int team = *((int *)userData);
+	SpawnpointComparisonContext *ctx = userData;
 
 	static qboolean initializedFlagstands = qfalse;
 	static gentity_t *redFS = NULL, *blueFS = NULL;
@@ -2030,23 +2028,343 @@ int CompareInitialSpawnPriority(genericNode_t *a, genericNode_t *b, void *userDa
 #endif
 	}
 
-	if ((team == TEAM_RED && !redFS) || (team == TEAM_BLUE && !blueFS))
+	if ((ctx->team == TEAM_RED && !redFS) || (ctx->team == TEAM_BLUE && !blueFS))
 		return 0;
 
 	gentity_t *myFS;
-	if (team == TEAM_RED)
+	if (ctx->team == TEAM_RED)
 		myFS = redFS;
-	else if (team == TEAM_BLUE)
+	else if (ctx->team == TEAM_BLUE)
 		myFS = blueFS;
 	else
 		return 0;
 
-	float a2dDistFromFS = Distance2D(aa->r.currentOrigin, myFS->r.currentOrigin);
-	float b2dDistFromFS = Distance2D(bb->r.currentOrigin, myFS->r.currentOrigin);
+	float a2dDistFromFS = Distance(aa->r.currentOrigin, myFS->r.currentOrigin);
+	float b2dDistFromFS = Distance(bb->r.currentOrigin, myFS->r.currentOrigin);
 
-	if (fabs(a2dDistFromFS - b2dDistFromFS) < 10) {
-	// randomize the order of spots that are roughly equidistant from the fs
+	if (fabs(a2dDistFromFS - b2dDistFromFS) < 20) {
+		// roughly equidistant from the fs
+		// try to get the ones closer to the mines so that the base can hopefully spawn there
+		gentity_t *closestMines = NULL;
+		float closestMinesDistance = 999999999;
+		for (int i = MAX_CLIENTS; i < ENTITYNUM_MAX_NORMAL; i++) {
+			gentity_t *mines = &g_entities[i];
+			if (!mines->inuse || !mines->item || mines->item->giType != IT_WEAPON || mines->item->giTag != WP_TRIP_MINE)
+				continue;
+			float dist = Distance(myFS->r.currentOrigin, mines->r.currentOrigin);
+			if (dist < closestMinesDistance) {
+				closestMines = mines;
+				closestMinesDistance = dist;
+			}
+		}
+
+		if (closestMines) {
+			float aDistFromMines = Distance(aa->r.currentOrigin, closestMines->r.currentOrigin);
+			float bDistFromMines = Distance(bb->r.currentOrigin, closestMines->r.currentOrigin);
+
+			if (fabs(aDistFromMines - bDistFromMines) < 20) {
+				// roughly equidistant from the mines too???
+				// try to get the ones closest to rockets/golan so that the chase can hopefully spawn there
+				gentity_t *closestGolan = NULL;
+				float closestGolanDistance = 999999999;
+				for (int i = MAX_CLIENTS; i < ENTITYNUM_MAX_NORMAL; i++) {
+					gentity_t *golan = &g_entities[i];
+					if (!golan->inuse || !golan->item || golan->item->giType != IT_WEAPON || golan->item->giTag != WP_FLECHETTE)
+						continue;
+					float dist = Distance(myFS->r.currentOrigin, golan->r.currentOrigin);
+					if (dist < closestGolanDistance) {
+						closestGolan = golan;
+						closestGolanDistance = dist;
+					}
+				}
+
+				if (closestGolan) {
+					gentity_t *closestRocket = NULL;
+					float closestRocketDistance = 999999999;
+					for (int i = MAX_CLIENTS; i < ENTITYNUM_MAX_NORMAL; i++) {
+						gentity_t *rocket = &g_entities[i];
+						if (!rocket->inuse || !rocket->item || rocket->item->giType != IT_WEAPON || rocket->item->giTag != WP_ROCKET_LAUNCHER)
+							continue;
+						float dist = Distance(closestGolan->r.currentOrigin, rocket->r.currentOrigin);
+						if (dist < closestRocketDistance) {
+							closestRocket = rocket;
+							closestRocketDistance = dist;
+						}
+					}
+
+					vec3_t comparisonPoint = { 0 };
+					if (closestRocket) {
+						// try to spawn the chase up higher by taking the Z coord of the higher of golan/rocket
+						VectorAverage(closestGolan->r.currentOrigin, closestRocket->r.currentOrigin, comparisonPoint);
+						if (closestRocket->r.currentOrigin[2] > closestGolan->r.currentOrigin[2] + 1)
+							comparisonPoint[2] = closestRocket->r.currentOrigin[2];
+						else if (closestGolan->r.currentOrigin[2] > closestRocket->r.currentOrigin[2] + 1)
+							comparisonPoint[2] = closestGolan->r.currentOrigin[2];
+					}
+					else {
+						VectorCopy(closestGolan->r.currentOrigin, comparisonPoint);
+					}
+
+					float aDistFromComparisonPoint = Distance(aa->r.currentOrigin, comparisonPoint);
+					float bDistFromComparisonPoint = Distance(bb->r.currentOrigin, comparisonPoint);
+
+					if (aDistFromComparisonPoint < bDistFromComparisonPoint)
+						return -1; // a first
+
+					if (bDistFromComparisonPoint < aDistFromComparisonPoint)
+						return 1;  // b first
+
+					return 0; // order doesn't matter
+				}
+			}
+
+			if (aDistFromMines < bDistFromMines)
+				return -1; // a first
+
+			if (bDistFromMines < aDistFromMines)
+				return 1;  // b first
+		}
+		else {
+			return 0; // no mines?
+		}
+	}
+
+	if (a2dDistFromFS < b2dDistFromFS)
+		return -1; // a first
+
+	if (b2dDistFromFS < a2dDistFromFS)
+		return 1;  // b first
+
+	return 0; // order doesn't matter
+}
+
+int SortSpawnsToFindBaseSpawn(genericNode_t *a, genericNode_t *b, void *userData) {
+	assert(a && b && userData);
+
+	const spawnpoint_t *aa_spawn = (const spawnpoint_t *)a;
+	const spawnpoint_t *bb_spawn = (const spawnpoint_t *)b;
+	const gentity_t *aa = aa_spawn->ent;
+	const gentity_t *bb = bb_spawn->ent;
+
+	SpawnpointComparisonContext *ctx = userData;
+
+	static qboolean initializedFlagstands = qfalse;
+	static gentity_t *redFS = NULL, *blueFS = NULL;
+	if (!initializedFlagstands) {
+		for (int i = MAX_CLIENTS; i < MAX_GENTITIES; i++) {
+			gentity_t *flagstand = &g_entities[i];
+			if (!Q_stricmp(flagstand->classname, "team_ctf_redflag"))
+				redFS = flagstand;
+			else if (!Q_stricmp(flagstand->classname, "team_ctf_blueflag"))
+				blueFS = flagstand;
+		}
+
+		initializedFlagstands = qtrue;
+	}
+
+	if ((ctx->team == TEAM_RED && !redFS) || (ctx->team == TEAM_BLUE && !blueFS))
+		return 0;
+
+	gentity_t *myFS;
+	if (ctx->team == TEAM_RED)
+		myFS = redFS;
+	else if (ctx->team == TEAM_BLUE)
+		myFS = blueFS;
+	else
+		return 0;
+
+	gentity_t *closestMines = NULL;
+	float closestMinesDistance = 999999999;
+	for (int i = MAX_CLIENTS; i < ENTITYNUM_MAX_NORMAL; i++) {
+		gentity_t *mines = &g_entities[i];
+		if (!mines->inuse || !mines->item || mines->item->giType != IT_WEAPON || mines->item->giTag != WP_TRIP_MINE)
+			continue;
+		float dist = Distance(myFS->r.currentOrigin, mines->r.currentOrigin);
+		if (dist < closestMinesDistance) {
+			closestMines = mines;
+			closestMinesDistance = dist;
+		}
+	}
+
+	if (closestMines) {
+		float aDistFromMines = Distance(aa->r.currentOrigin, closestMines->r.currentOrigin);
+		float bDistFromMines = Distance(bb->r.currentOrigin, closestMines->r.currentOrigin);
+
+		// try to account for spawns that are on the level of mines
+		float aZAxisDistFromMines = fabs(aa->r.currentOrigin[2] - closestMines->r.currentOrigin[2]);
+		float bZAxisDistFromMines = fabs(bb->r.currentOrigin[2] - closestMines->r.currentOrigin[2]);
+		if (aZAxisDistFromMines > bZAxisDistFromMines + 175)
+			aDistFromMines += aZAxisDistFromMines;
+		else if (bZAxisDistFromMines > aZAxisDistFromMines + 175)
+			bDistFromMines += bZAxisDistFromMines;
+
+		if (aDistFromMines < bDistFromMines)
+			return -1; // a first
+
+		if (bDistFromMines < aDistFromMines)
+			return 1;  // b first
+
+		return 0; // order doesn't matter
+	}
+
+	return 0; // should never happen
+}
+
+int SortSpawnsToFindChaseSpawn(genericNode_t *a, genericNode_t *b, void *userData) {
+	assert(a && b && userData);
+
+	const spawnpoint_t *aa_spawn = (const spawnpoint_t *)a;
+	const spawnpoint_t *bb_spawn = (const spawnpoint_t *)b;
+	const gentity_t *aa = aa_spawn->ent;
+	const gentity_t *bb = bb_spawn->ent;
+
+	// try to spawn the chase higher
+	if (aa->r.currentOrigin[2] > bb->r.currentOrigin[2] + 175)
+		return -1; // a first
+	if (bb->r.currentOrigin[2] > aa->r.currentOrigin[2] + 175)
+		return 1; // a first
+
+	SpawnpointComparisonContext *ctx = userData;
+
+	static qboolean initializedFlagstands = qfalse;
+	static gentity_t *redFS = NULL, *blueFS = NULL;
+	if (!initializedFlagstands) {
+		for (int i = MAX_CLIENTS; i < MAX_GENTITIES; i++) {
+			gentity_t *flagstand = &g_entities[i];
+			if (!Q_stricmp(flagstand->classname, "team_ctf_redflag"))
+				redFS = flagstand;
+			else if (!Q_stricmp(flagstand->classname, "team_ctf_blueflag"))
+				blueFS = flagstand;
+		}
+
+		initializedFlagstands = qtrue;
+	}
+
+	if ((ctx->team == TEAM_RED && !redFS) || (ctx->team == TEAM_BLUE && !blueFS))
+		return 0;
+
+	gentity_t *myFS;
+	if (ctx->team == TEAM_RED)
+		myFS = redFS;
+	else if (ctx->team == TEAM_BLUE)
+		myFS = blueFS;
+	else
+		return 0;
+
+	gentity_t *closestGolan = NULL;
+	float closestGolanDistance = 999999999;
+	for (int i = MAX_CLIENTS; i < ENTITYNUM_MAX_NORMAL; i++) {
+		gentity_t *golan = &g_entities[i];
+		if (!golan->inuse || !golan->item || golan->item->giType != IT_WEAPON || golan->item->giTag != WP_FLECHETTE)
+			continue;
+		float dist = Distance(myFS->r.currentOrigin, golan->r.currentOrigin);
+		if (dist < closestGolanDistance) {
+			closestGolan = golan;
+			closestGolanDistance = dist;
+		}
+	}
+
+	if (closestGolan) {
+		gentity_t *closestRocket = NULL;
+		float closestRocketDistance = 999999999;
+		for (int i = MAX_CLIENTS; i < ENTITYNUM_MAX_NORMAL; i++) {
+			gentity_t *rocket = &g_entities[i];
+			if (!rocket->inuse || !rocket->item || rocket->item->giType != IT_WEAPON || rocket->item->giTag != WP_ROCKET_LAUNCHER)
+				continue;
+			float dist = Distance(closestGolan->r.currentOrigin, rocket->r.currentOrigin);
+			if (dist < closestRocketDistance) {
+				closestRocket = rocket;
+				closestRocketDistance = dist;
+			}
+		}
+
+		vec3_t comparisonPoint = { 0 };
+		if (closestRocket)
+			VectorAverage(closestGolan->r.currentOrigin, closestRocket->r.currentOrigin, comparisonPoint);
+		else
+			VectorCopy(closestGolan->r.currentOrigin, comparisonPoint);
+
+		float aDistFromComparisonPoint = Distance(aa->r.currentOrigin, comparisonPoint);
+		float bDistFromComparisonPoint = Distance(bb->r.currentOrigin, comparisonPoint);
+
+		if (aDistFromComparisonPoint < bDistFromComparisonPoint)
+			return -1; // a first
+		if (bDistFromComparisonPoint < aDistFromComparisonPoint)
+			return 1;  // b first
+
+		return 0; // order doesn't matter
+	}
+
+	return 0; // should never happen
+}
+
+int CompareInitialSpawnPriority(genericNode_t *a, genericNode_t *b, void *userData) {
+	assert(a && b && userData);
+
+	const spawnpoint_t *aa_spawn = (const spawnpoint_t *)a;
+	const spawnpoint_t *bb_spawn = (const spawnpoint_t *)b;
+	const gentity_t *aa = aa_spawn->ent;
+	const gentity_t *bb = bb_spawn->ent;
+
+	SpawnpointComparisonContext *ctx = userData;
+	if (level.initialSpawnsSet[ctx->team] && ctx->pos) {
+		if (aa->preferredSpawnPos == ctx->pos && bb->preferredSpawnPos != ctx->pos) {
+			return -1; // a first
+		}
+		else if (aa->preferredSpawnPos != ctx->pos && bb->preferredSpawnPos == ctx->pos) {
+			return 1; // b first
+		}
+		else {
+			// randomize the order
+			if (rand() % 2)
+				return 1;
+			return -1;
+		}
+	}
+
+	const int aPriority = aa_spawn->priority;
+	const int bPriority = bb_spawn->priority;
+
+	if (aPriority < bPriority)
+		return -1; // a first
+
+	if (bPriority > aPriority)
+		return 1;  // b first
+
+	static qboolean initializedFlagstands = qfalse;
+	static gentity_t *redFS = NULL, *blueFS = NULL;
+	if (!initializedFlagstands) {
+		for (int i = MAX_CLIENTS; i < MAX_GENTITIES; i++) {
+			gentity_t *flagstand = &g_entities[i];
+			if (!Q_stricmp(flagstand->classname, "team_ctf_redflag"))
+				redFS = flagstand;
+			else if (!Q_stricmp(flagstand->classname, "team_ctf_blueflag"))
+				blueFS = flagstand;
+		}
+
+		initializedFlagstands = qtrue;
 #if 1
+		srand(time(NULL)); // so that client numbers don't determine which spot you spawn in
+#endif
+	}
+
+	if ((ctx->team == TEAM_RED && !redFS) || (ctx->team == TEAM_BLUE && !blueFS))
+		return 0;
+
+	gentity_t *myFS;
+	if (ctx->team == TEAM_RED)
+		myFS = redFS;
+	else if (ctx->team == TEAM_BLUE)
+		myFS = blueFS;
+	else
+		return 0;
+
+	float a2dDistFromFS = Distance(aa->r.currentOrigin, myFS->r.currentOrigin);
+	float b2dDistFromFS = Distance(bb->r.currentOrigin, myFS->r.currentOrigin);
+
+	if (fabs(a2dDistFromFS - b2dDistFromFS) < 20) {
+#if 1
+	// randomize the order of spots that are roughly equidistant from the fs
 		if (rand() % 2)
 			return 1;
 		return -1;
@@ -2213,6 +2531,80 @@ static void GetSpawnPointNickname(gentity_t *spawn, char *dest, size_t destSize)
 		Com_sprintf(dest, destSize, "%s {%d %d %d}", lowestDistanceEnt->classname, (int)spawn->r.currentOrigin[0], (int)spawn->r.currentOrigin[1], (int)spawn->r.currentOrigin[2]);
 }
 
+void SetInitialSpawns(void) {
+	memset(level.initialSpawnsSet, 0, sizeof(level.initialSpawnsSet));
+	if (!g_presetInitialSpawns.integer || g_gametype.integer != GT_CTF)
+		return;
+
+	// check for 4v4
+	if (g_numRedPlayers.integer != 4 || g_numBluePlayers.integer != 4)
+		return;
+
+	// check that mines/golan exist
+	qboolean gotMines = qfalse, gotGolan = qfalse;
+	for (int i = MAX_CLIENTS; i < ENTITYNUM_MAX_NORMAL; i++) {
+		gentity_t *thisItem = &g_entities[i];
+		if (!thisItem->inuse || !thisItem->item || thisItem->item->giType != IT_WEAPON)
+			continue;
+
+		if (thisItem->item->giTag == WP_TRIP_MINE)
+			gotMines = qtrue;
+		else if (thisItem->item->giTag == WP_FLECHETTE)
+			gotGolan = qtrue;
+
+		if (gotMines && gotGolan)
+			break;
+	}
+	if (!gotMines || !gotGolan)
+		return;
+
+	for (team_t team = TEAM_RED; team <= TEAM_BLUE; team++) {
+		list_t possibleSpawnsList = { 0 };
+
+		char *classname = (team == TEAM_RED) ? "team_CTF_redplayer" : "team_CTF_blueplayer";
+
+		for (int i = MAX_CLIENTS; i < ENTITYNUM_MAX_NORMAL; i++) {
+			gentity_t *thisEnt = &g_entities[i];
+			if (!VALIDSTRING(thisEnt->classname) || Q_stricmp(thisEnt->classname, classname))
+				continue;
+
+			spawnpoint_t *add = ListAdd(&possibleSpawnsList, sizeof(spawnpoint_t));
+			add->ent = thisEnt;
+		}
+
+		if (possibleSpawnsList.size >= 4) {
+			SpawnpointComparisonContext ctx = { 0 };
+			ctx.team = team;
+
+			// trim list to the 4 spawns closest to the fs (using certain tiebreaker procedures for equidistant spawns)
+			ListSort(&possibleSpawnsList, SortSpawnsByDistanceToFS, &ctx);
+			ListTrim(&possibleSpawnsList, 4, qfalse);
+
+			// get base spawn closest to mines
+			ListSort(&possibleSpawnsList, SortSpawnsToFindBaseSpawn, &ctx);
+			gentity_t *baseSpawn = ((spawnpoint_t *)possibleSpawnsList.head)->ent;
+
+			// get chase spawn closest to midpoint of rockets+golan
+			ListTrim(&possibleSpawnsList, 3, qtrue);
+			ListSort(&possibleSpawnsList, SortSpawnsToFindChaseSpawn, &ctx);
+			gentity_t *chaseSpawn = ((spawnpoint_t *)possibleSpawnsList.head)->ent;
+
+			// the remaining 2 are the offense spawns
+			ListTrim(&possibleSpawnsList, 2, qtrue);
+			gentity_t *offense1Spawn = ((spawnpoint_t *)possibleSpawnsList.head)->ent;
+			gentity_t *offense2Spawn = ((spawnpoint_t *)(((node_t *)possibleSpawnsList.head)->next))->ent;
+
+			baseSpawn->preferredSpawnPos = CTFPOSITION_BASE;
+			chaseSpawn->preferredSpawnPos = CTFPOSITION_CHASE;
+			offense1Spawn->preferredSpawnPos = CTFPOSITION_OFFENSE;
+			offense2Spawn->preferredSpawnPos = CTFPOSITION_OFFENSE;
+			level.initialSpawnsSet[team] = qtrue;
+		}
+
+		ListClear(&possibleSpawnsList);
+	}
+}
+
 /*
 ================
 SelectRandomDeathmatchSpawnPoint
@@ -2354,7 +2746,7 @@ gentity_t *SelectRandomTeamSpawnPoint( gclient_t *client, int teamstate, team_t 
 
 			// create the initial list of possible spawns
 			qboolean gotAnyWithPrioritySet = qfalse, gotAnyWithPriorityNotSet = qfalse;
-			for (int i = MAX_CLIENTS; i < MAX_GENTITIES; i++) {
+			for (int i = MAX_CLIENTS; i < ENTITYNUM_MAX_NORMAL; i++) {
 				gentity_t *thisEnt = &g_entities[i];
 				if (!VALIDSTRING(thisEnt->classname) || Q_stricmp(thisEnt->classname, classname))
 					continue;
@@ -2375,7 +2767,10 @@ gentity_t *SelectRandomTeamSpawnPoint( gclient_t *client, int teamstate, team_t 
 				SpawnDebugPrintf("Warning: idiot mapmaker used initial spawns with initialspawnpriority both set and not set!\n");
 
 			if (possibleSpawnsList.size >= 1) {
-				ListSort(&possibleSpawnsList, CompareInitialSpawnPriority, &team);
+				SpawnpointComparisonContext ctx = { 0 };
+				ctx.team = team;
+				ctx.pos = client->sess.remindPositionOnMapChange.valid && client->sess.remindPositionOnMapChange.pos ? client->sess.remindPositionOnMapChange.pos : 0;
+				ListSort(&possibleSpawnsList, CompareInitialSpawnPriority, &ctx);
 
 				iterator_t iter;
 				ListIterate(&possibleSpawnsList, &iter, qfalse);
@@ -2384,7 +2779,7 @@ gentity_t *SelectRandomTeamSpawnPoint( gclient_t *client, int teamstate, team_t 
 					if (SpotWouldTelefrag(element->ent))
 						continue;
 
-					// this one is the lowest priority that won't telefrag; choose it
+					// this one is the first that won't telefrag; choose it
 					gentity_t *returnSpawnPoint = element->ent;
 					ListClear(&possibleSpawnsList);
 					return returnSpawnPoint;

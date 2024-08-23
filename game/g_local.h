@@ -249,7 +249,14 @@ void Cmd_TopAim_f(gentity_t *ent);
 // pmove
 void DoAimPackPmove(pmove_t *pm);
 
+typedef enum {
+	CTFPOSITION_UNKNOWN = 0,
+	CTFPOSITION_BASE,
+	CTFPOSITION_CHASE,
+	CTFPOSITION_OFFENSE
+} ctfPosition_t;
 
+#define ALL_CTF_POSITIONS	((1 << CTFPOSITION_BASE) | (1 << CTFPOSITION_CHASE) | (1 << CTFPOSITION_OFFENSE))
 
 //============================================================================
 extern void *precachedKyle;
@@ -519,6 +526,8 @@ struct gentity_s {
 	vec3_t		pauseViewAngles;
 
 	qboolean	hasLOS[MAX_GENTITIES];
+
+	ctfPosition_t	preferredSpawnPos;
 };
 
 #define DAMAGEREDIRECT_HEAD		1
@@ -1131,15 +1140,6 @@ typedef enum {
 	ACC_THERMAL_ALT,
 	ACC_MAX
 } accuracyCategory_t;
-
-typedef enum {
-	CTFPOSITION_UNKNOWN = 0,
-	CTFPOSITION_BASE,
-	CTFPOSITION_CHASE,
-	CTFPOSITION_OFFENSE
-} ctfPosition_t;
-
-#define ALL_CTF_POSITIONS	((1 << CTFPOSITION_BASE) | (1 << CTFPOSITION_CHASE) | (1 << CTFPOSITION_OFFENSE))
 
 typedef enum {
 	STATS_TABLE_FIRST = 0,
@@ -2227,6 +2227,8 @@ typedef struct {
 	}
 	*/
 	qboolean usesAbseil;
+
+	qboolean initialSpawnsSet[TEAM_NUM_TEAMS];
 } level_locals_t;
 
 
@@ -2795,6 +2797,7 @@ void TellPlayerToSetPositions(gclient_t *client);
 void RestoreDisconnectedPlayerData(gentity_t *ent);
 void G_SendConfigstring(int clientNum, int configstringNum, char *extra);
 void SetFakeForceAlignmentOfBoostedBase(gentity_t *ent, int forceTheirAlignmentToThis);
+void SetInitialSpawns(void);
 
 //
 // g_svcmds.c
@@ -3405,6 +3408,10 @@ extern vmCvar_t		g_droppedFlagSpawnProtectionDuration;
 extern vmCvar_t		g_selfKillSpawnSpamProtection;
 extern vmCvar_t		g_killedAntiHannahSpawnRadius;
 extern vmCvar_t		g_canSpawnInTeRangeOfFc;
+extern vmCvar_t		g_presetInitialSpawns;
+
+extern vmCvar_t		g_numRedPlayers;
+extern vmCvar_t		g_numBluePlayers;
 
 extern vmCvar_t		g_boost;
 extern vmCvar_t		g_spawnboost_default;

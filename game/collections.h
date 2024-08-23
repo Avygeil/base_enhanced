@@ -138,6 +138,11 @@ typedef int (*SortCallback)(genericNode_t *, genericNode_t *, void *userData);
 // Sorts a given list using a merge sort algorithm.
 void ListSort(list_t *list, SortCallback compare, void *userData);
 
+// Trims the list to the specified number of elements, trimming from the tail if reverse is false, or from the head if reverse is true.
+// If the list contains fewer elements than the specified number, the list remains unchanged.
+// Any elements beyond the specified number are removed and their memory is freed.
+void ListTrim(list_t *list, int numElements, qboolean reverse);
+
 /*
 ==================
 QUEUES

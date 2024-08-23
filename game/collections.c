@@ -141,6 +141,51 @@ void ListCopy(list_t *old, list_t *new, size_t elementSize) {
 	}
 }
 
+void ListTrim(list_t *list, int numElements, qboolean reverse) {
+	if (numElements < 0 || list->size <= numElements) {
+		return;
+	}
+
+	iterator_t iter;
+	ListIterate(list, &iter, reverse);
+
+	int count = 0;
+	genericNode_t *currentNode = NULL;
+	while (IteratorHasNext(&iter)) {
+		currentNode = IteratorNext(&iter);
+		if (++count == numElements) {
+			break;
+		}
+	}
+
+	node_t *node = (node_t *)currentNode;
+
+	if (!reverse) { // trim from the head to the given length
+		node_t *nextNode = node->next;
+		node->next = NULL;
+		list->tail = node;
+
+		while (nextNode) {
+			node_t *nodeToDelete = nextNode;
+			nextNode = nextNode->next;
+			free(nodeToDelete);
+			list->size--;
+		}
+	}
+	else { // trim from the tail to the given length
+		node_t *prevNode = node->prev;
+		node->prev = NULL;
+		list->head = node;
+
+		while (prevNode) {
+			node_t *nodeToDelete = prevNode;
+			prevNode = prevNode->prev;
+			free(nodeToDelete);
+			list->size--;
+		}
+	}
+}
+
 genericNode_t* QueueAdd( queue_t *queue, size_t newElementSize ) {
 	// since we are adding things at the end of the queue, this is exactly the same operation
 	return ListAdd( ( list_t* )queue, newElementSize );

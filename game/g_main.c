@@ -444,6 +444,10 @@ vmCvar_t	g_droppedFlagSpawnProtectionDuration;
 vmCvar_t	g_selfKillSpawnSpamProtection;
 vmCvar_t	g_killedAntiHannahSpawnRadius;
 vmCvar_t	g_canSpawnInTeRangeOfFc;
+vmCvar_t	g_presetInitialSpawns;
+
+vmCvar_t	g_numRedPlayers;
+vmCvar_t	g_numBluePlayers;
 
 vmCvar_t	g_boost;
 vmCvar_t	g_spawnboost_default;
@@ -1074,6 +1078,10 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_selfKillSpawnSpamProtection, "g_selfKillSpawnSpamProtection", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_killedAntiHannahSpawnRadius, "g_killedAntiHannahSpawnRadius", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_canSpawnInTeRangeOfFc, "g_canSpawnInTeRangeOfFc", "1", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_presetInitialSpawns, "g_presetInitialSpawns", "1", CVAR_ARCHIVE, 0, qtrue },
+
+	{ &g_numRedPlayers, "g_numRedPlayers", "", CVAR_ROM | CVAR_TEMP, 0, qfalse },
+	{ &g_numBluePlayers, "g_numBluePlayers", "", CVAR_ROM | CVAR_TEMP, 0, qfalse },
 
 	{ &g_boost, "g_boost", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_spawnboost_default, "g_spawnboost_default", "0.333", CVAR_ARCHIVE, 0, qfalse },
@@ -2381,6 +2389,8 @@ void G_InitGame( int levelTime, int randomSeed, int restart, void *serverDbPtr )
 	TeamGen_Initialize();
 	G_DBGetPlayerRatings();
 
+	SetInitialSpawns();
+
 	if (restart) {
 		// save g_lastIntermissionStartTime before we clear it
 		level.g_lastIntermissionStartTimeSettingAtRoundStart = g_lastIntermissionStartTime.string[0] ? g_lastIntermissionStartTime.integer : 0;
@@ -2425,6 +2435,11 @@ G_ShutdownGame
 =================
 */
 void G_ShutdownGame( int restart ) {
+	int numRedPlayers = 0, numBluePlayers = 0;
+	CountPlayers(NULL, &numRedPlayers, &numBluePlayers, NULL, NULL, NULL, NULL);
+	trap_Cvar_Set("g_numRedPlayers", va("%d", numRedPlayers));
+	trap_Cvar_Set("g_numBluePlayers", va("%d", numBluePlayers));
+
 	trap_Cvar_Set("g_notFirstMap", "1");
 
 	if (level.shouldClearRemindPositionsAtEnd)
