@@ -2443,7 +2443,6 @@ void AutoTHTE(gentity_t *self) {
 	}
 }
 
-
 void ForceGrip( gentity_t *self )
 {
 	float maxDist;
@@ -2524,6 +2523,38 @@ void ForceGrip( gentity_t *self )
 				tr.entityNum = dank - g_entities;
 				if (dank->client->sess.sessionTeam == TEAM_SPECTATOR && dank->client->sess.spectatorState == SPECTATOR_FOLLOW)
 					StopFollowing(dank);
+			}
+			else {
+				// check for aiming directly at someone
+				trace_t tr2;
+				vec3_t start, end, forward;
+				VectorCopy(self->client->ps.origin, start);
+				AngleVectors(self->client->ps.viewangles, forward, NULL, NULL);
+				VectorMA(start, 16384, forward, end);
+				start[2] += self->client->ps.viewheight;
+				trap_G2Trace(&tr2, start, NULL, NULL, end, self->s.number, MASK_SHOT, G2TRFLAG_DOGHOULTRACE | G2TRFLAG_GETSURFINDEX | G2TRFLAG_THICK | G2TRFLAG_HITCORPSES, g_g2TraceLod.integer);
+				if (tr2.entityNum >= 0 && tr2.entityNum < MAX_CLIENTS) {
+					tr.entityNum = tr2.entityNum;
+				}
+				else {
+					// see who was closest to where we aimed
+					float closestDistance = -1;
+					int closestPlayer = -1;
+					for (int i = 0; i < MAX_CLIENTS; i++) {
+						gentity_t *other = &g_entities[i];
+						if (!other->inuse || other == self || !other->client)
+							continue;
+						vec3_t difference;
+						VectorSubtract(other->client->ps.origin, tr.endpos, difference);
+						if (closestDistance == -1 || VectorLength(difference) < closestDistance) {
+							closestDistance = VectorLength(difference);
+							closestPlayer = i;
+						}
+					}
+
+					if (closestDistance != -1 && closestPlayer != -1)
+						tr.entityNum = closestPlayer;
+				}
 			}
 		}
 	}
