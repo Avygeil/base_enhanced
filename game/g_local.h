@@ -2229,6 +2229,7 @@ typedef struct {
 	qboolean usesAbseil;
 
 	qboolean initialSpawnsSet[TEAM_NUM_TEAMS];
+	gentity_t *initialRespawn[TEAM_NUM_TEAMS][2];
 } level_locals_t;
 
 
@@ -2798,6 +2799,7 @@ void RestoreDisconnectedPlayerData(gentity_t *ent);
 void G_SendConfigstring(int clientNum, int configstringNum, char *extra);
 void SetFakeForceAlignmentOfBoostedBase(gentity_t *ent, int forceTheirAlignmentToThis);
 void SetInitialSpawns(void);
+void SetInitialRespawns(void);
 
 //
 // g_svcmds.c

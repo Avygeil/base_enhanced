@@ -2298,6 +2298,34 @@ int SortSpawnsToFindChaseSpawn(genericNode_t *a, genericNode_t *b, void *userDat
 	return 0; // should never happen
 }
 
+typedef struct {
+	node_t			node;
+	gentity_t		*redSpawn;
+	gentity_t		*blueSpawn;
+	float			dist2dFromFs;
+} spawnPair_t;
+
+int SortSpawnPairsByDistanceToFS(genericNode_t *a, genericNode_t *b, void *userData) {
+	assert(a && b);
+
+	const spawnPair_t *aa = (const spawnPair_t *)a;
+	const spawnPair_t *bb = (const spawnPair_t *)b;
+
+	if (aa->dist2dFromFs > bb->dist2dFromFs)
+		return -1; // a first
+
+	if (aa->dist2dFromFs < bb->dist2dFromFs)
+		return 1; // b first
+
+	return 0; // order doesn't matter
+}
+
+int SortSpawnPairsRandomly(genericNode_t *a, genericNode_t *b, void *userData) {
+	if (rand() % 2)
+		return 1;
+	return -1;
+}
+
 int CompareInitialSpawnPriority(genericNode_t *a, genericNode_t *b, void *userData) {
 	assert(a && b && userData);
 
@@ -2497,12 +2525,14 @@ static void SpawnDebugPrintf(const char *msg, ...) {
 	}
 }
 
-static void GetSpawnPointNickname(gentity_t *spawn, char *dest, size_t destSize) {
+static void GetSpawnPointNickname(gentity_t *spawn, char *dest, size_t destSize, qboolean appendCoords) {
 	assert(spawn && dest && destSize);
 	*dest = '\0';
 
+#if 0
 	if (!d_debugSpawns.integer)
 		return; // just save overhead since we won't be printing them to the log anyway i guess
+#endif
 
 	if (d_debugSpawns.integer == 2)
 		Com_Printf("GetSpawnPointNickname: spawn->spawnname is %s\n", spawn->spawnname);
@@ -2527,10 +2557,15 @@ static void GetSpawnPointNickname(gentity_t *spawn, char *dest, size_t destSize)
 		}
 	}
 	
-	if (lowestDistanceEnt)
-		Com_sprintf(dest, destSize, "%s {%d %d %d}", lowestDistanceEnt->classname, (int)spawn->r.currentOrigin[0], (int)spawn->r.currentOrigin[1], (int)spawn->r.currentOrigin[2]);
+	if (lowestDistanceEnt) {
+		if (appendCoords)
+			Com_sprintf(dest, destSize, "%s {%d %d %d}", lowestDistanceEnt->classname, (int)spawn->r.currentOrigin[0], (int)spawn->r.currentOrigin[1], (int)spawn->r.currentOrigin[2]);
+		else
+			Com_sprintf(dest, destSize, "%s", lowestDistanceEnt->classname);
+	}
 }
 
+// set the initial spawnpoints for each position
 void SetInitialSpawns(void) {
 	memset(level.initialSpawnsSet, 0, sizeof(level.initialSpawnsSet));
 	if (!g_presetInitialSpawns.integer || g_gametype.integer != GT_CTF)
@@ -2541,21 +2576,18 @@ void SetInitialSpawns(void) {
 		return;
 
 	// check that mines/golan exist
-	qboolean gotMines = qfalse, gotGolan = qfalse;
+	int gotMines = 0, gotGolan = 0;
 	for (int i = MAX_CLIENTS; i < ENTITYNUM_MAX_NORMAL; i++) {
 		gentity_t *thisItem = &g_entities[i];
 		if (!thisItem->inuse || !thisItem->item || thisItem->item->giType != IT_WEAPON)
 			continue;
 
 		if (thisItem->item->giTag == WP_TRIP_MINE)
-			gotMines = qtrue;
+			++gotMines;
 		else if (thisItem->item->giTag == WP_FLECHETTE)
-			gotGolan = qtrue;
-
-		if (gotMines && gotGolan)
-			break;
+			++gotGolan;
 	}
-	if (!gotMines || !gotGolan)
+	if (gotMines < 2 || gotGolan < 2)
 		return;
 
 	for (team_t team = TEAM_RED; team <= TEAM_BLUE; team++) {
@@ -2599,10 +2631,142 @@ void SetInitialSpawns(void) {
 			offense1Spawn->preferredSpawnPos = CTFPOSITION_OFFENSE;
 			offense2Spawn->preferredSpawnPos = CTFPOSITION_OFFENSE;
 			level.initialSpawnsSet[team] = qtrue;
+			SpawnDebugPrintf("Initial spawns set for team %d: %d, %d, %d, %d\n", team, baseSpawn - g_entities, chaseSpawn - g_entities, offense1Spawn - g_entities, offense2Spawn - g_entities);
 		}
 
 		ListClear(&possibleSpawnsList);
 	}
+}
+
+#define INITIALRESPAWN_SHITTYMIRRORING_THRESHOLD	(33)
+// set the initial respawns that will be used for offense players who sk within the first few seconds
+void SetInitialRespawns(void) {
+	memset(level.initialRespawn, 0, sizeof(level.initialRespawn));
+	if (!g_presetInitialSpawns.integer || g_gametype.integer != GT_CTF)
+		return;
+
+	// check for 4v4
+	if (g_numRedPlayers.integer != 4 || g_numBluePlayers.integer != 4)
+		return;
+
+	gentity_t *redFsEnt = NULL, *blueFsEnt = NULL;
+	gentity_t temp;
+	VectorCopy(vec3_origin, temp.r.currentOrigin);
+	redFsEnt = G_ClosestEntity(&temp, isRedFlagstand);
+	blueFsEnt = G_ClosestEntity(&temp, isBlueFlagstand);
+	if (!redFsEnt || !blueFsEnt)
+		return;
+
+	// get a list of mirrored spawns (pairs of similar spawnpoints on each team)
+	list_t spawnPairsList = { 0 };
+	for (int i = 0; i <= ENTITYNUM_MAX_NORMAL; i++) {
+		gentity_t *redSpawn = &g_entities[i];
+		if (!redSpawn->inuse || !VALIDSTRING(redSpawn->classname))
+			continue;
+		if (Q_stricmp(redSpawn->classname, "team_CTF_redspawn"))
+			continue;
+
+		const float redDeltaXY = fabs(redFsEnt->r.currentOrigin[0] - redSpawn->r.currentOrigin[0]) + fabs(redFsEnt->r.currentOrigin[1] - redSpawn->r.currentOrigin[1]);
+		const float redDeltaZ = fabs(redFsEnt->r.currentOrigin[2] - redSpawn->r.currentOrigin[2]);
+		
+		// we have a red spawn
+		// try to find a matching blue spawn
+		gentity_t *matchingBlueSpawn = NULL;
+		for (int j = MAX_CLIENTS; j < ENTITYNUM_MAX_NORMAL; j++) {
+			gentity_t *blueSpawn = &g_entities[j];
+			if (!blueSpawn->inuse || !VALIDSTRING(blueSpawn->classname) || Q_stricmp(blueSpawn->classname, "team_CTF_bluespawn"))
+				continue;
+
+			// we have a blue spawn
+			// check whether it's roughly the same distance from the blue fs as the red spawn is to the red fs
+			const float blueDeltaXY = fabs(blueFsEnt->r.currentOrigin[0] - blueSpawn->r.currentOrigin[0]) + fabs(blueFsEnt->r.currentOrigin[1] - blueSpawn->r.currentOrigin[1]);
+			const float blueDeltaZ = fabs(blueFsEnt->r.currentOrigin[2] - blueSpawn->r.currentOrigin[2]);
+
+			const float diffXY = fabs(redDeltaXY - blueDeltaXY);
+			const float diffZ = fabs(redDeltaZ - blueDeltaZ);
+
+			char redNickname[128] = { 0 }, blueNickname[128] = { 0 };
+			GetSpawnPointNickname(redSpawn, redNickname, sizeof(redNickname), qfalse);
+			GetSpawnPointNickname(blueSpawn, blueNickname, sizeof(blueNickname), qfalse);
+			
+			if (Q_stricmp(redNickname, blueNickname))
+				continue; // sanity check: make sure the nicknames are the same
+
+			if (diffXY > INITIALRESPAWN_SHITTYMIRRORING_THRESHOLD || diffZ > INITIALRESPAWN_SHITTYMIRRORING_THRESHOLD) {
+				if (diffXY < 100 && diffZ < 100) {
+					GetSpawnPointNickname(redSpawn, redNickname, sizeof(redNickname), qtrue);
+					GetSpawnPointNickname(blueSpawn, blueNickname, sizeof(blueNickname), qtrue);
+					SpawnDebugPrintf("Near-miss spawn pair of %s %d + %s %d: diffs %g / %g (r %g / b %g --- r %g / b %g)\n",
+						redNickname, redSpawn - g_entities, blueNickname, blueSpawn - g_entities,
+						diffXY, diffZ, redDeltaXY, blueDeltaXY, redDeltaZ, blueDeltaZ);
+				}
+				continue;
+			}
+
+			matchingBlueSpawn = blueSpawn;
+			break;
+		}
+
+		if (matchingBlueSpawn) {
+			spawnPair_t *add = ListAdd(&spawnPairsList, sizeof(spawnPair_t));
+			add->redSpawn = redSpawn;
+			add->blueSpawn = matchingBlueSpawn;
+			add->dist2dFromFs = (Distance2D(redSpawn->r.currentOrigin, redFsEnt->r.currentOrigin) + Distance2D(matchingBlueSpawn->r.currentOrigin, blueFsEnt->r.currentOrigin)) / 2;
+			char redNickname[128] = { 0 }, blueNickname[128] = { 0 };
+			GetSpawnPointNickname(redSpawn, redNickname, sizeof(redNickname), qtrue);
+			GetSpawnPointNickname(matchingBlueSpawn, blueNickname, sizeof(blueNickname), qtrue);
+			SpawnDebugPrintf("Got spawn pair (%s %d + %s %d) with dist %d\n", redNickname, redSpawn - g_entities, blueNickname, matchingBlueSpawn - g_entities, (int)add->dist2dFromFs);
+		}
+	}
+
+	if (spawnPairsList.size < 2) {
+		ListClear(&spawnPairsList);
+		return;
+	}
+
+	SpawnDebugPrintf("Spawn pairs list size is %d\n", spawnPairsList.size);
+
+	// sort so that farther ones from the fs are at the beginning of the list
+	ListSort(&spawnPairsList, SortSpawnPairsByDistanceToFS, NULL);
+
+	// trim off the 50% closest ones to fs
+	if (spawnPairsList.size >= 4)
+		ListTrim(&spawnPairsList, spawnPairsList.size / 2, qfalse);
+	SpawnDebugPrintf("After trimming, spawn pairs list size is %d:\n", spawnPairsList.size);
+	iterator_t iter;
+	ListIterate(&spawnPairsList, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		spawnPair_t *element = IteratorNext(&iter);
+		char redNickname[128] = { 0 }, blueNickname[128] = { 0 };
+		GetSpawnPointNickname(element->redSpawn, redNickname, sizeof(redNickname), qtrue);
+		GetSpawnPointNickname(element->blueSpawn, blueNickname, sizeof(blueNickname), qtrue);
+		SpawnDebugPrintf("%s %d + %s %d with dist %d\n", redNickname, element->redSpawn - g_entities, blueNickname, element->blueSpawn - g_entities, (int)element->dist2dFromFs);
+	}
+
+	// randomize the order of the remaining ones
+	ListSort(&spawnPairsList, SortSpawnPairsRandomly, NULL);
+
+	// set the first respawn
+	level.initialRespawn[TEAM_RED][0] = ((spawnPair_t *)spawnPairsList.head)->redSpawn;
+	level.initialRespawn[TEAM_BLUE][0] = ((spawnPair_t *)spawnPairsList.head)->blueSpawn;
+	{
+		char redNickname[128] = { 0 }, blueNickname[128] = { 0 };
+		GetSpawnPointNickname(level.initialRespawn[TEAM_RED][0], redNickname, sizeof(redNickname), qtrue);
+		GetSpawnPointNickname(level.initialRespawn[TEAM_BLUE][0], blueNickname, sizeof(blueNickname), qtrue);
+		SpawnDebugPrintf("First initial respawn is %s %d + %s %d\n", redNickname, level.initialRespawn[TEAM_RED][0] - g_entities, blueNickname, level.initialRespawn[TEAM_BLUE][0] - g_entities);
+	}
+
+	// set the second respawn
+	level.initialRespawn[TEAM_RED][1] = ((spawnPair_t *)(((node_t *)spawnPairsList.head)->next))->redSpawn;
+	level.initialRespawn[TEAM_BLUE][1] = ((spawnPair_t *)(((node_t *)spawnPairsList.head)->next))->blueSpawn;
+	{
+		char redNickname[128] = { 0 }, blueNickname[128] = { 0 };
+		GetSpawnPointNickname(level.initialRespawn[TEAM_RED][1], redNickname, sizeof(redNickname), qtrue);
+		GetSpawnPointNickname(level.initialRespawn[TEAM_BLUE][1], blueNickname, sizeof(blueNickname), qtrue);
+		SpawnDebugPrintf("Second initial respawn is %s %d + %s %d\n", redNickname, level.initialRespawn[TEAM_RED][1] - g_entities, blueNickname, level.initialRespawn[TEAM_BLUE][1] - g_entities);
+	}
+
+	ListClear(&spawnPairsList);
 }
 
 /*
@@ -2804,7 +2968,7 @@ gentity_t *SelectRandomTeamSpawnPoint( gclient_t *client, int teamstate, team_t 
 		else {
 			char lastSpawnName[128] = { 0 };
 			if (client->pers.lastSpawnPoint)
-				GetSpawnPointNickname(client->pers.lastSpawnPoint, lastSpawnName, sizeof(lastSpawnName));
+				GetSpawnPointNickname(client->pers.lastSpawnPoint, lastSpawnName, sizeof(lastSpawnName), qtrue);
 			else
 				Q_strncpyz(lastSpawnName, "none", sizeof(lastSpawnName));
 			SpawnDebugPrintf("Spawn logic at %d (%d) for %splayer %d (%s) with last spawnpoint %s trying for classname %s with lastSpawnTime %d, lastKiller %d, lastKilledByEnemyTime %d, lastKilledByEnemyLocation %d %d %d\n",
@@ -2831,7 +2995,7 @@ gentity_t *SelectRandomTeamSpawnPoint( gclient_t *client, int teamstate, team_t 
 
 				spawnpoint_t *add = ListAdd(&possibleSpawnsList, sizeof(spawnpoint_t));
 				add->ent = thisEnt;
-				GetSpawnPointNickname(thisEnt, add->nickname, sizeof(add->nickname));
+				GetSpawnPointNickname(thisEnt, add->nickname, sizeof(add->nickname), qtrue);
 
 				SpawnDebugPrintf("Adding %s to possible spawns list", add->nickname);
 				if (client->pers.lastSpawnPoint)
@@ -2895,7 +3059,7 @@ gentity_t *SelectRandomTeamSpawnPoint( gclient_t *client, int teamstate, team_t 
 				}
 			}
 
-			// boosted guy: delete the 50% of spawnpoints farthest form some entity (fc, fs, etc)
+			// boosted guy: delete the 50% of spawnpoints farthest from some entity (fc, fs, etc)
 			if (boost && spawnMeNearThisEntity) {
 				ListSort(&possibleSpawnsList, CompareSpawnsReverseOrder, spawnMeNearThisEntity->r.currentOrigin);
 
@@ -3063,25 +3227,58 @@ gentity_t *SelectRandomTeamSpawnPoint( gclient_t *client, int teamstate, team_t 
 				}
 			}
 
-			const int randomIndex = rand() % possibleSpawnsList.size;
-			SpawnDebugPrintf("Randomly chosen index: %d\n", randomIndex);
-			spawnpoint_t *chosenSpawnPoint = NULL;
-			int currentIndex = 0;
+#if 0 // testing
+			if (g_presetInitialSpawns.integer && level.time - level.startTime <= 60000 && client->stats && client->stats->selfkills == 1 &&
+#else
+			if (g_presetInitialSpawns.integer && level.time - level.startTime <= 10000 && client->stats && client->stats->selfkills == 1 &&
+#endif
+				GetRemindedPosOrDeterminedPos(&g_entities[client - level.clients]) != CTFPOSITION_BASE && GetRemindedPosOrDeterminedPos(&g_entities[client - level.clients]) != CTFPOSITION_CHASE &&
+				((level.initialRespawn[client->sess.sessionTeam][0] && !SpotWouldTelefrag(level.initialRespawn[client->sess.sessionTeam][0])) || (level.initialRespawn[client->sess.sessionTeam][1] && !SpotWouldTelefrag(level.initialRespawn[client->sess.sessionTeam][1]))) &&
+				(!client->pers.lastKiller ||
+					client->pers.lastKiller - g_entities == client - level.clients ||
+					client->pers.lastKiller - g_entities == ENTITYNUM_NONE ||
+					client->pers.lastKiller - g_entities == ENTITYNUM_WORLD)) {
 
-			// find the one with the random index
-			ListIterate(&possibleSpawnsList, &iter, qfalse);
-			while (IteratorHasNext(&iter) && currentIndex <= randomIndex) {
-				chosenSpawnPoint = (spawnpoint_t *)IteratorNext(&iter);
-				if (currentIndex == randomIndex) {
-					SpawnDebugPrintf("Spawnpoint with randomly chosen index %d is %s\n", randomIndex, chosenSpawnPoint->nickname);
-					break;
+				if (level.initialRespawn[client->sess.sessionTeam][0] && !SpotWouldTelefrag(level.initialRespawn[client->sess.sessionTeam][0])) {
+					gentity_t *returnSpawnPoint = level.initialRespawn[client->sess.sessionTeam][0];
+					char nickname[128] = { 0 };
+					GetSpawnPointNickname(returnSpawnPoint, nickname, sizeof(nickname), qtrue);
+					SpawnDebugPrintf("level.initialRespawn[%d][0] is %s\n", client->sess.sessionTeam, nickname);
+					level.initialRespawn[client->sess.sessionTeam][0] = NULL;
+					ListClear(&possibleSpawnsList);
+					return returnSpawnPoint;
 				}
-				currentIndex++;
+				else if (level.initialRespawn[client->sess.sessionTeam][1] && !SpotWouldTelefrag(level.initialRespawn[client->sess.sessionTeam][1])) {
+					gentity_t *returnSpawnPoint = level.initialRespawn[client->sess.sessionTeam][1];
+					char nickname[128] = { 0 };
+					GetSpawnPointNickname(returnSpawnPoint, nickname, sizeof(nickname), qtrue);
+					SpawnDebugPrintf("level.initialRespawn[%d][1] is %s\n", client->sess.sessionTeam, nickname);
+					level.initialRespawn[client->sess.sessionTeam][1] = NULL;
+					ListClear(&possibleSpawnsList);
+					return returnSpawnPoint;
+				}
 			}
+			else {
+				const int randomIndex = rand() % possibleSpawnsList.size;
+				SpawnDebugPrintf("Randomly chosen index: %d\n", randomIndex);
+				spawnpoint_t *chosenSpawnPoint = NULL;
+				int currentIndex = 0;
 
-			gentity_t *returnSpawnPoint = chosenSpawnPoint->ent;
-			ListClear(&possibleSpawnsList);
-			return returnSpawnPoint;
+				// find the one with the random index
+				ListIterate(&possibleSpawnsList, &iter, qfalse);
+				while (IteratorHasNext(&iter) && currentIndex <= randomIndex) {
+					chosenSpawnPoint = (spawnpoint_t *)IteratorNext(&iter);
+					if (currentIndex == randomIndex) {
+						SpawnDebugPrintf("Spawnpoint with randomly chosen index %d is %s\n", randomIndex, chosenSpawnPoint->nickname);
+						break;
+					}
+					currentIndex++;
+				}
+
+				gentity_t *returnSpawnPoint = chosenSpawnPoint->ent;
+				ListClear(&possibleSpawnsList);
+				return returnSpawnPoint;
+			}
 		}
 	}
 

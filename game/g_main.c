@@ -2390,6 +2390,7 @@ void G_InitGame( int levelTime, int randomSeed, int restart, void *serverDbPtr )
 	G_DBGetPlayerRatings();
 
 	SetInitialSpawns();
+	SetInitialRespawns();
 
 	if (restart) {
 		// save g_lastIntermissionStartTime before we clear it
