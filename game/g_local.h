@@ -528,6 +528,7 @@ struct gentity_s {
 	qboolean	hasLOS[MAX_GENTITIES];
 
 	ctfPosition_t	preferredSpawnPos;
+	qboolean	isManuallyDefinedInitialRespawn;
 };
 
 #define DAMAGEREDIRECT_HEAD		1
@@ -2230,6 +2231,7 @@ typedef struct {
 
 	qboolean initialSpawnsSet[TEAM_NUM_TEAMS];
 	gentity_t *initialRespawn[TEAM_NUM_TEAMS][2];
+	int numManuallyDefinedInitialRespawns[TEAM_NUM_TEAMS];
 } level_locals_t;
 
 

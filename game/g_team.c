@@ -2648,6 +2648,12 @@ void SetInitialRespawns(void) {
 	// check for 4v4
 	if (g_numRedPlayers.integer != 4 || g_numBluePlayers.integer != 4)
 		return;
+	
+	qboolean requireManuallyDefinedInitialRespawn = qfalse;
+	if (level.numManuallyDefinedInitialRespawns[TEAM_RED] >= 2 && level.numManuallyDefinedInitialRespawns[TEAM_BLUE] >= 2)
+		requireManuallyDefinedInitialRespawn = qtrue;
+	else if (level.numManuallyDefinedInitialRespawns[TEAM_RED] || level.numManuallyDefinedInitialRespawns[TEAM_BLUE] >= 2)
+		Com_Printf("SetInitialRespawns: map has some manually defined initial respawns, but not 2 on each team! Using automatic detection instead.\n");
 
 	gentity_t *redFsEnt = NULL, *blueFsEnt = NULL;
 	gentity_t temp;
@@ -2665,6 +2671,8 @@ void SetInitialRespawns(void) {
 			continue;
 		if (Q_stricmp(redSpawn->classname, "team_CTF_redspawn"))
 			continue;
+		if (requireManuallyDefinedInitialRespawn && !redSpawn->isManuallyDefinedInitialRespawn)
+			continue;
 
 		const float redDeltaXY = fabs(redFsEnt->r.currentOrigin[0] - redSpawn->r.currentOrigin[0]) + fabs(redFsEnt->r.currentOrigin[1] - redSpawn->r.currentOrigin[1]);
 		const float redDeltaZ = fabs(redFsEnt->r.currentOrigin[2] - redSpawn->r.currentOrigin[2]);
@@ -2675,6 +2683,8 @@ void SetInitialRespawns(void) {
 		for (int j = MAX_CLIENTS; j < ENTITYNUM_MAX_NORMAL; j++) {
 			gentity_t *blueSpawn = &g_entities[j];
 			if (!blueSpawn->inuse || !VALIDSTRING(blueSpawn->classname) || Q_stricmp(blueSpawn->classname, "team_CTF_bluespawn"))
+				continue;
+			if (requireManuallyDefinedInitialRespawn && !blueSpawn->isManuallyDefinedInitialRespawn)
 				continue;
 
 			// we have a blue spawn
@@ -2729,10 +2739,14 @@ void SetInitialRespawns(void) {
 	// sort so that farther ones from the fs are at the beginning of the list
 	ListSort(&spawnPairsList, SortSpawnPairsByDistanceToFS, NULL);
 
-	// trim off the 50% closest ones to fs
-	if (spawnPairsList.size >= 4)
+	// trim off the 50% closest ones to fs, if detecting automatically
+	if (!requireManuallyDefinedInitialRespawn && spawnPairsList.size >= 4) {
 		ListTrim(&spawnPairsList, spawnPairsList.size / 2, qfalse);
-	SpawnDebugPrintf("After trimming, spawn pairs list size is %d:\n", spawnPairsList.size);
+		SpawnDebugPrintf("After trimming, spawn pairs list size is %d:\n", spawnPairsList.size);
+	}
+	else {
+		SpawnDebugPrintf("Spawn pairs list size is %d:\n", spawnPairsList.size);
+	}
 	iterator_t iter;
 	ListIterate(&spawnPairsList, &iter, qfalse);
 	while (IteratorHasNext(&iter)) {
@@ -3561,12 +3575,22 @@ Only in CTF games.  Blue players spawn here at game start.
 void SP_team_CTF_blueplayer( gentity_t *ent ) {
 }
 
-
 /*QUAKED team_CTF_redspawn (1 0 0) (-16 -16 -24) (16 16 32)
 potential spawning position for red team in CTF games.
 Targets will be fired when someone spawns in on them.
 */
 void SP_team_CTF_redspawn(gentity_t *ent) {
+	int initialRespawn;
+	G_SpawnInt("initialrespawn", "0", &initialRespawn);
+	if (!initialRespawn)
+		return;
+
+	ent->isManuallyDefinedInitialRespawn = qtrue;
+	++level.numManuallyDefinedInitialRespawns[TEAM_RED];
+
+	char nickname[128];
+	GetSpawnPointNickname(ent, nickname, sizeof(nickname), qtrue);
+	SpawnDebugPrintf("%s is a manually defined initial respawn for red team\n", nickname);
 }
 
 /*QUAKED team_CTF_bluespawn (0 0 1) (-16 -16 -24) (16 16 32)
@@ -3574,6 +3598,17 @@ potential spawning position for blue team in CTF games.
 Targets will be fired when someone spawns in on them.
 */
 void SP_team_CTF_bluespawn(gentity_t *ent) {
+	int initialRespawn;
+	G_SpawnInt("initialrespawn", "0", &initialRespawn);
+	if (!initialRespawn)
+		return;
+
+	ent->isManuallyDefinedInitialRespawn = qtrue;
+	++level.numManuallyDefinedInitialRespawns[TEAM_BLUE];
+
+	char nickname[128];
+	GetSpawnPointNickname(ent, nickname, sizeof(nickname), qtrue);
+	SpawnDebugPrintf("%s is a manually defined initial respawn for blue team\n", nickname);
 }
 
 
