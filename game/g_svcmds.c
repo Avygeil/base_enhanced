@@ -1067,6 +1067,8 @@ void Svcmd_VoteForce_f( qboolean pass ) {
 	} else if ( !pass ) {
 		level.voteAutoPassOnExpiration = qfalse;
 		level.multiVoting = qfalse;
+		level.voteBanPhase = qfalse;
+		level.voteBanPhaseCompleted = qfalse;
 		level.inRunoff = qfalse;
 		level.multiVoteChoices = 0;
 		level.multiVoteHasWildcard = qfalse;
@@ -1075,6 +1077,8 @@ void Svcmd_VoteForce_f( qboolean pass ) {
 		level.multiVoteTimeExtensions = 0;
 		level.runoffSurvivors = level.runoffLosers = level.successfulRerollVoters = 0llu;
 		memset( level.multiVotes, 0, sizeof( level.multiVotes ) );
+		memset( level.multiVoteBanVotes, 0, sizeof( level.multiVoteBanVotes) );
+		memset(level.bannedMapNames, 0, sizeof(level.bannedMapNames));
 		memset(&level.multiVoteMapChars, 0, sizeof(level.multiVoteMapChars));
 		memset(&level.multiVoteMapShortNames, 0, sizeof(level.multiVoteMapShortNames));
 		memset(&level.multiVoteMapFileNames, 0, sizeof(level.multiVoteMapFileNames));
@@ -1678,14 +1682,29 @@ static void StartMultiMapVote( const int numMaps, const qboolean hasWildcard, co
 
 	G_LogPrintf( "A multi map vote was started: %s\n", listOfMaps );
 
+	int numRedPlayers = 0, numBluePlayers = 0;
+	CountPlayers(NULL, &numRedPlayers, &numBluePlayers, NULL, NULL, NULL, NULL);
+
 	// start a "fake vote" so that we can use most of the logic that already exists
 	Com_sprintf( level.voteString, sizeof( level.voteString ), "map_multi_vote %s", listOfMaps );
-	Q_strncpyz( level.voteDisplayString, S_COLOR_RED"Vote for a map in console", sizeof(level.voteDisplayString));
+	if (!level.voteBanPhaseCompleted && g_vote_banMap.integer && ((numRedPlayers == 4 && numBluePlayers == 4) || (numRedPlayers == 5 && numBluePlayers == 5))) {
+		Q_strncpyz(level.voteDisplayString, "^8Vote to ban a map in console", sizeof(level.voteDisplayString));
+		level.voteBanPhase = qtrue;
+	}
+	else {
+		Q_strncpyz(level.voteDisplayString, "^5Vote for a map in console", sizeof(level.voteDisplayString));
+		level.voteBanPhase = qfalse;
+	}
 	level.voteStartTime = level.time;
 	level.voteTime = level.time;
 
 	if (g_vote_runoff.integer && g_vote_runoffTimeModifier.integer) { // allow shorter or longer time for runoff votes according to the cvar
 		int timeChange = Com_Clampi(-15, 30, g_vote_runoffTimeModifier.integer);
+		timeChange *= 1000;
+		level.voteTime += timeChange;
+	}
+	else if (level.voteBanPhase && g_vote_banPhaseTimeModifier.integer) { // allow shorter or longer time for runoff votes according to the cvar
+		int timeChange = Com_Clampi(-15, 30, g_vote_banPhaseTimeModifier.integer);
 		timeChange *= 1000;
 		level.voteTime += timeChange;
 	}
@@ -1699,6 +1718,7 @@ static void StartMultiMapVote( const int numMaps, const qboolean hasWildcard, co
 	level.multiVoteHasWildcard = hasWildcard;
 	level.multiVoteChoices = numMaps;
 	memset( &( level.multiVotes ), 0, sizeof( level.multiVotes ) );
+	memset(&(level.multiVoteBanVotes), 0, sizeof(level.multiVoteBanVotes));
 
 	fixVoters( qfalse, 0 ); // racers can never vote in multi map votes
 
@@ -1718,7 +1738,6 @@ static void StartMultiMapVote( const int numMaps, const qboolean hasWildcard, co
 		}
 	}
 	memset(&reinstateVotes, 0, sizeof(reinstateVotes));
-
 
 	trap_SetConfigstring( CS_VOTE_TIME, va( "%i", level.voteTime ) );
 	trap_SetConfigstring( CS_VOTE_STRING, level.voteDisplayString );
@@ -1753,6 +1772,22 @@ static void mapSelectedCallback( void *context, char *mapname ) {
 	if (!selection->announceMultiVote)
 		return;
 
+	char oneLineBannedMapStr[MAX_STRING_CHARS] = { 0 };
+	if (level.voteBanPhaseCompleted) {
+		if (level.bannedMapNames[TEAM_RED][0] && level.bannedMapNames[TEAM_BLUE][0]) {
+			if (!Q_stricmp(level.bannedMapNames[TEAM_RED], level.bannedMapNames[TEAM_BLUE]))
+				Com_sprintf(oneLineBannedMapStr, sizeof(oneLineBannedMapStr), "%s was banned by both teams\n", level.bannedMapNames[TEAM_RED]);
+			else
+				Com_sprintf(oneLineBannedMapStr, sizeof(oneLineBannedMapStr), "^1%s^7 and ^4%s^7 were banned\n", level.bannedMapNames[TEAM_RED], level.bannedMapNames[TEAM_BLUE]);
+		}
+		else if (level.bannedMapNames[TEAM_RED][0]) {
+			Com_sprintf(oneLineBannedMapStr, sizeof(oneLineBannedMapStr), "^1%s^7 was banned\n", level.bannedMapNames[TEAM_RED]);
+		}
+		else if (level.bannedMapNames[TEAM_BLUE][0]) {
+			Com_sprintf(oneLineBannedMapStr, sizeof(oneLineBannedMapStr), "^4%s^7 was banned\n", level.bannedMapNames[TEAM_BLUE]);
+		}
+	}
+
 	if (selection->numSelected == 1) {
 		for (int i = 0; i < MAX_CLIENTS; i++) {
 			if (level.runoffSurvivors & (1llu << (unsigned long long)i)) {
@@ -1774,13 +1809,19 @@ static void mapSelectedCallback( void *context, char *mapname ) {
 					Q_strncpyz(selection->printMessage[i], va("Runoff vote: "S_COLOR_YELLOW"please vote again"S_COLOR_WHITE), sizeof(selection->printMessage[i]));
 				}
 			}
+			else if (level.voteBanPhase) {
+				if (g_vote_banRemindVotesRequired.integer)
+					Q_strncpyz(selection->printMessage[i], va("Vote to ban your team's worst map:\n(3 votes from team required)"), sizeof(selection->printMessage[i]));
+				else
+					Q_strncpyz(selection->printMessage[i], va("Vote to ban your team's worst map:"), sizeof(selection->printMessage[i]));
+			}
 			else {
 				if (level.successfulRerollVoters & (1llu << (unsigned long long)i))
-					Q_strncpyz(selection->printMessage[i], va("%s%sote for a map%s:", level.mapsRerolled ? "^6Map choices rerolled^7\n" : "", level.inRunoff ? "Runoff v" : "V", g_vote_rng.integer ? " to increase its probability" : ""), sizeof(selection->printMessage[i]));
+					Q_strncpyz(selection->printMessage[i], va("%s%s%sote for a map%s:", oneLineBannedMapStr, level.mapsRerolled ? "^6Map choices rerolled^7\n" : "", level.inRunoff ? "Runoff v" : "V", g_vote_rng.integer ? " to increase its probability" : ""), sizeof(selection->printMessage[i]));
 				else if (level.survivingRerollMapVoters & (1llu << (unsigned long long)i))
-					Q_strncpyz(selection->printMessage[i], va("%s%sote for a map%s:", level.mapsRerolled ? "^6Map choices rerolled^7\n" : "", level.inRunoff ? "Runoff v" : "V", g_vote_rng.integer ? " to increase its probability" : ""), sizeof(selection->printMessage[i]));
+					Q_strncpyz(selection->printMessage[i], va("%s%s%sote for a map%s:", oneLineBannedMapStr, level.mapsRerolled ? "^6Map choices rerolled^7\n" : "", level.inRunoff ? "Runoff v" : "V", g_vote_rng.integer ? " to increase its probability" : ""), sizeof(selection->printMessage[i]));
 				else
-					Q_strncpyz(selection->printMessage[i], va("%s%sote for a map%s:", level.mapsRerolled ? "^6Map choices rerolled^7\n" : "", level.inRunoff ? "Runoff v" : "V", g_vote_rng.integer ? " to increase its probability" : ""), sizeof(selection->printMessage[i]));
+					Q_strncpyz(selection->printMessage[i], va("%s%s%sote for a map%s:", oneLineBannedMapStr, level.mapsRerolled ? "^6Map choices rerolled^7\n" : "", level.inRunoff ? "Runoff v" : "V", g_vote_rng.integer ? " to increase its probability" : ""), sizeof(selection->printMessage[i]));
 			}
 		}
 	}
@@ -1813,7 +1854,7 @@ static void mapSelectedCallback( void *context, char *mapname ) {
 	}
 
 	int thisMapVoteNum = 0;
-	if (level.inRunoff) { // in a runoff; find the original number
+	if (level.inRunoff || level.voteBanPhaseCompleted) { // find the *original* number
 		for (int i = 0; i < MAX_MULTIVOTE_MAPS; i++) {
 			if (!Q_stricmp(level.multiVoteMapFileNames[i], mapname)) {
 				thisMapVoteNum = i + 1;
@@ -1841,9 +1882,14 @@ static void mapSelectedCallback( void *context, char *mapname ) {
 			);
 		}
 		else {
-			Q_strcat(selection->printMessage[i], sizeof(selection->printMessage[i]),
-				va("\n"S_COLOR_CYAN"/vote %d "S_COLOR_WHITE" - %s", thisMapVoteNum, mapDisplayName)
-			);
+			if (level.voteBanPhase) {
+				Q_strcat(selection->printMessage[i], sizeof(selection->printMessage[i]),
+					va("\n^8/ban %d ^7 - %s", thisMapVoteNum, mapDisplayName));
+			}
+			else {
+				Q_strcat(selection->printMessage[i], sizeof(selection->printMessage[i]),
+					va("\n^5/vote %d ^7 - %s", thisMapVoteNum, mapDisplayName));
+			}
 		}
 	}
 
@@ -1922,6 +1968,13 @@ void Svcmd_MapRandom_f()
 
 	context->mapsToRandomize = mapsToRandomize;
 	level.mapsThatCanBeVotedBits = 0;
+
+
+	int numRedPlayers = 0, numBluePlayers = 0;
+	CountPlayers(NULL, &numRedPlayers, &numBluePlayers, NULL, NULL, NULL, NULL);
+	if (!level.voteBanPhaseCompleted && g_vote_banMap.integer && ((numRedPlayers == 4 && numBluePlayers == 4) || (numRedPlayers == 5 && numBluePlayers == 5)))
+		level.voteBanPhase = qtrue;
+
 	if (G_DBSelectMapsFromPool(pool, currentMap, context->mapsToRandomize, mapSelectedCallback, context)) {
 		if (context->numSelected != context->mapsToRandomize) {
 			G_Printf("Could not randomize this many maps! Expected %d, but randomized %d\n", context->mapsToRandomize, context->numSelected);
@@ -1929,7 +1982,7 @@ void Svcmd_MapRandom_f()
 
 		// print in console and do a global prioritized center print
 		for (int i = 0; i < MAX_CLIENTS; i++) {
-			if (g_vote_runoffRerollOption.integer && !level.runoffRoundsCompletedIncludingRerollRound && !stristr(context->printMessage[i], "\n"S_COLOR_MAGENTA"/vote r "S_COLOR_WHITE" - Reroll choices"))
+			if (g_vote_runoffRerollOption.integer && !g_vote_banMap.integer && !level.runoffRoundsCompletedIncludingRerollRound && !stristr(context->printMessage[i], "\n"S_COLOR_MAGENTA"/vote r "S_COLOR_WHITE" - Reroll choices"))
 				Q_strcat(context->printMessage[i], sizeof(context->printMessage[i]), "\n"S_COLOR_MAGENTA"/vote r "S_COLOR_WHITE" - Reroll choices");
 
 			if (!level.inRunoff) // don't spam the console for non-first rounds
@@ -1938,7 +1991,7 @@ void Svcmd_MapRandom_f()
 			// prepend newlines after printing in console but before centerprinting
 			Com_sprintf(context->printMessage[i], sizeof(context->printMessage[i]), "\n\n%s", context->printMessage[i]);
 		}
-		G_UniqueTickedCenterPrint(context->printMessage, sizeof(context->printMessage[0]), 15000, qtrue); // give them 15s to see the options
+		G_UniqueTickedCenterPrint(context->printMessage, sizeof(context->printMessage[0]), 20000, qtrue); // give them 20s to see the options
 
 		if (context->numSelected > 1) {
 			// we are going to need another vote for this...
@@ -1950,10 +2003,18 @@ void Svcmd_MapRandom_f()
 			G_DBGetLiveMapNameForMapName(context->listOfMaps, overrideMapName, sizeof(overrideMapName));
 			if (overrideMapName[0] && Q_stricmp(overrideMapName, context->listOfMaps)) {
 				Com_Printf("Overriding %s via map alias to %s\n", context->listOfMaps, overrideMapName);
+#ifdef _DEBUG
+				trap_SendConsoleCommand(EXEC_APPEND, va("devmap %s\n", overrideMapName));
+#else
 				trap_SendConsoleCommand(EXEC_APPEND, va("map %s\n", overrideMapName));
+#endif
 			}
 			else {
+#ifdef _DEBUG
+				trap_SendConsoleCommand(EXEC_APPEND, va("devmap %s\n", context->listOfMaps));
+#else
 				trap_SendConsoleCommand(EXEC_APPEND, va("map %s\n", context->listOfMaps));
+#endif
 			}
 		}
 		free(context);
@@ -1964,13 +2025,13 @@ void Svcmd_MapRandom_f()
 }
 
 void Svcmd_MapVote_f(const char *overrideMaps) {
-	if (!g_vote_tierlist.integer && !level.inRunoff && !VALIDSTRING(overrideMaps)) {
+	if (!g_vote_tierlist.integer && !level.inRunoff && !level.voteBanPhaseCompleted && !VALIDSTRING(overrideMaps)) {
 		Com_Printf("g_vote_tierlist is disabled.\n");
 		return;
 	}
 
 	int mapsToRandomize = Com_Clampi(2, MAX_MULTIVOTE_MAPS, g_vote_tierlist_totalMaps.integer);
-	if (!level.inRunoff && !VALIDSTRING(overrideMaps) &&
+	if (!level.inRunoff && !level.voteBanPhaseCompleted && !VALIDSTRING(overrideMaps) &&
 		((g_vote_tierlist_s_max.integer + g_vote_tierlist_a_max.integer + g_vote_tierlist_b_max.integer +
 		g_vote_tierlist_c_max.integer + g_vote_tierlist_f_max.integer < mapsToRandomize) ||
 		(g_vote_tierlist_s_min.integer + g_vote_tierlist_a_min.integer + g_vote_tierlist_b_min.integer +
@@ -2008,6 +2069,11 @@ void Svcmd_MapVote_f(const char *overrideMaps) {
 	context->mapsToRandomize = mapsToRandomize;
 	level.mapsThatCanBeVotedBits = 0;
 
+	int numRedPlayers = 0, numBluePlayers = 0;
+	CountPlayers(NULL, &numRedPlayers, &numBluePlayers, NULL, NULL, NULL, NULL);
+	if (!level.voteBanPhaseCompleted && g_vote_banMap.integer && ((numRedPlayers == 4 && numBluePlayers == 4) || (numRedPlayers == 5 && numBluePlayers == 5)))
+		level.voteBanPhase = qtrue;
+
 	if (VALIDSTRING(overrideMaps)) {
 		int len = strlen(overrideMaps);
 		for (int i = 0; i < len; i++) {
@@ -2024,13 +2090,13 @@ void Svcmd_MapVote_f(const char *overrideMaps) {
 
 	context->mapsToRandomize = g_vote_tierlist_totalMaps.integer;
 
-	if (!level.inRunoff && context->numSelected != context->mapsToRandomize) {
+	if (!level.inRunoff && !level.voteBanPhaseCompleted && context->numSelected != context->mapsToRandomize) {
 		G_Printf("Could not randomize this many maps! Expected %d, but randomized %d\n", context->mapsToRandomize, context->numSelected);
 	}
 
 	// print in console and do a global prioritized center print
 	for (int i = 0; i < MAX_CLIENTS; i++) {
-		if (g_vote_runoffRerollOption.integer && !level.runoffRoundsCompletedIncludingRerollRound && !stristr(context->printMessage[i], "\n"S_COLOR_MAGENTA"/vote r "S_COLOR_WHITE" - Reroll choices"))
+		if (g_vote_runoffRerollOption.integer && !g_vote_banMap.integer && !level.runoffRoundsCompletedIncludingRerollRound && !stristr(context->printMessage[i], "\n"S_COLOR_MAGENTA"/vote r "S_COLOR_WHITE" - Reroll choices"))
 			Q_strcat(context->printMessage[i], sizeof(context->printMessage[i]), "\n"S_COLOR_MAGENTA"/vote r "S_COLOR_WHITE" - Reroll choices");
 
 		if (!level.inRunoff) // don't spam the console for non-first rounds
@@ -2039,9 +2105,9 @@ void Svcmd_MapVote_f(const char *overrideMaps) {
 		// prepend newlines after printing in console but before centerprinting
 		Com_sprintf(context->printMessage[i], sizeof(context->printMessage[i]), "\n\n%s", context->printMessage[i]);
 	}
-	G_UniqueTickedCenterPrint(context->printMessage, sizeof(context->printMessage[0]), 15000, qtrue); // give them 15s to see the options
+	G_UniqueTickedCenterPrint(context->printMessage, sizeof(context->printMessage[0]), 20000, qtrue); // give them 20s to see the options
 
-	if (!level.inRunoff && g_vote_tierlist_reminders.integer) {
+	if (!level.inRunoff && !level.voteBanPhaseCompleted && g_vote_tierlist_reminders.integer) {
 		for (int i = 0; i < MAX_CLIENTS; i++) {
 			if (g_entities[i].inuse && level.clients[i].pers.connected == CON_CONNECTED && !(g_entities[i].r.svFlags & SVF_BOT) && level.clients[i].account &&
 				(level.clients[i].sess.sessionTeam == TEAM_RED || level.clients[i].sess.sessionTeam == TEAM_BLUE)) {
@@ -2063,10 +2129,18 @@ void Svcmd_MapVote_f(const char *overrideMaps) {
 		G_DBGetLiveMapNameForMapName(context->listOfMaps, overrideMapName, sizeof(overrideMapName));
 		if (overrideMapName[0] && Q_stricmp(overrideMapName, context->listOfMaps)) {
 			Com_Printf("Overriding %s via map alias to %s\n", context->listOfMaps, overrideMapName);
+#ifdef _DEBUG
+			trap_SendConsoleCommand(EXEC_APPEND, va("devmap %s\n", overrideMapName));
+#else
 			trap_SendConsoleCommand(EXEC_APPEND, va("map %s\n", overrideMapName));
+#endif
 		}
 		else {
+#ifdef _DEBUG
+			trap_SendConsoleCommand(EXEC_APPEND, va("devmap %s\n", context->listOfMaps));
+#else
 			trap_SendConsoleCommand(EXEC_APPEND, va("map %s\n", context->listOfMaps));
+#endif
 		}
 	}
 	else {
@@ -2096,7 +2170,7 @@ qboolean DoRunoff(void) {
 			numVotesForMap[voteId - 1]++;
 			numVoters++;
 		}
-		else if (g_vote_runoffRerollOption.integer && voteId == -1 && !level.runoffRoundsCompletedIncludingRerollRound) {
+		else if (g_vote_runoffRerollOption.integer && !g_vote_banMap.integer && voteId == -1 && !level.runoffRoundsCompletedIncludingRerollRound) {
 			numVotesToReroll++;
 			numVoters++;
 		}
@@ -2128,7 +2202,7 @@ qboolean DoRunoff(void) {
 	}
 
 	// if reroll is enabled and ANY person voted for it, we handle all of that here and then return
-	if (g_vote_runoffRerollOption.integer && !level.runoffRoundsCompletedIncludingRerollRound && numVotesToReroll) {
+	if (g_vote_runoffRerollOption.integer && !g_vote_banMap.integer && !level.runoffRoundsCompletedIncludingRerollRound && numVotesToReroll) {
 		if (numVotesToReroll > highestNumVotes && numVotesToReroll > (numVoters / 2)) {
 			// reroll has a majority (not just plurality); do it
 
@@ -2171,6 +2245,7 @@ qboolean DoRunoff(void) {
 			g_entities[level.lastVotingClient].client->lastCallvoteTime = level.time;
 			level.voteAutoPassOnExpiration = qfalse;
 			level.multiVoting = qfalse;
+			//level.voteBanPhase = qfalse;
 			level.inRunoff = qfalse;
 			level.multiVoteChoices = 0;
 			level.multiVoteHasWildcard = qfalse;
@@ -2179,6 +2254,7 @@ qboolean DoRunoff(void) {
 			//level.multiVoteTimeExtensions = 0;
 			level.runoffSurvivors = level.runoffLosers/* = level.successfulRerollVoters*/ = 0llu;
 			memset(level.multiVotes, 0, sizeof(level.multiVotes));
+			memset(&(level.multiVoteBanVotes), 0, sizeof(level.multiVoteBanVotes));
 			memset(&level.multiVoteMapChars, 0, sizeof(level.multiVoteMapChars));
 			memset(&level.multiVoteMapShortNames, 0, sizeof(level.multiVoteMapShortNames));
 			level.voteStartTime = 0;
@@ -2215,7 +2291,7 @@ qboolean DoRunoff(void) {
 					removedVotes[i] = REMOVEDVOTE_REROLLVOTE;
 					numFailedRerollers++;
 					G_LogPrintf("Client %d (%s) had their \"%s\" reroll vote removed.\n", i, level.clients[i].pers.netname, level.multiVoteMapShortNames[((int)level.multiVoteMapChars[voteId - 1]) - 1]);
-					NotifyTeammatesOfVote(&g_entities[i], "'s reroll vote was removed");
+					NotifyTeammatesOfVote(&g_entities[i], "'s reroll vote was removed", "^5");
 				}
 				else { // this guy's map survived; his vote will be reinstated
 					reinstateVotes[i] = level.multiVoteMapChars[level.multiVotes[i] - 1];
@@ -2239,6 +2315,7 @@ qboolean DoRunoff(void) {
 
 			// start the next round of voting
 			level.multiVoting = qfalse;
+			level.voteBanPhase = qfalse; // sanity check
 			level.inRunoff = qtrue;
 			++level.runoffRoundsCompletedIncludingRerollRound;
 			Svcmd_MapVote_f(level.multiVoteMapChars);
@@ -2372,7 +2449,7 @@ qboolean DoRunoff(void) {
 				removedVotes[i] = level.multiVoteMapChars[level.multiVotes[i] - 1];
 				numRunoffLosers++;
 				G_LogPrintf("Client %d (%s) had their \"%s\" vote removed.\n", i, level.clients[i].pers.netname, level.multiVoteMapShortNames[((int)level.multiVoteMapChars[voteId - 1]) - 1]);
-				NotifyTeammatesOfVote(&g_entities[i], "'s vote was removed");
+				NotifyTeammatesOfVote(&g_entities[i], "'s vote was removed", "^5");
 			}
 			else { // this guy's map survived; his vote will be reinstated
 				reinstateVotes[i] = level.multiVoteMapChars[level.multiVotes[i] - 1];
@@ -2422,6 +2499,7 @@ qboolean DoRunoff(void) {
 		}
 		// start the next round of voting
 		level.multiVoting = qfalse;
+		//level.voteBanPhase = qfalse;
 		level.inRunoff = qtrue;
 		++level.runoffRoundsCompletedIncludingRerollRound;
 		Svcmd_MapVote_f(newMapChars);
@@ -2448,7 +2526,7 @@ static void ChangeVote(int team, int mapId, int scenario) {
 		Com_Printf("[Troll vote scenario %d] Automatically made client %d troll vote for map %d with team\n", scenario, i, mapId);
 		NotifyTeammatesOfVote(ent, va(" auto-forced to vote ^6%d^5%s",
 			mapId,
-			level.multiVoteMapShortNames[mapId - 1][0] ? va(" - %s", level.multiVoteMapShortNames[mapId - 1]) : ""));
+			level.multiVoteMapShortNames[mapId - 1][0] ? va(" - %s", level.multiVoteMapShortNames[mapId - 1]) : ""), "^5");
 	}
 }
 
@@ -2456,7 +2534,7 @@ static void ChangeVote(int team, int mapId, int scenario) {
 // note that numVotes **INCLUDES*** numRerollVotes
 // don't forget to FREE THE RESULT
 int* BuildVoteResults( int numChoices, int *numVotes, int *highestVoteCount, qboolean *dontEndDueToMajority, int *numRerollVotes, qboolean canChangeAfkVotes) {
-	if (level.inRunoff) {
+	if (level.inRunoff || level.voteBanPhaseCompleted) {
 		numChoices = 0;
 		for (int i = 0; i < MAX_MULTIVOTE_MAPS; i++)
 			if (level.multiVoteMapFileNames[i][0])
@@ -2468,7 +2546,7 @@ int* BuildVoteResults( int numChoices, int *numVotes, int *highestVoteCount, qbo
 	qboolean someoneVotedToReroll = qfalse;
 	for (int i = 0; i < MAX_CLIENTS; ++i) {
 		int voteId = level.multiVotes[i];
-		if (voteId == -1 && g_vote_runoffRerollOption.integer) {
+		if (voteId == -1 && g_vote_runoffRerollOption.integer && !g_vote_banMap.integer) {
 			someoneVotedToReroll = qtrue;
 			break;
 		}
@@ -2684,7 +2762,7 @@ int* BuildVoteResults( int numChoices, int *numVotes, int *highestVoteCount, qbo
 				*highestVoteCount = voteResults[voteId - 1];
 			}
 		} 
-		else if (g_vote_runoffRerollOption.integer && voteId == -1) {
+		else if (g_vote_runoffRerollOption.integer && !g_vote_banMap.integer && voteId == -1) {
 			if (numVotes) (*numVotes)++;
 			if (numRerollVotes) (*numRerollVotes)++;
 		}
@@ -2698,7 +2776,7 @@ int* BuildVoteResults( int numChoices, int *numVotes, int *highestVoteCount, qbo
 
 static void PickRandomMultiMap( const int *voteResults, int numChoices, const int numVotingClients,
 	const int numVotes, const int highestVoteCount, qboolean *hasWildcard, char *out, size_t outSize ) {
-	if (level.inRunoff) {
+	if (level.inRunoff || level.voteBanPhaseCompleted) {
 		numChoices = 0;
 		for (int i = 0; i < MAX_MULTIVOTE_MAPS; i++)
 			if (level.multiVoteMapFileNames[i][0])
@@ -2709,7 +2787,7 @@ static void PickRandomMultiMap( const int *voteResults, int numChoices, const in
 		// one map has a >50% majority, find it and pass it
 		for ( int i = 0; i < numChoices; ++i ) {
 			if ( voteResults[i] == highestVoteCount ) {
-				if (level.inRunoff)
+				if (level.inRunoff || level.voteBanPhaseCompleted)
 					Q_strncpyz(out, level.multiVoteMapFileNames[i], outSize);
 				else
 					trap_Argv( i + 1, out, outSize );
@@ -2743,7 +2821,7 @@ static void PickRandomMultiMap( const int *voteResults, int numChoices, const in
 				}
 			}
 			if (numWithHighestVoteCount == 1 && mapWithHighestVoteCount != -1) {
-				if (level.inRunoff)
+				if (level.inRunoff || level.voteBanPhaseCompleted)
 					Q_strncpyz(out, level.multiVoteMapFileNames[mapWithHighestVoteCount], outSize);
 				else
 					trap_Argv(mapWithHighestVoteCount + 1, out, outSize);
@@ -2919,7 +2997,7 @@ static void PickRandomMultiMap( const int *voteResults, int numChoices, const in
 		*hasWildcard = qfalse;
 	}
 
-	if (level.inRunoff)
+	if (level.inRunoff || level.voteBanPhaseCompleted)
 		Q_strncpyz(out, level.multiVoteMapFileNames[result - 1], outSize);
 	else
 		trap_Argv( result, out, outSize );
@@ -2974,7 +3052,7 @@ void Svcmd_MapMultiVote_f() {
 			if (Q_stricmp(level.multiVoteMapFileNames[j], mapname))
 				continue;
 
-			if (level.inRunoff) // not sure why this condition is needed but i'm not deleting it at this point because i must have had a reason to write it before :madman_tomato: :spaghetti:
+			if (level.inRunoff || level.voteBanPhaseCompleted) // not sure why this condition is needed but i'm not deleting it at this point because i must have had a reason to write it before :madman_tomato: :spaghetti:
 				numVotesForThisMap = voteResults[j];
 				
 			// see how many of each team voted for this map
@@ -3059,11 +3137,19 @@ void Svcmd_MapMultiVote_f() {
 	G_DBGetLiveMapNameForMapName(selectedMapname, overrideMapName, sizeof(overrideMapName));
 	if (overrideMapName[0] && Q_stricmp(overrideMapName, selectedMapname)) {
 		Com_Printf("Overriding %s via map alias to %s\n", selectedMapname, overrideMapName);
+#ifdef _DEBUG
+		Q_strncpyz(level.voteString, va("devmap %s", overrideMapName), sizeof(level.voteString));
+#else
 		Q_strncpyz(level.voteString, va("map %s", overrideMapName), sizeof(level.voteString));
+#endif
 		trap_Cvar_Set("g_lastMapVotedMap", overrideMapName);
 	}
 	else {
+#ifdef _DEBUG
+		Q_strncpyz(level.voteString, va("devmap %s", selectedMapname), sizeof(level.voteString));
+#else
 		Q_strncpyz(level.voteString, va("map %s", selectedMapname), sizeof(level.voteString));
+#endif
 		trap_Cvar_Set("g_lastMapVotedMap", selectedMapname);
 	}
 	char timeBuf[MAX_STRING_CHARS] = { 0 };
@@ -3071,6 +3157,7 @@ void Svcmd_MapMultiVote_f() {
 	trap_Cvar_Set("g_lastMapVotedTime", timeBuf);
 	level.voteExecuteTime = level.time + 3000;
 	level.multiVoting = qfalse;
+	level.voteBanPhase = qfalse;
 	level.multiVoteHasWildcard = qfalse;
 	level.multiVoteChoices = 0;
 	level.multivoteWildcardMapFileName[0] = '\0';
@@ -3078,11 +3165,12 @@ void Svcmd_MapMultiVote_f() {
 	level.multiVoteTimeExtensions = 0;
 	level.runoffSurvivors = level.runoffLosers = level.successfulRerollVoters = 0llu;
 	memset(level.multiVotes, 0, sizeof(level.multiVotes));
+	memset(&(level.multiVoteBanVotes), 0, sizeof(level.multiVoteBanVotes));
+	memset(level.bannedMapNames, 0, sizeof(level.bannedMapNames));
 	memset(&level.multiVoteMapChars, 0, sizeof(level.multiVoteMapChars));
 	memset(&level.multiVoteMapShortNames, 0, sizeof(level.multiVoteMapShortNames));
 	memset(&level.multiVoteMapFileNames, 0, sizeof(level.multiVoteMapFileNames));
 	level.inRunoff = qfalse;
-	memset( level.multiVotes, 0, sizeof( level.multiVotes ) );
 }
 
 void Svcmd_SpecAll_f() {

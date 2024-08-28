@@ -1310,6 +1310,27 @@ void G_MoverTouchPushTriggers( gentity_t *ent, vec3_t oldOrg )
 	}
 }
 
+extern ctfPosition_t PermutationHasPlayer(int accountId, permutationOfTeams_t *p);
+static qboolean PlayerIsInTeamInActivePugProposal(int accountId) {
+	if (!level.activePugProposal)
+		return qfalse;
+	if (PermutationHasPlayer(accountId, &level.activePugProposal->suggested))
+		return qtrue;
+	if (PermutationHasPlayer(accountId, &level.activePugProposal->highestCaliber))
+		return qtrue;
+	if (PermutationHasPlayer(accountId, &level.activePugProposal->fairest))
+		return qtrue;
+	if (PermutationHasPlayer(accountId, &level.activePugProposal->desired))
+		return qtrue;
+	if (PermutationHasPlayer(accountId, &level.activePugProposal->semiDesired))
+		return qtrue;
+	if (PermutationHasPlayer(accountId, &level.activePugProposal->inclusive))
+		return qtrue;
+	if (PermutationHasPlayer(accountId, &level.activePugProposal->firstChoice))
+		return qtrue;
+	return qfalse;
+}
+
 static int toldCantMoveTime[MAX_GENTITIES] = { 0 };
 static int firstToldCantMoveTime[MAX_GENTITIES] = { 0 };
 
@@ -1326,7 +1347,7 @@ void SpectatorThink( gentity_t *ent, usercmd_t *ucmd ) {
 
 	int frozen = 0;
 	if (g_vote_freezeUntilVote.integer && !ent->isAimPracticePack && client->pers.connected == CON_CONNECTED && !level.intermissionQueued && !level.intermissiontime) {
-		if (level.voteTime && level.multiVoting && (ent->client->mGameFlags & PSG_CANVOTE) && !(ent->client->mGameFlags & PSG_VOTED) && (g_vote_freezeUntilVote.integer & (1 << 0))) {
+		if (level.voteTime && level.multiVoting && !level.voteBanPhase && (ent->client->mGameFlags & PSG_CANVOTE) && !(ent->client->mGameFlags & PSG_VOTED) && (g_vote_freezeUntilVote.integer & (1 << 0))) {
 			frozen |= 1;
 		}
 		if (level.activePugProposal && client->account && (g_vote_freezeUntilVote.integer & (1 << 1))) {
@@ -1340,42 +1361,46 @@ void SpectatorThink( gentity_t *ent, usercmd_t *ucmd ) {
 			}
 
 			if (partOfActiveProposal) {
-				qboolean hasVoted = qfalse;
-				if (level.activePugProposal->suggested.valid && level.activePugProposal->suggestedVoteClientsRed & (1 << ent->s.number))
-					hasVoted = qtrue;
-				else if (level.activePugProposal->highestCaliber.valid && level.activePugProposal->highestCaliberVoteClientsRed & (1 << ent->s.number))
-					hasVoted = qtrue;
-				else if (level.activePugProposal->fairest.valid && level.activePugProposal->fairestVoteClientsRed & (1 << ent->s.number))
-					hasVoted = qtrue;
-				else if (level.activePugProposal->desired.valid && level.activePugProposal->desiredVoteClientsRed & (1 << ent->s.number))
-					hasVoted = qtrue;
-				else if (level.activePugProposal->semiDesired.valid && level.activePugProposal->semiDesiredVoteClientsRed & (1 << ent->s.number))
-					hasVoted = qtrue;
-				else if (level.activePugProposal->inclusive.valid && level.activePugProposal->inclusiveVoteClientsRed & (1 << ent->s.number))
-					hasVoted = qtrue;
-				else if (level.activePugProposal->firstChoice.valid && level.activePugProposal->firstChoiceVoteClientsRed & (1 << ent->s.number))
-					hasVoted = qtrue;
-				else if (level.activePugProposal->suggested.valid && level.activePugProposal->suggestedVoteClientsBlue & (1 << ent->s.number))
-					hasVoted = qtrue;
-				else if (level.activePugProposal->highestCaliber.valid && level.activePugProposal->highestCaliberVoteClientsBlue & (1 << ent->s.number))
-					hasVoted = qtrue;
-				else if (level.activePugProposal->fairest.valid && level.activePugProposal->fairestVoteClientsBlue & (1 << ent->s.number))
-					hasVoted = qtrue;
-				else if (level.activePugProposal->desired.valid && level.activePugProposal->desiredVoteClientsBlue & (1 << ent->s.number))
-					hasVoted = qtrue;
-				else if (level.activePugProposal->semiDesired.valid && level.activePugProposal->semiDesiredVoteClientsBlue & (1 << ent->s.number))
-					hasVoted = qtrue;
-				else if (level.activePugProposal->inclusive.valid && level.activePugProposal->inclusiveVoteClientsBlue & (1 << ent->s.number))
-					hasVoted = qtrue;
-				else if (level.activePugProposal->firstChoice.valid && level.activePugProposal->firstChoiceVoteClientsBlue & (1 << ent->s.number))
-					hasVoted = qtrue;
-				else if (level.activePugProposal->votedToRerollClients & (1 << ent->s.number))
-					hasVoted = qtrue;
-				else if (level.activePugProposal->votedToCancelClients & (1 << ent->s.number))
-					hasVoted = qtrue;
+				const qboolean actuallyOnATeam = PlayerIsInTeamInActivePugProposal(client->account->id);
 
-				if (!hasVoted)
-					frozen |= 2;
+				if (actuallyOnATeam) {
+					qboolean hasVoted = qfalse;
+					if (level.activePugProposal->suggested.valid && level.activePugProposal->suggestedVoteClientsRed & (1 << ent->s.number))
+						hasVoted = qtrue;
+					else if (level.activePugProposal->highestCaliber.valid && level.activePugProposal->highestCaliberVoteClientsRed & (1 << ent->s.number))
+						hasVoted = qtrue;
+					else if (level.activePugProposal->fairest.valid && level.activePugProposal->fairestVoteClientsRed & (1 << ent->s.number))
+						hasVoted = qtrue;
+					else if (level.activePugProposal->desired.valid && level.activePugProposal->desiredVoteClientsRed & (1 << ent->s.number))
+						hasVoted = qtrue;
+					else if (level.activePugProposal->semiDesired.valid && level.activePugProposal->semiDesiredVoteClientsRed & (1 << ent->s.number))
+						hasVoted = qtrue;
+					else if (level.activePugProposal->inclusive.valid && level.activePugProposal->inclusiveVoteClientsRed & (1 << ent->s.number))
+						hasVoted = qtrue;
+					else if (level.activePugProposal->firstChoice.valid && level.activePugProposal->firstChoiceVoteClientsRed & (1 << ent->s.number))
+						hasVoted = qtrue;
+					else if (level.activePugProposal->suggested.valid && level.activePugProposal->suggestedVoteClientsBlue & (1 << ent->s.number))
+						hasVoted = qtrue;
+					else if (level.activePugProposal->highestCaliber.valid && level.activePugProposal->highestCaliberVoteClientsBlue & (1 << ent->s.number))
+						hasVoted = qtrue;
+					else if (level.activePugProposal->fairest.valid && level.activePugProposal->fairestVoteClientsBlue & (1 << ent->s.number))
+						hasVoted = qtrue;
+					else if (level.activePugProposal->desired.valid && level.activePugProposal->desiredVoteClientsBlue & (1 << ent->s.number))
+						hasVoted = qtrue;
+					else if (level.activePugProposal->semiDesired.valid && level.activePugProposal->semiDesiredVoteClientsBlue & (1 << ent->s.number))
+						hasVoted = qtrue;
+					else if (level.activePugProposal->inclusive.valid && level.activePugProposal->inclusiveVoteClientsBlue & (1 << ent->s.number))
+						hasVoted = qtrue;
+					else if (level.activePugProposal->firstChoice.valid && level.activePugProposal->firstChoiceVoteClientsBlue & (1 << ent->s.number))
+						hasVoted = qtrue;
+					else if (level.activePugProposal->votedToRerollClients & (1 << ent->s.number))
+						hasVoted = qtrue;
+					else if (level.activePugProposal->votedToCancelClients & (1 << ent->s.number))
+						hasVoted = qtrue;
+
+					if (!hasVoted)
+						frozen |= 2;
+				}
 			}
 		}
 	}
@@ -3606,7 +3631,7 @@ void ClientThink_real( gentity_t *ent ) {
 
 	int frozen = 0;
 	if (g_vote_freezeUntilVote.integer && !ent->isAimPracticePack && client->pers.connected == CON_CONNECTED && !level.intermissionQueued && !level.intermissiontime) {
-		if (level.voteTime && level.multiVoting && (ent->client->mGameFlags & PSG_CANVOTE) && !(ent->client->mGameFlags & PSG_VOTED) && (g_vote_freezeUntilVote.integer & (1 << 0))) {
+		if (level.voteTime && level.multiVoting && !level.voteBanPhase && (ent->client->mGameFlags & PSG_CANVOTE) && !(ent->client->mGameFlags & PSG_VOTED) && (g_vote_freezeUntilVote.integer & (1 << 0))) {
 			frozen |= 1;
 		}
 		if (level.activePugProposal && client->account && (g_vote_freezeUntilVote.integer & (1 << 1))) {
@@ -3620,42 +3645,46 @@ void ClientThink_real( gentity_t *ent ) {
 			}
 
 			if (partOfActiveProposal) {
-				qboolean hasVoted = qfalse;
-				if (level.activePugProposal->suggested.valid && level.activePugProposal->suggestedVoteClientsRed & (1 << ent->s.number))
-					hasVoted = qtrue;
-				else if (level.activePugProposal->highestCaliber.valid && level.activePugProposal->highestCaliberVoteClientsRed & (1 << ent->s.number))
-					hasVoted = qtrue;
-				else if (level.activePugProposal->fairest.valid && level.activePugProposal->fairestVoteClientsRed & (1 << ent->s.number))
-					hasVoted = qtrue;
-				else if (level.activePugProposal->desired.valid && level.activePugProposal->desiredVoteClientsRed & (1 << ent->s.number))
-					hasVoted = qtrue;
-				else if (level.activePugProposal->semiDesired.valid && level.activePugProposal->semiDesiredVoteClientsRed & (1 << ent->s.number))
-					hasVoted = qtrue;
-				else if (level.activePugProposal->inclusive.valid && level.activePugProposal->inclusiveVoteClientsRed & (1 << ent->s.number))
-					hasVoted = qtrue;
-				else if (level.activePugProposal->firstChoice.valid && level.activePugProposal->firstChoiceVoteClientsRed & (1 << ent->s.number))
-					hasVoted = qtrue;
-				else if (level.activePugProposal->suggested.valid && level.activePugProposal->suggestedVoteClientsBlue & (1 << ent->s.number))
-					hasVoted = qtrue;
-				else if (level.activePugProposal->highestCaliber.valid && level.activePugProposal->highestCaliberVoteClientsBlue & (1 << ent->s.number))
-					hasVoted = qtrue;
-				else if (level.activePugProposal->fairest.valid && level.activePugProposal->fairestVoteClientsBlue & (1 << ent->s.number))
-					hasVoted = qtrue;
-				else if (level.activePugProposal->desired.valid && level.activePugProposal->desiredVoteClientsBlue & (1 << ent->s.number))
-					hasVoted = qtrue;
-				else if (level.activePugProposal->semiDesired.valid && level.activePugProposal->semiDesiredVoteClientsBlue & (1 << ent->s.number))
-					hasVoted = qtrue;
-				else if (level.activePugProposal->inclusive.valid && level.activePugProposal->inclusiveVoteClientsBlue & (1 << ent->s.number))
-					hasVoted = qtrue;
-				else if (level.activePugProposal->firstChoice.valid && level.activePugProposal->firstChoiceVoteClientsRed & (1 << ent->s.number))
-					hasVoted = qtrue;
-				else if (level.activePugProposal->votedToRerollClients & (1 << ent->s.number))
-					hasVoted = qtrue;
-				else if (level.activePugProposal->votedToCancelClients & (1 << ent->s.number))
-					hasVoted = qtrue;
+				const qboolean actuallyOnATeam = PlayerIsInTeamInActivePugProposal(client->account->id);
 
-				if (!hasVoted)
-					frozen |= 2;
+				if (actuallyOnATeam) {
+					qboolean hasVoted = qfalse;
+					if (level.activePugProposal->suggested.valid && level.activePugProposal->suggestedVoteClientsRed & (1 << ent->s.number))
+						hasVoted = qtrue;
+					else if (level.activePugProposal->highestCaliber.valid && level.activePugProposal->highestCaliberVoteClientsRed & (1 << ent->s.number))
+						hasVoted = qtrue;
+					else if (level.activePugProposal->fairest.valid && level.activePugProposal->fairestVoteClientsRed & (1 << ent->s.number))
+						hasVoted = qtrue;
+					else if (level.activePugProposal->desired.valid && level.activePugProposal->desiredVoteClientsRed & (1 << ent->s.number))
+						hasVoted = qtrue;
+					else if (level.activePugProposal->semiDesired.valid && level.activePugProposal->semiDesiredVoteClientsRed & (1 << ent->s.number))
+						hasVoted = qtrue;
+					else if (level.activePugProposal->inclusive.valid && level.activePugProposal->inclusiveVoteClientsRed & (1 << ent->s.number))
+						hasVoted = qtrue;
+					else if (level.activePugProposal->firstChoice.valid && level.activePugProposal->firstChoiceVoteClientsRed & (1 << ent->s.number))
+						hasVoted = qtrue;
+					else if (level.activePugProposal->suggested.valid && level.activePugProposal->suggestedVoteClientsBlue & (1 << ent->s.number))
+						hasVoted = qtrue;
+					else if (level.activePugProposal->highestCaliber.valid && level.activePugProposal->highestCaliberVoteClientsBlue & (1 << ent->s.number))
+						hasVoted = qtrue;
+					else if (level.activePugProposal->fairest.valid && level.activePugProposal->fairestVoteClientsBlue & (1 << ent->s.number))
+						hasVoted = qtrue;
+					else if (level.activePugProposal->desired.valid && level.activePugProposal->desiredVoteClientsBlue & (1 << ent->s.number))
+						hasVoted = qtrue;
+					else if (level.activePugProposal->semiDesired.valid && level.activePugProposal->semiDesiredVoteClientsBlue & (1 << ent->s.number))
+						hasVoted = qtrue;
+					else if (level.activePugProposal->inclusive.valid && level.activePugProposal->inclusiveVoteClientsBlue & (1 << ent->s.number))
+						hasVoted = qtrue;
+					else if (level.activePugProposal->firstChoice.valid && level.activePugProposal->firstChoiceVoteClientsRed & (1 << ent->s.number))
+						hasVoted = qtrue;
+					else if (level.activePugProposal->votedToRerollClients & (1 << ent->s.number))
+						hasVoted = qtrue;
+					else if (level.activePugProposal->votedToCancelClients & (1 << ent->s.number))
+						hasVoted = qtrue;
+
+					if (!hasVoted)
+						frozen |= 2;
+				}
 			}
 		}
 	}

@@ -4664,12 +4664,16 @@ void Cmd_CallVote_f( gentity_t *ent, int pause ) {
 	level.voteNo = 0;
 	level.lastVotingClient = ent-g_entities;
 	level.multiVoting = qfalse;
+	level.voteBanPhase = qfalse;
+	level.voteBanPhaseCompleted = qfalse;
 	level.runoffSurvivors = level.runoffLosers = level.successfulRerollVoters = 0llu;
 	level.inRunoff = qfalse;
 	level.mapsThatCanBeVotedBits = 0;
 	level.multiVoteChoices = 0;
 	level.multiVoteTimeExtensions = 0;
 	memset( &( level.multiVotes ), 0, sizeof( level.multiVotes ) );
+	memset( &( level.multiVoteBanVotes), 0, sizeof( level.multiVoteBanVotes) );
+	memset(level.bannedMapNames, 0, sizeof(level.bannedMapNames));
 
 	fixVoters( racersAllowVote, onlyThisTeamCanVote);
 
@@ -4684,7 +4688,7 @@ void Cmd_CallVote_f( gentity_t *ent, int pause ) {
 }
 
 // make sure to prepend text with a space, if needed
-void NotifyTeammatesOfVote(gentity_t *voter, char *text) {
+void NotifyTeammatesOfVote(gentity_t *voter, char *text, char *color) {
 	if (!g_vote_notifyTeammatesOfMapChoice.integer || g_gametype.integer != GT_CTF)
 		return;
 
@@ -4707,10 +4711,13 @@ void NotifyTeammatesOfVote(gentity_t *voter, char *text) {
 			continue;
 
 		char buf[MAX_STRING_CHARS] = { 0 };
-		Com_sprintf(buf, sizeof(buf), "^5%s^5%s%s^5.",
+		Com_sprintf(buf, sizeof(buf), "%s%s%s%s%s%s.",
+			color,
 			voter->client->account && VALIDSTRING(voter->client->account->name) ? voter->client->account->name : voter->client->pers.netname,
+			color,
 			posStr[0] ? posStr : "",
-			textCopied);
+			textCopied,
+			color);
 
 		TeamGenerator_QueueServerMessageInChat(i, buf);
 	}
@@ -4722,7 +4729,7 @@ Cmd_Vote_f
 ==================
 */
 void Cmd_Vote_f( gentity_t *ent, const char *forceVoteArg ) {
-	char		msg[64];
+	char		msg[64] = { 0 };
 
 	if ( !level.voteTime ) {
 		trap_SendServerCommand( ent-g_entities, va("print \"%s\n\"", G_GetStringEdString("MP_SVGAME", "NOVOTEINPROG")) );
@@ -4731,6 +4738,11 @@ void Cmd_Vote_f( gentity_t *ent, const char *forceVoteArg ) {
 
 	if ( !(ent->client->mGameFlags & PSG_CANVOTE) ) {
 		trap_SendServerCommand( ent-g_entities, va("print \"%s\n\"", "You can't participate in this vote.") );
+		return;
+	}
+
+	if (level.voteBanPhase && level.multiVoting) {
+		PrintIngame(ent - g_entities, "Ban a map using ^8/ban <map number>^7. Separate commands are used to prevent misvotes.\n");
 		return;
 	}
 
@@ -4813,18 +4825,18 @@ void Cmd_Vote_f( gentity_t *ent, const char *forceVoteArg ) {
 		// multi map vote, only allow voting for valid choice ids
 		int voteId = atoi( msg );
 
-		if (g_vote_runoffRerollOption.integer && !level.runoffRoundsCompletedIncludingRerollRound && !Q_stricmp(msg, "r")) {
+		if (g_vote_runoffRerollOption.integer && !g_vote_banMap.integer && !level.runoffRoundsCompletedIncludingRerollRound && !Q_stricmp(msg, "r")) {
 			if (!(ent->client->mGameFlags & PSG_VOTED)) { // first vote
 				G_LogPrintf("Client %i (%s) voted to reroll\n", ent - g_entities, ent->client->pers.netname);
 				level.voteYes++;
 				trap_SetConfigstring(CS_VOTE_YES, va("%i", level.voteYes));
 
-				NotifyTeammatesOfVote(ent, " voted to ^6reroll");
+				NotifyTeammatesOfVote(ent, " voted to ^6reroll", "^5");
 			}
 			else { // changing vote
 				G_LogPrintf("Client %i (%s) changed their vote to reroll\n", ent - g_entities, ent->client->pers.netname);
 
-				NotifyTeammatesOfVote(ent, " changed vote to ^6reroll");
+				NotifyTeammatesOfVote(ent, " changed vote to ^6reroll", "^5");
 			}
 
 			level.multiVotes[ent - g_entities] = -1;
@@ -4847,7 +4859,7 @@ void Cmd_Vote_f( gentity_t *ent, const char *forceVoteArg ) {
 				NotifyTeammatesOfVote(ent, va(" voted ^6%d^5%s",
 					voteId,
 					level.multiVoteMapShortNames[voteId - 1][0] ? va(" - %s", level.multiVoteMapShortNames[voteId - 1]) : ""
-					));
+					), "^5");
 			}
 			else { // changing vote
 				if (level.multiVotes[ent - g_entities] != voteId) {
@@ -4857,7 +4869,7 @@ void Cmd_Vote_f( gentity_t *ent, const char *forceVoteArg ) {
 					NotifyTeammatesOfVote(ent, va(" changed vote to ^6%d^5%s",
 						voteId,
 						level.multiVoteMapShortNames[voteId - 1][0] ? va(" - %s", level.multiVoteMapShortNames[voteId - 1]) : ""
-					));
+					), "^5");
 				}
 			}
 
@@ -4871,6 +4883,76 @@ void Cmd_Vote_f( gentity_t *ent, const char *forceVoteArg ) {
 
 	// a majority will be determined in CheckVote, which will also account
 	// for players entering or leaving
+}
+
+void Cmd_Ban_f(gentity_t *ent) {
+	char		msg[64] = { 0 };
+
+	if (!level.voteBanPhase || !level.multiVoting) {
+		PrintIngame(ent - g_entities, "You cannot currently use this command.\n");
+		return;
+	}
+
+	if (!level.voteTime) {
+		trap_SendServerCommand(ent - g_entities, va("print \"%s\n\"", G_GetStringEdString("MP_SVGAME", "NOVOTEINPROG")));
+		return;
+	}
+
+	if (!(ent->client->mGameFlags & PSG_CANVOTE)) {
+		trap_SendServerCommand(ent - g_entities, va("print \"%s\n\"", "You can't participate in this vote."));
+		return;
+	}
+
+	if (g_gametype.integer != GT_DUEL &&
+		g_gametype.integer != GT_POWERDUEL)
+	{
+		if (ent->client->sess.sessionTeam == TEAM_SPECTATOR) {
+			trap_SendServerCommand(ent - g_entities, va("print \"%s\n\"", G_GetStringEdString("MP_SVGAME", "NOVOTEASSPEC")));
+			return;
+		}
+	}
+
+	qboolean printVoteCast = qtrue;
+
+	trap_Argv(1, msg, sizeof(msg));
+	int voteId = atoi(msg);
+
+	int integerBits = 8 * sizeof(int);
+	if (voteId <= 0 || /*voteId > level.multiVoteChoices || */voteId > integerBits || !(level.mapsThatCanBeVotedBits & (1 << (voteId - 1)))) {
+		trap_SendServerCommand(ent - g_entities, "print \"Invalid choice, please use /ban (number) from console\n\"");
+		return;
+	}
+
+	// we maintain an internal array of choice ids, and only use voteYes to show how many people voted
+
+	if (!(ent->client->mGameFlags & PSG_VOTED)) { // first vote
+		G_LogPrintf("Client %i (%s) voted to ban choice %d%s\n", ent - g_entities, ent->client->pers.netname, voteId,
+			level.multiVoteMapShortNames[voteId - 1][0] ? va(" (%s)", level.multiVoteMapShortNames[voteId - 1]) : "");
+		level.voteYes++;
+		trap_SetConfigstring(CS_VOTE_YES, va("%i", level.voteYes));
+
+		NotifyTeammatesOfVote(ent, va(" voted to ban ^6%d^8%s",
+			voteId,
+			level.multiVoteMapShortNames[voteId - 1][0] ? va(" - %s", level.multiVoteMapShortNames[voteId - 1]) : ""
+		), "^8");
+	}
+	else { // changing vote
+		if (level.multiVotes[ent - g_entities] != voteId) {
+			G_LogPrintf("Client %i (%s) changed their ban vote to choice %d%s\n", ent - g_entities, ent->client->pers.netname, voteId,
+				level.multiVoteMapShortNames[voteId][0] ? va(" (%s)", level.multiVoteMapShortNames[voteId - 1]) : "");
+
+			NotifyTeammatesOfVote(ent, va(" changed ban vote to ^6%d^8%s",
+				voteId,
+				level.multiVoteMapShortNames[voteId - 1][0] ? va(" - %s", level.multiVoteMapShortNames[voteId - 1]) : ""
+			), "^8");
+		}
+	}
+
+	level.multiVoteBanVotes[ent - g_entities] = voteId;
+
+	if (printVoteCast)
+		PrintIngame(ent - g_entities, "Ban vote cast.\n");
+	ent->client->mGameFlags |= PSG_VOTED;
 }
 
 static void Cmd_Ready_f(gentity_t *ent) {
@@ -10687,6 +10769,8 @@ void ClientCommand( int clientNum ) {
 #endif
 	else if (!Q_stricmp(cmd, "pack"))
 		Cmd_Pack_f(ent);
+	else if (!Q_stricmp(cmd, "ban"))
+		Cmd_Ban_f(ent);
 	else if (Q_stricmp(cmd, "callvote") == 0)
 		Cmd_CallVote_f(ent, PAUSE_NONE);
 	else if (!Q_stricmp(cmd, "pause"))

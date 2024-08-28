@@ -544,6 +544,9 @@ vmCvar_t	g_vote_redirectMapVoteToLiveVersion;
 vmCvar_t	g_vote_printLiveVersionFullName;
 vmCvar_t	g_vote_overrideTrollVoters;
 vmCvar_t	g_vote_runoffRerollOption;
+vmCvar_t	g_vote_banMap;
+vmCvar_t	g_vote_banPhaseTimeModifier;
+vmCvar_t	g_vote_banRemindVotesRequired;
 
 vmCvar_t	g_vote_teamgen;
 vmCvar_t	g_vote_teamgen_subhelp;
@@ -1160,8 +1163,8 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_enableMemePickups,	"g_enableMemePickups", "0"	, CVAR_LATCH, 0, qtrue },
 
 	{ &g_vote_tierlist, "g_vote_tierlist", "0", CVAR_ARCHIVE, 0, qtrue },
-	{ &g_vote_tierlist_s_min, "g_vote_tierlist_s_min", "3", CVAR_ARCHIVE, 0, qtrue },
-	{ &g_vote_tierlist_s_max, "g_vote_tierlist_s_max", "3", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_tierlist_s_min, "g_vote_tierlist_s_min", "4", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_tierlist_s_max, "g_vote_tierlist_s_max", "4", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_tierlist_a_min, "g_vote_tierlist_a_min", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_tierlist_a_max, "g_vote_tierlist_a_max", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_tierlist_b_min, "g_vote_tierlist_b_min", "1", CVAR_ARCHIVE, 0, qtrue },
@@ -1170,7 +1173,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_tierlist_c_max, "g_vote_tierlist_c_max", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_tierlist_f_min, "g_vote_tierlist_f_min", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_tierlist_f_max, "g_vote_tierlist_f_max", "0", CVAR_ARCHIVE, 0, qtrue },
-	{ &g_vote_tierlist_totalMaps, "g_vote_tierlist_totalMaps", "5", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_tierlist_totalMaps, "g_vote_tierlist_totalMaps", "6", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_tierlist_debug, "g_vote_tierlist_debug", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_tierlist_reminders, "g_vote_tierlist_reminders", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_tierlist_fixShittyPools, "g_vote_tierlist_fixShittyPools", "1", CVAR_ARCHIVE, 0, qtrue },
@@ -1185,6 +1188,9 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_overrideTrollVoters, "g_vote_overrideTrollVoters", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_teamgen_autoMapVoteNonAfkAutoVoteYesSeconds, "g_vote_teamgen_autoMapVoteNonAfkAutoVoteYesSeconds", "5", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_runoffRerollOption, "g_vote_runoffRerollOption", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
+	{ &g_vote_banMap, "g_vote_banMap", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
+	{ &g_vote_banPhaseTimeModifier, "g_vote_banPhaseTimeModifier", "10", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_banRemindVotesRequired, "g_vote_banRemindVotesRequired", "0", CVAR_ARCHIVE, 0, qfalse },
 
 	{ &g_vote_teamgen_subhelp, "g_vote_teamgen_subhelp", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_rustWeeks, "g_vote_teamgen_rustWeeks", "12", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
@@ -1217,10 +1223,10 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_teamgen_dynamicVoteRequirement, "g_vote_teamgen_dynamicVoteRequirement", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_freezeUntilVote, "g_vote_freezeUntilVote", "-1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_lessPlayedMapsDisfavoredInRunoffEliminations, "g_vote_lessPlayedMapsDisfavoredInRunoffEliminations", "10", CVAR_ARCHIVE, 0, qfalse },
-	{ &g_vote_fadeToBlack, "g_vote_fadeToBlack", "3", CVAR_ARCHIVE, 0, qfalse },
-	{ &g_vote_mapVoteExtensions_maxExtensions, "g_vote_mapVoteExtensions_maxExtensions", "4", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_fadeToBlack, "g_vote_fadeToBlack", "1", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_mapVoteExtensions_maxExtensions, "g_vote_mapVoteExtensions_maxExtensions", "6", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_mapVoteExtension_ifUnderThisManyVotes, "g_vote_mapVoteExtension_ifUnderThisManyVotes", "5", CVAR_ARCHIVE, 0, qfalse },
-	{ &g_vote_mapVoteExtension_extensionDuration, "g_vote_mapVoteExtension_extensionDuration", "30", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_mapVoteExtension_extensionDuration, "g_vote_mapVoteExtension_extensionDuration", "10", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_audioMotivation, "g_vote_audioMotivation", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_notifyTeammatesOfMapChoice, "g_vote_notifyTeammatesOfMapChoice", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_underdogTeamMapVoteTiebreakerThreshold, "g_vote_underdogTeamMapVoteTiebreakerThreshold", "0.519", CVAR_ARCHIVE, 0, qfalse },
@@ -4963,6 +4969,88 @@ void G_KickAllBots(void)
 CheckVote
 ==================
 */
+
+extern void Svcmd_MapVote_f(const char *overrideMaps);
+static void DoMapBans(void) {
+	if (!level.voteBanPhase || !level.multiVoting) {
+		assert(qfalse);
+		return;
+	}
+
+	int banVotesRed[MAX_MULTIVOTE_MAPS] = { 0 };
+	int banVotesBlue[MAX_MULTIVOTE_MAPS] = { 0 };
+	char remainingMaps[MAX_STRING_CHARS] = { 0 };
+
+	// tally the votes for each map
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *ent = &g_entities[i];
+		if (!ent->inuse || !ent->client || !ent->client->pers.connected) {
+			continue;
+		}
+
+		const int voteId = level.multiVoteBanVotes[i];
+		if (voteId > 0 && voteId <= MAX_MULTIVOTE_MAPS) {
+			if (ent->client->sess.sessionTeam == TEAM_RED) {
+				banVotesRed[voteId - 1]++;
+			}
+			else if (ent->client->sess.sessionTeam == TEAM_BLUE) {
+				banVotesBlue[voteId - 1]++;
+			}
+		}
+	}
+
+	// if the vote time has not expired, only proceed if both teams have successfully banned a map
+	qboolean redReady = qfalse, blueReady = qfalse;
+	for (int i = 0; i < MAX_MULTIVOTE_MAPS; i++) {
+		if (banVotesRed[i] >= 3)
+			redReady = qtrue;
+		if (banVotesBlue[i] >= 3)
+			blueReady = qtrue;
+	}
+	const qboolean bothTeamsReady = (redReady && blueReady);
+	if (level.time - level.voteTime < VOTE_TIME && !bothTeamsReady)
+		return;
+
+	memset(level.bannedMapNames, 0, sizeof(level.bannedMapNames));
+
+	// check if any map has at least 3 votes from either team and remove it from the map choices
+	for (int i = 0; i < MAX_MULTIVOTE_MAPS; i++) {
+		if (banVotesRed[i] >= 3 || banVotesBlue[i] >= 3) {
+			level.mapsThatCanBeVotedBits &= ~(1 << i);
+			char *teamStr;
+			if (banVotesRed[i] >= 3 && banVotesBlue[i] >= 3) {
+				teamStr = "both teams";
+				Q_strncpyz(level.bannedMapNames[TEAM_RED], level.multiVoteMapShortNames[i], sizeof(level.bannedMapNames[TEAM_RED]));
+				Q_strncpyz(level.bannedMapNames[TEAM_BLUE], level.multiVoteMapShortNames[i], sizeof(level.bannedMapNames[TEAM_BLUE]));
+			}
+			else if (banVotesRed[i] >= 3) {
+				teamStr = "red team";
+				Q_strncpyz(level.bannedMapNames[TEAM_RED], level.multiVoteMapShortNames[i], sizeof(level.bannedMapNames[TEAM_RED]));
+			}
+			else {
+				teamStr = "blue team";
+				Q_strncpyz(level.bannedMapNames[TEAM_BLUE], level.multiVoteMapShortNames[i], sizeof(level.bannedMapNames[TEAM_BLUE]));
+			}
+			G_LogPrintf("Map %d (%s) was banned by %s.\n", i + 1, level.multiVoteMapShortNames[i], teamStr);
+			PrintIngame(-1, "%s was banned by %s.\n", level.multiVoteMapShortNames[i], teamStr);
+		}
+		else {
+			// add maps that were not banned to the remainingMaps string
+			char buf[2] = { 0 };
+			buf[0] = level.multiVoteMapChars[i];
+			Q_strcat(remainingMaps, sizeof(remainingMaps), buf);
+		}
+	}
+
+	memset(&(level.multiVoteBanVotes), 0, sizeof(level.multiVoteBanVotes));
+	level.voteBanPhase = qfalse;
+	level.voteBanPhaseCompleted = qtrue;
+	level.multiVoting = qfalse;
+
+	Svcmd_MapVote_f(remainingMaps);
+}
+
+
 extern void SiegeClearSwitchData(void);
 extern int* BuildVoteResults( int numChoices, int *numVotes, int *highestVoteCount, qboolean *dontEndDueToMajority, int *numRerollVotes, qboolean canChangeAfkVotes);
 
@@ -5122,6 +5210,11 @@ void CheckVote( void ) {
 		g_entities[level.lastVotingClient].client->lastCallvoteTime = level.time;
 	} else {
 		// special handler for multiple choices voting
+		if (level.voteBanPhase) {
+			DoMapBans();
+			return;
+		}
+
 		int numVotes = 0, highestVoteCount = 0, numRerollVotes = 0;
 		qboolean dontEndDueToMajority = qfalse;
 		int *voteResults = BuildVoteResults( level.multiVoteChoices, &numVotes, &highestVoteCount, &dontEndDueToMajority, &numRerollVotes, qfalse);

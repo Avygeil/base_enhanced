@@ -1963,6 +1963,8 @@ typedef struct {
 	int			voteNo;
 	int			numVotingClients;		// set by fixVoters()
 	int			lastVotingClient;		//for delay purposes
+	int			voteBanPhase;
+	int			voteBanPhaseCompleted;
 	unsigned long long runoffSurvivors;
 	unsigned long long runoffLosers;
 	unsigned long long successfulRerollVoters;
@@ -1987,10 +1989,12 @@ typedef struct {
 	char		multivoteWildcardMapFileName[MAX_QPATH];
 	int			multiVoteChoices;
 	int			multiVotes[MAX_CLIENTS]; // the id of the choice they voted for
+	int			multiVoteBanVotes[MAX_CLIENTS]; // the id of the choice they voted to ban
 #define MAX_MULTIVOTE_MAPS		(9) // absolute maximum
 	char		multiVoteMapChars[MAX_MULTIVOTE_MAPS + 1];
 	char		multiVoteMapShortNames[MAX_MULTIVOTE_MAPS + 1][MAX_QPATH];
 	char		multiVoteMapFileNames[MAX_MULTIVOTE_MAPS + 1][MAX_QPATH];
+	char		bannedMapNames[TEAM_NUM_TEAMS][MAX_QPATH];
 	int			mapsThatCanBeVotedBits;
 	int			multiVoteTimeExtensions;
 	qboolean		voteAutoPassOnExpiration;
@@ -2357,7 +2361,7 @@ qboolean ValidateAndCopyPositionPreferences(const positionPreferences_t *in, pos
 qboolean IsInstapauser(gentity_t *ent);
 qboolean HasSlur(const char *str);
 void fixVoters(qboolean allowRacers, int onlyThisTeamCanVote);
-void NotifyTeammatesOfVote(gentity_t *voter, char *text);
+void NotifyTeammatesOfVote(gentity_t *voter, char *text, char *color);
 
 //
 // g_items.c
@@ -3610,6 +3614,9 @@ extern vmCvar_t		g_vote_printLiveVersionFullName;
 extern vmCvar_t		g_vote_overrideTrollVoters;
 extern vmCvar_t		g_vote_teamgen_autoMapVoteNonAfkAutoVoteYesSeconds;
 extern vmCvar_t		g_vote_runoffRerollOption;
+extern vmCvar_t		g_vote_banMap;
+extern vmCvar_t		g_vote_banPhaseTimeModifier;
+extern vmCvar_t		g_vote_banRemindVotesRequired;
 
 extern vmCvar_t		g_vote_teamgen;
 extern vmCvar_t		g_vote_teamgen_subhelp;

@@ -3329,7 +3329,7 @@ static int SortClientsForTeamGenerator(const void *a, const void *b) {
 	return strcmp(aa->accountName, bb->accountName); // alphabetize
 }
 
-static ctfPosition_t PermutationHasPlayer(int accountId, permutationOfTeams_t *p) {
+ctfPosition_t PermutationHasPlayer(int accountId, permutationOfTeams_t *p) {
 	if (!p || !p->valid)
 		return CTFPOSITION_UNKNOWN;
 
@@ -5661,6 +5661,8 @@ static void ActivatePugProposal(pugProposal_t *set, qboolean forcedByServer) {
 			PrintIngame(-1, "Map vote automatically stopped due to pug proposal passing.\n");
 			level.voteAutoPassOnExpiration = qfalse;
 			level.multiVoting = qfalse;
+			level.voteBanPhase = qfalse;
+			level.voteBanPhaseCompleted = qfalse;
 			level.runoffSurvivors = level.runoffLosers = level.successfulRerollVoters = 0llu;
 			level.inRunoff = qfalse;
 			level.multiVoteChoices = 0;
@@ -5669,6 +5671,8 @@ static void ActivatePugProposal(pugProposal_t *set, qboolean forcedByServer) {
 			level.mapsThatCanBeVotedBits = 0;
 			level.multiVoteTimeExtensions = 0;
 			memset(level.multiVotes, 0, sizeof(level.multiVotes));
+			memset(&(level.multiVoteBanVotes), 0, sizeof(level.multiVoteBanVotes));
+			memset(level.bannedMapNames, 0, sizeof(level.bannedMapNames));
 			memset(&level.multiVoteMapChars, 0, sizeof(level.multiVoteMapChars));
 			memset(&level.multiVoteMapShortNames, 0, sizeof(level.multiVoteMapShortNames));
 			memset(&level.multiVoteMapFileNames, 0, sizeof(level.multiVoteMapFileNames));
@@ -5731,6 +5735,8 @@ static void StartAutomaticTeamGenMapVote(void) {
 	level.voteNo = 0;
 	//level.lastVotingClient
 	level.multiVoting = qfalse;
+	level.voteBanPhase = qfalse;
+	level.voteBanPhaseCompleted = qfalse;
 	level.runoffSurvivors = level.runoffLosers = level.successfulRerollVoters = 0llu;
 	level.inRunoff = qfalse;
 	level.mapsThatCanBeVotedBits = 0;
@@ -5740,6 +5746,8 @@ static void StartAutomaticTeamGenMapVote(void) {
 	level.multiVoteHasWildcard = qfalse;
 	level.multivoteWildcardMapFileName[0] = '\0';
 	memset(level.multiVotes, 0, sizeof(level.multiVotes));
+	memset(&(level.multiVoteBanVotes), 0, sizeof(level.multiVoteBanVotes));
+	memset(level.bannedMapNames, 0, sizeof(level.bannedMapNames));
 	memset(&level.multiVoteMapChars, 0, sizeof(level.multiVoteMapChars));
 	memset(&level.multiVoteMapShortNames, 0, sizeof(level.multiVoteMapShortNames));
 	memset(&level.multiVoteMapFileNames, 0, sizeof(level.multiVoteMapFileNames));
@@ -6129,6 +6137,7 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 		return qtrue;
 	}
 
+#ifndef _DEBUG
 	if (g_vote_teamgen_readBeforeVotingMilliseconds.integer > 0) {
 		if (level.teamPermutationsShownTime && trap_Milliseconds() - level.teamPermutationsShownTime < g_vote_teamgen_readBeforeVotingMilliseconds.integer) {
 			TeamGenerator_QueueServerMessageInChat(ent - g_entities, "Please take the time to read the teams proposals before voting.");
@@ -6143,6 +6152,7 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 			return qtrue;
 		}
 	}
+#endif
 
 	int numPlayers = 0;
 	for (int i = 0; i < MAX_CLIENTS; i++) {

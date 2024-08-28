@@ -921,8 +921,11 @@ void SP_target_deactivate( gentity_t *self )
 void target_level_change_use(gentity_t *self, gentity_t *other, gentity_t *activator)
 {
 	G_ActivateBehavior(self,BSET_USE);
-
+#ifdef _DEBUG
+	trap_SendConsoleCommand(EXEC_NOW, va("devmap %s", self->message));
+#else
 	trap_SendConsoleCommand(EXEC_NOW, va("map %s", self->message));
+#endif
 }
 
 /*QUAKED target_level_change (1 0 0) (-4 -4 -4) (4 4 4)
