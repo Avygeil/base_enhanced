@@ -546,7 +546,6 @@ vmCvar_t	g_vote_overrideTrollVoters;
 vmCvar_t	g_vote_runoffRerollOption;
 vmCvar_t	g_vote_banMap;
 vmCvar_t	g_vote_banPhaseTimeModifier;
-vmCvar_t	g_vote_banRemindVotesRequired;
 
 vmCvar_t	g_vote_teamgen;
 vmCvar_t	g_vote_teamgen_subhelp;
@@ -1190,7 +1189,6 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_runoffRerollOption, "g_vote_runoffRerollOption", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 	{ &g_vote_banMap, "g_vote_banMap", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 	{ &g_vote_banPhaseTimeModifier, "g_vote_banPhaseTimeModifier", "10", CVAR_ARCHIVE, 0, qtrue },
-	{ &g_vote_banRemindVotesRequired, "g_vote_banRemindVotesRequired", "0", CVAR_ARCHIVE, 0, qfalse },
 
 	{ &g_vote_teamgen_subhelp, "g_vote_teamgen_subhelp", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_rustWeeks, "g_vote_teamgen_rustWeeks", "12", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
@@ -4999,46 +4997,116 @@ static void DoMapBans(void) {
 		}
 	}
 
-	// if the vote time has not expired, only proceed if both teams have successfully banned a map
 	qboolean redReady = qfalse, blueReady = qfalse;
+	int redHighestNumVotes = 0, blueHighestNumVotes = 0;
+	int redMapIndex = -1, blueMapIndex = -1;
+	int redTieCount = 0, blueTieCount = 0;
+
+	// calculate the highest votes for each team and check if any map has at least 3 votes
 	for (int i = 0; i < MAX_MULTIVOTE_MAPS; i++) {
-		if (banVotesRed[i] >= 3)
+		if (banVotesRed[i] >= 3) {
 			redReady = qtrue;
-		if (banVotesBlue[i] >= 3)
+		}
+		if (banVotesBlue[i] >= 3) {
 			blueReady = qtrue;
+		}
+
+		if (banVotesRed[i] > redHighestNumVotes) {
+			redHighestNumVotes = banVotesRed[i];
+			redMapIndex = i;
+			redTieCount = 1; // reset tie count since we have a new highest
+		}
+		else if (banVotesRed[i] == redHighestNumVotes) {
+			redTieCount++; // increment tie count
+		}
+
+		if (banVotesBlue[i] > blueHighestNumVotes) {
+			blueHighestNumVotes = banVotesBlue[i];
+			blueMapIndex = i;
+			blueTieCount = 1; // reset tie count since we have a new highest
+		}
+		else if (banVotesBlue[i] == blueHighestNumVotes) {
+			blueTieCount++; // increment tie count
+		}
 	}
+
 	const qboolean bothTeamsReady = (redReady && blueReady);
-	if (level.time - level.voteTime < VOTE_TIME && !bothTeamsReady)
+
+	// if vote time has not expired and both teams are not ready, return
+	if (level.time - level.voteTime < VOTE_TIME && !bothTeamsReady) {
 		return;
+	}
 
 	memset(level.bannedMapNames, 0, sizeof(level.bannedMapNames));
 
-	// check if any map has at least 3 votes from either team and remove it from the map choices
-	for (int i = 0; i < MAX_MULTIVOTE_MAPS; i++) {
-		if (banVotesRed[i] >= 3 || banVotesBlue[i] >= 3) {
-			level.mapsThatCanBeVotedBits &= ~(1 << i);
-			char *teamStr;
-			if (banVotesRed[i] >= 3 && banVotesBlue[i] >= 3) {
-				teamStr = "both teams";
-				Q_strncpyz(level.bannedMapNames[TEAM_RED], level.multiVoteMapShortNames[i], sizeof(level.bannedMapNames[TEAM_RED]));
-				Q_strncpyz(level.bannedMapNames[TEAM_BLUE], level.multiVoteMapShortNames[i], sizeof(level.bannedMapNames[TEAM_BLUE]));
-			}
-			else if (banVotesRed[i] >= 3) {
-				teamStr = "red team";
-				Q_strncpyz(level.bannedMapNames[TEAM_RED], level.multiVoteMapShortNames[i], sizeof(level.bannedMapNames[TEAM_RED]));
-			}
-			else {
-				teamStr = "blue team";
-				Q_strncpyz(level.bannedMapNames[TEAM_BLUE], level.multiVoteMapShortNames[i], sizeof(level.bannedMapNames[TEAM_BLUE]));
-			}
-			G_LogPrintf("Map %d (%s) was banned by %s.\n", i + 1, level.multiVoteMapShortNames[i], teamStr);
-			PrintIngame(-1, "%s was banned by %s.\n", level.multiVoteMapShortNames[i], teamStr);
+	// process the bans based on the time and vote conditions
+	if (level.time - level.voteTime >= VOTE_TIME) {
+		// time expired
+		// first check if both teams banned the same map
+		if (redHighestNumVotes > 0 && blueHighestNumVotes > 0 && redMapIndex == blueMapIndex && redTieCount == 1 && blueTieCount == 1) {
+			level.mapsThatCanBeVotedBits &= ~(1 << redMapIndex);
+			Q_strncpyz(level.bannedMapNames[TEAM_RED], level.multiVoteMapShortNames[redMapIndex], sizeof(level.bannedMapNames[TEAM_RED]));
+			Q_strncpyz(level.bannedMapNames[TEAM_BLUE], level.multiVoteMapShortNames[blueMapIndex], sizeof(level.bannedMapNames[TEAM_BLUE]));
+			G_LogPrintf("Map %d (%s) was banned by both teams.\n", redMapIndex + 1, level.multiVoteMapShortNames[redMapIndex]);
+			PrintIngame(-1, "%s was banned by both teams.\n", level.multiVoteMapShortNames[redMapIndex]);
 		}
 		else {
+			// handle red team
+			if (redHighestNumVotes > 0 && redTieCount == 1 && redMapIndex != -1) {
+				level.mapsThatCanBeVotedBits &= ~(1 << redMapIndex);
+				Q_strncpyz(level.bannedMapNames[TEAM_RED], level.multiVoteMapShortNames[redMapIndex], sizeof(level.bannedMapNames[TEAM_RED]));
+				G_LogPrintf("Map %d (%s) was banned by red team.\n", redMapIndex + 1, level.multiVoteMapShortNames[redMapIndex]);
+				PrintIngame(-1, "%s was banned by red team.\n", level.multiVoteMapShortNames[redMapIndex]);
+			}
+
+			// handle blue team
+			if (blueHighestNumVotes > 0 && blueTieCount == 1 && blueMapIndex != -1) {
+				level.mapsThatCanBeVotedBits &= ~(1 << blueMapIndex);
+				Q_strncpyz(level.bannedMapNames[TEAM_BLUE], level.multiVoteMapShortNames[blueMapIndex], sizeof(level.bannedMapNames[TEAM_BLUE]));
+				G_LogPrintf("Map %d (%s) was banned by blue team.\n", blueMapIndex + 1, level.multiVoteMapShortNames[blueMapIndex]);
+				PrintIngame(-1, "%s was banned by blue team.\n", level.multiVoteMapShortNames[blueMapIndex]);
+			}
+		}
+
+		// build the remaining maps list
+		for (int i = 0; i < MAX_MULTIVOTE_MAPS; i++) {
+			if (!(level.mapsThatCanBeVotedBits & (1 << i))) {
+				continue;
+			}
 			// add maps that were not banned to the remainingMaps string
 			char buf[2] = { 0 };
 			buf[0] = level.multiVoteMapChars[i];
 			Q_strcat(remainingMaps, sizeof(remainingMaps), buf);
+		}
+	}
+	else {
+		// time not expired, just pick the ones that have majorities
+		for (int i = 0; i < MAX_MULTIVOTE_MAPS; i++) {
+			if (banVotesRed[i] >= 3 || banVotesBlue[i] >= 3) {
+				level.mapsThatCanBeVotedBits &= ~(1 << i);
+				char *teamStr;
+				if (banVotesRed[i] >= 3 && banVotesBlue[i] >= 3) {
+					teamStr = "both teams";
+					Q_strncpyz(level.bannedMapNames[TEAM_RED], level.multiVoteMapShortNames[i], sizeof(level.bannedMapNames[TEAM_RED]));
+					Q_strncpyz(level.bannedMapNames[TEAM_BLUE], level.multiVoteMapShortNames[i], sizeof(level.bannedMapNames[TEAM_BLUE]));
+				}
+				else if (banVotesRed[i] >= 3) {
+					teamStr = "red team";
+					Q_strncpyz(level.bannedMapNames[TEAM_RED], level.multiVoteMapShortNames[i], sizeof(level.bannedMapNames[TEAM_RED]));
+				}
+				else {
+					teamStr = "blue team";
+					Q_strncpyz(level.bannedMapNames[TEAM_BLUE], level.multiVoteMapShortNames[i], sizeof(level.bannedMapNames[TEAM_BLUE]));
+				}
+				G_LogPrintf("Map %d (%s) was banned by %s.\n", i + 1, level.multiVoteMapShortNames[i], teamStr);
+				PrintIngame(-1, "%s was banned by %s.\n", level.multiVoteMapShortNames[i], teamStr);
+			}
+			else {
+				// add maps that were not banned to the remainingMaps string
+				char buf[2] = { 0 };
+				buf[0] = level.multiVoteMapChars[i];
+				Q_strcat(remainingMaps, sizeof(remainingMaps), buf);
+			}
 		}
 	}
 
@@ -5049,7 +5117,6 @@ static void DoMapBans(void) {
 
 	Svcmd_MapVote_f(remainingMaps);
 }
-
 
 extern void SiegeClearSwitchData(void);
 extern int* BuildVoteResults( int numChoices, int *numVotes, int *highestVoteCount, qboolean *dontEndDueToMajority, int *numRerollVotes, qboolean canChangeAfkVotes);

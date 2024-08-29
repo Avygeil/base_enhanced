@@ -1347,7 +1347,7 @@ void SpectatorThink( gentity_t *ent, usercmd_t *ucmd ) {
 
 	int frozen = 0;
 	if (g_vote_freezeUntilVote.integer && !ent->isAimPracticePack && client->pers.connected == CON_CONNECTED && !level.intermissionQueued && !level.intermissiontime) {
-		if (level.voteTime && level.multiVoting && !level.voteBanPhase && (ent->client->mGameFlags & PSG_CANVOTE) && !(ent->client->mGameFlags & PSG_VOTED) && (g_vote_freezeUntilVote.integer & (1 << 0))) {
+		if (level.voteTime && level.multiVoting && (ent->client->mGameFlags & PSG_CANVOTE) && !(ent->client->mGameFlags & PSG_VOTED) && (g_vote_freezeUntilVote.integer & (1 << 0))) {
 			frozen |= 1;
 		}
 		if (level.activePugProposal && client->account && (g_vote_freezeUntilVote.integer & (1 << 1))) {
@@ -1413,10 +1413,12 @@ void SpectatorThink( gentity_t *ent, usercmd_t *ucmd ) {
 		}
 		else {
 			if (now - firstToldCantMoveTime[ent->s.number] >= 60000 && now - toldCantMoveTime[ent->s.number] >= 1000) {
-				if ((frozen & 2) && !(frozen & 1))
-					trap_SendServerCommand(ent->s.number, "cp \"^1VOTA ^2VOTA ^3VOTA ^4VOTA ^5VOTA ^6VOTA ^7VOTA ^8VOTA ^9VOTA ^0VOTA\n^1VOTA ^2VOTA ^3VOTA ^4VOTA ^5VOTA ^6VOTA ^7VOTA ^8VOTA ^9VOTA ^0VOTA\"");
-				else
-					TeamGenerator_QueueServerMessageInChat(ent->s.number, "^1VOTA ^2VOTA ^3VOTA ^4VOTA ^5VOTA ^6VOTA ^7VOTA ^8VOTA ^9VOTA ^0VOTA ^1VOTA ^2VOTA ^3VOTA ^4VOTA ^5VOTA ^6VOTA ^7VOTA ^8VOTA ^9VOTA ^0VOTA");
+				if (!((frozen & 1) && level.voteBanPhase)) {
+					if ((frozen & 2) && !(frozen & 1))
+						trap_SendServerCommand(ent->s.number, "cp \"^1VOTA ^2VOTA ^3VOTA ^4VOTA ^5VOTA ^6VOTA ^7VOTA ^8VOTA ^9VOTA ^0VOTA\n^1VOTA ^2VOTA ^3VOTA ^4VOTA ^5VOTA ^6VOTA ^7VOTA ^8VOTA ^9VOTA ^0VOTA\"");
+					else
+						TeamGenerator_QueueServerMessageInChat(ent->s.number, "^1VOTA ^2VOTA ^3VOTA ^4VOTA ^5VOTA ^6VOTA ^7VOTA ^8VOTA ^9VOTA ^0VOTA ^1VOTA ^2VOTA ^3VOTA ^4VOTA ^5VOTA ^6VOTA ^7VOTA ^8VOTA ^9VOTA ^0VOTA");
+				}
 				toldCantMoveTime[ent->s.number] = now;
 
 				if (g_vote_fadeToBlack.integer <= 4) {
@@ -1425,7 +1427,7 @@ void SpectatorThink( gentity_t *ent, usercmd_t *ucmd ) {
 					client->pers.fakeFallFadeToBlack = qtrue;
 				}
 
-				if (g_vote_audioMotivation.integer) {
+				if (g_vote_audioMotivation.integer && !((frozen & 1) && level.voteBanPhase)) {
 					int index = G_SoundIndex("sound/chars/r2d2/misc/pain100");
 					if (index) {
 						gentity_t *te = G_Sound(ent, CHAN_AUTO, index);
@@ -1469,10 +1471,12 @@ void SpectatorThink( gentity_t *ent, usercmd_t *ucmd ) {
 				}
 			}
 			else if (now - firstToldCantMoveTime[ent->s.number] >= 30000 && now - toldCantMoveTime[ent->s.number] >= 3000) {
-				if ((frozen & 2) && !(frozen & 1))
-					trap_SendServerCommand(ent->s.number, "cp \"VOTE!\"");
-				else
-					TeamGenerator_QueueServerMessageInChat(ent->s.number, "VOTE!");
+				if (!((frozen & 1) && level.voteBanPhase)) {
+					if ((frozen & 2) && !(frozen & 1))
+						trap_SendServerCommand(ent->s.number, "cp \"VOTE!\"");
+					else
+						TeamGenerator_QueueServerMessageInChat(ent->s.number, "VOTE!");
+				}
 				toldCantMoveTime[ent->s.number] = now;
 
 				if (g_vote_fadeToBlack.integer <= 3) {
@@ -1482,10 +1486,12 @@ void SpectatorThink( gentity_t *ent, usercmd_t *ucmd ) {
 				}
 			}
 			else if (now - toldCantMoveTime[ent->s.number] >= 10000) {
-				if ((frozen & 2) && !(frozen & 1))
-					trap_SendServerCommand(ent->s.number, "cp \"Vote, and you will be unfrozen.\"");
-				else
-					TeamGenerator_QueueServerMessageInChat(ent->s.number, "Vote, and you will be unfrozen.");
+				if (!((frozen & 1) && level.voteBanPhase)) {
+					if ((frozen & 2) && !(frozen & 1))
+						trap_SendServerCommand(ent->s.number, "cp \"Vote, and you will be unfrozen.\"");
+					else
+						TeamGenerator_QueueServerMessageInChat(ent->s.number, "Vote, and you will be unfrozen.");
+				}
 				toldCantMoveTime[ent->s.number] = now;
 
 				if (g_vote_fadeToBlack.integer <= 2) {
@@ -3631,7 +3637,7 @@ void ClientThink_real( gentity_t *ent ) {
 
 	int frozen = 0;
 	if (g_vote_freezeUntilVote.integer && !ent->isAimPracticePack && client->pers.connected == CON_CONNECTED && !level.intermissionQueued && !level.intermissiontime) {
-		if (level.voteTime && level.multiVoting && !level.voteBanPhase && (ent->client->mGameFlags & PSG_CANVOTE) && !(ent->client->mGameFlags & PSG_VOTED) && (g_vote_freezeUntilVote.integer & (1 << 0))) {
+		if (level.voteTime && level.multiVoting && (ent->client->mGameFlags & PSG_CANVOTE) && !(ent->client->mGameFlags & PSG_VOTED) && (g_vote_freezeUntilVote.integer & (1 << 0))) {
 			frozen |= 1;
 		}
 		if (level.activePugProposal && client->account && (g_vote_freezeUntilVote.integer & (1 << 1))) {
@@ -3697,10 +3703,12 @@ void ClientThink_real( gentity_t *ent ) {
 		}
 		else {
 			if (now - firstToldCantMoveTime[ent->s.number] >= 60000 && now - toldCantMoveTime[ent->s.number] >= 1000) {
-				if ((frozen & 2) && !(frozen & 1))
-					trap_SendServerCommand(ent->s.number, "cp \"^1VOTA ^2VOTA ^3VOTA ^4VOTA ^5VOTA ^6VOTA ^7VOTA ^8VOTA ^9VOTA ^0VOTA\n^1VOTA ^2VOTA ^3VOTA ^4VOTA ^5VOTA ^6VOTA ^7VOTA ^8VOTA ^9VOTA ^0VOTA\"");
-				else
-					TeamGenerator_QueueServerMessageInChat(ent->s.number, "^1VOTA ^2VOTA ^3VOTA ^4VOTA ^5VOTA ^6VOTA ^7VOTA ^8VOTA ^9VOTA ^0VOTA ^1VOTA ^2VOTA ^3VOTA ^4VOTA ^5VOTA ^6VOTA ^7VOTA ^8VOTA ^9VOTA ^0VOTA");
+				if (!((frozen & 1) && level.voteBanPhase)) {
+					if ((frozen & 2) && !(frozen & 1))
+						trap_SendServerCommand(ent->s.number, "cp \"^1VOTA ^2VOTA ^3VOTA ^4VOTA ^5VOTA ^6VOTA ^7VOTA ^8VOTA ^9VOTA ^0VOTA\n^1VOTA ^2VOTA ^3VOTA ^4VOTA ^5VOTA ^6VOTA ^7VOTA ^8VOTA ^9VOTA ^0VOTA\"");
+					else
+						TeamGenerator_QueueServerMessageInChat(ent->s.number, "^1VOTA ^2VOTA ^3VOTA ^4VOTA ^5VOTA ^6VOTA ^7VOTA ^8VOTA ^9VOTA ^0VOTA ^1VOTA ^2VOTA ^3VOTA ^4VOTA ^5VOTA ^6VOTA ^7VOTA ^8VOTA ^9VOTA ^0VOTA");
+				}
 				toldCantMoveTime[ent->s.number] = now;
 
 				if (g_vote_fadeToBlack.integer <= 4) {
@@ -3709,7 +3717,7 @@ void ClientThink_real( gentity_t *ent ) {
 					client->pers.fakeFallFadeToBlack = qtrue;
 				}
 
-				if (g_vote_audioMotivation.integer) {
+				if (g_vote_audioMotivation.integer && !((frozen & 1) && level.voteBanPhase)) {
 					int index = G_SoundIndex("sound/chars/r2d2/misc/pain100");
 					if (index) {
 						gentity_t *te = G_Sound(ent, CHAN_AUTO, index);
@@ -3753,10 +3761,12 @@ void ClientThink_real( gentity_t *ent ) {
 				}
 			}
 			else if (now - firstToldCantMoveTime[ent->s.number] >= 30000 && now - toldCantMoveTime[ent->s.number] >= 3000) {
-				if ((frozen & 2) && !(frozen & 1))
-					trap_SendServerCommand(ent->s.number, "cp \"VOTE!\"");
-				else
-					TeamGenerator_QueueServerMessageInChat(ent->s.number, "VOTE!");
+				if (!((frozen & 1) && level.voteBanPhase)) {
+					if ((frozen & 2) && !(frozen & 1))
+						trap_SendServerCommand(ent->s.number, "cp \"VOTE!\"");
+					else
+						TeamGenerator_QueueServerMessageInChat(ent->s.number, "VOTE!");
+				}
 				toldCantMoveTime[ent->s.number] = now;
 
 				if (g_vote_fadeToBlack.integer <= 3) {
@@ -3766,10 +3776,12 @@ void ClientThink_real( gentity_t *ent ) {
 				}
 			}
 			else if (now - toldCantMoveTime[ent->s.number] >= 10000) {
-				if ((frozen & 2) && !(frozen & 1))
-					trap_SendServerCommand(ent->s.number, "cp \"Vote, and you will be unfrozen.\"");
-				else
-					TeamGenerator_QueueServerMessageInChat(ent->s.number, "Vote, and you will be unfrozen.");
+				if (!((frozen & 1) && level.voteBanPhase)) {
+					if ((frozen & 2) && !(frozen & 1))
+						trap_SendServerCommand(ent->s.number, "cp \"Vote, and you will be unfrozen.\"");
+					else
+						TeamGenerator_QueueServerMessageInChat(ent->s.number, "Vote, and you will be unfrozen.");
+				}
 				toldCantMoveTime[ent->s.number] = now;
 
 				if (g_vote_fadeToBlack.integer <= 2) {

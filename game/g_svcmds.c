@@ -1810,10 +1810,7 @@ static void mapSelectedCallback( void *context, char *mapname ) {
 				}
 			}
 			else if (level.voteBanPhase) {
-				if (g_vote_banRemindVotesRequired.integer)
-					Q_strncpyz(selection->printMessage[i], va("Vote to ban your team's worst map:\n(3 votes from team required)"), sizeof(selection->printMessage[i]));
-				else
-					Q_strncpyz(selection->printMessage[i], va("Vote to ban your team's worst map:"), sizeof(selection->printMessage[i]));
+				Q_strncpyz(selection->printMessage[i], va("Vote to ban your team's worst map:"), sizeof(selection->printMessage[i]));
 			}
 			else {
 				if (level.successfulRerollVoters & (1llu << (unsigned long long)i))

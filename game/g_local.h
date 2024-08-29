@@ -3616,7 +3616,6 @@ extern vmCvar_t		g_vote_teamgen_autoMapVoteNonAfkAutoVoteYesSeconds;
 extern vmCvar_t		g_vote_runoffRerollOption;
 extern vmCvar_t		g_vote_banMap;
 extern vmCvar_t		g_vote_banPhaseTimeModifier;
-extern vmCvar_t		g_vote_banRemindVotesRequired;
 
 extern vmCvar_t		g_vote_teamgen;
 extern vmCvar_t		g_vote_teamgen_subhelp;
