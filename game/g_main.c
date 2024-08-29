@@ -1175,7 +1175,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_tierlist_totalMaps, "g_vote_tierlist_totalMaps", "6", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_tierlist_debug, "g_vote_tierlist_debug", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_tierlist_reminders, "g_vote_tierlist_reminders", "1", CVAR_ARCHIVE, 0, qtrue },
-	{ &g_vote_tierlist_fixShittyPools, "g_vote_tierlist_fixShittyPools", "1", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_vote_tierlist_fixShittyPools, "g_vote_tierlist_fixShittyPools", "2", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_betaMapForceInclude, "g_vote_betaMapForceInclude", "0", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 	{ &g_vote_rng, "g_vote_rng", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_vote_runoff, "g_vote_runoff", "1", CVAR_ARCHIVE, 0, qtrue },
