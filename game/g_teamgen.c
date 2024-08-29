@@ -3345,7 +3345,7 @@ ctfPosition_t PermutationHasPlayer(int accountId, permutationOfTeams_t *p) {
 	return CTFPOSITION_UNKNOWN;
 }
 
-static int NumPermutationsOfPlayer(int accountId, permutationOfTeams_t *p1, permutationOfTeams_t *p2, permutationOfTeams_t *p3, permutationOfTeams_t *p4, permutationOfTeams_t *p5, permutationOfTeams_t *p6) {
+static int NumPermutationsOfPlayer(int accountId, permutationOfTeams_t *p1, permutationOfTeams_t *p2, permutationOfTeams_t *p3, permutationOfTeams_t *p4, permutationOfTeams_t *p5, permutationOfTeams_t *p6, permutationOfTeams_t *p7) {
 	int num = 0;
 	if (PermutationHasPlayer(accountId, p1))
 		++num;
@@ -3358,6 +3358,8 @@ static int NumPermutationsOfPlayer(int accountId, permutationOfTeams_t *p1, perm
 	if (PermutationHasPlayer(accountId, p5))
 		++num;
 	if (PermutationHasPlayer(accountId, p6))
+		++num;
+	if (PermutationHasPlayer(accountId, p7))
 		++num;
 	return num;
 }
@@ -3571,7 +3573,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 			if (!g_vote_teamgen_enableAppeasing.integer)
 				continue;
 
-			if ((inclusive && inclusive->valid) || (semiDesired && semiDesired->valid))
+			if ((inclusive && inclusive->valid) || (semiDesired && semiDesired->valid) || (firstChoice && firstChoice->valid))
 				continue;
 
 			qboolean zeroOnAvoidedPosExists = qfalse;
@@ -3637,7 +3639,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 			if (!g_vote_teamgen_enableInclusive.integer)
 				continue;
 
-			if ((desired && desired->valid) || (semiDesired && semiDesired->valid))
+			if ((desired && desired->valid) || (semiDesired && semiDesired->valid) || (firstChoice && firstChoice->valid))
 				continue; // never do inclusive if the desired slot is already in use
 
 			int numPlayers = 0;
@@ -3662,7 +3664,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 				}
 #endif
 
-				int numPermutationsThisPlayer = NumPermutationsOfPlayer(cl->accountId, mostPlayed, highestCaliber, fairest, desired, inclusive, semiDesired);
+				int numPermutationsThisPlayer = NumPermutationsOfPlayer(cl->accountId, mostPlayed, highestCaliber, fairest, desired, inclusive, semiDesired, firstChoice);
 				if (!numPermutationsThisPlayer) {
 #ifdef DEBUG_GENERATETEAMS
 					Com_Printf("Player %s is in no permutations\n", cl->accountName);
@@ -4200,7 +4202,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 				if (!algoPlayer->accountName[0])
 					continue;
 
-				algoPlayer->numPermutationsIn = NumPermutationsOfPlayer(algoPlayer->accountId, mostPlayed, highestCaliber, fairest, NULL, NULL, NULL);
+				algoPlayer->numPermutationsIn = NumPermutationsOfPlayer(algoPlayer->accountId, mostPlayed, highestCaliber, fairest, NULL, NULL, NULL, NULL);
 			}
 
 			for (int j = 0; j < numEligible; j++) {
@@ -4240,7 +4242,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 				if (!algoPlayer->accountName[0])
 					continue;
 
-				algoPlayer->numPermutationsIn = NumPermutationsOfPlayer(algoPlayer->accountId, mostPlayed, highestCaliber, fairest, NULL, NULL, NULL);
+				algoPlayer->numPermutationsIn = NumPermutationsOfPlayer(algoPlayer->accountId, mostPlayed, highestCaliber, fairest, NULL, NULL, NULL, NULL);
 
 				ctfPosition_t posInMostPlayed = PermutationHasPlayer(algoPlayer->accountId, mostPlayed);
 				if (posInMostPlayed && !(algoPlayer->posPrefs.avoid & (1 << posInMostPlayed)))
@@ -4730,7 +4732,7 @@ static qboolean GenerateTeamsIteratively(pugProposal_t *set, permutationOfTeams_
 			sortedClient_t *cl = set->clients + j;
 			if (!cl->accountName[0])
 				continue;
-			double numPermutationsThisPlayer = (double)NumPermutationsOfPlayer(cl->accountId, &permutations[i][0], &permutations[i][1], &permutations[i][2], &permutations[i][3], &permutations[i][4], &permutations[i][5]);
+			double numPermutationsThisPlayer = (double)NumPermutationsOfPlayer(cl->accountId, &permutations[i][0], &permutations[i][1], &permutations[i][2], &permutations[i][3], &permutations[i][4], &permutations[i][5], &permutations[i][6]);
 #ifdef DEBUG_GENERATETEAMS
 			Com_Printf("/%s %d/", cl->accountName, (int)numPermutationsThisPlayer); // print the number of permutations each player is part of
 #endif
