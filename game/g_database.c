@@ -6253,7 +6253,7 @@ void G_DBListRatingPlayers(int raterAccountId, int raterClientNum, ctfPosition_t
 	ListClear(&playerList);
 
 	char combined[8192] = { 0 };
-	for (int i = PLAYERRATING_HIGH_S; i >= PLAYERRATING_UNRATED; i--)
+	for (int i = NUM_PLAYERRATINGS - 1; i >= PLAYERRATING_UNRATED; i--)
 		Q_strcat(combined, sizeof(combined), va("%s\n", ratingStr[i]));
 
 	OutOfBandPrint(raterClientNum, "Your ^5%s^7 ratings:\n%s", NameForPos(pos), combined);

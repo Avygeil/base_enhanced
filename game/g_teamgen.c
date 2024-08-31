@@ -57,12 +57,18 @@ double PlayerTierToRating(ctfPlayerTier_t tier) {
 	case PLAYERRATING_LOW_S: return 0.95;
 	case PLAYERRATING_MID_S: return 1.0;
 	case PLAYERRATING_HIGH_S: return 1.05;
+	case PLAYERRATING_LOW_X: return 1.1;
+	case PLAYERRATING_MID_X: return 1.15;
+	case PLAYERRATING_HIGH_X: return 1.2;
 	default: return 0.0;
 	}
 }
 
 ctfPlayerTier_t PlayerTierFromRating(double num) {
 	// stupid >= hack to account for imprecision
+	if (num >= 1.2 - 0.00001) return PLAYERRATING_HIGH_X;
+	if (num >= 1.15 - 0.00001) return PLAYERRATING_MID_X;
+	if (num >= 1.1 - 0.00001) return PLAYERRATING_LOW_X;
 	if (num >= 1.05 - 0.00001) return PLAYERRATING_HIGH_S;
 	if (num >= 1.0 - 0.00001) return PLAYERRATING_MID_S;
 	if (num >= 0.95 - 0.00001) return PLAYERRATING_LOW_S;
@@ -72,17 +78,17 @@ ctfPlayerTier_t PlayerTierFromRating(double num) {
 	if (num >= 0.75 - 0.00001) return PLAYERRATING_HIGH_B;
 	if (num >= 0.7 - 0.00001) return PLAYERRATING_MID_B;
 	if (num >= 0.65 - 0.00001) return PLAYERRATING_LOW_B;
-	if (num >= 0.6 - 0.0001) return PLAYERRATING_HIGH_C;
-	if (num >= 0.55 - 0.0001) return PLAYERRATING_MID_C;
-	if (num >= 0.5 - 0.0001) return PLAYERRATING_LOW_C;
-	if (num >= 0.45 - 0.0001) return PLAYERRATING_HIGH_D;
-	if (num >= 0.4 - 0.0001) return PLAYERRATING_MID_D;
-	if (num >= 0.35 - 0.0001) return PLAYERRATING_LOW_D;
-	if (num >= 0.3 - 0.0001) return PLAYERRATING_HIGH_F;
-	if (num >= 0.25 - 0.0001) return PLAYERRATING_MID_F;
-	if (num >= 0.2 - 0.0001) return PLAYERRATING_LOW_F;
-	if (num >= 0.15 - 0.0001) return PLAYERRATING_HIGH_G;
-	if (num >= 0.1 - 0.0001) return PLAYERRATING_MID_G;
+	if (num >= 0.6 - 0.00001) return PLAYERRATING_HIGH_C;
+	if (num >= 0.55 - 0.00001) return PLAYERRATING_MID_C;
+	if (num >= 0.5 - 0.00001) return PLAYERRATING_LOW_C;
+	if (num >= 0.45 - 0.00001) return PLAYERRATING_HIGH_D;
+	if (num >= 0.4 - 0.00001) return PLAYERRATING_MID_D;
+	if (num >= 0.35 - 0.00001) return PLAYERRATING_LOW_D;
+	if (num >= 0.3 - 0.00001) return PLAYERRATING_HIGH_F;
+	if (num >= 0.25 - 0.00001) return PLAYERRATING_MID_F;
+	if (num >= 0.2 - 0.00001) return PLAYERRATING_LOW_F;
+	if (num >= 0.15 - 0.00001) return PLAYERRATING_HIGH_G;
+	if (num >= 0.1 - 0.00001) return PLAYERRATING_MID_G;
 	return PLAYERRATING_UNRATED;
 }
 
@@ -108,6 +114,9 @@ char *PlayerRatingToString(ctfPlayerTier_t tier) {
 	case PLAYERRATING_LOW_S: return "^6LOW S";
 	case PLAYERRATING_MID_S: return "^6S";
 	case PLAYERRATING_HIGH_S: return "^6HIGH S";
+	case PLAYERRATING_LOW_X: return "^4LOW X";
+	case PLAYERRATING_MID_X: return "^4X";
+	case PLAYERRATING_HIGH_X: return "^4HIGH X";
 	default: return "^9UNRATED";
 	}
 }
@@ -135,6 +144,9 @@ static char *PlayerRatingToStringHTML(ctfPlayerTier_t tier) {
 	case PLAYERRATING_LOW_S: return "<font color=purple>LOW S</font>";
 	case PLAYERRATING_MID_S: return "<font color=purple>S</font>";
 	case PLAYERRATING_HIGH_S: return "<font color=purple>HIGH S</font>";
+	case PLAYERRATING_LOW_X: return "<font color=blue>LOW X</font>";
+	case PLAYERRATING_MID_X: return "<font color=blue>X</font>";
+	case PLAYERRATING_HIGH_X: return "<font color=blue>HIGH X</font>";
 	default: return "<font color=black>UNRATED</font>";
 	}
 }
@@ -5148,7 +5160,7 @@ int GetCaliber(permutationOfTeams_t *p) {
 
 	const double A = 5;
 	Com_DebugPrintf("A (Penalty Exponent): %g\n", A);
-	double HC_base = (averageRating - PlayerTierToRating(PLAYERRATING_MID_G)) / (PlayerTierToRating(PLAYERRATING_HIGH_S) - PlayerTierToRating(PLAYERRATING_MID_G));
+	double HC_base = (averageRating - PlayerTierToRating(PLAYERRATING_UNRATED + 1)) / (PlayerTierToRating(NUM_PLAYERRATINGS - 1) - PlayerTierToRating(PLAYERRATING_UNRATED + 1));
 	Com_DebugPrintf("HC_base: %g\n", HC_base);
 
 	double penalty = 0.0;
@@ -5179,6 +5191,8 @@ int GetCaliber(permutationOfTeams_t *p) {
 		double deviation = averageRating - rating;
 		if (deviation + 0.0001 < PLAYERRATING_DECIMAL_INCREMENT)
 			deviation = 0; // disregard very low deviation
+		if (rating + 0.0001 >= PlayerTierToRating(PLAYERRATING_LOW_A))
+			deviation = 0; // don't let A- or higher count as deviation
 
 		if (deviation > 0) {
 			double deviationExponent = -A * (deviation / averageRating);
