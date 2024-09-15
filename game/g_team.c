@@ -1984,7 +1984,7 @@ static gentity_t *GetSpawnFcBoostLocation(gclient_t *spawningGuy, gentity_t *fc)
 
 			// if this is pretty close to the ideal, then don't bother checking other points around this weapon (saves computing unnecessary traces)
 			// if performance isn't a concern, this check can be deleted
-			if (fabs(dist2d - SPAWNFCBOOST_IDEAL_XYDISTANCE) <= 128)
+			if (fabs(dist2d - SPAWNFCBOOST_IDEAL_XYDISTANCE) <= 200)
 				goto nextWeapon;
 		}
 		nextWeapon:;
