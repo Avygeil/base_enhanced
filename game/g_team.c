@@ -1489,13 +1489,38 @@ static float GetFcSpawnBoostMultiplier(gentity_t *ent) {
 	return multiplier;
 }
 
+static float GetFcSpawnBoostZAxisBump(void) {
+	static char cvarName[MAX_QPATH * 2] = { 0 };
+	if (!cvarName[0]) {
+		char shortName[MAX_QPATH] = { 0 };
+		GetShortNameForMapFileName(level.mapname, shortName, sizeof(shortName));
+		TrimMapVersion(shortName, shortName, sizeof(shortName));
+		Com_sprintf(cvarName, sizeof(cvarName), "g_spawnboostzbump_%s", shortName);
+	}
+
+	if (!cvarName[0])
+		return 0;
+
+	char buf[MAX_STRING_CHARS] = { 0 };
+	trap_Cvar_VariableStringBuffer(cvarName, buf, sizeof(buf));
+
+	if (!buf[0] || !Q_isanumber(buf))
+		return 0;
+
+	int num = atof(buf);
+	if (num < 0)
+		return 0;
+
+	return num;
+}
+
 #define SQRT2 (1.4142135623730951)
 
-#define SPAWNFCBOOST_NERFEDMAP_IDEAL_XYADD			(200)		// if we're on a map where the g_spawnboost_[mapname] cvar is set, add this much to the ideal xy distance (i.e., we try to spawn farther from the fc on maps like dosuun)
+#define SPAWNFCBOOST_NERFEDMAP_IDEAL_XYADD			(300)		// if we're on a map where the g_spawnboost_[mapname] cvar is set, add this much to the ideal xy distance (i.e., we try to spawn farther from the fc on maps like dosuun)
 #define SPAWNFCBOOST_IDEAL_XYDISTANCE				(g_spawnboost_losIdealDistance.integer + compensateIdeal + (isNerfedMap ? SPAWNFCBOOST_NERFEDMAP_IDEAL_XYADD : 0))		// ideal xy distance we'd like to spawn from the fc
 #define SPAWNFCBOOST_IDEAL_XYDISTANCE_UNCOMPENSATED		(g_spawnboost_losIdealDistance.integer + (isNerfedMap ? SPAWNFCBOOST_NERFEDMAP_IDEAL_XYADD : 0))		// ideal xy distance we'd like to spawn from the fc, not including compensation
 #define SPAWNFCBOOST_VELOCITY_COEFFICIENT			(0.25f)		// how much to scale fc's velocity by when evaluating his position (if he's moving quickly)
-#define SPAWNFCBOOST_LOS_Z_ADD						(16)		// slight z-axis boost from the actual point we should use as a reference point for line of sight to fc
+#define SPAWNFCBOOST_LOS_Z_ADD						(32)		// slight z-axis boost from the actual point we should use as a reference point for line of sight to fc
 #define SPAWNFCBOOST_GRID_INCREMENT					(256)		// how many units away from a weapon/ammo/health we'd like to evaluate for potentially spawning
 #define SPAWNFCBOOST_GRID_RESOLUTION				(3)			// how many increments of SPAWNFCBOOST_GRID_INCREMENT away from the weapon/health/ammo to evaluate (in both X and Y dimensions)
 #define SPAWNFCBOOST_PITCHECK_DISTANCE_INCREMENT	(80)		// how far away from potential spawnpoints we check to see if we will pit (if we step forward this distance toward the fc)
@@ -1670,6 +1695,11 @@ static gentity_t *GetSpawnFcBoostLocation(gclient_t *spawningGuy, gentity_t *fc)
 		}
 	}
 
+	float useHigherZAxisLOSCheck = GetFcSpawnBoostZAxisBump();
+	if (useHigherZAxisLOSCheck) {
+		SpawnFcBoostDebugPrintf("GetSpawnFcBoostLocation: using Z axis bump of %d on this map\n", useHigherZAxisLOSCheck);
+	}
+
 	// try to compensate for the last spawn, e.g. if we spawned +500 from ideal last time then we'll try to spawn -500 from ideal this time
 	// if we do set this, we'll zero out the stored value at the end of this function (preventing you from just bouncing
 	// between +500 and -500 endlessly throughout the match, which would be dumb)
@@ -1838,6 +1868,14 @@ static gentity_t *GetSpawnFcBoostLocation(gclient_t *spawningGuy, gentity_t *fc)
 				SpawnFcBoostDebugPrintf("GetSpawnFcBoostLocation: point[2] %d is %d lower than fcOrigin[2] %d (>= %d), so penalizing abs delta from ideal\n", (int)point[2], (int)(fcOrigin[2] - point[2]), (int)fcOrigin[2], SPAWNFCBOOST_FCZDELTA_THRESHOLD);
 				absDeltaFromIdeal += (fcOrigin[2] - point[2]); // penalize points much higher than the fc
 			}
+			if (dist2d < 700) {
+				SpawnFcBoostDebugPrintf("GetSpawnFcBoostLocation: harshly penalizing because distance is quite small\n");
+				absDeltaFromIdeal *= 1.2f;
+			}
+			else if (dist2d < SPAWNFCBOOST_IDEAL_XYDISTANCE - 128) {
+				SpawnFcBoostDebugPrintf("GetSpawnFcBoostLocation: slightly penalizing because distance is lower than ideal\n");
+				absDeltaFromIdeal *= 1.05f;
+			}
 			SpawnFcBoostDebugPrintf("GetSpawnFcBoostLocation: has dist2d %d, delta from ideal %d\n", (int)dist2d, (int)absDeltaFromIdeal);
 
 			// if we already have a point that's better than this one by at least the threshold, don't bother checking this one
@@ -1909,7 +1947,7 @@ static gentity_t *GetSpawnFcBoostLocation(gclient_t *spawningGuy, gentity_t *fc)
 			VectorCopy(tr.endpos, losPoint);
 			VectorCopy(fcOrigin, fcLosPoint);
 			losPoint[2] += SPAWNFCBOOST_LOS_Z_ADD;
-			fcLosPoint[2] += SPAWNFCBOOST_LOS_Z_ADD;
+			fcLosPoint[2] += SPAWNFCBOOST_LOS_Z_ADD + useHigherZAxisLOSCheck;
 			if (!IsPointVisiblePlayersolid(fcLosPoint, losPoint, fc - g_entities)) {
 				SpawnFcBoostDebugPrintf("GetSpawnFcBoostLocation: no LoS\n");
 				continue;
@@ -1946,7 +1984,7 @@ static gentity_t *GetSpawnFcBoostLocation(gclient_t *spawningGuy, gentity_t *fc)
 
 			// if this is pretty close to the ideal, then don't bother checking other points around this weapon (saves computing unnecessary traces)
 			// if performance isn't a concern, this check can be deleted
-			if (fabs(dist2d - SPAWNFCBOOST_IDEAL_XYDISTANCE) <= 256)
+			if (fabs(dist2d - SPAWNFCBOOST_IDEAL_XYDISTANCE) <= 128)
 				goto nextWeapon;
 		}
 		nextWeapon:;
