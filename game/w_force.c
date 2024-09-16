@@ -5564,7 +5564,7 @@ void DoGripAction(gentity_t *self, forcePowers_t forcePower)
 		return;
 	}
 
-	if ((!g_fixGripDistanceCheck.integer || (g_gripRework.integer != 2 && gripLevel != 3)) && VectorLength(a) > MAX_GRIP_DISTANCE && !meme)
+	if ((!g_fixGripDistanceCheck.integer || gripLevel != 3) && VectorLength(a) > MAX_GRIP_DISTANCE && !meme)
 	{
 		WP_ForcePowerStop(self, forcePower);
 		return;
