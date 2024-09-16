@@ -5599,6 +5599,12 @@ void DoGripAction(gentity_t *self, forcePowers_t forcePower)
 	if (gripLevel == FORCE_LEVEL_1)
 	{
 		gripEnt->client->ps.fd.forceGripBeingGripped = level.time + 1000;
+		if (g_gripRework.integer) {
+			gripEnt->client->ps.forceGripChangeMovetype = PM_FLOAT;
+			gripEnt->client->ps.otherKiller = self->s.number;
+			gripEnt->client->ps.otherKillerTime = level.time + 5000;
+			gripEnt->client->ps.otherKillerDebounceTime = level.time + 100;
+		}
 		
 		if ((level.time - gripEnt->client->ps.fd.forceGripStarted) > 5000 && !meme)
 		{
