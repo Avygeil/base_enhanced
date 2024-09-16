@@ -2090,7 +2090,7 @@ static void WP_RepeaterMainFire( gentity_t *ent, vec3_t dir )
 				int closestPlayer = -1;
 				for (int i = 0; i < MAX_CLIENTS; i++) {
 					gentity_t *other = &g_entities[i];
-					if (!other->inuse || other == ent || !other->client)
+					if (!other->inuse || other == ent || !other->client || IsRacerOrSpectator(other))
 						continue;
 					vec3_t difference;
 					VectorSubtract(other->client->ps.origin, tr.endpos, difference);

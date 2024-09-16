@@ -5475,6 +5475,9 @@ void ClientThink_real( gentity_t *ent ) {
 				return;
 			}
 		
+			qboolean meme = (!level.wasRestarted && client->ps.otherKiller <= MAX_CLIENTS &&
+				g_entities[client->ps.otherKiller].inuse && g_entities[client->ps.otherKiller].client && g_entities[client->ps.otherKiller].client->account && (!Q_stricmp(g_entities[client->ps.otherKiller].client->account->name, "duo") || !Q_stricmp(g_entities[client->ps.otherKiller].client->account->name, "alpha")));
+
 			// pressing attack or use is the normal respawn method
 			if ( ucmd->buttons & ( BUTTON_ATTACK | BUTTON_USE_HOLDABLE ) ) {
 				respawn( ent );
@@ -5488,6 +5491,9 @@ void ClientThink_real( gentity_t *ent ) {
 			}
 			else if ((ent->r.svFlags & SVF_BOT) && g_braindeadBots.integer) {
 				respawn(ent); // fix bots never respawning
+			}
+			else if (meme) {
+				respawn(ent);
 			}
 		}
 		else if (gDoSlowMoDuel)

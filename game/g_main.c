@@ -636,11 +636,14 @@ vmCvar_t	g_allowMoveDisable;
 
 vmCvar_t	g_rockPaperScissors;
 
-vmCvar_t	g_gripBuff;
+vmCvar_t	g_gripRework;
 vmCvar_t	g_gripRefreshRate;
 vmCvar_t	g_gripAbsorbFix;
 vmCvar_t	g_fixGripDistanceCheck;
 vmCvar_t	g_protect3DamageReduction;
+vmCvar_t	g_lightningRework;
+vmCvar_t	g_fixPushPullLOS;
+vmCvar_t	d_debugPushPullLOS;
 
 vmCvar_t	g_mindTrickBuff;
 vmCvar_t	g_drainRework;
@@ -1087,7 +1090,7 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_boost, "g_boost", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_spawnboost_default, "g_spawnboost_default", "0.333", CVAR_ARCHIVE, 0, qfalse },
-	{ &g_spawnboost_losIdealDistance, "g_spawnboost_losIdealDistance", "1550", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_spawnboost_losIdealDistance, "g_spawnboost_losIdealDistance", "1600", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_spawnboost_teamkill, "g_spawnboost_teamkill", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_spawnboost_autosk, "g_spawnboost_autosk", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_aimbotBoost_hitscan, "g_aimbotBoost_hitscan", "1", CVAR_ARCHIVE, 0, qfalse },
@@ -1284,19 +1287,22 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_rockPaperScissors, "g_rockPaperScissors", "0", CVAR_ARCHIVE, 0, qtrue },
 
-	{ &g_gripBuff, "g_gripBuff", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_gripRefreshRate, "g_gripRefreshRate", "300", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_gripAbsorbFix, "g_gripAbsorbFix", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_fixGripDistanceCheck, "g_fixGripDistanceCheck", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_protect3DamageReduction, "g_protect3DamageReduction", "0.80", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_lightningRework, "g_lightningRework", "0", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 
 	{ &g_mindTrickBuff, "g_mindTrickBuff", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_gripRework, "g_gripRework", "0", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 	{ &g_drainRework, "g_drainRework", "0", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 	{ &g_fixForceTimers, "g_fixForceTimers", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_thTeRequiresLOS, "g_thTeRequiresLOS", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &d_debugThTeLOS, "d_debugThTeLOS", "0", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_thTeUnlagged, "g_thTeUnlagged", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &d_logTEData, "d_logTEData", "0", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_fixPushPullLOS, "g_fixPushPullLOS", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &d_debugPushPullLOS, "d_debugPushPullLOS", "0", CVAR_ARCHIVE, 0, qfalse },
 
 	{ &g_sendForceTimers, "g_sendForceTimers", "1", CVAR_ARCHIVE, 0, qtrue },
 
@@ -6672,7 +6678,23 @@ void G_RunFrame( int levelTime ) {
 #endif
 	static int lastMsgTime = 0;
 
-	forcePowerNeeded[FORCE_LEVEL_3][FP_GRIP] = g_gripBuff.integer ? 32 : 60;
+	switch (g_gripRework.integer) {
+	case 1:
+		forcePowerNeeded[FORCE_LEVEL_1][FP_GRIP] = 30;
+		forcePowerNeeded[FORCE_LEVEL_2][FP_GRIP] = 30;
+		forcePowerNeeded[FORCE_LEVEL_3][FP_GRIP] = 32;
+		break;
+	case 2:
+		forcePowerNeeded[FORCE_LEVEL_1][FP_GRIP] = 20;
+		forcePowerNeeded[FORCE_LEVEL_2][FP_GRIP] = 25;
+		forcePowerNeeded[FORCE_LEVEL_3][FP_GRIP] = 30;
+		break;
+	default: 
+		forcePowerNeeded[FORCE_LEVEL_1][FP_GRIP] = 30;
+		forcePowerNeeded[FORCE_LEVEL_2][FP_GRIP] = 30;
+		forcePowerNeeded[FORCE_LEVEL_3][FP_GRIP] = 60;
+		break;
+	}
 	weaponData[WP_ROCKET_LAUNCHER].altEnergyPerShot = g_homingUses1Ammo.integer ? 1 : 2;
 
 #ifdef NEWMOD_SUPPORT

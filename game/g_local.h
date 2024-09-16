@@ -2695,6 +2695,8 @@ extern int gGAvoidDismember;
 #define DAMAGE_SABER_KNOCKBACK1_B2	0x00040000	// Check the attacker's first saber for a knockbackScale2
 #define DAMAGE_SABER_KNOCKBACK2_B2	0x00080000	// Check the attacker's second saber for a knockbackScale2
 #define DAMAGE_KNOCKBACK_ONLY		0x00100000	// b_e: added
+#define DAMAGE_PIERCE_RAGE			0x00200000	// b_e: added
+#define DAMAGE_PIERCE_PROTECT		0x00400000	// b_e: added
 //
 // g_exphysics.c
 //
@@ -3708,11 +3710,14 @@ extern vmCvar_t		g_allowMoveDisable;
 
 extern vmCvar_t		g_rockPaperScissors;
 
-extern vmCvar_t		g_gripBuff;
+extern vmCvar_t		g_gripRework;
 extern vmCvar_t		g_gripRefreshRate;
 extern vmCvar_t		g_gripAbsorbFix;
 extern vmCvar_t		g_fixGripDistanceCheck;
 extern vmCvar_t		g_protect3DamageReduction;
+extern vmCvar_t		g_lightningRework;
+extern vmCvar_t		g_fixPushPullLOS;
+extern vmCvar_t		d_debugPushPullLOS;
 
 extern vmCvar_t		g_mindTrickBuff;
 extern vmCvar_t		g_drainRework;

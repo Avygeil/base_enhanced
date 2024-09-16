@@ -25,7 +25,20 @@ extern qboolean BG_FullBodyTauntAnim( int anim );
 
 #define DRAIN_REWORK2_SELFDMG_LEVEL3	(30)
 #define DRAIN_REWORK2_SELFDMG_LEVEL2	(20)
-#define DRAIN_REWORK2_SELFDMG_LEVEL1	(11)
+#define DRAIN_REWORK2_SELFDMG_LEVEL1	(10)
+
+#define DRAIN_REWORK_FORCEREDUCE_LEVEL3	(33)
+#define DRAIN_REWORK_FORCEREDUCE_LEVEL2	(22)
+#define DRAIN_REWORK_FORCEREDUCE_LEVEL1	(11)
+
+#if 0
+#define DRAIN_REWORK2_FORCEGIVEN_LEVEL3	(20)
+#define DRAIN_REWORK2_FORCEGIVEN_LEVEL2	(13)
+#define DRAIN_REWORK2_FORCEGIVEN_LEVEL1	(7)
+#endif
+
+#define DRAIN_REWORK_DEBUFFDURATION_CONSTANT	(0)
+#define DRAIN_REWORK_DEBUFFDURATION_PERLEVEL	(1333)
 
 #define DRAIN_REWORK2_MINIMUMFORCE		(0)
 
@@ -993,7 +1006,7 @@ qboolean WP_ForcePowerAvailable( gentity_t *self, forcePowers_t forcePower, int 
 	{
 		return qtrue;
 	}
-	if (forcePower == FP_LIGHTNING && self->client->ps.fd.forcePower >= 25)
+	if (forcePower == FP_LIGHTNING && (self->client->ps.fd.forcePower >= 25 || (g_lightningRework.integer && self->client->ps.fd.forcePower >= 1)))
 		return qtrue;
 	if (forcePower == FP_DRAIN) {
 		if (!g_drainRework.integer) {
@@ -2483,6 +2496,10 @@ void ForceGrip( gentity_t *self )
 		{
 			return;
 		}
+
+		if (g_gripRework.integer == 2 && self->client->ps.fd.forceGripBeingGripped > level.time) {
+			return; // no grip wars; first gripper wins
+		}
 	}
 
 	trace_t tr;
@@ -2546,7 +2563,7 @@ void ForceGrip( gentity_t *self )
 					int closestPlayer = -1;
 					for (int i = 0; i < MAX_CLIENTS; i++) {
 						gentity_t *other = &g_entities[i];
-						if (!other->inuse || other == self || !other->client)
+						if (!other->inuse || other == self || !other->client || IsRacerOrSpectator(other))
 							continue;
 						vec3_t difference;
 						VectorSubtract(other->client->ps.origin, tr.endpos, difference);
@@ -2565,7 +2582,7 @@ void ForceGrip( gentity_t *self )
 	if (tr.fraction != 1.0 &&
 		tr.entityNum != ENTITYNUM_NONE &&
 		g_entities[tr.entityNum].client &&
-		(meme || (!g_entities[tr.entityNum].client->ps.fd.forceGripCripple && g_entities[tr.entityNum].client->ps.fd.forceGripBeingGripped < level.time))) {
+		(meme || (g_gripRework.integer && g_entities[tr.entityNum].client->ps.fd.forceGripBeingGripped < level.time) || (!g_gripRework.integer && !g_entities[tr.entityNum].client->ps.fd.forceGripCripple && g_entities[tr.entityNum].client->ps.fd.forceGripBeingGripped < level.time))) {
 
 		usable = ForcePowerUsableOn(self, &g_entities[tr.entityNum], FP_GRIP);
 
@@ -2595,6 +2612,22 @@ void ForceGrip( gentity_t *self )
 					self->client->stats->grips++;
 				if (g_entities[tr.entityNum].client->stats)
 					g_entities[tr.entityNum].client->stats->gotGripped++;
+			}
+
+			if (g_gripRework.integer == 2 && self->client->ps.fd.forcePowerLevel[FP_GRIP] < 3) {
+				const float xyVelocityCap = 50.0f;
+
+				const float vx = g_entities[tr.entityNum].client->ps.velocity[0];
+				const float vy = g_entities[tr.entityNum].client->ps.velocity[1];
+
+				const float speed = sqrtf(vx * vx + vy * vy);
+
+				if (speed > xyVelocityCap && speed > 0) {
+					const float scale = xyVelocityCap / speed;
+					g_entities[tr.entityNum].client->ps.velocity[0] *= scale;
+					g_entities[tr.entityNum].client->ps.velocity[1] *= scale;
+				}
+
 			}
 
 			self->client->ps.forceHandExtend = HANDEXTEND_FORCE_HOLD;
@@ -2835,7 +2868,7 @@ void ForceLightning( gentity_t *self )
 	{
 		return;
 	}
-	if ( self->client->ps.fd.forcePower < 25 || !WP_ForcePowerUsable( self, FP_LIGHTNING ) )
+	if ( (self->client->ps.fd.forcePower < 25 && !g_lightningRework.integer) || !WP_ForcePowerUsable( self, FP_LIGHTNING ) || self->client->ps.fd.forcePower <= 0)
 	{
 		return;
 	}
@@ -2851,6 +2884,9 @@ void ForceLightning( gentity_t *self )
 
 	if (self->client->ps.weaponTime > 0)
 	{
+		return;
+	}
+	if (self->client->ps.fd.forceGripBeingGripped > level.time && g_gripRework.integer == 2) {
 		return;
 	}
 
@@ -2872,6 +2908,10 @@ void ForceLightningDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, vec
 	self->client->dangerTime = level.time;
 	self->client->ps.eFlags &= ~EF_INVULNERABLE;
 	self->client->invulnerableTimer = 0;
+
+	int flags = 0;
+	if (g_lightningRework.integer)
+		flags |= (DAMAGE_NO_KNOCKBACK | DAMAGE_NO_ARMOR | DAMAGE_NO_HIT_LOC);
 
 	if ( traceEnt && traceEnt->takedamage )
 	{
@@ -2895,7 +2935,50 @@ void ForceLightningDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, vec
 			}
 			if (ForcePowerUsableOn(self, traceEnt, FP_LIGHTNING) > 0)
 			{
-				int	dmg = Q_irand(1,2);
+				double dps;
+				if (!g_lightningRework.integer) {
+					dps = 45;
+				}
+				else {
+					if (self->client->ps.fd.forcePowerLevel[FP_LIGHTNING] <= 1) {
+						dps = 10;
+					}
+					else {
+						float dist = Distance(self->r.currentOrigin, traceEnt->r.currentOrigin);
+						if (self->client->ps.fd.forcePowerLevel[FP_LIGHTNING] == 2) {
+							if (dist <= 300)
+								dps = 40;
+							else if (dist <= 400)
+								dps = 20;
+							else
+								dps = 10;
+						}
+						else {
+							if (dist <= 300)
+								dps = 90;
+							else if (dist <= 400)
+								dps = 25;
+							else if (dist <= 500)
+								dps = 20;
+							else if (dist <= 600)
+								dps = 15;
+							else
+								dps = 10;
+						}
+					}
+				}
+
+				// add dps divided by tickrate to a static number and deal damage when it's >= 1
+				static double damageAccumulator[MAX_GENTITIES] = { 0.0 };
+				damageAccumulator[self - g_entities] += dps / (double)(g_svfps.integer);
+				int dmg = (int)damageAccumulator[self - g_entities];
+				if (dmg >= 1) {
+					damageAccumulator[self - g_entities] -= dmg;
+
+					// sanity check
+					if (damageAccumulator[self - g_entities] < 0)
+						damageAccumulator[self - g_entities] = 0;
+				}
 				
 				int modPowerLevel = -1;
 				
@@ -2906,6 +2989,7 @@ void ForceLightningDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, vec
 
 				if (modPowerLevel != -1)
 				{
+					// absorbed
 					if (!modPowerLevel)
 					{
 						dmg = 0;
@@ -2923,8 +3007,7 @@ void ForceLightningDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, vec
 					}
 				}
 
-				if ( self->client->ps.weapon == WP_MELEE
-					&& self->client->ps.fd.forcePowerLevel[FP_LIGHTNING] > FORCE_LEVEL_2 )
+				if (self->client->ps.weapon == WP_MELEE && self->client->ps.fd.forcePowerLevel[FP_LIGHTNING] > FORCE_LEVEL_2 && !g_lightningRework.integer )
 				{//2-handed lightning
 					//jackin' 'em up, Palpatine-style
 					dmg *= 2;
@@ -2933,7 +3016,7 @@ void ForceLightningDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, vec
 				if (dmg)
 				{
 					//rww - Shields can now absorb lightning too.
-					G_Damage( traceEnt, self, self, dir, impactPoint, dmg, 0, MOD_FORCE_DARK );
+					G_Damage( traceEnt, self, self, dir, impactPoint, dmg, flags, MOD_FORCE_DARK );
 				}
 				if ( traceEnt->client )
 				{
@@ -2970,7 +3053,12 @@ void ForceShootLightning( gentity_t *self )
 	AngleVectors( self->client->ps.viewangles, forward, NULL, NULL );
 	VectorNormalize( forward );
 
-	if ( self->client->ps.fd.forcePowerLevel[FP_LIGHTNING] > FORCE_LEVEL_2 )
+	vec3_t start;
+	VectorCopy(self->client->ps.origin, start);
+	if (g_lightningRework.integer)
+		start[2] += self->client->ps.viewheight;
+
+	if ( self->client->ps.fd.forcePowerLevel[FP_LIGHTNING] > FORCE_LEVEL_2 && !g_lightningRework.integer )
 	{//arc
 		vec3_t	center, mins, maxs, dir, ent_org, size, v;
 		float	radius = FORCE_LIGHTNING_RADIUS, dot, dist;
@@ -2984,6 +3072,9 @@ void ForceShootLightning( gentity_t *self )
 			mins[i] = center[i] - radius;
 			maxs[i] = center[i] + radius;
 		}
+		qboolean compensate = self->client->sess.unlagged;
+		if (g_unlagged.integer && compensate)
+			G_TimeShiftAllClients(trap_Milliseconds() - (level.time - self->client->pers.cmd.serverTime), self, qfalse);
 		numListedEntities = trap_EntitiesInBox( mins, maxs, iEntityList, MAX_GENTITIES );
 
 		i = 0;
@@ -3054,13 +3145,13 @@ void ForceShootLightning( gentity_t *self )
 			}
 		
 			//in PVS?
-			if ( !traceEnt->r.bmodel && !trap_InPVS( ent_org, self->client->ps.origin ) )
+			if ( !traceEnt->r.bmodel && !trap_InPVS( ent_org, start ) )
 			{//must be in PVS
 				continue;
 			}
 
 			//Now check and see if we can actually hit it
-			trap_Trace( &tr, self->client->ps.origin, vec3_origin, vec3_origin, ent_org, self->s.number, MASK_SHOT );
+			trap_Trace( &tr, start, vec3_origin, vec3_origin, ent_org, self->s.number, MASK_SHOT );
 			if ( tr.fraction < 1.0f && tr.entityNum != traceEnt->s.number )
 			{//must have clear LOS
 				continue;
@@ -3069,16 +3160,38 @@ void ForceShootLightning( gentity_t *self )
 			// ok, we are within the radius, add us to the incoming list
 			ForceLightningDamage( self, traceEnt, dir, ent_org );
 		}
+
+		if (g_unlagged.integer && compensate)
+			G_UnTimeShiftAllClients(self, qfalse);
 	}
 	else
 	{//trace-line
-		VectorMA( self->client->ps.origin, 2048, forward, end );
+		int range;
+		if (!g_lightningRework.integer)
+			range = 2048;
+		else if (self->client->ps.fd.forcePowerLevel[FP_LIGHTNING] >= 3)
+			range = 700;
+		else if (self->client->ps.fd.forcePowerLevel[FP_LIGHTNING] == 2)
+			range = 500;
+		else
+			range = 300;
+		VectorMA( start, range, forward, end );
 		
 		qboolean compensate = self->client->sess.unlagged;
 		if (g_unlagged.integer && compensate)
 			G_TimeShiftAllClients(trap_Milliseconds() - (level.time - self->client->pers.cmd.serverTime), self, qfalse);
 
-		trap_Trace( &tr, self->client->ps.origin, vec3_origin, vec3_origin, end, self->s.number, MASK_SHOT );
+		vec3_t mins, maxs;
+		if (!g_lightningRework.integer) {
+			VectorCopy(vec3_origin, mins);
+			VectorCopy(vec3_origin, maxs);
+		}
+		else { // slightly bigger trace bounds i guess
+			mins[0] = mins[1] = mins[2] = -1 * 3;
+			maxs[0] = maxs[1] = maxs[2] = 3;
+		}
+
+		trap_Trace( &tr, start, mins, maxs, end, self->s.number, MASK_SHOT );
 
 		if (g_unlagged.integer && compensate)
 			G_UnTimeShiftAllClients(self, qfalse);
@@ -3120,6 +3233,9 @@ void ForceDrain( gentity_t *self )
 	{//stops it while using it and also after using it, up to 3 second delay
 		return;
 	}
+	if (self->client->ps.fd.forceGripBeingGripped > level.time && g_gripRework.integer == 2) {
+		return;
+	}
 
 	if (g_drainRework.integer >= 2) {
 		int selfdmg;
@@ -3136,7 +3252,7 @@ void ForceDrain( gentity_t *self )
 	if (!g_drainRework.integer)
 		self->client->ps.forceHandExtendTime = level.time + 20000;
 	else
-		self->client->ps.forceHandExtendTime = level.time + DRAIN_REWORK_COOLDOWN;
+		self->client->ps.forceHandExtendTime = level.time + 200;
 
 	G_Sound( self, CHAN_BODY, G_SoundIndex("sound/weapons/force/drain.wav") );
 	
@@ -3158,7 +3274,7 @@ int ForceDrainDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, vec3_t i
 
 	if ( traceEnt && traceEnt->takedamage )
 	{
-		if ( traceEnt->client && (!OnSameTeam(self, traceEnt) || g_friendlyFire.integer) && self->client->ps.fd.forceDrainTime < level.time && traceEnt->client->ps.fd.forcePower )
+		if ( traceEnt->client && (!OnSameTeam(self, traceEnt) || g_friendlyFire.integer) && self->client->ps.fd.forceDrainTime < level.time && (traceEnt->client->ps.fd.forcePower || g_drainRework.integer) )
 		{//an enemy or object
 			if (!traceEnt->client && traceEnt->s.eType == ET_NPC)
 			{ //g2animent
@@ -3176,21 +3292,21 @@ int ForceDrainDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, vec3_t i
 					if (!g_drainRework.integer)
 						dmg = 2; //because it's one-shot
 					else
-						dmg = 11;
+						dmg = DRAIN_REWORK_FORCEREDUCE_LEVEL1;
 				}
 				else if (self->client->ps.fd.forcePowerLevel[FP_DRAIN] == FORCE_LEVEL_2)
 				{
 					if (!g_drainRework.integer)
 						dmg = 3;
 					else
-						dmg = 22;
+						dmg = DRAIN_REWORK_FORCEREDUCE_LEVEL2;
 				}
 				else if (self->client->ps.fd.forcePowerLevel[FP_DRAIN] == FORCE_LEVEL_3)
 				{
 					if (!g_drainRework.integer)
 						dmg = 4;
 					else
-						dmg = 33;
+						dmg = DRAIN_REWORK_FORCEREDUCE_LEVEL3;
 				}
 			
 				if (traceEnt->client)
@@ -3257,13 +3373,48 @@ int ForceDrainDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, vec3_t i
 					self->client->ps.stats[STAT_HEALTH] = self->health;
 				}
 				else {
-					int restoredForce = (int)roundf(((float)actualForceDrainedFromTarget) * 0.6f);
+					int restoredForce;
+#if 0
+					if (self->client->ps.fd.forcePowerLevel[FP_DRAIN] > FORCE_LEVEL_2)
+						restoredForce = DRAIN_REWORK2_FORCEGIVEN_LEVEL3;
+					else if (self->client->ps.fd.forcePowerLevel[FP_DRAIN] == FORCE_LEVEL_2)
+						restoredForce = DRAIN_REWORK2_FORCEGIVEN_LEVEL2;
+					else
+						restoredForce = DRAIN_REWORK2_FORCEGIVEN_LEVEL1;
+#else
+					restoredForce = (int)roundf(((float)actualForceDrainedFromTarget) * 0.6f);
+#endif
 					self->client->ps.fd.forcePower += restoredForce;
 					if (self->client->ps.fd.forcePower > 100)
 						self->client->ps.fd.forcePower = 100;
+
+					int max, cost;
+					if (self->client->ps.fd.forcePowerLevel[FP_DRAIN] == FORCE_LEVEL_3) {
+						max = DRAIN_REWORK_FORCEREDUCE_LEVEL3;
+						cost = DRAIN_REWORK2_SELFDMG_LEVEL3;
+					}
+					else if (self->client->ps.fd.forcePowerLevel[FP_DRAIN] == FORCE_LEVEL_2) {
+						max = DRAIN_REWORK_FORCEREDUCE_LEVEL2;
+						cost = DRAIN_REWORK2_SELFDMG_LEVEL2;
+					}
+					else {
+						max = DRAIN_REWORK_FORCEREDUCE_LEVEL1;
+						cost = DRAIN_REWORK2_SELFDMG_LEVEL1;
+					}
+
+					// refund health if we drained a low dude
+					if (actualForceDrainedFromTarget < max && max != 0) {
+						int unusedFpDrain = max - actualForceDrainedFromTarget;
+						double unusedFpPercentage = (((double)unusedFpDrain) / ((double)max));
+						int unusedHealthCost = (int)round(unusedFpPercentage * ((double)cost));
+						self->health += unusedHealthCost;
+						if (self->health > self->client->ps.stats[STAT_MAX_HEALTH])
+							self->health = self->client->ps.stats[STAT_MAX_HEALTH];
+						self->client->ps.stats[STAT_HEALTH] = self->health;
+					}
 				}
 
-				const int reworkDebuffDuration = 1333 * self->client->ps.fd.forcePowerLevel[FP_DRAIN];
+				const int reworkDebuffDuration = DRAIN_REWORK_DEBUFFDURATION_CONSTANT + (DRAIN_REWORK_DEBUFFDURATION_PERLEVEL * self->client->ps.fd.forcePowerLevel[FP_DRAIN]);
 				if (!g_drainRework.integer) {
 					traceEnt->client->ps.fd.forcePowerRegenDebounceTime = level.time + 800; //don't let the client being drained get force power back right away
 				}
@@ -4248,6 +4399,76 @@ float forcePushPullRadius[NUM_FORCE_POWER_LEVELS] =
 };
 //rwwFIXMEFIXME: incorporate this into the below function? Currently it's only being used by jedi AI
 
+static qboolean AdditionalPushPullLOSChecks(gentity_t *pusher, gentity_t *target) {
+	assert(pusher && pusher->client && target && target->client);
+
+	trace_t tr;
+	vec3_t pusherUpperChestPoint, pusherMidPoint, targetUpperChestPoint, targetMidPoint, targetOrigin;
+
+	const float zDifference = fabs(pusher->client->ps.origin[2] - target->client->ps.origin[2]);
+	if (zDifference > 64) {
+		if (d_debugPushPullLOS.integer)
+			PrintIngame(-1, "[%d] d_debugPushPullLOS: z-axis difference for %d to %d is too great (%g)\n", level.time - level.startTime, pusher - g_entities, target - g_entities, zDifference);
+		return qfalse;
+	}
+
+	VectorAdd(pusher->r.absmin, pusher->r.absmax, pusherUpperChestPoint);
+	VectorScale(pusherUpperChestPoint, 0.6667, pusherUpperChestPoint);
+
+	VectorAdd(pusher->r.absmin, pusher->r.absmax, pusherMidPoint);
+	VectorScale(pusherMidPoint, 0.5, pusherMidPoint);
+
+	VectorAdd(target->r.absmin, target->r.absmax, targetUpperChestPoint);
+	VectorScale(targetUpperChestPoint, 0.6667, targetUpperChestPoint);
+
+	VectorAdd(target->r.absmin, target->r.absmax, targetMidPoint);
+	VectorScale(targetMidPoint, 0.5, targetMidPoint);
+
+	VectorCopy(target->r.currentOrigin, targetOrigin);
+
+	// pusher's upper chest to target's upper chest
+	trap_Trace(&tr, pusherUpperChestPoint, vec3_origin, vec3_origin, targetUpperChestPoint, pusher->s.number, MASK_SHOT);
+	if (tr.entityNum == target->s.number) {
+		if (d_debugPushPullLOS.integer)
+			PrintIngame(-1, "[%d] d_debugPushPullLOS: got LOS from %d to %d with ^3upper chest to upper chest^7 check\n", level.time - level.startTime, pusher - g_entities, target - g_entities);
+		return qtrue;
+	}
+
+	// pusher's upper chest to target's origin
+	trap_Trace(&tr, pusherUpperChestPoint, vec3_origin, vec3_origin, targetOrigin, pusher->s.number, MASK_SHOT);
+	if (tr.entityNum == target->s.number) {
+		if (d_debugPushPullLOS.integer)
+			PrintIngame(-1, "[%d] d_debugPushPullLOS: got LOS from %d to %d with ^3upper chest to origin^7 check\n", level.time - level.startTime, pusher - g_entities, target - g_entities);
+		return qtrue;
+	}
+
+	// pusher's midpoint to target's upper chest
+	trap_Trace(&tr, pusherMidPoint, vec3_origin, vec3_origin, targetUpperChestPoint, pusher->s.number, MASK_SHOT);
+	if (tr.entityNum == target->s.number) {
+		if (d_debugPushPullLOS.integer)
+			PrintIngame(-1, "[%d] d_debugPushPullLOS: got LOS from %d to %d with ^3midpoint to upper chest^7 check\n", level.time - level.startTime, pusher - g_entities, target - g_entities);
+		return qtrue;
+	}
+
+	// pusher's midpoint to target's midpoint
+	trap_Trace(&tr, pusherMidPoint, vec3_origin, vec3_origin, targetMidPoint, pusher->s.number, MASK_SHOT);
+	if (tr.entityNum == target->s.number) {
+		if (d_debugPushPullLOS.integer)
+			PrintIngame(-1, "[%d] d_debugPushPullLOS: got LOS from %d to %d with ^3midpoint to midpoint^7 check\n", level.time - level.startTime, pusher - g_entities, target - g_entities);
+		return qtrue;
+	}
+
+	// pusher's midpoint to target's origin
+	trap_Trace(&tr, pusherMidPoint, vec3_origin, vec3_origin, targetOrigin, pusher->s.number, MASK_SHOT);
+	if (tr.entityNum == target->s.number) {
+		if (d_debugPushPullLOS.integer)
+			PrintIngame(-1, "[%d] d_debugPushPullLOS: got LOS from %d to %d with ^3midpoint to origin^7 check\n", level.time - level.startTime, pusher - g_entities, target - g_entities);
+		return qtrue;
+	}
+
+	return qfalse;
+}
+
 extern void Touch_Button(gentity_t *ent, gentity_t *other, trace_t *trace );
 void ForceThrow( gentity_t *self, qboolean pull )
 {
@@ -4687,8 +4908,22 @@ void ForceThrow( gentity_t *self, qboolean pull )
 
 			if ( tr.fraction < 1.0f && tr.entityNum != ent->s.number )
 			{
-				continue;
+				if (g_fixPushPullLOS.integer && ent->client) {
+					if (!AdditionalPushPullLOSChecks(self, ent))
+						continue;
+				}
+				else {
+					continue;
+				}
 			}
+			else {
+				if (d_debugPushPullLOS.integer)
+					PrintIngame(-1, "[%d] d_debugPushPullLOS: got LOS from %d to %d with ^5eyes to midpoint^7 check\n", level.time - level.startTime, self - g_entities, ent - g_entities);
+			}
+		}
+		else {
+			if (d_debugPushPullLOS.integer)
+				PrintIngame(-1, "[%d] d_debugPushPullLOS: got LOS from %d to %d with ^2origin to midpoint^7 check\n", level.time - level.startTime, self - g_entities, ent - g_entities);
 		}
 
 		if (self->client && self - g_entities < MAX_CLIENTS && self->client->sess.inRacemode) {
@@ -4938,7 +5173,7 @@ void ForceThrow( gentity_t *self, qboolean pull )
 							{ //only break the grip if our push/pull level is >= their grip level
 								WP_ForcePowerStop(push_list[x], FP_GRIP);
 								self->client->ps.fd.forceGripBeingGripped = 0;
-								push_list[x]->client->ps.fd.forceGripUseTime = level.time + 1000; //since we just broke out of it..
+								push_list[x]->client->ps.fd.forceGripUseTime = level.time + 500; //since we just broke out of it..
 							}
 						}
 					}
@@ -5134,7 +5369,7 @@ void WP_ForcePowerStop( gentity_t *self, forcePowers_t forcePower )
 		}
 		break;
 	case FP_GRIP:
-		self->client->ps.fd.forceGripUseTime = level.time + GRIP_DEBOUNCE_TIME;
+		self->client->ps.fd.forceGripUseTime = level.time + 500;
 		if (self->client->ps.fd.forcePowerLevel[FP_GRIP] > FORCE_LEVEL_1 &&
 			g_entities[self->client->ps.fd.forceGripEntityNum].client &&
 			g_entities[self->client->ps.fd.forceGripEntityNum].health > 0 &&
@@ -5164,13 +5399,13 @@ void WP_ForcePowerStop( gentity_t *self, forcePowers_t forcePower )
 		self->client->ps.powerups[PW_DISINT_4] = 0;
 		break;
 	case FP_LIGHTNING:
-		if ( self->client->ps.fd.forcePowerLevel[FP_LIGHTNING] < FORCE_LEVEL_2 )
+		if ( self->client->ps.fd.forcePowerLevel[FP_LIGHTNING] < FORCE_LEVEL_2 && !g_lightningRework.integer )
 		{//don't do it again for 3 seconds, minimum... FIXME: this should be automatic once regeneration is slower (normal)
 			self->client->ps.fd.forcePowerDebounce[FP_LIGHTNING] = level.time + 3000;
 		}
 		else
 		{
-			self->client->ps.fd.forcePowerDebounce[FP_LIGHTNING] = level.time + 1500;
+			self->client->ps.fd.forcePowerDebounce[FP_LIGHTNING] = level.time + (g_lightningRework.integer ? 500 : 1500);
 		}
 		if (self->client->ps.forceHandExtend == HANDEXTEND_FORCE_HOLD)
 		{
@@ -5329,7 +5564,7 @@ void DoGripAction(gentity_t *self, forcePowers_t forcePower)
 		return;
 	}
 
-	if (!g_fixGripDistanceCheck.integer && VectorLength(a) > MAX_GRIP_DISTANCE && !meme)
+	if ((!g_fixGripDistanceCheck.integer || (g_gripRework.integer != 2 && gripLevel != 3)) && VectorLength(a) > MAX_GRIP_DISTANCE && !meme)
 	{
 		WP_ForcePowerStop(self, forcePower);
 		return;
@@ -5698,17 +5933,28 @@ static void WP_ForcePowerRun( gentity_t *self, forcePowers_t forcePower, usercmd
 			break;
 		}
 
-		if (self->client->ps.fd.forcePowerDebounce[FP_PULL] < level.time)
-		{ //This is sort of not ideal. Using the debounce value reserved for pull for this because pull doesn't need it.
-			if (!meme)
-				BG_ForcePowerDrain( &self->client->ps, forcePower, 1 );
-			self->client->ps.fd.forcePowerDebounce[FP_PULL] = level.time + 100;
+		if (g_gripRework.integer == 2) { // new out-of-fp check: with new rework enabled, allow grip to continue with 0fp during the initial second
+			if (self->client->ps.fd.forcePower < 1 && !meme && self->client->ps.fd.forcePowerDebounce[FP_PULL] < level.time)
+			{
+				WP_ForcePowerStop(self, FP_GRIP);
+				break;
+			}
 		}
 
-		if (self->client->ps.fd.forcePower < 1 && !meme)
-		{
-			WP_ForcePowerStop(self, FP_GRIP);
-			break;
+		if (self->client->ps.fd.forcePowerDebounce[FP_PULL] < level.time)
+		{ //This is sort of not ideal. Using the debounce value reserved for pull for this because pull doesn't need it.
+			if (!meme) {
+				BG_ForcePowerDrain(&self->client->ps, forcePower, 1);
+				self->client->ps.fd.forcePowerDebounce[FP_PULL] = level.time + 100;
+			}
+		}
+
+		if (g_gripRework.integer != 2) { // old out-of-fp check
+			if (self->client->ps.fd.forcePower < 1 && !meme)
+			{
+				WP_ForcePowerStop(self, FP_GRIP);
+				break;
+			}
 		}
 
 		DoGripAction(self, forcePower);
@@ -5786,7 +6032,7 @@ static void WP_ForcePowerRun( gentity_t *self, forcePowers_t forcePower, usercmd
 			break;
 		}
 
-		if ( self->client->ps.fd.forcePowerLevel[FP_LIGHTNING] > FORCE_LEVEL_1 )
+		if ( self->client->ps.fd.forcePowerLevel[FP_LIGHTNING] > FORCE_LEVEL_1 || g_lightningRework.integer )
 		{//higher than level 1
 			if ( (cmd->buttons & BUTTON_FORCE_LIGHTNING) || ((cmd->buttons & BUTTON_FORCEPOWER) && self->client->ps.fd.forcePowerSelected == FP_LIGHTNING) )
 			{//holding it keeps it going
@@ -5795,7 +6041,7 @@ static void WP_ForcePowerRun( gentity_t *self, forcePowers_t forcePower, usercmd
 		}
 		// OVERRIDEFIXME
 		if ( !WP_ForcePowerAvailable( self, forcePower, 0 ) || self->client->ps.fd.forcePowerDuration[FP_LIGHTNING] < level.time ||
-			self->client->ps.fd.forcePower < 25)
+			(self->client->ps.fd.forcePower < 25 && !g_lightningRework.integer) || !self->client->ps.fd.forcePower)
 		{
 			WP_ForcePowerStop( self, forcePower );
 		}
@@ -5922,7 +6168,11 @@ int WP_DoSpecificPower( gentity_t *self, usercmd_t *ucmd, forcePowers_t forcepow
 			if (!(self->client->ps.fd.forcePowersActive & (1 << FP_GRIP)))
 			{
 				WP_ForcePowerStart( self, FP_GRIP, 0 );
-				if (!meme) BG_ForcePowerDrain( &self->client->ps, FP_GRIP, GRIP_DRAIN_AMOUNT );
+				if (!meme) {
+					BG_ForcePowerDrain(&self->client->ps, FP_GRIP, GRIP_DRAIN_AMOUNT);
+					if (g_gripRework.integer == 2)
+						self->client->ps.fd.forcePowerDebounce[FP_PULL] = level.time + 1000; // give a freebie second to use grip
+				}
 			}
 		}
 		else

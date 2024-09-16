@@ -960,7 +960,7 @@ void BodySink( gentity_t *ent ) {
 
 	G_AddEvent(ent, EV_BODYFADE, 0);
 	ent->nextthink = level.time + 18000;
-	ent->takedamage = qfalse;
+	ent->takedamage = qtrue; // duo: changed from qfalse
 }
 
 /*
@@ -1082,12 +1082,7 @@ static qboolean CopyToBodyQue( gentity_t *ent ) {
 
 	body->die = body_die;
 
-	// don't take more damage if already gibbed
-	if ( ent->health <= GIB_HEALTH ) {
-		body->takedamage = qfalse;
-	} else {
-		body->takedamage = qtrue;
-	}
+	body->takedamage = qtrue; // duo: removed gib setting this to qfalse bullshit
 
 	VectorCopy ( body->s.pos.trBase, body->r.currentOrigin );
 	trap_LinkEntity (body);
@@ -3240,6 +3235,9 @@ void G_BroadcastServerFeatureList( int clientNum ) {
 
 	if (g_fixReconnectCorpses.integer)
 		Q_strcat(featureListConfigString, sizeof(featureListConfigString), "frc ");
+
+	if (g_lightningRework.integer)
+		Q_strcat(featureListConfigString, sizeof(featureListConfigString), "lrw ");
 
 	// remove trailing space
 	int len = strlen(featureListConfigString);

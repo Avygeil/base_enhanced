@@ -2976,7 +2976,7 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, q
 	if (!force && ent->client->account && (ent->client->account->flags & ACCOUNTFLAG_HUN_GASLIGHT) && mode == SAY_ALL &&
 		VALIDSTRING(chatText) && *chatText != '?' && Q_irand(1, 50) == 22 && !strstr(chatText, "://") && !stristr(ent->client->account->name, "duo")) {
 		int len = strlen(chatText);
-		if (len >= 3 && len <= 140 && *(chatText + (len - 1)) != 'ú') {
+		if (len >= 3 && len <= 140 && *(chatText + (len - 1)) != '#') {
 			int numPlayers = 0;
 			CountPlayers(&numPlayers, NULL, NULL, NULL, NULL, NULL, NULL);
 			if (numPlayers >= 5) {
@@ -2984,7 +2984,7 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, q
 				int now = trap_Milliseconds();
 				if (now - lastGaslightTime >= 300000) {
 					lastGaslightTime = now;
-					Com_sprintf(gaslightBuf, sizeof(gaslightBuf), "%sú", chatText);
+					Com_sprintf(gaslightBuf, sizeof(gaslightBuf), "%s#", chatText);
 					chatText = gaslightBuf;
 				}
 			}

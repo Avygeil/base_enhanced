@@ -1640,7 +1640,7 @@ static void Jedi_CombatDistance( int enemy_dist )
 					else if ( WP_ForcePowerAvailable( NPC, FP_LIGHTNING, 0 ) && Q_irand( 0, 1 ) )
 					{
 						ForceLightning( NPC );
-						if ( NPC->client->ps.fd.forcePowerLevel[FP_LIGHTNING] > FORCE_LEVEL_1 )
+						if ( NPC->client->ps.fd.forcePowerLevel[FP_LIGHTNING] > FORCE_LEVEL_1 || g_lightningRework.integer )
 						{
 							NPC->client->ps.weaponTime = Q_irand( 1000, 3000+(g_spskill.integer*500) );
 							TIMER_Set( NPC, "holdLightning", NPC->client->ps.weaponTime );

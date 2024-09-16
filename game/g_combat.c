@@ -4584,7 +4584,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
         }
 	}
 
-	if ( !(dflags & DAMAGE_NO_PROTECTION) ) 
+	if ( !(dflags & DAMAGE_NO_PROTECTION) && !(dflags & DAMAGE_PIERCE_RAGE)) 
 	{//rage overridden by no_protection
 		if (targ && targ->client && (targ->client->ps.fd.forcePowersActive & (1 << FP_RAGE)))
 		{
@@ -5308,7 +5308,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 		targ->client->lasthurt_mod = mod;
 	}
 
-	if ( !(dflags & DAMAGE_NO_PROTECTION) ) 
+	if ( !(dflags & DAMAGE_NO_PROTECTION) && !(dflags & DAMAGE_PIERCE_PROTECT) ) 
 	{//protect overridden by no_protection
 		if (take && targ->client && (targ->client->ps.fd.forcePowersActive & (1 << FP_PROTECT)))
 		{
