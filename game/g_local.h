@@ -3713,7 +3713,6 @@ extern vmCvar_t		g_rockPaperScissors;
 extern vmCvar_t		g_gripRework;
 extern vmCvar_t		g_gripRefreshRate;
 extern vmCvar_t		g_gripAbsorbFix;
-extern vmCvar_t		g_fixGripDistanceCheck;
 extern vmCvar_t		g_protect3DamageReduction;
 extern vmCvar_t		g_lightningRework;
 extern vmCvar_t		g_fixPushPullLOS;

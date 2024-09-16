@@ -5564,7 +5564,9 @@ void DoGripAction(gentity_t *self, forcePowers_t forcePower)
 		return;
 	}
 
-	if ((!g_fixGripDistanceCheck.integer || gripLevel != 3) && VectorLength(a) > MAX_GRIP_DISTANCE && !meme)
+	// no distance check for maintaining grip 3 (would only punish fast strafing),
+	// and forgiving distance check for maintaining grip1/2
+	if (gripLevel != 3 && VectorLength(a) > MAX_GRIP_DISTANCE * 2 && !meme)
 	{
 		WP_ForcePowerStop(self, forcePower);
 		return;

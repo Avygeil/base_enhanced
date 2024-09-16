@@ -639,7 +639,6 @@ vmCvar_t	g_rockPaperScissors;
 vmCvar_t	g_gripRework;
 vmCvar_t	g_gripRefreshRate;
 vmCvar_t	g_gripAbsorbFix;
-vmCvar_t	g_fixGripDistanceCheck;
 vmCvar_t	g_protect3DamageReduction;
 vmCvar_t	g_lightningRework;
 vmCvar_t	g_fixPushPullLOS;
@@ -1289,7 +1288,6 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_gripRefreshRate, "g_gripRefreshRate", "300", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_gripAbsorbFix, "g_gripAbsorbFix", "0", CVAR_ARCHIVE, 0, qtrue },
-	{ &g_fixGripDistanceCheck, "g_fixGripDistanceCheck", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_protect3DamageReduction, "g_protect3DamageReduction", "0.80", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_lightningRework, "g_lightningRework", "0", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 
