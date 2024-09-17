@@ -3387,31 +3387,6 @@ int ForceDrainDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, vec3_t i
 					self->client->ps.fd.forcePower += restoredForce;
 					if (self->client->ps.fd.forcePower > 100)
 						self->client->ps.fd.forcePower = 100;
-
-					int max, cost;
-					if (self->client->ps.fd.forcePowerLevel[FP_DRAIN] == FORCE_LEVEL_3) {
-						max = DRAIN_REWORK_FORCEREDUCE_LEVEL3;
-						cost = DRAIN_REWORK2_SELFDMG_LEVEL3;
-					}
-					else if (self->client->ps.fd.forcePowerLevel[FP_DRAIN] == FORCE_LEVEL_2) {
-						max = DRAIN_REWORK_FORCEREDUCE_LEVEL2;
-						cost = DRAIN_REWORK2_SELFDMG_LEVEL2;
-					}
-					else {
-						max = DRAIN_REWORK_FORCEREDUCE_LEVEL1;
-						cost = DRAIN_REWORK2_SELFDMG_LEVEL1;
-					}
-
-					// refund health if we drained a low dude
-					if (actualForceDrainedFromTarget < max && max != 0) {
-						int unusedFpDrain = max - actualForceDrainedFromTarget;
-						double unusedFpPercentage = (((double)unusedFpDrain) / ((double)max));
-						int unusedHealthCost = (int)round(unusedFpPercentage * ((double)cost));
-						self->health += unusedHealthCost;
-						if (self->health > self->client->ps.stats[STAT_MAX_HEALTH])
-							self->health = self->client->ps.stats[STAT_MAX_HEALTH];
-						self->client->ps.stats[STAT_HEALTH] = self->health;
-					}
 				}
 
 				const int reworkDebuffDuration = DRAIN_REWORK_DEBUFFDURATION_CONSTANT + (DRAIN_REWORK_DEBUFFDURATION_PERLEVEL * self->client->ps.fd.forcePowerLevel[FP_DRAIN]);
@@ -3464,6 +3439,8 @@ int ForceShootDrain( gentity_t *self )
 	VectorCopy(self->client->ps.origin, start);
 	if (g_drainRework.integer)
 		start[2] += self->client->ps.viewheight;
+
+	int actualAmountDrained = 0;
 
 	if ( self->client->ps.fd.forcePowerLevel[FP_DRAIN] > FORCE_LEVEL_2 && !g_drainRework.integer )
 	{//arc
@@ -3602,7 +3579,7 @@ int ForceShootDrain( gentity_t *self )
 		}
 		else {
 			traceEnt = &g_entities[tr.entityNum];
-			int actualAmountDrained = ForceDrainDamage(self, traceEnt, forward, tr.endpos);
+			actualAmountDrained = ForceDrainDamage(self, traceEnt, forward, tr.endpos);
 			gotOneOrMore = 1;
 
 			if (g_drainRework.integer) {
@@ -3631,13 +3608,29 @@ int ForceShootDrain( gentity_t *self )
 		}
 	}
 	else {
-		int selfdmg;
+		int healthCost, maxFpDrained, selfdmg;
 		switch (self->client->ps.fd.forcePowerLevel[FP_DRAIN]) {
-		case 3: selfdmg = DRAIN_REWORK2_SELFDMG_LEVEL3; break;
-		case 2: selfdmg = DRAIN_REWORK2_SELFDMG_LEVEL2; break;
-		default: selfdmg = DRAIN_REWORK2_SELFDMG_LEVEL1; break;
+		case 3:
+			healthCost = DRAIN_REWORK2_SELFDMG_LEVEL3;
+			maxFpDrained = DRAIN_REWORK_FORCEREDUCE_LEVEL3;
+			break;
+		case 2:
+			healthCost = DRAIN_REWORK2_SELFDMG_LEVEL2;
+			maxFpDrained = DRAIN_REWORK_FORCEREDUCE_LEVEL2;
+			break;
+		default:
+			healthCost = DRAIN_REWORK2_SELFDMG_LEVEL1;
+			maxFpDrained = DRAIN_REWORK_FORCEREDUCE_LEVEL1;
+			break;
 		}
-		G_Damage(self, self, self, NULL, NULL, selfdmg, DAMAGE_NO_PROTECTION | DAMAGE_NO_ARMOR | DAMAGE_NO_SELF_PROTECTION, MOD_SUICIDE);
+		assert(maxFpDrained != 0);
+		if (actualAmountDrained >= 0)
+			selfdmg = (int)round(healthCost * ((double)actualAmountDrained / (double)maxFpDrained));
+		else
+			selfdmg = healthCost;
+
+		if (selfdmg > 0)
+			G_Damage(self, self, self, NULL, NULL, selfdmg, DAMAGE_NO_PROTECTION | DAMAGE_NO_ARMOR | DAMAGE_NO_SELF_PROTECTION, MOD_SUICIDE);
 	}
 
 	if (!g_drainRework.integer)
