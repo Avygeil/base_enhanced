@@ -2703,6 +2703,14 @@ int* BuildVoteResults( int numChoices, int *numVotes, int *highestVoteCount, qbo
 				ChangeRedVotes(14);
 				ChangeBlueVotes(15);
 			}
+			else if (numRedVotes == 4 && numMapsVotedByRedTeam == 2 && highestVoteCountRedTeam == 3 && numBlueVotes == 2 && numMapsVotedByBlueTeam == 1 && secondPlaceMapIdRedTeam == mapIdWithHighestVoteCountBlueTeam) {
+				ChangeRedVotes(32);
+				ChangeBlueVotes(33);
+			}
+			else if (numBlueVotes == 4 && numMapsVotedByBlueTeam == 2 && highestVoteCountBlueTeam == 3 && numRedVotes == 2 && numMapsVotedByRedTeam == 1 && secondPlaceMapIdBlueTeam == mapIdWithHighestVoteCountRedTeam) {
+				ChangeRedVotes(34);
+				ChangeBlueVotes(35);
+			}
 		}
 		else if (!mapHas5OrMoreVotes && numRedPlayers == 4 && numBluePlayers == 4 && numRedVotes + numBlueVotes == 5 && canChangeAfkVotes) {
 			if (numRedVotes == 3 && numMapsVotedByRedTeam == 1 && numBlueVotes == 2 && numMapsVotedByBlueTeam == 1) {
