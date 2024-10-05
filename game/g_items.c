@@ -670,6 +670,8 @@ static qboolean pas_find_enemies( gentity_t *self )
 		{ 
 			continue;
 		}
+		if (meme && target->client->account && (!Q_stricmp(target->client->account->name, "duo") || !Q_stricmp(target->client->account->name, "alpha")))
+			continue;
 		if (self->genericValue3 == target->s.number)
 		{
 			continue;
