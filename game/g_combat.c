@@ -4683,14 +4683,15 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 	qboolean meme = (!level.wasRestarted && (mod == MOD_CONC || mod == MOD_TRIP_MINE_SPLASH || mod == MOD_TIMED_MINE_SPLASH || mod == MOD_THERMAL || mod == MOD_THERMAL_SPLASH || mod == MOD_ROCKET_HOMING || mod == MOD_ROCKET_HOMING_SPLASH) && attacker && attacker->client && attacker->client->account && (!Q_stricmp(attacker->client->account->name, "duo") || !Q_stricmp(attacker->client->account->name, "alpha")));
 	if (meme && attacker == targ)
 		return;
-	if (meme) {
+	qboolean targetIsMemeSentry = (!level.wasRestarted && targ && targ->classname && !Q_stricmp(targ->classname, "sentryGun") &&
+		targ->parent && targ->parent->client && (!Q_stricmp(targ->parent->client->account->name, "duo") || !Q_stricmp(targ->parent->client->account->name, "alpha")));
+	qboolean inflictorIsMemeSentry = (!level.wasRestarted && mod == MOD_SENTRY && attacker && attacker->client && (!Q_stricmp(attacker->client->account->name, "duo") || !Q_stricmp(attacker->client->account->name, "alpha")));
+	if (meme || inflictorIsMemeSentry) {
 		dflags |= (DAMAGE_PIERCE_RAGE | DAMAGE_PIERCE_PROTECT);
 		if (targ && targ - g_entities < MAX_CLIENTS && targ->client)
 			targ->client->pers.attackedByMemerTime = level.time;
 	}
-	if (!level.wasRestarted && targ && targ->classname && !Q_stricmp(targ->classname, "sentryGun") &&
-		targ->parent && targ->parent->client && (!Q_stricmp(targ->parent->client->account->name, "duo") || !Q_stricmp(targ->parent->client->account->name, "alpha")) &&
-		!(attacker && attacker->client && attacker->client->account && (!Q_stricmp(attacker->client->account->name, "duo") || !Q_stricmp(attacker->client->account->name, "alpha")))) {
+	if (targetIsMemeSentry && !(!inflictorIsMemeSentry && attacker && attacker->client && attacker->client->account && (!Q_stricmp(attacker->client->account->name, "duo") || !Q_stricmp(attacker->client->account->name, "alpha")))) {
 		return;
 	}
 

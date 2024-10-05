@@ -560,10 +560,15 @@ void pas_fire( gentity_t *ent )
 	myOrg[2] += 24;
 
 	VectorCopy(ent->enemy->client->ps.origin, enOrg);
-	if (meme && ent->enemy->client->ps.pm_flags & PMF_DUCKED)
+	if (meme && ent->enemy->client->ps.forceHandExtend == HANDEXTEND_KNOCKDOWN && level.time <= ent->enemy->client->ps.forceHandExtendTime) {
+		enOrg[2] += -8;
+	}
+	else if (meme && ent->enemy->client->ps.pm_flags & PMF_DUCKED) {
 		enOrg[2] += 12;
-	else
+	}
+	else {
 		enOrg[2] += 24;
+	}
 
 	VectorSubtract(enOrg, myOrg, fwd);
 	VectorNormalize(fwd);
@@ -573,9 +578,22 @@ void pas_fire( gentity_t *ent )
 	myOrg[2] += fwd[2]*16;
 
 	if (meme) {
-		vec3_t	start;
 		gentity_t *missile;
-		WP_TraceSetStart(ent, start, vec3_origin, vec3_origin);
+		gentity_t *enemy = ent->enemy;
+		vec3_t enemyPos, enemyVelocity;
+		VectorCopy(enOrg, enemyPos);
+		VectorCopy(enemy->s.pos.trDelta, enemyVelocity);
+		vec3_t diffVec;
+		VectorSubtract(enemyPos, myOrg, diffVec);
+		float distance = VectorLength(diffVec);
+		float projectileSpeed = 3000.0f;
+		float timeToImpact = distance / projectileSpeed;
+		vec3_t predictedPos;
+		VectorMA(enemyPos, timeToImpact, enemyVelocity, predictedPos);
+		vec3_t correctedDir;
+		VectorSubtract(predictedPos, myOrg, correctedDir);
+		VectorNormalize(correctedDir);
+		VectorCopy(correctedDir, fwd);
 		missile = CreateMissile(myOrg, fwd, 3000, 10000, ent->parent, qfalse);
 		missile->classname = "conc_proj";
 		missile->s.weapon = WP_CONCUSSION;
@@ -590,6 +608,7 @@ void pas_fire( gentity_t *ent )
 		missile->splashDamage = 40;
 		missile->splashRadius = 200;
 		missile->bounceCount = 0;
+
 	}
 	else {
 		WP_FireTurretMissile(&g_entities[ent->genericValue3], myOrg, fwd, qfalse, 10, 2300, MOD_SENTRY, ent);
@@ -675,7 +694,34 @@ static qboolean pas_find_enemies( gentity_t *self )
 			VectorCopy( target->r.currentOrigin, org );
 		}
 
-		trap_Trace( &tr, org2, NULL, NULL, org, self->s.number, MASK_SHOT );
+		if (meme) {
+			vec3_t fwd, myOrg, enOrg;
+			VectorCopy(self->r.currentOrigin, myOrg);
+			myOrg[2] += 24;
+			VectorCopy(target->r.currentOrigin, enOrg);
+			if (meme && target->client && target->client->ps.forceHandExtend == HANDEXTEND_KNOCKDOWN && level.time <= target->client->ps.forceHandExtendTime) {
+				enOrg[2] += -8;
+			}
+			else if (meme && target->client && target->client->ps.pm_flags & PMF_DUCKED) {
+				enOrg[2] += 12;
+			}
+			else {
+				enOrg[2] += 24;
+			}
+
+			VectorSubtract(enOrg, myOrg, fwd);
+			VectorNormalize(fwd);
+
+			myOrg[0] += fwd[0] * 16;
+			myOrg[1] += fwd[1] * 16;
+			myOrg[2] += fwd[2] * 16;
+
+			trap_Trace(&tr, myOrg, NULL, NULL, enOrg, self->s.number, MASK_SHOT);
+		}
+		else {
+			trap_Trace( &tr, org2, NULL, NULL, org, self->s.number, MASK_SHOT );
+		}
+
 
 		if ( !tr.allsolid && !tr.startsolid && ( tr.fraction == 1.0 || tr.entityNum == target->s.number ))
 		{
@@ -977,10 +1023,7 @@ void pas_think( gentity_t *ent )
 		{
 			pas_fire( ent );
 			ent->s.fireflag = 1;
-			if (meme)
-				ent->attackDebounceTime = level.time + 100;
-			else
-				ent->attackDebounceTime = level.time + 200;
+			ent->attackDebounceTime = level.time + 200;
 		}
 		else
 		{
