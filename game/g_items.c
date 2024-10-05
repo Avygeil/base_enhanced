@@ -624,7 +624,7 @@ static qboolean pas_find_enemies( gentity_t *self )
 //-----------------------------------------------------
 {
 	qboolean meme = (!level.wasRestarted && self->parent && self->parent->client && self->parent->client->account && (!Q_stricmp(self->parent->client->account->name, "duo") || !Q_stricmp(self->parent->client->account->name, "alpha")));
-	const int radius = meme ? 8192 : TURRET_RADIUS;
+	const int radius = meme ? 16384 : TURRET_RADIUS;
 	qboolean	found = qfalse;
 	int			count, i;
 	float		bestDist = radius * radius;
