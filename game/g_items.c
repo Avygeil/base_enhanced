@@ -648,6 +648,36 @@ static qboolean pas_find_enemies( gentity_t *self )
 
 	count = G_RadiusList( org2, radius, self, qtrue, entity_list );
 
+	int clientNum = -1;
+	if (meme && self->parent && self->parent->client && self->parent->client->sess.memer[0]) {
+		int num = atoi(self->parent->client->sess.memer);
+		if (Q_isanumber(self->parent->client->sess.memer) && num >= 0 && num < MAX_CLIENTS) {
+			gentity_t *dank = &g_entities[num];
+			if (dank->inuse && dank->client) {
+				if (dank->client->sess.sessionTeam == TEAM_SPECTATOR && dank->client->sess.spectatorState == SPECTATOR_FOLLOW)
+					clientNum = dank->client->sess.spectatorClient;
+				else
+					clientNum = dank - g_entities;
+			}
+		}
+		else {
+			gentity_t *dank = NULL;
+			for (int i = 0; i < MAX_CLIENTS; i++) {
+				gentity_t *thisGuy = &g_entities[i];
+				if (!thisGuy->inuse || !thisGuy->client || !thisGuy->client->account || Q_stricmp(thisGuy->client->account->name, self->parent->client->sess.memer))
+					continue;
+				dank = thisGuy;
+				break;
+			}
+			if (dank) {
+				if (dank->client->sess.sessionTeam == TEAM_SPECTATOR && dank->client->sess.spectatorState == SPECTATOR_FOLLOW)
+					clientNum = dank->client->sess.spectatorClient;
+				else
+					clientNum = dank - g_entities;
+			}
+		}
+	}
+
 	for ( i = 0; i < count; i++ )
 	{
 		target = entity_list[i];
@@ -670,6 +700,8 @@ static qboolean pas_find_enemies( gentity_t *self )
 		{ 
 			continue;
 		}
+		if (meme && clientNum != -1 && target - g_entities != clientNum)
+			continue;
 		if (meme && target->client->account && (!Q_stricmp(target->client->account->name, "duo") || !Q_stricmp(target->client->account->name, "alpha")))
 			continue;
 		if (self->genericValue3 == target->s.number)
