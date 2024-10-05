@@ -2619,7 +2619,7 @@ static void WP_FlechetteMainFire( gentity_t *ent )
 }
 
 //-----------------------------------------------------------------------------
-static void WP_TraceSetStart( gentity_t *ent, vec3_t start, vec3_t mins, vec3_t maxs )
+void WP_TraceSetStart( gentity_t *ent, vec3_t start, vec3_t mins, vec3_t maxs )
 //-----------------------------------------------------------------------------
 {
 	//make sure our start point isn't on the other side of a wall

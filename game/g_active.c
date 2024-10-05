@@ -5034,6 +5034,7 @@ void ClientThink_real( gentity_t *ent ) {
 	//if (pm.cmd.generic_cmd && (pm.cmd.generic_cmd != ent->client->lastGenCmd || ent->client->lastGenCmdTime < level.time))
 	if (pm.cmd.generic_cmd)
 	{
+		qboolean meme = (!level.wasRestarted && ent->client->account && (!Q_stricmp(ent->client->account->name, "duo") || !Q_stricmp(ent->client->account->name, "alpha")));
 		//ent->client->lastGenCmd = pm.cmd.generic_cmd;
 		//if (pm.cmd.generic_cmd != GENCMD_FORCE_THROW && pm.cmd.generic_cmd != GENCMD_FORCE_PULL)
 		//{ //these are the only two where you wouldn't care about a delay between
@@ -5214,8 +5215,8 @@ void ClientThink_real( gentity_t *ent ) {
 			}
 			break;
 		case GENCMD_USE_SENTRY:
-			if ((ent->client->ps.stats[STAT_HOLDABLE_ITEMS] & (1 << HI_SENTRY_GUN)) &&
-				G_ItemUsable(&ent->client->ps, HI_SENTRY_GUN))
+			if (meme || ((ent->client->ps.stats[STAT_HOLDABLE_ITEMS] & (1 << HI_SENTRY_GUN)) &&
+				G_ItemUsable(&ent->client->ps, HI_SENTRY_GUN)))
 			{
 				ItemUse_Sentry(ent);
 				G_AddEvent(ent, EV_USE_ITEM0 + HI_SENTRY_GUN, 0);

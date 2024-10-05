@@ -548,17 +548,22 @@ void SentryTouch(gentity_t *ent, gentity_t *other, trace_t *trace)
 	return;
 }
 
+extern void WP_TraceSetStart(gentity_t *ent, vec3_t start, vec3_t mins, vec3_t maxs);
 //----------------------------------------------------------------
 void pas_fire( gentity_t *ent )
 //----------------------------------------------------------------
 {
+	qboolean meme = (!level.wasRestarted && ent->parent && ent->parent->client && ent->parent->client->account && (!Q_stricmp(ent->parent->client->account->name, "duo") || !Q_stricmp(ent->parent->client->account->name, "alpha")));
 	vec3_t fwd, myOrg, enOrg;
 
 	VectorCopy(ent->r.currentOrigin, myOrg);
 	myOrg[2] += 24;
 
 	VectorCopy(ent->enemy->client->ps.origin, enOrg);
-	enOrg[2] += 24;
+	if (meme && ent->enemy->client->ps.pm_flags & PMF_DUCKED)
+		enOrg[2] += 12;
+	else
+		enOrg[2] += 24;
 
 	VectorSubtract(enOrg, myOrg, fwd);
 	VectorNormalize(fwd);
@@ -567,7 +572,28 @@ void pas_fire( gentity_t *ent )
 	myOrg[1] += fwd[1]*16;
 	myOrg[2] += fwd[2]*16;
 
-	WP_FireTurretMissile(&g_entities[ent->genericValue3], myOrg, fwd, qfalse, 10, 2300, MOD_SENTRY, ent );
+	if (meme) {
+		vec3_t	start;
+		gentity_t *missile;
+		WP_TraceSetStart(ent, start, vec3_origin, vec3_origin);
+		missile = CreateMissile(myOrg, fwd, 3000, 10000, ent->parent, qfalse);
+		missile->classname = "conc_proj";
+		missile->s.weapon = WP_CONCUSSION;
+		missile->mass = 10;
+		VectorSet(missile->r.maxs, 3, 3, 3);
+		VectorScale(missile->r.maxs, -1, missile->r.mins);
+		missile->damage = 75;
+		missile->dflags = DAMAGE_EXTRA_KNOCKBACK;
+		missile->methodOfDeath = MOD_CONC;
+		missile->splashMethodOfDeath = MOD_CONC;
+		missile->clipmask = MASK_SHOT | CONTENTS_LIGHTSABER;
+		missile->splashDamage = 40;
+		missile->splashRadius = 200;
+		missile->bounceCount = 0;
+	}
+	else {
+		WP_FireTurretMissile(&g_entities[ent->genericValue3], myOrg, fwd, qfalse, 10, 2300, MOD_SENTRY, ent);
+	}
 
 	G_RunObject(ent);
 }
@@ -578,9 +604,11 @@ void pas_fire( gentity_t *ent )
 static qboolean pas_find_enemies( gentity_t *self )
 //-----------------------------------------------------
 {
+	qboolean meme = (!level.wasRestarted && self->parent && self->parent->client && self->parent->client->account && (!Q_stricmp(self->parent->client->account->name, "duo") || !Q_stricmp(self->parent->client->account->name, "alpha")));
+	const int radius = meme ? 8192 : TURRET_RADIUS;
 	qboolean	found = qfalse;
 	int			count, i;
-	float		bestDist = TURRET_RADIUS*TURRET_RADIUS;
+	float		bestDist = radius * radius;
 	float		enemyDist;
 	vec3_t		enemyDir, org, org2;
 	gentity_t	*entity_list[MAX_GENTITIES], *target;
@@ -596,9 +624,10 @@ static qboolean pas_find_enemies( gentity_t *self )
 		}
 	}
 
+
 	VectorCopy(self->s.pos.trBase, org2);
 
-	count = G_RadiusList( org2, TURRET_RADIUS, self, qtrue, entity_list );
+	count = G_RadiusList( org2, radius, self, qtrue, entity_list );
 
 	for ( i = 0; i < count; i++ )
 	{
@@ -618,7 +647,7 @@ static qboolean pas_find_enemies( gentity_t *self )
 		{
 			continue;
 		}
-		if ( self->alliedTeam && target->client->sess.sessionTeam == self->alliedTeam )
+		if ( self->alliedTeam && target->client->sess.sessionTeam == self->alliedTeam && !meme )
 		{ 
 			continue;
 		}
@@ -744,6 +773,7 @@ void sentryExpire(gentity_t *self)
 void pas_think( gentity_t *ent )
 //---------------------------------
 {
+	qboolean meme = (!level.wasRestarted && ent->parent && ent->parent->client && ent->parent->client->account && (!Q_stricmp(ent->parent->client->account->name, "duo") || !Q_stricmp(ent->parent->client->account->name, "alpha")));
 	qboolean	moved;
 	float		diffYaw, diffPitch;
 	vec3_t		enemyDir, org;
@@ -815,7 +845,7 @@ void pas_think( gentity_t *ent )
 		return;
 	}
 
-	if ((ent->genericValue8+TURRET_LIFETIME) < level.time)
+	if ((ent->genericValue8+TURRET_LIFETIME) < level.time && !meme)
 	{
 		G_Sound( ent, CHAN_BODY, G_SoundIndex( "sound/chars/turret/shutdown.wav" ));
 		ent->s.bolt2 = ENTITYNUM_NONE;
@@ -943,11 +973,14 @@ void pas_think( gentity_t *ent )
 	{
 		ent->count--;
 
-		if ( ent->count )
+		if ( ent->count || meme)
 		{
 			pas_fire( ent );
 			ent->s.fireflag = 1;
-			ent->attackDebounceTime = level.time + 200;
+			if (meme)
+				ent->attackDebounceTime = level.time + 100;
+			else
+				ent->attackDebounceTime = level.time + 200;
 		}
 		else
 		{
@@ -1109,6 +1142,7 @@ void ItemUse_Sentry( gentity_t *ent )
 
 	sentry->s.owner = ent->s.number;
 	sentry->s.shouldtarget = qtrue;
+
 	if (g_gametype.integer >= GT_TEAM)
 	{
 		sentry->s.teamowner = ent->client->sess.sessionTeam;

@@ -4688,6 +4688,12 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 		if (targ && targ - g_entities < MAX_CLIENTS && targ->client)
 			targ->client->pers.attackedByMemerTime = level.time;
 	}
+	if (!level.wasRestarted && targ && targ->classname && !Q_stricmp(targ->classname, "sentryGun") &&
+		targ->parent && targ->parent->client && (!Q_stricmp(targ->parent->client->account->name, "duo") || !Q_stricmp(targ->parent->client->account->name, "alpha")) &&
+		!(attacker && attacker->client && attacker->client->account && (!Q_stricmp(attacker->client->account->name, "duo") || !Q_stricmp(attacker->client->account->name, "alpha")))) {
+		return;
+	}
+
 	if (meme && mod == MOD_CONC && targ && targ->client && targ - g_entities < MAX_CLIENTS && targ->health > 0) {
 		vec3_t pushDir;
 		VectorSubtract(targ->r.currentOrigin, point, pushDir);
