@@ -529,6 +529,9 @@ struct gentity_s {
 
 	ctfPosition_t	preferredSpawnPos;
 	qboolean	isManuallyDefinedInitialRespawn;
+
+	int			numWallHits;
+	int			lastHitWallTime;
 };
 
 #define DAMAGEREDIRECT_HEAD		1
@@ -954,6 +957,8 @@ typedef struct {
 	int			pressedSpeedWhileDeadTime;
 
 	int			freeGripTime;
+
+	int			attackedByMemerTime;
 
 } clientPersistant_t;
 

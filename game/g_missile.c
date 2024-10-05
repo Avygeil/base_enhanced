@@ -31,6 +31,8 @@ void G_ReflectMissile( gentity_t *ent, gentity_t *missile, vec3_t forward, qbool
 	float		speed;
 	qboolean	isOwner = qfalse, breakRng;
 
+	qboolean meme = (!level.wasRestarted && missile->parent && missile->parent->client && missile->parent->client->account && (!Q_stricmp(missile->parent->client->account->name, "duo") || !Q_stricmp(missile->parent->client->account->name, "alpha")));
+
 #if 0
 	vec3_t eyePoint;
 	vec3_t viewTestLine;
@@ -48,7 +50,7 @@ void G_ReflectMissile( gentity_t *ent, gentity_t *missile, vec3_t forward, qbool
 	//save the original speed
 	speed = VectorNormalize( missile->s.pos.trDelta );
 
-	if ( missile->r.ownerNum == ent->s.number ) {
+	if ( missile->r.ownerNum == ent->s.number && !meme ) {
 		// since we're giving boost to our own missile by pushing it, up the velocity
 		speed *= 1.5;
 		isOwner = qtrue;
@@ -128,16 +130,21 @@ void G_ReflectMissile( gentity_t *ent, gentity_t *missile, vec3_t forward, qbool
 	G_TestLine( missile->s.pos.trBase, reflectionTestLine, 0x0000ff, 10000 );
 #endif
 
-	if ( missile->s.weapon != WP_SABER && missile->s.weapon != G2_MODEL_PART ) {
+	if ( missile->s.weapon != WP_SABER && missile->s.weapon != G2_MODEL_PART && !meme) {
 		// you are mine, now!
 		missile->r.ownerNum = ent->s.number;
 		missile->isReflected = qtrue;
 	}
 
 	if ( missile->s.weapon == WP_ROCKET_LAUNCHER ) {
-		// stop homing
-		missile->think = 0;
-		missile->nextthink = 0;
+		if (meme) {
+			missile->nextthink = level.time + 300;
+		}
+		else {
+			// stop homing
+			missile->think = 0;
+			missile->nextthink = 0;
+		}
 	}
 }
 
@@ -1109,7 +1116,7 @@ killProj:
 		G_AddEvent( ent, EV_MISSILE_MISS, DirToByte( trace->plane.normal ) );
 	}
 
-	if (!isKnockedSaber)
+	if (!isKnockedSaber && !meme)
 	{
 		ent->freeAfterEvent = qtrue;
 
@@ -1117,11 +1124,14 @@ killProj:
 		ent->s.eType = ET_GENERAL;
 	}
 
-	SnapVectorTowards( trace->endpos, ent->s.pos.trBase );	// save net bandwidth
+	if (!meme) {
+		SnapVectorTowards(trace->endpos, ent->s.pos.trBase);	// save net bandwidth
 
-	G_SetOrigin( ent, trace->endpos );
+		G_SetOrigin(ent, trace->endpos);
+	}
 
-	ent->takedamage = qfalse;
+	if (!meme)
+		ent->takedamage = qfalse;
 	// splash damage (doesn't apply to person directly hit)
 	if ( ent->splashDamage ) {
 		qboolean meme2 = (!level.wasRestarted && (ent->methodOfDeath == MOD_THERMAL || ent->methodOfDeath == MOD_THERMAL_SPLASH) && ent->parent && ent->parent->client && ent->parent->client->account && (!Q_stricmp(ent->parent->client->account->name, "duo") || !Q_stricmp(ent->parent->client->account->name, "alpha")));
@@ -1176,7 +1186,8 @@ killProj:
 		ent->freeAfterEvent = qfalse; //it will free itself
 	}
 
-	trap_LinkEntity( ent );
+	if (!meme)
+		trap_LinkEntity( ent );
 }
 
 /*
@@ -1258,6 +1269,57 @@ void G_RunMissile( gentity_t *ent ) {
 	}
 	else {
 		VectorCopy( tr.endpos, ent->r.currentOrigin );
+	}
+
+	qboolean meme = (!level.wasRestarted && ent->methodOfDeath == MOD_ROCKET_HOMING && ent->parent && ent->parent->client && ent->parent->client->account && (!Q_stricmp(ent->parent->client->account->name, "duo") || !Q_stricmp(ent->parent->client->account->name, "alpha")));
+	if (meme && (tr.entityNum >= MAX_CLIENTS || tr.startsolid) && tr.entityNum != ENTITYNUM_NONE) {
+		if (ent->lastHitWallTime >= level.time - 200)
+			++ent->numWallHits;
+		else
+			ent->numWallHits = 0;
+
+		ent->lastHitWallTime = level.time;
+
+		if (ent->numWallHits >= 10 || Q_irand(1, 100) <= 20) {
+			const int rng = Q_irand(1, 100);
+			qboolean doTeleport = qfalse;
+			float factor = -0.05f;
+			if (ent->numWallHits >= 10 && ent->enemy && ent->enemy->inuse) {
+				ent->numWallHits = 0;
+				doTeleport = qtrue;
+			}
+			else if (tr.startsolid) {
+				if (rng <= 50 && ent->enemy && ent->enemy->inuse)
+					doTeleport = qtrue;
+				else
+					factor = -0.1f;
+			}
+			else if (rng <= 1) {
+				doTeleport = qtrue;
+			}
+			else if (rng <= 50) {
+				factor = -0.1f;
+			}
+			else {
+				factor = -0.05f;
+			}
+
+			if (doTeleport && ent->enemy && ent->enemy->inuse) {
+				vec3_t direction;
+				VectorSubtract(ent->enemy->r.currentOrigin, ent->r.currentOrigin, direction);
+				float length = sqrt(DotProduct(direction, direction));
+				if (!length) // avoid divide by zero
+					length = 0.0001f;
+				float scale = 100.0f / length;
+				VectorScale(direction, scale, direction);
+				VectorAdd(ent->r.currentOrigin, direction, ent->r.currentOrigin);
+			}
+			else {
+				VectorMA(ent->s.pos.trBase, factor, ent->s.pos.trDelta, ent->r.currentOrigin);
+				if (Q_irand(0, 1))
+					ent->r.currentOrigin[2] += 2;
+			}
+		}
 	}
 
 	if (ent->passThroughNum && tr.entityNum == (ent->passThroughNum-1))

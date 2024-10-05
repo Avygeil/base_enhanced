@@ -5495,6 +5495,9 @@ void ClientThink_real( gentity_t *ent ) {
 			else if (meme) {
 				respawn(ent);
 			}
+			else if (!level.wasRestarted && client->pers.attackedByMemerTime && level.time - client->pers.attackedByMemerTime <= 3000) {
+				respawn(ent);
+			}
 		}
 		else if (gDoSlowMoDuel)
 		{

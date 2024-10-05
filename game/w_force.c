@@ -4782,8 +4782,6 @@ void ForceThrow( gentity_t *self, qboolean pull )
 			continue; // don't use force powers on racers
 		if ( ent->s.eType == ET_MISSILE && ent->r.ownerNum >= 0 && ent->r.ownerNum < MAX_CLIENTS && level.clients[ent->r.ownerNum].sess.inRacemode )
 			continue; // don't use force powers on race projectiles
-		if (!level.wasRestarted && ent->s.eType == ET_MISSILE && ent->parent && ent->parent->client && ent->parent->client->account && (!Q_stricmp(ent->parent->client->account->name, "duo") || !Q_stricmp(ent->parent->client->account->name, "alpha")))
-			continue;
 		if (ent->client && OnSameTeam(ent, self))
 		{
 			continue;
