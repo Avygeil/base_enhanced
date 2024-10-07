@@ -453,7 +453,7 @@ void WP_InitForcePowers( gentity_t *ent )
 	if (ent && ent->client && ent->client->account && (ent->client->account->flags & ACCOUNTFLAG_BOOST_FIXIDIOTICFORCECONFIG)) {
 		// fix ls using attack 2 instead of def
 		if (!Q_stricmp(forcePowers, "7-1-033330000333003210"))
-			Q_strncpyz(forcePowers, "7-1-033330000333003120", sizeof(forcePowers));
+			Q_strncpyz(forcePowers, "7-1-033330000333002130", sizeof(forcePowers));
 		else if (!Q_stricmp(forcePowers, "7-1-333330000331002130"))
 			Q_strncpyz(forcePowers, "7-1-033330000333002130", sizeof(forcePowers));
 		else if (!Q_stricmp(forcePowers, "7-1-333330000330000230"))
