@@ -911,7 +911,7 @@ void pas_think( gentity_t *ent )
 	}
 
 	if (!g_entities[ent->genericValue3].inuse || !g_entities[ent->genericValue3].client ||
-		g_entities[ent->genericValue3].client->sess.sessionTeam != ent->genericValue2)
+		(!meme && g_entities[ent->genericValue3].client->sess.sessionTeam != ent->genericValue2))
 	{
 		ent->think = G_FreeEntity;
 		ent->nextthink = level.time;
