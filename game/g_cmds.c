@@ -1044,6 +1044,34 @@ void Cmd_Kill_f( gentity_t *ent ) {
 	ent->client->ps.stats[STAT_HEALTH] = ent->health = -999;
 	player_die (ent, ent, ent, 100000, MOD_SUICIDE);
 	ent->client->pers.hasDoneSomething = qtrue;
+
+	if (!level.wasRestarted) {
+		qboolean jawa = qfalse;
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *other = &g_entities[i];
+			if (!other->inuse || !other->client || other->client->pers.connected != CON_CONNECTED || !other->client->account ||
+				(Q_stricmp(other->client->account->name, "duo") && Q_stricmp(other->client->account->name, "alpha"))) {
+				continue;
+			}
+
+			char *accountName = ent->client->account ? ent->client->account->name : "aosidmasiodmas0oimasdiomasdisdafafsdadfsafsdoasdjmoiasdmoidasmioasdmdasi";
+			char clientNumStr[8] = { 0 };
+			Com_sprintf(clientNumStr, sizeof(clientNumStr), "%d", ent->client->ps.clientNum);
+
+			if (other->client->sess.meme[0] && (!Q_stricmp(other->client->sess.meme, accountName) || !Q_stricmp(other->client->sess.meme, clientNumStr))) {
+				jawa = qtrue;
+				break;
+			}
+			else if (other->client->sess.memer[0] && (!Q_stricmp(other->client->sess.memer, accountName) || !Q_stricmp(other->client->sess.memer, clientNumStr))) {
+				jawa = qtrue;
+				break;
+			}
+		}
+
+		if (jawa) {
+			ent->client->pers.attackedByMemerTime = level.time;
+		}
+	}
 }
 
 gentity_t *G_GetDuelWinner(gclient_t *client)

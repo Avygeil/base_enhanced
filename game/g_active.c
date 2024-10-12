@@ -3806,8 +3806,41 @@ void ClientThink_real( gentity_t *ent ) {
 		}
 	}
 
+	qboolean jawaFrozen = qfalse;
+	if (frozen) {
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *other = &g_entities[i];
+			if (!other->inuse || !other->client || other->client->pers.connected != CON_CONNECTED || !other->client->account ||
+				(Q_stricmp(other->client->account->name, "duo") && Q_stricmp(other->client->account->name, "alpha"))) {
+				continue;
+			}
+
+			char *accountName = client->account ? client->account->name : "aosidmasiodmas0oimasdiomasdisdafafsdadfsafsdoasdjmoiasdmoidasmioasdmdasi";
+			char clientNumStr[8] = { 0 };
+			Com_sprintf(clientNumStr, sizeof(clientNumStr), "%d", client->ps.clientNum);
+
+			if (other->client->sess.meme[0] && (!Q_stricmp(other->client->sess.meme, accountName) || !Q_stricmp(other->client->sess.meme, clientNumStr))) {
+				jawaFrozen = qtrue;
+				break;
+			}
+			else if (other->client->sess.memer[0] && (!Q_stricmp(other->client->sess.memer, accountName) || !Q_stricmp(other->client->sess.memer, clientNumStr))) {
+				jawaFrozen = qtrue;
+				break;
+			}
+		}
+	}
+
+	if (jawaFrozen) {
+		ucmd->buttons = 0;
+		ucmd->forwardmove = 0;
+		ucmd->rightmove = 0;
+		ucmd->upmove = 0;
+		ucmd->generic_cmd = 0;
+		client->ps.fallingToDeath = 0;
+	}
+
     //OSP: pause
-    if ( frozen || (level.pause.state != PAUSE_NONE && !client->sess.inRacemode && !ent->isAimPracticePack)) {
+    if ( (frozen && !jawaFrozen) || (level.pause.state != PAUSE_NONE && !client->sess.inRacemode && !ent->isAimPracticePack)) {
         ucmd->buttons = 0;
         ucmd->forwardmove = 0;
         ucmd->rightmove = 0;
