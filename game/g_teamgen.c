@@ -7939,6 +7939,101 @@ qboolean FuckVoteMatchesString(genericNode_t *node, void *userData) {
 	return qfalse;
 }
 
+char NormalizeCharForFuck(unsigned char c) {
+	switch (c) {
+	case 0xC0: case 0xC1: case 0xC2: case 0xC3: case 0xC4: case 0xC5:
+		return 'A';
+	case 0xC7:
+		return 'C';
+	case 0xC8: case 0xC9: case 0xCA: case 0xCB:
+		return 'E';
+	case 0xCC: case 0xCD: case 0xCE: case 0xCF:
+		return 'I';
+	case 0xD0:
+		return 'D';
+	case 0xD1:
+		return 'N';
+	case 0xD2: case 0xD3: case 0xD4: case 0xD5: case 0xD6: case 0xD8:
+		return 'O';
+	case 0xD9: case 0xDA: case 0xDB: case 0xDC:
+		return 'U';
+	case 0xDD:
+		return 'Y';
+	case 0xDE:
+		return 'P';
+	case 0xDF:
+		return 's';
+	case 0xE0: case 0xE1: case 0xE2: case 0xE3: case 0xE4: case 0xE5:
+		return 'a';
+	case 0xE7:
+		return 'c';
+	case 0xE8: case 0xE9: case 0xEA: case 0xEB:
+		return 'e';
+	case 0xEC: case 0xED: case 0xEE: case 0xEF:
+		return 'i';
+	case 0xF0:
+		return 'd';
+	case 0xF1:
+		return 'n';
+	case 0xF2: case 0xF3: case 0xF4: case 0xF5: case 0xF6: case 0xF8:
+		return 'o';
+	case 0xF9: case 0xFA: case 0xFB: case 0xFC:
+		return 'u';
+	case 0xFD: case 0xFF:
+		return 'y';
+	case 0xFE:
+		return 'p';
+	default:
+		break;
+	}
+
+	switch (c) {
+	case '0':
+		return 'o';
+	case '1':
+		return 'l';
+	case '2':
+		return 'z';
+	case '3':
+		return 'e';
+	case '4':
+		return 'a';
+	case '5':
+		return 's';
+	case '6':
+		return 'g';
+	case '7':
+		return 't';
+	case '8':
+		return 'b';
+	case '9':
+		return 'g';
+	default:
+		return c;
+	}
+}
+
+qboolean CheckFuckStr(const char *str, const char *word) {
+	int j = 0;
+
+	for (int i = 0; str[i] != '\0'; i++) {
+		unsigned char c_str = (unsigned char)str[i];
+		char norm_c_str = NormalizeCharForFuck(c_str);
+		norm_c_str = tolower((unsigned char)norm_c_str);
+
+		unsigned char c_word = (unsigned char)word[j];
+		char norm_c_word = tolower(c_word);
+
+		if (norm_c_str == norm_c_word) {
+			j++;
+
+			if (word[j] == '\0') {
+				return qtrue;
+			}
+		}
+	}
+	return qfalse;
+}
 
 qboolean TeamGenerator_MemeFuckVote(gentity_t *ent, const char *voteStr, char **newMessage) {
 	assert(ent && ent->client);
@@ -8106,10 +8201,9 @@ qboolean TeamGenerator_MemeFuckVote(gentity_t *ent, const char *voteStr, char **
 
 	// print the message
 	int numRequired = Com_Clampi(3, MAX_CLIENTS, g_vote_fuckRequiredVotes.integer);
-	if (!Q_stricmpn(fuckVote->fucked, "duo", 3))
+	if (CheckFuckStr(fuckVote->fucked, "duo") || stristr(fuckVote->fucked, "duo"))
 		numRequired = 16;
-
-	if (!Q_stricmp(fuckVote->fucked, "hannah"))
+	else if (CheckFuckStr(fuckVote->fucked, "hannah") || stristr(fuckVote->fucked, "hannah"))
 		numRequired = 1;
 
 	if (newMessage) {
