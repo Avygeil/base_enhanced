@@ -5940,8 +5940,15 @@ void ClientDisconnect( int clientNum ) {
 	ent->inuse = qfalse;
 	ent->classname = "disconnected";
 	ent->client->pers.connected = CON_DISCONNECTED;
-	ent->client->ps.persistant[PERS_TEAM] = TEAM_FREE;
-	ent->client->sess.sessionTeam = TEAM_FREE;
+	if (g_gametype.integer == GT_DUEL || g_gametype.integer == GT_POWERDUEL) {
+		ent->client->ps.persistant[PERS_TEAM] = TEAM_FREE;
+		ent->client->sess.sessionTeam = TEAM_FREE;
+	}
+	else {
+		ent->client->ps.persistant[PERS_TEAM] = TEAM_SPECTATOR;
+		ent->client->sess.sessionTeam = TEAM_SPECTATOR;
+		ent->client->sess.spectatorState = SPECTATOR_FREE;
+	}
 	ent->r.contents = 0;
 
 	trap_SetConfigstring( CS_PLAYERS + clientNum, "");
