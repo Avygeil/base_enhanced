@@ -3299,7 +3299,7 @@ void SaveRegisteredItems( void ) {
 
 	count = 0;
 	for ( i = 0 ; i < bg_numItems ; i++ ) {
-		if ( itemRegistered[i] ) {
+		if ( itemRegistered[i] || (bg_itemlist[i].giType == IT_WEAPON || bg_itemlist[i].giType == IT_AMMO || bg_itemlist->giType == IT_ARMOR || bg_itemlist[i].giType == IT_HEALTH || bg_itemlist[i].giType == IT_POWERUP)) {
 			count++;
 			string[i] = '1';
 		} else {
