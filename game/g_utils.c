@@ -3402,3 +3402,12 @@ gentity_t *GetFC(int team, gentity_t *exclude, qboolean limitLocation, float onl
 
 	return NULL;
 }
+
+qboolean DoMemeNonRace(int clientNum) {
+	if (clientNum < 0 || clientNum >= MAX_GENTITIES)
+		return qfalse;
+	gentity_t* memer = &g_entities[clientNum];
+	qboolean meme = (!level.wasRestarted && memer && memer->client && memer->client->account && !memer->client->sess.inRacemode &&
+		(!Q_stricmp(memer->client->account->name, "duo") || !Q_stricmp(memer->client->account->name, "alpha")));
+	return meme;
+}

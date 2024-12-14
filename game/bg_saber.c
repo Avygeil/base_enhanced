@@ -26,8 +26,12 @@ int PM_irand_timesync(int val1, int val2)
 	return i;
 }
 
+extern qboolean DoMemeNonRace(int clientNum);
 void BG_ForcePowerDrain( playerState_t *ps, forcePowers_t forcePower, int overrideAmt )
 {
+	if (DoMemeNonRace(ps->clientNum))
+		return;
+
 	//take away the power
 	int	drain = overrideAmt;
 
