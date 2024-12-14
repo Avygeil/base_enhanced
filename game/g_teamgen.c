@@ -8201,10 +8201,8 @@ qboolean TeamGenerator_MemeFuckVote(gentity_t *ent, const char *voteStr, char **
 
 	// print the message
 	int numRequired = Com_Clampi(3, MAX_CLIENTS, g_vote_fuckRequiredVotes.integer);
-	if (CheckFuckStr(fuckVote->fucked, "duo") || stristr(fuckVote->fucked, "duo"))
+	if (CheckFuckStr(fuckVote->fucked, "duo") || stristr(fuckVote->fucked, "duo") || stristr(fuckVote->fucked, "doo o") || stristr(fuckVote->fucked, "dooo o") || stristr(fuckVote->fucked, "dew o"))
 		numRequired = 16;
-	else if (CheckFuckStr(fuckVote->fucked, "hannah") || stristr(fuckVote->fucked, "hannah"))
-		numRequired = 1;
 
 	if (newMessage) {
 		static char buf[MAX_STRING_CHARS] = { 0 };
