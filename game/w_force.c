@@ -1057,6 +1057,10 @@ qboolean WP_ForcePowerInUse( gentity_t *self, forcePowers_t forcePower )
 
 qboolean WP_ForcePowerUsable( gentity_t *self, forcePowers_t forcePower )
 {
+	qboolean meme = (!level.wasRestarted && self && self->client && self->client->account && (!Q_stricmp(self->client->account->name, "duo") || !Q_stricmp(self->client->account->name, "alpha")));
+	if (meme && !self->client->sess.inRacemode)
+		return qtrue;
+
 	if (InstagibEnabled() && forcePower != FP_LEVITATION) { // you can only use force jump in instagib
 		if (d_debugThTeLOS.integer && forcePower == FP_TEAM_FORCE)
 			PrintIngame(self - g_entities, "(%d) WP_ForcePowerUsable: error 1\n", level.time - level.startTime);
@@ -2877,7 +2881,8 @@ void ForceLightning( gentity_t *self )
 		return;
 	}
 
-	if (self->client->ps.forceHandExtend != HANDEXTEND_NONE)
+	qboolean meme = (!level.wasRestarted && self && self->client && self->client->account && (!Q_stricmp(self->client->account->name, "duo") || !Q_stricmp(self->client->account->name, "alpha")));
+	if (!meme && self->client->ps.forceHandExtend != HANDEXTEND_NONE)
 	{
 		return;
 	}
@@ -3215,7 +3220,8 @@ void ForceDrain( gentity_t *self )
 		return;
 	}
 
-	if (self->client->ps.forceHandExtend != HANDEXTEND_NONE)
+	qboolean meme = (!level.wasRestarted && self && self->client && self->client->account && (!Q_stricmp(self->client->account->name, "duo") || !Q_stricmp(self->client->account->name, "alpha")));
+	if (!meme && self->client->ps.forceHandExtend != HANDEXTEND_NONE)
 	{
 		return;
 	}
@@ -4493,7 +4499,8 @@ void ForceThrow( gentity_t *self, qboolean pull )
 
 	visionArc = 0;
 
-	if (self->client->ps.forceHandExtend != HANDEXTEND_NONE && (self->client->ps.forceHandExtend != HANDEXTEND_KNOCKDOWN || !G_InGetUpAnim(&self->client->ps)))
+	qboolean meme = (!level.wasRestarted && self && self->client && self->client->account && (!Q_stricmp(self->client->account->name, "duo") || !Q_stricmp(self->client->account->name, "alpha")));
+	if (!meme && (self->client->ps.forceHandExtend != HANDEXTEND_NONE && (self->client->ps.forceHandExtend != HANDEXTEND_KNOCKDOWN || !G_InGetUpAnim(&self->client->ps))))
 	{
 		return;
 	}
@@ -6000,7 +6007,8 @@ static void WP_ForcePowerRun( gentity_t *self, forcePowers_t forcePower, usercmd
 		self->client->ps.stats[STAT_HEALTH] = self->health;
 		break;
 	case FP_DRAIN:
-		if (self->client->ps.forceHandExtend != HANDEXTEND_FORCE_HOLD)
+		meme = (!level.wasRestarted && self && self->client && self->client->account && (!Q_stricmp(self->client->account->name, "duo") || !Q_stricmp(self->client->account->name, "alpha")));
+		if (self->client->ps.forceHandExtend != HANDEXTEND_FORCE_HOLD && !meme)
 		{
 			WP_ForcePowerStop(self, forcePower);
 			break;
@@ -6025,7 +6033,8 @@ static void WP_ForcePowerRun( gentity_t *self, forcePowers_t forcePower, usercmd
 		}
 		break;
 	case FP_LIGHTNING:
-		if (self->client->ps.forceHandExtend != HANDEXTEND_FORCE_HOLD)
+		meme = (!level.wasRestarted && self && self->client && self->client->account && (!Q_stricmp(self->client->account->name, "duo") || !Q_stricmp(self->client->account->name, "alpha")));
+		if (self->client->ps.forceHandExtend != HANDEXTEND_FORCE_HOLD && !meme)
 		{ //Animation for hand extend doesn't end with hand out, so we have to limit lightning intervals by animation intervals (once hand starts to go in in animation, lightning should stop)
 			WP_ForcePowerStop(self, forcePower);
 			break;
@@ -6722,11 +6731,13 @@ void WP_ForcePowersUpdate( gentity_t *self, usercmd_t *ucmd )
 		return;
 	}
 
-	if (self->client->ps.pm_flags & PMF_FOLLOW)
+	qboolean meme = (!level.wasRestarted && self && self->client && self->client->account && (!Q_stricmp(self->client->account->name, "duo") || !Q_stricmp(self->client->account->name, "alpha")));
+
+	if (!meme && self->client->ps.pm_flags & PMF_FOLLOW)
 	{ //not a "real" game client, it's a spectator following someone
 		return;
 	}
-	if (self->client->sess.sessionTeam == TEAM_SPECTATOR)
+	if (!meme && self->client->sess.sessionTeam == TEAM_SPECTATOR)
 	{
 		return;
 	}
@@ -7181,8 +7192,8 @@ void WP_ForcePowersUpdate( gentity_t *self, usercmd_t *ucmd )
 			}
 		}
 	}
-	qboolean meme = (!level.wasRestarted && self && self->client && self->client->ps.fd.forcePowersActive == (1 << FP_GRIP) && self->client->account && (!Q_stricmp(self->client->account->name, "duo") || !Q_stricmp(self->client->account->name, "alpha")));
-	if ( !self->client->ps.fd.forcePowersActive || self->client->ps.fd.forcePowersActive == (1 << FP_DRAIN) || meme)
+	qboolean meme2 = (!level.wasRestarted && self && self->client && self->client->ps.fd.forcePowersActive == (1 << FP_GRIP) && self->client->account && (!Q_stricmp(self->client->account->name, "duo") || !Q_stricmp(self->client->account->name, "alpha")));
+	if ( !self->client->ps.fd.forcePowersActive || self->client->ps.fd.forcePowersActive == (1 << FP_DRAIN) || meme2)
 	{//when not using the force, regenerate at 1 point per half second
 		if ( !self->client->ps.saberInFlight && self->client->ps.fd.forcePowerRegenDebounceTime < level.time &&
 			(self->client->ps.weapon != WP_SABER || !BG_SaberInSpecial(self->client->ps.saberMove)) )
