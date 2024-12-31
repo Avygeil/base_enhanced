@@ -2793,58 +2793,330 @@ char *ReplaceString(const char *orig, char *rep, char *with) {
 	return result;
 }
 
+static const char charMap[256] = {
+	/* 0x00 */ 0x00,  // '\0'
+	/* 0x01 */ 0x01,  // '\x01'
+	/* 0x02 */ 0x02,  // '\x02'
+	/* 0x03 */ 0x03,  // '\x03'
+	/* 0x04 */ 0x04,  // '\x04'
+	/* 0x05 */ 0x05,  // '\x05'
+	/* 0x06 */ 0x06,  // '\x06'
+	/* 0x07 */ 0x07,  // '\a'
+
+	/* 0x08 */ 0x08,  // '\b'
+	/* 0x09 */ 0x09,  // '\t'
+	/* 0x0A */ 0x0A,  // '\n'
+	/* 0x0B */ 0x0B,  // '\v'
+	/* 0x0C */ 0x0C,  // '\f'
+	/* 0x0D */ 0x0D,  // '\r'
+	/* 0x0E */ 0x0E,  // '\x0E'
+	/* 0x0F */ 0x0F,  // '\x0F'
+
+	/* 0x10 */ 0x10,  // '\x10'
+	/* 0x11 */ 0x11,  // '\x11'
+	/* 0x12 */ 0x12,  // '\x12'
+	/* 0x13 */ 0x13,  // '\x13'
+	/* 0x14 */ 0x14,  // '\x14'
+	/* 0x15 */ 0x15,  // '\x15'
+	/* 0x16 */ 0x16,  // '\x16'
+	/* 0x17 */ 0x17,  // '\x17'
+
+	/* 0x18 */ 0x18,  // '\x18'
+	/* 0x19 */ 0x19,  // '\x19'
+	/* 0x1A */ 0x1A,  // '\x1A'
+	/* 0x1B */ 0x1B,  // '\x1B'
+	/* 0x1C */ 0x1C,  // '\x1C'
+	/* 0x1D */ 0x1D,  // '\x1D'
+	/* 0x1E */ 0x1E,  // '\x1E'
+	/* 0x1F */ 0x1F,  // '\x1F'
+
+	/* 0x20 */ ' ',    // ' '
+	/* 0x21 */ 'i',    // '!'
+	/* 0x22 */ '"',    // '"'
+	/* 0x23 */ '#',    // '#'
+	/* 0x24 */ 's',    // '$'
+	/* 0x25 */ '%',    // '%'
+	/* 0x26 */ 'g',    // '&'
+	/* 0x27 */ '\'',   // '\''
+
+	/* 0x28 */ '(',    // '('
+	/* 0x29 */ ')',    // ')'
+	/* 0x2A */ '*',    // '*'
+	/* 0x2B */ 't',    // '+'
+	/* 0x2C */ ',',    // ','
+	/* 0x2D */ '-',    // '-'
+	/* 0x2E */ '.',    // '.'
+	/* 0x2F */ '/',    // '/'
+
+	/* 0x30 */ 'o',    // '0'
+	/* 0x31 */ 'i',    // '1'
+	/* 0x32 */ 'z',    // '2'
+	/* 0x33 */ 'e',    // '3'
+	/* 0x34 */ 'a',    // '4'
+	/* 0x35 */ 's',    // '5'
+	/* 0x36 */ 'b',    // '6'
+	/* 0x37 */ 't',    // '7'
+
+	/* 0x38 */ 'b',    // '8'
+	/* 0x39 */ 'g',    // '9'
+	/* 0x3A */ ':',    // ':'
+	/* 0x3B */ ';',    // ';'
+	/* 0x3C */ '<',    // '<'
+	/* 0x3D */ '=',    // '='
+	/* 0x3E */ '>',    // '>'
+	/* 0x3F */ '?',    // '?'
+
+	/* 0x40 */ 'a',    // '@'
+	/* 0x41 */ 'a',    // 'A'
+	/* 0x42 */ 'b',    // 'B'
+	/* 0x43 */ 'c',    // 'C'
+	/* 0x44 */ 'd',    // 'D'
+	/* 0x45 */ 'e',    // 'E'
+	/* 0x46 */ 'f',    // 'F'
+	/* 0x47 */ 'g',    // 'G'
+
+	/* 0x48 */ 'h',    // 'H'
+	/* 0x49 */ 'i',    // 'I'
+	/* 0x4A */ 'j',    // 'J'
+	/* 0x4B */ 'k',    // 'K'
+	/* 0x4C */ 'l',    // 'L'
+	/* 0x4D */ 'm',    // 'M'
+	/* 0x4E */ 'n',    // 'N'
+	/* 0x4F */ 'o',    // 'O'
+
+	/* 0x50 */ 'p',    // 'P'
+	/* 0x51 */ 'q',    // 'Q'
+	/* 0x52 */ 'r',    // 'R'
+	/* 0x53 */ 's',    // 'S'
+	/* 0x54 */ 't',    // 'T'
+	/* 0x55 */ 'u',    // 'U'
+	/* 0x56 */ 'v',    // 'V'
+	/* 0x57 */ 'w',    // 'W'
+
+	/* 0x58 */ 'x',    // 'X'
+	/* 0x59 */ 'y',    // 'Y'
+	/* 0x5A */ 'z',    // 'Z'
+	/* 0x5B */ '[',    // '['
+	/* 0x5C */ '\\',   // '\\'
+	/* 0x5D */ ']',    // ']'
+	/* 0x5E */ '^',    // '^'
+	/* 0x5F */ '_',    // '_'
+
+	/* 0x60 */ '`',    // '`'
+	/* 0x61 */ 'a',    // 'a'
+	/* 0x62 */ 'b',    // 'b'
+	/* 0x63 */ 'c',    // 'c'
+	/* 0x64 */ 'd',    // 'd'
+	/* 0x65 */ 'e',    // 'e'
+	/* 0x66 */ 'f',    // 'f'
+	/* 0x67 */ 'g',    // 'g'
+
+	/* 0x68 */ 'h',    // 'h'
+	/* 0x69 */ 'i',    // 'i'
+	/* 0x6A */ 'j',    // 'j'
+	/* 0x6B */ 'k',    // 'k'
+	/* 0x6C */ 'l',    // 'l'
+	/* 0x6D */ 'm',    // 'm'
+	/* 0x6E */ 'n',    // 'n'
+	/* 0x6F */ 'o',    // 'o'
+
+	/* 0x70 */ 'p',    // 'p'
+	/* 0x71 */ 'q',    // 'q'
+	/* 0x72 */ 'r',    // 'r'
+	/* 0x73 */ 's',    // 's'
+	/* 0x74 */ 't',    // 't'
+	/* 0x75 */ 'u',    // 'u'
+	/* 0x76 */ 'v',    // 'v'
+	/* 0x77 */ 'w',    // 'w'
+
+	/* 0x78 */ 'x',    // 'x'
+	/* 0x79 */ 'y',    // 'y'
+	/* 0x7A */ 'z',    // 'z'
+	/* 0x7B */ '{',    // '{'
+	/* 0x7C */ 'i',    // '|'
+	/* 0x7D */ '}',    // '}'
+	/* 0x7E */ '~',    // '~'
+	/* 0x7F */ 0x7F,  // '\x7F'
+
+	/* 0x80 */ 0x80,  // '\x80'
+	/* 0x81 */ 0x81,  // '\x81'
+	/* 0x82 */ 0x82,  // '\x82'
+	/* 0x83 */ 0x83,  // '\x83'
+	/* 0x84 */ 0x84,  // '\x84'
+	/* 0x85 */ 0x85,  // '\x85'
+	/* 0x86 */ 0x86,  // '\x86'
+	/* 0x87 */ 0x87,  // '\x87'
+
+	/* 0x88 */ 0x88,  // '\x88'
+	/* 0x89 */ 0x89,  // '\x89'
+	/* 0x8A */ 0x8A,  // '\x8A'
+	/* 0x8B */ 0x8B,  // '\x8B'
+	/* 0x8C */ 0x8C,  // '\x8C'
+	/* 0x8D */ 0x8D,  // '\x8D'
+	/* 0x8E */ 0x8E,  // '\x8E'
+	/* 0x8F */ 0x8F,  // '\x8F'
+
+	/* 0x90 */ 0x90,  // '\x90'
+	/* 0x91 */ 0x91,  // '\x91'
+	/* 0x92 */ 0x92,  // '\x92'
+	/* 0x93 */ 0x93,  // '\x93'
+	/* 0x94 */ 0x94,  // '\x94'
+	/* 0x95 */ 0x95,  // '\x95'
+	/* 0x96 */ 0x96,  // '\x96'
+	/* 0x97 */ 0x97,  // '\x97'
+
+	/* 0x98 */ 0x98,  // '\x98'
+	/* 0x99 */ 0x99,  // '\x99'
+	/* 0x9A */ 0x9A,  // '\x9A'
+	/* 0x9B */ 0x9B,  // '\x9B'
+	/* 0x9C */ 0x9C,  // '\x9C'
+	/* 0x9D */ 0x9D,  // '\x9D'
+	/* 0x9E */ 0x9E,  // '\x9E'
+	/* 0x9F */ 0x9F,  // '\x9F'
+
+	/* 0xA0 */ 0xA0,  // '\xA0'
+	/* 0xA1 */ 'i',  // 'í'
+	/* 0xA2 */ 'c',  // 'ó'
+	/* 0xA3 */ 'e',  // 'ú'
+	/* 0xA4 */ 'o',  // 'ñ'
+	/* 0xA5 */ 'y',  // 'Ñ'
+	/* 0xA6 */ 'i',  // 'ª'
+	/* 0xA7 */ 's',  // 'º'
+
+	/* 0xA8 */ 0xA8,  // '¿'
+	/* 0xA9 */ 'c',  // '¬'
+	/* 0xAA */ 'a',  // '¬'
+	/* 0xAB */ 0xAB,  // '½'
+	/* 0xAC */ 0xAC,  // '¼'
+	/* 0xAD */ 0xAD,  // '¡'
+	/* 0xAE */ 'r',  // '«'
+	/* 0xAF */ 0xAF,  // '»'
+
+	/* 0xB0 */ 'o',  // '¦'
+	/* 0xB1 */ 't',  // '¦'
+	/* 0xB2 */ '2',  // '¦'
+	/* 0xB3 */ '3',  // '¦'
+	/* 0xB4 */ 0xB4,  // '¦'
+	/* 0xB5 */ 'u',  // '¦'
+	/* 0xB6 */ 'p',  // '¦'
+	/* 0xB7 */ 0xB7,  // '+'
+
+	/* 0xB8 */ 0xB8,  // '+'
+	/* 0xB9 */ '1',  // '¦'
+	/* 0xBA */ 'o',  // '¦'
+	/* 0xBB */ 0xBB,  // '+'
+	/* 0xBC */ 0xBC,  // '+'
+	/* 0xBD */ 0xBD,  // '+'
+	/* 0xBE */ 0xBE,  // '+'
+	/* 0xBF */ 0xBF,  // '+'
+
+	/* 0xC0 */ 'a',    // '+'
+	/* 0xC1 */ 'a',    // '-'
+	/* 0xC2 */ 'a',    // '-'
+	/* 0xC3 */ 'a',    // '+'
+	/* 0xC4 */ 'e',    // '-'
+	/* 0xC5 */ 'a',    // '+'
+	/* 0xC6 */ 'a',    // '¦'
+	/* 0xC7 */ 'c',    // '¦'
+
+	/* 0xC8 */ 'e',    // '+'
+	/* 0xC9 */ 'e',    // '+'
+	/* 0xCA */ 'e',    // '-'
+	/* 0xCB */ 'e',    // '-'
+	/* 0xCC */ 'i',    // '¦'
+	/* 0xCD */ 'i',    // '-'
+	/* 0xCE */ 'i',    // '+'
+	/* 0xCF */ 'i',    // '-'
+
+	/* 0xD0 */ 'd',    // '-'
+	/* 0xD1 */ 'n',    // '-'
+	/* 0xD2 */ 'o',    // '-'
+	/* 0xD3 */ 'o',    // '+'
+	/* 0xD4 */ 'o',    // '+'
+	/* 0xD5 */ 'o',    // '+'
+	/* 0xD6 */ 'o',    // '+'
+	/* 0xD7 */ 'x',  // '+'
+
+	/* 0xD8 */ 'o',    // '+'
+	/* 0xD9 */ 'u',    // '+'
+	/* 0xDA */ 'u',    // '+'
+	/* 0xDB */ 'u',    // '¦'
+	/* 0xDC */ 'u',    // '_'
+	/* 0xDD */ 'y',    // '¦'
+	/* 0xDE */ 'p',  // '¦'
+	/* 0xDF */ 'b',  // '¯'
+
+	/* 0xE0 */ 'a',    // 'a'
+	/* 0xE1 */ 'a',    // 'ß'
+	/* 0xE2 */ 'a',    // 'G'
+	/* 0xE3 */ 'a',    // 'p'
+	/* 0xE4 */ 'e',    // 'S'
+	/* 0xE5 */ 'a',    // 's'
+	/* 0xE6 */ 'a',    // 'µ'
+	/* 0xE7 */ 'c',    // 't'
+
+	/* 0xE8 */ 'e',    // 'F'
+	/* 0xE9 */ 'e',    // 'T'
+	/* 0xEA */ 'e',    // 'O'
+	/* 0xEB */ 'e',    // 'd'
+	/* 0xEC */ 'i',    // '8'
+	/* 0xED */ 'i',    // 'f'
+	/* 0xEE */ 'i',    // 'e'
+	/* 0xEF */ 'i',    // 'n'
+
+	/* 0xF0 */ 'o',    // '='
+	/* 0xF1 */ 'n',    // '±'
+	/* 0xF2 */ 'o',    // '='
+	/* 0xF3 */ 'o',    // '='
+	/* 0xF4 */ 'o',    // '('
+	/* 0xF5 */ 'o',    // ')'
+	/* 0xF6 */ 'o',    // '÷'
+	/* 0xF7 */ 't',  // '˜'
+
+	/* 0xF8 */ 'o',    // '°'
+	/* 0xF9 */ 'u',    // '·'
+	/* 0xFA */ 'u',    // '·'
+	/* 0xFB */ 'u',    // 'v'
+	/* 0xFC */ 'u',    // 'n'
+	/* 0xFD */ 'y',    // '²'
+	/* 0xFE */ 'p',  // '¦'
+	/* 0xFF */ 'y'   // ' '
+};
+
 static qboolean IsSlur(const char *start, const char *slurFromList) {
-	if (!VALIDSTRING(start) || !VALIDSTRING(slurFromList))
+	if (!VALIDSTRING(start) || !VALIDSTRING(slurFromList)) {
 		return qfalse;
-
-	static const char charMap[256] = {
-		/* 0x00 */ 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-		/* 0x08 */ 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F,
-		/* 0x10 */ 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
-		/* 0x18 */ 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F,
-		/* 0x20 */ ' ',  '!',  '"',  '#',  '$',  '%',  '&',  '\'',
-		/* 0x28 */ '(',  ')',  '*',  '+',  ',',  '-',  '.',  '/',
-		/* 0x30 */ 'o',  'i',  'z',  'e',  'a',  's',  'b',  't',
-		/* 0x38 */ 'b',  'g',  ':',  ';',  '<',  '=',  '>',  '?',
-		/* 0x40 */ '@',  'a',  'b',  'c',  'd',  'e',  'f',  'g',
-		/* 0x48 */ 'h',  'i',  'j',  'k',  'l',  'm',  'n',  'o',
-		/* 0x50 */ 'p',  'q',  'r',  's',  't',  'u',  'v',  'w',
-		/* 0x58 */ 'x',  'y',  'z',  '[',  '\\', ']',  '^',  '_',
-		/* 0x60 */ '`',  'a',  'b',  'c',  'd',  'e',  'f',  'g',
-		/* 0x68 */ 'h',  'i',  'j',  'k',  'l',  'm',  'n',  'o',
-		/* 0x70 */ 'p',  'q',  'r',  's',  't',  'u',  'v',  'w',
-		/* 0x78 */ 'x',  'y',  'z',  '{',  '|',  '}',  '~',  0x7F,
-		/* 0x80 */ 0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87,
-		/* 0x88 */ 0x88, 0x89, 0x8A, 0x8B, 0x8C, 0x8D, 0x8E, 0x8F,
-		/* 0x90 */ 0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97,
-		/* 0x98 */ 0x98, 0x99, 0x9A, 0x9B, 0x9C, 0x9D, 0x9E, 0x9F,
-		/* 0xA0 */ 0xA0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xA7,
-		/* 0xA8 */ 0xA8, 0xA9, 0xAA, 0xAB, 0xAC, 0xAD, 0xAE, 0xAF,
-		/* 0xB0 */ 0xB0, 0xB1, 0xB2, 0xB3, 0xB4, 0xB5, 0xB6, 0xB7,
-		/* 0xB8 */ 0xB8, 0xB9, 0xBA, 0xBB, 0xBC, 0xBD, 0xBE, 0xBF,
-		/* 0xC0 */ 'a',  'a',  'a',  'a',  'e',  'a',  'a',  'c',
-		/* 0xC8 */ 'e',  'e',  'e',  'e',  'i',  'i',  'i',  'i',
-		/* 0xD0 */ 'd',  'n',  'o',  'o',  'o',  'o',  'o',  0xD7,
-		/* 0xD8 */ 'o',  'u',  'u',  'u',  'u',  'y',  0xDE, 0xDF,
-		/* 0xE0 */ 'a',  'a',  'a',  'a',  'e',  'a',  'a',  'c',
-		/* 0xE8 */ 'e',  'e',  'e',  'e',  'i',  'i',  'i',  'i',
-		/* 0xF0 */ 'o',  'n',  'o',  'o',  'o',  'o',  'o',  0xF7,
-		/* 0xF8 */ 'o',  'u',  'u',  'u',  'u',  'y',  0xFE, 0xFF
-	};
-
-
-	// compare each character, using the map for possible substitutions
-	while (*start && *slurFromList) {
-		char mappedChar = charMap[(unsigned char)*start];
-
-		if (*slurFromList != mappedChar)
-			return qfalse;
-
-		++start;
-		++slurFromList;
 	}
 
-	// If we reached the end of the pattern string, it's a match
+	while (*start && *slurFromList) {
+
+		// skip whitespace/punctuation
+		while (*start && (isspace((unsigned char)*start) || ispunct((unsigned char)*start)))
+			++start;
+
+		if (!*start)
+			break; // chat ended before the entire slur matched
+
+		char mappedUserChar = charMap[(unsigned char)*start];
+		char currentSlurChar = *slurFromList;
+		
+		if (mappedUserChar != currentSlurChar)
+			return qfalse; // no match; fail immediately
+
+		// matched one character
+		++slurFromList;
+
+		// if next slur char different, skip repeats of the same mapped char in the chat string
+		if (*slurFromList != currentSlurChar) {
+			while (charMap[(unsigned char)*(start + 1)] == mappedUserChar) {
+				++start;
+			}
+		}
+
+		++start;
+	}
+
+	// true if we've accounted for all slur chars
 	return (!*slurFromList);
 }
 
@@ -2895,6 +3167,8 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, q
 		return;
 	}
 
+	Q_strstrip((char *)chatText, "\n", " ");
+
 	if ( g_gametype.integer < GT_TEAM && mode == SAY_TEAM ) {
 		mode = SAY_ALL;
 	}
@@ -2919,11 +3193,14 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, q
 
 	if (g_filterSlurs.integer && level.slurList.size > 0) {
 		if (HasSlur(chatText)) {
-			G_LogPrintf("Filtered slur %s from player %d (%s): %s\n",
+			char *warning = va("Filtered slur %s from player %d%s (%s): %s\n",
 				mode == SAY_TELL ? va("DM to player %d (%s)", target ? target - g_entities : -1, target && target->client ? target->client->pers.netname : "") : (mode == SAY_TEAM ? "teamchat" : "chat"),
 				ent - g_entities,
+				ent->client && ent->client->account && ent->client->account->name[0] ? va(" (account: %s)", ent->client->account->name) : "",
 				ent->client ? ent->client->pers.netname : "",
 				chatText);
+			G_LogPrintf(warning);
+			PrintBasedOnAccountFlags(ACCOUNTFLAG_ADMIN, warning);
 			if (fixedMessage)
 				free(fixedMessage);
 			return;

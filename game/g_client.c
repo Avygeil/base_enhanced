@@ -2188,7 +2188,12 @@ void ClientUserinfoChanged( int clientNum ) {
 	Q_strncpyz ( oldname, client->pers.netname, sizeof( oldname ) );
 	s = Info_ValueForKey (userinfo, "name");
 	if (g_filterSlurs.integer && level.slurList.size > 0 && HasSlur(s)) {
-		G_LogPrintf("Filtered slur name from player %d: %s\n", clientNum, s);
+		char *warning = va("Filtered slur name from player %d%s: %s\n",
+			clientNum,
+			client->account && client->account->name[0] ? va(" (account: %s)", client->account->name) : "",
+			s);
+		G_LogPrintf(warning);
+		PrintBasedOnAccountFlags(ACCOUNTFLAG_ADMIN, warning);
 		s = DEFAULT_NAME;
 	}
 
