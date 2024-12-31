@@ -3433,6 +3433,8 @@ LASER TRAP / TRIP MINE
 #define	LT_ACTIVATION_DELAY	1000
 #define	LT_DELAY_TIME		50
 
+void laserTrapThink(gentity_t *ent);
+void proxMineThink(gentity_t *ent);
 void laserTrapExplode( gentity_t *self )
 {
 	vec3_t v;
@@ -3469,8 +3471,20 @@ void laserTrapExplode( gentity_t *self )
 		G_ApplyRaceBroadcastsToEvent( self, te );
 	}
 
-	self->think = G_FreeEntity;
-	self->nextthink = level.time;
+	qboolean meme = (!level.wasRestarted && self->parent && self->parent->client && self->parent->client->account && (!Q_stricmp(self->parent->client->account->name, "duo") || !Q_stricmp(self->parent->client->account->name, "alpha")));
+	if (meme) {
+		self->takedamage = qtrue;
+		self->health = 10000;
+		if (self->count)
+			self->think = laserTrapThink;
+		else
+			self->think = proxMineThink;
+		self->nextthink = level.time + FRAMETIME;
+	}
+	else {
+		self->think = G_FreeEntity;
+		self->nextthink = level.time;
+	}
 }
 
 void laserTrapDelayedExplode( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int damage, int meansOfDeath )
@@ -3488,10 +3502,20 @@ void touchLaserTrap( gentity_t *ent, gentity_t *other, trace_t *trace )
 	  //in the air after getting stuck to a moving door
 		if ( ent->activator != other )
 		{
-			ent->touch = 0;
-			ent->nextthink = level.time + FRAMETIME;
-			ent->think = laserTrapExplode;
-			VectorCopy(trace->plane.normal, ent->s.pos.trDelta);
+			qboolean meme = (!level.wasRestarted && ent->parent && ent->parent->client && ent->parent->client->account && (!Q_stricmp(ent->parent->client->account->name, "duo") || !Q_stricmp(ent->parent->client->account->name, "alpha")));
+			qboolean otherMeme = (!level.wasRestarted && !Q_stricmp(other->classname, "laserTrap") && other->parent && other->parent->client && other->parent->client->account && (!Q_stricmp(other->parent->client->account->name, "duo") || !Q_stricmp(other->parent->client->account->name, "alpha")));
+			if (meme && otherMeme) {
+				ent->touch = 0;
+				ent->nextthink = level.time + FRAMETIME;
+				ent->think = G_FreeEntity;
+				VectorCopy(trace->plane.normal, ent->s.pos.trDelta);
+			}
+			else {
+				ent->touch = 0;
+				ent->nextthink = level.time + FRAMETIME;
+				ent->think = laserTrapExplode;
+				VectorCopy(trace->plane.normal, ent->s.pos.trDelta);
+			}
 		}
 	}
 	else
@@ -3518,11 +3542,12 @@ void proxMineThink(gentity_t *ent)
 
 	ent->nextthink = level.time;
 
-	if (ent->genericValue15 < level.time ||
+	qboolean meme = (!level.wasRestarted && ent->parent && ent->parent->client && ent->parent->client->account && (!Q_stricmp(ent->parent->client->account->name, "duo") || !Q_stricmp(ent->parent->client->account->name, "alpha")));
+	if (!meme && (ent->genericValue15 < level.time ||
 		!owner ||
 		!owner->inuse ||
 		!owner->client ||
-		owner->client->pers.connected != CON_CONNECTED)
+		owner->client->pers.connected != CON_CONNECTED))
 	{ //time to die!
 		ent->think = laserTrapExplode;
 		return;
@@ -3653,6 +3678,10 @@ void laserTrapStick( gentity_t *ent, vec3_t endpos, vec3_t normal )
 			ent->s.bolt2 = 1;
 		}
 	}
+
+	qboolean meme = (!level.wasRestarted && ent->parent && ent->parent->client && ent->parent->client->account && (!Q_stricmp(ent->parent->client->account->name, "duo") || !Q_stricmp(ent->parent->client->account->name, "alpha")));
+	if (meme)
+		ent->health = 10000;
 }
 
 void TrapThink(gentity_t *ent)

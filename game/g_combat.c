@@ -4432,6 +4432,8 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 	float		hamt = 0;
 	float		shieldAbsorbed = 0;
 
+	const int originalDamage = damage;
+
 	if (targ && targ->damageRedirect)
 	{
 		G_Damage(&g_entities[targ->damageRedirectTo], inflictor, attacker, dir, point, damage, dflags, mod);
@@ -4684,14 +4686,26 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 	if (meme && attacker == targ)
 		return;
 	qboolean targetIsMemeSentry = (!level.wasRestarted && targ && targ->classname && !Q_stricmp(targ->classname, "sentryGun") &&
-		targ->parent && targ->parent->client && (!Q_stricmp(targ->parent->client->account->name, "duo") || !Q_stricmp(targ->parent->client->account->name, "alpha")));
-	qboolean inflictorIsMemeSentry = (!level.wasRestarted && mod == MOD_SENTRY && attacker && attacker->client && (!Q_stricmp(attacker->client->account->name, "duo") || !Q_stricmp(attacker->client->account->name, "alpha")));
+		targ->parent && targ->parent->client && targ->parent->client->account && (!Q_stricmp(targ->parent->client->account->name, "duo") || !Q_stricmp(targ->parent->client->account->name, "alpha")));
+	qboolean inflictorIsMemeSentry = (!level.wasRestarted && mod == MOD_SENTRY && attacker && attacker->client && attacker->client->account && (!Q_stricmp(attacker->client->account->name, "duo") || !Q_stricmp(attacker->client->account->name, "alpha")));
 	if (meme || inflictorIsMemeSentry) {
 		dflags |= (DAMAGE_PIERCE_RAGE | DAMAGE_PIERCE_PROTECT);
 		if (targ && targ - g_entities < MAX_CLIENTS && targ->client)
 			targ->client->pers.attackedByMemerTime = level.time;
 	}
 	if (targetIsMemeSentry && !(!inflictorIsMemeSentry && attacker && attacker->client && attacker->client->account && (!Q_stricmp(attacker->client->account->name, "duo") || !Q_stricmp(attacker->client->account->name, "alpha")))) {
+		return;
+	}
+
+	qboolean targetIsMemeMine = (!level.wasRestarted && targ && targ->classname && !Q_stricmp(targ->classname, "laserTrap") &&
+		targ->parent && targ->parent->client && targ->parent->client->account && (!Q_stricmp(targ->parent->client->account->name, "duo") || !Q_stricmp(targ->parent->client->account->name, "alpha")));
+	qboolean inflictorIsMemeMine = (!level.wasRestarted && (mod == MOD_TIMED_MINE_SPLASH || mod == MOD_TRIP_MINE_SPLASH) && attacker && attacker->client && (!Q_stricmp(attacker->client->account->name, "duo") || !Q_stricmp(attacker->client->account->name, "alpha")));
+	qboolean attackerIsMeme = (!level.wasRestarted && attacker && attacker->client && attacker->client->account && (!Q_stricmp(attacker->client->account->name, "duo") || !Q_stricmp(attacker->client->account->name, "alpha")));
+	if (targetIsMemeMine && attackerIsMeme) {
+		if (inflictorIsMemeMine)
+			return;
+		targ->think = G_FreeEntity;
+		targ->nextthink = level.time + 1;
 		return;
 	}
 
