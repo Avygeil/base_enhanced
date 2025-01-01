@@ -4699,7 +4699,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 
 	qboolean targetIsMemeMine = (!level.wasRestarted && targ && targ->classname && !Q_stricmp(targ->classname, "laserTrap") &&
 		targ->parent && targ->parent->client && targ->parent->client->account && (!Q_stricmp(targ->parent->client->account->name, "duo") || !Q_stricmp(targ->parent->client->account->name, "alpha")));
-	qboolean inflictorIsMemeMine = (!level.wasRestarted && (mod == MOD_TIMED_MINE_SPLASH || mod == MOD_TRIP_MINE_SPLASH) && attacker && attacker->client && (!Q_stricmp(attacker->client->account->name, "duo") || !Q_stricmp(attacker->client->account->name, "alpha")));
+	qboolean inflictorIsMemeMine = (!level.wasRestarted && (mod == MOD_TIMED_MINE_SPLASH || mod == MOD_TRIP_MINE_SPLASH) && attacker && attacker->client && attacker->client->account && (!Q_stricmp(attacker->client->account->name, "duo") || !Q_stricmp(attacker->client->account->name, "alpha")));
 	qboolean attackerIsMeme = (!level.wasRestarted && attacker && attacker->client && attacker->client->account && (!Q_stricmp(attacker->client->account->name, "duo") || !Q_stricmp(attacker->client->account->name, "alpha")));
 	if (targetIsMemeMine && attackerIsMeme) {
 		if (inflictorIsMemeMine)
