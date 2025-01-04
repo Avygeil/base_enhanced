@@ -3176,6 +3176,9 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, q
 	if (mode == SAY_TEAM && VALIDSTRING(chatText) && Q_stristrclean(chatText, "TE please or TH if i am fully energized and health is low"))
 		chatText = "^1$H ^5$F ^7$L";
 
+	if (mode == SAY_TEAM && VALIDSTRING(chatText) && stristr(chatText, "^2>>^7HELP NEAR ^5"))
+		chatText = "^2>>^7HELP NEAR ^5$L ^7(^1$H^7/^2$A^7/^4$F^7)";
+
 	char *fixedMessage = NULL;
 	if (VALIDSTRING(chatText)) {
 		char *found = (char *)Q_stristrclean(chatText, "onasi");
