@@ -4982,6 +4982,8 @@ static void DoMapBans(void) {
 	int banVotesRed[MAX_MULTIVOTE_MAPS] = { 0 };
 	int banVotesBlue[MAX_MULTIVOTE_MAPS] = { 0 };
 	char remainingMaps[MAX_STRING_CHARS] = { 0 };
+	int redChaseVoteIndex = -1, blueChaseVoteIndex = -1;
+	gentity_t *redChasePlayer = NULL, *blueChasePlayer = NULL;
 
 	// tally the votes for each map
 	for (int i = 0; i < MAX_CLIENTS; i++) {
@@ -4994,9 +4996,17 @@ static void DoMapBans(void) {
 		if (voteId > 0 && voteId <= MAX_MULTIVOTE_MAPS) {
 			if (ent->client->sess.sessionTeam == TEAM_RED) {
 				banVotesRed[voteId - 1]++;
+				if (GetRemindedPosOrDeterminedPos(ent) == CTFPOSITION_CHASE) {
+					redChaseVoteIndex = voteId - 1;
+					redChasePlayer = ent;
+				}
 			}
 			else if (ent->client->sess.sessionTeam == TEAM_BLUE) {
 				banVotesBlue[voteId - 1]++;
+				if (GetRemindedPosOrDeterminedPos(ent) == CTFPOSITION_CHASE) {
+					blueChaseVoteIndex = voteId - 1;
+					blueChasePlayer = ent;
+				}
 			}
 		}
 	}
@@ -5046,6 +5056,18 @@ static void DoMapBans(void) {
 	// process the bans based on the time and vote conditions
 	if (level.time - level.voteTime >= VOTE_TIME) {
 		// time expired
+
+		if (redHighestNumVotes > 0 && redTieCount > 1 && redChasePlayer && redChaseVoteIndex != -1 && banVotesRed[redChaseVoteIndex] == redHighestNumVotes) {
+			redTieCount = 1;
+			redMapIndex = redChaseVoteIndex;
+			NotifyTeammatesOfVote(redChasePlayer, "'s ban vote breaks the tie", "^8");
+		}
+		if (blueHighestNumVotes > 0 && blueTieCount > 1 && blueChasePlayer && blueChaseVoteIndex != -1 && banVotesBlue[blueChaseVoteIndex] == blueHighestNumVotes) {
+			blueTieCount = 1;
+			blueMapIndex = blueChaseVoteIndex;
+			NotifyTeammatesOfVote(blueChasePlayer, "'s ban vote breaks the tie", "^8");
+		}
+
 		// first check if both teams banned the same map
 		if (redHighestNumVotes > 0 && blueHighestNumVotes > 0 && redMapIndex == blueMapIndex && redTieCount == 1 && blueTieCount == 1) {
 			level.mapsThatCanBeVotedBits &= ~(1 << redMapIndex);
