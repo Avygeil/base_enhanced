@@ -8227,7 +8227,7 @@ static void Cmd_Rating_f(gentity_t *ent) {
 }
 
 // returns qtrue if valid; qfalse if they set something dumb (like a pos set on multiple choice levels, or all three pos on the second choice, etc)
-qboolean ValidateAndCopyPositionPreferences(const positionPreferences_t *in, positionPreferences_t *out) {
+qboolean ValidateAndCopyPositionPreferences(const positionPreferences_t *in, positionPreferences_t *out, const int bannedPos) {
 	if (!in) {
 		assert(qfalse);
 		return qfalse;
@@ -8285,6 +8285,7 @@ qboolean ValidateAndCopyPositionPreferences(const positionPreferences_t *in, pos
 		}
 	}
 
+	// promote pos in certain cases
 	if (!temp.first && temp.second && !temp.third) {
 		// only second
 		// promote it to first
@@ -8313,6 +8314,40 @@ qboolean ValidateAndCopyPositionPreferences(const positionPreferences_t *in, pos
 		temp.second = temp.third;
 		temp.third = 0;
 		inputValid = qfalse;
+	}
+
+	if (bannedPos) {
+		// remove any banned pos and rerun the promotion logic
+		temp.first &= ~bannedPos;
+		temp.second &= ~bannedPos;
+		temp.third &= ~bannedPos;
+		temp.avoid &= ~bannedPos;
+
+		if (!temp.first && temp.second && !temp.third) {
+			// only second
+			// promote it to first
+			temp.first = temp.second;
+			temp.second = 0;
+		}
+		else if (!temp.first && !temp.second && temp.third) {
+			// only third
+			// promote it to first
+			temp.first = temp.third;
+			temp.third = 0;
+		}
+		else if (temp.first && !temp.second && temp.third) {
+			// only first and third
+			// promote third to second
+			temp.second = temp.third;
+			temp.third = 0;
+		}
+		else if (!temp.first && temp.second && temp.third) {
+			// only second and third
+			// promote them both up by one
+			temp.first = temp.second;
+			temp.second = temp.third;
+			temp.third = 0;
+		}
 	}
 
 	if (out)
@@ -8387,7 +8422,7 @@ static void PrintPositionPreferences(gentity_t *ent) {
 		}
 	}
 
-	if (ValidateAndCopyPositionPreferences(pref, &ent->client->account->validPref))
+	if (ValidateAndCopyPositionPreferences(pref, &ent->client->account->validPref, ent->client->account->bannedPos))
 		Q_strcat(buf, sizeof(buf), "\n");
 	else
 		Q_strcat(buf, sizeof(buf), "\n^3Warning:^7 your position preferences are currently invalid. Check that they make sense (e.g. not having a position in more than one tier, not *only* having second choice preferences, etc.)\n");
@@ -8440,7 +8475,7 @@ static void Cmd_Pos_f(gentity_t *ent) {
 		if (arg1[0] && (stristr(arg1, "cl") || stristr(arg1, "del") || stristr(arg1, "rm") || stristr(arg1, "rem"))) {
 			PrintIngame(ent - g_entities, "All preferences cleared.\n");
 			pref->first = pref->second = pref->third = pref->avoid = 0;
-			ValidateAndCopyPositionPreferences(pref, &ent->client->account->validPref);
+			ValidateAndCopyPositionPreferences(pref, &ent->client->account->validPref, ent->client->account->bannedPos);
 			G_DBSetAccountProperties(ent->client->account);
 		}
 		else if (arg1[0] && stristr(arg1, "help")) {
@@ -8770,7 +8805,7 @@ static void Cmd_Pos_f(gentity_t *ent) {
 		pref->avoid &= ~(1 << pos);
 	}
 
-	ValidateAndCopyPositionPreferences(pref, &ent->client->account->validPref);
+	ValidateAndCopyPositionPreferences(pref, &ent->client->account->validPref, ent->client->account->bannedPos);
 	G_DBSetAccountProperties(ent->client->account);
 }
 

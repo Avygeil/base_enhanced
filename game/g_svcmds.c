@@ -4577,6 +4577,7 @@ static void Svcmd_AutoRestartCancel_f(void) {
 }
 
 static void NotifyPlayerOfAdminPosChange(account_t *account, const char *str) {
+#if 0
 	assert(account && str);
 	for (int i = 0; i < MAX_CLIENTS; i++) {
 		gentity_t *ent = &g_entities[i];
@@ -4584,6 +4585,7 @@ static void NotifyPlayerOfAdminPosChange(account_t *account, const char *str) {
 			continue;
 		PrintIngame(i, str);
 	}
+#endif
 }
 
 // ent has a small penis
@@ -4591,8 +4593,12 @@ static void Svcmd_Pos_f(void) {
 	if (trap_Argc() < 3) {
 		Com_Printf(
 			"Usage:\n"
-			"pos view <account name>                          - view someone's position preferences\n"
-			"pos set <account name> <pos> <1/2/3/avoid/clear> - set someone's position preferences\n");
+			"^7pos view <account name>                          - view someone's position preferences\n"
+			"^9pos set <account name> <pos> <1/2/3/avoid/clear> - set someone's position preferences\n"
+			"^7pos ban <account name> <pos>                     - ban someone on a position\n"
+			"^9pos unban <account name> <pos>                   - unban someone on a position\n"
+			"^7"
+		);
 		return;
 	}
 
@@ -4612,8 +4618,12 @@ static void Svcmd_Pos_f(void) {
 	if (!arg1[0] || !arg2[0]) {
 		Com_Printf(
 			"Usage:\n"
-			"pos view <account name>                          - view someone's position preferences\n"
-			"pos set <account name> <pos> <1/2/3/avoid/clear> - set someone's position preferences\n");
+			"^7pos view <account name>                          - view someone's position preferences\n"
+			"^9pos set <account name> <pos> <1/2/3/avoid/clear> - set someone's position preferences\n"
+			"^7pos ban <account name> <pos>                     - ban someone on a position\n"
+			"^9pos unban <account name> <pos>                   - unban someone on a position\n"
+			"^7"
+		);
 		return;
 	}
 
@@ -4626,7 +4636,7 @@ static void Svcmd_Pos_f(void) {
 
 	if (!Q_stricmp(arg1, "view") || !Q_stricmp(arg1, "list")) {
 		char buf[MAX_STRING_CHARS] = { 0 };
-		Com_sprintf(buf, sizeof(buf), "%s's position preferences: \n^3 First choice:^7 ", acc.ptr->name);
+		Com_sprintf(buf, sizeof(buf), "%s's position preferences: \n^3       First choice:^7 ", acc.ptr->name);
 
 		{
 			qboolean gotOne = qfalse;
@@ -4639,7 +4649,7 @@ static void Svcmd_Pos_f(void) {
 		}
 
 		{
-			Q_strcat(buf, sizeof(buf), "\n^9Second choice:^7 ");
+			Q_strcat(buf, sizeof(buf), "\n^9      Second choice:^7 ");
 			qboolean gotOne = qfalse;
 			for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
 				if (pref->second & (1 << pos)) {
@@ -4650,7 +4660,7 @@ static void Svcmd_Pos_f(void) {
 		}
 
 		{
-			Q_strcat(buf, sizeof(buf), "\n^8 Third choice:^7 ");
+			Q_strcat(buf, sizeof(buf), "\n^8       Third choice:^7 ");
 			qboolean gotOne = qfalse;
 			for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
 				if (pref->third & (1 << pos)) {
@@ -4661,7 +4671,7 @@ static void Svcmd_Pos_f(void) {
 		}
 
 		{
-			Q_strcat(buf, sizeof(buf), "\n^1        Avoid:^7 ");
+			Q_strcat(buf, sizeof(buf), "\n^1              Avoid:^7 ");
 			qboolean gotOne = qfalse;
 			for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
 				if (pref->avoid & (1 << pos)) {
@@ -4672,10 +4682,21 @@ static void Svcmd_Pos_f(void) {
 		}
 
 		{
-			Q_strcat(buf, sizeof(buf), "\n^9      Unrated:^7 ");
+			Q_strcat(buf, sizeof(buf), "\n^9            Unrated:^7 ");
 			qboolean gotOne = qfalse;
 			for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
 				if (pref->first & (1 << pos) || pref->second & (1 << pos) || pref->third & (1 << pos) || pref->avoid & (1 << pos))
+					continue;
+				Q_strcat(buf, sizeof(buf), va("%s%s", gotOne ? ", " : "", NameForPos(pos)));
+				gotOne = qtrue;
+			}
+		}
+
+		{
+			Q_strcat(buf, sizeof(buf), "\n^6[Admin only] Banned:^7 ");
+			qboolean gotOne = qfalse;
+			for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+				if (!(acc.ptr->bannedPos & (1 << pos)))
 					continue;
 				Q_strcat(buf, sizeof(buf), va("%s%s", gotOne ? ", " : "", NameForPos(pos)));
 				gotOne = qtrue;
@@ -4874,17 +4895,59 @@ static void Svcmd_Pos_f(void) {
 			pref->avoid &= ~(1 << pos);
 		}
 
-		if (!ValidateAndCopyPositionPreferences(pref, &acc.ptr->validPref))
+		if (!ValidateAndCopyPositionPreferences(pref, &acc.ptr->validPref, acc.ptr->bannedPos))
 			Com_Printf("^3Warning^7: %s's position preferences are invalid. Check that they make sense (e.g. not having a position in more than one tier, not *only* having second choice preferences, etc.)\n", acc.ptr->name);
 		G_DBSetAccountProperties(acc.ptr);
 
 		return;
 	}
+	else if (!Q_stricmp(arg1, "ban")) {
+		if (!arg3[0] || !CtfPositionFromString(arg3)) {
+			Com_Printf("Usage: pos ban <account name> <pos>\n");
+			return;
+		}
+
+		const int pos = CtfPositionFromString(arg3);
+		const char *posStr = NameForPos(pos);
+		if (acc.ptr->bannedPos & (1 << pos)) {
+			Com_Printf("%s is already banned from %s.\n", acc.ptr->name, posStr);
+			return;
+		}
+
+		acc.ptr->bannedPos |= (1 << pos);
+		Com_Printf("%s is now banned from %s.\n", acc.ptr->name, posStr);
+
+		ValidateAndCopyPositionPreferences(&acc.ptr->expressedPref, &acc.ptr->validPref, acc.ptr->bannedPos);
+		G_DBSetAccountProperties(acc.ptr);
+	}
+	else if (!Q_stricmp(arg1, "unban")) {
+		if (!arg3[0] || !CtfPositionFromString(arg3)) {
+			Com_Printf("Usage: pos unban <account name> <pos>\n");
+			return;
+		}
+
+		const int pos = CtfPositionFromString(arg3);
+		const char *posStr = NameForPos(pos);
+		if (!(acc.ptr->bannedPos & (1 << pos))) {
+			Com_Printf("%s is already not banned from %s.\n", acc.ptr->name, posStr);
+			return;
+		}
+
+		acc.ptr->bannedPos &= ~(1 << pos);
+		Com_Printf("%s is now unbanned from %s.\n", acc.ptr->name, posStr);
+
+		ValidateAndCopyPositionPreferences(&acc.ptr->expressedPref, &acc.ptr->validPref, acc.ptr->bannedPos);
+		G_DBSetAccountProperties(acc.ptr);
+	}
 	else {
 		Com_Printf(
 			"Usage:\n"
-			"pos view <account name>                          - view someone's position preferences\n"
-			"pos set <account name> <pos> <1/2/3/avoid/clear> - set someone's position preferences\n");
+			"^7pos view <account name>                          - view someone's position preferences\n"
+			"^9pos set <account name> <pos> <1/2/3/avoid/clear> - set someone's position preferences\n"
+			"^7pos ban <account name> <pos>                     - ban someone on a position\n"
+			"^9pos unban <account name> <pos>                   - unban someone on a position\n"
+			"^7"
+		);
 		return;
 	}
 }

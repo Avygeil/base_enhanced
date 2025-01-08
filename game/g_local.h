@@ -609,6 +609,7 @@ typedef struct {
 	} autoLink;
 	positionPreferences_t expressedPref, validPref;
 	int64_t flags;
+	int bannedPos;
 } account_t;
 
 #define MAX_SESSIONINFO_LEN		256
@@ -1367,6 +1368,7 @@ typedef struct {
 	char accountName[32];
 	positionPreferences_t posPrefs;
 	team_t team;
+	int bannedPos;
 } sortedClient_t;
 
 typedef struct {
@@ -2365,7 +2367,7 @@ qboolean IsRacerOrSpectator(gentity_t *ent);
 qboolean ClientIsRacerOrSpectator(gclient_t *client);
 ctfPosition_t CtfPositionFromString(char *s);
 float GetCTFLocationValue(gentity_t *ent);
-qboolean ValidateAndCopyPositionPreferences(const positionPreferences_t *in, positionPreferences_t *out);
+qboolean ValidateAndCopyPositionPreferences(const positionPreferences_t *in, positionPreferences_t *out, const int bannedPos);
 qboolean IsInstapauser(gentity_t *ent);
 qboolean HasSlur(const char *str);
 void fixVoters(qboolean allowRacers, int onlyThisTeamCanVote);

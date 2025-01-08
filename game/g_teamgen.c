@@ -3530,6 +3530,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 		memcpy(&sortedClients[i].posPrefs, &ent->client->account->validPref, sizeof(positionPreferences_t));
 		sortedClients[i].team = ent->client->sess.sessionTeam;
 		sortedClients[i].accountId = ent->client->account->id;
+		sortedClients[i].bannedPos = ent->client->account->bannedPos;
 #endif
 
 		for (int j = CTFPOSITION_BASE; j <= CTFPOSITION_OFFENSE; j++) {
@@ -3541,6 +3542,8 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 				TeamGen_DebugPrintf("%s has third choice pos %s<br/>", sortedClients[i].accountName, NameForPos(j));
 			if (sortedClients[i].posPrefs.avoid & (1 << j))
 				TeamGen_DebugPrintf("%s has avoided pos %s<br/>", sortedClients[i].accountName, NameForPos(j));
+			if (sortedClients[i].bannedPos & (1 << j))
+				TeamGen_DebugPrintf("%s is banned on pos %s<br/>", sortedClients[i].accountName, NameForPos(j));
 		}
 
 		++numEligible;
@@ -4196,6 +4199,12 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 					algoPlayer->posPrefs.avoid = client->posPrefs.avoid;
 			}
 
+			// unrate banned positions
+			for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+				if ((client->bannedPos & (1 << pos)))
+					algoPlayer->rating[pos] = 0;
+			}
+
 			TeamGen_DebugPrintf("%s: first %d, second %d, third %d, avoid %d --- %s base,   %s chase,   %s offense<br/>",
 				algoPlayer->accountName,
 				algoPlayer->posPrefs.first,
@@ -4208,6 +4217,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 				);
 		}
 
+		// ?d-specific stuff (counting number of permutations people are in, etc)
 		if (type == TEAMGENERATORTYPE_INCLUSIVE) {
 			for (int j = 0; j < numEligible; j++) {
 				permutationPlayer_t *algoPlayer = players + j;

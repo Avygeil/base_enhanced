@@ -216,12 +216,12 @@ void G_DBDeleteMetadataStartingWith(const char *key)
 // =========== ACCOUNTS ========================================================
 
 static const char* sqlGetAccountByID =
-"SELECT name, created_on, properties, flags                                   \n"
+"SELECT name, created_on, properties, flags, bannedPos                       \n"
 "FROM accounts                                                               \n"
 "WHERE accounts.account_id = ?1;                                               ";
 
 static const char* sqlGetAccountByName =
-"SELECT account_id, name, created_on, properties, flags                       \n"
+"SELECT account_id, name, created_on, properties, flags, bannedPos           \n"
 "FROM accounts                                                               \n"
 "WHERE accounts.name = ?1;                                                     ";
 
@@ -270,8 +270,8 @@ static const char* sqlSetFlagsForAccountId =
 
 static const char *sqlSetPropertiesForAccountId =
 "UPDATE accounts                                                             \n"
-"SET properties = ?1                                                         \n"
-"WHERE accounts.account_id = ?2;                                               ";
+"SET properties = ?1, bannedPos = ?2                                         \n"
+"WHERE accounts.account_id = ?3;                                               ";
 
 static const char* sqlGetPlaytimeForAccountId =
 "SELECT playtime FROM player_aliases WHERE account_id = ?1 LIMIT 1;            ";
@@ -288,7 +288,8 @@ static const char* sqlListTopUnassignedSessionIds =
 static const char* sqlPurgeUnreferencedSessions =
 "DELETE FROM sessions_info WHERE NOT referenced;                               ";
 
-static void ReadAccountProperties(const char *propertiesIn, account_t *accOut) {
+// note: does not read bannedPos from db
+static void ReadAccountProperties(const char *propertiesIn, account_t *accOut, const int bannedPos) {
 	cJSON *root = VALIDSTRING(propertiesIn) ? cJSON_Parse(propertiesIn) : NULL;
 	positionPreferences_t positionPreferences = { 0 };
 	if (root) {
@@ -351,7 +352,7 @@ static void ReadAccountProperties(const char *propertiesIn, account_t *accOut) {
 		accOut->autoLink.sex[0] = accOut->autoLink.country[0] = '\0';
 	}
 	memcpy(&accOut->expressedPref, &positionPreferences, sizeof(positionPreferences_t));
-	ValidateAndCopyPositionPreferences(&positionPreferences, &accOut->validPref);
+	ValidateAndCopyPositionPreferences(&positionPreferences, &accOut->validPref, bannedPos);
 	cJSON_Delete(root);
 }
 
@@ -371,15 +372,17 @@ qboolean G_DBGetAccountByID( const int id,
 		const char* name = ( const char* )sqlite3_column_text( statement, 0 );
 		const int created_on = sqlite3_column_int( statement, 1 );
 		const int64_t flags = sqlite3_column_int64( statement, 3 );
+		const int64_t bannedPos = sqlite3_column_int64( statement, 4 );
 
 		account->id = id;
 		Q_strncpyz( account->name, name, sizeof( account->name ) );
 		account->creationDate = created_on;
 		account->flags = flags;
+		account->bannedPos = bannedPos;
 
 		if ( sqlite3_column_type( statement, 2 ) != SQLITE_NULL ) {
 			const char* properties = ( const char* )sqlite3_column_text( statement, 2 );
-			ReadAccountProperties(properties, account);
+			ReadAccountProperties(properties, account, bannedPos);
 		} else {
 			account->autoLink.sex[0] = account->autoLink.country[0] = '\0';
 			memset(&account->expressedPref, 0, sizeof(positionPreferences_t));
@@ -414,15 +417,17 @@ qboolean G_DBGetAccountByName( const char* name,
 		const char* name = ( const char* )sqlite3_column_text( statement, 1 );
 		const int created_on = sqlite3_column_int( statement, 2 );
 		const int64_t flags = sqlite3_column_int64( statement, 4 );
+		const int64_t bannedPos = sqlite3_column_int64( statement, 5 );
 
 		account->id = account_id;
 		Q_strncpyz( account->name, name, sizeof( account->name ) );
 		account->creationDate = created_on;
 		account->flags = flags;
+		account->bannedPos = bannedPos;
 
 		if (sqlite3_column_type(statement, 3) != SQLITE_NULL) {
 			const char *properties = (const char *)sqlite3_column_text(statement, 3);
-			ReadAccountProperties(properties, account);
+			ReadAccountProperties(properties, account, bannedPos);
 		}
 		else {
 			account->autoLink.sex[0] = account->autoLink.country[0] = '\0';
@@ -687,6 +692,7 @@ void G_DBSetAccountFlags( account_t* account,
 	trap_sqlite3_finalize( statement );
 }
 
+// also sets bannedPos
 void G_DBSetAccountProperties(account_t *account)
 {
 	cJSON *root = cJSON_CreateObject();
@@ -744,7 +750,8 @@ void G_DBSetAccountProperties(account_t *account)
 		sqlite3_bind_text(statement, 1, str, -1, 0);
 	else
 		sqlite3_bind_null(statement, 1);
-	sqlite3_bind_int(statement, 2, account->id);
+	sqlite3_bind_int(statement, 2, account->bannedPos);
+	sqlite3_bind_int(statement, 3, account->id);
 
 	trap_sqlite3_step(statement);
 
@@ -765,7 +772,7 @@ void G_DBCacheAutoLinks(void) {
 		const int accountId = sqlite3_column_int(statement, 0);
 		const char *properties = (const char *)sqlite3_column_text(statement, 1);
 		account_t acc = { 0 };
-		ReadAccountProperties(properties, &acc);
+		ReadAccountProperties(properties, &acc, 0);
 
 		if (acc.autoLink.sex[0] || acc.autoLink.guid[0]) {
 			++gotten;
@@ -6311,17 +6318,24 @@ qboolean G_DBDeleteAllRatingsForPosition(int raterAccountId, ctfPosition_t pos) 
 extern qboolean PlayerRatingAccountIdMatches(genericNode_t *node, void *userData);
 const char *const sqlGetAverageRatings =
 "WITH t AS ( "
-"    SELECT account_id, created_on FROM accounts "
+"    SELECT "
+"        account_id, "
+"        created_on, "
+"        COALESCE(bannedPos, 0) AS banned_positions "
+"    FROM accounts "
 "), "
 "ratings AS ( "
 "    SELECT ratee_account_id, pos, rating "
 "    FROM playerratings "
 "    JOIN accounts ON accounts.account_id = rater_account_id "
-"    WHERE accounts.flags & (1 << 6) != 0 "
-"    AND accounts.flags & (1 << 10) == 0 "
+"    WHERE (accounts.flags & (1 << 6)) != 0 "
+"      AND (accounts.flags & (1 << 10)) == 0 "
 "), "
 "default_ratings AS ( "
-"    SELECT account_id AS ratee_account_id, 3 AS pos, 4 AS rating "
+"    SELECT "
+"        a.account_id AS ratee_account_id, "
+"        3 AS pos, "
+"        4 AS rating "
 "    FROM accounts a "
 "    WHERE NOT EXISTS ( "
 "        SELECT 1 "
@@ -6339,8 +6353,10 @@ const char *const sqlGetAverageRatings =
 "    SELECT ratee_account_id, pos, rating FROM default_ratings "
 ") r "
 "JOIN t ON t.account_id = r.ratee_account_id "
-"GROUP BY r.ratee_account_id, r.pos;";
+"WHERE (t.banned_positions & (1 << (r.pos - 1))) = 0 "
+"GROUP BY r.ratee_account_id, r.pos; ";
 
+// loads player ratings, taking into account rust and pos bans
 void G_DBGetPlayerRatings(void) {
 	int start = trap_Milliseconds();
 	ListClear(&level.ratingList);
