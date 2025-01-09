@@ -5810,6 +5810,10 @@ void DoPauseStartChecks(void) {
 		}
 	}
 
+	// store buttons pressed at moment of pause
+	for (int i = 0; i < MAX_CLIENTS; i++)
+		level.clients[i].pers.buttonsPressedAtPauseStart = (level.clients[i].pers.cmd.buttons & ~BUTTON_TALK);
+
 	// note clients who are on lifts
 	for (int i = 0; i < MAX_CLIENTS; i++)
 		level.clients[i].pers.onLiftDuringPause = NULL;
@@ -5951,7 +5955,8 @@ void ClientEndFrame( gentity_t *ent ) {
             ent->client->respawnTime += time_delta;
 			if (ent->client->invulnerableTimer)
 				ent->client->invulnerableTimer += time_delta;
-            ent->pain_debounce_time += time_delta;
+			if (ent->pain_debounce_time)
+				ent->pain_debounce_time += time_delta;
             ent->client->ps.fd.forcePowerRegenDebounceTime += time_delta;
 			if (ent->client->ps.saberDidThrowTime)
 				ent->client->ps.saberDidThrowTime += time_delta;
@@ -5963,6 +5968,44 @@ void ClientEndFrame( gentity_t *ent ) {
 				ent->client->homingLockTime += time_delta;
 			if (ent->client->ps.fallingToDeath)
 				ent->client->ps.fallingToDeath += time_delta;
+			if (ent->client->ps.rocketLastValidTime)
+				ent->client->ps.rocketLastValidTime += time_delta;
+			if (ent->client->ps.rocketTargetTime)
+				ent->client->ps.rocketTargetTime += time_delta;
+			if (ent->client->ps.rocketLockTime)
+				ent->client->ps.rocketLockTime += time_delta;
+			if (ent->client->grippedAnAbsorberTime)
+				ent->client->grippedAnAbsorberTime += time_delta;
+			if (ent->client->ps.fd.forceGripBeingGripped)
+				ent->client->ps.fd.forceGripBeingGripped += time_delta;
+			if (ent->client->ps.otherKillerTime)
+				ent->client->ps.otherKillerTime += time_delta;
+			if (ent->client->ps.otherKillerDebounceTime)
+				ent->client->ps.otherKillerDebounceTime += time_delta;
+			if (ent->client->ps.fd.forceGripStarted)
+				ent->client->ps.fd.forceGripStarted += time_delta;
+			if (ent->client->ps.fd.forceGripUseTime)
+				ent->client->ps.fd.forceGripUseTime += time_delta;
+			if (ent->client->ps.forceGripMoveInterval)
+				ent->client->ps.forceGripMoveInterval += time_delta;
+			if (ent->client->ps.forceHandExtendTime)
+				ent->client->ps.forceHandExtendTime += time_delta;
+			if (ent->client->forcePowerSoundDebounce)
+				ent->client->forcePowerSoundDebounce += time_delta;
+			if (ent->client->ps.fd.forceRageRecoveryTime)
+				ent->client->ps.fd.forceRageRecoveryTime += time_delta;
+			if (ent->client->ps.forceAllowDeactivateTime)
+				ent->client->ps.forceAllowDeactivateTime += time_delta;
+			if (ent->client->ps.electrifyTime)
+				ent->client->ps.electrifyTime += time_delta;
+			if (ent->client->drainDebuffTime)
+				ent->client->drainDebuffTime += time_delta;
+			if (ent->client->noLightningTime)
+				ent->client->noLightningTime += time_delta;
+			if (ent->client->ps.powerups[PW_DISINT_4])
+				ent->client->ps.powerups[PW_DISINT_4] += time_delta;
+			if (ent->client->ps.fd.forceHealTime)
+				ent->client->ps.fd.forceHealTime += time_delta;
 
 			// update force powers durations
 			for(i=0;i < NUM_FORCE_POWERS;++i) {

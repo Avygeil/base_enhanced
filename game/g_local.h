@@ -961,6 +961,7 @@ typedef struct {
 
 	int			attackedByMemerTime;
 
+	int			buttonsPressedAtPauseStart;
 } clientPersistant_t;
 
 typedef struct renderInfo_s
@@ -2914,6 +2915,41 @@ const char *G_GetStringEdString(char *refSection, char *refName);
 void G_ApplyRaceBroadcastsToEvent( gentity_t *parent, gentity_t *ev );
 qboolean InstagibEnabled(void);
 int IsLivePug(int ofAtLeastThisMinutes);
+
+typedef struct {
+	node_t			node;
+	int				sessionId;
+	int				accountId;
+	team_t			team;
+	playerState_t	ps;
+	int				health;
+	int				armor;
+	int				boonTime;
+	qboolean		lockPauseAngles;
+	vec3_t			pauseAngles;
+	vec3_t			pauseViewAngles;
+	gentity_t		*onLiftDuringPause;
+	int				homingLockTime;
+	int				homingLockTarget;
+	int				saberKnockedTime;
+	int				invulnerableTimer;
+	int				airOutTime;
+	int				lastAiredOtherClientTime[MAX_CLIENTS];
+	int				lastAiredOtherClientMeansOfDeath[MAX_CLIENTS];
+	int				protsince;
+	int				pain_debounce_time;
+	int				enterTime;
+	int				lastreturnedflag;
+	int				lasthurtcarrier;
+	int				lastfraggedcarrier;
+	int				flagsinceStartTime;
+	int				grippedAnAbsorberTime;
+	int				forcePowerSoundDebounce;
+	int				drainDebuffTime;
+	int				noLightningTime;
+	int				respawnTime;
+	int				buttonsPressedAtPauseStart;
+} disconnectedPlayerData_t;
 
 //
 // g_client.c

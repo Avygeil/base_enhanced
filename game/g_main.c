@@ -7024,6 +7024,85 @@ void G_RunFrame( int levelTime ) {
 				}
 
             }
+
+			iterator_t iter;
+			ListIterate(&level.disconnectedPlayerList, &iter, qfalse);
+			while (IteratorHasNext(&iter)) {
+				disconnectedPlayerData_t *data = IteratorNext(&iter);
+				if (data->airOutTime)
+					data->airOutTime += dt;
+				if (data->ps.saberDidThrowTime)
+					data->ps.saberDidThrowTime += dt;
+				if (data->ps.saberThrowDelay)
+					data->ps.saberThrowDelay += dt;
+				if (data->invulnerableTimer)
+					data->invulnerableTimer += dt;
+				if (data->saberKnockedTime)
+					data->saberKnockedTime += dt;
+				if (data->homingLockTime)
+					data->homingLockTime += dt;
+				if (data->protsince)
+					data->protsince += dt;
+				if (data->pain_debounce_time)
+					data->pain_debounce_time += dt;
+				if (data->ps.fallingToDeath)
+					data->ps.fallingToDeath += dt;
+				if (data->enterTime)
+					data->enterTime += dt;
+				if (data->lastreturnedflag)
+					data->lastreturnedflag += dt;
+				if (data->lasthurtcarrier)
+					data->lasthurtcarrier += dt;
+				if (data->lastfraggedcarrier)
+					data->lastfraggedcarrier += dt;
+				if (data->flagsinceStartTime)
+					data->flagsinceStartTime += dt;
+				if (data->ps.rocketLastValidTime)
+					data->ps.rocketLastValidTime += dt;
+				if (data->ps.rocketTargetTime)
+					data->ps.rocketTargetTime += dt;
+				if (data->ps.rocketLockTime)
+					data->ps.rocketLockTime += dt;
+				if (data->grippedAnAbsorberTime)
+					data->grippedAnAbsorberTime += dt;
+				if (data->ps.fd.forceGripBeingGripped)
+					data->ps.fd.forceGripBeingGripped += dt;
+				if (data->ps.otherKillerTime)
+					data->ps.otherKillerTime += dt;
+				if (data->ps.otherKillerDebounceTime)
+					data->ps.otherKillerDebounceTime += dt;
+				if (data->ps.fd.forceGripStarted)
+					data->ps.fd.forceGripStarted += dt;
+				if (data->ps.forceGripMoveInterval)
+					data->ps.forceGripMoveInterval += dt;
+				if (data->ps.forceHandExtendTime)
+					data->ps.forceHandExtendTime += dt;
+				if (data->forcePowerSoundDebounce)
+					data->forcePowerSoundDebounce += dt;
+				if (data->ps.fd.forceRageRecoveryTime)
+					data->ps.fd.forceRageRecoveryTime += dt;
+				if (data->ps.forceAllowDeactivateTime)
+					data->ps.forceAllowDeactivateTime += dt;
+				if (data->ps.electrifyTime)
+					data->ps.electrifyTime += dt;
+				if (data->drainDebuffTime)
+					data->drainDebuffTime += dt;
+				if (data->noLightningTime)
+					data->noLightningTime += dt;
+				if (data->ps.powerups[PW_DISINT_4])
+					data->ps.powerups[PW_DISINT_4] += dt;
+				if (data->ps.fd.forceGripUseTime)
+					data->ps.fd.forceGripUseTime += dt;
+				if (data->ps.fd.forceHealTime)
+					data->ps.fd.forceHealTime += dt;
+				if (data->respawnTime)
+					data->respawnTime += dt;
+				data->ps.fd.forcePowerRegenDebounceTime += dt;
+				for (int i = 0; i < NUM_FORCE_POWERS; ++i) {
+					if (data->ps.fd.forcePowerDuration[i])
+						data->ps.fd.forcePowerDuration[i] += dt;
+				}
+			}
     }
     if ( level.pause.state == PAUSE_PAUSED )
     {
@@ -7119,6 +7198,10 @@ void G_RunFrame( int levelTime ) {
 				level.pause.state = PAUSE_NONE;
 				level.pause.pauserChoice = 0;
 				level.pause.pauserClient.valid = qfalse;
+
+				// restore the buttons they were pressing back when the pause began (keeps grips going etc)
+				for (int i = 0; i < MAX_CLIENTS; i++)
+					level.clients[i].pers.cmd.buttons = level.clients[i].pers.buttonsPressedAtPauseStart;
             }
     }
 

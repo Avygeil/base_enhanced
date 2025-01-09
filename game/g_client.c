@@ -5348,21 +5348,6 @@ void ClientSpawn(gentity_t *ent) {
 	}
 }
 
-typedef struct {
-	node_t			node;
-	int				sessionId;
-	int				accountId;
-	team_t			team;
-	playerState_t	ps;
-	int				health;
-	int				armor;
-	int				boonTime;
-	qboolean		lockPauseAngles;
-	vec3_t			pauseAngles;
-	vec3_t			pauseViewAngles;
-	gentity_t		*onLiftDuringPause;
-} disconnectedPlayerData_t;
-
 static qboolean DisconnectedPlayerMatches(genericNode_t *node, void *userData) {
 	disconnectedPlayerData_t *existing = (disconnectedPlayerData_t *)node;
 	disconnectedPlayerData_t *find = (disconnectedPlayerData_t *)userData;
@@ -5445,6 +5430,26 @@ void RestoreDisconnectedPlayerData(gentity_t *ent) {
 	VectorCopy(data->pauseViewAngles, ent->pauseViewAngles);
 	if (data->onLiftDuringPause && data->onLiftDuringPause->inuse)
 		ent->client->pers.onLiftDuringPause = data->onLiftDuringPause;
+	ent->client->homingLockTarget = data->homingLockTarget;
+	ent->client->homingLockTime = data->homingLockTime;
+	ent->client->saberKnockedTime = data->saberKnockedTime;
+	ent->client->invulnerableTimer = data->invulnerableTimer;
+	ent->client->airOutTime = data->airOutTime;
+	ent->client->pers.protsince = data->protsince;
+	ent->pain_debounce_time = data->pain_debounce_time;
+	ent->client->pers.enterTime = data->enterTime;
+	ent->client->pers.teamState.lastreturnedflag = data->lastreturnedflag;
+	ent->client->pers.teamState.lasthurtcarrier = data->lasthurtcarrier;
+	ent->client->pers.teamState.lastfraggedcarrier = data->lastfraggedcarrier;
+	ent->client->pers.teamState.flagsince.startTime = data->flagsinceStartTime;
+	ent->client->forcePowerSoundDebounce = data->forcePowerSoundDebounce;
+	ent->client->drainDebuffTime = data->drainDebuffTime;
+	ent->client->noLightningTime = data->noLightningTime;
+	ent->client->respawnTime = data->respawnTime;
+	ent->client->pers.buttonsPressedAtPauseStart = data->buttonsPressedAtPauseStart;
+	ent->client->grippedAnAbsorberTime = data->grippedAnAbsorberTime;
+	memcpy(ent->client->pers.lastAiredOtherClientTime, data->lastAiredOtherClientTime, sizeof(ent->client->pers.lastAiredOtherClientTime));
+	memcpy(ent->client->pers.lastAiredOtherClientMeansOfDeath, data->lastAiredOtherClientMeansOfDeath, sizeof(ent->client->pers.lastAiredOtherClientMeansOfDeath));
 	BG_PlayerStateToEntityState(&ent->client->ps, &ent->s, qfalse);
 
 	if (ent->client->ps.powerups[PW_REDFLAG] || ent->client->ps.powerups[PW_BLUEFLAG]) {
@@ -5846,6 +5851,26 @@ void ClientDisconnect( int clientNum ) {
 				if (ent->client->pers.onLiftDuringPause && ent->client->pers.onLiftDuringPause->inuse)
 					data->onLiftDuringPause = ent->client->pers.onLiftDuringPause;
 				memcpy(&data->ps, &ent->client->ps, sizeof(playerState_t));
+				data->homingLockTime = ent->client->homingLockTime;
+				data->homingLockTarget = ent->client->homingLockTarget;
+				data->saberKnockedTime = ent->client->saberKnockedTime;
+				data->invulnerableTimer = ent->client->invulnerableTimer;
+				data->airOutTime = ent->client->airOutTime;
+				data->protsince = ent->client->pers.protsince;
+				data->pain_debounce_time = ent->pain_debounce_time;
+				data->enterTime = ent->client->pers.enterTime;
+				data->lastreturnedflag = ent->client->pers.teamState.lastreturnedflag;
+				data->lasthurtcarrier = ent->client->pers.teamState.lasthurtcarrier;
+				data->lastfraggedcarrier = ent->client->pers.teamState.lastfraggedcarrier;
+				data->flagsinceStartTime = ent->client->pers.teamState.flagsince.startTime;
+				data->grippedAnAbsorberTime = ent->client->grippedAnAbsorberTime;
+				data->forcePowerSoundDebounce = ent->client->forcePowerSoundDebounce;
+				data->drainDebuffTime = ent->client->drainDebuffTime;
+				data->noLightningTime = ent->client->noLightningTime;
+				data->respawnTime = ent->client->respawnTime;
+				data->buttonsPressedAtPauseStart = (ent->client->pers.cmd.buttons & ~BUTTON_TALK);
+				memcpy(data->lastAiredOtherClientTime, ent->client->pers.lastAiredOtherClientTime, sizeof(data->lastAiredOtherClientTime));
+				memcpy(data->lastAiredOtherClientMeansOfDeath, ent->client->pers.lastAiredOtherClientMeansOfDeath, sizeof(data->lastAiredOtherClientMeansOfDeath));
 			}
 		}
 	}
