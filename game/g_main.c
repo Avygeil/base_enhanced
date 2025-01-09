@@ -7191,9 +7191,10 @@ void G_RunFrame( int levelTime ) {
 
 					trap_SendServerCommand( j, "cp \"Go!\n\"" );
 
-					ListClear(&level.disconnectedPlayerList);
+					SendForceTimers(&g_entities[j], NULL);
 				}
 				
+				ListClear(&level.disconnectedPlayerList);
 				trap_SendServerCommand(-1, "lchat \"unpause\"");
 				level.pause.state = PAUSE_NONE;
 				level.pause.pauserChoice = 0;

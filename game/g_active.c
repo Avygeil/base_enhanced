@@ -5892,9 +5892,10 @@ void ClientEndFrame( gentity_t *ent ) {
 				g_autoPause999.integer &&
 				level.time - ent->client->lastRealCmdTime >= (Com_Clampi(1, 10, g_autoPause999.integer) * 1000) &&
 				PauseConditions()) {
+				if (level.pause.state == PAUSE_NONE)
+					DoPauseStartChecks();
 				level.pause.state = PAUSE_PAUSED;
 				level.pause.time = level.time + 120000; // pause for 2 minutes
-				DoPauseStartChecks();
 				Q_strncpyz(level.pause.reason, va("%s^7 is 999\n", ent->client->pers.netname), sizeof(level.pause.reason));
 				Com_Printf("Auto-pausing game: %s\n", level.pause.reason);
 			}

@@ -5448,6 +5448,10 @@ void RestoreDisconnectedPlayerData(gentity_t *ent) {
 	ent->client->respawnTime = data->respawnTime;
 	ent->client->pers.buttonsPressedAtPauseStart = data->buttonsPressedAtPauseStart;
 	ent->client->grippedAnAbsorberTime = data->grippedAnAbsorberTime;
+	ent->client->rageRecoveryActiveUntil = data->rageRecoveryActiveUntil;
+	ent->client->bumpedByEnt = data->bumpedByEnt;
+	ent->client->fakeForceAlignment = data->fakeForceAlignment;
+	memcpy(ent->client->forcePowerActiveUntil, data->forcePowerActiveUntil, sizeof(ent->client->forcePowerActiveUntil));
 	memcpy(ent->client->pers.lastAiredOtherClientTime, data->lastAiredOtherClientTime, sizeof(ent->client->pers.lastAiredOtherClientTime));
 	memcpy(ent->client->pers.lastAiredOtherClientMeansOfDeath, data->lastAiredOtherClientMeansOfDeath, sizeof(ent->client->pers.lastAiredOtherClientMeansOfDeath));
 	BG_PlayerStateToEntityState(&ent->client->ps, &ent->s, qfalse);
@@ -5821,9 +5825,10 @@ void ClientDisconnect( int clientNum ) {
 			(ent->client->sess.sessionTeam == TEAM_RED || ent->client->sess.sessionTeam == TEAM_BLUE) &&
 			!g_cheats.integer) {
 #endif
+			if (level.pause.state == PAUSE_NONE)
+				DoPauseStartChecks();
 			level.pause.state = PAUSE_PAUSED;
 			level.pause.time = level.time + 120000; // pause for 2 minutes
-			DoPauseStartChecks();
 			Q_strncpyz(level.pause.reason, va("%s^7 disconnected\n", ent->client->pers.netname), sizeof(level.pause.reason));
 			Com_Printf("Auto-pausing game: %s\n", level.pause.reason);
 
@@ -5869,6 +5874,10 @@ void ClientDisconnect( int clientNum ) {
 				data->noLightningTime = ent->client->noLightningTime;
 				data->respawnTime = ent->client->respawnTime;
 				data->buttonsPressedAtPauseStart = (ent->client->pers.cmd.buttons & ~BUTTON_TALK);
+				data->rageRecoveryActiveUntil = ent->client->rageRecoveryActiveUntil;
+				data->bumpedByEnt = ent->client->bumpedByEnt;
+				data->fakeForceAlignment = ent->client->fakeForceAlignment;
+				memcpy(data->forcePowerActiveUntil, ent->client->forcePowerActiveUntil, sizeof(data->forcePowerActiveUntil));
 				memcpy(data->lastAiredOtherClientTime, ent->client->pers.lastAiredOtherClientTime, sizeof(data->lastAiredOtherClientTime));
 				memcpy(data->lastAiredOtherClientMeansOfDeath, ent->client->pers.lastAiredOtherClientMeansOfDeath, sizeof(data->lastAiredOtherClientMeansOfDeath));
 			}

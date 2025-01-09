@@ -4418,6 +4418,8 @@ void Svcmd_Session_f( void ) {
 				}
 
 				G_Printf( "Client session successfully linked to account '%s' (id: %d)\n", acc.ptr->name, acc.ptr->id );
+				if (level.pause.state != PAUSE_NONE)
+					RestoreDisconnectedPlayerData(&g_entities[clientId]);
 				trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
 			} else {
 				G_Printf( "Failed to link client session to this account!\n" );
@@ -5545,7 +5547,7 @@ qboolean	ConsoleCommand( void ) {
 	if (Q_stricmp (cmd, "accountlist") == 0) {
 		Svcmd_AccountPrint_f();
 		return qtrue;
-	}	
+	}
  
     //OSP: pause
     if ( !Q_stricmp( cmd, "pause" ) )
@@ -5564,9 +5566,10 @@ qboolean	ConsoleCommand( void ) {
 			else if (duration > 5 * 60) // 5 minutes max
 				duration = 5 * 60;
 
+			if (level.pause.state == PAUSE_NONE)
+				DoPauseStartChecks();
 			level.pause.state = PAUSE_PAUSED;
 			level.pause.time = level.time + duration * 1000; // 5 seconds
-			DoPauseStartChecks();
 		}
 
         return qtrue;

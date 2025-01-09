@@ -2949,6 +2949,10 @@ typedef struct {
 	int				noLightningTime;
 	int				respawnTime;
 	int				buttonsPressedAtPauseStart;
+	int				rageRecoveryActiveUntil;
+	int				forcePowerActiveUntil[NUM_FORCE_POWERS];
+	gentity_t		*bumpedByEnt;
+	int				fakeForceAlignment;
 } disconnectedPlayerData_t;
 
 //
