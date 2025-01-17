@@ -3665,6 +3665,22 @@ void BeginIntermission(void) {
 
 	free(statsBuf);
 
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *ent = &g_entities[i];
+		if (!ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED)
+			continue;
+		if (ent->client->ps.fd.forcePowersActive & (1 << FP_SPEED))
+			WP_ForcePowerStop(ent, FP_SPEED);
+		if (ent->client->ps.fd.forcePowersActive & (1 << FP_PROTECT))
+			WP_ForcePowerStop(ent, FP_PROTECT);
+		if (ent->client->ps.fd.forcePowersActive & (1 << FP_RAGE))
+			WP_ForcePowerStop(ent, FP_RAGE);
+		if (ent->client->ps.fd.forcePowersActive & (1 << FP_ABSORB))
+			WP_ForcePowerStop(ent, FP_ABSORB);
+		if (ent->client->ps.fd.forcePowersActive & (1 << FP_SEE))
+			WP_ForcePowerStop(ent, FP_SEE);
+	}
+
 	level.shouldClearRemindPositionsAtEnd = qtrue;
 }
 
