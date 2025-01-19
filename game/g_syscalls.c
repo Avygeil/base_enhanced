@@ -1547,7 +1547,13 @@ void trap_Bot_CalculatePaths(int rmg)
 
 void trap_OutOfBandPrint( int clientNum, const char* text )
 {
-	syscall( G_OOBPRINT, clientNum, text );
+	if (clientNum == -1) {
+		for (int i = 0; i < MAX_CLIENTS; i++)
+			syscall(G_OOBPRINT, i, text);
+	}
+	else {
+		syscall(G_OOBPRINT, clientNum, text);
+	}
 }
 
 void trap_SetConfigstringNoUpdate( int num, const char* string )
