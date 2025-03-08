@@ -1911,7 +1911,7 @@ static void CheckForAFKs(void) {
 			numBlue++;
 
 		// make sure LS took more than a couple steps
-		const float AFKTROLL_DISPLACEMENT_THRESHOLD = 800.0f;
+		const float AFKTROLL_DISPLACEMENT_THRESHOLD = 600.0f;
 
 		if (!ent->client->pers.hasDoneSomething || (ent->client->account && (ent->client->account->flags & ACCOUNTFLAG_AFKTROLL) && ent->client->stats && ent->client->stats->displacement < AFKTROLL_DISPLACEMENT_THRESHOLD)) {
 			// this guy is afk
