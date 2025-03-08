@@ -4353,6 +4353,7 @@ void Svcmd_Session_f( void ) {
 			if ( G_LinkAccountToSession( sess.ptr, acc.ptr ) ) {
 				G_Printf( "Session successfully linked to account '%s' (id: %d)\n", acc.ptr->name, acc.ptr->id );
 				trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
+				// todo: iterate through all currently connected clients and run ClientUserinfoChanged() on anyone we just linked
 			} else {
 				G_Printf( "Failed to link session to this account!\n" );
 			}
@@ -4421,6 +4422,7 @@ void Svcmd_Session_f( void ) {
 				if (level.pause.state != PAUSE_NONE)
 					RestoreDisconnectedPlayerData(&g_entities[clientId]);
 				trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
+				ClientUserinfoChanged(clientId);
 			} else {
 				G_Printf( "Failed to link client session to this account!\n" );
 			}
@@ -4460,6 +4462,7 @@ void Svcmd_Session_f( void ) {
 			if ( G_UnlinkAccountFromSession( sess.ptr ) ) {
 				G_Printf( "Session successfully unlinked from account '%s' (id: %d)\n", acc.ptr->name, acc.ptr->id );
 				trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
+				// todo: iterate through all currently connected clients and run ClientUserinfoChanged() on anyone we just unlinked
 			} else {
 				G_Printf( "Failed to unlink session from this account!\n" );
 			}
@@ -4500,6 +4503,7 @@ void Svcmd_Session_f( void ) {
 				client->sess.verifiedByVerifyCommand = qfalse;
 				G_Printf( "Client session successfully unlinked from account '%s' (id: %d)\n", acc.ptr->name, acc.ptr->id );
 				trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
+				ClientUserinfoChanged(clientId);
 			} else {
 				G_Printf( "Failed to unlink Client session from this account!\n" );
 			}

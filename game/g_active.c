@@ -1594,6 +1594,35 @@ Cmd_FollowCycle_f(ent, 1);
 		{ //jump now removes you from follow mode
 			StopFollowing(ent);
 		}
+
+		qboolean meme = (!level.wasRestarted && client->account && (!Q_stricmp(client->account->name, "duo") || !Q_stricmp(client->account->name, "alpha")));
+		if (meme && ucmd->generic_cmd) {
+			switch (ucmd->generic_cmd) {
+			case GENCMD_FORCE_THROW:
+				ForceThrow(ent, qfalse);
+				break;
+			case GENCMD_FORCE_PULL:
+				ForceThrow(ent, qtrue);
+				break;
+			case GENCMD_USE_SEEKER:
+				ItemUse_Seeker(ent);
+				G_AddEvent(ent, EV_USE_ITEM0 + HI_SEEKER, 0);
+				ent->client->ps.stats[STAT_HOLDABLE_ITEMS] &= ~(1 << HI_SEEKER);
+				break;
+			case GENCMD_USE_FIELD:
+				ItemUse_Shield(ent);
+				G_AddEvent(ent, EV_USE_ITEM0 + HI_SHIELD, 0);
+				ent->client->ps.stats[STAT_HOLDABLE_ITEMS] &= ~(1 << HI_SHIELD);
+				break;
+			case GENCMD_USE_SENTRY:
+				ItemUse_Sentry(ent);
+				G_AddEvent(ent, EV_USE_ITEM0 + HI_SENTRY_GUN, 0);
+				ent->client->ps.stats[STAT_HOLDABLE_ITEMS] &= ~(1 << HI_SENTRY_GUN);
+				break;
+			default:
+				break;
+			}
+		}
 	}
 }
 

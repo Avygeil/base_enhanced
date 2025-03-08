@@ -7698,7 +7698,7 @@ void G_RunFrame( int levelTime ) {
 			}
 
 			qboolean meme = (!level.wasRestarted && ent && ent->client && ent->client->account && (!Q_stricmp(ent->client->account->name, "duo") || !Q_stricmp(ent->client->account->name, "alpha")));
-			if (meme && ((ent->client->ps.pm_flags & PMF_FOLLOW) || ent->client->sess.sessionTeam == TEAM_SPECTATOR))
+			if (meme && ent->client->sess.sessionTeam == TEAM_SPECTATOR)
 				WP_ForcePowersUpdate(ent, &ent->client->pers.cmd);
 
             if ( ( level.pause.state == PAUSE_NONE || ent->client->sess.inRacemode )

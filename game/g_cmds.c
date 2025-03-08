@@ -10152,6 +10152,7 @@ void Cmd_Verify_f(gentity_t *verifier) {
 		G_Printf(s);
 		PrintBasedOnAccountFlags(ACCOUNTFLAG_ADMIN, s);
 		trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
+		ClientUserinfoChanged(clientId);
 	}
 	else {
 		G_Printf("verify: client %d (%s) failed to link client %d to account %s!\n", verifier - g_entities, verifier->client->account->name, clientId, username);
@@ -10228,6 +10229,7 @@ void Cmd_Unverify_f(gentity_t *verifier) {
 		G_Printf(s);
 		PrintBasedOnAccountFlags(ACCOUNTFLAG_ADMIN, s);
 		trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
+		ClientUserinfoChanged(clientId);
 	}
 	else {
 		G_Printf("unverify: client %d (%s) failed to unlink client %d!\n", verifier - g_entities, verifier->client->pers.netname, clientId);

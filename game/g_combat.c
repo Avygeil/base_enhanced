@@ -4693,7 +4693,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 		if (targ && targ - g_entities < MAX_CLIENTS && targ->client)
 			targ->client->pers.attackedByMemerTime = level.time;
 	}
-	if (targetIsMemeSentry && !(!inflictorIsMemeSentry && attacker && attacker->client && attacker->client->account && (!Q_stricmp(attacker->client->account->name, "duo") || !Q_stricmp(attacker->client->account->name, "alpha")))) {
+	if (targetIsMemeSentry && !(!inflictorIsMemeSentry && (mod == MOD_BRYAR_PISTOL || mod == MOD_BRYAR_PISTOL_ALT) && attacker && attacker->client && attacker->client->account && (!Q_stricmp(attacker->client->account->name, "duo") || !Q_stricmp(attacker->client->account->name, "alpha")))) {
 		return;
 	}
 
@@ -4703,6 +4703,8 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 	qboolean attackerIsMeme = (!level.wasRestarted && attacker && attacker->client && attacker->client->account && (!Q_stricmp(attacker->client->account->name, "duo") || !Q_stricmp(attacker->client->account->name, "alpha")));
 	if (targetIsMemeMine && attackerIsMeme) {
 		if (inflictorIsMemeMine)
+			return;
+		if (mod != MOD_BRYAR_PISTOL && mod != MOD_BRYAR_PISTOL_ALT)
 			return;
 		targ->think = G_FreeEntity;
 		targ->nextthink = level.time + 1;

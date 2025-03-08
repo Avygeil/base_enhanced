@@ -4505,21 +4505,21 @@ void ForceThrow( gentity_t *self, qboolean pull )
 		return;
 	}
 
-	if (!g_useWhileThrowing.integer && self->client->ps.saberInFlight)
+	if (!meme && !g_useWhileThrowing.integer && self->client->ps.saberInFlight)
 	{
 		return;
 	}
 
-	if (self->client->ps.weaponTime > 0)
+	if (!meme && self->client->ps.weaponTime > 0)
 	{
 		return;
 	}
 
-	if ( self->health <= 0 )
+	if (!meme && self->health <= 0 )
 	{
 		return;
 	}
-	if ( self->client->ps.powerups[PW_DISINT_4] > level.time )
+	if (!meme && self->client->ps.powerups[PW_DISINT_4] > level.time )
 	{
 		return;
 	}
@@ -4532,7 +4532,7 @@ void ForceThrow( gentity_t *self, qboolean pull )
 		powerUse = FP_PUSH;
 	}
 
-	if ( !WP_ForcePowerUsable( self, powerUse ) )
+	if (!meme && !WP_ForcePowerUsable( self, powerUse ) )
 	{
 		return;
 	}
@@ -4540,7 +4540,7 @@ void ForceThrow( gentity_t *self, qboolean pull )
 	// *CHANGE 65* fix - release rocket lock, old bug
 	BG_ClearRocketLock(&self->client->ps);
 
-	if (!pull && self->client->ps.saberLockTime > level.time && self->client->ps.saberLockFrame)
+	if (!meme && !pull && self->client->ps.saberLockTime > level.time && self->client->ps.saberLockFrame)
 	{
 		G_Sound( self, CHAN_BODY, G_SoundIndex( "sound/weapons/force/push.wav" ) );
 		self->client->ps.powerups[PW_DISINT_4] = level.time + 1500;
@@ -4616,7 +4616,13 @@ void ForceThrow( gentity_t *self, qboolean pull )
 
 	if (!powerLevel)
 	{ //Shouldn't have made it here..
-		return;
+		if (meme) {
+			powerLevel = 3;
+			pushPower = 256 * 3;
+		}
+		else {
+			return;
+		}
 	}
 
 	qboolean exitedAimPracticeMode = qfalse;
