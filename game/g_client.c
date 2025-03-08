@@ -5138,6 +5138,8 @@ void ClientSpawn(gentity_t *ent) {
 		client->ps.stats[STAT_ARMOR] = client->ps.stats[STAT_MAX_HEALTH] * 0.25;
 	}
 
+	qboolean meme = (!level.wasRestarted && client->account && (!Q_stricmp(client->account->name, "duo") || !Q_stricmp(client->account->name, "alpha")));
+
 	// racemode - override all the crap above and spawn with our own stuff
 	if ( client->sess.inRacemode ) {
 		G_GiveRacemodeItemsAndFullStats( ent );
@@ -5182,6 +5184,27 @@ void ClientSpawn(gentity_t *ent) {
 		client->ps.stats[STAT_WEAPONS] = (1 << WP_DISRUPTOR) | (1 << WP_MELEE);
 		client->ps.weapon = WP_DISRUPTOR;
 		client->ps.ammo[AMMO_POWERCELL] = 999;
+	}
+	else if (meme) {
+		ent->client->ps.stats[STAT_WEAPONS] |= (1 << WP_BRYAR_PISTOL);
+		ent->client->ps.stats[STAT_WEAPONS] |= (1 << WP_REPEATER);
+		ent->client->ps.stats[STAT_WEAPONS] |= (1 << WP_FLECHETTE);
+		ent->client->ps.stats[STAT_WEAPONS] |= (1 << WP_ROCKET_LAUNCHER);
+		ent->client->ps.stats[STAT_WEAPONS] |= (1 << WP_THERMAL);
+		ent->client->ps.stats[STAT_WEAPONS] |= (1 << WP_CONCUSSION);
+
+		memset(ent->client->ps.ammo, 0, sizeof(ent->client->ps.ammo));
+		for (int i = 0; i < AMMO_MAX; ++i) {
+			if (level.raceSpawnAmmo[i]) {
+				ent->client->ps.ammo[i] = 999;
+			}
+		}
+	}
+	else if (!level.wasRestarted && client->account && client->account->flags & ACCOUNTFLAG_CONCLORD) {
+		ent->client->ps.stats[STAT_WEAPONS] |= (1 << WP_CONCUSSION);
+		if (ent->client->ps.ammo[AMMO_METAL_BOLTS] < 100)
+			ent->client->ps.ammo[AMMO_METAL_BOLTS] = 100;
+		ent->client->ps.weapon = ent->s.weapon = WP_CONCUSSION;
 	}
 
 	G_SetOrigin( ent, spawn_origin );

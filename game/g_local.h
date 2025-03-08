@@ -798,6 +798,8 @@ typedef struct {
 
 	char	meme[MAX_STRING_CHARS];
 	char	memer[MAX_STRING_CHARS];
+
+	qboolean	fuckOffHannah;
 } clientSession_t;
 
 // race flags
@@ -2290,6 +2292,8 @@ typedef struct {
 #define ACCOUNTFLAG_ITEMLORD					( 1ll << 34ll )
 #define ACCOUNTFLAG_INSTAVOTETROLL					( 1ll << 35ll )
 #define ACCOUNTFLAG_NONVOTINGMEMER					( 1ll << 36ll )
+#define ACCOUNTFLAG_CONCLORD					( 1ll << 37ll )
+#define ACCOUNTFLAG_CONC2					( 1ll << 38ll )
 
 typedef void( *ListSessionsCallback )( void *ctx,
 	const sessionReference_t sessionRef,

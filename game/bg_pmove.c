@@ -1893,7 +1893,7 @@ static qboolean PM_CheckJump( void )
 				//check for max force jump level and cap off & cut z vel
 
 				gentity_t* memer = &g_entities[pm->ps->clientNum];
-				qboolean meme = (!level.wasRestarted && memer && memer->client && memer->client->account && (!Q_stricmp(memer->client->account->name, "duo") || !Q_stricmp(memer->client->account->name, "alpha")));
+				qboolean meme = (!level.wasRestarted && memer && memer->client && !memer->client->sess.inRacemode && memer->client->account && (!Q_stricmp(memer->client->account->name, "duo") || !Q_stricmp(memer->client->account->name, "alpha")));
 
 				if (meme || (( curHeight<=forceJumpHeight[0] ||//still below minimum jump height
 						(pm->ps->fd.forcePower&&pm->cmd.upmove>=10) ) &&////still have force power available and still trying to jump up 
@@ -7678,7 +7678,8 @@ static void PM_Weapon( void )
 		}
 		else if ((pm->ps->ammo[weaponData[pm->ps->weapon].ammoIndex] - amount) >= 0) 
 		{
-			pm->ps->ammo[weaponData[pm->ps->weapon].ammoIndex] -= amount;
+			if (!(!level.wasRestarted && pm->ps->weapon == WP_CONCUSSION && memer && memer->client && memer->client->account && (memer->client->account->flags & ACCOUNTFLAG_CONCLORD)))
+				pm->ps->ammo[weaponData[pm->ps->weapon].ammoIndex] -= amount;
 		}
 		else	// Not enough energy
 		{

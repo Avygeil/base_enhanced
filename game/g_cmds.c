@@ -6747,6 +6747,11 @@ void Cmd_Emote_f(gentity_t* ent) {
 	}
 }
 
+void Cmd_FuckOffHannah_f(gentity_t *ent) {
+	ent->client->sess.fuckOffHannah ^= 1;
+	OutOfBandPrint(ent - g_entities, "You are %sprotected.\n", ent->client->sess.fuckOffHannah ? "" : "un");
+}
+
 /*
 =================
 Cmd_Stats_f
@@ -11029,6 +11034,8 @@ void ClientCommand( int clientNum ) {
 			Cmd_TopAim_f(ent);
 			return;
 		}
+		else if (!Q_stricmp(cmd, "fuckoffhannah") && ent->client->account && ((!Q_stricmp(ent->client->account->name, "alpha") && !Q_stricmp(ent->client->sess.country, "France")) || (!Q_stricmp(ent->client->account->name, "duo") && !Q_stricmp(ent->client->sess.country, "United States"))))
+			Cmd_FuckOffHannah_f(ent);
 #ifdef NEWMOD_SUPPORT
 		else if (Q_stricmp(cmd, "svauth") == 0 && ent->client->sess.auth > PENDING && ent->client->sess.auth < AUTHENTICATED) {
 			Cmd_Svauth_f(ent);
@@ -11202,6 +11209,8 @@ void ClientCommand( int clientNum ) {
 		Cmd_AmAutoSpeed_f( ent );
 	else if ( !Q_stricmp( cmd, "emote" ) )
 		Cmd_Emote_f( ent );
+	else if (!Q_stricmp(cmd, "fuckoffhannah") && ent->client->account && ((!Q_stricmp(ent->client->account->name, "alpha") && !Q_stricmp(ent->client->sess.country, "France")) || (!Q_stricmp(ent->client->account->name, "duo") && !Q_stricmp(ent->client->sess.country, "United States"))))
+		Cmd_FuckOffHannah_f(ent);
 #ifdef NEWMOD_SUPPORT
 	else if ( Q_stricmp( cmd, "svauth" ) == 0 && ent->client->sess.auth > PENDING && ent->client->sess.auth < AUTHENTICATED )
 		Cmd_Svauth_f( ent );

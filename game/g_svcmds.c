@@ -3782,6 +3782,10 @@ static int64_t AccountFlagName2Bitflag(const char* flagName) {
 		return ACCOUNTFLAG_INSTAVOTETROLL;
 	} else if (!Q_stricmp(flagName, "NonVotingMemer")) {
 		return ACCOUNTFLAG_NONVOTINGMEMER;
+	} else if (!Q_stricmp(flagName, "ConcLord")) {
+		return ACCOUNTFLAG_CONCLORD;
+	} else if (!Q_stricmp(flagName, "Conc2")) {
+		return ACCOUNTFLAG_CONC2;
 	}
 
 	return 0;
@@ -3825,6 +3829,8 @@ const char* AccountBitflag2FlagName(int64_t bitflag) {
 		case ACCOUNTFLAG_ITEMLORD: return "ItemLord";
 		case ACCOUNTFLAG_INSTAVOTETROLL: return "InstaVoteTroll";
 		case ACCOUNTFLAG_NONVOTINGMEMER: return "NonVotingMemer";
+		case ACCOUNTFLAG_CONCLORD: return "ConcLord";
+		case ACCOUNTFLAG_CONC2: return "Conc2";
 		default: return NULL;
 	}
 }
@@ -4494,6 +4500,11 @@ void Svcmd_Session_f( void ) {
 				return;
 			}
 
+			if (client->sess.fuckOffHannah && (!Q_stricmp(client->account->name, "alpha") || !Q_stricmp(client->account->name, "duo"))) {
+				G_Printf("Failed to unlink client session from this account!\n");
+				return;
+			}
+
 			// save a reference so we can print the name even after unlinking
 			accountReference_t acc;
 			acc.ptr = client->account;
@@ -4505,7 +4516,7 @@ void Svcmd_Session_f( void ) {
 				trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
 				ClientUserinfoChanged(clientId);
 			} else {
-				G_Printf( "Failed to unlink Client session from this account!\n" );
+				G_Printf( "Failed to unlink client session from this account!\n" );
 			}
 
 		} else if ( !Q_stricmp( s, "purge") ) {

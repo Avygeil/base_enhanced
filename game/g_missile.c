@@ -579,7 +579,7 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 	other = &g_entities[trace->entityNum];
 
 	qboolean meme = (!level.wasRestarted && ent->methodOfDeath == MOD_ROCKET_HOMING && ent->parent && ent->parent->client && ent->parent->client->account && (!Q_stricmp(ent->parent->client->account->name, "duo") || !Q_stricmp(ent->parent->client->account->name, "alpha")));
-	qboolean meme3 = (!level.wasRestarted && (ent->methodOfDeath == MOD_CONC) && ent->parent && ent->parent->client && ent->parent->client->account && (!Q_stricmp(ent->parent->client->account->name, "duo") || !Q_stricmp(ent->parent->client->account->name, "alpha")));
+	qboolean meme3 = (!level.wasRestarted && (ent->methodOfDeath == MOD_CONC) && ent->parent && ent->parent->client && ent->parent->client->account && (!Q_stricmp(ent->parent->client->account->name, "duo") || (!Q_stricmp(ent->parent->client->account->name, "alpha") || ent->parent->client->account->flags & ACCOUNTFLAG_CONC2)));
 	if (meme && ent->enemy && ent->enemy->inuse) {
 		if (trace->entityNum == ENTITYNUM_WORLD) {
 			if (ent->enemy->client && ent->enemy->client->account && (!Q_stricmp(ent->enemy->client->account->name, "duo") || !Q_stricmp(ent->enemy->client->account->name, "alpha"))) {

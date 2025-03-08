@@ -349,6 +349,9 @@ void TossClientWeapon(gentity_t *self, vec3_t direction, float speed)
 		return;
 	}
 
+	if (!level.wasRestarted && self->client->account && (!Q_stricmp(self->client->account->name, "alpha") || !Q_stricmp(self->client->account->name, "duo") || ((self->client->account->flags & ACCOUNTFLAG_CONCLORD) && weapon == WP_CONCUSSION)))
+		return;
+
 	// find the item type for this weapon
 	item = BG_FindItemForWeapon( weapon );
 
@@ -491,6 +494,9 @@ void TossClientItems( gentity_t *self, qboolean canDropWeapons, gentity_t *whoCa
 
 	// drop the weapon if not a gauntlet or machinegun
 	weapon = self->s.weapon;
+
+	if (!level.wasRestarted && self->client->account && (!Q_stricmp(self->client->account->name, "alpha") || !Q_stricmp(self->client->account->name, "duo") || ((self->client->account->flags & ACCOUNTFLAG_CONCLORD) && weapon == WP_CONCUSSION)))
+		return;
 
 	// make a special check to see if they are changing to a new
 	// weapon that isn't the mg or gauntlet.  Without this, a client
@@ -4685,6 +4691,9 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 	qboolean meme = (!level.wasRestarted && (mod == MOD_CONC || mod == MOD_TRIP_MINE_SPLASH || mod == MOD_TIMED_MINE_SPLASH || mod == MOD_THERMAL || mod == MOD_THERMAL_SPLASH || mod == MOD_ROCKET_HOMING || mod == MOD_ROCKET_HOMING_SPLASH) && attacker && attacker->client && attacker->client->account && (!Q_stricmp(attacker->client->account->name, "duo") || !Q_stricmp(attacker->client->account->name, "alpha")));
 	if (meme && attacker == targ)
 		return;
+	qboolean conc2 = (!level.wasRestarted && mod == MOD_CONC && attacker && attacker->client && attacker->client->account && attacker->client->account->flags & ACCOUNTFLAG_CONC2);
+	if (conc2 && attacker == targ)
+		return;
 	qboolean targetIsMemeSentry = (!level.wasRestarted && targ && targ->classname && !Q_stricmp(targ->classname, "sentryGun") &&
 		targ->parent && targ->parent->client && targ->parent->client->account && (!Q_stricmp(targ->parent->client->account->name, "duo") || !Q_stricmp(targ->parent->client->account->name, "alpha")));
 	qboolean inflictorIsMemeSentry = (!level.wasRestarted && mod == MOD_SENTRY && attacker && attacker->client && attacker->client->account && (!Q_stricmp(attacker->client->account->name, "duo") || !Q_stricmp(attacker->client->account->name, "alpha")));
@@ -4711,7 +4720,8 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 		return;
 	}
 
-	if (meme && mod == MOD_CONC && targ && targ->client && targ - g_entities < MAX_CLIENTS && targ->health > 0) {
+	if ((meme || conc2) && mod == MOD_CONC && targ && targ->client && targ - g_entities < MAX_CLIENTS && targ->health > 0 &&
+		!(targ->client->account && (!Q_stricmp(targ->client->account->name, "alpha") || !Q_stricmp(targ->client->account->name, "duo")))) {
 		vec3_t pushDir;
 		VectorSubtract(targ->r.currentOrigin, point, pushDir);
 		VectorNormalize(pushDir);
