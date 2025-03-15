@@ -713,7 +713,7 @@ static cvarTable_t		gameCvarTable[] = {
     { &g_maxclients, "sv_maxclients", "8", CVAR_SERVERINFO | CVAR_LATCH | CVAR_ARCHIVE, 0, qfalse },
 	{ &g_maxGameClients, "g_maxGameClients", "0", CVAR_SERVERINFO | CVAR_LATCH | CVAR_ARCHIVE, 0, qfalse  },
 
-	{ &g_trueJedi, "g_jediVmerc", "0", CVAR_SERVERINFO | CVAR_LATCH | CVAR_ARCHIVE, 0, qtrue },
+	{ &g_trueJedi, "g_jediVmerc", "0", /*CVAR_SERVERINFO |*/ CVAR_LATCH | CVAR_ARCHIVE, 0, qtrue },
 
 	// change anytime vars
 	{ &g_ff_objectives, "g_ff_objectives", "0", /*CVAR_SERVERINFO |*/ CVAR_CHEAT | CVAR_NORESTART, 0, qtrue },
@@ -937,7 +937,7 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_siegeTeamSwitch, "g_siegeTeamSwitch", "1", CVAR_SERVERINFO | CVAR_ARCHIVE, qfalse },
 
-	{ &bg_fighterAltControl, "bg_fighterAltControl", "0", CVAR_SERVERINFO, 0, qtrue },
+	{ &bg_fighterAltControl, "bg_fighterAltControl", "0", /*CVAR_SERVERINFO | */0, 0, qtrue },
 
 #ifdef DEBUG_SABER_BOX
 	{ &g_saberDebugBox, "g_saberDebugBox", "0", CVAR_CHEAT, 0, qfalse },
