@@ -1461,7 +1461,8 @@ void Svcmd_FixSwap_f(void) {
 
 		if (G_DBFixSwap_Fix(recordId, pos)) {
 			Com_Printf("Successful.\n");
-			trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
+			if (G_DBGetMetadataInteger("shouldReloadPlayerPugStats") != 2)
+				G_DBSetMetadata("shouldReloadPlayerPugStats", "1");
 		}
 		else {
 			Com_Printf("Failed!\n");
@@ -3907,7 +3908,8 @@ void Svcmd_Account_f( void ) {
 
 			if ( G_DeleteAccount( acc.ptr ) ) {
 				G_Printf( "Deleted account '%s' successfully\n", acc.ptr->name );
-				trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
+				if (G_DBGetMetadataInteger("shouldReloadPlayerPugStats") != 2)
+					G_DBSetMetadata("shouldReloadPlayerPugStats", "1");
 			} else {
 				G_Printf( "Failed to delete account!\n" );
 			}
@@ -4358,7 +4360,8 @@ void Svcmd_Session_f( void ) {
 
 			if ( G_LinkAccountToSession( sess.ptr, acc.ptr ) ) {
 				G_Printf( "Session successfully linked to account '%s' (id: %d)\n", acc.ptr->name, acc.ptr->id );
-				trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
+				if (G_DBGetMetadataInteger("shouldReloadPlayerPugStats") != 2)
+					G_DBSetMetadata("shouldReloadPlayerPugStats", "1");
 				// todo: iterate through all currently connected clients and run ClientUserinfoChanged() on anyone we just linked
 			} else {
 				G_Printf( "Failed to link session to this account!\n" );
@@ -4427,7 +4430,8 @@ void Svcmd_Session_f( void ) {
 				G_Printf( "Client session successfully linked to account '%s' (id: %d)\n", acc.ptr->name, acc.ptr->id );
 				if (level.pause.state != PAUSE_NONE)
 					RestoreDisconnectedPlayerData(&g_entities[clientId]);
-				trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
+				if (G_DBGetMetadataInteger("shouldReloadPlayerPugStats") != 2)
+					G_DBSetMetadata("shouldReloadPlayerPugStats", "1");
 				ClientUserinfoChanged(clientId);
 			} else {
 				G_Printf( "Failed to link client session to this account!\n" );
@@ -4467,7 +4471,8 @@ void Svcmd_Session_f( void ) {
 
 			if ( G_UnlinkAccountFromSession( sess.ptr ) ) {
 				G_Printf( "Session successfully unlinked from account '%s' (id: %d)\n", acc.ptr->name, acc.ptr->id );
-				trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
+				if (G_DBGetMetadataInteger("shouldReloadPlayerPugStats") != 2)
+					G_DBSetMetadata("shouldReloadPlayerPugStats", "1");
 				// todo: iterate through all currently connected clients and run ClientUserinfoChanged() on anyone we just unlinked
 			} else {
 				G_Printf( "Failed to unlink session from this account!\n" );
@@ -4513,7 +4518,8 @@ void Svcmd_Session_f( void ) {
 			if ( G_UnlinkAccountFromSession( client->session ) ) {
 				client->sess.verifiedByVerifyCommand = qfalse;
 				G_Printf( "Client session successfully unlinked from account '%s' (id: %d)\n", acc.ptr->name, acc.ptr->id );
-				trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
+				if (G_DBGetMetadataInteger("shouldReloadPlayerPugStats") != 2)
+					G_DBSetMetadata("shouldReloadPlayerPugStats", "1");
 				ClientUserinfoChanged(clientId);
 			} else {
 				G_Printf( "Failed to unlink client session from this account!\n" );
@@ -5400,6 +5406,59 @@ void Svcmd_LinkByName_f(void) {
 	}
 	Com_Printf("Linked %d clients. %d clients were already linked.\n", numLinked, numAlreadyLinked);
 }
+
+void Svmcd_GetMetadata_f(void) {
+	if (trap_Argc() < 2) {
+		Com_Printf("Usage: getmetadata <key>\n");
+		return;
+	}
+
+	char key[MAX_TOKEN_CHARS] = { 0 };
+	trap_Argv(1, key, sizeof(key));
+
+	if (!key[0]) {
+		Com_Printf("Usage: getmetadata <key>\n");
+		return;
+	}
+
+	char *valueBuf = calloc(16384, sizeof(char));
+	G_DBGetMetadata(key, valueBuf, 16384);
+
+	if (valueBuf[0]) {
+		Com_Printf("Metadata for key '%s' is: %s\n", key, valueBuf);
+	}
+	else {
+		Com_Printf("No metadata found for key '%s'\n", key);
+	}
+
+	free(valueBuf);
+}
+
+void Svmcd_SetMetadata_f(void) {
+	if (trap_Argc() < 3) {
+		Com_Printf("Usage: setmetadata <key> <value>\n");
+		return;
+	}
+
+	char key[MAX_TOKEN_CHARS] = { 0 };
+	trap_Argv(1, key, sizeof(key));
+
+	if (!key[0]) {
+		Com_Printf("Usage: setmetadata <key> <value>\n");
+		return;
+	}
+
+	char valueBuf[1024];
+	Q_strncpyz(valueBuf, ConcatArgs(2), sizeof(valueBuf));
+
+	if (!valueBuf[0]) {
+		Com_Printf("Usage: setmetadata <key> <value>\n");
+		return;
+	}
+
+	G_DBSetMetadata(key, valueBuf);
+	Com_Printf("Set metadata key '%s' to: %s\n", key, valueBuf);
+}
 #endif
 
 /*
@@ -5751,6 +5810,16 @@ qboolean	ConsoleCommand( void ) {
 
 	if (!Q_stricmp(cmd, "linkbyname")) {
 		Svcmd_LinkByName_f();
+		return qtrue;
+	}
+
+	if (!Q_stricmp(cmd, "getmetadata")) {
+		Svmcd_GetMetadata_f();
+		return qtrue;
+	}
+
+	if (!Q_stricmp(cmd, "setmetadata")) {
+		Svmcd_SetMetadata_f();
 		return qtrue;
 	}
 #endif

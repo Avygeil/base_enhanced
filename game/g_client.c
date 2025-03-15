@@ -3333,7 +3333,8 @@ void AutoLinkAccount(gclient_t *client, const char *sex, const char *guid) {
 
 		if (G_LinkAccountToSession(client->session, acc.ptr)) {
 			Com_Printf("Client session for player %s^7 successfully autolinked to account '%s' (id: %d)\n", client->pers.netname, acc.ptr->name, acc.ptr->id);
-			trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
+			if (G_DBGetMetadataInteger("shouldReloadPlayerPugStats") != 2)
+				G_DBSetMetadata("shouldReloadPlayerPugStats", "1");
 			ClientUserinfoChanged(client - level.clients);
 		}
 		else {

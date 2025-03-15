@@ -3738,8 +3738,6 @@ extern vmCvar_t		g_outOfBandDMs;
 
 extern vmCvar_t		d_debugBanPermutation;
 
-extern vmCvar_t		g_recalculateStatsAfterPug;
-
 extern vmCvar_t		g_lastIntermissionStartTime;
 extern vmCvar_t		g_lastTeamGenTime;
 extern vmCvar_t		g_lastMapVotedMap;
@@ -3755,7 +3753,6 @@ extern vmCvar_t		d_debugCtfPosCalculation;
 extern vmCvar_t		d_debugSpawns;
 
 extern vmCvar_t		g_notFirstMap;
-extern vmCvar_t		g_shouldReloadPlayerPugStats;
 extern vmCvar_t		r_rngNum;
 extern vmCvar_t		r_rngNumSet;
 

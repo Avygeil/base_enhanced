@@ -611,8 +611,6 @@ vmCvar_t	g_outOfBandDMs;
 
 vmCvar_t	d_debugBanPermutation;
 
-vmCvar_t	g_recalculateStatsAfterPug;
-
 vmCvar_t	g_lastIntermissionStartTime;
 vmCvar_t	g_lastTeamGenTime;
 vmCvar_t	g_lastMapVotedMap;
@@ -628,7 +626,6 @@ vmCvar_t	d_debugCtfPosCalculation;
 vmCvar_t	d_debugSpawns;
 
 vmCvar_t	g_notFirstMap;
-vmCvar_t	g_shouldReloadPlayerPugStats;
 vmCvar_t	r_rngNum;
 vmCvar_t	r_rngNumSet;
 
@@ -1254,8 +1251,6 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &d_debugBanPermutation, "d_debugBanPermutation", "0", CVAR_ARCHIVE, 0, qfalse },
 
-	{ &g_recalculateStatsAfterPug, "g_recalculateStatsAfterPug", "0", CVAR_ARCHIVE, 0, qfalse },
-
 #ifdef _DEBUG
 	{ &g_lastIntermissionStartTime, "g_lastIntermissionStartTime", "", CVAR_TEMP, 0, qfalse },
 	{ &g_lastTeamGenTime, "g_lastTeamGenTime", "", CVAR_TEMP, 0, qfalse },
@@ -1272,7 +1267,6 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &d_debugSpawns, "d_debugSpawns", "0", CVAR_ARCHIVE, 0, qfalse },
 
 	{ &g_notFirstMap, "g_notFirstMap", "0", CVAR_ROM | CVAR_TEMP, 0, qfalse },
-	{ &g_shouldReloadPlayerPugStats, "g_shouldReloadPlayerPugStats", "0", CVAR_ROM | CVAR_TEMP, 0, qfalse },
 	{ &r_rngNum, "r_rngNum", "0", CVAR_ROM | CVAR_TEMP, 0, qfalse },
 	{ &r_rngNumSet, "r_rngNumSet", "0", CVAR_ROM | CVAR_TEMP, 0, qfalse },
 
@@ -3644,7 +3638,7 @@ void BeginIntermission(void) {
 			G_DBAddCurrentMapToPlayedMapsList();
 			if (!InstagibEnabled()) {
 				G_DBWritePugStats();
-				trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
+				G_DBSetMetadata("shouldReloadPlayerPugStats", "2");
 			}
 		}
 #else
@@ -3656,7 +3650,7 @@ void BeginIntermission(void) {
 			G_DBAddCurrentMapToPlayedMapsList();
 			if (isLivePugNumPlayersPerTeam == 4 && !InstagibEnabled() && level.teamScores[TEAM_RED] != level.teamScores[TEAM_BLUE]) { // only write stats to db in untied non-instagib 4v4
 				G_DBWritePugStats();
-				trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
+				G_DBSetMetadata("shouldReloadPlayerPugStats", "2");
 			}
 			trap_Cvar_Set("r_rngNum", va("%d", Q_irand(-25, 25)));
 		}

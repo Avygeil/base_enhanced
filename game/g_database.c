@@ -153,6 +153,7 @@ void G_DBGetMetadata( const char *key,
 	char *outValue,
 	size_t outValueBufSize )
 {
+	assert(VALIDSTRING(key) && outValue && outValueBufSize > 0);
 	sqlite3_stmt* statement;
 
 	outValue[0] = '\0';
@@ -170,6 +171,19 @@ void G_DBGetMetadata( const char *key,
 	}
 
 	trap_sqlite3_finalize( statement );
+}
+
+// returns 0 if nonexistent
+int G_DBGetMetadataInteger(const char *key) {
+	assert(VALIDSTRING(key));
+	char s[MAX_STRING_CHARS] = { 0 };
+
+	G_DBGetMetadata(key, s, sizeof(s));
+
+	if (!s[0])
+		return 0;
+
+	return atoi(s);
 }
 
 void G_DBSetMetadata( const char *key,
@@ -6161,42 +6175,111 @@ static void GetMostPlayedPositions(void);
 #define FAST_START // uncomment to force loading from cache instead of recalculating
 #endif
 
-// if the map was not restarted and either it's the very first map or sessions/stats have been modified (admin linked sessions or a pug happened), we recalculate everything from scratch
+// we recalculate everything from scratch if and only if the server has just been restarted and there are changes actually pending (shouldReloadPlayerPugStats metadata is set)
 // otherwise, we just load the cached strings from the database for speed
 void G_DBInitializePugStatsCache(void) {
-	int start, lastTime;
-	start = lastTime = trap_Milliseconds();
+	int start = trap_Milliseconds();
+	int lastTime = start;
 
-	qboolean recalculate = (!level.wasRestarted && ((g_shouldReloadPlayerPugStats.integer && g_recalculateStatsAfterPug.integer) || !g_notFirstMap.integer));
+	// reload if either a pug was played (shouldReloadPlayerPugStats 2) -or- it's been a while since we recalculated and an account<->session link has changed (shouldReloadPlayerPugStats 1)
+	qboolean pendingReload = qfalse;
+	const time_t currentTime = time(NULL);
+	if (!level.wasRestarted && !g_notFirstMap.integer) {
+		int reloadMetadata = G_DBGetMetadataInteger("shouldReloadPlayerPugStats");
+		if (reloadMetadata == 2) {
+			pendingReload = qtrue; // pug played; definitely recalculate
+			Com_Printf("Pug played, so recalculating stats.\n");
+		}
+		else if (reloadMetadata == 1) {
+			char lastStatsReloadStr[MAX_STRING_CHARS] = { 0 };
+			G_DBGetMetadata("lastStatsReload", lastStatsReloadStr, sizeof(lastStatsReloadStr));
+			time_t lastReloadTime = lastStatsReloadStr[0] ? strtoll(lastStatsReloadStr, NULL, 10) : 0;
+
+			if (lastReloadTime + (60 * 60 * 6 /*every 6 hours i guess*/) < currentTime) {
+				pendingReload = qtrue; // it's been a while since we recalculated and an account<->session link has changed
+				Com_Printf("An account<->session link has changed and enough time has elapsed since last recalculation, so recalculating stats.\n");
+			}
+			else {
+				Com_Printf("An account<->session link has changed, but not enough time has elapsed since last recalculation. Using cache instead.\n");
+			}
+		}
+	}
+
+	qboolean recalc = (!level.wasRestarted && !g_notFirstMap.integer && pendingReload);
 
 #if defined(_DEBUG) && defined(FAST_START)
 	if (didUpgrade) {
-		Com_Printf("Debug build with FAST_START, but performed database upgrade, so recalculating.\n");
+		Com_Printf("Debug build with FAST_START, but performed database upgrade, so forcing recalculation.\n");
+		recalc = qtrue;
 	}
 	else {
 		Com_Printf("Debug build; using FAST_START. Will use cached stats/winrates instead of recalculating.\n");
-		recalculate = qfalse;
+		recalc = qfalse;
 	}
 #endif
 
-	if (recalculate) {
-		RecalculatePositionStats(); Com_Printf("Recalculated position stats (took %d ms)\n", trap_Milliseconds() - lastTime); lastTime = trap_Milliseconds();
-		RecalculateTopPlayers(); Com_Printf("Recalculated top players (took %d ms)\n", trap_Milliseconds() - lastTime); lastTime = trap_Milliseconds();
-		RecalculatePerMapWinRates(); Com_Printf("Recalculated per-map win rates (took %d ms)\n", trap_Milliseconds() - lastTime); lastTime = trap_Milliseconds();
-		RecalculateWinRates(); Com_Printf("Recalculated win rates (took %d ms)\n", trap_Milliseconds() - lastTime); lastTime = trap_Milliseconds();
-		trap_Cvar_Set("g_shouldReloadPlayerPugStats", "0");
+	// check that we actually have a cache to load from (if not, we'll force the recalculation anyway)
+	if (!recalc) {
+		LoadPositionStatsFromDatabase();
+		Com_Printf("Loaded position stats cache from db (took %d ms)\n", trap_Milliseconds() - lastTime);
+		lastTime = trap_Milliseconds();
+
+		LoadTopPlayersFromDatabase();
+		Com_Printf("Loaded top players cache from db (took %d ms)\n", trap_Milliseconds() - lastTime);
+		lastTime = trap_Milliseconds();
+
+		LoadPerMapWinratesFromDatabase();
+		Com_Printf("Loaded per-map win rates cache from db (took %d ms)\n", trap_Milliseconds() - lastTime);
+		lastTime = trap_Milliseconds();
+
+		LoadWinratesFromDatabase();
+		Com_Printf("Loaded win rates cache from db (took %d ms)\n", trap_Milliseconds() - lastTime);
+		lastTime = trap_Milliseconds();
+
+		if (!level.cachedPositionStats.size ||
+			topPlayersBuf[0][0] == '\0' ||
+			topPlayersBuf[1][0] == '\0' ||
+			topPlayersBuf[2][0] == '\0' ||
+			!level.cachedPerMapWinrates.size ||
+			!level.cachedWinrates.size) {
+			Com_Printf("Recalculating because at least one cache was empty.\n");
+			recalc = qtrue;
+		}
 	}
-	else {
-		LoadPositionStatsFromDatabase(); Com_Printf("Loaded position stats cache from db (took %d ms)\n", trap_Milliseconds() - lastTime); lastTime = trap_Milliseconds();
-		LoadTopPlayersFromDatabase(); Com_Printf("Loaded top players cache from db (took %d ms)\n", trap_Milliseconds() - lastTime); lastTime = trap_Milliseconds();
-		LoadPerMapWinratesFromDatabase(); Com_Printf("Loaded per-map win rates cache from db (took %d ms)\n", trap_Milliseconds() - lastTime); lastTime = trap_Milliseconds();
-		LoadWinratesFromDatabase(); Com_Printf("Loaded win rates cache from db (took %d ms)\n", trap_Milliseconds() - lastTime); lastTime = trap_Milliseconds();
+
+	if (recalc && !level.wasRestarted && !g_notFirstMap.integer) {
+		RecalculatePositionStats();
+		Com_Printf("Recalculated position stats (took %d ms)\n", trap_Milliseconds() - lastTime);
+		lastTime = trap_Milliseconds();
+
+		RecalculateTopPlayers();
+		Com_Printf("Recalculated top players (took %d ms)\n", trap_Milliseconds() - lastTime);
+		lastTime = trap_Milliseconds();
+
+		RecalculatePerMapWinRates();
+		Com_Printf("Recalculated per-map win rates (took %d ms)\n", trap_Milliseconds() - lastTime);
+		lastTime = trap_Milliseconds();
+
+		RecalculateWinRates();
+		Com_Printf("Recalculated win rates (took %d ms)\n", trap_Milliseconds() - lastTime);
+		lastTime = trap_Milliseconds();
+
+		G_DBSetMetadata("lastStatsReload", va("%lld", currentTime));
+		G_DBSetMetadata("shouldReloadPlayerPugStats", "0");
 	}
-	GetMostPlayedPositions(); Com_Printf("Recalculated most played positions from db (took %d ms)\n", trap_Milliseconds() - lastTime); lastTime = trap_Milliseconds();
-	GetRustiness(); Com_Printf("Recalculated rusty players from db (took %d ms)\n", trap_Milliseconds() - lastTime); lastTime = trap_Milliseconds();
+
+	// these two calls are always done, whether we recalculated or not
+	GetMostPlayedPositions();
+	Com_Printf("Recalculated most played positions from db (took %d ms)\n", trap_Milliseconds() - lastTime);
+	lastTime = trap_Milliseconds();
+
+	GetRustiness();
+	Com_Printf("Recalculated rusty players from db (took %d ms)\n", trap_Milliseconds() - lastTime);
+	lastTime = trap_Milliseconds();
 
 	Com_Printf("Finished initializing pug stats cache (took %d ms total)\n", trap_Milliseconds() - start);
 }
+
 
 typedef struct {
 	node_t				node;

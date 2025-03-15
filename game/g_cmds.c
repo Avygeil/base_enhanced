@@ -10156,7 +10156,8 @@ void Cmd_Verify_f(gentity_t *verifier) {
 			client->session->id, clientId, client->pers.netname, verifier - g_entities, verifier->client->account->name, acc.ptr->name, acc.ptr->id);
 		G_Printf(s);
 		PrintBasedOnAccountFlags(ACCOUNTFLAG_ADMIN, s);
-		trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
+		if (G_DBGetMetadataInteger("shouldReloadPlayerPugStats") != 2)
+			G_DBSetMetadata("shouldReloadPlayerPugStats", "1");
 		ClientUserinfoChanged(clientId);
 	}
 	else {
@@ -10233,7 +10234,8 @@ void Cmd_Unverify_f(gentity_t *verifier) {
 			sessionId, clientId, client->pers.netname, verifier - g_entities, verifier->client->pers.netname);
 		G_Printf(s);
 		PrintBasedOnAccountFlags(ACCOUNTFLAG_ADMIN, s);
-		trap_Cvar_Set("g_shouldReloadPlayerPugStats", "1");
+		if (G_DBGetMetadataInteger("shouldReloadPlayerPugStats") != 2)
+			G_DBSetMetadata("shouldReloadPlayerPugStats", "1");
 		ClientUserinfoChanged(clientId);
 	}
 	else {
@@ -10375,7 +10377,7 @@ void Cmd_PugStats_f(gentity_t *ent) {
 
 	if (!Q_stricmp(args[0], "players")) {
 		G_DBPrintPlayersWithStats(clientNum);
-		if (g_shouldReloadPlayerPugStats.integer)
+		if (G_DBGetMetadataInteger("shouldReloadPlayerPugStats"))
 			PrintIngame(clientNum, "Note: there are pugstats updates currently pending. Pugstats may change on map restart/change.\n");
 		return;
 	}
@@ -10426,12 +10428,12 @@ void Cmd_PugStats_f(gentity_t *ent) {
 					PrintIngame(clientNum, "%s^7 has no %s pugstats.\n", name, NameForPos(pos));
 			}
 		}
-		if (g_shouldReloadPlayerPugStats.integer)
+		if (G_DBGetMetadataInteger("shouldReloadPlayerPugStats"))
 			PrintIngame(clientNum, "Note: there are pugstats updates currently pending. Pugstats may change on map restart/change.\n");
 	}
 	else {
 		G_DBPrintTopPlayersForPosition(pos, clientNum);
-		if (g_shouldReloadPlayerPugStats.integer)
+		if (G_DBGetMetadataInteger("shouldReloadPlayerPugStats"))
 			PrintIngame(clientNum, "Note: there are pugstats updates currently pending. Pugstats may change on map restart/change.\n");
 	}
 }

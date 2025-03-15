@@ -87,6 +87,8 @@ void G_DBGetMetadata( const char *key,
 	char *outValue,
 	size_t outValueBufSize );
 
+int G_DBGetMetadataInteger(const char *key);
+
 void G_DBSetMetadata( const char *key,
 	const char *value );
 
