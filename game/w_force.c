@@ -1585,6 +1585,13 @@ void ForceHeal( gentity_t *self )
 		return;
 	}
 
+#if 0
+	// do we need to add this?
+	if (self->client->fakeForceAlignment == FAKEFORCEALIGNMENT_DARK)
+		return;
+	SetFakeForceAlignmentOfBoostedBase(self, FORCE_LIGHTSIDE, qfalse);
+#endif
+
 	if (self->client->ps.fd.forcePowerLevel[FP_HEAL] == FORCE_LEVEL_3)
 	{
 		self->health += 25; //This was 50, but that angered the Balance God.
@@ -2006,7 +2013,7 @@ void ForceTeamHeal( gentity_t *self, qboolean redirectedTE )
 
 	//this entity will definitely use TH, log it
 
-	SetFakeForceAlignmentOfBoostedBase(self, FORCE_LIGHTSIDE);
+	SetFakeForceAlignmentOfBoostedBase(self, FORCE_LIGHTSIDE, qtrue);
 
 	if (numpl == 1)
 	{
@@ -2253,7 +2260,7 @@ void ForceTeamForceReplenish( gentity_t *self, qboolean redirectedTH )
 	//this entity will definitely use TE, log it
 	//++self->client->pers.teamState.te;
 
-	SetFakeForceAlignmentOfBoostedBase(self, FORCE_DARKSIDE);
+	SetFakeForceAlignmentOfBoostedBase(self, FORCE_DARKSIDE, qtrue);
 
 	if (numpl == 1)
 	{
@@ -2505,6 +2512,13 @@ void ForceGrip( gentity_t *self )
 			return; // no grip wars; first gripper wins
 		}
 	}
+
+#if 0
+	// do we need to add this?
+	if (self->client->fakeForceAlignment == FAKEFORCEALIGNMENT_LIGHT)
+		return;
+	SetFakeForceAlignmentOfBoostedBase(self, FORCE_DARKSIDE, qfalse);
+#endif
 
 	trace_t tr;
 	vec3_t tfrom, tto, fwd;
@@ -2758,6 +2772,10 @@ void ForceProtect( gentity_t *self )
 		return;
 	}
 
+	if (self->client->fakeForceAlignment == FAKEFORCEALIGNMENT_DARK)
+		return;
+	SetFakeForceAlignmentOfBoostedBase(self, FORCE_LIGHTSIDE, qfalse);
+
 	// Make sure to turn off Force Rage and Force Absorb.
 	if (self->client->ps.fd.forcePowersActive & (1 << FP_RAGE) )
 	{
@@ -2795,6 +2813,11 @@ void ForceAbsorb( gentity_t *self )
 	{
 		return;
 	}
+
+
+	if (self->client->fakeForceAlignment == FAKEFORCEALIGNMENT_DARK)
+		return;
+	SetFakeForceAlignmentOfBoostedBase(self, FORCE_LIGHTSIDE, qfalse);
 
 	// Make sure to turn off Force Rage and Force Protection.
 	if (self->client->ps.fd.forcePowersActive & (1 << FP_RAGE) )
@@ -2846,6 +2869,13 @@ void ForceRage( gentity_t *self )
 		return;
 	}
 
+#if 0
+	// do we need to add this?
+	if (self->client->fakeForceAlignment == FAKEFORCEALIGNMENT_LIGHT)
+		return;
+	SetFakeForceAlignmentOfBoostedBase(self, FORCE_DARKSIDE, qfalse);
+#endif
+
 	// Make sure to turn off Force Protection and Force Absorb.
 	if (self->client->ps.fd.forcePowersActive & (1 << FP_PROTECT) )
 	{
@@ -2894,6 +2924,13 @@ void ForceLightning( gentity_t *self )
 	if (self->client->ps.fd.forceGripBeingGripped > level.time && g_gripRework.integer == 2) {
 		return;
 	}
+
+#if 0
+	// do we need to add this?
+	if (self->client->fakeForceAlignment == FAKEFORCEALIGNMENT_LIGHT)
+		return;
+	SetFakeForceAlignmentOfBoostedBase(self, FORCE_DARKSIDE, qfalse);
+#endif
 
 	// *CHANGE 65* fix - release rocket lock, old bug
 	BG_ClearRocketLock(&self->client->ps);
@@ -3253,6 +3290,13 @@ void ForceDrain( gentity_t *self )
 		if (self->health <= selfdmg)
 			return;
 	}
+
+#if 0
+	// do we need to add this?
+	if (self->client->fakeForceAlignment == FAKEFORCEALIGNMENT_LIGHT)
+		return;
+	SetFakeForceAlignmentOfBoostedBase(self, FORCE_DARKSIDE, qfalse);
+#endif
 
 	self->client->ps.forceHandExtend = HANDEXTEND_FORCE_HOLD;
 	if (!g_drainRework.integer)

@@ -5054,6 +5054,8 @@ static void Svcmd_SetPos_f(void) {
 
 	ClientUserinfoChanged(clientNum);
 	Com_Printf("Changed client %d (%s)'s current position to %s.\n", clientNum, ent->client->pers.netname, NameForPos(pos));
+
+	level.posChecksTime = (level.time - level.startTime) + 30000; // bump automatic checks so this isn't undone just a couple seconds later
 }
 
 static void Svcmd_CtfStats_f(void) {

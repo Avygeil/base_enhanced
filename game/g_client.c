@@ -4294,7 +4294,7 @@ static void SetClientFacingPoint(gentity_t *ent, vec3_t spawnPoint, vec3_t targe
 	SetClientViewAngle(ent, newViewAngle);
 }
 
-void SetFakeForceAlignmentOfBoostedBase(gentity_t *ent, int forceTheirAlignmentToThis) {
+void SetFakeForceAlignmentOfBoostedBase(gentity_t *ent, int forceTheirAlignmentToThis, qboolean doThTe) {
 	if (!ent || !ent->client) {
 		assert(qfalse);
 		return;
@@ -4322,6 +4322,9 @@ void SetFakeForceAlignmentOfBoostedBase(gentity_t *ent, int forceTheirAlignmentT
 		ent->client->fakeForceAlignment = FAKEFORCEALIGNMENT_DARK;
 		return;
 	}
+
+	if (!doThTe)
+		return;
 
 	gentity_t *fc = NULL;
 	for (int i = 0; i < MAX_CLIENTS; i++) {
@@ -5248,7 +5251,7 @@ void ClientSpawn(gentity_t *ent) {
 	VectorCopy(client->ps.viewangles, client->spawnFacingAngles);
 
 	if (g_boost_setFakeAlignmentOnSpawn.integer)
-		SetFakeForceAlignmentOfBoostedBase(ent, 0);
+		SetFakeForceAlignmentOfBoostedBase(ent, 0, qfalse);
 
 	if ( ent->client->sess.sessionTeam == TEAM_SPECTATOR ) {
 

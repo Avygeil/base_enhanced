@@ -7339,16 +7339,20 @@ void G_RunFrame( int levelTime ) {
 	ChangeToNextStatsBlockIfNeeded();
 
 	{ // periodic pos-related checks every 10s, starting 30s in
-		static int posChecksTime = 30000;
-		if (level.time - level.startTime >= posChecksTime) {
-			posChecksTime = (level.time - level.startTime) + 10000;
+		if (!level.posChecksTime)
+			level.posChecksTime = 30000;
+
+		if (level.time - level.startTime >= level.posChecksTime) {
+			level.posChecksTime = (level.time - level.startTime) + 10000;
 
 			int numIngame = 0;
 			CountPlayers(NULL, NULL, NULL, NULL, NULL, &numIngame, NULL);
 
 			if (numIngame <= 4) {
-				// if 4 or less ingame, clear reminded pos
+				// if 4 or less ingame, clear reminded pos unless debug build
+#ifndef _DEBUG
 				TeamGen_ClearRemindPositions(qtrue);
+#endif
 			}
 			else if (numIngame == 8 && g_assignMissingCtfPos.integer && g_gametype.integer == GT_CTF) {
 				// if 8 ingame and 7 of them have reminded pos, give reminded pos to the last guy

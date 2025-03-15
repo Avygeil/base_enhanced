@@ -2249,6 +2249,8 @@ typedef struct {
 	qboolean initialSpawnsSet[TEAM_NUM_TEAMS];
 	gentity_t *initialRespawn[TEAM_NUM_TEAMS][2];
 	int numManuallyDefinedInitialRespawns[TEAM_NUM_TEAMS];
+
+	int posChecksTime;
 } level_locals_t;
 
 
@@ -2820,7 +2822,7 @@ void TellPlayerToRateMap(gclient_t *client);
 void TellPlayerToSetPositions(gclient_t *client);
 void RestoreDisconnectedPlayerData(gentity_t *ent);
 void G_SendConfigstring(int clientNum, int configstringNum, char *extra);
-void SetFakeForceAlignmentOfBoostedBase(gentity_t *ent, int forceTheirAlignmentToThis);
+void SetFakeForceAlignmentOfBoostedBase(gentity_t *ent, int forceTheirAlignmentToThis, qboolean doThTe);
 void SetInitialSpawns(void);
 void SetInitialRespawns(void);
 
