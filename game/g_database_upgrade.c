@@ -1979,6 +1979,55 @@ static qboolean UpgradeDBToVersion30(sqlite3 *dbPtr) {
 	return trap_sqlite3_exec(dbPtr, v30Upgrade, NULL, NULL, NULL) == SQLITE_OK;
 }
 
+static const char *v31Upgrade =
+"CREATE VIEW current_streaks AS "
+"WITH RECURSIVE "
+"ordered AS ( "
+"    SELECT "
+"        s.account_id, "
+"        p.match_id, "
+"        p.datetime, "
+"        CASE WHEN p.win_team = pptp.team THEN 1 ELSE -1 END AS wl, "
+"        ROW_NUMBER() OVER (PARTITION BY s.account_id ORDER BY p.datetime DESC) AS rn_desc "
+"    FROM sessions s "
+"    JOIN playerpugteampos pptp ON s.session_id = pptp.session_id "
+"    JOIN pugs p ON p.match_id = pptp.match_id "
+"    WHERE s.account_id IS NOT NULL "
+"      AND p.win_team IN (1,2) "
+"), "
+"rec(account_id, rn_desc, wl, count_matches) AS ( "
+"    SELECT "
+"        o.account_id, "
+"        o.rn_desc, "
+"        o.wl, "
+"        1 "
+"    FROM ordered o "
+"    WHERE o.rn_desc = 1 "
+"    UNION ALL "
+"    SELECT "
+"        r.account_id, "
+"        o.rn_desc, "
+"        r.wl, "
+"        r.count_matches + 1 "
+"    FROM rec r "
+"    JOIN ordered o "
+"      ON o.account_id = r.account_id "
+"     AND o.rn_desc   = r.rn_desc + 1 "
+"    WHERE o.wl = r.wl "
+") "
+"SELECT "
+"    account_id, "
+"    CASE WHEN wl = 1 THEN +1 ELSE -1 END * MAX(count_matches) AS current_streak "
+"FROM rec "
+"GROUP BY account_id, wl;"
+;
+
+static qboolean UpgradeDBToVersion31(sqlite3 *dbPtr) {
+	return trap_sqlite3_exec(dbPtr, v31Upgrade, NULL, NULL, NULL) == SQLITE_OK;
+}
+
+
+
 // =============================================================================
 
 static qboolean UpgradeDB( int versionTo, sqlite3* dbPtr ) {
@@ -2014,6 +2063,7 @@ static qboolean UpgradeDB( int versionTo, sqlite3* dbPtr ) {
 		case 28: return UpgradeDBToVersion28(dbPtr);
 		case 29: return UpgradeDBToVersion29(dbPtr);
 		case 30: return UpgradeDBToVersion30(dbPtr);
+		case 31: return UpgradeDBToVersion31(dbPtr);
 ;		default:
 			Com_Printf( "ERROR: Unsupported database upgrade routine\n" );
 	}

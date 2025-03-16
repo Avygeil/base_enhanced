@@ -6170,6 +6170,59 @@ static void GetRustiness(void) {
 	trap_sqlite3_finalize(outerStatement);
 }
 
+typedef struct accountStreak_s {
+	node_t node;
+	int accountId;
+	int currentStreak;
+} accountStreak_t;
+
+static void GetStreaks(void) {
+	const char *sqlTestStreaks =
+		"SELECT account_id, current_streak "
+		"FROM current_streaks;";
+
+	ListClear(&level.streaksList);
+
+	sqlite3_stmt *statement;
+	trap_sqlite3_prepare_v2(dbPtr, sqlTestStreaks, -1, &statement, 0);
+
+	int count = 0;
+	int rc = trap_sqlite3_step(statement);
+	while (rc == SQLITE_ROW) {
+		const int accountId = sqlite3_column_int(statement, 0);
+		const int currentStreak = sqlite3_column_int(statement, 1);
+
+		accountStreak_t *entry = (accountStreak_t *)ListAdd(&level.streaksList, sizeof(accountStreak_t));
+		if (entry) {
+			entry->accountId = accountId;
+			entry->currentStreak = currentStreak;
+		}
+
+		++count;
+		rc = trap_sqlite3_step(statement);
+	}
+
+	trap_sqlite3_finalize(statement);
+	Com_Printf("Got %d streaks\n", count);
+}
+
+int DB_GetStreakForAccountID(int accountId) {
+	if (accountId == ACCOUNT_ID_UNLINKED)
+		return 0;
+
+	iterator_t it;
+	ListIterate(&level.streaksList, &it, qfalse);
+
+	accountStreak_t *entry;
+	while ((entry = (accountStreak_t *)IteratorNext(&it)) != NULL) {
+		if (entry->accountId == accountId) {
+			return entry->currentStreak;
+		}
+	}
+
+	return 0;
+}
+
 static void GetMostPlayedPositions(void);
 #ifdef _DEBUG
 #define FAST_START // uncomment to force loading from cache instead of recalculating
@@ -6185,22 +6238,33 @@ void G_DBInitializePugStatsCache(void) {
 	qboolean pendingReload = qfalse;
 	const time_t currentTime = time(NULL);
 	if (!level.wasRestarted && !g_notFirstMap.integer) {
-		int reloadMetadata = G_DBGetMetadataInteger("shouldReloadPlayerPugStats");
-		if (reloadMetadata == 2) {
-			pendingReload = qtrue; // pug played; definitely recalculate
-			Com_Printf("Pug played, so recalculating stats.\n");
+#ifdef _DEBUG
+		if (0)
+#else
+		if (didUpgrade)
+#endif
+		{
+			pendingReload = qtrue;
+			Com_Printf("Recalculating stats because db was upgraded.\n");
 		}
-		else if (reloadMetadata == 1) {
-			char lastStatsReloadStr[MAX_STRING_CHARS] = { 0 };
-			G_DBGetMetadata("lastStatsReload", lastStatsReloadStr, sizeof(lastStatsReloadStr));
-			time_t lastReloadTime = lastStatsReloadStr[0] ? strtoll(lastStatsReloadStr, NULL, 10) : 0;
-
-			if (lastReloadTime + (60 * 60 * 6 /*every 6 hours i guess*/) < currentTime) {
-				pendingReload = qtrue; // it's been a while since we recalculated and an account<->session link has changed
-				Com_Printf("An account<->session link has changed and enough time has elapsed since last recalculation, so recalculating stats.\n");
+		else {
+			int reloadMetadata = G_DBGetMetadataInteger("shouldReloadPlayerPugStats");
+			if (reloadMetadata == 2) {
+				pendingReload = qtrue; // pug played; definitely recalculate
+				Com_Printf("Pug played, so recalculating stats.\n");
 			}
-			else {
-				Com_Printf("An account<->session link has changed, but not enough time has elapsed since last recalculation. Using cache instead.\n");
+			else if (reloadMetadata == 1) {
+				char lastStatsReloadStr[MAX_STRING_CHARS] = { 0 };
+				G_DBGetMetadata("lastStatsReload", lastStatsReloadStr, sizeof(lastStatsReloadStr));
+				time_t lastReloadTime = lastStatsReloadStr[0] ? strtoll(lastStatsReloadStr, NULL, 10) : 0;
+
+				if (lastReloadTime + (60 * 60 * 6 /*every 6 hours i guess*/) < currentTime) {
+					pendingReload = qtrue; // it's been a while since we recalculated and an account<->session link has changed
+					Com_Printf("An account<->session link has changed and enough time has elapsed since last recalculation, so recalculating stats.\n");
+				}
+				else {
+					Com_Printf("An account<->session link has changed, but not enough time has elapsed since last recalculation. Using cache instead.\n");
+				}
 			}
 		}
 	}
@@ -6268,13 +6332,17 @@ void G_DBInitializePugStatsCache(void) {
 		G_DBSetMetadata("shouldReloadPlayerPugStats", "0");
 	}
 
-	// these two calls are always done, whether we recalculated or not
+	// these three calls are always done, whether we recalculated or not
 	GetMostPlayedPositions();
 	Com_Printf("Recalculated most played positions from db (took %d ms)\n", trap_Milliseconds() - lastTime);
 	lastTime = trap_Milliseconds();
 
 	GetRustiness();
 	Com_Printf("Recalculated rusty players from db (took %d ms)\n", trap_Milliseconds() - lastTime);
+	lastTime = trap_Milliseconds();
+
+	GetStreaks();
+	Com_Printf("Recalculated win streaks from db (took %d ms)\n", trap_Milliseconds() - lastTime);
 	lastTime = trap_Milliseconds();
 
 	Com_Printf("Finished initializing pug stats cache (took %d ms total)\n", trap_Milliseconds() - start);

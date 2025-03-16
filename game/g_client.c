@@ -2573,15 +2573,65 @@ void ClientUserinfoChanged( int clientNum ) {
 			s = va( "%s\\cid\\%s", s, client->sess.cuidHash );
 		}
 
-		if (level.time - level.startTime >= 3000) {
-			if (ent->client && ent->client->account && (ent->client->account->flags & ACCOUNTFLAG_LSAFKTROLL) && IsRacerOrSpectator(ent) && IsSpecName(ent->client->pers.netname)) {
-				// don't show him as barred, since he will show as spec anyway
+		{
+			char *scoreTag = NULL;
+
+			// first handle streaks
+			if (client->account) {
+				int streak = DB_GetStreakForAccountID(client->account->id);
+
+				// temporarily increment streak if we're at intermission immediately after winning a pug
+				if (level.intermissiontime) {
+					if (client->sess.sessionTeam == TEAM_RED && level.incrementStreak[TEAM_RED])
+						++streak;
+					else if (client->sess.sessionTeam == TEAM_BLUE && level.incrementStreak[TEAM_BLUE])
+						++streak;
+				}
+
+				if (streak >= 3) {
+					if (streak == 3) {
+						scoreTag = va("^2%dW", streak);  // 3 => green
+					}
+					else if (streak == 4) {
+						scoreTag = va("^3%dW", streak);  // 4 => yellow
+					}
+					else {
+						// 5+ => ^3 plus asterisks, e.g. "*5W*", "**6W**", etc.
+						char starBuf[32] = { 0 };
+						int numAsterisks = streak - 4;
+						int i;
+
+						for (i = 0; i < numAsterisks && i < (int)(sizeof(starBuf) - 1); i++) {
+							starBuf[i] = '*';
+						}
+						starBuf[i] = '\0';
+
+						scoreTag = va("^3%s%dW%s", starBuf, streak, starBuf);
+					}
+				}
 			}
-			else if (TeamGenerator_PlayerIsBarredFromTeamGenerator(ent)) {
-				s = va("%s\\bftg\\1", s);
+
+			// now handle barring
+			if (level.time - level.startTime >= 3000) {
+				if (ent->client && ent->client->account
+					&& (ent->client->account->flags & ACCOUNTFLAG_LSAFKTROLL)
+					&& IsRacerOrSpectator(ent)
+					&& IsSpecName(ent->client->pers.netname)) {
+					// don't show him as barred, since he will show as spec anyway
+				}
+				else if (TeamGenerator_PlayerIsBarredFromTeamGenerator(ent)) {
+					s = va("%s\\bftg\\1", s);
+					if (VALIDSTRING(scoreTag))
+						scoreTag = va("%s\n^9BARRED", scoreTag);
+				}
+				else if (TeamGenerator_PlayerIsPermaBarredButTemporarilyForcedPickable(ent)) {
+					s = va("%s\\bftg\\2", s);
+				}
 			}
-			else if (TeamGenerator_PlayerIsPermaBarredButTemporarilyForcedPickable(ent)) {
-				s = va("%s\\bftg\\2", s);
+
+			// finally, if we have any scoreboard tag (streak or barred), append it
+			if (VALIDSTRING(scoreTag)) {
+				s = va("%s\\stag\\%s", s, scoreTag);
 			}
 		}
 

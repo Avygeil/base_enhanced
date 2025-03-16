@@ -593,6 +593,7 @@ vmCvar_t	g_vote_teamgen_autoAdjustRequiredPugVotes;
 vmCvar_t	g_vote_teamgen_sumOfSquaresTiebreaker;
 vmCvar_t	g_vote_teamgen_aDietB;
 vmCvar_t	g_vote_teamgen_displayCaliber;
+vmCvar_t	g_lockTeamsAtEndOfLivePug;
 
 vmCvar_t	g_filterSlurs;
 vmCvar_t	g_filterUsers;
@@ -1233,6 +1234,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_teamgen_sumOfSquaresTiebreaker, "g_vote_teamgen_sumOfSquaresTiebreaker", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_aDietB, "g_vote_teamgen_aDietB", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_displayCaliber, "g_vote_teamgen_displayCaliber", "1", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_lockTeamsAtEndOfLivePug, "g_lockTeamsAtEndOfLivePug", "1", CVAR_ARCHIVE, 0, qfalse },
 
 	{ &g_filterSlurs, "g_filterSlurs", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
 	{ &g_filterUsers, "g_filterUsers", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
@@ -2617,6 +2619,7 @@ void G_ShutdownGame( int restart ) {
 	ListClear(&level.goVoteList);
 	ListClear(&level.addedItemsList);
 	ListClear(&level.baseItemsList);
+	ListClear(&level.streaksList);
 
 	ListClear(&level.filtersList);
 
@@ -3522,6 +3525,7 @@ int IsLivePug(int ofAtLeastThisMinutes) {
 	if (durationMins >= 18) {
 		didConfirmation = qtrue;
 		confirmedPlayersPerTeam = isLive ? avgRedInt : 0;
+		level.lockedPlayersPerTeam = avgRedInt;
 	}
 
 	return isLive ? avgRedInt : 0;
@@ -3639,6 +3643,19 @@ void BeginIntermission(void) {
 			if (!InstagibEnabled()) {
 				G_DBWritePugStats();
 				G_DBSetMetadata("shouldReloadPlayerPugStats", "2");
+
+				if (level.teamScores[TEAM_RED] > level.teamScores[TEAM_BLUE])
+					level.incrementStreak[TEAM_RED] = qtrue;
+				else if (level.teamScores[TEAM_BLUE] > level.teamScores[TEAM_RED])
+					level.incrementStreak[TEAM_BLUE] = qtrue;
+
+				// refresh client info so streaks show
+				for (int i = 0; i < MAX_CLIENTS; i++) {
+					gentity_t *ent = &g_entities[i];
+					if (!ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED)
+						continue;
+					ClientUserinfoChanged(i);
+				}
 			}
 		}
 #else
@@ -3651,6 +3668,19 @@ void BeginIntermission(void) {
 			if (isLivePugNumPlayersPerTeam == 4 && !InstagibEnabled() && level.teamScores[TEAM_RED] != level.teamScores[TEAM_BLUE]) { // only write stats to db in untied non-instagib 4v4
 				G_DBWritePugStats();
 				G_DBSetMetadata("shouldReloadPlayerPugStats", "2");
+
+				if (level.teamScores[TEAM_RED] > level.teamScores[TEAM_BLUE])
+					level.incrementStreak[TEAM_RED] = qtrue;
+				else if (level.teamScores[TEAM_BLUE] > level.teamScores[TEAM_RED])
+					level.incrementStreak[TEAM_BLUE] = qtrue;
+
+				// refresh client info so streaks show
+				for (int i = 0; i < MAX_CLIENTS; i++) {
+					gentity_t *ent = &g_entities[i];
+					if (!ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED)
+						continue;
+					ClientUserinfoChanged(i);
+				}
 			}
 			trap_Cvar_Set("r_rngNum", va("%d", Q_irand(-25, 25)));
 		}
@@ -7450,8 +7480,8 @@ void G_RunFrame( int levelTime ) {
 							ClientUserinfoChanged(i);
 							Com_Printf("g_assignMissingCtfPos: automatically set client %d (%s)'s current position to %s.\n", i, thisEnt->client->pers.netname, NameForPos(pos));
 						}
+						PrintIngame(-1, "Automatically detected CTF positions.\n");
 					}
-					PrintIngame(-1, "Automatically detected CTF positions.\n");
 				}
 			}
 		}

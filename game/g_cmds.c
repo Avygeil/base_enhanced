@@ -1606,6 +1606,25 @@ void Cmd_Team_f( gentity_t *ent ) {
 		trap_SendServerCommand( ent-g_entities, "print \"Cannot switch teams in Power Duel\n\"" );
 		return;
 	}
+
+	if (level.lockedPlayersPerTeam >= 3 && g_lockTeamsAtEndOfLivePug.integer) {
+		int desiredTeam = 0;
+		if (s[0] == 'r' || s[0] == 'R') desiredTeam = TEAM_RED;
+		else if (s[0] == 'b' || s[0] == 'B') desiredTeam = TEAM_BLUE;
+
+		if ((desiredTeam == TEAM_RED || desiredTeam == TEAM_BLUE) && oldTeam != desiredTeam) {
+			int num[TEAM_NUM_TEAMS] = { 0 };
+			int ingamePlayers = 0;
+			CountPlayers(NULL, &num[TEAM_RED], &num[TEAM_BLUE], NULL, NULL, &ingamePlayers, NULL);
+			if (!ingamePlayers) { // everybody went spec? unlock the teams i guess
+				level.lockedPlayersPerTeam = 0;
+			}
+			else if (num[desiredTeam] >= level.lockedPlayersPerTeam) {
+				PrintIngame(ent - g_entities, "Teams are currently locked to %dv%d.\n", level.lockedPlayersPerTeam, level.lockedPlayersPerTeam);
+				return;
+			}
+		}
+	}
 	
 	SetTeam( ent, s );
 

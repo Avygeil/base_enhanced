@@ -4,8 +4,8 @@
 #include "g_local.h"
 
 #define DB_FILENAME				"enhanced.db"
-#define DB_SCHEMA_VERSION		30
-#define DB_SCHEMA_VERSION_STR	"30"
+#define DB_SCHEMA_VERSION		31
+#define DB_SCHEMA_VERSION_STR	"31"
 #define DB_OPTIMIZE_INTERVAL	( 60*60*3 ) // every 3 hours
 #define DB_VACUUM_INTERVAL		( 60*60*24*7 ) // every week
 
@@ -452,5 +452,7 @@ typedef struct {
 	double datetime;
 } playerRatingHistoryEntry_t;
 list_t *G_DBGetPlayerRatingHistory(int rateeAccountId, ctfPosition_t pos, int raterAccountId);
+
+int DB_GetStreakForAccountID(int accountId);
 
 #endif //G_DATABASE_H

@@ -4,7 +4,6 @@
 
 #ifndef __G_LOCAL__
 #define __G_LOCAL__
-
 #include "q_shared.h"
 #include "collections.h"
 #include "bg_public.h"
@@ -2203,6 +2202,8 @@ typedef struct {
 	double lastRelativeStrength[4];
 	int lastPlayerTickAddedTime;
 	list_t rustyPlayersList;
+	list_t streaksList;
+	qboolean incrementStreak[TEAM_NUM_TEAMS];
 
 	list_t captureList;
 
@@ -2251,6 +2252,8 @@ typedef struct {
 	int numManuallyDefinedInitialRespawns[TEAM_NUM_TEAMS];
 
 	int posChecksTime;
+
+	int lockedPlayersPerTeam;
 } level_locals_t;
 
 
@@ -3720,6 +3723,7 @@ extern vmCvar_t		g_vote_teamgen_autoAdjustRequiredPugVotes;
 extern vmCvar_t		g_vote_teamgen_sumOfSquaresTiebreaker;
 extern vmCvar_t		g_vote_teamgen_aDietB;
 extern vmCvar_t		g_vote_teamgen_displayCaliber;
+extern vmCvar_t		g_lockTeamsAtEndOfLivePug;
 
 extern vmCvar_t		g_filterSlurs;
 extern vmCvar_t		g_filterUsers;
