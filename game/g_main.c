@@ -594,6 +594,8 @@ vmCvar_t	g_vote_teamgen_sumOfSquaresTiebreaker;
 vmCvar_t	g_vote_teamgen_aDietB;
 vmCvar_t	g_vote_teamgen_displayCaliber;
 vmCvar_t	g_lockTeamsAtEndOfLivePug;
+vmCvar_t	g_showWinStreaks;
+vmCvar_t	g_postStreaksToWebhook;
 
 vmCvar_t	g_filterSlurs;
 vmCvar_t	g_filterUsers;
@@ -1235,6 +1237,8 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_teamgen_aDietB, "g_vote_teamgen_aDietB", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_displayCaliber, "g_vote_teamgen_displayCaliber", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_lockTeamsAtEndOfLivePug, "g_lockTeamsAtEndOfLivePug", "1", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_showWinStreaks, "g_showWinStreaks", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
+	{ &g_postStreaksToWebhook, "g_postStreaksToWebhook", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
 
 	{ &g_filterSlurs, "g_filterSlurs", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
 	{ &g_filterUsers, "g_filterUsers", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
@@ -2622,6 +2626,7 @@ void G_ShutdownGame( int restart ) {
 	ListClear(&level.streaksList);
 
 	ListClear(&level.filtersList);
+	ListClear(&level.winStreaksPostList);
 
 	ListIterate(&level.slurList, &iter, qfalse);
 	while (IteratorHasNext(&iter)) {
@@ -3533,6 +3538,131 @@ int IsLivePug(int ofAtLeastThisMinutes) {
 
 qboolean DuelLimitHit(void);
 
+typedef struct {
+	char accountName[128];   // original name
+	char capitalized[128];   // for printing in the message
+	int  finalStreak;        // streak+1 if a win, or streak if a loss
+	qboolean isWin;
+} streakEvent_t;
+
+static int CompareStreakEvents(const void *a, const void *b) {
+	const streakEvent_t *e1 = (const streakEvent_t *)a;
+	const streakEvent_t *e2 = (const streakEvent_t *)b;
+
+	// sort descending by finalStreak
+	if (e1->finalStreak > e2->finalStreak) {
+		return -1;
+	}
+	if (e1->finalStreak < e2->finalStreak) {
+		return 1;
+	}
+
+	// if same finalStreak, wins first
+	if (e1->isWin && !e2->isWin) {
+		return -1;
+	}
+	if (!e1->isWin && e2->isWin) {
+		return 1;
+	}
+
+	return 0;
+}
+
+static void AnnounceStreaksAtIntermission(void) {
+	if (!g_postStreaksToWebhook.integer)
+		return;
+	streakEvent_t events[MAX_CLIENTS];
+	int eventCount = 0;
+
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *ent = &g_entities[i];
+		if (!ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED) {
+			continue;
+		}
+
+		if (!ent->client->account) {
+			continue;
+		}
+		if (ent->client->sess.sessionTeam != TEAM_RED && ent->client->sess.sessionTeam != TEAM_BLUE) {
+			continue;
+		}
+		if (!ent->client->stats || ent->client->stats->ticksNotPaused < (g_svfps.integer * 60)) {
+			continue;
+		}
+		if (!ent->client->account->name[0]) {
+			continue;
+		}
+
+		const int streak = DB_GetStreakForAccountID(ent->client->account->id);
+
+		qboolean isWin = qfalse;
+		int finalStreak = 0;
+		if (level.teamScores[ent->client->sess.sessionTeam]
+		> level.teamScores[OtherTeam(ent->client->sess.sessionTeam)]) {
+			// won
+			if (streak + 1 >= 4) {
+				isWin = qtrue;
+				finalStreak = streak + 1;
+			}
+		}
+		else if (level.teamScores[ent->client->sess.sessionTeam]
+			< level.teamScores[OtherTeam(ent->client->sess.sessionTeam)]) {
+			// lost
+			if (streak >= 4) {
+				isWin = qfalse;
+				finalStreak = streak;
+			}
+		}
+
+		// if valid, store it
+		if (finalStreak >= 4 && eventCount < MAX_CLIENTS) {
+			streakEvent_t *evt = &events[eventCount++];
+			Q_strncpyz(evt->accountName, ent->client->account->name, sizeof(evt->accountName));
+
+			// capitalize first letter
+			Q_strncpyz(evt->capitalized, ent->client->account->name, sizeof(evt->capitalized));
+			if (evt->capitalized[0]) {
+				evt->capitalized[0] = toupper((unsigned)evt->capitalized[0]);
+			}
+
+			evt->finalStreak = finalStreak;
+			evt->isWin = isWin;
+		}
+	}
+
+	// now sort them by finalStreak desc, then wins before losses
+	if (eventCount > 1) {
+		qsort(events, eventCount, sizeof(streakEvent_t), CompareStreakEvents);
+	}
+
+	// post and print in sorted order
+	for (int e = 0; e < eventCount; e++) {
+		streakEvent_t *evt = &events[e];
+
+		// post to the webhook in sorted order
+		G_PostWinStreakToWebhook(evt->accountName, evt->finalStreak, evt->isWin);
+
+		// print in-game message
+		char color = (evt->finalStreak >= 5) ? '3' : '2';
+		if (evt->isWin) {
+			char article[4] = "a";
+			char streakStr[16];
+			Com_sprintf(streakStr, sizeof(streakStr), "%d", evt->finalStreak);
+			if (streakStr[0] == '8' || evt->finalStreak == 11 || evt->finalStreak == 18) {
+				Q_strncpyz(article, "an", sizeof(article));
+			}
+			PrintIngame(-1,
+				"%s is on %s ^%c%d game^7 win streak!\n",
+				evt->capitalized, article, color, evt->finalStreak);
+		}
+		else {
+			PrintIngame(-1,
+				"%s's %d game win streak has ended.\n",
+				evt->capitalized, evt->finalStreak);
+		}
+	}
+}
+
 /*
 ==================
 BeginIntermission
@@ -3656,6 +3786,8 @@ void BeginIntermission(void) {
 						continue;
 					ClientUserinfoChanged(i);
 				}
+
+				AnnounceStreaksAtIntermission();
 			}
 		}
 #else
@@ -3679,8 +3811,11 @@ void BeginIntermission(void) {
 					gentity_t *ent = &g_entities[i];
 					if (!ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED)
 						continue;
+
 					ClientUserinfoChanged(i);
 				}
+
+				AnnounceStreaksAtIntermission();
 			}
 			trap_Cvar_Set("r_rngNum", va("%d", Q_irand(-25, 25)));
 		}
@@ -6893,6 +7028,8 @@ void G_RunFrame( int levelTime ) {
 	level.wallhackTracesDone = 0; // reset the traces for the next ClientThink wave
 
 	UpdateGlobalCenterPrint( levelTime );
+
+	G_FlushWinStreaks();
 
 	// check for modified physics and disable capture times if non standard
 #ifndef _DEBUG

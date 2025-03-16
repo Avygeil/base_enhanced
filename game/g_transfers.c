@@ -28,9 +28,6 @@ static void SendMatchMultipart(const char* url, const char* matchid, const char*
 	trap_SendMultipartPOSTRequest(NULL, url, multiPart, 2, NULL, NULL, qfalse);
 }
 
-#define DISCORD_WEBHOOK_FORMAT		"https://discordapp.com/api/webhooks/%s/%s"
-#define DEMOARCHIVE_MATCH_FORMAT	"https://demos.jactf.com/match.html#rpc=lookup&id=%s"
-
 extern const char* G_GetArenaInfoByMap(const char* map);
 
 void AddPlayerToWebhook(tickPlayer_t *player, team_t t, char *redTeamBuf, size_t redTeamBufSize, char *blueTeamBuf, size_t blueTeamBufSize) {
@@ -128,7 +125,7 @@ void G_PostScoreboardToWebhook(const char* stats) {
 	}
 
 	// get a clean string of the server name
-	char serverName[64];
+	char serverName[64] = { 0 };
 	trap_Cvar_VariableStringBuffer("sv_hostname", serverName, sizeof(serverName));
 	Q_CleanStr(serverName);
 
@@ -220,4 +217,131 @@ void G_PostScoreboardToWebhook(const char* stats) {
 		free(requestString);
 	}
 	cJSON_Delete(root);
+}
+
+void G_FlushWinStreaks(void) {
+	if (!g_postStreaksToWebhook.integer)
+		return;
+
+	if (!level.winStreaksPostList.size)
+		return;
+
+	iterator_t it;
+	ListIterate(&level.winStreaksPostList, &it, qfalse);
+
+	while (IteratorHasNext(&it)) {
+		winStreakItem_t *item = (winStreakItem_t *)IteratorNext(&it);
+		if (!item)
+			break;
+
+		if (item->posted)
+			continue;
+
+		if (item->postTime > trap_Milliseconds())
+			continue; // not yet
+
+		// build the emojis string
+		char emojis[MAX_STRING_CHARS] = { 0 };
+		if (item->won) {
+			int countFires = item->streak - 3;
+			for (int i = 0; i < countFires; i++) {
+				Q_strcat(emojis, sizeof(emojis), ":fire:");
+			}
+		}
+
+		// build the text message
+		char msgBuffer[MAX_STRING_CHARS] = { 0 };
+		if (item->won) {
+			char article[4] = "a";
+			char streakStr[16];
+			Com_sprintf(streakStr, sizeof(streakStr), "%d", item->streak);
+			if (streakStr[0] == '8' || item->streak == 11 || item->streak == 18) {
+				Q_strncpyz(article, "an", sizeof(article));
+			}
+
+			Com_sprintf(msgBuffer, sizeof(msgBuffer),
+				"%s is on %s %d game win streak! %s",
+				item->accountName, article, item->streak, emojis);
+		}
+		else {
+			Com_sprintf(msgBuffer, sizeof(msgBuffer),
+				"%s's %d game win streak has ended. :frowning:",
+				item->accountName, item->streak);
+		}
+
+		int embedColor = item->won ? 0x00FF00 : 0xFFA500;
+
+		cJSON *root = cJSON_CreateObject();
+		if (!root) {
+			assert(qfalse);
+			ListClear(&level.winStreaksPostList);
+			return;
+		}
+
+		char serverName[64] = { 0 };
+		trap_Cvar_VariableStringBuffer("sv_hostname", serverName, sizeof(serverName));
+		Q_CleanStr(serverName);
+		if (serverName[0]) {
+			cJSON_AddStringToObject(root, "username", serverName);
+		}
+
+		cJSON *embeds = cJSON_AddArrayToObject(root, "embeds");
+		cJSON *embed = cJSON_CreateObject();
+
+		cJSON_AddNumberToObject(embed, "color", embedColor);
+		cJSON_AddStringToObject(embed, "description", msgBuffer);
+		cJSON_AddItemToArray(embeds, embed);
+
+		char *requestString = cJSON_PrintUnformatted(root);
+		cJSON_Delete(root);
+
+		if (VALIDSTRING(requestString)) {
+			const char *url = va(DISCORD_WEBHOOK_FORMAT, g_webhookId.string, g_webhookToken.string);
+			trap_SendPOSTRequest(NULL, url, requestString, "application/json", "application/json", qfalse);
+			free(requestString);
+		}
+
+		item->posted = qtrue;
+
+		// post only one per frame call, so break
+		break;
+	}
+}
+
+void G_PostWinStreakToWebhook(char *accountName, int streak, qboolean won) {
+	if (!g_postStreaksToWebhook.integer)
+		return;
+
+	if (streak < 4
+		|| !g_webhookId.string[0]
+		|| !g_webhookToken.string[0]
+		|| !VALIDSTRING(accountName)) {
+		return;
+	}
+
+	// capitalize first letter
+	char capitalized[128];
+	Q_strncpyz(capitalized, accountName, sizeof(capitalized));
+	if (capitalized[0]) {
+		capitalized[0] = toupper((unsigned)capitalized[0]);
+	}
+
+	// create a new list entry
+	winStreakItem_t *item = (winStreakItem_t *)ListAdd(&level.winStreaksPostList, sizeof(winStreakItem_t));
+	if (!item) {
+		return;
+	}
+
+	Q_strncpyz(item->accountName, capitalized, sizeof(item->accountName));
+	item->streak = streak;
+	item->won = won;
+
+	// schedule
+	if (level.winStreaksPostList.size == 1)
+		level.winStreakListPostTime = trap_Milliseconds() + 2000; // 2-second delay
+	else
+		level.winStreakListPostTime += 1000; // add 1 second
+
+	item->postTime = level.winStreakListPostTime;
+	item->posted = qfalse;
 }

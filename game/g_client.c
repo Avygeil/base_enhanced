@@ -2575,38 +2575,50 @@ void ClientUserinfoChanged( int clientNum ) {
 
 		{
 			char *scoreTag = NULL;
+			if (client->account && g_showWinStreaks.integer) {
+				const int baseStreak = DB_GetStreakForAccountID(client->account->id);
+				int displayStreak = baseStreak;
 
-			// first handle streaks
-			if (client->account) {
-				int streak = DB_GetStreakForAccountID(client->account->id);
+				// check if we are at intermission AND exactly one team is flagged as winner
+				qboolean redWon = (level.intermissiontime && level.incrementStreak[TEAM_RED]);
+				qboolean blueWon = (level.intermissiontime && level.incrementStreak[TEAM_BLUE]);
 
-				// temporarily increment streak if we're at intermission immediately after winning a pug
-				if (level.intermissiontime) {
-					if (client->sess.sessionTeam == TEAM_RED && level.incrementStreak[TEAM_RED])
-						++streak;
-					else if (client->sess.sessionTeam == TEAM_BLUE && level.incrementStreak[TEAM_BLUE])
-						++streak;
+				// decide if we override the normal DB streak:
+				assert(!(redWon && blueWon));
+				if (redWon || blueWon) {
+					if (
+						(redWon && client->sess.sessionTeam == TEAM_RED) ||
+						(blueWon && client->sess.sessionTeam == TEAM_BLUE)
+						) {
+						// they won; display one higher than the DB says we should (we're still on intermission; DB hasn't updated yet)
+						displayStreak++;
+					}
+					else if (
+						(redWon && client->sess.sessionTeam == TEAM_BLUE) ||
+						(blueWon && client->sess.sessionTeam == TEAM_RED)
+						) {
+						// they lost; don't display streak
+						displayStreak = 0;
+					}
 				}
 
-				if (streak >= 3) {
-					if (streak == 3) {
-						scoreTag = va("^2%dW", streak);  // 3 => green
-					}
-					else if (streak == 4) {
-						scoreTag = va("^3%dW", streak);  // 4 => yellow
+				// now show the scoreboard tag only if displayStreak >= 4
+				if (displayStreak >= 4) {
+					if (displayStreak == 4) {
+						// label as ^3 (yellow) 4W
+						scoreTag = va("^3%dW", displayStreak);
 					}
 					else {
-						// 5+ => ^3 plus asterisks, e.g. "*5W*", "**6W**", etc.
+						// 5 or more => ^3 plus asterisks
 						char starBuf[32] = { 0 };
-						int numAsterisks = streak - 4;
+						int numAsterisks = displayStreak - 4;
 						int i;
-
 						for (i = 0; i < numAsterisks && i < (int)(sizeof(starBuf) - 1); i++) {
 							starBuf[i] = '*';
 						}
 						starBuf[i] = '\0';
 
-						scoreTag = va("^3%s%dW%s", starBuf, streak, starBuf);
+						scoreTag = va("^3%s%dW%s", starBuf, displayStreak, starBuf);
 					}
 				}
 			}

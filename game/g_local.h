@@ -2254,6 +2254,9 @@ typedef struct {
 	int posChecksTime;
 
 	int lockedPlayersPerTeam;
+
+	list_t winStreaksPostList;
+	int winStreakListPostTime;
 } level_locals_t;
 
 
@@ -2325,8 +2328,22 @@ qboolean G_SetAccountFlags( account_t* account, const int64_t flags, qboolean fl
 //
 // g_transfers.c
 //
+#define DISCORD_WEBHOOK_FORMAT		"https://discordapp.com/api/webhooks/%s/%s"
+#define DEMOARCHIVE_MATCH_FORMAT	"https://demos.jactf.com/match.html#rpc=lookup&id=%s"
+
+typedef struct winStreakItem_s {
+	node_t node;
+	char accountName[128];
+	int  streak;
+	qboolean won;
+	int  postTime;
+	qboolean posted;
+} winStreakItem_t;
+
 void G_HandleTransferResult(trsfHandle_t handle, trsfErrorInfo_t* errorInfo, int responseCode, void* data, size_t size);
 void G_PostScoreboardToWebhook(const char* stats);
+void G_PostWinStreakToWebhook(char *accountName, int streak, qboolean won);
+void G_FlushWinStreaks(void);
 
 //
 // g_spawn.c
@@ -3724,6 +3741,8 @@ extern vmCvar_t		g_vote_teamgen_sumOfSquaresTiebreaker;
 extern vmCvar_t		g_vote_teamgen_aDietB;
 extern vmCvar_t		g_vote_teamgen_displayCaliber;
 extern vmCvar_t		g_lockTeamsAtEndOfLivePug;
+extern vmCvar_t		g_showWinStreaks;
+extern vmCvar_t		g_postStreaksToWebhook;
 
 extern vmCvar_t		g_filterSlurs;
 extern vmCvar_t		g_filterUsers;
