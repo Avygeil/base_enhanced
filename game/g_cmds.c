@@ -4937,7 +4937,7 @@ void Cmd_CallVote_f( gentity_t *ent, int pause ) {
 			}
 			else {
 				Com_sprintf(level.voteString, sizeof(level.voteString), "drawmatch");
-				Com_sprintf(level.voteDisplayString, sizeof(level.voteDisplayString), "Draw Match");
+				Com_sprintf(level.voteDisplayString, sizeof(level.voteDisplayString), "^3Draw Match");
 			}
 		}
 		else {
