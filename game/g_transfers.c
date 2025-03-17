@@ -163,17 +163,18 @@ void G_PostScoreboardToWebhook(const char* stats) {
 				cJSON* fields = cJSON_AddArrayToObject(msg, "fields");
 
 				{
-
 					{
 						cJSON* redField = cJSON_CreateObject();
-						cJSON_AddStringToObject(redField, "name", va("RED: %d%s", redScore, redScore > blueScore ? " :trophy:" : ""));
+						char *redEmoji = redScore > blueScore ? ":trophy:" : (redScore == blueScore ? ":handshake:" : "");
+						cJSON_AddStringToObject(redField, "name", va("RED: %d%s", redScore, redEmoji));
 						cJSON_AddStringToObject(redField, "value", redTeam);
 						cJSON_AddBoolToObject(redField, "inline", cJSON_True);
 						cJSON_AddItemToArray(fields, redField);
 					}
 					{
 						cJSON* blueField = cJSON_CreateObject();
-						cJSON_AddStringToObject(blueField, "name", va("BLUE: %d%s", blueScore, blueScore > redScore ? " :trophy:" : ""));
+						char *blueEmoji = blueScore > redScore ? ":trophy:" : (blueScore == redScore ? ":handshake:" : "");
+						cJSON_AddStringToObject(blueField, "name", va("BLUE: %d%s", blueScore, blueEmoji));
 						cJSON_AddStringToObject(blueField, "value", blueTeam);
 						cJSON_AddBoolToObject(blueField, "inline", cJSON_True);
 						cJSON_AddItemToArray(fields, blueField);
@@ -240,15 +241,6 @@ void G_FlushWinStreaks(void) {
 		if (item->postTime > trap_Milliseconds())
 			continue; // not yet
 
-		// build the emojis string
-		char emojis[MAX_STRING_CHARS] = { 0 };
-		if (item->won) {
-			int countFires = item->streak - 3;
-			for (int i = 0; i < countFires; i++) {
-				Q_strcat(emojis, sizeof(emojis), ":fire:");
-			}
-		}
-
 		// build the text message
 		char msgBuffer[MAX_STRING_CHARS] = { 0 };
 		if (item->won) {
@@ -260,8 +252,8 @@ void G_FlushWinStreaks(void) {
 			}
 
 			Com_sprintf(msgBuffer, sizeof(msgBuffer),
-				"%s is on %s %d game win streak! %s",
-				item->accountName, article, item->streak, emojis);
+				"%s is on %s %d game win streak! :fire:",
+				item->accountName, article, item->streak);
 		}
 		else {
 			Com_sprintf(msgBuffer, sizeof(msgBuffer),
