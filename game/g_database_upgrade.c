@@ -2027,6 +2027,11 @@ static qboolean UpgradeDBToVersion31(sqlite3 *dbPtr) {
 }
 
 
+const char *const v32Upgrade = "DROP VIEW IF EXISTS current_streaks;";
+
+static qboolean UpgradeDBToVersion32(sqlite3 *dbPtr) {
+	return trap_sqlite3_exec(dbPtr, v32Upgrade, NULL, NULL, NULL) == SQLITE_OK;
+}
 
 // =============================================================================
 
@@ -2064,6 +2069,7 @@ static qboolean UpgradeDB( int versionTo, sqlite3* dbPtr ) {
 		case 29: return UpgradeDBToVersion29(dbPtr);
 		case 30: return UpgradeDBToVersion30(dbPtr);
 		case 31: return UpgradeDBToVersion31(dbPtr);
+		case 32: return UpgradeDBToVersion32(dbPtr);
 ;		default:
 			Com_Printf( "ERROR: Unsupported database upgrade routine\n" );
 	}

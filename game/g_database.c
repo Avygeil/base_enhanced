@@ -6176,34 +6176,127 @@ typedef struct accountStreak_s {
 	int currentStreak;
 } accountStreak_t;
 
-static void GetStreaks(void) {
-	const char *sqlTestStreaks =
-		"SELECT account_id, current_streak "
-		"FROM current_streaks;";
-
+static int RecalculateAndRecacheStreaks(void) {
 	ListClear(&level.streaksList);
+	G_DBDeleteMetadataStartingWith("streak_");
 
-	sqlite3_stmt *statement;
-	trap_sqlite3_prepare_v2(dbPtr, sqlTestStreaks, -1, &statement, 0);
+	const char *sqlStreaksQuery =
+		"WITH RECURSIVE "
+		"ordered AS ( "
+		"    SELECT "
+		"        s.account_id, "
+		"        p.match_id, "
+		"        p.datetime, "
+		"        CASE WHEN p.win_team = pptp.team THEN 1 ELSE -1 END AS wl, "
+		"        ROW_NUMBER() OVER (PARTITION BY s.account_id ORDER BY p.datetime DESC) AS rn_desc "
+		"    FROM sessions s "
+		"    JOIN playerpugteampos pptp ON s.session_id = pptp.session_id "
+		"    JOIN pugs p ON p.match_id = pptp.match_id "
+		"    WHERE s.account_id IS NOT NULL "
+		"      AND p.win_team IN (1,2) "
+		"), "
+		"rec(account_id, rn_desc, wl, count_matches) AS ( "
+		"    SELECT "
+		"        o.account_id, "
+		"        o.rn_desc, "
+		"        o.wl, "
+		"        1 "
+		"    FROM ordered o "
+		"    WHERE o.rn_desc = 1 "
+		"    UNION ALL "
+		"    SELECT "
+		"        r.account_id, "
+		"        o.rn_desc, "
+		"        r.wl, "
+		"        r.count_matches + 1 "
+		"    FROM rec r "
+		"    JOIN ordered o "
+		"      ON o.account_id = r.account_id "
+		"     AND o.rn_desc   = r.rn_desc + 1 "
+		"    WHERE o.wl = r.wl "
+		") "
+		"SELECT "
+		"    account_id, "
+		"    CASE WHEN wl = 1 THEN +1 ELSE -1 END * MAX(count_matches) AS current_streak "
+		"FROM rec "
+		"GROUP BY account_id, wl;";
 
+
+	// we store the result in both in memory (level.streaksList) and also metadata as "streak_<accountId>"
+	sqlite3_stmt *statement = NULL;
+	int rc = trap_sqlite3_prepare_v2(dbPtr, sqlStreaksQuery, -1, &statement, 0);
+	if (rc != SQLITE_OK) {
+		assert(qfalse);
+		return 0;
+	}
+
+	rc = trap_sqlite3_step(statement);
 	int count = 0;
-	int rc = trap_sqlite3_step(statement);
 	while (rc == SQLITE_ROW) {
-		const int accountId = sqlite3_column_int(statement, 0);
-		const int currentStreak = sqlite3_column_int(statement, 1);
+		int accountId = sqlite3_column_int(statement, 0);
+		int currentStreak = sqlite3_column_int(statement, 1);
 
+		// add to in-memory list
 		accountStreak_t *entry = (accountStreak_t *)ListAdd(&level.streaksList, sizeof(accountStreak_t));
 		if (entry) {
 			entry->accountId = accountId;
 			entry->currentStreak = currentStreak;
 		}
 
+		// also save to metadata
+		G_DBSetMetadata(va("streak_%d", accountId), va("%d", currentStreak));
+
 		++count;
 		rc = trap_sqlite3_step(statement);
 	}
 
 	trap_sqlite3_finalize(statement);
-	Com_Printf("Got %d streaks\n", count);
+	return count;
+}
+
+static int GetCachedStreaks(void) {
+	ListClear(&level.streaksList);
+
+	const char *sqlGetAllStreaks = "SELECT key, value FROM metadata WHERE key LIKE 'streak_%';";
+
+	sqlite3_stmt *statement = NULL;
+	int rc = trap_sqlite3_prepare_v2(dbPtr, sqlGetAllStreaks, -1, &statement, 0);
+	if (rc != SQLITE_OK) {
+		assert(qfalse);
+		return 0;
+	}
+
+	rc = trap_sqlite3_step(statement);
+	int count = 0;
+	while (rc == SQLITE_ROW) {
+		const char *key = (const char *)sqlite3_column_text(statement, 0);
+		const char *value = (const char *)sqlite3_column_text(statement, 1);
+
+		if (!VALIDSTRING(key) || !VALIDSTRING(value)) {
+			rc = trap_sqlite3_step(statement);
+			continue;
+		}
+
+		// Parse out the account id from "streak_<accountId>"
+		// The "streak_" prefix is 7 characters long:
+		// e.g. "streak_42" => accountId = 42
+		if (!Q_stricmpn(key, "streak_", 7) && *(key + 7)) {
+			int accountId = atoi(key + 7);
+			int currentStreak = atoi(value);
+
+			accountStreak_t *entry = (accountStreak_t *)ListAdd(&level.streaksList, sizeof(accountStreak_t));
+			if (entry) {
+				entry->accountId = accountId;
+				entry->currentStreak = currentStreak;
+				++count;
+			}
+		}
+
+		rc = trap_sqlite3_step(statement);
+	}
+
+	trap_sqlite3_finalize(statement);
+	return count;
 }
 
 int DB_GetStreakForAccountID(int accountId) {
@@ -6350,17 +6443,35 @@ void G_DBInitializePugStatsCache(void) {
 		G_DBSetMetadata("shouldReloadPlayerPugStats", "0");
 	}
 
-	// these three calls are always done, whether we recalculated or not
+	// streaks are handled specially
+	int reloadStreaks = G_DBGetMetadataInteger("shouldReloadStreaks");
+	if (reloadStreaks || recalc) {
+		const int recalculatedStreaks = RecalculateAndRecacheStreaks();
+		Com_Printf("Recalculated %d win streaks from db (took %d ms)\n", recalculatedStreaks, trap_Milliseconds() - lastTime);
+		G_DBSetMetadata("shouldReloadStreaks", "0");
+		lastTime = trap_Milliseconds();
+	}
+	else {
+		const int cachedStreaks = GetCachedStreaks();
+		if (cachedStreaks) {
+			Com_Printf("Loaded win streaks cache from db (took %d ms)\n", trap_Milliseconds() - lastTime);
+			lastTime = trap_Milliseconds();
+		}
+		else {
+			const int recalculatedStreaks = RecalculateAndRecacheStreaks();
+			Com_Printf("Failed to load win streaks cache from db. Instead recalculated %d win streaks from db (took %d ms)\n", recalculatedStreaks, trap_Milliseconds() - lastTime);
+			G_DBSetMetadata("shouldReloadStreaks", "0");
+			lastTime = trap_Milliseconds();
+		}
+	}
+
+	// these two calls are always done, whether we recalculated or not
 	GetMostPlayedPositions();
 	Com_Printf("Recalculated most played positions from db (took %d ms)\n", trap_Milliseconds() - lastTime);
 	lastTime = trap_Milliseconds();
 
 	GetRustiness();
 	Com_Printf("Recalculated rusty players from db (took %d ms)\n", trap_Milliseconds() - lastTime);
-	lastTime = trap_Milliseconds();
-
-	GetStreaks();
-	Com_Printf("Recalculated win streaks from db (took %d ms)\n", trap_Milliseconds() - lastTime);
 	lastTime = trap_Milliseconds();
 
 	SetFastestPossibleCaptureTime();

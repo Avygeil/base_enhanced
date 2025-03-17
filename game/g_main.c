@@ -3794,6 +3794,7 @@ void BeginIntermission(void) {
 				}
 
 				AnnounceStreaksAtIntermission();
+				G_DBSetMetadata("shouldReloadStreaks", "1");
 			}
 		}
 #else
@@ -3810,6 +3811,7 @@ void BeginIntermission(void) {
 			if (isLivePugNumPlayersPerTeam == 4 && !InstagibEnabled() && level.teamScores[TEAM_RED] != level.teamScores[TEAM_BLUE] && !level.forceEndMatchInDraw) { // only write stats to db in untied non-instagib 4v4
 				G_DBWritePugStats();
 				G_DBSetMetadata("shouldReloadPlayerPugStats", "2");
+				G_DBSetMetadata("shouldReloadStreaks", "1");
 
 				if (level.teamScores[TEAM_RED] > level.teamScores[TEAM_BLUE])
 					level.incrementStreak[TEAM_RED] = qtrue;
