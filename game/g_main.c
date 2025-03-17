@@ -436,6 +436,7 @@ vmCvar_t	z_debugPause;
 vmCvar_t    g_enforceEvenVotersCount;
 vmCvar_t    g_minVotersForEvenVotersCount;
 vmCvar_t	g_losingTeamEndmatchTeamvote;
+vmCvar_t	g_endmatchSomeoneLeftDrawVote;
 
 vmCvar_t	g_duplicateNamesId;
 
@@ -1074,6 +1075,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_enforceEvenVotersCount, "g_enforceEvenVotersCount", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_minVotersForEvenVotersCount, "g_minVotersForEvenVotersCount", "7", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_losingTeamEndmatchTeamvote, "g_losingTeamEndmatchTeamvote", "2", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_endmatchSomeoneLeftDrawVote, "g_endmatchSomeoneLeftDrawVote", "1", CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_duplicateNamesId, "g_duplicateNamesId", "1", CVAR_ARCHIVE, 0, qtrue },
 
@@ -3768,9 +3770,13 @@ void BeginIntermission(void) {
 		// (accounts for subs, ragequits, random joins... 0.1 represents 2 mins of a 20 mins pug)
 #ifdef DEBUG_CTF_POSITION_STATS
 		if (level.wasRestarted) {
+
 			G_PostScoreboardToWebhook(statsBuf);
-			G_DBAddCurrentMapToPlayedMapsList();
-			if (!InstagibEnabled()) {
+
+			if (level.time - level.startTime >= (1000 * 60 * 10))
+				G_DBAddCurrentMapToPlayedMapsList(); // only if at least 10 mins played
+
+			if (!InstagibEnabled() && level.teamScores[TEAM_RED] != level.teamScores[TEAM_BLUE] && !level.forceEndMatchInDraw) {
 				G_DBWritePugStats();
 				G_DBSetMetadata("shouldReloadPlayerPugStats", "2");
 
@@ -3795,9 +3801,13 @@ void BeginIntermission(void) {
 			// sanity check to make sure auto map vote works again after finishing a pug
 			trap_Cvar_Set("g_lastMapVotedMap", "");
 			trap_Cvar_Set("g_lastMapVotedTime", "");
+
 			G_PostScoreboardToWebhook(statsBuf);
-			G_DBAddCurrentMapToPlayedMapsList();
-			if (isLivePugNumPlayersPerTeam == 4 && !InstagibEnabled() && level.teamScores[TEAM_RED] != level.teamScores[TEAM_BLUE]) { // only write stats to db in untied non-instagib 4v4
+
+			if (level.time - level.startTime >= (1000 * 60 * 10))
+				G_DBAddCurrentMapToPlayedMapsList(); // only if at least 10 mins played
+
+			if (isLivePugNumPlayersPerTeam == 4 && !InstagibEnabled() && level.teamScores[TEAM_RED] != level.teamScores[TEAM_BLUE] && !level.forceEndMatchInDraw) { // only write stats to db in untied non-instagib 4v4
 				G_DBWritePugStats();
 				G_DBSetMetadata("shouldReloadPlayerPugStats", "2");
 

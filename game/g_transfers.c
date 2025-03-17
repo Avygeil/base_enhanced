@@ -86,15 +86,15 @@ void G_PostScoreboardToWebhook(const char* stats) {
 	int redScore = level.teamScores[TEAM_RED];
 	int blueScore = level.teamScores[TEAM_BLUE];
 
-	// decimal color code of the msg depending on who won
-	int msgColor;
-	if (redScore > blueScore) {
-		msgColor = 16711680;
-	} else if (blueScore > redScore) {
-		msgColor = 255;
-	} else {
-		msgColor = -1;
-	}
+    // hexadecimal color code of the msg depending on who won
+    int msgColor;
+    if (redScore > blueScore) {
+        msgColor = 0xFF0000;
+    } else if (blueScore > redScore) {
+        msgColor = 0x0000FF;
+    } else {
+        msgColor = 0xFFFF00;
+    }
 
 	// build a list of players in each team
 	char redTeam[256] = { 0 }, blueTeam[256] = { 0 };
@@ -165,16 +165,25 @@ void G_PostScoreboardToWebhook(const char* stats) {
 				{
 					{
 						cJSON* redField = cJSON_CreateObject();
-						char *redEmoji = redScore > blueScore ? ":trophy:" : (redScore == blueScore ? ":handshake:" : "");
-						cJSON_AddStringToObject(redField, "name", va("RED: %d%s", redScore, redEmoji));
+						if (level.forceEndMatchInDraw) {
+							cJSON_AddStringToObject(redField, "name", "RED: DRAW :handshake:");
+						}
+						else {
+							char *redEmoji = redScore > blueScore ? ":trophy:" : (redScore == blueScore ? ":handshake:" : "");
+							cJSON_AddStringToObject(redField, "name", va("RED: %d%s", redScore, redEmoji));
+						}
 						cJSON_AddStringToObject(redField, "value", redTeam);
 						cJSON_AddBoolToObject(redField, "inline", cJSON_True);
 						cJSON_AddItemToArray(fields, redField);
 					}
 					{
 						cJSON* blueField = cJSON_CreateObject();
-						char *blueEmoji = blueScore > redScore ? ":trophy:" : (blueScore == redScore ? ":handshake:" : "");
-						cJSON_AddStringToObject(blueField, "name", va("BLUE: %d%s", blueScore, blueEmoji));
+                        if (level.forceEndMatchInDraw) {
+                            cJSON_AddStringToObject(blueField, "name", "BLUE: DRAW :handshake:");
+                        } else {
+                            char *blueEmoji = blueScore > redScore ? ":trophy:" : (blueScore == redScore ? ":handshake:" : "");
+                            cJSON_AddStringToObject(blueField, "name", va("BLUE: %d%s", blueScore, blueEmoji));
+                        }
 						cJSON_AddStringToObject(blueField, "value", blueTeam);
 						cJSON_AddBoolToObject(blueField, "inline", cJSON_True);
 						cJSON_AddItemToArray(fields, blueField);
@@ -182,8 +191,8 @@ void G_PostScoreboardToWebhook(const char* stats) {
 					{
 						if (VALIDSTRING(matchId)) {
 							cJSON* linkField = cJSON_CreateObject();
-							cJSON_AddStringToObject(linkField, "name", "Demoarchive link");
-							cJSON_AddStringToObject(linkField, "value", va(DEMOARCHIVE_MATCH_FORMAT"\n(May not work until uploaded)", matchId));
+							cJSON_AddStringToObject(linkField, "name", "Demo archive link");
+							cJSON_AddStringToObject(linkField, "value", va(DEMOARCHIVE_MATCH_FORMAT, matchId));
 							cJSON_AddItemToArray(fields, linkField);
 						}
 					}

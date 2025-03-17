@@ -29,6 +29,8 @@
 // Prototypes
 
 int OtherTeam(int team);
+int WinningTeam(void);
+int LosingTeam(void);
 const char *TeamName(int team);
 const char *OtherTeamName(int team);
 const char *TeamColorString(int team);

@@ -5673,6 +5673,18 @@ qboolean	ConsoleCommand( void ) {
         return qtrue;
     } 
 
+	if (!Q_stricmp(cmd, "drawmatch"))
+	{
+#ifdef NEWMOD_SUPPORT
+		trap_SendServerCommand(-1, "kls -1 -1 \"em\" 1");
+#endif
+		trap_SendServerCommand(-1, va("print \"Match forced to end in a draw.\n\""));
+		level.forceEndMatchInDraw = qtrue;
+		level.teamScores[TEAM_RED] = level.teamScores[TEAM_BLUE] = 0;
+		LogExit("Match forced to end in a draw.");
+		return qtrue;
+	}
+
 	if ( !Q_stricmp( cmd, "lockteams" ) )
 	{
 		Svcmd_LockTeams_f();

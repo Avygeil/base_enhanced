@@ -37,6 +37,20 @@ int OtherTeam(int team) {
 	return team;
 }
 
+int WinningTeam(void) {
+    if (g_gametype.integer < GT_TEAM)
+		return 0;
+
+	if (level.teamScores[TEAM_RED] == level.teamScores[TEAM_BLUE])
+		return 0;
+
+    return (level.teamScores[TEAM_RED] > level.teamScores[TEAM_BLUE]) ? TEAM_RED : TEAM_BLUE;
+}
+
+int LosingTeam(void) {
+	return OtherTeam(WinningTeam());
+}
+
 const char *TeamName(int team)  {
 	if (team==TEAM_RED)
 		return "RED";

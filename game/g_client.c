@@ -2586,10 +2586,8 @@ void ClientUserinfoChanged( int clientNum ) {
 				// decide if we override the normal DB streak:
 				assert(!(redWon && blueWon));
 				if (redWon || blueWon) {
-					if (
-						(redWon && client->sess.sessionTeam == TEAM_RED) ||
-						(blueWon && client->sess.sessionTeam == TEAM_BLUE)
-						) {
+					if (client->stats && client->stats->ticksNotPaused >= (g_svfps.integer * 60) &&
+						((redWon && client->sess.sessionTeam == TEAM_RED) || (blueWon && client->sess.sessionTeam == TEAM_BLUE))) {
 						// they won; display one higher than the DB says we should (we're still on intermission; DB hasn't updated yet)
 						displayStreak++;
 					}

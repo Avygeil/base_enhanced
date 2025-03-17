@@ -2257,6 +2257,9 @@ typedef struct {
 
 	list_t winStreaksPostList;
 	int winStreakListPostTime;
+
+	qboolean forceEndMatchInDraw;
+	int fastestPossibleCaptureTime;
 } level_locals_t;
 
 
@@ -3486,6 +3489,7 @@ extern vmCvar_t		g_minimumVotesCount;
 extern vmCvar_t		g_enforceEvenVotersCount;
 extern vmCvar_t		g_minVotersForEvenVotersCount;
 extern vmCvar_t		g_losingTeamEndmatchTeamvote;
+extern vmCvar_t		g_endmatchSomeoneLeftDrawVote;
 
 extern vmCvar_t		g_duplicateNamesId;
 

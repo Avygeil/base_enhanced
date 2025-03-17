@@ -4853,11 +4853,17 @@ void Cmd_CallVote_f( gentity_t *ent, int pause ) {
 	}
 	else if ( !Q_stricmp( arg1, "endmatch" )) 
 	{
-		int numRed, numBlue;
-		CountPlayers(NULL, &numRed, &numBlue, NULL, NULL, NULL, NULL);
-		if (g_losingTeamEndmatchTeamvote.integer > 0 && numRed >= 3 && numBlue >= 3 && numRed == numBlue && level.teamScores[TEAM_RED] != level.teamScores[TEAM_BLUE] &&
-			abs(level.teamScores[TEAM_RED] - level.teamScores[TEAM_BLUE]) >= g_losingTeamEndmatchTeamvote.integer &&
-			g_gametype.integer >= GT_TEAM && g_gametype.integer != GT_SIEGE) {
+		int numOfTeam[TEAM_NUM_TEAMS] = { 0 };
+		CountPlayers(NULL, &numOfTeam[TEAM_RED], &numOfTeam[TEAM_BLUE], NULL, NULL, NULL, NULL);
+
+        const float avgRed = level.numTeamTicks ? (float)level.numRedPlayerTicks / (float)level.numTeamTicks : 0;
+        const float avgBlue = level.numTeamTicks ? (float)level.numBluePlayerTicks / (float)level.numTeamTicks : 0;
+		const int avgRedInt = (int)lroundf(avgRed);
+		const int avgBlueInt = (int)lroundf(avgBlue);
+
+		if (g_losingTeamEndmatchTeamvote.integer > 0 && numOfTeam[TEAM_RED] >= 3 && numOfTeam[TEAM_BLUE] >= 3 && numOfTeam[TEAM_RED] == numOfTeam[TEAM_BLUE] && level.teamScores[TEAM_RED] != level.teamScores[TEAM_BLUE] &&
+			abs(level.teamScores[TEAM_RED] - level.teamScores[TEAM_BLUE]) >= g_losingTeamEndmatchTeamvote.integer && avgRedInt >= 3 && avgRedInt == avgBlueInt &&
+			g_gametype.integer >= GT_TEAM && g_gametype.integer != GT_SIEGE && level.wasRestarted) {
 
 			const int losingTeam = level.teamScores[TEAM_RED] < level.teamScores[TEAM_BLUE] ? TEAM_RED : TEAM_BLUE;
 			if (ent->client->sess.sessionTeam != losingTeam) {
@@ -4876,10 +4882,69 @@ void Cmd_CallVote_f( gentity_t *ent, int pause ) {
 
 			onlyThisTeamCanVote = losingTeam;
 		}
+		else if (g_endmatchSomeoneLeftDrawVote.integer &&
+			level.teamScores[TEAM_RED] != level.teamScores[TEAM_BLUE] &&
+			WinningTeam() != LosingTeam() && // sanity check
+			numOfTeam[WinningTeam()] < numOfTeam[LosingTeam()] &&
+			avgRedInt >= 3 && avgRedInt == avgBlueInt &&
+			numOfTeam[LosingTeam()] == avgRedInt &&
+			g_gametype.integer >= GT_TEAM && g_gametype.integer != GT_SIEGE &&
+			level.wasRestarted) {
+			const int remainingTime = (g_timelimit.integer * 60000) - (level.time - level.startTime);
+			const int scoreDiff = level.teamScores[WinningTeam()] - level.teamScores[LosingTeam()];
+			int timeRequiredToCatchUp = 0;
+			if (scoreDiff > 0) {
+				int firstCaptureTime = level.fastestPossibleCaptureTime;
+
+				// look for a flag carrier on the losing team
+				gentity_t *losingFlagCarrier = NULL;
+				for (int i = 0; i < MAX_CLIENTS; i++) {
+					gentity_t *ent = &g_entities[i];
+					if (ent && ent->client && ent->client->pers.connected == CON_CONNECTED && ent->client->sess.sessionTeam == LosingTeam() && HasFlag(ent)) {
+						losingFlagCarrier = ent;
+						break;
+					}
+				}
+
+				if (losingFlagCarrier) {
+					const float location = Com_Clamp(0.0f, 1.0f, GetCTFLocationValue(losingFlagCarrier));
+					firstCaptureTime = (int)(roundf(((float)level.fastestPossibleCaptureTime) * location));
+					Com_DebugPrintf("^5FC Location: ^7%g\n", location);
+					Com_DebugPrintf("^5First capture time: ^7%d\n", firstCaptureTime);
+				}
+
+				// for additional scores beyond the first, assume full capture time
+				timeRequiredToCatchUp = firstCaptureTime + ((scoreDiff - 1) * level.fastestPossibleCaptureTime);
+			}
+			else {
+				assert(qfalse); // ???
+				timeRequiredToCatchUp = scoreDiff * level.fastestPossibleCaptureTime;
+			}
+
+			Com_DebugPrintf("^5Time: ^7%d\n", level.time - level.startTime);
+			Com_DebugPrintf("^5Team Scores: ^7Red: %d, Blue: %d\n", level.teamScores[TEAM_RED], level.teamScores[TEAM_BLUE]);
+			Com_DebugPrintf("^5Score Difference: ^7%d\n", scoreDiff);
+			Com_DebugPrintf("^5Number of Players: ^7Red: %d, Blue: %d\n", numOfTeam[TEAM_RED], numOfTeam[TEAM_BLUE]);
+			Com_DebugPrintf("^5Average Number of Players: ^7Red: %d, Blue: %d\n", avgRedInt, avgBlueInt);
+			Com_DebugPrintf("^5Remaining Time: ^7%d\n", remainingTime);
+			Com_DebugPrintf("^5Fastest possible capture time: ^7%d\n", level.fastestPossibleCaptureTime);
+			Com_DebugPrintf("^5Time Required to Catch Up: ^7%d\n", timeRequiredToCatchUp);
+
+			// if the remaining time is insufficient for the losing team to catch up, fall back to a regular end match vote.
+			if (remainingTime < timeRequiredToCatchUp) {
+				Com_sprintf(level.voteString, sizeof(level.voteString), "%s", arg1);
+				Com_sprintf(level.voteDisplayString, sizeof(level.voteDisplayString), "End Match");
+			}
+			else {
+				Com_sprintf(level.voteString, sizeof(level.voteString), "drawmatch");
+				Com_sprintf(level.voteDisplayString, sizeof(level.voteDisplayString), "Draw Match");
+			}
+		}
 		else {
 			Com_sprintf(level.voteString, sizeof(level.voteString), "%s", arg1);
 			Com_sprintf(level.voteDisplayString, sizeof(level.voteDisplayString), "End Match");
 		}
+
 	}
 	else if ( !Q_stricmp( arg1, "lockteams" ) )
 	{

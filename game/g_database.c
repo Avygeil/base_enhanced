@@ -6228,6 +6228,24 @@ static void GetMostPlayedPositions(void);
 #define FAST_START // uncomment to force loading from cache instead of recalculating
 #endif
 
+static void SetFastestPossibleCaptureTime(void) {
+	sqlite3_stmt *statement;
+	int result = 5000; // default to 5 seconds
+
+	int rc = trap_sqlite3_prepare_v2(dbPtr, "SELECT capture_time FROM fastcaps WHERE mapname = ?1 ORDER BY capture_time ASC LIMIT 1;", -1, &statement, 0);
+
+	sqlite3_bind_text(statement, 1, level.mapname, -1, SQLITE_STATIC);
+
+	rc = trap_sqlite3_step(statement);
+
+	if (rc == SQLITE_ROW)
+		result = sqlite3_column_int(statement, 0);
+
+	trap_sqlite3_finalize(statement);
+
+	level.fastestPossibleCaptureTime = result;
+}
+
 // we recalculate everything from scratch if and only if the server has just been restarted and there are changes actually pending (shouldReloadPlayerPugStats metadata is set)
 // otherwise, we just load the cached strings from the database for speed
 void G_DBInitializePugStatsCache(void) {
@@ -6344,6 +6362,8 @@ void G_DBInitializePugStatsCache(void) {
 	GetStreaks();
 	Com_Printf("Recalculated win streaks from db (took %d ms)\n", trap_Milliseconds() - lastTime);
 	lastTime = trap_Milliseconds();
+
+	SetFastestPossibleCaptureTime();
 
 	Com_Printf("Finished initializing pug stats cache (took %d ms total)\n", trap_Milliseconds() - start);
 }
