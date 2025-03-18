@@ -1329,7 +1329,7 @@ typedef struct {
 // g_teamgen.c
 //
 #define TEAMGEN_CHAT_COMMAND_CHARACTER		'?'
-
+#define TEAMGEN_UNRATED_STRING "^9UNRATED"
 typedef struct {
 	double rawStrength;
 	double relativeStrength;

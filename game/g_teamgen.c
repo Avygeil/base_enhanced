@@ -117,7 +117,7 @@ char *PlayerRatingToString(ctfPlayerTier_t tier) {
 	case PLAYERRATING_LOW_X: return "^4LOW X";
 	case PLAYERRATING_MID_X: return "^4X";
 	case PLAYERRATING_HIGH_X: return "^4HIGH X";
-	default: return "^9UNRATED";
+	default: return TEAMGEN_UNRATED_STRING;
 	}
 }
 

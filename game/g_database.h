@@ -452,6 +452,7 @@ typedef struct {
 	double datetime;
 } playerRatingHistoryEntry_t;
 list_t *G_DBGetPlayerRatingHistory(int rateeAccountId, ctfPosition_t pos, int raterAccountId);
+qboolean G_DBGetWinrateBetweenDates(double startTime, double endTime, int accountId, ctfPosition_t pos, int *pugsOut, int *winsOut);
 
 int DB_GetStreakForAccountID(int accountId);
 

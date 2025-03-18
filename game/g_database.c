@@ -6815,14 +6815,14 @@ qboolean G_DBGetWinrateSince(const char *name, const int accountId, const ctfPos
 			double daysInSeconds = atof(daysStr) * 86400; // convert days to seconds
 			double since = time(NULL) - daysInSeconds;
 			EpochToHumanReadable(since, sinceStr, sizeof(sinceStr));
-			OutOfBandPrint(raterClientNum, "^5%s %s ^7since ^3%s days ago^7 (%s):   ^5%d^7 matches, ^5%d^7 wins, ^5%g^7'/. winrate\n", name, NameForPos(pos), daysStr, sinceStr, total_matches, wins, winrate * 100.0);
+			OutOfBandPrint(raterClientNum, "^5%s %s ^7since ^3%s days ago^7 (%s):   ^5%d^7 pugs, ^5%d^7 wins, ^5%g^7'/. winrate\n", name, NameForPos(pos), daysStr, sinceStr, total_matches, wins, winrate * 100.0);
 		}
 		else {
 			double date = sqlite3_column_double(statement, 3);
 			EpochToHumanReadable(date, sinceStr, sizeof(sinceStr));
 			double secondsDifference = difftime(time(NULL), (time_t)date);
 			double days = secondsDifference / (24 * 3600);
-			OutOfBandPrint(raterClientNum, "^5%s %s ^7since ^6last rated %.1f days ago^7 (on (%s)):   ^5%d^7 matches, ^5%d^7 wins, ^5%g^7'/. winrate\n", name, NameForPos(pos), days, sinceStr, total_matches, wins, winrate * 100.0);
+			OutOfBandPrint(raterClientNum, "^5%s %s ^7since ^6last rated %.1f days ago^7 (on %s):   ^5%d^7 pugs, ^5%d^7 wins, ^5%g^7'/. winrate\n", name, NameForPos(pos), days, sinceStr, total_matches, wins, winrate * 100.0);
 		}
 	}
 	else {
@@ -8157,4 +8157,87 @@ list_t *G_DBGetPlayerRatingHistory(int rateeAccountId, ctfPosition_t pos, int ra
 	}
 
 	return historyList;
+}
+
+static const char *const sqlGetWinrateBetweenDates =
+"WITH FilteredPugs AS ("
+"    SELECT match_id "
+"    FROM pugs "
+"    WHERE CAST(datetime AS REAL) >= ?1 "
+"      AND CAST(datetime AS REAL) < ?2 "
+"      AND red_score != blue_score"
+"), "
+"RelevantRecords AS ("
+"    SELECT ptp.match_id, ptp.session_id, ptp.team, ptp.pos, ptp.duration "
+"    FROM playerpugteampos ptp "
+"    INNER JOIN sessions s ON ptp.session_id = s.session_id "
+"    JOIN FilteredPugs fp ON ptp.match_id = fp.match_id "
+"    WHERE s.account_id = ?3"
+"), "
+"MaxDurationRecords AS ("
+"    SELECT match_id, session_id, team, pos, MAX(duration) AS max_duration "
+"    FROM RelevantRecords "
+"    GROUP BY match_id"
+"), "
+"FilteredByPosition AS ("
+"    SELECT * "
+"    FROM MaxDurationRecords "
+"    WHERE pos = ?4"
+"), "
+"WinningMatches AS ("
+"    SELECT COUNT(*) AS wins "
+"    FROM FilteredByPosition fbp "
+"    JOIN pugs p ON fbp.match_id = p.match_id "
+"    WHERE fbp.team = p.win_team"
+"), "
+"TotalMatches AS ("
+"    SELECT COUNT(*) AS total "
+"    FROM FilteredByPosition"
+") "
+"SELECT "
+"    IFNULL((SELECT total FROM TotalMatches), 0) AS totalMatches, "
+"    IFNULL((SELECT wins FROM WinningMatches), 0) AS totalWins;";
+
+qboolean G_DBGetWinrateBetweenDates(double startTime,
+	double endTime,
+	int accountId,
+	ctfPosition_t pos,
+	int *pugsOut,
+	int *winsOut)
+{
+	if (!pugsOut || !winsOut) {
+		// Defensive check in case someone passed in NULL
+		return qfalse;
+	}
+
+	sqlite3_stmt *statement = NULL;
+
+	// Prepare the query above
+	trap_sqlite3_prepare_v2(dbPtr, sqlGetWinrateBetweenDates, -1, &statement, NULL);
+
+	// Bind the parameters:
+	//   ?1 = startTime
+	//   ?2 = endTime
+	//   ?3 = accountId
+	//   ?4 = pos
+	sqlite3_bind_double(statement, 1, startTime);
+	sqlite3_bind_double(statement, 2, endTime);
+	sqlite3_bind_int(statement, 3, accountId);
+	sqlite3_bind_int(statement, 4, pos);
+
+	int rc = trap_sqlite3_step(statement);
+	if (rc == SQLITE_ROW) {
+		// Column 0 is total matches, Column 1 is total wins
+		*pugsOut = sqlite3_column_int(statement, 0);
+		*winsOut = sqlite3_column_int(statement, 1);
+
+		trap_sqlite3_finalize(statement);
+		return qtrue; // We got valid data
+	}
+
+	// If we didn't get a row, or some error
+	trap_sqlite3_finalize(statement);
+	*pugsOut = 0;
+	*winsOut = 0;
+	return qfalse;
 }

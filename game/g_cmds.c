@@ -8055,33 +8055,96 @@ ctfPosition_t CtfPositionFromString(char *s) {
 	return CTFPOSITION_UNKNOWN;
 }
 
-const char *TableCallback_RatingDate(void *rowContext, void *columnContext) {
+typedef struct {
+	qboolean isRatingRow;
+	double   startTime;
+	double   endTime;
+	int      rating;
+	int      pugs;
+	int      wins;
+} ratingHistoryDisplayRow_t;
+
+const char *TableCallback_HistoryDate(void *rowContext, void *columnContext) {
 	if (!rowContext) {
 		assert(qfalse);
 		return NULL;
 	}
+	ratingHistoryDisplayRow_t *row = (ratingHistoryDisplayRow_t *)rowContext;
+	if (!row->isRatingRow)
+		return NULL;
 
-	playerRatingHistoryEntry_t *entry = rowContext;
-	if (entry->datetime) {
-		static char timeStr[128] = { 0 };
-		time_t rawtime = entry->datetime;
-		struct tm *timeinfo = localtime(&rawtime);
-		strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", timeinfo);
-		return timeStr;
-	}
-	else {
+	if (!row->startTime || row->startTime == -1)
 		return "(Precedes date logging)";
-	}
+
+	time_t rawtime = (time_t)row->startTime;
+	struct tm *timeinfo = localtime(&rawtime);
+
+	if (!timeinfo)
+		return "(Precedes date logging)";
+
+	static char dateBuf[128];
+	memset(dateBuf, 0, sizeof(dateBuf));
+	strftime(dateBuf, sizeof(dateBuf), "%Y-%m-%d %H:%M:%S", timeinfo);
+
+	if (!Q_stricmpn(dateBuf, "1969-", 5))
+		return "(Precedes date logging)"; // sanity check
+
+	return dateBuf;
 }
 
-const char *TableCallback_RatingRating(void *rowContext, void *columnContext) {
+const char *TableCallback_HistoryRating(void *rowContext, void *columnContext) {
 	if (!rowContext) {
 		assert(qfalse);
 		return NULL;
 	}
+	ratingHistoryDisplayRow_t *row = (ratingHistoryDisplayRow_t *)rowContext;
+	if (!row->isRatingRow)
+		return "";
 
-	playerRatingHistoryEntry_t *entry = rowContext;
-	return PlayerRatingToString(entry->rating);
+	char *ratingStr = PlayerRatingToString(row->rating);
+	if (!VALIDSTRING(ratingStr) || !Q_stricmp(ratingStr, TEAMGEN_UNRATED_STRING))
+		return "Unknown/multiple";
+
+	if (!row->startTime || row->startTime == -1)
+		return va("Multiple? (last %s^7)", ratingStr);
+
+	return ratingStr;
+}
+
+const char *TableCallback_HistoryMatches(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	ratingHistoryDisplayRow_t *row = (ratingHistoryDisplayRow_t *)rowContext;
+	if (row->isRatingRow)
+		return "";
+	if (row->pugs == 0)
+		return "(no pugs played)";
+	return va("%d", row->pugs);
+}
+
+const char *TableCallback_HistoryWins(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	ratingHistoryDisplayRow_t *row = (ratingHistoryDisplayRow_t *)rowContext;
+	if (row->isRatingRow || row->pugs == 0)
+		return "";
+	return va("%d", row->wins);
+}
+
+const char *TableCallback_HistoryWinrate(void *rowContext, void *columnContext) {
+	if (!rowContext) {
+		assert(qfalse);
+		return NULL;
+	}
+	ratingHistoryDisplayRow_t *row = (ratingHistoryDisplayRow_t *)rowContext;
+	if (row->isRatingRow || row->pugs == 0)
+		return "";
+	float wr = (row->wins * 100.0f) / row->pugs;
+	return va("^5%g^7'/.", wr);
 }
 
 static void PrintRateHelp(int clientNum) {
@@ -8094,8 +8157,7 @@ static void PrintRateHelp(int clientNum) {
 		"^7rating reset [pos]                     - delete all ratings for a certain position\n"
 		"^9rating reset all                       - delete all ratings\n"
 		"\n"
-		"^7rating winrate [player] [pos] <# days> - view winrate since X days ago (leave blank for last rated date)\n"
-		"^9rating history [player] [pos]          - view rating history^7\n"
+		"^7rating winrate [player] [pos] <# days> - view rating history, and winrate since X days ago (leave blank for last rated date)\n"
 		"\n"
 		"  - Skill levels should be equivalent between positions; i.e. S tier base == S tier chase == S tier offense. Your ratings may skew higher or lower for some positions -- do not simply assign tiers based on a curve for each position.\n"
 		"  - Only rate players on positions you have observed them play at least once. Leave people unrated on positions you haven't seen them play.^7\n"
@@ -8149,7 +8211,7 @@ static void Cmd_Rating_f(gentity_t *ent) {
 		else
 			OutOfBandPrint(clientNum, "Error deleting all ratings!\n");
 	}
-	else if (stristr(arg1, "winrate")) {
+	else if (stristr(arg1, "rate") || stristr(arg1, "hist")) {
 		if (!arg2[0] || !arg3[0]) {
 			OutOfBandPrint(clientNum, "Usage: rating winrate [player] [pos] <# days (leave blank for last rated date)>\n");
 			return;
@@ -8178,51 +8240,107 @@ static void Cmd_Rating_f(gentity_t *ent) {
 		else {
 			G_DBGetWinrateSince(acc.name, acc.id, pos, NULL, ent - g_entities);
 		}
-	}
-	else if (!Q_stricmp(arg1, "history")) {
-		if (!arg2[0] || !arg3[0]) {
-			OutOfBandPrint(clientNum, "Usage: rating history [player] [pos]\n");
-			return;
-		}
-
-		account_t acc = { 0 };
-		qboolean found = G_DBGetAccountByName(arg2, &acc);
-		if (!found) {
-			OutOfBandPrint(clientNum, va("No account found matching '%s^7'. Try checking /rating list.\n", arg2));
-			return;
-		}
-
-		ctfPosition_t pos = CtfPositionFromString(arg3);
-		if (!pos) {
-			OutOfBandPrint(clientNum, va("'%s^7' is not a valid position. Positions can be base, chase, or offense.\n", arg3));
-			return;
-		}
 
 		list_t *historyList = G_DBGetPlayerRatingHistory(acc.id, pos, ent->client->account->id);
-		if (historyList && historyList->size > 0) {
-			Table *t = Table_Initialize(qtrue);
+		if (!historyList || historyList->size == 0) {
+			if (historyList) {
+				ListClear(historyList);
+				free(historyList);
+			}
+			OutOfBandPrint(clientNum, "No rating history found for ^5%s^7 on ^5%s^7.\n", acc.name, NameForPos(pos));
+			return;
+		}
 
-			iterator_t iter;
-			ListIterate(historyList, &iter, qfalse);
-			while (IteratorHasNext(&iter)) {
-				playerRatingHistoryEntry_t *entry = (playerRatingHistoryEntry_t *)IteratorNext(&iter);
-				Table_DefineRow(t, entry);
+#define MAX_HISTORY_ROWS  (1024)
+		ratingHistoryDisplayRow_t rowData[MAX_HISTORY_ROWS];
+		memset(rowData, 0, sizeof(rowData));
+		int rowCount = 0;
+
+		// check if the first entry has a valid datetime (i.e. has a date logged)
+		playerRatingHistoryEntry_t *firstEntry = (playerRatingHistoryEntry_t *)historyList->head;
+		if (firstEntry && firstEntry->datetime > 0) {
+			// insert a dummy rating row that prints "(Precedes date logging)"
+			if (rowCount < MAX_HISTORY_ROWS) {
+				ratingHistoryDisplayRow_t *dr = &rowData[rowCount++];
+				dr->isRatingRow = qtrue;
+				dr->startTime = 0.0; // marker value
+				dr->rating = -1;
+			}
+			// now add the winrate row for pugs played from unix epoch 0 up to the first valid rating's datetime
+			int pugs = 0, wins = 0;
+			G_DBGetWinrateBetweenDates(0, firstEntry->datetime, acc.id, pos, &pugs, &wins);
+			if (pugs > 0 && rowCount < MAX_HISTORY_ROWS) {
+				ratingHistoryDisplayRow_t *sr = &rowData[rowCount++];
+				sr->isRatingRow = qfalse;
+				sr->startTime = 0.0;
+				sr->endTime = firstEntry->datetime;
+				sr->pugs = pugs;
+				sr->wins = wins;
+			}
+		}
+
+		playerRatingHistoryEntry_t *prevRating = NULL;
+		iterator_t it;
+		ListIterate(historyList, &it, qfalse);
+		while (IteratorHasNext(&it)) {
+			playerRatingHistoryEntry_t *thisRating = (playerRatingHistoryEntry_t *)IteratorNext(&it);
+
+			if (prevRating) {
+				int pugs = 0, wins = 0;
+				G_DBGetWinrateBetweenDates(prevRating->datetime, thisRating->datetime, acc.id, pos, &pugs, &wins);
+				if (rowCount < MAX_HISTORY_ROWS) {
+					ratingHistoryDisplayRow_t *sr = &rowData[rowCount++];
+					sr->isRatingRow = qfalse;
+					sr->startTime = prevRating->datetime;
+					sr->endTime = thisRating->datetime;
+					sr->pugs = pugs;
+					sr->wins = wins;
+				}
 			}
 
-			Table_DefineColumn(t, "Date", TableCallback_RatingDate, NULL, qtrue, -1, 64);
-			Table_DefineColumn(t, "Rating", TableCallback_RatingRating, NULL, qtrue, -1, 64);
+			if (rowCount < MAX_HISTORY_ROWS) {
+				ratingHistoryDisplayRow_t *rr = &rowData[rowCount++];
+				rr->isRatingRow = qtrue;
+				rr->startTime = thisRating->datetime;
+				rr->rating = thisRating->rating;
+			}
 
-			char buf[4096] = { 0 };
-			Table_WriteToBuffer(t, buf, sizeof(buf), qtrue, -1);
-			OutOfBandPrint(clientNum, "Rating history for ^5%s^7 on ^5%s^7:\n%s", acc.name, NameForPos(pos), buf);
-			Table_Destroy(t);
+			prevRating = thisRating;
+		}
 
-			ListClear(historyList);
-			free(historyList);
+		if (prevRating && rowCount < MAX_HISTORY_ROWS) {
+			int pugs = 0, wins = 0;
+			double nowTime = (double)time(NULL);
+			G_DBGetWinrateBetweenDates(prevRating->datetime, nowTime, acc.id, pos, &pugs, &wins);
+			ratingHistoryDisplayRow_t *sr = &rowData[rowCount++];
+			sr->isRatingRow = qfalse;
+			sr->startTime = prevRating->datetime;
+			sr->endTime = 0.0;  // indicates "-> now"
+			sr->pugs = pugs;
+			sr->wins = wins;
 		}
-		else {
-			OutOfBandPrint(clientNum, "No rating history found for ^5%s^7 on ^5%s^7.\n", acc.name, NameForPos(pos));
+
+		Table *t = Table_Initialize(qfalse);
+		for (int i = 0; i < rowCount; i++) {
+			Table_DefineRow(t, &rowData[i]);
 		}
+
+		Table_DefineColumn(t, "Date", TableCallback_HistoryDate, NULL, qtrue, -1, 24);
+		Table_DefineColumn(t, "Rating", TableCallback_HistoryRating, NULL, qtrue, -1, 8);
+		Table_DefineColumn(t, "Pugs", TableCallback_HistoryMatches, NULL, qtrue, -1, 16);
+		Table_DefineColumn(t, "Wins", TableCallback_HistoryWins, NULL, qtrue, -1, 8);
+		Table_DefineColumn(t, "Winrate", TableCallback_HistoryWinrate, NULL, qtrue, -1, 10);
+
+		char buf[8192];
+		memset(buf, 0, sizeof(buf));
+		Table_WriteToBuffer(t, buf, sizeof(buf), qtrue, -1);
+
+		OutOfBandPrint(clientNum, "Detailed rating history for ^5%s^7 on ^5%s^7:\n%s",
+			acc.name, NameForPos(pos), buf);
+
+		ListClear(historyList);
+		free(historyList);
+		Table_Destroy(t);
 	}
 	else if (CtfPositionFromString(arg1) == CTFPOSITION_BASE) {
 		G_DBListRatingPlayers(ent->client->account->id, clientNum, CTFPOSITION_BASE);
