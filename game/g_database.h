@@ -456,4 +456,6 @@ qboolean G_DBGetWinrateBetweenDates(double startTime, double endTime, int accoun
 
 int DB_GetStreakForAccountID(int accountId);
 
+qboolean DB_IsPlayerRusty(int accountId);
+
 #endif //G_DATABASE_H

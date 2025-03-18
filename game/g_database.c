@@ -4915,6 +4915,7 @@ qboolean G_DBWritePugStats(void) {
 	// get each unique player+pos+team combination
 	int totalBlocks = 0, totalPlayerPositions = 0, playerPositionsFailed = 0;
 	list_t gotPlayerAtPosOnTeamList = { 0 }, combinedStatsList = { 0 };
+	qboolean shouldReloadRust = qfalse;
 	for (int i = 0; i < 2; i++) {
 		iterator_t iter;
 		ListIterate(!i ? &level.savedStatsList : &level.statsList, &iter, qfalse);
@@ -4933,6 +4934,11 @@ qboolean G_DBWritePugStats(void) {
 			add->isBot = found->isBot;
 			add->team = found->lastTeam;
 			add->pos = found->finalPosition;
+
+			if (found->accountId != ACCOUNT_ID_UNLINKED && !shouldReloadRust && DB_IsPlayerRusty(found->accountId)) {
+				G_DBSetMetadata("shouldReloadRust", "1");
+				shouldReloadRust = qtrue;
+			}
 
 			stats_t *s = ListAdd(&combinedStatsList, sizeof(stats_t));
 			AddStatsToTotal(found, s, STATS_TABLE_GENERAL, NULL);
@@ -4967,6 +4973,12 @@ qboolean G_DBWritePugStats(void) {
 					AddStatsToTotal(found2, s, STATS_TABLE_FORCE, NULL);
 					AddStatsToTotal(found2, s, STATS_TABLE_ACCURACY, NULL);
 					s->ticksNotPaused += found2->ticksNotPaused;
+
+					if (found2->accountId != ACCOUNT_ID_UNLINKED && !shouldReloadRust && DB_IsPlayerRusty(found2->accountId)) {
+						G_DBSetMetadata("shouldReloadRust", "1");
+						shouldReloadRust = qtrue;
+					}
+
 					++numBlocks;
 				}
 			}
@@ -6124,19 +6136,24 @@ static qboolean RustyPlayerMatches(genericNode_t *node, void *userData) {
 	return qtrue;
 }
 
-static void GetRustiness(void) {
+static int RecalculateRustiness(void) {
 	ListClear(&level.rustyPlayersList);
+	G_DBDeleteMetadataStartingWith("rusty_");
+
 	if (g_vote_teamgen_rustWeeks.integer <= 0)
-		return;
+		return 0;
 
 	sqlite3_stmt *outerStatement;
-	trap_sqlite3_prepare_v2(dbPtr, "SELECT accounts.name, accounts.account_id, accounts.created_on, strftime('%s', 'now') FROM accounts", -1, &outerStatement, 0);
+	trap_sqlite3_prepare_v2(dbPtr,
+		"SELECT accounts.name, accounts.account_id, accounts.created_on, strftime('%s', 'now') FROM accounts",
+		-1, &outerStatement, 0);
 	int outerRc = trap_sqlite3_step(outerStatement);
-	while (outerRc == SQLITE_ROW) { // loop through each account
+	int count = 0;
+	while (outerRc == SQLITE_ROW) {
 		const char *name = (const char *)sqlite3_column_text(outerStatement, 0);
-		const int accountId = sqlite3_column_int(outerStatement, 1);
-		const int created_on = sqlite3_column_int(outerStatement, 2);
-		const int now = sqlite3_column_int(outerStatement, 3);
+		int accountId = sqlite3_column_int(outerStatement, 1);
+		int created_on = sqlite3_column_int(outerStatement, 2);
+		int now = sqlite3_column_int(outerStatement, 3);
 
 		if (now - created_on >= (60 * 60 * 24 * 7 * g_vote_teamgen_rustWeeks.integer)) {
 			qboolean isRusty = qfalse;
@@ -6151,23 +6168,59 @@ static void GetRustiness(void) {
 					isRusty = qtrue;
 			}
 			else {
-				isRusty = /*qtrue*/qfalse; // no pug history in db
+				isRusty = qfalse; // no pug history in db
 			}
 			trap_sqlite3_finalize(innerStatement);
 
 			if (isRusty) {
-#ifdef DEBUG_RUST
-				Com_Printf("GetRustiness: got rusty player %d (%s)\n", accountId, name);
-#endif
+				G_DBSetMetadata(va("rusty_%d", accountId), "1");
+
 				rustyPlayer_t *add = ListAdd(&level.rustyPlayersList, sizeof(rustyPlayer_t));
-				add->accountId = accountId;
+				if (add)
+					add->accountId = accountId;
+
+				++count;
 			}
 		}
-
 		outerRc = trap_sqlite3_step(outerStatement);
 	}
 
 	trap_sqlite3_finalize(outerStatement);
+
+	return count;
+}
+
+static int GetCachedRustiness(void) {
+	ListClear(&level.rustyPlayersList);
+
+	const char *sqlGetAllRusty = "SELECT key, value FROM metadata WHERE key LIKE 'rusty_%';";
+	sqlite3_stmt *statement = NULL;
+	int rc = trap_sqlite3_prepare_v2(dbPtr, sqlGetAllRusty, -1, &statement, 0);
+	if (rc != SQLITE_OK) {
+		assert(qfalse);
+		return 0;
+	}
+	rc = trap_sqlite3_step(statement);
+	int count = 0;
+	while (rc == SQLITE_ROW) {
+		const char *key = (const char *)sqlite3_column_text(statement, 0);
+		const char *value = (const char *)sqlite3_column_text(statement, 1);
+		if (VALIDSTRING(key) && VALIDSTRING(value) &&
+			!Q_stricmpn(key, "rusty_", 6) && *(key + 6)) {
+			int accountId = atoi(key + 6);
+			if (atoi(value)) {
+				rustyPlayer_t *entry = ListAdd(&level.rustyPlayersList, sizeof(rustyPlayer_t));
+				if (entry)
+					entry->accountId = accountId;
+				++count;
+			}
+		}
+		rc = trap_sqlite3_step(statement);
+	}
+
+	trap_sqlite3_finalize(statement);
+
+	return count;
 }
 
 typedef struct accountStreak_s {
@@ -6454,7 +6507,7 @@ void G_DBInitializePugStatsCache(void) {
 	else {
 		const int cachedStreaks = GetCachedStreaks();
 		if (cachedStreaks) {
-			Com_Printf("Loaded win streaks cache from db (took %d ms)\n", trap_Milliseconds() - lastTime);
+			Com_Printf("Loaded %d cached win streaks from db (took %d ms)\n", cachedStreaks, trap_Milliseconds() - lastTime);
 			lastTime = trap_Milliseconds();
 		}
 		else {
@@ -6465,13 +6518,31 @@ void G_DBInitializePugStatsCache(void) {
 		}
 	}
 
-	// these two calls are always done, whether we recalculated or not
+	// rusty players are handled specially
+	int reloadRust = G_DBGetMetadataInteger("shouldReloadRust");
+	if (reloadRust || recalc) {
+		const int recalculatedRust = RecalculateRustiness();
+		Com_Printf("Recalculated %d rusty players from db (took %d ms)\n", recalculatedRust, trap_Milliseconds() - lastTime);
+		G_DBSetMetadata("shouldReloadRust", "0");
+		lastTime = trap_Milliseconds();
+	}
+	else {
+		const int cachedRust = GetCachedRustiness();
+		if (cachedRust) {
+			Com_Printf("Loaded %d cached rusty players from db (took %d ms)\n", cachedRust, trap_Milliseconds() - lastTime);
+			lastTime = trap_Milliseconds();
+		}
+		else {
+			const int recalculatedRust = RecalculateRustiness();
+			Com_Printf("Failed to load rusty players cache from db. Instead recalculated %d rusty players from db (took %d ms)\n", recalculatedRust, trap_Milliseconds() - lastTime);
+			G_DBSetMetadata("shouldReloadRust", "0");
+			lastTime = trap_Milliseconds();
+		}
+	}
+
+	// this last call is always done, whether we recalculated or not
 	GetMostPlayedPositions();
 	Com_Printf("Recalculated most played positions from db (took %d ms)\n", trap_Milliseconds() - lastTime);
-	lastTime = trap_Milliseconds();
-
-	GetRustiness();
-	Com_Printf("Recalculated rusty players from db (took %d ms)\n", trap_Milliseconds() - lastTime);
 	lastTime = trap_Milliseconds();
 
 	SetFastestPossibleCaptureTime();
@@ -6479,6 +6550,12 @@ void G_DBInitializePugStatsCache(void) {
 	Com_Printf("Finished initializing pug stats cache (took %d ms total)\n", trap_Milliseconds() - start);
 }
 
+qboolean DB_IsPlayerRusty(int accountId) {
+	if (accountId == ACCOUNT_ID_UNLINKED || !level.rustyPlayersList.size)
+		return qfalse;
+
+	return !!ListFind(&level.rustyPlayersList, RustyPlayerMatches, &accountId, NULL);
+}
 
 typedef struct {
 	node_t				node;
@@ -6512,8 +6589,7 @@ void G_DBListRatingPlayers(int raterAccountId, int raterClientNum, ctfPosition_t
 		Q_strncpyz(add->name, name, sizeof(add->name));
 
 		int accountId = sqlite3_column_int(statement, 2);
-		rustyPlayer_t *isRusty = ListFind(&level.rustyPlayersList, RustyPlayerMatches, &accountId, NULL);
-		if (isRusty)
+		if (DB_IsPlayerRusty(accountId))
 			Q_strcat(add->name, sizeof(add->name), "*");
 
 		add->tier = tier;
