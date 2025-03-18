@@ -6498,10 +6498,12 @@ void G_DBInitializePugStatsCache(void) {
 	int start = trap_Milliseconds();
 	int lastTime = start;
 
+	const qboolean serverStartup = (!level.wasRestarted && !g_notFirstMap.integer);
+
 	// reload if either a pug was played (shouldReloadPlayerPugStats 2) -or- it's been a while since we recalculated and an account<->session link has changed (shouldReloadPlayerPugStats 1)
 	qboolean pendingReload = qfalse;
 	const time_t currentTime = time(NULL);
-	if (!level.wasRestarted && !g_notFirstMap.integer) {
+	if (serverStartup) {
 #ifdef _DEBUG
 		if (0)
 #else
@@ -6533,7 +6535,7 @@ void G_DBInitializePugStatsCache(void) {
 		}
 	}
 
-	qboolean recalc = (!level.wasRestarted && !g_notFirstMap.integer && pendingReload);
+	qboolean recalc = (serverStartup && pendingReload);
 
 #if defined(_DEBUG) && defined(FAST_START)
 	if (didUpgrade) {
@@ -6578,7 +6580,7 @@ void G_DBInitializePugStatsCache(void) {
 		}
 	}
 
-	if (recalc && !level.wasRestarted && !g_notFirstMap.integer) {
+	if (recalc && serverStartup) {
 		RecalculatePositionStats();
 		Com_Printf("Recalculated position stats (took %d ms)\n", trap_Milliseconds() - lastTime);
 		lastTime = trap_Milliseconds();
@@ -6603,7 +6605,7 @@ void G_DBInitializePugStatsCache(void) {
 	
 	// win streaks
 	int reloadStreaks = G_DBGetMetadataInteger("shouldReloadStreaks");
-	if (reloadStreaks || recalc) {
+	if (reloadStreaks || recalc || serverStartup) {
 		const int recalculatedStreaks = RecalculateAndRecacheStreaks();
 		Com_Printf("Recalculated %d win streaks from db (took %d ms)\n", recalculatedStreaks, trap_Milliseconds() - lastTime);
 		G_DBSetMetadata("shouldReloadStreaks", "0");
@@ -6625,7 +6627,7 @@ void G_DBInitializePugStatsCache(void) {
 
 	// rusty players
 	int reloadRust = G_DBGetMetadataInteger("shouldReloadRust");
-	if (reloadRust || recalc) {
+	if (reloadRust || recalc || serverStartup) {
 		const int recalculatedRust = RecalculateRustiness();
 		Com_Printf("Recalculated %d rusty players from db (took %d ms)\n", recalculatedRust, trap_Milliseconds() - lastTime);
 		G_DBSetMetadata("shouldReloadRust", "0");
@@ -6647,7 +6649,7 @@ void G_DBInitializePugStatsCache(void) {
 
 	// most played positions
 	int reloadMostPlayed = G_DBGetMetadataInteger("shouldReloadMostPlayed");
-	if (reloadMostPlayed || recalc) {
+	if (reloadMostPlayed || recalc || serverStartup) {
 		const int recalculatedMostPlayed = RecalculateMostPlayedPositions();
 		Com_Printf("Recalculated %d accounts' most played positions from db (took %d ms)\n",
 			recalculatedMostPlayed, trap_Milliseconds() - lastTime);
