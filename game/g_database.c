@@ -6369,7 +6369,6 @@ int DB_GetStreakForAccountID(int accountId) {
 	return 0;
 }
 
-static void GetMostPlayedPositions(void);
 #ifdef _DEBUG
 #define FAST_START // uncomment to force loading from cache instead of recalculating
 #endif
@@ -6390,6 +6389,107 @@ static void SetFastestPossibleCaptureTime(void) {
 	trap_sqlite3_finalize(statement);
 
 	level.fastestPossibleCaptureTime = result;
+}
+
+extern qboolean MostPlayedPosMatches(genericNode_t *node, void *userData);
+const char *const sqlGetMostPlayedPos = "SELECT account_id, pos, RANK() OVER (PARTITION BY account_id ORDER BY pugs_played DESC, wins DESC) FROM accountstats;";
+// returns the number of distinct accounts loaded
+static int RecalculateMostPlayedPositions(void) {
+	ListClear(&level.mostPlayedPositionsList);
+	G_DBDeleteMetadataStartingWith("mostplayed_");
+
+	int accountCount = 0;
+	sqlite3_stmt *statement;
+	trap_sqlite3_prepare_v2(dbPtr, sqlGetMostPlayedPos, -1, &statement, 0);
+	int rc = trap_sqlite3_step(statement);
+	while (rc == SQLITE_ROW) {
+		int accountId = sqlite3_column_int(statement, 0);
+		ctfPosition_t pos = sqlite3_column_int(statement, 1);
+		if (pos < CTFPOSITION_BASE || pos > CTFPOSITION_OFFENSE) {
+			assert(qfalse);
+			rc = trap_sqlite3_step(statement);
+			continue;
+		}
+		int rank = sqlite3_column_int(statement, 2);
+		if (rank < 0 || rank > 3) {
+			assert(qfalse);
+			rc = trap_sqlite3_step(statement);
+			continue;
+		}
+
+		mostPlayedPos_t findMe;
+		findMe.accountId = accountId;
+		mostPlayedPos_t *found = ListFind(&level.mostPlayedPositionsList, MostPlayedPosMatches, &findMe, NULL);
+		if (!found) {
+			found = ListAdd(&level.mostPlayedPositionsList, sizeof(mostPlayedPos_t));
+			found->accountId = accountId;
+			found->mostPlayed = found->secondMostPlayed = found->thirdMostPlayed = 0;
+			accountCount++;
+		}
+
+		if (rank == 1) {
+			found->mostPlayed = pos;
+			G_DBSetMetadata(va("mostplayed_%d_1", accountId), va("%d", pos));
+		}
+		else if (rank == 2) {
+			found->secondMostPlayed = pos;
+			G_DBSetMetadata(va("mostplayed_%d_2", accountId), va("%d", pos));
+		}
+		else if (rank == 3) {
+			found->thirdMostPlayed = pos;
+			G_DBSetMetadata(va("mostplayed_%d_3", accountId), va("%d", pos));
+		}
+		rc = trap_sqlite3_step(statement);
+	}
+	trap_sqlite3_finalize(statement);
+	return accountCount;
+}
+
+// expects metadata keys in the format "mostplayed_<accountId>_<rank>" and returns the number of distinct accounts loaded.
+static int GetCachedMostPlayedPositions(void) {
+	ListClear(&level.mostPlayedPositionsList);
+	int accountCount = 0;
+	sqlite3_stmt *statement;
+	const char *sqlCached = "SELECT key, value FROM metadata WHERE key LIKE 'mostplayed_%';";
+	trap_sqlite3_prepare_v2(dbPtr, sqlCached, -1, &statement, 0);
+	int rc = trap_sqlite3_step(statement);
+	while (rc == SQLITE_ROW) {
+		const char *key = (const char *)sqlite3_column_text(statement, 0);
+		const char *value = (const char *)sqlite3_column_text(statement, 1);
+		int accountId, rank;
+		if (sscanf(key, "mostplayed_%d_%d", &accountId, &rank) != 2) {
+			rc = trap_sqlite3_step(statement);
+			Com_Printf("GetCachedMostPlayedPositions: error parsing %s value %s\n", key, value);
+			continue;
+		}
+		int pos = atoi(value);
+		if (pos < CTFPOSITION_BASE || pos > CTFPOSITION_OFFENSE) {
+			rc = trap_sqlite3_step(statement);
+			Com_Printf("GetCachedMostPlayedPositions: error parsing position from %s value %s\n", key, value);
+			continue;
+		}
+		mostPlayedPos_t findMe;
+		findMe.accountId = accountId;
+		mostPlayedPos_t *found = ListFind(&level.mostPlayedPositionsList, MostPlayedPosMatches, &findMe, NULL);
+		if (!found) {
+			found = ListAdd(&level.mostPlayedPositionsList, sizeof(mostPlayedPos_t));
+			found->accountId = accountId;
+			found->mostPlayed = found->secondMostPlayed = found->thirdMostPlayed = 0;
+			accountCount++;
+		}
+		if (rank == 1) {
+			found->mostPlayed = pos;
+		}
+		else if (rank == 2) {
+			found->secondMostPlayed = pos;
+		}
+		else if (rank == 3) {
+			found->thirdMostPlayed = pos;
+		}
+		rc = trap_sqlite3_step(statement);
+	}
+	trap_sqlite3_finalize(statement);
+	return accountCount;
 }
 
 // we recalculate everything from scratch if and only if the server has just been restarted and there are changes actually pending (shouldReloadPlayerPugStats metadata is set)
@@ -6446,6 +6546,9 @@ void G_DBInitializePugStatsCache(void) {
 	}
 #endif
 
+	// these first four are handled together
+	// these are the most computationally expensive ones to recalculate, so they must only run on server startup
+	
 	// check that we actually have a cache to load from (if not, we'll force the recalculation anyway)
 	if (!recalc) {
 		LoadPositionStatsFromDatabase();
@@ -6496,7 +6599,9 @@ void G_DBInitializePugStatsCache(void) {
 		G_DBSetMetadata("shouldReloadPlayerPugStats", "0");
 	}
 
-	// streaks are handled specially
+	// these next ones are not so computationally expensive that they must only run on server startup
+	
+	// win streaks
 	int reloadStreaks = G_DBGetMetadataInteger("shouldReloadStreaks");
 	if (reloadStreaks || recalc) {
 		const int recalculatedStreaks = RecalculateAndRecacheStreaks();
@@ -6518,7 +6623,7 @@ void G_DBInitializePugStatsCache(void) {
 		}
 	}
 
-	// rusty players are handled specially
+	// rusty players
 	int reloadRust = G_DBGetMetadataInteger("shouldReloadRust");
 	if (reloadRust || recalc) {
 		const int recalculatedRust = RecalculateRustiness();
@@ -6540,11 +6645,32 @@ void G_DBInitializePugStatsCache(void) {
 		}
 	}
 
-	// this last call is always done, whether we recalculated or not
-	GetMostPlayedPositions();
-	Com_Printf("Recalculated most played positions from db (took %d ms)\n", trap_Milliseconds() - lastTime);
-	lastTime = trap_Milliseconds();
+	// most played positions
+	int reloadMostPlayed = G_DBGetMetadataInteger("shouldReloadMostPlayed");
+	if (reloadMostPlayed || recalc) {
+		const int recalculatedMostPlayed = RecalculateMostPlayedPositions();
+		Com_Printf("Recalculated %d accounts' most played positions from db (took %d ms)\n",
+			recalculatedMostPlayed, trap_Milliseconds() - lastTime);
+		G_DBSetMetadata("shouldReloadMostPlayed", "0");
+		lastTime = trap_Milliseconds();
+	}
+	else {
+		const int cachedMostPlayed = GetCachedMostPlayedPositions();
+		if (cachedMostPlayed) {
+			Com_Printf("Loaded %d cached accounts' most played positions from db (took %d ms)\n",
+				cachedMostPlayed, trap_Milliseconds() - lastTime);
+			lastTime = trap_Milliseconds();
+		}
+		else {
+			const int recalculatedMostPlayed = RecalculateMostPlayedPositions();
+			Com_Printf("Failed to load cached accounts' most played positions from db. Instead recalculated %d accounts' most played positions from db (took %d ms)\n",
+				recalculatedMostPlayed, trap_Milliseconds() - lastTime);
+			G_DBSetMetadata("shouldReloadMostPlayed", "0");
+			lastTime = trap_Milliseconds();
+		}
+	}
 
+	// this is computationally cheap, so we can just do it every time
 	SetFastestPossibleCaptureTime();
 
 	Com_Printf("Finished initializing pug stats cache (took %d ms total)\n", trap_Milliseconds() - start);
@@ -6909,49 +7035,6 @@ qboolean G_DBGetWinrateSince(const char *name, const int accountId, const ctfPos
 	return rc == SQLITE_ROW ? qtrue : qfalse;
 }
 
-extern qboolean MostPlayedPosMatches(genericNode_t *node, void *userData);
-const char *const sqlGetMostPlayedPos = "SELECT account_id, pos, RANK() OVER (PARTITION BY account_id ORDER BY pugs_played DESC, wins DESC) FROM accountstats;";
-static void GetMostPlayedPositions(void) {
-	ListClear(&level.mostPlayedPositionsList);
-
-	sqlite3_stmt *statement;
-	trap_sqlite3_prepare_v2(dbPtr, sqlGetMostPlayedPos, -1, &statement, 0);
-	int rc = trap_sqlite3_step(statement);
-	while (rc == SQLITE_ROW) {
-		int accountId = sqlite3_column_int(statement, 0);
-		ctfPosition_t pos = sqlite3_column_int(statement, 1);
-		if (pos < CTFPOSITION_BASE || pos > CTFPOSITION_OFFENSE) {
-			assert(qfalse);
-			rc = trap_sqlite3_step(statement);
-			continue; // ???
-		}
-		int rank = sqlite3_column_int(statement, 2);
-		if (rank < 0 || rank > 3) {
-			assert(qfalse);
-			rc = trap_sqlite3_step(statement);
-			continue; // ???
-		}
-
-		mostPlayedPos_t findMe;
-		findMe.accountId = accountId;
-		mostPlayedPos_t *found = ListFind(&level.mostPlayedPositionsList, MostPlayedPosMatches, &findMe, NULL);
-		if (!found) {
-			found = ListAdd(&level.mostPlayedPositionsList, sizeof(mostPlayedPos_t));
-			found->accountId = accountId;
-			found->mostPlayed = found->secondMostPlayed = found->thirdMostPlayed = 0;
-		}
-
-		if (rank == 1)
-			found->mostPlayed = pos;
-		else if (rank == 2)
-			found->secondMostPlayed = pos;
-		else if (rank == 3)
-			found->thirdMostPlayed = pos;
-
-		rc = trap_sqlite3_step(statement);
-	}
-	trap_sqlite3_finalize(statement);
-}
 
 typedef struct {
 	node_t		node;

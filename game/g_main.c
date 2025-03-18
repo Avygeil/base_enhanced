@@ -3795,6 +3795,7 @@ void BeginIntermission(void) {
 
 				AnnounceStreaksAtIntermission();
 				G_DBSetMetadata("shouldReloadStreaks", "1");
+				G_DBSetMetadata("shouldReloadMostPlayed", "1");
 			}
 		}
 #else
@@ -3812,6 +3813,7 @@ void BeginIntermission(void) {
 				G_DBWritePugStats();
 				G_DBSetMetadata("shouldReloadPlayerPugStats", "2");
 				G_DBSetMetadata("shouldReloadStreaks", "1");
+				G_DBSetMetadata("shouldReloadMostPlayed", "1");
 
 				if (level.teamScores[TEAM_RED] > level.teamScores[TEAM_BLUE])
 					level.incrementStreak[TEAM_RED] = qtrue;
