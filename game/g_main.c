@@ -2436,6 +2436,15 @@ void G_InitGame( int levelTime, int randomSeed, int restart, void *serverDbPtr )
 	// always clear these so that they can only happen once
 	trap_Cvar_Set("g_lastIntermissionStartTime", "");
 	trap_Cvar_Set("g_lastTeamGenTime", "");
+
+	if (!Q_stricmp(level.mapname, "mp/ctf_ordmandell_station")) {
+		level.racerCollision = qtrue;
+		for (int i = MAX_CLIENTS; i < ENTITYNUM_MAX_NORMAL; i++) {
+			gentity_t *ent = &g_entities[i];
+			if (VALIDSTRING(ent->classname) && (!Q_stricmp(ent->classname, "func_glass") || !Q_stricmp(ent->classname, "func_train") || VALIDSTRING(ent->model)))
+				ent->s.bolt1 = 2;
+		}
+	}
 }
 
 
@@ -6431,6 +6440,9 @@ void G_UpdateNonClientBroadcasts( gentity_t *self ) {
 	if ( self->s.eType == ET_PUSH_TRIGGER || self->s.eType == ET_TELEPORT_TRIGGER ) {
 		return;
 	}
+
+	if (level.racerCollision)
+		return;
 
 	// non dropped flags are never hidden to anyone
 	// TODO: show stolen flags as at home to racers...?

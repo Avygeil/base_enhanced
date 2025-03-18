@@ -4446,6 +4446,13 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 		return;
 	}
 
+	// prevent cross-dimension damage
+	if (level.racerCollision && targ && targ - g_entities < MAX_CLIENTS && targ->client &&
+		attacker && attacker - g_entities < MAX_CLIENTS && attacker->client &&
+		targ->client->sess.inRacemode != attacker->client->sess.inRacemode) {
+		return;
+	}
+
 	if (targ && targ->isAimPracticePack && mod >= MOD_STUN_BATON && mod <= MOD_SENTRY) {
 		return; // aim practice bots can only take certain types of damage
 	}

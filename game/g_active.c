@@ -2351,17 +2351,17 @@ static qboolean IsClientHiddenToOtherClient( gentity_t *self, gentity_t *other )
 	}
 
 	// if self is in racemode and other is not, hide self to other unless other explicitly enabled seeing racers
-	if ( self->client->ps.stats[STAT_RACEMODE] && !other->client->ps.stats[STAT_RACEMODE] && !other->client->sess.seeRacersWhileIngame ) {
+	if ( self->client->ps.stats[STAT_RACEMODE] && !other->client->ps.stats[STAT_RACEMODE] && !other->client->sess.seeRacersWhileIngame && !level.racerCollision ) {
 		return qtrue;
 	}
 
 	// if self is not in racemode and other is, hide self to other if other explicitly disabled seeing ig players
-	if ( !self->client->ps.stats[STAT_RACEMODE] && other->client->ps.stats[STAT_RACEMODE] && ( other->client->sess.racemodeFlags & RMF_HIDEINGAME ) ) {
+	if ( !self->client->ps.stats[STAT_RACEMODE] && other->client->ps.stats[STAT_RACEMODE] && ( other->client->sess.racemodeFlags & RMF_HIDEINGAME ) && !level.racerCollision ) {
 		return qtrue;
 	}
 
 	// if both are in racemode, hide self to other if other explicitly disabled seeing other racers
-	if ( self->client->ps.stats[STAT_RACEMODE] && other->client->ps.stats[STAT_RACEMODE] && ( other->client->sess.racemodeFlags & RMF_HIDERACERS ) ) {
+	if ( self->client->ps.stats[STAT_RACEMODE] && other->client->ps.stats[STAT_RACEMODE] && ( other->client->sess.racemodeFlags & RMF_HIDERACERS ) && !level.racerCollision ) {
 		return qtrue;
 	}
 #ifdef _DEBUG
@@ -2401,7 +2401,7 @@ static qboolean IsClientBroadcastToOtherClient( gentity_t *self, gentity_t *othe
 	vec3_t angles;
 
 	if (self->isAimPracticePack) {
-		if (other->client->ps.stats[STAT_RACEMODE] || other->client->sess.seeRacersWhileIngame)
+		if (other->client->ps.stats[STAT_RACEMODE] || other->client->sess.seeRacersWhileIngame || level.racerCollision)
 			return qtrue;
 		return qfalse;
 	}

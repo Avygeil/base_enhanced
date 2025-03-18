@@ -2170,6 +2170,8 @@ typedef struct {
 
 	qboolean		instagibMap;
 
+	qboolean		racerCollision;
+
 	float	cullDistance;
 
 	qboolean	boonExists;

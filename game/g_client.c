@@ -4104,7 +4104,7 @@ G_SetRaceMode
 
 void G_SetRaceMode( gentity_t *self, qboolean race ) {
 	// set appropriate flags
-	if ( race ) {
+	if ( race && !level.racerCollision ) {
 		self->r.svFlags |= SVF_GHOST;
 	} else {
 		self->r.svFlags &= ~SVF_GHOST;
@@ -4113,7 +4113,7 @@ void G_SetRaceMode( gentity_t *self, qboolean race ) {
 	// stuff to only do if the ent is initialized
 	if ( self->inuse ) {
 		// set the pmove flag here as well, which will also be set every spawn
-		if ( race ) {
+		if ( race && !level.racerCollision ) {
 			self->client->ps.stats[STAT_RACEMODE] = 1;
 		} else {
 			self->client->ps.stats[STAT_RACEMODE] = 0;

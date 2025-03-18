@@ -1351,6 +1351,9 @@ void SP_worldspawn( void )
 	G_SpawnInt("b_e_instagib", "0", &i);
 	level.instagibMap = !!i;
 
+	G_SpawnInt("racerCollision", "0", &i);
+	level.racerCollision = !!i;
+
 	G_SpawnString( "music", "", &text );
 	trap_SetConfigstring( CS_MUSIC, text );
 
