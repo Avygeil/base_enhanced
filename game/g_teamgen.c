@@ -3488,7 +3488,8 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 				continue;
 
 			if (other->client->account && other->client->account->id == ent->client->account->id &&
-				!(other->client->account->flags & ACCOUNTFLAG_ELOBOTSELFHOST && !Q_stricmpclean(other->client->pers.netname, "elo BOT"))) {
+				!(other->client->account->flags & ACCOUNTFLAG_ELOBOTSELFHOST && !Q_stricmpclean(other->client->pers.netname, "elo BOT")) &&
+				other->client->sess.clientType == CLIENT_TYPE_NORMAL) {
 				someoneElseIngameSharesMyAccount = qtrue;
 				break;
 			}
@@ -4944,7 +4945,8 @@ void GetCurrentPickablePlayers(sortedClient_t *sortedClientsOut, int *numEligibl
 				continue;
 
 			if (other->client->account && other->client->account->id == ent->client->account->id &&
-				!(other->client->account->flags & ACCOUNTFLAG_ELOBOTSELFHOST && !Q_stricmpclean(other->client->pers.netname, "elo BOT"))) {
+				!(other->client->account->flags & ACCOUNTFLAG_ELOBOTSELFHOST && !Q_stricmpclean(other->client->pers.netname, "elo BOT")) &&
+				other->client->sess.clientType == CLIENT_TYPE_NORMAL) {
 				someoneElseIngameSharesMyAccount = qtrue;
 				break;
 			}
@@ -6044,6 +6046,9 @@ void ActivateTeamsProposal(permutationOfTeams_t *permutation) {
 			if (ent->client->account->flags & ACCOUNTFLAG_ELOBOTSELFHOST && !Q_stricmpclean(ent->client->pers.netname, "elo BOT"))
 				continue;
 
+			if (ent->client->sess.clientType != CLIENT_TYPE_NORMAL)
+				continue;
+
 			if (ent->client->sess.sessionTeam != destinationTeam)
 				actuallyChangedTeam[j] = qtrue;
 
@@ -6150,6 +6155,11 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 
 	if ((ent->client->account->flags & ACCOUNTFLAG_ELOBOTSELFHOST) && !Q_stricmpclean(ent->client->pers.netname, "elo BOT")) {
 		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You have either modded elo bot to cheese the system or this is a bug which you should report.");
+		return qtrue;
+	}
+
+	if (ent->client->sess.clientType != CLIENT_TYPE_NORMAL) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You cannot vote on this client.");
 		return qtrue;
 	}
 
@@ -6621,6 +6631,11 @@ qboolean TeamGenerator_UnvoteForTeamPermutations(gentity_t *ent, const char *vot
 		return qtrue;
 	}
 
+	if (ent->client->sess.clientType != CLIENT_TYPE_NORMAL) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You cannot vote on this client.");
+		return qtrue;
+	}
+
 	if (!level.activePugProposal) {
 		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "No pug proposal is currently active.");
 		return qtrue;
@@ -7073,6 +7088,11 @@ qboolean TeamGenerator_VoteYesToPugProposal(gentity_t *ent, int num, pugProposal
 		return qtrue;
 	}
 
+	if (ent->client->sess.clientType != CLIENT_TYPE_NORMAL) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You cannot vote on this client.");
+		return qtrue;
+	}
+
 	if (!setOptional && num <= 0) {
 		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "Invalid pug proposal number.");
 		return qtrue;
@@ -7235,6 +7255,11 @@ qboolean TeamGenerator_PugStart(gentity_t *ent, char **newMessage) {
 
 	if ((ent->client->account->flags & ACCOUNTFLAG_ELOBOTSELFHOST) && !Q_stricmpclean(ent->client->pers.netname, "elo BOT")) {
 		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You have either modded elo bot to cheese the system or this is a bug which you should report.");
+		return qtrue;
+	}
+
+	if (ent->client->sess.clientType != CLIENT_TYPE_NORMAL) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You cannot vote on this client.");
 		return qtrue;
 	}
 
@@ -7826,6 +7851,11 @@ qboolean TeamGenerator_VoteToReroll(gentity_t *ent, char **newMessage) {
 
 	if ((ent->client->account->flags & ACCOUNTFLAG_ELOBOTSELFHOST) && !Q_stricmpclean(ent->client->pers.netname, "elo BOT")) {
 		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You have either modded elo bot to cheese the system or this is a bug which you should report.");
+		return qtrue;
+	}
+
+	if (ent->client->sess.clientType != CLIENT_TYPE_NORMAL) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You cannot vote on this client.");
 		return qtrue;
 	}
 
@@ -8430,6 +8460,11 @@ qboolean TeamGenerator_VoteToBar(gentity_t *ent, const char *voteStr, char **new
 		return qtrue;
 	}
 
+	if (ent->client->sess.clientType != CLIENT_TYPE_NORMAL) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You cannot vote on this client.");
+		return qtrue;
+	}
+
 	if (!VALIDSTRING(voteStr) || strlen(voteStr) < 5) {
 		TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("Usage: %cbar [account name]", TEAMGEN_CHAT_COMMAND_CHARACTER));
 		return qtrue;
@@ -8717,6 +8752,11 @@ qboolean TeamGenerator_VoteToUnbar(gentity_t *ent, const char *voteStr, char **n
 		return qtrue;
 	}
 
+	if (ent->client->sess.clientType != CLIENT_TYPE_NORMAL) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You cannot vote on this client.");
+		return qtrue;
+	}
+
 	if (!VALIDSTRING(voteStr) || strlen(voteStr) < 7) {
 		TeamGenerator_QueueServerMessageInChat(ent - g_entities, va("Usage: %cunbar [account name]", TEAMGEN_CHAT_COMMAND_CHARACTER));
 		return qtrue;
@@ -8912,6 +8952,11 @@ qboolean TeamGenerator_VoteToCancel(gentity_t *ent, char **newMessage) {
 		return qtrue;
 	}
 
+	if (ent->client->sess.clientType != CLIENT_TYPE_NORMAL) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You cannot vote on this client.");
+		return qtrue;
+	}
+
 	if (!level.activePugProposal) {
 		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "No pug proposal is currently active.");
 		return qtrue;
@@ -9043,6 +9088,11 @@ static qboolean TeamGenerator_PermabarredPlayerMarkAsPickable(gentity_t *ent, ch
 
 	if ((ent->client->account->flags & ACCOUNTFLAG_ELOBOTSELFHOST) && !Q_stricmpclean(ent->client->pers.netname, "elo BOT")) {
 		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You have either modded elo bot to cheese the system or this is a bug which you should report.");
+		return qtrue;
+	}
+
+	if (ent->client->sess.clientType != CLIENT_TYPE_NORMAL) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You cannot vote on this client.");
 		return qtrue;
 	}
 
