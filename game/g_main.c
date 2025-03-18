@@ -697,7 +697,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ NULL, "gamename", GAMEVERSION , CVAR_SERVERINFO | CVAR_ROM, 0, qfalse  },
 	{ NULL, "gamedate", __DATE__ , CVAR_ROM, 0, qfalse  },
 	//TODO: autogenerate gameversion
-	{ NULL, "gameversion", "25w12d" , CVAR_SERVERINFO | CVAR_ROM, 0, qfalse  },
+	{ NULL, "gameversion", "25w12e" , CVAR_SERVERINFO | CVAR_ROM, 0, qfalse  },
 	{ &g_restarted, "g_restarted", "0", CVAR_ROM, 0, qfalse  },
 	{ NULL, "sv_mapname", "", CVAR_SERVERINFO | CVAR_ROM, 0, qfalse  },
 
