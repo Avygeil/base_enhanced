@@ -8100,7 +8100,7 @@ static void PrintRateHelp(int clientNum) {
 		"  - Skill levels should be equivalent between positions; i.e. S tier base == S tier chase == S tier offense. Your ratings may skew higher or lower for some positions -- do not simply assign tiers based on a curve for each position.\n"
 		"  - Only rate players on positions you have observed them play at least once. Leave people unrated on positions you haven't seen them play.^7\n"
 		"  - Consider re-rating players over time as their skills develop.\n"
-		"  - Do not account for rust. Assume players are NOT rusty.\n");
+		"  - Do not account for rust. Assume players are NOT rusty (rusty players are marked with * and are being temporarily lowered by 1 from what is shown).\n");
 }
 
 static void Cmd_Rating_f(gentity_t *ent) {
@@ -8229,21 +8229,21 @@ static void Cmd_Rating_f(gentity_t *ent) {
 		OutOfBandPrint(clientNum, "\n  - Skill levels should be equivalent between positions; i.e. S tier base == S tier chase == S tier offense. Your ratings may skew higher or lower for some positions -- do not simply assign tiers based on a curve for each position.\n"
 		"  - Only rate players on positions you have observed them play at least once. Leave people unrated on positions you haven't seen them play.^7\n"
 			"  - Consider re-rating players over time as their skills develop.\n"
-			"  - Do not account for rust. Assume players are NOT rusty.\n");
+			"  - Do not account for rust. Assume players are NOT rusty (rusty players are marked with * and are being temporarily lowered by 1 from what is shown)\n");
 	}
 	else if (CtfPositionFromString(arg1) == CTFPOSITION_CHASE) {
 		G_DBListRatingPlayers(ent->client->account->id, clientNum, CTFPOSITION_CHASE);
 		OutOfBandPrint(clientNum, "\n  - Skill levels should be equivalent between positions; i.e. S tier base == S tier chase == S tier offense. Your ratings may skew higher or lower for some positions -- do not simply assign tiers based on a curve for each position.\n"
 			"  - Only rate players on positions you have observed them play at least once. Leave people unrated on positions you haven't seen them play.^7\n"
 			"  - Consider re-rating players over time as their skills develop.\n"
-			"  - Do not account for rust. Assume players are NOT rusty.\n");
+			"  - Do not account for rust. Assume players are NOT rusty (rusty players are marked with * and are being temporarily lowered by 1 from what is shown).\n");
 	}
 	else if (CtfPositionFromString(arg1) == CTFPOSITION_OFFENSE) {
 		G_DBListRatingPlayers(ent->client->account->id, clientNum, CTFPOSITION_OFFENSE);
 		OutOfBandPrint(clientNum, "\n  - Skill levels should be equivalent between positions; i.e. S tier base == S tier chase == S tier offense. Your ratings may skew higher or lower for some positions -- do not simply assign tiers based on a curve for each position.\n"
 			"  - Only rate players on positions you have observed them play at least once. Leave people unrated on positions you haven't seen them play.^7\n"
 			"  - Consider re-rating players over time as their skills develop.\n"
-			"  - Do not account for rust. Assume players are NOT rusty.\n");
+			"  - Do not account for rust. Assume players are NOT rusty (rusty players are marked with * and are being temporarily lowered by 1 from what is shown).\n");
 	}
 	else if (!Q_stricmp(arg1, "all") || !Q_stricmp(arg1, "list")) {
 		G_DBListRatingPlayers(ent->client->account->id, clientNum, CTFPOSITION_BASE);
@@ -8252,7 +8252,7 @@ static void Cmd_Rating_f(gentity_t *ent) {
 		OutOfBandPrint(clientNum, "\n  - Skill levels should be equivalent between positions; i.e. S tier base == S tier chase == S tier offense. Your ratings may skew higher or lower for some positions -- do not simply assign tiers based on a curve for each position.\n"
 			"  - Only rate players on positions you have observed them play at least once. Leave people unrated on positions you haven't seen them play.^7\n"
 			"  - Consider re-rating players over time as their skills develop.\n"
-			"  - Do not account for rust. Assume players are NOT rusty.\n");
+			"  - Do not account for rust. Assume players are NOT rusty (rusty players are marked with * and are being temporarily lowered by 1 from what is shown).\n");
 	}
 	else if (!Q_stricmp(arg1, "set")) {
 		if (!arg2[0] || !arg3[0] || !arg4[0]) {

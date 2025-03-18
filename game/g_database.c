@@ -6151,7 +6151,7 @@ static void GetRustiness(void) {
 					isRusty = qtrue;
 			}
 			else {
-				isRusty = qtrue; // no pug history in db; assume rusty
+				isRusty = /*qtrue*/qfalse; // no pug history in db
 			}
 			trap_sqlite3_finalize(innerStatement);
 
@@ -6489,7 +6489,7 @@ typedef struct {
 extern ctfPlayerTier_t PlayerTierFromRating(double num);
 
 extern char *PlayerRatingToString(ctfPlayerTier_t tier);
-const char *const sqlGetPlayerRatings = "WITH unrated AS (SELECT name, account_id, 0 AS rating FROM accounts WHERE account_id NOT IN (SELECT ratee_account_id FROM playerratings JOIN accounts ON accounts.account_id = playerratings.ratee_account_id WHERE rater_account_id = ?1 AND POS = ?2) ORDER BY accounts.name ASC), rated AS (SELECT name, account_id, rating FROM playerratings JOIN accounts ON accounts.account_id = playerratings.ratee_account_id WHERE rater_account_id = ?1 AND pos = ?2) SELECT name, rating FROM unrated UNION SELECT name, rating FROM rated ORDER BY name ASC;";
+const char *const sqlGetPlayerRatings = "WITH unrated AS (SELECT name, account_id, 0 AS rating FROM accounts WHERE account_id NOT IN (SELECT ratee_account_id FROM playerratings JOIN accounts ON accounts.account_id = playerratings.ratee_account_id WHERE rater_account_id = ?1 AND POS = ?2) ORDER BY accounts.name ASC), rated AS (SELECT name, account_id, rating FROM playerratings JOIN accounts ON accounts.account_id = playerratings.ratee_account_id WHERE rater_account_id = ?1 AND pos = ?2) SELECT name, rating, account_id FROM unrated UNION SELECT name, rating, account_id FROM rated ORDER BY name ASC;";
 void G_DBListRatingPlayers(int raterAccountId, int raterClientNum, ctfPosition_t pos) {
 	sqlite3_stmt *statement;
 	trap_sqlite3_prepare_v2(dbPtr, sqlGetPlayerRatings, -1, &statement, 0);
@@ -6510,6 +6510,12 @@ void G_DBListRatingPlayers(int raterAccountId, int raterClientNum, ctfPosition_t
 
 		ratedPlayer_t *add = ListAdd(&playerList, sizeof(ratedPlayer_t));
 		Q_strncpyz(add->name, name, sizeof(add->name));
+
+		int accountId = sqlite3_column_int(statement, 2);
+		rustyPlayer_t *isRusty = ListFind(&level.rustyPlayersList, RustyPlayerMatches, &accountId, NULL);
+		if (isRusty)
+			Q_strcat(add->name, sizeof(add->name), "*");
+
 		add->tier = tier;
 
 		rc = trap_sqlite3_step(statement);
