@@ -8145,12 +8145,12 @@ void DB_LoadFilters(void) {
 		}
 
 		newFilter->createdAt = sqlite3_column_int64(statement, 2);
-		newFilter->count = sqlite3_column_int(statement, 3);
-		newFilter->lastFiltered = sqlite3_column_int64(statement, 4);
-
 		const char *description = (const char *)sqlite3_column_text(statement, 3);
 		if (VALIDSTRING(description))
 			Q_strncpyz(newFilter->description, description, sizeof(newFilter->description));
+		newFilter->count = sqlite3_column_int(statement, 4);
+		newFilter->lastFiltered = sqlite3_column_int64(statement, 5);
+
 
 		++loadedFiltersCount;
 
