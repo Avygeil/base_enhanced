@@ -7240,7 +7240,7 @@ qboolean TeamGenerator_VoteYesToPugProposal(gentity_t *ent, int num, pugProposal
 }
 
 // returns qtrue if the message should be filtered out
-qboolean TeamGenerator_PugStart(gentity_t *ent, char **newMessage) {
+	qboolean TeamGenerator_PugStart(gentity_t *ent, char **newMessage) {
 	if (g_gametype.integer != GT_CTF)
 		return qfalse;
 

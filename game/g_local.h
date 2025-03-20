@@ -963,6 +963,8 @@ typedef struct {
 	int			attackedByMemerTime;
 
 	int			buttonsPressedAtPauseStart;
+
+	int			ticksNotPausedStatsIndependent;
 } clientPersistant_t;
 
 typedef struct renderInfo_s

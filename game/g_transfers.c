@@ -169,7 +169,7 @@ void G_PostScoreboardToWebhook(const char* stats) {
 							cJSON_AddStringToObject(redField, "name", "RED: DRAW :handshake:");
 						}
 						else {
-							char *redEmoji = redScore > blueScore ? ":trophy:" : (redScore == blueScore ? ":handshake:" : "");
+							char *redEmoji = redScore > blueScore ? " :trophy:" : (redScore == blueScore ? " :handshake:" : "");
 							cJSON_AddStringToObject(redField, "name", va("RED: %d%s", redScore, redEmoji));
 						}
 						cJSON_AddStringToObject(redField, "value", redTeam);
@@ -181,7 +181,7 @@ void G_PostScoreboardToWebhook(const char* stats) {
                         if (level.forceEndMatchInDraw) {
                             cJSON_AddStringToObject(blueField, "name", "BLUE: DRAW :handshake:");
                         } else {
-                            char *blueEmoji = blueScore > redScore ? ":trophy:" : (blueScore == redScore ? ":handshake:" : "");
+                            char *blueEmoji = blueScore > redScore ? " :trophy:" : (blueScore == redScore ? " :handshake:" : "");
                             cJSON_AddStringToObject(blueField, "name", va("BLUE: %d%s", blueScore, blueEmoji));
                         }
 						cJSON_AddStringToObject(blueField, "value", blueTeam);

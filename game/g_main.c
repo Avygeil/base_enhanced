@@ -2445,6 +2445,13 @@ void G_InitGame( int levelTime, int randomSeed, int restart, void *serverDbPtr )
 				ent->s.bolt1 = 2;
 		}
 	}
+
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *ent = &g_entities[i];
+		if (!ent || !ent->client)
+			continue;
+		ent->client->pers.ticksNotPausedStatsIndependent = 0;
+	}
 }
 
 
@@ -3597,7 +3604,7 @@ static void AnnounceStreaksAtIntermission(void) {
 		if (ent->client->sess.sessionTeam != TEAM_RED && ent->client->sess.sessionTeam != TEAM_BLUE) {
 			continue;
 		}
-		if (!ent->client->stats || ent->client->stats->ticksNotPaused < (g_svfps.integer * 60)) {
+		if (ent->client->pers.ticksNotPausedStatsIndependent < (g_svfps.integer * 60)) {
 			continue;
 		}
 		if (!ent->client->account->name[0]) {
@@ -6556,6 +6563,11 @@ static void AddPlayerTick(team_t team, gentity_t *ent) {
 		return;
 
 	++ent->client->stats->ticksNotPaused;
+
+	if (ent->client->pers.ticksNotPausedStatsIndependent)
+		++ent->client->pers.ticksNotPausedStatsIndependent;
+	else
+		ent->client->pers.ticksNotPausedStatsIndependent = ent->client->stats->ticksNotPaused;
 
 	if (!level.wasRestarted)
 		return;
