@@ -963,8 +963,6 @@ typedef struct {
 	int			attackedByMemerTime;
 
 	int			buttonsPressedAtPauseStart;
-
-	int			ticksNotPausedStatsIndependent;
 } clientPersistant_t;
 
 typedef struct renderInfo_s
@@ -2261,6 +2259,7 @@ typedef struct {
 
 	list_t winStreaksPostList;
 	int winStreakListPostTime;
+	list_t finishedPugPlayersList;
 
 	qboolean forceEndMatchInDraw;
 	int fastestPossibleCaptureTime;

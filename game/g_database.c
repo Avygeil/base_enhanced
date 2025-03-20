@@ -4873,6 +4873,14 @@ static qboolean PlayerMatchesWithPos(genericNode_t *node, void *userData) {
 	return qfalse;
 }
 
+qboolean FinishedPugPlayerMatches(genericNode_t *node, void *userData) {
+	const finishedPugPlayer_t *existing = (const finishedPugPlayer_t *)node;
+	const int thisGuyAccountId = *((const int *)userData);
+	if (existing && existing->accountId == thisGuyAccountId)
+		return qtrue;
+	return qfalse;
+}
+
 const char *sqlWritePug = "INSERT INTO pugs (match_id, map, duration, boonexists, win_team, red_score, blue_score) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7);";
 const char *sqlAddPugPlayer = "INSERT INTO playerpugteampos (match_id, session_id, team, duration, name, pos, cap, ass, def, acc, air, tk, take, pitkil, pitdth, dmg, fcdmg, clrdmg, othrdmg, dmgtkn, fcdmgtkn, clrdmgtkn, othrdmgtkn, fckil, fckileff, ret, sk, ttlhold, maxhold, avgspd, topspd, boon, push, pull, heal, te, teeff, enemynrg, absorb, protdmg, prottime, rage, drain, drained, fs, bas, mid, eba, efs, gotte, grips, gripped, dark) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
 extern void AddStatsToTotal(stats_t *player, stats_t *total, statsTableType_t type, stats_t *weaponStatsPtr);
@@ -4935,11 +4943,6 @@ qboolean G_DBWritePugStats(void) {
 			add->team = found->lastTeam;
 			add->pos = found->finalPosition;
 
-			if (found->accountId != ACCOUNT_ID_UNLINKED && !shouldReloadRust && DB_IsPlayerRusty(found->accountId)) {
-				G_DBSetMetadata("shouldReloadRust", "1");
-				shouldReloadRust = qtrue;
-			}
-
 			stats_t *s = ListAdd(&combinedStatsList, sizeof(stats_t));
 			AddStatsToTotal(found, s, STATS_TABLE_GENERAL, NULL);
 			AddStatsToTotal(found, s, STATS_TABLE_FORCE, NULL);
@@ -4974,16 +4977,11 @@ qboolean G_DBWritePugStats(void) {
 					AddStatsToTotal(found2, s, STATS_TABLE_ACCURACY, NULL);
 					s->ticksNotPaused += found2->ticksNotPaused;
 
-					if (found2->accountId != ACCOUNT_ID_UNLINKED && !shouldReloadRust && DB_IsPlayerRusty(found2->accountId)) {
-						G_DBSetMetadata("shouldReloadRust", "1");
-						shouldReloadRust = qtrue;
-					}
-
 					++numBlocks;
 				}
 			}
 
-			// require at least 60 seconds of total ingame time
+			// require at least 120 seconds of total ingame time
 			if (ticksOnAnyPosition * (1000 / g_svfps.integer) < CTFPOSITION_MINIMUM_SECONDS * 1000) {
 				Com_Printf("Skipping %d %s %s blocks (%d ms) for %s^7 because total time played was less than %d ms\n",
 					numBlocks,
@@ -4993,6 +4991,40 @@ qboolean G_DBWritePugStats(void) {
 					s->name,
 					CTFPOSITION_MINIMUM_SECONDS * 1000);
 				continue;
+			}
+			
+			// account-related stuff
+			session_t session = { 0 };
+			G_DBGetSessionByID(found->sessionId, &session);
+			int accountId = session.accountId;
+			if (accountId != ACCOUNT_ID_UNLINKED) {
+				// rust
+				if (!shouldReloadRust && IsPlayerRusty(accountId)) {
+					G_DBSetMetadata("shouldReloadRust", "1");
+					shouldReloadRust = qtrue;
+				}
+
+				// winstreaks
+				if (level.teamScores[TEAM_RED] != level.teamScores[TEAM_BLUE] && g_gametype.integer >= GT_TEAM && g_gametype.integer) {
+					finishedPugPlayer_t *finished = ListFind(&level.finishedPugPlayersList, FinishedPugPlayerMatches, &accountId, NULL);
+					const qboolean won = (found->lastTeam == WinningTeam());
+					if (finished) {
+						if (finished->won != won) {
+							// we already logged that this guy won/lost the match, and now we would be logging the opposite result
+							// this means the guy played on both teams in this match
+							finished->invalidBecausePlayedOnBothTeams = qtrue;
+						}
+					}
+					else {
+						finished = ListAdd(&level.finishedPugPlayersList, sizeof(finishedPugPlayer_t));
+						finished->accountId = accountId;
+						finished->won = won;
+						account_t account = { 0 };
+						G_DBGetAccountByID(accountId, &account);
+						if (account.name[0])
+							Q_strncpyz(finished->accountName, account.name, sizeof(finished->accountName));
+					}
+				}
 			}
 
 			trap_sqlite3_reset(statement);
@@ -6247,6 +6279,13 @@ static int RecalculateAndRecacheStreaks(void) {
 		"    JOIN pugs p ON p.match_id = pptp.match_id "
 		"    WHERE s.account_id IS NOT NULL "
 		"      AND p.win_team IN (1,2) "
+		"      AND NOT EXISTS ( "
+		"          SELECT 1 "
+		"          FROM playerpugteampos pptp2 "
+		"          WHERE pptp2.session_id = s.session_id "
+		"            AND pptp2.match_id = p.match_id "
+		"            AND pptp2.team <> pptp.team "
+		"      ) "
 		"), "
 		"rec(account_id, rn_desc, wl, count_matches) AS ( "
 		"    SELECT "
@@ -6273,7 +6312,6 @@ static int RecalculateAndRecacheStreaks(void) {
 		"    CASE WHEN wl = 1 THEN +1 ELSE -1 END * MAX(count_matches) AS current_streak "
 		"FROM rec "
 		"GROUP BY account_id, wl;";
-
 
 	// we store the result in both in memory (level.streaksList) and also metadata as "streak_<accountId>"
 	sqlite3_stmt *statement = NULL;
@@ -6352,7 +6390,7 @@ static int GetCachedStreaks(void) {
 	return count;
 }
 
-int DB_GetStreakForAccountID(int accountId) {
+int GetStreakForAccountID(int accountId) {
 	if (accountId == ACCOUNT_ID_UNLINKED)
 		return 0;
 
@@ -6678,7 +6716,7 @@ void G_DBInitializePugStatsCache(void) {
 	Com_Printf("Finished initializing pug stats cache (took %d ms total)\n", trap_Milliseconds() - start);
 }
 
-qboolean DB_IsPlayerRusty(int accountId) {
+qboolean IsPlayerRusty(int accountId) {
 	if (accountId == ACCOUNT_ID_UNLINKED || !level.rustyPlayersList.size)
 		return qfalse;
 
@@ -6717,7 +6755,7 @@ void G_DBListRatingPlayers(int raterAccountId, int raterClientNum, ctfPosition_t
 		Q_strncpyz(add->name, name, sizeof(add->name));
 
 		int accountId = sqlite3_column_int(statement, 2);
-		if (DB_IsPlayerRusty(accountId))
+		if (IsPlayerRusty(accountId))
 			Q_strcat(add->name, sizeof(add->name), "*");
 
 		add->tier = tier;

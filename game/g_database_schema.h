@@ -349,7 +349,7 @@ const char *const sqlCreateTables =
 "[dark] INTEGER, "
 "FOREIGN KEY([match_id]) REFERENCES pugs([match_id]) ON DELETE CASCADE, "
 "FOREIGN KEY([session_id]) REFERENCES sessions([session_id]), "
-"UNIQUE([match_id], [session_id], [pos]) "
+"UNIQUE([match_id], [session_id], [team], [pos]) "
 "); "
 ""
 "CREATE VIEW [accountstats] AS "

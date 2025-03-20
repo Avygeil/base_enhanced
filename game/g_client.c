@@ -2576,23 +2576,23 @@ void ClientUserinfoChanged( int clientNum ) {
 		{
 			char *scoreTag = NULL;
 			if (client->account && g_showWinStreaks.integer) {
-				const int baseStreak = DB_GetStreakForAccountID(client->account->id);
+				const int baseStreak = GetStreakForAccountID(client->account->id);
 				int displayStreak = baseStreak;
 
 				// check if we are at intermission AND exactly one team is flagged as winner
 				qboolean redWon = (level.intermissiontime && level.incrementStreak[TEAM_RED]);
 				qboolean blueWon = (level.intermissiontime && level.incrementStreak[TEAM_BLUE]);
 
+				finishedPugPlayer_t *finished = ListFind(&level.finishedPugPlayersList, FinishedPugPlayerMatches, &client->account->id, NULL);
+
 				// decide if we override the normal DB streak:
 				assert(!(redWon && blueWon));
-				if (redWon || blueWon) {
-					if (client->pers.ticksNotPausedStatsIndependent >= (g_svfps.integer * 60) &&
-						((redWon && client->sess.sessionTeam == TEAM_RED) || (blueWon && client->sess.sessionTeam == TEAM_BLUE))) {
+				if (finished && !finished->invalidBecausePlayedOnBothTeams && (redWon || blueWon)) {
+					if (finished->won) {
 						// they won; display one higher than the DB says we should (we're still on intermission; DB hasn't updated yet)
 						displayStreak++;
 					}
-					else if (client->pers.ticksNotPausedStatsIndependent >= (g_svfps.integer * 60) &&
-						((redWon && client->sess.sessionTeam == TEAM_BLUE) || (blueWon && client->sess.sessionTeam == TEAM_RED))) {
+					else {
 						// they lost; don't display streak
 						displayStreak = 0;
 					}

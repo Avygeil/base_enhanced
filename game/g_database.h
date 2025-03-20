@@ -4,8 +4,8 @@
 #include "g_local.h"
 
 #define DB_FILENAME				"enhanced.db"
-#define DB_SCHEMA_VERSION		32
-#define DB_SCHEMA_VERSION_STR	"32"
+#define DB_SCHEMA_VERSION		33
+#define DB_SCHEMA_VERSION_STR	"33"
 #define DB_OPTIMIZE_INTERVAL	( 60*60*3 ) // every 3 hours
 #define DB_VACUUM_INTERVAL		( 60*60*24*7 ) // every week
 
@@ -454,8 +454,18 @@ typedef struct {
 list_t *G_DBGetPlayerRatingHistory(int rateeAccountId, ctfPosition_t pos, int raterAccountId);
 qboolean G_DBGetWinrateBetweenDates(double startTime, double endTime, int accountId, ctfPosition_t pos, int *pugsOut, int *winsOut);
 
-int DB_GetStreakForAccountID(int accountId);
+int GetStreakForAccountID(int accountId);
 
-qboolean DB_IsPlayerRusty(int accountId);
+qboolean IsPlayerRusty(int accountId);
+
+typedef struct {
+	node_t		node;
+	int			accountId;
+	qboolean	won;
+	qboolean	invalidBecausePlayedOnBothTeams;
+	char		accountName[MAX_ACCOUNTNAME_LEN];
+} finishedPugPlayer_t;
+
+qboolean FinishedPugPlayerMatches(genericNode_t *node, void *userData);
 
 #endif //G_DATABASE_H

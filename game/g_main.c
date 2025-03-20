@@ -2445,13 +2445,6 @@ void G_InitGame( int levelTime, int randomSeed, int restart, void *serverDbPtr )
 				ent->s.bolt1 = 2;
 		}
 	}
-
-	for (int i = 0; i < MAX_CLIENTS; i++) {
-		gentity_t *ent = &g_entities[i];
-		if (!ent || !ent->client)
-			continue;
-		ent->client->pers.ticksNotPausedStatsIndependent = 0;
-	}
 }
 
 
@@ -2645,6 +2638,7 @@ void G_ShutdownGame( int restart ) {
 
 	ListClear(&level.filtersList);
 	ListClear(&level.winStreaksPostList);
+	ListClear(&level.finishedPugPlayersList);
 
 	ListIterate(&level.slurList, &iter, qfalse);
 	while (IteratorHasNext(&iter)) {
@@ -3592,40 +3586,27 @@ static void AnnounceStreaksAtIntermission(void) {
 	streakEvent_t events[MAX_CLIENTS];
 	int eventCount = 0;
 
-	for (int i = 0; i < MAX_CLIENTS; i++) {
-		gentity_t *ent = &g_entities[i];
-		if (!ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED) {
-			continue;
-		}
+	// iterate through everyone who played at least 120 seconds in the pug, and played only on one team
+	iterator_t iter;
+	ListIterate(&level.finishedPugPlayersList, &iter, qfalse);
+	while (IteratorHasNext(&iter)) {
+		finishedPugPlayer_t *finished = IteratorNext(&iter);
+		assert(finished->accountId != ACCOUNT_ID_UNLINKED);
 
-		if (!ent->client->account) {
+		if (finished->invalidBecausePlayedOnBothTeams)
 			continue;
-		}
-		if (ent->client->sess.sessionTeam != TEAM_RED && ent->client->sess.sessionTeam != TEAM_BLUE) {
-			continue;
-		}
-		if (ent->client->pers.ticksNotPausedStatsIndependent < (g_svfps.integer * 60)) {
-			continue;
-		}
-		if (!ent->client->account->name[0]) {
-			continue;
-		}
 
-		const int streak = DB_GetStreakForAccountID(ent->client->account->id);
+		const int streak = GetStreakForAccountID(finished->accountId);
 
 		qboolean isWin = qfalse;
 		int finalStreak = 0;
-		if (level.teamScores[ent->client->sess.sessionTeam]
-		> level.teamScores[OtherTeam(ent->client->sess.sessionTeam)]) {
-			// won
+		if (finished->won) {
 			if (streak + 1 >= 4) {
 				isWin = qtrue;
 				finalStreak = streak + 1;
 			}
 		}
-		else if (level.teamScores[ent->client->sess.sessionTeam]
-			< level.teamScores[OtherTeam(ent->client->sess.sessionTeam)]) {
-			// lost
+		else {
 			if (streak >= 4) {
 				isWin = qfalse;
 				finalStreak = streak;
@@ -3635,10 +3616,10 @@ static void AnnounceStreaksAtIntermission(void) {
 		// if valid, store it
 		if (finalStreak >= 4 && eventCount < MAX_CLIENTS) {
 			streakEvent_t *evt = &events[eventCount++];
-			Q_strncpyz(evt->accountName, ent->client->account->name, sizeof(evt->accountName));
+			Q_strncpyz(evt->accountName, finished->accountName, sizeof(evt->accountName));
 
 			// capitalize first letter
-			Q_strncpyz(evt->capitalized, ent->client->account->name, sizeof(evt->capitalized));
+			Q_strncpyz(evt->capitalized, finished->accountName, sizeof(evt->capitalized));
 			if (evt->capitalized[0]) {
 				evt->capitalized[0] = toupper((unsigned)evt->capitalized[0]);
 			}
@@ -6563,11 +6544,6 @@ static void AddPlayerTick(team_t team, gentity_t *ent) {
 		return;
 
 	++ent->client->stats->ticksNotPaused;
-
-	if (ent->client->pers.ticksNotPausedStatsIndependent)
-		++ent->client->pers.ticksNotPausedStatsIndependent;
-	else
-		ent->client->pers.ticksNotPausedStatsIndependent = ent->client->stats->ticksNotPaused;
 
 	if (!level.wasRestarted)
 		return;
