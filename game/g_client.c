@@ -2591,10 +2591,8 @@ void ClientUserinfoChanged( int clientNum ) {
 						// they won; display one higher than the DB says we should (we're still on intermission; DB hasn't updated yet)
 						displayStreak++;
 					}
-					else if (
-						(redWon && client->sess.sessionTeam == TEAM_BLUE) ||
-						(blueWon && client->sess.sessionTeam == TEAM_RED)
-						) {
+					else if (client->pers.ticksNotPausedStatsIndependent >= (g_svfps.integer * 60) &&
+						((redWon && client->sess.sessionTeam == TEAM_BLUE) || (blueWon && client->sess.sessionTeam == TEAM_RED))) {
 						// they lost; don't display streak
 						displayStreak = 0;
 					}
