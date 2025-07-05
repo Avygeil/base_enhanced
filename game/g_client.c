@@ -2599,23 +2599,18 @@ void ClientUserinfoChanged( int clientNum ) {
 				}
 
 				// now show the scoreboard tag only if displayStreak >= 4
+				// now show the scoreboard tag only if displayStreak >= 4
 				if (displayStreak >= 4) {
-					if (displayStreak == 4) {
-						// label as ^3 (yellow) 4W
-						scoreTag = va("^3%dW", displayStreak);
-					}
-					else {
-						// 5 or more => ^3 plus asterisks
-						char starBuf[32] = { 0 };
-						int numAsterisks = displayStreak - 4;
-						int i;
-						for (i = 0; i < numAsterisks && i < (int)(sizeof(starBuf) - 1); i++) {
-							starBuf[i] = '*';
-						}
-						starBuf[i] = '\0';
+					int numAsterisksPerSide = displayStreak - 2;
 
-						scoreTag = va("^3%s%dW%s", starBuf, displayStreak, starBuf);
+					char starBuf[32] = { 0 };
+					int i;
+					for (i = 0; i < numAsterisksPerSide && i < (int)(sizeof(starBuf) - 1); i++) {
+						starBuf[i] = '*';
 					}
+					starBuf[i] = '\0';
+
+					scoreTag = va("^3%s%d%s", starBuf, displayStreak, starBuf);
 				}
 			}
 
