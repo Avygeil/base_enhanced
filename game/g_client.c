@@ -2616,7 +2616,7 @@ void ClientUserinfoChanged( int clientNum ) {
 			}
 
 			// now handle barring
-			if (level.time - level.startTime >= 3000) {
+			if (qtrue) {
 				if (ent->client && ent->client->account
 					&& (ent->client->account->flags & ACCOUNTFLAG_LSAFKTROLL)
 					&& IsRacerOrSpectator(ent)
