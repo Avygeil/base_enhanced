@@ -1,8 +1,8 @@
 #include "g_local.h"
 #include "g_database.h"
 
-//#define DEBUG_GENERATETEAMS // uncomment to set players to be put into teams with z_debugX cvars
-//#define DEBUG_GENERATETEAMS_PRINT // uncomment to generate log file
+#define DEBUG_GENERATETEAMS // uncomment to set players to be put into teams with z_debugX cvars
+#define DEBUG_GENERATETEAMS_PRINT // uncomment to generate log file
 
 #ifdef DEBUG_GENERATETEAMS_PRINT
 static fileHandle_t debugFile = 0;
@@ -453,11 +453,11 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 				return;
 			}
 		}
-		else if (rerollNum == 1 && g_vote_teamgen_acdImbalanceCapWithOneReroll.value > 0) {
-			double cap = g_vote_teamgen_acdImbalanceCapWithOneReroll.value;
+		else if (rerollNum > 0 && g_vote_teamgen_imbalanceCapRaisePerReroll.value > 0) {
+			double cap = g_vote_teamgen_acdImbalanceCapWithoutReroll.value + (rerollNum * g_vote_teamgen_imbalanceCapRaisePerReroll.value);
 			cap = (round(cap * 10000) / 10000.0) + 0.00001;
 			if (diffPercentage >= cap) {
-				TeamGen_DebugPrintf(" difference too great (with one reroll).<br/>");
+				TeamGen_DebugPrintf(" difference too great (reroll %d).<br/>", rerollNum);
 				return;
 			}
 		}
@@ -517,17 +517,17 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 		(iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)) {
 			
 		if (iDiff < context->best->iDiff)
-			TeamGen_DebugPrintf(" <font color=purple>best so far (fairer)</font><br/>");
+			TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (fairer)</font><br/>");
 		else if (iDiff == context->best->iDiff && numOnPreferredPos > context->best->numOnPreferredPos)
-			TeamGen_DebugPrintf(" <font color=purple>best so far (same fairness, but more preferred pos)</font><br/>");
+			TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (same fairness, but more preferred pos)</font><br/>");
 		else if (iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos)
-			TeamGen_DebugPrintf(" <font color=purple>best so far (same fairness and preferred pos, but less on avoided pos)</font><br/>");
+			TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (same fairness and preferred pos, but less on avoided pos)</font><br/>");
 		else if (iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance < context->best->bottomTierImbalance)
-			TeamGen_DebugPrintf(" <font color=purple>best so far (same fairness, preferred pos, and avoided pos, but better bottom tier balance)</font><br/>");
+			TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (same fairness, preferred pos, and avoided pos, but better bottom tier balance)</font><br/>");
 		else if (iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)
-			TeamGen_DebugPrintf(" <font color=purple>best so far (same fairness, preferred pos, avoided pos, and bottom tier balance, but better top tier balance)</font><br/>");
+			TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (same fairness, preferred pos, avoided pos, and bottom tier balance, but better top tier balance)</font><br/>");
 		else
-			TeamGen_DebugPrintf("<font color=purple>???</font><br/>");
+			TeamGen_DebugPrintf("<font style=\"background-color: yellow;\">???</font><br/>");
 
 		isBest = qtrue;
 	}
@@ -814,7 +814,7 @@ static void TryTeamPermutation_Appeasing(teamGeneratorContext_t *context, const 
 	if (team2offense1->notOnFirstChoiceInAbc && (team2offense1->posPrefs.first & (1 << CTFPOSITION_OFFENSE))) ++numSatisfiedLgs;
 	if (team2offense2->notOnFirstChoiceInAbc && (team2offense2->posPrefs.first & (1 << CTFPOSITION_OFFENSE))) ++numSatisfiedLgs;
 	if (!numSatisfiedLgs) {
-		TeamGen_DebugPrintf("No satisfied LGs!\n");
+		TeamGen_DebugPrintf("No satisfied LGs!<br/>\n");
 		return;
 	}
 
@@ -835,19 +835,19 @@ static void TryTeamPermutation_Appeasing(teamGeneratorContext_t *context, const 
 		(numSatisfiedLgs == context->best->numSatisfiedLgs && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)) {
 
 		if (numSatisfiedLgs > context->best->numSatisfiedLgs)
-			TeamGen_DebugPrintf(" <font color=purple>best so far (more satisfied LGs)</font><br/>");
+			TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (more satisfied LGs)</font><br/>");
 		else if (numSatisfiedLgs == context->best->numSatisfiedLgs && iDiff < context->best->iDiff)
-			TeamGen_DebugPrintf(" <font color=purple>best so far (same LGs, but fairer)</font><br/>");
+			TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (same LGs, but fairer)</font><br/>");
 		else if (numSatisfiedLgs == context->best->numSatisfiedLgs && iDiff == context->best->iDiff && numOnPreferredPos > context->best->numOnPreferredPos)
-			TeamGen_DebugPrintf(" <font color=purple>best so far (same satisfied LGs and fairness, but more preferred pos)</font><br/>");
+			TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (same satisfied LGs and fairness, but more preferred pos)</font><br/>");
 		else if (numSatisfiedLgs == context->best->numSatisfiedLgs && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos)
-			TeamGen_DebugPrintf(" <font color=purple>best so far (same satisfied LGs, fairness and preferred pos, but less on avoided pos)</font><br/>");
+			TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (same satisfied LGs, fairness and preferred pos, but less on avoided pos)</font><br/>");
 		else if (numSatisfiedLgs == context->best->numSatisfiedLgs && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance < context->best->bottomTierImbalance)
-			TeamGen_DebugPrintf(" <font color=purple>best so far (same satisfied LGs, fairness, preferred pos, and avoided pos, but better bottom tier balance)</font><br/>");
+			TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (same satisfied LGs, fairness, preferred pos, and avoided pos, but better bottom tier balance)</font><br/>");
 		else if (numSatisfiedLgs == context->best->numSatisfiedLgs && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)
-			TeamGen_DebugPrintf(" <font color=purple>best so far (same satisfied LGs, fairness, preferred pos, avoided pos, and bottom tier balance, but better top tier balance)</font><br/>");
+			TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (same satisfied LGs, fairness, preferred pos, avoided pos, and bottom tier balance, but better top tier balance)</font><br/>");
 		else
-			TeamGen_DebugPrintf("<font color=purple>???</font><br/>");
+			TeamGen_DebugPrintf("<font style=\"background-color: yellow;\">???</font><br/>");
 
 		isBest = qtrue;
 	}
@@ -1090,11 +1090,11 @@ static void TryTeamPermutation_Fairest(teamGeneratorContext_t *context, const pe
 				return;
 			}
 		}
-		else if (rerollNum == 1 && g_vote_teamgen_acdImbalanceCapWithOneReroll.value > 0) {
-			double cap = g_vote_teamgen_acdImbalanceCapWithOneReroll.value;
+		else if (rerollNum > 0 && g_vote_teamgen_imbalanceCapRaisePerReroll.value > 0) {
+			double cap = g_vote_teamgen_acdImbalanceCapWithoutReroll.value + (rerollNum * g_vote_teamgen_imbalanceCapRaisePerReroll.value);
 			cap = (round(cap * 10000) / 10000.0) + 0.00001;
 			if (diffPercentage >= cap) {
-				TeamGen_DebugPrintf(" difference too great (with one reroll).<br/>");
+				TeamGen_DebugPrintf(" difference too great (reroll %d).<br/>", rerollNum);
 				return;
 			}
 		}
@@ -1158,19 +1158,19 @@ static void TryTeamPermutation_Fairest(teamGeneratorContext_t *context, const pe
 
 			// debug prints
 			if (iDiff < context->best->iDiff)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (improved fairness)</font><br/>");
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (improved fairness)</font><br/>");
 			else if (iDiff == context->best->iDiff && bottomTierImbalance < context->best->bottomTierImbalance)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (equal fairness, better bottom tier balance)</font><br/>");
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal fairness, better bottom tier balance)</font><br/>");
 			else if (iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (equal fairness and bottom tier balance, improved top tier balance)</font><br/>");
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal fairness and bottom tier balance, improved top tier balance)</font><br/>");
 			else if (iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && offenseDefenseDiff < context->best->offenseDefenseDiff)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (equal fairness and tier balances, lower offense-defense difference)</font><br/>");
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal fairness and tier balances, lower offense-defense difference)</font><br/>");
 			else if (iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && offenseDefenseDiff == context->best->offenseDefenseDiff && numOnPreferredPos > context->best->numOnPreferredPos)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (equal fairness, tier balances, and offense-defense diff, but more in preferred positions)</font><br/>");
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal fairness, tier balances, and offense-defense diff, but more in preferred positions)</font><br/>");
 			else if (iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && offenseDefenseDiff == context->best->offenseDefenseDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (equal fairness, tier balances, offense-defense diff, and preferred pos count, but fewer in avoided positions)</font><br/>");
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal fairness, tier balances, offense-defense diff, and preferred pos count, but fewer in avoided positions)</font><br/>");
 			else
-				TeamGen_DebugPrintf("<font color=purple>???</font><br/>");
+				TeamGen_DebugPrintf("<font style=\"background-color: yellow;\">???</font><br/>");
 
 			isBest = qtrue;
 		}
@@ -1189,17 +1189,17 @@ static void TryTeamPermutation_Fairest(teamGeneratorContext_t *context, const pe
 			(iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)) {
 
 			if (iDiff < context->best->iDiff)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (fairer)</font><br/>");
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (fairer)</font><br/>");
 			else if (iDiff == context->best->iDiff && numOnPreferredPos > context->best->numOnPreferredPos)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (same fairness, but more preferred pos)</font><br/>");
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (same fairness, but more preferred pos)</font><br/>");
 			else if (iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (same fairness and preferred pos, but less on avoided pos)</font><br/>");
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (same fairness and preferred pos, but less on avoided pos)</font><br/>");
 			else if (iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance < context->best->bottomTierImbalance)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (same fairness, preferred pos, and avoided pos, but better bottom tier balance)</font><br/>");
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (same fairness, preferred pos, and avoided pos, but better bottom tier balance)</font><br/>");
 			else if (iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (same fairness, preferred pos, avoided pos, and bottom tier balance, but better top tier balance)</font><br/>");
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (same fairness, preferred pos, avoided pos, and bottom tier balance, but better top tier balance)</font><br/>");
 			else
-				TeamGen_DebugPrintf("<font color=purple>???</font><br/>");
+				TeamGen_DebugPrintf("<font style=\"background-color: yellow;\">???</font><br/>");
 
 			isBest = qtrue;
 		}
@@ -1442,11 +1442,11 @@ static void TryTeamPermutation_SemiAppeasing(teamGeneratorContext_t *context, co
 				return;
 			}
 		}
-		else if (rerollNum == 1 && g_vote_teamgen_acdImbalanceCapWithOneReroll.value > 0) {
-			double cap = g_vote_teamgen_acdImbalanceCapWithOneReroll.value;
+		else if (rerollNum > 0 && g_vote_teamgen_imbalanceCapRaisePerReroll.value > 0) {
+			double cap = g_vote_teamgen_acdImbalanceCapWithoutReroll.value + (rerollNum * g_vote_teamgen_imbalanceCapRaisePerReroll.value);
 			cap = (round(cap * 10000) / 10000.0) + 0.00001;
 			if (diffPercentage >= cap) {
-				TeamGen_DebugPrintf(" difference too great (with one reroll).<br/>");
+				TeamGen_DebugPrintf(" difference too great (reroll %d).<br/>", rerollNum);
 				return;
 			}
 		}
@@ -1537,23 +1537,23 @@ static void TryTeamPermutation_SemiAppeasing(teamGeneratorContext_t *context, co
 		(numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numSatisfiedLgs == context->best->numSatisfiedLgs && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && (context->numEligible == 8 && offenseDefenseDiff < context->best->offenseDefenseDiff))) {
 
 		if (numSatisfiedCyds > context->best->numSatisfiedCyds)
-			TeamGen_DebugPrintf(" <font color=purple>best so far (more satisfied cyds)</font><br/>");
+			TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (more satisfied cyds)</font><br/>");
 		else if (numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff < context->best->iDiff)
-			TeamGen_DebugPrintf(" <font color=purple>best so far (same satisfied cyds, but fairer)</font><br/>");
+			TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (same satisfied cyds, but fairer)</font><br/>");
 		else if (numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numSatisfiedLgs > context->best->numSatisfiedLgs)
-			TeamGen_DebugPrintf(" <font color=purple>best so far (same satisfied cyds and fairness, but more satisfied lgs)</font><br/>");
+			TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (same satisfied cyds and fairness, but more satisfied lgs)</font><br/>");
 		else if (numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numSatisfiedLgs == context->best->numSatisfiedLgs && numOnPreferredPos > context->best->numOnPreferredPos)
-			TeamGen_DebugPrintf(" <font color=purple>best so far (same satisfied cyds, fairness and satisfied lgs, but more preferred pos)</font><br/>");
+			TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (same satisfied cyds, fairness and satisfied lgs, but more preferred pos)</font><br/>");
 		else if (numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numSatisfiedLgs == context->best->numSatisfiedLgs && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos)
-			TeamGen_DebugPrintf(" <font color=purple>best so far (same satisfied cyds, fairness, satisfied lgs, and preferred pos, but less on avoided pos)</font><br/>");
+			TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (same satisfied cyds, fairness, satisfied lgs, and preferred pos, but less on avoided pos)</font><br/>");
 		else if (numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numSatisfiedLgs == context->best->numSatisfiedLgs && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance < context->best->bottomTierImbalance)
-			TeamGen_DebugPrintf(" <font color=purple>best so far (same satisfied cyds, fairness, satisfied lgs, preferred pos, and avoided pos, but better bottom tier balance)</font><br/>");
+			TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (same satisfied cyds, fairness, satisfied lgs, preferred pos, and avoided pos, but better bottom tier balance)</font><br/>");
 		else if (numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numSatisfiedLgs == context->best->numSatisfiedLgs && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)
-			TeamGen_DebugPrintf(" <font color=purple>best so far (same satisfied cyds, fairness, satisfied lgs, preferred pos, avoided pos, and bottom tier balance, but better top tier balance)</font><br/>");
+			TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (same satisfied cyds, fairness, satisfied lgs, preferred pos, avoided pos, and bottom tier balance, but better top tier balance)</font><br/>");
 		else if (numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numSatisfiedLgs == context->best->numSatisfiedLgs && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && (context->numEligible == 8 && offenseDefenseDiff < context->best->offenseDefenseDiff))
-			TeamGen_DebugPrintf(" <font color=purple>best so far (same satisfied cyds, fairness, satisfied lgs, preferred pos, avoided pos, bottom and top tier balance, but 8 players and lower offense-defense diff)</font><br/>");
+			TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (same satisfied cyds, fairness, satisfied lgs, preferred pos, avoided pos, bottom and top tier balance, but 8 players and lower offense-defense diff)</font><br/>");
 		else
-			TeamGen_DebugPrintf("<font color=purple>???</font><br/>");
+			TeamGen_DebugPrintf("<font style=\"background-color: yellow;\">???</font><br/>");
 
 		isBest = qtrue;
 	}
@@ -1798,11 +1798,11 @@ static void TryTeamPermutation_FirstChoice(teamGeneratorContext_t *context, cons
 				return;
 			}
 		}
-		else if (rerollNum == 1 && g_vote_teamgen_acdImbalanceCapWithOneReroll.value > 0) {
-			double cap = g_vote_teamgen_acdImbalanceCapWithOneReroll.value;
+		else if (rerollNum > 0 && g_vote_teamgen_imbalanceCapRaisePerReroll.value > 0) {
+			double cap = g_vote_teamgen_acdImbalanceCapWithoutReroll.value + (rerollNum * g_vote_teamgen_imbalanceCapRaisePerReroll.value);
 			cap = (round(cap * 10000) / 10000.0) + 0.00001;
 			if (diffPercentage >= cap) {
-				TeamGen_DebugPrintf(" difference too great (with one reroll).<br/>");
+				TeamGen_DebugPrintf(" difference too great (reroll %d).<br/>", rerollNum);
 				return;
 			}
 		}
@@ -1858,7 +1858,7 @@ static void TryTeamPermutation_FirstChoice(teamGeneratorContext_t *context, cons
 	if (team2offense1->notOnFirstChoiceInAbc && (team2offense1->posPrefs.first & (1 << CTFPOSITION_OFFENSE))) ++numSatisfiedLgs;
 	if (team2offense2->notOnFirstChoiceInAbc && (team2offense2->posPrefs.first & (1 << CTFPOSITION_OFFENSE))) ++numSatisfiedLgs;
 	if (!numSatisfiedLgs) {
-		TeamGen_DebugPrintf("No satisfied LGs!\n");
+		TeamGen_DebugPrintf("No satisfied LGs!<br/>\n");
 		return;
 	}
 
@@ -1881,21 +1881,21 @@ static void TryTeamPermutation_FirstChoice(teamGeneratorContext_t *context, cons
 		(numSatisfiedLgs == context->best->numSatisfiedLgs && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && (context->numEligible == 8 && offenseDefenseDiff < context->best->offenseDefenseDiff))) {
 
 		if (numSatisfiedLgs > context->best->numSatisfiedLgs)
-			TeamGen_DebugPrintf(" <font color=purple>best so far (more satisfied cyds)</font><br/>");
+			TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (more satisfied cyds)</font><br/>");
 		else if (numSatisfiedLgs == context->best->numSatisfiedLgs && iDiff < context->best->iDiff)
-			TeamGen_DebugPrintf(" <font color=purple>best so far (same satisfied cyds, but fairer)</font><br/>");
+			TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (same satisfied cyds, but fairer)</font><br/>");
 		else if (numSatisfiedLgs == context->best->numSatisfiedLgs && iDiff == context->best->iDiff && numOnPreferredPos > context->best->numOnPreferredPos)
-			TeamGen_DebugPrintf(" <font color=purple>best so far (same satisfied cyds and fairness, but more preferred pos)</font><br/>");
+			TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (same satisfied cyds and fairness, but more preferred pos)</font><br/>");
 		else if (numSatisfiedLgs == context->best->numSatisfiedLgs && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos)
-			TeamGen_DebugPrintf(" <font color=purple>best so far (same satisfied cyds, fairness and preferred pos, but less on avoided pos)</font><br/>");
+			TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (same satisfied cyds, fairness and preferred pos, but less on avoided pos)</font><br/>");
 		else if (numSatisfiedLgs == context->best->numSatisfiedLgs && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance < context->best->bottomTierImbalance)
-			TeamGen_DebugPrintf(" <font color=purple>best so far (same satisfied cyds, fairness, preferred pos, and avoided pos, but better bottom tier balance)</font><br/>");
+			TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (same satisfied cyds, fairness, preferred pos, and avoided pos, but better bottom tier balance)</font><br/>");
 		else if (numSatisfiedLgs == context->best->numSatisfiedLgs && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)
-			TeamGen_DebugPrintf(" <font color=purple>best so far (same satisfied cyds, fairness, preferred pos, avoided pos, and bottom tier balance, but better top tier balance)</font><br/>");
+			TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (same satisfied cyds, fairness, preferred pos, avoided pos, and bottom tier balance, but better top tier balance)</font><br/>");
 		else if (numSatisfiedLgs == context->best->numSatisfiedLgs && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && (context->numEligible == 8 && offenseDefenseDiff < context->best->offenseDefenseDiff))
-			TeamGen_DebugPrintf(" <font color=purple>best so far (same satisfied cyds, fairness, preferred pos, avoided pos, bottom and top tier balance, but 8 players and lower offense-defense diff)</font><br/>");
+			TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (same satisfied cyds, fairness, preferred pos, avoided pos, bottom and top tier balance, but 8 players and lower offense-defense diff)</font><br/>");
 		else
-			TeamGen_DebugPrintf("<font color=purple>???</font><br/>");
+			TeamGen_DebugPrintf("<font style=\"background-color: yellow;\">???</font><br/>");
 
 		isBest = qtrue;
 	}
@@ -2139,11 +2139,11 @@ static void TryTeamPermutation_Inclusive(teamGeneratorContext_t *context, const 
 				return;
 			}
 		}
-		else if (rerollNum == 1 && g_vote_teamgen_acdImbalanceCapWithOneReroll.value > 0) {
-			double cap = g_vote_teamgen_acdImbalanceCapWithOneReroll.value;
+		else if (rerollNum > 0 && g_vote_teamgen_imbalanceCapRaisePerReroll.value > 0) {
+			double cap = g_vote_teamgen_acdImbalanceCapWithoutReroll.value + (rerollNum * g_vote_teamgen_imbalanceCapRaisePerReroll.value);
 			cap = (round(cap * 10000) / 10000.0) + 0.00001;
 			if (diffPercentage >= cap) {
-				TeamGen_DebugPrintf(" difference too great (with one reroll).<br/>");
+				TeamGen_DebugPrintf(" difference too great (reroll %d).<br/>", rerollNum);
 				return;
 			}
 		}
@@ -2236,21 +2236,21 @@ static void TryTeamPermutation_Inclusive(teamGeneratorContext_t *context, const 
 		(totalNumPermutations == context->best->totalNumPermutations && numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance < context->best->bottomTierImbalance) ||
 		(totalNumPermutations == context->best->totalNumPermutations && numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)) {
 		if (totalNumPermutations < context->best->totalNumPermutations)
-			TeamGen_DebugPrintf(" <font color=purple>best so far (fewer permutations)</font><br/>");
+			TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (fewer permutations)</font><br/>");
 		else if (totalNumPermutations == context->best->totalNumPermutations && numSatisfiedCyds > context->best->numSatisfiedCyds)
-			TeamGen_DebugPrintf(" <font color=purple>best so far (same permutations, but more cyds)</font><br/>");
+			TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (same permutations, but more cyds)</font><br/>");
 		else if (totalNumPermutations == context->best->totalNumPermutations && numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff < context->best->iDiff)
-			TeamGen_DebugPrintf(" <font color=purple>best so far (same permutations and cyds, but fairer)</font><br/>");
+			TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (same permutations and cyds, but fairer)</font><br/>");
 		else if (totalNumPermutations == context->best->totalNumPermutations && numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numOnPreferredPos > context->best->numOnPreferredPos)
-			TeamGen_DebugPrintf(" <font color=purple>best so far (same permutations, cyds, and fairness, but more preferred pos)</font><br/>");
+			TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (same permutations, cyds, and fairness, but more preferred pos)</font><br/>");
 		else if (totalNumPermutations == context->best->totalNumPermutations && numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos)
-			TeamGen_DebugPrintf(" <font color=purple>best so far (same permutations, cyds, fairness and preferred pos, but less on avoided pos)</font><br/>");
+			TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (same permutations, cyds, fairness and preferred pos, but less on avoided pos)</font><br/>");
 		else if (totalNumPermutations == context->best->totalNumPermutations && numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance < context->best->bottomTierImbalance)
-			TeamGen_DebugPrintf(" <font color=purple>best so far (same permutations, cyds, fairness, preferred pos, and avoided pos, but better bottom tier balance)</font><br/>");
+			TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (same permutations, cyds, fairness, preferred pos, and avoided pos, but better bottom tier balance)</font><br/>");
 		else if (totalNumPermutations == context->best->totalNumPermutations && numSatisfiedCyds == context->best->numSatisfiedCyds && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)
-			TeamGen_DebugPrintf(" <font color=purple>best so far (same permutations, cyds, fairness, preferred pos, avoided pos, and bottom tier balance, but better top tier balance)</font><br/>");
+			TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (same permutations, cyds, fairness, preferred pos, avoided pos, and bottom tier balance, but better top tier balance)</font><br/>");
 		else
-			TeamGen_DebugPrintf("<font color=purple>???</font><br/>");
+			TeamGen_DebugPrintf("<font style=\"background-color: yellow;\">???</font><br/>");
 
 		if (context->avoidedHashesList && context->avoidedHashesList->size > 0) {
 			permutationOfTeams_t hashMe = { 0 };
@@ -2492,11 +2492,11 @@ static void TryTeamPermutation_SemiTryhard(teamGeneratorContext_t *context, cons
 				return;
 			}
 		}
-		else if (rerollNum == 1 && g_vote_teamgen_acdImbalanceCapWithOneReroll.value > 0) {
-			double cap = g_vote_teamgen_acdImbalanceCapWithOneReroll.value;
+		else if (rerollNum > 0 && g_vote_teamgen_imbalanceCapRaisePerReroll.value > 0) {
+			double cap = g_vote_teamgen_acdImbalanceCapWithoutReroll.value + (rerollNum * g_vote_teamgen_imbalanceCapRaisePerReroll.value);
 			cap = (round(cap * 10000) / 10000.0) + 0.00001;
 			if (diffPercentage >= cap) {
-				TeamGen_DebugPrintf(" difference too great (with one reroll).<br/>");
+				TeamGen_DebugPrintf(" difference too great (reroll %d).<br/>", rerollNum);
 				return;
 			}
 		}
@@ -2564,21 +2564,21 @@ static void TryTeamPermutation_SemiTryhard(teamGeneratorContext_t *context, cons
 			(iDiff == context->best->iDiff && iTotal == iCurrentBestCombinedStrength && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && offenseDefenseDiff < context->best->offenseDefenseDiff)) {
 
 			if (iDiff < context->best->iDiff)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (fairer)</font><br/>");
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (fairer)</font><br/>");
 			else if (iDiff == context->best->iDiff && iTotal > iCurrentBestCombinedStrength)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (equal fairness, but higher combined strength)</font><br/>");
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal fairness, but higher combined strength)</font><br/>");
 			else if (iDiff == context->best->iDiff && iTotal == iCurrentBestCombinedStrength && bottomTierImbalance < context->best->bottomTierImbalance)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (equal fairness and combined strength, but better bottom tier balance)</font><br/>");
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal fairness and combined strength, but better bottom tier balance)</font><br/>");
 			else if (iDiff == context->best->iDiff && iTotal == iCurrentBestCombinedStrength && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (equal fairness, combined strength, and bottom tier balance, but better top tier balance)</font><br/>");
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal fairness, combined strength, and bottom tier balance, but better top tier balance)</font><br/>");
 			else if (iDiff == context->best->iDiff && iTotal == iCurrentBestCombinedStrength && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && numOnPreferredPos > context->best->numOnPreferredPos)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (equal fairness, combined strength, bottom+top tier balance, but more on preferred pos)</font><br/>");
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal fairness, combined strength, bottom+top tier balance, but more on preferred pos)</font><br/>");
 			else if (iDiff == context->best->iDiff && iTotal == iCurrentBestCombinedStrength && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (equal fairness, combined strength, bottom+top tier balance, preferred pos, but less on avoided pos)</font><br/>");
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal fairness, combined strength, bottom+top tier balance, preferred pos, but less on avoided pos)</font><br/>");
 			else if (iDiff == context->best->iDiff && iTotal == iCurrentBestCombinedStrength && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && offenseDefenseDiff < context->best->offenseDefenseDiff)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (equal fairness, combined strength, bottom+top tier balance, preferred pos, avoided pos, but better offense-defense diff)</font><br/>");
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal fairness, combined strength, bottom+top tier balance, preferred pos, avoided pos, but better offense-defense diff)</font><br/>");
 			else
-				TeamGen_DebugPrintf("<font color=purple>???</font><br/>");
+				TeamGen_DebugPrintf("<font style=\"background-color: yellow;\">???</font><br/>");
 
 			isBest = qtrue;
 		}
@@ -2598,19 +2598,19 @@ static void TryTeamPermutation_SemiTryhard(teamGeneratorContext_t *context, cons
 			(iDiff == context->best->iDiff && iTotal == iCurrentBestCombinedStrength && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance < context->best->bottomTierImbalance) ||
 			(iDiff == context->best->iDiff && iTotal == iCurrentBestCombinedStrength && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)) {
 			if (iDiff < context->best->iDiff)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (fairer)</font><br/>");
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (fairer)</font><br/>");
 			else if (iDiff == context->best->iDiff && iTotal > iCurrentBestCombinedStrength)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (equal fairness, but higher combined strength)</font><br/>");
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal fairness, but higher combined strength)</font><br/>");
 			else if (iDiff == context->best->iDiff && iTotal == iCurrentBestCombinedStrength && numOnPreferredPos > context->best->numOnPreferredPos)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (equal fairness and combined strength, but more preferred pos)</font><br/>");
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal fairness and combined strength, but more preferred pos)</font><br/>");
 			else if (iDiff == context->best->iDiff && iTotal == iCurrentBestCombinedStrength && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (equal fairness, combined strength, and preferred pos, but less on avoided pos)</font><br/>");
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal fairness, combined strength, and preferred pos, but less on avoided pos)</font><br/>");
 			else if (iDiff == context->best->iDiff && iTotal == iCurrentBestCombinedStrength && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance < context->best->bottomTierImbalance)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (equal fairness, combined strength, preferred pos, and avoided pos, but better bottom tier balance)</font><br/>");
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal fairness, combined strength, preferred pos, and avoided pos, but better bottom tier balance)</font><br/>");
 			else if (iDiff == context->best->iDiff && iTotal == iCurrentBestCombinedStrength && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (equal fairness, combined strength, preferred pos, avoided pos, and bottom tier balance, but better top tier balance)</font><br/>");
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal fairness, combined strength, preferred pos, avoided pos, and bottom tier balance, but better top tier balance)</font><br/>");
 			else
-				TeamGen_DebugPrintf("<font color=purple>???</font><br/>");
+				TeamGen_DebugPrintf("<font style=\"background-color: yellow;\">???</font><br/>");
 
 			isBest = qtrue;
 		}
@@ -2807,7 +2807,48 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 	}
 	int offenseDefenseDiff = team1OffenseDefenseDiff + team2OffenseDefenseDiff;
 
-	TeamGen_DebugPrintf("Tryhard:%s%s</font>/%s%s</font>/%s%s</font>/%s%s</font> vs. %s%s</font>/%s%s</font>/%s%s</font>/%s%s</font><font color=black> : %0.3f vs. %0.3f raw, %0.2f vs. %0.2f relative, %d numOnPreferredPos, %d numAvoid, %d (%d/%d) garbage imbalance, %d (%d/%d) bottom imbalance, %d (%d/%d) top imbalance, %0.3f total, %0.3f diff, offense/defense diff %d (%d/%d)</font>",
+	qboolean satisfiesNoobRule = qtrue;
+	if (context->numEligible == 8 && g_vote_teamgen_noobCheck.integer && diffPercentage >= (/*0.01*/0 - 0.000001)) {
+		double ratings[8] = {
+			team1base->rating[CTFPOSITION_BASE],
+			team1chase->rating[CTFPOSITION_CHASE],
+			team1offense1->rating[CTFPOSITION_OFFENSE],
+			team1offense2->rating[CTFPOSITION_OFFENSE],
+			team2base->rating[CTFPOSITION_BASE],
+			team2chase->rating[CTFPOSITION_CHASE],
+			team2offense1->rating[CTFPOSITION_OFFENSE],
+			team2offense2->rating[CTFPOSITION_OFFENSE]
+		};
+
+		int tiers[8];
+		for (int i = 0; i < 8; ++i)
+			tiers[i] = PlayerTierFromRating(ratings[i]);
+
+		// find lowest and second lowest
+		int minTier = 99, secondMinTier = 99;
+		int minIndex = -1;
+		for (int i = 0; i < 8; ++i) {
+			if (tiers[i] < minTier) {
+				secondMinTier = minTier;
+				minTier = tiers[i];
+				minIndex = i;
+			}
+			else if (tiers[i] < secondMinTier) {
+				secondMinTier = tiers[i];
+			}
+		}
+
+		// if lowest player is bad and much worse than second lowest
+		if (minTier <= PLAYERRATING_HIGH_C && secondMinTier - minTier >= 3) {
+			int weakerTeam = (team1RelativeStrength < team2RelativeStrength) ? 0 : 1;
+			int playerTeam = (minIndex < 4) ? 0 : 1;
+			if (playerTeam == weakerTeam) {
+				satisfiesNoobRule = qfalse;
+			}
+		}
+	}
+
+	TeamGen_DebugPrintf("Tryhard:%s%s</font>/%s%s</font>/%s%s</font>/%s%s</font> vs. %s%s</font>/%s%s</font>/%s%s</font>/%s%s</font><font color=black> : %0.3f vs. %0.3f raw, %0.2f vs. %0.2f relative, %d numOnPreferredPos, %d numAvoid, %d noob rule, %d (%d/%d) garbage imbalance, %d (%d/%d) bottom imbalance, %d (%d/%d) top imbalance, %0.3f total, %0.3f diff, offense/defense diff %d (%d/%d)</font>",
 		team1base->posPrefs.avoid & (1 << CTFPOSITION_BASE) ? "<font color=red>" : team1base->posPrefs.first & (1 << CTFPOSITION_BASE) ? "<font color=darkgreen>" : team1base->posPrefs.second & (1 << CTFPOSITION_BASE) ? "<font color=silver>" : team1base->posPrefs.third & (1 << CTFPOSITION_BASE) ? "<font color=orange>" : "<font color=black>",
 		team1base->accountName,
 		team1chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE) ? "<font color=red>" : team1chase->posPrefs.first & (1 << CTFPOSITION_CHASE) ? "<font color=darkgreen>" : team1chase->posPrefs.second & (1 << CTFPOSITION_CHASE) ? "<font color=silver>" : team1chase->posPrefs.third & (1 << CTFPOSITION_CHASE) ? "<font color=orange>" : "<font color=black>",
@@ -2830,6 +2871,7 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 		team2RelativeStrength * 100,
 		numOnPreferredPos,
 		numOnAvoidedPos,
+		satisfiesNoobRule,
 		garbageTierImbalance,
 		team1GarbageTiers,
 		team2GarbageTiers,
@@ -2845,21 +2887,22 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 		team1OffenseDefenseDiff,
 		team2OffenseDefenseDiff);
 
-	// start with a high cap, then shrink it, then raise it again
-	if ((!rerollNum || rerollNum == 2) && g_vote_teamgen_bImbalanceCapWith0OrTwoRerolls.value > 0) {
-		double cap = g_vote_teamgen_bImbalanceCapWith0OrTwoRerolls.value;
-		cap = (round(cap * 10000) / 10000.0) + 0.00001;
-		if (diffPercentage >= cap) {
-			TeamGen_DebugPrintf(" difference too great (without reroll).<br/>");
-			return;
+	if (context->enforceImbalanceCaps) {
+		if (!rerollNum && g_vote_teamgen_bImbalanceCapWithoutReroll.value > 0) {
+			double cap = g_vote_teamgen_bImbalanceCapWithoutReroll.value;
+			cap = (round(cap * 10000) / 10000.0) + 0.00001;
+			if (diffPercentage >= cap) {
+				TeamGen_DebugPrintf(" difference too great (without reroll).<br/>");
+				return;
+			}
 		}
-	}
-	else if (rerollNum == 1 && g_vote_teamgen_bImbalanceCapWithOneReroll.value > 0) {
-		double cap = g_vote_teamgen_bImbalanceCapWithOneReroll.value;
-		cap = (round(cap * 10000) / 10000.0) + 0.00001;
-		if (diffPercentage >= cap) {
-			TeamGen_DebugPrintf(" difference too great (with one reroll).<br/>");
-			return;
+		else if (rerollNum > 0 && g_vote_teamgen_imbalanceCapRaisePerReroll.value > 0) {
+			double cap = g_vote_teamgen_bImbalanceCapWithoutReroll.value + (rerollNum * g_vote_teamgen_imbalanceCapRaisePerReroll.value);
+			cap = (round(cap * 10000) / 10000.0) + 0.00001;
+			if (diffPercentage >= cap) {
+				TeamGen_DebugPrintf(" difference too great (reroll %d).<br/>", rerollNum);
+				return;
+			}
 		}
 	}
 
@@ -2909,37 +2952,41 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 	qboolean isBest = qfalse;
 	if (context->numEligible == 8 && g_vote_teamgen_new8PlayerAlgo.integer) {
 		// this permutation will be favored over the previous permutation if:
-		// - it has higher combined strength
-		// - it is equally high in combined strength, but fairer
-		// - it is equally high in combined strength and equally fair, but has better balance of bottom tier players
-		// - it is equally high in combined strength, equally fair, and has equal balance of bottom tier players, but has better balance of top tier players
-		// - it is equally high in combined strength, equally fair, has equal balance of bottom and top tier players, but has better offense-defense diff
-		// - it is equally high in combined strength, equally fair, has equal balance of bottom and top tier players, and equal offense-defense diff, but has more people on preferred pos
-		// - it is equally high in combined strength, equally fair, has equal balance of bottom and top tier players, equal offense-defense diff, and an equal number of people on preferred pos, but has fewer people on avoided pos
-		if (iTotal > iCurrentBestCombinedStrength ||
-			(iTotal == iCurrentBestCombinedStrength && iDiff < context->best->iDiff) ||
-			(iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && bottomTierImbalance < context->best->bottomTierImbalance) ||
-			(iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance) ||
-			(iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && offenseDefenseDiff < context->best->offenseDefenseDiff) ||
-			(iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && offenseDefenseDiff == context->best->offenseDefenseDiff && numOnPreferredPos > context->best->numOnPreferredPos) ||
-			(iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && offenseDefenseDiff == context->best->offenseDefenseDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos)) {
+		// - it satisfies the noob rule and the other one doesn't
+		// - it equally satisfies the noob rule, but has higher combined strength
+		// - it equally satisfies the noob rule and has equal combined strength, but is fairer
+		// - it equally satisfies the noob rule and has equal combined strength and fairness, but has better balance of bottom tier players
+		// - it equally satisfies the noob rule and has equal combined strength and fairness and equal bottom tier balance, but has better balance of top tier players
+		// - it equally satisfies the noob rule and has equal combined strength and fairness and equal bottom+top tier balance, but has better offense-defense diff
+		// - it equally satisfies the noob rule and has equal combined strength and fairness and equal bottom+top tier balance and offense-defense diff, but has more people on preferred pos
+		// - it equally satisfies the noob rule and has equal combined strength and fairness and equal bottom+top tier balance, offense-defense diff, and preferred pos, but has fewer people on avoided pos
+		if ((satisfiesNoobRule && !context->best->satisfiesNoobRule) ||
+			(satisfiesNoobRule == context->best->satisfiesNoobRule && iTotal > iCurrentBestCombinedStrength) ||
+			(satisfiesNoobRule == context->best->satisfiesNoobRule && iTotal == iCurrentBestCombinedStrength && iDiff < context->best->iDiff) ||
+			(satisfiesNoobRule == context->best->satisfiesNoobRule && iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && bottomTierImbalance < context->best->bottomTierImbalance) ||
+			(satisfiesNoobRule == context->best->satisfiesNoobRule && iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance) ||
+			(satisfiesNoobRule == context->best->satisfiesNoobRule && iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && offenseDefenseDiff < context->best->offenseDefenseDiff) ||
+			(satisfiesNoobRule == context->best->satisfiesNoobRule && iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && offenseDefenseDiff == context->best->offenseDefenseDiff && numOnPreferredPos > context->best->numOnPreferredPos) ||
+			(satisfiesNoobRule == context->best->satisfiesNoobRule && iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && offenseDefenseDiff == context->best->offenseDefenseDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos)) {
 
-			if (iTotal > iCurrentBestCombinedStrength)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (higher combined strength)</font><br/>");
-			else if (iTotal == iCurrentBestCombinedStrength && iDiff < context->best->iDiff)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (equal combined strength, but fairer)</font><br/>");
-			else if (iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && bottomTierImbalance < context->best->bottomTierImbalance)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (equal combined strength and fairness, but better bottom tier balance)</font><br/>");
-			else if (iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (equal combined strength, fairness, and bottom tier balance, but better top tier balance)</font><br/>");
-			else if (iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && offenseDefenseDiff < context->best->offenseDefenseDiff)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (equal combined strength, fairness, bottom tier and top tier balance, but better offense-defense diff)</font><br/>");
-			else if (iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && offenseDefenseDiff == context->best->offenseDefenseDiff && numOnPreferredPos > context->best->numOnPreferredPos)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (equal combined strength, fairness, bottom+top tier balance, and offense-defense diff, but more on preferred pos)</font><br/>");
-			else if (iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && offenseDefenseDiff == context->best->offenseDefenseDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (equal combined strength, fairness, bottom+top tier balance, offense-defense diff, and preferred pos, but less on avoided pos)</font><br/>");
+			if (satisfiesNoobRule && !context->best->satisfiesNoobRule)
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (satisfies noob rule)</font><br/>");
+			else if (iTotal > iCurrentBestCombinedStrength)
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal noob rule, but higher combined strength)</font><br/>");
+			else if (iDiff < context->best->iDiff)
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal noob rule and strength, but fairer)</font><br/>");
+			else if (bottomTierImbalance < context->best->bottomTierImbalance)
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal noob rule, strength, fairness, but better bottom tier balance)</font><br/>");
+			else if (topTierImbalance < context->best->topTierImbalance)
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal noob rule, strength, fairness, bottom tier balance, but better top tier balance)</font><br/>");
+			else if (offenseDefenseDiff < context->best->offenseDefenseDiff)
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal noob rule, strength, fairness, bottom+top tier balance, but better offense-defense diff)</font><br/>");
+			else if (numOnPreferredPos > context->best->numOnPreferredPos)
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal noob rule, strength, fairness, bottom+top tier balance, offense-defense diff, but more on preferred pos)</font><br/>");
+			else if (numOnAvoidedPos < context->best->numOnAvoidedPos)
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal noob rule, strength, fairness, bottom+top tier balance, offense-defense diff, preferred pos count, but less on avoided pos)</font><br/>");
 			else
-				TeamGen_DebugPrintf("<font color=purple>???</font><br/>");
+				TeamGen_DebugPrintf("<font style=\"background-color: yellow;\">???</font><br/>");
 
 			isBest = qtrue;
 		}
@@ -2959,19 +3006,19 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 			(iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance < context->best->bottomTierImbalance) ||
 			(iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)) {
 			if (iTotal > iCurrentBestCombinedStrength)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (combined strength better)</font><br/>");
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (combined strength better)</font><br/>");
 			else if (iTotal == iCurrentBestCombinedStrength && iDiff < context->best->iDiff)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (combined strength equal, but fairer)</font><br/>");
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (combined strength equal, but fairer)</font><br/>");
 			else if (iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && numOnPreferredPos > context->best->numOnPreferredPos)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (combined strength and fairness equal, but more preferred pos)</font><br/>");
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (combined strength and fairness equal, but more preferred pos)</font><br/>");
 			else if (iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (combined strength, fairness equal and preferred pos equal, but less on avoided pos)</font><br/>");
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (combined strength, fairness equal and preferred pos equal, but less on avoided pos)</font><br/>");
 			else if (iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance < context->best->bottomTierImbalance)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (combined strength, fairness, preferred pos, and avoided pos, but better bottom tier balance)</font><br/>");
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (combined strength, fairness, preferred pos, and avoided pos, but better bottom tier balance)</font><br/>");
 			else if (iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)
-				TeamGen_DebugPrintf(" <font color=purple>best so far (combined strength, fairness, preferred pos, avoided pos, and bottom tier balance, but better top tier balance)</font><br/>");
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (combined strength, fairness, preferred pos, avoided pos, and bottom tier balance, but better top tier balance)</font><br/>");
 			else
-				TeamGen_DebugPrintf("<font color=purple>???</font><br/>");
+				TeamGen_DebugPrintf("<font style=\"background-color: yellow;\">???</font><br/>");
 
 			isBest = qtrue;
 		}
@@ -3033,6 +3080,7 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 		context->best->topTierImbalance = topTierImbalance;
 		context->best->bottomTierImbalance = bottomTierImbalance;
 		context->best->totalSkill = iTotal;
+		context->best->satisfiesNoobRule = satisfiesNoobRule;
 		context->best->teams[0].rawStrength = team1RawStrength;
 		context->best->teams[1].rawStrength = team2RawStrength;
 		context->best->teams[0].relativeStrength = team1RelativeStrength;
@@ -3295,6 +3343,7 @@ static uint64_t PermuteTeams(permutationPlayer_t *playerArray, int numEligible, 
 	context.best->totalSkill = 0;
 	context.best->numSatisfiedCyds = -1;
 	context.best->numSatisfiedLgs = -1;
+	context.best->satisfiesNoobRule = qfalse;
 	context.type = type;
 	context.enforceImbalanceCaps = enforceImbalanceCaps;
 	if (avoidedHashesList && avoidedHashesList->size > 0)

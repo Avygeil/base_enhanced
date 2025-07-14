@@ -1362,6 +1362,7 @@ typedef struct {
 	int numSatisfiedCyds;
 	int numSatisfiedLgs;
 	double lowestPlayerRating;
+	qboolean satisfiesNoobRule;
 } permutationOfTeams_t;
 
 typedef struct {
@@ -3727,10 +3728,9 @@ extern vmCvar_t		g_vote_teamgen_require2VotesOnEachTeam;
 extern vmCvar_t		g_vote_teamgen_readBeforeVotingMilliseconds;
 extern vmCvar_t		g_vote_teamgen_readBeforeVotingMillisecondsJawa;
 extern vmCvar_t		g_vote_teamgen_preventBindsWith8PlayersMilliseconds;
-extern vmCvar_t		g_vote_teamgen_bImbalanceCapWith0OrTwoRerolls;
-extern vmCvar_t		g_vote_teamgen_bImbalanceCapWithOneReroll;
+extern vmCvar_t		g_vote_teamgen_bImbalanceCapWithoutReroll;
 extern vmCvar_t		g_vote_teamgen_acdImbalanceCapWithoutReroll;
-extern vmCvar_t		g_vote_teamgen_acdImbalanceCapWithOneReroll;
+extern vmCvar_t		g_vote_teamgen_imbalanceCapRaisePerReroll;
 extern vmCvar_t		g_vote_teamgen_dynamicVoteRequirement;
 extern vmCvar_t		g_vote_freezeUntilVote;
 extern vmCvar_t		g_vote_lessPlayedMapsDisfavoredInRunoffEliminations;
@@ -3746,6 +3746,7 @@ extern vmCvar_t		g_vote_preventSwitchingTeamsDuringMapVote;
 extern vmCvar_t		g_vote_teamgen_autoAdjustRequiredPugVotes;
 extern vmCvar_t		g_vote_teamgen_sumOfSquaresTiebreaker;
 extern vmCvar_t		g_vote_teamgen_aDietB;
+extern vmCvar_t		g_vote_teamgen_noobCheck;
 extern vmCvar_t		g_vote_teamgen_displayCaliber;
 extern vmCvar_t		g_lockTeamsAtEndOfLivePug;
 extern vmCvar_t		g_showWinStreaks;

@@ -574,10 +574,9 @@ vmCvar_t	g_vote_teamgen_require2VotesOnEachTeam;
 vmCvar_t	g_vote_teamgen_readBeforeVotingMilliseconds;
 vmCvar_t	g_vote_teamgen_readBeforeVotingMillisecondsJawa;
 vmCvar_t	g_vote_teamgen_preventBindsWith8PlayersMilliseconds;
-vmCvar_t	g_vote_teamgen_bImbalanceCapWith0OrTwoRerolls;
-vmCvar_t	g_vote_teamgen_bImbalanceCapWithOneReroll;
+vmCvar_t	g_vote_teamgen_bImbalanceCapWithoutReroll;
 vmCvar_t	g_vote_teamgen_acdImbalanceCapWithoutReroll;
-vmCvar_t	g_vote_teamgen_acdImbalanceCapWithOneReroll;
+vmCvar_t	g_vote_teamgen_imbalanceCapRaisePerReroll;
 vmCvar_t	g_vote_teamgen_dynamicVoteRequirement;
 vmCvar_t	g_vote_freezeUntilVote;
 vmCvar_t	g_vote_lessPlayedMapsDisfavoredInRunoffEliminations;
@@ -593,6 +592,7 @@ vmCvar_t	g_vote_preventSwitchingTeamsDuringMapVote;
 vmCvar_t	g_vote_teamgen_autoAdjustRequiredPugVotes;
 vmCvar_t	g_vote_teamgen_sumOfSquaresTiebreaker;
 vmCvar_t	g_vote_teamgen_aDietB;
+vmCvar_t	g_vote_teamgen_noobCheck;
 vmCvar_t	g_vote_teamgen_displayCaliber;
 vmCvar_t	g_lockTeamsAtEndOfLivePug;
 vmCvar_t	g_showWinStreaks;
@@ -1218,10 +1218,9 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_teamgen_readBeforeVotingMilliseconds, "g_vote_teamgen_readBeforeVotingMilliseconds", "5000", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_readBeforeVotingMillisecondsJawa, "g_vote_teamgen_readBeforeVotingMillisecondsJawa", "10000", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_preventBindsWith8PlayersMilliseconds, "g_vote_teamgen_preventBindsWith8PlayersMilliseconds", "50", CVAR_ARCHIVE, 0, qfalse },
-	{ &g_vote_teamgen_bImbalanceCapWith0OrTwoRerolls, "g_vote_teamgen_bImbalanceCapWith0OrTwoRerolls", "0.0382", CVAR_ARCHIVE, 0, qfalse },
-	{ &g_vote_teamgen_bImbalanceCapWithOneReroll, "g_vote_teamgen_bImbalanceCapWithOneReroll", "0.0382", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_teamgen_bImbalanceCapWithoutReroll, "g_vote_teamgen_bImbalanceCapWithoutReroll", "0.0182", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_acdImbalanceCapWithoutReroll, "g_vote_teamgen_acdImbalanceCapWithoutReroll", "0.0182", CVAR_ARCHIVE, 0, qfalse },
-	{ &g_vote_teamgen_acdImbalanceCapWithOneReroll, "g_vote_teamgen_acdImbalanceCapWithOneReroll", "0.0382", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_teamgen_imbalanceCapRaisePerReroll, "g_vote_teamgen_imbalanceCapRaisePerReroll", "0.005", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_dynamicVoteRequirement, "g_vote_teamgen_dynamicVoteRequirement", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_freezeUntilVote, "g_vote_freezeUntilVote", "-1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_lessPlayedMapsDisfavoredInRunoffEliminations, "g_vote_lessPlayedMapsDisfavoredInRunoffEliminations", "10", CVAR_ARCHIVE, 0, qfalse },
@@ -1237,6 +1236,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_teamgen_autoAdjustRequiredPugVotes, "g_vote_teamgen_autoAdjustRequiredPugVotes", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_sumOfSquaresTiebreaker, "g_vote_teamgen_sumOfSquaresTiebreaker", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_aDietB, "g_vote_teamgen_aDietB", "1", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_teamgen_noobCheck, "g_vote_teamgen_noobCheck", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_displayCaliber, "g_vote_teamgen_displayCaliber", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_lockTeamsAtEndOfLivePug, "g_lockTeamsAtEndOfLivePug", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_showWinStreaks, "g_showWinStreaks", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
