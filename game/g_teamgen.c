@@ -1,8 +1,8 @@
 #include "g_local.h"
 #include "g_database.h"
 
-#define DEBUG_GENERATETEAMS // uncomment to set players to be put into teams with z_debugX cvars
-#define DEBUG_GENERATETEAMS_PRINT // uncomment to generate log file
+//#define DEBUG_GENERATETEAMS // uncomment to set players to be put into teams with z_debugX cvars
+//#define DEBUG_GENERATETEAMS_PRINT // uncomment to generate log file
 
 #ifdef DEBUG_GENERATETEAMS_PRINT
 static fileHandle_t debugFile = 0;
