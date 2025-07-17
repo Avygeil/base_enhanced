@@ -7058,7 +7058,12 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 		*newMessage = buf;
 	}
 
+	// determine which have enough to pass
 	int numPermutationsWithEnoughVotesToPass = 0;
+	int numBalancedPassing = 0;
+	int passingMask = 0;
+	int balancedMask = 0;
+
 	for (int i = 0; i < NUM_TEAMGENERATORTYPES; i++) {
 		int *votesIntRed, *votesIntBlue;
 		permutationOfTeams_t *permutation;
@@ -7111,7 +7116,8 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 		if (!permutation->valid)
 			continue;
 
-		int numYesVotesRed = 0, numYesVotesBlue = 0;
+		int numYesVotesRed = 0;
+		int numYesVotesBlue = 0;
 		for (int j = 0; j < MAX_CLIENTS; j++) {
 			if (*votesIntRed & (1 << j))
 				++numYesVotesRed;
@@ -7121,14 +7127,16 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 
 		int numRequired;
 		if (g_vote_teamgen_dynamicVoteRequirement.integer) {
-			if (permutation->teams[0].relativeStrength >= 0.519f - 0.0001f || permutation->teams[1].relativeStrength >= 0.519f - 0.0001f) {
+			if (permutation->teams[0].relativeStrength >= 0.519f - 0.0001f ||
+				permutation->teams[1].relativeStrength >= 0.519f - 0.0001f) {
 				numRequired = 7;
 			}
 			else if (permutation->lowestPlayerRating >= PlayerTierToRating(PLAYERRATING_MID_B) - 0.0001) {
-				if (permutation->teams[0].relativeStrength >= 0.5049f - 0.0001f || permutation->teams[1].relativeStrength >= 0.5049f - 0.0001f)
-					numRequired = 5; // hc but imba
+				if (permutation->teams[0].relativeStrength >= 0.5049f - 0.0001f ||
+					permutation->teams[1].relativeStrength >= 0.5049f - 0.0001f)
+					numRequired = 5; /* hc but imba */
 				else
-					numRequired = 4; // just hc
+					numRequired = 4; /* just hc      */
 			}
 			else if (permutation->iDiff > 0 || numPlayers > 8) {
 				numRequired = 6;
@@ -7141,114 +7149,13 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 			numRequired = 5;
 		}
 
-		if (g_vote_teamgen_require2VotesOnEachTeam.integer && !(permutation->lowestPlayerRating >= PlayerTierToRating(PLAYERRATING_MID_B) - 0.0001 && !(permutation->teams[0].relativeStrength >= 0.5049f - 0.0001f || permutation->teams[1].relativeStrength >= 0.5049f - 0.0001f))) {
-			if (numYesVotesRed + numYesVotesBlue >= numRequired && numYesVotesRed >= 2 && numYesVotesBlue >= 2)
-				++numPermutationsWithEnoughVotesToPass;
-		}
-		else {
-			if (numYesVotesRed + numYesVotesBlue >= numRequired)
-				++numPermutationsWithEnoughVotesToPass;
-		}
-	}
-
-	int tiebreakerOrder[] = { TEAMGENERATORTYPE_MOSTPLAYED, TEAMGENERATORTYPE_HIGHESTRATING, TEAMGENERATORTYPE_FAIREST, TEAMGENERATORTYPE_INCLUSIVE, TEAMGENERATORTYPE_DESIREDPOS, TEAMGENERATORTYPE_SEMIDESIREDPOS, TEAMGENERATORTYPE_FIRSTCHOICE };
-	srand(teamGenSeed);
-	FisherYatesShuffle(&tiebreakerOrder[0], NUM_TEAMGENERATORTYPES, sizeof(int));
-	srand(time(NULL));
-
-	for (int i = 0; i < NUM_TEAMGENERATORTYPES; i++) {
-		int j = tiebreakerOrder[i];
-		char letter;
-		int *votesIntRed, *votesIntBlue;
-		permutationOfTeams_t *permutation;
-		switch (j) {
-		case TEAMGENERATORTYPE_MOSTPLAYED:
-			permutation = &level.activePugProposal->suggested;
-			votesIntRed = &level.activePugProposal->suggestedVoteClientsRed;
-			votesIntBlue = &level.activePugProposal->suggestedVoteClientsBlue;
-			letter = level.activePugProposal->suggestedLetter;
-			break;
-
-		case TEAMGENERATORTYPE_HIGHESTRATING:
-			permutation = &level.activePugProposal->highestCaliber;
-			votesIntRed = &level.activePugProposal->highestCaliberVoteClientsRed;
-			votesIntBlue = &level.activePugProposal->highestCaliberVoteClientsBlue;
-			letter = level.activePugProposal->highestCaliberLetter;
-			break;
-
-		case TEAMGENERATORTYPE_FAIREST:
-			permutation = &level.activePugProposal->fairest;
-			votesIntRed = &level.activePugProposal->fairestVoteClientsRed;
-			votesIntBlue = &level.activePugProposal->fairestVoteClientsBlue;
-			letter = level.activePugProposal->fairestLetter;
-			break;
-
-		case TEAMGENERATORTYPE_INCLUSIVE:
-			permutation = &level.activePugProposal->inclusive;
-			votesIntRed = &level.activePugProposal->inclusiveVoteClientsRed;
-			votesIntBlue = &level.activePugProposal->inclusiveVoteClientsBlue;
-			letter = level.activePugProposal->inclusiveLetter;
-			break;
-
-		case TEAMGENERATORTYPE_DESIREDPOS:
-			permutation = &level.activePugProposal->desired;
-			votesIntRed = &level.activePugProposal->desiredVoteClientsRed;
-			votesIntBlue = &level.activePugProposal->desiredVoteClientsBlue;
-			letter = level.activePugProposal->desiredLetter;
-			break;
-
-		case TEAMGENERATORTYPE_SEMIDESIREDPOS:
-			permutation = &level.activePugProposal->semiDesired;
-			votesIntRed = &level.activePugProposal->semiDesiredVoteClientsRed;
-			votesIntBlue = &level.activePugProposal->semiDesiredVoteClientsBlue;
-			letter = level.activePugProposal->semiDesiredLetter;
-			break;
-
-		case TEAMGENERATORTYPE_FIRSTCHOICE:
-			permutation = &level.activePugProposal->firstChoice;
-			votesIntRed = &level.activePugProposal->firstChoiceVoteClientsRed;
-			votesIntBlue = &level.activePugProposal->firstChoiceVoteClientsBlue;
-			letter = level.activePugProposal->firstChoiceLetter;
-			break;
-
-		default: assert(qfalse); break;
-		}
-
-		if (!permutation->valid)
-			continue;
-
-		int numYesVotesRed = 0, numYesVotesBlue = 0;
-		for (int j = 0; j < MAX_CLIENTS; j++) {
-			if (*votesIntRed & (1 << j))
-				++numYesVotesRed;
-			else if (*votesIntBlue & (1 << j))
-				++numYesVotesBlue;
-		}
-
-		int numRequired;
-		if (g_vote_teamgen_dynamicVoteRequirement.integer) {
-			if (permutation->teams[0].relativeStrength >= 0.519f - 0.0001f || permutation->teams[1].relativeStrength >= 0.519f - 0.0001f) {
-				numRequired = 7;
-			}
-			else if (permutation->lowestPlayerRating >= PlayerTierToRating(PLAYERRATING_MID_B) - 0.0001) {
-				if (permutation->teams[0].relativeStrength >= 0.5049f - 0.0001f || permutation->teams[1].relativeStrength >= 0.5049f - 0.0001f)
-					numRequired = 5; // hc but imba
-				else
-					numRequired = 4; // just hc
-			}
-			else if (permutation->iDiff > 0 || numPlayers > 8) {
-				numRequired = 6;
-			}
-			else {
-				numRequired = 5;
-			}
-		}
-		else {
-			numRequired = 5;
-		}
 		qboolean thisOnePasses = qfalse;
-		if (g_vote_teamgen_require2VotesOnEachTeam.integer && !(permutation->lowestPlayerRating >= PlayerTierToRating(PLAYERRATING_MID_B) - 0.0001 && !(permutation->teams[0].relativeStrength >= 0.5049f - 0.0001f || permutation->teams[1].relativeStrength >= 0.5049f - 0.0001f))) {
-			if (numYesVotesRed + numYesVotesBlue >= numRequired && numYesVotesRed >= 2 && numYesVotesBlue >= 2)
+		if (g_vote_teamgen_require2VotesOnEachTeam.integer &&
+			!(permutation->lowestPlayerRating >= PlayerTierToRating(PLAYERRATING_MID_B) - 0.0001 &&
+				!(permutation->teams[0].relativeStrength >= 0.5049f - 0.0001f ||
+					permutation->teams[1].relativeStrength >= 0.5049f - 0.0001f))) {
+			if (numYesVotesRed + numYesVotesBlue >= numRequired &&
+				numYesVotesRed >= 2 && numYesVotesBlue >= 2)
 				thisOnePasses = qtrue;
 		}
 		else {
@@ -7257,31 +7164,139 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 		}
 
 		if (thisOnePasses) {
-			if (numPermutationsWithEnoughVotesToPass > 1)
-				TeamGenerator_QueueServerMessageInChat(-1, va("Teams proposal %c passed by random tiebreaker.", letter));
-			else
-				TeamGenerator_QueueServerMessageInChat(-1, va("Teams proposal %c passed.", letter));
-
-			char printMessage[1024] = { 0 };
-			Com_sprintf(printMessage, sizeof(printMessage), "*^1Red team:^7 (%0.2f'/. relative strength)\n", permutation->teams[0].relativeStrength * 100.0);
-			Q_strcat(printMessage, sizeof(printMessage), va("^5Base: ^7 %s\n", permutation->teams[0].baseName));
-			Q_strcat(printMessage, sizeof(printMessage), va("^6Chase: ^7 %s\n", permutation->teams[0].chaseName));
-			Q_strcat(printMessage, sizeof(printMessage), va("^2Offense: ^7 %s^7, ", permutation->teams[0].offense1Name));
-			Q_strcat(printMessage, sizeof(printMessage), va("%s\n\n", permutation->teams[0].offense2Name));
-			Q_strcat(printMessage, sizeof(printMessage), va("^4Blue team:^7 (%0.2f'/. relative strength)\n", permutation->teams[1].relativeStrength * 100.0));
-			Q_strcat(printMessage, sizeof(printMessage), va("^5Base: ^7 %s\n", permutation->teams[1].baseName));
-			Q_strcat(printMessage, sizeof(printMessage), va("^6Chase: ^7 %s\n", permutation->teams[1].chaseName));
-			Q_strcat(printMessage, sizeof(printMessage), va("^2Offense: ^7 %s^7, ", permutation->teams[1].offense1Name));
-			Q_strcat(printMessage, sizeof(printMessage), va("^7%s\n\n", permutation->teams[1].offense2Name));
-			TeamGenerator_QueueServerMessageInConsole(-1, printMessage);
-
-			ActivateTeamsProposal(permutation);
-			ListClear(&level.activePugProposal->avoidedHashesList);
-			ListRemove(&level.pugProposalsList, level.activePugProposal);
-			level.activePugProposal = NULL;
-			break;
+			passingMask |= (1 << i);
+			++numPermutationsWithEnoughVotesToPass;
+			if (permutation->iDiff == 0) {
+				balancedMask |= (1 << i);
+				++numBalancedPassing;
+			}
 		}
 	}
+
+	if (!numPermutationsWithEnoughVotesToPass)
+		return qfalse; // none have enough votes to pass
+
+	// now we pick a winner among those which have enough to pass
+	int tiebreakerOrder[] = { TEAMGENERATORTYPE_MOSTPLAYED, TEAMGENERATORTYPE_HIGHESTRATING, TEAMGENERATORTYPE_FAIREST,
+							  TEAMGENERATORTYPE_INCLUSIVE, TEAMGENERATORTYPE_DESIREDPOS, TEAMGENERATORTYPE_SEMIDESIREDPOS,
+							  TEAMGENERATORTYPE_FIRSTCHOICE };
+	srand(teamGenSeed);
+	FisherYatesShuffle(&tiebreakerOrder[0], NUM_TEAMGENERATORTYPES, sizeof(int));
+	srand(time(NULL));
+
+	permutationOfTeams_t *winnerPerm = NULL;
+	char winnerLetter = 0;
+	int *winnerVotesRed = NULL;
+	int *winnerVotesBlue = NULL;
+
+	// helper lambda-ish macro
+#define GET_PTRS_FOR_TYPE(_TYPE_, _PERM_, _VRED_, _VBLUE_, _LETTER_)             \
+	do {                                                                         \
+		switch (_TYPE_) {                                                         \
+		case TEAMGENERATORTYPE_MOSTPLAYED:                                       \
+			(_PERM_)  = &level.activePugProposal->suggested;                      \
+			(_VRED_)  = &level.activePugProposal->suggestedVoteClientsRed;        \
+			(_VBLUE_) = &level.activePugProposal->suggestedVoteClientsBlue;       \
+			(_LETTER_) = level.activePugProposal->suggestedLetter;                \
+			break;                                                                \
+		case TEAMGENERATORTYPE_HIGHESTRATING:                                    \
+			(_PERM_)  = &level.activePugProposal->highestCaliber;                 \
+			(_VRED_)  = &level.activePugProposal->highestCaliberVoteClientsRed;   \
+			(_VBLUE_) = &level.activePugProposal->highestCaliberVoteClientsBlue;  \
+			(_LETTER_) = level.activePugProposal->highestCaliberLetter;           \
+			break;                                                                \
+		case TEAMGENERATORTYPE_FAIREST:                                          \
+			(_PERM_)  = &level.activePugProposal->fairest;                        \
+			(_VRED_)  = &level.activePugProposal->fairestVoteClientsRed;          \
+			(_VBLUE_) = &level.activePugProposal->fairestVoteClientsBlue;         \
+			(_LETTER_) = level.activePugProposal->fairestLetter;                  \
+			break;                                                                \
+		case TEAMGENERATORTYPE_INCLUSIVE:                                        \
+			(_PERM_)  = &level.activePugProposal->inclusive;                      \
+			(_VRED_)  = &level.activePugProposal->inclusiveVoteClientsRed;        \
+			(_VBLUE_) = &level.activePugProposal->inclusiveVoteClientsBlue;       \
+			(_LETTER_) = level.activePugProposal->inclusiveLetter;                \
+			break;                                                                \
+		case TEAMGENERATORTYPE_DESIREDPOS:                                       \
+			(_PERM_)  = &level.activePugProposal->desired;                        \
+			(_VRED_)  = &level.activePugProposal->desiredVoteClientsRed;          \
+			(_VBLUE_) = &level.activePugProposal->desiredVoteClientsBlue;         \
+			(_LETTER_) = level.activePugProposal->desiredLetter;                  \
+			break;                                                                \
+		case TEAMGENERATORTYPE_SEMIDESIREDPOS:                                   \
+			(_PERM_)  = &level.activePugProposal->semiDesired;                    \
+			(_VRED_)  = &level.activePugProposal->semiDesiredVoteClientsRed;      \
+			(_VBLUE_) = &level.activePugProposal->semiDesiredVoteClientsBlue;     \
+			(_LETTER_) = level.activePugProposal->semiDesiredLetter;              \
+			break;                                                                \
+		case TEAMGENERATORTYPE_FIRSTCHOICE:                                      \
+			(_PERM_)  = &level.activePugProposal->firstChoice;                    \
+			(_VRED_)  = &level.activePugProposal->firstChoiceVoteClientsRed;      \
+			(_VBLUE_) = &level.activePugProposal->firstChoiceVoteClientsBlue;     \
+			(_LETTER_) = level.activePugProposal->firstChoiceLetter;              \
+			break;                                                                \
+		default: assert(qfalse);                                                  \
+		}                                                                         \
+	} while (0)
+
+	// of those which have enough votes to pass, prefer the 50-50 ones
+	if (numPermutationsWithEnoughVotesToPass == 1) {
+		for (int i = 0; i < NUM_TEAMGENERATORTYPES; i++) {
+			if (passingMask & (1 << i)) {
+				GET_PTRS_FOR_TYPE(i, winnerPerm, winnerVotesRed, winnerVotesBlue, winnerLetter);
+				break;
+			}
+		}
+	}
+	else {
+		int preferMask = (numBalancedPassing > 0) ? balancedMask : passingMask;
+		for (int k = 0; k < NUM_TEAMGENERATORTYPES; k++) {
+			int idx = tiebreakerOrder[k];
+			if (preferMask & (1 << idx)) {
+				GET_PTRS_FOR_TYPE(idx, winnerPerm, winnerVotesRed, winnerVotesBlue, winnerLetter);
+				break;
+			}
+		}
+	}
+
+	// announce result and activate
+	if (!winnerPerm || !winnerPerm->valid)
+		return qfalse; // shouldn't happen
+
+	const char *passMsg;
+	if (numPermutationsWithEnoughVotesToPass == 1) {
+		passMsg = "passed.";
+	}
+	else {
+		if (!numBalancedPassing) // no 50-50
+			passMsg = "passed by random tiebreaker.";
+		else if (numBalancedPassing == 1) // only one of them was 50-50
+			passMsg = "passed by balance tiebreaker.";
+		else // multiple 50-50
+			passMsg = "passed by random tiebreaker.";
+	}
+
+	TeamGenerator_QueueServerMessageInChat(-1, va("Teams proposal %c %s", winnerLetter, passMsg));
+
+	char printMessage[1024] = { 0 };
+	Com_sprintf(printMessage, sizeof(printMessage), "*^1Red team:^7 (%0.2f'/. relative strength)\n",
+		winnerPerm->teams[0].relativeStrength * 100.0);
+	Q_strcat(printMessage, sizeof(printMessage), va("^5Base: ^7 %s\n", winnerPerm->teams[0].baseName));
+	Q_strcat(printMessage, sizeof(printMessage), va("^6Chase: ^7 %s\n", winnerPerm->teams[0].chaseName));
+	Q_strcat(printMessage, sizeof(printMessage), va("^2Offense: ^7 %s^7, ", winnerPerm->teams[0].offense1Name));
+	Q_strcat(printMessage, sizeof(printMessage), va("%s\n\n", winnerPerm->teams[0].offense2Name));
+	Q_strcat(printMessage, sizeof(printMessage), va("^4Blue team:^7 (%0.2f'/. relative strength)\n",
+		winnerPerm->teams[1].relativeStrength * 100.0));
+	Q_strcat(printMessage, sizeof(printMessage), va("^5Base: ^7 %s\n", winnerPerm->teams[1].baseName));
+	Q_strcat(printMessage, sizeof(printMessage), va("^6Chase: ^7 %s\n", winnerPerm->teams[1].chaseName));
+	Q_strcat(printMessage, sizeof(printMessage), va("^2Offense: ^7 %s^7, ", winnerPerm->teams[1].offense1Name));
+	Q_strcat(printMessage, sizeof(printMessage), va("^7%s\n\n", winnerPerm->teams[1].offense2Name));
+	TeamGenerator_QueueServerMessageInConsole(-1, printMessage);
+
+	ActivateTeamsProposal(winnerPerm);
+	ListClear(&level.activePugProposal->avoidedHashesList);
+	ListRemove(&level.pugProposalsList, level.activePugProposal);
+	level.activePugProposal = NULL;
 
 	return qfalse;
 }
@@ -7543,7 +7558,16 @@ qboolean TeamGenerator_UnvoteForTeamPermutations(gentity_t *ent, const char *vot
 		*newMessage = buf;
 	}
 
+	// theoretically, it should not really be possible to pass a vote by unvoting
+	// but we'll keep the passing code below here in case for some reason it works
+	// (no compelling reason to remove it)
+
+	// determine which have enough to pass
 	int numPermutationsWithEnoughVotesToPass = 0;
+	int numBalancedPassing = 0;
+	int passingMask = 0;
+	int balancedMask = 0;
+
 	for (int i = 0; i < NUM_TEAMGENERATORTYPES; i++) {
 		int *votesIntRed, *votesIntBlue;
 		permutationOfTeams_t *permutation;
@@ -7596,7 +7620,8 @@ qboolean TeamGenerator_UnvoteForTeamPermutations(gentity_t *ent, const char *vot
 		if (!permutation->valid)
 			continue;
 
-		int numYesVotesRed = 0, numYesVotesBlue = 0;
+		int numYesVotesRed = 0;
+		int numYesVotesBlue = 0;
 		for (int j = 0; j < MAX_CLIENTS; j++) {
 			if (*votesIntRed & (1 << j))
 				++numYesVotesRed;
@@ -7606,14 +7631,16 @@ qboolean TeamGenerator_UnvoteForTeamPermutations(gentity_t *ent, const char *vot
 
 		int numRequired;
 		if (g_vote_teamgen_dynamicVoteRequirement.integer) {
-			if (permutation->teams[0].relativeStrength >= 0.519f - 0.0001f || permutation->teams[1].relativeStrength >= 0.519f - 0.0001f) {
+			if (permutation->teams[0].relativeStrength >= 0.519f - 0.0001f ||
+				permutation->teams[1].relativeStrength >= 0.519f - 0.0001f) {
 				numRequired = 7;
 			}
 			else if (permutation->lowestPlayerRating >= PlayerTierToRating(PLAYERRATING_MID_B) - 0.0001) {
-				if (permutation->teams[0].relativeStrength >= 0.5049f - 0.0001f || permutation->teams[1].relativeStrength >= 0.5049f - 0.0001f)
-					numRequired = 5; // hc but imba
+				if (permutation->teams[0].relativeStrength >= 0.5049f - 0.0001f ||
+					permutation->teams[1].relativeStrength >= 0.5049f - 0.0001f)
+					numRequired = 5; /* hc but imba */
 				else
-					numRequired = 4; // just hc
+					numRequired = 4; /* just hc      */
 			}
 			else if (permutation->iDiff > 0 || numPlayers > 8) {
 				numRequired = 6;
@@ -7625,114 +7652,14 @@ qboolean TeamGenerator_UnvoteForTeamPermutations(gentity_t *ent, const char *vot
 		else {
 			numRequired = 5;
 		}
-		if (g_vote_teamgen_require2VotesOnEachTeam.integer && !(permutation->lowestPlayerRating >= PlayerTierToRating(PLAYERRATING_MID_B) - 0.0001 && !(permutation->teams[0].relativeStrength >= 0.5049f - 0.0001f || permutation->teams[1].relativeStrength >= 0.5049f - 0.0001f))) {
-			if (numYesVotesRed + numYesVotesBlue >= numRequired && numYesVotesRed >= 2 && numYesVotesBlue >= 2)
-				++numPermutationsWithEnoughVotesToPass;
-		}
-		else {
-			if (numYesVotesRed + numYesVotesBlue >= numRequired)
-				++numPermutationsWithEnoughVotesToPass;
-		}
-	}
 
-	int tiebreakerOrder[] = { TEAMGENERATORTYPE_MOSTPLAYED, TEAMGENERATORTYPE_HIGHESTRATING, TEAMGENERATORTYPE_FAIREST, TEAMGENERATORTYPE_INCLUSIVE, TEAMGENERATORTYPE_DESIREDPOS, TEAMGENERATORTYPE_SEMIDESIREDPOS, TEAMGENERATORTYPE_FIRSTCHOICE };
-	srand(teamGenSeed);
-	FisherYatesShuffle(&tiebreakerOrder[0], NUM_TEAMGENERATORTYPES, sizeof(int));
-	srand(time(NULL));
-
-	for (int i = 0; i < NUM_TEAMGENERATORTYPES; i++) {
-		int j = tiebreakerOrder[i];
-		char letter;
-		int *votesIntRed, *votesIntBlue;
-		permutationOfTeams_t *permutation;
-		switch (j) {
-		case TEAMGENERATORTYPE_MOSTPLAYED:
-			permutation = &level.activePugProposal->suggested;
-			votesIntRed = &level.activePugProposal->suggestedVoteClientsRed;
-			votesIntBlue = &level.activePugProposal->suggestedVoteClientsBlue;
-			letter = level.activePugProposal->suggestedLetter;
-			break;
-
-		case TEAMGENERATORTYPE_HIGHESTRATING:
-			permutation = &level.activePugProposal->highestCaliber;
-			votesIntRed = &level.activePugProposal->highestCaliberVoteClientsRed;
-			votesIntBlue = &level.activePugProposal->highestCaliberVoteClientsBlue;
-			letter = level.activePugProposal->highestCaliberLetter;
-			break;
-
-		case TEAMGENERATORTYPE_FAIREST:
-			permutation = &level.activePugProposal->fairest;
-			votesIntRed = &level.activePugProposal->fairestVoteClientsRed;
-			votesIntBlue = &level.activePugProposal->fairestVoteClientsBlue;
-			letter = level.activePugProposal->fairestLetter;
-			break;
-
-		case TEAMGENERATORTYPE_INCLUSIVE:
-			permutation = &level.activePugProposal->inclusive;
-			votesIntRed = &level.activePugProposal->inclusiveVoteClientsRed;
-			votesIntBlue = &level.activePugProposal->inclusiveVoteClientsBlue;
-			letter = level.activePugProposal->inclusiveLetter;
-			break;
-
-		case TEAMGENERATORTYPE_DESIREDPOS:
-			permutation = &level.activePugProposal->desired;
-			votesIntRed = &level.activePugProposal->desiredVoteClientsRed;
-			votesIntBlue = &level.activePugProposal->desiredVoteClientsBlue;
-			letter = level.activePugProposal->desiredLetter;
-			break;
-
-		case TEAMGENERATORTYPE_SEMIDESIREDPOS:
-			permutation = &level.activePugProposal->semiDesired;
-			votesIntRed = &level.activePugProposal->semiDesiredVoteClientsRed;
-			votesIntBlue = &level.activePugProposal->semiDesiredVoteClientsBlue;
-			letter = level.activePugProposal->semiDesiredLetter;
-			break;
-
-		case TEAMGENERATORTYPE_FIRSTCHOICE:
-			permutation = &level.activePugProposal->firstChoice;
-			votesIntRed = &level.activePugProposal->firstChoiceVoteClientsRed;
-			votesIntBlue = &level.activePugProposal->firstChoiceVoteClientsBlue;
-			letter = level.activePugProposal->firstChoiceLetter;
-			break;
-
-		default: assert(qfalse); break;
-		}
-
-		if (!permutation->valid)
-			continue;
-
-		int numYesVotesRed = 0, numYesVotesBlue = 0;
-		for (int j = 0; j < MAX_CLIENTS; j++) {
-			if (*votesIntRed & (1 << j))
-				++numYesVotesRed;
-			else if (*votesIntBlue & (1 << j))
-				++numYesVotesBlue;
-		}
-
-		int numRequired;
-		if (g_vote_teamgen_dynamicVoteRequirement.integer) {
-			if (permutation->teams[0].relativeStrength >= 0.519f - 0.0001f || permutation->teams[1].relativeStrength >= 0.519f - 0.0001f) {
-				numRequired = 7;
-			}
-			else if (permutation->lowestPlayerRating >= PlayerTierToRating(PLAYERRATING_MID_B) - 0.0001) {
-				if (permutation->teams[0].relativeStrength >= 0.5049f - 0.0001f || permutation->teams[1].relativeStrength >= 0.5049f - 0.0001f)
-					numRequired = 5; // hc but imba
-				else
-					numRequired = 4; // just hc
-			}
-			else if (permutation->iDiff > 0 || numPlayers > 8) {
-				numRequired = 6;
-			}
-			else {
-				numRequired = 5;
-			}
-		}
-		else {
-			numRequired = 5;
-		}
 		qboolean thisOnePasses = qfalse;
-		if (g_vote_teamgen_require2VotesOnEachTeam.integer && !(permutation->lowestPlayerRating >= PlayerTierToRating(PLAYERRATING_MID_B) - 0.0001 && !(permutation->teams[0].relativeStrength >= 0.5049f - 0.0001f || permutation->teams[1].relativeStrength >= 0.5049f - 0.0001f))) {
-			if (numYesVotesRed + numYesVotesBlue >= numRequired && numYesVotesRed >= 2 && numYesVotesBlue >= 2)
+		if (g_vote_teamgen_require2VotesOnEachTeam.integer &&
+			!(permutation->lowestPlayerRating >= PlayerTierToRating(PLAYERRATING_MID_B) - 0.0001 &&
+				!(permutation->teams[0].relativeStrength >= 0.5049f - 0.0001f ||
+					permutation->teams[1].relativeStrength >= 0.5049f - 0.0001f))) {
+			if (numYesVotesRed + numYesVotesBlue >= numRequired &&
+				numYesVotesRed >= 2 && numYesVotesBlue >= 2)
 				thisOnePasses = qtrue;
 		}
 		else {
@@ -7741,31 +7668,89 @@ qboolean TeamGenerator_UnvoteForTeamPermutations(gentity_t *ent, const char *vot
 		}
 
 		if (thisOnePasses) {
-			if (numPermutationsWithEnoughVotesToPass > 1)
-				TeamGenerator_QueueServerMessageInChat(-1, va("Teams proposal %c passed by random tiebreaker.", letter));
-			else
-				TeamGenerator_QueueServerMessageInChat(-1, va("Teams proposal %c passed.", letter));
-
-			char printMessage[1024] = { 0 };
-			Com_sprintf(printMessage, sizeof(printMessage), "*^1Red team:^7 (%0.2f'/. relative strength)\n", permutation->teams[0].relativeStrength * 100.0);
-			Q_strcat(printMessage, sizeof(printMessage), va("^5Base: ^7 %s\n", permutation->teams[0].baseName));
-			Q_strcat(printMessage, sizeof(printMessage), va("^6Chase: ^7 %s\n", permutation->teams[0].chaseName));
-			Q_strcat(printMessage, sizeof(printMessage), va("^2Offense: ^7 %s^7, ", permutation->teams[0].offense1Name));
-			Q_strcat(printMessage, sizeof(printMessage), va("%s\n\n", permutation->teams[0].offense2Name));
-			Q_strcat(printMessage, sizeof(printMessage), va("^4Blue team:^7 (%0.2f'/. relative strength)\n", permutation->teams[1].relativeStrength * 100.0));
-			Q_strcat(printMessage, sizeof(printMessage), va("^5Base: ^7 %s\n", permutation->teams[1].baseName));
-			Q_strcat(printMessage, sizeof(printMessage), va("^6Chase: ^7 %s\n", permutation->teams[1].chaseName));
-			Q_strcat(printMessage, sizeof(printMessage), va("^2Offense: ^7 %s^7, ", permutation->teams[1].offense1Name));
-			Q_strcat(printMessage, sizeof(printMessage), va("^7%s\n\n", permutation->teams[1].offense2Name));
-			TeamGenerator_QueueServerMessageInConsole(-1, printMessage);
-
-			ActivateTeamsProposal(permutation);
-			ListClear(&level.activePugProposal->avoidedHashesList);
-			ListRemove(&level.pugProposalsList, level.activePugProposal);
-			level.activePugProposal = NULL;
-			break;
+			passingMask |= (1 << i);
+			++numPermutationsWithEnoughVotesToPass;
+			if (permutation->iDiff == 0) {
+				balancedMask |= (1 << i);
+				++numBalancedPassing;
+			}
 		}
 	}
+
+	if (!numPermutationsWithEnoughVotesToPass)
+		return qfalse; // none have enough votes to pass
+
+	// now we pick a winner among those which have enough to pass
+	int tiebreakerOrder[] = { TEAMGENERATORTYPE_MOSTPLAYED, TEAMGENERATORTYPE_HIGHESTRATING, TEAMGENERATORTYPE_FAIREST,
+							  TEAMGENERATORTYPE_INCLUSIVE, TEAMGENERATORTYPE_DESIREDPOS, TEAMGENERATORTYPE_SEMIDESIREDPOS,
+							  TEAMGENERATORTYPE_FIRSTCHOICE };
+	srand(teamGenSeed);
+	FisherYatesShuffle(&tiebreakerOrder[0], NUM_TEAMGENERATORTYPES, sizeof(int));
+	srand(time(NULL));
+
+	permutationOfTeams_t *winnerPerm = NULL;
+	char winnerLetter = 0;
+	int *winnerVotesRed = NULL;
+	int *winnerVotesBlue = NULL;
+
+	// of those which have enough votes to pass, prefer the 50-50 ones
+	if (numPermutationsWithEnoughVotesToPass == 1) {
+		for (int i = 0; i < NUM_TEAMGENERATORTYPES; i++) {
+			if (passingMask & (1 << i)) {
+				GET_PTRS_FOR_TYPE(i, winnerPerm, winnerVotesRed, winnerVotesBlue, winnerLetter);
+				break;
+			}
+		}
+	}
+	else {
+		int preferMask = (numBalancedPassing > 0) ? balancedMask : passingMask;
+		for (int k = 0; k < NUM_TEAMGENERATORTYPES; k++) {
+			int idx = tiebreakerOrder[k];
+			if (preferMask & (1 << idx)) {
+				GET_PTRS_FOR_TYPE(idx, winnerPerm, winnerVotesRed, winnerVotesBlue, winnerLetter);
+				break;
+			}
+		}
+	}
+
+	// announce result and activate
+	if (!winnerPerm || !winnerPerm->valid)
+		return qfalse; // shouldn't happen
+
+	const char *passMsg;
+	if (numPermutationsWithEnoughVotesToPass == 1) {
+		passMsg = "passed.";
+	}
+	else {
+		if (!numBalancedPassing) // no 50-50
+			passMsg = "passed by random tiebreaker.";
+		else if (numBalancedPassing == 1) // only one of them was 50-50
+			passMsg = "passed by balance tiebreaker.";
+		else // multiple 50-50
+			passMsg = "passed by random tiebreaker.";
+	}
+
+	TeamGenerator_QueueServerMessageInChat(-1, va("Teams proposal %c %s", winnerLetter, passMsg));
+
+	char printMessage[1024] = { 0 };
+	Com_sprintf(printMessage, sizeof(printMessage), "*^1Red team:^7 (%0.2f'/. relative strength)\n",
+		winnerPerm->teams[0].relativeStrength * 100.0);
+	Q_strcat(printMessage, sizeof(printMessage), va("^5Base: ^7 %s\n", winnerPerm->teams[0].baseName));
+	Q_strcat(printMessage, sizeof(printMessage), va("^6Chase: ^7 %s\n", winnerPerm->teams[0].chaseName));
+	Q_strcat(printMessage, sizeof(printMessage), va("^2Offense: ^7 %s^7, ", winnerPerm->teams[0].offense1Name));
+	Q_strcat(printMessage, sizeof(printMessage), va("%s\n\n", winnerPerm->teams[0].offense2Name));
+	Q_strcat(printMessage, sizeof(printMessage), va("^4Blue team:^7 (%0.2f'/. relative strength)\n",
+		winnerPerm->teams[1].relativeStrength * 100.0));
+	Q_strcat(printMessage, sizeof(printMessage), va("^5Base: ^7 %s\n", winnerPerm->teams[1].baseName));
+	Q_strcat(printMessage, sizeof(printMessage), va("^6Chase: ^7 %s\n", winnerPerm->teams[1].chaseName));
+	Q_strcat(printMessage, sizeof(printMessage), va("^2Offense: ^7 %s^7, ", winnerPerm->teams[1].offense1Name));
+	Q_strcat(printMessage, sizeof(printMessage), va("^7%s\n\n", winnerPerm->teams[1].offense2Name));
+	TeamGenerator_QueueServerMessageInConsole(-1, printMessage);
+
+	ActivateTeamsProposal(winnerPerm);
+	ListClear(&level.activePugProposal->avoidedHashesList);
+	ListRemove(&level.pugProposalsList, level.activePugProposal);
+	level.activePugProposal = NULL;
 
 	return qfalse;
 }
