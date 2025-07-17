@@ -476,14 +476,16 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 		{
 			ctfPlayerTier_t team1ChaseTier = PlayerTierFromRating(team1chase->rating[CTFPOSITION_CHASE]);
 			ctfPlayerTier_t highestTeam2OffenseTier = PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) > PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]) ? PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) : PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]);
-			int maxDiff;
-			if (team1ChaseTier <= PLAYERRATING_LOW_B)
-				maxDiff = 2;
-			else if (highestTeam2OffenseTier >= PLAYERRATING_LOW_S)
-				maxDiff = 3;
+
+			qboolean invalid;
+			if (team1ChaseTier >= PLAYERRATING_LOW_A)
+				invalid = qfalse; // A- or higher chases can chase anyone
+			else if (team1ChaseTier <= PLAYERRATING_LOW_B)
+				invalid = (highestTeam2OffenseTier > team1ChaseTier + 2); // B- or lower chases can only chase 2 above them
 			else
-				maxDiff = 4;
-			if (highestTeam2OffenseTier - team1ChaseTier > maxDiff) {
+				invalid = (highestTeam2OffenseTier > team1ChaseTier + 3); // B/B+ chases can only chase 3 above them
+
+			if (invalid) {
 				TeamGen_DebugPrintf(" unbalanced team 1 chase vs. team 2 offense %d - %d == %d<br/>", highestTeam2OffenseTier, team1ChaseTier, highestTeam2OffenseTier - team1ChaseTier);
 				return;
 			}
@@ -492,14 +494,16 @@ static void TryTeamPermutation(teamGeneratorContext_t *context, const permutatio
 		{
 			ctfPlayerTier_t team2ChaseTier = PlayerTierFromRating(team2chase->rating[CTFPOSITION_CHASE]);
 			ctfPlayerTier_t highestTeam1OffenseTier = PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) > PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]) ? PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) : PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]);
-			int maxDiff;
-			if (team2ChaseTier <= PLAYERRATING_LOW_B)
-				maxDiff = 2;
-			else if (highestTeam1OffenseTier >= PLAYERRATING_LOW_S)
-				maxDiff = 3;
+			
+			qboolean invalid;
+			if (team2ChaseTier >= PLAYERRATING_LOW_A)
+				invalid = qfalse; // A- or higher chases can chase anyone
+			else if (team2ChaseTier <= PLAYERRATING_LOW_B)
+				invalid = (highestTeam1OffenseTier > team2ChaseTier + 2); // B- or lower chases can only chase 2 above them
 			else
-				maxDiff = 4;
-			if (highestTeam1OffenseTier - team2ChaseTier > maxDiff) {
+				invalid = (highestTeam1OffenseTier > team2ChaseTier + 3); // B/B+ chases can only chase 4 above them
+
+			if (invalid) {
 				TeamGen_DebugPrintf(" unbalanced team 2 chase vs. team 1 offense %d - %d == %d<br/>", highestTeam1OffenseTier, team2ChaseTier, highestTeam1OffenseTier - team2ChaseTier);
 				return;
 			}
@@ -777,14 +781,16 @@ static void TryTeamPermutation_Appeasing(teamGeneratorContext_t *context, const 
 		{
 			ctfPlayerTier_t team1ChaseTier = PlayerTierFromRating(team1chase->rating[CTFPOSITION_CHASE]);
 			ctfPlayerTier_t highestTeam2OffenseTier = PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) > PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]) ? PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) : PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]);
-			int maxDiff;
-			if (team1ChaseTier <= PLAYERRATING_LOW_B)
-				maxDiff = 2;
-			else if (highestTeam2OffenseTier >= PLAYERRATING_LOW_S)
-				maxDiff = 3;
+
+			qboolean invalid;
+			if (team1ChaseTier >= PLAYERRATING_LOW_A)
+				invalid = qfalse; // A- or higher chases can chase anyone
+			else if (team1ChaseTier <= PLAYERRATING_LOW_B)
+				invalid = (highestTeam2OffenseTier > team1ChaseTier + 2); // B- or lower chases can only chase 2 above them
 			else
-				maxDiff = 4;
-			if (highestTeam2OffenseTier - team1ChaseTier > maxDiff) {
+				invalid = (highestTeam2OffenseTier > team1ChaseTier + 3); // B/B+ chases can only chase 3 above them
+
+			if (invalid) {
 				TeamGen_DebugPrintf(" unbalanced team 1 chase vs. team 2 offense %d - %d == %d<br/>", highestTeam2OffenseTier, team1ChaseTier, highestTeam2OffenseTier - team1ChaseTier);
 				return;
 			}
@@ -793,14 +799,16 @@ static void TryTeamPermutation_Appeasing(teamGeneratorContext_t *context, const 
 		{
 			ctfPlayerTier_t team2ChaseTier = PlayerTierFromRating(team2chase->rating[CTFPOSITION_CHASE]);
 			ctfPlayerTier_t highestTeam1OffenseTier = PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) > PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]) ? PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) : PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]);
-			int maxDiff;
-			if (team2ChaseTier <= PLAYERRATING_LOW_B)
-				maxDiff = 2;
-			else if (highestTeam1OffenseTier >= PLAYERRATING_LOW_S)
-				maxDiff = 3;
+
+			qboolean invalid;
+			if (team2ChaseTier >= PLAYERRATING_LOW_A)
+				invalid = qfalse; // A- or higher chases can chase anyone
+			else if (team2ChaseTier <= PLAYERRATING_LOW_B)
+				invalid = (highestTeam1OffenseTier > team2ChaseTier + 2); // B- or lower chases can only chase 2 above them
 			else
-				maxDiff = 4;
-			if (highestTeam1OffenseTier - team2ChaseTier > maxDiff) {
+				invalid = (highestTeam1OffenseTier > team2ChaseTier + 3); // B/B+ chases can only chase 4 above them
+
+			if (invalid) {
 				TeamGen_DebugPrintf(" unbalanced team 2 chase vs. team 1 offense %d - %d == %d<br/>", highestTeam1OffenseTier, team2ChaseTier, highestTeam1OffenseTier - team2ChaseTier);
 				return;
 			}
@@ -1275,14 +1283,16 @@ static void TryTeamPermutation_Fairest(teamGeneratorContext_t *context, const pe
 		{
 			ctfPlayerTier_t team1ChaseTier = PlayerTierFromRating(team1chase->rating[CTFPOSITION_CHASE]);
 			ctfPlayerTier_t highestTeam2OffenseTier = PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) > PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]) ? PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) : PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]);
-			int maxDiff;
-			if (team1ChaseTier <= PLAYERRATING_LOW_B)
-				maxDiff = 2;
-			else if (highestTeam2OffenseTier >= PLAYERRATING_LOW_S)
-				maxDiff = 3;
+
+			qboolean invalid;
+			if (team1ChaseTier >= PLAYERRATING_LOW_A)
+				invalid = qfalse; // A- or higher chases can chase anyone
+			else if (team1ChaseTier <= PLAYERRATING_LOW_B)
+				invalid = (highestTeam2OffenseTier > team1ChaseTier + 2); // B- or lower chases can only chase 2 above them
 			else
-				maxDiff = 4;
-			if (highestTeam2OffenseTier - team1ChaseTier > maxDiff) {
+				invalid = (highestTeam2OffenseTier > team1ChaseTier + 3); // B/B+ chases can only chase 3 above them
+
+			if (invalid) {
 				TeamGen_DebugPrintf(" unbalanced team 1 chase vs. team 2 offense %d - %d == %d<br/>", highestTeam2OffenseTier, team1ChaseTier, highestTeam2OffenseTier - team1ChaseTier);
 				return;
 			}
@@ -1291,14 +1301,16 @@ static void TryTeamPermutation_Fairest(teamGeneratorContext_t *context, const pe
 		{
 			ctfPlayerTier_t team2ChaseTier = PlayerTierFromRating(team2chase->rating[CTFPOSITION_CHASE]);
 			ctfPlayerTier_t highestTeam1OffenseTier = PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) > PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]) ? PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) : PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]);
-			int maxDiff;
-			if (team2ChaseTier <= PLAYERRATING_LOW_B)
-				maxDiff = 2;
-			else if (highestTeam1OffenseTier >= PLAYERRATING_LOW_S)
-				maxDiff = 3;
+
+			qboolean invalid;
+			if (team2ChaseTier >= PLAYERRATING_LOW_A)
+				invalid = qfalse; // A- or higher chases can chase anyone
+			else if (team2ChaseTier <= PLAYERRATING_LOW_B)
+				invalid = (highestTeam1OffenseTier > team2ChaseTier + 2); // B- or lower chases can only chase 2 above them
 			else
-				maxDiff = 4;
-			if (highestTeam1OffenseTier - team2ChaseTier > maxDiff) {
+				invalid = (highestTeam1OffenseTier > team2ChaseTier + 3); // B/B+ chases can only chase 4 above them
+
+			if (invalid) {
 				TeamGen_DebugPrintf(" unbalanced team 2 chase vs. team 1 offense %d - %d == %d<br/>", highestTeam1OffenseTier, team2ChaseTier, highestTeam1OffenseTier - team2ChaseTier);
 				return;
 			}
@@ -1672,14 +1684,16 @@ static void TryTeamPermutation_SemiAppeasing(teamGeneratorContext_t *context, co
 		{
 			ctfPlayerTier_t team1ChaseTier = PlayerTierFromRating(team1chase->rating[CTFPOSITION_CHASE]);
 			ctfPlayerTier_t highestTeam2OffenseTier = PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) > PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]) ? PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) : PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]);
-			int maxDiff;
-			if (team1ChaseTier <= PLAYERRATING_LOW_B)
-				maxDiff = 2;
-			else if (highestTeam2OffenseTier >= PLAYERRATING_LOW_S)
-				maxDiff = 3;
+
+			qboolean invalid;
+			if (team1ChaseTier >= PLAYERRATING_LOW_A)
+				invalid = qfalse; // A- or higher chases can chase anyone
+			else if (team1ChaseTier <= PLAYERRATING_LOW_B)
+				invalid = (highestTeam2OffenseTier > team1ChaseTier + 2); // B- or lower chases can only chase 2 above them
 			else
-				maxDiff = 4;
-			if (highestTeam2OffenseTier - team1ChaseTier > maxDiff) {
+				invalid = (highestTeam2OffenseTier > team1ChaseTier + 3); // B/B+ chases can only chase 3 above them
+
+			if (invalid) {
 				TeamGen_DebugPrintf(" unbalanced team 1 chase vs. team 2 offense %d - %d == %d<br/>", highestTeam2OffenseTier, team1ChaseTier, highestTeam2OffenseTier - team1ChaseTier);
 				return;
 			}
@@ -1688,14 +1702,16 @@ static void TryTeamPermutation_SemiAppeasing(teamGeneratorContext_t *context, co
 		{
 			ctfPlayerTier_t team2ChaseTier = PlayerTierFromRating(team2chase->rating[CTFPOSITION_CHASE]);
 			ctfPlayerTier_t highestTeam1OffenseTier = PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) > PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]) ? PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) : PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]);
-			int maxDiff;
-			if (team2ChaseTier <= PLAYERRATING_LOW_B)
-				maxDiff = 2;
-			else if (highestTeam1OffenseTier >= PLAYERRATING_LOW_S)
-				maxDiff = 3;
+
+			qboolean invalid;
+			if (team2ChaseTier >= PLAYERRATING_LOW_A)
+				invalid = qfalse; // A- or higher chases can chase anyone
+			else if (team2ChaseTier <= PLAYERRATING_LOW_B)
+				invalid = (highestTeam1OffenseTier > team2ChaseTier + 2); // B- or lower chases can only chase 2 above them
 			else
-				maxDiff = 4;
-			if (highestTeam1OffenseTier - team2ChaseTier > maxDiff) {
+				invalid = (highestTeam1OffenseTier > team2ChaseTier + 3); // B/B+ chases can only chase 4 above them
+
+			if (invalid) {
 				TeamGen_DebugPrintf(" unbalanced team 2 chase vs. team 1 offense %d - %d == %d<br/>", highestTeam1OffenseTier, team2ChaseTier, highestTeam1OffenseTier - team2ChaseTier);
 				return;
 			}
@@ -2028,14 +2044,16 @@ static void TryTeamPermutation_FirstChoice(teamGeneratorContext_t *context, cons
 		{
 			ctfPlayerTier_t team1ChaseTier = PlayerTierFromRating(team1chase->rating[CTFPOSITION_CHASE]);
 			ctfPlayerTier_t highestTeam2OffenseTier = PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) > PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]) ? PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) : PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]);
-			int maxDiff;
-			if (team1ChaseTier <= PLAYERRATING_LOW_B)
-				maxDiff = 2;
-			else if (highestTeam2OffenseTier >= PLAYERRATING_LOW_S)
-				maxDiff = 3;
+
+			qboolean invalid;
+			if (team1ChaseTier >= PLAYERRATING_LOW_A)
+				invalid = qfalse; // A- or higher chases can chase anyone
+			else if (team1ChaseTier <= PLAYERRATING_LOW_B)
+				invalid = (highestTeam2OffenseTier > team1ChaseTier + 2); // B- or lower chases can only chase 2 above them
 			else
-				maxDiff = 4;
-			if (highestTeam2OffenseTier - team1ChaseTier > maxDiff) {
+				invalid = (highestTeam2OffenseTier > team1ChaseTier + 3); // B/B+ chases can only chase 3 above them
+
+			if (invalid) {
 				TeamGen_DebugPrintf(" unbalanced team 1 chase vs. team 2 offense %d - %d == %d<br/>", highestTeam2OffenseTier, team1ChaseTier, highestTeam2OffenseTier - team1ChaseTier);
 				return;
 			}
@@ -2044,14 +2062,16 @@ static void TryTeamPermutation_FirstChoice(teamGeneratorContext_t *context, cons
 		{
 			ctfPlayerTier_t team2ChaseTier = PlayerTierFromRating(team2chase->rating[CTFPOSITION_CHASE]);
 			ctfPlayerTier_t highestTeam1OffenseTier = PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) > PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]) ? PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) : PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]);
-			int maxDiff;
-			if (team2ChaseTier <= PLAYERRATING_LOW_B)
-				maxDiff = 2;
-			else if (highestTeam1OffenseTier >= PLAYERRATING_LOW_S)
-				maxDiff = 3;
+
+			qboolean invalid;
+			if (team2ChaseTier >= PLAYERRATING_LOW_A)
+				invalid = qfalse; // A- or higher chases can chase anyone
+			else if (team2ChaseTier <= PLAYERRATING_LOW_B)
+				invalid = (highestTeam1OffenseTier > team2ChaseTier + 2); // B- or lower chases can only chase 2 above them
 			else
-				maxDiff = 4;
-			if (highestTeam1OffenseTier - team2ChaseTier > maxDiff) {
+				invalid = (highestTeam1OffenseTier > team2ChaseTier + 3); // B/B+ chases can only chase 4 above them
+
+			if (invalid) {
 				TeamGen_DebugPrintf(" unbalanced team 2 chase vs. team 1 offense %d - %d == %d<br/>", highestTeam1OffenseTier, team2ChaseTier, highestTeam1OffenseTier - team2ChaseTier);
 				return;
 			}
@@ -2369,14 +2389,16 @@ static void TryTeamPermutation_Inclusive(teamGeneratorContext_t *context, const 
 		{
 			ctfPlayerTier_t team1ChaseTier = PlayerTierFromRating(team1chase->rating[CTFPOSITION_CHASE]);
 			ctfPlayerTier_t highestTeam2OffenseTier = PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) > PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]) ? PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) : PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]);
-			int maxDiff;
-			if (team1ChaseTier <= PLAYERRATING_LOW_B)
-				maxDiff = 2;
-			else if (highestTeam2OffenseTier >= PLAYERRATING_LOW_S)
-				maxDiff = 3;
+
+			qboolean invalid;
+			if (team1ChaseTier >= PLAYERRATING_LOW_A)
+				invalid = qfalse; // A- or higher chases can chase anyone
+			else if (team1ChaseTier <= PLAYERRATING_LOW_B)
+				invalid = (highestTeam2OffenseTier > team1ChaseTier + 2); // B- or lower chases can only chase 2 above them
 			else
-				maxDiff = 4;
-			if (highestTeam2OffenseTier - team1ChaseTier > maxDiff) {
+				invalid = (highestTeam2OffenseTier > team1ChaseTier + 3); // B/B+ chases can only chase 3 above them
+
+			if (invalid) {
 				TeamGen_DebugPrintf(" unbalanced team 1 chase vs. team 2 offense %d - %d == %d<br/>", highestTeam2OffenseTier, team1ChaseTier, highestTeam2OffenseTier - team1ChaseTier);
 				return;
 			}
@@ -2385,14 +2407,16 @@ static void TryTeamPermutation_Inclusive(teamGeneratorContext_t *context, const 
 		{
 			ctfPlayerTier_t team2ChaseTier = PlayerTierFromRating(team2chase->rating[CTFPOSITION_CHASE]);
 			ctfPlayerTier_t highestTeam1OffenseTier = PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) > PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]) ? PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) : PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]);
-			int maxDiff;
-			if (team2ChaseTier <= PLAYERRATING_LOW_B)
-				maxDiff = 2;
-			else if (highestTeam1OffenseTier >= PLAYERRATING_LOW_S)
-				maxDiff = 3;
+
+			qboolean invalid;
+			if (team2ChaseTier >= PLAYERRATING_LOW_A)
+				invalid = qfalse; // A- or higher chases can chase anyone
+			else if (team2ChaseTier <= PLAYERRATING_LOW_B)
+				invalid = (highestTeam1OffenseTier > team2ChaseTier + 2); // B- or lower chases can only chase 2 above them
 			else
-				maxDiff = 4;
-			if (highestTeam1OffenseTier - team2ChaseTier > maxDiff) {
+				invalid = (highestTeam1OffenseTier > team2ChaseTier + 3); // B/B+ chases can only chase 4 above them
+
+			if (invalid) {
 				TeamGen_DebugPrintf(" unbalanced team 2 chase vs. team 1 offense %d - %d == %d<br/>", highestTeam1OffenseTier, team2ChaseTier, highestTeam1OffenseTier - team2ChaseTier);
 				return;
 			}
@@ -2884,14 +2908,16 @@ static void TryTeamPermutation_SemiTryhard(teamGeneratorContext_t *context, cons
 		{
 			ctfPlayerTier_t team1ChaseTier = PlayerTierFromRating(team1chase->rating[CTFPOSITION_CHASE]);
 			ctfPlayerTier_t highestTeam2OffenseTier = PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) > PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]) ? PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) : PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]);
-			int maxDiff;
-			if (team1ChaseTier <= PLAYERRATING_LOW_B)
-				maxDiff = 2;
-			else if (highestTeam2OffenseTier >= PLAYERRATING_LOW_S)
-				maxDiff = 3;
+
+			qboolean invalid;
+			if (team1ChaseTier >= PLAYERRATING_LOW_A)
+				invalid = qfalse; // A- or higher chases can chase anyone
+			else if (team1ChaseTier <= PLAYERRATING_LOW_B)
+				invalid = (highestTeam2OffenseTier > team1ChaseTier + 2); // B- or lower chases can only chase 2 above them
 			else
-				maxDiff = 4;
-			if (highestTeam2OffenseTier - team1ChaseTier > maxDiff) {
+				invalid = (highestTeam2OffenseTier > team1ChaseTier + 3); // B/B+ chases can only chase 3 above them
+
+			if (invalid) {
 				TeamGen_DebugPrintf(" unbalanced team 1 chase vs. team 2 offense %d - %d == %d<br/>", highestTeam2OffenseTier, team1ChaseTier, highestTeam2OffenseTier - team1ChaseTier);
 				return;
 			}
@@ -2900,14 +2926,16 @@ static void TryTeamPermutation_SemiTryhard(teamGeneratorContext_t *context, cons
 		{
 			ctfPlayerTier_t team2ChaseTier = PlayerTierFromRating(team2chase->rating[CTFPOSITION_CHASE]);
 			ctfPlayerTier_t highestTeam1OffenseTier = PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) > PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]) ? PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) : PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]);
-			int maxDiff;
-			if (team2ChaseTier <= PLAYERRATING_LOW_B)
-				maxDiff = 2;
-			else if (highestTeam1OffenseTier >= PLAYERRATING_LOW_S)
-				maxDiff = 3;
+
+			qboolean invalid;
+			if (team2ChaseTier >= PLAYERRATING_LOW_A)
+				invalid = qfalse; // A- or higher chases can chase anyone
+			else if (team2ChaseTier <= PLAYERRATING_LOW_B)
+				invalid = (highestTeam1OffenseTier > team2ChaseTier + 2); // B- or lower chases can only chase 2 above them
 			else
-				maxDiff = 4;
-			if (highestTeam1OffenseTier - team2ChaseTier > maxDiff) {
+				invalid = (highestTeam1OffenseTier > team2ChaseTier + 3); // B/B+ chases can only chase 4 above them
+
+			if (invalid) {
 				TeamGen_DebugPrintf(" unbalanced team 2 chase vs. team 1 offense %d - %d == %d<br/>", highestTeam1OffenseTier, team2ChaseTier, highestTeam1OffenseTier - team2ChaseTier);
 				return;
 			}
@@ -3418,14 +3446,16 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 		{
 			ctfPlayerTier_t team1ChaseTier = PlayerTierFromRating(team1chase->rating[CTFPOSITION_CHASE]);
 			ctfPlayerTier_t highestTeam2OffenseTier = PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) > PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]) ? PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]) : PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE]);
-			int maxDiff;
-			if (team1ChaseTier <= PLAYERRATING_LOW_B)
-				maxDiff = 2;
-			else if (highestTeam2OffenseTier >= PLAYERRATING_LOW_S)
-				maxDiff = 3;
+
+			qboolean invalid;
+			if (team1ChaseTier >= PLAYERRATING_LOW_A)
+				invalid = qfalse; // A- or higher chases can chase anyone
+			else if (team1ChaseTier <= PLAYERRATING_LOW_B)
+				invalid = (highestTeam2OffenseTier > team1ChaseTier + 2); // B- or lower chases can only chase 2 above them
 			else
-				maxDiff = 4;
-			if (highestTeam2OffenseTier - team1ChaseTier > maxDiff) {
+				invalid = (highestTeam2OffenseTier > team1ChaseTier + 3); // B/B+ chases can only chase 3 above them
+
+			if (invalid) {
 				TeamGen_DebugPrintf(" unbalanced team 1 chase vs. team 2 offense %d - %d == %d<br/>", highestTeam2OffenseTier, team1ChaseTier, highestTeam2OffenseTier - team1ChaseTier);
 				return;
 			}
@@ -3434,14 +3464,16 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 		{
 			ctfPlayerTier_t team2ChaseTier = PlayerTierFromRating(team2chase->rating[CTFPOSITION_CHASE]);
 			ctfPlayerTier_t highestTeam1OffenseTier = PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) > PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]) ? PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]) : PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]);
-			int maxDiff;
-			if (team2ChaseTier <= PLAYERRATING_LOW_B)
-				maxDiff = 2;
-			else if (highestTeam1OffenseTier >= PLAYERRATING_LOW_S)
-				maxDiff = 3;
+
+			qboolean invalid;
+			if (team2ChaseTier >= PLAYERRATING_LOW_A)
+				invalid = qfalse; // A- or higher chases can chase anyone
+			else if (team2ChaseTier <= PLAYERRATING_LOW_B)
+				invalid = (highestTeam1OffenseTier > team2ChaseTier + 2); // B- or lower chases can only chase 2 above them
 			else
-				maxDiff = 4;
-			if (highestTeam1OffenseTier - team2ChaseTier > maxDiff) {
+				invalid = (highestTeam1OffenseTier > team2ChaseTier + 3); // B/B+ chases can only chase 4 above them
+
+			if (invalid) {
 				TeamGen_DebugPrintf(" unbalanced team 2 chase vs. team 1 offense %d - %d == %d<br/>", highestTeam1OffenseTier, team2ChaseTier, highestTeam1OffenseTier - team2ChaseTier);
 				return;
 			}
