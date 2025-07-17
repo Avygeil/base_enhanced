@@ -1363,6 +1363,7 @@ typedef struct {
 	int numSatisfiedLgs;
 	double lowestPlayerRating;
 	qboolean satisfiesNoobRule;
+	qboolean satisfiesNoobCarryRule;
 } permutationOfTeams_t;
 
 typedef struct {
@@ -1372,6 +1373,7 @@ typedef struct {
 	positionPreferences_t posPrefs;
 	team_t team;
 	int bannedPos;
+	int ttlholdRank;
 } sortedClient_t;
 
 typedef struct {
@@ -2154,6 +2156,7 @@ typedef struct {
 	list_t			cachedPositionStatsRaw;
 	list_t			info_b_e_locationsList;
 	list_t			rememberedMultivoteMapsList;
+	list_t			ttlholdList;
 
 #ifdef NEWMOD_SUPPORT
 	qboolean nmAuthEnabled;

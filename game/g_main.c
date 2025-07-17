@@ -2571,6 +2571,7 @@ void G_ShutdownGame( int restart ) {
 		ListClear(&stats->teammatePositioningList);
 	}
 	ListClear(&level.statsList);
+	ListClear(&level.ttlholdList);
 
 	ListIterate(&level.cachedPositionStats, &iter, qfalse);
 	while (IteratorHasNext(&iter)) {

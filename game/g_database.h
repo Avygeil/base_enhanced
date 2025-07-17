@@ -468,4 +468,7 @@ typedef struct {
 
 qboolean FinishedPugPlayerMatches(genericNode_t *node, void *userData);
 
+void DB_GetAllTtlHoldRanks(void);
+int DB_LookupTtlHoldRank(int accountId);
+
 #endif //G_DATABASE_H

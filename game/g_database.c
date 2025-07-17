@@ -8463,3 +8463,68 @@ qboolean G_DBGetWinrateBetweenDates(double startTime,
 	*winsOut = 0;
 	return qfalse;
 }
+
+typedef struct {
+	node_t	node;
+	int		accountId;
+	int		ttlholdRank;
+} ttlholdEntry_t;
+
+qboolean TtlHoldAccountIdMatches(genericNode_t *node, void *userData) {
+	ttlholdEntry_t *a = (ttlholdEntry_t *)node;
+	int *b = (int *)userData;
+	return a->accountId == *b;
+}
+
+static const char *sqlGetAllTtlHoldRanks =
+"SELECT account_id, avg_ttlhold_rank "
+"FROM   accountstats "
+"WHERE  pos = 3 "
+"  AND  avg_ttlhold_rank IS NOT NULL;";
+
+void DB_GetAllTtlHoldRanks(void) {
+	int start = trap_Milliseconds();
+	ListClear(&level.ttlholdList);
+
+	sqlite3_stmt *stmt;
+	int rc = trap_sqlite3_prepare_v2(dbPtr, sqlGetAllTtlHoldRanks, -1, &stmt, 0);
+	if (rc != SQLITE_OK) {
+		if (stmt)
+			trap_sqlite3_finalize(stmt);
+		return;
+	}
+
+	rc = trap_sqlite3_step(stmt);
+	while (rc == SQLITE_ROW) {
+		int accountId = sqlite3_column_int(stmt, 0);
+		int rank = sqlite3_column_int(stmt, 1);
+
+		ttlholdEntry_t findMe;
+		findMe.accountId = accountId;
+		ttlholdEntry_t *found = ListFind(&level.ttlholdList, TtlHoldAccountIdMatches, &findMe, NULL);
+		if (!found) {
+			found = ListAdd(&level.ttlholdList, sizeof(ttlholdEntry_t));
+			found->accountId = accountId;
+		}
+
+		found->ttlholdRank = rank;
+
+		rc = trap_sqlite3_step(stmt);
+	}
+
+	trap_sqlite3_finalize(stmt);
+	int finish = trap_Milliseconds();
+	Com_Printf("Loaded ttlhold ranks (took %d ms)\n", finish - start);
+}
+
+int DB_LookupTtlHoldRank(int accountId) {
+	ttlholdEntry_t findMe;
+	findMe.accountId = accountId;
+
+	ttlholdEntry_t *found = ListFind(&level.ttlholdList, TtlHoldAccountIdMatches, &findMe, NULL);
+	if (!found)
+		return 999999;
+
+	return found->ttlholdRank;
+}
+

@@ -4,6 +4,8 @@
 //#define DEBUG_GENERATETEAMS // uncomment to set players to be put into teams with z_debugX cvars
 //#define DEBUG_GENERATETEAMS_PRINT // uncomment to generate log file
 
+#define OLDNOOBRULE
+
 #ifdef DEBUG_GENERATETEAMS_PRINT
 static fileHandle_t debugFile = 0;
 static qboolean inReroll = qfalse;
@@ -224,6 +226,7 @@ typedef struct {
 	int numPermutationsInAndNonAvoidedPos;
 	int numPermutationsInOnFirstChoicePos;
 	qboolean notOnFirstChoiceInAbc;
+	int ttlholdRank;
 } permutationPlayer_t;
 
 static int SortTeamsInPermutationOfTeams(const void *a, const void *b) {
@@ -1043,7 +1046,167 @@ static void TryTeamPermutation_Fairest(teamGeneratorContext_t *context, const pe
 	}
 	int offenseDefenseDiff = team1OffenseDefenseDiff + team2OffenseDefenseDiff;
 
-	TeamGen_DebugPrintf("Regular:%s%s</font>/%s%s</font>/%s%s</font>/%s%s</font> vs. %s%s</font>/%s%s</font>/%s%s</font>/%s%s</font><font color=black> : %0.3f vs. %0.3f raw, %0.2f vs. %0.2f relative, %d numOnPreferredPos, %d numAvoid, %d (%d/%d) garbage imbalance, %d (%d/%d) bottom imbalance, %d (%d/%d) top imbalance, %0.3f total, %0.3f diff, offense/defense diff %d (%d/%d)</font>",
+	// noob rule and noob carry rule
+	qboolean satisfiesNoobRule = qtrue;
+	qboolean satisfiesNoobCarryRule = qtrue;
+	if (qfalse && context->numEligible == 8 && g_vote_teamgen_noobCheck.integer) {
+		double ratings[8] = {
+			team1base->rating[CTFPOSITION_BASE],
+			team1chase->rating[CTFPOSITION_CHASE],
+			team1offense1->rating[CTFPOSITION_OFFENSE],
+			team1offense2->rating[CTFPOSITION_OFFENSE],
+
+			team2base->rating[CTFPOSITION_BASE],
+			team2chase->rating[CTFPOSITION_CHASE],
+			team2offense1->rating[CTFPOSITION_OFFENSE],
+			team2offense2->rating[CTFPOSITION_OFFENSE]
+		};
+
+#if 0
+		const char *names[8] = {
+			team1base->accountName,     team1chase->accountName,
+			team1offense1->accountName, team1offense2->accountName,
+
+			team2base->accountName,     team2chase->accountName,
+			team2offense1->accountName, team2offense2->accountName
+		};
+#endif
+
+		int tiers[8];
+		for (int i = 0; i < 8; ++i)
+			tiers[i] = PlayerTierFromRating(ratings[i]);
+
+		int minTier = 99, secondMinTier = 99;
+		int minIdx = -1, secondMinIdx = -1;
+
+		for (int i = 0; i < 8; ++i) {
+			if (tiers[i] < minTier) {
+				secondMinTier = minTier;      secondMinIdx = minIdx;
+				minTier = tiers[i];     minIdx = i;
+			}
+			else if (tiers[i] < secondMinTier) {
+				secondMinTier = tiers[i];     secondMinIdx = i;
+			}
+		}
+
+		// a noob situation is where there are 7 goodies and 1 baddy
+		qboolean noobSituation = (minTier <= PLAYERRATING_HIGH_C) && (secondMinTier - minTier >= 3 || (secondMinTier - minTier >= 2 && secondMinTier >= PLAYERRATING_MID_B));
+
+#if 0
+		TeamGen_DebugPrintf(
+			"<font color=purple>Noob-check: worst <b>%s</b> (%s) &nbsp;&nbsp;second-worst <b>%s</b> (%s) &nbsp;&nbsp;gap %d tier(s) — %s</font><br/>",
+			names[minIdx], PlayerRatingToStringHTML(minTier),
+			names[secondMinIdx], PlayerRatingToStringHTML(secondMinTier),
+			secondMinTier - minTier,
+			noobSituation ? "NOOB SITUATION" : "not a noob situation");
+#endif
+
+		// noob rule: try to get the noob dude on equal or higher % team
+		if (noobSituation && iDiff) {
+
+			int weakerTeam = (team1RelativeStrength < team2RelativeStrength) ? 0 : 1;
+			int playersTeam = (minIdx < 4) ? 0 : 1;   /* idx<4 ? team 0 */
+
+#if 0
+			TeamGen_DebugPrintf("<font color=purple>Weaker team is <b>team %d</b>; worst player is on <b>team %d</b></font><br/>", weakerTeam + 1, playersTeam + 1);
+#endif
+
+			if (playersTeam == weakerTeam) {
+#ifdef OLDNOOBRULE
+				satisfiesNoobRule = qfalse;
+#endif
+#if 0
+				TeamGen_DebugPrintf("<font color=red>Noob rule NOT satisfied (worst player on weaker team)</font><br/>");
+#endif
+			}
+			else {
+#if 0
+				TeamGen_DebugPrintf("<font color=darkgreen>Noob rule satisfied (worst player on stronger/equal team)</font><br/>");
+#endif
+			}
+		}
+
+		// noob carry rule: try to get the noob dude with a strong offense player
+		if (noobSituation) {
+			// figure out the best offense players
+			int offTier[8] = {
+				PlayerTierFromRating(team1base->rating[CTFPOSITION_OFFENSE]),
+				PlayerTierFromRating(team1chase->rating[CTFPOSITION_OFFENSE]),
+				PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]),
+				PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]),
+
+				PlayerTierFromRating(team2base->rating[CTFPOSITION_OFFENSE]),
+				PlayerTierFromRating(team2chase->rating[CTFPOSITION_OFFENSE]),
+				PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]),
+				PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE])
+			};
+
+			int ttlRank[8] = {
+				team1base->ttlholdRank,      team1chase->ttlholdRank,
+				team1offense1->ttlholdRank,  team1offense2->ttlholdRank,
+
+				team2base->ttlholdRank,      team2chase->ttlholdRank,
+				team2offense1->ttlholdRank,  team2offense2->ttlholdRank
+			};
+
+			int bestOffTier = PLAYERRATING_UNRATED;
+			for (int i = 0; i < 8; ++i)
+				if (offTier[i] > bestOffTier) bestOffTier = offTier[i];
+
+			int candidateMask = 0;
+			for (int i = 0; i < 8; ++i) {
+				if (offTier[i] >= PLAYERRATING_HIGH_A ||
+					(offTier[i] >= PLAYERRATING_LOW_A && offTier[i] >= bestOffTier - 1))
+					candidateMask |= (1 << i);
+			}
+
+			int numCandidates = 0;
+			for (int i = 0; i < 8; ++i)
+				if (candidateMask & (1 << i)) ++numCandidates;
+
+			// trim down the pool of carries
+			if (numCandidates > /*2*/1) {
+				int worstIdx = -1, worstRank = -1;
+				for (int i = 0; i < 8; ++i)
+					if (candidateMask & (1 << i))
+						if (ttlRank[i] > worstRank) { worstRank = ttlRank[i]; worstIdx = i; }
+				if (worstIdx != -1) {
+					candidateMask &= ~(1 << worstIdx);
+					--numCandidates;
+				}
+			}
+
+			// on his team?
+			int noobTeam = (minIdx < 4) ? 0 : 1;
+			int offIdx1 = (noobTeam == 0) ? 2 : 6;
+			int offIdx2 = offIdx1 + 1;
+
+			qboolean carryPresent = (candidateMask & (1 << offIdx1)) || (candidateMask & (1 << offIdx2));
+
+#if 0
+			TeamGen_DebugPrintf(
+				"<font color=purple>Noob-carry check: candidate carries = %d, %s on noob’s team</font><br/>",
+				numCandidates,
+				carryPresent ? "carry present" : "NO carry present"
+			);
+#endif
+
+#ifdef OLDNOOBRULE
+			if (!carryPresent) {
+				satisfiesNoobCarryRule = qfalse;
+			}
+#else
+			if (carryPresent) {
+				satisfiesNoobRule = qtrue;
+			}
+			else {
+				satisfiesNoobRule = qfalse;
+			}
+#endif
+		}
+	}
+
+	TeamGen_DebugPrintf("Regular:%s%s</font>/%s%s</font>/%s%s</font>/%s%s</font> vs. %s%s</font>/%s%s</font>/%s%s</font>/%s%s</font><font color=black> : %0.3f vs. %0.3f raw, %0.2f vs. %0.2f relative, %d numOnPreferredPos, %d numAvoid, %d noob rule, %d noob carry rule, %d (%d/%d) garbage imbalance, %d (%d/%d) bottom imbalance, %d (%d/%d) top imbalance, %0.3f total, %0.3f diff, offense/defense diff %d (%d/%d)</font>",
 		team1base->posPrefs.avoid & (1 << CTFPOSITION_BASE) ? "<font color=red>" : team1base->posPrefs.first & (1 << CTFPOSITION_BASE) ? "<font color=darkgreen>" : team1base->posPrefs.second & (1 << CTFPOSITION_BASE) ? "<font color=silver>" : team1base->posPrefs.third & (1 << CTFPOSITION_BASE) ? "<font color=orange>" : "<font color=black>",
 		team1base->accountName,
 		team1chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE) ? "<font color=red>" : team1chase->posPrefs.first & (1 << CTFPOSITION_CHASE) ? "<font color=darkgreen>" : team1chase->posPrefs.second & (1 << CTFPOSITION_CHASE) ? "<font color=silver>" : team1chase->posPrefs.third & (1 << CTFPOSITION_CHASE) ? "<font color=orange>" : "<font color=black>",
@@ -1066,6 +1229,8 @@ static void TryTeamPermutation_Fairest(teamGeneratorContext_t *context, const pe
 		team2RelativeStrength * 100,
 		numOnPreferredPos,
 		numOnAvoidedPos,
+		satisfiesNoobRule,
+		satisfiesNoobCarryRule,
 		garbageTierImbalance,
 		team1GarbageTiers,
 		team2GarbageTiers,
@@ -1142,37 +1307,80 @@ static void TryTeamPermutation_Fairest(teamGeneratorContext_t *context, const pe
 
 	qboolean isBest = qfalse;
 	if (context->numEligible == 8 && g_vote_teamgen_new8PlayerAlgo.integer) {
-		// This permutation will be favored over the previous permutation if:
-		// - It is fairer (lesser iDiff).
-		// - It is equally fair (same iDiff), but has a better balance of bottom tier players (lesser bottomTierImbalance).
-		// - It is equally fair and has an equal balance of bottom tier players, but has a better balance of top tier players (lesser topTierImbalance).
-		// - It is equally fair, with equal bottom and top tier balances, but has a lower offense-defense difference (lesser offenseDefenseDiff).
-		// - It is equally fair, with equal tier balances and offense-defense difference, but has more players in preferred positions (greater numOnPreferredPos).
-		// - It is equally fair, with equal tier balances, offense-defense difference, and number of players in preferred positions, but has fewer players in avoided positions (lesser numOnAvoidedPos).
-		if (iDiff < context->best->iDiff ||
-			(iDiff == context->best->iDiff && bottomTierImbalance < context->best->bottomTierImbalance) ||
-			(iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance) ||
-			(iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && offenseDefenseDiff < context->best->offenseDefenseDiff) ||
-			(iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && offenseDefenseDiff == context->best->offenseDefenseDiff && numOnPreferredPos > context->best->numOnPreferredPos) ||
-			(iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && offenseDefenseDiff == context->best->offenseDefenseDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos)) {
+		if (g_vote_teamgen_noobCheck.integer) {
+			// This permutation will be favored over the previous permutation if:
+			// - It satisfies the noob rule and the other one doesn't.
+			// - It equally satisfies the noob rule, but satisfies the noob carry rule and the other one doesn't.
+			// - It equally satisfies the noob rule and equally satisfies the noob carry rule, but is fairer (lesser iDiff).
+			// - It equally satisfies the noob rule and equally satisfies the noob carry rule and is equally fair, but has a better balance of bottom tier players (lesser bottomTierImbalance).
+			// - It equally satisfies the noob rule and equally satisfies the noob carry rule and is equally fair and has equal bottom tier balance, but has a better balance of top tier players (lesser topTierImbalance).
+			// - It equally satisfies the noob rule and equally satisfies the noob carry rule and is equally fair and has equal bottom and top tier balances, but has a lower offense-defense difference (lesser offenseDefenseDiff).
+			// - It equally satisfies the noob rule and equally satisfies the noob carry rule and is equally fair and has equal tier balances and offense-defense difference, but has more players in preferred positions (greater numOnPreferredPos).
+			// - It equally satisfies the noob rule and equally satisfies the noob carry rule and is equally fair and has equal tier balances, offense-defense difference, and number of players in preferred positions, but has fewer players in avoided positions (lesser numOnAvoidedPos).
+			if ((satisfiesNoobRule && !context->best->satisfiesNoobRule) ||
+				(satisfiesNoobRule == context->best->satisfiesNoobRule && satisfiesNoobCarryRule && !context->best->satisfiesNoobCarryRule) ||
+				(satisfiesNoobRule == context->best->satisfiesNoobRule && satisfiesNoobCarryRule == context->best->satisfiesNoobCarryRule && iDiff < context->best->iDiff) ||
+				(satisfiesNoobRule == context->best->satisfiesNoobRule && satisfiesNoobCarryRule == context->best->satisfiesNoobCarryRule && iDiff == context->best->iDiff && bottomTierImbalance < context->best->bottomTierImbalance) ||
+				(satisfiesNoobRule == context->best->satisfiesNoobRule && satisfiesNoobCarryRule == context->best->satisfiesNoobCarryRule && iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance) ||
+				(satisfiesNoobRule == context->best->satisfiesNoobRule && satisfiesNoobCarryRule == context->best->satisfiesNoobCarryRule && iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && offenseDefenseDiff < context->best->offenseDefenseDiff) ||
+				(satisfiesNoobRule == context->best->satisfiesNoobRule && satisfiesNoobCarryRule == context->best->satisfiesNoobCarryRule && iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && offenseDefenseDiff == context->best->offenseDefenseDiff && numOnPreferredPos > context->best->numOnPreferredPos) ||
+				(satisfiesNoobRule == context->best->satisfiesNoobRule && satisfiesNoobCarryRule == context->best->satisfiesNoobCarryRule && iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && offenseDefenseDiff == context->best->offenseDefenseDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos)) {
 
-			// debug prints
-			if (iDiff < context->best->iDiff)
-				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (improved fairness)</font><br/>");
-			else if (iDiff == context->best->iDiff && bottomTierImbalance < context->best->bottomTierImbalance)
-				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal fairness, better bottom tier balance)</font><br/>");
-			else if (iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)
-				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal fairness and bottom tier balance, improved top tier balance)</font><br/>");
-			else if (iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && offenseDefenseDiff < context->best->offenseDefenseDiff)
-				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal fairness and tier balances, lower offense-defense difference)</font><br/>");
-			else if (iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && offenseDefenseDiff == context->best->offenseDefenseDiff && numOnPreferredPos > context->best->numOnPreferredPos)
-				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal fairness, tier balances, and offense-defense diff, but more in preferred positions)</font><br/>");
-			else if (iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && offenseDefenseDiff == context->best->offenseDefenseDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos)
-				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal fairness, tier balances, offense-defense diff, and preferred pos count, but fewer in avoided positions)</font><br/>");
-			else
-				TeamGen_DebugPrintf("<font style=\"background-color: yellow;\">???</font><br/>");
+				if (satisfiesNoobRule && !context->best->satisfiesNoobRule)
+					TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (satisfies noob rule)</font><br/>");
+				else if (satisfiesNoobCarryRule && !context->best->satisfiesNoobCarryRule)
+					TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal noob rule, but satisfies noob carry rule)</font><br/>");
+				else if (iDiff < context->best->iDiff)
+					TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal noob rule and carry rule, but improved fairness)</font><br/>");
+				else if (bottomTierImbalance < context->best->bottomTierImbalance)
+					TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal noob rule, carry rule, and fairness, but better bottom tier balance)</font><br/>");
+				else if (topTierImbalance < context->best->topTierImbalance)
+					TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal noob rule, carry rule, fairness, and bottom tier balance, but better top tier balance)</font><br/>");
+				else if (offenseDefenseDiff < context->best->offenseDefenseDiff)
+					TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal noob rule, carry rule, fairness, bottom+top tier balance, but lower offense-defense diff)</font><br/>");
+				else if (numOnPreferredPos > context->best->numOnPreferredPos)
+					TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal noob rule, carry rule, fairness, tier balances, offense-defense diff, but more in preferred positions)</font><br/>");
+				else if (numOnAvoidedPos < context->best->numOnAvoidedPos)
+					TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal noob rule, carry rule, fairness, tier balances, offense-defense diff, preferred pos count, but fewer in avoided positions)</font><br/>");
+				else
+					TeamGen_DebugPrintf("<font style=\"background-color: yellow;\">???</font><br/>");
 
-			isBest = qtrue;
+				isBest = qtrue;
+			}
+		}
+		else {
+			// This permutation will be favored over the previous permutation if:
+			// - It is fairer (lesser iDiff).
+			// - It is equally fair (same iDiff), but has a better balance of bottom tier players (lesser bottomTierImbalance).
+			// - It is equally fair and has an equal balance of bottom tier players, but has a better balance of top tier players (lesser topTierImbalance).
+			// - It is equally fair, with equal bottom and top tier balances, but has a lower offense-defense difference (lesser offenseDefenseDiff).
+			// - It is equally fair, with equal tier balances and offense-defense difference, but has more players in preferred positions (greater numOnPreferredPos).
+			// - It is equally fair, with equal tier balances, offense-defense difference, and number of players in preferred positions, but has fewer players in avoided positions (lesser numOnAvoidedPos).
+			if (iDiff < context->best->iDiff ||
+				(iDiff == context->best->iDiff && bottomTierImbalance < context->best->bottomTierImbalance) ||
+				(iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance) ||
+				(iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && offenseDefenseDiff < context->best->offenseDefenseDiff) ||
+				(iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && offenseDefenseDiff == context->best->offenseDefenseDiff && numOnPreferredPos > context->best->numOnPreferredPos) ||
+				(iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && offenseDefenseDiff == context->best->offenseDefenseDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos)) {
+
+				// debug prints
+				if (iDiff < context->best->iDiff)
+					TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (improved fairness)</font><br/>");
+				else if (iDiff == context->best->iDiff && bottomTierImbalance < context->best->bottomTierImbalance)
+					TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal fairness, better bottom tier balance)</font><br/>");
+				else if (iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)
+					TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal fairness and bottom tier balance, improved top tier balance)</font><br/>");
+				else if (iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && offenseDefenseDiff < context->best->offenseDefenseDiff)
+					TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal fairness and tier balances, lower offense-defense difference)</font><br/>");
+				else if (iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && offenseDefenseDiff == context->best->offenseDefenseDiff && numOnPreferredPos > context->best->numOnPreferredPos)
+					TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal fairness, tier balances, and offense-defense diff, but more in preferred positions)</font><br/>");
+				else if (iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && offenseDefenseDiff == context->best->offenseDefenseDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos)
+					TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal fairness, tier balances, offense-defense diff, and preferred pos count, but fewer in avoided positions)</font><br/>");
+				else
+					TeamGen_DebugPrintf("<font style=\"background-color: yellow;\">???</font><br/>");
+
+				isBest = qtrue;
+			}
 		}
 	}
 	else {
@@ -1260,6 +1468,8 @@ static void TryTeamPermutation_Fairest(teamGeneratorContext_t *context, const pe
 		context->best->numOnAvoidedPos = numOnAvoidedPos;
 		context->best->topTierImbalance = topTierImbalance;
 		context->best->bottomTierImbalance = bottomTierImbalance;
+		context->best->satisfiesNoobRule = satisfiesNoobRule;
+		context->best->satisfiesNoobCarryRule = satisfiesNoobCarryRule;
 		//set totalSkill
 		context->best->teams[0].rawStrength = team1RawStrength;
 		context->best->teams[1].rawStrength = team2RawStrength;
@@ -2445,7 +2655,167 @@ static void TryTeamPermutation_SemiTryhard(teamGeneratorContext_t *context, cons
 	}
 	int offenseDefenseDiff = team1OffenseDefenseDiff + team2OffenseDefenseDiff;
 
-	TeamGen_DebugPrintf("SemiTryhard:%s%s</font>/%s%s</font>/%s%s</font>/%s%s</font> vs. %s%s</font>/%s%s</font>/%s%s</font>/%s%s</font><font color=black> : %0.3f vs. %0.3f raw, %0.2f vs. %0.2f relative, %d numOnPreferredPos, %d numAvoid, %d (%d/%d) garbage imbalance, %d (%d/%d) bottom imbalance, %d (%d/%d) top imbalance, %0.3f total, %0.3f diff, offense/defense diff %d (%d/%d)</font>",
+	// noob rule and noob carry rule
+	qboolean satisfiesNoobRule = qtrue;
+	qboolean satisfiesNoobCarryRule = qtrue;
+	if (context->numEligible == 8 && g_vote_teamgen_noobCheck.integer) {
+		double ratings[8] = {
+			team1base->rating[CTFPOSITION_BASE],
+			team1chase->rating[CTFPOSITION_CHASE],
+			team1offense1->rating[CTFPOSITION_OFFENSE],
+			team1offense2->rating[CTFPOSITION_OFFENSE],
+
+			team2base->rating[CTFPOSITION_BASE],
+			team2chase->rating[CTFPOSITION_CHASE],
+			team2offense1->rating[CTFPOSITION_OFFENSE],
+			team2offense2->rating[CTFPOSITION_OFFENSE]
+		};
+
+#if 0
+		const char *names[8] = {
+			team1base->accountName,     team1chase->accountName,
+			team1offense1->accountName, team1offense2->accountName,
+
+			team2base->accountName,     team2chase->accountName,
+			team2offense1->accountName, team2offense2->accountName
+		};
+#endif
+
+		int tiers[8];
+		for (int i = 0; i < 8; ++i)
+			tiers[i] = PlayerTierFromRating(ratings[i]);
+
+		int minTier = 99, secondMinTier = 99;
+		int minIdx = -1, secondMinIdx = -1;
+
+		for (int i = 0; i < 8; ++i) {
+			if (tiers[i] < minTier) {
+				secondMinTier = minTier;      secondMinIdx = minIdx;
+				minTier = tiers[i];     minIdx = i;
+			}
+			else if (tiers[i] < secondMinTier) {
+				secondMinTier = tiers[i];     secondMinIdx = i;
+			}
+		}
+
+		// a noob situation is where there are 7 goodies and 1 baddy
+		qboolean noobSituation = (minTier <= PLAYERRATING_HIGH_C) && (secondMinTier - minTier >= 3 || (secondMinTier - minTier >= 2 && secondMinTier >= PLAYERRATING_MID_B));
+
+#if 0
+		TeamGen_DebugPrintf(
+			"<font color=purple>Noob-check: worst <b>%s</b> (%s) &nbsp;&nbsp;second-worst <b>%s</b> (%s) &nbsp;&nbsp;gap %d tier(s) — %s</font><br/>",
+			names[minIdx], PlayerRatingToStringHTML(minTier),
+			names[secondMinIdx], PlayerRatingToStringHTML(secondMinTier),
+			secondMinTier - minTier,
+			noobSituation ? "NOOB SITUATION" : "not a noob situation");
+#endif
+
+		// noob rule: try to get the noob dude on equal or higher % team
+		if (noobSituation && iDiff) {
+
+			int weakerTeam = (team1RelativeStrength < team2RelativeStrength) ? 0 : 1;
+			int playersTeam = (minIdx < 4) ? 0 : 1;   /* idx<4 ? team 0 */
+
+#if 0
+			TeamGen_DebugPrintf("<font color=purple>Weaker team is <b>team %d</b>; worst player is on <b>team %d</b></font><br/>", weakerTeam + 1, playersTeam + 1);
+#endif
+
+			if (playersTeam == weakerTeam) {
+#ifdef OLDNOOBRULE
+				satisfiesNoobRule = qfalse;
+#endif
+#if 0
+				TeamGen_DebugPrintf("<font color=red>Noob rule NOT satisfied (worst player on weaker team)</font><br/>");
+#endif
+			}
+			else {
+#if 0
+				TeamGen_DebugPrintf("<font color=darkgreen>Noob rule satisfied (worst player on stronger/equal team)</font><br/>");
+#endif
+			}
+		}
+
+		// noob carry rule: try to get the noob dude with a strong offense player
+		if (noobSituation) {
+			// figure out the best offense players
+			int offTier[8] = {
+				PlayerTierFromRating(team1base->rating[CTFPOSITION_OFFENSE]),
+				PlayerTierFromRating(team1chase->rating[CTFPOSITION_OFFENSE]),
+				PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]),
+				PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]),
+
+				PlayerTierFromRating(team2base->rating[CTFPOSITION_OFFENSE]),
+				PlayerTierFromRating(team2chase->rating[CTFPOSITION_OFFENSE]),
+				PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]),
+				PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE])
+			};
+
+			int ttlRank[8] = {
+				team1base->ttlholdRank,      team1chase->ttlholdRank,
+				team1offense1->ttlholdRank,  team1offense2->ttlholdRank,
+
+				team2base->ttlholdRank,      team2chase->ttlholdRank,
+				team2offense1->ttlholdRank,  team2offense2->ttlholdRank
+			};
+
+			int bestOffTier = PLAYERRATING_UNRATED;
+			for (int i = 0; i < 8; ++i)
+				if (offTier[i] > bestOffTier) bestOffTier = offTier[i];
+
+			int candidateMask = 0;
+			for (int i = 0; i < 8; ++i) {
+				if (offTier[i] >= PLAYERRATING_HIGH_A ||
+					(offTier[i] >= PLAYERRATING_LOW_A && offTier[i] >= bestOffTier - 1))
+					candidateMask |= (1 << i);
+			}
+
+			int numCandidates = 0;
+			for (int i = 0; i < 8; ++i)
+				if (candidateMask & (1 << i)) ++numCandidates;
+
+			// trim down the pool of carries
+			if (numCandidates > /*2*/1) {
+				int worstIdx = -1, worstRank = -1;
+				for (int i = 0; i < 8; ++i)
+					if (candidateMask & (1 << i))
+						if (ttlRank[i] > worstRank) { worstRank = ttlRank[i]; worstIdx = i; }
+				if (worstIdx != -1) {
+					candidateMask &= ~(1 << worstIdx);
+					--numCandidates;
+				}
+			}
+
+			// on his team?
+			int noobTeam = (minIdx < 4) ? 0 : 1;
+			int offIdx1 = (noobTeam == 0) ? 2 : 6;
+			int offIdx2 = offIdx1 + 1;
+
+			qboolean carryPresent = (candidateMask & (1 << offIdx1)) || (candidateMask & (1 << offIdx2));
+
+#if 0
+			TeamGen_DebugPrintf(
+				"<font color=purple>Noob-carry check: candidate carries = %d, %s on noob’s team</font><br/>",
+				numCandidates,
+				carryPresent ? "carry present" : "NO carry present"
+			);
+#endif
+
+#ifdef OLDNOOBRULE
+			if (!carryPresent) {
+				satisfiesNoobCarryRule = qfalse;
+			}
+#else
+			if (carryPresent) {
+				satisfiesNoobRule = qtrue;
+			}
+			else {
+				satisfiesNoobRule = qfalse;
+			}
+#endif
+		}
+	}
+
+	TeamGen_DebugPrintf("SemiTryhard:%s%s</font>/%s%s</font>/%s%s</font>/%s%s</font> vs. %s%s</font>/%s%s</font>/%s%s</font>/%s%s</font><font color=black> : %0.3f vs. %0.3f raw, %0.2f vs. %0.2f relative, %d numOnPreferredPos, %d numAvoid, %d noob rule, %d noob carry rule, %d (%d/%d) garbage imbalance, %d (%d/%d) bottom imbalance, %d (%d/%d) top imbalance, %0.3f total, %0.3f diff, offense/defense diff %d (%d/%d)</font>",
 		team1base->posPrefs.avoid & (1 << CTFPOSITION_BASE) ? "<font color=red>" : team1base->posPrefs.first & (1 << CTFPOSITION_BASE) ? "<font color=darkgreen>" : team1base->posPrefs.second & (1 << CTFPOSITION_BASE) ? "<font color=silver>" : team1base->posPrefs.third & (1 << CTFPOSITION_BASE) ? "<font color=orange>" : "<font color=black>",
 		team1base->accountName,
 		team1chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE) ? "<font color=red>" : team1chase->posPrefs.first & (1 << CTFPOSITION_CHASE) ? "<font color=darkgreen>" : team1chase->posPrefs.second & (1 << CTFPOSITION_CHASE) ? "<font color=silver>" : team1chase->posPrefs.third & (1 << CTFPOSITION_CHASE) ? "<font color=orange>" : "<font color=black>",
@@ -2468,6 +2838,8 @@ static void TryTeamPermutation_SemiTryhard(teamGeneratorContext_t *context, cons
 		team2RelativeStrength * 100,
 		numOnPreferredPos,
 		numOnAvoidedPos,
+		satisfiesNoobRule,
+		satisfiesNoobCarryRule,
 		garbageTierImbalance,
 		team1GarbageTiers,
 		team2GarbageTiers,
@@ -2548,35 +2920,43 @@ static void TryTeamPermutation_SemiTryhard(teamGeneratorContext_t *context, cons
 	qboolean isBest = qfalse;
 	if (context->numEligible == 8 && g_vote_teamgen_new8PlayerAlgo.integer) {
 		// this permutation will be favored over the previous permutation if:
-		// - it is fairer
-		// - it is equally fair, but higher combined strength
-		// - it is equally fair and equally high in combined strength, but has better balance of bottom tier players
-		// - it is equally fair and equally high in combined strength and equal balance of bottom tier players, but has better balance of top tier players
-		// - it is equally fair and equally high in combined strength, equal balance of bottom and top tier players, but has more people on preferred pos
-		// - it is equally fair and equally high in combined strength, equal balance of bottom and top tier players, and an equal number of people on preferred pos, but has fewer people on avoided pos
-		// - it is equally fair and equally high in combined strength, equal balance of bottom and top tier players, an equal number of people on preferred pos, and an equal number of people on avoided pos, but has better offense-defense diff
-		if (iDiff < context->best->iDiff ||
-			(iDiff == context->best->iDiff && iTotal > iCurrentBestCombinedStrength) ||
-			(iDiff == context->best->iDiff && iTotal == iCurrentBestCombinedStrength && bottomTierImbalance < context->best->bottomTierImbalance) ||
-			(iDiff == context->best->iDiff && iTotal == iCurrentBestCombinedStrength && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance) ||
-			(iDiff == context->best->iDiff && iTotal == iCurrentBestCombinedStrength && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && numOnPreferredPos > context->best->numOnPreferredPos) ||
-			(iDiff == context->best->iDiff && iTotal == iCurrentBestCombinedStrength && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos) ||
-			(iDiff == context->best->iDiff && iTotal == iCurrentBestCombinedStrength && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && offenseDefenseDiff < context->best->offenseDefenseDiff)) {
+		// - it satisfies the noob rule and the other one doesn't
+		// - it equally satisfies the noob rule, but satisfies the noob carry rule and the other one doesn't
+		// - it equally satisfies both noob rules, but is fairer
+		// - it equally satisfies both noob rules and is equally fair, but has higher combined strength
+		// - it equally satisfies both noob rules, is equally fair and equally high in combined strength, but has better balance of bottom tier players
+		// - it equally satisfies both noob rules, is equally fair and equally high in combined strength and equal balance of bottom tier players, but has better balance of top tier players
+		// - it equally satisfies both noob rules, is equally fair and equally high in combined strength, equal balance of bottom and top tier players, but has more people on preferred pos
+		// - it equally satisfies both noob rules, is equally fair and equally high in combined strength, equal balance of bottom and top tier players, and an equal number of people on preferred pos, but has fewer people on avoided pos
+		// - it equally satisfies both noob rules, is equally fair and equally high in combined strength, equal balance of bottom and top tier players, an equal number of people on preferred pos, and an equal number of people on avoided pos, but has better offense-defense diff
+		if ((satisfiesNoobRule && !context->best->satisfiesNoobRule) ||
+			(satisfiesNoobRule == context->best->satisfiesNoobRule && satisfiesNoobCarryRule && !context->best->satisfiesNoobCarryRule) ||
+			(satisfiesNoobRule == context->best->satisfiesNoobRule && satisfiesNoobCarryRule == context->best->satisfiesNoobCarryRule && iDiff < context->best->iDiff) ||
+			(satisfiesNoobRule == context->best->satisfiesNoobRule && satisfiesNoobCarryRule == context->best->satisfiesNoobCarryRule && iDiff == context->best->iDiff && iTotal > iCurrentBestCombinedStrength) ||
+			(satisfiesNoobRule == context->best->satisfiesNoobRule && satisfiesNoobCarryRule == context->best->satisfiesNoobCarryRule && iDiff == context->best->iDiff && iTotal == iCurrentBestCombinedStrength && bottomTierImbalance < context->best->bottomTierImbalance) ||
+			(satisfiesNoobRule == context->best->satisfiesNoobRule && satisfiesNoobCarryRule == context->best->satisfiesNoobCarryRule && iDiff == context->best->iDiff && iTotal == iCurrentBestCombinedStrength && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance) ||
+			(satisfiesNoobRule == context->best->satisfiesNoobRule && satisfiesNoobCarryRule == context->best->satisfiesNoobCarryRule && iDiff == context->best->iDiff && iTotal == iCurrentBestCombinedStrength && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && numOnPreferredPos > context->best->numOnPreferredPos) ||
+			(satisfiesNoobRule == context->best->satisfiesNoobRule && satisfiesNoobCarryRule == context->best->satisfiesNoobCarryRule && iDiff == context->best->iDiff && iTotal == iCurrentBestCombinedStrength && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos) ||
+			(satisfiesNoobRule == context->best->satisfiesNoobRule && satisfiesNoobCarryRule == context->best->satisfiesNoobCarryRule && iDiff == context->best->iDiff && iTotal == iCurrentBestCombinedStrength && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && offenseDefenseDiff < context->best->offenseDefenseDiff)) {
 
-			if (iDiff < context->best->iDiff)
-				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (fairer)</font><br/>");
-			else if (iDiff == context->best->iDiff && iTotal > iCurrentBestCombinedStrength)
-				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal fairness, but higher combined strength)</font><br/>");
-			else if (iDiff == context->best->iDiff && iTotal == iCurrentBestCombinedStrength && bottomTierImbalance < context->best->bottomTierImbalance)
-				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal fairness and combined strength, but better bottom tier balance)</font><br/>");
-			else if (iDiff == context->best->iDiff && iTotal == iCurrentBestCombinedStrength && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)
-				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal fairness, combined strength, and bottom tier balance, but better top tier balance)</font><br/>");
-			else if (iDiff == context->best->iDiff && iTotal == iCurrentBestCombinedStrength && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && numOnPreferredPos > context->best->numOnPreferredPos)
-				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal fairness, combined strength, bottom+top tier balance, but more on preferred pos)</font><br/>");
-			else if (iDiff == context->best->iDiff && iTotal == iCurrentBestCombinedStrength && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos)
-				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal fairness, combined strength, bottom+top tier balance, preferred pos, but less on avoided pos)</font><br/>");
-			else if (iDiff == context->best->iDiff && iTotal == iCurrentBestCombinedStrength && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && offenseDefenseDiff < context->best->offenseDefenseDiff)
-				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal fairness, combined strength, bottom+top tier balance, preferred pos, avoided pos, but better offense-defense diff)</font><br/>");
+			if (satisfiesNoobRule && !context->best->satisfiesNoobRule)
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (satisfies noob rule)</font><br/>");
+			else if (satisfiesNoobRule == context->best->satisfiesNoobRule && satisfiesNoobCarryRule && !context->best->satisfiesNoobCarryRule)
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal noob rule, but satisfies noob carry rule)</font><br/>");
+			else if (satisfiesNoobRule == context->best->satisfiesNoobRule && satisfiesNoobCarryRule == context->best->satisfiesNoobCarryRule && iDiff < context->best->iDiff)
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal noob rule & carry rule, but fairer)</font><br/>");
+			else if (satisfiesNoobRule == context->best->satisfiesNoobRule && satisfiesNoobCarryRule == context->best->satisfiesNoobCarryRule && iDiff == context->best->iDiff && iTotal > iCurrentBestCombinedStrength)
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal noob rule & carry rule and fairness, but higher combined strength)</font><br/>");
+			else if (satisfiesNoobRule == context->best->satisfiesNoobRule && satisfiesNoobCarryRule == context->best->satisfiesNoobCarryRule && iDiff == context->best->iDiff && iTotal == iCurrentBestCombinedStrength && bottomTierImbalance < context->best->bottomTierImbalance)
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal noob rule & carry rule, fairness, strength, but better bottom tier balance)</font><br/>");
+			else if (satisfiesNoobRule == context->best->satisfiesNoobRule && satisfiesNoobCarryRule == context->best->satisfiesNoobCarryRule && iDiff == context->best->iDiff && iTotal == iCurrentBestCombinedStrength && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance)
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal noob rule & carry rule, fairness, strength, bottom tier balance, but better top tier balance)</font><br/>");
+			else if (satisfiesNoobRule == context->best->satisfiesNoobRule && satisfiesNoobCarryRule == context->best->satisfiesNoobCarryRule && iDiff == context->best->iDiff && iTotal == iCurrentBestCombinedStrength && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && numOnPreferredPos > context->best->numOnPreferredPos)
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal noob rule & carry rule, fairness, strength, bottom+top tier balance, but more on preferred pos)</font><br/>");
+			else if (satisfiesNoobRule == context->best->satisfiesNoobRule && satisfiesNoobCarryRule == context->best->satisfiesNoobCarryRule && iDiff == context->best->iDiff && iTotal == iCurrentBestCombinedStrength && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos)
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal noob rule & carry rule, fairness, strength, bottom+top tier balance, preferred pos, but less on avoided pos)</font><br/>");
+			else if (satisfiesNoobRule == context->best->satisfiesNoobRule && satisfiesNoobCarryRule == context->best->satisfiesNoobCarryRule && iDiff == context->best->iDiff && iTotal == iCurrentBestCombinedStrength && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos == context->best->numOnAvoidedPos && offenseDefenseDiff < context->best->offenseDefenseDiff)
+				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal noob rule & carry rule, fairness, strength, bottom+top tier balance, preferred pos, avoided pos, but better offense-defense diff)</font><br/>");
 			else
 				TeamGen_DebugPrintf("<font style=\"background-color: yellow;\">???</font><br/>");
 
@@ -2672,6 +3052,8 @@ static void TryTeamPermutation_SemiTryhard(teamGeneratorContext_t *context, cons
 		context->best->topTierImbalance = topTierImbalance;
 		context->best->bottomTierImbalance = bottomTierImbalance;
 		context->best->totalSkill = iTotal;
+		context->best->satisfiesNoobRule = satisfiesNoobRule;
+		context->best->satisfiesNoobCarryRule = satisfiesNoobCarryRule;
 		context->best->teams[0].rawStrength = team1RawStrength;
 		context->best->teams[1].rawStrength = team2RawStrength;
 		context->best->teams[0].relativeStrength = team1RelativeStrength;
@@ -2807,48 +3189,167 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 	}
 	int offenseDefenseDiff = team1OffenseDefenseDiff + team2OffenseDefenseDiff;
 
+	// noob rule and noob carry rule
 	qboolean satisfiesNoobRule = qtrue;
-	if (context->numEligible == 8 && g_vote_teamgen_noobCheck.integer && diffPercentage >= (/*0.01*/0 - 0.000001)) {
+	qboolean satisfiesNoobCarryRule = qtrue;
+	if (context->numEligible == 8 && g_vote_teamgen_noobCheck.integer) {
 		double ratings[8] = {
 			team1base->rating[CTFPOSITION_BASE],
 			team1chase->rating[CTFPOSITION_CHASE],
 			team1offense1->rating[CTFPOSITION_OFFENSE],
 			team1offense2->rating[CTFPOSITION_OFFENSE],
+
 			team2base->rating[CTFPOSITION_BASE],
 			team2chase->rating[CTFPOSITION_CHASE],
 			team2offense1->rating[CTFPOSITION_OFFENSE],
 			team2offense2->rating[CTFPOSITION_OFFENSE]
 		};
 
+#if 0
+		const char *names[8] = {
+			team1base->accountName,     team1chase->accountName,
+			team1offense1->accountName, team1offense2->accountName,
+
+			team2base->accountName,     team2chase->accountName,
+			team2offense1->accountName, team2offense2->accountName
+		};
+#endif
+
 		int tiers[8];
 		for (int i = 0; i < 8; ++i)
 			tiers[i] = PlayerTierFromRating(ratings[i]);
 
-		// find lowest and second lowest
 		int minTier = 99, secondMinTier = 99;
-		int minIndex = -1;
+		int minIdx = -1, secondMinIdx = -1;
+
 		for (int i = 0; i < 8; ++i) {
 			if (tiers[i] < minTier) {
-				secondMinTier = minTier;
-				minTier = tiers[i];
-				minIndex = i;
+				secondMinTier = minTier;      secondMinIdx = minIdx;
+				minTier = tiers[i];     minIdx = i;
 			}
 			else if (tiers[i] < secondMinTier) {
-				secondMinTier = tiers[i];
+				secondMinTier = tiers[i];     secondMinIdx = i;
 			}
 		}
 
-		// if lowest player is bad and much worse than second lowest
-		if (minTier <= PLAYERRATING_HIGH_C && secondMinTier - minTier >= 3) {
+		// a noob situation is where there are 7 goodies and 1 baddy
+		qboolean noobSituation = (minTier <= PLAYERRATING_HIGH_C) && (secondMinTier - minTier >= 3 || (secondMinTier - minTier >= 2 && secondMinTier >= PLAYERRATING_MID_B));
+
+#if 0
+		TeamGen_DebugPrintf(
+			"<font color=purple>Noob-check: worst <b>%s</b> (%s) &nbsp;&nbsp;second-worst <b>%s</b> (%s) &nbsp;&nbsp;gap %d tier(s) — %s</font><br/>",
+			names[minIdx], PlayerRatingToStringHTML(minTier),
+			names[secondMinIdx], PlayerRatingToStringHTML(secondMinTier),
+			secondMinTier - minTier,
+			noobSituation ? "NOOB SITUATION" : "not a noob situation");
+#endif
+
+		// noob rule: try to get the noob dude on equal or higher % team
+		if (noobSituation && iDiff) {
+
 			int weakerTeam = (team1RelativeStrength < team2RelativeStrength) ? 0 : 1;
-			int playerTeam = (minIndex < 4) ? 0 : 1;
-			if (playerTeam == weakerTeam) {
+			int playersTeam = (minIdx < 4) ? 0 : 1;   /* idx<4 ? team 0 */
+
+#if 0
+			TeamGen_DebugPrintf("<font color=purple>Weaker team is <b>team %d</b>; worst player is on <b>team %d</b></font><br/>", weakerTeam + 1, playersTeam + 1);
+#endif
+
+			if (playersTeam == weakerTeam) {
+#ifdef OLDNOOBRULE
+				satisfiesNoobRule = qfalse;
+#endif
+#if 0
+				TeamGen_DebugPrintf("<font color=red>Noob rule NOT satisfied (worst player on weaker team)</font><br/>");
+#endif
+			}
+			else {
+#if 0
+				TeamGen_DebugPrintf("<font color=darkgreen>Noob rule satisfied (worst player on stronger/equal team)</font><br/>");
+#endif
+			}
+		}
+
+		// noob carry rule: try to get the noob dude with a strong offense player
+		if (noobSituation) {
+			// figure out the best offense players
+			int offTier[8] = {
+				PlayerTierFromRating(team1base->rating[CTFPOSITION_OFFENSE]),
+				PlayerTierFromRating(team1chase->rating[CTFPOSITION_OFFENSE]),
+				PlayerTierFromRating(team1offense1->rating[CTFPOSITION_OFFENSE]),
+				PlayerTierFromRating(team1offense2->rating[CTFPOSITION_OFFENSE]),
+
+				PlayerTierFromRating(team2base->rating[CTFPOSITION_OFFENSE]),
+				PlayerTierFromRating(team2chase->rating[CTFPOSITION_OFFENSE]),
+				PlayerTierFromRating(team2offense1->rating[CTFPOSITION_OFFENSE]),
+				PlayerTierFromRating(team2offense2->rating[CTFPOSITION_OFFENSE])
+			};
+
+			int ttlRank[8] = {
+				team1base->ttlholdRank,      team1chase->ttlholdRank,
+				team1offense1->ttlholdRank,  team1offense2->ttlholdRank,
+
+				team2base->ttlholdRank,      team2chase->ttlholdRank,
+				team2offense1->ttlholdRank,  team2offense2->ttlholdRank
+			};
+
+			int bestOffTier = PLAYERRATING_UNRATED;
+			for (int i = 0; i < 8; ++i)
+				if (offTier[i] > bestOffTier) bestOffTier = offTier[i];
+
+			int candidateMask = 0;
+			for (int i = 0; i < 8; ++i) {
+				if (offTier[i] >= PLAYERRATING_HIGH_A ||
+					(offTier[i] >= PLAYERRATING_LOW_A && offTier[i] >= bestOffTier - 1))
+					candidateMask |= (1 << i);
+			}
+
+			int numCandidates = 0;
+			for (int i = 0; i < 8; ++i)
+				if (candidateMask & (1 << i)) ++numCandidates;
+
+			// trim down the pool of carries
+			if (numCandidates > /*2*/1) {
+				int worstIdx = -1, worstRank = -1;
+				for (int i = 0; i < 8; ++i)
+					if (candidateMask & (1 << i))
+						if (ttlRank[i] > worstRank) { worstRank = ttlRank[i]; worstIdx = i; }
+				if (worstIdx != -1) {
+					candidateMask &= ~(1 << worstIdx);
+					--numCandidates;
+				}
+			}
+
+			// on his team?
+			int noobTeam = (minIdx < 4) ? 0 : 1;
+			int offIdx1 = (noobTeam == 0) ? 2 : 6;
+			int offIdx2 = offIdx1 + 1;
+
+			qboolean carryPresent = (candidateMask & (1 << offIdx1)) || (candidateMask & (1 << offIdx2));
+
+#if 0
+			TeamGen_DebugPrintf(
+				"<font color=purple>Noob-carry check: candidate carries = %d, %s on noob’s team</font><br/>",
+				numCandidates,
+				carryPresent ? "carry present" : "NO carry present"
+			);
+#endif
+
+#ifdef OLDNOOBRULE
+			if (!carryPresent) {
+				satisfiesNoobCarryRule = qfalse;
+			}
+#else
+			if (carryPresent) {
+				satisfiesNoobRule = qtrue;
+			}
+			else {
 				satisfiesNoobRule = qfalse;
 			}
+#endif
 		}
 	}
 
-	TeamGen_DebugPrintf("Tryhard:%s%s</font>/%s%s</font>/%s%s</font>/%s%s</font> vs. %s%s</font>/%s%s</font>/%s%s</font>/%s%s</font><font color=black> : %0.3f vs. %0.3f raw, %0.2f vs. %0.2f relative, %d numOnPreferredPos, %d numAvoid, %d noob rule, %d (%d/%d) garbage imbalance, %d (%d/%d) bottom imbalance, %d (%d/%d) top imbalance, %0.3f total, %0.3f diff, offense/defense diff %d (%d/%d)</font>",
+	TeamGen_DebugPrintf("Tryhard:%s%s</font>/%s%s</font>/%s%s</font>/%s%s</font> vs. %s%s</font>/%s%s</font>/%s%s</font>/%s%s</font><font color=black> : %0.3f vs. %0.3f raw, %0.2f vs. %0.2f relative, %d numOnPreferredPos, %d numAvoid, %d noob rule, %d noob carry rule, %d (%d/%d) garbage imbalance, %d (%d/%d) bottom imbalance, %d (%d/%d) top imbalance, %0.3f total, %0.3f diff, offense/defense diff %d (%d/%d)</font>",
 		team1base->posPrefs.avoid & (1 << CTFPOSITION_BASE) ? "<font color=red>" : team1base->posPrefs.first & (1 << CTFPOSITION_BASE) ? "<font color=darkgreen>" : team1base->posPrefs.second & (1 << CTFPOSITION_BASE) ? "<font color=silver>" : team1base->posPrefs.third & (1 << CTFPOSITION_BASE) ? "<font color=orange>" : "<font color=black>",
 		team1base->accountName,
 		team1chase->posPrefs.avoid & (1 << CTFPOSITION_CHASE) ? "<font color=red>" : team1chase->posPrefs.first & (1 << CTFPOSITION_CHASE) ? "<font color=darkgreen>" : team1chase->posPrefs.second & (1 << CTFPOSITION_CHASE) ? "<font color=silver>" : team1chase->posPrefs.third & (1 << CTFPOSITION_CHASE) ? "<font color=orange>" : "<font color=black>",
@@ -2872,6 +3373,7 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 		numOnPreferredPos,
 		numOnAvoidedPos,
 		satisfiesNoobRule,
+		satisfiesNoobCarryRule,
 		garbageTierImbalance,
 		team1GarbageTiers,
 		team2GarbageTiers,
@@ -2951,44 +3453,88 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 
 	qboolean isBest = qfalse;
 	if (context->numEligible == 8 && g_vote_teamgen_new8PlayerAlgo.integer) {
-		// this permutation will be favored over the previous permutation if:
-		// - it satisfies the noob rule and the other one doesn't
-		// - it equally satisfies the noob rule, but has higher combined strength
-		// - it equally satisfies the noob rule and has equal combined strength, but is fairer
-		// - it equally satisfies the noob rule and has equal combined strength and fairness, but has better balance of bottom tier players
-		// - it equally satisfies the noob rule and has equal combined strength and fairness and equal bottom tier balance, but has better balance of top tier players
-		// - it equally satisfies the noob rule and has equal combined strength and fairness and equal bottom+top tier balance, but has better offense-defense diff
-		// - it equally satisfies the noob rule and has equal combined strength and fairness and equal bottom+top tier balance and offense-defense diff, but has more people on preferred pos
-		// - it equally satisfies the noob rule and has equal combined strength and fairness and equal bottom+top tier balance, offense-defense diff, and preferred pos, but has fewer people on avoided pos
-		if ((satisfiesNoobRule && !context->best->satisfiesNoobRule) ||
-			(satisfiesNoobRule == context->best->satisfiesNoobRule && iTotal > iCurrentBestCombinedStrength) ||
-			(satisfiesNoobRule == context->best->satisfiesNoobRule && iTotal == iCurrentBestCombinedStrength && iDiff < context->best->iDiff) ||
-			(satisfiesNoobRule == context->best->satisfiesNoobRule && iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && bottomTierImbalance < context->best->bottomTierImbalance) ||
-			(satisfiesNoobRule == context->best->satisfiesNoobRule && iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance) ||
-			(satisfiesNoobRule == context->best->satisfiesNoobRule && iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && offenseDefenseDiff < context->best->offenseDefenseDiff) ||
-			(satisfiesNoobRule == context->best->satisfiesNoobRule && iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && offenseDefenseDiff == context->best->offenseDefenseDiff && numOnPreferredPos > context->best->numOnPreferredPos) ||
-			(satisfiesNoobRule == context->best->satisfiesNoobRule && iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && offenseDefenseDiff == context->best->offenseDefenseDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos)) {
+		if (g_vote_teamgen_noobCheck.integer) {
+			// this permutation will be favored over the previous permutation if:
+			// - it satisfies the noob rule and the other one doesn't
+			// - it equally satisfies the noob rule, but satisfies the noob carry rule and the other one doesn't
+			// - it equally satisfies the noob rule and equally satisfies the noob carry rule, but has higher combined strength
+			// - it equally satisfies the noob rule and equally satisfies the noob carry rule and has equal combined strength, but is fairer
+			// - it equally satisfies the noob rule and equally satisfies the noob carry rule and has equal combined strength and fairness, but has better balance of bottom tier players
+			// - it equally satisfies the noob rule and equally satisfies the noob carry rule and has equal combined strength and fairness and equal bottom tier balance, but has better balance of top tier players
+			// - it equally satisfies the noob rule and equally satisfies the noob carry rule and has equal combined strength and fairness and equal bottom+top tier balance, but has better offense-defense diff
+			// - it equally satisfies the noob rule and equally satisfies the noob carry rule and has equal combined strength and fairness and equal bottom+top tier balance and offense-defense diff, but has more people on preferred pos
+			// - it equally satisfies the noob rule and equally satisfies the noob carry rule and has equal combined strength and fairness and equal bottom+top tier balance, offense-defense diff, and preferred pos, but has fewer people on avoided pos
+			if ((satisfiesNoobRule && !context->best->satisfiesNoobRule) ||
+				(satisfiesNoobRule == context->best->satisfiesNoobRule && satisfiesNoobCarryRule && !context->best->satisfiesNoobCarryRule) ||
+				(satisfiesNoobRule == context->best->satisfiesNoobRule && satisfiesNoobCarryRule == context->best->satisfiesNoobCarryRule && iTotal > iCurrentBestCombinedStrength) ||
+				(satisfiesNoobRule == context->best->satisfiesNoobRule && satisfiesNoobCarryRule == context->best->satisfiesNoobCarryRule && iTotal == iCurrentBestCombinedStrength && iDiff < context->best->iDiff) ||
+				(satisfiesNoobRule == context->best->satisfiesNoobRule && satisfiesNoobCarryRule == context->best->satisfiesNoobCarryRule && iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && bottomTierImbalance < context->best->bottomTierImbalance) ||
+				(satisfiesNoobRule == context->best->satisfiesNoobRule && satisfiesNoobCarryRule == context->best->satisfiesNoobCarryRule && iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance) ||
+				(satisfiesNoobRule == context->best->satisfiesNoobRule && satisfiesNoobCarryRule == context->best->satisfiesNoobCarryRule && iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && offenseDefenseDiff < context->best->offenseDefenseDiff) ||
+				(satisfiesNoobRule == context->best->satisfiesNoobRule && satisfiesNoobCarryRule == context->best->satisfiesNoobCarryRule && iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && offenseDefenseDiff == context->best->offenseDefenseDiff && numOnPreferredPos > context->best->numOnPreferredPos) ||
+				(satisfiesNoobRule == context->best->satisfiesNoobRule && satisfiesNoobCarryRule == context->best->satisfiesNoobCarryRule && iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && offenseDefenseDiff == context->best->offenseDefenseDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos)) {
 
-			if (satisfiesNoobRule && !context->best->satisfiesNoobRule)
-				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (satisfies noob rule)</font><br/>");
-			else if (iTotal > iCurrentBestCombinedStrength)
-				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal noob rule, but higher combined strength)</font><br/>");
-			else if (iDiff < context->best->iDiff)
-				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal noob rule and strength, but fairer)</font><br/>");
-			else if (bottomTierImbalance < context->best->bottomTierImbalance)
-				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal noob rule, strength, fairness, but better bottom tier balance)</font><br/>");
-			else if (topTierImbalance < context->best->topTierImbalance)
-				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal noob rule, strength, fairness, bottom tier balance, but better top tier balance)</font><br/>");
-			else if (offenseDefenseDiff < context->best->offenseDefenseDiff)
-				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal noob rule, strength, fairness, bottom+top tier balance, but better offense-defense diff)</font><br/>");
-			else if (numOnPreferredPos > context->best->numOnPreferredPos)
-				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal noob rule, strength, fairness, bottom+top tier balance, offense-defense diff, but more on preferred pos)</font><br/>");
-			else if (numOnAvoidedPos < context->best->numOnAvoidedPos)
-				TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal noob rule, strength, fairness, bottom+top tier balance, offense-defense diff, preferred pos count, but less on avoided pos)</font><br/>");
-			else
-				TeamGen_DebugPrintf("<font style=\"background-color: yellow;\">???</font><br/>");
+				if (satisfiesNoobRule && !context->best->satisfiesNoobRule)
+					TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (satisfies noob rule)</font><br/>");
+				else if (satisfiesNoobCarryRule && !context->best->satisfiesNoobCarryRule)
+					TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal noob rule, but satisfies noob carry rule)</font><br/>");
+				else if (iTotal > iCurrentBestCombinedStrength)
+					TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal noob rule and carry rule, but higher combined strength)</font><br/>");
+				else if (iDiff < context->best->iDiff)
+					TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal noob rule, carry rule, and strength, but fairer)</font><br/>");
+				else if (bottomTierImbalance < context->best->bottomTierImbalance)
+					TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal noob rule, carry rule, strength, fairness, but better bottom tier balance)</font><br/>");
+				else if (topTierImbalance < context->best->topTierImbalance)
+					TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal noob rule, carry rule, strength, fairness, bottom tier balance, but better top tier balance)</font><br/>");
+				else if (offenseDefenseDiff < context->best->offenseDefenseDiff)
+					TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal noob rule, carry rule, strength, fairness, bottom+top tier balance, but better offense-defense diff)</font><br/>");
+				else if (numOnPreferredPos > context->best->numOnPreferredPos)
+					TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal noob rule, carry rule, strength, fairness, bottom+top tier balance, offense-defense diff, but more on preferred pos)</font><br/>");
+				else if (numOnAvoidedPos < context->best->numOnAvoidedPos)
+					TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal noob rule, carry rule, strength, fairness, bottom+top tier balance, offense-defense diff, preferred pos count, but less on avoided pos)</font><br/>");
+				else
+					TeamGen_DebugPrintf("<font style=\"background-color: yellow;\">???</font><br/>");
 
-			isBest = qtrue;
+				isBest = qtrue;
+			}
+		}
+		else {
+			// this permutation will be favored over the previous permutation if:
+			// - it has higher combined strength
+			// - it is equally high in combined strength, but is fairer
+			// - it is equally high in combined strength and equally fair, but has better balance of bottom tier players
+			// - it is equally high in combined strength and equally fair and equal bottom tier balance, but has better balance of top tier players
+			// - it is equally high in combined strength and equally fair and equal bottom+top tier balance, but has better offense-defense diff
+			// - it is equally high in combined strength and equally fair and equal bottom+top tier balance and offense-defense diff, but has more people on preferred pos
+			// - it is equally high in combined strength and equally fair and equal bottom+top tier balance, offense-defense diff, and preferred pos, but has fewer people on avoided pos
+			if (iTotal > iCurrentBestCombinedStrength ||
+				(iTotal == iCurrentBestCombinedStrength && iDiff < context->best->iDiff) ||
+				(iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && bottomTierImbalance < context->best->bottomTierImbalance) ||
+				(iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance < context->best->topTierImbalance) ||
+				(iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && offenseDefenseDiff < context->best->offenseDefenseDiff) ||
+				(iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && offenseDefenseDiff == context->best->offenseDefenseDiff && numOnPreferredPos > context->best->numOnPreferredPos) ||
+				(iTotal == iCurrentBestCombinedStrength && iDiff == context->best->iDiff && bottomTierImbalance == context->best->bottomTierImbalance && topTierImbalance == context->best->topTierImbalance && offenseDefenseDiff == context->best->offenseDefenseDiff && numOnPreferredPos == context->best->numOnPreferredPos && numOnAvoidedPos < context->best->numOnAvoidedPos)) {
+
+				if (iTotal > iCurrentBestCombinedStrength)
+					TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (higher combined strength)</font><br/>");
+				else if (iDiff < context->best->iDiff)
+					TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal strength, but fairer)</font><br/>");
+				else if (bottomTierImbalance < context->best->bottomTierImbalance)
+					TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal strength and fairness, but better bottom tier balance)</font><br/>");
+				else if (topTierImbalance < context->best->topTierImbalance)
+					TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal strength, fairness, and bottom tier balance, but better top tier balance)</font><br/>");
+				else if (offenseDefenseDiff < context->best->offenseDefenseDiff)
+					TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal strength, fairness, bottom+top tier balance, but better offense-defense diff)</font><br/>");
+				else if (numOnPreferredPos > context->best->numOnPreferredPos)
+					TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal strength, fairness, bottom+top tier balance, offense-defense diff, but more on preferred pos)</font><br/>");
+				else if (numOnAvoidedPos < context->best->numOnAvoidedPos)
+					TeamGen_DebugPrintf(" <font style=\"background-color: yellow;\">best so far (equal strength, fairness, bottom+top tier balance, offense-defense diff, preferred pos count, but less on avoided pos)</font><br/>");
+				else
+					TeamGen_DebugPrintf("<font style=\"background-color: yellow;\">???</font><br/>");
+
+				isBest = qtrue;
+			}
+
 		}
 	}
 	else {
@@ -3081,6 +3627,7 @@ static void TryTeamPermutation_Tryhard(teamGeneratorContext_t *context, const pe
 		context->best->bottomTierImbalance = bottomTierImbalance;
 		context->best->totalSkill = iTotal;
 		context->best->satisfiesNoobRule = satisfiesNoobRule;
+		context->best->satisfiesNoobCarryRule = satisfiesNoobCarryRule;
 		context->best->teams[0].rawStrength = team1RawStrength;
 		context->best->teams[1].rawStrength = team2RawStrength;
 		context->best->teams[0].relativeStrength = team1RelativeStrength;
@@ -3344,6 +3891,7 @@ static uint64_t PermuteTeams(permutationPlayer_t *playerArray, int numEligible, 
 	context.best->numSatisfiedCyds = -1;
 	context.best->numSatisfiedLgs = -1;
 	context.best->satisfiesNoobRule = qfalse;
+	context.best->satisfiesNoobCarryRule = qfalse;
 	context.type = type;
 	context.enforceImbalanceCaps = enforceImbalanceCaps;
 	if (avoidedHashesList && avoidedHashesList->size > 0)
@@ -3582,6 +4130,8 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 		sortedClients[i].accountId = ent->client->account->id;
 		sortedClients[i].bannedPos = ent->client->account->bannedPos;
 #endif
+
+		sortedClients[i].ttlholdRank = DB_LookupTtlHoldRank(sortedClients[i].accountId);
 
 		for (int j = CTFPOSITION_BASE; j <= CTFPOSITION_OFFENSE; j++) {
 			if (sortedClients[i].posPrefs.first & (1 << j))
@@ -3860,6 +4410,8 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 			else {
 				gotValidRatings = qtrue;
 			}
+
+			algoPlayer->ttlholdRank = client->ttlholdRank;
 
 			qboolean okayToUsePreference = qtrue;
 			mostPlayedPos_t findMe2 = { 0 };
@@ -4522,10 +5074,17 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 				}
 
 				if (try2.valid) {
+#if 0
 					if (try2.totalSkill > try1.totalSkill || (try2.totalSkill == try1.totalSkill && try2.iDiff < try1.iDiff)) {
 						thisPermutation = &try2;
 						TeamGen_DebugPrintf("<font color=orange>==========Second pass on type %d with banned avoided pos yields higher skill or fairer result; using avoided pos unbanned permutation==========</font><br/>", type);
 					}
+#else
+					if (qtrue) {
+						thisPermutation = &try2;
+						TeamGen_DebugPrintf("<font color=orange>==========Forcing second pass on type %d (fixme: save unnecessary computation)==========</font><br/>", type);
+					}
+#endif
 					else {
 						thisPermutation = &try1;
 						TeamGen_DebugPrintf("<font color=orange>==========Unable to do better on second pass for type %d; using avoided pos banned permutation==========</font><br/>", type);
@@ -4775,6 +5334,7 @@ static qboolean GenerateTeamsIteratively(pugProposal_t *set, permutationOfTeams_
 
 	// refresh ratings from db
 	G_DBGetPlayerRatings();
+	DB_GetAllTtlHoldRanks();
 
 	// run teamgen a bunch of times
 	int numEvaluated = 0;
@@ -5519,14 +6079,14 @@ void PrintTeamsProposalsInConsole(pugProposal_t *set, int clientNum) {
 			if (!rerollNum && i == TEAMGENERATORTYPE_HIGHESTRATING && (tags & (1 << TEAMGENTAG_MOSTHC) || tags & (1 << TEAMGENTAG_TIEDFORMOSTHC)))
 				Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^5[spec/capt]" : va("%s ^5[spec/capt]", suggestionTypeStr));
 #endif
-
-			if (tags & (1 << TEAMGENTAG_HC3))
-				Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^6[ULTRA OMEGA HC!!!]" : va("%s ^6[ULTRA OMEGA HC!!!]", suggestionTypeStr));
-			else if (tags & (1 << TEAMGENTAG_HC2))
-				Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^6[MEGA HC!!]" : va("%s ^6[MEGA HC!!]", suggestionTypeStr));
-			else if (tags & (1 << TEAMGENTAG_HC))
-				Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^6[HC!]" : va("%s ^6[HC!]", suggestionTypeStr));
 		}
+
+		if (tags & (1 << TEAMGENTAG_HC3))
+			Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^3[***ULTRA OMEGA HC!!!***]" : va("%s ^3[***ULTRA OMEGA HC!!!***]", suggestionTypeStr));
+		else if (tags & (1 << TEAMGENTAG_HC2))
+			Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^3[**MEGA HC!!**]" : va("%s ^3[**MEGA HC!!**]", suggestionTypeStr));
+		else if (tags & (1 << TEAMGENTAG_HC))
+			Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^3[*HC!*]" : va("%s ^3[*HC!*]", suggestionTypeStr));
 
 		if (tags & (1 << TEAMGENTAG_NOAVOIDS))
 			Com_sprintf(suggestionTypeStr, sizeof(suggestionTypeStr), !suggestionTypeStr[0] ? "^7[no avoids]" : va("%s ^7[no avoids]", suggestionTypeStr));
@@ -6441,12 +7001,21 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 
 			int numRequired;
 			if (g_vote_teamgen_dynamicVoteRequirement.integer) {
-				if (permutation->teams[0].relativeStrength >= 0.519f - 0.0001f || permutation->teams[1].relativeStrength >= 0.519f - 0.0001f)
+				if (permutation->teams[0].relativeStrength >= 0.519f - 0.0001f || permutation->teams[1].relativeStrength >= 0.519f - 0.0001f) {
 					numRequired = 7;
-				else if (permutation->iDiff > 0 || numPlayers > 8)
+				}
+				else if (permutation->lowestPlayerRating >= PlayerTierToRating(PLAYERRATING_MID_B) - 0.0001) {
+					if (permutation->teams[0].relativeStrength >= 0.5049f - 0.0001f || permutation->teams[1].relativeStrength >= 0.5049f - 0.0001f)
+						numRequired = 5; // hc but imba
+					else
+						numRequired = 4; // just hc
+				}
+				else if (permutation->iDiff > 0 || numPlayers > 8) {
 					numRequired = 6;
-				else
+				}
+				else {
 					numRequired = 5;
+				}
 			}
 			else {
 				numRequired = 5;
@@ -6520,18 +7089,27 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 
 		int numRequired;
 		if (g_vote_teamgen_dynamicVoteRequirement.integer) {
-			if (permutation->teams[0].relativeStrength >= 0.519f - 0.0001f || permutation->teams[1].relativeStrength >= 0.519f - 0.0001f)
+			if (permutation->teams[0].relativeStrength >= 0.519f - 0.0001f || permutation->teams[1].relativeStrength >= 0.519f - 0.0001f) {
 				numRequired = 7;
-			else if (permutation->iDiff > 0 || numPlayers > 8)
+			}
+			else if (permutation->lowestPlayerRating >= PlayerTierToRating(PLAYERRATING_MID_B) - 0.0001) {
+				if (permutation->teams[0].relativeStrength >= 0.5049f - 0.0001f || permutation->teams[1].relativeStrength >= 0.5049f - 0.0001f)
+					numRequired = 5; // hc but imba
+				else
+					numRequired = 4; // just hc
+			}
+			else if (permutation->iDiff > 0 || numPlayers > 8) {
 				numRequired = 6;
-			else
+			}
+			else {
 				numRequired = 5;
+			}
 		}
 		else {
 			numRequired = 5;
 		}
 
-		if (g_vote_teamgen_require2VotesOnEachTeam.integer) {
+		if (g_vote_teamgen_require2VotesOnEachTeam.integer && !(permutation->lowestPlayerRating >= PlayerTierToRating(PLAYERRATING_MID_B) - 0.0001 && !(permutation->teams[0].relativeStrength >= 0.5049f - 0.0001f || permutation->teams[1].relativeStrength >= 0.5049f - 0.0001f))) {
 			if (numYesVotesRed + numYesVotesBlue >= numRequired && numYesVotesRed >= 2 && numYesVotesBlue >= 2)
 				++numPermutationsWithEnoughVotesToPass;
 		}
@@ -6617,18 +7195,27 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 
 		int numRequired;
 		if (g_vote_teamgen_dynamicVoteRequirement.integer) {
-			if (permutation->teams[0].relativeStrength >= 0.519f - 0.0001f || permutation->teams[1].relativeStrength >= 0.519f - 0.0001f)
+			if (permutation->teams[0].relativeStrength >= 0.519f - 0.0001f || permutation->teams[1].relativeStrength >= 0.519f - 0.0001f) {
 				numRequired = 7;
-			else if (permutation->iDiff > 0 || numPlayers > 8)
+			}
+			else if (permutation->lowestPlayerRating >= PlayerTierToRating(PLAYERRATING_MID_B) - 0.0001) {
+				if (permutation->teams[0].relativeStrength >= 0.5049f - 0.0001f || permutation->teams[1].relativeStrength >= 0.5049f - 0.0001f)
+					numRequired = 5; // hc but imba
+				else
+					numRequired = 4; // just hc
+			}
+			else if (permutation->iDiff > 0 || numPlayers > 8) {
 				numRequired = 6;
-			else
+			}
+			else {
 				numRequired = 5;
+			}
 		}
 		else {
 			numRequired = 5;
 		}
 		qboolean thisOnePasses = qfalse;
-		if (g_vote_teamgen_require2VotesOnEachTeam.integer) {
+		if (g_vote_teamgen_require2VotesOnEachTeam.integer && !(permutation->lowestPlayerRating >= PlayerTierToRating(PLAYERRATING_MID_B) - 0.0001 && !(permutation->teams[0].relativeStrength >= 0.5049f - 0.0001f || permutation->teams[1].relativeStrength >= 0.5049f - 0.0001f))) {
 			if (numYesVotesRed + numYesVotesBlue >= numRequired && numYesVotesRed >= 2 && numYesVotesBlue >= 2)
 				thisOnePasses = qtrue;
 		}
@@ -6900,12 +7487,21 @@ qboolean TeamGenerator_UnvoteForTeamPermutations(gentity_t *ent, const char *vot
 
 			int numRequired;
 			if (g_vote_teamgen_dynamicVoteRequirement.integer) {
-				if (permutation->teams[0].relativeStrength >= 0.519f - 0.0001f || permutation->teams[1].relativeStrength >= 0.519f - 0.0001f)
+				if (permutation->teams[0].relativeStrength >= 0.519f - 0.0001f || permutation->teams[1].relativeStrength >= 0.519f - 0.0001f) {
 					numRequired = 7;
-				else if (permutation->iDiff > 0 || numPlayers > 8)
+				}
+				else if (permutation->lowestPlayerRating >= PlayerTierToRating(PLAYERRATING_MID_B) - 0.0001) {
+					if (permutation->teams[0].relativeStrength >= 0.5049f - 0.0001f || permutation->teams[1].relativeStrength >= 0.5049f - 0.0001f)
+						numRequired = 5; // hc but imba
+					else
+						numRequired = 4; // just hc
+				}
+				else if (permutation->iDiff > 0 || numPlayers > 8) {
 					numRequired = 6;
-				else
+				}
+				else {
 					numRequired = 5;
+				}
 			}
 			else {
 				numRequired = 5;
@@ -6978,17 +7574,26 @@ qboolean TeamGenerator_UnvoteForTeamPermutations(gentity_t *ent, const char *vot
 
 		int numRequired;
 		if (g_vote_teamgen_dynamicVoteRequirement.integer) {
-			if (permutation->teams[0].relativeStrength >= 0.519f - 0.0001f || permutation->teams[1].relativeStrength >= 0.519f - 0.0001f)
+			if (permutation->teams[0].relativeStrength >= 0.519f - 0.0001f || permutation->teams[1].relativeStrength >= 0.519f - 0.0001f) {
 				numRequired = 7;
-			else if (permutation->iDiff > 0 || numPlayers > 8)
+			}
+			else if (permutation->lowestPlayerRating >= PlayerTierToRating(PLAYERRATING_MID_B) - 0.0001) {
+				if (permutation->teams[0].relativeStrength >= 0.5049f - 0.0001f || permutation->teams[1].relativeStrength >= 0.5049f - 0.0001f)
+					numRequired = 5; // hc but imba
+				else
+					numRequired = 4; // just hc
+			}
+			else if (permutation->iDiff > 0 || numPlayers > 8) {
 				numRequired = 6;
-			else
+			}
+			else {
 				numRequired = 5;
+			}
 		}
 		else {
 			numRequired = 5;
 		}
-		if (g_vote_teamgen_require2VotesOnEachTeam.integer) {
+		if (g_vote_teamgen_require2VotesOnEachTeam.integer && !(permutation->lowestPlayerRating >= PlayerTierToRating(PLAYERRATING_MID_B) - 0.0001 && !(permutation->teams[0].relativeStrength >= 0.5049f - 0.0001f || permutation->teams[1].relativeStrength >= 0.5049f - 0.0001f))) {
 			if (numYesVotesRed + numYesVotesBlue >= numRequired && numYesVotesRed >= 2 && numYesVotesBlue >= 2)
 				++numPermutationsWithEnoughVotesToPass;
 		}
@@ -7074,18 +7679,27 @@ qboolean TeamGenerator_UnvoteForTeamPermutations(gentity_t *ent, const char *vot
 
 		int numRequired;
 		if (g_vote_teamgen_dynamicVoteRequirement.integer) {
-			if (permutation->teams[0].relativeStrength >= 0.519f - 0.0001f || permutation->teams[1].relativeStrength >= 0.519f - 0.0001f)
+			if (permutation->teams[0].relativeStrength >= 0.519f - 0.0001f || permutation->teams[1].relativeStrength >= 0.519f - 0.0001f) {
 				numRequired = 7;
-			else if (permutation->iDiff > 0 || numPlayers > 8)
+			}
+			else if (permutation->lowestPlayerRating >= PlayerTierToRating(PLAYERRATING_MID_B) - 0.0001) {
+				if (permutation->teams[0].relativeStrength >= 0.5049f - 0.0001f || permutation->teams[1].relativeStrength >= 0.5049f - 0.0001f)
+					numRequired = 5; // hc but imba
+				else
+					numRequired = 4; // just hc
+			}
+			else if (permutation->iDiff > 0 || numPlayers > 8) {
 				numRequired = 6;
-			else
+			}
+			else {
 				numRequired = 5;
+			}
 		}
 		else {
 			numRequired = 5;
 		}
 		qboolean thisOnePasses = qfalse;
-		if (g_vote_teamgen_require2VotesOnEachTeam.integer) {
+		if (g_vote_teamgen_require2VotesOnEachTeam.integer && !(permutation->lowestPlayerRating >= PlayerTierToRating(PLAYERRATING_MID_B) - 0.0001 && !(permutation->teams[0].relativeStrength >= 0.5049f - 0.0001f || permutation->teams[1].relativeStrength >= 0.5049f - 0.0001f))) {
 			if (numYesVotesRed + numYesVotesBlue >= numRequired && numYesVotesRed >= 2 && numYesVotesBlue >= 2)
 				thisOnePasses = qtrue;
 		}
