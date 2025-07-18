@@ -8472,8 +8472,8 @@ typedef struct {
 
 qboolean TtlHoldAccountIdMatches(genericNode_t *node, void *userData) {
 	ttlholdEntry_t *a = (ttlholdEntry_t *)node;
-	int *b = (int *)userData;
-	return a->accountId == *b;
+	int b = *((int *)userData);
+	return a->accountId == b;
 }
 
 static const char *sqlGetAllTtlHoldRanks =
@@ -8501,7 +8501,7 @@ void DB_GetAllTtlHoldRanks(void) {
 
 		ttlholdEntry_t findMe;
 		findMe.accountId = accountId;
-		ttlholdEntry_t *found = ListFind(&level.ttlholdList, TtlHoldAccountIdMatches, &findMe, NULL);
+		ttlholdEntry_t *found = ListFind(&level.ttlholdList, TtlHoldAccountIdMatches, &findMe.accountId, NULL);
 		if (!found) {
 			found = ListAdd(&level.ttlholdList, sizeof(ttlholdEntry_t));
 			found->accountId = accountId;
@@ -8514,14 +8514,14 @@ void DB_GetAllTtlHoldRanks(void) {
 
 	trap_sqlite3_finalize(stmt);
 	int finish = trap_Milliseconds();
-	Com_Printf("Loaded ttlhold ranks (took %d ms)\n", finish - start);
+	Com_Printf("Loaded %d ttlhold ranks (took %d ms)\n", level.ttlholdList.size, finish - start);
 }
 
 int DB_LookupTtlHoldRank(int accountId) {
 	ttlholdEntry_t findMe;
 	findMe.accountId = accountId;
 
-	ttlholdEntry_t *found = ListFind(&level.ttlholdList, TtlHoldAccountIdMatches, &findMe, NULL);
+	ttlholdEntry_t *found = ListFind(&level.ttlholdList, TtlHoldAccountIdMatches, &findMe.accountId, NULL);
 	if (!found)
 		return 999999;
 

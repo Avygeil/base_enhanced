@@ -4200,6 +4200,7 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 	uint64_t gotten = 0llu;
 	list_t listOfAvoidedHashesPlusHashesGottenOnThisGeneration = { 0 };
 	ListCopy(&set->avoidedHashesList, &listOfAvoidedHashesPlusHashesGottenOnThisGeneration, sizeof(avoidedHash_t));
+	qboolean usedSemiTryhardAlgoForB = qfalse;
 	for (int typeIter = TEAMGENERATORTYPE_FIRST; typeIter < NUM_TEAMGENERATORTYPES; typeIter++) {
 
 		// hack to swap computation of ?b to be before ?a so that if there's a permutation that's the most HC *and* is 50-50, ?b grabs it rather than ?a
@@ -4984,11 +4985,32 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 		try1.totalSkill = try2.totalSkill = 0;
 		PermutationCallback callback;
 		if (type == TEAMGENERATORTYPE_HIGHESTRATING) {
-			callback = TryTeamPermutation_Tryhard; // prefer hc
+			int numHighCaliberPlayers = 0;
+			for (int j = 0; j < numEligible; j++) {
+				permutationPlayer_t *p = &players[j];
+				for (int pos = CTFPOSITION_BASE; pos <= CTFPOSITION_OFFENSE; pos++) {
+					if (p->rating[pos] >= PlayerTierToRating(PLAYERRATING_MID_B) - 0.0001) {
+						++numHighCaliberPlayers;
+						break; // don't double count him
+					}
+				}
+			}
+
+			if (numHighCaliberPlayers < 8) {
+				usedSemiTryhardAlgoForB = qtrue;
+				callback = TryTeamPermutation_SemiTryhard; // prefer fairness followed by hc
 #ifdef DEBUG_GENERATETEAMS
-			Com_Printf("Using TryTeamPermutation_Tryhard\n");
-			TeamGen_DebugPrintf("<font color=darkgreen>==========Using TryTeamPermutation_Tryhard==========</font><br/>");
+				Com_Printf("Using TryTeamPermutation_SemiTryhard for TEAMGENERATORTYPE_HIGHESTRATING (%d hc)\n", numHighCaliberPlayers);
+				TeamGen_DebugPrintf("<font color=darkgreen>==========Using TryTeamPermutation_SemiTryhard==========</font><br/>");
 #endif
+			}
+			else {
+				callback = TryTeamPermutation_Tryhard; // prefer hc
+#ifdef DEBUG_GENERATETEAMS
+				Com_Printf("Using TryTeamPermutation_Tryhard (%d hc)\n", numHighCaliberPlayers);
+				TeamGen_DebugPrintf("<font color=darkgreen>==========Using TryTeamPermutation_Tryhard==========</font><br/>");
+#endif
+			}
 		}
 		else if (type == TEAMGENERATORTYPE_FAIREST) {
 			callback = TryTeamPermutation_Fairest; // prefer fairness followed by pos prefs followed by balance considerations
@@ -5236,6 +5258,15 @@ static qboolean GenerateTeams(pugProposal_t *set, permutationOfTeams_t *mostPlay
 			++numValid;
 		}
 
+	}
+
+	// if we ended up using semitryhard for b (such that both a and b used the exact same algo), put the more hc or more imbalanced of a/b into b
+	if (usedSemiTryhardAlgoForB && mostPlayed && highestCaliber && (mostPlayed->totalSkill > highestCaliber->totalSkill || mostPlayed->iDiff > highestCaliber->iDiff)) {
+		TeamGen_DebugPrintf("<font color=gold>==========usedSemiTryhardAlgoForB: swapping ?a and ?b back==========</font><br/>");
+		permutationOfTeams_t tmp;
+		memcpy(&tmp, mostPlayed, sizeof(permutationOfTeams_t));
+		memcpy(mostPlayed, highestCaliber, sizeof(permutationOfTeams_t));
+		memcpy(highestCaliber, &tmp, sizeof(permutationOfTeams_t));
 	}
 
 	if (!numValid && enforceImbalanceCaps) {
