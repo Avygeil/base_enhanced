@@ -711,7 +711,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_wasRestarted, "g_wasRestarted", "0", CVAR_ROM, 0, qfalse  },
 	{ &g_wasIntermission, "g_wasIntermission", "0", CVAR_ROM, 0, qfalse  },
 
-	{ &g_autoQuitSeconds, "g_autoQuitSeconds", "0", CVAR_ARCHIVE, 0, qtrue  },
+	{ &g_autoQuitSeconds, "g_autoQuitSeconds", "0", CVAR_ARCHIVE, 0, qfalse  },
 
 	// latched vars
 	{ &g_gametype, "g_gametype", "0", CVAR_SERVERINFO | CVAR_LATCH, 0, qfalse  },
