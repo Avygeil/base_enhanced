@@ -43,6 +43,7 @@ vmCvar_t	g_trueJedi;
 
 vmCvar_t	g_wasRestarted;
 vmCvar_t	g_wasIntermission;
+vmCvar_t	g_autoQuitSeconds;
 
 vmCvar_t	g_gametype;
 vmCvar_t	g_MaxHolocronCarry;
@@ -709,6 +710,8 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_wasRestarted, "g_wasRestarted", "0", CVAR_ROM, 0, qfalse  },
 	{ &g_wasIntermission, "g_wasIntermission", "0", CVAR_ROM, 0, qfalse  },
+
+	{ &g_autoQuitSeconds, "g_autoQuitSeconds", "0", CVAR_ARCHIVE, 0, qtrue  },
 
 	// latched vars
 	{ &g_gametype, "g_gametype", "0", CVAR_SERVERINFO | CVAR_LATCH, 0, qfalse  },
@@ -6866,6 +6869,52 @@ static void RunRockPaperScissors(void) {
 	}
 }
 
+static void AutoQuit(void) {
+	if (level.time - level.startTime < 30000) {
+		return; // sanity check, give people a bit to load the map
+	}
+
+	static int humansLast = 0;
+	static int emptyStartTime = 0;
+
+	if (g_autoQuitSeconds.integer <= 0) {
+		humansLast = 0;
+		emptyStartTime = 0;
+		return;
+	}
+
+	int humansNow = 0;
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		gentity_t *ent = &g_entities[i];
+		if (!ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED || (ent->r.svFlags & SVF_BOT)) {
+			continue;
+		}
+
+		if (!ent->client->sess.nmVer[0] && ent->client->pers.netname[0] &&
+			!Q_stricmpnclean(ent->client->pers.netname, "elo BOT", 7)) {
+			continue;
+		}
+
+		++humansNow;
+	}
+
+	if (!humansNow) {
+		if (humansLast) {
+			emptyStartTime = trap_Milliseconds(); // humans went from >0 to 0 this tick
+		}
+
+		if (emptyStartTime && trap_Milliseconds() - emptyStartTime >= g_autoQuitSeconds.integer * 1000) {
+			Com_Printf("Server has been empty for %d seconds. Auto-quitting.\n", g_autoQuitSeconds.integer);
+			trap_SendConsoleCommand(EXEC_APPEND, "quit\n");
+		}
+	}
+	else {
+		emptyStartTime = 0; // humans rejoined within countdown, reset
+	}
+
+	humansLast = humansNow;
+}
+
 extern char *GetSuffixId(gentity_t *ent);
 void G_SayTo(gentity_t *ent, gentity_t *other, int mode, int color, const char *name, const char *message, char *locMsg, qboolean outOfBandOk);
 extern void G_TestLine(vec3_t start, vec3_t end, int color, int time);
@@ -6899,7 +6948,7 @@ void G_RunFrame( int levelTime ) {
 		forcePowerNeeded[FORCE_LEVEL_2][FP_GRIP] = 25;
 		forcePowerNeeded[FORCE_LEVEL_3][FP_GRIP] = 30;
 		break;
-	default: 
+	default:
 		forcePowerNeeded[FORCE_LEVEL_1][FP_GRIP] = 30;
 		forcePowerNeeded[FORCE_LEVEL_2][FP_GRIP] = 30;
 		forcePowerNeeded[FORCE_LEVEL_3][FP_GRIP] = 60;
@@ -8219,6 +8268,8 @@ void G_RunFrame( int levelTime ) {
 			ent->s.solid = 2294531; // what the fuck?
 		}
 	}
+
+	AutoQuit();
 
 	if (!level.firstFrameTime)
 		level.firstFrameTime = trap_Milliseconds();

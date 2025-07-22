@@ -3274,6 +3274,7 @@ extern	vmCvar_t	g_maxclients;			// allow this many total, including spectators
 extern	vmCvar_t	g_maxGameClients;		// allow this many active
 extern	vmCvar_t	g_restarted;
 extern	vmCvar_t	g_wasIntermission;
+extern	vmCvar_t	g_autoQuitSeconds;
 
 extern	vmCvar_t	g_trueJedi;
 
