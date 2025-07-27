@@ -44,6 +44,8 @@ vmCvar_t	g_trueJedi;
 vmCvar_t	g_wasRestarted;
 vmCvar_t	g_wasIntermission;
 vmCvar_t	g_autoQuitSeconds;
+vmCvar_t	g_baitMap;
+vmCvar_t	g_baitMapChangeTo;
 
 vmCvar_t	g_gametype;
 vmCvar_t	g_MaxHolocronCarry;
@@ -481,6 +483,7 @@ vmCvar_t	g_wallhackMaxTraces;
 vmCvar_t	g_inMemoryDB;
 
 vmCvar_t	g_enableRacemode;
+vmCvar_t	g_racersShootIngame;
 vmCvar_t	g_enableAimPractice;
 #ifdef _DEBUG
 vmCvar_t	d_disableRaceVisChecks;
@@ -712,6 +715,8 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_wasIntermission, "g_wasIntermission", "0", CVAR_ROM, 0, qfalse  },
 
 	{ &g_autoQuitSeconds, "g_autoQuitSeconds", "0", CVAR_ARCHIVE, 0, qfalse  },
+	{ &g_baitMap, "g_baitMap", "", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse  },
+	{ &g_baitMapChangeTo, "g_baitMapChangeTo", "", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse  },
 
 	// latched vars
 	{ &g_gametype, "g_gametype", "0", CVAR_SERVERINFO | CVAR_LATCH, 0, qfalse  },
@@ -1121,6 +1126,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_inMemoryDB, "g_inMemoryDB", "0", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
 
 	{ &g_enableRacemode, "g_enableRacemode", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
+	{ &g_racersShootIngame, "g_racersShootIngame", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
 	{ &g_enableAimPractice, "g_enableAimPractice", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 #ifdef _DEBUG
 	{ &d_disableRaceVisChecks, "d_disableRaceVisChecks", "0", CVAR_TEMP, 0, qtrue },
@@ -8270,6 +8276,16 @@ void G_RunFrame( int levelTime ) {
 	}
 
 	AutoQuit();
+
+	if (g_baitMap.string[0] && g_baitMap.string[0] != '0' && !Q_stricmp(g_baitMap.string, level.mapname) &&
+		!level.changingToAnotherMap && g_baitMapChangeTo.string[0] && g_baitMapChangeTo.string[0] != '0') {
+		int numPlayers = 0;
+		CountPlayers(&numPlayers, NULL, NULL, NULL, NULL, NULL, NULL);
+		if (numPlayers > 0) {
+			trap_SendConsoleCommand(EXEC_APPEND, va("map %s\n", g_baitMapChangeTo.string));
+			level.changingToAnotherMap = qtrue;
+		}
+	}
 
 	if (!level.firstFrameTime)
 		level.firstFrameTime = trap_Milliseconds();

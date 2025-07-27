@@ -39,6 +39,9 @@
 #define SVF_OWNERNOTSHARED		0x00001000	// If it's owned by something and another thing owned by that something
 											// hits it, it will still touch
 
+#define SVF_HITINGAME			0x00002000	// can hit ingame dudes, but ingame dudes can't hit it
+#define SVF_INGAME				0x00004000	// can be hit by SVF_HITINGAME
+
 #define	SVF_ICARUS_FREEZE		0x00008000	// NPCs are frozen, ents don't execute ICARUS commands
 
 #define SVF_GLASS_BRUSH			0x08000000	// Ent is a glass brush

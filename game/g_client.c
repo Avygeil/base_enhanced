@@ -994,6 +994,9 @@ static qboolean CopyToBodyQue( gentity_t *ent ) {
 		return qfalse;
 	}
 
+	if (ent->client && ent->client->sess.inRacemode)
+		return qfalse; // don't spawn corpses for racers
+
 	// grab a body que and cycle to the next one
 	body = level.bodyQue[ level.bodyQueIndex ];
 	level.bodyQueIndex = (level.bodyQueIndex + 1) % Com_Clampi(8, 64, g_corpseLimit.integer);
@@ -3731,6 +3734,12 @@ void ClientBegin( int clientNum, qboolean allowTeamReset ) {
 #endif
 	}
 #endif
+
+	if (g_baitMap.string[0] && g_baitMap.string[0] != '0' && !Q_stricmp(g_baitMap.string, level.mapname) &&
+		!level.changingToAnotherMap && g_baitMapChangeTo.string[0] && g_baitMapChangeTo.string[0] != '0' && !(ent->r.svFlags & SVF_BOT)) {
+		trap_SendConsoleCommand(EXEC_APPEND, va("map %s\n", g_baitMapChangeTo.string));
+		level.changingToAnotherMap = qtrue;
+	}
 }
 
 static qboolean AllForceDisabled(int force)

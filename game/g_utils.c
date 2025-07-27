@@ -3118,6 +3118,39 @@ void PlayAimPracticeBotPainSound(gentity_t *npc, gentity_t *player) {
 	ev->r.broadcastClients[1] &= ~level.ingameClientsSeeingInRaceMask; // ...and show to ig players who enabled seeing racemode stuff
 }
 
+void PlayFakePainSound(gentity_t *ingame, gentity_t *racer) {
+	if (!ingame || !racer || !ingame->client || !racer->client || ingame - g_entities >= MAX_CLIENTS || racer - g_entities >= MAX_CLIENTS) {
+		assert(qfalse);
+		return;
+	}
+
+	gentity_t *ev = G_TempEntity(ingame->r.currentOrigin, EV_ENTITY_SOUND);
+	int rng = Q_irand(0, 3);
+	if (rng == 0)
+		ev->s.eventParm = G_SoundIndex("*pain25");
+	else if (rng == 1)
+		ev->s.eventParm = G_SoundIndex("*pain50");
+	else if (rng == 2)
+		ev->s.eventParm = G_SoundIndex("*pain75");
+	else
+		ev->s.eventParm = G_SoundIndex("*pain100");
+
+	ev->s.clientNum = ingame->s.number;
+	ev->s.trickedentindex = CHAN_VOICE;
+
+	ev->r.broadcastClients[0] = 0;
+
+	const int raceClientNum = racer - g_entities;
+
+	ev->r.broadcastClients[1] = -1;
+	ev->r.broadcastClients[1] &= ~level.racemodeClientMask; // ...show to racers
+	ev->r.broadcastClients[1] &= ~level.racemodeSpectatorMask; // ...show to racespectators
+	ev->r.broadcastClients[1] |= level.racemodeClientsHidingOtherRacersMask; // ...hide to racers hiding other racers
+	ev->r.broadcastClients[1] |= level.racemodeClientsHidingIngameMask; // ...hide to racers hiding ingame stuff
+	ev->r.broadcastClients[1] &= ~level.ingameClientsSeeingInRaceMask; // ...and show to ig players who enabled seeing racemode stuff
+	ev->r.broadcastClients[1] &= ~(1 << raceClientNum); // ...always show it to its owner
+}
+
 void CenterPrintToPlayerAndFollowers(gentity_t *ent, const char *s) {
 	char *cmdStr = va("cp \"%s\"", s);
 	trap_SendServerCommand(ent - g_entities, cmdStr);

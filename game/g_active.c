@@ -2455,6 +2455,13 @@ void G_UpdateClientBroadcasts( gentity_t *self ) {
 	self->r.broadcastClients[0] = 0;
 	self->r.broadcastClients[1] = 0;
 
+	if (g_gametype.integer == GT_CTF && g_racersShootIngame.integer && !IsRacerOrSpectator(self)) {
+		self->r.svFlags |= SVF_INGAME;
+	}
+	else {
+		self->r.svFlags &= ~SVF_INGAME;
+	}
+
 	for ( i = 0, other = g_entities; i < MAX_CLIENTS; i++, other++ ) {
 		if ( !other->inuse || other->client->pers.connected != CON_CONNECTED ) {
 			// no need to compute visibility for non-connected clients

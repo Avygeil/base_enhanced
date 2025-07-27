@@ -395,6 +395,9 @@ gentity_t *CreateMissile( vec3_t org, vec3_t dir, float vel, int life,
 			missile->r.singleEntityCollision = qtrue;
 			missile->r.singleEntityThatCanCollide = owner->aimPracticeEntBeingUsed - g_entities;
 		}
+		else if (g_racersShootIngame.integer && !(owner->client->sess.racemodeFlags & RMF_HIDEINGAME)) {
+			missile->r.svFlags |= SVF_HITINGAME;
+		}
 	}
 	missile->parent = owner;
 	missile->r.ownerNum = owner->s.number;
@@ -513,7 +516,7 @@ qboolean LogAccuracyHitSameTeamOkay(gentity_t *target, gentity_t *attacker) {
 qboolean CheckAccuracyAndAirshot(gentity_t *missile, gentity_t *victim, qboolean isSurfedRocket) {
 	qboolean hitClient = qfalse;
 
-	if (missile->r.ownerNum >= MAX_CLIENTS)
+	if (missile->r.ownerNum >= MAX_CLIENTS || IsRacerOrSpectator(&g_entities[missile->r.ownerNum]))
 		return qfalse;
 	gentity_t *missileOwner = &g_entities[missile->r.ownerNum];
 	if (!missileOwner->inuse || !missileOwner->client || !missileOwner->client->stats)
@@ -577,6 +580,13 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 	qboolean		isKnockedSaber = qfalse;
 
 	other = &g_entities[trace->entityNum];
+
+	qboolean isRaceShotOnIngame = qfalse;
+	if (ent->parent && ent->parent->client && ent->parent->client->sess.inRacemode && g_racersShootIngame.integer && !ent->parent->aimPracticeEntBeingUsed &&
+		other->client && (other->client->sess.sessionTeam == TEAM_RED || other->client->sess.sessionTeam == TEAM_BLUE)/* &&
+		!(ent->parent->client->sess.racemodeFlags & RMF_HIDEINGAME) && !ent->parent->aimPracticeEntBeingUsed*/) {
+		isRaceShotOnIngame = qtrue;
+	}
 
 	qboolean meme = (!level.wasRestarted && ent->methodOfDeath == MOD_ROCKET_HOMING && ent->parent && ent->parent->client && ent->parent->client->account && (!Q_stricmp(ent->parent->client->account->name, "duo") || !Q_stricmp(ent->parent->client->account->name, "alpha")));
 	qboolean meme3 = (!level.wasRestarted && (ent->methodOfDeath == MOD_CONC) && ent->parent && ent->parent->client && ent->parent->client->account && (!Q_stricmp(ent->parent->client->account->name, "duo") || (!Q_stricmp(ent->parent->client->account->name, "alpha") || ent->parent->client->account->flags & ACCOUNTFLAG_CONC2)));
@@ -642,7 +652,7 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 		return;
 	}
 
-	if ((other->r.contents & CONTENTS_LIGHTSABER) && !isKnockedSaber)
+	if ((other->r.contents & CONTENTS_LIGHTSABER) && !isKnockedSaber && !isRaceShotOnIngame)
 	{ //hit this person's saber, so..
 		gentity_t *otherOwner = &g_entities[other->r.ownerNum];
 
@@ -652,7 +662,7 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 			goto killProj;
 		}
 	}
-	else if (!isKnockedSaber)
+	else if (!isKnockedSaber && !isRaceShotOnIngame)
 	{
 		if (other->takedamage && other->client && other->client->ps.duelInProgress &&
 			other->client->ps.duelIndex != ent->r.ownerNum)
@@ -738,7 +748,7 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 		overrideSpotSet = qtrue;
 	}
 
-	if (other->takedamage && other->client &&
+	if (!isRaceShotOnIngame && other->takedamage && other->client &&
 		ent->s.weapon != WP_ROCKET_LAUNCHER &&
 		ent->s.weapon != WP_THERMAL &&
 		ent->s.weapon != WP_TRIP_MINE &&
@@ -828,7 +838,7 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 		}
 		return;
 	}
-	else if ((other->r.contents & CONTENTS_LIGHTSABER) && !isKnockedSaber)
+	else if (!isRaceShotOnIngame && (other->r.contents & CONTENTS_LIGHTSABER) && !isKnockedSaber)
 	{ //hit this person's saber, so..
 		gentity_t *otherOwner = &g_entities[other->r.ownerNum];
 
@@ -906,7 +916,7 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 	}
 
 	// check for sticking
-	if ( !other->takedamage && ( ent->s.eFlags & EF_MISSILE_STICK ) ) 
+	if (!isRaceShotOnIngame && !other->takedamage && ( ent->s.eFlags & EF_MISSILE_STICK ) )
 	{
 		laserTrapStick( ent, trace->endpos, trace->plane.normal );
 		G_AddEvent( ent, EV_MISSILE_STICK, 0 );
@@ -947,6 +957,9 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 				}
 
 				PlayAimPracticeBotPainSound(other, ent->parent);
+			}
+			else if (isRaceShotOnIngame) {
+				PlayFakePainSound(other, ent->parent);
 			}
 
 			hitClient = CheckAccuracyAndAirshot(ent, other, qfalse);
@@ -1055,7 +1068,7 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 			}
 		}
 
-		if ( ent->s.weapon == WP_DEMP2 )
+		if ( ent->s.weapon == WP_DEMP2 && !isRaceShotOnIngame)
 		{//a hit with demp2 decloaks people, disables ships
 			if ( other && other->client && other->client->NPC_class == CLASS_VEHICLE )
 			{//hit a vehicle

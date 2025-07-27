@@ -7349,6 +7349,12 @@ qboolean Jedi_DodgeEvasion( gentity_t *self, gentity_t *shooter, trace_t *tr, in
 		return qfalse;
 	}
 
+	if (self->client->sess.inRacemode)
+		return qfalse; // racers can't dodge
+
+	if (shooter && shooter->client && shooter->client->sess.inRacemode)
+		return qfalse; // racers can't make people dodge
+
 	if (!g_forceDodge.integer)
 	{
 		return qfalse;

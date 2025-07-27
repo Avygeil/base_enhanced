@@ -974,6 +974,9 @@ static void WP_DisruptorMainFire( gentity_t *ent )
 			ent->r.singleEntityCollision = qtrue;
 			ent->r.singleEntityThatCanCollide = ent->aimPracticeEntBeingUsed - g_entities;
 		}
+		else if (g_racersShootIngame.integer && !(ent->client->sess.racemodeFlags & RMF_HIDEINGAME)) {
+			ent->r.svFlags |= SVF_HITINGAME;
+		}
 	}
 
 	if ( g_gametype.integer == GT_SIEGE )
@@ -1144,6 +1147,7 @@ static void WP_DisruptorMainFire( gentity_t *ent )
 				if (ent->client->sess.inRacemode) {
 					// restore svFlags from before
 					ent->r.svFlags &= ~SVF_COOLKIDSCLUB;
+					ent->r.svFlags &= ~SVF_HITINGAME;
 					ent->r.svFlags |= SVF_GHOST;
 
 					ent->r.singleEntityCollision = qfalse;
@@ -1158,6 +1162,7 @@ static void WP_DisruptorMainFire( gentity_t *ent )
 			if (ent->client->sess.inRacemode) {
 				// restore svFlags from before
 				ent->r.svFlags &= ~SVF_COOLKIDSCLUB;
+				ent->r.svFlags &= ~SVF_HITINGAME;
 				ent->r.svFlags |= SVF_GHOST;
 
 				ent->r.singleEntityCollision = qfalse;
@@ -1197,6 +1202,11 @@ static void WP_DisruptorMainFire( gentity_t *ent )
 				}
 				PlayAimPracticeBotPainSound(traceEnt, ent);
 			}
+			else if (ent->client && ent->client->sess.inRacemode && g_racersShootIngame.integer && !ent->aimPracticeEntBeingUsed &&
+				traceEnt->client && (traceEnt->client->sess.sessionTeam == TEAM_RED || traceEnt->client->sess.sessionTeam == TEAM_BLUE)/* &&
+				!(ent->client->sess.racemodeFlags & RMF_HIDEINGAME) && !ent->aimPracticeEntBeingUsed*/) {
+				PlayFakePainSound(traceEnt, ent);
+			}
 
 			if ( traceEnt->client && LogAccuracyHit( traceEnt, ent )) {
 				hits++;
@@ -1229,7 +1239,7 @@ static void WP_DisruptorMainFire( gentity_t *ent )
 	if ( hits == 0 ) {
 		// complete miss
 		ent->client->accurateCount = 0;
-	} else {
+	} else if (!ent->client->sess.inRacemode) {
 		// check for "impressive" reward sound
 		ent->client->accurateCount += hits;
 		if ( ent->client->accurateCount >= 2 ) {
@@ -1247,6 +1257,7 @@ static void WP_DisruptorMainFire( gentity_t *ent )
 	if (ent->client->sess.inRacemode) {
 		// restore svFlags from before
 		ent->r.svFlags &= ~SVF_COOLKIDSCLUB;
+		ent->r.svFlags &= ~SVF_HITINGAME;
 		ent->r.svFlags |= SVF_GHOST;
 
 		ent->r.singleEntityCollision = qfalse;
@@ -1300,6 +1311,9 @@ void WP_DisruptorAltFire( gentity_t *ent )
 		if (ent->aimPracticeEntBeingUsed) {
 			ent->r.singleEntityCollision = qtrue;
 			ent->r.singleEntityThatCanCollide = ent->aimPracticeEntBeingUsed - g_entities;
+		}
+		else if (g_racersShootIngame.integer && !(ent->client->sess.racemodeFlags & RMF_HIDEINGAME)) {
+			ent->r.svFlags |= SVF_HITINGAME;
 		}
 	}
 
@@ -1506,6 +1520,7 @@ void WP_DisruptorAltFire( gentity_t *ent )
 				if (ent->client->sess.inRacemode) {
 					// restore svFlags from before
 					ent->r.svFlags &= ~SVF_COOLKIDSCLUB;
+					ent->r.svFlags &= ~SVF_HITINGAME;
 					ent->r.svFlags |= SVF_GHOST;
 
 					ent->r.singleEntityCollision = qfalse;
@@ -1541,6 +1556,11 @@ void WP_DisruptorAltFire( gentity_t *ent )
 						++ent->numAimPracticeHitsOfWeapon[WP_DISRUPTOR];
 					}
 					PlayAimPracticeBotPainSound(traceEnt, ent);
+				}
+				else if (ent->client && ent->client->sess.inRacemode && g_racersShootIngame.integer && !ent->aimPracticeEntBeingUsed &&
+					traceEnt->client && (traceEnt->client->sess.sessionTeam == TEAM_RED || traceEnt->client->sess.sessionTeam == TEAM_BLUE)/* &&
+					!(ent->client->sess.racemodeFlags & RMF_HIDEINGAME) && !ent->aimPracticeEntBeingUsed*/) {
+					PlayFakePainSound(traceEnt, ent);
 				}
 
 				if ( LogAccuracyHit( traceEnt, ent )) {
@@ -1662,7 +1682,7 @@ void WP_DisruptorAltFire( gentity_t *ent )
 	if ( hits == 0 ) {
 		// complete miss
 		ent->client->accurateCount = 0;
-	} else {
+	} else if (!ent->client->sess.inRacemode) {
 		// check for "impressive" reward sound
 		ent->client->accurateCount += hits;
 		if ( disintegrations > 0 ) {
@@ -1699,6 +1719,7 @@ void WP_DisruptorAltFire( gentity_t *ent )
 	if (ent->client->sess.inRacemode) {
 		// restore svFlags from before
 		ent->r.svFlags &= ~SVF_COOLKIDSCLUB;
+		ent->r.svFlags &= ~SVF_HITINGAME;
 		ent->r.svFlags |= SVF_GHOST;
 
 		ent->r.singleEntityCollision = qfalse;
@@ -3242,6 +3263,9 @@ gentity_t *WP_FireThermalDetonator( gentity_t *ent, qboolean altFire )
 			bolt->r.singleEntityCollision = qtrue;
 			bolt->r.singleEntityThatCanCollide = ent->aimPracticeEntBeingUsed - g_entities;
 		}
+		else if (g_racersShootIngame.integer && !(ent->client->sess.racemodeFlags & RMF_HIDEINGAME)) {
+			bolt->r.svFlags |= SVF_HITINGAME;
+		}
 	}
 	bolt->s.weapon = WP_THERMAL;
 
@@ -4272,6 +4296,9 @@ static void WP_FireConcussionAlt( gentity_t *ent )
 			ent->r.singleEntityCollision = qtrue;
 			ent->r.singleEntityThatCanCollide = ent->aimPracticeEntBeingUsed - g_entities;
 		}
+		else if (g_racersShootIngame.integer && !(ent->client->sess.racemodeFlags & RMF_HIDEINGAME)) {
+			ent->r.svFlags |= SVF_HITINGAME;
+		}
 	}
 
 	// count this as weapon usage out of G_Damage because of the knockback
@@ -4404,9 +4431,14 @@ static void WP_FireConcussionAlt( gentity_t *ent )
 						}
 						PlayAimPracticeBotPainSound(traceEnt, ent);
 					}
+					else if (ent->client && ent->client->sess.inRacemode && g_racersShootIngame.integer && !ent->aimPracticeEntBeingUsed &&
+						traceEnt->client && (traceEnt->client->sess.sessionTeam == TEAM_RED || traceEnt->client->sess.sessionTeam == TEAM_BLUE)/* &&
+						!(ent->client->sess.racemodeFlags & RMF_HIDEINGAME) && !ent->aimPracticeEntBeingUsed*/) {
+						PlayFakePainSound(traceEnt, ent);
+					}
 
 					//do knockback and knockdown manually
-					if ( traceEnt->client )
+					if ( traceEnt->client && !ent->client->sess.inRacemode )
 					{//only if we hit a client
 						vec3_t pushDir;
 						VectorCopy( forward, pushDir );
@@ -4515,6 +4547,7 @@ static void WP_FireConcussionAlt( gentity_t *ent )
 	if (ent->client->sess.inRacemode) {
 		// restore svFlags from before
 		ent->r.svFlags &= ~SVF_COOLKIDSCLUB;
+		ent->r.svFlags &= ~SVF_HITINGAME;
 		ent->r.svFlags |= SVF_GHOST;
 
 		ent->r.singleEntityCollision = qfalse;
@@ -4696,6 +4729,20 @@ void WP_FireMelee( gentity_t *ent, qboolean alt_fire )
 	VectorSet( maxs, 6, 6, 6 );
 	VectorScale( maxs, -1, mins );
 
+	if (ent->client->sess.inRacemode) {
+		// make tracing work temporarily; we will switch them back before returning
+		ent->r.svFlags |= SVF_COOLKIDSCLUB;
+		ent->r.svFlags &= ~SVF_GHOST;
+
+		if (ent->aimPracticeEntBeingUsed) {
+			ent->r.singleEntityCollision = qtrue;
+			ent->r.singleEntityThatCanCollide = ent->aimPracticeEntBeingUsed - g_entities;
+		}
+		else if (g_racersShootIngame.integer && !(ent->client->sess.racemodeFlags & RMF_HIDEINGAME)) {
+			ent->r.svFlags |= SVF_HITINGAME;
+		}
+	}
+
 	qboolean compensate = ent->client->sess.unlagged;
 	if (g_unlagged.integer && compensate)
 		G_TimeShiftAllClients(trap_Milliseconds() - (level.time - ent->client->pers.cmd.serverTime), ent, qfalse);
@@ -4711,11 +4758,29 @@ void WP_FireMelee( gentity_t *ent, qboolean alt_fire )
 
 		G_Sound( ent, CHAN_AUTO, G_SoundIndex( va("sound/weapons/melee/punch%d", Q_irand(1, 4)) ) );
 
+		if (tr_ent->isAimPracticePack) {
+			PlayAimPracticeBotPainSound(tr_ent, ent);
+		}
+		else if (ent->client && ent->client->sess.inRacemode && g_racersShootIngame.integer && !ent->aimPracticeEntBeingUsed &&
+			tr_ent->client && (tr_ent->client->sess.sessionTeam == TEAM_RED || tr_ent->client->sess.sessionTeam == TEAM_BLUE)/* &&
+			!(ent->client->sess.racemodeFlags & RMF_HIDEINGAME) && !ent->aimPracticeEntBeingUsed*/) {
+			PlayFakePainSound(tr_ent, ent);
+		}
+
 		if (tr_ent->takedamage && tr_ent->client)
 		{ //special duel checks
 			if (tr_ent->client->ps.duelInProgress &&
 				tr_ent->client->ps.duelIndex != ent->s.number)
 			{
+				if (ent->client->sess.inRacemode) {
+					// restore svFlags from before
+					ent->r.svFlags &= ~SVF_COOLKIDSCLUB;
+					ent->r.svFlags &= ~SVF_HITINGAME;
+					ent->r.svFlags |= SVF_GHOST;
+
+					ent->r.singleEntityCollision = qfalse;
+					ent->r.singleEntityThatCanCollide = 0;
+				}
 				return;
 			}
 
@@ -4723,6 +4788,15 @@ void WP_FireMelee( gentity_t *ent, qboolean alt_fire )
 				ent->client->ps.duelInProgress &&
 				ent->client->ps.duelIndex != tr_ent->s.number)
 			{
+				if (ent->client->sess.inRacemode) {
+					// restore svFlags from before
+					ent->r.svFlags &= ~SVF_COOLKIDSCLUB;
+					ent->r.svFlags &= ~SVF_HITINGAME;
+					ent->r.svFlags |= SVF_GHOST;
+
+					ent->r.singleEntityCollision = qfalse;
+					ent->r.singleEntityThatCanCollide = 0;
+				}
 				return;
 			}
 		}
@@ -4743,6 +4817,16 @@ void WP_FireMelee( gentity_t *ent, qboolean alt_fire )
 
 			G_Damage( tr_ent, ent, ent, forward, tr.endpos, dmg, DAMAGE_NO_ARMOR, MOD_MELEE );
 		}
+	}
+
+	if (ent->client->sess.inRacemode) {
+		// restore svFlags from before
+		ent->r.svFlags &= ~SVF_COOLKIDSCLUB;
+		ent->r.svFlags &= ~SVF_HITINGAME;
+		ent->r.svFlags |= SVF_GHOST;
+
+		ent->r.singleEntityCollision = qfalse;
+		ent->r.singleEntityThatCanCollide = 0;
 	}
 }
 

@@ -9092,6 +9092,11 @@ int WP_SaberCanBlock(gentity_t *self, gentity_t* other, vec3_t point, int dflags
 		return 0;
 	}
 
+	// racers can't make other people block
+	if (other && other->client->sess.inRacemode) {
+		return 0;
+	}
+
 	if (self->isAimPracticePack)
 		return 0;
 

@@ -2186,6 +2186,8 @@ typedef struct {
 
 	list_t				*aimPracticePackList;
 
+	qboolean changingToAnotherMap;
+
 	int statBlock; // e.g. if level.time - level.startTime is 0 through 299999 this is 0; if level.time - level.startTime is 300000 this is 1
 
 	list_t ratingList;
@@ -2582,6 +2584,7 @@ const char *Cvar_VariableString(const char *var_name);
 qboolean HasFlag(gentity_t *ent);
 
 void PlayAimPracticeBotPainSound(gentity_t *npc, gentity_t *player);
+void PlayFakePainSound(gentity_t *ingame, gentity_t *racer);
 void CenterPrintToPlayerAndFollowers(gentity_t *ent, const char *s);
 void ExitAimTraining(gentity_t *ent);
 void PrintBasedOnAccountFlags(int64_t flags, const char *msg);
@@ -3275,6 +3278,8 @@ extern	vmCvar_t	g_maxGameClients;		// allow this many active
 extern	vmCvar_t	g_restarted;
 extern	vmCvar_t	g_wasIntermission;
 extern	vmCvar_t	g_autoQuitSeconds;
+extern	vmCvar_t	g_baitMap;
+extern	vmCvar_t	g_baitMapChangeTo;
 
 extern	vmCvar_t	g_trueJedi;
 
@@ -3545,6 +3550,7 @@ extern vmCvar_t		g_wallhackMaxTraces;
 extern vmCvar_t     g_inMemoryDB;
 
 extern vmCvar_t     g_enableRacemode;
+extern vmCvar_t     g_racersShootIngame;
 extern vmCvar_t     g_enableAimPractice;
 #ifdef _DEBUG
 extern vmCvar_t     d_disableRaceVisChecks;
