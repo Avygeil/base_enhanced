@@ -3300,14 +3300,14 @@ void CalculateRanks( void ) {
 	if (g_gametype.integer >= GT_TEAM) {
 		// if in ctf and there are no flags at all on this map, just show total frags
 		if (g_gametype.integer == GT_CTF) {
-			static qboolean checkedForFlags = qfalse, thereAreFlags = qfalse;
-			if (!checkedForFlags) {
-				checkedForFlags = qtrue;
-				if (G_Find(NULL, FOFS(classname), "team_CTF_redflag") && G_Find(NULL, FOFS(classname), "team_CTF_blueflag"))
-					thereAreFlags = qtrue;
+			qboolean thereAreFlags = qfalse;
+			static qboolean thereWereFlags = qfalse;
+			if (G_Find(NULL, FOFS(classname), "team_CTF_redflag") && G_Find(NULL, FOFS(classname), "team_CTF_blueflag")) {
+				thereAreFlags = qtrue;
+				thereWereFlags = qtrue;
 			}
 
-			if (thereAreFlags) {
+			if (thereAreFlags || thereWereFlags) {
 				trap_SetConfigstring(CS_SCORES1, va("%i", level.teamScores[TEAM_RED]));
 				trap_SetConfigstring(CS_SCORES2, va("%i", level.teamScores[TEAM_BLUE]));
 			}
