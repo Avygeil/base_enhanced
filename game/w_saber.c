@@ -9093,7 +9093,7 @@ int WP_SaberCanBlock(gentity_t *self, gentity_t* other, vec3_t point, int dflags
 	}
 
 	// racers can't make other people block
-	if (other && other->client->sess.inRacemode) {
+	if (other && other->client && other->client->sess.inRacemode) {
 		return 0;
 	}
 
