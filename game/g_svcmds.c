@@ -3787,6 +3787,8 @@ static int64_t AccountFlagName2Bitflag(const char* flagName) {
 		return ACCOUNTFLAG_CONCLORD;
 	} else if (!Q_stricmp(flagName, "Conc2")) {
 		return ACCOUNTFLAG_CONC2;
+	} else if (!Q_stricmp(flagName, "UltraInstaVoteTroll")) {
+		return ACCOUNTFLAG_ULTRAINSTAVOTETROLL;
 	}
 
 	return 0;
@@ -3832,6 +3834,7 @@ const char* AccountBitflag2FlagName(int64_t bitflag) {
 		case ACCOUNTFLAG_NONVOTINGMEMER: return "NonVotingMemer";
 		case ACCOUNTFLAG_CONCLORD: return "ConcLord";
 		case ACCOUNTFLAG_CONC2: return "Conc2";
+		case ACCOUNTFLAG_ULTRAINSTAVOTETROLL: return "UltraInstaVoteTroll";
 		default: return NULL;
 	}
 }

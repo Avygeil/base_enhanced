@@ -949,7 +949,7 @@ typedef struct {
 	int lastAiredOtherClientTime[MAX_CLIENTS];
 	int lastAiredOtherClientMeansOfDeath[MAX_CLIENTS];
 
-	qboolean triedToInstaVote;
+	int triedToInstaVote;
 
 	int chatboxUpTime;
 
@@ -963,6 +963,10 @@ typedef struct {
 	int			attackedByMemerTime;
 
 	int			buttonsPressedAtPauseStart;
+	struct {
+		qboolean	didConfirm;
+		int			tries;
+	} confirmedReading;
 } clientPersistant_t;
 
 typedef struct renderInfo_s
@@ -1167,6 +1171,7 @@ meansOfDeathCategory_t MeansOfDeathCategoryForMeansOfDeath(meansOfDeath_t mod);
 accuracyCategory_t AccuracyCategoryForProjectile(gentity_t *projectile);
 void ChangeToNextStatsBlockIfNeeded(void);
 char *NameForPos(ctfPosition_t pos);
+char *ColorForPos(ctfPosition_t pos);
 void SendMachineFriendlyStats(void);
 void RecalculateTeamBalance(void);
 ctfPosition_t GetRemindedPosOrDeterminedPos(gentity_t *ent);
@@ -1330,6 +1335,9 @@ typedef struct {
 //
 #define TEAMGEN_CHAT_COMMAND_CHARACTER		'?'
 #define TEAMGEN_UNRATED_STRING "^9UNRATED"
+
+qboolean PlayerIsMuted(gentity_t *ent);
+
 typedef struct {
 	double rawStrength;
 	double relativeStrength;
@@ -1414,6 +1422,11 @@ typedef struct {
 	int				suggestedVoteClientsRed, highestCaliberVoteClientsRed, fairestVoteClientsRed, desiredVoteClientsRed, inclusiveVoteClientsRed, semiDesiredVoteClientsRed, firstChoiceVoteClientsRed;
 	int				suggestedVoteClientsBlue, highestCaliberVoteClientsBlue, fairestVoteClientsBlue, desiredVoteClientsBlue, inclusiveVoteClientsBlue, semiDesiredVoteClientsBlue, firstChoiceVoteClientsBlue;
 	list_t			avoidedHashesList;
+	struct {
+		permutationOfTeams_t	*permutation;
+		ctfPosition_t			pos;
+		char					letter;
+	} confirmation[MAX_CLIENTS];
 } pugProposal_t;
 
 typedef struct {
@@ -1473,7 +1486,7 @@ void TeamGenerator_QueueServerMessageInChat(int clientNum, const char *msg);
 void TeamGenerator_QueueServerMessageInConsole(int clientNum, const char *msg);
 void TeamGenerator_QueueChatMessage(int fromClientNum, int toClientNum, const char *msg, int when);
 qboolean TeamGenerator_PrintBalance(gentity_t *sendTo, gentity_t *sendFrom);
-qboolean TeamGenerator_CheckForChatCommand(gentity_t *ent, const char *s, char **newMessage);
+qboolean TeamGenerator_CheckForChatCommand(gentity_t *ent, const char *s, char **newMessage, qboolean *successfullyUsedATeamgenCommand);
 barReason_t TeamGenerator_PlayerIsBarredFromTeamGenerator(gentity_t *ent);
 void Svcmd_Pug_f(void);
 void TeamGen_Initialize(void);
@@ -2266,6 +2279,7 @@ typedef struct {
 	list_t winStreaksPostList;
 	int winStreakListPostTime;
 	list_t finishedPugPlayersList;
+	list_t mutedPlayersList;
 
 	qboolean forceEndMatchInDraw;
 	int fastestPossibleCaptureTime;
@@ -2314,6 +2328,7 @@ typedef struct {
 #define ACCOUNTFLAG_NONVOTINGMEMER					( 1ll << 36ll )
 #define ACCOUNTFLAG_CONCLORD					( 1ll << 37ll )
 #define ACCOUNTFLAG_CONC2					( 1ll << 38ll )
+#define ACCOUNTFLAG_ULTRAINSTAVOTETROLL					( 1ll << 39ll )
 
 typedef void( *ListSessionsCallback )( void *ctx,
 	const sessionReference_t sessionRef,
@@ -3758,6 +3773,7 @@ extern vmCvar_t		g_vote_teamgen_sumOfSquaresTiebreaker;
 extern vmCvar_t		g_vote_teamgen_aDietB;
 extern vmCvar_t		g_vote_teamgen_noobCheck;
 extern vmCvar_t		g_vote_teamgen_displayCaliber;
+extern vmCvar_t		g_vote_teamgen_mute;
 extern vmCvar_t		g_lockTeamsAtEndOfLivePug;
 extern vmCvar_t		g_showWinStreaks;
 extern vmCvar_t		g_postStreaksToWebhook;

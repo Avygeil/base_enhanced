@@ -598,6 +598,7 @@ vmCvar_t	g_vote_teamgen_sumOfSquaresTiebreaker;
 vmCvar_t	g_vote_teamgen_aDietB;
 vmCvar_t	g_vote_teamgen_noobCheck;
 vmCvar_t	g_vote_teamgen_displayCaliber;
+vmCvar_t	g_vote_teamgen_mute;
 vmCvar_t	g_lockTeamsAtEndOfLivePug;
 vmCvar_t	g_showWinStreaks;
 vmCvar_t	g_postStreaksToWebhook;
@@ -1247,6 +1248,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_teamgen_aDietB, "g_vote_teamgen_aDietB", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_noobCheck, "g_vote_teamgen_noobCheck", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_displayCaliber, "g_vote_teamgen_displayCaliber", "1", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_teamgen_mute, "g_vote_teamgen_mute", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_lockTeamsAtEndOfLivePug, "g_lockTeamsAtEndOfLivePug", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_showWinStreaks, "g_showWinStreaks", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
 	{ &g_postStreaksToWebhook, "g_postStreaksToWebhook", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
@@ -2649,6 +2651,7 @@ void G_ShutdownGame( int restart ) {
 	ListClear(&level.filtersList);
 	ListClear(&level.winStreaksPostList);
 	ListClear(&level.finishedPugPlayersList);
+	ListClear(&level.mutedPlayersList);
 
 	ListIterate(&level.slurList, &iter, qfalse);
 	while (IteratorHasNext(&iter)) {

@@ -3289,14 +3289,22 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText, q
 	}
 
 	char *newMessage = NULL;
+	qboolean successfullyUsedATeamgenCommand = qfalse;
 	if (mode == SAY_ALL && *chatText == TEAMGEN_CHAT_COMMAND_CHARACTER && *(chatText + 1)) {
-		if (TeamGenerator_CheckForChatCommand(ent, chatText + 1, &newMessage)) {
+		if (TeamGenerator_CheckForChatCommand(ent, chatText + 1, &newMessage, &successfullyUsedATeamgenCommand)) {
 			if (fixedMessage)
 				free(fixedMessage);
 			return;
 		}
 		if (VALIDSTRING(newMessage))
 			chatText = newMessage;
+	}
+
+	if (ent->client->account && PlayerIsMuted(ent) && !successfullyUsedATeamgenCommand) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "As punishment for failing the confirmation too many times, you are muted until map change. Reconnecting will not unmute you.");
+		if (fixedMessage)
+			free(fixedMessage);
+		return;
 	}
 
 	static char gaslightBuf[MAX_SAY_TEXT] = { 0 };
@@ -6174,6 +6182,11 @@ void Cmd_Vchat_f(gentity_t *sender) {
 
 	if (IsInstapauser(sender)) {
 		SV_Tell(sender - g_entities, "You cannot chat during your own pause.");
+		return;
+	}
+
+	if (PlayerIsMuted(sender)) {
+		TeamGenerator_QueueServerMessageInChat(sender - g_entities, "As punishment for failing the confirmation too many times, you are muted until map change. Reconnecting will not unmute you.");
 		return;
 	}
 

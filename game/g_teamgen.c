@@ -6296,6 +6296,92 @@ void PrintTeamsProposalsInConsole(pugProposal_t *set, int clientNum) {
 		"You can vote to cancel the pug proposal by entering ^5%ccancel^7\n",
 		TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER));
 
+	if (clientNum == -1) {
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			memset(&level.clients[i].pers.confirmedReading, 0, sizeof(level.clients[i].pers.confirmedReading));
+			if (PlayerIsMuted(&g_entities[i]))
+				TeamGenerator_QueueServerMessageInChat(i, "You are no longer muted.");
+		}
+		ListClear(&level.mutedPlayersList);
+
+		typedef struct {
+			permutationOfTeams_t *perm;
+			char letter;
+		} permChoice_t;
+
+		permChoice_t candidates[7] = {
+			{ &set->suggested,     set->suggestedLetter },
+			{ &set->fairest,       set->fairestLetter },
+			{ &set->desired,       set->desiredLetter },
+			{ &set->highestCaliber,set->highestCaliberLetter },
+			{ &set->inclusive,     set->inclusiveLetter },
+			{ &set->semiDesired,   set->semiDesiredLetter },
+			{ &set->firstChoice,   set->firstChoiceLetter }
+		};
+
+		// collect only valid ones
+		permChoice_t valid[7];
+		int numValid = 0;
+		for (int i = 0; i < 7; i++) {
+			if (candidates[i].perm && candidates[i].perm->valid) {
+				valid[numValid++] = candidates[i];
+			}
+		}
+
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			if (!numValid) { // shouldn't happen
+				Com_Printf("ActivatePugProposal: No valid permutations available for confirmation.\n");
+				set->confirmation[i].permutation = NULL;
+				set->confirmation[i].letter = '?';
+				set->confirmation[i].pos = CTFPOSITION_UNKNOWN;
+			}
+			else {
+				srand(teamGenSeed + i);
+				const int rng1 = rand();
+				const int rng2 = rand();
+				srand(time(NULL));
+				permChoice_t *chosen = &valid[rng1 % numValid];
+
+				srand(teamGenSeed);
+				ctfPosition_t pos;
+				switch (rng2 % 3) {
+				case 0: pos = CTFPOSITION_BASE; break;
+				case 1: pos = CTFPOSITION_CHASE; break;
+				case 2: pos = CTFPOSITION_OFFENSE; break;
+				}
+
+				set->confirmation[i].permutation = chosen->perm;
+				set->confirmation[i].letter = chosen->letter;
+				set->confirmation[i].pos = pos;
+			}
+		}
+
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			gentity_t *ent = &g_entities[i];
+			if (!ent || !ent->client || !ent->client->account || !(ent->client->account->flags & ACCOUNTFLAG_ULTRAINSTAVOTETROLL))
+				continue;
+			TeamGenerator_QueueServerMessageInConsole(ent - g_entities, va(
+				level.activePugProposal->confirmation[ent - g_entities].pos == CTFPOSITION_OFFENSE ?
+				"^1[Requirement for trolls]^7 As a troll, you must confirm that you have read the teams proposals by naming one ^3%s^7 player from each team in permutation ^3%c^7 before voting. Use the format:   ^5%cconfirm name1 name2^7\n" :
+				"^1[Requirement for trolls]^7 As a troll, you must confirm that you have read the teams proposals by naming the ^3%s^7 players in permutation ^3%c^7 before voting. Use the format:   ^5%cconfirm name1 name2^7\n",
+				NameForPos(level.activePugProposal->confirmation[ent - g_entities].pos),
+				level.activePugProposal->confirmation[ent - g_entities].letter,
+				TEAMGEN_CHAT_COMMAND_CHARACTER));
+		}
+	}
+	else {
+		gentity_t *ent = &g_entities[clientNum];
+		if (ent && ent->client && ent->client->account && (ent->client->account->flags & ACCOUNTFLAG_ULTRAINSTAVOTETROLL)) {
+			TeamGenerator_QueueServerMessageInConsole(ent - g_entities, va(
+				level.activePugProposal->confirmation[ent - g_entities].pos == CTFPOSITION_OFFENSE ?
+				"^1[Requirement for trolls]^7 As a troll, you must confirm that you have read the teams proposals by naming one ^3%s^7 player from each team in permutation ^3%c^7 before voting. Use the format:   ^5%cconfirm name1 name2^7\n" :
+				"^1[Requirement for trolls]^7 As a troll, you must confirm that you have read the teams proposals by naming the ^3%s^7 players in permutation ^3%c^7 before voting. Use the format:   ^5%cconfirm name1 name2^7\n",
+				NameForPos(level.activePugProposal->confirmation[ent - g_entities].pos),
+				level.activePugProposal->confirmation[ent - g_entities].letter,
+				TEAMGEN_CHAT_COMMAND_CHARACTER));
+		}
+	}
+
 	if (clientNum == -1)
 		level.teamPermutationsShownTime = trap_Milliseconds();
 }
@@ -6384,6 +6470,13 @@ static void ActivatePugProposal(pugProposal_t *set, qboolean forcedByServer) {
 	else {
 		TeamGenerator_QueueServerMessageInChat(-1, va("Pug proposal %d %s (%s). However, unable to generate teams; pug proposal %d terminated.", set->num, forcedByServer ? "force passed by server" : "passed", set->namesStr, set->num));
 		level.activePugProposal = NULL;
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			memset(&level.clients[i].pers.confirmedReading, 0, sizeof(level.clients[i].pers.confirmedReading));
+			if (PlayerIsMuted(&g_entities[i]))
+					TeamGenerator_QueueServerMessageInChat(i, "You are no longer muted.");
+		}
+		ListClear(&level.mutedPlayersList);
+
 		ListClear(&set->avoidedHashesList);
 		ListRemove(&level.pugProposalsList, set);
 	}
@@ -6689,6 +6782,13 @@ void ActivateTeamsProposal(permutationOfTeams_t *permutation) {
 
 	TeamGen_ClearRemindPositions(qfalse);
 
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		memset(&level.clients[i].pers.confirmedReading, 0, sizeof(level.clients[i].pers.confirmedReading));
+		if (PlayerIsMuted(&g_entities[i]))
+			TeamGenerator_QueueServerMessageInChat(i, "You are no longer muted.");
+	}
+	ListClear(&level.mutedPlayersList);
+
 	const size_t messageSize = MAX_STRING_CHARS;
 	char *printMessage = calloc(MAX_CLIENTS * messageSize, sizeof(char));
 
@@ -6799,6 +6899,7 @@ void ActivateTeamsProposal(permutationOfTeams_t *permutation) {
 	}
 
 	RememberSelectedPermutation(permutation);
+
 	StartAutomaticTeamGenMapVote();
 
 	char timeBuf[MAX_STRING_CHARS] = { 0 };
@@ -6845,18 +6946,38 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 		return qtrue;
 	}
 
+	if ((ent->client->account->flags & ACCOUNTFLAG_ULTRAINSTAVOTETROLL) && !ent->client->pers.confirmedReading.didConfirm) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, va(
+			level.activePugProposal->confirmation[ent - g_entities].pos == CTFPOSITION_OFFENSE ?
+			"As a troll, you must confirm that you have read the teams proposals by naming one ^3%s^6 player from each team in permutation ^3%c^6 before voting. Use the format:   %cconfirm name1 name2" :
+			"As a troll, you must confirm that you have read the teams proposals by naming the ^3%s^6 players in permutation ^3%c^6 before voting. Use the format:   %cconfirm name1 name2",
+			NameForPos(level.activePugProposal->confirmation[ent - g_entities].pos),
+			level.activePugProposal->confirmation[ent - g_entities].letter,
+			TEAMGEN_CHAT_COMMAND_CHARACTER));
+		return qtrue;
+	}
+
 #ifndef _DEBUG
 	if (g_vote_teamgen_readBeforeVotingMilliseconds.integer > 0) {
 		if (level.teamPermutationsShownTime && trap_Milliseconds() - level.teamPermutationsShownTime < g_vote_teamgen_readBeforeVotingMilliseconds.integer) {
 			TeamGenerator_QueueServerMessageInChat(ent - g_entities, "Please take the time to read the teams proposals before voting.");
-			ent->client->pers.triedToInstaVote = qtrue;
+			ent->client->pers.triedToInstaVote = trap_Milliseconds(); // evil (owned)
 			return qtrue;
 		}
 	}
 
-	if (g_vote_teamgen_readBeforeVotingMillisecondsJawa.integer > 0 && ((ent->client->account->flags & ACCOUNTFLAG_INSTAVOTETROLL) || ent->client->pers.triedToInstaVote)) {
+	if (g_vote_teamgen_readBeforeVotingMillisecondsJawa.integer > 0 && ent->client->account->flags & ACCOUNTFLAG_INSTAVOTETROLL) {
 		if (level.teamPermutationsShownTime && trap_Milliseconds() - level.teamPermutationsShownTime < g_vote_teamgen_readBeforeVotingMillisecondsJawa.integer) {
 			TeamGenerator_QueueServerMessageInChat(ent - g_entities, "Please take the time to read the teams proposals before voting.");
+			ent->client->pers.triedToInstaVote = trap_Milliseconds(); // evil (owned)
+			return qtrue;
+		}
+	}
+
+	if (g_vote_teamgen_readBeforeVotingMilliseconds.integer > 0 && ent->client->pers.triedToInstaVote) {
+		if (level.teamPermutationsShownTime && trap_Milliseconds() - ent->client->pers.triedToInstaVote < g_vote_teamgen_readBeforeVotingMilliseconds.integer) {
+			TeamGenerator_QueueServerMessageInChat(ent - g_entities, "Please take the time to read the teams proposals before voting.");
+			ent->client->pers.triedToInstaVote = trap_Milliseconds(); // evil (owned)
 			return qtrue;
 		}
 	}
@@ -7328,6 +7449,12 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 	ListClear(&level.activePugProposal->avoidedHashesList);
 	ListRemove(&level.pugProposalsList, level.activePugProposal);
 	level.activePugProposal = NULL;
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		memset(&level.clients[i].pers.confirmedReading, 0, sizeof(level.clients[i].pers.confirmedReading));
+		if (PlayerIsMuted(&g_entities[i]))
+			TeamGenerator_QueueServerMessageInChat(i, "You are no longer muted.");
+	}
+	ListClear(&level.mutedPlayersList);
 
 	return qfalse;
 }
@@ -7362,6 +7489,17 @@ qboolean TeamGenerator_UnvoteForTeamPermutations(gentity_t *ent, const char *vot
 
 	if (level.teamPermutationsShownTime && trap_Milliseconds() - level.teamPermutationsShownTime < 500) {
 		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "The teams proposals have just changed. Please check the new teams proposals.");
+		return qtrue;
+	}
+
+	if ((ent->client->account->flags & ACCOUNTFLAG_ULTRAINSTAVOTETROLL) && !ent->client->pers.confirmedReading.didConfirm) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, va(
+			level.activePugProposal->confirmation[ent - g_entities].pos == CTFPOSITION_OFFENSE ?
+			"As a troll, you must confirm that you have read the teams proposals by naming one ^3%s^6 player from each team in permutation ^3%c^6 before voting. Use the format:   %cconfirm name1 name2" :
+			"As a troll, you must confirm that you have read the teams proposals by naming the ^3%s^6 players in permutation ^3%c^6 before voting. Use the format:   %cconfirm name1 name2",
+			NameForPos(level.activePugProposal->confirmation[ent - g_entities].pos),
+			level.activePugProposal->confirmation[ent - g_entities].letter,
+			TEAMGEN_CHAT_COMMAND_CHARACTER));
 		return qtrue;
 	}
 
@@ -7782,6 +7920,12 @@ qboolean TeamGenerator_UnvoteForTeamPermutations(gentity_t *ent, const char *vot
 	ListClear(&level.activePugProposal->avoidedHashesList);
 	ListRemove(&level.pugProposalsList, level.activePugProposal);
 	level.activePugProposal = NULL;
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		memset(&level.clients[i].pers.confirmedReading, 0, sizeof(level.clients[i].pers.confirmedReading));
+		if (PlayerIsMuted(&g_entities[i]))
+			TeamGenerator_QueueServerMessageInChat(i, "You are no longer muted.");
+	}
+	ListClear(&level.mutedPlayersList);
 
 	return qfalse;
 }
@@ -8789,6 +8933,11 @@ qboolean CheckFuckStr(const char *str, const char *word) {
 qboolean TeamGenerator_MemeFuckVote(gentity_t *ent, const char *voteStr, char **newMessage) {
 	assert(ent && ent->client);
 
+	if (PlayerIsMuted(ent)) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "As punishment for failing the confirmation too many times, you are muted until map change. Reconnecting will not unmute you.");
+		return qtrue;
+	}
+
 	if (g_vote_teamgen_fuck.integer <= 0) {
 		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "Fuck vote is disabled.");
 		return qtrue;
@@ -8973,6 +9122,11 @@ qboolean TeamGenerator_MemeFuckVote(gentity_t *ent, const char *voteStr, char **
 
 qboolean TeamGenerator_MemeGoVote(gentity_t *ent, const char *voteStr, char **newMessage) {
 	assert(ent && ent->client);
+
+	if (PlayerIsMuted(ent)) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "As punishment for failing the confirmation too many times, you are muted until map change. Reconnecting will not unmute you.");
+		return qtrue;
+	}
 
 	if (g_vote_teamgen_fuck.integer <= 0) {
 		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "Go vote is disabled.");
@@ -9648,6 +9802,12 @@ void TeamGenerator_DoCancel(void) {
 	ListClear(&level.activePugProposal->avoidedHashesList);
 	ListRemove(&level.pugProposalsList, level.activePugProposal);
 	level.activePugProposal = NULL;
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		memset(&level.clients[i].pers.confirmedReading, 0, sizeof(level.clients[i].pers.confirmedReading));
+		if (PlayerIsMuted(&g_entities[i]))
+			TeamGenerator_QueueServerMessageInChat(i, "You are no longer muted.");
+	}
+	ListClear(&level.mutedPlayersList);
 }
 
 qboolean TeamGenerator_VoteToCancel(gentity_t *ent, char **newMessage) {
@@ -9837,10 +9997,168 @@ static qboolean TeamGenerator_PermabarredPlayerMarkAsPickable(gentity_t *ent, ch
 	return qfalse;
 }
 
-// returns qtrue if the message should be filtered out
-qboolean TeamGenerator_CheckForChatCommand(gentity_t *ent, const char *s, char **newMessage) {
-	if (g_gametype.integer != GT_CTF)
+static qboolean NamesMatch(const char *a, const char *b) {
+	return !Q_stricmpclean(a, b);
+}
+
+static qboolean NameMatchesEither(const char *name, const char *a, const char *b) {
+	return NamesMatch(name, a) || NamesMatch(name, b);
+}
+
+static qboolean TeamGenerator_ConfirmMatches(permutationOfTeams_t *perm, ctfPosition_t pos, const char *name1, const char *name2) {
+	assert(perm && name1 && name2);
+
+	if (NamesMatch(name1, name2)) { // they typed the same name twice
 		return qfalse;
+	}
+
+	switch (pos) {
+	case CTFPOSITION_BASE: {
+		const char *base1 = perm->teams[0].baseName;
+		const char *base2 = perm->teams[1].baseName;
+		return (NameMatchesEither(name1, base1, base2) && NameMatchesEither(name2, base1, base2));
+	}
+	case CTFPOSITION_CHASE: {
+		const char *chase1 = perm->teams[0].chaseName;
+		const char *chase2 = perm->teams[1].chaseName;
+		return (NameMatchesEither(name1, chase1, chase2) && NameMatchesEither(name2, chase1, chase2));
+	}
+	case CTFPOSITION_OFFENSE: {
+		const char *team1_off1 = perm->teams[0].offense1Name;
+		const char *team1_off2 = perm->teams[0].offense2Name;
+		const char *team2_off1 = perm->teams[1].offense1Name;
+		const char *team2_off2 = perm->teams[1].offense2Name;
+
+		qboolean name1_in_team1 = NameMatchesEither(name1, team1_off1, team1_off2);
+		qboolean name1_in_team2 = NameMatchesEither(name1, team2_off1, team2_off2);
+		qboolean name2_in_team1 = NameMatchesEither(name2, team1_off1, team1_off2);
+		qboolean name2_in_team2 = NameMatchesEither(name2, team2_off1, team2_off2);
+
+		return (name1_in_team1 && name2_in_team2) || (name1_in_team2 && name2_in_team1);
+	}
+	default:
+		return qfalse;
+	}
+}
+
+typedef struct {
+	node_t	node;
+	int		accountId;
+} mutedPlayer_t;
+
+static qboolean MutedPlayerMatches(genericNode_t *node, void *userData) {
+	const mutedPlayer_t *existing = (const mutedPlayer_t *)node;
+	const int thisGuyAccountId = *((const int *)userData);
+	if (existing && existing->accountId == thisGuyAccountId)
+		return qtrue;
+	return qfalse;
+}
+
+qboolean PlayerIsMuted(gentity_t *ent) {
+	if (!ent || !ent->client || !ent->client->account || !g_vote_teamgen_mute.integer)
+		return qfalse;
+
+	mutedPlayer_t *found = ListFind(&level.mutedPlayersList, MutedPlayerMatches, &ent->client->account->id, NULL);
+	return !!found;
+}
+
+static void PrintConfirmError(gentity_t *ent) {
+	if (!ent || !ent->client || !ent->client->account) {
+		assert(qfalse);
+		return;
+	}
+
+	if (++ent->client->pers.confirmedReading.tries >= 3) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "As punishment for failing to confirm too many times, you are now muted until map change. Reconnecting will not unmute you.");
+		mutedPlayer_t *found = ListFind(&level.mutedPlayersList, MutedPlayerMatches, &ent->client->account->id, NULL);
+		if (!found) {
+			found = ListAdd(&level.mutedPlayersList, sizeof(mutedPlayer_t));
+			found->accountId = ent->client->account->id;
+		}
+		PrintBasedOnAccountFlags(ACCOUNTFLAG_ADMIN, va("%s is now muted until map change due to failing to confirm too many times.", ent->client->account->name));
+		return;
+	}
+
+	TeamGenerator_QueueServerMessageInChat(ent - g_entities, va(
+		level.activePugProposal->confirmation[ent - g_entities].pos == CTFPOSITION_OFFENSE ?
+		"As a troll, you must confirm that you have read the teams proposals by naming one ^3%s^6 player from each team in permutation ^3%c^6 before voting. Use the format:   %cconfirm name1 name2" :
+		"As a troll, you must confirm that you have read the teams proposals by naming the ^3%s^6 players in permutation ^3%c^6 before voting. Use the format:   %cconfirm name1 name2",
+		NameForPos(level.activePugProposal->confirmation[ent - g_entities].pos),
+		level.activePugProposal->confirmation[ent - g_entities].letter,
+		TEAMGEN_CHAT_COMMAND_CHARACTER));
+}
+
+static qboolean TeamGenerator_Confirm(gentity_t *ent, const char *confirmStr, char **newMessage) {
+	assert(ent && ent->client);
+
+	if (!ent->client->account) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You do not have an account, so you cannot confirm.");
+		return qtrue;
+	}
+
+	if ((ent->client->account->flags & ACCOUNTFLAG_ELOBOTSELFHOST) && !Q_stricmpclean(ent->client->pers.netname, "elo BOT")) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You have either modded elo bot to cheese the system or this is a bug which you should report.");
+		return qtrue;
+	}
+
+	if (ent->client->sess.clientType != CLIENT_TYPE_NORMAL) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You cannot confirm on this client.");
+		return qtrue;
+	}
+
+	if (!level.activePugProposal || !(ent->client->account->flags & ACCOUNTFLAG_ULTRAINSTAVOTETROLL) || ent->client->pers.confirmedReading.didConfirm) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You are not required to confirm.");
+		return qtrue;
+	}
+
+	if (!level.activePugProposal->confirmation[ent - g_entities].permutation || !level.activePugProposal->confirmation[ent - g_entities].pos || !level.activePugProposal->confirmation[ent - g_entities].letter) {
+		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "You are not required to confirm.");
+		return qtrue;
+	}
+
+	if (!VALIDSTRING(confirmStr)) {
+		PrintConfirmError(ent);
+		return qtrue;
+	}
+
+	const char *args = confirmStr + strlen("confirm");
+	while (*args == ' ') ++args;
+	if (!*args) {
+		PrintConfirmError(ent);
+		return qtrue;
+	}
+
+	char name1[MAX_NETNAME], name2[MAX_NETNAME];
+	int numArgs = sscanf(args, "%s %s", name1, name2);
+	if (numArgs != 2) {
+		PrintConfirmError(ent);
+		return qtrue;
+	}
+
+
+	if (!TeamGenerator_ConfirmMatches(level.activePugProposal->confirmation[ent - g_entities].permutation, level.activePugProposal->confirmation[ent - g_entities].pos, name1, name2)) {
+		PrintConfirmError(ent);
+		return qtrue;
+	}
+
+	ent->client->pers.confirmedReading.didConfirm = qtrue;
+	TeamGenerator_QueueServerMessageInChat(ent - g_entities, "Thank you carefully reading and considering the teams proposals. You may vote shortly.");
+	if (!(ent->client->account->flags & ACCOUNTFLAG_ADMIN))
+		PrintBasedOnAccountFlags(ACCOUNTFLAG_ADMIN, va("%s successfully entered ?confirm %s %s\n", ent->client->account->name, name1, name2));
+
+	ent->client->pers.triedToInstaVote = trap_Milliseconds(); // evil (owned)
+
+	return qtrue;
+}
+
+// returns qtrue if the message should be filtered out
+qboolean TeamGenerator_CheckForChatCommand(gentity_t *ent, const char *s, char **newMessage, qboolean *successfullyUsedATeamgenCommand) {
+	if (successfullyUsedATeamgenCommand)
+		*successfullyUsedATeamgenCommand = qfalse;
+
+	if (g_gametype.integer != GT_CTF) {
+		return qfalse;
+	}
 
 	if (!g_vote_teamgen.integer) {
 		TeamGenerator_QueueServerMessageInChat(ent - g_entities, "Team generator is disabled.");
@@ -9880,37 +10198,67 @@ qboolean TeamGenerator_CheckForChatCommand(gentity_t *ent, const char *s, char *
 				, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER, g_vote_teamgen_enableBarVote.integer ? va("^7%cbar [player]      - vote to bar a player\n^9%cunbar [player]    - vote to unbar a player\n", TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER) : "", TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER);
 		}
 		SV_Tell(ent - g_entities, "See console for chat command help.");
+		if (successfullyUsedATeamgenCommand)
+			*successfullyUsedATeamgenCommand = qtrue;
 		return qtrue;
 	}
 
-	if (!Q_stricmp(s, "start") || !Q_stricmp(s, "s"))
+	if (!Q_stricmp(s, "start") || !Q_stricmp(s, "s")) {
+		if (successfullyUsedATeamgenCommand)
+			*successfullyUsedATeamgenCommand = qtrue;
 		return TeamGenerator_PugStart(ent, newMessage);
+	}
 
-	if (!Q_stricmp(s, "reroll") || !Q_stricmp(s, "r"))
+	if (!Q_stricmp(s, "reroll") || !Q_stricmp(s, "r")) {
+		if (successfullyUsedATeamgenCommand)
+			*successfullyUsedATeamgenCommand = qtrue;
 		return TeamGenerator_VoteToReroll(ent, newMessage);
+	}
 
-	if (!Q_stricmpn(s, "bar", 3) && (strlen(s) <= 3 || isspace(*(s + 3))))
+	if (!Q_stricmpn(s, "bar", 3) && (strlen(s) <= 3 || isspace(*(s + 3)))) {
+		if (successfullyUsedATeamgenCommand)
+			*successfullyUsedATeamgenCommand = qtrue;
 		return TeamGenerator_VoteToBar(ent, s, newMessage);
+	}
 
-	if (!Q_stricmpn(s, "unbar", 5) && (strlen(s) <= 5 || isspace(*(s + 5))))
+	if (!Q_stricmpn(s, "unbar", 5) && (strlen(s) <= 5 || isspace(*(s + 5)))) {
+		if (successfullyUsedATeamgenCommand)
+			*successfullyUsedATeamgenCommand = qtrue;
 		return TeamGenerator_VoteToUnbar(ent, s, newMessage);
+	}
 
-	if (!Q_stricmp(s, "cancel"))
+	if (!Q_stricmp(s, "cancel")) {
+		if (successfullyUsedATeamgenCommand)
+			*successfullyUsedATeamgenCommand = qtrue;
 		return TeamGenerator_VoteToCancel(ent, newMessage);
+	}
 
 	if (!Q_stricmp(s, "list")) {
+		if (successfullyUsedATeamgenCommand)
+			*successfullyUsedATeamgenCommand = qtrue;
 		TeamGenerator_PrintPlayersInPugProposals(ent);
 		return qtrue;
 	}
 
-	if (!Q_stricmpn(s, "fuck", 4) && (strlen(s) <= 4 || isspace(*(s + 4))))
+	if (!Q_stricmpn(s, "fuck", 4) && (strlen(s) <= 4 || isspace(*(s + 4)))) {
 		return TeamGenerator_MemeFuckVote(ent, s, newMessage);
+	}
 
-	if (!Q_stricmpn(s, "go", 2) && (strlen(s) <= 2 || isspace(*(s + 2))))
+	if (!Q_stricmpn(s, "go", 2) && (strlen(s) <= 2 || isspace(*(s + 2)))) {
 		return TeamGenerator_MemeGoVote(ent, s, newMessage);
+	}
 
-	if (!Q_stricmp(s, "pickable"))
+	if (!Q_stricmp(s, "pickable")) {
+		if (successfullyUsedATeamgenCommand)
+			*successfullyUsedATeamgenCommand = qtrue;
 		return TeamGenerator_PermabarredPlayerMarkAsPickable(ent, newMessage);
+	}
+
+	if (!Q_stricmpn(s, "confirm", 7) && (strlen(s) <= 7 || isspace(*(s + 7)))) {
+		if (successfullyUsedATeamgenCommand)
+			*successfullyUsedATeamgenCommand = qtrue;
+		return TeamGenerator_Confirm(ent, s, newMessage);
+	}
 
 	if (strlen(s) <= 4) {
 		qboolean invalidVote = qfalse;
@@ -9925,8 +10273,11 @@ qboolean TeamGenerator_CheckForChatCommand(gentity_t *ent, const char *s, char *
 				break;
 			}
 		}
-		if (!invalidVote)
+		if (!invalidVote) {
+			if (successfullyUsedATeamgenCommand)
+				*successfullyUsedATeamgenCommand = qtrue;
 			return TeamGenerator_VoteForTeamPermutations(ent, s, newMessage);
+		}
 	}
 
 	if (!Q_stricmpn(s, "un", 2) && strlen(s) > 2) {
@@ -9942,8 +10293,11 @@ qboolean TeamGenerator_CheckForChatCommand(gentity_t *ent, const char *s, char *
 				break;
 			}
 		}
-		if (!invalidVote)
+		if (!invalidVote) {
+			if (successfullyUsedATeamgenCommand)
+				*successfullyUsedATeamgenCommand = qtrue;
 			return TeamGenerator_UnvoteForTeamPermutations(ent, s + 2, newMessage, s);
+		}
 	}
 	else if (!Q_stricmpn(s, "hun", 3) && strlen(s) > 3) {
 		qboolean invalidVote = qfalse;
@@ -9958,12 +10312,18 @@ qboolean TeamGenerator_CheckForChatCommand(gentity_t *ent, const char *s, char *
 				break;
 			}
 		}
-		if (!invalidVote)
+		if (!invalidVote) {
+			if (successfullyUsedATeamgenCommand)
+				*successfullyUsedATeamgenCommand = qtrue;
 			return TeamGenerator_UnvoteForTeamPermutations(ent, s + 3, newMessage, s);
+		}
 	}
 
-	if (atoi(s))
+	if (atoi(s)) {
+		if (successfullyUsedATeamgenCommand)
+			*successfullyUsedATeamgenCommand = qtrue;
 		return TeamGenerator_VoteYesToPugProposal(ent, atoi(s), NULL, newMessage);
+	}
 
 	return qfalse;
 }
@@ -10077,6 +10437,13 @@ void Svcmd_Pug_f(void) {
 		else {
 			TeamGenerator_QueueServerMessageInChat(-1, va("Inactive pug proposal %d killed by server (%s).", found->num, found->namesStr));
 		}
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			memset(&level.clients[i].pers.confirmedReading, 0, sizeof(level.clients[i].pers.confirmedReading));
+			if (PlayerIsMuted(&g_entities[i]))
+				TeamGenerator_QueueServerMessageInChat(i, "You are no longer muted.");
+		}
+		ListClear(&level.mutedPlayersList);
+
 		ListClear(&found->avoidedHashesList);
 		ListRemove(&level.pugProposalsList, found);
 	}
@@ -10096,6 +10463,12 @@ void Svcmd_Pug_f(void) {
 		ListClear(&level.activePugProposal->avoidedHashesList);
 		ListRemove(&level.pugProposalsList, level.activePugProposal);
 		level.activePugProposal = NULL;
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			memset(&level.clients[i].pers.confirmedReading, 0, sizeof(level.clients[i].pers.confirmedReading));
+			if (PlayerIsMuted(&g_entities[i]))
+				TeamGenerator_QueueServerMessageInChat(i, "You are no longer muted.");
+		}
+		ListClear(&level.mutedPlayersList);
 	}
 	else if (!Q_stricmp(arg1, "bar")) {
 		if (!arg2[0]) {

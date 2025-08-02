@@ -176,6 +176,15 @@ char *NameForPos(ctfPosition_t pos) {
 	}
 }
 
+char *ColorForPos(ctfPosition_t pos) {
+	switch (pos) {
+	case CTFPOSITION_BASE: return "^5";
+	case CTFPOSITION_CHASE: return "^6";
+	case CTFPOSITION_OFFENSE: return "^2";
+	default: return "^7";
+	}
+}
+
 #ifdef DEBUG_CTF_POSITION_STATS
 #define DebugCtfPosPrintf(...)	Com_Printf(__VA_ARGS__)
 #else

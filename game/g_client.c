@@ -2239,6 +2239,12 @@ void ClientUserinfoChanged( int clientNum ) {
 				trap_SetUserinfo(clientNum, userinfo);
 				strcpy(client->pers.netname, oldname);
 			}
+			else if (PlayerIsMuted(ent)) {
+				PrintIngame(clientNum, "As punishment for failing the confirmation too many times, you are muted until map change (this includes renaming). Reconnecting will not unmute you.\n");
+				Info_SetValueForKey(userinfo, "name", oldname);
+				trap_SetUserinfo(clientNum, userinfo);
+				strcpy(client->pers.netname, oldname);
+			}
 			else
 			{		
 				trap_SendServerCommand( -1, va("print \"%s" S_COLOR_WHITE " %s %s\n\"", oldname, G_GetStringEdString("MP_SVGAME", "PLRENAME"), client->pers.netname) );
@@ -5863,6 +5869,9 @@ void ClientDisconnect( int clientNum ) {
 					ListClear(&set->avoidedHashesList);
 					ListRemove(&level.pugProposalsList, set);
 					level.activePugProposal = NULL;
+					for (int i = 0; i < MAX_CLIENTS; i++) {
+						memset(&level.clients[i].pers.confirmedReading, 0, sizeof(level.clients[i].pers.confirmedReading));
+					}
 					ListIterate(&level.pugProposalsList, &iter, qfalse);
 				}
 				else if (removedSuggested || removedHighestCaliber || removedFairest || removedSlot4) { // we did remove at least one, there is at least one that is still valid
