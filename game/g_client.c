@@ -5871,7 +5871,10 @@ void ClientDisconnect( int clientNum ) {
 					level.activePugProposal = NULL;
 					for (int i = 0; i < MAX_CLIENTS; i++) {
 						memset(&level.clients[i].pers.confirmedReading, 0, sizeof(level.clients[i].pers.confirmedReading));
+						if (PlayerIsMuted(&g_entities[i]))
+							TeamGenerator_QueueServerMessageInChat(i, "You are no longer muted.");
 					}
+					ListClear(&level.mutedPlayersList);
 					ListIterate(&level.pugProposalsList, &iter, qfalse);
 				}
 				else if (removedSuggested || removedHighestCaliber || removedFairest || removedSlot4) { // we did remove at least one, there is at least one that is still valid
