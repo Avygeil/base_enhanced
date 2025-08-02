@@ -6297,12 +6297,7 @@ void PrintTeamsProposalsInConsole(pugProposal_t *set, int clientNum) {
 		TEAMGEN_CHAT_COMMAND_CHARACTER, TEAMGEN_CHAT_COMMAND_CHARACTER));
 
 	if (clientNum == -1) {
-		for (int i = 0; i < MAX_CLIENTS; i++) {
-			memset(&level.clients[i].pers.confirmedReading, 0, sizeof(level.clients[i].pers.confirmedReading));
-			if (PlayerIsMuted(&g_entities[i]))
-				TeamGenerator_QueueServerMessageInChat(i, "You are no longer muted.");
-		}
-		ListClear(&level.mutedPlayersList);
+		TeamGenerator_ResetConfirmationsAndMutes();
 
 		typedef struct {
 			permutationOfTeams_t *perm;
@@ -6470,12 +6465,7 @@ static void ActivatePugProposal(pugProposal_t *set, qboolean forcedByServer) {
 	else {
 		TeamGenerator_QueueServerMessageInChat(-1, va("Pug proposal %d %s (%s). However, unable to generate teams; pug proposal %d terminated.", set->num, forcedByServer ? "force passed by server" : "passed", set->namesStr, set->num));
 		level.activePugProposal = NULL;
-		for (int i = 0; i < MAX_CLIENTS; i++) {
-			memset(&level.clients[i].pers.confirmedReading, 0, sizeof(level.clients[i].pers.confirmedReading));
-			if (PlayerIsMuted(&g_entities[i]))
-					TeamGenerator_QueueServerMessageInChat(i, "You are no longer muted.");
-		}
-		ListClear(&level.mutedPlayersList);
+		TeamGenerator_ResetConfirmationsAndMutes();
 
 		ListClear(&set->avoidedHashesList);
 		ListRemove(&level.pugProposalsList, set);
@@ -6782,12 +6772,7 @@ void ActivateTeamsProposal(permutationOfTeams_t *permutation) {
 
 	TeamGen_ClearRemindPositions(qfalse);
 
-	for (int i = 0; i < MAX_CLIENTS; i++) {
-		memset(&level.clients[i].pers.confirmedReading, 0, sizeof(level.clients[i].pers.confirmedReading));
-		if (PlayerIsMuted(&g_entities[i]))
-			TeamGenerator_QueueServerMessageInChat(i, "You are no longer muted.");
-	}
-	ListClear(&level.mutedPlayersList);
+	TeamGenerator_ResetConfirmationsAndMutes();
 
 	const size_t messageSize = MAX_STRING_CHARS;
 	char *printMessage = calloc(MAX_CLIENTS * messageSize, sizeof(char));
@@ -7449,12 +7434,7 @@ qboolean TeamGenerator_VoteForTeamPermutations(gentity_t *ent, const char *voteS
 	ListClear(&level.activePugProposal->avoidedHashesList);
 	ListRemove(&level.pugProposalsList, level.activePugProposal);
 	level.activePugProposal = NULL;
-	for (int i = 0; i < MAX_CLIENTS; i++) {
-		memset(&level.clients[i].pers.confirmedReading, 0, sizeof(level.clients[i].pers.confirmedReading));
-		if (PlayerIsMuted(&g_entities[i]))
-			TeamGenerator_QueueServerMessageInChat(i, "You are no longer muted.");
-	}
-	ListClear(&level.mutedPlayersList);
+	TeamGenerator_ResetConfirmationsAndMutes();
 
 	return qfalse;
 }
@@ -7920,12 +7900,7 @@ qboolean TeamGenerator_UnvoteForTeamPermutations(gentity_t *ent, const char *vot
 	ListClear(&level.activePugProposal->avoidedHashesList);
 	ListRemove(&level.pugProposalsList, level.activePugProposal);
 	level.activePugProposal = NULL;
-	for (int i = 0; i < MAX_CLIENTS; i++) {
-		memset(&level.clients[i].pers.confirmedReading, 0, sizeof(level.clients[i].pers.confirmedReading));
-		if (PlayerIsMuted(&g_entities[i]))
-			TeamGenerator_QueueServerMessageInChat(i, "You are no longer muted.");
-	}
-	ListClear(&level.mutedPlayersList);
+	TeamGenerator_ResetConfirmationsAndMutes();
 
 	return qfalse;
 }
@@ -9802,12 +9777,7 @@ void TeamGenerator_DoCancel(void) {
 	ListClear(&level.activePugProposal->avoidedHashesList);
 	ListRemove(&level.pugProposalsList, level.activePugProposal);
 	level.activePugProposal = NULL;
-	for (int i = 0; i < MAX_CLIENTS; i++) {
-		memset(&level.clients[i].pers.confirmedReading, 0, sizeof(level.clients[i].pers.confirmedReading));
-		if (PlayerIsMuted(&g_entities[i]))
-			TeamGenerator_QueueServerMessageInChat(i, "You are no longer muted.");
-	}
-	ListClear(&level.mutedPlayersList);
+	TeamGenerator_ResetConfirmationsAndMutes();
 }
 
 qboolean TeamGenerator_VoteToCancel(gentity_t *ent, char **newMessage) {
@@ -10151,6 +10121,86 @@ static qboolean TeamGenerator_Confirm(gentity_t *ent, const char *confirmStr, ch
 	return qtrue;
 }
 
+// reassign invalidated pending confirmation targets to valid ones
+void TeamGenerator_FixInvalidConfirmationPermutations(void) {
+	if (!level.activePugProposal)
+		return;
+
+	typedef struct {
+		permutationOfTeams_t *perm;
+		char letter;
+	} permChoice_t;
+
+	pugProposal_t *set = level.activePugProposal;
+
+	permChoice_t candidates[7] = {
+		{ &set->suggested,     set->suggestedLetter },
+		{ &set->fairest,       set->fairestLetter },
+		{ &set->desired,       set->desiredLetter },
+		{ &set->highestCaliber,set->highestCaliberLetter },
+		{ &set->inclusive,     set->inclusiveLetter },
+		{ &set->semiDesired,   set->semiDesiredLetter },
+		{ &set->firstChoice,   set->firstChoiceLetter }
+	};
+
+	permChoice_t valid[7];
+	int numValid = 0;
+	for (int i = 0; i < 7; i++) {
+		if (candidates[i].perm && candidates[i].perm->valid)
+			valid[numValid++] = candidates[i];
+	}
+
+	if (numValid > 0) {
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			confirmStatus_t *conf = &set->confirmation[i];
+			if (!conf->permutation || !conf->letter || conf->pos == CTFPOSITION_UNKNOWN)
+				continue;
+
+			if (!level.clients[i].pers.confirmedReading.didConfirm && !conf->permutation->valid) {
+				// this one was just invalidated by the disconnecting guy, so we need to change it to something else (which remains valid)
+				srand(teamGenSeed + i);
+				const int rng1 = rand();
+				const int rng2 = rand();
+				srand(time(NULL));
+				permChoice_t *chosen = &valid[rng1 % numValid];
+
+				srand(teamGenSeed);
+				ctfPosition_t pos;
+				switch (rng2 % 3) {
+				case 0: pos = CTFPOSITION_BASE; break;
+				case 1: pos = CTFPOSITION_CHASE; break;
+				default: pos = CTFPOSITION_OFFENSE; break;
+				}
+
+				conf->permutation = chosen->perm;
+				conf->letter = chosen->letter;
+				conf->pos = pos;
+
+				gentity_t *ent = &g_entities[i];
+				if (ent && ent->client && ent->client->account && (ent->client->account->flags & ACCOUNTFLAG_ULTRAINSTAVOTETROLL)) {
+					TeamGenerator_QueueServerMessageInChat(ent - g_entities, "Your required confirmation has changed due to a player disconnecting.");
+					TeamGenerator_QueueServerMessageInChat(ent - g_entities, va(
+						level.activePugProposal->confirmation[ent - g_entities].pos == CTFPOSITION_OFFENSE ?
+						"As a troll, you must confirm that you have read the teams proposals by naming one ^3%s^6 player from each team in permutation ^3%c^6 before voting. Use the format:   %cconfirm name1 name2" :
+						"As a troll, you must confirm that you have read the teams proposals by naming the ^3%s^6 players in permutation ^3%c^6 before voting. Use the format:   %cconfirm name1 name2",
+						NameForPos(level.activePugProposal->confirmation[ent - g_entities].pos),
+						level.activePugProposal->confirmation[ent - g_entities].letter,
+						TEAMGEN_CHAT_COMMAND_CHARACTER));
+				}
+			}
+		}
+	}
+}
+
+void TeamGenerator_ResetConfirmationsAndMutes(void) {
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		memset(&level.clients[i].pers.confirmedReading, 0, sizeof(level.clients[i].pers.confirmedReading));
+		if (PlayerIsMuted(&g_entities[i]))
+			TeamGenerator_QueueServerMessageInChat(i, "You are no longer muted.");
+	}
+	ListClear(&level.mutedPlayersList);
+}
+
 // returns qtrue if the message should be filtered out
 qboolean TeamGenerator_CheckForChatCommand(gentity_t *ent, const char *s, char **newMessage, qboolean *successfullyUsedATeamgenCommand) {
 	if (successfullyUsedATeamgenCommand)
@@ -10437,12 +10487,7 @@ void Svcmd_Pug_f(void) {
 		else {
 			TeamGenerator_QueueServerMessageInChat(-1, va("Inactive pug proposal %d killed by server (%s).", found->num, found->namesStr));
 		}
-		for (int i = 0; i < MAX_CLIENTS; i++) {
-			memset(&level.clients[i].pers.confirmedReading, 0, sizeof(level.clients[i].pers.confirmedReading));
-			if (PlayerIsMuted(&g_entities[i]))
-				TeamGenerator_QueueServerMessageInChat(i, "You are no longer muted.");
-		}
-		ListClear(&level.mutedPlayersList);
+		TeamGenerator_ResetConfirmationsAndMutes();
 
 		ListClear(&found->avoidedHashesList);
 		ListRemove(&level.pugProposalsList, found);
@@ -10463,12 +10508,7 @@ void Svcmd_Pug_f(void) {
 		ListClear(&level.activePugProposal->avoidedHashesList);
 		ListRemove(&level.pugProposalsList, level.activePugProposal);
 		level.activePugProposal = NULL;
-		for (int i = 0; i < MAX_CLIENTS; i++) {
-			memset(&level.clients[i].pers.confirmedReading, 0, sizeof(level.clients[i].pers.confirmedReading));
-			if (PlayerIsMuted(&g_entities[i]))
-				TeamGenerator_QueueServerMessageInChat(i, "You are no longer muted.");
-		}
-		ListClear(&level.mutedPlayersList);
+		TeamGenerator_ResetConfirmationsAndMutes();
 	}
 	else if (!Q_stricmp(arg1, "bar")) {
 		if (!arg2[0]) {

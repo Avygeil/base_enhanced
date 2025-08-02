@@ -1407,6 +1407,12 @@ typedef struct {
 } barredOrForcedPickablePlayer_t;
 
 typedef struct {
+	permutationOfTeams_t *permutation;
+	ctfPosition_t			pos;
+	char					letter;
+} confirmStatus_t;
+
+typedef struct {
 	node_t			node;
 	int				num;
 	XXH32_hash_t	hash;
@@ -1422,11 +1428,7 @@ typedef struct {
 	int				suggestedVoteClientsRed, highestCaliberVoteClientsRed, fairestVoteClientsRed, desiredVoteClientsRed, inclusiveVoteClientsRed, semiDesiredVoteClientsRed, firstChoiceVoteClientsRed;
 	int				suggestedVoteClientsBlue, highestCaliberVoteClientsBlue, fairestVoteClientsBlue, desiredVoteClientsBlue, inclusiveVoteClientsBlue, semiDesiredVoteClientsBlue, firstChoiceVoteClientsBlue;
 	list_t			avoidedHashesList;
-	struct {
-		permutationOfTeams_t	*permutation;
-		ctfPosition_t			pos;
-		char					letter;
-	} confirmation[MAX_CLIENTS];
+	confirmStatus_t confirmation[MAX_CLIENTS];
 } pugProposal_t;
 
 typedef struct {
@@ -1502,6 +1504,8 @@ void TeamGen_CheckForUnbarLS(void);
 void TeamGen_CheckForRebarLS(void);
 void TeamGen_WarnLS(void);
 void PrintTeamsProposalsInConsole(pugProposal_t *set, int clientNum);
+void TeamGenerator_FixInvalidConfirmationPermutations(void);
+void TeamGenerator_ResetConfirmationsAndMutes(void);
 
 // this structure is cleared on each ClientSpawn(),
 // except for 'client->pers' and 'client->sess'

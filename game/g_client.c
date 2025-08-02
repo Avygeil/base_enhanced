@@ -5869,12 +5869,7 @@ void ClientDisconnect( int clientNum ) {
 					ListClear(&set->avoidedHashesList);
 					ListRemove(&level.pugProposalsList, set);
 					level.activePugProposal = NULL;
-					for (int i = 0; i < MAX_CLIENTS; i++) {
-						memset(&level.clients[i].pers.confirmedReading, 0, sizeof(level.clients[i].pers.confirmedReading));
-						if (PlayerIsMuted(&g_entities[i]))
-							TeamGenerator_QueueServerMessageInChat(i, "You are no longer muted.");
-					}
-					ListClear(&level.mutedPlayersList);
+					TeamGenerator_ResetConfirmationsAndMutes();
 					ListIterate(&level.pugProposalsList, &iter, qfalse);
 				}
 				else if (removedSuggested || removedHighestCaliber || removedFairest || removedSlot4) { // we did remove at least one, there is at least one that is still valid
@@ -5906,6 +5901,9 @@ void ClientDisconnect( int clientNum ) {
 						TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; teams proposal ^5%c^7 invalidated.", ent->client->account->name, set->fairestLetter));
 					else if (removedSlot4)
 						TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; teams proposal ^5%c^7 invalidated.", ent->client->account->name, slot4Letter));
+
+					// this dude disconnecting might have invalidated some pending confirmations, so we should fix those
+					TeamGenerator_FixInvalidConfirmationPermutations();
 				}
 			}
 			else { // this is not the active pug proposal
