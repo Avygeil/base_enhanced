@@ -395,7 +395,7 @@ gentity_t *CreateMissile( vec3_t org, vec3_t dir, float vel, int life,
 			missile->r.singleEntityCollision = qtrue;
 			missile->r.singleEntityThatCanCollide = owner->aimPracticeEntBeingUsed - g_entities;
 		}
-		else if (g_racersShootIngame.integer && !(owner->client->sess.racemodeFlags & RMF_HIDEINGAME)) {
+		else if (g_racersShootIngame.integer && !(owner->client->sess.racemodeFlags & RMF_HIDEINGAME) && !HasFlag(owner)) {
 			missile->r.svFlags |= SVF_HITINGAME;
 		}
 	}

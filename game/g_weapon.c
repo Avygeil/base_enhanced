@@ -3263,7 +3263,7 @@ gentity_t *WP_FireThermalDetonator( gentity_t *ent, qboolean altFire )
 			bolt->r.singleEntityCollision = qtrue;
 			bolt->r.singleEntityThatCanCollide = ent->aimPracticeEntBeingUsed - g_entities;
 		}
-		else if (g_racersShootIngame.integer && !(ent->client->sess.racemodeFlags & RMF_HIDEINGAME)) {
+		else if (g_racersShootIngame.integer && !(ent->client->sess.racemodeFlags & RMF_HIDEINGAME) && !HasFlag(ent)) {
 			bolt->r.svFlags |= SVF_HITINGAME;
 		}
 	}
