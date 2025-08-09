@@ -3674,7 +3674,7 @@ int ForceShootDrain( gentity_t *self )
 			break;
 		}
 		assert(maxFpDrained != 0);
-		if (actualAmountDrained >= 0)
+		if (actualAmountDrained > 0)
 			selfdmg = (int)round(healthCost * ((double)actualAmountDrained / (double)maxFpDrained));
 		else
 			selfdmg = healthCost;
