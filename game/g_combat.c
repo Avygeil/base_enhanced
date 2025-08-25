@@ -4633,6 +4633,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 		}
 		return;
 	}
+
 	// reduce damage by the attacker's handicap value
 	// unless they are rocket jumping
 	if ( attacker->client 
@@ -4725,6 +4726,12 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 		targ->think = G_FreeEntity;
 		targ->nextthink = level.time + 1;
 		return;
+	}
+
+	// guarantee sabers oneshot mines/detpacks (fix stupid low damage bug)
+	if (mod == MOD_SABER && targ && VALIDSTRING(targ->classname) && (!strcmp(targ->classname, "laserTrap") || !strcmp(targ->classname, "detpack"))
+		&& attacker && attacker->client && attacker - g_entities < MAX_CLIENTS && !targetIsMemeMine) {
+		damage = 999;
 	}
 
 	if ((meme || conc2) && mod == MOD_CONC && targ && targ->client && targ - g_entities < MAX_CLIENTS && targ->health > 0 &&
