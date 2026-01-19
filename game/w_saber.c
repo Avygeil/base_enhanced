@@ -9212,9 +9212,24 @@ int WP_SaberCanBlock(gentity_t *self, gentity_t* other, vec3_t point, int dflags
 				}
 			}
 
-			vec3_t subtractedAngles;
-			AnglesSubtract(other->client->ps.viewangles, self->client->ps.viewangles, subtractedAngles);
-			float angle = 180.0f - fabs(subtractedAngles[1]);
+			float angle;
+			if (g_saberDefenseShooterFovMatters.integer) {
+				vec3_t subtractedAngles;
+				AnglesSubtract(other->client->ps.viewangles, self->client->ps.viewangles, subtractedAngles);
+				angle = 180.0f - fabs(subtractedAngles[1]);
+			}
+			else {
+				vec3_t toSelf, dirToSelf;
+				VectorSubtract(self->client->ps.origin, other->client->ps.origin, toSelf);
+				VectorNormalize2(toSelf, dirToSelf);  // normalize into dirToSelf
+
+				vec3_t attackerYaw;
+				vectoangles(dirToSelf, attackerYaw); // get yaw from attacker to defender
+
+				vec3_t subtractedAngles;
+				AnglesSubtract(attackerYaw, self->client->ps.viewangles, subtractedAngles);
+				angle = 180.0f - fabs(subtractedAngles[1]);
+			}
 
 			// 100% block rate in range, 0% block rate otherwise
 			if (angle < maxAngle) {

@@ -3364,6 +3364,7 @@ extern	vmCvar_t	g_fixSaberDefense;
 extern	vmCvar_t	g_saberDefense1Angle;
 extern	vmCvar_t	g_saberDefense2Angle;
 extern	vmCvar_t	g_saberDefense3Angle;
+extern	vmCvar_t	g_saberDefenseShooterFovMatters;
 
 extern	vmCvar_t	g_instagib;
 extern	vmCvar_t	g_instagibRespawnTime;

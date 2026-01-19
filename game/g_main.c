@@ -115,6 +115,7 @@ vmCvar_t	g_fixSaberDefense;
 vmCvar_t	g_saberDefense1Angle;
 vmCvar_t	g_saberDefense2Angle;
 vmCvar_t	g_saberDefense3Angle;
+vmCvar_t	g_saberDefenseShooterFovMatters;
 
 vmCvar_t	g_instagib;
 vmCvar_t	g_instagibRespawnTime;
@@ -790,6 +791,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_saberDefense1Angle, "g_saberDefense1Angle", "6", 0, 0, qtrue },
 	{ &g_saberDefense2Angle, "g_saberDefense2Angle", "30", 0, 0, qtrue },
 	{ &g_saberDefense3Angle, "g_saberDefense3Angle", "73", 0, 0, qtrue },
+	{ &g_saberDefenseShooterFovMatters, "g_saberDefenseShooterFovMatters", "0", 0, 0, qtrue },
 
 	{ &g_instagib, "g_instagib", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_instagibRespawnTime, "g_instagibRespawnTime", "5", CVAR_ARCHIVE, 0, qtrue },
