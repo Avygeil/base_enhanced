@@ -2512,6 +2512,14 @@ Base animation for overall body
 */
 static void BG_StartLegsAnim( playerState_t *ps, int anim )
 {
+	if (ps && (ps->torsoAnim == BOTH_FALLDEATH1INAIR || ps->legsAnim == BOTH_FALLDEATH1INAIR) && ps->fallingToDeath && ps->pm_type != PM_DEAD && g_funnyFallAnimation.integer) {
+		if (anim < BOTH_DEATH1 || anim > BOTH_DEADFLOP2) {
+			// no cancelling the falling animation once started
+			return;
+		}
+		anim = BOTH_FALLDEATH1LAND;
+	}
+
 	if ( ps->pm_type >= PM_DEAD )
 	{
 		//please let me know if this assert fires on you (ideally before you close/ignore it) -rww
@@ -2581,6 +2589,14 @@ Override animations for upper body
 */
 void BG_StartTorsoAnim( playerState_t *ps, int anim )
 {
+	if (ps && (ps->torsoAnim == BOTH_FALLDEATH1INAIR || ps->legsAnim == BOTH_FALLDEATH1INAIR) && ps->fallingToDeath && ps->pm_type != PM_DEAD && g_funnyFallAnimation.integer) {
+		if (anim < BOTH_DEATH1 || anim > BOTH_DEADFLOP2) {
+			// no cancelling the falling animation once started
+			return;
+		}
+		anim = BOTH_FALLDEATH1LAND;
+	}
+
 	if ( ps->pm_type >= PM_DEAD )
 	{
 		assert(!BG_InDeathAnim(anim));
@@ -2898,6 +2914,14 @@ int BG_PickAnim( int animIndex, int minAnim, int maxAnim )
 //or I will cry. -rww
 void BG_SetAnim(playerState_t *ps, animation_t *animations, int setAnimParts,int anim,int setAnimFlags, int blendTime)
 {
+	if (ps && (ps->torsoAnim == BOTH_FALLDEATH1INAIR || ps->legsAnim == BOTH_FALLDEATH1INAIR) && ps->fallingToDeath && ps->pm_type != PM_DEAD && g_funnyFallAnimation.integer) {
+		if (anim < BOTH_DEATH1 || anim > BOTH_DEADFLOP2) {
+			// no cancelling the falling animation once started
+			return;
+		}
+		anim = BOTH_FALLDEATH1LAND;
+	}
+
 	if (!animations)
 	{
 		animations = bgAllAnims[0].anims;

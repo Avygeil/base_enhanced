@@ -1319,6 +1319,11 @@ void hurt_touch( gentity_t *self, gentity_t *other, trace_t *trace ) {
 		else
 		{
 			G_EntitySound(other, CHAN_VOICE, G_SoundIndex("*falling1.wav"));
+			if (g_funnyFallAnimation.integer) {
+				G_SetAnim(other, NULL, SETANIM_BOTH, BOTH_FALLDEATH1INAIR, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD, 0);
+				other->client->ps.torsoAnim = other->client->ps.legsAnim = BOTH_FALLDEATH1INAIR;
+				other->client->ps.torsoTimer = other->client->ps.legsTimer = 3000;
+			}
 		}
 
 		self->timestamp = 0; //do not ignore others

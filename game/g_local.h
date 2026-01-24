@@ -3587,6 +3587,7 @@ extern vmCvar_t     g_fixLava;
 extern vmCvar_t     g_fixLiftKills;
 extern vmCvar_t		g_fixBumpKills;
 extern vmCvar_t		g_creditAirKills;
+extern vmCvar_t		g_funnyFallAnimation;
 
 extern vmCvar_t     g_fixDempSaberThrow;
 

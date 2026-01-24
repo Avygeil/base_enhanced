@@ -377,6 +377,7 @@ vmCvar_t	g_fixLava;
 vmCvar_t    g_fixLiftKills;
 vmCvar_t    g_fixBumpKills;
 vmCvar_t    g_creditAirKills;
+vmCvar_t    g_funnyFallAnimation;
 
 vmCvar_t    g_fixDempSaberThrow;
 
@@ -1021,6 +1022,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_fixLiftKills,	"g_fixLiftKills", "1"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_fixBumpKills,	"g_fixBumpKills", "1"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_creditAirKills,	"g_creditAirKills", "1"	, CVAR_ARCHIVE, 0, qtrue },
+	{ &g_funnyFallAnimation,	"g_funnyFallAnimation", "1"	, CVAR_ARCHIVE, 0, qtrue },
 
 	{ &g_fixDempSaberThrow,	"g_fixDempSaberThrow"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
 

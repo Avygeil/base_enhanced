@@ -848,6 +848,11 @@ void P_WorldEffects( gentity_t *ent ) {
 						ent->client->ps.eFlags |= EF_RAG;
 						Jetpack_Off(ent);
 						G_EntitySound(ent, CHAN_VOICE, G_SoundIndex("*falling1.wav"));
+						if (g_funnyFallAnimation.integer) {
+							G_SetAnim(ent, NULL, SETANIM_BOTH, BOTH_FALLDEATH1INAIR, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD, 0);
+							ent->client->ps.torsoAnim = ent->client->ps.legsAnim = BOTH_FALLDEATH1INAIR;
+							ent->client->ps.torsoTimer = ent->client->ps.legsTimer = 3000;
+						}
 					}
 				}
 			}
@@ -4583,6 +4588,15 @@ void ClientThink_real( gentity_t *ent ) {
 			ent->flags &= ~FL_GODMODE;
 			ent->client->ps.stats[STAT_HEALTH] = ent->health = -999;
 			player_die(ent, ent, ent, 100000, MOD_SUICIDE);
+		}
+	}
+	else if (ent->health > 0 && ent->client && ent->client->ps.fallingToDeath && !(ent->client->pers.fakeFallFadeToBlack && g_vote_fadeToBlack.integer) &&
+		(level.time - FALL_FADE_TIME) <= ent->client->ps.fallingToDeath && g_funnyFallAnimation.integer) {
+		if ((ent->client->ps.torsoAnim != BOTH_FALLDEATH1INAIR && ent->client->ps.torsoAnim != BOTH_FALLDEATH1LAND) ||
+			(ent->client->ps.legsAnim != BOTH_FALLDEATH1INAIR && ent->client->ps.legsAnim != BOTH_FALLDEATH1LAND)) {
+			G_SetAnim(ent, NULL, SETANIM_BOTH, BOTH_FALLDEATH1INAIR, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD, 0);
+			ent->client->ps.torsoAnim = ent->client->ps.legsAnim = BOTH_FALLDEATH1INAIR;
+			ent->client->ps.torsoTimer = ent->client->ps.legsTimer = 3000;
 		}
 	}
 
