@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Team Generation Trace</title>
+<style>
+  :root {
+    --bg: #f2f0ec;
+    --bg-raised: #ffffff;
+    --bg-sunken: #e8e5df;
+    --border: #d8d4cb;
+    --text: #201d17;
+    --text-dim: #6b6558;
+    --text-faint: #948d7c;
+    --accent: #a8690f;
+    --accent-text: #6b4409;
+    --accent-bg: #f4e3cc;
+    --red: #b3362c;
+    --red-bg: #f6dfdc;
+    --red-text: #7d251e;
+    --blue: #1f6a8c;
+    --blue-bg: #dbeaf1;
+    --blue-text: #154a63;
+    --shadow: 0 1px 2px rgba(30, 25, 15, 0.06), 0 4px 14px rgba(30, 25, 15, 0.05);
+
+    /* tier heat ramp: low tiers muted, climbing to saturated amber/gold at the top */
+    --tier-g: #8b8577;
+    --tier-f: #8b8577;
+    --tier-d: #9b7a55;
+    --tier-c: #b08a3f;
+    --tier-b: #c49a2e;
+    --tier-a: #d9a91a;
+    --tier-s: #e8b400;
+    --tier-x: #f5c400;
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #17150f;
+    --bg-raised: #201d16;
+    --bg-sunken: #100f0b;
+    --border: #343025;
+    --text: #ece7db;
+    --text-dim: #a89f8c;
+    --text-faint: #756c5b;
+    --accent: #e0a338;
+    --accent-text: #f0c274;
+    --accent-bg: #3a2a12;
+    --red: #e0665a;
+    --red-bg: #3a1e1b;
+    --red-text: #f0958b;
+    --blue: #4fa9d1;
+    --blue-bg: #16303c;
+    --blue-text: #8ccbe8;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
+
+    --tier-g: #756e5e;
+    --tier-f: #756e5e;
+    --tier-d: #8c714f;
+    --tier-c: #ab8945;
+    --tier-b: #c9a13c;
+    --tier-a: #e0b62e;
+    --tier-s: #f0c421;
+    --tier-x: #ffd21a;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #17150f;
+      --bg-raised: #201d16;
+      --bg-sunken: #100f0b;
+      --border: #343025;
+      --text: #ece7db;
+      --text-dim: #a89f8c;
+      --text-faint: #756c5b;
+      --accent: #e0a338;
+      --accent-text: #f0c274;
+      --accent-bg: #3a2a12;
+      --red: #e0665a;
+      --red-bg: #3a1e1b;
+      --red-text: #f0958b;
+      --blue: #4fa9d1;
+      --blue-bg: #16303c;
+      --blue-text: #8ccbe8;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
+
+      --tier-g: #756e5e;
+      --tier-f: #756e5e;
+      --tier-d: #8c714f;
+      --tier-c: #ab8945;
+      --tier-b: #c9a13c;
+      --tier-a: #e0b62e;
+      --tier-s: #f0c421;
+      --tier-x: #ffd21a;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, "Liberation Mono", monospace;
+  }
+  ::selection { background: var(--accent-bg); color: var(--accent-text); }
+  a { color: var(--accent); }
+
+  /* ---------- header ---------- */
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--bg-raised);
+    border-bottom: 1px solid var(--border);
+    box-shadow: var(--shadow);
+  }
+  .header-inner {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  .title-block { display: flex; flex-direction: column; gap: 2px; min-width: 200px; }
+  .title-block h1 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    text-wrap: balance;
+  }
+  .title-block .subtitle {
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .meta-strip {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+    margin-left: auto;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .meta-strip .meta-item { display: flex; flex-direction: column; gap: 1px; align-items: flex-start; }
+  .meta-strip .meta-item .k { text-transform: uppercase; letter-spacing: 0.06em; font-size: 10px; color: var(--text-faint); }
+  .meta-strip .meta-item .v { font-weight: 600; color: var(--text); }
+  .meta-strip .meta-item .v.mono { font-weight: 500; }
+
+  #search {
+    flex: 0 0 220px;
+    background: var(--bg-sunken);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 7px 10px;
+    color: var(--text);
+    font-size: 13px;
+    font-family: inherit;
+  }
+  #search:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+  #search::placeholder { color: var(--text-faint); }
+
+  .theme-toggle {
+    border: 1px solid var(--border);
+    background: var(--bg-sunken);
+    color: var(--text-dim);
+    border-radius: 7px;
+    padding: 7px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .theme-toggle:hover { color: var(--text); }
+  .theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  main {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+
+  section.block { margin-bottom: 28px; }
+  section.block > h2 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-faint);
+    font-weight: 700;
+    margin: 0 0 12px;
+  }
+
+  /* ---------- overview cards ---------- */
+  .overview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 14px;
+  }
+  .type-card {
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .type-card.invalid { opacity: 0.55; }
+  .type-card-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .type-card-head .name { font-weight: 700; font-size: 13.5px; text-wrap: balance; }
+  .letter-badge {
+    font-family: ui-monospace, "SF Mono", Consolas, monospace;
+    font-weight: 700;
+    font-size: 12px;
+    background: var(--accent-bg);
+    color: var(--accent-text);
+    border-radius: 5px;
+    padding: 1px 7px;
+    line-height: 1.5;
+  }
+  .team-row { display: flex; flex-direction: column; gap: 5px; }
+  .team-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 700;
+  }
+  .team-label.red { color: var(--red-text); }
+  .team-label.blue { color: var(--blue-text); }
+  .roster { display: flex; flex-wrap: wrap; gap: 4px; }
+
+  /* raw / relative strength shown next to a team's label */
+  .tstr {
+    margin-left: 6px;
+    font-family: ui-monospace, "SF Mono", Consolas, monospace;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--text);
+  }
+  .tstr-rel { color: var(--text-faint); font-weight: 400; }
+
+  /* boolean scoring fields */
+  .yes { color: var(--green, #3fb950); font-weight: 600; }
+  .no  { color: var(--text-faint); }
+  .sub { color: var(--text-faint); font-weight: 400; }
+
+  /* tiebreak-priority index in a milestone table header */
+  .prio {
+    display: inline-block;
+    min-width: 13px;
+    margin-right: 4px;
+    padding: 0 3px;
+    border-radius: 3px;
+    background: var(--border);
+    color: var(--text-faint);
+    font-size: 9px;
+    font-weight: 700;
+    text-align: center;
+    vertical-align: 1px;
+  }
+  .algo-note {
+    font-size: 11.5px;
+    color: var(--text-dim);
+    margin: 0 0 8px;
+    line-height: 1.5;
+  }
+  .algo-note b { color: var(--text); }
+
+  /* ---------- legend ---------- */
+  .legend {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    font-size: 11.5px;
+    color: var(--text-dim);
+    line-height: 1.6;
+  }
+  .legend-row { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; }
+  .legend-item { display: inline-flex; align-items: center; gap: 8px; }
+  .legend-text b { color: var(--text); }
+  .legend .tier-swatch {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: ui-monospace, "SF Mono", Consolas, monospace;
+  }
+  .legend .tier-swatch i {
+    width: 8px; height: 8px; border-radius: 50%; display: inline-block; font-style: normal;
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: ui-monospace, "SF Mono", Consolas, monospace;
+    font-size: 11.5px;
+    padding: 2px 7px 2px 6px;
+    border-radius: 5px;
+    background: var(--bg-sunken);
+    border: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  .pill .role { color: var(--text-faint); font-size: 10px; }
+  .pill .tier-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex: none;
+  }
+  .pill.pref { box-shadow: inset 0 0 0 1px var(--accent); }
+  .pill.avoid { opacity: 0.6; text-decoration: line-through 1px; }
+  .pill mark { background: var(--accent-bg); color: var(--accent-text); border-radius: 2px; padding: 0 1px; }
+
+  .stat-line {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    font-size: 11.5px;
+    color: var(--text-dim);
+    font-family: ui-monospace, "SF Mono", Consolas, monospace;
+    border-top: 1px solid var(--border);
+    padding-top: 8px;
+  }
+  .stat-line b { color: var(--text); font-weight: 600; }
+
+  /* ---------- detail sections ---------- */
+  details.type-detail {
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 10px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  details.type-detail[open] summary { border-bottom: 1px solid var(--border); }
+  summary {
+    cursor: pointer;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    font-size: 13px;
+    list-style: none;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary::before {
+    content: "";
+    width: 0;
+    height: 0;
+    border-left: 5px solid var(--text-faint);
+    border-top: 4px solid transparent;
+    border-bottom: 4px solid transparent;
+    transition: transform 0.15s ease;
+    flex: none;
+  }
+  details[open] summary::before { transform: rotate(90deg); }
+  summary .count {
+    margin-left: auto;
+    font-weight: 400;
+    color: var(--text-faint);
+    font-size: 11.5px;
+    font-family: ui-monospace, "SF Mono", Consolas, monospace;
+  }
+
+  .detail-body { padding: 14px 16px 18px; }
+
+  .reject-bar {
+    display: flex;
+    height: 20px;
+    border-radius: 5px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    margin-bottom: 6px;
+  }
+  .reject-seg { height: 100%; }
+  .reject-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 16px;
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-bottom: 16px;
+  }
+  .reject-legend .item { display: flex; align-items: center; gap: 5px; }
+  .reject-legend .swatch { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+
+  table.milestones {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11.5px;
+  }
+  /* each table scrolls in its own box so the header stays visible: these traces
+     run to hundreds of rows, and scrolling the page instead loses the column
+     labels long before you reach the bottom. */
+  .milestones-wrap {
+    max-height: 70vh;
+    overflow: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+  table.milestones th {
+    text-align: left;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 10px;
+    color: var(--text-faint);
+    font-weight: 700;
+    padding: 5px 8px;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    /* must be fully opaque or rows scroll through underneath it; border-bottom
+       is replaced by an inset shadow because sticky cells drop their borders */
+    background: var(--bg-sunken);
+    box-shadow: inset 0 -1px 0 var(--border);
+  }
+  table.milestones td {
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  table.milestones tr:last-child td { border-bottom: none; }
+  table.milestones tr.final-row { background: var(--accent-bg); }
+  table.milestones tr.final-row td { color: var(--accent-text); }
+  td.num { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.seq { font-family: ui-monospace, "SF Mono", Consolas, monospace; color: var(--text-faint); }
+
+  .truncated-note {
+    margin-top: 10px;
+    font-size: 11.5px;
+    color: var(--text-faint);
+    font-style: italic;
+  }
+
+  .empty-note {
+    color: var(--text-faint);
+    font-size: 12.5px;
+    padding: 4px 0;
+  }
+
+  footer {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 8px 24px 40px;
+    font-size: 11px;
+    color: var(--text-faint);
+    font-family: ui-monospace, "SF Mono", Consolas, monospace;
+  }
+
+  .hidden-by-search { display: none !important; }
+
+  @media (max-width: 640px) {
+    .meta-strip { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="title-block">
+      <h1>Team Generation Trace</h1>
+      <div class="subtitle" id="subtitle">&mdash;</div>
+    </div>
+    <div class="meta-strip" id="meta-strip"></div>
+    <input type="text" id="search" placeholder="Filter by player name&hellip;" autocomplete="off">
+    <button class="theme-toggle" id="theme-toggle" type="button" title="Toggle light/dark">Theme</button>
+  </div>
+</header>
+
+<main>
+  <section class="block">
+    <h2>How to read this</h2>
+    <div class="legend" id="legend">
+      <div class="legend-row">
+        <span class="legend-item"><span class="pill pref"><span class="tier-dot" style="background:var(--tier-b)"></span><span class="role">B</span><span class="pname">name</span></span>
+          <span class="legend-text"><b>outlined</b> &mdash; player is on a position they asked for</span></span>
+        <span class="legend-item"><span class="pill avoid"><span class="tier-dot" style="background:var(--tier-c)"></span><span class="role">C</span><span class="pname">name</span></span>
+          <span class="legend-text"><b>faded + struck through</b> &mdash; player is on a position they asked to avoid</span></span>
+        <span class="legend-item"><span class="pill"><span class="tier-dot" style="background:var(--tier-d)"></span><span class="role">O</span><span class="pname">name</span></span>
+          <span class="legend-text"><b>plain</b> &mdash; no preference either way</span></span>
+      </div>
+      <div class="legend-row">
+        <span class="legend-text"><b>B / C / O</b> = base, chase, offense &mdash; the position that player is being put on.</span>
+      </div>
+      <div class="legend-row" id="tier-legend"></div>
+      <div class="legend-row">
+        <span class="legend-text">Each type is scored by one comparator. Its columns are listed in <b>tiebreak order</b>:
+        <span class="prio">1</span> decides first, and a later column only matters when every earlier one is tied.
+        Rows are the running best &mdash; each one beat everything before it.</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <h2>Overview</h2>
+    <div class="overview-grid" id="overview-grid"></div>
+  </section>
+
+  <section class="block">
+    <h2>Search detail by type</h2>
+    <div id="detail-list"></div>
+  </section>
+</main>
+
+<footer id="footer"></footer>
+
+<script>
+"use strict";
+
+// ---- theme toggle (this session only) ----
+(function () {
+  var root = document.documentElement;
+  var btn = document.getElementById("theme-toggle");
+  btn.addEventListener("click", function () {
+    var current = root.getAttribute("data-theme");
+    var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+    var effectiveIsDark = current ? current === "dark" : prefersDark;
+    root.setAttribute("data-theme", effectiveIsDark ? "light" : "dark");
+  });
+})();
+
+// ---- tier helpers ----
+var TIER_ORDER = ["g", "f", "d", "c", "b", "a", "s", "x"];
+function tierColorVar(tier) {
+  if (!tier) return "var(--text-faint)";
+  var t = String(tier).toLowerCase();
+  if (TIER_ORDER.indexOf(t) === -1) return "var(--text-faint)";
+  return "var(--tier-" + t + ")";
+}
+function tierLabel(tier) {
+  if (!tier) return "?";
+  return String(tier).toUpperCase();
+}
+
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+  });
+}
+
+function fmtNum(n, digits) {
+  if (typeof n !== "number") return "&mdash;";
+  return n.toFixed(digits == null ? 0 : digits);
+}
+
+function fmtMs(ms) {
+  if (typeof ms !== "number") return "&mdash;";
+  if (ms < 1000) return ms + "ms";
+  return (ms / 1000).toFixed(2) + "s";
+}
+
+function fmtCount(n) {
+  if (typeof n !== "number") return "0";
+  return n.toLocaleString("en-US");
+}
+
+// ---- player pill rendering ----
+var ROLE_NAMES = { B: "base", C: "chase", O: "offense" };
+
+function playerPill(p, role) {
+  if (!p) return '<span class="pill mono"><span class="role">' + esc(role) + '</span> &mdash;</span>';
+  var classes = ["pill"];
+  if (p.pref) classes.push("pref");
+  if (p.avoid) classes.push("avoid");
+  var dot = '<span class="tier-dot" style="background:' + tierColorVar(p.tier) + '"></span>';
+  // spell the encoding out in the tooltip too, so the outline/strikethrough
+  // never has to be guessed at from styling alone
+  var note = p.pref ? "on a position they asked for"
+           : p.avoid ? "on a position they asked to avoid"
+           : "no position preference either way";
+  var title = p.name + " · tier " + tierLabel(p.tier) +
+    " · " + (ROLE_NAMES[role] || role) + " · " + note;
+  return '<span class="' + classes.join(" ") + '" title="' + esc(title) + '">' +
+    dot + '<span class="role">' + esc(role) + '</span><span class="pname">' + esc(p.name) + '</span></span>';
+}
+
+function teamBlock(team, label, colorClass, raw, rel) {
+  if (!team) return "";
+  var strength = "";
+  if (typeof raw === "number") {
+    strength = '<span class="tstr" title="raw strength' +
+      (typeof rel === "number" ? " / share of both teams' combined strength" : "") + '">' +
+      fmtNum(raw, 2) +
+      (typeof rel === "number" ? ' <span class="tstr-rel">' + fmtNum(rel * 100, 1) + '%</span>' : "") +
+      '</span>';
+  }
+  return '<div class="team-row">' +
+    '<div class="team-label ' + colorClass + '">' + esc(label) + strength + '</div>' +
+    '<div class="roster">' +
+      playerPill(team.base, "B") +
+      playerPill(team.chase, "C") +
+      playerPill(team.off1, "O") +
+      playerPill(team.off2, "O") +
+    '</div></div>';
+}
+
+// every scoring field a milestone carries. keys match TeamGen_DebugJsonMilestone.
+var FIELD_DEFS = {
+  satisfiesNoobRule:      { label: "Noob",   title: "Satisfies the noob rule", bool: true },
+  satisfiesNoobCarryRule: { label: "Carry",  title: "Satisfies the noob carry rule", bool: true },
+  iDiff:                  { label: "Diff",   title: "Team imbalance — lower is fairer" },
+  totalSkill:             { label: "Skill",  title: "Combined strength of both teams — higher is stronger", digits: 2 },
+  totalNumPermutations:   { label: "Inclusion", inclusion: true,
+    title: "Left: players in this split who appear in NONE of the other proposals (higher = more people newly included). "
+         + "Right: total appearances those 8 players already have across the other proposals (lower = less repetition). "
+         + "The raw score packs both into one number by subtracting 1000 per newly-included player, so 'newly included' always outranks 'fewer repeats'." },
+  numSatisfiedCyds:       { label: "CYDs",   title: "Satisfied duo requests — higher is better" },
+  numSatisfiedLgs:        { label: "LGs",    title: "Satisfied first-choice position requests — higher is better" },
+  numOnPreferredPos:      { label: "Pref",   title: "Players on a preferred position — higher is better" },
+  numOnAvoidedPos:        { label: "Avoid",  title: "Players on an avoided position — lower is better" },
+  bottomTierImbalance:    { label: "BotImb", title: "Bottom-tier imbalance — lower is better" },
+  topTierImbalance:       { label: "TopImb", title: "Top-tier imbalance — lower is better" },
+  offenseDefenseDiff:     { label: "O/D",    title: "Offense vs defense strength difference — lower is better" }
+};
+
+// which fields each algorithm ranks on, in tiebreak order (leftmost decides
+// first). mirrors the IsBetter_* chains in g_teamgen.c -- if one changes there,
+// change the matching row here.
+var ALGO_FIELDS = {
+  regular:       ["iDiff","numOnPreferredPos","numOnAvoidedPos","bottomTierImbalance","topTierImbalance"],
+  appeasing:     ["numSatisfiedLgs","iDiff","numOnPreferredPos","numOnAvoidedPos","bottomTierImbalance","topTierImbalance"],
+  fairest:       ["satisfiesNoobRule","satisfiesNoobCarryRule","iDiff","bottomTierImbalance","topTierImbalance","offenseDefenseDiff","numOnPreferredPos","numOnAvoidedPos"],
+  semiappeasing: ["numSatisfiedCyds","iDiff","numSatisfiedLgs","numOnPreferredPos","numOnAvoidedPos","bottomTierImbalance","topTierImbalance","offenseDefenseDiff"],
+  firstchoice:   ["numSatisfiedLgs","iDiff","numOnPreferredPos","numOnAvoidedPos","bottomTierImbalance","topTierImbalance","offenseDefenseDiff"],
+  inclusive:     ["totalNumPermutations","numSatisfiedCyds","iDiff","numOnPreferredPos","numOnAvoidedPos","bottomTierImbalance","topTierImbalance"],
+  semitryhard:   ["satisfiesNoobRule","satisfiesNoobCarryRule","iDiff","totalSkill","bottomTierImbalance","topTierImbalance","numOnPreferredPos","numOnAvoidedPos","offenseDefenseDiff"],
+  tryhard:       ["satisfiesNoobRule","satisfiesNoobCarryRule","totalSkill","iDiff","bottomTierImbalance","topTierImbalance","offenseDefenseDiff","numOnPreferredPos","numOnAvoidedPos"],
+  unknown:       ["iDiff","numOnPreferredPos","numOnAvoidedPos","bottomTierImbalance","topTierImbalance"]
+};
+
+var ALGO_LABELS = {
+  regular: "Regular", appeasing: "Appeasing", fairest: "Fairest",
+  semiappeasing: "Semi-appeasing", firstchoice: "First choice", inclusive: "Inclusive",
+  semitryhard: "Semi-tryhard", tryhard: "Tryhard", unknown: "Unknown"
+};
+
+function algoFields(t) {
+  return ALGO_FIELDS[t && t.algo] || ALGO_FIELDS.unknown;
+}
+
+// the inclusive score packs two things together (see TryTeamPermutation_Inclusive):
+// how many other proposals these 8 players already appear in, minus 1000 per
+// player who appears in none. raw values like -1987 are meaningless at a glance,
+// so split it back out. 1000 is far above the max possible sum (8 x 3 = 24), so
+// the split is unambiguous.
+function decodeInclusion(v) {
+  var newlyIncluded = Math.max(0, Math.ceil(-v / 1000));
+  return { newlyIncluded: newlyIncluded, appearances: v + newlyIncluded * 1000 };
+}
+
+function fieldCell(m, key) {
+  var def = FIELD_DEFS[key] || {};
+  var v = m[key];
+  if (def.bool) return v ? '<span class="yes">yes</span>' : '<span class="no">no</span>';
+  if (def.inclusion) {
+    if (typeof v !== "number") return "&mdash;";
+    var d = decodeInclusion(v);
+    return '<span title="raw score ' + v + '">' +
+      '<b>' + d.newlyIncluded + '</b> new<span class="sub"> / ' + d.appearances + ' appearances</span></span>';
+  }
+  return fmtNum(v, def.digits);
+}
+
+// must stay in sync with the "rejectionCounts" object TeamGen_SerializeDebugReport emits
+var REJECT_KEYS = [
+  ["imbalanceCap", "Imbalance cap", "var(--accent)"],
+  ["garbageTier", "Garbage tier", "var(--tier-d)"],
+  ["chaseRule", "Chase rule", "var(--blue)"],
+  ["avoidedHash", "Duplicate of avoided", "var(--tier-b)"],
+  ["noSatisfiedLgs", "No satisfied LGs", "var(--text-dim)"],
+  ["noSatisfiedCyds", "No satisfied CYDs", "var(--text-dim)"]
+];
+
+function rejectBar(counts) {
+  counts = counts || {};
+  var total = 0;
+  REJECT_KEYS.forEach(function (k) { total += (counts[k[0]] || 0); });
+  if (total === 0) return '<div class="empty-note">No rejections recorded.</div>';
+
+  var segs = "", legend = "";
+  REJECT_KEYS.forEach(function (k) {
+    var v = counts[k[0]] || 0;
+    if (v === 0) return;
+    var pct = (v / total * 100);
+    segs += '<span class="reject-seg" style="width:' + pct.toFixed(3) + '%;background:' + k[2] + '" title="' + k[1] + ": " + fmtCount(v) + '"></span>';
+    legend += '<span class="item"><span class="swatch" style="background:' + k[2] + '"></span>' + esc(k[1]) + ' &mdash; ' + fmtCount(v) + '</span>';
+  });
+  return '<div class="reject-bar">' + segs + '</div><div class="reject-legend">' + legend + '</div>';
+}
+
+function milestoneRow(m, isFinal, fields) {
+  var cells = fields.map(function (k) {
+    return '<td class="num">' + fieldCell(m, k) + '</td>';
+  }).join("");
+  var combined = (typeof m.team1RawStrength === "number" && typeof m.team2RawStrength === "number")
+    ? fmtNum(m.team1RawStrength + m.team2RawStrength, 2) : "&mdash;";
+  return '<tr class="' + (isFinal ? "final-row" : "") + '">' +
+    '<td class="seq">' + (isFinal ? "final" : "#" + m.seq) + '</td>' +
+    cells +
+    '<td class="num" title="combined raw strength of both teams">' + combined + '</td>' +
+    '<td>' + teamBlock(m.team1, "Red", "red", m.team1RawStrength, m.team1RelativeStrength) + '</td>' +
+    '<td>' + teamBlock(m.team2, "Blue", "blue", m.team2RawStrength, m.team2RelativeStrength) + '</td>' +
+    '</tr>';
+}
+
+function renderTypeCard(t) {
+  var card = document.createElement("div");
+  card.className = "type-card" + (t.valid ? "" : " invalid");
+  card.dataset.type = t.type;
+
+  var letter = t.letter ? '<span class="letter-badge">?' + esc(t.letter) + '</span>' : "";
+  var f = t.final;
+  var body = t.valid && f ?
+    teamBlock(f.team1, "Red", "red", f.team1RawStrength, f.team1RelativeStrength) +
+    teamBlock(f.team2, "Blue", "blue", f.team2RawStrength, f.team2RelativeStrength) :
+    '<div class="empty-note">No valid split found for this type.</div>';
+
+  // the fields this algorithm ranked on, in tiebreak order, plus combined
+  // strength (always meaningful)
+  var stats = "";
+  if (t.valid && f) {
+    var parts = algoFields(t).map(function (k) {
+      var def = FIELD_DEFS[k] || { label: k };
+      return '<span title="' + esc(def.title || "") + '">' + esc(def.label.toLowerCase()) +
+        ' <b>' + fieldCell(f, k) + '</b></span>';
+    });
+    if (typeof f.team1RawStrength === "number" && typeof f.team2RawStrength === "number") {
+      parts.unshift('<span title="combined raw strength of both teams">total <b>' +
+        fmtNum(f.team1RawStrength + f.team2RawStrength, 2) + '</b></span>');
+    }
+    parts.push('<span>evaluated <b>' + fmtCount(t.totalCandidatesEvaluated) + '</b></span>');
+    stats = '<div class="stat-line">' + parts.join("") + '</div>';
+  }
+
+  card.innerHTML =
+    '<div class="type-card-head"><span class="name">' + esc(t.label || t.type) + '</span>' + letter + '</div>' +
+    body + stats;
+  return card;
+}
+
+function renderTypeDetail(t) {
+  var count = fmtCount(t.totalCandidatesEvaluated) + " evaluated &middot; " + (t.milestones ? t.milestones.length : 0) + " improvement" + ((t.milestones && t.milestones.length === 1) ? "" : "s");
+
+  var fields = algoFields(t);
+  var rows = "";
+  (t.milestones || []).forEach(function (m) { rows += milestoneRow(m, false, fields); });
+  if (t.final) rows += milestoneRow(t.final, true, fields);
+
+  var truncNote = t.milestonesTruncated ? '<div class="truncated-note">+' + fmtCount(t.milestonesTruncated) + ' additional improvements not shown (cap reached).</div>' : "";
+
+  var head = fields.map(function (k, i) {
+    var def = FIELD_DEFS[k] || { label: k };
+    return '<th title="' + esc(def.title || "") + '"><span class="prio">' + (i + 1) + '</span>' +
+      esc(def.label) + '</th>';
+  }).join("");
+
+  var algoNote = '<div class="algo-note">Scored with the <b>' +
+    esc(ALGO_LABELS[t.algo] || t.algo || "unknown") + '</b> comparator. Columns are its tiebreak order: ' +
+    '<span class="prio">1</span> decides first, and later columns only matter when every earlier one ties.</div>';
+
+  var table = rows ?
+    algoNote + '<div class="milestones-wrap"><table class="milestones"><thead><tr>' +
+      '<th>#</th>' + head + '<th title="combined raw strength of both teams">Total</th><th>Red</th><th>Blue</th>' +
+    '</tr></thead><tbody>' + rows + '</tbody></table></div>' + truncNote :
+    '<div class="empty-note">No candidates improved the running best.</div>';
+
+  var el = document.createElement("details");
+  el.className = "type-detail";
+  el.dataset.type = t.type;
+  el.innerHTML =
+    '<summary>' + esc(t.label || t.type) + (t.letter ? ' <span class="letter-badge">?' + esc(t.letter) + '</span>' : "") +
+      '<span class="count">' + count + '</span></summary>' +
+    '<div class="detail-body">' + rejectBar(t.rejectionCounts) + table + '</div>';
+  return el;
+}
+
+function render(data) {
+  // tier dot colors, worst to best -- same TIER_ORDER/tierColorVar the pills use,
+  // so the legend can't drift from what's drawn
+  document.getElementById("tier-legend").innerHTML =
+    '<span class="legend-text"><b>Dot color</b> = rating tier on that position:</span>' +
+    TIER_ORDER.filter(function (t) { return t !== "x"; }).map(function (t) {
+      return '<span class="tier-swatch"><i style="background:' + tierColorVar(t) + '"></i>' + tierLabel(t) + '</span>';
+    }).join("") +
+    '<span class="tier-swatch"><i style="background:' + tierColorVar("x") + '"></i>unrated</span>';
+
+  document.getElementById("subtitle").innerHTML =
+    esc(data.jobKind || "generation") + " &nbsp;&middot;&nbsp; proposal #" + esc(data.proposalNum != null ? data.proposalNum : "?") + " &nbsp;&middot;&nbsp; " + esc(data.generatedAt || "");
+
+  var metaStrip = document.getElementById("meta-strip");
+  var metaItems = [
+    ["Eligible", data.numEligible],
+    ["In-game", data.numIngame],
+    ["Iterations", data.iterationsRun],
+    ["Elapsed", fmtMs(data.elapsedMs)],
+    ["Reroll #", data.rerollNum]
+  ];
+  metaStrip.innerHTML = metaItems.map(function (item) {
+    return '<span class="meta-item"><span class="k">' + esc(item[0]) + '</span><span class="v mono">' + esc(item[1] != null ? item[1] : "&mdash;") + '</span></span>';
+  }).join("");
+
+  var overview = document.getElementById("overview-grid");
+  var detailList = document.getElementById("detail-list");
+  overview.innerHTML = "";
+  detailList.innerHTML = "";
+
+  (data.types || []).forEach(function (t) {
+    overview.appendChild(renderTypeCard(t));
+    detailList.appendChild(renderTypeDetail(t));
+  });
+
+  document.getElementById("footer").innerHTML =
+    "seed " + esc(data.seedBase != null ? data.seedBase : "?") +
+    " &nbsp;&middot;&nbsp; best iteration " + esc(data.bestIterationIndex != null ? data.bestIterationIndex : "?") +
+    " of " + esc(data.iterationsRun != null ? data.iterationsRun : "?");
+}
+
+// ---- search filter ----
+document.getElementById("search").addEventListener("input", function (e) {
+  var q = e.target.value.trim().toLowerCase();
+  var cards = document.querySelectorAll(".type-card, details.type-detail");
+  cards.forEach(function (el) {
+    if (!q) {
+      el.classList.remove("hidden-by-search");
+      el.querySelectorAll("mark").forEach(function (m) {
+        m.outerHTML = m.textContent;
+      });
+      return;
+    }
+    var text = el.textContent.toLowerCase();
+    el.classList.toggle("hidden-by-search", text.indexOf(q) === -1);
+  });
+});
+
+try {
+  render(/*__TEAMGEN_DATA__*/{"types":[]}/*__END_TEAMGEN_DATA__*/);
+} catch (e) {
+  document.body.innerHTML = '<pre style="padding:24px;white-space:pre-wrap;">Failed to render report: ' + esc(e && e.message) + '</pre>';
+}
+</script>
+</body>
+</html>

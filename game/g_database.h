@@ -468,7 +468,9 @@ typedef struct {
 
 qboolean FinishedPugPlayerMatches(genericNode_t *node, void *userData);
 
-void DB_GetAllTtlHoldRanks(void);
+// ttlhold ranks are loaded once per map by G_DBInitializePugStatsCache (recalculated
+// on server start or after a pug, otherwise read from the metadata cache), so there is
+// no per-dispatch refresh entry point here on purpose.
 int DB_LookupTtlHoldRank(int accountId);
 
 #endif //G_DATABASE_H

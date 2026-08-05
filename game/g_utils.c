@@ -3212,6 +3212,42 @@ void FisherYatesShuffle(void *firstItem, size_t numItems, size_t itemSize) {
 	}
 }
 
+void GPRNG_Seed(gprng_t *rng, unsigned int seed) {
+	if (!rng)
+		return;
+	// xorshift32 has a fixed point at 0, so never let the seed land there
+	rng->state = seed ? seed : 0x9E3779B9u;
+}
+
+unsigned int GPRNG_Next(gprng_t *rng) {
+	unsigned int x = rng->state;
+	x ^= x << 13;
+	x ^= x >> 17;
+	x ^= x << 5;
+	rng->state = x;
+	return x;
+}
+
+// explicit-state twin of FisherYatesShuffle -- identical logic, but draws from a caller-owned
+// gprng_t instead of the global libc RNG, so it's safe to call concurrently from teamgen workers
+void FisherYatesShuffle_R(void *firstItem, size_t numItems, size_t itemSize, gprng_t *rng) {
+	if (!firstItem || !numItems || !itemSize || !rng)
+		return;
+
+	for (unsigned int i = numItems - 1; i >= 1; i--) {
+		int j = GPRNG_Next(rng) % (i + 1);
+
+		byte *iPtr = (byte *)(((unsigned int)firstItem) + (i * itemSize));
+		byte *jPtr = (byte *)(((unsigned int)firstItem) + (j * itemSize));
+
+		byte *temp = malloc(itemSize);
+		memcpy(temp, iPtr, itemSize);
+		memcpy(iPtr, jPtr, itemSize);
+		memcpy(jPtr, temp, itemSize);
+		free(temp);
+	}
+}
+
 void FormatNumberToStringWithCommas(uint64_t n, char *out, size_t outSize) {
 	char *buf = calloc(outSize, sizeof(char));
 	char *p;
@@ -3228,12 +3264,12 @@ void FormatNumberToStringWithCommas(uint64_t n, char *out, size_t outSize) {
 	free(buf);
 }
 
-#define IsX(s)									(s == 'x' || s == 'X' || s == '×')
-#define IsZ(s)									(s == 'z' || s == 'Z' || s == 'Ž' || s == 'ž')
-#define IsS(s)									(s == 's' || s == 'S' || s == '$' || s == '5' || s == 'Š' || s == 'š' || s == '§')
-#define IsP(s)									(s == 'p' || s == 'P' || s == '¶' || s == 'Þ' || s == 'þ')
-#define IsE(s)									(s == 'e' || s == 'E' || s == '3' || s == '€' || s == '£' || s == 'È' || s == 'É' || s == 'Ê' || s == 'Ë' || s == 'æ' || s == 'è' || s == 'é' || s == 'ê' || s == 'ë')
-#define IsC(s)									(s == 'c' || s == 'C' || s == '<' || s == 'Œ' || s == 'œ' || s == '¢' || s == '©' || s == 'Ç' || s == 'ç' || s == 'k')
+#define IsX(s)									(s == 'x' || s == 'X' || s == '\xd7')
+#define IsZ(s)									(s == 'z' || s == 'Z' || s == '\x8e' || s == '\x9e')
+#define IsS(s)									(s == 's' || s == 'S' || s == '$' || s == '5' || s == '\x8a' || s == '\x9a' || s == '\xa7')
+#define IsP(s)									(s == 'p' || s == 'P' || s == '\xb6' || s == '\xde' || s == '\xfe')
+#define IsE(s)									(s == 'e' || s == 'E' || s == '3' || s == '\x80' || s == '\xa3' || s == '\xc8' || s == '\xc9' || s == '\xca' || s == '\xcb' || s == '\xe6' || s == '\xe8' || s == '\xe9' || s == '\xea' || s == '\xeb')
+#define IsC(s)									(s == 'c' || s == 'C' || s == '<' || s == '\x8c' || s == '\x9c' || s == '\xa2' || s == '\xa9' || s == '\xc7' || s == '\xe7' || s == 'k')
 #define IsPunctuation(s)						(s < 48 || s > 57 && s < 65 || s > 90 && s < 97 || s > 122 && s < 138 || s > 138 && s < 154)
 
 // detect if a string is "spec" or any of a ton of variations on it
@@ -3272,7 +3308,7 @@ static qboolean IsInvalidSpeWord(char *s) {
 
 // count number of spec-ish words; if you have two of these then you are a spec
 static char *partialSpecWords[] = {
-	"spec", "spex", "spe×", "afk", "bbl", "cookin", "food", "eatin", "5min", "5 min", "1min", "1 min", "0min", "0 min", "1hr", "1 hr", "1hour", "1 hour", "minimized", "dinner",
+	"spec", "spex", "spe\xd7", "afk", "bbl", "cookin", "food", "eatin", "5min", "5 min", "1min", "1 min", "0min", "0 min", "1hr", "1 hr", "1hour", "1 hour", "minimized", "dinner",
 	"lunch", "breakfast", "snack", "forawhile", "for a while", "forabit", "for a bit", "foranhour", "for an hour", "foramin", "for a min", "supper", "later", "minutes", "hours",
 	"back in", "working", "studying", NULL
 };
@@ -3313,7 +3349,7 @@ static qboolean ContainsConfirmedNotSpecWord(char *s) {
 
 // does the client have a word in his name that makes him definitely a spec?
 static char *confirmedSpecWords[] = {
-	"elo BOT", "speccin", "xpeccin", "×peccin", "zpeccin", "spectat", "xpectat", "×pectat", "zpectat", "@spec", "@xpec", "@×pec", "@zpec",
+	"elo BOT", "speccin", "xpeccin", "\xd7peccin", "zpeccin", "spectat", "xpectat", "\xd7pectat", "zpectat", "@spec", "@xpec", "@\xd7pec", "@zpec",
 	"@afk", "@bbl", "notpickabl", "not pickabl", "'tpickme", "nt pick me", "notplay", "not play", "notpug", "not pug", "@food", "@breakfast", "@lunch", "@dinner", "@supper", "@snack",
 	"@eating", "@nothere", "speconly", "spec only", "backlater", "back later", "playlater", "play later", "puglater", "pug later", "skillofspecoldwoman",
 	"obserwator", "rotatceps", "specman", "ragespec", "onlyspec", "speconly", "specafew", "specafk", "afkspec", "afkandspec", "specandafk", "speccy",
@@ -3355,7 +3391,7 @@ qboolean IsSpecName(const char *name) {
 		return qtrue;
 
 	char *p = NULL;
-	static char specWordFirstLetters[] = { 's', 'S', '$', '5', 'Š', 'š', '§', 'x', 'X', '×', 'z', 'Z', 'Ž', 'ž', '\0' };
+	static char specWordFirstLetters[] = { 's', 'S', '$', '5', '\x8a', '\x9a', '\xa7', 'x', 'X', '\xd7', 'z', 'Z', '\x8e', '\x9e', '\0' };
 
 	// loop to check for all possible names like spec, $peeeeeX, etc
 	for (int i = 0; specWordFirstLetters[i]; i++) {

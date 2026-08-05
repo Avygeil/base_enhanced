@@ -2502,9 +2502,9 @@ void G_SayTo( gentity_t *ent, gentity_t *other, int mode, int color, const char 
 		if (filter) {
 			filter += 4;
 			if (*filter == 'a')
-				*filter = 'ã';
+				*filter = '\xe3';
 			else if (*filter == 'A')
-				*filter = 'Ã';
+				*filter = '\xc3';
 		}
 	}
 
@@ -2994,35 +2994,35 @@ static const char charMap[256] = {
 	/* 0x9F */ 0x9F,  // '\x9F'
 
 	/* 0xA0 */ 0xA0,  // '\xA0'
-	/* 0xA1 */ 'i',  // 'í'
-	/* 0xA2 */ 'c',  // 'ó'
-	/* 0xA3 */ 'e',  // 'ú'
-	/* 0xA4 */ 'o',  // 'ñ'
-	/* 0xA5 */ 'y',  // 'Ñ'
-	/* 0xA6 */ 'i',  // 'ª'
-	/* 0xA7 */ 's',  // 'º'
+	/* 0xA1 */ 'i',  // '\xed'
+	/* 0xA2 */ 'c',  // '\xf3'
+	/* 0xA3 */ 'e',  // '\xfa'
+	/* 0xA4 */ 'o',  // '\xf1'
+	/* 0xA5 */ 'y',  // '\xd1'
+	/* 0xA6 */ 'i',  // '\xaa'
+	/* 0xA7 */ 's',  // '\xba'
 
-	/* 0xA8 */ 0xA8,  // '¿'
-	/* 0xA9 */ 'c',  // '¬'
-	/* 0xAA */ 'a',  // '¬'
-	/* 0xAB */ 0xAB,  // '½'
-	/* 0xAC */ 0xAC,  // '¼'
-	/* 0xAD */ 0xAD,  // '¡'
-	/* 0xAE */ 'r',  // '«'
-	/* 0xAF */ 0xAF,  // '»'
+	/* 0xA8 */ 0xA8,  // '\xbf'
+	/* 0xA9 */ 'c',  // '\xac'
+	/* 0xAA */ 'a',  // '\xac'
+	/* 0xAB */ 0xAB,  // '\xbd'
+	/* 0xAC */ 0xAC,  // '\xbc'
+	/* 0xAD */ 0xAD,  // '\xa1'
+	/* 0xAE */ 'r',  // '\xab'
+	/* 0xAF */ 0xAF,  // '\xbb'
 
-	/* 0xB0 */ 'o',  // '¦'
-	/* 0xB1 */ 't',  // '¦'
-	/* 0xB2 */ '2',  // '¦'
-	/* 0xB3 */ '3',  // '¦'
-	/* 0xB4 */ 0xB4,  // '¦'
-	/* 0xB5 */ 'u',  // '¦'
-	/* 0xB6 */ 'p',  // '¦'
+	/* 0xB0 */ 'o',  // '\xa6'
+	/* 0xB1 */ 't',  // '\xa6'
+	/* 0xB2 */ '2',  // '\xa6'
+	/* 0xB3 */ '3',  // '\xa6'
+	/* 0xB4 */ 0xB4,  // '\xa6'
+	/* 0xB5 */ 'u',  // '\xa6'
+	/* 0xB6 */ 'p',  // '\xa6'
 	/* 0xB7 */ 0xB7,  // '+'
 
 	/* 0xB8 */ 0xB8,  // '+'
-	/* 0xB9 */ '1',  // '¦'
-	/* 0xBA */ 'o',  // '¦'
+	/* 0xB9 */ '1',  // '\xa6'
+	/* 0xBA */ 'o',  // '\xa6'
 	/* 0xBB */ 0xBB,  // '+'
 	/* 0xBC */ 0xBC,  // '+'
 	/* 0xBD */ 0xBD,  // '+'
@@ -3035,14 +3035,14 @@ static const char charMap[256] = {
 	/* 0xC3 */ 'a',    // '+'
 	/* 0xC4 */ 'e',    // '-'
 	/* 0xC5 */ 'a',    // '+'
-	/* 0xC6 */ 'a',    // '¦'
-	/* 0xC7 */ 'c',    // '¦'
+	/* 0xC6 */ 'a',    // '\xa6'
+	/* 0xC7 */ 'c',    // '\xa6'
 
 	/* 0xC8 */ 'e',    // '+'
 	/* 0xC9 */ 'e',    // '+'
 	/* 0xCA */ 'e',    // '-'
 	/* 0xCB */ 'e',    // '-'
-	/* 0xCC */ 'i',    // '¦'
+	/* 0xCC */ 'i',    // '\xa6'
 	/* 0xCD */ 'i',    // '-'
 	/* 0xCE */ 'i',    // '+'
 	/* 0xCF */ 'i',    // '-'
@@ -3059,19 +3059,19 @@ static const char charMap[256] = {
 	/* 0xD8 */ 'o',    // '+'
 	/* 0xD9 */ 'u',    // '+'
 	/* 0xDA */ 'u',    // '+'
-	/* 0xDB */ 'u',    // '¦'
+	/* 0xDB */ 'u',    // '\xa6'
 	/* 0xDC */ 'u',    // '_'
-	/* 0xDD */ 'y',    // '¦'
-	/* 0xDE */ 'p',  // '¦'
-	/* 0xDF */ 'b',  // '¯'
+	/* 0xDD */ 'y',    // '\xa6'
+	/* 0xDE */ 'p',  // '\xa6'
+	/* 0xDF */ 'b',  // '\xaf'
 
 	/* 0xE0 */ 'a',    // 'a'
-	/* 0xE1 */ 'a',    // 'ß'
+	/* 0xE1 */ 'a',    // '\xdf'
 	/* 0xE2 */ 'a',    // 'G'
 	/* 0xE3 */ 'a',    // 'p'
 	/* 0xE4 */ 'e',    // 'S'
 	/* 0xE5 */ 'a',    // 's'
-	/* 0xE6 */ 'a',    // 'µ'
+	/* 0xE6 */ 'a',    // '\xb5'
 	/* 0xE7 */ 'c',    // 't'
 
 	/* 0xE8 */ 'e',    // 'F'
@@ -3084,22 +3084,22 @@ static const char charMap[256] = {
 	/* 0xEF */ 'i',    // 'n'
 
 	/* 0xF0 */ 'o',    // '='
-	/* 0xF1 */ 'n',    // '±'
+	/* 0xF1 */ 'n',    // '\xb1'
 	/* 0xF2 */ 'o',    // '='
 	/* 0xF3 */ 'o',    // '='
 	/* 0xF4 */ 'o',    // '('
 	/* 0xF5 */ 'o',    // ')'
-	/* 0xF6 */ 'o',    // '÷'
-	/* 0xF7 */ 't',  // '˜'
+	/* 0xF6 */ 'o',    // '\xf7'
+	/* 0xF7 */ 't',  // '\x98'
 
-	/* 0xF8 */ 'o',    // '°'
-	/* 0xF9 */ 'u',    // '·'
-	/* 0xFA */ 'u',    // '·'
+	/* 0xF8 */ 'o',    // '\xb0'
+	/* 0xF9 */ 'u',    // '\xb7'
+	/* 0xFA */ 'u',    // '\xb7'
 	/* 0xFB */ 'u',    // 'v'
 	/* 0xFC */ 'u',    // 'n'
-	/* 0xFD */ 'y',    // '²'
-	/* 0xFE */ 'p',  // '¦'
-	/* 0xFF */ 'y'   // ' '
+	/* 0xFD */ 'y',    // '\xb2'
+	/* 0xFE */ 'p',  // '\xa6'
+	/* 0xFF */ 'y'   // '\xa0'
 };
 
 static qboolean IsSlur(const char *start, const char *slurFromList) {
@@ -4516,9 +4516,9 @@ void Cmd_CallVote_f( gentity_t *ent, int pause ) {
 			if (filter) {
 				filter += 4;
 				if (*filter == 'a')
-					*filter = 'ã';
+					*filter = '\xe3';
 				else if (*filter == 'A')
-					*filter = 'Ã';
+					*filter = '\xc3';
 			}
 		}
 
@@ -8221,14 +8221,23 @@ static void Cmd_Rating_f(gentity_t *ent) {
 			OutOfBandPrint(clientNum, "Usage: rating reset [pos]\n");
 			return;
 		}
-		if (G_DBDeleteAllRatingsForPosition(ent->client->account->id, pos))
+		if (G_DBDeleteAllRatingsForPosition(ent->client->account->id, pos)) {
 			OutOfBandPrint(clientNum, va("Deleted all %s%sratings.\n", pos ? NameForPos(pos) : "", pos ? " " : ""));
+			// this rater's ratings feed the averages G_DBGetPlayerRatings computes -- refresh level.ratingList
+			// now rather than leaving it stale, and stop anything in flight, since its snapshot predates this
+			// change and would otherwise get cached/applied with outdated ratings
+			TeamGen_AbortAndReapAllJobs();
+			G_DBGetPlayerRatings();
+		}
 		else
 			OutOfBandPrint(clientNum, va("Error deleting all %s%sratings!\n", pos ? NameForPos(pos) : "", pos ? " " : ""));
 	}
 	else if (!Q_stricmp(arg1, "resetall")) {
-		if (G_DBDeleteAllRatingsForPosition(ent->client->account->id, CTFPOSITION_UNKNOWN))
+		if (G_DBDeleteAllRatingsForPosition(ent->client->account->id, CTFPOSITION_UNKNOWN)) {
 			OutOfBandPrint(clientNum, "Deleted all ratings.\n");
+			TeamGen_AbortAndReapAllJobs();
+			G_DBGetPlayerRatings();
+		}
 		else
 			OutOfBandPrint(clientNum, "Error deleting all ratings!\n");
 	}
@@ -8419,8 +8428,11 @@ static void Cmd_Rating_f(gentity_t *ent) {
 			return;
 		}
 
-		if (G_DBSetPlayerRating(ent->client->account->id, acc.id, pos, tier))
+		if (G_DBSetPlayerRating(ent->client->account->id, acc.id, pos, tier)) {
 			OutOfBandPrint(clientNum, "Set ^5%s^7 %s to %s^7.\n", acc.name, NameForPos(pos), PlayerRatingToString(tier));
+			TeamGen_AbortAndReapAllJobs();
+			G_DBGetPlayerRatings();
+		}
 		else
 			OutOfBandPrint(clientNum, "Error setting ^5%s^7 %s to %s^7.\n", acc.name, NameForPos(pos), PlayerRatingToString(tier));
 	}
@@ -8443,8 +8455,11 @@ static void Cmd_Rating_f(gentity_t *ent) {
 			return;
 		}
 
-		if (G_DBRemovePlayerRating(ent->client->account->id, acc.id, pos))
+		if (G_DBRemovePlayerRating(ent->client->account->id, acc.id, pos)) {
 			OutOfBandPrint(clientNum, "Removed rating for %s on %s.\n", acc.name, NameForPos(pos));
+			TeamGen_AbortAndReapAllJobs();
+			G_DBGetPlayerRatings();
+		}
 		else
 			OutOfBandPrint(clientNum, "Error removing rating for ^5%s^7 %s (they may have already been unrated).\n", acc.name, NameForPos(pos));
 	}

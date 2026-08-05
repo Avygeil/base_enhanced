@@ -584,6 +584,15 @@ vmCvar_t	g_vote_teamgen_bImbalanceCapWithoutReroll;
 vmCvar_t	g_vote_teamgen_acdImbalanceCapWithoutReroll;
 vmCvar_t	g_vote_teamgen_imbalanceCapRaisePerReroll;
 vmCvar_t	g_vote_teamgen_dynamicVoteRequirement;
+
+vmCvar_t	g_teamgen_asyncEnabled;
+vmCvar_t	g_teamgen_workerThreads;
+vmCvar_t	g_teamgen_workerThreadNice;
+vmCvar_t	g_teamgen_debugLog;
+vmCvar_t	g_teamgen_threadDebugChat;
+vmCvar_t	g_vote_teamgen_rerollLookaheadEnabled;
+vmCvar_t	g_vote_teamgen_speculativeRosterPrecomputeEnabled;
+
 vmCvar_t	g_vote_freezeUntilVote;
 vmCvar_t	g_vote_lessPlayedMapsDisfavoredInRunoffEliminations;
 vmCvar_t	g_vote_fadeToBlack;
@@ -1213,13 +1222,13 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_teamgen_minSecsSinceIntermission, "g_vote_teamgen_minSecsSinceIntermission", "30", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_enableAppeasing, "g_vote_teamgen_enableAppeasing", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_enableFirstChoice, "g_vote_teamgen_enableFirstChoice", "1", CVAR_ARCHIVE, 0, qfalse },
-	{ &g_vote_teamgen_enableInclusive, "g_vote_teamgen_enableInclusive", "1", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_teamgen_enableInclusive, "g_vote_teamgen_enableInclusive", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
 	{ &g_vote_teamgen_remindPositions, "g_vote_teamgen_remindPositions", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_remindToSetPositions, "g_vote_teamgen_remindToSetPositions", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_announceBreak, "g_vote_teamgen_announceBreak", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_autoRestartOnMapChange, "g_vote_teamgen_autoRestartOnMapChange", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_autoMapVoteSeconds, "g_vote_teamgen_autoMapVoteSeconds", "60", CVAR_ARCHIVE, 0, qfalse },
-	{ &g_vote_teamgen_iterate, "g_vote_teamgen_iterate", "1", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_teamgen_iterate, "g_vote_teamgen_iterate", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse },
 	{ &g_vote_teamgen_preventStartDuringPug, "g_vote_teamgen_preventStartDuringPug", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_banLastPlayedPermutation, "g_vote_teamgen_banLastPlayedPermutation", "1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_enableBarVote, "g_vote_teamgen_enableBarVote", "5", CVAR_ARCHIVE, 0, qfalse },
@@ -1236,6 +1245,16 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_vote_teamgen_acdImbalanceCapWithoutReroll, "g_vote_teamgen_acdImbalanceCapWithoutReroll", "0.0182", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_imbalanceCapRaisePerReroll, "g_vote_teamgen_imbalanceCapRaisePerReroll", "0.005", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_teamgen_dynamicVoteRequirement, "g_vote_teamgen_dynamicVoteRequirement", "1", CVAR_ARCHIVE, 0, qfalse },
+
+	// async team-generation infrastructure (see g_teamgen.c)
+	{ &g_teamgen_asyncEnabled, "g_teamgen_asyncEnabled", "1", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_teamgen_workerThreads, "g_teamgen_workerThreads", "0", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_teamgen_workerThreadNice, "g_teamgen_workerThreadNice", "10", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_teamgen_debugLog, "g_teamgen_debugLog", "0", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_teamgen_threadDebugChat, "g_teamgen_threadDebugChat", "0", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_teamgen_rerollLookaheadEnabled, "g_vote_teamgen_rerollLookaheadEnabled", "1", CVAR_ARCHIVE, 0, qfalse },
+	{ &g_vote_teamgen_speculativeRosterPrecomputeEnabled, "g_vote_teamgen_speculativeRosterPrecomputeEnabled", "1", CVAR_ARCHIVE, 0, qfalse },
+
 	{ &g_vote_freezeUntilVote, "g_vote_freezeUntilVote", "-1", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_lessPlayedMapsDisfavoredInRunoffEliminations, "g_vote_lessPlayedMapsDisfavoredInRunoffEliminations", "10", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_vote_fadeToBlack, "g_vote_fadeToBlack", "1", CVAR_ARCHIVE, 0, qfalse },
@@ -2444,6 +2463,7 @@ void G_InitGame( int levelTime, int randomSeed, int restart, void *serverDbPtr )
 	}
 
 	InitSlurs();
+	TeamGen_LoadDebugTemplate();
 
 	if (g_lockdown.integer)
 		Com_Printf("^3Warning: g_lockdown is enabled!^7\n");
@@ -2470,6 +2490,10 @@ G_ShutdownGame
 =================
 */
 void G_ShutdownGame( int restart ) {
+	// join any in-flight coordinator threads before tearing the module down -- must happen before
+	// anything below frees the state their results would be applied against
+	TeamGenAsync_Shutdown();
+
 	int numRedPlayers = 0, numBluePlayers = 0;
 	CountPlayers(NULL, &numRedPlayers, &numBluePlayers, NULL, NULL, NULL, NULL);
 	trap_Cvar_Set("g_numRedPlayers", va("%d", numRedPlayers));
@@ -3694,6 +3718,11 @@ void BeginIntermission(void) {
 		return;		// already active
 	}
 
+	// intermission is one of two reliable early warnings (the other being a decided map vote) that this
+	// module is about to be shut down for a map change -- stop background teamgen work now, since we
+	// have several seconds of notice. latched, so precompute can't re-arm during those seconds.
+	TeamGen_SetMapChangePending();
+
 	trap_Cvar_Set("g_wasRestarted", "0");
 	trap_Cvar_Set("g_wasIntermission", "1");
 
@@ -3810,6 +3839,7 @@ void BeginIntermission(void) {
 				AnnounceStreaksAtIntermission();
 				G_DBSetMetadata("shouldReloadStreaks", "1");
 				G_DBSetMetadata("shouldReloadMostPlayed", "1");
+				G_DBSetMetadata("shouldReloadTtlHold", "1");
 			}
 		}
 #else
@@ -3828,6 +3858,7 @@ void BeginIntermission(void) {
 				G_DBSetMetadata("shouldReloadPlayerPugStats", "2");
 				G_DBSetMetadata("shouldReloadStreaks", "1");
 				G_DBSetMetadata("shouldReloadMostPlayed", "1");
+				G_DBSetMetadata("shouldReloadTtlHold", "1");
 
 				if (level.teamScores[TEAM_RED] > level.teamScores[TEAM_BLUE])
 					level.incrementStreak[TEAM_RED] = qtrue;
@@ -5504,6 +5535,13 @@ void CheckVote( void ) {
 		}
 
 		g_entities[level.lastVotingClient].client->lastCallvoteTime = level.time;
+
+		// a direct "map"/"devmap" vote just passed and executes in a few seconds -- advance notice that this
+		// module is going away, so stop background teamgen work now rather than at the last moment.
+		// (level.voteExecuteTime is only non-zero here on a pass, and this block runs once per vote.)
+		if (level.voteExecuteTime && (!Q_stricmpn(level.voteString, "map ", 4) || !Q_stricmpn(level.voteString, "devmap ", 7))) {
+			TeamGen_SetMapChangePending();
+		}
 	} else {
 		// special handler for multiple choices voting
 		if (level.voteBanPhase) {
@@ -6029,6 +6067,22 @@ static int GetCurrentRestartCountdown(void) {
 			return num;
 	}
 	return 0;
+}
+
+// restart countdowns (g_waitForAFK's auto-restart, or a plain "map_restart <N>") are a 4th advance
+// warning that this module may be shutting down, alongside the intermission/map-vote hooks -- but
+// unlike those one-shot events a countdown can reverse (AFK detection cancels it, then it resumes),
+// so this uses the resumable gate rather than an unconditional stop. reads the same CS_WARMUP state
+// WaitForAFKs polls, so must be called AFTER WaitForAFKs() each frame to see this frame's
+// fully-resolved countdown.
+#define TEAMGEN_RESTART_ABORT_THRESHOLD_MS 1900
+static void TeamGen_CheckRestartCountdownForThreads(void) {
+	if (g_gametype.integer != GT_CTF)
+		return;
+
+	int countdown = GetCurrentRestartCountdown();
+	qboolean shouldSuppress = countdown != 0 && (countdown - level.time) < TEAMGEN_RESTART_ABORT_THRESHOLD_MS;
+	TeamGen_SetDispatchSuppressed(shouldSuppress);
 }
 
 static void WaitForAFKs(void) {
@@ -7005,6 +7059,10 @@ void G_RunFrame( int levelTime ) {
 
 	if (level.shouldAnnounceBreak && level.time - level.startTime >= 3000)
 		TeamGen_AnnounceBreak();
+
+	// pick up any teamgen jobs that finished on their coordinator thread since last frame. before the
+	// queued-message flush below, so messages a completing job queues still go out this frame.
+	TeamGenAsync_PollCompletedJobs();
 
 	// print any queued messages
 	if (level.queuedServerMessagesList.size > 0) {
@@ -8287,6 +8345,7 @@ void G_RunFrame( int levelTime ) {
 #endif
 
 	WaitForAFKs();
+	TeamGen_CheckRestartCountdownForThreads();
 
 	PeriodicallyRecalculateTeamBalance();
 

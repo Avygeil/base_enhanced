@@ -6553,6 +6553,87 @@ static int GetCachedMostPlayedPositions(void) {
 	return accountCount;
 }
 
+typedef struct {
+	node_t	node;
+	int		accountId;
+	int		ttlholdRank;
+} ttlholdEntry_t;
+
+qboolean TtlHoldAccountIdMatches(genericNode_t *node, void *userData) {
+	ttlholdEntry_t *a = (ttlholdEntry_t *)node;
+	int b = *((int *)userData);
+	return a->accountId == b;
+}
+
+static const char *sqlGetAllTtlHoldRanks =
+"SELECT account_id, avg_ttlhold_rank "
+"FROM   accountstats "
+"WHERE  pos = 3 "
+"  AND  avg_ttlhold_rank IS NOT NULL;";
+
+// returns the number of accounts loaded
+static int RecalculateAndRecacheTtlHoldRanks(void) {
+	ListClear(&level.ttlholdList);
+	G_DBDeleteMetadataStartingWith("ttlhold_");
+
+	int accountCount = 0;
+	sqlite3_stmt *statement;
+	int rc = trap_sqlite3_prepare_v2(dbPtr, sqlGetAllTtlHoldRanks, -1, &statement, 0);
+	if (rc != SQLITE_OK) {
+		if (statement)
+			trap_sqlite3_finalize(statement);
+		return 0;
+	}
+
+	rc = trap_sqlite3_step(statement);
+	while (rc == SQLITE_ROW) {
+		int accountId = sqlite3_column_int(statement, 0);
+		int rank = sqlite3_column_int(statement, 1);
+
+		// no ListFind-before-insert here (unlike G_DBGetPlayerRatings, which legitimately merges several
+		// position-rows per account) -- the "pos = 3" filter means this query can never return the same
+		// account_id twice, and the list was just cleared. the old find-then-add was O(n^2) for no reason
+		// (measured 300+ms for 50 rows).
+		ttlholdEntry_t *found = ListAdd(&level.ttlholdList, sizeof(ttlholdEntry_t));
+		found->accountId = accountId;
+		found->ttlholdRank = rank;
+		G_DBSetMetadata(va("ttlhold_%d", accountId), va("%d", rank));
+		accountCount++;
+
+		rc = trap_sqlite3_step(statement);
+	}
+
+	trap_sqlite3_finalize(statement);
+	return accountCount;
+}
+
+// expects metadata keys in the format "ttlhold_<accountId>" and returns the number of accounts loaded.
+static int GetCachedTtlHoldRanks(void) {
+	ListClear(&level.ttlholdList);
+	int accountCount = 0;
+	sqlite3_stmt *statement;
+	const char *sqlCached = "SELECT key, value FROM metadata WHERE key LIKE 'ttlhold_%';";
+	trap_sqlite3_prepare_v2(dbPtr, sqlCached, -1, &statement, 0);
+	int rc = trap_sqlite3_step(statement);
+	while (rc == SQLITE_ROW) {
+		const char *key = (const char *)sqlite3_column_text(statement, 0);
+		const char *value = (const char *)sqlite3_column_text(statement, 1);
+		int accountId;
+		if (sscanf(key, "ttlhold_%d", &accountId) != 1) {
+			rc = trap_sqlite3_step(statement);
+			Com_Printf("GetCachedTtlHoldRanks: error parsing %s value %s\n", key, value);
+			continue;
+		}
+		ttlholdEntry_t *found = ListAdd(&level.ttlholdList, sizeof(ttlholdEntry_t));
+		found->accountId = accountId;
+		found->ttlholdRank = atoi(value);
+		accountCount++;
+		rc = trap_sqlite3_step(statement);
+	}
+	trap_sqlite3_finalize(statement);
+	return accountCount;
+}
+
 // we recalculate everything from scratch if and only if the server has just been restarted and there are changes actually pending (shouldReloadPlayerPugStats metadata is set)
 // otherwise, we just load the cached strings from the database for speed
 void G_DBInitializePugStatsCache(void) {
@@ -6729,6 +6810,31 @@ void G_DBInitializePugStatsCache(void) {
 			Com_Printf("Failed to load cached accounts' most played positions from db. Instead recalculated %d accounts' most played positions from db (took %d ms)\n",
 				recalculatedMostPlayed, trap_Milliseconds() - lastTime);
 			G_DBSetMetadata("shouldReloadMostPlayed", "0");
+			lastTime = trap_Milliseconds();
+		}
+	}
+
+	// ttlhold ranks (used by the team generator)
+	int reloadTtlHold = G_DBGetMetadataInteger("shouldReloadTtlHold");
+	if (reloadTtlHold || recalc || serverStartup) {
+		const int recalculatedTtlHold = RecalculateAndRecacheTtlHoldRanks();
+		Com_Printf("Recalculated %d accounts' ttlhold ranks from db (took %d ms)\n",
+			recalculatedTtlHold, trap_Milliseconds() - lastTime);
+		G_DBSetMetadata("shouldReloadTtlHold", "0");
+		lastTime = trap_Milliseconds();
+	}
+	else {
+		const int cachedTtlHold = GetCachedTtlHoldRanks();
+		if (cachedTtlHold) {
+			Com_Printf("Loaded %d cached accounts' ttlhold ranks from db (took %d ms)\n",
+				cachedTtlHold, trap_Milliseconds() - lastTime);
+			lastTime = trap_Milliseconds();
+		}
+		else {
+			const int recalculatedTtlHold = RecalculateAndRecacheTtlHoldRanks();
+			Com_Printf("Failed to load cached accounts' ttlhold ranks from db. Instead recalculated %d accounts' ttlhold ranks from db (took %d ms)\n",
+				recalculatedTtlHold, trap_Milliseconds() - lastTime);
+			G_DBSetMetadata("shouldReloadTtlHold", "0");
 			lastTime = trap_Milliseconds();
 		}
 	}
@@ -8462,59 +8568,6 @@ qboolean G_DBGetWinrateBetweenDates(double startTime,
 	*pugsOut = 0;
 	*winsOut = 0;
 	return qfalse;
-}
-
-typedef struct {
-	node_t	node;
-	int		accountId;
-	int		ttlholdRank;
-} ttlholdEntry_t;
-
-qboolean TtlHoldAccountIdMatches(genericNode_t *node, void *userData) {
-	ttlholdEntry_t *a = (ttlholdEntry_t *)node;
-	int b = *((int *)userData);
-	return a->accountId == b;
-}
-
-static const char *sqlGetAllTtlHoldRanks =
-"SELECT account_id, avg_ttlhold_rank "
-"FROM   accountstats "
-"WHERE  pos = 3 "
-"  AND  avg_ttlhold_rank IS NOT NULL;";
-
-void DB_GetAllTtlHoldRanks(void) {
-	int start = trap_Milliseconds();
-	ListClear(&level.ttlholdList);
-
-	sqlite3_stmt *stmt;
-	int rc = trap_sqlite3_prepare_v2(dbPtr, sqlGetAllTtlHoldRanks, -1, &stmt, 0);
-	if (rc != SQLITE_OK) {
-		if (stmt)
-			trap_sqlite3_finalize(stmt);
-		return;
-	}
-
-	rc = trap_sqlite3_step(stmt);
-	while (rc == SQLITE_ROW) {
-		int accountId = sqlite3_column_int(stmt, 0);
-		int rank = sqlite3_column_int(stmt, 1);
-
-		ttlholdEntry_t findMe;
-		findMe.accountId = accountId;
-		ttlholdEntry_t *found = ListFind(&level.ttlholdList, TtlHoldAccountIdMatches, &findMe.accountId, NULL);
-		if (!found) {
-			found = ListAdd(&level.ttlholdList, sizeof(ttlholdEntry_t));
-			found->accountId = accountId;
-		}
-
-		found->ttlholdRank = rank;
-
-		rc = trap_sqlite3_step(stmt);
-	}
-
-	trap_sqlite3_finalize(stmt);
-	int finish = trap_Milliseconds();
-	Com_Printf("Loaded %d ttlhold ranks (took %d ms)\n", level.ttlholdList.size, finish - start);
 }
 
 int DB_LookupTtlHoldRank(int accountId) {

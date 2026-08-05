@@ -48,6 +48,7 @@
     <ClInclude Include="g_ICARUScb.h" />
     <ClInclude Include="g_local.h" />
     <ClInclude Include="g_nav.h" />
+    <ClInclude Include="g_thread.h" />
     <ClInclude Include="g_public.h" />
     <ClInclude Include="g_team.h" />
     <ClInclude Include="holocronicons.h" />
@@ -130,6 +131,7 @@
     <ClCompile Include="g_target.c" />
     <ClCompile Include="g_team.c" />
     <ClCompile Include="g_teamgen.c" />
+    <ClCompile Include="g_thread.c" />
     <ClCompile Include="g_timer.c" />
     <ClCompile Include="g_transfers.c" />
     <ClCompile Include="g_trigger.c" />

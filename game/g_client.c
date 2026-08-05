@@ -5868,6 +5868,9 @@ void ClientDisconnect( int clientNum ) {
 				}
 				if (numValid <= 0) { // no more valid teams permutations; destroy this set
 					TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; current active pug proposal (%d) terminated.", ent->client->account->name, set->num));
+					// bump epoch so any in-flight job for this proposal gets discarded rather than applied (a disconnect
+					// landing during GENERATING has no populated permutation slots to invalidate individually)
+					set->epoch++;
 					ListClear(&set->avoidedHashesList);
 					ListRemove(&level.pugProposalsList, set);
 					level.activePugProposal = NULL;
@@ -5910,6 +5913,11 @@ void ClientDisconnect( int clientNum ) {
 			}
 			else { // this is not the active pug proposal
 				TeamGenerator_QueueServerMessageInChat(-1, va("%s disconnected; inactive pug proposal %d terminated.", ent->client->account->name, set->num));
+				if (set->state == PUGPROPOSAL_STATE_GENERATING) {
+					TeamGen_AnnounceThreadDebug(va("%s disconnected while pug proposal #%d was still generating teams; the in-progress result will be discarded once it finishes.",
+						ent->client->account->name, set->num));
+				}
+				set->epoch++; // in case this proposal had queuedActivation set
 				ListClear(&set->avoidedHashesList);
 				ListRemove(&level.pugProposalsList, set);
 				ListIterate(&level.pugProposalsList, &iter, qfalse);

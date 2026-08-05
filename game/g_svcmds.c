@@ -3162,6 +3162,12 @@ void Svcmd_MapMultiVote_f() {
 	Com_sprintf(timeBuf, sizeof(timeBuf), "%d", (int)time(NULL));
 	trap_Cvar_Set("g_lastMapVotedTime", timeBuf);
 	level.voteExecuteTime = level.time + 3000;
+
+	// the map is decided now (executes in 3s, above) -- stop background teamgen work rather than leave it
+	// running until the last moment. nothing can call this off, so latch it: TeamGenAsync_Shutdown alone
+	// would stop the threads but leave dispatch open, and precompute would just re-arm.
+	TeamGen_SetMapChangePending();
+
 	level.multiVoting = qfalse;
 	level.voteBanPhase = qfalse;
 	level.multiVoteHasWildcard = qfalse;
@@ -3529,9 +3535,9 @@ void Svcmd_PoolMapAdd_f()
 		if (filter) {
 			filter += 4;
 			if (*filter == 'a')
-				*filter = 'ã';
+				*filter = '\xe3';
 			else if (*filter == 'A')
-				*filter = 'Ã';
+				*filter = '\xc3';
 		}
 	}
 
@@ -3575,9 +3581,9 @@ void Svcmd_PoolMapRemove_f()
 		if (filter) {
 			filter += 4;
 			if (*filter == 'a')
-				*filter = 'ã';
+				*filter = '\xe3';
 			else if (*filter == 'A')
-				*filter = 'Ã';
+				*filter = '\xc3';
 		}
 	}
 

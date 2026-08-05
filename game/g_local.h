@@ -1412,6 +1412,30 @@ typedef struct {
 	char					letter;
 } confirmStatus_t;
 
+// pugProposal_t lifecycle w.r.t. the async teamgen worker (see g_teamgen.c):
+//   PENDING_VOTES       -- gathering ?<num> yes-votes toward quorum; not activated yet
+//   GENERATING          -- a job is dispatched and hasn't completed; permutation slots aren't meaningful yet
+//   READY_FOR_TEAM_VOTE -- slots + letters populated; players may vote ?a-?d
+//   ACTIVATED           -- ActivateTeamsProposal() already ran; about to be torn down
+typedef enum {
+	PUGPROPOSAL_STATE_PENDING_VOTES,
+	PUGPROPOSAL_STATE_GENERATING,
+	PUGPROPOSAL_STATE_READY_FOR_TEAM_VOTE,
+	PUGPROPOSAL_STATE_ACTIVATED
+} pugProposalState_t;
+
+// a speculatively-precomputed "what would the next ?reroll produce" result. only applied if the tag
+// (rerollNumUsed + avoidedHashesTag) still matches exactly when ?reroll is invoked; otherwise
+// discarded and a fresh job is dispatched.
+typedef struct {
+	qboolean		valid;
+	int				rerollNumUsed;
+	unsigned int	avoidedHashesTag;
+	int				iterationLevel; // which escalation level (1x, 2x, ...) produced this result
+	permutationOfTeams_t suggested, highestCaliber, fairest, desired, inclusive, semiDesired, firstChoice;
+	uint64_t		numValidPermutationsChecked;
+} speculativeRerollResult_t;
+
 typedef struct {
 	node_t			node;
 	int				num;
@@ -1429,6 +1453,19 @@ typedef struct {
 	int				suggestedVoteClientsBlue, highestCaliberVoteClientsBlue, fairestVoteClientsBlue, desiredVoteClientsBlue, inclusiveVoteClientsBlue, semiDesiredVoteClientsBlue, firstChoiceVoteClientsBlue;
 	list_t			avoidedHashesList;
 	confirmStatus_t confirmation[MAX_CLIENTS];
+
+	// --- async team-generation state (see g_teamgen.c) ---
+	pugProposalState_t state;
+	int				epoch; // bumped on cancel/supersession/disconnect-invalidation to mark in-flight jobs stale
+	qboolean		queuedActivation; // quorum reached while a prior proposal was still GENERATING; activate once it completes
+	speculativeRerollResult_t speculativeReroll;
+	// idle-time iteration escalation for the reroll-lookahead. tracked per-proposal rather than in a
+	// persistent cache, since a (proposal num, rerollNum) pair can never recur -- a disconnect during an
+	// active proposal tears the whole thing down, so there's no "make the same identity reappear"
+	// exploit vector like there is for the general pickable-roster hash.
+	int				rerollLookaheadEscalationLevel;
+	int				rerollLookaheadMaxLevel; // 0 = not yet learned
+	qboolean		rerollLookaheadDispatched;
 } pugProposal_t;
 
 typedef struct {
@@ -1492,6 +1529,20 @@ qboolean TeamGenerator_CheckForChatCommand(gentity_t *ent, const char *s, char *
 barReason_t TeamGenerator_PlayerIsBarredFromTeamGenerator(gentity_t *ent);
 void Svcmd_Pug_f(void);
 void TeamGen_Initialize(void);
+void TeamGen_LoadDebugTemplate(void);
+void TeamGen_AnnounceThreadDebug(const char *msg);
+void TeamGenAsync_PollCompletedJobs(void);
+void TeamGenAsync_Shutdown(void);
+// resumable gate on new teamgen job dispatch -- see TeamGen_SetDispatchSuppressed and
+// TeamGen_CheckRestartCountdownForThreads
+void TeamGen_SetDispatchSuppressed(qboolean suppressed);
+// one-shot gate for committed, imminent map changes. independent of the resumable gate above, which
+// is rewritten every frame and would otherwise clear this. only TeamGenAsync_Shutdown clears it.
+void TeamGen_SetMapChangePending(void);
+// aborts and discards every in-flight teamgen job. exposed beyond g_teamgen.c so callers that just
+// invalidated data a job's snapshot baked in (e.g. a rating changed mid-computation) can force a
+// redo instead of letting it finish and cache/apply a stale result.
+void TeamGen_AbortAndReapAllJobs(void);
 ctfPlayerTier_t GetPlayerTierForPlayerOnPosition(int accountId, ctfPosition_t pos, qboolean assumeLowTierIfUnrated);
 void ShowSubBalance(void);
 qboolean TeamGenerator_PlayerIsPermaBarredButTemporarilyForcedPickable(gentity_t *ent);
@@ -2608,6 +2659,17 @@ void CenterPrintToPlayerAndFollowers(gentity_t *ent, const char *s);
 void ExitAimTraining(gentity_t *ent);
 void PrintBasedOnAccountFlags(int64_t flags, const char *msg);
 void FisherYatesShuffle(void *firstItem, size_t numItems, size_t itemSize);
+
+// explicit-state PRNG (xorshift32) for anywhere the global rand()/srand() would be unsafe to touch
+// (anything reachable from a teamgen worker thread) or where reproducible output is required.
+// never reseed the global RNG from these call sites -- that's the whole point.
+typedef struct {
+	unsigned int state;
+} gprng_t;
+void GPRNG_Seed(gprng_t *rng, unsigned int seed);
+unsigned int GPRNG_Next(gprng_t *rng);
+void FisherYatesShuffle_R(void *firstItem, size_t numItems, size_t itemSize, gprng_t *rng);
+
 void FormatNumberToStringWithCommas(uint64_t n, char *out, size_t outSize);
 qboolean IsSpecName(const char *name);
 void SV_Tell(int clientNum, const char *text);
@@ -3763,6 +3825,16 @@ extern vmCvar_t		g_vote_teamgen_bImbalanceCapWithoutReroll;
 extern vmCvar_t		g_vote_teamgen_acdImbalanceCapWithoutReroll;
 extern vmCvar_t		g_vote_teamgen_imbalanceCapRaisePerReroll;
 extern vmCvar_t		g_vote_teamgen_dynamicVoteRequirement;
+
+// async team-generation (see g_teamgen.c's PermuteTeams_Threaded / job-dispatch machinery)
+extern vmCvar_t		g_teamgen_asyncEnabled;
+extern vmCvar_t		g_teamgen_workerThreads;
+extern vmCvar_t		g_teamgen_workerThreadNice;
+extern vmCvar_t		g_teamgen_debugLog;
+extern vmCvar_t		g_teamgen_threadDebugChat;
+extern vmCvar_t		g_vote_teamgen_rerollLookaheadEnabled;
+extern vmCvar_t		g_vote_teamgen_speculativeRosterPrecomputeEnabled;
+
 extern vmCvar_t		g_vote_freezeUntilVote;
 extern vmCvar_t		g_vote_lessPlayedMapsDisfavoredInRunoffEliminations;
 extern vmCvar_t		g_vote_fadeToBlack;
@@ -4258,7 +4330,11 @@ qboolean trap_SendGETRequest( trsfHandle_t* handle, const char* url, const char*
 qboolean trap_SendPOSTRequest( trsfHandle_t* handle, const char* url, const char* data, const char* headerAccept, const char* headerContentType, qboolean receiveResult );
 qboolean trap_SendMultipartPOSTRequest(trsfHandle_t* handle, const char* url, trsfFormPart_t* multiPart, size_t numParts, const char* headerAccept, const char* headerContentType, qboolean receiveResult);
 void trap_GetCountry(const char *ipStr, char *outBuf, int outBufSize);
-int trap_sqlite3_prepare_v2(void *unused, const char *zSql, int nBytes, void **ppStmt, const char **pzTail);
+// forward declaration only, so this header stays independent of sqlite3.h. sqlite3.h typedefs
+// sqlite3_stmt to this exact struct tag, so callers passing sqlite3_stmt** match without a cast.
+// declaring ppStmt as void** used to compile with a warning; GCC 14 promotes it to an error.
+struct sqlite3_stmt;
+int trap_sqlite3_prepare_v2(void *unused, const char *zSql, int nBytes, struct sqlite3_stmt **ppStmt, const char **pzTail);
 int trap_sqlite3_step(void *stmt);
 int trap_sqlite3_finalize(void *stmt);
 int trap_sqlite3_reset(void *stmt);

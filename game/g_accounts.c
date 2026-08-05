@@ -451,6 +451,11 @@ qboolean G_DeleteAccount( account_t* account ) {
 		return qfalse;
 	}
 
+	// this account's rating rows are gone now -- refresh level.ratingList so it doesn't keep a stale
+	// entry, and stop anything in flight whose snapshot predates the change
+	TeamGen_AbortAndReapAllJobs();
+	G_DBGetPlayerRatings();
+
 	// remove the reference to this account from all online sessions, then relink
 
 	int i;
