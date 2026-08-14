@@ -3307,6 +3307,9 @@ void G_BroadcastServerFeatureList( int clientNum ) {
 	if (g_lightningRework.integer)
 		Q_strcat(featureListConfigString, sizeof(featureListConfigString), "lrw ");
 
+	if (g_fixDemp.integer)
+		Q_strcat(featureListConfigString, sizeof(featureListConfigString), "fxdm ");
+
 	// remove trailing space
 	int len = strlen(featureListConfigString);
 	if (len > 0 && featureListConfigString[len - 1] == ' ')

@@ -398,6 +398,7 @@ vmCvar_t	g_fixDisarmWeaponPreference;
 vmCvar_t	g_homingUses1Ammo;
 vmCvar_t	g_sniperDamageNerf;
 vmCvar_t	g_fixWeaponChargeTime;
+vmCvar_t	g_fixDemp;
 vmCvar_t	d_debugSnipeDamage;
 vmCvar_t	g_fixDisarmFiring;
 vmCvar_t	g_fixCorpseSniping;
@@ -1052,6 +1053,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_homingUses1Ammo,	"g_homingUses1Ammo"	, "0"	, CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 	{ &g_sniperDamageNerf,	"g_sniperDamageNerf"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_fixWeaponChargeTime,	"g_fixWeaponChargeTime"	, "1"	, CVAR_ARCHIVE, 0, qtrue },
+	{ &g_fixDemp,	"g_fixDemp"	, "1"	, CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 	{ &d_debugSnipeDamage,	"d_debugSnipeDamage"	, "0"	, CVAR_ARCHIVE, 0, qtrue },
 	{ &g_fixDisarmFiring,	"g_fixDisarmFiring"	, "1"	, CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 	{ &g_fixCorpseSniping,	"g_fixCorpseSniping"	, "1"	, CVAR_ARCHIVE, 0, qtrue },

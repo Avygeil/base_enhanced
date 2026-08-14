@@ -3670,6 +3670,7 @@ extern vmCvar_t		g_fixDisarmWeaponPreference;
 extern vmCvar_t		g_homingUses1Ammo;
 extern vmCvar_t		g_sniperDamageNerf;
 extern vmCvar_t		g_fixWeaponChargeTime;
+extern vmCvar_t		g_fixDemp;
 extern vmCvar_t		d_debugSnipeDamage;
 extern vmCvar_t		g_fixDisarmFiring;
 extern vmCvar_t		g_fixCorpseSniping;
