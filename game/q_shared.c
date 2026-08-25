@@ -1074,7 +1074,14 @@ char * QDECL va(const char *format, ...)
 	char		*buf;
 
 	va_start(argptr, format);
-	buf = (char *)&string[index++ & 3];
+	/*
+		derive the mask from MAX_VA_BUFFERS instead of hardcoding 3. The constant was raised from
+		4 to 128 at some point and this line was left behind, so 124 of the 128 buffers were
+		unreachable -- ~3.97 MB of dead BSS, and worse, a footgun: anyone reading
+		"MAX_VA_BUFFERS 128" and nesting five va() calls got silent corruption with nothing to
+		warn them. base_entranced and newmod both already derive it this way.
+	*/
+	buf = (char *)&string[index++ & (MAX_VA_BUFFERS - 1)];
 	vsnprintf(buf, sizeof(*string), format, argptr);
 	va_end(argptr);
 
