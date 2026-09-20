@@ -3310,6 +3310,9 @@ void G_BroadcastServerFeatureList( int clientNum ) {
 	if (g_fixDemp.integer)
 		Q_strcat(featureListConfigString, sizeof(featureListConfigString), "fxdm ");
 
+	if (g_specInfoEncrypted.integer)
+		Q_strcat(featureListConfigString, sizeof(featureListConfigString), "esi ");
+
 	// remove trailing space
 	int len = strlen(featureListConfigString);
 	if (len > 0 && featureListConfigString[len - 1] == ' ')
