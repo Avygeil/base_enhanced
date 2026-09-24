@@ -3047,6 +3047,7 @@ const char *G_GetStringEdString(char *refSection, char *refName);
 void G_ApplyRaceBroadcastsToEvent( gentity_t *parent, gentity_t *ev );
 qboolean InstagibEnabled(void);
 int IsLivePug(int ofAtLeastThisMinutes);
+void G_SetMatchInfo(void);
 
 typedef struct {
 	node_t			node;
@@ -3920,6 +3921,7 @@ extern vmCvar_t		d_debugPushPullLOS;
 extern vmCvar_t		g_mindTrickBuff;
 extern vmCvar_t		g_drainRework;
 extern vmCvar_t		g_fixForceTimers;
+extern vmCvar_t		g_fixForceRegenTime;
 extern vmCvar_t		g_thTeRequiresLOS;
 extern vmCvar_t		d_debugThTeLOS;
 extern vmCvar_t		g_thTeUnlagged;

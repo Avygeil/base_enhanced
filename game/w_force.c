@@ -181,6 +181,45 @@ static int FixDuration(int duration) {
 	return fixedDuration - timeSinceLastFrame;
 }
 
+
+/*
+re-arms the force regeneration debounce. the debounce is only ever looked at on a server frame, so
+"now + regenTime" rounds every interval UP to a whole frame and throws the remainder away: on the 20
+frame server the game shipped with, g_forceRegenTime 200 really means 250ms a point. g_fixForceRegenTime
+keeps that real behavior at any tick rate (g_forceRegenTime 1, the debug value, is exempt) -- the interval is worked out the way a 20 frame server
+would have, then counted from the deadline instead of from now, so the leftover part of a frame
+carries into the next point instead of being rounded up again and the average holds. a debounce left
+further behind than one frame (a power was held down for a while) is not carried, or the backlog
+would be paid out a point per frame.
+*/
+#define FORCEREGEN_BASE_FRAMETIME	50		// 1000 / the sv_fps the game shipped with
+
+static void ReArmForceRegen(gentity_t *self, int regenTime) {
+	int *debounce = &self->client->ps.fd.forcePowerRegenDebounceTime;
+	int frameTime = 1000 / Com_Clampi(1, 1000, g_svfps.integer);
+
+	if (regenTime < 1)
+		regenTime = 1;
+
+	// g_forceRegenTime 1 is the debug value people mess around with: left exactly as it behaves
+	if (!g_fixForceRegenTime.integer || g_forceRegenTime.integer == 1) {
+		*debounce = level.time + regenTime;
+		return;
+	}
+
+	// what this many milliseconds actually came out as back then
+	regenTime = FORCEREGEN_BASE_FRAMETIME * ((regenTime + FORCEREGEN_BASE_FRAMETIME) / FORCEREGEN_BASE_FRAMETIME);
+
+	/*
+	the overshoot is never more than one frame unless the debounce was left in the past by
+	something else (a power held down, a drain debuff): only then is the backlog dropped
+	*/
+	if (*debounce < level.time - frameTime)
+		*debounce = level.time + regenTime;
+	else
+		*debounce += regenTime;
+}
+
 // use null sendTo to send to the player himself and all his followers
 void SendForceTimers(gentity_t *user, gentity_t *sendTo) {
 	if (!user || !user->client) {
@@ -7289,16 +7328,16 @@ void WP_ForcePowersUpdate( gentity_t *self, usercmd_t *ucmd )
 					g_entities[self->client->holdingObjectiveItem].inuse &&
 					g_entities[self->client->holdingObjectiveItem].genericValue15)
 				{ //1 point per 7 seconds.. super slow
-					self->client->ps.fd.forcePowerRegenDebounceTime = level.time + 7000;
+					ReArmForceRegen(self, 7000);
 				}
 				else if (self->client->siegeClass != -1 &&
 					(bgSiegeClasses[self->client->siegeClass].classflags & (1<<CFL_FASTFORCEREGEN)))
 				{ //if this is siege and our player class has the fast force regen ability, then recharge with 1/5th the usual delay
-					self->client->ps.fd.forcePowerRegenDebounceTime = level.time + (g_forceRegenTime.integer*0.2);
+					ReArmForceRegen(self, g_forceRegenTime.integer*0.2);
 				}
 				else
 				{
-					self->client->ps.fd.forcePowerRegenDebounceTime = level.time + g_forceRegenTime.integer;
+					ReArmForceRegen(self, g_forceRegenTime.integer);
 				}
 			}
 			else
@@ -7307,17 +7346,17 @@ void WP_ForcePowersUpdate( gentity_t *self, usercmd_t *ucmd )
 				{
 					if ( g_duel_fraglimit.integer )
 					{
-						self->client->ps.fd.forcePowerRegenDebounceTime = level.time + (g_forceRegenTime.integer*
+						ReArmForceRegen(self, g_forceRegenTime.integer*
 							(0.6 + (.3 * (float)self->client->sess.wins / (float)g_duel_fraglimit.integer)));
 					}
 					else
 					{
-						self->client->ps.fd.forcePowerRegenDebounceTime = level.time + (g_forceRegenTime.integer*0.7);
+						ReArmForceRegen(self, g_forceRegenTime.integer*0.7);
 					}
 				}
 				else
 				{
-					self->client->ps.fd.forcePowerRegenDebounceTime = level.time + g_forceRegenTime.integer;
+					ReArmForceRegen(self, g_forceRegenTime.integer);
 				}
 			}
 		}

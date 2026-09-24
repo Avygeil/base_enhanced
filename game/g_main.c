@@ -666,6 +666,7 @@ vmCvar_t	d_debugPushPullLOS;
 vmCvar_t	g_mindTrickBuff;
 vmCvar_t	g_drainRework;
 vmCvar_t	g_fixForceTimers;
+vmCvar_t	g_fixForceRegenTime;
 vmCvar_t	g_thTeRequiresLOS;
 vmCvar_t	d_debugThTeLOS;
 vmCvar_t	g_thTeUnlagged;
@@ -1335,6 +1336,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_gripRework, "g_gripRework", "0", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 	{ &g_drainRework, "g_drainRework", "0", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 	{ &g_fixForceTimers, "g_fixForceTimers", "1", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_fixForceRegenTime, "g_fixForceRegenTime", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_thTeRequiresLOS, "g_thTeRequiresLOS", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &d_debugThTeLOS, "d_debugThTeLOS", "0", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_thTeUnlagged, "g_thTeUnlagged", "1", CVAR_ARCHIVE, 0, qtrue },
@@ -2075,6 +2077,11 @@ void InitSlurs(void) {
 	Com_Printf("%d slurs loaded.\n", level.slurList.size);
 }
 
+// stamps the wall-clock start of the match into a configstring so that recordings carry it
+void G_SetMatchInfo(void) {
+	trap_SetConfigstring(CS_MATCHINFO, va("\\rst\\%d\\rnd\\%d", (int)time(NULL), 1));
+}
+
 
 /*
 ============
@@ -2333,6 +2340,8 @@ void G_InitGame( int levelTime, int randomSeed, int restart, void *serverDbPtr )
 
 	// clean intermission configstring flag
 	trap_SetConfigstring( CS_INTERMISSION, "0" );
+
+	G_SetMatchInfo();
 
 	// make sure we have flags for CTF, etc
 	if( g_gametype.integer >= GT_TEAM ) {
@@ -7415,7 +7424,7 @@ void G_RunFrame( int levelTime ) {
 		} else if ( g_knockback.value != 1000 ) {
 			G_Printf( S_COLOR_YELLOW"Knockback is not standard. Capture records won't be tracked during this map.\n" );
 			level.racemodeRecordsReadonly = qtrue;
-		} else if ( g_forceRegenTime.value != 231 ) {
+		} else if ( !g_fixForceRegenTime.integer || g_forceRegenTime.integer == 1 ) {
 			G_Printf( S_COLOR_YELLOW"Force regen is not standard. Capture records won't be tracked during this map.\n" );
 			level.racemodeRecordsReadonly = qtrue;
 		}
