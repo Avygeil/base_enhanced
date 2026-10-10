@@ -424,6 +424,7 @@ struct gentity_s {
 	vec3_t		movedir;
 	float		mass;
 	int			setTime;
+	int			memeSpawnTime; //when a persistent meme mine/rocket/sentry was created, for G_CullMemeEntities
 
 //Think Functions
 	int			nextthink;
@@ -3036,6 +3037,10 @@ void FindIntermissionPoint( void );
 void SetLeader(int team, int client);
 void CheckTeamLeader( int team );
 void G_RunThink (gentity_t *ent);
+
+//shared cap on persistent meme mines + homing rockets + sentries (oldest are removed first)
+#define MAX_MEME_THINGS	256
+void G_CullMemeEntities(int keep);
 void QDECL G_LogPrintf( const char *fmt, ... );
 void QDECL G_HackLog(const char *fmt, ...);
 void QDECL G_DBLog( const char *fmt, ... );

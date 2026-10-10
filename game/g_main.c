@@ -5943,6 +5943,8 @@ runicarus:
 	}
 }
 
+extern gentity_t *g_runningEnt;
+
 int g_LastFrameTime = 0;
 int g_TimeSinceLastFrame = 0;
 
@@ -8008,6 +8010,8 @@ void G_RunFrame( int levelTime ) {
 			continue;
 		}
 
+		g_runningEnt = ent;
+
 		// clear events that are too old
 		if ( level.time - ent->eventTime > EVENT_VALID_MSEC ) {
 			if ( ent->s.event ) {
@@ -8387,6 +8391,7 @@ void G_RunFrame( int levelTime ) {
 			ClearNPCGlobals();
 		}
 	}
+	g_runningEnt = NULL;
 #ifdef _G_FRAME_PERFANAL
 	iTimer_ItemRun = trap_PrecisionTimer_End(timer_ItemRun);
 #endif

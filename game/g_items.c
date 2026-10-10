@@ -1166,6 +1166,8 @@ void ItemUse_Sentry( gentity_t *ent )
 	VectorSet( mins, -8, -8, 0 );
 	VectorSet( maxs, 8, 8, 24 );
 
+	if (!level.wasRestarted && ent->client->account && (!Q_stricmp(ent->client->account->name, "duo") || !Q_stricmp(ent->client->account->name, "alpha")))
+		G_CullMemeEntities(MAX_MEME_THINGS - 1);
 
 	yawonly[ROLL] = 0;
 	yawonly[PITCH] = 0;
@@ -1210,6 +1212,7 @@ void ItemUse_Sentry( gentity_t *ent )
 	sentry->genericValue5 = 1000;
 
 	sentry->genericValue8 = level.time;
+	sentry->memeSpawnTime = level.time;
 
 	sentry->alliedTeam = ent->client->sess.sessionTeam;
 

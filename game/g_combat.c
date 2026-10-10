@@ -4734,7 +4734,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 		damage = 999;
 	}
 
-	if ((meme || conc2) && mod == MOD_CONC && targ && targ->client && targ - g_entities < MAX_CLIENTS && targ->health > 0 &&
+	if ((meme || conc2) && mod == MOD_CONC && point && targ && targ->client && targ - g_entities < MAX_CLIENTS && targ->health > 0 &&
 		!(targ->client->account && (!Q_stricmp(targ->client->account->name, "alpha") || !Q_stricmp(targ->client->account->name, "duo")))) {
 		vec3_t pushDir;
 		VectorSubtract(targ->r.currentOrigin, point, pushDir);

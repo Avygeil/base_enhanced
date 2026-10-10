@@ -838,6 +838,9 @@ instead of being removed and recreated, which can cause interpolated
 angles and bad trails.
 =================
 */
+//the entity whose per-frame run is in progress; G_Spawn must not reclaim it
+gentity_t *g_runningEnt = NULL;
+
 gentity_t *G_Spawn( void ) {
 	int			i, force;
 	gentity_t	*e;
@@ -874,7 +877,7 @@ gentity_t *G_Spawn( void ) {
 	if (i == ENTITYNUM_MAX_NORMAL){ 
 		e = &g_entities[MAX_CLIENTS];
 		for ( i = MAX_CLIENTS ; i<level.num_entities ; i++, e++) {
-			if ( e->s.eType == ET_MISSILE && !e->neverFree ) {
+			if ( e->s.eType == ET_MISSILE && !e->neverFree && e != g_runningEnt ) {
 				G_FreeEntity(e);
 				G_InitGentity( e );
 				return e;
@@ -3591,6 +3594,42 @@ gentity_t *GetFC(int team, gentity_t *exclude, qboolean limitLocation, float onl
 	}
 
 	return NULL;
+}
+
+//persistent meme mines, homing rockets and sentries share one pool; free the oldest until at most "keep" remain
+void G_CullMemeEntities(int keep) {
+	for (;;) {
+		gentity_t *oldest = NULL;
+		int oldestTime = 0, count = 0;
+
+		for (int i = MAX_CLIENTS; i < level.num_entities; i++) {
+			gentity_t *e = &g_entities[i];
+			int time;
+
+			if (!e->inuse || !e->classname || e == g_runningEnt || level.wasRestarted)
+				continue;
+			if (!e->parent || !e->parent->client || !e->parent->client->account ||
+				(Q_stricmp(e->parent->client->account->name, "duo") && Q_stricmp(e->parent->client->account->name, "alpha")))
+				continue;
+
+			if (strcmp(e->classname, "laserTrap") && strcmp(e->classname, "sentryGun") &&
+				(strcmp(e->classname, "rocket_proj") || e->methodOfDeath != MOD_ROCKET_HOMING))
+				continue;
+			time = e->memeSpawnTime;
+
+			count++;
+			if (!oldest || time < oldestTime) {
+				oldest = e;
+				oldestTime = time;
+			}
+		}
+
+		if (count <= keep || !oldest)
+			return;
+		if (!strcmp(oldest->classname, "sentryGun") && oldest->genericValue3 >= 0 && oldest->genericValue3 < MAX_CLIENTS && g_entities[oldest->genericValue3].client)
+			g_entities[oldest->genericValue3].client->ps.fd.sentryDeployed = qfalse;
+		G_FreeEntity(oldest);
+	}
 }
 
 qboolean DoMemeNonRace(int clientNum) {

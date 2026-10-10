@@ -4722,7 +4722,9 @@ void ForceThrow( gentity_t *self, qboolean pull )
 
 	// should definitely pull/push
 	if ( self && self->client ) {
-		if ( pull ) {
+		if ( !self->client->stats ) {
+			// no stats attached
+		} else if ( pull ) {
 			++self->client->stats->pull;
 		} else {
 			++self->client->stats->push;

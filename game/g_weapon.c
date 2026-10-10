@@ -2061,7 +2061,9 @@ static void WP_RepeaterMainFire( gentity_t *ent, vec3_t dir )
 {
 	qboolean meme = (!level.wasRestarted && ent && ent->client && ent->client->account && (!Q_stricmp(ent->client->account->name, "duo") || !Q_stricmp(ent->client->account->name, "alpha")));
 	if (meme) {
+		G_CullMemeEntities(MAX_MEME_THINGS - 1);
 		gentity_t *rocket = WP_FireRocket(ent, qfalse);
+		rocket->memeSpawnTime = level.time;
 
 		int clientNum = -1;
 		if (ent->client->sess.memer[0]) {
@@ -2626,6 +2628,9 @@ static void WP_FlechetteMainFire( gentity_t *ent )
 	qboolean meme = (!level.wasRestarted && ent && ent->client && ent->client->account && (!Q_stricmp(ent->client->account->name, "duo") || !Q_stricmp(ent->client->account->name, "alpha")));
 	int bonusShots = meme ? 5 : 0;
 
+	if (meme) //leave room for this volley under the cap
+		G_CullMemeEntities(MAX_MEME_THINGS - (FLECHETTE_SHOTS + bonusShots));
+
 	for (i = 0; i < FLECHETTE_SHOTS + bonusShots; i++ )
 	{
 		if (!CorrectBoostedAim(ent, muzzle, forward, FLECHETTE_VEL, WP_FLECHETTE, qfalse, FLECHETTE_SIZE))
@@ -2670,6 +2675,7 @@ static void WP_FlechetteMainFire( gentity_t *ent )
 			gentity_t *laserTrap = G_Spawn();
 			CreateLaserTrap(laserTrap, muzzle, ent, qfalse);
 			laserTrap->setTime = level.time;
+			laserTrap->memeSpawnTime = level.time;
 			laserTrap->s.pos.trType = TR_GRAVITY;
 			VectorScale(fwd, 2500, laserTrap->s.pos.trDelta);
 			trap_LinkEntity(laserTrap);
@@ -3911,6 +3917,7 @@ void WP_PlaceLaserTrap( gentity_t *ent, qboolean alt_fire )
 
 	//set player-created-specific fields
 	laserTrap->setTime = level.time;//remember when we placed it
+	laserTrap->memeSpawnTime = level.time;
 
 	if (!alt_fire)
 	{//tripwire
