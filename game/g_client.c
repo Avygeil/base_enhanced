@@ -3310,6 +3310,8 @@ void G_BroadcastServerFeatureList( int clientNum ) {
 	if (g_fixDemp.integer)
 		Q_strcat(featureListConfigString, sizeof(featureListConfigString), "fxdm ");
 
+	Q_strcat(featureListConfigString, sizeof(featureListConfigString), "cobt ");
+
 	if (g_specInfoEncrypted.integer)
 		Q_strcat(featureListConfigString, sizeof(featureListConfigString), "esi ");
 
@@ -3319,6 +3321,7 @@ void G_BroadcastServerFeatureList( int clientNum ) {
 		featureListConfigString[len - 1] = '\0';
 
 	trap_SetConfigstring(CS_SERVERFEATURELIST, featureListConfigString);
+	trap_SetConfigstring(CS_CUSTOMOBITUARIES, va("cobt \"was eaten by\" %d", CUSTOMOBITUARY_EATEN));
 
 	if (*trap_kd_numunique())
 		trap_SetConfigstring( CS_ENHANCEDLOCATIONS, locationsListConfigString);
@@ -4118,6 +4121,9 @@ G_SetRaceMode
 */
 
 void G_SetRaceMode( gentity_t *self, qboolean race ) {
+	if ( self->client && self->client->sess.inRacemode != race && G_EatHeldBy( self ) )
+		return;
+
 	// set appropriate flags
 	if ( race && !level.racerCollision ) {
 		self->r.svFlags |= SVF_GHOST;
@@ -5613,6 +5619,8 @@ void ClientDisconnect( int clientNum ) {
 	if ( !ent->client ) {
 		return;
 	}
+
+	G_EatReleaseAll( ent );
 
 	if (ent->client->account) {
 		// check whether they were part of any pug proposals so we can handle them leaving properly

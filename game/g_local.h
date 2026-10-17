@@ -1589,6 +1589,14 @@ struct gclient_s {
 	int			bodyGrabTime;
 	int			bodyGrabIndex;
 
+	// eat meme
+	int			eatState;
+	int			eatStateTime;
+	int			eatStage;
+	int			eatChompsDone;
+	unsigned int eatVictimMask;
+	int			eatenBy; // eater client number + 1, set on the victim right before the kill
+
 	int			pushEffectTime;
 
 	int			invulnerableTimer;
@@ -2707,6 +2715,20 @@ char	*vtos( const vec3_t v );
 
 void G_AddPredictableEvent( gentity_t *ent, int event, int eventParm );
 void G_AddEvent( gentity_t *ent, int event, int eventParm );
+
+// g_eat.c
+enum { EAT_NONE = 0, EAT_SWIPE, EAT_CARRY, EAT_LIFT };
+enum { CUSTOMOBITUARY_EATEN = 1 };
+qboolean DoMemeNonRace( int clientNum );
+void Cmd_Eat_f( gentity_t *ent );
+void G_EatThink( gentity_t *eater );
+void G_EatLockCmd( gentity_t *eater, usercmd_t **ucmd );
+qboolean G_EatHoldVictim( gentity_t *eater, gentity_t *victim, usercmd_t **ucmd );
+gentity_t *G_EatHeldBy( gentity_t *victim );
+qboolean G_EatIsEating( gentity_t *ent );
+void G_EatDropVictim( gentity_t *victim );
+void G_EatReleaseVictim( gentity_t *victim );
+void G_EatReleaseAll( gentity_t *eater );
 void G_SetOrigin( gentity_t *ent, vec3_t origin );
 qboolean G_CheckInSolid (gentity_t *self, qboolean fix);
 void AddRemap(const char *oldShader, const char *newShader, float timeOffset);

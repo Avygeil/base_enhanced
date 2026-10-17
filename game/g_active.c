@@ -2897,6 +2897,11 @@ void G_HeldByMonster( gentity_t *ent, usercmd_t **ucmd )
 					ent->client->ps.viewangles,
 					NULL );
 			}
+			else if ( monster->s.number < MAX_CLIENTS )
+			{//a player eating us
+				if ( !G_EatHoldVictim( monster, ent, ucmd ) )
+					return;
+			}
 			VectorClear( ent->client->ps.velocity );
 			G_SetOrigin( ent, ent->client->ps.origin );
 			SetClientViewAngle( ent, ent->client->ps.viewangles );
@@ -3525,6 +3530,12 @@ void ClientThink_real( gentity_t *ent ) {
     if ( client && (client->ps.eFlags2&EF2_HELD_BY_MONSTER) && (!(ent->client->ps.pm_flags & PMF_FOLLOW)) )
 	{
 		G_HeldByMonster( ent, &ucmd );
+	}
+
+	if ( client && client->eatState != EAT_NONE )
+	{
+		G_EatThink( ent );
+		G_EatLockCmd( ent, &ucmd );
 	}
 
 	// sanity check the command time to prevent speedup cheating
@@ -4832,6 +4843,9 @@ void ClientThink_real( gentity_t *ent ) {
 	}
 	else {
 		pm.tracemask = MASK_PLAYERSOLID;
+	}
+	if ( G_EatHeldBy( ent ) ) {
+		pm.tracemask &= ~CONTENTS_BODY;
 	}
 	pm.trace = trap_Trace;
 	pm.pointcontents = trap_PointContents;

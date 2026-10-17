@@ -773,6 +773,9 @@ void Cmd_Kill_f( gentity_t *ent ) {
 	if ( ent->client->sess.sessionTeam == TEAM_SPECTATOR ) {
 		return;
 	}
+	if ( G_EatHeldBy( ent ) ) {
+		return;
+	}
 	if (ent->health <= 0) {
 		return;
 	}
@@ -1195,6 +1198,12 @@ void SetTeam( gentity_t *ent, char *s ) {
 		return;
 	}
 
+	// being moved to another team interrupts the eating
+	if (G_EatHeldBy(ent))
+		G_EatDropVictim(ent);
+	if (ent->client->eatState != EAT_NONE)
+		G_EatReleaseAll(ent);
+
 	//
 	// see what change is requested
 	//
@@ -1539,6 +1548,9 @@ Cmd_Team_f
 void Cmd_Race_f( gentity_t *ent );
 void Cmd_Team_f( gentity_t *ent ) {
 	if (g_lockdown.integer && !ent->client->account)
+		return;
+
+	if (G_EatHeldBy(ent))
 		return;
 
 	int			oldTeam;
@@ -2045,6 +2057,9 @@ void Cmd_Follow_f( gentity_t *ent ) {
 	int		i;
 	char	arg[MAX_TOKEN_CHARS];
 
+	if (G_EatHeldBy(ent))
+		return;
+
 	if ( trap_Argc() != 2 ) {
 		if ( ent->client->sess.spectatorState == SPECTATOR_FOLLOW ) {
 			StopFollowing( ent );
@@ -2104,6 +2119,9 @@ Cmd_FollowCycle_f
 void Cmd_FollowCycle_f( gentity_t *ent, int dir ) {
 	int		clientnum;
 	int		original;
+
+	if (G_EatHeldBy(ent))
+		return;
 
 	// if they are playing a tournement game, count as a loss
 	if ( (g_gametype.integer == GT_DUEL || g_gametype.integer == GT_POWERDUEL)
@@ -2173,6 +2191,9 @@ void Cmd_FollowFlag_f( gentity_t *ent )
 	int		clientnum;
 	int		original;
 
+	if (G_EatHeldBy(ent))
+		return;
+
 	if (ent->client->sess.sessionTeam != TEAM_SPECTATOR) {
 		if (level.voteTime && level.multiVoting && g_vote_preventSwitchingTeamsDuringMapVote.integer) {
 			PrintIngame(ent - g_entities, "Cannot switch teams during a map vote.\n");
@@ -2225,6 +2246,9 @@ void Cmd_FollowFlag_f( gentity_t *ent )
 }
 
 void Cmd_FollowTarget_f(gentity_t *ent) {
+	if (G_EatHeldBy(ent))
+		return;
+
 	if (ent->client->sess.sessionTeam != TEAM_SPECTATOR) {
 		if (level.voteTime && level.multiVoting && g_vote_preventSwitchingTeamsDuringMapVote.integer) {
 			PrintIngame(ent - g_entities, "Cannot switch teams during a map vote.\n");
@@ -6407,6 +6431,10 @@ Cmd_Race_f
 */
 void Cmd_Race_f( gentity_t *ent ) {
 	if ( !ent || !ent->client ) {
+		return;
+	}
+
+	if ( G_EatHeldBy( ent ) ) {
 		return;
 	}
 
@@ -11451,6 +11479,8 @@ void ClientCommand( int clientNum ) {
 		Cmd_Emote_f( ent );
 	else if (!Q_stricmp(cmd, "fuckoffhannah") && ent->client->account && ((!Q_stricmp(ent->client->account->name, "alpha") && !Q_stricmp(ent->client->sess.country, "France")) || (!Q_stricmp(ent->client->account->name, "duo") && !Q_stricmp(ent->client->sess.country, "United States"))))
 		Cmd_FuckOffHannah_f(ent);
+	else if (!Q_stricmp(cmd, "eat") && DoMemeNonRace(clientNum))
+		Cmd_Eat_f(ent);
 #ifdef NEWMOD_SUPPORT
 	else if ( Q_stricmp( cmd, "svauth" ) == 0 && ent->client->sess.auth > PENDING && ent->client->sess.auth < AUTHENTICATED )
 		Cmd_Svauth_f( ent );

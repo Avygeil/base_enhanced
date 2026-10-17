@@ -2300,6 +2300,8 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 	//Use any target we had
 	G_UseTargets( self, self );
 
+	G_EatReleaseAll( self );
+
 	if (g_slowmoDuelEnd.integer && (g_gametype.integer == GT_DUEL || g_gametype.integer == GT_POWERDUEL) && attacker && attacker->inuse && attacker->client)
 	{
 		if (!gDoSlowMoDuel)
@@ -2471,6 +2473,9 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 		ent->s.isJediMaster = wasJediMaster;
 
 		// support custom client mod obituary messages
+		if (meansOfDeath == MOD_MELEE && attacker && attacker->client && self->client &&
+			self->client->eatenBy == attacker->s.number + 1)
+			ent->s.emplacedOwner = CUSTOMOBITUARY_EATEN;
 		if (isBumpKill && g_fixBumpKills.integer)
 			ent->s.userInt1 = 1;
 		if (isAirFrag && g_creditAirKills.integer)
@@ -4444,6 +4449,17 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 	{
 		G_Damage(&g_entities[targ->damageRedirectTo], inflictor, attacker, dir, point, damage, dflags, mod);
 		return;
+	}
+
+	// someone being eaten can't hurt themselves or the one eating them, and nobody but the eater can hurt them;
+	// the eater can't be hurt by other players meanwhile
+	if (targ && targ->client) {
+		gentity_t *eater = G_EatHeldBy(targ);
+
+		if (eater && attacker != eater)
+			return;
+		if (attacker && attacker->client && attacker != targ && (G_EatHeldBy(attacker) == targ || G_EatIsEating(targ)))
+			return;
 	}
 
 	// prevent cross-dimension damage
