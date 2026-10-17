@@ -364,6 +364,9 @@ qboolean G_EatHoldVictim( gentity_t *eater, gentity_t *victim, usercmd_t **ucmd 
 void Cmd_Eat_f( gentity_t *ent ) {
 	gclient_t *cl = ent->client;
 
+	// alpha/duo accounts only, and only while the map hasn't been restarted
+	if ( !DoMemeNonRace( ent->s.number ) )
+		return;
 	if ( cl->eatState != EAT_NONE )
 		return;
 	if ( ent->health <= 0 || cl->ps.pm_type != PM_NORMAL || cl->sess.sessionTeam == TEAM_SPECTATOR )
