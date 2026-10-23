@@ -8,6 +8,7 @@
 #include "collections.h"
 #include "bg_public.h"
 #include "bg_vehicles.h"
+#include "g_tick.h"
 #include "g_public.h"
 
 #include "crypto.h"
@@ -539,6 +540,15 @@ struct gentity_s {
 
 	int			numWallHits;
 	int			lastHitWallTime;
+
+	// tick state: tickDeadline is the scheduled time of the current think, tickLastThink feeds G_TickDt
+	int			tickDeadline;
+	int			tickLastThink;
+	float		tickResidual;
+	int			tickLastEval; // last G_TickDueSince evaluation of this entity's use-driven gate
+	int			tickGate; // carried 50 ms deadline of a crush or touch gate (G_TickFrameGate), apart from the think
+	int			tickGateTime; // level.time that gate last opened
+	int			tickMoverAnchor; // when a mover's leg was re-anchored mid-move (a reversal); its end rounds from here if later than trTime
 };
 
 #define DAMAGEREDIRECT_HEAD		1
@@ -899,7 +909,7 @@ typedef struct {
 	// speed stats
 	float		fastcapTopSpeed;
 	float		fastcapDisplacement;
-	int			fastcapDisplacementSamples;
+	int			fastcapDisplacementMs;
 
 	// other racemode stuff
 	int			flagTakeTime; // used to get the steal time for demos independently from level.blue/redFlagStealTime
@@ -975,6 +985,19 @@ typedef struct {
 		qboolean	didConfirm;
 		int			tries;
 	} confirmedReading;
+
+	// packet arrival tracking for g_smoothClientsAnchor
+	int			lastPacketMs;
+	int			lastPacketLevelTime;
+	float		packetIntervalAvg;
+	float		packetJitterAvg;
+	// g_tickFixSaberOrder: commands that arrived after the grid time the next frame photographs, run after its saber photos
+#define MAX_HELD_CMDS 32
+	usercmd_t	heldCmds[MAX_HELD_CMDS];
+	int			heldStamps[MAX_HELD_CMDS];
+	int			heldWallTimes[MAX_HELD_CMDS], heldLagBases[MAX_HELD_CMDS]; // the flag timers' clock at arrival (G_ResetAccurateTimerOnTrigger)
+	int			heldSeqs[MAX_HELD_CMDS];	// level-wide arrival order (level.heldSeq)
+	int			numHeldCmds, nextHeldCmd;
 } clientPersistant_t;
 
 typedef struct renderInfo_s
@@ -1074,6 +1097,7 @@ void G_StoreTrail(gentity_t *ent);
 void G_ResetTrail(gentity_t *ent);
 void G_TimeShiftClient(gentity_t *ent, int time, qboolean timeshiftAnims);
 void G_TimeShiftAllClients(int time, gentity_t *skip, qboolean timeshiftAnims);
+int G_UnlagTime(gentity_t *ent);
 void G_UnTimeShiftClient(gentity_t *ent, qboolean timeshiftAnims);
 void G_UnTimeShiftAllClients(gentity_t *skip, qboolean timeshiftAnims);
 void G_PredictPlayerStepSlideMove(gentity_t *ent, float frametime);
@@ -1236,7 +1260,7 @@ typedef struct {
 
 	float		topSpeed;
 	float		displacement;
-	int			displacementSamples;
+	int			displacementMs;
 	int			averageSpeed; // this is only calculated on demand; don't just randomly read this (imagine getters in C)
 
 	list_t		damageGivenList; // list of people whom this player has damaged (including ragequitters/specs)
@@ -1278,8 +1302,8 @@ typedef struct {
 	int			numLocationSamplesWithFlag; // only counts 3+ seconds after spawning
 	float		totalLocationWithoutFlag; // only counts 3+ seconds after spawning
 	int			numLocationSamplesWithoutFlag; // only counts 3+ seconds after spawning
-	int			ticksNotPaused; // all ticks this player has been ingame for while not paused, regardless of afk/spawn times, etc. used to determine total ingame time
-	int			numLocationSamplesRegardlessOfFlagHolding; // similar to ticksNotPaused but they can't be afk and only counts 3+ seconds after spawn
+	int			msNotPaused; // all ms this player has been ingame for while not paused, regardless of afk/spawn times, etc. used to determine total ingame time
+	int			numLocationSamplesRegardlessOfFlagHolding; // similar to msNotPaused but they can't be afk and only counts 3+ seconds after spawn
 	int			confirmedPositionBits; // list of all positions this person has ever played in this pug on this team
 
 	ctfPosition_t	lastPosition; // may be valid or unknown
@@ -1308,7 +1332,7 @@ typedef struct {
 typedef struct {
 	node_t		node;
 	stats_t		*stats;
-	int			numTicksIngameWithMe; // all ticks this player has been ingame with me, regardless of afk/spawn times, etc.
+	int			msIngameWithMe; // all ms this player has been ingame with me, regardless of afk/spawn times, etc.
 	int			numLocationSamplesIngameWithMe; // can't be afk and only counts 3+ seconds after spawn
 	float		totalLocationWithFlagWithMe;
 	int			numLocationSamplesWithFlagWithMe;
@@ -1481,7 +1505,7 @@ typedef struct {
 	char			*text;
 	qboolean		inConsole;
 	int				clientNum;
-	int				serverFrameNum;
+	int				queuedTime;
 } queuedServerMessage_t;
 
 typedef struct {
@@ -1565,6 +1589,40 @@ void TeamGen_WarnLS(void);
 void PrintTeamsProposalsInConsole(pugProposal_t *set, int clientNum);
 void TeamGenerator_FixInvalidConfirmationPermutations(void);
 void TeamGenerator_ResetConfirmationsAndMutes(void);
+
+// per-client carried tick deadlines
+enum { TICK_MEDIC, TICK_SUPPLY, TICK_LAVA, TICK_FORCE_SABERLOCK, TICK_CLIENT_SLOTS };
+
+// a victim's saber body damage accumulated over a 50 ms window (g_tickFixSaberDamage 1)
+#define SABER_WINDOW_VICTIMS 8
+typedef struct {
+	int entityNum;
+	float raw; // damage before the round-up, the multipliers and the x0.033 scale
+	vec3_t dir, spot;
+	qboolean dismember;
+	int knockbackFlags;
+	int saberNum, bladeNum; // blade of the first trace, for its damage scale
+} saberWindowVictim_t;
+
+// g_tickFixSaberAnim: a pending skeleton anim change, applied the way the 20 Hz frame at grid time `grid` would have shown it
+typedef struct {
+	int grid; // grid time of the 20 Hz frame that would have applied it, 0 none
+	int time; // level-clock time of the first change in that frame's interval
+	int anim;
+	qboolean flip;
+} saberAnimRec_t;
+
+// a part's skeleton anims as last passed to SetBoneAnim, the current one and the one it blends from (g_tickFixSaberSample 2 re-times them for an exact grid read)
+typedef struct {
+	int firstFrame, lastFrame, flags, start;
+	float speed;
+	qboolean valid;
+} saberBoneAnim_t;
+
+typedef struct {
+	saberBoneAnim_t cur, prev;
+} saberBoneSet_t;
+#define SABER_ANIM_RECS 2 // the entry for grid g is applied before g+50, where a third interval could begin
 
 // this structure is cleared on each ClientSpawn(),
 // except for 'client->pers' and 'client->sess'
@@ -1694,6 +1752,7 @@ struct gclient_s {
 
 	vec3_t		olderSaberBase; //Set before lastSaberBase_Always, to whatever lastSaberBase_Always was previously
 	qboolean	olderIsValid;	//is it valid?
+	int			olderSaberStorageTime; // lastSaberStorageTime when olderSaberBase was stored
 
 	vec3_t		lastSaberDir_Always; //every getboltmatrix, set to saber dir
 	vec3_t		lastSaberBase_Always; //every getboltmatrix, set to saber base
@@ -1846,6 +1905,44 @@ struct gclient_s {
 
 	int disarmed;
 	int forcingDisarmedNoAttack;
+
+	// tick state: carried deadlines and residuals, per life (cleared by the spawn memset)
+	int lightningTickTime, drainTickTime;
+	double lightningDmgResidual; // lightning damage owed below one point
+	int saberLockTick;
+	int useTick;
+	int useFrame; // level.time the use key was last handled held (once per server frame)
+	int tickButtonsAccum; // force/use buttons seen in any usercmd since last consumed
+	int tickDeadline[TICK_CLIENT_SLOTS];
+	int tickLastEval[TICK_CLIENT_SLOTS]; // last G_TickDueSince evaluation per slot
+
+	// g_tickFixSaberDamage 1: body damage owed per victim since the last 50 ms tick
+	saberWindowVictim_t saberWindow[SABER_WINDOW_VICTIMS];
+	int saberWindowVictims;
+	int saberWindowTime; // last time a trace added to saberWindow
+	int saberWindowMove; // saberMove the pending damage was dealt in
+	float saberClashRaw; // blade-on-blade damage owed below the clash threshold
+	int saberClashTime; // last time a trace added to saberClashRaw
+	int saberClashMove; // saberMove saberClashRaw was owed in
+
+	// g_tickFixSaberDamage 2: per blade, its samples at the last two 50 ms ticks
+	vec3_t saberTickBase[MAX_SABERS][MAX_BLADES], saberTickDir[MAX_SABERS][MAX_BLADES];
+	vec3_t saberRead2Base[MAX_SABERS][MAX_BLADES], saberRead2Dir[MAX_SABERS][MAX_BLADES]; // the blade read before muzzlePointOld, for the quadratic grid sample
+	int saberRead1Time[MAX_SABERS][MAX_BLADES], saberRead2Time[MAX_SABERS][MAX_BLADES]; // frame times of muzzlePointOld and saberRead2Base
+	vec3_t saberTickBaseOld[MAX_SABERS][MAX_BLADES], saberTickDirOld[MAX_SABERS][MAX_BLADES];
+	int saberTickTime[MAX_SABERS][MAX_BLADES]; // tick time of saberTickBase, 0 none
+	int saberTickTimeOld[MAX_SABERS][MAX_BLADES]; // tick time of saberTickBaseOld, 0 none
+
+	// g_tickFixSaberAnim: pending skeleton anim changes per part
+	saberAnimRec_t legsAnimRec[SABER_ANIM_RECS], torsoAnimRec[SABER_ANIM_RECS];
+	int saberAnimUpdateTime; // last frame the grid anim update ran (pause, following and intermission skip it)
+	saberBoneSet_t saberBoneSet[2]; // 0 legs (model_root), 1 torso (lower_lumbar, Motion)
+	vec3_t saberGridLegsAngles; // the legs angles of the last player-angle update on a grid step, and its frame time
+	int saberGridLegsTime;
+	vec3_t saberGridBoxMins, saberGridBoxMaxs; // the held saber's box of the last grid frame, absolute, and that frame's time
+	int saberGridBoxTime;
+	qboolean saberGridHasLook; // the look target the block check found on the last grid frame, for the next grid frame's angle update
+	int saberGridLookTarget, saberGridLookTime;
 };
 
 //Interest points
@@ -1984,6 +2081,53 @@ typedef struct {
 	//char			name[MAX_NAME_LENGTH];
 } capture_t;
 
+#define TICKTEST_MAX_SPAWNED	64
+
+typedef enum {
+	TICKTEST_IDLE,
+	TICKTEST_WAIT_BOTS,
+	TICKTEST_SETTLE,	// placed; the saber sampling settles before the clock starts
+	TICKTEST_RUNNING
+} tickTestPhase_t;
+
+// state of the ticktest scenario harness (g_ticktest.c)
+typedef struct {
+	qboolean		active;			// the harness owns the test bots
+	int				scenario;		// index into the scenario table
+	const char		*name;
+	tickTestPhase_t	phase;
+	int				duration;		// ms
+	int				waitStart;
+	int				startTime;
+	int				endTime;
+	int				settleEnd;
+
+	qboolean		haveBot[2];
+	int				bot[2];			// client numbers
+	qboolean		botRequested[2];
+	int				botTeamRetry[2];
+	int				botKnown[2];	// force setup the bot joined with
+	int				botLevels[2][NUM_FORCE_POWERS];
+	int				botButtons[2];
+	int				botUpmove[2];
+	qboolean		botPinned[2];
+	vec3_t			botPin[2];
+	int				cmdMsec;		// ms of level time per test bot command (0: one command per frame)
+	int				botNextCmd[2];	// next command time with cmdMsec
+	qboolean		cmdArrival;		// sub-frame commands arrive between frames, as a real client's do (ticktest fourth argument)
+	int				cmdStamp;		// level-clock arrival time of the command being thought with cmdArrival, 0 none
+
+	int				spawned[TICKTEST_MAX_SPAWNED];
+	const char		*spawnedClass[TICKTEST_MAX_SPAWNED];
+	int				numSpawned;
+
+	// per-scenario scratch
+	int				ent[4];
+	int				timer[4];
+	vec3_t			origin, dir, right, point;
+	float			yaw;
+} tickTest_t;
+
 typedef struct {
 	struct gclient_s	*clients;		// [maxclients]
 
@@ -2032,6 +2176,7 @@ typedef struct {
 
 	int			teamScores[TEAM_NUM_TEAMS];
 	int			lastTeamLocationTime;		// last time of client team location update
+	int			teamOverlayDeadline;		// carried send deadline for the team overlay
 
 	qboolean	newSession;				// don't use any old session data, because
 										// we changed gametype
@@ -2359,6 +2504,11 @@ typedef struct {
 
 	qboolean forceEndMatchInDraw;
 	int fastestPossibleCaptureTime;
+
+	tickTest_t tickTest;
+	int cmdStamp; // arrival time of the held command being run (g_tickFixSaberOrder), 0 none
+	int cmdWallTime, cmdLagBase; // its trap_Milliseconds() and flag timer lag base at arrival
+	int heldSeq; // arrival count of held commands, which orders equal stamps
 } level_locals_t;
 
 
@@ -2630,7 +2780,10 @@ void	G_MuteSound( int entnum, int channel );
 gentity_t *G_Sound( gentity_t *ent, int channel, int soundIndex );
 void	G_SoundAtLoc( vec3_t loc, int channel, int soundIndex );
 void	G_EntitySound( gentity_t *ent, int channel, int soundIndex );
-void	TryUse( gentity_t *ent );
+void	TryUse( gentity_t *ent, qboolean generic );
+qboolean G_UseRuns(qboolean generic);
+qboolean G_UseGateDue(gentity_t *ent);
+void	G_UseKeyUp(gentity_t *ent);
 void	G_SendG2KillQueue(void);
 void	G_KillG2Queue(int entNum);
 void	G_FreeEntity( gentity_t *e );
@@ -3125,6 +3278,14 @@ void ClientDisconnect( int clientNum );
 void ClientBegin( int clientNum, qboolean allowTeamReset );
 void G_BreakArm(gentity_t *ent, int arm);
 void G_UpdateClientAnims(gentity_t *self, float animSpeedScale);
+int G_UpdateClientAnimsAt(gentity_t *self, float animSpeedScale, int startTime, qboolean legsOk, qboolean torsoOk, const saberAnimRec_t *legsRec, const saberAnimRec_t *torsoRec);
+int G_CmdLevelTime(int cmdServerTime);
+qboolean WP_SaberAnimOnGrid(gentity_t *self);
+int SaberGridAfter(int t);
+void SaberAnimRecNote(saberAnimRec_t *recs, int grid, int time, int anim, qboolean flip, int execAnim, qboolean execFlip);
+int SaberHoldGrid(void);
+qboolean G_HoldCmd(gentity_t *ent);
+void G_RunHeldCmds(gentity_t *only);
 void G_SetRaceMode( gentity_t *self, qboolean race );
 void G_GiveRacemodeItemsAndFullStats( gentity_t *ent );
 void SetRacerForcePowers(gentity_t *ent);
@@ -3382,6 +3543,86 @@ int BotAIStartFrame( int time );
 
 extern	level_locals_t	level;
 extern	gentity_t		g_entities[MAX_GENTITIES];
+
+// per-area tickrate fixes, each gated by the g_tickFix master switch
+#define TICKFIX(area) (g_tickFix.integer && g_tickFix##area.integer)
+
+// this frame's length in ms, clamped to 1..1000 (50 before the first frame)
+static ID_INLINE int G_FrameMsec(void) {
+	if (level.previousTime <= 0)
+		return 50;
+	return Com_Clampi(1, 1000, level.time - level.previousTime);
+}
+
+// ticks owed now on a carried deadline advanced by period
+static ID_INLINE int G_TickDue(int *deadline, int period) {
+	return Tick_Due(deadline, level.time, G_FrameMsec(), period);
+}
+
+/*
+a gate evaluated only when the client's packets arrive must tolerate a deadline up to one evaluation gap old,
+or the carry is lost. the gap is capped below the period so a gate idle for a while pays at most one tick
+*/
+static ID_INLINE int G_TickDueSince(int *deadline, int *lastEval, int period) {
+	return Tick_DueSince(deadline, lastEval, level.time, G_FrameMsec(), period, period);
+}
+
+// next nextthink for a think re-arming from its scheduled time instead of level.time
+static ID_INLINE int G_TickRearmThink(gentity_t *ent, int period) {
+	return Tick_Rearm(ent->tickDeadline, level.time, G_FrameMsec(), period);
+}
+
+/*
+a gate on ent's carried 50 ms tick (tickGate) shared by everything that reaches ent in one frame: open on every call
+in a frame where the tick fell due. lastEval is the gate's check stamp when it is checked as a client's packets
+arrive (G_TickDueSince), NULL when it is checked every frame
+*/
+static ID_INLINE qboolean G_TickFrameGate(gentity_t *ent, int *lastEval) {
+	int n;
+
+	if (ent->tickGateTime == level.time)
+		return qtrue;
+	n = lastEval ? G_TickDueSince(&ent->tickGate, lastEval, TICK_BASE_MSEC) : G_TickDue(&ent->tickGate, TICK_BASE_MSEC);
+	if (n <= 0)
+		return qfalse;
+	ent->tickGateTime = level.time;
+	return qtrue;
+}
+
+// the running think's scheduled time, or level.time when not called as a think
+static ID_INLINE int G_TickThinkTime(gentity_t *ent) {
+	return ent->tickDeadline <= level.time && ent->tickDeadline >= level.time - G_FrameMsec() ? ent->tickDeadline : level.time;
+}
+
+// what a 20 Hz server made of an ms timer: strict -> first tick past ms, inclusive -> first tick at or past ms
+#define G_TickStrict(ms) Tick_Quantize((ms), qtrue)
+#define G_TickIncl(ms) Tick_Quantize((ms), qfalse)
+
+// what a 20 Hz server made of an ms timer it only checked on use key ticks (every 150 ms)
+#define G_TickUseStrict(ms) Tick_QuantizeTo((ms), G_TickStrict(100), qtrue)
+
+// ms since this entity's previous G_TickDt call, 0..1000 (0 the first time); call once per think, at the top
+static ID_INLINE int G_TickDt(gentity_t *ent) {
+	int dt = ent->tickLastThink > 0 ? Com_Clampi(0, 1000, level.time - ent->tickLastThink) : 0;
+	ent->tickLastThink = level.time;
+	return dt;
+}
+
+// [tick] log line at the point a tick-sensitive effect is applied; inert unless g_tickProbe is set
+#define TICKPROBE(name, entnum, value) do { if (g_tickProbe.integer) G_LogPrintf("[tick] " name " ent=%d t=%d v=%g\n", (int)(entnum), level.time, (double)(value)); } while (0)
+
+// NPC.c: whether this NPC's think runs on the carried 50 ms grid
+qboolean NPC_TickCarried(gentity_t *ent);
+
+// g_ticktest.c
+void TickTest_RunFrame(void);
+qboolean TickTest_IsBot(int clientNum);
+int TickTest_BotIndex(int clientNum);
+qboolean TickTest_BotCmd(int clientNum, usercmd_t *cmd);
+void TickTest_BotThink(int clientNum, usercmd_t *cmd);
+int TickTest_CmdLimit(int idx);
+void TickTest_ApplyPin(int idx);
+void Svcmd_TickTest_f(void);
 
 #define	FOFS(x) ((int)&(((gentity_t *)0)->x))
 
@@ -3952,6 +4193,28 @@ extern vmCvar_t		g_fixForceRegenTime;
 extern vmCvar_t		g_thTeRequiresLOS;
 extern vmCvar_t		d_debugThTeLOS;
 extern vmCvar_t		g_thTeUnlagged;
+extern vmCvar_t		g_tickProbe;
+extern vmCvar_t		g_tickFix;
+extern vmCvar_t		g_tickFixInput;
+extern vmCvar_t		g_tickFixForce;
+extern vmCvar_t		g_tickFixSabers;
+extern vmCvar_t		g_tickFixSaberDamage;
+extern vmCvar_t		g_tickFixSaberAnim;
+extern vmCvar_t		g_tickFixSaberBox;
+extern vmCvar_t		g_tickFixSaberSample;
+extern vmCvar_t		g_tickFixSaberOrder;
+extern vmCvar_t		g_tickFixWeapons;
+extern vmCvar_t		g_tickFixStations;
+extern vmCvar_t		g_tickFixItems;
+extern vmCvar_t		g_tickFixClient;
+extern vmCvar_t		g_tickFixMovers;
+extern vmCvar_t		g_tickFixNPC;
+extern vmCvar_t		g_tickFixStats;
+extern vmCvar_t		g_tickFixCTF;
+extern vmCvar_t		g_smoothClientsAnchor;
+extern vmCvar_t		g_smoothClientsLead;
+extern vmCvar_t		g_smoothClientsCap;
+extern vmCvar_t		g_smoothClientsFollow;
 extern vmCvar_t		d_logTEData;
 
 extern vmCvar_t		g_sendForceTimers;

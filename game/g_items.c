@@ -133,7 +133,8 @@ void ShieldThink(gentity_t *self)
 	{
 		self->health -= SHIELD_HEALTH_DEC;
 	}
-	self->nextthink = level.time + 1000;
+	TICKPROBE("shield_decay", self->s.number, g_gametype.integer == GT_SIEGE ? SHIELD_SIEGE_HEALTH_DEC : SHIELD_HEALTH_DEC);
+	self->nextthink = TICKFIX(Items) ? G_TickRearmThink(self, 1000) : level.time + 1000;
 	if (self->health <= 0)
 	{
 		G_LogPrintf( "ShieldThink() Removing shield %i by decay\n",
@@ -198,7 +199,7 @@ void ShieldGoSolid(gentity_t *self)
 	trap_Trace (&tr, self->r.currentOrigin, self->r.mins, self->r.maxs, self->r.currentOrigin, self->s.number, CONTENTS_BODY );
 	if(tr.startsolid)
 	{	// gah, we can't activate yet
-		self->nextthink = level.time + 200;
+		self->nextthink = TICKFIX(Items) ? G_TickRearmThink(self, 200) : level.time + 200;
 		self->think = ShieldGoSolid;
 		trap_LinkEntity(self);
 	}
@@ -213,7 +214,7 @@ void ShieldGoSolid(gentity_t *self)
 		self->s.eFlags &= ~EF_NODRAW;
 
 		self->r.contents = CONTENTS_SOLID;
-		self->nextthink = level.time + 1000;
+		self->nextthink = TICKFIX(Items) ? G_TickRearmThink(self, 1000) : level.time + 1000;
 		self->think = ShieldThink;
 		self->takedamage = qtrue;
 		trap_LinkEntity(self);
@@ -550,6 +551,8 @@ void SentryTouch(gentity_t *ent, gentity_t *other, trace_t *trace)
 
 extern void WP_TraceSetStart(gentity_t *ent, vec3_t start, vec3_t mins, vec3_t maxs);
 //----------------------------------------------------------------
+void pas_think( gentity_t *ent );
+
 void pas_fire( gentity_t *ent )
 //----------------------------------------------------------------
 {
@@ -614,10 +617,30 @@ void pas_fire( gentity_t *ent )
 		WP_FireTurretMissile(&g_entities[ent->genericValue3], myOrg, fwd, qfalse, 10, 2300, MOD_SENTRY, ent);
 	}
 
-	G_RunObject(ent);
+	if (TICKFIX(Items))
+	{ // G_RunObject re-arms the think from level.time; keep pas_think's carried schedule
+		int nextthink = ent->nextthink;
+		G_RunObject(ent);
+		if (ent->inuse && ent->think == pas_think) // the impact can free the sentry
+			ent->nextthink = nextthink;
+	}
+	else
+	{
+		G_RunObject(ent);
+	}
 }
 
 #define TURRET_RADIUS 800
+
+// the sentry's gates run on its 100 ms think grid, at the think's scheduled time: a deadline that falls between
+// two thinks fires on the next one, as at 20 Hz
+static int PAS_ThinkTime(gentity_t *ent) {
+	return ent->tickDeadline >= level.time - G_FrameMsec() ? ent->tickDeadline : level.time;
+}
+
+static int PAS_NextThink(gentity_t *ent) {
+	return TICKFIX(Items) ? G_TickRearmThink(ent, FRAMETIME) : level.time + FRAMETIME;
+}
 
 //-----------------------------------------------------
 static qboolean pas_find_enemies( gentity_t *self )
@@ -765,13 +788,17 @@ static qboolean pas_find_enemies( gentity_t *self )
 
 			if ( enemyDist < bestDist )// all things equal, keep current
 			{
-				if ( self->attackDebounceTime + 100 < level.time )
+				// the deadline is already on the think grid, so strict < matches stock's +100
+				if ( TICKFIX(Items) ? self->attackDebounceTime < PAS_ThinkTime(self) : self->attackDebounceTime + 100 < level.time )
 				{
 					// We haven't fired or acquired an enemy in the last 2 seconds-start-up sound
 					G_Sound( self, CHAN_BODY, G_SoundIndex( "sound/chars/turret/startup.wav" ));
 
 					// Wind up turrets for a bit
-					self->attackDebounceTime = level.time + 900 + random() * 200;
+					if (TICKFIX(Items))
+						self->attackDebounceTime = PAS_ThinkTime(self) + Tick_QuantizeTo(900 + random() * 200, FRAMETIME, qtrue);
+					else
+						self->attackDebounceTime = level.time + 900 + random() * 200;
 				}
 
 				G_SetEnemy( self, target );
@@ -826,13 +853,13 @@ void pas_adjust_enemy( gentity_t *ent )
 	if ( keep )
 	{
 	}
-	else if ( ent->bounceCount < level.time && ent->enemy ) // don't ping pong on and off
+	else if ( ent->bounceCount < (TICKFIX(Items) ? PAS_ThinkTime(ent) : level.time) && ent->enemy ) // don't ping pong on and off
 	{
 		ent->enemy = NULL;
 		// shut-down sound
 		G_Sound( ent, CHAN_BODY, G_SoundIndex( "sound/chars/turret/shutdown.wav" ));
 	
-		ent->bounceCount = level.time + 500 + random() * 150;
+		ent->bounceCount = (TICKFIX(Items) ? PAS_ThinkTime(ent) : level.time) + 500 + random() * 150;
 
 		// make turret play ping sound for 5 seconds
 		ent->aimDebounceTime = level.time + 5000;
@@ -863,6 +890,14 @@ void pas_think( gentity_t *ent )
 	int			i = 0;
 	qboolean	clTrapped = qfalse;
 	vec3_t		testMins, testMaxs;
+	int			dt = G_TickDt(ent);
+	float		yawCap = 10.0f, pitchCap = 4.0f;
+
+	if (TICKFIX(Items) && dt > 0)
+	{ // the caps are per 100 ms think
+		yawCap *= Tick_Frac(dt) / Tick_Frac(FRAMETIME);
+		pitchCap *= Tick_Frac(dt) / Tick_Frac(FRAMETIME);
+	}
 
 	testMins[0] = ent->r.currentOrigin[0] + ent->r.mins[0]+4;
 	testMins[1] = ent->r.currentOrigin[1] + ent->r.mins[1]+4;
@@ -902,7 +937,7 @@ void pas_think( gentity_t *ent )
 	{
 		ent->r.contents = 0;
 		ent->s.fireflag = 0;
-		ent->nextthink = level.time + FRAMETIME;
+		ent->nextthink = PAS_NextThink(ent);
 		return;
 	}
 	else
@@ -921,11 +956,11 @@ void pas_think( gentity_t *ent )
 	if ( !ent->damage )
 	{
 		ent->damage = 1;
-		ent->nextthink = level.time + FRAMETIME;
+		ent->nextthink = PAS_NextThink(ent);
 		return;
 	}
 
-	if ((ent->genericValue8+TURRET_LIFETIME) < level.time && !meme)
+	if ((ent->genericValue8+TURRET_LIFETIME) < (TICKFIX(Items) ? PAS_ThinkTime(ent) : level.time) && !meme)
 	{
 		G_Sound( ent, CHAN_BODY, G_SoundIndex( "sound/chars/turret/shutdown.wav" ));
 		ent->s.bolt2 = ENTITYNUM_NONE;
@@ -936,7 +971,7 @@ void pas_think( gentity_t *ent )
 		return;
 	}
 
-	ent->nextthink = level.time + FRAMETIME;
+	ent->nextthink = PAS_NextThink(ent);
 
 	if ( ent->enemy )
 	{
@@ -1008,11 +1043,12 @@ void pas_think( gentity_t *ent )
 	if ( fabs(diffYaw) > 0.25f )
 	{
 		moved = qtrue;
+		TICKPROBE("sentry_yaw", ent->s.number, fabs(diffYaw) > yawCap ? yawCap : fabs(diffYaw));
 
-		if ( fabs(diffYaw) > 10.0f )
+		if ( fabs(diffYaw) > yawCap )
 		{
 			// cap max speed
-			ent->speed += (diffYaw > 0.0f) ? -10.0f : 10.0f;
+			ent->speed += (diffYaw > 0.0f) ? -yawCap : yawCap;
 		}
 		else
 		{
@@ -1026,10 +1062,10 @@ void pas_think( gentity_t *ent )
 	{
 		moved = qtrue;
 
-		if ( fabs(diffPitch) > 4.0f )
+		if ( fabs(diffPitch) > pitchCap )
 		{
 			// cap max speed
-			ent->random += (diffPitch > 0.0f) ? -4.0f : 4.0f;
+			ent->random += (diffPitch > 0.0f) ? -pitchCap : pitchCap;
 		}
 		else
 		{
@@ -1049,15 +1085,18 @@ void pas_think( gentity_t *ent )
 		ent->s.loopIsSoundset = qfalse;
 	}
 
-	if ( ent->enemy && ent->attackDebounceTime < level.time )
+	// +200 strict on the 100 ms think grid is a shot every 300 ms
+	if ( ent->enemy && (TICKFIX(Items) ? Tick_Due(&ent->attackDebounceTime, PAS_ThinkTime(ent), FRAMETIME, Tick_QuantizeTo(200, FRAMETIME, qtrue)) > 0 : ent->attackDebounceTime < level.time) )
 	{
 		ent->count--;
 
 		if ( ent->count || meme)
 		{
+			TICKPROBE("sentry_fire", ent->s.number, 1);
 			pas_fire( ent );
 			ent->s.fireflag = 1;
-			ent->attackDebounceTime = level.time + 200;
+			if (!TICKFIX(Items))
+				ent->attackDebounceTime = level.time + 200;
 		}
 		else
 		{
@@ -1263,7 +1302,7 @@ void ItemUse_Seeker(gentity_t *ent)
 	{
 		ent->client->ps.eFlags |= EF_SEEKERDRONE;
 		ent->client->ps.droneExistTime = level.time + 30000;
-		ent->client->ps.droneFireTime = level.time + 1500;
+		ent->client->ps.droneFireTime = level.time + (TICKFIX(Items) ? G_TickStrict(1500) : 1500);
 	}
 }
 
@@ -1423,7 +1462,7 @@ void SpecialItemThink(gentity_t *ent)
 	float mass = 0.09f;
 	float bounce = 1.1f;
 
-	if (ent->genericValue5 < level.time)
+	if (ent->genericValue5 < (TICKFIX(Items) ? ent->tickDeadline : level.time)) // the think's scheduled time, as at 20 Hz
 	{
 		ent->think = G_FreeEntity;
 		ent->nextthink = level.time;
@@ -1432,7 +1471,7 @@ void SpecialItemThink(gentity_t *ent)
 
 	G_RunExPhys(ent, gravity, mass, bounce, qfalse, NULL, 0);
 	VectorCopy(ent->r.currentOrigin, ent->s.origin);
-	ent->nextthink = level.time + 50;
+	ent->nextthink = TICKFIX(Items) ? G_TickRearmThink(ent, TICK_BASE_MSEC) : level.time + 50;
 }
 
 void G_SpecialSpawnItem(gentity_t *ent, gitem_t *item)
@@ -1967,7 +2006,7 @@ void EWebThink(gentity_t *self)
 
 				if (owner->client->pers.cmd.buttons & BUTTON_ATTACK)
 				{
-					if (self->genericValue5 < level.time)
+					if (TICKFIX(Items) ? G_TickDue(&self->genericValue5, G_TickStrict(100)) > 0 : self->genericValue5 < level.time)
 					{ //we can fire another shot off
 						EWebFire(owner, self);
 
@@ -1976,10 +2015,12 @@ void EWebThink(gentity_t *self)
 						self->genericValue3 = 1;
 
 						//set fire debounce time
-						self->genericValue5 = level.time + 100;
+						if (!TICKFIX(Items))
+							self->genericValue5 = level.time + 100;
 					}
 				}
-				else if (self->genericValue5 < level.time && self->genericValue3)
+				// the carried deadline is already the 20 Hz reset time
+				else if ((TICKFIX(Items) ? self->genericValue5 <= level.time : self->genericValue5 < level.time) && self->genericValue3)
 				{ //reset the anim back to non-firing
 					EWeb_SetBoneAnim(self, 0, 1);
 					self->genericValue3 = 0;
@@ -1995,7 +2036,16 @@ void EWebThink(gentity_t *self)
 	}
 
 	//run some physics on it real quick so it falls and stuff properly
-	G_RunExPhys(self, gravity, mass, bounce, qfalse, NULL, 0);
+	if (TICKFIX(Items))
+	{ // one step per 50 ms; the think runs every frame, so genericValue4 (unused by the e-web) carries the step deadline
+		int n;
+		for (n = G_TickDue(&self->genericValue4, TICK_BASE_MSEC); n > 0; n--)
+			G_RunExPhys(self, gravity, mass, bounce, qfalse, NULL, 0);
+	}
+	else
+	{
+		G_RunExPhys(self, gravity, mass, bounce, qfalse, NULL, 0);
+	}
 
 	self->nextthink = level.time;
 }
@@ -3396,6 +3446,8 @@ void G_BounceItem(gentity_t *ent, trace_t *trace) {
 
     // reflect the velocity on the trace plane
     hitTime = level.previousTime + (level.time - level.previousTime) * trace->fraction;
+	if (TICKFIX(Weapons) && hitTime < ent->s.pos.trTime)
+		hitTime = level.time; // a trace that starts solid gives the frame start, which can precede a trajectory restarted this frame
     BG_EvaluateTrajectoryDelta(&ent->s.pos, hitTime, velocity);
     dot = DotProduct(velocity, trace->plane.normal);
     VectorMA(velocity, -2 * dot, trace->plane.normal, ent->s.pos.trDelta);
@@ -3441,7 +3493,7 @@ void G_BounceItem(gentity_t *ent, trace_t *trace) {
 
 	VectorAdd( ent->r.currentOrigin, trace->plane.normal, ent->r.currentOrigin);
 	VectorCopy( ent->r.currentOrigin, ent->s.pos.trBase );
-	ent->s.pos.trTime = level.time;
+	ent->s.pos.trTime = TICKFIX(Weapons) ? hitTime : level.time; // the hit time keeps the rest of the frame's travel
 
 	if (ent->s.eType == ET_HOLOCRON ||
 		(ent->s.shouldtarget && ent->s.eType == ET_GENERAL && ent->physicsObject))

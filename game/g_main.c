@@ -667,6 +667,28 @@ vmCvar_t	g_mindTrickBuff;
 vmCvar_t	g_drainRework;
 vmCvar_t	g_fixForceTimers;
 vmCvar_t	g_fixForceRegenTime;
+vmCvar_t	g_tickProbe;
+vmCvar_t	g_tickFix;
+vmCvar_t	g_tickFixInput;
+vmCvar_t	g_tickFixForce;
+vmCvar_t	g_tickFixSabers;
+vmCvar_t	g_tickFixSaberDamage;
+vmCvar_t	g_tickFixSaberAnim;
+vmCvar_t	g_tickFixSaberBox;
+vmCvar_t	g_tickFixSaberSample;
+vmCvar_t	g_tickFixSaberOrder;
+vmCvar_t	g_tickFixWeapons;
+vmCvar_t	g_tickFixStations;
+vmCvar_t	g_tickFixItems;
+vmCvar_t	g_tickFixClient;
+vmCvar_t	g_tickFixMovers;
+vmCvar_t	g_tickFixNPC;
+vmCvar_t	g_tickFixStats;
+vmCvar_t	g_tickFixCTF;
+vmCvar_t	g_smoothClientsAnchor;
+vmCvar_t	g_smoothClientsLead;
+vmCvar_t	g_smoothClientsCap;
+vmCvar_t	g_smoothClientsFollow;
 vmCvar_t	g_thTeRequiresLOS;
 vmCvar_t	d_debugThTeLOS;
 vmCvar_t	g_thTeUnlagged;
@@ -1337,6 +1359,28 @@ static cvarTable_t		gameCvarTable[] = {
 	{ &g_drainRework, "g_drainRework", "0", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue },
 	{ &g_fixForceTimers, "g_fixForceTimers", "1", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_fixForceRegenTime, "g_fixForceRegenTime", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_tickProbe, "g_tickProbe", "0", 0, 0, qfalse },
+	{ &g_tickFix, "g_tickFix", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_tickFixInput, "g_tickFixInput", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_tickFixForce, "g_tickFixForce", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_tickFixSabers, "g_tickFixSabers", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_tickFixSaberDamage, "g_tickFixSaberDamage", "0", CVAR_ARCHIVE, 0, qtrue }, // 1 per-window damage, 2 sweeps on the 50 ms grid
+	{ &g_tickFixSaberAnim, "g_tickFixSaberAnim", "0", CVAR_ARCHIVE, 0, qtrue }, // with sweeps on the grid: saber wielders' skeleton anims start at grid times
+	{ &g_tickFixSaberBox, "g_tickFixSaberBox", "0", CVAR_ARCHIVE, 0, qtrue }, // with sweeps on the grid: the held saber's box is the newest grid sample
+	{ &g_tickFixSaberSample, "g_tickFixSaberSample", "2", CVAR_ARCHIVE, 0, qtrue }, // with sweeps on the grid, a grid sample between two frame reads: 1 the parabola through the last three reads, 2 a read with the skeleton re-timed to the grid time
+	{ &g_tickFixSaberOrder, "g_tickFixSaberOrder", "0", CVAR_ARCHIVE, 0, qtrue }, // with sweeps on the grid: a command that arrives after the grid time the next frame photographs runs after that frame's saber photos, as on a 20 Hz server
+	{ &g_tickFixWeapons, "g_tickFixWeapons", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_tickFixStations, "g_tickFixStations", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_tickFixItems, "g_tickFixItems", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_tickFixClient, "g_tickFixClient", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_tickFixMovers, "g_tickFixMovers", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_tickFixNPC, "g_tickFixNPC", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_tickFixStats, "g_tickFixStats", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_tickFixCTF, "g_tickFixCTF", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_smoothClientsAnchor, "g_smoothClientsAnchor", "0", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_smoothClientsLead, "g_smoothClientsLead", "30", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_smoothClientsCap, "g_smoothClientsCap", "100", CVAR_ARCHIVE, 0, qtrue },
+	{ &g_smoothClientsFollow, "g_smoothClientsFollow", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &g_thTeRequiresLOS, "g_thTeRequiresLOS", "0", CVAR_ARCHIVE, 0, qtrue },
 	{ &d_debugThTeLOS, "d_debugThTeLOS", "0", CVAR_ARCHIVE, 0, qfalse },
 	{ &g_thTeUnlagged, "g_thTeUnlagged", "1", CVAR_ARCHIVE, 0, qtrue },
@@ -5919,6 +5963,10 @@ void G_RunThink (gentity_t *ent) {
 		// saberthrow
 		if (VALIDSTRING(ent->classname) && !strcmp(ent->classname, "lightsaber") && ent->s.pos.trTime && ent->think != DownedSaberThink)
 			ent->s.pos.trTime += level.time - level.previousTime;
+
+		// G_TickDt clock
+		if (ent->tickLastThink > 0)
+			ent->tickLastThink += level.time - level.previousTime;
 	}
 
 	thinktime = ent->nextthink;
@@ -5930,6 +5978,7 @@ void G_RunThink (gentity_t *ent) {
 	}
 	
 
+	ent->tickDeadline = thinktime;
 	ent->nextthink = 0;
 	if (!ent->think) {
 		goto runicarus;
@@ -6853,7 +6902,7 @@ static void AddPlayerTick(team_t team, gentity_t *ent) {
 	if (!ent->client)
 		return;
 
-	++ent->client->stats->ticksNotPaused;
+	ent->client->stats->msNotPaused += G_FrameMsec();
 
 	if (!level.wasRestarted)
 		return;
@@ -6893,7 +6942,7 @@ static void AddPlayerTick(team_t team, gentity_t *ent) {
 			data->stats = cl->stats;
 		}
 
-		++data->numTicksIngameWithMe; // increment this regardless of whether the position sample is valid
+		data->msIngameWithMe += G_FrameMsec(); // count this regardless of whether the position sample is valid
 
 		if (validLocationSample) {
 			++data->numLocationSamplesIngameWithMe;
@@ -7308,7 +7357,7 @@ void G_RunFrame( int levelTime ) {
 		ListIterate(&level.queuedServerMessagesList, &iter, qfalse);
 		while (IteratorHasNext(&iter)) {
 			queuedServerMessage_t *msg = IteratorNext(&iter);
-			int timeSince = g_svfps.integer * (level.framenum - msg->serverFrameNum);
+			int timeSince = level.time - msg->queuedTime;
 			const int threshold = 50; // this seems to work
 			if (timeSince < threshold)
 				continue;
@@ -7414,7 +7463,7 @@ void G_RunFrame( int levelTime ) {
 		} else if ( !pmove_float.integer ) {
 			G_Printf( S_COLOR_YELLOW"pmove_float is not enabled. Capture records won't be tracked during this map.\n" );
 			level.racemodeRecordsReadonly = qtrue;
-		} else if ( g_svfps.integer != 30 ) {
+		} else if ( !g_tickFix.integer && g_svfps.integer != 30 ) {
 			G_Printf( S_COLOR_YELLOW"Server FPS is not standard. Capture records won't be tracked during this map.\n" );
 			level.racemodeRecordsReadonly = qtrue;
 		} else if ( g_speed.value != 250 ) {
@@ -7426,7 +7475,7 @@ void G_RunFrame( int levelTime ) {
 		} else if ( g_knockback.value != 1000 ) {
 			G_Printf( S_COLOR_YELLOW"Knockback is not standard. Capture records won't be tracked during this map.\n" );
 			level.racemodeRecordsReadonly = qtrue;
-		} else if ( !g_fixForceRegenTime.integer || g_forceRegenTime.integer == 1 ) {
+		} else if ( (!g_fixForceRegenTime.integer && !TICKFIX(Force)) || g_forceRegenTime.integer == 1 ) {
 			G_Printf( S_COLOR_YELLOW"Force regen is not standard. Capture records won't be tracked during this map.\n" );
 			level.racemodeRecordsReadonly = qtrue;
 		}
@@ -7454,6 +7503,7 @@ void G_RunFrame( int levelTime ) {
 		}
 
 		g_siegeRespawnCheck = level.time + g_siegeRespawn.integer * 1000;
+		TICKPROBE("wave", ENTITYNUM_WORLD, g_siegeRespawn.integer);
 	}
 
 	RunRockPaperScissors();
@@ -8013,7 +8063,8 @@ void G_RunFrame( int levelTime ) {
 		g_runningEnt = ent;
 
 		// clear events that are too old
-		if ( level.time - ent->eventTime > EVENT_VALID_MSEC ) {
+		// strict: at 20 Hz events lasted until the first tick past EVENT_VALID_MSEC
+		if ( TICKFIX(Client) ? level.time - ent->eventTime >= G_TickStrict(EVENT_VALID_MSEC) : level.time - ent->eventTime > EVENT_VALID_MSEC ) {
 			if ( ent->s.event ) {
 				ent->s.event = 0;	
 				if ( ent->client ) {
@@ -8143,7 +8194,17 @@ void G_RunFrame( int levelTime ) {
 							}
 						}
 
-						ent->client->inSpaceSuffocation = level.time + Q_irand(100, 200);
+						if (TICKFIX(Movers))
+						{ // from when this one was due if that was within the frame, held as the 20 Hz time less one
+							int from = ent->client->inSpaceSuffocation + 1;
+							if (from > level.time || from < level.time - G_FrameMsec())
+								from = level.time;
+							ent->client->inSpaceSuffocation = from + G_TickStrict(Q_irand(100, 200)) - 1;
+						}
+						else
+						{
+							ent->client->inSpaceSuffocation = level.time + Q_irand(100, 200);
+						}
 					}
 				}
 			}
@@ -8192,7 +8253,7 @@ void G_RunFrame( int levelTime ) {
 #define JETPACK_REFUEL_RATE		150 //seems fair
 			if (ent->client->jetPackOn && ( level.pause.state == PAUSE_NONE || ent->client->sess.inRacemode ))
 			{ //using jetpack, drain fuel
-				if (ent->client->jetPackDebReduce < level.time)
+				if (TICKFIX(Client) ? G_TickDue(&ent->client->jetPackDebReduce, G_TickStrict(JETPACK_DEFUEL_RATE)) > 0 : ent->client->jetPackDebReduce < level.time)
 				{
 					if (ent->client->pers.cmd.upmove > 0)
 					{ //take more if they're thrusting
@@ -8208,15 +8269,18 @@ void G_RunFrame( int levelTime ) {
 						ent->client->ps.jetpackFuel = 0;
 						Jetpack_Off(ent);
 					}
-					ent->client->jetPackDebReduce = level.time + JETPACK_DEFUEL_RATE;
+					if (!TICKFIX(Client))
+						ent->client->jetPackDebReduce = level.time + JETPACK_DEFUEL_RATE;
 				}
+				TICKPROBE("fuel", ent->s.number, ent->client->ps.jetpackFuel);
 			}
 			else if (ent->client->ps.jetpackFuel < 100 && (level.pause.state == PAUSE_NONE || ent->client->sess.inRacemode))
 			{ //recharge jetpack
-				if (ent->client->jetPackDebRecharge < level.time)
+				if (TICKFIX(Client) ? G_TickDue(&ent->client->jetPackDebRecharge, G_TickStrict(JETPACK_REFUEL_RATE)) > 0 : ent->client->jetPackDebRecharge < level.time)
 				{
 					ent->client->ps.jetpackFuel++;
-					ent->client->jetPackDebRecharge = level.time + JETPACK_REFUEL_RATE;
+					if (!TICKFIX(Client))
+						ent->client->jetPackDebRecharge = level.time + JETPACK_REFUEL_RATE;
 				}
 			}
 
@@ -8224,7 +8288,7 @@ void G_RunFrame( int levelTime ) {
 #define CLOAK_REFUEL_RATE		150 //seems fair
 			if (ent->client->ps.powerups[PW_CLOAKED] && (level.pause.state == PAUSE_NONE || ent->client->sess.inRacemode))
 			{ //using cloak, drain battery
-				if (ent->client->cloakDebReduce < level.time)
+				if (TICKFIX(Client) ? G_TickDue(&ent->client->cloakDebReduce, G_TickStrict(CLOAK_DEFUEL_RATE)) > 0 : ent->client->cloakDebReduce < level.time)
 				{
 					ent->client->ps.cloakFuel--;
 					
@@ -8233,15 +8297,18 @@ void G_RunFrame( int levelTime ) {
 						ent->client->ps.cloakFuel = 0;
 						Jedi_Decloak(ent);
 					}
-					ent->client->cloakDebReduce = level.time + CLOAK_DEFUEL_RATE;
+					if (!TICKFIX(Client))
+						ent->client->cloakDebReduce = level.time + CLOAK_DEFUEL_RATE;
 				}
+				TICKPROBE("cloak", ent->s.number, ent->client->ps.cloakFuel);
 			}
 			else if (ent->client->ps.cloakFuel < 100)
 			{ //recharge cloak
-				if (ent->client->cloakDebRecharge < level.time)
+				if (TICKFIX(Client) ? G_TickDue(&ent->client->cloakDebRecharge, G_TickStrict(CLOAK_REFUEL_RATE)) > 0 : ent->client->cloakDebRecharge < level.time)
 				{
 					ent->client->ps.cloakFuel++;
-					ent->client->cloakDebRecharge = level.time + CLOAK_REFUEL_RATE;
+					if (!TICKFIX(Client))
+						ent->client->cloakDebRecharge = level.time + CLOAK_REFUEL_RATE;
 				}
 			}
 
@@ -8283,6 +8350,7 @@ void G_RunFrame( int levelTime ) {
 					// this client is in game and alive, update speed stats
 
 					float xyspeed = 0;
+					float frameSec = G_FrameMsec() / 1000.0f;
 
 					if ( ent->client->ps.m_iVehicleNum ) {
 						gentity_t *currentVeh = &g_entities[ent->client->ps.m_iVehicleNum];
@@ -8324,15 +8392,15 @@ void G_RunFrame( int levelTime ) {
 
 					if (ent->client->stats && (ent->client->sess.sessionTeam == TEAM_RED || ent->client->sess.sessionTeam == TEAM_BLUE)) {
 						// only track overall displacement if you are actually ingame
-						ent->client->stats->displacement += xyspeed / g_svfps.value;
-						ent->client->stats->displacementSamples++;
+						ent->client->stats->displacement += xyspeed * frameSec;
+						ent->client->stats->displacementMs += G_FrameMsec();
 						ent->client->stats->forceSamples++;
 						if (ent->client->ps.fd.forceSide == FORCE_DARKSIDE)
 							ent->client->stats->darkForceSamples++;
 						if (g_gametype.integer == GT_CTF) {
 							ctfRegion_t region = GetCTFRegion(ent);
 							if (region != CTFREGION_INVALID)
-								ent->client->stats->regionTime[region] += (int)(1000.0f / g_svfps.value);
+								ent->client->stats->regionTime[region] += G_FrameMsec();
 						}
 					}
 
@@ -8342,8 +8410,8 @@ void G_RunFrame( int levelTime ) {
 
 					// if they carry a flag, also update fastcap speed stats
 					if ( ent->playerState->powerups[PW_REDFLAG] || ent->playerState->powerups[PW_BLUEFLAG] ) {
-						ent->client->pers.fastcapDisplacement += xyspeed / g_svfps.value;
-						ent->client->pers.fastcapDisplacementSamples++;
+						ent->client->pers.fastcapDisplacement += xyspeed * frameSec;
+						ent->client->pers.fastcapDisplacementMs += G_FrameMsec();
 
 						if ( xyspeed > ent->client->pers.fastcapTopSpeed ) {
 							ent->client->pers.fastcapTopSpeed = xyspeed;
@@ -8351,7 +8419,7 @@ void G_RunFrame( int levelTime ) {
 					} else {
 						ent->client->pers.fastcapDisplacement = 0;
 						ent->client->pers.fastcapTopSpeed = 0;
-						ent->client->pers.fastcapDisplacementSamples = 0;
+						ent->client->pers.fastcapDisplacementMs = 0;
 					}
 				}
 			}
@@ -8372,7 +8440,7 @@ void G_RunFrame( int levelTime ) {
 			int j;
 			// turn off any expired powerups
 			for ( j = 0 ; j < MAX_POWERUPS ; j++ ) {
-				if ( ent->client->ps.powerups[ j ] < level.time ) {
+				if ( TICKFIX(Client) ? level.time - ent->client->ps.powerups[ j ] >= TICK_BASE_MSEC : ent->client->ps.powerups[ j ] < level.time ) {
 					ent->client->ps.powerups[ j ] = 0;
 				}
 			}
@@ -8415,6 +8483,8 @@ void G_RunFrame( int levelTime ) {
 #ifdef _G_FRAME_PERFANAL
 	trap_PrecisionTimer_Start(&timer_ClientEndframe);
 #endif
+	G_RunHeldCmds(NULL);
+
 	// perform final fixups on the players
 	ent = &g_entities[0];
 	for (i=0 ; i < level.maxclients ; i++, ent++ ) {
@@ -8422,6 +8492,9 @@ void G_RunFrame( int levelTime ) {
 			ClientEndFrame( ent );
 		}
 	}
+
+	if (level.tickTest.active)
+		TickTest_RunFrame();
 #ifdef _G_FRAME_PERFANAL
 	iTimer_ClientEndframe = trap_PrecisionTimer_End(timer_ClientEndframe);
 #endif

@@ -4,8 +4,6 @@
 #include "w_saber.h"
 #include "q_shared.h"
 
-#define	MISSILE_PRESTEP_TIME	50
-
 extern void laserTrapStick( gentity_t *ent, vec3_t endpos, vec3_t normal );
 extern void Jedi_Decloak( gentity_t *self );
 
@@ -193,6 +191,22 @@ void G_DeflectMissile( gentity_t *ent, gentity_t *missile, vec3_t forward )
 }
 
 /*
+the projectile block debounce: blocking resumes on the first 20 Hz tick past ms, timed from when the previous
+debounce ran out if that was within the last frame
+*/
+static int SaberBlockDebounce(gentity_t *blocker, int ms) {
+	int from;
+
+	if (!TICKFIX(Weapons))
+		return level.time + ms;
+
+	from = blocker->client->ps.saberBlockTime + 1;
+	if (from > level.time || from < level.time - G_FrameMsec())
+		from = level.time;
+	return from + G_TickStrict(ms) - 1;
+}
+
+/*
 ================
 G_BounceMissile
 
@@ -209,6 +223,8 @@ void G_BounceMissile( gentity_t *ent, trace_t *trace ) {
 
 	// reflect the velocity on the trace plane
 	hitTime = level.previousTime + ( level.time - level.previousTime ) * trace->fraction;
+	if (TICKFIX(Weapons) && hitTime < ent->s.pos.trTime)
+		hitTime = level.time; // a trace that starts solid gives the frame start, which can precede a trajectory restarted this frame
 	BG_EvaluateTrajectoryDelta( &ent->s.pos, hitTime, velocity );
 
 	if (ent->s.weapon == WP_BOWCASTER && d_bowcasterRework_backwardsBounce.integer) {
@@ -279,7 +295,8 @@ void G_BounceMissile( gentity_t *ent, trace_t *trace ) {
 	VectorMA( ent->r.currentOrigin, /*1.0f*/coeff, trace->plane.normal, ent->r.currentOrigin);
 
 	VectorCopy( ent->r.currentOrigin, ent->s.pos.trBase );
-	ent->s.pos.trTime = level.time;
+	ent->s.pos.trTime = TICKFIX(Weapons) ? hitTime : level.time; // the hit time keeps the rest of the frame's travel
+	TICKPROBE("missile_bounce", ent->s.number, level.time - ent->s.pos.trTime);
 
 	if (ent->bounceCount != -5)
 	{
@@ -580,6 +597,8 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 	qboolean		isKnockedSaber = qfalse;
 
 	other = &g_entities[trace->entityNum];
+	if (ent->methodOfDeath == MOD_ROCKET_HOMING)
+		TICKPROBE("rocket_hit", ent->s.number, 1);
 
 	qboolean isRaceShotOnIngame = qfalse;
 	if (ent->parent && ent->parent->client && ent->parent->client->sess.inRacemode && g_racersShootIngame.integer && !ent->parent->aimPracticeEntBeingUsed &&
@@ -812,15 +831,18 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 			G_ReflectMissile(other, ent, fwd, g_randomConeReflection.integer & CONE_REFLECT_SDEF);
 		}
 		
-		other->client->ps.saberBlockTime = level.time + (350 - (otherDefLevel*100)); 
+		int blockTimeBefore = other->client->ps.saberBlockTime;
+		other->client->ps.saberBlockTime = SaberBlockDebounce(other, 350 - (otherDefLevel*100));
 
 		//For jedi AI
 		other->client->ps.saberEventFlags |= SEF_DEFLECTED;
 
 		if (ent->s.weapon == WP_BOWCASTER && d_bowcasterRework_enable.integer) {
 			if (otherDefLevel == FORCE_LEVEL_3) {
-				if (d_bowcasterRework_softSaberPierce.integer)
-					other->client->ps.saberBlockTime = level.time + 150;
+				if (d_bowcasterRework_softSaberPierce.integer) {
+					other->client->ps.saberBlockTime = blockTimeBefore; // carry from the previous debounce, not the one just set
+					other->client->ps.saberBlockTime = SaberBlockDebounce(other, 150);
+				}
 				else
 					other->client->ps.saberBlockTime = 0; //^_^
 			}
@@ -897,7 +919,7 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 			{
 				G_ReflectMissile(otherOwner, ent, fwd, g_randomConeReflection.integer & CONE_REFLECT_SDEF);
 			}
-			otherOwner->client->ps.saberBlockTime = level.time + (350 - (otherDefLevel*100));
+			otherOwner->client->ps.saberBlockTime = SaberBlockDebounce(otherOwner, 350 - (otherDefLevel*100));
 
 			//For jedi AI
 			otherOwner->client->ps.saberEventFlags |= SEF_DEFLECTED;

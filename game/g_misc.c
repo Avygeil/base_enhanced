@@ -1133,13 +1133,23 @@ void check_recharge(gentity_t *ent)
 	
 	if (!ent->activator)
 	{ //don't recharge during use
-		if (ent->genericValue8 < level.time)
+		int n;
+
+		// chargerate 0 recharged once per 20 Hz frame
+		if (TICKFIX(Stations))
+			n = G_TickDue(&ent->genericValue8, G_TickStrict(ent->genericValue5));
+		else
+			n = ent->genericValue8 < level.time ? 1 : 0;
+
+		for (; n > 0; n--)
 		{
 			if (ent->count < ent->genericValue4)
 			{
 				ent->count++;
+				TICKPROBE("station_recharge", ent->s.number, 1);
 			}
-			ent->genericValue8 = level.time + ent->genericValue5;
+			if (!TICKFIX(Stations))
+				ent->genericValue8 = level.time + ent->genericValue5;
 		}
 	}
 	ent->s.health = ent->count; //the "health bar" is gonna be how full we are
@@ -1172,10 +1182,20 @@ void shield_power_converter_use( gentity_t *self, gentity_t *other, gentity_t *a
 {
 	int dif,add;
 	int stop = 1;
+	int n = 0;
 
 	if (!activator || !activator->client)
 	{
 		return;
+	}
+
+	if (TICKFIX(Stations))
+	{ // between ticks a call does nothing, as when only the use key reached it
+		n = G_TickDueSince(&self->setTime, &self->tickLastEval, G_TickStrict(100));
+		if (!n)
+		{
+			return;
+		}
 	}
 
 	if ( g_gametype.integer == GT_SIEGE 
@@ -1190,7 +1210,12 @@ void shield_power_converter_use( gentity_t *self, gentity_t *other, gentity_t *a
 		}
 	}
 
-	if (self->setTime < level.time)
+	if (!TICKFIX(Stations))
+	{
+		n = self->setTime < level.time ? 1 : 0;
+	}
+
+	for (; n > 0; n--)
 	{
 		int	maxArmor;
 		if (!self->s.loopSound)
@@ -1198,7 +1223,10 @@ void shield_power_converter_use( gentity_t *self, gentity_t *other, gentity_t *a
 			self->s.loopSound = G_SoundIndex("sound/interface/shieldcon_run");
 			self->s.loopIsSoundset = qfalse;
 		}
-		self->setTime = level.time + 100;
+		if (!TICKFIX(Stations))
+		{
+			self->setTime = level.time + 100;
+		}
 
 		if ( g_gametype.integer == GT_SIEGE 
 			&& other 
@@ -1233,16 +1261,19 @@ void shield_power_converter_use( gentity_t *self, gentity_t *other, gentity_t *a
 			{
 				self->count -= add;
 			}
-			if (self->count <= 0)
-			{
-				self->setTime = 0;
-			}
 			stop = 0;
 
 			self->fly_sound_debounce_time = level.time + 500;
 			self->activator = activator;
 
 			activator->client->ps.stats[STAT_ARMOR] += add;
+			TICKPROBE("station_shield", activator->s.number, add);
+
+			if (self->count <= 0)
+			{
+				self->setTime = 0;
+				break;
+			}
 		}
 	}
 
@@ -1263,7 +1294,7 @@ void shield_power_converter_use( gentity_t *self, gentity_t *other, gentity_t *a
 		self->s.loopIsSoundset = qfalse;
 		if (self->setTime < level.time)
 		{
-			self->setTime = level.time + self->genericValue5+100;
+			self->setTime = level.time + (TICKFIX(Stations) ? G_TickUseStrict(self->genericValue5 + 100) : self->genericValue5+100);
 		}
 	}
 }
@@ -1273,13 +1304,28 @@ void ammo_generic_power_converter_use( gentity_t *self, gentity_t *other, gentit
 {
 	int add;
 	int stop = 1;
+	int n;
 
 	if (!activator || !activator->client)
 	{
 		return;
 	}
 
-	if (self->setTime < level.time)
+	// the stock path gives on every call; only the use key sets its rate
+	if (TICKFIX(Stations))
+	{ // between ticks a call does nothing, as when only the use key reached it
+		n = G_TickDueSince(&self->setTime, &self->tickLastEval, G_TickStrict(100));
+		if (!n)
+		{
+			return;
+		}
+	}
+	else
+	{
+		n = self->setTime < level.time ? 1 : 0;
+	}
+
+	for (; n > 0; n--)
 	{
 		qboolean gaveSome = qfalse;
 		int i = AMMO_BLASTER;
@@ -1305,6 +1351,7 @@ void ammo_generic_power_converter_use( gentity_t *self, gentity_t *other, gentit
 				{ //this stuff is already a freaking mess, so..
 					gaveSome = qfalse;
 				}
+				TICKPROBE("station_ammo_generic", activator->s.number, Com_Clampi(0, ((activator->client->ps.eFlags & EF_DOUBLE_AMMO) ? ammoData[i].max * 2 : ammoData[i].max) - activator->client->ps.ammo[i], add));
 				activator->client->ps.ammo[i] += add;
 				if ( g_gametype.integer == GT_SIEGE  && i == AMMO_ROCKETS && activator->client->ps.ammo[i] >= 10 )
 				{	// fixme - this should SERIOUSLY be externed.
@@ -1354,7 +1401,8 @@ void ammo_generic_power_converter_use( gentity_t *self, gentity_t *other, gentit
 
 	if (stop || self->count <= 0)
 	{
-		if (self->s.loopSound && self->setTime < level.time)
+		// with the fix setTime holds the next tick, and this is only reached on a tick
+		if (self->s.loopSound && (TICKFIX(Stations) || self->setTime < level.time))
 		{
 			if (self->count <= 0)
 			{
@@ -1367,7 +1415,11 @@ void ammo_generic_power_converter_use( gentity_t *self, gentity_t *other, gentit
 		}
 		self->s.loopSound = 0;
 		self->s.loopIsSoundset = qfalse;
-		if (self->setTime < level.time)
+		if (TICKFIX(Stations))
+		{
+			self->setTime = level.time + G_TickUseStrict(self->genericValue5 + 100);
+		}
+		else if (self->setTime < level.time)
 		{
 			self->setTime = level.time + self->genericValue5+100;
 		}
@@ -1622,20 +1674,37 @@ void ammo_power_converter_use( gentity_t *self, gentity_t *other, gentity_t *act
 {
 	int			add = 0.0f;
 	int			stop = 1;
+	int			n;
 
 	if (!activator || !activator->client)
 	{
 		return;
 	}
 
-	if (self->setTime < level.time)
+	if (TICKFIX(Stations))
+	{ // between ticks a call does nothing, as when only the use key reached it
+		n = G_TickDueSince(&self->setTime, &self->tickLastEval, G_TickStrict(100));
+		if (!n)
+		{
+			return;
+		}
+	}
+	else
+	{
+		n = self->setTime < level.time ? 1 : 0;
+	}
+
+	for (; n > 0; n--)
 	{
 		if (!self->s.loopSound)
 		{
 			self->s.loopSound = G_SoundIndex("sound/player/pickupshield.wav");
 		}
 
-		self->setTime = level.time + 100;
+		if (!TICKFIX(Stations))
+		{
+			self->setTime = level.time + 100;
+		}
 
 		if (self->count)	// Has it got any power left?
 		{
@@ -1649,6 +1718,7 @@ void ammo_power_converter_use( gentity_t *self, gentity_t *other, gentity_t *act
 				}
 				if (activator->client->ps.ammo[i] < ammoData[i].max)
 				{
+					TICKPROBE("station_ammo", activator->s.number, Com_Clampi(0, ammoData[i].max - activator->client->ps.ammo[i], add));
 					activator->client->ps.ammo[i] += add;
 					if (activator->client->ps.ammo[i] > ammoData[i].max)
 					{
@@ -1744,19 +1814,36 @@ void health_power_converter_use( gentity_t *self, gentity_t *other, gentity_t *a
 {
 	int dif,add;
 	int stop = 1;
+	int n;
 
 	if (!activator || !activator->client)
 	{
 		return;
 	}
 
-	if (self->setTime < level.time)
+	if (TICKFIX(Stations))
+	{ // between ticks a call does nothing, as when only the use key reached it
+		n = G_TickDueSince(&self->setTime, &self->tickLastEval, G_TickStrict(100));
+		if (!n)
+		{
+			return;
+		}
+	}
+	else
+	{
+		n = self->setTime < level.time ? 1 : 0;
+	}
+
+	for (; n > 0; n--)
 	{
 		if (!self->s.loopSound)
 		{
 			self->s.loopSound = G_SoundIndex("sound/player/pickuphealth.wav");
 		}
-		self->setTime = level.time + 100;
+		if (!TICKFIX(Stations))
+		{
+			self->setTime = level.time + 100;
+		}
 
 		dif = activator->client->ps.stats[STAT_MAX_HEALTH] - activator->health;
 
@@ -1783,6 +1870,7 @@ void health_power_converter_use( gentity_t *self, gentity_t *other, gentity_t *a
 			self->activator = activator;
 
 			activator->health += add;
+			TICKPROBE("station_health", activator->s.number, add);
 		}
 	}
 
@@ -2101,7 +2189,15 @@ void fx_runner_think( gentity_t *ent )
 	VectorCopy(ent->r.currentAngles, ent->s.angles);
 	VectorCopy(ent->r.currentOrigin, ent->s.origin);
 
-	ent->nextthink = level.time + ent->delay + random() * ent->random;
+	if (TICKFIX(Movers))
+	{ // a 20 Hz server ran it on the first tick at or past the delay, and at most once per tick
+		int ms = ent->delay + random() * ent->random;
+		ent->nextthink = G_TickRearmThink(ent, G_TickIncl(ms > 0 ? ms : 1));
+	}
+	else
+	{
+		ent->nextthink = level.time + ent->delay + random() * ent->random;
+	}
 
 	if ( ent->spawnflags & 4 ) // damage
 	{

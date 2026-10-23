@@ -6250,7 +6250,7 @@ void TeamGenerator_QueueServerMessageInChat(int clientNum, const char *msg) {
 	add->clientNum = clientNum;
 	add->text = strdup(msg);
 	add->inConsole = qfalse;
-	add->serverFrameNum = level.framenum;
+	add->queuedTime = level.time;
 }
 
 void TeamGenerator_QueueChatMessage(int fromClientNum, int toClientNum, const char *msg, int when) {
@@ -6272,7 +6272,7 @@ void TeamGenerator_QueueServerMessageInConsole(int clientNum, const char *msg) {
 	add->clientNum = clientNum;
 	add->text = strdup(msg);
 	add->inConsole = qtrue;
-	add->serverFrameNum = level.framenum;
+	add->queuedTime = level.time;
 }
 
 // optional visibility into the job lifecycle, gated by g_teamgen_threadDebugChat: 0 off, 1
@@ -8790,7 +8790,7 @@ void TeamGenerator_MatchComplete(void) {
 			if (!StatsValid(found) || found->isBot || (found->lastTeam != TEAM_RED && found->lastTeam != TEAM_BLUE))
 				continue;
 
-			if (found->ticksNotPaused * (1000 / g_svfps.integer) < 60000)
+			if (found->msNotPaused < 60000)
 				continue; // ignore troll joiners ingame for less than a minute
 
 			list_t *myTeamList, *otherTeamList;

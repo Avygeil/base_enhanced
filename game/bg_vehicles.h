@@ -621,6 +621,11 @@ typedef struct Vehicle_s
 	//the guy who was previously the pilot
 	bgEntity_t *	m_pOldPilot;
 
+	// last check of each weapon's and turret's muzzle wait, and for turrets the one before it (game only)
+	int			weaponTickLastEval[MAX_VEHICLE_WEAPONS];
+	int			turretTickLastEval[MAX_VEHICLE_TURRETS];
+	int			turretTickPrevEval[MAX_VEHICLE_TURRETS];
+
 #ifdef __GCC__
 };
 #else

@@ -557,7 +557,8 @@ void BotInputToUserCommand(bot_input_t *bi, usercmd_t *ucmd, int delta_angles[3]
 
 	if (bi->actionflags & ACTION_FORCEPOWER) ucmd->buttons |= BUTTON_FORCEPOWER;
 
-	if (useTime < level.time && Q_irand(1, 10) < 5)
+	// 40% per 50 ms; this runs once per server frame
+	if (useTime < level.time && (TICKFIX(NPC) ? Tick_Roll(0.4f, G_FrameMsec(), flrand(0.0f, 1.0f)) : Q_irand(1, 10) < 5))
 	{ //for now just hit use randomly in case there's something useable around
 		ucmd->buttons |= BUTTON_USE;
 	}
@@ -7480,7 +7481,15 @@ int BotAIStartFrame(int time) {
 			botstates[i]->botthink_residual -= thinktime;
 
 			if (g_entities[i].client->pers.connected == CON_CONNECTED) {
-				BotAI(i, (float) thinktime / 1000);
+				if (level.tickTest.active && TickTest_IsBot(i)) {
+					// scripted by ticktest: only drain server commands so the reliable buffer never overflows
+					char buf[1024];
+					while (trap_BotGetServerCommand(i, buf, sizeof(buf)))
+						;
+				}
+				else {
+					BotAI(i, (float) thinktime / 1000);
+				}
 			}
 		}
 	}
@@ -7495,6 +7504,8 @@ int BotAIStartFrame(int time) {
 		}
 
 		BotUpdateInput(botstates[i], time, elapsed_time);
+		if (level.tickTest.active)
+			TickTest_BotCmd(i, &botstates[i]->lastucmd);
 		trap_BotUserCommand(botstates[i]->client, &botstates[i]->lastucmd);
 	}
 

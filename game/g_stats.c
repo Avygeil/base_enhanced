@@ -237,13 +237,13 @@ ctfPosition_t DetermineCTFPosition(stats_t *posGuy, qboolean enableDebugPrints) 
 	}
 
 	// if i haven't been in the current block for 120+ seconds, reuse my last position
-	if (posGuy->ticksNotPaused < g_svfps.integer * CTFPOSITION_MINIMUM_SECONDS) {
+	if (posGuy->msNotPaused < CTFPOSITION_MINIMUM_SECONDS * 1000) {
 		DebugCtfPosPrintf("%08x cl %d %s^7 (block %d): < %d current block, so using lastPosition %s\n", posGuy, posGuy->clientNum, posGuy->name, posGuy->blockNum, CTFPOSITION_MINIMUM_SECONDS, NameForPos(posGuy->lastPosition));
 		return posGuy->lastPosition;
 	}
 
 	// if it's later into the match and i haven't been in the current block for 240+ seconds, reuse my last position
-	if (level.time - level.startTime >= CTFPOSITION_LATEGAME_THRESHOLD_MILLISECONDS && posGuy->ticksNotPaused < g_svfps.integer * CTFPOSITION_MINIMUM_SECONDS_LATEGAME) {
+	if (level.time - level.startTime >= CTFPOSITION_LATEGAME_THRESHOLD_MILLISECONDS && posGuy->msNotPaused < CTFPOSITION_MINIMUM_SECONDS_LATEGAME * 1000) {
 		DebugCtfPosPrintf("%08x cl %d %s^7 (block %d): < %d current block (lategame), so using lastPosition %s\n", posGuy, posGuy->clientNum, posGuy->name, posGuy->blockNum, CTFPOSITION_MINIMUM_SECONDS_LATEGAME, NameForPos(posGuy->lastPosition));
 		return posGuy->lastPosition;
 	}
@@ -276,7 +276,7 @@ ctfPosition_t DetermineCTFPosition(stats_t *posGuy, qboolean enableDebugPrints) 
 		ctfPositioningData_t *teammate = IteratorNext(&iter);
 		if (!StatsValid(teammate->stats))
 			continue;
-		if (teammate->numTicksIngameWithMe < g_svfps.integer * CTFPOSITION_MINIMUM_SECONDS)
+		if (teammate->msIngameWithMe < CTFPOSITION_MINIMUM_SECONDS * 1000)
 			continue; // this guy hasn't been ingame with me during the current block for 60+ seconds.
 		if (!teammate->numLocationSamplesIngameWithMe && !teammate->stats->lastPosition)
 			continue; // no valid position samples and has no last position
@@ -310,7 +310,7 @@ ctfPosition_t DetermineCTFPosition(stats_t *posGuy, qboolean enableDebugPrints) 
 		ctfPositioningData_t *teammate = IteratorNext(&iter);
 		if (!StatsValid(teammate->stats))
 			continue;
-		if (teammate->numTicksIngameWithMe < g_svfps.integer * CTFPOSITION_MINIMUM_SECONDS) {
+		if (teammate->msIngameWithMe < CTFPOSITION_MINIMUM_SECONDS * 1000) {
 			continue; // this guy hasn't been ingame with me during the current block for 60+ seconds.
 		}
 		if (!teammate->numLocationSamplesIngameWithMe && !teammate->stats->lastPosition)
@@ -564,7 +564,7 @@ const char *CtfStatsTableCallback_Time(void *rowContext, void *columnContext) {
 	stats_t *stats = rowContext;
 	if (stats->isTotal)
 		return NULL;
-	int ms = stats->ticksNotPaused * (1000 / g_svfps.integer);
+	int ms = stats->msNotPaused;
 	int secs = ms / 1000;
 	int mins = secs / 60;
 	if (ms >= 60000)
@@ -1251,8 +1251,8 @@ static void CheckBestStats(stats_t *player, statsTableType_t type, stats_t *weap
 		CheckBest(damageDealtTotal);
 		CheckBest(damageTakenTotal);
 		CheckBest(topSpeed);
-		if (player->displacementSamples)
-			player->averageSpeed = (int)floorf(((player->displacement * g_svfps.value) / player->displacementSamples) + 0.5f);
+		if (player->displacementMs)
+			player->averageSpeed = (int)floorf(((player->displacement * 1000.0f) / player->displacementMs) + 0.5f);
 		else
 			player->averageSpeed = (int)(player->topSpeed + 0.5f);
 		CheckBest(averageSpeed);
@@ -1395,12 +1395,11 @@ static qboolean PlayerMatches(genericNode_t *node, void *userData) {
 
 // try to prevent people who join and immediately go spec from showing up on stats
 qboolean StatsValid(const stats_t *stats) {
-	int svFps = g_svfps.integer ? g_svfps.integer : 30; // prevent divide by zero
 #ifdef DEBUG_CTF_POSITION_STATS
-	if (stats->ticksNotPaused >= 1)
+	if (stats->msNotPaused >= 1)
 		return qtrue;
 #else
-	if (stats->isBot || stats->displacementSamples / svFps >= 1 || stats->damageDealtTotal || stats->damageTakenTotal)
+	if (stats->isBot || stats->displacementMs >= 1000 || stats->damageDealtTotal || stats->damageTakenTotal)
 		return qtrue;
 #endif
 	return qfalse;
@@ -1447,9 +1446,9 @@ void AddStatsToTotal(stats_t *player, stats_t *total, statsTableType_t type, sta
 		if (player->topSpeed > total->topSpeed)
 			total->topSpeed = player->topSpeed;
 		AddStatToTotal(displacement);
-		AddStatToTotal(displacementSamples);
-		if (total->displacementSamples)
-			total->averageSpeed = (int)floorf(((total->displacement * g_svfps.value) / total->displacementSamples) + 0.5f);
+		AddStatToTotal(displacementMs);
+		if (total->displacementMs)
+			total->averageSpeed = (int)floorf(((total->displacement * 1000.0f) / total->displacementMs) + 0.5f);
 		else
 			total->averageSpeed = (int)(total->topSpeed + 0.5f);
 	}
@@ -1879,7 +1878,7 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 				combined->clientNum = found->clientNum;
 				combined->lastTeam = found->lastTeam;
 				combined->finalPosition = pos;
-				combined->ticksNotPaused += found->ticksNotPaused;
+				combined->msNotPaused += found->msNotPaused;
 				combined->confirmedPositionBits |= found->confirmedPositionBits;
 
 				iterator_t iter2;
@@ -1888,7 +1887,7 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 					stats_t *match = IteratorNext(&iter2);
 					if (StatsValid(match) && match->isBot == found->isBot && match->sessionId == found->sessionId && match->lastTeam == found->lastTeam && match != found) {
 						AddStatsToTotal(match, combined, type, weaponStatsPtr); // add all other matching stats_ts into the combined one
-						combined->ticksNotPaused += match->ticksNotPaused;
+						combined->msNotPaused += match->msNotPaused;
 						combined->confirmedPositionBits |= match->confirmedPositionBits;
 					}
 				}
@@ -1950,14 +1949,14 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 			combined->clientNum = found->clientNum;
 			combined->lastTeam = found->lastTeam;
 			combined->finalPosition = pos;
-			combined->ticksNotPaused += found->ticksNotPaused;
+			combined->msNotPaused += found->msNotPaused;
 			iterator_t iter2;
 			ListIterate(&level.savedStatsList, &iter2, qfalse);
 			while (IteratorHasNext(&iter2)) {
 				stats_t *match = IteratorNext(&iter2);
 				if (StatsValid(match) && match->isBot == found->isBot && match->sessionId == found->sessionId && match->lastTeam == found->lastTeam && match != found) {
 					AddStatsToTotal(match, combined, type, weaponStatsPtr); // add all other matching stats_ts into the combined one
-					combined->ticksNotPaused += match->ticksNotPaused;
+					combined->msNotPaused += match->msNotPaused;
 				}
 			}
 
@@ -2013,14 +2012,14 @@ static void PrintTeamStats(const int id, char *outputBuffer, size_t outSize, qbo
 			combined->clientNum = found->clientNum;
 			combined->lastTeam = found->lastTeam;
 			combined->finalPosition = pos;
-			combined->ticksNotPaused += found->ticksNotPaused;
+			combined->msNotPaused += found->msNotPaused;
 			iterator_t iter2;
 			ListIterate(&level.savedStatsList, &iter2, qfalse);
 			while (IteratorHasNext(&iter2)) {
 				stats_t *match = IteratorNext(&iter2);
 				if (StatsValid(match) && match->isBot == found->isBot && match->sessionId == found->sessionId && match->lastTeam == found->lastTeam && match != found) {
 					AddStatsToTotal(match, combined, type, weaponStatsPtr); // add all other matching stats_ts into the combined one
-					combined->ticksNotPaused += match->ticksNotPaused;
+					combined->msNotPaused += match->msNotPaused;
 				}
 			}
 
@@ -3373,7 +3372,7 @@ void SendMachineFriendlyStats(void) {
 			AddStatsToTotal(found, s, STATS_TABLE_FORCE, NULL);
 			AddStatsToTotal(found, s, STATS_TABLE_ACCURACY, NULL);
 			Q_strncpyz(s->name, found->name, sizeof(s->name));
-			int ticksOnAnyPosition = s->ticksNotPaused = found->ticksNotPaused;
+			int msOnAnyPosition = s->msNotPaused = found->msNotPaused;
 			int allPositionsPlayed = 0;
 			if (found->finalPosition)
 				allPositionsPlayed = (1 << found->finalPosition);
@@ -3392,7 +3391,7 @@ void SendMachineFriendlyStats(void) {
 						found2->sessionId != found->sessionId || found2->lastTeam != found->lastTeam)
 						continue;
 
-					ticksOnAnyPosition += found2->ticksNotPaused;
+					msOnAnyPosition += found2->msNotPaused;
 					if (found2->finalPosition)
 						allPositionsPlayed |= (1 << found2->finalPosition);
 					if (found2->confirmedPositionBits)
@@ -3406,13 +3405,13 @@ void SendMachineFriendlyStats(void) {
 					AddStatsToTotal(found2, s, STATS_TABLE_GENERAL, NULL);
 					AddStatsToTotal(found2, s, STATS_TABLE_FORCE, NULL);
 					AddStatsToTotal(found2, s, STATS_TABLE_ACCURACY, NULL);
-					s->ticksNotPaused += found2->ticksNotPaused;
+					s->msNotPaused += found2->msNotPaused;
 					++numBlocks;
 				}
 			}
 
 			// require at least 60 seconds of total ingame time
-			if (ticksOnAnyPosition * (1000 / g_svfps.integer) < CTFPOSITION_MINIMUM_SECONDS * 1000)
+			if (msOnAnyPosition < CTFPOSITION_MINIMUM_SECONDS * 1000)
 				continue;
 
 			qboolean hasValidRegions = qfalse;
@@ -3452,7 +3451,7 @@ void SendMachineFriendlyStats(void) {
 				MACHINEFRIENDLYSTATS_PROTOCOL,
 				found->clientNum,
 				found->lastTeam,
-				s->ticksNotPaused * (1000 / g_svfps.integer),
+				s->msNotPaused,
 				found->finalPosition,
 				allPositionsPlayed,
 				s->captures,

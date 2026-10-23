@@ -1541,21 +1541,37 @@ void G_UseDispenserOn(gentity_t *ent, int dispType, gentity_t *target)
 {
 	if (dispType == HI_HEALTHDISP)
 	{
-		target->client->ps.stats[STAT_HEALTH] += 4;
+		// with the fix, +4 per carried 150 ms tick (the 20 Hz use key rate) instead of per call
+		int n = TICKFIX(Stations) ? G_TickDueSince(&ent->client->tickDeadline[TICK_MEDIC], &ent->client->tickLastEval[TICK_MEDIC], G_TickStrict(100)) : 1;
 
-		if (target->client->ps.stats[STAT_HEALTH] > target->client->ps.stats[STAT_MAX_HEALTH])
+		for (; n > 0; n--)
 		{
-			target->client->ps.stats[STAT_HEALTH] = target->client->ps.stats[STAT_MAX_HEALTH];
+			target->client->ps.stats[STAT_HEALTH] += 4;
+
+			if (target->client->ps.stats[STAT_HEALTH] > target->client->ps.stats[STAT_MAX_HEALTH])
+			{
+				target->client->ps.stats[STAT_HEALTH] = target->client->ps.stats[STAT_MAX_HEALTH];
+			}
 		}
 
+		if (target->client->ps.stats[STAT_HEALTH] > target->health)
+			TICKPROBE("medic_heal", target->s.number, target->client->ps.stats[STAT_HEALTH] - target->health);
 		target->client->isMedHealed = level.time + 500;
 		target->health = target->client->ps.stats[STAT_HEALTH];
 	}
 	else if (dispType == HI_AMMODISP)
 	{
-		if (ent->client->medSupplyDebounce < level.time)
+		int n;
+
+		if (TICKFIX(Stations))
+			n = G_TickDueSince(&ent->client->medSupplyDebounce, &ent->client->tickLastEval[TICK_SUPPLY], G_TickUseStrict(weaponData[target->client->ps.weapon].fireTime));
+		else
+			n = ent->client->medSupplyDebounce < level.time ? 1 : 0;
+
+		for (; n > 0; n--)
 		{ //do the next increment
 			//increment based on the amount of ammo used per normal shot.
+			TICKPROBE("techammo_give", target->s.number, Com_Clampi(0, ammoData[weaponData[target->client->ps.weapon].ammoIndex].max - target->client->ps.ammo[weaponData[target->client->ps.weapon].ammoIndex], weaponData[target->client->ps.weapon].energyPerShot));
 			target->client->ps.ammo[weaponData[target->client->ps.weapon].ammoIndex] += weaponData[target->client->ps.weapon].energyPerShot;
 
 			if (target->client->ps.ammo[weaponData[target->client->ps.weapon].ammoIndex] > ammoData[weaponData[target->client->ps.weapon].ammoIndex].max)
@@ -1564,7 +1580,8 @@ void G_UseDispenserOn(gentity_t *ent, int dispType, gentity_t *target)
 			}
 
 			//base the next supply time on how long the weapon takes to fire. Seems fair enough.
-			ent->client->medSupplyDebounce = level.time + weaponData[target->client->ps.weapon].fireTime;
+			if (!TICKFIX(Stations))
+				ent->client->medSupplyDebounce = level.time + weaponData[target->client->ps.weapon].fireTime;
 		}
 		target->client->isMedSupplied = level.time + 500;
 	}
@@ -1619,14 +1636,26 @@ qboolean TryHeal(gentity_t *ent, gentity_t *target)
 
 		if (!Q_stricmp(scl->name, target->healingclass))
 		{ //this thing can be healed by the class this player is using
-			if (target->healingDebounce < level.time)
+			int n;
+
+			if (TICKFIX(Stations))
+				n = G_TickDueSince(&target->healingDebounce, &target->tickLastEval, G_TickUseStrict(target->healingrate));
+			else
+				n = target->healingDebounce < level.time ? 1 : 0;
+
+			if (n > 0)
 			{ //do the actual heal
-				target->health += 10;
-				if (target->health > target->maxHealth)
-				{ //don't go too high
-					target->health = target->maxHealth;
+				for (; n > 0; n--)
+				{
+					TICKPROBE("repair", target->s.number, Com_Clampi(0, target->maxHealth - target->health, 10));
+					target->health += 10;
+					if (target->health > target->maxHealth)
+					{ //don't go too high
+						target->health = target->maxHealth;
+					}
 				}
-				target->healingDebounce = level.time + target->healingrate;
+				if (!TICKFIX(Stations))
+					target->healingDebounce = level.time + target->healingrate;
 				if (target->healingsound && target->healingsound[0])
 				{ //play it
 					if (target->s.solid == SOLID_BMODEL)
@@ -1681,12 +1710,40 @@ extern void Touch_Button(gentity_t *ent, gentity_t *other, trace_t *trace );
 extern qboolean gSiegeRoundBegun;
 static vec3_t	playerMins = {-15, -15, DEFAULT_MINS_2};
 static vec3_t	playerMaxs = {15, 15, DEFAULT_MAXS_2};
-void TryUse( gentity_t *ent )
+
+extern void health_power_converter_use(gentity_t *self, gentity_t *other, gentity_t *activator);
+extern void shield_power_converter_use(gentity_t *self, gentity_t *other, gentity_t *activator);
+extern void ammo_power_converter_use(gentity_t *self, gentity_t *other, gentity_t *activator);
+extern void ammo_generic_power_converter_use(gentity_t *self, gentity_t *other, gentity_t *activator);
+
+// converters that gate their own output and so are used on every frame the key is held
+static qboolean ContinuousUseTarget(gentity_t *target)
+{
+	return target->use == health_power_converter_use || target->use == shield_power_converter_use ||
+		target->use == ammo_power_converter_use || target->use == ammo_generic_power_converter_use;
+}
+
+// whether TryUse does anything this frame: on a use key tick, or every held frame with the stations fix
+qboolean G_UseRuns(qboolean generic)
+{
+	return generic || TICKFIX(Stations) ? qtrue : qfalse;
+}
+
+/*
+generic is set on a use key tick (one-shot uses fire); without it only the continuous uses run
+(dispensers, repair, converters), which carry their own gates
+*/
+void TryUse( gentity_t *ent, qboolean generic )
 {
 	gentity_t	*target;
 	trace_t		trace;
 	vec3_t		src, dest, vf;
 	vec3_t		viewspot;
+
+	if (!G_UseRuns(generic))
+	{
+		return;
+	}
 
 	if (g_gametype.integer == GT_SIEGE &&
 		!gSiegeRoundBegun)
@@ -1712,7 +1769,7 @@ void TryUse( gentity_t *ent )
 		if (currentVeh->inuse && currentVeh->m_pVehicle)
 		{
 			Vehicle_t *pVeh = currentVeh->m_pVehicle;
-			if (!pVeh->m_iBoarding)
+			if (generic && !pVeh->m_iBoarding)
 			{
 				pVeh->m_pVehicleInfo->Eject( pVeh, (bgEntity_t *)ent, qfalse );
 			}
@@ -1727,7 +1784,7 @@ void TryUse( gentity_t *ent )
 
 	if (ent->client->bodyGrabIndex != ENTITYNUM_NONE)
 	{ //then hitting the use key just means let go
-		if (ent->client->bodyGrabTime < level.time)
+		if (generic && ent->client->bodyGrabTime < level.time)
 		{
 			gentity_t *grabbed = &g_entities[ent->client->bodyGrabIndex];
 
@@ -1795,6 +1852,10 @@ void TryUse( gentity_t *ent )
 
 		if (pVeh->m_pVehicleInfo)
 		{
+			if (!generic)
+			{
+				return;
+			}
 			if ( ent->r.ownerNum == target->s.number )
 			{ //user is already on this vehicle so eject him
 				pVeh->m_pVehicleInfo->Eject( pVeh, (bgEntity_t *)ent, qfalse );
@@ -1876,6 +1937,10 @@ void TryUse( gentity_t *ent )
 			|| target->alliedTeam != ent->client->sess.sessionTeam 
 			|| g_ff_objectives.integer) )
 	{
+		if (!generic && !ContinuousUseTarget(target))
+		{
+			return;
+		}
 		if (ent->client->ps.torsoAnim == BOTH_BUTTON_HOLD ||
 			ent->client->ps.torsoAnim == BOTH_CONSOLE1)
 		{ //extend the time
@@ -1903,6 +1968,11 @@ void TryUse( gentity_t *ent )
 	}
 
 tryJetPack:
+	if (!generic)
+	{ // jetpack toggle and ammo toss are one-shot
+		return;
+	}
+
 	//if we got here, we didn't actually use anything else, so try to toggle jetpack if we are in the air, or if it is already on
 	if (ent->client->ps.stats[STAT_HOLDABLE_ITEMS] & (1 << HI_JETPACK))
 	{
@@ -2451,14 +2521,23 @@ static int InterpolateTouchTime( gentity_t *activator, gentity_t *trigger ) {
 	return lessTime;
 }
 
+// a command held by g_tickFixSaberOrder is timed by the clock as it arrived, as stock ran it then
+static int AccurateTimerNow( void ) {
+	return level.cmdStamp ? level.cmdWallTime : trap_Milliseconds();
+}
+
+static int AccurateTimerLag( gentity_t *activator ) {
+	return ( level.cmdStamp ? level.cmdLagBase : trap_Milliseconds() - level.frameStartTime + level.time ) - activator->client->pers.cmd.serverTime;
+}
+
 void G_ResetAccurateTimerOnTrigger( accurateTimer *timer, gentity_t *activator, gentity_t *trigger ) {
-	timer->startTime = trap_Milliseconds() - InterpolateTouchTime( activator, trigger );
-	timer->startLag = trap_Milliseconds() - level.frameStartTime + level.time - activator->client->pers.cmd.serverTime;
+	timer->startTime = AccurateTimerNow() - InterpolateTouchTime( activator, trigger );
+	timer->startLag = AccurateTimerLag( activator );
 }
 
 int G_GetAccurateTimerOnTrigger( accurateTimer *timer, gentity_t *activator, gentity_t *trigger ) {
-	const int endTime = trap_Milliseconds() - InterpolateTouchTime( activator, trigger );
-	const int endLag = trap_Milliseconds() - level.frameStartTime + level.time - activator->client->pers.cmd.serverTime;
+	const int endTime = AccurateTimerNow() - InterpolateTouchTime( activator, trigger );
+	const int endLag = AccurateTimerLag( activator );
 
 	int time = endTime - timer->startTime;
 	if ( timer->startLag - endLag > 0 ) {

@@ -2355,26 +2355,27 @@ static qboolean ChatLimitExceeded(gentity_t *ent, int mode) {
 	qboolean exceeded = qfalse;
 
 	// first, check to make sure binds aren't simply held down, regardless of number of messages
-	if (tickWaitMinimum && g_svfps.integer >= 30) {
-		if (*allowedTick && level.framenum < *allowedTick) {
+	// sentTick/allowedTick hold level.time; 66 and 528 ms are 2 and 16 frames at sv_fps 30
+	if (tickWaitMinimum) {
+		if (*allowedTick && level.time < *allowedTick) {
 			// cooldown still running, can't send yet
 			//Com_DebugPrintf("4 -- level.time %d level.framenum %d sentTime %d sentCount %d sentTick %d allowedTick %d\n", level.time, level.framenum, *sentTime, *sentCount, *sentTick, *allowedTick);
 			exceeded = qtrue;
 		}
-		else if (*sentTick && level.framenum - *sentTick < 2) {
+		else if (*sentTick && level.time - *sentTick < 66) {
 			// this message came within one tick of the previous one, which means this idiot is just holding down a bind. put them on cooldown
 			//Com_DebugPrintf("5 -- level.time %d level.framenum %d sentTime %d sentCount %d sentTick %d allowedTick %d\n", level.time, level.framenum, *sentTime, *sentCount, *sentTick, *allowedTick);
 			exceeded = qtrue;
-			const int delay = 16; // idk
-			*allowedTick = level.framenum + delay;
+			const int delay = 528; // idk
+			*allowedTick = level.time + delay;
 			if (limit > 3)
 				limit = 3;
-			//*sentTick = level.framenum;
+			//*sentTick = level.time;
 		}
 		else {
 			// okay
 			//Com_DebugPrintf("6 -- level.time %d level.framenum %d sentTime %d sentCount %d sentTick %d allowedTick %d\n", level.time, level.framenum, *sentTime, *sentCount, *sentTick, *allowedTick);
-			*sentTick = level.framenum;
+			*sentTick = level.time;
 		}
 	}
 

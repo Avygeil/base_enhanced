@@ -1482,7 +1482,7 @@ void SiegeItemThink(gentity_t *ent)
 		ent->s.time2 = 0;
 	}
 
-	ent->nextthink = level.time + FRAMETIME/2;
+	ent->nextthink = TICKFIX(Items) ? G_TickRearmThink(ent, FRAMETIME/2) : level.time + FRAMETIME/2;
 }
 
 void SiegeItemTouch( gentity_t *self, gentity_t *other, trace_t *trace )

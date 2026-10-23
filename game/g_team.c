@@ -991,7 +991,7 @@ gentity_t *WhoGetsToPickUpTheFlag(gentity_t *flagEnt, int flagColor, gentity_t *
 			if (!(allEntitiesTiedForLowestDistance & (1 << i)))
 				continue; // you aren't one of them
 
-			if ((flagEnt->flags & FL_DROPPED_ITEM) && level.time - flagEnt->iDroppedTime < 100 && flagEnt->entThatCausedMeToDrop == &g_entities[i]) {
+			if ((flagEnt->flags & FL_DROPPED_ITEM) && level.time - flagEnt->iDroppedTime < (TICKFIX(CTF) ? G_TickIncl(100) : 100) && flagEnt->entThatCausedMeToDrop == &g_entities[i]) {
 				gentity_t *fcKiller = &g_entities[i];
 
 				if (d_debugFixFlagPickup.integer) {
@@ -1212,7 +1212,7 @@ int Team_TouchOurFlag( gentity_t *ent, gentity_t *other, int team ) {
 	// reset the speed stats for this run
 	other->client->pers.fastcapTopSpeed = 0;
 	other->client->pers.fastcapDisplacement = 0;
-	other->client->pers.fastcapDisplacementSamples = 0;
+	other->client->pers.fastcapDisplacementMs = 0;
 
 	CalculateRanks();
 
@@ -3577,9 +3577,11 @@ void CheckTeamStatus(void) {
 		return; // don't spam teamoverlay updates during intermission
 
 	int updateRate = Com_Clampi(1, 1000, g_teamOverlayUpdateRate.integer);
-	if (level.time - level.lastTeamLocationTime > updateRate) {
+	// strict: at 20 Hz the overlay went out on the first tick past updateRate
+	if (TICKFIX(CTF) ? G_TickDue(&level.teamOverlayDeadline, G_TickStrict(updateRate)) > 0 : level.time - level.lastTeamLocationTime > updateRate) {
 
 		level.lastTeamLocationTime = level.time;
+		TICKPROBE("team_overlay", 0, updateRate);
 
 		for (i = 0; i < g_maxclients.integer; i++) {
 			ent = g_entities + i;

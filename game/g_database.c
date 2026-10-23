@@ -4948,7 +4948,7 @@ qboolean G_DBWritePugStats(void) {
 			AddStatsToTotal(found, s, STATS_TABLE_FORCE, NULL);
 			AddStatsToTotal(found, s, STATS_TABLE_ACCURACY, NULL);
 			Q_strncpyz(s->name, found->name, sizeof(s->name));
-			int ticksOnAnyPosition = s->ticksNotPaused = found->ticksNotPaused;
+			int msOnAnyPosition = s->msNotPaused = found->msNotPaused;
 			s->blockNum = found->blockNum;
 
 			// find all blocks that match this player+pos+team
@@ -4962,7 +4962,7 @@ qboolean G_DBWritePugStats(void) {
 						found2->sessionId != found->sessionId || found2->lastTeam != found->lastTeam)
 						continue;
 
-					ticksOnAnyPosition += found2->ticksNotPaused;
+					msOnAnyPosition += found2->msNotPaused;
 
 					if (DetermineCTFPosition(found2, qfalse) != found->finalPosition)
 						continue;
@@ -4975,19 +4975,19 @@ qboolean G_DBWritePugStats(void) {
 					AddStatsToTotal(found2, s, STATS_TABLE_GENERAL, NULL);
 					AddStatsToTotal(found2, s, STATS_TABLE_FORCE, NULL);
 					AddStatsToTotal(found2, s, STATS_TABLE_ACCURACY, NULL);
-					s->ticksNotPaused += found2->ticksNotPaused;
+					s->msNotPaused += found2->msNotPaused;
 
 					++numBlocks;
 				}
 			}
 
 			// require at least 120 seconds of total ingame time
-			if (ticksOnAnyPosition * (1000 / g_svfps.integer) < CTFPOSITION_MINIMUM_SECONDS * 1000) {
+			if (msOnAnyPosition < CTFPOSITION_MINIMUM_SECONDS * 1000) {
 				Com_Printf("Skipping %d %s %s blocks (%d ms) for %s^7 because total time played was less than %d ms\n",
 					numBlocks,
 					found->lastTeam == TEAM_RED ? "red" : "blue",
 					NameForPos(found->finalPosition),
-					s->ticksNotPaused * (1000 / g_svfps.integer),
+					s->msNotPaused,
 					s->name,
 					CTFPOSITION_MINIMUM_SECONDS * 1000);
 				continue;
@@ -5033,7 +5033,7 @@ qboolean G_DBWritePugStats(void) {
 			sqlite3_bind_int64(statement, num++, matchId);
 			sqlite3_bind_int(statement, num++, found->sessionId);
 			sqlite3_bind_int(statement, num++, found->lastTeam);
-			sqlite3_bind_int(statement, num++, s->ticksNotPaused * (1000 / g_svfps.integer));
+			sqlite3_bind_int(statement, num++, s->msNotPaused);
 			sqlite3_bind_text(statement, num++, s->name, -1, SQLITE_STATIC);
 			sqlite3_bind_int(statement, num++, found->finalPosition);
 			sqlite3_bind_int(statement, num++, s->captures);
@@ -5113,7 +5113,7 @@ qboolean G_DBWritePugStats(void) {
 					numBlocks,
 					found->lastTeam == TEAM_RED ? "red" : "blue",
 					NameForPos(found->finalPosition),
-					s->ticksNotPaused * (1000 / g_svfps.integer),
+					s->msNotPaused,
 					s->name);
 			}
 			else {
@@ -5121,7 +5121,7 @@ qboolean G_DBWritePugStats(void) {
 				Com_Printf("Failed to write %d %s blocks (%d ms) for %s^7 to db!\n",
 					numBlocks,
 					NameForPos(found->finalPosition),
-					s->ticksNotPaused * (1000 / g_svfps.integer),
+					s->msNotPaused,
 					s->name);
 			}
 
@@ -5157,7 +5157,7 @@ qboolean G_DBWritePugStats(void) {
 				sqlite3_bind_int(statement, teDataNum++, found->sessionId);
 				sqlite3_bind_int(statement, teDataNum++, found->lastTeam);
 				sqlite3_bind_int(statement, teDataNum++, found->finalPosition);
-				sqlite3_bind_int(statement, teDataNum++, s->ticksNotPaused * (1000 / g_svfps.integer));
+				sqlite3_bind_int(statement, teDataNum++, s->msNotPaused);
 				sqlite3_bind_int(statement, teDataNum++, s->numEnergizes);
 				sqlite3_bind_int(statement, teDataNum++, s->energizedAlly);
 				sqlite3_bind_int(statement, teDataNum++, s->teData.numTEs);
@@ -7352,7 +7352,7 @@ void G_DBFixSwap_List(void) {
 		swap->stats.totalFlagHold = sqlite3_column_int(statement, num++);
 		swap->stats.longestFlagHold = sqlite3_column_int(statement, num++);
 		swap->stats.averageSpeed = sqlite3_column_int(statement, num++);
-		swap->stats.displacementSamples = sqlite3_column_int(statement, num++); // actually top speed
+		swap->stats.displacementMs = sqlite3_column_int(statement, num++); // actually top speed
 		if (sqlite3_column_type(statement, num/*++*/) != SQLITE_NULL) {
 			swap->stats.boonPickups = sqlite3_column_int(statement, num++);
 		}
@@ -7444,7 +7444,7 @@ void G_DBFixSwap_List(void) {
 	Table_DefineColumn(t, "^3Hold", SwapTimeCallback, (void *)((unsigned int)(&swap.stats.totalFlagHold) - (unsigned int)&swap), qfalse, -1, 32);
 	Table_DefineColumn(t, "^3Max", SwapTimeCallback, (void *)((unsigned int)(&swap.stats.longestFlagHold) - (unsigned int)&swap), qfalse, -1, 32);
 	Table_DefineColumn(t, "^6Spd", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.averageSpeed) - (unsigned int)&swap), qfalse, -1, 32);
-	Table_DefineColumn(t, "^6Top", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats./*topSpeed*/displacementSamples) - (unsigned int)&swap), qfalse, -1, 32);
+	Table_DefineColumn(t, "^6Top", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats./*topSpeed*/displacementMs) - (unsigned int)&swap), qfalse, -1, 32);
 	Table_DefineColumn(t, "^5Boon", SwapBoonCallback, NULL, qfalse, -1, 32);
 	Table_DefineColumn(t, "^5Push", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.push) - (unsigned int)&swap), qfalse, -1, 32);
 	Table_DefineColumn(t, "^5Pull", SwapIntegerCallback, (void *)((unsigned int)(&swap.stats.pull) - (unsigned int)&swap), qfalse, -1, 32);
@@ -7561,7 +7561,7 @@ qboolean G_DBFixSwap_Fix(int recordId, int newPos) {
 	src->stats.totalFlagHold = sqlite3_column_int(statement, num++);
 	src->stats.longestFlagHold = sqlite3_column_int(statement, num++);
 	src->stats.averageSpeed = sqlite3_column_int(statement, num++);
-	src->stats.displacementSamples = sqlite3_column_int(statement, num++); // actually top speed
+	src->stats.displacementMs = sqlite3_column_int(statement, num++); // actually top speed
 	if (sqlite3_column_type(statement, num/*++*/) != SQLITE_NULL) {
 		src->stats.boonPickups = sqlite3_column_int(statement, num++);
 	}
@@ -7680,9 +7680,9 @@ qboolean G_DBFixSwap_Fix(int recordId, int newPos) {
 	if (src->stats.longestFlagHold > dest->stats.longestFlagHold)
 		dest->stats.longestFlagHold = src->stats.longestFlagHold;
 	dest->stats.averageSpeed = (int)((((double)sqlite3_column_int(statement, num++)) * destProportion) + (((double)src->stats.averageSpeed) * srcProportion));
-	dest->stats.displacementSamples = sqlite3_column_int(statement, num++); // actually top speed
-	if (src->stats.displacementSamples > dest->stats.displacementSamples)
-		dest->stats.displacementSamples = src->stats.displacementSamples;
+	dest->stats.displacementMs = sqlite3_column_int(statement, num++); // actually top speed
+	if (src->stats.displacementMs > dest->stats.displacementMs)
+		dest->stats.displacementMs = src->stats.displacementMs;
 	if (sqlite3_column_type(statement, num/*++*/) != SQLITE_NULL) {
 		dest->stats.boonPickups = sqlite3_column_int(statement, num++);
 	}
@@ -7762,7 +7762,7 @@ qboolean G_DBFixSwap_Fix(int recordId, int newPos) {
 	sqlite3_bind_int(statement, num++, dest->stats.totalFlagHold);
 	sqlite3_bind_int(statement, num++, dest->stats.longestFlagHold);
 	sqlite3_bind_int(statement, num++, dest->stats.averageSpeed);
-	sqlite3_bind_int(statement, num++, dest->stats.displacementSamples); // actually top speed
+	sqlite3_bind_int(statement, num++, dest->stats.displacementMs); // actually top speed
 	if (!dest->boonIsNull)
 		sqlite3_bind_int(statement, num++, dest->stats.boonPickups);
 	else

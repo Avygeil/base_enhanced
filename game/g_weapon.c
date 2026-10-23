@@ -196,6 +196,24 @@ void touch_NULL( gentity_t *ent, gentity_t *other, trace_t *trace )
 }
 
 void laserTrapExplode( gentity_t *self );
+
+extern int g_LastFrameTime;
+
+/*
+the trap_Milliseconds() time a client's command was issued against, for G_TimeShiftAllClients. between frames,
+level.time last advanced when the previous frame ended, so the part of the frame already elapsed is not the client's
+lag. inside a frame (bots, forced client thinks, commands held by g_tickFixSaberOrder) level.time is current and there is
+nothing to take off
+*/
+int G_UnlagTime(gentity_t *ent) {
+	const int now = trap_Milliseconds();
+	int t = now - (level.time - ent->client->pers.cmd.serverTime);
+
+	if (TICKFIX(Weapons) && level.frameStartTime && level.time == g_LastFrameTime)
+		t -= Com_Clampi(0, G_FrameMsec(), now - level.frameStartTime);
+	return t;
+}
+
 void RocketDie(gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int damage, int mod);
 
 //We should really organize weapon data into tables or parse from the ext data so we have accurate info for this,
@@ -1019,7 +1037,7 @@ static void WP_DisruptorMainFire( gentity_t *ent )
 	qboolean compensate = ent && ent->client ? ent->client->sess.unlagged : qfalse;
 	qboolean ghoul2 = !!(d_projectileGhoul2Collision.integer);
 	if (g_unlagged.integer && compensate)
-		G_TimeShiftAllClients(trap_Milliseconds() - (level.time - ent->client->pers.cmd.serverTime), ent, ghoul2);
+		G_TimeShiftAllClients(G_UnlagTime(ent), ent, ghoul2);
 
 	ignore = ent->s.number;
 	traces = 0;
@@ -1417,7 +1435,7 @@ void WP_DisruptorAltFire( gentity_t *ent )
 	qboolean compensate =  ent && ent->client ? ent->client->sess.unlagged : qfalse;
 	qboolean ghoul2 = !!(d_projectileGhoul2Collision.integer);
 	if (g_unlagged.integer && compensate)
-		G_TimeShiftAllClients(trap_Milliseconds() - (level.time - ent->client->pers.cmd.serverTime), ent, ghoul2);
+		G_TimeShiftAllClients(G_UnlagTime(ent), ent, ghoul2);
 
 	for (i = 0; i < traces; i++ )
 	{
@@ -2453,13 +2471,17 @@ void DEMP2_AltRadiusDamage( gentity_t *ent )
 
 		radius *= fact;
 
+		TICKPROBE("demp2_step", ent->s.number, level.time - ent->genericValue5);
 		DEMP2_AltDamagePass( ent, myOwner, radius );
 	}
 
 	if ( fixed ? ( ent->genericValue7 < DEMP2_ALT_STEPS ) : ( frac < 1.0f ) )
 	{
 		// shock is still happening so continue letting it expand
-		ent->nextthink = level.time + DEMP2_ALT_STEP_MSEC;
+		if (TICKFIX(Weapons))
+			ent->nextthink = G_TickRearmThink(ent, DEMP2_ALT_STEP_MSEC);
+		else
+			ent->nextthink = level.time + DEMP2_ALT_STEP_MSEC;
 	}
 	else
 	{ //don't just leave the entity around
@@ -2546,7 +2568,7 @@ static void WP_DEMP2_AltFire( gentity_t *ent )
 	qboolean compensate = ent && ent->client ? ent->client->sess.unlagged : qfalse;
 	qboolean ghoul2 = !!(d_projectileGhoul2Collision.integer);
 	if (g_unlagged.integer && compensate)
-		G_TimeShiftAllClients(trap_Milliseconds() - (level.time - ent->client->pers.cmd.serverTime), ent, ghoul2);
+		G_TimeShiftAllClients(G_UnlagTime(ent), ent, ghoul2);
 
 #if 0
 	if (d_projectileGhoul2Collision.integer) // add?
@@ -2886,10 +2908,15 @@ void rocketThink( gentity_t *ent )
 	float dot, dot2, dis;
 	int i;
 	float vel = (ent->spawnflags&1)?ent->speed:ROCKET_VELOCITY;
+	int dt = G_TickDt(ent);
+
+	if (dt <= 0) // first think
+		dt = ROCKET_ALT_THINK_TIME;
 
 	qboolean meme = (!level.wasRestarted && ent->methodOfDeath == MOD_ROCKET_HOMING && ent->parent && ent->parent->client && ent->parent->client->account && (!Q_stricmp(ent->parent->client->account->name, "duo") || !Q_stricmp(ent->parent->client->account->name, "alpha")));
 
-	if ( ent->genericValue1 && ent->genericValue1 < level.time )
+	// under the fix the lifetime is checked at the think's scheduled time
+	if ( ent->genericValue1 && ent->genericValue1 < (TICKFIX(Weapons) ? ent->tickDeadline : level.time) )
 	{//time's up, we're done, remove us
 		if ( ent->genericValue2 )
 		{//explode when die
@@ -2929,6 +2956,7 @@ void rocketThink( gentity_t *ent )
 	float coef3 = meme ? 1.0f : 1.0f;
 	if ( ent->enemy && ent->enemy->inuse )
 	{	
+		TICKPROBE("rocket_steer", ent->s.number, 1);
 		float newDirMult = ent->angle?ent->angle*2.0f:1.0f;
 		float oldDirMult = ent->angle?(1.0f-ent->angle)*2.0f:1.0f;
 
@@ -2997,8 +3025,8 @@ void rocketThink( gentity_t *ent )
 			newdir[i] += crandom() * ent->random * 0.25f;
 		}
 
-		// decay the randomness
-		ent->random *= 0.9f;
+		// decay the randomness, 0.9 per 100 ms think
+		ent->random *= TICKFIX(Weapons) ? Tick_Decay(sqrtf(0.9f), dt) : 0.9f;
 
 		if ( ent->enemy->client
 			&& ent->enemy->client->ps.groundEntityNum != ENTITYNUM_NONE )
@@ -3026,7 +3054,10 @@ void rocketThink( gentity_t *ent )
 		ent->s.pos.trTime = level.time;
 	}
 
-	ent->nextthink = level.time + ROCKET_ALT_THINK_TIME;	// Nothing at all spectacular happened, continue.
+	if (TICKFIX(Weapons))
+		ent->nextthink = G_TickRearmThink(ent, G_TickIncl(ROCKET_ALT_THINK_TIME));
+	else
+		ent->nextthink = level.time + ROCKET_ALT_THINK_TIME;	// Nothing at all spectacular happened, continue.
 	return;
 }
 
@@ -3173,6 +3204,12 @@ THERMAL DETONATOR
 
 void thermalThinkStandard(gentity_t *ent);
 
+/*
+a 20 Hz server sees a fuse on the first tick past it and runs the switched-to explode think a tick later.
+both fuses (TD_TIME, 500) are whole ticks
+*/
+#define TD_FUSE_LAG			(2 * TICK_BASE_MSEC)
+
 //---------------------------------------------------------
 void thermalDetonatorExplode( gentity_t *ent )
 //---------------------------------------------------------
@@ -3190,7 +3227,10 @@ void thermalDetonatorExplode( gentity_t *ent )
 	{
 		G_Sound( ent, CHAN_WEAPON, G_SoundIndex( "sound/weapons/thermal/warning.wav" ) );
 		ent->count = 1;
-		ent->genericValue5 = level.time + 500;
+		if (TICKFIX(Weapons) && ent->genericValue5 >= level.time - G_FrameMsec()) // genericValue5 is when this stage was due
+			ent->genericValue5 += 500;
+		else
+			ent->genericValue5 = level.time + 500;
 		ent->think = thermalThinkStandard;
 		ent->nextthink = level.time;
 		ent->r.svFlags |= SVF_BROADCAST;//so everyone hears/sees the explosion?
@@ -3204,6 +3244,7 @@ void thermalDetonatorExplode( gentity_t *ent )
 		origin[2] += 8;
 		SnapVector( origin );
 		G_SetOrigin( ent, origin );
+		TICKPROBE("thermal_explode", ent->s.number, 1);
 
 		ent->s.eType = ET_GENERAL;
 		G_AddEvent( ent, EV_MISSILE_MISS, DirToByte( dir ) );
@@ -3228,7 +3269,16 @@ void thermalDetonatorExplode( gentity_t *ent )
 
 void thermalThinkStandard(gentity_t *ent)
 {
-	if (ent->genericValue5 < level.time)
+	if (TICKFIX(Weapons))
+	{
+		if (level.time >= ent->genericValue5 + TD_FUSE_LAG)
+		{
+			ent->genericValue5 += TD_FUSE_LAG;
+			thermalDetonatorExplode(ent);
+			return;
+		}
+	}
+	else if (ent->genericValue5 < level.time)
 	{
 		ent->think = thermalDetonatorExplode;
 		ent->nextthink = level.time;
@@ -3655,6 +3705,7 @@ void proxMineThink(gentity_t *ent)
 				VectorSubtract(ent->r.currentOrigin, cl->client->ps.origin, v);
 				if (VectorLength(v) < (ent->splashRadius/2.0f))
 				{
+					TICKPROBE("prox_explode", ent->s.number, VectorLength(v));
 					ent->think = laserTrapExplode;
 					return;
 				}
@@ -3680,7 +3731,7 @@ void laserTrapThink ( gentity_t *ent )
 		ent->s.eFlags |= EF_FIRING;
 	}
 	ent->think = laserTrapThink;
-	ent->nextthink = level.time + FRAMETIME;
+	ent->nextthink = TICKFIX(Weapons) ? level.time : level.time + FRAMETIME; // the beam is checked every frame
 
 	// Find the main impact point
 	VectorMA ( ent->s.pos.trBase, 1024, ent->movedir, end );
@@ -3689,10 +3740,12 @@ void laserTrapThink ( gentity_t *ent )
 	traceEnt = &g_entities[ tr.entityNum ];
 
 	ent->s.time = -1; //let all clients know to draw a beam from this guy
+	TICKPROBE("tripwire_check", ent->s.number, 1);
 
 	if ( traceEnt->client || tr.startsolid )
 	{
 		//go boom
+		TICKPROBE("tripwire_trigger", ent->s.number, 1);
 		ent->touch = 0;
 		ent->nextthink = level.time + LT_DELAY_TIME;
 		ent->think = laserTrapExplode;
@@ -3773,7 +3826,6 @@ void laserTrapStick( gentity_t *ent, vec3_t endpos, vec3_t normal )
 
 void TrapThink(gentity_t *ent)
 { //laser trap think
-	ent->nextthink = level.time + 50;
 	G_RunObject(ent);
 }
 
@@ -4392,7 +4444,7 @@ static void WP_FireConcussionAlt( gentity_t *ent )
 	qboolean compensate = ent && ent->client ? ent->client->sess.unlagged : qfalse;
 	qboolean ghoul2 = !!(d_projectileGhoul2Collision.integer);
 	if (g_unlagged.integer && compensate)
-		G_TimeShiftAllClients(trap_Milliseconds() - (level.time - ent->client->pers.cmd.serverTime), ent, ghoul2);
+		G_TimeShiftAllClients(G_UnlagTime(ent), ent, ghoul2);
 
 	for ( i = 0; i < traces; i++ )
 	{
@@ -4691,7 +4743,7 @@ void WP_FireStunBaton( gentity_t *ent, qboolean alt_fire )
 
 	qboolean compensate = ent->client->sess.unlagged;
 	if (g_unlagged.integer && compensate)
-		G_TimeShiftAllClients(trap_Milliseconds() - (level.time - ent->client->pers.cmd.serverTime), ent, qfalse);
+		G_TimeShiftAllClients(G_UnlagTime(ent), ent, qfalse);
 
 	trap_Trace ( &tr, muzzleStun, mins, maxs, end, ent->s.number, MASK_SHOT );
 
@@ -4809,7 +4861,7 @@ void WP_FireMelee( gentity_t *ent, qboolean alt_fire )
 
 	qboolean compensate = ent->client->sess.unlagged;
 	if (g_unlagged.integer && compensate)
-		G_TimeShiftAllClients(trap_Milliseconds() - (level.time - ent->client->pers.cmd.serverTime), ent, qfalse);
+		G_TimeShiftAllClients(G_UnlagTime(ent), ent, qfalse);
 
 	trap_Trace ( &tr, muzzlePunch, mins, maxs, end, ent->s.number, MASK_SHOT );
 
@@ -5536,6 +5588,27 @@ qboolean WP_VehCheckTraceFromCamPos( gentity_t *ent, const vec3_t shotStart, vec
 	return qfalse;
 }
 
+/*
+vehicle muzzle waits. under the fix a wait holds the 20 Hz fire time (the first 50 ms tick past the delay), and the
+next one is armed from the deadline that made the shot due when that is no older than the gap since the previous
+check (G_TickDueSince). checks are stamped on every fire attempt while the trigger is held and on every usercmd
+while it is up, so a wait older than one check gap means the trigger was released, and it re-anchors to now
+*/
+qboolean G_VehMuzzleReady(Vehicle_t *pVeh, int muzzle) {
+	return TICKFIX(NPC) ? pVeh->m_iMuzzleWait[muzzle] <= level.time : pVeh->m_iMuzzleWait[muzzle] < level.time;
+}
+
+// the next wait after a shot that `from` made due; prevEval is the gate's check before this one
+int G_VehMuzzleArm(int from, int delay, int prevEval) {
+	int d = from;
+
+	if (!TICKFIX(NPC))
+		return level.time + delay;
+
+	G_TickDueSince(&d, &prevEval, G_TickStrict(delay));
+	return d;
+}
+
 //---------------------------------------------------------
 void FireVehicleWeapon( gentity_t *ent, qboolean alt_fire ) 
 //---------------------------------------------------------
@@ -5545,11 +5618,16 @@ void FireVehicleWeapon( gentity_t *ent, qboolean alt_fire )
 	gentity_t *missile = NULL;
 	vehWeaponInfo_t *vehWeapon = NULL;
 	qboolean	clearRocketLockEntity = qfalse;
+	int			prevEval;
 	
 	if ( !pVeh )
 	{
 		return;
 	}
+
+	// every fire attempt is a check of that weapon's muzzle wait, including the ones refused below
+	prevEval = pVeh->weaponTickLastEval[alt_fire ? 1 : 0];
+	pVeh->weaponTickLastEval[alt_fire ? 1 : 0] = level.time;
 
 	if (pVeh->m_iRemovedSurfaces)
 	{ //can't fire when the thing is breaking apart
@@ -5599,7 +5677,7 @@ void FireVehicleWeapon( gentity_t *ent, qboolean alt_fire )
 						continue;
 					}
 					if ( pVeh->m_iMuzzleTag[i] != -1 
-						&& pVeh->m_iMuzzleWait[i] < level.time )
+						&& G_VehMuzzleReady(pVeh, i) )
 					{//this one would have fired, send the no ammo message
 						G_AddEvent( (gentity_t*)pVeh->m_pPilot, EV_NOAMMO, weaponNum );
 						break;
@@ -5624,7 +5702,7 @@ void FireVehicleWeapon( gentity_t *ent, qboolean alt_fire )
 		}
 		else
 		{
-			int i, numMuzzles = 0, numMuzzlesReady = 0, cumulativeDelay = 0, cumulativeAmmo = 0;
+			int i, numMuzzles = 0, numMuzzlesReady = 0, cumulativeDelay = 0, cumulativeAmmo = 0, readyAt = 0;
 			qboolean sentAmmoWarning = qfalse;
 
 			vehWeapon = &g_vehWeaponInfo[vehWeaponIndex];
@@ -5640,9 +5718,11 @@ void FireVehicleWeapon( gentity_t *ent, qboolean alt_fire )
 				{//this muzzle doesn't match the weapon we're trying to use
 					continue;
 				}
-				if ( pVeh->m_iMuzzleTag[i] != -1 && pVeh->m_iMuzzleWait[i] < level.time )
+				if ( pVeh->m_iMuzzleTag[i] != -1 && G_VehMuzzleReady(pVeh, i) )
 				{
 					numMuzzlesReady++;
+					if ( pVeh->m_iMuzzleWait[i] > readyAt )
+						readyAt = pVeh->m_iMuzzleWait[i];
 				}
 				if ( pVeh->m_pVehicleInfo->weapMuzzle[pVeh->weaponStatus[weaponNum].nextMuzzle] != vehWeaponIndex )
 				{//Our designated next muzzle for this weapon isn't valid for this weapon (happens when ships fire for the first time)
@@ -5692,7 +5772,7 @@ void FireVehicleWeapon( gentity_t *ent, qboolean alt_fire )
 				}
 
 				// Fire this muzzle.
-				if ( pVeh->m_iMuzzleTag[i] != -1 && pVeh->m_iMuzzleWait[i] < level.time )
+				if ( pVeh->m_iMuzzleTag[i] != -1 && G_VehMuzzleReady(pVeh, i) )
 				{
 					vec3_t	start, dir;
 					
@@ -5781,7 +5861,7 @@ void FireVehicleWeapon( gentity_t *ent, qboolean alt_fire )
 						}
 					}//else, just stay on the one we just fired
 					//set the delay on the next muzzle
-					pVeh->m_iMuzzleWait[pVeh->weaponStatus[weaponNum].nextMuzzle] = level.time + delay;
+					pVeh->m_iMuzzleWait[pVeh->weaponStatus[weaponNum].nextMuzzle] = G_VehMuzzleArm(pVeh->m_iMuzzleWait[i], delay, prevEval);
 					//take away the ammo
 					pVeh->weaponStatus[weaponNum].ammo -= vehWeapon->iAmmoPerShot;
 					//NOTE: in order to send the vehicle's ammo info to the client, we copy the ammo into the first 2 ammo slots on the vehicle NPC's client->ps.ammo array
@@ -5807,6 +5887,7 @@ void FireVehicleWeapon( gentity_t *ent, qboolean alt_fire )
 			}
 			if ( cumulativeDelay )
 			{//we linked muzzles so we need to apply the cumulative delay now, to each of the linked muzzles
+				int wait = G_VehMuzzleArm(readyAt, cumulativeDelay, prevEval);
 				for ( i = 0; i < MAX_VEHICLE_MUZZLES; i++ )
 				{
 					if ( pVeh->m_pVehicleInfo->weapMuzzle[i] != vehWeaponIndex )
@@ -5814,7 +5895,7 @@ void FireVehicleWeapon( gentity_t *ent, qboolean alt_fire )
 						continue;
 					}
 					//apply the cumulative delay
-					pVeh->m_iMuzzleWait[i] = level.time + cumulativeDelay;
+					pVeh->m_iMuzzleWait[i] = wait;
 				}
 			}
 		}

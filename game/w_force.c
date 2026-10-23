@@ -171,16 +171,44 @@ const int mindTrickTime[NUM_FORCE_POWER_LEVELS] =
 };
 
 extern int g_LastFrameTime;
+
+/*
+with g_tickFixForce, how long a 20 Hz server let a timed power run: forcePowerDuration is then checked with <=.
+g_fixForceTimers expires on the tick at or past the duration, stock on the first tick past it
+*/
+static int ForceDurationTicks(int duration) {
+	return g_fixForceTimers.integer ? G_TickIncl(duration) : G_TickStrict(duration);
+}
+
+// a deadline that a `deadline < level.time` check passes on the first 20 Hz tick past level.time + ms
+static int ForceStrictDeadline(int ms) {
+	return level.time + G_TickStrict(ms) - 1;
+}
+
 static int FixDuration(int duration) {
+	if (TICKFIX(Force)) // in a frame, g_fixForceTimers counts from the previous 20 Hz frame; a held command arrived between frames
+		return ForceDurationTicks(duration) - (g_fixForceTimers.integer && level.time != g_LastFrameTime && !level.cmdStamp ? TICK_BASE_MSEC : 0);
+
 	if (!g_fixForceTimers.integer)
 		return duration;
 
-	const int frameTime = 1000 / g_svfps.integer;
+	const int frameTime = 1000 / Com_Clampi(1, 1000, g_svfps.integer);
 	const int fixedDuration = duration + ((frameTime - (duration % frameTime)) % frameTime);
-	const int timeSinceLastFrame = level.time - g_LastFrameTime;
+	const int timeSinceLastFrame = level.cmdStamp ? 0 : level.time - g_LastFrameTime;
 	return fixedDuration - timeSinceLastFrame;
 }
 
+
+/*
+the rage recovery timer's readers keep their stock < / >= checks, so without g_fixForceTimers the raw duration
+matches the 20 Hz expiry
+*/
+static int RageRecoveryDuration(void)
+{
+	if (TICKFIX(Force) && !g_fixForceTimers.integer)
+		return RAGE_RECOVERY_TIME;
+	return FixDuration(RAGE_RECOVERY_TIME);
+}
 
 /*
 re-arms the force regeneration debounce. the debounce is only ever looked at on a server frame, so
@@ -202,6 +230,15 @@ static void ReArmForceRegen(gentity_t *self, int regenTime) {
 		regenTime = 1;
 
 	// g_forceRegenTime 1 is the debug value people mess around with: left exactly as it behaves
+	if (TICKFIX(Force) && g_forceRegenTime.integer != 1) {
+		// the regen check is debounce < level.time, so a debounce one frame old or newer is on schedule
+		if (*debounce < level.time - G_FrameMsec())
+			*debounce = ForceStrictDeadline(regenTime);
+		else
+			*debounce += G_TickStrict(regenTime);
+		return;
+	}
+
 	if (!g_fixForceRegenTime.integer || g_forceRegenTime.integer == 1) {
 		*debounce = level.time + regenTime;
 		return;
@@ -1318,6 +1355,8 @@ int WP_AbsorbConversion(gentity_t *attacked, int atdAbsLevel, gentity_t *attacke
 		attacker->client->stats->energizedEnemy += absorbed;
 	}
 
+	if (attacked->client->ps.fd.forcePower < 100)
+		TICKPROBE("absorb_fp", attacked->s.number, Com_Clampi(0, 100 - attacked->client->ps.fd.forcePower, addTot));
 	attacked->client->ps.fd.forcePower += addTot;
 	if (attacked->client->ps.fd.forcePower > 100)
 	{
@@ -1342,6 +1381,9 @@ void WP_ForcePowerRegenerate( gentity_t *self, int overrideAmt )
 	{
 		return;
 	}
+
+	if (self->client->ps.fd.forcePower < self->client->ps.fd.forcePowerMax)
+		TICKPROBE("regen_fp", self->s.number, Com_Clampi(0, self->client->ps.fd.forcePowerMax - self->client->ps.fd.forcePower, overrideAmt ? overrideAmt : 1));
 
 	if ( overrideAmt )
 	{ //custom regen amount
@@ -1482,7 +1524,8 @@ void WP_ForcePowerStart( gentity_t *self, forcePowers_t forcePower, int override
 	case FP_LIGHTNING:
 		hearable = qtrue;
 		hearDist = 512;
-		duration = overrideAmt;
+		duration = TICKFIX(Force) ? ForceDurationTicks(overrideAmt) : overrideAmt;
+		self->client->lightningTickTime = level.time;
 		overrideAmt = 0;
 		self->client->ps.fd.forcePowersActive |= ( 1 << forcePower );
 		self->client->ps.activeForcePass = self->client->ps.fd.forcePowerLevel[FP_LIGHTNING];
@@ -1541,7 +1584,8 @@ void WP_ForcePowerStart( gentity_t *self, forcePowers_t forcePower, int override
 	case FP_DRAIN:
 		hearable = qtrue;
 		hearDist = 256;
-		duration = overrideAmt;
+		duration = TICKFIX(Force) ? ForceDurationTicks(overrideAmt) : overrideAmt;
+		self->client->drainTickTime = level.time;
 		overrideAmt = 0;
 		self->client->ps.fd.forcePowersActive |= ( 1 << forcePower );
 		break;
@@ -1942,7 +1986,7 @@ void ForceTeamHeal( gentity_t *self, qboolean redirectedTE )
 
 	qboolean compensate = self->client->sess.unlagged;
 	if (g_thTeUnlagged.integer && g_unlagged.integer && compensate)
-		G_TimeShiftAllClients(trap_Milliseconds() - (level.time - self->client->pers.cmd.serverTime), self, qfalse);
+		G_TimeShiftAllClients(G_UnlagTime(self), self, qfalse);
 
 	for (int i = 0; i < MAX_CLIENTS; i++)
 	{
@@ -2173,7 +2217,7 @@ void ForceTeamForceReplenish( gentity_t *self, qboolean redirectedTH )
 
 	qboolean compensate = self->client->sess.unlagged;
 	if (g_thTeUnlagged.integer && g_unlagged.integer && compensate)
-		G_TimeShiftAllClients(trap_Milliseconds() - (level.time - self->client->pers.cmd.serverTime), self, qfalse);
+		G_TimeShiftAllClients(G_UnlagTime(self), self, qfalse);
 	for (int i = 0; i < MAX_CLIENTS; i++)
 	{
 		ent = &g_entities[i];
@@ -2570,7 +2614,7 @@ void ForceGrip( gentity_t *self )
 
 	qboolean compensate = self->client->sess.unlagged;
 	if (g_unlagged.integer && compensate)
-		G_TimeShiftAllClients(trap_Milliseconds() - (level.time - self->client->pers.cmd.serverTime), self, qfalse);
+		G_TimeShiftAllClients(G_UnlagTime(self), self, qfalse);
 
 	trap_Trace(&tr, tfrom, NULL, NULL, tto, self->s.number, MASK_PLAYERSOLID);
 
@@ -3007,6 +3051,8 @@ void ForceLightningDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, vec
 		{//an enemy or object
 			if (traceEnt->client->noLightningTime >= level.time)
 			{ //give them power and don't hurt them.
+				if (traceEnt->client->ps.fd.forcePower < 100)
+					TICKPROBE("absorb_fp", traceEnt->s.number, 1);
 				traceEnt->client->ps.fd.forcePower++;
 				if (traceEnt->client->ps.fd.forcePower > 100)
 				{
@@ -3049,16 +3095,19 @@ void ForceLightningDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, vec
 					}
 				}
 
-				// add dps divided by tickrate to a static number and deal damage when it's >= 1
-				static double damageAccumulator[MAX_GENTITIES] = { 0.0 };
-				damageAccumulator[self - g_entities] += dps / (double)(g_svfps.integer);
-				int dmg = (int)damageAccumulator[self - g_entities];
+				// add dps divided by tickrate to the accumulator and deal damage when it's >= 1
+				double *damageAccumulator = &self->client->lightningDmgResidual;
+				if (TICKFIX(Force)) // called once per 50 ms tick
+					*damageAccumulator += dps * TICK_BASE_MSEC / 1000.0;
+				else
+					*damageAccumulator += dps / (double)(g_svfps.integer);
+				int dmg = (int)*damageAccumulator;
 				if (dmg >= 1) {
-					damageAccumulator[self - g_entities] -= dmg;
+					*damageAccumulator -= dmg;
 
 					// sanity check
-					if (damageAccumulator[self - g_entities] < 0)
-						damageAccumulator[self - g_entities] = 0;
+					if (*damageAccumulator < 0)
+						*damageAccumulator = 0;
 				}
 				
 				int modPowerLevel = -1;
@@ -3097,6 +3146,7 @@ void ForceLightningDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, vec
 				if (dmg)
 				{
 					//rww - Shields can now absorb lightning too.
+					TICKPROBE("lightning_dmg", traceEnt->s.number, dmg);
 					G_Damage( traceEnt, self, self, dir, impactPoint, dmg, flags, MOD_FORCE_DARK );
 				}
 				if ( traceEnt->client )
@@ -3155,7 +3205,7 @@ void ForceShootLightning( gentity_t *self )
 		}
 		qboolean compensate = self->client->sess.unlagged;
 		if (g_unlagged.integer && compensate)
-			G_TimeShiftAllClients(trap_Milliseconds() - (level.time - self->client->pers.cmd.serverTime), self, qfalse);
+			G_TimeShiftAllClients(G_UnlagTime(self), self, qfalse);
 		numListedEntities = trap_EntitiesInBox( mins, maxs, iEntityList, MAX_GENTITIES );
 
 		i = 0;
@@ -3260,7 +3310,7 @@ void ForceShootLightning( gentity_t *self )
 		
 		qboolean compensate = self->client->sess.unlagged;
 		if (g_unlagged.integer && compensate)
-			G_TimeShiftAllClients(trap_Milliseconds() - (level.time - self->client->pers.cmd.serverTime), self, qfalse);
+			G_TimeShiftAllClients(G_UnlagTime(self), self, qfalse);
 
 		vec3_t mins, maxs;
 		if (!g_lightningRework.integer) {
@@ -3442,6 +3492,8 @@ int ForceDrainDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, vec3_t i
 					actualForceDrainedFromTarget -= abs(traceEnt->client->ps.fd.forcePower);
 					traceEnt->client->ps.fd.forcePower = 0;
 				}
+				if (actualForceDrainedFromTarget > 0)
+					TICKPROBE("drain_fp", traceEnt->s.number, actualForceDrainedFromTarget);
 
 				if (!g_drainRework.integer) {
 					if (self->client->ps.stats[STAT_HEALTH] < self->client->ps.stats[STAT_MAX_HEALTH] &&
@@ -3480,11 +3532,11 @@ int ForceDrainDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, vec3_t i
 
 				const int reworkDebuffDuration = DRAIN_REWORK_DEBUFFDURATION_CONSTANT + (DRAIN_REWORK_DEBUFFDURATION_PERLEVEL * self->client->ps.fd.forcePowerLevel[FP_DRAIN]);
 				if (!g_drainRework.integer) {
-					traceEnt->client->ps.fd.forcePowerRegenDebounceTime = level.time + 800; //don't let the client being drained get force power back right away
+					traceEnt->client->ps.fd.forcePowerRegenDebounceTime = TICKFIX(Force) ? ForceStrictDeadline(800) : level.time + 800; //don't let the client being drained get force power back right away
 				}
 				else {
 					if (dmg) {
-						traceEnt->client->ps.fd.forcePowerRegenDebounceTime = level.time + reworkDebuffDuration;
+						traceEnt->client->ps.fd.forcePowerRegenDebounceTime = TICKFIX(Force) ? ForceStrictDeadline(reworkDebuffDuration) : level.time + reworkDebuffDuration;
 						traceEnt->client->drainDebuffTime = level.time + reworkDebuffDuration;
 					}
 				}
@@ -3535,7 +3587,7 @@ int ForceShootDrain( gentity_t *self )
 	{//arc
 		qboolean compensate = self->client->sess.unlagged;
 		if (g_unlagged.integer && compensate)
-			G_TimeShiftAllClients(trap_Milliseconds() - (level.time - self->client->pers.cmd.serverTime), self, qfalse);
+			G_TimeShiftAllClients(G_UnlagTime(self), self, qfalse);
 		vec3_t	center, mins, maxs, dir, ent_org, size, v;
 		float	radius = MAX_DRAIN_DISTANCE, dot, dist;
 		gentity_t	*entityList[MAX_GENTITIES];
@@ -3652,7 +3704,7 @@ int ForceShootDrain( gentity_t *self )
 
 		qboolean compensate = self->client->sess.unlagged;
 		if (g_unlagged.integer && compensate)
-			G_TimeShiftAllClients(trap_Milliseconds() - (level.time - self->client->pers.cmd.serverTime), self, qfalse);
+			G_TimeShiftAllClients(G_UnlagTime(self), self, qfalse);
 
 		trap_Trace( &tr, start, mins, maxs, end, self->s.number, MASK_SHOT );
 
@@ -3723,7 +3775,7 @@ int ForceShootDrain( gentity_t *self )
 	}
 
 	if (!g_drainRework.integer)
-		self->client->ps.fd.forcePowerRegenDebounceTime = level.time + 500;
+		self->client->ps.fd.forcePowerRegenDebounceTime = TICKFIX(Force) ? ForceStrictDeadline(500) : level.time + 500;
 
 	return gotOneOrMore;
 }
@@ -4176,7 +4228,7 @@ void ForceTelepathy(gentity_t *self)
 
 		qboolean compensate = self->client->sess.unlagged;
 		if (g_unlagged.integer && compensate && self->client->ps.fd.forcePowerLevel[FP_TELEPATHY] == FORCE_LEVEL_1)
-			G_TimeShiftAllClients(trap_Milliseconds() - (level.time - self->client->pers.cmd.serverTime), self, qfalse);
+			G_TimeShiftAllClients(G_UnlagTime(self), self, qfalse);
 
 		qboolean hitNpcDirectly = ForceTelepathyCheckDirectNPCTarget(self, &tr, &tookPower);
 
@@ -4751,7 +4803,7 @@ void ForceThrow( gentity_t *self, qboolean pull )
 
 		qboolean compensate = self->client->sess.unlagged;
 		if (g_unlagged.integer && compensate)
-			G_TimeShiftAllClients(trap_Milliseconds() - (level.time - self->client->pers.cmd.serverTime), self, qfalse);
+			G_TimeShiftAllClients(G_UnlagTime(self), self, qfalse);
 
 		trap_Trace(&tr, tfrom, NULL, NULL, tto, self->s.number, MASK_PLAYERSOLID);
 
@@ -5501,11 +5553,16 @@ void WP_ForcePowerStop( gentity_t *self, forcePowers_t forcePower )
 			self->client->ps.forceHandExtendTime = 0; //reset hand position
 		}
 
+		if (TICKFIX(Force))
+		{
+			self->client->lightningDmgResidual = 0;
+		}
+
 		self->client->ps.activeForcePass = 0;
 		break;
 	case FP_RAGE:
-		self->client->ps.fd.forceRageRecoveryTime = level.time + FixDuration(RAGE_RECOVERY_TIME);
-		StartForceTimer(self, FP_SABER_OFFENSE, FixDuration(RAGE_RECOVERY_TIME));
+		self->client->ps.fd.forceRageRecoveryTime = level.time + RageRecoveryDuration();
+		StartForceTimer(self, FP_SABER_OFFENSE, RageRecoveryDuration());
 		if (wasActive & (1 << FP_RAGE))
 		{
 			G_MuteSound(self->client->ps.fd.killSoundEntIndex[TRACK_CHANNEL_3-50], CHAN_VOICE);
@@ -5557,6 +5614,30 @@ void WP_ForcePowerStop( gentity_t *self, forcePowers_t forcePower )
 	default:
 		break;
 	}
+}
+
+// level.time - start > ms, as a 20 Hz server saw it with g_tickFixForce
+static qboolean ForceElapsedPast(int start, int ms)
+{
+	if (TICKFIX(Force))
+		return level.time - start >= G_TickStrict(ms) ? qtrue : qfalse;
+	return level.time - start > ms ? qtrue : qfalse;
+}
+
+// the grip re-aim interval; the 20 Hz minimum frame is kept with g_tickFixForce
+static int GripRefreshMsec(void)
+{
+	if (TICKFIX(Force))
+		return Com_Clampi(TICK_BASE_MSEC, 500, g_gripRefreshRate.integer);
+	return Com_Clampi(1000 / Com_Clampi(1, 1000, g_svfps.integer), 500, g_gripRefreshRate.integer);
+}
+
+// whether the victim's grip velocity is due a refresh now
+static qboolean GripMoveDue(gentity_t *gripEnt)
+{
+	if (TICKFIX(Force))
+		return G_TickDue(&gripEnt->client->ps.forceGripMoveInterval, G_TickStrict(GripRefreshMsec())) > 0 ? qtrue : qfalse;
+	return gripEnt->client->ps.forceGripMoveInterval < level.time ? qtrue : qfalse;
 }
 
 void DoGripAction(gentity_t *self, forcePowers_t forcePower)
@@ -5676,11 +5757,14 @@ void DoGripAction(gentity_t *self, forcePowers_t forcePower)
 		return;
 	}
 
-	if (self->client->ps.fd.forcePowerDebounce[FP_GRIP] < level.time)
+	if (TICKFIX(Force) ? G_TickDue(&self->client->ps.fd.forcePowerDebounce[FP_GRIP], G_TickStrict(1000)) > 0 : self->client->ps.fd.forcePowerDebounce[FP_GRIP] < level.time)
 	{ //2 damage per second while choking, resulting in 10 damage total (not including The Squeeze<tm>)
-		self->client->ps.fd.forcePowerDebounce[FP_GRIP] = level.time + 1000;
-		if (!meme)
+		if (!TICKFIX(Force))
+			self->client->ps.fd.forcePowerDebounce[FP_GRIP] = level.time + 1000;
+		if (!meme) {
+			TICKPROBE("grip_dmg", gripEnt->s.number, 2);
 			G_Damage(gripEnt, self, self, NULL, NULL, 2, DAMAGE_NO_ARMOR, MOD_FORCE_DARK);
+		}
 	}
 
 	Jetpack_Off(gripEnt); //make sure the guy being gripped has his jetpack off.
@@ -5695,7 +5779,7 @@ void DoGripAction(gentity_t *self, forcePowers_t forcePower)
 			gripEnt->client->ps.otherKillerDebounceTime = level.time + 100;
 		}
 		
-		if ((level.time - gripEnt->client->ps.fd.forceGripStarted) > 5000 && !meme)
+		if (ForceElapsedPast(gripEnt->client->ps.fd.forceGripStarted, 5000) && !meme)
 		{
 			WP_ForcePowerStop(self, forcePower);
 		}
@@ -5706,11 +5790,12 @@ void DoGripAction(gentity_t *self, forcePowers_t forcePower)
 	{
 		gripEnt->client->ps.fd.forceGripBeingGripped = level.time + 1000;
 
-		if (gripEnt->client->ps.forceGripMoveInterval < level.time)
+		if (GripMoveDue(gripEnt))
 		{
 			gripEnt->client->ps.velocity[2] = 30;
 
-			gripEnt->client->ps.forceGripMoveInterval = level.time + Com_Clampi(1000 / g_svfps.integer, 500, g_gripRefreshRate.integer); //only update velocity every 300ms, so as to avoid heavy bandwidth usage
+			if (!TICKFIX(Force))
+				gripEnt->client->ps.forceGripMoveInterval = level.time + GripRefreshMsec(); //only update velocity every 300ms, so as to avoid heavy bandwidth usage
 		}
 
 		gripEnt->client->ps.otherKiller = self->s.number;
@@ -5719,11 +5804,13 @@ void DoGripAction(gentity_t *self, forcePowers_t forcePower)
 
 		gripEnt->client->ps.forceGripChangeMovetype = PM_FLOAT;
 
-		if ((level.time - gripEnt->client->ps.fd.forceGripStarted) > 3000 && !self->client->ps.fd.forceGripDamageDebounceTime)
+		if (ForceElapsedPast(gripEnt->client->ps.fd.forceGripStarted, 3000) && !self->client->ps.fd.forceGripDamageDebounceTime)
 		{ //if we managed to lift him into the air for 2 seconds, give him a crack
 			self->client->ps.fd.forceGripDamageDebounceTime = 1;
-			if (!meme)
+			if (!meme) {
+				TICKPROBE("grip_dmg", gripEnt->s.number, 20);
 				G_Damage(gripEnt, self, self, NULL, NULL, 20, DAMAGE_NO_ARMOR, MOD_FORCE_DARK);
+			}
 
 			//Must play custom sounds on the actual entity. Don't use G_Sound (it creates a temp entity for the sound)
 			G_EntitySound( gripEnt, CHAN_VOICE, G_SoundIndex(va( "*choke%d.wav", Q_irand( 1, 3 ) )) );
@@ -5736,7 +5823,7 @@ void DoGripAction(gentity_t *self, forcePowers_t forcePower)
 				WP_ForcePowerStop(gripEnt, FP_GRIP);
 			}
 		}
-		else if ((level.time - gripEnt->client->ps.fd.forceGripStarted) > 4000 && !meme)
+		else if (ForceElapsedPast(gripEnt->client->ps.fd.forceGripStarted, 4000) && !meme)
 		{
 			WP_ForcePowerStop(self, forcePower);
 		}
@@ -5753,7 +5840,7 @@ void DoGripAction(gentity_t *self, forcePowers_t forcePower)
 
 		gripEnt->client->ps.forceGripChangeMovetype = PM_FLOAT;
 
-		if (gripEnt->client->ps.forceGripMoveInterval < level.time)
+		if (GripMoveDue(gripEnt))
 		{
 			float nvLen = 0;
 
@@ -5767,7 +5854,7 @@ void DoGripAction(gentity_t *self, forcePowers_t forcePower)
 
 			nvLen = VectorLength(nvel);
 
-			float factor = ((float)(Com_Clampi(1000 / g_svfps.integer, 500, g_gripRefreshRate.integer)) / 300.0f);
+			float factor = ((float)GripRefreshMsec() / 300.0f);
 
 			if (nvLen < 16 * factor)
 			{ //within x units of desired spot
@@ -5805,14 +5892,17 @@ void DoGripAction(gentity_t *self, forcePowers_t forcePower)
 				gripEnt->client->ps.velocity[2] = nvel[2]*700;
 			}
 
-			gripEnt->client->ps.forceGripMoveInterval = level.time + Com_Clampi(1000 / g_svfps.integer, 500, g_gripRefreshRate.integer); //only update velocity every 300ms, so as to avoid heavy bandwidth usage
+			if (!TICKFIX(Force))
+				gripEnt->client->ps.forceGripMoveInterval = level.time + GripRefreshMsec(); //only update velocity every 300ms, so as to avoid heavy bandwidth usage
 		}
 
-		if ((level.time - gripEnt->client->ps.fd.forceGripStarted) > 3000 && !self->client->ps.fd.forceGripDamageDebounceTime)
+		if (ForceElapsedPast(gripEnt->client->ps.fd.forceGripStarted, 3000) && !self->client->ps.fd.forceGripDamageDebounceTime)
 		{ //if we managed to lift him into the air for 2 seconds, give him a crack
 			self->client->ps.fd.forceGripDamageDebounceTime = 1;
-			if (!meme)
+			if (!meme) {
+				TICKPROBE("grip_dmg", gripEnt->s.number, 40);
 				G_Damage(gripEnt, self, self, NULL, NULL, 40, DAMAGE_NO_ARMOR, MOD_FORCE_DARK);
+			}
 
 			//Must play custom sounds on the actual entity. Don't use G_Sound (it creates a temp entity for the sound)
 			G_EntitySound( gripEnt, CHAN_VOICE, G_SoundIndex(va( "*choke%d.wav", Q_irand( 1, 3 ) )) );
@@ -5825,7 +5915,7 @@ void DoGripAction(gentity_t *self, forcePowers_t forcePower)
 				WP_ForcePowerStop(gripEnt, FP_GRIP);
 			}
 		}
-		else if ((level.time - gripEnt->client->ps.fd.forceGripStarted) > 4000 && !meme)
+		else if (ForceElapsedPast(gripEnt->client->ps.fd.forceGripStarted, 4000) && !meme)
 		{
 			WP_ForcePowerStop(self, forcePower);
 		}
@@ -5920,7 +6010,7 @@ static void WP_UpdateMindtrickEnts(gentity_t *self)
 			{
 				RemoveTrickedEnt(&self->client->ps.fd, i);
 			}
-			else if ((level.time - self->client->dangerTime) < g_TimeSinceLastFrame*4)
+			else if ((level.time - self->client->dangerTime) < (TICKFIX(Force) ? TICK_BASE_MSEC : g_TimeSinceLastFrame)*4)
 			{ //Untrick this entity if the tricker (self) fires while in his fov
 				if (trap_InPVS(ent->client->ps.origin, self->client->ps.origin) &&
 					OrgVisible(ent->client->ps.origin, self->client->ps.origin, ent->s.number))
@@ -5972,7 +6062,7 @@ static void WP_ForcePowerRun( gentity_t *self, forcePowers_t forcePower, usercmd
 			break;
 		}
 
-		if (self->client->ps.fd.forceHealTime > level.time)
+		if (TICKFIX(Force) ? !G_TickDue(&self->client->ps.fd.forceHealTime, G_TickIncl(1000)) : self->client->ps.fd.forceHealTime > level.time)
 		{
 			break;
 		}
@@ -5981,7 +6071,8 @@ static void WP_ForcePowerRun( gentity_t *self, forcePowers_t forcePower, usercmd
 			WP_ForcePowerStop( self, forcePower );
 			break;
 		}
-		self->client->ps.fd.forceHealTime = level.time + 1000;
+		if (!TICKFIX(Force))
+			self->client->ps.fd.forceHealTime = level.time + 1000;
 		self->health++;
 		self->client->ps.fd.forceHealAmount++;
 
@@ -6031,18 +6122,21 @@ static void WP_ForcePowerRun( gentity_t *self, forcePowers_t forcePower, usercmd
 		}
 
 		if (g_gripRework.integer == 2) { // new out-of-fp check: with new rework enabled, allow grip to continue with 0fp during the initial second
-			if (self->client->ps.fd.forcePower < 1 && !meme && self->client->ps.fd.forcePowerDebounce[FP_PULL] < level.time)
+			if (self->client->ps.fd.forcePower < 1 && !meme && (TICKFIX(Force) ? self->client->ps.fd.forcePowerDebounce[FP_PULL] <= level.time : self->client->ps.fd.forcePowerDebounce[FP_PULL] < level.time))
 			{
 				WP_ForcePowerStop(self, FP_GRIP);
 				break;
 			}
 		}
 
-		if (self->client->ps.fd.forcePowerDebounce[FP_PULL] < level.time)
+		if (TICKFIX(Force) ? (!meme && G_TickDue(&self->client->ps.fd.forcePowerDebounce[FP_PULL], G_TickStrict(100)) > 0) : self->client->ps.fd.forcePowerDebounce[FP_PULL] < level.time)
 		{ //This is sort of not ideal. Using the debounce value reserved for pull for this because pull doesn't need it.
 			if (!meme) {
+				if (self->client->ps.fd.forcePower > 0)
+					TICKPROBE("grip_fp", self->s.number, 1);
 				BG_ForcePowerDrain(&self->client->ps, forcePower, 1);
-				self->client->ps.fd.forcePowerDebounce[FP_PULL] = level.time + 100;
+				if (!TICKFIX(Force))
+					self->client->ps.fd.forcePowerDebounce[FP_PULL] = level.time + 100;
 			}
 		}
 
@@ -6068,11 +6162,9 @@ static void WP_ForcePowerRun( gentity_t *self, forcePowers_t forcePower, usercmd
 			WP_ForcePowerStop(self, forcePower);
 			break;
 		}
-		if (self->client->ps.forceRageDrainTime < level.time)
+		if (TICKFIX(Force) || self->client->ps.forceRageDrainTime < level.time)
 		{
 			int addTime = 400;
-
-			self->health -= 2;
 
 			if (self->client->ps.fd.forcePowerLevel[FP_RAGE] == FORCE_LEVEL_1)
 			{
@@ -6086,7 +6178,21 @@ static void WP_ForcePowerRun( gentity_t *self, forcePowers_t forcePower, usercmd
 			{
 				addTime = 450;
 			}
-			self->client->ps.forceRageDrainTime = level.time + addTime;
+
+			if (TICKFIX(Force))
+			{
+				if (G_TickDue(&self->client->ps.forceRageDrainTime, G_TickStrict(addTime)))
+				{
+					self->health -= 2;
+					TICKPROBE("rage_hp", self->s.number, 2);
+				}
+			}
+			else
+			{
+				self->health -= 2;
+				TICKPROBE("rage_hp", self->s.number, 2);
+				self->client->ps.forceRageDrainTime = level.time + addTime;
+			}
 		}
 
 		if (self->health < 1)
@@ -6109,7 +6215,7 @@ static void WP_ForcePowerRun( gentity_t *self, forcePowers_t forcePower, usercmd
 		{//higher than level 1
 			if ( (cmd->buttons & BUTTON_FORCE_DRAIN) || ((cmd->buttons & BUTTON_FORCEPOWER) && self->client->ps.fd.forcePowerSelected == FP_DRAIN) )
 			{//holding it keeps it going
-				self->client->ps.fd.forcePowerDuration[FP_DRAIN] = level.time + 500;
+				self->client->ps.fd.forcePowerDuration[FP_DRAIN] = level.time + (TICKFIX(Force) ? ForceDurationTicks(500) : 500);
 			}
 		}
 		// OVERRIDEFIXME
@@ -6117,6 +6223,20 @@ static void WP_ForcePowerRun( gentity_t *self, forcePowers_t forcePower, usercmd
 			((!g_drainRework.integer && self->client->ps.fd.forcePower < 25) ||(g_drainRework.integer && self->client->ps.fd.forcePower < DRAIN_REWORK2_MINIMUMFORCE)))
 		{
 			WP_ForcePowerStop( self, forcePower );
+		}
+		else if (TICKFIX(Force))
+		{ // once per 50 ms tick
+			int n;
+			for (n = G_TickDue(&self->client->drainTickTime, TICK_BASE_MSEC); n > 0; n--)
+			{
+				ForceShootDrain( self );
+				if ( n > 1 && (!WP_ForcePowerAvailable( self, forcePower, 0 ) ||
+					((!g_drainRework.integer && self->client->ps.fd.forcePower < 25) || (g_drainRework.integer && self->client->ps.fd.forcePower < DRAIN_REWORK2_MINIMUMFORCE))) )
+				{ // out of force between ticks of one frame
+					WP_ForcePowerStop( self, forcePower );
+					break;
+				}
+			}
 		}
 		else
 		{
@@ -6135,7 +6255,7 @@ static void WP_ForcePowerRun( gentity_t *self, forcePowers_t forcePower, usercmd
 		{//higher than level 1
 			if ( (cmd->buttons & BUTTON_FORCE_LIGHTNING) || ((cmd->buttons & BUTTON_FORCEPOWER) && self->client->ps.fd.forcePowerSelected == FP_LIGHTNING) )
 			{//holding it keeps it going
-				self->client->ps.fd.forcePowerDuration[FP_LIGHTNING] = level.time + 500;
+				self->client->ps.fd.forcePowerDuration[FP_LIGHTNING] = level.time + (TICKFIX(Force) ? ForceDurationTicks(500) : 500);
 			}
 		}
 		// OVERRIDEFIXME
@@ -6145,9 +6265,20 @@ static void WP_ForcePowerRun( gentity_t *self, forcePowers_t forcePower, usercmd
 			WP_ForcePowerStop( self, forcePower );
 		}
 		else
-		{
-			ForceShootLightning( self );
-			BG_ForcePowerDrain( &self->client->ps, forcePower, 0 );
+		{ // once per 50 ms tick with g_tickFixForce
+			int n = TICKFIX(Force) ? G_TickDue(&self->client->lightningTickTime, TICK_BASE_MSEC) : 1;
+			for (; n > 0; n--)
+			{
+				ForceShootLightning( self );
+				TICKPROBE("lightning_fp", self->s.number, Com_Clampi(0, self->client->ps.fd.forcePower, forcePowerNeeded[self->client->ps.fd.forcePowerLevel[FP_LIGHTNING]][FP_LIGHTNING]));
+				BG_ForcePowerDrain( &self->client->ps, forcePower, 0 );
+				if ( n > 1 && (!WP_ForcePowerAvailable( self, forcePower, 0 ) ||
+					(self->client->ps.fd.forcePower < 25 && !g_lightningRework.integer) || !self->client->ps.fd.forcePower) )
+				{ // out of force between ticks of one frame
+					WP_ForcePowerStop( self, forcePower );
+					break;
+				}
+			}
 		}
 		break;
 	case FP_TELEPATHY:
@@ -6169,19 +6300,22 @@ static void WP_ForcePowerRun( gentity_t *self, forcePowers_t forcePower, usercmd
 	case FP_SABERTHROW:
 		break;
 	case FP_PROTECT:
-		if (self->client->ps.fd.forcePowerDebounce[forcePower] < level.time)
+		if (TICKFIX(Force) ? G_TickDue(&self->client->ps.fd.forcePowerDebounce[forcePower], G_TickStrict(300)) > 0 : self->client->ps.fd.forcePowerDebounce[forcePower] < level.time)
 		{
+			if (self->client->ps.fd.forcePower > 0)
+				TICKPROBE("protect_upkeep", self->s.number, 1);
 			BG_ForcePowerDrain( &self->client->ps, forcePower, 1 );
 			if (self->client->ps.fd.forcePower < 1)
 			{
 				WP_ForcePowerStop(self, forcePower);
 			}
 
-			self->client->ps.fd.forcePowerDebounce[forcePower] = level.time + 300;
+			if (!TICKFIX(Force))
+				self->client->ps.fd.forcePowerDebounce[forcePower] = level.time + 300;
 		}
 		break;
 	case FP_ABSORB:
-		if (self->client->ps.fd.forcePowerDebounce[forcePower] < level.time)
+		if (TICKFIX(Force) ? G_TickDue(&self->client->ps.fd.forcePowerDebounce[forcePower], G_TickStrict(600)) > 0 : self->client->ps.fd.forcePowerDebounce[forcePower] < level.time)
 		{
 			BG_ForcePowerDrain( &self->client->ps, forcePower, 1 );
 			if (self->client->ps.fd.forcePower < 1)
@@ -6189,7 +6323,8 @@ static void WP_ForcePowerRun( gentity_t *self, forcePowers_t forcePower, usercmd
 				WP_ForcePowerStop(self, forcePower);
 			}
 
-			self->client->ps.fd.forcePowerDebounce[forcePower] = level.time + 600;
+			if (!TICKFIX(Force))
+				self->client->ps.fd.forcePowerDebounce[forcePower] = level.time + 600;
 		}
 		break;
 	default:
@@ -6270,7 +6405,7 @@ int WP_DoSpecificPower( gentity_t *self, usercmd_t *ucmd, forcePowers_t forcepow
 				if (!meme) {
 					BG_ForcePowerDrain(&self->client->ps, FP_GRIP, GRIP_DRAIN_AMOUNT);
 					if (g_gripRework.integer == 2)
-						self->client->ps.fd.forcePowerDebounce[FP_PULL] = level.time + 1000; // give a freebie second to use grip
+						self->client->ps.fd.forcePowerDebounce[FP_PULL] = level.time + (TICKFIX(Force) ? G_TickStrict(1000) : 1000); // give a freebie second to use grip
 				}
 			}
 		}
@@ -6575,19 +6710,30 @@ void SeekerDroneUpdate(gentity_t *self)
 		VectorAdd(elevated, dir, org);
 
 		//org is now where the thing should be client-side because it uses the same time-based offset
-		if (self->client->ps.droneFireTime < level.time)
+		if (TICKFIX(Items) ? self->client->ps.droneFireTime <= level.time : self->client->ps.droneFireTime < level.time)
 		{
 			trap_Trace(&tr, org, NULL, NULL, en->client->ps.origin, -1, MASK_SOLID);
 
 			if (tr.fraction == 1 && !tr.startsolid && !tr.allsolid)
 			{
+				int delay, due;
+
 				VectorSubtract(en->client->ps.origin, org, endir);
 				VectorNormalize(endir);
 
+				TICKPROBE("seeker_fire", self->s.number, 1);
 				WP_FireGenericBlasterMissile(self, org, endir, 0, 15, 2000, MOD_BLASTER);
 				G_SoundAtLoc( org, CHAN_WEAPON, G_SoundIndex("sound/weapons/bryar/fire.wav") );
 
-				self->client->ps.droneFireTime = level.time + Q_irand(400, 700);
+				delay = Q_irand(400, 700);
+				if (TICKFIX(Items))
+				{ // the next shot on the first 20 Hz tick past the delay, carried from this one's due time
+					due = (int)self->client->ps.droneFireTime;
+					G_TickDue(&due, G_TickStrict(delay));
+					self->client->ps.droneFireTime = due;
+				}
+				else
+					self->client->ps.droneFireTime = level.time + delay;
 			}
 		}
 	}
@@ -6807,10 +6953,13 @@ qboolean G_SpecialRollGetup(gentity_t *self)
 	return rolled;
 }
 
+#define FORCE_BUTTONS (BUTTON_FORCEPOWER | BUTTON_FORCEGRIP | BUTTON_FORCE_LIGHTNING | BUTTON_FORCE_DRAIN)
+
 void WP_ForcePowersUpdate( gentity_t *self, usercmd_t *ucmd )
 {
 	int			i, holo, holoregen;
 	int			prepower = 0;
+	usercmd_t	sampledCmd;
 	//see if any force powers are running
 	if ( !self )
 	{
@@ -6821,6 +6970,13 @@ void WP_ForcePowersUpdate( gentity_t *self, usercmd_t *ucmd )
 	{
 		return;
 	}
+
+	// a force button pressed in any usercmd since the last frame counts
+	sampledCmd = *ucmd;
+	if (TICKFIX(Input))
+		sampledCmd.buttons |= self->client->tickButtonsAccum & FORCE_BUTTONS;
+	self->client->tickButtonsAccum &= ~FORCE_BUTTONS;
+	ucmd = &sampledCmd;
 
 	qboolean meme = (!level.wasRestarted && self && self->client && self->client->account && (!Q_stricmp(self->client->account->name, "duo") || !Q_stricmp(self->client->account->name, "alpha")));
 
@@ -6915,20 +7071,20 @@ void WP_ForcePowersUpdate( gentity_t *self, usercmd_t *ucmd )
 					{ //force getup
 						G_PreDefSound(self, PDSOUND_FORCEJUMP);
 						self->client->ps.forceDodgeAnim = 2;
-						self->client->ps.forceHandExtendTime = level.time + 500;
+						self->client->ps.forceHandExtendTime = TICKFIX(Force) ? ForceStrictDeadline(500) : level.time + 500;
 
 					}
 					else if (self->client->ps.quickerGetup)
 					{
 						G_EntitySound( self, CHAN_VOICE, G_SoundIndex("*jump1.wav") );
 						self->client->ps.forceDodgeAnim = 3;
-						self->client->ps.forceHandExtendTime = level.time + 500;
+						self->client->ps.forceHandExtendTime = TICKFIX(Force) ? ForceStrictDeadline(500) : level.time + 500;
 						self->client->ps.velocity[2] = 300;
 					}
 					else
 					{
 						self->client->ps.forceDodgeAnim = 1;
-						self->client->ps.forceHandExtendTime = level.time + 1000;
+						self->client->ps.forceHandExtendTime = TICKFIX(Force) ? ForceStrictDeadline(1000) : level.time + 1000;
 					}
 				}
 			}
@@ -6943,13 +7099,13 @@ void WP_ForcePowersUpdate( gentity_t *self, usercmd_t *ucmd )
 			else if (self->client->ps.groundEntityNum != ENTITYNUM_NONE && !self->client->ps.forceDodgeAnim)
 			{
 				self->client->ps.forceDodgeAnim = 1;
-				self->client->ps.forceHandExtendTime = level.time + 1000;
+				self->client->ps.forceHandExtendTime = TICKFIX(Force) ? ForceStrictDeadline(1000) : level.time + 1000;
 				G_EntitySound( self, CHAN_VOICE, G_SoundIndex("*jump1.wav") );
 				self->client->ps.velocity[2] = 100;
 			}
 			else if (!self->client->ps.forceDodgeAnim)
 			{
-				self->client->ps.forceHandExtendTime = level.time + 100;
+				self->client->ps.forceHandExtendTime = TICKFIX(Force) ? ForceStrictDeadline(100) : level.time + 100;
 			}
 			else
 			{
@@ -7247,7 +7403,7 @@ void WP_ForcePowersUpdate( gentity_t *self, usercmd_t *ucmd )
 	{
 		if ( self->client->ps.fd.forcePowerDuration[i] )
 		{
-			if (g_fixForceTimers.integer) {
+			if (g_fixForceTimers.integer || TICKFIX(Force)) {
 				if (self->client->ps.fd.forcePowerDuration[i] <= level.time && !(i == FP_SPEED && self->client->sess.inRacemode))
 				{
 					if ((self->client->ps.fd.forcePowersActive & (1 << i)))

@@ -5845,6 +5845,11 @@ qboolean	ConsoleCommand( void ) {
 	}
 #endif
 
+	if (!Q_stricmp(cmd, "ticktest")) {
+		Svcmd_TickTest_f();
+		return qtrue;
+	}
+
 	if (g_dedicated.integer) {
 		if (Q_stricmp (cmd, "say") == 0) {
 			trap_SendServerCommand( -1, va("print \"server: %s\n\"", ConcatArgs(1) ) );
