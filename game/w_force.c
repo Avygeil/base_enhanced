@@ -2114,6 +2114,7 @@ void ForceTeamHeal( gentity_t *self, qboolean redirectedTE )
 		healthadd = 25;
 	}
 
+	G_MultiSpec_NoteGave( self - g_entities, 0 );
 	self->client->ps.fd.forcePowerDebounce[evaluateThisForcePower] = level.time + 2000;
 	if (g_broadcastGivenThTe.integer) {
 		const char *str = "kls -1 -1 \"ygt\" \"1\"";
@@ -2357,6 +2358,7 @@ void ForceTeamForceReplenish( gentity_t *self, qboolean redirectedTH )
 	{
 		poweradd = 25;
 	}
+	G_MultiSpec_NoteGave( self - g_entities, 1 );
 	self->client->ps.fd.forcePowerDebounce[evaluateThisForcePower] = level.time + 2000;
 	if (g_broadcastGivenThTe.integer) {
 		const char *str = "lchat \"ygt\"";
