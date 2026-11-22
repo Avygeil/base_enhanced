@@ -27,6 +27,7 @@
 #define MS_FLAG_VEHLINK		0x20		// the viewpoint player's vehicle has its weapons linked
 
 #define MS_FLAG_ANCHOR_UP	40.0f		// a flag viewpoint sits this far above the flag's origin
+#define MS_OVERBOARD_MS		10000		// a dropped flag lying in a kill trigger this long is watched at its stand
 
 // a button steps its half on release, or once held this long. both pressed together inside that time
 // is the client's signal to leave, and it says so before either step happens
@@ -121,10 +122,29 @@ static int MS_NextTarget( multiSpec_t *m, int half, int from, int dir ) {
 	return -1;
 }
 
+// a dropped flag lying in a kill trigger, untouched since it was dropped long enough: the action is at its stand
+static qboolean MS_FlagOverboard( const gentity_t *flag ) {
+	int touch[MAX_GENTITIES], n, i;
+
+	if ( level.time - flag->iDroppedTime < MS_OVERBOARD_MS ) {
+		return qfalse;
+	}
+	n = trap_EntitiesInBox( flag->r.absmin, flag->r.absmax, touch, MAX_GENTITIES );
+	for ( i = 0; i < n; i++ ) {
+		const gentity_t *t = &g_entities[touch[i]];
+
+		if ( t->inuse && t->r.linked && t->classname && !Q_stricmp( t->classname, "trigger_hurt" ) && t->damage >= 100 ) {
+			return qtrue;
+		}
+	}
+	return qfalse;
+}
+
 /*
 	ctf auto: the left half belongs to red, so it shows the red player carrying the blue flag, and
 	when nobody carries it, the blue flag itself (where it was dropped, else its stand). the right
-	half mirrors that. returns the carrier, or -1 with the flag viewpoint in `anchor`.
+	half mirrors that. a dropped flag lying in a kill trigger for a while is watched at its stand instead.
+	returns the carrier, or -1 with the flag viewpoint in `anchor`.
 */
 static int MS_FindAutoTarget( int half, vec3_t anchor ) {
 	const int	flagPowerup = half == 0 ? PW_BLUEFLAG : PW_REDFLAG;
@@ -140,6 +160,9 @@ static int MS_FindAutoTarget( int half, vec3_t anchor ) {
 	}
 	while ( ( e = G_Find( e, FOFS( classname ), flagClass ) ) != NULL ) {
 		if ( e->flags & FL_DROPPED_ITEM ) {
+			if ( MS_FlagOverboard( e ) ) {
+				continue;
+			}
 			VectorCopy( e->r.currentOrigin, anchor );
 			anchor[2] += MS_FLAG_ANCHOR_UP;
 			return -1;
