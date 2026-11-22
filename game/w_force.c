@@ -5642,6 +5642,24 @@ static qboolean GripMoveDue(gentity_t *gripEnt)
 	return gripEnt->client->ps.forceGripMoveInterval < level.time ? qtrue : qfalse;
 }
 
+// a following spectator's ps is last frame's copy of the followed player's; use the followed player's live one
+static const playerState_t *GripAimPs(gentity_t *self)
+{
+	if (self->client->sess.spectatorState == SPECTATOR_FOLLOW) {
+		int num = self->client->sess.spectatorClient;
+		if (num == -1)
+			num = level.follow1;
+		else if (num == -2)
+			num = level.follow2;
+		if (num >= 0 && num < MAX_CLIENTS) {
+			gclient_t *cl = &level.clients[num];
+			if (cl->pers.connected == CON_CONNECTED && cl->sess.sessionTeam != TEAM_SPECTATOR)
+				return &cl->ps;
+		}
+	}
+	return &self->client->ps;
+}
+
 void DoGripAction(gentity_t *self, forcePowers_t forcePower)
 {
 	gentity_t *gripEnt;
@@ -5846,11 +5864,13 @@ void DoGripAction(gentity_t *self, forcePowers_t forcePower)
 		{
 			float nvLen = 0;
 
+			const playerState_t *aimPs = meme ? GripAimPs(self) : &self->client->ps;
+
 			VectorCopy(gripEnt->client->ps.origin, start_o);
-			AngleVectors(self->client->ps.viewangles, fwd, NULL, NULL);
-			fwd_o[0] = self->client->ps.origin[0] + fwd[0]*128;
-			fwd_o[1] = self->client->ps.origin[1] + fwd[1]*128;
-			fwd_o[2] = self->client->ps.origin[2] + fwd[2]*128;
+			AngleVectors(aimPs->viewangles, fwd, NULL, NULL);
+			fwd_o[0] = aimPs->origin[0] + fwd[0]*128;
+			fwd_o[1] = aimPs->origin[1] + fwd[1]*128;
+			fwd_o[2] = aimPs->origin[2] + fwd[2]*128;
 			fwd_o[2] += 16;
 			VectorSubtract(fwd_o, start_o, nvel);
 
