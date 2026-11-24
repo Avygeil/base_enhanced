@@ -2556,7 +2556,8 @@ void ClientUserinfoChanged( int clientNum ) {
 
 		sha3_context c;
 		sha3_Init512(&c);
-		uint32_t ip = getIpFromString(client->sess.ipString, &ip);
+		uint32_t ip = 0;
+		getIpFromString(client->sess.ipString, &ip);
 		sha3_Update(&c, &ip, sizeof(ip));
 		sha3_Update(&c, &level.pepper, PEPPER_CHARS);
 		uint32_t ipHash;
