@@ -1862,9 +1862,12 @@ qboolean DoesntHaveFlagButMyFCIsKindaNear(gentity_t *self, gentity_t *target) {
 	return qfalse;
 }
 
-qboolean HaveLOSToTarget(gentity_t *self, gentity_t *ent) {
+static qboolean HaveLOSToTargetAsked(gentity_t *self, gentity_t *ent, unsigned int *asked) {
 	if (!self || !self->client || !ent || !ent->client)
 		return qfalse;
+
+	if (self - g_entities < MAX_CLIENTS)
+		*asked |= 1u << (self - g_entities);
 
 	if (d_debugThTeLOS.integer)
 		PrintIngame(self - g_entities, "(%d) Checking LOS to %s:", level.time - level.startTime, ent->client->pers.netname);
@@ -1908,9 +1911,10 @@ qboolean HaveLOSToTarget(gentity_t *self, gentity_t *ent) {
 			trace_t tr;
 			trap_Trace(&tr, from, NULL, NULL, to, self->s.number, MASK_PLAYERSOLID);
 			if (tr.entityNum != ent->s.number) {
-				if (tr.entityNum < MAX_CLIENTS) {
+				// each client is asked once, so blockers can't loop
+				if (tr.entityNum < MAX_CLIENTS && !(*asked & (1u << tr.entityNum))) {
 					// recursive call to check if the entity blocking LOS has LOS to the target
-					if (HaveLOSToTarget(&g_entities[tr.entityNum], ent)) {
+					if (HaveLOSToTargetAsked(&g_entities[tr.entityNum], ent, asked)) {
 						if (d_debugThTeLOS.integer)
 							PrintIngame(self - g_entities, "got LOS from recursive check on i %d, j%d\n", i, j);
 						return qtrue;
@@ -1930,6 +1934,11 @@ qboolean HaveLOSToTarget(gentity_t *self, gentity_t *ent) {
 	if (d_debugThTeLOS.integer)
 		PrintIngame(self - g_entities, "^1failed!^7\n");
 	return qfalse;
+}
+
+qboolean HaveLOSToTarget(gentity_t *self, gentity_t *ent) {
+	unsigned int asked = 0;
+	return HaveLOSToTargetAsked(self, ent, &asked);
 }
 
 
