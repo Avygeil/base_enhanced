@@ -62,6 +62,7 @@ FILES =     ai_main.o               ai_util.o               ai_wpnav.o          
 			g_thread.o \
 			g_tick.o \
 			g_multispec.o \
+			g_specbatch.o \
 			g_ticktest.o
 			
 

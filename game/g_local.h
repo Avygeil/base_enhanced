@@ -3950,6 +3950,16 @@ void		G_MultiSpec_NoteFollowClick( gentity_t *ent );
 int			G_MultiSpec_FollowButtons( gentity_t *ent, int buttons, int oldbuttons );
 int			G_MultiSpec_GhostWatching( const gclient_t *cl, qboolean *ghost );
 void		G_MultiSpec_NoteGave( int clientNum, int which );
+void		G_SpecBatch_Init( void );
+void		G_SpecBatch_Flush( void );
+void		G_SpecBatch_PowerTimer( int clientNum, int forcePower, int duration );
+void		G_SpecBatch_NoteGave( int clientNum, int which );
+void		G_SpecBatch_TimeBaseSnapped( int snap );
+void		G_SpecBatch_Sample( int clientNum, const char *token );
+void		G_SpecBatch_Frame( void );
+void		G_SpecBatch_Intermission( void );
+void		G_SpecBatch_Restored( int clientNum );
+int			G_MultiSpec_GaveUntil( int clientNum, int which );
 #endif
 
 extern vmCvar_t     g_strafejump_mod;

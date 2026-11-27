@@ -3317,10 +3317,13 @@ void G_BroadcastServerFeatureList( int clientNum ) {
 	Q_strcat(featureListConfigString, sizeof(featureListConfigString), "cobt ");
 
 	if (g_specInfoEncrypted.integer)
-		Q_strcat(featureListConfigString, sizeof(featureListConfigString), "esi ");
+		Q_strcat(featureListConfigString, sizeof(featureListConfigString), "esb ");
 
 	if (g_multiSpec.integer)
 		Q_strcat(featureListConfigString, sizeof(featureListConfigString), "msp ");
+
+	if (g_fixForceTimers.integer)
+		Q_strcat(featureListConfigString, sizeof(featureListConfigString), "fft ");
 
 	// remove trailing space
 	int len = strlen(featureListConfigString);
@@ -5639,6 +5642,9 @@ void RestoreDisconnectedPlayerData(gentity_t *ent) {
 	}
 	
 	SendForceTimers(ent, NULL);
+#ifdef NEWMOD_SUPPORT
+	G_SpecBatch_Restored(ent - g_entities);
+#endif
 
 	ListRemove(&level.disconnectedPlayerList, data);
 }

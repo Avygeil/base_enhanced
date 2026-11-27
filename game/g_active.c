@@ -6114,8 +6114,16 @@ void SpectatorClientEndFrame( gentity_t *ent ) {
 					}
 				}
 
-				if (clientNum != ent->client->sess.lastSpectatorClient || ent->client->sess.spectatorState != ent->client->sess.lastSpectatorState)
+				if (clientNum != ent->client->sess.lastSpectatorClient || ent->client->sess.spectatorState != ent->client->sess.lastSpectatorState) {
 					SendForceTimers(&g_entities[clientNum], ent);
+					if (g_broadcastGivenThTe.integer) { // a "gave team heal / energize" notice still showing, for the time it has left
+						for (int which = 0; which < 2; which++) {
+							const int until = G_MultiSpec_GaveUntil(clientNum, which);
+							if (until)
+								trap_SendServerCommand(ent - g_entities, va("kls -1 -1 \"ygt\" \"%d\" \"%d\"", which ? 0 : 1, until - level.time));
+						}
+					}
+				}
 
 				ent->client->sess.lastSpectatorClient = clientNum;
 				ent->client->sess.lastSpectatorState = ent->client->sess.spectatorState;

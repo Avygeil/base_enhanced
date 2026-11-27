@@ -341,6 +341,9 @@ void SendForceTimers(gentity_t *user, gentity_t *sendTo) {
 			if (!sendToPlayerAndFollowers->inuse || !sendToPlayerAndFollowers->client || sendToPlayerAndFollowers->client->pers.connected != CON_CONNECTED)
 				continue;
 			if (sendToPlayerAndFollowers == user) {
+				// a spectator following somebody shows their timers, not his own
+				if (user->client->sess.sessionTeam == TEAM_SPECTATOR && user->client->sess.spectatorState == SPECTATOR_FOLLOW)
+					continue;
 			}
 			else if (sendToPlayerAndFollowers->client->sess.sessionTeam == TEAM_SPECTATOR && sendToPlayerAndFollowers->client->sess.spectatorState == SPECTATOR_FOLLOW && sendToPlayerAndFollowers->client->sess.spectatorClient == user - g_entities) {
 			}
@@ -381,6 +384,10 @@ static void StartForceTimer(gentity_t *user, int forcePower, int duration) {
 		activeUntil = user->client->forcePowerActiveUntil[forcePower] = 0;
 	}
 
+#ifdef NEWMOD_SUPPORT
+	if (!(forcePower == FP_SPEED && user->client->sess.inRacemode)) // no speed timers in racemode
+		G_SpecBatch_PowerTimer(user - g_entities, forcePower, duration);
+#endif
 	SendForceTimers(user, NULL);
 }
 
