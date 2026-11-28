@@ -2478,7 +2478,7 @@ void G_InitGame( int levelTime, int randomSeed, int restart, void *serverDbPtr )
 
 	G_LoadHelpFile( "help.txt" );
 
-	G_DBLoadDatabase(serverDbPtr);
+	G_DBLoadDatabase(serverDbPtr, restart ? qtrue : qfalse);
 
 	G_DBInitializePugStatsCache();
 	G_DBCacheAutoLinks();

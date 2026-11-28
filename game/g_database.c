@@ -47,7 +47,7 @@ static int TraceCallback( unsigned int type, void* ctx, void* ptr, void* info ) 
 	return 0;
 }
 
-void G_DBLoadDatabase( void *serverDbPtr )
+void G_DBLoadDatabase( void *serverDbPtr, qboolean mapRestart )
 {
 	if (!serverDbPtr) {
 		Com_Error(ERR_DROP, "Null db pointer from server");
@@ -95,27 +95,36 @@ void G_DBLoadDatabase( void *serverDbPtr )
 
 	G_DBSetMetadata( "schema_version", DB_SCHEMA_VERSION_STR );
 
+	// not part of the versioned schema, so an older mod can still load this db.
+	// upgrade routines must not create indexes with these names
+	trap_sqlite3_exec( dbPtr,
+		"CREATE INDEX IF NOT EXISTS playerpugteampos_session_id ON playerpugteampos(session_id);"
+		"CREATE INDEX IF NOT EXISTS sessions_account_id ON sessions(account_id);",
+		NULL, NULL, NULL );
+
 	if (!g_notFirstMap.integer)
 		G_DBDeleteMetadataStartingWith("remindpos_account_");
 
-	// optimize the db if needed
+	// maintenance never runs on map_restart (with or without intermission), which has no loading screen to hide it
 
-	G_DBGetMetadata( "last_optimize", s, sizeof( s ) );
+	if ( !mapRestart ) {
+		// optimize the db if needed
 
-	const time_t currentTime = time( NULL );
-	time_t last_optimize = VALIDSTRING( s ) ? strtoll( s, NULL, 10 ) : 0;
+		G_DBGetMetadata( "last_optimize", s, sizeof( s ) );
 
-	if ( last_optimize + DB_OPTIMIZE_INTERVAL < currentTime ) {
-		Com_Printf( "Automatically optimizing database...\n" );
+		const time_t currentTime = time( NULL );
+		time_t last_optimize = VALIDSTRING( s ) ? strtoll( s, NULL, 10 ) : 0;
 
-		trap_sqlite3_exec( dbPtr, "PRAGMA optimize;", NULL, NULL, NULL );
+		if ( last_optimize + DB_OPTIMIZE_INTERVAL < currentTime ) {
+			Com_Printf( "Automatically optimizing database...\n" );
 
-		G_DBSetMetadata( "last_optimize", va( "%lld", currentTime ) );
-	}
+			trap_sqlite3_exec( dbPtr, "PRAGMA optimize;", NULL, NULL, NULL );
 
-	// if the server is empty, vacuum the db if needed
+			G_DBSetMetadata( "last_optimize", va( "%lld", (long long)currentTime ) );
+		}
 
-	if ( !level.numConnectedClients ) {
+		// vacuum the db if needed
+
 		G_DBGetMetadata( "last_vacuum", s, sizeof( s ) );
 
 		time_t last_autoclean = VALIDSTRING( s ) ? strtoll( s, NULL, 10 ) : 0;
@@ -125,9 +134,9 @@ void G_DBLoadDatabase( void *serverDbPtr )
 
 			trap_sqlite3_exec( dbPtr, "VACUUM;", NULL, NULL, NULL );
 
-			G_DBSetMetadata( "last_vacuum", va( "%lld", currentTime ) );
+			G_DBSetMetadata( "last_vacuum", va( "%lld", (long long)currentTime ) );
 		}
-	}	
+	}
 }
 
 void G_DBUnloadDatabase( void )
@@ -6452,12 +6461,24 @@ static void SetFastestPossibleCaptureTime(void) {
 	level.fastestPossibleCaptureTime = result;
 }
 
+// most played positions and ttlhold ranks both read accountstats; evaluate the view once per cache init.
+// automatic indexes on its CTEs make it much faster, so they are allowed for this one statement
+static void EnsureAccountStatsSnapshot(void) {
+	trap_sqlite3_exec(dbPtr, "PRAGMA automatic_index = ON;", NULL, NULL, NULL);
+	trap_sqlite3_exec(dbPtr,
+		"CREATE TEMP TABLE IF NOT EXISTS accountstats_snap AS "
+		"SELECT account_id, pos, pugs_played, wins, avg_ttlhold_rank FROM accountstats;",
+		NULL, NULL, NULL);
+	trap_sqlite3_exec(dbPtr, "PRAGMA automatic_index = OFF;", NULL, NULL, NULL);
+}
+
 extern qboolean MostPlayedPosMatches(genericNode_t *node, void *userData);
-const char *const sqlGetMostPlayedPos = "SELECT account_id, pos, RANK() OVER (PARTITION BY account_id ORDER BY pugs_played DESC, wins DESC) FROM accountstats;";
+const char *const sqlGetMostPlayedPos = "SELECT account_id, pos, RANK() OVER (PARTITION BY account_id ORDER BY pugs_played DESC, wins DESC) FROM temp.accountstats_snap;";
 // returns the number of distinct accounts loaded
 static int RecalculateMostPlayedPositions(void) {
 	ListClear(&level.mostPlayedPositionsList);
 	G_DBDeleteMetadataStartingWith("mostplayed_");
+	EnsureAccountStatsSnapshot();
 
 	int accountCount = 0;
 	sqlite3_stmt *statement;
@@ -6567,7 +6588,7 @@ qboolean TtlHoldAccountIdMatches(genericNode_t *node, void *userData) {
 
 static const char *sqlGetAllTtlHoldRanks =
 "SELECT account_id, avg_ttlhold_rank "
-"FROM   accountstats "
+"FROM   temp.accountstats_snap "
 "WHERE  pos = 3 "
 "  AND  avg_ttlhold_rank IS NOT NULL;";
 
@@ -6575,6 +6596,7 @@ static const char *sqlGetAllTtlHoldRanks =
 static int RecalculateAndRecacheTtlHoldRanks(void) {
 	ListClear(&level.ttlholdList);
 	G_DBDeleteMetadataStartingWith("ttlhold_");
+	EnsureAccountStatsSnapshot();
 
 	int accountCount = 0;
 	sqlite3_stmt *statement;
@@ -6679,6 +6701,8 @@ void G_DBInitializePugStatsCache(void) {
 
 	qboolean recalc = (serverStartup && pendingReload);
 
+	trap_sqlite3_exec(dbPtr, "DROP TABLE IF EXISTS temp.accountstats_snap;", NULL, NULL, NULL);
+
 #if defined(_DEBUG) && defined(FAST_START)
 	if (didUpgrade) {
 		Com_Printf("Debug build with FAST_START, but performed database upgrade, so forcing recalculation.\n");
@@ -6739,7 +6763,7 @@ void G_DBInitializePugStatsCache(void) {
 		Com_Printf("Recalculated win rates (took %d ms)\n", trap_Milliseconds() - lastTime);
 		lastTime = trap_Milliseconds();
 
-		G_DBSetMetadata("lastStatsReload", va("%lld", currentTime));
+		G_DBSetMetadata("lastStatsReload", va("%lld", (long long)currentTime));
 		G_DBSetMetadata("shouldReloadPlayerPugStats", "0");
 	}
 
@@ -6838,6 +6862,8 @@ void G_DBInitializePugStatsCache(void) {
 			lastTime = trap_Milliseconds();
 		}
 	}
+
+	trap_sqlite3_exec(dbPtr, "DROP TABLE IF EXISTS temp.accountstats_snap;", NULL, NULL, NULL);
 
 	// this is computationally cheap, so we can just do it every time
 	SetFastestPossibleCaptureTime();
